@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Sem conexão · NutriPlan{% endblock %}
+{% block container_class %}auth{% endblock %}
+
+{% block content %}
+  <div class="card center">
+    <span class="auth__logo" aria-hidden="true">N</span>
+    <h1>Você está sem conexão</h1>
+    <p class="lead">
+      O NutriPlan precisa da internet para carregar o seu dia. Assim que a rede
+      voltar, é só recarregar.
+    </p>
+    <button type="button" class="btn btn--primary btn--block" onclick="location.reload()">
+      Tentar de novo
+    </button>
+  </div>
+{% endblock %}

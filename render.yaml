@@ -1,0 +1,96 @@
+# Infraestrutura do NutriPlan no Render, declarada em arquivo.
+#
+# Com este arquivo na raiz do repositório, o Render cria o serviço web e o
+# banco sozinho ("Blueprint"): não é preciso clicar em nada além de conectar o
+# repositório. O que estiver aqui é a verdade — mudar pelo painel e esquecer de
+# refletir no arquivo é como o ambiente vira algo que ninguém sabe reproduzir.
+#
+# Depois de subir, os comandos de manutenção rodam no Shell do serviço:
+#   python manage.py createsuperuser
+#   python manage.py check_exercise_videos
+
+databases:
+  - name: nutriplan-db
+    databaseName: nutriplan
+    user: nutriplan
+    plan: free
+    # O plano gratuito do Render EXPIRA o banco depois de 30 dias. Para um site
+    # que precisa durar, troque para `starter` aqui antes de convidar gente.
+
+services:
+  - type: web
+    name: nutriplan
+    runtime: python
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: "./scripts/build.sh"
+    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers ${WEB_CONCURRENCY:-2} --log-file -"
+    healthCheckPath: /conta/entrar/
+    envVars:
+      # Gerada pelo Render e nunca vista por ninguém — é o certo para um
+      # segredo que não precisa ser lembrado.
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+
+      # Com DEBUG ligado, qualquer erro devolve uma página com settings,
+      # caminhos de arquivo e trechos de código. Em produção, nunca.
+      - key: DJANGO_DEBUG
+        value: "False"
+
+      # O domínio final entra sozinho: config/settings.py lê
+      # RENDER_EXTERNAL_HOSTNAME, que o Render injeta em todo serviço web.
+      - key: DJANGO_ALLOWED_HOSTS
+        value: "localhost,127.0.0.1"
+
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nutriplan-db
+          property: connectionString
+
+      # Duas gunicorn workers cabem na memória do plano gratuito. Mais que isso
+      # e o processo é morto por falta de memória no primeiro pico.
+      - key: WEB_CONCURRENCY
+        value: "2"
+
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+
+      # Sem chave VAPID o app funciona e apenas não oferece notificação. Para
+      # ligar, gere um par (`vapid --gen`) e preencha no painel.
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_ADMIN_EMAIL
+        sync: false
+
+  # Os lembretes de refeição são um comando, não um serviço de pé. Este cron
+  # substitui o Agendador de Tarefas do Windows que faz o papel na máquina
+  # local. Rodar duas vezes no mesmo minuto é seguro: quem decide se alguém já
+  # foi avisado é a constraint no banco.
+  - type: cron
+    name: nutriplan-lembretes
+    runtime: python
+    plan: starter
+    schedule: "*/5 * * * *"
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python manage.py send_meal_reminders"
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        fromService:
+          name: nutriplan
+          type: web
+          envVarKey: DJANGO_SECRET_KEY
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nutriplan-db
+          property: connectionString
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_ADMIN_EMAIL
+        sync: false

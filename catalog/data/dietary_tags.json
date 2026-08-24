@@ -1,0 +1,8 @@
+[
+  {"slug": "vegetariana", "name": "Vegetariana", "kind": "restriction"},
+  {"slug": "vegana", "name": "Vegana", "kind": "restriction"},
+  {"slug": "sem-lactose", "name": "Sem lactose", "kind": "restriction"},
+  {"slug": "sem-gluten", "name": "Sem glúten", "kind": "restriction"},
+  {"slug": "low-carb", "name": "Low carb", "kind": "preference"},
+  {"slug": "rapida", "name": "Preparo rápido", "kind": "preference"}
+]

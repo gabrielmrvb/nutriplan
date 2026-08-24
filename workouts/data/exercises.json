@@ -1,0 +1,226 @@
+[
+  {
+    "name": "Agachamento livre",
+    "muscle_group": "quads",
+    "compound": true,
+    "cue": "Desça até a coxa ficar paralela ao chão, com o joelho na direção do pé.",
+    "video": "https://www.youtube.com/watch?v=6ppjJrbrW7g"
+  },
+  {
+    "name": "Leg press 45°",
+    "muscle_group": "quads",
+    "compound": true,
+    "cue": "Não deixe o quadril descolar do banco no fim da descida.",
+    "video": "https://www.youtube.com/shorts/N2hvV6tvZ2w"
+  },
+  {
+    "name": "Cadeira extensora",
+    "muscle_group": "quads",
+    "compound": false,
+    "cue": "Segure meio segundo no topo em vez de jogar a carga.",
+    "video": "https://www.youtube.com/shorts/cv_iUNfRbpg"
+  },
+  {
+    "name": "Afundo com halteres",
+    "muscle_group": "quads",
+    "compound": true,
+    "cue": "Passo largo e tronco ereto; o joelho de trás desce em direção ao chão.",
+    "video": "https://www.youtube.com/watch?v=mPtTzNYAHi0"
+  },
+  {
+    "name": "Stiff com barra",
+    "muscle_group": "hamstrings",
+    "compound": true,
+    "cue": "Joelho quase estendido e barra rente à perna — quem deve alongar é a parte de trás da coxa.",
+    "video": "https://www.youtube.com/shorts/t4KS5hvhT88"
+  },
+  {
+    "name": "Mesa flexora",
+    "muscle_group": "hamstrings",
+    "compound": false,
+    "cue": "Volte devagar: a fase de descida é onde o posterior trabalha mais.",
+    "video": "https://www.youtube.com/shorts/clsXeKYr5JY"
+  },
+  {
+    "name": "Elevação pélvica",
+    "muscle_group": "hamstrings",
+    "compound": true,
+    "cue": "Suba até o corpo ficar em linha reta e aperte o glúteo no topo.",
+    "video": "https://www.youtube.com/watch?v=K-EDB8YVrr8"
+  },
+  {
+    "name": "Cadeira flexora",
+    "muscle_group": "hamstrings",
+    "compound": false,
+    "cue": "Sem tirar as costas do encosto para ganhar amplitude.",
+    "video": "https://www.youtube.com/watch?v=e0_xHkXw350"
+  },
+  {
+    "name": "Panturrilha em pé",
+    "muscle_group": "calves",
+    "compound": false,
+    "cue": "Amplitude total: desça o calcanhar abaixo do degrau e suba na ponta do pé.",
+    "video": "https://www.youtube.com/watch?v=Hsho8B6ZNhE"
+  },
+  {
+    "name": "Panturrilha sentado",
+    "muscle_group": "calves",
+    "compound": false,
+    "cue": "Movimento lento; panturrilha não responde a repetição jogada.",
+    "video": "https://www.youtube.com/watch?v=qpVKOlniMXo"
+  },
+  {
+    "name": "Supino reto com barra",
+    "muscle_group": "chest",
+    "compound": true,
+    "cue": "Escápulas presas no banco e cotovelo a 45° do tronco, não aberto em T.",
+    "video": "https://www.youtube.com/shorts/iC_Df0TTGLQ"
+  },
+  {
+    "name": "Supino inclinado com halteres",
+    "muscle_group": "chest",
+    "compound": true,
+    "cue": "Banco entre 30° e 45°; mais que isso vira treino de ombro.",
+    "video": "https://www.youtube.com/shorts/gT1PkP8JcOY"
+  },
+  {
+    "name": "Crucifixo na máquina (voador)",
+    "muscle_group": "chest",
+    "compound": false,
+    "cue": "Cotovelo levemente flexionado e fixo do começo ao fim.",
+    "video": "https://www.youtube.com/watch?v=zEcIgGm7fxU"
+  },
+  {
+    "name": "Flexão de braço",
+    "muscle_group": "chest",
+    "compound": true,
+    "cue": "Corpo em prancha: quadril não sobe nem cai.",
+    "video": "https://www.youtube.com/watch?v=IZL63x3I6lg"
+  },
+  {
+    "name": "Puxada frente na polia",
+    "muscle_group": "back",
+    "compound": true,
+    "cue": "Puxe com o cotovelo em direção ao bolso, não com a mão.",
+    "video": "https://www.youtube.com/shorts/hTaY3y09eLc"
+  },
+  {
+    "name": "Remada baixa na polia",
+    "muscle_group": "back",
+    "compound": true,
+    "cue": "Tronco parado; quem se move é o braço, não a lombar.",
+    "video": "https://www.youtube.com/watch?v=2YebbYuuBJQ"
+  },
+  {
+    "name": "Remada curvada com barra",
+    "muscle_group": "back",
+    "compound": true,
+    "cue": "Coluna neutra e tronco a 45°; a barra encosta no umbigo.",
+    "video": "https://www.youtube.com/shorts/DNGwvrde5o4"
+  },
+  {
+    "name": "Remada unilateral com halter",
+    "muscle_group": "back",
+    "compound": true,
+    "cue": "Apoie a mão no banco e puxe até o halter passar da linha do tronco.",
+    "video": "https://www.youtube.com/shorts/A6Rjc6aUUB8"
+  },
+  {
+    "name": "Barra fixa assistida",
+    "muscle_group": "back",
+    "compound": true,
+    "cue": "Use o mínimo de assistência que permita fechar a série com técnica.",
+    "video": "https://www.youtube.com/watch?v=yoGQNEHGlak"
+  },
+  {
+    "name": "Desenvolvimento com halteres",
+    "muscle_group": "shoulders",
+    "compound": true,
+    "cue": "Não estenda o cotovelo com tranco no topo.",
+    "video": "https://www.youtube.com/shorts/NgrouG-wQZk"
+  },
+  {
+    "name": "Elevação lateral com halteres",
+    "muscle_group": "shoulders",
+    "compound": false,
+    "cue": "Suba até a altura do ombro; carga leve com técnica vence carga pesada com impulso.",
+    "video": "https://www.youtube.com/shorts/L80dGu0bTV8"
+  },
+  {
+    "name": "Elevação frontal com halteres",
+    "muscle_group": "shoulders",
+    "compound": false,
+    "cue": "Sem balançar o tronco para ajudar a subir.",
+    "video": "https://www.youtube.com/watch?v=dm-KfDgmGvM"
+  },
+  {
+    "name": "Crucifixo inverso na máquina",
+    "muscle_group": "shoulders",
+    "compound": false,
+    "cue": "Puxe com a parte de trás do ombro, sem juntar as escápulas com força.",
+    "video": "https://www.youtube.com/shorts/9IQCzf4eNiM"
+  },
+  {
+    "name": "Rosca direta com barra",
+    "muscle_group": "biceps",
+    "compound": false,
+    "cue": "Cotovelo colado no tronco do início ao fim.",
+    "video": "https://www.youtube.com/shorts/7Dzd-PgVoZc"
+  },
+  {
+    "name": "Rosca alternada com halteres",
+    "muscle_group": "biceps",
+    "compound": false,
+    "cue": "Gire o punho durante a subida e desça devagar.",
+    "video": "https://www.youtube.com/watch?v=G6feTR1uIG4"
+  },
+  {
+    "name": "Rosca martelo",
+    "muscle_group": "biceps",
+    "compound": false,
+    "cue": "Pegada neutra o tempo todo; é ela que pega o antebraço junto.",
+    "video": "https://www.youtube.com/shorts/W6Iv2ZJsrDY"
+  },
+  {
+    "name": "Tríceps na polia com corda",
+    "muscle_group": "triceps",
+    "compound": false,
+    "cue": "Abra a corda no fim do movimento e estenda o cotovelo por completo.",
+    "video": "https://www.youtube.com/shorts/MMc0xPdeuZI"
+  },
+  {
+    "name": "Tríceps testa com barra",
+    "muscle_group": "triceps",
+    "compound": false,
+    "cue": "Só o antebraço se move; o braço fica parado apontando para cima.",
+    "video": "https://www.youtube.com/shorts/L09GZxg0Z84"
+  },
+  {
+    "name": "Mergulho no banco",
+    "muscle_group": "triceps",
+    "compound": true,
+    "cue": "Desça até o cotovelo formar 90° e mantenha o quadril perto do banco.",
+    "video": "https://www.youtube.com/watch?v=_3ea8q-7sTY"
+  },
+  {
+    "name": "Prancha abdominal",
+    "muscle_group": "core",
+    "compound": false,
+    "cue": "Aperte glúteo e abdômen; o corpo fica reto da cabeça ao calcanhar.",
+    "video": "https://www.youtube.com/watch?v=OnVIGDpnMow"
+  },
+  {
+    "name": "Abdominal supra no solo",
+    "muscle_group": "core",
+    "compound": false,
+    "cue": "Suba com o abdômen, sem puxar o pescoço com a mão.",
+    "video": "https://www.youtube.com/watch?v=hZVIstfFsIc"
+  },
+  {
+    "name": "Elevação de pernas",
+    "muscle_group": "core",
+    "compound": false,
+    "cue": "Lombar colada no chão; desça as pernas só até onde conseguir manter isso.",
+    "video": "https://www.youtube.com/watch?v=oq4Xb_xI618"
+  }
+]

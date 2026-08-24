@@ -1,0 +1,1798 @@
+"""Testes do cálculo de meta calórica e do ciclo de vida do plano.
+
+A matemática é testada direto nas funções puras, com números conferidos na
+mão. Os testes de banco cobrem o que realmente quebra na prática: plano
+duplicado, plano velho continuar ativo depois de mudar o peso, e recálculo
+disparando toda vez que a tela abre.
+"""
+from datetime import date, time, timedelta
+from decimal import Decimal
+
+from django.core.management import call_command
+from django.db.models import Sum
+from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
+
+from accounts.models import ActivityLevel, Goal, Profile, Sex, TrainingDay, User, WeightEntry
+from catalog.models import DietaryTag, Food, MealCategory, MealTemplate, MealTemplateItem, TagKind
+
+from . import meal_planner, services, shopping, substitutions, tracking, views
+from .calculations import (
+    PlanInputs,
+    activity_factor,
+    bmr_mifflin_st_jeor,
+    calculate,
+    goal_adjustment,
+    macros,
+    target_kcal,
+)
+from .models import (
+    MealLog,
+    MealOption,
+    MealSlot,
+    MealStatus,
+    NutritionPlan,
+    OptionLabel,
+)
+
+# Homem, 82,4 kg, 1,78 m, 30 anos, rotina leve, 3 treinos de 60 min, emagrecendo.
+REFERENCE = PlanInputs(
+    sex=Sex.MALE,
+    weight_kg=Decimal("82.4"),
+    height_cm=178,
+    age_years=30,
+    activity_level=ActivityLevel.LIGHT,
+    goal=Goal.CUT,
+    session_minutes=(60, 60, 60),
+)
+
+
+class CalculationTests(TestCase):
+    def test_bmr_matches_mifflin_st_jeor_by_hand(self):
+        # 10*82,4 + 6,25*178 - 5*30 + 5 = 1791,5
+        bmr = bmr_mifflin_st_jeor(
+            sex=Sex.MALE, weight_kg=Decimal("82.4"), height_cm=178, age_years=30
+        )
+        self.assertEqual(bmr, Decimal("1791.5"))
+
+    def test_female_bmr_uses_the_other_constant(self):
+        male = bmr_mifflin_st_jeor(
+            sex=Sex.MALE, weight_kg=Decimal("60"), height_cm=165, age_years=30
+        )
+        female = bmr_mifflin_st_jeor(
+            sex=Sex.FEMALE, weight_kg=Decimal("60"), height_cm=165, age_years=30
+        )
+        self.assertEqual(male - female, Decimal("166"))
+
+    def test_reference_person_full_calculation(self):
+        result = calculate(REFERENCE)
+        self.assertEqual(result.bmr_kcal, 1792)  # 1791,5 arredonda para cima
+        # Nível 2 com 3 treinos: 1,40 + (1,45-1,40) x 3/5 = 1,43
+        self.assertEqual(result.activity_factor, Decimal("1.430"))
+        self.assertEqual(result.tdee_kcal, 2562)
+        # 20% de 2.562 seriam 512 — a faixa segura corta em 500.
+        self.assertEqual(result.target_kcal, 2062)
+        self.assertEqual(result.protein_g, 148)  # 1,8 g/kg
+        self.assertEqual(result.notes, "")
+
+    def test_macros_still_add_up_after_the_recalibration(self):
+        result = calculate(REFERENCE)
+        total = result.protein_g * 4 + result.carb_g * 4 + result.fat_g * 9
+        self.assertAlmostEqual(total, result.target_kcal, delta=5)
+
+    def test_macro_calories_add_up_to_the_target(self):
+        result = calculate(REFERENCE)
+        total = result.protein_g * 4 + result.carb_g * 4 + result.fat_g * 9
+        # A folga é só o arredondamento das gramas para inteiro.
+        self.assertAlmostEqual(total, result.target_kcal, delta=5)
+
+    def test_goal_changes_only_the_adjustment(self):
+        cut = calculate(REFERENCE)
+        bulk = calculate(PlanInputs(**{**REFERENCE.__dict__, "goal": Goal.BULK}))
+        maintain = calculate(PlanInputs(**{**REFERENCE.__dict__, "goal": Goal.MAINTAIN}))
+
+        self.assertEqual(cut.tdee_kcal, bulk.tdee_kcal, maintain.tdee_kcal)
+        self.assertEqual(maintain.target_kcal, maintain.tdee_kcal)
+        self.assertLess(cut.target_kcal, maintain.target_kcal)
+        self.assertGreater(bulk.target_kcal, maintain.target_kcal)
+
+    def test_recomp_uses_a_smaller_deficit_than_cutting(self):
+        """Quem quer os dois resultados não pode cortar como quem quer um só.
+
+        O déficit agressivo de quem está emagrecendo é justamente o que impede
+        o ganho de massa acontecer junto: sem energia sobrando o corpo não
+        constrói. A meta da recomposição fica entre o corte e a manutenção.
+        """
+        cut = calculate(REFERENCE)
+        recomp = calculate(PlanInputs(**{**REFERENCE.__dict__, "goal": Goal.RECOMP}))
+        maintain = calculate(PlanInputs(**{**REFERENCE.__dict__, "goal": Goal.MAINTAIN}))
+
+        self.assertGreater(recomp.target_kcal, cut.target_kcal)
+        self.assertLess(recomp.target_kcal, maintain.target_kcal)
+        self.assertEqual(recomp.tdee_kcal, cut.tdee_kcal)  # o gasto é o mesmo
+
+    def test_recomp_asks_for_more_protein_than_the_other_goals(self):
+        """O que compensa a falta de energia na recomposição é a proteína."""
+        recomp = calculate(PlanInputs(**{**REFERENCE.__dict__, "goal": Goal.RECOMP}))
+
+        self.assertEqual(recomp.protein_g, 165)  # 2,0 g/kg de 82,4 kg
+        for goal in (Goal.CUT, Goal.BULK, Goal.MAINTAIN):
+            outro = calculate(PlanInputs(**{**REFERENCE.__dict__, "goal": goal}))
+            self.assertGreater(recomp.protein_g, outro.protein_g, goal)
+
+    def test_recomp_warns_that_the_scale_barely_moves(self):
+        """Sem esse aviso a pessoa desiste achando que a dieta não funcionou."""
+        recomp = calculate(PlanInputs(**{**REFERENCE.__dict__, "goal": Goal.RECOMP}))
+        self.assertIn("devagar", recomp.notes)
+
+    def test_every_goal_is_calculable(self):
+        """Objetivo novo sem ajuste ou sem proteína definida quebra no ar.
+
+        Percorrer Goal.values (e não uma lista escrita à mão) é o que faz este
+        teste falhar no dia em que alguém acrescentar um objetivo e esquecer de
+        dizer o que ele faz com a meta.
+        """
+        for goal in Goal.values:
+            with self.subTest(goal=goal):
+                result = calculate(PlanInputs(**{**REFERENCE.__dict__, "goal": goal}))
+                total = (
+                    result.protein_g * 4 + result.carb_g * 4 + result.fat_g * 9
+                )
+                self.assertGreater(result.target_kcal, 0)
+                self.assertGreater(result.protein_g, 0)
+                self.assertAlmostEqual(total, result.target_kcal, delta=5)
+
+    def test_target_never_falls_below_the_safety_floor(self):
+        # Mulher pequena, sedentária, sem treino: o déficit cheio cairia abaixo
+        # do piso absoluto de 1.200 kcal.
+        result = calculate(
+            PlanInputs(
+                sex=Sex.FEMALE,
+                weight_kg=Decimal("50"),
+                height_cm=155,
+                age_years=60,
+                activity_level=ActivityLevel.SEDENTARY,
+                goal=Goal.CUT,
+            )
+        )
+        self.assertEqual(result.target_kcal, 1200)
+        self.assertIn("piso", result.notes)
+
+    def test_fat_never_goes_below_its_floor(self):
+        protein_g, carb_g, fat_g, note = macros(1400, Decimal("100"), Goal.CUT)
+        self.assertEqual(protein_g, 180)
+        self.assertEqual(fat_g, 60)  # 0,6 g/kg, e não 25% de 1400 (39 g)
+        self.assertGreaterEqual(carb_g, 0)
+        self.assertTrue(note)
+
+
+class ActivityFactorTests(TestCase):
+    """A recalibração de 24/08/2026: fator conservador, treino já incluído.
+
+    Os três perfis descrevem o dia INTEIRO da pessoa, academia incluída. Antes
+    o nível cobria só a rotina e o treino era somado por MET, o que inflava a
+    meta de quem treina — a fórmula do MET trata uma hora de musculação como
+    uma hora de esforço contínuo, e metade dela é descanso entre séries.
+    """
+
+    def test_the_three_profiles_use_the_agreed_bands(self):
+        faixas = {
+            ActivityLevel.SEDENTARY: (Decimal("1.25"), Decimal("1.35")),
+            ActivityLevel.LIGHT: (Decimal("1.40"), Decimal("1.45")),
+            ActivityLevel.ACTIVE: (Decimal("1.50"), Decimal("1.60")),
+        }
+        for nivel, (piso, teto) in faixas.items():
+            with self.subTest(nivel=nivel):
+                self.assertEqual(activity_factor(nivel, 0), piso)
+                self.assertEqual(activity_factor(nivel, 5), teto)
+
+    def test_the_factor_walks_the_band_with_the_training_frequency(self):
+        """Mesma rotina, treinos diferentes: é para isso que a faixa existe."""
+        um = activity_factor(ActivityLevel.SEDENTARY, 1)
+        tres = activity_factor(ActivityLevel.SEDENTARY, 3)
+        cinco = activity_factor(ActivityLevel.SEDENTARY, 5)
+
+        self.assertLess(um, tres)
+        self.assertLess(tres, cinco)
+        self.assertEqual(tres, Decimal("1.31"))  # 1,25 + 0,10 x 3/5
+
+    def test_training_more_than_five_times_does_not_keep_inflating(self):
+        """Sexto e sétimo treino não valem mais calorias na conta."""
+        self.assertEqual(
+            activity_factor(ActivityLevel.ACTIVE, 5),
+            activity_factor(ActivityLevel.ACTIVE, 7),
+        )
+
+    def test_no_profile_reaches_the_old_inflated_numbers(self):
+        """O antigo topo era 1,70 mais o gasto do treino somado por fora."""
+        for nivel in ActivityLevel.values:
+            with self.subTest(nivel=nivel):
+                self.assertLessEqual(activity_factor(nivel, 7), Decimal("1.60"))
+
+    def test_the_recalibration_lowered_the_target_of_someone_who_trains(self):
+        """Prova do efeito: a mesma pessoa da referência come menos que antes.
+
+        Com o desenho antigo (fator 1,35 + MET do treino) o gasto dava 2.567 e
+        a meta 2.053. O objetivo da recalibração era justamente derrubar isso.
+        """
+        result = calculate(REFERENCE)
+        self.assertLess(result.tdee_kcal, 2567)
+
+
+class DeficitBandTests(TestCase):
+    """Déficit de emagrecimento preso entre 300 e 500 kcal por dia."""
+
+    def _com_tdee(self, tdee):
+        return goal_adjustment(Decimal(tdee), Goal.CUT)
+
+    def test_a_small_expenditure_does_not_get_a_tiny_deficit(self):
+        """20% de 1.200 seriam 240 — pouco para mexer o ponteiro."""
+        self.assertEqual(self._com_tdee(1200), -Decimal("300"))
+
+    def test_a_large_expenditure_does_not_get_a_brutal_deficit(self):
+        """20% de 3.500 seriam 700 — quase ninguém sustenta sem perder músculo."""
+        self.assertEqual(self._com_tdee(3500), -Decimal("500"))
+
+    def test_in_the_middle_the_percentage_still_decides(self):
+        self.assertEqual(self._com_tdee(2000), -Decimal("400"))
+
+    def test_the_deficit_is_always_inside_the_band(self):
+        for gasto in range(1000, 5001, 250):
+            with self.subTest(tdee=gasto):
+                deficit = abs(self._com_tdee(gasto))
+                self.assertGreaterEqual(deficit, Decimal("300"))
+                self.assertLessEqual(deficit, Decimal("500"))
+
+    def test_other_goals_keep_their_percentages(self):
+        """A faixa é do emagrecimento — recomposição depende de déficit pequeno."""
+        recomp = goal_adjustment(Decimal("3000"), Goal.RECOMP)
+        bulk = goal_adjustment(Decimal("3000"), Goal.BULK)
+
+        self.assertEqual(recomp, Decimal("-150.00"))
+        self.assertEqual(bulk, Decimal("300.00"))
+
+
+class SafetyCapTests(TestCase):
+    """Trava contra hiperescala: 2.800 kcal para emagrecer ou manter."""
+
+    def _meta(self, tdee, goal=Goal.CUT, peso="90", sexo=Sex.MALE, bmr=1800):
+        return target_kcal(Decimal(tdee), goal, Decimal(bmr), sexo, weight_kg=Decimal(peso))
+
+    def test_a_normal_target_passes_untouched(self):
+        meta, aviso = self._meta(2500)
+        self.assertEqual(meta, 2000)
+        self.assertEqual(aviso, "")
+
+    def test_a_target_above_the_ceiling_is_capped_and_explained(self):
+        meta, aviso = self._meta(4000, peso="95")
+
+        self.assertEqual(meta, 2800)
+        self.assertIn("2800", aviso)
+        self.assertIn("nível de atividade", aviso)
+
+    def test_maintaining_is_capped_too(self):
+        meta, aviso = self._meta(3200, goal=Goal.MAINTAIN, peso="100")
+
+        self.assertEqual(meta, 2800)
+        self.assertTrue(aviso)
+
+    def test_extreme_weight_is_allowed_above_the_ceiling_with_an_explanation(self):
+        """Quem pesa 130 kg gasta muito mesmo — cortar aí seria déficit disfarçado."""
+        meta, aviso = self._meta(4000, peso="130", bmr=2400)
+
+        self.assertGreater(meta, 2800)
+        self.assertIn("peso", aviso)
+
+    def test_bulking_is_never_capped(self):
+        """Superávit alto é gordura ganha, não risco de segurança."""
+        meta, _ = self._meta(3400, goal=Goal.BULK, peso="95")
+        self.assertGreater(meta, 2800)
+
+    def test_the_floor_still_wins_over_everything(self):
+        resultado = calculate(
+            PlanInputs(
+                sex=Sex.FEMALE,
+                weight_kg=Decimal("50"),
+                height_cm=155,
+                age_years=60,
+                activity_level=ActivityLevel.SEDENTARY,
+                goal=Goal.CUT,
+            )
+        )
+        self.assertEqual(resultado.target_kcal, 1200)
+        self.assertIn("piso", resultado.notes)
+
+    def test_the_ceiling_wins_over_the_deficit_band(self):
+        """Interação deliberada entre as duas travas, não acidente.
+
+        Gasto alto com peso normal: o teto de 2.800 limita a meta, e isso
+        produz um déficit acima dos 500 da faixa. A ordem é essa de propósito —
+        o teto existe porque o gasto provavelmente está superestimado, então
+        errar para o lado de comer menos é o lado seguro. E a pessoa é avisada.
+        """
+        meta, aviso = target_kcal(
+            Decimal("3328"), Goal.CUT, Decimal("2080"), Sex.MALE, weight_kg=Decimal("110")
+        )
+
+        self.assertEqual(meta, 2800)
+        self.assertGreater(3328 - meta, 500)
+        self.assertIn("2800", aviso)
+
+    def test_below_the_ceiling_the_band_is_respected(self):
+        """Fora da exceção, o déficit continua dentro de 300 a 500."""
+        for gasto in (2000, 2400, 2800, 3200):
+            with self.subTest(tdee=gasto):
+                meta, _ = target_kcal(
+                    Decimal(gasto), Goal.CUT, Decimal("1600"), Sex.MALE,
+                    weight_kg=Decimal("130"),  # acima do teto: só a faixa vale
+                )
+                deficit = gasto - meta
+                self.assertGreaterEqual(deficit, 300)
+                self.assertLessEqual(deficit, 500)
+
+    def test_no_profile_produces_a_disproportionate_target(self):
+        """Varredura: nenhum perfil comum sai com meta fora do razoável."""
+        for nivel in ActivityLevel.values:
+            for sessoes in range(0, 7):
+                for peso in ("55", "75", "95", "115"):
+                    entradas = PlanInputs(
+                        sex=Sex.MALE,
+                        weight_kg=Decimal(peso),
+                        height_cm=178,
+                        age_years=30,
+                        activity_level=nivel,
+                        goal=Goal.CUT,
+                        session_minutes=tuple([60] * sessoes),
+                    )
+                    with self.subTest(nivel=nivel, sessoes=sessoes, peso=peso):
+                        resultado = calculate(entradas)
+                        self.assertLessEqual(resultado.target_kcal, 2800)
+                        self.assertGreaterEqual(resultado.target_kcal, 1500)
+
+
+def create_complete_user(email="pessoa@exemplo.com", **profile_kwargs):
+    """Usuário com onboarding completo — o estado mínimo para ter plano."""
+    user = User.objects.create_user(email=email, password="senha-bem-forte-123")
+    fields = {
+        "sex": Sex.MALE,
+        "birth_date": date(1995, 4, 12),
+        "height_cm": 178,
+        "activity_level": ActivityLevel.LIGHT,
+        "goal": Goal.CUT,
+        "wake_time": time(7, 0),
+        "sleep_time": time(23, 0),
+        "onboarding_step": 5,
+    }
+    fields.update(profile_kwargs)
+    Profile.objects.create(user=user, **fields)
+    WeightEntry.objects.create(user=user, weight_kg=Decimal("82.4"))
+    for weekday in (0, 2, 4):
+        TrainingDay.objects.create(
+            user=user, weekday=weekday, start_time=time(19, 0), duration_min=60
+        )
+    return user
+
+
+class PlanServiceTests(TestCase):
+    def setUp(self):
+        self.user = create_complete_user()
+
+    def test_incomplete_profile_refuses_to_calculate(self):
+        outro = User.objects.create_user(email="novo@exemplo.com", password="x")
+        with self.assertRaises(services.IncompleteProfile):
+            services.build_inputs(outro)
+
+    def test_profile_without_weight_refuses_to_calculate(self):
+        self.user.weight_entries.all().delete()
+        with self.assertRaises(services.IncompleteProfile):
+            services.build_inputs(self.user)
+
+    def test_create_plan_freezes_the_inputs(self):
+        plan = services.create_plan(self.user)
+        self.assertEqual(plan.weight_kg, Decimal("82.4"))
+        self.assertEqual(plan.training_days_per_week, 3)
+        self.assertEqual(plan.formula, "mifflin_st_jeor")
+        self.assertEqual(plan.target_kcal, calculate(services.build_inputs(self.user)).target_kcal)
+
+    def test_new_plan_deactivates_the_previous_one(self):
+        first = services.create_plan(self.user)
+        second = services.create_plan(self.user)
+
+        first.refresh_from_db()
+        self.assertFalse(first.is_active)
+        self.assertTrue(second.is_active)
+        self.assertEqual(NutritionPlan.objects.filter(user=self.user, is_active=True).count(), 1)
+
+    def test_sync_is_idempotent_while_nothing_changes(self):
+        plan, created = services.sync_active_plan(self.user)
+        self.assertTrue(created)
+
+        same_plan, created_again = services.sync_active_plan(self.user)
+        self.assertFalse(created_again)
+        self.assertEqual(plan.pk, same_plan.pk)
+        self.assertEqual(NutritionPlan.objects.count(), 1)
+
+    def test_sync_recalculates_after_a_weight_change(self):
+        old, _ = services.sync_active_plan(self.user)
+        WeightEntry.objects.create(
+            user=self.user, date=date(2030, 1, 1), weight_kg=Decimal("78.0")
+        )
+
+        new, created = services.sync_active_plan(self.user)
+        self.assertTrue(created)
+        self.assertNotEqual(old.pk, new.pk)
+        self.assertEqual(new.weight_kg, Decimal("78.0"))
+        self.assertLess(new.target_kcal, old.target_kcal)
+
+    def test_sync_recalculates_when_the_training_frequency_changes(self):
+        """Frequência move o fator de atividade, então move a meta."""
+        old, _ = services.sync_active_plan(self.user)
+        TrainingDay.objects.create(
+            user=self.user, weekday=5, start_time=time(19, 0), duration_min=60
+        )
+
+        new, created = services.sync_active_plan(self.user)
+
+        self.assertTrue(created)
+        self.assertGreater(new.training_days_per_week, old.training_days_per_week)
+        self.assertGreater(new.tdee_kcal, old.tdee_kcal)
+
+    def test_the_session_length_alone_no_longer_moves_the_diet(self):
+        """Mudança de comportamento da recalibração de 24/08/2026.
+
+        Antes a duração entrava na conta pela fórmula do MET, e treinar 30
+        minutos a mais rendia calorias extras na dieta. Isso dava uma precisão
+        que a fórmula não tem: metade de um treino de força é descanso entre
+        séries, e ninguém sabe de cabeça quantos minutos treina de verdade.
+        Hoje a duração descreve a ficha de treino, não a meta calórica — o que
+        muda a dieta é a frequência.
+        """
+        old, _ = services.sync_active_plan(self.user)
+        self.user.training_days.update(duration_min=90)
+
+        new, created = services.sync_active_plan(self.user)
+
+        self.assertFalse(created)
+        self.assertEqual(new.pk, old.pk)
+        self.assertEqual(new.tdee_kcal, old.tdee_kcal)
+
+
+class TodayViewTests(TestCase):
+    url = reverse("plans:today")
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.client.force_login(self.user)
+
+    def test_anonymous_is_sent_to_login(self):
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertIn(reverse("accounts:login"), response["Location"])
+
+    def test_incomplete_onboarding_is_sent_back_to_the_wizard(self):
+        Profile.objects.filter(user=self.user).update(onboarding_step=3)
+        response = self.client.get(self.url)
+        self.assertRedirects(response, reverse("accounts:onboarding"), target_status_code=302)
+
+    def test_first_visit_creates_the_plan_and_shows_the_target(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+
+        plan = NutritionPlan.objects.get(user=self.user, is_active=True)
+        self.assertContains(response, str(plan.target_kcal))
+        self.assertContains(response, f"{plan.protein_g} g")
+
+    def test_second_visit_does_not_create_another_plan(self):
+        self.client.get(self.url)
+        self.client.get(self.url)
+        self.assertEqual(NutritionPlan.objects.filter(user=self.user).count(), 1)
+
+    def test_recalculate_button_creates_a_new_plan(self):
+        self.client.get(self.url)
+        response = self.client.post(reverse("plans:recalculate"))
+
+        self.assertRedirects(response, self.url)
+        self.assertEqual(NutritionPlan.objects.filter(user=self.user).count(), 2)
+        self.assertEqual(NutritionPlan.objects.filter(user=self.user, is_active=True).count(), 1)
+
+    def test_recalculate_is_not_reachable_by_get(self):
+        response = self.client.get(reverse("plans:recalculate"))
+        self.assertEqual(response.status_code, 405)
+
+    def test_the_page_states_the_daily_deficit_in_kcal(self):
+        """O número que explica a dieta inteira não pode ficar implícito.
+
+        A pessoa precisa ler "déficit de tantas kcal" na tela, e não deduzir
+        isso subtraindo a meta do gasto de cabeça.
+        """
+        response = self.client.get(self.url)
+        plan = NutritionPlan.objects.get(user=self.user, is_active=True)
+
+        self.assertContains(response, "Déficit diário recomendado")
+        self.assertContains(response, str(plan.tdee_kcal - plan.target_kcal).lstrip("-"))
+
+    def test_a_bulking_user_sees_a_surplus_instead(self):
+        Profile.objects.filter(user=self.user).update(goal=Goal.BULK)
+        response = self.client.get(self.url)
+
+        self.assertContains(response, "Superávit diário recomendado")
+        self.assertNotContains(response, "Déficit diário recomendado")
+
+    def test_the_bottom_navigation_reaches_every_area_of_the_app(self):
+        """O shell do PWA: dieta, treino, métricas e perfil a um toque."""
+        response = self.client.get(self.url)
+        for url in (
+            reverse("plans:today"),
+            reverse("workouts:routine"),
+            reverse("plans:history"),
+            reverse("accounts:profile"),
+        ):
+            self.assertContains(response, f'href="{url}"')
+
+
+class EnergyBalanceTests(TestCase):
+    """O déficit/superávit diário que a tela mostra em uma linha."""
+
+    def test_eating_below_the_expenditure_is_a_deficit(self):
+        balance = views.energy_balance(NutritionPlan(tdee_kcal=2600, target_kcal=2100))
+
+        self.assertEqual(balance["kind"], "deficit")
+        self.assertEqual(balance["label"], "Déficit diário recomendado")
+        self.assertEqual(balance["delta_kcal"], -500)
+        self.assertEqual(balance["abs_kcal"], 500)
+        self.assertEqual(balance["pct"], 19)
+        self.assertEqual(balance["weekly_kcal"], -3500)
+
+    def test_eating_above_the_expenditure_is_a_surplus(self):
+        balance = views.energy_balance(NutritionPlan(tdee_kcal=2600, target_kcal=2860))
+
+        self.assertEqual(balance["kind"], "surplus")
+        self.assertEqual(balance["label"], "Superávit diário recomendado")
+        self.assertEqual(balance["delta_kcal"], 260)
+
+    def test_maintaining_has_neither(self):
+        balance = views.energy_balance(NutritionPlan(tdee_kcal=2600, target_kcal=2600))
+
+        self.assertEqual(balance["kind"], "balance")
+        self.assertEqual(balance["delta_kcal"], 0)
+        self.assertEqual(balance["weekly_kg"], 0)
+
+    def test_the_weekly_rate_uses_the_kcal_per_kilo_convention(self):
+        """-1.100 kcal por dia são 7.700 na semana, ou seja, 1 kg."""
+        balance = views.energy_balance(NutritionPlan(tdee_kcal=3000, target_kcal=1900))
+
+        self.assertEqual(balance["weekly_kcal"], -7700)
+        self.assertEqual(balance["weekly_kg"], 1.0)
+
+    def test_the_balance_closes_with_the_target(self):
+        """gasto − déficit = meta. Se essa conta não fecha, a tela mente."""
+        for goal in Goal.values:
+            with self.subTest(goal=goal):
+                result = calculate(PlanInputs(**{**REFERENCE.__dict__, "goal": goal}))
+                balance = views.energy_balance(
+                    NutritionPlan(tdee_kcal=result.tdee_kcal, target_kcal=result.target_kcal)
+                )
+                self.assertEqual(
+                    balance["tdee_kcal"] + balance["delta_kcal"], balance["target_kcal"]
+                )
+
+
+# ---------------------------------------------------------------------------
+# Etapa 4 — geração do cardápio
+# ---------------------------------------------------------------------------
+
+class SlotTimeTests(TestCase):
+    """Fase 1: onde caem as refeições no dia."""
+
+    def test_meals_fill_the_awake_window_in_order(self):
+        times, anchor = meal_planner.slot_times(time(7, 0), time(23, 0))
+
+        self.assertIsNone(anchor)
+        self.assertEqual(len(times), 5)
+        self.assertEqual(times[0], time(7, 30))  # acordar + 30 min
+        self.assertEqual(times[-1], time(21, 30))  # dormir - 90 min
+        self.assertEqual(times, sorted(times))
+
+    def test_evening_training_pulls_dinner_to_the_post_workout_slot(self):
+        times, anchor = meal_planner.slot_times(
+            time(7, 0), time(23, 0), training_end=time(20, 0)
+        )
+
+        self.assertEqual(anchor, 4)  # o jantar era a refeição mais próxima
+        self.assertEqual(times[anchor], time(20, 45))
+        self.assertEqual(times, sorted(times))
+
+    def test_early_training_turns_breakfast_into_the_post_workout_meal(self):
+        times, anchor = meal_planner.slot_times(
+            time(5, 30), time(22, 0), training_end=time(7, 0)
+        )
+
+        self.assertEqual(anchor, 0)
+        self.assertEqual(times[0], time(7, 45))
+        self.assertEqual(times, sorted(times))
+
+    def test_neighbours_keep_a_minimum_gap_after_the_anchor_moves(self):
+        # Treino terminando às 12:00 puxa o almoço para 12:45 e aperta o lanche
+        # da manhã, que estava em cima do horário.
+        times, anchor = meal_planner.slot_times(
+            time(9, 0), time(23, 0), training_end=time(12, 0)
+        )
+        gaps = [
+            (meal_planner._minutes(later) - meal_planner._minutes(earlier))
+            for earlier, later in zip(times, times[1:])
+        ]
+        self.assertTrue(all(gap >= meal_planner.MIN_GAP_MINUTES for gap in gaps), gaps)
+
+    def test_window_past_midnight_is_handled(self):
+        times, _ = meal_planner.slot_times(time(10, 0), time(2, 0))
+
+        self.assertEqual(times[0], time(10, 30))
+        self.assertEqual(times[-1], time(0, 30))  # dormir 02:00 - 90 min
+        offsets = [meal_planner._offset_from(time(10, 0), t) for t in times]
+        self.assertEqual(offsets, sorted(offsets))
+
+    def test_late_training_keeps_the_meal_inside_the_window(self):
+        # Treino terminando 22:50 e sono às 23:00: a refeição não pode ir para
+        # 23:35, mas também não pode voltar para antes do treino.
+        times, anchor = meal_planner.slot_times(
+            time(7, 0), time(23, 0), training_end=time(22, 50)
+        )
+        self.assertEqual(anchor, 4)
+        self.assertEqual(times[anchor], time(22, 50))
+
+    def test_no_meal_is_scheduled_during_the_training_session(self):
+        # Caso real: treino 19:00-20:30 para quem dorme 21:00.
+        times, _ = meal_planner.slot_times(
+            time(5, 0), time(21, 0), training_end=time(20, 30)
+        )
+        session = range(19 * 60, 20 * 60 + 30)
+        during = [t for t in times if meal_planner._minutes(t) in session]
+        self.assertEqual(during, [])
+
+
+class DistributionTests(TestCase):
+    """Fase 2: a meta do dia virando alvo de cada refeição."""
+
+    def test_parts_add_up_to_the_total(self):
+        shares = [Decimal("0.25"), Decimal("0.10"), Decimal("0.30"),
+                  Decimal("0.10"), Decimal("0.25")]
+        for total in (2053, 1999, 3150, 7):
+            parts = meal_planner.distribute(total, shares)
+            self.assertEqual(sum(parts), total, f"total={total}")
+
+    def test_leftovers_go_to_the_biggest_fractions(self):
+        # 10 kcal em três partes iguais: 3,33 cada. Sobra 1, e vai para a primeira.
+        parts = meal_planner.distribute(10, [Decimal("1") / 3] * 3)
+        self.assertEqual(sorted(parts, reverse=True), [4, 3, 3])
+
+
+def make_food(name, kcal, protein, carb, fat):
+    """Alimento com valores por 100 g."""
+    return Food.objects.create(
+        name=name,
+        kcal=Decimal(kcal),
+        protein_g=Decimal(protein),
+        carb_g=Decimal(carb),
+        fat_g=Decimal(fat),
+    )
+
+
+def make_template(name, category, items, tags=(), everyday=True, prep_minutes=10):
+    """Receita com ingredientes: items = [(alimento, gramas, escalável)]."""
+    template = MealTemplate.objects.create(
+        name=name, category=category, everyday=everyday, prep_minutes=prep_minutes
+    )
+    for order, (food, grams, scalable) in enumerate(items):
+        MealTemplateItem.objects.create(
+            template=template,
+            food=food,
+            quantity_g=Decimal(grams),
+            scalable=scalable,
+            order=order,
+        )
+    for slug in tags:
+        tag, _ = DietaryTag.objects.get_or_create(
+            slug=slug, defaults={"name": slug, "kind": TagKind.RESTRICTION}
+        )
+        template.tags.add(tag)
+    template.refresh_macros()
+    return template
+
+
+class CatalogFixture(TestCase):
+    """Catálogo mínimo que cobre as categorias usadas pelo cardápio."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.chicken = make_food("Frango", 165, 31, 0, "3.6")
+        cls.rice = make_food("Arroz", 130, "2.7", 28, "0.3")
+        cls.oats = make_food("Aveia", 389, "16.9", 66, "6.9")
+        cls.yogurt = make_food("Iogurte", 59, 10, "3.6", "0.4")
+        cls.nuts = make_food("Castanha", 607, 15, 20, 54)
+
+        # Quatro receitas principais para provar que almoço e jantar não repetem.
+        make_template("Frango com arroz", MealCategory.MAIN,
+                      [(cls.chicken, 150, True), (cls.rice, 150, True)])
+        make_template("Arroz com castanha", MealCategory.MAIN,
+                      [(cls.rice, 200, True), (cls.nuts, 20, True)])
+        make_template("Frango com aveia", MealCategory.MAIN,
+                      [(cls.chicken, 120, True), (cls.oats, 60, True)])
+        make_template("Arroz com iogurte", MealCategory.MAIN,
+                      [(cls.rice, 180, True), (cls.yogurt, 100, True)])
+        make_template("Aveia com iogurte", MealCategory.BREAKFAST,
+                      [(cls.oats, 60, True), (cls.yogurt, 150, True)])
+        make_template("Iogurte com castanha", MealCategory.BREAKFAST,
+                      [(cls.yogurt, 170, True), (cls.nuts, 15, True)])
+        make_template("Iogurte puro", MealCategory.SNACK,
+                      [(cls.yogurt, 200, True)])
+        make_template("Castanha com aveia", MealCategory.SNACK,
+                      [(cls.nuts, 25, True), (cls.oats, 30, True)])
+        make_template("Aveia pura", MealCategory.SNACK,
+                      [(cls.oats, 50, True)])
+        make_template("Frango puro", MealCategory.SNACK,
+                      [(cls.chicken, 130, True)])
+
+
+class ScalingTests(CatalogFixture):
+    """Fase 3: escalar a receita até o alvo do horário."""
+
+    def test_fixed_items_do_not_scale(self):
+        # 100 g de arroz FIXOS (130 kcal) + 100 g de frango escaláveis (165 kcal).
+        # Alvo de 460 kcal => (460 - 130) / 165 = 2,00.
+        template = make_template(
+            "Prato com item fixo",
+            MealCategory.MAIN,
+            [(self.rice, 100, False), (self.chicken, 100, True)],
+        )
+        self.assertEqual(meal_planner.scale_for(template, 460), Decimal("2.00"))
+
+        macros_at_scale = template.compute_macros(Decimal("2.00"))
+        self.assertAlmostEqual(float(macros_at_scale["kcal"]), 460, places=2)
+
+    def test_scale_is_clamped_to_edible_portions(self):
+        template = MealTemplate.objects.get(name="Frango com arroz")
+        self.assertEqual(meal_planner.scale_for(template, 50), meal_planner.MIN_SCALE)
+        self.assertEqual(meal_planner.scale_for(template, 9000), meal_planner.MAX_SCALE)
+
+    def test_protein_weighs_more_than_calories_in_the_score(self):
+        slot = MealSlot(target_kcal=500, target_protein_g=50,
+                        target_carb_g=50, target_fat_g=10)
+        on_target_protein = {"kcal": Decimal(550), "protein_g": Decimal(50)}
+        on_target_kcal = {"kcal": Decimal(500), "protein_g": Decimal(30)}
+
+        self.assertLess(
+            meal_planner.deviation(on_target_protein, slot),
+            meal_planner.deviation(on_target_kcal, slot),
+        )
+
+
+class MealGenerationTests(CatalogFixture):
+    def setUp(self):
+        self.user = create_complete_user()
+        self.plan = services.create_plan(self.user)
+
+    def test_plan_comes_with_five_slots_and_two_options_each(self):
+        slots = list(self.plan.slots.all())
+        self.assertEqual(len(slots), len(meal_planner.DAY_BLUEPRINT))
+        for slot in slots:
+            self.assertEqual(slot.options.count(), 2, slot.name)
+        self.assertEqual(MealOption.objects.filter(slot__plan=self.plan).count(), 10)
+
+    def test_slot_targets_add_up_to_the_daily_target(self):
+        totals = self.plan.slots.aggregate(
+            kcal=Sum("target_kcal"),
+            protein=Sum("target_protein_g"),
+            carb=Sum("target_carb_g"),
+            fat=Sum("target_fat_g"),
+        )
+        self.assertEqual(totals["kcal"], self.plan.target_kcal)
+        self.assertEqual(totals["protein"], self.plan.protein_g)
+        self.assertEqual(totals["carb"], self.plan.carb_g)
+        self.assertEqual(totals["fat"], self.plan.fat_g)
+
+    def test_the_same_recipe_does_not_repeat_in_the_day(self):
+        used = list(
+            MealOption.objects.filter(slot__plan=self.plan).values_list(
+                "template_id", flat=True
+            )
+        )
+        self.assertEqual(len(used), len(set(used)))
+
+    def test_dinner_lands_after_the_training_session(self):
+        # Treino 19:00 + 60 min => pós-treino às 20:45.
+        anchored = self.plan.slots.get(name__contains="pós-treino")
+        self.assertEqual(anchored.time, time(20, 45))
+
+    def test_option_macros_match_the_scaled_recipe(self):
+        option = MealOption.objects.filter(slot__plan=self.plan).first()
+        expected = option.template.compute_macros(option.scale_factor)
+        self.assertAlmostEqual(float(option.kcal), float(expected["kcal"]), places=1)
+        self.assertAlmostEqual(float(option.protein_g), float(expected["protein_g"]), places=1)
+
+    def test_options_land_close_to_the_slot_target(self):
+        for option in MealOption.objects.filter(slot__plan=self.plan):
+            error = abs(float(option.kcal) - option.slot.target_kcal)
+            self.assertLess(error, option.slot.target_kcal * 0.35, option.template.name)
+
+    def test_ingredients_come_out_scaled(self):
+        option = MealOption.objects.filter(slot__plan=self.plan).first()
+        ingredients = option.ingredient_list()
+        item = option.template.items.first()
+        self.assertEqual(ingredients[0]["quantity"], item.quantity_g * option.scale_factor)
+
+
+class TwoOptionsPerMealTests(CatalogFixture):
+    """Cada refeição oferece exatamente Opção A e Opção B — nunca uma terceira.
+
+    A regra é de produto, não de banco: mais de duas escolhas na hora da fome
+    é o que faz a pessoa fechar o app e pedir delivery. Os testes olham para o
+    limite pelos dois lados — o gerador não estica quando sobra receita, e não
+    inventa rótulo quando falta.
+    """
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.plan = services.create_plan(self.user)
+
+    def test_the_number_of_options_comes_from_the_labels(self):
+        self.assertEqual(meal_planner.OPTIONS_PER_SLOT, 2)
+        self.assertEqual(meal_planner.OPTIONS_PER_SLOT, len(OptionLabel.values))
+
+    def test_no_slot_offers_a_third_option(self):
+        for slot in self.plan.slots.all():
+            with self.subTest(slot=slot.name):
+                labels = list(slot.options.values_list("label", flat=True))
+                self.assertLessEqual(len(labels), 2)
+                self.assertEqual(sorted(labels), sorted(set(labels)))
+                self.assertTrue(set(labels) <= {OptionLabel.A, OptionLabel.B})
+
+    def test_a_large_catalog_still_yields_only_two(self):
+        """Catálogo farto é o caso em que a sobra apareceria."""
+        for index in range(8):
+            make_template(
+                f"Prato extra {index}",
+                MealCategory.MAIN,
+                [(self.chicken, 120 + index * 10, True), (self.rice, 150, True)],
+            )
+
+        plan = services.create_plan(create_complete_user(email="farto@exemplo.com"))
+
+        for slot in plan.slots.filter(category=MealCategory.MAIN):
+            self.assertEqual(slot.options.count(), 2, slot.name)
+
+    def test_the_option_labels_are_handed_out_in_order(self):
+        for slot in self.plan.slots.all():
+            options = list(slot.options.order_by("id"))
+            self.assertEqual(
+                [option.label for option in options],
+                OptionLabel.values[: len(options)],
+                slot.name,
+            )
+
+
+class RestrictionTests(CatalogFixture):
+    def test_restrictions_filter_the_catalog_and_the_gap_is_reported(self):
+        vegan = DietaryTag.objects.create(
+            slug="vegana", name="Vegana", kind=TagKind.RESTRICTION
+        )
+        # Só uma receita principal é vegana; café e lanches ficam sem candidata.
+        MealTemplate.objects.get(name="Arroz com castanha").tags.add(vegan)
+
+        user = create_complete_user(email="vegana@exemplo.com")
+        user.profile.dietary_tags.add(vegan)
+
+        plan = services.create_plan(user)
+
+        self.assertEqual(plan.slots.count(), 5)
+        self.assertEqual(plan.slots.get(order=0).options.count(), 0)
+        self.assertIn("Café da manhã", plan.notes)
+        # O plano existe mesmo incompleto: a única receita vegana foi aproveitada.
+        self.assertEqual(MealOption.objects.filter(slot__plan=plan).count(), 2)
+
+    def test_recipe_repeats_only_when_there_is_nothing_else(self):
+        # Uma única receita disponível para as duas refeições principais.
+        MealTemplate.objects.filter(category=MealCategory.MAIN).exclude(
+            name="Frango com arroz"
+        ).update(is_active=False)
+
+        user = create_complete_user(email="pouco@exemplo.com")
+        plan = services.create_plan(user)
+
+        mains = MealOption.objects.filter(
+            slot__plan=plan, slot__category=MealCategory.MAIN
+        )
+        self.assertEqual(mains.count(), 2)  # uma opção em cada refeição principal
+        self.assertEqual({option.template.name for option in mains}, {"Frango com arroz"})
+        self.assertIn("Almoço", plan.notes)
+
+
+class ProteinCoverageTests(CatalogFixture):
+    """O plano diz quando o catálogo não alcança a meta de proteína.
+
+    A situação real é a dieta vegana barata: as receitas existem, o cardápio
+    sai completo, e ainda assim somar a opção mais proteica de cada horário não
+    chega ao alvo do dia. Calar isso é pior do que a lacuna em si — a pessoa
+    seguiria tudo direitinho e não entenderia o resultado.
+    """
+
+    def test_a_catalog_that_covers_the_protein_target_says_nothing(self):
+        plan = services.create_plan(create_complete_user(email="ok@exemplo.com"))
+        self.assertNotIn("proteína", plan.notes)
+
+    def test_a_low_protein_catalog_is_reported(self):
+        arroz = Food.objects.get(name="Arroz")
+        MealTemplate.objects.update(is_active=False)
+        for categoria in (MealCategory.BREAKFAST, MealCategory.SNACK, MealCategory.MAIN):
+            for indice in range(2):
+                make_template(
+                    f"Só arroz {categoria} {indice}",
+                    categoria,
+                    [(arroz, 150 + indice * 10, True)],
+                )
+
+        plan = services.create_plan(create_complete_user(email="poucaproteina@exemplo.com"))
+
+        self.assertIn("proteína", plan.notes)
+        self.assertIn(f"{plan.protein_g} g", plan.notes)
+
+    def test_the_warning_respects_the_configured_floor(self):
+        """A régua é a constante, não um número escrito no teste."""
+        plan = NutritionPlan(protein_g=100)
+        no_limite = Decimal(100) * meal_planner.PROTEIN_COVERAGE_FLOOR
+
+        self.assertEqual(meal_planner.protein_coverage_warning(plan, no_limite), [])
+        self.assertTrue(
+            meal_planner.protein_coverage_warning(plan, no_limite - Decimal("0.01"))
+        )
+
+
+class SeededCatalogTests(TestCase):
+    """O cardápio precisa funcionar com o catálogo real, não só com fixture."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def test_full_plan_from_the_real_catalog(self):
+        user = create_complete_user()
+        plan = services.create_plan(user)
+
+        self.assertEqual(plan.slots.count(), 5)
+        for slot in plan.slots.all():
+            self.assertEqual(slot.options.count(), 2, slot.name)
+        self.assertEqual(plan.notes, "")
+
+    def test_every_goal_gets_a_complete_menu(self):
+        """Objetivo diferente muda o alvo — o cardápio tem que dar conta de todos.
+
+        A recomposição é a que aperta: mesma caloria de sempre com mais
+        proteína. Se o catálogo só fechasse a conta com suplemento, é aqui que
+        apareceria — em forma de aviso de horário sem receita.
+        """
+        for goal in Goal.values:
+            with self.subTest(goal=goal):
+                user = create_complete_user(email=f"{goal}@exemplo.com", goal=goal)
+                plan = services.create_plan(user)
+
+                self.assertEqual(plan.slots.count(), 5)
+                for slot in plan.slots.all():
+                    self.assertEqual(slot.options.count(), 2, slot.name)
+                self.assertNotIn("catálogo", plan.notes)
+
+    def test_the_menu_adds_up_to_the_daily_target(self):
+        """A meta não pode ser só um número no topo da tela.
+
+        Os alvos por horário somam a meta por construção; o que este teste
+        cobre é o passo seguinte — a receita escalada até esse alvo. Seguindo a
+        Opção A do dia inteiro, o cardápio real precisa cair em cima da meta,
+        senão o app prescreve uma coisa e serve outra.
+        """
+        for goal in Goal.values:
+            with self.subTest(goal=goal):
+                user = create_complete_user(email=f"menu-{goal}@exemplo.com", goal=goal)
+                plan = services.create_plan(user)
+                slots = list(plan.slots.prefetch_related("options"))
+
+                menu = views.menu_totals(slots)
+                folga = abs(menu["kcal"] - plan.target_kcal)
+
+                self.assertLessEqual(
+                    folga,
+                    plan.target_kcal * 0.03,
+                    f"cardápio de {menu['kcal']} kcal para meta de {plan.target_kcal}",
+                )
+                self.assertGreater(menu["protein_g"], 0)
+
+    def test_a_vegan_profile_also_gets_two_options_at_every_meal(self):
+        """A restrição mais apertada do catálogo é a régua da cobertura."""
+        user = create_complete_user(email="vegana@exemplo.com")
+        user.profile.dietary_tags.add(DietaryTag.objects.get(slug="vegana"))
+
+        plan = services.create_plan(user)
+
+        for slot in plan.slots.all():
+            self.assertEqual(slot.options.count(), 2, slot.name)
+        usadas = MealOption.objects.filter(slot__plan=plan).values_list(
+            "template_id", flat=True
+        )
+        self.assertEqual(len(usadas), len(set(usadas)), "receita repetida no mesmo dia")
+        self.assertNotIn("nenhuma receita", plan.notes)
+
+    def test_the_menu_is_made_of_everyday_brazilian_food(self):
+        """Regressão de conteúdo: o cardápio de quem não pediu nada é comum.
+
+        Sem isso, uma mudança de peso na pontuação pode encher o dia de receita
+        elaborada sem ninguém perceber — os testes de unidade continuariam
+        verdes, porque cada peça sozinha estaria certa.
+        """
+        plan = services.create_plan(create_complete_user(email="comum@exemplo.com"))
+
+        for option in MealOption.objects.filter(slot__plan=plan):
+            with self.subTest(receita=option.template.name):
+                self.assertTrue(option.template.everyday)
+                self.assertLessEqual(option.template.prep_minutes, 25)
+
+    def test_today_page_shows_the_menu(self):
+        user = create_complete_user()
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("plans:today"))
+
+        self.assertEqual(response.status_code, 200)
+        slot = user.plans.get(is_active=True).slots.first()
+        self.assertContains(response, slot.name)
+        self.assertContains(response, slot.options.first().template.name)
+
+
+# ---------------------------------------------------------------------------
+# Etapa 5 — acompanhamento diário
+# ---------------------------------------------------------------------------
+
+class TrackingTests(CatalogFixture):
+    def setUp(self):
+        self.user = create_complete_user()
+        self.plan = services.create_plan(self.user)
+        self.slot = self.plan.slots.get(order=0)
+        self.option = self.slot.options.first()
+        self.today = timezone.localdate()
+
+    def test_marking_a_meal_freezes_its_macros(self):
+        log = tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+
+        self.assertEqual(log.kcal, self.option.kcal)
+        self.assertEqual(log.protein_g, self.option.protein_g)
+        self.assertEqual(log.slot_name, self.slot.name)
+        self.assertEqual(log.scheduled_time, self.slot.time)
+        self.assertIsNotNone(log.marked_at)
+
+    def test_history_survives_the_recipe_changing_later(self):
+        log = tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+        frozen = log.kcal
+
+        self.option.template.items.update(quantity_g=Decimal("999"))
+        self.option.template.refresh_macros()
+        log.refresh_from_db()
+
+        self.assertEqual(log.kcal, frozen)
+
+    def test_skipped_and_off_plan_do_not_count_calories(self):
+        tracking.log_meal(self.user, self.slot, MealStatus.SKIPPED)
+        log = MealLog.objects.get(user=self.user, slot=self.slot)
+        self.assertEqual(log.kcal, Decimal("0"))
+        self.assertIsNone(log.chosen_option)
+
+        tracking.log_meal(self.user, self.slot, MealStatus.OFF_PLAN)
+        log.refresh_from_db()
+        self.assertEqual(log.status, MealStatus.OFF_PLAN)
+        self.assertEqual(log.kcal, Decimal("0"))
+
+    def test_marking_twice_updates_instead_of_duplicating(self):
+        tracking.log_meal(self.user, self.slot, MealStatus.SKIPPED)
+        tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+
+        logs = MealLog.objects.filter(user=self.user, slot=self.slot, date=self.today)
+        self.assertEqual(logs.count(), 1)
+        self.assertEqual(logs.get().status, MealStatus.DONE)
+
+    def test_day_summary_counts_only_what_was_eaten(self):
+        tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+        other = self.plan.slots.get(order=1)
+        tracking.log_meal(self.user, other, MealStatus.SKIPPED)
+
+        summary = tracking.day_summary(self.user, self.plan, self.today)
+
+        self.assertEqual(summary["consumed_kcal"], int(self.option.kcal))
+        self.assertEqual(summary["done"], 1)
+        self.assertEqual(summary["marked"], 2)
+        self.assertEqual(summary["total"], 5)
+        self.assertEqual(
+            summary["remaining_kcal"], self.plan.target_kcal - int(self.option.kcal)
+        )
+
+    def test_progress_never_passes_one_hundred_percent(self):
+        for slot in self.plan.slots.all():
+            option = slot.options.first()
+            if option:
+                tracking.log_meal(self.user, slot, MealStatus.DONE, option)
+        MealLog.objects.filter(user=self.user).update(kcal=Decimal("9000"))
+
+        summary = tracking.day_summary(self.user, self.plan, self.today)
+        self.assertEqual(summary["progress_pct"], 100)
+
+    def test_history_skips_days_without_any_marking(self):
+        tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+        tracking.log_meal(
+            self.user, self.slot, MealStatus.DONE, self.option,
+            day=self.today - timedelta(days=3),
+        )
+
+        rows = tracking.history(self.user)
+
+        self.assertEqual(len(rows), 2)  # e não 14
+        self.assertEqual(rows[0]["date"], self.today)  # mais recente primeiro
+        self.assertTrue(rows[0]["is_today"])
+
+    def test_adherence_is_the_share_of_meals_eaten_as_planned(self):
+        tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+        tracking.log_meal(self.user, self.plan.slots.get(order=1), MealStatus.SKIPPED)
+        tracking.log_meal(self.user, self.plan.slots.get(order=2), MealStatus.OFF_PLAN)
+
+        totals = tracking.adherence(tracking.history(self.user))
+        self.assertEqual(totals["adherence_pct"], 33)  # 1 de 3 marcadas
+        self.assertEqual(totals["days"], 1)
+
+    def test_adherence_of_an_empty_history_does_not_divide_by_zero(self):
+        self.assertEqual(tracking.adherence([]), {"days": 0, "avg_kcal": 0, "adherence_pct": 0})
+
+
+class MarkMealViewTests(CatalogFixture):
+    def setUp(self):
+        self.user = create_complete_user()
+        self.plan = services.create_plan(self.user)
+        self.slot = self.plan.slots.get(order=0)
+        self.option = self.slot.options.first()
+        self.client.force_login(self.user)
+
+    def url(self, slot=None):
+        return reverse("plans:mark_meal", args=[(slot or self.slot).pk])
+
+    def test_marking_from_the_page_records_the_chosen_option(self):
+        response = self.client.post(
+            self.url(), {"status": "done", "option": self.option.pk}
+        )
+
+        self.assertRedirects(response, reverse("plans:today"))
+        log = MealLog.objects.get(user=self.user, slot=self.slot)
+        self.assertEqual(log.chosen_option, self.option)
+        self.assertEqual(log.kcal, self.option.kcal)
+
+    def test_today_page_shows_what_was_marked(self):
+        self.client.post(self.url(), {"status": "done", "option": self.option.pk})
+
+        response = self.client.get(reverse("plans:today"))
+
+        self.assertContains(response, self.option.template.name)
+        self.assertContains(response, "desfazer")
+
+    def test_undo_removes_the_log(self):
+        self.client.post(self.url(), {"status": "done", "option": self.option.pk})
+        self.client.post(reverse("plans:clear_meal", args=[self.slot.pk]))
+
+        self.assertFalse(MealLog.objects.filter(user=self.user, slot=self.slot).exists())
+
+    def test_cannot_mark_a_meal_from_someone_elses_plan(self):
+        intruder = create_complete_user(email="intruso@exemplo.com")
+        other_slot = services.create_plan(intruder).slots.first()
+
+        response = self.client.post(
+            self.url(other_slot),
+            {"status": "done", "option": other_slot.options.first().pk},
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(MealLog.objects.filter(user=self.user).exists())
+
+    def test_option_from_another_slot_is_rejected(self):
+        other_option = self.plan.slots.get(order=1).options.first()
+
+        response = self.client.post(self.url(), {"status": "done", "option": other_option.pk})
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(MealLog.objects.filter(user=self.user).exists())
+
+    def test_unknown_status_is_ignored(self):
+        response = self.client.post(self.url(), {"status": "inventado"})
+
+        self.assertRedirects(response, reverse("plans:today"))
+        self.assertFalse(MealLog.objects.filter(user=self.user).exists())
+
+    def test_marking_is_not_reachable_by_get(self):
+        self.assertEqual(self.client.get(self.url()).status_code, 405)
+
+
+class HistoryViewTests(CatalogFixture):
+    def setUp(self):
+        self.user = create_complete_user()
+        self.plan = services.create_plan(self.user)
+        self.client.force_login(self.user)
+
+    def test_empty_history_invites_the_first_marking(self):
+        response = self.client.get(reverse("plans:history"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Ainda não há nada marcado")
+
+    def test_history_lists_the_marked_days(self):
+        slot = self.plan.slots.get(order=0)
+        tracking.log_meal(self.user, slot, MealStatus.DONE, slot.options.first())
+
+        response = self.client.get(reverse("plans:history"))
+
+        self.assertContains(response, "Aderência")
+        self.assertContains(response, "100%")
+
+    def test_history_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("plans:history"))
+        self.assertIn(reverse("accounts:login"), response["Location"])
+
+
+class RecalculationDuringTheDayTests(CatalogFixture):
+    """Recalcular no meio do dia não pode perder nem duplicar o que já foi comido."""
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.plan = services.create_plan(self.user)
+        self.slot = self.plan.slots.get(order=0)
+        tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.slot.options.first())
+
+    def test_marks_follow_the_new_plan(self):
+        # A pessoa se pesou de novo hoje: um registro por dia, então atualiza.
+        WeightEntry.objects.filter(user=self.user, date=timezone.localdate()).update(
+            weight_kg=Decimal("79.0")
+        )
+        new_plan, changed = services.sync_active_plan(self.user)
+
+        self.assertTrue(changed)
+        self.assertEqual(MealLog.objects.filter(user=self.user).count(), 1)
+
+        log = MealLog.objects.get(user=self.user)
+        self.assertEqual(log.slot.plan, new_plan)
+        self.assertEqual(log.slot.order, 0)
+
+        summary = tracking.day_summary(self.user, new_plan, timezone.localdate())
+        self.assertEqual(summary["done"], 1)
+        self.assertGreater(summary["consumed_kcal"], 0)
+
+    def test_yesterdays_marks_stay_with_the_old_plan(self):
+        old_log = tracking.log_meal(
+            self.user, self.slot, MealStatus.DONE, self.slot.options.first(),
+            day=timezone.localdate() - timedelta(days=1),
+        )
+        services.create_plan(self.user)
+
+        old_log.refresh_from_db()
+        self.assertEqual(old_log.slot.plan, self.plan)  # histórico não se mexe
+
+    def test_two_recalculations_in_the_same_day_do_not_duplicate(self):
+        services.create_plan(self.user)  # segundo plano
+        services.create_plan(self.user)  # terceiro
+
+        plan = services.get_active_plan(self.user)
+        logs = MealLog.objects.filter(user=self.user, date=timezone.localdate())
+
+        self.assertEqual(logs.count(), 1)
+        self.assertEqual(logs.get().slot.plan, plan)
+        self.assertEqual(tracking.day_summary(self.user, plan, timezone.localdate())["done"], 1)
+
+    def test_orphan_log_from_an_old_plan_does_not_inflate_the_day(self):
+        old_slot = self.slot
+        services.create_plan(self.user)
+        plan = services.get_active_plan(self.user)
+
+        # Simula um registro que ficou para trás (dado criado antes desta regra).
+        MealLog.objects.create(
+            user=self.user, slot=old_slot, date=timezone.localdate(),
+            status=MealStatus.DONE, slot_name=old_slot.name, kcal=Decimal("500"),
+        )
+
+        summary = tracking.day_summary(self.user, plan, timezone.localdate())
+        self.assertEqual(summary["done"], 1)  # só o do plano ativo
+
+
+class PracticalityTests(CatalogFixture):
+    """A dieta tem que caber na rotina: comida simples primeiro."""
+
+    def setUp(self):
+        self.slot = MealSlot(
+            name="Almoço", category=MealCategory.MAIN, order=0, time=time(12, 0),
+            target_kcal=600, target_protein_g=40, target_carb_g=60, target_fat_g=20,
+        )
+        self.macros = {"kcal": Decimal(600), "protein_g": Decimal(40)}
+
+    def test_everyday_recipe_wins_a_tie(self):
+        simples = make_template("Arroz com ovo", MealCategory.MAIN,
+                                [(self.rice, 150, True), (self.chicken, 100, True)])
+        elaborada = make_template("Assado do domingo", MealCategory.MAIN,
+                                  [(self.rice, 150, True), (self.chicken, 100, True)],
+                                  everyday=False, prep_minutes=45)
+
+        self.assertLess(
+            meal_planner.score(self.macros, self.slot, simples),
+            meal_planner.score(self.macros, self.slot, elaborada),
+        )
+
+    def test_long_prep_costs_points_but_the_penalty_has_a_ceiling(self):
+        rapida = make_template("Rápida", MealCategory.MAIN, [(self.rice, 150, True)],
+                               prep_minutes=10)
+        media = make_template("Média", MealCategory.MAIN, [(self.rice, 150, True)],
+                              prep_minutes=35)
+        eterna = make_template("Eterna", MealCategory.MAIN, [(self.rice, 150, True)],
+                               prep_minutes=180)
+
+        self.assertEqual(meal_planner.practicality_penalty(rapida), Decimal("0"))
+        self.assertGreater(
+            meal_planner.practicality_penalty(media),
+            meal_planner.practicality_penalty(rapida),
+        )
+        self.assertEqual(
+            meal_planner.practicality_penalty(eterna), meal_planner.MAX_PREP_PENALTY
+        )
+
+    def test_nutrition_still_beats_convenience(self):
+        # Uma receita simples que erra feio o alvo não pode ganhar de uma
+        # elaborada que acerta: praticidade é desempate, não critério principal.
+        elaborada_certa = make_template("Assado certo", MealCategory.MAIN,
+                                        [(self.rice, 150, True)], everyday=False,
+                                        prep_minutes=45)
+        simples_errada = {"kcal": Decimal(200), "protein_g": Decimal(5)}
+        simples = make_template("Simples ruim", MealCategory.MAIN,
+                                [(self.rice, 150, True)])
+
+        self.assertLess(
+            meal_planner.score(self.macros, self.slot, elaborada_certa),
+            meal_planner.score(simples_errada, self.slot, simples),
+        )
+
+    def test_generation_prefers_everyday_recipes(self):
+        user = create_complete_user(email="rotina@exemplo.com")
+        plan = services.create_plan(user)
+
+        elaboradas = MealOption.objects.filter(
+            slot__plan=plan, template__everyday=False
+        ).count()
+        self.assertEqual(elaboradas, 0)
+
+    def test_elaborate_recipe_still_shows_up_when_it_is_the_only_one(self):
+        tag = DietaryTag.objects.create(slug="vegana", name="Vegana", kind=TagKind.RESTRICTION)
+        unica = make_template("Escondidinho", MealCategory.MAIN,
+                              [(self.rice, 200, True)], tags=(), everyday=False,
+                              prep_minutes=40)
+        unica.tags.add(tag)
+
+        user = create_complete_user(email="unica@exemplo.com")
+        user.profile.dietary_tags.add(tag)
+        plan = services.create_plan(user)
+
+        usadas = MealOption.objects.filter(
+            slot__plan=plan, slot__category=MealCategory.MAIN
+        ).values_list("template__name", flat=True)
+        self.assertIn("Escondidinho", set(usadas))
+
+
+class RetiredIngredientTests(CatalogFixture):
+    def test_recipe_with_an_inactive_ingredient_is_not_suggested(self):
+        make_template("Prato com item aposentado", MealCategory.MAIN,
+                      [(self.nuts, 100, True)])
+        Food.objects.filter(pk=self.nuts.pk).update(is_active=False)
+
+        nomes = [t.name for t in meal_planner.candidates_for(MealCategory.MAIN, [])]
+
+        self.assertNotIn("Prato com item aposentado", nomes)
+        self.assertNotIn("Arroz com castanha", nomes)  # também usa castanha
+        self.assertIn("Frango com arroz", nomes)
+
+
+class SeedContentTests(TestCase):
+    """O conteúdo do seed precisa respeitar as regras que o projeto promete."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", "--reset-templates", verbosity=0)
+
+    def test_every_seeded_recipe_uses_only_active_foods(self):
+        com_inativo = (
+            MealTemplate.objects.filter(is_active=True, items__food__is_active=False)
+            .distinct()
+            .values_list("name", flat=True)
+        )
+        self.assertEqual(list(com_inativo), [])
+
+    def test_most_recipes_are_everyday_food(self):
+        ativas = MealTemplate.objects.filter(is_active=True)
+        simples = ativas.filter(everyday=True).count()
+        self.assertGreaterEqual(simples / ativas.count(), Decimal("0.8"))
+
+    def test_everyday_recipes_are_quick_to_cook(self):
+        demoradas = MealTemplate.objects.filter(
+            is_active=True, everyday=True, prep_minutes__gt=30
+        ).values_list("name", flat=True)
+        self.assertEqual(list(demoradas), [])
+
+    def test_calories_of_every_food_match_its_macros(self):
+        from django.core.exceptions import ValidationError
+
+        for food in Food.objects.filter(is_active=True):
+            try:
+                food.clean()
+            except ValidationError as exc:
+                self.fail(f"{food.name}: {exc.messages[0]}")
+
+    def test_the_basics_of_a_brazilian_kitchen_are_all_in_the_catalog(self):
+        """A lista de compras que o app pode pedir é a do mercado de esquina.
+
+        O teste olha por pedaço do nome porque o catálogo distingue variações
+        (arroz branco e integral, feijão carioca e preto) e o que importa aqui
+        é que o básico exista, não como ele foi nomeado.
+        """
+        basicos = [
+            "arroz", "feijão", "ovo", "frango", "carne moída", "batata",
+            "banana", "maçã", "aveia", "pão", "leite", "queijo", "tapioca",
+            "alface", "tomate", "cenoura", "brócolis",
+        ]
+        ativos = [
+            name.lower() for name in Food.objects.filter(is_active=True)
+            .values_list("name", flat=True)
+        ]
+        faltando = [
+            basico for basico in basicos
+            if not any(basico in name for name in ativos)
+        ]
+        self.assertEqual(faltando, [], "básico fora do catálogo")
+
+    def test_expensive_or_hard_to_find_food_stays_out(self):
+        """Suplemento, corte nobre e gourmet ficam aposentados, não sugeridos.
+
+        Aposentado e não apagado: quem já comeu aquilo continua com o histórico
+        legível, e o alimento volta com um clique se um dia fizer sentido.
+        """
+        for nome in [
+            "Whey protein isolado", "Whey protein concentrado", "Albumina em pó",
+            "Salmão grelhado", "Alcatra grelhada", "Camarão cozido",
+            "Castanha de caju", "Castanha-do-pará", "Amêndoas", "Nozes",
+            "Quinoa cozida", "Chia", "Granola sem açúcar", "Chocolate 70% cacau",
+            "Tofu", "Morango",
+        ]:
+            with self.subTest(alimento=nome):
+                food = Food.objects.filter(name=nome).first()
+                self.assertIsNotNone(food, f"{nome} sumiu do catálogo em vez de ser aposentado")
+                self.assertFalse(food.is_active, nome)
+
+    def test_no_recipe_depends_on_a_long_shopping_trip(self):
+        """Receita do dia a dia é de até 6 itens: mais que isso vira projeto."""
+        for template in MealTemplate.objects.filter(is_active=True, everyday=True):
+            with self.subTest(receita=template.name):
+                self.assertLessEqual(template.items.count(), 6)
+
+    def test_every_restriction_can_fill_a_whole_day_without_repeating(self):
+        """Restrição não pode significar cardápio pela metade.
+
+        Cada horário quer duas receitas inéditas: são 2 no café, 4 nos dois
+        lanches e 4 nas duas refeições principais. Abaixo disso o gerador
+        começa a repetir prato no mesmo dia — que ele faz de propósito para não
+        deixar horário vazio, mas é aviso de catálogo curto, não resultado bom.
+        """
+        necessario = {
+            MealCategory.BREAKFAST: 2,
+            MealCategory.SNACK: 4,
+            MealCategory.MAIN: 4,
+        }
+        for tag in DietaryTag.objects.filter(kind=TagKind.RESTRICTION):
+            for categoria, minimo in necessario.items():
+                with self.subTest(restricao=tag.slug, categoria=categoria):
+                    disponiveis = MealTemplate.objects.filter(
+                        is_active=True, category=categoria, tags=tag
+                    ).count()
+                    self.assertGreaterEqual(disponiveis, minimo)
+
+
+class ProteinAsymmetryTests(TestCase):
+    """Passar da proteína custa menos que ficar abaixo — caloria não."""
+
+    def setUp(self):
+        self.slot = MealSlot(
+            name="Almoço", category=MealCategory.MAIN, order=0, time=time(12, 0),
+            target_kcal=600, target_protein_g=40, target_carb_g=60, target_fat_g=20,
+        )
+
+    def test_overshooting_protein_is_cheaper_than_missing_it(self):
+        acima = {"kcal": Decimal(600), "protein_g": Decimal(60)}
+        abaixo = {"kcal": Decimal(600), "protein_g": Decimal(20)}
+
+        self.assertLess(
+            meal_planner.deviation(acima, self.slot),
+            meal_planner.deviation(abaixo, self.slot),
+        )
+
+    def test_calories_are_penalized_the_same_in_both_directions(self):
+        acima = {"kcal": Decimal(700), "protein_g": Decimal(40)}
+        abaixo = {"kcal": Decimal(500), "protein_g": Decimal(40)}
+
+        self.assertEqual(
+            meal_planner.deviation(acima, self.slot),
+            meal_planner.deviation(abaixo, self.slot),
+        )
+
+    def test_hitting_the_target_is_still_the_best_score(self):
+        certo = {"kcal": Decimal(600), "protein_g": Decimal(40)}
+        sobrando = {"kcal": Decimal(600), "protein_g": Decimal(80)}
+
+        self.assertEqual(meal_planner.deviation(certo, self.slot), Decimal(0))
+        self.assertGreater(meal_planner.deviation(sobrando, self.slot), Decimal(0))
+
+    def test_overshoot_costs_exactly_the_configured_fraction(self):
+        # Mesma distância do alvo, para cima e para baixo: a de cima custa a
+        # fração configurada da de baixo. É essa regra que devolveu frango e
+        # carne ao almoço de quem não tem restrição — eles estouram o alvo de
+        # proteína do horário e, no desvio simétrico, perdiam para tofu.
+        acima = {"kcal": Decimal(600), "protein_g": Decimal(60)}
+        abaixo = {"kcal": Decimal(600), "protein_g": Decimal(20)}
+
+        self.assertEqual(
+            meal_planner.deviation(acima, self.slot),
+            meal_planner.deviation(abaixo, self.slot) * meal_planner.PROTEIN_OVERSHOOT_FACTOR,
+        )
+
+    def test_someone_without_restrictions_is_not_pushed_to_vegan_meals(self):
+        """Regressão de conteúdo: onívoro tem que ver frango, carne, ovo ou peixe.
+
+        Roda contra o catálogo real porque o problema aparece na combinação de
+        seed + pontuação, não em cada um separado.
+        """
+        call_command("seed_catalog", "--reset-templates", verbosity=0)
+        user = create_complete_user(email="onivoro@exemplo.com")
+        plan = services.create_plan(user)
+
+        principais = MealOption.objects.filter(
+            slot__plan=plan, slot__category=MealCategory.MAIN
+        )
+        com_proteina_animal = [
+            option
+            for option in principais
+            if not option.template.tags.filter(slug="vegana").exists()
+        ]
+        self.assertTrue(
+            com_proteina_animal,
+            "todas as refeições principais vieram veganas para quem não pediu isso",
+        )
+
+
+class CatalogChangeTests(CatalogFixture):
+    """Mudou o catálogo, o cardápio da pessoa acompanha na próxima visita."""
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.plan = services.create_plan(self.user)
+
+    def test_plan_pointing_at_a_retired_recipe_is_rebuilt(self):
+        usada = MealOption.objects.filter(slot__plan=self.plan).first().template
+        MealTemplate.objects.filter(pk=usada.pk).update(is_active=False)
+
+        novo, mudou = services.sync_active_plan(self.user)
+
+        self.assertTrue(mudou)
+        self.assertNotEqual(novo.pk, self.plan.pk)
+        self.assertFalse(
+            MealOption.objects.filter(slot__plan=novo, template=usada).exists()
+        )
+
+    def test_untouched_catalog_does_not_rebuild_anything(self):
+        _, mudou = services.sync_active_plan(self.user)
+        self.assertFalse(mudou)
+
+
+class ShoppingListTests(TestCase):
+    """A lista de compras da semana, por corredor de supermercado."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.plan = services.create_plan(self.user)
+
+    def test_it_multiplies_the_daily_menu_by_the_week(self):
+        """O cardápio é o mesmo todo dia; a compra é ele vezes sete."""
+        cru = shopping.weekly_quantities(self.plan)
+        self.assertTrue(cru)
+
+        _, dados = next(iter(cru.items()))
+        diario = dados["quantity"] / shopping.DAYS
+        self.assertEqual(dados["quantity"], diario * shopping.DAYS)
+        self.assertGreater(dados["quantity"], diario)
+
+    def test_the_aisles_come_in_the_order_you_walk_the_market(self):
+        lista = shopping.shopping_list(self.plan)
+        corredores = [corredor["aisle"] for corredor in lista]
+        esperada = [a for a in shopping.AISLE_ORDER if a in corredores]
+        self.assertEqual(corredores, esperada)
+
+    def test_quantities_are_rounded_up_to_something_buyable(self):
+        """Ninguém compra 847 g de arroz."""
+        self.assertEqual(shopping.round_up(Decimal("847")), Decimal("850"))
+        self.assertEqual(shopping.round_up(Decimal("83")), Decimal("90"))
+        self.assertEqual(shopping.round_up(Decimal("1201")), Decimal("1300"))
+        # Já redondo continua redondo — arredondar de novo seria inflar a compra.
+        self.assertEqual(shopping.round_up(Decimal("850")), Decimal("850"))
+
+    def test_big_amounts_are_announced_in_kilos(self):
+        self.assertEqual(shopping.humanize(Decimal("1500"), "g"), "1,5 kg")
+        self.assertEqual(shopping.humanize(Decimal("400"), "g"), "400 g")
+        self.assertEqual(shopping.humanize(Decimal("2000"), "ml"), "2 L")
+
+    def test_the_same_food_in_two_recipes_is_bought_once(self):
+        """Arroz no almoço e no jantar é uma linha só na lista."""
+        lista = shopping.shopping_list(self.plan)
+        nomes = [
+            linha["food"].name for corredor in lista for linha in corredor["items"]
+        ]
+        self.assertEqual(len(nomes), len(set(nomes)))
+
+    def test_every_item_says_which_recipes_asked_for_it(self):
+        lista = shopping.shopping_list(self.plan)
+        for corredor in lista:
+            for linha in corredor["items"]:
+                with self.subTest(alimento=linha["food"].name):
+                    self.assertTrue(linha["recipes"])
+
+
+class ShoppingViewTests(TestCase):
+    url = reverse("plans:shopping")
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.client.force_login(self.user)
+
+    def test_the_page_lists_the_aisles_and_the_amounts(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Lista de compras")
+        self.assertContains(response, "Hortifrúti")
+        self.assertContains(response, "Açougue e ovos")
+
+    def test_an_unknown_option_falls_back_to_a(self):
+        """Parâmetro inventado na URL não pode quebrar a tela."""
+        response = self.client.get(self.url, {"opcao": "Z"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["label"], "A")
+
+    def test_it_requires_login(self):
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertIn(reverse("accounts:login"), response["Location"])
+
+
+class SubstitutionTests(TestCase):
+    """Troca de alimento: a resposta útil é a QUANTIDADE, não só o nome."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def test_a_food_is_classified_by_the_macro_that_dominates_it(self):
+        frango = Food.objects.get(name="Peito de frango grelhado")
+        arroz = Food.objects.get(name="Arroz branco cozido")
+        azeite = Food.objects.get(name="Azeite de oliva extra virgem")
+
+        self.assertEqual(substitutions.dominant_macro(frango), "protein_g")
+        self.assertEqual(substitutions.dominant_macro(arroz), "carb_g")
+        self.assertEqual(substitutions.dominant_macro(azeite), "fat_g")
+
+    def test_chicken_is_only_swapped_for_other_protein_sources(self):
+        """Trocar frango por azeite fecha a caloria e destrói a refeição."""
+        frango = Food.objects.get(name="Peito de frango grelhado")
+
+        opcoes = substitutions.substitutes_for(frango, 100)
+
+        self.assertTrue(opcoes)
+        for opcao in opcoes:
+            with self.subTest(alimento=opcao["food"].name):
+                self.assertEqual(
+                    substitutions.dominant_macro(opcao["food"]), "protein_g"
+                )
+
+    def test_the_substitute_delivers_the_same_protein(self):
+        frango = Food.objects.get(name="Peito de frango grelhado")
+        alvo = frango.macros_for(Decimal("100"))["protein_g"]
+
+        for opcao in substitutions.substitutes_for(frango, 100):
+            with self.subTest(alimento=opcao["food"].name):
+                self.assertAlmostEqual(
+                    float(opcao["protein_g"]), float(alvo), delta=1.5
+                )
+
+    def test_a_swap_that_would_blow_up_the_calories_is_dropped(self):
+        frango = Food.objects.get(name="Peito de frango grelhado")
+        alvo = frango.macros_for(Decimal("100"))["kcal"]
+
+        for opcao in substitutions.substitutes_for(frango, 100):
+            desvio = abs(opcao["kcal"] - alvo) / alvo
+            self.assertLessEqual(desvio, substitutions.KCAL_TOLERANCE)
+
+    def test_portions_that_stop_being_food_are_dropped(self):
+        """8 g não alimenta e 900 g não cabe no prato."""
+        arroz = Food.objects.get(name="Arroz branco cozido")
+
+        for opcao in substitutions.substitutes_for(arroz, 150):
+            self.assertGreaterEqual(opcao["quantity"], substitutions.MIN_GRAMS)
+            self.assertLessEqual(opcao["quantity"], substitutions.MAX_GRAMS)
+
+    def test_the_food_is_never_offered_as_its_own_substitute(self):
+        arroz = Food.objects.get(name="Arroz branco cozido")
+        nomes = [o["food"].name for o in substitutions.substitutes_for(arroz, 150)]
+        self.assertNotIn("Arroz branco cozido", nomes)
+
+    def test_retired_foods_never_show_up_as_a_swap(self):
+        """O catálogo aposentou whey e castanha — a troca não pode ressuscitar."""
+        frango = Food.objects.get(name="Peito de frango grelhado")
+
+        for opcao in substitutions.substitutes_for(frango, 100):
+            self.assertTrue(opcao["food"].is_active)
+
+    def test_the_summary_carries_what_the_modal_needs(self):
+        ovo = Food.objects.get(name="Ovo de galinha cozido")
+        resumo = substitutions.swap_summary(ovo, 100)
+
+        self.assertEqual(resumo["food"], ovo)
+        self.assertEqual(resumo["quantity"], Decimal("100"))
+        self.assertIn(resumo["macro_label"], substitutions.MACRO_LABEL.values())
+
+
+class SubstituteViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.client.force_login(self.user)
+        self.frango = Food.objects.get(name="Peito de frango grelhado")
+
+    def url(self, food, grams=100):
+        return reverse("plans:substitute_food", args=[food.pk]) + "?g=" + str(grams)
+
+    def test_it_returns_the_fragment_with_the_alternatives(self):
+        response = self.client.get(self.url(self.frango))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "de proteína")
+        self.assertContains(response, "Peito de frango grelhado")
+
+    def test_a_retired_food_is_not_reachable(self):
+        whey = Food.objects.get(name="Whey protein concentrado")
+        self.assertEqual(self.client.get(self.url(whey)).status_code, 404)
+
+    def test_a_garbage_amount_falls_back_instead_of_breaking(self):
+        response = self.client.get(
+            reverse("plans:substitute_food", args=[self.frango.pk]) + "?g=abacaxi"
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_an_absurd_amount_is_clamped(self):
+        response = self.client.get(self.url(self.frango, grams=99999))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertLessEqual(response.context["swap"]["quantity"], Decimal("2000"))
+
+    def test_it_requires_login(self):
+        self.client.logout()
+        response = self.client.get(self.url(self.frango))
+        self.assertIn(reverse("accounts:login"), response["Location"])

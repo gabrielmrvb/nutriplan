@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Lista de compras · NutriPlan{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Lista de compras</h1>
+    <p class="lead">
+      Tudo que o seu cardápio consome em {{ days }} dias, na ordem em que se anda no
+      mercado · {{ total_items }} itens
+    </p>
+  </div>
+
+  <div class="split">
+    <div class="split__main stack">
+      <section class="card">
+        <div class="card__head">
+          <h2>Baseada na opção</h2>
+        </div>
+        <div class="chip-row" style="justify-content:flex-start">
+          {% for value, nome in labels %}
+            <a class="chip {% if value == label %}chip--brand{% endif %}"
+               href="?opcao={{ value }}">{{ nome }}</a>
+          {% endfor %}
+        </div>
+        <p class="hint">
+          O cardápio oferece duas opções por refeição, e cada uma compra coisas
+          diferentes. A lista mostra uma de cada vez para você não sair do mercado com
+          o dobro de comida — troque aqui para comparar antes de decidir.
+        </p>
+      </section>
+
+      {% for aisle in aisles %}
+        <section class="card">
+          <div class="card__head">
+            <h2>{{ aisle.name }}</h2>
+            <span class="chip">{{ aisle.count }}</span>
+          </div>
+          <ul class="shopping">
+            {% for item in aisle.items %}
+              <li class="shopping__item">
+                <label class="shopping__check">
+                  <input type="checkbox">
+                  <span class="shopping__name">{{ item.food.name }}</span>
+                </label>
+                <span class="shopping__qty num">{{ item.display }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% empty %}
+        <section class="card">
+          <p class="empty-state">
+            Seu cardápio ainda não tem receitas suficientes para montar uma lista.
+          </p>
+        </section>
+      {% endfor %}
+    </div>
+
+    <aside class="split__aside stack">
+      <section class="card">
+        <div class="card__head"><h2>Como usar</h2></div>
+        <p class="hint">
+          As quantidades já vêm somadas para os {{ days }} dias e arredondadas para cima,
+          para embalagem: ninguém compra 847 g de arroz, compra 1 kg. Sobra pouca coisa
+          de propósito — faltar no meio da semana custa mais que sobrar.
+        </p>
+        <p class="hint">
+          Os itens marcados não somem: a marcação vale só enquanto a página estiver
+          aberta, para você ir riscando enquanto anda pelos corredores.
+        </p>
+        <a class="btn btn--ghost btn--block" href="{% url 'plans:today' %}"
+           style="margin-top:.8rem">
+          Voltar para o cardápio
+        </a>
+      </section>
+
+      <section class="card">
+        <div class="card__head"><h2>Seu cardápio</h2></div>
+        <dl class="data-list">
+          <div><dt>Meta diária</dt><dd>{{ plan.target_kcal }} kcal</dd></div>
+          <div><dt>Proteína</dt><dd>{{ plan.protein_g }} g</dd></div>
+          <div><dt>Refeições por dia</dt><dd>{{ plan.slots.count }}</dd></div>
+        </dl>
+      </section>
+    </aside>
+  </div>
+{% endblock %}

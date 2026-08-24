@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% block title %}Hoje · NutriPlan{% endblock %}
+
+{% comment %}
+A ordem da página é a ordem de uso: o resumo do dia, e logo abaixo a comida.
+O que a pessoa abre o app para fazer é decidir a próxima refeição e marcá-la —
+os números do cálculo são consulta ocasional e ficam depois (no desktop, na
+coluna da direita), não entre ela e o almoço.
+{% endcomment %}
+
+{% block content %}
+  <div class="split">
+    <div class="split__main stack">
+
+      {# ---------------- Painel do dia ---------------- #}
+      <section class="card today-hero">
+        <div class="ring" style="--pct: {{ summary.progress_pct }}"
+             role="img"
+             aria-label="{{ summary.consumed_kcal }} de {{ summary.target_kcal }} kcal">
+          <span class="ring__inner">
+            <strong class="ring__value">{{ summary.consumed_kcal }}</strong>
+            <span class="ring__unit">kcal hoje</span>
+            <span class="ring__of">de {{ summary.target_kcal }}</span>
+          </span>
+        </div>
+
+        {% comment %}
+          Três linhas de texto em vez de pílulas empilhadas: no celular cada
+          pílula virava uma linha própria e o resumo do dia sozinho ocupava
+          metade da tela — empurrando a comida, que é o motivo de abrir o app,
+          para fora da primeira dobra.
+        {% endcomment %}
+        <div class="today-hero__facts">
+          <p class="today-hero__left">
+            {% if summary.remaining_kcal > 0 %}
+              faltam <b class="num">{{ summary.remaining_kcal }} kcal</b>
+            {% else %}
+              <b>meta atingida</b>
+            {% endif %}
+          </p>
+          <p class="today-hero__meta num">
+            {{ summary.done }}/{{ summary.total }} refeições ·
+            P {{ summary.protein_g }} · C {{ summary.carb_g }} · G {{ summary.fat_g }}
+          </p>
+          <p class="today-hero__balance balance--{{ balance.kind }}">
+            {% if balance.kind == 'balance' %}
+              Sem déficit nem superávit · <b class="num">meta {{ plan.target_kcal }} kcal</b>
+            {% else %}
+              {% if balance.kind == 'deficit' %}Déficit{% else %}Superávit{% endif %}
+              <b class="num">
+                {% if balance.kind == 'deficit' %}−{% else %}+{% endif %}{{ balance.abs_kcal }} kcal/dia
+              </b>
+              · <b class="num">meta {{ plan.target_kcal }} kcal</b>
+            {% endif %}
+          </p>
+        </div>
+      </section>
+
+      {# ---------------- Refeições ---------------- #}
+      <section>
+        <div class="card__head">
+          <h2>Seu cardápio de hoje</h2>
+          <a href="{% url 'plans:shopping' %}">Lista de compras</a>
+        </div>
+
+        {% for slot in slots %}
+          <article class="meal {% if slot.log.status == 'done' %}meal--done{% endif %}">
+            <header class="meal__head">
+              <span class="meal__time">{{ slot.time|time:"H:i" }}</span>
+              <span class="meal__title">
+                <strong class="meal__name">{{ slot.name }}</strong>
+                <span class="meal__target">
+                  alvo {{ slot.target_kcal }} kcal · {{ slot.target_protein_g }} g de proteína
+                </span>
+              </span>
+            </header>
+
+            {% if slot.log %}
+              <div class="meal__result">
+                <span class="meal__result-name status--{{ slot.log.status }}">
+                  {% if slot.log.status == 'done' %}✓ {{ slot.log.chosen_option.template.name }}
+                  {% elif slot.log.status == 'skipped' %}Refeição pulada
+                  {% else %}Comeu outra coisa{% endif %}
+                </span>
+                {% if slot.log.status == 'done' %}
+                  <span class="num muted">{{ slot.log.kcal|floatformat:0 }} kcal</span>
+                {% endif %}
+                <form method="post" action="{% url 'plans:clear_meal' slot.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn-link">desfazer</button>
+                </form>
+              </div>
+            {% else %}
+              <div class="meal__options">
+                {% for option in slot.options.all %}
+                  <details class="option">
+                    <summary class="option__summary">
+                      <span class="option__label">{{ option.label }}</span>
+                      <span class="option__name">{{ option.template.name }}</span>
+                      <span class="option__facts">
+                        <span class="option__kcal">{{ option.kcal|floatformat:0 }} kcal</span>
+                        <span>{{ option.protein_g|floatformat:0 }} g P · {{ option.template.prep_minutes }} min</span>
+                      </span>
+                    </summary>
+                    <div class="option__body">
+                      <ul class="option__items">
+                        {% for item in option.ingredient_list %}
+                          <li>
+                            <button type="button" class="swap-open"
+                                    data-troca="{% url 'plans:substitute_food' item.food.pk %}?g={{ item.quantity|floatformat:0 }}"
+                                    data-nome="{{ item.food.name }}"
+                                    title="Trocar por um alimento equivalente">
+                              {{ item.food.name }}
+                              <span aria-hidden="true">⇄</span>
+                            </button>
+                            <b>{{ item.quantity|floatformat:0 }} {{ item.unit }}</b>
+                          </li>
+                        {% endfor %}
+                      </ul>
+                      {% if option.template.instructions %}
+                        <p class="option__how">{{ option.template.instructions }}</p>
+                      {% endif %}
+                      <form method="post" action="{% url 'plans:mark_meal' slot.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="status" value="done">
+                        <input type="hidden" name="option" value="{{ option.pk }}">
+                        <button type="submit" class="btn btn--primary btn--block">
+                          Comi esta
+                        </button>
+                      </form>
+                    </div>
+                  </details>
+                {% empty %}
+                  <p class="empty-state">
+                    Nenhuma receita do catálogo serve para este horário.
+                  </p>
+                {% endfor %}
+              </div>
+
+              <form method="post" action="{% url 'plans:mark_meal' slot.pk %}"
+                    class="meal__actions">
+                {% csrf_token %}
+                <button type="submit" name="status" value="skipped" class="btn btn--quiet">
+                  Pulei
+                </button>
+                <button type="submit" name="status" value="off_plan" class="btn btn--quiet">
+                  Comi outra coisa
+                </button>
+              </form>
+            {% endif %}
+          </article>
+        {% endfor %}
+
+        <p class="hint">
+          As duas opções de cada horário são equivalentes: cada receita foi escalada até
+          o alvo daquela refeição, então dá para trocar A por B sem refazer conta nenhuma.
+          Seguindo a opção A do dia inteiro dá <b class="num">{{ menu.kcal }} kcal</b> e
+          <b class="num">{{ menu.protein_g }} g</b> de proteína —
+          {% if menu_on_target %}
+            bate com a sua meta de {{ plan.target_kcal }} kcal.
+          {% else %}
+            {{ menu_gap }} kcal em relação à meta de {{ plan.target_kcal }} kcal, porque
+            em algum horário a porção chegaria ao limite do que é comida de verdade.
+          {% endif %}
+        </p>
+      </section>
+    </div>
+
+    {# ------------- Os números: consulta, não ação ------------- #}
+    <aside class="split__aside stack">
+      <section class="card">
+        <div class="card__head"><h2>Seu balanço de energia</h2></div>
+
+        <div class="balance balance--{{ balance.kind }}">
+          <span class="balance__value">
+            {% if balance.kind == 'deficit' %}−{{ balance.abs_kcal }}
+            {% elif balance.kind == 'surplus' %}+{{ balance.abs_kcal }}
+            {% else %}0{% endif %}
+          </span>
+          <span class="balance__body">
+            <strong class="balance__label">{{ balance.label }}</strong>
+            <span class="balance__meta">
+              {% if balance.kind == 'balance' %}
+                Você come exatamente o que gasta — o peso tende a se manter.
+              {% else %}
+                {{ balance.pct }}% do seu gasto · ritmo estimado de
+                {{ balance.weekly_kg|floatformat:2 }} kg por semana
+              {% endif %}
+            </span>
+          </span>
+        </div>
+
+        <div class="equation">
+          <span class="equation__cell">
+            <strong class="equation__value num">{{ balance.tdee_kcal }}</strong>
+            <span class="equation__label">gasto (TDEE)</span>
+          </span>
+          <span class="equation__op">
+            {% if balance.kind == 'surplus' %}+{% else %}−{% endif %}
+          </span>
+          <span class="equation__cell">
+            <strong class="equation__value num">{{ balance.abs_kcal }}</strong>
+            <span class="equation__label">
+              {% if balance.kind == 'surplus' %}superávit{% else %}déficit{% endif %}
+            </span>
+          </span>
+          <span class="equation__op">=</span>
+          <span class="equation__cell equation__cell--result">
+            <strong class="equation__value num">{{ balance.target_kcal }}</strong>
+            <span class="equation__label">meta diária</span>
+          </span>
+        </div>
+
+        {% if plan.notes %}
+          <p class="callout">{{ plan.notes }}</p>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <div class="card__head"><h2>Macros de hoje</h2></div>
+        <div class="macro-bar">
+          {% for macro in macros %}
+            <span class="macro-bar__part macro-bar__part--{{ macro.slug }}"
+                  style="width: {{ macro.pct }}%" title="{{ macro.name }}"></span>
+          {% endfor %}
+        </div>
+        <div class="macro-list">
+          {% for macro in macros %}
+            <div class="macro-line">
+              <div class="macro-line__head">
+                <span class="macro-dot macro-dot--{{ macro.slug }}"></span>
+                <span class="macro-line__name">{{ macro.name }}</span>
+                <span class="macro-line__value">{{ macro.eaten }} / {{ macro.grams }} g</span>
+              </div>
+              <div class="progress">
+                <span class="progress__fill progress__fill--{{ macro.slug }}"
+                      style="width: {{ macro.eaten_pct }}%"></span>
+              </div>
+              <span class="macro-line__meta">
+                faltam {{ macro.left }} g · {{ macro.kcal }} kcal · {{ macro.pct }}% da meta
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__head"><h2>Como chegamos na sua meta</h2></div>
+        <dl class="data-list data-list--total">
+          <div>
+            <dt>Gasto em repouso (TMB)</dt>
+            <dd>{{ breakdown.bmr_kcal }} kcal</dd>
+          </div>
+          <div>
+            <dt>
+              Fator de atividade
+              <span class="muted">({{ breakdown.factor_min }}–{{ breakdown.factor_max }},
+              {{ breakdown.training_days }}× por semana)</span>
+            </dt>
+            <dd>×{{ breakdown.activity_factor }}</dd>
+          </div>
+          <div>
+            <dt>Gasto total estimado (TDEE)</dt>
+            <dd>{{ breakdown.tdee_kcal }} kcal</dd>
+          </div>
+          <div>
+            <dt>
+              Ajuste do objetivo
+              {% if breakdown.adjustment_pct %}({{ breakdown.adjustment_pct }}%){% endif %}
+            </dt>
+            <dd>
+              {% if breakdown.adjustment_kcal %}{{ breakdown.adjustment_kcal }} kcal
+              {% else %}manter{% endif %}
+            </dd>
+          </div>
+          <div>
+            <dt><strong>Meta diária</strong></dt>
+            <dd><strong>{{ plan.target_kcal }} kcal</strong></dd>
+          </div>
+        </dl>
+        <p class="hint">
+          O gasto vem da fórmula de Mifflin-St Jeor com o seu peso, altura, idade e sexo,
+          multiplicada por um fator de atividade que já inclui a academia. O fator é uma
+          faixa: quem não treina fica no piso dela, quem treina cinco vezes por semana
+          chega ao teto. Os valores são conservadores de propósito — meta inflada é a
+          razão mais comum de uma dieta não funcionar. O ritmo em quilos usa a convenção
+          de 7.700 kcal por quilo de gordura.
+        </p>
+      </section>
+
+      <section class="card">
+        <div class="card__head">
+          <h2>Dados do cálculo</h2>
+          <a href="{% url 'accounts:profile' %}">Editar</a>
+        </div>
+        <dl class="data-list">
+          <div><dt>Objetivo</dt><dd>{{ plan.get_goal_display }}</dd></div>
+          <div><dt>Peso</dt><dd>{{ plan.weight_kg|floatformat:1 }} kg</dd></div>
+          <div><dt>Altura</dt><dd>{{ plan.height_cm }} cm</dd></div>
+          <div><dt>Idade</dt><dd>{{ plan.age_years }} anos</dd></div>
+          <div><dt>Rotina</dt><dd>{{ plan.get_activity_level_display }}</dd></div>
+          <div>
+            <dt>Treinos</dt>
+            <dd>
+              {% if training_days %}
+                {{ plan.training_days_per_week }} dias · {{ training_days.0.duration_min }} min
+              {% else %}nenhum{% endif %}
+            </dd>
+          </div>
+          <div><dt>Calculado em</dt><dd>{{ plan.created_at|date:"d/m/Y" }}</dd></div>
+        </dl>
+
+        <form method="post" action="{% url 'plans:recalculate' %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn--ghost btn--block" style="margin-top:1rem">
+            Recalcular minha meta
+          </button>
+        </form>
+        <p class="hint">
+          Mudou peso, objetivo ou rotina? A meta se atualiza sozinha — este botão é só
+          para forçar um plano novo com os dados de hoje.
+        </p>
+      </section>
+
+      <section class="card">
+        <div class="card__head"><h2>Lembretes</h2></div>
+        <p class="muted" data-push-status style="margin:0 0 .8rem">
+          Ative para receber um aviso 10 minutos antes de cada refeição.
+        </p>
+        <button type="button" class="btn btn--ghost btn--block" data-push-toggle hidden>
+          Ativar lembretes das refeições
+        </button>
+        <noscript>
+          <p class="hint">Os lembretes precisam de JavaScript ativado.</p>
+        </noscript>
+      </section>
+    </aside>
+  </div>
+  {% comment %}
+    Modal de substituição. O conteúdo vem do servidor no clique: o cálculo de
+    equivalência precisa do catálogo inteiro, e mandar isso para o navegador de
+    todo mundo, em toda visita, para talvez ser usado uma vez, seria pagar caro
+    por uma conveniência rara.
+  {% endcomment %}
+  <dialog class="modal" id="swap-modal">
+    <div class="modal__head">
+      <strong class="modal__title" data-swap-titulo></strong>
+      <button type="button" class="modal__close" data-swap-fechar
+              aria-label="Fechar">&times;</button>
+    </div>
+    <div class="swap__body" data-swap-corpo></div>
+  </dialog>
+
+  <script>
+    (function () {
+      var modal = document.getElementById("swap-modal");
+      if (!modal || !modal.showModal) return;
+      var corpo = modal.querySelector("[data-swap-corpo]");
+      var titulo = modal.querySelector("[data-swap-titulo]");
+
+      document.addEventListener("click", function (event) {
+        var botao = event.target.closest("[data-troca]");
+        if (botao) {
+          titulo.textContent = "Trocar " + botao.dataset.nome;
+          corpo.innerHTML = '<p class="swap__loading">Procurando equivalentes…</p>';
+          modal.showModal();
+          fetch(botao.dataset.troca, {headers: {"X-Requested-With": "fetch"}})
+            .then(function (r) { return r.text(); })
+            .then(function (html) { corpo.innerHTML = html; })
+            .catch(function () {
+              corpo.innerHTML =
+                '<p class="swap__empty">Não deu para carregar agora. Tente de novo.</p>';
+            });
+          return;
+        }
+        if (event.target.closest("[data-swap-fechar]")) modal.close();
+      });
+
+      modal.addEventListener("click", function (event) {
+        if (event.target === modal) modal.close();
+      });
+    })();
+  </script>
+{% endblock %}

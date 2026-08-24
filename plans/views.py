@@ -1,0 +1,354 @@
+"""Telas do plano: a meta, o cardápio do dia e o acompanhamento.
+
+A rota `today` concentra o uso diário — meta, refeições e marcação — porque é
+a única tela que a pessoa abre várias vezes por dia. O histórico fica numa
+rota separada, que é consulta ocasional.
+"""
+from decimal import Decimal, InvalidOperation
+
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.generic import TemplateView, View
+
+from accounts.models import ACTIVITY_FACTORS
+from accounts.views import OnboardingRequiredMixin
+from catalog.models import Food
+
+from . import services, shopping, substitutions, tracking
+from .calculations import (
+    KCAL_PER_G_CARB,
+    KCAL_PER_G_FAT,
+    KCAL_PER_G_PROTEIN,
+    activity_factor,
+)
+from .models import MealOption, MealSlot, MealStatus, OptionLabel
+
+
+def macro_rows(plan, summary=None):
+    """Os três macros prontos para a tela.
+
+    Quando o resumo do dia vem junto, cada macro sai com o quanto já foi comido
+    e a barra de progresso correspondente — é a leitura que a pessoa faz várias
+    vezes por dia ("falta proteína?"), e ela não deveria exigir subtração
+    mental na tela.
+    """
+    total = plan.target_kcal or 1
+    rows = [
+        ("Proteína", plan.protein_g, KCAL_PER_G_PROTEIN, "protein", "protein_g"),
+        ("Carboidrato", plan.carb_g, KCAL_PER_G_CARB, "carb", "carb_g"),
+        ("Gordura", plan.fat_g, KCAL_PER_G_FAT, "fat", "fat_g"),
+    ]
+    macros = []
+    for name, grams, kcal_per_g, slug, key in rows:
+        eaten = (summary or {}).get(key, 0)
+        macros.append(
+            {
+                "name": name,
+                "grams": grams,
+                "kcal": grams * kcal_per_g,
+                "pct": round(grams * kcal_per_g * 100 / total),
+                "slug": slug,
+                "eaten": eaten,
+                "eaten_pct": min(round(eaten * 100 / (grams or 1)), 100),
+                "left": max(grams - eaten, 0),
+            }
+        )
+    return macros
+
+
+#: Convenção clássica: 1 kg de gordura corporal ≈ 7.700 kcal. É estimativa, não
+#: lei — serve para transformar "-500 kcal por dia" em "meio quilo por semana",
+#: que é a única forma de a pessoa saber se o ritmo dela faz sentido.
+KCAL_PER_KG = 7700
+
+#: Diferença entre o cardápio e a meta que a tela trata como "bateu". Quarenta
+#: kcal é menos que uma colher de arroz — abaixo disso a precisão é ilusória,
+#: porque a própria tabela nutricional do alimento tem erro maior que esse.
+MENU_TOLERANCE_KCAL = 40
+
+ENERGY_BALANCE_LABEL = {
+    "deficit": "Déficit diário recomendado",
+    "surplus": "Superávit diário recomendado",
+    "balance": "Sem déficit nem superávit",
+}
+
+
+def energy_balance(plan) -> dict:
+    """A diferença entre o que a pessoa gasta e o que ela vai comer.
+
+    É o número que explica a dieta inteira em uma linha: emagrecer é comer
+    abaixo do gasto, ganhar massa é comer acima. A tela mostra ele com o sinal
+    na frente (-513 kcal) porque déficit e superávit são a mesma conta em
+    sentidos opostos, e esconder o sinal obrigaria a pessoa a descobrir de
+    cabeça de que lado ela está.
+
+    O ritmo semanal em quilos vem junto: sem ele, "-500 kcal por dia" é um
+    número abstrato; com ele, a pessoa consegue julgar se o plano é rápido
+    demais ou lento demais para ela.
+    """
+    delta = plan.target_kcal - plan.tdee_kcal
+    kind = "deficit" if delta < 0 else "surplus" if delta > 0 else "balance"
+    return {
+        "kind": kind,
+        "label": ENERGY_BALANCE_LABEL[kind],
+        "delta_kcal": delta,
+        "abs_kcal": abs(delta),
+        "pct": round(abs(delta) * 100 / (plan.tdee_kcal or 1)),
+        "weekly_kcal": delta * 7,
+        "weekly_kg": round(abs(delta) * 7 / KCAL_PER_KG, 2),
+        "tdee_kcal": plan.tdee_kcal,
+        "target_kcal": plan.target_kcal,
+    }
+
+
+def menu_totals(slots) -> dict:
+    """Soma do cardápio seguindo a Opção A de cada refeição.
+
+    Serve de prova na tela de que o cardápio realmente fecha na meta: os alvos
+    por horário somam a meta por construção, mas a receita escalada pode parar
+    um pouco antes quando a porção chegaria ao limite do que é comida de
+    verdade. Mostrar a soma real, e não só a pretendida, é o que deixa isso
+    visível em vez de escondido.
+    """
+    totals = {"kcal": 0, "protein_g": 0, "carb_g": 0, "fat_g": 0}
+    for slot in slots:
+        option = next(iter(slot.options.all()), None)
+        if option is None:
+            continue
+        totals["kcal"] += int(option.kcal)
+        totals["protein_g"] += int(option.protein_g)
+        totals["carb_g"] += int(option.carb_g)
+        totals["fat_g"] += int(option.fat_g)
+    return totals
+
+
+def breakdown(plan):
+    """Passo a passo do cálculo, montado só com dados congelados no plano.
+
+    O fator é recalculado a partir das entradas do plano em vez de guardado num
+    campo: dois números que dizem a mesma coisa acabam discordando um dia, e
+    aqui o plano já guarda tudo que a conta precisa (nível e frequência).
+    """
+    factor = activity_factor(plan.activity_level, plan.training_days_per_week)
+    minimo, maximo = ACTIVITY_FACTORS[plan.activity_level]
+    ajuste = plan.target_kcal - plan.tdee_kcal
+    return {
+        "bmr_kcal": plan.bmr_kcal,
+        "activity_factor": factor.quantize(Decimal("0.01")),
+        "factor_min": minimo,
+        "factor_max": maximo,
+        "training_days": plan.training_days_per_week,
+        "tdee_kcal": plan.tdee_kcal,
+        "adjustment_pct": round(abs(ajuste) * 100 / (plan.tdee_kcal or 1)),
+        "adjustment_kcal": ajuste,
+    }
+
+
+class PlanRequiredMixin(OnboardingRequiredMixin):
+    """Coloca o plano ativo (recalculando se necessário) em self.plan.
+
+    A sincronização acontece na entrada da tela, e não no fim do onboarding,
+    porque assim ela cobre qualquer origem de mudança — wizard, admin, um
+    registro de peso novo — sem espalhar chamadas de recálculo pelo código.
+    """
+
+    def get_plan(self, request):
+        plan, changed = services.sync_active_plan(request.user)
+        if changed and request.user.plans.count() > 1:
+            messages.info(
+                request, "Seus dados mudaram, então recalculamos sua meta."
+            )
+        return plan
+
+
+class TodayView(PlanRequiredMixin, TemplateView):
+    template_name = "plans/today.html"
+
+    def get(self, request, *args, **kwargs):
+        try:
+            self.plan = self.get_plan(request)
+        except services.IncompleteProfile:
+            messages.info(request, "Faltou completar seu cadastro para calcularmos a dieta.")
+            return redirect("accounts:onboarding")
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.localdate()
+        logs = tracking.logs_by_slot(self.request.user, today)
+
+        slots = list(
+            self.plan.slots.prefetch_related("options__template__items__food")
+        )
+        for slot in slots:
+            # O log vira atributo do slot para o template não precisar de um
+            # filtro de dicionário — a linguagem de template não indexa por
+            # variável, e criar um filtro só para isso é peso morto.
+            slot.log = logs.get(slot.pk)
+
+        summary = tracking.day_summary(self.request.user, self.plan, today)
+        menu = menu_totals(slots)
+        context.update(
+            {
+                "plan": self.plan,
+                "profile": self.request.user.profile,
+                "macros": macro_rows(self.plan, summary),
+                "breakdown": breakdown(self.plan),
+                "balance": energy_balance(self.plan),
+                "menu": menu,
+                # Diferença entre o cardápio montado e a meta. A tela mostra
+                # "bate com a meta" quando é irrelevante, e o número quando não é.
+                "menu_gap": menu["kcal"] - self.plan.target_kcal,
+                "menu_on_target": abs(menu["kcal"] - self.plan.target_kcal) <= MENU_TOLERANCE_KCAL,
+                "nav": "today",
+                "training_days": self.request.user.training_days.all(),
+                "slots": slots,
+                "today": today,
+                "summary": summary,
+            }
+        )
+        return context
+
+
+class MarkMealView(OnboardingRequiredMixin, View):
+    """Marca uma refeição do dia. Só POST — isso muda estado.
+
+    A ação chega como `status` e, quando é "comi", vem junto o id da opção
+    escolhida. O slot é buscado dentro do plano ATIVO do próprio usuário: sem
+    esse filtro, um id de outra pessoa marcaria refeição na conta errada.
+    """
+
+    def post(self, request, slot_id, *args, **kwargs):
+        slot = get_object_or_404(
+            MealSlot, pk=slot_id, plan__user=request.user, plan__is_active=True
+        )
+        status = request.POST.get("status")
+        if status not in MealStatus.values:
+            return redirect("plans:today")
+
+        option = None
+        if status == MealStatus.DONE:
+            option = get_object_or_404(
+                MealOption, pk=request.POST.get("option"), slot=slot
+            )
+
+        tracking.log_meal(request.user, slot, status, option)
+        return redirect("plans:today")
+
+
+class ClearMealView(OnboardingRequiredMixin, View):
+    """Desfaz a marcação de uma refeição do dia."""
+
+    def post(self, request, slot_id, *args, **kwargs):
+        slot = get_object_or_404(
+            MealSlot, pk=slot_id, plan__user=request.user, plan__is_active=True
+        )
+        slot.logs.filter(user=request.user, date=timezone.localdate()).delete()
+        return redirect("plans:today")
+
+
+class HistoryView(OnboardingRequiredMixin, TemplateView):
+    template_name = "plans/history.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        rows = tracking.history(self.request.user)
+        plan = services.get_active_plan(self.request.user)
+        for row in rows:
+            # A barra compara o dia com a meta que vale hoje. O plano é um
+            # snapshot, então o ideal seria a meta da época — fica para quando
+            # existir mais de um plano por semana na prática.
+            row["pct"] = min(int(row["kcal"] * 100 / (plan.target_kcal or 1)), 100)
+        context.update(
+            {
+                "plan": plan,
+                "rows": rows,
+                "totals": tracking.adherence(rows),
+                "days": tracking.HISTORY_DAYS,
+                "weight_entries": self.request.user.weight_entries.all()[:10],
+                "nav": "history",
+            }
+        )
+        return context
+
+
+class RecalculatePlanView(OnboardingRequiredMixin, View):
+    """Recálculo manual, só por POST.
+
+    O recálculo automático já cobre mudança de dado; este botão existe para o
+    caso de a pessoa querer forçar um plano novo (voltou de férias, mudou de
+    fase) e para deixar explícito que recalcular é uma ação, não um efeito
+    colateral de abrir uma tela.
+    """
+
+    def post(self, request, *args, **kwargs):
+        try:
+            services.create_plan(request.user)
+        except services.IncompleteProfile:
+            return redirect("accounts:onboarding")
+        messages.success(request, "Meta recalculada com os seus dados de hoje.")
+        return redirect("plans:today")
+
+
+class ShoppingListView(PlanRequiredMixin, TemplateView):
+    """A lista de compras da semana, por corredor de supermercado."""
+
+    template_name = "plans/shopping.html"
+
+    def get(self, request, *args, **kwargs):
+        try:
+            self.plan = self.get_plan(request)
+        except services.IncompleteProfile:
+            messages.info(request, "Faltou completar seu cadastro para montar a lista.")
+            return redirect("accounts:onboarding")
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # A opção vem da URL para a pessoa poder ver a lista da B sem precisar
+        # trocar nada no plano — é comparação de compras, não mudança de dieta.
+        label = self.request.GET.get("opcao", OptionLabel.A)
+        if label not in OptionLabel.values:
+            label = OptionLabel.A
+
+        aisles = shopping.shopping_list(self.plan, label=label)
+        context.update(
+            {
+                # A lista é uma subtela da dieta: manter a aba Dieta acesa é
+                # melhor que deixar a barra inteira apagada, que dá sensação de
+                # ter saído do app.
+                "nav": "today",
+                "plan": self.plan,
+                "aisles": aisles,
+                "label": label,
+                "labels": OptionLabel.choices,
+                "days": shopping.DAYS,
+                "total_items": sum(aisle["count"] for aisle in aisles),
+            }
+        )
+        return context
+
+
+class SubstituteFoodView(OnboardingRequiredMixin, View):
+    """Alternativas equivalentes a um alimento, em HTML pronto para o modal.
+
+    Devolve um fragmento e não JSON de propósito: quem monta a tabela é o
+    template, do mesmo jeito que o resto do app, e o JavaScript da página fica
+    sendo três linhas de `fetch` + `innerHTML` em vez de um renderizador
+    paralelo que precisa ser mantido em dia com o servidor.
+    """
+
+    def get(self, request, food_id, *args, **kwargs):
+        food = get_object_or_404(Food, pk=food_id, is_active=True)
+        try:
+            grams = Decimal(request.GET.get("g", "100"))
+        except (InvalidOperation, TypeError):
+            grams = Decimal("100")
+        grams = max(Decimal("1"), min(grams, Decimal("2000")))
+
+        return render(
+            request,
+            "plans/partials/substitutes.html",
+            {"swap": substitutions.swap_summary(food, grams)},
+        )

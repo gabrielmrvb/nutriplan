@@ -1,0 +1,1724 @@
+[
+  {
+    "name": "Cuscuz com banana e amendoim",
+    "tags": [
+      "vegana",
+      "vegetariana",
+      "sem-lactose",
+      "sem-gluten",
+      "rapida"
+    ],
+    "prep_minutes": 10,
+    "instructions": "Hidrate o cuscuz, leve à cuscuzeira e sirva com a banana e o amendoim.",
+    "items": [
+      [
+        "Cuscuz de milho cozido",
+        150,
+        true
+      ],
+      [
+        "Banana prata",
+        80,
+        false
+      ],
+      [
+        "Amendoim torrado",
+        20,
+        true
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Cuscuz com carne de soja",
+    "tags": [
+      "vegana",
+      "vegetariana",
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 15,
+    "instructions": "Hidrate a proteína de soja, refogue com cebola e tomate e sirva sobre o cuscuz.",
+    "items": [
+      [
+        "Cuscuz de milho cozido",
+        150,
+        true
+      ],
+      [
+        "Proteína de soja texturizada (seca)",
+        25,
+        true
+      ],
+      [
+        "Cebola",
+        30,
+        false
+      ],
+      [
+        "Tomate",
+        40,
+        false
+      ],
+      [
+        "Óleo de soja",
+        5,
+        false
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Cuscuz com ovo",
+    "tags": [
+      "vegetariana",
+      "sem-gluten",
+      "sem-lactose",
+      "rapida"
+    ],
+    "prep_minutes": 10,
+    "instructions": "Hidrate o cuscuz, leve à cuscuzeira e sirva com o ovo frito ou cozido.",
+    "items": [
+      [
+        "Cuscuz de milho cozido",
+        150,
+        true
+      ],
+      [
+        "Ovo de galinha cozido",
+        100,
+        false
+      ],
+      [
+        "Óleo de soja",
+        5,
+        false
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Mingau de aveia com amendoim",
+    "tags": [
+      "vegana",
+      "vegetariana",
+      "sem-lactose",
+      "rapida"
+    ],
+    "prep_minutes": 8,
+    "instructions": "Cozinhe a aveia com água, misture a pasta de amendoim e a banana amassada.",
+    "items": [
+      [
+        "Aveia em flocos",
+        60,
+        true
+      ],
+      [
+        "Pasta de amendoim integral",
+        20,
+        true
+      ],
+      [
+        "Banana prata",
+        70,
+        false
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Mingau de aveia com leite e mel",
+    "tags": [
+      "vegetariana",
+      "rapida"
+    ],
+    "prep_minutes": 8,
+    "instructions": "Cozinhe a aveia com o leite até engrossar e finalize com o mel.",
+    "items": [
+      [
+        "Aveia em flocos",
+        50,
+        true
+      ],
+      [
+        "Leite desnatado",
+        200,
+        true
+      ],
+      [
+        "Banana prata",
+        70,
+        false
+      ],
+      [
+        "Mel",
+        10,
+        false
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Ovos mexidos com pão francês",
+    "tags": [
+      "vegetariana",
+      "rapida"
+    ],
+    "prep_minutes": 8,
+    "instructions": "Mexa os ovos na frigideira com a manteiga e sirva com o pão.",
+    "items": [
+      [
+        "Ovo de galinha cozido",
+        100,
+        false
+      ],
+      [
+        "Pão francês",
+        50,
+        true
+      ],
+      [
+        "Manteiga",
+        5,
+        false
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Pão com queijo e café com leite",
+    "tags": [
+      "vegetariana",
+      "rapida"
+    ],
+    "prep_minutes": 5,
+    "instructions": "Monte o pão com o queijo e sirva com o café com leite.",
+    "items": [
+      [
+        "Pão de forma integral",
+        50,
+        true
+      ],
+      [
+        "Queijo prato",
+        40,
+        true
+      ],
+      [
+        "Leite integral",
+        150,
+        true
+      ],
+      [
+        "Café coado sem açúcar",
+        100,
+        false
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Pão com requeijão e café com leite",
+    "tags": [
+      "vegetariana",
+      "rapida"
+    ],
+    "prep_minutes": 5,
+    "instructions": "Passe o requeijão no pão e sirva com o café com leite.",
+    "items": [
+      [
+        "Pão de forma integral",
+        50,
+        true
+      ],
+      [
+        "Requeijão cremoso",
+        30,
+        true
+      ],
+      [
+        "Leite integral",
+        150,
+        true
+      ],
+      [
+        "Café coado sem açúcar",
+        100,
+        false
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Pão francês com ovo e queijo",
+    "tags": [
+      "vegetariana",
+      "rapida"
+    ],
+    "prep_minutes": 8,
+    "instructions": "Frite o ovo, monte no pão com o queijo e volte à frigideira até derreter.",
+    "items": [
+      [
+        "Pão francês",
+        50,
+        true
+      ],
+      [
+        "Ovo de galinha cozido",
+        100,
+        false
+      ],
+      [
+        "Queijo muçarela",
+        30,
+        true
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Tapioca com frango desfiado",
+    "tags": [
+      "sem-gluten",
+      "sem-lactose",
+      "rapida"
+    ],
+    "prep_minutes": 10,
+    "instructions": "Firme a goma na frigideira e recheie com o frango desfiado.",
+    "items": [
+      [
+        "Goma de tapioca hidratada",
+        60,
+        true
+      ],
+      [
+        "Peito de frango grelhado",
+        80,
+        true
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Tapioca com ovo",
+    "tags": [
+      "vegetariana",
+      "sem-gluten",
+      "sem-lactose",
+      "rapida"
+    ],
+    "prep_minutes": 8,
+    "instructions": "Espalhe a goma na frigideira quente até firmar e recheie com o ovo mexido.",
+    "items": [
+      [
+        "Goma de tapioca hidratada",
+        60,
+        true
+      ],
+      [
+        "Ovo de galinha cozido",
+        100,
+        false
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Tapioca com ovo e queijo",
+    "tags": [
+      "vegetariana",
+      "sem-gluten",
+      "rapida"
+    ],
+    "prep_minutes": 8,
+    "instructions": "Firme a goma na frigideira, recheie com o ovo mexido e o queijo e dobre.",
+    "items": [
+      [
+        "Goma de tapioca hidratada",
+        60,
+        true
+      ],
+      [
+        "Ovo de galinha cozido",
+        100,
+        false
+      ],
+      [
+        "Queijo muçarela",
+        30,
+        true
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Tapioca com pasta de amendoim e banana",
+    "tags": [
+      "vegana",
+      "vegetariana",
+      "sem-lactose",
+      "sem-gluten",
+      "rapida"
+    ],
+    "prep_minutes": 8,
+    "instructions": "Firme a goma na frigideira e recheie com a pasta e a banana em rodelas.",
+    "items": [
+      [
+        "Goma de tapioca hidratada",
+        60,
+        true
+      ],
+      [
+        "Pasta de amendoim integral",
+        25,
+        true
+      ],
+      [
+        "Banana prata",
+        70,
+        false
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Vitamina de banana com aveia",
+    "tags": [
+      "vegetariana",
+      "rapida"
+    ],
+    "prep_minutes": 5,
+    "instructions": "Bata o leite com a banana e a aveia no liquidificador.",
+    "items": [
+      [
+        "Leite integral",
+        250,
+        true
+      ],
+      [
+        "Banana prata",
+        120,
+        false
+      ],
+      [
+        "Aveia em flocos",
+        30,
+        true
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Vitamina de banana com aveia e amendoim",
+    "tags": [
+      "vegetariana",
+      "rapida"
+    ],
+    "prep_minutes": 5,
+    "instructions": "Bata o leite com a banana, a aveia e a pasta de amendoim no liquidificador.",
+    "items": [
+      [
+        "Leite integral",
+        250,
+        true
+      ],
+      [
+        "Banana prata",
+        120,
+        false
+      ],
+      [
+        "Aveia em flocos",
+        40,
+        true
+      ],
+      [
+        "Pasta de amendoim integral",
+        20,
+        true
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Vitamina de mamão com aveia",
+    "tags": [
+      "vegetariana",
+      "rapida"
+    ],
+    "prep_minutes": 5,
+    "instructions": "Bata o leite com o mamão e a aveia no liquidificador.",
+    "items": [
+      [
+        "Leite integral",
+        250,
+        true
+      ],
+      [
+        "Mamão papaia",
+        150,
+        false
+      ],
+      [
+        "Aveia em flocos",
+        30,
+        true
+      ]
+    ],
+    "category": "breakfast",
+    "everyday": true
+  },
+  {
+    "name": "Amendoim com maçã",
+    "tags": [
+      "vegana",
+      "vegetariana",
+      "sem-lactose",
+      "sem-gluten",
+      "rapida"
+    ],
+    "prep_minutes": 2,
+    "instructions": "Coma a maçã em fatias com o amendoim.",
+    "items": [
+      [
+        "Amendoim torrado",
+        30,
+        true
+      ],
+      [
+        "Maçã",
+        130,
+        false
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Banana com aveia",
+    "tags": [
+      "vegana",
+      "vegetariana",
+      "sem-lactose",
+      "rapida"
+    ],
+    "prep_minutes": 2,
+    "instructions": "Amasse a banana e misture a aveia.",
+    "items": [
+      [
+        "Banana prata",
+        120,
+        true
+      ],
+      [
+        "Aveia em flocos",
+        25,
+        true
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Banana com pasta de amendoim e aveia",
+    "tags": [
+      "vegana",
+      "vegetariana",
+      "sem-lactose",
+      "rapida"
+    ],
+    "prep_minutes": 3,
+    "instructions": "Corte a banana ao meio, espalhe a pasta e salpique a aveia.",
+    "items": [
+      [
+        "Banana prata",
+        120,
+        true
+      ],
+      [
+        "Pasta de amendoim integral",
+        25,
+        true
+      ],
+      [
+        "Aveia em flocos",
+        20,
+        true
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Iogurte com aveia",
+    "tags": [
+      "vegetariana",
+      "rapida"
+    ],
+    "prep_minutes": 2,
+    "instructions": "Misture a aveia no iogurte e coma.",
+    "items": [
+      [
+        "Iogurte natural integral",
+        150,
+        true
+      ],
+      [
+        "Aveia em flocos",
+        15,
+        true
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Iogurte com banana e aveia",
+    "tags": [
+      "vegetariana",
+      "rapida"
+    ],
+    "prep_minutes": 3,
+    "instructions": "Misture tudo no pote e coma.",
+    "items": [
+      [
+        "Iogurte natural integral",
+        170,
+        true
+      ],
+      [
+        "Banana prata",
+        100,
+        false
+      ],
+      [
+        "Aveia em flocos",
+        20,
+        true
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Iogurte com mamão e mel",
+    "tags": [
+      "vegetariana",
+      "sem-gluten",
+      "rapida"
+    ],
+    "prep_minutes": 3,
+    "instructions": "Pique o mamão, misture ao iogurte e finalize com o mel.",
+    "items": [
+      [
+        "Iogurte natural integral",
+        170,
+        true
+      ],
+      [
+        "Mamão papaia",
+        120,
+        false
+      ],
+      [
+        "Mel",
+        10,
+        false
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Mamão com aveia",
+    "tags": [
+      "vegana",
+      "vegetariana",
+      "sem-lactose",
+      "rapida"
+    ],
+    "prep_minutes": 3,
+    "instructions": "Pique o mamão e misture a aveia.",
+    "items": [
+      [
+        "Mamão papaia",
+        200,
+        true
+      ],
+      [
+        "Aveia em flocos",
+        30,
+        true
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Pão com ovo",
+    "tags": [
+      "vegetariana",
+      "rapida"
+    ],
+    "prep_minutes": 6,
+    "instructions": "Frite o ovo e monte no pão.",
+    "items": [
+      [
+        "Pão de forma integral",
+        50,
+        true
+      ],
+      [
+        "Ovo de galinha cozido",
+        50,
+        false
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Pão com queijo minas e tomate",
+    "tags": [
+      "vegetariana",
+      "rapida"
+    ],
+    "prep_minutes": 4,
+    "instructions": "Monte o pão com o queijo minas em fatias e o tomate temperado com sal.",
+    "items": [
+      [
+        "Pão de forma integral",
+        50,
+        true
+      ],
+      [
+        "Queijo minas frescal",
+        60,
+        true
+      ],
+      [
+        "Tomate",
+        40,
+        false
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Pão com requeijão",
+    "tags": [
+      "vegetariana",
+      "rapida"
+    ],
+    "prep_minutes": 3,
+    "instructions": "Passe o requeijão nas fatias de pão.",
+    "items": [
+      [
+        "Pão de forma integral",
+        40,
+        true
+      ],
+      [
+        "Requeijão cremoso",
+        20,
+        true
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Queijo minas com banana",
+    "tags": [
+      "vegetariana",
+      "sem-gluten",
+      "rapida"
+    ],
+    "prep_minutes": 2,
+    "instructions": "Coma o queijo em cubos com a banana em rodelas.",
+    "items": [
+      [
+        "Queijo minas frescal",
+        60,
+        true
+      ],
+      [
+        "Banana prata",
+        70,
+        true
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Salada de grão-de-bico com tomate",
+    "tags": [
+      "vegana",
+      "vegetariana",
+      "sem-lactose",
+      "sem-gluten",
+      "rapida"
+    ],
+    "prep_minutes": 5,
+    "instructions": "Misture o grão-de-bico cozido com o tomate e a cebola picados e tempere.",
+    "items": [
+      [
+        "Grão-de-bico cozido",
+        150,
+        true
+      ],
+      [
+        "Tomate",
+        50,
+        false
+      ],
+      [
+        "Cebola",
+        20,
+        false
+      ],
+      [
+        "Azeite de oliva extra virgem",
+        5,
+        false
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Sanduíche de atum",
+    "tags": [
+      "sem-lactose",
+      "rapida"
+    ],
+    "prep_minutes": 5,
+    "instructions": "Misture o atum com o azeite e recheie o pão com a alface.",
+    "items": [
+      [
+        "Pão de forma integral",
+        50,
+        true
+      ],
+      [
+        "Atum em água (drenado)",
+        80,
+        true
+      ],
+      [
+        "Alface",
+        20,
+        false
+      ],
+      [
+        "Azeite de oliva extra virgem",
+        5,
+        false
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Sanduíche de frango com alface",
+    "tags": [
+      "sem-lactose",
+      "rapida"
+    ],
+    "prep_minutes": 5,
+    "instructions": "Monte o sanduíche com o frango desfiado, a alface e o tomate.",
+    "items": [
+      [
+        "Pão de forma integral",
+        50,
+        true
+      ],
+      [
+        "Peito de frango grelhado",
+        80,
+        true
+      ],
+      [
+        "Alface",
+        20,
+        false
+      ],
+      [
+        "Tomate",
+        30,
+        false
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Sanduíche de presunto e queijo",
+    "tags": [
+      "rapida"
+    ],
+    "prep_minutes": 4,
+    "instructions": "Monte o sanduíche com o presunto, o queijo e o tomate em rodelas.",
+    "items": [
+      [
+        "Pão de forma integral",
+        50,
+        true
+      ],
+      [
+        "Presunto cozido",
+        40,
+        true
+      ],
+      [
+        "Queijo muçarela",
+        30,
+        true
+      ],
+      [
+        "Tomate",
+        30,
+        false
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Tapioca com banana e amendoim",
+    "tags": [
+      "vegana",
+      "vegetariana",
+      "sem-lactose",
+      "sem-gluten",
+      "rapida"
+    ],
+    "prep_minutes": 6,
+    "instructions": "Firme a goma na frigideira e recheie com a banana em rodelas e o amendoim.",
+    "items": [
+      [
+        "Goma de tapioca hidratada",
+        60,
+        true
+      ],
+      [
+        "Banana prata",
+        70,
+        false
+      ],
+      [
+        "Amendoim torrado",
+        20,
+        true
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Tapioca com queijo",
+    "tags": [
+      "vegetariana",
+      "sem-gluten",
+      "rapida"
+    ],
+    "prep_minutes": 6,
+    "instructions": "Espalhe a goma na frigideira quente, cubra com o queijo e dobre ao meio.",
+    "items": [
+      [
+        "Goma de tapioca hidratada",
+        60,
+        true
+      ],
+      [
+        "Queijo muçarela",
+        45,
+        true
+      ]
+    ],
+    "category": "snack",
+    "everyday": true
+  },
+  {
+    "name": "Arroz com frango e cenoura",
+    "tags": [
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 20,
+    "instructions": "Refogue o frango em cubos com a cenoura e misture ao arroz.",
+    "items": [
+      [
+        "Arroz branco cozido",
+        180,
+        true
+      ],
+      [
+        "Coxa de frango sem pele cozida",
+        120,
+        true
+      ],
+      [
+        "Cenoura crua",
+        60,
+        false
+      ],
+      [
+        "Cebola",
+        30,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Arroz com grão-de-bico e legumes",
+    "tags": [
+      "vegana",
+      "vegetariana",
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 20,
+    "instructions": "Refogue o grão-de-bico com cebola e cenoura e misture ao arroz.",
+    "items": [
+      [
+        "Arroz integral cozido",
+        150,
+        true
+      ],
+      [
+        "Grão-de-bico cozido",
+        150,
+        true
+      ],
+      [
+        "Cenoura crua",
+        60,
+        false
+      ],
+      [
+        "Óleo de soja",
+        8,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Arroz com lentilha e couve",
+    "tags": [
+      "vegana",
+      "vegetariana",
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 20,
+    "instructions": "Refogue a lentilha cozida com cebola e sirva com arroz e couve.",
+    "items": [
+      [
+        "Arroz branco cozido",
+        150,
+        true
+      ],
+      [
+        "Lentilha cozida",
+        150,
+        true
+      ],
+      [
+        "Couve refogada",
+        60,
+        false
+      ],
+      [
+        "Cebola",
+        30,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Arroz com ovo mexido e farofa",
+    "tags": [
+      "vegetariana",
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 12,
+    "instructions": "Mexa os ovos na frigideira, sirva sobre o arroz e salpique a farofa.",
+    "items": [
+      [
+        "Arroz branco cozido",
+        180,
+        true
+      ],
+      [
+        "Ovo de galinha cozido",
+        100,
+        false
+      ],
+      [
+        "Farinha de mandioca torrada",
+        25,
+        true
+      ],
+      [
+        "Tomate",
+        40,
+        false
+      ],
+      [
+        "Óleo de soja",
+        5,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Arroz, feijão e carne de soja",
+    "tags": [
+      "vegana",
+      "vegetariana",
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 20,
+    "instructions": "Hidrate a proteína de soja, refogue com cebola e tomate e sirva com arroz e feijão.",
+    "items": [
+      [
+        "Arroz branco cozido",
+        150,
+        true
+      ],
+      [
+        "Feijão carioca cozido",
+        120,
+        true
+      ],
+      [
+        "Proteína de soja texturizada (seca)",
+        35,
+        true
+      ],
+      [
+        "Tomate",
+        50,
+        false
+      ],
+      [
+        "Óleo de soja",
+        5,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Arroz, feijão e carne moída",
+    "tags": [
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 20,
+    "instructions": "Refogue a carne moída com cebola e sirva com arroz e feijão.",
+    "items": [
+      [
+        "Arroz branco cozido",
+        150,
+        true
+      ],
+      [
+        "Feijão preto cozido",
+        120,
+        true
+      ],
+      [
+        "Carne moída (patinho) refogada",
+        120,
+        true
+      ],
+      [
+        "Cebola",
+        30,
+        false
+      ],
+      [
+        "Repolho",
+        40,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Arroz, feijão e coxa de frango",
+    "tags": [
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 25,
+    "instructions": "Cozinhe a coxa temperada com cebola e sirva com arroz, feijão e salada.",
+    "items": [
+      [
+        "Arroz branco cozido",
+        150,
+        true
+      ],
+      [
+        "Feijão carioca cozido",
+        120,
+        true
+      ],
+      [
+        "Coxa de frango sem pele cozida",
+        130,
+        true
+      ],
+      [
+        "Cebola",
+        30,
+        false
+      ],
+      [
+        "Alface",
+        30,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Arroz, feijão e frango grelhado",
+    "tags": [
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 20,
+    "instructions": "Grelhe o frango temperado e sirva com arroz, feijão e a salada.",
+    "items": [
+      [
+        "Arroz branco cozido",
+        150,
+        true
+      ],
+      [
+        "Feijão carioca cozido",
+        120,
+        true
+      ],
+      [
+        "Peito de frango grelhado",
+        130,
+        true
+      ],
+      [
+        "Alface",
+        30,
+        false
+      ],
+      [
+        "Tomate",
+        50,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Arroz, feijão, ovo e salada",
+    "tags": [
+      "vegetariana",
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 15,
+    "instructions": "Sirva o arroz com o feijão, o ovo frito por cima e a salada temperada.",
+    "items": [
+      [
+        "Arroz branco cozido",
+        150,
+        true
+      ],
+      [
+        "Feijão carioca cozido",
+        120,
+        true
+      ],
+      [
+        "Ovo de galinha cozido",
+        100,
+        false
+      ],
+      [
+        "Alface",
+        30,
+        false
+      ],
+      [
+        "Tomate",
+        50,
+        false
+      ],
+      [
+        "Azeite de oliva extra virgem",
+        5,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Carne moída com purê de batata",
+    "tags": [
+      "sem-gluten"
+    ],
+    "prep_minutes": 25,
+    "instructions": "Amasse a batata cozida com leite e sirva com a carne moída refogada.",
+    "items": [
+      [
+        "Batata inglesa cozida",
+        220,
+        true
+      ],
+      [
+        "Carne moída (patinho) refogada",
+        120,
+        true
+      ],
+      [
+        "Leite integral",
+        60,
+        true
+      ],
+      [
+        "Manteiga",
+        5,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Cuscuz com carne moída",
+    "tags": [
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 15,
+    "instructions": "Refogue a carne moída com cebola e tomate e sirva sobre o cuscuz.",
+    "items": [
+      [
+        "Cuscuz de milho cozido",
+        180,
+        true
+      ],
+      [
+        "Carne moída (patinho) refogada",
+        120,
+        true
+      ],
+      [
+        "Cebola",
+        30,
+        false
+      ],
+      [
+        "Tomate",
+        50,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Escondidinho de carne de soja",
+    "tags": [
+      "vegana",
+      "vegetariana",
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 40,
+    "everyday": false,
+    "instructions": "Refogue a soja hidratada, cubra com purê de batata doce e leve ao forno.",
+    "items": [
+      [
+        "Proteína de soja texturizada (seca)",
+        40,
+        true
+      ],
+      [
+        "Batata doce cozida",
+        200,
+        true
+      ],
+      [
+        "Cebola",
+        30,
+        false
+      ],
+      [
+        "Tomate",
+        60,
+        false
+      ],
+      [
+        "Óleo de soja",
+        8,
+        false
+      ]
+    ],
+    "category": "main"
+  },
+  {
+    "name": "Frango ao forno com legumes",
+    "tags": [
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 45,
+    "everyday": false,
+    "instructions": "Tempere o frango, monte com os legumes na assadeira e asse por 40 minutos.",
+    "items": [
+      [
+        "Peito de frango grelhado",
+        140,
+        true
+      ],
+      [
+        "Batata inglesa cozida",
+        180,
+        true
+      ],
+      [
+        "Cenoura crua",
+        70,
+        false
+      ],
+      [
+        "Abobrinha cozida",
+        70,
+        false
+      ],
+      [
+        "Óleo de soja",
+        8,
+        false
+      ]
+    ],
+    "category": "main"
+  },
+  {
+    "name": "Frango com batata doce e brócolis",
+    "tags": [
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 25,
+    "instructions": "Grelhe o frango e sirva com a batata doce cozida e o brócolis no vapor.",
+    "items": [
+      [
+        "Peito de frango grelhado",
+        130,
+        true
+      ],
+      [
+        "Batata doce cozida",
+        200,
+        true
+      ],
+      [
+        "Brócolis cozido",
+        100,
+        false
+      ],
+      [
+        "Óleo de soja",
+        5,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Macarrão com carne de soja",
+    "tags": [
+      "vegana",
+      "vegetariana",
+      "sem-lactose"
+    ],
+    "prep_minutes": 20,
+    "instructions": "Hidrate a proteína de soja, refogue com cebola e tomate e misture ao macarrão.",
+    "items": [
+      [
+        "Macarrão cozido",
+        180,
+        true
+      ],
+      [
+        "Proteína de soja texturizada (seca)",
+        35,
+        true
+      ],
+      [
+        "Tomate",
+        60,
+        false
+      ],
+      [
+        "Cebola",
+        30,
+        false
+      ],
+      [
+        "Óleo de soja",
+        5,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Macarrão com carne moída",
+    "tags": [
+      "sem-lactose"
+    ],
+    "prep_minutes": 20,
+    "instructions": "Cozinhe o macarrão e misture com a carne moída refogada no tomate.",
+    "items": [
+      [
+        "Macarrão cozido",
+        180,
+        true
+      ],
+      [
+        "Carne moída (patinho) refogada",
+        120,
+        true
+      ],
+      [
+        "Tomate",
+        60,
+        false
+      ],
+      [
+        "Cebola",
+        30,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Macarrão com frango e tomate",
+    "tags": [
+      "sem-lactose"
+    ],
+    "prep_minutes": 20,
+    "instructions": "Refogue o frango em tiras com cebola e tomate e misture ao macarrão.",
+    "items": [
+      [
+        "Macarrão cozido",
+        180,
+        true
+      ],
+      [
+        "Peito de frango grelhado",
+        130,
+        true
+      ],
+      [
+        "Tomate",
+        60,
+        false
+      ],
+      [
+        "Cebola",
+        30,
+        false
+      ],
+      [
+        "Óleo de soja",
+        5,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Omelete de queijo com arroz",
+    "tags": [
+      "vegetariana",
+      "sem-gluten"
+    ],
+    "prep_minutes": 12,
+    "instructions": "Bata os ovos, faça a omelete com o queijo e sirva com arroz e tomate.",
+    "items": [
+      [
+        "Ovo de galinha cozido",
+        150,
+        false
+      ],
+      [
+        "Queijo muçarela",
+        30,
+        false
+      ],
+      [
+        "Arroz branco cozido",
+        150,
+        true
+      ],
+      [
+        "Tomate",
+        50,
+        false
+      ],
+      [
+        "Óleo de soja",
+        5,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Purê de batata com frango desfiado",
+    "tags": [
+      "sem-gluten"
+    ],
+    "prep_minutes": 25,
+    "instructions": "Amasse a batata cozida com o leite e a margarina e cubra com o frango.",
+    "items": [
+      [
+        "Batata inglesa cozida",
+        220,
+        true
+      ],
+      [
+        "Peito de frango grelhado",
+        130,
+        true
+      ],
+      [
+        "Leite integral",
+        60,
+        true
+      ],
+      [
+        "Margarina com sal",
+        5,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Sardinha com arroz e salada",
+    "tags": [
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 10,
+    "instructions": "Esquente a sardinha na frigideira e sirva com arroz e salada.",
+    "items": [
+      [
+        "Sardinha em óleo (drenada)",
+        100,
+        true
+      ],
+      [
+        "Arroz branco cozido",
+        150,
+        true
+      ],
+      [
+        "Alface",
+        30,
+        false
+      ],
+      [
+        "Tomate",
+        50,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  },
+  {
+    "name": "Tilápia com arroz e legumes",
+    "tags": [
+      "sem-lactose",
+      "sem-gluten"
+    ],
+    "prep_minutes": 20,
+    "instructions": "Grelhe a tilápia na frigideira e sirva com arroz e os legumes cozidos.",
+    "items": [
+      [
+        "Filé de tilápia grelhado",
+        140,
+        true
+      ],
+      [
+        "Arroz integral cozido",
+        150,
+        true
+      ],
+      [
+        "Abobrinha cozida",
+        80,
+        false
+      ],
+      [
+        "Cenoura crua",
+        50,
+        false
+      ],
+      [
+        "Óleo de soja",
+        5,
+        false
+      ]
+    ],
+    "category": "main",
+    "everyday": true
+  }
+]

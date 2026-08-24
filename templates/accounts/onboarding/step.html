@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}{{ step_title }} · NutriPlan{% endblock %}
+{% block container_class %}auth{% endblock %}
+
+{% block content %}
+  <div class="wizard">
+    <div class="wizard__steps">
+      {% for n in step_range %}
+        <span class="wizard__step
+          {% if n < step %}wizard__step--done
+          {% elif n == step %}wizard__step--current{% endif %}"></span>
+      {% endfor %}
+    </div>
+    <div class="wizard__label">
+      <span>Passo {{ step }} de {{ total_steps }}</span>
+      <span>{{ progress_pct }}%</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h1>{{ step_title }}</h1>
+    <p class="lead">{{ step_subtitle }}</p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <ul class="field__errors">
+          {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if step == 1 %}
+        {% include "partials/field.html" with field=form.sex %}
+        <div class="field-row">
+          <div>{% include "partials/field.html" with field=form.birth_date %}</div>
+          <div>{% include "partials/field.html" with field=form.height_cm %}</div>
+        </div>
+        {% include "partials/field.html" with field=form.weight_kg %}
+      {% elif step == 3 %}
+        {% include "partials/field.html" with field=form.weekdays %}
+        <div class="field-row">
+          <div>{% include "partials/field.html" with field=form.start_time %}</div>
+          <div>{% include "partials/field.html" with field=form.duration_min %}</div>
+        </div>
+      {% elif step == 4 %}
+        {% include "partials/field.html" with field=form.dietary_tags %}
+        <div class="field-row">
+          <div>{% include "partials/field.html" with field=form.wake_time %}</div>
+          <div>{% include "partials/field.html" with field=form.sleep_time %}</div>
+        </div>
+      {% else %}
+        {% for field in form %}
+          {% include "partials/field.html" with field=field %}
+        {% endfor %}
+      {% endif %}
+
+      <div class="form-actions">
+        {% if previous_url %}
+          <a class="btn btn--ghost" href="{{ previous_url }}">Voltar</a>
+        {% endif %}
+        <button type="submit" class="btn btn--primary">
+          {% if is_editing %}Salvar
+          {% elif is_last_step %}Concluir
+          {% else %}Continuar{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  {% if not is_editing %}
+    <p class="muted center" style="margin-top:1rem">
+      Pode fechar o app à vontade — cada passo é salvo assim que você avança.
+    </p>
+  {% endif %}
+{% endblock %}

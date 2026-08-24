@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Meu perfil · NutriPlan{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Meu perfil</h1>
+    <p class="lead">Mudou alguma coisa? Editar qualquer bloco recalcula sua dieta.</p>
+  </div>
+
+  <div class="split">
+    <div class="split__main stack">
+      <section class="card">
+        <div class="card__head">
+          <h2>Objetivo</h2>
+          <a href="{% url 'accounts:onboarding_step' step=2 %}">Editar</a>
+        </div>
+        <dl class="data-list">
+          <div><dt>Meta</dt><dd>{{ profile.get_goal_display }}</dd></div>
+          <div><dt>Rotina</dt><dd>{{ profile.get_activity_level_display }}</dd></div>
+        </dl>
+      </section>
+
+      <section class="card">
+        <div class="card__head">
+          <h2>Dados corporais</h2>
+          <a href="{% url 'accounts:onboarding_step' step=1 %}">Editar</a>
+        </div>
+        <dl class="data-list">
+          <div><dt>Sexo</dt><dd>{{ profile.get_sex_display }}</dd></div>
+          <div><dt>Idade</dt><dd>{{ profile.age }} anos</dd></div>
+          <div><dt>Altura</dt><dd>{{ profile.height_cm }} cm</dd></div>
+          <div><dt>Peso atual</dt><dd>{{ profile.current_weight|floatformat:1 }} kg</dd></div>
+        </dl>
+      </section>
+
+      <section class="card">
+        <div class="card__head">
+          <h2>Treinos</h2>
+          <a href="{% url 'accounts:onboarding_step' step=3 %}">Editar</a>
+        </div>
+        {% if training_days %}
+          <dl class="data-list">
+            {% for day in training_days %}
+              <div>
+                <dt>{{ day.get_weekday_display }}</dt>
+                <dd>{{ day.start_time|time:"H:i" }} · {{ day.duration_min }} min</dd>
+              </div>
+            {% endfor %}
+          </dl>
+        {% else %}
+          <p class="empty-state">Nenhum dia de treino cadastrado ainda.</p>
+        {% endif %}
+      </section>
+    </div>
+
+    <aside class="split__aside stack">
+      <section class="card">
+        <div class="card__head">
+          <h2>Restrições e rotina</h2>
+          <a href="{% url 'accounts:onboarding_step' step=4 %}">Editar</a>
+        </div>
+        <div class="chip-row" style="margin-bottom:.9rem">
+          {% for tag in profile.dietary_tags.all %}
+            <span class="chip chip--brand">{{ tag.name }}</span>
+          {% empty %}
+            <span class="chip">Sem restrições</span>
+          {% endfor %}
+        </div>
+        <dl class="data-list">
+          <div><dt>Acorda</dt><dd>{{ profile.wake_time|time:"H:i" }}</dd></div>
+          <div><dt>Dorme</dt><dd>{{ profile.sleep_time|time:"H:i" }}</dd></div>
+        </dl>
+      </section>
+
+      <section class="card">
+        <div class="card__head"><h2>Histórico de peso</h2></div>
+        {% if weight_entries %}
+          <dl class="data-list">
+            {% for entry in weight_entries %}
+              <div>
+                <dt>{{ entry.date|date:"d/m/Y" }}</dt>
+                <dd>{{ entry.weight_kg|floatformat:1 }} kg</dd>
+              </div>
+            {% endfor %}
+          </dl>
+        {% else %}
+          <p class="empty-state">Nenhuma pesagem registrada.</p>
+        {% endif %}
+      </section>
+    </aside>
+  </div>
+{% endblock %}

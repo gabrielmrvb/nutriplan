@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Histórico · NutriPlan{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Métricas</h1>
+    <p class="lead">Os últimos {{ days }} dias, do mais recente para o mais antigo.</p>
+  </div>
+
+  {% if totals.days %}
+    <div class="split">
+      <div class="split__main stack">
+        <section class="card">
+          <div class="tiles">
+            <div class="tile">
+              <strong class="tile__value">{{ totals.adherence_pct }}%</strong>
+              <span class="tile__label">Aderência</span>
+              <span class="tile__meta">refeições do plano</span>
+            </div>
+            <div class="tile">
+              <strong class="tile__value">{{ totals.avg_kcal }}</strong>
+              <span class="tile__label">kcal/dia</span>
+              <span class="tile__meta">meta: {{ plan.target_kcal }}</span>
+            </div>
+            <div class="tile">
+              <strong class="tile__value">{{ totals.days }}</strong>
+              <span class="tile__label">dias</span>
+              <span class="tile__meta">com registro</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card__head"><h2>Dia a dia</h2></div>
+          {% for row in rows %}
+            <div class="history-row">
+              <span class="history-row__date">
+                {{ row.date|date:"d/m" }}
+                {% if row.is_today %}<span class="history-row__today">hoje</span>{% endif %}
+              </span>
+              <span class="history-row__bar">
+                <span class="history-row__fill" style="width: {{ row.pct }}%"></span>
+              </span>
+              <span class="history-row__facts">
+                <span class="history-row__kcal">{{ row.kcal }} kcal</span>
+                <span class="history-row__meals">{{ row.done }}/{{ row.marked }} no plano</span>
+              </span>
+            </div>
+          {% endfor %}
+          <p class="hint">
+            A barra compara o dia com a sua meta atual. A coluna da direita é quantas
+            refeições você comeu conforme o plano, de quantas marcou no dia — refeição
+            não marcada não conta como falha.
+          </p>
+        </section>
+      </div>
+
+      <aside class="split__aside stack">
+        <section class="card">
+          <div class="card__head">
+            <h2>Peso</h2>
+            <a href="{% url 'accounts:onboarding_step' step=1 %}">Registrar</a>
+          </div>
+          {% if weight_entries %}
+            <dl class="data-list">
+              {% for entry in weight_entries %}
+                <div>
+                  <dt>{{ entry.date|date:"d/m/Y" }}</dt>
+                  <dd>{{ entry.weight_kg|floatformat:1 }} kg</dd>
+                </div>
+              {% endfor %}
+            </dl>
+            <p class="hint">
+              Registrar um peso novo recalcula sua meta automaticamente na próxima vez
+              que você abrir o app.
+            </p>
+          {% else %}
+            <p class="empty-state">Nenhum peso registrado ainda.</p>
+          {% endif %}
+        </section>
+      </aside>
+    </div>
+  {% else %}
+    <section class="card">
+      <p class="empty-state">
+        Ainda não há nada marcado. Assim que você marcar a primeira refeição do dia,
+        o histórico começa aqui.
+      </p>
+      <a class="btn btn--primary btn--block" href="{% url 'plans:today' %}">
+        Ir para o dia de hoje
+      </a>
+    </section>
+
+    <section class="card">
+      <div class="card__head">
+        <h2>Peso</h2>
+        <a href="{% url 'accounts:onboarding_step' step=1 %}">Registrar</a>
+      </div>
+      {% if weight_entries %}
+        <dl class="data-list">
+          {% for entry in weight_entries %}
+            <div>
+              <dt>{{ entry.date|date:"d/m/Y" }}</dt>
+              <dd>{{ entry.weight_kg|floatformat:1 }} kg</dd>
+            </div>
+          {% endfor %}
+        </dl>
+      {% else %}
+        <p class="empty-state">Nenhum peso registrado ainda.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+{% endblock %}

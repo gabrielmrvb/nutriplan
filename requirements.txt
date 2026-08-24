@@ -1,0 +1,10 @@
+Django>=5.2,<6.0
+psycopg[binary]>=3.2,<4.0
+django-environ>=0.12,<1.0
+
+# Notificacoes push (etapa 5)
+pywebpush>=2.0,<3.0
+
+# Producao
+gunicorn>=23.0
+whitenoise>=6.8

@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+
+{% block title %}Treino · NutriPlan{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Seu treino da semana</h1>
+    {% if plan %}
+      <p class="lead">
+        {{ plan.get_split_display }} · {{ plan.days_per_week }}
+        {% if plan.days_per_week == 1 %}dia{% else %}dias{% endif %} por semana ·
+        {{ total_sets }} séries no total
+      </p>
+    {% else %}
+      <p class="lead">Falta dizer em quais dias você treina.</p>
+    {% endif %}
+  </div>
+
+  {% if not plan %}
+    <section class="card">
+      <p class="empty-state">
+        A divisão do treino é montada a partir dos dias que você marcou no cadastro —
+        sem eles não dá para dizer se o seu caso é AB, ABC ou ABCD.
+      </p>
+      <a class="btn btn--primary btn--block"
+         href="{% url 'accounts:onboarding_step' step=3 %}">
+        Cadastrar meus dias de treino
+      </a>
+    </section>
+  {% else %}
+    <div class="split">
+      <div class="split__main stack">
+
+        {# ------------- A semana de relance ------------- #}
+        <section class="card">
+          <div class="card__head"><h2>Sua semana</h2></div>
+          <ol class="week-strip">
+            {% for day in week %}
+              <li class="day-chip {% if day.session %}day-chip--training{% endif %}">
+                <span class="day-chip__name">{{ day.short }}</span>
+                <span class="day-chip__label">
+                  {% if day.session %}{{ day.session.label }}{% else %}·{% endif %}
+                </span>
+                <span class="day-chip__focus">
+                  {% if day.session %}{{ day.session.name }}{% else %}descanso{% endif %}
+                </span>
+              </li>
+            {% endfor %}
+          </ol>
+          {% if plan.notes %}<p class="callout">{{ plan.notes }}</p>{% endif %}
+        </section>
+
+        {# ------------- As fichas ------------- #}
+        {% for session in sessions %}
+          <section class="card">
+            <header class="session__head">
+              <span class="session__badge">{{ session.label }}</span>
+              <span class="session__title">
+                <strong class="session__name">{{ session.name }}</strong>
+                <span class="session__meta">
+                  {{ session.weekday_display }}
+                  {% if session.start_time %}· {{ session.start_time|time:"H:i" }}{% endif %}
+                  · {{ session.duration_min }} min · {{ session.total_sets }} séries
+                </span>
+              </span>
+            </header>
+
+            {% if session.focus %}
+              <p class="session__focus">{{ session.focus }}</p>
+            {% endif %}
+
+            <ol class="exercise-list">
+              {% for item in session.exercises.all %}
+                {% comment %}
+                  Quatro blocos empilhados, cada um com espaço próprio: cabeçalho,
+                  mídia 16:9, instrução e tabela de séries. Antes disso o cartão era
+                  um flex solto onde o formulário de carga disputava largura com o
+                  nome do exercício — e o nome saía quebrado uma palavra por linha.
+                {% endcomment %}
+                <li class="exercise" id="exercicio-{{ item.exercise.pk }}">
+
+                  {# ---- 1. Cabeçalho ---- #}
+                  <header class="exercise__head">
+                    <span class="exercise__order">{{ forloop.counter }}</span>
+                    <span class="exercise__title">
+                      <strong class="exercise__name">{{ item.exercise.name }}</strong>
+                      <span class="exercise__tags">
+                        <span class="exercise__tag exercise__tag--target">
+                          {{ item.exercise.get_muscle_group_display }}
+                        </span>
+                        <span class="exercise__tag num">
+                          {{ item.sets }} × {{ item.rep_range }}
+                        </span>
+                        <span class="exercise__tag exercise__tag--rest num">
+                          descanso {{ item.rest_display }}
+                        </span>
+                      </span>
+                    </span>
+                  </header>
+
+                  <div class="exercise__body">
+                    {# ---- 2. Mídia 16:9, carregada só no toque ---- #}
+                    <div class="exercise__media" data-media>
+                      <button type="button" class="exercise__facade"
+                              data-clipe="{% if item.exercise.clip_kind == 'youtube' %}{{ item.exercise.video_embed_url }}{% else %}{{ item.exercise.video_url }}{% endif %}"
+                              data-tipo="{{ item.exercise.clip_kind }}"
+                              data-nome="{{ item.exercise.name }}"
+                              aria-label="Ver execução de {{ item.exercise.name }}">
+                        {% if item.exercise.video_id %}
+                          <img class="exercise__thumb" loading="lazy" alt=""
+                               src="https://i.ytimg.com/vi/{{ item.exercise.video_id }}/hqdefault.jpg">
+                        {% endif %}
+                        <span class="exercise__play">
+                          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M8 5.5v13l11-6.5z"/>
+                          </svg>
+                        </span>
+                        <span class="exercise__caption">Ver execução</span>
+                      </button>
+                    </div>
+
+                    {# ---- 3. Instrução ---- #}
+                    <p class="exercise__cue">
+                      {{ item.exercise.cue }}
+                      {% comment %}
+                        Saída de emergência: vídeo de terceiro sai do ar sem avisar,
+                        e sem isto a pessoa fica olhando um player quebrado sem ter
+                        para onde ir.
+                      {% endcomment %}
+                      <a class="exercise__fallback" target="_blank" rel="noopener"
+                         href="{{ item.exercise.video_search_url }}">Buscar outra demonstração</a>
+                    </p>
+
+                    {# ---- 4. Tabela de séries ---- #}
+                    <div class="sets">
+                      <div class="sets__head">
+                        <span>Série</span>
+                        <span>Carga (kg)</span>
+                        <span>Salvar</span>
+                        <span>Descanso</span>
+                      </div>
+
+                      {% for linha in item.set_rows %}
+                        <form class="set-row {% if linha.weight %}set-row--done{% endif %}"
+                              method="post"
+                              action="{% url 'workouts:record_load' item.exercise.pk %}">
+                          {% csrf_token %}
+                          <input type="hidden" name="set_number" value="{{ linha.number }}">
+                          <span class="set-row__label">{{ linha.number }}ª</span>
+                          {% comment %}
+                            `text` e não `number`: com type=number o navegador descarta
+                            "62,5" e envia campo vazio, e brasileiro digita vírgula. O
+                            inputmode mantém o teclado numérico no celular, e a faixa é
+                            validada no servidor, que já normaliza a vírgula.
+                          {% endcomment %}
+                          <input class="set-row__input" type="text" name="weight_kg"
+                                 maxlength="6" inputmode="decimal"
+                                 placeholder="{% if linha.previous %}{{ linha.previous|floatformat:'-2' }}{% else %}0{% endif %}"
+                                 value="{% if linha.weight %}{{ linha.weight|floatformat:'-2' }}{% endif %}"
+                                 aria-label="Carga da {{ linha.number }}ª série de {{ item.exercise.name }}">
+                          <button type="submit" class="set-row__save">OK</button>
+                          <button type="button" class="set-row__timer"
+                                  data-descanso="{{ item.rest_seconds }}"
+                                  data-nome="{{ item.exercise.name }} · {{ linha.number }}ª série"
+                                  aria-label="Cronometrar descanso">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                 stroke-width="1.9" stroke-linecap="round" aria-hidden="true">
+                              <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/>
+                              <path d="M9 2h6"/>
+                            </svg>
+                          </button>
+                        </form>
+                      {% endfor %}
+
+                      {% if item.load.melhor_anterior %}
+                        <p class="exercise__previous">
+                          Último treino ({{ item.load.data_anterior|date:"d/m" }}):
+                          <b>{{ item.load.melhor_anterior|floatformat:'-2' }} kg</b>
+                          {% if item.load.delta > 0 %}
+                            · <b class="exercise__delta exercise__delta--up">▲ +{{ item.load.delta|floatformat:'-2' }} kg</b>
+                          {% elif item.load.delta < 0 %}
+                            · <b class="exercise__delta exercise__delta--down">▼ {{ item.load.delta|floatformat:'-2' }} kg</b>
+                          {% elif item.load.melhor_hoje %}
+                            · <b class="exercise__delta">= mesma carga</b>
+                          {% endif %}
+                        </p>
+                      {% endif %}
+                    </div>
+                  </div>
+                </li>
+              {% endfor %}
+            </ol>
+          </section>
+        {% endfor %}
+      </div>
+
+      <aside class="split__aside stack">
+        <section class="card">
+          <div class="card__head"><h2>Séries por músculo</h2></div>
+          <div class="macro-list">
+            {% for row in volume %}
+              <div class="macro-line">
+                <div class="macro-line__head">
+                  <span class="macro-line__name">{{ row.name }}</span>
+                  <span class="macro-line__value">{{ row.sets }} séries</span>
+                </div>
+                <div class="progress">
+                  <span class="progress__fill progress__fill--protein"
+                        style="width: {{ row.pct }}%"></span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+          <p class="hint">
+            É o total da semana, somando todos os dias. A faixa em que os ganhos
+            aparecem de forma consistente é de 10 a 20 séries semanais por grupo
+            muscular — e com {{ plan.days_per_week }}
+            {% if plan.days_per_week == 1 %}dia{% else %}dias{% endif %} de treino
+            vários grupos ficam no piso dessa faixa, ou abaixo dele. Isso é
+            aritmética de tempo, não erro da ficha: quem quer subir o volume abre
+            mais um dia na semana, não empilha série no dia que já treina.
+          </p>
+        </section>
+
+        <section class="card">
+          <div class="card__head"><h2>Como executar</h2></div>
+          <dl class="data-list">
+            <div><dt>Aquecimento</dt><dd>1-2 séries leves</dd></div>
+            <div><dt>Séries de trabalho</dt><dd>até 1-2 reps da falha</dd></div>
+            <div><dt>Progressão</dt><dd>+carga ao fechar o topo</dd></div>
+          </dl>
+          <p class="hint">
+            A faixa de repetição é uma faixa de propósito: comece no número de baixo e
+            suba semana a semana com a mesma carga. Quando fechar todas as séries no
+            número de cima com técnica, aumente a carga e volte para o número de baixo —
+            é essa troca, e não a variedade de exercícios, que faz o músculo crescer.
+          </p>
+          <p class="hint">
+            Nos exercícios multiarticulares o descanso é maior porque a limitação é o
+            sistema todo, não o músculo isolado: cortar esse tempo derruba a carga da
+            série seguinte, que é justamente o que a gente está tentando aumentar.
+          </p>
+        </section>
+
+        <section class="card">
+          <div class="card__head">
+            <h2>Dias de treino</h2>
+            <a href="{% url 'accounts:onboarding_step' step=3 %}">Editar</a>
+          </div>
+          <dl class="data-list">
+            {% for session in sessions %}
+              <div>
+                <dt>{{ session.weekday_display }}</dt>
+                <dd>{{ session.label }} · {{ session.name }}</dd>
+              </div>
+            {% endfor %}
+          </dl>
+          <p class="hint">
+            Mudou a frequência? A divisão se ajusta sozinha na próxima vez que você abrir
+            esta tela — dois dias viram AB, três viram ABC, quatro viram ABCD, e de cinco
+            em diante o ciclo ABC recomeça.
+          </p>
+        </section>
+      </aside>
+    </div>
+
+    {% comment %}
+      Cronômetro: barra fixa no rodapé em vez de modal, porque durante o descanso
+      a pessoa continua olhando a ficha para saber a próxima série. Vibra no fim
+      (som na academia ninguém ouve).
+    {% endcomment %}
+    <div class="rest-timer" data-timer hidden role="status" aria-live="polite">
+      <div class="rest-timer__bar"><span data-timer-bar></span></div>
+      <div class="rest-timer__body">
+        <span class="rest-timer__label" data-timer-nome></span>
+        <strong class="rest-timer__value num" data-timer-valor>0:00</strong>
+        <button type="button" class="rest-timer__more" data-timer-mais>+30s</button>
+        <button type="button" class="rest-timer__close" data-timer-parar
+                aria-label="Parar cronômetro">&times;</button>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        /* ---- Mídia: o clipe nasce no toque, dentro do próprio cartão ---- */
+        document.addEventListener("click", function (event) {
+          var facade = event.target.closest("[data-clipe]");
+          if (!facade) return;
+
+          var media = facade.closest("[data-media]");
+          var url = facade.dataset.clipe;
+          var tipo = facade.dataset.tipo;
+          if (!media || !url || !tipo) return;
+
+          var elemento;
+          if (tipo === "gif") {
+            elemento = document.createElement("img");
+            elemento.className = "exercise__clip";
+            elemento.src = url;
+            elemento.alt = "Execução: " + facade.dataset.nome;
+          } else if (tipo === "video") {
+            // MP4 mudo em loop faz o papel do GIF com uma fração dos bytes.
+            // `playsinline` impede o iPhone de abrir em tela cheia sozinho.
+            elemento = document.createElement("video");
+            elemento.src = url;
+            elemento.autoplay = true;
+            elemento.loop = true;
+            elemento.muted = true;
+            elemento.playsInline = true;
+            elemento.setAttribute("muted", "");
+            elemento.setAttribute("playsinline", "");
+          } else {
+            elemento = document.createElement("iframe");
+            elemento.src = url;
+            elemento.title = "Execução: " + facade.dataset.nome;
+            elemento.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+            elemento.allowFullscreen = true;
+          }
+          media.innerHTML = "";
+          media.appendChild(elemento);
+        });
+
+        /* ---- Cronômetro de descanso ---- */
+        var caixa = document.querySelector("[data-timer]");
+        if (!caixa) return;
+        var valor = caixa.querySelector("[data-timer-valor]");
+        var nome = caixa.querySelector("[data-timer-nome]");
+        var barra = caixa.querySelector("[data-timer-bar]");
+        var intervalo = null;
+        var restam = 0;
+        var total = 0;
+
+        function formatar(segundos) {
+          var m = Math.floor(segundos / 60);
+          var s = segundos % 60;
+          return m + ":" + (s < 10 ? "0" : "") + s;
+        }
+
+        function desenhar() {
+          valor.textContent = formatar(Math.max(restam, 0));
+          barra.style.width = total ? (restam / total) * 100 + "%" : "0%";
+          caixa.classList.toggle("rest-timer--fim", restam <= 0);
+        }
+
+        function parar() {
+          clearInterval(intervalo);
+          intervalo = null;
+          caixa.hidden = true;
+          caixa.classList.remove("rest-timer--fim");
+        }
+
+        function tick() {
+          restam -= 1;
+          desenhar();
+          if (restam <= 0) {
+            clearInterval(intervalo);
+            intervalo = null;
+            if (navigator.vibrate) navigator.vibrate([200, 100, 400]);
+          }
+        }
+
+        document.addEventListener("click", function (event) {
+          var botao = event.target.closest("[data-descanso]");
+          if (botao) {
+            clearInterval(intervalo);
+            total = parseInt(botao.dataset.descanso, 10) || 60;
+            restam = total;
+            nome.textContent = botao.dataset.nome || "Descanso";
+            caixa.hidden = false;
+            caixa.classList.remove("rest-timer--fim");
+            desenhar();
+            intervalo = setInterval(tick, 1000);
+            return;
+          }
+          if (event.target.closest("[data-timer-parar]")) parar();
+          if (event.target.closest("[data-timer-mais]")) {
+            restam = Math.max(restam, 0) + 30;
+            total = Math.max(total, restam);
+            caixa.classList.remove("rest-timer--fim");
+            desenhar();
+            if (!intervalo) intervalo = setInterval(tick, 1000);
+          }
+        });
+      })();
+    </script>
+  {% endif %}
+{% endblock %}

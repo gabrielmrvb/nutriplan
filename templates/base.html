@@ -1,0 +1,105 @@
+{% load static %}<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  {# Duas cores de tema: a barra do sistema acompanha o claro/escuro do aparelho. #}
+  <meta name="theme-color" content="#f4f6f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b0f0e" media="(prefers-color-scheme: dark)">
+  <title>{% block title %}NutriPlan{% endblock %}</title>
+  <link rel="stylesheet" href="{{ app_css_url }}">
+  <link rel="manifest" href="{% url 'manifest' %}">
+  <link rel="apple-touch-icon" href="{% static 'icons/icon-192.png' %}">
+  <link rel="icon" href="{% static 'icons/icon-192.png' %}">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="NutriPlan">
+</head>
+<body>
+  {% block header %}
+    <header class="app-bar">
+      <a class="app-bar__brand" href="{% url 'plans:today' %}">
+        <span class="app-bar__mark" aria-hidden="true">N</span>
+        <span class="app-bar__word">Nutri<span class="app-bar__accent">Plan</span></span>
+      </a>
+      <nav class="app-bar__nav">
+        {% if user.is_authenticated %}
+          <a class="app-bar__link {% if nav == 'today' %}is-active{% endif %}"
+             href="{% url 'plans:today' %}">Dieta</a>
+          <a class="app-bar__link {% if nav == 'workout' %}is-active{% endif %}"
+             href="{% url 'workouts:routine' %}">Treino</a>
+          <a class="app-bar__link {% if nav == 'history' %}is-active{% endif %}"
+             href="{% url 'plans:history' %}">Métricas</a>
+          <a class="app-bar__link {% if nav == 'profile' %}is-active{% endif %}"
+             href="{% url 'accounts:profile' %}">Perfil</a>
+          <form method="post" action="{% url 'accounts:logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="app-bar__quiet">Sair</button>
+          </form>
+        {% else %}
+          <a class="app-bar__quiet" href="{% url 'accounts:login' %}">Entrar</a>
+          <a class="btn btn--primary btn--sm" href="{% url 'accounts:signup' %}">Criar conta</a>
+        {% endif %}
+      </nav>
+    </header>
+  {% endblock %}
+
+  <main class="container {% block container_class %}{% endblock %}">
+    {% if messages %}
+      <ul class="flash">
+        {% for message in messages %}
+          <li class="{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  {% if user.is_authenticated %}
+    {% comment %}
+      Navegação inferior: os três destinos do app a um polegar de distância.
+      Só aparece no celular — no desktop os mesmos links ficam na barra de cima.
+    {% endcomment %}
+    <nav class="tabbar" aria-label="Navegação principal">
+      <a class="tabbar__item {% if nav == 'today' %}is-active{% endif %}"
+         href="{% url 'plans:today' %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 3v8a3 3 0 0 0 6 0V3"/><path d="M9 11v10"/>
+          <path d="M17.5 3c-1.5 2-2 4-2 6.5 0 1.5.8 2.5 2 2.5s2-1 2-2.5c0-2.5-.5-4.5-2-6.5Z"/>
+          <path d="M17.5 12v9"/>
+        </svg>
+        Dieta
+      </a>
+      <a class="tabbar__item {% if nav == 'workout' %}is-active{% endif %}"
+         href="{% url 'workouts:routine' %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 9v6"/><path d="M6 6.5v11"/><path d="M18 6.5v11"/><path d="M21 9v6"/>
+          <path d="M6 12h12"/>
+        </svg>
+        Treino
+      </a>
+      <a class="tabbar__item {% if nav == 'history' %}is-active{% endif %}"
+         href="{% url 'plans:history' %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M2 20h20"/>
+        </svg>
+        Métricas
+      </a>
+      <a class="tabbar__item {% if nav == 'profile' %}is-active{% endif %}"
+         href="{% url 'accounts:profile' %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="8" r="3.5"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>
+        </svg>
+        Perfil
+      </a>
+    </nav>
+
+    <script>window.NUTRIPLAN_VAPID_KEY = "{{ vapid_public_key }}";</script>
+    <script src="{{ app_js_url }}" defer></script>
+  {% endif %}
+</body>
+</html>
