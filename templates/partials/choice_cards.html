@@ -1,0 +1,63 @@
+{% load escolhas %}{% comment %}
+Um grupo de rádios como cartões escolhíveis, em vez de lista de linhas.
+
+O `<input>` fica DENTRO do `<label>`, então o cartão inteiro é a área de
+toque — e continua sendo um rádio de verdade: navega por Tab, muda com as
+setas, funciona com leitor de tela e envia com o formulário sem uma linha de
+JavaScript. Cartão bonito que só funciona com clique de mouse é regressão
+disfarçada de melhoria.
+
+O rádio some da tela (`.choice-card__input`) mas não do documento: continua
+recebendo foco, e o foco é desenhado no cartão.
+
+`__frame` existe por um motivo específico. A borda e o brilho do estado
+escolhido precisam reagir ao input, e o input é FILHO do label — só `:has()`
+alcançaria o pai. Este projeto já perdeu a barra de navegação inteira por
+depender de `:has()` num navegador que não o suporta, então a moldura é um
+irmão do input: `~` alcança, e funciona em qualquer navegador.
+{% endcomment %}
+<div class="field">
+  <span class="field__label">{{ field.label }}</span>
+  {% if field.help_text %}<div class="field__help">{{ field.help_text }}</div>{% endif %}
+
+  <ul class="choice-cards" role="list">
+    {% for subwidget in field %}
+      {% with d=subwidget.data.value|detalhe %}
+        <li>
+          <label class="choice-card">
+            <input class="choice-card__input" type="{{ subwidget.data.type }}"
+                   name="{{ subwidget.data.name }}" value="{{ subwidget.data.value }}"
+                   {% if subwidget.data.selected %}checked{% endif %}>
+            <span class="choice-card__frame" aria-hidden="true"></span>
+            <span class="choice-card__icon" aria-hidden="true">
+              {% if d %}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <use href="#icone-{{ d.icone }}"></use>
+                </svg>
+              {% endif %}
+            </span>
+            <span class="choice-card__text">
+              <strong class="choice-card__title">
+                {% if d %}{{ d.titulo }}{% else %}{{ subwidget.choice_label }}{% endif %}
+              </strong>
+              {% if d %}<span class="choice-card__hint">{{ d.apoio }}</span>{% endif %}
+            </span>
+            <span class="choice-card__mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+            </span>
+          </label>
+        </li>
+      {% endwith %}
+    {% endfor %}
+  </ul>
+
+  {% if field.errors %}
+    <ul class="field__errors">
+      {% for error in field.errors %}<li>{{ error }}</li>{% endfor %}
+    </ul>
+  {% endif %}
+</div>

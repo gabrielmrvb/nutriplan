@@ -50,9 +50,15 @@ class ActivityLevel(models.TextChoices):
     emagrecer e concluir que dieta não funciona.
     """
 
-    SEDENTARY = "sedentary", "Sentado o dia todo (escritório ou home office) + academia"
-    LIGHT = "light", "Caminha no dia a dia, tarefas domésticas, bicicleta ocasional + academia"
-    ACTIVE = "active", "Trabalho em pé ou braçal, ou cardio pesado diário + academia"
+    # Os rótulos seguem a nomenclatura usual de taxa metabólica basal, porque
+    # é a que a pessoa reencontra em qualquer calculadora — e a que um
+    # nutricionista reconhece se ela levar a tela para a consulta. O "+
+    # academia" saiu do texto: os treinos já entram na conta pela frequência
+    # declarada no passo seguinte, e repetir aqui fazia parecer que era
+    # preciso somar duas vezes.
+    SEDENTARY = "sedentary", "Sedentário / pouco ativo"
+    LIGHT = "light", "Moderadamente ativo"
+    ACTIVE = "active", "Altamente ativo"
 
 
 #: Faixa do multiplicador aplicado sobre a TMB, por nível: (piso, teto).

@@ -1496,7 +1496,167 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 /* ==========================================================================
-   20. Convite de instalação
+   20. Cartões de escolha (onboarding)
+   ========================================================================== */
+
+/* As duas perguntas que mais mudam o plano — objetivo e nível de atividade —
+   deixaram de ser lista de rádios e viraram cartões.
+
+   O rádio continua ali, recebendo foco e respondendo às setas; só está fora
+   da vista. É o que permite ter cartão com aparência de app e comportamento
+   de formulário: Tab entra, seta muda, Enter envia, leitor de tela anuncia.
+
+   Nada aqui usa `:has()`. O estado escolhido é desenhado numa moldura que é
+   IRMÃ do input, alcançável por `~` — este projeto já perdeu a barra de
+   navegação inteira por confiar em `:has()` num navegador que não o tinha. */
+
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.choice-cards {
+  display: grid;
+  gap: .6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Uma coluna no celular; duas a partir de 30rem, que é onde título e linha de
+   apoio cabem sem quebrar palavra no meio. */
+@media (min-width: 30rem) {
+  .choice-cards { grid-template-columns: 1fr 1fr; }
+}
+
+.choice-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  height: 100%;
+  min-height: 4.75rem;
+  padding: .95rem;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: background .15s, transform .12s;
+}
+
+.choice-card:hover { background: var(--surface-3); }
+.choice-card:active { transform: scale(.99); }
+
+/* Fora da vista, dentro do documento: sem isto o cartão vira um `div` bonito
+   que não navega por teclado nem existe para leitor de tela. */
+.choice-card__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* A moldura carrega borda, brilho e o destaque do estado escolhido. Fica por
+   cima do cartão e não intercepta toque — quem recebe o clique é o label. */
+.choice-card__frame {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--border);
+  border-radius: inherit;
+  pointer-events: none;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+
+.choice-card:hover .choice-card__frame { border-color: var(--border-strong); }
+
+.choice-card__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: .75rem;
+  background: var(--surface-3);
+  color: var(--text-dim);
+  transition: background .15s, color .15s;
+}
+
+.choice-card__icon svg { width: 1.35rem; height: 1.35rem; }
+
+.choice-card__text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: .2rem;
+  /* Espaço para o sinal de escolhido no canto. */
+  padding-right: 1.5rem;
+}
+
+.choice-card__title { font-size: .95rem; line-height: 1.25; }
+
+.choice-card__hint {
+  color: var(--text-mute);
+  font-size: .78rem;
+  line-height: 1.45;
+}
+
+/* O sinal de escolhido nasce encolhido e aparece junto com a borda. */
+.choice-card__mark {
+  position: absolute;
+  top: .8rem;
+  right: .8rem;
+  display: grid;
+  place-items: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #0b0f0e;
+  opacity: 0;
+  transform: scale(.5);
+  transition: opacity .15s, transform .15s;
+}
+
+.choice-card__mark svg { width: .8rem; height: .8rem; }
+
+/* ---- estado escolhido, tudo por combinador de irmão ---- */
+
+.choice-card__input:checked ~ .choice-card__frame {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 9%, transparent);
+  /* Brilho contido: marca a escolha sem transformar o formulário em painel
+     de nave. Um anel fino, e uma sombra difusa curta embaixo. */
+  box-shadow: 0 0 0 1px var(--brand), 0 8px 22px -14px var(--brand);
+}
+
+.choice-card__input:checked ~ .choice-card__icon {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.choice-card__input:checked ~ .choice-card__mark {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Foco visível para quem navega por teclado: o anel vai na moldura, que é
+   exatamente o contorno do cartão. */
+.choice-card__input:focus-visible ~ .choice-card__frame {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .choice-card,
+  .choice-card__frame,
+  .choice-card__icon,
+  .choice-card__mark { transition: none; }
+}
+
+/* ==========================================================================
+   21. Convite de instalação
    ========================================================================== */
 
 /* Uma faixa presa ao rodapé, acima da navegação. Fica no fluxo visual do app
@@ -1518,6 +1678,15 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
      navegação morta atrás do convite. Errar para o lado que deixa o app
      usável. */
   z-index: 28;
+
+  /* O cartão não intercepta clique; só os botões dele interceptam.
+
+     No desktop ele pousa no canto inferior direito, e ali costuma haver
+     conteúdo por baixo — no formulário de onboarding, as próprias opções que
+     a pessoa precisa marcar. Um convite não pode roubar o clique de quem
+     está tentando usar o app. Com `none` aqui e `auto` nos botões, o toque
+     atravessa o cartão e chega em quem estiver embaixo. */
+  pointer-events: none;
   display: grid;
   gap: .7rem;
   padding: .85rem;
@@ -1611,12 +1780,16 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 /* 44x44 é o mínimo para um alvo de toque: abaixo disso o dedo erra, e um
    botão de fechar que erra é indistinguível de um botão que não funciona —
    foi exatamente essa a queixa que originou este bloco. */
+/* Os três botões são o que sobra de clicável no cartão — o resto deixa o
+   toque passar para a página. */
 .install__go,
 .install__later {
   min-height: 2.75rem;
+  pointer-events: auto;
 }
 
 .install__close {
+  pointer-events: auto;
   position: absolute;
   top: .35rem;
   right: .35rem;
@@ -1637,7 +1810,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .install__close:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* ==========================================================================
-   21. Desktop
+   22. Desktop
    ========================================================================== */
 
 @media (min-width: 60rem) {

@@ -154,7 +154,9 @@ class GoalForm(OnboardingStepForm):
         widgets = {"goal": forms.RadioSelect, "activity_level": forms.RadioSelect}
         labels = {
             "goal": "Qual seu objetivo agora?",
-            "activity_level": "Como é sua rotina fora da academia?",
+            "activity_level": (
+                "Qual é o seu nível de atividade física no dia a dia (fora os treinos)?"
+            ),
         }
         help_texts = {
             "goal": (

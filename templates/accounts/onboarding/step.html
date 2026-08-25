@@ -37,6 +37,16 @@
           <div>{% include "partials/field.html" with field=form.height_cm %}</div>
         </div>
         {% include "partials/field.html" with field=form.weight_kg %}
+      {% elif step == 2 %}
+        {% comment %}
+          Objetivo e nível de atividade viram cartões: são as duas escolhas
+          que mais mudam o plano, e ler quatro linhas de texto corrido para
+          decidir é mais lento que reconhecer um desenho. Os outros passos
+          seguem com o campo comum — cartão em campo de data não ajuda.
+        {% endcomment %}
+        {% include "partials/icones.html" %}
+        {% include "partials/choice_cards.html" with field=form.goal %}
+        {% include "partials/choice_cards.html" with field=form.activity_level %}
       {% elif step == 3 %}
         {% include "partials/field.html" with field=form.weekdays %}
         <div class="field-row">

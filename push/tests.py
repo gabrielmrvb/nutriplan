@@ -292,17 +292,45 @@ class InstallabilityTests(TestCase):
         self.assertIn('classList.add("tem-convite")', js)
         self.assertIn('classList.remove("tem-convite")', js)
 
-    def test_dismissing_is_remembered_for_seven_days_not_forever(self):
-        """Guardar "1" fazia o convite sumir para sempre.
+    def test_dismissing_is_final_and_survives_a_key_rename(self):
+        """Fechou uma vez, não volta mais neste aparelho.
 
-        Some cedo demais: quem fecha na primeira visita, antes de saber se o
-        app presta, perde a oferta para sempre.
+        Houve uma versão com prazo de sete dias, na ideia de que quem fecha na
+        primeira visita ainda não sabe se o app presta. A prática desmentiu: um
+        convite que reaparece é um convite que a pessoa já respondeu.
+
+        As chaves antigas continuam sendo lidas — trocar o nome da chave não
+        pode ressuscitar o convite justamente para quem já disse não.
         """
         js = (Path(settings.BASE_DIR) / "static" / "js" / "pwa.js").read_text(
             encoding="utf-8"
         )
-        self.assertIn("7 * 24 * 60 * 60 * 1000", js)
-        self.assertIn("Date.now() - quando < SETE_DIAS", js)
+
+        self.assertIn('var CHAVE = "nutriplan_pwa_dismissed"', js)
+        self.assertIn('localStorage.setItem(CHAVE, "true")', js)
+        self.assertIn("CHAVES_ANTIGAS", js)
+        for antiga in ("pwa_prompt_dismissed", "nutriplan:convite-dispensado-em"):
+            with self.subTest(chave=antiga):
+                self.assertIn(antiga, js)
+
+        # Sem prazo: nada de contagem de dias sobrou no caminho da decisão.
+        self.assertNotIn("SETE_DIAS", js)
+
+    def test_the_card_never_steals_a_click_from_the_page(self):
+        """No desktop o convite pousa no canto inferior direito, e ali costuma
+        haver conteúdo — no onboarding, as próprias opções que a pessoa precisa
+        marcar. O cartão não intercepta toque; só os botões dele interceptam."""
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+
+        cartao = css.split(chr(10) + ".install {", 1)[1].split("}", 1)[0]
+        self.assertIn("pointer-events: none", cartao)
+
+        for seletor in (".install__go,", ".install__close {"):
+            with self.subTest(seletor=seletor):
+                bloco = css.split(chr(10) + seletor, 1)[1].split("}", 1)[0]
+                self.assertIn("pointer-events: auto", bloco)
 
     def test_the_service_worker_registers_for_a_visitor_too(self):
         """Sem service worker registrado na primeira página, não há convite."""

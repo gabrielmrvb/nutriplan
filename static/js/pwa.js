@@ -129,8 +129,10 @@
 
     var dica = banner.querySelector("[data-install-hint]");
     var instalar = banner.querySelector("[data-install-go]");
-    var CHAVE = "nutriplan:convite-dispensado-em";
-    var SETE_DIAS = 7 * 24 * 60 * 60 * 1000;
+    var CHAVE = "nutriplan_pwa_dismissed";
+    //: Chaves de versões anteriores. Continuam sendo lidas porque trocar o
+    //: nome não pode ressuscitar o convite justamente para quem já disse não.
+    var CHAVES_ANTIGAS = ["pwa_prompt_dismissed", "nutriplan:convite-dispensado-em"];
     var convite = null;
 
     function jaInstalado() {
@@ -146,18 +148,25 @@
       return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && "ontouchend" in document);
     }
 
-    /* Guarda QUANDO foi dispensado, não apenas QUE foi.
+    /* Fechou uma vez, não volta mais neste aparelho.
      *
-     * A primeira versão guardava um "1" e o convite nunca mais voltava. Some
-     * cedo demais: quem fecha na primeira visita, antes de saber se o app
-     * presta, perde a oferta para sempre. Sete dias é tempo de a pessoa
-     * decidir se voltou a usar — e curto o bastante para o convite ainda
-     * significar alguma coisa quando reaparecer. */
-    function dispensadoRecentemente() {
+     * Houve uma versão com prazo de sete dias, na ideia de que quem fecha na
+     * primeira visita ainda não sabe se o app presta. A prática desmentiu: um
+     * convite que reaparece é um convite que a pessoa já respondeu, e
+     * perguntar de novo é insistência. Quem mudar de ideia instala pelo menu
+     * do próprio navegador, que é onde essa opção mora de todo jeito.
+     *
+     * A chave antiga continua sendo lida para quem já tinha recusado antes
+     * desta mudança — trocar o nome da chave não pode ressuscitar o convite
+     * justamente para quem já disse não. */
+    function dispensado() {
       try {
-        var quando = parseInt(window.localStorage.getItem(CHAVE), 10);
-        if (!quando) return false;
-        return Date.now() - quando < SETE_DIAS;
+        var loja = window.localStorage;
+        if (loja.getItem(CHAVE) === "true") return true;
+        for (var i = 0; i < CHAVES_ANTIGAS.length; i++) {
+          if (loja.getItem(CHAVES_ANTIGAS[i])) return true;
+        }
+        return false;
       } catch (e) {
         // Modo privado pode recusar o armazenamento. Sem memória, o convite
         // reaparece na próxima visita — chato, mas melhor que quebrar.
@@ -176,12 +185,12 @@
     function dispensar() {
       esconder();
       try {
-        window.localStorage.setItem(CHAVE, String(Date.now()));
+        window.localStorage.setItem(CHAVE, "true");
       } catch (e) {}
     }
 
     function mostrar() {
-      if (jaInstalado() || dispensadoRecentemente()) return;
+      if (jaInstalado() || dispensado()) return;
       banner.hidden = false;
       document.body.classList.add("tem-convite");
     }
