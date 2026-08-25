@@ -114,15 +114,29 @@
     `beforeinstallprompt`; no iPhone, quando reconhece Safari fora do modo
     instalado. Oferecer "instale o app" para quem já instalou, ou num navegador
     que não instala, é pior que não oferecer nada.
+
+    Duas saídas, e isso é deliberado: o "×" no canto para quem já entendeu, e
+    "Agora não" escrito por extenso para quem não associa o símbolo a fechar.
+    Um convite com uma saída difícil de achar não é convite, é obstáculo.
   {% endcomment %}
   <div class="install" data-install hidden role="dialog" aria-labelledby="install-title">
-    <img class="install__icon" src="{% static 'icons/icon-192.png' %}" alt="" width="48" height="48">
-    <div class="install__text">
-      <strong class="install__title" id="install-title">Instale o NutriPlan</strong>
-      <span class="install__hint" data-install-hint>Abre direto da tela inicial, sem barra de navegador.</span>
+    <button type="button" class="install__close" data-install-close aria-label="Fechar o convite de instalação">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18"/>
+      </svg>
+    </button>
+    <div class="install__top">
+      <img class="install__icon" src="{% static 'icons/icon-192.png' %}" alt="" width="48" height="48">
+      <div class="install__text">
+        <strong class="install__title" id="install-title">Instale o NutriPlan</strong>
+        <span class="install__hint" data-install-hint>Abre direto da tela inicial, sem barra de navegador.</span>
+      </div>
     </div>
-    <button type="button" class="btn btn--primary btn--sm install__go" data-install-go>Instalar</button>
-    <button type="button" class="install__close" data-install-close aria-label="Agora não">&times;</button>
+    <div class="install__actions">
+      <button type="button" class="btn btn--primary install__go" data-install-go>Instalar</button>
+      <button type="button" class="btn btn--ghost install__later" data-install-close>Agora não</button>
+    </div>
   </div>
 
   <script>window.NUTRIPLAN_VAPID_KEY = "{{ vapid_public_key }}";</script>

@@ -161,6 +161,61 @@ class InstallabilityTests(TestCase):
         self.assertIn("data-install-go", html)
         self.assertRegex(html, r'<div class="install"[^>]*\shidden')
 
+    def test_the_invitation_has_two_ways_out(self):
+        """Queixa real de produção: "não possui um botão funcional de fechar".
+
+        Eram dois problemas somados — o "×" tinha 30x30, abaixo do mínimo de
+        44 para o dedo, e era a única saída. Quem não associa o símbolo a
+        fechar não tinha alternativa nenhuma. Agora são duas, e a escrita por
+        extenso é a que não depende de interpretar ícone.
+        """
+        html = self.client.get(reverse("accounts:login")).content.decode()
+
+        self.assertEqual(html.count("data-install-close"), 2)
+        self.assertIn("Agora não", html)
+        self.assertIn('aria-label="Fechar o convite de instalação"', html)
+
+    def test_the_touch_targets_are_big_enough_for_a_finger(self):
+        """44x44 é o mínimo; abaixo disso o toque erra e o botão parece morto."""
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        bloco = css.split(".install__close {")[1].split("}")[0]
+
+        self.assertIn("width: 2.75rem", bloco)   # 44px
+        self.assertIn("height: 2.75rem", bloco)
+
+        acoes = css.split(".install__later {")[1].split("}")[0]
+        self.assertIn("min-height: 2.75rem", acoes)
+
+    def test_the_page_reserves_room_for_the_fixed_bar(self):
+        """Barra fixa não ocupa espaço no layout, então pousa em cima do
+        conteúdo — na tela de entrar, bem em cima do "Criar agora"."""
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("body.tem-convite .container", css)
+
+        js = (Path(settings.BASE_DIR) / "static" / "js" / "pwa.js").read_text(
+            encoding="utf-8"
+        )
+        # A classe entra quando o convite aparece e sai quando ele fecha; se
+        # só entrasse, sobraria um vão em branco no rodapé para sempre.
+        self.assertIn('classList.add("tem-convite")', js)
+        self.assertIn('classList.remove("tem-convite")', js)
+
+    def test_dismissing_is_remembered_for_seven_days_not_forever(self):
+        """Guardar "1" fazia o convite sumir para sempre.
+
+        Some cedo demais: quem fecha na primeira visita, antes de saber se o
+        app presta, perde a oferta para sempre.
+        """
+        js = (Path(settings.BASE_DIR) / "static" / "js" / "pwa.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("7 * 24 * 60 * 60 * 1000", js)
+        self.assertIn("Date.now() - quando < SETE_DIAS", js)
+
     def test_the_service_worker_registers_for_a_visitor_too(self):
         """Sem service worker registrado na primeira página, não há convite."""
         html = self.client.get(reverse("accounts:login")).content.decode()

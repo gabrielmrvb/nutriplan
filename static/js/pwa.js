@@ -129,8 +129,9 @@
 
     var dica = banner.querySelector("[data-install-hint]");
     var instalar = banner.querySelector("[data-install-go]");
-    var fechar = banner.querySelector("[data-install-close]");
-    var CHAVE = "nutriplan:instalacao-dispensada";
+    var saidas = banner.querySelectorAll("[data-install-close]");
+    var CHAVE = "nutriplan:convite-dispensado-em";
+    var SETE_DIAS = 7 * 24 * 60 * 60 * 1000;
     var convite = null;
 
     function jaInstalado() {
@@ -146,9 +147,18 @@
       return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && "ontouchend" in document);
     }
 
-    function dispensado() {
+    /* Guarda QUANDO foi dispensado, não apenas QUE foi.
+     *
+     * A primeira versão guardava um "1" e o convite nunca mais voltava. Some
+     * cedo demais: quem fecha na primeira visita, antes de saber se o app
+     * presta, perde a oferta para sempre. Sete dias é tempo de a pessoa
+     * decidir se voltou a usar — e curto o bastante para o convite ainda
+     * significar alguma coisa quando reaparecer. */
+    function dispensadoRecentemente() {
       try {
-        return window.localStorage.getItem(CHAVE) === "1";
+        var quando = parseInt(window.localStorage.getItem(CHAVE), 10);
+        if (!quando) return false;
+        return Date.now() - quando < SETE_DIAS;
       } catch (e) {
         // Modo privado pode recusar o armazenamento. Sem memória, o convite
         // reaparece na próxima visita — chato, mas melhor que quebrar.
@@ -156,19 +166,33 @@
       }
     }
 
-    function dispensar() {
+    /* Esconder não basta: a barra é `position: fixed`, então não ocupa espaço
+     * no layout e pousa em cima do rodapé da página. A classe no `body` é o
+     * que faz a página reservar a altura dela — e some junto com o convite. */
+    function esconder() {
       banner.hidden = true;
+      document.body.classList.remove("tem-convite");
+    }
+
+    function dispensar() {
+      esconder();
       try {
-        window.localStorage.setItem(CHAVE, "1");
+        window.localStorage.setItem(CHAVE, String(Date.now()));
       } catch (e) {}
     }
 
     function mostrar() {
-      if (jaInstalado() || dispensado()) return;
+      if (jaInstalado() || dispensadoRecentemente()) return;
       banner.hidden = false;
+      document.body.classList.add("tem-convite");
     }
 
-    if (fechar) fechar.onclick = dispensar;
+    for (var i = 0; i < saidas.length; i++) saidas[i].onclick = dispensar;
+
+    // Esc fecha, como em qualquer diálogo.
+    document.addEventListener("keydown", function (evento) {
+      if (evento.key === "Escape" && !banner.hidden) dispensar();
+    });
 
     window.addEventListener("beforeinstallprompt", function (event) {
       // Segurar o evento é o que troca o banner do navegador (que aparece na
@@ -185,19 +209,23 @@
         if (!convite) return;
         convite.prompt();
         convite.userChoice.then(function (escolha) {
-          if (escolha.outcome === "accepted") dispensar();
-          // Recusou: o evento é de uso único, então some com o botão e espera
-          // o navegador oferecer de novo numa visita futura.
+          // Aceitou ou recusou, o convite sai da tela: o evento é de uso único
+          // e insistir na mesma visita é o que faz banner virar praga.
+          dispensar();
           convite = null;
-          banner.hidden = true;
         });
       };
     }
 
     if (ehIOS() && !jaInstalado()) {
-      if (dica) dica.textContent = "No Safari: toque em Compartilhar e depois em “Adicionar à Tela de Início”.";
+      if (dica) {
+        dica.textContent = "No Safari: toque em Compartilhar e depois em \u201cAdicionar \u00e0 Tela de In\u00edcio\u201d.";
+      }
+      // Sem `beforeinstallprompt` no iOS, o botão "Instalar" não teria o que
+      // fazer — um botão que não faz nada é pior que botão nenhum.
       if (instalar) instalar.hidden = true;
       mostrar();
     }
   }
+
 })();

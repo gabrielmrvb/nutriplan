@@ -39,7 +39,10 @@
 
   --text: #eef4f2;
   --text-dim: #9fb0ac;
-  --text-mute: #71827f;
+  /* Medido, não escolhido a olho: #71827f dava 4.00:1 sobre --surface-3, e o
+     mínimo da WCAG AA para texto pequeno é 4.5:1. Este valor é o menor
+     clareamento que passa contra TODOS os quatro fundos do tema. */
+  --text-mute: #849592;
 
   /* Verde-menta como acento principal e azul-gelo como secundário: os dois
      legíveis sobre grafite sem virar neon berrante, que cansa em minutos. */
@@ -92,7 +95,8 @@
 
     --text: #101715;
     --text-dim: #55655f;
-    --text-mute: #7b8a85;
+    /* O tema claro estava pior que o escuro: 3.33:1 sobre --bg. */
+    --text-mute: #5d6c67;
 
     --brand: #0f7a4a;
     --brand-strong: #0b6039;
@@ -191,6 +195,7 @@ button { font-family: inherit; color: inherit; }
 }
 
 .app-bar__brand {
+  min-height: 2.75rem;
   display: inline-flex;
   align-items: center;
   gap: .55rem;
@@ -222,6 +227,9 @@ button { font-family: inherit; color: inherit; }
 
 .app-bar__link,
 .app-bar__quiet {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
   padding: .45rem .75rem;
   border: 0;
   border-radius: var(--pill);
@@ -337,7 +345,19 @@ h3 { font-size: .95rem; font-weight: 650; }
 }
 
 .card__head h2 { min-width: 0; }
-.card__head a { flex: none; font-size: .8rem; font-weight: 650; text-decoration: none; }
+/* O alvo cresce por padding, não por fonte: o link continua discreto ao
+   lado do título, e o dedo passa a ter 44px de altura para acertar. */
+.card__head a {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  min-height: 2.75rem;
+  padding: 0 .3rem;
+  margin: -.5rem -.3rem;
+  font-size: .8rem;
+  font-weight: 650;
+  text-decoration: none;
+}
 
 /* ==========================================================================
    6. Painel do dia
@@ -412,6 +432,10 @@ h3 { font-size: .95rem; font-weight: 650; }
 }
 
 .chip--brand { background: var(--brand-soft); color: var(--brand); }
+
+/* Só o chip que é link vira alvo de 44px. O chip que é `<span>` é etiqueta de
+   contagem — inflar um rótulo que ninguém toca só desalinha a linha. */
+a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr)); gap: .55rem; }
 
@@ -688,7 +712,7 @@ h3 { font-size: .95rem; font-weight: 650; }
 .btn--ghost:hover { color: var(--text); border-color: var(--text-mute); }
 
 .btn--quiet {
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   padding: .45rem .85rem;
   background: var(--surface-2);
   color: var(--text-dim);
@@ -697,7 +721,7 @@ h3 { font-size: .95rem; font-weight: 650; }
 }
 
 .btn--quiet:hover { background: var(--surface-3); color: var(--text); }
-.btn--sm { min-height: 2.4rem; padding: .45rem .9rem; font-size: .84rem; }
+.btn--sm { min-height: 2.75rem; padding: .5rem .9rem; font-size: .84rem; }
 .btn--block { width: 100%; }
 
 .btn-link {
@@ -1075,9 +1099,15 @@ h3 { font-size: .95rem; font-weight: 650; }
 
 .exercise__cue { margin: 0; color: var(--text-dim); font-size: .84rem; line-height: 1.6; }
 
+/* Alvo de 44px sem engordar a linha de texto: o padding cresce a área e a
+   margem negativa devolve o espaço ao parágrafo em volta. */
 .exercise__fallback {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
   margin-left: .3rem;
+  margin-top: -.5rem;
+  margin-bottom: -.5rem;
   color: var(--text-mute);
   font-size: .78rem;
   text-decoration: underline;
@@ -1111,10 +1141,12 @@ h3 { font-size: .95rem; font-weight: 650; }
 
 .set-row { margin: 0; }
 
+/* Não é alvo de toque, mas divide a linha com os que são: fora de 44px, a
+   régua da série fica um degrau abaixo dos botões ao lado. */
 .set-row__label {
   display: grid;
   place-items: center;
-  min-height: 2.7rem;
+  min-height: 2.75rem;
   border-radius: var(--radius-sm);
   background: var(--surface-3);
   color: var(--text-dim);
@@ -1128,7 +1160,9 @@ h3 { font-size: .95rem; font-weight: 650; }
 .set-row__input {
   width: 100%;
   min-width: 0;
-  min-height: 2.7rem;
+  /* 2.75rem = 44px. Estava em 2.7rem, e 43px é o tipo de "quase" que o dedo
+     sente e a régua não perdoa. */
+  min-height: 2.75rem;
   padding: .4rem .75rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -1147,8 +1181,8 @@ h3 { font-size: .95rem; font-weight: 650; }
 .set-row__timer {
   display: grid;
   place-items: center;
-  min-width: 2.7rem;
-  min-height: 2.7rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
   padding: 0 .6rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -1245,8 +1279,18 @@ h3 { font-size: .95rem; font-weight: 650; }
 }
 
 .shopping__item:last-child { border-bottom: 0; }
-.shopping__check { display: flex; align-items: center; gap: .65rem; flex: 1; min-width: 0; cursor: pointer; }
-.shopping__check input { width: 1.2rem; height: 1.2rem; flex: none; accent-color: var(--brand); }
+/* O rótulo inteiro é o alvo, não a caixinha: marcar um item da lista com o
+   dedo no supermercado precisa funcionar sem mira. Tinha 25px de altura. */
+.shopping__check {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  flex: 1;
+  min-width: 0;
+  min-height: 2.75rem;
+  cursor: pointer;
+}
+.shopping__check input { width: 1.4rem; height: 1.4rem; flex: none; accent-color: var(--brand); }
 .shopping__name { min-width: 0; font-size: .92rem; }
 .shopping__check input:checked + .shopping__name { color: var(--text-mute); text-decoration: line-through; }
 
@@ -1258,12 +1302,18 @@ h3 { font-size: .95rem; font-weight: 650; }
   font-variant-numeric: tabular-nums;
 }
 
+/* Este é o botão mais usado da tela de dieta — tocar no nome do alimento
+   abre as substituições — e era o menor de todos, com 21px de altura. Como
+   ele vive dentro de uma lista de ingredientes, o alvo cresce por padding
+   vertical: a lista fica mais espaçada, que também é mais legível, e nenhum
+   alvo encosta no vizinho. */
 .swap-open {
   display: inline-flex;
   align-items: center;
   gap: .3rem;
   min-width: 0;
-  padding: 0;
+  min-height: 2.75rem;
+  padding: .35rem 0;
   border: 0;
   background: none;
   font: inherit;
@@ -1383,8 +1433,12 @@ h3 { font-size: .95rem; font-weight: 650; }
    ========================================================================== */
 
 /* Uma faixa presa ao rodapé, acima da navegação. Fica no fluxo visual do app
-   em vez de cobrir a tela: é um convite, não um pedágio — quem quiser usar o
-   app sem instalar continua vendo o conteúdo inteiro atrás dela. */
+   em vez de cobrir a tela: é um convite, não um pedágio.
+
+   O ponto que já deu errado uma vez: barra fixa não ocupa espaço no layout,
+   então ela pousava em cima do rodapé da página — na tela de entrar, bem em
+   cima do "Criar agora". A correção não é subir a barra, é a página reservar
+   a altura dela enquanto estiver visível (`body.tem-convite`). */
 
 .install {
   position: fixed;
@@ -1392,10 +1446,9 @@ h3 { font-size: .95rem; font-weight: 650; }
   right: .6rem;
   bottom: calc(.6rem + env(safe-area-inset-bottom));
   z-index: 40;
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  padding: .7rem .8rem;
+  display: grid;
+  gap: .7rem;
+  padding: .85rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
@@ -1409,6 +1462,11 @@ body:has(.tabbar) .install {
   bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + .6rem);
 }
 
+/* O espaço que a barra fixa não ocupa sozinha. A classe entra pelo JS no
+   mesmo instante em que o convite aparece, e sai quando ele fecha. */
+body.tem-convite .container { padding-bottom: 13rem; }
+body.tem-convite:has(.tabbar) .container { padding-bottom: 17rem; }
+
 @keyframes install-sobe {
   from { opacity: 0; transform: translateY(1rem); }
   to { opacity: 1; transform: translateY(0); }
@@ -1416,6 +1474,14 @@ body:has(.tabbar) .install {
 
 @media (prefers-reduced-motion: reduce) {
   .install { animation: none; }
+}
+
+.install__top {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  /* Espaço à direita para o texto nunca passar por baixo do botão fechar. */
+  padding-right: 2.5rem;
 }
 
 /* A borda existe porque o fundo do ícone é o mesmo grafite do app: sem ela o
@@ -1428,7 +1494,7 @@ body:has(.tabbar) .install {
   border-radius: .7rem;
 }
 
-/* `min-width: 0` porque sem isso o texto empurra o botão para fora do cartão
+/* `min-width: 0` porque sem isso o texto empurra o resto para fora do cartão
    em vez de quebrar — o padrão de item flex é não encolher além do conteúdo. */
 .install__text {
   display: flex;
@@ -1438,39 +1504,47 @@ body:has(.tabbar) .install {
   gap: .1rem;
 }
 
-.install__title { font-size: .92rem; }
+.install__title { font-size: .95rem; }
 
 .install__hint {
   color: var(--text-dim);
-  font-size: .76rem;
+  font-size: .78rem;
   line-height: 1.35;
 }
 
-.install__go { flex: none; }
+.install__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+}
+
+/* 44x44 é o mínimo para um alvo de toque: abaixo disso o dedo erra, e um
+   botão de fechar que erra é indistinguível de um botão que não funciona —
+   foi exatamente essa a queixa que originou este bloco. */
+.install__go,
+.install__later {
+  min-height: 2.75rem;
+}
 
 .install__close {
-  flex: none;
-  width: 1.9rem;
-  height: 1.9rem;
+  position: absolute;
+  top: .35rem;
+  right: .35rem;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
   padding: 0;
   background: none;
   border: 0;
   border-radius: 50%;
   color: var(--text-dim);
-  font-size: 1.3rem;
-  line-height: 1;
   cursor: pointer;
 }
 
+.install__close svg { width: 1.15rem; height: 1.15rem; }
 .install__close:hover { background: var(--surface-2); color: var(--text); }
-
-@media (max-width: 24rem) {
-  /* Em tela estreita o botão desce para uma linha própria: espremer quatro
-     colunas aqui é o que fazia o texto virar duas letras por linha. */
-  .install { flex-wrap: wrap; }
-  .install__go { width: 100%; order: 3; }
-  .install__text { flex-basis: 60%; }
-}
+.install__close:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* ==========================================================================
    21. Desktop

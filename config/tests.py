@@ -220,3 +220,123 @@ class HealthTests(TestCase):
             with self.subTest(arquivo=nome):
                 conteudo = (RAIZ / nome).read_text(encoding="utf-8")
                 self.assertIn("/saude/", conteudo)
+
+
+def _luminancia(hexa):
+    """Luminância relativa da WCAG, para 0-1."""
+    hexa = hexa.lstrip("#")
+    canais = []
+    for i in (0, 2, 4):
+        v = int(hexa[i : i + 2], 16) / 255
+        canais.append(v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4)
+    return 0.2126 * canais[0] + 0.7152 * canais[1] + 0.0722 * canais[2]
+
+
+def _contraste(cor, fundo):
+    a, b = _luminancia(cor), _luminancia(fundo)
+    if a < b:
+        a, b = b, a
+    return (a + 0.05) / (b + 0.05)
+
+
+def _tokens(css, escopo):
+    """Lê as variáveis de cor de um bloco `:root` (ou do bloco do tema claro)."""
+    trecho = css.split(escopo, 1)[1].split("}", 1)[0]
+    valores = {}
+    for linha in trecho.splitlines():
+        linha = linha.strip()
+        if linha.startswith("--") and ":" in linha:
+            nome, valor = linha.split(":", 1)
+            valor = valor.split(";")[0].strip()
+            if valor.startswith("#") and len(valor) == 7:
+                valores[nome.strip()] = valor
+    return valores
+
+
+class ContrastTests(TestCase):
+    """Contraste medido, não julgado a olho.
+
+    O teste recalcula a razão da WCAG a partir dos tokens do CSS em vez de
+    comparar com uma cor fixa: assim ele continua valendo quando a paleta
+    mudar, e falha exatamente quando alguém escolher um cinza bonito e
+    ilegível. O mínimo AA para texto pequeno é 4.5:1.
+    """
+
+    MINIMO = 4.5
+
+    def setUp(self):
+        self.css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+
+    def _conferir(self, escopo, rotulo):
+        tokens = _tokens(self.css, escopo)
+        fundos = [
+            tokens[nome]
+            for nome in ("--bg", "--surface", "--surface-2", "--surface-3")
+            if nome in tokens
+        ]
+        self.assertTrue(fundos, f"{rotulo}: nenhum fundo encontrado")
+
+        for nome in ("--text", "--text-dim", "--text-mute"):
+            cor = tokens.get(nome)
+            if not cor:
+                continue
+            for fundo in fundos:
+                with self.subTest(tema=rotulo, texto=nome, fundo=fundo):
+                    razao = _contraste(cor, fundo)
+                    self.assertGreaterEqual(
+                        razao,
+                        self.MINIMO,
+                        f"{nome} ({cor}) sobre {fundo} dá {razao:.2f}:1",
+                    )
+
+    def test_dark_theme_text_is_readable_on_every_surface(self):
+        self._conferir(":root {", "escuro")
+
+    def test_light_theme_text_is_readable_on_every_surface(self):
+        """O tema claro estava pior que o escuro: 3.33:1 no texto discreto."""
+        self._conferir("prefers-color-scheme: light) {\n  :root {", "claro")
+
+
+class TouchTargetTests(TestCase):
+    """44x44 é o mínimo em que o dedo acerta.
+
+    Medido no navegador, em 375px e 320px, o app tinha alvos de 19, 20, 21, 25,
+    30, 34, 40 e 43 pixels — sendo o de 21px justamente o botão mais usado da
+    tela de dieta. Aqui ficam travadas as regras que corrigiram cada um; a
+    medida de verdade continua sendo o navegador, isto é a rede de proteção
+    contra alguém baixar um valor de novo sem perceber.
+    """
+
+    ALVOS = [
+        (".btn {", "min-height: 2.95rem"),
+        (".btn--sm {", "min-height: 2.75rem"),
+        (".btn--quiet {", "min-height: 2.75rem"),
+        (".app-bar__quiet {", "min-height: 2.75rem"),
+        (".card__head a {", "min-height: 2.75rem"),
+        (".swap-open {", "min-height: 2.75rem"),
+        (".shopping__check {", "min-height: 2.75rem"),
+        (".set-row__input {", "min-height: 2.75rem"),
+        (".install__close {", "height: 2.75rem"),
+    ]
+
+    def test_every_interactive_element_reaches_44px(self):
+        css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+
+        for seletor, regra in self.ALVOS:
+            with self.subTest(seletor=seletor):
+                # Ancorado no início da linha: sem isso, ".btn {" casaria
+                # antes com ".sets .btn {" e o teste leria o bloco errado.
+                ancora = "\n" + seletor
+                self.assertIn(ancora, css, "seletor sumiu do CSS")
+                bloco = css.split(ancora, 1)[1].split("}", 1)[0]
+                self.assertIn(regra, bloco, f"{seletor} abaixo de 44px")
+
+    def test_nothing_declares_the_old_43px_height(self):
+        """2.7rem = 43px: um pixel a menos, e o dedo sente."""
+        css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+        linhas = [
+            linha.strip()
+            for linha in css.splitlines()
+            if "2.7rem" in linha and not linha.strip().startswith(("/*", "*", "//"))
+        ]
+        self.assertEqual(linhas, [], f"ainda há alvos de 43px: {linhas}")
