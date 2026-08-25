@@ -512,7 +512,7 @@
     "active": true
   },
   {
-    "name": "Clara de ovo",
+    "name": "Clara de ovo cozida",
     "kcal": 52,
     "protein_g": 11,
     "carb_g": 0.7,
@@ -1102,9 +1102,9 @@
   },
   {
     "name": "Ovo de galinha cozido",
-    "kcal": 143,
-    "protein_g": 13,
-    "carb_g": 1.1,
+    "kcal": 146,
+    "protein_g": 13.3,
+    "carb_g": 0.6,
     "fat_g": 9.5,
     "fiber_g": 0,
     "aisle": "butcher",

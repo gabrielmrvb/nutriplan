@@ -13,8 +13,15 @@ gordura. Então:
 * o alimento é classificado pelo macro que domina as calorias dele;
 * só entram substitutos da mesma classe;
 * a quantidade é calculada para igualar **esse** macro;
-* e o resultado é descartado quando as calorias fogem demais, porque igualar
-  proteína estourando o dia em gordura também não serve.
+* o resultado é descartado quando as calorias fogem demais, porque igualar
+  proteína estourando o dia em gordura também não serve;
+* e é descartado também quando algum macro SECUNDÁRIO se desloca demais.
+
+O último critério nasceu de uma auditoria da base: igualar o macro dominante e
+a caloria total deixava passar trocas que reescreviam o resto da refeição. A
+pior delas oferecia proteína de soja no lugar de patinho grelhado — proteína
+igual, calorias 11% acima, e o carboidrato do prato saindo de 0 g para 30 g.
+Metade das trocas do catálogo tinha algum macro mais de 50% fora do original.
 """
 from decimal import Decimal
 
@@ -29,6 +36,19 @@ DOMINANCE = Decimal("0.45")
 #: Trinta e cinco por cento é folgado de propósito: a substituição existe para
 #: destravar quem está sem o alimento, não para produzir o clone perfeito.
 KCAL_TOLERANCE = Decimal("0.35")
+
+#: Quanto um macro que NÃO é o dominante pode se deslocar, em gramas.
+#:
+#: Em gramas e não em porcentagem porque o denominador costuma ser zero: carne
+#: não tem carboidrato, e "de 0 g para 30 g" não tem porcentagem que descreva.
+#:
+#: Oito gramas saiu de medição, não de opinião. Rodando o catálogo inteiro com
+#: vários limites, o desvio mediano já era de 1,9 g — os absurdos eram uma
+#: cauda curta. Cortar em 8 g derruba o pior caso de 43 g para 8 g e custa 8
+#: das 184 trocas possíveis, com um único alimento ficando sem alternativa.
+#: Limites mais apertados que isso passam a cobrar cobertura sem ganhar
+#: fidelidade proporcional.
+MAX_SECONDARY_DRIFT_G = Decimal("8")
 
 #: Quantidade mínima e máxima que faz sentido servir. Fora disso a troca deixa
 #: de ser comida: 8 g de arroz não alimenta, 900 g de abobrinha não cabe.
@@ -94,6 +114,17 @@ def substitutes_for(food, grams, limit=MAX_RESULTS) -> list:
             continue
 
         macros = outro.macros_for(quantidade)
+
+        # Os macros que não são o dominante não podem passear: é o que impede
+        # a troca de acertar a proteína e reescrever o resto do prato.
+        if macro != "mixed":
+            secundarios = [m for m in KCAL_PER_G if m != macro]
+            if any(
+                abs(macros[m] - referencia[m]) > MAX_SECONDARY_DRIFT_G
+                for m in secundarios
+            ):
+                continue
+
         alvo_kcal = referencia["kcal"]
         if alvo_kcal > 0:
             desvio = abs(macros["kcal"] - alvo_kcal) / alvo_kcal

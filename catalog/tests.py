@@ -1,0 +1,179 @@
+"""Auditoria da base nutricional.
+
+Estes testes não olham para uma tabela oficial — não há como embutir a TACO
+inteira aqui. Eles conferem o que dá para conferir com certeza: se os quatro
+números de cada alimento são compatíveis entre si, e se as substituições
+oferecidas mantêm o prato parecido com o que ele era.
+
+A conferência contra TACO/USDA é por amostragem e feita à mão; o que está
+travado aqui é a consistência, que é o que pega dado digitado errado.
+"""
+from decimal import Decimal
+
+from django.core.management import call_command
+from django.test import TestCase
+
+from catalog.models import Food
+from plans import substitutions as sub
+
+
+class AtwaterTests(TestCase):
+    """Caloria não é um dado independente dos macros.
+
+    São 4 kcal por grama de proteína, 4 por carboidrato e 9 por gordura — com
+    a ressalva de que a fibra vai contada dentro do carboidrato mas rende só
+    ~2 kcal/g. Ignorar a fibra faz tomate e repolho parecerem 17% errados
+    quando estão certos; foi o que aconteceu na primeira versão desta
+    auditoria.
+
+    Quando os números não fecham, um dos quatro está errado. O teste não diz
+    qual — diz que existe.
+    """
+
+    #: Leguminosa foge mais que o resto porque parte da fibra fermenta e ainda
+    #: rende energia, coisa que a conta simples não modela. Vinte por cento
+    #: cobre isso sem deixar passar dígito trocado.
+    TOLERANCIA = Decimal("0.20")
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def test_every_food_has_calories_that_match_its_macros(self):
+        for food in Food.objects.all():
+            with self.subTest(alimento=food.name):
+                liquido = max(Decimal("0"), food.carb_g - food.fiber_g)
+                estimado = (
+                    4 * food.protein_g + 4 * liquido + 9 * food.fat_g + 2 * food.fiber_g
+                )
+                if food.kcal < 20:
+                    continue  # arredondamento domina em alimento quase sem energia
+
+                desvio = abs(estimado - food.kcal) / food.kcal
+                self.assertLessEqual(
+                    desvio,
+                    self.TOLERANCIA,
+                    f"{food.name}: {food.kcal} kcal cadastradas, {estimado:.0f} pela "
+                    f"conta ({desvio:.0%} de diferença)",
+                )
+
+    def test_macros_never_exceed_the_food_itself(self):
+        """Proteína + carboidrato + gordura não cabe em mais de 100 g por 100 g."""
+        for food in Food.objects.all():
+            with self.subTest(alimento=food.name):
+                soma = food.protein_g + food.carb_g + food.fat_g
+                self.assertLessEqual(soma, Decimal("100.5"), f"{food.name}: {soma} g")
+
+    def test_fibre_is_part_of_the_carbohydrate(self):
+        """Fibra maior que o carboidrato total é dado incoerente."""
+        for food in Food.objects.all():
+            with self.subTest(alimento=food.name):
+                self.assertLessEqual(food.fiber_g, food.carb_g, food.name)
+
+
+class CookedStateTests(TestCase):
+    """Arroz pesa três vezes mais cozido que cru.
+
+    Um alimento que muda muito de peso no preparo e não diz o estado no nome
+    é divergência garantida na balança de quem for seguir a dieta.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    #: Alimentos em que crua e pronta são coisas muito diferentes na balança.
+    EXIGEM_ESTADO = (
+        "arroz", "feijão", "macarrão", "lentilha", "grão-de-bico", "batata",
+        "frango", "carne", "patinho", "alcatra", "lombo", "peixe", "tilápia",
+        "ovo", "quinoa", "inhame", "mandioca", "ervilha", "vagem",
+    )
+
+    ESTADOS = (
+        "cozid", "cru", "crua", "grelhad", "assad", "refogad", "frit",
+        "desidratad", "seco", "seca", "drenad", "hidratad", "em pó", "torrad",
+        "conserva", "defumad", "pronto",
+    )
+
+    def test_foods_that_change_weight_when_cooked_say_so(self):
+        for food in Food.objects.all():
+            nome = food.name.lower()
+            if not any(chave in nome for chave in self.EXIGEM_ESTADO):
+                continue
+            with self.subTest(alimento=food.name):
+                self.assertTrue(
+                    any(estado in nome for estado in self.ESTADOS),
+                    f"{food.name}: o nome não diz se é cru ou pronto",
+                )
+
+
+class SubstitutionFidelityTests(TestCase):
+    """Uma troca não pode reescrever o prato pelas costas.
+
+    A regra igualava o macro dominante e a caloria total, e isso deixava
+    passar coisas como oferecer proteína de soja no lugar de patinho: proteína
+    igual, calorias perto, e o carboidrato saindo de 0 g para 30 g. Metade das
+    trocas do catálogo tinha algum macro mais de 50% fora do original; o pior
+    caso deslocava 43 g de um macro só.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def test_no_substitution_moves_a_secondary_macro_too_far(self):
+        base = Decimal("100")
+        pior = Decimal("0")
+        pior_troca = ""
+
+        for original in Food.objects.filter(is_active=True):
+            dominante = sub.dominant_macro(original)
+            if dominante == "mixed":
+                continue
+            alvo = original.macros_for(base)
+            secundarios = [m for m in sub.KCAL_PER_G if m != dominante]
+
+            for opcao in sub.substitutes_for(original, base):
+                macros = opcao["food"].macros_for(opcao["quantity"])
+                for m in secundarios:
+                    desvio = abs(macros[m] - alvo[m])
+                    if desvio > pior:
+                        pior, pior_troca = desvio, f"{original.name} -> {opcao['food'].name} ({m})"
+
+        self.assertLessEqual(
+            pior,
+            sub.MAX_SECONDARY_DRIFT_G,
+            f"pior deslocamento: {pior} g em {pior_troca}",
+        )
+
+    def test_the_feature_still_answers_for_almost_every_food(self):
+        """Filtro apertado demais devolve "não há substituto" e mata o recurso.
+
+        Medido na calibração: 61 dos 62 alimentos elegíveis continuam com pelo
+        menos uma alternativa depois do corte.
+        """
+        elegiveis = [
+            f
+            for f in Food.objects.filter(is_active=True)
+            if sub.substitutes_for(f, Decimal("100"))
+        ]
+        self.assertGreaterEqual(len(elegiveis), 55)
+
+    def test_a_substitution_keeps_the_dominant_macro(self):
+        """O que a troca promete entregar, ela entrega."""
+        for original in Food.objects.filter(is_active=True)[:20]:
+            dominante = sub.dominant_macro(original)
+            if dominante == "mixed":
+                continue
+            alvo = original.macros_for(Decimal("100"))
+            for opcao in sub.substitutes_for(original, Decimal("100")):
+                with self.subTest(de=original.name, para=opcao["food"].name):
+                    entregue = opcao["food"].macros_for(opcao["quantity"])[dominante]
+                    esperado = alvo[dominante]
+                    if esperado <= 0:
+                        continue
+                    self.assertLessEqual(
+                        abs(entregue - esperado) / esperado,
+                        Decimal("0.06"),
+                        f"{dominante}: {entregue} contra {esperado}",
+                    )
