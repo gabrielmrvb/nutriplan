@@ -6,11 +6,13 @@ dias do que a divisão tem letras, e a ficha acompanha quando a rotina muda.
 """
 from datetime import date, time, timedelta
 from decimal import Decimal
+from pathlib import Path
 
 import urllib.error
 from io import StringIO
 from unittest.mock import patch
 
+from django.conf import settings
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
@@ -474,24 +476,35 @@ class WorkoutVideoViewTests(TestCase):
             for session in self.user.training_plans.get(is_active=True).sessions.all()
         )
         self.assertEqual(corpo.count('data-clipe="'), exercicios)
-        self.assertEqual(corpo.count("exercise__media"), exercicios)
+        self.assertEqual(corpo.count("exercise__ver"), exercicios)
 
     def test_no_player_is_loaded_before_being_asked_for(self):
         """Dezenove iframes ao abrir a tela seriam dezenove conexões ao YouTube.
 
-        A mídia começa como miniatura com botão de play; o player nasce no
-        toque, dentro do próprio cartão.
+        O cartão chegou a mostrar uma miniatura 16:9 por exercício, e ela
+        custava 149 px de altura cada — só um cartão e meio cabia na tela do
+        celular. Hoje o cartão traz um botão de uma linha, e o player nasce no
+        toque, dentro do drawer.
         """
         corpo = self.client.get(self.url).content.decode()
 
         self.assertNotIn("<iframe", corpo)
-        self.assertIn("exercise__thumb", corpo)
+        # Nem miniatura: a imagem do YouTube também era uma requisição por
+        # exercício, e ninguém decide fazer o movimento olhando o frame parado.
+        self.assertNotIn("i.ytimg.com", corpo)
+        self.assertIn("exercise__ver", corpo)
 
     def test_the_fallback_search_link_travels_with_each_exercise(self):
-        """Vídeo de terceiro morre: sem saída, sobra um player quebrado."""
+        """Vídeo de terceiro morre: sem saída, sobra um player quebrado.
+
+        O link saiu do cartão e foi para o drawer — só procura outra
+        demonstração quem abriu a primeira e não gostou. No cartão ele era uma
+        linha a mais para quem nunca vai clicar.
+        """
         corpo = self.client.get(self.url).content.decode()
         self.assertIn("youtube.com/results?search_query=", corpo)
-        self.assertIn("exercise__fallback", corpo)
+        self.assertIn("data-busca=", corpo)
+        self.assertIn("data-drawer-busca", corpo)
 
 
 class VideoCheckCommandTests(TestCase):
@@ -803,13 +816,23 @@ class ShortClipTests(TestCase):
         self.assertIn('data-tipo="youtube"', corpo)
         self.assertIn("autoplay=1", corpo)
 
-    def test_the_media_frame_keeps_a_16_by_9_box(self):
-        """Moldura fixa evita o salto de layout quando o player entra."""
-        user = create_user()
-        self.client.force_login(user)
+    def test_the_media_frame_keeps_a_fixed_box(self):
+        """Moldura fixa evita o salto de layout quando o player entra.
 
-        corpo = self.client.get(reverse("workouts:routine")).content.decode()
-        self.assertIn("exercise__media", corpo)
+        A moldura mudou de lugar: era o segundo bloco do cartão, e passou a ser
+        o topo do drawer. O motivo de existir é o mesmo — sem caixa reservada,
+        a chegada do player empurra o conteúdo para baixo.
+        """
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        moldura = css.split("\n.drawer__media {", 1)[1].split("}", 1)[0]
+        self.assertIn("aspect-ratio: 16 / 9", moldura)
+
+        # Short é 9:16: esticado em 16:9 ficaria com duas tarjas pretas
+        # ocupando metade da tela.
+        vertical = css.split("\n.drawer__media--vertical {", 1)[1].split("}", 1)[0]
+        self.assertIn("aspect-ratio: 9 / 16", vertical)
 
 
 class LoadInputFormatTests(TestCase):
