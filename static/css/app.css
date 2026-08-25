@@ -1462,6 +1462,22 @@ body:has(.tabbar) .install {
   bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + .6rem);
 }
 
+/* No desktop a faixa vira um cartão no canto. Esticada de ponta a ponta numa
+   tela larga, dois botões de 700px de largura para dizer "instalar" e "agora
+   não" parecem um alerta de sistema, não um convite. */
+@media (min-width: 40rem) {
+  .install {
+    left: auto;
+    width: min(24rem, calc(100vw - 2rem));
+    right: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  body:has(.tabbar) .install { bottom: calc(1rem + env(safe-area-inset-bottom)); }
+  body.tem-convite .container,
+  body.tem-convite:has(.tabbar) .container { padding-bottom: 6rem; }
+}
+
 /* O espaço que a barra fixa não ocupa sozinha. A classe entra pelo JS no
    mesmo instante em que o convite aparece, e sai quando ele fecha. */
 body.tem-convite .container { padding-bottom: 13rem; }
