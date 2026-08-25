@@ -156,15 +156,76 @@ class Exercise(models.Model):
 
     @property
     def animation_kind(self) -> str:
-        """"video", "imagem" ou "" — o que a tela precisa saber para montar."""
+        """"youtube", "video", "imagem" ou "" — como a tela deve montar.
+
+        O YouTube entra porque é onde as animações anatômicas existem hoje:
+        Short de render 3D com destaque muscular. Sai um `<iframe>`, e não um
+        `<video>` — o YouTube não serve o arquivo, serve o player.
+        """
         if not self.animation_url:
             return ""
-        caminho = self.animation_url.split("?")[0].lower()
+
+        endereco = self.animation_url.lower()
+        if "youtube.com" in endereco or "youtu.be" in endereco:
+            return "youtube" if self.animation_id else ""
+
+        caminho = endereco.split("?")[0]
         if caminho.endswith((".mp4", ".webm", ".mov")):
             return "video"
         if caminho.endswith((".gif", ".webp", ".apng")):
             return "imagem"
         return ""
+
+    @property
+    def animation_id(self) -> str:
+        """O identificador do vídeo, ou "" se o endereço não for reconhecido.
+
+        Aceita as três formas em que alguém copia um link do YouTube:
+        `watch?v=`, `youtu.be/` e `/shorts/`.
+        """
+        if not self.animation_url:
+            return ""
+
+        parts = urlparse(self.animation_url)
+        if parts.netloc.endswith("youtu.be"):
+            return parts.path.strip("/").split("/")[0]
+        if not parts.netloc.endswith("youtube.com"):
+            return ""
+        if parts.path == "/watch":
+            for pedaco in parts.query.split("&"):
+                if pedaco.startswith("v="):
+                    return pedaco[2:]
+            return ""
+        if parts.path.startswith(("/shorts/", "/embed/")):
+            return parts.path.split("/")[2]
+        return ""
+
+    @property
+    def animation_is_vertical(self) -> bool:
+        """Short é 9:16; esticado em 16:9 fica com duas tarjas pretas."""
+        return "/shorts/" in self.animation_url
+
+    @property
+    def animation_embed_url(self) -> str:
+        """O endereço do player, já configurado para se comportar como GIF.
+
+        `youtube-nocookie.com` não grava cookie de rastreamento antes do play —
+        num app que já sabe peso e objetivo de quem usa, não faz sentido
+        entregar o resto para publicidade de terceiro.
+
+        `mute=1` não é preferência: navegador nenhum deixa vídeo com áudio
+        começar sozinho, então sem ele o autoplay simplesmente não acontece. E
+        `loop` exige `playlist` com o próprio id — é assim que a API do YouTube
+        repete um vídeo único.
+        """
+        video = self.animation_id
+        if not video:
+            return ""
+        return (
+            f"https://www.youtube-nocookie.com/embed/{video}"
+            f"?autoplay=1&mute=1&loop=1&playlist={video}"
+            "&controls=0&modestbranding=1&playsinline=1&rel=0"
+        )
 
     @property
     def has_frames(self) -> bool:

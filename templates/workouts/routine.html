@@ -142,8 +142,9 @@
                       curto ao mesmo tempo.
                     {% endcomment %}
                     <button type="button" class="exercise__ver"
-                    data-animacao="{{ item.exercise.animation_url }}"
+                    data-animacao="{% if item.exercise.animation_kind == 'youtube' %}{{ item.exercise.animation_embed_url }}{% else %}{{ item.exercise.animation_url }}{% endif %}"
                     data-animacao-tipo="{{ item.exercise.animation_kind }}"
+                    data-animacao-vertical="{% if item.exercise.animation_is_vertical %}1{% endif %}"
                     data-quadros="{{ item.exercise.frames|join:'|' }}"
                     data-clipe="{% if item.exercise.clip_kind == 'youtube' %}{{ item.exercise.video_embed_url }}{% else %}{{ item.exercise.video_url }}{% endif %}"
                     data-tipo="{{ item.exercise.clip_kind }}"
@@ -329,12 +330,12 @@
       comportamentos é óbvio de reimplementar direito.
     {% endcomment %}
     <dialog class="drawer" data-drawer aria-labelledby="drawer-nome">
-      <form method="dialog" class="drawer__fechar-area">
-        <button class="drawer__fechar" aria-label="Fechar">
+      <div class="drawer__fechar-area">
+        <button type="button" class="drawer__fechar" data-drawer-fechar aria-label="Fechar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
-      </form>
+      </div>
 
       <div class="drawer__puxador" aria-hidden="true"></div>
 
@@ -416,8 +417,25 @@
 
           media.classList.add("drawer__media--carregando");
 
+          // Short é 9:16. Esticado em 16:9 fica com duas tarjas pretas
+          // ocupando metade da caixa.
+          if (dados.animacaoVertical === "1") {
+            media.classList.add("drawer__media--vertical");
+          }
+
           var elemento;
-          if (dados.animacaoTipo === "video") {
+          if (dados.animacaoTipo === "youtube") {
+            // O YouTube não serve o arquivo, serve o player — daí `<iframe>` e
+            // não `<video>`. Os parâmetros de autoplay, loop e mudo já vêm
+            // montados no endereço pelo modelo.
+            elemento = document.createElement("iframe");
+            elemento.src = dados.animacao;
+            elemento.title = "Execução: " + dados.nome;
+            elemento.allow = "autoplay; encrypted-media; picture-in-picture";
+            elemento.addEventListener("load", function () {
+              media.classList.remove("drawer__media--carregando");
+            }, {once: true});
+          } else if (dados.animacaoTipo === "video") {
             // `muted` e `playsinline` não são preferência: sem os dois, o
             // navegador recusa o autoplay e o iPhone abre em tela cheia.
             elemento = document.createElement("video");
@@ -568,18 +586,47 @@
 
         /* O nó da mídia sai na hora do fechamento — é o que garante que o som
          * e o tráfego parem junto com a tela. */
+        /* Limpar a mídia é o que faz o vídeo PARAR.
+         *
+         * Chega a ser óbvio e é fácil de errar: o `<dialog>` fechado some da
+         * tela, mas o `<iframe>` continua no documento, continua tocando e
+         * continua baixando. Medido: fechar o drawer deixava o player rodando
+         * atrás da tela.
+         *
+         * A limpeza roda em CADA caminho de fechamento, e não só no evento
+         * `close`. Depender de um evento só é o que produziu o defeito: neste
+         * navegador o `close` do `<dialog>` simplesmente não dispara, e o
+         * iframe ficava. Três caminhos, três chamadas, mais o evento como
+         * rede de segurança para quem fecha por fora.
+         */
+        function limparMidia() {
+          pararAlternancia();
+          var media = drawer.querySelector("[data-drawer-media]");
+          if (media) media.innerHTML = "";
+        }
+
+        function fecharDrawer() {
+          limparMidia();
+          if (drawer.open) drawer.close();
+        }
+
         if (drawer) {
-          drawer.addEventListener("close", function () {
-            pararAlternancia();
-            drawer.querySelector("[data-drawer-media]").innerHTML = "";
+          // Botão de fechar.
+          drawer.addEventListener("click", function (event) {
+            if (event.target.closest("[data-drawer-fechar]")) {
+              fecharDrawer();
+              return;
+            }
+            // Toque no fundo escuro. `<dialog>` não faz isso sozinho, e a
+            // comparação com o próprio dialog é como se distingue o fundo do
+            // conteúdo: o clique no conteúdo tem outro alvo.
+            if (event.target === drawer) fecharDrawer();
           });
 
-          // Toque no fundo escuro fecha. `<dialog>` não faz isso sozinho, e a
-          // comparação com o próprio dialog é como se distingue o fundo do
-          // conteúdo: o clique no conteúdo tem outro alvo.
-          drawer.addEventListener("click", function (event) {
-            if (event.target === drawer) drawer.close();
-          });
+          // Esc fecha nativamente — o navegador avisa por `cancel`, e é aí que
+          // dá para limpar antes de a tela sumir.
+          drawer.addEventListener("cancel", limparMidia);
+          drawer.addEventListener("close", limparMidia);
         }
 
         /* ---- Sanfona de seleção única ----
@@ -643,7 +690,7 @@
           if (botao) {
             // Começar o descanso pelo drawer fecha o drawer: o cronômetro
             // mora no rodapé da página, e ficaria escondido atrás dele.
-            if (drawer && drawer.open && drawer.contains(botao)) drawer.close();
+            if (drawer && drawer.open && drawer.contains(botao)) fecharDrawer();
             clearInterval(intervalo);
             total = parseInt(botao.dataset.descanso, 10) || 60;
             restam = total;

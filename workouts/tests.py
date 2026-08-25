@@ -514,11 +514,16 @@ class WorkoutVideoViewTests(TestCase):
         """
         corpo = self.client.get(self.url).content.decode()
 
-        self.assertNotIn("<iframe", corpo)
-        # Nem miniatura: a imagem do YouTube também era uma requisição por
-        # exercício, e ninguém decide fazer o movimento olhando o frame parado.
-        self.assertNotIn("i.ytimg.com", corpo)
-        self.assertIn("exercise__ver", corpo)
+        # Só a marcação: o script traz `createElement("iframe")` e os
+        # comentários citam `<iframe>` — nenhum dos dois é um player montado.
+        marcacao = corpo.split("<script>", 1)[0]
+        self.assertNotIn("<iframe", marcacao)
+        self.assertIn("exercise__ver", marcacao)
+
+        # O endereço do player vem no atributo, mas nenhum player é montado
+        # antes do toque — é o que evita dezenove conexões ao abrir a tela.
+        self.assertIn("data-animacao=", marcacao)
+        self.assertNotIn("<video", marcacao)
 
     def test_the_fallback_search_link_travels_with_each_exercise(self):
         """Vídeo de terceiro morre: sem saída, sobra um player quebrado.
@@ -947,12 +952,28 @@ class ExerciseDrawerTests(TestCase):
         # quem usa, não faz sentido entregar o resto para publicidade.
         self.assertIn("youtube-nocookie.com", url)
 
-    def test_the_media_is_dropped_when_the_drawer_closes(self):
-        """`iframe.src = ""` não para o vídeo em todo navegador; remover o nó
-        para em todos — e é o que evita som tocando atrás da tela fechada."""
+    def test_the_media_is_dropped_on_every_way_out(self):
+        """O `<dialog>` fechado some da tela, mas o `<iframe>` continua no
+        documento, tocando e baixando.
+
+        Medido no navegador: fechar o drawer deixava o player rodando atrás da
+        tela. A causa foi depender só do evento `close`, que naquele navegador
+        não disparava. Agora a limpeza roda em cada caminho — botão, fundo,
+        Esc e cronômetro — com o evento como rede de segurança.
+        """
         html = self._pagina()
-        fechamento = html.split('drawer.addEventListener("close"', 1)[1].split("});", 1)[0]
-        self.assertIn('innerHTML = ""', fechamento)
+
+        self.assertIn("function limparMidia()", html)
+        self.assertIn("function fecharDrawer()", html)
+
+        limpeza = html.split("function limparMidia() {", 1)[1].split("}", 1)[0]
+        self.assertIn('innerHTML = ""', limpeza)
+
+        # Três caminhos ligados na função, mais os dois eventos nativos.
+        self.assertIn("data-drawer-fechar", html)
+        self.assertIn("if (event.target === drawer) fecharDrawer();", html)
+        self.assertIn('drawer.addEventListener("cancel", limparMidia)', html)
+        self.assertIn('drawer.addEventListener("close", limparMidia)', html)
 
     def test_the_drawer_can_be_closed_by_the_backdrop(self):
         html = self._pagina()
@@ -1176,8 +1197,8 @@ class ExerciseFrameTests(TestCase):
         self.client.force_login(user)
         html = self.client.get(reverse("workouts:routine")).content.decode()
 
-        fechamento = html.split('drawer.addEventListener("close"', 1)[1].split("});", 1)[0]
-        self.assertIn("pararAlternancia()", fechamento)
+        limpeza = html.split("function limparMidia() {", 1)[1].split("}", 1)[0]
+        self.assertIn("pararAlternancia()", limpeza)
 
 
 class AnimationImportTests(TestCase):
@@ -1211,10 +1232,14 @@ class AnimationImportTests(TestCase):
             }
         )
 
+        antes = dict(Exercise.objects.values_list("name", "animation_url"))
+
         with self.assertRaises(CommandError):
             call_command("set_exercise_animation", arquivo, "--check", verbosity=0)
 
-        self.assertFalse(Exercise.objects.exclude(animation_url="").exists())
+        # "Nada foi gravado" se mede comparando o antes e o depois: o seed já
+        # deixa o catálogo com animação, então o vazio não serve de prova.
+        self.assertEqual(dict(Exercise.objects.values_list("name", "animation_url")), antes)
 
     def test_a_format_the_screen_cannot_play_stops_the_import(self):
         """PDF ou JPG entrariam como imagem e apareceriam parados — recusar é

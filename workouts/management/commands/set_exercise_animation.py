@@ -27,6 +27,7 @@ confira antes de importar.
 """
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -47,14 +48,38 @@ TIPOS = {
 
 
 def tipo_de(url: str) -> str:
-    caminho = url.split("?")[0].lower()
+    endereco = url.lower()
+    # Short do YouTube é o formato em que as animações anatômicas existem
+    # hoje. Não é arquivo de mídia, é player — a tela monta um `<iframe>`.
+    if "youtube.com" in endereco or "youtu.be" in endereco:
+        return "youtube"
+
+    caminho = endereco.split("?")[0]
     for extensao, tipo in TIPOS.items():
         if caminho.endswith(extensao):
             return tipo
     return ""
 
 
+OEMBED = "https://www.youtube.com/oembed?format=json&url="
+
+
 def responde(url: str, timeout: int = 25) -> bool:
+    """A URL está de pé e pode ser exibida?
+
+    Para o YouTube a pergunta é outra e a resposta vem de outro lugar: um
+    `HEAD` na página do vídeo devolve 200 mesmo quando o dono bloqueou a
+    exibição fora do site. Quem sabe disso é o oEmbed — 200 significa "existe
+    e pode ser embutido", 401 é embed bloqueado, 404 é vídeo fora do ar.
+    """
+    if tipo_de(url) == "youtube":
+        consulta = OEMBED + urllib.parse.quote(url, safe="")
+        try:
+            with urllib.request.urlopen(consulta, timeout=timeout) as resposta:
+                return resposta.status == 200
+        except (urllib.error.URLError, urllib.error.HTTPError, OSError):
+            return False
+
     pedido = urllib.request.Request(url, method="HEAD")
     try:
         with urllib.request.urlopen(pedido, timeout=timeout) as resposta:

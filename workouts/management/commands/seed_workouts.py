@@ -38,6 +38,24 @@ def _media_map() -> dict:
     }
 
 
+def _animacoes() -> dict:
+    """A animação escolhida para cada exercício, se houver arquivo.
+
+    Gravada pelo seed e não por uma verificação de rede: o deploy roda com
+    `set -o errexit`, e conferir 36 vídeos no YouTube durante o build
+    significa que um soluço deles derruba a publicação. Quem valida é
+    `set_exercise_animation`, rodado à mão quando o mapa muda.
+    """
+    caminho = DATA_DIR / "animacoes.json"
+    if not caminho.exists():
+        return {}
+    return {
+        nome: url
+        for nome, url in json.loads(caminho.read_text(encoding="utf-8")).items()
+        if not nome.startswith("_")
+    }
+
+
 def _frames_de(nome: str, mapa: dict) -> list:
     """As duas fotos da demonstração, montadas a partir do mapa.
 
@@ -78,6 +96,7 @@ class Command(BaseCommand):
 
     def _seed_exercises(self):
         mapa = _media_map()
+        animacoes = _animacoes()
         exercises = {}
         sem_demonstracao = []
         for row in _load("exercises.json"):
@@ -91,6 +110,7 @@ class Command(BaseCommand):
                     "is_compound": row.get("compound", False),
                     "cue": row.get("cue", ""),
                     "frames": quadros,
+                    "animation_url": animacoes.get(row["name"], ""),
                     "video_url": row.get("video", ""),
                     "is_active": row.get("active", True),
                 },
@@ -98,7 +118,11 @@ class Command(BaseCommand):
             exercises[row["name"]] = exercise
 
         com = len(exercises) - len(sem_demonstracao)
-        self._log(f"  {len(exercises)} exercícios ({com} com demonstração)")
+        com_animacao = sum(1 for e in exercises.values() if e.animation_url)
+        self._log(
+            f"  {len(exercises)} exercícios "
+            f"({com} com foto, {com_animacao} com animação)"
+        )
         for nome in sem_demonstracao:
             self._log(f"    sem foto no mapa: {nome}")
         return exercises
