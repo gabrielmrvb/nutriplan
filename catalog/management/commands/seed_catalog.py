@@ -64,7 +64,9 @@ class Command(BaseCommand):
 
     def _seed_foods(self):
         foods = {}
+        no_json = set()
         for row in _load("foods.json"):
+            no_json.add(row["name"])
             food, _ = Food.objects.update_or_create(
                 name=row["name"],
                 brand=row.get("brand", ""),
@@ -94,8 +96,21 @@ class Command(BaseCommand):
                 )
             foods[row["name"]] = food
 
+        # Alimento que saiu do JSON é desativado, não apagado — mesma regra
+        # das receitas, e pelo mesmo motivo: cardápio antigo aponta para ele.
+        #
+        # Sem isto, RENOMEAR um alimento o duplicava em silêncio: o seed casa
+        # por nome, então "Clara de ovo" -> "Clara de ovo cozida" criava a nova
+        # e deixava a velha ativa para sempre, aparecendo nas substituições
+        # como se fosse outro alimento. Foi assim que o catálogo de produção
+        # passou de 102 para 103 itens sem ninguém ter adicionado nada.
+        aposentados = (
+            Food.objects.exclude(name__in=no_json)
+            .filter(is_active=True)
+            .update(is_active=False)
+        )
         ativos = sum(1 for food in foods.values() if food.is_active)
-        self._log(f"  {len(foods)} alimentos ({ativos} ativos)")
+        self._log(f"  {len(foods)} alimentos ({ativos} ativos, {aposentados} aposentados)")
         return foods
 
     def _seed_templates(self, foods, tags, reset=False):

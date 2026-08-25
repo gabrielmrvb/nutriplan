@@ -177,3 +177,41 @@ class SubstitutionFidelityTests(TestCase):
                         Decimal("0.06"),
                         f"{dominante}: {entregue} contra {esperado}",
                     )
+
+
+class SeedRetirementTests(TestCase):
+    """Renomear um alimento não pode duplicá-lo.
+
+    O seed casa por nome. Sem aposentar o que saiu do JSON, renomear "Clara de
+    ovo" para "Clara de ovo cozida" criava a nova e deixava a velha ativa —
+    duas entradas quase idênticas competindo nas substituições. Aconteceu em
+    produção: o catálogo foi de 102 para 103 itens sem ninguém adicionar nada.
+    """
+
+    def test_a_food_that_left_the_json_is_deactivated_not_deleted(self):
+        call_command("seed_catalog", verbosity=0)
+
+        fantasma = Food.objects.create(
+            name="Alimento que já não existe",
+            kcal=Decimal("100"),
+            protein_g=Decimal("10"),
+            carb_g=Decimal("10"),
+            fat_g=Decimal("2"),
+            fiber_g=Decimal("0"),
+        )
+        self.assertTrue(fantasma.is_active)
+
+        call_command("seed_catalog", verbosity=0)
+
+        fantasma.refresh_from_db()
+        self.assertFalse(fantasma.is_active, "deveria ter sido aposentado")
+        # Apagado, não: cardápio antigo e histórico apontam para o registro.
+        self.assertTrue(Food.objects.filter(pk=fantasma.pk).exists())
+
+    def test_running_the_seed_twice_does_not_grow_the_catalogue(self):
+        call_command("seed_catalog", verbosity=0)
+        antes = Food.objects.count()
+
+        call_command("seed_catalog", verbosity=0)
+
+        self.assertEqual(Food.objects.count(), antes)
