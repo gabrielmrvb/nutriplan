@@ -4,6 +4,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.utils import timezone
 from django.views.generic import TemplateView, View
 
 from accounts.models import Weekday
@@ -113,6 +114,8 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
                 item.load = historico.get(item.exercise_id)
                 item.set_rows = set_rows(item, item.load)
 
+        marcar_ficha_aberta(sessions)
+
         context.update(
             {
                 "nav": "workout",
@@ -124,6 +127,29 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
             }
         )
         return context
+
+
+def marcar_ficha_aberta(sessions) -> None:
+    """Decide qual ficha da semana já vem aberta na tela.
+
+    As cinco fichas empilhadas somavam uma página de rolagem infinita, e a
+    pessoa passava por quatro treinos que não vai fazer hoje para chegar no
+    que vai. Só uma abre: a de hoje.
+
+    Quando hoje é dia de descanso não há ficha do dia, e aí abre a primeira —
+    é melhor que abrir nenhuma e deixar a tela parecendo vazia. Quem quiser
+    outra toca no cabeçalho.
+    """
+    if not sessions:
+        return
+
+    hoje = timezone.localdate().weekday()
+    do_dia = next((s for s in sessions if s.weekday == hoje), None)
+    escolhida = do_dia or sessions[0]
+
+    for session in sessions:
+        session.aberta = session is escolhida
+        session.eh_hoje = session is do_dia
 
 
 class RecordLoadView(OnboardingRequiredMixin, View):

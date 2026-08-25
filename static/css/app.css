@@ -1466,7 +1466,110 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 /* ==========================================================================
-   20. Drawer de execução do exercício
+   20. Sanfona das fichas da semana
+   ========================================================================== */
+
+/* Cinco fichas abertas eram uma página de rolagem infinita. Agora abre uma —
+   a de hoje — e as outras ficam a um toque.
+
+   O ganho não é só de rolagem: o conteúdo de um `<details>` fechado não entra
+   no layout do navegador. As tabelas de série dos quatro treinos fechados
+   deixam de ser medidas e pintadas a cada mudança de tela. O HTML continua
+   presente, o que é de propósito: buscar os exercícios por rede ao abrir a
+   ficha faria a academia com sinal ruim virar problema de produto. */
+
+.ficha { padding: 0; overflow: hidden; }
+
+.ficha__resumo {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .8rem;
+  padding: 1rem var(--pad);
+  cursor: pointer;
+  list-style: none;
+  /* Cabeçalho de sanfona é alvo de toque grande por natureza; ainda assim
+     vale o piso explícito para o caso de um título de uma linha só. */
+  min-height: 2.75rem;
+  transition: background .15s;
+}
+
+/* O triângulo padrão do Safari e do Chrome some — a seta é desenhada. */
+.ficha__resumo::-webkit-details-marker { display: none; }
+.ficha__resumo::marker { content: ""; }
+
+.ficha__resumo:hover { background: var(--surface-2); }
+
+.ficha__resumo:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+  border-radius: var(--r-lg);
+}
+
+.ficha__seta {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  transition: transform .22s ease, background .15s, color .15s;
+}
+
+.ficha__seta svg { width: 1.1rem; height: 1.1rem; }
+
+.ficha[open] > .ficha__resumo .ficha__seta {
+  transform: rotate(180deg);
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+/* A etiqueta "hoje" é o único lugar da tela que usa a cor de destaque num
+   texto pequeno — é o que faz o olho achar a ficha certa sem ler as cinco. */
+.ficha__hoje {
+  display: inline-block;
+  margin-left: .4rem;
+  padding: .05rem .4rem;
+  border-radius: var(--pill);
+  background: var(--brand);
+  color: var(--on-brand);
+  font-size: .62rem;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.ficha__corpo { padding: 0 var(--pad) 1.1rem; }
+
+/* A abertura desliza. `<details>` não anima sozinho — o truque da grade de
+   uma linha que vai de 0fr a 1fr é o que funciona sem saber a altura de
+   antemão, e sem JavaScript medindo elemento. */
+@supports (grid-template-rows: 0fr) {
+  .ficha:not([open]) .ficha__corpo { display: none; }
+
+  .ficha[open] .ficha__corpo {
+    animation: ficha-abre .24s ease-out;
+  }
+}
+
+@keyframes ficha-abre {
+  from { opacity: 0; transform: translateY(-.4rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ficha__seta,
+  .ficha[open] .ficha__corpo { transition: none; animation: none; }
+}
+
+/* O filete da cor do dia continua valendo na sanfona. */
+.ficha[data-dia] { border-left: 3px solid var(--dia, var(--brand)); }
+
+/* ==========================================================================
+   21. Drawer de execução do exercício
    ========================================================================== */
 
 /* Sobe do rodapé no celular, vira cartão centrado no desktop.
@@ -1641,7 +1744,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 /* ==========================================================================
-   21. Cartões de escolha (onboarding)
+   22. Cartões de escolha (onboarding)
    ========================================================================== */
 
 /* As duas perguntas que mais mudam o plano — objetivo e nível de atividade —
@@ -1801,7 +1904,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 /* ==========================================================================
-   22. Convite de instalação
+   23. Convite de instalação
    ========================================================================== */
 
 /* Uma faixa presa ao rodapé, acima da navegação. Fica no fluxo visual do app
@@ -1955,7 +2058,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .install__close:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* ==========================================================================
-   23. Desktop
+   24. Desktop
    ========================================================================== */
 
 @media (min-width: 60rem) {

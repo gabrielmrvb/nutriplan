@@ -52,20 +52,43 @@
         </section>
 
         {# ------------- As fichas ------------- #}
+        {% comment %}
+          Sanfona, e `<details>` em vez de `<div>` com JavaScript.
+
+          Cinco fichas abertas somavam uma página de rolagem infinita, e a
+          pessoa passava por quatro treinos que não vai fazer hoje para chegar
+          no que vai. Agora abre uma: a de hoje, ou a primeira quando hoje é
+          descanso.
+
+          `<details>` traz de graça o que dá trabalho reimplementar direito:
+          abre e fecha por teclado, anuncia o estado para leitor de tela,
+          responde ao Ctrl+F do navegador, e funciona antes de o JavaScript
+          carregar. O JS só acrescenta o comportamento de seleção única — e se
+          ele falhar, a sanfona continua servindo, com mais de uma ficha aberta.
+        {% endcomment %}
         {% for session in sessions %}
-          <section class="card" data-dia="{{ session.label }}">
-            <header class="session__head">
+          <details class="card ficha" data-dia="{{ session.label }}"
+                   data-ficha {% if session.aberta %}open{% endif %}>
+            <summary class="session__head ficha__resumo">
               <span class="session__badge" data-dia="{{ session.label }}">{{ session.label }}</span>
               <span class="session__title">
-                <strong class="session__name">{{ session.name }}</strong>
+                <strong class="session__name">
+                  Treino {{ session.label }} · {{ session.name }}
+                  {% if session.eh_hoje %}<span class="ficha__hoje">hoje</span>{% endif %}
+                </strong>
                 <span class="session__meta">
                   {{ session.weekday_display }}
                   {% if session.start_time %}· {{ session.start_time|time:"H:i" }}{% endif %}
-                  · {{ session.duration_min }} min · {{ session.total_sets }} séries
+                  · {{ session.exercises.count }} exercícios · {{ session.total_sets }} séries
                 </span>
               </span>
-            </header>
+              <span class="ficha__seta" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </span>
+            </summary>
 
+            <div class="ficha__corpo">
             {% if session.focus %}
               <p class="session__focus">{{ session.focus }}</p>
             {% endif %}
@@ -201,7 +224,8 @@
                 </li>
               {% endfor %}
             </ol>
-          </section>
+            </div>
+          </details>
         {% endfor %}
       </div>
 
@@ -436,6 +460,23 @@
             if (event.target === drawer) drawer.close();
           });
         }
+
+        /* ---- Sanfona de seleção única ----
+         *
+         * `<details name="...">` faz isso nativamente, mas só em navegador
+         * recente — e este projeto já perdeu a barra de navegação inteira por
+         * confiar num recurso novo de CSS. Três linhas de JS funcionam em
+         * todo lugar, e sem elas a sanfona continua abrindo e fechando: o que
+         * se perde é só o fechamento automático das outras.
+         */
+        document.addEventListener("toggle", function (event) {
+          var ficha = event.target;
+          if (!ficha.matches("[data-ficha]") || !ficha.open) return;
+
+          document.querySelectorAll("[data-ficha][open]").forEach(function (outra) {
+            if (outra !== ficha) outra.open = false;
+          });
+        }, true);
 
         /* ---- Cronômetro de descanso ---- */
         var caixa = document.querySelector("[data-timer]");

@@ -1105,3 +1105,116 @@ class ExerciseDrawerTests(TestCase):
     def test_the_drawer_can_be_closed_by_the_backdrop(self):
         html = self._pagina()
         self.assertIn("event.target === drawer", html)
+
+
+class WeekAccordionTests(TestCase):
+    """As cinco fichas em sanfona, com uma aberta.
+
+    Abertas de uma vez elas somavam 12.841 px — dezoito telas de rolagem para
+    quem só queria conferir a carga de hoje. Com a sanfona são 2.828 px.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user(email="sanfona@exemplo.com", weekdays=(0, 1, 2, 3, 4))
+        # A ficha nasce no primeiro acesso à tela; criar aqui é o que permite
+        # consultá-la antes de renderizar.
+        self.plano = services.create_routine(self.user)
+        self.client.force_login(self.user)
+
+    def _pagina(self):
+        return self.client.get(reverse("workouts:routine")).content.decode()
+
+    def test_every_workout_is_a_native_disclosure(self):
+        """`<details>` e não `<div>` com JavaScript.
+
+        Traz de graça o que dá trabalho reimplementar direito: abre por
+        teclado, anuncia o estado para leitor de tela, responde ao Ctrl+F do
+        navegador e funciona antes de o JavaScript carregar.
+        """
+        html = self._pagina()
+        plano = self.plano
+
+        self.assertEqual(html.count("<details class=\"card ficha\""), plano.sessions.count())
+        self.assertEqual(html.count("<summary"), plano.sessions.count())
+
+    def test_only_one_workout_starts_open(self):
+        html = self._pagina()
+        self.assertEqual(html.count("data-ficha open"), 1)
+
+    def test_the_open_one_is_today(self):
+        """A pessoa abre o app para saber o que treina hoje — não para
+        procurar entre cinco fichas qual é a de hoje."""
+        plano = self.plano
+        hoje = timezone.localdate().weekday()
+        do_dia = plano.sessions.filter(weekday=hoje).first()
+        if do_dia is None:
+            self.skipTest("hoje é dia de descanso para este usuário")
+
+        html = self._pagina()
+        marcado = html.split("data-ficha open", 1)[0]
+        # O `data-dia` mais recente antes do `open` é o da ficha aberta.
+        ultimo_dia = marcado.rsplit('data-dia="', 1)[1][0]
+        self.assertEqual(ultimo_dia, do_dia.label)
+        self.assertIn("ficha__hoje", html)
+
+    def test_a_rest_day_falls_back_to_the_first_workout(self):
+        """Abrir nenhuma deixaria a tela parecendo vazia num domingo."""
+        user = create_user(email="descanso@exemplo.com", weekdays=(0,))
+        plano = services.create_routine(user)
+        sessoes = list(plano.sessions.all())
+
+        # Força o cenário: nenhuma sessão cai no dia de hoje.
+        hoje = timezone.localdate().weekday()
+        for i, sessao in enumerate(sessoes):
+            sessao.weekday = (hoje + 1 + i) % 7
+            sessao.save(update_fields=["weekday"])
+
+        from workouts.views import marcar_ficha_aberta
+
+        marcar_ficha_aberta(sessoes)
+
+        self.assertTrue(sessoes[0].aberta)
+        self.assertFalse(sessoes[0].eh_hoje)
+        self.assertEqual(sum(1 for s in sessoes if s.aberta), 1)
+
+    def test_the_collapsed_header_says_enough_to_choose_without_opening(self):
+        html = self._pagina()
+        sessao = self.plano.sessions.first()
+
+        self.assertIn(f"Treino {sessao.label}", html)
+        self.assertIn(sessao.name, html)
+        self.assertIn(sessao.weekday_display, html)
+        self.assertIn("exercícios ·", html)
+        self.assertIn("séries", html)
+
+    def test_the_exercises_are_in_the_page_even_when_collapsed(self):
+        """O HTML vem inteiro de propósito.
+
+        Buscar os exercícios por rede ao abrir a ficha faria a academia com
+        sinal ruim virar problema de produto. O que a sanfona economiza é
+        layout — conteúdo de `<details>` fechado não é medido nem pintado —,
+        não o download.
+        """
+        html = self._pagina()
+        plano = self.plano
+        total = sum(s.exercises.count() for s in plano.sessions.all())
+
+        self.assertEqual(html.count("exercise__ver"), total)
+        self.assertEqual(html.count('class="set-row '), sum(
+            item.sets
+            for s in plano.sessions.all()
+            for item in s.exercises.all()
+        ))
+
+    def test_opening_one_closes_the_others(self):
+        """`<details name>` faria isso nativamente, mas só em navegador
+        recente — e este projeto já perdeu a barra de navegação por confiar num
+        recurso novo. O JS cobre todo mundo."""
+        html = self._pagina()
+        self.assertIn('addEventListener("toggle"', html)
+        self.assertIn("[data-ficha][open]", html)
+        self.assertIn("outra.open = false", html)
