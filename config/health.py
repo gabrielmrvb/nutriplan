@@ -36,9 +36,13 @@ class HealthView(View):
                 status=503,
             )
 
+        # Só o que está ATIVO conta. Alimento aposentado continua na tabela
+        # para o histórico de quem já comeu não virar buraco, mas não aparece
+        # para ninguém — contá-lo aqui responderia sobre o banco, e a pergunta
+        # é sobre o que o usuário encontra na tela.
         catalogo = {
-            "alimentos": Food.objects.count(),
-            "modelos_de_refeicao": MealTemplate.objects.count(),
+            "alimentos": Food.objects.filter(is_active=True).count(),
+            "modelos_de_refeicao": MealTemplate.objects.filter(is_active=True).count(),
             "exercicios": Exercise.objects.count(),
             "exercicios_com_video": Exercise.objects.exclude(video_url="").count(),
         }

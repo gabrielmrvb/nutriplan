@@ -172,6 +172,22 @@ class HealthTests(TestCase):
         self.assertGreater(corpo["catalogo"]["alimentos"], 0)
         self.assertGreater(corpo["catalogo"]["modelos_de_refeicao"], 0)
 
+    def test_retired_food_does_not_inflate_the_count(self):
+        """O número tem que responder o que o usuário encontra, não o que a
+        tabela guarda. Alimento aposentado continua no banco para o histórico
+        não virar buraco — e sumiu da tela, então some da conta."""
+        from catalog.models import Food
+
+        semear()
+        antes = self.client.get(reverse("health")).json()["catalogo"]["alimentos"]
+
+        alvo = Food.objects.filter(is_active=True).order_by("pk").first()
+        alvo.is_active = False
+        alvo.save(update_fields=["is_active"])
+
+        depois = self.client.get(reverse("health")).json()["catalogo"]["alimentos"]
+        self.assertEqual(depois, antes - 1)
+
     def test_an_empty_catalog_is_reported_as_unhealthy(self):
         """Sem seed, a plataforma precisa tratar o deploy como falho.
 
