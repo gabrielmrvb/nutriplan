@@ -171,8 +171,8 @@
   {
     "split": "abc",
     "label": "A",
-    "name": "Empurrar",
-    "focus": "Peito, ombros e tríceps",
+    "name": "Peito, tríceps e ombro",
+    "focus": "Empurrar — peitoral, sinergista e deltoide",
     "order": 0,
     "items": [
       [
@@ -190,11 +190,25 @@
         90
       ],
       [
+        "Flexão de braço",
+        3,
+        10,
+        15,
+        90
+      ],
+      [
         "Desenvolvimento com halteres",
         3,
         8,
         12,
         90
+      ],
+      [
+        "Crucifixo na máquina (voador)",
+        3,
+        12,
+        15,
+        60
       ],
       [
         "Elevação lateral com halteres",
@@ -212,7 +226,7 @@
       ],
       [
         "Tríceps testa com barra",
-        2,
+        3,
         10,
         12,
         60
@@ -222,8 +236,8 @@
   {
     "split": "abc",
     "label": "B",
-    "name": "Puxar",
-    "focus": "Costas e bíceps",
+    "name": "Costas, bíceps, antebraço e trapézio",
+    "focus": "Puxar — dorsais, flexores do cotovelo e pegada",
     "order": 1,
     "items": [
       [
@@ -235,24 +249,24 @@
       ],
       [
         "Remada curvada com barra",
-        3,
+        4,
         8,
+        12,
+        90
+      ],
+      [
+        "Remada baixa na polia",
+        3,
+        10,
         12,
         90
       ],
       [
         "Remada unilateral com halter",
         3,
-        8,
+        10,
         12,
         90
-      ],
-      [
-        "Crucifixo inverso na máquina",
-        3,
-        12,
-        15,
-        45
       ],
       [
         "Rosca direta com barra",
@@ -262,7 +276,21 @@
         60
       ],
       [
-        "Rosca martelo",
+        "Rosca alternada com halteres",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca inversa com barra",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Encolhimento com halteres",
         3,
         10,
         15,
@@ -273,8 +301,8 @@
   {
     "split": "abc",
     "label": "C",
-    "name": "Pernas",
-    "focus": "Quadríceps, posterior, glúteo, panturrilha e core",
+    "name": "Pernas completo",
+    "focus": "Membros inferiores — quadríceps, posterior e panturrilha",
     "order": 2,
     "items": [
       [
@@ -288,7 +316,7 @@
         "Leg press 45°",
         3,
         10,
-        15,
+        12,
         90
       ],
       [
@@ -299,458 +327,17 @@
         60
       ],
       [
-        "Mesa flexora",
-        3,
-        10,
-        15,
-        60
-      ],
-      [
-        "Elevação pélvica",
-        3,
-        8,
-        12,
-        90
-      ],
-      [
-        "Panturrilha em pé",
-        4,
-        12,
-        20,
-        45
-      ],
-      [
-        "Prancha abdominal",
-        3,
-        30,
-        45,
-        45,
-        "seconds"
-      ]
-    ]
-  },
-  {
-    "split": "abcd",
-    "label": "A",
-    "name": "Peito e tríceps",
-    "focus": "Empurrar — peitoral e sinergista",
-    "order": 0,
-    "items": [
-      [
-        "Supino reto com barra",
-        4,
-        6,
-        10,
-        120
-      ],
-      [
-        "Supino inclinado com halteres",
-        3,
-        8,
-        12,
-        90
-      ],
-      [
-        "Crucifixo na máquina (voador)",
-        3,
-        12,
-        15,
-        60
-      ],
-      [
-        "Tríceps na polia com corda",
-        3,
-        10,
-        15,
-        60
-      ],
-      [
-        "Tríceps testa com barra",
-        3,
-        10,
-        12,
-        60
-      ]
-    ]
-  },
-  {
-    "split": "abcd",
-    "label": "B",
-    "name": "Costas e bíceps",
-    "focus": "Puxar — dorsais e sinergista",
-    "order": 1,
-    "items": [
-      [
-        "Puxada frente na polia",
-        4,
-        8,
-        12,
-        90
-      ],
-      [
-        "Remada curvada com barra",
-        4,
-        8,
-        12,
-        90
-      ],
-      [
-        "Remada baixa na polia",
-        3,
-        10,
-        12,
-        90
-      ],
-      [
-        "Rosca direta com barra",
-        3,
-        10,
-        12,
-        60
-      ],
-      [
-        "Rosca alternada com halteres",
-        3,
-        10,
-        12,
-        60
-      ]
-    ]
-  },
-  {
-    "split": "abcd",
-    "label": "C",
-    "name": "Ombro e perna",
-    "focus": "Deltoides e membros inferiores",
-    "order": 2,
-    "items": [
-      [
-        "Desenvolvimento com halteres",
-        4,
-        8,
-        12,
-        90
-      ],
-      [
-        "Elevação lateral com halteres",
-        3,
-        12,
-        15,
-        60
-      ],
-      [
-        "Agachamento livre",
-        4,
-        6,
-        10,
-        120
-      ],
-      [
-        "Leg press 45°",
-        3,
-        10,
-        12,
-        90
-      ],
-      [
-        "Mesa flexora",
-        3,
-        10,
-        12,
-        60
-      ],
-      [
-        "Panturrilha em pé",
-        4,
-        12,
-        15,
-        60
-      ]
-    ]
-  },
-  {
-    "split": "abcd",
-    "label": "D",
-    "name": "Trapézio e antebraço",
-    "focus": "Complementares e pegada, com core no fim",
-    "order": 3,
-    "items": [
-      [
-        "Remada alta com barra",
-        3,
-        10,
-        12,
-        90
-      ],
-      [
-        "Encolhimento com halteres",
-        4,
-        10,
-        15,
-        60
-      ],
-      [
-        "Rosca inversa com barra",
-        3,
-        10,
-        15,
-        60
-      ],
-      [
-        "Rosca de punho com barra",
-        3,
-        12,
-        20,
-        60
-      ],
-      [
-        "Prancha abdominal",
-        3,
-        30,
-        45,
-        60,
-        "seconds"
-      ],
-      [
-        "Elevação de pernas",
-        3,
-        12,
-        15,
-        60
-      ],
-      [
-        "Abdominal supra no solo",
-        3,
-        15,
-        20,
-        60
-      ]
-    ]
-  },
-  {
-    "split": "abcde",
-    "label": "A",
-    "name": "Peito e tríceps",
-    "focus": "Empurrar — peitoral e sinergista",
-    "order": 0,
-    "items": [
-      [
-        "Supino reto com barra",
-        4,
-        6,
-        10,
-        120
-      ],
-      [
-        "Supino inclinado com halteres",
-        3,
-        8,
-        12,
-        90
-      ],
-      [
-        "Crucifixo na máquina (voador)",
-        3,
-        12,
-        15,
-        60
-      ],
-      [
-        "Tríceps na polia com corda",
-        3,
-        10,
-        15,
-        60
-      ],
-      [
-        "Tríceps testa com barra",
-        3,
-        10,
-        12,
-        60
-      ]
-    ]
-  },
-  {
-    "split": "abcde",
-    "label": "B",
-    "name": "Costas e bíceps",
-    "focus": "Puxar — dorsais e sinergista",
-    "order": 1,
-    "items": [
-      [
-        "Puxada frente na polia",
-        4,
-        8,
-        12,
-        90
-      ],
-      [
-        "Remada curvada com barra",
-        4,
-        8,
-        12,
-        90
-      ],
-      [
-        "Remada baixa na polia",
-        3,
-        10,
-        12,
-        90
-      ],
-      [
-        "Rosca direta com barra",
-        3,
-        10,
-        12,
-        60
-      ],
-      [
-        "Rosca alternada com halteres",
-        3,
-        10,
-        12,
-        60
-      ]
-    ]
-  },
-  {
-    "split": "abcde",
-    "label": "C",
-    "name": "Ombro e perna",
-    "focus": "Deltoides e membros inferiores",
-    "order": 2,
-    "items": [
-      [
-        "Desenvolvimento com halteres",
-        4,
-        8,
-        12,
-        90
-      ],
-      [
-        "Elevação lateral com halteres",
-        3,
-        12,
-        15,
-        60
-      ],
-      [
-        "Agachamento livre",
-        4,
-        6,
-        10,
-        120
-      ],
-      [
-        "Leg press 45°",
-        3,
-        10,
-        12,
-        90
-      ],
-      [
-        "Mesa flexora",
-        3,
-        10,
-        12,
-        60
-      ],
-      [
-        "Panturrilha em pé",
-        4,
-        12,
-        15,
-        60
-      ]
-    ]
-  },
-  {
-    "split": "abcde",
-    "label": "D",
-    "name": "Trapézio e antebraço",
-    "focus": "Complementares e pegada, com core no fim",
-    "order": 3,
-    "items": [
-      [
-        "Remada alta com barra",
-        3,
-        10,
-        12,
-        90
-      ],
-      [
-        "Encolhimento com halteres",
-        4,
-        10,
-        15,
-        60
-      ],
-      [
-        "Rosca inversa com barra",
-        3,
-        10,
-        15,
-        60
-      ],
-      [
-        "Rosca de punho com barra",
-        3,
-        12,
-        20,
-        60
-      ],
-      [
-        "Prancha abdominal",
-        3,
-        30,
-        45,
-        60,
-        "seconds"
-      ],
-      [
-        "Elevação de pernas",
-        3,
-        12,
-        15,
-        60
-      ],
-      [
-        "Abdominal supra no solo",
-        3,
-        15,
-        20,
-        60
-      ]
-    ]
-  },
-  {
-    "split": "abcde",
-    "label": "E",
-    "name": "Posterior e panturrilha",
-    "focus": "Pontos fracos do ciclo",
-    "order": 4,
-    "items": [
-      [
         "Stiff com barra",
-        4,
+        3,
         8,
         12,
         90
       ],
       [
-        "Elevação pélvica",
+        "Mesa flexora",
         3,
         10,
-        15,
-        90
-      ],
-      [
-        "Cadeira flexora",
-        3,
         12,
-        15,
         60
       ],
       [

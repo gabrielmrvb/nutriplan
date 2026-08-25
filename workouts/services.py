@@ -35,18 +35,24 @@ class NoTrainingDays(Exception):
 
 #: Divisão escolhida por quantidade de dias na semana. Cinco dias ou mais
 #: caem no ABC e o ciclo se repete ao longo da semana.
+# De três dias em diante, sempre ABC.
+#
+# O ciclo se repete para preencher a semana: cinco dias viram A, B, C, A, B, e
+# seis viram A, B, C, A, B, C. Isso dá de uma a duas sessões por grupo na
+# semana — mais que qualquer divisão de quatro ou cinco letras entrega, porque
+# lá cada grupo aparece uma vez só.
+#
+# ABCD e ABCDE existiram aqui e foram retirados. O motivo declarado é o
+# clássico por sinergia: peito e costas são antagonistas e não dividem o dia,
+# empurrar fica junto de empurrar, puxar junto de puxar.
 SPLIT_BY_FREQUENCY = {
     1: Split.FULL,
     2: Split.AB,
     3: Split.ABC,
-    4: Split.ABCD,
-    # Cinco dias em diante recebem o ciclo de quatro mais o dia de pontos
-    # fracos. Antes, quem treinava cinco ou seis vezes repetia o ABC e ficava
-    # com panturrilha e posterior de coxa igualmente esquecidos — treinar mais
-    # não resolve o que a divisão não cobre.
-    5: Split.ABCDE,
-    6: Split.ABCDE,
-    7: Split.ABCDE,
+    4: Split.ABC,
+    5: Split.ABC,
+    6: Split.ABC,
+    7: Split.ABC,
 }
 DEFAULT_SPLIT = Split.ABC
 
@@ -62,9 +68,11 @@ SPLIT_NOTE = {
         "carregam o resultado."
     ),
     Split.ABC: (
-        "Empurrar, puxar e pernas. É a divisão mais eficiente para quem treina de três "
-        "a seis vezes: com quatro dias ou mais o ciclo recomeça, e cada grupo muscular "
-        "acaba treinado duas vezes na semana."
+        "A divisão clássica por sinergia: empurrar num dia, puxar no outro, "
+        "pernas no terceiro. Peito e costas nunca caem no mesmo treino — são "
+        "antagonistas, e treinar um cansa o outro pela metade. O ciclo "
+        "recomeça para preencher a semana, então quem treina cinco vezes faz "
+        "A, B, C, A, B e alguns grupos recebem duas sessões."
     ),
     Split.ABCDE: (
         "Cinco treinos: o ciclo de quatro mais um dia para o que sobra de fora "

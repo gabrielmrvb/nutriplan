@@ -74,31 +74,25 @@ class SplitChoiceTests(TestCase):
     def test_three_days_use_push_pull_legs(self):
         self.assertEqual(services.split_for(3), Split.ABC)
 
-    def test_four_days_get_one_focus_each(self):
-        self.assertEqual(services.split_for(4), Split.ABCD)
+    def test_four_days_repeat_the_cycle_instead_of_adding_a_letter(self):
+        """Quatro dias viram A, B, C, A — e não um quarto foco inventado."""
+        self.assertEqual(services.split_for(4), Split.ABC)
 
-    def test_five_or_more_days_get_the_five_day_split(self):
-        """Cinco dias passaram a receber o ABCDE, e o custo está registrado.
+    def test_three_or_more_days_all_use_the_classic_abc(self):
+        """De três dias em diante, sempre ABC.
 
-        A regra anterior mandava cinco dias repetirem o ABC, com um argumento
-        que continua válido: ABC em cinco dias dá cerca de 1,7 sessões por
-        grupo na semana, e o ABCDE dá uma — e frequência importa para
-        hipertrofia.
-
-        O que mudou o balanço foi medir. No ciclo de quatro dias, posterior de
-        coxa fica com 3 séries semanais e panturrilha com 4, contra 10 a 20 da
-        faixa em que o ganho aparece de forma consistente. Repetir o ABC não
-        resolve isso: ele simplesmente não cobre esses dois grupos. O quinto
-        dia existe para fechar essa conta específica, e o teste
-        `test_the_fifth_day_closes_the_volume_gap_it_was_created_for` mede se
-        ainda fecha.
-
-        Para seis e sete dias o ciclo recomeça (A, B, C, D, E, A, B), então
-        parte dos grupos volta a duas sessões.
+        ABCD e ABCDE existiram aqui e foram retirados. O motivo é o clássico
+        por sinergia: peito e costas são antagonistas e não dividem o dia. O
+        ciclo se repete para preencher a semana, o que também devolve a
+        segunda sessão por grupo que uma divisão de cinco letras não dá.
         """
-        for dias in (5, 6, 7):
+        for dias in (3, 4, 5, 6, 7):
             with self.subTest(dias=dias):
-                self.assertEqual(services.split_for(dias), Split.ABCDE)
+                self.assertEqual(services.split_for(dias), Split.ABC)
+
+        # Menos que três continua como estava.
+        self.assertEqual(services.split_for(1), Split.FULL)
+        self.assertEqual(services.split_for(2), Split.AB)
 
 
 class SeededWorkoutTests(TestCase):
@@ -108,15 +102,34 @@ class SeededWorkoutTests(TestCase):
     def setUpTestData(cls):
         call_command("seed_workouts", verbosity=0)
 
-    def test_every_split_is_in_the_catalog(self):
-        for split in Split.values:
+    #: As divisões que o app oferece hoje. ABCD e ABCDE continuam no enum,
+    #: porque fichas antigas apontam para elas, mas saíram do catálogo — a
+    #: divisão passou a ser estritamente a clássica por sinergia.
+    OFERECIDAS = (Split.FULL, Split.AB, Split.ABC)
+
+    def test_every_offered_split_is_in_the_catalog(self):
+        for split in self.OFERECIDAS:
             with self.subTest(split=split):
                 self.assertTrue(
                     WorkoutTemplate.objects.filter(split=split, is_active=True).exists()
                 )
 
+    def test_the_retired_splits_are_not_offered(self):
+        """ABCD e ABCDE continuam no enum porque fichas antigas apontam para
+        elas, mas nenhum treino novo é montado por elas.
+
+        Num banco recém-semeado elas simplesmente não existem; num banco que
+        já as teve, o seed as desativa em vez de apagar. Os dois casos passam
+        pela mesma afirmação: não há template ATIVO.
+        """
+        for split in (Split.ABCD, Split.ABCDE):
+            with self.subTest(split=split):
+                self.assertFalse(
+                    WorkoutTemplate.objects.filter(split=split, is_active=True).exists()
+                )
+
     def test_each_split_has_the_days_its_name_promises(self):
-        esperado = {Split.FULL: 1, Split.AB: 2, Split.ABC: 3, Split.ABCD: 4}
+        esperado = {Split.FULL: 1, Split.AB: 2, Split.ABC: 3}
         for split, dias in esperado.items():
             with self.subTest(split=split):
                 self.assertEqual(
@@ -159,7 +172,7 @@ class SeededWorkoutTests(TestCase):
             MuscleGroup.HAMSTRINGS,
             MuscleGroup.SHOULDERS,
         }
-        for split in Split.values:
+        for split in self.OFERECIDAS:
             grupos = set(
                 WorkoutTemplate.objects.filter(split=split, is_active=True)
                 .values_list("items__exercise__muscle_group", flat=True)
@@ -184,25 +197,28 @@ class RoutineGenerationTests(TestCase):
             list(plan.sessions.values_list("label", flat=True)), ["A", "B", "C"]
         )
 
-    def test_the_five_day_week_uses_every_letter(self):
-        """Cinco dias, cinco letras — nenhum dia repetido e nenhum sobrando."""
+    def test_the_cycle_repeats_to_fill_the_week(self):
+        """Cinco dias viram A, B, C, A, B.
+
+        Repetir o ciclo é o que dá duas sessões a empurrar e a puxar na mesma
+        semana. Uma divisão de cinco letras daria uma sessão por grupo, e
+        frequência importa para hipertrofia.
+        """
         user = create_user(weekdays=(0, 1, 2, 3, 4))
         plan = services.create_routine(user)
 
         self.assertEqual(
             list(plan.sessions.values_list("label", flat=True)),
-            ["A", "B", "C", "D", "E"],
+            ["A", "B", "C", "A", "B"],
         )
 
-    def test_a_sixth_day_restarts_the_cycle(self):
-        """Passado o E, quem treina seis vezes recomeça no A — é o que devolve
-        uma segunda sessão a peito e tríceps na mesma semana."""
+    def test_a_sixth_day_completes_a_second_cycle(self):
         user = create_user(email="seis@exemplo.com", weekdays=(0, 1, 2, 3, 4, 5))
         plan = services.create_routine(user)
 
         self.assertEqual(
             list(plan.sessions.values_list("label", flat=True)),
-            ["A", "B", "C", "D", "E", "A"],
+            ["A", "B", "C", "A", "B", "C"],
         )
 
     def test_the_session_lands_on_the_day_the_person_trains(self):
@@ -281,7 +297,7 @@ class RoutineSyncTests(TestCase):
 
         self.assertTrue(mudou)
         self.assertNotEqual(segunda.pk, primeira.pk)
-        self.assertEqual(segunda.split, Split.ABCD)  # quatro dias agora
+        self.assertEqual(segunda.split, Split.ABC)  # quatro dias, ciclo repetido
         self.assertEqual(segunda.days_per_week, 4)
 
     def test_changing_the_hour_rebuilds_the_routine(self):
@@ -867,180 +883,6 @@ class LoadInputFormatTests(TestCase):
 
         self.assertNotIn("{#", corpo)
         self.assertNotIn("#}", corpo)
-
-
-class ABCDStructureTests(TestCase):
-    """A divisão de quatro dias, exatamente como foi especificada.
-
-        A  peito + tríceps          (empurrar)
-        B  costas + bíceps          (puxar)
-        C  ombro + perna            (deltoides e membros inferiores)
-        D  trapézio + antebraço + core
-
-    O teste olha o GRUPO MUSCULAR de cada exercício, não o nome do dia. Já
-    aconteceu de o nome mudar e a lista não: o seed só reconstruía os itens
-    quando o treino era novo, então o Treino C passou a se chamar "ombro e
-    perna" continuando a entregar só perna. Nome é rótulo; músculo é o que a
-    pessoa treina.
-    """
-
-    ESPERADO = {
-        "A": {MuscleGroup.CHEST, MuscleGroup.TRICEPS},
-        "B": {MuscleGroup.BACK, MuscleGroup.BICEPS},
-        "C": {MuscleGroup.SHOULDERS, MuscleGroup.QUADS, MuscleGroup.HAMSTRINGS, MuscleGroup.CALVES},
-        "D": {MuscleGroup.TRAPS, MuscleGroup.FOREARMS, MuscleGroup.CORE},
-    }
-
-    @classmethod
-    def setUpTestData(cls):
-        call_command("seed_workouts", verbosity=0)
-
-    def _musculos(self, letra):
-        template = WorkoutTemplate.objects.get(split=Split.ABCD, label=letra)
-        return {item.exercise.muscle_group for item in template.items.all()}
-
-    def test_each_day_trains_exactly_the_groups_it_promises(self):
-        for letra, esperado in self.ESPERADO.items():
-            with self.subTest(dia=letra):
-                self.assertEqual(self._musculos(letra), esperado)
-
-    def test_the_complementary_day_is_not_next_to_the_pull_day(self):
-        """Trapézio e antebraço são sinergistas do puxe.
-
-        Treiná-los na véspera de B deixaria a pegada cansada justamente no dia
-        em que costas precisa dela inteira. Com D no fim da ordem, sobram dois
-        dias entre um e outro.
-        """
-        ordem = list(
-            WorkoutTemplate.objects.filter(split=Split.ABCD, is_active=True)
-            .order_by("order")
-            .values_list("label", flat=True)
-        )
-        self.assertEqual(ordem, ["A", "B", "C", "D"])
-
-        distancia = ordem.index("D") - ordem.index("B")
-        self.assertGreaterEqual(distancia, 2, "D ficou colado no dia de puxe")
-
-    def test_every_exercise_of_the_new_day_has_a_video(self):
-        """Exercício sem demonstração é o que faz a pessoa fazer errado."""
-        for item in WorkoutTemplate.objects.get(split=Split.ABCD, label="D").items.all():
-            with self.subTest(exercicio=item.exercise.name):
-                self.assertTrue(item.exercise.video_url, "sem vídeo")
-
-    def test_rest_windows_match_the_kind_of_exercise(self):
-        """Composto pesado descansa mais que isolado — 60s num agachamento
-        pesado não recupera, e 120s numa elevação lateral é tempo jogado."""
-        for template in WorkoutTemplate.objects.filter(split=Split.ABCD):
-            for item in template.items.select_related("exercise"):
-                with self.subTest(exercicio=item.exercise.name):
-                    self.assertIn(item.rest_seconds, {45, 60, 90, 120})
-                    if item.exercise.is_compound:
-                        self.assertGreaterEqual(item.rest_seconds, 60)
-
-    def test_reseeding_rewrites_a_day_whose_list_changed(self):
-        """Regressão: o seed atualizava o nome do dia e mantinha os exercícios.
-
-        A ficha passava a prometer ombro e entregar perna, e nada no deploy
-        acusava.
-        """
-        template = WorkoutTemplate.objects.get(split=Split.ABCD, label="C")
-        template.items.all().delete()
-        self.assertEqual(template.items.count(), 0)
-
-        call_command("seed_workouts", verbosity=0)
-
-        template.refresh_from_db()
-        self.assertEqual(self._musculos("C"), self.ESPERADO["C"])
-
-
-class ABCDEStructureTests(TestCase):
-    """A divisão de cinco dias e o dia que ela existe para resolver.
-
-    Somando as séries semanais do ciclo ABCD, dois grupos ficam muito abaixo
-    da faixa em que o ganho aparece: posterior de coxa com 3 e panturrilha com
-    4. Não é opinião sobre "ponto fraco" — é o que sobra de fora quando A
-    cuida do empurrar, B do puxar, C divide o dia com ombro e D fica nos
-    complementares. O Treino E vai onde o buraco está, e o teste mede.
-    """
-
-    @classmethod
-    def setUpTestData(cls):
-        call_command("seed_workouts", verbosity=0)
-
-    def _volume(self, split):
-        volume = {}
-        for template in WorkoutTemplate.objects.filter(split=split, is_active=True):
-            for item in template.items.select_related("exercise"):
-                grupo = item.exercise.muscle_group
-                volume[grupo] = volume.get(grupo, 0) + item.sets
-        return volume
-
-    def test_five_days_a_week_get_the_five_day_split(self):
-        self.assertEqual(services.split_for(5), Split.ABCDE)
-        self.assertEqual(services.split_for(6), Split.ABCDE)
-        # Menos que isso continua como estava — nada foi tirado de ninguém.
-        self.assertEqual(services.split_for(4), Split.ABCD)
-        self.assertEqual(services.split_for(3), Split.ABC)
-
-    def test_the_split_has_five_days_in_order(self):
-        ordem = list(
-            WorkoutTemplate.objects.filter(split=Split.ABCDE, is_active=True)
-            .order_by("order")
-            .values_list("label", flat=True)
-        )
-        self.assertEqual(ordem, ["A", "B", "C", "D", "E"])
-
-    def test_the_fifth_day_closes_the_volume_gap_it_was_created_for(self):
-        quatro = self._volume(Split.ABCD)
-        cinco = self._volume(Split.ABCDE)
-
-        for grupo in (MuscleGroup.HAMSTRINGS, MuscleGroup.CALVES):
-            with self.subTest(grupo=grupo):
-                self.assertLess(quatro[grupo], 10, "o buraco deixou de existir no ABCD")
-                self.assertGreaterEqual(
-                    cinco[grupo],
-                    10,
-                    f"{grupo}: {cinco[grupo]} séries, ainda abaixo da faixa",
-                )
-
-    def test_the_fifth_day_trains_exactly_the_two_groups_it_names(self):
-        e = WorkoutTemplate.objects.get(split=Split.ABCDE, label="E")
-        grupos = {item.exercise.muscle_group for item in e.items.all()}
-        self.assertEqual(grupos, {MuscleGroup.HAMSTRINGS, MuscleGroup.CALVES})
-
-    def test_the_first_four_days_are_the_same_as_the_four_day_split(self):
-        """Quem passa de quatro para cinco dias não perde a ficha que tinha."""
-        for letra in "ABCD":
-            with self.subTest(dia=letra):
-                de_quatro = WorkoutTemplate.objects.get(split=Split.ABCD, label=letra)
-                de_cinco = WorkoutTemplate.objects.get(split=Split.ABCDE, label=letra)
-
-                def resumo(t):
-                    return [
-                        (i.exercise.name, i.sets, i.rep_min, i.rep_max, i.rest_seconds)
-                        for i in t.items.select_related("exercise").order_by("order")
-                    ]
-
-                self.assertEqual(resumo(de_quatro), resumo(de_cinco))
-
-    def test_no_card_announces_more_than_two_focuses(self):
-        """O nome do dia é o que a pessoa lê de relance na faixa da semana.
-
-        Três grupamentos ali viram uma linha que ninguém termina de ler. O
-        core continua no Treino D como acessório — o que mudou é o cartão
-        parar de anunciar três coisas.
-        """
-        for template in WorkoutTemplate.objects.filter(
-            split__in=(Split.ABCD, Split.ABCDE), is_active=True
-        ):
-            with self.subTest(dia=f"{template.split} {template.label}"):
-                # "Peito e tríceps" -> 2; "Trapézio, antebraço e core" -> 3.
-                pedacos = template.name.replace(",", " e").split(" e ")
-                self.assertLessEqual(
-                    len([p for p in pedacos if p.strip()]),
-                    2,
-                    f"{template.name}: mais de dois focos no nome",
-                )
 
 
 class ExerciseDrawerTests(TestCase):
