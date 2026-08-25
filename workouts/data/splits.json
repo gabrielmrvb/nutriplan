@@ -180,14 +180,14 @@
         4,
         6,
         10,
-        120
+        180
       ],
       [
         "Supino inclinado com halteres",
-        3,
+        4,
         8,
         12,
-        90
+        120
       ],
       [
         "Flexão de braço",
@@ -201,7 +201,7 @@
         3,
         8,
         12,
-        90
+        120
       ],
       [
         "Crucifixo na máquina (voador)",
@@ -229,7 +229,14 @@
         3,
         10,
         12,
-        60
+        75
+      ],
+      [
+        "Mergulho no banco",
+        3,
+        10,
+        15,
+        90
       ]
     ]
   },
@@ -245,14 +252,14 @@
         4,
         8,
         12,
-        90
+        120
       ],
       [
         "Remada curvada com barra",
         4,
         8,
         12,
-        90
+        180
       ],
       [
         "Remada baixa na polia",
@@ -273,10 +280,17 @@
         3,
         10,
         12,
-        60
+        75
       ],
       [
         "Rosca alternada com halteres",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca martelo",
         3,
         10,
         12,
@@ -310,14 +324,14 @@
         4,
         6,
         10,
-        120
+        180
       ],
       [
         "Leg press 45°",
-        3,
+        4,
         10,
         12,
-        90
+        120
       ],
       [
         "Cadeira extensora",
@@ -328,16 +342,23 @@
       ],
       [
         "Stiff com barra",
-        3,
+        4,
         8,
         12,
-        90
+        120
       ],
       [
         "Mesa flexora",
         3,
         10,
         12,
+        60
+      ],
+      [
+        "Cadeira flexora",
+        3,
+        12,
+        15,
         60
       ],
       [

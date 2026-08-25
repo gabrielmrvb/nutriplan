@@ -138,11 +138,20 @@ class SeededWorkoutTests(TestCase):
                 )
 
     def test_every_workout_fits_in_a_gym_session(self):
-        """Entre 4 e 8 exercícios: menos não cobre o dia, mais vira duas horas."""
+        """A sessão cabe em noventa minutos.
+
+        O teto era de oito exercícios, herdado de quando a meta era 45 a 55
+        minutos. Com noventa minutos de orçamento o limite deixa de ser a
+        contagem e passa a ser o relógio: nove exercícios com três minutos de
+        descanso nos compostos pesados cabem, e é o que permite três
+        exercícios de tríceps e de bíceps sem espremer o descanso.
+        """
         for template in WorkoutTemplate.objects.filter(is_active=True):
             with self.subTest(treino=str(template)):
                 self.assertGreaterEqual(template.items.count(), 4)
-                self.assertLessEqual(template.items.count(), 8)
+                self.assertLessEqual(template.estimated_minutes, 90)
+                # Menos de meia hora não é treino, é aquecimento.
+                self.assertGreaterEqual(template.estimated_minutes, 30)
 
     def test_compound_lifts_come_first_and_rest_longer(self):
         """Quem puxa carga vem descansado, e descansa mais entre as séries."""

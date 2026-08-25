@@ -79,7 +79,7 @@
                 <span class="session__meta">
                   {{ session.weekday_display }}
                   {% if session.start_time %}· {{ session.start_time|time:"H:i" }}{% endif %}
-                  · {{ session.exercises.count }} exercícios · {{ session.total_sets }} séries
+                  · {{ session.exercises.count }} exercícios · {{ session.total_sets }} séries · ~{{ session.estimated_minutes }} min
                 </span>
               </span>
               <span class="ficha__seta" aria-hidden="true">

@@ -187,7 +187,49 @@ class Split(models.TextChoices):
     ABCDE = "abcde", "ABCDE — o ciclo de quatro mais um dia de pontos fracos"
 
 
-class WorkoutTemplate(models.Model):
+#: Quanto tempo uma série leva executando, em segundos.
+#:
+#: Doze repetições a dois segundos de subida e dois de descida dão 48; seis
+#: repetições pesadas com pausa dão perto de 30. Quarenta é a média que
+#: descreve as duas pontas sem prometer precisão que não existe — a estimativa
+#: serve para a pessoa saber se cabe antes do compromisso da noite, não para
+#: cronometrar a sessão.
+SEGUNDOS_POR_SERIE = 40
+
+#: Trocar de aparelho, ajustar carga, esperar liberar. Some rápido: numa ficha
+#: de nove exercícios são seis minutos que ninguém contabiliza e todo mundo
+#: gasta.
+SEGUNDOS_ENTRE_EXERCICIOS = 45
+
+
+class DurationMixin:
+    """Estimativa de quanto a sessão leva, em minutos.
+
+    A conta é série a série, e não uma média por exercício, porque o descanso
+    é o que domina: agachamento com três minutos entre séries pesadas custa
+    mais tempo que quatro exercícios de isolado somados.
+
+    O último descanso de cada exercício não é contado — ele se confunde com a
+    troca para o próximo, e contar os dois inflaria a estimativa em vários
+    minutos numa ficha longa.
+    """
+
+    @property
+    def estimated_minutes(self) -> int:
+        itens = list(self.items.all() if hasattr(self, "items") else self.exercises.all())
+        if not itens:
+            return 0
+
+        segundos = 0
+        for item in itens:
+            segundos += item.sets * SEGUNDOS_POR_SERIE
+            segundos += max(item.sets - 1, 0) * item.rest_seconds
+        segundos += max(len(itens) - 1, 0) * SEGUNDOS_ENTRE_EXERCICIOS
+
+        return round(segundos / 60)
+
+
+class WorkoutTemplate(DurationMixin, models.Model):
     """Um dia de treino dentro de uma divisão: o "A" do ABC, por exemplo."""
 
     split = models.CharField("divisão", max_length=6, choices=Split.choices)
@@ -303,7 +345,7 @@ class TrainingPlan(models.Model):
         return f"{self.get_split_display()} ({self.days_per_week}x/semana)"
 
 
-class TrainingSession(models.Model):
+class TrainingSession(DurationMixin, models.Model):
     """Um treino marcado num dia da semana da pessoa."""
 
     plan = models.ForeignKey(TrainingPlan, on_delete=models.CASCADE, related_name="sessions")
