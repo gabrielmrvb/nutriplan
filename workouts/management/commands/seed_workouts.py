@@ -83,11 +83,42 @@ class Command(BaseCommand):
                 },
             )
 
-            if created or reset:
+            # A lista de exercícios é reconstruída quando difere do JSON, e
+            # não só quando o treino é novo.
+            #
+            # A regra antiga era `created or reset`, e ela mentia em silêncio:
+            # mudar o Treino C de "pernas" para "ombro e perna" atualizava o
+            # NOME do dia e mantinha os exercícios antigos. A ficha passava a
+            # prometer ombro e entregar perna, e nada no deploy acusava —
+            # aconteceu aqui, e só apareceu porque fui conferir a tela.
+            desejado = [
+                (
+                    item[0],
+                    item[1],
+                    item[2],
+                    item[3],
+                    item[4],
+                    item[5] if len(item) > 5 else Measure.REPS,
+                )
+                for item in row["items"]
+            ]
+            atual = [
+                (
+                    it.exercise.name,
+                    it.sets,
+                    it.rep_min,
+                    it.rep_max,
+                    it.rest_seconds,
+                    it.measure,
+                )
+                for it in template.items.select_related("exercise").order_by("order")
+            ]
+
+            if created or reset or atual != desejado:
                 template.items.all().delete()
-                for order, item in enumerate(row["items"]):
-                    name, sets, rep_min, rep_max, rest = item[:5]
-                    measure = item[5] if len(item) > 5 else Measure.REPS
+                for order, (name, sets, rep_min, rep_max, rest, measure) in enumerate(
+                    desejado
+                ):
                     WorkoutTemplateItem.objects.create(
                         template=template,
                         exercise=exercises[name],

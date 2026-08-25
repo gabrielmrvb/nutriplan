@@ -175,6 +175,94 @@ class InstallabilityTests(TestCase):
         self.assertIn("Agora não", html)
         self.assertIn('aria-label="Fechar o convite de instalação"', html)
 
+    def test_the_invitation_never_depends_on_has_for_its_position(self):
+        """A causa raiz do travamento, e a que ninguém veria em teste manual.
+
+        O convite se posicionava com `body:has(.tabbar)`. Onde `:has()` não
+        existe — Chrome < 105, Safari < 15.4, WebView Android antiga — a regra
+        inteira é DESCARTADA pelo navegador, e o convite desce em cima da barra
+        de navegação, cobrindo os quatro atalhos. O app parecia travado.
+
+        Quem sabe se a barra existe é o template, então é o template que conta:
+        a classe vem do servidor e não depende de suporte a seletor nenhum.
+        """
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+
+        # Nenhuma regra do convite pode voltar a depender de :has().
+        for linha in css.splitlines():
+            despido = linha.strip()
+            if despido.startswith(("/*", "*")):
+                continue
+            if ":has(" in despido and "install" in despido:
+                self.fail(f"o convite voltou a depender de :has(): {despido}")
+
+        self.assertIn("body.tem-tabbar .install", css)
+
+    def test_the_server_says_whether_the_tab_bar_is_there(self):
+        anonimo = self.client.get(reverse("accounts:login")).content.decode()
+        self.assertNotIn("tem-tabbar", anonimo, "visitante não tem barra inferior")
+
+        User.objects.create_user(email="barra@exemplo.com", password="senha-bem-forte-123")
+        self.client.login(email="barra@exemplo.com", password="senha-bem-forte-123")
+        logado = self.client.get(reverse("accounts:profile")).content.decode()
+        self.assertIn('class="tem-tabbar"', logado)
+
+    def test_the_invitation_never_wins_the_stacking_over_navigation(self):
+        """Rede de segurança para o navegador que eu não previ.
+
+        Se qualquer regra de posicionamento falhar, o pior caso tem que ser um
+        convite parcialmente escondido atrás da barra — e não uma barra de
+        navegação morta atrás do convite. Errar para o lado que deixa usável.
+        """
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+
+        def z(seletor):
+            bloco = css.split("\n" + seletor, 1)[1].split("}", 1)[0]
+            for linha in bloco.splitlines():
+                despido = linha.strip()
+                # O comentário logo acima da regra também cita "z-index".
+                if despido.startswith(("/*", "*", "//")):
+                    continue
+                if despido.startswith("z-index"):
+                    return int(despido.split(":")[1].strip().rstrip(";"))
+            raise AssertionError(f"{seletor} sem z-index")
+
+        self.assertLess(z(".install {"), z(".tabbar {"))
+
+    def test_there_are_four_ways_out_and_all_survive_a_redraw(self):
+        """Os fechamentos são delegados ao documento, não presos aos botões.
+
+        Handler preso a um elemento depende de aquele elemento existir no
+        instante em que o código roda. No documento, funciona mesmo que o
+        cartão seja redesenhado — e um convite que não fecha é o pior defeito
+        que este app já teve.
+        """
+        js = (Path(settings.BASE_DIR) / "static" / "js" / "pwa.js").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('document.addEventListener("click"', js)
+        self.assertIn('document.addEventListener("keydown"', js)
+        self.assertIn('alvo.closest("[data-install-close]")', js)   # X e "Agora não"
+        self.assertIn('!alvo.closest("[data-install]")', js)        # toque fora
+        self.assertIn('evento.key === "Escape"', js)                # Esc
+
+        # `closest` só existe em Element: sem a guarda, um clique nascido em nó
+        # de texto quebraria o handler e prenderia o convite na tela.
+        self.assertIn('typeof alvo.closest !== "function"', js)
+
+    def test_no_dimming_overlay_is_used(self):
+        """A cortina escura seria exatamente o bloqueio que o convite não pode
+        causar. Toque fora fecha, mas o clique continua chegando ao que está
+        embaixo."""
+        html = self.client.get(reverse("accounts:login")).content.decode()
+        self.assertNotIn("install__overlay", html)
+        self.assertNotIn("install-backdrop", html)
+
     def test_the_touch_targets_are_big_enough_for_a_finger(self):
         """44x44 é o mínimo; abaixo disso o toque erra e o botão parece morto."""
         css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(

@@ -24,7 +24,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="NutriPlan">
 </head>
-<body>
+{% comment %}
+  `tem-tabbar` é escrito pelo servidor, e não deduzido pelo CSS com `:has()`.
+  Foi essa dedução que travou o app: onde `:has()` não existe, a regra que
+  levanta o convite acima da navegação some, e ele passa a cobrir os atalhos.
+  Quem sabe se a barra existe é o template, então é o template que conta.
+{% endcomment %}
+<body class="{% if user.is_authenticated %}tem-tabbar{% endif %}">
   {% block header %}
     <header class="app-bar">
       <a class="app-bar__brand" href="{% url 'plans:today' %}">

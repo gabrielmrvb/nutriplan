@@ -44,6 +44,15 @@
      clareamento que passa contra TODOS os quatro fundos do tema. */
   --text-mute: #849592;
 
+  /* Uma cor por dia de treino. Matizes bem separados (verde, azul, âmbar,
+     violeta) para serem distinguíveis inclusive por quem confunde vermelho e
+     verde — a distância entre eles é de luminância também, não só de matiz.
+     Todas claras o bastante para carregar texto grafite por cima. */
+  --dia-a: #4ade9b;
+  --dia-b: #6cc7ff;
+  --dia-c: #f6c453;
+  --dia-d: #c4a6ff;
+
   /* Verde-menta como acento principal e azul-gelo como secundário: os dois
      legíveis sobre grafite sem virar neon berrante, que cansa em minutos. */
   --brand: #4ade9b;
@@ -127,6 +136,31 @@
 *,
 *::before,
 *::after { box-sizing: border-box; }
+
+/* `hidden` precisa vencer o `display` de quem o usa.
+ *
+ * Este bloco é a correção de um bug que travou a tela inicial, e ele merece o
+ * parágrafo inteiro porque a causa não está onde a queixa aparece.
+ *
+ * O navegador esconde `<div hidden>` por uma regra da FOLHA DO PRÓPRIO
+ * NAVEGADOR: `[hidden] { display: none }`. Regra de navegador perde para
+ * QUALQUER regra do autor, por menos específica que seja. Então no instante em
+ * que este arquivo escreveu `.install { display: grid }`, o `hidden` do convite
+ * de instalação virou enfeite: o cartão nascia visível para todo mundo, em toda
+ * página, e o `banner.hidden = true` do botão "×" não tinha efeito nenhum. Para
+ * quem usa, a leitura é uma só — "o anúncio não fecha".
+ *
+ * O mesmo alçapão já estava armado em mais dois lugares: `.btn` também declara
+ * `display: inline-flex`, então o botão de lembretes aparecia mesmo sem suporte
+ * a notificação, e o botão "Instalar" continuava na tela no iPhone, onde ele
+ * não tem o que fazer.
+ *
+ * Corrigir caso a caso (`.install[hidden] { display: none }`) apaga os três
+ * incêndios e deixa o fósforo aceso para o próximo componente que combinar
+ * `hidden` com `display`. Uma regra só, no reset, fecha a classe inteira de
+ * bug. O `!important` não é força bruta: é o que devolve ao atributo a
+ * prioridade que a folha do navegador não consegue defender sozinha. */
+[hidden] { display: none !important; }
 
 html {
   -webkit-text-size-adjust: 100%;
@@ -801,6 +835,10 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .choice-list label:hover { border-color: var(--border-strong); }
 .choice-list input { width: 1.2rem; height: 1.2rem; flex: none; accent-color: var(--brand); }
 
+/* Este `:has()` é só realce: onde ele não existe, o próprio radio marcado
+   (com `accent-color`) continua mostrando a escolha. Diferente do convite de
+   instalação, onde a mesma dependência escondia a navegação — por isso lá foi
+   removida e aqui pode ficar. */
 .choice-list label:has(input:checked) {
   border-color: var(--brand);
   background: var(--brand-soft);
@@ -962,6 +1000,35 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   color: var(--on-brand);
   font-size: 1.15rem;
   font-weight: 800;
+}
+
+/* Cor por dia de treino.
+ *
+ * A letra vira `data-dia` no template, e não uma classe por dia, porque o dado
+ * já existe no modelo — inventar `.dia-a`, `.dia-b` seria repetir no CSS uma
+ * informação que o servidor já tem.
+ *
+ * Nada aqui usa `:has()`. É decoração, e perder a regra não quebraria nada —
+ * mas foi um `:has()` de aparência com efeito estrutural que escondeu a
+ * navegação atrás do convite de instalação. Uma vez basta.
+ */
+[data-dia="A"] { --dia: var(--dia-a); }
+[data-dia="B"] { --dia: var(--dia-b); }
+[data-dia="C"] { --dia: var(--dia-c); }
+[data-dia="D"] { --dia: var(--dia-d); }
+
+.session__badge[data-dia] {
+  background: var(--dia, var(--brand));
+  color: #0b0f0e;
+}
+
+/* Filete da cor do dia na borda do cartão: identifica a ficha durante a
+   rolagem, quando o cabeçalho já saiu da tela. */
+.card[data-dia] { border-left: 3px solid var(--dia, var(--brand)); }
+
+.day-chip--training[data-dia] .day-chip__label {
+  background: color-mix(in srgb, var(--dia) 22%, transparent);
+  color: var(--dia);
 }
 
 .session__title { flex: 1; min-width: 0; }
@@ -1445,7 +1512,12 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   left: .6rem;
   right: .6rem;
   bottom: calc(.6rem + env(safe-area-inset-bottom));
-  z-index: 40;
+  /* ABAIXO da navegação (z-index 30), de propósito. Se qualquer regra de
+     posicionamento falhar num navegador que eu não previ, o pior caso passa a
+     ser um convite parcialmente escondido atrás da barra — e não uma barra de
+     navegação morta atrás do convite. Errar para o lado que deixa o app
+     usável. */
+  z-index: 28;
   display: grid;
   gap: .7rem;
   padding: .85rem;
@@ -1457,8 +1529,10 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 /* Com a navegação inferior na tela, a faixa sobe para não tapar os atalhos.
-   `:has` evita ter que avisar o CSS pelo template quem está logado. */
-body:has(.tabbar) .install {
+   A classe vem do servidor: `body:has(.tabbar)` já esteve aqui e foi a causa
+   do bug — onde `:has()` não é suportado a regra some, e o convite desce em
+   cima dos atalhos com z-index maior que o deles. */
+body.tem-tabbar .install {
   bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + .6rem);
 }
 
@@ -1473,15 +1547,15 @@ body:has(.tabbar) .install {
     bottom: calc(1rem + env(safe-area-inset-bottom));
   }
 
-  body:has(.tabbar) .install { bottom: calc(1rem + env(safe-area-inset-bottom)); }
+  body.tem-tabbar .install { bottom: calc(1rem + env(safe-area-inset-bottom)); }
   body.tem-convite .container,
-  body.tem-convite:has(.tabbar) .container { padding-bottom: 6rem; }
+  body.tem-convite.tem-tabbar .container { padding-bottom: 6rem; }
 }
 
 /* O espaço que a barra fixa não ocupa sozinha. A classe entra pelo JS no
    mesmo instante em que o convite aparece, e sai quando ele fecha. */
 body.tem-convite .container { padding-bottom: 13rem; }
-body.tem-convite:has(.tabbar) .container { padding-bottom: 17rem; }
+body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 
 @keyframes install-sobe {
   from { opacity: 0; transform: translateY(1rem); }

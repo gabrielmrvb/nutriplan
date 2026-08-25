@@ -60,8 +60,12 @@ SPLIT_NOTE = {
         "acaba treinado duas vezes na semana."
     ),
     Split.ABCD: (
-        "Quatro treinos, um foco por dia. Volume por sessão é menor, então dá para "
-        "puxar mais carga em cada exercício sem estender o treino."
+        "Quatro treinos, um foco por dia: peito e tríceps, costas e bíceps, ombro e "
+        "perna, e um dia para trapézio, antebraço e core. Volume por sessão é menor, "
+        "então dá para puxar mais carga em cada exercício sem estender o treino. O "
+        "dia dos complementares fica longe do de costas de propósito — trapézio e "
+        "antebraço trabalham junto no puxe, e chegar neles cansado tira do treino "
+        "de costas justamente a pegada que ele precisa."
     ),
 }
 

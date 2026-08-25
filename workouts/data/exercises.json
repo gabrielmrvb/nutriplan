@@ -222,5 +222,33 @@
     "compound": false,
     "cue": "Lombar colada no chão; desça as pernas só até onde conseguir manter isso.",
     "video": "https://www.youtube.com/watch?v=oq4Xb_xI618"
+  },
+  {
+    "name": "Encolhimento com halteres",
+    "muscle_group": "traps",
+    "compound": false,
+    "cue": "Suba os ombros na direção das orelhas sem dobrar o cotovelo e sem girar o ombro; segure um instante no topo.",
+    "video": "https://www.youtube.com/watch?v=AdkMdSoRVPE"
+  },
+  {
+    "name": "Remada alta com barra",
+    "muscle_group": "traps",
+    "compound": true,
+    "cue": "Puxe a barra até a altura do peito com o cotovelo acima do punho; se o ombro doer, pare na linha do esterno.",
+    "video": "https://www.youtube.com/watch?v=0FOiIyUFDPE"
+  },
+  {
+    "name": "Rosca de punho com barra",
+    "muscle_group": "forearms",
+    "compound": false,
+    "cue": "Antebraço apoiado no banco, só o punho se move; desça deixando a barra rolar até a ponta dos dedos.",
+    "video": "https://www.youtube.com/shorts/WQ-If5YzMsw"
+  },
+  {
+    "name": "Rosca inversa com barra",
+    "muscle_group": "forearms",
+    "compound": false,
+    "cue": "Pegada pronada, cotovelo colado ao tronco; use carga menor que na rosca direta — o braquiorradial é mais fraco.",
+    "video": "https://www.youtube.com/shorts/Xqp_-0FIzc4"
   }
 ]

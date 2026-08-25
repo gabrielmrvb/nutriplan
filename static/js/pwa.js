@@ -129,7 +129,6 @@
 
     var dica = banner.querySelector("[data-install-hint]");
     var instalar = banner.querySelector("[data-install-go]");
-    var saidas = banner.querySelectorAll("[data-install-close]");
     var CHAVE = "nutriplan:convite-dispensado-em";
     var SETE_DIAS = 7 * 24 * 60 * 60 * 1000;
     var convite = null;
@@ -187,9 +186,36 @@
       document.body.classList.add("tem-convite");
     }
 
-    for (var i = 0; i < saidas.length; i++) saidas[i].onclick = dispensar;
+    /* Quatro maneiras de sair, e todas ligadas no documento em vez de nos
+     * botões.
+     *
+     * Delegação e não `botao.onclick` porque um handler preso a um elemento
+     * específico depende de aquele elemento existir no instante em que este
+     * código roda. Preso ao documento, funciona mesmo que o cartão seja
+     * redesenhado depois — e um convite que não fecha é o pior defeito que
+     * este app já teve. */
+    document.addEventListener("click", function (evento) {
+      if (banner.hidden) return;
 
-    // Esc fecha, como em qualquer diálogo.
+      // `closest` só existe em Element. Clique que nasce em nó de texto ou no
+      // próprio documento chega aqui como outra coisa, e sem esta guarda o
+      // handler quebraria — deixando o convite preso na tela, que é
+      // exatamente o defeito que ele veio consertar.
+      var alvo = evento.target;
+      if (!alvo || typeof alvo.closest !== "function") return;
+
+      if (alvo.closest("[data-install-close]")) {
+        evento.preventDefault();
+        dispensar();
+        return;
+      }
+
+      // Toque fora do cartão também dispensa. Sem cortina escura por cima da
+      // tela: a cortina seria exatamente o bloqueio que este convite não pode
+      // causar. O clique continua chegando ao que estiver embaixo.
+      if (!alvo.closest("[data-install]")) dispensar();
+    });
+
     document.addEventListener("keydown", function (evento) {
       if (evento.key === "Escape" && !banner.hidden) dispensar();
     });
@@ -205,16 +231,16 @@
     window.addEventListener("appinstalled", dispensar);
 
     if (instalar) {
-      instalar.onclick = function () {
+      instalar.addEventListener("click", function () {
         if (!convite) return;
         convite.prompt();
-        convite.userChoice.then(function (escolha) {
+        convite.userChoice.then(function () {
           // Aceitou ou recusou, o convite sai da tela: o evento é de uso único
           // e insistir na mesma visita é o que faz banner virar praga.
           dispensar();
           convite = null;
         });
-      };
+      });
     }
 
     if (ehIOS() && !jaInstalado()) {

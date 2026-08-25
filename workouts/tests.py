@@ -814,3 +814,87 @@ class LoadInputFormatTests(TestCase):
 
         self.assertNotIn("{#", corpo)
         self.assertNotIn("#}", corpo)
+
+
+class ABCDStructureTests(TestCase):
+    """A divisão de quatro dias, exatamente como foi especificada.
+
+        A  peito + tríceps          (empurrar)
+        B  costas + bíceps          (puxar)
+        C  ombro + perna            (deltoides e membros inferiores)
+        D  trapézio + antebraço + core
+
+    O teste olha o GRUPO MUSCULAR de cada exercício, não o nome do dia. Já
+    aconteceu de o nome mudar e a lista não: o seed só reconstruía os itens
+    quando o treino era novo, então o Treino C passou a se chamar "ombro e
+    perna" continuando a entregar só perna. Nome é rótulo; músculo é o que a
+    pessoa treina.
+    """
+
+    ESPERADO = {
+        "A": {MuscleGroup.CHEST, MuscleGroup.TRICEPS},
+        "B": {MuscleGroup.BACK, MuscleGroup.BICEPS},
+        "C": {MuscleGroup.SHOULDERS, MuscleGroup.QUADS, MuscleGroup.HAMSTRINGS, MuscleGroup.CALVES},
+        "D": {MuscleGroup.TRAPS, MuscleGroup.FOREARMS, MuscleGroup.CORE},
+    }
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def _musculos(self, letra):
+        template = WorkoutTemplate.objects.get(split=Split.ABCD, label=letra)
+        return {item.exercise.muscle_group for item in template.items.all()}
+
+    def test_each_day_trains_exactly_the_groups_it_promises(self):
+        for letra, esperado in self.ESPERADO.items():
+            with self.subTest(dia=letra):
+                self.assertEqual(self._musculos(letra), esperado)
+
+    def test_the_complementary_day_is_not_next_to_the_pull_day(self):
+        """Trapézio e antebraço são sinergistas do puxe.
+
+        Treiná-los na véspera de B deixaria a pegada cansada justamente no dia
+        em que costas precisa dela inteira. Com D no fim da ordem, sobram dois
+        dias entre um e outro.
+        """
+        ordem = list(
+            WorkoutTemplate.objects.filter(split=Split.ABCD, is_active=True)
+            .order_by("order")
+            .values_list("label", flat=True)
+        )
+        self.assertEqual(ordem, ["A", "B", "C", "D"])
+
+        distancia = ordem.index("D") - ordem.index("B")
+        self.assertGreaterEqual(distancia, 2, "D ficou colado no dia de puxe")
+
+    def test_every_exercise_of_the_new_day_has_a_video(self):
+        """Exercício sem demonstração é o que faz a pessoa fazer errado."""
+        for item in WorkoutTemplate.objects.get(split=Split.ABCD, label="D").items.all():
+            with self.subTest(exercicio=item.exercise.name):
+                self.assertTrue(item.exercise.video_url, "sem vídeo")
+
+    def test_rest_windows_match_the_kind_of_exercise(self):
+        """Composto pesado descansa mais que isolado — 60s num agachamento
+        pesado não recupera, e 120s numa elevação lateral é tempo jogado."""
+        for template in WorkoutTemplate.objects.filter(split=Split.ABCD):
+            for item in template.items.select_related("exercise"):
+                with self.subTest(exercicio=item.exercise.name):
+                    self.assertIn(item.rest_seconds, {45, 60, 90, 120})
+                    if item.exercise.is_compound:
+                        self.assertGreaterEqual(item.rest_seconds, 60)
+
+    def test_reseeding_rewrites_a_day_whose_list_changed(self):
+        """Regressão: o seed atualizava o nome do dia e mantinha os exercícios.
+
+        A ficha passava a prometer ombro e entregar perna, e nada no deploy
+        acusava.
+        """
+        template = WorkoutTemplate.objects.get(split=Split.ABCD, label="C")
+        template.items.all().delete()
+        self.assertEqual(template.items.count(), 0)
+
+        call_command("seed_workouts", verbosity=0)
+
+        template.refresh_from_db()
+        self.assertEqual(self._musculos("C"), self.ESPERADO["C"])

@@ -36,7 +36,8 @@
           <div class="card__head"><h2>Sua semana</h2></div>
           <ol class="week-strip">
             {% for day in week %}
-              <li class="day-chip {% if day.session %}day-chip--training{% endif %}">
+              <li class="day-chip {% if day.session %}day-chip--training{% endif %}"
+                  {% if day.session %}data-dia="{{ day.session.label }}"{% endif %}>
                 <span class="day-chip__name">{{ day.short }}</span>
                 <span class="day-chip__label">
                   {% if day.session %}{{ day.session.label }}{% else %}·{% endif %}
@@ -52,9 +53,9 @@
 
         {# ------------- As fichas ------------- #}
         {% for session in sessions %}
-          <section class="card">
+          <section class="card" data-dia="{{ session.label }}">
             <header class="session__head">
-              <span class="session__badge">{{ session.label }}</span>
+              <span class="session__badge" data-dia="{{ session.label }}">{{ session.label }}</span>
               <span class="session__title">
                 <strong class="session__name">{{ session.name }}</strong>
                 <span class="session__meta">

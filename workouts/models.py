@@ -29,6 +29,12 @@ class MuscleGroup(models.TextChoices):
     BICEPS = "biceps", "Bíceps"
     TRICEPS = "triceps", "Tríceps"
     CORE = "core", "Abdômen e core"
+    # Trapézio e antebraço saíram de dentro de "costas" e "bíceps" quando o
+    # ABCD ganhou um dia próprio para eles. Separados, o volume semanal de
+    # cada um passa a ser contável — antes, encolhimento aparecia somado a
+    # costas e a ficha dizia que a pessoa fazia mais puxe do que fazia.
+    TRAPS = "traps", "Trapézio"
+    FOREARMS = "forearms", "Antebraço"
 
 
 class Measure(models.TextChoices):
@@ -177,7 +183,7 @@ class Split(models.TextChoices):
     FULL = "full", "Corpo inteiro"
     AB = "ab", "AB — superior e inferior"
     ABC = "abc", "ABC — empurrar, puxar e pernas"
-    ABCD = "abcd", "ABCD — peito, costas, pernas e ombros"
+    ABCD = "abcd", "ABCD — peito/tríceps, costas/bíceps, ombro/perna e complementares"
 
 
 class WorkoutTemplate(models.Model):
