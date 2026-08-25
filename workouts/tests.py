@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 from django.conf import settings
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -1133,16 +1134,26 @@ class ExerciseFrameTests(TestCase):
         self.assertTrue(urls[0].endswith("/0.jpg"))
         self.assertTrue(urls[1].endswith("/1.jpg"))
 
-    def test_the_drawer_prefers_photos_over_the_player(self):
-        """O `<iframe>` deixou de ser o caminho normal e virou plano B."""
+    def test_the_drawer_walks_down_the_media_ladder(self):
+        """Três degraus, em ordem de qualidade: animação, foto, vídeo.
+
+        Cada um só entra quando o de cima não existe. Hoje o topo está vazio
+        para todo mundo — não há fonte gratuita e verificável de animação
+        anatômica —, e o `<iframe>` do YouTube passou a ser o último recurso
+        em vez do caminho normal.
+        """
         user = create_user(email="frames@exemplo.com")
         self.client.force_login(user)
         html = self.client.get(reverse("workouts:routine")).content.decode()
 
-        self.assertIn("data-quadros=", html)
-        self.assertIn("montarQuadros", html)
-        # A mídia só cai no player quando não há foto.
-        self.assertIn("if (!montarQuadros(media, dados)) {", html)
+        for atributo in ("data-animacao=", "data-quadros="):
+            with self.subTest(atributo=atributo):
+                self.assertIn(atributo, html)
+
+        self.assertIn(
+            "if (!montarAnimacao(media, dados) && !montarQuadros(media, dados)) {",
+            html,
+        )
 
     def test_the_numbers_are_filled_no_matter_which_media_is_used(self):
         """Regressão: o `if` da mídia chegou a sair da função com `return`, e
@@ -1153,7 +1164,7 @@ class ExerciseFrameTests(TestCase):
         html = self.client.get(reverse("workouts:routine")).content.decode()
 
         corpo = html.split("function preencher(dados) {", 1)[1]
-        ramo_da_midia = corpo.split("if (!montarQuadros(media, dados)) {", 1)[1]
+        ramo_da_midia = corpo.split("&& !montarQuadros(media, dados)) {", 1)[1]
         self.assertNotIn("return;", ramo_da_midia.split("data-drawer-nome", 1)[0])
         self.assertIn("data-drawer-series", corpo)
         self.assertIn("data-drawer-carga", corpo)
@@ -1167,3 +1178,111 @@ class ExerciseFrameTests(TestCase):
 
         fechamento = html.split('drawer.addEventListener("close"', 1)[1].split("});", 1)[0]
         self.assertIn("pararAlternancia()", fechamento)
+
+
+class AnimationImportTests(TestCase):
+    """O importador de animação, e o que ele recusa.
+
+    A fonte da animação já mudou três vezes neste projeto — YouTube, foto de
+    domínio público, e agora animação premium. Por isso o comando lê um
+    arquivo em vez de falar com uma API específica: trocar de fornecedor passa
+    a ser trocar o arquivo, não reescrever um cliente HTTP.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def _arquivo(self, conteudo):
+        import json
+        import tempfile
+
+        caminho = Path(tempfile.mkdtemp()) / "animacoes.json"
+        caminho.write_text(json.dumps(conteudo, ensure_ascii=False), encoding="utf-8")
+        return str(caminho)
+
+    def test_a_name_that_is_not_in_the_catalog_stops_the_import(self):
+        """Catálogo meio importado é pior que não importado: metade da tela
+        muda de aparência e ninguém sabe por quê."""
+        arquivo = self._arquivo(
+            {
+                "Supino reto com barra": "https://exemplo.com/a.mp4",
+                "Exercício que não existe": "https://exemplo.com/b.mp4",
+            }
+        )
+
+        with self.assertRaises(CommandError):
+            call_command("set_exercise_animation", arquivo, "--check", verbosity=0)
+
+        self.assertFalse(Exercise.objects.exclude(animation_url="").exists())
+
+    def test_a_format_the_screen_cannot_play_stops_the_import(self):
+        """PDF ou JPG entrariam como imagem e apareceriam parados — recusar é
+        melhor que exibir errado."""
+        arquivo = self._arquivo(
+            {"Supino reto com barra": "https://exemplo.com/instrucoes.pdf"}
+        )
+
+        with self.assertRaises(CommandError):
+            call_command("set_exercise_animation", arquivo, "--check", verbosity=0)
+
+    def test_the_supported_formats_are_the_ones_the_drawer_builds(self):
+        from workouts.management.commands.set_exercise_animation import tipo_de
+
+        self.assertEqual(tipo_de("https://x/a.mp4"), "video")
+        self.assertEqual(tipo_de("https://x/a.webm"), "video")
+        self.assertEqual(tipo_de("https://x/a.gif"), "imagem")
+        self.assertEqual(tipo_de("https://x/a.webp"), "imagem")
+        # Query string não pode enganar a detecção.
+        self.assertEqual(tipo_de("https://x/a.mp4?v=2"), "video")
+        self.assertEqual(tipo_de("https://x/pagina.html"), "")
+
+    def test_clear_puts_the_photos_back(self):
+        exercicio = Exercise.objects.first()
+        exercicio.animation_url = "https://exemplo.com/a.mp4"
+        exercicio.save(update_fields=["animation_url"])
+
+        call_command("set_exercise_animation", "--clear", verbosity=0)
+
+        exercicio.refresh_from_db()
+        self.assertEqual(exercicio.animation_url, "")
+        # As fotos continuam lá — a animação era uma camada por cima.
+        self.assertTrue(exercicio.frames)
+
+    def test_the_model_knows_how_to_play_each_format(self):
+        exercicio = Exercise.objects.first()
+
+        exercicio.animation_url = "https://exemplo.com/a.mp4"
+        self.assertEqual(exercicio.animation_kind, "video")
+
+        exercicio.animation_url = "https://exemplo.com/a.gif"
+        self.assertEqual(exercicio.animation_kind, "imagem")
+
+        exercicio.animation_url = ""
+        self.assertEqual(exercicio.animation_kind, "")
+
+    def test_the_animation_wins_over_the_photos_in_the_drawer(self):
+        exercicio = Exercise.objects.get(name="Supino reto com barra")
+        exercicio.animation_url = "https://exemplo.com/supino.mp4"
+        exercicio.save(update_fields=["animation_url"])
+
+        user = create_user(email="animacao@exemplo.com")
+        self.client.force_login(user)
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        self.assertIn('data-animacao="https://exemplo.com/supino.mp4"', html)
+        self.assertIn('data-animacao-tipo="video"', html)
+
+    def test_a_video_animation_is_muted_and_inline(self):
+        """Sem `muted` o navegador recusa o autoplay; sem `playsinline` o
+        iPhone abre em tela cheia por cima do app."""
+        user = create_user(email="mudo@exemplo.com")
+        self.client.force_login(user)
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        bloco = html.split("function montarAnimacao(media, dados) {", 1)[1]
+        bloco = bloco.split("return true;", 1)[0]
+        for atributo in ('setAttribute("muted"', 'setAttribute("playsinline"',
+                         "elemento.loop = true", "elemento.autoplay = true"):
+            with self.subTest(atributo=atributo):
+                self.assertIn(atributo, bloco)

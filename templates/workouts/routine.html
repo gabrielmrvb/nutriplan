@@ -142,6 +142,8 @@
                       curto ao mesmo tempo.
                     {% endcomment %}
                     <button type="button" class="exercise__ver"
+                    data-animacao="{{ item.exercise.animation_url }}"
+                    data-animacao-tipo="{{ item.exercise.animation_kind }}"
                     data-quadros="{{ item.exercise.frames|join:'|' }}"
                     data-clipe="{% if item.exercise.clip_kind == 'youtube' %}{{ item.exercise.video_embed_url }}{% else %}{{ item.exercise.video_url }}{% endif %}"
                     data-tipo="{{ item.exercise.clip_kind }}"
@@ -401,6 +403,54 @@
           alternancia = null;
         }
 
+        /* Animação de execução, quando o catálogo tem uma.
+         *
+         * É o degrau de cima da escada: mostra o movimento inteiro, o que duas
+         * fotos não fazem e um vídeo de terceiro faz com introdução falada no
+         * meio. Fica vazio até alguém contratar uma fonte — não existe render
+         * anatômico gratuito e verificável, e fingir que existe seria pior que
+         * a foto que está aí.
+         */
+        function montarAnimacao(media, dados) {
+          if (!dados.animacao || !dados.animacaoTipo) return false;
+
+          media.classList.add("drawer__media--carregando");
+
+          var elemento;
+          if (dados.animacaoTipo === "video") {
+            // `muted` e `playsinline` não são preferência: sem os dois, o
+            // navegador recusa o autoplay e o iPhone abre em tela cheia.
+            elemento = document.createElement("video");
+            elemento.src = dados.animacao;
+            elemento.autoplay = true;
+            elemento.loop = true;
+            elemento.muted = true;
+            elemento.playsInline = true;
+            elemento.setAttribute("muted", "");
+            elemento.setAttribute("playsinline", "");
+            elemento.addEventListener("loadeddata", function () {
+              media.classList.remove("drawer__media--carregando");
+            }, {once: true});
+          } else {
+            elemento = document.createElement("img");
+            elemento.src = dados.animacao;
+            elemento.alt = "Execução: " + dados.nome;
+            elemento.decoding = "async";
+            elemento.addEventListener("load", function () {
+              media.classList.remove("drawer__media--carregando");
+            }, {once: true});
+          }
+
+          elemento.className = "drawer__quadro";
+          elemento.addEventListener("error", function () {
+            media.classList.remove("drawer__media--carregando");
+            media.classList.add("drawer__media--falhou");
+          }, {once: true});
+
+          media.appendChild(elemento);
+          return true;
+        }
+
         function montarQuadros(media, dados) {
           var urls = dados.quadros.split("|").filter(Boolean);
           if (!urls.length) return false;
@@ -446,15 +496,17 @@
           media.className = "drawer__media";
           media.classList.toggle("drawer__media--vertical", dados.vertical === "1");
 
-          // Foto é o caminho normal. O vídeo continua como plano B para o
-          // exercício que ainda não tem demonstração mapeada — tirar o campo
-          // deixaria esse exercício sem nada.
-          //
-          // O `if` envolve SÓ a mídia. Uma versão anterior saía da função aqui
-          // com `return`, e com isso o nome, as séries, o descanso e a carga
-          // anterior ficavam em branco sempre que a foto existia — ou seja,
-          // sempre.
-          if (!montarQuadros(media, dados)) {
+          /* Três degraus, em ordem de qualidade: animação, foto, vídeo.
+           *
+           * Cada um só entra quando o de cima não existe. Hoje o topo está
+           * vazio para todo mundo — o dia em que houver fonte contratada, é
+           * um comando de importação e nada aqui muda.
+           *
+           * O `if` envolve SÓ a mídia. Uma versão anterior saía da função com
+           * `return`, e com isso nome, séries, descanso e carga anterior
+           * ficavam em branco sempre que a mídia existia — ou seja, sempre.
+           */
+          if (!montarAnimacao(media, dados) && !montarQuadros(media, dados)) {
             var elemento;
             if (dados.tipo === "gif") {
               elemento = document.createElement("img");

@@ -79,6 +79,16 @@ class Exercise(models.Model):
     #: no vídeo.
     frames = models.JSONField("quadros da demonstração", default=list, blank=True)
 
+    #: Animação de execução — GIF, WebP, MP4 ou WebM num endereço direto.
+    #:
+    #: É a demonstração preferida quando existe: mostra o movimento inteiro,
+    #: coisa que duas fotos não fazem. Fica vazia por padrão porque não há
+    #: fonte gratuita e verificável de animação anatômica — MuscleWiki cobra
+    #: US$ 10/mês e serve vídeo, não render 3D; ExerciseDB exige chave. O
+    #: comando `set_exercise_animation` importa de qualquer fonte que você
+    #: contrate, num arquivo JSON.
+    animation_url = models.URLField("animação de execução", blank=True)
+
     video_url = models.URLField(
         "vídeo de execução",
         blank=True,
@@ -143,6 +153,18 @@ class Exercise(models.Model):
     def is_vertical(self) -> bool:
         """Short do YouTube é vertical; forçar 16:9 nele deixa tarja preta."""
         return "/shorts/" in self.video_url
+
+    @property
+    def animation_kind(self) -> str:
+        """"video", "imagem" ou "" — o que a tela precisa saber para montar."""
+        if not self.animation_url:
+            return ""
+        caminho = self.animation_url.split("?")[0].lower()
+        if caminho.endswith((".mp4", ".webm", ".mov")):
+            return "video"
+        if caminho.endswith((".gif", ".webp", ".apng")):
+            return "imagem"
+        return ""
 
     @property
     def has_frames(self) -> bool:
