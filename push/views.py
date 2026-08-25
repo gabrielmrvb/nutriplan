@@ -12,7 +12,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.templatetags.static import static
 
-from .assets import asset
+from .assets import asset, version
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_control
 from django.views.generic import TemplateView, View
@@ -22,33 +22,83 @@ from .services import push_is_configured
 
 
 class ManifestView(View):
-    """O manifest do PWA — o que permite instalar o app na tela inicial."""
+    """O manifest do PWA — o que permite instalar o app na tela inicial.
+
+    Servido por view, e não como arquivo estático, porque o conteúdo depende de
+    settings (nome, cores) e das URLs com hash dos ícones. Um JSON parado no
+    disco começaria a mentir no primeiro deploy que mudasse qualquer um dos dois.
+    """
 
     def get(self, request, *args, **kwargs):
         return JsonResponse(
             {
+                # `id` fixo: é o que faz o navegador reconhecer que a instalação
+                # antiga e a nova são o mesmo app, mesmo que o domínio mude.
+                "id": "/",
                 "name": settings.PWA_NAME,
                 "short_name": settings.PWA_SHORT_NAME,
-                "description": "Sua dieta calculada, o cardápio do dia e o acompanhamento.",
+                "description": "Sua dieta calculada, o cardápio do dia, o treino da semana.",
                 "start_url": "/",
                 "scope": "/",
                 "display": "standalone",
+                "display_override": ["standalone", "minimal-ui"],
                 "orientation": "portrait",
                 "lang": "pt-BR",
+                "dir": "ltr",
+                "categories": ["health", "fitness", "lifestyle"],
                 "background_color": settings.PWA_BACKGROUND_COLOR,
                 "theme_color": settings.PWA_THEME_COLOR,
+                # Sem `?v=` de propósito, ao contrário do CSS e do JS: o
+                # endereço do ícone é a identidade do app instalado, e trocá-lo
+                # a cada mudança de folha de estilo faria o sistema baixar tudo
+                # de novo por nada. Ícone que muda é ícone novo, com nome novo.
+                #
+                # Dois propósitos, dois arquivos. O ícone `maskable` é
+                # desenhado com margem porque o Android recorta no formato que o
+                # fabricante escolher — declarar "any maskable" no mesmo arquivo
+                # é o atalho que faz a letra aparecer cortada em metade dos
+                # aparelhos.
                 "icons": [
                     {
                         "src": static("icons/icon-192.png"),
                         "sizes": "192x192",
                         "type": "image/png",
-                        "purpose": "any maskable",
+                        "purpose": "any",
                     },
                     {
                         "src": static("icons/icon-512.png"),
                         "sizes": "512x512",
                         "type": "image/png",
-                        "purpose": "any maskable",
+                        "purpose": "any",
+                    },
+                    {
+                        "src": static("icons/icon-192-maskable.png"),
+                        "sizes": "192x192",
+                        "type": "image/png",
+                        "purpose": "maskable",
+                    },
+                    {
+                        "src": static("icons/icon-512-maskable.png"),
+                        "sizes": "512x512",
+                        "type": "image/png",
+                        "purpose": "maskable",
+                    },
+                ],
+                # Atalhos do ícone: segurar o app na tela inicial abre direto no
+                # treino ou na lista de compras. É o equivalente ao menu de
+                # contexto de um app nativo.
+                "shortcuts": [
+                    {
+                        "name": "Treino de hoje",
+                        "short_name": "Treino",
+                        "url": "/treino/",
+                        "icons": [{"src": static("icons/icon-192.png"), "sizes": "192x192"}],
+                    },
+                    {
+                        "name": "Lista de compras",
+                        "short_name": "Compras",
+                        "url": "/lista-de-compras/",
+                        "icons": [{"src": static("icons/icon-192.png"), "sizes": "192x192"}],
                     },
                 ],
             },
@@ -72,7 +122,10 @@ class ServiceWorkerView(TemplateView):
         context.update(
             {
                 # Mudar a versão invalida o cache antigo na ativação do SW.
-                "cache_version": "nutriplan-v4",
+                "cache_version": "nutriplan-v5",
+                # A versão dos estáticos vai junto para o service worker poder
+                # apagar do cache o que é de builds anteriores.
+                "asset_version": version(),
                 "offline_url": "/offline/",
                 # As duas primeiras entram versionadas: é a mesma URL que o
                 # base.html pede, então o cache do shell e o da página são o
@@ -81,6 +134,7 @@ class ServiceWorkerView(TemplateView):
                     asset("css/app.css"),
                     asset("js/pwa.js"),
                     static("icons/icon-192.png"),
+                    static("icons/icon-512.png"),
                 ],
             }
         )

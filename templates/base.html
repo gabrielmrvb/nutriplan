@@ -11,8 +11,17 @@
   <link rel="manifest" href="{% url 'manifest' %}">
   <link rel="apple-touch-icon" href="{% static 'icons/icon-192.png' %}">
   <link rel="icon" href="{% static 'icons/icon-192.png' %}">
+  <meta name="description" content="Sua dieta calculada, o cardápio do dia e o treino da semana.">
+  {% comment %}
+    iOS ignora o manifest: quem manda no app instalado são estas metas.
+    `black-translucent` faz o conteúdo passar por baixo da barra de status, que
+    é o que dá o visual de app nativo no tema escuro — a barra some no fundo em
+    vez de aparecer como uma faixa branca. O preço é que o topo da página fica
+    embaixo do relógio; por isso o CSS reserva `env(safe-area-inset-top)`.
+  {% endcomment %}
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="NutriPlan">
 </head>
 <body>
@@ -97,9 +106,26 @@
         Perfil
       </a>
     </nav>
-
-    <script>window.NUTRIPLAN_VAPID_KEY = "{{ vapid_public_key }}";</script>
-    <script src="{{ app_js_url }}" defer></script>
   {% endif %}
+
+  {% comment %}
+    Convite de instalação. Nasce escondido e só aparece quando o JS confirma
+    que dá para instalar de verdade — no Android, quando o navegador dispara
+    `beforeinstallprompt`; no iPhone, quando reconhece Safari fora do modo
+    instalado. Oferecer "instale o app" para quem já instalou, ou num navegador
+    que não instala, é pior que não oferecer nada.
+  {% endcomment %}
+  <div class="install" data-install hidden role="dialog" aria-labelledby="install-title">
+    <img class="install__icon" src="{% static 'icons/icon-192.png' %}" alt="" width="48" height="48">
+    <div class="install__text">
+      <strong class="install__title" id="install-title">Instale o NutriPlan</strong>
+      <span class="install__hint" data-install-hint>Abre direto da tela inicial, sem barra de navegador.</span>
+    </div>
+    <button type="button" class="btn btn--primary btn--sm install__go" data-install-go>Instalar</button>
+    <button type="button" class="install__close" data-install-close aria-label="Agora não">&times;</button>
+  </div>
+
+  <script>window.NUTRIPLAN_VAPID_KEY = "{{ vapid_public_key }}";</script>
+  <script src="{{ app_js_url }}" defer></script>
 </body>
 </html>

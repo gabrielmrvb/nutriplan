@@ -6,10 +6,13 @@ assinatura morreu. Bater no servidor de push do Google num teste seria lento e
 não provaria nada sobre o nosso código.
 """
 import re
+import struct
 from datetime import date, time, timedelta
 from decimal import Decimal
+from pathlib import Path
 from unittest.mock import patch
 
+from django.conf import settings
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -41,15 +44,132 @@ def make_subscription(user, endpoint="https://push.exemplo.com/abc"):
     )
 
 
-class PWAEndpointTests(TestCase):
-    def test_manifest_describes_an_installable_app(self):
-        response = self.client.get(reverse("manifest"))
+class InstallabilityTests(TestCase):
+    """O que um navegador confere antes de oferecer "instalar".
 
-        self.assertEqual(response.status_code, 200)
-        manifest = response.json()
-        self.assertEqual(manifest["start_url"], "/")
-        self.assertEqual(manifest["display"], "standalone")
-        self.assertEqual(len(manifest["icons"]), 2)
+    Não é uma lista de opinião: Chrome e Edge só disparam o
+    `beforeinstallprompt` se o manifest tiver nome, `start_url`, `display`
+    autônomo e um ícone de 192 e um de 512, e se houver service worker no
+    escopo. Falhar um item não dá erro em lugar nenhum — o convite
+    simplesmente nunca aparece, e é impossível adivinhar qual item faltou.
+    Cada teste aqui é um desses itens.
+    """
+
+    def setUp(self):
+        self.manifest = self.client.get(reverse("manifest")).json()
+
+    def test_manifest_describes_an_installable_app(self):
+        self.assertEqual(self.manifest["start_url"], "/")
+        self.assertEqual(self.manifest["scope"], "/")
+        self.assertIn(self.manifest["display"], {"standalone", "fullscreen", "minimal-ui"})
+        self.assertTrue(self.manifest["name"])
+        self.assertTrue(self.manifest["short_name"])
+
+    def test_manifest_is_served_with_the_right_content_type(self):
+        response = self.client.get(reverse("manifest"))
+        self.assertEqual(response["Content-Type"], "application/manifest+json")
+
+    def test_the_two_required_icon_sizes_are_declared(self):
+        tamanhos = {icone["sizes"] for icone in self.manifest["icons"]}
+        self.assertIn("192x192", tamanhos)
+        self.assertIn("512x512", tamanhos)
+
+    def test_maskable_icons_are_separate_files(self):
+        """Declarar "any maskable" no mesmo arquivo é o erro clássico.
+
+        O Android recorta o ícone maskable no formato do fabricante e só
+        preserva o círculo central. Um arquivo desenhado para preencher a arte
+        inteira aparece com as pontas cortadas — por isso são dois desenhos, um
+        cheio e um com margem, cada um declarando um propósito só.
+        """
+        maskable = [i for i in self.manifest["icons"] if i["purpose"] == "maskable"]
+        normais = [i for i in self.manifest["icons"] if i["purpose"] == "any"]
+
+        self.assertEqual({i["sizes"] for i in maskable}, {"192x192", "512x512"})
+        self.assertEqual({i["sizes"] for i in normais}, {"192x192", "512x512"})
+        self.assertFalse(
+            {i["src"] for i in maskable} & {i["src"] for i in normais},
+            "o mesmo arquivo não pode servir aos dois propósitos",
+        )
+
+    def test_every_icon_file_exists_and_is_a_png_of_the_declared_size(self):
+        """Um ícone quebrado invalida a instalação inteira, em silêncio."""
+        for icone in self.manifest["icons"]:
+            with self.subTest(icone=icone["src"]):
+                relativo = icone["src"].split("/static/")[1].split("?")[0]
+                caminho = Path(settings.BASE_DIR) / "static" / relativo
+                self.assertTrue(caminho.exists(), "arquivo não encontrado")
+
+                dados = caminho.read_bytes()
+                self.assertEqual(dados[:8], b"\x89PNG\r\n\x1a\n", "não é PNG")
+                # Largura e altura moram nos bytes 16..24, logo depois do IHDR.
+                largura, altura = struct.unpack(">II", dados[16:24])
+                declarado = int(icone["sizes"].split("x")[0])
+                self.assertEqual((largura, altura), (declarado, declarado))
+
+    def test_icon_urls_do_not_change_with_every_deploy(self):
+        """Endereço do ícone é a identidade do app instalado.
+
+        CSS e JS carregam o hash do conteúdo na URL, e é por isso que funcionam
+        bem em cache. Pendurar o mesmo hash no ícone faria ele mudar de endereço
+        a cada mudança de folha de estilo — e o que muda de endereço é baixado
+        de novo, e no Android pode ser tratado como um ícone diferente.
+        """
+        for icone in self.manifest["icons"]:
+            with self.subTest(icone=icone["src"]):
+                self.assertNotIn("?v=", icone["src"])
+
+    def test_the_theme_colour_matches_the_dark_interface(self):
+        """Cor errada aqui vira uma faixa clara em volta do app escuro."""
+        self.assertEqual(self.manifest["theme_color"], "#0b0f0e")
+        self.assertEqual(self.manifest["background_color"], "#0b0f0e")
+
+    def test_shortcuts_point_at_urls_that_answer(self):
+        atalhos = self.manifest["shortcuts"]
+        self.assertTrue(atalhos)
+        for atalho in atalhos:
+            with self.subTest(atalho=atalho["short_name"]):
+                # Deslogado redireciona para o login; o que não pode é 404.
+                resposta = self.client.get(atalho["url"])
+                self.assertIn(resposta.status_code, {200, 302})
+
+    def test_the_page_carries_the_tags_ios_needs(self):
+        """iOS ignora o manifest inteiro: só estas metas fazem efeito lá."""
+        html = self.client.get(reverse("accounts:login")).content.decode()
+
+        self.assertIn('rel="manifest"', html)
+        self.assertIn('rel="apple-touch-icon"', html)
+        self.assertIn('name="apple-mobile-web-app-capable" content="yes"', html)
+        self.assertIn(
+            'name="apple-mobile-web-app-status-bar-style" content="black-translucent"',
+            html,
+        )
+        self.assertIn('name="apple-mobile-web-app-title"', html)
+
+    def test_the_viewport_reaches_under_the_translucent_status_bar(self):
+        """`black-translucent` sem `viewport-fit=cover` corta o topo da tela."""
+        html = self.client.get(reverse("accounts:login")).content.decode()
+        self.assertIn("viewport-fit=cover", html)
+
+    def test_the_install_invitation_starts_hidden_even_for_a_visitor(self):
+        """Nasce `hidden`: quem decide mostrar é o JS, depois de confirmar que
+        dá para instalar. E aparece para quem ainda não tem conta também —
+        instalar antes de cadastrar é um caminho legítimo."""
+        html = self.client.get(reverse("accounts:login")).content.decode()
+
+        self.assertIn("data-install", html)
+        self.assertIn("data-install-go", html)
+        self.assertRegex(html, r'<div class="install"[^>]*\shidden')
+
+    def test_the_service_worker_registers_for_a_visitor_too(self):
+        """Sem service worker registrado na primeira página, não há convite."""
+        html = self.client.get(reverse("accounts:login")).content.decode()
+        self.assertIn("js/pwa.js", html)
+
+
+class ServiceWorkerTests(TestCase):
+    def setUp(self):
+        self.source = self.client.get("/sw.js").content.decode()
 
     def test_service_worker_is_served_from_the_root(self):
         response = self.client.get("/sw.js")
@@ -57,30 +177,77 @@ class PWAEndpointTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/javascript")
         # Escopo: servido da raiz, controla o app inteiro.
-        self.assertIn("addEventListener", response.content.decode())
+        self.assertIn("addEventListener", self.source)
 
     def test_service_worker_is_never_cached(self):
         response = self.client.get("/sw.js")
         self.assertIn("no-store", response["Cache-Control"])
 
-    def test_style_and_script_are_fetched_before_the_cache(self):
+    def test_the_shell_cached_on_install_uses_the_versioned_urls(self):
+        """O que entra no cache na instalação tem que ser a mesma URL que a
+        página pede — senão o app guarda uma cópia que nunca é usada."""
+        versao = assets.version()
+        self.assertIn(f"css/app.css?v={versao}", self.source)
+        self.assertIn(f"js/pwa.js?v={versao}", self.source)
+
+    def test_versioned_files_are_served_from_the_cache_first(self):
+        """É daqui que vem o carregamento instantâneo na segunda abertura.
+
+        Seguro porque o endereço carrega o hash do conteúdo: uma URL versionada
+        responde sempre a mesma coisa, então servir do cache não pode servir
+        algo diferente do que a página pediu.
+        """
+        self.assertIn("isVersioned", self.source)
+        # A ida à rede fica atrás do cache no ramo final.
+        final = self.source.split("if (isAppCode(request) && !isVersioned(request))")[1]
+        # O último respondWith do arquivo: o ramo que cai por padrão.
+        final = final.split("event.respondWith(")[-1]
+        self.assertLess(final.index("caches.match(request)"), final.index("fetch(request)"))
+
+    def test_unversioned_style_and_script_still_revalidate(self):
         """Regressão de 24/08/2026: CSS velho servido junto com HTML novo.
 
         O service worker entregava qualquer coisa de /static/ do cache antes de
         olhar a rede. Depois de um deploy que muda o layout, isso não é "uma
         versão atrás" — é o app inteiro sem estilo, porque a marcação nova não
-        casa com a folha antiga. CSS e JS passaram a ir à rede primeiro, e o
-        cache virou o plano B para quando não há conexão.
+        casa com a folha antiga. Hoje o caso normal está resolvido na origem
+        (a URL muda com o conteúdo), mas o caminho sem `?v=` não promete nada
+        sobre o que serve, e por isso continua indo à rede primeiro.
         """
-        source = self.client.get("/sw.js").content.decode()
-
-        self.assertIn("isAppCode", source)
-        # A ordem importa: a rede tem que vir antes, com o cache no catch.
-        ramo = source.split("if (isAppCode(request))")[1].split("return;")[0]
+        self.assertIn("isAppCode", self.source)
+        ramo = self.source.split("if (isAppCode(request) && !isVersioned(request))")[1]
+        ramo = ramo.split("return;")[0]
         self.assertLess(ramo.index("fetch("), ramo.index("caches.match(request)"))
         # E a ida à rede precisa revalidar, senão o cache HTTP do navegador
         # responde no lugar do servidor e o CSS velho volta pela terceira porta.
         self.assertIn('cache: "no-cache"', ramo)
+
+    def test_the_activation_throws_away_older_builds(self):
+        """Cache-first sem poda vira cache que só cresce.
+
+        Numa máquina de desenvolvimento o cache acumulou nove pares de CSS e JS
+        — um por build — porque cada `?v=` diferente é um registro novo e nada
+        apagava os anteriores. O usuário nunca vê o problema: só o disco dele.
+        """
+        versao = assets.version()
+        self.assertIn(f'const VERSAO = "{versao}"', self.source)
+
+        ativacao = self.source.split('addEventListener("activate"')[1]
+        self.assertIn("limpar()", ativacao)
+
+        limpeza = self.source.split("function limpar()")[1].split("\nself.")[0]
+        # Apaga gerações antigas do cache inteiro...
+        self.assertIn("caches.delete(k)", limpeza)
+        # ...e, dentro da geração atual, o que veio de builds anteriores.
+        self.assertIn('searchParams.get("v")', limpeza)
+        self.assertIn("versao !== VERSAO", limpeza)
+
+    def test_pages_are_never_cached(self):
+        """HTML de usuário logado no cache seria mostrar o dia de uma pessoa
+        para outra no mesmo aparelho."""
+        navegacao = self.source.split('request.mode === "navigate"')[1].split("}")[0]
+        self.assertIn("fetch(request)", navegacao)
+        self.assertNotIn("caches.match(request)", navegacao)
 
     def test_offline_page_works_without_login(self):
         response = self.client.get(reverse("offline"))

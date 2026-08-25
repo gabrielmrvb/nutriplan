@@ -1,4 +1,4 @@
-/* Registro do service worker e assinatura das notificações.
+/* Instalação do app, registro do service worker e assinatura das notificações.
  *
  * Tudo aqui é opcional por construção: navegador sem suporte, permissão
  * negada ou chave VAPID ausente apenas escondem o botão. Nada disso pode
@@ -38,6 +38,8 @@
       body: JSON.stringify(body),
     });
   }
+
+  instalacao();
 
   if (!("serviceWorker" in navigator)) return;
 
@@ -105,5 +107,97 @@
         return null;
       });
     });
+  }
+
+
+  /* ------------------------------------------------------------------ *
+   * Convite de instalação
+   * ------------------------------------------------------------------ */
+
+  /* Android e desktop: o navegador avisa quando o site cumpre os requisitos
+   * (manifest válido, service worker, HTTPS) e deixa a gente escolher a hora
+   * de perguntar. iPhone: o Safari não dispara evento nenhum e não tem API de
+   * instalação — a única saída é ensinar o caminho do menu Compartilhar.
+   *
+   * Em ambos, o convite só aparece para quem ainda não instalou. Repetir
+   * "instale o app" para quem já instalou é o tipo de banner que faz a pessoa
+   * ignorar todos os outros avisos do app.
+   */
+  function instalacao() {
+    var banner = document.querySelector("[data-install]");
+    if (!banner) return;
+
+    var dica = banner.querySelector("[data-install-hint]");
+    var instalar = banner.querySelector("[data-install-go]");
+    var fechar = banner.querySelector("[data-install-close]");
+    var CHAVE = "nutriplan:instalacao-dispensada";
+    var convite = null;
+
+    function jaInstalado() {
+      return (
+        window.matchMedia("(display-mode: standalone)").matches ||
+        window.navigator.standalone === true
+      );
+    }
+
+    function ehIOS() {
+      // iPadOS moderno se apresenta como Mac; o toque é o que o denuncia.
+      var ua = window.navigator.userAgent;
+      return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && "ontouchend" in document);
+    }
+
+    function dispensado() {
+      try {
+        return window.localStorage.getItem(CHAVE) === "1";
+      } catch (e) {
+        // Modo privado pode recusar o armazenamento. Sem memória, o convite
+        // reaparece na próxima visita — chato, mas melhor que quebrar.
+        return false;
+      }
+    }
+
+    function dispensar() {
+      banner.hidden = true;
+      try {
+        window.localStorage.setItem(CHAVE, "1");
+      } catch (e) {}
+    }
+
+    function mostrar() {
+      if (jaInstalado() || dispensado()) return;
+      banner.hidden = false;
+    }
+
+    if (fechar) fechar.onclick = dispensar;
+
+    window.addEventListener("beforeinstallprompt", function (event) {
+      // Segurar o evento é o que troca o banner do navegador (que aparece na
+      // hora que ele quiser) por este, que aparece dentro do layout do app.
+      event.preventDefault();
+      convite = event;
+      mostrar();
+    });
+
+    window.addEventListener("appinstalled", dispensar);
+
+    if (instalar) {
+      instalar.onclick = function () {
+        if (!convite) return;
+        convite.prompt();
+        convite.userChoice.then(function (escolha) {
+          if (escolha.outcome === "accepted") dispensar();
+          // Recusou: o evento é de uso único, então some com o botão e espera
+          // o navegador oferecer de novo numa visita futura.
+          convite = null;
+          banner.hidden = true;
+        });
+      };
+    }
+
+    if (ehIOS() && !jaInstalado()) {
+      if (dica) dica.textContent = "No Safari: toque em Compartilhar e depois em “Adicionar à Tela de Início”.";
+      if (instalar) instalar.hidden = true;
+      mostrar();
+    }
   }
 })();

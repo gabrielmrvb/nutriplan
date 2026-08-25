@@ -188,5 +188,5 @@ VAPID_ADMIN_EMAIL = env("VAPID_ADMIN_EMAIL", default="")
 #: Nome curto e completo do PWA, usados no manifest.
 PWA_NAME = "NutriPlan"
 PWA_SHORT_NAME = "NutriPlan"
-PWA_THEME_COLOR = "#0f7a4a"
-PWA_BACKGROUND_COLOR = "#f2f5f2"
+PWA_THEME_COLOR = "#0b0f0e"
+PWA_BACKGROUND_COLOR = "#0b0f0e"
