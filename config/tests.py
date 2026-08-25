@@ -6,9 +6,13 @@ disso aparece em desenvolvimento, e todos aparecem para o primeiro visitante.
 Estes testes exercitam justamente o que só existe com `DEBUG=False`.
 """
 from pathlib import Path
+from unittest.mock import patch
 
 from django.conf import settings
+from django.core.management import call_command
+from django.db import OperationalError
 from django.test import Client, TestCase, override_settings
+from django.urls import reverse
 
 RAIZ = Path(settings.BASE_DIR)
 
@@ -139,3 +143,80 @@ class ProductionBehaviourTests(TestCase):
             middleware.index("whitenoise.middleware.WhiteNoiseMiddleware"),
             middleware.index("django.middleware.security.SecurityMiddleware") + 1,
         )
+
+
+def semear():
+    """O mesmo par de comandos que `scripts/build.sh` roda em cada deploy."""
+    call_command("seed_catalog", verbosity=0)
+    call_command("seed_workouts", verbosity=0)
+
+
+class HealthTests(TestCase):
+    """O endpoint que responde se a aplicação subiu inteira.
+
+    O caso que ele existe para pegar não é o site fora do ar — esse qualquer um
+    percebe. É o site no ar com o banco vazio: tudo responde 200, o cadastro
+    funciona, e a pessoa termina o onboarding numa tela sem um alimento sequer.
+    """
+
+    def test_a_seeded_install_reports_ok(self):
+        """Roda o seed de verdade: é o mesmo comando que o build do Render
+        executa, então o teste falha se o seed parar de popular alguma coisa."""
+        semear()
+
+        resposta = self.client.get(reverse("health"))
+
+        self.assertEqual(resposta.status_code, 200)
+        corpo = resposta.json()
+        self.assertEqual(corpo["status"], "ok")
+        self.assertGreater(corpo["catalogo"]["alimentos"], 0)
+        self.assertGreater(corpo["catalogo"]["modelos_de_refeicao"], 0)
+
+    def test_an_empty_catalog_is_reported_as_unhealthy(self):
+        """Sem seed, a plataforma precisa tratar o deploy como falho.
+
+        Responder 200 aqui seria publicar um site que só decepciona quem entra:
+        nada quebra, e nada funciona.
+        """
+        resposta = self.client.get(reverse("health"))
+
+        self.assertEqual(resposta.status_code, 503)
+        corpo = resposta.json()
+        self.assertEqual(corpo["status"], "catalogo incompleto")
+        self.assertIn("alimentos", corpo["faltando"])
+
+    def test_a_database_that_does_not_answer_is_a_failure(self):
+        with patch(
+            "config.health.connection.ensure_connection",
+            side_effect=OperationalError("conexão recusada"),
+        ):
+            resposta = self.client.get(reverse("health"))
+
+        self.assertEqual(resposta.status_code, 503)
+        self.assertEqual(resposta.json()["status"], "sem banco")
+
+    def test_it_answers_without_login(self):
+        """A plataforma consulta sem sessão; exigir login viraria um health
+        check que responde 302 para sempre e nunca detecta nada."""
+        semear()
+
+        resposta = Client().get(reverse("health"))
+
+        self.assertEqual(resposta.status_code, 200)
+
+    def test_it_reveals_nothing_about_people(self):
+        semear()
+
+        corpo = self.client.get(reverse("health")).json()
+
+        self.assertEqual(set(corpo), {"status", "catalogo"})
+        for chave in corpo["catalogo"]:
+            with self.subTest(chave=chave):
+                self.assertNotIn("usuario", chave)
+
+    def test_the_platform_health_check_points_here(self):
+        """Um healthCheckPath apontando para outra rota reabre o buraco."""
+        for nome in ("render.yaml", "railway.json"):
+            with self.subTest(arquivo=nome):
+                conteudo = (RAIZ / nome).read_text(encoding="utf-8")
+                self.assertIn("/saude/", conteudo)

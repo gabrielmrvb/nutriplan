@@ -26,7 +26,10 @@ services:
     branch: main
     buildCommand: "./scripts/build.sh"
     startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers ${WEB_CONCURRENCY:-2} --log-file -"
-    healthCheckPath: /conta/entrar/
+    # Bate no endpoint de saúde, não na tela de login: é mais barato de
+    # responder e, ao contrário dela, falha quando o banco cai ou o catálogo
+    # ficou vazio — que são as duas formas de o site subir inútil.
+    healthCheckPath: /saude/
     envVars:
       # Gerada pelo Render e nunca vista por ninguém — é o certo para um
       # segredo que não precisa ser lembrado.
