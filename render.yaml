@@ -65,32 +65,38 @@ services:
       - key: VAPID_ADMIN_EMAIL
         sync: false
 
-  # Os lembretes de refeição são um comando, não um serviço de pé. Este cron
-  # substitui o Agendador de Tarefas do Windows que faz o papel na máquina
-  # local. Rodar duas vezes no mesmo minuto é seguro: quem decide se alguém já
-  # foi avisado é a constraint no banco.
-  - type: cron
-    name: nutriplan-lembretes
-    runtime: python
-    plan: starter
-    schedule: "*/5 * * * *"
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python manage.py send_meal_reminders"
-    envVars:
-      - key: DJANGO_SECRET_KEY
-        fromService:
-          name: nutriplan
-          type: web
-          envVarKey: DJANGO_SECRET_KEY
-      - key: DJANGO_DEBUG
-        value: "False"
-      - key: DATABASE_URL
-        fromDatabase:
-          name: nutriplan-db
-          property: connectionString
-      - key: VAPID_PUBLIC_KEY
-        sync: false
-      - key: VAPID_PRIVATE_KEY
-        sync: false
-      - key: VAPID_ADMIN_EMAIL
-        sync: false
+  # Os lembretes de refeição ficam DESLIGADOS neste arquivo, e a razão é
+  # prosaica: cron job no Render é recurso pago, e um `render.yaml` com
+  # qualquer serviço pago faz o painel exigir cartão antes de criar até os
+  # serviços gratuitos. Como o app funciona inteiro sem lembrete — quem não
+  # tem chave VAPID nem vê o botão —, o padrão é o que sobe sem custo.
+  #
+  # Para ligar depois: descomente o bloco, faça commit, e o Render sincroniza
+  # sozinho. Rodar duas vezes no mesmo minuto é seguro: quem decide se alguém
+  # já foi avisado é a constraint no banco, não o agendador.
+  #
+  # - type: cron
+  #   name: nutriplan-lembretes
+  #   runtime: python
+  #   plan: starter
+  #   schedule: "*/5 * * * *"
+  #   buildCommand: "pip install -r requirements.txt"
+  #   startCommand: "python manage.py send_meal_reminders"
+  #   envVars:
+  #     - key: DJANGO_SECRET_KEY
+  #       fromService:
+  #         name: nutriplan
+  #         type: web
+  #         envVarKey: DJANGO_SECRET_KEY
+  #     - key: DJANGO_DEBUG
+  #       value: "False"
+  #     - key: DATABASE_URL
+  #       fromDatabase:
+  #         name: nutriplan-db
+  #         property: connectionString
+  #     - key: VAPID_PUBLIC_KEY
+  #       sync: false
+  #     - key: VAPID_PRIVATE_KEY
+  #       sync: false
+  #     - key: VAPID_ADMIN_EMAIL
+  #       sync: false
