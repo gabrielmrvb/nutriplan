@@ -74,6 +74,10 @@ Decisões que valem explicar:
   (`*.onrender.com`). Fica para quando houver domínio próprio.
 - **O banco gratuito do Render expira em 30 dias.** Para um site que precisa
   durar, troque o plano do banco no `render.yaml` antes de convidar gente.
+- **Instalar no celular depende do deploy.** O navegador só oferece instalação em
+  contexto seguro: `localhost` durante o desenvolvimento, HTTPS em qualquer outro
+  lugar. Enquanto o app só existir na máquina local, o convite de instalação nunca
+  vai aparecer num telefone.
 
 ### Vídeos dos exercícios
 
@@ -447,6 +451,31 @@ pessoas reais. O `clean()` de `Food` avisa quando as calorias não batem com os 
   serviria o dia de uma pessoa para outra no mesmo aparelho — e mostraria dieta velha
   depois de cada marcação. Navegação é network-first com a página offline como rede de
   segurança.
+- **Estático com `?v=` vem do cache primeiro; sem `?v=`, vai à rede.** É de onde vem o
+  carregamento instantâneo na segunda abertura. A distinção não é estilo: uma URL que
+  carrega o hash do conteúdo (`app.css?v=8dd82f15`) responde sempre a mesma coisa, então
+  servir do cache não pode servir algo diferente do que a página pediu. Sem o hash, a URL
+  não promete nada — e foi exatamente esse caso que já entregou CSS velho junto com HTML
+  novo, deixando o app sem estilo. Os dois caminhos têm teste.
+- **A ativação do service worker poda o cache.** Apaga gerações antigas (`nutriplan-v4`
+  quando já se está na v5) e, dentro da geração atual, os arquivos de builds anteriores.
+  Sem isso o cache-first só cresce: numa máquina de desenvolvimento chegaram a nove pares
+  de CSS e JS empilhados, e é o disco do usuário que paga.
+- **Ícone `any` e ícone `maskable` são arquivos diferentes.** O Android recorta o maskable
+  no formato que o fabricante escolher e só o círculo central sobrevive; declarar
+  `"any maskable"` no mesmo arquivo — o atalho comum — faz a letra aparecer cortada em
+  boa parte dos aparelhos. São dois desenhos: um preenchendo a arte, outro com margem.
+- **Os ícones não levam `?v=`, ao contrário do CSS.** O endereço do ícone é a identidade
+  do app instalado; mudá-lo a cada alteração de folha de estilo faria o sistema baixar
+  tudo de novo à toa. Ícone que muda é ícone com nome novo.
+- **iOS ignora o manifest inteiro.** Lá quem manda são as metas `apple-*` no `<head>`.
+  `black-translucent` na barra de status é o que dá o visual de app nativo no tema escuro
+  — e exige `viewport-fit=cover` mais `env(safe-area-inset-top)` no CSS, senão o conteúdo
+  fica embaixo do relógio.
+- **O convite de instalação nasce escondido.** No Android aparece quando o navegador
+  dispara `beforeinstallprompt` (que é o próprio veredito dele de que o app é instalável);
+  no iPhone, onde não existe evento nem API de instalação, aparece com o caminho do menu
+  Compartilhar. Some para quem já instalou, e a recusa fica guardada.
 - **A duplicidade de notificação é resolvida pelo banco, não por `if`.** O
   `NotificationLog` é criado ANTES do envio; se a constraint (usuário, refeição, dia)
   recusar, é porque outro ciclo do job já cuidou. É isso que torna o comando seguro de
@@ -458,9 +487,10 @@ pessoas reais. O `clean()` de `Food` avisa quando as calorias não batem com os 
   nada: é temporário, e um celular com problema não pode custar o lembrete dos outros.
 - **Sem chave VAPID o app funciona igual**, só não oferece notificação. É o que permite
   rodar em dev, em CI e no primeiro deploy sem ter gerado chave nenhuma.
-- **Ícones gerados por código** (`static/icons/`), sem dependência de biblioteca de
-  imagem: um PNG escrito na mão com `zlib` é menos peso que arrastar Pillow para o
-  projeto por causa de dois arquivos.
+- **Ícones gerados por código** (`scripts/make_icons.py`), sem dependência de biblioteca
+  de imagem: um PNG escrito na mão com `zlib` é menos peso que arrastar Pillow para o
+  projeto por causa de quatro arquivos. E, como o desenho sai das cores da marca,
+  repintar tudo quando a paleta muda é um comando em vez de quatro exportações à mão.
 
 ## Roadmap
 
