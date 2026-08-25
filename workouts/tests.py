@@ -75,15 +75,28 @@ class SplitChoiceTests(TestCase):
     def test_four_days_get_one_focus_each(self):
         self.assertEqual(services.split_for(4), Split.ABCD)
 
-    def test_five_or_more_days_repeat_the_three_day_cycle(self):
-        """Cinco dias de ABC dá duas sessões por grupo; ABCDE daria uma só.
+    def test_five_or_more_days_get_the_five_day_split(self):
+        """Cinco dias passaram a receber o ABCDE, e o custo está registrado.
 
-        Inventar um quinto e um sexto dia de "braço" preenche a semana sem
-        adicionar estímulo — repetir o ciclo é o que a literatura sustenta.
+        A regra anterior mandava cinco dias repetirem o ABC, com um argumento
+        que continua válido: ABC em cinco dias dá cerca de 1,7 sessões por
+        grupo na semana, e o ABCDE dá uma — e frequência importa para
+        hipertrofia.
+
+        O que mudou o balanço foi medir. No ciclo de quatro dias, posterior de
+        coxa fica com 3 séries semanais e panturrilha com 4, contra 10 a 20 da
+        faixa em que o ganho aparece de forma consistente. Repetir o ABC não
+        resolve isso: ele simplesmente não cobre esses dois grupos. O quinto
+        dia existe para fechar essa conta específica, e o teste
+        `test_the_fifth_day_closes_the_volume_gap_it_was_created_for` mede se
+        ainda fecha.
+
+        Para seis e sete dias o ciclo recomeça (A, B, C, D, E, A, B), então
+        parte dos grupos volta a duas sessões.
         """
         for dias in (5, 6, 7):
             with self.subTest(dias=dias):
-                self.assertEqual(services.split_for(dias), Split.ABC)
+                self.assertEqual(services.split_for(dias), Split.ABCDE)
 
 
 class SeededWorkoutTests(TestCase):
@@ -169,13 +182,25 @@ class RoutineGenerationTests(TestCase):
             list(plan.sessions.values_list("label", flat=True)), ["A", "B", "C"]
         )
 
-    def test_the_cycle_repeats_for_five_days(self):
+    def test_the_five_day_week_uses_every_letter(self):
+        """Cinco dias, cinco letras — nenhum dia repetido e nenhum sobrando."""
         user = create_user(weekdays=(0, 1, 2, 3, 4))
         plan = services.create_routine(user)
 
         self.assertEqual(
             list(plan.sessions.values_list("label", flat=True)),
-            ["A", "B", "C", "A", "B"],
+            ["A", "B", "C", "D", "E"],
+        )
+
+    def test_a_sixth_day_restarts_the_cycle(self):
+        """Passado o E, quem treina seis vezes recomeça no A — é o que devolve
+        uma segunda sessão a peito e tríceps na mesma semana."""
+        user = create_user(email="seis@exemplo.com", weekdays=(0, 1, 2, 3, 4, 5))
+        plan = services.create_routine(user)
+
+        self.assertEqual(
+            list(plan.sessions.values_list("label", flat=True)),
+            ["A", "B", "C", "D", "E", "A"],
         )
 
     def test_the_session_lands_on_the_day_the_person_trains(self):
@@ -687,6 +712,11 @@ class RestTimerTests(TestCase):
             item for session in plan.sessions.all() for item in session.exercises.all()
         ]
         # Um cronômetro por SÉRIE: é entre séries que se descansa.
+        #
+        # A contagem é do gatilho `data-descanso`, e por isso ele não pode ser
+        # usado como campo de dado em outro lugar: a fachada do vídeo chegou a
+        # levá-lo, e tocar no vídeo disparava o descanso junto. O dado do
+        # drawer mora em `data-descanso-segundos`.
         series = sum(item.sets for item in exercicios)
         self.assertEqual(corpo.count('data-descanso="'), series)
         # O descanso do multiarticular é maior — e é o que o botão precisa levar.
@@ -898,3 +928,157 @@ class ABCDStructureTests(TestCase):
 
         template.refresh_from_db()
         self.assertEqual(self._musculos("C"), self.ESPERADO["C"])
+
+
+class ABCDEStructureTests(TestCase):
+    """A divisão de cinco dias e o dia que ela existe para resolver.
+
+    Somando as séries semanais do ciclo ABCD, dois grupos ficam muito abaixo
+    da faixa em que o ganho aparece: posterior de coxa com 3 e panturrilha com
+    4. Não é opinião sobre "ponto fraco" — é o que sobra de fora quando A
+    cuida do empurrar, B do puxar, C divide o dia com ombro e D fica nos
+    complementares. O Treino E vai onde o buraco está, e o teste mede.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def _volume(self, split):
+        volume = {}
+        for template in WorkoutTemplate.objects.filter(split=split, is_active=True):
+            for item in template.items.select_related("exercise"):
+                grupo = item.exercise.muscle_group
+                volume[grupo] = volume.get(grupo, 0) + item.sets
+        return volume
+
+    def test_five_days_a_week_get_the_five_day_split(self):
+        self.assertEqual(services.split_for(5), Split.ABCDE)
+        self.assertEqual(services.split_for(6), Split.ABCDE)
+        # Menos que isso continua como estava — nada foi tirado de ninguém.
+        self.assertEqual(services.split_for(4), Split.ABCD)
+        self.assertEqual(services.split_for(3), Split.ABC)
+
+    def test_the_split_has_five_days_in_order(self):
+        ordem = list(
+            WorkoutTemplate.objects.filter(split=Split.ABCDE, is_active=True)
+            .order_by("order")
+            .values_list("label", flat=True)
+        )
+        self.assertEqual(ordem, ["A", "B", "C", "D", "E"])
+
+    def test_the_fifth_day_closes_the_volume_gap_it_was_created_for(self):
+        quatro = self._volume(Split.ABCD)
+        cinco = self._volume(Split.ABCDE)
+
+        for grupo in (MuscleGroup.HAMSTRINGS, MuscleGroup.CALVES):
+            with self.subTest(grupo=grupo):
+                self.assertLess(quatro[grupo], 10, "o buraco deixou de existir no ABCD")
+                self.assertGreaterEqual(
+                    cinco[grupo],
+                    10,
+                    f"{grupo}: {cinco[grupo]} séries, ainda abaixo da faixa",
+                )
+
+    def test_the_fifth_day_trains_exactly_the_two_groups_it_names(self):
+        e = WorkoutTemplate.objects.get(split=Split.ABCDE, label="E")
+        grupos = {item.exercise.muscle_group for item in e.items.all()}
+        self.assertEqual(grupos, {MuscleGroup.HAMSTRINGS, MuscleGroup.CALVES})
+
+    def test_the_first_four_days_are_the_same_as_the_four_day_split(self):
+        """Quem passa de quatro para cinco dias não perde a ficha que tinha."""
+        for letra in "ABCD":
+            with self.subTest(dia=letra):
+                de_quatro = WorkoutTemplate.objects.get(split=Split.ABCD, label=letra)
+                de_cinco = WorkoutTemplate.objects.get(split=Split.ABCDE, label=letra)
+
+                def resumo(t):
+                    return [
+                        (i.exercise.name, i.sets, i.rep_min, i.rep_max, i.rest_seconds)
+                        for i in t.items.select_related("exercise").order_by("order")
+                    ]
+
+                self.assertEqual(resumo(de_quatro), resumo(de_cinco))
+
+    def test_no_card_announces_more_than_two_focuses(self):
+        """O nome do dia é o que a pessoa lê de relance na faixa da semana.
+
+        Três grupamentos ali viram uma linha que ninguém termina de ler. O
+        core continua no Treino D como acessório — o que mudou é o cartão
+        parar de anunciar três coisas.
+        """
+        for template in WorkoutTemplate.objects.filter(
+            split__in=(Split.ABCD, Split.ABCDE), is_active=True
+        ):
+            with self.subTest(dia=f"{template.split} {template.label}"):
+                # "Peito e tríceps" -> 2; "Trapézio, antebraço e core" -> 3.
+                pedacos = template.name.replace(",", " e").split(" e ")
+                self.assertLessEqual(
+                    len([p for p in pedacos if p.strip()]),
+                    2,
+                    f"{template.name}: mais de dois focos no nome",
+                )
+
+
+class ExerciseDrawerTests(TestCase):
+    """O drawer de execução: mídia em loop, prescrição e carga anterior."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user(email="drawer@exemplo.com")
+        self.client.force_login(self.user)
+
+    def _pagina(self):
+        return self.client.get(reverse("workouts:routine")).content.decode()
+
+    def test_the_page_has_exactly_one_drawer(self):
+        """Um por exercício seriam trinta players no documento, e o custo
+        apareceria no 3G da academia antes de qualquer benefício."""
+        html = self._pagina()
+        self.assertEqual(html.count("data-drawer "), 1)
+        self.assertIn("<dialog", html)
+
+    def test_each_exercise_carries_what_the_drawer_shows(self):
+        html = self._pagina()
+        for atributo in (
+            "data-clipe=",
+            "data-series=",
+            "data-reps=",
+            "data-descanso-texto=",
+            "data-carga=",
+            "data-cue=",
+            "data-musculo=",
+        ):
+            with self.subTest(atributo=atributo):
+                self.assertIn(atributo, html)
+
+    def test_the_clip_is_configured_to_loop_without_distraction(self):
+        exercicio = Exercise.objects.exclude(video_url="").first()
+        url = exercicio.video_embed_url
+
+        for parametro in ("autoplay=1", "mute=1", "loop=1", "controls=0", "playsinline=1"):
+            with self.subTest(parametro=parametro):
+                self.assertIn(parametro, url)
+
+        # `loop` sozinho não repete no YouTube: a API exige a playlist com o
+        # próprio id do vídeo.
+        self.assertIn(f"playlist={exercicio.video_id}", url)
+
+        # Domínio sem cookie de rastreamento: o app já sabe peso e objetivo de
+        # quem usa, não faz sentido entregar o resto para publicidade.
+        self.assertIn("youtube-nocookie.com", url)
+
+    def test_the_media_is_dropped_when_the_drawer_closes(self):
+        """`iframe.src = ""` não para o vídeo em todo navegador; remover o nó
+        para em todos — e é o que evita som tocando atrás da tela fechada."""
+        html = self._pagina()
+        fechamento = html.split('drawer.addEventListener("close"', 1)[1].split("});", 1)[0]
+        self.assertIn('innerHTML = ""', fechamento)
+
+    def test_the_drawer_can_be_closed_by_the_backdrop(self):
+        html = self._pagina()
+        self.assertIn("event.target === drawer", html)

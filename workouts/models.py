@@ -184,6 +184,7 @@ class Split(models.TextChoices):
     AB = "ab", "AB — superior e inferior"
     ABC = "abc", "ABC — empurrar, puxar e pernas"
     ABCD = "abcd", "ABCD — peito/tríceps, costas/bíceps, ombro/perna e complementares"
+    ABCDE = "abcde", "ABCDE — o ciclo de quatro mais um dia de pontos fracos"
 
 
 class WorkoutTemplate(models.Model):

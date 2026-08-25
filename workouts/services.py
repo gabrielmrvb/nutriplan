@@ -40,6 +40,13 @@ SPLIT_BY_FREQUENCY = {
     2: Split.AB,
     3: Split.ABC,
     4: Split.ABCD,
+    # Cinco dias em diante recebem o ciclo de quatro mais o dia de pontos
+    # fracos. Antes, quem treinava cinco ou seis vezes repetia o ABC e ficava
+    # com panturrilha e posterior de coxa igualmente esquecidos — treinar mais
+    # não resolve o que a divisão não cobre.
+    5: Split.ABCDE,
+    6: Split.ABCDE,
+    7: Split.ABCDE,
 }
 DEFAULT_SPLIT = Split.ABC
 
@@ -58,6 +65,13 @@ SPLIT_NOTE = {
         "Empurrar, puxar e pernas. É a divisão mais eficiente para quem treina de três "
         "a seis vezes: com quatro dias ou mais o ciclo recomeça, e cada grupo muscular "
         "acaba treinado duas vezes na semana."
+    ),
+    Split.ABCDE: (
+        "Cinco treinos: o ciclo de quatro mais um dia para o que sobra de fora "
+        "dele. Somando as séries da semana no ABCD, posterior de coxa e "
+        "panturrilha ficam bem abaixo da faixa em que o ganho aparece — o "
+        "quinto dia existe para fechar essa conta, não para adicionar treino "
+        "por adicionar."
     ),
     Split.ABCD: (
         "Quatro treinos, um foco por dia: peito e tríceps, costas e bíceps, ombro e "

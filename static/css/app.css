@@ -52,6 +52,9 @@
   --dia-b: #6cc7ff;
   --dia-c: #f6c453;
   --dia-d: #c4a6ff;
+  /* O quinto dia entrou com o ABCDE. Coral fecha o círculo de matizes sem
+     encostar no verde do A nem no âmbar do C. */
+  --dia-e: #ff9d8a;
 
   /* Verde-menta como acento principal e azul-gelo como secundário: os dois
      legíveis sobre grafite sem virar neon berrante, que cansa em minutos. */
@@ -1016,6 +1019,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 [data-dia="B"] { --dia: var(--dia-b); }
 [data-dia="C"] { --dia: var(--dia-c); }
 [data-dia="D"] { --dia: var(--dia-d); }
+[data-dia="E"] { --dia: var(--dia-e); }
 
 .session__badge[data-dia] {
   background: var(--dia, var(--brand));
@@ -1496,7 +1500,182 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 /* ==========================================================================
-   20. Cartões de escolha (onboarding)
+   20. Drawer de execução do exercício
+   ========================================================================== */
+
+/* Sobe do rodapé no celular, vira cartão centrado no desktop.
+
+   É `<dialog>`, então Esc fecha, o foco fica preso dentro enquanto está
+   aberto e volta para o botão ao fechar. Reimplementar isso à mão dá errado
+   de formas que só aparecem com leitor de tela. */
+
+.drawer {
+  width: 100%;
+  max-width: 100%;
+  max-height: 92dvh;
+  margin: auto auto 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: var(--surface);
+  color: var(--text);
+  overflow: hidden auto;
+  /* `overscroll-behavior` impede que rolar até o fim do drawer continue
+     rolando a página atrás dele — o efeito de "a tela escapou" no celular. */
+  overscroll-behavior: contain;
+  animation: drawer-sobe .26s cubic-bezier(.2, .8, .3, 1);
+}
+
+.drawer::backdrop {
+  background: rgba(4, 8, 7, .72);
+  backdrop-filter: blur(3px);
+  animation: drawer-fade .26s ease-out;
+}
+
+@keyframes drawer-sobe {
+  from { transform: translateY(12%); opacity: .4; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes drawer-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer, .drawer::backdrop { animation: none; }
+}
+
+/* A alça: sinal de "isto sobe do rodapé e dá para arrastar de volta". */
+.drawer__puxador {
+  width: 2.4rem;
+  height: .25rem;
+  margin: .6rem auto .2rem;
+  border-radius: var(--pill);
+  background: var(--border-strong);
+}
+
+.drawer__fechar-area { position: absolute; top: .5rem; right: .5rem; z-index: 2; }
+
+.drawer__fechar {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.drawer__fechar svg { width: 1.15rem; height: 1.15rem; }
+.drawer__fechar:hover { background: var(--surface-3); }
+
+/* A mídia ocupa a largura toda no 16:9. Short é 9:16 e ficaria com duas
+   tarjas pretas enormes esticado; então ele fica alto e estreito, centrado. */
+.drawer__media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
+
+.drawer__media--vertical {
+  aspect-ratio: 9 / 16;
+  max-height: 52dvh;
+  margin: 0 auto;
+  width: auto;
+}
+
+.drawer__media iframe,
+.drawer__media video,
+.drawer__media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  object-fit: contain;
+}
+
+.drawer__media--vertical iframe,
+.drawer__media--vertical video,
+.drawer__media--vertical img { aspect-ratio: 9 / 16; }
+
+.drawer__corpo { padding: 1rem var(--pad) calc(1.2rem + env(safe-area-inset-bottom)); }
+
+.drawer__nome { margin: 0; font-size: 1.15rem; line-height: 1.25; }
+
+.drawer__musculo {
+  margin: .15rem 0 0;
+  color: var(--text-mute);
+  font-size: .8rem;
+}
+
+/* Os três números que a pessoa consulta no meio da série. Grid de três para
+   que a leitura seja de relance, sem procurar rótulo. */
+.drawer__numeros {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .5rem;
+  margin: .9rem 0;
+}
+
+.drawer__numero {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  padding: .7rem .5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  text-align: center;
+}
+
+.drawer__numero-valor {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.drawer__numero-rotulo {
+  color: var(--text-mute);
+  font-size: .68rem;
+  line-height: 1.25;
+}
+
+/* A carga anterior é o número que decide a série de hoje — é o único que
+   ganha cor. */
+.drawer__numero--carga {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+  background: var(--brand-soft);
+}
+
+.drawer__numero--carga .drawer__numero-valor { color: var(--brand); }
+
+.drawer__cue {
+  margin: 0 0 1rem;
+  color: var(--text-dim);
+  font-size: .87rem;
+  line-height: 1.5;
+}
+
+.drawer__acoes { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.drawer__acoes .btn { width: 100%; }
+
+@media (min-width: 40rem) {
+  .drawer {
+    width: min(30rem, calc(100vw - 3rem));
+    margin: auto;
+    border-radius: var(--r-lg);
+  }
+
+  .drawer__puxador { display: none; }
+}
+
+/* ==========================================================================
+   21. Cartões de escolha (onboarding)
    ========================================================================== */
 
 /* As duas perguntas que mais mudam o plano — objetivo e nível de atividade —
@@ -1656,7 +1835,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 /* ==========================================================================
-   21. Convite de instalação
+   22. Convite de instalação
    ========================================================================== */
 
 /* Uma faixa presa ao rodapé, acima da navegação. Fica no fluxo visual do app
@@ -1810,7 +1989,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .install__close:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* ==========================================================================
-   22. Desktop
+   23. Desktop
    ========================================================================== */
 
 @media (min-width: 60rem) {
