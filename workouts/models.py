@@ -68,6 +68,17 @@ class Exercise(models.Model):
         blank=True,
         help_text="Uma frase com o erro mais comum ou o ponto que garante a técnica.",
     )
+    #: As duas fotos da demonstração: começo e fim do movimento.
+    #:
+    #: Lista e não dois campos porque a origem entrega uma lista, e porque a
+    #: tela só alterna o que houver — se um dia vier uma sequência de quatro
+    #: quadros, nada aqui muda.
+    #:
+    #: Preenchido por `manage.py sync_exercise_media`, que confere cada imagem
+    #: antes de gravar. Vazio significa "ainda sem demonstração", e a tela cai
+    #: no vídeo.
+    frames = models.JSONField("quadros da demonstração", default=list, blank=True)
+
     video_url = models.URLField(
         "vídeo de execução",
         blank=True,
@@ -132,6 +143,11 @@ class Exercise(models.Model):
     def is_vertical(self) -> bool:
         """Short do YouTube é vertical; forçar 16:9 nele deixa tarja preta."""
         return "/shorts/" in self.video_url
+
+    @property
+    def has_frames(self) -> bool:
+        """Tem demonstração em foto? É o que decide o que o drawer mostra."""
+        return bool(self.frames)
 
     @property
     def video_embed_url(self) -> str:

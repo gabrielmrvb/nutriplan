@@ -1,0 +1,64 @@
+{
+  "_sobre": [
+    "Correspondência entre os exercícios do NutriPlan e a free-exercise-db.",
+    "",
+    "A free-exercise-db (github.com/yuhonas/free-exercise-db, domínio público)",
+    "traz 873 exercícios com DUAS fotos cada: o início e o fim do movimento.",
+    "Não são GIFs animados nem renderizações 3D — isso não existe em base",
+    "aberta sem chave de API. Alternar as duas fotos em loop é o que produz a",
+    "demonstração do movimento, e é honesto chamar disso o que é: duas",
+    "posições, não uma animação contínua.",
+    "",
+    "O mapa é escrito à mão. Casar por semelhança de nome errou feio no teste:",
+    "\"leg press\" caiu em Calf Press On The Leg Press Machine, \"flexão de",
+    "braço\" caiu em Plyo Kettlebell Pushups, e \"remada unilateral\" caiu em",
+    "Dumbbell One-Arm Upright Row, que é remada alta e não remada.",
+    "",
+    "Cada id é conferido pelo comando `sync_exercise_media`, que baixa as duas",
+    "imagens e recusa o mapa se alguma não responder."
+  ],
+
+  "Agachamento livre": "Barbell_Full_Squat",
+  "Leg press 45°": "Leg_Press",
+  "Cadeira extensora": "Leg_Extensions",
+  "Afundo com halteres": "Dumbbell_Rear_Lunge",
+  "Stiff com barra": "Stiff-Legged_Barbell_Deadlift",
+  "Mesa flexora": "Lying_Leg_Curls",
+  "Elevação pélvica": "Barbell_Hip_Thrust",
+  "Cadeira flexora": "Seated_Leg_Curl",
+  "Panturrilha em pé": "Standing_Calf_Raises",
+  "Panturrilha sentado": "Seated_Calf_Raise",
+
+  "Supino reto com barra": "Barbell_Bench_Press_-_Medium_Grip",
+  "Supino inclinado com halteres": "Incline_Dumbbell_Press",
+  "Crucifixo na máquina (voador)": "Butterfly",
+  "Flexão de braço": "Pushups",
+
+  "Puxada frente na polia": "Wide-Grip_Lat_Pulldown",
+  "Remada baixa na polia": "Seated_Cable_Rows",
+  "Remada curvada com barra": "Bent_Over_Barbell_Row",
+  "Remada unilateral com halter": "One-Arm_Dumbbell_Row",
+  "Barra fixa assistida": "Pullups",
+
+  "Desenvolvimento com halteres": "Dumbbell_Shoulder_Press",
+  "Elevação lateral com halteres": "Side_Lateral_Raise",
+  "Elevação frontal com halteres": "Front_Dumbbell_Raise",
+  "Crucifixo inverso na máquina": "Reverse_Machine_Flyes",
+
+  "Rosca direta com barra": "Barbell_Curl",
+  "Rosca alternada com halteres": "Alternate_Incline_Dumbbell_Curl",
+  "Rosca martelo": "Hammer_Curls",
+
+  "Tríceps na polia com corda": "Triceps_Pushdown_-_Rope_Attachment",
+  "Tríceps testa com barra": "Lying_Triceps_Press",
+  "Mergulho no banco": "Bench_Dips",
+
+  "Prancha abdominal": "Plank",
+  "Abdominal supra no solo": "Crunches",
+  "Elevação de pernas": "Flat_Bench_Lying_Leg_Raise",
+
+  "Encolhimento com halteres": "Dumbbell_Shrug",
+  "Remada alta com barra": "Upright_Barbell_Row",
+  "Rosca de punho com barra": "Palms-Up_Barbell_Wrist_Curl_Over_A_Bench",
+  "Rosca inversa com barra": "Reverse_Barbell_Curl"
+}

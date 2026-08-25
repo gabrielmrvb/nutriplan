@@ -26,6 +26,33 @@ def _load(filename):
         return json.load(fp)
 
 
+def _media_map() -> dict:
+    """Correspondência entre o catálogo e a free-exercise-db."""
+    caminho = DATA_DIR / "media_map.json"
+    if not caminho.exists():
+        return {}
+    return {
+        nome: ident
+        for nome, ident in json.loads(caminho.read_text(encoding="utf-8")).items()
+        if not nome.startswith("_")
+    }
+
+
+def _frames_de(nome: str, mapa: dict) -> list:
+    """As duas fotos da demonstração, montadas a partir do mapa.
+
+    As URLs são gravadas pelo seed e não por uma verificação de rede: o deploy
+    roda com `set -o errexit`, e fazer o build depender de 72 requisições ao
+    CDN significa que um soluço do jsDelivr derruba a publicação. Quem confere
+    se as imagens continuam de pé é `sync_exercise_media --check`, que pode
+    rodar quando quiser sem arriscar o deploy.
+    """
+    from .sync_exercise_media import urls_de
+
+    identificador = mapa.get(nome)
+    return urls_de(identificador) if identificador else []
+
+
 class Command(BaseCommand):
     help = "Carrega exercícios e as divisões de treino (full, AB, ABC, ABCD)."
 
@@ -50,20 +77,30 @@ class Command(BaseCommand):
         self._log(self.style.SUCCESS("Treinos carregados."))
 
     def _seed_exercises(self):
+        mapa = _media_map()
         exercises = {}
+        sem_demonstracao = []
         for row in _load("exercises.json"):
+            quadros = _frames_de(row["name"], mapa)
+            if not quadros:
+                sem_demonstracao.append(row["name"])
             exercise, _ = Exercise.objects.update_or_create(
                 name=row["name"],
                 defaults={
                     "muscle_group": row["muscle_group"],
                     "is_compound": row.get("compound", False),
                     "cue": row.get("cue", ""),
+                    "frames": quadros,
                     "video_url": row.get("video", ""),
                     "is_active": row.get("active", True),
                 },
             )
             exercises[row["name"]] = exercise
-        self._log(f"  {len(exercises)} exercícios")
+
+        com = len(exercises) - len(sem_demonstracao)
+        self._log(f"  {len(exercises)} exercícios ({com} com demonstração)")
+        for nome in sem_demonstracao:
+            self._log(f"    sem foto no mapa: {nome}")
         return exercises
 
     def _seed_splits(self, exercises, reset=False):

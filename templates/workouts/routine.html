@@ -142,6 +142,7 @@
                       curto ao mesmo tempo.
                     {% endcomment %}
                     <button type="button" class="exercise__ver"
+                    data-quadros="{{ item.exercise.frames|join:'|' }}"
                     data-clipe="{% if item.exercise.clip_kind == 'youtube' %}{{ item.exercise.video_embed_url }}{% else %}{{ item.exercise.video_url }}{% endif %}"
                     data-tipo="{{ item.exercise.clip_kind }}"
                     data-nome="{{ item.exercise.name }}"
@@ -381,35 +382,102 @@
          */
         var drawer = document.querySelector("[data-drawer]");
 
+        /* A demonstração alterna as duas fotos do movimento.
+         *
+         * A free-exercise-db entrega o começo e o fim de cada exercício. Duas
+         * posições em loop não são um GIF 3D, e não vale fingir que são — mas
+         * mostram a amplitude, que é o que a pessoa precisa conferir. Em
+         * troca: domínio público, não somem quando o dono apaga, não abrem com
+         * introdução falada, e pesam uns 30 kB contra um player inteiro.
+         *
+         * 900 ms por quadro. Mais rápido vira piscada e cansa; mais lento
+         * deixa de parecer um movimento e vira duas fotos paradas.
+         */
+        var MS_POR_QUADRO = 900;
+        var alternancia = null;
+
+        function pararAlternancia() {
+          if (alternancia) clearInterval(alternancia);
+          alternancia = null;
+        }
+
+        function montarQuadros(media, dados) {
+          var urls = dados.quadros.split("|").filter(Boolean);
+          if (!urls.length) return false;
+
+          var img = document.createElement("img");
+          img.className = "drawer__quadro";
+          img.alt = "Execução: " + dados.nome;
+          img.decoding = "async";
+
+          // Enquanto a primeira foto não chega, o esqueleto ocupa o lugar —
+          // sem ele a caixa fica preta e parece que quebrou.
+          media.classList.add("drawer__media--carregando");
+          img.addEventListener("load", function () {
+            media.classList.remove("drawer__media--carregando");
+          }, {once: true});
+          img.addEventListener("error", function () {
+            media.classList.remove("drawer__media--carregando");
+            media.classList.add("drawer__media--falhou");
+          }, {once: true});
+
+          img.src = urls[0];
+          media.appendChild(img);
+
+          if (urls.length > 1) {
+            // O segundo quadro é baixado antes de entrar em cena: trocar para
+            // uma imagem ainda não carregada pisca branco na primeira volta.
+            var pre = new Image();
+            pre.src = urls[1];
+
+            var i = 0;
+            alternancia = setInterval(function () {
+              i = (i + 1) % urls.length;
+              img.src = urls[i];
+            }, MS_POR_QUADRO);
+          }
+          return true;
+        }
+
         function preencher(dados) {
           var media = drawer.querySelector("[data-drawer-media]");
+          pararAlternancia();
           media.innerHTML = "";
+          media.className = "drawer__media";
           media.classList.toggle("drawer__media--vertical", dados.vertical === "1");
 
-          var elemento;
-          if (dados.tipo === "gif") {
-            elemento = document.createElement("img");
-            elemento.src = dados.clipe;
-            elemento.alt = "Execução: " + dados.nome;
-          } else if (dados.tipo === "video") {
-            // MP4 mudo em loop faz o papel do GIF com uma fração dos bytes.
-            // `playsinline` impede o iPhone de abrir em tela cheia sozinho.
-            elemento = document.createElement("video");
-            elemento.src = dados.clipe;
-            elemento.autoplay = true;
-            elemento.loop = true;
-            elemento.muted = true;
-            elemento.playsInline = true;
-            elemento.setAttribute("muted", "");
-            elemento.setAttribute("playsinline", "");
-          } else {
-            elemento = document.createElement("iframe");
-            elemento.src = dados.clipe;
-            elemento.title = "Execução: " + dados.nome;
-            elemento.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
-            elemento.allowFullscreen = true;
+          // Foto é o caminho normal. O vídeo continua como plano B para o
+          // exercício que ainda não tem demonstração mapeada — tirar o campo
+          // deixaria esse exercício sem nada.
+          //
+          // O `if` envolve SÓ a mídia. Uma versão anterior saía da função aqui
+          // com `return`, e com isso o nome, as séries, o descanso e a carga
+          // anterior ficavam em branco sempre que a foto existia — ou seja,
+          // sempre.
+          if (!montarQuadros(media, dados)) {
+            var elemento;
+            if (dados.tipo === "gif") {
+              elemento = document.createElement("img");
+              elemento.src = dados.clipe;
+              elemento.alt = "Execução: " + dados.nome;
+            } else if (dados.tipo === "video") {
+              elemento = document.createElement("video");
+              elemento.src = dados.clipe;
+              elemento.autoplay = true;
+              elemento.loop = true;
+              elemento.muted = true;
+              elemento.playsInline = true;
+              elemento.setAttribute("muted", "");
+              elemento.setAttribute("playsinline", "");
+            } else {
+              elemento = document.createElement("iframe");
+              elemento.src = dados.clipe;
+              elemento.title = "Execução: " + dados.nome;
+              elemento.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+              elemento.allowFullscreen = true;
+            }
+            media.appendChild(elemento);
           }
-          media.appendChild(elemento);
 
           drawer.querySelector("[data-drawer-nome]").textContent = dados.nome;
           drawer.querySelector("[data-drawer-musculo]").textContent = dados.musculo || "";
@@ -450,6 +518,7 @@
          * e o tráfego parem junto com a tela. */
         if (drawer) {
           drawer.addEventListener("close", function () {
+            pararAlternancia();
             drawer.querySelector("[data-drawer-media]").innerHTML = "";
           });
 

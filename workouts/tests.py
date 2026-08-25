@@ -1069,3 +1069,101 @@ class WeekAccordionTests(TestCase):
         self.assertIn('addEventListener("toggle"', html)
         self.assertIn("[data-ficha][open]", html)
         self.assertIn("outra.open = false", html)
+
+
+class ExerciseFrameTests(TestCase):
+    """A demonstração em fotos da free-exercise-db.
+
+    O que essa base entrega, para não haver mal-entendido: DUAS FOTOS por
+    exercício, começo e fim do movimento. Não são GIFs animados nem
+    renderizações 3D — isso não existe em base aberta e sem chave de API. A
+    tela alterna as duas em loop, que é o que demonstra a amplitude.
+
+    Em troca do que se perde em suavidade: domínio público, não somem quando o
+    dono apaga, não abrem com introdução falada, e pesam uns 30 kB contra um
+    player inteiro.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def _mapa(self):
+        import json
+
+        caminho = Path(settings.BASE_DIR) / "workouts" / "data" / "media_map.json"
+        return {
+            nome: ident
+            for nome, ident in json.loads(caminho.read_text(encoding="utf-8")).items()
+            if not nome.startswith("_")
+        }
+
+    def test_every_exercise_in_the_catalog_is_in_the_map(self):
+        """Exercício sem mapa fica sem demonstração e ninguém percebe."""
+        mapa = self._mapa()
+        faltando = [
+            e.name for e in Exercise.objects.filter(is_active=True) if e.name not in mapa
+        ]
+        self.assertEqual(faltando, [], "exercícios sem correspondência de mídia")
+
+    def test_the_map_has_no_leftovers(self):
+        """Nome que saiu do catálogo e ficou no mapa é lixo que confunde."""
+        do_catalogo = set(Exercise.objects.values_list("name", flat=True))
+        sobrando = [nome for nome in self._mapa() if nome not in do_catalogo]
+        self.assertEqual(sobrando, [])
+
+    def test_no_two_exercises_share_the_same_demonstration(self):
+        """Dois exercícios com a mesma foto é erro de mapa, não coincidência."""
+        mapa = self._mapa()
+        vistos = {}
+        for nome, ident in mapa.items():
+            vistos.setdefault(ident, []).append(nome)
+        repetidos = {i: n for i, n in vistos.items() if len(n) > 1}
+        self.assertEqual(repetidos, {})
+
+    def test_the_frames_point_at_a_cdn_and_not_at_raw_github(self):
+        """raw.githubusercontent responde, mas não é feito para ser origem de
+        imagem de aplicação — não tem cache de borda nem garantia de tráfego."""
+        from workouts.management.commands.sync_exercise_media import CDN, urls_de
+
+        self.assertIn("cdn.jsdelivr.net", CDN)
+        urls = urls_de("Barbell_Curl")
+        self.assertEqual(len(urls), 2)
+        self.assertTrue(all(u.startswith(CDN) for u in urls))
+        self.assertTrue(urls[0].endswith("/0.jpg"))
+        self.assertTrue(urls[1].endswith("/1.jpg"))
+
+    def test_the_drawer_prefers_photos_over_the_player(self):
+        """O `<iframe>` deixou de ser o caminho normal e virou plano B."""
+        user = create_user(email="frames@exemplo.com")
+        self.client.force_login(user)
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        self.assertIn("data-quadros=", html)
+        self.assertIn("montarQuadros", html)
+        # A mídia só cai no player quando não há foto.
+        self.assertIn("if (!montarQuadros(media, dados)) {", html)
+
+    def test_the_numbers_are_filled_no_matter_which_media_is_used(self):
+        """Regressão: o `if` da mídia chegou a sair da função com `return`, e
+        com isso nome, séries, descanso e carga ficavam em branco sempre que a
+        foto existia — ou seja, sempre."""
+        user = create_user(email="numeros@exemplo.com")
+        self.client.force_login(user)
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        corpo = html.split("function preencher(dados) {", 1)[1]
+        ramo_da_midia = corpo.split("if (!montarQuadros(media, dados)) {", 1)[1]
+        self.assertNotIn("return;", ramo_da_midia.split("data-drawer-nome", 1)[0])
+        self.assertIn("data-drawer-series", corpo)
+        self.assertIn("data-drawer-carga", corpo)
+
+    def test_the_alternation_stops_when_the_drawer_closes(self):
+        """Um `setInterval` esquecido continua trocando imagem numa tela que
+        ninguém está vendo, e vai junto para o próximo exercício aberto."""
+        user = create_user(email="parar@exemplo.com")
+        self.client.force_login(user)
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        fechamento = html.split('drawer.addEventListener("close"', 1)[1].split("});", 1)[0]
+        self.assertIn("pararAlternancia()", fechamento)

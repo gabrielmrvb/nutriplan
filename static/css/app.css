@@ -1647,7 +1647,10 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .drawer__media {
   position: relative;
   aspect-ratio: 16 / 9;
-  background: #000;
+  /* Deixou de ser preto quando a mídia virou foto: as imagens da
+     free-exercise-db têm fundo claro, e preto em volta criava uma moldura
+     dura no meio de um tema escuro suave. */
+  background: var(--surface-2);
 }
 
 .drawer__media--vertical {
@@ -1655,6 +1658,48 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   max-height: 52dvh;
   margin: 0 auto;
   width: auto;
+}
+
+/* A foto do movimento fica inteira: `contain` e não `cover`, porque cortar a
+   borda de uma demonstração pode cortar justamente o pé ou a mão que mostram
+   a posição. */
+.drawer__quadro {
+  border-radius: var(--radius);
+  object-fit: contain;
+}
+
+/* Enquanto a primeira foto não chega. Sem isto a caixa fica vazia e parece
+   que quebrou. */
+.drawer__media--carregando::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, var(--surface-2) 30%, var(--surface-3) 50%, var(--surface-2) 70%);
+  background-size: 220% 100%;
+  animation: esqueleto 1.1s linear infinite;
+}
+
+@keyframes esqueleto {
+  from { background-position: 130% 0; }
+  to { background-position: -30% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer__media--carregando::after { animation: none; }
+}
+
+/* Imagem que não veio: a caixa diz isso em vez de ficar vazia. */
+.drawer__media--falhou::after {
+  content: "Não foi possível carregar a demonstração.";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: var(--surface-2);
+  color: var(--text-mute);
+  font-size: .82rem;
+  text-align: center;
 }
 
 .drawer__media iframe,
