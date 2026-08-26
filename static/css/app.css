@@ -1510,10 +1510,18 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
    disputava espaço com o nome do exercício. */
 .exercise-list { display: grid; gap: .7rem; margin: 0; padding: 0; list-style: none; }
 
+/* O cartão é um `<details>`, e por isso o `display` fica em `block`.
+   Grade aqui seria mais curta de escrever e é justamente o tipo de aposta que
+   este projeto já pagou caro: `display` diferente de `block` em `<details>`
+   tem histórico de quebrar a divulgação em navegador antigo, e o cartão que
+   não abre é um treino que não se anota. As outras duas sanfonas do app
+   (`.ficha` e `.option`) também são `block`.
+
+   O espaço entre cabeçalho e corpo passa a vir do padding de cada um, e não
+   de um `gap` — fechado, um `gap` de .85rem sobraria no rodapé do cartão. */
 .exercise {
-  display: grid;
-  gap: .85rem;
-  padding: 1rem;
+  padding: 0;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-2);
@@ -1529,18 +1537,77 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   box-shadow: var(--edge), var(--shadow-lift);
 }
 
-/* Duas colunas: número e título. O `minmax(0, 1fr)` é o que deixa o nome
-   quebrar em vez de empurrar a linha inteira para o lado. */
+/* Três colunas: número, título e seta. O `minmax(0, 1fr)` é o que deixa o
+   nome quebrar em vez de empurrar a linha inteira para o lado.
+
+   O cabeçalho inteiro é o alvo: borda a borda, e não só o texto. Em pé, entre
+   séries, mirar num rótulo de 20px é o que faz a pessoa tocar duas vezes. */
 .exercise__head {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-  gap: .6rem;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  /* Duas faixas. Na de cima, número, nome e os dois botões de 44px; na de
+     baixo, as etiquetas ATRAVESSANDO a largura toda.
+
+     Medido: com as etiquetas dividindo a faixa com os botões, a coluna delas
+     sobrava com 142px e as três pílulas quebravam em três linhas — 144px por
+     cartão fechado, quando o ponto da sanfona é caber sete numa tela. Na
+     largura inteira (274px) elas cabem em uma, e o cabeçalho fecha em ~98. */
+  grid-template-areas:
+    "ordem nome ver seta"
+    "tags  tags tags tags";
+  align-items: center;
+  gap: .35rem .5rem;
+  padding: .8rem 1rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+  list-style: none;
+  transition: background var(--dur) var(--ease);
 }
 
-.exercise__order {
+/* O triângulo padrão do Safari e do Chrome some — a seta é desenhada. */
+.exercise__head::-webkit-details-marker { display: none; }
+.exercise__head::marker { content: ""; }
+
+.exercise__head:hover { background: var(--surface-3); }
+
+.exercise__head:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+  border-radius: var(--radius-lg);
+}
+
+.exercise__seta {
   display: grid;
   place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  align-self: center;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text-dim);
+  transition: transform .22s var(--ease), background var(--dur) var(--ease),
+              color var(--dur) var(--ease);
+}
+
+.exercise__seta svg { width: 1.1rem; height: 1.1rem; }
+
+.exercise[open] > .exercise__head .exercise__seta {
+  transform: rotate(180deg);
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+/* A âncora `#exercicio-<pk>` devolve a pessoa ao exercício depois de salvar
+   sem JavaScript. O realce diz qual dos sete é — sem ele, a página apenas
+   rolou. */
+.exercise:target { border-color: color-mix(in srgb, var(--brand) 40%, transparent); }
+
+.exercise__order {
+  grid-area: ordem;
+  display: grid;
+  place-items: center;
+  align-self: center;
   width: 2rem;
   height: 2rem;
   border-radius: 50%;
@@ -1550,7 +1617,16 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   font-weight: 750;
 }
 
-.exercise__title { min-width: 0; }
+/* O nome ocupa a primeira faixa e as etiquetas a segunda, as duas na MESMA
+   coluna. Os dois botões de 44px atravessam as duas faixas pela direita, em
+   vez de disputar largura com as pílulas: era essa disputa que sobrava a
+   coluna de 162px e quebrava as três etiquetas em três linhas. */
+.exercise__name { grid-area: nome; }
+.exercise__tags { grid-area: tags; }
+.exercise__head .exercise__ver { grid-area: ver; }
+.exercise__seta { grid-area: seta; }
+
+.exercise__title { min-width: 0; display: contents; }
 
 .exercise__name {
   display: block;
@@ -1560,7 +1636,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   letter-spacing: -.02em;
 }
 
-.exercise__tags { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .45rem; }
+.exercise__tags { display: flex; flex-wrap: wrap; gap: .35rem; min-width: 0; }
 
 /* Mesma gramática das pílulas de estado: tinta da própria cor em opacidade
    baixa, borda um pouco mais forte, texto na cor cheia. Antes cada etiqueta
@@ -1631,7 +1707,40 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 
 .exercise__ver:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
-.exercise__body { display: grid; gap: .6rem; min-width: 0; }
+/* Dentro do cabeçalho o botão é ícone: 44px de alvo, texto só para quem ouve
+   a tela. A pílula com "Ver execução" escrito dividiria a linha com as três
+   etiquetas e quebraria a fileira em duas — que foi a medição que manteve o
+   botão numa linha própria enquanto ele morava no corpo. */
+.exercise__head .exercise__ver {
+  align-self: center;
+  justify-self: end;
+  gap: 0;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--surface-3);
+}
+
+/* A classe do rótulo NÃO pode conter "exercise__ver": três testes contam
+   `html.count("exercise__ver")` para saber quantos exercícios a página tem, e
+   um nome que carrega a substring dobra as três contagens em silêncio. */
+.exercise__head .exercise__legenda { display: none; }
+.exercise__head .exercise__ver svg { width: 1.15rem; height: 1.15rem; }
+.exercise__head .exercise__ver:hover { border-color: var(--accent); color: var(--accent); }
+
+.exercise__body { display: grid; gap: .6rem; min-width: 0; padding: 0 1rem 1rem; }
+
+/* A abertura desliza, com o mesmo quadro da sanfona da semana: uma animação
+   para as duas, e a terceira que aparecer nasce igual. */
+@supports (grid-template-rows: 0fr) {
+  .exercise[open] .exercise__body { animation: sanfona-abre .24s ease-out; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exercise__seta,
+  .exercise[open] .exercise__body { transition: none; animation: none; }
+}
 
 .exercise__cue { margin: 0; color: var(--text-dim); font-size: .84rem; line-height: 1.6; }
 
@@ -2299,11 +2408,11 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   .ficha:not([open]) .ficha__corpo { display: none; }
 
   .ficha[open] .ficha__corpo {
-    animation: ficha-abre .24s ease-out;
+    animation: sanfona-abre .24s ease-out;
   }
 }
 
-@keyframes ficha-abre {
+@keyframes sanfona-abre {
   from { opacity: 0; transform: translateY(-.4rem); }
   to { opacity: 1; transform: translateY(0); }
 }

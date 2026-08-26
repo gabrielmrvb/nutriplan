@@ -131,10 +131,24 @@
                   continua a um clique de distância e para de cobrar espaço de
                   quem já sabe fazer o movimento.
                 {% endcomment %}
-                <li class="exercise" id="exercicio-{{ item.exercise.pk }}">
+                <li>
+                {% comment %}
+                  A segunda sanfona. A da semana resolveu a rolagem ENTRE
+                  treinos e deixou intacta a de dentro: a ficha de hoje abria
+                  com sete exercícios abertos, cada um com instrução, botão de
+                  execução e uma tabela de três a quatro séries — mais de
+                  3.000 px para quem está em pé, entre séries, procurando UM
+                  exercício.
 
-                  {# ---- 1. Cabeçalho ---- #}
-                  <header class="exercise__head">
+                  Fechados, os sete cabem numa tela. O `id` mora no
+                  `<details>` e não no `<li>` porque é ele que precisa abrir
+                  quando a âncora `#exercicio-<pk>` chega.
+                {% endcomment %}
+                <details class="exercise" id="exercicio-{{ item.exercise.pk }}"
+                         data-exercicio>
+
+                  {# ---- 1. Cabeçalho (fechado, é só isto que aparece) ---- #}
+                  <summary class="exercise__head">
                     <span class="exercise__order">{{ forloop.counter }}</span>
                     <span class="exercise__title">
                       <strong class="exercise__name">{{ item.exercise.name }}</strong>
@@ -150,18 +164,18 @@
                         </span>
                       </span>
                     </span>
-                  </header>
-
-                  <div class="exercise__body">
-                    {# ---- 2. Instrução e acesso à execução ---- #}
-                    <p class="exercise__cue">{{ item.exercise.cue }}</p>
-
                     {% comment %}
-                      O botão fica numa linha própria, e não dentro da fileira
-                      de etiquetas. Testei os dois: na fileira, o alvo de 44 px
-                      quebrava a linha das pílulas em duas e o cartão ficava
-                      MAIOR do que com o botão separado. Menos denso e mais
-                      curto ao mesmo tempo.
+                      "Ver execução" mora no cabeçalho, junto das etiquetas.
+
+                      Fechado, o cartão escondia o botão — e ver o movimento é
+                      justamente o que se quer ANTES de decidir abrir e anotar.
+                      Aqui ele fica a um toque em qualquer estado.
+
+                      Vira ícone: o texto continua no `aria-label`, então quem
+                      ouve a tela recebe "Ver execução de <exercício>". Era a
+                      objeção que mantinha o botão numa linha só para ele — o
+                      alvo de 44px quebrava a fileira de pílulas em duas. Como
+                      ícone ele divide a coluna da seta, e não a das pílulas.
                     {% endcomment %}
                     <button type="button" class="exercise__ver"
                     data-animacao="{% if item.exercise.animation_kind == 'youtube' %}{{ item.exercise.animation_embed_url }}{% else %}{{ item.exercise.animation_url }}{% endif %}"
@@ -188,8 +202,21 @@
                     <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>
                     <circle cx="12" cy="12" r="3"/>
                     </svg>
-                    Ver execução
+                    <span class="exercise__legenda">Ver execução</span>
                     </button>
+
+                    <span class="exercise__seta" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m6 9 6 6 6-6"/>
+                      </svg>
+                    </span>
+                  </summary>
+
+                  <div class="exercise__body">
+                    {# ---- 2. Instrução e acesso à execução ---- #}
+                    <p class="exercise__cue">{{ item.exercise.cue }}</p>
+
 
                     {# ---- 3. Tabela de séries ---- #}
                     <div class="sets">
@@ -309,6 +336,7 @@
                       {% endif %}
                     </div>
                   </div>
+                </details>
                 </li>
               {% endfor %}
             </ol>
@@ -739,6 +767,9 @@
         document.addEventListener("click", function (event) {
           var facade = event.target.closest("[data-clipe]");
           if (!facade || !drawer) return;
+          // O botão mora dentro do `<summary>`: sem cortar o padrão, o mesmo
+          // toque que abre o drawer alterna a sanfona por baixo dele.
+          event.preventDefault();
           preencher(facade.dataset);
           drawer.showModal();
         });
@@ -804,6 +835,53 @@
             if (outra !== ficha) outra.open = false;
           });
         }, true);
+
+        /* ---- Sanfona dos exercícios, dentro da ficha ----
+         *
+         * Mesma regra de seleção única, e pelo mesmo motivo: sem fechar o
+         * anterior, abrir três exercícios ao longo do treino devolve a página
+         * comprida que a sanfona veio resolver — e ninguém fecha à mão no meio
+         * de uma série.
+         */
+        document.addEventListener("toggle", function (event) {
+          var exercicio = event.target;
+          if (!exercicio.matches("[data-exercicio]") || !exercicio.open) return;
+
+          document.querySelectorAll("[data-exercicio][open]").forEach(function (outro) {
+            if (outro !== exercicio) outro.open = false;
+          });
+        }, true);
+
+        /* ---- A âncora abre o que ela aponta ----
+         *
+         * `record_load` responde JSON para quem chegou por `fetch`, mas o
+         * caminho sem JavaScript continua existindo e termina em
+         * `#exercicio-<pk>`. Com o cartão fechado por padrão, essa âncora
+         * entregaria um cartão FECHADO: a carga foi para o banco e a tela não
+         * mostra nada — indistinguível de erro, e a resposta é tocar de novo.
+         *
+         * Sobe abrindo todo `<details>` do caminho, porque o exercício mora
+         * dentro da ficha e as duas precisam estar abertas para ele aparecer.
+         */
+        function abrirPeloEndereco() {
+          if (!location.hash || location.hash.length < 2) return;
+
+          var alvo;
+          try {
+            alvo = document.querySelector(location.hash);
+          } catch (erro) {
+            return;  // hash que não é seletor válido: não é problema nosso.
+          }
+          if (!alvo) return;
+
+          for (var no = alvo; no; no = no.parentElement) {
+            if (no.tagName === "DETAILS") no.open = true;
+          }
+          alvo.scrollIntoView({ block: "center" });
+        }
+
+        abrirPeloEndereco();
+        window.addEventListener("hashchange", abrirPeloEndereco);
 
         /* ---- Cronômetro de descanso ---- */
         var caixa = document.querySelector("[data-timer]");

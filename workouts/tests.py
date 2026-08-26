@@ -1016,7 +1016,9 @@ class WeekAccordionTests(TestCase):
         plano = self.plano
 
         self.assertEqual(html.count("<details class=\"card ficha\""), plano.sessions.count())
-        self.assertEqual(html.count("<summary"), plano.sessions.count())
+        # Ancorado na CLASSE, e nao em `<summary` cru: o exercicio virou
+        # sanfona depois desta ficha, e a contagem crua passou a somar as duas.
+        self.assertEqual(html.count("ficha__resumo"), plano.sessions.count())
 
     def test_only_one_workout_starts_open(self):
         html = self._pagina()
@@ -1095,6 +1097,154 @@ class WeekAccordionTests(TestCase):
         self.assertIn('addEventListener("toggle"', html)
         self.assertIn("[data-ficha][open]", html)
         self.assertIn("outra.open = false", html)
+
+
+class ExerciseAccordionTests(TestCase):
+    """A segunda sanfona: os exercícios dentro da ficha aberta.
+
+    A sanfona da semana resolveu a rolagem ENTRE treinos e deixou intacta a de
+    dentro. A ficha de hoje abre com sete exercícios abertos; cada cartão traz
+    a instrução, o botão de execução e uma tabela de três a quatro séries com
+    campo de carga, campo de repetição e dois botões por linha. Medido nesta
+    tela, a ficha aberta sozinha passa de 3.000 px — e a pessoa está em pé,
+    entre séries, procurando UM exercício.
+
+    Fechados, os sete cabem na tela de uma vez: dá para ver o treino inteiro
+    sem rolar e abrir só aquele em que se vai anotar.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user(email="acordeao@exemplo.com", weekdays=(0, 1, 2, 3, 4))
+        self.plano = services.create_routine(self.user)
+        self.client.force_login(self.user)
+        self.html = self.client.get(reverse("workouts:routine")).content.decode()
+
+    def _total_de_exercicios(self):
+        return sum(s.exercises.count() for s in self.plano.sessions.all())
+
+    def test_every_exercise_is_a_native_disclosure(self):
+        """`<details>` e não `<div>` com JavaScript, pela mesma razão da ficha.
+
+        Abre por teclado, anuncia o estado para leitor de tela, responde ao
+        Ctrl+F do navegador e funciona antes de o JavaScript carregar — numa
+        academia com sinal ruim, esse último item não é detalhe.
+        """
+        total = self._total_de_exercicios()
+        self.assertEqual(self.html.count('<details class="exercise"'), total)
+        self.assertEqual(self.html.count('<summary class="exercise__head"'), total)
+
+    def test_every_exercise_starts_minimised(self):
+        """Nenhum aberto: a ficha abre mostrando o treino inteiro de uma vez.
+
+        Sete cabeçalhos fechados cabem numa tela; um só aberto já empurra os
+        outros seis para fora dela. Como a pessoa chega aqui para anotar UM
+        exercício de cada vez, abrir qualquer um por antecipação é apostar em
+        qual — e errar a aposta custa exatamente a rolagem que a sanfona veio
+        tirar.
+        """
+        self.assertNotIn("data-exercicio open", self.html)
+
+    def test_the_collapsed_header_says_enough_to_choose_without_opening(self):
+        """Fechado, o cartão ainda responde "é este?".
+
+        Número, nome e as três etiquetas — músculo, séries × repetições e
+        descanso. Sem elas a sanfona troca rolagem por toque às cegas, que é
+        pior: a pessoa abre três cartões para achar o que queria.
+        """
+        cabecalho = self.html.split('<summary class="exercise__head"', 1)[1]
+        cabecalho = cabecalho.split("</summary>", 1)[0]
+
+        item = self.plano.sessions.first().exercises.first()
+
+        self.assertIn("exercise__order", cabecalho)
+        self.assertIn(item.exercise.name, cabecalho)
+        self.assertIn(item.exercise.get_muscle_group_display(), cabecalho)
+        self.assertIn(item.rep_range, cabecalho)
+        self.assertIn("descanso", cabecalho)
+        # E a seta, que é o que diz que aquilo abre.
+        self.assertIn("exercise__seta", cabecalho)
+
+    def test_the_sets_are_in_the_page_even_when_collapsed(self):
+        """O HTML continua inteiro — a sanfona economiza layout, não download.
+
+        Vale o mesmo motivo da ficha: buscar a tabela de séries por rede ao
+        abrir o exercício faria a academia com sinal ruim virar problema de
+        produto. E é o que mantém o Ctrl+F do navegador achando o exercício
+        que está fechado.
+        """
+        total = self._total_de_exercicios()
+        esperado = sum(
+            item.sets
+            for s in self.plano.sessions.all()
+            for item in s.exercises.all()
+        )
+
+        self.assertEqual(self.html.count("exercise__ver"), total)
+        self.assertEqual(self.html.count('class="set-row '), esperado)
+        self.assertEqual(self.html.count('name="weight_kg"'), esperado)
+
+    def test_landing_on_an_exercise_anchor_opens_it(self):
+        """Sem isto, salvar carga sem JavaScript parece não ter salvado.
+
+        `record_load` responde JSON para quem chegou por `fetch`, mas o
+        caminho sem JavaScript continua existindo e termina em
+        `redirect(... + "#exercicio-<pk>")` — a âncora que devolve a pessoa ao
+        exercício em vez de jogá-la no topo da página.
+
+        Com o cartão fechado por padrão, essa âncora entrega um cartão
+        FECHADO: a carga foi para o banco e a tela não mostra nada. É
+        indistinguível de erro, e a resposta é tocar de novo.
+        """
+        self.assertIn("abrirPeloEndereco", self.html)
+        self.assertIn("location.hash", self.html)
+        self.assertIn('addEventListener("hashchange"', self.html)
+
+    def test_the_chevron_turns_when_the_exercise_opens(self):
+        """A seta é o estado. Sem ela virar, fechado e aberto ficam iguais no
+        cabeçalho, e o único aviso de que abriu é o conteúdo aparecer — que é
+        justamente o que sai da tela quando se fecha."""
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        bloco = css.split(".exercise[open] > .exercise__head .exercise__seta", 1)
+        self.assertEqual(len(bloco), 2, "a seta do exercício não gira ao abrir")
+        self.assertIn("rotate(180deg)", bloco[1].split("}", 1)[0])
+
+    def test_the_execution_button_rides_with_the_badges(self):
+        """"Ver execução" sobe para o cabeçalho, junto das etiquetas.
+
+        Fechado, o cartão passou a esconder o botão — e ver o movimento é
+        justamente o que se quer ANTES de decidir abrir e anotar. No cabeçalho
+        ele fica a um toque em qualquer estado, e sem custar linha: entra como
+        ícone ao lado da seta, com o nome do exercício no `aria-label`.
+
+        Um `<button>` dentro de `<summary>` é HTML válido, mas o toque nele
+        alternaria a sanfona junto — por isso o handler do drawer precisa
+        cortar o comportamento padrão.
+        """
+        cabecalho = self.html.split('<summary class="exercise__head"', 1)[1]
+        cabecalho = cabecalho.split("</summary>", 1)[0]
+        self.assertIn("exercise__ver", cabecalho)
+
+        # E o toque não pode abrir a sanfona junto com o drawer.
+        handler = self.html.split('closest("[data-clipe]")', 1)[1].split("});", 1)[0]
+        self.assertIn("preventDefault", handler)
+
+    def test_opening_one_exercise_closes_the_others(self):
+        """Seleção única, como na ficha da semana: só o exercício da vez fica
+        aberto.
+
+        É o que mantém a promessa da sanfona depois do primeiro toque. Sem
+        fechar o anterior, abrir três exercícios ao longo do treino devolve a
+        página comprida que a sanfona veio resolver — e a pessoa não fecha
+        manualmente, porque está no meio de uma série.
+        """
+        self.assertIn("[data-exercicio][open]", self.html)
+        self.assertIn("outro.open = false", self.html)
 
 
 class ExerciseFrameTests(TestCase):
