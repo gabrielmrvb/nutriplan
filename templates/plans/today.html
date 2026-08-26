@@ -114,6 +114,20 @@ coluna da direita), não entre ela e o almoço.
             <span class="agua__valor num">
               <b>{{ hidratacao_bebida }}</b> / {{ hidratacao_ml }} ml
             </span>
+            {% if agua_completa %}
+              {% comment %}
+                A comemoração aparece uma vez e fica parada. Nada que pulse
+                para sempre — foi exatamente o que o catálogo Impeccable
+                apontou na chama da ofensiva.
+              {% endcomment %}
+              <span class="pill pill--brand agua__feito">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                     aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>
+                meta batida
+              </span>
+            {% endif %}
+            {% include "plans/partials/_microfone.html" with rotulo="Registrar água por voz" %}
             {% if hidratacao_bebida %}
               <form method="post" action="{% url 'plans:log_hydration' %}" class="agua__zerar">
                 {% csrf_token %}
@@ -123,7 +137,8 @@ coluna da direita), não entre ela e o almoço.
             {% endif %}
           </div>
 
-          <div class="progress" role="img"
+          <div class="progress {% if agua_completa %}progress--completo{% endif %}"
+               role="img"
                aria-label="{{ hidratacao_pct }}% da meta de água">
             <span class="progress__fill progress__fill--agua"
                   style="width: {{ hidratacao_pct }}%"></span>
@@ -149,36 +164,20 @@ coluna da direita), não entre ela e o almoço.
         </div>
 
         {% comment %}
-          O microfone.
+          A proposta da voz, sem cartão.
 
-          Fica ao lado da água e antes do cardápio porque as duas coisas que
-          ele resolve são registrar bebida e marcar refeição — e as duas
-          acontecem com a mão ocupada, que é o motivo de existir entrada por
-          voz num app de dieta.
+          O microfone deixou de ser um bloco no topo e virou um ícone dentro
+          das áreas que ele preenche — água e cardápio. Um cartão de 140px
+          explicando o que dizer ocupava, todo dia, o espaço de uma refeição
+          inteira para um recurso que se usa uma vez por semana.
 
-          Nasce escondido: só aparece quando o JavaScript confirma que este
-          navegador tem reconhecimento de fala. Um botão de microfone que não
-          escuta é pior que a ausência dele.
+          Este bloco fica escondido e só aparece com a proposta pronta.
         {% endcomment %}
         <div class="voz" data-voz hidden
              data-csrf="{{ csrf_token }}"
              data-acao-voz="{% url 'plans:voice' %}"
              data-acao-agua="{% url 'plans:log_hydration' %}"
              data-acao-refeicao="{% url 'plans:mark_meal' 0 %}">
-          <button type="button" class="voz__botao" data-voz-ouvir>
-            <span class="voz__icone" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="9" y="2.5" width="6" height="11" rx="3"/>
-                <path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3.5"/>
-              </svg>
-            </span>
-            <span class="voz__rotulo" data-voz-rotulo>Registrar por voz</span>
-          </button>
-          <p class="voz__dica">
-            Diga <b>"300 ml de água"</b> ou <b>"comi frango no almoço"</b>.
-          </p>
-
           <form class="voz__proposta" method="post" data-voz-proposta hidden>
             {% csrf_token %}
             <p class="voz__frase" data-voz-frase></p>
@@ -192,51 +191,14 @@ coluna da direita), não entre ela e o almoço.
           </form>
         </div>
 
-        {% if suplementos %}
-          {% comment %}
-            O checklist de suplementos mora aqui e não na aba própria porque é
-            aqui que a pessoa entra todo dia. A aba é para ler sobre; isto é
-            para marcar — um toque, sem sair da tela.
-          {% endcomment %}
-          <div class="supl-rapido">
-            <span class="supl-rapido__rotulo">Suplementos de hoje</span>
-            <div class="supl-rapido__lista">
-              {% for linha in suplementos %}
-                <form method="post"
-                      action="{% url 'supplements:toggle' linha.supplement.pk %}">
-                  {% csrf_token %}
-                  <input type="hidden" name="next" value="{{ request.path }}">
-                  <button type="submit"
-                          class="supl-chip {% if linha.tomado %}is-on{% endif %}"
-                          aria-pressed="{% if linha.tomado %}true{% else %}false{% endif %}">
-                    <span class="supl-chip__marca" aria-hidden="true">
-                      {% if linha.tomado %}
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="m5 13 4 4L19 7"/>
-                        </svg>
-                      {% else %}
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="2.6" stroke-linecap="round">
-                          <path d="M12 5v14M5 12h14"/>
-                        </svg>
-                      {% endif %}
-                    </span>
-                    {{ linha.supplement.name }}
-                    <span class="supl-chip__dose num">{{ linha.dose }}</span>
-                  </button>
-                </form>
-              {% endfor %}
-            </div>
-            <a class="supl-rapido__link" href="{% url 'supplements:list' %}">
-              o que cada um faz
-            </a>
-          </div>
-        {% endif %}
+
 
         <div class="card__head">
           <h2>Seu cardápio de hoje</h2>
-          <a href="{% url 'plans:shopping' %}">Lista de compras</a>
+          <span class="card__head-acoes">
+            {% include "plans/partials/_microfone.html" with rotulo="Registrar refeição por voz" %}
+            <a href="{% url 'plans:shopping' %}">Lista de compras</a>
+          </span>
         </div>
 
         {% for slot in slots %}
@@ -636,17 +598,19 @@ coluna da direita), não entre ela e o almoço.
       /* Sem reconhecimento no navegador, o bloco simplesmente não aparece. Um
        * botão de microfone que não escuta é pior que a ausência dele. */
       if (!Reconhecimento) return;
-      caixa.hidden = false;
 
-      var botao = caixa.querySelector("[data-voz-ouvir]");
-      var rotulo = caixa.querySelector("[data-voz-rotulo]");
+      /* Os microfones são vários e ficam FORA deste bloco — um na linha da
+       * água, outro no cabeçalho do cardápio. Só aparecem aqui, depois de o
+       * navegador confirmar que sabe ouvir. */
+      var micros = document.querySelectorAll("[data-voz-ouvir]");
+      if (!micros.length) return;
+      micros.forEach(function (m) { m.hidden = false; });
+
       var proposta = caixa.querySelector("[data-voz-proposta]");
       var elFrase = caixa.querySelector("[data-voz-frase]");
       var elResumo = caixa.querySelector("[data-voz-resumo]");
-      var padrao = rotulo.textContent;
       var ouvindo = false;
-
-      function dizer(texto) { rotulo.textContent = texto; }
+      var atual = null;
 
       function limpar() {
         proposta.hidden = true;
@@ -666,6 +630,14 @@ coluna da direita), não entre ela e o almoço.
 
       function mostrar(dados) {
         limpar();
+        /* A proposta aparece logo abaixo do microfone que foi tocado, e não
+         * num lugar fixo da tela: com dois microfones em pontos distantes,
+         * um painel fixo obrigaria a pessoa a procurar a resposta do que
+         * acabou de falar. */
+        if (atual && atual.parentElement) {
+          atual.parentElement.insertAdjacentElement("afterend", caixa);
+        }
+        caixa.hidden = false;
         elFrase.textContent = "“" + dados.frase + "”";
 
         if (!dados.entendeu) {
@@ -702,17 +674,24 @@ coluna da direita), não entre ela e o almoço.
           credentials: "same-origin",
         })
           .then(function (r) { return r.json(); })
-          .then(mostrar)
+          .then(function (dados) {
+            if (atual) atual.classList.remove("is-pensando");
+            mostrar(dados);
+          })
           .catch(function () {
+            if (atual) atual.classList.remove("is-pensando");
             elFrase.textContent = "";
             elResumo.textContent = "Não deu para processar agora. Tente de novo.";
             elResumo.classList.add("voz__resumo--erro");
             proposta.hidden = false;
+            caixa.hidden = false;
           });
       }
 
-      botao.addEventListener("click", function () {
+      micros.forEach(function (micro) {
+      micro.addEventListener("click", function () {
         if (ouvindo) return;
+        atual = micro;
 
         var motor = new Reconhecimento();
         motor.lang = "pt-BR";
@@ -721,13 +700,12 @@ coluna da direita), não entre ela e o almoço.
 
         motor.onstart = function () {
           ouvindo = true;
-          caixa.classList.add("is-ouvindo");
-          dizer("Ouvindo…");
+          micro.classList.add("is-ouvindo");
         };
         motor.onresult = function (evento) {
-          var frase = evento.results[0][0].transcript;
-          dizer("Entendendo…");
-          entender(frase);
+          micro.classList.remove("is-ouvindo");
+          micro.classList.add("is-pensando");
+          entender(evento.results[0][0].transcript);
         };
         motor.onerror = function (evento) {
           /* `not-allowed` é a permissão negada, e merece texto próprio: o
@@ -741,22 +719,25 @@ coluna da direita), não entre ela e o almoço.
           elResumo.classList.add("voz__resumo--erro");
           proposta.querySelector('button[type="submit"]').hidden = true;
           proposta.hidden = false;
+          caixa.hidden = false;
         };
         motor.onend = function () {
           ouvindo = false;
-          caixa.classList.remove("is-ouvindo");
-          dizer(padrao);
+          micro.classList.remove("is-ouvindo");
         };
 
         limpar();
         proposta.hidden = true;
+        caixa.hidden = true;
         motor.start();
+      });
       });
 
       caixa.addEventListener("click", function (evento) {
         if (evento.target.closest("[data-voz-cancelar]")) {
           limpar();
           proposta.hidden = true;
+          caixa.hidden = true;
         }
       });
     })();

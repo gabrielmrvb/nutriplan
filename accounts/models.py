@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import time, timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -216,6 +216,75 @@ class Profile(models.Model):
         if self.onboarding_step >= ONBOARDING_DONE and self.onboarding_completed_at is None:
             self.onboarding_completed_at = timezone.now()
         self.save(update_fields=["onboarding_step", "onboarding_completed_at", "updated_at"])
+
+
+class SyncedOperation(models.Model):
+    """As operações que já foram aplicadas, para reenvio virar consulta.
+
+    Existe por causa de uma assimetria que só aparece quando o app passa a
+    funcionar sem rede: **duas das quatro escritas não são idempotentes**. Água
+    soma (`ml + ml`) e suplemento alterna. Uma fila que reenvia o que ficou
+    parado offline reenviaria essas duas também — e "+500 ml" reenviado duas
+    vezes registra um litro que ninguém bebeu, sem erro nenhum aparecer.
+
+    Não dá para resolver "tentando enviar só uma vez": a rede não oferece essa
+    garantia. Resolve-se do outro lado — o servidor lembra o que já aplicou,
+    por um identificador que o aparelho gera ANTES de enviar.
+
+    A chave é por pessoa e não global: o identificador nasce no navegador, e
+    dois aparelhos podem sortear o mesmo.
+    """
+
+    #: Depois disso, a chance de um reenvio ainda estar na fila é nula — e a
+    #: tabela cresce a cada marcação offline, num banco gratuito com limite de
+    #: tamanho.
+    VALIDADE_DIAS = 30
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="synced_operations",
+        verbose_name="usuário",
+    )
+    op_id = models.CharField("identificador da operação", max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "operação sincronizada"
+        verbose_name_plural = "operações sincronizadas"
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "op_id"), name="uma_operacao_por_pessoa"
+            )
+        ]
+        indexes = [models.Index(fields=["created_at"])]
+
+    def __str__(self):
+        return self.op_id
+
+    @classmethod
+    def ja_aplicada(cls, user, op_id) -> bool:
+        """Registra a operação e diz se ela JÁ tinha sido registrada.
+
+        Uma chamada só, e é de propósito: conferir e depois gravar abriria a
+        janela em que dois reenvios simultâneos passam os dois. O índice único
+        fecha essa janela — quem perde a corrida recebe `created=False`.
+        """
+        op_id = (op_id or "").strip()
+        # Sem identificador não há como saber se repetiu, e tratar o vazio como
+        # repetição travaria toda escrita vinda da tela normal.
+        if not op_id or len(op_id) > 64:
+            return False
+
+        _, criada = cls.objects.get_or_create(user=user, op_id=op_id)
+        return not criada
+
+    @classmethod
+    def podar(cls) -> int:
+        """Remove o que é velho demais para ainda estar numa fila."""
+        corte = timezone.now() - timedelta(days=cls.VALIDADE_DIAS)
+        removidas, _ = cls.objects.filter(created_at__lt=corte).delete()
+        return removidas
 
 
 class WeightEntry(models.Model):

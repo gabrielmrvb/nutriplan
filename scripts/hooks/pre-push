@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Trava de push: a suíte inteira.
+#
+# Aqui o custo se paga. Empurrar é o gesto que chega em produção — o deploy do
+# Render dispara sozinho —, então é o último ponto em que um teste vermelho
+# ainda é barato.
+set -o errexit
+set -o pipefail
+
+PY=".venv/Scripts/python.exe"
+[ -x "$PY" ] || PY="python"
+
+echo "→ suíte completa"
+"$PY" manage.py test --verbosity=1
+
+echo "✓ push liberado"

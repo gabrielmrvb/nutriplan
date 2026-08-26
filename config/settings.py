@@ -39,6 +39,21 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    # Comprime o HTML que o Django gera. O WhiteNoise comprime os ESTÁTICOS e
+    # só eles — a página de treino saía com 622 KB crus, medidos, porque
+    # renderiza a semana inteira com um ícone inline em cada linha de série.
+    # Comprimida: 32 KB. Numa rede de academia essa é a diferença entre abrir e
+    # desistir.
+    #
+    # DEPOIS do WhiteNoise, e não antes: o WhiteNoise precisa ficar colado no
+    # middleware de segurança para interceptar estático cedo, e assim arquivo
+    # estático nem chega aqui — ele já sai pré-comprimido por lá.
+    #
+    # Sobre o BREACH: o ataque explora comprimir um segredo estável ao lado de
+    # conteúdo que o atacante controla. O token CSRF do Django é remascarado a
+    # cada renderização justamente por isso, e nenhuma tela aqui reflete
+    # entrada de terceiro junto de segredo.
+    "django.middleware.gzip.GZipMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",

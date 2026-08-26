@@ -133,6 +133,7 @@ class ServiceWorkerView(TemplateView):
                 "shell": [
                     asset("css/app.css"),
                     asset("js/pwa.js"),
+                    asset("js/fila.js"),
                     static("icons/icon-192.png"),
                     static("icons/icon-512.png"),
                 ],

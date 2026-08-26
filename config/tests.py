@@ -20,6 +20,8 @@ from accounts.models import Profile
 from plans import calculations
 from workouts.models import TrainingPlan
 
+from plans.tests import create_complete_user
+
 RAIZ = Path(settings.BASE_DIR)
 
 
@@ -317,8 +319,40 @@ class ContrastTests(TestCase):
                         f"{nome} ({cor}) sobre {fundo} dá {razao:.2f}:1",
                     )
 
+    #: Fundos que NÃO são superfície neutra e mesmo assim recebem texto. A
+    #: ausência deles aqui foi uma lacuna real: medido na página renderizada,
+    #: `--text-mute` sobre `--brand-soft` dava 4,36:1 no chip do dia de treino
+    #: e no azulejo do drawer, e nenhum teste via.
+    TINGIDOS = ("--brand-soft", "--warm-soft", "--accent-soft", "--danger-soft")
+
     def test_dark_theme_text_is_readable_on_every_surface(self):
         self._conferir(":root {", "escuro")
+
+    def _conferir_tingidos(self, escopo, rotulo):
+        tokens = _tokens(self.css, escopo)
+        for nome_fundo in self.TINGIDOS:
+            fundo = tokens.get(nome_fundo)
+            if not fundo:
+                continue  # token aposentado
+            for nome in ("--text", "--text-dim"):
+                cor = tokens.get(nome)
+                if not cor:
+                    continue
+                with self.subTest(tema=rotulo, texto=nome, fundo=nome_fundo):
+                    razao = _contraste(cor, fundo)
+                    self.assertGreaterEqual(
+                        razao,
+                        self.MINIMO,
+                        f"{nome} sobre {nome_fundo} dá {razao:.2f}:1",
+                    )
+
+    def test_dark_theme_text_is_readable_on_tinted_backgrounds(self):
+        self._conferir_tingidos(":root {", "escuro")
+
+    def test_light_theme_text_is_readable_on_tinted_backgrounds(self):
+        self._conferir_tingidos(
+            "prefers-color-scheme: light) {" + chr(10) + "  :root {", "claro"
+        )
 
     def test_light_theme_text_is_readable_on_every_surface(self):
         """O tema claro estava pior que o escuro: 3.33:1 no texto discreto."""
@@ -624,3 +658,53 @@ class SingleUserAppTests(TestCase):
 
     def test_it_is_not_an_installed_app_anymore(self):
         self.assertNotIn("coach" + "ing", settings.INSTALLED_APPS)
+
+
+class ResponseCompressionTests(TestCase):
+    """O HTML gerado pelo Django precisa ir comprimido.
+
+    O WhiteNoise comprime os ESTÁTICOS e só eles. A página de treino saía com
+    622 KB crus — medidos — porque renderiza a semana inteira com um ícone
+    inline em cada linha de série. Comprimida, 32 KB. Numa rede de academia
+    essa é a diferença entre abrir e desistir.
+    """
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.client.force_login(self.user)
+
+    def test_the_middleware_is_installed_before_anything_writes_a_body(self):
+        gzip = "django.middleware.gzip.GZipMiddleware"
+        self.assertIn(gzip, settings.MIDDLEWARE)
+        self.assertLess(
+            settings.MIDDLEWARE.index(gzip),
+            settings.MIDDLEWARE.index("django.middleware.common.CommonMiddleware"),
+            "comprimir é a última coisa na saída, então vem cedo na lista",
+        )
+        # Depois do WhiteNoise: ele precisa ficar colado no middleware de
+        # segurança, e assim arquivo estático nem chega ao gzip — já sai
+        # pré-comprimido por lá.
+        self.assertGreater(
+            settings.MIDDLEWARE.index(gzip),
+            settings.MIDDLEWARE.index("whitenoise.middleware.WhiteNoiseMiddleware"),
+        )
+
+    def test_a_page_actually_comes_back_compressed(self):
+        resposta = self.client.get(
+            reverse("plans:today"), headers={"Accept-Encoding": "gzip"}
+        )
+        self.assertEqual(resposta.headers.get("Content-Encoding"), "gzip")
+
+    def test_compression_is_a_real_saving_and_not_a_header(self):
+        url = reverse("plans:today")
+        cru = len(self.client.get(url).content)
+        comprimido = len(
+            self.client.get(url, headers={"Accept-Encoding": "gzip"}).content
+        )
+        self.assertLess(comprimido, cru / 2, "a compressão não está economizando")
+
+    def test_a_client_that_cannot_decompress_still_gets_the_page(self):
+        resposta = self.client.get(reverse("plans:today"))
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertNotIn("Content-Encoding", resposta.headers)

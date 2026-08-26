@@ -15,26 +15,26 @@ from . import assistant, health_export, services
 from .models import Exercise, MuscleGroup, SessionExercise, TrainingSession
 
 
-def week_overview(plan) -> list:
+def week_overview(sessions) -> list:
     """Os sete dias da semana, marcando quais têm treino.
 
     A semana inteira, e não só os dias de treino, porque é a visão que responde
     a pergunta que a pessoa faz de manhã: "hoje eu treino o quê?" — e "hoje é
     descanso" é uma resposta tão útil quanto o nome do treino.
     """
-    sessions = {session.weekday: session for session in plan.sessions.all()}
+    por_dia = {session.weekday: session for session in sessions}
     return [
         {
             "weekday": weekday,
             "short": label[:3],
             "label": label,
-            "session": sessions.get(weekday),
+            "session": por_dia.get(weekday),
         }
         for weekday, label in Weekday.choices
     ]
 
 
-def muscle_volume(plan) -> list:
+def muscle_volume(sessions) -> list:
     """Séries semanais por grupo muscular.
 
     É o número que diz se a rotina está equilibrada: 10 a 20 séries por semana
@@ -42,8 +42,14 @@ def muscle_volume(plan) -> list:
     isso visível é o que permite a pessoa perceber sozinha que está fazendo
     quinze séries de bíceps e três de posterior.
     """
+    # Recebe as sessões JÁ carregadas, e não o plano.
+    #
+    # Com o plano, `plan.sessions.all()` abria um queryset novo — sem o
+    # prefetch que a view tinha acabado de montar — e cada `item.exercise`
+    # virava uma consulta. Medido com um ano de dados: 44 idas ao banco só
+    # daqui, num total de 66 da página.
     totals = {}
-    for session in plan.sessions.all():
+    for session in sessions:
         for item in session.exercises.all():
             grupo = item.exercise.muscle_group
             totals[grupo] = totals.get(grupo, 0) + item.sets
@@ -129,8 +135,8 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
                 "nav": "workout",
                 "plan": plan,
                 "sessions": sessions,
-                "week": week_overview(plan),
-                "volume": muscle_volume(plan),
+                "week": week_overview(sessions),
+                "volume": muscle_volume(sessions),
                 "total_sets": sum(session.total_sets for session in sessions),
                 # O resumo do que foi feito HOJE alimenta duas coisas: o card
                 # de compartilhamento e a exportação para o app de saúde. Sai

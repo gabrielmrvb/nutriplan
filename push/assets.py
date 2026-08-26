@@ -26,7 +26,7 @@ from django.templatetags.static import static
 
 #: Arquivos que participam da versão. São os que descrevem a aparência e o
 #: comportamento do app — os que precisam chegar juntos com o HTML.
-VERSIONED = ("css/app.css", "js/pwa.js")
+VERSIONED = ("css/app.css", "js/pwa.js", "js/fila.js")
 
 #: {caminho: (assinatura do stat, hash do conteúdo)}
 _cache = {}

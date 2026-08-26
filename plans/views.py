@@ -13,7 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.generic import TemplateView, View
 
-from accounts.models import ACTIVITY_FACTORS
+from accounts.models import ACTIVITY_FACTORS, SyncedOperation
 from accounts.views import OnboardingRequiredMixin
 from catalog.models import Food
 
@@ -33,18 +33,6 @@ from .calculations import (
     activity_factor,
 )
 from .models import HydrationLog, MealOption, MealSlot, MealStatus, OptionLabel
-
-
-def supplement_checklist(user, dia):
-    """As pílulas rápidas de suplemento do dia.
-
-    Import dentro da função de propósito: `supplements.views` importa
-    `accounts.views`, que importa deste módulo. No topo, os três se esperariam
-    em círculo na carga.
-    """
-    from supplements.views import checklist
-
-    return checklist(user, dia)
 
 
 def proteina_perdida(slots) -> dict:
@@ -261,10 +249,10 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 "hidratacao_pct": (
                     min(100, int(bebido * 100 / meta_agua)) if meta_agua else 0
                 ),
+                "agua_completa": bool(meta_agua) and bebido >= meta_agua,
                 "ofensiva": streaks.calcular(
                     self.request.user, hoje=today, meta_agua_ml=meta_agua
                 ),
-                "suplementos": supplement_checklist(self.request.user, today),
                 "proteina_perdida": proteina_perdida(slots),
                 "nav": "today",
                 "training_days": self.request.user.training_days.all(),
@@ -514,6 +502,11 @@ class LogHydrationView(OnboardingRequiredMixin, View):
         )
         if not valido:
             messages.error(request, "Quantidade de água inválida.")
+            return redirect("plans:today")
+
+        # Água SOMA, então reenviar aplica de novo. A trava transforma o
+        # reenvio da fila offline numa consulta.
+        if SyncedOperation.ja_aplicada(request.user, request.POST.get("op_id")):
             return redirect("plans:today")
 
         hoje = timezone.localdate()

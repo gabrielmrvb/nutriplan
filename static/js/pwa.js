@@ -263,4 +263,22 @@
     }
   }
 
+  /* Sair da conta leva as páginas em cache junto.
+   *
+   * O cache de navegação guarda HTML autenticado — nome, peso, dieta e treino
+   * da pessoa. Num aparelho compartilhado, deixar isso para trás depois de sair
+   * seria entregar o dado ao próximo que abrir o app sem senha nenhuma.
+   *
+   * Só o cache de PÁGINAS é apagado. CSS e ícones ficam: não têm nada pessoal,
+   * e derrubá-los faria a próxima abertura baixar tudo de novo.
+   *
+   * Roda sempre que a tela abre sem sessão — o que cobre sair pelo botão,
+   * a sessão vencer e o token ser invalidado do outro lado. */
+  if (document.body && document.body.dataset.autenticado === "0" && window.caches) {
+    caches.keys().then(function (nomes) {
+      nomes.filter(function (n) { return n.indexOf("-paginas") !== -1; })
+           .forEach(function (n) { caches.delete(n); });
+    });
+  }
+
 })();

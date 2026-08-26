@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import TemplateView, View
 
+from accounts.models import SyncedOperation
 from accounts.views import OnboardingRequiredMixin
 
 from .models import Supplement, SupplementLog
@@ -63,6 +64,12 @@ class ToggleSupplementView(OnboardingRequiredMixin, View):
         suplemento = get_object_or_404(
             Supplement, pk=supplement_id, is_active=True
         )
+        # Marcar ALTERNA, então reenviar desfaz. Sem a trava, a fila offline
+        # desmarcaria o que a pessoa marcou — e ela veria o contrário do que fez.
+        destino = request.POST.get("next") or reverse("plans:today")
+        if SyncedOperation.ja_aplicada(request.user, request.POST.get("op_id")):
+            return redirect(destino)
+
         hoje = timezone.localdate()
 
         registro = SupplementLog.objects.filter(
@@ -75,5 +82,4 @@ class ToggleSupplementView(OnboardingRequiredMixin, View):
                 user=request.user, supplement=suplemento, date=hoje
             )
 
-        destino = request.POST.get("next") or reverse("plans:today")
         return redirect(destino)

@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Trava de commit: rápida de propósito.
+#
+# A suíte completa leva quase três minutos. Um hook de três minutos é um hook
+# que se começa a pular com `--no-verify` na segunda semana — e uma trava que
+# se pula não é trava. Aqui ficam só as conferências que custam segundos e
+# pegam o erro que passa despercebido na revisão:
+#
+#   1. migração faltando  — quebra o deploy, não o teste
+#   2. alvos de toque     — mede altura E largura; 26px de largura com 44 de
+#                           altura já passou por aqui uma vez
+#   3. regras de estilo   — as do catálogo Impeccable travadas em teste
+#
+# A suíte inteira roda no `pre-push`, que é onde o custo se paga.
+set -o errexit
+set -o pipefail
+
+PY=".venv/Scripts/python.exe"
+[ -x "$PY" ] || PY="python"
+
+echo "→ migrações pendentes"
+"$PY" manage.py makemigrations --check --dry-run --no-input >/dev/null
+
+echo "→ alvos de toque e regras de estilo"
+"$PY" manage.py test \
+  config.tests.TouchTargetTests \
+  config.tests.ContrastTests \
+  config.tests.MotionTests \
+  config.tests.PillContrastTests \
+  config.tests.CustomPropertyTests \
+  workouts.tests.ImpeccableStyleTests \
+  --verbosity=0
+
+echo "✓ commit liberado (a suíte completa roda no push)"

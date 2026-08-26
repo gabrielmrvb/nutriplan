@@ -23,6 +23,12 @@
  * O caminho sem versão continua revalidando, porque aí a URL não promete nada.
  */
 const CACHE = "{{ cache_version }}";
+/* As páginas ficam num cache SEPARADO, e a separação é de privacidade, não de
+   organização: HTML autenticado carrega o nome, o peso e a dieta da pessoa.
+   Num aparelho compartilhado, sair da conta precisa levar isso embora — e
+   levar só isso, sem derrubar o cache de CSS e ícones que não tem nada
+   pessoal. Quem apaga é o pwa.js, ao ver que ninguém está autenticado. */
+const CACHE_PAGINAS = "{{ cache_version }}-paginas";
 const VERSAO = "{{ asset_version }}";
 const OFFLINE_URL = "{{ offline_url }}";
 const SHELL = [OFFLINE_URL{% for asset in shell %}, "{{ asset }}"{% endfor %}];
@@ -102,7 +108,26 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)));
+    /* Rede primeiro, e o que voltar fica guardado. Sem rede, a própria página
+       de ontem é servida — o que muda o app de "não abre" para "abre com o
+       dado de ontem", que é a diferença entre inútil e útil no metrô.
+
+       A tela de offline continua existindo para o caso de nunca ter visitado
+       aquela página. */
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copia = response.clone();
+            caches.open(CACHE_PAGINAS).then((c) => c.put(request, copia));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(request, { cacheName: CACHE_PAGINAS })
+            .then((cached) => cached || caches.match(OFFLINE_URL))
+        )
+    );
     return;
   }
 
@@ -168,4 +193,80 @@ self.addEventListener("notificationclick", (event) => {
       return self.clients.openWindow(url);
     })
   );
+});
+
+
+/* Drenagem em segundo plano.
+ *
+ * Duplica a leitura da fila que o `fila.js` faz, e a duplicação é consciente:
+ * é o preço de o reenvio funcionar com a aba fechada. A alternativa — acordar
+ * um cliente para ele drenar — só ajuda quando existe cliente aberto, que é
+ * quase o mesmo que o evento `online` já cobre.
+ *
+ * Não existe no Safari do iPhone. Lá o caminho é o `online` do `fila.js`, e é
+ * por isso que ele é o mecanismo principal e este é o bônus.
+ */
+const FILA_BANCO = "nutriplan-fila";
+const FILA_LOJA = "pendentes";
+
+function abrirFila() {
+  return new Promise((resolve, reject) => {
+    const pedido = indexedDB.open(FILA_BANCO, 1);
+    pedido.onsuccess = () => resolve(pedido.result);
+    pedido.onerror = () => reject(pedido.error);
+  });
+}
+
+function itensDaFila(db) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(FILA_LOJA, "readonly");
+    const pedido = tx.objectStore(FILA_LOJA).getAll();
+    pedido.onsuccess = () => resolve(pedido.result || []);
+    pedido.onerror = () => reject(pedido.error);
+  });
+}
+
+function removerDaFila(db, id) {
+  return new Promise((resolve) => {
+    const tx = db.transaction(FILA_LOJA, "readwrite");
+    tx.objectStore(FILA_LOJA).delete(id);
+    tx.oncomplete = resolve;
+    tx.onerror = resolve;
+  });
+}
+
+async function drenarFila() {
+  let db;
+  try {
+    db = await abrirFila();
+  } catch (e) {
+    return;
+  }
+  const itens = await itensDaFila(db);
+  for (const item of itens) {
+    try {
+      const resposta = await fetch(item.url, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-Requested-With": "fetch",
+        },
+        body: new URLSearchParams(item.dados),
+      });
+      /* 4xx sai da fila: reenviar não conserta conteúdo recusado, e manter
+         faria a pessoa carregar para sempre algo que nunca vai passar. */
+      if (resposta.ok || (resposta.status >= 400 && resposta.status < 500)) {
+        await removerDaFila(db, item.op_id);
+      }
+    } catch (e) {
+      /* Rede caiu de novo: fica para a próxima tentativa. */
+      break;
+    }
+  }
+  db.close();
+}
+
+self.addEventListener("sync", (event) => {
+  if (event.tag === "nutriplan-fila") event.waitUntil(drenarFila());
 });

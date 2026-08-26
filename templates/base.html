@@ -30,7 +30,8 @@
   levanta o convite acima da navegação some, e ele passa a cobrir os atalhos.
   Quem sabe se a barra existe é o template, então é o template que conta.
 {% endcomment %}
-<body class="{% if user.is_authenticated %}tem-tabbar{% endif %}">
+<body class="{% if user.is_authenticated %}tem-tabbar{% endif %}"
+      data-autenticado="{% if user.is_authenticated %}1{% else %}0{% endif %}">
   {% block header %}
     <header class="app-bar">
       <a class="app-bar__brand" href="{% url 'plans:today' %}">
@@ -71,6 +72,24 @@
   </main>
 
   {% if user.is_authenticated %}
+    {% comment %}
+      A faixa de pendências da fila offline.
+
+      Nasce escondida e só aparece quando há algo esperando rede. Marcar sem
+      conexão e não ver retorno nenhum é indistinguível de não ter funcionado —
+      e aí a pessoa toca de novo, enfileirando duas vezes.
+    {% endcomment %}
+    <div class="fila" data-fila hidden role="status" aria-live="polite">
+      <span class="fila__icone" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12a8 8 0 0 1 13.7-5.7L20 8"/><path d="M20 4v4h-4"/>
+          <path d="M20 12a8 8 0 0 1-13.7 5.7L4 16"/><path d="M4 20v-4h4"/>
+        </svg>
+      </span>
+      <span class="fila__texto" data-fila-texto></span>
+    </div>
+
     {% comment %}
       Navegação inferior: os cinco destinos do app a um polegar de distância.
       Só aparece no celular — no desktop os mesmos links ficam na barra de cima.
@@ -156,5 +175,13 @@
 
   <script>window.NUTRIPLAN_VAPID_KEY = "{{ vapid_public_key }}";</script>
   <script src="{{ app_js_url }}" defer></script>
+  {% if user.is_authenticated %}
+    {% comment %}
+      A fila de escritas offline. Só para quem está autenticado: as quatro
+      rotas que ela cobre exigem sessão, e enfileirar algo que vai voltar 302
+      para o login é encher a fila de lixo.
+    {% endcomment %}
+    <script src="{{ fila_js_url }}" defer></script>
+  {% endif %}
 </body>
 </html>
