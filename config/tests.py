@@ -572,3 +572,15 @@ class SingleUserAppTests(TestCase):
         css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
         bloco = css.split("\n.tabbar {", 1)[1].split("}", 1)[0]
         self.assertIn("repeat(4, 1fr)", bloco)
+
+    def test_the_package_is_gone_from_the_disk(self):
+        """Etapa 2 da remoção.
+
+        A etapa 1 manteve `coaching/migrations/` vivo por um deploy para o
+        `migrate` derrubar as tabelas em produção — um app apagado do disco não
+        roda migração nenhuma. Confirmado o deploy, a pasta saiu.
+        """
+        self.assertFalse((RAIZ / ("coach" + "ing")).exists())
+
+    def test_it_is_not_an_installed_app_anymore(self):
+        self.assertNotIn("coach" + "ing", settings.INSTALLED_APPS)

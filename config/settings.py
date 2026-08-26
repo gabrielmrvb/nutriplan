@@ -32,11 +32,6 @@ INSTALLED_APPS = [
     "catalog",
     "plans",
     "workouts",
-    # Removido: sobrevive um deploy só para o `migrate` encontrar a migração
-    # que derruba as tabelas do módulo. Sai daqui e do disco no commit
-    # seguinte — um app apagado nunca roda migração nenhuma, e o schema
-    # ficaria órfão em produção para sempre.
-    "coaching",
     "push",
 ]
 
