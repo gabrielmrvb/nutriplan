@@ -535,6 +535,245 @@ class MotionTests(TestCase):
                     f"{regra} anima sem saída para quem pediu menos movimento",
                 )
 
+def _sem_comentario(css):
+    """O CSS sem os blocos de comentário.
+
+    Não é frescura: um comentário deste arquivo explica um bug citando
+    `.install[hidden] { display: none }` no meio do texto. Qualquer varredura
+    que conte chaves sem tirar os comentários antes lê essa frase como regra e
+    passa a analisar o arquivo desalinhado a partir dali.
+    """
+    return re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+
+def _regras(css):
+    """(seletor, corpo) de cada regra folha — as que não aninham outras.
+
+    O padrão só casa corpo SEM chave dentro, então uma `@media` nunca casa
+    como regra: o que casa são as regras de dentro dela, que é justamente o
+    que interessa aqui. O seletor começa depois da chave de abertura da
+    `@media`, porque o grupo do seletor também não pode atravessar chave.
+    """
+    for achado in re.finditer(r"([^{}]+)\{([^{}]*)\}", _sem_comentario(css)):
+        yield achado.group(1).strip(), achado.group(2)
+
+
+class VisualRefinementTests(TestCase):
+    """O acabamento do refinamento visual, travado contra a próxima regressão.
+
+    Nada aqui inventa regra nova: cada teste é uma inconsistência que existia
+    de verdade neste arquivo e que ninguém via, porque nenhuma delas quebra
+    nada — só faz a interface parecer montada por gente diferente em semanas
+    diferentes, que é exatamente o que o cabeçalho do CSS diz querer evitar.
+    """
+
+    def setUp(self):
+        self.css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+
+    def test_no_corner_is_written_in_a_raw_value(self):
+        """Quatro quinas em pixel solto, e cada uma de um valor diferente.
+
+        O selo da barra estava em 10px, o logo do entrar em 16px, o ícone do
+        cartão de escolha em .75rem e o do convite em .7rem. São a mesma
+        família visual — quadradinho com ícone dentro — e tinham quatro raios.
+        Ninguém escolheu isso; cada um foi escrito no dia em que o componente
+        nasceu. Token não é purismo, é o que faz a quarta peça nascer certa.
+        """
+        cruas = []
+        for i, linha in enumerate(_sem_comentario(self.css).splitlines(), 1):
+            despido = linha.strip()
+            if not despido.startswith("border-radius:"):
+                continue
+            valor = despido.split(":", 1)[1].strip().rstrip(";")
+            # `50%` é círculo e `inherit` copia de quem manda: os dois são a
+            # forma, não uma medida escolhida a olho.
+            if "var(--" in valor or valor in ("50%", "inherit"):
+                continue
+            cruas.append("linha %d: %s" % (i, valor))
+
+        self.assertEqual(cruas, [], "raio fora dos tokens: %s" % cruas)
+
+    def test_the_primary_button_only_glows_under_the_finger(self):
+        """O halo do botão primário mora no estado, não no repouso.
+
+        `dark-glow` do catálogo Impeccable proíbe o halo em repouso, e
+        `ImpeccableStyleTests` já guarda esse lado. Falta o outro: quando o
+        halo saiu do repouso ele quase saiu inteiro, e o botão ficou sem
+        NENHUM retorno de cor ao toque — só o afundamento de 2%, que o próprio
+        dedo cobre. Sob o dedo o brilho é informação; é ali que ele fica.
+        """
+        repouso = self.css.split(chr(10) + ".btn--primary {", 1)[1].split("}", 1)[0]
+        self.assertNotIn("box-shadow", repouso, "o halo voltou para o repouso")
+
+        for estado in (":hover", ":active", ":focus-visible"):
+            with self.subTest(estado=estado):
+                self.assertIn(".btn--primary%s" % estado, self.css)
+
+        sob_o_dedo = self.css.split(
+            chr(10) + ".btn--primary:focus-visible", 1
+        )[1].split("}", 1)[0]
+        self.assertIn("var(--halo)", sob_o_dedo)
+
+    def test_every_active_state_speaks_the_same_halo(self):
+        """Quatro anéis de marca escritos à mão, com quatro opacidades.
+
+        A aba atual tinha 22%, o link da barra 22% mas `inset`, a refeição
+        feita 12%, e o cartão de escolha o anel de marca CHEIA — o estado mais
+        forte do app inteiro estava num formulário de onboarding. São quatro
+        respostas para a mesma pergunta ("o que marca o que está ativo"), e a
+        pessoa que usa o app vê as quatro na mesma sessão.
+        """
+        for seletor in (
+            ".app-bar__link.is-active",
+            ".tabbar__item.is-active",
+            ".meal--done",
+            ".option[open]",
+            ".set-row--done .set-row__label",
+            ".choice-card__input:checked ~ .choice-card__frame",
+        ):
+            with self.subTest(seletor=seletor):
+                bloco = self.css.split(chr(10) + seletor, 1)[1].split("}", 1)[0]
+                self.assertIn("var(--halo)", bloco)
+
+        # E nenhum anel de marca escrito à mão sobrou. A única ocorrência que
+        # pode existir é a definição do próprio token.
+        mao = re.findall(r"0 0 0 1px (?:var\(--brand\)|color-mix\(in srgb, var\(--brand\))", self.css)
+        self.assertEqual(len(mao), 1, "anel de marca escrito à mão fora do token")
+
+    def test_the_sunken_blocks_get_their_outline_from_inside(self):
+        """Contorno por dentro, porque o de fora empurraria a grade.
+
+        O azulejo, a célula da equação, o chip do dia e o resultado da refeição
+        pousam em `--surface-2` sem borda nenhuma. No escuro, dois grafites
+        vizinhos viram um só — o bloco some no cartão. Uma borda de verdade
+        resolveria e custaria 2px em cada eixo, mexendo numa grade que já está
+        certa; `inset` desenha o mesmo fio sem ocupar espaço algum.
+        """
+        for seletor in (".tile", ".equation__cell", ".day-chip", ".meal__result"):
+            with self.subTest(seletor=seletor):
+                bloco = self.css.split(chr(10) + seletor + " {", 1)[1].split("}", 1)[0]
+                self.assertIn("var(--inlay)", bloco)
+                self.assertNotIn(
+                    "border:", bloco, "%s ganhou borda e empurrou a grade" % seletor
+                )
+
+    def test_every_touch_transition_shares_the_duration_and_the_curve(self):
+        """Treze declarações carregavam `.15s` cru, sem a curva.
+
+        A seção dos botões já diz, por escrito: "Tudo que reage ao dedo reage
+        no mesmo tempo. Sem esta lista cada componente carregava a própria
+        duração, e a interface parecia montada por gente diferente em semanas
+        diferentes." A lista existia. Treze regras nunca entraram nela — e
+        `.15s` sem curva é aceleração linear, que o olho lê como travada.
+
+        Ficam de fora as duas que não são resposta a toque: a barra de macro,
+        que é dado crescendo, e o cronômetro, que é relógio andando.
+        """
+        RELOGIO = ("width 1s linear",)
+        soltas = []
+        for declaracao in re.findall(r"transition:[^;]*;", _sem_comentario(self.css)):
+            corpo = " ".join(declaracao.split())
+            if corpo == "transition: none;":
+                continue
+            for parte in corpo[len("transition:"):].rstrip(";").split(","):
+                parte = parte.strip()
+                if parte in RELOGIO or parte.endswith("var(--ease)"):
+                    continue
+                soltas.append(parte)
+
+        self.assertEqual(soltas, [], "transições fora de --dur/--ease: %s" % soltas)
+
+    def test_every_press_state_has_a_way_out_of_the_movement(self):
+        """Oito estados de toque nasceram depois da lista e nunca entraram nela.
+
+        `.agua__botao`, `.voz-mic`, `.reps__passo`, `.supl__marcar`,
+        `.copiar-cargas` e os três do assistente encolhiam 2% sob o dedo mesmo
+        para quem desligou animação no sistema — quem liga essa opção costuma
+        ter motivo clínico. O teste que existia olhava três nomes escritos à
+        mão, então crescia junto com o problema em vez de pegá-lo: este varre
+        o arquivo e cobra saída para TODO seletor que encolhe.
+        """
+        encolhem, saem = set(), set()
+        for seletor, corpo in _regras(self.css):
+            alvo = encolhem if "transform: scale(" in corpo else (
+                saem if "transform: none" in corpo else None
+            )
+            if alvo is None:
+                continue
+            alvo.update(p.strip() for p in seletor.split(",") if ":active" in p)
+
+        self.assertTrue(encolhem, "ninguém mais encolhe sob o dedo?")
+        orfaos = sorted(encolhem - saem)
+        self.assertEqual(orfaos, [], "encolhem sem saída: %s" % orfaos)
+
+    def test_the_tab_transition_is_drawn_and_not_the_browser_default(self):
+        """`navigation: auto` sozinho entrega o cross-fade genérico.
+
+        As duas páginas trocam de opacidade no mesmo instante e o olho não sabe
+        qual chegou. Desenhada, a que sai some primeiro e a que entra vem atrás
+        subindo seis pixels — o suficiente para registrar QUE algo chegou, e
+        longe do slide de apresentação. Seis pixels em `translateY` porque é
+        uma das duas propriedades que o navegador anima sem refazer layout.
+        """
+        self.assertIn("@view-transition { navigation: auto; }", self.css)
+
+        for regra in ("::view-transition-old(root)", "::view-transition-new(root)"):
+            with self.subTest(regra=regra):
+                self.assertIn(regra, self.css)
+
+        for nome in ("aba-sai", "aba-entra"):
+            with self.subTest(quadro=nome):
+                self.assertIn("@keyframes %s" % nome, self.css)
+
+        # A saída: quem pediu menos movimento não atravessa ponte nenhuma.
+        trechos = self.css.split("prefers-reduced-motion")
+        self.assertTrue(
+            any("::view-transition-new(root)" in t.split("}\n}", 1)[0] for t in trechos[1:]),
+            "a ponte entre abas anima sem saída para quem pediu menos movimento",
+        )
+
+    def test_the_quiet_text_clears_the_minimum_with_room_to_spare(self):
+        """4,5:1 é piso de legibilidade, não alvo de projeto.
+
+        `--text-mute` estava em 4,67:1 no pior fundo neutro e em 4,36:1 sobre
+        `--brand-soft` — abaixo do mínimo, num tom que carrega o alvo da
+        refeição e o rodapé do chip do dia. Nenhum teste via: `ContrastTests`
+        mede os fundos tingidos só contra `--text` e `--text-dim`, e o buraco
+        era exatamente o terceiro tom.
+
+        Em OLED com brilho baixo — o app é aberto na academia e de madrugada —
+        "passa raspando" se lê como texto apagado. 5,0 é a margem que separa
+        legível de tecnicamente aprovado.
+        """
+        MARGEM = 5.0
+        for escopo, rotulo in (
+            (":root {", "escuro"),
+            ("prefers-color-scheme: light) {" + chr(10) + "  :root {", "claro"),
+        ):
+            tokens = _tokens(self.css, escopo)
+            fundos = [
+                (nome, tokens[nome])
+                for nome in (
+                    "--bg",
+                    "--surface",
+                    "--surface-2",
+                    "--surface-3",
+                    "--brand-soft",
+                    "--warm-soft",
+                    "--danger-soft",
+                )
+                if nome in tokens
+            ]
+            for texto in ("--text-dim", "--text-mute"):
+                for nome_fundo, fundo in fundos:
+                    with self.subTest(tema=rotulo, texto=texto, fundo=nome_fundo):
+                        razao = _contraste(tokens[texto], fundo)
+                        self.assertGreaterEqual(
+                            razao,
+                            MARGEM,
+                            "%s sobre %s dá %.2f:1" % (texto, nome_fundo, razao),
+                        )
+
 class BuildScriptTests(TestCase):
     """O que o deploy precisa rodar.
 
