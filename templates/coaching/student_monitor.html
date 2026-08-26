@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}{{ aluno.get_full_name|default:aluno.email }} · NutriPlan{% endblock %}
+{% block container_class %}painel{% endblock %}
+
+{% block content %}
+  {% include "coaching/_abas.html" %}
+
+  <div class="stack">
+    {% comment %}
+      Peso primeiro. É o número que o aluno mais olha e o único que responde
+      "está funcionando?" — as outras duas seções existem para explicar por quê.
+    {% endcomment %}
+    <section class="card">
+      <div class="card__head">
+        <h2>Média semanal de peso</h2>
+        {% if peso.tendencia.direcao %}
+          <span class="pill {% if peso.tendencia.direcao == 'estável' %}pill--warm{% else %}pill--brand{% endif %}">
+            {{ peso.tendencia.direcao }}
+            {% if peso.tendencia.variacao_semanal %}
+              <span class="num">{{ peso.tendencia.variacao_semanal }} kg</span>
+            {% endif %}
+          </span>
+        {% endif %}
+      </div>
+
+      {% if peso.tem_dados %}
+        {% comment %}
+          Barras desenhadas com altura percentual, sem biblioteca de gráfico.
+          A escala começa no menor peso do período e não no zero: numa escala a
+          partir do zero, 82 kg e 85 kg são a mesma barra e o gráfico não diz
+          nada. A linha de meta, quando existe, atravessa na mesma escala.
+        {% endcomment %}
+        <div class="grafico" role="img"
+             aria-label="Média semanal de peso das últimas {{ peso.semanas|length }} semanas">
+          {% if peso.meta_altura %}
+            <span class="grafico__meta" style="bottom: {{ peso.meta_altura }}%">
+              <span class="grafico__meta-rotulo num">meta {{ peso.meta_kg }} kg</span>
+            </span>
+          {% endif %}
+          {% for semana in peso.semanas %}
+            <span class="grafico__coluna">
+              <span class="grafico__valor num">{{ semana.media }}</span>
+              <span class="grafico__barra" style="height: {{ semana.altura }}%"></span>
+              <span class="grafico__rotulo num">{{ semana.inicio|date:"d/m" }}</span>
+            </span>
+          {% endfor %}
+        </div>
+
+        {% if peso.tendencia.semanas_paradas >= 2 %}
+          <p class="pulou">
+            <span class="pulou__icone" aria-hidden="true">
+              {% include "coaching/_icone.html" with nome="grafico" %}
+            </span>
+            <span>
+              A média não se mexe há
+              <b class="num">{{ peso.tendencia.semanas_paradas }}</b> semanas.
+              {% if link.pode_dieta %}
+                Vale recalibrar as metas na aba Dieta.
+              {% else %}
+                O nutricionista dele consegue recalibrar as metas.
+              {% endif %}
+            </span>
+          </p>
+        {% endif %}
+      {% else %}
+        <p class="muted">
+          Sem pesagem registrada ainda. Faltam
+          <b class="num">{{ peso.tendencia.faltam_registros }}</b>
+          para a média semanal começar a valer.
+        </p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <div class="card__head">
+        <h2>Aderência aos macros</h2>
+        <span class="muted">últimos 14 dias</span>
+      </div>
+
+      {% if dieta.total %}
+        <div class="tiles">
+          <div class="tile">
+            <strong class="tile__value">{{ dieta.dentro }}</strong>
+            <span class="tile__label">dentro</span>
+            <span class="tile__meta">± 10% da meta</span>
+          </div>
+          <div class="tile">
+            <strong class="tile__value">{{ dieta.abaixo }}</strong>
+            <span class="tile__label">abaixo</span>
+            <span class="tile__meta">comeu menos</span>
+          </div>
+          <div class="tile">
+            <strong class="tile__value">{{ dieta.acima }}</strong>
+            <span class="tile__label">acima</span>
+            <span class="tile__meta">comeu mais</span>
+          </div>
+        </div>
+
+        <ul class="dias">
+          {% for dia in dieta.dias %}
+            <li class="dia dia--{{ dia.situacao }}">
+              <span class="dia__data num">{{ dia.data|date:"d/m" }}</span>
+              <span class="dia__kcal num">{{ dia.kcal }} kcal</span>
+              <span class="dia__desvio num">
+                {% if dia.situacao != 'vazio' %}
+                  {% if dia.desvio_pct > 0 %}+{% endif %}{{ dia.desvio_pct }}%
+                {% endif %}
+              </span>
+              <span class="dia__refeicoes num">
+                {{ dia.cumpridas }}/{{ dia.marcadas }}
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Nenhuma refeição marcada nos últimos 14 dias.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <div class="card__head">
+        <h2>Treinos concluídos</h2>
+        <span class="muted">volume = séries × reps × carga</span>
+      </div>
+
+      {% if sessoes %}
+        <ul class="sessoes">
+          {% for sessao in sessoes %}
+            <li class="sessao">
+              <span class="sessao__data num">{{ sessao.data|date:"d/m" }}</span>
+              <span class="sessao__volume num">{{ sessao.volume_kg }} kg</span>
+              <span class="sessao__detalhe num">
+                {{ sessao.exercicios }} ex · {{ sessao.series }} séries
+              </span>
+              {% if sessao.delta %}
+                <span class="pill {% if sessao.delta > 0 %}pill--brand{% else %}pill--warm{% endif %}">
+                  {% if sessao.delta > 0 %}+{% endif %}<span class="num">{{ sessao.delta }}</span>
+                </span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Nenhuma carga registrada ainda.</p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

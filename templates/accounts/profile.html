@@ -88,6 +88,23 @@
           <p class="empty-state">Nenhuma pesagem registrada.</p>
         {% endif %}
       </section>
+
+      {% comment %}
+        Quem acompanha você fica no perfil, e não escondido num submenu de
+        configurações: é a única tela do app em que outra pessoa tem poder
+        sobre estes dados, e quem concede acesso precisa achar a revogação sem
+        procurar.
+      {% endcomment %}
+      <section class="card">
+        <div class="card__head">
+          <h2>Quem acompanha você</h2>
+          <a href="{% url 'accounts:professionals' %}">gerenciar</a>
+        </div>
+        <p class="muted">
+          Treinador ou nutricionista com acesso à sua ficha — e o botão de
+          cortar o acesso.
+        </p>
+      </section>
     </aside>
   </div>
 {% endblock %}

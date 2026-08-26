@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Painel · NutriPlan{% endblock %}
+{% block container_class %}painel{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Seus alunos</h1>
+    <p class="lead">
+      {{ contagem.todos }} aluno{{ contagem.todos|pluralize }} na carteira.
+      {% if contagem.atencao %}
+        <b class="num">{{ contagem.atencao }}</b>
+        precisa{{ contagem.atencao|pluralize:"m" }} de atenção hoje.
+      {% else %}
+        Ninguém em alerta.
+      {% endif %}
+    </p>
+  </div>
+
+  {% comment %}
+    Os filtros vêm antes da lista e carregam a contagem no próprio rótulo. Sem
+    o número, o profissional precisa clicar em cada gaveta para descobrir se
+    ela tem alguém — e "Atenção necessária (0)" é a informação mais útil da
+    tela num dia bom.
+  {% endcomment %}
+  <div class="filtros" role="group" aria-label="Filtrar alunos">
+    {% for filtro in filtros %}
+      <a class="filtro {% if filtro.ativo %}is-active{% endif %}"
+         href="?situacao={{ filtro.chave }}"
+         {% if filtro.ativo %}aria-current="true"{% endif %}>
+        {{ filtro.rotulo }}
+        <span class="filtro__conta num">{{ filtro.total }}</span>
+      </a>
+    {% endfor %}
+  </div>
+
+  <div class="stack">
+    {% for aluno in alunos %}
+      <a class="aluno-card {% if aluno.precisa_atencao %}aluno-card--atencao{% endif %}"
+         href="{% url 'coaching:student_monitor' aluno.user.pk %}">
+        <span class="aluno-card__avatar" aria-hidden="true">{{ aluno.iniciais }}</span>
+
+        <span class="aluno-card__corpo">
+          <span class="aluno-card__nome">
+            {{ aluno.user.get_full_name|default:aluno.user.email }}
+          </span>
+
+          <span class="aluno-card__meta num">
+            {% if aluno.treinos_previstos %}
+              {{ aluno.treinos_feitos }}/{{ aluno.treinos_previstos }} treinos
+            {% else %}
+              sem rotina
+            {% endif %}
+            {% if aluno.adesao_pct is not None %}· {{ aluno.adesao_pct }}% de aderência{% endif %}
+            {% if aluno.ultima_pesagem %}· pesou há {{ aluno.dias_sem_pesagem }} d{% endif %}
+          </span>
+
+          {% if aluno.alertas %}
+            <span class="aluno-card__alertas">
+              {% for alerta in aluno.alertas %}
+                <span class="pill {% if alerta.tom == 'bom' %}pill--brand{% else %}pill--warm{% endif %}">
+                  {% include "coaching/_icone.html" with nome=alerta.icone %}
+                  {{ alerta.texto }}
+                </span>
+              {% endfor %}
+            </span>
+          {% endif %}
+        </span>
+
+        <span class="aluno-card__seta" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+        </span>
+      </a>
+    {% empty %}
+      <section class="card center">
+        <p class="muted">
+          {% if situacao == 'todos' %}
+            Nenhum aluno ainda. Gere um convite abaixo e mande o código.
+          {% else %}
+            Ninguém nesta situação.
+          {% endif %}
+        </p>
+      </section>
+    {% endfor %}
+  </div>
+
+  <section class="card">
+    <div class="card__head"><h2>Convidar aluno</h2></div>
+    <p class="muted">
+      O código vale por 7 dias e serve para um aluno só. Depois de aceito, ele
+      pode cortar o acesso quando quiser.
+    </p>
+
+    <form method="post" action="{% url 'coaching:invite_create' %}" class="convite-form">
+      {% csrf_token %}
+      <div class="field">
+        <label class="field__label" for="{{ convite_form.role.id_for_label }}">
+          {{ convite_form.role.label }}
+        </label>
+        {{ convite_form.role }}
+      </div>
+      <button type="submit" class="btn btn--primary btn--block">Gerar convite</button>
+    </form>
+
+    {% if convites %}
+      <ul class="convites">
+        {% for convite in convites %}
+          <li class="convite {% if convite.convite_expirado %}convite--vencido{% endif %}">
+            <span class="convite__codigo num">{{ convite.invite_code }}</span>
+            <span class="convite__meta">
+              {{ convite.get_role_display }} ·
+              {% if convite.convite_expirado %}
+                venceu
+              {% else %}
+                vence {{ convite.expira_em|date:"d/m" }}
+              {% endif %}
+            </span>
+            <form method="post" action="{% url 'coaching:invite_cancel' convite.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn-link">cancelar</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="hint">
+        Mande o link: <b>{{ request.scheme }}://{{ request.get_host }}/conectar/CODIGO/</b>
+        — ou só o código, que o aluno digita.
+      </p>
+    {% endif %}
+  </section>
+{% endblock %}

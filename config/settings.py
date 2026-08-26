@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "catalog",
     "plans",
     "workouts",
+    "coaching",
     "push",
 ]
 
@@ -59,6 +60,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "push.context_processors.push",
+                "coaching.context_processors.coach_updates",
             ],
         },
     },

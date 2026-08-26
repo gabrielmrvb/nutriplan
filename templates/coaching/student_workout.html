@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Treino de {{ aluno.get_full_name|default:aluno.email }} · NutriPlan{% endblock %}
+{% block container_class %}painel{% endblock %}
+
+{% block content %}
+  {% include "coaching/_abas.html" %}
+
+  {% if not rotina %}
+    <section class="card center">
+      <p class="muted">
+        Este aluno ainda não tem rotina. Ela nasce quando ele cadastra os dias
+        de treino no próprio app — não dá para criar por ele daqui.
+      </p>
+    </section>
+  {% else %}
+    {% if rotina.is_prescribed %}
+      <p class="pulou">
+        <span class="pulou__icone" aria-hidden="true">
+          {% include "coaching/_icone.html" with nome="halter" %}
+        </span>
+        <span>
+          Esta ficha é <b>prescrita</b>. O gerador automático parou de reescrevê-la
+          — se o aluno mudar os dias de treino, os horários mudam e os exercícios
+          continuam sendo os seus.
+        </span>
+      </p>
+    {% endif %}
+
+    {% if agenda_mudou %}
+      {% comment %}
+        O outro lado da trava. Ficha prescrita não é remontada pelo gerador, e
+        isso é o certo — mas quando o aluno muda os dias de treino, a ficha
+        passa a discordar da agenda dele. Quem resolve é você, então é você
+        quem fica sabendo.
+      {% endcomment %}
+      <p class="pulou">
+        <span class="pulou__icone" aria-hidden="true">
+          {% include "coaching/_icone.html" with nome="grafico" %}
+        </span>
+        <span>
+          O aluno mudou os dias ou horários de treino depois desta prescrição.
+          A ficha não foi remontada — <b>ela é sua</b> — mas os horários das
+          sessões já não batem com a agenda dele. Vale conferir.
+        </span>
+      </p>
+    {% endif %}
+
+    <div class="stack">
+      {% for sessao in sessoes %}
+        <section class="card" data-dia="{{ sessao.label }}">
+          <div class="card__head">
+            <h2>Treino {{ sessao.label }} · {{ sessao.name }}</h2>
+            <span class="muted num">{{ sessao.exercises.all|length }} exercícios</span>
+          </div>
+
+          {% if sessao.focus %}<p class="muted">{{ sessao.focus }}</p>{% endif %}
+
+          {% comment %}
+            Cada exercício é um formulário próprio. Um formulário só para a
+            ficha inteira significaria reenviar vinte exercícios para mudar uma
+            série — e perder tudo se a conexão cair no meio, que na academia é
+            o caso comum, não a exceção.
+          {% endcomment %}
+          {% for item in sessao.exercises.all %}
+            <details class="prescricao">
+              <summary class="prescricao__resumo">
+                <span class="prescricao__nome">{{ item.exercise.name }}</span>
+                <span class="prescricao__atual num">
+                  {{ item.sets }}×{{ item.rep_min }}-{{ item.rep_max }} · {{ item.rest_seconds }}s
+                </span>
+              </summary>
+
+              <form method="post" class="prescricao__form"
+                    action="{% url 'coaching:adjust_exercise' aluno.pk item.pk %}">
+                {% csrf_token %}
+                <div class="prescricao__campos">
+                  <label class="campo">
+                    <span class="campo__rotulo">Séries</span>
+                    <input class="campo__input num" type="number" name="sets"
+                           value="{{ item.sets }}" min="1" max="10" inputmode="numeric">
+                  </label>
+                  <label class="campo">
+                    <span class="campo__rotulo">Rep. mín</span>
+                    <input class="campo__input num" type="number" name="rep_min"
+                           value="{{ item.rep_min }}" min="1" max="50" inputmode="numeric">
+                  </label>
+                  <label class="campo">
+                    <span class="campo__rotulo">Rep. máx</span>
+                    <input class="campo__input num" type="number" name="rep_max"
+                           value="{{ item.rep_max }}" min="1" max="50" inputmode="numeric">
+                  </label>
+                  <label class="campo">
+                    <span class="campo__rotulo">Descanso</span>
+                    <input class="campo__input num" type="number" name="rest_seconds"
+                           value="{{ item.rest_seconds }}" min="20" max="300" step="10"
+                           inputmode="numeric">
+                  </label>
+                </div>
+                <button type="submit" class="btn btn--primary btn--sm">Salvar</button>
+              </form>
+
+              <div class="prescricao__acoes">
+                <form method="post" class="prescricao__troca"
+                      action="{% url 'coaching:swap_exercise' aluno.pk item.pk %}">
+                  {% csrf_token %}
+                  <select name="exercise" class="campo__select"
+                          aria-label="Trocar {{ item.exercise.name }} por">
+                    <option value="">Trocar por…</option>
+                    {% for opcao in catalogo %}
+                      <option value="{{ opcao.pk }}">{{ opcao.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <button type="submit" class="btn btn--ghost btn--sm">Trocar</button>
+                </form>
+
+                <form method="post"
+                      action="{% url 'coaching:remove_exercise' aluno.pk item.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn--quiet">Remover</button>
+                </form>
+              </div>
+            </details>
+          {% endfor %}
+
+          <div class="sessao__rodape">
+            <form method="post" class="prescricao__troca"
+                  action="{% url 'coaching:add_exercise' aluno.pk sessao.pk %}">
+              {% csrf_token %}
+              <select name="exercise" class="campo__select" aria-label="Incluir exercício">
+                <option value="">Incluir exercício…</option>
+                {% for opcao in catalogo %}
+                  <option value="{{ opcao.pk }}">{{ opcao.name }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn btn--ghost btn--sm">Incluir</button>
+            </form>
+
+            <form method="post" class="prescricao__troca"
+                  action="{% url 'coaching:clone_template' aluno.pk sessao.pk %}">
+              {% csrf_token %}
+              <select name="template" class="campo__select" aria-label="Clonar modelo">
+                <option value="">Clonar modelo do acervo…</option>
+                {% for modelo in modelos %}
+                  <option value="{{ modelo.pk }}">
+                    {{ modelo.get_split_display }} · {{ modelo.label }} — {{ modelo.name }}
+                  </option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn btn--ghost btn--sm">Clonar</button>
+            </form>
+          </div>
+        </section>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endblock %}

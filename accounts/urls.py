@@ -12,4 +12,9 @@ urlpatterns = [
     path("onboarding/", views.OnboardingEntryView.as_view(), name="onboarding"),
     path("onboarding/<int:step>/", views.onboarding_step, name="onboarding_step"),
     path("perfil/", views.ProfileSummaryView.as_view(), name="profile"),
+    path(
+        "profissionais/",
+        views.ProfessionalsView.as_view(),
+        name="professionals",
+    ),
 ]

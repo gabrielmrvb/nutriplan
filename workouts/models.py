@@ -428,6 +428,24 @@ class TrainingPlan(models.Model):
     days_per_week = models.PositiveSmallIntegerField("dias por semana")
     notes = models.TextField("observações", blank=True)
 
+    # Quando um treinador mexe na ficha, ela deixa de ser gerada e passa a ser
+    # prescrita — e o gerador para de reescrevê-la. Sem isto, o aluno mudar o
+    # horario do treino de terca remontaria a ficha inteira a partir do
+    # catalogo, apagando a prescricao sem aviso nenhum.
+    prescribed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="prescribed_plans",
+        verbose_name="prescrita por",
+        null=True,
+        blank=True,
+    )
+    prescribed_at = models.DateTimeField("prescrita em", null=True, blank=True)
+
+    @property
+    def is_prescribed(self) -> bool:
+        return self.prescribed_by_id is not None
+
     class Meta:
         verbose_name = "rotina de treino"
         verbose_name_plural = "rotinas de treino"

@@ -192,10 +192,18 @@ def routine_is_current(plan, user) -> bool:
     """
     if plan is None or not plan.sessions.exists():
         return False
-    if plan.split != split_for(user.training_days.count()):
-        return False
     if plan.sessions.filter(exercises__exercise__is_active=False).exists():
         # Exercício aposentado no catálogo: a ficha manda fazer o que saiu do ar.
+        # Vale inclusive para ficha prescrita — aqui o gerador não está
+        # discordando do treinador, está avisando que o catálogo mudou embaixo
+        # dos dois.
+        return False
+    if plan.is_prescribed:
+        # Ficha com dono humano não é remontada pelo gerador. O treinador
+        # escolheu aqueles exercícios; mudar o horário de terça-feira não é
+        # motivo para descartar a escolha dele e voltar ao modelo do catálogo.
+        return True
+    if plan.split != split_for(user.training_days.count()):
         return False
 
     atual = {

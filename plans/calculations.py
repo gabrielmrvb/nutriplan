@@ -120,6 +120,18 @@ class PlanInputs:
     #: o len() disso — não existe campo separado que possa dessincronizar.
     session_minutes: tuple = ()
 
+    #: Prescrição do nutricionista, quando existe. `None` deixa o motor usar
+    #: a regra padrão — que é o que vale para a esmagadora maioria dos planos.
+    #:
+    #: Só proteína e gordura são prescritíveis, e não os três macros. O
+    #: carboidrato é o resto da conta: proteína por quilo de peso e gordura por
+    #: percentual de energia são decisões clínicas, o carboidrato é o que sobra
+    #: do orçamento calórico depois delas. Deixar os três livres permitiria
+    #: prescrever uma soma que não fecha com a meta — e aí ou a meta mente ou
+    #: os macros mentem.
+    protein_g_per_kg: object = None
+    fat_kcal_share: object = None
+
     #: Ajuste manual sobre a meta, em kcal. Negativo aperta a dieta.
     #:
     #: Entra DEPOIS das travas de segurança, e essa ordem é a decisão: as
@@ -284,12 +296,14 @@ def target_kcal(tdee_value, goal, bmr, sex, weight_kg=None) -> tuple:
     return _round(raw), " ".join(avisos)
 
 
-def protein_per_kg(goal) -> Decimal:
-    """Quantos gramas de proteína por kg o objetivo pede."""
+def protein_per_kg(goal, prescrito=None) -> Decimal:
+    """Quantos gramas de proteína por kg — a prescrição vence o objetivo."""
+    if prescrito is not None:
+        return Decimal(prescrito)
     return PROTEIN_G_PER_KG_BY_GOAL.get(goal, PROTEIN_G_PER_KG)
 
 
-def macros(target, weight_kg, goal) -> tuple:
+def macros(target, weight_kg, goal, protein_g_per_kg=None, fat_kcal_share=None) -> tuple:
     """Divide a meta calórica em proteína, gordura e carboidrato.
 
     A ordem importa e não é arbitrária:
@@ -311,9 +325,12 @@ def macros(target, weight_kg, goal) -> tuple:
     weight_kg = Decimal(weight_kg)
     notes = []
 
-    protein_g = _round(weight_kg * protein_per_kg(goal))
+    protein_g = _round(weight_kg * protein_per_kg(goal, protein_g_per_kg))
+    share = Decimal(fat_kcal_share) if fat_kcal_share is not None else FAT_KCAL_SHARE
     fat_floor_g = _round(weight_kg * MIN_FAT_G_PER_KG)
-    fat_g = max(_round(Decimal(target) * FAT_KCAL_SHARE / KCAL_PER_G_FAT), fat_floor_g)
+    # O piso de gordura sobrevive à prescrição de propósito: ele existe para a
+    # parte hormonal, e é justamente o número que alguém apressado corta.
+    fat_g = max(_round(Decimal(target) * share / KCAL_PER_G_FAT), fat_floor_g)
 
     def remaining_carb(fat_grams):
         left = Decimal(target) - protein_g * KCAL_PER_G_PROTEIN - fat_grams * KCAL_PER_G_FAT
@@ -365,7 +382,13 @@ def calculate(inputs: PlanInputs) -> PlanResult:
             )
         else:
             target = pedido
-    protein_g, carb_g, fat_g, macro_note = macros(target, inputs.weight_kg, inputs.goal)
+    protein_g, carb_g, fat_g, macro_note = macros(
+        target,
+        inputs.weight_kg,
+        inputs.goal,
+        protein_g_per_kg=inputs.protein_g_per_kg,
+        fat_kcal_share=inputs.fat_kcal_share,
+    )
 
     return PlanResult(
         bmr_kcal=_round(bmr),

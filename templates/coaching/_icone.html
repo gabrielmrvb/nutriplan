@@ -1,0 +1,29 @@
+{% comment %}
+  Os ícones dos alertas, num arquivo só.
+
+  Ficam aqui e não no Python porque marcação de SVG dentro de dataclass é
+  marcação que ninguém revisa e que escapa de qualquer busca por classe CSS.
+  O Python passa o nome; a escolha do desenho é do template.
+{% endcomment %}
+{% if nome == "balanca" %}
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 3v18"/><path d="M5 7h14"/>
+    <path d="M5 7 2 14h6L5 7Z"/><path d="m19 7-3 7h6l-3-7Z"/>
+  </svg>
+{% elif nome == "grafico" %}
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/>
+  </svg>
+{% elif nome == "prato" %}
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>
+  </svg>
+{% elif nome == "halter" %}
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M4 9v6M8 7v10M16 7v10M20 9v6M8 12h8"/>
+  </svg>
+{% endif %}

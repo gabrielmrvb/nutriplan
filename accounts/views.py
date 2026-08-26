@@ -219,3 +219,32 @@ class OnboardingRequiredMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
+
+
+
+from coaching import permissions as coaching_permissions  # noqa: E402
+
+
+class ProfessionalsView(LoginRequiredMixin, TemplateView):
+    """Quem enxerga a minha ficha — e o botão de cortar.
+
+    Fica no perfil do aluno, e não escondido dentro de um menu de
+    configurações, porque é a única tela do app em que outra pessoa tem poder
+    sobre os dados dele. Quem concede acesso precisa achar a revogação sem
+    procurar.
+    """
+
+    template_name = "accounts/professionals.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "nav": "profile",
+                "vinculos": coaching_permissions.profissionais_de(self.request.user),
+                "sou_profissional": coaching_permissions.e_profissional(
+                    self.request.user
+                ),
+            }
+        )
+        return context
