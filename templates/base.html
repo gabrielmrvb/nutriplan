@@ -72,7 +72,7 @@
 
   {% if user.is_authenticated %}
     {% comment %}
-      Navegação inferior: os quatro destinos do app a um polegar de distância.
+      Navegação inferior: os cinco destinos do app a um polegar de distância.
       Só aparece no celular — no desktop os mesmos links ficam na barra de cima.
     {% endcomment %}
     <nav class="tabbar" aria-label="Navegação principal">
@@ -94,6 +94,15 @@
           <path d="M6 12h12"/>
         </svg>
         Treino
+      </a>
+      <a class="tabbar__item {% if nav == 'supplements' %}is-active{% endif %}"
+         href="{% url 'supplements:list' %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8.5 3.5a5 5 0 0 1 7 7l-5 5a5 5 0 0 1-7-7Z"/>
+          <path d="M6 6 15 15"/>
+        </svg>
+        Suplem.
       </a>
       <a class="tabbar__item {% if nav == 'history' %}is-active{% endif %}"
          href="{% url 'plans:history' %}">

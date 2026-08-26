@@ -2,6 +2,7 @@
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -10,7 +11,7 @@ from django.views.generic import TemplateView, View
 from accounts.models import Weekday
 from accounts.views import OnboardingRequiredMixin
 
-from . import assistant, services
+from . import assistant, health_export, services
 from .models import Exercise, MuscleGroup, SessionExercise, TrainingSession
 
 
@@ -79,7 +80,9 @@ def set_rows(item, load) -> list:
             {
                 "number": numero,
                 "weight": registro.weight_kg if registro else None,
+                "reps": registro.reps if registro else None,
                 "previous": passado.weight_kg if passado else None,
+                "previous_reps": passado.reps if passado else None,
             }
         )
     return linhas
@@ -124,6 +127,11 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
                 "week": week_overview(plan),
                 "volume": muscle_volume(plan),
                 "total_sets": sum(session.total_sets for session in sessions),
+                # O resumo do que foi feito HOJE alimenta duas coisas: o card
+                # de compartilhamento e a exportação para o app de saúde. Sai
+                # do registro de carga, não da ficha — o que vale é o que
+                # aconteceu, não o que estava previsto.
+                "resumo_hoje": health_export.resumo_da_sessao(user),
             }
         )
         return context
@@ -174,7 +182,34 @@ class RecordLoadView(OnboardingRequiredMixin, View):
             serie = 1
         serie = max(1, min(serie, 20))
 
-        services.record_load(request.user, exercise, peso, set_number=serie)
+        # Repetições são opcionais: quem só quer anotar a carga continua
+        # anotando só a carga. Mas quando vêm, elas são o que transforma o
+        # histórico em volume — carga sozinha não diz se o treino cresceu.
+        reps = None
+        bruto_reps = (request.POST.get("reps") or "").strip()
+        if bruto_reps:
+            try:
+                reps = max(1, min(int(bruto_reps), 100))
+            except (TypeError, ValueError):
+                reps = None
+
+        services.record_load(
+            request.user, exercise, peso, set_number=serie, reps=reps
+        )
+
+        # Quem chegou por busca recebe JSON e a página não recarrega: no meio
+        # do treino, perder a posição da rolagem a cada série é o que faz a
+        # pessoa parar de anotar.
+        if request.headers.get("X-Requested-With") == "fetch":
+            return JsonResponse(
+                {
+                    "ok": True,
+                    "serie": serie,
+                    "peso": str(peso),
+                    "reps": reps,
+                    "descanso": _descanso_de(request.user, exercise),
+                }
+            )
         # A âncora devolve a pessoa para o exercício em que ela estava, em vez
         # de jogá-la no topo da página no meio do treino.
         return redirect(reverse("workouts:routine") + f"#exercicio-{exercise.pk}")
@@ -339,3 +374,45 @@ class AssistantApplyView(OnboardingRequiredMixin, View):
         else:
             messages.error(request, "Nada mudou — o ajuste não pôde ser aplicado.")
         return redirect("workouts:routine")
+
+
+def _descanso_de(user, exercise) -> int:
+    """O descanso prescrito para este exercício na ficha ativa.
+
+    Serve ao cronômetro automático: terminada a série, o timer precisa saber
+    quantos segundos contar, e a resposta está na prescrição — não num valor
+    fixo igual para agachamento e rosca.
+    """
+    item = (
+        SessionExercise.objects.filter(
+            session__plan__user=user,
+            session__plan__is_active=True,
+            exercise=exercise,
+        )
+        .values_list("rest_seconds", flat=True)
+        .first()
+    )
+    return item or 90
+
+
+class HealthExportView(OnboardingRequiredMixin, View):
+    """O treino do dia em TCX, para importar no app Saúde.
+
+    Uma PWA não escreve no HealthKit — não existe API web para isso, e o
+    Health Connect do Android é igual. O caminho honesto é o arquivo: a pessoa
+    exporta e abre no importador que já usa. `health_export.resumo_da_sessao()`
+    é a mesma camada que um invólucro nativo chamaria, sem tocar em arquivo.
+    """
+
+    def get(self, request, *args, **kwargs):
+        resumo = health_export.resumo_da_sessao(request.user)
+        if not resumo.tem_dados:
+            messages.error(request, "Nenhuma série registrada hoje para exportar.")
+            return redirect("workouts:routine")
+
+        conteudo = health_export.tcx(resumo)
+        resposta = HttpResponse(conteudo, content_type="application/vnd.garmin.tcx+xml")
+        resposta["Content-Disposition"] = (
+            f'attachment; filename="nutriplan-{resumo.data:%Y-%m-%d}.tcx"'
+        )
+        return resposta

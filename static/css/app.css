@@ -351,7 +351,7 @@ button { font-family: inherit; color: inherit; }
   bottom: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: .2rem;
   padding: .4rem .5rem calc(.4rem + env(safe-area-inset-bottom));
   /* A barra flutua sobre o conteúdo: o fundo é o do app a 80%, e não a
@@ -1396,12 +1396,27 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .sets { display: grid; gap: .25rem; }
 
 .sets__head,
+/* Duas linhas, e não uma.
+   Sete controles não cabem em 390px: medido, a carga ficava com 26px de
+   largura — altura de sobra e nenhum lugar para digitar. O número da série
+   atravessa as duas alturas porque rotula a série inteira. */
 .set-row {
   display: grid;
   grid-template-columns: 3.4rem minmax(0, 1fr) auto auto;
-  gap: .5rem;
+  grid-template-areas:
+    "numero carga salvar relogio"
+    "numero reps   reps   reps";
+  gap: .4rem .5rem;
   align-items: center;
 }
+
+/* Filhas explícitas: são posições dentro DESTA grade, não propriedades do
+   elemento onde quer que ele apareça. */
+.set-row > .set-row__label { grid-area: numero; }
+.set-row > .set-row__input { grid-area: carga; }
+.set-row > .set-row__save { grid-area: salvar; }
+.set-row > .set-row__timer { grid-area: relogio; }
+.set-row > .reps { grid-area: reps; }
 
 .sets__head {
   padding: 0 .15rem;
@@ -1422,6 +1437,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .set-row__label {
   display: grid;
   place-items: center;
+  align-self: stretch;
   min-height: 2.75rem;
   border-radius: var(--radius-sm);
   background: var(--surface-3);
@@ -2784,7 +2800,336 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .ia__corpo form + .btn { margin-top: .5rem; }
 
 /* ==========================================================================
-   27. Desktop
+   27. Engajamento: ofensiva, água, suplementos e contador
+   ========================================================================== */
+
+/* -------------------------------------------------------------- ofensiva */
+
+/* Fica acima de tudo na tela do dia porque é o que puxa a pessoa de volta num
+   dia ruim — meta calórica não puxa ninguém, sequência puxa. */
+.ofensiva {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .85rem;
+  padding: .9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--warm) 26%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--warm) 9%, transparent);
+  box-shadow: var(--edge);
+}
+
+/* Em risco, a moldura esfria para cinza: âmbar em cima de âmbar não destaca
+   nada, e o que precisa saltar é justamente o dia que ainda não fechou. */
+.ofensiva--risco {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+
+.ofensiva__chama {
+  display: grid;
+  place-items: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--warm) 16%, transparent);
+  color: var(--text-mute);
+}
+
+.ofensiva__chama svg { width: 1.5rem; height: 1.5rem; }
+
+/* A chama só ganha cor e movimento quando existe sequência viva. Acesa em
+   zero dias, ela comemora nada — e vira decoração que ninguém mais lê. */
+.ofensiva__chama.is-viva {
+  color: var(--warm);
+  animation: chama 2.4s var(--ease) infinite;
+}
+
+@keyframes chama {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.06); filter: brightness(1.18); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ofensiva__chama.is-viva { animation: none; }
+}
+
+.ofensiva__corpo { display: grid; gap: .1rem; min-width: 0; }
+
+.ofensiva__numero {
+  display: flex;
+  align-items: baseline;
+  gap: .3rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -.03em;
+  line-height: 1.1;
+}
+
+.ofensiva__unidade { color: var(--text-mute); font-size: .8rem; font-weight: 650; }
+.ofensiva__texto { color: var(--text-dim); font-size: .8rem; line-height: 1.45; }
+.ofensiva__recorde { flex: none; }
+
+/* ------------------------------------------------------------------ água */
+
+.agua {
+  display: grid;
+  gap: .55rem;
+  margin-bottom: 1rem;
+  padding: .8rem .9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.agua__topo { display: flex; align-items: center; gap: .5rem; }
+.agua__icone { display: grid; place-items: center; flex: none; color: var(--accent); }
+.agua__icone svg { width: 1.15rem; height: 1.15rem; }
+.agua__valor { flex: 1; min-width: 0; color: var(--text-dim); font-size: .84rem; }
+.agua__valor b { color: var(--text); font-weight: 750; }
+.agua__zerar { flex: none; }
+
+.progress__fill--agua { background: var(--accent); }
+
+.agua__botoes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; }
+
+/* 48px de altura — o pedido é explícito, e estes três são tocados de pé, com
+   a garrafa na outra mão. */
+.agua__botao {
+  display: grid;
+  place-items: center;
+  gap: .05rem;
+  width: 100%;
+  min-height: 3rem;
+  padding: .4rem .3rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: .88rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease),
+              transform .12s var(--ease);
+}
+
+.agua__botao span { color: var(--text-mute); font-size: .66rem; font-weight: 550; }
+.agua__botao:hover { border-color: var(--accent); background: var(--surface-3); }
+.agua__botao:active { transform: scale(.98); }
+
+/* --------------------------------------------------- suplementos rápidos */
+
+.supl-rapido { display: grid; gap: .5rem; margin-bottom: 1rem; }
+.supl-rapido__rotulo { color: var(--text-mute); font-size: .74rem; font-weight: 700; }
+.supl-rapido__lista { display: flex; flex-wrap: wrap; gap: .35rem; }
+
+.supl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  min-height: 2.75rem;
+  padding: .35rem .7rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--pill);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease),
+              color var(--dur) var(--ease), transform .12s var(--ease);
+}
+
+.supl-chip:active { transform: scale(.98); }
+
+/* Marcado muda cor, borda e ícone ao mesmo tempo. Só a cor não bastaria: o
+   estado precisa sobreviver a quem não distingue verde de cinza. */
+.supl-chip.is-on {
+  border-color: color-mix(in srgb, var(--brand) 38%, transparent);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+}
+
+.supl-chip__marca { display: grid; place-items: center; flex: none; }
+.supl-chip__marca svg { width: .85rem; height: .85rem; }
+.supl-chip__dose { color: var(--text-mute); font-size: .72rem; font-weight: 600; }
+.supl-chip.is-on .supl-chip__dose { color: color-mix(in srgb, var(--brand) 75%, var(--text)); }
+
+/* Cresce por padding com margem negativa, como o "desfazer" da tela do dia:
+   o link continua visualmente discreto e o dedo passa a ter 44px. */
+.supl-rapido__link {
+  display: inline-flex;
+  align-items: center;
+  align-self: start;
+  min-height: 2.75rem;
+  padding: 0 .35rem;
+  margin: -.7rem -.35rem 0;
+  font-size: .76rem;
+}
+
+/* ------------------------------------------------- catálogo de suplementos */
+
+.supl { display: grid; gap: .7rem; }
+.supl--tomado { border-color: color-mix(in srgb, var(--brand) 28%, transparent); }
+
+.supl__head { display: flex; align-items: center; justify-content: space-between; gap: .8rem; }
+.supl__nome { min-width: 0; font-size: 1.05rem; }
+
+.supl__marcar {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  flex: none;
+  min-height: 2.75rem;
+  padding: .45rem .85rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--pill);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease),
+              color var(--dur) var(--ease), transform .12s var(--ease);
+}
+
+.supl__marcar svg { width: 1rem; height: 1rem; }
+.supl__marcar:active { transform: scale(.98); }
+
+.supl__marcar.is-on {
+  border-color: color-mix(in srgb, var(--brand) 38%, transparent);
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  color: var(--brand);
+}
+
+.supl__pilulas { display: flex; flex-wrap: wrap; gap: .3rem; }
+.supl__para { margin: 0; color: var(--text-dim); font-size: .88rem; line-height: 1.55; }
+
+.supl__dados { display: grid; gap: .55rem; margin: 0; }
+.supl__dados > div { display: grid; gap: .1rem; }
+.supl__dados dt { color: var(--text-mute); font-size: .72rem; font-weight: 700; }
+.supl__dados dd { margin: 0; font-size: .86rem; line-height: 1.5; }
+.supl__dados dd.num { font-size: 1rem; font-weight: 750; }
+.supl__nota { color: var(--text-mute); font-size: .78rem !important; }
+
+.supl__mito {
+  display: grid;
+  gap: .45rem;
+  padding: .7rem .8rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.supl__mito-linha {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: .5rem;
+  margin: 0;
+  color: var(--text-dim);
+  font-size: .82rem;
+  line-height: 1.5;
+}
+
+.supl__cuidado {
+  margin: 0;
+  padding: .55rem .7rem;
+  border: 1px solid color-mix(in srgb, var(--warm) 24%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warm) 9%, transparent);
+  color: var(--warm);
+  font-size: .8rem;
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------- contador de repetições */
+
+.reps {
+  display: inline-grid;
+  grid-template-columns: 3rem minmax(3rem, 4rem) 3rem;
+  align-items: center;
+  justify-self: start;
+  gap: .25rem;
+}
+
+/* O rótulo é o placeholder do campo, e ele some ao digitar. Sem uma marca
+   permanente, a segunda linha da série vira "três botões sem assunto" —
+   principalmente para quem chega nela pelo leitor de tela. */
+.reps::after {
+  content: "reps";
+  grid-column: 1 / -1;
+  margin-top: -.15rem;
+  color: var(--text-mute);
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* 48px de lado, que é o pedido e é o mínimo para acertar com o polegar de pé,
+   entre séries, com a mão suada. O sinal é grande porque o alvo é grande — um
+   "+" de 12px num botão de 48 parece que não é ali que se toca. */
+.reps__passo {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease),
+              transform .12s var(--ease);
+}
+
+.reps__passo:hover { border-color: var(--brand); background: var(--surface-3); }
+/* A mesma escala do resto do app. Um botão maior pedindo um afundamento maior
+   é tentador e é exatamente a inconsistência que a trava da seção 10 existe
+   para pegar — duas escalas no mesmo gesto ninguém aponta e todo mundo sente. */
+.reps__passo:active { transform: scale(.98); }
+
+.reps__valor {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 750;
+  text-align: center;
+}
+
+.reps__valor:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.reps__valor::placeholder { color: var(--text-mute); font-weight: 500; }
+
+/* ------------------------------------------------------ resumo do dia */
+
+.resumo { display: grid; gap: .9rem; margin-bottom: var(--gap); }
+
+.resumo__acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+.resumo__acoes .btn { width: 100%; }
+
+.resumo__nota { margin: 0; color: var(--text-mute); font-size: .74rem; line-height: 1.55; }
+
+@media (max-width: 26rem) {
+  .resumo__acoes { grid-template-columns: 1fr; }
+}
+
+/* ==========================================================================
+   28. Desktop
    ========================================================================== */
 
 @media (min-width: 60rem) {

@@ -19,7 +19,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from workouts import assistant
+from workouts import assistant, health_export
 from accounts.models import (
     ActivityLevel,
     Goal,
@@ -2182,3 +2182,322 @@ class BusyGymHonestyTests(TestCase):
                     continue
                 with self.subTest(exercicio=mudanca.novo_exercicio.name):
                     self.assertFalse(mudanca.novo_exercicio.disputa_equipamento)
+
+# ==========================================================================
+# Repetições, cronômetro automático e exportação
+# ==========================================================================
+
+class RepCounterTests(TestCase):
+    """As repetições, que o modelo sempre teve e o formulário nunca mandou."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.plan = services.create_routine(self.user)
+        self.exercicio = Exercise.objects.filter(is_active=True).first()
+        self.client.force_login(self.user)
+        self.url = reverse("workouts:record_load", args=[self.exercicio.pk])
+
+    def test_the_reps_are_saved_with_the_load(self):
+        self.client.post(self.url, {"weight_kg": "60", "set_number": 1, "reps": "12"})
+
+        log = ExerciseLog.objects.get(user=self.user)
+        self.assertEqual(log.weight_kg, Decimal("60"))
+        self.assertEqual(log.reps, 12)
+
+    def test_the_load_alone_still_works(self):
+        """Quem só quer anotar a carga continua anotando só a carga: exigir as
+        duas coisas faria a pessoa parar de anotar qualquer uma."""
+        self.client.post(self.url, {"weight_kg": "60", "set_number": 1})
+
+        log = ExerciseLog.objects.get(user=self.user)
+        self.assertEqual(log.weight_kg, Decimal("60"))
+        self.assertIsNone(log.reps)
+
+    def test_absurd_reps_are_clamped_and_not_refused(self):
+        """Recusar a série inteira por causa de um toque preso no + perderia a
+        carga junto — e a carga é o dado que importa."""
+        self.client.post(self.url, {"weight_kg": "60", "set_number": 1, "reps": "9999"})
+
+        log = ExerciseLog.objects.get(user=self.user)
+        self.assertEqual(log.weight_kg, Decimal("60"))
+        self.assertEqual(log.reps, 100)
+
+    def test_garbage_in_the_reps_field_does_not_lose_the_load(self):
+        self.client.post(self.url, {"weight_kg": "60", "set_number": 1, "reps": "doze"})
+
+        log = ExerciseLog.objects.get(user=self.user)
+        self.assertEqual(log.weight_kg, Decimal("60"))
+        self.assertIsNone(log.reps)
+
+    def test_the_screen_shows_the_counter_with_big_targets(self):
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('data-reps="1"', html)
+        self.assertIn('data-reps="-1"', html)
+        bloco = css.split(chr(10) + ".reps__passo {", 1)[1].split("}", 1)[0]
+        # 3rem = 48px, que é o mínimo pedido para um botão tocado de pé.
+        self.assertIn("width: 3rem", bloco)
+        self.assertIn("height: 3rem", bloco)
+
+
+class AutoRestTimerTests(TestCase):
+    """O cronômetro que parte sozinho ao fim da série."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.plan = services.create_routine(self.user)
+        self.item = SessionExercise.objects.filter(
+            session__plan=self.plan
+        ).select_related("exercise").first()
+        self.client.force_login(self.user)
+
+    def test_saving_by_fetch_answers_with_the_rest_to_count(self):
+        """É este número que dispara o cronômetro. Sem ele o navegador teria
+        que adivinhar, e adivinhar daria o mesmo descanso para agachamento e
+        para rosca."""
+        resposta = self.client.post(
+            reverse("workouts:record_load", args=[self.item.exercise_id]),
+            {"weight_kg": "60", "set_number": 1, "reps": "10"},
+            headers={"X-Requested-With": "fetch"},
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        dados = resposta.json()
+        self.assertTrue(dados["ok"])
+        self.assertEqual(dados["descanso"], self.item.rest_seconds)
+        self.assertEqual(dados["reps"], 10)
+
+    def test_the_rest_comes_from_the_prescription_and_not_from_a_fixed_value(self):
+        SessionExercise.objects.filter(pk=self.item.pk).update(rest_seconds=175)
+
+        dados = self.client.post(
+            reverse("workouts:record_load", args=[self.item.exercise_id]),
+            {"weight_kg": "60", "set_number": 1},
+            headers={"X-Requested-With": "fetch"},
+        ).json()
+
+        self.assertEqual(dados["descanso"], 175)
+
+    def test_a_normal_post_still_redirects(self):
+        """Sem JS o formulário continua funcionando por POST comum — é por isso
+        que o contador é um interceptador de submit, e não um punhado de
+        onclick."""
+        resposta = self.client.post(
+            reverse("workouts:record_load", args=[self.item.exercise_id]),
+            {"weight_kg": "60", "set_number": 1},
+        )
+        self.assertEqual(resposta.status_code, 302)
+
+    def test_the_page_exposes_the_timer_for_the_counter_to_call(self):
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        self.assertIn("window.NutriPlanDescanso", html)
+        self.assertIn("NutriPlanDescanso.iniciar", html)
+
+    def test_the_end_of_the_rest_vibrates_and_beeps(self):
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        self.assertIn("navigator.vibrate", html)
+        self.assertIn("AudioContext", html)
+        # Falha em silêncio: navegador sem WebAudio não pode quebrar o timer.
+        self.assertIn("catch (e) {", html)
+
+
+class HealthExportTests(TestCase):
+    """A camada de exportação para o app Saúde.
+
+    Uma PWA não escreve no HealthKit — não existe API web, e o Health Connect
+    é igual. O que dá para entregar é o cálculo e um arquivo que os
+    importadores leem, e é isso que está testado aqui.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.plan = services.create_routine(self.user)
+        self.exercicio = Exercise.objects.filter(is_active=True).first()
+        self.hoje = timezone.localdate()
+        self.client.force_login(self.user)
+
+    def _serie(self, numero, carga="60", reps=10):
+        ExerciseLog.objects.create(
+            user=self.user,
+            exercise=self.exercicio,
+            date=self.hoje,
+            set_number=numero,
+            weight_kg=Decimal(carga),
+            reps=reps,
+        )
+
+    def test_a_day_with_nothing_logged_exports_nothing(self):
+        resumo = health_export.resumo_da_sessao(self.user)
+
+        self.assertFalse(resumo.tem_dados)
+        self.assertEqual(resumo.kcal, 0)
+
+    def test_the_volume_is_sets_times_reps_times_load(self):
+        for i in (1, 2, 3):
+            self._serie(i)
+
+        resumo = health_export.resumo_da_sessao(self.user)
+
+        self.assertEqual(resumo.volume_kg, Decimal("1800"))
+        self.assertEqual(resumo.series, 3)
+        self.assertEqual(resumo.exercicios, 1)
+
+    def test_the_duration_counts_the_rest_between_sets(self):
+        """Sem contar o descanso, um treino de uma hora exportaria como dezoito
+        minutos — e o app de saúde registraria um treino que não aconteceu."""
+        for i in range(1, 6):
+            self._serie(i)
+
+        resumo = health_export.resumo_da_sessao(self.user)
+
+        # Cinco séries de 40s são 3,3 minutos; com descanso, muito mais.
+        self.assertGreater(resumo.minutos, 4)
+
+    def test_the_calorie_estimate_errs_low_on_purpose(self):
+        """MET 3,5 e não 6,0. A fórmula trata a hora inteira como esforço
+        contínuo, quando metade dela é descanso — é a mesma decisão já tomada
+        no cálculo do TDEE deste app."""
+        for i in range(1, 10):
+            self._serie(i)
+
+        resumo = health_export.resumo_da_sessao(self.user)
+
+        # Um treino de ~20 min a 82,4 kg não passa de 150 kcal com MET 3,5.
+        self.assertGreater(resumo.kcal, 0)
+        self.assertLess(resumo.kcal, resumo.minutos * 10)
+
+    def test_without_a_weight_it_does_not_invent_a_calorie_number(self):
+        WeightEntry.objects.filter(user=self.user).delete()
+        self._serie(1)
+
+        resumo = health_export.resumo_da_sessao(self.user)
+
+        self.assertEqual(resumo.kcal, 0)
+        self.assertTrue(resumo.tem_dados)
+
+    def test_the_tcx_carries_duration_and_calories(self):
+        for i in (1, 2, 3):
+            self._serie(i)
+        resumo = health_export.resumo_da_sessao(self.user)
+
+        xml = health_export.tcx(resumo)
+
+        self.assertIn("<TotalTimeSeconds>", xml)
+        self.assertIn(f"<Calories>{resumo.kcal}</Calories>", xml)
+        self.assertIn('Sport="Other"', xml)
+
+    def test_the_tcx_refuses_to_invent_a_session(self):
+        resumo = health_export.resumo_da_sessao(self.user)
+        with self.assertRaises(ValueError):
+            health_export.tcx(resumo)
+
+    def test_the_download_arrives_as_a_file(self):
+        self._serie(1)
+
+        resposta = self.client.get(reverse("workouts:health_export"))
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn("attachment", resposta["Content-Disposition"])
+        self.assertIn(".tcx", resposta["Content-Disposition"])
+
+    def test_nothing_to_export_sends_the_person_back(self):
+        resposta = self.client.get(reverse("workouts:health_export"))
+        self.assertEqual(resposta.status_code, 302)
+
+    def test_one_person_never_exports_anothers_workout(self):
+        outro = create_user(email="outro@exemplo.com")
+        ExerciseLog.objects.create(
+            user=outro, exercise=self.exercicio, date=self.hoje,
+            set_number=1, weight_kg=Decimal("100"), reps=10,
+        )
+
+        resumo = health_export.resumo_da_sessao(self.user)
+
+        self.assertFalse(resumo.tem_dados)
+
+    def test_the_screen_says_the_browser_cannot_write_to_health(self):
+        """Prometer sincronização direta com o Apple Saúde seria mentira, e a
+        tela precisa desmentir antes de a pessoa procurar o botão que não
+        existe."""
+        self._serie(1)
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        self.assertIn("Nenhum navegador escreve direto", html)
+
+
+class ShareCardTests(TestCase):
+    """O card de compartilhamento, desenhado no aparelho."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        services.create_routine(self.user)
+        self.client.force_login(self.user)
+
+    def _serie(self):
+        ExerciseLog.objects.create(
+            user=self.user,
+            exercise=Exercise.objects.filter(is_active=True).first(),
+            date=timezone.localdate(),
+            set_number=1,
+            weight_kg=Decimal("80"),
+            reps=10,
+        )
+
+    def test_nothing_logged_means_no_summary_card(self):
+        """Um card de resumo vazio em cima da ficha é ruído no dia em que a
+        pessoa ainda não começou."""
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+        # A âncora é a classe da seção, e não um atributo `data-`: TODOS os
+        # atributos deste card aparecem também no <script> que os lê, e o
+        # script renderiza sempre. Errei nisso duas vezes seguidas — o seletor
+        # do JavaScript e o marcador do HTML são a mesma string.
+        self.assertNotIn('class="card resumo"', html)
+        self.assertNotIn("Treino de hoje", html)
+
+    def test_the_card_carries_the_numbers_the_canvas_draws(self):
+        self._serie()
+
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        self.assertIn('class="card resumo"', html)
+        self.assertIn("Treino de hoje", html)
+        for atributo in ("data-volume", "data-series", "data-minutos",
+                         "data-exercicios", "data-kcal", "data-data"):
+            with self.subTest(atributo=atributo):
+                self.assertIn(atributo, html)
+
+    def test_it_shares_natively_when_it_can_and_downloads_when_it_cannot(self):
+        self._serie()
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        self.assertIn("navigator.canShare", html)
+        self.assertIn("navigator", html)
+        self.assertIn('link.download = "treino-nutriplan.png"', html)
+
+    def test_the_canvas_uses_a_format_instagram_does_not_crop(self):
+        self._serie()
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        self.assertIn("c.width = 1080", html)
+        self.assertIn("c.height = 1350", html)

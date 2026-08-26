@@ -26,3 +26,4 @@ python manage.py collectstatic --no-input
 python manage.py migrate --no-input
 python manage.py seed_catalog
 python manage.py seed_workouts
+python manage.py seed_supplements

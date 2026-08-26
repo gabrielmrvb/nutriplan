@@ -16,14 +16,26 @@ from accounts.models import ACTIVITY_FACTORS
 from accounts.views import OnboardingRequiredMixin
 from catalog.models import Food
 
-from . import services, weight_trend, shopping, substitutions, tracking
+from . import services, streaks, weight_trend, shopping, substitutions, tracking
 from .calculations import (
     KCAL_PER_G_CARB,
     KCAL_PER_G_FAT,
     KCAL_PER_G_PROTEIN,
     activity_factor,
 )
-from .models import MealOption, MealSlot, MealStatus, OptionLabel
+from .models import HydrationLog, MealOption, MealSlot, MealStatus, OptionLabel
+
+
+def supplement_checklist(user, dia):
+    """As pílulas rápidas de suplemento do dia.
+
+    Import dentro da função de propósito: `supplements.views` importa
+    `accounts.views`, que importa deste módulo. No topo, os três se esperariam
+    em círculo na carga.
+    """
+    from supplements.views import checklist
+
+    return checklist(user, dia)
 
 
 def proteina_perdida(slots) -> dict:
@@ -217,6 +229,12 @@ class TodayView(PlanRequiredMixin, TemplateView):
 
         summary = tracking.day_summary(self.request.user, self.plan, today)
         menu = menu_totals(slots)
+
+        meta_agua = weight_trend.hidratacao_ml(self.plan.weight_kg)
+        registro = HydrationLog.objects.filter(
+            user=self.request.user, date=today
+        ).first()
+        bebido = registro.ml if registro else 0
         context.update(
             {
                 "plan": self.plan,
@@ -229,7 +247,15 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 # "bate com a meta" quando é irrelevante, e o número quando não é.
                 "menu_gap": menu["kcal"] - self.plan.target_kcal,
                 "menu_on_target": abs(menu["kcal"] - self.plan.target_kcal) <= MENU_TOLERANCE_KCAL,
-                "hidratacao_ml": weight_trend.hidratacao_ml(self.plan.weight_kg),
+                "hidratacao_ml": meta_agua,
+                "hidratacao_bebida": bebido,
+                "hidratacao_pct": (
+                    min(100, int(bebido * 100 / meta_agua)) if meta_agua else 0
+                ),
+                "ofensiva": streaks.calcular(
+                    self.request.user, hoje=today, meta_agua_ml=meta_agua
+                ),
+                "suplementos": supplement_checklist(self.request.user, today),
                 "proteina_perdida": proteina_perdida(slots),
                 "nav": "today",
                 "training_days": self.request.user.training_days.all(),
@@ -443,3 +469,42 @@ class SubstituteFoodView(OnboardingRequiredMixin, View):
             "plans/partials/substitutes.html",
             {"swap": substitutions.swap_summary(food, grams)},
         )
+
+
+class LogHydrationView(OnboardingRequiredMixin, View):
+    """Soma água ao dia. Só POST — isso muda estado.
+
+    Soma em vez de definir o total porque é assim que a pessoa mede: ela acabou
+    de beber um copo, não sabe (nem quer calcular) quanto isso faz no
+    acumulado. O botão diz "+500 ml" e some com a conta.
+    """
+
+    #: Os volumes que existem no mundo: copo, garrafinha, garrafa.
+    PASSOS = (250, 500, 750)
+
+    def post(self, request, *args, **kwargs):
+        try:
+            ml = int(request.POST.get("ml", 0))
+        except (TypeError, ValueError):
+            ml = 0
+
+        # A validação vem ANTES de criar a linha. Ao contrário, um valor
+        # inválido deixava uma linha de 0 ml no banco — inofensiva na conta e
+        # suja o bastante para confundir quem for depurar o dia depois.
+        if ml not in self.PASSOS and ml != 0:
+            messages.error(request, "Quantidade de água inválida.")
+            return redirect("plans:today")
+
+        hoje = timezone.localdate()
+        registro, _ = HydrationLog.objects.get_or_create(user=request.user, date=hoje)
+
+        if ml == 0:
+            # Zerar é o desfazer: tocou errado, começa o dia de novo.
+            registro.ml = 0
+        else:
+            # Teto de 10 litros: acima disso é toque preso, não hidratação, e
+            # um número absurdo estragaria a barra de progresso e a ofensiva.
+            registro.ml = min(registro.ml + ml, 10000)
+
+        registro.save(update_fields=["ml", "updated_at"])
+        return redirect("plans:today")

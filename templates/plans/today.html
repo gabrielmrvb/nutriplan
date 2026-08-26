@@ -12,6 +12,39 @@ coluna da direita), não entre ela e o almoço.
 {% block content %}
   <div class="split">
     <div class="split__main stack">
+        {% comment %}
+          A ofensiva antes de qualquer número da dieta.
+
+          Ela é o motivo de abrir o app num dia ruim: a meta calórica não puxa
+          ninguém de volta, a sequência puxa. E é honesta com o dia de hoje —
+          às sete da manhã ninguém almoçou nem treinou, então hoje aparece como
+          o dia em risco, nunca como falha.
+        {% endcomment %}
+        <section class="ofensiva {% if ofensiva.em_risco %}ofensiva--risco{% endif %}">
+          <span class="ofensiva__chama {% if ofensiva.dias %}is-viva{% endif %}"
+                aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2.5c.5 3 2.2 4 3.6 5.6A7.5 7.5 0 0 1 12 21.5 7.5 7.5 0 0 1 8.4 8.1C9.8 6.5 11.5 5.5 12 2.5Z"/>
+              <path d="M12 21.5a3.2 3.2 0 0 1-1.6-5.8c.6-.7 1.3-1.2 1.6-2.5.3 1.3 1 1.8 1.6 2.5a3.2 3.2 0 0 1-1.6 5.8Z"/>
+            </svg>
+          </span>
+
+          <span class="ofensiva__corpo">
+            <span class="ofensiva__numero num">
+              {{ ofensiva.dias }}
+              <span class="ofensiva__unidade">dia{{ ofensiva.dias|pluralize }}</span>
+            </span>
+            <span class="ofensiva__texto">{{ ofensiva.mensagem }}</span>
+          </span>
+
+          {% if ofensiva.recorde > ofensiva.dias %}
+            <span class="pill pill--mute ofensiva__recorde num">
+              recorde {{ ofensiva.recorde }}
+            </span>
+          {% endif %}
+        </section>
+
 
       {# ---------------- Painel do dia ---------------- #}
       <section class="card today-hero">
@@ -64,16 +97,98 @@ coluna da direita), não entre ela e o almoço.
           meta diária que a pessoa acompanha. Fora dali vira aviso solto, e
           aviso solto ninguém lê.
         {% endcomment %}
-        <p class="hidratacao">
-          <span class="hidratacao__icone" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3.5c3 3.6 5.5 6.3 5.5 9.4a5.5 5.5 0 0 1-11 0c0-3.1 2.5-5.8 5.5-9.4Z"/>
-            </svg>
-          </span>
-          Beba <b class="num">{{ hidratacao_ml }} ml</b> de água hoje
-          <span class="hidratacao__nota">— garrafas de 500 ml ao longo do dia</span>
-        </p>
+        {% comment %}
+          A meta de água existia desde sempre e não tinha onde marcar, o que a
+          deixava decorativa: dizer "3,6 L" sem botão não muda comportamento e
+          impedia a ofensiva de contar água. Três botões, do tamanho dos
+          recipientes que existem no mundo.
+        {% endcomment %}
+        <div class="agua">
+          <div class="agua__topo">
+            <span class="agua__icone" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3.5c3 3.6 5.5 6.3 5.5 9.4a5.5 5.5 0 0 1-11 0c0-3.1 2.5-5.8 5.5-9.4Z"/>
+              </svg>
+            </span>
+            <span class="agua__valor num">
+              <b>{{ hidratacao_bebida }}</b> / {{ hidratacao_ml }} ml
+            </span>
+            {% if hidratacao_bebida %}
+              <form method="post" action="{% url 'plans:log_hydration' %}" class="agua__zerar">
+                {% csrf_token %}
+                <input type="hidden" name="ml" value="0">
+                <button type="submit" class="btn-link">zerar</button>
+              </form>
+            {% endif %}
+          </div>
+
+          <div class="progress" role="img"
+               aria-label="{{ hidratacao_pct }}% da meta de água">
+            <span class="progress__fill progress__fill--agua"
+                  style="width: {{ hidratacao_pct }}%"></span>
+          </div>
+
+          <div class="agua__botoes">
+            <form method="post" action="{% url 'plans:log_hydration' %}">
+              {% csrf_token %}
+              <input type="hidden" name="ml" value="250">
+              <button type="submit" class="agua__botao">+250 <span>copo</span></button>
+            </form>
+            <form method="post" action="{% url 'plans:log_hydration' %}">
+              {% csrf_token %}
+              <input type="hidden" name="ml" value="500">
+              <button type="submit" class="agua__botao">+500 <span>garrafinha</span></button>
+            </form>
+            <form method="post" action="{% url 'plans:log_hydration' %}">
+              {% csrf_token %}
+              <input type="hidden" name="ml" value="750">
+              <button type="submit" class="agua__botao">+750 <span>garrafa</span></button>
+            </form>
+          </div>
+        </div>
+
+        {% if suplementos %}
+          {% comment %}
+            O checklist de suplementos mora aqui e não na aba própria porque é
+            aqui que a pessoa entra todo dia. A aba é para ler sobre; isto é
+            para marcar — um toque, sem sair da tela.
+          {% endcomment %}
+          <div class="supl-rapido">
+            <span class="supl-rapido__rotulo">Suplementos de hoje</span>
+            <div class="supl-rapido__lista">
+              {% for linha in suplementos %}
+                <form method="post"
+                      action="{% url 'supplements:toggle' linha.supplement.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{{ request.path }}">
+                  <button type="submit"
+                          class="supl-chip {% if linha.tomado %}is-on{% endif %}"
+                          aria-pressed="{% if linha.tomado %}true{% else %}false{% endif %}">
+                    <span class="supl-chip__marca" aria-hidden="true">
+                      {% if linha.tomado %}
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="m5 13 4 4L19 7"/>
+                        </svg>
+                      {% else %}
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2.6" stroke-linecap="round">
+                          <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                      {% endif %}
+                    </span>
+                    {{ linha.supplement.name }}
+                    <span class="supl-chip__dose num">{{ linha.dose }}</span>
+                  </button>
+                </form>
+              {% endfor %}
+            </div>
+            <a class="supl-rapido__link" href="{% url 'supplements:list' %}">
+              o que cada um faz
+            </a>
+          </div>
+        {% endif %}
 
         <div class="card__head">
           <h2>Seu cardápio de hoje</h2>

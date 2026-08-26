@@ -174,6 +174,43 @@ class MealOption(models.Model):
         ]
 
 
+class HydrationLog(models.Model):
+    """Quanta água foi registrada no dia.
+
+    Uma linha por dia, incrementada — e não uma linha por copo. O app já tinha
+    a META de hidratação e nunca teve o registro, o que fazia dela um número
+    decorativo: dizer "3,6 L" sem lugar para marcar não muda comportamento
+    nenhum, e sem registro não há como a ofensiva contar água.
+
+    Guardar mililitros inteiros porque é assim que a pessoa pensa: copo de
+    250, garrafa de 500, garrafão de 1,5 L. Decimal aqui seria precisão para
+    um número que já é estimativa.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="hydration_logs",
+        verbose_name="usuário",
+    )
+    date = models.DateField("data", default=timezone.localdate)
+    ml = models.PositiveIntegerField("mililitros", default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "registro de hidratação"
+        verbose_name_plural = "registros de hidratação"
+        ordering = ("-date",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "date"), name="uma_hidratacao_por_dia"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.ml} ml em {self.date}"
+
+
 class MealStatus(models.TextChoices):
     PENDING = "pending", "Pendente"
     DONE = "done", "Concluída"

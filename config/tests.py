@@ -152,9 +152,15 @@ class ProductionBehaviourTests(TestCase):
 
 
 def semear():
-    """O mesmo par de comandos que `scripts/build.sh` roda em cada deploy."""
+    """Os mesmos comandos que `scripts/build.sh` roda em cada deploy.
+
+    Tem que acompanhar o script: um seed novo no build e ausente aqui faz o
+    teste de saúde medir uma instalação diferente da que sobe em produção — e
+    o `BuildScriptTests` existe justamente para os dois não divergirem.
+    """
     call_command("seed_catalog", verbosity=0)
     call_command("seed_workouts", verbosity=0)
+    call_command("seed_supplements", verbosity=0)
 
 
 class HealthTests(TestCase):
@@ -351,10 +357,20 @@ class TouchTargetTests(TestCase):
             with self.subTest(seletor=seletor):
                 # Ancorado no início da linha: sem isso, ".btn {" casaria
                 # antes com ".sets .btn {" e o teste leria o bloco errado.
-                ancora = "\n" + seletor
+                ancora = chr(10) + seletor
                 self.assertIn(ancora, css, "seletor sumiu do CSS")
-                bloco = css.split(ancora, 1)[1].split("}", 1)[0]
-                self.assertIn(regra, bloco, f"{seletor} abaixo de 44px")
+
+                # TODOS os blocos daquele seletor, e não só o primeiro. Uma
+                # segunda regra com o mesmo nome — uma linha de `grid-area`,
+                # por exemplo — fazia o teste ler o bloco errado e reprovar um
+                # alvo que estava correto.
+                blocos = [
+                    trecho.split("}", 1)[0] for trecho in css.split(ancora)[1:]
+                ]
+                self.assertTrue(
+                    any(regra in bloco for bloco in blocos),
+                    f"{seletor} abaixo de 44px",
+                )
 
     def test_nothing_declares_the_old_43px_height(self):
         """2.7rem = 43px: um pixel a menos, e o dedo sente."""
@@ -485,6 +501,25 @@ class MotionTests(TestCase):
                     f"{regra} anima sem saída para quem pediu menos movimento",
                 )
 
+class BuildScriptTests(TestCase):
+    """O que o deploy precisa rodar.
+
+    Um seed esquecido no build só aparece em produção, e aparece como tela
+    vazia: o catálogo não existe e a aba abre sem nada. O teste lê o script.
+    """
+
+    def test_every_seed_command_runs_on_deploy(self):
+        script = (RAIZ / "scripts" / "build.sh").read_text(encoding="utf-8")
+        for comando in ("seed_catalog", "seed_workouts", "seed_supplements"):
+            with self.subTest(comando=comando):
+                self.assertIn(f"manage.py {comando}", script)
+
+    def test_migrations_run_before_the_seeds(self):
+        """Semear antes de migrar é semear numa tabela que ainda não existe."""
+        script = (RAIZ / "scripts" / "build.sh").read_text(encoding="utf-8")
+        self.assertLess(script.index("manage.py migrate"), script.index("seed_catalog"))
+
+
 class SingleUserAppTests(TestCase):
     """O app voltou a ser de uma pessoa só.
 
@@ -568,10 +603,15 @@ class SingleUserAppTests(TestCase):
             list(assinatura.parameters), ["target", "weight_kg", "goal"]
         )
 
-    def test_the_bottom_bar_is_back_to_four_destinations(self):
+    def test_the_bottom_bar_matches_the_number_of_tabs(self):
+        """A grade tem número fixo de colunas, então ela e o número de abas do
+        template precisam concordar — senão a última aba quebra a linha."""
         css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
-        bloco = css.split("\n.tabbar {", 1)[1].split("}", 1)[0]
-        self.assertIn("repeat(4, 1fr)", bloco)
+        bloco = css.split(chr(10) + ".tabbar {", 1)[1].split("}", 1)[0]
+        base = (RAIZ / "templates" / "base.html").read_text(encoding="utf-8")
+
+        abas = base.split('<nav class="tabbar"', 1)[1].split("</nav>", 1)[0]
+        self.assertIn(f"repeat({abas.count('tabbar__item')}, 1fr)", bloco)
 
     def test_the_package_is_gone_from_the_disk(self):
         """Etapa 2 da remoção.

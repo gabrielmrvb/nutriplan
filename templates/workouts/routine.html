@@ -218,6 +218,31 @@
                                  placeholder="{% if linha.previous %}{{ linha.previous|floatformat:'-2' }}{% else %}0{% endif %}"
                                  value="{% if linha.weight %}{{ linha.weight|floatformat:'-2' }}{% endif %}"
                                  aria-label="Carga da {{ linha.number }}ª série de {{ item.exercise.name }}">
+
+                          {% comment %}
+                            O contador de repetições: dois botões grandes e o
+                            número entre eles.
+
+                            Botão e não teclado porque a mão está suada e o
+                            teclado numérico do celular cobre metade da tela
+                            justamente quando a pessoa quer ver a próxima
+                            série. O campo continua editável para quem prefere
+                            digitar 15 de uma vez em vez de tocar quinze.
+                          {% endcomment %}
+                          <span class="reps">
+                            <button type="button" class="reps__passo"
+                                    data-reps="-1"
+                                    aria-label="Uma repetição a menos">−</button>
+                            <input class="reps__valor num" type="text" name="reps"
+                                   maxlength="3" inputmode="numeric"
+                                   value="{% if linha.reps %}{{ linha.reps }}{% endif %}"
+                                   placeholder="{% if linha.previous_reps %}{{ linha.previous_reps }}{% else %}{{ item.rep_max }}{% endif %}"
+                                   aria-label="Repetições da {{ linha.number }}ª série de {{ item.exercise.name }}">
+                            <button type="button" class="reps__passo"
+                                    data-reps="1"
+                                    aria-label="Uma repetição a mais">+</button>
+                          </span>
+
                           <button type="submit" class="set-row__save">OK</button>
                           <button type="button" class="set-row__timer"
                                   data-descanso="{{ item.rest_seconds }}"
@@ -351,6 +376,63 @@
       para o leitor de tela. Tudo isso de graça, e nenhum desses
       comportamentos é óbvio de reimplementar direito.
     {% endcomment %}
+    {% if resumo_hoje.tem_dados %}
+      {% comment %}
+        O que foi feito hoje, e as duas saídas dele.
+
+        Aparece só quando existe série registrada: um card de resumo vazio em
+        cima da ficha é ruído no dia em que a pessoa ainda não começou.
+      {% endcomment %}
+      <section class="card resumo" data-resumo
+               data-exercicios="{{ resumo_hoje.exercicios }}"
+               data-series="{{ resumo_hoje.series }}"
+               data-volume="{{ resumo_hoje.volume_kg }}"
+               data-minutos="{{ resumo_hoje.minutos }}"
+               data-kcal="{{ resumo_hoje.kcal }}"
+               data-data="{{ resumo_hoje.data|date:'d/m/Y' }}">
+        <div class="card__head"><h2>Treino de hoje</h2></div>
+
+        <div class="tiles">
+          <div class="tile">
+            <strong class="tile__value num">{{ resumo_hoje.volume_kg }}</strong>
+            <span class="tile__label">kg de volume</span>
+            <span class="tile__meta">séries × reps × carga</span>
+          </div>
+          <div class="tile">
+            <strong class="tile__value num">{{ resumo_hoje.minutos }}</strong>
+            <span class="tile__label">minutos</span>
+            <span class="tile__meta">estimado</span>
+          </div>
+          <div class="tile">
+            <strong class="tile__value num">{{ resumo_hoje.series }}</strong>
+            <span class="tile__label">séries</span>
+            <span class="tile__meta">{{ resumo_hoje.exercicios }} exercícios</span>
+          </div>
+        </div>
+
+        <div class="resumo__acoes">
+          <button type="button" class="btn btn--primary" data-compartilhar>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 15V3"/><path d="m8 7 4-4 4 4"/>
+              <path d="M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>
+            </svg>
+            Compartilhar treino
+          </button>
+
+          <a class="btn btn--ghost" href="{% url 'workouts:health_export' %}">
+            Exportar para o Saúde
+          </a>
+        </div>
+
+        <p class="resumo__nota">
+          A exportação gera um arquivo TCX. Nenhum navegador escreve direto no
+          app Saúde do iPhone nem no Health Connect — abra o arquivo no
+          importador que você já usa.
+        </p>
+      </section>
+    {% endif %}
+
     {% comment %}
       O drawer do assistente. Um só para a página, preenchido por quem foi
       tocado — mesmo desenho do drawer de execução, e pela mesma razão: sete
@@ -696,6 +778,35 @@
         var restam = 0;
         var total = 0;
 
+        /* Um bipe curto, sintetizado na hora.
+         *
+         * Sem arquivo de áudio: seriam bytes baixados por todo mundo para um
+         * som de meio segundo. E é deliberadamente discreto — 660 Hz por 150 ms
+         * com queda suave. Alarme estridente numa academia faz a pessoa desligar
+         * o som do app, e aí o aviso deixa de existir.
+         *
+         * Falha em silêncio de propósito: navegador sem WebAudio, aba sem gesto
+         * prévio ou som desligado não podem quebrar o cronômetro, que continua
+         * avisando pela vibração e pela tela. */
+        function avisar() {
+          try {
+            var Contexto = window.AudioContext || window.webkitAudioContext;
+            if (!Contexto) return;
+            var ctx = new Contexto();
+            var osc = ctx.createOscillator();
+            var ganho = ctx.createGain();
+            osc.frequency.value = 660;
+            osc.type = "sine";
+            ganho.gain.setValueAtTime(0.0001, ctx.currentTime);
+            ganho.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.02);
+            ganho.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
+            osc.connect(ganho).connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.16);
+            osc.onended = function () { ctx.close(); };
+          } catch (e) { /* sem som, o resto continua */ }
+        }
+
         function formatar(segundos) {
           var m = Math.floor(segundos / 60);
           var s = segundos % 60;
@@ -722,8 +833,26 @@
             clearInterval(intervalo);
             intervalo = null;
             if (navigator.vibrate) navigator.vibrate([200, 100, 400]);
+            avisar();
           }
         }
+
+        function iniciar(segundos, rotulo) {
+          clearInterval(intervalo);
+          total = parseInt(segundos, 10) || 60;
+          restam = total;
+          nome.textContent = rotulo || "Descanso";
+          caixa.hidden = false;
+          caixa.classList.remove("rest-timer--fim");
+          desenhar();
+          intervalo = setInterval(tick, 1000);
+        }
+
+        /* Publicado para o contador de séries poder disparar o descanso sozinho
+         * ao salvar uma série. Uma função exposta, e não um clique sintético
+         * num botão escondido: clique falso quebra no dia em que o botão mudar
+         * de lugar, e ninguém liga uma coisa à outra. */
+        window.NutriPlanDescanso = { iniciar: iniciar };
 
         document.addEventListener("click", function (event) {
           var botao = event.target.closest("[data-descanso]");
@@ -731,14 +860,7 @@
             // Começar o descanso pelo drawer fecha o drawer: o cronômetro
             // mora no rodapé da página, e ficaria escondido atrás dele.
             if (drawer && drawer.open && drawer.contains(botao)) fecharDrawer();
-            clearInterval(intervalo);
-            total = parseInt(botao.dataset.descanso, 10) || 60;
-            restam = total;
-            nome.textContent = botao.dataset.nome || "Descanso";
-            caixa.hidden = false;
-            caixa.classList.remove("rest-timer--fim");
-            desenhar();
-            intervalo = setInterval(tick, 1000);
+            iniciar(botao.dataset.descanso, botao.dataset.nome);
             return;
           }
           if (event.target.closest("[data-timer-parar]")) parar();
@@ -845,5 +967,211 @@
         dialogo.addEventListener("close", function () { corpo.innerHTML = ""; });
       })();
     </script>
+
+    <script>
+      /* Contador de repetições, salvamento sem recarregar e partida automática
+       * do descanso.
+       *
+       * O ganho real não é o contador: é a página não recarregar. Salvar uma
+       * série por POST normal joga a pessoa no topo da tela no meio do treino,
+       * e depois de perder a posição da rolagem três vezes ela para de anotar.
+       *
+       * Sem JS, os mesmos formulários continuam funcionando por POST comum: o
+       * contador vira campo de texto e o descanso continua no botão do relógio.
+       * A degradação é o motivo de isto ser um interceptador de `submit` e não
+       * um punhado de `onclick`. */
+      (function () {
+        function acharValor(botao) {
+          var caixa = botao.closest(".reps");
+          return caixa ? caixa.querySelector(".reps__valor") : null;
+        }
+
+        document.addEventListener("click", function (evento) {
+          var passo = evento.target.closest("[data-reps]");
+          if (!passo) return;
+          evento.preventDefault();
+
+          var campo = acharValor(passo);
+          if (!campo) return;
+
+          var atual = parseInt(campo.value, 10);
+          if (isNaN(atual)) atual = parseInt(campo.placeholder, 10) || 0;
+          /* Teto de 100 e piso de 1: acima disso é toque preso, não série.
+           * Zero seria "não fiz", e para isso existe deixar em branco. */
+          var passo_n = parseInt(passo.dataset.reps, 10);
+          campo.value = Math.max(1, Math.min(atual + passo_n, 100));
+        });
+
+        document.addEventListener("submit", function (evento) {
+          var form = evento.target.closest(".set-row");
+          if (!form) return;
+          /* Sem fetch, o POST normal segue e a página recarrega. */
+          if (!window.fetch || !window.FormData) return;
+
+          evento.preventDefault();
+          var salvar = form.querySelector(".set-row__save");
+          var relogio = form.querySelector("[data-descanso]");
+          if (salvar) salvar.disabled = true;
+
+          fetch(form.action, {
+            method: "POST",
+            headers: { "X-Requested-With": "fetch" },
+            body: new FormData(form),
+            credentials: "same-origin"
+          })
+            .then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
+            .then(function (dados) {
+              form.classList.add("set-row--done");
+              /* O descanso começa sozinho aqui: terminar a série e ter que
+               * tocar num segundo botão para contar o intervalo é o passo que
+               * some no meio do treino — e sem ele o intervalo vira "até
+               * quando eu lembrar". */
+              if (window.NutriPlanDescanso) {
+                var segundos = (relogio && relogio.dataset.descanso) || dados.descanso;
+                var rotulo = (relogio && relogio.dataset.nome) || "Descanso";
+                window.NutriPlanDescanso.iniciar(segundos, rotulo);
+              }
+            })
+            .catch(function () {
+              /* Servidor recusou ou a rede caiu: reenvia do jeito antigo, que
+               * recarrega e mostra a mensagem de erro do Django. */
+              form.submit();
+            })
+            .then(function () { if (salvar) salvar.disabled = false; });
+        });
+      })();
+    </script>
+
+    <script>
+      /* O card de compartilhamento.
+       *
+       * Desenhado em canvas no próprio aparelho, e não gerado no servidor: uma
+       * imagem por treino por pessoa seria processamento e armazenamento para
+       * um arquivo que vive trinta segundos até virar story.
+       *
+       * 1080x1350 porque é o formato que o Instagram não corta. */
+      (function () {
+        var alvo = document.querySelector("[data-resumo]");
+        if (!alvo) return;
+
+        var COR = {
+          fundo: "#090c0b",
+          cartao: "#121716",
+          borda: "rgba(255,255,255,.10)",
+          marca: "#4ade9b",
+          texto: "#eef4f2",
+          fraco: "#849592"
+        };
+        var FONTE = "system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+
+        function caixaArredondada(g, x, y, w, h, r) {
+          /* `roundRect` é recente demais para o Safari que ainda circula nas
+           * academias; o caminho à mão funciona em tudo. */
+          g.beginPath();
+          g.moveTo(x + r, y);
+          g.arcTo(x + w, y, x + w, y + h, r);
+          g.arcTo(x + w, y + h, x, y + h, r);
+          g.arcTo(x, y + h, x, y, r);
+          g.arcTo(x, y, x + w, y, r);
+          g.closePath();
+        }
+
+        function desenhar() {
+          var c = document.createElement("canvas");
+          c.width = 1080;
+          c.height = 1350;
+          var g = c.getContext("2d");
+
+          g.fillStyle = COR.fundo;
+          g.fillRect(0, 0, c.width, c.height);
+
+          /* Um halo verde atrás do número. É o único enfeite, e existe porque
+           * retângulo preto com texto branco não é imagem que alguém posta. */
+          var brilho = g.createRadialGradient(540, 520, 40, 540, 520, 620);
+          brilho.addColorStop(0, "rgba(74,222,155,.20)");
+          brilho.addColorStop(1, "rgba(74,222,155,0)");
+          g.fillStyle = brilho;
+          g.fillRect(0, 0, c.width, c.height);
+
+          g.textAlign = "center";
+
+          g.fillStyle = COR.marca;
+          g.font = "700 34px " + FONTE;
+          g.fillText("NUTRIPLAN", 540, 150);
+
+          g.fillStyle = COR.fraco;
+          g.font = "500 34px " + FONTE;
+          g.fillText(alvo.dataset.data, 540, 210);
+
+          g.fillStyle = COR.texto;
+          g.font = "800 190px " + FONTE;
+          g.fillText(alvo.dataset.volume, 540, 560);
+
+          g.fillStyle = COR.marca;
+          g.font = "700 46px " + FONTE;
+          g.fillText("kg levantados", 540, 630);
+
+          var blocos = [
+            [alvo.dataset.exercicios, "exercícios"],
+            [alvo.dataset.series, "séries"],
+            [alvo.dataset.minutos + " min", "de treino"]
+          ];
+          var largura = 300, altura = 240, espaco = 30;
+          var x0 = (c.width - (largura * 3 + espaco * 2)) / 2;
+
+          blocos.forEach(function (bloco, i) {
+            var x = x0 + i * (largura + espaco);
+            var y = 780;
+            g.fillStyle = COR.cartao;
+            caixaArredondada(g, x, y, largura, altura, 28);
+            g.fill();
+            g.strokeStyle = COR.borda;
+            g.lineWidth = 2;
+            g.stroke();
+
+            g.fillStyle = COR.texto;
+            g.font = "800 68px " + FONTE;
+            g.fillText(bloco[0], x + largura / 2, y + 120);
+            g.fillStyle = COR.fraco;
+            g.font = "500 32px " + FONTE;
+            g.fillText(bloco[1], x + largura / 2, y + 175);
+          });
+
+          g.fillStyle = COR.fraco;
+          g.font = "500 30px " + FONTE;
+          g.fillText("~" + alvo.dataset.kcal + " kcal estimadas", 540, 1160);
+
+          return c;
+        }
+
+        document.addEventListener("click", function (evento) {
+          if (!evento.target.closest("[data-compartilhar]")) return;
+          evento.preventDefault();
+
+          desenhar().toBlob(function (blob) {
+            if (!blob) return;
+            var arquivo = new File([blob], "treino-nutriplan.png", { type: "image/png" });
+
+            /* Compartilhar de verdade quando o aparelho sabe — é o caminho do
+             * celular, e leva direto ao Instagram ou ao WhatsApp. No desktop a
+             * API não existe, e aí baixar é o que sobra. */
+            if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+              navigator
+                .share({ files: [arquivo], title: "Meu treino de hoje" })
+                .catch(function () { /* cancelar não é erro */ });
+              return;
+            }
+
+            var url = URL.createObjectURL(blob);
+            var link = document.createElement("a");
+            link.href = url;
+            link.download = "treino-nutriplan.png";
+            link.click();
+            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+          }, "image/png");
+        });
+      })();
+    </script>
+
   {% endif %}
 {% endblock %}

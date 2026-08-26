@@ -11,6 +11,7 @@ urlpatterns = [
         views.RecordLoadView.as_view(),
         name="record_load",
     ),
+    path("exportar/saude.tcx", views.HealthExportView.as_view(), name="health_export"),
     path(
         "ficha/<int:session_id>/ajustar/",
         views.AssistantView.as_view(),

@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "catalog",
     "plans",
     "workouts",
+    "supplements",
     "push",
 ]
 
