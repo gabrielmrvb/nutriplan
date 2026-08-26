@@ -13,6 +13,11 @@ urlpatterns = [
     path("recalibrar/", views.RecalibrateView.as_view(), name="recalibrate"),
     path("lista-de-compras/", views.ShoppingListView.as_view(), name="shopping"),
     path(
+        "opcao/<int:option_id>/substituir/",
+        views.SubstituteOptionView.as_view(),
+        name="substitute_option",
+    ),
+    path(
         "alimento/<int:food_id>/substituir/",
         views.SubstituteFoodView.as_view(),
         name="substitute_food",

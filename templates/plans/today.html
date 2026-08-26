@@ -137,6 +137,24 @@ coluna da direita), não entre ela e o almoço.
                       {% if option.template.instructions %}
                         <p class="option__how">{{ option.template.instructions }}</p>
                       {% endif %}
+
+                      {% comment %}
+                        Tocar no nome do alimento já abria a troca, mas o ⇄ ao
+                        lado do nome é pequeno e some no meio da lista —
+                        ninguém descobre. Este botão diz o que faz.
+                      {% endcomment %}
+                      <button type="button" class="option__trocar"
+                              data-troca="{% url 'plans:substitute_option' option.pk %}"
+                              data-nome="{{ option.template.name }}"
+                              data-titulo="Substituir em {{ option.template.name }}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                             aria-hidden="true">
+                          <path d="M4 8h13l-3-3M20 16H7l3 3"/>
+                        </svg>
+                        Substituir alimento
+                      </button>
+
                       <form method="post" action="{% url 'plans:mark_meal' slot.pk %}">
                         {% csrf_token %}
                         <input type="hidden" name="status" value="done">
@@ -235,6 +253,34 @@ coluna da direita), não entre ela e o almoço.
 
       <section class="card">
         <div class="card__head"><h2>Macros de hoje</h2></div>
+
+        {% if proteina_perdida %}
+          {% comment %}
+            Só proteína, e isso é escolha. Carboidrato pulado a pessoa recupera
+            no almoço sem pensar; proteína pulada não volta — é o macro com
+            alvo absoluto, o que preserva massa magra no déficit.
+
+            E o número vem traduzido em comida: "faltam 41 g de proteína" é
+            abstrato, "o equivalente a 130 g de frango" é jantar.
+          {% endcomment %}
+          <p class="pulou">
+            <span class="pulou__icone" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                   stroke-linecap="round"><path d="M12 8v5"/><path d="M12 16.5v.01"/>
+                <circle cx="12" cy="12" r="9"/></svg>
+            </span>
+            <span>
+              {% if proteina_perdida.refeicoes == 1 %}
+                Você pulou {{ proteina_perdida.nomes.0|lower }}.
+              {% else %}
+                Você pulou {{ proteina_perdida.refeicoes }} refeições.
+              {% endif %}
+              Faltam <b class="num">{{ proteina_perdida.gramas }} g</b> de proteína na meta —
+              cerca de {{ proteina_perdida.equivalente_frango_g }} g de frango a mais no
+              resto do dia.
+            </span>
+          </p>
+        {% endif %}
         <div class="macro-bar">
           {% for macro in macros %}
             <span class="macro-bar__part macro-bar__part--{{ macro.slug }}"
@@ -378,7 +424,10 @@ coluna da direita), não entre ela e o almoço.
       document.addEventListener("click", function (event) {
         var botao = event.target.closest("[data-troca]");
         if (botao) {
-          titulo.textContent = "Trocar " + botao.dataset.nome;
+          // O primeiro passo pergunta QUAL alimento; o segundo troca um
+          // alimento. "Trocar <nome da receita>" no primeiro passo prometia
+          // trocar o prato inteiro, que não é o que acontece.
+          titulo.textContent = botao.dataset.titulo || "Trocar " + botao.dataset.nome;
           corpo.innerHTML = '<p class="swap__loading">Procurando equivalentes…</p>';
           modal.showModal();
           fetch(botao.dataset.troca, {headers: {"X-Requested-With": "fetch"}})

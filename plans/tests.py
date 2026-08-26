@@ -1803,3 +1803,131 @@ class SubstituteViewTests(TestCase):
         self.client.logout()
         response = self.client.get(self.url(self.frango))
         self.assertIn(reverse("accounts:login"), response["Location"])
+
+
+class SubstituirNaOpcaoTests(TestCase):
+    """O botão explícito de trocar alimento dentro de cada opção.
+
+    Tocar no nome do alimento já abria a troca, mas o ⇄ ao lado do nome é
+    pequeno e some no meio da lista — ninguém descobre. O botão diz o que faz,
+    e o passo seguinte pergunta qual alimento em vez de adivinhar: trocar o
+    arroz é uma decisão, trocar o azeite é outra.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        CatalogFixture.setUpTestData()
+
+    def setUp(self):
+        self.user = create_complete_user(email="trocar@exemplo.com")
+        self.client.force_login(self.user)
+        self.plan = services.get_active_plan(self.user) or services.create_plan(self.user)
+
+    def test_every_option_offers_the_swap_button(self):
+        html = self.client.get(reverse("plans:today")).content.decode()
+        opcoes = sum(slot.options.count() for slot in self.plan.slots.all())
+
+        self.assertEqual(html.count("option__trocar"), opcoes)
+        self.assertIn("Substituir alimento", html)
+
+    def test_the_first_step_asks_which_food(self):
+        opcao = self.plan.slots.first().options.first()
+
+        resposta = self.client.get(
+            reverse("plans:substitute_option", args=[opcao.pk])
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        corpo = resposta.content.decode()
+        self.assertIn("Qual alimento você quer trocar?", corpo)
+        # Cada ingrediente vira um caminho para as próprias alternativas.
+        ingredientes = list(opcao.ingredient_list())
+        for item in ingredientes:
+            with self.subTest(alimento=item["food"].name):
+                self.assertIn(item["food"].name, corpo)
+        self.assertEqual(corpo.count("data-troca"), len(ingredientes))
+
+    def test_the_step_title_does_not_promise_to_swap_the_whole_recipe(self):
+        """"Trocar Pão com queijo e café com leite" prometia trocar o prato
+        inteiro, que não é o que acontece."""
+        html = self.client.get(reverse("plans:today")).content.decode()
+        self.assertIn('data-titulo="Substituir em ', html)
+        self.assertIn("botao.dataset.titulo", html)
+
+    def test_an_option_from_another_person_is_not_readable(self):
+        """A opção é buscada pelo dono do plano, e não só pelo id."""
+        outro = create_complete_user(email="alheio@exemplo.com")
+        plano_alheio = services.get_active_plan(outro) or services.create_plan(outro)
+        opcao = plano_alheio.slots.first().options.first()
+
+        resposta = self.client.get(
+            reverse("plans:substitute_option", args=[opcao.pk])
+        )
+
+        self.assertEqual(resposta.status_code, 404)
+
+
+class RefeicaoPuladaTests(TestCase):
+    """O impacto de pular uma refeição, dito em proteína.
+
+    Só proteína, e isso é escolha: carboidrato pulado a pessoa recupera no
+    almoço sem pensar; proteína pulada não volta.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        CatalogFixture.setUpTestData()
+
+    def setUp(self):
+        self.user = create_complete_user(email="pulou@exemplo.com")
+        self.client.force_login(self.user)
+        self.plan = services.get_active_plan(self.user) or services.create_plan(self.user)
+
+    def _pular(self, slot):
+        return self.client.post(
+            reverse("plans:mark_meal", args=[slot.pk]), {"status": "skipped"}
+        )
+
+    def test_nothing_is_said_when_no_meal_was_skipped(self):
+        html = self.client.get(reverse("plans:today")).content.decode()
+        self.assertNotIn('class="pulou"', html)
+
+    def test_skipping_shows_the_protein_gap_in_grams(self):
+        slot = self.plan.slots.order_by("order").first()
+        self._pular(slot)
+
+        html = self.client.get(reverse("plans:today")).content.decode()
+
+        self.assertIn('class="pulou"', html)
+        self.assertIn(f"{slot.target_protein_g} g", html)
+        self.assertIn(slot.name.lower(), html.lower())
+
+    def test_the_gap_is_translated_into_food(self):
+        """"Faltam 37 g de proteína" é abstrato; "120 g de frango" é jantar."""
+        slot = self.plan.slots.order_by("order").first()
+        self._pular(slot)
+
+        html = self.client.get(reverse("plans:today")).content.decode()
+        self.assertIn("de frango a mais no", html)
+
+    def test_two_skipped_meals_add_up(self):
+        slots = list(self.plan.slots.order_by("order")[:2])
+        for slot in slots:
+            self._pular(slot)
+
+        html = self.client.get(reverse("plans:today")).content.decode()
+        total = sum(s.target_protein_g for s in slots)
+
+        self.assertIn(f"{total} g", html)
+        self.assertIn("2 refeições", html)
+
+    def test_eating_the_meal_says_nothing_about_gaps(self):
+        """"Comi outra coisa" e "comi esta" não disparam o aviso: ele existe
+        para a refeição que NÃO aconteceu."""
+        slot = self.plan.slots.order_by("order").first()
+        self.client.post(
+            reverse("plans:mark_meal", args=[slot.pk]), {"status": "off_plan"}
+        )
+
+        html = self.client.get(reverse("plans:today")).content.decode()
+        self.assertNotIn('class="pulou"', html)

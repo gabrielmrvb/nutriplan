@@ -1,0 +1,31 @@
+{% comment %}
+  Os alimentos de uma opção, cada um levando às próprias alternativas.
+
+  Este passo existe para perguntar o óbvio — qual alimento — em vez de
+  adivinhar. Uma opção tem quatro ou cinco ingredientes, e "substituir
+  alimento" sem dizer qual é uma aposta: trocar o arroz é uma decisão, trocar
+  o azeite é outra.
+
+  O mesmo modal serve os dois passos: este fragmento entra no corpo, e ao
+  tocar num alimento o fragmento das alternativas o substitui.
+{% endcomment %}
+<p class="swap__pergunta">Qual alimento você quer trocar?</p>
+
+<ul class="swap__escolhas">
+  {% for item in option.ingredient_list %}
+    <li>
+      <button type="button" class="swap__escolha"
+              data-troca="{% url 'plans:substitute_food' item.food.pk %}?g={{ item.quantity|floatformat:0 }}"
+              data-nome="{{ item.food.name }}">
+        <span class="swap__escolha-nome">{{ item.food.name }}</span>
+        <span class="swap__escolha-qtd num">{{ item.quantity|floatformat:0 }} {{ item.unit }}</span>
+        <span class="swap__escolha-seta" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+        </span>
+      </button>
+    </li>
+  {% empty %}
+    <li><p class="swap__empty">Esta opção não tem ingredientes cadastrados.</p></li>
+  {% endfor %}
+</ul>

@@ -1466,7 +1466,87 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 /* ==========================================================================
-   20. Hidratação e média semanal de peso
+   20. Substituir alimento e refeição pulada
+   ========================================================================== */
+
+/* O botão fica no fim do corpo da opção, discreto e por extenso. Tocar no
+   nome do alimento continua funcionando — o que muda é que agora existe uma
+   porta com placa, e não só uma seta pequena no meio da lista. */
+.option__trocar {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  justify-self: start;
+  min-height: 2.75rem;
+  margin-bottom: .6rem;
+  padding: .35rem .7rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--pill);
+  background: none;
+  color: var(--text-mute);
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+
+.option__trocar svg { width: 1rem; height: 1rem; flex: none; }
+
+.option__trocar:hover { border-color: var(--brand); color: var(--brand); }
+.option__trocar:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* O passo que pergunta qual alimento trocar. */
+.swap__pergunta { margin: 0 0 .6rem; color: var(--text-dim); font-size: .85rem; }
+.swap__escolhas { display: grid; gap: .35rem; margin: 0; padding: 0; list-style: none; }
+
+.swap__escolha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: .55rem .7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: .88rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+
+.swap__escolha:hover { border-color: var(--brand); background: var(--surface-3); }
+.swap__escolha-nome { min-width: 0; }
+.swap__escolha-qtd { color: var(--text-dim); font-size: .82rem; }
+.swap__escolha-seta { display: grid; place-items: center; color: var(--text-mute); }
+.swap__escolha-seta svg { width: .9rem; height: .9rem; }
+
+/* O aviso da refeição pulada. Fica dentro do cartão de macros porque é dali
+   que ele fala: o impacto é na meta do dia, não no cardápio. */
+.pulou {
+  display: flex;
+  align-items: flex-start;
+  gap: .55rem;
+  margin: 0 0 .9rem;
+  padding: .7rem .8rem;
+  border-left: 3px solid var(--warm);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: color-mix(in srgb, var(--warm) 10%, transparent);
+  color: var(--text-dim);
+  font-size: .82rem;
+  line-height: 1.5;
+}
+
+.pulou__icone { display: grid; place-items: center; flex: none; color: var(--warm); }
+.pulou__icone svg { width: 1.1rem; height: 1.1rem; }
+.pulou b { color: var(--text); }
+
+/* ==========================================================================
+   21. Hidratação e média semanal de peso
    ========================================================================== */
 
 .hidratacao {
@@ -1530,7 +1610,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .dias-detalhe summary { color: var(--text-dim); font-size: .8rem; cursor: pointer; min-height: 2.75rem; display: flex; align-items: center; }
 
 /* ==========================================================================
-   21. Sanfona das fichas da semana
+   22. Sanfona das fichas da semana
    ========================================================================== */
 
 /* Cinco fichas abertas eram uma página de rolagem infinita. Agora abre uma —
@@ -1633,7 +1713,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .ficha[data-dia] { border-left: 3px solid var(--dia, var(--brand)); }
 
 /* ==========================================================================
-   22. Drawer de execução do exercício
+   23. Drawer de execução do exercício
    ========================================================================== */
 
 /* Sobe do rodapé no celular, vira cartão centrado no desktop.
@@ -1853,7 +1933,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 /* ==========================================================================
-   23. Cartões de escolha (onboarding)
+   24. Cartões de escolha (onboarding)
    ========================================================================== */
 
 /* As duas perguntas que mais mudam o plano — objetivo e nível de atividade —
@@ -2013,7 +2093,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 /* ==========================================================================
-   24. Convite de instalação
+   25. Convite de instalação
    ========================================================================== */
 
 /* Uma faixa presa ao rodapé, acima da navegação. Fica no fluxo visual do app
@@ -2167,7 +2247,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .install__close:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* ==========================================================================
-   25. Desktop
+   26. Desktop
    ========================================================================== */
 
 @media (min-width: 60rem) {

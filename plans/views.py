@@ -26,6 +26,33 @@ from .calculations import (
 from .models import MealOption, MealSlot, MealStatus, OptionLabel
 
 
+def proteina_perdida(slots) -> dict:
+    """O que as refeições puladas custaram em proteína, hoje.
+
+    Só proteína, e isso é escolha. Carboidrato pulado a pessoa recupera no
+    almoço sem pensar; proteína pulada não volta — é o macro com alvo
+    absoluto, o que preserva massa magra no déficit, e o único em que ficar 30
+    g abaixo importa de verdade.
+
+    Mostrar o número no lugar de um aviso genérico é o ponto: "você pulou uma
+    refeição" não muda comportamento nenhum; "faltam 41 g de proteína, o
+    equivalente a 130 g de frango" diz o que fazer no jantar.
+    """
+    puladas = [s for s in slots if getattr(s, "log", None) and s.log.status == MealStatus.SKIPPED]
+    if not puladas:
+        return {}
+
+    gramas = sum(s.target_protein_g for s in puladas)
+    return {
+        "refeicoes": len(puladas),
+        "nomes": [s.name for s in puladas],
+        "gramas": gramas,
+        # Uma tradução para comida: 100 g de peito de frango têm ~31 g de
+        # proteína. Grama de macro é abstrato; "130 g de frango" é jantar.
+        "equivalente_frango_g": int(round(gramas / Decimal("0.31"), -1)),
+    }
+
+
 def macro_rows(plan, summary=None):
     """Os três macros prontos para a tela.
 
@@ -203,6 +230,7 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 "menu_gap": menu["kcal"] - self.plan.target_kcal,
                 "menu_on_target": abs(menu["kcal"] - self.plan.target_kcal) <= MENU_TOLERANCE_KCAL,
                 "hidratacao_ml": weight_trend.hidratacao_ml(self.plan.weight_kg),
+                "proteina_perdida": proteina_perdida(slots),
                 "nav": "today",
                 "training_days": self.request.user.training_days.all(),
                 "slots": slots,
@@ -369,6 +397,28 @@ class ShoppingListView(PlanRequiredMixin, TemplateView):
             }
         )
         return context
+
+
+class SubstituteOptionView(OnboardingRequiredMixin, View):
+    """Os alimentos de uma opção, cada um levando às próprias alternativas.
+
+    Existe porque tocar no nome do alimento para trocá-lo não é descoberto por
+    ninguém: o ⇄ ao lado do nome é pequeno e some no meio da lista. O botão
+    "Substituir alimento" é explícito, e este passo pergunta o óbvio — qual
+    deles — em vez de adivinhar.
+    """
+
+    def get(self, request, option_id, *args, **kwargs):
+        option = get_object_or_404(
+            MealOption,
+            pk=option_id,
+            slot__plan__user=request.user,
+        )
+        return render(
+            request,
+            "plans/partials/option_foods.html",
+            {"option": option},
+        )
 
 
 class SubstituteFoodView(OnboardingRequiredMixin, View):
