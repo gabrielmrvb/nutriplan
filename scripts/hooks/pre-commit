@@ -15,6 +15,11 @@
 set -o errexit
 set -o pipefail
 
+# `--noinput` nos testes não é detalhe: um banco de teste órfão de uma execução
+# interrompida faz o Django PERGUNTAR se pode apagá-lo, e um hook não tem
+# terminal para responder. Sem isto ele morre com EOFError e o commit é
+# abortado por um motivo que não tem nada a ver com o código.
+
 PY=".venv/Scripts/python.exe"
 [ -x "$PY" ] || PY="python"
 
@@ -29,6 +34,6 @@ echo "→ alvos de toque e regras de estilo"
   config.tests.PillContrastTests \
   config.tests.CustomPropertyTests \
   workouts.tests.ImpeccableStyleTests \
-  --verbosity=0
+  --verbosity=0 --noinput
 
 echo "✓ commit liberado (a suíte completa roda no push)"
