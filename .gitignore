@@ -9,3 +9,8 @@ media/
 .idea/
 .vscode/
 *.log
+
+# Pastas de outros projetos que moram nesta mesma pasta.
+# `mu-direct-games` entrou no repositório por um `git add -A` meu e não tem
+# nada a ver com o NutriPlan. Os arquivos continuam no disco.
+mu-direct-games/
