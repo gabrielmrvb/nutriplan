@@ -8,6 +8,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.urls import reverse
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.generic import TemplateView, View
@@ -16,7 +17,15 @@ from accounts.models import ACTIVITY_FACTORS
 from accounts.views import OnboardingRequiredMixin
 from catalog.models import Food
 
-from . import services, streaks, weight_trend, shopping, substitutions, tracking
+from . import (
+    services,
+    shopping,
+    streaks,
+    substitutions,
+    tracking,
+    voice,
+    weight_trend,
+)
 from .calculations import (
     KCAL_PER_G_CARB,
     KCAL_PER_G_FAT,
@@ -289,7 +298,10 @@ class MarkMealView(OnboardingRequiredMixin, View):
                 MealOption, pk=request.POST.get("option"), slot=slot
             )
 
-        tracking.log_meal(request.user, slot, status, option)
+        tracking.log_meal(
+            request.user, slot, status, option,
+            notes=(request.POST.get("notes") or "").strip(),
+        )
         return redirect("plans:today")
 
 
@@ -479,7 +491,7 @@ class LogHydrationView(OnboardingRequiredMixin, View):
     acumulado. O botão diz "+500 ml" e some com a conta.
     """
 
-    #: Os volumes que existem no mundo: copo, garrafinha, garrafa.
+    #: Os volumes dos botões: copo, garrafinha, garrafa.
     PASSOS = (250, 500, 750)
 
     def post(self, request, *args, **kwargs):
@@ -491,7 +503,16 @@ class LogHydrationView(OnboardingRequiredMixin, View):
         # A validação vem ANTES de criar a linha. Ao contrário, um valor
         # inválido deixava uma linha de 0 ml no banco — inofensiva na conta e
         # suja o bastante para confundir quem for depurar o dia depois.
-        if ml not in self.PASSOS and ml != 0:
+        #
+        # A faixa é mais larga que os três botões porque a voz também entra por
+        # aqui, e quem fala "trezentos mililitros" quis dizer trezentos. Múltiplo
+        # de dez, entre 50 e 2000: continua recusando o número digitado errado
+        # sem obrigar a fala a caber num botão.
+        valido = ml == 0 or (
+            ml in self.PASSOS
+            or (voice.VOZ_MIN_ML <= ml <= voice.VOZ_MAX_ML and ml % 10 == 0)
+        )
+        if not valido:
             messages.error(request, "Quantidade de água inválida.")
             return redirect("plans:today")
 
@@ -502,9 +523,46 @@ class LogHydrationView(OnboardingRequiredMixin, View):
             # Zerar é o desfazer: tocou errado, começa o dia de novo.
             registro.ml = 0
         else:
-            # Teto de 10 litros: acima disso é toque preso, não hidratação, e
-            # um número absurdo estragaria a barra de progresso e a ofensiva.
+            # Teto de 10 litros no DIA: acima disso é toque preso, não
+            # hidratação, e um número absurdo estragaria a barra e a ofensiva.
             registro.ml = min(registro.ml + ml, 10000)
 
         registro.save(update_fields=["ml", "updated_at"])
         return redirect("plans:today")
+
+
+class VoiceView(OnboardingRequiredMixin, View):
+    """Lê a frase falada e devolve a proposta — sem gravar nada.
+
+    O navegador faz só a parte que ele faz melhor: som vira texto, com a API
+    nativa de reconhecimento. O entendimento acontece aqui, em Python, porque é
+    aqui que a suíte de testes vive — um interpretador dentro do template seria
+    testável só abrindo um navegador com microfone, o que na prática significa
+    não testado.
+
+    E é sempre proposta, nunca ação: reconhecimento de voz erra em silêncio.
+    "Trezentos" e "trezentos e cinquenta" saem parecidos num celular dentro da
+    academia, e a pessoa precisa ver o número antes de ele virar registro.
+    """
+
+    def post(self, request, *args, **kwargs):
+        frase = (request.POST.get("frase") or "").strip()
+        plano = services.get_active_plan(request.user)
+        slots = list(plano.slots.order_by("order")) if plano else []
+
+        intencao = voice.interpretar(frase, slots=slots)
+
+        return JsonResponse(
+            {
+                "entendeu": intencao.entendeu,
+                "tipo": intencao.tipo,
+                "resumo": intencao.resumo,
+                "erro": intencao.erro,
+                "ml": intencao.ml,
+                "slot_id": intencao.slot_id,
+                "slot_nome": intencao.slot_nome,
+                "status": intencao.status,
+                "nota": intencao.nota,
+                "frase": frase,
+            }
+        )

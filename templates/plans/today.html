@@ -148,6 +148,50 @@ coluna da direita), não entre ela e o almoço.
           </div>
         </div>
 
+        {% comment %}
+          O microfone.
+
+          Fica ao lado da água e antes do cardápio porque as duas coisas que
+          ele resolve são registrar bebida e marcar refeição — e as duas
+          acontecem com a mão ocupada, que é o motivo de existir entrada por
+          voz num app de dieta.
+
+          Nasce escondido: só aparece quando o JavaScript confirma que este
+          navegador tem reconhecimento de fala. Um botão de microfone que não
+          escuta é pior que a ausência dele.
+        {% endcomment %}
+        <div class="voz" data-voz hidden
+             data-csrf="{{ csrf_token }}"
+             data-acao-voz="{% url 'plans:voice' %}"
+             data-acao-agua="{% url 'plans:log_hydration' %}"
+             data-acao-refeicao="{% url 'plans:mark_meal' 0 %}">
+          <button type="button" class="voz__botao" data-voz-ouvir>
+            <span class="voz__icone" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="2.5" width="6" height="11" rx="3"/>
+                <path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3.5"/>
+              </svg>
+            </span>
+            <span class="voz__rotulo" data-voz-rotulo>Registrar por voz</span>
+          </button>
+          <p class="voz__dica">
+            Diga <b>"300 ml de água"</b> ou <b>"comi frango no almoço"</b>.
+          </p>
+
+          <form class="voz__proposta" method="post" data-voz-proposta hidden>
+            {% csrf_token %}
+            <p class="voz__frase" data-voz-frase></p>
+            <p class="voz__resumo" data-voz-resumo></p>
+            <div class="voz__acoes">
+              <button type="submit" class="btn btn--primary btn--sm">Confirmar</button>
+              <button type="button" class="btn btn--quiet" data-voz-cancelar>
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+
         {% if suplementos %}
           {% comment %}
             O checklist de suplementos mora aqui e não na aba própria porque é
@@ -571,4 +615,151 @@ coluna da direita), não entre ela e o almoço.
       });
     })();
   </script>
+
+  <script>
+    /* Entrada por voz.
+     *
+     * O navegador faz só a parte que ele faz melhor: som vira texto, com a API
+     * nativa. O entendimento acontece no servidor, em Python, onde a suíte de
+     * testes vive — um interpretador aqui dentro seria testável só abrindo um
+     * navegador com microfone, o que na prática significa não testado.
+     *
+     * E é sempre proposta antes de ação. Reconhecimento de fala erra em
+     * silêncio: "trezentos" e "trezentos e cinquenta" saem parecidos num
+     * celular dentro de uma academia, e um registro errado de água estraga a
+     * ofensiva sem nunca dar erro. */
+    (function () {
+      var caixa = document.querySelector("[data-voz]");
+      if (!caixa) return;
+
+      var Reconhecimento = window.SpeechRecognition || window.webkitSpeechRecognition;
+      /* Sem reconhecimento no navegador, o bloco simplesmente não aparece. Um
+       * botão de microfone que não escuta é pior que a ausência dele. */
+      if (!Reconhecimento) return;
+      caixa.hidden = false;
+
+      var botao = caixa.querySelector("[data-voz-ouvir]");
+      var rotulo = caixa.querySelector("[data-voz-rotulo]");
+      var proposta = caixa.querySelector("[data-voz-proposta]");
+      var elFrase = caixa.querySelector("[data-voz-frase]");
+      var elResumo = caixa.querySelector("[data-voz-resumo]");
+      var padrao = rotulo.textContent;
+      var ouvindo = false;
+
+      function dizer(texto) { rotulo.textContent = texto; }
+
+      function limpar() {
+        proposta.hidden = true;
+        proposta.querySelectorAll("[data-voz-campo]").forEach(function (c) {
+          c.remove();
+        });
+      }
+
+      function campo(nome, valor) {
+        var el = document.createElement("input");
+        el.type = "hidden";
+        el.name = nome;
+        el.value = valor;
+        el.setAttribute("data-voz-campo", "");
+        proposta.appendChild(el);
+      }
+
+      function mostrar(dados) {
+        limpar();
+        elFrase.textContent = "“" + dados.frase + "”";
+
+        if (!dados.entendeu) {
+          elResumo.textContent = dados.erro;
+          elResumo.classList.add("voz__resumo--erro");
+          proposta.hidden = false;
+          proposta.querySelector('button[type="submit"]').hidden = true;
+          return;
+        }
+
+        elResumo.textContent = dados.resumo;
+        elResumo.classList.remove("voz__resumo--erro");
+        proposta.querySelector('button[type="submit"]').hidden = false;
+
+        if (dados.tipo === "agua") {
+          proposta.action = caixa.dataset.acaoAgua;
+          campo("ml", dados.ml);
+        } else {
+          proposta.action = caixa.dataset.acaoRefeicao.replace("0", dados.slot_id);
+          campo("status", dados.status);
+          if (dados.nota) campo("notes", dados.nota);
+        }
+        proposta.hidden = false;
+      }
+
+      function entender(frase) {
+        var dados = new FormData();
+        dados.append("frase", frase);
+        dados.append("csrfmiddlewaretoken", caixa.dataset.csrf);
+
+        fetch(caixa.dataset.acaoVoz, {
+          method: "POST",
+          body: dados,
+          credentials: "same-origin",
+        })
+          .then(function (r) { return r.json(); })
+          .then(mostrar)
+          .catch(function () {
+            elFrase.textContent = "";
+            elResumo.textContent = "Não deu para processar agora. Tente de novo.";
+            elResumo.classList.add("voz__resumo--erro");
+            proposta.hidden = false;
+          });
+      }
+
+      botao.addEventListener("click", function () {
+        if (ouvindo) return;
+
+        var motor = new Reconhecimento();
+        motor.lang = "pt-BR";
+        motor.interimResults = false;
+        motor.maxAlternatives = 1;
+
+        motor.onstart = function () {
+          ouvindo = true;
+          caixa.classList.add("is-ouvindo");
+          dizer("Ouvindo…");
+        };
+        motor.onresult = function (evento) {
+          var frase = evento.results[0][0].transcript;
+          dizer("Entendendo…");
+          entender(frase);
+        };
+        motor.onerror = function (evento) {
+          /* `not-allowed` é a permissão negada, e merece texto próprio: o
+           * genérico manda a pessoa tentar de novo num botão que nunca vai
+           * funcionar até ela mexer nas permissões do navegador. */
+          elFrase.textContent = "";
+          elResumo.textContent =
+            evento.error === "not-allowed"
+              ? "O navegador bloqueou o microfone. Libere o acesso nas permissões do site."
+              : "Não consegui ouvir. Tente de novo num lugar mais silencioso.";
+          elResumo.classList.add("voz__resumo--erro");
+          proposta.querySelector('button[type="submit"]').hidden = true;
+          proposta.hidden = false;
+        };
+        motor.onend = function () {
+          ouvindo = false;
+          caixa.classList.remove("is-ouvindo");
+          dizer(padrao);
+        };
+
+        limpar();
+        proposta.hidden = true;
+        motor.start();
+      });
+
+      caixa.addEventListener("click", function (evento) {
+        if (evento.target.closest("[data-voz-cancelar]")) {
+          limpar();
+          proposta.hidden = true;
+        }
+      });
+    })();
+  </script>
+
 {% endblock %}

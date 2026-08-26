@@ -18,7 +18,7 @@ HISTORY_DAYS = 14
 ZERO = Decimal("0")
 
 
-def log_meal(user, slot, status, option=None, day=None) -> MealLog:
+def log_meal(user, slot, status, option=None, day=None, notes="") -> MealLog:
     """Registra o que aconteceu numa refeição.
 
     `update_or_create` porque marcar de novo é corriqueiro: a pessoa clica em
@@ -42,6 +42,11 @@ def log_meal(user, slot, status, option=None, day=None) -> MealLog:
         "protein_g": option.protein_g if ate_the_plan else ZERO,
         "carb_g": option.carb_g if ate_the_plan else ZERO,
         "fat_g": option.fat_g if ate_the_plan else ZERO,
+        # O campo existia desde o começo e nunca era escrito. Passou a servir
+        # quando a entrada por voz chegou: "comi frango no almoço" não vira
+        # macro nenhum — chutar contaminaria o histórico — mas vira a frase
+        # guardada, que é o que a pessoa quis registrar.
+        "notes": (notes or "")[:200],
     }
     log, _ = MealLog.objects.update_or_create(
         user=user, date=day, slot=slot, defaults=defaults

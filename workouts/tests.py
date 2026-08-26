@@ -6,6 +6,7 @@ dias do que a divisão tem letras, e a ficha acompanha quando a rotina muda.
 """
 from datetime import date, time, timedelta
 from decimal import Decimal
+import re
 from pathlib import Path
 
 import urllib.error
@@ -2501,3 +2502,152 @@ class ShareCardTests(TestCase):
 
         self.assertIn("c.width = 1080", html)
         self.assertIn("c.height = 1350", html)
+
+class LoadMemoryTests(TestCase):
+    """Copiar as cargas do último treino.
+
+    Copiar, e não preencher sozinho. É a decisão que estes testes travam:
+    preenchimento silencioso é mais "automático" e corrompe exatamente o dado
+    que sustenta o app — com a carga da semana passada já no campo, um toque
+    distraído em OK grava 60 kg num dia de 55, e a comparação "evoluí?" passa a
+    mentir sem nunca dar erro.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.plan = services.create_routine(self.user)
+        self.item = SessionExercise.objects.filter(
+            session__plan=self.plan
+        ).select_related("exercise").first()
+        self.client.force_login(self.user)
+
+    def _treino_passado(self, carga="60", reps=10):
+        for serie in range(1, self.item.sets + 1):
+            ExerciseLog.objects.create(
+                user=self.user,
+                exercise=self.item.exercise,
+                date=timezone.localdate() - timedelta(days=7),
+                set_number=serie,
+                weight_kg=Decimal(carga),
+                reps=reps,
+            )
+
+    def test_without_a_previous_session_there_is_no_button(self):
+        """Um botão de copiar sem nada para copiar é um botão que decepciona."""
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+        # Ancorado na CLASSE e não no atributo `data-`: o atributo também é o
+        # seletor do <script>, que renderiza sempre. Três testes já caíram
+        # nessa armadilha neste arquivo.
+        self.assertNotIn('class="copiar-cargas"', html)
+
+    def test_a_previous_session_brings_the_button(self):
+        self._treino_passado()
+
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        self.assertIn('class="copiar-cargas"', html)
+        self.assertIn("Copiar cargas do último treino", html)
+
+    def test_the_previous_values_travel_in_the_field(self):
+        """O botão não consulta nada: os valores vêm no próprio campo, então
+        ele funciona offline e responde no mesmo quadro."""
+        self._treino_passado(carga="62.5", reps=8)
+
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        # Vírgula decimal: é assim que o campo de carga já mostra o número, e
+        # o servidor normaliza a vírgula na volta.
+        self.assertIn('data-anterior="62,50"', html)
+        self.assertIn('data-anterior="8"', html)
+        self.assertNotIn('data-anterior="62.50"', html)
+
+    def test_the_button_says_when_the_last_session_was(self):
+        """"Copiar do último treino" sem dizer de quando é copiar às cegas."""
+        self._treino_passado()
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        quando = (timezone.localdate() - timedelta(days=7)).strftime("%d/%m")
+        self.assertIn(quando, html)
+
+    def test_copying_never_records_a_set_by_itself(self):
+        """Copiar preenche o campo. Registrar continua exigindo o toque em OK —
+        e é isso que impede o histórico de ganhar um treino que não aconteceu.
+        """
+        self._treino_passado()
+        antes = ExerciseLog.objects.filter(user=self.user).count()
+
+        self.client.get(reverse("workouts:routine"))
+
+        self.assertEqual(ExerciseLog.objects.filter(user=self.user).count(), antes)
+
+    def test_the_script_refuses_to_overwrite_what_was_typed_today(self):
+        """Se a pessoa anotou a primeira série de hoje e só então tocou em
+        copiar, o que ela fez hoje vale mais que o histórico."""
+        self._treino_passado()
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        self.assertIn("if (!valor || campo.value) return;", html)
+
+
+class ImpeccableStyleTests(TestCase):
+    """As regras do catálogo Impeccable 3.6.0 que dá para checar no CSS.
+
+    O motor deles é JavaScript e exige Node 22.18+, que não está instalado
+    aqui. As definições vieram no pacote publicado e são estas — travadas
+    para não regredirem.
+    """
+
+    def setUp(self):
+        self.css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        self.linhas = self.css.splitlines()
+
+    def test_no_interface_text_falls_below_eleven_pixels(self):
+        """`undersized-ui-text`: abaixo de 11px é falha de legibilidade, não
+        escolha de estilo. Havia onze lugares, um deles a 9px."""
+        pequenos = []
+        for i, linha in enumerate(self.linhas, 1):
+            achado = re.search(r"font-size:\s*\.(\d+)rem", linha)
+            if not achado:
+                continue
+            rem = float("0." + achado.group(1))
+            if rem < 0.6875:
+                pequenos.append(f"linha {i}: {rem}rem = {rem * 16:.0f}px")
+        self.assertEqual(pequenos, [], f"texto abaixo de 11px: {pequenos}")
+
+    def test_no_decorative_colour_glow_at_rest(self):
+        """`dark-glow`: halo cromático de deslocamento zero num fundo escuro é
+        o visual padrão de UI gerada por IA. O brilho de FOCO fica — ali ele é
+        a informação, não o enfeite."""
+        self.assertNotIn("--glow-brand", self.css)
+
+        bloco = self.css.split(chr(10) + ".btn--primary {", 1)[1].split("}", 1)[0]
+        self.assertNotIn("box-shadow", bloco)
+
+    def test_the_focus_glow_survives_because_it_carries_meaning(self):
+        self.assertIn(".field-input:focus", self.css)
+        foco = self.css.split(".field-input:focus", 1)[1].split("}", 1)[0]
+        self.assertIn("var(--glow)", foco)
+
+    def test_the_streak_flame_does_not_pulse_forever(self):
+        """`pulsing-dot`: pulso decorativo simula vivacidade. Uma sequência
+        muda uma vez por dia — o esqueleto de carregamento mantém o dele,
+        porque ali há mesmo algo acontecendo."""
+        bloco = self.css.split(".ofensiva__chama.is-viva", 1)[1].split("}", 1)[0]
+        self.assertNotIn("animation", bloco)
+
+        self.assertIn("animation: pulso", self.css)
+
+    def test_no_css_variable_is_declared_and_never_used(self):
+        """`--glow-brand` ficou órfão quando os halos saíram. Token que ninguém
+        usa é token que o próximo leitor tenta entender à toa."""
+        declaradas = set(re.findall(r"^\s*(--[\w-]+):", self.css, re.M))
+        usadas = set(re.findall(r"var\(\s*(--[\w-]+)", self.css))
+        # `--dia` é escrito pelo atributo do elemento, não pelo CSS.
+        orfas = sorted(declaradas - usadas - {"--dia"})
+        self.assertEqual(orfas, [], f"tokens declarados e nunca usados: {orfas}")

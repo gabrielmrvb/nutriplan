@@ -200,6 +200,35 @@
                         <span>Descanso</span>
                       </div>
 
+                      {% if item.tem_anterior %}
+                        {% comment %}
+                          Copiar, e não preencher sozinho.
+
+                          Preenchimento silencioso é tentador e é o caminho para
+                          corromper exatamente o dado que sustenta o app: se a
+                          carga da semana passada já está no campo e a pessoa
+                          toca em OK sem olhar, o histórico passa a dizer que
+                          ela levantou 60 kg num dia em que levantou 55 — e a
+                          comparação "evoluí?" começa a mentir.
+
+                          Um toque para trazer tudo, e os números ficam à vista
+                          para editar antes de virar registro.
+                        {% endcomment %}
+                        <button type="button" class="copiar-cargas"
+                                data-copiar-cargas>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                               stroke-width="1.8" stroke-linecap="round"
+                               stroke-linejoin="round" aria-hidden="true">
+                            <path d="M9 3h9a2 2 0 0 1 2 2v9"/>
+                            <rect x="4" y="7" width="12" height="14" rx="2"/>
+                          </svg>
+                          Copiar cargas do último treino
+                          <span class="copiar-cargas__quando num">
+                            {{ item.anterior_em|date:"d/m" }}
+                          </span>
+                        </button>
+                      {% endif %}
+
                       {% for linha in item.set_rows %}
                         <form class="set-row {% if linha.weight %}set-row--done{% endif %}"
                               method="post"
@@ -217,6 +246,7 @@
                                  maxlength="6" inputmode="decimal"
                                  placeholder="{% if linha.previous %}{{ linha.previous|floatformat:'-2' }}{% else %}0{% endif %}"
                                  value="{% if linha.weight %}{{ linha.weight|floatformat:'-2' }}{% endif %}"
+                                 data-anterior="{% if linha.previous %}{{ linha.previous|floatformat:'-2' }}{% endif %}"
                                  aria-label="Carga da {{ linha.number }}ª série de {{ item.exercise.name }}">
 
                           {% comment %}
@@ -237,6 +267,7 @@
                                    maxlength="3" inputmode="numeric"
                                    value="{% if linha.reps %}{{ linha.reps }}{% endif %}"
                                    placeholder="{% if linha.previous_reps %}{{ linha.previous_reps }}{% else %}{{ item.rep_max }}{% endif %}"
+                                   data-anterior="{% if linha.previous_reps %}{{ linha.previous_reps }}{% endif %}"
                                    aria-label="Repetições da {{ linha.number }}ª série de {{ item.exercise.name }}">
                             <button type="button" class="reps__passo"
                                     data-reps="1"
@@ -1169,6 +1200,60 @@
             link.click();
             setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
           }, "image/png");
+        });
+      })();
+    </script>
+
+
+    <script>
+      /* Copiar as cargas do último treino.
+       *
+       * Copia e para. Preencher sozinho ao abrir seria mais "automático" e
+       * corromperia o dado que sustenta o app inteiro: com a carga da semana
+       * passada já no campo, um toque distraído em OK grava 60 kg num dia de
+       * 55 — e a comparação "evoluí?" passa a mentir sem nunca dar erro.
+       *
+       * Os valores viajam em `data-anterior` no próprio campo, então o botão
+       * não consulta nada: funciona offline e responde no mesmo quadro. */
+      (function () {
+        document.addEventListener("click", function (evento) {
+          var botao = evento.target.closest("[data-copiar-cargas]");
+          if (!botao) return;
+          evento.preventDefault();
+
+          var cartao = botao.closest(".exercise");
+          if (!cartao) return;
+
+          var copiados = 0;
+          cartao.querySelectorAll("[data-anterior]").forEach(function (campo) {
+            var valor = campo.dataset.anterior;
+            /* Campo já preenchido não é sobrescrito: se a pessoa anotou a
+             * primeira série de hoje e só então tocou em copiar, o que ela
+             * fez hoje vale mais que o histórico. */
+            if (!valor || campo.value) return;
+            campo.value = valor;
+            copiados += 1;
+          });
+
+          botao.classList.add("is-feito");
+          var rotulo = botao.querySelector(".copiar-cargas__quando");
+          if (rotulo) {
+            rotulo.textContent = copiados
+              ? copiados + " preenchido" + (copiados > 1 ? "s" : "")
+              : "nada a copiar";
+          }
+          /* Volta ao normal em três segundos: o botão continua servindo para
+           * as séries que a pessoa ainda não fez. */
+          setTimeout(function () {
+            botao.classList.remove("is-feito");
+            if (rotulo) rotulo.textContent = botao.dataset.quando || "";
+          }, 3000);
+        });
+
+        /* Guarda o rótulo original antes do primeiro uso. */
+        document.querySelectorAll("[data-copiar-cargas]").forEach(function (b) {
+          var r = b.querySelector(".copiar-cargas__quando");
+          if (r) b.dataset.quando = r.textContent.trim();
         });
       })();
     </script>

@@ -12,6 +12,7 @@ urlpatterns = [
     path("recalcular/", views.RecalculatePlanView.as_view(), name="recalculate"),
     path("recalibrar/", views.RecalibrateView.as_view(), name="recalibrate"),
     path("agua/", views.LogHydrationView.as_view(), name="log_hydration"),
+    path("voz/", views.VoiceView.as_view(), name="voice"),
     path("lista-de-compras/", views.ShoppingListView.as_view(), name="shopping"),
     path(
         "opcao/<int:option_id>/substituir/",

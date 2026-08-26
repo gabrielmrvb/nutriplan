@@ -116,6 +116,11 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
             for item in session.exercises.all():
                 item.load = historico.get(item.exercise_id)
                 item.set_rows = set_rows(item, item.load)
+                # O botão de copiar só existe quando há o que copiar — e a data
+                # vai junto porque "copiar do último treino" sem dizer de quando
+                # é copiar às cegas.
+                item.tem_anterior = any(l["previous"] for l in item.set_rows)
+                item.anterior_em = (item.load or {}).get("data_anterior")
 
         marcar_ficha_aberta(sessions)
 
