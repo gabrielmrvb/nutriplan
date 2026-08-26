@@ -7,6 +7,7 @@ rota separada, que é consulta ocasional.
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
+from django.urls import reverse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.generic import TemplateView, View
@@ -15,7 +16,7 @@ from accounts.models import ACTIVITY_FACTORS
 from accounts.views import OnboardingRequiredMixin
 from catalog.models import Food
 
-from . import services, shopping, substitutions, tracking
+from . import services, weight_trend, shopping, substitutions, tracking
 from .calculations import (
     KCAL_PER_G_CARB,
     KCAL_PER_G_FAT,
@@ -201,6 +202,7 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 # "bate com a meta" quando é irrelevante, e o número quando não é.
                 "menu_gap": menu["kcal"] - self.plan.target_kcal,
                 "menu_on_target": abs(menu["kcal"] - self.plan.target_kcal) <= MENU_TOLERANCE_KCAL,
+                "hidratacao_ml": weight_trend.hidratacao_ml(self.plan.weight_kg),
                 "nav": "today",
                 "training_days": self.request.user.training_days.all(),
                 "slots": slots,
@@ -267,10 +269,49 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
                 "totals": tracking.adherence(rows),
                 "days": tracking.HISTORY_DAYS,
                 "weight_entries": self.request.user.weight_entries.all()[:10],
+                "tendencia": weight_trend.analisar(self.request.user),
                 "nav": "history",
             }
         )
         return context
+
+
+class RecalibrateView(OnboardingRequiredMixin, View):
+    """Aplica — ou recusa — o ajuste sugerido quando a média empaca.
+
+    O corte fica guardado no perfil e não no plano: plano é snapshot e é
+    refeito a cada mudança de peso, então gravar o ajuste nele o faria sumir
+    na primeira pesagem. No perfil, ele acompanha a pessoa.
+
+    "Prefiro me mexer mais" não é um botão decorativo: aumentar o gasto é uma
+    resposta legítima e às vezes melhor que comer menos. O app registra a
+    escolha para não repetir a pergunta na semana seguinte.
+    """
+
+    def post(self, request, *args, **kwargs):
+        profile = request.user.profile
+        acao = request.POST.get("acao")
+
+        if acao == "cortar":
+            profile.kcal_adjustment -= weight_trend.AJUSTE_KCAL
+            profile.recalibrated_at = timezone.now()
+            profile.save(update_fields=["kcal_adjustment", "recalibrated_at"])
+            services.sync_active_plan(request.user)
+            messages.success(
+                request,
+                f"Cortamos {weight_trend.AJUSTE_KCAL} kcal da sua meta. "
+                "Dê duas semanas antes de julgar o resultado.",
+            )
+        else:
+            profile.recalibrated_at = timezone.now()
+            profile.save(update_fields=["recalibrated_at"])
+            messages.info(
+                request,
+                "Combinado. Tente somar uns 20 minutos de caminhada por dia — "
+                "perguntamos de novo daqui a algumas semanas.",
+            )
+
+        return redirect(reverse("plans:history"))
 
 
 class RecalculatePlanView(OnboardingRequiredMixin, View):

@@ -149,15 +149,66 @@ class SubstitutionFidelityTests(TestCase):
     def test_the_feature_still_answers_for_almost_every_food(self):
         """Filtro apertado demais devolve "não há substituto" e mata o recurso.
 
-        Medido na calibração: 61 dos 62 alimentos elegíveis continuam com pelo
-        menos uma alternativa depois do corte.
+        A medida é feita com a PORÇÃO PADRÃO de cada alimento, e não com 100 g
+        para todos. Cem gramas de azeite são 884 kcal — nenhuma troca fecha
+        isso, e a pergunta nunca é feita na vida real. Perguntar por uma
+        colher de azeite é a pergunta de verdade.
         """
-        elegiveis = [
-            f
+        elegiveis = []
+        for food in Food.objects.filter(is_active=True):
+            porcao = food.portions.filter(is_default=True).first()
+            gramas = porcao.grams if porcao else Decimal("100")
+            if sub.substitutes_for(food, gramas):
+                elegiveis.append(food.name)
+
+        self.assertGreaterEqual(len(elegiveis), 50, f"só {len(elegiveis)} com alternativa")
+
+    def test_a_swap_never_leaves_the_role_it_belongs_to(self):
+        """O defeito que o papel no prato veio consertar.
+
+        Casar macro e caloria fazia o app oferecer 467 g de cebola no lugar de
+        150 g de arroz e 240 g de cenoura no lugar de uma banana. A conta
+        fechava e a refeição virava outra coisa — cebola e arroz dividem o
+        corredor do mercado, mas não dividem função nenhuma no prato.
+        """
+        for food in Food.objects.filter(is_active=True):
+            porcao = food.portions.filter(is_default=True).first()
+            gramas = porcao.grams if porcao else Decimal("100")
+            for opcao in sub.substitutes_for(food, gramas):
+                with self.subTest(de=food.name, para=opcao["food"].name):
+                    self.assertEqual(opcao["food"].role, food.role)
+
+    def test_no_swap_asks_for_more_than_four_portions(self):
+        """Um teto em gramas é cego ao alimento.
+
+        Quatrocentos gramas de arroz é um prato grande; 400 g de clara de ovo
+        são treze claras. E foi isso que o app ofereceu no lugar de um filé de
+        frango — 423 g, dentro do teto de 600 e fora da realidade de quem vai
+        cozinhar.
+        """
+        for food in Food.objects.filter(is_active=True):
+            porcao_origem = food.portions.filter(is_default=True).first()
+            gramas = porcao_origem.grams if porcao_origem else Decimal("100")
+
+            for opcao in sub.substitutes_for(food, gramas):
+                destino = opcao["food"].portions.filter(is_default=True).first()
+                if destino is None or destino.grams <= 0:
+                    continue
+                with self.subTest(de=food.name, para=opcao["food"].name):
+                    self.assertLessEqual(
+                        opcao["quantity"] / destino.grams,
+                        sub.MAX_PORTIONS,
+                        f"{opcao['quantity']}g é mais de {sub.MAX_PORTIONS} "
+                        f"x {destino.label}",
+                    )
+
+    def test_every_food_declares_what_it_does_in_a_meal(self):
+        sem_papel = [
+            f.name
             for f in Food.objects.filter(is_active=True)
-            if sub.substitutes_for(f, Decimal("100"))
+            if f.role == "other" and f.name not in ("Mel", "Açúcar mascavo")
         ]
-        self.assertGreaterEqual(len(elegiveis), 55)
+        self.assertEqual(sem_papel, [], "alimentos sem papel definido")
 
     def test_a_substitution_keeps_the_dominant_macro(self):
         """O que a troca promete entregar, ela entrega."""

@@ -60,6 +60,30 @@ class Aisle(models.TextChoices):
     GROCERY = "grocery", "Mercearia"
 
 
+class FoodRole(models.TextChoices):
+    """O que o alimento FAZ na refeição.
+
+    Diferente do corredor do supermercado, que é onde ele fica na loja. A
+    distinção existe por um defeito concreto: o corredor "hortifrúti" junta
+    banana, batata e cebola, e a substituição por macro chegou a oferecer
+    467 g de cebola no lugar de 150 g de arroz. Fechava a conta de
+    carboidrato e destruía o prato.
+
+    Trocar só faz sentido dentro do mesmo papel — arroz por batata, frango por
+    tilápia, azeite por castanha.
+    """
+
+    PROTEIN = "protein", "Fonte de proteína"
+    STARCH = "starch", "Carboidrato do prato"
+    LEGUME = "legume", "Leguminosa"
+    FRUIT = "fruit", "Fruta"
+    VEGETABLE = "vegetable", "Legume ou verdura"
+    FAT = "fat", "Fonte de gordura"
+    DAIRY = "dairy", "Laticínio"
+    DRINK = "drink", "Bebida"
+    OTHER = "other", "Outro"
+
+
 class FoodSource(models.TextChoices):
     MANUAL = "manual", "Cadastro manual"
     TACO = "taco", "Tabela TACO"
@@ -83,6 +107,16 @@ class Food(models.Model):
 
     source = models.CharField(
         "fonte", max_length=10, choices=FoodSource.choices, default=FoodSource.MANUAL
+    )
+    role = models.CharField(
+        "papel no prato",
+        max_length=10,
+        choices=FoodRole.choices,
+        default=FoodRole.OTHER,
+        help_text=(
+            "O que este alimento faz na refeição. É o que limita a "
+            "substituição: só entra troca do mesmo papel."
+        ),
     )
     aisle = models.CharField(
         "corredor do mercado",

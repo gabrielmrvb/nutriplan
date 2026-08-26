@@ -160,9 +160,16 @@ class CalculationTests(TestCase):
         self.assertIn("piso", result.notes)
 
     def test_fat_never_goes_below_its_floor(self):
+        """O piso subiu de 0,6 para 0,7 g/kg.
+
+        A diferença aparece em quem tem peso alto e meta apertada: com 102 kg
+        e 2.470 kcal, os 25% das calorias davam 0,68 g/kg, abaixo da faixa de
+        0,7 a 0,8 que se recomenda para não mexer com a parte hormonal durante
+        um déficit prolongado.
+        """
         protein_g, carb_g, fat_g, note = macros(1400, Decimal("100"), Goal.CUT)
         self.assertEqual(protein_g, 180)
-        self.assertEqual(fat_g, 60)  # 0,6 g/kg, e não 25% de 1400 (39 g)
+        self.assertEqual(fat_g, 70)  # 0,7 g/kg, e não 25% de 1400 (39 g)
         self.assertGreaterEqual(carb_g, 0)
         self.assertTrue(note)
 

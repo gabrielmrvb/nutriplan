@@ -65,6 +65,7 @@ def build_inputs(user) -> PlanInputs:
         session_minutes=tuple(
             user.training_days.values_list("duration_min", flat=True)
         ),
+        kcal_adjustment=profile.kcal_adjustment,
     )
 
 

@@ -1,0 +1,105 @@
+{% comment %}
+  O cartão de peso, com a média da semana antes das pesagens do dia.
+
+  Extraído para partial porque estava duplicado: uma cópia no painel de quem
+  já tem histórico de refeições, outra na tela vazia de quem ainda não marcou
+  nada. As duas divergiram, e a versão da tela vazia ficou sem a média — ou
+  seja, justamente quem só registra peso, e é quem mais precisa dela, não via.
+{% endcomment %}
+      <section class="card">
+        <div class="card__head">
+          <h2>Peso</h2>
+          <a href="{% url 'accounts:onboarding_step' step=1 %}">Registrar</a>
+        </div>
+        {% if weight_entries %}
+          {% comment %}
+            A média da semana vem antes dos números do dia, e isso é a
+            decisão inteira desta tela.
+
+            O peso do dia mente: oscila com sal, com o carboidrato de ontem,
+            com o intestino, com a hora da pesagem. Quem se pesa todo dia e
+            olha o número do dia desiste na primeira quinta-feira em que a
+            balança sobe. O que informa é a média da semana comparada com a
+            anterior.
+          {% endcomment %}
+          {% if tendencia.tem_dados %}
+            <ol class="semanas">
+              {% for semana in tendencia.semanas reversed %}
+                <li class="semana">
+                  <span class="semana__data">
+                    semana de {{ semana.inicio|date:"d/m" }}
+                    <span class="semana__n">{{ semana.registros }} pesage{{ semana.registros|pluralize:"m,ns" }}</span>
+                  </span>
+                  <span class="semana__media num">{{ semana.media|floatformat:1 }} kg</span>
+                  <span class="semana__delta num
+                    {% if semana.delta < 0 %}semana__delta--desce
+                    {% elif semana.delta > 0 %}semana__delta--sobe{% endif %}">
+                    {% if semana.delta != None %}
+                      {% if semana.delta > 0 %}+{% endif %}{{ semana.delta|floatformat:1 }}
+                    {% else %}—{% endif %}
+                  </span>
+                </li>
+              {% endfor %}
+            </ol>
+          {% endif %}
+
+          {% if tendencia.faltam_registros %}
+            <p class="hint">
+              Faltam {{ tendencia.faltam_registros }} pesage{{ tendencia.faltam_registros|pluralize:"m,ns" }}
+              para a média fazer sentido. Pese-se ao acordar, em jejum e depois do
+              banheiro — é a hora do dia com menos variação.
+            </p>
+          {% endif %}
+
+          {% if tendencia.sugerir_recalibragem %}
+            {% comment %}
+              Só aparece depois de três semanas paradas. Duas acontecem por
+              acaso o tempo todo, e mexer na dieta a cada oscilação é como
+              ajustar o volante a cada buraco da estrada.
+            {% endcomment %}
+            <div class="recalibrar">
+              <strong class="recalibrar__titulo">Sua média estabilizou</strong>
+              <p class="recalibrar__texto">
+                São {{ tendencia.semanas_paradas }} semanas sem mudança relevante na
+                média. Dá para destravar cortando 150 kcal da dieta ou aumentando o
+                gasto do dia — e cortar não é obrigatoriamente melhor.
+              </p>
+              <div class="recalibrar__acoes">
+                <form method="post" action="{% url 'plans:recalibrate' %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="acao" value="cortar">
+                  <button type="submit" class="btn btn--primary btn--sm">
+                    Cortar 150 kcal
+                  </button>
+                </form>
+                <form method="post" action="{% url 'plans:recalibrate' %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="acao" value="dispensar">
+                  <button type="submit" class="btn btn--ghost btn--sm">
+                    Prefiro me mexer mais
+                  </button>
+                </form>
+              </div>
+            </div>
+          {% endif %}
+
+          <details class="dias-detalhe">
+            <summary>Ver as pesagens dia a dia</summary>
+            <dl class="data-list">
+              {% for entry in weight_entries %}
+                <div>
+                  <dt>{{ entry.date|date:"d/m/Y" }}</dt>
+                  <dd>{{ entry.weight_kg|floatformat:1 }} kg</dd>
+                </div>
+              {% endfor %}
+            </dl>
+          </details>
+
+          <p class="hint">
+            Registrar um peso novo recalcula sua meta automaticamente na próxima vez
+            que você abrir o app.
+          </p>
+        {% else %}
+          <p class="empty-state">Nenhum peso registrado ainda.</p>
+        {% endif %}
+      </section>

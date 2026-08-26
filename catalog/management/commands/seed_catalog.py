@@ -78,6 +78,7 @@ class Command(BaseCommand):
                     "fat_g": Decimal(str(row["fat_g"])),
                     "fiber_g": Decimal(str(row.get("fiber_g", 0))),
                     "source": "manual",
+                    "role": row.get("role", "other"),
                     "aisle": row.get("aisle", "grocery"),
                     # Alimento caro ou difícil de achar sai do ar com "active":
                     # false no JSON, em vez de ser apagado — quem já comeu

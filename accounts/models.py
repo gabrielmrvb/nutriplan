@@ -151,6 +151,19 @@ class Profile(models.Model):
     # Wizard de onboarding: guarda o PRÓXIMO passo a ser preenchido. Persistir
     # isso no banco (em vez de na sessão) faz a pessoa retomar de onde parou
     # mesmo trocando de dispositivo ou fechando o app no meio.
+    #: Ajuste manual sobre a meta calculada, em kcal.
+    #:
+    #: Existe porque a fórmula é uma estimativa e o corpo é o dado real: duas
+    #: pessoas com os mesmos números gastam diferente. Quando a média de peso
+    #: empaca por três semanas, o app oferece cortar 150 kcal, e é aqui que o
+    #: corte fica. Sempre negativo ou zero na prática — a meta desce, não sobe.
+    kcal_adjustment = models.SmallIntegerField("ajuste de calorias", default=0)
+
+    #: Quando a pessoa respondeu ao último aviso de estagnação. Evita
+    #: perguntar de novo na semana seguinte para quem já disse "vou me mexer
+    #: mais" — o aviso repetido é o que faz a pessoa parar de ler avisos.
+    recalibrated_at = models.DateTimeField("recalibrado em", null=True, blank=True)
+
     onboarding_step = models.PositiveSmallIntegerField("passo do onboarding", default=2)
     onboarding_completed_at = models.DateTimeField(null=True, blank=True)
 

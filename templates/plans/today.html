@@ -59,6 +59,22 @@ coluna da direita), não entre ela e o almoço.
 
       {# ---------------- Refeições ---------------- #}
       <section>
+        {% comment %}
+          A água fica junto dos macros porque é do mesmo tipo de coisa: uma
+          meta diária que a pessoa acompanha. Fora dali vira aviso solto, e
+          aviso solto ninguém lê.
+        {% endcomment %}
+        <p class="hidratacao">
+          <span class="hidratacao__icone" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3.5c3 3.6 5.5 6.3 5.5 9.4a5.5 5.5 0 0 1-11 0c0-3.1 2.5-5.8 5.5-9.4Z"/>
+            </svg>
+          </span>
+          Beba <b class="num">{{ hidratacao_ml }} ml</b> de água hoje
+          <span class="hidratacao__nota">— garrafas de 500 ml ao longo do dia</span>
+        </p>
+
         <div class="card__head">
           <h2>Seu cardápio de hoje</h2>
           <a href="{% url 'plans:shopping' %}">Lista de compras</a>

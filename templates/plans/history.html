@@ -57,28 +57,7 @@
       </div>
 
       <aside class="split__aside stack">
-        <section class="card">
-          <div class="card__head">
-            <h2>Peso</h2>
-            <a href="{% url 'accounts:onboarding_step' step=1 %}">Registrar</a>
-          </div>
-          {% if weight_entries %}
-            <dl class="data-list">
-              {% for entry in weight_entries %}
-                <div>
-                  <dt>{{ entry.date|date:"d/m/Y" }}</dt>
-                  <dd>{{ entry.weight_kg|floatformat:1 }} kg</dd>
-                </div>
-              {% endfor %}
-            </dl>
-            <p class="hint">
-              Registrar um peso novo recalcula sua meta automaticamente na próxima vez
-              que você abrir o app.
-            </p>
-          {% else %}
-            <p class="empty-state">Nenhum peso registrado ainda.</p>
-          {% endif %}
-        </section>
+        {% include "plans/_peso.html" %}
       </aside>
     </div>
   {% else %}
@@ -92,23 +71,6 @@
       </a>
     </section>
 
-    <section class="card">
-      <div class="card__head">
-        <h2>Peso</h2>
-        <a href="{% url 'accounts:onboarding_step' step=1 %}">Registrar</a>
-      </div>
-      {% if weight_entries %}
-        <dl class="data-list">
-          {% for entry in weight_entries %}
-            <div>
-              <dt>{{ entry.date|date:"d/m/Y" }}</dt>
-              <dd>{{ entry.weight_kg|floatformat:1 }} kg</dd>
-            </div>
-          {% endfor %}
-        </dl>
-      {% else %}
-        <p class="empty-state">Nenhum peso registrado ainda.</p>
-      {% endif %}
-    </section>
+    {% include "plans/_peso.html" %}
   {% endif %}
 {% endblock %}

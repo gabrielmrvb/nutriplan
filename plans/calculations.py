@@ -85,7 +85,13 @@ PROTEIN_G_PER_KG_BY_GOAL = {Goal.RECOMP: Decimal("2.0")}
 FAT_KCAL_SHARE = Decimal("0.25")
 #: Piso de gordura: abaixo disso a produção hormonal e a absorção de vitaminas
 #: lipossolúveis sofrem. É o limite até onde a gordura pode ceder espaço.
-MIN_FAT_G_PER_KG = Decimal("0.6")
+#: Piso de gordura, em gramas por quilo.
+#:
+#: Era 0,6 e subiu para 0,7. A diferença aparece em quem tem peso alto e meta
+#: apertada: com 102 kg e 2.470 kcal, 25% das calorias davam 0,68 g/kg, abaixo
+#: da faixa de 0,7 a 0,8 que se recomenda para não mexer com a parte hormonal
+#: durante um déficit prolongado. O carboidrato cede os poucos gramas.
+MIN_FAT_G_PER_KG = Decimal("0.7")
 #: Piso de carboidrato: abaixo disso não dá para treinar bem nem montar
 #: refeições comuns com o catálogo de alimentos.
 MIN_CARB_G = 50
@@ -113,6 +119,14 @@ class PlanInputs:
     #: Duração de cada sessão de treino da semana, em minutos. A frequência é
     #: o len() disso — não existe campo separado que possa dessincronizar.
     session_minutes: tuple = ()
+
+    #: Ajuste manual sobre a meta, em kcal. Negativo aperta a dieta.
+    #:
+    #: Entra DEPOIS das travas de segurança, e essa ordem é a decisão: as
+    #: travas existem para impedir uma meta abaixo da taxa metabólica basal, e
+    #: um corte manual não pode furá-las. Se o ajuste levaria a meta abaixo do
+    #: piso, o piso ganha e a pessoa é avisada.
+    kcal_adjustment: int = 0
 
     @property
     def training_days_per_week(self) -> int:
@@ -336,6 +350,21 @@ def calculate(inputs: PlanInputs) -> PlanResult:
     target, floor_note = target_kcal(
         total, inputs.goal, bmr, inputs.sex, weight_kg=inputs.weight_kg
     )
+
+    adjust_note = ""
+    if inputs.kcal_adjustment:
+        pedido = target + inputs.kcal_adjustment
+        piso = _round(bmr)
+        if pedido < piso:
+            # A trava vence o pedido manual. Comer abaixo da taxa metabólica
+            # basal não acelera nada: derruba o treino e come músculo.
+            target = piso
+            adjust_note = (
+                "O ajuste que você pediu levaria a meta abaixo do seu gasto de "
+                "repouso, então ela parou no mínimo seguro."
+            )
+        else:
+            target = pedido
     protein_g, carb_g, fat_g, macro_note = macros(target, inputs.weight_kg, inputs.goal)
 
     return PlanResult(
@@ -348,6 +377,8 @@ def calculate(inputs: PlanInputs) -> PlanResult:
         fat_g=fat_g,
         formula=FORMULA_MIFFLIN,
         notes=" ".join(
-            n for n in (GOAL_NOTE.get(inputs.goal, ""), floor_note, macro_note) if n
+            n
+            for n in (GOAL_NOTE.get(inputs.goal, ""), floor_note, adjust_note, macro_note)
+            if n
         ).strip(),
     )

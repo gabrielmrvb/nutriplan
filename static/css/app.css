@@ -1466,7 +1466,71 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 /* ==========================================================================
-   20. Sanfona das fichas da semana
+   20. Hidratação e média semanal de peso
+   ========================================================================== */
+
+.hidratacao {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin: 0 0 1rem;
+  padding: .7rem .85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: .85rem;
+  line-height: 1.4;
+}
+
+.hidratacao__icone { display: grid; place-items: center; flex: none; color: var(--accent); }
+.hidratacao__icone svg { width: 1.2rem; height: 1.2rem; }
+.hidratacao b { color: var(--text); }
+.hidratacao__nota { color: var(--text-mute); font-size: .78rem; }
+
+/* A média da semana vem antes das pesagens do dia, e a ordem é a decisão: o
+   peso do dia oscila com sal e com o carboidrato de ontem, e quem olha o
+   número do dia desiste na primeira quinta-feira em que a balança sobe. */
+.semanas { display: grid; gap: .3rem; margin: 0 0 .9rem; padding: 0; list-style: none; }
+
+.semana {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: .6rem;
+  padding: .5rem .6rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.semana__data { color: var(--text-dim); font-size: .78rem; }
+.semana__n { display: block; color: var(--text-mute); font-size: .68rem; }
+.semana__media { font-weight: 700; font-size: .92rem; }
+
+.semana__delta { min-width: 3rem; text-align: right; color: var(--text-mute); font-size: .8rem; }
+.semana__delta--desce { color: var(--brand); }
+.semana__delta--sobe { color: var(--warm); }
+
+/* O aviso de estagnação. Só aparece depois de três semanas paradas — duas
+   acontecem por acaso o tempo todo. */
+.recalibrar {
+  margin: .9rem 0;
+  padding: .9rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.recalibrar__titulo { display: block; font-size: .92rem; }
+.recalibrar__texto { margin: .3rem 0 .8rem; color: var(--text-dim); font-size: .82rem; line-height: 1.5; }
+.recalibrar__acoes { display: flex; flex-wrap: wrap; gap: .5rem; }
+.recalibrar__acoes form { display: contents; }
+
+.dias-detalhe { margin: .5rem 0; }
+.dias-detalhe summary { color: var(--text-dim); font-size: .8rem; cursor: pointer; min-height: 2.75rem; display: flex; align-items: center; }
+
+/* ==========================================================================
+   21. Sanfona das fichas da semana
    ========================================================================== */
 
 /* Cinco fichas abertas eram uma página de rolagem infinita. Agora abre uma —
@@ -1569,7 +1633,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .ficha[data-dia] { border-left: 3px solid var(--dia, var(--brand)); }
 
 /* ==========================================================================
-   21. Drawer de execução do exercício
+   22. Drawer de execução do exercício
    ========================================================================== */
 
 /* Sobe do rodapé no celular, vira cartão centrado no desktop.
@@ -1789,7 +1853,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 /* ==========================================================================
-   22. Cartões de escolha (onboarding)
+   23. Cartões de escolha (onboarding)
    ========================================================================== */
 
 /* As duas perguntas que mais mudam o plano — objetivo e nível de atividade —
@@ -1949,7 +2013,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 /* ==========================================================================
-   23. Convite de instalação
+   24. Convite de instalação
    ========================================================================== */
 
 /* Uma faixa presa ao rodapé, acima da navegação. Fica no fluxo visual do app
@@ -2103,7 +2167,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .install__close:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* ==========================================================================
-   24. Desktop
+   25. Desktop
    ========================================================================== */
 
 @media (min-width: 60rem) {

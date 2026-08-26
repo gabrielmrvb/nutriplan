@@ -11,13 +11,19 @@ das calorias e destrói a refeição: some o carboidrato do prato e triplica a
 gordura. Então:
 
 * o alimento é classificado pelo macro que domina as calorias dele;
-* só entram substitutos da mesma classe;
+* só entram substitutos da mesma classe E do mesmo PAPEL no prato;
 * a quantidade é calculada para igualar **esse** macro;
 * o resultado é descartado quando as calorias fogem demais, porque igualar
   proteína estourando o dia em gordura também não serve;
 * e é descartado também quando algum macro SECUNDÁRIO se desloca demais.
 
-O último critério nasceu de uma auditoria da base: igualar o macro dominante e
+O papel no prato entrou depois, e por um motivo constrangedor: casar macro e
+caloria fazia o app oferecer 467 g de cebola no lugar de 150 g de arroz, e
+240 g de cenoura no lugar de uma banana. A conta fechava e a refeição virava
+outra coisa. Cebola e arroz dividem o corredor "hortifrúti" no mercado, mas
+não dividem função nenhuma no prato.
+
+O critério das calorias nasceu de uma auditoria da base: igualar o macro dominante e
 a caloria total deixava passar trocas que reescreviam o resto da refeição. A
 pior delas oferecia proteína de soja no lugar de patinho grelhado — proteína
 igual, calorias 11% acima, e o carboidrato do prato saindo de 0 g para 30 g.
@@ -54,6 +60,18 @@ MAX_SECONDARY_DRIFT_G = Decimal("8")
 #: de ser comida: 8 g de arroz não alimenta, 900 g de abobrinha não cabe.
 MIN_GRAMS = Decimal("10")
 MAX_GRAMS = Decimal("600")
+
+#: Quantas porções padrão a troca pode pedir, no máximo.
+#:
+#: Um teto em gramas é cego ao alimento: 400 g de arroz é um prato grande,
+#: 400 g de clara de ovo são treze claras. E foi exatamente isso que o app
+#: ofereceu no lugar de um filé de frango — 423 g, dentro do teto de 600 e
+#: completamente fora da realidade de quem vai cozinhar.
+#:
+#: Quatro porções é o limite do que ainda parece uma refeição: quatro colheres
+#: de azeite, quatro escumadeiras de arroz, quatro ovos. Acima disso a pessoa
+#: lê a sugestão e fecha o app.
+MAX_PORTIONS = Decimal("4")
 
 #: Quantas alternativas mostrar. Três é o número que cabe na tela e que a
 #: pessoa consegue comparar de pé na cozinha.
@@ -95,6 +113,20 @@ def _equivalent_grams(origin, target, grams: Decimal, macro: str):
     return (grams * base_origem / base_alvo).quantize(Decimal("1"))
 
 
+def _porcoes_demais(food, grams: Decimal) -> bool:
+    """A quantidade pedida cabe num prato?
+
+    Medida em porções padrão do próprio alimento, que é o que traduz gramas em
+    algo que a pessoa reconhece: "1 escumadeira", "1 colher de sopa", "1 clara".
+    Alimento sem porção cadastrada passa — não dá para julgar o que não foi
+    declarado, e recusar por falta de dado esconderia trocas boas.
+    """
+    porcao = food.portions.filter(is_default=True).first()
+    if porcao is None or porcao.grams <= 0:
+        return False
+    return grams > porcao.grams * MAX_PORTIONS
+
+
 def substitutes_for(food, grams, limit=MAX_RESULTS) -> list:
     """Alternativas equivalentes a `grams` de `food`, da mais parecida à menos.
 
@@ -106,11 +138,13 @@ def substitutes_for(food, grams, limit=MAX_RESULTS) -> list:
     referencia = food.macros_for(grams)
 
     candidatos = []
-    for outro in Food.objects.filter(is_active=True).exclude(pk=food.pk):
+    for outro in Food.objects.filter(is_active=True, role=food.role).exclude(pk=food.pk):
         if dominant_macro(outro) != macro:
             continue
         quantidade = _equivalent_grams(food, outro, grams, macro)
         if quantidade is None or not (MIN_GRAMS <= quantidade <= MAX_GRAMS):
+            continue
+        if _porcoes_demais(outro, quantidade):
             continue
 
         macros = outro.macros_for(quantidade)
