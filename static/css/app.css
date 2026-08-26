@@ -351,10 +351,7 @@ button { font-family: inherit; color: inherit; }
   bottom: 0;
   z-index: 30;
   display: grid;
-  /* `auto-fit` e não `repeat(4, 1fr)`: quem é profissional tem uma quinta aba,
-     e um número fixo de colunas quebraria a linha justamente para ele. */
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: .2rem;
   padding: .4rem .5rem calc(.4rem + env(safe-area-inset-bottom));
   /* A barra flutua sobre o conteúdo: o fundo é o do app a 80%, e não a
@@ -2563,491 +2560,228 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .install__close:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* ==========================================================================
-   26. Painel do profissional
+   26. Assistente de ajuste de treino
    ========================================================================== */
 
-/* O painel usa a coluna larga desde o começo. As outras telas do app são de
-   consumo — abre, marca a refeição, fecha; esta é de trabalho, com trinta
-   alunos e três abas por aluno, e nasceu para caber num monitor. */
-.painel { max-width: var(--max-wide); }
-
-/* -------------------------------------------------------------- filtros */
-
-.filtros {
+/* O botão que abre o assistente, no topo de cada ficha.
+   Tracejado e em tom discreto de propósito: ele fica acima de seis exercícios
+   e não pode competir com eles. É uma saída de emergência, não o caminho
+   principal — quem chegou com a academia vazia não deve nem reparar nele. */
+.ia-abrir {
   display: flex;
-  flex-wrap: wrap;
-  gap: .4rem;
-  margin-bottom: 1rem;
-}
-
-.filtro {
-  display: inline-flex;
   align-items: center;
-  gap: .4rem;
+  gap: .55rem;
+  width: 100%;
   min-height: 2.75rem;
-  padding: .4rem .85rem;
-  border: 1px solid var(--border);
-  border-radius: var(--pill);
-  background: var(--surface);
-  box-shadow: var(--edge);
+  margin-bottom: .9rem;
+  padding: .6rem .8rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: none;
   color: var(--text-dim);
-  font-size: .82rem;
+  font: inherit;
+  font-size: .86rem;
   font-weight: 650;
-  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
   transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease),
               background var(--dur) var(--ease), transform .12s var(--ease);
 }
 
-.filtro:hover { border-color: var(--border-strong); color: var(--text); }
-.filtro:active { transform: scale(.98); }
-
-.filtro.is-active {
-  border-color: color-mix(in srgb, var(--brand) 30%, transparent);
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
+.ia-abrir:hover {
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+  background: color-mix(in srgb, var(--brand) 7%, transparent);
   color: var(--brand);
 }
 
-/* A contagem é o que faz o filtro valer: "Atenção necessária (0)" é a melhor
-   notícia da tela, e sem o número ela custa um clique para ser lida. */
-.filtro__conta {
-  padding: 0 .35rem;
-  border-radius: var(--pill);
-  background: var(--surface-2);
-  font-size: .74rem;
-}
+.ia-abrir:active { transform: scale(.98); }
 
-.filtro.is-active .filtro__conta {
-  background: color-mix(in srgb, var(--brand) 20%, transparent);
-}
+.ia-abrir__icone { display: grid; place-items: center; flex: none; color: var(--brand); }
+.ia-abrir__icone svg { width: 1.15rem; height: 1.15rem; }
+.ia-abrir__seta { display: grid; place-items: center; margin-left: auto; flex: none; }
+.ia-abrir__seta svg { width: 1rem; height: 1rem; }
 
-/* ------------------------------------------------------ cartão do aluno */
+/* ------------------------------------------------------------- o drawer */
 
-.aluno-card {
+/* Sem a moldura de vídeo do drawer de execução: aqui não há mídia, e a caixa
+   reservada de 16:9 deixaria um buraco no topo. */
+.ia-drawer .drawer__corpo { padding-top: 1.4rem; }
+
+.ia__titulo { margin: 0 0 .2rem; font-size: 1.12rem; }
+.ia__titulo:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+.ia__sub { margin: 0 0 1rem; color: var(--text-dim); font-size: .85rem; line-height: 1.5; }
+
+/* ------------------------------------------------------------- atalhos */
+
+.ia__atalhos { display: grid; gap: .5rem; margin-bottom: 1.1rem; }
+
+.ia__atalho {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: .9rem;
-  min-height: 2.75rem;
-  padding: var(--pad);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: var(--edge), var(--shadow-rest);
-  color: var(--text);
-  text-decoration: none;
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
-              transform .12s var(--ease);
-}
-
-.aluno-card:hover {
-  border-color: var(--border-strong);
-  box-shadow: var(--edge), var(--shadow-lift);
-}
-
-.aluno-card:active { transform: scale(.98); }
-
-/* Um filete âmbar na quina, e não o cartão inteiro tingido. Trinta cartões
-   pintados de âmbar não destacam nada — destacam o fundo. */
-.aluno-card--atencao {
-  border-left: 3px solid var(--warm);
-  padding-left: calc(var(--pad) - 2px);
-}
-
-.aluno-card__avatar {
-  display: grid;
-  place-items: center;
-  width: 2.6rem;
-  height: 2.6rem;
-  flex: none;
-  border-radius: 50%;
-  background: linear-gradient(140deg, var(--brand), var(--accent));
-  color: var(--on-brand);
-  font-size: .88rem;
-  font-weight: 800;
-  letter-spacing: -.02em;
-}
-
-.aluno-card__corpo { display: grid; gap: .3rem; min-width: 0; }
-.aluno-card__nome { font-weight: 700; font-size: .96rem; }
-.aluno-card__meta { color: var(--text-mute); font-size: .78rem; }
-
-.aluno-card__alertas { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .1rem; }
-.aluno-card__seta { display: grid; place-items: center; color: var(--text-mute); }
-.aluno-card__seta svg { width: 1.1rem; height: 1.1rem; }
-
-/* ------------------------------------------------------------ convites */
-
-.convites { display: grid; gap: .4rem; margin: 1rem 0 0; padding: 0; list-style: none; }
-
-.convite {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: .7rem;
-  padding: .55rem .8rem;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-sm);
-}
-
-/* Código de convite é ditado por voz e digitado à mão. Monoespaçado e com as
-   letras afastadas para "K7QM2P" não virar "K7OM2P" na leitura. */
-.convite__codigo {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: .12em;
-  color: var(--brand);
-}
-
-.convite__meta { color: var(--text-mute); font-size: .76rem; }
-.convite--vencido .convite__codigo { color: var(--text-mute); text-decoration: line-through; }
-
-.convite-form { margin-top: .8rem; }
-.convite-quem { display: flex; align-items: center; gap: .5rem; margin: 0 0 .8rem; }
-
-.autorizacoes {
-  margin: .4rem 0 1rem;
-  padding-left: 1.2rem;
-  color: var(--text-dim);
-  font-size: .88rem;
-  line-height: 1.7;
-}
-
-.autorizacoes b { color: var(--text); }
-
-/* ----------------------------------------------------- topo e abas do aluno */
-
-.aluno-topo {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: .9rem;
-  margin-bottom: .9rem;
-}
-
-.aluno-topo__avatar {
-  display: grid;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
-  flex: none;
-  border-radius: 50%;
-  background: linear-gradient(140deg, var(--brand), var(--accent));
-  color: var(--on-brand);
-  font-weight: 800;
-}
-
-.aluno-topo__corpo { min-width: 0; }
-.aluno-topo__corpo h1 { font-size: 1.25rem; }
-.aluno-topo__meta { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: .3rem 0 0; }
-
-.abas {
-  display: flex;
-  gap: .3rem;
-  margin-bottom: 1rem;
-  padding: .25rem;
-  border: 1px solid var(--border);
-  border-radius: var(--pill);
-  background: var(--surface-2);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .25);
-}
-
-.aba {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.75rem;
-  padding: .5rem .8rem;
-  border-radius: var(--pill);
-  color: var(--text-dim);
-  font-size: .86rem;
-  font-weight: 650;
-  text-decoration: none;
-  transition: background var(--dur) var(--ease), color var(--dur) var(--ease),
-              box-shadow var(--dur) var(--ease), transform .12s var(--ease);
-}
-
-.aba:hover { color: var(--text); }
-.aba:active { transform: scale(.98); }
-
-.aba.is-active {
-  background: var(--surface);
-  color: var(--brand);
-  box-shadow: var(--edge), var(--shadow-rest);
-}
-
-/* ------------------------------------------------------------- gráfico */
-
-/* Barras em CSS puro, sem biblioteca. São oito colunas com altura percentual:
-   trazer uma biblioteca de gráfico para isso custaria mais bytes que o app
-   inteiro. */
-.grafico {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  gap: .4rem;
-  height: 9rem;
-  margin: .4rem 0 .2rem;
-  padding-top: 1.1rem;
-}
-
-.grafico__coluna {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-}
-
-.grafico__barra {
+  gap: .75rem;
   width: 100%;
-  max-width: 2.4rem;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  background: linear-gradient(180deg, var(--brand), color-mix(in srgb, var(--brand) 45%, transparent));
-  transition: height .5s var(--ease);
-}
-
-.grafico__valor {
-  position: absolute;
-  top: -1.05rem;
-  color: var(--text-dim);
-  font-size: .68rem;
-  font-weight: 650;
-}
-
-.grafico__rotulo { margin-top: .3rem; color: var(--text-mute); font-size: .66rem; }
-
-/* A linha da meta atravessa o gráfico na mesma escala das barras. Tracejada
-   para não ser confundida com uma barra cheia. */
-.grafico__meta {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 0;
-  border-top: 1px dashed color-mix(in srgb, var(--accent) 60%, transparent);
-  pointer-events: none;
-}
-
-.grafico__meta-rotulo {
-  position: absolute;
-  right: 0;
-  top: -.9rem;
-  padding: 0 .3rem;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--accent);
-  font-size: .64rem;
-  font-weight: 700;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .grafico__barra { transition: none; }
-}
-
-/* ------------------------------------------------------ dias e sessões */
-
-.dias, .sessoes { display: grid; gap: .3rem; margin: .9rem 0 0; padding: 0; list-style: none; }
-
-.dia, .sessao {
-  display: grid;
-  align-items: center;
-  gap: .6rem;
-  padding: .5rem .7rem;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  font-size: .82rem;
-}
-
-.dia { grid-template-columns: 3rem minmax(0, 1fr) 3.5rem 3rem; }
-.sessao { grid-template-columns: 3rem minmax(0, 1fr) auto auto; }
-
-.dia__data, .sessao__data { color: var(--text-mute); }
-.dia__kcal, .sessao__volume { font-weight: 700; }
-.dia__desvio, .dia__refeicoes, .sessao__detalhe { color: var(--text-mute); text-align: right; }
-
-/* O desvio do dia é a única cor da lista, e por isso ela significa alguma
-   coisa. Verde é "dentro da margem"; âmbar é fora, para os dois lados —
-   comer muito abaixo da meta não é sucesso. */
-.dia--dentro .dia__desvio { color: var(--brand); }
-.dia--abaixo .dia__desvio,
-.dia--acima .dia__desvio { color: var(--warm); }
-
-/* ---------------------------------------------------------- prescrição */
-
-.prescricao {
-  margin-top: .5rem;
+  min-height: 2.75rem;
+  padding: .8rem .85rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface-2);
   box-shadow: var(--edge);
-}
-
-.prescricao[open] { border-color: var(--border-strong); }
-
-.prescricao__resumo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: .8rem;
-  min-height: 2.75rem;
-  padding: .55rem .8rem;
-  cursor: pointer;
-  list-style: none;
-}
-
-.prescricao__resumo::-webkit-details-marker { display: none; }
-.prescricao__nome { min-width: 0; font-weight: 650; font-size: .9rem; }
-.prescricao__atual { flex: none; color: var(--text-mute); font-size: .78rem; }
-
-.prescricao__form { padding: 0 .8rem .7rem; }
-
-/* Quatro campos numéricos numa linha no desktop, dois a dois no celular. Cada
-   um com 44px de altura: são digitados com o polegar, na academia. */
-.prescricao__campos {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: .5rem;
-  margin-bottom: .6rem;
-}
-
-.campo { display: grid; gap: .2rem; min-width: 0; }
-.campo__rotulo { color: var(--text-mute); font-size: .7rem; font-weight: 650; }
-
-.campo__input,
-.campo__select {
-  width: 100%;
-  min-height: 2.75rem;
-  padding: .5rem .6rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: .88rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease), transform .12s var(--ease);
 }
 
-.campo__input:focus-visible,
-.campo__select:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 1px;
+.ia__atalho:hover {
+  border-color: color-mix(in srgb, var(--brand) 32%, transparent);
+  background: var(--surface-3);
 }
 
-.prescricao__acoes,
-.sessao__rodape {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem;
-  padding: .7rem .8rem;
-  border-top: 1px solid var(--border);
-}
+.ia__atalho:active { transform: scale(.98); }
 
-.sessao__rodape { border-top: 1px solid var(--border); margin-top: .8rem; padding: .8rem 0 0; }
-
-.prescricao__troca {
-  display: flex;
-  gap: .4rem;
-  flex: 1;
-  min-width: 14rem;
-}
-
-.prescricao__troca .campo__select { flex: 1; min-width: 0; }
-
-/* ---------------------------------------------------------- cardápio */
-
-.slot { padding: .7rem 0; border-top: 1px solid var(--border); }
-.slot:first-of-type { border-top: 0; }
-
-.slot__head { display: flex; align-items: baseline; gap: .5rem; margin-bottom: .5rem; }
-.slot__hora { color: var(--brand); font-weight: 700; font-size: .82rem; }
-.slot__nome { flex: 1; min-width: 0; font-weight: 650; font-size: .92rem; }
-.slot__meta { color: var(--text-mute); font-size: .74rem; }
-
-.slot__opcao {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: .5rem;
-  padding: .4rem 0;
-}
-
-.slot__letra {
+.ia__atalho-icone {
   display: grid;
   place-items: center;
-  width: 1.6rem;
-  height: 1.6rem;
-  border-radius: 50%;
-  background: var(--surface-3);
-  color: var(--text-dim);
-  font-size: .72rem;
-  font-weight: 800;
+  width: 2.3rem;
+  height: 2.3rem;
+  flex: none;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
 }
 
-.slot__receita { min-width: 0; font-size: .86rem; }
+.ia__atalho-icone svg { width: 1.2rem; height: 1.2rem; }
+.ia__atalho-texto { display: grid; gap: .1rem; min-width: 0; }
+.ia__atalho-texto b { font-size: .92rem; font-weight: 700; }
+.ia__atalho-texto span { color: var(--text-mute); font-size: .78rem; line-height: 1.4; }
 
-/* ------------------------------------------------- avisos para o aluno */
+/* --------------------------------------------------------- campo livre */
 
-/* A faixa que diz ao aluno que a ficha dele mudou. Fica no topo de qualquer
-   tela porque a mudança pode ter sido no treino e ele abrir a dieta primeiro. */
-.avisos {
-  margin-bottom: 1rem;
-  padding: .8rem .9rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
+.ia__livre { display: grid; gap: .5rem; }
 
-.avisos__lista { display: grid; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.ia__livre-rotulo { color: var(--text-dim); font-size: .82rem; font-weight: 650; }
 
-.aviso {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: .7rem;
-  color: var(--accent);
-  font-size: .84rem;
+.ia__livre-campo {
+  width: 100%;
+  min-height: 3.4rem;
+  padding: .65rem .8rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: .92rem;
   line-height: 1.5;
+  resize: vertical;
 }
 
-.aviso__texto { min-width: 0; }
-.aviso__quando { flex: none; opacity: .75; font-size: .72rem; }
-.avisos__resto { margin: .4rem 0 0; font-size: .76rem; }
-.avisos__ok { margin-top: .6rem; }
+.ia__livre-campo:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.ia__livre-campo::placeholder { color: var(--text-mute); }
 
-/* -------------------------------------------------------------- vínculos */
+.ia__rodape {
+  margin: 1.1rem 0 0;
+  color: var(--text-mute);
+  font-size: .76rem;
+  line-height: 1.55;
+}
 
-.vinculo {
+/* ------------------------------------------- lista de exercícios da ficha */
+
+.ia__lista { display: grid; gap: .35rem; margin: 0 0 .9rem; padding: 0; list-style: none; }
+
+.ia__opcao {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: .9rem;
+  gap: .6rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: .55rem .75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: .9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease),
+              transform .12s var(--ease);
 }
 
-.vinculo__corpo { display: grid; gap: .35rem; min-width: 0; }
-.vinculo__nome { font-size: .98rem; }
-.vinculo__meta { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
-.vinculo__escopo { font-size: .8rem; line-height: 1.5; }
+.ia__opcao:hover { border-color: var(--brand); background: var(--surface-3); }
+.ia__opcao:active { transform: scale(.98); }
+.ia__opcao-nome { min-width: 0; }
+.ia__opcao-meta { color: var(--text-mute); font-size: .8rem; }
+.ia__opcao-seta { display: grid; place-items: center; color: var(--text-mute); }
+.ia__opcao-seta svg { width: .9rem; height: .9rem; }
 
-/* Revogar é destrutivo e é do aluno: fica em âmbar, não em verde, e não some
-   dentro de um menu. */
-.vinculo__revogar {
-  border: 1px solid color-mix(in srgb, var(--warm) 30%, transparent);
-  background: color-mix(in srgb, var(--warm) 10%, transparent);
-  color: var(--warm);
+/* ---------------------------------------------------------------- prévia */
+
+.ia__aviso { margin-bottom: 1rem; }
+
+.ia__tempo {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin: 0 0 .9rem;
 }
 
-.vinculo__revogar:hover {
-  background: color-mix(in srgb, var(--warm) 18%, transparent);
-  color: var(--warm);
+.ia__tempo-seta { color: var(--text-mute); }
+
+.ia__mudancas { display: grid; gap: .45rem; margin: 0 0 1.1rem; padding: 0; list-style: none; }
+
+.ia__mudanca {
+  display: grid;
+  gap: .2rem;
+  padding: .65rem .8rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
 }
 
-@media (min-width: 46rem) {
-  .prescricao__campos { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .painel .stack { display: grid; gap: var(--gap); }
+/* Remoção em âmbar: tirar um exercício do dia é a mudança que a pessoa mais
+   precisa notar antes de confirmar. */
+.ia__mudanca--remocao { border-left-color: var(--warm); }
+.ia__mudanca--ajuste { border-left-color: var(--accent); }
+.ia__mudanca--reordenar { border-left-color: var(--accent); }
+
+/* Reordenar não risca o nome: o exercício continua no treino, só muda de
+   lugar. Riscar diria que ele saiu, que é a coisa errada. */
+.ia__mudanca--reordenar .ia__mudanca-de { color: var(--text); text-decoration: none; }
+
+.ia__mudanca-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+  font-size: .9rem;
+  font-weight: 650;
 }
+
+/* O nome antigo riscado e o novo em cor cheia. É a leitura mais rápida
+   possível de "isto vira aquilo" — mais rápida que ler a frase abaixo. */
+.ia__mudanca--troca .ia__mudanca-de,
+.ia__mudanca--remocao .ia__mudanca-de {
+  color: var(--text-mute);
+  text-decoration: line-through;
+}
+
+.ia__mudanca-seta { color: var(--text-mute); }
+.ia__mudanca-para { color: var(--brand); }
+.ia__mudanca-porque { color: var(--text-dim); font-size: .78rem; line-height: 1.5; }
+
+.ia__erro { color: var(--danger); font-size: .86rem; }
+
+.ia__carregando { height: 2.75rem; }
+.ia__carregando + .ia__carregando { margin-top: .4rem; }
+
+.ia__corpo .btn + .btn { margin-top: .5rem; }
+.ia__corpo form + .btn { margin-top: .5rem; }
 
 /* ==========================================================================
    27. Desktop

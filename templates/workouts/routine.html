@@ -93,6 +93,28 @@
               <p class="session__focus">{{ session.focus }}</p>
             {% endif %}
 
+            {% comment %}
+              O ajuste fica no topo da ficha porque é ali que a decisão
+              acontece: a pessoa chega, olha o primeiro exercício, vê a fila no
+              aparelho. Enterrado no rodapé, depois de seis exercícios, ele
+              seria encontrado por quem já tinha desistido.
+            {% endcomment %}
+            <button type="button" class="ia-abrir"
+                    data-ia-abrir="{% url 'workouts:assistant' session.pk %}">
+              <span class="ia-abrir__icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>
+                  <circle cx="12" cy="12" r="3.6"/>
+                </svg>
+              </span>
+              Ajustar treino
+              <span class="ia-abrir__seta" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+              </span>
+            </button>
+
             <ol class="exercise-list">
               {% for item in session.exercises.all %}
                 {% comment %}
@@ -329,6 +351,24 @@
       para o leitor de tela. Tudo isso de graça, e nenhum desses
       comportamentos é óbvio de reimplementar direito.
     {% endcomment %}
+    {% comment %}
+      O drawer do assistente. Um só para a página, preenchido por quem foi
+      tocado — mesmo desenho do drawer de execução, e pela mesma razão: sete
+      fichas na semana dariam sete diálogos no documento.
+    {% endcomment %}
+    <dialog class="drawer ia-drawer" data-ia-drawer aria-labelledby="ia-titulo">
+      <div class="drawer__fechar-area">
+        <button type="button" class="drawer__fechar" data-ia-fechar aria-label="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="drawer__puxador" aria-hidden="true"></div>
+      <div class="drawer__corpo ia__corpo" data-ia-corpo>
+        <p class="ia__carregando esqueleto esqueleto--linha"></p>
+      </div>
+    </dialog>
+
     <dialog class="drawer" data-drawer aria-labelledby="drawer-nome">
       <div class="drawer__fechar-area">
         <button type="button" class="drawer__fechar" data-drawer-fechar aria-label="Fechar">
@@ -710,6 +750,99 @@
             if (!intervalo) intervalo = setInterval(tick, 1000);
           }
         });
+      })();
+    </script>
+
+    <script>
+      /* O assistente de ajuste.
+       *
+       * O drawer é preenchido por busca em vez de vir pronto no HTML: as
+       * sugestões dependem do que está na ficha AGORA, e um menu renderizado
+       * no carregamento da página ficaria velho no instante em que a primeira
+       * troca fosse aplicada.
+       *
+       * Tudo é navegação dentro do drawer — menu, escolha, prévia — e cada
+       * passo é um GET que devolve um fragmento. Nada é gravado até o POST de
+       * confirmar. */
+      (function () {
+        var dialogo = document.querySelector("[data-ia-drawer]");
+        var corpo = document.querySelector("[data-ia-corpo]");
+        if (!dialogo || !corpo) return;
+
+        var ESQUELETO =
+          '<p class="ia__carregando esqueleto esqueleto--linha"></p>' +
+          '<p class="ia__carregando esqueleto esqueleto--linha"></p>' +
+          '<p class="ia__carregando esqueleto esqueleto--linha"></p>';
+
+        function carregar(url) {
+          corpo.innerHTML = ESQUELETO;
+          fetch(url, { headers: { "X-Requested-With": "fetch" } })
+            .then(function (r) { return r.text(); })
+            .then(function (html) {
+              corpo.innerHTML = html;
+              /* O foco vai para o título do passo novo. Sem isto o leitor de
+               * tela continua anunciando o passo anterior, e quem navega por
+               * teclado volta ao começo do diálogo a cada passo. */
+              var titulo = corpo.querySelector(".ia__titulo");
+              if (titulo) {
+                titulo.setAttribute("tabindex", "-1");
+                titulo.focus();
+              }
+            })
+            .catch(function () {
+              corpo.innerHTML =
+                '<p class="ia__erro">Não deu para carregar agora. Tente de novo.</p>';
+            });
+        }
+
+        function fechar() {
+          if (dialogo.open) dialogo.close();
+          corpo.innerHTML = "";
+        }
+
+        document.addEventListener("click", function (evento) {
+          var alvo = evento.target;
+          if (!alvo || typeof alvo.closest !== "function") return;
+
+          var abrir = alvo.closest("[data-ia-abrir]");
+          if (abrir) {
+            evento.preventDefault();
+            if (!dialogo.open) dialogo.showModal();
+            carregar(abrir.dataset.iaAbrir);
+            return;
+          }
+
+          var ir = alvo.closest("[data-ia-ir]");
+          if (ir) {
+            evento.preventDefault();
+            carregar(ir.dataset.iaIr);
+            return;
+          }
+
+          if (alvo.closest("[data-ia-fechar]")) {
+            evento.preventDefault();
+            fechar();
+          }
+        });
+
+        /* O campo livre navega por busca também, para o pedido não virar uma
+         * recarga de página inteira no meio do treino. */
+        document.addEventListener("submit", function (evento) {
+          var form = evento.target.closest("[data-ia-form]");
+          if (!form) return;
+          evento.preventDefault();
+          var texto = (form.querySelector("[name=pedido]") || {}).value || "";
+          if (!texto.trim()) return;
+          carregar(form.action + "?pedido=" + encodeURIComponent(texto.trim()));
+        });
+
+        /* Clique no fundo escuro fecha, que é o gesto que a pessoa tenta antes
+         * de procurar o X. */
+        dialogo.addEventListener("click", function (evento) {
+          if (evento.target === dialogo) fechar();
+        });
+        dialogo.addEventListener("cancel", function () { corpo.innerHTML = ""; });
+        dialogo.addEventListener("close", function () { corpo.innerHTML = ""; });
       })();
     </script>
   {% endif %}

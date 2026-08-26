@@ -157,39 +157,8 @@ class Profile(models.Model):
     #: pessoas com os mesmos números gastam diferente. Quando a média de peso
     #: empaca por três semanas, o app oferece cortar 150 kcal, e é aqui que o
     #: corte fica. Sempre negativo ou zero na prática — a meta desce, não sobe.
-    # Para onde o peso deveria estar indo. Nulo ate alguem definir: o app
-    # sozinho nunca precisou disso — ele trabalha com direcao (perder, ganhar,
-    # recompor), nao com numero de chegada. Quem prescreve um numero de chegada
-    # e o profissional, e e o que o grafico de acompanhamento compara.
-    target_weight_kg = models.DecimalField(
-        "peso-alvo (kg)",
-        max_digits=5,
-        decimal_places=2,
-        null=True,
-        blank=True,
-    )
-
     kcal_adjustment = models.SmallIntegerField("ajuste de calorias", default=0)
 
-    # Prescricao do nutricionista vinculado. Nulo = o motor usa a regra padrao,
-    # que e o caso da esmagadora maioria dos planos. Ficam no perfil, e nao no
-    # NutritionPlan, porque sao ENTRADAS do calculo: gravadas no plano seriam
-    # descartadas na proxima sincronizacao, que refaz o plano sempre que os
-    # numeros gravados divergem do que o motor calcula hoje.
-    protein_g_per_kg = models.DecimalField(
-        "proteina prescrita (g/kg)",
-        max_digits=3,
-        decimal_places=1,
-        null=True,
-        blank=True,
-    )
-    fat_kcal_share = models.DecimalField(
-        "gordura prescrita (fracao das calorias)",
-        max_digits=3,
-        decimal_places=2,
-        null=True,
-        blank=True,
-    )
 
     #: Quando a pessoa respondeu ao último aviso de estagnação. Evita
     #: perguntar de novo na semana seguinte para quem já disse "vou me mexer

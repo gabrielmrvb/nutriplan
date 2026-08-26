@@ -19,6 +19,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from workouts import assistant
 from accounts.models import (
     ActivityLevel,
     Goal,
@@ -31,8 +32,10 @@ from accounts.models import (
 
 from . import services
 from .models import (
+    Equipment,
     Exercise,
     ExerciseLog,
+    SessionExercise,
     Measure,
     MuscleGroup,
     Split,
@@ -1311,3 +1314,871 @@ class AnimationImportTests(TestCase):
                          "elemento.loop = true", "elemento.autoplay = true"):
             with self.subTest(atributo=atributo):
                 self.assertIn(atributo, bloco)
+
+# ==========================================================================
+# Assistente de ajuste
+# ==========================================================================
+
+def _com_alternativa(plan):
+    """Um item da rotina cujo grupo muscular ainda tem substituto no catálogo.
+
+    Peito, bíceps, panturrilha e tríceps não têm: a ficha gerada já usa todos
+    os exercícios do grupo. Escolher o alvo às cegas testaria a ausência de
+    alternativa em vez da escolha da alternativa.
+    """
+    for sessao in plan.sessions.order_by("order"):
+        for item in sessao.exercises.select_related("exercise").order_by("order"):
+            if assistant.candidatos_para(item):
+                return sessao, item
+    raise AssertionError("nenhum exercício do catálogo tem substituto")
+
+
+def _sem_alternativa(plan):
+    """Um item cujo grupo muscular está esgotado — o caso que exige a verdade."""
+    for sessao in plan.sessions.order_by("order"):
+        for item in sessao.exercises.select_related("exercise").order_by("order"):
+            if not assistant.candidatos_para(item):
+                return sessao, item
+    raise AssertionError("todo exercício tem substituto — fixture mudou")
+
+
+
+class SubstitutionEngineTests(TestCase):
+    """A escolha do substituto.
+
+    As regras duras — mesmo músculo, com demonstração, fora da sessão — são o
+    que separa "substituição" de "outro exercício qualquer", e são as que
+    quebram em silêncio: uma troca de peito por bíceps continua salvando no
+    banco e continua parecendo certa na tela.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.plan = services.create_routine(self.user)
+        self.session, self.item = _com_alternativa(self.plan)
+
+    def _item(self):
+        return self.item
+
+    def test_a_substitute_never_changes_the_muscle_worked(self):
+        for item in SessionExercise.objects.filter(
+            session__plan=self.plan
+        ).select_related("exercise"):
+            with self.subTest(exercicio=item.exercise.name):
+                for candidato in assistant.candidatos_para(item):
+                    self.assertEqual(candidato.muscle_group, item.exercise.muscle_group)
+
+    def test_a_substitute_always_has_a_demonstration(self):
+        """Trocar sem quebrar a mídia é metade do pedido: um substituto sem
+        animação resolve o equipamento e apaga a única coisa que ensina a
+        execução."""
+        for candidato in assistant.candidatos_para(self._item()):
+            with self.subTest(candidato=candidato.name):
+                self.assertTrue(candidato.animation_kind)
+
+    def test_a_substitute_is_never_already_in_the_session(self):
+        item = self._item()
+        na_ficha = set(self.session.exercises.values_list("exercise_id", flat=True))
+        for candidato in assistant.candidatos_para(item):
+            with self.subTest(candidato=candidato.name):
+                self.assertNotIn(candidato.pk, na_ficha)
+
+    def test_a_retired_exercise_is_never_suggested(self):
+        item = self._item()
+        alvo = assistant.candidatos_para(item)[0]
+        Exercise.objects.filter(pk=alvo.pk).update(is_active=False)
+
+        self.assertNotIn(alvo.name, [c.name for c in assistant.candidatos_para(item)])
+
+    def test_the_same_question_gets_the_same_answer(self):
+        """Sem desempate estável, a mesma pergunta devolve respostas diferentes
+        conforme a ordem que o banco resolver usar — e a pessoa acha que o app
+        está sorteando."""
+        item = self._item()
+        self.assertEqual(
+            [c.pk for c in assistant.candidatos_para(item)],
+            [c.pk for c in assistant.candidatos_para(item)],
+        )
+
+    def test_a_rejected_option_does_not_come_back(self):
+        item = self._item()
+        recusado = assistant.candidatos_para(item)[0]
+
+        outros = assistant.candidatos_para(item, excluir=[recusado.pk])
+
+        self.assertNotIn(recusado.pk, [c.pk for c in outros])
+
+
+class EquipmentSubstitutionTests(TestCase):
+    """Academia cheia: o substituto tem que estar realmente livre."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.plan = services.create_routine(self.user)
+
+    def _sessao_com(self, muscle_group):
+        for sessao in self.plan.sessions.all():
+            item = (
+                sessao.exercises.filter(exercise__muscle_group=muscle_group)
+                .select_related("exercise")
+                .first()
+            )
+            if item:
+                return sessao, item
+        return None, None
+
+    def test_the_catalog_knows_what_each_exercise_occupies(self):
+        self.assertEqual(Exercise.objects.filter(equipment="").count(), 0)
+
+    def test_machines_and_cables_are_the_ones_that_form_a_queue(self):
+        polia = Exercise.objects.filter(equipment=Equipment.CABLE).first()
+        halter = Exercise.objects.filter(equipment=Equipment.DUMBBELL).first()
+
+        self.assertTrue(polia.disputa_equipamento)
+        self.assertFalse(halter.disputa_equipamento)
+
+    def test_a_substitute_lands_on_something_without_a_queue(self):
+        """A regra não é "equipamento diferente", é "equipamento sem fila".
+
+        Trocar polia por máquina é diferente e é inútil: numa academia cheia as
+        duas estão tomadas. O teste original media a diferença e passava com
+        essa troca — foi o app rodando que mostrou o erro, não ele.
+        """
+        alvo = None
+        for sessao in self.plan.sessions.order_by("order"):
+            for item in sessao.exercises.select_related("exercise").order_by("order"):
+                if not item.exercise.disputa_equipamento:
+                    continue
+                sugestao = assistant.sugerir(sessao, assistant.EQUIPAMENTO, item=item)
+                if sugestao.mudancas and sugestao.mudancas[0].novo_exercicio:
+                    alvo = sugestao.mudancas[0].novo_exercicio
+                    break
+            if alvo:
+                break
+
+        if alvo is None:
+            self.skipTest("nenhuma substituição de aparelho disputado nesta divisão")
+        self.assertFalse(alvo.disputa_equipamento)
+
+    def test_an_exhausted_muscle_group_gets_a_reorder_instead(self):
+        """Peito, bíceps, panturrilha e tríceps não têm substituto: a ficha já
+        usa o catálogo inteiro do grupo.
+
+        E, olhando de perto, substituir nunca foi a resposta certa aqui. Quando
+        o supino está em uso ninguém troca supino por outra coisa — faz o
+        próximo exercício e volta. Reordenar é o que a pessoa já faria sozinha.
+        """
+        sessao, item = _sem_alternativa(self.plan)
+
+        sugestao = assistant.sugerir(sessao, assistant.EQUIPAMENTO, item=item)
+
+        self.assertTrue(sugestao.tem_proposta)
+        mudanca = sugestao.mudancas[0]
+        self.assertEqual(mudanca.tipo, "reordenar")
+        self.assertIsNotNone(mudanca.parceiro)
+        self.assertNotEqual(mudanca.parceiro.pk, item.pk)
+
+    def test_the_reorder_swaps_the_two_positions(self):
+        sessao, item = _sem_alternativa(self.plan)
+        sugestao = assistant.sugerir(sessao, assistant.EQUIPAMENTO, item=item)
+        parceiro = sugestao.mudancas[0].parceiro
+        antes = (item.order, parceiro.order)
+
+        assistant.aplicar(sessao, sugestao.mudancas)
+
+        item.refresh_from_db()
+        parceiro.refresh_from_db()
+        self.assertEqual((item.order, parceiro.order), (antes[1], antes[0]))
+
+    def test_the_reorder_keeps_every_exercise_in_the_session(self):
+        """Adiar não é remover: o exercício continua no treino de hoje."""
+        sessao, item = _sem_alternativa(self.plan)
+        antes = set(sessao.exercises.values_list("exercise_id", flat=True))
+
+        sugestao = assistant.sugerir(sessao, assistant.EQUIPAMENTO, item=item)
+        assistant.aplicar(sessao, sugestao.mudancas)
+
+        self.assertEqual(
+            set(sessao.exercises.values_list("exercise_id", flat=True)), antes
+        )
+
+    def test_without_a_target_it_picks_something_that_actually_has_a_queue(self):
+        """Sugerir trocar a flexão de braço porque "a academia está cheia" é
+        responder outra pergunta: flexão não tem fila."""
+        sessao = self.plan.sessions.order_by("order").first()
+        if not sessao.exercises.filter(
+            exercise__equipment__in=(Equipment.MACHINE, Equipment.CABLE)
+        ).exists():
+            self.skipTest("esta ficha não tem aparelho disputado")
+
+        sugestao = assistant.sugerir(sessao, assistant.EQUIPAMENTO)
+
+        self.assertTrue(sugestao.mudancas[0].item.exercise.disputa_equipamento)
+
+
+class PainSubstitutionTests(TestCase):
+    """Desconforto: poupar a articulação quando dá, e dizer quando não dá."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.plan = services.create_routine(self.user)
+
+    def _sessao_com(self, muscle_group):
+        for sessao in self.plan.sessions.all():
+            item = (
+                sessao.exercises.filter(exercise__muscle_group=muscle_group)
+                .select_related("exercise")
+                .first()
+            )
+            if item:
+                return sessao, item
+        return None, None
+
+    def test_the_catalog_knows_which_joints_each_exercise_loads(self):
+        vazios = [e.name for e in Exercise.objects.filter(is_active=True) if not e.joints]
+        self.assertEqual(vazios, [], f"sem articulações curadas: {vazios}")
+
+    def test_a_knee_complaint_moves_off_the_knee_when_possible(self):
+        """Posteriores é o caso em que dá: flexora carrega o joelho, stiff e
+        elevação pélvica não."""
+        sessao, item = self._sessao_com(MuscleGroup.HAMSTRINGS)
+        if item is None:
+            self.skipTest("nenhuma sessão de posteriores nesta divisão")
+
+        flexora = Exercise.objects.filter(
+            muscle_group=MuscleGroup.HAMSTRINGS, joints__contains=["knee"]
+        ).first()
+        item.exercise = flexora
+        item.save(update_fields=["exercise"])
+
+        sugestao = assistant.sugerir(
+            sessao, assistant.DESCONFORTO, item=item, articulacao="knee"
+        )
+
+        self.assertNotIn("knee", sugestao.mudancas[0].novo_exercicio.joints)
+        self.assertEqual(sugestao.aviso, "")
+
+    def test_when_no_exercise_spares_the_joint_the_app_says_so(self):
+        """Todo exercício de quadríceps carrega o joelho. Fingir que a troca
+        resolveu seria a pior coisa que o app poderia fazer aqui."""
+        sessao, item = self._sessao_com(MuscleGroup.QUADS)
+        if item is None:
+            self.skipTest("nenhuma sessão de quadríceps nesta divisão")
+
+        sugestao = assistant.sugerir(
+            sessao, assistant.DESCONFORTO, item=item, articulacao="knee"
+        )
+
+        self.assertIn("não há troca que resolva", sugestao.aviso)
+        self.assertIn("procure um profissional", sugestao.aviso)
+
+    def test_the_app_never_claims_to_treat_anything(self):
+        sessao, item = self._sessao_com(MuscleGroup.QUADS)
+        if item is None:
+            self.skipTest("nenhuma sessão de quadríceps nesta divisão")
+
+        sugestao = assistant.sugerir(
+            sessao, assistant.DESCONFORTO, item=item, articulacao="knee"
+        )
+        texto = (sugestao.aviso + " " + sugestao.resumo).lower()
+
+        for promessa in ("cura", "trata", "resolve a dor", "seguro para"):
+            with self.subTest(promessa=promessa):
+                self.assertNotIn(promessa, texto)
+
+
+class ExpressWorkoutTests(TestCase):
+    """Treino express: tirar tempo sem tirar o treino."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.plan = services.create_routine(self.user)
+        self.session = self.plan.sessions.order_by("order").first()
+
+    def test_the_session_actually_gets_shorter(self):
+        sugestao = assistant.sugerir(self.session, assistant.TEMPO)
+
+        self.assertTrue(sugestao.tem_proposta)
+        self.assertLess(sugestao.minutos_depois, sugestao.minutos_antes)
+
+    def test_the_compound_lifts_keep_their_sets(self):
+        """Os compostos são o treino. Uma sessão de peito sem supino não é uma
+        sessão curta, é outra coisa."""
+        sugestao = assistant.sugerir(self.session, assistant.TEMPO)
+
+        for mudanca in sugestao.mudancas:
+            if not mudanca.item.exercise.is_compound:
+                continue
+            with self.subTest(exercicio=mudanca.item.exercise.name):
+                self.assertNotEqual(mudanca.tipo, "remocao")
+                if mudanca.tipo == "ajuste":
+                    self.assertEqual(mudanca.sets, mudanca.item.sets)
+
+    def test_the_rest_of_a_compound_never_drops_below_ninety_seconds(self):
+        """Cortar o descanso do agachamento para 45 segundos não encurta o
+        treino: faz falhar na terceira série e treinar menos."""
+        sugestao = assistant.sugerir(self.session, assistant.TEMPO)
+
+        for mudanca in sugestao.mudancas:
+            if mudanca.tipo == "ajuste" and mudanca.item.exercise.is_compound:
+                with self.subTest(exercicio=mudanca.item.exercise.name):
+                    self.assertGreaterEqual(mudanca.rest_seconds, 90)
+
+    def test_an_isolation_never_falls_below_two_sets(self):
+        sugestao = assistant.sugerir(self.session, assistant.TEMPO)
+
+        for mudanca in sugestao.mudancas:
+            if mudanca.tipo == "ajuste" and mudanca.sets is not None:
+                with self.subTest(exercicio=mudanca.item.exercise.name):
+                    self.assertGreaterEqual(mudanca.sets, 2)
+
+    def test_nothing_is_ever_removed_from_the_routine(self):
+        """A prévia dizia "sai hoje" e a gravação apagava a linha para sempre.
+
+        Uma terça-feira corrida deletava a panturrilha da rotina inteira, e a
+        pessoa descobriria semanas depois sem ligar uma coisa à outra. Um botão
+        de pressa não pode destruir a rotina — o corte ficou só no que é
+        reversível.
+        """
+        antes = set(self.session.exercises.values_list("pk", flat=True))
+        sugestao = assistant.sugerir(self.session, assistant.TEMPO)
+
+        self.assertEqual([m for m in sugestao.mudancas if m.tipo == "remocao"], [])
+
+        assistant.aplicar(self.session, sugestao.mudancas)
+        self.assertEqual(
+            set(self.session.exercises.values_list("pk", flat=True)), antes
+        )
+
+    def test_an_unreachable_target_is_reported_instead_of_forced(self):
+        sugestao = assistant.sugerir(self.session, assistant.TEMPO)
+        alvo = sugestao.minutos_antes - assistant.CORTE_EXPRESS_MIN
+
+        if sugestao.minutos_depois > max(alvo, assistant.MINIMO_DA_SESSAO_MIN):
+            self.assertIn("não faz isso", sugestao.aviso)
+
+    def test_an_already_short_session_is_left_alone(self):
+        """Cortar 30 minutos de uma sessão de 25 desmontaria a ficha."""
+        self.session.exercises.exclude(pk=self.session.exercises.first().pk).delete()
+        item = self.session.exercises.first()
+        item.sets = 2
+        item.rest_seconds = 45
+        item.save(update_fields=["sets", "rest_seconds"])
+
+        sugestao = assistant.sugerir(self.session, assistant.TEMPO)
+
+        self.assertFalse(sugestao.tem_proposta)
+        self.assertIn("não dá para encurtar", sugestao.aviso)
+
+
+class FreeRequestTests(TestCase):
+    """A leitura do pedido escrito.
+
+    É casamento por palavra-chave, e os testes cobrem o que ele promete — frase
+    direta, no presente, citando o exercício. Não promete entender ironia nem
+    negação, e os testes não fingem que promete.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.plan = services.create_routine(self.user)
+        self.session = self.plan.sessions.order_by("order").first()
+
+    def test_it_reads_the_motive(self):
+        casos = [
+            ("a academia ta cheia demais hoje", assistant.EQUIPAMENTO),
+            ("o supino ta ocupado", assistant.EQUIPAMENTO),
+            ("to sem tempo, preciso de algo rapido", assistant.TEMPO),
+            ("cansei desse exercicio, quero trocar", assistant.TROCA),
+            ("doi o ombro quando faco isso", assistant.DESCONFORTO),
+        ]
+        for texto, esperado in casos:
+            with self.subTest(texto=texto):
+                self.assertEqual(
+                    assistant.interpretar(texto, session=self.session).motivo, esperado
+                )
+
+    def test_it_reads_the_joint(self):
+        casos = [
+            ("sinto desconforto no joelho", "knee"),
+            ("dor no ombro direito", "shoulder"),
+            ("minha lombar reclama", "lower_back"),
+            ("o punho doi na pegada", "wrist"),
+        ]
+        for texto, esperado in casos:
+            with self.subTest(texto=texto):
+                self.assertEqual(assistant.interpretar(texto).articulacao, esperado)
+
+    def test_it_finds_the_exercise_by_the_name_people_actually_type(self):
+        """Ninguém escreve "Leg press 45°" — escreve "leg press"."""
+        sessao = None
+        for candidata in self.plan.sessions.all():
+            if candidata.exercises.filter(
+                exercise__name__icontains="Leg press"
+            ).exists():
+                sessao = candidata
+                break
+        if sessao is None:
+            self.skipTest("nenhuma ficha com leg press nesta divisão")
+
+        intencao = assistant.interpretar(
+            "troca o leg press que ta doendo o joelho", session=sessao
+        )
+
+        self.assertIsNotNone(intencao.item)
+        self.assertIn("Leg press", intencao.item.exercise.name)
+        self.assertEqual(intencao.articulacao, "knee")
+        self.assertEqual(intencao.motivo, assistant.DESCONFORTO)
+
+    def test_a_specific_complaint_beats_the_generic_one(self):
+        """"Pouco tempo e o aparelho ocupado" é sobre o aparelho: tempo é o
+        motivo genérico, equipamento cita uma coisa concreta."""
+        intencao = assistant.interpretar(
+            "to com pouco tempo e ainda por cima o aparelho ta ocupado",
+            session=self.session,
+        )
+        self.assertEqual(intencao.motivo, assistant.EQUIPAMENTO)
+
+    def test_an_unreadable_request_falls_back_to_the_safest_motive(self):
+        self.assertEqual(
+            assistant.interpretar("blergh", session=self.session).motivo,
+            assistant.TROCA,
+        )
+
+    def test_pain_without_a_target_does_not_guess(self):
+        """"Dói" sozinho não diz qual dos seis exercícios é o culpado."""
+        self.assertEqual(
+            assistant.interpretar("ta doendo", session=self.session).motivo,
+            assistant.TROCA,
+        )
+
+    def test_the_whole_request_turns_into_a_suggestion(self):
+        sugestao = assistant.sugerir_do_texto(
+            self.session, "troque o primeiro exercicio, enjoei dele"
+        )
+        self.assertTrue(sugestao.tem_proposta or sugestao.aviso)
+
+
+class ApplyAdjustmentTests(TestCase):
+    """A gravação — e o que ela não pode encostar."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.plan = services.create_routine(self.user)
+        self.session, self.item = _com_alternativa(self.plan)
+
+    def test_the_swap_reaches_the_session(self):
+        sugestao = assistant.sugerir(self.session, assistant.TROCA, item=self.item)
+        novo = sugestao.mudancas[0].novo_exercicio
+
+        assistant.aplicar(self.session, sugestao.mudancas)
+
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.exercise, novo)
+
+    def test_the_load_history_is_never_touched(self):
+        """A garantia que mais importa.
+
+        Os registros de carga apontam para o exercício e para a data, não para
+        a linha da ficha — trocar supino por crucifixo não pode apagar nem
+        reescrever nenhuma série já anotada. Quem treina há seis meses tem esse
+        histórico como o único registro de que evoluiu.
+        """
+        antigo = self.item.exercise
+        hoje = timezone.localdate()
+        for serie in (1, 2, 3):
+            ExerciseLog.objects.create(
+                user=self.user,
+                exercise=antigo,
+                date=hoje - timedelta(days=7),
+                set_number=serie,
+                weight_kg=Decimal("60"),
+                reps=10,
+            )
+        antes = list(
+            ExerciseLog.objects.filter(user=self.user)
+            .order_by("pk")
+            .values("pk", "exercise_id", "date", "set_number", "weight_kg", "reps")
+        )
+
+        sugestao = assistant.sugerir(self.session, assistant.TROCA, item=self.item)
+        assistant.aplicar(self.session, sugestao.mudancas)
+
+        depois = list(
+            ExerciseLog.objects.filter(user=self.user)
+            .order_by("pk")
+            .values("pk", "exercise_id", "date", "set_number", "weight_kg", "reps")
+        )
+        self.assertEqual(antes, depois)
+
+    def test_applying_marks_the_plan_as_customized(self):
+        self.assertFalse(self.plan.is_customized)
+
+        sugestao = assistant.sugerir(self.session, assistant.TROCA, item=self.item)
+        assistant.aplicar(self.session, sugestao.mudancas)
+
+        self.plan.refresh_from_db()
+        self.assertTrue(self.plan.is_customized)
+
+    def test_the_generator_stops_rewriting_an_adjusted_plan(self):
+        """O risco silencioso: sem esta trava, mudar o horário de terça
+        remontaria a ficha do catálogo e apagaria a troca de ontem."""
+        sugestao = assistant.sugerir(self.session, assistant.TROCA, item=self.item)
+        novo = sugestao.mudancas[0].novo_exercicio
+        assistant.aplicar(self.session, sugestao.mudancas)
+
+        TrainingDay.objects.filter(user=self.user).update(start_time=time(6, 30))
+        _, mudou = services.sync_active_routine(self.user)
+
+        self.assertFalse(mudou)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.exercise, novo)
+
+    def test_a_retired_exercise_still_forces_a_rebuild(self):
+        """Aqui o gerador não está desfazendo a escolha da pessoa: está
+        avisando que o catálogo mudou embaixo dela."""
+        sugestao = assistant.sugerir(self.session, assistant.TROCA, item=self.item)
+        assistant.aplicar(self.session, sugestao.mudancas)
+        self.item.refresh_from_db()
+        Exercise.objects.filter(pk=self.item.exercise_id).update(is_active=False)
+
+        _, mudou = services.sync_active_routine(self.user)
+        self.assertTrue(mudou)
+
+    def test_a_group_with_no_substitute_gets_the_truth(self):
+        """Fingir que resolveu é a pior coisa que o app pode fazer aqui."""
+        sessao, item = _sem_alternativa(self.plan)
+
+        sugestao = assistant.sugerir(sessao, assistant.TROCA, item=item)
+
+        self.assertFalse(sugestao.tem_proposta)
+        self.assertIn("não há substituto", sugestao.aviso)
+        self.assertIn("histórico de carga não se perde", sugestao.aviso)
+
+    def test_the_express_cut_applies_every_change(self):
+        sugestao = assistant.sugerir(self.session, assistant.TEMPO)
+        esperados = len(sugestao.mudancas)
+
+        aplicadas = assistant.aplicar(self.session, sugestao.mudancas)
+
+        self.assertEqual(aplicadas, esperados)
+        self.assertLessEqual(self.session.estimated_minutes, sugestao.minutos_antes)
+
+    def test_the_last_exercise_of_a_session_is_never_removed(self):
+        self.session.exercises.exclude(pk=self.item.pk).delete()
+        mudanca = assistant.Mudanca(item=self.item, tipo="remocao", porque="")
+
+        assistant.aplicar(self.session, [mudanca])
+
+        self.assertEqual(self.session.exercises.count(), 1)
+
+
+class AssistantViewTests(TestCase):
+    """As telas — e a trava de quem pode mexer em qual ficha."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.plan = services.create_routine(self.user)
+        self.session, self.item = _com_alternativa(self.plan)
+        self.client.force_login(self.user)
+
+    def _url(self, **params):
+        base = reverse("workouts:assistant", args=[self.session.pk])
+        if not params:
+            return base
+        return base + "?" + "&".join(f"{k}={v}" for k, v in params.items())
+
+    def test_the_routine_screen_offers_the_adjustment(self):
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        self.assertIn("data-ia-abrir", html)
+        self.assertIn("Ajustar treino", html)
+
+    def test_the_menu_lists_the_three_shortcuts(self):
+        corpo = self.client.get(self._url()).content.decode()
+
+        self.assertIn("Academia cheia", corpo)
+        self.assertIn("Pouco tempo", corpo)
+        self.assertIn("Substituir exercício", corpo)
+        self.assertIn('name="pedido"', corpo)
+
+    def test_swapping_asks_which_exercise_first(self):
+        corpo = self.client.get(self._url(motivo="troca")).content.decode()
+
+        self.assertIn("Qual exercício trocar?", corpo)
+        # Um por exercício, mais o botão de voltar.
+        self.assertEqual(corpo.count("data-ia-ir"), self.session.exercises.count() + 1)
+
+    def test_the_preview_shows_the_change_before_anything_is_saved(self):
+        antes = self.item.exercise_id
+
+        corpo = self.client.get(
+            self._url(motivo="troca", item=self.item.pk)
+        ).content.decode()
+
+        self.assertIn("Confirmar alteração", corpo)
+        self.assertIn(self.item.exercise.name, corpo)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.exercise_id, antes, "a prévia gravou algo")
+
+    def test_a_free_request_reaches_the_preview(self):
+        corpo = self.client.get(self._url(pedido="a+academia+esta+cheia")).content.decode()
+        self.assertIn("Confirmar alteração", corpo)
+
+    def test_an_exhausted_group_shows_the_warning_and_no_confirm_button(self):
+        """Sem proposta não pode haver botão de confirmar: um botão que não faz
+        nada é pior que a ausência dele."""
+        sessao, item = _sem_alternativa(self.plan)
+        url = reverse("workouts:assistant", args=[sessao.pk])
+
+        corpo = self.client.get(
+            f"{url}?motivo=troca&item={item.pk}"
+        ).content.decode()
+
+        self.assertIn("não há substituto", corpo)
+        self.assertNotIn("Confirmar alteração", corpo)
+
+    def test_confirming_applies(self):
+        sugestao = assistant.sugerir(self.session, assistant.TROCA, item=self.item)
+        novo = sugestao.mudancas[0].novo_exercicio
+
+        self.client.post(
+            reverse("workouts:assistant_apply", args=[self.session.pk]),
+            {"item": self.item.pk, "tipo": "troca", "valor": novo.pk},
+        )
+
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.exercise, novo)
+
+    # ------------------------------------------------------------ segurança
+    def test_the_session_of_another_person_is_invisible(self):
+        """O id da sessão é sequencial e adivinhável. Sem o dono na consulta,
+        trocar um número na URL editaria a ficha de outra pessoa."""
+        outro = create_user(email="alheio@exemplo.com")
+        plano_alheio = services.create_routine(outro)
+        sessao_alheia = plano_alheio.sessions.first()
+
+        leitura = self.client.get(
+            reverse("workouts:assistant", args=[sessao_alheia.pk])
+        )
+        escrita = self.client.post(
+            reverse("workouts:assistant_apply", args=[sessao_alheia.pk]),
+            {"item": sessao_alheia.exercises.first().pk, "tipo": "troca", "valor": "1"},
+        )
+
+        self.assertEqual(leitura.status_code, 404)
+        self.assertEqual(escrita.status_code, 404)
+
+    def test_the_hidden_fields_cannot_smuggle_another_muscle_group(self):
+        """Os campos escondidos voltam do navegador, então são entrada hostil.
+        Sem revalidar, o formulário teria o poder de trocar supino por rosca."""
+        rosca = Exercise.objects.filter(
+            muscle_group=MuscleGroup.BICEPS, is_active=True
+        ).first()
+        antes = self.item.exercise_id
+
+        self.client.post(
+            reverse("workouts:assistant_apply", args=[self.session.pk]),
+            {"item": self.item.pk, "tipo": "troca", "valor": rosca.pk},
+        )
+
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.exercise_id, antes)
+
+    def test_the_hidden_fields_cannot_reach_another_persons_exercise(self):
+        outro = create_user(email="alheio@exemplo.com")
+        plano_alheio = services.create_routine(outro)
+        item_alheio = plano_alheio.sessions.first().exercises.first()
+        antes = item_alheio.exercise_id
+
+        self.client.post(
+            reverse("workouts:assistant_apply", args=[self.session.pk]),
+            {"item": item_alheio.pk, "tipo": "troca", "valor": "1"},
+        )
+
+        item_alheio.refresh_from_db()
+        self.assertEqual(item_alheio.exercise_id, antes)
+
+    def test_absurd_numbers_are_refused(self):
+        antes = (self.item.sets, self.item.rest_seconds)
+
+        for valor in ("99,90", "3,9999", "abc", "3", ""):
+            with self.subTest(valor=valor):
+                self.client.post(
+                    reverse("workouts:assistant_apply", args=[self.session.pk]),
+                    {"item": self.item.pk, "tipo": "ajuste", "valor": valor},
+                )
+                self.item.refresh_from_db()
+                self.assertEqual((self.item.sets, self.item.rest_seconds), antes)
+
+    def test_it_asks_for_login(self):
+        self.client.logout()
+        resposta = self.client.get(self._url())
+
+        self.assertEqual(resposta.status_code, 302)
+        self.assertIn(reverse("accounts:login"), resposta["Location"])
+
+class WrongQuestionTests(TestCase):
+    """Não responder a pergunta que ninguém fez.
+
+    Os dois defeitos travados aqui não apareceram em teste nenhum: apareceram
+    rodando o app e lendo a frase que ele escreveu. Os dois produziam respostas
+    convincentes e erradas, que é a única categoria de erro que passa
+    despercebida.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.plan = services.create_routine(self.user)
+
+    def _sessao_sem(self, nome):
+        for sessao in self.plan.sessions.order_by("order"):
+            if not sessao.exercises.filter(exercise__name=nome).exists():
+                return sessao
+        return None
+
+    def test_naming_an_exercise_from_another_day_is_answered_honestly(self):
+        """"Troque o leg press" enviado no treino de costas fazia o assistente
+        escolher a puxada e anunciar que ela "não carrega o joelho". Ninguém
+        perguntou sobre as costas, e a frase sobre o joelho vinda de um
+        exercício de puxada é pior que não responder: parece uma resposta.
+        """
+        sessao = self._sessao_sem("Leg press 45°")
+        if sessao is None:
+            self.skipTest("todas as fichas têm leg press")
+
+        sugestao = assistant.sugerir_do_texto(
+            sessao, "troque o leg press, sinto desconforto no joelho"
+        )
+
+        self.assertFalse(sugestao.tem_proposta)
+        self.assertIn("Leg press", sugestao.aviso)
+        self.assertIn(f"não está no Treino {sessao.label}", sugestao.aviso)
+
+    def test_the_intent_records_what_was_named_and_not_found(self):
+        sessao = self._sessao_sem("Leg press 45°")
+        if sessao is None:
+            self.skipTest("todas as fichas têm leg press")
+
+        intencao = assistant.interpretar("troca o leg press", session=sessao)
+
+        self.assertIsNone(intencao.item)
+        self.assertIn("Leg press", intencao.fora_da_ficha)
+
+    def test_an_exercise_that_is_in_the_session_is_not_flagged_as_missing(self):
+        sessao = None
+        for candidata in self.plan.sessions.order_by("order"):
+            if candidata.exercises.filter(exercise__name="Leg press 45°").exists():
+                sessao = candidata
+                break
+        if sessao is None:
+            self.skipTest("nenhuma ficha com leg press")
+
+        intencao = assistant.interpretar("troca o leg press", session=sessao)
+
+        self.assertIsNotNone(intencao.item)
+        self.assertIsNone(intencao.fora_da_ficha)
+
+    def test_a_vague_request_is_not_mistaken_for_a_missing_exercise(self):
+        sessao = self.plan.sessions.order_by("order").first()
+        intencao = assistant.interpretar("quero mudar alguma coisa", session=sessao)
+        self.assertIsNone(intencao.fora_da_ficha)
+
+
+class BusyGymHonestyTests(TestCase):
+    """Não prometer que está livre o que também tem fila.
+
+    A proposta era polia → barra fixa assistida, com o texto "usa máquina e
+    costuma estar livre quando a academia enche". Máquina é exatamente o que
+    NÃO está livre quando a academia enche — a troca era diferente e inútil.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.plan = services.create_routine(self.user)
+
+    def test_a_swap_for_a_busy_gym_never_lands_on_another_queue(self):
+        for sessao in self.plan.sessions.order_by("order"):
+            for item in sessao.exercises.select_related("exercise").order_by("order"):
+                sugestao = assistant.sugerir(
+                    sessao, assistant.EQUIPAMENTO, item=item
+                )
+                if not sugestao.tem_proposta:
+                    continue
+                novo = sugestao.mudancas[0].novo_exercicio
+                if novo is None:
+                    continue  # reordenação, que é a outra saída válida
+                with self.subTest(de=item.exercise.name, para=novo.name):
+                    self.assertFalse(
+                        novo.disputa_equipamento,
+                        f"{novo.name} usa {novo.get_equipment_display()}, "
+                        f"que também tem fila",
+                    )
+
+    def test_when_every_alternative_has_a_queue_it_reorders(self):
+        for sessao in self.plan.sessions.order_by("order"):
+            for item in sessao.exercises.select_related("exercise").order_by("order"):
+                livres = [
+                    c for c in assistant.candidatos_para(item, evitar_equipamento=True)
+                    if not c.disputa_equipamento
+                ]
+                if livres:
+                    continue
+                sugestao = assistant.sugerir(
+                    sessao, assistant.EQUIPAMENTO, item=item
+                )
+                with self.subTest(exercicio=item.exercise.name):
+                    self.assertTrue(sugestao.tem_proposta)
+                    self.assertEqual(sugestao.mudancas[0].tipo, "reordenar")
+
+    def test_the_reason_text_matches_what_the_swap_actually_does(self):
+        """O texto dizia "costuma estar livre" sobre uma máquina. A frase e o
+        dado precisam concordar — senão o app está inventando confiança."""
+        for sessao in self.plan.sessions.order_by("order"):
+            for item in sessao.exercises.select_related("exercise").order_by("order"):
+                sugestao = assistant.sugerir(
+                    sessao, assistant.EQUIPAMENTO, item=item
+                )
+                mudanca = sugestao.mudancas[0] if sugestao.mudancas else None
+                if mudanca is None or mudanca.novo_exercicio is None:
+                    continue
+                if "costuma estar livre" not in mudanca.porque:
+                    continue
+                with self.subTest(exercicio=mudanca.novo_exercicio.name):
+                    self.assertFalse(mudanca.novo_exercicio.disputa_equipamento)

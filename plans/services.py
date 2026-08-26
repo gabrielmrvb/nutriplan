@@ -66,8 +66,6 @@ def build_inputs(user) -> PlanInputs:
             user.training_days.values_list("duration_min", flat=True)
         ),
         kcal_adjustment=profile.kcal_adjustment,
-        protein_g_per_kg=profile.protein_g_per_kg,
-        fat_kcal_share=profile.fat_kcal_share,
     )
 
 

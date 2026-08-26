@@ -1,7 +1,6 @@
 from django.contrib import admin
 from django.urls import include, path
 
-from coaching import views as coaching_views
 from push import views as push_views
 
 from .health import HealthView
@@ -19,13 +18,5 @@ urlpatterns = [
     path("conta/", include("accounts.urls")),
     path("push/", include("push.urls")),
     path("treino/", include("workouts.urls")),
-    path("profissional/", include("coaching.urls")),
-    # O convite fica na raiz e curto: e um endereco ditado por voz e digitado
-    # a mao — "nutriplan.app/conectar/K7QM2P".
-    path(
-        "conectar/<str:code>/",
-        coaching_views.InviteAcceptView.as_view(),
-        name="connect",
-    ),
     path("", include("plans.urls")),
 ]

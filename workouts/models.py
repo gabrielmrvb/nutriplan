@@ -48,6 +48,40 @@ class Measure(models.TextChoices):
     SECONDS = "seconds", "Segundos"
 
 
+class Equipment(models.TextChoices):
+    """O que o exercício ocupa na academia.
+
+    Existe por causa de um pedido só — "a máquina está ocupada" — e é ele que
+    define o corte útil: de um lado o que forma fila (máquina, polia), do
+    outro o que quase sempre sobra (halteres, peso do corpo). Barra fica no
+    meio: costuma ter menos fila que máquina e mais que halter.
+    """
+
+    BARBELL = "barbell", "barra"
+    DUMBBELL = "dumbbell", "halteres"
+    MACHINE = "machine", "máquina"
+    CABLE = "cable", "polia"
+    BODYWEIGHT = "bodyweight", "peso do corpo"
+
+
+#: Equipamentos que formam fila numa academia cheia. É a lista que o assistente
+#: consulta quando o motivo da troca é equipamento ocupado.
+DISPUTADOS = (Equipment.MACHINE, Equipment.CABLE)
+
+#: As articulações que o app sabe nomear, e os termos que a pessoa usa para
+#: falar delas. O mapa é de sinônimo para chave — "lombar", "coluna" e "costas
+#: baixas" apontam todos para `lower_back`.
+ARTICULACOES = {
+    "knee": ("joelho", "joelhos", "patela", "menisco"),
+    "shoulder": ("ombro", "ombros", "manguito", "deltoide"),
+    "elbow": ("cotovelo", "cotovelos", "epicondilite"),
+    "wrist": ("punho", "punhos", "pulso", "pulsos"),
+    "lower_back": ("lombar", "coluna", "costas baixas", "hérnia"),
+    "hip": ("quadril", "quadris", "virilha"),
+    "ankle": ("tornozelo", "tornozelos", "calcanhar"),
+}
+
+
 class Exercise(models.Model):
     """Um exercício de academia comum.
 
@@ -97,6 +131,19 @@ class Exercise(models.Model):
             "(o que se copia da barra do navegador); a tela converte para embed na hora."
         ),
     )
+    equipment = models.CharField(
+        "equipamento",
+        max_length=12,
+        choices=Equipment.choices,
+        default=Equipment.MACHINE,
+    )
+
+    # As articulações que o movimento carrega de verdade — não toda articulação
+    # que se mexe. Listar tudo tornaria a lista inútil: todo exercício teria
+    # tudo e o filtro nunca separaria nada. O critério da curadoria é "alguém
+    # com dor aqui sentiria neste exercício".
+    joints = models.JSONField("articulações exigidas", default=list, blank=True)
+
     is_active = models.BooleanField("ativo", default=True)
 
     class Meta:
@@ -153,6 +200,11 @@ class Exercise(models.Model):
     def is_vertical(self) -> bool:
         """Short do YouTube é vertical; forçar 16:9 nele deixa tarja preta."""
         return "/shorts/" in self.video_url
+
+    @property
+    def disputa_equipamento(self) -> bool:
+        """Costuma ter fila quando a academia enche."""
+        return self.equipment in DISPUTADOS
 
     @property
     def animation_kind(self) -> str:
@@ -428,23 +480,15 @@ class TrainingPlan(models.Model):
     days_per_week = models.PositiveSmallIntegerField("dias por semana")
     notes = models.TextField("observações", blank=True)
 
-    # Quando um treinador mexe na ficha, ela deixa de ser gerada e passa a ser
-    # prescrita — e o gerador para de reescrevê-la. Sem isto, o aluno mudar o
-    # horario do treino de terca remontaria a ficha inteira a partir do
-    # catalogo, apagando a prescricao sem aviso nenhum.
-    prescribed_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        related_name="prescribed_plans",
-        verbose_name="prescrita por",
-        null=True,
-        blank=True,
-    )
-    prescribed_at = models.DateTimeField("prescrita em", null=True, blank=True)
+    # Quando o assistente ajusta a ficha, ela deixa de ser gerada e passa a ser
+    # ajustada — e o gerador para de reescrevê-la. Sem isto, mudar o horário do
+    # treino de terça remontaria a ficha inteira a partir do catálogo e
+    # apagaria a troca de ontem sem aviso nenhum.
+    customized_at = models.DateTimeField("ajustada em", null=True, blank=True)
 
     @property
-    def is_prescribed(self) -> bool:
-        return self.prescribed_by_id is not None
+    def is_customized(self) -> bool:
+        return self.customized_at is not None
 
     class Meta:
         verbose_name = "rotina de treino"

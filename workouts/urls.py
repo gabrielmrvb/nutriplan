@@ -11,4 +11,14 @@ urlpatterns = [
         views.RecordLoadView.as_view(),
         name="record_load",
     ),
+    path(
+        "ficha/<int:session_id>/ajustar/",
+        views.AssistantView.as_view(),
+        name="assistant",
+    ),
+    path(
+        "ficha/<int:session_id>/ajustar/aplicar/",
+        views.AssistantApplyView.as_view(),
+        name="assistant_apply",
+    ),
 ]

@@ -1,0 +1,29 @@
+{% comment %}
+  Passo intermediário de "Substituir exercício": qual deles.
+
+  Perguntar é melhor que adivinhar. Uma ficha tem seis exercícios, e trocar o
+  agachamento é uma decisão bem diferente de trocar a panturrilha.
+{% endcomment %}
+<h2 class="ia__titulo" id="ia-titulo">Qual exercício trocar?</h2>
+<p class="ia__sub">Treino {{ session.label }} · {{ session.name }}</p>
+
+<ul class="ia__lista">
+  {% for item in exercicios %}
+    <li>
+      <button type="button" class="ia__opcao"
+              data-ia-ir="{% url 'workouts:assistant' session.pk %}?motivo=troca&item={{ item.pk }}">
+        <span class="ia__opcao-nome">{{ item.exercise.name }}</span>
+        <span class="ia__opcao-meta num">
+          {{ item.sets }}×{{ item.rep_min }}-{{ item.rep_max }}
+        </span>
+        <span class="ia__opcao-seta" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+        </span>
+      </button>
+    </li>
+  {% endfor %}
+</ul>
+
+<button type="button" class="btn btn--quiet btn--block"
+        data-ia-ir="{% url 'workouts:assistant' session.pk %}">Voltar</button>

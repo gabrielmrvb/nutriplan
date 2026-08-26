@@ -45,10 +45,6 @@
              href="{% url 'workouts:routine' %}">Treino</a>
           <a class="app-bar__link {% if nav == 'history' %}is-active{% endif %}"
              href="{% url 'plans:history' %}">Métricas</a>
-          {% if is_professional %}
-            <a class="app-bar__link {% if nav == 'painel' %}is-active{% endif %}"
-               href="{% url 'coaching:panel' %}">Alunos</a>
-          {% endif %}
           <a class="app-bar__link {% if nav == 'profile' %}is-active{% endif %}"
              href="{% url 'accounts:profile' %}">Perfil</a>
           <form method="post" action="{% url 'accounts:logout' %}">
@@ -64,38 +60,6 @@
   {% endblock %}
 
   <main class="container {% block container_class %}{% endblock %}">
-    {% if coach_updates %}
-      {% comment %}
-        O que o profissional mudou, na primeira tela que o aluno abrir.
-
-        Fica aqui e não na tela onde a mudança aconteceu porque a mudança pode
-        ter sido no treino e ele abrir a dieta primeiro. E é um aviso, não um
-        alarme: uma ficha que muda sozinha entre uma abertura e outra assusta —
-        a pessoa acha que perdeu o próprio progresso — e o que desarma isso é
-        dizer quem mexeu e no quê.
-      {% endcomment %}
-      <section class="avisos" aria-label="Avisos do seu profissional">
-        <ul class="avisos__lista">
-          {% for aviso in coach_updates %}
-            <li class="aviso aviso--{{ aviso.kind }}">
-              <span class="aviso__texto">{{ aviso.message }}</span>
-              <span class="aviso__quando num">{{ aviso.created_at|date:"d/m H:i" }}</span>
-            </li>
-          {% endfor %}
-        </ul>
-        {% if coach_updates_extra %}
-          <p class="avisos__resto muted num">
-            e mais {{ coach_updates_extra }} aviso{{ coach_updates_extra|pluralize }}
-          </p>
-        {% endif %}
-        <form method="post" action="{% url 'coaching:dismiss_updates' %}">
-          {% csrf_token %}
-          <input type="hidden" name="next" value="{{ request.path }}">
-          <button type="submit" class="btn btn--quiet avisos__ok">Entendi</button>
-        </form>
-      </section>
-    {% endif %}
-
     {% if messages %}
       <ul class="flash">
         {% for message in messages %}
@@ -108,12 +72,8 @@
 
   {% if user.is_authenticated %}
     {% comment %}
-      Navegação inferior: os destinos do app a um polegar de distância.
+      Navegação inferior: os quatro destinos do app a um polegar de distância.
       Só aparece no celular — no desktop os mesmos links ficam na barra de cima.
-
-      A quinta aba, "Alunos", só existe para quem tem painel. A grade é
-      `auto-fit` justamente por isso: com quatro colunas fixas, a aba extra
-      quebraria a linha para todo mundo que é profissional.
     {% endcomment %}
     <nav class="tabbar" aria-label="Navegação principal">
       <a class="tabbar__item {% if nav == 'today' %}is-active{% endif %}"
@@ -143,17 +103,6 @@
         </svg>
         Métricas
       </a>
-      {% if is_professional %}
-        <a class="tabbar__item {% if nav == 'painel' %}is-active{% endif %}"
-           href="{% url 'coaching:panel' %}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="9" cy="8" r="3"/><path d="M2.5 19a6.5 6.5 0 0 1 13 0"/>
-            <path d="M17 11a3 3 0 1 0-2-5.2"/><path d="M18 19a6.4 6.4 0 0 0-1.6-4.3"/>
-          </svg>
-          Alunos
-        </a>
-      {% endif %}
       <a class="tabbar__item {% if nav == 'profile' %}is-active{% endif %}"
          href="{% url 'accounts:profile' %}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"

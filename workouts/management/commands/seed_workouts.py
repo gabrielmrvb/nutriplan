@@ -112,6 +112,8 @@ class Command(BaseCommand):
                     "frames": quadros,
                     "animation_url": animacoes.get(row["name"], ""),
                     "video_url": row.get("video", ""),
+                    "equipment": row["equipment"],
+                    "joints": row.get("joints", []),
                     "is_active": row.get("active", True),
                 },
             )

@@ -5,6 +5,7 @@ estático sem manifesto, host fora da lista, redirecionamento em laço. Nada
 disso aparece em desenvolvimento, e todos aparecem para o primeiro visitante.
 Estes testes exercitam justamente o que só existe com `DEBUG=False`.
 """
+import inspect
 import re
 from pathlib import Path
 from unittest.mock import patch
@@ -13,7 +14,11 @@ from django.conf import settings
 from django.core.management import call_command
 from django.db import OperationalError
 from django.test import Client, TestCase, override_settings
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
+
+from accounts.models import Profile
+from plans import calculations
+from workouts.models import TrainingPlan
 
 RAIZ = Path(settings.BASE_DIR)
 
@@ -479,3 +484,91 @@ class MotionTests(TestCase):
                     any(regra in t.split("}\n}", 1)[0] for t in trechos[1:]),
                     f"{regra} anima sem saída para quem pediu menos movimento",
                 )
+
+class SingleUserAppTests(TestCase):
+    """O app voltou a ser de uma pessoa só.
+
+    Módulo removido costuma deixar rastro: uma rota que ainda resolve, um
+    import que ainda funciona, um campo que ninguém mais escreve. Cada rastro
+    é uma porta que continua destrancada — e o módulo removido aqui era
+    justamente o que dava a uma pessoa acesso aos dados de saúde de outra.
+    """
+
+    #: As rotas do painel e do convite. Se qualquer uma voltar a resolver, algo
+    #: do módulo voltou junto.
+    ROTAS_MORTAS = ("/profissional/", "/profissional/cadastro/", "/conectar/ABC123/")
+
+    def test_the_professional_routes_are_gone(self):
+        cliente = Client()
+        for rota in self.ROTAS_MORTAS:
+            with self.subTest(rota=rota):
+                self.assertEqual(cliente.get(rota).status_code, 404)
+
+    def test_no_url_name_from_the_module_resolves(self):
+        for nome in (
+            "coaching:panel",
+            "coaching:signup",
+            "coaching:student_monitor",
+            "connect",
+            "accounts:professionals",
+        ):
+            with self.subTest(nome=nome):
+                with self.assertRaises(NoReverseMatch):
+                    reverse(nome)
+
+    def test_nothing_outside_the_package_imports_it(self):
+        """Um import esquecido derruba o deploy no dia em que a pasta sair."""
+        # Montado em pedaços para o teste não se encontrar: escrito inteiro,
+        # o literal aparece neste próprio arquivo e a busca acusa a si mesma.
+        modulo = "coach" + "ing"
+        alvos = (f"import {modulo}", f"from {modulo}")
+
+        culpados = []
+        for caminho in RAIZ.rglob("*.py"):
+            partes = caminho.parts
+            if modulo in partes or ".venv" in partes or "migrations" in partes:
+                continue
+            for linha in caminho.read_text(encoding="utf-8").splitlines():
+                despido = linha.strip()
+                if despido.startswith("#") or "alvos" in despido:
+                    continue
+                if any(alvo in despido for alvo in alvos):
+                    culpados.append(f"{caminho.name}: {despido}")
+        self.assertEqual(culpados, [], f"ainda importam o módulo: {culpados}")
+
+    def test_no_template_mentions_the_module(self):
+        culpados = []
+        for caminho in (RAIZ / "templates").rglob("*.html"):
+            texto = caminho.read_text(encoding="utf-8")
+            if "coaching:" in texto or "coach_updates" in texto:
+                culpados.append(caminho.name)
+        self.assertEqual(culpados, [], f"templates com resto do módulo: {culpados}")
+
+    def test_the_profile_lost_the_prescription_fields(self):
+        """Campo que ninguém escreve é campo que o próximo leitor tenta
+        entender à toa."""
+        campos = {f.name for f in Profile._meta.get_fields()}
+        for morto in ("protein_g_per_kg", "fat_kcal_share", "target_weight_kg"):
+            with self.subTest(campo=morto):
+                self.assertNotIn(morto, campos)
+
+    def test_the_training_plan_no_longer_points_at_a_second_person(self):
+        campos = {f.name for f in TrainingPlan._meta.get_fields()}
+
+        self.assertNotIn("prescribed_by", campos)
+        # A trava contra o gerador continua, agora para o próprio dono: sem
+        # ela, mudar o horário de terça apagaria o ajuste de ontem.
+        self.assertIn("customized_at", campos)
+
+    def test_the_calorie_engine_is_back_to_one_signature(self):
+        """`macros()` aceitava dois parâmetros de prescrição que só o
+        nutricionista preenchia. Sem ele, viraram argumentos mortos."""
+        assinatura = inspect.signature(calculations.macros)
+        self.assertEqual(
+            list(assinatura.parameters), ["target", "weight_kg", "goal"]
+        )
+
+    def test_the_bottom_bar_is_back_to_four_destinations(self):
+        css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+        bloco = css.split("\n.tabbar {", 1)[1].split("}", 1)[0]
+        self.assertIn("repeat(4, 1fr)", bloco)
