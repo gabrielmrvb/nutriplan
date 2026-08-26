@@ -73,8 +73,7 @@ coluna da direita), não entre ela e o almoço.
             {% endif %}
           </p>
           <p class="today-hero__meta num">
-            {{ summary.done }}/{{ summary.total }} refeições ·
-            P {{ summary.protein_g }} · C {{ summary.carb_g }} · G {{ summary.fat_g }}
+            {{ summary.done }}/{{ summary.total }} refeições
           </p>
           <p class="today-hero__balance balance--{{ balance.kind }}">
             {% if balance.kind == 'balance' %}
@@ -87,6 +86,49 @@ coluna da direita), não entre ela e o almoço.
               · <b class="num">meta {{ plan.target_kcal }} kcal</b>
             {% endif %}
           </p>
+        </div>
+
+        {% comment %}
+          A divisão de macros no painel, e não só na coluna da direita.
+
+          "P 0 · C 0 · G 0" era texto: três números soltos que não dizem
+          proporção nenhuma. E a barra empilhada que DIZ mora no cartão de
+          macros, que no celular fica depois das cinco refeições — quase dois
+          mil pixels de rolagem abaixo do único lugar em que a pessoa olha
+          antes de escolher o almoço.
+
+          A barra sobe para cá, a lista completa continua lá embaixo. Aqui é o
+          relance ("já bati proteína?"); lá é a consulta.
+
+          A faixa ocupa a largura toda do painel e não a coluna estreita ao
+          lado do anel: proporção de três partes num vão de 150px não se lê.
+        {% endcomment %}
+        <div class="hero-macros">
+          <div class="macro-bar macro-bar--hero"
+               role="img"
+               aria-label="Divisão dos macros de hoje">
+            {% for macro in macros %}
+              <span class="macro-bar__part macro-bar__part--{{ macro.slug }}"
+                    style="width: {{ macro.pct }}%" title="{{ macro.name }}"></span>
+            {% endfor %}
+          </div>
+          <ul class="hero-macros__legenda">
+            {% for macro in macros %}
+              <li class="hero-macros__item">
+                <span class="macro-dot macro-dot--{{ macro.slug }}" aria-hidden="true"></span>
+                {% comment %}
+                  A inicial é escrita, não é a palavra inteira cortada por
+                  `overflow`. Cortar "Proteína" em 1ch deixava meia perna do P
+                  na tela — e o leitor de tela recebia a palavra toda no meio
+                  dos números, sem dizer que aquilo era um rótulo.
+                {% endcomment %}
+                <span class="hero-macros__nome" aria-hidden="true">{{ macro.name|slice:":1" }}</span>
+                <b class="hero-macros__valor num">{{ macro.eaten }}</b>
+                <span class="hero-macros__meta num">/{{ macro.grams }}</span>
+                <span class="vis-oculto">g de {{ macro.name|lower }}</span>
+              </li>
+            {% endfor %}
+          </ul>
         </div>
       </section>
 

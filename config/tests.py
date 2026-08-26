@@ -382,6 +382,12 @@ class TouchTargetTests(TestCase):
         # "desfazer" media 20px, e é o link procurado no segundo seguinte a
         # errar o toque em "Pulei".
         (".btn-link {", "min-height: 2.75rem"),
+        # Os dois do cronômetro de descanso. Ficaram de fora da régua desde que
+        # nasceram: "+30s" media 34px e o "×" de fechar, 33,6. É a barra que
+        # aparece EXATAMENTE quando a pessoa está de pé entre séries, com a mão
+        # suada — o pior lugar possível para um alvo de 34px.
+        (".rest-timer__more {", "min-height: 2.75rem"),
+        (".rest-timer__close {", "height: 2.75rem"),
     ]
 
     def test_every_interactive_element_reaches_44px(self):
@@ -626,7 +632,7 @@ class VisualRefinementTests(TestCase):
         for seletor in (
             ".app-bar__link.is-active",
             ".tabbar__item.is-active",
-            ".meal--done",
+            ".meal--done {",
             ".option[open]",
             ".set-row--done .set-row__label",
             ".choice-card__input:checked ~ .choice-card__frame",
