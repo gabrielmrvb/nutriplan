@@ -2243,9 +2243,16 @@ class RepCounterTests(TestCase):
         self.assertIn('data-reps="1"', html)
         self.assertIn('data-reps="-1"', html)
         bloco = css.split(chr(10) + ".reps__passo {", 1)[1].split("}", 1)[0]
-        # 3rem = 48px, que é o mínimo pedido para um botão tocado de pé.
-        self.assertIn("width: 3rem", bloco)
-        self.assertIn("height: 3rem", bloco)
+        # 2.75rem = 44px, e não os 48 de antes.
+        #
+        # Os 48px vieram do pedido de "controles grandes"; o redesenho seguinte
+        # pediu para unificar as repetições com o campo de carga, que tem 44. As
+        # duas coisas não cabem juntas: um passo de 48 dentro de uma moldura
+        # obriga a moldura a 48, e aí os dois campos da linha ficam com alturas
+        # diferentes — que é exatamente o desalinhamento que a unificação veio
+        # tirar. 44 é a régua do projeto inteiro.
+        self.assertIn("min-width: 2.75rem", bloco)
+        self.assertIn("min-height: 2.75rem", bloco)
 
 
 class AutoRestTimerTests(TestCase):
@@ -2651,3 +2658,157 @@ class ImpeccableStyleTests(TestCase):
         # `--dia` é escrito pelo atributo do elemento, não pelo CSS.
         orfas = sorted(declaradas - usadas - {"--dia"})
         self.assertEqual(orfas, [], f"tokens declarados e nunca usados: {orfas}")
+
+# ==========================================================================
+# Redesign da linha de série
+# ==========================================================================
+
+class SetRowRedesignTests(TestCase):
+    """A linha da série, depois do redesenho.
+
+    Todos estes travam decisões visuais que já foram desfeitas e refeitas neste
+    arquivo — vale registrar o porquê de cada uma para a próxima passada não
+    desfazer de novo sem saber o que está desfazendo.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.plan = services.create_routine(self.user)
+        self.client.force_login(self.user)
+        self.html = self.client.get(reverse("workouts:routine")).content.decode()
+        self.css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+
+    # ------------------------------------------------- zeros e rótulos
+    def test_an_empty_load_field_says_kg_and_not_zero(self):
+        """O "0" como sugestão é ruído: ninguém levanta zero quilo, e o número
+        no campo vazio compete visualmente com o valor de verdade da linha de
+        cima."""
+        self.assertIn('placeholder="kg"', self.html)
+
+    def test_an_empty_reps_field_says_reps(self):
+        self.assertIn('placeholder="reps"', self.html)
+
+    def test_the_previous_load_is_still_offered_when_it_exists(self):
+        """Trocar o "0" por "kg" não pode custar a sugestão do treino passado —
+        ela é o dado útil, o zero não era."""
+        ExerciseLog.objects.create(
+            user=self.user,
+            exercise=SessionExercise.objects.filter(
+                session__plan=self.plan
+            ).first().exercise,
+            date=timezone.localdate() - timedelta(days=7),
+            set_number=1,
+            weight_kg=Decimal("62.50"),
+            reps=10,
+        )
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        self.assertIn('placeholder="62,50"', html)
+
+    # ------------------------------------------ o campo unificado de reps
+    def test_the_steppers_live_inside_the_field(self):
+        """Antes eram três controles soltos com uma legenda em cima, e isso
+        custava uma linha inteira de altura. Agora é um campo só, com a mesma
+        moldura do campo de carga."""
+        self.assertIn("reps__campo", self.html)
+        bloco = self.css.split(chr(10) + ".reps__campo {", 1)[1].split("}", 1)[0]
+        self.assertIn("border:", bloco)
+        self.assertIn("border-radius", bloco)
+
+    def test_the_number_inside_has_no_border_of_its_own(self):
+        """Duas molduras aninhadas é exatamente o que o redesenho veio tirar."""
+        bloco = self.css.split(chr(10) + ".reps__valor {", 1)[1].split("}", 1)[0]
+        self.assertIn("border: 0", bloco)
+
+    def test_the_standalone_caption_is_gone(self):
+        """A legenda "REPS" em caixa alta existia porque os três botões soltos
+        não diziam do que eram. Dentro de um campo só, o placeholder basta."""
+        self.assertNotIn(".reps::after", self.css)
+
+    def test_both_steppers_still_reach_the_touch_target(self):
+        bloco = self.css.split(chr(10) + ".reps__passo {", 1)[1].split("}", 1)[0]
+        self.assertIn("min-height: 2.75rem", bloco)
+        self.assertIn("min-width: 2.75rem", bloco)
+
+    # --------------------------------------------- contraste do cronômetro
+    def test_the_timer_button_is_visible_under_harsh_light(self):
+        """Ícone sobre fundo quase igual ao cartão some na academia ao meio-dia.
+        Moldura clara e fundo em cinza-médio."""
+        # TODOS os blocos do seletor, e não o primeiro: `.set-row__timer`
+        # aparece também numa lista de `transition`, e o teste media o bloco
+        # errado. É a terceira vez que esta armadilha aparece neste arquivo.
+        blocos = [
+            t.split("}", 1)[0]
+            for t in self.css.split(chr(10) + ".set-row__timer {")[1:]
+        ]
+        for regra in ("background: var(--surface-3)", "border: 1px solid",
+                      "color: var(--text)"):
+            with self.subTest(regra=regra):
+                self.assertTrue(
+                    any(regra in bloco for bloco in blocos),
+                    f"o cronômetro não declara {regra}",
+                )
+
+    def test_the_timer_pulses_only_when_time_is_running_out(self):
+        """Pulso preso a dado que muda de verdade — é o critério do catálogo
+        Impeccable, e os últimos segundos são exatamente esse caso."""
+        self.assertIn("rest-timer--acabando", self.css)
+        self.assertIn("rest-timer--acabando", self.html)
+
+    # ------------------------------------------------------ hierarquia
+    def test_the_name_and_the_tags_are_one_block(self):
+        titulo = self.html.split('class="exercise__title"', 1)[1].split("</span>", 4)
+        junto = "".join(titulo[:4])
+        self.assertIn("exercise__name", junto)
+        self.assertIn("exercise__tag", junto)
+
+    # ------------------------------------------------ cópia entre séries
+    def test_saving_a_set_answers_with_what_the_next_one_needs(self):
+        """O preenchimento da série seguinte sai do que ACABOU de ser gravado,
+        e não de um treino de semanas atrás. Essa é a diferença que torna o
+        preenchimento automático aceitável aqui: o número veio de hoje."""
+        item = SessionExercise.objects.filter(session__plan=self.plan).first()
+
+        dados = self.client.post(
+            reverse("workouts:record_load", args=[item.exercise_id]),
+            {"weight_kg": "62,5", "set_number": 1, "reps": "10"},
+            headers={"X-Requested-With": "fetch"},
+        ).json()
+
+        self.assertTrue(dados["ok"])
+        self.assertEqual(dados["serie"], 1)
+        self.assertEqual(dados["reps"], 10)
+        self.assertIn("62.5", dados["peso"])
+
+    def test_the_script_fills_the_next_row_without_saving_it(self):
+        """Preencher não é registrar. A série seguinte fica com o número à
+        vista para editar, e só o toque em OK a grava."""
+        self.assertIn("proximaLinha", self.html)
+        self.assertIn("data-autopreenchido", self.html)
+
+    def test_the_filled_value_is_visually_marked(self):
+        """Número pré-posto que a pessoa confirma sem olhar vira histórico
+        falso. A marca é o que faz ele não passar por registro."""
+        self.assertIn("data-autopreenchido", self.css)
+
+    def test_it_never_overwrites_something_already_typed(self):
+        self.assertIn("if (campo.value) return;", self.html)
+
+    def test_the_stepper_looks_for_the_container_that_actually_exists(self):
+        """Regressão real: renomear `.reps` para `.reps__campo` deixou este
+        seletor para trás, e o contador parou de contar sem dar erro nenhum.
+
+        Nenhum teste pegou — todos olhavam para a marcação, e a marcação estava
+        certa. Só o navegador, clicando no botão, mostrou que nada acontecia.
+        A trava é comparar o seletor do script com a classe do template.
+        """
+        self.assertIn('closest(".reps__campo")', self.html)
+        self.assertNotIn('closest(".reps")', self.html)
+        # E a classe precisa existir de verdade na marcação.
+        self.assertIn('class="reps__campo"', self.html)

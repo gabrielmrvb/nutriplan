@@ -244,29 +244,34 @@
                           {% endcomment %}
                           <input class="set-row__input" type="text" name="weight_kg"
                                  maxlength="6" inputmode="decimal"
-                                 placeholder="{% if linha.previous %}{{ linha.previous|floatformat:'-2' }}{% else %}0{% endif %}"
+                                 placeholder="{% if linha.previous %}{{ linha.previous|floatformat:'-2' }}{% else %}kg{% endif %}"
                                  value="{% if linha.weight %}{{ linha.weight|floatformat:'-2' }}{% endif %}"
                                  data-anterior="{% if linha.previous %}{{ linha.previous|floatformat:'-2' }}{% endif %}"
                                  aria-label="Carga da {{ linha.number }}ª série de {{ item.exercise.name }}">
 
                           {% comment %}
-                            O contador de repetições: dois botões grandes e o
-                            número entre eles.
+                            As repetições num campo só.
+
+                            Antes eram três controles soltos com uma legenda
+                            "REPS" em caixa alta por cima — e isso custava uma
+                            linha inteira de altura por série. Agora os passos
+                            moram DENTRO da moldura, do mesmo jeito que a
+                            carga é um campo só: uma moldura, um assunto.
 
                             Botão e não teclado porque a mão está suada e o
                             teclado numérico do celular cobre metade da tela
                             justamente quando a pessoa quer ver a próxima
-                            série. O campo continua editável para quem prefere
+                            série. O número continua editável para quem prefere
                             digitar 15 de uma vez em vez de tocar quinze.
                           {% endcomment %}
-                          <span class="reps">
+                          <span class="reps__campo">
                             <button type="button" class="reps__passo"
                                     data-reps="-1"
                                     aria-label="Uma repetição a menos">−</button>
                             <input class="reps__valor num" type="text" name="reps"
                                    maxlength="3" inputmode="numeric"
                                    value="{% if linha.reps %}{{ linha.reps }}{% endif %}"
-                                   placeholder="{% if linha.previous_reps %}{{ linha.previous_reps }}{% else %}{{ item.rep_max }}{% endif %}"
+                                   placeholder="{% if linha.previous_reps %}{{ linha.previous_reps }}{% else %}reps{% endif %}"
                                    data-anterior="{% if linha.previous_reps %}{{ linha.previous_reps }}{% endif %}"
                                    aria-label="Repetições da {{ linha.number }}ª série de {{ item.exercise.name }}">
                             <button type="button" class="reps__passo"
@@ -277,6 +282,7 @@
                           <button type="submit" class="set-row__save">OK</button>
                           <button type="button" class="set-row__timer"
                                   data-descanso="{{ item.rest_seconds }}"
+                                  data-acabando="rest-timer--acabando"
                                   data-nome="{{ item.exercise.name }} · {{ linha.number }}ª série"
                                   aria-label="Cronometrar descanso">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -854,11 +860,21 @@
           clearInterval(intervalo);
           intervalo = null;
           caixa.hidden = true;
-          caixa.classList.remove("rest-timer--fim");
+          caixa.classList.remove("rest-timer--fim", "rest-timer--acabando");
         }
+
+        /* Últimos dez segundos: o cronômetro pulsa.
+         *
+         * Preso a dado que muda de verdade — o critério do catálogo Impeccable
+         * para pulso, e o oposto da chama da ofensiva, que pulsava para sempre
+         * e foi removida. Aqui a contagem está mesmo terminando. */
+        var AVISO_SEGUNDOS = 10;
 
         function tick() {
           restam -= 1;
+          caixa.classList.toggle(
+            "rest-timer--acabando", restam > 0 && restam <= AVISO_SEGUNDOS
+          );
           desenhar();
           if (restam <= 0) {
             clearInterval(intervalo);
@@ -874,7 +890,7 @@
           restam = total;
           nome.textContent = rotulo || "Descanso";
           caixa.hidden = false;
-          caixa.classList.remove("rest-timer--fim");
+          caixa.classList.remove("rest-timer--fim", "rest-timer--acabando");
           desenhar();
           intervalo = setInterval(tick, 1000);
         }
@@ -1013,9 +1029,21 @@
        * um punhado de `onclick`. */
       (function () {
         function acharValor(botao) {
-          var caixa = botao.closest(".reps");
+          /* `.reps__campo` e não `.reps`: o container foi renomeado quando os
+           * passos entraram para dentro da moldura, e este seletor ficou para
+           * trás — o contador parou de contar sem dar erro nenhum. Só o
+           * navegador pegou. */
+          var caixa = botao.closest(".reps__campo");
           return caixa ? caixa.querySelector(".reps__valor") : null;
         }
+
+        /* Mexeu no valor, ele deixa de ser sugestão e passa a ser escolha. */
+        document.addEventListener("input", function (evento) {
+          var campo = evento.target;
+          if (campo && campo.dataset && campo.dataset.autopreenchido) {
+            delete campo.dataset.autopreenchido;
+          }
+        });
 
         document.addEventListener("click", function (evento) {
           var passo = evento.target.closest("[data-reps]");
@@ -1053,6 +1081,36 @@
             .then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
             .then(function (dados) {
               form.classList.add("set-row--done");
+
+              /* Preenche a série SEGUINTE com o que acabou de ser gravado.
+               *
+               * Preencher não é registrar: o número fica à vista para editar e
+               * só o toque em OK o grava. E o valor vem do que a pessoa fez
+               * AGORA, não de semanas atrás — é essa diferença que torna o
+               * preenchimento automático aceitável aqui, onde o botão de
+               * "copiar do último treino" foi a escolha certa lá.
+               *
+               * Marcado com `data-autopreenchido` para não passar por
+               * registro: número pré-posto que se confirma sem olhar vira
+               * histórico falso. */
+              var proximaLinha = form.nextElementSibling;
+              while (proximaLinha && !proximaLinha.classList.contains("set-row")) {
+                proximaLinha = proximaLinha.nextElementSibling;
+              }
+              if (proximaLinha && !proximaLinha.classList.contains("set-row--done")) {
+                [
+                  [".set-row__input", dados.peso],
+                  [".reps__valor", dados.reps],
+                ].forEach(function (par) {
+                  var campo = proximaLinha.querySelector(par[0]);
+                  if (!campo || par[1] === null || par[1] === undefined) return;
+                  if (campo.value) return;
+                  /* Vírgula: é como o resto do app escreve número, e o
+                   * servidor normaliza na volta. */
+                  campo.value = String(par[1]).replace(".", ",");
+                  campo.dataset.autopreenchido = "1";
+                });
+              }
               /* O descanso começa sozinho aqui: terminar a série e ter que
                * tocar num segundo botão para contar o intervalo é o passo que
                * some no meio do treino — e sem ele o intervalo vira "até

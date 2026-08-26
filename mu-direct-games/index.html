@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MU DIRECT GAMES · Season 21 — Sinta o Poder</title>
+<meta name="description" content="MU DIRECT GAMES Season 21: servidor private de Mu Online com EXP x5000, novos sets, novas asas, novos mapas e novas classes. Baixe o cliente e crie sua conta grátis.">
+<meta name="theme-color" content="#07090E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        void: { 950: '#04060A', 900: '#07090E', 800: '#0C1017', 700: '#131926', 600: '#1C2436' },
+        gold: { light: '#F7DE97', DEFAULT: '#E5B842', deep: '#9A7A1E' },
+        neon: { light: '#7DF3FF', DEFAULT: '#00E5FF', deep: '#0097A7' },
+      },
+      fontFamily: {
+        display: ['Cinzel', 'Georgia', 'serif'],
+        body:    ['Rajdhani', 'Segoe UI', 'sans-serif'],
+      },
+      animation: {
+        float:  'float 8s ease-in-out infinite',
+        shine:  'shine 4s linear infinite',
+        drift:  'drift 22s linear infinite',
+      },
+      keyframes: {
+        float: { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-22px)' } },
+        shine: { '0%': { backgroundPosition: '-200% center' }, '100%': { backgroundPosition: '200% center' } },
+        drift: { '0%': { transform: 'translateY(0)' }, '100%': { transform: 'translateY(-64px)' } },
+      },
+    },
+  },
+};
+</script>
+
+<style>
+  html { background-color: #07090E; }
+  body { background-color: #07090E; }
+  ::selection { background: #E5B842; color: #04060A; }
+
+  ::-webkit-scrollbar { width: 10px; }
+  ::-webkit-scrollbar-track { background: #04060A; }
+  ::-webkit-scrollbar-thumb { background: #1C2436; border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: #E5B842; }
+
+  /* Ouro líquido: usado no logo, nos títulos e nos números de destaque. */
+  .gold-fill {
+    background: linear-gradient(100deg, #9A7A1E 0%, #F7DE97 30%, #E5B842 50%, #FFF3CF 62%, #E5B842 74%, #9A7A1E 100%);
+    background-size: 220% auto;
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+  }
+
+  /* Borda em gradiente sem truque de duplo elemento: máscara XOR sobre o padding. */
+  .edge { position: relative; }
+  .edge::before {
+    content: ''; position: absolute; inset: 0; padding: 1px; border-radius: inherit;
+    background: linear-gradient(140deg, rgba(229,184,66,.75), rgba(229,184,66,.05) 42%, rgba(0,229,255,.55));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask-composite: exclude;
+    pointer-events: none;
+  }
+  .edge-neon::before { background: linear-gradient(140deg, rgba(0,229,255,.75), rgba(0,229,255,.05) 45%, rgba(229,184,66,.45)); }
+
+  .glass { background: rgba(12,16,23,.62); -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%); }
+
+  /* Malha rúnica do fundo, apagando nas bordas. */
+  .runes {
+    background-image:
+      linear-gradient(rgba(0,229,255,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,.05) 1px, transparent 1px);
+    background-size: 64px 64px;
+    -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 38%, #000 25%, transparent 100%);
+            mask-image: radial-gradient(ellipse 75% 65% at 50% 38%, #000 25%, transparent 100%);
+  }
+
+  /* Cantos chanfrados — leitura imediata de HUD de jogo. */
+  .bevel    { clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px); }
+  .bevel-sm { clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px); }
+
+  /* Inclinação 3D dos cards de destaque (o JS escreve as variáveis). */
+  .tilt-scene { perspective: 1000px; }
+  .tilt {
+    transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(0);
+    transform-style: preserve-3d;
+    transition: transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s ease;
+    will-change: transform;
+  }
+  .tilt-glare {
+    background: radial-gradient(circle 220px at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,.10), transparent 70%);
+    opacity: 0; transition: opacity .3s ease;
+  }
+  .tilt-scene:hover .tilt-glare { opacity: 1; }
+
+  .nums { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+  /* Indicador da aba/nav ativa — classe escrita pelo JS, sem depender de :has(). */
+  .nav-ativo { color: #F7DE97; }
+  .nav-ativo::after { transform: scaleX(1); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+
+<body class="bg-void-900 font-body text-slate-300 antialiased overflow-x-hidden">
+
+<!-- ==========================================================
+     HEADER
+     ========================================================== -->
+<header data-navbar class="fixed inset-x-0 top-0 z-50 transition-all duration-300">
+  <div class="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+
+    <a href="#inicio" class="group flex min-w-0 items-center gap-3">
+      <span class="relative grid h-11 w-11 shrink-0 place-items-center">
+        <span class="absolute inset-0 rotate-45 rounded-lg border border-gold/60 bg-gradient-to-br from-void-700 to-void-950 transition-transform duration-500 group-hover:rotate-[135deg]"></span>
+        <i class="fa-solid fa-bolt relative text-[15px] text-gold"></i>
+      </span>
+      <span class="min-w-0 leading-none">
+        <span class="block truncate font-display text-base font-black tracking-[.16em] gold-fill animate-shine sm:text-lg">MU DIRECT GAMES</span>
+        <span class="mt-1 block text-[10px] font-bold tracking-[.5em] text-neon/70">S21</span>
+      </span>
+    </a>
+
+    <nav data-nav class="hidden items-center gap-1 lg:flex" aria-label="Navegação principal">
+      <a href="#inicio"    class="relative rounded px-4 py-3 text-sm font-semibold uppercase tracking-widest text-slate-300 transition hover:text-gold-light after:absolute after:inset-x-4 after:bottom-2 after:h-px after:origin-left after:scale-x-0 after:bg-gradient-to-r after:from-gold after:to-neon after:transition-transform hover:after:scale-x-100">Início</a>
+      <a href="#eventos"   class="relative rounded px-4 py-3 text-sm font-semibold uppercase tracking-widest text-slate-300 transition hover:text-gold-light after:absolute after:inset-x-4 after:bottom-2 after:h-px after:origin-left after:scale-x-0 after:bg-gradient-to-r after:from-gold after:to-neon after:transition-transform hover:after:scale-x-100">Eventos</a>
+      <a href="#destaques" class="relative rounded px-4 py-3 text-sm font-semibold uppercase tracking-widest text-slate-300 transition hover:text-gold-light after:absolute after:inset-x-4 after:bottom-2 after:h-px after:origin-left after:scale-x-0 after:bg-gradient-to-r after:from-gold after:to-neon after:transition-transform hover:after:scale-x-100">Season 21</a>
+      <a href="#ranking"   class="relative rounded px-4 py-3 text-sm font-semibold uppercase tracking-widest text-slate-300 transition hover:text-gold-light after:absolute after:inset-x-4 after:bottom-2 after:h-px after:origin-left after:scale-x-0 after:bg-gradient-to-r after:from-gold after:to-neon after:transition-transform hover:after:scale-x-100">Ranking</a>
+      <a href="#downloads" class="relative rounded px-4 py-3 text-sm font-semibold uppercase tracking-widest text-slate-300 transition hover:text-gold-light after:absolute after:inset-x-4 after:bottom-2 after:h-px after:origin-left after:scale-x-0 after:bg-gradient-to-r after:from-gold after:to-neon after:transition-transform hover:after:scale-x-100">Downloads</a>
+
+      <a href="#cadastro" class="edge ml-3 inline-flex h-11 items-center gap-2 rounded bg-gradient-to-b from-gold/25 to-gold/[.04] px-5 text-sm font-bold uppercase tracking-widest text-gold-light transition duration-300 hover:from-gold/45 hover:to-gold/10 hover:text-white hover:shadow-[0_0_24px_rgba(229,184,66,0.45)]">
+        <i class="fa-solid fa-user-plus text-xs"></i>
+        Cadastrar
+      </a>
+    </nav>
+
+    <button type="button" data-menu-toggle aria-expanded="false" aria-controls="menu-mobile"
+            class="grid h-11 w-11 place-items-center rounded border border-white/10 text-slate-200 transition hover:border-gold/50 hover:text-gold lg:hidden">
+      <span class="sr-only">Abrir menu</span>
+      <i class="fa-solid fa-bars text-lg" data-menu-icone></i>
+    </button>
+  </div>
+
+  <nav id="menu-mobile" hidden class="glass border-t border-white/5 lg:hidden" aria-label="Navegação principal (mobile)">
+    <div class="mx-auto max-w-7xl px-4 py-3 sm:px-6">
+      <a href="#inicio"    class="flex h-12 items-center gap-3 border-b border-white/5 px-2 text-sm font-semibold uppercase tracking-widest text-slate-200 hover:text-gold"><i class="fa-solid fa-house w-5 text-gold/70"></i>Início</a>
+      <a href="#eventos"   class="flex h-12 items-center gap-3 border-b border-white/5 px-2 text-sm font-semibold uppercase tracking-widest text-slate-200 hover:text-gold"><i class="fa-solid fa-hourglass-half w-5 text-gold/70"></i>Eventos</a>
+      <a href="#destaques" class="flex h-12 items-center gap-3 border-b border-white/5 px-2 text-sm font-semibold uppercase tracking-widest text-slate-200 hover:text-gold"><i class="fa-solid fa-wand-sparkles w-5 text-gold/70"></i>Season 21</a>
+      <a href="#ranking"   class="flex h-12 items-center gap-3 border-b border-white/5 px-2 text-sm font-semibold uppercase tracking-widest text-slate-200 hover:text-gold"><i class="fa-solid fa-crown w-5 text-gold/70"></i>Ranking</a>
+      <a href="#downloads" class="flex h-12 items-center gap-3 border-b border-white/5 px-2 text-sm font-semibold uppercase tracking-widest text-slate-200 hover:text-gold"><i class="fa-solid fa-download w-5 text-gold/70"></i>Downloads</a>
+      <a href="#cadastro"  class="mt-3 flex h-12 items-center justify-center gap-2 rounded border border-gold/50 bg-gold/15 px-4 text-sm font-bold uppercase tracking-widest text-gold-light"><i class="fa-solid fa-user-plus text-xs"></i>Cadastrar</a>
+    </div>
+  </nav>
+</header>
+
+<main>
+<!-- ==========================================================
+     HERO
+     ========================================================== -->
+<section id="inicio" class="relative isolate flex min-h-[100svh] items-center overflow-hidden pt-28 pb-24">
+
+  <div class="absolute inset-0 -z-20 bg-void-950"></div>
+  <div class="absolute inset-0 -z-20 runes"></div>
+  <div class="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_65%_55%_at_50%_-5%,rgba(0,229,255,.18),transparent_70%)]"></div>
+  <div class="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_55%_50%_at_50%_105%,rgba(229,184,66,.16),transparent_70%)]"></div>
+  <div class="absolute -left-48 top-1/3 -z-20 h-[28rem] w-[28rem] animate-float rounded-full bg-neon/10 blur-[130px]"></div>
+  <div class="absolute -right-48 top-1/4 -z-20 h-[28rem] w-[28rem] animate-float rounded-full bg-gold/10 blur-[130px]" style="animation-delay:-4s"></div>
+  <canvas data-brasas class="pointer-events-none absolute inset-0 -z-10 h-full w-full opacity-70" aria-hidden="true"></canvas>
+  <div class="absolute inset-x-0 bottom-0 -z-10 h-72 bg-gradient-to-t from-void-900 via-void-900/70 to-transparent"></div>
+
+  <div class="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+    <div class="text-center">
+
+      <p class="edge edge-neon mx-auto mb-9 inline-flex items-center gap-2.5 rounded-full bg-neon/[.06] px-5 py-2 text-[11px] font-bold uppercase tracking-[.3em] text-neon">
+        <span class="relative flex h-2 w-2">
+          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-neon opacity-75"></span>
+          <span class="relative inline-flex h-2 w-2 rounded-full bg-neon"></span>
+        </span>
+        Nova temporada no ar · Grand Opening
+      </p>
+
+      <h1 class="font-display text-[2.1rem] font-black leading-[1.05] tracking-tight sm:text-6xl lg:text-[4.6rem]">
+        <span class="block gold-fill animate-shine drop-shadow-[0_0_40px_rgba(229,184,66,.32)]">SINTA O PODER</span>
+        <span class="mt-3 block text-2xl font-bold tracking-[.34em] text-neon drop-shadow-[0_0_28px_rgba(0,229,255,.5)] sm:text-4xl lg:text-5xl">DA SEASON 21</span>
+      </h1>
+
+      <p class="mx-auto mt-8 max-w-2xl text-base leading-relaxed text-slate-400 sm:text-xl">
+        A temporada mais brutal de Lorencia começou. <strong class="font-bold text-gold-light">EXP x5000</strong>,
+        drop calibrado, novas asas de nível 5 e dois continentes inéditos —
+        <span class="text-neon">com anti-cheat ativo e zero pay-to-win.</span>
+      </p>
+
+      <div class="mt-11 flex flex-col items-center justify-center gap-4 sm:flex-row">
+        <a href="#downloads"
+           class="group inline-flex h-14 w-full items-center justify-center gap-3 rounded border border-gold bg-gradient-to-b from-gold-light via-gold to-gold-deep px-9 font-display text-sm font-bold uppercase tracking-[.16em] text-void-950 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_38px_rgba(229,184,66,0.65)] sm:w-auto sm:text-base">
+          <i class="fa-solid fa-download transition-transform group-hover:translate-y-0.5"></i>
+          Jogar Agora
+        </a>
+        <a href="#cadastro"
+           class="edge edge-neon group inline-flex h-14 w-full items-center justify-center gap-3 rounded bg-neon/[.07] px-9 font-display text-sm font-bold uppercase tracking-[.16em] text-neon transition duration-300 hover:-translate-y-0.5 hover:bg-neon/15 hover:text-white hover:shadow-[0_0_38px_rgba(0,229,255,0.5)] sm:w-auto sm:text-base">
+          <i class="fa-solid fa-user-plus transition-transform group-hover:scale-110"></i>
+          Criar Conta Grátis
+        </a>
+      </div>
+
+      <!-- Widget de status -->
+      <div class="edge glass bevel mx-auto mt-14 max-w-4xl p-1.5">
+        <dl class="grid grid-cols-2 divide-white/5 sm:grid-cols-4 sm:divide-x">
+          <div class="px-4 py-5">
+            <dt class="text-[10px] font-bold uppercase tracking-[.24em] text-slate-500">Status</dt>
+            <dd class="mt-2.5 flex items-center justify-center gap-2">
+              <span class="relative flex h-2.5 w-2.5">
+                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,.95)]"></span>
+              </span>
+              <span class="font-display text-lg font-black tracking-widest text-emerald-400 sm:text-xl">ONLINE</span>
+            </dd>
+          </div>
+          <div class="px-4 py-5">
+            <dt class="text-[10px] font-bold uppercase tracking-[.24em] text-slate-500">Jogadores</dt>
+            <dd class="nums mt-2.5 font-display text-lg font-black text-neon drop-shadow-[0_0_16px_rgba(0,229,255,.45)] sm:text-xl" data-contador data-alvo="1240">0</dd>
+          </div>
+          <div class="px-4 py-5">
+            <dt class="text-[10px] font-bold uppercase tracking-[.24em] text-slate-500">Versão</dt>
+            <dd class="mt-2.5 font-display text-lg font-black tracking-wide text-gold-light sm:text-xl">Season 21</dd>
+          </div>
+          <div class="px-4 py-5">
+            <dt class="text-[10px] font-bold uppercase tracking-[.24em] text-slate-500">Experiência</dt>
+            <dd class="nums mt-2.5 font-display text-lg font-black tracking-wide text-fuchsia-300 sm:text-xl">x5000</dd>
+          </div>
+        </dl>
+      </div>
+
+      <p class="mt-6 text-xs uppercase tracking-[.2em] text-slate-600">
+        Atualizado há <span class="nums text-slate-400" data-checagem>8</span>s · Cliente <span class="nums">4,2 GB</span> · Windows 7, 10 e 11
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================
+     EVENT TIMERS
+     ========================================================== -->
+<section id="eventos" class="relative px-4 py-24 sm:px-6 lg:px-8">
+  <div class="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_70%_at_50%_50%,rgba(0,229,255,.06),transparent_70%)]"></div>
+
+  <div class="mx-auto max-w-6xl">
+    <header class="mb-11 flex flex-wrap items-end justify-between gap-5">
+      <div>
+        <p class="text-[11px] font-bold uppercase tracking-[.36em] text-neon">Agenda de batalha</p>
+        <h2 class="mt-3 font-display text-2xl font-black uppercase tracking-widest gold-fill sm:text-4xl">Próximos Eventos</h2>
+      </div>
+      <p class="max-w-sm text-sm text-slate-400">
+        Horários no fuso de Brasília. Entre no evento com pelo menos
+        <span class="nums text-gold-light">3</span> minutos de antecedência.
+      </p>
+    </header>
+
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+
+      <article class="edge glass bevel-sm relative overflow-hidden p-6 transition duration-300 hover:shadow-[0_0_32px_rgba(229,184,66,0.28)]"
+               data-evento data-tipo="intervalo" data-intervalo="120" data-offset="0">
+        <div class="mb-4 flex items-center justify-between">
+          <span class="grid h-11 w-11 place-items-center rounded border border-red-400/40 bg-red-400/10 text-red-300"><i class="fa-solid fa-fire-flame-curved"></i></span>
+          <span class="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">a cada 2h</span>
+        </div>
+        <h3 class="font-display text-lg font-bold uppercase tracking-widest text-slate-100">Blood Castle</h3>
+        <p class="mt-1.5 text-sm text-slate-400">Level 15+ · recompensa em Jewel</p>
+        <p class="nums mt-5 font-display text-3xl font-black tracking-wider text-gold-light" data-relogio>--:--:--</p>
+        <p class="mt-1 text-[11px] uppercase tracking-[.2em] text-slate-500">abre às <span class="nums" data-horario>--:--</span></p>
+      </article>
+
+      <article class="edge glass bevel-sm relative overflow-hidden p-6 transition duration-300 hover:shadow-[0_0_32px_rgba(229,184,66,0.28)]"
+               data-evento data-tipo="intervalo" data-intervalo="120" data-offset="60">
+        <div class="mb-4 flex items-center justify-between">
+          <span class="grid h-11 w-11 place-items-center rounded border border-fuchsia-400/40 bg-fuchsia-400/10 text-fuchsia-300"><i class="fa-solid fa-hat-wizard"></i></span>
+          <span class="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">a cada 2h</span>
+        </div>
+        <h3 class="font-display text-lg font-bold uppercase tracking-widest text-slate-100">Devil Square</h3>
+        <p class="mt-1.5 text-sm text-slate-400">Level 40+ · EXP em massa</p>
+        <p class="nums mt-5 font-display text-3xl font-black tracking-wider text-gold-light" data-relogio>--:--:--</p>
+        <p class="mt-1 text-[11px] uppercase tracking-[.2em] text-slate-500">abre às <span class="nums" data-horario>--:--</span></p>
+      </article>
+
+      <article class="edge glass bevel-sm relative overflow-hidden p-6 transition duration-300 hover:shadow-[0_0_32px_rgba(229,184,66,0.28)]"
+               data-evento data-tipo="intervalo" data-intervalo="180" data-offset="90">
+        <div class="mb-4 flex items-center justify-between">
+          <span class="grid h-11 w-11 place-items-center rounded border border-violet-400/40 bg-violet-400/10 text-violet-300"><i class="fa-solid fa-skull"></i></span>
+          <span class="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">a cada 3h</span>
+        </div>
+        <h3 class="font-display text-lg font-bold uppercase tracking-widest text-slate-100">Chaos Castle</h3>
+        <p class="mt-1.5 text-sm text-slate-400">PvP livre · último de pé vence</p>
+        <p class="nums mt-5 font-display text-3xl font-black tracking-wider text-gold-light" data-relogio>--:--:--</p>
+        <p class="mt-1 text-[11px] uppercase tracking-[.2em] text-slate-500">abre às <span class="nums" data-horario>--:--</span></p>
+      </article>
+
+      <article class="edge glass bevel-sm relative overflow-hidden p-6 transition duration-300 hover:shadow-[0_0_32px_rgba(229,184,66,0.28)]"
+               data-evento data-tipo="semanal" data-dia="0" data-hora="20">
+        <div class="mb-4 flex items-center justify-between">
+          <span class="grid h-11 w-11 place-items-center rounded border border-gold/40 bg-gold/10 text-gold"><i class="fa-solid fa-chess-rook"></i></span>
+          <span class="rounded-full border border-gold/25 bg-gold/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-gold">semanal</span>
+        </div>
+        <h3 class="font-display text-lg font-bold uppercase tracking-widest text-gold-light">Castle Siege</h3>
+        <p class="mt-1.5 text-sm text-slate-400">Domingo, 20h · guilds registradas</p>
+        <p class="nums mt-5 font-display text-3xl font-black tracking-wider text-gold-light" data-relogio>--:--:--</p>
+        <p class="mt-1 text-[11px] uppercase tracking-[.2em] text-slate-500">abre às <span class="nums" data-horario>--:--</span></p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================
+     DESTAQUES DA SEASON 21
+     ========================================================== -->
+<section id="destaques" class="relative px-4 py-24 sm:px-6 lg:px-8">
+  <div class="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_55%_65%_at_50%_45%,rgba(229,184,66,.07),transparent_70%)]"></div>
+
+  <div class="mx-auto max-w-6xl">
+    <header class="mb-14 text-center">
+      <p class="text-[11px] font-bold uppercase tracking-[.36em] text-gold">O que mudou</p>
+      <h2 class="mt-3 font-display text-2xl font-black uppercase tracking-widest text-neon drop-shadow-[0_0_26px_rgba(0,229,255,.35)] sm:text-4xl">Destaques da Season 21</h2>
+      <p class="mx-auto mt-5 max-w-xl text-slate-400">Quatro frentes reformuladas do zero — conteúdo novo do nível 1 ao Master 400.</p>
+    </header>
+
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+
+      <div class="tilt-scene">
+        <article data-tilt class="tilt edge glass bevel relative h-full overflow-hidden p-7 hover:shadow-[0_0_40px_rgba(229,184,66,0.3)]">
+          <span class="tilt-glare pointer-events-none absolute inset-0"></span>
+          <span class="mb-6 grid h-14 w-14 place-items-center rounded border border-gold/40 bg-gradient-to-br from-gold/20 to-transparent text-2xl text-gold"><i class="fa-solid fa-shield-halved"></i></span>
+          <h3 class="font-display text-xl font-bold uppercase tracking-widest text-gold-light">Novos Sets</h3>
+          <p class="mt-3 text-sm leading-relaxed text-slate-400">Doze conjuntos ancestrais com bônus de conjunto refeitos e opção de excelente até <span class="nums text-slate-200">+15</span>.</p>
+          <ul class="mt-5 space-y-2 text-xs uppercase tracking-widest text-slate-500">
+            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-[10px] text-neon"></i>Sockets de 5 slots</li>
+            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-[10px] text-neon"></i>Refino sem quebra até +9</li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="tilt-scene">
+        <article data-tilt class="tilt edge edge-neon glass bevel relative h-full overflow-hidden p-7 hover:shadow-[0_0_40px_rgba(0,229,255,0.28)]">
+          <span class="tilt-glare pointer-events-none absolute inset-0"></span>
+          <span class="mb-6 grid h-14 w-14 place-items-center rounded border border-neon/40 bg-gradient-to-br from-neon/20 to-transparent text-2xl text-neon"><i class="fa-solid fa-dove"></i></span>
+          <h3 class="font-display text-xl font-bold uppercase tracking-widest text-neon">Novas Asas</h3>
+          <p class="mt-3 text-sm leading-relaxed text-slate-400">Asas de <span class="nums text-slate-200">nível 5</span> com efeito de partícula próprio e absorção de dano progressiva.</p>
+          <ul class="mt-5 space-y-2 text-xs uppercase tracking-widest text-slate-500">
+            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-[10px] text-gold"></i>Craft em Chaos Machine</li>
+            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-[10px] text-gold"></i>Absorção de até 55%</li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="tilt-scene">
+        <article data-tilt class="tilt edge glass bevel relative h-full overflow-hidden p-7 hover:shadow-[0_0_40px_rgba(229,184,66,0.3)]">
+          <span class="tilt-glare pointer-events-none absolute inset-0"></span>
+          <span class="mb-6 grid h-14 w-14 place-items-center rounded border border-emerald-400/40 bg-gradient-to-br from-emerald-400/20 to-transparent text-2xl text-emerald-300"><i class="fa-solid fa-map-location-dot"></i></span>
+          <h3 class="font-display text-xl font-bold uppercase tracking-widest text-emerald-300">Novos Mapas</h3>
+          <p class="mt-3 text-sm leading-relaxed text-slate-400">Dois continentes inéditos, com bosses de mundo que nascem a cada <span class="nums text-slate-200">6</span> horas.</p>
+          <ul class="mt-5 space-y-2 text-xs uppercase tracking-widest text-slate-500">
+            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-[10px] text-neon"></i>Abyss of Atlans</li>
+            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-[10px] text-neon"></i>Twisted Kalima</li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="tilt-scene">
+        <article data-tilt class="tilt edge glass bevel relative h-full overflow-hidden p-7 hover:shadow-[0_0_40px_rgba(229,184,66,0.3)]">
+          <span class="tilt-glare pointer-events-none absolute inset-0"></span>
+          <span class="mb-6 grid h-14 w-14 place-items-center rounded border border-fuchsia-400/40 bg-gradient-to-br from-fuchsia-400/20 to-transparent text-2xl text-fuchsia-300"><i class="fa-solid fa-hand-fist"></i></span>
+          <h3 class="font-display text-xl font-bold uppercase tracking-widest text-fuchsia-300">Novas Classes</h3>
+          <p class="mt-3 text-sm leading-relaxed text-slate-400">Alchemist e Illusion Knight chegam com árvore de maestria completa desde o lançamento.</p>
+          <ul class="mt-5 space-y-2 text-xs uppercase tracking-widest text-slate-500">
+            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-[10px] text-neon"></i>Habilidades exclusivas</li>
+            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-[10px] text-neon"></i>Sem exigir personagem prévio</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================
+     RANKINGS COM ABAS
+     ========================================================== -->
+<section id="ranking" class="relative px-4 py-24 sm:px-6 lg:px-8">
+  <div class="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_50%_60%_at_50%_50%,rgba(229,184,66,.07),transparent_70%)]"></div>
+
+  <div class="mx-auto max-w-6xl">
+    <header class="mb-11 text-center">
+      <p class="text-[11px] font-bold uppercase tracking-[.36em] text-neon">Salão da fama</p>
+      <h2 class="mt-3 font-display text-2xl font-black uppercase tracking-widest gold-fill sm:text-4xl">Top Rankings</h2>
+      <p class="mx-auto mt-5 max-w-xl text-slate-400">Recalculado a cada <span class="nums text-gold-light">15</span> minutos direto do banco do servidor.</p>
+    </header>
+
+    <div class="edge glass bevel overflow-hidden">
+
+      <!-- Abas -->
+      <div class="flex flex-wrap gap-1 border-b border-white/10 bg-void-950/50 p-2" role="tablist" aria-label="Categorias de ranking">
+        <button type="button" role="tab" id="aba-reset" aria-controls="painel-reset" aria-selected="true" data-aba="reset"
+                class="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded px-4 text-xs font-bold uppercase tracking-widest transition sm:flex-none sm:px-6">
+          <i class="fa-solid fa-arrows-rotate text-[11px]"></i> Top Reset
+        </button>
+        <button type="button" role="tab" id="aba-master" aria-controls="painel-master" aria-selected="false" data-aba="master"
+                class="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded px-4 text-xs font-bold uppercase tracking-widest transition sm:flex-none sm:px-6">
+          <i class="fa-solid fa-star text-[11px]"></i> Top Master Level
+        </button>
+        <button type="button" role="tab" id="aba-guild" aria-controls="painel-guild" aria-selected="false" data-aba="guild"
+                class="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded px-4 text-xs font-bold uppercase tracking-widest transition sm:flex-none sm:px-6">
+          <i class="fa-solid fa-shield text-[11px]"></i> Top Guilds
+        </button>
+      </div>
+
+      <!-- Painel: Top Reset -->
+      <div id="painel-reset" role="tabpanel" aria-labelledby="aba-reset" data-painel="reset" class="overflow-x-auto">
+        <table class="w-full min-w-[640px] text-left">
+          <caption class="sr-only">Cinco personagens com mais resets</caption>
+          <thead>
+            <tr class="border-b border-gold/20 bg-gold/[.05]">
+              <th scope="col" class="w-20 px-6 py-4 text-[10px] font-bold uppercase tracking-[.22em] text-gold-light">#</th>
+              <th scope="col" class="px-6 py-4 text-[10px] font-bold uppercase tracking-[.22em] text-gold-light">Personagem</th>
+              <th scope="col" class="px-6 py-4 text-[10px] font-bold uppercase tracking-[.22em] text-gold-light">Classe</th>
+              <th scope="col" class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-[.22em] text-gold-light">Resets</th>
+              <th scope="col" class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-[.22em] text-gold-light">Level</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-white/5">
+            <tr class="bg-gold/[.05] transition hover:bg-gold/[.11]">
+              <td class="px-6 py-4"><span class="grid h-9 w-9 place-items-center rounded border border-gold bg-gradient-to-b from-gold-light to-gold-deep font-display text-base font-black text-void-950">1</span></td>
+              <td class="px-6 py-4"><span class="block font-display text-base font-bold tracking-wide text-gold-light">DarkLordZeus</span><span class="text-[11px] uppercase tracking-widest text-slate-500">Guild · Olympus</span></td>
+              <td class="px-6 py-4"><span class="inline-flex items-center rounded border border-amber-400/40 bg-amber-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-amber-300">Dark Lord</span></td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-gold">1.284</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">400</td>
+            </tr>
+            <tr class="transition hover:bg-white/[.04]">
+              <td class="px-6 py-4"><span class="grid h-9 w-9 place-items-center rounded border border-slate-300/60 bg-slate-300/15 font-display text-base font-black text-slate-200">2</span></td>
+              <td class="px-6 py-4"><span class="block font-display text-base font-bold tracking-wide text-slate-100">MuseLunar</span><span class="text-[11px] uppercase tracking-widest text-slate-500">Guild · Aurora</span></td>
+              <td class="px-6 py-4"><span class="inline-flex items-center rounded border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-emerald-300">High Elf</span></td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">1.176</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">400</td>
+            </tr>
+            <tr class="transition hover:bg-white/[.04]">
+              <td class="px-6 py-4"><span class="grid h-9 w-9 place-items-center rounded border border-orange-400/60 bg-orange-400/15 font-display text-base font-black text-orange-300">3</span></td>
+              <td class="px-6 py-4"><span class="block font-display text-base font-bold tracking-wide text-slate-100">BladeMasterX</span><span class="text-[11px] uppercase tracking-widest text-slate-500">Guild · Ironclad</span></td>
+              <td class="px-6 py-4"><span class="inline-flex items-center rounded border border-red-400/40 bg-red-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-red-300">Blade Master</span></td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">1.093</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">400</td>
+            </tr>
+            <tr class="transition hover:bg-white/[.04]">
+              <td class="px-6 py-4"><span class="grid h-9 w-9 place-items-center rounded border border-white/15 bg-white/5 font-display text-base font-black text-slate-400">4</span></td>
+              <td class="px-6 py-4"><span class="block font-display text-base font-bold tracking-wide text-slate-100">GrandWizardV</span><span class="text-[11px] uppercase tracking-widest text-slate-500">Guild · Arcanum</span></td>
+              <td class="px-6 py-4"><span class="inline-flex items-center rounded border border-neon/40 bg-neon/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-neon">Grand Master</span></td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">987</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">398</td>
+            </tr>
+            <tr class="transition hover:bg-white/[.04]">
+              <td class="px-6 py-4"><span class="grid h-9 w-9 place-items-center rounded border border-white/15 bg-white/5 font-display text-base font-black text-slate-400">5</span></td>
+              <td class="px-6 py-4"><span class="block font-display text-base font-bold tracking-wide text-slate-100">DuelMasterPT</span><span class="text-[11px] uppercase tracking-widest text-slate-500">Guild · Ironclad</span></td>
+              <td class="px-6 py-4"><span class="inline-flex items-center rounded border border-fuchsia-400/40 bg-fuchsia-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-fuchsia-300">Duel Master</span></td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">951</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">397</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Painel: Top Master Level -->
+      <div id="painel-master" role="tabpanel" aria-labelledby="aba-master" data-painel="master" hidden class="overflow-x-auto">
+        <table class="w-full min-w-[640px] text-left">
+          <caption class="sr-only">Cinco personagens com maior Master Level</caption>
+          <thead>
+            <tr class="border-b border-neon/20 bg-neon/[.05]">
+              <th scope="col" class="w-20 px-6 py-4 text-[10px] font-bold uppercase tracking-[.22em] text-neon">#</th>
+              <th scope="col" class="px-6 py-4 text-[10px] font-bold uppercase tracking-[.22em] text-neon">Personagem</th>
+              <th scope="col" class="px-6 py-4 text-[10px] font-bold uppercase tracking-[.22em] text-neon">Classe</th>
+              <th scope="col" class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-[.22em] text-neon">Master Lv.</th>
+              <th scope="col" class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-[.22em] text-neon">Pontos</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-white/5">
+            <tr class="bg-neon/[.05] transition hover:bg-neon/[.11]">
+              <td class="px-6 py-4"><span class="grid h-9 w-9 place-items-center rounded border border-neon bg-gradient-to-b from-neon-light to-neon-deep font-display text-base font-black text-void-950">1</span></td>
+              <td class="px-6 py-4"><span class="block font-display text-base font-bold tracking-wide text-neon-light">SoulBlazer</span><span class="text-[11px] uppercase tracking-widest text-slate-500">Guild · Arcanum</span></td>
+              <td class="px-6 py-4"><span class="inline-flex items-center rounded border border-neon/40 bg-neon/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-neon">Grand Master</span></td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-neon">400</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">4.000</td>
+            </tr>
+            <tr class="transition hover:bg-white/[.04]">
+              <td class="px-6 py-4"><span class="grid h-9 w-9 place-items-center rounded border border-slate-300/60 bg-slate-300/15 font-display text-base font-black text-slate-200">2</span></td>
+              <td class="px-6 py-4"><span class="block font-display text-base font-bold tracking-wide text-slate-100">ArrowStorm</span><span class="text-[11px] uppercase tracking-widest text-slate-500">Guild · Aurora</span></td>
+              <td class="px-6 py-4"><span class="inline-flex items-center rounded border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-emerald-300">High Elf</span></td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">398</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">3.960</td>
+            </tr>
+            <tr class="transition hover:bg-white/[.04]">
+              <td class="px-6 py-4"><span class="grid h-9 w-9 place-items-center rounded border border-orange-400/60 bg-orange-400/15 font-display text-base font-black text-orange-300">3</span></td>
+              <td class="px-6 py-4"><span class="block font-display text-base font-bold tracking-wide text-slate-100">IronFangBR</span><span class="text-[11px] uppercase tracking-widest text-slate-500">Guild · Ironclad</span></td>
+              <td class="px-6 py-4"><span class="inline-flex items-center rounded border border-red-400/40 bg-red-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-red-300">Blade Master</span></td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">392</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">3.880</td>
+            </tr>
+            <tr class="transition hover:bg-white/[.04]">
+              <td class="px-6 py-4"><span class="grid h-9 w-9 place-items-center rounded border border-white/15 bg-white/5 font-display text-base font-black text-slate-400">4</span></td>
+              <td class="px-6 py-4"><span class="block font-display text-base font-bold tracking-wide text-slate-100">AlchemyNova</span><span class="text-[11px] uppercase tracking-widest text-slate-500">Guild · Olympus</span></td>
+              <td class="px-6 py-4"><span class="inline-flex items-center rounded border border-lime-400/40 bg-lime-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-lime-300">Alchemist</span></td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">381</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">3.720</td>
+            </tr>
+            <tr class="transition hover:bg-white/[.04]">
+              <td class="px-6 py-4"><span class="grid h-9 w-9 place-items-center rounded border border-white/15 bg-white/5 font-display text-base font-black text-slate-400">5</span></td>
+              <td class="px-6 py-4"><span class="block font-display text-base font-bold tracking-wide text-slate-100">MirageKnight</span><span class="text-[11px] uppercase tracking-widest text-slate-500">Guild · Vanguard</span></td>
+              <td class="px-6 py-4"><span class="inline-flex items-center rounded border border-sky-400/40 bg-sky-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-sky-300">Illusion Knight</span></td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">376</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">3.640</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Painel: Top Guilds -->
+      <div id="painel-guild" role="tabpanel" aria-labelledby="aba-guild" data-painel="guild" hidden class="overflow-x-auto">
+        <table class="w-full min-w-[640px] text-left">
+          <caption class="sr-only">Cinco guilds com mais pontos de guerra</caption>
+          <thead>
+            <tr class="border-b border-gold/20 bg-gold/[.05]">
+              <th scope="col" class="w-20 px-6 py-4 text-[10px] font-bold uppercase tracking-[.22em] text-gold-light">#</th>
+              <th scope="col" class="px-6 py-4 text-[10px] font-bold uppercase tracking-[.22em] text-gold-light">Guild</th>
+              <th scope="col" class="px-6 py-4 text-[10px] font-bold uppercase tracking-[.22em] text-gold-light">Mestre</th>
+              <th scope="col" class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-[.22em] text-gold-light">Membros</th>
+              <th scope="col" class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-[.22em] text-gold-light">Pontos GvG</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-white/5">
+            <tr class="bg-gold/[.05] transition hover:bg-gold/[.11]">
+              <td class="px-6 py-4"><span class="grid h-9 w-9 place-items-center rounded border border-gold bg-gradient-to-b from-gold-light to-gold-deep font-display text-base font-black text-void-950">1</span></td>
+              <td class="px-6 py-4"><span class="block font-display text-base font-bold tracking-wide text-gold-light">Olympus</span><span class="text-[11px] uppercase tracking-widest text-slate-500">Detentora do castelo</span></td>
+              <td class="px-6 py-4 text-slate-300">DarkLordZeus</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">80</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-gold">18.420</td>
+            </tr>
+            <tr class="transition hover:bg-white/[.04]">
+              <td class="px-6 py-4"><span class="grid h-9 w-9 place-items-center rounded border border-slate-300/60 bg-slate-300/15 font-display text-base font-black text-slate-200">2</span></td>
+              <td class="px-6 py-4"><span class="block font-display text-base font-bold tracking-wide text-slate-100">Ironclad</span><span class="text-[11px] uppercase tracking-widest text-slate-500">Desafiante</span></td>
+              <td class="px-6 py-4 text-slate-300">BladeMasterX</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">78</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">17.905</td>
+            </tr>
+            <tr class="transition hover:bg-white/[.04]">
+              <td class="px-6 py-4"><span class="grid h-9 w-9 place-items-center rounded border border-orange-400/60 bg-orange-400/15 font-display text-base font-black text-orange-300">3</span></td>
+              <td class="px-6 py-4"><span class="block font-display text-base font-bold tracking-wide text-slate-100">Arcanum</span><span class="text-[11px] uppercase tracking-widest text-slate-500">Aliança Aurora</span></td>
+              <td class="px-6 py-4 text-slate-300">GrandWizardV</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">74</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">15.330</td>
+            </tr>
+            <tr class="transition hover:bg-white/[.04]">
+              <td class="px-6 py-4"><span class="grid h-9 w-9 place-items-center rounded border border-white/15 bg-white/5 font-display text-base font-black text-slate-400">4</span></td>
+              <td class="px-6 py-4"><span class="block font-display text-base font-bold tracking-wide text-slate-100">Aurora</span><span class="text-[11px] uppercase tracking-widest text-slate-500">Aliança Arcanum</span></td>
+              <td class="px-6 py-4 text-slate-300">MuseLunar</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">71</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">14.760</td>
+            </tr>
+            <tr class="transition hover:bg-white/[.04]">
+              <td class="px-6 py-4"><span class="grid h-9 w-9 place-items-center rounded border border-white/15 bg-white/5 font-display text-base font-black text-slate-400">5</span></td>
+              <td class="px-6 py-4"><span class="block font-display text-base font-bold tracking-wide text-slate-100">Vanguard</span><span class="text-[11px] uppercase tracking-widest text-slate-500">Independente</span></td>
+              <td class="px-6 py-4 text-slate-300">MirageKnight</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">66</td>
+              <td class="nums px-6 py-4 text-right font-display text-lg font-black text-slate-200">12.980</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-4 border-t border-white/10 bg-void-950/50 px-6 py-5">
+        <p class="text-[11px] uppercase tracking-widest text-slate-500">Temporada atual · <span class="nums">14.208</span> personagens classificados</p>
+        <a href="#ranking" class="inline-flex h-11 items-center gap-2 rounded border border-gold/40 px-4 text-[11px] font-bold uppercase tracking-widest text-gold transition hover:bg-gold/10 hover:text-gold-light">
+          Ver ranking completo <i class="fa-solid fa-arrow-right text-[10px]"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================
+     DOWNLOADS + CADASTRO
+     ========================================================== -->
+<section id="downloads" class="relative px-4 py-24 sm:px-6 lg:px-8">
+  <div class="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_55%_60%_at_50%_40%,rgba(0,229,255,.07),transparent_70%)]"></div>
+
+  <div class="mx-auto max-w-6xl">
+    <header class="mb-12 text-center">
+      <p class="text-[11px] font-bold uppercase tracking-[.36em] text-gold">Comece agora</p>
+      <h2 class="mt-3 font-display text-2xl font-black uppercase tracking-widest text-neon drop-shadow-[0_0_26px_rgba(0,229,255,.35)] sm:text-4xl">Downloads</h2>
+      <p class="mx-auto mt-5 max-w-xl text-slate-400">Cliente completo com o patch mais recente. Os três espelhos servem o mesmo arquivo.</p>
+    </header>
+
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+
+      <article class="edge glass bevel p-7 transition duration-300 hover:-translate-y-1 hover:shadow-[0_0_34px_rgba(0,229,255,0.25)]">
+        <span class="mb-5 grid h-12 w-12 place-items-center rounded border border-red-400/40 bg-red-400/10 text-xl text-red-300"><i class="fa-solid fa-cloud-arrow-down"></i></span>
+        <h3 class="font-display text-lg font-bold uppercase tracking-widest text-slate-100">MEGA</h3>
+        <p class="mt-2 text-sm text-slate-400">Espelho principal, sem fila de espera.</p>
+        <dl class="mt-5 space-y-1.5 text-[11px] uppercase tracking-widest text-slate-500">
+          <div class="flex justify-between"><dt>Tamanho</dt><dd class="nums text-slate-300">4,2 GB</dd></div>
+          <div class="flex justify-between"><dt>Atualizado</dt><dd class="nums text-slate-300">26/08/2026</dd></div>
+        </dl>
+        <a href="#" class="edge edge-neon mt-6 flex h-12 items-center justify-center gap-2 rounded bg-neon/10 text-xs font-bold uppercase tracking-widest text-neon transition hover:bg-neon hover:text-void-950">
+          Baixar <i class="fa-solid fa-download text-[11px]"></i>
+        </a>
+      </article>
+
+      <article class="edge glass bevel relative p-7 shadow-[0_0_30px_rgba(229,184,66,0.2)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_0_44px_rgba(229,184,66,0.45)]">
+        <span class="absolute right-5 top-5 rounded-full border border-gold/50 bg-gold/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-gold-light">Recomendado</span>
+        <span class="mb-5 grid h-12 w-12 place-items-center rounded border border-gold/40 bg-gold/10 text-xl text-gold"><i class="fa-brands fa-google-drive"></i></span>
+        <h3 class="font-display text-lg font-bold uppercase tracking-widest text-gold-light">Google Drive</h3>
+        <p class="mt-2 text-sm text-slate-400">Mais estável em conexões brasileiras.</p>
+        <dl class="mt-5 space-y-1.5 text-[11px] uppercase tracking-widest text-slate-500">
+          <div class="flex justify-between"><dt>Tamanho</dt><dd class="nums text-slate-300">4,2 GB</dd></div>
+          <div class="flex justify-between"><dt>Atualizado</dt><dd class="nums text-slate-300">26/08/2026</dd></div>
+        </dl>
+        <a href="#" class="mt-6 flex h-12 items-center justify-center gap-2 rounded border border-gold bg-gradient-to-b from-gold-light via-gold to-gold-deep text-xs font-bold uppercase tracking-widest text-void-950 transition hover:brightness-110">
+          Baixar <i class="fa-solid fa-download text-[11px]"></i>
+        </a>
+      </article>
+
+      <article class="edge glass bevel p-7 transition duration-300 hover:-translate-y-1 hover:shadow-[0_0_34px_rgba(0,229,255,0.25)]">
+        <span class="mb-5 grid h-12 w-12 place-items-center rounded border border-blue-400/40 bg-blue-400/10 text-xl text-blue-300"><i class="fa-solid fa-folder-open"></i></span>
+        <h3 class="font-display text-lg font-bold uppercase tracking-widest text-slate-100">MediaFire</h3>
+        <p class="mt-2 text-sm text-slate-400">Alternativa sem login, se os outros falharem.</p>
+        <dl class="mt-5 space-y-1.5 text-[11px] uppercase tracking-widest text-slate-500">
+          <div class="flex justify-between"><dt>Tamanho</dt><dd class="nums text-slate-300">4,2 GB</dd></div>
+          <div class="flex justify-between"><dt>Atualizado</dt><dd class="nums text-slate-300">26/08/2026</dd></div>
+        </dl>
+        <a href="#" class="edge edge-neon mt-6 flex h-12 items-center justify-center gap-2 rounded bg-neon/10 text-xs font-bold uppercase tracking-widest text-neon transition hover:bg-neon hover:text-void-950">
+          Baixar <i class="fa-solid fa-download text-[11px]"></i>
+        </a>
+      </article>
+    </div>
+
+    <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+
+      <div class="edge glass bevel p-7">
+        <h3 class="mb-6 flex items-center gap-3 font-display text-base font-bold uppercase tracking-[.2em] text-gold-light">
+          <i class="fa-solid fa-desktop text-sm"></i> Requisitos do Sistema
+        </h3>
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <dl class="space-y-3">
+            <p class="text-[10px] font-bold uppercase tracking-[.24em] text-slate-500">Mínimo</p>
+            <div><dt class="text-[11px] uppercase tracking-widest text-slate-500">Sistema</dt><dd class="text-slate-200">Windows 7 (64 bits)</dd></div>
+            <div><dt class="text-[11px] uppercase tracking-widest text-slate-500">Processador</dt><dd class="text-slate-200">Core i3 · 2,4 GHz</dd></div>
+            <div><dt class="text-[11px] uppercase tracking-widest text-slate-500">Memória</dt><dd class="nums text-slate-200">4 GB RAM</dd></div>
+            <div><dt class="text-[11px] uppercase tracking-widest text-slate-500">Disco</dt><dd class="nums text-slate-200">8 GB livres</dd></div>
+          </dl>
+          <dl class="space-y-3 sm:border-l sm:border-white/10 sm:pl-6">
+            <p class="text-[10px] font-bold uppercase tracking-[.24em] text-neon">Recomendado</p>
+            <div><dt class="text-[11px] uppercase tracking-widest text-slate-500">Sistema</dt><dd class="text-slate-200">Windows 10 / 11 (64 bits)</dd></div>
+            <div><dt class="text-[11px] uppercase tracking-widest text-slate-500">Processador</dt><dd class="text-slate-200">Core i5 · 3,0 GHz</dd></div>
+            <div><dt class="text-[11px] uppercase tracking-widest text-slate-500">Memória</dt><dd class="nums text-slate-200">8 GB RAM</dd></div>
+            <div><dt class="text-[11px] uppercase tracking-widest text-slate-500">Vídeo</dt><dd class="nums text-slate-200">GTX 1050 · 2 GB</dd></div>
+          </dl>
+        </div>
+      </div>
+
+      <div id="cadastro" class="edge edge-neon glass bevel p-7">
+        <h3 class="mb-6 flex items-center gap-3 font-display text-base font-bold uppercase tracking-[.2em] text-neon">
+          <i class="fa-solid fa-list-check text-sm"></i> Em quatro passos
+        </h3>
+        <ol class="space-y-5">
+          <li class="flex gap-4">
+            <span class="nums grid h-9 w-9 shrink-0 place-items-center rounded border border-gold/40 bg-gold/10 font-display font-black text-gold">1</span>
+            <div class="min-w-0"><p class="font-semibold text-slate-100">Baixe o cliente completo</p><p class="text-sm text-slate-400">Qualquer um dos três espelhos acima.</p></div>
+          </li>
+          <li class="flex gap-4">
+            <span class="nums grid h-9 w-9 shrink-0 place-items-center rounded border border-gold/40 bg-gold/10 font-display font-black text-gold">2</span>
+            <div class="min-w-0"><p class="font-semibold text-slate-100">Extraia fora de "Arquivos de Programas"</p><p class="text-sm text-slate-400">Evita bloqueio de permissão do Windows.</p></div>
+          </li>
+          <li class="flex gap-4">
+            <span class="nums grid h-9 w-9 shrink-0 place-items-center rounded border border-gold/40 bg-gold/10 font-display font-black text-gold">3</span>
+            <div class="min-w-0"><p class="font-semibold text-slate-100">Crie sua conta grátis</p><p class="text-sm text-slate-400">Menos de um minuto, sem cartão.</p></div>
+          </li>
+          <li class="flex gap-4">
+            <span class="nums grid h-9 w-9 shrink-0 place-items-center rounded border border-gold/40 bg-gold/10 font-display font-black text-gold">4</span>
+            <div class="min-w-0"><p class="font-semibold text-slate-100">Execute o <span class="text-gold-light">Launcher.exe</span></p><p class="text-sm text-slate-400">Como administrador, na primeira vez.</p></div>
+          </li>
+        </ol>
+        <a href="#" class="mt-7 flex h-12 items-center justify-center gap-2 rounded border border-neon bg-neon/15 text-xs font-bold uppercase tracking-widest text-neon transition hover:bg-neon hover:text-void-950 hover:shadow-[0_0_28px_rgba(0,229,255,0.5)]">
+          Criar minha conta <i class="fa-solid fa-arrow-right text-[11px]"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ==========================================================
+     FOOTER
+     ========================================================== -->
+<footer class="relative border-t border-white/10 bg-void-950 px-4 pt-16 pb-8 sm:px-6 lg:px-8">
+  <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent"></div>
+
+  <div class="mx-auto max-w-6xl">
+    <div class="grid grid-cols-1 gap-10 md:grid-cols-4">
+
+      <div class="md:col-span-2">
+        <div class="flex items-center gap-3">
+          <span class="relative grid h-10 w-10 place-items-center">
+            <span class="absolute inset-0 rotate-45 rounded-lg border border-gold/60 bg-gradient-to-br from-void-700 to-void-950"></span>
+            <i class="fa-solid fa-bolt relative text-[13px] text-gold"></i>
+          </span>
+          <span class="font-display text-base font-black tracking-[.16em] gold-fill">MU DIRECT GAMES · S21</span>
+        </div>
+        <p class="mt-5 max-w-md text-sm leading-relaxed text-slate-400">
+          Servidor private de Mu Online Season 21, mantido por jogadores e para jogadores.
+          Projeto sem fins lucrativos e sem vínculo com a Webzen Inc. — marcas e conteúdos
+          originais pertencem aos seus respectivos donos.
+        </p>
+
+        <div class="mt-7 flex flex-wrap gap-3">
+          <a href="#" class="inline-flex h-11 items-center gap-2.5 rounded border border-white/10 bg-white/[.03] px-4 text-sm font-semibold text-slate-300 transition hover:border-[#5865F2]/60 hover:bg-[#5865F2]/15 hover:text-white hover:shadow-[0_0_22px_rgba(88,101,242,0.45)]">
+            <i class="fa-brands fa-discord text-lg"></i> Discord
+          </a>
+          <a href="#" class="inline-flex h-11 items-center gap-2.5 rounded border border-white/10 bg-white/[.03] px-4 text-sm font-semibold text-slate-300 transition hover:border-[#25D366]/60 hover:bg-[#25D366]/15 hover:text-white hover:shadow-[0_0_22px_rgba(37,211,102,0.45)]">
+            <i class="fa-brands fa-whatsapp text-lg"></i> WhatsApp
+          </a>
+          <a href="#" class="inline-flex h-11 items-center gap-2.5 rounded border border-white/10 bg-white/[.03] px-4 text-sm font-semibold text-slate-300 transition hover:border-[#FF0000]/60 hover:bg-[#FF0000]/15 hover:text-white hover:shadow-[0_0_22px_rgba(255,0,0,0.4)]">
+            <i class="fa-brands fa-youtube text-lg"></i> YouTube
+          </a>
+        </div>
+      </div>
+
+      <nav aria-labelledby="rodape-servidor">
+        <h3 id="rodape-servidor" class="mb-5 text-[10px] font-bold uppercase tracking-[.24em] text-gold-light">Servidor</h3>
+        <ul class="space-y-1 text-sm">
+          <li><a href="#eventos"   class="inline-flex min-h-[44px] items-center text-slate-400 transition hover:text-gold">Eventos</a></li>
+          <li><a href="#destaques" class="inline-flex min-h-[44px] items-center text-slate-400 transition hover:text-gold">Novidades da S21</a></li>
+          <li><a href="#ranking"   class="inline-flex min-h-[44px] items-center text-slate-400 transition hover:text-gold">Ranking</a></li>
+          <li><a href="#downloads" class="inline-flex min-h-[44px] items-center text-slate-400 transition hover:text-gold">Downloads</a></li>
+          <li><a href="#cadastro"  class="inline-flex min-h-[44px] items-center text-slate-400 transition hover:text-gold">Criar conta</a></li>
+        </ul>
+      </nav>
+
+      <nav aria-labelledby="rodape-suporte">
+        <h3 id="rodape-suporte" class="mb-5 text-[10px] font-bold uppercase tracking-[.24em] text-gold-light">Suporte</h3>
+        <ul class="space-y-1 text-sm">
+          <li><a href="#" class="inline-flex min-h-[44px] items-center text-slate-400 transition hover:text-gold">Regras do servidor</a></li>
+          <li><a href="#" class="inline-flex min-h-[44px] items-center text-slate-400 transition hover:text-gold">Recuperar senha</a></li>
+          <li><a href="#" class="inline-flex min-h-[44px] items-center text-slate-400 transition hover:text-gold">Abrir chamado</a></li>
+          <li><a href="#" class="inline-flex min-h-[44px] items-center text-slate-400 transition hover:text-gold">Termos de uso</a></li>
+          <li><a href="#" class="inline-flex min-h-[44px] items-center text-slate-400 transition hover:text-gold">Privacidade</a></li>
+        </ul>
+      </nav>
+    </div>
+
+    <div class="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-7 sm:flex-row">
+      <p class="text-center text-[11px] tracking-wide text-slate-500 sm:text-left">© <span class="nums">2026</span> MU Direct Games. Todos os direitos reservados.</p>
+      <p class="text-center text-[11px] tracking-wide text-slate-600 sm:text-right">MU Online © Webzen Inc. Servidor não oficial.</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  var reduzido = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var ptBR = new Intl.NumberFormat('pt-BR');
+
+  /* ---------------------------------------------------------
+     Navbar: transparente sobre o hero, com blur depois da rolagem.
+     --------------------------------------------------------- */
+  var navbar = document.querySelector('[data-navbar]');
+  function pintarNavbar() {
+    var rolou = window.scrollY > 24;
+    navbar.classList.toggle('glass', rolou);
+    navbar.classList.toggle('border-b', rolou);
+    navbar.classList.toggle('border-white/10', rolou);
+    navbar.classList.toggle('shadow-[0_8px_40px_rgba(0,0,0,.6)]', rolou);
+  }
+  pintarNavbar();
+  window.addEventListener('scroll', pintarNavbar, { passive: true });
+
+  /* Menu mobile */
+  var botaoMenu = document.querySelector('[data-menu-toggle]');
+  var iconeMenu = document.querySelector('[data-menu-icone]');
+  var menu = document.getElementById('menu-mobile');
+  botaoMenu.addEventListener('click', function () {
+    var aberto = botaoMenu.getAttribute('aria-expanded') === 'true';
+    botaoMenu.setAttribute('aria-expanded', String(!aberto));
+    menu.hidden = aberto;
+    iconeMenu.className = aberto ? 'fa-solid fa-bars text-lg' : 'fa-solid fa-xmark text-lg';
+  });
+  menu.addEventListener('click', function (evento) {
+    if (evento.target.closest('a')) {
+      botaoMenu.setAttribute('aria-expanded', 'false');
+      menu.hidden = true;
+      iconeMenu.className = 'fa-solid fa-bars text-lg';
+    }
+  });
+
+  /* ---------------------------------------------------------
+     Indicador de link ativo. A classe é escrita aqui, no JS —
+     nada de :has(), que derruba a regra inteira onde não há suporte.
+     --------------------------------------------------------- */
+  var links = Array.prototype.slice.call(document.querySelectorAll('[data-nav] a[href^="#"]'));
+  var secoes = links.map(function (link) { return document.querySelector(link.getAttribute('href')); });
+
+  if ('IntersectionObserver' in window) {
+    var vigia = new IntersectionObserver(function (entradas) {
+      entradas.forEach(function (entrada) {
+        if (!entrada.isIntersecting) { return; }
+        var indice = secoes.indexOf(entrada.target);
+        links.forEach(function (link, i) {
+          link.classList.toggle('nav-ativo', i === indice);
+          if (i === indice) { link.setAttribute('aria-current', 'true'); }
+          else { link.removeAttribute('aria-current'); }
+        });
+      });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+    secoes.forEach(function (secao) { if (secao) { vigia.observe(secao); } });
+  }
+
+  /* ---------------------------------------------------------
+     Contador de jogadores online.
+     --------------------------------------------------------- */
+  function animarContador(elemento) {
+    var alvo = Number(elemento.dataset.alvo);
+    var inicio = null;
+    var duracao = 1500;
+    function passo(agora) {
+      if (inicio === null) { inicio = agora; }
+      var avanco = Math.min((agora - inicio) / duracao, 1);
+      var suave = 1 - Math.pow(1 - avanco, 3);
+      elemento.textContent = ptBR.format(Math.round(alvo * suave));
+      if (avanco < 1) { requestAnimationFrame(passo); }
+    }
+    requestAnimationFrame(passo);
+  }
+
+  var contadores = document.querySelectorAll('[data-contador]');
+  if ('IntersectionObserver' in window && !reduzido) {
+    var vigiaContador = new IntersectionObserver(function (entradas) {
+      entradas.forEach(function (entrada) {
+        if (entrada.isIntersecting) {
+          animarContador(entrada.target);
+          vigiaContador.unobserve(entrada.target);
+        }
+      });
+    }, { threshold: 0.4 });
+    contadores.forEach(function (el) { vigiaContador.observe(el); });
+  } else {
+    contadores.forEach(function (el) { el.textContent = ptBR.format(Number(el.dataset.alvo)); });
+  }
+
+  /* "Atualizado há N s" — vitrine. Trocar por fetch quando houver backend. */
+  var checagem = document.querySelector('[data-checagem]');
+  var segundosDesdeChecagem = 8;
+  setInterval(function () {
+    segundosDesdeChecagem = segundosDesdeChecagem >= 59 ? 1 : segundosDesdeChecagem + 1;
+    checagem.textContent = segundosDesdeChecagem;
+  }, 1000);
+
+  /* ---------------------------------------------------------
+     Contadores regressivos dos eventos.
+
+     Dois tipos: "intervalo" (repete N minutos após um offset da
+     meia-noite) e "semanal" (dia da semana + hora fixa). O alvo é
+     recalculado a cada tique, então o card nunca fica negativo nem
+     precisa ser recarregado quando o evento vira.
+     --------------------------------------------------------- */
+  var cartoes = Array.prototype.slice.call(document.querySelectorAll('[data-evento]'));
+
+  function proximaOcorrenciaIntervalo(intervaloMin, offsetMin, agora) {
+    var minutosDoDia = agora.getHours() * 60 + agora.getMinutes() + agora.getSeconds() / 60;
+    var passos = Math.ceil((minutosDoDia - offsetMin) / intervaloMin);
+    var alvoEmMinutos = offsetMin + passos * intervaloMin;
+    if (alvoEmMinutos <= minutosDoDia) { alvoEmMinutos += intervaloMin; }
+    var meiaNoite = new Date(agora);
+    meiaNoite.setHours(0, 0, 0, 0);
+    return new Date(meiaNoite.getTime() + alvoEmMinutos * 60000);
+  }
+
+  function proximaOcorrenciaSemanal(diaDaSemana, hora, agora) {
+    var alvo = new Date(agora);
+    alvo.setHours(hora, 0, 0, 0);
+    var distancia = (diaDaSemana - alvo.getDay() + 7) % 7;
+    if (distancia === 0 && alvo <= agora) { distancia = 7; }
+    alvo.setDate(alvo.getDate() + distancia);
+    return alvo;
+  }
+
+  function doisDigitos(valor) { return valor < 10 ? '0' + valor : String(valor); }
+
+  function formatarRestante(milissegundos) {
+    var total = Math.max(0, Math.floor(milissegundos / 1000));
+    var dias = Math.floor(total / 86400);
+    var horas = Math.floor((total % 86400) / 3600);
+    var minutos = Math.floor((total % 3600) / 60);
+    var segundos = total % 60;
+    var relogio = doisDigitos(horas) + ':' + doisDigitos(minutos) + ':' + doisDigitos(segundos);
+    return dias > 0 ? dias + 'd ' + relogio : relogio;
+  }
+
+  function atualizarEventos() {
+    var agora = new Date();
+    cartoes.forEach(function (cartao) {
+      var alvo = cartao.dataset.tipo === 'semanal'
+        ? proximaOcorrenciaSemanal(Number(cartao.dataset.dia), Number(cartao.dataset.hora), agora)
+        : proximaOcorrenciaIntervalo(Number(cartao.dataset.intervalo), Number(cartao.dataset.offset), agora);
+
+      var restante = alvo - agora;
+      var relogio = cartao.querySelector('[data-relogio]');
+      var horario = cartao.querySelector('[data-horario]');
+
+      relogio.textContent = formatarRestante(restante);
+      horario.textContent = doisDigitos(alvo.getHours()) + ':' + doisDigitos(alvo.getMinutes());
+
+      /* Últimos cinco minutos ficam em ciano, para chamar atenção na barra. */
+      var iminente = restante <= 5 * 60000;
+      relogio.classList.toggle('text-neon', iminente);
+      relogio.classList.toggle('text-gold-light', !iminente);
+    });
+  }
+  atualizarEventos();
+  setInterval(atualizarEventos, 1000);
+
+  /* ---------------------------------------------------------
+     Abas do ranking.
+     --------------------------------------------------------- */
+  var abas = Array.prototype.slice.call(document.querySelectorAll('[role="tab"][data-aba]'));
+  var paineis = Array.prototype.slice.call(document.querySelectorAll('[data-painel]'));
+
+  var ABA_ATIVA = ['bg-gradient-to-b', 'from-gold/25', 'to-gold/5', 'text-gold-light', 'shadow-[0_0_20px_rgba(229,184,66,0.35)]'];
+  var ABA_INATIVA = ['text-slate-400', 'hover:text-gold-light', 'hover:bg-white/5'];
+
+  function selecionarAba(nome) {
+    abas.forEach(function (aba) {
+      var ativa = aba.dataset.aba === nome;
+      aba.setAttribute('aria-selected', String(ativa));
+      aba.setAttribute('tabindex', ativa ? '0' : '-1');
+      ABA_ATIVA.forEach(function (classe) { aba.classList.toggle(classe, ativa); });
+      ABA_INATIVA.forEach(function (classe) { aba.classList.toggle(classe, !ativa); });
+    });
+    paineis.forEach(function (painel) { painel.hidden = painel.dataset.painel !== nome; });
+  }
+
+  abas.forEach(function (aba, indice) {
+    aba.addEventListener('click', function () { selecionarAba(aba.dataset.aba); });
+    /* Setas navegam entre abas, como manda o padrão de tablist. */
+    aba.addEventListener('keydown', function (evento) {
+      var salto = evento.key === 'ArrowRight' ? 1 : evento.key === 'ArrowLeft' ? -1 : 0;
+      if (!salto) { return; }
+      evento.preventDefault();
+      var proxima = abas[(indice + salto + abas.length) % abas.length];
+      selecionarAba(proxima.dataset.aba);
+      proxima.focus();
+    });
+  });
+  selecionarAba('reset');
+
+  /* ---------------------------------------------------------
+     Inclinação 3D dos cards de destaque.
+     Só no ponteiro fino: em touch o "hover" fica grudado.
+     --------------------------------------------------------- */
+  var pontesFino = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  if (pontesFino && !reduzido) {
+    document.querySelectorAll('[data-tilt]').forEach(function (cartao) {
+      cartao.addEventListener('mousemove', function (evento) {
+        var area = cartao.getBoundingClientRect();
+        var x = (evento.clientX - area.left) / area.width;
+        var y = (evento.clientY - area.top) / area.height;
+        cartao.style.setProperty('--ry', ((x - 0.5) * 10).toFixed(2) + 'deg');
+        cartao.style.setProperty('--rx', ((0.5 - y) * 10).toFixed(2) + 'deg');
+        cartao.style.setProperty('--mx', (x * 100).toFixed(1) + '%');
+        cartao.style.setProperty('--my', (y * 100).toFixed(1) + '%');
+      });
+      cartao.addEventListener('mouseleave', function () {
+        cartao.style.setProperty('--rx', '0deg');
+        cartao.style.setProperty('--ry', '0deg');
+      });
+    });
+  }
+
+  /* ---------------------------------------------------------
+     Brasas do hero. Canvas leve, sem biblioteca: 60 partículas
+     subindo devagar. Desliga em prefers-reduced-motion.
+     --------------------------------------------------------- */
+  var tela = document.querySelector('[data-brasas]');
+  if (tela && !reduzido) {
+    var pincel = tela.getContext('2d');
+    var brasas = [];
+    var animacao = null;
+
+    function dimensionar() {
+      var escala = Math.min(window.devicePixelRatio || 1, 2);
+      tela.width = tela.offsetWidth * escala;
+      tela.height = tela.offsetHeight * escala;
+      pincel.setTransform(escala, 0, 0, escala, 0, 0);
+    }
+
+    function semear() {
+      brasas = [];
+      var quantidade = tela.offsetWidth < 640 ? 28 : 60;
+      for (var i = 0; i < quantidade; i++) {
+        brasas.push({
+          x: Math.random() * tela.offsetWidth,
+          y: Math.random() * tela.offsetHeight,
+          raio: Math.random() * 1.6 + 0.4,
+          velocidade: Math.random() * 0.35 + 0.12,
+          deriva: (Math.random() - 0.5) * 0.25,
+          brilho: Math.random() * 0.5 + 0.2,
+          dourada: Math.random() > 0.4,
+        });
+      }
+    }
+
+    function desenhar() {
+      pincel.clearRect(0, 0, tela.offsetWidth, tela.offsetHeight);
+      brasas.forEach(function (brasa) {
+        brasa.y -= brasa.velocidade;
+        brasa.x += brasa.deriva;
+        if (brasa.y < -10) {
+          brasa.y = tela.offsetHeight + 10;
+          brasa.x = Math.random() * tela.offsetWidth;
+        }
+        pincel.beginPath();
+        pincel.arc(brasa.x, brasa.y, brasa.raio, 0, Math.PI * 2);
+        pincel.fillStyle = brasa.dourada
+          ? 'rgba(229,184,66,' + brasa.brilho + ')'
+          : 'rgba(0,229,255,' + brasa.brilho * 0.8 + ')';
+        pincel.fill();
+      });
+      animacao = requestAnimationFrame(desenhar);
+    }
+
+    dimensionar();
+    semear();
+    desenhar();
+
+    /* ResizeObserver, e não o evento `resize` da janela: se a página abrir numa
+       aba em segundo plano o canvas mede 0 de largura, e só o observer avisa
+       quando ele finalmente ganha tamanho. */
+    if ('ResizeObserver' in window) {
+      new ResizeObserver(function () { dimensionar(); semear(); }).observe(tela);
+    } else {
+      window.addEventListener('resize', function () { dimensionar(); semear(); });
+    }
+
+    /* Não gastar quadro com a aba em segundo plano. */
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) {
+        cancelAnimationFrame(animacao);
+      } else {
+        animacao = requestAnimationFrame(desenhar);
+      }
+    });
+  }
+})();
+</script>
+</body>
+</html>
