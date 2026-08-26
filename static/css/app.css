@@ -30,12 +30,18 @@
   /* Grafite em camadas: o fundo é o mais escuro e cada nível de elevação
      clareia um pouco. É o que dá profundidade sem sombra pesada, que no
      escuro simplesmente não aparece. */
-  --bg: #0b0f0e;
-  --surface: #14191a;
-  --surface-2: #1b2224;
-  --surface-3: #232c2e;
-  --border: #262f31;
-  --border-strong: #34403f;
+  --bg: #090c0b;
+  --surface: #121716;
+  --surface-2: #191f20;
+  --surface-3: #222a2b;
+
+  /* Borda translúcida, e não um cinza fixo.
+     Um cinza fixo só está certo sobre uma superfície; sobre as outras três
+     ele fica claro demais ou some. Branco a 6,5% acompanha a camada em que
+     pousa — é o que faz a borda ler como fio de luz na quina em vez de
+     linha desenhada por cima. */
+  --border: rgba(255, 255, 255, .065);
+  --border-strong: rgba(255, 255, 255, .13);
 
   --text: #eef4f2;
   --text-dim: #9fb0ac;
@@ -83,8 +89,27 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 14px 34px -18px rgba(0, 0, 0, .9);
   --glow: 0 0 0 1px rgba(74, 222, 155, .22), 0 10px 30px -14px rgba(74, 222, 155, .35);
 
-  --gap: .85rem;
-  --pad: 1.15rem;
+  /* Um fio de luz na quina de cima, do jeito que superfície elevada responde
+     a luz vinda de cima. No escuro a sombra quase não aparece — é este
+     `inset` que separa o cartão do fundo. */
+  --edge: inset 0 1px 0 rgba(255, 255, 255, .05);
+
+  /* Repouso e elevação. A diferença entre as duas é o que comunica que algo
+     está ativo sem mexer em cor nem em tamanho. */
+  --shadow-rest: 0 1px 2px rgba(0, 0, 0, .38), 0 10px 26px -20px rgba(0, 0, 0, .85);
+  --shadow-lift: 0 2px 6px rgba(0, 0, 0, .45), 0 20px 44px -22px rgba(0, 0, 0, .95);
+
+  /* O brilho da cor da marca, em dose baixa. Diz "primário" no botão e
+     "você está aqui" na aba. */
+  --glow-brand: 0 6px 20px -8px rgba(74, 222, 155, .38);
+
+  /* Curva de saída rápida: arranca e desacelera. É o que faz um toque parecer
+     resposta, e não animação. */
+  --ease: cubic-bezier(.2, .8, .3, 1);
+  --dur: .2s;
+
+  --gap: 1rem;
+  --pad: 1.25rem;
   --max: 34rem;
   --max-wide: 68rem;
   --tabbar-h: 4.5rem;
@@ -110,15 +135,22 @@
     /* O tema claro estava pior que o escuro: 3.33:1 sobre --bg. */
     --text-mute: #5d6c67;
 
-    --brand: #0f7a4a;
-    --brand-strong: #0b6039;
+    /* Os três acentos do tema claro foram escurecidos quando as pílulas
+       chegaram. Sozinhos eles passavam; sobre a própria tinta a 12% — que é
+       como aparecem agora — davam 3.79, 3.88 e 3.97:1, todos abaixo do
+       mínimo AA de 4.5. A tinta clareia o fundo e come o contraste; é a
+       armadilha embutida no padrão "fundo da cor a 12%". */
+    --brand: #0c6b40;
+    /* O estado de foco precisa continuar visível depois que o normal
+       escureceu: com #0b6039 os dois viraram praticamente a mesma cor. */
+    --brand-strong: #08512f;
     --brand-soft: #e2f3ea;
     --on-brand: #ffffff;
 
-    --accent: #1c6f9c;
+    --accent: #196288;
     --accent-soft: #e4f1f9;
 
-    --warm: #a9671a;
+    --warm: #8a5109;
     --warm-soft: #fbf0e0;
 
     --carb: #c98a2b;
@@ -127,8 +159,19 @@
     --danger: #b3261e;
     --danger-soft: #fdecea;
 
+    --border: rgba(16, 32, 22, .1);
+    --border-strong: rgba(16, 32, 22, .19);
+
     --shadow: 0 1px 2px rgba(16, 32, 22, .06), 0 12px 28px -14px rgba(16, 32, 22, .22);
     --glow: 0 0 0 1px rgba(15, 122, 74, .18), 0 10px 26px -16px rgba(15, 122, 74, .3);
+
+    /* No claro a luz não vem de cima do objeto: vem do papel. O fio vira
+       sombra fina, não brilho — inverter isso é o erro clássico de tema claro
+       feito por inversão automática. */
+    --edge: inset 0 -1px 0 rgba(16, 32, 22, .04);
+    --shadow-rest: 0 1px 2px rgba(16, 32, 22, .05), 0 8px 22px -16px rgba(16, 32, 22, .2);
+    --shadow-lift: 0 2px 6px rgba(16, 32, 22, .08), 0 18px 38px -20px rgba(16, 32, 22, .3);
+    --glow-brand: 0 6px 18px -8px rgba(15, 122, 74, .3);
   }
 }
 
@@ -226,8 +269,12 @@ button { font-family: inherit; color: inherit; }
   min-height: 3.6rem;
   padding: .5rem var(--pad);
   padding-top: max(.5rem, env(safe-area-inset-top));
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
-  backdrop-filter: saturate(150%) blur(14px);
+  /* Translúcida de verdade: o conteúdo passa por baixo desfocado em vez de
+     sumir atrás de uma faixa opaca. O prefixo `-webkit-` continua aí porque o
+     Safari do iPhone ainda pede — e o iPhone é metade dos aparelhos aqui. */
+  background: color-mix(in srgb, var(--bg) 76%, transparent);
+  -webkit-backdrop-filter: saturate(170%) blur(18px);
+  backdrop-filter: saturate(170%) blur(18px);
   border-bottom: 1px solid var(--border);
 }
 
@@ -278,9 +325,18 @@ button { font-family: inherit; color: inherit; }
   cursor: pointer;
 }
 
+.app-bar__link,
+.app-bar__quiet { transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
+
 .app-bar__link:hover,
 .app-bar__quiet:hover { background: var(--surface-2); color: var(--text); }
-.app-bar__link.is-active { background: var(--brand-soft); color: var(--brand); font-weight: 650; }
+
+.app-bar__link.is-active {
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 650;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 22%, transparent);
+}
 
 .container {
   max-width: var(--max);
@@ -298,8 +354,12 @@ button { font-family: inherit; color: inherit; }
   grid-template-columns: repeat(4, 1fr);
   gap: .2rem;
   padding: .4rem .5rem calc(.4rem + env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: saturate(160%) blur(16px);
+  /* A barra flutua sobre o conteúdo: o fundo é o do app a 80%, e não a
+     superfície opaca. O que rola por baixo continua visível, desfocado — é o
+     que dá a sensação de camada em vez de rodapé colado. */
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  -webkit-backdrop-filter: saturate(170%) blur(20px);
+  backdrop-filter: saturate(170%) blur(20px);
   border-top: 1px solid var(--border);
 }
 
@@ -318,9 +378,28 @@ button { font-family: inherit; color: inherit; }
   text-decoration: none;
 }
 
-.tabbar__item svg { width: 1.35rem; height: 1.35rem; }
+.tabbar__item svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  transition: stroke-width var(--dur) var(--ease);
+}
+
+.tabbar__item { transition: color var(--dur) var(--ease), background var(--dur) var(--ease); }
 .tabbar__item:hover { color: var(--text-dim); }
-.tabbar__item.is-active { color: var(--brand); background: var(--brand-soft); }
+
+/* A aba de agora: cor, fundo e um halo curto por baixo.
+   O traço engorda em vez de o ícone preencher — são ícones de linha aberta
+   (garfo, haltere), e preencher caminho aberto produz mancha. Traço mais
+   grosso passa o mesmo recado de peso visual, sem o defeito. Declarado no CSS
+   porque regra de folha vence atributo de apresentação do SVG. */
+.tabbar__item.is-active {
+  color: var(--brand);
+  background: var(--brand-soft);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 16%, transparent),
+              var(--glow-brand);
+}
+
+.tabbar__item.is-active svg { stroke-width: 2.2; }
 
 /* Envoltórios estruturais. Não têm aparência própria — existem para agrupar
    (o wordmark vira um item de flex só) ou para receber a trava anti-overflow.
@@ -367,7 +446,18 @@ h3 { font-size: .95rem; font-weight: 650; }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
+  /* Borda translúcida + fio de luz no topo + sombra curta. A borda sozinha
+     deixava o cartão chapado contra o fundo; a sombra sozinha não aparece no
+     escuro. Os três juntos é o que dá a profundidade. */
+  box-shadow: var(--edge), var(--shadow-rest);
+  transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+/* O cartão em que a pessoa está mexendo sobe um pouco. Só sombra e borda:
+   mudar cor de fundo aqui faria a tela piscar a cada foco. */
+.card:focus-within {
+  border-color: var(--border-strong);
+  box-shadow: var(--edge), var(--shadow-lift);
 }
 
 .card + .card,
@@ -441,16 +531,28 @@ h3 { font-size: .95rem; font-weight: 650; }
 .today-hero__meta { margin: .2rem 0 0; color: var(--text-mute); font-size: .8rem; }
 
 .today-hero__balance {
+  display: inline-block;
   margin: .6rem 0 0;
-  padding: .45rem .7rem;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
+  padding: .35rem .8rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--pill);
+  background: color-mix(in srgb, var(--text-mute) 10%, transparent);
   font-size: .8rem;
-  line-height: 1.4;
+  font-weight: 650;
+  line-height: 1.5;
 }
 
-.today-hero__balance.balance--deficit { background: var(--brand-soft); color: var(--brand); }
-.today-hero__balance.balance--surplus { background: var(--warm-soft); color: var(--warm); }
+.today-hero__balance.balance--deficit {
+  border-color: color-mix(in srgb, var(--brand) 24%, transparent);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+}
+
+.today-hero__balance.balance--surplus {
+  border-color: color-mix(in srgb, var(--warm) 24%, transparent);
+  background: color-mix(in srgb, var(--warm) 12%, transparent);
+  color: var(--warm);
+}
 
 .chip-row { display: flex; flex-wrap: wrap; gap: .4rem; }
 
@@ -459,6 +561,7 @@ h3 { font-size: .95rem; font-weight: 650; }
   align-items: center;
   gap: .3rem;
   padding: .34rem .72rem;
+  border: 1px solid var(--border);
   border-radius: var(--pill);
   background: var(--surface-2);
   color: var(--text-dim);
@@ -468,7 +571,11 @@ h3 { font-size: .95rem; font-weight: 650; }
   text-decoration: none;
 }
 
-.chip--brand { background: var(--brand-soft); color: var(--brand); }
+.chip--brand {
+  border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+}
 
 /* Só o chip que é link vira alvo de 44px. O chip que é `<span>` é etiqueta de
    contagem — inflar um rótulo que ninguém toca só desalinha a linha. */
@@ -561,7 +668,10 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   overflow: hidden;
   border-radius: var(--pill);
   background: var(--surface-2);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .28);
 }
+
+.macro-bar__part { transition: width .5s var(--ease); }
 
 .macro-bar__part--protein { background: var(--brand); }
 .macro-bar__part--carb { background: var(--carb); }
@@ -586,8 +696,24 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .macro-dot--carb { background: var(--carb); }
 .macro-dot--fat { background: var(--fat); }
 
-.progress { height: .4rem; overflow: hidden; border-radius: var(--pill); background: var(--surface-2); }
-.progress__fill { display: block; height: 100%; border-radius: var(--pill); }
+.progress {
+  height: .4rem;
+  overflow: hidden;
+  border-radius: var(--pill);
+  background: var(--surface-2);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .28);
+}
+
+/* A barra cresce em meio segundo em vez de já aparecer no lugar novo.
+   O movimento não é enfeite: marcar uma refeição recarrega a página, e sem a
+   transição a barra simplesmente está diferente — a pessoa não vê o próprio
+   progresso acontecer, que é a única recompensa desta tela. */
+.progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--pill);
+  transition: width .5s var(--ease);
+}
 .progress__fill--protein { background: var(--brand); }
 .progress__fill--carb { background: var(--carb); }
 .progress__fill--fat { background: var(--fat); }
@@ -601,11 +727,20 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
+  box-shadow: var(--edge), var(--shadow-rest);
+  transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 
-.meal + .meal { margin-top: .7rem; }
-.meal--done { border-color: color-mix(in srgb, var(--brand) 35%, var(--border)); }
+.meal + .meal { margin-top: var(--gap); }
+
+/* Refeição feita: a borda ganha a cor da marca e um halo curto. É o único
+   lugar do dia em que a tela comemora alguma coisa, e ela comemora baixo —
+   a pessoa vai marcar cinco refeições por dia, todo dia. */
+.meal--done {
+  border-color: color-mix(in srgb, var(--brand) 32%, transparent);
+  box-shadow: var(--edge), var(--shadow-rest),
+              0 0 0 1px color-mix(in srgb, var(--brand) 12%, transparent);
+}
 
 .meal__head { display: flex; align-items: center; gap: .75rem; margin-bottom: .9rem; }
 
@@ -739,10 +874,17 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   font-weight: 680;
   text-decoration: none;
   cursor: pointer;
-  transition: filter .15s, background .15s, border-color .15s;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
+              color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+              transform .12s var(--ease);
 }
 
-.btn--primary { background: var(--brand); color: var(--on-brand); }
+.btn--primary {
+  background: var(--brand);
+  color: var(--on-brand);
+  box-shadow: var(--glow-brand);
+}
+
 .btn--primary:hover { background: var(--brand-strong); color: var(--on-brand); }
 
 .btn--ghost { background: var(--surface-2); color: var(--text-dim); border-color: var(--border-strong); }
@@ -761,8 +903,81 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .btn--sm { min-height: 2.75rem; padding: .5rem .9rem; font-size: .84rem; }
 .btn--block { width: 100%; }
 
+/* Resposta ao toque.
+   O afundamento de 2% dura o tempo do dedo no botão e volta sozinho — é o que
+   diz "recebi" antes de o servidor responder. Num app usado de pé na academia,
+   com o 4G da rua, essa fração de segundo é a diferença entre tocar uma vez e
+   tocar quatro.
+
+   `transform` é uma das duas únicas propriedades que o navegador anima sem
+   refazer layout; encolher por `width` ou `padding` engasgaria em celular
+   velho, que é exatamente onde isto precisa funcionar. */
+.btn:active,
+.btn-link:active,
+.option__trocar:active,
+.swap__escolha:active,
+.swap-open:active,
+.choice-card:active,
+.shopping__check:active,
+.set-row__save:active,
+.set-row__timer:active,
+.tabbar__item:active,
+.app-bar__link:active,
+.app-bar__quiet:active { transform: scale(.98); }
+
+/* Botão já tocado, esperando o servidor: sem isto a pessoa toca de novo. */
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: .55;
+  cursor: progress;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Tudo que reage ao dedo reage no mesmo tempo. Sem esta lista cada componente
+   carregava a própria duração, e a interface parecia montada por gente
+   diferente em semanas diferentes. */
+.option__trocar,
+.swap__escolha,
+.swap-open,
+.choice-card,
+.shopping__check,
+.set-row__save,
+.set-row__timer {
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
+              color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+              transform .12s var(--ease);
+}
+
+/* Quem pediu menos movimento recebe as cores e o foco, e nada que se mexa. */
+@media (prefers-reduced-motion: reduce) {
+  .progress__fill,
+  .macro-bar__part { transition: none; }
+
+  .btn:active,
+  .btn-link:active,
+  .option__trocar:active,
+  .swap__escolha:active,
+  .swap-open:active,
+  .choice-card:active,
+  .shopping__check:active,
+  .set-row__save:active,
+  .set-row__timer:active,
+  .tabbar__item:active,
+  .app-bar__link:active,
+  .app-bar__quiet:active { transform: none; }
+}
+
+/* "desfazer" media 20px de altura — e é justamente o link que a pessoa
+   procura no segundo seguinte a errar o toque em "Pulei". O alvo cresce por
+   padding e a margem negativa devolve o espaço ao layout: o link continua
+   visualmente discreto ao lado do texto, e o dedo passa a ter 44px. */
 .btn-link {
-  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 .35rem;
+  margin: -.75rem -.35rem;
   border: 0;
   background: none;
   color: var(--text-mute);
@@ -1023,7 +1238,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 
 .session__badge[data-dia] {
   background: var(--dia, var(--brand));
-  color: #0b0f0e;
+  color: #090c0b;
 }
 
 /* Filete da cor do dia na borda do cartão: identifica a ficha durante a
@@ -1057,6 +1272,16 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-2);
+  box-shadow: var(--edge);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+/* O exercício em que a pessoa está anotando série sobe da pilha. Numa ficha
+   de sete cartões iguais, é o que responde "qual eu estava fazendo mesmo?"
+   depois de dois minutos de descanso olhando o celular. */
+.exercise:focus-within {
+  border-color: var(--border-strong);
+  box-shadow: var(--edge), var(--shadow-lift);
 }
 
 /* Duas colunas: número e título. O `minmax(0, 1fr)` é o que deixa o nome
@@ -1092,18 +1317,32 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 
 .exercise__tags { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .45rem; }
 
+/* Mesma gramática das pílulas de estado: tinta da própria cor em opacidade
+   baixa, borda um pouco mais forte, texto na cor cheia. Antes cada etiqueta
+   carregava um fundo sólido diferente e as três brigavam entre si na mesma
+   linha. */
 .exercise__tag {
   padding: .24rem .6rem;
+  border: 1px solid var(--border-strong);
   border-radius: var(--pill);
-  background: var(--surface-3);
-  color: var(--text-mute);
+  background: color-mix(in srgb, var(--text-mute) 10%, transparent);
+  color: var(--text-dim);
   font-size: .7rem;
   font-weight: 650;
   white-space: nowrap;
 }
 
-.exercise__tag--target { background: var(--brand-soft); color: var(--brand); }
-.exercise__tag--rest { background: var(--accent-soft); color: var(--accent); }
+.exercise__tag--target {
+  border-color: color-mix(in srgb, var(--brand) 24%, transparent);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+}
+
+.exercise__tag--rest {
+  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
 
 /* Mídia 16:9 com fundo preto: clipe vertical fica centralizado com barras
    laterais em vez de esticado — numa demonstração de execução, distorcer o
@@ -1364,11 +1603,13 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .modal {
   width: min(30rem, calc(100vw - 1.5rem));
   padding: 0;
-  border: 1px solid var(--border);
+  /* Borda mais forte que a do cartão: o modal está sobre o backdrop escuro,
+     onde a borda de 6,5% simplesmente desaparece. */
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   background: var(--surface);
   color: var(--text);
-  box-shadow: var(--shadow);
+  box-shadow: var(--edge), var(--shadow-lift);
 }
 
 .modal::backdrop { background: rgba(0, 0, 0, .72); }
@@ -1527,23 +1768,64 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 
 /* O aviso da refeição pulada. Fica dentro do cartão de macros porque é dali
    que ele fala: o impacto é na meta do dia, não no cardápio. */
+/* Aviso em bloco arredondado, e não em faixa com filete lateral.
+   A faixa com barra à esquerda é a forma visual de erro de sistema; isto não é
+   erro, é um estado do dia. Fundo da própria cor a 10%, borda a 22%, texto na
+   cor cheia: o mesmo trio das pílulas abaixo, na versão grande. */
 .pulou {
   display: flex;
   align-items: flex-start;
   gap: .55rem;
   margin: 0 0 .9rem;
-  padding: .7rem .8rem;
-  border-left: 3px solid var(--warm);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: .7rem .9rem;
+  border: 1px solid color-mix(in srgb, var(--warm) 22%, transparent);
+  border-radius: var(--radius);
   background: color-mix(in srgb, var(--warm) 10%, transparent);
-  color: var(--text-dim);
+  color: var(--warm);
   font-size: .82rem;
   line-height: 1.5;
 }
 
-.pulou__icone { display: grid; place-items: center; flex: none; color: var(--warm); }
+.pulou__icone { display: grid; place-items: center; flex: none; }
 .pulou__icone svg { width: 1.1rem; height: 1.1rem; }
-.pulou b { color: var(--text); }
+.pulou b { color: var(--warm); font-weight: 750; }
+
+/* Pílula de estado, reaproveitável.
+   Fundo em baixa opacidade da própria cor + texto na cor cheia funciona nos
+   dois temas sem manter uma paleta paralela: `color-mix` com `transparent`
+   deixa a superfície de baixo aparecer, então a mesma regra serve sobre
+   grafite e sobre papel. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .18rem .6rem;
+  border-radius: var(--pill);
+  font-size: .72rem;
+  font-weight: 700;
+  line-height: 1.55;
+  white-space: nowrap;
+}
+
+.pill svg { width: .85rem; height: .85rem; flex: none; }
+
+.pill--warm {
+  background: color-mix(in srgb, var(--warm) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warm) 22%, transparent);
+  color: var(--warm);
+}
+
+.pill--brand {
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent);
+  color: var(--brand);
+}
+
+.pill--mute {
+  background: color-mix(in srgb, var(--text-mute) 12%, transparent);
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+}
 
 /* ==========================================================================
    21. Hidratação e média semanal de peso
@@ -1647,7 +1929,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .ficha__resumo:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: -2px;
-  border-radius: var(--r-lg);
+  border-radius: var(--radius-lg);
 }
 
 .ficha__seta {
@@ -1729,7 +2011,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   margin: auto auto 0;
   padding: 0;
   border: 0;
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   background: var(--surface);
   color: var(--text);
   overflow: hidden auto;
@@ -1826,6 +2108,37 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 @keyframes esqueleto {
   from { background-position: 130% 0; }
   to { background-position: -30% 0; }
+}
+
+/* Pulso, para o esqueleto que não é faixa deslizante — um bloco parado que só
+   respira. Entre 1 e 0,55 de opacidade: abaixo disso ele pisca, e piscar cansa
+   numa tela que a pessoa encara entre séries. */
+@keyframes pulso {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .55; }
+}
+
+.esqueleto {
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  animation: pulso 1.6s var(--ease) infinite;
+}
+
+/* Enquanto as equivalências chegam.
+   Antes havia uma linha de texto — "Procurando equivalentes…" — e o modal
+   pulava de uma linha para cinco quando a resposta voltava. O esqueleto tem a
+   altura das opções que vêm, então a caixa já nasce do tamanho certo e nada
+   salta. Três linhas porque é a mediana de alternativas que o motor devolve.
+
+   Cada linha entra com um atraso próprio: pulsar em uníssono lê como um bloco
+   piscando, e em cascata lê como carregamento. */
+.esqueleto--linha { height: 2.75rem; }
+.esqueleto--linha + .esqueleto--linha { margin-top: .35rem; }
+.esqueleto--linha:nth-child(2) { animation-delay: .15s; }
+.esqueleto--linha:nth-child(3) { animation-delay: .3s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto { animation: none; opacity: .75; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1926,7 +2239,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   .drawer {
     width: min(30rem, calc(100vw - 3rem));
     margin: auto;
-    border-radius: var(--r-lg);
+    border-radius: var(--radius-lg);
   }
 
   .drawer__puxador { display: none; }
@@ -1971,14 +2284,14 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   height: 100%;
   min-height: 4.75rem;
   padding: .95rem;
-  border-radius: var(--r-lg);
+  border-radius: var(--radius-lg);
   background: var(--surface-2);
   cursor: pointer;
   transition: background .15s, transform .12s;
 }
 
 .choice-card:hover { background: var(--surface-3); }
-.choice-card:active { transform: scale(.99); }
+/* O valor mora na lista única de `:active`, na seção 10. */
 
 /* Fora da vista, dentro do documento: sem isto o cartão vira um `div` bonito
    que não navega por teclado nem existe para leitor de tela. */
@@ -2050,7 +2363,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   height: 1.2rem;
   border-radius: 50%;
   background: var(--brand);
-  color: #0b0f0e;
+  color: #090c0b;
   opacity: 0;
   transform: scale(.5);
   transition: opacity .15s, transform .15s;
@@ -2129,7 +2442,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   padding: .85rem;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  border-radius: var(--radius-lg);
   box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .95);
   animation: install-sobe .32s ease-out;
 }

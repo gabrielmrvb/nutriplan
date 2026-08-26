@@ -5,6 +5,7 @@ estático sem manifesto, host fora da lista, redirecionamento em laço. Nada
 disso aparece em desenvolvimento, e todos aparecem para o primeiro visitante.
 Estes testes exercitam justamente o que só existe com `DEBUG=False`.
 """
+import re
 from pathlib import Path
 from unittest.mock import patch
 
@@ -333,6 +334,9 @@ class TouchTargetTests(TestCase):
         (".shopping__check {", "min-height: 2.75rem"),
         (".set-row__input {", "min-height: 2.75rem"),
         (".install__close {", "height: 2.75rem"),
+        # "desfazer" media 20px, e é o link procurado no segundo seguinte a
+        # errar o toque em "Pulei".
+        (".btn-link {", "min-height: 2.75rem"),
     ]
 
     def test_every_interactive_element_reaches_44px(self):
@@ -356,3 +360,122 @@ class TouchTargetTests(TestCase):
             if "2.7rem" in linha and not linha.strip().startswith(("/*", "*", "//"))
         ]
         self.assertEqual(linhas, [], f"ainda há alvos de 43px: {linhas}")
+
+
+def _sobre(tinta, pct, fundo):
+    """A cor que sobra quando uma tinta translúcida pousa numa superfície.
+
+    `color-mix(in srgb, X 12%, transparent)` sobre um fundo opaco resulta em
+    12% de X mais 88% do fundo. É esse resultado que o olho lê — e é contra
+    ele que o texto da pílula precisa contrastar, não contra a superfície nua.
+    """
+    a = [int(tinta.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4)]
+    b = [int(fundo.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4)]
+    return "#" + "".join(
+        "%02x" % round(a[i] * pct + b[i] * (1 - pct)) for i in range(3)
+    )
+
+
+class PillContrastTests(TestCase):
+    """Contraste das pílulas de estado, medido sobre a tinta e não sobre o fundo.
+
+    O padrão "fundo da própria cor a 10-12%, texto na cor cheia" é o que dá o
+    ar de acabamento, e é também uma armadilha: a tinta clareia o fundo e come
+    o contraste. No tema claro isso já aconteceu — o âmbar `#a9671a` dava
+    4.00:1 sobre a própria tinta, abaixo do mínimo AA de 4.5:1, num aviso que é
+    texto pequeno. O teste refaz a composição e mede.
+    """
+
+    MINIMO = 4.5
+
+    # (token da cor, opacidade da tinta) — os pares que o CSS realmente usa.
+    PARES = [("--warm", 0.12), ("--brand", 0.12), ("--accent", 0.12)]
+
+    def setUp(self):
+        self.css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+
+    def _conferir(self, escopo, rotulo):
+        tokens = _tokens(self.css, escopo)
+        # Os dois fundos em que pílula de fato pousa: o cartão (`--surface`) e
+        # o cartão do exercício (`--surface-2`). `--surface-3` fica de fora de
+        # propósito — é fundo de chip, não de cartão, e nenhuma pílula tem
+        # `--surface-3` como pai. Medir contra ele obrigaria a escurecer os
+        # acentos por causa de um caso que não existe na tela.
+        for fundo in (tokens["--surface"], tokens["--surface-2"]):
+            for nome, pct in self.PARES:
+                cor = tokens[nome]
+                with self.subTest(tema=rotulo, cor=nome, fundo=fundo):
+                    razao = _contraste(cor, _sobre(cor, pct, fundo))
+                    self.assertGreaterEqual(
+                        razao,
+                        self.MINIMO,
+                        f"{nome} ({cor}) sobre a própria tinta dá {razao:.2f}:1",
+                    )
+
+    def test_dark_theme_pills_are_readable(self):
+        self._conferir(":root {", "escuro")
+
+    def test_light_theme_pills_are_readable(self):
+        self._conferir("prefers-color-scheme: light) {\n  :root {", "claro")
+
+
+class CustomPropertyTests(TestCase):
+    """Toda variável usada precisa existir em algum lugar.
+
+    `--r-lg` era usado em seis declarações de `border-radius` e nunca foi
+    definido. CSS não reclama: a declaração inteira é descartada em silêncio, e
+    o drawer, o convite de instalação e o cartão do desktop ficaram de quina
+    viva por semanas sem ninguém ver o erro — só o resultado.
+
+    `var(--x, algo)` com reserva fica de fora: ali a ausência é intencional
+    (`--dia`, por exemplo, é escrito pelo atributo do elemento).
+    """
+
+    def test_no_rule_reads_a_variable_that_was_never_declared(self):
+        css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+
+        declaradas = set(re.findall(r"(--[\w-]+)\s*:", css))
+        # Sem vírgula depois do nome = sem valor de reserva.
+        usadas = set(re.findall(r"var\(\s*(--[\w-]+)\s*\)", css))
+
+        orfas = sorted(usadas - declaradas)
+        self.assertEqual(orfas, [], f"variáveis usadas e nunca definidas: {orfas}")
+
+
+class MotionTests(TestCase):
+    """As animações que carregam informação, e não enfeite.
+
+    Duas delas mudam o que a pessoa entende da tela: a barra que cresce mostra
+    o progresso acontecendo (marcar refeição recarrega a página — sem a
+    transição a barra apenas está diferente), e o encolhimento do botão confirma
+    o toque antes de o servidor responder. Ficam travadas aqui porque são as
+    primeiras coisas que alguém corta achando que é decoração.
+    """
+
+    def setUp(self):
+        self.css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+
+    def test_the_macro_bars_grow_instead_of_jumping(self):
+        bloco = self.css.split("\n.progress__fill {", 1)[1].split("}", 1)[0]
+        self.assertIn("transition: width .5s", bloco)
+
+        # A barra empilhada do topo tem a mesma regra.
+        self.assertIn(".macro-bar__part { transition: width .5s", self.css)
+
+    def test_pressing_anything_uses_the_same_scale(self):
+        """Duas escalas diferentes no mesmo gesto é o tipo de inconsistência
+        que ninguém aponta e todo mundo sente. Já houve: a lista geral
+        encolhia 2% e o cartão do onboarding, 1%."""
+        escalas = set(re.findall(r":active[^{]*\{[^}]*transform:\s*scale\(([^)]+)\)", self.css))
+        self.assertEqual(escalas, {".98"}, f"escalas de toque divergentes: {escalas}")
+
+    def test_who_asked_for_less_movement_gets_less_movement(self):
+        """Quem liga "reduzir movimento" no sistema costuma ter um motivo
+        clínico. Toda animação nova precisa de saída."""
+        for regra in (".esqueleto", ".progress__fill", ".btn:active"):
+            with self.subTest(regra=regra):
+                trechos = self.css.split("prefers-reduced-motion")
+                self.assertTrue(
+                    any(regra in t.split("}\n}", 1)[0] for t in trechos[1:]),
+                    f"{regra} anima sem saída para quem pediu menos movimento",
+                )

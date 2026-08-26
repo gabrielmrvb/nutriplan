@@ -121,8 +121,8 @@ class InstallabilityTests(TestCase):
 
     def test_the_theme_colour_matches_the_dark_interface(self):
         """Cor errada aqui vira uma faixa clara em volta do app escuro."""
-        self.assertEqual(self.manifest["theme_color"], "#0b0f0e")
-        self.assertEqual(self.manifest["background_color"], "#0b0f0e")
+        self.assertEqual(self.manifest["theme_color"], "#090c0b")
+        self.assertEqual(self.manifest["background_color"], "#090c0b")
 
     def test_shortcuts_point_at_urls_that_answer(self):
         atalhos = self.manifest["shortcuts"]

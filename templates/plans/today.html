@@ -428,7 +428,16 @@ coluna da direita), não entre ela e o almoço.
           // alimento. "Trocar <nome da receita>" no primeiro passo prometia
           // trocar o prato inteiro, que não é o que acontece.
           titulo.textContent = botao.dataset.titulo || "Trocar " + botao.dataset.nome;
-          corpo.innerHTML = '<p class="swap__loading">Procurando equivalentes…</p>';
+          // O esqueleto tem a altura das opções que estão vindo, então o
+          // modal já abre do tamanho certo. O aviso de texto continua ali
+          // para o leitor de tela, que não enxerga bloco pulsando.
+          corpo.innerHTML =
+            '<p class="swap__loading" role="status">Procurando equivalentes…</p>' +
+            '<div aria-hidden="true">' +
+            '<div class="esqueleto esqueleto--linha"></div>' +
+            '<div class="esqueleto esqueleto--linha"></div>' +
+            '<div class="esqueleto esqueleto--linha"></div>' +
+            '</div>';
           modal.showModal();
           fetch(botao.dataset.troca, {headers: {"X-Requested-With": "fetch"}})
             .then(function (r) { return r.text(); })
