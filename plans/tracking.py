@@ -18,19 +18,47 @@ HISTORY_DAYS = 14
 ZERO = Decimal("0")
 
 
-def log_meal(user, slot, status, option=None, day=None, notes="") -> MealLog:
+#: Quantos alimentos a pessoa pode descrever numa refeição fora do plano.
+#:
+#: Três cobre "arroz, feijão e bife", que é a forma de quase todo prato
+#: brasileiro fora de casa. Mais linhas na tela viram formulário, e formulário
+#: é o que faz a pessoa desistir de registrar — e refeição não registrada some
+#: da aderência inteira, que é pior que uma estimada por três itens.
+MAX_ITENS_FORA = 3
+
+
+def macros_de_itens(itens) -> dict:
+    """Soma os macros de uma lista de `(Food, gramas)`.
+
+    Devolve zeros para lista vazia, e isso é a resposta certa: quem escreveu
+    só "comi na casa da minha mãe" não deve receber caloria nenhuma inventada.
+    """
+    total = {"kcal": ZERO, "protein_g": ZERO, "carb_g": ZERO, "fat_g": ZERO}
+    for food, gramas in itens:
+        macros = food.macros_for(gramas)
+        for chave in total:
+            total[chave] += macros[chave]
+    return total
+
+
+def log_meal(user, slot, status, option=None, day=None, notes="", macros=None) -> MealLog:
     """Registra o que aconteceu numa refeição.
 
     `update_or_create` porque marcar de novo é corriqueiro: a pessoa clica em
     "pulei", muda de ideia e come. O registro é o estado final do horário
     naquele dia, não um log de auditoria de cliques.
 
-    Só a opção efetivamente comida traz macros. "Pulei" zera, e "comi outra
-    coisa" também — não sabemos o que foi, e chutar contaminaria o histórico
-    com número inventado.
+    Só a opção efetivamente comida traz macros do PLANO. "Pulei" zera sempre.
+
+    "Comi outra coisa" agora pode trazer os seus, em `macros`, calculados a
+    partir dos alimentos que a pessoa descreveu. Quando ela não descreve
+    nenhum, volta a zerar — a regra antiga não mudou, ganhou uma saída. O que
+    continua proibido é o app estimar sozinho: número inventado no histórico é
+    pior que buraco no histórico, porque o buraco a pessoa vê.
     """
     day = day or timezone.localdate()
     ate_the_plan = status == MealStatus.DONE and option is not None
+    fora = macros if (status == MealStatus.OFF_PLAN and macros) else None
 
     defaults = {
         "chosen_option": option if ate_the_plan else None,
@@ -38,10 +66,12 @@ def log_meal(user, slot, status, option=None, day=None, notes="") -> MealLog:
         "marked_at": timezone.now(),
         "slot_name": slot.name,
         "scheduled_time": slot.time,
-        "kcal": option.kcal if ate_the_plan else ZERO,
-        "protein_g": option.protein_g if ate_the_plan else ZERO,
-        "carb_g": option.carb_g if ate_the_plan else ZERO,
-        "fat_g": option.fat_g if ate_the_plan else ZERO,
+        "kcal": option.kcal if ate_the_plan else (fora or {}).get("kcal", ZERO),
+        "protein_g": (
+            option.protein_g if ate_the_plan else (fora or {}).get("protein_g", ZERO)
+        ),
+        "carb_g": option.carb_g if ate_the_plan else (fora or {}).get("carb_g", ZERO),
+        "fat_g": option.fat_g if ate_the_plan else (fora or {}).get("fat_g", ZERO),
         # O campo existia desde o começo e nunca era escrito. Passou a servir
         # quando a entrada por voz chegou: "comi frango no almoço" não vira
         # macro nenhum — chutar contaminaria o histórico — mas vira a frase

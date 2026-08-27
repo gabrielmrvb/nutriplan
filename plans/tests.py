@@ -1925,3 +1925,159 @@ class MealStyleTests(TestCase):
         plan = services.create_plan(profile.user)
         vazios = [slot.name for slot in plan.slots.all() if not slot.options.exists()]
         self.assertEqual(vazios, [], "o estilo econômico esvaziou horários")
+
+
+class ComiOutraCoisaTests(TestCase):
+    """A refeição fora do plano deixa de ser um buraco com carimbo.
+
+    Antes: um `submit` direto gravava `off_plan`, macro zerado, nenhuma palavra
+    sobre o que foi. O horário saía das pendências E não contava nada — sumia
+    da tela e da conta ao mesmo tempo, que é o pior dos dois mundos, porque
+    some sem a pessoa perceber que sumiu.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.client.force_login(self.user)
+        self.plan = services.create_plan(self.user)
+        self.slot = self.plan.slots.first()
+        self.url = reverse("plans:mark_meal", kwargs={"slot_id": self.slot.pk})
+
+    def _log(self):
+        return MealLog.objects.get(user=self.user, slot=self.slot)
+
+    def test_the_field_only_exists_inside_the_expandable_panel(self):
+        """Oculto por padrão sem `hidden` e sem script: o campo está dentro de
+        um `<details>` fechado, e o navegador não o mostra até alguém abrir."""
+        html = self.client.get(reverse("plans:today")).content.decode()
+
+        painel = html.split('<details class="fora"', 1)
+        self.assertEqual(len(painel), 2, "o painel de fora do plano não existe")
+        corpo = painel[1].split("</details>", 1)[0]
+
+        self.assertIn('name="notes"', corpo)
+        self.assertIn('name="alimento"', corpo)
+        # Fechado por padrão: um `<details open>` mostraria o formulário
+        # inteiro em todos os horários da tela.
+        self.assertNotIn("<details class=\"fora\" open", html)
+
+    def test_describing_nothing_does_not_register_anything(self):
+        """A validação do lado que ninguém desliga.
+
+        `required` protege o navegador; um POST forjado, um autofill estranho
+        ou um cliente offline reenviando não passam por ele.
+        """
+        resposta = self.client.post(self.url, {"status": "off_plan", "notes": "   "})
+
+        self.assertFalse(MealLog.objects.filter(slot=self.slot).exists())
+        self.assertIn(f"#refeicao-{self.slot.pk}", resposta.url)
+
+    def test_a_description_alone_is_registered_with_no_invented_calories(self):
+        """"Almocei na casa da minha mãe" é registro legítimo e não vira macro.
+
+        Estimar aqui seria pior que zerar: número inventado no histórico
+        contamina a aderência de meses, e a pessoa não tem como saber quais
+        dias são chute.
+        """
+        self.client.post(
+            self.url, {"status": "off_plan", "notes": "Almocei na casa da minha mãe"}
+        )
+
+        log = self._log()
+        self.assertEqual(log.status, MealStatus.OFF_PLAN)
+        self.assertEqual(log.notes, "Almocei na casa da minha mãe")
+        self.assertEqual(log.kcal, Decimal("0.00"))
+
+    def test_describing_the_foods_recalculates_the_meal(self):
+        arroz = Food.objects.get(name="Arroz branco cozido")
+        ovo = Food.objects.get(name="Ovo de galinha cozido")
+
+        self.client.post(
+            self.url,
+            {
+                "status": "off_plan",
+                "notes": "Arroz com ovo",
+                "alimento": [arroz.name, ovo.name],
+                "gramas": ["150", "100"],
+            },
+        )
+
+        esperado = arroz.macros_for(Decimal("150"))["kcal"] + ovo.macros_for(
+            Decimal("100")
+        )["kcal"]
+        self.assertEqual(self._log().kcal, esperado.quantize(Decimal("0.01")))
+
+    def test_the_name_is_matched_without_caring_about_case(self):
+        """A pessoa digita por cima da sugestão do datalist, e digita como
+        quiser."""
+        arroz = Food.objects.get(name="Arroz branco cozido")
+        self.client.post(
+            self.url,
+            {
+                "status": "off_plan",
+                "notes": "arroz",
+                "alimento": ["ARROZ BRANCO COZIDO"],
+                "gramas": ["100"],
+            },
+        )
+        self.assertEqual(
+            self._log().kcal, arroz.macros_for(Decimal("100"))["kcal"].quantize(Decimal("0.01"))
+        )
+
+    def test_a_food_the_catalog_does_not_have_is_ignored_not_fatal(self):
+        """Recusar a refeição inteira por causa de uma linha mal digitada é o
+        caminho mais curto para a pessoa parar de registrar."""
+        arroz = Food.objects.get(name="Arroz branco cozido")
+        self.client.post(
+            self.url,
+            {
+                "status": "off_plan",
+                "notes": "Arroz e um negócio que não existe",
+                "alimento": ["Arroz branco cozido", "Ambrosia de dragão"],
+                "gramas": ["100", "80"],
+            },
+        )
+
+        log = self._log()
+        self.assertEqual(log.notes, "Arroz e um negócio que não existe")
+        self.assertEqual(
+            log.kcal, arroz.macros_for(Decimal("100"))["kcal"].quantize(Decimal("0.01"))
+        )
+
+    def test_an_abandoned_row_does_not_count_as_zero_grams(self):
+        """Linha começada e largada — nome sem gramatura, ou gramatura zero —
+        é ruído, não um alimento de zero caloria."""
+        for gramas in ("", "0", "-50", "abc", "9999"):
+            with self.subTest(gramas=gramas):
+                MealLog.objects.filter(slot=self.slot).delete()
+                self.client.post(
+                    self.url,
+                    {
+                        "status": "off_plan",
+                        "notes": "teste",
+                        "alimento": ["Arroz branco cozido"],
+                        "gramas": [gramas],
+                    },
+                )
+                self.assertEqual(self._log().kcal, Decimal("0.00"))
+
+    def test_skipping_a_meal_still_registers_nothing(self):
+        """"Pulei" continua sendo o que sempre foi: o comportamento novo é do
+        botão ao lado, e não pode ter vazado para este."""
+        self.client.post(self.url, {"status": "skipped"})
+
+        log = self._log()
+        self.assertEqual(log.status, MealStatus.SKIPPED)
+        self.assertEqual(log.kcal, Decimal("0.00"))
+        self.assertEqual(log.notes, "")
+
+    def test_the_catalog_list_is_rendered_once_and_not_per_meal(self):
+        """900 nós de DOM na tela mais visitada do app, para uma ação que quase
+        nunca acontece — era o custo de um `<select>` por linha."""
+        html = self.client.get(reverse("plans:today")).content.decode()
+        self.assertEqual(html.count('<datalist id="alimentos-do-catalogo">'), 1)
+        self.assertNotIn("<select", html.split('class="fora"', 1)[1])

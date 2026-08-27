@@ -246,6 +246,12 @@ class TodayView(PlanRequiredMixin, TemplateView):
                     self.request.user, hoje=today, meta_agua_ml=meta_agua
                 ),
                 "proteina_perdida": proteina_perdida(slots),
+                # O catálogo do `<datalist>` e as linhas em branco do painel
+                # "comi outra coisa". `range` no contexto porque o template do
+                # Django não sabe contar, e um `{% for %}` sobre uma lista de
+                # três nadas é mais honesto que três blocos copiados.
+                "alimentos": Food.objects.filter(is_active=True).order_by("name"),
+                "itens_fora": range(tracking.MAX_ITENS_FORA),
                 "nav": "today",
                 "training_days": self.request.user.training_days.all(),
                 "slots": slots,
@@ -278,11 +284,68 @@ class MarkMealView(OnboardingRequiredMixin, View):
                 MealOption, pk=request.POST.get("option"), slot=slot
             )
 
-        tracking.log_meal(
-            request.user, slot, status, option,
-            notes=(request.POST.get("notes") or "").strip(),
-        )
+        notes = (request.POST.get("notes") or "").strip()
+
+        # "Comi outra coisa" sem dizer o quê não é registro, é um buraco com
+        # carimbo: some da lista de pendências e não conta nada no histórico.
+        # O `required` do HTML já barra no navegador; aqui é a mesma regra do
+        # lado que ninguém desliga.
+        if status == MealStatus.OFF_PLAN and not notes:
+            return redirect(reverse("plans:today") + f"#refeicao-{slot.pk}")
+
+        macros = None
+        if status == MealStatus.OFF_PLAN:
+            macros = tracking.macros_de_itens(_itens_descritos(request.POST))
+
+        tracking.log_meal(request.user, slot, status, option, notes=notes, macros=macros)
         return redirect("plans:today")
+
+
+def _itens_descritos(dados) -> list:
+    """Os pares `(Food, gramas)` que a pessoa descreveu, ignorando o resto.
+
+    Casa por NOME e não por id porque a entrada é um `<input list="...">`: o
+    datalist sugere, e a pessoa pode digitar qualquer coisa por cima. Nome que
+    não bate com o catálogo é descartado em silêncio — o registro ainda vale
+    pela descrição, e recusar a refeição inteira por causa de uma linha mal
+    digitada é o caminho mais curto para ela parar de registrar.
+
+    Um `<select>` com os 61 alimentos daria o id de graça e custaria 61 opções
+    por linha, vezes três linhas, vezes cinco horários: 900 nós de DOM na tela
+    mais visitada do app, para uma ação que quase nunca acontece.
+    """
+    nomes = dados.getlist("alimento")[: tracking.MAX_ITENS_FORA]
+    gramas = dados.getlist("gramas")[: tracking.MAX_ITENS_FORA]
+
+    pedidos = {}
+    for nome, quantidade in zip(nomes, gramas):
+        nome = (nome or "").strip()
+        if not nome:
+            continue
+        try:
+            valor = Decimal(str(quantidade).replace(",", "."))
+        except (InvalidOperation, TypeError):
+            continue
+        # Zero grama de alguma coisa é a linha que a pessoa começou e
+        # abandonou, e peso negativo não existe.
+        if valor <= 0 or valor > 3000:
+            continue
+        pedidos[nome.casefold()] = valor
+
+    if not pedidos:
+        return []
+
+    # Uma consulta, e o casamento sem diferenciar maiúscula acontece em
+    # Python: são 61 alimentos ativos, e um `iexact` por linha seriam três
+    # idas ao banco para comparar com uma lista que cabe na memória.
+    por_nome = {
+        food.name.casefold(): food for food in Food.objects.filter(is_active=True)
+    }
+    return [
+        (por_nome[nome], quantidade)
+        for nome, quantidade in pedidos.items()
+        if nome in por_nome
+    ]
 
 
 class ClearMealView(OnboardingRequiredMixin, View):

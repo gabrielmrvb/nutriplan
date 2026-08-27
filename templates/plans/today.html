@@ -307,13 +307,86 @@ coluna da direita), não entre ela e o almoço.
                 <button type="submit" name="status" value="skipped" class="btn btn--quiet">
                   Pulei
                 </button>
-                <button type="submit" name="status" value="off_plan" class="btn btn--quiet">
-                  Comi outra coisa
-                </button>
               </form>
+
+              {% comment %}
+                "Comi outra coisa" deixa de ser um botão que grava um buraco.
+
+                Era um `submit` direto: gravava `off_plan` com macro zerado e
+                sem uma palavra sobre o que foi. O horário saía da lista de
+                pendências e não contava nada — sumia da tela e da conta, que é
+                o pior dos dois mundos.
+
+                Agora abre. `<details>` e não JavaScript: o navegador já sabe
+                expandir, o controle entra na ordem do Tab e anuncia estado
+                para leitor de tela, e a transição vem da mesma regra de
+                `grid-template-rows` que anima a sanfona do exercício. Zero
+                bytes de script para um comportamento que o HTML tem.
+
+                A descrição é obrigatória — `required` no navegador e a mesma
+                regra na view, que é o lado que ninguém desliga. Os alimentos
+                são opcionais: quem só escreve "almocei na casa da minha mãe"
+                registra a frase e recebe macro zero, porque o app não sabe o
+                que foi e chutar contamina o histórico com número inventado.
+              {% endcomment %}
+              <details class="fora" id="refeicao-{{ slot.pk }}">
+                <summary class="fora__abrir">Comi outra coisa</summary>
+
+                <form method="post" action="{% url 'plans:mark_meal' slot.pk %}"
+                      class="fora__corpo">
+                  {% comment %}
+                    Um envoltório pelo mesmo motivo da ficha de treino: `0fr`
+                    governa só a primeira linha da grade, e este formulário tem
+                    seis filhos. Sem ele, cinco deles apareceriam de uma vez.
+                  {% endcomment %}
+                  <div class="fora__interno">
+                  {% csrf_token %}
+                  <input type="hidden" name="status" value="off_plan">
+
+                  <label class="fora__campo">
+                    <span class="fora__rotulo">O que você comeu?</span>
+                    <input class="field-input" type="text" name="notes" required
+                           maxlength="200" autocomplete="off"
+                           placeholder="Prato feito no restaurante"
+                           aria-label="Descrição do que comeu em {{ slot.name }}">
+                  </label>
+
+                  <p class="fora__ajuda">
+                    Sabe os ingredientes? Some abaixo e o dia recalcula. Sem
+                    isso, fica registrado sem contar caloria.
+                  </p>
+
+                  {% for _ in itens_fora %}
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento {{ forloop.counter }}">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento {{ forloop.counter }}">
+                    </div>
+                  {% endfor %}
+
+                  <button type="submit" class="btn btn--primary btn--block">
+                    Registrar
+                  </button>
+                  </div>
+                </form>
+              </details>
             {% endif %}
           </article>
         {% endfor %}
+
+        {% comment %}
+          O catálogo entra UMA vez na página, e todos os horários apontam para
+          ele — mesma decisão do sprite de ícones. Um `<select>` daria o id de
+          graça e custaria 61 opções por linha, vezes três linhas, vezes cinco
+          horários: 900 nós de DOM na tela mais visitada do app.
+        {% endcomment %}
+        <datalist id="alimentos-do-catalogo">
+          {% for food in alimentos %}<option value="{{ food.name }}"></option>{% endfor %}
+        </datalist>
 
         <p class="hint">
           As duas opções de cada horário são equivalentes: cada receita foi escalada até

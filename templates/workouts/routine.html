@@ -215,6 +215,19 @@
                   </summary>
 
                   <div class="exercise__body">
+                  {% comment %}
+                    Um envoltório, e ele é o que faz a sanfona animar inteira.
+
+                    `grid-template-rows: 0fr` governa a PRIMEIRA linha da grade.
+                    Com quatro filhos diretos, os outros três caem em linhas
+                    implícitas, que são `auto` — medido fechado: "0px 98.95px
+                    18.34px". Só a instrução encolhia; o resto aparecia de uma
+                    vez. O `<details>` esconde tudo de qualquer jeito, então o
+                    defeito não era conteúdo vazando, era o gesto pela metade.
+
+                    Com um filho só, a única linha é a que anima.
+                  {% endcomment %}
+                  <div class="exercise__conteudo">
                     {# ---- 2. Instrução e acesso à execução ---- #}
                     <p class="exercise__cue">{{ item.exercise.cue }}</p>
 
@@ -321,6 +334,7 @@
                         {% endif %}
                       </p>
                     {% endif %}
+                  </div>
                   </div>
                 </details>
                 </li>
