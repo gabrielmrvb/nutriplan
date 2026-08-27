@@ -375,9 +375,11 @@ class TouchTargetTests(TestCase):
         (".btn--quiet {", "min-height: 2.75rem"),
         (".app-bar__quiet {", "min-height: 2.75rem"),
         (".card__head a {", "min-height: 2.75rem"),
-        (".swap-open {", "min-height: 2.75rem"),
         (".shopping__check {", "min-height: 2.75rem"),
-        (".set-row__input {", "min-height: 2.75rem"),
+        # O registro único, no lugar das quatro linhas de série que saíram.
+        (".registro__carga {", "min-height: 2.75rem"),
+        (".registro__salvar {", "min-height: 2.75rem"),
+        (".registro__timer {", "min-height: 2.75rem"),
         (".install__close {", "height: 2.75rem"),
         # "desfazer" media 20px, e é o link procurado no segundo seguinte a
         # errar o toque em "Pulei".
@@ -634,7 +636,7 @@ class VisualRefinementTests(TestCase):
             ".tabbar__item.is-active",
             ".meal--done {",
             ".option[open]",
-            ".set-row--done .set-row__label",
+            ".registro--completo",
             ".choice-card__input:checked ~ .choice-card__frame",
         ):
             with self.subTest(seletor=seletor):

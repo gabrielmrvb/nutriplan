@@ -93,27 +93,6 @@
               <p class="session__focus">{{ session.focus }}</p>
             {% endif %}
 
-            {% comment %}
-              O ajuste fica no topo da ficha porque é ali que a decisão
-              acontece: a pessoa chega, olha o primeiro exercício, vê a fila no
-              aparelho. Enterrado no rodapé, depois de seis exercícios, ele
-              seria encontrado por quem já tinha desistido.
-            {% endcomment %}
-            <button type="button" class="ia-abrir"
-                    data-ia-abrir="{% url 'workouts:assistant' session.pk %}">
-              <span class="ia-abrir__icone" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>
-                  <circle cx="12" cy="12" r="3.6"/>
-                </svg>
-              </span>
-              Ajustar treino
-              <span class="ia-abrir__seta" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
-              </span>
-            </button>
 
             <ol class="exercise-list">
               {% for item in session.exercises.all %}
@@ -156,13 +135,18 @@
                         <span class="exercise__tag exercise__tag--target">
                           {{ item.exercise.get_muscle_group_display }}
                         </span>
-                        <span class="exercise__tag num">
-                          {{ item.sets }} × {{ item.rep_range }}
-                        </span>
                         <span class="exercise__tag exercise__tag--rest num">
                           descanso {{ item.rest_display }}
                         </span>
                       </span>
+                      {% comment %}
+                        A prescrição por extenso, e não "4 × 6-10".
+
+                        A notação é de planilha: quem treina há anos lê de
+                        relance, quem está começando não lê. Custa uma linha e
+                        a clareza vale mais que a linha.
+                      {% endcomment %}
+                      <span class="exercise__prescricao">{{ item.prescricao }}</span>
                     </span>
                     {% comment %}
                       "Ver execução" mora no cabeçalho, junto das etiquetas.
@@ -171,11 +155,11 @@
                       justamente o que se quer ANTES de decidir abrir e anotar.
                       Aqui ele fica a um toque em qualquer estado.
 
-                      Vira ícone: o texto continua no `aria-label`, então quem
-                      ouve a tela recebe "Ver execução de <exercício>". Era a
-                      objeção que mantinha o botão numa linha só para ele — o
-                      alvo de 44px quebrava a fileira de pílulas em duas. Como
-                      ícone ele divide a coluna da seta, e não a das pílulas.
+                      Com texto e não como ícone: um olho sozinho não diz o
+                      que faz, e a pessoa que mais precisa da demonstração é
+                      justamente a que não decifra o ícone. O rótulo diz
+                      "por escrito" porque é a instrução técnica que abre
+                      primeiro no drawer — a animação vem abaixo dela.
                     {% endcomment %}
                     <button type="button" class="exercise__ver"
                     data-animacao="{% if item.exercise.animation_kind == 'youtube' %}{{ item.exercise.animation_embed_url }}{% else %}{{ item.exercise.animation_url }}{% endif %}"
@@ -191,19 +175,19 @@
                     data-descanso-texto="{{ item.rest_display }}"
                     data-descanso-segundos="{{ item.rest_seconds }}"
                     data-cue="{{ item.exercise.cue }}"
+                    data-intensidade="{{ item.intensidade }}"
                     data-musculo="{{ item.exercise.get_muscle_group_display }}"
                     data-carga="{% if item.load.melhor_anterior %}{{ item.load.melhor_anterior|floatformat:'-2' }}{% endif %}"
                     data-carga-data="{% if item.load.data_anterior %}{{ item.load.data_anterior|date:'d/m' }}{% endif %}"
                     data-busca="{{ item.exercise.video_search_url }}"
                     aria-label="Ver execução de {{ item.exercise.name }}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                    aria-hidden="true">
-                    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>
-                    <circle cx="12" cy="12" r="3"/>
+                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true">
+                      <path d="M4 6h11"/><path d="M4 12h16"/><path d="M4 18h9"/>
                     </svg>
-                    <span class="exercise__legenda">Ver execução</span>
-                    </button>
+                    <span>Ver execução por escrito</span>
+                  </button>
 
                     <span class="exercise__seta" aria-hidden="true">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -219,122 +203,107 @@
 
 
                     {# ---- 3. Tabela de séries ---- #}
-                    <div class="sets">
-                      <div class="sets__head">
-                        <span>Série</span>
-                        <span>Carga (kg)</span>
-                        <span>Salvar</span>
-                        <span>Descanso</span>
-                      </div>
+                    {% comment %}
+                      Um registro só, no lugar de uma linha por série.
 
-                      {% if item.tem_anterior %}
+                      Eram quatro formulários empilhados, cada um com número,
+                      carga, contador de reps, botão de salvar e cronômetro —
+                      vinte controles por exercício, cento e quarenta numa
+                      ficha de sete. A repetição não trazia informação: quem
+                      faz 4×8 usa a mesma carga nas quatro e anotava o mesmo
+                      número quatro vezes.
+
+                      Agora são dois campos: a carga e quantas séries saíram.
+                      Salvar grava as N séries com aquela carga — o histórico
+                      continua exatamente com o mesmo formato, e o cálculo de
+                      volume não muda uma linha.
+
+                      O que se perde: carga diferente por série (drop-set,
+                      pirâmide). É real, e é a troca — quem faz isso é minoria
+                      e paga com quatro linhas quem não faz.
+                    {% endcomment %}
+                    <form class="registro" method="post"
+                          action="{% url 'workouts:record_load' item.exercise.pk %}">
+                      {% csrf_token %}
+                      <input type="hidden" name="total_series" value="{{ item.sets }}">
+
+                      <label class="registro__campo">
+                        <span class="registro__rotulo">Carga</span>
                         {% comment %}
-                          Copiar, e não preencher sozinho.
-
-                          Preenchimento silencioso é tentador e é o caminho para
-                          corromper exatamente o dado que sustenta o app: se a
-                          carga da semana passada já está no campo e a pessoa
-                          toca em OK sem olhar, o histórico passa a dizer que
-                          ela levantou 60 kg num dia em que levantou 55 — e a
-                          comparação "evoluí?" começa a mentir.
-
-                          Um toque para trazer tudo, e os números ficam à vista
-                          para editar antes de virar registro.
+                          `text` e não `number`: com type=number o navegador
+                          descarta "62,5" e envia campo vazio, e brasileiro
+                          digita vírgula. O inputmode mantém o teclado
+                          numérico, e o servidor normaliza.
                         {% endcomment %}
-                        <button type="button" class="copiar-cargas"
-                                data-copiar-cargas>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                               stroke-width="1.8" stroke-linecap="round"
-                               stroke-linejoin="round" aria-hidden="true">
-                            <path d="M9 3h9a2 2 0 0 1 2 2v9"/>
-                            <rect x="4" y="7" width="12" height="14" rx="2"/>
-                          </svg>
-                          Copiar cargas do último treino
-                          <span class="copiar-cargas__quando num">
-                            {{ item.anterior_em|date:"d/m" }}
-                          </span>
-                        </button>
-                      {% endif %}
+                        <input class="registro__carga num" type="text" name="weight_kg"
+                               maxlength="6" inputmode="decimal"
+                               placeholder="{% if item.load.melhor_anterior %}{{ item.load.melhor_anterior|floatformat:'-2' }}{% else %}kg{% endif %}"
+                               value="{% if item.load.melhor_hoje %}{{ item.load.melhor_hoje|floatformat:'-2' }}{% endif %}"
+                               aria-label="Carga de {{ item.exercise.name }}">
+                      </label>
 
-                      {% for linha in item.set_rows %}
-                        <form class="set-row {% if linha.weight %}set-row--done{% endif %}"
-                              method="post"
-                              action="{% url 'workouts:record_load' item.exercise.pk %}">
-                          {% csrf_token %}
-                          <input type="hidden" name="set_number" value="{{ linha.number }}">
-                          <span class="set-row__label">{{ linha.number }}ª</span>
-                          {% comment %}
-                            `text` e não `number`: com type=number o navegador descarta
-                            "62,5" e envia campo vazio, e brasileiro digita vírgula. O
-                            inputmode mantém o teclado numérico no celular, e a faixa é
-                            validada no servidor, que já normaliza a vírgula.
-                          {% endcomment %}
-                          <input class="set-row__input" type="text" name="weight_kg"
-                                 maxlength="6" inputmode="decimal"
-                                 placeholder="{% if linha.previous %}{{ linha.previous|floatformat:'-2' }}{% else %}kg{% endif %}"
-                                 value="{% if linha.weight %}{{ linha.weight|floatformat:'-2' }}{% endif %}"
-                                 data-anterior="{% if linha.previous %}{{ linha.previous|floatformat:'-2' }}{% endif %}"
-                                 aria-label="Carga da {{ linha.number }}ª série de {{ item.exercise.name }}">
+                      {% comment %}
+                        O botão de salvar É o contador.
 
-                          {% comment %}
-                            As repetições num campo só.
+                        Medido a 390px: carga + contador de três peças + OK +
+                        cronômetro deixavam o campo de carga com 21 pixels de
+                        largura. Sete controles não cabem, e essa é a terceira
+                        vez que a aritmética diz isso nesta tela.
 
-                            Antes eram três controles soltos com uma legenda
-                            "REPS" em caixa alta por cima — e isso custava uma
-                            linha inteira de altura por série. Agora os passos
-                            moram DENTRO da moldura, do mesmo jeito que a
-                            carga é um campo só: uma moldura, um assunto.
+                        Fundir resolve e melhora: um toque por série concluída
+                        é exatamente o gesto de quem está treinando, e o botão
+                        mostra onde parou sem ocupar coluna própria.
+                      {% endcomment %}
+                      <input type="hidden" name="series_feitas"
+                             value="{{ item.feitas }}" data-feitas-campo>
 
-                            Botão e não teclado porque a mão está suada e o
-                            teclado numérico do celular cobre metade da tela
-                            justamente quando a pessoa quer ver a próxima
-                            série. O número continua editável para quem prefere
-                            digitar 15 de uma vez em vez de tocar quinze.
-                          {% endcomment %}
-                          <span class="reps__campo">
-                            <button type="button" class="reps__passo"
-                                    data-reps="-1"
-                                    aria-label="Uma repetição a menos">−</button>
-                            <input class="reps__valor num" type="text" name="reps"
-                                   maxlength="3" inputmode="numeric"
-                                   value="{% if linha.reps %}{{ linha.reps }}{% endif %}"
-                                   placeholder="{% if linha.previous_reps %}{{ linha.previous_reps }}{% else %}reps{% endif %}"
-                                   data-anterior="{% if linha.previous_reps %}{{ linha.previous_reps }}{% endif %}"
-                                   aria-label="Repetições da {{ linha.number }}ª série de {{ item.exercise.name }}">
-                            <button type="button" class="reps__passo"
-                                    data-reps="1"
-                                    aria-label="Uma repetição a mais">+</button>
-                          </span>
+                      <button type="submit" class="registro__salvar"
+                              data-feitas="{{ item.feitas }}"
+                              data-total="{{ item.sets }}"
+                              aria-label="Registrar mais uma série de {{ item.exercise.name }}">
+                        <span class="registro__salvar-rotulo">OK</span>
+                        <span class="registro__contagem num">
+                          <span data-feitas-texto>{{ item.feitas }}</span>/{{ item.sets }}
+                        </span>
+                      </button>
 
-                          <button type="submit" class="set-row__save">OK</button>
-                          <button type="button" class="set-row__timer"
-                                  data-descanso="{{ item.rest_seconds }}"
-                                  data-acabando="rest-timer--acabando"
-                                  data-nome="{{ item.exercise.name }} · {{ linha.number }}ª série"
-                                  aria-label="Cronometrar descanso">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                 stroke-width="1.9" stroke-linecap="round" aria-hidden="true">
-                              <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/>
-                              <path d="M9 2h6"/>
-                            </svg>
-                          </button>
-                        </form>
-                      {% endfor %}
+                      <button type="button" class="registro__timer"
+                              data-descanso="{{ item.rest_seconds }}"
+                              data-nome="{{ item.exercise.name }}"
+                              aria-label="Cronometrar descanso de {{ item.exercise.name }}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="1.9" stroke-linecap="round" aria-hidden="true">
+                          <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/>
+                          <path d="M9 2h6"/>
+                        </svg>
+                      </button>
+                    </form>
 
-                      {% if item.load.melhor_anterior %}
-                        <p class="exercise__previous">
-                          Último treino ({{ item.load.data_anterior|date:"d/m" }}):
-                          <b>{{ item.load.melhor_anterior|floatformat:'-2' }} kg</b>
-                          {% if item.load.delta > 0 %}
-                            · <b class="exercise__delta exercise__delta--up">▲ +{{ item.load.delta|floatformat:'-2' }} kg</b>
-                          {% elif item.load.delta < 0 %}
-                            · <b class="exercise__delta exercise__delta--down">▼ {{ item.load.delta|floatformat:'-2' }} kg</b>
-                          {% elif item.load.melhor_hoje %}
-                            · <b class="exercise__delta">= mesma carga</b>
-                          {% endif %}
-                        </p>
-                      {% endif %}
-                    </div>
+                    {% comment %}
+                      Desfazer aparece só quando há série registrada. Um link
+                      de desfazer permanente ocupa espaço todo dia para o erro
+                      de um dia.
+                    {% endcomment %}
+                    <p class="registro__desfazer" {% if not item.feitas %}hidden{% endif %}
+                       data-desfazer-area>
+                      <button type="button" class="btn-link" data-desfazer>
+                        desfazer última série
+                      </button>
+                    </p>
+
+                    {% if item.load.melhor_anterior %}
+                      <p class="exercise__previous">
+                        Último treino ({{ item.load.data_anterior|date:"d/m" }}):
+                        <b>{{ item.load.melhor_anterior|floatformat:'-2' }} kg</b>
+                        {% if item.load.delta > 0 %}
+                          · <b class="exercise__delta exercise__delta--up">▲ +{{ item.load.delta|floatformat:'-2' }} kg</b>
+                        {% elif item.load.delta < 0 %}
+                          · <b class="exercise__delta exercise__delta--down">▼ {{ item.load.delta|floatformat:'-2' }} kg</b>
+                        {% elif item.load.melhor_hoje %}
+                          · <b class="exercise__delta">= mesma carga</b>
+                        {% endif %}
+                      </p>
+                    {% endif %}
                   </div>
                 </details>
                 </li>
@@ -498,23 +467,6 @@
       </section>
     {% endif %}
 
-    {% comment %}
-      O drawer do assistente. Um só para a página, preenchido por quem foi
-      tocado — mesmo desenho do drawer de execução, e pela mesma razão: sete
-      fichas na semana dariam sete diálogos no documento.
-    {% endcomment %}
-    <dialog class="drawer ia-drawer" data-ia-drawer aria-labelledby="ia-titulo">
-      <div class="drawer__fechar-area">
-        <button type="button" class="drawer__fechar" data-ia-fechar aria-label="Fechar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-        </button>
-      </div>
-      <div class="drawer__puxador" aria-hidden="true"></div>
-      <div class="drawer__corpo ia__corpo" data-ia-corpo>
-        <p class="ia__carregando esqueleto esqueleto--linha"></p>
-      </div>
-    </dialog>
 
     <dialog class="drawer" data-drawer aria-labelledby="drawer-nome">
       <div class="drawer__fechar-area">
@@ -531,6 +483,12 @@
       <div class="drawer__corpo">
         <h2 class="drawer__nome" id="drawer-nome" data-drawer-nome></h2>
         <p class="drawer__musculo" data-drawer-musculo></p>
+        {% comment %}
+          A instrução escrita vem ANTES dos números e da animação: o botão
+          promete "ver execução por escrito", e o que ele promete tem que ser
+          a primeira coisa na tela.
+        {% endcomment %}
+        <p class="drawer__intensidade" data-drawer-intensidade></p>
 
         <div class="drawer__numeros">
           <div class="drawer__numero">
@@ -742,6 +700,8 @@
             dados.series + " × " + dados.reps;
           drawer.querySelector("[data-drawer-descanso]").textContent = dados.descansoTexto;
           drawer.querySelector("[data-drawer-cue]").textContent = dados.cue || "";
+          drawer.querySelector("[data-drawer-intensidade]").textContent =
+            dados.intensidade || "";
 
           var carga = drawer.querySelector("[data-drawer-carga]");
           var rotulo = drawer.querySelector("[data-drawer-carga-rotulo]");
@@ -1000,211 +960,86 @@
       })();
     </script>
 
-    <script>
-      /* O assistente de ajuste.
-       *
-       * O drawer é preenchido por busca em vez de vir pronto no HTML: as
-       * sugestões dependem do que está na ficha AGORA, e um menu renderizado
-       * no carregamento da página ficaria velho no instante em que a primeira
-       * troca fosse aplicada.
-       *
-       * Tudo é navegação dentro do drawer — menu, escolha, prévia — e cada
-       * passo é um GET que devolve um fragmento. Nada é gravado até o POST de
-       * confirmar. */
-      (function () {
-        var dialogo = document.querySelector("[data-ia-drawer]");
-        var corpo = document.querySelector("[data-ia-corpo]");
-        if (!dialogo || !corpo) return;
-
-        var ESQUELETO =
-          '<p class="ia__carregando esqueleto esqueleto--linha"></p>' +
-          '<p class="ia__carregando esqueleto esqueleto--linha"></p>' +
-          '<p class="ia__carregando esqueleto esqueleto--linha"></p>';
-
-        function carregar(url) {
-          corpo.innerHTML = ESQUELETO;
-          fetch(url, { headers: { "X-Requested-With": "fetch" } })
-            .then(function (r) { return r.text(); })
-            .then(function (html) {
-              corpo.innerHTML = html;
-              /* O foco vai para o título do passo novo. Sem isto o leitor de
-               * tela continua anunciando o passo anterior, e quem navega por
-               * teclado volta ao começo do diálogo a cada passo. */
-              var titulo = corpo.querySelector(".ia__titulo");
-              if (titulo) {
-                titulo.setAttribute("tabindex", "-1");
-                titulo.focus();
-              }
-            })
-            .catch(function () {
-              corpo.innerHTML =
-                '<p class="ia__erro">Não deu para carregar agora. Tente de novo.</p>';
-            });
-        }
-
-        function fechar() {
-          if (dialogo.open) dialogo.close();
-          corpo.innerHTML = "";
-        }
-
-        document.addEventListener("click", function (evento) {
-          var alvo = evento.target;
-          if (!alvo || typeof alvo.closest !== "function") return;
-
-          var abrir = alvo.closest("[data-ia-abrir]");
-          if (abrir) {
-            evento.preventDefault();
-            if (!dialogo.open) dialogo.showModal();
-            carregar(abrir.dataset.iaAbrir);
-            return;
-          }
-
-          var ir = alvo.closest("[data-ia-ir]");
-          if (ir) {
-            evento.preventDefault();
-            carregar(ir.dataset.iaIr);
-            return;
-          }
-
-          if (alvo.closest("[data-ia-fechar]")) {
-            evento.preventDefault();
-            fechar();
-          }
-        });
-
-        /* O campo livre navega por busca também, para o pedido não virar uma
-         * recarga de página inteira no meio do treino. */
-        document.addEventListener("submit", function (evento) {
-          var form = evento.target.closest("[data-ia-form]");
-          if (!form) return;
-          evento.preventDefault();
-          var texto = (form.querySelector("[name=pedido]") || {}).value || "";
-          if (!texto.trim()) return;
-          carregar(form.action + "?pedido=" + encodeURIComponent(texto.trim()));
-        });
-
-        /* Clique no fundo escuro fecha, que é o gesto que a pessoa tenta antes
-         * de procurar o X. */
-        dialogo.addEventListener("click", function (evento) {
-          if (evento.target === dialogo) fechar();
-        });
-        dialogo.addEventListener("cancel", function () { corpo.innerHTML = ""; });
-        dialogo.addEventListener("close", function () { corpo.innerHTML = ""; });
-      })();
-    </script>
 
     <script>
-      /* Contador de repetições, salvamento sem recarregar e partida automática
-       * do descanso.
+      /* O registro da série.
        *
-       * O ganho real não é o contador: é a página não recarregar. Salvar uma
-       * série por POST normal joga a pessoa no topo da tela no meio do treino,
-       * e depois de perder a posição da rolagem três vezes ela para de anotar.
+       * O botão de salvar é também o contador: cada toque grava mais uma série
+       * com a carga do campo. É o gesto de quem está treinando — terminou,
+       * toca —, e foi a saída para uma aritmética que já apareceu três vezes
+       * nesta tela: carga, contador de três peças, OK e cronômetro deixavam o
+       * campo de carga com 21 pixels a 390px de largura.
        *
-       * Sem JS, os mesmos formulários continuam funcionando por POST comum: o
-       * contador vira campo de texto e o descanso continua no botão do relógio.
-       * A degradação é o motivo de isto ser um interceptador de `submit` e não
-       * um punhado de `onclick`. */
+       * Sem JavaScript o formulário continua funcionando por POST comum: o
+       * campo escondido já leva o valor, e salvar regrava o que estava. */
       (function () {
-        function acharValor(botao) {
-          /* `.reps__campo` e não `.reps`: o container foi renomeado quando os
-           * passos entraram para dentro da moldura, e este seletor ficou para
-           * trás — o contador parou de contar sem dar erro nenhum. Só o
-           * navegador pegou. */
-          var caixa = botao.closest(".reps__campo");
-          return caixa ? caixa.querySelector(".reps__valor") : null;
+        function atualiza(form, feitas) {
+          var botao = form.querySelector(".registro__salvar");
+          var total = parseInt(botao.dataset.total, 10) || 1;
+          botao.dataset.feitas = feitas;
+          form.querySelector("[data-feitas-campo]").value = feitas;
+          form.querySelector("[data-feitas-texto]").textContent = feitas;
+          form.classList.toggle("registro--completo", feitas >= total);
+
+          var desfazer = form.parentElement.querySelector("[data-desfazer-area]");
+          if (desfazer) desfazer.hidden = feitas === 0;
         }
 
-        /* Mexeu no valor, ele deixa de ser sugestão e passa a ser escolha. */
-        document.addEventListener("input", function (evento) {
-          var campo = evento.target;
-          if (campo && campo.dataset && campo.dataset.autopreenchido) {
-            delete campo.dataset.autopreenchido;
-          }
-        });
-
-        document.addEventListener("click", function (evento) {
-          var passo = evento.target.closest("[data-reps]");
-          if (!passo) return;
-          evento.preventDefault();
-
-          var campo = acharValor(passo);
-          if (!campo) return;
-
-          var atual = parseInt(campo.value, 10);
-          if (isNaN(atual)) atual = parseInt(campo.placeholder, 10) || 0;
-          /* Teto de 100 e piso de 1: acima disso é toque preso, não série.
-           * Zero seria "não fiz", e para isso existe deixar em branco. */
-          var passo_n = parseInt(passo.dataset.reps, 10);
-          campo.value = Math.max(1, Math.min(atual + passo_n, 100));
-        });
-
-        document.addEventListener("submit", function (evento) {
-          var form = evento.target.closest(".set-row");
-          if (!form) return;
-          /* Sem fetch, o POST normal segue e a página recarrega. */
-          if (!window.fetch || !window.FormData) return;
-
-          evento.preventDefault();
-          var salvar = form.querySelector(".set-row__save");
-          var relogio = form.querySelector("[data-descanso]");
-          if (salvar) salvar.disabled = true;
-
-          fetch(form.action, {
+        function envia(form, feitas) {
+          var dados = new FormData(form);
+          dados.set("series_feitas", feitas);
+          return fetch(form.action, {
             method: "POST",
             headers: { "X-Requested-With": "fetch" },
-            body: new FormData(form),
+            body: dados,
             credentials: "same-origin"
-          })
-            .then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
-            .then(function (dados) {
-              form.classList.add("set-row--done");
+          }).then(function (r) { return r.ok ? r.json() : Promise.reject(r); });
+        }
 
-              /* Preenche a série SEGUINTE com o que acabou de ser gravado.
-               *
-               * Preencher não é registrar: o número fica à vista para editar e
-               * só o toque em OK o grava. E o valor vem do que a pessoa fez
-               * AGORA, não de semanas atrás — é essa diferença que torna o
-               * preenchimento automático aceitável aqui, onde o botão de
-               * "copiar do último treino" foi a escolha certa lá.
-               *
-               * Marcado com `data-autopreenchido` para não passar por
-               * registro: número pré-posto que se confirma sem olhar vira
-               * histórico falso. */
-              var proximaLinha = form.nextElementSibling;
-              while (proximaLinha && !proximaLinha.classList.contains("set-row")) {
-                proximaLinha = proximaLinha.nextElementSibling;
-              }
-              if (proximaLinha && !proximaLinha.classList.contains("set-row--done")) {
-                [
-                  [".set-row__input", dados.peso],
-                  [".reps__valor", dados.reps],
-                ].forEach(function (par) {
-                  var campo = proximaLinha.querySelector(par[0]);
-                  if (!campo || par[1] === null || par[1] === undefined) return;
-                  if (campo.value) return;
-                  /* Vírgula: é como o resto do app escreve número, e o
-                   * servidor normaliza na volta. */
-                  campo.value = String(par[1]).replace(".", ",");
-                  campo.dataset.autopreenchido = "1";
-                });
-              }
-              /* O descanso começa sozinho aqui: terminar a série e ter que
-               * tocar num segundo botão para contar o intervalo é o passo que
-               * some no meio do treino — e sem ele o intervalo vira "até
-               * quando eu lembrar". */
+        document.addEventListener("submit", function (evento) {
+          var form = evento.target.closest(".registro");
+          if (!form) return;
+          if (!window.fetch || !window.FormData) return;
+          evento.preventDefault();
+
+          var botao = form.querySelector(".registro__salvar");
+          var total = parseInt(botao.dataset.total, 10) || 1;
+          var feitas = parseInt(botao.dataset.feitas, 10) || 0;
+          /* No limite, tocar de novo não faz nada: fazer cinco de quatro é
+           * outra coisa, e o app não sabe o que é. */
+          if (feitas >= total) return;
+
+          botao.disabled = true;
+          envia(form, feitas + 1)
+            .then(function (dados) {
+              atualiza(form, feitas + 1);
+              form.classList.add("registro--salvo");
+              setTimeout(function () { form.classList.remove("registro--salvo"); }, 900);
               if (window.NutriPlanDescanso) {
-                var segundos = (relogio && relogio.dataset.descanso) || dados.descanso;
-                var rotulo = (relogio && relogio.dataset.nome) || "Descanso";
-                window.NutriPlanDescanso.iniciar(segundos, rotulo);
+                var relogio = form.querySelector("[data-descanso]");
+                window.NutriPlanDescanso.iniciar(
+                  (relogio && relogio.dataset.descanso) || dados.descanso,
+                  (relogio && relogio.dataset.nome) || "Descanso"
+                );
               }
             })
-            .catch(function () {
-              /* Servidor recusou ou a rede caiu: reenvia do jeito antigo, que
-               * recarrega e mostra a mensagem de erro do Django. */
-              form.submit();
-            })
-            .then(function () { if (salvar) salvar.disabled = false; });
+            .catch(function () { form.submit(); })
+            .then(function () { botao.disabled = false; });
+        });
+
+        document.addEventListener("click", function (evento) {
+          if (!evento.target.closest("[data-desfazer]")) return;
+          evento.preventDefault();
+
+          var area = evento.target.closest("[data-desfazer-area]");
+          var form = area.parentElement.querySelector(".registro");
+          var botao = form.querySelector(".registro__salvar");
+          var feitas = parseInt(botao.dataset.feitas, 10) || 0;
+          if (feitas === 0) return;
+
+          envia(form, feitas - 1)
+            .then(function () { atualiza(form, feitas - 1); })
+            .catch(function () { /* sem rede: o número na tela não mente */ });
         });
       })();
     </script>
@@ -1341,58 +1176,6 @@
     </script>
 
 
-    <script>
-      /* Copiar as cargas do último treino.
-       *
-       * Copia e para. Preencher sozinho ao abrir seria mais "automático" e
-       * corromperia o dado que sustenta o app inteiro: com a carga da semana
-       * passada já no campo, um toque distraído em OK grava 60 kg num dia de
-       * 55 — e a comparação "evoluí?" passa a mentir sem nunca dar erro.
-       *
-       * Os valores viajam em `data-anterior` no próprio campo, então o botão
-       * não consulta nada: funciona offline e responde no mesmo quadro. */
-      (function () {
-        document.addEventListener("click", function (evento) {
-          var botao = evento.target.closest("[data-copiar-cargas]");
-          if (!botao) return;
-          evento.preventDefault();
-
-          var cartao = botao.closest(".exercise");
-          if (!cartao) return;
-
-          var copiados = 0;
-          cartao.querySelectorAll("[data-anterior]").forEach(function (campo) {
-            var valor = campo.dataset.anterior;
-            /* Campo já preenchido não é sobrescrito: se a pessoa anotou a
-             * primeira série de hoje e só então tocou em copiar, o que ela
-             * fez hoje vale mais que o histórico. */
-            if (!valor || campo.value) return;
-            campo.value = valor;
-            copiados += 1;
-          });
-
-          botao.classList.add("is-feito");
-          var rotulo = botao.querySelector(".copiar-cargas__quando");
-          if (rotulo) {
-            rotulo.textContent = copiados
-              ? copiados + " preenchido" + (copiados > 1 ? "s" : "")
-              : "nada a copiar";
-          }
-          /* Volta ao normal em três segundos: o botão continua servindo para
-           * as séries que a pessoa ainda não fez. */
-          setTimeout(function () {
-            botao.classList.remove("is-feito");
-            if (rotulo) rotulo.textContent = botao.dataset.quando || "";
-          }, 3000);
-        });
-
-        /* Guarda o rótulo original antes do primeiro uso. */
-        document.querySelectorAll("[data-copiar-cargas]").forEach(function (b) {
-          var r = b.querySelector(".copiar-cargas__quando");
-          if (r) b.dataset.quando = r.textContent.trim();
-        });
-      })();
-    </script>
 
   {% endif %}
 {% endblock %}

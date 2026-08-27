@@ -14,3 +14,6 @@ media/
 # `mu-direct-games` entrou no repositório por um `git add -A` meu e não tem
 # nada a ver com o NutriPlan. Os arquivos continuam no disco.
 mu-direct-games/
+
+# O FORJA e outro aplicativo, com git proprio, que mora nesta mesma pasta.
+forja/

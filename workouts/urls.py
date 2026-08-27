@@ -12,14 +12,4 @@ urlpatterns = [
         name="record_load",
     ),
     path("exportar/saude.tcx", views.HealthExportView.as_view(), name="health_export"),
-    path(
-        "ficha/<int:session_id>/ajustar/",
-        views.AssistantView.as_view(),
-        name="assistant",
-    ),
-    path(
-        "ficha/<int:session_id>/ajustar/aplicar/",
-        views.AssistantApplyView.as_view(),
-        name="assistant_apply",
-    ),
 ]

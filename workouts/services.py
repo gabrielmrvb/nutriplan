@@ -198,6 +198,28 @@ def routine_is_current(plan, user) -> bool:
         # desfazendo a escolha da pessoa, está avisando que o catálogo mudou
         # embaixo dela.
         return False
+    # A prescrição do catálogo mudou embaixo da ficha?
+    #
+    # `sets`, faixa de repetições e descanso são copiados do modelo quando a
+    # ficha nasce, e ficavam congelados: mudar o descanso padrão no catálogo não
+    # chegava a quem já tinha ficha. A pessoa continuava vendo "3 min" numa
+    # versão do app que passou a prescrever 1:20.
+    prescrito = {
+        (i.exercise_id, i.sets, i.rep_min, i.rep_max, i.rest_seconds)
+        for template in templates_for(plan.split)
+        for i in template.items.all()
+    }
+    na_ficha = {
+        (i.exercise_id, i.sets, i.rep_min, i.rep_max, i.rest_seconds)
+        # Uma consulta, e não uma por sessão: esta função roda na entrada de
+        # toda visita à tela de treino.
+        for i in SessionExercise.objects.filter(session__plan=plan)
+    }
+    # Ficha ajustada à mão fica de fora: ali a divergência é a escolha da
+    # pessoa, e remontar apagaria justamente o que ela mudou.
+    if not plan.is_customized and not na_ficha <= prescrito:
+        return False
+
     if plan.is_customized:
         # Ficha ajustada à mão não é remontada pelo gerador. A pessoa trocou
         # aqueles exercícios por um motivo — joelho, equipamento ocupado,

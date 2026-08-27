@@ -14,7 +14,6 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from catalog.models import Food
-from plans import substitutions as sub
 
 
 class AtwaterTests(TestCase):
@@ -121,87 +120,6 @@ class SubstitutionFidelityTests(TestCase):
     def setUpTestData(cls):
         call_command("seed_catalog", verbosity=0)
 
-    def test_no_substitution_moves_a_secondary_macro_too_far(self):
-        base = Decimal("100")
-        pior = Decimal("0")
-        pior_troca = ""
-
-        for original in Food.objects.filter(is_active=True):
-            dominante = sub.dominant_macro(original)
-            if dominante == "mixed":
-                continue
-            alvo = original.macros_for(base)
-            secundarios = [m for m in sub.KCAL_PER_G if m != dominante]
-
-            for opcao in sub.substitutes_for(original, base):
-                macros = opcao["food"].macros_for(opcao["quantity"])
-                for m in secundarios:
-                    desvio = abs(macros[m] - alvo[m])
-                    if desvio > pior:
-                        pior, pior_troca = desvio, f"{original.name} -> {opcao['food'].name} ({m})"
-
-        self.assertLessEqual(
-            pior,
-            sub.MAX_SECONDARY_DRIFT_G,
-            f"pior deslocamento: {pior} g em {pior_troca}",
-        )
-
-    def test_the_feature_still_answers_for_almost_every_food(self):
-        """Filtro apertado demais devolve "não há substituto" e mata o recurso.
-
-        A medida é feita com a PORÇÃO PADRÃO de cada alimento, e não com 100 g
-        para todos. Cem gramas de azeite são 884 kcal — nenhuma troca fecha
-        isso, e a pergunta nunca é feita na vida real. Perguntar por uma
-        colher de azeite é a pergunta de verdade.
-        """
-        elegiveis = []
-        for food in Food.objects.filter(is_active=True):
-            porcao = food.portions.filter(is_default=True).first()
-            gramas = porcao.grams if porcao else Decimal("100")
-            if sub.substitutes_for(food, gramas):
-                elegiveis.append(food.name)
-
-        self.assertGreaterEqual(len(elegiveis), 50, f"só {len(elegiveis)} com alternativa")
-
-    def test_a_swap_never_leaves_the_role_it_belongs_to(self):
-        """O defeito que o papel no prato veio consertar.
-
-        Casar macro e caloria fazia o app oferecer 467 g de cebola no lugar de
-        150 g de arroz e 240 g de cenoura no lugar de uma banana. A conta
-        fechava e a refeição virava outra coisa — cebola e arroz dividem o
-        corredor do mercado, mas não dividem função nenhuma no prato.
-        """
-        for food in Food.objects.filter(is_active=True):
-            porcao = food.portions.filter(is_default=True).first()
-            gramas = porcao.grams if porcao else Decimal("100")
-            for opcao in sub.substitutes_for(food, gramas):
-                with self.subTest(de=food.name, para=opcao["food"].name):
-                    self.assertEqual(opcao["food"].role, food.role)
-
-    def test_no_swap_asks_for_more_than_four_portions(self):
-        """Um teto em gramas é cego ao alimento.
-
-        Quatrocentos gramas de arroz é um prato grande; 400 g de clara de ovo
-        são treze claras. E foi isso que o app ofereceu no lugar de um filé de
-        frango — 423 g, dentro do teto de 600 e fora da realidade de quem vai
-        cozinhar.
-        """
-        for food in Food.objects.filter(is_active=True):
-            porcao_origem = food.portions.filter(is_default=True).first()
-            gramas = porcao_origem.grams if porcao_origem else Decimal("100")
-
-            for opcao in sub.substitutes_for(food, gramas):
-                destino = opcao["food"].portions.filter(is_default=True).first()
-                if destino is None or destino.grams <= 0:
-                    continue
-                with self.subTest(de=food.name, para=opcao["food"].name):
-                    self.assertLessEqual(
-                        opcao["quantity"] / destino.grams,
-                        sub.MAX_PORTIONS,
-                        f"{opcao['quantity']}g é mais de {sub.MAX_PORTIONS} "
-                        f"x {destino.label}",
-                    )
-
     def test_every_food_declares_what_it_does_in_a_meal(self):
         sem_papel = [
             f.name
@@ -209,35 +127,6 @@ class SubstitutionFidelityTests(TestCase):
             if f.role == "other" and f.name not in ("Mel", "Açúcar mascavo")
         ]
         self.assertEqual(sem_papel, [], "alimentos sem papel definido")
-
-    def test_a_substitution_keeps_the_dominant_macro(self):
-        """O que a troca promete entregar, ela entrega."""
-        for original in Food.objects.filter(is_active=True)[:20]:
-            dominante = sub.dominant_macro(original)
-            if dominante == "mixed":
-                continue
-            alvo = original.macros_for(Decimal("100"))
-            for opcao in sub.substitutes_for(original, Decimal("100")):
-                with self.subTest(de=original.name, para=opcao["food"].name):
-                    entregue = opcao["food"].macros_for(opcao["quantity"])[dominante]
-                    esperado = alvo[dominante]
-                    if esperado <= 0:
-                        continue
-                    self.assertLessEqual(
-                        abs(entregue - esperado) / esperado,
-                        Decimal("0.06"),
-                        f"{dominante}: {entregue} contra {esperado}",
-                    )
-
-
-class SeedRetirementTests(TestCase):
-    """Renomear um alimento não pode duplicá-lo.
-
-    O seed casa por nome. Sem aposentar o que saiu do JSON, renomear "Clara de
-    ovo" para "Clara de ovo cozida" criava a nova e deixava a velha ativa —
-    duas entradas quase idênticas competindo nas substituições. Aconteceu em
-    produção: o catálogo foi de 102 para 103 itens sem ninguém adicionar nada.
-    """
 
     def test_a_food_that_left_the_json_is_deactivated_not_deleted(self):
         call_command("seed_catalog", verbosity=0)

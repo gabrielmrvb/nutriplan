@@ -433,6 +433,43 @@ class PrescriptionFields(models.Model):
         return f"{self.rep_min}-{self.rep_max}{unidade}"
 
     @property
+    def prescricao(self) -> str:
+        """A prescrição escrita por extenso.
+
+        "4 × 6-10" é notação de planilha: quem treina há anos lê de relance e
+        quem está começando não lê. O cartão passa a dizer a frase inteira, e
+        a notação some — o espaço custa uma linha e a clareza vale mais.
+        """
+        series = f"{self.sets} série" + ("s" if self.sets != 1 else "")
+        if self.measure == Measure.SECONDS:
+            if self.rep_min == self.rep_max:
+                return f"{series} de {self.rep_min} segundos"
+            return f"{series} de {self.rep_min} a {self.rep_max} segundos"
+        if self.rep_min == self.rep_max:
+            return f"{series} de {self.rep_min} repetições"
+        return f"{series} de {self.rep_min} a {self.rep_max} repetições"
+
+    @property
+    def intensidade(self) -> str:
+        """Quão perto da falha levar cada série.
+
+        Depende do exercício, e não é detalhe. Levar agachamento e supino à
+        falha em toda série é onde o risco de lesão mora e onde a fadiga
+        acumulada come o treino seguinte — a recomendação usual em movimento
+        multiarticular pesado é parar com uma ou duas repetições na reserva. No
+        isolado o custo de falhar é baixo e o estímulo compensa.
+
+        Um app que manda ir à falha em tudo está dando um conselho que um bom
+        treinador não daria.
+        """
+        if self.exercise.is_compound:
+            return (
+                "Pare com 1 a 2 repetições na reserva — em movimento pesado, "
+                "falhar toda série cobra caro no treino seguinte."
+            )
+        return "Leve até a falha na última série, com carga que permita a faixa."
+
+    @property
     def rest_display(self) -> str:
         if self.rest_seconds >= 60 and self.rest_seconds % 60 == 0:
             return f"{self.rest_seconds // 60} min"

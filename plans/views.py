@@ -17,15 +17,7 @@ from accounts.models import ACTIVITY_FACTORS, SyncedOperation
 from accounts.views import OnboardingRequiredMixin
 from catalog.models import Food
 
-from . import (
-    services,
-    shopping,
-    streaks,
-    substitutions,
-    tracking,
-    voice,
-    weight_trend,
-)
+from . import services, shopping, streaks, tracking, weight_trend
 from .calculations import (
     KCAL_PER_G_CARB,
     KCAL_PER_G_FAT,
@@ -425,52 +417,6 @@ class ShoppingListView(PlanRequiredMixin, TemplateView):
         return context
 
 
-class SubstituteOptionView(OnboardingRequiredMixin, View):
-    """Os alimentos de uma opção, cada um levando às próprias alternativas.
-
-    Existe porque tocar no nome do alimento para trocá-lo não é descoberto por
-    ninguém: o ⇄ ao lado do nome é pequeno e some no meio da lista. O botão
-    "Substituir alimento" é explícito, e este passo pergunta o óbvio — qual
-    deles — em vez de adivinhar.
-    """
-
-    def get(self, request, option_id, *args, **kwargs):
-        option = get_object_or_404(
-            MealOption,
-            pk=option_id,
-            slot__plan__user=request.user,
-        )
-        return render(
-            request,
-            "plans/partials/option_foods.html",
-            {"option": option},
-        )
-
-
-class SubstituteFoodView(OnboardingRequiredMixin, View):
-    """Alternativas equivalentes a um alimento, em HTML pronto para o modal.
-
-    Devolve um fragmento e não JSON de propósito: quem monta a tabela é o
-    template, do mesmo jeito que o resto do app, e o JavaScript da página fica
-    sendo três linhas de `fetch` + `innerHTML` em vez de um renderizador
-    paralelo que precisa ser mantido em dia com o servidor.
-    """
-
-    def get(self, request, food_id, *args, **kwargs):
-        food = get_object_or_404(Food, pk=food_id, is_active=True)
-        try:
-            grams = Decimal(request.GET.get("g", "100"))
-        except (InvalidOperation, TypeError):
-            grams = Decimal("100")
-        grams = max(Decimal("1"), min(grams, Decimal("2000")))
-
-        return render(
-            request,
-            "plans/partials/substitutes.html",
-            {"swap": substitutions.swap_summary(food, grams)},
-        )
-
-
 class LogHydrationView(OnboardingRequiredMixin, View):
     """Soma água ao dia. Só POST — isso muda estado.
 
@@ -492,15 +438,10 @@ class LogHydrationView(OnboardingRequiredMixin, View):
         # inválido deixava uma linha de 0 ml no banco — inofensiva na conta e
         # suja o bastante para confundir quem for depurar o dia depois.
         #
-        # A faixa é mais larga que os três botões porque a voz também entra por
-        # aqui, e quem fala "trezentos mililitros" quis dizer trezentos. Múltiplo
-        # de dez, entre 50 e 2000: continua recusando o número digitado errado
-        # sem obrigar a fala a caber num botão.
-        valido = ml == 0 or (
-            ml in self.PASSOS
-            or (voice.VOZ_MIN_ML <= ml <= voice.VOZ_MAX_ML and ml % 10 == 0)
-        )
-        if not valido:
+        # De volta aos três botões: a faixa larga existia para a entrada por
+        # voz, que foi removida. Sem ela, aceitar qualquer múltiplo de dez seria
+        # aceitar um valor que nenhuma tela produz.
+        if ml != 0 and ml not in self.PASSOS:
             messages.error(request, "Quantidade de água inválida.")
             return redirect("plans:today")
 
@@ -522,40 +463,3 @@ class LogHydrationView(OnboardingRequiredMixin, View):
 
         registro.save(update_fields=["ml", "updated_at"])
         return redirect("plans:today")
-
-
-class VoiceView(OnboardingRequiredMixin, View):
-    """Lê a frase falada e devolve a proposta — sem gravar nada.
-
-    O navegador faz só a parte que ele faz melhor: som vira texto, com a API
-    nativa de reconhecimento. O entendimento acontece aqui, em Python, porque é
-    aqui que a suíte de testes vive — um interpretador dentro do template seria
-    testável só abrindo um navegador com microfone, o que na prática significa
-    não testado.
-
-    E é sempre proposta, nunca ação: reconhecimento de voz erra em silêncio.
-    "Trezentos" e "trezentos e cinquenta" saem parecidos num celular dentro da
-    academia, e a pessoa precisa ver o número antes de ele virar registro.
-    """
-
-    def post(self, request, *args, **kwargs):
-        frase = (request.POST.get("frase") or "").strip()
-        plano = services.get_active_plan(request.user)
-        slots = list(plano.slots.order_by("order")) if plano else []
-
-        intencao = voice.interpretar(frase, slots=slots)
-
-        return JsonResponse(
-            {
-                "entendeu": intencao.entendeu,
-                "tipo": intencao.tipo,
-                "resumo": intencao.resumo,
-                "erro": intencao.erro,
-                "ml": intencao.ml,
-                "slot_id": intencao.slot_id,
-                "slot_nome": intencao.slot_nome,
-                "status": intencao.status,
-                "nota": intencao.nota,
-                "frase": frase,
-            }
-        )

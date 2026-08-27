@@ -169,7 +169,6 @@ coluna da direita), não entre ela e o almoço.
                 meta batida
               </span>
             {% endif %}
-            {% include "plans/partials/_microfone.html" with rotulo="Registrar água por voz" %}
             {% if hidratacao_bebida %}
               <form method="post" action="{% url 'plans:log_hydration' %}" class="agua__zerar">
                 {% csrf_token %}
@@ -205,31 +204,6 @@ coluna da direita), não entre ela e o almoço.
           </div>
         </div>
 
-        {% comment %}
-          A proposta da voz, sem cartão.
-
-          O microfone deixou de ser um bloco no topo e virou um ícone dentro
-          das áreas que ele preenche — água e cardápio. Um cartão de 140px
-          explicando o que dizer ocupava, todo dia, o espaço de uma refeição
-          inteira para um recurso que se usa uma vez por semana.
-
-          Este bloco fica escondido e só aparece com a proposta pronta.
-        {% endcomment %}
-        <div class="voz" data-voz hidden
-             data-csrf="{{ csrf_token }}"
-             data-acao-voz="{% url 'plans:voice' %}"
-             data-acao-agua="{% url 'plans:log_hydration' %}"
-             data-acao-refeicao="{% url 'plans:mark_meal' 0 %}">
-          <form class="voz__proposta" method="post" data-voz-proposta hidden>
-            {% csrf_token %}
-            <p class="voz__frase" data-voz-frase></p>
-            <p class="voz__resumo" data-voz-resumo></p>
-            <div class="voz__acoes">
-              <button type="submit" class="btn btn--primary btn--sm">Confirmar</button>
-              <button type="button" class="btn btn--quiet" data-voz-cancelar>
-                Cancelar
-              </button>
-            </div>
           </form>
         </div>
 
@@ -237,10 +211,7 @@ coluna da direita), não entre ela e o almoço.
 
         <div class="card__head">
           <h2>Seu cardápio de hoje</h2>
-          <span class="card__head-acoes">
-            {% include "plans/partials/_microfone.html" with rotulo="Registrar refeição por voz" %}
-            <a href="{% url 'plans:shopping' %}">Lista de compras</a>
-          </span>
+          <a href="{% url 'plans:shopping' %}">Lista de compras</a>
         </div>
 
         {% for slot in slots %}
@@ -286,13 +257,7 @@ coluna da direita), não entre ela e o almoço.
                       <ul class="option__items">
                         {% for item in option.ingredient_list %}
                           <li>
-                            <button type="button" class="swap-open"
-                                    data-troca="{% url 'plans:substitute_food' item.food.pk %}?g={{ item.quantity|floatformat:0 }}"
-                                    data-nome="{{ item.food.name }}"
-                                    title="Trocar por um alimento equivalente">
-                              {{ item.food.name }}
-                              <span aria-hidden="true">⇄</span>
-                            </button>
+                            
                             <b>{{ item.quantity|floatformat:0 }} {{ item.unit }}</b>
                           </li>
                         {% endfor %}
@@ -301,22 +266,6 @@ coluna da direita), não entre ela e o almoço.
                         <p class="option__how">{{ option.template.instructions }}</p>
                       {% endif %}
 
-                      {% comment %}
-                        Tocar no nome do alimento já abria a troca, mas o ⇄ ao
-                        lado do nome é pequeno e some no meio da lista —
-                        ninguém descobre. Este botão diz o que faz.
-                      {% endcomment %}
-                      <button type="button" class="option__trocar"
-                              data-troca="{% url 'plans:substitute_option' option.pk %}"
-                              data-nome="{{ option.template.name }}"
-                              data-titulo="Substituir em {{ option.template.name }}">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                             aria-hidden="true">
-                          <path d="M4 8h13l-3-3M20 16H7l3 3"/>
-                        </svg>
-                        Substituir alimento
-                      </button>
 
                       <form method="post" action="{% url 'plans:mark_meal' slot.pk %}">
                         {% csrf_token %}
@@ -562,227 +511,9 @@ coluna da direita), não entre ela e o almoço.
       </section>
     </aside>
   </div>
-  {% comment %}
-    Modal de substituição. O conteúdo vem do servidor no clique: o cálculo de
-    equivalência precisa do catálogo inteiro, e mandar isso para o navegador de
-    todo mundo, em toda visita, para talvez ser usado uma vez, seria pagar caro
-    por uma conveniência rara.
-  {% endcomment %}
-  <dialog class="modal" id="swap-modal">
-    <div class="modal__head">
-      <strong class="modal__title" data-swap-titulo></strong>
-      <button type="button" class="modal__close" data-swap-fechar
-              aria-label="Fechar">&times;</button>
-    </div>
-    <div class="swap__body" data-swap-corpo></div>
-  </dialog>
 
-  <script>
-    (function () {
-      var modal = document.getElementById("swap-modal");
-      if (!modal || !modal.showModal) return;
-      var corpo = modal.querySelector("[data-swap-corpo]");
-      var titulo = modal.querySelector("[data-swap-titulo]");
 
-      document.addEventListener("click", function (event) {
-        var botao = event.target.closest("[data-troca]");
-        if (botao) {
-          // O primeiro passo pergunta QUAL alimento; o segundo troca um
-          // alimento. "Trocar <nome da receita>" no primeiro passo prometia
-          // trocar o prato inteiro, que não é o que acontece.
-          titulo.textContent = botao.dataset.titulo || "Trocar " + botao.dataset.nome;
-          // O esqueleto tem a altura das opções que estão vindo, então o
-          // modal já abre do tamanho certo. O aviso de texto continua ali
-          // para o leitor de tela, que não enxerga bloco pulsando.
-          corpo.innerHTML =
-            '<p class="swap__loading" role="status">Procurando equivalentes…</p>' +
-            '<div aria-hidden="true">' +
-            '<div class="esqueleto esqueleto--linha"></div>' +
-            '<div class="esqueleto esqueleto--linha"></div>' +
-            '<div class="esqueleto esqueleto--linha"></div>' +
-            '</div>';
-          modal.showModal();
-          fetch(botao.dataset.troca, {headers: {"X-Requested-With": "fetch"}})
-            .then(function (r) { return r.text(); })
-            .then(function (html) { corpo.innerHTML = html; })
-            .catch(function () {
-              corpo.innerHTML =
-                '<p class="swap__empty">Não deu para carregar agora. Tente de novo.</p>';
-            });
-          return;
-        }
-        if (event.target.closest("[data-swap-fechar]")) modal.close();
-      });
 
-      modal.addEventListener("click", function (event) {
-        if (event.target === modal) modal.close();
-      });
-    })();
-  </script>
 
-  <script>
-    /* Entrada por voz.
-     *
-     * O navegador faz só a parte que ele faz melhor: som vira texto, com a API
-     * nativa. O entendimento acontece no servidor, em Python, onde a suíte de
-     * testes vive — um interpretador aqui dentro seria testável só abrindo um
-     * navegador com microfone, o que na prática significa não testado.
-     *
-     * E é sempre proposta antes de ação. Reconhecimento de fala erra em
-     * silêncio: "trezentos" e "trezentos e cinquenta" saem parecidos num
-     * celular dentro de uma academia, e um registro errado de água estraga a
-     * ofensiva sem nunca dar erro. */
-    (function () {
-      var caixa = document.querySelector("[data-voz]");
-      if (!caixa) return;
-
-      var Reconhecimento = window.SpeechRecognition || window.webkitSpeechRecognition;
-      /* Sem reconhecimento no navegador, o bloco simplesmente não aparece. Um
-       * botão de microfone que não escuta é pior que a ausência dele. */
-      if (!Reconhecimento) return;
-
-      /* Os microfones são vários e ficam FORA deste bloco — um na linha da
-       * água, outro no cabeçalho do cardápio. Só aparecem aqui, depois de o
-       * navegador confirmar que sabe ouvir. */
-      var micros = document.querySelectorAll("[data-voz-ouvir]");
-      if (!micros.length) return;
-      micros.forEach(function (m) { m.hidden = false; });
-
-      var proposta = caixa.querySelector("[data-voz-proposta]");
-      var elFrase = caixa.querySelector("[data-voz-frase]");
-      var elResumo = caixa.querySelector("[data-voz-resumo]");
-      var ouvindo = false;
-      var atual = null;
-
-      function limpar() {
-        proposta.hidden = true;
-        proposta.querySelectorAll("[data-voz-campo]").forEach(function (c) {
-          c.remove();
-        });
-      }
-
-      function campo(nome, valor) {
-        var el = document.createElement("input");
-        el.type = "hidden";
-        el.name = nome;
-        el.value = valor;
-        el.setAttribute("data-voz-campo", "");
-        proposta.appendChild(el);
-      }
-
-      function mostrar(dados) {
-        limpar();
-        /* A proposta aparece logo abaixo do microfone que foi tocado, e não
-         * num lugar fixo da tela: com dois microfones em pontos distantes,
-         * um painel fixo obrigaria a pessoa a procurar a resposta do que
-         * acabou de falar. */
-        if (atual && atual.parentElement) {
-          atual.parentElement.insertAdjacentElement("afterend", caixa);
-        }
-        caixa.hidden = false;
-        elFrase.textContent = "“" + dados.frase + "”";
-
-        if (!dados.entendeu) {
-          elResumo.textContent = dados.erro;
-          elResumo.classList.add("voz__resumo--erro");
-          proposta.hidden = false;
-          proposta.querySelector('button[type="submit"]').hidden = true;
-          return;
-        }
-
-        elResumo.textContent = dados.resumo;
-        elResumo.classList.remove("voz__resumo--erro");
-        proposta.querySelector('button[type="submit"]').hidden = false;
-
-        if (dados.tipo === "agua") {
-          proposta.action = caixa.dataset.acaoAgua;
-          campo("ml", dados.ml);
-        } else {
-          proposta.action = caixa.dataset.acaoRefeicao.replace("0", dados.slot_id);
-          campo("status", dados.status);
-          if (dados.nota) campo("notes", dados.nota);
-        }
-        proposta.hidden = false;
-      }
-
-      function entender(frase) {
-        var dados = new FormData();
-        dados.append("frase", frase);
-        dados.append("csrfmiddlewaretoken", caixa.dataset.csrf);
-
-        fetch(caixa.dataset.acaoVoz, {
-          method: "POST",
-          body: dados,
-          credentials: "same-origin",
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (dados) {
-            if (atual) atual.classList.remove("is-pensando");
-            mostrar(dados);
-          })
-          .catch(function () {
-            if (atual) atual.classList.remove("is-pensando");
-            elFrase.textContent = "";
-            elResumo.textContent = "Não deu para processar agora. Tente de novo.";
-            elResumo.classList.add("voz__resumo--erro");
-            proposta.hidden = false;
-            caixa.hidden = false;
-          });
-      }
-
-      micros.forEach(function (micro) {
-      micro.addEventListener("click", function () {
-        if (ouvindo) return;
-        atual = micro;
-
-        var motor = new Reconhecimento();
-        motor.lang = "pt-BR";
-        motor.interimResults = false;
-        motor.maxAlternatives = 1;
-
-        motor.onstart = function () {
-          ouvindo = true;
-          micro.classList.add("is-ouvindo");
-        };
-        motor.onresult = function (evento) {
-          micro.classList.remove("is-ouvindo");
-          micro.classList.add("is-pensando");
-          entender(evento.results[0][0].transcript);
-        };
-        motor.onerror = function (evento) {
-          /* `not-allowed` é a permissão negada, e merece texto próprio: o
-           * genérico manda a pessoa tentar de novo num botão que nunca vai
-           * funcionar até ela mexer nas permissões do navegador. */
-          elFrase.textContent = "";
-          elResumo.textContent =
-            evento.error === "not-allowed"
-              ? "O navegador bloqueou o microfone. Libere o acesso nas permissões do site."
-              : "Não consegui ouvir. Tente de novo num lugar mais silencioso.";
-          elResumo.classList.add("voz__resumo--erro");
-          proposta.querySelector('button[type="submit"]').hidden = true;
-          proposta.hidden = false;
-          caixa.hidden = false;
-        };
-        motor.onend = function () {
-          ouvindo = false;
-          micro.classList.remove("is-ouvindo");
-        };
-
-        limpar();
-        proposta.hidden = true;
-        caixa.hidden = true;
-        motor.start();
-      });
-      });
-
-      caixa.addEventListener("click", function (evento) {
-        if (evento.target.closest("[data-voz-cancelar]")) {
-          limpar();
-          proposta.hidden = true;
-          caixa.hidden = true;
-        }
-      });
-    })();
-  </script>
 
 {% endblock %}

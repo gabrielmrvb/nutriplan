@@ -11,35 +11,35 @@
         4,
         6,
         10,
-        120
+        80
       ],
       [
         "Supino reto com barra",
         4,
         6,
         10,
-        120
+        80
       ],
       [
         "Puxada frente na polia",
         4,
         8,
         12,
-        90
+        80
       ],
       [
         "Stiff com barra",
         3,
         8,
         12,
-        90
+        80
       ],
       [
         "Desenvolvimento com halteres",
         3,
         8,
         12,
-        90
+        80
       ],
       [
         "Rosca direta com barra",
@@ -60,7 +60,7 @@
         3,
         30,
         45,
-        45,
+        60,
         "seconds"
       ]
     ]
@@ -77,28 +77,28 @@
         4,
         6,
         10,
-        120
+        80
       ],
       [
         "Remada curvada com barra",
         4,
         8,
         12,
-        90
+        80
       ],
       [
         "Desenvolvimento com halteres",
         3,
         8,
         12,
-        90
+        80
       ],
       [
         "Puxada frente na polia",
         3,
         8,
         12,
-        90
+        80
       ],
       [
         "Rosca direta com barra",
@@ -128,21 +128,21 @@
         4,
         6,
         10,
-        120
+        80
       ],
       [
         "Leg press 45°",
         3,
         10,
         15,
-        90
+        80
       ],
       [
         "Stiff com barra",
         3,
         8,
         12,
-        90
+        80
       ],
       [
         "Mesa flexora",
@@ -156,14 +156,14 @@
         4,
         12,
         20,
-        45
+        60
       ],
       [
         "Prancha abdominal",
         3,
         30,
         45,
-        45,
+        60,
         "seconds"
       ]
     ]
@@ -180,28 +180,28 @@
         4,
         6,
         10,
-        180
+        80
       ],
       [
         "Supino inclinado com halteres",
         4,
         8,
         12,
-        120
+        80
       ],
       [
         "Flexão de braço",
         3,
         10,
         15,
-        90
+        80
       ],
       [
         "Desenvolvimento com halteres",
         3,
         8,
         12,
-        120
+        80
       ],
       [
         "Crucifixo na máquina (voador)",
@@ -215,7 +215,7 @@
         3,
         12,
         15,
-        45
+        60
       ],
       [
         "Tríceps na polia com corda",
@@ -229,14 +229,14 @@
         3,
         10,
         12,
-        75
+        60
       ],
       [
         "Mergulho no banco",
         3,
         10,
         15,
-        90
+        80
       ]
     ]
   },
@@ -252,35 +252,35 @@
         4,
         8,
         12,
-        120
+        80
       ],
       [
         "Remada curvada com barra",
         4,
         8,
         12,
-        180
+        80
       ],
       [
         "Remada baixa na polia",
         3,
         10,
         12,
-        90
+        80
       ],
       [
         "Remada unilateral com halter",
         3,
         10,
         12,
-        90
+        80
       ],
       [
         "Rosca direta com barra",
         3,
         10,
         12,
-        75
+        60
       ],
       [
         "Rosca alternada com halteres",
@@ -324,14 +324,14 @@
         4,
         6,
         10,
-        180
+        80
       ],
       [
         "Leg press 45°",
         4,
         10,
         12,
-        120
+        80
       ],
       [
         "Cadeira extensora",
@@ -345,7 +345,7 @@
         4,
         8,
         12,
-        120
+        80
       ],
       [
         "Mesa flexora",
@@ -366,14 +366,14 @@
         4,
         12,
         15,
-        45
+        60
       ],
       [
         "Panturrilha sentado",
         3,
         15,
         20,
-        45
+        60
       ]
     ]
   }
