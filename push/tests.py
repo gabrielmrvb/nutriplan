@@ -327,10 +327,25 @@ class InstallabilityTests(TestCase):
         cartao = css.split(chr(10) + ".install {", 1)[1].split("}", 1)[0]
         self.assertIn("pointer-events: none", cartao)
 
-        for seletor in (".install__go,", ".install__close {"):
+        # TODOS os blocos de cada seletor, e não o primeiro.
+        #
+        # `.install__go` passou a aparecer também na lista de retorno ao toque
+        # da seção 10, que fica ANTES no arquivo. Um `split(marca, 1)` pegava
+        # aquele bloco — que trata de `transform` e não de `pointer-events` —
+        # e afirmava com segurança que a regra do cartão tinha sumido. É a
+        # armadilha recorrente desta base: o seletor aparece em mais de um
+        # lugar, e ler o primeiro responde a pergunta errada.
+        for seletor in (".install__go", ".install__close"):
             with self.subTest(seletor=seletor):
-                bloco = css.split(chr(10) + seletor, 1)[1].split("}", 1)[0]
-                self.assertIn("pointer-events: auto", bloco)
+                blocos = [
+                    trecho.split("}", 1)[0]
+                    for marca in (seletor + ",", seletor + " {")
+                    for trecho in css.split(chr(10) + marca)[1:]
+                ]
+                self.assertTrue(
+                    any("pointer-events: auto" in bloco for bloco in blocos),
+                    f"{seletor} não recupera o toque em nenhuma das suas regras",
+                )
 
     def test_the_service_worker_registers_for_a_visitor_too(self):
         """Sem service worker registrado na primeira página, não há convite."""

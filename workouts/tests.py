@@ -2054,3 +2054,69 @@ class SplitPreferenceTests(TestCase):
         """Valor fora do enum chega de banco antigo ou de POST forjado. A
         resposta é a tabela por frequência, não uma exceção."""
         self.assertEqual(services.split_for(3, "seja-la-o-que-for"), Split.ABC)
+
+
+class MuscleCoverageTests(TestCase):
+    """Nenhum grupo muscular fica de fora, em nenhum dos 21 caminhos.
+
+    O teste antigo media DIVISÃO por divisão e só os cinco essenciais. Uma
+    auditoria mediu o que a pessoa realmente recebe — preferência vezes
+    frequência, com o ciclo repetindo para preencher a semana — e achou três
+    buracos que ninguém via:
+
+      ABC   sem NENHUM trabalho de core, em cinco caminhos. É o padrão do app.
+      AB    sem trapézio e sem antebraço.
+      FULL  sem panturrilha.
+
+    Nenhum deles quebrava teste, porque core, trapézio, antebraço e panturrilha
+    não são "essenciais" na régua antiga — e é justamente por serem secundários
+    que somem sem ninguém notar.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    #: O corpo inteiro em UMA sessão por semana não cabe: o dia está no teto de
+    #: nove exercícios, e com uma sessão semanal isolado de trapézio e de
+    #: antebraço é o primeiro a cortar — a puxada composta já carrega os dois.
+    TOLERADOS = {
+        (Split.FULL, 1): {MuscleGroup.TRAPS, MuscleGroup.FOREARMS},
+    }
+
+    def test_every_preference_and_frequency_reaches_every_muscle(self):
+        todos = set(MuscleGroup.values)
+        for preferencia in SplitPreference.values:
+            for dias in range(1, 8):
+                divisao = services.split_for(dias, preferencia)
+                templates = list(
+                    WorkoutTemplate.objects.filter(
+                        split=divisao, is_active=True
+                    ).order_by("order")
+                )
+                # O ciclo repete para preencher a semana: cinco dias num ABC
+                # viram A, B, C, A, B — e é a semana que a pessoa treina, não
+                # a divisão no papel, que decide o que ela nunca faz.
+                treinados = {
+                    item.exercise.muscle_group
+                    for indice in range(dias)
+                    for item in templates[indice % len(templates)].items.all()
+                }
+                faltando = todos - treinados - self.TOLERADOS.get((divisao, dias), set())
+                with self.subTest(preferencia=preferencia, dias=dias):
+                    self.assertEqual(
+                        faltando,
+                        set(),
+                        f"{preferencia} treinando {dias}x cai em {divisao} "
+                        f"e nunca treina {sorted(faltando)}",
+                    )
+
+    def test_the_default_split_trains_the_core(self):
+        """O ABC é o que a maioria recebe. Ficar sem core ali é o buraco com
+        mais gente dentro."""
+        grupos = set(
+            WorkoutTemplate.objects.filter(split=Split.ABC, is_active=True)
+            .values_list("items__exercise__muscle_group", flat=True)
+            .distinct()
+        )
+        self.assertIn(MuscleGroup.CORE, grupos)

@@ -301,6 +301,14 @@ class MarkMealView(OnboardingRequiredMixin, View):
         return redirect("plans:today")
 
 
+#: Teto de gramas por alimento numa refeição fora do plano.
+#:
+#: Três quilos é absurdo de propósito: o número existe para barrar dedo
+#: escorregando no teclado ("1000" virando "10000"), e não para julgar quanto
+#: alguém comeu. Vale para a SOMA das linhas daquele alimento.
+LIMITE_GRAMAS = Decimal("3000")
+
+
 def _itens_descritos(dados) -> list:
     """Os pares `(Food, gramas)` que a pessoa descreveu, ignorando o resto.
 
@@ -326,11 +334,30 @@ def _itens_descritos(dados) -> list:
             valor = Decimal(str(quantidade).replace(",", "."))
         except (InvalidOperation, TypeError):
             continue
-        # Zero grama de alguma coisa é a linha que a pessoa começou e
-        # abandonou, e peso negativo não existe.
-        if valor <= 0 or valor > 3000:
+        # `Decimal("NaN")` NÃO levanta ao ser construído — ele constrói um NaN,
+        # e a comparação abaixo é que estourava `InvalidOperation`, com o
+        # erro 500 chegando na cara de quem só queria registrar o almoço.
+        # `is_finite()` cobre NaN e infinito de uma vez.
+        if not valor.is_finite():
             continue
-        pedidos[nome.casefold()] = valor
+        # Zero grama de alguma coisa é a linha que a pessoa começou e
+        # abandonou, e peso negativo não existe. Três quilos é o teto: acima
+        # disso é dedo escorregando no teclado, não refeição.
+        if valor <= 0 or valor > LIMITE_GRAMAS:
+            continue
+        # SOMA em vez de sobrescrever. Arroz no almoço e arroz de novo à noite
+        # é a mesma linha do catálogo duas vezes, e a versão anterior guardava
+        # só a última: "150 g" e depois "100 g" viravam 100, não 250.
+        #
+        # E o teto vale para a SOMA, não para a linha: com ele só por linha,
+        # duas de 2 kg passavam e viravam 4 kg de arroz num prato — o teto
+        # existe para barrar dedo escorregando no teclado, e escorregar duas
+        # vezes é o caso mais provável, não o menos.
+        chave = nome.casefold()
+        somado = pedidos.get(chave, Decimal("0")) + valor
+        if somado > LIMITE_GRAMAS:
+            continue
+        pedidos[chave] = somado
 
     if not pedidos:
         return []

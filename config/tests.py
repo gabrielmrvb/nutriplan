@@ -1119,6 +1119,105 @@ class DesignSystemTests(TestCase):
         self.assertIn("1fr 1fr", media[1].split("}", 1)[0])
 
 
+class DayColourContrastTests(TestCase):
+    """As cinco cores de dia, medidas nos três usos que elas têm.
+
+    Elas ficaram de fora de todos os testes de contraste porque não são texto
+    nem pílula: são uma paleta de IDENTIDADE, usada ora como fundo, ora como
+    cor de texto, ora como tinta. `ContrastTests` mede os três tons de texto
+    contra as superfícies; `PillContrastTests` mede marca, acento e âmbar
+    contra a própria tinta. Nenhum dos dois olhava para cá.
+
+    O resultado: `--dia-a` a `--dia-e` eram os únicos tokens de COR sem versão
+    no tema claro. As do escuro são claras de propósito — menta, azul-gelo,
+    âmbar — e vazavam inteiras para o claro, onde a letra do dia na tela de
+    treino dava 1,72:1 com branco por cima. Ilegível, e sem nada avisando.
+    """
+
+    MINIMO = 4.5
+
+    #: Os três usos reais, lidos do CSS:
+    #:   .session__badge[data-dia]      → `--on-brand` SOBRE a cor
+    #:   .day-chip__label[data-dia]     → a cor sobre a própria tinta a 22%
+    #:   .card[data-dia]                → a cor como filete, e como texto no cartão
+    TINTA = 0.22
+
+    def setUp(self):
+        self.css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+
+    def _conferir(self, escopo, rotulo, fundo_da_tinta):
+        tokens = _tokens(self.css, escopo)
+        for letra in "abcde":
+            cor = tokens.get(f"--dia-{letra}")
+            with self.subTest(tema=rotulo, dia=letra):
+                self.assertIsNotNone(
+                    cor, f"--dia-{letra} não existe no tema {rotulo}"
+                )
+
+                sobre_texto = _contraste(tokens["--on-brand"], cor)
+                self.assertGreaterEqual(
+                    sobre_texto,
+                    self.MINIMO,
+                    f"--on-brand sobre --dia-{letra} dá {sobre_texto:.2f}:1",
+                )
+
+                tinta = _sobre(cor, self.TINTA, tokens[fundo_da_tinta])
+                na_tinta = _contraste(cor, tinta)
+                self.assertGreaterEqual(
+                    na_tinta,
+                    self.MINIMO,
+                    f"--dia-{letra} sobre a própria tinta dá {na_tinta:.2f}:1",
+                )
+
+                no_cartao = _contraste(cor, tokens["--surface"])
+                self.assertGreaterEqual(
+                    no_cartao,
+                    self.MINIMO,
+                    f"--dia-{letra} sobre --surface dá {no_cartao:.2f}:1",
+                )
+
+    def test_dark_theme_day_colours_are_readable(self):
+        self._conferir(":root {", "escuro", "--brand-soft")
+
+    def test_light_theme_day_colours_are_readable(self):
+        self._conferir(
+            "prefers-color-scheme: light) {" + chr(10) + "  :root {",
+            "claro",
+            "--brand-soft",
+        )
+
+    def test_no_colour_token_is_left_without_a_light_theme_value(self):
+        """A trava geral, e a razão de este teste existir.
+
+        Token de cor que só existe no escuro vaza inteiro para o claro, e vaza
+        em silêncio: o CSS é válido, a regra aplica, e o resultado é texto da
+        cor errada num fundo da cor errada. Só tom, raio e tempo podem faltar —
+        esses não têm tema.
+        """
+        def declarados(escopo):
+            trecho = self.css.split(escopo, 1)[1].split(chr(10) + "}", 1)[0]
+            return dict(re.findall(r"^\s*(--[\w-]+):\s*([^;]+);", trecho, re.M))
+
+        escuro = declarados(":root {")
+        claro = declarados(
+            "prefers-color-scheme: light) {" + chr(10) + "  :root {"
+        )
+
+        # `_tokens` não serve aqui: ele é um leitor de PALETA e guarda só
+        # valores `#rrggbb`. A borda do escuro é hexadecimal e a do claro é
+        # `rgba()` — o mesmo token, escrito de duas formas, e o leitor de
+        # paleta enxergaria a segunda como ausente.
+        def eh_cor(valor):
+            valor = valor.strip()
+            return valor.startswith("#") or valor.startswith("rgb")
+
+        orfaos = sorted(
+            nome
+            for nome, valor in escuro.items()
+            if eh_cor(valor) and nome not in claro
+        )
+        self.assertEqual(orfaos, [], f"cor sem versão no tema claro: {orfaos}")
+
 class HasSelectorTests(TestCase):
     """`:has()` não decide layout neste projeto.
 
@@ -1169,3 +1268,91 @@ class HasSelectorTests(TestCase):
         """O padrão que substitui o `:has()`: o input é filho do label, então
         só um irmão é alcançável — e `~` funciona em qualquer navegador."""
         self.assertIn(".segmented input:checked ~ .segmented__fundo", self.css)
+
+
+class TouchFeedbackTests(TestCase):
+    """Tudo que o dedo toca responde ao dedo, e responde igual.
+
+    Uma auditoria achou onze clicáveis sem retorno nenhum — entre eles as
+    SANFONAS, que são os elementos mais tocados do app: abrir um exercício e
+    abrir uma opção de refeição. Nada quebrava; o toque simplesmente não dizia
+    "recebi", e num app usado de pé com 4G da rua essa fração de segundo é a
+    diferença entre tocar uma vez e tocar quatro.
+    """
+
+    #: Clicáveis que NÃO afundam, com o motivo. Uma classe nova aparece aqui
+    #: por decisão, e não por esquecimento.
+    ISENTOS = {
+        ".chip": "três das quatro ocorrências são <span> decorativo",
+    }
+
+    def setUp(self):
+        self.css = _sem_comentarios(
+            (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+        )
+        self.html = ""
+        for caminho in (RAIZ / "templates").rglob("*.html"):
+            self.html += caminho.read_text(encoding="utf-8")
+
+    def _com_escala(self):
+        achados = set()
+        for bloco in re.finditer(
+            r"([^{}]+)\{([^}]*transform:\s*scale\([^)]*\)[^}]*)\}", self.css
+        ):
+            for seletor in bloco.group(1).split(","):
+                seletor = seletor.strip()
+                if seletor.endswith(":active"):
+                    achados.add(seletor[: -len(":active")])
+        return achados
+
+    def test_every_clickable_class_gives_the_finger_an_answer(self):
+        com_escala = self._com_escala()
+        clicaveis = set()
+        for m in re.finditer(r'<(?:button|a|summary)\b[^>]*class="([^"{}]+)"', self.html):
+            for classe in m.group(1).split():
+                clicaveis.add("." + classe)
+
+        def coberto(classe):
+            if classe in com_escala or classe in self.ISENTOS:
+                return True
+            # Modificador BEM anda sempre com o bloco: `.btn--primary` nunca
+            # aparece sozinho no HTML, e quem afunda é `.btn`. Cobrar a escala
+            # do modificador seria pedir a mesma regra cinco vezes.
+            bloco = classe.split("--", 1)[0]
+            return bloco != classe and bloco in com_escala
+
+        faltando = sorted(
+            c
+            for c in clicaveis
+            if not coberto(c) and (c + " {" in self.css or c + "," in self.css)
+        )
+        self.assertEqual(
+            faltando, [], f"clicável sem retorno ao toque: {faltando}"
+        )
+
+    def test_the_three_lists_of_the_touch_section_are_the_same_list(self):
+        """Afundar, transitar e ter saída para `prefers-reduced-motion` são
+        três regras sobre o MESMO conjunto. Divergiram uma vez e o resultado
+        foi gente com "reduzir movimento" ligado recebendo animação."""
+        escala = self._com_escala()
+
+        # TODOS os blocos de `prefers-reduced-motion`, e não o primeiro.
+        #
+        # Ler só o primeiro é a armadilha recorrente desta base, e ela pegou
+        # este teste na estreia: o arquivo tem quatro blocos de menos
+        # movimento, o `split(..., 1)` parava no primeiro `transform: none;`
+        # que encontrasse depois do primeiro deles, e a lista grande — que
+        # está no segundo — ficava de fora inteira.
+        sem_movimento = set()
+        for trecho in self.css.split("prefers-reduced-motion")[1:]:
+            for regra in re.finditer(r"([^{}]+)\{[^}]*transform:\s*none[^}]*\}", trecho):
+                for seletor in regra.group(1).split(","):
+                    seletor = seletor.strip()
+                    if seletor.endswith(":active"):
+                        sem_movimento.add(seletor[: -len(":active")])
+
+        self.assertEqual(
+            escala - sem_movimento,
+            set(),
+            f"afunda sem saída para menos movimento: {escala - sem_movimento}",
+        )

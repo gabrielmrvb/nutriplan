@@ -20,6 +20,18 @@
         "8100"
       ],
       "port": 8100
+    },
+    {
+      "name": "moldes",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8123",
+        "--directory",
+        "moldes"
+      ],
+      "port": 8123
     }
   ]
 }

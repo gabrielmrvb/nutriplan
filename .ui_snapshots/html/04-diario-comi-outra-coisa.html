@@ -1,3 +1,14 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  
+  <meta name="theme-color" content="#f4f6f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#090c0b" media="(prefers-color-scheme: dark)">
+  <title>Hoje · NutriPlan</title>
+  <style>
+/* /static/css/app.css?v=db2a74d1 */
 /* NutriPlan — folha de estilo única, dark-first, mobile-first.
  *
  * Sem framework de propósito: é um arquivo que se lê inteiro num café, contra
@@ -3874,3 +3885,1990 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   font-weight: 650;
   pointer-events: none;
 }
+
+</style>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="icon" href="/static/icons/icon-192.png">
+  <meta name="description" content="Sua dieta calculada, o cardápio do dia e o treino da semana.">
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NutriPlan">
+</head>
+
+<body class="tem-tabbar"
+      data-autenticado="1">
+  
+    <header class="app-bar">
+      <a class="app-bar__brand" href="/">
+        <span class="app-bar__mark" aria-hidden="true">N</span>
+        <span class="app-bar__word">Nutri<span class="app-bar__accent">Plan</span></span>
+      </a>
+      <nav class="app-bar__nav">
+        
+          <a class="app-bar__link is-active"
+             href="/">Dieta</a>
+          <a class="app-bar__link "
+             href="/treino/">Treino</a>
+          <a class="app-bar__link "
+             href="/historico/">Métricas</a>
+          <a class="app-bar__link "
+             href="/conta/perfil/">Perfil</a>
+          <form method="post" action="/conta/sair/">
+            <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+            <button type="submit" class="app-bar__quiet">Sair</button>
+          </form>
+        
+      </nav>
+    </header>
+  
+
+  <main class="container ">
+    
+    
+  <div class="split">
+    <div class="split__main stack">
+        
+        <section class="ofensiva ">
+          <span class="ofensiva__chama "
+                aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2.5c.5 3 2.2 4 3.6 5.6A7.5 7.5 0 0 1 12 21.5 7.5 7.5 0 0 1 8.4 8.1C9.8 6.5 11.5 5.5 12 2.5Z"/>
+              <path d="M12 21.5a3.2 3.2 0 0 1-1.6-5.8c.6-.7 1.3-1.2 1.6-2.5.3 1.3 1 1.8 1.6 2.5a3.2 3.2 0 0 1-1.6 5.8Z"/>
+            </svg>
+          </span>
+
+          <span class="ofensiva__corpo">
+            <span class="ofensiva__numero num">
+              0
+              <span class="ofensiva__unidade">dias</span>
+            </span>
+            <span class="ofensiva__texto">Comece hoje: cumpra treino, dieta e água e a contagem começa.</span>
+          </span>
+
+          
+        </section>
+
+
+      
+      <section class="card today-hero">
+        <div class="ring" style="--pct: 0"
+             role="img"
+             aria-label="0 de 2082 kcal">
+          <span class="ring__inner">
+            <strong class="ring__value">0</strong>
+            <span class="ring__unit">kcal hoje</span>
+            <span class="ring__of">de 2082</span>
+          </span>
+        </div>
+
+        
+        <div class="today-hero__facts">
+          <p class="today-hero__left">
+            
+              faltam <b class="num">2082 kcal</b>
+            
+          </p>
+          <p class="today-hero__meta num">
+            0/5 refeições
+          </p>
+          <p class="today-hero__balance balance--deficit">
+            
+              Déficit
+              <b class="num">
+                −500 kcal/dia
+              </b>
+              · <b class="num">meta 2082 kcal</b>
+            
+          </p>
+        </div>
+
+        
+        <div class="hero-macros">
+          <div class="macro-bar macro-bar--hero"
+               role="img"
+               aria-label="Divisão dos macros de hoje">
+            
+              <span class="macro-bar__part macro-bar__part--protein"
+                    style="width: 29%" title="Proteína"></span>
+            
+              <span class="macro-bar__part macro-bar__part--carb"
+                    style="width: 45%" title="Carboidrato"></span>
+            
+              <span class="macro-bar__part macro-bar__part--fat"
+                    style="width: 26%" title="Gordura"></span>
+            
+          </div>
+          <ul class="hero-macros__legenda">
+            
+              <li class="hero-macros__item">
+                <span class="macro-dot macro-dot--protein" aria-hidden="true"></span>
+                
+                <span class="hero-macros__nome" aria-hidden="true">P</span>
+                <b class="hero-macros__valor num">0</b>
+                <span class="hero-macros__meta num">/152</span>
+                <span class="vis-oculto">g de proteína</span>
+              </li>
+            
+              <li class="hero-macros__item">
+                <span class="macro-dot macro-dot--carb" aria-hidden="true"></span>
+                
+                <span class="hero-macros__nome" aria-hidden="true">C</span>
+                <b class="hero-macros__valor num">0</b>
+                <span class="hero-macros__meta num">/236</span>
+                <span class="vis-oculto">g de carboidrato</span>
+              </li>
+            
+              <li class="hero-macros__item">
+                <span class="macro-dot macro-dot--fat" aria-hidden="true"></span>
+                
+                <span class="hero-macros__nome" aria-hidden="true">G</span>
+                <b class="hero-macros__valor num">0</b>
+                <span class="hero-macros__meta num">/59</span>
+                <span class="vis-oculto">g de gordura</span>
+              </li>
+            
+          </ul>
+        </div>
+      </section>
+
+      
+      <section>
+        
+        
+        <div class="agua">
+          <div class="agua__topo">
+            <span class="agua__icone" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3.5c3 3.6 5.5 6.3 5.5 9.4a5.5 5.5 0 0 1-11 0c0-3.1 2.5-5.8 5.5-9.4Z"/>
+              </svg>
+            </span>
+            <span class="agua__valor num">
+              <b>0</b> / 3000 ml
+            </span>
+            
+            
+          </div>
+
+          <div class="progress "
+               role="img"
+               aria-label="0% da meta de água">
+            <span class="progress__fill progress__fill--agua"
+                  style="width: 0%"></span>
+          </div>
+
+          <div class="agua__botoes">
+            <form method="post" action="/agua/">
+              <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+              <input type="hidden" name="ml" value="250">
+              <button type="submit" class="agua__botao">+250 <span>copo</span></button>
+            </form>
+            <form method="post" action="/agua/">
+              <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+              <input type="hidden" name="ml" value="500">
+              <button type="submit" class="agua__botao">+500 <span>garrafinha</span></button>
+            </form>
+            <form method="post" action="/agua/">
+              <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+              <input type="hidden" name="ml" value="750">
+              <button type="submit" class="agua__botao">+750 <span>garrafa</span></button>
+            </form>
+          </div>
+        </div>
+
+          </form>
+        </div>
+
+
+
+        <div class="card__head">
+          <h2>Seu cardápio de hoje</h2>
+          <a href="/lista-de-compras/">Lista de compras</a>
+        </div>
+
+        
+          <article class="meal ">
+            <header class="meal__head">
+              <span class="meal__time">07:30</span>
+              <span class="meal__title">
+                <strong class="meal__name">Café da manhã</strong>
+                <span class="meal__target">
+                  alvo 521 kcal · 38 g de proteína
+                </span>
+              </span>
+            </header>
+
+            
+              <div class="meal__options">
+                
+                  <details class="option">
+                    <summary class="option__summary">
+                      <span class="option__label">A</span>
+                      <span class="option__name">Tapioca com frango desfiado</span>
+                      <span class="option__facts">
+                        <span class="option__kcal">522 kcal</span>
+                        <span>47 g P · 10 min</span>
+                      </span>
+                    </summary>
+                    <div class="option__body">
+                      <ul class="option__items">
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Goma de tapioca hidratada</span>
+                            <b>113 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Peito de frango grelhado</span>
+                            <b>151 g</b>
+                          </li>
+                        
+                      </ul>
+                      
+                        <p class="option__how">Firme a goma na frigideira e recheie com o frango desfiado.</p>
+                      
+
+
+                      <form method="post" action="/refeicao/1601/marcar/">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                        <input type="hidden" name="status" value="done">
+                        <input type="hidden" name="option" value="3189">
+                        <button type="submit" class="btn btn--primary btn--block">
+                          Comi esta
+                        </button>
+                      </form>
+                    </div>
+                  </details>
+                
+                  <details class="option">
+                    <summary class="option__summary">
+                      <span class="option__label">B</span>
+                      <span class="option__name">Pão francês com ovo e queijo</span>
+                      <span class="option__facts">
+                        <span class="option__kcal">520 kcal</span>
+                        <span>31 g P · 8 min</span>
+                      </span>
+                    </summary>
+                    <div class="option__body">
+                      <ul class="option__items">
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Pão francês</span>
+                            <b>78 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Ovo de galinha cozido</span>
+                            <b>100 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Queijo muçarela</span>
+                            <b>47 g</b>
+                          </li>
+                        
+                      </ul>
+                      
+                        <p class="option__how">Frite o ovo, monte no pão com o queijo e volte à frigideira até derreter.</p>
+                      
+
+
+                      <form method="post" action="/refeicao/1601/marcar/">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                        <input type="hidden" name="status" value="done">
+                        <input type="hidden" name="option" value="3190">
+                        <button type="submit" class="btn btn--primary btn--block">
+                          Comi esta
+                        </button>
+                      </form>
+                    </div>
+                  </details>
+                
+              </div>
+
+              <form method="post" action="/refeicao/1601/marcar/"
+                    class="meal__actions">
+                <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                <button type="submit" name="status" value="skipped" class="btn btn--quiet">
+                  Pulei
+                </button>
+              </form>
+
+              
+              <details class="fora" id="refeicao-1601">
+                <summary class="fora__abrir">Comi outra coisa</summary>
+
+                <form method="post" action="/refeicao/1601/marcar/"
+                      class="fora__corpo">
+                  
+                  <div class="fora__interno">
+                  <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                  <input type="hidden" name="status" value="off_plan">
+
+                  <label class="fora__campo">
+                    <span class="fora__rotulo">O que você comeu?</span>
+                    <input class="field-input" type="text" name="notes" required
+                           maxlength="200" autocomplete="off"
+                           placeholder="Prato feito no restaurante"
+                           aria-label="Descrição do que comeu em Café da manhã">
+                  </label>
+
+                  <p class="fora__ajuda">
+                    Sabe os ingredientes? Some abaixo e o dia recalcula. Sem
+                    isso, fica registrado sem contar caloria.
+                  </p>
+
+                  
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento 1">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento 1">
+                    </div>
+                  
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento 2">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento 2">
+                    </div>
+                  
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento 3">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento 3">
+                    </div>
+                  
+
+                  <button type="submit" class="btn btn--primary btn--block">
+                    Registrar
+                  </button>
+                  </div>
+                </form>
+              </details>
+            
+          </article>
+        
+          <article class="meal ">
+            <header class="meal__head">
+              <span class="meal__time">11:00</span>
+              <span class="meal__title">
+                <strong class="meal__name">Lanche da manhã</strong>
+                <span class="meal__target">
+                  alvo 208 kcal · 15 g de proteína
+                </span>
+              </span>
+            </header>
+
+            
+              <div class="meal__options">
+                
+                  <details class="option">
+                    <summary class="option__summary">
+                      <span class="option__label">A</span>
+                      <span class="option__name">Sanduíche de presunto e queijo</span>
+                      <span class="option__facts">
+                        <span class="option__kcal">208 kcal</span>
+                        <span>14 g P · 4 min</span>
+                      </span>
+                    </summary>
+                    <div class="option__body">
+                      <ul class="option__items">
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Pão de forma integral</span>
+                            <b>38 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Presunto cozido</span>
+                            <b>30 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Queijo muçarela</span>
+                            <b>23 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Tomate</span>
+                            <b>30 g</b>
+                          </li>
+                        
+                      </ul>
+                      
+                        <p class="option__how">Monte o sanduíche com o presunto, o queijo e o tomate em rodelas.</p>
+                      
+
+
+                      <form method="post" action="/refeicao/1602/marcar/">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                        <input type="hidden" name="status" value="done">
+                        <input type="hidden" name="option" value="3191">
+                        <button type="submit" class="btn btn--primary btn--block">
+                          Comi esta
+                        </button>
+                      </form>
+                    </div>
+                  </details>
+                
+                  <details class="option">
+                    <summary class="option__summary">
+                      <span class="option__label">B</span>
+                      <span class="option__name">Sanduíche de atum</span>
+                      <span class="option__facts">
+                        <span class="option__kcal">208 kcal</span>
+                        <span>19 g P · 5 min</span>
+                      </span>
+                    </summary>
+                    <div class="option__body">
+                      <ul class="option__items">
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Pão de forma integral</span>
+                            <b>37 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Atum em água (drenado)</span>
+                            <b>59 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Alface</span>
+                            <b>20 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Azeite de oliva extra virgem</span>
+                            <b>5 ml</b>
+                          </li>
+                        
+                      </ul>
+                      
+                        <p class="option__how">Misture o atum com o azeite e recheie o pão com a alface.</p>
+                      
+
+
+                      <form method="post" action="/refeicao/1602/marcar/">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                        <input type="hidden" name="status" value="done">
+                        <input type="hidden" name="option" value="3192">
+                        <button type="submit" class="btn btn--primary btn--block">
+                          Comi esta
+                        </button>
+                      </form>
+                    </div>
+                  </details>
+                
+              </div>
+
+              <form method="post" action="/refeicao/1602/marcar/"
+                    class="meal__actions">
+                <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                <button type="submit" name="status" value="skipped" class="btn btn--quiet">
+                  Pulei
+                </button>
+              </form>
+
+              
+              <details class="fora" id="refeicao-1602">
+                <summary class="fora__abrir">Comi outra coisa</summary>
+
+                <form method="post" action="/refeicao/1602/marcar/"
+                      class="fora__corpo">
+                  
+                  <div class="fora__interno">
+                  <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                  <input type="hidden" name="status" value="off_plan">
+
+                  <label class="fora__campo">
+                    <span class="fora__rotulo">O que você comeu?</span>
+                    <input class="field-input" type="text" name="notes" required
+                           maxlength="200" autocomplete="off"
+                           placeholder="Prato feito no restaurante"
+                           aria-label="Descrição do que comeu em Lanche da manhã">
+                  </label>
+
+                  <p class="fora__ajuda">
+                    Sabe os ingredientes? Some abaixo e o dia recalcula. Sem
+                    isso, fica registrado sem contar caloria.
+                  </p>
+
+                  
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento 1">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento 1">
+                    </div>
+                  
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento 2">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento 2">
+                    </div>
+                  
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento 3">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento 3">
+                    </div>
+                  
+
+                  <button type="submit" class="btn btn--primary btn--block">
+                    Registrar
+                  </button>
+                  </div>
+                </form>
+              </details>
+            
+          </article>
+        
+          <article class="meal ">
+            <header class="meal__head">
+              <span class="meal__time">14:30</span>
+              <span class="meal__title">
+                <strong class="meal__name">Almoço</strong>
+                <span class="meal__target">
+                  alvo 625 kcal · 46 g de proteína
+                </span>
+              </span>
+            </header>
+
+            
+              <div class="meal__options">
+                
+                  <details class="option">
+                    <summary class="option__summary">
+                      <span class="option__label">A</span>
+                      <span class="option__name">Sardinha com arroz e salada</span>
+                      <span class="option__facts">
+                        <span class="option__kcal">625 kcal</span>
+                        <span>46 g P · 10 min</span>
+                      </span>
+                    </summary>
+                    <div class="option__body">
+                      <ul class="option__items">
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Sardinha em óleo (drenada)</span>
+                            <b>156 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Arroz branco cozido</span>
+                            <b>234 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Alface</span>
+                            <b>30 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Tomate</span>
+                            <b>50 g</b>
+                          </li>
+                        
+                      </ul>
+                      
+                        <p class="option__how">Esquente a sardinha na frigideira e sirva com arroz e salada.</p>
+                      
+
+
+                      <form method="post" action="/refeicao/1603/marcar/">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                        <input type="hidden" name="status" value="done">
+                        <input type="hidden" name="option" value="3193">
+                        <button type="submit" class="btn btn--primary btn--block">
+                          Comi esta
+                        </button>
+                      </form>
+                    </div>
+                  </details>
+                
+                  <details class="option">
+                    <summary class="option__summary">
+                      <span class="option__label">B</span>
+                      <span class="option__name">Arroz com frango e cenoura</span>
+                      <span class="option__facts">
+                        <span class="option__kcal">624 kcal</span>
+                        <span>47 g P · 20 min</span>
+                      </span>
+                    </summary>
+                    <div class="option__body">
+                      <ul class="option__items">
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Arroz branco cozido</span>
+                            <b>234 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Coxa de frango sem pele cozida</span>
+                            <b>156 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Cenoura crua</span>
+                            <b>60 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Cebola</span>
+                            <b>30 g</b>
+                          </li>
+                        
+                      </ul>
+                      
+                        <p class="option__how">Refogue o frango em cubos com a cenoura e misture ao arroz.</p>
+                      
+
+
+                      <form method="post" action="/refeicao/1603/marcar/">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                        <input type="hidden" name="status" value="done">
+                        <input type="hidden" name="option" value="3194">
+                        <button type="submit" class="btn btn--primary btn--block">
+                          Comi esta
+                        </button>
+                      </form>
+                    </div>
+                  </details>
+                
+              </div>
+
+              <form method="post" action="/refeicao/1603/marcar/"
+                    class="meal__actions">
+                <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                <button type="submit" name="status" value="skipped" class="btn btn--quiet">
+                  Pulei
+                </button>
+              </form>
+
+              
+              <details class="fora" id="refeicao-1603">
+                <summary class="fora__abrir">Comi outra coisa</summary>
+
+                <form method="post" action="/refeicao/1603/marcar/"
+                      class="fora__corpo">
+                  
+                  <div class="fora__interno">
+                  <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                  <input type="hidden" name="status" value="off_plan">
+
+                  <label class="fora__campo">
+                    <span class="fora__rotulo">O que você comeu?</span>
+                    <input class="field-input" type="text" name="notes" required
+                           maxlength="200" autocomplete="off"
+                           placeholder="Prato feito no restaurante"
+                           aria-label="Descrição do que comeu em Almoço">
+                  </label>
+
+                  <p class="fora__ajuda">
+                    Sabe os ingredientes? Some abaixo e o dia recalcula. Sem
+                    isso, fica registrado sem contar caloria.
+                  </p>
+
+                  
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento 1">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento 1">
+                    </div>
+                  
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento 2">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento 2">
+                    </div>
+                  
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento 3">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento 3">
+                    </div>
+                  
+
+                  <button type="submit" class="btn btn--primary btn--block">
+                    Registrar
+                  </button>
+                  </div>
+                </form>
+              </details>
+            
+          </article>
+        
+          <article class="meal ">
+            <header class="meal__head">
+              <span class="meal__time">18:00</span>
+              <span class="meal__title">
+                <strong class="meal__name">Lanche da tarde</strong>
+                <span class="meal__target">
+                  alvo 208 kcal · 15 g de proteína
+                </span>
+              </span>
+            </header>
+
+            
+              <div class="meal__options">
+                
+                  <details class="option">
+                    <summary class="option__summary">
+                      <span class="option__label">A</span>
+                      <span class="option__name">Sanduíche de frango com alface</span>
+                      <span class="option__facts">
+                        <span class="option__kcal">209 kcal</span>
+                        <span>23 g P · 5 min</span>
+                      </span>
+                    </summary>
+                    <div class="option__body">
+                      <ul class="option__items">
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Pão de forma integral</span>
+                            <b>39 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Peito de frango grelhado</span>
+                            <b>62 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Alface</span>
+                            <b>20 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Tomate</span>
+                            <b>30 g</b>
+                          </li>
+                        
+                      </ul>
+                      
+                        <p class="option__how">Monte o sanduíche com o frango desfiado, a alface e o tomate.</p>
+                      
+
+
+                      <form method="post" action="/refeicao/1604/marcar/">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                        <input type="hidden" name="status" value="done">
+                        <input type="hidden" name="option" value="3195">
+                        <button type="submit" class="btn btn--primary btn--block">
+                          Comi esta
+                        </button>
+                      </form>
+                    </div>
+                  </details>
+                
+                  <details class="option">
+                    <summary class="option__summary">
+                      <span class="option__label">B</span>
+                      <span class="option__name">Pão com ovo</span>
+                      <span class="option__facts">
+                        <span class="option__kcal">208 kcal</span>
+                        <span>12 g P · 6 min</span>
+                      </span>
+                    </summary>
+                    <div class="option__body">
+                      <ul class="option__items">
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Pão de forma integral</span>
+                            <b>54 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Ovo de galinha cozido</span>
+                            <b>50 g</b>
+                          </li>
+                        
+                      </ul>
+                      
+                        <p class="option__how">Frite o ovo e monte no pão.</p>
+                      
+
+
+                      <form method="post" action="/refeicao/1604/marcar/">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                        <input type="hidden" name="status" value="done">
+                        <input type="hidden" name="option" value="3196">
+                        <button type="submit" class="btn btn--primary btn--block">
+                          Comi esta
+                        </button>
+                      </form>
+                    </div>
+                  </details>
+                
+              </div>
+
+              <form method="post" action="/refeicao/1604/marcar/"
+                    class="meal__actions">
+                <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                <button type="submit" name="status" value="skipped" class="btn btn--quiet">
+                  Pulei
+                </button>
+              </form>
+
+              
+              <details class="fora" id="refeicao-1604">
+                <summary class="fora__abrir">Comi outra coisa</summary>
+
+                <form method="post" action="/refeicao/1604/marcar/"
+                      class="fora__corpo">
+                  
+                  <div class="fora__interno">
+                  <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                  <input type="hidden" name="status" value="off_plan">
+
+                  <label class="fora__campo">
+                    <span class="fora__rotulo">O que você comeu?</span>
+                    <input class="field-input" type="text" name="notes" required
+                           maxlength="200" autocomplete="off"
+                           placeholder="Prato feito no restaurante"
+                           aria-label="Descrição do que comeu em Lanche da tarde">
+                  </label>
+
+                  <p class="fora__ajuda">
+                    Sabe os ingredientes? Some abaixo e o dia recalcula. Sem
+                    isso, fica registrado sem contar caloria.
+                  </p>
+
+                  
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento 1">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento 1">
+                    </div>
+                  
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento 2">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento 2">
+                    </div>
+                  
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento 3">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento 3">
+                    </div>
+                  
+
+                  <button type="submit" class="btn btn--primary btn--block">
+                    Registrar
+                  </button>
+                  </div>
+                </form>
+              </details>
+            
+          </article>
+        
+          <article class="meal ">
+            <header class="meal__head">
+              <span class="meal__time">20:45</span>
+              <span class="meal__title">
+                <strong class="meal__name">Jantar (pós-treino)</strong>
+                <span class="meal__target">
+                  alvo 520 kcal · 38 g de proteína
+                </span>
+              </span>
+            </header>
+
+            
+              <div class="meal__options">
+                
+                  <details class="option">
+                    <summary class="option__summary">
+                      <span class="option__label">A</span>
+                      <span class="option__name">Arroz, feijão e carne moída</span>
+                      <span class="option__facts">
+                        <span class="option__kcal">519 kcal</span>
+                        <span>41 g P · 20 min</span>
+                      </span>
+                    </summary>
+                    <div class="option__body">
+                      <ul class="option__items">
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Arroz branco cozido</span>
+                            <b>146 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Feijão preto cozido</span>
+                            <b>116 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Carne moída (patinho) refogada</span>
+                            <b>116 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Cebola</span>
+                            <b>30 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Repolho</span>
+                            <b>40 g</b>
+                          </li>
+                        
+                      </ul>
+                      
+                        <p class="option__how">Refogue a carne moída com cebola e sirva com arroz e feijão.</p>
+                      
+
+
+                      <form method="post" action="/refeicao/1605/marcar/">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                        <input type="hidden" name="status" value="done">
+                        <input type="hidden" name="option" value="3197">
+                        <button type="submit" class="btn btn--primary btn--block">
+                          Comi esta
+                        </button>
+                      </form>
+                    </div>
+                  </details>
+                
+                  <details class="option">
+                    <summary class="option__summary">
+                      <span class="option__label">B</span>
+                      <span class="option__name">Macarrão com carne moída</span>
+                      <span class="option__facts">
+                        <span class="option__kcal">521 kcal</span>
+                        <span>42 g P · 20 min</span>
+                      </span>
+                    </summary>
+                    <div class="option__body">
+                      <ul class="option__items">
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Macarrão cozido</span>
+                            <b>180 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Carne moída (patinho) refogada</span>
+                            <b>120 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Tomate</span>
+                            <b>60 g</b>
+                          </li>
+                        
+                          
+                          <li>
+                            <span class="option__ingrediente">Cebola</span>
+                            <b>30 g</b>
+                          </li>
+                        
+                      </ul>
+                      
+                        <p class="option__how">Cozinhe o macarrão e misture com a carne moída refogada no tomate.</p>
+                      
+
+
+                      <form method="post" action="/refeicao/1605/marcar/">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                        <input type="hidden" name="status" value="done">
+                        <input type="hidden" name="option" value="3198">
+                        <button type="submit" class="btn btn--primary btn--block">
+                          Comi esta
+                        </button>
+                      </form>
+                    </div>
+                  </details>
+                
+              </div>
+
+              <form method="post" action="/refeicao/1605/marcar/"
+                    class="meal__actions">
+                <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                <button type="submit" name="status" value="skipped" class="btn btn--quiet">
+                  Pulei
+                </button>
+              </form>
+
+              
+              <details class="fora" id="refeicao-1605">
+                <summary class="fora__abrir">Comi outra coisa</summary>
+
+                <form method="post" action="/refeicao/1605/marcar/"
+                      class="fora__corpo">
+                  
+                  <div class="fora__interno">
+                  <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+                  <input type="hidden" name="status" value="off_plan">
+
+                  <label class="fora__campo">
+                    <span class="fora__rotulo">O que você comeu?</span>
+                    <input class="field-input" type="text" name="notes" required
+                           maxlength="200" autocomplete="off"
+                           placeholder="Prato feito no restaurante"
+                           aria-label="Descrição do que comeu em Jantar (pós-treino)">
+                  </label>
+
+                  <p class="fora__ajuda">
+                    Sabe os ingredientes? Some abaixo e o dia recalcula. Sem
+                    isso, fica registrado sem contar caloria.
+                  </p>
+
+                  
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento 1">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento 1">
+                    </div>
+                  
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento 2">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento 2">
+                    </div>
+                  
+                    <div class="fora__item">
+                      <input class="field-input" type="text" name="alimento"
+                             list="alimentos-do-catalogo" autocomplete="off"
+                             placeholder="Alimento"
+                             aria-label="Alimento 3">
+                      <input class="field-input num" type="text" name="gramas"
+                             inputmode="decimal" maxlength="5" placeholder="g"
+                             aria-label="Quantidade em gramas do alimento 3">
+                    </div>
+                  
+
+                  <button type="submit" class="btn btn--primary btn--block">
+                    Registrar
+                  </button>
+                  </div>
+                </form>
+              </details>
+            
+          </article>
+        
+
+        
+        <datalist id="alimentos-do-catalogo">
+          <option value="Abacate"></option><option value="Abobrinha cozida"></option><option value="Alface"></option><option value="Amendoim torrado"></option><option value="Arroz branco cozido"></option><option value="Arroz integral cozido"></option><option value="Atum em água (drenado)"></option><option value="Aveia em flocos"></option><option value="Azeite de oliva extra virgem"></option><option value="Banana prata"></option><option value="Batata doce cozida"></option><option value="Batata inglesa cozida"></option><option value="Brócolis cozido"></option><option value="Café coado sem açúcar"></option><option value="Carne moída (patinho) refogada"></option><option value="Cebola"></option><option value="Cenoura crua"></option><option value="Chuchu cozido"></option><option value="Clara de ovo cozida"></option><option value="Couve refogada"></option><option value="Coxa de frango sem pele cozida"></option><option value="Cuscuz de milho cozido"></option><option value="Ervilha cozida"></option><option value="Farinha de mandioca torrada"></option><option value="Feijão carioca cozido"></option><option value="Feijão preto cozido"></option><option value="Filé de tilápia grelhado"></option><option value="Goma de tapioca hidratada"></option><option value="Grão-de-bico cozido"></option><option value="Inhame cozido"></option><option value="Iogurte natural integral"></option><option value="Laranja"></option><option value="Leite desnatado"></option><option value="Leite integral"></option><option value="Lentilha cozida"></option><option value="Macarrão cozido"></option><option value="Mamão papaia"></option><option value="Mandioca cozida"></option><option value="Manteiga"></option><option value="Margarina com sal"></option><option value="Maçã"></option><option value="Mel"></option><option value="Milho verde em conserva"></option><option value="Ovo de galinha cozido"></option><option value="Pasta de amendoim integral"></option><option value="Patinho bovino grelhado"></option><option value="Peito de frango grelhado"></option><option value="Pepino"></option><option value="Presunto cozido"></option><option value="Proteína de soja texturizada (seca)"></option><option value="Pão de forma integral"></option><option value="Pão francês"></option><option value="Queijo minas frescal"></option><option value="Queijo muçarela"></option><option value="Queijo prato"></option><option value="Repolho"></option><option value="Requeijão cremoso"></option><option value="Sardinha em óleo (drenada)"></option><option value="Suco de laranja natural"></option><option value="Tomate"></option><option value="Vagem cozida"></option><option value="Óleo de soja"></option>
+        </datalist>
+
+        <p class="hint">
+          As duas opções de cada horário são equivalentes: cada receita foi escalada até
+          o alvo daquela refeição, então dá para trocar A por B sem refazer conta nenhuma.
+          Seguindo a opção A do dia inteiro dá <b class="num">2080 kcal</b> e
+          <b class="num">168 g</b> de proteína —
+          
+            bate com a sua meta de 2082 kcal.
+          
+        </p>
+      </section>
+    </div>
+
+    
+    <aside class="split__aside stack">
+      <section class="card">
+        <div class="card__head"><h2>Seu balanço de energia</h2></div>
+
+        <div class="balance balance--deficit">
+          <span class="balance__value">
+            −500
+            
+          </span>
+          <span class="balance__body">
+            <strong class="balance__label">Déficit diário recomendado</strong>
+            <span class="balance__meta">
+              
+                19% do seu gasto · ritmo estimado de
+                0,45 kg por semana
+              
+            </span>
+          </span>
+        </div>
+
+        <div class="equation">
+          <span class="equation__cell">
+            <strong class="equation__value num">2582</strong>
+            <span class="equation__label">gasto (TDEE)</span>
+          </span>
+          <span class="equation__op">
+            −
+          </span>
+          <span class="equation__cell">
+            <strong class="equation__value num">500</strong>
+            <span class="equation__label">
+              déficit
+            </span>
+          </span>
+          <span class="equation__op">=</span>
+          <span class="equation__cell equation__cell--result">
+            <strong class="equation__value num">2082</strong>
+            <span class="equation__label">meta diária</span>
+          </span>
+        </div>
+
+        
+      </section>
+
+      <section class="card">
+        <div class="card__head"><h2>Macros de hoje</h2></div>
+
+        
+        <div class="macro-bar">
+          
+            <span class="macro-bar__part macro-bar__part--protein"
+                  style="width: 29%" title="Proteína"></span>
+          
+            <span class="macro-bar__part macro-bar__part--carb"
+                  style="width: 45%" title="Carboidrato"></span>
+          
+            <span class="macro-bar__part macro-bar__part--fat"
+                  style="width: 26%" title="Gordura"></span>
+          
+        </div>
+        <div class="macro-list">
+          
+            <div class="macro-line">
+              <div class="macro-line__head">
+                <span class="macro-dot macro-dot--protein"></span>
+                <span class="macro-line__name">Proteína</span>
+                <span class="macro-line__value">0 / 152 g</span>
+              </div>
+              <div class="progress">
+                <span class="progress__fill progress__fill--protein"
+                      style="width: 0%"></span>
+              </div>
+              <span class="macro-line__meta">
+                faltam 152 g · 608 kcal · 29% da meta
+              </span>
+            </div>
+          
+            <div class="macro-line">
+              <div class="macro-line__head">
+                <span class="macro-dot macro-dot--carb"></span>
+                <span class="macro-line__name">Carboidrato</span>
+                <span class="macro-line__value">0 / 236 g</span>
+              </div>
+              <div class="progress">
+                <span class="progress__fill progress__fill--carb"
+                      style="width: 0%"></span>
+              </div>
+              <span class="macro-line__meta">
+                faltam 236 g · 944 kcal · 45% da meta
+              </span>
+            </div>
+          
+            <div class="macro-line">
+              <div class="macro-line__head">
+                <span class="macro-dot macro-dot--fat"></span>
+                <span class="macro-line__name">Gordura</span>
+                <span class="macro-line__value">0 / 59 g</span>
+              </div>
+              <div class="progress">
+                <span class="progress__fill progress__fill--fat"
+                      style="width: 0%"></span>
+              </div>
+              <span class="macro-line__meta">
+                faltam 59 g · 531 kcal · 26% da meta
+              </span>
+            </div>
+          
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__head"><h2>Como chegamos na sua meta</h2></div>
+        <dl class="data-list data-list--total">
+          <div>
+            <dt>Gasto em repouso (TMB)</dt>
+            <dd>1806 kcal</dd>
+          </div>
+          <div>
+            <dt>
+              Fator de atividade
+              <span class="muted">(1,40–1,45,
+              3× por semana)</span>
+            </dt>
+            <dd>×1,43</dd>
+          </div>
+          <div>
+            <dt>Gasto total estimado (TDEE)</dt>
+            <dd>2582 kcal</dd>
+          </div>
+          <div>
+            <dt>
+              Ajuste do objetivo
+              (19%)
+            </dt>
+            <dd>
+              -500 kcal
+              
+            </dd>
+          </div>
+          <div>
+            <dt><strong>Meta diária</strong></dt>
+            <dd><strong>2082 kcal</strong></dd>
+          </div>
+        </dl>
+        <p class="hint">
+          O gasto vem da fórmula de Mifflin-St Jeor com o seu peso, altura, idade e sexo,
+          multiplicada por um fator de atividade que já inclui a academia. O fator é uma
+          faixa: quem não treina fica no piso dela, quem treina cinco vezes por semana
+          chega ao teto. Os valores são conservadores de propósito — meta inflada é a
+          razão mais comum de uma dieta não funcionar. O ritmo em quilos usa a convenção
+          de 7.700 kcal por quilo de gordura.
+        </p>
+      </section>
+
+      <section class="card">
+        <div class="card__head">
+          <h2>Dados do cálculo</h2>
+          <a href="/conta/perfil/">Editar</a>
+        </div>
+        <dl class="data-list">
+          <div><dt>Objetivo</dt><dd>Emagrecer</dd></div>
+          <div><dt>Peso</dt><dd>84,3 kg</dd></div>
+          <div><dt>Altura</dt><dd>178 cm</dd></div>
+          <div><dt>Idade</dt><dd>31 anos</dd></div>
+          <div><dt>Rotina</dt><dd>Moderadamente ativo</dd></div>
+          <div>
+            <dt>Treinos</dt>
+            <dd>
+              
+                3 dias · 60 min
+              
+            </dd>
+          </div>
+          <div><dt>Calculado em</dt><dd>26/08/2026</dd></div>
+        </dl>
+
+        <form method="post" action="/recalcular/">
+          <input type="hidden" name="csrfmiddlewaretoken" value="jwneNkndOnaVM8UY0AfFFjyN6M1yyFYQ18DDVvMwS9jZ6NR8kIFRpRk9Pb22Ypy0">
+          <button type="submit" class="btn btn--ghost btn--block" style="margin-top:1rem">
+            Recalcular minha meta
+          </button>
+        </form>
+        <p class="hint">
+          Mudou peso, objetivo ou rotina? A meta se atualiza sozinha — este botão é só
+          para forçar um plano novo com os dados de hoje.
+        </p>
+      </section>
+
+      <section class="card">
+        <div class="card__head"><h2>Lembretes</h2></div>
+        <p class="muted" data-push-status style="margin:0 0 .8rem">
+          Ative para receber um aviso 10 minutos antes de cada refeição.
+        </p>
+        <button type="button" class="btn btn--ghost btn--block" data-push-toggle hidden>
+          Ativar lembretes das refeições
+        </button>
+        <noscript>
+          <p class="hint">Os lembretes precisam de JavaScript ativado.</p>
+        </noscript>
+      </section>
+    </aside>
+  </div>
+
+
+
+
+
+
+  </main>
+
+  
+    
+    <div class="fila" data-fila hidden role="status" aria-live="polite">
+      <span class="fila__icone" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12a8 8 0 0 1 13.7-5.7L20 8"/><path d="M20 4v4h-4"/>
+          <path d="M20 12a8 8 0 0 1-13.7 5.7L4 16"/><path d="M4 20v-4h4"/>
+        </svg>
+      </span>
+      <span class="fila__texto" data-fila-texto></span>
+    </div>
+
+    
+    
+    <nav class="tabbar" aria-label="Navegação principal">
+      <a class="tabbar__item is-active"
+         href="/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 3v8a3 3 0 0 0 6 0V3"/><path d="M9 11v10"/>
+          <path d="M17.5 3c-1.5 2-2 4-2 6.5 0 1.5.8 2.5 2 2.5s2-1 2-2.5c0-2.5-.5-4.5-2-6.5Z"/>
+          <path d="M17.5 12v9"/>
+        </svg>
+        Dieta
+      </a>
+      <a class="tabbar__item "
+         href="/treino/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 9v6"/><path d="M6 6.5v11"/><path d="M18 6.5v11"/><path d="M21 9v6"/>
+          <path d="M6 12h12"/>
+        </svg>
+        Treino
+      </a>
+      <a class="tabbar__item "
+         href="/suplementos/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8.5 3.5a5 5 0 0 1 7 7l-5 5a5 5 0 0 1-7-7Z"/>
+          <path d="M6 6 15 15"/>
+        </svg>
+        Suplem.
+      </a>
+      <a class="tabbar__item "
+         href="/historico/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M2 20h20"/>
+        </svg>
+        Métricas
+      </a>
+      <a class="tabbar__item "
+         href="/conta/perfil/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="8" r="3.5"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>
+        </svg>
+        Perfil
+      </a>
+    </nav>
+    
+  
+
+  
+  <div class="install" data-install hidden role="dialog" aria-labelledby="install-title">
+    <button type="button" class="install__close" data-install-close aria-label="Fechar o convite de instalação">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18"/>
+      </svg>
+    </button>
+    <div class="install__top">
+      <img class="install__icon" src="/static/icons/icon-192.png" alt="" width="48" height="48">
+      <div class="install__text">
+        <strong class="install__title" id="install-title">Instale o NutriPlan</strong>
+        <span class="install__hint" data-install-hint>Abre direto da tela inicial, sem barra de navegador.</span>
+      </div>
+    </div>
+    <div class="install__actions">
+      <button type="button" class="btn btn--primary install__go" data-install-go>Instalar</button>
+      <button type="button" class="btn btn--ghost install__later" data-install-close>Agora não</button>
+    </div>
+  </div>
+
+  <script>window.NUTRIPLAN_VAPID_KEY = "BDqlqzj_BUL_Xb3cv3Hipo-V10tBKR6CulYFptaZvosSL2ZZX283XY9jTtLysy9dS0mhied5w7wFnrlg7TZ9JKw";</script>
+  <script>
+/* /static/js/pwa.js?v=db2a74d1 */
+/* Instalação do app, registro do service worker e assinatura das notificações.
+ *
+ * Tudo aqui é opcional por construção: navegador sem suporte, permissão
+ * negada ou chave VAPID ausente apenas escondem o botão. Nada disso pode
+ * impedir o app de funcionar — notificação é acessório, dieta é o produto.
+ */
+(function () {
+  "use strict";
+
+  var button = document.querySelector("[data-push-toggle]");
+  var status = document.querySelector("[data-push-status]");
+  var supported =
+    "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+
+  function say(text) {
+    if (status) status.textContent = text;
+  }
+
+  function urlBase64ToUint8Array(base64String) {
+    // A chave VAPID vem em base64url; a API do navegador quer bytes.
+    var padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    var base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    var raw = window.atob(base64);
+    return Uint8Array.from(raw.split("").map(function (c) {
+      return c.charCodeAt(0);
+    }));
+  }
+
+  function csrfToken() {
+    var match = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+    return match ? match[2] : "";
+  }
+
+  function post(url, body) {
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
+      body: JSON.stringify(body),
+    });
+  }
+
+  instalacao();
+
+  if (!("serviceWorker" in navigator)) return;
+
+  void 0 && navigator.serviceWorker.register("/sw.js").then(function (registration) {
+    if (!button) return;
+    if (!supported || !window.NUTRIPLAN_VAPID_KEY) {
+      button.hidden = true;
+      return;
+    }
+
+    registration.pushManager.getSubscription().then(function (subscription) {
+      render(registration, subscription);
+    });
+  });
+
+  function render(registration, subscription) {
+    if (!button) return;
+    button.hidden = false;
+    if (subscription) {
+      button.textContent = "Desativar lembretes";
+      say("Você recebe um aviso 10 minutos antes de cada refeição.");
+    } else {
+      button.textContent = "Ativar lembretes das refeições";
+      say("Um aviso 10 minutos antes de cada refeição, no celular.");
+    }
+
+    button.onclick = function () {
+      button.disabled = true;
+      var action = subscription ? disable(subscription) : enable(registration);
+      action
+        .then(function (next) {
+          button.disabled = false;
+          render(registration, next);
+        })
+        .catch(function () {
+          button.disabled = false;
+          say("Não deu para mudar os lembretes agora. Tente de novo.");
+        });
+    };
+  }
+
+  function enable(registration) {
+    return Notification.requestPermission().then(function (permission) {
+      if (permission !== "granted") {
+        say("Permissão negada. Dá para liberar nas configurações do navegador.");
+        return null;
+      }
+      return registration.pushManager
+        .subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(window.NUTRIPLAN_VAPID_KEY),
+        })
+        .then(function (subscription) {
+          return post("/push/inscrever/", subscription.toJSON()).then(function () {
+            return subscription;
+          });
+        });
+    });
+  }
+
+  function disable(subscription) {
+    var endpoint = subscription.endpoint;
+    return subscription.unsubscribe().then(function () {
+      return post("/push/cancelar/", { endpoint: endpoint }).then(function () {
+        return null;
+      });
+    });
+  }
+
+
+  /* ------------------------------------------------------------------ *
+   * Convite de instalação
+   * ------------------------------------------------------------------ */
+
+  /* Android e desktop: o navegador avisa quando o site cumpre os requisitos
+   * (manifest válido, service worker, HTTPS) e deixa a gente escolher a hora
+   * de perguntar. iPhone: o Safari não dispara evento nenhum e não tem API de
+   * instalação — a única saída é ensinar o caminho do menu Compartilhar.
+   *
+   * Em ambos, o convite só aparece para quem ainda não instalou. Repetir
+   * "instale o app" para quem já instalou é o tipo de banner que faz a pessoa
+   * ignorar todos os outros avisos do app.
+   */
+  function instalacao() {
+    var banner = document.querySelector("[data-install]");
+    if (!banner) return;
+
+    var dica = banner.querySelector("[data-install-hint]");
+    var instalar = banner.querySelector("[data-install-go]");
+    var CHAVE = "nutriplan_pwa_dismissed";
+    //: Chaves de versões anteriores. Continuam sendo lidas porque trocar o
+    //: nome não pode ressuscitar o convite justamente para quem já disse não.
+    var CHAVES_ANTIGAS = ["pwa_prompt_dismissed", "nutriplan:convite-dispensado-em"];
+    var convite = null;
+
+    function jaInstalado() {
+      return (
+        window.matchMedia("(display-mode: standalone)").matches ||
+        window.navigator.standalone === true
+      );
+    }
+
+    function ehIOS() {
+      // iPadOS moderno se apresenta como Mac; o toque é o que o denuncia.
+      var ua = window.navigator.userAgent;
+      return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && "ontouchend" in document);
+    }
+
+    /* Fechou uma vez, não volta mais neste aparelho.
+     *
+     * Houve uma versão com prazo de sete dias, na ideia de que quem fecha na
+     * primeira visita ainda não sabe se o app presta. A prática desmentiu: um
+     * convite que reaparece é um convite que a pessoa já respondeu, e
+     * perguntar de novo é insistência. Quem mudar de ideia instala pelo menu
+     * do próprio navegador, que é onde essa opção mora de todo jeito.
+     *
+     * A chave antiga continua sendo lida para quem já tinha recusado antes
+     * desta mudança — trocar o nome da chave não pode ressuscitar o convite
+     * justamente para quem já disse não. */
+    function dispensado() {
+      try {
+        var loja = window.localStorage;
+        if (loja.getItem(CHAVE) === "true") return true;
+        for (var i = 0; i < CHAVES_ANTIGAS.length; i++) {
+          if (loja.getItem(CHAVES_ANTIGAS[i])) return true;
+        }
+        return false;
+      } catch (e) {
+        // Modo privado pode recusar o armazenamento. Sem memória, o convite
+        // reaparece na próxima visita — chato, mas melhor que quebrar.
+        return false;
+      }
+    }
+
+    /* Esconder não basta: a barra é `position: fixed`, então não ocupa espaço
+     * no layout e pousa em cima do rodapé da página. A classe no `body` é o
+     * que faz a página reservar a altura dela — e some junto com o convite. */
+    function esconder() {
+      banner.hidden = true;
+      document.body.classList.remove("tem-convite");
+    }
+
+    function dispensar() {
+      esconder();
+      try {
+        window.localStorage.setItem(CHAVE, "true");
+      } catch (e) {}
+    }
+
+    function mostrar() {
+      if (jaInstalado() || dispensado()) return;
+      banner.hidden = false;
+      document.body.classList.add("tem-convite");
+    }
+
+    /* Quatro maneiras de sair, e todas ligadas no documento em vez de nos
+     * botões.
+     *
+     * Delegação e não `botao.onclick` porque um handler preso a um elemento
+     * específico depende de aquele elemento existir no instante em que este
+     * código roda. Preso ao documento, funciona mesmo que o cartão seja
+     * redesenhado depois — e um convite que não fecha é o pior defeito que
+     * este app já teve. */
+    document.addEventListener("click", function (evento) {
+      if (banner.hidden) return;
+
+      // `closest` só existe em Element. Clique que nasce em nó de texto ou no
+      // próprio documento chega aqui como outra coisa, e sem esta guarda o
+      // handler quebraria — deixando o convite preso na tela, que é
+      // exatamente o defeito que ele veio consertar.
+      var alvo = evento.target;
+      if (!alvo || typeof alvo.closest !== "function") return;
+
+      if (alvo.closest("[data-install-close]")) {
+        evento.preventDefault();
+        dispensar();
+        return;
+      }
+
+      // Toque fora do cartão também dispensa. Sem cortina escura por cima da
+      // tela: a cortina seria exatamente o bloqueio que este convite não pode
+      // causar. O clique continua chegando ao que estiver embaixo.
+      if (!alvo.closest("[data-install]")) dispensar();
+    });
+
+    document.addEventListener("keydown", function (evento) {
+      if (evento.key === "Escape" && !banner.hidden) dispensar();
+    });
+
+    window.addEventListener("beforeinstallprompt", function (event) {
+      // Segurar o evento é o que troca o banner do navegador (que aparece na
+      // hora que ele quiser) por este, que aparece dentro do layout do app.
+      event.preventDefault();
+      convite = event;
+      mostrar();
+    });
+
+    window.addEventListener("appinstalled", dispensar);
+
+    if (instalar) {
+      instalar.addEventListener("click", function () {
+        if (!convite) return;
+        convite.prompt();
+        convite.userChoice.then(function () {
+          // Aceitou ou recusou, o convite sai da tela: o evento é de uso único
+          // e insistir na mesma visita é o que faz banner virar praga.
+          dispensar();
+          convite = null;
+        });
+      });
+    }
+
+    if (ehIOS() && !jaInstalado()) {
+      if (dica) {
+        dica.textContent = "No Safari: toque em Compartilhar e depois em \u201cAdicionar \u00e0 Tela de In\u00edcio\u201d.";
+      }
+      // Sem `beforeinstallprompt` no iOS, o botão "Instalar" não teria o que
+      // fazer — um botão que não faz nada é pior que botão nenhum.
+      if (instalar) instalar.hidden = true;
+      mostrar();
+    }
+  }
+
+  /* Sair da conta leva as páginas em cache junto.
+   *
+   * O cache de navegação guarda HTML autenticado — nome, peso, dieta e treino
+   * da pessoa. Num aparelho compartilhado, deixar isso para trás depois de sair
+   * seria entregar o dado ao próximo que abrir o app sem senha nenhuma.
+   *
+   * Só o cache de PÁGINAS é apagado. CSS e ícones ficam: não têm nada pessoal,
+   * e derrubá-los faria a próxima abertura baixar tudo de novo.
+   *
+   * Roda sempre que a tela abre sem sessão — o que cobre sair pelo botão,
+   * a sessão vencer e o token ser invalidado do outro lado. */
+  if (document.body && document.body.dataset.autenticado === "0" && window.caches) {
+    caches.keys().then(function (nomes) {
+      nomes.filter(function (n) { return n.indexOf("-paginas") !== -1; })
+           .forEach(function (n) { caches.delete(n); });
+    });
+  }
+
+})();
+
+</script>
+  
+    
+    <script>
+/* /static/js/fila.js?v=db2a74d1 */
+/* A fila de escritas offline.
+ *
+ * O que ela cobre e por quê:
+ *
+ *   água, suplemento, marcação de refeição, carga de série.
+ *
+ * São as quatro coisas que a pessoa marca no meio de outra atividade — de pé
+ * na academia, na fila do mercado, com o elevador descendo — e são as quatro
+ * em que perder a marcação por falta de sinal significa perder o dado do dia.
+ *
+ * O que ela NÃO cobre, e isso é decisão e não esquecimento: assistente de
+ * treino, recalibragem de metas e geração de plano. As três leem o estado do
+ * servidor para decidir o que fazer. Enfileirá-las produziria decisões tomadas
+ * sobre dados velhos — uma substituição de exercício calculada sobre a ficha
+ * de ontem, aplicada amanhã.
+ *
+ * **Sobre o Background Sync.** A API existe no Chrome e não existe no Safari do
+ * iPhone, que é metade dos aparelhos deste app. Então ela entra como bônus: o
+ * mecanismo principal é o evento `online` mais uma drenagem na abertura da
+ * página, que funciona em todo lugar.
+ *
+ * **Sobre repetir.** A rede não garante entrega única, então cada item da fila
+ * carrega um identificador gerado aqui e o servidor lembra o que já aplicou.
+ * Sem isso, reenviar "+500 ml" duas vezes registraria um litro que ninguém
+ * bebeu — água soma, e suplemento alterna.
+ */
+(function () {
+  "use strict";
+
+  var BANCO = "nutriplan-fila";
+  var LOJA = "pendentes";
+  var VERSAO = 1;
+
+  /* Só estas rotas. Um curinga aqui seria a porta para enfileirar coisa que
+   * depende de estado do servidor. */
+  var ROTAS = [
+    /^\/agua\/$/,
+    /^\/suplementos\/\d+\/marcar\/$/,
+    /^\/refeicao\/\d+\/marcar\/$/,
+    /^\/treino\/exercicio\/\d+\/carga\/$/,
+  ];
+
+  function permitida(url) {
+    var caminho = new URL(url, location.origin).pathname;
+    return ROTAS.some(function (r) { return r.test(caminho); });
+  }
+
+  function identificador() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    /* Navegador antigo: hora mais aleatório é colisão improvável o bastante
+     * para uma fila que vive minutos. */
+    return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+  }
+
+  function abrir() {
+    return new Promise(function (resolve, reject) {
+      var pedido = indexedDB.open(BANCO, VERSAO);
+      pedido.onupgradeneeded = function () {
+        var db = pedido.result;
+        if (!db.objectStoreNames.contains(LOJA)) {
+          db.createObjectStore(LOJA, { keyPath: "op_id" });
+        }
+      };
+      pedido.onsuccess = function () { resolve(pedido.result); };
+      pedido.onerror = function () { reject(pedido.error); };
+    });
+  }
+
+  function comLoja(modo, trabalho) {
+    return abrir().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(LOJA, modo);
+        var resultado = trabalho(tx.objectStore(LOJA));
+        tx.oncomplete = function () { db.close(); resolve(resultado && resultado.result); };
+        tx.onerror = function () { db.close(); reject(tx.error); };
+      });
+    });
+  }
+
+  function guardar(item) { return comLoja("readwrite", function (l) { return l.put(item); }); }
+  function remover(id) { return comLoja("readwrite", function (l) { return l.delete(id); }); }
+  function tudo() { return comLoja("readonly", function (l) { return l.getAll(); }); }
+
+  /* ------------------------------------------------------------ contagem */
+
+  function avisar(quantos) {
+    document.dispatchEvent(
+      new CustomEvent("nutriplan:fila", { detail: { pendentes: quantos } })
+    );
+  }
+
+  function recontar() {
+    return tudo().then(function (itens) {
+      avisar((itens || []).length);
+      return itens || [];
+    });
+  }
+
+  /* -------------------------------------------------------------- envio */
+
+  function enviar(item) {
+    var corpo = new URLSearchParams(item.dados);
+    return fetch(item.url, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-Requested-With": "fetch",
+      },
+      body: corpo,
+    });
+  }
+
+  function drenar() {
+    if (!navigator.onLine) return Promise.resolve();
+
+    return tudo().then(function (itens) {
+      /* Em série e não em paralelo: são poucas, e a ordem importa quando duas
+       * marcações tocam a mesma refeição. */
+      return (itens || []).reduce(function (antes, item) {
+        return antes.then(function () {
+          return enviar(item)
+            .then(function (r) {
+              /* 4xx é o servidor recusando o conteúdo — reenviar não conserta,
+               * e manter na fila faria a pessoa carregar para sempre um item
+               * que nunca vai passar. Sai da fila. */
+              if (r.ok || (r.status >= 400 && r.status < 500)) return remover(item.op_id);
+            })
+            .catch(function () { /* rede caiu de novo: fica para a próxima */ });
+        });
+      }, Promise.resolve());
+    }).then(recontar);
+  }
+
+  /* ---------------------------------------------------- interceptação */
+
+  document.addEventListener("submit", function (evento) {
+    var form = evento.target;
+    if (!form || form.tagName !== "FORM") return;
+    if (form.method.toLowerCase() !== "post" || !permitida(form.action)) return;
+    /* Online e com fetch: o caminho normal segue. A fila é para a falta de
+     * rede, não um substituto do POST. */
+    if (navigator.onLine) return;
+
+    evento.preventDefault();
+
+    var dados = {};
+    new FormData(form).forEach(function (v, k) { dados[k] = v; });
+    dados.op_id = identificador();
+
+    guardar({ op_id: dados.op_id, url: form.action, dados: dados, em: Date.now() })
+      .then(recontar)
+      .then(function () {
+        /* A tela precisa reagir: sem retorno, marcar offline parece não ter
+         * funcionado e a pessoa toca de novo, enfileirando duas vezes. */
+        form.dispatchEvent(
+          new CustomEvent("nutriplan:enfileirado", { bubbles: true, detail: dados })
+        );
+      });
+  });
+
+  window.addEventListener("online", drenar);
+  document.addEventListener("DOMContentLoaded", function () {
+    recontar().then(drenar);
+  });
+
+  /* Bônus onde existe: o navegador reenvia mesmo com a aba fechada. */
+  if ("serviceWorker" in navigator && "SyncManager" in window) {
+    navigator.serviceWorker.ready
+      .then(function (reg) { return reg.sync.register("nutriplan-fila"); })
+      .catch(function () { /* sem sync em segundo plano, o evento online basta */ });
+  }
+
+  /* ------------------------------------------------------------ a faixa */
+
+  document.addEventListener("nutriplan:fila", function (evento) {
+    var faixa = document.querySelector("[data-fila]");
+    if (!faixa) return;
+    var quantos = evento.detail.pendentes;
+    faixa.hidden = quantos === 0;
+    if (quantos) {
+      var texto = faixa.querySelector("[data-fila-texto]");
+      texto.textContent =
+        quantos === 1
+          ? "1 marcação esperando conexão"
+          : quantos + " marcações esperando conexão";
+    }
+  });
+
+  /* Retorno imediato ao enfileirar: sem ele, marcar offline parece não ter
+   * funcionado e a pessoa toca de novo. O formulário some da tela como se
+   * tivesse sido enviado, porque do ponto de vista dela foi. */
+  document.addEventListener("nutriplan:enfileirado", function (evento) {
+    var form = evento.target;
+    if (form && form.classList) form.classList.add("set-row--done");
+  });
+
+  window.NutriPlanFila = { drenar: drenar, recontar: recontar, permitida: permitida };
+})();
+
+</script>
+  
+
+<script>
+/* injetado por scripts/exportar_telas.py — só para a captura de tela */
+(function () {
+  var ALVO = "Comi outra coisa";
+  function abrir() {
+    var achou = 0;
+    document.querySelectorAll('details').forEach(function (d) {
+      var s = d.querySelector('summary');
+      if (s && s.textContent.trim().indexOf(ALVO) === 0) { d.open = true; achou++; }
+    });
+    document.documentElement.dataset.detailsAbertos = achou;
+  }
+  if (document.readyState === 'complete') abrir();
+  else window.addEventListener('load', abrir);
+  setTimeout(abrir, 200);
+  setTimeout(abrir, 600);
+})();
+</script>
+</body>
+</html>

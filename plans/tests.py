@@ -13,6 +13,7 @@ import re
 from django.conf import settings
 
 from django.core.management import call_command
+from django.http import QueryDict
 from django.db.models import Sum
 from django.test import TestCase
 from django.urls import reverse
@@ -2081,3 +2082,66 @@ class ComiOutraCoisaTests(TestCase):
         html = self.client.get(reverse("plans:today")).content.decode()
         self.assertEqual(html.count('<datalist id="alimentos-do-catalogo">'), 1)
         self.assertNotIn("<select", html.split('class="fora"', 1)[1])
+
+
+class ComiOutraCoisaBordasTests(TestCase):
+    """As bordas que a auditoria encontrou no parser da refeição fora do plano.
+
+    Todas vieram de sondar o `_itens_descritos` com entrada hostil, que é o
+    caminho por onde POST forjado, autofill estranho e fila offline reenviando
+    chegam — e nenhum deles passa pelo `required` do navegador.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def _pedido(self, alimentos, gramas):
+        dados = QueryDict(mutable=True)
+        dados.setlist("alimento", alimentos)
+        dados.setlist("gramas", gramas)
+        return views._itens_descritos(dados)
+
+    def test_a_not_a_number_does_not_take_the_page_down(self):
+        """`Decimal("NaN")` NÃO levanta ao ser construído — ele constrói um
+        NaN, e a COMPARAÇÃO seguinte é que estourava `InvalidOperation`. O
+        `try` só envolvia a construção, então o erro 500 chegava na cara de
+        quem queria registrar o almoço."""
+        for veneno in ("NaN", "sNaN", "-NaN", "Infinity", "-Infinity"):
+            with self.subTest(gramas=veneno):
+                self.assertEqual(self._pedido(["Arroz branco cozido"], [veneno]), [])
+
+    def test_the_same_food_twice_is_summed_and_not_overwritten(self):
+        """Arroz no almoço e arroz de novo à noite é a mesma linha do catálogo
+        duas vezes. A versão anterior guardava num dicionário por nome e ficava
+        com a ÚLTIMA: 150 g e depois 100 g viravam 100, não 250."""
+        itens = self._pedido(
+            ["Arroz branco cozido", "Arroz branco cozido"], ["150", "100"]
+        )
+        self.assertEqual(len(itens), 1)
+        self.assertEqual(itens[0][1], Decimal("250"))
+
+    def test_the_ceiling_applies_to_the_sum_and_not_to_the_line(self):
+        """Com o teto só por linha, duas de 2 kg passavam e viravam 4 kg num
+        prato. O teto existe para barrar dedo escorregando no teclado, e
+        escorregar duas vezes é o caso mais provável, não o menos."""
+        itens = self._pedido(
+            ["Arroz branco cozido", "Arroz branco cozido"], ["2000", "2000"]
+        )
+        self.assertEqual(itens[0][1], views.LIMITE_GRAMAS - Decimal("1000"))
+
+        cabe = self._pedido(
+            ["Arroz branco cozido", "Arroz branco cozido"], ["2000", "900"]
+        )
+        self.assertEqual(cabe[0][1], Decimal("2900"))
+
+    def test_a_lopsided_pair_of_lists_does_not_shift_the_quantities(self):
+        """Nomes e gramaturas chegam como duas listas paralelas. Se elas
+        desalinharem, o `zip` para na mais curta — o que descarta linhas, e
+        NÃO casa o nome de uma com a gramatura de outra, que seria gravar
+        comida que a pessoa não comeu."""
+        itens = self._pedido(
+            ["Arroz branco cozido", "Ovo de galinha cozido"], ["100"]
+        )
+        self.assertEqual(len(itens), 1)
+        self.assertEqual(itens[0][0].name, "Arroz branco cozido")

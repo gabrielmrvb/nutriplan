@@ -62,6 +62,13 @@
         45,
         60,
         "seconds"
+      ],
+      [
+        "Panturrilha em pé",
+        3,
+        12,
+        15,
+        60
       ]
     ]
   },
@@ -111,6 +118,20 @@
         "Tríceps na polia com corda",
         3,
         10,
+        15,
+        60
+      ],
+      [
+        "Encolhimento com halteres",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Rosca de punho com barra",
+        3,
+        12,
         15,
         60
       ]
@@ -374,6 +395,14 @@
         15,
         20,
         60
+      ],
+      [
+        "Prancha abdominal",
+        3,
+        30,
+        45,
+        60,
+        "seconds"
       ]
     ]
   },

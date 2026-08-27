@@ -1,3 +1,14 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  
+  <meta name="theme-color" content="#f4f6f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#090c0b" media="(prefers-color-scheme: dark)">
+  <title>Meu perfil · NutriPlan</title>
+  <style>
+/* /static/css/app.css?v=db2a74d1 */
 /* NutriPlan — folha de estilo única, dark-first, mobile-first.
  *
  * Sem framework de propósito: é um arquivo que se lê inteiro num café, contra
@@ -3874,3 +3885,737 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   font-weight: 650;
   pointer-events: none;
 }
+
+</style>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="icon" href="/static/icons/icon-192.png">
+  <meta name="description" content="Sua dieta calculada, o cardápio do dia e o treino da semana.">
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NutriPlan">
+</head>
+
+<body class="tem-tabbar"
+      data-autenticado="1">
+  
+    <header class="app-bar">
+      <a class="app-bar__brand" href="/">
+        <span class="app-bar__mark" aria-hidden="true">N</span>
+        <span class="app-bar__word">Nutri<span class="app-bar__accent">Plan</span></span>
+      </a>
+      <nav class="app-bar__nav">
+        
+          <a class="app-bar__link "
+             href="/">Dieta</a>
+          <a class="app-bar__link "
+             href="/treino/">Treino</a>
+          <a class="app-bar__link "
+             href="/historico/">Métricas</a>
+          <a class="app-bar__link is-active"
+             href="/conta/perfil/">Perfil</a>
+          <form method="post" action="/conta/sair/">
+            <input type="hidden" name="csrfmiddlewaretoken" value="NlKcPVcRUqKPNr61sH0OYm92ZhGTo05dvX0BX6BaYcTT763bMPq0IUVoIGHnOKFn">
+            <button type="submit" class="app-bar__quiet">Sair</button>
+          </form>
+        
+      </nav>
+    </header>
+  
+
+  <main class="container ">
+    
+    
+  <div class="page-head">
+    <h1>Meu perfil</h1>
+    <p class="lead">Mudou alguma coisa? Editar qualquer bloco recalcula sua dieta.</p>
+  </div>
+
+  <div class="split">
+    <div class="split__main stack">
+      <section class="card">
+        <div class="card__head">
+          <h2>Objetivo</h2>
+          <a href="/conta/onboarding/2/">Editar</a>
+        </div>
+        <dl class="data-list">
+          <div><dt>Meta</dt><dd>Emagrecer</dd></div>
+          <div><dt>Rotina</dt><dd>Moderadamente ativo</dd></div>
+        </dl>
+      </section>
+
+      <section class="card">
+        <div class="card__head">
+          <h2>Dados corporais</h2>
+          <a href="/conta/onboarding/1/">Editar</a>
+        </div>
+        <dl class="data-list">
+          <div><dt>Sexo</dt><dd>Masculino</dd></div>
+          <div><dt>Idade</dt><dd>31 anos</dd></div>
+          <div><dt>Altura</dt><dd>178 cm</dd></div>
+          <div><dt>Peso atual</dt><dd>84,3 kg</dd></div>
+        </dl>
+      </section>
+
+      <section class="card">
+        <div class="card__head">
+          <h2>Treinos</h2>
+          <a href="/conta/onboarding/3/">Editar</a>
+        </div>
+        
+          <dl class="data-list">
+            
+              <div>
+                <dt>Segunda-feira</dt>
+                <dd>19:00 · 60 min</dd>
+              </div>
+            
+              <div>
+                <dt>Quarta-feira</dt>
+                <dd>19:00 · 60 min</dd>
+              </div>
+            
+              <div>
+                <dt>Sexta-feira</dt>
+                <dd>19:00 · 60 min</dd>
+              </div>
+            
+          </dl>
+        
+      </section>
+    </div>
+
+    <aside class="split__aside stack">
+      <section class="card">
+        <div class="card__head">
+          <h2>Restrições e rotina</h2>
+          <a href="/conta/onboarding/4/">Editar</a>
+        </div>
+        <div class="chip-row" style="margin-bottom:.9rem">
+          
+            <span class="chip">Sem restrições</span>
+          
+        </div>
+        <dl class="data-list">
+          <div><dt>Acorda</dt><dd>07:00</dd></div>
+          <div><dt>Dorme</dt><dd>23:00</dd></div>
+        </dl>
+      </section>
+
+      <section class="card">
+        <div class="card__head"><h2>Histórico de peso</h2></div>
+        
+          <dl class="data-list">
+            
+              <div>
+                <dt>22/08/2026</dt>
+                <dd>84,3 kg</dd>
+              </div>
+            
+              <div>
+                <dt>15/08/2026</dt>
+                <dd>84,4 kg</dd>
+              </div>
+            
+              <div>
+                <dt>08/08/2026</dt>
+                <dd>84,5 kg</dd>
+              </div>
+            
+              <div>
+                <dt>01/08/2026</dt>
+                <dd>86,0 kg</dd>
+              </div>
+            
+          </dl>
+        
+      </section>
+    </aside>
+  </div>
+
+  </main>
+
+  
+    
+    <div class="fila" data-fila hidden role="status" aria-live="polite">
+      <span class="fila__icone" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12a8 8 0 0 1 13.7-5.7L20 8"/><path d="M20 4v4h-4"/>
+          <path d="M20 12a8 8 0 0 1-13.7 5.7L4 16"/><path d="M4 20v-4h4"/>
+        </svg>
+      </span>
+      <span class="fila__texto" data-fila-texto></span>
+    </div>
+
+    
+    
+    <nav class="tabbar" aria-label="Navegação principal">
+      <a class="tabbar__item "
+         href="/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 3v8a3 3 0 0 0 6 0V3"/><path d="M9 11v10"/>
+          <path d="M17.5 3c-1.5 2-2 4-2 6.5 0 1.5.8 2.5 2 2.5s2-1 2-2.5c0-2.5-.5-4.5-2-6.5Z"/>
+          <path d="M17.5 12v9"/>
+        </svg>
+        Dieta
+      </a>
+      <a class="tabbar__item "
+         href="/treino/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 9v6"/><path d="M6 6.5v11"/><path d="M18 6.5v11"/><path d="M21 9v6"/>
+          <path d="M6 12h12"/>
+        </svg>
+        Treino
+      </a>
+      <a class="tabbar__item "
+         href="/suplementos/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8.5 3.5a5 5 0 0 1 7 7l-5 5a5 5 0 0 1-7-7Z"/>
+          <path d="M6 6 15 15"/>
+        </svg>
+        Suplem.
+      </a>
+      <a class="tabbar__item "
+         href="/historico/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M2 20h20"/>
+        </svg>
+        Métricas
+      </a>
+      <a class="tabbar__item is-active"
+         href="/conta/perfil/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="8" r="3.5"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>
+        </svg>
+        Perfil
+      </a>
+    </nav>
+    
+  
+
+  
+  <div class="install" data-install hidden role="dialog" aria-labelledby="install-title">
+    <button type="button" class="install__close" data-install-close aria-label="Fechar o convite de instalação">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18"/>
+      </svg>
+    </button>
+    <div class="install__top">
+      <img class="install__icon" src="/static/icons/icon-192.png" alt="" width="48" height="48">
+      <div class="install__text">
+        <strong class="install__title" id="install-title">Instale o NutriPlan</strong>
+        <span class="install__hint" data-install-hint>Abre direto da tela inicial, sem barra de navegador.</span>
+      </div>
+    </div>
+    <div class="install__actions">
+      <button type="button" class="btn btn--primary install__go" data-install-go>Instalar</button>
+      <button type="button" class="btn btn--ghost install__later" data-install-close>Agora não</button>
+    </div>
+  </div>
+
+  <script>window.NUTRIPLAN_VAPID_KEY = "BDqlqzj_BUL_Xb3cv3Hipo-V10tBKR6CulYFptaZvosSL2ZZX283XY9jTtLysy9dS0mhied5w7wFnrlg7TZ9JKw";</script>
+  <script>
+/* /static/js/pwa.js?v=db2a74d1 */
+/* Instalação do app, registro do service worker e assinatura das notificações.
+ *
+ * Tudo aqui é opcional por construção: navegador sem suporte, permissão
+ * negada ou chave VAPID ausente apenas escondem o botão. Nada disso pode
+ * impedir o app de funcionar — notificação é acessório, dieta é o produto.
+ */
+(function () {
+  "use strict";
+
+  var button = document.querySelector("[data-push-toggle]");
+  var status = document.querySelector("[data-push-status]");
+  var supported =
+    "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+
+  function say(text) {
+    if (status) status.textContent = text;
+  }
+
+  function urlBase64ToUint8Array(base64String) {
+    // A chave VAPID vem em base64url; a API do navegador quer bytes.
+    var padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    var base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    var raw = window.atob(base64);
+    return Uint8Array.from(raw.split("").map(function (c) {
+      return c.charCodeAt(0);
+    }));
+  }
+
+  function csrfToken() {
+    var match = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+    return match ? match[2] : "";
+  }
+
+  function post(url, body) {
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
+      body: JSON.stringify(body),
+    });
+  }
+
+  instalacao();
+
+  if (!("serviceWorker" in navigator)) return;
+
+  void 0 && navigator.serviceWorker.register("/sw.js").then(function (registration) {
+    if (!button) return;
+    if (!supported || !window.NUTRIPLAN_VAPID_KEY) {
+      button.hidden = true;
+      return;
+    }
+
+    registration.pushManager.getSubscription().then(function (subscription) {
+      render(registration, subscription);
+    });
+  });
+
+  function render(registration, subscription) {
+    if (!button) return;
+    button.hidden = false;
+    if (subscription) {
+      button.textContent = "Desativar lembretes";
+      say("Você recebe um aviso 10 minutos antes de cada refeição.");
+    } else {
+      button.textContent = "Ativar lembretes das refeições";
+      say("Um aviso 10 minutos antes de cada refeição, no celular.");
+    }
+
+    button.onclick = function () {
+      button.disabled = true;
+      var action = subscription ? disable(subscription) : enable(registration);
+      action
+        .then(function (next) {
+          button.disabled = false;
+          render(registration, next);
+        })
+        .catch(function () {
+          button.disabled = false;
+          say("Não deu para mudar os lembretes agora. Tente de novo.");
+        });
+    };
+  }
+
+  function enable(registration) {
+    return Notification.requestPermission().then(function (permission) {
+      if (permission !== "granted") {
+        say("Permissão negada. Dá para liberar nas configurações do navegador.");
+        return null;
+      }
+      return registration.pushManager
+        .subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(window.NUTRIPLAN_VAPID_KEY),
+        })
+        .then(function (subscription) {
+          return post("/push/inscrever/", subscription.toJSON()).then(function () {
+            return subscription;
+          });
+        });
+    });
+  }
+
+  function disable(subscription) {
+    var endpoint = subscription.endpoint;
+    return subscription.unsubscribe().then(function () {
+      return post("/push/cancelar/", { endpoint: endpoint }).then(function () {
+        return null;
+      });
+    });
+  }
+
+
+  /* ------------------------------------------------------------------ *
+   * Convite de instalação
+   * ------------------------------------------------------------------ */
+
+  /* Android e desktop: o navegador avisa quando o site cumpre os requisitos
+   * (manifest válido, service worker, HTTPS) e deixa a gente escolher a hora
+   * de perguntar. iPhone: o Safari não dispara evento nenhum e não tem API de
+   * instalação — a única saída é ensinar o caminho do menu Compartilhar.
+   *
+   * Em ambos, o convite só aparece para quem ainda não instalou. Repetir
+   * "instale o app" para quem já instalou é o tipo de banner que faz a pessoa
+   * ignorar todos os outros avisos do app.
+   */
+  function instalacao() {
+    var banner = document.querySelector("[data-install]");
+    if (!banner) return;
+
+    var dica = banner.querySelector("[data-install-hint]");
+    var instalar = banner.querySelector("[data-install-go]");
+    var CHAVE = "nutriplan_pwa_dismissed";
+    //: Chaves de versões anteriores. Continuam sendo lidas porque trocar o
+    //: nome não pode ressuscitar o convite justamente para quem já disse não.
+    var CHAVES_ANTIGAS = ["pwa_prompt_dismissed", "nutriplan:convite-dispensado-em"];
+    var convite = null;
+
+    function jaInstalado() {
+      return (
+        window.matchMedia("(display-mode: standalone)").matches ||
+        window.navigator.standalone === true
+      );
+    }
+
+    function ehIOS() {
+      // iPadOS moderno se apresenta como Mac; o toque é o que o denuncia.
+      var ua = window.navigator.userAgent;
+      return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && "ontouchend" in document);
+    }
+
+    /* Fechou uma vez, não volta mais neste aparelho.
+     *
+     * Houve uma versão com prazo de sete dias, na ideia de que quem fecha na
+     * primeira visita ainda não sabe se o app presta. A prática desmentiu: um
+     * convite que reaparece é um convite que a pessoa já respondeu, e
+     * perguntar de novo é insistência. Quem mudar de ideia instala pelo menu
+     * do próprio navegador, que é onde essa opção mora de todo jeito.
+     *
+     * A chave antiga continua sendo lida para quem já tinha recusado antes
+     * desta mudança — trocar o nome da chave não pode ressuscitar o convite
+     * justamente para quem já disse não. */
+    function dispensado() {
+      try {
+        var loja = window.localStorage;
+        if (loja.getItem(CHAVE) === "true") return true;
+        for (var i = 0; i < CHAVES_ANTIGAS.length; i++) {
+          if (loja.getItem(CHAVES_ANTIGAS[i])) return true;
+        }
+        return false;
+      } catch (e) {
+        // Modo privado pode recusar o armazenamento. Sem memória, o convite
+        // reaparece na próxima visita — chato, mas melhor que quebrar.
+        return false;
+      }
+    }
+
+    /* Esconder não basta: a barra é `position: fixed`, então não ocupa espaço
+     * no layout e pousa em cima do rodapé da página. A classe no `body` é o
+     * que faz a página reservar a altura dela — e some junto com o convite. */
+    function esconder() {
+      banner.hidden = true;
+      document.body.classList.remove("tem-convite");
+    }
+
+    function dispensar() {
+      esconder();
+      try {
+        window.localStorage.setItem(CHAVE, "true");
+      } catch (e) {}
+    }
+
+    function mostrar() {
+      if (jaInstalado() || dispensado()) return;
+      banner.hidden = false;
+      document.body.classList.add("tem-convite");
+    }
+
+    /* Quatro maneiras de sair, e todas ligadas no documento em vez de nos
+     * botões.
+     *
+     * Delegação e não `botao.onclick` porque um handler preso a um elemento
+     * específico depende de aquele elemento existir no instante em que este
+     * código roda. Preso ao documento, funciona mesmo que o cartão seja
+     * redesenhado depois — e um convite que não fecha é o pior defeito que
+     * este app já teve. */
+    document.addEventListener("click", function (evento) {
+      if (banner.hidden) return;
+
+      // `closest` só existe em Element. Clique que nasce em nó de texto ou no
+      // próprio documento chega aqui como outra coisa, e sem esta guarda o
+      // handler quebraria — deixando o convite preso na tela, que é
+      // exatamente o defeito que ele veio consertar.
+      var alvo = evento.target;
+      if (!alvo || typeof alvo.closest !== "function") return;
+
+      if (alvo.closest("[data-install-close]")) {
+        evento.preventDefault();
+        dispensar();
+        return;
+      }
+
+      // Toque fora do cartão também dispensa. Sem cortina escura por cima da
+      // tela: a cortina seria exatamente o bloqueio que este convite não pode
+      // causar. O clique continua chegando ao que estiver embaixo.
+      if (!alvo.closest("[data-install]")) dispensar();
+    });
+
+    document.addEventListener("keydown", function (evento) {
+      if (evento.key === "Escape" && !banner.hidden) dispensar();
+    });
+
+    window.addEventListener("beforeinstallprompt", function (event) {
+      // Segurar o evento é o que troca o banner do navegador (que aparece na
+      // hora que ele quiser) por este, que aparece dentro do layout do app.
+      event.preventDefault();
+      convite = event;
+      mostrar();
+    });
+
+    window.addEventListener("appinstalled", dispensar);
+
+    if (instalar) {
+      instalar.addEventListener("click", function () {
+        if (!convite) return;
+        convite.prompt();
+        convite.userChoice.then(function () {
+          // Aceitou ou recusou, o convite sai da tela: o evento é de uso único
+          // e insistir na mesma visita é o que faz banner virar praga.
+          dispensar();
+          convite = null;
+        });
+      });
+    }
+
+    if (ehIOS() && !jaInstalado()) {
+      if (dica) {
+        dica.textContent = "No Safari: toque em Compartilhar e depois em \u201cAdicionar \u00e0 Tela de In\u00edcio\u201d.";
+      }
+      // Sem `beforeinstallprompt` no iOS, o botão "Instalar" não teria o que
+      // fazer — um botão que não faz nada é pior que botão nenhum.
+      if (instalar) instalar.hidden = true;
+      mostrar();
+    }
+  }
+
+  /* Sair da conta leva as páginas em cache junto.
+   *
+   * O cache de navegação guarda HTML autenticado — nome, peso, dieta e treino
+   * da pessoa. Num aparelho compartilhado, deixar isso para trás depois de sair
+   * seria entregar o dado ao próximo que abrir o app sem senha nenhuma.
+   *
+   * Só o cache de PÁGINAS é apagado. CSS e ícones ficam: não têm nada pessoal,
+   * e derrubá-los faria a próxima abertura baixar tudo de novo.
+   *
+   * Roda sempre que a tela abre sem sessão — o que cobre sair pelo botão,
+   * a sessão vencer e o token ser invalidado do outro lado. */
+  if (document.body && document.body.dataset.autenticado === "0" && window.caches) {
+    caches.keys().then(function (nomes) {
+      nomes.filter(function (n) { return n.indexOf("-paginas") !== -1; })
+           .forEach(function (n) { caches.delete(n); });
+    });
+  }
+
+})();
+
+</script>
+  
+    
+    <script>
+/* /static/js/fila.js?v=db2a74d1 */
+/* A fila de escritas offline.
+ *
+ * O que ela cobre e por quê:
+ *
+ *   água, suplemento, marcação de refeição, carga de série.
+ *
+ * São as quatro coisas que a pessoa marca no meio de outra atividade — de pé
+ * na academia, na fila do mercado, com o elevador descendo — e são as quatro
+ * em que perder a marcação por falta de sinal significa perder o dado do dia.
+ *
+ * O que ela NÃO cobre, e isso é decisão e não esquecimento: assistente de
+ * treino, recalibragem de metas e geração de plano. As três leem o estado do
+ * servidor para decidir o que fazer. Enfileirá-las produziria decisões tomadas
+ * sobre dados velhos — uma substituição de exercício calculada sobre a ficha
+ * de ontem, aplicada amanhã.
+ *
+ * **Sobre o Background Sync.** A API existe no Chrome e não existe no Safari do
+ * iPhone, que é metade dos aparelhos deste app. Então ela entra como bônus: o
+ * mecanismo principal é o evento `online` mais uma drenagem na abertura da
+ * página, que funciona em todo lugar.
+ *
+ * **Sobre repetir.** A rede não garante entrega única, então cada item da fila
+ * carrega um identificador gerado aqui e o servidor lembra o que já aplicou.
+ * Sem isso, reenviar "+500 ml" duas vezes registraria um litro que ninguém
+ * bebeu — água soma, e suplemento alterna.
+ */
+(function () {
+  "use strict";
+
+  var BANCO = "nutriplan-fila";
+  var LOJA = "pendentes";
+  var VERSAO = 1;
+
+  /* Só estas rotas. Um curinga aqui seria a porta para enfileirar coisa que
+   * depende de estado do servidor. */
+  var ROTAS = [
+    /^\/agua\/$/,
+    /^\/suplementos\/\d+\/marcar\/$/,
+    /^\/refeicao\/\d+\/marcar\/$/,
+    /^\/treino\/exercicio\/\d+\/carga\/$/,
+  ];
+
+  function permitida(url) {
+    var caminho = new URL(url, location.origin).pathname;
+    return ROTAS.some(function (r) { return r.test(caminho); });
+  }
+
+  function identificador() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    /* Navegador antigo: hora mais aleatório é colisão improvável o bastante
+     * para uma fila que vive minutos. */
+    return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+  }
+
+  function abrir() {
+    return new Promise(function (resolve, reject) {
+      var pedido = indexedDB.open(BANCO, VERSAO);
+      pedido.onupgradeneeded = function () {
+        var db = pedido.result;
+        if (!db.objectStoreNames.contains(LOJA)) {
+          db.createObjectStore(LOJA, { keyPath: "op_id" });
+        }
+      };
+      pedido.onsuccess = function () { resolve(pedido.result); };
+      pedido.onerror = function () { reject(pedido.error); };
+    });
+  }
+
+  function comLoja(modo, trabalho) {
+    return abrir().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(LOJA, modo);
+        var resultado = trabalho(tx.objectStore(LOJA));
+        tx.oncomplete = function () { db.close(); resolve(resultado && resultado.result); };
+        tx.onerror = function () { db.close(); reject(tx.error); };
+      });
+    });
+  }
+
+  function guardar(item) { return comLoja("readwrite", function (l) { return l.put(item); }); }
+  function remover(id) { return comLoja("readwrite", function (l) { return l.delete(id); }); }
+  function tudo() { return comLoja("readonly", function (l) { return l.getAll(); }); }
+
+  /* ------------------------------------------------------------ contagem */
+
+  function avisar(quantos) {
+    document.dispatchEvent(
+      new CustomEvent("nutriplan:fila", { detail: { pendentes: quantos } })
+    );
+  }
+
+  function recontar() {
+    return tudo().then(function (itens) {
+      avisar((itens || []).length);
+      return itens || [];
+    });
+  }
+
+  /* -------------------------------------------------------------- envio */
+
+  function enviar(item) {
+    var corpo = new URLSearchParams(item.dados);
+    return fetch(item.url, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-Requested-With": "fetch",
+      },
+      body: corpo,
+    });
+  }
+
+  function drenar() {
+    if (!navigator.onLine) return Promise.resolve();
+
+    return tudo().then(function (itens) {
+      /* Em série e não em paralelo: são poucas, e a ordem importa quando duas
+       * marcações tocam a mesma refeição. */
+      return (itens || []).reduce(function (antes, item) {
+        return antes.then(function () {
+          return enviar(item)
+            .then(function (r) {
+              /* 4xx é o servidor recusando o conteúdo — reenviar não conserta,
+               * e manter na fila faria a pessoa carregar para sempre um item
+               * que nunca vai passar. Sai da fila. */
+              if (r.ok || (r.status >= 400 && r.status < 500)) return remover(item.op_id);
+            })
+            .catch(function () { /* rede caiu de novo: fica para a próxima */ });
+        });
+      }, Promise.resolve());
+    }).then(recontar);
+  }
+
+  /* ---------------------------------------------------- interceptação */
+
+  document.addEventListener("submit", function (evento) {
+    var form = evento.target;
+    if (!form || form.tagName !== "FORM") return;
+    if (form.method.toLowerCase() !== "post" || !permitida(form.action)) return;
+    /* Online e com fetch: o caminho normal segue. A fila é para a falta de
+     * rede, não um substituto do POST. */
+    if (navigator.onLine) return;
+
+    evento.preventDefault();
+
+    var dados = {};
+    new FormData(form).forEach(function (v, k) { dados[k] = v; });
+    dados.op_id = identificador();
+
+    guardar({ op_id: dados.op_id, url: form.action, dados: dados, em: Date.now() })
+      .then(recontar)
+      .then(function () {
+        /* A tela precisa reagir: sem retorno, marcar offline parece não ter
+         * funcionado e a pessoa toca de novo, enfileirando duas vezes. */
+        form.dispatchEvent(
+          new CustomEvent("nutriplan:enfileirado", { bubbles: true, detail: dados })
+        );
+      });
+  });
+
+  window.addEventListener("online", drenar);
+  document.addEventListener("DOMContentLoaded", function () {
+    recontar().then(drenar);
+  });
+
+  /* Bônus onde existe: o navegador reenvia mesmo com a aba fechada. */
+  if ("serviceWorker" in navigator && "SyncManager" in window) {
+    navigator.serviceWorker.ready
+      .then(function (reg) { return reg.sync.register("nutriplan-fila"); })
+      .catch(function () { /* sem sync em segundo plano, o evento online basta */ });
+  }
+
+  /* ------------------------------------------------------------ a faixa */
+
+  document.addEventListener("nutriplan:fila", function (evento) {
+    var faixa = document.querySelector("[data-fila]");
+    if (!faixa) return;
+    var quantos = evento.detail.pendentes;
+    faixa.hidden = quantos === 0;
+    if (quantos) {
+      var texto = faixa.querySelector("[data-fila-texto]");
+      texto.textContent =
+        quantos === 1
+          ? "1 marcação esperando conexão"
+          : quantos + " marcações esperando conexão";
+    }
+  });
+
+  /* Retorno imediato ao enfileirar: sem ele, marcar offline parece não ter
+   * funcionado e a pessoa toca de novo. O formulário some da tela como se
+   * tivesse sido enviado, porque do ponto de vista dela foi. */
+  document.addEventListener("nutriplan:enfileirado", function (evento) {
+    var form = evento.target;
+    if (form && form.classList) form.classList.add("set-row--done");
+  });
+
+  window.NutriPlanFila = { drenar: drenar, recontar: recontar, permitida: permitida };
+})();
+
+</script>
+  
+</body>
+</html>

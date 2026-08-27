@@ -17,3 +17,6 @@ mu-direct-games/
 
 # O FORJA e outro aplicativo, com git proprio, que mora nesta mesma pasta.
 forja/
+
+# Controle de Moldes: protótipo independente que mora nesta mesma pasta.
+moldes/
