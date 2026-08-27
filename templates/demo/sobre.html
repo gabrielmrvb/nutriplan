@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Sobre o demo · NutriPlan{% endblock %}
+
+{% block content %}
+  <h1>Sobre esta demonstração</h1>
+
+  <section class="card">
+    <p class="lead" style="margin-top:0">
+      Este é um ambiente de demonstração do NutriPlan. <b>Todos os dados
+      apresentados são fictícios.</b> Nenhuma informação real de usuário do
+      sistema está sendo exibida aqui.
+    </p>
+
+    <h2 class="card__titulo">O que você está vendo</h2>
+    <p>
+      As telas são as mesmas do aplicativo — o mesmo código, os mesmos
+      cálculos, o mesmo desenho. O que muda é de quem são os dados: tudo roda
+      sobre <b>Carlos Silva</b>, um personagem inventado para esta
+      demonstração, com 28 anos, 78 kg, 1,78 m e objetivo de hipertrofia.
+    </p>
+    <p>
+      A meta calórica, os macros, o cardápio e a ficha de treino dele não foram
+      escritos à mão: saíram do mesmo motor que atende qualquer pessoa no app.
+      É por isso que o demo continua parecido com o produto quando o produto
+      muda.
+    </p>
+
+    <h2 class="card__titulo">O que não funciona aqui</h2>
+    <p>
+      Nada que <b>escreva</b>. Marcar refeição, registrar carga, anotar água,
+      salvar perfil — tudo isso é recusado antes de chegar ao servidor, e você
+      recebe um aviso explicando. É a única garantia que não depende de eu ter
+      lembrado de proteger cada botão: o modo demo simplesmente não aceita
+      método que altere dado.
+    </p>
+    <p>
+      Login, cadastro e recuperação de senha também ficam de fora: o demo não
+      tem conta para entrar.
+    </p>
+
+    <h2 class="card__titulo">Como os dados reais ficam protegidos</h2>
+    <ul class="lista-simples">
+      <li>O usuário do demo é uma conta separada, com senha inutilizável.</li>
+      <li>Toda requisição de escrita é recusada no middleware, antes da view.</li>
+      <li>O demo não tem acesso a nenhum outro usuário: as telas leem sempre
+          o usuário da requisição, e no demo ele é sempre o Carlos.</li>
+    </ul>
+
+    <p style="margin-bottom:0">
+      <a class="btn btn--primary btn--block" href="{% url 'demo:home' %}">
+        Voltar para o começo
+      </a>
+    </p>
+  </section>
+{% endblock %}

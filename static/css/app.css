@@ -1267,6 +1267,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .btn:active,
 .btn-link:active,
 .choice-card:active,
+.demo-area:active,
 .drawer__fechar:active,
 .exercise__head:active,
 .exercise__ver:active,
@@ -1314,6 +1315,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .btn,
 .btn-link,
 .choice-card,
+.demo-area,
 .drawer__fechar,
 .exercise__head,
 .exercise__ver,
@@ -1353,6 +1355,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   .btn:active,
   .btn-link:active,
   .choice-card:active,
+  .demo-area:active,
   .drawer__fechar:active,
   .exercise__head:active,
   .exercise__ver:active,
@@ -3874,3 +3877,124 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   font-weight: 650;
   pointer-events: none;
 }
+
+/* ==========================================================================
+   31. Modo demo
+   ========================================================================== */
+
+/* O selo, colado no wordmark.
+ *
+ * Faixa atravessando a tela foi a primeira ideia e é a errada: some da vista
+ * em dois segundos e volta a atrapalhar em toda rolagem. Aqui ele fica no
+ * único lugar que a pessoa olha ao chegar em qualquer tela, e depois sai do
+ * caminho — que é o que "discreto" quer dizer. */
+.app-bar__demo {
+  margin-left: .4rem;
+  padding: .1rem .38rem;
+  border: 1px solid color-mix(in srgb, var(--warm) 30%, transparent);
+  border-radius: var(--pill);
+  background: color-mix(in srgb, var(--warm) 12%, transparent);
+  color: var(--warm);
+  font-size: .7rem;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.demo-capa { margin-bottom: 1.2rem; }
+.demo-capa h1 { margin: .55rem 0 .3rem; }
+.demo-capa .lead { margin-bottom: 0; }
+
+.demo-pessoa { margin-bottom: 1.4rem; }
+
+/* Duas colunas de dado, que é o formato de ficha — e o `min-width: 0` em cada
+   uma porque nome de objetivo ("Emagrecer e ganhar massa") é mais largo que a
+   coluna a 390px. */
+.demo-pessoa__dados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: .7rem 1rem;
+  margin: 0 0 .9rem;
+}
+
+.demo-pessoa__dados > div { min-width: 0; }
+.demo-pessoa__dados dt {
+  color: var(--text-mute);
+  font-size: .74rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.demo-pessoa__dados dd {
+  margin: .1rem 0 0;
+  color: var(--text);
+  font-size: .98rem;
+  font-weight: 700;
+  overflow-wrap: break-word;
+}
+
+.demo-pessoa__aviso {
+  margin: 0;
+  padding-top: .8rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-mute);
+  font-size: .8rem;
+  line-height: 1.5;
+}
+
+.demo-titulo { margin: 0 0 .7rem; font-size: 1.05rem; }
+
+.demo-areas {
+  display: grid;
+  gap: .55rem;
+  margin: 0 0 1.1rem;
+  padding: 0;
+  list-style: none;
+}
+
+/* Cada tela do app é uma linha inteira e clicável. O nome vem antes da
+   descrição porque quem varre a lista procura o nome; a descrição existe para
+   quem não reconhece o nome, e essa pessoa lê a linha inteira de qualquer
+   jeito. */
+.demo-area {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .2rem .8rem;
+  min-height: 2.75rem;
+  padding: .85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.demo-area:hover { border-color: var(--brand); background: var(--surface-2); }
+
+.demo-area__nome { font-size: 1rem; font-weight: 700; }
+.demo-area__desc {
+  grid-column: 1;
+  min-width: 0;
+  color: var(--text-mute);
+  font-size: .8rem;
+  line-height: 1.45;
+  hyphens: none;
+  overflow-wrap: break-word;
+}
+
+.demo-area__seta {
+  grid-row: 1 / -1;
+  grid-column: 2;
+  display: grid;
+  place-items: center;
+  color: var(--text-mute);
+}
+
+.demo-area__seta svg { width: 1.1rem; height: 1.1rem; }
+.demo-area:hover .demo-area__seta { color: var(--brand); }
+
+.lista-simples { margin: 0 0 1rem; padding-left: 1.15rem; line-height: 1.6; }
+.lista-simples li { margin-bottom: .35rem; }

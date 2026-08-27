@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "workouts",
     "supplements",
     "push",
+    "demo",
 ]
 
 MIDDLEWARE = [
@@ -58,6 +59,10 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # DEPOIS da autenticação, porque ele SUBSTITUI `request.user` — antes dela,
+    # o middleware de autenticação sobrescreveria a troca de volta pelo
+    # visitante anônimo.
+    "demo.middleware.DemoMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]

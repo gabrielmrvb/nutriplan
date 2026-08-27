@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Ação indisponível no demo · NutriPlan{% endblock %}
+
+{% block content %}
+  <h1>Isso não funciona no demo</h1>
+
+  <section class="card">
+    <p class="lead" style="margin-top:0">
+      A ação que você tocou <b>altera dados</b>, e o modo de demonstração é
+      somente leitura.
+    </p>
+    <p>
+      Não é um erro nem um limite técnico: é a garantia de que uma demonstração
+      pública nunca escreve no banco. Marcar refeição, registrar carga, anotar
+      água e salvar perfil funcionam normalmente no aplicativo de verdade.
+    </p>
+    <p style="margin-bottom:0">
+      <a class="btn btn--primary btn--block" href="{% url 'demo:home' %}">
+        Voltar para as telas
+      </a>
+    </p>
+  </section>
+{% endblock %}

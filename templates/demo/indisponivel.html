@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Demo indisponível · NutriPlan{% endblock %}
+
+{% block content %}
+  <h1>Demonstração fora do ar</h1>
+  <section class="card">
+    <p class="lead" style="margin-top:0">
+      O usuário de demonstração ainda não foi criado neste servidor.
+    </p>
+    <p style="margin-bottom:0">
+      Quem cria é <code>manage.py seed_demo</code>, que roda no build. Se você
+      está vendo isto em produção, o build não terminou ou falhou.
+    </p>
+  </section>
+{% endblock %}

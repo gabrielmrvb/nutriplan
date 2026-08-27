@@ -110,6 +110,7 @@ minuto é seguro — quem decide se alguém já foi avisado é a constraint no b
 | `plans` | Plano calculado, horários, opções de refeição, registro diário |
 | `workouts` | Exercícios, divisões de treino e a rotina semanal de cada pessoa |
 | `push` | Assinaturas Web Push e log de envios |
+| `demo` | Monta a aplicação inteira sob `/demo/`, somente leitura (veja abaixo) |
 
 ## Decisões da interface
 
@@ -491,6 +492,118 @@ pessoas reais. O `clean()` de `Food` avisa quando as calorias não batem com os 
   de imagem: um PNG escrito na mão com `zlib` é menos peso que arrastar Pillow para o
   projeto por causa de quatro arquivos. E, como o desenho sai das cores da marca,
   repintar tudo quando a paleta muda é um comando em vez de quatro exportações à mão.
+
+## Modo demo
+
+Uma versão pública e somente leitura do aplicativo, em `/demo/`. Existe para
+mostrar o NutriPlan a quem não tem conta — pessoa ou ferramenta de análise —
+sem expor dado de ninguém.
+
+**Em produção:** <https://nutriplan-xxfn.onrender.com/demo/>
+
+### Não é uma segunda aplicação
+
+Essa foi a decisão que definiu tudo o resto. Uma cópia das telas nasce igual e
+diverge na primeira semana: o demo passa a mostrar uma versão do app que não
+existe mais, o que é pior do que não ter demo.
+
+Então o demo **monta a mesma aplicação sob outro prefixo**. Quem faz isso é
+`demo/middleware.py`, em três passos:
+
+1. tira o `/demo` de `request.path_info` — o resolvedor de URL do Django
+   encontra a rota real, e `/demo/treino/` cai em `workouts:routine`;
+2. chama `set_script_prefix("/demo/")` — e aí todo `reverse()` da renderização
+   devolve o prefixo de volta, então a barra de abas, os formulários e os links
+   do template **real** apontam para dentro do demo sozinhos;
+3. troca `request.user` pelo usuário fictício.
+
+O passo 2 é o que faz a coisa funcionar. Sem ele, a navegação de dentro do demo
+mandaria a pessoa para `/treino/`, que exige login — exatamente o beco sem
+saída que o demo existe para não ter. Nenhum template foi duplicado.
+
+### Rotas
+
+| Rota | O que é |
+|---|---|
+| `/demo/` | Capa: quem é o personagem e a lista das telas |
+| `/demo/sobre/` | O que é o demo, o que não funciona e por quê |
+| `/demo/hoje/` | Painel do dia — apelido, veja abaixo |
+| `/demo/treino/` | Ficha da semana |
+| `/demo/suplementos/` | Checklist e o que cada suplemento faz |
+| `/demo/historico/` | Aderência, média de calorias, curva de peso |
+| `/demo/lista-de-compras/` | Compras da semana por corredor |
+| `/demo/conta/perfil/` | Dados que alimentam o cálculo |
+
+Qualquer rota do app funciona sob `/demo/` sem ser listada aqui — a tabela é o
+que a capa oferece, não o que o middleware aceita.
+
+`/demo/hoje/` é o **único apelido** do demo, e existe por colisão: o painel do
+dia mora na raiz da aplicação (`/`), e a raiz do demo é a capa. Ele está em
+`APELIDOS`, no middleware. Cada apelido novo é uma rota que existe no demo e
+não existe no app — é assim que um demo começa a divergir do produto, então a
+regra é não criar o segundo sem um motivo tão concreto quanto este.
+
+### Como os dados reais ficam protegidos
+
+Três camadas, e a primeira é a que não depende de memória:
+
+1. **Nenhum método que escreve chega na view.** O middleware recusa tudo que
+   não é `GET`, `HEAD` ou `OPTIONS`, e responde com uma página explicando.
+   Proteger botão por botão dependeria de eu lembrar de todos — hoje e no
+   próximo recurso.
+2. **O demo não alcança outro usuário.** As telas leem sempre `request.user`,
+   e sob `/demo/` ele é sempre o Carlos. Não existe caminho que receba id de
+   pessoa por parâmetro.
+3. **A conta do demo tem senha inutilizável.** Ela existe para o middleware
+   ler, e não para alguém entrar nela pela tela de login.
+
+Fora de `/demo/`, nada muda: `/`, `/treino/` e o resto continuam pedindo login.
+Há teste para cada uma dessas quatro afirmações em `demo/tests.py`.
+
+### Os dados fictícios
+
+Carlos Silva, 28 anos, 78 kg, 1,78 m, hipertrofia, três treinos por semana à
+noite. Mora em `demo/management/commands/seed_demo.py`.
+
+O que **não** está escrito à mão: a meta calórica, os macros, o cardápio e a
+ficha de treino. Todos saem das mesmas funções que atendem qualquer pessoa —
+`plans.services.sync_active_plan` e `workouts.services.create_routine`. É isso
+que faz o demo continuar parecido com o produto quando o produto muda.
+
+O que está escrito à mão é só a entrada: idade, peso, altura, objetivo, dias de
+treino, e uma curva de doze semanas de peso subindo devagar.
+
+O dia chega **meio vivido**: as primeiras refeições marcadas e 1,6 L de água. É
+deliberado — dia em branco esconde a barra de progresso e o cartão de refeição
+concluída; dia cheio esconde o botão de marcar. Metade mostra os dois estados.
+
+Para mudar o personagem, edite as constantes no topo do comando e rode:
+
+```bash
+python manage.py seed_demo --refazer
+```
+
+O comando é idempotente: sem `--refazer` ele atualiza o que existe.
+
+### Para acrescentar uma tela ao demo
+
+Na maioria dos casos, nada — qualquer rota nova do app já funciona sob
+`/demo/`. O que costuma faltar é ela aparecer na capa: acrescente uma linha em
+`AREAS`, em `demo/views.py`, com o nome da rota, o título e uma frase do que a
+tela faz.
+
+Se a tela nova precisar de dado que o Carlos não tem, o lugar é o `seed_demo` —
+e prefira montar esse dado com a função de serviço que o app usa, em vez de
+escrever o resultado.
+
+### O que não funciona no demo
+
+Tudo que escreve: marcar refeição, registrar carga, anotar água, salvar perfil,
+refazer o onboarding. A pessoa recebe uma página dizendo que o modo é somente
+leitura, e não uma tela de login nem um erro.
+
+Login, cadastro e recuperação de senha também ficam de fora — o demo não tem
+conta para entrar.
 
 ## Roadmap
 

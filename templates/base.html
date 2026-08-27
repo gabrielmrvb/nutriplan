@@ -42,14 +42,25 @@
       data-autenticado="{% if user.is_authenticated %}1{% else %}0{% endif %}">
   {% block header %}
     <header class="app-bar">
-      <a class="app-bar__brand" href="{% url 'plans:today' %}">
+      <a class="app-bar__brand" href="{% if request.demo %}{% url 'demo:home' %}{% else %}{% url 'plans:today' %}{% endif %}">
         <span class="app-bar__mark" aria-hidden="true">N</span>
         <span class="app-bar__word">Nutri<span class="app-bar__accent">Plan</span></span>
+        {% comment %}
+          A marca do demo vive COLADA no wordmark, e não numa faixa por cima da
+          tela. Faixa some da vista em dois segundos e volta a atrapalhar toda
+          rolagem; aqui ela fica no único lugar que a pessoa olha ao chegar em
+          qualquer tela, e sai do caminho depois.
+
+          O selo também vira o atalho de volta para a capa — quem entrou pelo
+          treino precisa de uma porta para o resto, e o logotipo já é essa
+          porta no app real.
+        {% endcomment %}
+        {% if request.demo %}<span class="app-bar__demo">demo</span>{% endif %}
       </a>
       <nav class="app-bar__nav">
         {% if user.is_authenticated %}
           <a class="app-bar__link {% if nav == 'today' %}is-active{% endif %}"
-             href="{% url 'plans:today' %}">Dieta</a>
+             href="{% if request.demo %}/demo/hoje/{% else %}{% url 'plans:today' %}{% endif %}">Dieta</a>
           <a class="app-bar__link {% if nav == 'workout' %}is-active{% endif %}"
              href="{% url 'workouts:routine' %}">Treino</a>
           <a class="app-bar__link {% if nav == 'history' %}is-active{% endif %}"
@@ -105,7 +116,7 @@
     {% if not sem_tabbar %}
     <nav class="tabbar" aria-label="Navegação principal">
       <a class="tabbar__item {% if nav == 'today' %}is-active{% endif %}"
-         href="{% url 'plans:today' %}">
+         href="{% if request.demo %}/demo/hoje/{% else %}{% url 'plans:today' %}{% endif %}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M6 3v8a3 3 0 0 0 6 0V3"/><path d="M9 11v10"/>

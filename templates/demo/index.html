@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}NutriPlan · Demonstração{% endblock %}
+
+{% block content %}
+  {% comment %}
+    A capa do demo.
+
+    Ela existe por um motivo prático: quem chega de fora — pessoa ou IA — não
+    sabe que telas o app tem. A barra de abas mostra cinco destinos e esconde
+    três (lista de compras, saúde, perfil). Aqui está tudo o que existe, com
+    uma linha dizendo o que cada tela faz, e nada que não existe.
+  {% endcomment %}
+  <header class="demo-capa">
+    <span class="pill pill--brand">Ambiente de demonstração</span>
+    <h1>NutriPlan</h1>
+    <p class="lead">
+      Dieta e treino num app só. Tudo aqui abaixo é o aplicativo de verdade,
+      com as mesmas telas e o mesmo motor — apenas rodando sobre um usuário
+      fictício.
+    </p>
+  </header>
+
+  {% if pessoa %}
+    <section class="card demo-pessoa">
+      <h2 class="card__titulo">Quem está usando</h2>
+      <dl class="demo-pessoa__dados">
+        <div><dt>Nome</dt><dd>{{ pessoa.first_name }} Silva</dd></div>
+        <div><dt>Idade</dt><dd class="num">{{ perfil.age }} anos</dd></div>
+        <div><dt>Objetivo</dt><dd>{{ perfil.get_goal_display }}</dd></div>
+        <div><dt>Peso</dt><dd class="num">{{ pessoa.profile.current_weight|floatformat:'-1' }} kg</dd></div>
+        <div><dt>Altura</dt><dd class="num">{{ perfil.height_cm }} cm</dd></div>
+        {% if plano %}
+          <div><dt>Meta do dia</dt><dd class="num">{{ plano.target_kcal }} kcal</dd></div>
+        {% endif %}
+        {% if divisao %}
+          <div><dt>Divisão</dt><dd>{{ divisao }}</dd></div>
+        {% endif %}
+      </dl>
+      <p class="demo-pessoa__aviso">
+        Personagem inventado para esta demonstração. Nenhum dado de pessoa real
+        aparece aqui. <a class="btn-link" href="{% url 'demo:sobre' %}">Entenda o modo demo</a>.
+      </p>
+    </section>
+  {% endif %}
+
+  <h2 class="demo-titulo">As telas do aplicativo</h2>
+  <ul class="demo-areas" role="list">
+    {% for area in areas %}
+      <li>
+        <a class="demo-area" href="{{ area.url }}">
+          <span class="demo-area__nome">{{ area.nome }}</span>
+          <span class="demo-area__desc">{{ area.descricao }}</span>
+          <span class="demo-area__seta" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14M13 6l6 6-6 6"/>
+            </svg>
+          </span>
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+
+  <p class="hint">
+    Depois de entrar em qualquer uma, a navegação de baixo leva às outras — é a
+    mesma barra do aplicativo real, e ela continua dentro do demo.
+  </p>
+{% endblock %}

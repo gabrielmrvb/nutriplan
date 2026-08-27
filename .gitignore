@@ -20,3 +20,7 @@ forja/
 
 # Controle de Moldes: protótipo independente que mora nesta mesma pasta.
 moldes/
+
+# Capturas e HTMLs gerados por scripts/exportar_telas.py + capturar_telas.ps1.
+# São saída de ferramenta, refeita a qualquer momento — não versionamos.
+.ui_snapshots/

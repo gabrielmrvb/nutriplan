@@ -9,7 +9,7 @@
 #      manifesto, e sem o manifesto QUALQUER template que use {% static %}
 #      quebra em tempo de execução. Isto precisa acontecer antes do site subir.
 #   3. migrate — o schema tem que estar pronto quando o primeiro pedido chegar.
-#   4. seed — os dois comandos são idempotentes: no primeiro deploy populam o
+#   4. seed — os quatro comandos são idempotentes: no primeiro deploy populam o
 #      catálogo, nos seguintes só atualizam o que mudou no JSON. Sem isto o app
 #      sobe sem alimento e sem exercício, e o cadastro termina numa tela vazia.
 #
@@ -27,3 +27,7 @@ python manage.py migrate --no-input
 python manage.py seed_catalog
 python manage.py seed_workouts
 python manage.py seed_supplements
+# O usuário de demonstração, para /demo/ subir pronto. Depois dos outros seeds
+# porque ele MONTA um plano e uma ficha com o motor de verdade, e o motor
+# precisa do catálogo de alimento e de exercício já no banco.
+python manage.py seed_demo
