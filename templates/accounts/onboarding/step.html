@@ -12,10 +12,17 @@
           {% elif n == step %}wizard__step--current{% endif %}"></span>
       {% endfor %}
     </div>
-    <div class="wizard__label">
-      <span>Passo {{ step }} de {{ total_steps }}</span>
-      <span>{{ progress_pct }}%</span>
-    </div>
+    {% comment %}
+      "Passo 4/5 · 80%" numa linha só, em monoespaçada.
+
+      Eram dois textos nas pontas opostas da linha, e o olho tinha que
+      atravessar a largura da tela para juntar a informação — que é uma só:
+      onde eu estou. Junto, e com dígito de largura fixa, o número não dança
+      de posição quando o passo troca.
+    {% endcomment %}
+    <p class="wizard__label num">
+      Passo {{ step }}/{{ total_steps }} · {{ progress_pct }}%
+    </p>
   </div>
 
   <div class="card">
@@ -45,7 +52,16 @@
           seguem com o campo comum — cartão em campo de data não ajuda.
         {% endcomment %}
         {% include "partials/icones.html" %}
-        {% include "partials/choice_cards.html" with field=form.goal %}
+        {% comment %}
+          Objetivo em duas colunas, atividade em uma.
+
+          Você pediu três colunas para a atividade e ofereceu "lista horizontal
+          limpa" como alternativa — fui pela alternativa, e por medição: três
+          colunas a 390px dão 100px por cartão, e "Sedentário / pouco ativo"
+          ocupa quatro linhas ali dentro. São três opções só; empilhadas elas
+          custam 228px e se leem de uma vez.
+        {% endcomment %}
+        {% include "partials/choice_cards.html" with field=form.goal colunas=2 %}
         {% include "partials/choice_cards.html" with field=form.activity_level %}
       {% elif step == 3 %}
         {% include "partials/field.html" with field=form.weekdays %}

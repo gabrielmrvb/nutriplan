@@ -164,18 +164,16 @@ class GoalForm(OnboardingStepForm):
         fields = ("goal", "activity_level")
         widgets = {"goal": forms.RadioSelect, "activity_level": forms.RadioSelect}
         labels = {
-            "goal": "Qual seu objetivo agora?",
-            "activity_level": (
-                "Qual é o seu nível de atividade física no dia a dia (fora os treinos)?"
-            ),
+            "goal": "Qual é o seu objetivo?",
+            # Uma linha: a versão anterior ocupava duas a 390px, e a
+            # informação entre parênteses cabe em três palavras.
+            "activity_level": "Sua rotina fora dos treinos",
         }
-        help_texts = {
-            "goal": (
-                "Quer as duas coisas? Marque “emagrecer e ganhar massa”: a meta fica "
-                "pouco abaixo do seu gasto e com mais proteína, para os dois "
-                "acontecerem juntos — mais devagar do que perseguir um só."
-            ),
-        }
+        # Sem `help_texts`: o parágrafo que morava aqui explicava a
+        # recomposição em quatro linhas, e o cartão dela já diz "Os dois
+        # juntos, mais devagar" no lugar onde a pessoa está olhando. Texto de
+        # ajuda que repete o cartão custa 77px e empurra o botão para fora da
+        # primeira tela.
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -251,13 +249,13 @@ class SplitPreferenceForm(OnboardingStepForm):
         model = Profile
         fields = ("split_preference",)
         widgets = {"split_preference": forms.RadioSelect}
-        labels = {"split_preference": "Como você prefere dividir o treino?"}
+        labels = {"split_preference": "Quantos grupos musculares por dia?"}
         help_texts = {
             "split_preference": (
-                "A sua frequência continua mandando: se a divisão que você "
-                "escolher não couber nos seus dias, o app usa a mais próxima "
-                "que cabe — divisão que não fecha na semana deixa parte do "
-                "corpo sem treinar."
+                "Contam os grupos principais. Trapézio, antebraço, panturrilha "
+                "e abdômen entram junto sem virar um dia à parte. Se a divisão "
+                "não couber nos seus dias, o app usa a mais próxima que fecha "
+                "na semana."
             ),
         }
 

@@ -97,20 +97,24 @@ SPLIT_NOTE = {
 #: (preferência, dias mínimos) -> divisão.
 #:
 #: A frequência continua mandando, e a preferência escolhe DENTRO do que ela
-#: comporta. Não é diplomacia entre dois campos: uma divisão de três dias com
-#: duas sessões por semana deixa um terço do corpo sem treinar nenhuma vez,
-#: porque a terceira letra nunca chega. A preferência não cria dias.
+#: comporta. Não é diplomacia entre dois campos: uma divisão de cinco dias com
+#: duas sessões por semana deixa três quintos do corpo sem treinar nenhuma vez,
+#: porque as últimas letras nunca chegam. A preferência não cria dias.
 #:
-#: Lido por linha:
-#:   FOCUSED      quer o ciclo mais longo que couber — ABC dos três dias para
-#:                cima, AB em dois, corpo inteiro em um.
-#:   UPPER_LOWER  quer superior e inferior sempre, inclusive treinando cinco
-#:                vezes: aí cada metade recebe duas ou três sessões na semana.
-#:   FULL_BODY    quer o corpo inteiro toda vez, em qualquer frequência.
+#: Lido por linha — cada uma desce para a divisão mais próxima que cabe:
+#:   UM     cinco dias viram peito / costas / pernas / ombros / braços; com
+#:          quatro cai no ABCD, com três no ABC, e assim por diante.
+#:   DOIS   quatro dias: peito+tríceps, costas+bíceps, pernas+ombros e um dia
+#:          de complementares. É a divisão mais comum de academia.
+#:   TRES   o ABC de sempre: empurrar, puxar e pernas, em três dias.
 SPLIT_BY_PREFERENCE = {
-    SplitPreference.FOCUSED: ((3, Split.ABC), (2, Split.AB), (1, Split.FULL)),
-    SplitPreference.UPPER_LOWER: ((2, Split.AB), (1, Split.FULL)),
-    SplitPreference.FULL_BODY: ((1, Split.FULL),),
+    SplitPreference.UM: (
+        (5, Split.ABCDE), (4, Split.ABCD), (3, Split.ABC), (2, Split.AB), (1, Split.FULL),
+    ),
+    SplitPreference.DOIS: (
+        (4, Split.ABCD), (3, Split.ABC), (2, Split.AB), (1, Split.FULL),
+    ),
+    SplitPreference.TRES: ((3, Split.ABC), (2, Split.AB), (1, Split.FULL)),
 }
 
 

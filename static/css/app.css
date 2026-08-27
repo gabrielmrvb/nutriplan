@@ -427,6 +427,14 @@ button { font-family: inherit; color: inherit; }
   padding: 1.1rem var(--pad) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 1.5rem);
 }
 
+/* Sem barra de abas, sem o espaço reservado para ela.
+   O recuo de baixo existe para o conteúdo não morrer atrás da navegação. No
+   onboarding não há navegação, e os 96px viravam vazio que empurrava o
+   "Continuar" para fora da primeira tela. */
+body:not(.tem-tabbar) .container {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 1.5rem);
+}
+
 .tabbar {
   position: fixed;
   left: 0;
@@ -2194,15 +2202,34 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .wizard__step--done { background: var(--brand); }
 .wizard__step--current { background: var(--brand); opacity: .5; }
 
+/* Uma linha só, e não dois textos nas pontas.
+   Eram `space-between`: o olho atravessava a largura da tela para juntar duas
+   metades da MESMA informação — onde eu estou. A família monoespaçada vem de
+   `.num` no template, e é ela que impede o número de dançar de posição quando
+   o passo troca. */
 .wizard__label {
-  display: flex;
-  justify-content: space-between;
+  margin: 0;
   color: var(--text-mute);
   font-size: .78rem;
   font-weight: 650;
 }
 
-.auth { max-width: 25rem; margin-top: 2rem; }
+/* O passo do wizard é a tela mais apertada do app: até sete cartões de
+   escolha, dois rótulos e o botão precisam caber sem rolagem a 390×844. O que
+   se aperta aqui é o RESPIRO, e nunca o alvo de toque nem o corpo do texto. */
+.auth { max-width: 25rem; margin-top: .75rem; }
+
+body:not(.tem-tabbar) .container { padding-top: .75rem; }
+
+.auth .wizard { margin-bottom: .85rem; }
+.auth h1 { margin-bottom: .2rem; }
+.auth .lead { margin-bottom: .9rem; }
+/* Uma linha por título: "Os dois ao mesmo tempo" quebrava em duas na coluna
+   de 147px e a FAIXA inteira da grade crescia junto, porque a linha de uma
+   grade tem a altura do cartão mais alto dela. Dois cartões pagavam pela
+   quebra de um. */
+.auth .card { padding: 1rem; }
+.auth .field { margin-bottom: .9rem; }
 .auth .card { padding: 1.7rem 1.4rem; }
 
 .auth__logo {
@@ -2715,10 +2742,10 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 
 .choice-cards {
   display: grid;
-  /* 12px. Era .6rem (9,6px) — abaixo do menor degrau da escala, e a diferença
-     entre cartões colados e cartões separados é o que faz a lista ler como
-     opções em vez de tabela. */
-  gap: .75rem;
+  /* 10px. Era .6rem (9,6px), subiu para 12 e assentou em 10: separa o
+     bastante para a lista ler como opções, e devolve 4px por espaço numa tela
+     que estava pedindo rolagem. */
+  gap: .625rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -2741,9 +2768,12 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   align-items: flex-start;
   gap: .75rem;
   height: 100%;
-  min-height: 4.75rem;
-  /* 16px em volta. */
-  padding: 1rem;
+  min-height: 4.25rem;
+  /* 13px em volta. Nasceu em 16 e desceu duas vezes: sete cartões de escolha
+     no passo do objetivo somavam 564px, e a tela pedia rolagem para chegar no
+     "Continuar". Botão que exige rolar é botão que metade das pessoas não
+     encontra. */
+  padding: .8rem;
   border-radius: var(--radius-lg);
   background: var(--surface-2);
   /* A quina arredondada corta o que vazar: sem isto, um rótulo de catálogo
@@ -2823,7 +2853,8 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
  * a qualquer momento, que é exatamente o defeito que estas três linhas
  * existem para impedir. */
 .choice-card__title,
-.choice-card__hint {
+.choice-card__hint,
+.choice-card__exemplo {
   hyphens: none;
   overflow-wrap: break-word;
   min-width: 0;
@@ -2850,10 +2881,24 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
  *
  * A cor cheia da marca sobre a própria tinta a 12% — o mesmo par das pílulas
  * do resto do app, e medido pelo mesmo teste. */
+/* A linha do título: o nome ocupa o que sobra e o selo vem colado nele.
+   `flex-wrap` para o selo descer sozinho num cartão estreito em vez de
+   espremer o título. */
+.choice-card__linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .35rem;
+  min-width: 0;
+}
+
+/* Medido: com `padding: .16rem .5rem` e `letter-spacing: .02em`, o selo
+   "Mais popular" somava 199px ao lado de "2 grupos por dia" numa linha de
+   190px úteis — nove pixels de excesso, e o selo caía para uma linha só dele.
+   Um cartão 47px mais alto que os irmãos, por nove pixels. */
 .choice-card__selo {
-  align-self: start;
-  margin-top: .1rem;
-  padding: .16rem .5rem;
+  align-self: baseline;
+  padding: .16rem .42rem;
   border: 1px solid color-mix(in srgb, var(--brand) 26%, transparent);
   border-radius: var(--pill);
   background: color-mix(in srgb, var(--brand) 12%, transparent);
@@ -2863,7 +2908,6 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
      ninguém consegue ler é enfeite. */
   font-size: .7rem;
   font-weight: 700;
-  letter-spacing: .02em;
   white-space: nowrap;
 }
 
@@ -3548,3 +3592,67 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 @media (prefers-reduced-motion: reduce) {
   .fora__corpo { transition: none; }
 }
+
+/* O acoplamento muscular do cartão de divisão.
+ *
+ * `.num` já traz a monoespaçada e o desconto de tamanho; aqui só o que faz a
+ * linha ler como ETIQUETA de dados e não como mais uma frase: fundo próprio,
+ * quina fechada e a cor discreta.
+ *
+ * `overflow-wrap` porque "Peito+Tríceps · Costas+Bíceps · Pernas+Ombros" tem
+ * 45 caracteres e a coluna tem 155px numa grade de duas colunas. Ela quebra
+ * entre pares, e nunca no meio de uma palavra — `hyphens: none` vale para os
+ * três textos do cartão. */
+.choice-card__exemplo {
+  margin-top: .25rem;
+  padding: .28rem .5rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--text-mute);
+  font-size: .72rem;
+  line-height: 1.5;
+  hyphens: none;
+  overflow-wrap: break-word;
+}
+
+/* Duas colunas em qualquer largura, com o cartão de pé.
+ *
+ * O eixo muda junto com a grade, e não é enfeite: com o ícone à esquerda numa
+ * coluna de 155px sobram 78px para o texto — doze caracteres por linha, e uma
+ * descrição de trinta e quatro vira uma torre de cinco linhas. Empilhado, o
+ * texto usa os 126px inteiros e cabe em duas.
+ *
+ * O sinal de escolhido continua no canto, então o texto continua reservando o
+ * espaço dele à direita. */
+.choice-cards--duas { grid-template-columns: 1fr 1fr; }
+
+/* Ícone e texto continuam lado a lado, mas o texto passa a ocupar a largura
+   inteira do cartão numa segunda faixa.
+   Empilhar tudo custava 34px de ícone mais o espaço dele em CADA cartão, e
+   com quatro cartões isso é o botão "Continuar" saindo da tela. Em grade, o
+   ícone divide a primeira faixa com o título e some da conta vertical. */
+.choice-cards--duas .choice-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "icone titulo" "texto texto";
+  align-items: center;
+  gap: .35rem .5rem;
+  min-height: 0;
+}
+
+.choice-cards--duas .choice-card__icon { grid-area: icone; }
+.choice-cards--duas .choice-card__linha { grid-area: titulo; }
+.choice-cards--duas .choice-card__text {
+  display: contents;
+}
+.choice-cards--duas .choice-card__hint { grid-area: texto; }
+
+.choice-cards--duas .choice-card__icon { width: 2rem; height: 2rem; }
+.choice-cards--duas .choice-card__icon svg { width: 1.15rem; height: 1.15rem; }
+.choice-cards--duas .choice-card__text { padding-right: 0; }
+.choice-cards--duas .choice-card__title { font-size: .9rem; }
+.choice-cards--duas .choice-card__hint { font-size: .74rem; }
+
+/* Empilhado, o sinal fica em cima do ícone se ficar no mesmo canto de sempre —
+   ele desce para a linha do ícone, do lado oposto. */
+.choice-cards--duas .choice-card__mark { top: 1rem; right: .875rem; }

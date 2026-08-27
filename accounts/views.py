@@ -20,13 +20,16 @@ from .models import ONBOARDING_LAST_STEP, Profile
 #: Título e subtítulo de cada passo, usados na barra de progresso e no cabeçalho.
 STEP_META = {
     1: ("Seus dados", "Precisamos disso para calcular seu gasto energético."),
-    2: ("Seu objetivo", "É o que define se você vai comer acima ou abaixo do gasto."),
-    3: ("Seus treinos", "O treino entra na conta e define os horários das refeições."),
+    2: ("Seu objetivo", "Define se você come acima ou abaixo do seu gasto."),
+    3: ("Seus treinos", "Definem os horários das refeições e entram na conta."),
     # A divisão vem DEPOIS dos dias, e não antes: a resposta só faz sentido
     # sabendo a frequência. Perguntar "quantos grupos por dia" para quem ainda
     # não disse quantos dias treina é pedir uma escolha que o app vai ter que
     # corrigir por baixo.
-    4: ("Sua divisão de treino", "Como distribuir o corpo pelos dias que você treina."),
+    4: (
+        "Sua divisão de treino",
+        "Escolha quantos músculos você prefere focar em cada sessão.",
+    ),
     5: ("Sua comida", "O estilo do cardápio e o que você não pode comer."),
 }
 
@@ -102,6 +105,11 @@ class OnboardingStepMixin(LoginRequiredMixin):
                 ),
                 "is_editing": bool(profile and profile.onboarding_complete),
                 "is_last_step": self.step == ONBOARDING_LAST_STEP,
+                # A navegação inferior some no wizard. Os cinco destinos dela
+                # passam por `OnboardingRequiredMixin` e devolvem quem ainda
+                # não terminou — e quem já terminou e voltou para editar está
+                # num fluxo com "Voltar" e "Salvar", que são as saídas certas.
+                "sem_tabbar": True,
             }
         )
         return context

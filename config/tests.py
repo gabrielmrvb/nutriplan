@@ -1091,7 +1091,10 @@ class DesignSystemTests(TestCase):
         dicionário de separação silábica para toda língua e quebra "emagrecer"
         em lugares que não existem. A válvula é `overflow-wrap`, que só parte
         quando a palavra sozinha é mais larga que a coluna."""
-        regra = self.css.split("\n.choice-card__title,\n.choice-card__hint {", 1)
+        marca = chr(10).join(
+            ["", ".choice-card__title,", ".choice-card__hint,", ".choice-card__exemplo {"]
+        )
+        regra = self.css.split(marca, 1)
         self.assertEqual(len(regra), 2, "o tratamento de texto do cartão sumiu")
         corpo = regra[1].split("}", 1)[0]
 

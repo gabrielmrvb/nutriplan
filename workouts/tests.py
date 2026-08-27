@@ -113,7 +113,10 @@ class SeededWorkoutTests(TestCase):
     #: As divisões que o app oferece hoje. ABCD e ABCDE continuam no enum,
     #: porque fichas antigas apontam para elas, mas saíram do catálogo — a
     #: divisão passou a ser estritamente a clássica por sinergia.
-    OFERECIDAS = (Split.FULL, Split.AB, Split.ABC)
+    # Todas as cinco são oferecidas agora: a preferência por grupos por dia
+    # trouxe ABCD e ABCDE de volta, e o que era peso morto no catálogo virou a
+    # resposta de "1 grupo por dia" e "2 grupos por dia".
+    OFERECIDAS = (Split.FULL, Split.AB, Split.ABC, Split.ABCD, Split.ABCDE)
 
     def test_every_offered_split_is_in_the_catalog(self):
         for split in self.OFERECIDAS:
@@ -122,22 +125,34 @@ class SeededWorkoutTests(TestCase):
                     WorkoutTemplate.objects.filter(split=split, is_active=True).exists()
                 )
 
-    def test_the_retired_splits_are_not_offered(self):
-        """ABCD e ABCDE continuam no enum porque fichas antigas apontam para
-        elas, mas nenhum treino novo é montado por elas.
+    def test_the_four_and_five_day_splits_are_back_in_the_catalog(self):
+        """ABCD e ABCDE voltaram, e a reversão é deliberada.
 
-        Num banco recém-semeado elas simplesmente não existem; num banco que
-        já as teve, o seed as desativa em vez de apagar. Os dois casos passam
-        pela mesma afirmação: não há template ATIVO.
+        Elas foram aposentadas quando a divisão era escolhida SÓ pela
+        frequência: com uma resposta por número de dias, ABC cobria de três
+        dias para cima e as outras duas eram peso morto no catálogo.
+
+        Com a preferência por grupos por dia elas passam a ser a resposta de
+        duas perguntas que ABC não responde: "1 grupo por dia" precisa de cinco
+        dias, e "2 grupos por dia" precisa de quatro. Sem elas, as duas opções
+        da tela apontariam para um catálogo vazio — `templates_for()` devolve
+        lista vazia e `build_sessions` divide pelo tamanho dela.
         """
-        for split in (Split.ABCD, Split.ABCDE):
+        for split, dias in ((Split.ABCD, 4), (Split.ABCDE, 5)):
             with self.subTest(split=split):
-                self.assertFalse(
-                    WorkoutTemplate.objects.filter(split=split, is_active=True).exists()
+                self.assertEqual(
+                    WorkoutTemplate.objects.filter(split=split, is_active=True).count(),
+                    dias,
                 )
 
     def test_each_split_has_the_days_its_name_promises(self):
-        esperado = {Split.FULL: 1, Split.AB: 2, Split.ABC: 3}
+        esperado = {
+            Split.FULL: 1,
+            Split.AB: 2,
+            Split.ABC: 3,
+            Split.ABCD: 4,
+            Split.ABCDE: 5,
+        }
         for split, dias in esperado.items():
             with self.subTest(split=split):
                 self.assertEqual(
@@ -1955,37 +1970,63 @@ class SplitPreferenceTests(TestCase):
                 self.assertEqual(services.split_for(dias), Split.ABC)
 
     def test_the_default_preference_reproduces_the_old_behaviour(self):
-        """FOCUSED é o padrão do campo justamente por isto: a migração não
-        pode reescrever o plano de quem nunca viu a pergunta."""
+        """TRES é o padrão do campo justamente por isto: a migração não pode
+        reescrever o plano — nem a ficha ajustada à mão — de quem nunca viu a
+        pergunta."""
         for dias in range(1, 8):
             with self.subTest(dias=dias):
                 self.assertEqual(
-                    services.split_for(dias, SplitPreference.FOCUSED),
+                    services.split_for(dias, SplitPreference.TRES),
                     services.split_for(dias),
                 )
 
-    def test_wanting_fewer_groups_a_day_cannot_invent_training_days(self):
-        """Quem treina duas vezes e pede foco recebe AB, não ABC."""
-        self.assertEqual(services.split_for(2, SplitPreference.FOCUSED), Split.AB)
-        self.assertEqual(services.split_for(1, SplitPreference.FOCUSED), Split.FULL)
-
-    def test_upper_lower_stays_upper_lower_even_training_five_times(self):
-        """Aqui a preferência VENCE a frequência, e é o ponto da tela: cinco
-        dias em AB dão duas ou três sessões por metade na semana, que é uma
-        escolha legítima de treino."""
-        for dias in range(2, 8):
+    def test_wanting_one_group_a_day_cannot_invent_training_days(self):
+        """Um grupo por dia precisa de cinco dias. Com menos, desce para a
+        divisão mais próxima que FECHA na semana — pedir cinco letras com duas
+        sessões deixaria três quintos do corpo sem treinar nenhuma vez."""
+        esperado = {1: Split.FULL, 2: Split.AB, 3: Split.ABC, 4: Split.ABCD,
+                    5: Split.ABCDE, 6: Split.ABCDE, 7: Split.ABCDE}
+        for dias, divisao in esperado.items():
             with self.subTest(dias=dias):
-                self.assertEqual(
-                    services.split_for(dias, SplitPreference.UPPER_LOWER), Split.AB
-                )
-        # Com um dia só não há duas metades para dividir.
-        self.assertEqual(services.split_for(1, SplitPreference.UPPER_LOWER), Split.FULL)
+                self.assertEqual(services.split_for(dias, SplitPreference.UM), divisao)
 
-    def test_full_body_is_full_body_at_any_frequency(self):
-        for dias in range(1, 8):
+    def test_two_groups_a_day_tops_out_at_the_four_day_split(self):
+        """Aqui a preferência VENCE a frequência: quem treina cinco ou seis
+        vezes e pede dois grupos por dia continua no ABCD, e o ciclo repete —
+        A, B, C, D, A. É escolha legítima de treino, e é o ponto da tela."""
+        for dias in range(4, 8):
             with self.subTest(dias=dias):
-                self.assertEqual(
-                    services.split_for(dias, SplitPreference.FULL_BODY), Split.FULL
+                self.assertEqual(services.split_for(dias, SplitPreference.DOIS), Split.ABCD)
+        self.assertEqual(services.split_for(3, SplitPreference.DOIS), Split.ABC)
+        self.assertEqual(services.split_for(1, SplitPreference.DOIS), Split.FULL)
+
+    def test_three_groups_a_day_is_the_abc_from_three_days_up(self):
+        for dias in range(3, 8):
+            with self.subTest(dias=dias):
+                self.assertEqual(services.split_for(dias, SplitPreference.TRES), Split.ABC)
+
+    def test_the_secondary_muscles_never_get_a_day_of_their_own(self):
+        """Trapézio, antebraço, panturrilha e abdômen entram nos acoplamentos.
+
+        É a regra que faz a contagem da tela ser verdade: um dia rotulado "2
+        grupos" que na prática treina peito, tríceps E abdômen continua sendo
+        dois grupos principais. O que não pode acontecer é um deles virar o
+        assunto de um dia inteiro — aí a contagem mente.
+        """
+        secundarios = {
+            MuscleGroup.TRAPS,
+            MuscleGroup.FOREARMS,
+            MuscleGroup.CALVES,
+            MuscleGroup.CORE,
+        }
+        for template in WorkoutTemplate.objects.filter(
+            split__in=(Split.ABCD, Split.ABCDE), is_active=True
+        ):
+            grupos = {item.exercise.muscle_group for item in template.items.all()}
+            with self.subTest(treino=str(template)):
+                self.assertTrue(
+                    grupos - secundarios,
+                    f"{template} só treina músculo secundário",
                 )
 
     def test_every_split_the_preference_can_produce_exists_in_the_catalog(self):

@@ -20,7 +20,22 @@ irmão do input: `~` alcança, e funciona em qualquer navegador.
   <span class="field__label">{{ field.label }}</span>
   {% if field.help_text %}<div class="field__help">{{ field.help_text }}</div>{% endif %}
 
-  <ul class="choice-cards" role="list">
+  {% comment %}
+    `colunas=2` liga a grade de duas colunas em QUALQUER largura, e com ela o
+    cartão vira vertical: ícone em cima, texto embaixo.
+
+    A mudança de eixo não é enfeite. Com ícone à esquerda numa coluna de 155px,
+    sobram 78px para o texto — doze caracteres por linha, e "Perder gordura
+    mantendo o músculo" vira uma torre de cinco linhas. Empilhado, o texto usa
+    os 126px inteiros.
+
+    Sem o parâmetro, tudo segue como antes: uma coluna no celular, duas a
+    partir de 30rem. É o certo para os cartões que carregam exemplo longo — a
+    divisão de treino, por exemplo, tem "Peito+Tríceps · Costas+Bíceps ·
+    Pernas+Ombros" numa pílula, e isso não cabe em 155px sem virar quatro
+    linhas.
+  {% endcomment %}
+  <ul class="choice-cards{% if colunas == 2 %} choice-cards--duas{% endif %}" role="list">
     {% for subwidget in field %}
       {% with d=subwidget.data.value|detalhe %}
         <li>
@@ -38,9 +53,18 @@ irmão do input: `~` alcança, e funciona em qualquer navegador.
               {% endif %}
             </span>
             <span class="choice-card__text">
-              <strong class="choice-card__title">
-                {% if d %}{{ d.titulo }}{% else %}{{ subwidget.choice_label }}{% endif %}
-              </strong>
+              {% comment %}
+                Título e selo dividem a linha, e não uma cada.
+
+                Com o selo embaixo, o cartão recomendado ficava 46px mais alto
+                que os outros dois — medido: 188 contra 142. Numa lista de
+                escolha, altura diferente lê como importância diferente, e a
+                recomendação já é dita pelo próprio selo.
+              {% endcomment %}
+              <span class="choice-card__linha">
+                <strong class="choice-card__title">
+                  {% if d %}{{ d.titulo }}{% else %}{{ subwidget.choice_label }}{% endif %}
+                </strong>
               {% comment %}
                 A marcação de recomendado.
 
@@ -54,8 +78,19 @@ irmão do input: `~` alcança, e funciona em qualquer navegador.
                 canto; dentro dele, empurra a linha de apoio para baixo e as
                 duas continuam legíveis.
               {% endcomment %}
-              {% if d.recomendado %}
-                <span class="choice-card__selo">Recomendado</span>
+                {% if d.recomendado %}
+                  <span class="choice-card__selo">{{ d.selo }}</span>
+                {% endif %}
+              </span>
+              {% if d.exemplo %}
+                {% comment %}
+                  O acoplamento em monoespaçada e com separador de meio: é uma
+                  LISTA de pares, e a largura fixa do dígito e do ponto faz os
+                  pares alinharem entre cartões empilhados. Em fonte de texto a
+                  mesma linha lê como frase, e frase é o que a linha de apoio
+                  logo acima já é.
+                {% endcomment %}
+                <span class="choice-card__exemplo num">{{ d.exemplo }}</span>
               {% endif %}
               {% if d %}<span class="choice-card__hint">{{ d.apoio }}</span>{% endif %}
             </span>

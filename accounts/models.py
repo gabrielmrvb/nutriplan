@@ -109,20 +109,30 @@ class Weekday(models.IntegerChoices):
 
 #: Número do passo seguinte ao último do wizard — significa "onboarding concluído".
 class SplitPreference(models.TextChoices):
-    """Quantos grupos musculares a pessoa quer por sessão.
+    """Quantos grupos musculares principais a pessoa quer por sessão.
+
+    Os rótulos falam em CONTAGEM porque é assim que a pergunta é feita na
+    academia. A primeira versão desta tela dizia "poucos grupos", "superior e
+    inferior" e "corpo todo" — vocabulário de quem já sabe a resposta.
+
+    "Principais" é a palavra que carrega a regra: trapézio, antebraço,
+    panturrilha e abdômen têm um ou dois exercícios no catálogo e são
+    distribuídos nos acoplamentos lógicos sem contar na conta. Um dia de peito
+    e tríceps que termina com abdominal continua sendo dois grupos — dizer
+    "três" assustaria por causa de três séries no fim do treino.
 
     É PREFERÊNCIA, e a frequência continua mandando: quem treina duas vezes na
-    semana não consegue uma divisão de três dias sem deixar um terço do corpo
-    sem treinar nenhuma vez. `split_for()` cruza os dois, e a preferência só
-    decide entre as divisões que a frequência comporta.
+    semana não consegue uma divisão de cinco dias sem deixar três quintos do
+    corpo sem treinar nenhuma vez. `split_for()` cruza os dois, e a preferência
+    só decide entre as divisões que a frequência comporta.
 
     Mora aqui e não em `workouts` porque é dado da PESSOA — `workouts` importa
     `accounts`, e o caminho inverso fecharia o ciclo.
     """
 
-    FOCUSED = "focused", "Poucos grupos por dia"
-    UPPER_LOWER = "upper_lower", "Superior e inferior"
-    FULL_BODY = "full_body", "Corpo todo"
+    UM = "one", "1 grupo por dia"
+    DOIS = "two", "2 grupos por dia"
+    TRES = "three", "3 grupos por dia"
 
 
 class MealStyle(models.TextChoices):
@@ -175,7 +185,11 @@ class Profile(models.Model):
         "divisão de treino",
         max_length=20,
         choices=SplitPreference.choices,
-        default=SplitPreference.FOCUSED,
+        # TRES é o padrão porque é o ABC, que é o que a frequência escolhia
+        # sozinha antes desta pergunta existir. A migração não pode reescrever
+        # o plano de quem nunca viu a tela — nem a ficha ajustada à mão de quem
+        # já tinha uma.
+        default=SplitPreference.TRES,
     )
     meal_style = models.CharField(
         "estilo de cardápio",

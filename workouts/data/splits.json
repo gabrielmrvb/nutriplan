@@ -376,5 +376,514 @@
         60
       ]
     ]
+  },
+  {
+    "split": "abcd",
+    "label": "A",
+    "name": "Peito e tríceps",
+    "focus": "Empurrar — peitoral e extensores do cotovelo",
+    "order": 0,
+    "items": [
+      [
+        "Supino reto com barra",
+        4,
+        6,
+        10,
+        80
+      ],
+      [
+        "Supino inclinado com halteres",
+        4,
+        8,
+        12,
+        80
+      ],
+      [
+        "Flexão de braço",
+        3,
+        10,
+        15,
+        80
+      ],
+      [
+        "Mergulho no banco",
+        3,
+        10,
+        15,
+        80
+      ],
+      [
+        "Crucifixo na máquina (voador)",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Tríceps testa com barra",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Tríceps na polia com corda",
+        3,
+        10,
+        15,
+        60
+      ]
+    ]
+  },
+  {
+    "split": "abcd",
+    "label": "B",
+    "name": "Costas e bíceps",
+    "focus": "Puxar — dorsais e flexores do cotovelo",
+    "order": 1,
+    "items": [
+      [
+        "Barra fixa assistida",
+        4,
+        6,
+        10,
+        80
+      ],
+      [
+        "Remada curvada com barra",
+        4,
+        8,
+        12,
+        80
+      ],
+      [
+        "Puxada frente na polia",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Remada unilateral com halter",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Rosca direta com barra",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca alternada com halteres",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca martelo",
+        3,
+        10,
+        15,
+        60
+      ]
+    ]
+  },
+  {
+    "split": "abcd",
+    "label": "C",
+    "name": "Pernas e ombros",
+    "focus": "Membros inferiores e deltoides",
+    "order": 2,
+    "items": [
+      [
+        "Agachamento livre",
+        4,
+        6,
+        10,
+        80
+      ],
+      [
+        "Leg press 45°",
+        4,
+        10,
+        12,
+        80
+      ],
+      [
+        "Stiff com barra",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Desenvolvimento com halteres",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Cadeira extensora",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Mesa flexora",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Elevação lateral com halteres",
+        3,
+        12,
+        15,
+        60
+      ]
+    ]
+  },
+  {
+    "split": "abcd",
+    "label": "D",
+    "name": "Complementares",
+    "focus": "Trapézio, antebraço, panturrilha, glúteo e core",
+    "order": 3,
+    "items": [
+      [
+        "Elevação pélvica",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Remada alta com barra",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Encolhimento com halteres",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Panturrilha em pé",
+        4,
+        12,
+        15,
+        60
+      ],
+      [
+        "Panturrilha sentado",
+        3,
+        15,
+        20,
+        60
+      ],
+      [
+        "Rosca de punho com barra",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Rosca inversa com barra",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Prancha abdominal",
+        3,
+        30,
+        45,
+        60,
+        "seconds"
+      ]
+    ]
+  },
+  {
+    "split": "abcde",
+    "label": "A",
+    "name": "Peito",
+    "focus": "Peitoral, com o core no fim",
+    "order": 0,
+    "items": [
+      [
+        "Supino reto com barra",
+        4,
+        6,
+        10,
+        80
+      ],
+      [
+        "Supino inclinado com halteres",
+        4,
+        8,
+        12,
+        80
+      ],
+      [
+        "Flexão de braço",
+        4,
+        10,
+        15,
+        80
+      ],
+      [
+        "Crucifixo na máquina (voador)",
+        4,
+        12,
+        15,
+        60
+      ],
+      [
+        "Abdominal supra no solo",
+        3,
+        15,
+        20,
+        60
+      ]
+    ]
+  },
+  {
+    "split": "abcde",
+    "label": "B",
+    "name": "Costas",
+    "focus": "Dorsais, do vertical ao horizontal",
+    "order": 1,
+    "items": [
+      [
+        "Barra fixa assistida",
+        4,
+        6,
+        10,
+        80
+      ],
+      [
+        "Remada curvada com barra",
+        4,
+        8,
+        12,
+        80
+      ],
+      [
+        "Puxada frente na polia",
+        4,
+        8,
+        12,
+        80
+      ],
+      [
+        "Remada baixa na polia",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Remada unilateral com halter",
+        3,
+        10,
+        12,
+        80
+      ]
+    ]
+  },
+  {
+    "split": "abcde",
+    "label": "C",
+    "name": "Pernas",
+    "focus": "Quadríceps, posterior e panturrilha",
+    "order": 2,
+    "items": [
+      [
+        "Agachamento livre",
+        4,
+        6,
+        10,
+        80
+      ],
+      [
+        "Leg press 45°",
+        4,
+        10,
+        12,
+        80
+      ],
+      [
+        "Stiff com barra",
+        4,
+        8,
+        12,
+        80
+      ],
+      [
+        "Cadeira extensora",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Mesa flexora",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Cadeira flexora",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Panturrilha em pé",
+        4,
+        12,
+        15,
+        60
+      ],
+      [
+        "Panturrilha sentado",
+        3,
+        15,
+        20,
+        60
+      ]
+    ]
+  },
+  {
+    "split": "abcde",
+    "label": "D",
+    "name": "Ombros",
+    "focus": "Deltoides, com trapézio junto",
+    "order": 3,
+    "items": [
+      [
+        "Desenvolvimento com halteres",
+        4,
+        8,
+        12,
+        80
+      ],
+      [
+        "Remada alta com barra",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Elevação lateral com halteres",
+        4,
+        12,
+        15,
+        60
+      ],
+      [
+        "Elevação frontal com halteres",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Crucifixo inverso na máquina",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Encolhimento com halteres",
+        3,
+        10,
+        15,
+        60
+      ]
+    ]
+  },
+  {
+    "split": "abcde",
+    "label": "E",
+    "name": "Braços",
+    "focus": "Bíceps, tríceps e antebraço",
+    "order": 4,
+    "items": [
+      [
+        "Mergulho no banco",
+        4,
+        10,
+        15,
+        80
+      ],
+      [
+        "Rosca direta com barra",
+        4,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca alternada com halteres",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca martelo",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Tríceps testa com barra",
+        4,
+        10,
+        12,
+        60
+      ],
+      [
+        "Tríceps na polia com corda",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Rosca de punho com barra",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Rosca inversa com barra",
+        3,
+        10,
+        15,
+        60
+      ]
+    ]
   }
 ]

@@ -21,7 +21,7 @@ def step_url(step):
 STEP1 = {"sex": "M", "birth_date": "1995-04-12", "height_cm": 178, "weight_kg": "82.4"}
 STEP2 = {"goal": "cut", "activity_level": "light"}
 STEP3 = {"weekdays": ["0", "2", "4"], "start_time": "19:00", "duration_min": 60}
-STEP4 = {"split_preference": "focused"}
+STEP4 = {"split_preference": "three"}
 STEP5 = {"meal_style": "quick", "wake_time": "07:00", "sleep_time": "23:30"}
 
 
@@ -222,3 +222,79 @@ class AccessControlTests(TestCase):
     def test_onboarding_requires_login(self):
         response = self.client.get(step_url(1))
         self.assertIn(reverse("accounts:login"), response.url)
+
+
+class WizardChromeTests(TestCase):
+    """A moldura do wizard: navegação, progresso e densidade.
+
+    O passo do onboarding é a tela mais apertada do app — até sete cartões de
+    escolha, dois rótulos e o botão precisam caber em 390×844. O que se aperta
+    é o respiro; nunca o alvo de toque nem o corpo do texto.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="wizard@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(self.user)
+        self.client.post(step_url(1), STEP1)
+        self.client.post(step_url(2), STEP2)
+
+    def test_the_tab_bar_is_gone_while_the_wizard_is_open(self):
+        """Os cinco destinos da barra passam por `OnboardingRequiredMixin`:
+        quem toca em qualquer um antes de terminar é devolvido para cá. Eram
+        cinco becos sem saída — mais os 96px que o container reserva para a
+        barra, que empurravam o "Continuar" para fora da primeira tela."""
+        html = self.client.get(step_url(3)).content.decode()
+
+        self.assertNotIn('<nav class="tabbar"', html)
+        self.assertNotIn("tem-tabbar", html)
+
+    def test_the_tab_bar_comes_back_once_there_is_somewhere_to_go(self):
+        self.client.post(step_url(3), STEP3)
+        self.client.post(step_url(4), STEP4)
+        self.client.post(step_url(5), STEP5)
+
+        html = self.client.get(reverse("plans:today")).content.decode()
+        self.assertIn('<nav class="tabbar"', html)
+
+    def test_the_tab_bar_stays_hidden_when_editing_a_step_after_finishing(self):
+        """Quem já terminou e volta para editar está no mesmo fluxo focado, com
+        "Voltar" e "Salvar". A barra ali só oferece saídas — por isso a trava é
+        da PÁGINA e não do estado do perfil."""
+        self.client.post(step_url(3), STEP3)
+        self.client.post(step_url(4), STEP4)
+        self.client.post(step_url(5), STEP5)
+
+        html = self.client.get(step_url(2)).content.decode()
+        self.assertNotIn('<nav class="tabbar"', html)
+
+    def test_the_progress_reads_as_one_line_of_monospaced_digits(self):
+        """Eram dois textos nas pontas opostas da linha, e o olho atravessava a
+        tela para juntar duas metades da mesma informação: onde eu estou."""
+        html = self.client.get(step_url(3)).content.decode()
+
+        self.assertIn('class="wizard__label num"', html)
+        self.assertIn("Passo 3/5 · 60%", html)
+
+    def test_the_goal_cards_stand_in_two_columns_and_the_activity_in_one(self):
+        """Três colunas para atividade dariam 100px por cartão a 390px, e
+        "Pouco ativo" não é o rótulo mais longo dos três. São três opções: a
+        lista de uma coluna se lê de uma vez."""
+        html = self.client.get(step_url(2)).content.decode()
+
+        self.assertEqual(html.count("choice-cards--duas"), 1)
+
+    def test_no_card_description_runs_past_a_single_line_on_a_phone(self):
+        """A régua é de caractere, não de pixel — mas é a mesma coisa: a coluna
+        do cartão de duas colunas dá ~22 caracteres por linha na descrição, e a
+        de uma coluna dá ~45. Descrição que estoura vira duas linhas, a FAIXA
+        da grade cresce junto, e dois cartões pagam pela quebra de um.
+        """
+        from accounts.templatetags.escolhas import DETALHES
+
+        for valor, dados in DETALHES.items():
+            with self.subTest(opcao=valor):
+                self.assertLessEqual(
+                    len(dados[2]), 45, f"{valor}: apoio com {len(dados[2])} caracteres"
+                )

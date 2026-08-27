@@ -24,80 +24,93 @@ DETALHES = {
     "cut": (
         "chama",
         "Emagrecer",
-        "Perder gordura mantendo o máximo de músculo.",
+        "Perder gordura mantendo o músculo.",
     ),
     "bulk": (
         "halter",
         "Ganhar massa",
-        "Construir músculo com superávit controlado.",
+        "Músculo, comendo acima do gasto.",
     ),
     "recomp": (
         "raio",
-        "Os dois ao mesmo tempo",
-        "Perder gordura e ganhar músculo — mais lento, e possível.",
+        "Os dois juntos",
+        "Os dois juntos, mais devagar.",
     ),
     "maintain": (
         "balanca",
         "Manter o peso",
-        "Ficar onde está, comendo o que gasta.",
+        "Comer o que gasta, e ficar.",
     ),
     # accounts.models.SplitPreference
     #
-    # Os rótulos dizem a DIVISÃO e não "1 grupo por dia", "2 grupos por dia".
-    # A contagem por dia seria mais fácil de escolher e mentiria: com este
-    # catálogo, "poucos grupos" é empurrar/puxar/pernas, que dá dois a três
-    # grupos por sessão. Prometer um número que a ficha não entrega é pior do
-    # que pedir dez segundos a mais de leitura.
-    "focused": (
-        "alvo",
-        "Poucos grupos por dia",
-        "Empurrar, puxar e pernas em dias separados. Sessões mais curtas e "
-        "cada grupo treinado com mais atenção.",
-        True,
-    ),
-    "upper_lower": (
+    # O exemplo de acoplamento é o que faz a escolha ser possível sem saber
+    # jargão. "2 grupos por dia" não diz nada; "Peito+Tríceps | Costas+Bíceps"
+    # diz tudo, e em uma linha.
+    #
+    # A barra separa DIAS e o "+" separa grupos dentro do dia. São dois níveis
+    # na mesma linha, e o "·" que estava aqui não distinguia um do outro — a
+    # barra é mais alta que o texto e corta a linha visualmente, que é
+    # exatamente o que um limite de dia precisa fazer.
+    #
+    # O exemplo de "1 grupo por dia" mostra os CINCO dias e não três. Escrever
+    # "Dia A: Peito | Dia B: Costas | Dia C: Pernas" caberia melhor e diria
+    # que a divisão tem três dias, quando ela tem cinco — ombro e braço têm
+    # dia próprio, que é justamente o que "um grupo por dia" significa.
+    #
+    # A contagem ignora os secundários de propósito. Trapézio, antebraço,
+    # panturrilha e abdômen têm um ou dois exercícios no catálogo e entram nos
+    # acoplamentos lógicos — o dia de peito e tríceps que termina com abdominal
+    # continua sendo dois grupos. Chamar de três assustaria por causa de três
+    # séries no fim do treino.
+    "two": (
         "metades",
-        "Superior e inferior",
-        "Metade de cima num dia, metade de baixo no outro. Treinando quatro "
-        "ou mais vezes, cada metade repete na semana.",
+        "2 grupos por dia",
+        "Pares clássicos, volume equilibrado.",
+        True,
+        "Peito+Tríceps | Costas+Bíceps | Pernas+Ombros",
+        "Mais popular",
     ),
-    "full_body": (
+    "one": (
+        "alvo",
+        "1 grupo por dia",
+        "Sessões intensas, um músculo por vez.",
+        False,
+        "Peito | Costas | Pernas | Ombros | Braços",
+    ),
+    "three": (
         "corpo",
-        "Corpo todo, toda vez",
-        "Tudo na mesma sessão. É o que rende mais quando dá para treinar só "
-        "uma ou duas vezes por semana.",
+        "3 grupos por dia",
+        "Agrupa complementares, em menos dias.",
+        False,
+        "Peito+Tríceps+Ombro | Costas+Bíceps+Antebraço",
     ),
     # accounts.models.MealStyle
     "quick": (
         "relogio",
         "Rápida e econômica",
-        "Pão, ovo, frango, arroz, feijão, aveia e banana. Café e lanche em "
-        "até dez minutos.",
+"Pão, ovo, frango, arroz e feijão. Rápido.",
         True,
     ),
     "varied": (
         "panela",
         "Variada e elaborada",
-        "Abre o cardápio para atum, tilápia, tapioca e preparos mais longos.",
+        "Abre para atum, tilápia e preparos longos.",
     ),
     # accounts.models.ActivityLevel
     "sedentary": (
         "escrivaninha",
-        "Sedentário / pouco ativo",
-        "Passo a maior parte do dia sentado — escritório, home office ou "
-        "dirigindo — e me movimento pouco.",
+        "Pouco ativo",
+"Sentado quase o dia todo.",
     ),
     "light": (
         "bicicleta",
         "Moderadamente ativo",
-        "Faço caminhadas diárias, tarefas domésticas frequentes ou passo boa "
-        "parte do dia em pé.",
+"Caminho todo dia ou fico em pé.",
     ),
     "active": (
         "ferramentas",
         "Altamente ativo",
-        "Trabalho braçal, fico em pé o dia todo ou tenho alto gasto físico "
-        "diário.",
+"Trabalho braçal ou muito em pé.",
     ),
 }
 
@@ -117,7 +130,10 @@ def detalhe(valor):
         "icone": icone,
         "titulo": titulo,
         "apoio": apoio,
-        # Quarta posição opcional: a maioria das opções não é recomendada, e
-        # escrever `False` em cada uma seria ruído que ninguém lê.
-        "recomendado": len(dados) > 3 and dados[3],
+        # As três últimas são opcionais, e a maioria das opções não usa
+        # nenhuma delas: escrever `False`, `""`, `""` em cada uma seria ruído
+        # que ninguém lê.
+        "recomendado": len(dados) > 3 and bool(dados[3]),
+        "exemplo": dados[4] if len(dados) > 4 else "",
+        "selo": dados[5] if len(dados) > 5 else "Recomendado",
     }

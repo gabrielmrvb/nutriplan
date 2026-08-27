@@ -29,8 +29,16 @@
   Foi essa dedução que travou o app: onde `:has()` não existe, a regra que
   levanta o convite acima da navegação some, e ele passa a cobrir os atalhos.
   Quem sabe se a barra existe é o template, então é o template que conta.
+
+  E ela não existe durante o onboarding. `sem_tabbar` vem da view do passo, e
+  não do estado do perfil: quem já terminou e volta para editar um passo está
+  no mesmo fluxo focado, com "Voltar" e "Salvar", e a barra ali só oferece
+  saídas. Para quem ainda não terminou, os cinco destinos passam por
+  `OnboardingRequiredMixin` e devolvem a pessoa para o wizard — cinco becos sem
+  saída, mais os 96px que o `.container` reserva para a barra, espaço que
+  empurrava o "Continuar" para fora da primeira tela.
 {% endcomment %}
-<body class="{% if user.is_authenticated %}tem-tabbar{% endif %}"
+<body class="{% if user.is_authenticated and not sem_tabbar %}tem-tabbar{% endif %}"
       data-autenticado="{% if user.is_authenticated %}1{% else %}0{% endif %}">
   {% block header %}
     <header class="app-bar">
@@ -94,6 +102,7 @@
       Navegação inferior: os cinco destinos do app a um polegar de distância.
       Só aparece no celular — no desktop os mesmos links ficam na barra de cima.
     {% endcomment %}
+    {% if not sem_tabbar %}
     <nav class="tabbar" aria-label="Navegação principal">
       <a class="tabbar__item {% if nav == 'today' %}is-active{% endif %}"
          href="{% url 'plans:today' %}">
@@ -140,6 +149,7 @@
         Perfil
       </a>
     </nav>
+    {% endif %}
   {% endif %}
 
   {% comment %}
