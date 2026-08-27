@@ -181,13 +181,27 @@
                           data-carga="{% if item.load.melhor_anterior %}{{ item.load.melhor_anterior|floatformat:'-2' }}{% endif %}"
                           data-carga-data="{% if item.load.data_anterior %}{{ item.load.data_anterior|date:'d/m' }}{% endif %}"
                           data-busca="{{ item.exercise.video_search_url }}"
-                          aria-label="Ver execução de {{ item.exercise.name }}">
+                          aria-label="Ver vídeo de execução de {{ item.exercise.name }}">
+                          {% comment %}
+                            Câmera de vídeo, e não as três linhas de texto que
+                            estavam aqui.
+
+                            O ícone anterior desenhava uma lista, e lista é o
+                            que o botão NÃO abre primeiro: `drawer__media` fica
+                            acima de `drawer__corpo`, então a primeira coisa na
+                            tela é o clipe. Ícone e rótulo prometiam a segunda.
+
+                            Conferido: os 36 exercícios ativos têm vídeo. O
+                            rótulo não promete a nenhum deles algo que não
+                            existe.
+                          {% endcomment %}
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
                                aria-hidden="true">
-                            <path d="M4 6h11"/><path d="M4 12h16"/><path d="M4 18h9"/>
+                            <rect x="2.5" y="6" width="12.5" height="12" rx="2.5"/>
+                            <path d="M15 10.5l4.6-2.3a.8.8 0 011.15.72v6.16a.8.8 0 01-1.15.72L15 13.5z"/>
                           </svg>
-                          <span>Ver execução por escrito</span>
+                          <span>Ver vídeo de execução</span>
                         </button>
                       </span>
                     </span>
@@ -487,9 +501,11 @@
         <h2 class="drawer__nome" id="drawer-nome" data-drawer-nome></h2>
         <p class="drawer__musculo" data-drawer-musculo></p>
         {% comment %}
-          A instrução escrita vem ANTES dos números e da animação: o botão
-          promete "ver execução por escrito", e o que ele promete tem que ser
-          a primeira coisa na tela.
+          Dentro do corpo, a instrução escrita vem antes dos números: quem
+          abriu quer saber COMO se faz, e não a aritmética da série.
+
+          O vídeo está acima disto tudo, em `drawer__media` — é o que o botão
+          promete, e por isso é a primeira coisa que aparece.
         {% endcomment %}
         <p class="drawer__intensidade" data-drawer-intensidade></p>
 

@@ -507,8 +507,21 @@ class WorkoutVideoViewTests(TestCase):
     def test_each_exercise_offers_the_demonstration(self):
         response = self.client.get(self.url)
 
-        self.assertContains(response, "Ver execução")
+        self.assertContains(response, "Ver vídeo de execução")
         self.assertContains(response, "youtube-nocookie.com/embed/")
+
+    def test_the_button_does_not_promise_a_video_that_is_missing(self):
+        """O rótulo diz "vídeo": todo exercício ativo precisa ter um.
+
+        Um botão que abre um drawer vazio é pior do que botão nenhum — a
+        pessoa toca, não acontece nada, e passa a desconfiar dos outros.
+        """
+        sem_clipe = [
+            exercicio.name
+            for exercicio in Exercise.objects.filter(is_active=True)
+            if not exercicio.video_embed_url
+        ]
+        self.assertEqual(sem_clipe, [])
 
     def test_there_is_one_media_slot_per_exercise_in_the_routine(self):
         response = self.client.get(self.url)
@@ -1222,12 +1235,11 @@ class ExerciseAccordionTests(TestCase):
         self.assertIn("rotate(180deg)", bloco[1].split("}", 1)[0])
 
     def test_the_execution_button_rides_with_the_badges(self):
-        """"Ver execução" sobe para o cabeçalho, junto das etiquetas.
+        """O botão de vídeo mora no cabeçalho, junto das etiquetas.
 
         Fechado, o cartão passou a esconder o botão — e ver o movimento é
         justamente o que se quer ANTES de decidir abrir e anotar. No cabeçalho
-        ele fica a um toque em qualquer estado, e sem custar linha: entra como
-        ícone ao lado da seta, com o nome do exercício no `aria-label`.
+        ele fica a um toque em qualquer estado.
 
         Um `<button>` dentro de `<summary>` é HTML válido, mas o toque nele
         alternaria a sanfona junto — por isso o handler do drawer precisa
@@ -1813,7 +1825,7 @@ class ExerciseHeaderLayoutTests(TestCase):
     def test_the_execution_button_has_no_fixed_width_to_squeeze_its_label(self):
         """Largura fixa num botão com rótulo é o defeito, não o sintoma.
 
-        44px de largura para "Ver execução por escrito" não corta o texto nem
+        44px de largura para um rótulo de vinte e um caracteres não corta o texto nem
         provoca overflow — o navegador quebra palavra por palavra e cresce
         para baixo, em silêncio. Por isso a trava é na REGRA: enquanto o botão
         tiver rótulo, quem mede a largura dele é o conteúdo.
@@ -1847,6 +1859,29 @@ class ExerciseHeaderLayoutTests(TestCase):
         """Com um alvo de 44px na fileira, o `stretch` padrão esticaria as
         pílulas de 24px para 44 e o texto delas boiaria no meio."""
         self.assertIn("align-items: center", self._regra(".exercise__tags"))
+
+    def test_the_icon_shows_a_camera_and_not_a_list_of_lines(self):
+        """Ícone e rótulo têm que prometer a MESMA coisa.
+
+        O ícone anterior desenhava três linhas de texto — uma lista — enquanto
+        `drawer__media` fica acima de `drawer__corpo` e a primeira coisa que
+        aparece é o clipe. O desenho prometia a segunda tela.
+        """
+        html = self.client.get(self.url).content.decode()
+        botao = html.split('class="exercise__ver"', 1)[1].split("</button>", 1)[0]
+
+        self.assertIn("<rect", botao)
+        # As três linhas do ícone de lista, exatamente como estavam.
+        self.assertNotIn('d="M4 6h11"', botao)
+
+    def test_the_label_reads_the_same_by_eye_and_by_ear(self):
+        """O `aria-label` não pode contar outra história: quem ouve a tela
+        recebe o mesmo verbo e o mesmo objeto, mais o nome do exercício."""
+        html = self.client.get(self.url).content.decode()
+        botao = html.split('class="exercise__ver"', 1)[1].split("</button>", 1)[0]
+
+        self.assertIn("aria-label=\"Ver vídeo de execução de ", botao)
+        self.assertIn("<span>Ver vídeo de execução</span>", botao)
 
     def test_every_header_element_has_a_grid_area(self):
         """Item de grade sem área nomeada não some: ele vai para uma faixa
