@@ -29,41 +29,43 @@
 
   /* Grafite em camadas: o fundo é o mais escuro e cada nível de elevação
      clareia um pouco. É o que dá profundidade sem sombra pesada, que no
-     escuro simplesmente não aparece. */
-  --bg: #090c0b;
-  --surface: #121716;
-  --surface-2: #191f20;
-  --surface-3: #222a2b;
+     escuro simplesmente não aparece.
 
-  /* Borda translúcida, e não um cinza fixo.
-     Um cinza fixo só está certo sobre uma superfície; sobre as outras três
-     ele fica claro demais ou some. Branco a 6,5% acompanha a camada em que
-     pousa — é o que faz a borda ler como fio de luz na quina em vez de
-     linha desenhada por cima.
+     O matiz saiu do verde e foi para o azul (#090c0b → #0d0f12). O grafite
+     esverdeado tingia de leve TODA a tela com o mesmo verde do acento, e o
+     acento perdia parte do trabalho dele, que é destacar. Neutro azulado é
+     o fundo de Lifesum, Yazio e Fitia pelo mesmo motivo. */
+  --bg: #0d0f12;
+  --surface: #15181e;
+  --surface-2: #1a1d24;
+  --surface-3: #232733;
 
-     Os dois subiram um degrau (6,5% → 9% e 13% → 16%). Medido no celular, em
-     tela OLED e com brilho baixo — que é como o app é aberto de madrugada —,
-     6,5% de branco simplesmente não aparecia: a quina do cartão sumia no
-     fundo e a tela virava uma mancha de grafite sem hierarquia. 9% é o menor
-     valor em que a quina se lê nas quatro superfícies sem a borda passar a
-     parecer traço desenhado por cima. */
-  --border: rgba(255, 255, 255, .09);
-  --border-strong: rgba(255, 255, 255, .16);
+  /* Cinza fixo, e não mais branco translúcido.
+     O translúcido tinha uma vantagem real: acompanhava a camada em que
+     pousava, então uma regra servia às quatro superfícies. A troca é
+     deliberada — com as superfícies agora numa faixa estreita (#15181e a
+     #232733), o cinza fixo cai dentro dessa faixa em todas elas, e ganha o
+     que o translúcido não dava: a MESMA quina sobre o fundo da página, onde
+     9% de branco desaparecia por não ter camada abaixo para clarear.
 
-  --text: #eef4f2;
+     Se uma quinta superfície mais clara aparecer, este é o token a revisar. */
+  --border: #2a2e39;
+  --border-strong: #3a4050;
+
+  --text: #ffffff;
   /* Os dois tons discretos subiram junto com as bordas, e pelo mesmo motivo:
      o mínimo da WCAG é piso de legibilidade, não alvo de projeto. `--text-dim`
      estava em 6,47:1 no pior fundo e `--text-mute` em 4,67:1 — passando por
      centésimos. Em OLED, com brilho baixo, "passa raspando" se lê como texto
      apagado. Agora são 7,50 e 5,62 no mesmo pior caso, e a distância entre os
      três degraus (13,15 / 7,50 / 5,62) continua clara. */
-  --text-dim: #adbdb9;
+  --text-dim: #cbd2dc;
   /* Medido, não escolhido a olho: #71827f dava 4.00:1 sobre --surface-3, e o
      mínimo da WCAG AA para texto pequeno é 4.5:1. O valor anterior (#849592)
      era o menor clareamento que PASSAVA; este é o menor que passa com folga —
      inclusive sobre --brand-soft, onde o antigo dava 4,36 e nenhum teste via,
      porque o teste dos fundos tingidos só cobre --text e --text-dim. */
-  --text-mute: #93a4a0;
+  --text-mute: #9ca3af;
 
   /* Uma cor por dia de treino. Matizes bem separados (verde, azul, âmbar,
      violeta) para serem distinguíveis inclusive por quem confunde vermelho e
@@ -77,17 +79,20 @@
      encostar no verde do A nem no âmbar do C. */
   --dia-e: #ff9d8a;
 
-  /* Verde-menta como acento principal e azul-gelo como secundário: os dois
-     legíveis sobre grafite sem virar neon berrante, que cansa em minutos. */
-  --brand: #4ade9b;
-  --brand-strong: #6df0b4;
-  --brand-soft: #13332a;
-  --on-brand: #05140f;
+  /* Emerald como acento principal e azul-gelo como secundário.
+     Era menta #4ade9b — claro o bastante para brilhar, e por isso mesmo sem
+     peso: sobre grafite ele lia como brilho, não como cor de marca. Emerald
+     é mais saturado e mais escuro, então o botão primário tem massa e o texto
+     grafite por cima dele continua legível (7,4:1, medido). */
+  --brand: #10b981;
+  --brand-strong: #34d399;
+  --brand-soft: #103028;
+  --on-brand: #04140e;
 
   --accent: #6cc7ff;
 
-  --warm: #f0b45f;
-  --warm-soft: #33270f;
+  --warm: #f59e0b;
+  --warm-soft: #33260f;
 
   --carb: #e0b25f;
   --fat: #8fa8d8;
@@ -118,7 +123,7 @@
   --glass: color-mix(in srgb, var(--bg) 78%, transparent);
   --glass-blur: saturate(170%) blur(20px);
 
-  --glow: 0 0 0 1px rgba(74, 222, 155, .22), 0 10px 30px -14px rgba(74, 222, 155, .35);
+  --glow: 0 0 0 1px rgba(16, 185, 129, .3), 0 10px 30px -14px rgba(16, 185, 129, .45);
 
   /* O halo de ESTADO, irmão mais discreto do `--glow` de foco.
      Marca o que está ativo agora — a aba aberta, a refeição feita, o botão
@@ -1156,8 +1161,9 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .btn--block { width: 100%; }
 
 /* Resposta ao toque.
-   O afundamento de 2% dura o tempo do dedo no botão e volta sozinho — é o que
-   diz "recebi" antes de o servidor responder. Num app usado de pé na academia,
+   O afundamento de 5% dura o tempo do dedo no botão e volta sozinho — é o que
+   diz "recebi" antes de o servidor responder. Era 2%, e 2% num alvo de 44px
+   é meio pixel de deslocamento: existia no código e não na tela. Num app usado de pé na academia,
    com o 4G da rua, essa fração de segundo é a diferença entre tocar uma vez e
    tocar quatro.
 
@@ -1166,12 +1172,11 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
    velho, que é exatamente onde isto precisa funcionar. */
 .btn:active,
 .btn-link:active,
-.swap-open:active,
 .choice-card:active,
 .shopping__check:active,
 .tabbar__item:active,
 .app-bar__link:active,
-.app-bar__quiet:active { transform: scale(.98); }
+.app-bar__quiet:active { transform: scale(.95); }
 
 /* Botão já tocado, esperando o servidor: sem isto a pessoa toca de novo. */
 .btn:disabled,
@@ -1186,7 +1191,6 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
    carregava a própria duração, e a interface parecia montada por gente
    diferente em semanas diferentes. */
 
-.swap-open,
 .choice-card,
 .shopping__check{
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
@@ -1216,7 +1220,6 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   .rest-timer__more:active,
   .shopping__check:active,
   .supl__marcar:active,
-  .swap-open:active,
   .tabbar__item:active { transform: none; }
 }
 
@@ -1504,7 +1507,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 
 .session__badge[data-dia] {
   background: var(--dia, var(--brand));
-  color: #090c0b;
+  color: var(--on-brand);
 }
 
 /* Filete da cor do dia na borda do cartão: identifica a ficha durante a
@@ -1880,7 +1883,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 .registro__salvar:hover { background: var(--brand-strong); }
-.registro__salvar:active { transform: scale(.98); }
+.registro__salvar:active { transform: scale(.95); }
 .registro__salvar:disabled { opacity: .55; cursor: progress; }
 
 .registro__contagem { font-size: .72rem; font-weight: 700; opacity: .85; }
@@ -1916,7 +1919,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   color: var(--accent);
 }
 
-.registro__timer:active { transform: scale(.98); }
+.registro__timer:active { transform: scale(.95); }
 .registro__timer svg { width: 1.1rem; height: 1.1rem; }
 
 .registro__desfazer { margin: .35rem 0 0; }
@@ -2028,7 +2031,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 .rest-timer__more:hover { border-color: var(--accent); color: var(--text); }
-.rest-timer__more:active { transform: scale(.98); }
+.rest-timer__more:active { transform: scale(.95); }
 
 .rest-timer__close {
   display: grid;
@@ -2048,7 +2051,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 .rest-timer__close:hover { background: var(--surface-3); color: var(--text); }
-.rest-timer__close:active { transform: scale(.98); }
+.rest-timer__close:active { transform: scale(.95); }
 
 /* ==========================================================================
    18. Lista de compras e substituição
@@ -2093,25 +2096,10 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
    ele vive dentro de uma lista de ingredientes, o alvo cresce por padding
    vertical: a lista fica mais espaçada, que também é mais legível, e nenhum
    alvo encosta no vizinho. */
-.swap-open {
-  display: inline-flex;
-  align-items: center;
-  gap: .3rem;
-  min-width: 0;
-  min-height: 2.75rem;
-  padding: .35rem 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
 
 /* `.8em` sobre um pai de .86rem dava 10,9px — abaixo do piso de 11 que o
    catálogo Impeccable define para texto de interface. É glifo e não frase, mas
    uma seta de 11px também não se vê no celular ao sol. */
-.swap-open span { flex: none; color: var(--text-mute); font-size: .95em; }
-.swap-open:hover, .swap-open:hover span { color: var(--brand); }
 
 .modal {
   width: min(30rem, calc(100vw - 1.5rem));
@@ -2657,14 +2645,22 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 
 .choice-cards {
   display: grid;
-  gap: .6rem;
+  /* 12px. Era .6rem (9,6px) — abaixo do menor degrau da escala, e a diferença
+     entre cartões colados e cartões separados é o que faz a lista ler como
+     opções em vez de tabela. */
+  gap: .75rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 /* Uma coluna no celular; duas a partir de 30rem, que é onde título e linha de
-   apoio cabem sem quebrar palavra no meio. */
+   apoio cabem sem quebrar palavra no meio.
+
+   Medido antes de escolher o ponto: a 390px, duas colunas dão 155px úteis por
+   cartão, e "emagrecer e ganhar massa" não cabe em 155px sem hifenizar no
+   meio de "ganhar". Uma coluna no celular não é preguiça de grade — é o
+   resultado de medir a frase mais longa que o campo pode receber. */
 @media (min-width: 30rem) {
   .choice-cards { grid-template-columns: 1fr 1fr; }
 }
@@ -2676,9 +2672,14 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   gap: .75rem;
   height: 100%;
   min-height: 4.75rem;
-  padding: .95rem;
+  /* 16px em volta. */
+  padding: 1rem;
   border-radius: var(--radius-lg);
   background: var(--surface-2);
+  /* A quina arredondada corta o que vazar: sem isto, um rótulo de catálogo
+     mais longo do que o previsto escapa por baixo da borda desenhada e o
+     cartão fica com texto pendurado fora da moldura. */
+  overflow: hidden;
   cursor: pointer;
   transition: background var(--dur) var(--ease), transform .12s var(--ease);
 }
@@ -2737,7 +2738,33 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   padding-right: 1.5rem;
 }
 
-.choice-card__title { font-size: .95rem; line-height: 1.25; }
+/* Nenhuma palavra parte no meio.
+ *
+ * `hyphens: none` desliga a hifenização automática, que em pt-BR erra: o
+ * navegador não carrega dicionário de separação silábica para toda língua e
+ * quebra "emagrecer" em lugares que não existem.
+ *
+ * `overflow-wrap: break-word` é a válvula para o caso oposto — uma palavra
+ * sozinha mais larga que a coluna (nome de suplemento, marca composta). Sem
+ * ela a palavra não quebra em lugar NENHUM e empurra a página para o lado;
+ * com ela, quebra só quando não há alternativa.
+ *
+ * `word-break: break-all` seria a escolha errada aqui: parte qualquer palavra
+ * a qualquer momento, que é exatamente o defeito que estas três linhas
+ * existem para impedir. */
+.choice-card__title,
+.choice-card__hint {
+  hyphens: none;
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+
+.choice-card__title {
+  color: var(--text);
+  font-size: .95rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
 
 .choice-card__hint {
   color: var(--text-mute);
@@ -2756,7 +2783,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   height: 1.2rem;
   border-radius: 50%;
   background: var(--brand);
-  color: #090c0b;
+  color: var(--on-brand);
   opacity: 0;
   transform: scale(.5);
   transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
@@ -3075,7 +3102,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 
 .agua__botao span { color: var(--text-mute); font-size: .7rem; font-weight: 550; }
 .agua__botao:hover { border-color: var(--accent); background: var(--surface-3); }
-.agua__botao:active { transform: scale(.98); }
+.agua__botao:active { transform: scale(.95); }
 
 /* ------------------------------------------------- catálogo de suplementos */
 
@@ -3105,7 +3132,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 }
 
 .supl__marcar svg { width: 1rem; height: 1rem; }
-.supl__marcar:active { transform: scale(.98); }
+.supl__marcar:active { transform: scale(.95); }
 
 .supl__marcar.is-on {
   border-color: color-mix(in srgb, var(--brand) 38%, transparent);

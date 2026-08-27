@@ -543,9 +543,14 @@ class MotionTests(TestCase):
     def test_pressing_anything_uses_the_same_scale(self):
         """Duas escalas diferentes no mesmo gesto é o tipo de inconsistência
         que ninguém aponta e todo mundo sente. Já houve: a lista geral
-        encolhia 2% e o cartão do onboarding, 1%."""
+        encolhia 2% e o cartão do onboarding, 1%.
+
+        O valor passou de .98 para .95 com o design system. 2% num alvo de
+        44px é meio pixel — existia no código e não na tela. O que o teste
+        trava não é o número, é haver UM só.
+        """
         escalas = set(re.findall(r":active[^{]*\{[^}]*transform:\s*scale\(([^)]+)\)", self.css))
-        self.assertEqual(escalas, {".98"}, f"escalas de toque divergentes: {escalas}")
+        self.assertEqual(escalas, {".95"}, f"escalas de toque divergentes: {escalas}")
 
     def test_who_asked_for_less_movement_gets_less_movement(self):
         """Quem liga "reduzir movimento" no sistema costuma ter um motivo
@@ -1030,3 +1035,82 @@ class ResponseCompressionTests(TestCase):
             }
         )
         self.assertEqual(orfas, [], f"CSS para classes que ninguém renderiza: {orfas}")
+
+
+def _sem_comentarios(css: str) -> str:
+    """O CSS sem os blocos de comentário.
+
+    Existe porque um comentário que explica por que um valor foi REJEITADO
+    contém esse valor escrito por extenso — e uma busca ingênua o encontra e
+    acusa a explicação de ser o defeito.
+    """
+    return re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+
+class DesignSystemTests(TestCase):
+    """A paleta e as regras de layout que o design system fixou.
+
+    O que estes testes travam não é gosto — é o conjunto de decisões que já
+    voltou atrás sozinho neste arquivo quando alguém mexeu numa seção sem ver
+    a outra. Cor de acento, raio de quina e tratamento de texto são globais
+    por definição: se cada seção resolver a sua, a interface volta a parecer
+    montada por gente diferente em semanas diferentes.
+    """
+
+    def setUp(self):
+        self.css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+        self.escuro = _tokens(self.css, ":root {")
+
+    def test_the_dark_palette_is_the_one_the_design_system_names(self):
+        self.assertEqual(self.escuro["--bg"], "#0d0f12")
+        self.assertEqual(self.escuro["--surface-2"], "#1a1d24")
+        self.assertEqual(self.escuro["--border"], "#2a2e39")
+        self.assertEqual(self.escuro["--brand"], "#10b981")
+        self.assertEqual(self.escuro["--text"], "#ffffff")
+        self.assertEqual(self.escuro["--text-mute"], "#9ca3af")
+
+    def test_every_card_radius_lands_between_sixteen_and_twenty_pixels(self):
+        """A escala tem quatro degraus e três deles são de CARTÃO. Um quinto
+        degrau nasce quando alguém escreve `border-radius: 8px` direto na
+        regra, e aí a tela tem duas linguagens de quina."""
+        for token in ("--radius", "--radius-lg"):
+            # `_tokens` só guarda valores hexadecimais — é um leitor de PALETA.
+            achado = re.search(rf"^\s*{token}:\s*(\d+)px;", self.css, re.M)
+            self.assertIsNotNone(achado, f"{token} não é mais um valor em px")
+            px = int(achado.group(1))
+            with self.subTest(token=token):
+                self.assertGreaterEqual(px, 15)
+                self.assertLessEqual(px, 20)
+
+    def test_no_rule_hardcodes_a_radius_outside_the_scale(self):
+        soltos = set(re.findall(r"border-radius:\s*(\d+)px", self.css))
+        self.assertEqual(soltos, set(), f"raio fora da escala de tokens: {soltos}")
+
+    def test_choice_cards_never_hyphenate_a_word_in_half(self):
+        """pt-BR e hifenização automática não combinam: o navegador não carrega
+        dicionário de separação silábica para toda língua e quebra "emagrecer"
+        em lugares que não existem. A válvula é `overflow-wrap`, que só parte
+        quando a palavra sozinha é mais larga que a coluna."""
+        regra = self.css.split("\n.choice-card__title,\n.choice-card__hint {", 1)
+        self.assertEqual(len(regra), 2, "o tratamento de texto do cartão sumiu")
+        corpo = regra[1].split("}", 1)[0]
+
+        self.assertIn("hyphens: none", corpo)
+        self.assertIn("overflow-wrap: break-word", corpo)
+        # `break-all` parte qualquer palavra a qualquer momento — é o defeito,
+        # não a correção. Sem os comentários: a regra que documenta a escolha
+        # cita o valor rejeitado, e o teste passava a acusar a própria
+        # explicação de ser o defeito que ela descreve.
+        self.assertNotIn("word-break: break-all", _sem_comentarios(self.css))
+
+    def test_the_choice_grid_stays_single_column_on_a_phone(self):
+        """Duas colunas a 390px dão 155px úteis, e "emagrecer e ganhar massa"
+        não cabe em 155px sem partir palavra. O ponto de virada é medido, não
+        escolhido pela largura redonda."""
+        bloco = self.css.split(".choice-cards {", 1)[1].split("}", 1)[0]
+        self.assertNotIn("grid-template-columns", bloco)
+
+        depois = self.css.split(".choice-cards {", 1)[1]
+        media = depois.split("@media (min-width: 30rem) {", 1)
+        self.assertEqual(len(media), 2, "a segunda coluna não é condicional")
+        self.assertIn("1fr 1fr", media[1].split("}", 1)[0])
