@@ -51,6 +51,16 @@ GANHO_POR_SEMANA = Decimal("0.25")
 #: Quantas semanas de carga registrada, em cada exercicio de cada dia.
 SEMANAS_DE_CARGA = 4
 
+#: Quantos dias de historico de refeicao. A tela de metricas anuncia "os
+#: ultimos 14 dias" — com menos que isso ela desenha um grafico de uma barra.
+DIAS_DE_HISTORICO = 13
+
+ZERO = Decimal("0")
+
+#: A frase guardada quando a refeicao saiu do plano. E o campo que a tela de
+#: "comi outra coisa" preenche, e aqui ele mostra que o campo existe.
+NOTA_FORA_DO_PLANO = {"off_plan": "Jantei fora, comi um prato feito"}
+
 #: Carga de partida por grupo muscular, em quilos, para um homem de 78 kg com
 #: alguns meses de treino.
 #:
@@ -80,7 +90,11 @@ FATOR_ISOLADO = Decimal("0.45")
 
 #: A menor carga que aparece. Halter de 3 kg existe, mas rosca alternada com
 #: 3 kg num homem de 78 quilos le como erro, e nao como treino leve.
-CARGA_MINIMA = Decimal("6")
+#:
+#: Cinco e nao seis: o piso tambem precisa ser um peso que a academia monta, e
+#: 6 kg nao e multiplo de 2,5. Foi o teste do degrau que pegou — o piso era
+#: aplicado DEPOIS do arredondamento e desfazia o proprio arredondamento.
+CARGA_MINIMA = Decimal("5")
 
 #: Academia tem anilha de 2,5 em 2,5. "26,22 kg" nao e uma carga que alguem
 #: consiga montar — e o tipo de numero que entrega que a tela foi semeada.
@@ -204,39 +218,85 @@ class Command(BaseCommand):
         )
 
     def _preencher_o_dia(self, user, plano):
-        """Meia manha ja vivida: as primeiras refeicoes marcadas e agua bebida.
+        """Duas semanas de historico, e o dia de hoje pela metade.
 
-        Um demo com o dia inteiro em branco esconde metade da interface — a
-        barra de progresso, o cartao de refeicao concluida, a ofensiva. Um demo
-        com o dia inteiro preenchido esconde a outra metade, que e o botao de
-        marcar. Metade e metade mostra as duas.
+        HOJE pela metade e deliberado: dia em branco esconde a barra de
+        progresso e o cartao de refeicao concluida; dia cheio esconde o botao
+        de marcar. Metade mostra os dois estados.
+
+        E os treze dias ANTERIORES existem por causa da tela de metricas. Ela
+        anuncia "os ultimos 14 dias" e desenha uma barra por dia; com so o dia
+        de hoje registrado ela mostrava uma barra e a media de 966 kcal/dia
+        contra a meta de 2765 — numero verdadeiro e conclusao errada, que e o
+        pior tipo de tela para alguem analisar.
+
+        Nem todo dia sai perfeito, e isso tambem e proposital: 100% de
+        aderencia em duas semanas nao e o que a tela precisa provar que sabe
+        desenhar. Um dia com refeicao pulada e outro com "comi outra coisa"
+        colocam os tres estados na tela.
         """
         hoje = timezone.localdate()
-        MealLog.objects.filter(user=user, date=hoje).delete()
-
         horarios = list(plano.slots.order_by("time"))
-        for slot in horarios[: max(len(horarios) // 2, 1)]:
-            opcao = slot.options.order_by("label").first()
-            if opcao is None:
-                continue
-            MealLog.objects.create(
-                user=user,
-                slot=slot,
-                chosen_option=opcao,
-                date=hoje,
-                status=MealStatus.DONE,
-                marked_at=timezone.now(),
-                slot_name=slot.name,
-                scheduled_time=slot.time,
-                kcal=opcao.kcal,
-                protein_g=opcao.protein_g,
-                carb_g=opcao.carb_g,
-                fat_g=opcao.fat_g,
+        if not horarios:
+            return
+
+        MealLog.objects.filter(
+            user=user, date__gte=hoje - timedelta(days=DIAS_DE_HISTORICO)
+        ).delete()
+        HydrationLog.objects.filter(
+            user=user, date__gte=hoje - timedelta(days=DIAS_DE_HISTORICO)
+        ).delete()
+
+        registros = []
+        for atraso in range(DIAS_DE_HISTORICO, -1, -1):
+            dia = hoje - timedelta(days=atraso)
+
+            # Hoje para na metade: e meia manha, e o resto do dia ainda vai
+            # acontecer.
+            do_dia = (
+                horarios[: max(len(horarios) // 2, 1)] if atraso == 0 else horarios
             )
 
-        HydrationLog.objects.update_or_create(
-            user=user, date=hoje, defaults={"ml": 1600}
-        )
+            for indice, slot in enumerate(do_dia):
+                opcao = slot.options.order_by("label").first()
+                if opcao is None:
+                    continue
+
+                # Um deslize por semana, sempre no mesmo lugar para a semeadura
+                # ser reproduzivel: um lanche pulado e um jantar fora do plano.
+                status = MealStatus.DONE
+                if atraso and atraso % 7 == 3 and indice == 2:
+                    status = MealStatus.SKIPPED
+                elif atraso and atraso % 7 == 5 and indice == len(do_dia) - 1:
+                    status = MealStatus.OFF_PLAN
+
+                comeu = status == MealStatus.DONE
+                registros.append(
+                    MealLog(
+                        user=user,
+                        slot=slot,
+                        chosen_option=opcao if comeu else None,
+                        date=dia,
+                        status=status,
+                        marked_at=timezone.now(),
+                        slot_name=slot.name,
+                        scheduled_time=slot.time,
+                        kcal=opcao.kcal if comeu else ZERO,
+                        protein_g=opcao.protein_g if comeu else ZERO,
+                        carb_g=opcao.carb_g if comeu else ZERO,
+                        fat_g=opcao.fat_g if comeu else ZERO,
+                        notes="" if comeu else NOTA_FORA_DO_PLANO.get(status, ""),
+                    )
+                )
+
+            # A agua oscila como agua oscila: nem todo dia bate a meta.
+            HydrationLog.objects.create(
+                user=user,
+                date=dia,
+                ml=1600 if atraso == 0 else 2200 + (dia.day % 4) * 300,
+            )
+
+        MealLog.objects.bulk_create(registros)
 
     def _preencher_cargas(self, user, ficha):
         """Cargas plausiveis em TODOS os dias da ficha, e em quatro semanas.

@@ -11,10 +11,11 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
+from django.utils import timezone
 
 from accounts.models import Profile, User
 from demo.middleware import DEMO_EMAIL
-from plans.models import HydrationLog, MealLog
+from plans.models import HydrationLog, MealLog, MealStatus
 from workouts.models import ExerciseLog
 
 AREA = r'class="demo-area" href="([^"]+)"'
@@ -189,8 +190,14 @@ class DemoDadosTests(TestCase):
 
     def test_the_day_is_half_lived_so_both_states_are_visible(self):
         """Dia em branco esconde a barra de progresso e o cartão de refeição
-        concluída; dia cheio esconde o botão de marcar. Metade mostra os dois."""
-        registros = MealLog.objects.filter(user=self.pessoa)
+        concluída; dia cheio esconde o botão de marcar. Metade mostra os dois.
+
+        `date=hoje` e não todos os registros: quando as duas semanas de
+        histórico entraram, este teste passou a contar 67 refeições contra 5
+        horários e falhou — a pergunta dele sempre foi sobre HOJE.
+        """
+        hoje = timezone.localdate()
+        registros = MealLog.objects.filter(user=self.pessoa, date=hoje)
         plano = self.pessoa.plans.get(is_active=True)
 
         self.assertGreater(registros.count(), 0)
@@ -259,3 +266,103 @@ class DemoSemSaidaParaLoginTests(TestCase):
         for tela in self.TELAS:
             with self.subTest(tela=tela):
                 self.assertContains(self.client.get(tela), "dados apresentados")
+
+
+class DemoTelasNaoFicamVaziasTests(TestCase):
+    """Nenhuma tela do demo mostra um grafico de uma barra so.
+
+    O demo existe para ser analisado, e tela vazia nao mostra o que o app faz.
+    Pior: a de metricas mostrava numero VERDADEIRO com conclusao errada — com
+    so o dia de hoje registrado, ela anunciava "os ultimos 14 dias" e uma media
+    de 966 kcal/dia contra a meta de 2765.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        _semear()
+
+    def setUp(self):
+        self.pessoa = get_user_model().objects.get(email=DEMO_EMAIL)
+
+    def test_the_metrics_screen_has_two_weeks_of_days_to_draw(self):
+        dias = (
+            MealLog.objects.filter(user=self.pessoa)
+            .values("date")
+            .distinct()
+            .count()
+        )
+        self.assertGreaterEqual(dias, 14)
+
+    def test_the_history_shows_all_three_states_a_meal_can_be_in(self):
+        """Concluida, pulada e "comi outra coisa". Duas semanas com 100% de
+        aderencia nao provam que a tela sabe desenhar as outras duas."""
+        estados = set(
+            MealLog.objects.filter(user=self.pessoa).values_list("status", flat=True)
+        )
+        self.assertEqual(
+            estados,
+            {MealStatus.DONE, MealStatus.SKIPPED, MealStatus.OFF_PLAN},
+        )
+
+    def test_the_adherence_is_high_but_not_perfect(self):
+        """100% em duas semanas le como dado inventado — porque e."""
+        total = MealLog.objects.filter(user=self.pessoa).count()
+        no_plano = MealLog.objects.filter(
+            user=self.pessoa, status=MealStatus.DONE
+        ).count()
+        taxa = no_plano / total
+        self.assertGreater(taxa, 0.8)
+        self.assertLess(taxa, 1.0)
+
+    def test_every_exercise_of_every_day_has_a_previous_load(self):
+        """"Ultimo treino" e a seta de progressao sao o que a tela de treino
+        tem de mais proprio. A primeira versao semeava so a sessao de segunda,
+        e quem abrisse numa quarta caia num dia de tracos."""
+        ficha = self.pessoa.training_plans.get(is_active=True)
+        for sessao in ficha.sessions.all():
+            for item in sessao.exercises.select_related("exercise").all():
+                if item.exercise.equipment == "bodyweight":
+                    continue  # peso do corpo nao registra carga
+                with self.subTest(dia=sessao.label, exercicio=item.exercise.name):
+                    self.assertTrue(
+                        ExerciseLog.objects.filter(
+                            user=self.pessoa, exercise=item.exercise
+                        ).exists()
+                    )
+
+    def test_no_load_is_a_weight_a_gym_cannot_assemble(self):
+        """Academia tem anilha de 2,5 em 2,5. "26,22 kg" e o tipo de numero que
+        entrega que a tela foi semeada."""
+        for peso in ExerciseLog.objects.filter(user=self.pessoa).values_list(
+            "weight_kg", flat=True
+        ):
+            with self.subTest(peso=peso):
+                self.assertEqual(peso % Decimal("2.5"), 0)
+
+    def test_bodyweight_exercises_never_get_a_load(self):
+        """Registrar quilo numa flexao mentiria sobre o que foi feito, e o
+        traco na tela e a informacao certa."""
+        for log in ExerciseLog.objects.filter(user=self.pessoa).select_related(
+            "exercise"
+        ):
+            with self.subTest(exercicio=log.exercise.name):
+                self.assertNotEqual(log.exercise.equipment, "bodyweight")
+
+    def test_the_screens_all_have_something_to_read(self):
+        """A regra bruta contra tela em branco: se o miolo tem menos de 400
+        caracteres, alguma coisa nao carregou."""
+        for tela in (
+            "/demo/",
+            "/demo/hoje/",
+            "/demo/treino/",
+            "/demo/historico/",
+            "/demo/suplementos/",
+            "/demo/lista-de-compras/",
+            "/demo/conta/perfil/",
+        ):
+            html = self.client.get(tela).content.decode()
+            miolo = html.split('<main class="container', 1)[1].split("</main>", 1)[0]
+            texto = re.sub(r"<[^>]+>", " ", miolo)
+            texto = re.sub(r"\s+", " ", texto).strip()
+            with self.subTest(tela=tela):
+                self.assertGreater(len(texto), 400, f"{tela} parece vazia")
