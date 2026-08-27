@@ -18,7 +18,17 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts.models import ActivityLevel, Goal, Profile, Sex, TrainingDay, User, WeightEntry
+from accounts.models import (
+    ONBOARDING_DONE,
+    ActivityLevel,
+    MealStyle,
+    Goal,
+    Profile,
+    Sex,
+    TrainingDay,
+    User,
+    WeightEntry,
+)
 from catalog.models import DietaryTag, Food, MealCategory, MealTemplate, MealTemplateItem, TagKind
 
 from . import meal_planner, services, shopping, tracking, views
@@ -373,7 +383,10 @@ def create_complete_user(email="pessoa@exemplo.com", **profile_kwargs):
         "goal": Goal.CUT,
         "wake_time": time(7, 0),
         "sleep_time": time(23, 0),
-        "onboarding_step": 5,
+        # ONBOARDING_DONE e não 5: o wizard ganhou um passo e todo fixture
+        # que dizia "5" passou a criar gente que NÃO terminou — cinco testes
+        # de rotas sem relação nenhuma com onboarding caíram em 302.
+        "onboarding_step": ONBOARDING_DONE,
     }
     fields.update(profile_kwargs)
     Profile.objects.create(user=user, **fields)
@@ -1809,3 +1822,106 @@ class IngredientListTests(TestCase):
             encoding="utf-8"
         )
         self.assertIn(".option__ingrediente { min-width: 0; }", css)
+
+
+class MealStyleTests(TestCase):
+    """O cardápio econômico pesa contra o caro — e não o elimina.
+
+    A distinção importa e está escrita na tela: restrição ELIMINA a receita,
+    preferência a coloca no fim da fila. Com catálogo pequeno e restrições
+    apertadas, eliminar deixa o horário vazio, e horário vazio é pior que
+    horário caro — a pessoa fica sem saber o que comer, que é exatamente o
+    problema que o app existe para resolver.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def _receita_com_premium(self):
+        for template in MealTemplate.objects.filter(is_active=True).prefetch_related(
+            "items__food"
+        ):
+            if any(item.food.is_premium for item in template.items.all()):
+                return template
+        self.fail("nenhuma receita do catálogo usa ingrediente caro")
+
+    def test_the_varied_style_charges_nothing(self):
+        """Variada é o cardápio que o app já fazia. O estilo não pode inventar
+        custo onde ninguém pediu — se cobrasse, migrar quem estava no padrão
+        antigo reescreveria o cardápio dessa pessoa."""
+        template = self._receita_com_premium()
+        self.assertEqual(
+            meal_planner.style_penalty(template, MealCategory.MAIN, MealStyle.VARIED),
+            Decimal("0"),
+        )
+
+    def test_no_style_at_all_charges_nothing(self):
+        template = self._receita_com_premium()
+        self.assertEqual(
+            meal_planner.style_penalty(template, MealCategory.MAIN, None), Decimal("0")
+        )
+
+    def test_an_expensive_ingredient_costs_the_recipe_points(self):
+        template = self._receita_com_premium()
+        self.assertGreaterEqual(
+            meal_planner.style_penalty(template, MealCategory.MAIN, MealStyle.QUICK),
+            meal_planner.PREMIUM_INGREDIENT_PENALTY,
+        )
+
+    def test_two_expensive_ingredients_do_not_charge_twice(self):
+        """O que pesa é a receita SER cara, não quanto. Somar por ingrediente
+        faria uma receita com atum e tilápia perder de uma que erra a caloria
+        pela metade — e aí o estilo teria virado restrição por acidente."""
+        template = self._receita_com_premium()
+        for item in template.items.all():
+            item.food.is_premium = True
+            item.food.save(update_fields=["is_premium"])
+        template.refresh_from_db()
+
+        self.assertEqual(
+            meal_planner.style_penalty(template, MealCategory.MAIN, MealStyle.QUICK),
+            meal_planner.PREMIUM_INGREDIENT_PENALTY,
+        )
+
+    def test_a_long_breakfast_costs_but_a_long_lunch_does_not(self):
+        """Café e lanche competem com pressa real — um antes de sair de casa,
+        o outro no intervalo. No almoço a pessoa já parou para comer."""
+        demorada = MealTemplate.objects.filter(
+            is_active=True, prep_minutes__gt=meal_planner.QUICK_PREP_MINUTES
+        ).first()
+        self.assertIsNotNone(demorada, "o catálogo não tem receita demorada")
+
+        for item in demorada.items.all():
+            item.food.is_premium = False
+            item.food.save(update_fields=["is_premium"])
+        demorada.refresh_from_db()
+
+        self.assertEqual(
+            meal_planner.style_penalty(
+                demorada, MealCategory.BREAKFAST, MealStyle.QUICK
+            ),
+            meal_planner.QUICK_PREP_PENALTY,
+        )
+        self.assertEqual(
+            meal_planner.style_penalty(demorada, MealCategory.MAIN, MealStyle.QUICK),
+            Decimal("0"),
+        )
+
+    def test_the_penalty_never_empties_a_meal_slot(self):
+        """A prova de que é peso e não filtro.
+
+        Se TODA receita do catálogo virar cara, o cardápio econômico ainda
+        precisa sair com opções — todas penalizadas por igual, e a nota volta
+        a ser decidida pelo desvio nutricional, que é o critério certo quando
+        não há escolha barata.
+        """
+        Food.objects.update(is_premium=True)
+
+        profile = Profile.objects.get(user=create_complete_user())
+        profile.meal_style = MealStyle.QUICK
+        profile.save(update_fields=["meal_style"])
+
+        plan = services.create_plan(profile.user)
+        vazios = [slot.name for slot in plan.slots.all() if not slot.options.exists()]
+        self.assertEqual(vazios, [], "o estilo econômico esvaziou horários")

@@ -54,6 +54,17 @@
           <div>{% include "partials/field.html" with field=form.duration_min %}</div>
         </div>
       {% elif step == 4 %}
+        {% include "partials/icones.html" %}
+        {% include "partials/choice_cards.html" with field=form.split_preference %}
+      {% elif step == 5 %}
+        {% comment %}
+          O estilo de cardápio vira cartão e a restrição continua caixa de
+          marcar, e a forma diferente é a informação: um é escolha ÚNICA que
+          pesa, o outro é lista que elimina. Dar a mesma aparência aos dois
+          ensinaria que restrição também é "preferência forte", e ela não é.
+        {% endcomment %}
+        {% include "partials/icones.html" %}
+        {% include "partials/choice_cards.html" with field=form.meal_style %}
         {% include "partials/field.html" with field=form.dietary_tags %}
         <div class="field-row">
           <div>{% include "partials/field.html" with field=form.wake_time %}</div>

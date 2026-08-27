@@ -84,6 +84,12 @@ class Command(BaseCommand):
                     # false no JSON, em vez de ser apagado — quem já comeu
                     # aquilo continua com o histórico legível.
                     "is_active": row.get("active", True),
+                    # Caro é diferente de indisponível. `active: false` tira o
+                    # alimento do catálogo; `premium: true` o mantém e só o
+                    # coloca no fim da fila para quem pediu cardápio
+                    # econômico. Peixe e atum são comida de verdade — o que
+                    # eles não são é comida de toda semana em todo orçamento.
+                    "is_premium": row.get("premium", False),
                 },
             )
             for portion in row.get("portions", []):

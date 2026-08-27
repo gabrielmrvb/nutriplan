@@ -15,7 +15,18 @@ from django.utils import timezone
 
 from catalog.models import DietaryTag, TagKind
 
-from .models import ActivityLevel, Goal, Profile, Sex, TrainingDay, User, Weekday, WeightEntry
+from .models import (
+    ActivityLevel,
+    Goal,
+    MealStyle,
+    Profile,
+    Sex,
+    SplitPreference,
+    TrainingDay,
+    User,
+    Weekday,
+    WeightEntry,
+)
 
 
 class SignupForm(UserCreationForm):
@@ -226,23 +237,62 @@ class TrainingForm(forms.Form):
         return self.user.training_days.all()
 
 
-class RestrictionsForm(OnboardingStepForm):
-    """Passo 4 — restrições alimentares e janela do dia."""
+class SplitPreferenceForm(OnboardingStepForm):
+    """Passo 4 — quantos grupos musculares por sessão.
+
+    Vem DEPOIS dos dias de treino de propósito: a resposta só faz sentido
+    sabendo a frequência, e a tela do passo seguinte pode dizer o que a
+    escolha vai virar. Quem treina duas vezes escolhendo "poucos grupos por
+    dia" não recebe uma divisão de três — recebe superior e inferior, porque
+    a terceira letra nunca chegaria na semana dele.
+    """
 
     class Meta:
         model = Profile
-        fields = ("dietary_tags", "wake_time", "sleep_time")
+        fields = ("split_preference",)
+        widgets = {"split_preference": forms.RadioSelect}
+        labels = {"split_preference": "Como você prefere dividir o treino?"}
+        help_texts = {
+            "split_preference": (
+                "A sua frequência continua mandando: se a divisão que você "
+                "escolher não couber nos seus dias, o app usa a mais próxima "
+                "que cabe — divisão que não fecha na semana deixa parte do "
+                "corpo sem treinar."
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["split_preference"].choices = SplitPreference.choices
+
+
+class RestrictionsForm(OnboardingStepForm):
+    """Passo 5 — estilo de cardápio, restrições e janela do dia."""
+
+    class Meta:
+        model = Profile
+        fields = ("meal_style", "dietary_tags", "wake_time", "sleep_time")
         widgets = {
+            "meal_style": forms.RadioSelect,
             "dietary_tags": forms.CheckboxSelectMultiple,
             "wake_time": forms.TimeInput(attrs={"type": "time"}),
             "sleep_time": forms.TimeInput(attrs={"type": "time"}),
         }
         labels = {
+            "meal_style": "Que tipo de cardápio você quer?",
             "dietary_tags": "Alguma restrição alimentar?",
             "wake_time": "Que horas você costuma acordar?",
             "sleep_time": "Que horas você costuma dormir?",
         }
         help_texts = {
+            # A diferença entre este campo e o de baixo é a diferença entre
+            # preferência e restrição, e vale escrever na tela: um pesa, o
+            # outro elimina.
+            "meal_style": (
+                "Isto é preferência, não restrição: se um horário só fechar "
+                "com uma receita mais cara, ela ainda aparece — melhor uma "
+                "opção fora do seu estilo do que horário nenhum."
+            ),
             "dietary_tags": "Só serão sugeridas refeições que atendam a tudo que você marcar.",
             "wake_time": "Os horários das refeições são distribuídos dentro dessa janela.",
         }
@@ -253,6 +303,7 @@ class RestrictionsForm(OnboardingStepForm):
             kind=TagKind.RESTRICTION
         )
         self.fields["dietary_tags"].required = False
+        self.fields["meal_style"].choices = MealStyle.choices
 
     def clean(self):
         cleaned = super().clean()

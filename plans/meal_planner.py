@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from datetime import time
 from decimal import Decimal
 
+from accounts.models import MealStyle
 from catalog.models import MealCategory, MealTemplate, TagKind
 
 from .models import MealOption, MealSlot, OptionLabel
@@ -77,6 +78,28 @@ PREP_PENALTY_PER_MINUTE = Decimal("0.01")
 #: Teto da penalidade de preparo, para uma receita de forno não ser
 #: eliminada por tempo quando ela é a única que atende às restrições.
 MAX_PREP_PENALTY = Decimal("0.30")
+
+#: O que o cardápio econômico cobra de quem não é econômico.
+#:
+#: Peso e não filtro, e isto é a mesma decisão que já governa `prep_minutes`
+#: nesta seção: uma restrição ELIMINA a receita, e receita eliminada deixa o
+#: horário vazio quando o catálogo é pequeno. Um horário vazio é pior que um
+#: horário caro — a pessoa fica sem saber o que comer, que é exatamente o que
+#: o app existe para resolver.
+#:
+#: 0,45 por ingrediente caro é maior que a penalidade de "não é comida de
+#: rotina" (0,35): na prática a receita com atum só ganha de uma econômica
+#: que erre a caloria em quase metade. Ela perde, e continua existindo.
+PREMIUM_INGREDIENT_PENALTY = Decimal("0.45")
+
+#: Café da manhã e lanche com mais de dez minutos, para quem pediu rapidez.
+#:
+#: Os dois horários são os que competem com pressa real: um antes de sair de
+#: casa, o outro no intervalo. Almoço e jantar ficam de fora porque ali a
+#: pessoa já parou para comer, e vinte minutos de fogão são normais.
+QUICK_PREP_MINUTES = 10
+QUICK_PREP_PENALTY = Decimal("0.40")
+QUICK_SLOTS = (MealCategory.BREAKFAST, MealCategory.SNACK)
 
 
 @dataclass(frozen=True)
@@ -285,6 +308,28 @@ def deviation(macros: dict, slot) -> Decimal:
     return KCAL_WEIGHT * kcal_error + PROTEIN_WEIGHT * protein_error
 
 
+def style_penalty(template, category: str, meal_style: str) -> Decimal:
+    """O que o estilo de cardápio cobra desta receita neste horário.
+
+    Zero para quem pediu variedade — o cardápio elaborado é o que o app já
+    fazia, e o estilo não deve inventar custo onde ninguém pediu.
+    """
+    if meal_style != MealStyle.QUICK:
+        return Decimal("0")
+
+    penalidade = Decimal("0")
+
+    # Um ingrediente caro basta para a receita cair; dois não a derrubam duas
+    # vezes. O que pesa é a receita SER cara, e não quanto.
+    if any(item.food.is_premium for item in template.items.all()):
+        penalidade += PREMIUM_INGREDIENT_PENALTY
+
+    if category in QUICK_SLOTS and template.prep_minutes > QUICK_PREP_MINUTES:
+        penalidade += QUICK_PREP_PENALTY
+
+    return penalidade
+
+
 def practicality_penalty(template) -> Decimal:
     """O quanto a receita atrapalha a vida de quem vai cozinhar.
 
@@ -300,12 +345,16 @@ def practicality_penalty(template) -> Decimal:
     )
 
 
-def score(macros: dict, slot, template) -> Decimal:
+def score(macros: dict, slot, template, meal_style: str = None) -> Decimal:
     """Nota final de uma candidata: erro nutricional mais custo de execução."""
-    return deviation(macros, slot) + practicality_penalty(template)
+    return (
+        deviation(macros, slot)
+        + practicality_penalty(template)
+        + style_penalty(template, slot.category, meal_style)
+    )
 
 
-def choose_options(slot, restriction_slugs, used_templates) -> list:
+def choose_options(slot, restriction_slugs, used_templates, meal_style=None) -> list:
     """As melhores receitas para um horário, já escaladas.
 
     `used_templates` carrega o que já foi usado nos horários anteriores: sem
@@ -318,7 +367,9 @@ def choose_options(slot, restriction_slugs, used_templates) -> list:
     for template in candidates_for(slot.category, restriction_slugs):
         scale = scale_for(template, slot.target_kcal)
         macros = template.compute_macros(scale)
-        scored.append((score(macros, slot, template), template.pk, template, scale, macros))
+        scored.append(
+            (score(macros, slot, template, meal_style), template.pk, template, scale, macros)
+        )
     scored.sort(key=lambda row: (row[0], row[1]))
 
     fresh = [row for row in scored if row[2].pk not in used_templates]
@@ -365,7 +416,9 @@ def generate(plan, profile) -> list:
     used_templates = set()
     best_protein = Decimal("0")
     for slot in slots:
-        options = choose_options(slot, restriction_slugs, used_templates)
+        options = choose_options(
+            slot, restriction_slugs, used_templates, profile.meal_style
+        )
         MealOption.objects.bulk_create(options)
         best_protein += max((option.protein_g for option in options), default=Decimal("0"))
         if len(options) < OPTIONS_PER_SLOT:

@@ -22,7 +22,9 @@ from django.utils import timezone
 
 from workouts import health_export
 from accounts.models import (
+    ONBOARDING_DONE,
     ActivityLevel,
+    SplitPreference,
     Goal,
     Profile,
     Sex,
@@ -58,7 +60,7 @@ def create_user(email="atleta@exemplo.com", weekdays=(0, 2, 4), duration=60):
         goal=Goal.BULK,
         wake_time=time(7, 0),
         sleep_time=time(23, 0),
-        onboarding_step=5,
+        onboarding_step=ONBOARDING_DONE,
     )
     WeightEntry.objects.create(user=user, weight_kg=Decimal("82.4"))
     for weekday in weekdays:
@@ -1926,3 +1928,88 @@ class RestBadgeTests(TestCase):
             if item.rest_seconds > 120
         }
         self.assertEqual(longos, set())
+
+
+class SplitPreferenceTests(TestCase):
+    """A preferência escolhe DENTRO do que a frequência comporta.
+
+    O risco desta funcionalidade não é a preferência ser ignorada — é ela ser
+    obedecida demais. Uma divisão de três dias com duas sessões por semana
+    deixa um terço do corpo sem treinar nenhuma vez, porque a terceira letra
+    nunca chega. A pessoa escolheu "poucos grupos por dia" e recebeu "perna
+    nunca".
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def test_without_a_preference_nothing_changes(self):
+        """O caminho de quem tem plano anterior à pergunta existir. Se esta
+        coluna mudar, todo plano ativo é descartado por `plan_is_current` e
+        remontado — e a pessoa perde a ficha ajustada à mão."""
+        self.assertEqual(services.split_for(1), Split.FULL)
+        self.assertEqual(services.split_for(2), Split.AB)
+        for dias in range(3, 8):
+            with self.subTest(dias=dias):
+                self.assertEqual(services.split_for(dias), Split.ABC)
+
+    def test_the_default_preference_reproduces_the_old_behaviour(self):
+        """FOCUSED é o padrão do campo justamente por isto: a migração não
+        pode reescrever o plano de quem nunca viu a pergunta."""
+        for dias in range(1, 8):
+            with self.subTest(dias=dias):
+                self.assertEqual(
+                    services.split_for(dias, SplitPreference.FOCUSED),
+                    services.split_for(dias),
+                )
+
+    def test_wanting_fewer_groups_a_day_cannot_invent_training_days(self):
+        """Quem treina duas vezes e pede foco recebe AB, não ABC."""
+        self.assertEqual(services.split_for(2, SplitPreference.FOCUSED), Split.AB)
+        self.assertEqual(services.split_for(1, SplitPreference.FOCUSED), Split.FULL)
+
+    def test_upper_lower_stays_upper_lower_even_training_five_times(self):
+        """Aqui a preferência VENCE a frequência, e é o ponto da tela: cinco
+        dias em AB dão duas ou três sessões por metade na semana, que é uma
+        escolha legítima de treino."""
+        for dias in range(2, 8):
+            with self.subTest(dias=dias):
+                self.assertEqual(
+                    services.split_for(dias, SplitPreference.UPPER_LOWER), Split.AB
+                )
+        # Com um dia só não há duas metades para dividir.
+        self.assertEqual(services.split_for(1, SplitPreference.UPPER_LOWER), Split.FULL)
+
+    def test_full_body_is_full_body_at_any_frequency(self):
+        for dias in range(1, 8):
+            with self.subTest(dias=dias):
+                self.assertEqual(
+                    services.split_for(dias, SplitPreference.FULL_BODY), Split.FULL
+                )
+
+    def test_every_split_the_preference_can_produce_exists_in_the_catalog(self):
+        """A trava que faltava.
+
+        `Split` tem cinco valores e o catálogo tem três — ABCD e ABCDE estão no
+        enum porque fichas antigas apontam para elas, e não têm template ativo.
+        Uma preferência apontando para uma delas devolveria lista vazia de
+        templates, e `build_sessions` divide pelo tamanho dessa lista:
+        ZeroDivisionError no meio do onboarding.
+        """
+        for preferencia in SplitPreference.values:
+            for dias in range(1, 8):
+                divisao = services.split_for(dias, preferencia)
+                with self.subTest(preferencia=preferencia, dias=dias):
+                    self.assertTrue(
+                        WorkoutTemplate.objects.filter(
+                            split=divisao, is_active=True
+                        ).exists(),
+                        f"{preferencia} com {dias} dia(s) pede {divisao}, "
+                        "que não existe no catálogo",
+                    )
+
+    def test_an_unknown_preference_falls_back_instead_of_crashing(self):
+        """Valor fora do enum chega de banco antigo ou de POST forjado. A
+        resposta é a tabela por frequência, não uma exceção."""
+        self.assertEqual(services.split_for(3, "seja-la-o-que-for"), Split.ABC)

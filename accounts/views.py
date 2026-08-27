@@ -10,6 +10,7 @@ from .forms import (
     BodyDataForm,
     EmailAuthenticationForm,
     GoalForm,
+    SplitPreferenceForm,
     RestrictionsForm,
     SignupForm,
     TrainingForm,
@@ -21,7 +22,12 @@ STEP_META = {
     1: ("Seus dados", "Precisamos disso para calcular seu gasto energético."),
     2: ("Seu objetivo", "É o que define se você vai comer acima ou abaixo do gasto."),
     3: ("Seus treinos", "O treino entra na conta e define os horários das refeições."),
-    4: ("Suas restrições", "Só vamos sugerir comida que você realmente pode comer."),
+    # A divisão vem DEPOIS dos dias, e não antes: a resposta só faz sentido
+    # sabendo a frequência. Perguntar "quantos grupos por dia" para quem ainda
+    # não disse quantos dias treina é pedir uma escolha que o app vai ter que
+    # corrigir por baixo.
+    4: ("Sua divisão de treino", "Como distribuir o corpo pelos dias que você treina."),
+    5: ("Sua comida", "O estilo do cardápio e o que você não pode comer."),
 }
 
 
@@ -151,8 +157,13 @@ class TrainingStepView(OnboardingStepMixin, FormView):
         return self.finish_step(self.get_profile())
 
 
-class RestrictionsStepView(ProfileStepView):
+class SplitPreferenceStepView(ProfileStepView):
     step = 4
+    form_class = SplitPreferenceForm
+
+
+class RestrictionsStepView(ProfileStepView):
+    step = 5
     form_class = RestrictionsForm
 
 
@@ -160,7 +171,8 @@ STEP_VIEWS = {
     1: BodyDataStepView,
     2: GoalStepView,
     3: TrainingStepView,
-    4: RestrictionsStepView,
+    4: SplitPreferenceStepView,
+    5: RestrictionsStepView,
 }
 
 

@@ -21,7 +21,8 @@ def step_url(step):
 STEP1 = {"sex": "M", "birth_date": "1995-04-12", "height_cm": 178, "weight_kg": "82.4"}
 STEP2 = {"goal": "cut", "activity_level": "light"}
 STEP3 = {"weekdays": ["0", "2", "4"], "start_time": "19:00", "duration_min": 60}
-STEP4 = {"wake_time": "07:00", "sleep_time": "23:30"}
+STEP4 = {"split_preference": "focused"}
+STEP5 = {"meal_style": "quick", "wake_time": "07:00", "sleep_time": "23:30"}
 
 
 class SignupTests(TestCase):
@@ -72,8 +73,9 @@ class OnboardingFlowTests(TestCase):
         self.client.post(step_url(1), STEP1)
         self.client.post(step_url(2), STEP2)
         self.client.post(step_url(3), STEP3)
+        self.client.post(step_url(4), STEP4)
         return self.client.post(
-            step_url(4), {**STEP4, "dietary_tags": [self.vegetariana.pk]}
+            step_url(5), {**STEP5, "dietary_tags": [self.vegetariana.pk]}
         )
 
     def test_step_1_creates_profile_and_first_weight_entry(self):
@@ -181,21 +183,24 @@ class ValidationTests(TestCase):
         response = self.client.post(step_url(1), {**STEP1, "birth_date": "2099-01-01"})
         self.assertIn("futuro", str(response.context["form"].errors))
 
-    def test_sleeping_after_midnight_is_valid(self):
+    def _ate_a_janela(self):
+        """Os quatro passos anteriores ao da janela do dia."""
         self.client.post(step_url(1), STEP1)
         self.client.post(step_url(2), STEP2)
         self.client.post(step_url(3), STEP3)
+        self.client.post(step_url(4), STEP4)
+
+    def test_sleeping_after_midnight_is_valid(self):
+        self._ate_a_janela()
         response = self.client.post(
-            step_url(4), {"wake_time": "07:00", "sleep_time": "01:30"}
+            step_url(5), {**STEP5, "wake_time": "07:00", "sleep_time": "01:30"}
         )
         self.assertRedirects(response, reverse("plans:today"))
 
     def test_absurdly_short_awake_window_is_blocked(self):
-        self.client.post(step_url(1), STEP1)
-        self.client.post(step_url(2), STEP2)
-        self.client.post(step_url(3), STEP3)
+        self._ate_a_janela()
         response = self.client.post(
-            step_url(4), {"wake_time": "07:00", "sleep_time": "10:00"}
+            step_url(5), {**STEP5, "wake_time": "07:00", "sleep_time": "10:00"}
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("muito curta", str(response.context["form"].errors))

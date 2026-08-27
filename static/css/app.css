@@ -2772,6 +2772,31 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   line-height: 1.45;
 }
 
+/* O distintivo de recomendado.
+ *
+ * `align-self: start` é o que o impede de esticar: dentro de uma coluna de
+ * flex, a largura padrão é a da coluna inteira, e o selo viraria uma faixa
+ * atravessando o cartão em vez de uma etiqueta do tamanho da palavra.
+ *
+ * A cor cheia da marca sobre a própria tinta a 12% — o mesmo par das pílulas
+ * do resto do app, e medido pelo mesmo teste. */
+.choice-card__selo {
+  align-self: start;
+  margin-top: .1rem;
+  padding: .16rem .5rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 26%, transparent);
+  border-radius: var(--pill);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+  /* .7rem = 11,2px. Nasceu em .68 (10,88px) e o teste de legibilidade pegou:
+     o piso de 11px vale para TODO texto de interface, e um distintivo que
+     ninguém consegue ler é enfeite. */
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
 /* O sinal de escolhido nasce encolhido e aparece junto com a borda. */
 .choice-card__mark {
   position: absolute;

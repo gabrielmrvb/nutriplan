@@ -126,6 +126,15 @@ class Food(models.Model):
         help_text="Usado para agrupar a lista de compras na ordem em que se anda no mercado.",
     )
     is_active = models.BooleanField("ativo", default=True)
+    is_premium = models.BooleanField(
+        "ingrediente caro ou difícil de achar",
+        default=False,
+        help_text=(
+            "Marca peixe, atum, carne nobre, proteína de soja e derivados "
+            "especiais. Quem escolhe o cardápio econômico recebe estes por "
+            "último — não é restrição, é preço."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

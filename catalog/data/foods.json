@@ -200,7 +200,8 @@
       }
     ],
     "active": true,
-    "role": "protein"
+    "role": "protein",
+    "premium": true
   },
   {
     "name": "Aveia em flocos",
@@ -693,7 +694,8 @@
       }
     ],
     "active": true,
-    "role": "protein"
+    "role": "protein",
+    "premium": true
   },
   {
     "name": "Goma de tapioca hidratada",
@@ -711,7 +713,8 @@
       }
     ],
     "active": true,
-    "role": "starch"
+    "role": "starch",
+    "premium": true
   },
   {
     "name": "Granola sem açúcar",
@@ -1220,7 +1223,8 @@
       }
     ],
     "active": true,
-    "role": "protein"
+    "role": "protein",
+    "premium": true
   },
   {
     "name": "Peito de frango grelhado",
@@ -1328,7 +1332,8 @@
     "fiber_g": 17,
     "aisle": "grocery",
     "active": true,
-    "role": "protein"
+    "role": "protein",
+    "premium": true
   },
   {
     "name": "Pão de forma integral",
@@ -1572,7 +1577,8 @@
       }
     ],
     "active": true,
-    "role": "protein"
+    "role": "protein",
+    "premium": true
   },
   {
     "name": "Suco de laranja natural",

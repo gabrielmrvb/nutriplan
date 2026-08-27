@@ -108,8 +108,38 @@ class Weekday(models.IntegerChoices):
 
 
 #: Número do passo seguinte ao último do wizard — significa "onboarding concluído".
-ONBOARDING_DONE = 5
-ONBOARDING_LAST_STEP = 4
+class SplitPreference(models.TextChoices):
+    """Quantos grupos musculares a pessoa quer por sessão.
+
+    É PREFERÊNCIA, e a frequência continua mandando: quem treina duas vezes na
+    semana não consegue uma divisão de três dias sem deixar um terço do corpo
+    sem treinar nenhuma vez. `split_for()` cruza os dois, e a preferência só
+    decide entre as divisões que a frequência comporta.
+
+    Mora aqui e não em `workouts` porque é dado da PESSOA — `workouts` importa
+    `accounts`, e o caminho inverso fecharia o ciclo.
+    """
+
+    FOCUSED = "focused", "Poucos grupos por dia"
+    UPPER_LOWER = "upper_lower", "Superior e inferior"
+    FULL_BODY = "full_body", "Corpo todo"
+
+
+class MealStyle(models.TextChoices):
+    """O tipo de comida que a pessoa quer que o cardápio proponha.
+
+    Não é restrição — restrição é `DietaryTag` e elimina a receita. Aqui é
+    preferência, e entra como PESO na nota: quando o horário não tem nenhuma
+    receita simples que feche os macros, a elaborada ainda aparece, porque um
+    horário vazio é pior que um horário caro.
+    """
+
+    QUICK = "quick", "Rápida e econômica"
+    VARIED = "varied", "Variada e elaborada"
+
+
+ONBOARDING_DONE = 6
+ONBOARDING_LAST_STEP = 5
 
 
 class Profile(models.Model):
@@ -136,6 +166,22 @@ class Profile(models.Model):
     )
     goal = models.CharField(
         "objetivo", max_length=10, choices=Goal.choices, default=Goal.MAINTAIN
+    )
+    # O padrão de cada uma é o comportamento que o app JÁ tinha, e isso é
+    # deliberado: a migração não pode reescrever o plano de quem nunca viu a
+    # pergunta. FOCUSED devolve o mesmo ABC que a frequência escolhia sozinha,
+    # e VARIED não filtra nada, que é o cardápio de hoje.
+    split_preference = models.CharField(
+        "divisão de treino",
+        max_length=20,
+        choices=SplitPreference.choices,
+        default=SplitPreference.FOCUSED,
+    )
+    meal_style = models.CharField(
+        "estilo de cardápio",
+        max_length=10,
+        choices=MealStyle.choices,
+        default=MealStyle.VARIED,
     )
     dietary_tags = models.ManyToManyField(
         "catalog.DietaryTag",

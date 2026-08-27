@@ -41,6 +41,22 @@ irmão do input: `~` alcança, e funciona em qualquer navegador.
               <strong class="choice-card__title">
                 {% if d %}{{ d.titulo }}{% else %}{{ subwidget.choice_label }}{% endif %}
               </strong>
+              {% comment %}
+                A marcação de recomendado.
+
+                Vive no `detalhe`, junto do ícone e do texto de apoio, e não
+                numa lista à parte de "qual é a recomendada": é a MESMA decisão
+                de tela, e separar em dois lugares é como uma opção acaba
+                recomendada em pt-BR e não em outro idioma, ou recomendada no
+                onboarding e não na edição do perfil.
+
+                Fora do `__text` o distintivo brigaria com o checkmark pelo
+                canto; dentro dele, empurra a linha de apoio para baixo e as
+                duas continuam legíveis.
+              {% endcomment %}
+              {% if d.recomendado %}
+                <span class="choice-card__selo">Recomendado</span>
+              {% endif %}
               {% if d %}<span class="choice-card__hint">{{ d.apoio }}</span>{% endif %}
             </span>
             <span class="choice-card__mark" aria-hidden="true">

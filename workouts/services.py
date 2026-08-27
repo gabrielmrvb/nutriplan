@@ -19,6 +19,8 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 
+from accounts.models import SplitPreference
+
 from .models import (
     ExerciseLog,
     SessionExercise,
@@ -92,9 +94,58 @@ SPLIT_NOTE = {
 }
 
 
-def split_for(days_per_week: int) -> str:
-    """A divisão que faz sentido para essa frequência."""
-    return SPLIT_BY_FREQUENCY.get(days_per_week, DEFAULT_SPLIT)
+#: (preferência, dias mínimos) -> divisão.
+#:
+#: A frequência continua mandando, e a preferência escolhe DENTRO do que ela
+#: comporta. Não é diplomacia entre dois campos: uma divisão de três dias com
+#: duas sessões por semana deixa um terço do corpo sem treinar nenhuma vez,
+#: porque a terceira letra nunca chega. A preferência não cria dias.
+#:
+#: Lido por linha:
+#:   FOCUSED      quer o ciclo mais longo que couber — ABC dos três dias para
+#:                cima, AB em dois, corpo inteiro em um.
+#:   UPPER_LOWER  quer superior e inferior sempre, inclusive treinando cinco
+#:                vezes: aí cada metade recebe duas ou três sessões na semana.
+#:   FULL_BODY    quer o corpo inteiro toda vez, em qualquer frequência.
+SPLIT_BY_PREFERENCE = {
+    SplitPreference.FOCUSED: ((3, Split.ABC), (2, Split.AB), (1, Split.FULL)),
+    SplitPreference.UPPER_LOWER: ((2, Split.AB), (1, Split.FULL)),
+    SplitPreference.FULL_BODY: ((1, Split.FULL),),
+}
+
+
+def _preferencia_de(user) -> str:
+    """A preferência de divisão desta pessoa, ou nada.
+
+    `getattr` em vez de `user.profile` porque a ficha pode ser montada num
+    caminho em que o perfil ainda não existe — e ali a ausência de preferência
+    é a resposta certa, não um erro: `split_for` cai na tabela por frequência,
+    que é o que o app fazia antes da pergunta existir.
+    """
+    profile = getattr(user, "profile", None)
+    return getattr(profile, "split_preference", None)
+
+
+def split_for(days_per_week: int, preference: str = None) -> str:
+    """A divisão que faz sentido para essa frequência e essa preferência.
+
+    Sem preferência, cai na tabela por frequência — é o caminho de quem tem
+    plano anterior à pergunta existir, e devolve exatamente o que devolvia.
+    """
+    if not preference:
+        return SPLIT_BY_FREQUENCY.get(days_per_week, DEFAULT_SPLIT)
+
+    escala = SPLIT_BY_PREFERENCE.get(preference)
+    if escala is None:
+        return SPLIT_BY_FREQUENCY.get(days_per_week, DEFAULT_SPLIT)
+
+    for minimo, divisao in escala:
+        if days_per_week >= minimo:
+            return divisao
+    # Zero dias de treino não é uma frequência — é ausência dela. Quem chega
+    # aqui não tem ficha para montar, e o corpo inteiro é a resposta menos
+    # errada se alguém montar mesmo assim.
+    return Split.FULL
 
 
 def templates_for(split: str) -> list:
@@ -142,7 +193,7 @@ def create_routine(user) -> TrainingPlan:
     if not training_days:
         raise NoTrainingDays("Nenhum dia de treino cadastrado.")
 
-    split = split_for(len(training_days))
+    split = split_for(len(training_days), _preferencia_de(user))
     templates = templates_for(split)
     if not templates:
         raise NoTrainingDays(f"A divisão {split} não está no catálogo.")
@@ -226,7 +277,7 @@ def routine_is_current(plan, user) -> bool:
         # preferência — e mudar o horário de terça-feira não é motivo para
         # descartar a escolha e voltar ao modelo do catálogo.
         return True
-    if plan.split != split_for(user.training_days.count()):
+    if plan.split != split_for(user.training_days.count(), _preferencia_de(user)):
         return False
 
     atual = {
