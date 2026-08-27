@@ -96,12 +96,17 @@ class BodyDataForm(OnboardingStepForm):
     """Passo 1 — sexo, nascimento, altura e peso atual."""
 
     weight_kg = forms.DecimalField(
-        label="Peso atual (kg)",
+        label="Peso atual",
         max_digits=5,
         decimal_places=2,
         validators=[MinValueValidator(Decimal("20")), MaxValueValidator(Decimal("400"))],
         widget=forms.NumberInput(
-            attrs={"step": "0.1", "inputmode": "decimal", "placeholder": "75,5"}
+            attrs={
+                "step": "0.1",
+                "inputmode": "decimal",
+                "placeholder": "75,5",
+                "sufixo": "kg",
+            }
         ),
     )
 
@@ -111,9 +116,15 @@ class BodyDataForm(OnboardingStepForm):
         widgets = {
             "sex": forms.RadioSelect,
             "birth_date": forms.DateInput(attrs={"type": "date"}),
-            "height_cm": forms.NumberInput(attrs={"inputmode": "numeric", "placeholder": "178"}),
+            "height_cm": forms.NumberInput(
+                attrs={"inputmode": "numeric", "placeholder": "178", "sufixo": "cm"}
+            ),
         }
-        labels = {"sex": "Sexo biológico", "birth_date": "Data de nascimento"}
+        labels = {
+            "sex": "Sexo biológico",
+            "birth_date": "Data de nascimento",
+            "height_cm": "Altura",
+        }
         help_texts = {
             "sex": "Usado só no cálculo da taxa metabólica — as fórmulas diferem.",
         }

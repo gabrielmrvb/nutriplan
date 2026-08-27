@@ -10,17 +10,48 @@ pelo form.
   {% if field.widget_type == "radioselect" or field.widget_type == "checkboxselectmultiple" %}
     <span class="field__label">{{ field.label }}</span>
     {% if field.help_text %}<div class="field__help">{{ field.help_text }}</div>{% endif %}
-    <ul class="choice-list {% if field.name == 'sex' %}choice-list--inline{% endif %}">
+    {% comment %}
+      Duas opções curtas e mutuamente exclusivas viram um segmented control:
+      dois botões colados dividindo uma moldura, com o escolhido preenchido.
+
+      Não é só aparência. O rádio nativo põe o estado num círculo de 19px na
+      lateral, e o que a pessoa lê é o texto ao lado dele — dois lugares para
+      uma informação. No segmented, o estado É o botão: quem está preenchido é
+      o escolhido, e isso se vê de relance a um braço de distância.
+
+      Continua sendo rádio de verdade por baixo: navega por Tab, muda com as
+      setas, leitor de tela anuncia "opção 1 de 2", e envia sem uma linha de
+      JavaScript.
+    {% endcomment %}
+    <ul class="choice-list{% if field.name == 'sex' %} segmented{% endif %}">
       {% for subwidget in field %}
         <li>
-          <label>{{ subwidget.tag }}<span>{{ subwidget.choice_label }}</span></label>
+          <label>{{ subwidget.tag }}<span class="segmented__fundo" aria-hidden="true"></span><span class="segmented__texto">{{ subwidget.choice_label }}</span></label>
         </li>
       {% endfor %}
     </ul>
   {% else %}
     <label class="field__label" for="{{ field.id_for_label }}">{{ field.label }}</label>
     {% if field.help_text %}<div class="field__help">{{ field.help_text }}</div>{% endif %}
-    {{ field }}
+    {% if field.field.widget.attrs.sufixo %}
+      {% comment %}
+        A unidade fica DENTRO do campo, encostada à direita.
+
+        Fora dele, "cm" precisava de um rótulo próprio — "Altura (cm)" — e a
+        pessoa lia a unidade uma vez, ao abrir a tela, longe do momento em que
+        digita. Dentro, ela está ao lado do número enquanto o número aparece.
+
+        O `padding-right` do campo abre o espaço; o sufixo não recebe toque
+        (`pointer-events: none`), então tocar em cima dele foca o campo, que é
+        o que a pessoa quer.
+      {% endcomment %}
+      <span class="campo-unidade">
+        {{ field }}
+        <span class="campo-unidade__sufixo num" aria-hidden="true">{{ field.field.widget.attrs.sufixo }}</span>
+      </span>
+    {% else %}
+      {{ field }}
+    {% endif %}
   {% endif %}
 
   {% if field.errors %}

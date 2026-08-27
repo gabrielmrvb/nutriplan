@@ -1335,6 +1335,23 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 
 .field-input:focus { outline: none; border-color: var(--brand); box-shadow: var(--glow); }
 
+/* O que a pessoa DIGITA é número, então é monoespaçado — a altura, o peso e a
+   data. O placeholder vem junto: sem isso o campo dava um pulo de largura no
+   primeiro caractere, porque a proporcional e a monoespaçada medem diferente.
+
+   Fica na lista de tipos e não numa classe porque o widget do Django escolhe o
+   , e um campo numérico novo nasce certo sem ninguém lembrar. */
+.field-input[type="number"],
+.field-input[type="date"],
+.field-input[type="time"],
+.field-input[inputmode="decimal"],
+.field-input[inputmode="numeric"] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: .96rem;
+  letter-spacing: -.01em;
+}
+
 .field__errors {
   margin: .45rem 0 0;
   padding: .6rem .75rem;
@@ -3656,3 +3673,111 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 /* Empilhado, o sinal fica em cima do ícone se ficar no mesmo canto de sempre —
    ele desce para a linha do ícone, do lado oposto. */
 .choice-cards--duas .choice-card__mark { top: 1rem; right: .875rem; }
+
+/* ==========================================================================
+   30. Segmented control e unidade dentro do campo
+   ========================================================================== */
+
+/* Duas opções curtas dividindo uma moldura, com a escolhida preenchida.
+ *
+ * O rádio nativo põe o estado num círculo de 19px na lateral e o texto ao
+ * lado: dois lugares para uma informação. Aqui o estado É o botão.
+ *
+ * Nada de `:has()` — e a primeira versão desta regra usava um, o que era
+ * exatamente o erro que este arquivo documenta em outros três lugares.
+ *
+ * O `<input>` fica dentro do `<label>`, então só `:has()` alcançaria o pai
+ * para pintá-lo. A saída é a mesma do cartão de escolha: o preenchimento é um
+ * `<span>` IRMÃO do input, alcançável por `~`, deitado atrás do texto. Onde
+ * `:has()` não existe, aquela versão deixava o escolhido sem preenchimento
+ * nenhum — indistinguível do não escolhido, num controle cuja única função é
+ * mostrar qual está escolhido. */
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0;
+  padding: .25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.segmented li { min-width: 0; }
+
+.segmented label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: .5rem .6rem;
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 3px);
+  background: none;
+  color: var(--text-dim);
+  font-size: .92rem;
+  font-weight: 650;
+  text-align: center;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+/* O rádio sai da tela e continua no documento: é ele que recebe o foco, muda
+   com as setas e envia com o formulário. */
+.segmented input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* O preenchimento: deitado atrás do texto, sem interceptar toque. */
+.segmented__fundo {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.segmented__texto { position: relative; }
+
+.segmented input:checked ~ .segmented__fundo { background: var(--brand); }
+.segmented input:checked ~ .segmented__texto { color: var(--on-brand); }
+
+.segmented label:hover .segmented__fundo { background: var(--surface-3); }
+.segmented input:checked ~ .segmented__fundo:hover,
+.segmented label:hover input:checked ~ .segmented__fundo { background: var(--brand-strong); }
+
+.segmented input:focus-visible ~ .segmented__fundo {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* A unidade encostada à direita, dentro do campo.
+ *
+ * Fora dele a unidade morava no rótulo — "Altura (cm)" — e era lida uma vez,
+ * ao abrir a tela, longe do momento em que se digita. Dentro, ela fica ao lado
+ * do número enquanto o número aparece.
+ *
+ * `pointer-events: none` porque tocar na unidade tem que focar o campo: um
+ * alvo morto de 30px colado no alvo vivo é exatamente onde o polegar erra. */
+.campo-unidade { position: relative; display: block; }
+
+.campo-unidade .field-input { padding-right: 3rem; }
+
+.campo-unidade__sufixo {
+  position: absolute;
+  top: 50%;
+  right: .85rem;
+  transform: translateY(-50%);
+  color: var(--text-mute);
+  font-size: .88rem;
+  font-weight: 650;
+  pointer-events: none;
+}

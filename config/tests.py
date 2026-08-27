@@ -1117,3 +1117,55 @@ class DesignSystemTests(TestCase):
         media = depois.split("@media (min-width: 30rem) {", 1)
         self.assertEqual(len(media), 2, "a segunda coluna não é condicional")
         self.assertIn("1fr 1fr", media[1].split("}", 1)[0])
+
+
+class HasSelectorTests(TestCase):
+    """`:has()` não decide layout neste projeto.
+
+    A regra está no CLAUDE.md desde que o convite de instalação cobriu a barra
+    de navegação inteira: `body:has(.tabbar)` some por completo no navegador
+    que não suporta o seletor, e some em SILÊNCIO — o CSS continua válido, o
+    arquivo continua carregando, e a única pista é a tela errada.
+
+    Estava escrita e não era medida. Escrevi um `:has()` estrutural no
+    segmented control do passo 1 sem que nada reclamasse: onde ele não
+    existisse, o botão escolhido ficaria sem preenchimento nenhum,
+    indistinguível do outro, num controle cuja única função é mostrar qual
+    está escolhido.
+
+    O que este teste permite é o `:has()` DECORATIVO — realce que, faltando,
+    não muda o que a tela comunica. A distinção é sempre discutível, então cada
+    uso permitido é listado aqui com o motivo, e um uso novo precisa passar por
+    esta lista.
+    """
+
+    #: (seletor, por que perder esta regra não quebra nada)
+    DECORATIVOS = {
+        ".choice-list label:has(input:checked)": (
+            "realce de fundo numa lista onde o próprio radio marcado já mostra "
+            "a escolha"
+        ),
+    }
+
+    def setUp(self):
+        self.css = _sem_comentarios(
+            (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+        )
+
+    def test_every_has_selector_is_on_the_decorative_list(self):
+        usos = {
+            regra.strip()
+            for regra in re.findall(r"([^\n{}]*:has\([^)]*\)[^\n{}]*)\{", self.css)
+        }
+        novos = usos - set(self.DECORATIVOS)
+        self.assertEqual(
+            novos,
+            set(),
+            "`:has()` novo fora da lista de decorativos — se ele decide "
+            f"layout, use classe escrita pelo servidor: {novos}",
+        )
+
+    def test_the_segmented_control_draws_its_state_on_a_sibling(self):
+        """O padrão que substitui o `:has()`: o input é filho do label, então
+        só um irmão é alcançável — e `~` funciona em qualquer navegador."""
+        self.assertIn(".segmented input:checked ~ .segmented__fundo", self.css)
