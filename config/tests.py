@@ -522,8 +522,23 @@ class MotionTests(TestCase):
         bloco = self.css.split("\n.progress__fill {", 1)[1].split("}", 1)[0]
         self.assertIn("transition: width .5s", bloco)
 
-        # A barra empilhada do topo tem a mesma regra.
-        self.assertIn(".macro-bar__part { transition: width .5s", self.css)
+        # A barra empilhada do topo tem a mesma regra — agora num bloco, porque
+        # ela ganhou também a animação de encher do zero.
+        # TODOS os blocos do seletor: `.macro-bar__part` aparece também numa
+        # regra de `min-width`, e a busca pelo primeiro media o bloco errado.
+        # É a quarta vez que esta armadilha aparece na suíte.
+        blocos = [
+            t.split("}", 1)[0]
+            for t in self.css.split(chr(10) + ".macro-bar__part {")[1:]
+        ]
+        self.assertTrue(any("transition: width .5s" in b for b in blocos))
+
+    def test_the_bars_fill_from_zero_when_the_screen_opens(self):
+        """A transição sozinha só anima MUDANÇAS depois da primeira pintura.
+        Abrir a página mostrava a barra pronta, e a pessoa nunca via o próprio
+        progresso acontecer — que é a única recompensa desta tela."""
+        self.assertIn("@keyframes encher", self.css)
+        self.assertIn("animation: encher", self.css)
 
     def test_pressing_anything_uses_the_same_scale(self):
         """Duas escalas diferentes no mesmo gesto é o tipo de inconsistência
@@ -955,3 +970,63 @@ class ResponseCompressionTests(TestCase):
 
         self.assertEqual(resposta.status_code, 200)
         self.assertNotIn("Content-Encoding", resposta.headers)
+
+    def test_no_selector_list_ends_in_a_dangling_comma(self):
+        """Vírgula pendurada invalida o seletor INTEIRO.
+
+        Aconteceu: uma remoção apagou o último seletor da lista de saída do
+        `prefers-reduced-motion` e deixou a pontuação. O navegador descartou a
+        regra sem avisar, e ninguém que liga "reduzir movimento" no sistema
+        recebia a saída — a interface continuava encolhendo sob o dedo.
+
+        O CSS não dá erro nesse caso, e é por isso que precisa de teste: as
+        chaves continuam balanceadas, o arquivo continua "válido", e o efeito é
+        uma regra que simplesmente não existe.
+        """
+        css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+        limpo = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+        soltas = re.findall(r",\s*\{", limpo)
+        self.assertEqual(soltas, [], "há lista de seletores terminando em vírgula")
+
+    def test_no_rule_targets_a_class_the_templates_never_render(self):
+        """CSS para seletor inexistente não dá erro — só não faz nada.
+
+        Aconteceu duas vezes nesta sessão: uma regra de sanfona escrita para
+        `.exercise__corpo` quando a classe é `.exercise__body`, e as regras de
+        `.sets` que sobreviveram à remoção das quatro linhas de série. As duas
+        ficariam anos no arquivo sem ninguém notar.
+
+        A checagem é só das classes do PRÓPRIO app (prefixo conhecido): classes
+        de estado escritas por JavaScript e utilitários genéricos não aparecem
+        nos templates e seriam falso positivo.
+        """
+        css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+        limpo = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+        marcacao = "".join(
+            caminho.read_text(encoding="utf-8")
+            for caminho in (RAIZ / "templates").rglob("*.html")
+        ) + "".join(
+            caminho.read_text(encoding="utf-8")
+            for caminho in (RAIZ / "static" / "js").rglob("*.js")
+        )
+
+        # Só os blocos que definem aparência, e só classes com `__` — as de
+        # elemento, que existem para um template específico e para mais nada.
+        def usada(classe):
+            if classe in marcacao:
+                return True
+            # Modificadores compostos no template: `progress__fill--{{ slug }}`
+            # nunca aparece escrito por inteiro, e não é órfão.
+            base = classe.split("--")[0]
+            return base != classe and f"{base}--{{{{" in marcacao
+
+        orfas = sorted(
+            {
+                classe
+                for classe in re.findall(r"\.([a-z][\w-]*__[\w-]+)", limpo)
+                if not usada(classe)
+            }
+        )
+        self.assertEqual(orfas, [], f"CSS para classes que ninguém renderiza: {orfas}")
