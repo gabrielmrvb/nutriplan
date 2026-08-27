@@ -471,10 +471,18 @@ class PrescriptionFields(models.Model):
 
     @property
     def rest_display(self) -> str:
+        """O descanso como se lê num relógio: "1 min", "1:20 min", "45s".
+
+        A forma anterior escrevia 80 segundos como "1min20", que na etiqueta
+        lia como erro de digitação — a badge dizia "descanso 1min20" e o
+        número, que ESTÁ certo (a prescrição desceu de 3 min para a faixa de
+        1:00 a 1:20), parecia truncado. Dois pontos é a notação que todo
+        cronômetro usa, inclusive o desta tela.
+        """
         if self.rest_seconds >= 60 and self.rest_seconds % 60 == 0:
             return f"{self.rest_seconds // 60} min"
         if self.rest_seconds > 60:
-            return f"{self.rest_seconds // 60}min{self.rest_seconds % 60:02d}"
+            return f"{self.rest_seconds // 60}:{self.rest_seconds % 60:02d} min"
         return f"{self.rest_seconds}s"
 
 

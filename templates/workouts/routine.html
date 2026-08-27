@@ -131,14 +131,6 @@
                     <span class="exercise__order">{{ forloop.counter }}</span>
                     <span class="exercise__title">
                       <strong class="exercise__name">{{ item.exercise.name }}</strong>
-                      <span class="exercise__tags">
-                        <span class="exercise__tag exercise__tag--target">
-                          {{ item.exercise.get_muscle_group_display }}
-                        </span>
-                        <span class="exercise__tag exercise__tag--rest num">
-                          descanso {{ item.rest_display }}
-                        </span>
-                      </span>
                       {% comment %}
                         A prescrição por extenso, e não "4 × 6-10".
 
@@ -147,47 +139,58 @@
                         a clareza vale mais que a linha.
                       {% endcomment %}
                       <span class="exercise__prescricao">{{ item.prescricao }}</span>
+                      <span class="exercise__tags">
+                        <span class="exercise__tag exercise__tag--target">
+                          {{ item.exercise.get_muscle_group_display }}
+                        </span>
+                        <span class="exercise__tag exercise__tag--rest num">
+                          descanso {{ item.rest_display }}
+                        </span>
+                        {% comment %}
+                          O botão entra na MESMA fileira das etiquetas, e não
+                          numa coluna própria à direita.
+
+                          Na coluna ele tinha 44px de largura para um rótulo de
+                          24 caracteres: o texto quebrava em SETE linhas de uma
+                          palavra dentro de um círculo, e empurrava o cabeçalho
+                          de 98px para 364px. Foi o preço de dar texto a um
+                          botão cuja regra ainda dizia `width: 2.75rem;
+                          border-radius: 50%` da época em que ele era ícone.
+
+                          Aqui ele é um item de flex com `flex-wrap`: divide a
+                          linha com as pílulas quando cabe, e desce para a
+                          linha de baixo quando não cabe — que é o caso a
+                          390px. Nenhuma largura fixa decide isso.
+                        {% endcomment %}
+                        <button type="button" class="exercise__ver"
+                          data-animacao="{% if item.exercise.animation_kind == 'youtube' %}{{ item.exercise.animation_embed_url }}{% else %}{{ item.exercise.animation_url }}{% endif %}"
+                          data-animacao-tipo="{{ item.exercise.animation_kind }}"
+                          data-animacao-vertical="{% if item.exercise.animation_is_vertical %}1{% endif %}"
+                          data-quadros="{{ item.exercise.frames|join:'|' }}"
+                          data-clipe="{% if item.exercise.clip_kind == 'youtube' %}{{ item.exercise.video_embed_url }}{% else %}{{ item.exercise.video_url }}{% endif %}"
+                          data-tipo="{{ item.exercise.clip_kind }}"
+                          data-nome="{{ item.exercise.name }}"
+                          data-vertical="{% if item.exercise.is_vertical %}1{% endif %}"
+                          data-series="{{ item.sets }}"
+                          data-reps="{{ item.rep_range }}"
+                          data-descanso-texto="{{ item.rest_display }}"
+                          data-descanso-segundos="{{ item.rest_seconds }}"
+                          data-cue="{{ item.exercise.cue }}"
+                          data-intensidade="{{ item.intensidade }}"
+                          data-musculo="{{ item.exercise.get_muscle_group_display }}"
+                          data-carga="{% if item.load.melhor_anterior %}{{ item.load.melhor_anterior|floatformat:'-2' }}{% endif %}"
+                          data-carga-data="{% if item.load.data_anterior %}{{ item.load.data_anterior|date:'d/m' }}{% endif %}"
+                          data-busca="{{ item.exercise.video_search_url }}"
+                          aria-label="Ver execução de {{ item.exercise.name }}">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                               aria-hidden="true">
+                            <path d="M4 6h11"/><path d="M4 12h16"/><path d="M4 18h9"/>
+                          </svg>
+                          <span>Ver execução por escrito</span>
+                        </button>
+                      </span>
                     </span>
-                    {% comment %}
-                      "Ver execução" mora no cabeçalho, junto das etiquetas.
-
-                      Fechado, o cartão escondia o botão — e ver o movimento é
-                      justamente o que se quer ANTES de decidir abrir e anotar.
-                      Aqui ele fica a um toque em qualquer estado.
-
-                      Com texto e não como ícone: um olho sozinho não diz o
-                      que faz, e a pessoa que mais precisa da demonstração é
-                      justamente a que não decifra o ícone. O rótulo diz
-                      "por escrito" porque é a instrução técnica que abre
-                      primeiro no drawer — a animação vem abaixo dela.
-                    {% endcomment %}
-                    <button type="button" class="exercise__ver"
-                    data-animacao="{% if item.exercise.animation_kind == 'youtube' %}{{ item.exercise.animation_embed_url }}{% else %}{{ item.exercise.animation_url }}{% endif %}"
-                    data-animacao-tipo="{{ item.exercise.animation_kind }}"
-                    data-animacao-vertical="{% if item.exercise.animation_is_vertical %}1{% endif %}"
-                    data-quadros="{{ item.exercise.frames|join:'|' }}"
-                    data-clipe="{% if item.exercise.clip_kind == 'youtube' %}{{ item.exercise.video_embed_url }}{% else %}{{ item.exercise.video_url }}{% endif %}"
-                    data-tipo="{{ item.exercise.clip_kind }}"
-                    data-nome="{{ item.exercise.name }}"
-                    data-vertical="{% if item.exercise.is_vertical %}1{% endif %}"
-                    data-series="{{ item.sets }}"
-                    data-reps="{{ item.rep_range }}"
-                    data-descanso-texto="{{ item.rest_display }}"
-                    data-descanso-segundos="{{ item.rest_seconds }}"
-                    data-cue="{{ item.exercise.cue }}"
-                    data-intensidade="{{ item.intensidade }}"
-                    data-musculo="{{ item.exercise.get_muscle_group_display }}"
-                    data-carga="{% if item.load.melhor_anterior %}{{ item.load.melhor_anterior|floatformat:'-2' }}{% endif %}"
-                    data-carga-data="{% if item.load.data_anterior %}{{ item.load.data_anterior|date:'d/m' }}{% endif %}"
-                    data-busca="{{ item.exercise.video_search_url }}"
-                    aria-label="Ver execução de {{ item.exercise.name }}">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                         aria-hidden="true">
-                      <path d="M4 6h11"/><path d="M4 12h16"/><path d="M4 18h9"/>
-                    </svg>
-                    <span>Ver execução por escrito</span>
-                  </button>
 
                     <span class="exercise__seta" aria-hidden="true">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"

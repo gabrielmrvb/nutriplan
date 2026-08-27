@@ -7,6 +7,10 @@ disparando toda vez que a tela abre.
 """
 from datetime import date, time, timedelta
 from decimal import Decimal
+from pathlib import Path
+import re
+
+from django.conf import settings
 
 from django.core.management import call_command
 from django.db.models import Sum
@@ -1754,3 +1758,54 @@ class RefeicaoPuladaTests(TestCase):
 
         html = self.client.get(reverse("plans:today")).content.decode()
         self.assertNotIn('class="pulou"', html)
+
+
+class IngredientListTests(TestCase):
+    """A lista de ingredientes diz DE QUÊ, e não só quanto.
+
+    O nome do alimento era o rótulo do botão de troca: o texto vivia dentro do
+    `<button class="swap-open">`. Quando a substituição de alimento saiu, a
+    expressão regular que apagou o botão levou o miolo junto, e o cardápio
+    passou a listar "98 g", "100 g", "59 g" — quantidades de coisa nenhuma.
+
+    O teste da remoção conferia a AUSÊNCIA de `swap-open` e passou. Nenhum
+    conferia a PRESENÇA do nome, que é a informação pela qual a tela existe.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.client.force_login(self.user)
+
+    def test_each_ingredient_shows_which_food_it_is(self):
+        resposta = self.client.get(reverse("plans:today"))
+        html = resposta.content.decode()
+
+        lista = html.split('class="option__items"', 1)[1].split("</ul>", 1)[0]
+        nomes = re.findall(r'class="option__ingrediente">([^<]+)<', lista)
+
+        self.assertTrue(nomes, "a lista de ingredientes não traz nome nenhum")
+        for nome in nomes:
+            self.assertTrue(nome.strip(), "linha de ingrediente com nome vazio")
+
+    def test_the_quantity_keeps_its_own_column(self):
+        """Nome à esquerda, gramatura à direita: os números alinham numa
+        coluna que se lê de relance. Sem `flex: none` no `<b>`, um nome longo
+        empurra a quantidade e a coluna deixa de existir."""
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        regra = css.split("\n.option__items b {", 1)[1].split("}", 1)[0]
+        self.assertIn("flex: none", regra)
+        self.assertIn("tabular-nums", regra)
+
+    def test_a_long_food_name_cannot_push_the_page_sideways(self):
+        """"Filé de peito de frango grelhado" é nome real do catálogo. Item de
+        flex sem `min-width: 0` se recusa a encolher abaixo do próprio texto."""
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(".option__ingrediente { min-width: 0; }", css)

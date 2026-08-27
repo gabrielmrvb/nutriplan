@@ -42,6 +42,7 @@ from .models import (
     Split,
     TrainingPlan,
     WorkoutTemplate,
+    WorkoutTemplateItem,
 )
 
 
@@ -1767,3 +1768,126 @@ class ImpeccableStyleTests(TestCase):
 # Redesign da linha de série
 # ==========================================================================
 
+
+
+class ExerciseHeaderLayoutTests(TestCase):
+    """O cabeçalho do exercício, medido em vez de conferido no olho.
+
+    Os três defeitos desta rodada tinham a mesma forma: a regra de CSS
+    continuou descrevendo um elemento que o HTML deixou de ser. O botão de
+    execução virou ícone redondo de 44px numa versão, ganhou rótulo de 24
+    caracteres na seguinte, e a regra `width: 2.75rem; border-radius: 50%`
+    ficou — o texto quebrou em SETE linhas de uma palavra dentro do círculo e
+    o cabeçalho inchou de 98px para 364px por cartão.
+
+    Nada disso quebra teste de conteúdo: o rótulo está no HTML, o botão
+    responde ao clique, a página devolve 200. Só se vê olhando, e foi assim
+    que ficou meses errado.
+    """
+
+    url = reverse("workouts:routine")
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.client.force_login(self.user)
+        self.css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+
+    def _regra(self, seletor):
+        """TODOS os corpos de regra daquele seletor, juntos.
+
+        Ler só o primeiro bloco é a armadilha recorrente deste repositório:
+        `.exercise__tags` aparece duas vezes — uma para a área da grade, outra
+        para o flex — e um `split(marca, 1)` devolve a primeira e afirma com
+        segurança que a declaração da segunda não existe.
+        """
+        marca = chr(10) + seletor + " {"
+        self.assertIn(marca, self.css, f"regra ausente: {seletor}")
+        return "".join(t.split("}", 1)[0] for t in self.css.split(marca)[1:])
+
+    def test_the_execution_button_has_no_fixed_width_to_squeeze_its_label(self):
+        """Largura fixa num botão com rótulo é o defeito, não o sintoma.
+
+        44px de largura para "Ver execução por escrito" não corta o texto nem
+        provoca overflow — o navegador quebra palavra por palavra e cresce
+        para baixo, em silêncio. Por isso a trava é na REGRA: enquanto o botão
+        tiver rótulo, quem mede a largura dele é o conteúdo.
+        """
+        regra = self._regra(".exercise__head .exercise__ver")
+
+        self.assertNotIn("width:", regra.replace("min-width", ""))
+        self.assertNotIn("border-radius: 50%", regra)
+        # O alvo de 44px continua vindo da altura, que é o que a régua mede.
+        self.assertIn("min-height: 2.75rem", regra)
+
+    def test_the_execution_label_stays_on_one_line(self):
+        """`nowrap` é o que faz o rótulo DESCER inteiro em vez de quebrar.
+
+        Sem ele, num cartão estreito o flex encolhe o botão até caber e o
+        texto volta a empilhar — o mesmo defeito, só que mais tarde.
+        """
+        self.assertIn("white-space: nowrap", self._regra(".exercise__head .exercise__ver"))
+
+    def test_the_button_shares_the_tag_row_instead_of_owning_a_column(self):
+        """Ele é irmão das pílulas no HTML; a grade não reserva coluna para ele."""
+        html = self.client.get(self.url).content.decode()
+
+        etiquetas = html.split('class="exercise__tags"', 1)[1].split("</span>\n" + " " * 22 + "</span>", 1)[0]
+        self.assertIn("exercise__ver", etiquetas)
+
+        self.assertNotIn('"ordem nome ver seta"', self.css)
+        self.assertNotIn("grid-area: ver", self.css)
+
+    def test_the_tag_row_centres_its_items_so_the_pills_keep_their_height(self):
+        """Com um alvo de 44px na fileira, o `stretch` padrão esticaria as
+        pílulas de 24px para 44 e o texto delas boiaria no meio."""
+        self.assertIn("align-items: center", self._regra(".exercise__tags"))
+
+    def test_every_header_element_has_a_grid_area(self):
+        """Item de grade sem área nomeada não some: ele vai para uma faixa
+        implícita, fora do desenho. Foi onde a prescrição estava."""
+        areas = self.css.split("grid-template-areas:", 1)[1].split(";", 1)[0]
+        for nome in ("ordem", "nome", "presc", "tags", "seta"):
+            self.assertIn(nome, areas)
+        self.assertIn(".exercise__prescricao { grid-area: presc; }", self.css)
+
+
+class RestBadgeTests(TestCase):
+    """O descanso escrito como num relógio.
+
+    "1min20" na etiqueta lia como erro de digitação, e o número está certo: a
+    prescrição desceu de 3 min para a faixa de 1:00 a 1:20. Era a notação que
+    estava errada, não o dado.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def test_a_rest_with_seconds_reads_as_a_clock(self):
+        self.assertEqual(SessionExercise(rest_seconds=80).rest_display, "1:20 min")
+        self.assertEqual(SessionExercise(rest_seconds=90).rest_display, "1:30 min")
+
+    def test_a_whole_minute_drops_the_seconds(self):
+        self.assertEqual(SessionExercise(rest_seconds=60).rest_display, "1 min")
+        self.assertEqual(SessionExercise(rest_seconds=120).rest_display, "2 min")
+
+    def test_under_a_minute_stays_in_seconds(self):
+        self.assertEqual(SessionExercise(rest_seconds=45).rest_display, "45s")
+
+    def test_no_prescription_still_asks_for_three_minutes_between_sets(self):
+        """A faixa prescrita é 1:00 a 1:20. Descanso longo tem lugar em
+        movimento pesado, mas era o padrão de TODO exercício — e três minutos
+        entre séries de rosca direta é o treino durando o dobro sem entregar
+        nada em troca."""
+        longos = {
+            item.rest_seconds
+            for item in WorkoutTemplateItem.objects.all()
+            if item.rest_seconds > 120
+        }
+        self.assertEqual(longos, set())

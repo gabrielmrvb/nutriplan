@@ -256,8 +256,25 @@ coluna da direita), não entre ela e o almoço.
                     <div class="option__body">
                       <ul class="option__items">
                         {% for item in option.ingredient_list %}
+                          {% comment %}
+                            O nome do alimento, que tinha sumido da lista.
+
+                            Ele era o RÓTULO do botão de troca — o texto vivia
+                            dentro do `<button class="swap-open">`. Quando a
+                            substituição de alimento saiu, a regex que apagou o
+                            botão levou o miolo junto, e a lista passou a dizer
+                            "98 g", "100 g", "59 g", sem informar de quê. O
+                            teste da remoção conferia a AUSÊNCIA de
+                            `swap-open`; nenhum conferia a PRESENÇA do nome.
+
+                            Nome à esquerda e gramatura à direita, e não
+                            "98 g de Pão francês": o `<b>` já é `flex: none` com
+                            `tabular-nums`, e os números alinham numa coluna que
+                            se lê de relance na cozinha. A preposição no meio
+                            desalinharia justamente essa coluna.
+                          {% endcomment %}
                           <li>
-                            
+                            <span class="option__ingrediente">{{ item.food.name }}</span>
                             <b>{{ item.quantity|floatformat:0 }} {{ item.unit }}</b>
                           </li>
                         {% endfor %}

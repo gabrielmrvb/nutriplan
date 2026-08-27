@@ -163,8 +163,12 @@
 
   --gap: 1rem;
   --pad: 1.25rem;
-  --max: 34rem;
-  --max-wide: 68rem;
+  /* 30rem = 480px. Era 34rem, e o desktop ainda subia para 68rem com duas
+     colunas — daí "Seu cardápio de hoje" e "Volume semanal" irem parar na
+     lateral direita no monitor. O app é um aplicativo de celular; a mesma
+     coluna estreita no desktop é a leitura mais fiel do que ele é, e custa
+     margem vazia, que é barata. */
+  --max: 30rem;
   --tabbar-h: 4.5rem;
 
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -462,7 +466,6 @@ button { font-family: inherit; color: inherit; }
    `min-width: 0` numa coluna de grid é o que permite o conteúdo encolher em
    vez de empurrar a página para o lado. */
 .app-bar__word { min-width: 0; }
-.split__main { min-width: 0; }
 .macro-line { min-width: 0; }
 .macro-bar__part { min-width: 0; }
 
@@ -1066,6 +1069,11 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   border-bottom: 1px dashed var(--border);
 }
 
+/* `min-width: 0` porque "Filé de peito de frango grelhado" é um nome real do
+   catálogo: sem ele o item de flex se recusa a encolher abaixo do próprio
+   texto e empurra a página inteira para o lado. */
+.option__ingrediente { min-width: 0; }
+
 .option__items li:last-child { border-bottom: 0; }
 .option__items b { flex: none; color: var(--text); font-variant-numeric: tabular-nums; font-weight: 720; }
 
@@ -1557,17 +1565,23 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
    séries, mirar num rótulo de 20px é o que faz a pessoa tocar duas vezes. */
 .exercise__head {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  /* Duas faixas. Na de cima, número, nome e os dois botões de 44px; na de
-     baixo, as etiquetas ATRAVESSANDO a largura toda.
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  /* Três faixas, e o botão de execução NÃO tem coluna própria.
 
-     Medido: com as etiquetas dividindo a faixa com os botões, a coluna delas
-     sobrava com 142px e as três pílulas quebravam em três linhas — 144px por
-     cartão fechado, quando o ponto da sanfona é caber sete numa tela. Na
-     largura inteira (274px) elas cabem em uma, e o cabeçalho fecha em ~98. */
+     A coluna era o defeito: 44px de largura para um rótulo de 24 caracteres
+     quebrava "Ver execução por escrito" em sete linhas de uma palavra dentro
+     de um círculo, e o cabeçalho ia de 98px para 364px. O botão agora vive
+     dentro de `tags`, como item de flex, e o `flex-wrap` decide sozinho se ele
+     divide a linha com as pílulas ou desce.
+
+     A seta fica só na faixa do nome, e não atravessando as três: medido, a
+     coluna dela tirava 86px de TODAS as faixas — a de baixo sobrava com 232px
+     para 374 de conteúdo. Ao lado do nome ela ainda é o primeiro alvo do
+     polegar, e as duas faixas de texto ganham a largura inteira. */
   grid-template-areas:
-    "ordem nome ver seta"
-    "tags  tags tags tags";
+    "ordem nome  seta"
+    "presc presc presc"
+    "tags  tags  tags";
   align-items: center;
   gap: .35rem .5rem;
   padding: .8rem 1rem;
@@ -1630,13 +1644,12 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   font-weight: 750;
 }
 
-/* O nome ocupa a primeira faixa e as etiquetas a segunda, as duas na MESMA
-   coluna. Os dois botões de 44px atravessam as duas faixas pela direita, em
-   vez de disputar largura com as pílulas: era essa disputa que sobrava a
-   coluna de 162px e quebrava as três etiquetas em três linhas. */
+/* Nome, prescrição e etiquetas empilham na mesma coluna; a seta atravessa as
+   três pela direita. Nenhum dos três encosta na largura da seta, então o texto
+   tem a linha inteira e nada precisa de largura fixa. */
 .exercise__name { grid-area: nome; }
+.exercise__prescricao { grid-area: presc; }
 .exercise__tags { grid-area: tags; }
-.exercise__head .exercise__ver { grid-area: ver; }
 .exercise__seta { grid-area: seta; }
 
 .exercise__title { min-width: 0; display: contents; }
@@ -1649,7 +1662,16 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   letter-spacing: -.02em;
 }
 
-.exercise__tags { display: flex; flex-wrap: wrap; gap: .35rem; min-width: 0; }
+/* `align-items: center` e não o `stretch` padrão: com um botão de 44px na
+   mesma fileira, esticar faria as pílulas de 24px crescerem junto e virarem
+   retângulos altos com o texto boiando no meio. */
+.exercise__tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .35rem;
+  min-width: 0;
+}
 
 /* Mesma gramática das pílulas de estado: tinta da própria cor em opacidade
    baixa, borda um pouco mais forte, texto na cor cheia. Antes cada etiqueta
@@ -1720,25 +1742,27 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 
 .exercise__ver:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
-/* Dentro do cabeçalho o botão é ícone: 44px de alvo, texto só para quem ouve
-   a tela. A pílula com "Ver execução" escrito dividiria a linha com as três
-   etiquetas e quebraria a fileira em duas — que foi a medição que manteve o
-   botão numa linha própria enquanto ele morava no corpo. */
+/* Dentro do cabeçalho o botão continua com o rótulo escrito.
+ *
+ * Aqui morava `width: 2.75rem; border-radius: 50%`, da época em que ele era um
+ * ícone sozinho. Quando o rótulo entrou, a regra ficou: 24 caracteres num
+ * círculo de 44px quebraram em sete linhas de uma palavra, e o cabeçalho
+ * inchou de 98px para 364px por cartão.
+ *
+ * Nenhuma largura agora — o conteúdo mede o botão, e `white-space: nowrap`
+ * garante que o rótulo desça inteiro para a linha de baixo em vez de quebrar
+ * no meio. O alvo de 44px vem só da altura mínima. */
 .exercise__head .exercise__ver {
   align-self: center;
-  justify-self: end;
-  gap: 0;
-  width: 2.75rem;
   min-height: 2.75rem;
-  padding: 0;
-  border-radius: 50%;
+  padding-block: .3rem;
+  white-space: nowrap;
   background: var(--surface-3);
 }
 
 /* A classe do rótulo NÃO pode conter "exercise__ver": três testes contam
    `html.count("exercise__ver")` para saber quantos exercícios a página tem, e
    um nome que carrega a substring dobra as três contagens em silêncio. */
-.exercise__head .exercise__ver svg { width: 1.15rem; height: 1.15rem; }
 .exercise__head .exercise__ver:hover { border-color: var(--accent); color: var(--accent); }
 
 .exercise__body { display: grid; gap: .6rem; min-width: 0; padding: 0 1rem 1rem; }
@@ -3260,30 +3284,43 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
    28. Desktop
    ========================================================================== */
 
+/* Uma coluna, em toda largura de tela.
+ *
+ * `.split` era grade de duas colunas a partir de 60rem, e a `.split__aside`
+ * ficava grudada rolando. Num monitor isso jogava o cardápio e o volume
+ * semanal para a direita, longe do fio da leitura, e produzia duas telas
+ * diferentes para o mesmo app: a que a pessoa usa na academia e a que ela vê
+ * no computador. Testar uma e confiar na outra é como o botão de execução
+ * passou meses errado sem ninguém ver.
+ *
+ * `flex` com `column` e não `block` porque o `gap` aqui é do container: com
+ * margem por filho, o primeiro e o último cartão colam nas bordas de forma
+ * diferente do meio. */
+.split {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.split__main,
+.split__aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-width: 0;
+}
+
 @media (min-width: 60rem) {
-  .container { max-width: var(--max-wide); padding: 1.9rem 1.6rem 3rem; }
+  /* A largura NÃO cresce aqui: `--max` continua valendo. O que muda é só o
+     respiro vertical e a navegação, que sai da barra de baixo (dedo) para a
+     de cima (ponteiro). */
+  .container { padding: 1.9rem var(--pad) 3rem; }
   .tabbar { display: none; }
   .app-bar__nav .app-bar__link { display: inline-flex; }
   .app-bar { padding-inline: 1.9rem; }
 
-  .split {
-    display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-    gap: 1.3rem;
-    align-items: start;
-  }
-
   h1 { font-size: 1.9rem; }
   .exercise { padding: 1.15rem; }
-
-  /* O cartão do exercício continua empilhado mesmo aqui. Tentei mídia à
-     esquerda e séries à direita, e o resultado foi a tabela espremida: a
-     coluna do cardápio já é estreita, e dividir de novo devolvia exatamente
-     o texto quebrado que este redesenho veio consertar. */
-}
-
-@media (min-width: 60rem) and (min-height: 48rem) {
-  .split__aside { position: sticky; top: 5.5rem; }
 }
 
 @media (max-width: 22rem) {
