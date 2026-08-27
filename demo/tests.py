@@ -199,3 +199,63 @@ class DemoDadosTests(TestCase):
     def test_running_the_seed_twice_does_not_duplicate_the_persona(self):
         call_command("seed_demo", verbosity=0)
         self.assertEqual(get_user_model().objects.filter(email=DEMO_EMAIL).count(), 1)
+
+
+class DemoSemSaidaParaLoginTests(TestCase):
+    """Nenhuma tela do demo oferece uma porta para a tela de entrar.
+
+    Este e o defeito que estava EM PRODUCAO e so apareceu quando eu testei a
+    URL publica: a capa rodava por fora do prefixo de script, entao ela
+    renderizava com visitante anonimo — e a barra de cima, vendo visitante,
+    mostrava "Entrar" e "Criar conta".
+
+    Duas saidas do demo direto para o login, na primeira tela que a pessoa ve.
+    Os testes anteriores nao pegavam porque conferiam a navegacao DENTRO das
+    telas do app, onde o usuario ja era o Carlos.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        _semear()
+
+    TELAS = (
+        "/demo/",
+        "/demo/sobre/",
+        "/demo/hoje/",
+        "/demo/treino/",
+        "/demo/suplementos/",
+        "/demo/historico/",
+        "/demo/lista-de-compras/",
+        "/demo/conta/perfil/",
+    )
+
+    def test_no_demo_screen_links_to_the_login_or_the_signup(self):
+        for tela in self.TELAS:
+            html = self.client.get(tela).content.decode()
+            with self.subTest(tela=tela):
+                self.assertNotIn("/conta/entrar/", html)
+                self.assertNotIn("/conta/cadastro/", html)
+
+    def test_the_cover_renders_as_the_demo_person_and_not_as_a_visitor(self):
+        """O sintoma foi a barra de cima; a causa foi o usuario. Travar o
+        usuario e travar a familia inteira de defeitos."""
+        html = self.client.get("/demo/").content.decode()
+        self.assertIn("app-bar__demo", html)
+        self.assertIn("Sobre o demo", html)
+        self.assertNotIn("Criar conta", html)
+
+    def test_there_is_no_logout_button_to_press(self):
+        """Nao ha sessao para encerrar, e o formulario e um POST — que o
+        middleware recusa. Botao que devolve pagina de erro e pior que botao
+        nenhum."""
+        for tela in ("/demo/", "/demo/treino/"):
+            with self.subTest(tela=tela):
+                self.assertNotIn(
+                    "accounts:logout", self.client.get(tela).content.decode()
+                )
+                self.assertNotIn("/conta/sair/", self.client.get(tela).content.decode())
+
+    def test_every_screen_says_the_data_is_invented(self):
+        for tela in self.TELAS:
+            with self.subTest(tela=tela):
+                self.assertContains(self.client.get(tela), "dados apresentados")

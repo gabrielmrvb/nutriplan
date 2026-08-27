@@ -18,10 +18,9 @@ O passo 2 é o que faz a coisa toda funcionar. Sem ele, a navegação de dentro
 do demo mandaria a pessoa para `/treino/`, que exige login — exatamente o beco
 sem saída que o demo existe para não ter.
 """
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.shortcuts import render
-from django.urls import set_script_prefix
+from django.urls import get_script_prefix, set_script_prefix
 
 #: O login do usuário de demonstração. Não é e-mail de ninguém: o domínio
 #: `.invalid` é reservado por RFC justamente para nunca resolver.
@@ -57,15 +56,7 @@ class DemoMiddleware:
         if caminho != PREFIXO and not caminho.startswith(PREFIXO + "/"):
             return self.get_response(request)
 
-        resto = caminho[len(PREFIXO):] or "/"
-
-        # As rotas do próprio demo — a capa e a página "sobre" — são as únicas
-        # que não existem na aplicação real, e passam direto.
-        if resto in ("/", "/sobre/"):
-            request.demo = True
-            return self.get_response(request)
-
-        resto = APELIDOS.get(resto, resto)
+        resto = APELIDOS.get(caminho[len(PREFIXO):] or "/", caminho[len(PREFIXO):] or "/")
 
         usuario = usuario_demo()
         if usuario is None:
@@ -84,15 +75,57 @@ class DemoMiddleware:
         # anônimo na primeira vez que alguém tocar no atributo lá dentro.
         request._cached_user = usuario
 
-        prefixo_original = None
+        prefixo_original = get_script_prefix()
         try:
-            from django.urls import get_script_prefix
-
-            prefixo_original = get_script_prefix()
             set_script_prefix(PREFIXO + "/")
             request.path_info = resto
             request.path = PREFIXO + resto
+
+            # A capa e a página "sobre" são as únicas telas que o demo tem e o
+            # app não. Elas são chamadas DIRETO, sem passar pelo resolvedor de
+            # URL: com o prefixo ligado, `/` resolveria o painel do dia.
+            #
+            # E elas precisam do prefixo ligado — foi o defeito da primeira
+            # versão, que as deixava passar por fora. Sem ele a capa
+            # renderizava com visitante anônimo, e a barra de cima oferecia
+            # "Entrar" e "Criar conta": duas saídas do demo direto para a tela
+            # de login, que é o beco sem saída que o demo existe para não ter.
+            propria = PROPRIAS.get(resto)
+            if propria is not None:
+                resposta = propria(request)
+                # `TemplateResponse` é preguiçoso: quem o renderiza é o
+                # manipulador do Django, DEPOIS de toda a cadeia de middleware
+                # — ou seja, depois do `finally` abaixo devolver o prefixo ao
+                # que era. O template sairia com `/treino/` no lugar de
+                # `/demo/treino/`, e a navegacão da capa voltaria a apontar
+                # para fora do demo.
+                #
+                # As telas que passam pelo resolvedor não têm esse problema: o
+                # `_get_response` do Django renderiza a resposta ainda dentro
+                # do `get_response(request)`, com o prefixo ligado.
+                if hasattr(resposta, "render") and callable(resposta.render):
+                    resposta = resposta.render()
+                return resposta
+
             return self.get_response(request)
         finally:
-            if prefixo_original is not None:
-                set_script_prefix(prefixo_original)
+            set_script_prefix(prefixo_original)
+
+
+def _capa(request):
+    from .views import DemoHomeView
+
+    return DemoHomeView.as_view()(request)
+
+
+def _sobre(request):
+    from .views import DemoSobreView
+
+    return DemoSobreView.as_view()(request)
+
+
+#: As duas telas que existem no demo e não no app.
+#:
+#: O `import` fica adiado dentro de cada função porque `demo.views` importa
+#: deste módulo — no topo, os dois se importariam em círculo.
+PROPRIAS = {"/": _capa, "/sobre/": _sobre}

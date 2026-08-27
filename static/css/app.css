@@ -3998,3 +3998,33 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 
 .lista-simples { margin: 0 0 1rem; padding-left: 1.15rem; line-height: 1.6; }
 .lista-simples li { margin-bottom: .35rem; }
+
+/* O aviso de ambiente de demonstração.
+ *
+ * Uma linha no topo do conteúdo, e não uma faixa fixa: dita uma vez por tela,
+ * onde a leitura começa, e rolada para fora junto com o resto. Faixa fixa
+ * cobraria espaço em toda rolagem para repetir algo que a pessoa já leu na
+ * primeira tela.
+ *
+ * Âmbar e não verde: o verde é o acento de AÇÃO deste app — botão primário,
+ * escolha feita, meta batida. Um aviso de contexto pintado da mesma cor
+ * competiria com eles por atenção sem pedir nada em troca. */
+.demo-aviso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .35rem;
+  margin: 0 0 1rem;
+  padding: .6rem .8rem;
+  border: 1px solid color-mix(in srgb, var(--warm) 26%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warm) 10%, transparent);
+  color: var(--text-dim);
+  font-size: .8rem;
+  line-height: 1.45;
+}
+
+/* O link herda o alvo de 44px do `.btn-link`, e só a cor muda — o aviso é
+   âmbar, e um link verde no meio dele leria como outra coisa. */
+.demo-aviso a { color: var(--warm); font-weight: 700; }
+.demo-aviso a:hover { color: var(--text); }

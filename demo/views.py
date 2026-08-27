@@ -33,13 +33,16 @@ AREAS = [
 def _endereco(rota: str) -> str:
     """O endereço de uma área dentro do demo.
 
-    A capa é a única página do demo que roda SEM o prefixo de script — ela é
-    uma rota própria, e não uma tela do app remontada. Então aqui o `/demo` é
-    somado à mão: `reverse()` devolveria `/treino/`, que exige login.
+    `reverse()` sozinho basta: a capa roda com o prefixo de script ligado, como
+    todas as telas do demo, então ele já devolve `/demo/treino/`.
+
+    Houve uma versão em que a capa rodava por fora do prefixo e este ajudante
+    somava o `/demo` à mão. Ela tinha um defeito maior que a duplicação de
+    prefixo: sem o prefixo, a capa renderizava com visitante anônimo, e a barra
+    de cima oferecia "Entrar" e "Criar conta" — duas saídas do demo direto para
+    a tela de login.
     """
-    if rota.startswith("/"):
-        return rota
-    return PREFIXO + reverse(rota)
+    return rota if rota.startswith("/") else reverse(rota)
 
 
 class DemoHomeView(TemplateView):

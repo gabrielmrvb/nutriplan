@@ -36,7 +36,7 @@ from demo.middleware import DEMO_EMAIL
 from plans import services as plan_services
 from plans.models import HydrationLog, MealLog, MealStatus
 from workouts import services as workout_services
-from workouts.models import ExerciseLog
+from workouts.models import Equipment, ExerciseLog, MuscleGroup
 
 IDADE = 28
 PESO_KG = Decimal("78.0")
@@ -47,6 +47,65 @@ DURACAO_MIN = 60
 
 SEMANAS_DE_PESO = 12
 GANHO_POR_SEMANA = Decimal("0.25")
+
+#: Quantas semanas de carga registrada, em cada exercicio de cada dia.
+SEMANAS_DE_CARGA = 4
+
+#: Carga de partida por grupo muscular, em quilos, para um homem de 78 kg com
+#: alguns meses de treino.
+#:
+#: A primeira versao derivava a carga so da faixa de repeticoes, e o resultado
+#: foi remada curvada e puxada na polia com o MESMO numero em todos os nove
+#: exercicios do dia. Numero repetido nao le como dado, le como preenchimento —
+#: e o demo existe justamente para parecer usado.
+#:
+#: Nao sao recomendacoes: sao ordens de grandeza plausiveis, para a tela ter
+#: numero em vez de traco.
+CARGA_BASE = {
+    MuscleGroup.QUADS: 80,
+    MuscleGroup.HAMSTRINGS: 60,
+    MuscleGroup.BACK: 55,
+    MuscleGroup.CHEST: 52,
+    MuscleGroup.CALVES: 45,
+    MuscleGroup.TRAPS: 26,
+    MuscleGroup.SHOULDERS: 22,
+    MuscleGroup.TRICEPS: 18,
+    MuscleGroup.BICEPS: 15,
+    MuscleGroup.FOREARMS: 12,
+    MuscleGroup.CORE: 0,
+}
+
+#: Isolado carrega menos que composto no mesmo musculo.
+FATOR_ISOLADO = Decimal("0.45")
+
+#: A menor carga que aparece. Halter de 3 kg existe, mas rosca alternada com
+#: 3 kg num homem de 78 quilos le como erro, e nao como treino leve.
+CARGA_MINIMA = Decimal("6")
+
+#: Academia tem anilha de 2,5 em 2,5. "26,22 kg" nao e uma carga que alguem
+#: consiga montar — e o tipo de numero que entrega que a tela foi semeada.
+DEGRAU = Decimal("2.5")
+
+
+def _arredondar(peso: Decimal) -> Decimal:
+    """O peso no degrau mais proximo que a academia consegue montar."""
+    return (peso / DEGRAU).quantize(Decimal("1")) * DEGRAU
+
+#: O equipamento muda a ordem de grandeza, e ignorar isso produz numero
+#: visivelmente errado: sem este fator o seed escrevia "Flexao de braco,
+#: 51,60 kg" — flexao e peso do corpo, nao tem carga externa — e "Remada
+#: unilateral com halter, 62,50 kg", que e um halter que nao existe na maioria
+#: das academias.
+#:
+#: Halteres carregam por LADO, entao um movimento de halter registra perto de
+#: metade do equivalente em barra. Peso do corpo nao registra carga nenhuma.
+FATOR_EQUIPAMENTO = {
+    Equipment.BARBELL: Decimal("1"),
+    Equipment.MACHINE: Decimal("1"),
+    Equipment.CABLE: Decimal("0.9"),
+    Equipment.DUMBBELL: Decimal("0.45"),
+    Equipment.BODYWEIGHT: Decimal("0"),
+}
 
 
 class Command(BaseCommand):
@@ -180,30 +239,64 @@ class Command(BaseCommand):
         )
 
     def _preencher_cargas(self, user, ficha):
-        """Cargas plausiveis na sessao de hoje, e no treino anterior.
+        """Cargas plausiveis em TODOS os dias da ficha, e em quatro semanas.
 
-        Sem o treino anterior, a linha "ultima carga" fica vazia e a seta de
-        progressao — que e o que a tela de treino tem de mais proprio — nao
-        aparece em lugar nenhum.
+        Duas coisas dependem disso, e as duas sao o que a tela de treino tem de
+        mais proprio: a linha "ultimo treino" e a seta de progressao. Sem carga
+        anterior as duas somem, e o cartao do exercicio fica com um traco.
+
+        A primeira versao semeava so a sessao de segunda. Quem abrisse o demo
+        numa quarta caia num dia sem historico nenhum — e o visitante nao
+        escolhe o dia em que chega.
         """
         hoje = timezone.localdate()
         ExerciseLog.objects.filter(user=user).delete()
 
-        sessao = ficha.sessions.order_by("weekday").first()
-        if sessao is None:
-            return
+        registros = []
+        for sessao in ficha.sessions.all():
+            for item in sessao.exercises.select_related("exercise").all():
+                fator_eq = FATOR_EQUIPAMENTO.get(
+                    item.exercise.equipment, Decimal("1")
+                )
+                if fator_eq == 0:
+                    # Peso do corpo: flexao, mergulho, prancha, abdominal.
+                    # Registrar quilo aqui mentiria sobre o que foi feito, e o
+                    # traco na tela e a informacao certa.
+                    continue
 
-        for item in sessao.exercises.select_related("exercise").all():
-            base = Decimal("60") if item.rep_max <= 10 else Decimal("30")
-            if not item.exercise.is_compound:
-                base = base / 2
-            for atraso, ajuste in ((7, Decimal("-2.5")), (0, Decimal("0"))):
-                for serie in range(1, item.sets + 1):
-                    ExerciseLog.objects.create(
-                        user=user,
-                        exercise=item.exercise,
-                        date=hoje - timedelta(days=atraso),
-                        set_number=serie,
-                        weight_kg=(base + ajuste).quantize(Decimal("0.01")),
-                        reps=item.rep_min,
-                    )
+                base = Decimal(CARGA_BASE.get(item.exercise.muscle_group, 20))
+                if not item.exercise.is_compound:
+                    base *= FATOR_ISOLADO
+                # Faixa alta de repeticao pede carga menor — 12 a 15 nao se faz
+                # com o peso de 6 a 10.
+                if item.rep_max > 12:
+                    base *= Decimal("0.8")
+                # Um degrau estavel por exercicio, para dois movimentos do
+                # mesmo musculo nao sairem com o numero identico. Vem do `pk`,
+                # entao e o mesmo em toda semeadura. ANTES do fator de
+                # equipamento: depois dele, peso do corpo saia com 10 kg.
+                base += Decimal(item.exercise_id % 5) * Decimal("2.5")
+                base *= fator_eq
+
+                # Quatro semanas subindo 2,5 kg por semana: e a progressao que
+                # a tela desenha com a seta verde.
+                for semana in range(SEMANAS_DE_CARGA):
+                    peso = base - Decimal("2.5") * semana
+                    if peso <= 0:
+                        continue
+                    peso = max(_arredondar(peso), CARGA_MINIMA)
+                    for serie in range(1, item.sets + 1):
+                        registros.append(
+                            ExerciseLog(
+                                user=user,
+                                exercise=item.exercise,
+                                date=hoje - timedelta(weeks=semana),
+                                set_number=serie,
+                                weight_kg=peso.quantize(Decimal("0.01")),
+                                reps=item.rep_min,
+                            )
+                        )
+
+        # Em lote: sao centenas de linhas, e uma consulta por serie deixaria o
+        # build do Render mais lento sem nenhum ganho.
+        ExerciseLog.objects.bulk_create(registros)

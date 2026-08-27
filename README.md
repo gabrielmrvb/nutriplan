@@ -521,6 +521,19 @@ O passo 2 é o que faz a coisa funcionar. Sem ele, a navegação de dentro do de
 mandaria a pessoa para `/treino/`, que exige login — exatamente o beco sem
 saída que o demo existe para não ter. Nenhum template foi duplicado.
 
+A capa e a página "sobre" são as únicas telas que o demo tem e o app não. Elas
+**não** passam pelo resolvedor de URL — com o prefixo ligado, `/` resolveria o
+painel do dia. O middleware chama as views delas direto e renderiza a resposta
+ali mesmo, com o prefixo ainda ligado. (`TemplateResponse` é preguiçoso: quem o
+renderiza normalmente é o manipulador do Django, depois de toda a cadeia de
+middleware, e aí o prefixo já teria voltado ao que era.)
+
+Houve uma versão em que essas duas passavam por fora do prefixo. Ela subiu para
+produção com um defeito que só apareceu ao testar a URL pública: sem o prefixo
+a capa renderizava com visitante **anônimo**, e a barra de cima, vendo
+visitante, oferecia "Entrar" e "Criar conta" — duas saídas do demo direto para
+o login, na primeira tela. Há teste para isso agora.
+
 ### Rotas
 
 | Rota | O que é |
@@ -565,6 +578,18 @@ Há teste para cada uma dessas quatro afirmações em `demo/tests.py`.
 Carlos Silva, 28 anos, 78 kg, 1,78 m, hipertrofia, três treinos por semana à
 noite. Mora em `demo/management/commands/seed_demo.py`.
 
+As cargas do treino não são um número só repetido. Elas saem de uma tabela por
+grupo muscular, ajustada por três coisas que mudam a ordem de grandeza de
+verdade: composto ou isolado, faixa de repetição, e **equipamento**. Sem o
+último o seed escrevia "Flexão de braço, 51,60 kg" — flexão é peso do corpo — e
+"Remada unilateral com halter, 62,50 kg", que é um halter que a maioria das
+academias não tem. Peso do corpo não registra carga nenhuma; a tela mostra um
+traço, que é a informação certa.
+
+O resultado é arredondado no degrau de 2,5 kg, porque academia tem anilha de
+2,5 em 2,5: "26,22 kg" não é uma carga que alguém consiga montar, e é o tipo de
+número que entrega que a tela foi semeada.
+
 O que **não** está escrito à mão: a meta calórica, os macros, o cardápio e a
 ficha de treino. Todos saem das mesmas funções que atendem qualquer pessoa —
 `plans.services.sync_active_plan` e `workouts.services.create_routine`. É isso
@@ -584,6 +609,20 @@ python manage.py seed_demo --refazer
 ```
 
 O comando é idempotente: sem `--refazer` ele atualiza o que existe.
+
+### Como testar a URL pública
+
+Depois de um deploy, o que importa não é o Render dizer "successful":
+
+```bash
+for r in /demo/ /demo/hoje/ /demo/treino/ /demo/historico/ /demo/conta/perfil/; do
+  curl -s -o /dev/null -w "%{http_code} $r
+" "https://nutriplan-xxfn.onrender.com$r"
+done
+```
+
+Tudo `200`, e `/` (sem o prefixo) precisa continuar em `302` para o login. Um
+`503` em `/demo/` significa que o `seed_demo` não rodou no build.
 
 ### Para acrescentar uma tela ao demo
 

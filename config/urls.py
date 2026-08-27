@@ -15,10 +15,11 @@ urlpatterns = [
     # Fica antes das rotas do app porque é o que a plataforma consulta para
     # decidir se o deploy subiu de pé.
     path("saude/", HealthView.as_view(), name="health"),
-    # O modo demo monta a aplicação INTEIRA sob este prefixo — quem faz isso é
-    # `demo.middleware`, e não uma segunda URLconf. Aqui ficam só as duas
-    # telas que o demo tem e o app não: a capa e a explicação.
-    path("demo/", include("demo.urls")),
+    # O modo demo NÃO tem entrada aqui. Ele monta a aplicação inteira sob
+    # `/demo/` dentro de `demo.middleware`, que roda antes do resolvedor — e
+    # serve as suas duas telas próprias (capa e "sobre") chamando as views
+    # direto. Uma entrada aqui as deixaria fora do prefixo de script, e a capa
+    # voltaria a oferecer "Entrar" e "Criar conta".
     path("conta/", include("accounts.urls")),
     path("push/", include("push.urls")),
     path("treino/", include("workouts.urls")),

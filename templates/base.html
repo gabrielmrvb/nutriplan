@@ -42,7 +42,7 @@
       data-autenticado="{% if user.is_authenticated %}1{% else %}0{% endif %}">
   {% block header %}
     <header class="app-bar">
-      <a class="app-bar__brand" href="{% if request.demo %}{% url 'demo:home' %}{% else %}{% url 'plans:today' %}{% endif %}">
+      <a class="app-bar__brand" href="{% if request.demo %}/demo/{% else %}{% url 'plans:today' %}{% endif %}">
         <span class="app-bar__mark" aria-hidden="true">N</span>
         <span class="app-bar__word">Nutri<span class="app-bar__accent">Plan</span></span>
         {% comment %}
@@ -67,10 +67,22 @@
              href="{% url 'plans:history' %}">Métricas</a>
           <a class="app-bar__link {% if nav == 'profile' %}is-active{% endif %}"
              href="{% url 'accounts:profile' %}">Perfil</a>
-          <form method="post" action="{% url 'accounts:logout' %}">
-            {% csrf_token %}
-            <button type="submit" class="app-bar__quiet">Sair</button>
-          </form>
+          {% if request.demo %}
+            {% comment %}
+              "Sair" nao existe no demo: nao ha sessao para encerrar, e o
+              formulario e um POST, que o middleware recusa. Um botao que
+              devolve pagina de erro e pior que botao nenhum.
+
+              No lugar dele, a porta para a explicacao — que e a duvida real de
+              quem chega aqui sem contexto.
+            {% endcomment %}
+            <a class="app-bar__quiet" href="/demo/sobre/">Sobre o demo</a>
+          {% else %}
+            <form method="post" action="{% url 'accounts:logout' %}">
+              {% csrf_token %}
+              <button type="submit" class="app-bar__quiet">Sair</button>
+            </form>
+          {% endif %}
         {% else %}
           <a class="app-bar__quiet" href="{% url 'accounts:login' %}">Entrar</a>
           <a class="btn btn--primary btn--sm" href="{% url 'accounts:signup' %}">Criar conta</a>
@@ -80,6 +92,18 @@
   {% endblock %}
 
   <main class="container {% block container_class %}{% endblock %}">
+    {% if request.demo %}
+      {% comment %}
+        Uma linha, no topo do conteudo e nao numa faixa flutuante: dito uma vez
+        por tela, onde a leitura comeca, e depois rolado para fora junto com o
+        resto. Faixa fixa cobraria espaco em toda rolagem para repetir algo que
+        a pessoa ja leu.
+      {% endcomment %}
+      <p class="demo-aviso">
+        Ambiente de demonstração. Todos os dados apresentados são fictícios.
+        <a class="btn-link" href="/demo/sobre/">Saiba mais</a>
+      </p>
+    {% endif %}
     {% if messages %}
       <ul class="flash">
         {% for message in messages %}
