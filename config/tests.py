@@ -1434,3 +1434,82 @@ class GymReadyTests(TestCase):
             any('[type="submit"][aria-busy="true"]' in t.split("}\n}", 1)[0] for t in trechos[1:]),
             "o pulso de espera anima sem saida para quem pediu menos movimento",
         )
+
+
+class MarcaTests(TestCase):
+    """O logo: um desenho, três lugares, dois temas.
+
+    Ele era a letra "N" num `<span>` sobre uma placa de gradiente — a mesma
+    forma que qualquer app faz com a inicial do nome, e que não diz nada sobre
+    dieta nem treino.
+    """
+
+    def setUp(self):
+        self.marca = (RAIZ / "templates" / "partials" / "marca.html").read_text(
+            encoding="utf-8"
+        )
+        self.base = (RAIZ / "templates" / "base.html").read_text(encoding="utf-8")
+        self.css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+
+    def test_the_mark_is_generated_and_not_hand_written(self):
+        """Ela sai da MESMA geometria do ícone do PWA. Escrita à mão, começaria
+        a divergir dele na primeira vez que alguém ajustasse um número num só
+        dos dois."""
+        self.assertIn("gerar_icones.py", self.marca)
+        self.assertIn("não edite à mão", self.marca)
+
+    def test_the_mark_matches_the_icon_geometry(self):
+        """A prova de que é a mesma: os números do SVG saem das constantes do
+        script, então conferir um valor calculado por elas é conferir a
+        ligação."""
+        script = (RAIZ / "scripts" / "gerar_icones.py").read_text(encoding="utf-8")
+        haste = float(re.search(r"^HASTE = ([\d.]+)", script, re.M).group(1))
+        topo = float(re.search(r"^TOPO, BASE = ([\d.]+)", script, re.M).group(1))
+
+        self.assertIn(f'width="{haste * 64:.2f}"', self.marca)
+        self.assertIn(f'y="{topo * 64:.2f}"', self.marca)
+
+    def test_it_takes_its_colours_from_the_theme_and_not_from_literals(self):
+        """É o que faz uma marca só servir aos dois temas: no escuro a placa é
+        esmeralda com o desenho grafite; no claro ela é verde-escuro com o
+        desenho branco. Cor fixa exigiria dois arquivos."""
+        self.assertIn("var(--on-brand)", self.marca)
+        self.assertNotIn("#10b981", self.marca)
+        self.assertNotIn("#0d0f12", self.marca)
+
+    def test_the_gradient_is_defined_once_per_page(self):
+        """A marca aparece DUAS vezes nas telas de entrada — barra e cartão.
+        Dois `<defs>` com o mesmo `id` na mesma página é HTML inválido."""
+        self.assertNotIn("<defs", self.marca)
+        self.assertIn('id="marca-luz"', self.base)
+        self.assertEqual(self.base.count('id="marca-luz"'), 1)
+
+    def test_the_wrapper_never_repeats_the_rounded_corner(self):
+        """A quina e a placa são do próprio SVG. Repeti-las no envoltório
+        cortaria as bordas do desenho por fora, e as duas curvas nunca
+        coincidem em pixel."""
+        for seletor in (".app-bar__mark", ".auth__logo"):
+            with self.subTest(seletor=seletor):
+                regra = "".join(
+                    t.split("}", 1)[0]
+                    for t in self.css.split(chr(10) + seletor + " {")[1:]
+                )
+                self.assertNotIn("border-radius", regra)
+                self.assertNotIn("background", regra)
+
+    def test_the_mark_reads_against_the_plate_in_both_themes(self):
+        """Medido: o desenho sobre a placa dá 7,45:1 no escuro e 6,58 no claro.
+        O anel fica em 3,1 — acima do mínimo de 3:1 que a WCAG pede para
+        elemento gráfico, e abaixo do "N" de propósito: ele emoldura, não
+        compete."""
+        for escopo, rotulo in (
+            (":root {", "escuro"),
+            ("prefers-color-scheme: light) {" + chr(10) + "  :root {", "claro"),
+        ):
+            tokens = _tokens(self.css, escopo)
+            with self.subTest(tema=rotulo):
+                self.assertGreaterEqual(
+                    _contraste(tokens["--on-brand"], tokens["--brand"]), 4.5
+                )
+                anel = _sobre(tokens["--on-brand"], 0.55, tokens["--brand"])
+                self.assertGreaterEqual(_contraste(anel, tokens["--brand"]), 3.0)

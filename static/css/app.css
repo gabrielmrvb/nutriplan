@@ -405,18 +405,23 @@ button { font-family: inherit; color: inherit; }
 
 .app-bar__accent { color: var(--brand); }
 
+/* A marca da barra. O desenho vem do SVG; aqui fica só o tamanho.
+ *
+ * Era a letra "N" numa placa de gradiente — a mesma forma que qualquer app faz
+ * com a inicial do nome. Agora é o anel com o "N" de haste vincada, a mesma
+ * geometria do ícone da tela inicial, gerada pelo mesmo script.
+ *
+ * Sem `border-radius` nem `background` aqui: a quina e a placa são do próprio
+ * SVG. Repetir a quina no envoltório cortaria as bordas do desenho por fora,
+ * e as duas curvas nunca coincidem em pixel. */
 .app-bar__mark {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 1.85rem;
   height: 1.85rem;
   flex: none;
-  border-radius: var(--radius-sm);
-  background: var(--grad-brand);
-  color: var(--on-brand);
-  font-size: .95rem;
-  font-weight: 800;
 }
+
+.marca { display: block; width: 100%; height: 100%; }
 
 .app-bar__nav { display: flex; align-items: center; gap: .3rem; }
 .app-bar__nav .app-bar__link { display: none; }
@@ -2532,17 +2537,13 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 .auth .field { margin-bottom: .9rem; }
 .auth .card { padding: 1.7rem 1.4rem; }
 
+/* A mesma marca, em 64px, na tela de entrada. Vetor: o desenho que cabe em
+   30 pixels na barra é o mesmo aqui, sem segunda arte e sem borrar. */
 .auth__logo {
-  display: grid;
-  place-items: center;
-  width: 3.2rem;
-  height: 3.2rem;
+  display: block;
+  width: 4rem;
+  height: 4rem;
   margin: 0 auto 1rem;
-  border-radius: var(--radius);
-  background: var(--grad-brand);
-  color: var(--on-brand);
-  font-size: 1.5rem;
-  font-weight: 800;
 }
 
 /* O aviso da refeição pulada. Fica dentro do cartão de macros porque é dali

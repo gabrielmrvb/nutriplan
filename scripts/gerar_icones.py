@@ -326,6 +326,51 @@ def escrever_svg(caminho, lado=64):
     return len(svg)
 
 
+def escrever_marca(caminho, lado=64):
+    """A marca para usar DENTRO das páginas, em SVG inline.
+
+    Inline e não `<img src="favicon.svg">` por duas razões concretas: ela herda
+    as cores da folha de estilo — então acompanha o tema claro sozinha, sem um
+    segundo arquivo — e não custa uma requisição na primeira pintura de toda
+    tela do app.
+
+    O desenho é o MESMO do ícone, invertido: aqui a placa é a cor da marca e o
+    anel com o "N" são vazados em cima. Na barra de cima o app já é escuro, e
+    uma placa `#0d0f12` sobre um fundo `#0d0f12` desapareceria — a inversão é o
+    que mantém o peso de um distintivo aceso, que é o que ela sempre foi.
+
+    O gradiente vem de um `<defs>` que mora no `base.html`, uma vez por página:
+    dois `<defs>` com o mesmo `id` na mesma página é HTML inválido, e a marca
+    aparece duas vezes nas telas de entrada.
+    """
+    meio = lado / 2
+    svg = f"""{{% comment %}}
+  Gerado por `scripts/gerar_icones.py` — não edite à mão.
+
+  A geometria é a mesma do ícone do PWA, e sai do mesmo lugar. Escrita aqui
+  separadamente, ela começaria a divergir do ícone na primeira vez que alguém
+  ajustasse um número num só dos dois.
+{{% endcomment %}}
+<svg class="marca" viewBox="0 0 {lado} {lado}" aria-hidden="true" focusable="false">
+  <rect width="{lado}" height="{lado}" rx="{QUINA * lado:.2f}" fill="url(#marca-luz)"/>
+  <circle cx="{meio:.2f}" cy="{meio:.2f}"
+          r="{(ANEL_EXTERNO + ANEL_INTERNO) / 2 * lado:.2f}"
+          fill="none" stroke="var(--on-brand)"
+          stroke-width="{(ANEL_EXTERNO - ANEL_INTERNO) * lado:.2f}"
+          opacity="{ANEL_ALFA}"/>
+  <rect x="{ESQ * lado:.2f}" y="{TOPO * lado:.2f}"
+        width="{HASTE * lado:.2f}" height="{(BASE - TOPO) * lado:.2f}"
+        fill="var(--on-brand)"/>
+  <rect x="{(DIR - HASTE) * lado:.2f}" y="{TOPO * lado:.2f}"
+        width="{HASTE * lado:.2f}" height="{(BASE - TOPO) * lado:.2f}"
+        fill="var(--on-brand)"/>
+  <path d="{_svg_caminho_poligono(_n_diagonal(), lado)}" fill="var(--on-brand)"/>
+</svg>
+"""
+    caminho.write_text(svg, encoding="utf-8")
+    return len(svg)
+
+
 # ---------------------------------------------------------------- roteiro
 
 def main():
@@ -334,6 +379,9 @@ def main():
 
     tamanho_svg = escrever_svg(DESTINO / "favicon.svg")
     print(f"  favicon.svg              {tamanho_svg:>6} B")
+
+    partial = RAIZ / "templates" / "partials" / "marca.html"
+    print(f"  partials/marca.html      {escrever_marca(partial):>6} B")
 
     # `maskable` com 78% do desenho: o Android recorta num círculo que deixa
     # cerca de 80% do lado visível, e a margem é o que impede a letra de sair
