@@ -500,11 +500,16 @@ class ProfileActionsTests(TestCase):
         """Elas entraram no onboarding e nunca apareceram aqui — quem quisesse
         trocar teria que adivinhar em qual passo do wizard elas moram."""
         html = self.client.get(self.url).content.decode()
-        bloco = html.split("Treino e cardápio", 1)[1].split("</section>", 1)[0]
+        divisao = html.split("Divisão de treino", 1)[1].split("</section>", 1)[0]
+        self.assertIn("3 grupos por dia", divisao)
+        self.assertIn(step_url(4), divisao)
 
-        self.assertIn("3 grupos por dia", bloco)
-        self.assertIn("Rápida e econômica", bloco)
-        self.assertIn(step_url(4), bloco)
+        # O cardápio mora no cartão que leva ao passo 5, que é onde ele é
+        # editado. Juntos num cartão só, o "Editar" mandava quem queria trocar
+        # o cardápio para a tela de divisão de treino.
+        comida = html.split("Restrições e rotina", 1)[1].split("</section>", 1)[0]
+        self.assertIn("Rápida e econômica", comida)
+        self.assertIn(step_url(5), comida)
 
 
 class BottomNavigationTests(TestCase):

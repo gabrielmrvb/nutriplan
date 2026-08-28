@@ -135,29 +135,33 @@
           {% endfor %}
         </div>
         <dl class="data-list">
+          <div><dt>Cardápio</dt><dd>{{ profile.get_meal_style_display }}</dd></div>
           <div><dt>Acorda</dt><dd>{{ profile.wake_time|time:"H:i" }}</dd></div>
           <div><dt>Dorme</dt><dd>{{ profile.sleep_time|time:"H:i" }}</dd></div>
         </dl>
       </section>
 
       {% comment %}
-        As duas preferências que decidem o formato do treino e do cardápio.
-        Elas entraram no onboarding e nunca apareceram aqui — quem quisesse
-        trocar teria que adivinhar em qual passo do wizard elas moram.
+        A divisão de treino, sozinha.
+
+        Ela e o estilo de cardápio moravam no MESMO cartão, com um "Editar" só
+        — e o link ia para o passo 4, que é a divisão. Quem quisesse trocar o
+        cardápio clicava no cartão que o mostrava e caía na tela de treino.
+
+        É a mesma classe de defeito que o link das restrições tinha: cartão que
+        mostra duas coisas de telas diferentes só pode ter um botão se as duas
+        estiverem na mesma tela. O cardápio desceu para "Restrições e rotina",
+        que já leva ao passo 5 — onde ele de fato é editado.
       {% endcomment %}
       <section class="card">
         <div class="card__head">
-          <h2>Treino e cardápio</h2>
+          <h2>Divisão de treino</h2>
           <a href="{% url 'accounts:onboarding_step' step=4 %}">Editar</a>
         </div>
         <dl class="data-list">
           <div>
-            <dt>Divisão</dt>
+            <dt>Grupos por dia</dt>
             <dd>{{ profile.get_split_preference_display }}</dd>
-          </div>
-          <div>
-            <dt>Cardápio</dt>
-            <dd>{{ profile.get_meal_style_display }}</dd>
           </div>
         </dl>
       </section>

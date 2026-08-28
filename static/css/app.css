@@ -2172,13 +2172,40 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 
 .registro__contagem { font-size: .72rem; font-weight: 700; opacity: .85; }
 
-/* A confirmação ao gravar: um pulso curto com brilho, e some. */
+/* A confirmação ao gravar: um pulso curto com brilho, e some.
+ *
+ * O brilho era `box-shadow` animado, e sombra animada é repintura a cada
+ * quadro — justamente enquanto o aparelho está ocupado gravando a série e
+ * disparando o cronômetro. Agora ele é um pseudoelemento que ESCALA e
+ * desvanece: as duas propriedades que o compositor resolve sozinho, sem
+ * repintar nada.
+ *
+ * `pointer-events: none` porque ele cresce para fora do botão, e um anel
+ * invisível por cima do alvo seria um toque perdido no meio de uma série. */
+.registro__salvar { position: relative; }
+
+.registro__salvar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--brand) 28%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
 .registro--salvo .registro__salvar { animation: serie-ok .9s var(--ease); }
+.registro--salvo .registro__salvar::after { animation: serie-anel .9s var(--ease); }
 
 @keyframes serie-ok {
-  0% { transform: scale(1); }
-  30% { transform: scale(1.07); box-shadow: 0 0 0 5px color-mix(in srgb, var(--brand) 28%, transparent); }
-  100% { transform: scale(1); box-shadow: none; }
+  0%, 100% { transform: scale(1); }
+  30% { transform: scale(1.07); }
+}
+
+@keyframes serie-anel {
+  0% { transform: scale(.92); opacity: 0; }
+  30% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.12); opacity: 0; }
 }
 
 /* O cronômetro precisa ser visível na academia ao meio-dia: fundo em
@@ -2845,15 +2872,24 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 .drawer__media--carregando::after {
   content: "";
   position: absolute;
-  inset: 0;
-  background: linear-gradient(100deg, var(--surface-2) 30%, var(--surface-3) 50%, var(--surface-2) 70%);
-  background-size: 220% 100%;
+  /* Mais largo que a caixa e deslocado para a esquerda: é ele que atravessa,
+     e a faixa precisa nascer fora e terminar fora. */
+  inset: 0 -60%;
+  background: linear-gradient(100deg,
+    transparent 35%, var(--surface-3) 50%, transparent 65%);
   animation: esqueleto 1.1s linear infinite;
+  will-change: transform;
 }
 
+/* `translateX` e não `background-position`.
+ *
+ * Deslocar o fundo repinta a caixa inteira a cada quadro, e este brilho roda
+ * em laço enquanto a foto não chega — é a animação mais longa do app, e a
+ * única que ainda cobrava repintura contínua. Transladar a faixa é trabalho de
+ * compositor: a textura é desenhada uma vez e só muda de lugar. */
 @keyframes esqueleto {
-  from { background-position: 130% 0; }
-  to { background-position: -30% 0; }
+  from { transform: translateX(-45%); }
+  to { transform: translateX(45%); }
 }
 
 /* Pulso, para o esqueleto que não é faixa deslizante — um bloco parado que só
