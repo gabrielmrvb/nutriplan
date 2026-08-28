@@ -1310,6 +1310,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .app-bar__quiet:active,
 .btn:active,
 .btn-link:active,
+.campo-senha__olho:active,
 .choice-card:active,
 .demo-area:active,
 .drawer__fechar:active,
@@ -1359,6 +1360,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .app-bar__quiet,
 .btn,
 .btn-link,
+.campo-senha__olho,
 .choice-card,
 .demo-area,
 .drawer__fechar,
@@ -1401,6 +1403,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   .app-bar__quiet:active,
   .btn:active,
   .btn-link:active,
+  .campo-senha__olho:active,
   .choice-card:active,
   .demo-area:active,
   .drawer__fechar:active,
@@ -4482,3 +4485,87 @@ body.montando { overflow: hidden; }
   border-color: var(--danger);
   background: color-mix(in srgb, var(--danger) 18%, transparent);
 }
+
+/* ==========================================================================
+   35. Telas de entrada
+   ========================================================================== */
+
+/* O cartão de entrar e cadastrar, centrado na tela.
+ *
+ * Ele ficava colado no topo, a 85px, com meia tela vazia embaixo — o layout
+ * de uma página de conteúdo aplicado a um formulário de dois campos. Centrado,
+ * o polegar alcança os campos sem esticar, que é o que importa num aparelho
+ * que se segura com uma mão.
+ *
+ * `min-height` com `dvh` e não `vh`: no Safari do iPhone a barra de endereço
+ * some ao rolar e `vh` continua contando a altura de antes, deixando o cartão
+ * fora de centro por 60 pixels.
+ */
+/* `--entrada` e não `.auth` sozinho: o WIZARD do onboarding usa a mesma classe
+ * de container, e o vidro mais o recuo maior daqui o deixariam mais alto —
+ * desfazendo o ajuste que fez os cinco passos caberem sem rolagem.
+ *
+ * Duas telas com necessidades opostas sob o mesmo nome é o tipo de coisa que
+ * só aparece quando alguém mexe numa e quebra a outra. Aqui apareceu antes. */
+.auth--entrada {
+  display: grid;
+  align-content: center;
+  /* O recuo vertical zera aqui, e é isso que faz o centro ser centro: o
+     `.container` tem 12px em cima e 24 mais a área segura embaixo, e essa
+     assimetria empurrava o cartão 18 pixels para baixo do meio. */
+  padding-block: 0;
+  min-height: calc(100dvh - 3.6rem);
+}
+
+/* O vidro do cartão de entrada.
+ *
+ * Aqui ele tem o que desfocar: o halo de acento passa por trás, e é a única
+ * coisa na tela. Nos cartões de conteúdo o vidro só valeria nos três do topo,
+ * pelo mesmo motivo — desfocar cor chapada custa quadros para produzir a mesma
+ * cor chapada. */
+.auth--entrada .card {
+  padding: 1.4rem 1.15rem;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-lift);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .auth--entrada .card { background: var(--surface); }
+}
+
+/* ---- o olho da senha ---- */
+
+.campo-senha { position: relative; display: block; }
+
+/* O espaço à direita é do botão. Sem ele o cursor caminha por baixo do ícone e
+   os últimos caracteres digitados ficam escondidos justamente por quem foi
+   posto ali para mostrá-los. */
+.campo-senha .field-input { padding-right: 3.25rem; }
+
+.campo-senha__olho {
+  position: absolute;
+  top: 50%;
+  right: .25rem;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-mute);
+  cursor: pointer;
+}
+
+.campo-senha__olho svg { width: 1.2rem; height: 1.2rem; }
+.campo-senha__olho:hover { color: var(--text); background: var(--surface-3); }
+.campo-senha__olho:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* O corte só existe enquanto a senha está OCULTA: o ícone mostra o que vai
+   acontecer ao tocar, e não o estado em que está. Olho riscado com senha
+   visível diria o contrário do que o botão faz. */
+.campo-senha__olho[aria-pressed="true"] .campo-senha__corte { display: none; }

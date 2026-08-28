@@ -34,7 +34,22 @@ STEP_META = {
 }
 
 
-class SignupView(CreateView):
+class TelaDeEntradaMixin:
+    """Marca as telas de entrar e cadastrar.
+
+    A barra de cima usa isto para ficar só com o wordmark: ela oferecia
+    "Entrar" e "Criar conta", e a tela de entrar já É entrar — com o link para
+    criar conta no rodapé do cartão. Dois caminhos para o mesmo lugar, um a
+    três centímetros do outro.
+    """
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto["tela_de_entrada"] = True
+        return contexto
+
+
+class SignupView(TelaDeEntradaMixin, CreateView):
     """Cria a conta e já autentica — pedir login logo após cadastrar é atrito puro."""
 
     form_class = SignupForm
@@ -54,7 +69,7 @@ class SignupView(CreateView):
         return reverse("accounts:onboarding_step", kwargs={"step": 1})
 
 
-class AppLoginView(LoginView):
+class AppLoginView(TelaDeEntradaMixin, LoginView):
     authentication_form = EmailAuthenticationForm
     template_name = "accounts/login.html"
     redirect_authenticated_user = True

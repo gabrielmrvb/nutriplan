@@ -49,6 +49,30 @@ pelo form.
         {{ field }}
         <span class="campo-unidade__sufixo num" aria-hidden="true">{{ field.field.widget.attrs.sufixo }}</span>
       </span>
+    {% elif field.field.widget.input_type == "password" %}
+      {% comment %}
+        O olho de mostrar a senha.
+
+        Numa tela de celular, digitar senha forte às cegas é onde a pessoa
+        erra e desiste — e "senha incorreta" depois de três tentativas não diz
+        se o erro foi de dedo ou de memória.
+
+        O botão fica FORA do campo no HTML e por cima dele no CSS: dentro do
+        `<input>` não cabe elemento nenhum, e um `<label>` clicável em volta
+        roubaria o toque do campo.
+      {% endcomment %}
+      <span class="campo-senha">
+        {{ field }}
+        <button type="button" class="campo-senha__olho" data-ver-senha
+                aria-label="Mostrar a senha" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z"/>
+            <circle cx="12" cy="12" r="2.75"/>
+            <path class="campo-senha__corte" d="M4 20 20 4"/>
+          </svg>
+        </button>
+      </span>
     {% else %}
       {{ field }}
     {% endif %}

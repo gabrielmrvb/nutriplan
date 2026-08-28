@@ -569,3 +569,101 @@ class BottomNavigationTests(TestCase):
         self.assertIn("background var(--dur) var(--ease)", corpo)
         self.assertIn("color var(--dur) var(--ease)", corpo)
         self.assertNotIn("transition: all", css)
+
+
+class AuthScreenTests(TestCase):
+    """As telas de entrar e cadastrar.
+
+    A queixa que originou este trabalho foi "fundo branco, desalinhado do dark
+    mode". Medido: em modo escuro elas SEMPRE foram escuras — `#0d0f12`, texto
+    branco, botão esmeralda. O que aparece claro é o tema CLARO do app, que
+    existe de propósito e vale para todas as telas, não só para estas.
+
+    O que faltava de verdade era outra coisa, e está aqui.
+    """
+
+    def setUp(self):
+        self.login = self.client.get(reverse("accounts:login")).content.decode()
+        self.cadastro = self.client.get(reverse("accounts:signup")).content.decode()
+        self.css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+
+    def test_the_header_drops_the_link_that_repeats_the_screen(self):
+        """A barra oferecia "Entrar" e "Criar conta" — e a tela de entrar já É
+        entrar, com o link para criar conta no rodapé do cartão. Dois caminhos
+        para o mesmo lugar, um a três centímetros do outro.
+
+        O wordmark fica: é a primeira tela que alguém vê, e tirar a marca dali
+        deixaria um formulário solto sem dono."""
+        for nome, html in (("entrar", self.login), ("cadastro", self.cadastro)):
+            with self.subTest(tela=nome):
+                barra = html.split('<header class="app-bar"', 1)[1].split("</header>", 1)[0]
+                # O wordmark é "Nutri" mais um `<span>` com "Plan" — a palavra
+                # inteira não existe como texto contíguo no HTML.
+                self.assertIn("app-bar__brand", barra)
+                self.assertNotIn(reverse("accounts:login"), barra)
+                self.assertNotIn(reverse("accounts:signup"), barra)
+
+    def test_the_card_is_centred_and_made_of_glass(self):
+        # TODOS os blocos de `.auth`, e não o primeiro: há um one-liner antigo
+        # com a largura máxima, e ele vem antes no arquivo. Ler só o primeiro é
+        # a armadilha recorrente desta base, e pegou este teste na estreia.
+        regra = "".join(
+            trecho.split("}", 1)[0]
+            for trecho in self.css.split(chr(10) + ".auth--entrada {")[1:]
+        )
+        self.assertIn("align-content: center", regra)
+        # `dvh` e não `vh`: no Safari do iPhone a barra de endereço some ao
+        # rolar e `vh` continua contando a altura de antes.
+        self.assertIn("dvh", regra)
+
+        cartao = self.css.split(chr(10) + ".auth--entrada .card {", 1)[1].split("}", 1)[0]
+        self.assertIn("backdrop-filter: blur(16px)", cartao)
+
+    def test_a_browser_without_backdrop_filter_still_reads_the_card(self):
+        """Sem o desfoque, o fundo translúcido deixaria o halo passar direto e
+        o texto perderia contraste."""
+        self.assertIn("@supports not ((backdrop-filter", self.css)
+
+    def test_every_password_field_gets_an_eye(self):
+        """Digitar senha forte às cegas num teclado de celular é onde a pessoa
+        erra e desiste — e "senha incorreta" depois de três tentativas não diz
+        se o erro foi de dedo ou de memória."""
+        self.assertEqual(self.login.count("data-ver-senha"), 1)
+        # Cadastro pede senha e confirmação.
+        self.assertEqual(self.cadastro.count("data-ver-senha"), 2)
+
+    def test_the_eye_says_what_it_will_do_and_not_what_it_is(self):
+        """Olho riscado com a senha visível diria o contrário do que o botão
+        faz. O corte só existe enquanto a senha está oculta."""
+        self.assertIn('aria-pressed="false"', self.login)
+        self.assertIn('aria-label="Mostrar a senha"', self.login)
+        self.assertIn(
+            '.campo-senha__olho[aria-pressed="true"] .campo-senha__corte', self.css
+        )
+
+    def test_the_eye_gives_the_cursor_back_to_the_field(self):
+        """Trocar o `type` do campo manda o cursor para a posição zero, e quem
+        estava no meio de digitar perderia o lugar."""
+        pwa = (Path(settings.BASE_DIR) / "static" / "js" / "pwa.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("setSelectionRange", pwa)
+        self.assertIn("campo.focus()", pwa)
+
+    def test_the_footer_link_between_the_two_screens_is_a_touch_target(self):
+        """Ele mede 44px porque é `.btn-link` — como texto solto num parágrafo
+        dava 19 pixels de altura."""
+        self.assertIn('class="btn-link"', self.login)
+        self.assertIn('class="btn-link"', self.cadastro)
+
+    def test_the_screens_follow_the_app_theme_instead_of_forcing_one(self):
+        """Forçar escuro só aqui criaria a emenda que a mudança deveria
+        remover: entrar numa tela escura e cair num painel claro."""
+        for nome, html in (("entrar", self.login), ("cadastro", self.cadastro)):
+            with self.subTest(tela=nome):
+                # Nada de estilo embutido forçando um tema: as telas herdam a
+                # paleta do app, como todas as outras.
+                self.assertNotIn("<style", html)
+                self.assertNotIn("#0d0f12", html.split("</head>", 1)[1])

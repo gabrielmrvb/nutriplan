@@ -79,8 +79,19 @@
         {% endcomment %}
         {% if request.demo %}<span class="app-bar__demo">demo</span>{% endif %}
       </a>
+      {% comment %}
+        Nas telas de entrada a barra fica só com o wordmark.
+
+        Ela oferecia "Entrar" e "Criar conta" — e a tela de entrar já É entrar,
+        com o link para criar conta no rodapé do cartão. Dois caminhos para o
+        mesmo lugar, um deles a três centímetros do outro.
+
+        O wordmark fica: é a primeira tela que alguém vê do app, e tirar a
+        marca dali deixaria um formulário solto sem dono.
+      {% endcomment %}
       <nav class="app-bar__nav">
-        {% if user.is_authenticated %}
+        {% if tela_de_entrada %}
+        {% elif user.is_authenticated %}
           <a class="app-bar__link {% if nav == 'today' %}is-active{% endif %}"
              href="{% if request.demo %}/demo/hoje/{% else %}{% url 'plans:today' %}{% endif %}">Dieta</a>
           <a class="app-bar__link {% if nav == 'workout' %}is-active{% endif %}"

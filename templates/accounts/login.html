@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}Entrar · NutriPlan{% endblock %}
-{% block container_class %}auth{% endblock %}
+{% block container_class %}auth auth--entrada{% endblock %}
 
 {% block content %}
   <div class="card">
@@ -23,7 +23,7 @@
     </form>
 
     <p class="muted center" style="margin-top:1.25rem">
-      Ainda não tem conta? <a href="{% url 'accounts:signup' %}">Criar agora</a>
+      Ainda não tem conta? <a class="btn-link" href="{% url 'accounts:signup' %}">Criar agora</a>
     </p>
   </div>
 {% endblock %}

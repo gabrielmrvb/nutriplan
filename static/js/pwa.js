@@ -281,6 +281,42 @@
     });
   }
 
+  /* ------------------------------------------------------ olho da senha */
+
+  /* Mostrar e esconder a senha.
+   *
+   * Digitar senha forte às cegas num teclado de celular é onde a pessoa erra e
+   * desiste — e "senha incorreta" depois de três tentativas não diz se o erro
+   * foi de dedo ou de memória.
+   *
+   * `aria-pressed` e não uma classe: o estado é exatamente o que o atributo
+   * descreve, e quem usa leitor de tela recebe "pressionado" sem eu escrever
+   * nada a mais. O CSS lê o mesmo atributo para riscar ou não o ícone.
+   *
+   * O foco volta para o campo depois de alternar: quem tocou no olho estava
+   * digitando, e devolver o cursor evita um segundo toque.
+   */
+  document.addEventListener("click", function (evento) {
+    var botao = evento.target.closest("[data-ver-senha]");
+    if (!botao) return;
+
+    var campo = botao.parentElement.querySelector("input");
+    if (!campo) return;
+
+    var mostrando = campo.type === "text";
+    campo.type = mostrando ? "password" : "text";
+    botao.setAttribute("aria-pressed", String(!mostrando));
+    botao.setAttribute(
+      "aria-label", mostrando ? "Mostrar a senha" : "Ocultar a senha"
+    );
+
+    /* O cursor volta para o fim do texto: trocar o `type` do campo o manda
+     * para a posição zero, e quem estava no meio de digitar perderia o lugar. */
+    var fim = campo.value.length;
+    campo.focus();
+    try { campo.setSelectionRange(fim, fim); } catch (e) { /* type=email não aceita */ }
+  });
+
   /* ------------------------------------------------ retorno ao enviar */
 
   /* O toque precisa dizer "recebi" antes do servidor responder.
