@@ -4,8 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   {# Duas cores de tema: a barra do sistema acompanha o claro/escuro do aparelho. #}
-  <meta name="theme-color" content="#f4f6f5" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#090c0b" media="(prefers-color-scheme: dark)">
+  {% comment %}
+    As duas cores saem das settings, e não escritas aqui: elas são as mesmas do
+    manifesto, e duas cópias do mesmo valor é como uma delas fica para trás —
+    que foi exatamente o que aconteceu quando a paleta mudou para #0d0f12 e
+    esta linha continuou no verde-preto antigo.
+  {% endcomment %}
+  <meta name="theme-color" content="{{ PWA_LIGHT_COLOR }}" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="{{ PWA_THEME_COLOR }}" media="(prefers-color-scheme: dark)">
   <title>{% block title %}NutriPlan{% endblock %}</title>
   <link rel="stylesheet" href="{{ app_css_url }}">
   <link rel="manifest" href="{% url 'manifest' %}">

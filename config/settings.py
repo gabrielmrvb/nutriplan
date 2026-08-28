@@ -209,5 +209,19 @@ VAPID_ADMIN_EMAIL = env("VAPID_ADMIN_EMAIL", default="")
 #: Nome curto e completo do PWA, usados no manifest.
 PWA_NAME = "NutriPlan"
 PWA_SHORT_NAME = "NutriPlan"
-PWA_THEME_COLOR = "#090c0b"
-PWA_BACKGROUND_COLOR = "#090c0b"
+# As duas precisam ser IDÊNTICAS ao `--bg` do tema escuro em app.css.
+#
+# Elas pintam o que o navegador desenha ANTES e EM VOLTA da página: a barra de
+# status do Android, a tela de abertura do app instalado, a faixa acima do
+# conteúdo no iPhone. Divergir do fundo real produz uma emenda visível de meio
+# segundo toda vez que o app abre — e foi o que aconteceu: a paleta passou para
+# #0d0f12 e estas duas ficaram no verde-preto antigo.
+#
+# Há teste comparando as duas com o token do CSS.
+PWA_THEME_COLOR = "#0d0f12"
+PWA_BACKGROUND_COLOR = "#0d0f12"
+
+# O `--bg` do tema claro. Só o `<meta>` usa: o manifesto declara UMA cor, e o
+# sistema operacional não troca a tela de abertura do app instalado conforme o
+# tema do aparelho.
+PWA_LIGHT_COLOR = "#f4f6f5"

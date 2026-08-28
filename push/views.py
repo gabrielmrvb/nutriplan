@@ -89,6 +89,18 @@ class ManifestView(View):
                 # contexto de um app nativo.
                 "shortcuts": [
                     {
+                        # O diário é o `start_url`, então tocar no ícone já
+                        # abre aqui. O atalho existe assim mesmo por um caso
+                        # concreto: quem está com o app aberto no treino e
+                        # segura o ícone quer voltar para a comida sem
+                        # navegar — e quem instalou há semanas não lembra o
+                        # que o ícone abre.
+                        "name": "Diário de hoje",
+                        "short_name": "Diário",
+                        "url": "/",
+                        "icons": [{"src": static("icons/icon-192.png"), "sizes": "192x192"}],
+                    },
+                    {
                         "name": "Treino de hoje",
                         "short_name": "Treino",
                         "url": "/treino/",

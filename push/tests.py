@@ -120,9 +120,36 @@ class InstallabilityTests(TestCase):
                 self.assertNotIn("?v=", icone["src"])
 
     def test_the_theme_colour_matches_the_dark_interface(self):
-        """Cor errada aqui vira uma faixa clara em volta do app escuro."""
-        self.assertEqual(self.manifest["theme_color"], "#090c0b")
-        self.assertEqual(self.manifest["background_color"], "#090c0b")
+        """Cor errada aqui vira uma emenda visível em volta do app escuro.
+
+        A cor é LIDA do `--bg` do CSS, e não escrita aqui. Escrita, este teste
+        virava uma terceira cópia do mesmo valor — e foi exatamente o que
+        aconteceu: a paleta passou para #0d0f12, as settings ficaram no
+        verde-preto antigo, e este teste confirmou a cor velha com toda a
+        confiança do mundo.
+
+        Um teste que guarda cópia do valor não verifica nada: ele só concorda
+        com quem esqueceu de mudar os dois lugares.
+        """
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        raiz = css.split(":root {", 1)[1].split(chr(10) + "}", 1)[0]
+        fundo = re.search(r"^\s*--bg:\s*(#[0-9a-f]{6});", raiz, re.M)
+        self.assertIsNotNone(fundo, "--bg não é mais um hexadecimal em :root")
+
+        self.assertEqual(self.manifest["theme_color"], fundo.group(1))
+        self.assertEqual(self.manifest["background_color"], fundo.group(1))
+
+    def test_the_meta_tag_and_the_manifest_agree(self):
+        """Duas cópias do mesmo valor é como uma delas fica para trás. A meta
+        do HTML e o manifesto saem da MESMA setting."""
+        html = self.client.get(reverse("accounts:login")).content.decode()
+        self.assertIn(
+            f'content="{self.manifest["theme_color"]}" '
+            'media="(prefers-color-scheme: dark)"',
+            html,
+        )
 
     def test_shortcuts_point_at_urls_that_answer(self):
         atalhos = self.manifest["shortcuts"]
@@ -428,12 +455,53 @@ class ServiceWorkerTests(TestCase):
         self.assertIn('searchParams.get("v")', limpeza)
         self.assertIn("versao !== VERSAO", limpeza)
 
-    def test_pages_are_never_cached(self):
-        """HTML de usuário logado no cache seria mostrar o dia de uma pessoa
-        para outra no mesmo aparelho."""
-        navegacao = self.source.split('request.mode === "navigate"')[1].split("}")[0]
-        self.assertIn("fetch(request)", navegacao)
-        self.assertNotIn("caches.match(request)", navegacao)
+    def test_pages_go_to_a_cache_of_their_own(self):
+        """HTML de usuário logado carrega nome, peso e dieta.
+
+        Este teste chamava-se "as páginas nunca são guardadas" e afirmava
+        exatamente isso — enquanto o código já as guardava havia tempo, num
+        cache separado, de propósito. Ele passava por um acidente de fatia: o
+        `split("}")[0]` cortava no primeiro fecha-chaves e nunca chegava na
+        linha que usa o cache.
+
+        O que protege a privacidade não é não guardar: é guardar em cache
+        SEPARADO e apagar esse cache ao sair. Guardar é o que faz o app abrir
+        no metrô; apagar é o que impede o próximo dono do aparelho de ler a
+        dieta de alguém.
+        """
+        navegacao = self.source.split('request.mode === "navigate"', 1)[1]
+        navegacao = navegacao.split("request.mode", 1)[0]
+
+        # A página do cache vem sempre do cache SEPARADO, e nunca do cache de
+        # CSS e ícones, que não é apagado ao sair.
+        self.assertIn("CACHE_PAGINAS", navegacao)
+        self.assertNotIn("cacheName: CACHE }", navegacao)
+
+    def test_logging_out_takes_the_pages_with_it(self):
+        """A outra metade da mesma regra, e ela mora no pwa.js."""
+        pwa = (
+            Path(settings.BASE_DIR) / "static" / "js" / "pwa.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('dataset.autenticado === "0"', pwa)
+        self.assertIn('indexOf("-paginas")', pwa)
+        self.assertIn("caches.delete", pwa)
+
+    def test_a_slow_network_does_not_hold_the_page_hostage(self):
+        """Rede de academia raramente cai — ela demora.
+
+        `fetch` não rejeita enquanto pendura, então rede-primeiro sozinha mostra
+        tela branca por dez ou quinze segundos com uma cópia boa da página
+        guardada ao lado.
+        """
+        navegacao = self.source.split('request.mode === "navigate"', 1)[1]
+        navegacao = navegacao.split("request.mode", 1)[0]
+
+        self.assertIn("setTimeout", navegacao)
+        self.assertIn("PACIENCIA_MS", navegacao)
+        # A rede continua correndo depois de o cache ter respondido: é ela que
+        # atualiza o cache para a próxima abertura.
+        self.assertIn("waitUntil", navegacao)
 
     def test_offline_page_works_without_login(self):
         response = self.client.get(reverse("offline"))

@@ -2191,3 +2191,64 @@ class LoadStepperTests(TestCase):
     def _template(self):
         caminho = Path(settings.BASE_DIR) / "templates" / "workouts" / "routine.html"
         return caminho.read_text(encoding="utf-8")
+
+
+class GymHardwareTests(TestCase):
+    """O que o aparelho oferece e a tela de treino usa.
+
+    Os dois recursos aqui existem por causa do mesmo minuto: o celular fica no
+    banco entre series, com 1:20 de descanso, e a mao volta suada.
+    """
+
+    url = reverse("workouts:routine")
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.client.force_login(self.user)
+        self.html = self.client.get(self.url).content.decode()
+
+    def test_the_screen_is_kept_awake_during_the_workout(self):
+        """1:20 de descanso e mais que os 30 segundos de bloqueio automatico da
+        maioria dos aparelhos. Sem isto a pessoa desbloqueia o telefone a cada
+        serie para ver quantas faltam."""
+        self.assertIn('navigator.wakeLock', self.html)
+        self.assertIn('request("screen")', self.html)
+
+    def test_the_lock_is_given_back_when_the_tab_goes_away(self):
+        """O navegador solta a trava sozinho ao esconder a aba. Sem retomar no
+        `visibilitychange`, ela nao voltaria depois de atender uma mensagem —
+        que e exatamente quando ela faz falta."""
+        self.assertIn('"visibilitychange"', self.html)
+        self.assertIn('"pagehide"', self.html)
+
+    def test_the_missing_api_is_a_check_and_not_a_crash(self):
+        """`wakeLock` nao existe no Safari antigo nem em Firefox de Android.
+        Onde nao existe, a tela apaga como sempre apagou."""
+        self.assertIn('"wakeLock" in navigator', self.html)
+
+    def test_finishing_a_set_buzzes_short_and_the_rest_buzzes_long(self):
+        """Padroes diferentes porque as situacoes sao diferentes: ao gravar a
+        serie o aparelho esta na mao de quem acabou de tocar e o pulso so
+        confirma; no fim do descanso ele esta no banco e precisa chamar de
+        longe.
+
+        Vibracao longa para confirmacao e o que faz a pessoa desligar a
+        vibracao do app inteiro.
+        """
+        self.assertIn("navigator.vibrate(35)", self.html)
+        self.assertIn("navigator.vibrate([200, 100, 400])", self.html)
+
+    def test_vibration_is_always_behind_a_check(self):
+        """`navigator.vibrate` nao existe no iPhone. O `if` nao e otimizacao,
+        e a metade dos aparelhos."""
+        for chamada in ("navigator.vibrate(35)", "navigator.vibrate([200, 100, 400])"):
+            with self.subTest(chamada=chamada):
+                antes = self.html.split(chamada, 1)[0]
+                self.assertTrue(
+                    antes.rstrip().endswith("if (navigator.vibrate)"),
+                    f"{chamada} sem a guarda de suporte",
+                )

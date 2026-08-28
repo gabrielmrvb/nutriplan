@@ -1094,6 +1094,60 @@
           });
         });
 
+        /* A tela não apaga durante o treino.
+         *
+         * O celular fica no banco entre séries, e o descanso é de 1:20 — bem
+         * mais que os 30 segundos de bloqueio automático da maioria dos
+         * aparelhos. Sem isto a pessoa desbloqueia o telefone a cada série, de
+         * mão suada, para ver quantas faltam.
+         *
+         * A trava é SOLTA quando a aba sai de vista, e retomada quando volta:
+         * o navegador solta sozinho ao esconder a aba, e sem o `visibilitychange`
+         * a trava não voltaria depois de atender uma mensagem — que é
+         * exatamente quando ela faz falta.
+         *
+         * `wakeLock` não existe no Safari antigo nem em Firefox de Android. O
+         * `if` é o que impede o erro; onde não existe, a tela apaga como sempre
+         * apagou e nada mais muda.
+         */
+        (function () {
+          if (!("wakeLock" in navigator)) return;
+
+          var trava = null;
+
+          function segurar() {
+            if (trava || document.visibilityState !== "visible") return;
+            navigator.wakeLock
+              .request("screen")
+              .then(function (t) {
+                trava = t;
+                /* O próprio navegador solta a trava em situações que ele
+                 * decide (bateria baixa, por exemplo). Sem zerar a referência,
+                 * a retomada seguinte acharia que ainda está segurando. */
+                t.addEventListener("release", function () { trava = null; });
+              })
+              .catch(function () { /* recusado: a tela apaga, e só */ });
+          }
+
+          function soltar() {
+            if (!trava) return;
+            var t = trava;
+            trava = null;
+            t.release().catch(function () {});
+          }
+
+          document.addEventListener("visibilitychange", function () {
+            if (document.visibilityState === "visible") segurar();
+            else soltar();
+          });
+
+          /* Sai da tela de treino, solta: manter a tela acesa numa aba que a
+           * pessoa deixou aberta no bolso é gastar bateria por nada. */
+          window.addEventListener("pagehide", soltar);
+
+          segurar();
+        })();
+
         document.addEventListener("submit", function (evento) {
           var form = evento.target.closest(".registro");
           if (!form) return;
@@ -1113,6 +1167,18 @@
               atualiza(form, feitas + 1);
               form.classList.add("registro--salvo");
               setTimeout(function () { form.classList.remove("registro--salvo"); }, 900);
+
+              /* Um toque curto ao gravar a série.
+               *
+               * Curto e único, e diferente do padrão do fim do descanso
+               * (200-100-400): ali o aparelho está no banco e precisa chamar de
+               * longe; aqui ele está na mão de quem acabou de tocar, e o pulso
+               * só confirma. Vibração longa para confirmação é o que faz a
+               * pessoa desligar a vibração do app inteiro.
+               *
+               * `navigator.vibrate` não existe no iPhone e o `if` é o que
+               * impede o erro — não é otimização, é a metade dos aparelhos. */
+              if (navigator.vibrate) navigator.vibrate(35);
               if (window.NutriPlanDescanso) {
                 var relogio = form.querySelector("[data-descanso]");
                 window.NutriPlanDescanso.iniciar(

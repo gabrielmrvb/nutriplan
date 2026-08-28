@@ -108,26 +108,62 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   if (request.mode === "navigate") {
-    /* Rede primeiro, e o que voltar fica guardado. Sem rede, a própria página
-       de ontem é servida — o que muda o app de "não abre" para "abre com o
-       dado de ontem", que é a diferença entre inútil e útil no metrô.
+    /* Rede primeiro, com PACIÊNCIA LIMITADA.
+     *
+     * Rede primeiro sozinha tem um buraco que não aparece no escritório: rede
+     * de academia raramente "cai", ela demora. O `fetch` não rejeita, ele fica
+     * pendurado — e o app mostra tela branca por dez, quinze segundos com uma
+     * cópia perfeitamente boa da página guardada ao lado.
+     *
+     * Passados três segundos, serve o cache e deixa a rede terminar em
+     * segundo plano: o que ela trouxer entra no cache para a próxima abertura.
+     * Quem tem rede boa nunca vê a diferença — a resposta chega bem antes.
+     *
+     * Não é stale-while-revalidate: SWR serviria o cache PRIMEIRO, sempre, e
+     * numa tela que mostra a série que a pessoa acabou de registrar isso é
+     * mostrar o estado anterior de propósito. O limite de paciência dá a
+     * velocidade sem a mentira.
+     *
+     * A tela de offline continua existindo para quem nunca visitou a página. */
+    const PACIENCIA_MS = 3000;
 
-       A tela de offline continua existindo para o caso de nunca ter visitado
-       aquela página. */
+    const doCache = () =>
+      caches.match(request, { cacheName: CACHE_PAGINAS })
+        .then((cached) => cached || caches.match(OFFLINE_URL));
+
+    const daRede = fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          const copia = response.clone();
+          caches.open(CACHE_PAGINAS).then((c) => c.put(request, copia));
+        }
+        return response;
+      });
+
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const copia = response.clone();
-            caches.open(CACHE_PAGINAS).then((c) => c.put(request, copia));
-          }
-          return response;
-        })
-        .catch(() =>
-          caches.match(request, { cacheName: CACHE_PAGINAS })
-            .then((cached) => cached || caches.match(OFFLINE_URL))
-        )
+      new Promise((resolve) => {
+        let respondido = false;
+        const responder = (r) => {
+          if (respondido || !r) return;
+          respondido = true;
+          resolve(r);
+        };
+
+        const relogio = setTimeout(
+          () => doCache().then(responder),
+          PACIENCIA_MS
+        );
+
+        daRede
+          .then((r) => { clearTimeout(relogio); responder(r); })
+          .catch(() => { clearTimeout(relogio); doCache().then(responder); });
+      })
     );
+
+    /* A rede continua correndo mesmo depois de a página do cache ter sido
+       entregue — é ela que atualiza o cache para a próxima abertura. Sem o
+       `waitUntil`, o navegador pode encerrar o worker antes de ela terminar. */
+    event.waitUntil(daRede.catch(() => {}));
     return;
   }
 
