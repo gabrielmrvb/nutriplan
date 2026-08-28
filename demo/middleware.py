@@ -26,7 +26,24 @@ from django.urls import get_script_prefix, set_script_prefix
 #: `.invalid` é reservado por RFC justamente para nunca resolver.
 DEMO_EMAIL = "carlos.demo@nutriplan.invalid"
 
+#: A SEGUNDA persona, e ela existe por um motivo que o Carlos nao consegue
+#: cobrir: o primeiro uso.
+#:
+#: O Carlos tem plano, ficha, doze semanas de peso e o onboarding concluido —
+#: e e exatamente por isso que ele nao serve para mostrar o onboarding. Quem
+#: ja terminou o wizard nao consegue ve-lo como quem chega: `is_editing` liga,
+#: os textos mudam de "vamos calcular" para "salvar", e o fluxo que a pessoa
+#: veria seria o de EDICAO, nao o de estreia.
+#:
+#: A Ana fica parada no onboarding para sempre. Nao ha POST no demo, entao ela
+#: nunca avanca — o estado dela e estavel por construcao.
+DEMO_ONBOARDING_EMAIL = "ana.demo@nutriplan.invalid"
+
 PREFIXO = "/demo"
+
+#: O prefixo das rotas do wizard, no app real. Quem pede uma delas dentro do
+#: demo esta pedindo a experiencia de estreia, e por isso ve a Ana.
+ONBOARDING = "/conta/onboarding/"
 
 #: O painel do dia mora na RAIZ da aplicação (`/`), e a raiz do demo é a capa.
 #: Sem este apelido os dois disputariam `/demo/` e o link do painel viraria um
@@ -34,7 +51,19 @@ PREFIXO = "/demo"
 #:
 #: Um apelido, e só um: cada rota inventada aqui é uma rota que existe no demo
 #: e não existe no app, e é assim que um demo começa a divergir do produto.
-APELIDOS = {"/hoje/": "/"}
+#: `/comecar/` e a porta da estreia. Ela aponta para o PASSO 1 e nao para
+#: `/conta/onboarding/`, que redirecionaria para o passo pendente — e o
+#: pendente da Ana e o ultimo. Quem chega para avaliar o primeiro uso quer
+#: comecar do comeco.
+#:
+#: As duas grafias porque `APPEND_SLASH` age depois deste middleware: sem a
+#: chave sem barra, `/demo/comecar` cairia no resolvedor antes de virar
+#: `/demo/comecar/`.
+APELIDOS = {
+    "/hoje/": "/",
+    "/comecar/": ONBOARDING + "1/",
+    "/comecar": ONBOARDING + "1/",
+}
 
 #: Métodos que só leem. Todo o resto é recusado antes de chegar na view.
 SEGUROS = frozenset(("GET", "HEAD", "OPTIONS"))
@@ -43,6 +72,24 @@ SEGUROS = frozenset(("GET", "HEAD", "OPTIONS"))
 def usuario_demo():
     """O usuário fictício, ou `None` se o seed ainda não rodou."""
     return get_user_model().objects.filter(email=DEMO_EMAIL).first()
+
+
+def usuario_onboarding():
+    """A persona parada no wizard, ou `None` se o seed ainda não rodou."""
+    return get_user_model().objects.filter(email=DEMO_ONBOARDING_EMAIL).first()
+
+
+def _quem_ve(resto: str):
+    """Qual das duas personas responde por este caminho.
+
+    A escolha é pelo CAMINHO e não por sessão, porque o demo não tem sessão:
+    cada pedido decide sozinho. É também o que garante o isolamento nos dois
+    sentidos — a Ana nunca aparece fora do wizard, e o Carlos nunca entra
+    nele, onde ele mostraria a tela de edição em vez da de estreia.
+    """
+    if resto.startswith(ONBOARDING):
+        return usuario_onboarding()
+    return usuario_demo()
 
 
 class DemoMiddleware:
@@ -64,7 +111,7 @@ class DemoMiddleware:
         pedido = caminho[len(PREFIXO):] or "/"
         resto = APELIDOS.get(pedido, pedido)
 
-        usuario = usuario_demo()
+        usuario = _quem_ve(resto)
         if usuario is None:
             return render(request, "demo/indisponivel.html", status=503)
 
@@ -76,7 +123,11 @@ class DemoMiddleware:
 
         request.demo = True
         request.user = usuario
-        _manter_o_dia_vivo(usuario)
+        # Só o Carlos tem dia para manter vivo. A Ana não tem plano — a função
+        # sairia na primeira guarda de qualquer jeito, e chamá-la aqui só
+        # gastaria uma consulta por tela do wizard.
+        if usuario.email == DEMO_EMAIL:
+            _manter_o_dia_vivo(usuario)
         # O `_cached_user` do middleware de autenticação vem antes deste e já
         # deixou o anônimo em cache; sem limpar, `request.user` volta a ser
         # anônimo na primeira vez que alguém tocar no atributo lá dentro.
@@ -169,6 +220,7 @@ def _manter_o_dia_vivo(usuario):
 
     from django.core.management import call_command
 
-    # `--somente-o-dia` refaz só as refeições e a água de hoje. O seed inteiro
-    # remontaria plano e ficha a cada virada de data, e remontar plano é caro.
+    # `--somente-o-dia` refaz as refeições, a água e as CARGAS de hoje. O seed
+    # inteiro remontaria plano e ficha a cada virada de data, e remontar plano
+    # é caro.
     call_command("seed_demo", somente_o_dia=True, verbosity=0)

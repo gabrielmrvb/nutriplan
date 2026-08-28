@@ -23,6 +23,7 @@ from django.utils import timezone
 
 from accounts.models import (
     ONBOARDING_DONE,
+    ONBOARDING_LAST_STEP,
     ActivityLevel,
     Goal,
     MealStyle,
@@ -32,7 +33,7 @@ from accounts.models import (
     TrainingDay,
     WeightEntry,
 )
-from demo.middleware import DEMO_EMAIL
+from demo.middleware import DEMO_EMAIL, DEMO_ONBOARDING_EMAIL
 from plans import services as plan_services
 from plans.models import HydrationLog, MealLog, MealStatus
 from workouts import services as workout_services
@@ -50,6 +51,16 @@ GANHO_POR_SEMANA = Decimal("0.25")
 
 #: Quantas semanas de carga registrada, em cada exercicio de cada dia.
 SEMANAS_DE_CARGA = 4
+
+# ---------------------------------------------------------------- a Ana
+#
+# A persona da estreia. Os numeros sao deliberadamente diferentes dos do
+# Carlos — outro sexo, outra altura, outro objetivo — porque e assim que se ve,
+# olhando a tela, que o wizard esta lendo o perfil dela e nao o dele.
+ANA_IDADE = 27
+ANA_ALTURA_CM = 165
+ANA_DIAS_DE_TREINO = ((1, time(7, 30)), (3, time(7, 30)))
+ANA_DURACAO_MIN = 45
 
 #: Quantos dias de historico de refeicao. A tela de metricas anuncia "os
 #: ultimos 14 dias" — com menos que isso ela desenha um grafico de uma barra.
@@ -131,7 +142,7 @@ class Command(BaseCommand):
             action="store_true",
             dest="somente_o_dia",
             help=(
-                "Refaz apenas as refeicoes e a agua de hoje. E o caminho que o "
+                "Refaz o DIA: refeicoes, agua e cargas. E o caminho que o "
                 "middleware chama quando a data vira, e ele evita remontar "
                 "plano e ficha, que e a parte cara."
             ),
@@ -158,13 +169,31 @@ class Command(BaseCommand):
                 self._log("Nada a refazer: o demo ainda nao foi semeado.")
                 return
             self._preencher_o_dia(user, plano)
+
+            # As cargas tambem sao ancoradas em "hoje", e ficavam de fora.
+            #
+            # `_preencher_cargas` escreve a semana 0 na data de hoje e as tres
+            # anteriores para tras. Rodando so no seed completo, um dia depois
+            # do deploy a semana 0 virava ontem: a tela de treino perdia a
+            # linha "ultimo treino" do dia, e `resumo_da_sessao` — que filtra
+            # `ExerciseLog` por `date=hoje` — passava a devolver vazio, o que
+            # deixava a exportacao TCX do demo sem sessao nenhuma para exportar.
+            #
+            # Nao ha regra nova aqui: e a MESMA funcao que o seed completo
+            # chama, com a mesma progressao. O que muda e so quando ela roda.
+            ficha = user.training_plans.filter(is_active=True).first()
+            if ficha is not None:
+                self._preencher_cargas(user, ficha)
+
             self._log(self.style.SUCCESS("Dia do demo refeito."))
             return
 
         if options["refazer"]:
-            apagados, _ = User.objects.filter(email=DEMO_EMAIL).delete()
+            apagados, _ = User.objects.filter(
+                email__in=(DEMO_EMAIL, DEMO_ONBOARDING_EMAIL)
+            ).delete()
             if apagados:
-                self._log("Usuario de demonstracao removido.")
+                self._log("Usuarios de demonstracao removidos.")
 
         user, criado = User.objects.get_or_create(
             email=DEMO_EMAIL, defaults={"first_name": "Carlos"}
@@ -224,6 +253,7 @@ class Command(BaseCommand):
 
         self._preencher_o_dia(user, plano)
         self._preencher_cargas(user, ficha)
+        self._semear_a_estreia()
 
         self._log(
             self.style.SUCCESS(
@@ -236,6 +266,78 @@ class Command(BaseCommand):
                 + "."
             )
         )
+
+    def _semear_a_estreia(self):
+        """A persona que fica parada no onboarding, para o demo do primeiro uso.
+
+        POR QUE UM SEGUNDO USUARIO
+        O Carlos terminou o wizard, e quem terminou nao consegue ve-lo como
+        quem chega: `OnboardingStepMixin` liga `is_editing`, e os passos passam
+        a mostrar o fluxo de EDICAO — "Salvar" no lugar de "Continuar", sem a
+        barra de progresso do jeito que ela aparece na estreia. Mostrar isso
+        como se fosse o primeiro uso seria mostrar uma tela que o primeiro uso
+        nao tem.
+
+        POR QUE `onboarding_step` NO ULTIMO PASSO, E NAO NO PRIMEIRO
+        A guarda de `OnboardingStepMixin` so abre o passo N se o progresso
+        salvo ja chegou nele — e ela esta certa: sem isso o banco aceita perfil
+        pela metade que o calculo de dieta nao sabe ler. Entao para os cinco
+        passos serem VISITAVEIS por GET, o progresso precisa estar no ultimo.
+
+        Ela continua incompleta: `ONBOARDING_DONE` e 6, e ela para em 5. E como
+        o demo recusa todo POST, ela nunca avanca — o estado e estavel sem
+        precisar de nenhuma trava propria.
+
+        POR QUE UM PERFIL PREENCHIDO
+        Campo vazio nao mostra componente: o seletor de objetivo sem escolha, o
+        de divisao sem escolha e os dias de treino em branco deixariam tres dos
+        cinco passos sem nada para avaliar. Os valores sao ficticios e
+        diferentes dos do Carlos, de proposito.
+        """
+        User = get_user_model()
+        hoje = timezone.localdate()
+
+        user, criado = User.objects.get_or_create(
+            email=DEMO_ONBOARDING_EMAIL, defaults={"first_name": "Ana"}
+        )
+        if criado:
+            # Mesma razao da conta do Carlos: existe para ser LIDA pelo
+            # middleware, nunca para alguem entrar nela pela tela de login.
+            user.set_unusable_password()
+            user.first_name = "Ana"
+            user.save()
+
+        Profile.objects.update_or_create(
+            user=user,
+            defaults={
+                "sex": Sex.FEMALE,
+                "birth_date": date(hoje.year - ANA_IDADE, 3, 22),
+                "height_cm": ANA_ALTURA_CM,
+                "activity_level": ActivityLevel.ACTIVE,
+                "goal": Goal.CUT,
+                "split_preference": SplitPreference.DOIS,
+                "meal_style": MealStyle.QUICK,
+                "wake_time": time(6, 0),
+                "sleep_time": time(22, 30),
+                # Ultimo passo, e nao ONBOARDING_DONE: incompleta de verdade.
+                "onboarding_step": ONBOARDING_LAST_STEP,
+                "onboarding_completed_at": None,
+            },
+        )
+
+        # O passo 3 le os dias de treino do usuario. Sem eles o formulario abre
+        # com todos os dias desmarcados, e o passo perde o que ele tem para
+        # mostrar.
+        TrainingDay.objects.filter(user=user).delete()
+        for dia, hora in ANA_DIAS_DE_TREINO:
+            TrainingDay.objects.create(
+                user=user, weekday=dia, start_time=hora, duration_min=ANA_DURACAO_MIN
+            )
+
+        # E so. Nada de plano, ficha, peso ou refeicao: quem esta no meio do
+        # wizard ainda nao tem nenhuma dessas coisas, e inventa-las aqui seria
+        # justamente a "versao inventada do onboarding" que o demo nao quer.
+        self._log("Estreia pronta: Ana, parada no passo " + str(ONBOARDING_LAST_STEP) + ".")
 
     def _preencher_o_dia(self, user, plano):
         """Duas semanas de historico, e o dia de hoje pela metade.

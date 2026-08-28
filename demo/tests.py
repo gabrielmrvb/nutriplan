@@ -6,6 +6,7 @@ coisas continuarem verdadeiras: nenhuma requisição dele escreve, e nenhuma
 tela dele alcança outro usuário.
 """
 import re
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -13,9 +14,15 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from accounts.models import Profile, User
-from demo.middleware import DEMO_EMAIL
+from accounts.models import (
+    ONBOARDING_DONE,
+    ONBOARDING_LAST_STEP,
+    Profile,
+    User,
+)
+from demo.middleware import DEMO_EMAIL, DEMO_ONBOARDING_EMAIL
 from plans.models import HydrationLog, MealLog, MealStatus
+from workouts.health_export import resumo_da_sessao
 from workouts.models import ExerciseLog
 
 AREA = r'class="demo-area" href="([^"]+)"'
@@ -498,3 +505,271 @@ class DemoNaoApodreceComOTempoTests(TestCase):
         self.client.get("/demo/hoje/")
 
         self.assertEqual(MealLog.objects.filter(user=outra).count(), antes)
+
+
+class DemoCargasDeHojeTests(TestCase):
+    """As cargas envelheciam junto com a data, e as refeições não.
+
+    O seed escreve a semana 0 do histórico de carga em "hoje". Só que ele roda
+    no deploy, e `--somente-o-dia` — o caminho que o middleware chama quando a
+    data vira — refazia apenas refeições e água. Um dia depois do deploy, a
+    semana 0 era ontem.
+
+    O que quebrava com isso não era só a estética da tela de treino: era a
+    exportação. `resumo_da_sessao` filtra `ExerciseLog` por `date=hoje`, então
+    o TCX do demo passava a não ter sessão nenhuma para exportar.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        _semear()
+
+    def setUp(self):
+        self.pessoa = get_user_model().objects.get(email=DEMO_EMAIL)
+
+    def test_the_seed_writes_loads_dated_today(self):
+        hoje = timezone.localdate()
+        self.assertTrue(
+            ExerciseLog.objects.filter(user=self.pessoa, date=hoje).exists()
+        )
+
+    def test_stale_loads_are_re_anchored_when_the_date_turns(self):
+        """A simulação da virada de data: empurra tudo para trás e abre a tela.
+
+        Empurrar em vez de apagar é o que reproduz o defeito de verdade — os
+        registros continuavam existindo, só que datados de ontem, e por isso
+        nenhuma guarda de "está vazio?" os pegava.
+        """
+        hoje = timezone.localdate()
+        ontem = hoje - timedelta(days=1)
+
+        for registro in ExerciseLog.objects.filter(user=self.pessoa):
+            registro.date = registro.date - timedelta(days=1)
+            registro.save(update_fields=["date"])
+        MealLog.objects.filter(user=self.pessoa, date=hoje).delete()
+
+        self.assertFalse(
+            ExerciseLog.objects.filter(user=self.pessoa, date=hoje).exists(),
+            "o cenário não foi montado: ainda há carga de hoje",
+        )
+
+        self.client.get("/demo/hoje/")
+
+        self.assertTrue(
+            ExerciseLog.objects.filter(user=self.pessoa, date=hoje).exists(),
+            "a recarga do dia não trouxe as cargas junto",
+        )
+
+    def test_the_tcx_export_has_a_session_to_export_today(self):
+        """A pergunta que motivou a correção: o TCX do demo volta a
+        representar o estado atual?
+
+        `tem_dados` é falso quando não há `ExerciseLog` no dia, e um TCX sem
+        sessão é um arquivo que o Apple Saúde e o Health Connect recusam.
+        """
+        resumo = resumo_da_sessao(self.pessoa)
+        self.assertTrue(resumo.tem_dados)
+
+    def test_the_export_survives_the_date_turning(self):
+        hoje = timezone.localdate()
+        for registro in ExerciseLog.objects.filter(user=self.pessoa):
+            registro.date = registro.date - timedelta(days=1)
+            registro.save(update_fields=["date"])
+        MealLog.objects.filter(user=self.pessoa, date=hoje).delete()
+
+        self.assertFalse(resumo_da_sessao(self.pessoa).tem_dados)
+
+        self.client.get("/demo/hoje/")
+
+        self.assertTrue(resumo_da_sessao(self.pessoa).tem_dados)
+
+    def test_the_progression_still_climbs_after_the_refresh(self):
+        """Re-ancorar não pode achatar o histórico: é a progressão que a seta
+        verde da tela de treino desenha."""
+        hoje = timezone.localdate()
+        MealLog.objects.filter(user=self.pessoa, date=hoje).delete()
+        for registro in ExerciseLog.objects.filter(user=self.pessoa):
+            registro.date = registro.date - timedelta(days=1)
+            registro.save(update_fields=["date"])
+
+        self.client.get("/demo/hoje/")
+
+        datas = set(
+            ExerciseLog.objects.filter(user=self.pessoa).values_list("date", flat=True)
+        )
+        self.assertIn(hoje, datas)
+        self.assertGreater(len(datas), 1, "sobrou uma semana só de histórico")
+
+    def test_the_refresh_never_reaches_a_real_person(self):
+        """A recarga continua sendo uma escrita num pedido de leitura. O que a
+        torna aceitável é o alcance, e agora ela toca uma tabela a mais."""
+        outra = User.objects.create_user(
+            email="pessoa.cargas@exemplo.com", password="senha-bem-forte-123"
+        )
+        Profile.objects.create(
+            user=outra, sex="M", birth_date="1990-01-01", height_cm=180,
+            onboarding_step=99,
+        )
+        exercicio = ExerciseLog.objects.filter(user=self.pessoa).first().exercise
+        ExerciseLog.objects.create(
+            user=outra, exercise=exercicio, date=timezone.localdate() - timedelta(days=3),
+            set_number=1, weight_kg=Decimal("40.00"), reps=10,
+        )
+        antes = set(ExerciseLog.objects.filter(user=outra).values_list("pk", flat=True))
+
+        MealLog.objects.filter(user=self.pessoa, date=timezone.localdate()).delete()
+        self.client.get("/demo/hoje/")
+
+        depois = set(ExerciseLog.objects.filter(user=outra).values_list("pk", flat=True))
+        self.assertEqual(antes, depois)
+
+
+class DemoOnboardingTests(TestCase):
+    """A estreia: o wizard real, com uma persona parada nele.
+
+    O que estes testes protegem é a promessa da rota — que ela mostre o
+    onboarding DE VERDADE, e não uma reprodução dele. Uma reprodução nasce
+    igual e diverge na primeira semana, que é o mesmo motivo pelo qual o demo
+    monta o app inteiro em vez de copiar telas.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        _semear()
+
+    def setUp(self):
+        self.ana = get_user_model().objects.get(email=DEMO_ONBOARDING_EMAIL)
+
+    # ------------------------------------------------------------ a porta
+    def test_the_door_opens_without_a_session(self):
+        resposta = self.client.get("/demo/comecar/", follow=True)
+        self.assertEqual(resposta.status_code, 200)
+
+    def test_the_door_lands_on_the_first_step(self):
+        """No primeiro passo, e não no pendente.
+
+        `/conta/onboarding/` sozinho redireciona para o passo em que a pessoa
+        parou — que na Ana é o último. Quem chega para avaliar o primeiro uso
+        quer começar do começo.
+
+        E chega SEM salto: o apelido reescreve o caminho dentro do middleware,
+        do mesmo jeito que `/demo/hoje/` serve o painel. Um 302 aqui seria uma
+        volta ao servidor por nada.
+        """
+        from accounts.views import STEP_META
+
+        resposta = self.client.get("/demo/comecar/")
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(resposta.context["step"], 1)
+        self.assertIn(STEP_META[1][0], resposta.content.decode())
+
+    # ------------------------------------------------------- os cinco passos
+    def test_all_five_real_steps_can_be_walked(self):
+        for passo in range(1, ONBOARDING_LAST_STEP + 1):
+            with self.subTest(passo=passo):
+                resposta = self.client.get(f"/demo/conta/onboarding/{passo}/")
+                self.assertEqual(resposta.status_code, 200)
+
+    def test_each_step_shows_its_own_title_from_the_real_app(self):
+        """Os textos são os do app: `STEP_META` é lido da view real, e não
+        copiado para cá."""
+        from accounts.views import STEP_META
+
+        for passo, (titulo, _sub) in STEP_META.items():
+            with self.subTest(passo=passo):
+                corpo = self.client.get(
+                    f"/demo/conta/onboarding/{passo}/"
+                ).content.decode()
+                self.assertIn(titulo, corpo)
+
+    def test_the_steps_use_the_real_template(self):
+        resposta = self.client.get("/demo/conta/onboarding/1/")
+        self.assertIn("accounts/onboarding/step.html", [t.name for t in resposta.templates])
+
+    def test_the_wizard_shows_the_debut_flow_and_not_the_editing_one(self):
+        """`is_editing` liga para quem já concluiu, e aí os passos viram tela
+        de edição — outro rótulo no botão, outra navegação. Mostrar isso como
+        primeiro uso seria mostrar uma tela que o primeiro uso não tem."""
+        resposta = self.client.get("/demo/conta/onboarding/1/")
+        self.assertFalse(resposta.context["is_editing"])
+
+    def test_the_navigation_inside_the_wizard_stays_inside_the_demo(self):
+        corpo = self.client.get("/demo/conta/onboarding/3/").content.decode()
+        for destino in re.findall(LINK, corpo):
+            with self.subTest(destino=destino):
+                self.assertTrue(
+                    destino.startswith("/demo/") or destino.startswith("/static/"),
+                    f"{destino} sai do demo",
+                )
+
+    # ---------------------------------------------------------- o estado dela
+    def test_she_is_genuinely_mid_onboarding(self):
+        perfil = self.ana.profile
+        self.assertLess(perfil.onboarding_step, ONBOARDING_DONE)
+        self.assertFalse(perfil.onboarding_complete)
+        self.assertIsNone(perfil.onboarding_completed_at)
+
+    def test_she_never_finishes_because_the_demo_refuses_every_post(self):
+        """O estado dela é estável por construção, e não por uma trava
+        própria: sem POST, `advance_onboarding` nunca roda."""
+        antes = self.ana.profile.onboarding_step
+        resposta = self.client.post(
+            "/demo/conta/onboarding/1/", {"height_cm": 170}
+        )
+        self.assertEqual(resposta.status_code, 200)
+        self.ana.profile.refresh_from_db()
+        self.assertEqual(self.ana.profile.onboarding_step, antes)
+
+    def test_her_account_cannot_be_logged_into(self):
+        self.assertFalse(self.ana.has_usable_password())
+
+    # ------------------------------------------------------- o isolamento
+    def test_the_two_personas_never_meet(self):
+        """A Ana só existe no wizard, e o Carlos só fora dele.
+
+        Se o Carlos entrasse no wizard, ele mostraria a tela de edição; se a
+        Ana aparecesse no painel, ela não teria plano nenhum para desenhar.
+        """
+        painel = self.client.get("/demo/hoje/")
+        self.assertEqual(painel.context["user"].email, DEMO_EMAIL)
+
+        passo = self.client.get("/demo/conta/onboarding/2/")
+        self.assertEqual(passo.context["user"].email, DEMO_ONBOARDING_EMAIL)
+
+        # E a capa continua sendo a do Carlos: é ele que ela apresenta.
+        capa = self.client.get("/demo/")
+        self.assertEqual(capa.context["pessoa"].email, DEMO_EMAIL)
+
+    def test_she_owns_no_plan_and_no_routine(self):
+        """Quem está no meio do wizard ainda não tem plano — inventar um seria
+        justamente a versão fabricada do onboarding que o demo não quer."""
+        self.assertFalse(self.ana.plans.exists())
+        self.assertFalse(self.ana.training_plans.exists())
+
+    def test_the_real_onboarding_still_demands_a_login(self):
+        """A rota de verdade não pode ter afrouxado."""
+        resposta = self.client.get("/conta/onboarding/1/")
+        self.assertEqual(resposta.status_code, 302)
+        self.assertIn("/conta/entrar/", resposta["Location"])
+
+    def test_no_real_persons_data_is_reachable_from_the_wizard(self):
+        outra = User.objects.create_user(
+            email="pessoa.onb@exemplo.com", password="senha-bem-forte-123"
+        )
+        Profile.objects.create(
+            user=outra, sex="F", birth_date="1995-02-02", height_cm=160,
+            onboarding_step=3,
+        )
+        for passo in range(1, ONBOARDING_LAST_STEP + 1):
+            corpo = self.client.get(
+                f"/demo/conta/onboarding/{passo}/"
+            ).content.decode()
+            with self.subTest(passo=passo):
+                self.assertNotIn(outra.email, corpo)
+
+    def test_running_the_seed_twice_does_not_duplicate_her(self):
+        call_command("seed_demo", verbosity=0)
+        self.assertEqual(
+            User.objects.filter(email=DEMO_ONBOARDING_EMAIL).count(), 1
+        )
