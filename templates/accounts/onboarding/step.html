@@ -5,12 +5,19 @@
 
 {% block content %}
   <div class="wizard">
-    <div class="wizard__steps">
-      {% for n in step_range %}
-        <span class="wizard__step
-          {% if n < step %}wizard__step--done
-          {% elif n == step %}wizard__step--current{% endif %}"></span>
-      {% endfor %}
+    {% comment %}
+      Uma trilha contínua, e não cinco segmentos.
+
+      Os segmentos diziam quantos passos existem, e a linha logo abaixo já diz
+      isso melhor ("Passo 4/5 · 80%"). O que eles NÃO conseguiam era mostrar o
+      avanço: segmento é ligado ou desligado, então a barra pulava de 60% para
+      80% sem passar pelo meio.
+
+      Com uma trilha só, a largura anima — e o avanço vira movimento em vez de
+      troca de estado.
+    {% endcomment %}
+    <div class="wizard__trilha" role="presentation">
+      <span class="wizard__avanco" style="width: {{ progress_pct }}%"></span>
     </div>
     {% comment %}
       "Passo 4/5 · 80%" numa linha só, em monoespaçada.
@@ -109,5 +116,112 @@
     <p class="muted center" style="margin-top:1rem">
       Pode fechar o app à vontade — cada passo é salvo assim que você avança.
     </p>
+  {% endif %}
+
+  {% if is_last_step and not is_editing %}
+    {% comment %}
+      A tela de montagem do plano.
+
+      Ela cobre um vão real, e o número importa: o POST do último passo leva 9
+      milissegundos — quem monta o plano é a PRIMEIRA abertura do painel, que
+      mede 196ms no meu banco local e bem mais no Render, com Postgres remoto e
+      instância fria. Nesse intervalo a pessoa acabou de tocar "Concluir" e a
+      tela não muda.
+
+      As três frases descrevem o que está mesmo acontecendo, nessa ordem:
+      `calculate()` faz a taxa metabólica, `macro_rows` divide os macros,
+      `create_routine` monta a ficha. Não são enfeite.
+
+      Só no último passo, e só em quem está terminando: quem volta para editar
+      um passo depois de pronto recebe "Salvar" e vai para o perfil, e uma tela
+      dizendo "montando seu plano" ali seria mentira.
+    {% endcomment %}
+    <div class="montagem" data-montagem hidden aria-hidden="true">
+      <div class="montagem__corpo" role="status" aria-live="polite">
+        <span class="montagem__anel" aria-hidden="true"></span>
+        <p class="montagem__frase" data-montagem-frase>Calculando sua taxa metabólica basal…</p>
+        <p class="montagem__nota">Isso leva alguns segundos.</p>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        var caixa = document.querySelector("[data-montagem]");
+        var frase = document.querySelector("[data-montagem-frase]");
+        var form = document.querySelector(".card form");
+        if (!caixa || !form || !window.fetch || !window.FormData) return;
+
+        var FRASES = [
+          "Calculando sua taxa metabólica basal…",
+          "Ajustando a divisão de macronutrientes…",
+          "Estruturando a sua divisão de treino…"
+        ];
+        var PASSO_MS = 500;
+
+        /* Um piso, e não uma duração fixa.
+         *
+         * Duração fixa seria esperar de propósito: o trabalho pode terminar
+         * antes, e segurar a pessoa para ela ver uma animação é cobrar tempo
+         * dela para parecer que o app trabalhou muito.
+         *
+         * O piso existe para o contrário: sem ele, uma resposta de 200ms faria
+         * a tela inteira piscar e sumir, que é pior que não ter tela nenhuma.
+         * 700ms é o menor tempo em que uma frase é lida. */
+        var PISO_MS = 700;
+
+        form.addEventListener("submit", function (evento) {
+          evento.preventDefault();
+
+          caixa.hidden = false;
+          caixa.removeAttribute("aria-hidden");
+          document.body.classList.add("montando");
+
+          var indice = 0;
+          var relogio = setInterval(function () {
+            indice = (indice + 1) % FRASES.length;
+            frase.textContent = FRASES[indice];
+          }, PASSO_MS);
+
+          var inicio = Date.now();
+
+          fetch(form.action || location.href, {
+            method: "POST",
+            body: new FormData(form),
+            credentials: "same-origin",
+            redirect: "follow",
+            headers: { "X-Requested-With": "XMLHttpRequest" }
+          })
+            .then(function (r) {
+              var espera = Math.max(0, PISO_MS - (Date.now() - inicio));
+              setTimeout(function () {
+                clearInterval(relogio);
+                if (r.redirected) {
+                  location.assign(r.url);
+                  return;
+                }
+                /* Sem redirecionamento, o formulário voltou com erro — a
+                 * janela de sono inválida, por exemplo. Envio de verdade, para
+                 * o servidor renderizar os erros no lugar certo. */
+                esconder();
+                form.submit();
+              }, espera);
+            })
+            .catch(function () {
+              /* Rede caiu no meio: o caminho normal do navegador ainda pode
+               * funcionar, e é melhor tentar do que deixar a pessoa presa
+               * numa tela de carregamento. */
+              clearInterval(relogio);
+              esconder();
+              form.submit();
+            });
+        });
+
+        function esconder() {
+          caixa.hidden = true;
+          caixa.setAttribute("aria-hidden", "true");
+          document.body.classList.remove("montando");
+        }
+      })();
+    </script>
   {% endif %}
 {% endblock %}

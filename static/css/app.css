@@ -2431,10 +2431,42 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
    ========================================================================== */
 
 .wizard { margin-bottom: 1.3rem; }
-.wizard__steps { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: .35rem; margin-bottom: .5rem; }
-.wizard__step { height: .3rem; border-radius: var(--pill); background: var(--surface-3); }
-.wizard__step--done { background: var(--brand); }
-.wizard__step--current { background: var(--brand); opacity: .5; }
+/* A trilha do wizard.
+ *
+ * Eram cinco segmentos, ligados ou desligados. Segmento não tem meio-termo: a
+ * barra saltava de 60% para 80% sem passar pelo caminho, e o que a pessoa via
+ * era uma troca de estado, não um avanço.
+ *
+ * `overflow: hidden` na trilha é o que mantém a quina arredondada quando o
+ * avanço está em 20% — sem ele, a ponta esquerda do preenchimento fica
+ * arredondada e a direita, reta. */
+.wizard__trilha {
+  height: .3rem;
+  margin-bottom: .5rem;
+  border-radius: var(--pill);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+/* `width` e não `transform: scaleX`, apesar de scaleX ser mais barato: escalar
+   deformaria a quina arredondada da ponta, e a ponta é justamente onde o olho
+   lê quanto falta. Um elemento por tela, sem filhos, não paga nada por isso.
+ *
+ * `var(--ease)` e não o `ease` do pedido: este arquivo tem UMA curva, e há
+ * teste travando isso — duas curvas na mesma tela é a inconsistência que
+ * ninguém aponta e todo mundo sente. Os 300ms são os pedidos; o que muda é
+ * só a aceleração, que passa a ser a mesma do resto do app. */
+.wizard__avanco {
+  display: block;
+  height: 100%;
+  border-radius: var(--pill);
+  background: var(--brand);
+  transition: width .3s var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wizard__avanco { transition: none; }
+}
 
 /* Uma linha só, e não dois textos nas pontas.
    Eram `space-between`: o olho atravessava a largura da tela para juntar duas
@@ -4253,4 +4285,84 @@ body::before {
   .today-hero,
   .ofensiva,
   .agua { background: var(--surface); }
+}
+
+/* ==========================================================================
+   33. A montagem do plano
+   ========================================================================== */
+
+/* A tela que cobre o vão entre "Concluir" e o painel pronto.
+ *
+ * `position: fixed` e não um modal: `<dialog>` traria foco, tecla Esc e um
+ * backdrop que a pessoa pode fechar — e aqui nada disso serve. Não há o que
+ * escolher nesta tela, e poder fechá-la deixaria a pessoa olhando um
+ * formulário que já foi enviado.
+ */
+.montagem {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: var(--pad);
+  background: var(--bg);
+  animation: montagem-entra .2s var(--ease);
+}
+
+@keyframes montagem-entra {
+  from { opacity: 0; }
+}
+
+/* A rolagem trava enquanto a tela está no ar: rolar por trás de uma
+   sobreposição opaca é mexer no que não se vê. */
+body.montando { overflow: hidden; }
+
+.montagem__corpo {
+  display: grid;
+  justify-items: center;
+  gap: .9rem;
+  max-width: 20rem;
+  text-align: center;
+}
+
+/* O anel gira em `transform`, que é a única propriedade que o compositor anima
+   sem refazer layout nem repintar. Girar por `border-width` ou por `background`
+   custaria um repaint a cada quadro, e esta tela aparece justamente quando o
+   aparelho já está ocupado montando o plano. */
+.montagem__anel {
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 3px solid color-mix(in srgb, var(--brand) 22%, transparent);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: montagem-gira .8s linear infinite;
+}
+
+@keyframes montagem-gira {
+  to { transform: rotate(360deg); }
+}
+
+/* A frase troca a cada 500ms, e a altura é reservada para as três: sem
+   `min-height`, uma frase de duas linhas empurraria o resto da tela para baixo
+   no meio da sequência, e a tela pularia. */
+.montagem__frase {
+  margin: 0;
+  min-height: 3rem;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.montagem__nota {
+  margin: 0;
+  color: var(--text-mute);
+  font-size: .82rem;
+}
+
+/* Quem pediu menos movimento recebe o anel parado — e ele continua sendo o
+   sinal de "está acontecendo", porque a frase continua trocando. */
+@media (prefers-reduced-motion: reduce) {
+  .montagem { animation: none; }
+  .montagem__anel { animation: none; border-top-color: var(--brand); }
 }

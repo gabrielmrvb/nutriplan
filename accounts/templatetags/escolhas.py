@@ -97,20 +97,32 @@ DETALHES = {
         "Abre para atum, tilápia e preparos longos.",
     ),
     # accounts.models.ActivityLevel
+    #
+    # Nenhuma das três cita frequência de TREINO, e isso é regra do app, não
+    # descuido: os dias de treino são perguntados no passo seguinte, e o fator
+    # de atividade já os inclui. Escrever "treinos 3 a 5x por semana" aqui
+    # faria a pessoa declarar a mesma coisa duas vezes — e o comentário em
+    # `ActivityLevel` registra que o "+ academia" foi REMOVIDO destes rótulos
+    # exatamente por isso.
+    #
+    # São três níveis, e não quatro. Um quarto mudaria o fator calórico, que é
+    # decisão de nutrição e não de texto: os fatores foram deliberadamente
+    # conservadores em 24/08/2026, porque errar para cima faz a pessoa não
+    # emagrecer e concluir que dieta não funciona.
     "sedentary": (
         "escrivaninha",
         "Pouco ativo",
-"Sentado quase o dia todo.",
+"Trabalho sentado, quase sem caminhar.",
     ),
     "light": (
         "bicicleta",
         "Moderadamente ativo",
-"Caminho todo dia ou fico em pé.",
+"Caminho bastante ou fico em pé.",
     ),
     "active": (
         "ferramentas",
         "Altamente ativo",
-"Trabalho braçal ou muito em pé.",
+"Trabalho braçal ou em pé o dia todo.",
     ),
 }
 

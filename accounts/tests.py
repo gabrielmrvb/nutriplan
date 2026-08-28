@@ -6,6 +6,9 @@ abandona no meio. É onde um wizard quebra na prática.
 from datetime import date, time
 from decimal import Decimal
 
+from pathlib import Path
+
+from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
 
@@ -298,3 +301,113 @@ class WizardChromeTests(TestCase):
                 self.assertLessEqual(
                     len(dados[2]), 45, f"{valor}: apoio com {len(dados[2])} caracteres"
                 )
+
+
+class PlanBuildingScreenTests(TestCase):
+    """A tela que cobre o vão entre "Concluir" e o painel pronto.
+
+    O número que a justifica: o POST do último passo leva 9 milissegundos. Quem
+    monta o plano é a PRIMEIRA abertura do painel — `sync_active_plan` roda na
+    entrada da tela, não no fim do wizard —, e ali são 196ms no banco local e
+    bem mais no Render, com Postgres remoto. Nesse intervalo a pessoa acabou de
+    tocar "Concluir" e a tela não muda.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="montagem@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(self.user)
+        self.client.post(step_url(1), STEP1)
+        self.client.post(step_url(2), STEP2)
+        self.client.post(step_url(3), STEP3)
+        self.client.post(step_url(4), STEP4)
+
+    def test_the_screen_exists_only_on_the_last_step(self):
+        for passo in (1, 2, 3, 4):
+            with self.subTest(passo=passo):
+                self.assertNotContains(self.client.get(step_url(passo)), "data-montagem")
+        self.assertContains(self.client.get(step_url(5)), "data-montagem")
+
+    def test_it_starts_hidden(self):
+        """Ela cobre a tela inteira. Chegar visível seria esconder o
+        formulário que a pessoa precisa preencher."""
+        html = self.client.get(step_url(5)).content.decode()
+        bloco = html.split("data-montagem", 1)[1][:80]
+        self.assertIn("hidden", bloco)
+
+    def test_the_messages_describe_work_that_is_actually_happening(self):
+        """Na ordem em que acontece: `calculate()` faz a taxa metabólica,
+        `macro_rows` divide os macros, `create_routine` monta a ficha.
+
+        Frase que descreve trabalho inexistente é tempo cobrado da pessoa para
+        o app parecer que se esforçou."""
+        html = self.client.get(step_url(5)).content.decode()
+        for frase in ("metabólica basal", "macronutrientes", "divisão de treino"):
+            with self.subTest(frase=frase):
+                self.assertIn(frase, html)
+
+    def test_someone_editing_a_finished_wizard_never_sees_it(self):
+        """Quem volta para editar recebe "Salvar" e vai para o perfil. Uma tela
+        dizendo "montando seu plano" ali seria mentira."""
+        self.client.post(step_url(5), STEP5)
+        self.assertNotContains(self.client.get(step_url(5)), "data-montagem")
+
+    def test_the_form_still_submits_without_javascript(self):
+        """A sobreposição é melhoria progressiva: quem tem o script desligado
+        envia o formulário do jeito de sempre. O `<form>` continua com `action`
+        e `method` — nada depende do script para o dado chegar."""
+        html = self.client.get(step_url(5)).content.decode()
+        formulario = html.split('<div class="card">', 1)[1].split("</form>", 1)[0]
+        self.assertIn('method="post"', formulario)
+
+        resposta = self.client.post(step_url(5), STEP5)
+        self.assertRedirects(resposta, reverse("plans:today"))
+
+    def test_a_form_error_keeps_the_person_on_the_step(self):
+        """O caminho arriscado da sobreposição: sem redirecionamento, ela
+        precisa sair do caminho e deixar o servidor renderizar os erros. Se
+        ficasse no ar, a pessoa olharia uma tela de carregamento para sempre."""
+        resposta = self.client.post(
+            step_url(5), {**STEP5, "wake_time": "07:00", "sleep_time": "10:00"}
+        )
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn("muito curta", str(resposta.context["form"].errors))
+
+        script = resposta.content.decode()
+        self.assertIn("r.redirected", script)
+        self.assertIn("form.submit()", script)
+
+
+class WizardProgressBarTests(TestCase):
+    """A trilha de progresso, que agora anda em vez de saltar."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="trilha@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(self.user)
+        self.client.post(step_url(1), STEP1)
+
+    def test_the_bar_is_one_track_and_not_five_segments(self):
+        """Segmento é ligado ou desligado: a barra saltava de 60% para 80% sem
+        passar pelo caminho, e o que a pessoa via era troca de estado."""
+        html = self.client.get(step_url(2)).content.decode()
+        self.assertIn("wizard__trilha", html)
+        self.assertIn("wizard__avanco", html)
+        self.assertNotIn("wizard__step--done", html)
+
+    def test_the_fill_carries_the_real_percentage(self):
+        for passo, pct in ((2, 40), (3, 60)):
+            with self.subTest(passo=passo):
+                if passo == 3:
+                    self.client.post(step_url(2), STEP2)
+                html = self.client.get(step_url(passo)).content.decode()
+                self.assertIn(f"width: {pct}%", html)
+
+    def test_the_fill_animates_with_the_project_curve(self):
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        regra = css.split(chr(10) + ".wizard__avanco {", 1)[1].split("}", 1)[0]
+        self.assertIn("transition: width .3s var(--ease)", regra)
