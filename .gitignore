@@ -32,3 +32,8 @@ moldes/
 # Capturas e HTMLs gerados por scripts/exportar_telas.py + capturar_telas.ps1.
 # São saída de ferramenta, refeita a qualquer momento — não versionamos.
 .ui_snapshots/
+
+# MU LostPlanet: site do servidor 97D. Terceiro vizinho a morar nesta pasta —
+# ver o histórico de `mu-direct-games` e `mofado-mu` logo acima. É outro
+# projeto, não pertence ao NutriPlan, e por isso este repositório o ignora.
+lostplanet/
