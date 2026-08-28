@@ -257,6 +257,22 @@
                       {% csrf_token %}
                       <input type="hidden" name="total_series" value="{{ item.sets }}">
 
+                      {% comment %}
+                        Os degraus de 2,5 kg, que e o que a anilha da academia
+                        pesa — a menor que existe no par, entao e o menor passo
+                        que alguem consegue montar de verdade.
+
+                        Eles ficam ao lado da carga e o "OK" desceu para a
+                        faixa de baixo, e isso e medicao, nao gosto: sete
+                        controles nao cabem em 390px, e este arquivo ja
+                        registrou isso duas vezes. Com carga, dois degraus, OK
+                        e cronometro numa faixa so, o campo da carga sobrava
+                        com pixels de menos outra vez.
+
+                        Em duas faixas cada um respira: os degraus tem 44px, e
+                        o "OK" — que e o controle mais tocado da tela, um toque
+                        por serie — passa a ocupar a largura quase inteira.
+                      {% endcomment %}
                       <label class="registro__campo">
                         <span class="registro__rotulo">Carga</span>
                         {% comment %}
@@ -271,6 +287,15 @@
                                value="{% if item.load.melhor_hoje %}{{ item.load.melhor_hoje|floatformat:'-2' }}{% endif %}"
                                aria-label="Carga de {{ item.exercise.name }}">
                       </label>
+
+                      <button type="button" class="registro__passo" data-passo="-2.5"
+                              aria-label="Diminuir 2,5 kg na carga de {{ item.exercise.name }}">
+                        <span aria-hidden="true">&minus;2,5</span>
+                      </button>
+                      <button type="button" class="registro__passo" data-passo="2.5"
+                              aria-label="Aumentar 2,5 kg na carga de {{ item.exercise.name }}">
+                        <span aria-hidden="true">+2,5</span>
+                      </button>
 
                       {% comment %}
                         O botão de salvar É o contador.
@@ -1028,6 +1053,46 @@
             credentials: "same-origin"
           }).then(function (r) { return r.ok ? r.json() : Promise.reject(r); });
         }
+
+        /* Os degraus de 2,5 kg.
+         *
+         * Lê e escreve o MESMO campo de texto que a pessoa digita, com vírgula
+         * decimal — o app é pt-BR, e o valor volta para o campo como "62,5" e
+         * não "62.5". Trocar por `type=number` resolveria o passo de graça e
+         * quebraria a digitação: o navegador descarta "62,5" e envia vazio.
+         *
+         * Sem carga digitada, o primeiro toque parte da carga do último treino
+         * — que é o número que o placeholder já mostra. Começar do zero faria
+         * a pessoa tocar dezoito vezes para chegar onde estava.
+         */
+        function passo(campo, delta, anterior) {
+          var texto = (campo.value || "").replace(",", ".").trim();
+          var atual = parseFloat(texto);
+          if (isNaN(atual)) atual = anterior;
+          var novo = Math.max(0, Math.round((atual + delta) * 100) / 100);
+          campo.value = novo === 0 ? "" : String(novo).replace(".", ",");
+        }
+
+        document.addEventListener("click", function (evento) {
+          var botao = evento.target.closest("[data-passo]");
+          if (!botao) return;
+          evento.preventDefault();
+
+          var form = botao.closest(".registro");
+          var campo = form.querySelector(".registro__carga");
+          var anterior = parseFloat(
+            (campo.getAttribute("placeholder") || "").replace(",", ".")
+          );
+          passo(campo, parseFloat(botao.dataset.passo), isNaN(anterior) ? 0 : anterior);
+
+          /* O piso vira estado do botão: chegar em zero e o "menos" continuar
+           * aceso ensina que ele faz alguma coisa que não faz. */
+          form.querySelectorAll("[data-passo]").forEach(function (b) {
+            if (parseFloat(b.dataset.passo) < 0) {
+              b.disabled = !campo.value || parseFloat(campo.value.replace(",", ".")) <= 0;
+            }
+          });
+        });
 
         document.addEventListener("submit", function (evento) {
           var form = evento.target.closest(".registro");

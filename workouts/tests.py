@@ -2120,3 +2120,74 @@ class MuscleCoverageTests(TestCase):
             .distinct()
         )
         self.assertIn(MuscleGroup.CORE, grupos)
+
+
+class LoadStepperTests(TestCase):
+    """Os degraus de 2,5 kg ao lado da carga.
+
+    2,5 e nao 1: e o que a anilha da academia pesa, e como ela entra aos pares,
+    2,5 e o menor passo que alguem consegue montar de verdade na barra.
+    """
+
+    url = reverse("workouts:routine")
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+        self.client.force_login(self.user)
+        self.html = self.client.get(self.url).content.decode()
+        self.css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+
+    def test_every_exercise_gets_a_pair_of_steps(self):
+        exercicios = sum(
+            sessao.exercises.count()
+            for sessao in self.user.training_plans.get(is_active=True).sessions.all()
+        )
+        self.assertEqual(self.html.count('data-passo="2.5"'), exercicios)
+        self.assertEqual(self.html.count('data-passo="-2.5"'), exercicios)
+
+    def test_the_record_block_uses_two_rows_and_not_one(self):
+        """Sete controles nao cabem em 390px, e este arquivo ja registrou a
+        aritmetica duas vezes: carga, dois degraus de 44px, o OK e o cronometro
+        numa faixa so deixavam o campo da carga com menos de 70px.
+
+        Medido depois da mudanca: carga 128px, cada degrau 52, o OK 188.
+        """
+        bloco = self.css.split(chr(10) + ".registro {", 1)[1].split("}", 1)[0]
+        self.assertIn("grid-template-areas", bloco)
+        self.assertIn('"menos carga mais"', bloco)
+        self.assertIn('"salvar salvar timer"', bloco)
+
+    def test_the_steps_are_a_touch_target(self):
+        regra = self.css.split(chr(10) + ".registro__passo {", 1)[1].split("}", 1)[0]
+        self.assertIn("min-height: 2.75rem", regra)
+        # 3.25rem = 52px de largura. A regra do projeto mede as DUAS dimensoes.
+        self.assertIn("width: 3.25rem", regra)
+
+    def test_the_step_reads_and_writes_the_brazilian_comma(self):
+        """O campo e `type=text` porque `type=number` descarta "62,5" e envia
+        vazio. Entao o degrau precisa ler e devolver virgula — trocar por
+        `number` resolveria o passo de graca e quebraria a digitacao."""
+        script = self.html.split("function passo(", 1)[1].split("}", 1)[0]
+        self.assertIn('replace(",", ".")', script)
+        self.assertIn('replace(".", ",")', script)
+
+    def test_an_empty_field_steps_up_from_the_last_workout(self):
+        """Comecar do zero faria a pessoa tocar dezoito vezes para voltar onde
+        estava. O numero de partida e o que o placeholder ja mostra."""
+        # O trecho do SCRIPT, e nao do HTML: `split("data-passo")` cai no
+        # primeiro botao renderizado, que nao tem nada a ver com a regra.
+        manipulador = self.html.split('closest("[data-passo]")', 1)[1][:900]
+        self.assertIn('getAttribute("placeholder")', manipulador)
+
+        # E o placeholder de fato carrega a carga do treino anterior.
+        self.assertIn("item.load.melhor_anterior", self._template())
+
+    def _template(self):
+        caminho = Path(settings.BASE_DIR) / "templates" / "workouts" / "routine.html"
+        return caminho.read_text(encoding="utf-8")

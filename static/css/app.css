@@ -768,6 +768,19 @@ h3 { font-size: .95rem; font-weight: 650; }
   font-weight: 700;
 }
 
+/* O segundo degrau da hierarquia, depois da caloria no anel.
+ *
+ * Proteína é o macro que muda a decisão da próxima refeição — carboidrato e
+ * gordura acompanham o cardápio quase sozinhos. Empatados os três, a pergunta
+ * "já bati proteína?" custava uma varredura entre números do mesmo tamanho.
+ *
+ * O destaque é de PESO e TAMANHO, e não de cor: a cor dos três já é o código
+ * do gráfico empilhado logo acima, e repintar a proteína quebraria a
+ * correspondência entre a faixa e a legenda. */
+.hero-macros__item--chave { font-size: .84rem; }
+.hero-macros__item--chave .hero-macros__nome { color: var(--text); }
+.hero-macros__item--chave .hero-macros__valor { font-size: 1.12rem; font-weight: 780; }
+
 .hero-macros__meta {
   min-width: 0;
   overflow: hidden;
@@ -1251,9 +1264,13 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .btn--block { width: 100%; }
 
 /* Resposta ao toque.
-   O afundamento de 5% dura o tempo do dedo no botão e volta sozinho — é o que
-   diz "recebi" antes de o servidor responder. Era 2%, e 2% num alvo de 44px
-   é meio pixel de deslocamento: existia no código e não na tela. Num app usado de pé na academia,
+   O afundamento de 3% dura o tempo do dedo no botão e volta sozinho — é o que
+   diz "recebi" antes de o servidor responder.
+
+   Já foi 2% (meio pixel num alvo de 44px: existia no código e não na tela) e
+   já foi 5%. Assentou em 3: 5% num cartão de largura inteira desloca a borda
+   quase dez pixels, e o cartão parece pular em vez de responder. O que o teste
+   trava não é o número, é haver UM só. Num app usado de pé na academia,
    com o 4G da rua, essa fração de segundo é a diferença entre tocar uma vez e
    tocar quatro.
 
@@ -1277,6 +1294,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .install__go:active,
 .install__later:active,
 .option__summary:active,
+.registro__passo:active,
 .registro__salvar:active,
 .registro__timer:active,
 .rest-timer__close:active,
@@ -1284,7 +1302,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .session__head:active,
 .shopping__check:active,
 .supl__marcar:active,
-.tabbar__item:active { transform: scale(.95); }
+.tabbar__item:active { transform: scale(.97); }
 
 /* Botão já tocado, esperando o servidor: sem isto a pessoa toca de novo. */
 .btn:disabled,
@@ -1325,6 +1343,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .install__go,
 .install__later,
 .option__summary,
+.registro__passo,
 .registro__salvar,
 .registro__timer,
 .rest-timer__close,
@@ -1365,6 +1384,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   .install__go:active,
   .install__later:active,
   .option__summary:active,
+  .registro__passo:active,
   .registro__salvar:active,
   .registro__timer:active,
   .rest-timer__close:active,
@@ -1996,9 +2016,23 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
    quarenta numa ficha de sete — e a repetição não trazia informação, porque
    quem faz 4×8 usa a mesma carga nas quatro. Agora são dois campos numa linha
    só: a carga e quantas séries saíram. */
+/* Duas faixas, e nao uma.
+ *
+ * A conta que decidiu: a 390px o cartao do exercicio da 318px uteis. Carga,
+ * dois degraus de 44px, o "OK" e o cronometro numa faixa so somam 104px de
+ * degrau mais 72 de OK mais 44 de cronometro mais quatro vaos — sobra menos de
+ * 70px para o campo da carga, e este arquivo ja registrou duas vezes que
+ * espremer esse campo e o defeito que volta.
+ *
+ * Em cima: os degraus ladeando a carga, que e onde o polegar espera encontra-
+ * los. Embaixo: o "OK" ocupando quase a largura toda, porque e o controle mais
+ * tocado da tela — um toque por serie — e o cronometro ao lado. */
 .registro {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "menos carga mais"
+    "salvar salvar timer";
   align-items: end;
   gap: .5rem;
   margin-top: .6rem;
@@ -2017,7 +2051,42 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   box-shadow: var(--halo);
 }
 
-.registro__campo { display: grid; gap: .25rem; min-width: 0; }
+.registro__campo { grid-area: carga; display: grid; gap: .25rem; min-width: 0; }
+
+/* Os degraus de 2,5 kg. Alinhados pela BASE do campo de carga, e nao pelo topo:
+   o campo tem um rotulo em cima, e alinhar pelo topo deixaria os dois botoes
+   flutuando acima da linha do numero que eles alteram. */
+.registro__passo {
+  display: grid;
+  place-items: center;
+  align-self: end;
+  width: 3.25rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: .82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
+              color var(--dur) var(--ease), transform .12s var(--ease);
+}
+
+.registro__passo[data-passo="-2.5"] { grid-area: menos; }
+.registro__passo[data-passo="2.5"] { grid-area: mais; }
+.registro__passo:hover { border-color: var(--brand); color: var(--brand); }
+
+/* O piso: a carga nao desce abaixo de zero, e o botao diz isso antes do toque
+   em vez de simplesmente nao reagir. */
+.registro__passo:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+  transform: none;
+}
 
 .registro__rotulo {
   color: var(--text-mute);
@@ -2050,6 +2119,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
    controles de 44px não cabem em 390 menos o padding, e o campo de carga
    ficava com 21 pixels. */
 .registro__salvar {
+  grid-area: salvar;
   display: grid;
   place-items: center;
   gap: .05rem;
@@ -2069,7 +2139,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 .registro__salvar:hover { background: var(--brand-strong); }
-.registro__salvar:active { transform: scale(.95); }
+.registro__salvar:active { transform: scale(.97); }
 .registro__salvar:disabled { opacity: .55; cursor: progress; }
 
 .registro__contagem { font-size: .72rem; font-weight: 700; opacity: .85; }
@@ -2086,6 +2156,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 /* O cronômetro precisa ser visível na academia ao meio-dia: fundo em
    cinza-médio, moldura clara, ícone na cor cheia. */
 .registro__timer {
+  grid-area: timer;
   display: grid;
   place-items: center;
   min-width: 2.75rem;
@@ -2105,7 +2176,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   color: var(--accent);
 }
 
-.registro__timer:active { transform: scale(.95); }
+.registro__timer:active { transform: scale(.97); }
 .registro__timer svg { width: 1.1rem; height: 1.1rem; }
 
 .registro__desfazer { margin: .35rem 0 0; }
@@ -2220,7 +2291,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 .rest-timer__more:hover { border-color: var(--accent); color: var(--text); }
-.rest-timer__more:active { transform: scale(.95); }
+.rest-timer__more:active { transform: scale(.97); }
 
 .rest-timer__close {
   display: grid;
@@ -2240,7 +2311,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 .rest-timer__close:hover { background: var(--surface-3); color: var(--text); }
-.rest-timer__close:active { transform: scale(.95); }
+.rest-timer__close:active { transform: scale(.97); }
 
 /* ==========================================================================
    18. Lista de compras e substituição
@@ -3355,7 +3426,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 
 .agua__botao span { color: var(--text-mute); font-size: .7rem; font-weight: 550; }
 .agua__botao:hover { border-color: var(--accent); background: var(--surface-3); }
-.agua__botao:active { transform: scale(.95); }
+.agua__botao:active { transform: scale(.97); }
 
 /* ------------------------------------------------- catálogo de suplementos */
 
@@ -3385,7 +3456,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 }
 
 .supl__marcar svg { width: 1rem; height: 1rem; }
-.supl__marcar:active { transform: scale(.95); }
+.supl__marcar:active { transform: scale(.97); }
 
 .supl__marcar.is-on {
   border-color: color-mix(in srgb, var(--brand) 38%, transparent);
@@ -4028,3 +4099,47 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
    âmbar, e um link verde no meio dele leria como outra coisa. */
 .demo-aviso a { color: var(--warm); font-weight: 700; }
 .demo-aviso a:hover { color: var(--text); }
+
+/* O botão que já recebeu o toque e espera o servidor.
+ *
+ * `aria-busy` e não uma classe: o estado é exatamente o que o atributo
+ * descreve, e quem usa leitor de tela recebe "ocupado" sem eu escrever nada a
+ * mais. A regra pega qualquer botão de envio do app — "Comi esta", "Pulei",
+ * "Continuar" do wizard — porque todos têm o mesmo problema numa rede de
+ * academia: o POST leva segundos e a tela não se mexe. */
+[type="submit"][aria-busy="true"] {
+  opacity: .6;
+  cursor: progress;
+  transform: none;
+}
+
+/* O cursor de progresso é de ponteiro, e no celular não existe ponteiro. O que
+   diz "estou trabalhando" ali é o pulso lento — devagar de propósito: rápido
+   leria como erro, e o que está acontecendo é espera normal. */
+@keyframes aguardando {
+  50% { opacity: .38; }
+}
+
+[type="submit"][aria-busy="true"] {
+  animation: aguardando 1.1s var(--ease) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [type="submit"][aria-busy="true"] { animation: none; }
+}
+
+/* O fio de acento no topo dos cartões de destaque do painel.
+ *
+ * Só nos três que a pessoa lê ANTES de decidir alguma coisa: a ofensiva, o
+ * resumo do dia e a água. Os outros seis cartões do painel são consulta —
+ * balanço de energia, como chegamos na meta, lembretes — e um fio verde em
+ * todos eles não destacaria nada, só pintaria a tela de listras.
+ *
+ * `color-mix` com o token, e não `rgba(16, 185, 129, .2)` escrito à mão: o
+ * verde do tema claro é #0c6b40, e o esmeralda fixo apareceria ali como uma
+ * cor que não pertence a lugar nenhum da paleta. Um valor, dois temas. */
+.today-hero,
+.ofensiva,
+.agua {
+  border-top: 1px solid color-mix(in srgb, var(--brand) 20%, transparent);
+}

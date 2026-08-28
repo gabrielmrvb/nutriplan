@@ -545,12 +545,14 @@ class MotionTests(TestCase):
         que ninguém aponta e todo mundo sente. Já houve: a lista geral
         encolhia 2% e o cartão do onboarding, 1%.
 
-        O valor passou de .98 para .95 com o design system. 2% num alvo de
-        44px é meio pixel — existia no código e não na tela. O que o teste
-        trava não é o número, é haver UM só.
+        O valor já foi .98 (2% num alvo de 44px é meio pixel — existia no
+        código e não na tela), depois .95, e assentou em .97: 5% num cartão de
+        largura inteira desloca a borda quase dez pixels, e o cartão parece
+        pular em vez de responder. O que o teste trava não é o número, é haver
+        UM só.
         """
         escalas = set(re.findall(r":active[^{]*\{[^}]*transform:\s*scale\(([^)]+)\)", self.css))
-        self.assertEqual(escalas, {".95"}, f"escalas de toque divergentes: {escalas}")
+        self.assertEqual(escalas, {".97"}, f"escalas de toque divergentes: {escalas}")
 
     def test_who_asked_for_less_movement_gets_less_movement(self):
         """Quem liga "reduzir movimento" no sistema costuma ter um motivo
@@ -1355,4 +1357,82 @@ class TouchFeedbackTests(TestCase):
             escala - sem_movimento,
             set(),
             f"afunda sem saída para menos movimento: {escala - sem_movimento}",
+        )
+
+
+class GymReadyTests(TestCase):
+    """O acabamento pedido para uso rapido na academia.
+
+    O que estes testes travam nao e o valor — e a decisao por tras dele: um
+    destaque so, um fio de acento so nos cartoes que sao destaque, e cor vinda
+    de token e nao escrita a mao.
+    """
+
+    def setUp(self):
+        self.css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+
+    def test_protein_is_the_only_macro_with_a_second_level_of_emphasis(self):
+        """Caloria ja tem o primeiro nivel: esta no anel, em corpo grande e
+        sozinha. Proteina e o segundo — dos tres macros, e o que muda a decisao
+        da proxima refeicao.
+
+        "Um destaque" e a regra: destacar dois de tres nao destaca nada.
+        """
+        hoje = (RAIZ / "templates" / "plans" / "today.html").read_text(encoding="utf-8")
+        self.assertEqual(hoje.count("hero-macros__item--chave"), 1)
+        self.assertIn("macro.slug == 'protein'", hoje)
+
+    def test_the_emphasis_is_weight_and_size_and_never_colour(self):
+        """A cor dos tres macros ja e o codigo da faixa empilhada logo acima.
+        Repintar a proteina quebraria a correspondencia entre faixa e legenda —
+        que e a unica coisa que a faixa tem para dizer."""
+        bloco = "".join(
+            trecho.split("}", 1)[0]
+            for trecho in self.css.split(".hero-macros__item--chave")[1:]
+        )
+        self.assertIn("font-size", bloco)
+        self.assertIn("font-weight", bloco)
+        # `color` no NOME e no valor e permitido; o que nao pode e a cor do
+        # macro mudar, e ela vem de `.macro-dot`.
+        self.assertNotIn("macro-dot", bloco)
+
+    def test_the_accent_edge_comes_from_the_token_and_not_a_fixed_hex(self):
+        """`rgba(16, 185, 129, .2)` e o esmeralda do tema ESCURO. No claro a
+        marca e #0c6b40, e o hex fixo apareceria la como uma cor que nao
+        pertence a paleta de lugar nenhum."""
+        regra = self.css.split(chr(10) + ".today-hero,", 1)[1].split("}", 1)[0]
+        self.assertIn("var(--brand)", regra)
+        self.assertNotIn("16, 185, 129", regra)
+
+    def test_only_the_three_summary_cards_carry_the_accent_edge(self):
+        """Nove cartoes com fio verde nao destacam nada, pintam listras. Os
+        tres sao os que a pessoa le ANTES de decidir: ofensiva, resumo do dia
+        e agua."""
+        regra = self.css.split(chr(10) + ".today-hero,", 1)[1]
+        seletores = regra.split("{", 1)[0]
+        self.assertEqual(
+            sorted(s.strip() for s in (".today-hero," + seletores).split(",") if s.strip()),
+            [".agua", ".ofensiva", ".today-hero"],
+        )
+
+    def test_a_pressed_submit_says_so_before_the_server_answers(self):
+        """Numa rede de academia o POST leva segundos, e nesses segundos a tela
+        fica identica ao que era: a pessoa toca de novo. O segundo toque nao
+        duplica nada, mas ensina que o botao nao funciona."""
+        self.assertIn('[type="submit"][aria-busy="true"]', self.css)
+
+        pwa = (RAIZ / "static" / "js" / "pwa.js").read_text(encoding="utf-8")
+        self.assertIn('aria-busy', pwa)
+        # O caminho de volta: quem toca em "voltar" recebe a pagina do cache do
+        # navegador como saiu — com o botao travado — e ficaria olhando um
+        # formulario morto.
+        self.assertIn('"pageshow"', pwa)
+        # E o caminho offline: enfileirado, o envio nao vai acontecer agora.
+        self.assertIn("nutriplan:enfileirado", pwa)
+
+    def test_the_waiting_pulse_has_a_way_out_of_the_movement(self):
+        trechos = self.css.split("prefers-reduced-motion")
+        self.assertTrue(
+            any('[type="submit"][aria-busy="true"]' in t.split("}\n}", 1)[0] for t in trechos[1:]),
+            "o pulso de espera anima sem saida para quem pediu menos movimento",
         )

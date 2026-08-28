@@ -114,7 +114,21 @@ coluna da direita), não entre ela e o almoço.
           </div>
           <ul class="hero-macros__legenda">
             {% for macro in macros %}
-              <li class="hero-macros__item">
+              {% comment %}
+                A proteína carrega uma classe a mais, e é a única que carrega.
+
+                Caloria já tem a hierarquia mais alta desta tela — está no anel,
+                em corpo grande, sozinha. Faltava o segundo degrau: dos três
+                macros, proteína é o que muda a decisão da próxima refeição.
+                Carboidrato e gordura acompanham o cardápio quase sozinhos;
+                proteína é a que fica devendo, e é por ela que existe o aviso de
+                cobertura no fim do dia.
+
+                Empatados os três, a pergunta "já bati proteína?" — que é a que
+                se faz várias vezes por dia — custava uma varredura entre três
+                números do mesmo tamanho.
+              {% endcomment %}
+              <li class="hero-macros__item{% if macro.slug == 'protein' %} hero-macros__item--chave{% endif %}">
                 <span class="macro-dot macro-dot--{{ macro.slug }}" aria-hidden="true"></span>
                 {% comment %}
                   A inicial é escrita, não é a palavra inteira cortada por

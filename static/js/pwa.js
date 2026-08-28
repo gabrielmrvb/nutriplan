@@ -281,4 +281,59 @@
     });
   }
 
+  /* ------------------------------------------------ retorno ao enviar */
+
+  /* O toque precisa dizer "recebi" antes do servidor responder.
+   *
+   * "Comi esta" e "Pulei" fazem POST e esperam o redirecionamento. Numa rede
+   * de academia isso leva segundos, e nesses segundos a tela fica idêntica ao
+   * que era: nada se move, e a pessoa toca de novo. O segundo toque não
+   * duplica nada — `update_or_create` cuida disso —, mas ensina que o botão
+   * não funciona.
+   *
+   * `setTimeout(0)` e não desabilitar na hora: desabilitar dentro do próprio
+   * evento de `submit` faz o navegador descartar o `name`/`value` do botão em
+   * parte dos casos, e é justamente o `status=done` que viajaria nele.
+   *
+   * O caminho de VOLTA reabilita: quem toca em "voltar" recebe a página do
+   * cache do navegador exatamente como saiu — com o botão travado — e ficaria
+   * olhando um formulário morto. */
+  document.addEventListener("submit", function (evento) {
+    var form = evento.target;
+    if (!form || form.tagName !== "FORM") return;
+    if ((form.method || "").toLowerCase() !== "post") return;
+    if (evento.defaultPrevented) return;
+
+    var botao = form.querySelector("[type=submit]:focus") ||
+                document.activeElement;
+    if (!botao || !form.contains(botao) || botao.type !== "submit") {
+      botao = form.querySelector("[type=submit]");
+    }
+    if (!botao) return;
+
+    setTimeout(function () {
+      botao.disabled = true;
+      botao.setAttribute("aria-busy", "true");
+    }, 0);
+  });
+
+  window.addEventListener("pageshow", function () {
+    document.querySelectorAll("[type=submit][aria-busy]").forEach(function (b) {
+      b.disabled = false;
+      b.removeAttribute("aria-busy");
+    });
+  });
+
+  /* Enfileirado sem rede: o envio não vai acontecer agora, então o botão
+   * volta. Sem isto, marcar uma refeição offline deixaria o botão travado
+   * até a pessoa recarregar a página. */
+  document.addEventListener("nutriplan:enfileirado", function (evento) {
+    var form = evento.target;
+    if (!form || !form.querySelectorAll) return;
+    form.querySelectorAll("[type=submit]").forEach(function (b) {
+      b.disabled = false;
+      b.removeAttribute("aria-busy");
+    });
+  });
+
 })();
