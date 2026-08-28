@@ -37,3 +37,29 @@ echo "→ alvos de toque e regras de estilo"
   --verbosity=0 --noinput
 
 echo "✓ commit liberado (a suíte completa roda no push)"
+
+echo "→ pasta de outro projeto no commit"
+# Esta conferência existe porque o erro aconteceu DUAS vezes: `mu-direct-games`
+# e depois `mofado-mu`, dois sites de MU Online que moram nesta pasta e foram
+# para o repositório por um `git add -A`. Da segunda vez foram 2.086 linhas de
+# PHP dentro de um commit sobre onboarding.
+#
+# Ignorar por nome não impediu a repetição — o próximo vizinho terá outro nome.
+# Aqui a lista é do que PODE estar no primeiro nível, e qualquer pasta nova
+# precisa entrar nela de propósito.
+CONHECIDAS="accounts catalog config demo plans push scripts static staticfiles supplements templates workouts"
+INTRUSAS=""
+for CAMINHO in $(git diff --cached --name-only --diff-filter=A); do
+  TOPO="${CAMINHO%%/*}"
+  case " $CONHECIDAS " in
+    *" $TOPO "*) continue ;;
+  esac
+  [ "$TOPO" = "$CAMINHO" ] && continue   # arquivo solto na raiz, tudo bem
+  INTRUSAS="$INTRUSAS $TOPO"
+done
+if [ -n "$INTRUSAS" ]; then
+  echo "  ✗ arquivo novo em pasta desconhecida:$(echo $INTRUSAS | tr ' ' '\n' | sort -u | tr '\n' ' ')"
+  echo "    Se a pasta é do projeto, acrescente o nome em CONHECIDAS neste hook."
+  echo "    Se não é, ela precisa entrar no .gitignore."
+  exit 1
+fi

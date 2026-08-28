@@ -15,6 +15,14 @@ media/
 # nada a ver com o NutriPlan. Os arquivos continuam no disco.
 mu-direct-games/
 
+# E `mofado-mu` entrou pelo MESMO erro, um mês depois — outro site de MU Online
+# na mesma pasta, com outro nome, e o mesmo `git add -A`. Ignorar por nome não
+# impediu a segunda vez, então o hook de commit passou a conferir a lista de
+# pastas de primeiro nível: pasta nova precisa ser declarada lá.
+mofado-mu/
+moldes/
+forja/
+
 # O FORJA e outro aplicativo, com git proprio, que mora nesta mesma pasta.
 forja/
 
