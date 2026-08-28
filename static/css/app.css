@@ -421,6 +421,10 @@ button { font-family: inherit; color: inherit; }
 .app-bar__nav { display: flex; align-items: center; gap: .3rem; }
 .app-bar__nav .app-bar__link { display: none; }
 
+/* O que só existe na largura em que a barra de cima é a navegação. No celular
+   quem navega é a barra de baixo, e o "Sair" foi para o rodapé do perfil. */
+.app-bar__so-desktop { display: none; }
+
 .app-bar__link,
 .app-bar__quiet {
   display: inline-flex;
@@ -3750,6 +3754,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   .container { padding: 1.9rem var(--pad) 3rem; }
   .tabbar { display: none; }
   .app-bar__nav .app-bar__link { display: inline-flex; }
+  .app-bar__so-desktop { display: block; }
   .app-bar { padding-inline: 1.9rem; }
 
   h1 { font-size: 1.9rem; }
@@ -4365,4 +4370,79 @@ body.montando { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .montagem { animation: none; }
   .montagem__anel { animation: none; border-top-color: var(--brand); }
+}
+
+/* ==========================================================================
+   34. Perfil: metas e conta
+   ========================================================================== */
+
+/* O cartão de metas leva a borda de acento dos destaques do painel: ele é o
+   mesmo tipo de peça — o número que a pessoa veio conferir. */
+.card--metas {
+  border-top: 1px solid color-mix(in srgb, var(--brand) 20%, transparent);
+}
+
+/* Duas colunas de dado, e as duas primeiras em corpo maior.
+ *
+ * Caloria e proteína acima de carboidrato e gordura pela mesma razão do
+ * painel: são as duas que mudam a decisão. A hierarquia é de tamanho, não de
+ * cor — a cor dos macros é o código do gráfico, e repintar aqui ensinaria uma
+ * correspondência que não existe nesta tela. */
+.metas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: .75rem 1rem;
+  margin: 0 0 1rem;
+}
+
+.metas > div { min-width: 0; }
+
+.metas dt {
+  color: var(--text-mute);
+  font-size: .74rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.metas dd {
+  margin: .12rem 0 0;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.metas__principal { font-size: 1.35rem; font-weight: 780; }
+/* A unidade não cresce junto: "2765" é o dado e "kcal" é o rótulo dele. */
+.metas__principal span { font-size: .8rem; font-weight: 650; color: var(--text-mute); }
+
+.metas__nota {
+  margin: 0 0 .9rem;
+  color: var(--text-dim);
+  font-size: .82rem;
+  line-height: 1.5;
+}
+
+.metas__rodape {
+  margin: .7rem 0 0;
+  color: var(--text-mute);
+  font-size: .76rem;
+  line-height: 1.45;
+}
+
+/* Sair é irreversível do ponto de vista de quem não lembra a senha. A cor de
+   perigo não é dramatização: é o mesmo tom que o app usa para erro de
+   formulário, e usar o botão primário verde aqui poria "sair" no mesmo peso
+   visual de "recalcular metas", que é a ação que a pessoa veio fazer. */
+.card--conta { margin-top: var(--gap); }
+
+.btn--perigo {
+  border-color: color-mix(in srgb, var(--danger) 34%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+.btn--perigo:hover {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
 }

@@ -100,7 +100,18 @@
             {% endcomment %}
             <a class="app-bar__quiet" href="/demo/sobre/">Sobre o demo</a>
           {% else %}
-            <form method="post" action="{% url 'accounts:logout' %}">
+            {% comment %}
+              No desktop o "Sair" fica aqui, ao lado dos outros destinos, e
+              faz sentido: a barra de cima É a navegação naquela largura.
+
+              No celular ele some — a classe `app-bar__so-desktop` cuida disso.
+              Ali a navegação é a barra de baixo, e o que restava em cima era
+              um botão de encerrar sessão a um dedo do logotipo, que leva para
+              a home. Errar o alvo custa a senha de novo, e a tela de perfil
+              agora tem o mesmo botão num lugar em que ninguém esbarra.
+            {% endcomment %}
+            <form class="app-bar__so-desktop" method="post"
+                  action="{% url 'accounts:logout' %}">
               {% csrf_token %}
               <button type="submit" class="app-bar__quiet">Sair</button>
             </form>

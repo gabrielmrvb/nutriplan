@@ -411,3 +411,156 @@ class WizardProgressBarTests(TestCase):
         )
         regra = css.split(chr(10) + ".wizard__avanco {", 1)[1].split("}", 1)[0]
         self.assertIn("transition: width .3s var(--ease)", regra)
+
+
+class ProfileActionsTests(TestCase):
+    """O perfil ganha as ações que estavam escondidas ou faltando."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="perfil@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(self.user)
+        self.client.post(step_url(1), STEP1)
+        self.client.post(step_url(2), STEP2)
+        self.client.post(step_url(3), STEP3)
+        self.client.post(step_url(4), STEP4)
+        self.client.post(step_url(5), STEP5)
+        # O plano nasce na PRIMEIRA abertura do painel, e não no fim do
+        # wizard: `sync_active_plan` roda na entrada da tela. Sem esta visita o
+        # perfil abriria sem plano — que é um estado real, e tem teste próprio
+        # logo abaixo.
+        self.client.get(reverse("plans:today"))
+        self.url = reverse("accounts:profile")
+
+    def test_logging_out_left_the_header_and_lives_here(self):
+        """"Sair" ficava na barra de cima, visível em toda tela do app, a um
+        dedo do logotipo — que leva para a home. Errar o alvo custa a senha de
+        novo."""
+        html = self.client.get(self.url).content.decode()
+
+        self.assertIn("Sair da conta", html)
+        # No celular ele some da barra de cima; no desktop continua lá, porque
+        # ali a barra de cima É a navegação.
+        self.assertIn("app-bar__so-desktop", html)
+
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(".app-bar__so-desktop { display: none; }", css)
+
+    def test_the_logout_asks_before_doing_it(self):
+        html = self.client.get(self.url).content.decode()
+        formulario = html.split("Sair da conta", 1)[0]
+        self.assertIn("confirm(", formulario.rsplit("<form", 1)[1])
+
+    def test_the_logout_actually_ends_the_session(self):
+        self.client.post(reverse("accounts:logout"))
+        resposta = self.client.get(self.url)
+        self.assertEqual(resposta.status_code, 302)
+        self.assertIn("entrar", resposta["Location"])
+
+    def test_recalculating_is_offered_next_to_the_numbers_it_changes(self):
+        """O recálculo já existia, escondido no fim do painel, depois de nove
+        cartões. Um botão "recalcular" sozinho pede fé; com a meta ao lado, a
+        pessoa vê de que número está saindo."""
+        html = self.client.get(self.url).content.decode()
+
+        self.assertIn("Recalcular metas", html)
+        self.assertIn(reverse("plans:recalculate"), html)
+        self.assertIn("metas__principal", html)
+
+    def test_recalculating_keeps_the_old_plans(self):
+        """`NutritionPlan` é retrato, não referência: o plano novo nasce ao
+        lado dos antigos, e o que já foi comido continua no plano em que foi."""
+        antes = self.user.plans.count()
+        self.client.post(reverse("plans:recalculate"))
+        self.assertEqual(self.user.plans.count(), antes + 1)
+        self.assertEqual(self.user.plans.filter(is_active=True).count(), 1)
+
+    def test_the_button_is_there_even_without_an_active_plan(self):
+        """É exatamente o caso em que ele resolve alguma coisa. Escondê-lo
+        deixaria a pessoa numa tela que mostra o problema e não oferece a
+        saída."""
+        self.user.plans.update(is_active=False)
+        html = self.client.get(self.url).content.decode()
+        self.assertIn("Calcular minhas metas", html)
+        self.assertIn("ainda não tem um plano ativo", html)
+
+    def test_the_restrictions_link_points_at_the_step_they_actually_live_in(self):
+        """Elas eram o passo 4 até a preferência de divisão entrar na frente.
+        O link ficou apontando para a tela errada desde então, mandando quem
+        queria editar restrição para a escolha de divisão de treino."""
+        html = self.client.get(self.url).content.decode()
+        bloco = html.split("Restrições e rotina", 1)[1].split("</section>", 1)[0]
+        self.assertIn(step_url(5), bloco)
+        self.assertNotIn(step_url(4), bloco)
+
+    def test_the_two_new_preferences_are_visible_and_editable(self):
+        """Elas entraram no onboarding e nunca apareceram aqui — quem quisesse
+        trocar teria que adivinhar em qual passo do wizard elas moram."""
+        html = self.client.get(self.url).content.decode()
+        bloco = html.split("Treino e cardápio", 1)[1].split("</section>", 1)[0]
+
+        self.assertIn("3 grupos por dia", bloco)
+        self.assertIn("Rápida e econômica", bloco)
+        self.assertIn(step_url(4), bloco)
+
+
+class BottomNavigationTests(TestCase):
+    """A barra de baixo: cinco destinos, e nenhum deles é "sair"."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="abas@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(self.user)
+        for passo, dados in ((1, STEP1), (2, STEP2), (3, STEP3), (4, STEP4), (5, STEP5)):
+            self.client.post(step_url(passo), dados)
+        self.html = self.client.get(reverse("plans:today")).content.decode()
+
+    def test_the_bar_never_carried_a_logout(self):
+        barra = self.html.split('<nav class="tabbar"', 1)[1].split("</nav>", 1)[0]
+        self.assertNotIn("logout", barra)
+        self.assertNotIn("Sair", barra)
+
+    def test_all_five_destinations_are_reachable_from_it(self):
+        """São cinco, e não quatro. Suplementos é uma tela real e a barra é a
+        ÚNICA porta para ela — tirá-la daqui deixaria a tela órfã, alcançável
+        só por quem digitasse o endereço."""
+        barra = self.html.split('<nav class="tabbar"', 1)[1].split("</nav>", 1)[0]
+        for rota in (
+            reverse("plans:today"),
+            reverse("workouts:routine"),
+            reverse("supplements:list"),
+            reverse("plans:history"),
+            reverse("accounts:profile"),
+        ):
+            with self.subTest(rota=rota):
+                self.assertIn(f'href="{rota}"', barra)
+
+    def test_every_tab_has_an_icon_above_its_label(self):
+        barra = self.html.split('<nav class="tabbar"', 1)[1].split("</nav>", 1)[0]
+        self.assertEqual(barra.count("<svg"), 5)
+
+    def test_the_columns_are_equal_so_the_row_never_drifts(self):
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        bloco = css.split(chr(10) + ".tabbar {", 1)[1].split("}", 1)[0]
+        self.assertIn("repeat(5, 1fr)", bloco)
+
+    def test_the_active_pill_fades_in_instead_of_appearing(self):
+        """`transition: all` pegaria propriedades que ninguém quer animar —
+        largura, posição, o que a próxima regra acrescentar. A lista nomeia as
+        quatro que mudam no estado ativo."""
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        transicoes = [
+            t for t in css.split(chr(10) + ".tabbar__item {")[1:]
+        ]
+        corpo = "".join(t.split("}", 1)[0] for t in transicoes)
+        self.assertIn("background var(--dur) var(--ease)", corpo)
+        self.assertIn("color var(--dur) var(--ease)", corpo)
+        self.assertNotIn("transition: all", css)

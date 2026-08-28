@@ -221,6 +221,10 @@ class ProfileSummaryView(LoginRequiredMixin, TemplateView):
                 "profile": profile,
                 "training_days": self.request.user.training_days.all(),
                 "weight_entries": self.request.user.weight_entries.all()[:10],
+                # O plano ATIVO, para o perfil mostrar as metas em vigor ao
+                # lado do botao que as recalcula. Sem ele o botao pedia fe: a
+                # pessoa recalculava sem saber de que numero estava saindo.
+                "plano": self.request.user.plans.filter(is_active=True).first(),
                 "step_meta": STEP_META,
                 "nav": "profile",
             }
