@@ -366,3 +366,135 @@ class DemoTelasNaoFicamVaziasTests(TestCase):
             texto = re.sub(r"\s+", " ", texto).strip()
             with self.subTest(tela=tela):
                 self.assertGreater(len(texto), 400, f"{tela} parece vazia")
+
+
+class DemoCadaRotaMostraSuaTelaTests(TestCase):
+    """Cada endereço do demo mostra a tela que promete.
+
+    Este teste existe por uma regressão que foi para PRODUÇÃO. Quando a capa
+    passou a rodar dentro do prefixo de script, ela passou a ocupar `/` — e o
+    apelido `/hoje/`, que aponta para `/`, passou a servir a capa em vez do
+    painel do dia.
+
+    Os testes anteriores não viram porque conferiam o CÓDIGO DE RESPOSTA. As
+    duas rotas devolviam 200, com o mesmo HTML, e ninguém perguntou qual HTML.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        _semear()
+
+    #: (rota, um trecho que só aquela tela tem)
+    TELAS = (
+        ("/demo/", "As telas do aplicativo"),
+        ("/demo/sobre/", "Sobre esta demonstra"),
+        ("/demo/hoje/", "kcal hoje"),
+        ("/demo/treino/", "exercise__ver"),
+        ("/demo/historico/", "Ader"),
+        ("/demo/lista-de-compras/", "shopping"),
+        ("/demo/conta/perfil/", "Meu perfil"),
+    )
+
+    def test_each_route_renders_its_own_screen(self):
+        for rota, marca in self.TELAS:
+            with self.subTest(rota=rota):
+                self.assertContains(self.client.get(rota), marca)
+
+    def test_no_two_routes_return_the_same_page(self):
+        """A prova direta da regressão: duas rotas com o mesmo HTML significa
+        que uma delas perdeu a própria tela."""
+        vistos = {}
+        for rota, _ in self.TELAS:
+            corpo = self.client.get(rota).content
+            anterior = vistos.get(corpo)
+            self.assertIsNone(
+                anterior, f"{rota} devolve exatamente o mesmo HTML que {anterior}"
+            )
+            vistos[corpo] = rota
+
+    def test_the_dashboard_alias_is_the_dashboard_and_not_the_cover(self):
+        painel = self.client.get("/demo/hoje/").content.decode()
+        capa = self.client.get("/demo/").content.decode()
+
+        self.assertIn("<title>Hoje", painel)
+        self.assertIn("Demonstra", capa.split("<title>", 1)[1][:40])
+
+
+class DemoNaoApodreceComOTempoTests(TestCase):
+    """O dia do Carlos se refaz quando a data vira.
+
+    O seed escreve "hoje" no dia em que roda, e o Render só roda o seed em
+    deploy. Um dia depois, "hoje" é ontem: o painel abre com o anel em zero,
+    nenhuma refeição marcada e nenhuma água. Quem chegasse ao demo veria um app
+    que parece nunca ter sido usado — e foi assim que eu encontrei o defeito,
+    abrindo a tela no dia seguinte ao da semeadura.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        _semear()
+
+    def setUp(self):
+        self.pessoa = get_user_model().objects.get(email=DEMO_EMAIL)
+
+    def test_an_empty_day_is_refilled_when_someone_opens_the_demo(self):
+        hoje = timezone.localdate()
+        MealLog.objects.filter(user=self.pessoa, date=hoje).delete()
+        HydrationLog.objects.filter(user=self.pessoa, date=hoje).delete()
+
+        self.client.get("/demo/hoje/")
+
+        self.assertTrue(MealLog.objects.filter(user=self.pessoa, date=hoje).exists())
+        self.assertTrue(
+            HydrationLog.objects.filter(user=self.pessoa, date=hoje).exists()
+        )
+
+    def test_the_refill_keeps_the_day_half_lived(self):
+        """Meio dia, e não o dia inteiro: em branco esconde a barra de
+        progresso e o cartão de refeição concluída; cheio esconde o botão de
+        marcar."""
+        hoje = timezone.localdate()
+        MealLog.objects.filter(user=self.pessoa, date=hoje).delete()
+        self.client.get("/demo/hoje/")
+
+        plano = self.pessoa.plans.get(is_active=True)
+        marcadas = MealLog.objects.filter(user=self.pessoa, date=hoje).count()
+        self.assertGreater(marcadas, 0)
+        self.assertLess(marcadas, plano.slots.count())
+
+    def test_a_day_that_is_already_full_is_left_alone(self):
+        """A recarga é só para o dia VAZIO. Refazer a cada visita apagaria o
+        que a semeadura acabou de montar, a cada pedido."""
+        hoje = timezone.localdate()
+        self.client.get("/demo/hoje/")
+        antes = set(
+            MealLog.objects.filter(user=self.pessoa, date=hoje).values_list(
+                "pk", flat=True
+            )
+        )
+
+        self.client.get("/demo/hoje/")
+        depois = set(
+            MealLog.objects.filter(user=self.pessoa, date=hoje).values_list(
+                "pk", flat=True
+            )
+        )
+        self.assertEqual(antes, depois)
+
+    def test_the_refill_never_reaches_anyone_else(self):
+        """A recarga é uma escrita num pedido de leitura, que é o que o
+        middleware recusa logo acima dela. O que a torna aceitável é o alcance:
+        só o usuário fictício, só o dia de hoje."""
+        outra = User.objects.create_user(
+            email="pessoa.real2@exemplo.com", password="senha-bem-forte-123"
+        )
+        Profile.objects.create(
+            user=outra, sex="M", birth_date="1990-01-01", height_cm=180,
+            onboarding_step=99,
+        )
+        antes = MealLog.objects.filter(user=outra).count()
+
+        MealLog.objects.filter(user=self.pessoa, date=timezone.localdate()).delete()
+        self.client.get("/demo/hoje/")
+
+        self.assertEqual(MealLog.objects.filter(user=outra).count(), antes)

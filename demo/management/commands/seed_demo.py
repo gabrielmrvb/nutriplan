@@ -127,6 +127,16 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
+            "--somente-o-dia",
+            action="store_true",
+            dest="somente_o_dia",
+            help=(
+                "Refaz apenas as refeicoes e a agua de hoje. E o caminho que o "
+                "middleware chama quando a data vira, e ele evita remontar "
+                "plano e ficha, que e a parte cara."
+            ),
+        )
+        parser.add_argument(
             "--refazer",
             action="store_true",
             help="Apaga o usuario de demonstracao e o cria de novo.",
@@ -140,6 +150,16 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.verbosity = options.get("verbosity", 1)
         User = get_user_model()
+
+        if options.get("somente_o_dia"):
+            user = User.objects.filter(email=DEMO_EMAIL).first()
+            plano = user.plans.filter(is_active=True).first() if user else None
+            if plano is None:
+                self._log("Nada a refazer: o demo ainda nao foi semeado.")
+                return
+            self._preencher_o_dia(user, plano)
+            self._log(self.style.SUCCESS("Dia do demo refeito."))
+            return
 
         if options["refazer"]:
             apagados, _ = User.objects.filter(email=DEMO_EMAIL).delete()

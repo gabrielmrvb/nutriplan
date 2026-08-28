@@ -545,14 +545,12 @@ class MotionTests(TestCase):
         que ninguém aponta e todo mundo sente. Já houve: a lista geral
         encolhia 2% e o cartão do onboarding, 1%.
 
-        O valor já foi .98 (2% num alvo de 44px é meio pixel — existia no
-        código e não na tela), depois .95, e assentou em .97: 5% num cartão de
-        largura inteira desloca a borda quase dez pixels, e o cartão parece
-        pular em vez de responder. O que o teste trava não é o número, é haver
-        UM só.
+        O valor já passou por .98, .95, .97 e agora .96. O que este teste
+        trava não é a escolha — é haver UMA. Duas escalas diferentes no mesmo
+        gesto é a inconsistência que ninguém aponta e todo mundo sente.
         """
         escalas = set(re.findall(r":active[^{]*\{[^}]*transform:\s*scale\(([^)]+)\)", self.css))
-        self.assertEqual(escalas, {".97"}, f"escalas de toque divergentes: {escalas}")
+        self.assertEqual(escalas, {".96"}, f"escalas de toque divergentes: {escalas}")
 
     def test_who_asked_for_less_movement_gets_less_movement(self):
         """Quem liga "reduzir movimento" no sistema costuma ter um motivo

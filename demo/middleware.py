@@ -56,7 +56,13 @@ class DemoMiddleware:
         if caminho != PREFIXO and not caminho.startswith(PREFIXO + "/"):
             return self.get_response(request)
 
-        resto = APELIDOS.get(caminho[len(PREFIXO):] or "/", caminho[len(PREFIXO):] or "/")
+        # O caminho pedido, ANTES do apelido. A distinção importa: o apelido
+        # `/hoje/` aponta para `/`, e `/` é a capa — resolver o apelido antes
+        # de escolher a tela faria `/demo/hoje/` servir a capa em vez do painel
+        # do dia. Foi o que aconteceu, e ficou em produção: as duas respondiam
+        # 200 com o mesmo HTML, e o teste só olhava o código de resposta.
+        pedido = caminho[len(PREFIXO):] or "/"
+        resto = APELIDOS.get(pedido, pedido)
 
         usuario = usuario_demo()
         if usuario is None:
@@ -70,6 +76,7 @@ class DemoMiddleware:
 
         request.demo = True
         request.user = usuario
+        _manter_o_dia_vivo(usuario)
         # O `_cached_user` do middleware de autenticação vem antes deste e já
         # deixou o anônimo em cache; sem limpar, `request.user` volta a ser
         # anônimo na primeira vez que alguém tocar no atributo lá dentro.
@@ -90,7 +97,7 @@ class DemoMiddleware:
             # renderizava com visitante anônimo, e a barra de cima oferecia
             # "Entrar" e "Criar conta": duas saídas do demo direto para a tela
             # de login, que é o beco sem saída que o demo existe para não ter.
-            propria = PROPRIAS.get(resto)
+            propria = PROPRIAS.get(pedido)
             if propria is not None:
                 resposta = propria(request)
                 # `TemplateResponse` é preguiçoso: quem o renderiza é o
@@ -129,3 +136,39 @@ def _sobre(request):
 #: O `import` fica adiado dentro de cada função porque `demo.views` importa
 #: deste módulo — no topo, os dois se importariam em círculo.
 PROPRIAS = {"/": _capa, "/sobre/": _sobre}
+
+
+def _manter_o_dia_vivo(usuario):
+    """Recria o dia do Carlos quando a data vira.
+
+    O seed escreve "hoje" no dia em que roda, e o Render só roda o seed em
+    deploy. Um dia depois, "hoje" é ontem: o painel abre com o anel em zero,
+    nenhuma refeição marcada e nenhuma água — e quem chegasse ao demo veria um
+    app que parece nunca ter sido usado.
+
+    Isto é uma ESCRITA num pedido de leitura, que é justamente o que o
+    middleware recusa logo acima. A diferença que a torna aceitável é o
+    alcance: ela toca só o usuário fictício, só o dia de hoje, e só quando não
+    há nada. Nenhum caminho aqui alcança dado de pessoa real — a consulta é
+    fechada em `usuario`, que é sempre o Carlos.
+
+    A alternativa seria um agendamento diário, e o plano gratuito do Render não
+    tem nem cron nem shell.
+    """
+    from django.utils import timezone
+
+    from plans.models import MealLog
+
+    hoje = timezone.localdate()
+    if MealLog.objects.filter(user=usuario, date=hoje).exists():
+        return
+
+    plano = usuario.plans.filter(is_active=True).first()
+    if plano is None:
+        return
+
+    from django.core.management import call_command
+
+    # `--somente-o-dia` refaz só as refeições e a água de hoje. O seed inteiro
+    # remontaria plano e ficha a cada virada de data, e remontar plano é caro.
+    call_command("seed_demo", somente_o_dia=True, verbosity=0)

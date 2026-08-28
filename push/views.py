@@ -60,6 +60,15 @@ class ManifestView(View):
                 # aparelhos.
                 "icons": [
                     {
+                        # O vetor primeiro: o Android usa o SVG quando o tem, e
+                        # aí a tela inicial fica nítida em qualquer densidade
+                        # sem carregar um PNG de 512.
+                        "src": static("icons/favicon.svg"),
+                        "sizes": "any",
+                        "type": "image/svg+xml",
+                        "purpose": "any",
+                    },
+                    {
                         "src": static("icons/icon-192.png"),
                         "sizes": "192x192",
                         "type": "image/png",

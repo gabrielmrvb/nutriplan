@@ -86,7 +86,11 @@ class InstallabilityTests(TestCase):
         normais = [i for i in self.manifest["icons"] if i["purpose"] == "any"]
 
         self.assertEqual({i["sizes"] for i in maskable}, {"192x192", "512x512"})
-        self.assertEqual({i["sizes"] for i in normais}, {"192x192", "512x512"})
+        # O vetor entrou com `sizes: any` — ele serve a qualquer tamanho,
+        # que é o ponto dele. Os dois rasterizados continuam obrigatórios:
+        # nem todo Android usa o SVG do manifesto, e sem eles a instalação
+        # fica sem ícone justamente onde o vetor não é entendido.
+        self.assertTrue({"192x192", "512x512"} <= {i["sizes"] for i in normais})
         self.assertFalse(
             {i["src"] for i in maskable} & {i["src"] for i in normais},
             "o mesmo arquivo não pode servir aos dois propósitos",
@@ -101,6 +105,15 @@ class InstallabilityTests(TestCase):
                 self.assertTrue(caminho.exists(), "arquivo não encontrado")
 
                 dados = caminho.read_bytes()
+
+                if icone["type"] == "image/svg+xml":
+                    # O vetor não tem tamanho para conferir. O que se
+                    # confere é que ele É um SVG e que declara o `viewBox`,
+                    # sem o qual ele não escala e o navegador desenha 100x100.
+                    self.assertTrue(dados.lstrip().startswith(b"<svg"))
+                    self.assertIn(b"viewBox=", dados)
+                    continue
+
                 self.assertEqual(dados[:8], b"\x89PNG\r\n\x1a\n", "não é PNG")
                 # Largura e altura moram nos bytes 16..24, logo depois do IHDR.
                 largura, altura = struct.unpack(">II", dados[16:24])

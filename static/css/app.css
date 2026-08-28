@@ -674,8 +674,31 @@ h3 { font-size: .95rem; font-weight: 650; }
    fundo: ele não vai para trás sozinho. */
 .today-hero > * { position: relative; }
 
+/* O anel varre de zero até o valor ao abrir a tela.
+ *
+ * `--pct` é uma propriedade personalizada comum, e propriedade comum NÃO é
+ * animável: o navegador não sabe que aquilo é um número, então trata como
+ * texto e troca de um valor para o outro sem passar pelo meio. Era por isso
+ * que o anel aparecia pronto enquanto as barras enchiam.
+ *
+ * `@property` é o que declara o tipo. Com ele o navegador interpola, e o
+ * `conic-gradient` acompanha — sem uma linha de JavaScript e sem um SVG.
+ *
+ * Onde `@property` não existe, o bloco inteiro é ignorado e o anel volta a
+ * aparecer pronto. É a degradação certa: nada quebra, só não anima. */
+@property --pct {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+@keyframes varrer {
+  from { --pct: 0; }
+}
+
 .ring {
   --pct: 0;
+  animation: varrer .9s var(--ease) both;
   position: relative;
   display: grid;
   place-items: center;
@@ -1264,13 +1287,13 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .btn--block { width: 100%; }
 
 /* Resposta ao toque.
-   O afundamento de 3% dura o tempo do dedo no botão e volta sozinho — é o que
+   O afundamento de 4% dura o tempo do dedo no botão e volta sozinho — é o que
    diz "recebi" antes de o servidor responder.
 
-   Já foi 2% (meio pixel num alvo de 44px: existia no código e não na tela) e
-   já foi 5%. Assentou em 3: 5% num cartão de largura inteira desloca a borda
-   quase dez pixels, e o cartão parece pular em vez de responder. O que o teste
-   trava não é o número, é haver UM só. Num app usado de pé na academia,
+   O número já foi 2% (meio pixel num alvo de 44px: existia no código e não na
+   tela), 5% (num cartão de largura inteira desloca a borda quase dez pixels, e
+   o cartão parece pular) e 3%. O que o teste trava não é o valor, é haver UM
+   só — é a divergência que se sente, não a escolha. Num app usado de pé na academia,
    com o 4G da rua, essa fração de segundo é a diferença entre tocar uma vez e
    tocar quatro.
 
@@ -1302,7 +1325,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .session__head:active,
 .shopping__check:active,
 .supl__marcar:active,
-.tabbar__item:active { transform: scale(.97); }
+.tabbar__item:active { transform: scale(.96); }
 
 /* Botão já tocado, esperando o servidor: sem isto a pessoa toca de novo. */
 .btn:disabled,
@@ -1364,6 +1387,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
    invalida o seletor INTEIRO — o navegador descarta a regra sem avisar, e
    ninguém que liga "reduzir movimento" recebia a saída. Foi o teste que pegou. */
 @media (prefers-reduced-motion: reduce) {
+  .ring,
   .progress__fill,
   .macro-bar__part { transition: none; animation: none; }
 
@@ -2139,7 +2163,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 .registro__salvar:hover { background: var(--brand-strong); }
-.registro__salvar:active { transform: scale(.97); }
+.registro__salvar:active { transform: scale(.96); }
 .registro__salvar:disabled { opacity: .55; cursor: progress; }
 
 .registro__contagem { font-size: .72rem; font-weight: 700; opacity: .85; }
@@ -2176,7 +2200,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   color: var(--accent);
 }
 
-.registro__timer:active { transform: scale(.97); }
+.registro__timer:active { transform: scale(.96); }
 .registro__timer svg { width: 1.1rem; height: 1.1rem; }
 
 .registro__desfazer { margin: .35rem 0 0; }
@@ -2291,7 +2315,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 .rest-timer__more:hover { border-color: var(--accent); color: var(--text); }
-.rest-timer__more:active { transform: scale(.97); }
+.rest-timer__more:active { transform: scale(.96); }
 
 .rest-timer__close {
   display: grid;
@@ -2311,7 +2335,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 .rest-timer__close:hover { background: var(--surface-3); color: var(--text); }
-.rest-timer__close:active { transform: scale(.97); }
+.rest-timer__close:active { transform: scale(.96); }
 
 /* ==========================================================================
    18. Lista de compras e substituição
@@ -2374,7 +2398,33 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   box-shadow: var(--edge), var(--shadow-lift);
 }
 
-.modal::backdrop { background: rgba(0, 0, 0, .72); }
+/* O modal entra, e o drawer já entrava.
+ *
+ * 150ms aqui e 260ms lá, e a diferença não é descuido: o drawer é uma folha de
+ * altura quase inteira subindo do rodapé, e a mesma distância percorrida em
+ * 150ms lê como um salto, não como um movimento. O modal é uma caixa pequena
+ * aparecendo no meio — ali 260ms parece lento.
+ *
+ * Duração acompanha DISTÂNCIA. É a única regra de tempo que este arquivo tem
+ * além de "uma curva só".
+ *
+ * `transform` e `opacity`, e nada mais: são as duas propriedades que o
+ * compositor anima sozinho, sem refazer layout nem repintar. */
+@keyframes modal-entra {
+  from { transform: translateY(6px) scale(.985); opacity: 0; }
+}
+
+.modal[open] { animation: modal-entra .15s var(--ease); }
+
+.modal::backdrop {
+  background: rgba(0, 0, 0, .72);
+  animation: drawer-fade .15s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal[open],
+  .modal::backdrop { animation: none; }
+}
 
 /* ==========================================================================
    19. Wizard e telas de entrada
@@ -3426,7 +3476,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 
 .agua__botao span { color: var(--text-mute); font-size: .7rem; font-weight: 550; }
 .agua__botao:hover { border-color: var(--accent); background: var(--surface-3); }
-.agua__botao:active { transform: scale(.97); }
+.agua__botao:active { transform: scale(.96); }
 
 /* ------------------------------------------------- catálogo de suplementos */
 
@@ -3456,7 +3506,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 }
 
 .supl__marcar svg { width: 1rem; height: 1rem; }
-.supl__marcar:active { transform: scale(.97); }
+.supl__marcar:active { transform: scale(.96); }
 
 .supl__marcar.is-on {
   border-color: color-mix(in srgb, var(--brand) 38%, transparent);
@@ -4142,4 +4192,65 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .ofensiva,
 .agua {
   border-top: 1px solid color-mix(in srgb, var(--brand) 20%, transparent);
+}
+
+/* ==========================================================================
+   32. Fundo dinâmico e vidro nos cartões de destaque
+   ========================================================================== */
+
+/* Um halo de acento no alto da tela, atrás de tudo.
+ *
+ * `position: fixed` num pseudoelemento do `body`, e não `background-attachment:
+ * fixed` no próprio `body`: `attachment: fixed` força o navegador a repintar o
+ * fundo a cada quadro de rolagem, e é uma das causas clássicas de rolagem
+ * travada no celular. Um elemento fixo é promovido a camada própria e o
+ * compositor apenas o mantém parado — custo zero por quadro.
+ *
+ * `color-mix` com o token e não `rgba(16, 185, 129, .06)`: aquele é o esmeralda
+ * do tema escuro, e no claro apareceria como uma mancha esverdeada sobre papel
+ * quase branco. Um valor, dois temas.
+ *
+ * 6% é pouco de propósito. O halo é para a tela não ser uma chapa lisa de
+ * grafite; qualquer coisa acima disso vira um brilho colorido no topo, que é o
+ * visual que este projeto evita desde a auditoria do catálogo Impeccable. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: 60vh;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    120% 100% at 50% 0%,
+    color-mix(in srgb, var(--brand) 6%, transparent),
+    transparent 70%
+  );
+}
+
+/* O vidro nos três cartões de destaque, e só neles.
+ *
+ * `backdrop-filter` obriga o compositor a desfocar o que está ATRÁS a cada
+ * quadro. Numa lista rolando isso é a causa mais comum de queda de quadros no
+ * celular — e o app já gasta esse orçamento na barra de cima e na de baixo,
+ * que são fixas e pequenas.
+ *
+ * Aqui vale porque os três ficam no topo, dentro do halo: o desfoque tem o que
+ * desfocar. Nos outros seis cartões do painel o fundo é chapado, e desfocar
+ * uma cor sólida custa quadros para produzir a mesma cor sólida.
+ *
+ * O fundo precisa ser translúcido, senão não há o que ver através. */
+.today-hero,
+.ofensiva,
+.agua {
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+/* Sem suporte a `backdrop-filter`, o fundo translúcido deixaria o halo passar
+   direto e o texto perderia contraste. Ali o cartão volta a ser opaco. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .today-hero,
+  .ofensiva,
+  .agua { background: var(--surface); }
 }
