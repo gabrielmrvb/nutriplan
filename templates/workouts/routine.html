@@ -4,14 +4,20 @@
 
 {% block content %}
   <div class="page-head">
-    <h1>Seu treino da semana</h1>
-    {% if plan %}
-      <p class="lead">
-        {{ plan.get_split_display }} · {{ plan.days_per_week }}
-        {% if plan.days_per_week == 1 %}dia{% else %}dias{% endif %} por semana ·
-        {{ total_sets }} séries no total
-      </p>
-    {% else %}
+    <h1>Seu treino</h1>
+    {% comment %}
+      A linha "ABC · 3 dias por semana · 88 séries no total" desceu para o
+      cartão do programa, que é de quem ela fala.
+
+      Ela custava 42px no topo da tela — medidos — descrevendo a SEMANA, logo
+      acima do bloco que passou a existir para descrever o DIA. Junto do
+      programa ela continua inteira e passa a explicar o que está ao lado
+      dela; aqui em cima ela empurrava a tarefa de hoje para baixo.
+
+      O `<h1>` fica: é o rótulo da tela, e sumir com ele tiraria o marco de
+      navegação que leitor de tela usa para saber onde chegou.
+    {% endcomment %}
+    {% if not plan %}
       <p class="lead">Falta dizer em quais dias você treina.</p>
     {% endif %}
   </div>
@@ -31,34 +37,213 @@
     <div class="split">
       <div class="split__main stack">
 
-        {# ------------- A semana de relance ------------- #}
-        <section class="card">
-          <div class="card__head"><h2>Sua semana</h2></div>
+        {# ------------- 1. O treino de hoje ------------- #}
+        {% comment %}
+          A tela abre pelo que a pessoa veio fazer.
+
+          Medido a 390x844 antes desta mudança: a ficha de hoje começava em
+          y=897 e o primeiro controle de registro, depois de abrir a sanfona
+          do exercício, em y=1322 — contra uma dobra que termina em y=776. Para
+          anotar a primeira série era preciso rolar quase duas telas e passar
+          por dois treinos que não são os de hoje.
+
+          A inversão é essa: execução em cima, programa embaixo. "Sua semana" e
+          as outras fichas não sumiram, desceram — são consulta, e consulta não
+          disputa a dobra com a tarefa.
+        {% endcomment %}
+        {% if hoje %}
+          <section class="card hoje" data-dia="{{ hoje.label }}">
+            <p class="hoje__etiqueta">Treino de hoje</p>
+
+            <div class="hoje__id">
+              <span class="session__badge hoje__badge" data-dia="{{ hoje.label }}">{{ hoje.label }}</span>
+              <h2 class="hoje__nome">{{ hoje.name }}</h2>
+            </div>
+
+            {% if hoje.focus %}<p class="hoje__foco">{{ hoje.focus }}</p>{% endif %}
+
+            {% comment %}
+              Um `<span>` por item e o "·" desenhado pelo CSS entre eles, pela
+              mesma razão registrada no cabeçalho da ficha: como texto corrido
+              a linha quebrava no meio de um item, e "9" fechava a linha com
+              "exercícios" abrindo a seguinte.
+            {% endcomment %}
+            <p class="hoje__meta">
+              <span>{{ hoje.total_exercicios }} exercícios</span>
+              <span>{{ hoje.total_sets }} séries</span>
+              <span>~{{ hoje.estimated_minutes }} min</span>
+              {% if hoje.start_time %}<span>{{ hoje.start_time|time:"H:i" }}</span>{% endif %}
+            </p>
+
+            {% comment %}
+              O progresso é derivado, e a frase diz exatamente o que ele mede.
+
+              "3 de 9 exercícios com série registrada hoje" é verificável: são
+              as linhas de `ExerciseLog` com a data de hoje. "Treino 33%
+              concluído" não seria — não existe `TrainingSession`, ninguém
+              sabe se a pessoa terminou ou parou no meio, e a interface não
+              pode afirmar um estado que nenhuma tabela sustenta.
+
+              `role="status"` porque o número muda quando a pessoa volta de um
+              registro, e quem usa leitor de tela precisa ouvir a mudança sem
+              procurar por ela. É o mesmo par que a fila offline, o cronômetro
+              e a montagem do plano já usam.
+            {% endcomment %}
+            <div class="hoje__progresso" role="status" aria-live="polite">
+              <div class="progress hoje__barra">
+                <div class="progress__fill" style="width: {{ hoje.pct_hoje }}%"></div>
+              </div>
+              <p class="hoje__contagem">
+                <b class="num">{{ hoje.feitos_hoje }}</b> de
+                <span class="num">{{ hoje.total_exercicios }}</span>
+                {% if hoje.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}
+                com série registrada hoje
+              </p>
+            </div>
+
+            {% comment %}
+              O botão é uma âncora, e não um POST.
+
+              Não há o que salvar: "começar treino" não existe como estado no
+              banco, e inventar um registro para acender um botão seria criar
+              um dado que nada mais lê. O que a âncora faz é real — leva ao
+              primeiro exercício sem série de hoje, que já vem aberto. Funciona
+              sem JavaScript, funciona por teclado, e o tratador de `#exercicio-`
+              que já existe abre o cartão quando ele estiver fechado.
+
+              O verbo muda com o que aconteceu, e nenhuma das duas formas
+              afirma um estado guardado: "Começar" quando nada foi registrado
+              hoje, "Continuar" quando alguma coisa foi.
+            {% endcomment %}
+            {% comment %}
+              Os DOIS estados vêm no HTML, um deles escondido pelo servidor.
+
+              A série é gravada por `fetch`, sem recarregar — perder a posição
+              da rolagem a cada série é o que faz a pessoa parar de anotar. Só
+              que isso significa que este cabeçalho não é renderizado de novo:
+              se o botão só existisse no estado em que a página nasceu, o
+              JavaScript não teria o que alternar, e quem terminasse o último
+              exercício continuaria vendo "Continuar de onde parou" apontando
+              para um exercício já feito.
+
+              É o mesmo contrato do "desfazer última série" logo abaixo, que já
+              nasce com `hidden` e é revelado pelo mesmo caminho.
+            {% endcomment %}
+            <a class="btn btn--primary btn--block btn--hoje"
+               {% if hoje.proximo %}href="#exercicio-{{ hoje.proximo.exercise.pk }}"{% endif %}
+               {% if not hoje.proximo %}hidden{% endif %}
+               data-hoje-cta>
+              <span data-hoje-verbo>{% if hoje.feitos_hoje %}Continuar de onde parou{% else %}Começar treino{% endif %}</span>
+              <span class="btn__eco" data-hoje-eco>{% if hoje.proximo %}{{ hoje.proximo.exercise.name }}{% endif %}</span>
+            </a>
+            {% comment %}
+              Todos os exercícios têm série anotada. A frase descreve isso, e
+              para — dizer "treino concluído" seria afirmar o que não se sabe.
+            {% endcomment %}
+            <p class="hoje__completo" {% if hoje.proximo %}hidden{% endif %} data-hoje-completo>
+              Todos os exercícios de hoje já têm série registrada.
+            </p>
+          </section>
+
+          {# ------------- 2. Os exercícios de hoje ------------- #}
+          <ol class="exercise-list hoje__lista">
+            {% for item in hoje.exercises.all %}
+              {% include "workouts/_exercicio.html" with item=item ordem=forloop.counter agora=item.eh_o_proximo %}
+            {% endfor %}
+          </ol>
+        {% else %}
+          {% comment %}
+            Dia sem treino previsto, e a tela diz isso em vez de forçar um
+            "treino de hoje" que não existe.
+
+            O próximo treino sai de `weekday`, que a pessoa escolheu no
+            cadastro — não é previsão. Quando não há nenhum dia à frente o
+            bloco simplesmente não aparece.
+          {% endcomment %}
+          <section class="card hoje hoje--descanso">
+            <p class="hoje__etiqueta">Hoje</p>
+            <div class="hoje__id">
+              <span class="session__badge hoje__badge hoje__badge--descanso" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20.5 14.5A8.5 8.5 0 019.5 3.5a8.5 8.5 0 1011 11z"/>
+                </svg>
+              </span>
+              <h2 class="hoje__nome">Dia de descanso</h2>
+            </div>
+            <p class="hoje__foco">
+              Descanso é parte do plano: não há treino marcado para hoje.
+            </p>
+
+            {% if proximo %}
+              <p class="hoje__proximo">
+                <span class="hoje__proximo-rotulo">Próximo treino</span>
+                <span class="hoje__proximo-corpo">
+                  <span class="session__badge" data-dia="{{ proximo.session.label }}">{{ proximo.session.label }}</span>
+                  <span class="hoje__proximo-nome">{{ proximo.session.name }}</span>
+                </span>
+                <span class="hoje__proximo-quando">
+                  {% if proximo.dias == 1 %}amanhã{% else %}{{ proximo.session.weekday_display }}{% endif %}
+                </span>
+              </p>
+            {% endif %}
+          </section>
+        {% endif %}
+
+        {# ------------- 3. O programa ------------- #}
+        {% comment %}
+          "Sua semana" virou "Seu programa" e desceu para depois da execução.
+
+          O conteúdo é o mesmo — os sete dias com a letra de cada treino — e o
+          acesso aos outros dias continua inteiro logo abaixo, em sanfona. O
+          que mudou é a ordem: isto responde "como é a minha semana", que é uma
+          pergunta de consulta, e a tela agora abre respondendo "o que eu faço
+          agora".
+        {% endcomment %}
+        <section class="card programa">
+          <div class="card__head"><h2>Seu programa</h2></div>
+          <p class="programa__resumo">
+            <span>{{ plan.get_split_display }}</span>
+            <span>{{ plan.days_per_week }}
+              {% if plan.days_per_week == 1 %}dia{% else %}dias{% endif %} por semana</span>
+            <span>{{ total_sets }} séries no total</span>
+          </p>
           <ol class="week-strip">
             {% for day in week %}
-              <li class="day-chip {% if day.session %}day-chip--training{% endif %}"
+              <li class="day-chip {% if day.session %}day-chip--training{% endif %}{% if day.session and day.session.eh_hoje %} day-chip--hoje{% endif %}"
                   {% if day.session %}data-dia="{{ day.session.label }}"{% endif %}>
                 <span class="day-chip__name">{{ day.short }}</span>
                 <span class="day-chip__label">
                   {% if day.session %}{{ day.session.label }}{% else %}·{% endif %}
                 </span>
-                <span class="day-chip__focus">
-                  {% if day.session %}{{ day.session.name }}{% else %}descanso{% endif %}
-                </span>
+                {% comment %}
+                  O músculo do dia saiu daqui, e não é economia de espaço: é
+                  que ele não cabia. Sete colunas em 390px dão 46px, e o texto
+                  aparecia recortado — medido na tela, 34px visíveis de uma
+                  string de 174px, ou seja um quinto de "Costas, bíceps,
+                  antebraço e trapézio". Nos sete chips, inclusive nos quatro
+                  "desc…" de descanso.
+
+                  Nada se perdeu: o nome completo é o título do cartão logo
+                  abaixo ("Treino A: Peito, tríceps e ombro"). O chip responde
+                  o que só ele responde — que dias treino e qual é a letra.
+                {% endcomment %}
               </li>
             {% endfor %}
           </ol>
           {% if plan.notes %}<p class="callout">{{ plan.notes }}</p>{% endif %}
         </section>
 
-        {# ------------- As fichas ------------- #}
+        {# ------------- 4. Os outros dias ------------- #}
         {% comment %}
           Sanfona, e `<details>` em vez de `<div>` com JavaScript.
 
-          Cinco fichas abertas somavam uma página de rolagem infinita, e a
-          pessoa passava por quatro treinos que não vai fazer hoje para chegar
-          no que vai. Agora abre uma: a de hoje, ou a primeira quando hoje é
-          descanso.
+          Aqui ficam os treinos que NÃO são o de hoje — o de hoje saiu da
+          sanfona e virou o topo da tela. Todos nascem fechados: nenhum deles é
+          a tarefa de agora, e abrir um por antecipação é apostar em qual.
+
+          A exceção é o dia de descanso, em que não há treino no topo: aí abre
+          o PRÓXIMO, que é o mesmo que o cabeçalho acabou de anunciar.
 
           `<details>` traz de graça o que dá trabalho reimplementar direito:
           abre e fecha por teclado, anuncia o estado para leitor de tela,
@@ -66,7 +251,7 @@
           carregar. O JS só acrescenta o comportamento de seleção única — e se
           ele falhar, a sanfona continua servindo, com mais de uma ficha aberta.
         {% endcomment %}
-        {% for session in sessions %}
+        {% for session in outras %}
           <details class="card ficha" data-dia="{{ session.label }}"
                    data-ficha {% if session.aberta %}open{% endif %}>
             <summary class="session__head ficha__resumo">
@@ -74,12 +259,19 @@
               <span class="session__title">
                 <strong class="session__name">
                   Treino {{ session.label }}: {{ session.name }}
-                  {% if session.eh_hoje %}<span class="ficha__hoje">hoje</span>{% endif %}
                 </strong>
+                {% comment %}
+                  Um `<span>` por item, e o "·" desenhado pelo CSS entre eles.
+                  Escrito como texto corrido, a linha quebrava no meio de um
+                  item — "9" terminava a primeira linha e "exercícios" abria a
+                  segunda. Número separado da unidade não é metadado, é ruído.
+                {% endcomment %}
                 <span class="session__meta">
-                  {{ session.weekday_display }}
-                  {% if session.start_time %}· {{ session.start_time|time:"H:i" }}{% endif %}
-                  · {{ session.exercises.count }} exercícios · {{ session.total_sets }} séries · ~{{ session.estimated_minutes }} min
+                  <span>{{ session.weekday_display }}</span>
+                  {% if session.start_time %}<span>{{ session.start_time|time:"H:i" }}</span>{% endif %}
+                  <span>{{ session.exercises.count }} exercícios</span>
+                  <span>{{ session.total_sets }} séries</span>
+                  <span>~{{ session.estimated_minutes }} min</span>
                 </span>
               </span>
               <span class="ficha__seta" aria-hidden="true">
@@ -93,276 +285,9 @@
               <p class="session__focus">{{ session.focus }}</p>
             {% endif %}
 
-
             <ol class="exercise-list">
               {% for item in session.exercises.all %}
-                {% comment %}
-                  Três blocos empilhados, cada um com espaço próprio: cabeçalho,
-                  instrução com o botão de execução, e tabela de séries. Antes
-                  disso o cartão era um flex solto onde o formulário de carga
-                  disputava largura com o nome do exercício — e o nome saía
-                  quebrado uma palavra por linha.
-
-                  A miniatura 16:9 do vídeo já ocupou o segundo bloco e foi
-                  removida: eram 149 px de altura por exercício, e o resultado
-                  é que só um cartão e meio cabia na tela do celular. A
-                  execução mudou para o drawer, que abre no toque — o vídeo
-                  continua a um clique de distância e para de cobrar espaço de
-                  quem já sabe fazer o movimento.
-                {% endcomment %}
-                <li>
-                {% comment %}
-                  A segunda sanfona. A da semana resolveu a rolagem ENTRE
-                  treinos e deixou intacta a de dentro: a ficha de hoje abria
-                  com sete exercícios abertos, cada um com instrução, botão de
-                  execução e uma tabela de três a quatro séries — mais de
-                  3.000 px para quem está em pé, entre séries, procurando UM
-                  exercício.
-
-                  Fechados, os sete cabem numa tela. O `id` mora no
-                  `<details>` e não no `<li>` porque é ele que precisa abrir
-                  quando a âncora `#exercicio-<pk>` chega.
-                {% endcomment %}
-                <details class="exercise" id="exercicio-{{ item.exercise.pk }}"
-                         data-exercicio>
-
-                  {# ---- 1. Cabeçalho (fechado, é só isto que aparece) ---- #}
-                  <summary class="exercise__head">
-                    <span class="exercise__order">{{ forloop.counter }}</span>
-                    <span class="exercise__title">
-                      <strong class="exercise__name">{{ item.exercise.name }}</strong>
-                      {% comment %}
-                        A prescrição por extenso, e não "4 × 6-10".
-
-                        A notação é de planilha: quem treina há anos lê de
-                        relance, quem está começando não lê. Custa uma linha e
-                        a clareza vale mais que a linha.
-                      {% endcomment %}
-                      <span class="exercise__prescricao">{{ item.prescricao }}</span>
-                      <span class="exercise__tags">
-                        <span class="exercise__tag exercise__tag--target">
-                          {{ item.exercise.get_muscle_group_display }}
-                        </span>
-                        <span class="exercise__tag exercise__tag--rest num">
-                          descanso {{ item.rest_display }}
-                        </span>
-                        {% comment %}
-                          O botão entra na MESMA fileira das etiquetas, e não
-                          numa coluna própria à direita.
-
-                          Na coluna ele tinha 44px de largura para um rótulo de
-                          24 caracteres: o texto quebrava em SETE linhas de uma
-                          palavra dentro de um círculo, e empurrava o cabeçalho
-                          de 98px para 364px. Foi o preço de dar texto a um
-                          botão cuja regra ainda dizia `width: 2.75rem;
-                          border-radius: 50%` da época em que ele era ícone.
-
-                          Aqui ele é um item de flex com `flex-wrap`: divide a
-                          linha com as pílulas quando cabe, e desce para a
-                          linha de baixo quando não cabe — que é o caso a
-                          390px. Nenhuma largura fixa decide isso.
-                        {% endcomment %}
-                        <button type="button" class="exercise__ver"
-                          data-animacao="{% if item.exercise.animation_kind == 'youtube' %}{{ item.exercise.animation_embed_url }}{% else %}{{ item.exercise.animation_url }}{% endif %}"
-                          data-animacao-tipo="{{ item.exercise.animation_kind }}"
-                          data-animacao-vertical="{% if item.exercise.animation_is_vertical %}1{% endif %}"
-                          data-quadros="{{ item.exercise.frames|join:'|' }}"
-                          data-clipe="{% if item.exercise.clip_kind == 'youtube' %}{{ item.exercise.video_embed_url }}{% else %}{{ item.exercise.video_url }}{% endif %}"
-                          data-tipo="{{ item.exercise.clip_kind }}"
-                          data-nome="{{ item.exercise.name }}"
-                          data-vertical="{% if item.exercise.is_vertical %}1{% endif %}"
-                          data-series="{{ item.sets }}"
-                          data-reps="{{ item.rep_range }}"
-                          data-descanso-texto="{{ item.rest_display }}"
-                          data-descanso-segundos="{{ item.rest_seconds }}"
-                          data-cue="{{ item.exercise.cue }}"
-                          data-intensidade="{{ item.intensidade }}"
-                          data-musculo="{{ item.exercise.get_muscle_group_display }}"
-                          data-carga="{% if item.load.melhor_anterior %}{{ item.load.melhor_anterior|floatformat:'-2' }}{% endif %}"
-                          data-carga-data="{% if item.load.data_anterior %}{{ item.load.data_anterior|date:'d/m' }}{% endif %}"
-                          data-busca="{{ item.exercise.video_search_url }}"
-                          aria-label="Ver vídeo de execução de {{ item.exercise.name }}">
-                          {% comment %}
-                            Câmera de vídeo, e não as três linhas de texto que
-                            estavam aqui.
-
-                            O ícone anterior desenhava uma lista, e lista é o
-                            que o botão NÃO abre primeiro: `drawer__media` fica
-                            acima de `drawer__corpo`, então a primeira coisa na
-                            tela é o clipe. Ícone e rótulo prometiam a segunda.
-
-                            Conferido: os 36 exercícios ativos têm vídeo. O
-                            rótulo não promete a nenhum deles algo que não
-                            existe.
-                          {% endcomment %}
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                               aria-hidden="true">
-                            <rect x="2.5" y="6" width="12.5" height="12" rx="2.5"/>
-                            <path d="M15 10.5l4.6-2.3a.8.8 0 011.15.72v6.16a.8.8 0 01-1.15.72L15 13.5z"/>
-                          </svg>
-                          <span>Ver vídeo de execução</span>
-                        </button>
-                      </span>
-                    </span>
-
-                    <span class="exercise__seta" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="m6 9 6 6 6-6"/>
-                      </svg>
-                    </span>
-                  </summary>
-
-                  <div class="exercise__body">
-                  {% comment %}
-                    Um envoltório, e ele é o que faz a sanfona animar inteira.
-
-                    `grid-template-rows: 0fr` governa a PRIMEIRA linha da grade.
-                    Com quatro filhos diretos, os outros três caem em linhas
-                    implícitas, que são `auto` — medido fechado: "0px 98.95px
-                    18.34px". Só a instrução encolhia; o resto aparecia de uma
-                    vez. O `<details>` esconde tudo de qualquer jeito, então o
-                    defeito não era conteúdo vazando, era o gesto pela metade.
-
-                    Com um filho só, a única linha é a que anima.
-                  {% endcomment %}
-                  <div class="exercise__conteudo">
-                    {# ---- 2. Instrução e acesso à execução ---- #}
-                    <p class="exercise__cue">{{ item.exercise.cue }}</p>
-
-
-                    {# ---- 3. Tabela de séries ---- #}
-                    {% comment %}
-                      Um registro só, no lugar de uma linha por série.
-
-                      Eram quatro formulários empilhados, cada um com número,
-                      carga, contador de reps, botão de salvar e cronômetro —
-                      vinte controles por exercício, cento e quarenta numa
-                      ficha de sete. A repetição não trazia informação: quem
-                      faz 4×8 usa a mesma carga nas quatro e anotava o mesmo
-                      número quatro vezes.
-
-                      Agora são dois campos: a carga e quantas séries saíram.
-                      Salvar grava as N séries com aquela carga — o histórico
-                      continua exatamente com o mesmo formato, e o cálculo de
-                      volume não muda uma linha.
-
-                      O que se perde: carga diferente por série (drop-set,
-                      pirâmide). É real, e é a troca — quem faz isso é minoria
-                      e paga com quatro linhas quem não faz.
-                    {% endcomment %}
-                    <form class="registro" method="post"
-                          action="{% url 'workouts:record_load' item.exercise.pk %}">
-                      {% csrf_token %}
-                      <input type="hidden" name="total_series" value="{{ item.sets }}">
-
-                      {% comment %}
-                        Os degraus de 2,5 kg, que e o que a anilha da academia
-                        pesa — a menor que existe no par, entao e o menor passo
-                        que alguem consegue montar de verdade.
-
-                        Eles ficam ao lado da carga e o "OK" desceu para a
-                        faixa de baixo, e isso e medicao, nao gosto: sete
-                        controles nao cabem em 390px, e este arquivo ja
-                        registrou isso duas vezes. Com carga, dois degraus, OK
-                        e cronometro numa faixa so, o campo da carga sobrava
-                        com pixels de menos outra vez.
-
-                        Em duas faixas cada um respira: os degraus tem 44px, e
-                        o "OK" — que e o controle mais tocado da tela, um toque
-                        por serie — passa a ocupar a largura quase inteira.
-                      {% endcomment %}
-                      <label class="registro__campo">
-                        <span class="registro__rotulo">Carga</span>
-                        {% comment %}
-                          `text` e não `number`: com type=number o navegador
-                          descarta "62,5" e envia campo vazio, e brasileiro
-                          digita vírgula. O inputmode mantém o teclado
-                          numérico, e o servidor normaliza.
-                        {% endcomment %}
-                        <input class="registro__carga num" type="text" name="weight_kg"
-                               maxlength="6" inputmode="decimal"
-                               placeholder="{% if item.load.melhor_anterior %}{{ item.load.melhor_anterior|floatformat:'-2' }}{% else %}kg{% endif %}"
-                               value="{% if item.load.melhor_hoje %}{{ item.load.melhor_hoje|floatformat:'-2' }}{% endif %}"
-                               aria-label="Carga de {{ item.exercise.name }}">
-                      </label>
-
-                      <button type="button" class="registro__passo" data-passo="-2.5"
-                              aria-label="Diminuir 2,5 kg na carga de {{ item.exercise.name }}">
-                        <span aria-hidden="true">&minus;2,5</span>
-                      </button>
-                      <button type="button" class="registro__passo" data-passo="2.5"
-                              aria-label="Aumentar 2,5 kg na carga de {{ item.exercise.name }}">
-                        <span aria-hidden="true">+2,5</span>
-                      </button>
-
-                      {% comment %}
-                        O botão de salvar É o contador.
-
-                        Medido a 390px: carga + contador de três peças + OK +
-                        cronômetro deixavam o campo de carga com 21 pixels de
-                        largura. Sete controles não cabem, e essa é a terceira
-                        vez que a aritmética diz isso nesta tela.
-
-                        Fundir resolve e melhora: um toque por série concluída
-                        é exatamente o gesto de quem está treinando, e o botão
-                        mostra onde parou sem ocupar coluna própria.
-                      {% endcomment %}
-                      <input type="hidden" name="series_feitas"
-                             value="{{ item.feitas }}" data-feitas-campo>
-
-                      <button type="submit" class="registro__salvar"
-                              data-feitas="{{ item.feitas }}"
-                              data-total="{{ item.sets }}"
-                              aria-label="Registrar mais uma série de {{ item.exercise.name }}">
-                        <span class="registro__salvar-rotulo">OK</span>
-                        <span class="registro__contagem num">
-                          <span data-feitas-texto>{{ item.feitas }}</span>/{{ item.sets }}
-                        </span>
-                      </button>
-
-                      <button type="button" class="registro__timer"
-                              data-descanso="{{ item.rest_seconds }}"
-                              data-nome="{{ item.exercise.name }}"
-                              aria-label="Cronometrar descanso de {{ item.exercise.name }}">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="1.9" stroke-linecap="round" aria-hidden="true">
-                          <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/>
-                          <path d="M9 2h6"/>
-                        </svg>
-                      </button>
-                    </form>
-
-                    {% comment %}
-                      Desfazer aparece só quando há série registrada. Um link
-                      de desfazer permanente ocupa espaço todo dia para o erro
-                      de um dia.
-                    {% endcomment %}
-                    <p class="registro__desfazer" {% if not item.feitas %}hidden{% endif %}
-                       data-desfazer-area>
-                      <button type="button" class="btn-link" data-desfazer>
-                        desfazer última série
-                      </button>
-                    </p>
-
-                    {% if item.load.melhor_anterior %}
-                      <p class="exercise__previous">
-                        Último treino ({{ item.load.data_anterior|date:"d/m" }}):
-                        <b>{{ item.load.melhor_anterior|floatformat:'-2' }} kg</b>
-                        {% if item.load.delta > 0 %}
-                          · <b class="exercise__delta exercise__delta--up">▲ +{{ item.load.delta|floatformat:'-2' }} kg</b>
-                        {% elif item.load.delta < 0 %}
-                          · <b class="exercise__delta exercise__delta--down">▼ {{ item.load.delta|floatformat:'-2' }} kg</b>
-                        {% elif item.load.melhor_hoje %}
-                          · <b class="exercise__delta">= mesma carga</b>
-                        {% endif %}
-                      </p>
-                    {% endif %}
-                  </div>
-                  </div>
-                </details>
-                </li>
+                {% include "workouts/_exercicio.html" with item=item ordem=forloop.counter agora=False %}
               {% endfor %}
             </ol>
             </div>
@@ -901,6 +826,41 @@
         abrirPeloEndereco();
         window.addEventListener("hashchange", abrirPeloEndereco);
 
+        /* O botão do treino de hoje abre o cartão ele mesmo, sem depender do
+         * endereço mudar.
+         *
+         * `hashchange` só dispara quando o hash MUDA. No segundo toque o
+         * endereço já é `#exercicio-N`, então o evento não vem — e se o cartão
+         * tiver sido fechado nesse meio-tempo (abrir outro exercício fecha o
+         * anterior, por seleção única), o botão rolava até um cartão fechado.
+         *
+         * Medido: primeiro toque abre; abrir outro exercício fecha o primeiro;
+         * segundo toque no botão rolava até ele ainda fechado.
+         *
+         * Antes desta rodada não havia nada no app apontando para essas
+         * âncoras, então o caminho nasceu com o botão — e é ele quem paga a
+         * conta, porque é um botão feito para ser tocado várias vezes durante
+         * o mesmo treino. */
+        document.addEventListener("click", function (evento) {
+          var botao = evento.target.closest("[data-hoje-cta]");
+          if (!botao) return;
+
+          var destino = botao.getAttribute("href") || "";
+          if (destino.charAt(0) !== "#" || destino.length < 2) return;
+
+          var alvo;
+          try {
+            alvo = document.querySelector(destino);
+          } catch (erro) {
+            return;
+          }
+          if (!alvo) return;
+
+          for (var no = alvo; no; no = no.parentElement) {
+            if (no.tagName === "DETAILS") no.open = true;
+          }
+        });
+
         /* ---- Cronômetro de descanso ---- */
         var caixa = document.querySelector("[data-timer]");
         if (!caixa) return;
@@ -1041,6 +1001,156 @@
 
           var desfazer = form.parentElement.querySelector("[data-desfazer-area]");
           if (desfazer) desfazer.hidden = feitas === 0;
+
+          /* O cartão que acabou de receber a série, esteja ele onde estiver.
+           *
+           * Dá para anotar carga dentro da ficha de OUTRO dia — a sanfona
+           * abre, o formulário está lá, e o registro vale para hoje do mesmo
+           * jeito. Aqueles cartões não estão em `.hoje__lista`, então quem
+           * cuidasse do estado só varrendo a lista de hoje os deixaria sem
+           * pílula e sem tinta até a próxima recarga, enquanto o servidor os
+           * desenha marcados. Duas telas para o mesmo dado. */
+          var exercicio = form.closest("[data-exercicio]");
+          if (exercicio) marcaExercicio(exercicio, feitas, total);
+
+          atualizaODia();
+        }
+
+        /* O estado de UM cartão: a tinta no número da ordem e a pílula.
+         *
+         * Não mexe em `exercise--agora` de propósito — "agora" é uma decisão
+         * sobre a lista de hoje inteira, não sobre um cartão isolado, e quem
+         * responde por ela é `atualizaODia`. */
+        function marcaExercicio(exercicio, feitas, total) {
+          exercicio.classList.remove("exercise--feito", "exercise--parcial");
+          if (feitas >= total) exercicio.classList.add("exercise--feito");
+          else if (feitas > 0) exercicio.classList.add("exercise--parcial");
+
+          pilula(exercicio, feitas, total);
+        }
+
+        /* O cabeçalho do dia anda junto com o registro.
+         *
+         * Esta função existe por um defeito que a revisão pegou e que a suíte
+         * não pegava: os testes chamam `record_load` e pedem a página de novo,
+         * e nesse caminho o cabeçalho sempre vem certo. O uso real não é esse
+         * — a série é gravada por `fetch` porque perder a rolagem a cada série
+         * é o que faz a pessoa parar de anotar, e aí o cabeçalho nunca era
+         * renderizado outra vez.
+         *
+         * O resultado era um card que mentia durante o treino inteiro: a barra
+         * parada em zero, o halo de "agora" preso no primeiro exercício mesmo
+         * depois de completo, e o botão "Continuar de onde parou" apontando
+         * para um exercício já feito. E o `aria-live="polite"` do bloco de
+         * progresso, que só se justifica se o número mudar, não anunciava nada.
+         *
+         * Tudo é recontado do DOM, e não incrementado: o estado da tela passa a
+         * ser função do que está escrito nos botões, e não de um contador
+         * paralelo que pode dessincronizar. Desfazer usa este mesmo caminho e
+         * anda para trás de graça. */
+        function atualizaODia() {
+          var cartao = document.querySelector(".hoje");
+          var lista = document.querySelector(".hoje__lista");
+          if (!cartao || !lista) return;
+
+          var exercicios = [].slice.call(lista.querySelectorAll("[data-exercicio]"));
+          if (!exercicios.length) return;
+
+          var feitos = 0;
+          var proximo = null;
+
+          exercicios.forEach(function (exercicio) {
+            var salvar = exercicio.querySelector(".registro__salvar");
+            var feitas = salvar ? parseInt(salvar.dataset.feitas, 10) || 0 : 0;
+            var total = salvar ? parseInt(salvar.dataset.total, 10) || 1 : 1;
+
+            if (feitas > 0) feitos += 1;
+            if (feitas === 0 && !proximo) proximo = exercicio;
+
+            exercicio.classList.remove("exercise--agora");
+            marcaExercicio(exercicio, feitas, total);
+          });
+
+          /* "Agora" é o primeiro pendente, recalculado — quem anota fora de
+           * ordem vê o destaque andar para o próximo que falta, e não ficar
+           * preso onde o servidor o desenhou. */
+          if (proximo) proximo.classList.add("exercise--agora");
+
+          var barra = cartao.querySelector(".hoje__barra .progress__fill");
+          if (barra) {
+            barra.style.width = Math.round(feitos * 100 / exercicios.length) + "%";
+          }
+          var contagem = cartao.querySelector(".hoje__contagem b");
+          if (contagem) contagem.textContent = feitos;
+
+          chamada(cartao, proximo, feitos);
+        }
+
+        /* A pílula "3/4 séries" no cabeçalho fechado.
+         *
+         * Ela é a metade em TEXTO do estado — a outra é a cor do número da
+         * ordem. Num app que já usa uma cor por dia de treino, deixar o estado
+         * só na cor é a armadilha mais provável de acessibilidade. */
+        function pilula(exercicio, feitas, total) {
+          var etiquetas = exercicio.querySelector(".exercise__tags");
+          if (!etiquetas) return;
+          var atual = etiquetas.querySelector(".exercise__tag--feito");
+
+          if (!feitas) {
+            if (atual && atual.parentNode) atual.parentNode.removeChild(atual);
+            return;
+          }
+          if (!atual) {
+            atual = document.createElement("span");
+            atual.className = "exercise__tag exercise__tag--feito num";
+            /* Antes do botão de vídeo, na mesma ordem em que o servidor
+             * escreve — senão a fileira se reordena ao anotar.
+             *
+             * O gancho é `[data-ver]` e não a classe do botão, e a diferença
+             * não é estilo: `WorkoutVideoViewTests` e `WeekAccordionTests`
+             * contam as ocorrências daquela classe na página para provar que
+             * há uma fatia de mídia por exercício. Escrevê-la aqui somava uma
+             * ocorrência vinda do `<script>` e quebrava as duas.
+             *
+             * É a armadilha que o CLAUDE.md descreve — o seletor do JavaScript
+             * e o marcador do HTML sendo a mesma string —, e ela é tão literal
+             * que pegou duas vezes seguidas: a primeira no seletor, a segunda
+             * no comentário que explicava a primeira. Por isso o nome da
+             * classe não aparece escrito em lugar nenhum deste bloco. */
+            etiquetas.insertBefore(atual, etiquetas.querySelector("[data-ver]"));
+          }
+          atual.textContent = feitas + "/" + total + " séries";
+        }
+
+        /* O botão principal: para onde ele leva, e com que verbo.
+         *
+         * Sem exercício pendente ele some, e entra a frase que diz o que
+         * aconteceu. Nenhuma das duas afirma "treino concluído" — o banco não
+         * sabe disso, e a tela não pode saber mais que o banco. */
+        function chamada(cartao, proximo, feitos) {
+          var botao = cartao.querySelector("[data-hoje-cta]");
+          var completo = cartao.querySelector("[data-hoje-completo]");
+
+          if (!proximo) {
+            if (botao) botao.hidden = true;
+            if (completo) completo.hidden = false;
+            return;
+          }
+          if (completo) completo.hidden = true;
+          if (!botao) return;
+
+          botao.hidden = false;
+          botao.setAttribute("href", "#" + proximo.id);
+
+          var verbo = botao.querySelector("[data-hoje-verbo]");
+          if (verbo) {
+            verbo.textContent = feitos
+              ? "Continuar de onde parou"
+              : "Começar treino";
+          }
+          var eco = botao.querySelector("[data-hoje-eco]");
+          var nome = proximo.querySelector(".exercise__name");
+          if (eco && nome) eco.textContent = nome.textContent.trim();
         }
 
         function envia(form, feitas) {

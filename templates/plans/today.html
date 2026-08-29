@@ -116,15 +116,23 @@ coluna da direita), não entre ela e o almoço.
           <p class="today-hero__meta num">
             {{ summary.done }}/{{ summary.total }} refeições
           </p>
+          {% comment %}
+            A meta saiu daqui porque já estava três centímetros acima.
+
+            O anel escreve "de {{ summary.target_kcal }}" logo abaixo do número
+            do dia. Repetida aqui como "· meta 2765 kcal", ela empurrava a
+            frase para QUATRO linhas numa coluna de 159px — medido na tela —,
+            e o "meta 2765 kcal" sozinho já ocupava duas. Sobrou a informação
+            que só esta linha dá: de que lado da conta a pessoa está, e quanto.
+          {% endcomment %}
           <p class="today-hero__balance balance--{{ balance.kind }}">
             {% if balance.kind == 'balance' %}
-              Sem déficit nem superávit · <b class="num">meta {{ plan.target_kcal }} kcal</b>
+              Sem déficit nem superávit
             {% else %}
               {% if balance.kind == 'deficit' %}Déficit{% else %}Superávit{% endif %}
               <b class="num">
                 {% if balance.kind == 'deficit' %}−{% else %}+{% endif %}{{ balance.abs_kcal }} kcal/dia
               </b>
-              · <b class="num">meta {{ plan.target_kcal }} kcal</b>
             {% endif %}
           </p>
         </div>
@@ -145,12 +153,19 @@ coluna da direita), não entre ela e o almoço.
           lado do anel: proporção de três partes num vão de 150px não se lê.
         {% endcomment %}
         <div class="hero-macros">
+          {% comment %}
+            A largura da faixa é a divisão do macro; o preenchimento dentro
+            dela é o quanto já foi comido. Antes só existia a divisão, e a
+            barra aparecia cheia mesmo com nada consumido — bem acima de
+            "P 0 /148" e ao lado da barra de água, que mostra vazio com 0 ml.
+          {% endcomment %}
           <div class="macro-bar macro-bar--hero"
                role="img"
-               aria-label="Divisão dos macros de hoje">
+               aria-label="{% for macro in macros %}{{ macro.name }} {{ macro.eaten }} de {{ macro.grams }} g{% if not forloop.last %}, {% endif %}{% endfor %}">
             {% for macro in macros %}
               <span class="macro-bar__part macro-bar__part--{{ macro.slug }}"
-                    style="width: {{ macro.pct }}%" title="{{ macro.name }}"></span>
+                    style="width: {{ macro.pct }}%; --comido: {{ macro.eaten_pct }}%"
+                    title="{{ macro.name }}"></span>
             {% endfor %}
           </div>
           <ul class="hero-macros__legenda">

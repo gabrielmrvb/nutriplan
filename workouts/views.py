@@ -137,11 +137,26 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
 
         marcar_ficha_aberta(sessions)
 
+        # O treino de hoje sai da lista de fichas e passa a ser a tela.
+        #
+        # Antes ele era a terceira sanfona de uma pilha, e a pessoa rolava
+        # 897px — medido a 390x844 — passando por dois treinos que não vai
+        # fazer para chegar no que vai. `outras` é o programa: continua
+        # inteiro, em sanfona, embaixo.
+        hoje = next((s for s in sessions if s.eh_hoje), None)
+        if hoje is not None:
+            progresso_do_dia(hoje)
+
         context.update(
             {
                 "nav": "workout",
                 "plan": plan,
                 "sessions": sessions,
+                "hoje": hoje,
+                "outras": [s for s in sessions if s is not hoje],
+                # Só faz sentido perguntar "e quando é o próximo?" no dia em
+                # que não há treino. Com treino hoje, o próximo é ruído.
+                "proximo": proximo_treino(sessions) if hoje is None else None,
                 "week": week_overview(sessions),
                 "volume": muscle_volume(sessions),
                 "total_sets": sum(session.total_sets for session in sessions),
@@ -155,23 +170,74 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
         return context
 
 
+def progresso_do_dia(session) -> None:
+    """O avanço de hoje, derivado do que foi registrado — e só disso.
+
+    O único fato que o banco guarda é `ExerciseLog`: uma linha por série
+    anotada, com data. `item.feitas` é a contagem dessas linhas hoje, a mesma
+    que o botão "OK 3/4" já mostra. Daqui saem três números derivados e o
+    próximo exercício sem nenhuma série.
+
+    O que este progresso NÃO é: "treino concluído". Não existe `TrainingSession`
+    persistente, então ninguém pode afirmar que a pessoa terminou — ela pode
+    ter anotado os nove e continuado, ou anotado três e ido embora. A tela diz
+    o que aconteceu ("3 de 9 exercícios com série registrada hoje") e para aí.
+    Trocar essa frase por "treino concluído" seria a interface afirmando um
+    estado que nenhuma tabela sustenta.
+    """
+    itens = list(session.exercises.all())
+    session.total_exercicios = len(itens)
+    session.feitos_hoje = sum(1 for item in itens if item.feitas)
+    session.pct_hoje = round(session.feitos_hoje * 100 / len(itens)) if itens else 0
+
+    # Onde a pessoa retoma: o primeiro sem nenhuma série hoje. Quando todos
+    # têm, não existe "próximo" — e aí o botão some em vez de mentir um destino.
+    session.proximo = next((item for item in itens if not item.feitas), None)
+    for item in itens:
+        item.eh_o_proximo = item is session.proximo
+
+
+def proximo_treino(sessions):
+    """Qual treino vem a seguir, para o dia em que hoje é descanso.
+
+    Sai de `weekday`, que a pessoa escolheu no cadastro — não é previsão. Anda
+    os sete dias seguintes e devolve o primeiro que tem sessão, com quantos
+    dias faltam, para a tela poder dizer "amanhã" em vez de repetir o nome do
+    dia da semana.
+    """
+    if not sessions:
+        return None
+
+    hoje = timezone.localdate().weekday()
+    for adiante in range(1, 8):
+        alvo = (hoje + adiante) % 7
+        sessao = next((s for s in sessions if s.weekday == alvo), None)
+        if sessao is not None:
+            return {"session": sessao, "dias": adiante}
+    return None
+
+
 def marcar_ficha_aberta(sessions) -> None:
     """Decide qual ficha da semana já vem aberta na tela.
 
     As cinco fichas empilhadas somavam uma página de rolagem infinita, e a
     pessoa passava por quatro treinos que não vai fazer hoje para chegar no
-    que vai. Só uma abre: a de hoje.
+    que vai. Só uma abre.
 
-    Quando hoje é dia de descanso não há ficha do dia, e aí abre a primeira —
-    é melhor que abrir nenhuma e deixar a tela parecendo vazia. Quem quiser
-    outra toca no cabeçalho.
+    Com o treino de hoje promovido a topo da tela, esta função passou a
+    responder por um caso só: o dia de descanso. Aí quem abre é o PRÓXIMO
+    treino — e não o primeiro da lista — porque é dele que o cabeçalho da tela
+    acabou de falar, e abrir outro faria topo e corpo tratarem de dias
+    diferentes. Sem nenhum dia à frente (plano vazio de futuro), cai no
+    primeiro: abrir nenhuma deixaria a tela parecendo vazia.
     """
     if not sessions:
         return
 
     hoje = timezone.localdate().weekday()
     do_dia = next((s for s in sessions if s.weekday == hoje), None)
-    escolhida = do_dia or sessions[0]
+    seguinte = proximo_treino(sessions)
+    escolhida = do_dia or (seguinte["session"] if seguinte else sessions[0])
 
     for session in sessions:
         session.aberta = session is escolhida

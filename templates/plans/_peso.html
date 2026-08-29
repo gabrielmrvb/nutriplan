@@ -57,8 +57,15 @@
           {% endif %}
 
           {% if tendencia.faltam_registros %}
+            {% comment %}
+              O verbo concorda junto com o substantivo. Com uma pesagem
+              faltando, a tela dizia "Faltam 1 pesagem" — o plural estava só
+              no substantivo, e sobrava justamente na tela de quem acabou de
+              começar.
+            {% endcomment %}
             <p class="hint">
-              Faltam {{ tendencia.faltam_registros }} pesage{{ tendencia.faltam_registros|pluralize:"m,ns" }}
+              Falt{{ tendencia.faltam_registros|pluralize:"a,am" }}
+              {{ tendencia.faltam_registros }} pesage{{ tendencia.faltam_registros|pluralize:"m,ns" }}
               para a média fazer sentido. Pese-se ao acordar, em jejum e depois do
               banheiro — é a hora do dia com menos variação.
             </p>

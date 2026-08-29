@@ -48,6 +48,32 @@ from .models import (
 )
 
 
+def sem_scripts(html):
+    """O HTML sem os `<script>`, para as asserções olharem só o que a página
+    desenha.
+
+    A armadilha recorrente deste repositório, e ela pegou os testes do Treino
+    V2 no dia em que nasceram: o seletor do JavaScript e o marcador do HTML são
+    a mesma string. `html.count("exercise--agora")` devolvia 3 — um da
+    marcação, dois do script que move a classe — e "Começar treino" aparecia
+    numa página de descanso que não tem botão nenhum, porque o verbo está
+    escrito dentro da função que troca o rótulo.
+    """
+    return re.sub(r"<script\b[^>]*>.*?</script>", "", html, flags=re.S)
+
+
+def so_scripts(html):
+    """Só o conteúdo dos `<script>`, para provar comportamento de JavaScript.
+
+    O complemento de `sem_scripts`, e existe pelo motivo oposto: a tela de
+    treino tem quatro blocos de script, e `split("<script>", 2)[-1]` devolve o
+    último. Um teste desta rodada procurou o tratador da âncora no bloco do
+    registro de carga — onde ele não está — e falhou dizendo que o
+    comportamento não existia.
+    """
+    return "\n".join(re.findall(r"<script\b[^>]*>(.*?)</script>", html, flags=re.S))
+
+
 def create_user(email="atleta@exemplo.com", weekdays=(0, 2, 4), duration=60):
     """Usuário com onboarding completo e dias de treino."""
     user = User.objects.create_user(email=email, password="senha-bem-forte-123")
@@ -1047,40 +1073,71 @@ class WeekAccordionTests(TestCase):
     def _pagina(self):
         return self.client.get(reverse("workouts:routine")).content.decode()
 
+    def _fora_de_hoje(self):
+        """As sessões que a sanfona ainda guarda.
+
+        O usuário deste conjunto treina de segunda a sexta, então "hoje é dia
+        de treino?" depende do dia em que a suíte roda — e é justamente essa
+        dependência que fez estes testes passarem verdes num sábado sem
+        exercitar o caminho novo. Calcular o esperado a partir do dia de hoje
+        é o que os torna honestos nos sete dias.
+        """
+        hoje = timezone.localdate().weekday()
+        return [s for s in self.plano.sessions.all() if s.weekday != hoje]
+
     def test_every_workout_is_a_native_disclosure(self):
         """`<details>` e não `<div>` com JavaScript.
 
         Traz de graça o que dá trabalho reimplementar direito: abre por
         teclado, anuncia o estado para leitor de tela, responde ao Ctrl+F do
         navegador e funciona antes de o JavaScript carregar.
+
+        A contagem é das sessões que SOBRARAM na sanfona: o treino de hoje
+        saiu dela e virou o topo da tela.
         """
         html = self._pagina()
-        plano = self.plano
+        fora = self._fora_de_hoje()
 
-        self.assertEqual(html.count("<details class=\"card ficha\""), plano.sessions.count())
+        self.assertEqual(html.count("<details class=\"card ficha\""), len(fora))
         # Ancorado na CLASSE, e nao em `<summary` cru: o exercicio virou
         # sanfona depois desta ficha, e a contagem crua passou a somar as duas.
-        self.assertEqual(html.count("ficha__resumo"), plano.sessions.count())
+        self.assertEqual(html.count("ficha__resumo"), len(fora))
 
-    def test_only_one_workout_starts_open(self):
+    def test_no_accordion_opens_on_a_training_day(self):
+        """Uma aberta no dia de descanso, nenhuma no dia de treino.
+
+        No dia de treino a ficha aberta seria sempre a de um treino que NÃO é
+        o de agora — o de agora está no topo da tela, fora da sanfona. Abrir
+        uma delas devolveria a rolagem que a promoção do treino de hoje veio
+        tirar.
+        """
         html = self._pagina()
-        self.assertEqual(html.count("data-ficha open"), 1)
-
-    def test_the_open_one_is_today(self):
-        """A pessoa abre o app para saber o que treina hoje — não para
-        procurar entre cinco fichas qual é a de hoje."""
-        plano = self.plano
         hoje = timezone.localdate().weekday()
-        do_dia = plano.sessions.filter(weekday=hoje).first()
+        treina_hoje = self.plano.sessions.filter(weekday=hoje).exists()
+
+        self.assertEqual(html.count("data-ficha open"), 0 if treina_hoje else 1)
+
+    def test_todays_workout_left_the_accordion_for_the_top_of_the_screen(self):
+        """A pessoa abre o app para saber o que treina hoje — e agora não
+        precisa procurar entre cinco fichas qual é a de hoje, nem abrir uma.
+
+        A ficha do dia deixou de existir como ficha: o mesmo treino é o
+        primeiro bloco da tela, com o próprio cabeçalho.
+        """
+        hoje = timezone.localdate().weekday()
+        do_dia = self.plano.sessions.filter(weekday=hoje).first()
         if do_dia is None:
             self.skipTest("hoje é dia de descanso para este usuário")
 
         html = self._pagina()
-        marcado = html.split("data-ficha open", 1)[0]
-        # O `data-dia` mais recente antes do `open` é o da ficha aberta.
-        ultimo_dia = marcado.rsplit('data-dia="', 1)[1][0]
-        self.assertEqual(ultimo_dia, do_dia.label)
-        self.assertIn("ficha__hoje", html)
+
+        # O bloco de hoje existe, e vem antes do programa.
+        self.assertIn('class="card hoje"', html)
+        self.assertLess(html.index('class="card hoje"'), html.index('class="card programa"'))
+
+        # E o treino de hoje não é mais uma das sanfonas.
+        cabecalhos = html.count("ficha__resumo")
+        self.assertEqual(cabecalhos, self.plano.sessions.count() - 1)
 
     def test_a_rest_day_falls_back_to_the_first_workout(self):
         """Abrir nenhuma deixaria a tela parecendo vazia num domingo."""
@@ -1109,8 +1166,15 @@ class WeekAccordionTests(TestCase):
         self.assertIn(f"Treino {sessao.label}", html)
         self.assertIn(sessao.name, html)
         self.assertIn(sessao.weekday_display, html)
-        self.assertIn("exercícios ·", html)
+        # O "·" saiu do HTML e virou espaço entre caixas indivisíveis. Como
+        # texto corrido, a linha quebrava no meio de um item em 390px — "9"
+        # fechava a primeira linha e "exercícios" abria a segunda — e o
+        # separador desenhado entre caixas que quebram passava a ABRIR a linha
+        # seguinte. O que este teste defende é o cabeçalho dizer o bastante
+        # para escolher sem abrir, e isso é a informação, não a pontuação.
+        self.assertIn("exercícios", html)
         self.assertIn("séries", html)
+        self.assertIn("min", html)
 
     def test_the_exercises_are_in_the_page_even_when_collapsed(self):
         """O HTML vem inteiro de propósito.
@@ -1177,16 +1241,45 @@ class ExerciseAccordionTests(TestCase):
         self.assertEqual(self.html.count('<details class="exercise"'), total)
         self.assertEqual(self.html.count('<summary class="exercise__head"'), total)
 
-    def test_every_exercise_starts_minimised(self):
-        """Nenhum aberto: a ficha abre mostrando o treino inteiro de uma vez.
+    def test_only_the_first_pending_exercise_of_today_starts_open(self):
+        """Um aberto, e só um: o primeiro de hoje sem série registrada.
 
-        Sete cabeçalhos fechados cabem numa tela; um só aberto já empurra os
-        outros seis para fora dela. Como a pessoa chega aqui para anotar UM
-        exercício de cada vez, abrir qualquer um por antecipação é apostar em
-        qual — e errar a aposta custa exatamente a rolagem que a sanfona veio
-        tirar.
+        A regra antiga era "nenhum", e o motivo dela era bom: abrir um por
+        antecipação é apostar em qual, e errar a aposta custa exatamente a
+        rolagem que a sanfona veio tirar.
+
+        O que mudou foi a premissa, não o critério. Antes todos os exercícios
+        de todos os dias eram uma pilha indistinta e qualquer escolha era
+        chute. Agora existe uma resposta derivada do banco: o primeiro
+        exercício do treino de HOJE que ainda não tem nenhuma série anotada é,
+        por definição, o próximo a fazer. Não é aposta — é a mesma contagem
+        que o botão "OK 3/4" já mostra.
+
+        Nos outros dias a regra antiga continua valendo inteira: são treinos
+        que não são o de agora, e nenhum deles abre.
         """
-        self.assertNotIn("data-exercicio open", self.html)
+        hoje = timezone.localdate().weekday()
+        treina_hoje = self.plano.sessions.filter(weekday=hoje).exists()
+
+        self.assertEqual(
+            self.html.count("data-exercicio open"), 1 if treina_hoje else 0
+        )
+
+    def test_no_exercise_of_another_day_ever_starts_open(self):
+        """A trava que sobrevive à mudança: fora de hoje, tudo fechado.
+
+        Os cartões dos outros dias vêm do mesmo parcial que os de hoje, e é
+        exatamente por isso que este teste existe — uma variável de contexto
+        vazando para dentro do laço das fichas abriria nove sanfonas de um
+        treino que a pessoa não vai fazer, e nada quebraria.
+        """
+        hoje = timezone.localdate().weekday()
+        for ficha in self.html.split('<details class="card ficha"')[1:]:
+            corpo = ficha.split("</details>", 1)[0]
+            self.assertNotIn("data-exercicio open", corpo)
+        # E, no dia de descanso, nenhum aberto em lugar nenhum.
+        if not self.plano.sessions.filter(weekday=hoje).exists():
+            self.assertNotIn("data-exercicio open", self.html)
 
     def test_the_collapsed_header_says_enough_to_choose_without_opening(self):
         """Fechado, o cartão ainda responde "é este?".
@@ -2189,8 +2282,21 @@ class LoadStepperTests(TestCase):
         self.assertIn("item.load.melhor_anterior", self._template())
 
     def _template(self):
-        caminho = Path(settings.BASE_DIR) / "templates" / "workouts" / "routine.html"
-        return caminho.read_text(encoding="utf-8")
+        """A tela de treino são DOIS arquivos desde o Treino V2.
+
+        O cartão do exercício saiu para `_exercicio.html` quando o treino de
+        hoje deixou a sanfona: o mesmo cartão passou a ser renderizado em dois
+        contextos — solto, na lista de hoje, e dentro da ficha dos outros dias
+        — e duas cópias divergiriam na primeira correção.
+
+        Ler só o `routine.html` faria este teste afirmar que o degrau perdeu a
+        carga anterior, quando ela só mudou de arquivo.
+        """
+        pasta = Path(settings.BASE_DIR) / "templates" / "workouts"
+        return "".join(
+            (pasta / nome).read_text(encoding="utf-8")
+            for nome in ("routine.html", "_exercicio.html")
+        )
 
 
 class GymHardwareTests(TestCase):
@@ -2252,3 +2358,326 @@ class GymHardwareTests(TestCase):
                     antes.rstrip().endswith("if (navigator.vibrate)"),
                     f"{chamada} sem a guarda de suporte",
                 )
+
+
+# ==========================================================================
+# Treino V2 — o dia de hoje no topo da tela
+# ==========================================================================
+
+
+class TreinoDeHojeTests(TestCase):
+    """O bloco que abre a tela de treino: o que a pessoa faz AGORA.
+
+    Medido a 390x844 antes desta mudança: a ficha de hoje começava em y=897 e
+    o primeiro controle de registro — depois de abrir a sanfona do exercício —
+    em y=1322, contra uma dobra que termina em y=776. Quase duas telas de
+    rolagem, atravessando dois treinos que não são o de hoje, para anotar a
+    primeira série. Quem faz isso está em pé, entre séries, com uma mão.
+
+    Todo teste aqui FORÇA hoje a ser dia de treino. É deliberado: os testes de
+    sanfona desta suíte passaram verdes na estreia desta mudança sem exercitar
+    nada, porque o usuário padrão treina de segunda a sexta e o dia em que
+    rodaram era sábado.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        hoje = timezone.localdate().weekday()
+        self.user = create_user(
+            email="hoje@exemplo.com",
+            weekdays=sorted({hoje, (hoje + 2) % 7, (hoje + 4) % 7}),
+        )
+        self.plano = services.create_routine(self.user)
+        self.sessao = self.plano.sessions.get(weekday=hoje)
+        self.client.force_login(self.user)
+
+    def _pagina(self):
+        return self.client.get(reverse("workouts:routine")).content.decode()
+
+    def _itens(self):
+        return list(self.sessao.exercises.all())
+
+    def _anotar(self, item, series=1):
+        """Uma série registrada hoje, pelo mesmo serviço que a tela usa."""
+        for numero in range(1, series + 1):
+            services.record_load(
+                self.user, item.exercise, Decimal("40"), set_number=numero, reps=10
+            )
+
+    def test_the_day_leads_and_the_programme_follows(self):
+        """A ordem é a mudança. Consulta não disputa a dobra com a tarefa."""
+        html = self._pagina()
+
+        self.assertLess(
+            html.index('class="card hoje"'),
+            html.index('class="card programa"'),
+            "o programa aparece antes do treino de hoje",
+        )
+        # E as fichas dos outros dias vêm depois do programa.
+        self.assertLess(
+            html.index('class="card programa"'),
+            html.index('<details class="card ficha"'),
+        )
+
+    def test_the_header_names_the_workout_without_anyone_opening_anything(self):
+        html = self._pagina()
+        bloco = html.split('class="card hoje"', 1)[1].split("</section>", 1)[0]
+
+        self.assertIn("Treino de hoje", bloco)
+        self.assertIn(self.sessao.name, bloco)
+        self.assertIn("%d exercícios" % len(self._itens()), bloco)
+
+    def test_the_button_points_at_the_first_exercise_without_a_set_today(self):
+        """A âncora é o destino real, e não um estado inventado.
+
+        Não existe `TrainingSession`: "começar treino" não tem o que salvar. O
+        que o botão faz é levar ao primeiro exercício pendente — que já vem
+        aberto — e isso funciona por teclado e sem JavaScript.
+        """
+        primeiro = self._itens()[0]
+        html = self._pagina()
+
+        self.assertIn('href="#exercicio-%d"' % primeiro.exercise.pk, html)
+        self.assertIn("Começar treino", html)
+
+    def test_the_anchor_walks_forward_as_sets_get_recorded(self):
+        """Registrar o primeiro move o destino para o segundo.
+
+        Nada foi salvo sobre "onde a pessoa está": a posição é recalculada a
+        cada carregamento a partir das séries do dia. É o que permite anotar
+        fora de ordem sem o app ficar preso num exercício já feito.
+        """
+        itens = self._itens()
+        self._anotar(itens[0], series=itens[0].sets)
+
+        html = self._pagina()
+        self.assertIn('href="#exercicio-%d"' % itens[1].exercise.pk, html)
+        self.assertNotIn('href="#exercicio-%d"' % itens[0].exercise.pk, html)
+
+    def test_the_verb_changes_once_something_was_recorded(self):
+        self.assertIn("Começar treino", self._pagina())
+
+        self._anotar(self._itens()[0])
+        self.assertIn("Continuar de onde parou", self._pagina())
+
+    def test_the_progress_counts_exercises_that_have_a_set_today(self):
+        """O número é derivado do `ExerciseLog` de hoje, e a frase diz isso."""
+        itens = self._itens()
+        self._anotar(itens[0])
+        self._anotar(itens[1])
+
+        html = self._pagina()
+        contagem = html.split('class="hoje__contagem"', 1)[1].split("</p>", 1)[0]
+
+        self.assertIn("com série registrada hoje", contagem)
+        self.assertIn(">2</b>", contagem)
+
+    def test_the_screen_never_claims_the_workout_is_finished(self):
+        """A trava central desta rodada.
+
+        Não existe `TrainingSession` persistente. O banco sabe que houve série
+        anotada hoje; não sabe se a pessoa terminou o treino ou parou no meio.
+        Escrever "treino concluído" seria a interface afirmando um estado que
+        nenhuma tabela sustenta — e é o tipo de mentira que só aparece quando
+        alguém confia nela.
+        """
+        for item in self._itens():
+            self._anotar(item, series=item.sets)
+
+        html = self._pagina()
+        bloco = html.split('class="card hoje"', 1)[1].split("</section>", 1)[0]
+
+        for mentira in ("concluído", "Concluído", "finalizado", "Treino completo"):
+            self.assertNotIn(mentira, bloco)
+        self.assertIn("já têm série registrada", bloco)
+
+    def test_with_everything_recorded_there_is_no_destination_left_to_offer(self):
+        """Sem exercício pendente o botão fica escondido em vez de mentir um
+        destino, e entra a frase que descreve o que aconteceu."""
+        for item in self._itens():
+            self._anotar(item, series=item.sets)
+
+        bloco = self._pagina().split('class="card hoje"', 1)[1].split("</section>", 1)[0]
+        cta = bloco.split("data-hoje-cta", 1)[0].rsplit("<a ", 1)[1]
+
+        self.assertIn("hidden", cta)
+        self.assertNotIn("href=", cta)
+        completo = bloco.split("hoje__completo", 1)[1].split(">", 1)[0]
+        self.assertNotIn("hidden", completo)
+
+    def test_both_states_of_the_button_are_always_in_the_html(self):
+        """O cabeçalho não é re-renderizado durante o treino.
+
+        A série é gravada por `fetch` — recarregar a página a cada série
+        perderia a posição da rolagem, que é o que faz a pessoa parar de
+        anotar. Consequência: o JavaScript precisa ter os dois estados no DOM
+        para alternar entre eles. Se o servidor mandasse só o estado em que a
+        página nasceu, quem terminasse o último exercício continuaria vendo
+        "Continuar de onde parou" apontando para um exercício já feito.
+
+        Foi exatamente esse o defeito que a revisão desta rodada encontrou, e
+        que a suíte não pegava: todo teste daqui chama `record_load` e pede a
+        página de novo, e nesse caminho o cabeçalho sempre vem certo.
+        """
+        html = self._pagina()
+        bloco = html.split('class="card hoje"', 1)[1].split("</section>", 1)[0]
+
+        self.assertIn("data-hoje-cta", bloco)
+        self.assertIn("data-hoje-completo", bloco)
+        # E, com pendências, quem está escondido é a frase de fim.
+        completo = bloco.split("hoje__completo", 1)[1].split(">", 1)[0]
+        self.assertIn("hidden", completo)
+
+    def test_the_script_recomputes_the_day_header_after_a_set_is_saved(self):
+        """A trava do defeito acima, ancorada no SCRIPT e não na marcação.
+
+        Ancorar em `hoje__contagem` não serviria: a string está no HTML de
+        qualquer jeito, e o teste passaria com o JavaScript inteiro apagado —
+        que é a armadilha recorrente deste repositório.
+        """
+        script = so_scripts(self._pagina())
+
+        self.assertIn("atualizaODia", script)
+        # Chamado de dentro de `atualiza`, que é o caminho de salvar E de
+        # desfazer — as duas direções andam pelo mesmo lugar.
+        corpo = script.split("function atualiza(form, feitas)", 1)[1].split("\n        }", 1)[0]
+        self.assertIn("atualizaODia()", corpo)
+
+    def test_the_card_that_got_the_set_is_marked_wherever_it_lives(self):
+        """Anotar carga dentro da ficha de OUTRO dia também marca o cartão.
+
+        A sanfona de outro dia abre e o formulário está lá — o registro vale
+        para hoje do mesmo jeito, porque `ExerciseLog` guarda a data e não a
+        sessão. Só que aqueles cartões não estão em `.hoje__lista`: quem
+        cuidasse do estado varrendo apenas a lista de hoje os deixaria sem
+        pílula e sem tinta até a próxima recarga, enquanto o servidor os
+        desenha marcados. Duas telas para o mesmo dado.
+
+        Medido no navegador antes da correção: registrar na ficha A deixava o
+        cartão com `class="exercise"` e sem pílula nenhuma.
+        """
+        script = so_scripts(self._pagina())
+        corpo = script.split("function atualiza(form, feitas)", 1)[1].split("\n        }", 1)[0]
+
+        # O cartão do formulário enviado, e não a lista de hoje.
+        self.assertIn('form.closest("[data-exercicio]")', corpo)
+        self.assertIn("marcaExercicio(exercicio", corpo)
+
+    def test_the_button_opens_the_card_itself_and_not_only_via_the_address(self):
+        """O segundo toque no botão precisa reabrir o cartão.
+
+        `hashchange` só dispara quando o hash MUDA. No segundo toque o endereço
+        já é `#exercicio-N`, então o evento não vem — e se o cartão tiver sido
+        fechado nesse meio-tempo (abrir outro exercício fecha o anterior, por
+        seleção única), o botão rolava até um cartão fechado.
+
+        Medido no navegador: tocar o botão abria; abrir outro exercício
+        fechava o primeiro; tocar o botão de novo rolava até ele ainda
+        fechado. Antes desta rodada não havia nada no app apontando para essas
+        âncoras, então o caminho nasceu junto com o botão — e é um botão feito
+        para ser tocado várias vezes durante o mesmo treino.
+        """
+        script = so_scripts(self._pagina())
+        self.assertIn('closest("[data-hoje-cta]")', script)
+
+    def test_a_finished_exercise_says_so_in_text_and_not_only_in_colour(self):
+        """Num app que já usa uma cor por dia de treino, informação só por cor
+        é a armadilha mais provável — e a pílula responde por ela."""
+        item = self._itens()[0]
+        self._anotar(item, series=item.sets)
+
+        marcacao = sem_scripts(self._pagina())
+        self.assertIn("exercise__tag--feito", marcacao)
+        self.assertIn("%d/%d séries" % (item.sets, item.sets), marcacao)
+
+    def test_the_exercise_that_is_next_carries_a_state_of_its_own(self):
+        """Um só, e é o primeiro pendente de hoje.
+
+        Medido sem os `<script>`: a função que move o destaque no cliente cita
+        a mesma classe, e a contagem crua devolvia 3.
+        """
+        marcacao = sem_scripts(self._pagina())
+        self.assertEqual(marcacao.count("exercise--agora"), 1)
+
+        primeiro = self._itens()[0]
+        cartao = marcacao.split('id="exercicio-%d"' % primeiro.exercise.pk, 1)[0]
+        self.assertTrue(cartao.rstrip().endswith('"'), "o id não fecha a tag de abertura")
+        self.assertIn("exercise--agora", cartao.rsplit("<details", 1)[1])
+
+    def test_recording_a_load_still_works_from_the_new_layout(self):
+        """O formulário mudou de lugar na página, e só de lugar."""
+        item = self._itens()[0]
+        resposta = self.client.post(
+            reverse("workouts:record_load", args=[item.exercise.pk]),
+            {"weight_kg": "62,5", "series_feitas": "2", "reps": "8"},
+        )
+        self.assertEqual(resposta.status_code, 302)
+        self.assertEqual(
+            ExerciseLog.objects.filter(
+                user=self.user, exercise=item.exercise, date=timezone.localdate()
+            ).count(),
+            2,
+        )
+
+    def test_the_other_days_are_still_reachable(self):
+        """Promover hoje não pode esconder o resto do programa."""
+        html = self._pagina()
+        for sessao in self.plano.sessions.exclude(pk=self.sessao.pk):
+            self.assertIn("Treino %s: %s" % (sessao.label, sessao.name), html)
+
+
+class DiaDeDescansoTests(TestCase):
+    """O dia sem treino previsto, que é o estado que a tela antiga não tinha.
+
+    Antes, num domingo, a tela abria com a ficha do primeiro treino da semana
+    aberta e nada dizendo que hoje não era dia de treino. Quem chegava lendo o
+    topo via um treino e podia razoavelmente achar que era o de hoje.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        hoje = timezone.localdate().weekday()
+        # Nenhum dia de treino cai em hoje.
+        self.user = create_user(
+            email="descanso-v2@exemplo.com",
+            weekdays=sorted({(hoje + 1) % 7, (hoje + 3) % 7}),
+        )
+        self.plano = services.create_routine(self.user)
+        self.client.force_login(self.user)
+        self.html = self.client.get(reverse("workouts:routine")).content.decode()
+
+    def _proximo(self):
+        return self.plano.sessions.get(weekday=(timezone.localdate().weekday() + 1) % 7)
+
+    def test_it_says_today_is_rest_instead_of_showing_a_workout(self):
+        self.assertIn("Dia de descanso", self.html)
+        self.assertIn("hoje--descanso", self.html)
+
+    def test_it_names_the_next_workout_from_the_days_already_chosen(self):
+        """O próximo sai de `weekday`, que a pessoa escolheu no cadastro — não
+        é previsão de nada."""
+        bloco = self.html.split("hoje--descanso", 1)[1].split("</section>", 1)[0]
+
+        self.assertIn("Próximo treino", bloco)
+        self.assertIn(self._proximo().name, bloco)
+        self.assertIn("amanhã", bloco)
+
+    def test_there_is_no_start_button_on_a_day_with_nothing_to_start(self):
+        """Sem os `<script>`: o verbo "Começar treino" está escrito dentro da
+        função que troca o rótulo do botão, e a busca crua o encontrava numa
+        página de descanso que não tem botão nenhum."""
+        marcacao = sem_scripts(self.html)
+        self.assertNotIn("btn--hoje", marcacao)
+        self.assertNotIn("Começar treino", marcacao)
+
+    def test_the_accordion_that_opens_is_the_next_workout(self):
+        """Topo e corpo falam do mesmo dia. Abrir outro faria a tela se
+        contradizer dentro de uma rolagem."""
+        marcado = self.html.split("data-ficha open", 1)[0]
+        self.assertEqual(marcado.rsplit('data-dia="', 1)[1][0], self._proximo().label)

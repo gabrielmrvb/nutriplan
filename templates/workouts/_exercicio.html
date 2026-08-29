@@ -1,0 +1,319 @@
+{% comment %}
+  Um exercício da ficha — o mesmo cartão, em dois lugares.
+
+  Ele nasceu dentro do laço da ficha da semana e ficou lá até o treino de
+  hoje sair da sanfona e virar a experiência principal da tela. A partir daí
+  o mesmo cartão passou a ser renderizado em dois contextos: solto, na lista
+  de hoje, e dentro da ficha dos outros dias.
+
+  Duas cópias divergiriam na primeira correção — e este arquivo tem histórico
+  disso: o cabeçalho do exercício já quebrou três vezes porque a regra de CSS
+  descrevia um elemento que o HTML tinha deixado de ser. Uma cópia só.
+
+  Recebe:
+    item   — o SessionExercise, já com `load`, `set_rows` e `feitas`
+    ordem  — a posição na ficha (o `forloop.counter` de quem inclui)
+    agora  — verdadeiro no primeiro exercício de hoje ainda sem série
+{% endcomment %}
+                {% comment %}
+                  Três blocos empilhados, cada um com espaço próprio: cabeçalho,
+                  instrução com o botão de execução, e tabela de séries. Antes
+                  disso o cartão era um flex solto onde o formulário de carga
+                  disputava largura com o nome do exercício — e o nome saía
+                  quebrado uma palavra por linha.
+
+                  A miniatura 16:9 do vídeo já ocupou o segundo bloco e foi
+                  removida: eram 149 px de altura por exercício, e o resultado
+                  é que só um cartão e meio cabia na tela do celular. A
+                  execução mudou para o drawer, que abre no toque — o vídeo
+                  continua a um clique de distância e para de cobrar espaço de
+                  quem já sabe fazer o movimento.
+                {% endcomment %}
+                <li>
+                {% comment %}
+                  A segunda sanfona. A da semana resolveu a rolagem ENTRE
+                  treinos e deixou intacta a de dentro: a ficha de hoje abria
+                  com sete exercícios abertos, cada um com instrução, botão de
+                  execução e uma tabela de três a quatro séries — mais de
+                  3.000 px para quem está em pé, entre séries, procurando UM
+                  exercício.
+
+                  Fechados, os sete cabem numa tela. O `id` mora no
+                  `<details>` e não no `<li>` porque é ele que precisa abrir
+                  quando a âncora `#exercicio-<pk>` chega.
+                {% endcomment %}
+                {% comment %}
+                  O estado vem do que foi REGISTRADO hoje, e só disso.
+
+                  `item.feitas` é o número de séries que já saíram hoje neste
+                  exercício — a mesma contagem que o botão "OK 3/4" mostra.
+                  Dela saem três estados, e nenhum deles afirma nada que o
+                  banco não saiba: cheio quando as séries prescritas todas
+                  foram registradas, parcial quando algumas foram, e "agora"
+                  no primeiro que ainda não teve nenhuma.
+
+                  "Agora" não é estado guardado: é a posição na lista de hoje,
+                  recalculada a cada carregamento. Se a pessoa registrar fora
+                  de ordem, o "agora" anda para o próximo pendente — que é o
+                  comportamento certo, e é de graça porque nada foi salvo.
+                {% endcomment %}
+                <details class="exercise{% if agora %} exercise--agora{% elif item.feitas >= item.sets %} exercise--feito{% elif item.feitas %} exercise--parcial{% endif %}"
+                         id="exercicio-{{ item.exercise.pk }}"
+                         data-exercicio{% if agora %} open{% endif %}>
+
+                  {# ---- 1. Cabeçalho (fechado, é só isto que aparece) ---- #}
+                  <summary class="exercise__head">
+                    <span class="exercise__order">{{ ordem }}</span>
+                    <span class="exercise__title">
+                      <strong class="exercise__name">{{ item.exercise.name }}</strong>
+                      {% comment %}
+                        A prescrição por extenso, e não "4 × 6-10".
+
+                        A notação é de planilha: quem treina há anos lê de
+                        relance, quem está começando não lê. Custa uma linha e
+                        a clareza vale mais que a linha.
+                      {% endcomment %}
+                      <span class="exercise__prescricao">{{ item.prescricao }}</span>
+                      <span class="exercise__tags">
+                        <span class="exercise__tag exercise__tag--target">
+                          {{ item.exercise.get_muscle_group_display }}
+                        </span>
+                        <span class="exercise__tag exercise__tag--rest num">
+                          descanso {{ item.rest_display }}
+                        </span>
+                        {% comment %}
+                          O estado entra na fileira que já existe, e não numa
+                          área nova da grade do cabeçalho.
+
+                          O cabeçalho é uma grade de cinco áreas nomeadas, e
+                          `ExerciseHeaderLayoutTests` mede a altura dele
+                          justamente porque ele já inchou de 98px para 364px
+                          uma vez. Uma pílula a mais numa fileira que já
+                          quebra linha por projeto custa muito menos que uma
+                          sexta coluna.
+
+                          E é TEXTO, não só cor: "3/4 séries" continua legível
+                          para quem não distingue o verde do cinza.
+                        {% endcomment %}
+                        {% if item.feitas %}
+                          <span class="exercise__tag exercise__tag--feito num">
+                            {{ item.feitas }}/{{ item.sets }} séries
+                          </span>
+                        {% endif %}
+                        {% comment %}
+                          O botão entra na MESMA fileira das etiquetas, e não
+                          numa coluna própria à direita.
+
+                          Na coluna ele tinha 44px de largura para um rótulo de
+                          24 caracteres: o texto quebrava em SETE linhas de uma
+                          palavra dentro de um círculo, e empurrava o cabeçalho
+                          de 98px para 364px. Foi o preço de dar texto a um
+                          botão cuja regra ainda dizia `width: 2.75rem;
+                          border-radius: 50%` da época em que ele era ícone.
+
+                          Aqui ele é um item de flex com `flex-wrap`: divide a
+                          linha com as pílulas quando cabe, e desce para a
+                          linha de baixo quando não cabe — que é o caso a
+                          390px. Nenhuma largura fixa decide isso.
+                        {% endcomment %}
+                        <button type="button" class="exercise__ver" data-ver
+                          data-animacao="{% if item.exercise.animation_kind == 'youtube' %}{{ item.exercise.animation_embed_url }}{% else %}{{ item.exercise.animation_url }}{% endif %}"
+                          data-animacao-tipo="{{ item.exercise.animation_kind }}"
+                          data-animacao-vertical="{% if item.exercise.animation_is_vertical %}1{% endif %}"
+                          data-quadros="{{ item.exercise.frames|join:'|' }}"
+                          data-clipe="{% if item.exercise.clip_kind == 'youtube' %}{{ item.exercise.video_embed_url }}{% else %}{{ item.exercise.video_url }}{% endif %}"
+                          data-tipo="{{ item.exercise.clip_kind }}"
+                          data-nome="{{ item.exercise.name }}"
+                          data-vertical="{% if item.exercise.is_vertical %}1{% endif %}"
+                          data-series="{{ item.sets }}"
+                          data-reps="{{ item.rep_range }}"
+                          data-descanso-texto="{{ item.rest_display }}"
+                          data-descanso-segundos="{{ item.rest_seconds }}"
+                          data-cue="{{ item.exercise.cue }}"
+                          data-intensidade="{{ item.intensidade }}"
+                          data-musculo="{{ item.exercise.get_muscle_group_display }}"
+                          data-carga="{% if item.load.melhor_anterior %}{{ item.load.melhor_anterior|floatformat:'-2' }}{% endif %}"
+                          data-carga-data="{% if item.load.data_anterior %}{{ item.load.data_anterior|date:'d/m' }}{% endif %}"
+                          data-busca="{{ item.exercise.video_search_url }}"
+                          aria-label="Ver vídeo de execução de {{ item.exercise.name }}">
+                          {% comment %}
+                            Câmera de vídeo, e não as três linhas de texto que
+                            estavam aqui.
+
+                            O ícone anterior desenhava uma lista, e lista é o
+                            que o botão NÃO abre primeiro: `drawer__media` fica
+                            acima de `drawer__corpo`, então a primeira coisa na
+                            tela é o clipe. Ícone e rótulo prometiam a segunda.
+
+                            Conferido: os 36 exercícios ativos têm vídeo. O
+                            rótulo não promete a nenhum deles algo que não
+                            existe.
+                          {% endcomment %}
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                               aria-hidden="true">
+                            <rect x="2.5" y="6" width="12.5" height="12" rx="2.5"/>
+                            <path d="M15 10.5l4.6-2.3a.8.8 0 011.15.72v6.16a.8.8 0 01-1.15.72L15 13.5z"/>
+                          </svg>
+                          <span>Ver vídeo de execução</span>
+                        </button>
+                      </span>
+                    </span>
+
+                    <span class="exercise__seta" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m6 9 6 6 6-6"/>
+                      </svg>
+                    </span>
+                  </summary>
+
+                  <div class="exercise__body">
+                  {% comment %}
+                    Um envoltório, e ele é o que faz a sanfona animar inteira.
+
+                    `grid-template-rows: 0fr` governa a PRIMEIRA linha da grade.
+                    Com quatro filhos diretos, os outros três caem em linhas
+                    implícitas, que são `auto` — medido fechado: "0px 98.95px
+                    18.34px". Só a instrução encolhia; o resto aparecia de uma
+                    vez. O `<details>` esconde tudo de qualquer jeito, então o
+                    defeito não era conteúdo vazando, era o gesto pela metade.
+
+                    Com um filho só, a única linha é a que anima.
+                  {% endcomment %}
+                  <div class="exercise__conteudo">
+                    {# ---- 2. Instrução e acesso à execução ---- #}
+                    <p class="exercise__cue">{{ item.exercise.cue }}</p>
+
+
+                    {# ---- 3. Tabela de séries ---- #}
+                    {% comment %}
+                      Um registro só, no lugar de uma linha por série.
+
+                      Eram quatro formulários empilhados, cada um com número,
+                      carga, contador de reps, botão de salvar e cronômetro —
+                      vinte controles por exercício, cento e quarenta numa
+                      ficha de sete. A repetição não trazia informação: quem
+                      faz 4×8 usa a mesma carga nas quatro e anotava o mesmo
+                      número quatro vezes.
+
+                      Agora são dois campos: a carga e quantas séries saíram.
+                      Salvar grava as N séries com aquela carga — o histórico
+                      continua exatamente com o mesmo formato, e o cálculo de
+                      volume não muda uma linha.
+
+                      O que se perde: carga diferente por série (drop-set,
+                      pirâmide). É real, e é a troca — quem faz isso é minoria
+                      e paga com quatro linhas quem não faz.
+                    {% endcomment %}
+                    <form class="registro" method="post"
+                          action="{% url 'workouts:record_load' item.exercise.pk %}">
+                      {% csrf_token %}
+                      <input type="hidden" name="total_series" value="{{ item.sets }}">
+
+                      {% comment %}
+                        Os degraus de 2,5 kg, que e o que a anilha da academia
+                        pesa — a menor que existe no par, entao e o menor passo
+                        que alguem consegue montar de verdade.
+
+                        Eles ficam ao lado da carga e o "OK" desceu para a
+                        faixa de baixo, e isso e medicao, nao gosto: sete
+                        controles nao cabem em 390px, e este arquivo ja
+                        registrou isso duas vezes. Com carga, dois degraus, OK
+                        e cronometro numa faixa so, o campo da carga sobrava
+                        com pixels de menos outra vez.
+
+                        Em duas faixas cada um respira: os degraus tem 44px, e
+                        o "OK" — que e o controle mais tocado da tela, um toque
+                        por serie — passa a ocupar a largura quase inteira.
+                      {% endcomment %}
+                      <label class="registro__campo">
+                        <span class="registro__rotulo">Carga</span>
+                        {% comment %}
+                          `text` e não `number`: com type=number o navegador
+                          descarta "62,5" e envia campo vazio, e brasileiro
+                          digita vírgula. O inputmode mantém o teclado
+                          numérico, e o servidor normaliza.
+                        {% endcomment %}
+                        <input class="registro__carga num" type="text" name="weight_kg"
+                               maxlength="6" inputmode="decimal"
+                               placeholder="{% if item.load.melhor_anterior %}{{ item.load.melhor_anterior|floatformat:'-2' }}{% else %}kg{% endif %}"
+                               value="{% if item.load.melhor_hoje %}{{ item.load.melhor_hoje|floatformat:'-2' }}{% endif %}"
+                               aria-label="Carga de {{ item.exercise.name }}">
+                      </label>
+
+                      <button type="button" class="registro__passo" data-passo="-2.5"
+                              aria-label="Diminuir 2,5 kg na carga de {{ item.exercise.name }}">
+                        <span aria-hidden="true">&minus;2,5</span>
+                      </button>
+                      <button type="button" class="registro__passo" data-passo="2.5"
+                              aria-label="Aumentar 2,5 kg na carga de {{ item.exercise.name }}">
+                        <span aria-hidden="true">+2,5</span>
+                      </button>
+
+                      {% comment %}
+                        O botão de salvar É o contador.
+
+                        Medido a 390px: carga + contador de três peças + OK +
+                        cronômetro deixavam o campo de carga com 21 pixels de
+                        largura. Sete controles não cabem, e essa é a terceira
+                        vez que a aritmética diz isso nesta tela.
+
+                        Fundir resolve e melhora: um toque por série concluída
+                        é exatamente o gesto de quem está treinando, e o botão
+                        mostra onde parou sem ocupar coluna própria.
+                      {% endcomment %}
+                      <input type="hidden" name="series_feitas"
+                             value="{{ item.feitas }}" data-feitas-campo>
+
+                      <button type="submit" class="registro__salvar"
+                              data-feitas="{{ item.feitas }}"
+                              data-total="{{ item.sets }}"
+                              aria-label="Registrar mais uma série de {{ item.exercise.name }}">
+                        <span class="registro__salvar-rotulo">OK</span>
+                        <span class="registro__contagem num">
+                          <span data-feitas-texto>{{ item.feitas }}</span>/{{ item.sets }}
+                        </span>
+                      </button>
+
+                      <button type="button" class="registro__timer"
+                              data-descanso="{{ item.rest_seconds }}"
+                              data-nome="{{ item.exercise.name }}"
+                              aria-label="Cronometrar descanso de {{ item.exercise.name }}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="1.9" stroke-linecap="round" aria-hidden="true">
+                          <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/>
+                          <path d="M9 2h6"/>
+                        </svg>
+                      </button>
+                    </form>
+
+                    {% comment %}
+                      Desfazer aparece só quando há série registrada. Um link
+                      de desfazer permanente ocupa espaço todo dia para o erro
+                      de um dia.
+                    {% endcomment %}
+                    <p class="registro__desfazer" {% if not item.feitas %}hidden{% endif %}
+                       data-desfazer-area>
+                      <button type="button" class="btn-link" data-desfazer>
+                        desfazer última série
+                      </button>
+                    </p>
+
+                    {% if item.load.melhor_anterior %}
+                      <p class="exercise__previous">
+                        Último treino ({{ item.load.data_anterior|date:"d/m" }}):
+                        <b>{{ item.load.melhor_anterior|floatformat:'-2' }} kg</b>
+                        {% if item.load.delta > 0 %}
+                          · <b class="exercise__delta exercise__delta--up">▲ +{{ item.load.delta|floatformat:'-2' }} kg</b>
+                        {% elif item.load.delta < 0 %}
+                          · <b class="exercise__delta exercise__delta--down">▼ {{ item.load.delta|floatformat:'-2' }} kg</b>
+                        {% elif item.load.melhor_hoje %}
+                          · <b class="exercise__delta">= mesma carga</b>
+                        {% endif %}
+                      </p>
+                    {% endif %}
+                  </div>
+                  </div>
+                </details>
+                </li>

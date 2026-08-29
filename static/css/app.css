@@ -983,9 +983,43 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .macro-bar__part--carb { animation-delay: .08s; }
 .macro-bar__part--fat { animation-delay: .16s; }
 
-.macro-bar__part--protein { background: var(--brand); }
-.macro-bar__part--carb { background: var(--carb); }
-.macro-bar__part--fat { background: var(--fat); }
+.macro-bar__part--protein { background: var(--brand); --cor: var(--brand); }
+.macro-bar__part--carb { background: var(--carb); --cor: var(--carb); }
+.macro-bar__part--fat { background: var(--fat); --cor: var(--fat); }
+
+/* No painel do dia, cada faixa mostra QUANTO daquele macro já foi comido.
+
+   A barra dividia os macros e nada mais, e isso a fazia mentir: com zero
+   consumido ela aparecia cheia e colorida, três centímetros acima de
+   "P 0 /148". Logo abaixo, a barra de água mostrava vazia com 0 ml. Duas
+   barras, mesma linguagem visual, semânticas opostas na mesma tela — e a que
+   mentia era a da tela mais aberta do app.
+
+   A largura da faixa continua sendo a divisão do macro; o que muda é o
+   preenchimento dentro dela. O dado já vinha no contexto (`eaten_pct`), só
+   não era desenhado. Fora do painel a barra segue como estava: quando
+   `--comido` não é escrito, a faixa fica cheia como sempre foi. */
+.macro-bar--hero .macro-bar__part {
+  background-color: color-mix(in srgb, var(--cor) 26%, transparent);
+  background-image: linear-gradient(var(--cor), var(--cor));
+  background-repeat: no-repeat;
+  background-size: var(--comido, 100%) 100%;
+  transition: width .5s var(--ease), background-size .5s var(--ease);
+}
+
+/* O corte entre os macros, porque apagados eles não se separam sozinhos.
+
+   Medido: compostos sobre a trilha, proteína, carboidrato e gordura ficam a
+   1,05–1,11:1 de luminância entre si. Diferem em MATIZ e quase nada em brilho,
+   e este projeto já tem trava contra informação que só a cor carrega. Cheias,
+   as três se distinguiam por serem vivas; apagadas, precisavam de outra coisa.
+
+   Um fio da cor da trilha resolve por estrutura em vez de por cor: a divisão
+   passa a ser vista por quem não separa verde de âmbar. `inset` porque
+   `border` empurraria a largura, e a largura aqui é o dado. */
+.macro-bar--hero .macro-bar__part + .macro-bar__part {
+  box-shadow: inset 2px 0 0 var(--surface-2);
+}
 
 .macro-list { display: grid; gap: .9rem; }
 
@@ -1404,7 +1438,13 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 @media (prefers-reduced-motion: reduce) {
   .ring,
   .progress__fill,
-  .macro-bar__part { transition: none; animation: none; }
+  .macro-bar__part,
+  /* A faixa do painel entra aqui pelo nome COMPLETO de propósito. A regra que
+     a preenche é `.macro-bar--hero .macro-bar__part`, mais específica que
+     `.macro-bar__part` sozinho — sem esta linha ela venceria o desligamento e
+     continuaria animando para quem pediu menos movimento. */
+  .macro-bar--hero .macro-bar__part,
+  .dias-detalhe summary::after { transition: none; animation: none; }
 
   .agua__botao:active,
   .app-bar__brand:active,
@@ -1441,10 +1481,18 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
    procura no segundo seguinte a errar o toque em "Pulei". O alvo cresce por
    padding e a margem negativa devolve o espaço ao layout: o link continua
    visualmente discreto ao lado do texto, e o dedo passa a ter 44px. */
+/* A largura também. `TouchTargetTests` cobra a altura desta regra e a régua do
+   projeto pede as DUAS dimensões — medido na página, "zerar" saía com 39px de
+   largura por 44 de altura, que é exatamente o formato de falha que o
+   CLAUDE.md registra ("26px de largura com 44 de altura já passou
+   despercebido uma vez"). Rótulos maiores, como "desfazer", já passam de 44 e
+   não se mexem. */
 .btn-link {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 2.75rem;
+  min-width: 2.75rem;
   padding: 0 .35rem;
   margin: -.75rem -.35rem;
   border: 0;
@@ -1669,9 +1717,9 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .1rem;
+  gap: .15rem;
   min-width: 0;
-  padding: .55rem .2rem;
+  padding: .6rem .2rem .65rem;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   box-shadow: var(--inlay);
@@ -1695,18 +1743,7 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
    Medido na página renderizada: `--text-mute` sobre `--brand-soft` dá 4,36:1 —
    abaixo do mínimo AA de 4,5. `--text-dim` no mesmo fundo dá 6,05. O tom
    discreto continua discreto; o que muda é ele ser legível. */
-.day-chip--training .day-chip__name,
-.day-chip--training .day-chip__focus { color: var(--text-dim); }
-
-.day-chip__focus {
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--text-mute);
-  font-size: .7rem;
-  line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.day-chip--training .day-chip__name { color: var(--text-dim); }
 
 .session__head { display: flex; align-items: center; gap: .8rem; margin-bottom: .6rem; }
 
@@ -1755,8 +1792,31 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 
 .session__title { flex: 1; min-width: 0; }
 .session__name { display: block; font-size: 1.08rem; font-weight: 700; }
-.session__meta { display: block; color: var(--text-mute); font-size: .76rem; font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums; }
+/* A linha de metadados quebra ENTRE os itens, nunca dentro deles.
+
+   Como texto corrido separado por "·", ela quebrava onde desse: medido na
+   tela, "Segunda-feira · 19:00 · 9" fechava a primeira linha e "exercícios"
+   abria a segunda, com o número órfão do substantivo. Cada item vira uma
+   caixa indivisível e o "·" passa a ser desenhado entre elas. */
+.session__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .15rem .8rem;
+  color: var(--text-mute);
+  font-size: .76rem;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sem "·" entre os itens, e isso foi medido antes de ser escolhido.
+
+   Com o separador desenhado por `::before`, ele passava a ABRIR as linhas
+   quebradas — " · 9 exercícios · 29 séries" —, que é pior que o defeito
+   original. Por `::after` ele fecharia a linha, o que também sobra. Numa
+   lista que quebra, pontuação entre itens só funciona quando a quebra é
+   proibida, e aqui ela é inevitável em 200px. O espaço maior separa. */
+.session__meta > span { white-space: nowrap; }
 .session__focus { margin: 0 0 1rem; color: var(--text-dim); font-size: .82rem; }
 
 /* ==========================================================================
@@ -2671,7 +2731,41 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 .recalibrar__acoes form { display: contents; }
 
 .dias-detalhe { margin: .5rem 0; }
-.dias-detalhe summary { color: var(--text-dim); font-size: .8rem; cursor: pointer; min-height: 2.75rem; display: flex; align-items: center; }
+
+/* A seta de volta, e ela tinha sumido por efeito colateral.
+
+   `display: flex` num `<summary>` faz o navegador descartar o marcador
+   padrão — o triângulo de abrir. O resultado é uma sanfona com cara de
+   parágrafo: "Ver as pesagens dia a dia" ficava indistinguível de texto
+   solto, e ninguém toca no que não parece tocável. As outras três sanfonas
+   do app desenham a própria seta; esta passa a desenhar também. */
+.dias-detalhe summary {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 2.75rem;
+  color: var(--text-dim);
+  font-size: .8rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.dias-detalhe summary::-webkit-details-marker { display: none; }
+
+.dias-detalhe summary::after {
+  content: "";
+  width: .45rem;
+  height: .45rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translate(-.1rem, -.1rem);
+  transition: transform var(--dur) var(--ease);
+  opacity: .7;
+}
+
+.dias-detalhe[open] summary::after {
+  transform: rotate(-135deg) translate(-.15rem, -.15rem);
+}
 
 /* ==========================================================================
    22. Sanfona das fichas da semana
@@ -2734,21 +2828,14 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   color: var(--brand);
 }
 
-/* A etiqueta "hoje" é o único lugar da tela que usa a cor de destaque num
-   texto pequeno — é o que faz o olho achar a ficha certa sem ler as cinco. */
-.ficha__hoje {
-  display: inline-block;
-  margin-left: .4rem;
-  padding: .05rem .4rem;
-  border-radius: var(--pill);
-  background: var(--brand);
-  color: var(--on-brand);
-  font-size: .7rem;
-  font-weight: 750;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  vertical-align: middle;
-}
+/* A etiqueta "hoje" dentro da ficha saiu com o Treino V2.
+ *
+ * Ela existia para o olho achar a ficha certa entre cinco. Não há mais o que
+ * achar: o treino de hoje deixou de ser uma ficha e virou o primeiro bloco da
+ * tela, com nome e progresso próprios. A regra ficou órfã e
+ * `ResponseCompressionTests` pegou — CSS para seletor que ninguém renderiza
+ * não dá erro, só não faz nada, e o próximo leitor perde tempo procurando o
+ * elemento. */
 
 .ficha__corpo { padding: 0 var(--pad) 1.1rem; }
 
@@ -3925,17 +4012,30 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   background: var(--surface-2);
 }
 
+/* "Comi outra coisa" fala a mesma língua de "Pulei".
+
+   As duas ficam uma embaixo da outra, respondem à mesma pergunta — não vou
+   seguir o plano nesta refeição — e apareciam com aparências diferentes:
+   medido na tela, "Pulei" saía centralizado, com fundo e quina; esta saía
+   alinhada à esquerda, transparente, sem quina e meio pixel maior. Duas
+   respostas para a mesma pergunta, a três centímetros uma da outra.
+
+   Continua sendo `<summary>`: o que muda é a aparência, não a semântica. Os
+   valores vêm de `.btn--quiet`, que é o componente que já resolvia isto. */
 .fora__abrir {
   display: flex;
   align-items: center;
+  justify-content: center;
   min-height: 2.75rem;
-  padding: .6rem .85rem;
+  padding: .45rem .85rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
   color: var(--text-dim);
-  font-size: .86rem;
+  font-size: .82rem;
   font-weight: 650;
   cursor: pointer;
   list-style: none;
-  transition: color var(--dur) var(--ease);
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 
 .fora__abrir::-webkit-details-marker { display: none; }
@@ -4668,3 +4768,258 @@ body.montando { overflow: hidden; }
    acontecer ao tocar, e não o estado em que está. Olho riscado com senha
    visível diria o contrário do que o botão faz. */
 .campo-senha__olho[aria-pressed="true"] .campo-senha__corte { display: none; }
+
+/* ==========================================================================
+   36. Treino — o dia de hoje
+   ========================================================================== */
+
+/* A tela de treino passou a abrir pelo que a pessoa veio fazer.
+
+   Antes, medido a 390x844: a ficha de hoje começava em y=897 e o primeiro
+   controle de registro — depois de abrir a sanfona do exercício — em y=1322,
+   contra uma dobra que termina em y=776. Para anotar a primeira série era
+   preciso rolar quase duas telas e atravessar dois treinos que não são o de
+   hoje. A pessoa está em pé, entre séries, com o telefone numa mão.
+
+   A inversão é essa: execução em cima, programa embaixo. Nada foi removido —
+   "Seu programa" e as fichas dos outros dias continuam inteiros, logo abaixo.
+   Eles respondem "como é a minha semana", que é consulta, e consulta não
+   disputa a dobra com a tarefa.
+
+   O fio da cor do dia na borda esquerda vem de graça: `.card[data-dia]` já
+   existe e já pinta a ficha, então o topo da tela usa a mesma linguagem que
+   o resto do treino em vez de inventar a sua. */
+.hoje {
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+  border-radius: var(--radius-xl);
+}
+
+/* O sobretítulo é o que responde "que tela é esta" em uma olhada. Ele é
+   pequeno de propósito: quem manda no bloco é o nome do treino logo abaixo. */
+.hoje__etiqueta {
+  margin: 0;
+  color: var(--brand-strong);
+  font-size: .72rem;
+  font-weight: 750;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.hoje__id {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+  min-width: 0;
+}
+
+/* O mesmo selo da ficha, maior. Reaproveitar `.session__badge` em vez de
+   desenhar outro é o que mantém o par de cores dentro do que
+   `DayColourContrastTests` já mede — a letra do dia sobre a cor do dia. */
+.hoje__badge {
+  width: 3.15rem;
+  height: 3.15rem;
+  border-radius: var(--radius-lg);
+  font-size: 1.45rem;
+}
+
+/* Descanso não tem letra nem cor de dia: o selo vira superfície neutra com o
+   ícone da lua. Pintá-lo de verde diria "treino" num dia que não é de treino. */
+.hoje__badge--descanso {
+  background: var(--surface-3);
+  color: var(--text-dim);
+}
+.hoje__badge--descanso svg { width: 1.5rem; height: 1.5rem; }
+
+/* O elemento maior da tela, e o único com este peso: é a resposta à pergunta
+   que trouxe a pessoa aqui. `min-width: 0` porque "Costas, bíceps, antebraço
+   e trapézio" é o nome mais longo do catálogo e ele precisa quebrar dentro da
+   coluna, não empurrá-la. */
+.hoje__nome {
+  margin: 0;
+  min-width: 0;
+  font-size: 1.42rem;
+  font-weight: 780;
+  line-height: 1.14;
+  letter-spacing: -.015em;
+}
+
+.hoje__foco {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: .88rem;
+}
+
+/* Cada item é uma caixa indivisível e o "·" é desenhado entre elas — a mesma
+   correção já registrada no cabeçalho da ficha, pelo mesmo motivo: como texto
+   corrido a linha quebrava dentro de um item, deixando "9" no fim de uma linha
+   e "exercícios" no começo da outra. */
+.hoje__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .15rem .85rem;
+  margin: 0;
+  color: var(--text-mute);
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  font-variant-numeric: tabular-nums;
+}
+.hoje__meta > span { white-space: nowrap; }
+
+/* O progresso é DERIVADO, e a frase abaixo dele diz exatamente o que ele mede.
+
+   "3 de 9 exercícios com série registrada hoje" é verificável: são as linhas
+   de `ExerciseLog` com a data de hoje. "33% concluído" não seria — não existe
+   `TrainingSession` persistente, ninguém sabe se a pessoa terminou ou parou no
+   meio, e a barra não pode afirmar um estado que nenhuma tabela sustenta. */
+.hoje__progresso {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+.hoje__barra { height: .55rem; }
+.hoje__contagem {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: .85rem;
+}
+.hoje__contagem b {
+  color: var(--text);
+  font-weight: 750;
+}
+
+/* O botão principal ocupa a largura toda e carrega duas linhas: o verbo e, em
+   eco, o nome do exercício para onde ele leva. O eco existe para o toque não
+   ser às cegas — quem vai "continuar de onde parou" quer saber onde é isso
+   antes de rolar. */
+.btn--hoje {
+  flex-direction: column;
+  gap: .1rem;
+  min-height: 3.4rem;
+  font-size: 1rem;
+}
+.btn__eco {
+  max-width: 100%;
+  overflow: hidden;
+  color: inherit;
+  font-size: .74rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: .8;
+}
+
+/* Todos os exercícios têm série anotada. A frase descreve isso e para: dizer
+   "treino concluído" seria afirmar o que o banco não sabe. */
+.hoje__completo {
+  margin: 0;
+  padding: .75rem .9rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+  font-size: .86rem;
+  font-weight: 650;
+}
+
+/* O próximo treino sai de `weekday`, que a pessoa escolheu no cadastro. Não é
+   previsão: é o próximo dia da semana que já tem sessão no plano. */
+.hoje__proximo {
+  display: grid;
+  gap: .35rem;
+  margin: 0;
+  padding: .8rem .9rem;
+  border-radius: var(--radius);
+  background: var(--surface-3);
+}
+.hoje__proximo-rotulo {
+  color: var(--text-mute);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.hoje__proximo-corpo {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  min-width: 0;
+}
+.hoje__proximo-corpo .session__badge {
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  font-size: .9rem;
+}
+.hoje__proximo-nome {
+  min-width: 0;
+  color: var(--text);
+  font-size: .95rem;
+  font-weight: 700;
+}
+.hoje__proximo-quando {
+  color: var(--text-dim);
+  font-size: .82rem;
+}
+
+/* A lista de hoje é a mesma `.exercise-list` das fichas — os cartões são o
+   mesmo parcial. O que muda é só o estado que cada um carrega. */
+.hoje__lista { margin: 0; }
+
+/* O exercício de AGORA: o primeiro sem nenhuma série registrada hoje.
+
+   É posição na lista, recalculada a cada carregamento, e não estado guardado.
+   Registrar fora de ordem move o destaque para o próximo pendente sozinho.
+
+   O anel é o halo de estado do app — o mesmo que marca a aba atual e a
+   refeição feita — e não um segundo dialeto para dizer "este aqui". */
+.exercise--agora {
+  border-color: color-mix(in srgb, var(--brand) 55%, var(--border));
+  box-shadow: var(--halo);
+}
+
+/* Já registrado: o número da ordem se tinge. A informação não fica só na cor —
+   a pílula "3/4 séries" no cabeçalho diz o mesmo em texto, que é o que serve
+   para quem não distingue os dois tons. */
+.exercise--feito .exercise__order,
+.exercise--parcial .exercise__order {
+  background: color-mix(in srgb, var(--brand) 18%, transparent);
+  color: var(--brand);
+}
+
+/* Mesma construção da pílula de descanso, com a cor da marca: borda e fundo
+   pela tinta, texto pela cor cheia. */
+.exercise__tag--feito {
+  border-color: color-mix(in srgb, var(--brand) 24%, transparent);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+}
+
+/* Hoje, na tira do programa. O contorno por dentro em vez de borda para o chip
+   não mudar de tamanho e desalinhar a fileira de sete. */
+.day-chip--hoje {
+  outline: 2px solid var(--dia, var(--brand));
+  outline-offset: -2px;
+}
+
+/* O programa desceu, e encolheu junto: ele é consulta. As notas do plano
+   continuam aqui porque é aqui que elas explicam a divisão. */
+.programa .week-strip { margin-bottom: 0; }
+
+/* O resumo da divisão desceu do topo da tela para junto do programa, que é de
+   quem ele fala. Mesma construção do `.hoje__meta`: cada item é uma caixa
+   indivisível e o "·" é desenhado entre elas. */
+.programa__resumo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .15rem .85rem;
+  margin: 0 0 .9rem;
+  color: var(--text-mute);
+  font-family: var(--font-mono);
+  font-size: .76rem;
+  font-variant-numeric: tabular-nums;
+}
+.programa__resumo > span { white-space: nowrap; }
