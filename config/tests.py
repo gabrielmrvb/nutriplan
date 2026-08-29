@@ -7,6 +7,7 @@ Estes testes exercitam justamente o que só existe com `DEBUG=False`.
 """
 import inspect
 import re
+import struct
 from pathlib import Path
 from unittest.mock import patch
 
@@ -1462,12 +1463,34 @@ class GymReadyTests(TestCase):
 
 
 class MarcaTests(TestCase):
-    """O logo: um desenho, três lugares, dois temas.
+    """A identidade oficial: uma arte, e os lugares onde ela aparece.
 
-    Ele era a letra "N" num `<span>` sobre uma placa de gradiente — a mesma
-    forma que qualquer app faz com a inicial do nome, e que não diz nada sobre
-    dieta nem treino.
+    A marca anterior era um desenho geométrico em SVG — anel e "N" — que tomava
+    as cores do tema: verde no escuro, verde-escuro no claro. Isto substitui
+    aquela regra de propósito.
+
+    A identidade aprovada tem PALETA PRÓPRIA e constante: verde-floresta,
+    branco e o verde da folha. Ela não acompanha o tema, e é justamente por
+    isso que é uma marca — o que muda de cor conforme o aparelho é um elemento
+    de interface com forma de marca, não uma. A interface ao redor continua
+    adaptativa; só a marca é fixa, como numa embalagem.
+
+    Estes testes guardam o CONTRATO, não os pixels. Conferir byte de PNG
+    prenderia a suíte a um detalhe que muda a cada reexportação da arte sem
+    nada de errado ter acontecido.
     """
+
+    #: Os derivados que a interface e o PWA realmente pedem, e para quê.
+    DERIVADOS = {
+        "icon-192.png": 192,
+        "icon-512.png": 512,
+        "icon-192-maskable.png": 192,
+        "icon-512-maskable.png": 512,
+        "apple-touch-icon.png": 180,
+        "favicon-16.png": 16,
+        "favicon-32.png": 32,
+        "favicon-48.png": 48,
+    }
 
     def setUp(self):
         self.marca = (RAIZ / "templates" / "partials" / "marca.html").read_text(
@@ -1475,66 +1498,164 @@ class MarcaTests(TestCase):
         )
         self.base = (RAIZ / "templates" / "base.html").read_text(encoding="utf-8")
         self.css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
+        self.icones = RAIZ / "static" / "icons"
 
-    def test_the_mark_is_generated_and_not_hand_written(self):
-        """Ela sai da MESMA geometria do ícone do PWA. Escrita à mão, começaria
-        a divergir dele na primeira vez que alguém ajustasse um número num só
-        dos dois."""
-        self.assertIn("gerar_icones.py", self.marca)
-        self.assertIn("não edite à mão", self.marca)
+    # -- a fonte da verdade ------------------------------------------------
 
-    def test_the_mark_matches_the_icon_geometry(self):
-        """A prova de que é a mesma: os números do SVG saem das constantes do
-        script, então conferir um valor calculado por elas é conferir a
-        ligação."""
-        script = (RAIZ / "scripts" / "gerar_icones.py").read_text(encoding="utf-8")
-        haste = float(re.search(r"^HASTE = ([\d.]+)", script, re.M).group(1))
-        topo = float(re.search(r"^TOPO, BASE = ([\d.]+)", script, re.M).group(1))
+    def test_the_approved_art_is_versioned_in_the_repository(self):
+        """Todo derivado sai dela. Fora do repositório, regerar os ícones
+        dependeria de alguém ainda ter o arquivo na máquina."""
+        fonte = RAIZ / "assets" / "nutriplan-icon-source.png"
+        self.assertTrue(fonte.exists(), "a arte aprovada sumiu de assets/")
+        self.assertEqual(fonte.read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
 
-        self.assertIn(f'width="{haste * 64:.2f}"', self.marca)
-        self.assertIn(f'y="{topo * 64:.2f}"', self.marca)
+    def test_the_mark_is_the_art_and_not_a_drawing_of_it(self):
+        """O `<svg>` desenhado à mão saiu.
 
-    def test_it_takes_its_colours_from_the_theme_and_not_from_literals(self):
-        """É o que faz uma marca só servir aos dois temas: no escuro a placa é
-        esmeralda com o desenho grafite; no claro ela é verde-escuro com o
-        desenho branco. Cor fixa exigiria dois arquivos."""
-        self.assertIn("var(--on-brand)", self.marca)
-        self.assertNotIn("#10b981", self.marca)
-        self.assertNotIn("#0d0f12", self.marca)
+        Enquanto a marca era retângulos e um círculo, o SVG era o formato
+        certo. A arte aprovada tem sombra no "N", gradiente e nervura na
+        folha — redesenhá-la em vetor produziria outra marca, que é exatamente
+        o que esta missão proibiu.
+        """
+        self.assertIn("icons/icon-192.png", self.marca)
+        self.assertNotIn("<svg", self.marca)
+        self.assertNotIn("<path", self.marca)
 
-    def test_the_gradient_is_defined_once_per_page(self):
-        """A marca aparece DUAS vezes nas telas de entrada — barra e cartão.
-        Dois `<defs>` com o mesmo `id` na mesma página é HTML inválido."""
-        self.assertNotIn("<defs", self.marca)
-        self.assertIn('id="marca-luz"', self.base)
-        self.assertEqual(self.base.count('id="marca-luz"'), 1)
+    def test_the_mark_says_where_it_comes_from(self):
+        """Quem for mexer na identidade precisa achar o caminho de volta: o
+        arquivo-fonte e o gerador, não o PNG derivado."""
+        self.assertIn("gerar_identidade.ps1", self.marca)
+        self.assertIn("nutriplan-icon-source.png", self.marca)
+        self.assertTrue((RAIZ / "scripts" / "gerar_identidade.ps1").exists())
 
-    def test_the_wrapper_never_repeats_the_rounded_corner(self):
-        """A quina e a placa são do próprio SVG. Repeti-las no envoltório
-        cortaria as bordas do desenho por fora, e as duas curvas nunca
-        coincidem em pixel."""
+    # -- a paleta própria --------------------------------------------------
+
+    def test_nothing_repaints_the_mark_with_the_interface_colours(self):
+        """A regra que esta identidade substituiu, agora guardada ao contrário.
+
+        Antes o teste exigia `var(--on-brand)` na marca; agora ele exige que
+        NADA a tinja. `currentColor`, `fill` ou um `filter` no CSS devolveriam
+        a marca ao tema e desfariam a decisão sem ninguém perceber — o arquivo
+        continuaria certo e a tela mostraria outra coisa.
+        """
+        regra = "".join(
+            trecho.split("}", 1)[0]
+            for trecho in self.css.split(chr(10) + ".marca {")[1:]
+        )
+        self.assertNotIn("currentColor", regra)
+        self.assertNotIn("fill:", regra)
+        self.assertNotIn("filter:", regra)
+
+    def test_it_carries_its_own_ground_so_both_themes_read_the_same(self):
+        """A legibilidade nos dois temas não vem de contraste com a página: vem
+        de a marca trazer o próprio fundo verde-floresta.
+
+        É o que torna o requisito verificável sem medir pixel — o mesmo arquivo
+        opaco é servido no claro e no escuro, então não existe combinação de
+        tema que mude o que se vê. O que o envoltório NÃO pode fazer é pintar
+        um fundo por baixo ou furar a arte.
+        """
         for seletor in (".app-bar__mark", ".auth__logo"):
             with self.subTest(seletor=seletor):
                 regra = "".join(
                     t.split("}", 1)[0]
                     for t in self.css.split(chr(10) + seletor + " {")[1:]
                 )
-                self.assertNotIn("border-radius", regra)
                 self.assertNotIn("background", regra)
+        # E a imagem é opaca: sem `opacity`, o fundo da página atravessaria.
+        marca = "".join(
+            t.split("}", 1)[0] for t in self.css.split(chr(10) + ".marca {")[1:]
+        )
+        self.assertNotIn("opacity", marca)
 
-    def test_the_mark_reads_against_the_plate_in_both_themes(self):
-        """Medido: o desenho sobre a placa dá 7,45:1 no escuro e 6,58 no claro.
-        O anel fica em 3,1 — acima do mínimo de 3:1 que a WCAG pede para
-        elemento gráfico, e abaixo do "N" de propósito: ele emoldura, não
-        compete."""
-        for escopo, rotulo in (
-            (":root {", "escuro"),
-            ("prefers-color-scheme: light) {" + chr(10) + "  :root {", "claro"),
-        ):
-            tokens = _tokens(self.css, escopo)
-            with self.subTest(tema=rotulo):
-                self.assertGreaterEqual(
-                    _contraste(tokens["--on-brand"], tokens["--brand"]), 4.5
+    def test_the_rounded_corner_comes_from_the_css_and_not_from_the_file(self):
+        """O arquivo é SANGRADO — quadrado, sem canto arredondado.
+
+        É o mesmo arquivo que o iOS e o Android instalam, e os dois aplicam a
+        própria máscara. Arte já arredondada devolve canto duplicado, com o
+        fundo do sistema aparecendo por fora do nosso. Então a quina do selo é
+        do CSS, e vem de token como todas as outras do app.
+        """
+        marca = "".join(
+            t.split("}", 1)[0] for t in self.css.split(chr(10) + ".marca {")[1:]
+        )
+        self.assertIn("border-radius", marca)
+        self.assertIn("var(--radius", marca)
+
+    # -- onde ela aparece --------------------------------------------------
+
+    def test_the_same_identity_greets_at_login_and_at_signup(self):
+        """Uma inclusão, não duas cópias: as telas de entrada são a primeira
+        coisa que alguém vê do app, e duas marcas divergem na primeira
+        troca."""
+        for tela in ("login.html", "signup.html"):
+            with self.subTest(tela=tela):
+                html = (RAIZ / "templates" / "accounts" / tela).read_text(
+                    encoding="utf-8"
                 )
-                anel = _sobre(tokens["--on-brand"], 0.55, tokens["--brand"])
-                self.assertGreaterEqual(_contraste(anel, tokens["--brand"]), 3.0)
+                self.assertIn("partials/marca.html", html)
+
+    def test_the_top_bar_carries_it_too(self):
+        self.assertIn("partials/marca.html", self.base)
+
+    # -- os derivados ------------------------------------------------------
+
+    def test_every_derivative_the_interface_asks_for_exists(self):
+        for nome in self.DERIVADOS:
+            with self.subTest(icone=nome):
+                caminho = self.icones / nome
+                self.assertTrue(caminho.exists(), "derivado ausente")
+                self.assertEqual(caminho.read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
+
+    def test_every_derivative_has_the_size_its_name_promises(self):
+        """Nome que mente é pior que arquivo faltando: o navegador aceita e
+        reamostra, e ninguém vê o borrão até alguém instalar o app."""
+        for nome, lado in self.DERIVADOS.items():
+            with self.subTest(icone=nome):
+                dados = (self.icones / nome).read_bytes()
+                largura, altura = struct.unpack(">II", dados[16:24])
+                self.assertEqual((largura, altura), (lado, lado))
+
+    def test_no_derivative_is_a_blank_placeholder(self):
+        """Um PNG de cor chapada comprime para quase nada.
+
+        Este é o guarda barato contra o acidente que os outros testes deixam
+        passar: um arquivo com o nome certo, o tamanho certo e nenhuma marca
+        dentro. A arte tem um "N" com sombra e uma folha com gradiente, e isso
+        não cabe em dois quilobytes num ícone de 192.
+        """
+        self.assertGreater((self.icones / "icon-192.png").stat().st_size, 8_000)
+        self.assertGreater((self.icones / "icon-512.png").stat().st_size, 30_000)
+
+    def test_no_derivative_is_heavy_enough_to_hurt_the_first_paint(self):
+        """O `icon-192.png` é a marca do cabeçalho, e ele carrega em toda
+        página. A primeira versão gerada tinha 352 KB no de 512 porque o
+        recorte trazia a granulação do fundo da arte."""
+        self.assertLess((self.icones / "icon-192.png").stat().st_size, 60_000)
+        self.assertLess((self.icones / "icon-512.png").stat().st_size, 250_000)
+
+    def test_the_favicon_carries_the_three_small_sizes(self):
+        """16, 32 e 48 dentro de um arquivo, e o navegador escolhe. É também o
+        que responde ao `/favicon.ico` que o navegador busca sozinho."""
+        dados = (self.icones / "favicon.ico").read_bytes()
+        self.assertEqual(dados[:4], b"\x00\x00\x01\x00", "não é um ICO")
+        quantidade = struct.unpack("<H", dados[4:6])[0]
+        self.assertEqual(quantidade, 3)
+        larguras = {dados[6 + 16 * i] for i in range(quantidade)}
+        self.assertEqual(larguras, {16, 32, 48})
+
+    def test_the_head_points_at_the_new_assets(self):
+        """O `favicon.svg` era o desenho da marca antiga. Deixá-lo no `<head>`
+        faria a aba mostrar a identidade anterior enquanto o resto do app já
+        mostrava a nova — e ninguém olha o favicon para conferir deploy."""
+        self.assertNotIn("favicon.svg", self.base)
+        self.assertFalse((self.icones / "favicon.svg").exists())
+        self.assertIn("icons/favicon.ico", self.base)
+        self.assertIn("icons/apple-touch-icon.png", self.base)
+
+    def test_apple_gets_its_own_file_at_the_size_it_asks_for(self):
+        """180 é a medida do iOS desde o iPhone 6 Plus. Apontar para o de 192
+        funcionava e fazia o sistema reamostrar em toda instalação."""
+        self.assertIn('sizes="180x180"', self.base)
+        dados = (self.icones / "apple-touch-icon.png").read_bytes()
+        self.assertEqual(struct.unpack(">II", dados[16:24]), (180, 180))

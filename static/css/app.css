@@ -421,7 +421,24 @@ button { font-family: inherit; color: inherit; }
   flex: none;
 }
 
-.marca { display: block; width: 100%; height: 100%; }
+/* A marca virou imagem: a arte aprovada, e não mais um SVG desenhado em
+   `currentColor`.
+
+   A quina vem do CSS porque o arquivo é SANGRADO — quadrado, sem cantos
+   arredondados. É o mesmo arquivo que o iOS e o Android instalam, e os dois
+   aplicam a própria máscara: mandar uma arte já arredondada devolve o canto
+   duplicado, com o fundo do sistema aparecendo por fora do nosso.
+
+   O raio sai do token para o selo do cabeçalho ficar na mesma família das
+   outras quinas do app. */
+.marca {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+}
+.auth__logo .marca { border-radius: var(--radius); }
 
 .app-bar__nav { display: flex; align-items: center; gap: .3rem; }
 .app-bar__nav .app-bar__link { display: none; }

@@ -47,7 +47,7 @@ echo "→ pasta de outro projeto no commit"
 # Ignorar por nome não impediu a repetição — o próximo vizinho terá outro nome.
 # Aqui a lista é do que PODE estar no primeiro nível, e qualquer pasta nova
 # precisa entrar nela de propósito.
-CONHECIDAS=".claude accounts catalog config demo plans push scripts static staticfiles supplements templates workouts"
+CONHECIDAS=".claude accounts assets catalog config demo plans push scripts static staticfiles supplements templates workouts"
 INTRUSAS=""
 for CAMINHO in $(git diff --cached --name-only --diff-filter=A); do
   TOPO="${CAMINHO%%/*}"

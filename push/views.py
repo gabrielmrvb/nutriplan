@@ -58,16 +58,15 @@ class ManifestView(View):
                 # fabricante escolher — declarar "any maskable" no mesmo arquivo
                 # é o atalho que faz a letra aparecer cortada em metade dos
                 # aparelhos.
+                #
+                # O SVG saiu da lista com a identidade nova. Ele era o desenho
+                # geométrico da marca anterior — retângulos e um círculo, que
+                # cabem num vetor de 600 bytes. A arte aprovada tem sombra no
+                # "N", gradiente e nervura na folha: vetorizá-la produziria
+                # outra marca, e embrulhar o PNG em base64 daria o mesmo peso
+                # sem nenhuma vantagem de vetor. Ficam os dois PNGs, que são o
+                # que Chrome e Android exigem de qualquer jeito.
                 "icons": [
-                    {
-                        # O vetor primeiro: o Android usa o SVG quando o tem, e
-                        # aí a tela inicial fica nítida em qualquer densidade
-                        # sem carregar um PNG de 512.
-                        "src": static("icons/favicon.svg"),
-                        "sizes": "any",
-                        "type": "image/svg+xml",
-                        "purpose": "any",
-                    },
                     {
                         "src": static("icons/icon-192.png"),
                         "sizes": "192x192",
@@ -143,7 +142,15 @@ class ServiceWorkerView(TemplateView):
         context.update(
             {
                 # Mudar a versão invalida o cache antigo na ativação do SW.
-                "cache_version": "nutriplan-v5",
+                #
+                # v6 é a identidade nova. Os ícones entram no shell por
+                # `static()` e não por `asset()` — de propósito, para o endereço
+                # do ícone instalado não mudar a cada deploy —, então a URL do
+                # `icon-192.png` é a mesma de antes e o cache de quem já usa o
+                # app continuaria servindo a marca antiga para sempre. Subir a
+                # versão é o que faz o service worker descartar aquele registro
+                # na ativação.
+                "cache_version": "nutriplan-v6",
                 # A versão dos estáticos vai junto para o service worker poder
                 # apagar do cache o que é de builds anteriores.
                 "asset_version": version(),
