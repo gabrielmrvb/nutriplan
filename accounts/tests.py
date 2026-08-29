@@ -11,9 +11,13 @@ from pathlib import Path
 from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from catalog.models import DietaryTag, TagKind
+from plans.models import NutritionPlan
+from plans.tests import create_complete_user
 
+from .forms import PesagemForm
 from .models import ONBOARDING_DONE, Profile, TrainingDay, User, WeightEntry
 
 
@@ -667,3 +671,199 @@ class AuthScreenTests(TestCase):
                 # paleta do app, como todas as outras.
                 self.assertNotIn("<style", html)
                 self.assertNotIn("#0d0f12", html.split("</head>", 1)[1])
+
+
+class PesagemRapidaTests(TestCase):
+    """A rota de peso: um número, uma tabela, nenhum efeito colateral.
+
+    Ela existe porque registrar o peso exigia abrir o passo 1 do onboarding —
+    sexo, nascimento, altura e peso, com a barra de abas sumindo, para gravar
+    o único dos quatro que muda. O que estes testes defendem é o "nenhum
+    efeito colateral": a rota escreve WeightEntry e para. A meta se atualiza
+    depois, sozinha, pelo caminho que já existia.
+    """
+
+    url = reverse("accounts:log_weight")
+
+    def setUp(self):
+        self.user = create_complete_user(email="pesagem@exemplo.com")
+        self.user.weight_entries.all().delete()
+        self.client.force_login(self.user)
+
+    # ---------------------------------------------------------------- acesso
+
+    def test_anonymous_cannot_record_a_weight(self):
+        self.client.logout()
+        resposta = self.client.post(self.url, {"weight_kg": "80"})
+
+        self.assertIn(reverse("accounts:login"), resposta["Location"])
+        self.assertEqual(WeightEntry.objects.count(), 0)
+
+    def test_an_unfinished_onboarding_goes_back_to_the_wizard(self):
+        Profile.objects.filter(user=self.user).update(onboarding_step=3)
+        resposta = self.client.post(self.url, {"weight_kg": "80"})
+
+        self.assertRedirects(
+            resposta, reverse("accounts:onboarding"), target_status_code=302
+        )
+        self.assertEqual(WeightEntry.objects.count(), 0)
+
+    def test_the_route_only_accepts_post(self):
+        """Isso muda estado. GET que escreve é GET que o navegador repete."""
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+
+    def test_a_weight_is_always_written_for_whoever_is_logged_in(self):
+        """Ownership vive na consulta: a rota não lê identificador de gente
+        nenhuma do corpo, então mandar um não muda o dono do registro."""
+        outra = User.objects.create_user(
+            email="outra@exemplo.com", password="senha-bem-forte-123"
+        )
+
+        self.client.post(
+            self.url, {"weight_kg": "80", "user": outra.pk, "user_id": outra.pk}
+        )
+
+        self.assertEqual(outra.weight_entries.count(), 0)
+        self.assertEqual(self.user.weight_entries.count(), 1)
+
+    # --------------------------------------------------------------- escrita
+
+    def test_a_valid_weight_creates_todays_entry(self):
+        self.client.post(self.url, {"weight_kg": "80.5", "origem": "metricas"})
+
+        entry = self.user.weight_entries.get()
+        self.assertEqual(entry.date, timezone.localdate())
+        self.assertEqual(entry.weight_kg, Decimal("80.50"))
+
+    def test_a_comma_is_how_this_app_writes_a_decimal(self):
+        """O campo é `type="text"` porque `type="number"` recusa vírgula, e
+        aqui se digita "82,5". A mesma tradução que a carga da ficha faz."""
+        self.client.post(self.url, {"weight_kg": "82,5", "origem": "hoje"})
+
+        self.assertEqual(self.user.weight_entries.get().weight_kg, Decimal("82.50"))
+
+    def test_recording_again_today_corrects_instead_of_stacking(self):
+        """Duas pesagens no mesmo dia não existem: a segunda É a primeira,
+        corrigida. Sem isso, a média do dia contaria a tentativa errada."""
+        self.client.post(self.url, {"weight_kg": "82,5"})
+        self.client.post(self.url, {"weight_kg": "82,0"})
+
+        self.assertEqual(self.user.weight_entries.count(), 1)
+        self.assertEqual(self.user.weight_entries.get().weight_kg, Decimal("82.00"))
+
+    def test_the_screen_that_asked_is_the_screen_that_gets_the_answer(self):
+        do_painel = self.client.post(self.url, {"weight_kg": "80", "origem": "hoje"})
+        self.assertRedirects(do_painel, reverse("plans:today"))
+
+        de_metricas = self.client.post(
+            self.url, {"weight_kg": "80", "origem": "metricas"}
+        )
+        self.assertRedirects(de_metricas, reverse("plans:history"))
+
+    def test_an_unknown_origin_never_becomes_a_redirect_target(self):
+        """Destino escolhido pelo cliente é redirecionamento aberto. A lista é
+        fechada, e o que não está nela cai no padrão."""
+        resposta = self.client.post(
+            self.url, {"weight_kg": "80", "origem": "https://exemplo.invalido/"}
+        )
+
+        self.assertRedirects(resposta, reverse("plans:history"))
+
+    # ------------------------------------------------------------- validação
+
+    def test_text_that_is_not_a_number_is_refused_with_an_example(self):
+        resposta = self.client.post(
+            self.url, {"weight_kg": "oitenta", "origem": "metricas"}, follow=True
+        )
+
+        self.assertEqual(WeightEntry.objects.count(), 0)
+        self.assertContains(resposta, "Peso inválido — use números, como 82,5.")
+
+    def test_what_the_person_typed_survives_a_refusal(self):
+        """Apagar o que ela escreveu por causa de uma vírgula é punição: ela
+        volta para um campo vazio sem saber o que estava errado."""
+        self.client.post(self.url, {"weight_kg": "8o,5", "origem": "metricas"})
+
+        # `[superfície, valor]`: sem a superfície, o painel consumia um erro
+        # nascido em Métricas e a pessoa voltava para um campo vazio.
+        self.assertEqual(self.client.session.get("peso_recusado"), ["metricas", "8o,5"])
+
+    def test_a_weight_below_the_range_the_app_calculates_is_refused(self):
+        """Vinte quilos é o piso do model. Abaixo disso a fórmula de taxa
+        metabólica não descreve mais ninguém, e o erro precisa dizer a faixa."""
+        resposta = self.client.post(
+            self.url, {"weight_kg": "19", "origem": "metricas"}, follow=True
+        )
+
+        self.assertEqual(WeightEntry.objects.count(), 0)
+        self.assertContains(resposta, "use de 20 a 400 kg")
+
+    def test_a_weight_above_the_range_the_app_calculates_is_refused(self):
+        resposta = self.client.post(
+            self.url, {"weight_kg": "401", "origem": "metricas"}, follow=True
+        )
+
+        self.assertEqual(WeightEntry.objects.count(), 0)
+        self.assertContains(resposta, "use de 20 a 400 kg")
+
+    def test_an_empty_field_says_what_to_type(self):
+        resposta = self.client.post(
+            self.url, {"weight_kg": "", "origem": "metricas"}, follow=True
+        )
+
+        self.assertEqual(WeightEntry.objects.count(), 0)
+        self.assertContains(resposta, "Digite o peso")
+
+    def test_the_range_comes_from_the_model_and_is_not_rewritten(self):
+        """Os limites moram no campo do model. Se alguém mudar a faixa lá, o
+        formulário acompanha — dois lugares para o mesmo número é um deles
+        ficando para trás."""
+        do_form = PesagemForm().fields["weight_kg"].validators
+        for validador in WeightEntry._meta.get_field("weight_kg").validators:
+            # Identidade, e não igualdade: dois validadores com os mesmos
+            # números são iguais, e é justamente a cópia que este teste
+            # existe para recusar.
+            self.assertTrue(
+                any(v is validador for v in do_form),
+                "o formulário reescreveu um validador em vez de reusar o do model",
+            )
+
+    # ------------------------------------------------------ efeito colateral
+
+    def test_recording_a_weight_never_touches_the_profile(self):
+        """A rota escreve uma tabela. `Profile.current_weight` continua
+        derivado — dois lugares guardando o peso divergiriam na primeira
+        correção do dia."""
+        antes = Profile.objects.get(user=self.user)
+        self.client.post(self.url, {"weight_kg": "77,5"})
+        depois = Profile.objects.get(user=self.user)
+
+        self.assertEqual(antes.height_cm, depois.height_cm)
+        self.assertEqual(antes.sex, depois.sex)
+        self.assertEqual(antes.birth_date, depois.birth_date)
+        self.assertEqual(antes.kcal_adjustment, depois.kcal_adjustment)
+
+    def test_recording_a_weight_does_not_build_a_plan_inside_the_request(self):
+        """O plano novo nasce na próxima entrada de tela, por
+        `sync_active_plan`. Gerar aqui duplicaria esse mecanismo e faria o
+        cardápio ser remontado sobre um número que ela pode corrigir agora."""
+        self.client.post(self.url, {"weight_kg": "77,5"})
+
+        self.assertEqual(NutritionPlan.objects.filter(user=self.user).count(), 0)
+
+    def test_the_current_weight_becomes_the_one_just_recorded(self):
+        """A ponta da corrente: é `current_weight` que `build_inputs` lê, e é
+        por ele que o plano percebe sozinho que o peso mudou."""
+        self.client.post(self.url, {"weight_kg": "77,5"})
+
+        self.assertEqual(
+            Profile.objects.get(user=self.user).current_weight, Decimal("77.50")
+        )
+
+    def test_the_old_onboarding_path_still_records_a_weight(self):
+        """O passo 1 continua existindo para editar dados corporais pelo
+        Perfil, e continua gravando peso. Ele só deixou de ser o caminho para
+        se pesar."""
+        self.client.post(step_url(1), STEP1)
+
+        self.assertEqual(self.user.weight_entries.count(), 1)

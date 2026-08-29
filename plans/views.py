@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.views.generic import TemplateView, View
 
 from accounts.models import ACTIVITY_FACTORS, SyncedOperation
-from accounts.views import OnboardingRequiredMixin
+from accounts.views import OnboardingRequiredMixin, recusa_pendente
 from catalog.models import Food
 
 from . import services, shopping, streaks, tracking, weight_trend
@@ -219,6 +219,7 @@ class TodayView(PlanRequiredMixin, TemplateView):
         summary = tracking.day_summary(self.request.user, self.plan, today)
         menu = menu_totals(slots)
 
+        recusa = recusa_pendente(self.request, "hoje")
         meta_agua = weight_trend.hidratacao_ml(self.plan.weight_kg)
         registro = HydrationLog.objects.filter(
             user=self.request.user, date=today
@@ -245,6 +246,19 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 "ofensiva": streaks.calcular(
                     self.request.user, hoje=today, meta_agua_ml=meta_agua
                 ),
+                # O convite para se pesar. A regra é do domínio e não da view:
+                # a view pergunta, `weight_trend` responde. Consulta dirigida à
+                # semana — `analisar()` carregaria o histórico inteiro para
+                # responder isto, e esta é a tela mais aberta do app.
+                "convite_pesagem": weight_trend.convidar_a_pesar(
+                    self.request.user, hoje=today
+                ),
+                # `None` quando não há erro pendente DESTA tela; string
+                # (às vezes vazia) quando há. `houve_recusa` carrega essa
+                # diferença para o template, que não consegue distinguir
+                # "sem erro" de "erro com campo em branco" olhando só o texto.
+                "houve_recusa": recusa is not None,
+                "peso_recusado": recusa or "",
                 "proteina_perdida": proteina_perdida(slots),
                 # O catálogo do `<datalist>` e as linhas em branco do painel
                 # "comi outra coisa". `range` no contexto porque o template do
@@ -398,14 +412,28 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
             # snapshot, então o ideal seria a meta da época — fica para quando
             # existir mais de um plano por semana na prática.
             row["pct"] = min(int(row["kcal"] * 100 / (plan.target_kcal or 1)), 100)
+        # A lista é materializada aqui porque o peso de hoje sai dela: as
+        # pesagens vêm ordenadas por data decrescente, então se existe uma de
+        # hoje ela é a primeira. Uma consulta a mais só para reencontrar a
+        # linha que já está na mão seria consulta paga duas vezes.
+        recusa = recusa_pendente(self.request, "metricas")
+        entries = list(self.request.user.weight_entries.all()[:10])
+        hoje = timezone.localdate()
+        de_hoje = entries[0] if entries and entries[0].date == hoje else None
+
         context.update(
             {
                 "plan": plan,
                 "rows": rows,
                 "totals": tracking.adherence(rows),
                 "days": tracking.HISTORY_DAYS,
-                "weight_entries": self.request.user.weight_entries.all()[:10],
+                "weight_entries": entries,
                 "tendencia": weight_trend.analisar(self.request.user),
+                # Preenche o campo com o peso já registrado hoje: salvar de
+                # novo é corrigir, e corrigir começa do valor que está lá.
+                "peso_de_hoje": de_hoje.weight_kg if de_hoje else None,
+                "houve_recusa": recusa is not None,
+                "peso_recusado": recusa or "",
                 "nav": "history",
             }
         )

@@ -381,6 +381,11 @@ class TouchTargetTests(TestCase):
         (".registro__salvar {", "min-height: 2.75rem"),
         (".registro__timer {", "min-height: 2.75rem"),
         (".install__close {", "height: 2.75rem"),
+        # A pesagem rápida. O campo e o botão nascem já dentro da régua, e a
+        # faixa do painel é tocada com a mesma mão que marca a refeição.
+        (".pesagem__valor {", "min-height: 2.75rem"),
+        (".pesagem__salvar {", "min-height: 2.75rem"),
+        (".pesar__topo {", "min-height: 2.75rem"),
         # "desfazer" media 20px, e é o link procurado no segundo seguinte a
         # errar o toque em "Pulei".
         (".btn-link {", "min-height: 2.75rem"),
@@ -1355,6 +1360,26 @@ class TouchFeedbackTests(TestCase):
             escala - sem_movimento,
             set(),
             f"afunda sem saída para menos movimento: {escala - sem_movimento}",
+        )
+
+        # A TERCEIRA lista, que este teste não conferia apesar do nome.
+        #
+        # A pesagem rápida entrou nas duas primeiras e ficou de fora desta, e
+        # o teste passou: quem afunda sem transitar salta para 96% e volta no
+        # mesmo quadro, em vez de afundar sob o dedo como todo o resto do app.
+        # Nenhum alarme, porque a comparação parava aqui.
+        transita = set()
+        for regra in re.finditer(
+            r"([^{}]+)\{[^}]*transform \.12s var\(--ease\)[^}]*\}",
+            _sem_comentarios(self.css),
+        ):
+            for seletor in regra.group(1).split(","):
+                transita.add(seletor.strip())
+
+        self.assertEqual(
+            escala - transita,
+            set(),
+            f"afunda sem transição de transform: {escala - transita}",
         )
 
 

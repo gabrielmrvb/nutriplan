@@ -45,6 +45,47 @@ coluna da direita), não entre ela e o almoço.
           {% endif %}
         </section>
 
+        {% comment %}
+          O convite para se pesar, e ele é CONDICIONAL — essa é a decisão
+          inteira desta faixa.
+
+          O painel não tem folga: a primeira refeição começa a 740px numa dobra
+          que termina a 776. Um bloco fixo aqui tiraria o cardápio da dobra
+          todo dia, e cobraria esse preço por uma tarefa de duas vezes por
+          semana. Condicional, ele aparece em poucos dias, some no toque, e o
+          resto da semana o painel é o de sempre.
+
+          Some sozinho em três situações, sem nenhuma delas precisar de aviso:
+          quem se pesou hoje não vê, quem já fez as duas da semana não vê, e
+          quem acabou de terminar o onboarding não vê — o passo 1 já gravou a
+          pesagem de hoje. Nada de "✓ peso registrado" ocupando a dobra para
+          dizer que não há o que fazer.
+
+          `<details>` porque é a sanfona do app: teclado e leitor de tela vêm
+          de graça e funciona antes de qualquer JavaScript carregar. Fica
+          aberto quando o servidor recusou o valor, senão a pessoa não veria
+          onde corrigir.
+
+          A abertura olha `houve_recusa`, e não o texto recusado. Pelo texto,
+          salvar com o campo em branco fechava a sanfona: a mensagem "Digite o
+          peso" aparecia e o campo para digitá-lo tinha sumido junto.
+
+          A faixa não desaparece por otimismo do cliente: o formulário faz POST
+          e volta pelo redirecionamento, e ela some porque a condição do
+          servidor virou falsa. Sem rede, o POST falha e ela continua aqui.
+        {% endcomment %}
+        {% if convite_pesagem %}
+          <details class="pesar" {% if houve_recusa %}open{% endif %}>
+            <summary class="pesar__topo">
+              <span class="pesar__nome">Peso de hoje</span>
+              <span class="pesar__acao">Registrar</span>
+            </summary>
+            <div class="pesar__corpo">
+              {% include "plans/_peso_campo.html" with origem="hoje" peso_atual=None %}
+            </div>
+          </details>
+        {% endif %}
+
 
       {# ---------------- Painel do dia ---------------- #}
       <section class="card today-hero">

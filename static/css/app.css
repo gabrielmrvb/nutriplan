@@ -1327,6 +1327,8 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .install__go:active,
 .install__later:active,
 .option__summary:active,
+.pesagem__salvar:active,
+.pesar__topo:active,
 .registro__passo:active,
 .registro__salvar:active,
 .registro__timer:active,
@@ -1377,6 +1379,8 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .install__go,
 .install__later,
 .option__summary,
+.pesagem__salvar,
+.pesar__topo,
 .registro__passo,
 .registro__salvar,
 .registro__timer,
@@ -1420,6 +1424,8 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   .install__go:active,
   .install__later:active,
   .option__summary:active,
+  .pesagem__salvar:active,
+  .pesar__topo:active,
   .registro__passo:active,
   .registro__salvar:active,
   .registro__timer:active,
@@ -3498,6 +3504,98 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .ofensiva__unidade { color: var(--text-mute); font-size: .8rem; font-weight: 650; }
 .ofensiva__texto { color: var(--text-dim); font-size: .8rem; line-height: 1.45; }
 .ofensiva__recorde { flex: none; }
+
+/* ------------------------------------------------------------- pesagem */
+
+/* A faixa que convida a se pesar, e o campo que ela abre.
+
+   Mesma quina e mesma elevação da ofensiva logo acima: as duas são estado do
+   dia, não cartão de conteúdo. E de propósito SEM tinta — a ofensiva usa o
+   âmbar e o painel do dia usa a marca; um terceiro tom aqui poria três coisas
+   disputando a mesma dobra.
+
+   A faixa é condicional e some no toque, então não paga o preço de um bloco
+   fixo antes do cardápio: a primeira refeição já começa a 740px numa dobra
+   que termina a 776. */
+.pesar {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--edge), var(--shadow-rest);
+}
+
+.pesar__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  min-height: 2.75rem;
+  padding: .6rem 1.05rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.pesar__topo::-webkit-details-marker { display: none; }
+.pesar__topo:hover { background: var(--surface-2); }
+
+.pesar__nome { min-width: 0; color: var(--text); font-size: .95rem; font-weight: 650; }
+
+/* "Registrar" tem cara de ação porque é o rótulo do que a sanfona abre. O
+   alvo do dedo é a faixa inteira, e não este texto. Aberta, ela para de
+   convidar: o campo já está à vista. */
+.pesar__acao { flex: none; color: var(--brand); font-size: .875rem; font-weight: 650; }
+.pesar[open] .pesar__acao { color: var(--text-mute); }
+
+.pesar__corpo { padding: 0 1.05rem 1rem; }
+
+/* O formulário: o campo cresce, o botão não encolhe. Numa faixa só porque são
+   dois controles — a linha de carga precisou de duas porque tinha sete. */
+.pesagem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: .5rem;
+}
+
+/* O rótulo do campo é só para leitor de tela (`.vis-oculto`): as duas telas
+   já escrevem "Peso" logo acima. O label continua envolvendo o input, então
+   o alvo do dedo é o campo inteiro. */
+.pesagem__campo { display: block; min-width: 0; }
+
+.pesagem__valor {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: .5rem .75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.pesagem__valor:focus { outline: none; border-color: var(--brand); box-shadow: var(--glow); }
+.pesagem__valor::placeholder { color: var(--text-mute); font-weight: 500; }
+
+.pesagem__salvar {
+  min-height: 2.75rem;
+  min-width: 5.5rem;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--brand);
+  color: var(--on-brand);
+  font-family: inherit;
+  font-size: .95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pesagem__salvar:hover { background: var(--brand-strong); }
+.pesagem__salvar:disabled { opacity: .55; cursor: progress; }
 
 /* ------------------------------------------------------------------ água */
 

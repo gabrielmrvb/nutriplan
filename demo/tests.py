@@ -19,6 +19,7 @@ from accounts.models import (
     ONBOARDING_LAST_STEP,
     Profile,
     User,
+    WeightEntry,
 )
 from demo.middleware import DEMO_EMAIL, DEMO_ONBOARDING_EMAIL
 from plans.models import HydrationLog, MealLog, MealStatus
@@ -773,3 +774,41 @@ class DemoOnboardingTests(TestCase):
         self.assertEqual(
             User.objects.filter(email=DEMO_ONBOARDING_EMAIL).count(), 1
         )
+
+
+class DemoPesagemTests(TestCase):
+    """A pesagem rápida dentro do demo.
+
+    O demo existe para mostrar o app inteiro, então a interface aparece. O que
+    não pode aparecer é uma exceção paralela: a escrita é recusada pelo
+    bloqueio por MÉTODO que já existe, e não por uma regra escrita para o
+    peso — proteger recurso por recurso depende de alguém lembrar de todos.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        _semear()
+
+    def test_the_weight_card_records_inline_inside_the_demo_too(self):
+        resposta = self.client.get("/demo/historico/")
+
+        self.assertContains(resposta, 'class="pesagem"')
+        self.assertContains(resposta, "/demo/conta/peso/")
+
+    def test_the_weight_route_is_refused_by_the_generic_read_only_rule(self):
+        antes = WeightEntry.objects.count()
+
+        resposta = self.client.post("/demo/conta/peso/", {"weight_kg": "70"})
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertContains(resposta, "somente leitura")
+        self.assertEqual(WeightEntry.objects.count(), antes)
+
+    def test_the_demo_never_points_the_form_at_the_real_app(self):
+        """Endereço sem o prefixo seria o visitante postando na rota de
+        verdade — o middleware reescreve os links, e é isso que mantém o demo
+        dentro dele mesmo."""
+        html = self.client.get("/demo/historico/").content.decode()
+        formulario = html.split('class="pesagem"', 1)[1].split(">", 1)[0]
+
+        self.assertIn('action="/demo/conta/peso/"', formulario)

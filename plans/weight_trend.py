@@ -40,6 +40,22 @@ AJUSTE_KCAL = 150
 #: Quantas semanas mostrar no gráfico.
 SEMANAS_NO_HISTORICO = 8
 
+#: Pesagens por semana que o painel convida a registrar.
+#:
+#: Duas, em dias diferentes, sem dias obrigatórios. Duas porque é o mínimo que
+#: dá uma média com alguma resistência ao ruído do dia — e porque pedir mais
+#: transforma acompanhamento em cobrança diária, que é o jeito mais rápido de
+#: a pessoa parar de se pesar e o app perder a série inteira. Os dias saem
+#: diferentes sem nenhuma regra a mais: a unicidade por (usuário, dia) já
+#: impede duas pesagens no mesmo dia.
+#:
+#: Não confundir com `Tendencia.faltam_registros`. Aquele conta o total
+#: acumulado enquanto o histórico tem menos de duas semanas e zera para sempre
+#: depois; ele responde "a média já é confiável?". Esta constante responde
+#: "vale convidar a pessoa a se pesar hoje?", e a resposta reinicia toda
+#: segunda-feira.
+PESAGENS_POR_SEMANA = 2
+
 
 @dataclass(frozen=True)
 class Semana:
@@ -149,6 +165,34 @@ def analisar(user) -> Tendencia:
         sugerir_recalibragem=paradas >= SEMANAS_PARA_RECALIBRAR,
         faltam_registros=0,
     )
+
+
+def convidar_a_pesar(user, hoje=None) -> bool:
+    """O painel deve convidar a registrar o peso agora?
+
+    Duas condições, e as duas precisam valer: a semana ainda não chegou a
+    `PESAGENS_POR_SEMANA`, e hoje ainda não tem pesagem. A segunda não é
+    redundante — quem se pesou hoje pela primeira vez na semana continua
+    abaixo do alvo, e sem ela o convite ficaria pedindo a segunda pesagem no
+    mesmo dia, que é exatamente o que a unicidade por (usuário, dia) recusa.
+
+    A semana é a mesma da média: segunda a domingo, por `_inicio_da_semana`.
+    Duas definições de semana no mesmo assunto seria o app dizendo que a
+    contagem virou enquanto a média ainda não.
+
+    A consulta é dirigida à semana de propósito. `analisar()` carrega o
+    histórico inteiro para calcular médias, e isto roda no painel, que é a
+    tela mais aberta do app: são no máximo sete linhas, pelo índice que a
+    unicidade já cria.
+    """
+    hoje = hoje or timezone.localdate()
+    inicio = _inicio_da_semana(hoje)
+    dias = set(
+        user.weight_entries.filter(
+            date__gte=inicio, date__lt=inicio + timedelta(days=7)
+        ).values_list("date", flat=True)
+    )
+    return hoje not in dias and len(dias) < PESAGENS_POR_SEMANA
 
 
 def hidratacao_ml(weight_kg) -> int:

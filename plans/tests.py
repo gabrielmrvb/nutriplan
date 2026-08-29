@@ -2145,3 +2145,322 @@ class ComiOutraCoisaBordasTests(TestCase):
         )
         self.assertEqual(len(itens), 1)
         self.assertEqual(itens[0][0].name, "Arroz branco cozido")
+
+
+class ConvitePesagemNoPainelTests(TestCase):
+    """A faixa condicional do painel.
+
+    O painel não tem folga: a primeira refeição começa a 740px numa dobra que
+    termina a 776. Por isso a faixa é condicional, e por isso o que estes
+    testes defendem é sobretudo a AUSÊNCIA dela — um bloco fixo aqui tiraria o
+    cardápio da dobra todo dia.
+
+    A matriz da regra (uma na semana, duas na semana, virada de semana) é
+    testada com datas fixas em `ConvitePesagemTests`. Aqui só se verifica que
+    a tela consulta a regra: montar "duas na semana e nenhuma hoje" a partir
+    da data real falharia nas segundas-feiras, quando a semana só tem hoje.
+    """
+
+    url = reverse("plans:today")
+    #: Marcador de classe, e não `data-`. O seletor e o marcador costumam ser
+    #: a mesma string neste repositório, e aí `assertNotIn` passa por acidente
+    #: porque o texto também está dentro do `<script>`.
+    FAIXA = 'class="pesar"'
+
+    def setUp(self):
+        self.user = create_complete_user(email="painel-peso@exemplo.com")
+        self.user.weight_entries.all().delete()
+        # Uma pesagem antiga, e não nenhuma: sem peso não há plano, e a tela
+        # redirecionaria para o onboarding antes de decidir mostrar a faixa.
+        # Quinze dias atrás cai numa semana anterior em qualquer dia da semana.
+        WeightEntry.objects.create(
+            user=self.user,
+            date=timezone.localdate() - timedelta(days=15),
+            weight_kg=Decimal("83.0"),
+        )
+        self.client.force_login(self.user)
+
+    def test_a_week_without_weighing_gets_the_invitation(self):
+        resposta = self.client.get(self.url)
+
+        self.assertContains(resposta, self.FAIXA)
+        self.assertContains(resposta, "Peso de hoje")
+
+    def test_the_invitation_is_gone_once_today_is_recorded(self):
+        WeightEntry.objects.create(
+            user=self.user, date=timezone.localdate(), weight_kg=Decimal("82.6")
+        )
+
+        self.assertNotContains(self.client.get(self.url), self.FAIXA)
+
+    def test_a_brand_new_account_is_not_asked_to_weigh_on_day_one(self):
+        """O passo 1 do onboarding já gravou a pesagem de hoje. Cobrar de novo
+        no primeiro minuto é o app abrindo em débito."""
+        novo = create_complete_user(email="estreia-peso@exemplo.com")
+        self.client.force_login(novo)
+
+        self.assertNotContains(self.client.get(self.url), self.FAIXA)
+
+    def test_the_invitation_never_claims_the_weight_is_already_in(self):
+        """Nada de "✓ peso registrado". Estado ocupado sem ação pendente é
+        espaço da dobra gasto para dizer que não há o que fazer."""
+        resposta = self.client.get(self.url)
+
+        self.assertNotContains(resposta, "peso registrado")
+
+    def test_the_invitation_posts_to_the_weight_route_and_says_where_it_came_from(self):
+        resposta = self.client.get(self.url)
+
+        self.assertContains(resposta, reverse("accounts:log_weight"))
+        self.assertContains(resposta, 'value="hoje"')
+
+    def test_the_field_takes_a_comma_and_asks_for_the_numeric_keyboard(self):
+        """`type="number"` recusaria "82,5", que é como se escreve aqui."""
+        html = self.client.get(self.url).content.decode()
+        campo = html.split('class="pesagem__valor', 1)[1].split(">", 1)[0]
+
+        self.assertIn('inputmode="decimal"', campo)
+        self.assertNotIn('type="number"', campo)
+
+    def test_the_invitation_disappears_only_after_the_server_answers(self):
+        """Sem rede o POST falha e a faixa continua lá. Ela some porque a
+        condição do servidor virou falsa, nunca por otimismo do cliente — por
+        isso não há JavaScript nenhum escondendo a faixa."""
+        self.assertContains(self.client.get(self.url), self.FAIXA)
+
+        self.client.post(
+            reverse("accounts:log_weight"), {"weight_kg": "82,1", "origem": "hoje"}
+        )
+
+        self.assertNotContains(self.client.get(self.url), self.FAIXA)
+
+
+class CartaoDePesoTests(TestCase):
+    """O registro inline em Métricas, que é o caminho principal.
+
+    Antes, "Registrar" abria o passo 1 do onboarding: quatro campos, sendo
+    três que não mudam nunca, e a barra de abas sumindo porque o passo se
+    declara `sem_tabbar`. A pessoa era levada para um cadastro que já tinha
+    concluído e voltava no Perfil.
+    """
+
+    url = reverse("plans:history")
+
+    def setUp(self):
+        self.user = create_complete_user(email="cartao-peso@exemplo.com")
+        self.client.force_login(self.user)
+
+    def test_the_card_records_a_weight_without_leaving_the_screen(self):
+        resposta = self.client.get(self.url)
+
+        self.assertContains(resposta, 'class="pesagem"')
+        self.assertContains(resposta, reverse("accounts:log_weight"))
+        self.assertContains(resposta, 'value="metricas"')
+
+    def test_the_weight_card_no_longer_sends_anyone_to_the_wizard(self):
+        """O passo 1 continua existindo, e continua alcançável pelo Perfil.
+        Ele só não é mais o caminho para se pesar."""
+        resposta = self.client.get(self.url)
+
+        self.assertNotContains(resposta, reverse("accounts:onboarding_step", args=[1]))
+
+    def test_correcting_starts_from_the_weight_already_recorded_today(self):
+        """Corrigir começa do valor que está lá. Campo vazio obrigaria a
+        pessoa a lembrar o que digitou de manhã."""
+        self.user.weight_entries.update(weight_kg=Decimal("81.30"))
+
+        html = self.client.get(self.url).content.decode()
+        campo = html.split('class="pesagem__valor', 1)[1].split(">", 1)[0]
+
+        # "81,30" e não "81,3": duas casas e vírgula decimal é como o app
+        # escreve número em toda tela, e o campo aceita as duas formas de
+        # volta. `floatformat` faz a mesma coisa aqui e na carga da ficha.
+        self.assertIn('value="81,30"', campo)
+
+    def test_yesterdays_weight_never_prefills_todays_field(self):
+        """Só o peso de HOJE preenche. O de ontem no campo faria a pessoa
+        salvar sem perceber a medição de ontem como se fosse a de hoje."""
+        self.user.weight_entries.all().delete()
+        WeightEntry.objects.create(
+            user=self.user,
+            date=timezone.localdate() - timedelta(days=1),
+            weight_kg=Decimal("81.30"),
+        )
+
+        html = self.client.get(self.url).content.decode()
+        campo = html.split('class="pesagem__valor', 1)[1].split(">", 1)[0]
+
+        self.assertIn('value=""', campo)
+
+    def test_the_average_and_the_recalibration_still_live_in_the_card(self):
+        """O formulário entrou acima da média, não no lugar dela. A média da
+        semana antes dos números do dia é a decisão inteira desta tela."""
+        WeightEntry.objects.create(
+            user=self.user,
+            date=timezone.localdate() - timedelta(days=8),
+            weight_kg=Decimal("84.0"),
+        )
+        resposta = self.client.get(self.url)
+
+        self.assertContains(resposta, "semana de")
+        self.assertContains(resposta, "Ver as pesagens dia a dia")
+
+
+class PesoRecusadoVoltaParaATelaTests(TestCase):
+    """O que a pessoa digitou sobrevive à recusa, nas duas superfícies.
+
+    O valor atravessa um redirecionamento, então ele precisa esperar em algum
+    lugar. Estes testes existem porque a ponta escrita (a sessão receber a
+    chave) já era testada e a ponta lida (a tela usar a chave) não era: a
+    constante podia ser renomeada de um lado só e o campo voltaria vazio sem
+    nenhum teste reclamando.
+    """
+
+    rota = reverse("accounts:log_weight")
+
+    def setUp(self):
+        self.user = create_complete_user(email="recusa@exemplo.com")
+        self.user.weight_entries.all().delete()
+        WeightEntry.objects.create(
+            user=self.user,
+            date=timezone.localdate() - timedelta(days=15),
+            weight_kg=Decimal("83.0"),
+        )
+        self.client.force_login(self.user)
+
+    def _campo(self, resposta):
+        html = resposta.content.decode()
+        return html.split('class="pesagem__valor', 1)[1].split(">", 1)[0]
+
+    def test_the_panel_reopens_the_strip_with_what_was_typed(self):
+        """Fechada, a sanfona esconderia justamente o campo que a pessoa
+        precisa corrigir — ela veria a mensagem de erro sem ver onde agir."""
+        self.client.post(self.rota, {"weight_kg": "8o,5", "origem": "hoje"})
+
+        resposta = self.client.get(reverse("plans:today"))
+
+        self.assertContains(resposta, "<details class=\"pesar\" open>", html=False)
+        self.assertIn('value="8o,5"', self._campo(resposta))
+
+    def test_metrics_brings_back_the_typo_instead_of_todays_weight(self):
+        """O valor recusado ganha do peso já registrado: a pessoa está
+        corrigindo o que acabou de digitar, não recomeçando do zero."""
+        WeightEntry.objects.create(
+            user=self.user, date=timezone.localdate(), weight_kg=Decimal("80.00")
+        )
+
+        self.client.post(self.rota, {"weight_kg": "8o,5", "origem": "metricas"})
+        resposta = self.client.get(reverse("plans:history"))
+
+        self.assertIn('value="8o,5"', self._campo(resposta))
+
+    def test_the_typo_is_shown_once_and_not_forever(self):
+        """Semântica de recado: some depois de entregue. Do contrário a pessoa
+        corrige, sai da tela, volta, e reencontra o erro antigo no campo."""
+        self.client.post(self.rota, {"weight_kg": "8o,5", "origem": "hoje"})
+
+        self.client.get(reverse("plans:today"))
+        segunda = self.client.get(reverse("plans:today"))
+
+        self.assertIn('value=""', self._campo(segunda))
+
+    def test_the_typo_never_comes_back_as_markup(self):
+        """O valor vem do teclado de quem usa, e volta para dentro de um
+        atributo HTML. Sem escape, aspas fecham o atributo."""
+        self.client.post(
+            self.rota, {"weight_kg": '8"><script>x</script>', "origem": "hoje"}
+        )
+
+        resposta = self.client.get(reverse("plans:today"))
+
+        self.assertNotContains(resposta, "<script>x</script>")
+        self.assertContains(resposta, "&quot;&gt;&lt;script&gt;")
+
+    def test_a_saved_weight_clears_the_typo_left_behind(self):
+        """Errou, corrigiu, salvou: o recado do erro não pode sobreviver ao
+        acerto e reaparecer na próxima recusa de outra pessoa da casa."""
+        self.client.post(self.rota, {"weight_kg": "8o,5", "origem": "hoje"})
+        self.client.post(self.rota, {"weight_kg": "80,5", "origem": "hoje"})
+
+        self.assertIsNone(self.client.session.get("peso_recusado"))
+
+    # ------------------------------------------------ cada erro na sua tela
+
+    def test_the_panel_does_not_eat_an_error_born_in_metrics(self):
+        """Abrir a aba do meio do caminho não pode gastar o erro da outra.
+
+        Era o que acontecia: a pessoa errava o peso em Métricas, tocava Dieta
+        antes de voltar, e o que ela tinha digitado sumia — sem mensagem, sem
+        campo preenchido, sem nada na tela dizendo por quê.
+        """
+        self.client.post(self.rota, {"weight_kg": "9x,1", "origem": "metricas"})
+
+        painel = self.client.get(reverse("plans:today"))
+        self.assertNotIn('value="9x,1"', self._campo(painel))
+
+        metricas = self.client.get(reverse("plans:history"))
+        self.assertIn('value="9x,1"', self._campo(metricas))
+
+        segunda = self.client.get(reverse("plans:history"))
+        self.assertIn('value=""', self._campo(segunda))
+
+    def test_metrics_does_not_eat_an_error_born_in_the_panel(self):
+        """O mesmo pelo outro lado — a guarda vale nas duas direções, senão é
+        meia correção que passa no teste que alguém lembrou de escrever."""
+        self.client.post(self.rota, {"weight_kg": "7q,3", "origem": "hoje"})
+
+        metricas = self.client.get(reverse("plans:history"))
+        self.assertNotIn('value="7q,3"', self._campo(metricas))
+
+        painel = self.client.get(reverse("plans:today"))
+        self.assertIn('value="7q,3"', self._campo(painel))
+
+        segunda = self.client.get(reverse("plans:today"))
+        self.assertIn('value=""', self._campo(segunda))
+
+    def test_an_origin_nobody_recognises_never_gets_stamped(self):
+        """A origem é normalizada antes de carimbar o erro.
+
+        Guardar a origem crua deixaria o erro marcado com algo que nenhuma
+        tela reconhece, e a chave ficaria presa na sessão para sempre.
+        """
+        self.client.post(
+            self.rota, {"weight_kg": "5w", "origem": "https://exemplo.invalido/"}
+        )
+
+        guardado = self.client.session.get("peso_recusado")
+        self.assertEqual(guardado[0], "metricas")
+        self.assertIn('value="5w"', self._campo(self.client.get(reverse("plans:history"))))
+
+    # -------------------------------------------------- tentativa em branco
+
+    def test_an_empty_attempt_keeps_the_panel_strip_open(self):
+        """Tocar Salvar com o campo em branco é uma tentativa recusada como
+        qualquer outra.
+
+        Decidindo pela verdade do texto, a sanfona fechava justamente aqui: a
+        mensagem "Digite o peso" aparecia e o campo para digitá-lo tinha ido
+        embora junto.
+        """
+        self.client.post(self.rota, {"weight_kg": "", "origem": "hoje"})
+
+        resposta = self.client.get(reverse("plans:today"))
+
+        self.assertContains(resposta, '<details class="pesar" open>', html=False)
+        self.assertContains(resposta, "Digite o peso")
+
+    def test_an_empty_attempt_in_metrics_is_not_the_same_as_no_attempt(self):
+        """Com peso já registrado hoje, a diferença fica visível: sem erro o
+        campo traz o peso de hoje; com erro em branco ele fica vazio, porque é
+        o rastro da tentativa que a pessoa acabou de fazer."""
+        WeightEntry.objects.create(
+            user=self.user, date=timezone.localdate(), weight_kg=Decimal("80.00")
+        )
+
+        sem_erro = self._campo(self.client.get(reverse("plans:history")))
+        self.assertIn('value="80"', sem_erro)
+
+        self.client.post(self.rota, {"weight_kg": "", "origem": "metricas"})
+        com_erro = self._campo(self.client.get(reverse("plans:history")))
+
+        self.assertIn('value=""', com_erro)

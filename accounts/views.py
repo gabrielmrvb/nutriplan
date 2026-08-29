@@ -1,21 +1,72 @@
 """Cadastro, autenticação e o wizard de onboarding em quatro passos."""
+from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
+from django.views import View
 from django.views.generic import CreateView, FormView, TemplateView, UpdateView
 
 from .forms import (
     BodyDataForm,
     EmailAuthenticationForm,
     GoalForm,
+    PesagemForm,
     SplitPreferenceForm,
     RestrictionsForm,
     SignupForm,
     TrainingForm,
 )
-from .models import ONBOARDING_LAST_STEP, Profile
+from .models import ONBOARDING_LAST_STEP, Profile, WeightEntry
+
+#: Onde o peso recusado espera até a próxima tela.
+#:
+#: A pessoa digitou, o servidor recusou, e o redirecionamento leva o corpo do
+#: POST junto — sem guardar em algum lugar, ela volta para um campo vazio sem
+#: saber o que estava errado. Vai pela sessão e não pela URL porque peso é
+#: dado de saúde e não tem por que ficar no histórico do navegador.
+#:
+#: No módulo e não dentro da view: quem escreve é `accounts`, quem lê são as
+#: duas telas de `plans`, e a chave escrita à mão nos três lugares seria uma
+#: renomeação silenciosa esperando para acontecer.
+#:
+#: Guarda `[superfície, valor]` e não só o valor. Sem a superfície, o painel
+#: consumia um erro que tinha nascido em Métricas: bastava a pessoa abrir a
+#: aba Dieta antes de voltar, e o que ela tinha digitado sumia sem nada na
+#: tela explicando. Cada tela leva de volta o próprio erro.
+SESSAO_PESO_RECUSADO = "peso_recusado"
+
+
+def recusa_pendente(request, superficie):
+    """O peso recusado que pertence a ESTA tela, ou `None` se não há nenhum.
+
+    Consome quando é desta tela e deixa quieto quando é da outra: abrir a aba
+    do meio do caminho não pode gastar o erro que a pessoa ainda vai ver.
+
+    `None` e `""` querem dizer coisas diferentes, e a distinção é o motivo de
+    a função devolver `None` em vez de string vazia. `""` é uma tentativa
+    recusada cujo valor era vazio — a pessoa tocou Salvar com o campo em
+    branco —, e essa tentativa precisa reabrir a sanfona com a mensagem à
+    vista. Quem decidisse por conteúdo de texto fecharia a sanfona justamente
+    no caso em que ela não digitou nada.
+    """
+    guardado = request.session.get(SESSAO_PESO_RECUSADO)
+
+    if not isinstance(guardado, list) or len(guardado) != 2:
+        # Nada guardado, ou o formato antigo de uma sessão aberta antes desta
+        # mudança. Descarta em vez de ignorar: sem superfície para comparar,
+        # a chave nunca casaria com ninguém e ficaria presa na sessão.
+        request.session.pop(SESSAO_PESO_RECUSADO, None)
+        return None
+
+    if guardado[0] != superficie:
+        return None
+
+    del request.session[SESSAO_PESO_RECUSADO]
+    return guardado[1]
+
 
 #: Título e subtítulo de cada passo, usados na barra de progresso e no cabeçalho.
 STEP_META = {
@@ -256,6 +307,64 @@ class OnboardingRequiredMixin(LoginRequiredMixin):
             if profile is None or not profile.onboarding_complete:
                 return redirect("accounts:onboarding")
         return super().dispatch(request, *args, **kwargs)
+
+
+class WeightLogView(OnboardingRequiredMixin, View):
+    """Grava o peso de hoje. Só POST — isso muda estado.
+
+    Escreve `WeightEntry` e nada mais. Não toca o `Profile`, não gera plano,
+    não chama o `meal_planner`. A cadeia que atualiza a meta já existe e é
+    preguiçosa: peso novo muda `Profile.current_weight`, que muda
+    `build_inputs`, que faz `plan_is_current` falhar, e `sync_active_plan`
+    cria o plano novo na próxima entrada de tela. Gerar plano aqui duplicaria
+    esse mecanismo e o faria rodar sobre um número que a pessoa pode corrigir
+    no minuto seguinte.
+
+    `update_or_create` por (usuário, dia) porque registrar de novo hoje é
+    CORRIGIR, não empilhar — a unicidade no banco é quem garante isso.
+
+    A rota fica fora da fila offline de propósito: sem rede, o POST falha e a
+    tela não some. A fila reenvia na ordem da chave, que é um identificador
+    sorteado, e uma escrita em que vence o último a chegar sairia sorteada
+    junto.
+    """
+
+    #: Para onde voltar. Uma lista fechada, e não a URL que veio no corpo:
+    #: destino escolhido pelo cliente é redirecionamento aberto.
+    DESTINOS = {"hoje": "plans:today", "metricas": "plans:history"}
+
+    #: Para onde vai quem chegou sem origem reconhecível.
+    ORIGEM_PADRAO = "metricas"
+
+    def post(self, request, *args, **kwargs):
+        # A origem é normalizada ANTES de qualquer coisa, e o mesmo valor
+        # normalizado decide o destino e carimba o erro. Guardar a origem crua
+        # deixaria um erro carimbado com algo que nenhuma tela reconhece, e a
+        # chave ficaria presa na sessão para sempre.
+        origem = request.POST.get("origem")
+        if origem not in self.DESTINOS:
+            origem = self.ORIGEM_PADRAO
+        destino = self.DESTINOS[origem]
+
+        form = PesagemForm(request.POST)
+
+        if not form.is_valid():
+            # Apagar o que a pessoa digitou por causa de uma vírgula é
+            # punição: ela volta para um campo vazio sem saber o que errou.
+            messages.error(request, form.primeiro_erro)
+            request.session[SESSAO_PESO_RECUSADO] = [
+                origem,
+                (request.POST.get("weight_kg") or "")[:16],
+            ]
+            return redirect(destino)
+
+        WeightEntry.objects.update_or_create(
+            user=request.user,
+            date=timezone.localdate(),
+            defaults={"weight_kg": form.cleaned_data["weight_kg"]},
+        )
+        request.session.pop(SESSAO_PESO_RECUSADO, None)
+        return redirect(destino)
 
 
 

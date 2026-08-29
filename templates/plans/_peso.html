@@ -9,8 +9,21 @@
       <section class="card">
         <div class="card__head">
           <h2>Peso</h2>
-          <a href="{% url 'accounts:onboarding_step' step=1 %}">Registrar</a>
         </div>
+        {% comment %}
+          O registro acontece AQUI, e antes da média.
+
+          O cabeçalho tinha um link "Registrar" que abria o passo 1 do
+          onboarding — quatro campos, sendo três que não mudam nunca, e a barra
+          de abas sumindo porque o passo se declara `sem_tabbar`. Quem tocava
+          "Registrar" era levado para um cadastro que já tinha concluído, e
+          voltava no Perfil. O passo 1 continua existindo para editar dados
+          corporais pelo Perfil; ele só deixou de ser o caminho para se pesar.
+
+          Acima da média porque é a ação primária do cartão: sem pesagem, tudo
+          o que vem abaixo é histórico parado.
+        {% endcomment %}
+        {% include "plans/_peso_campo.html" with origem="metricas" peso_atual=peso_de_hoje %}
         {% if weight_entries %}
           {% comment %}
             A média da semana vem antes dos números do dia, e isso é a

@@ -6,9 +6,10 @@ ontem, com o intestino e com a hora da pesagem — um a dois quilos que não sã
 gordura. Quem olha o número do dia desiste na primeira quinta-feira em que a
 balança sobe.
 """
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -201,3 +202,113 @@ class RecalibragemTests(TestCase):
 
         self.assertGreaterEqual(com_corte.target_kcal, sem_corte.bmr_kcal)
         self.assertIn("mínimo seguro", com_corte.notes)
+
+
+class ConvitePesagemTests(TestCase):
+    """Quando o painel convida a pessoa a se pesar.
+
+    A decisão de produto é duas pesagens por semana, em dias diferentes, sem
+    dias obrigatórios. O que estes testes defendem é o "duas": pedir mais
+    transforma acompanhamento em cobrança diária, e quem se sente cobrado para
+    de se pesar — o app perde a série inteira, que é o insumo da tendência e
+    da recalibragem.
+
+    As datas são fixas de propósito. Contar "ontem" atravessa a segunda-feira
+    quando o teste roda numa segunda, e aí o registro cai na semana passada
+    sem ninguém perceber: o teste passaria a medir outra coisa dependendo do
+    dia em que a suíte roda.
+    """
+
+    #: Quarta-feira. A semana dela vai de 24/08 (segunda) a 30/08 (domingo).
+    QUARTA = date(2026, 8, 26)
+    SEGUNDA = date(2026, 8, 24)
+
+    def setUp(self):
+        self.user = create_complete_user(email="convite@exemplo.com")
+        # `create_complete_user` já grava a pesagem de hoje: sem limpar, todo
+        # cenário começaria com o convite desligado.
+        self.user.weight_entries.all().delete()
+
+    def _pesar(self, dia, peso="82.4"):
+        WeightEntry.objects.create(user=self.user, date=dia, weight_kg=Decimal(peso))
+
+    def test_a_week_with_no_weighing_gets_the_invitation(self):
+        self.assertTrue(weight_trend.convidar_a_pesar(self.user, hoje=self.QUARTA))
+
+    def test_one_earlier_weighing_in_the_week_still_gets_the_invitation(self):
+        """Uma pesagem não faz média. O convite continua até a segunda."""
+        self._pesar(self.SEGUNDA)
+
+        self.assertTrue(weight_trend.convidar_a_pesar(self.user, hoje=self.QUARTA))
+
+    def test_two_weighings_in_the_week_end_the_invitation(self):
+        """Atingido o alvo, o app para de pedir. Não existe terceira pesagem
+        solicitada, e é isso que separa acompanhamento de cobrança."""
+        self._pesar(self.SEGUNDA)
+        self._pesar(self.SEGUNDA + timedelta(days=1))
+
+        self.assertFalse(weight_trend.convidar_a_pesar(self.user, hoje=self.QUARTA))
+
+    def test_weighing_today_ends_the_invitation_even_below_the_target(self):
+        """Uma na semana e ela é de hoje: o convite some mesmo faltando a
+        segunda. Insistir seria pedir a segunda pesagem no mesmo dia — que a
+        unicidade por (usuário, dia) recusaria de qualquer forma."""
+        self._pesar(self.QUARTA)
+
+        self.assertFalse(weight_trend.convidar_a_pesar(self.user, hoje=self.QUARTA))
+
+    def test_the_next_week_starts_the_count_over(self):
+        """Semana nova, contagem nova. Sem compensação da semana anterior:
+        quem não pesou não deve nada a ninguém."""
+        self._pesar(self.SEGUNDA)
+        self._pesar(self.SEGUNDA + timedelta(days=1))
+
+        semana_seguinte = self.QUARTA + timedelta(days=7)
+        self.assertTrue(weight_trend.convidar_a_pesar(self.user, hoje=semana_seguinte))
+
+    def test_the_week_starts_on_the_same_monday_the_average_uses(self):
+        """Sábado e domingo pertencem à semana que passou, e é a mesma
+        fronteira da média. Duas definições de semana no mesmo assunto seria o
+        app dizendo que a contagem virou enquanto a média ainda não."""
+        self._pesar(self.SEGUNDA - timedelta(days=2))  # sábado anterior
+        self._pesar(self.SEGUNDA - timedelta(days=1))  # domingo anterior
+
+        self.assertEqual(weight_trend._inicio_da_semana(self.QUARTA), self.SEGUNDA)
+        self.assertTrue(weight_trend.convidar_a_pesar(self.user, hoje=self.QUARTA))
+
+    def test_the_invitation_does_not_come_from_faltam_registros(self):
+        """`faltam_registros` responde outra pergunta, e este teste é a prova.
+
+        Ele conta o total acumulado enquanto o histórico tem menos de duas
+        semanas, e zera para sempre depois. Quem tem meses de pesagens tem
+        `faltam_registros == 0` para sempre — se o convite dependesse dele,
+        nunca mais apareceria para justamente quem usa o app há mais tempo.
+        """
+        for semanas_atras in (1, 2, 3):
+            base = self.SEGUNDA - timedelta(weeks=semanas_atras)
+            self._pesar(base)
+            self._pesar(base + timedelta(days=3))
+
+        self.assertEqual(weight_trend.analisar(self.user).faltam_registros, 0)
+        self.assertTrue(weight_trend.convidar_a_pesar(self.user, hoje=self.QUARTA))
+
+    def test_two_weighings_land_on_different_days_without_a_rule_for_it(self):
+        """"Em dias diferentes" não precisa de regra própria.
+
+        A unicidade por (usuário, dia) já impede duas pesagens no mesmo dia,
+        então duas na semana caem necessariamente em dias distintos. É a mesma
+        garantia que transforma "registrar de novo hoje" em correção, e não em
+        linha nova — por isso a escrita usa `update_or_create`.
+        """
+        self._pesar(self.SEGUNDA, "82.4")
+        WeightEntry.objects.update_or_create(
+            user=self.user, date=self.SEGUNDA, defaults={"weight_kg": Decimal("81.9")}
+        )
+
+        entries = self.user.weight_entries.filter(date=self.SEGUNDA)
+        self.assertEqual(entries.count(), 1)
+        self.assertEqual(entries.first().weight_kg, Decimal("81.90"))
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                self._pesar(self.SEGUNDA, "80.0")

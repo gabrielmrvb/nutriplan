@@ -1,0 +1,46 @@
+{% comment %}
+  O formulário de pesagem — um campo, um botão.
+
+  Partial porque as duas superfícies precisam exatamente do mesmo campo: a
+  faixa condicional do painel e o cartão de peso em Métricas. O cartão de peso
+  já nasceu duplicado uma vez neste projeto, as duas cópias divergiram, e quem
+  ficou com a pior foi justamente quem só registra peso. Uma cópia, dois
+  lugares.
+
+  `type="text"` com `inputmode="decimal"`, e não `type="number"`: aqui se
+  digita "82,5", e o campo numérico recusa a vírgula. É a mesma escolha que a
+  carga da ficha de treino já tinha feito, pelo mesmo motivo.
+
+  Sem botões de passo. Os −2,5 / +2,5 da carga existem porque a anilha pesa
+  isso e entra aos pares; peso de corpo se lê na balança, não se incrementa.
+
+  O valor do campo tem três origens, nesta ordem: o que a pessoa digitou e o
+  servidor recusou (para não apagar o que ela escreveu por causa de uma
+  vírgula), o peso já registrado hoje (salvar de novo é corrigir, e corrigir
+  começa do valor que está lá), ou vazio.
+
+  Quem manda na primeira origem é `houve_recusa`, e não o texto recusado. A
+  diferença aparece quando a tentativa recusada era vazia: pelo texto, o campo
+  cairia para o peso de hoje e apagaria o rastro do erro que a pessoa acabou
+  de cometer.
+{% endcomment %}
+<form class="pesagem" method="post" action="{% url 'accounts:log_weight' %}">
+  {% csrf_token %}
+  <input type="hidden" name="origem" value="{{ origem }}">
+  {% comment %}
+    O rótulo existe para o leitor de tela e não para o olho: as duas
+    superfícies já dizem "Peso" logo acima do campo — o cabeçalho do cartão em
+    Métricas e o resumo da sanfona no painel. Escrito, ele aparecia como
+    "Peso" seguido de "PESO", uma linha abaixo da outra. `.vis-oculto` é o
+    utilitário que o app já usa para isso: continua ocupando um pixel e
+    recorta o que se vê, em vez de sumir do leitor junto com o visual.
+  {% endcomment %}
+  <label class="pesagem__campo">
+    <span class="vis-oculto">Peso em quilos</span>
+    <input class="pesagem__valor num" type="text" name="weight_kg"
+           inputmode="decimal" maxlength="6" autocomplete="off"
+           placeholder="82,5"
+           value="{% if houve_recusa %}{{ peso_recusado }}{% elif peso_atual %}{{ peso_atual|floatformat:'-2' }}{% endif %}">
+  </label>
+  <button type="submit" class="pesagem__salvar">Salvar</button>
+</form>

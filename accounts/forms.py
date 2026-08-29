@@ -167,6 +167,56 @@ class BodyDataForm(OnboardingStepForm):
         return profile
 
 
+class PesoField(forms.DecimalField):
+    """Um peso digitado por gente que escreve "82,5".
+
+    O campo chega como texto porque `type="number"` recusa vírgula, e o app é
+    pt-BR. A troca acontece antes da conversão: `Decimal("82,5")` levanta
+    `InvalidOperation`, então esperar o `to_python` do Django decidir seria
+    recusar exatamente o formato que a tela pede.
+
+    Mesma tradução que a carga da ficha faz em `workouts/views.py`.
+    """
+
+    def to_python(self, value):
+        if isinstance(value, str):
+            value = value.replace(",", ".").strip()
+        return super().to_python(value)
+
+
+class PesagemForm(forms.Form):
+    """O peso do dia, sozinho.
+
+    Existe separado do `BodyDataForm` porque aquele grava o perfil inteiro:
+    reaproveitá-lo faria toda pesagem escrever sexo, nascimento e altura, e
+    faria a validação de data de nascimento decidir se a pessoa pode ou não
+    se pesar hoje.
+
+    Os limites não são reescritos aqui. Eles vêm do campo do model, que é onde
+    a faixa de 20 a 400 kg já mora — repetir os números criaria dois lugares
+    para mudá-los e um deles ficaria para trás. As mensagens, sim, são nossas:
+    a do Django explica a regra, não o que fazer.
+    """
+
+    weight_kg = PesoField(
+        label="Peso",
+        max_digits=5,
+        decimal_places=2,
+        validators=WeightEntry._meta.get_field("weight_kg").validators,
+        error_messages={
+            "invalid": "Peso inválido — use números, como 82,5.",
+            "min_value": "Peso fora da faixa que o app calcula — use de 20 a 400 kg.",
+            "max_value": "Peso fora da faixa que o app calcula — use de 20 a 400 kg.",
+            "required": "Digite o peso, como 82,5.",
+        },
+    )
+
+    @property
+    def primeiro_erro(self) -> str:
+        """A mensagem a mostrar, já que o campo é um só."""
+        return self.errors["weight_kg"][0]
+
+
 class GoalForm(OnboardingStepForm):
     """Passo 2 — objetivo e nível de atividade fora do treino."""
 

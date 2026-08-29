@@ -12,4 +12,8 @@ urlpatterns = [
     path("onboarding/", views.OnboardingEntryView.as_view(), name="onboarding"),
     path("onboarding/<int:step>/", views.onboarding_step, name="onboarding_step"),
     path("perfil/", views.ProfileSummaryView.as_view(), name="profile"),
+    # O peso mora em accounts e continua com um escritor só. Uma rota em
+    # `plans` deixaria WeightEntry sendo gravado de dois apps, com duas
+    # validações para manter em sincronia.
+    path("peso/", views.WeightLogView.as_view(), name="log_weight"),
 ]
