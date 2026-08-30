@@ -246,6 +246,22 @@ class MealLog(models.Model):
     # Snapshot para o histórico sobreviver a mudanças no plano
     slot_name = models.CharField(max_length=60, blank=True)
     scheduled_time = models.TimeField(null=True, blank=True)
+    #: O nome da receita comida, congelado junto com os macros dela.
+    #:
+    #: Os macros já eram copiados desde o começo; o NOME não era, e ficava
+    #: dependendo de `chosen_option.template.name` — uma relação VIVA. Bastava
+    #: renomear a receita no admin para o histórico de agosto passar a contar
+    #: outra história, e bastava o plano antigo sumir para o nome sumir junto.
+    #:
+    #: `max_length` copia o 120 de `MealTemplate.name` de propósito: um nome
+    #: que cabe na receita precisa caber no retrato dela.
+    #:
+    #: Vazio tem significado, e por isso não há `default` inventado: significa
+    #: "não existe receita a registrar aqui". É o caso de "pulei", de "comi
+    #: outra coisa" — onde quem descreve é `notes` — e dos registros anteriores
+    #: a este campo, que NÃO foram preenchidos retroativamente. Preencher o
+    #: passado com a opção de hoje seria transformar palpite em fato.
+    recipe_name = models.CharField(max_length=120, blank=True)
     kcal = models.DecimalField(**MACRO_FIELD)
     protein_g = models.DecimalField(**MACRO_FIELD)
     carb_g = models.DecimalField(**MACRO_FIELD)
@@ -271,3 +287,29 @@ class MealLog(models.Model):
     def is_counted(self) -> bool:
         """Refeições pendentes de um dia futuro não devem pesar na aderência."""
         return self.status != MealStatus.PENDING
+
+    @property
+    def recipe_display(self) -> str:
+        """O nome da receita para mostrar na tela — snapshot primeiro.
+
+        Existe para que a regra de precedência more num lugar só. Sem isso,
+        cada template repetiria o `if` e o primeiro que esquecesse o fallback
+        mostraria vazio para todo registro anterior à migração.
+
+        A ordem não é preferência de estilo, é de confiabilidade:
+
+          1. `recipe_name` — o retrato, que não muda mais;
+          2. `chosen_option.template.name` — a relação viva, só para os logs
+             antigos, que não têm retrato nenhum;
+          3. vazio — e vazio aqui é resposta, não falha: "pulei" e "comi outra
+             coisa" não têm receita, e a tela já diz isso pelo status.
+
+        `chosen_option` é `SET_NULL`, então o passo 2 precisa aguentar `None`.
+        Um log de um plano apagado cai aqui, e cair aqui não pode ser um 500.
+        """
+        if self.recipe_name:
+            return self.recipe_name
+        opcao = self.chosen_option
+        if opcao is not None and opcao.template_id:
+            return opcao.template.name
+        return ""

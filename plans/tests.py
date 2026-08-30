@@ -2464,3 +2464,194 @@ class PesoRecusadoVoltaParaATelaTests(TestCase):
         com_erro = self._campo(self.client.get(reverse("plans:history")))
 
         self.assertIn('value=""', com_erro)
+
+
+# ---------------------------------------------------------------------------
+# Snapshot do nome da receita no MealLog
+# ---------------------------------------------------------------------------
+
+class SnapshotDaReceitaTests(CatalogFixture):
+    """`MealLog.recipe_name` congela O QUE FOI COMIDO, e não uma referência.
+
+    Os macros já eram congelados desde a etapa 5. O nome não era: ele saía de
+    `chosen_option.template.name`, que é relação viva. Renomear a receita no
+    admin reescrevia o histórico inteiro em silêncio, e aposentar o plano
+    antigo levava o nome junto.
+
+    O caso real que motiva isto: a pessoa abre o histórico de duas semanas
+    atrás para lembrar o que comeu num dia que deu certo. Se o nome for lido
+    do plano de hoje, ela lê o cardápio de hoje com a data de antes.
+    """
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.plan = services.create_plan(self.user)
+        self.slot = self.plan.slots.get(order=0)
+        self.option = self.slot.options.first()
+        self.today = timezone.localdate()
+
+    # A ---------------------------------------------------------------- grava
+    def test_marcar_uma_opcao_congela_o_nome_da_receita(self):
+        log = tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+
+        self.assertEqual(log.recipe_name, self.option.template.name)
+        self.assertEqual(log.recipe_display, self.option.template.name)
+
+    # B ------------------------------------------------------------- sobrevive
+    def test_renomear_a_receita_depois_nao_reescreve_o_historico(self):
+        """O teste que dá razão ao campo: sem ele, o passado mudava sozinho."""
+        log = tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+        nome_no_dia = self.option.template.name
+
+        template = self.option.template
+        template.name = "Receita renomeada muito depois"
+        template.is_active = False
+        template.save(update_fields=["name", "is_active"])
+
+        log.refresh_from_db()
+        self.assertEqual(log.recipe_name, nome_no_dia)
+        # E a leitura acompanha: a propriedade prefere o retrato à relação.
+        self.assertEqual(log.recipe_display, nome_no_dia)
+        self.assertNotEqual(log.recipe_display, template.name)
+
+    # C ------------------------------------------------------------ plano novo
+    def test_plano_novo_nao_mexe_no_registro_de_antes(self):
+        log = tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+        nome_no_dia = self.option.template.name
+
+        services.create_plan(self.user)
+
+        log.refresh_from_db()
+        self.assertEqual(log.recipe_name, nome_no_dia)
+        self.assertEqual(log.recipe_display, nome_no_dia)
+
+    # D ----------------------------------------------------------- idempotente
+    def test_marcar_de_novo_atualiza_o_snapshot_sem_duplicar(self):
+        """Remarcar troca o retrato inteiro; não deixa metade do anterior."""
+        tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+        tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+
+        logs = MealLog.objects.filter(user=self.user, slot=self.slot, date=self.today)
+        self.assertEqual(logs.count(), 1)
+        self.assertEqual(logs.get().recipe_name, self.option.template.name)
+
+        # Mudou de ideia e pulou: o nome tem de SAIR junto dos macros. Deixar
+        # o nome de uma receita numa refeição pulada seria afirmar que ela foi
+        # comida.
+        tracking.log_meal(self.user, self.slot, MealStatus.SKIPPED)
+        log = logs.get()
+        self.assertEqual(log.status, MealStatus.SKIPPED)
+        self.assertEqual(log.recipe_name, "")
+        self.assertEqual(log.recipe_display, "")
+
+    # E -------------------------------------------------------- logs anteriores
+    def test_registro_anterior_a_migracao_cai_no_fallback(self):
+        """Vazio com opção viva: mostra o nome da opção, sem quebrar."""
+        log = tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+        # Simula um registro gravado antes de este campo existir.
+        MealLog.objects.filter(pk=log.pk).update(recipe_name="")
+        log.refresh_from_db()
+
+        self.assertEqual(log.recipe_name, "")
+        self.assertEqual(log.recipe_display, self.option.template.name)
+
+    def test_registro_antigo_sem_opcao_nao_quebra(self):
+        """Plano apagado zera `chosen_option`: o fallback aguenta `None`."""
+        log = tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+        MealLog.objects.filter(pk=log.pk).update(recipe_name="", chosen_option=None)
+        log.refresh_from_db()
+
+        self.assertIsNone(log.chosen_option)
+        self.assertEqual(log.recipe_display, "")
+
+    def test_tela_de_hoje_abre_com_registro_antigo_sem_snapshot(self):
+        log = tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+        MealLog.objects.filter(pk=log.pk).update(recipe_name="")
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("plans:today"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.option.template.name)
+
+    # F ------------------------------------------------------ comi outra coisa
+    def test_comi_outra_coisa_nao_inventa_nome_de_receita(self):
+        """Vazio é a resposta honesta: quem descreve o que foi comido é `notes`.
+
+        Carimbar "Outra refeição" criaria uma linha indistinguível de uma
+        receita que se chamasse assim, e destruiria a única pergunta que a
+        coluna precisa responder: existe retrato, ou não existe?
+        """
+        log = tracking.log_meal(
+            self.user,
+            self.slot,
+            MealStatus.OFF_PLAN,
+            notes="pizza na casa da minha mãe",
+        )
+
+        self.assertEqual(log.recipe_name, "")
+        self.assertEqual(log.recipe_display, "")
+        self.assertEqual(log.notes, "pizza na casa da minha mãe")
+        self.assertIsNone(log.chosen_option)
+
+    def test_pular_a_refeicao_tambem_fica_sem_nome(self):
+        log = tracking.log_meal(self.user, self.slot, MealStatus.SKIPPED)
+
+        self.assertEqual(log.recipe_name, "")
+        self.assertEqual(log.recipe_display, "")
+
+    # G ------------------------------------------------------------- confiança
+    def test_o_cliente_nao_escolhe_o_que_vai_no_snapshot(self):
+        """O nome vem da opção que o SERVIDOR resolveu, não do formulário.
+
+        Se o campo fosse lido do request, qualquer pessoa escreveria o próprio
+        histórico — e histórico que o dono edita não serve para decidir nada.
+        """
+        self.client.force_login(self.user)
+
+        self.client.post(
+            reverse("plans:mark_meal", args=[self.slot.pk]),
+            {
+                "status": MealStatus.DONE,
+                "option": self.option.pk,
+                "recipe_name": "Salada de mentira que eu nao comi",
+            },
+        )
+
+        log = MealLog.objects.get(user=self.user, slot=self.slot, date=self.today)
+        self.assertEqual(log.recipe_name, self.option.template.name)
+        self.assertNotIn("mentira", log.recipe_name)
+
+    def test_o_cliente_nao_injeta_nome_no_comi_outra_coisa(self):
+        self.client.force_login(self.user)
+
+        self.client.post(
+            reverse("plans:mark_meal", args=[self.slot.pk]),
+            {
+                "status": MealStatus.OFF_PLAN,
+                "notes": "comi na rua",
+                "recipe_name": "Receita inventada",
+            },
+        )
+
+        log = MealLog.objects.get(user=self.user, slot=self.slot, date=self.today)
+        self.assertEqual(log.recipe_name, "")
+        self.assertEqual(log.notes, "comi na rua")
+
+    # ------------------------------------------------------------------ offline
+    def test_reenvio_da_fila_offline_continua_idempotente(self):
+        """A fila reenvia o MESMO formulário. O snapshot nasce no servidor.
+
+        O contrato da fila não mudou e não precisava mudar: o corpo que ela
+        guarda nunca teve nome de receita, e o replay passa pela mesma view.
+        """
+        self.client.force_login(self.user)
+        corpo = {"status": MealStatus.DONE, "option": self.option.pk}
+        url = reverse("plans:mark_meal", args=[self.slot.pk])
+
+        self.client.post(url, corpo)
+        self.client.post(url, corpo)  # o replay da fila
+
+        logs = MealLog.objects.filter(user=self.user, slot=self.slot, date=self.today)
+        self.assertEqual(logs.count(), 1)
+        self.assertEqual(logs.get().recipe_name, self.option.template.name)

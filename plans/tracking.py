@@ -66,6 +66,17 @@ def log_meal(user, slot, status, option=None, day=None, notes="", macros=None) -
         "marked_at": timezone.now(),
         "slot_name": slot.name,
         "scheduled_time": slot.time,
+        # O nome sai da MESMA fonte dos macros: a opção que o servidor
+        # resolveu. Nada aqui vem do request — o formulário manda o id da
+        # opção, e é o servidor que a busca dentro do slot do plano ativo do
+        # próprio usuário. Aceitar um nome enviado pelo cliente deixaria
+        # qualquer pessoa escrever a própria história no histórico.
+        #
+        # Fora do "comi" fica VAZIO, e vazio é a resposta honesta: "pulei" não
+        # tem receita, e "comi outra coisa" tem `notes`, que é a descrição da
+        # própria pessoa. Carimbar um rótulo como "Outra refeição" inventaria
+        # um nome de receita que não existe — e o status já conta isso.
+        "recipe_name": option.template.name if ate_the_plan else "",
         "kcal": option.kcal if ate_the_plan else (fora or {}).get("kcal", ZERO),
         "protein_g": (
             option.protein_g if ate_the_plan else (fora or {}).get("protein_g", ZERO)

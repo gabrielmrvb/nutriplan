@@ -299,7 +299,7 @@ coluna da direita), não entre ela e o almoço.
             {% if slot.log %}
               <div class="meal__result">
                 <span class="meal__result-name status--{{ slot.log.status }}">
-                  {% if slot.log.status == 'done' %}✓ {{ slot.log.chosen_option.template.name }}
+                  {% if slot.log.status == 'done' %}✓ {{ slot.log.recipe_display }}
                   {% elif slot.log.status == 'skipped' %}Refeição pulada
                   {% else %}Comeu outra coisa{% endif %}
                 </span>

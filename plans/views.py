@@ -294,8 +294,13 @@ class MarkMealView(OnboardingRequiredMixin, View):
 
         option = None
         if status == MealStatus.DONE:
+            # `select_related` porque o snapshot do log lê `template.name`:
+            # sem ele, marcar uma refeição custaria uma consulta a mais só
+            # para buscar o nome que já vem no mesmo caminho.
             option = get_object_or_404(
-                MealOption, pk=request.POST.get("option"), slot=slot
+                MealOption.objects.select_related("template"),
+                pk=request.POST.get("option"),
+                slot=slot,
             )
 
         notes = (request.POST.get("notes") or "").strip()
