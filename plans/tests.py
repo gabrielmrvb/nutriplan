@@ -2544,6 +2544,40 @@ class SnapshotDaReceitaTests(CatalogFixture):
         self.assertEqual(log.recipe_name, "")
         self.assertEqual(log.recipe_display, "")
 
+    def test_trocar_de_opcao_troca_o_retrato_inteiro(self):
+        """Comeu a B depois de ter marcado a A: o retrato passa a ser o da B.
+
+        O retrato é um conjunto, não campos soltos. Se o nome trocasse e os
+        macros ficassem, ou o contrário, o histórico passaria a descrever uma
+        refeição que nunca existiu — e ninguém veria, porque as duas metades
+        são plausíveis sozinhas.
+
+        Está aqui porque o caminho é corriqueiro: a pessoa marca a opção A de
+        manhã, almoça a B e volta para corrigir.
+        """
+        a, b = list(self.slot.options.all()[:2])
+        self.assertNotEqual(a.template.name, b.template.name)
+
+        tracking.log_meal(self.user, self.slot, MealStatus.DONE, a)
+        logs = MealLog.objects.filter(user=self.user, slot=self.slot, date=self.today)
+        self.assertEqual(logs.count(), 1)
+        self.assertEqual(logs.get().recipe_name, a.template.name)
+
+        tracking.log_meal(self.user, self.slot, MealStatus.DONE, b)
+
+        self.assertEqual(logs.count(), 1)
+        log = logs.get()
+        self.assertEqual(log.chosen_option, b)
+        self.assertEqual(log.recipe_name, b.template.name)
+        self.assertNotEqual(log.recipe_name, a.template.name)
+        self.assertEqual(log.recipe_display, b.template.name)
+
+        # Os números vêm da mesma opção que o nome. É a metade que faltaria.
+        self.assertEqual(log.kcal, b.kcal)
+        self.assertEqual(log.protein_g, b.protein_g)
+        self.assertEqual(log.carb_g, b.carb_g)
+        self.assertEqual(log.fat_g, b.fat_g)
+
     # E -------------------------------------------------------- logs anteriores
     def test_registro_anterior_a_migracao_cai_no_fallback(self):
         """Vazio com opção viva: mostra o nome da opção, sem quebrar."""
