@@ -3191,3 +3191,82 @@ class MarcadorNaTelaTests(CatalogFixture):
 
         self.assertIn("margin-left: auto", regra)
         self.assertIn("flex: none", regra)
+
+
+class TituloDaTelaHojeTests(CatalogFixture):
+    """Hoje era a única tela do app sem `<h1>`.
+
+    Seu primeiro título era o `<h2>` do cartão da ação — que muda de texto
+    conforme a hora ("Almoço", "Peito e tríceps"). O documento começava no
+    nível 2, e quem navega por títulos não tinha como saber onde estava.
+
+    Ele é invisível de propósito: a primeira dobra é exatamente o que o Hoje V2
+    liberou para a ação, e o nome da tela já está escrito na aba ativa.
+    """
+
+    url = reverse("plans:today")
+
+    def setUp(self):
+        super().setUp()
+        self.user = create_complete_user(email="titulo@exemplo.com")
+        self.client.force_login(self.user)
+
+    def _html(self):
+        return self.client.get(self.url).content.decode()
+
+    def test_a_tela_tem_exatamente_um_h1(self):
+        self.assertEqual(len(re.findall(r"<h1[ >]", self._html())), 1)
+
+    def test_o_h1_nomeia_a_tela(self):
+        achado = re.search(r"<h1[^>]*>(.*?)</h1>", self._html(), re.S)
+
+        self.assertEqual(achado.group(1).strip(), "Hoje")
+
+    def test_nenhum_h2_aparece_antes_do_h1(self):
+        """Pular de nível é o defeito que o `<h1>` veio corrigir.
+
+        Ancorado na POSIÇÃO, e não na existência: acrescentar o `<h1>` no fim
+        do documento passaria num teste que só conta tags.
+        """
+        html = self._html()
+
+        self.assertLess(html.index("<h1"), html.index("<h2"))
+
+    def test_o_titulo_nao_ocupa_espaco_na_tela(self):
+        """`.vis-oculto` é o utilitário que o app já usa para isto.
+
+        Se alguém tirar a classe, o "Hoje" vira uma faixa de texto empurrando a
+        ação para baixo — o oposto do que o Hoje V2 fez.
+        """
+        achado = re.search(r"<h1[^>]*>", self._html())
+
+        self.assertIn("vis-oculto", achado.group(0))
+
+
+class EstadoVazioDaListaDeComprasTests(CatalogFixture):
+    """A lista sem nenhuma receita para agrupar.
+
+    Diferente dos dois estados vazios de peso, este NÃO tem invariante que o
+    impeça: ele depende de o cardápio ter receitas, o que sai do casamento com
+    o catálogo. Rodado contra todos os planos ativos do banco local, em três
+    rótulos, ele não apareceu nenhuma vez — mas "não aconteceu" não é "não
+    pode acontecer", e por isso o ramo ganhou saída em vez de ficar mudo.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.user = create_complete_user(email="compras@exemplo.com")
+        self.client.force_login(self.user)
+
+    def test_o_estado_vazio_oferece_o_cardapio(self):
+        html = (Path(settings.BASE_DIR) / "templates" / "plans"
+                / "shopping.html").read_text(encoding="utf-8")
+        bloco = html.split("receitas suficientes", 1)[1][:400]
+
+        self.assertIn("plans:today", bloco)
+        self.assertIn("Ver meu cardápio", bloco)
+
+    def test_a_tela_de_compras_continua_respondendo(self):
+        self.assertEqual(
+            self.client.get(reverse("plans:shopping")).status_code, 200
+        )

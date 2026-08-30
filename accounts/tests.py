@@ -2536,3 +2536,132 @@ class DataDeNascimentoNaEdicaoTests(TestCase):
         widget = BodyDataForm().fields["birth_date"].widget
 
         self.assertEqual(widget.format, "%Y-%m-%d")
+
+
+class ConfirmacaoDeEscritaTests(TestCase):
+    """Confirmação só onde a tela não prova sozinha que gravou.
+
+    A maioria das escritas do app dispensa mensagem porque o próprio elemento
+    muda de estado: a refeição marcada troca de cor, a barra da água cresce, a
+    série vira número. Mensagem nesses lugares seria ruído sobre um fato já
+    visível — e este teste também guarda ESSA metade da decisão.
+
+    As duas exceções são escritas em que a tela seguinte fica igual à anterior.
+    """
+
+    def setUp(self):
+        self.user = create_complete_user(email="confirma@exemplo.com")
+        self.client.force_login(self.user)
+
+    def _mensagens(self, resposta):
+        return [str(m) for m in resposta.context["messages"]]
+
+    # -- pesagem ---------------------------------------------------------
+
+    def test_registrar_peso_confirma(self):
+        """O campo volta preenchido com o peso de hoje.
+
+        Ou seja: com o número que a pessoa acabou de digitar. Antes e depois do
+        envio ela vê exatamente a mesma tela, e sem mensagem nada distingue
+        "gravou" de "o formulário nem foi".
+        """
+        resposta = self.client.post(
+            reverse("accounts:log_weight"),
+            {"origem": "metricas", "weight_kg": "81,3"},
+            follow=True,
+        )
+
+        self.assertIn("Peso registrado.", self._mensagens(resposta))
+
+    def test_peso_recusado_nao_confirma(self):
+        resposta = self.client.post(
+            reverse("accounts:log_weight"),
+            {"origem": "metricas", "weight_kg": "abacaxi"},
+            follow=True,
+        )
+
+        self.assertNotIn("Peso registrado.", self._mensagens(resposta))
+
+    # -- edição de perfil -------------------------------------------------
+
+    def test_salvar_edicao_do_perfil_confirma(self):
+        """Editar redireciona para o perfil, que já mostrava os valores novos —
+        mas nada dizia que o salvamento aconteceu."""
+        resposta = self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 1}),
+            {"sex": "M", "birth_date": "1990-05-20",
+             "height_cm": "178", "weight_kg": "80,0"},
+            follow=True,
+        )
+
+        self.assertIn("Alterações salvas.", self._mensagens(resposta))
+
+    def test_durante_o_onboarding_nao_ha_confirmacao(self):
+        """O feedback de ter salvo é o passo seguinte aparecer.
+
+        Dizer "pronto" a cada passo do cadastro seria a mensagem virando ruído
+        justamente em quem ainda está aprendendo o app.
+        """
+        novo = create_complete_user(email="cadastrando@exemplo.com")
+        # `onboarding_complete` é propriedade, não campo: quem guarda o
+        # progresso é `onboarding_step`.
+        Profile.objects.filter(user=novo).update(onboarding_step=1)
+        self.client.force_login(novo)
+
+        resposta = self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 1}),
+            {"sex": "M", "birth_date": "1990-05-20",
+             "height_cm": "178", "weight_kg": "80,0"},
+            follow=True,
+        )
+
+        self.assertEqual(self._mensagens(resposta), [])
+
+    # -- o outro lado da decisão -----------------------------------------
+
+    def test_acoes_que_mudam_a_tela_continuam_caladas(self):
+        """Marcar refeição, beber água e ligar suplemento não ganham mensagem.
+
+        Se alguém "padronizar" o feedback espalhando `messages.success` pelas
+        escritas, este teste quebra: são três ações de alta frequência, e um
+        aviso em cada uma vira uma tela que fala o tempo todo.
+        """
+        fonte = (Path(settings.BASE_DIR) / "plans" / "views.py").read_text(
+            encoding="utf-8"
+        )
+        for vista in ("class MarkMealView", "class ClearMealView",
+                      "class LogHydrationView"):
+            corpo = fonte.split(vista, 1)[1].split("\nclass ", 1)[0]
+
+            self.assertNotIn("messages.success", corpo, vista)
+
+
+class EstadoVazioDeTreinosTests(TestCase):
+    """O cartão de treinos sem nenhum dia.
+
+    É alcançável: `weekdays` é `required=False` no passo 3, então quem responde
+    que não treina cai aqui. O cabeçalho tem "Editar", e mesmo assim o cartão
+    ganhou botão — "editar" é o verbo errado quando não existe nada para
+    editar, e um link de texto ao lado do título não é o convite de um cartão
+    vazio.
+    """
+
+    def setUp(self):
+        self.user = create_complete_user(email="semtreino@exemplo.com")
+        self.user.training_days.all().delete()
+        self.client.force_login(self.user)
+
+    def test_o_cartao_vazio_oferece_o_caminho_para_cadastrar(self):
+        html = self.client.get(reverse("accounts:profile")).content.decode()
+        bloco = html.split("Nenhum dia de treino", 1)[1][:400]
+
+        self.assertIn(
+            reverse("accounts:onboarding_step", kwargs={"step": 3}), bloco
+        )
+        self.assertIn("Cadastrar dias de treino", bloco)
+
+    def test_o_destino_do_botao_responde(self):
+        """CTA que aponta para rota quebrada é pior que CTA nenhum."""
+        destino = reverse("accounts:onboarding_step", kwargs={"step": 3})
+
+        self.assertEqual(self.client.get(destino).status_code, 200)

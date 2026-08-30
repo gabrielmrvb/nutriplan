@@ -439,6 +439,10 @@ class OnboardingStepMixin(LoginRequiredMixin):
 
         profile.advance_onboarding(self.step, proximo=proximo)
         if was_complete:
+            # Só na EDIÇÃO. No onboarding, o feedback de ter salvo é o passo
+            # seguinte aparecer — dizer "pronto" cinco vezes seguidas durante
+            # o cadastro seria a mensagem virando ruído.
+            messages.success(self.request, "Alterações salvas.")
             return redirect("accounts:profile")
         if proximo >= ONBOARDING_DONE:
             return redirect("plans:today")
@@ -627,6 +631,12 @@ class WeightLogView(OnboardingRequiredMixin, View):
             defaults={"weight_kg": form.cleaned_data["weight_kg"]},
         )
         request.session.pop(SESSAO_PESO_RECUSADO, None)
+        # A tela não prova sozinha que gravou. O campo volta preenchido com o
+        # peso de hoje — que é exatamente o número que a pessoa acabou de
+        # digitar —, então antes e depois do envio ela vê a mesma coisa. Nas
+        # outras ações do app o próprio elemento muda de estado e a mensagem
+        # seria ruído; aqui não há elemento que mude.
+        messages.success(request, "Peso registrado.")
         return redirect(destino)
 
 

@@ -50,9 +50,15 @@
         </section>
       {% empty %}
         <section class="card">
-          <p class="empty-state">
-            Seu cardápio ainda não tem receitas suficientes para montar uma lista.
-          </p>
+          {% comment %}
+            A lista é derivada do cardápio, então a porta é o cardápio. Não há
+            aqui um botão de "gerar" porque nada nesta tela produz receita: o
+            que existe é a tela onde elas aparecem.
+          {% endcomment %}
+          <div class="empty-state">
+            <p>Seu cardápio ainda não tem receitas suficientes para montar uma lista.</p>
+            <a class="btn btn--ghost btn--sm" href="{% url 'plans:today' %}">Ver meu cardápio</a>
+          </div>
         </section>
       {% endfor %}
     </div>

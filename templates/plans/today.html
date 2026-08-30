@@ -10,6 +10,18 @@ coluna da direita), não entre ela e o almoço.
 {% endcomment %}
 
 {% block content %}
+  {% comment %}
+    Toda tela do app se nomeia num `<h1>` — esta era a única sem, e por isso
+    seu primeiro título era o `<h2>` do cartão da ação, que muda de texto
+    conforme a hora. O documento começava no nível 2 e não dizia onde a pessoa
+    está.
+
+    Ele não é desenhado porque a primeira dobra é exatamente o que o Hoje V2
+    liberou para a ação, e o nome da tela já está escrito na aba ativa. Quem
+    navega por títulos ganha o marco; o layout não paga pixel nenhum.
+  {% endcomment %}
+  <h1 class="vis-oculto">Hoje</h1>
+
   <div class="split">
     <div class="split__main stack">
 

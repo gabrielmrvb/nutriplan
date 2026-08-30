@@ -1730,6 +1730,10 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 .empty-state { padding: 2.25rem 1rem; color: var(--text-dim); font-size: .9rem; text-align: center; }
+/* O estado vazio virou caixa quando ganhou botão. O `text-align` do bloco já
+   centraliza o `.btn`, que é `inline-flex`; só faltava o respiro. */
+.empty-state p { margin: 0; }
+.empty-state .btn { margin-top: 1.1rem; }
 
 /* ==========================================================================
    13. Listas de dados
@@ -5714,6 +5718,26 @@ body.montando { overflow: hidden; }
 }
 .explicacao__head::-webkit-details-marker { display: none; }
 .explicacao__head h2 { margin: 0; }
+
+/* O "Editar" deste cabeçalho media 40x25. Os "Editar" do perfil passam na
+   régua porque `.card__head a` os cobre; este mora num `<summary>`, que não é
+   `.card__head`, e ficava sem regra nenhuma.
+
+   Mesma solução de lá, e pelo mesmo motivo: o alvo cresce por padding, e a
+   margem negativa devolve o espaço horizontal ao layout — a caixa clicável
+   passa a 44px sem que nada se mexa na tela. Na altura não há margem negativa
+   a pagar: o `<summary>` já tem `min-height` igual. */
+.explicacao__head a {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  min-height: 2.75rem;
+  padding: 0 .4rem;
+  margin: 0 -.4rem;
+  font-size: .8rem;
+  font-weight: 650;
+  text-decoration: none;
+}
 .explicacao__head:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* A dica fica à direita e vira "fechar" com a seção aberta. É texto e não só

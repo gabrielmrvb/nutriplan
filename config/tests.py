@@ -376,6 +376,10 @@ class TouchTargetTests(TestCase):
         (".btn--quiet {", "min-height: 2.75rem"),
         (".app-bar__quiet {", "min-height: 2.75rem"),
         (".card__head a {", "min-height: 2.75rem"),
+        # O gêmeo do de cima, num `<summary>`. "Editar" de "Dados do cálculo"
+        # media 40x25: `.card__head a` cobre os "Editar" do perfil, e este não
+        # é `.card__head`, então não tinha regra nenhuma.
+        (".explicacao__head a {", "min-height: 2.75rem"),
         (".shopping__check {", "min-height: 2.75rem"),
         # O registro único, no lugar das quatro linhas de série que saíram.
         (".registro__carga {", "min-height: 2.75rem"),

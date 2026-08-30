@@ -110,7 +110,18 @@
             {% endfor %}
           </dl>
         {% else %}
-          <p class="empty-state">Nenhum dia de treino cadastrado ainda.</p>
+          {% comment %}
+            O cabeçalho tem "Editar", e ele leva ao mesmo passo. O botão
+            existe assim mesmo porque "editar" é o verbo errado para um
+            cartão vazio — não há o que editar, há o que cadastrar — e um
+            link de texto ao lado do título não é o convite de um cartão que
+            não tem mais nada dentro.
+          {% endcomment %}
+          <div class="empty-state">
+            <p>Nenhum dia de treino cadastrado ainda.</p>
+            <a class="btn btn--ghost btn--sm"
+               href="{% url 'accounts:onboarding_step' step=3 %}">Cadastrar dias de treino</a>
+          </div>
         {% endif %}
         {% comment %}
           A janela do dia entra aqui porque é aqui que ela é editada — o
@@ -202,6 +213,14 @@
             {% endfor %}
           </dl>
         {% else %}
+          {% comment %}
+            Sem CTA de propósito: este ramo não acontece. O passo 1 do
+            onboarding grava um WeightEntry no `save()`, sem condição, e o
+            perfil exige onboarding completo — então todo mundo que chega aqui
+            tem pelo menos uma pesagem. `weight_entries` é `.all()[:10]`, sem
+            filtro de data, e nenhum caminho de produção apaga pesagem.
+            Fica como defesa, e não como tela que alguém vê.
+          {% endcomment %}
           <p class="empty-state">Nenhuma pesagem registrada.</p>
         {% endif %}
       </section>
