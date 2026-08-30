@@ -23,7 +23,15 @@ from .forms import (
     SignupForm,
     TrainingForm,
 )
-from .models import ONBOARDING_LAST_STEP, Profile, User, WeightEntry
+from workouts.services import preferencia_muda_a_divisao
+
+from .models import (
+    ONBOARDING_DONE,
+    ONBOARDING_LAST_STEP,
+    Profile,
+    User,
+    WeightEntry,
+)
 
 #: Onde o peso recusado espera até a próxima tela.
 #:
@@ -70,6 +78,56 @@ def recusa_pendente(request, superficie):
 
     del request.session[SESSAO_PESO_RECUSADO]
     return guardado[1]
+
+
+#: Onde os dias de treino são respondidos — o passo que decide o caminho.
+#:
+#: É o único passo que precisa de nome próprio: o 4 não é referenciado por
+#: número em lugar nenhum, porque quem decide se ele existe é `passos_de`.
+PASSO_TREINOS = 3
+
+#: Os dois caminhos possíveis. O 5 é sempre o último, e é isso que mantém
+#: `ONBOARDING_DONE` e `onboarding_complete` valendo sem alteração nenhuma.
+CAMINHO_COMPLETO = (1, 2, 3, 4, 5)
+CAMINHO_CURTO = (1, 2, 3, 5)
+
+
+def passos_de(user, profile, treinos_respondidos=None) -> tuple:
+    """Os passos que ESTA pessoa realmente percorre.
+
+    Quem treina até três dias recebe a mesma divisão pelas três preferências
+    — `preferencia_muda_a_divisao` lê isso da tabela de `workouts.services`,
+    em vez de repetir aqui um número que envelheceria escondido. Para essa
+    pessoa o passo 4 não é uma escolha, é uma tela que não muda nada.
+
+    Antes de o passo 3 ser respondido não dá para saber, e aí o caminho
+    completo é a resposta honesta: a barra pode encurtar depois, e encurtar é
+    uma boa notícia. O contrário — prometer quatro e cobrar cinco — não é.
+    """
+    if treinos_respondidos is None:
+        treinos_respondidos = (
+            profile is not None and profile.onboarding_step > PASSO_TREINOS
+        )
+    if not treinos_respondidos:
+        return CAMINHO_COMPLETO
+    dias = user.training_days.count()
+    return CAMINHO_COMPLETO if preferencia_muda_a_divisao(dias) else CAMINHO_CURTO
+
+
+def passo_alvo(profile, passos) -> int:
+    """Para onde mandar quem chega fora de hora — ou com progresso obsoleto.
+
+    O caso que exige isto: alguém parou no passo 4 quando treinava cinco dias,
+    voltou, reduziu para dois, e agora o 4 sumiu do caminho dela. O progresso
+    salvo diz "4", e 4 não existe mais. Sem este mapeamento, a entrada
+    redirecionaria para 4, a guarda devolveria para a entrada, e o app entraria
+    em laço.
+    """
+    salvo = profile.onboarding_step if profile else 1
+    for passo in passos:
+        if passo >= salvo:
+            return passo
+    return passos[-1]
 
 
 #: Título e subtítulo de cada passo, usados na barra de progresso e no cabeçalho.
@@ -306,28 +364,48 @@ class OnboardingStepMixin(LoginRequiredMixin):
             return super().dispatch(request, *args, **kwargs)
 
         profile = self.get_profile()
+        passos = passos_de(request.user, profile)
+
         if self.step > 1:
             if profile is None:
                 return redirect("accounts:onboarding_step", step=1)
             if profile.onboarding_step < self.step:
-                return redirect("accounts:onboarding_step", step=profile.onboarding_step)
+                return redirect(
+                    "accounts:onboarding_step", step=passo_alvo(profile, passos)
+                )
+
+        # O passo existe, mas não para esta pessoa: quem treina até três dias
+        # não responde divisão. Vale inclusive para quem já terminou e volta
+        # pelo perfil — uma tela que não muda o plano não é edição, é ruído.
+        if self.step not in passos:
+            return redirect("accounts:onboarding_step", step=passo_alvo(profile, passos))
+
+        self.passos = passos
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         title, subtitle = STEP_META[self.step]
         profile = self.get_profile()
+        passos = getattr(self, "passos", None) or passos_de(self.request.user, profile)
+        posicao = passos.index(self.step) + 1
         context.update(
             {
                 "step": self.step,
-                "total_steps": ONBOARDING_LAST_STEP,
-                "step_range": range(1, ONBOARDING_LAST_STEP + 1),
+                # POSIÇÃO no caminho, não o número do passo. Para quem pula a
+                # divisão, o passo 5 é o quarto de quatro — mostrar "Passo 5/4"
+                # seria a barra denunciando a própria gambiarra.
+                "posicao": posicao,
+                "total_steps": len(passos),
                 "step_title": title,
                 "step_subtitle": subtitle,
-                "progress_pct": int(self.step / ONBOARDING_LAST_STEP * 100),
+                "progress_pct": int(posicao / len(passos) * 100),
                 "previous_url": (
-                    reverse("accounts:onboarding_step", kwargs={"step": self.step - 1})
-                    if self.step > 1
+                    reverse(
+                        "accounts:onboarding_step",
+                        kwargs={"step": passos[posicao - 2]},
+                    )
+                    if posicao > 1
                     else None
                 ),
                 "is_editing": bool(profile and profile.onboarding_complete),
@@ -342,14 +420,29 @@ class OnboardingStepMixin(LoginRequiredMixin):
         return context
 
     def finish_step(self, profile):
-        """Avança o progresso e decide para onde ir."""
+        """Avança o progresso e decide para onde ir.
+
+        O caminho é recalculado DEPOIS de salvar, não antes: é o passo 3 que
+        define se o 4 existe, e ele acabou de ser respondido. Recalcular antes
+        leria os dias de treino de ontem.
+        """
         was_complete = profile.onboarding_complete
-        profile.advance_onboarding(self.step)
+        # `treinos_respondidos` explícito: ao CONCLUIR o passo 3 o progresso
+        # salvo ainda diz "3", e a inferência normal leria isso como "ainda não
+        # respondeu" — mandando para o passo 4 justamente quem acabou de dizer
+        # que treina pouco. Quem está terminando o passo dos treinos sabe que
+        # eles foram respondidos; os dias já estão no banco.
+        respondeu = self.step >= PASSO_TREINOS or profile.onboarding_step > PASSO_TREINOS
+        passos = passos_de(self.request.user, profile, treinos_respondidos=respondeu)
+        indice = passos.index(self.step) if self.step in passos else len(passos) - 1
+        proximo = passos[indice + 1] if indice + 1 < len(passos) else ONBOARDING_DONE
+
+        profile.advance_onboarding(self.step, proximo=proximo)
         if was_complete:
             return redirect("accounts:profile")
-        if self.step == ONBOARDING_LAST_STEP:
+        if proximo >= ONBOARDING_DONE:
             return redirect("plans:today")
-        return redirect("accounts:onboarding_step", step=self.step + 1)
+        return redirect("accounts:onboarding_step", step=proximo)
 
 
 class ProfileStepView(OnboardingStepMixin, UpdateView):
@@ -432,7 +525,11 @@ class OnboardingEntryView(LoginRequiredMixin, TemplateView):
             return redirect("accounts:onboarding_step", step=1)
         if profile.onboarding_complete:
             return redirect("plans:today")
-        return redirect("accounts:onboarding_step", step=profile.onboarding_step)
+        # `passo_alvo` e não `onboarding_step` cru: quem parou no 4 e depois
+        # reduziu os dias de treino tem um progresso salvo que aponta para um
+        # passo que não existe mais no caminho dela.
+        passos = passos_de(request.user, profile)
+        return redirect("accounts:onboarding_step", step=passo_alvo(profile, passos))
 
 
 class ProfileSummaryView(LoginRequiredMixin, TemplateView):
@@ -453,6 +550,11 @@ class ProfileSummaryView(LoginRequiredMixin, TemplateView):
                 # pessoa recalculava sem saber de que numero estava saindo.
                 "plano": self.request.user.plans.filter(is_active=True).first(),
                 "step_meta": STEP_META,
+                # Mesma regra do wizard, para o perfil não oferecer um
+                # "Editar" que leva a uma tela que a guarda vai recusar.
+                "divisao_importa": preferencia_muda_a_divisao(
+                    self.request.user.training_days.count()
+                ),
                 "nav": "profile",
             }
         )

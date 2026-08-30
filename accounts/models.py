@@ -266,13 +266,19 @@ class Profile(models.Model):
     def onboarding_complete(self) -> bool:
         return self.onboarding_step >= ONBOARDING_DONE
 
-    def advance_onboarding(self, completed_step: int):
+    def advance_onboarding(self, completed_step: int, proximo: int = None):
         """Marca um passo como concluído sem nunca retroceder o progresso.
 
         Sem o max(), reeditar o passo 1 depois de ter terminado o wizard
         jogaria a pessoa de volta para o começo do fluxo.
+
+        `proximo` existe porque o caminho deixou de ser uma fila fixa na V2.2:
+        quem treina até três dias pula a pergunta de divisão, e para essa
+        pessoa o passo seguinte ao 3 é o 5, não o 4. Quem chama sabe o
+        caminho; este método só registra até onde ela chegou.
         """
-        self.onboarding_step = max(self.onboarding_step, completed_step + 1)
+        alvo = proximo if proximo is not None else completed_step + 1
+        self.onboarding_step = max(self.onboarding_step, alvo)
         if self.onboarding_step >= ONBOARDING_DONE and self.onboarding_completed_at is None:
             self.onboarding_completed_at = timezone.now()
         self.save(update_fields=["onboarding_step", "onboarding_completed_at", "updated_at"])

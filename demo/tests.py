@@ -665,9 +665,23 @@ class DemoOnboardingTests(TestCase):
         self.assertEqual(resposta.context["step"], 1)
         self.assertIn(STEP_META[1][0], resposta.content.decode())
 
-    # ------------------------------------------------------- os cinco passos
-    def test_all_five_real_steps_can_be_walked(self):
-        for passo in range(1, ONBOARDING_LAST_STEP + 1):
+    # --------------------------------------------------- os passos da persona
+    def test_os_passos_reais_da_persona_podem_ser_percorridos(self):
+        """O caminho é o DELA, e não uma fila fixa de cinco.
+
+        Ana treina dois dias, e desde a V2.2 quem treina até três pula a
+        pergunta de divisão. Percorrer 1..5 aqui testaria um fluxo que o app
+        não oferece a ninguém — e falharia no passo 4 por acerto do produto,
+        não por defeito.
+        """
+        from accounts.models import Profile
+        from accounts.views import passos_de
+
+        persona = User.objects.get(email=DEMO_ONBOARDING_EMAIL)
+        passos = passos_de(persona, Profile.objects.get(user=persona))
+        self.assertEqual(passos[-1], ONBOARDING_LAST_STEP)
+
+        for passo in passos:
             with self.subTest(passo=passo):
                 resposta = self.client.get(f"/demo/conta/onboarding/{passo}/")
                 self.assertEqual(resposta.status_code, 200)
@@ -675,9 +689,15 @@ class DemoOnboardingTests(TestCase):
     def test_each_step_shows_its_own_title_from_the_real_app(self):
         """Os textos são os do app: `STEP_META` é lido da view real, e não
         copiado para cá."""
-        from accounts.views import STEP_META
+        from accounts.models import Profile
+        from accounts.views import STEP_META, passos_de
+
+        persona = User.objects.get(email=DEMO_ONBOARDING_EMAIL)
+        caminho = passos_de(persona, Profile.objects.get(user=persona))
 
         for passo, (titulo, _sub) in STEP_META.items():
+            if passo not in caminho:
+                continue
             with self.subTest(passo=passo):
                 corpo = self.client.get(
                     f"/demo/conta/onboarding/{passo}/"

@@ -167,18 +167,28 @@
         estiverem na mesma tela. O cardápio desceu para "Comida e restrições",
         que já leva ao passo 5 — onde ele de fato é editado.
       {% endcomment %}
-      <section class="card">
-        <div class="card__head">
-          <h2>Divisão de treino</h2>
-          <a href="{% url 'accounts:onboarding_step' step=4 %}">Editar</a>
-        </div>
-        <dl class="data-list">
-          <div>
-            <dt>Grupos por dia</dt>
-            <dd>{{ profile.get_split_preference_display }}</dd>
+      {% comment %}
+        O cartão só existe para quem a escolha muda alguma coisa.
+
+        Até três dias de treino, as três preferências devolvem a mesma
+        divisão — mostrar o valor com um "Editar" seria oferecer um botão que
+        leva a uma tela que o app ignora. O dado continua salvo; só não é
+        exibido enquanto não pesa.
+      {% endcomment %}
+      {% if divisao_importa %}
+        <section class="card">
+          <div class="card__head">
+            <h2>Divisão de treino</h2>
+            <a href="{% url 'accounts:onboarding_step' step=4 %}">Editar</a>
           </div>
-        </dl>
-      </section>
+          <dl class="data-list">
+            <div>
+              <dt>Grupos por dia</dt>
+              <dd>{{ profile.get_split_preference_display }}</dd>
+            </div>
+          </dl>
+        </section>
+      {% endif %}
 
       <section class="card">
         <div class="card__head"><h2>Histórico de peso</h2></div>

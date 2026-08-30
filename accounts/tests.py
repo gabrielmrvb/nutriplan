@@ -27,6 +27,10 @@ from plans.tests import create_complete_user
 
 from .adapters import MAXIMO_DE_TENTATIVAS, SESSAO_TENTATIVAS, SESSAO_VINCULO
 from .forms import PesagemForm
+from workouts.services import preferencia_muda_a_divisao, split_for
+
+from .views import CAMINHO_COMPLETO, CAMINHO_CURTO
+
 from .models import (
     ONBOARDING_DONE,
     ONBOARDING_LAST_STEP,
@@ -54,6 +58,9 @@ STEP3 = {
     "sleep_time": "23:30",
 }
 STEP4 = {"split_preference": "three"}
+#: Quatro dias — a partir daí a preferência de divisão muda o plano, e o passo
+#: 4 volta a existir. É o fixture dos testes que precisam do caminho completo.
+STEP3_COM_DIVISAO = {**STEP3, "weekdays": ["0", "1", "3", "5"]}
 STEP5 = {"meal_style": "quick"}
 
 
@@ -160,7 +167,10 @@ class OnboardingFlowTests(TestCase):
         self.client.post(step_url(2), STEP2)
         response = self.client.post(step_url(3), STEP3)
 
-        self.assertRedirects(response, step_url(4))
+        # Passo 5, e não 4: `STEP3` marca três dias, e desde a V2.2 a pergunta
+        # de divisão é pulada quando as três preferências dariam a mesma
+        # resposta. O passo 4 continua existindo — só não para esta pessoa.
+        self.assertRedirects(response, step_url(5))
         days = TrainingDay.objects.filter(user=self.user).order_by("weekday")
         self.assertEqual([d.weekday for d in days], [0, 2, 4])
         self.assertEqual(days[0].start_time, time(19, 0))
@@ -229,7 +239,8 @@ class ValidationTests(TestCase):
         response = self.client.post(
             step_url(3), {**STEP3, "wake_time": "07:00", "sleep_time": "01:30"}
         )
-        self.assertRedirects(response, step_url(4))
+        # `STEP3` tem três dias, então o passo seguinte é o 5.
+        self.assertRedirects(response, step_url(5))
 
     def test_absurdly_short_awake_window_is_blocked(self):
         self._ate_a_janela()
@@ -351,7 +362,9 @@ class PlanBuildingScreenTests(TestCase):
         self.client.force_login(self.user)
         self.client.post(step_url(1), STEP1)
         self.client.post(step_url(2), STEP2)
-        self.client.post(step_url(3), STEP3)
+        # Caminho COMPLETO de propósito: esta classe testa a tela de montagem
+        # do último passo, e quer os quatro passos anteriores para percorrer.
+        self.client.post(step_url(3), STEP3_COM_DIVISAO)
         self.client.post(step_url(4), STEP4)
 
     def test_the_screen_exists_only_on_the_last_step(self):
@@ -530,7 +543,13 @@ class ProfileActionsTests(TestCase):
 
     def test_the_two_new_preferences_are_visible_and_editable(self):
         """Elas entraram no onboarding e nunca apareceram aqui — quem quisesse
-        trocar teria que adivinhar em qual passo do wizard elas moram."""
+        trocar teria que adivinhar em qual passo do wizard elas moram.
+
+        Quatro dias de treino porque, desde a V2.2, o cartão da divisão só
+        aparece para quem a escolha muda alguma coisa.
+        """
+        self.client.post(step_url(3), STEP3_COM_DIVISAO)
+        self.client.post(step_url(4), STEP4)
         html = self.client.get(self.url).content.decode()
         divisao = html.split("Divisão de treino", 1)[1].split("</section>", 1)[0]
         self.assertIn("3 grupos por dia", divisao)
@@ -1842,7 +1861,9 @@ class OnboardingV21Tests(TestCase):
         """
         response = self.client.post(step_url(3), {**STEP3, "weekdays": []})
 
-        self.assertRedirects(response, step_url(4))
+        # Zero dias também pula a divisão: sem treino nenhum, nenhuma das três
+        # preferências muda o que o app monta.
+        self.assertRedirects(response, step_url(5))
         self.assertEqual(self.user.training_days.count(), 0)
 
     # D / E ------------------------------------------------- voltar e voltar
@@ -1966,3 +1987,240 @@ class OnboardingV21Tests(TestCase):
         self.assertIn('aria-label="Quarta-feira"', html)
         # E o nome completo continua sendo o do model, para o resto do app.
         self.assertEqual(Weekday(2).label, "Quarta-feira")
+
+
+class OnboardingV22Tests(TestCase):
+    """O caminho deixou de ser uma fila fixa: ele depende da resposta do passo 3.
+
+    A pergunta de divisão só muda o plano de quem treina quatro dias ou mais —
+    até três, as três preferências devolvem a mesma divisão, porque divisão não
+    inventa dias que a semana não tem. Perguntar ali custava um passo inteiro e
+    não comprava nada.
+
+    O que estes testes protegem não é o número 4: é o fato de a regra ser LIDA
+    de `workouts.services`, e de a navegação inteira — voltar, avançar,
+    recarregar, retomar, reeditar — entender o caminho que sobrou.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="v22@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(self.user)
+        self.client.post(step_url(1), STEP1)
+        self.client.post(step_url(2), STEP2)
+
+    def dias(self, quantos):
+        return {**STEP3, "weekdays": [str(d) for d in range(quantos)]}
+
+    def perfil(self):
+        return Profile.objects.get(user=self.user)
+
+    # ------------------------------------------------- a regra vem do domínio
+    def test_a_regra_e_lida_da_tabela_de_divisoes(self):
+        """Se `SPLIT_BY_PREFERENCE` mudar, o onboarding acompanha sozinho.
+
+        Este teste existe para que ninguém troque a chamada por um `>= 4`
+        escrito à mão: o dia em que a tabela ganhar uma faixa nova, o número
+        cravado ficaria mentindo em silêncio.
+        """
+        for poucos in (0, 1, 2, 3):
+            self.assertFalse(preferencia_muda_a_divisao(poucos), f"{poucos} dias")
+        for muitos in (4, 5, 6, 7):
+            self.assertTrue(preferencia_muda_a_divisao(muitos), f"{muitos} dias")
+
+    # ----------------------------------------------------- 1, 2 e 3 dias
+    def test_ate_tres_dias_a_divisao_e_pulada(self):
+        for quantos in (1, 2, 3):
+            with self.subTest(dias=quantos):
+                user = User.objects.create_user(
+                    email=f"curto{quantos}@exemplo.com", password="senha-bem-forte-123"
+                )
+                self.client.force_login(user)
+                self.client.post(step_url(1), STEP1)
+                self.client.post(step_url(2), STEP2)
+
+                resposta = self.client.post(step_url(3), self.dias(quantos))
+
+                self.assertRedirects(resposta, step_url(5))
+                self.assertEqual(Profile.objects.get(user=user).onboarding_step, 5)
+
+    def test_quem_pula_a_divisao_nao_consegue_abrir_o_passo_4(self):
+        """Não basta não oferecer: digitar a URL também não pode levar lá."""
+        self.client.post(step_url(3), self.dias(2))
+
+        resposta = self.client.get(step_url(4))
+
+        self.assertRedirects(resposta, step_url(5))
+
+    def test_o_progresso_conta_quatro_passos_para_quem_pula(self):
+        self.client.post(step_url(3), self.dias(2))
+
+        contexto = self.client.get(step_url(5)).context
+
+        self.assertEqual(contexto["total_steps"], 4)
+        self.assertEqual(contexto["posicao"], 4)
+        self.assertEqual(contexto["progress_pct"], 100)
+
+    # --------------------------------------------------------- 4 e 5+ dias
+    def test_de_quatro_dias_em_diante_a_divisao_continua_sendo_perguntada(self):
+        for quantos in (4, 5, 6, 7):
+            with self.subTest(dias=quantos):
+                user = User.objects.create_user(
+                    email=f"longo{quantos}@exemplo.com", password="senha-bem-forte-123"
+                )
+                self.client.force_login(user)
+                self.client.post(step_url(1), STEP1)
+                self.client.post(step_url(2), STEP2)
+
+                resposta = self.client.post(step_url(3), self.dias(quantos))
+
+                self.assertRedirects(resposta, step_url(4))
+
+    def test_o_progresso_conta_cinco_passos_para_quem_responde_a_divisao(self):
+        self.client.post(step_url(3), self.dias(5))
+
+        contexto = self.client.get(step_url(4)).context
+
+        self.assertEqual(contexto["total_steps"], 5)
+        self.assertEqual(contexto["posicao"], 4)
+        self.assertEqual(contexto["progress_pct"], 80)
+
+    # ------------------------------------------------------------- voltar
+    def test_voltar_do_passo_5_pula_a_divisao_de_quem_a_pulou(self):
+        """O botão "Voltar" segue o mesmo caminho da ida.
+
+        Sem isto, quem pulou o 4 na ida bateria nele na volta — e o passo que
+        o app decidiu esconder reapareceria pela porta dos fundos.
+        """
+        self.client.post(step_url(3), self.dias(2))
+
+        anterior = self.client.get(step_url(5)).context["previous_url"]
+
+        self.assertEqual(anterior, step_url(3))
+
+    def test_voltar_do_passo_5_cai_na_divisao_de_quem_a_respondeu(self):
+        self.client.post(step_url(3), self.dias(5))
+        self.client.post(step_url(4), STEP4)
+
+        anterior = self.client.get(step_url(5)).context["previous_url"]
+
+        self.assertEqual(anterior, step_url(4))
+
+    # ------------------------------------------------- recarregar e retomar
+    def test_recarregar_mantem_a_pessoa_no_mesmo_passo(self):
+        self.client.post(step_url(3), self.dias(2))
+
+        primeira = self.client.get(step_url(5))
+        segunda = self.client.get(step_url(5))
+
+        self.assertEqual(primeira.status_code, 200)
+        self.assertEqual(segunda.status_code, 200)
+        self.assertEqual(segunda.context["posicao"], 4)
+
+    def test_retomar_leva_ao_passo_certo_do_caminho_curto(self):
+        self.client.post(step_url(3), self.dias(3))
+
+        resposta = self.client.get(reverse("accounts:onboarding"))
+
+        self.assertRedirects(resposta, step_url(5))
+
+    def test_quem_parou_no_passo_4_e_depois_reduziu_os_dias_nao_trava(self):
+        """O caso que faria o app entrar em laço.
+
+        A pessoa parou no 4 treinando cinco dias. Voltou ao 3, reduziu para
+        dois — e agora o progresso salvo aponta para um passo que sumiu do
+        caminho dela. Sem o mapeamento, a entrada mandaria para o 4, a guarda
+        devolveria para a entrada, e assim por diante.
+        """
+        self.client.post(step_url(3), self.dias(5))
+        self.assertEqual(self.perfil().onboarding_step, 4)
+
+        self.client.post(step_url(3), self.dias(2))
+
+        entrada = self.client.get(reverse("accounts:onboarding"))
+        self.assertRedirects(entrada, step_url(5))
+        self.assertEqual(self.client.get(step_url(5)).status_code, 200)
+
+    def test_aumentar_os_dias_traz_a_divisao_de_volta(self):
+        self.client.post(step_url(3), self.dias(2))
+        self.assertRedirects(self.client.get(step_url(4)), step_url(5))
+
+        self.client.post(step_url(3), self.dias(5))
+
+        self.assertEqual(self.client.get(step_url(4)).status_code, 200)
+
+    # --------------------------------------------------- edição posterior
+    def test_quem_ja_terminou_reedita_pelo_caminho_dele(self):
+        self.client.post(step_url(3), self.dias(2))
+        self.client.post(step_url(5), STEP5)
+        self.assertTrue(self.perfil().onboarding_complete)
+
+        self.assertEqual(self.client.get(step_url(1)).status_code, 200)
+        self.assertEqual(self.client.get(step_url(3)).status_code, 200)
+        self.assertRedirects(self.client.get(step_url(4)), step_url(5))
+
+    def test_o_perfil_esconde_a_divisao_de_quem_ela_nao_muda(self):
+        self.client.post(step_url(3), self.dias(2))
+        self.client.post(step_url(5), STEP5)
+
+        html = self.client.get(reverse("accounts:profile")).content.decode()
+
+        self.assertNotIn("Divisão de treino", html)
+        # E o dado continua salvo: esconder não é apagar.
+        self.assertIsNotNone(self.perfil().split_preference)
+
+    def test_o_perfil_mostra_a_divisao_de_quem_ela_muda(self):
+        self.client.post(step_url(3), self.dias(5))
+        self.client.post(step_url(4), STEP4)
+        self.client.post(step_url(5), STEP5)
+
+        html = self.client.get(reverse("accounts:profile")).content.decode()
+
+        self.assertIn("Divisão de treino", html)
+
+    # ------------------------------------------------------ compatibilidade
+    def test_quem_ja_tinha_preferencia_salva_continua_valendo(self):
+        """Ninguém perde dado por causa da mudança de fluxo."""
+        self.client.post(step_url(3), self.dias(5))
+        self.client.post(step_url(4), STEP4)
+        escolhida = self.perfil().split_preference
+
+        self.client.post(step_url(3), self.dias(2))
+
+        self.assertEqual(self.perfil().split_preference, escolhida)
+
+    def test_o_plano_de_treino_continua_sendo_montado_sem_a_pergunta(self):
+        """A regra de negócio não mudou — só quem responde o quê.
+
+        `split_for` já caía na tabela por frequência quando não havia
+        preferência, e é isso que sustenta pular a pergunta.
+        """
+        self.client.post(step_url(3), self.dias(3))
+        self.client.post(step_url(5), STEP5)
+
+        perfil = self.perfil()
+        self.assertTrue(perfil.onboarding_complete)
+        self.assertEqual(self.user.training_days.count(), 3)
+        self.assertEqual(
+            split_for(3, perfil.split_preference), split_for(3, None)
+        )
+
+    def test_o_ultimo_passo_continua_sendo_o_cinco_nos_dois_caminhos(self):
+        """`ONBOARDING_DONE` e `onboarding_complete` dependem disso.
+
+        Se o caminho curto terminasse em outro número, "terminou o onboarding"
+        precisaria de duas definições — e a segunda envelheceria.
+        """
+        self.assertEqual(CAMINHO_CURTO[-1], ONBOARDING_LAST_STEP)
+        self.assertEqual(CAMINHO_COMPLETO[-1], ONBOARDING_LAST_STEP)
+
+    def test_ninguem_pula_etapa_no_caminho_curto(self):
+        """Pular a divisão não abriu atalho para o resto."""
+        outro = User.objects.create_user(
+            email="pulador@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(outro)
+
+        self.assertRedirects(self.client.get(step_url(5)), step_url(1))
+        self.assertRedirects(self.client.get(step_url(3)), step_url(1))

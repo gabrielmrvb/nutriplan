@@ -152,6 +152,23 @@ def split_for(days_per_week: int, preference: str = None) -> str:
     return Split.FULL
 
 
+def preferencia_muda_a_divisao(dias_por_semana: int) -> bool:
+    """A pergunta de divisão altera alguma coisa nessa frequência?
+
+    NÃO é uma regra escrita à mão — é lida da própria `SPLIT_BY_PREFERENCE`,
+    rodando `split_for` para cada preferência e vendo se sobra mais de uma
+    resposta. O dia em que a tabela mudar, o onboarding acompanha sozinho.
+
+    Hoje isso responde `False` para 0, 1, 2 e 3 dias e `True` de 4 em diante:
+    quem treina três vezes recebe ABC pelas três preferências, porque a
+    divisão não pode inventar dias que a semana não tem. Perguntar ali é pedir
+    uma escolha que o app vai ignorar — e o onboarding fica um passo mais
+    longo em troca de nada.
+    """
+    respostas = {split_for(dias_por_semana, p) for p in SPLIT_BY_PREFERENCE}
+    return len(respostas) > 1
+
+
 def templates_for(split: str) -> list:
     """Os dias da divisão, em ordem, já com os exercícios pré-carregados."""
     return list(
