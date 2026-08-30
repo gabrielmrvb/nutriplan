@@ -5,7 +5,7 @@ mão. Os testes de banco cobrem o que realmente quebra na prática: plano
 duplicado, plano velho continuar ativo depois de mudar o peso, e recálculo
 disparando toda vez que a tela abre.
 """
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from pathlib import Path
 import re
@@ -32,7 +32,9 @@ from accounts.models import (
 )
 from catalog.models import DietaryTag, Food, MealCategory, MealTemplate, MealTemplateItem, TagKind
 
-from . import meal_planner, services, shopping, tracking, views
+from . import agora, meal_planner, services, shopping, tracking, views
+from workouts import services as workout_services
+from workouts.models import TrainingSession
 from .calculations import (
     PlanInputs,
     activity_factor,
@@ -2713,3 +2715,274 @@ class SnapshotDaReceitaTests(CatalogFixture):
         logs = MealLog.objects.filter(user=self.user, slot=self.slot, date=self.today)
         self.assertEqual(logs.count(), 1)
         self.assertEqual(logs.get().recipe_name, self.option.template.name)
+
+
+class AcaoAgoraTests(TestCase):
+    """A regra do cartão "Agora" da tela Hoje.
+
+    A tela abria com cinco números — anel de calorias, saldo, macros — quase
+    todos zerados de manhã, e nenhuma ação. Estes testes travam a regra que
+    passou a decidir o topo: estado vence agenda, e entre o que já venceu
+    ganha o mais RECENTE, não o mais atrasado.
+    """
+
+    def _slot(self, pk, nome, hora, kcal=400, proteina=30, log=None):
+        slot = MealSlot(
+            name=nome, time=hora, target_kcal=kcal, target_protein_g=proteina,
+            target_carb_g=40, target_fat_g=15, order=pk, category=MealCategory.MAIN,
+        )
+        slot.pk = pk
+        slot.log = log
+        return slot
+
+    def _log(self, status):
+        return MealLog(status=status)
+
+    def _treino(self, *, nome="Peito e tríceps", inicio=time(18, 30),
+                feitas=0, total=20, concluido=False, exercicios=7):
+        sessao = TrainingSession(
+            name=nome, start_time=inicio, weekday=0, label="A", duration_min=60
+        )
+        estado = workout_services.EstadoDoTreino()
+        estado.sessao = sessao
+        estado.itens = [object()] * exercicios
+        estado.total_exercicios = exercicios
+        estado.series_feitas = feitas
+        estado.total_series = total
+        estado.concluido = concluido
+        return estado
+
+    def _agora(self, h, m=0):
+        return timezone.make_aware(
+            datetime.combine(timezone.localdate(), time(h, m))
+        )
+
+    def _chamar(self, slots, treino=None, meta_agua=2500, bebido=0, hora=(9, 0)):
+        return agora.proxima_acao(
+            slots=slots, treino=treino, meta_agua=meta_agua, bebido=bebido,
+            agora=self._agora(*hora),
+        )
+
+    # -- o que está acontecendo agora ----------------------------------
+
+    def test_antes_da_primeira_refeicao_o_rotulo_e_a_seguir(self):
+        """Às seis da manhã nada venceu, e a tela não finge urgência."""
+        slots = [self._slot(1, "Café da manhã", time(7, 0)),
+                 self._slot(2, "Almoço", time(12, 0))]
+
+        acao = self._chamar(slots, hora=(6, 0))
+
+        self.assertEqual(acao.rotulo, "A SEGUIR")
+        self.assertEqual(acao.titulo, "Café da manhã")
+        self.assertFalse(acao.atrasada)
+
+    def test_depois_do_horario_a_refeicao_vira_agora(self):
+        slots = [self._slot(1, "Café da manhã", time(7, 0)),
+                 self._slot(2, "Almoço", time(12, 0))]
+
+        acao = self._chamar(slots, hora=(8, 0))
+
+        self.assertEqual(acao.rotulo, "AGORA")
+        self.assertEqual(acao.titulo, "Café da manhã")
+        self.assertTrue(acao.atrasada)
+
+    def test_entre_vencidos_ganha_o_mais_recente_e_nao_o_mais_atrasado(self):
+        """Às 20h, com almoço e jantar pendentes, "agora" é o jantar.
+
+        O almoço das 12h não é uma coisa a fazer agora — é uma pendência, e ela
+        continua visível na lista. Ordenar pelo mais atrasado deixaria o topo
+        preso numa refeição de oito horas atrás pelo resto do dia.
+        """
+        slots = [self._slot(1, "Almoço", time(12, 0)),
+                 self._slot(2, "Jantar", time(19, 0))]
+
+        acao = self._chamar(slots, hora=(20, 0))
+
+        self.assertEqual(acao.titulo, "Jantar")
+
+    def test_refeicao_ja_comida_sai_da_disputa(self):
+        slots = [self._slot(1, "Café da manhã", time(7, 0),
+                            log=self._log(MealStatus.DONE)),
+                 self._slot(2, "Almoço", time(12, 0))]
+
+        acao = self._chamar(slots, hora=(8, 0))
+
+        self.assertEqual(acao.titulo, "Almoço")
+        self.assertEqual(acao.rotulo, "A SEGUIR")
+
+    def test_refeicao_pulada_conta_como_resolvida(self):
+        """Pular é uma resposta. Insistir seria cobrar decisão já tomada."""
+        slots = [self._slot(1, "Café da manhã", time(7, 0),
+                            log=self._log(MealStatus.SKIPPED)),
+                 self._slot(2, "Almoço", time(12, 0))]
+
+        acao = self._chamar(slots, hora=(8, 0))
+
+        self.assertEqual(acao.titulo, "Almoço")
+
+    def test_comi_outra_coisa_tambem_conta_como_resolvida(self):
+        slots = [self._slot(1, "Café da manhã", time(7, 0),
+                            log=self._log(MealStatus.OFF_PLAN))]
+
+        acao = self._chamar(slots, hora=(8, 0), meta_agua=0)
+
+        self.assertEqual(acao.tipo, "vazio")
+
+    # -- o CTA da refeição ---------------------------------------------
+
+    def test_o_botao_da_refeicao_leva_ao_cartao_e_nao_marca_nada(self):
+        """A/B: marcar daqui teria que escolher a opção pela pessoa.
+
+        `MealLog` copia os macros no ato — gravar o prato errado num toque é
+        pior que pedir um toque a mais. O cartão da refeição é onde a escolha
+        existe, e é para lá que o botão aponta.
+        """
+        slots = [self._slot(7, "Almoço", time(12, 0), kcal=608, proteina=44)]
+
+        acao = self._chamar(slots, hora=(13, 0))
+
+        self.assertEqual(acao.url, "#slot-7")
+        self.assertNotIn("marcar", acao.cta.lower())
+        self.assertIn("608 kcal", acao.detalhe)
+        self.assertIn("44 g de proteína", acao.detalhe)
+
+    # -- treino ---------------------------------------------------------
+
+    def test_treino_em_andamento_ganha_de_refeicao_vencida(self):
+        """Estado vence agenda.
+
+        Quem está entre séries não quer ser mandado para o lanche da tarde
+        porque deu quinze horas.
+        """
+        slots = [self._slot(1, "Lanche da tarde", time(15, 0))]
+        treino = self._treino(feitas=6, total=20)
+
+        acao = self._chamar(slots, treino=treino, hora=(19, 0))
+
+        self.assertEqual(acao.tipo, "treino")
+        self.assertEqual(acao.cta, "Continuar de onde parou")
+        self.assertIn("6 de 20 séries", acao.detalhe)
+
+    def test_treino_nao_iniciado_disputa_pelo_horario(self):
+        slots = [self._slot(1, "Lanche da tarde", time(15, 0))]
+        treino = self._treino(inicio=time(18, 30))
+
+        acao = self._chamar(slots, treino=treino, hora=(19, 0))
+
+        self.assertEqual(acao.tipo, "treino")
+        self.assertEqual(acao.cta, "Começar treino")
+        self.assertEqual(acao.url, reverse("workouts:now"))
+
+    def test_refeicao_mais_recente_ganha_do_treino_mais_antigo(self):
+        slots = [self._slot(1, "Jantar", time(19, 30))]
+        treino = self._treino(inicio=time(18, 30))
+
+        acao = self._chamar(slots, treino=treino, hora=(20, 0))
+
+        self.assertEqual(acao.tipo, "refeicao")
+
+    def test_treino_concluido_sai_da_disputa(self):
+        slots = []
+        treino = self._treino(feitas=20, total=20, concluido=True)
+
+        acao = self._chamar(slots, treino=treino, hora=(20, 0), meta_agua=0)
+
+        self.assertEqual(acao.tipo, "vazio")
+
+    def test_dia_de_descanso_nao_inventa_treino(self):
+        """Sem sessão hoje, `tem_treino` é falso e o treino não entra."""
+        slots = []
+        vazio = workout_services.EstadoDoTreino()
+
+        acao = self._chamar(slots, treino=vazio, hora=(20, 0), meta_agua=0)
+
+        self.assertFalse(vazio.tem_treino)
+        self.assertEqual(acao.tipo, "vazio")
+
+    # -- água e vazio ---------------------------------------------------
+
+    def test_sem_refeicao_e_sem_treino_a_agua_assume(self):
+        acao = self._chamar([], hora=(21, 0), meta_agua=2500, bebido=1500)
+
+        self.assertEqual(acao.tipo, "agua")
+        self.assertIn("1000", acao.titulo)
+        self.assertIn("1500 de 2500", acao.detalhe)
+
+    def test_agua_na_meta_nao_vira_acao(self):
+        acao = self._chamar([], hora=(21, 0), meta_agua=2500, bebido=2500)
+
+        self.assertEqual(acao.tipo, "vazio")
+
+    def test_a_agua_nao_atropela_refeicao_pendente(self):
+        """Água é o fundo da fila: ela sempre "falta" um pouco, e deixá-la
+        competir faria a tela sugerir copo d'água no lugar do jantar."""
+        slots = [self._slot(1, "Jantar", time(19, 0))]
+
+        acao = self._chamar(slots, hora=(19, 30), meta_agua=2500, bebido=0)
+
+        self.assertEqual(acao.tipo, "refeicao")
+
+    def test_dia_inteiro_resolvido_devolve_acao_vazia(self):
+        slots = [self._slot(1, "Jantar", time(19, 0), log=self._log(MealStatus.DONE))]
+
+        acao = self._chamar(slots, hora=(22, 0), meta_agua=2000, bebido=2000)
+
+        self.assertEqual(acao.tipo, "vazio")
+        self.assertFalse(acao.existe)
+
+
+class HojeV2ViewTests(CatalogFixture):
+    """A tela Hoje montada de verdade, com plano e cardápio reais."""
+
+    url = reverse("plans:today")
+
+    def setUp(self):
+        super().setUp()
+        self.user = create_complete_user(email="hojev2@exemplo.com")
+        self.client.force_login(self.user)
+
+    def test_a_primeira_dobra_traz_uma_acao(self):
+        html = self.client.get(self.url).content.decode()
+        corpo = html.split("<main", 1)[1]
+        topo = corpo[: corpo.index("</section>")]
+
+        self.assertIn("agora__rotulo", topo)
+
+    def test_o_resumo_do_dia_cabe_numa_linha_de_texto(self):
+        response = self.client.get(self.url)
+        html = response.content.decode()
+
+        self.assertIn("resumo-dia", html)
+        self.assertContains(response, "refeições")
+        self.assertContains(response, "ml")
+
+    def test_a_acao_usa_o_fuso_local_e_nao_utc(self):
+        """O servidor roda em UTC e o horário do slot é o da pessoa.
+
+        Sem `localtime()` o "agora" erra por três horas — a tela mostraria o
+        almoço como ação às nove da manhã.
+        """
+        response = self.client.get(self.url)
+        acao = response.context["acao"]
+        slots = list(response.context["slots"])
+        hora_local = timezone.localtime().time()
+
+        vencidas = [s for s in slots if s.time <= hora_local]
+        if vencidas and acao.tipo == "refeicao":
+            self.assertLessEqual(acao.horario, hora_local)
+
+    def test_o_calculo_da_meta_fica_recolhido(self):
+        """As explicações continuam na página, atrás de um toque."""
+        response = self.client.get(self.url)
+        html = response.content.decode()
+
+        self.assertIn("Como chegamos na sua meta", html)
+        bloco = html.split("Como chegamos na sua meta", 1)[0]
+        self.assertIn("<details", bloco[-400:])
+
+    def test_dia_de_descanso_nao_oferece_treino_na_tela_hoje(self):
+        response = self.client.get(self.url)
+        estado = response.context["treino_hoje"]
+
+        if not estado.tem_treino:
+            self.assertNotEqual(response.context["acao"].tipo, "treino")

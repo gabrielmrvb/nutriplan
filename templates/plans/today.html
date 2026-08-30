@@ -12,38 +12,88 @@ coluna da direita), não entre ela e o almoço.
 {% block content %}
   <div class="split">
     <div class="split__main stack">
-        {% comment %}
-          A ofensiva antes de qualquer número da dieta.
 
-          Ela é o motivo de abrir o app num dia ruim: a meta calórica não puxa
-          ninguém de volta, a sequência puxa. E é honesta com o dia de hoje —
-          às sete da manhã ninguém almoçou nem treinou, então hoje aparece como
-          o dia em risco, nunca como falha.
-        {% endcomment %}
-        <section class="ofensiva {% if ofensiva.em_risco %}ofensiva--risco{% endif %}">
-          <span class="ofensiva__chama {% if ofensiva.dias %}is-viva{% endif %}"
-                aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2.5c.5 3 2.2 4 3.6 5.6A7.5 7.5 0 0 1 12 21.5 7.5 7.5 0 0 1 8.4 8.1C9.8 6.5 11.5 5.5 12 2.5Z"/>
-              <path d="M12 21.5a3.2 3.2 0 0 1-1.6-5.8c.6-.7 1.3-1.2 1.6-2.5.3 1.3 1 1.8 1.6 2.5a3.2 3.2 0 0 1-1.6 5.8Z"/>
-            </svg>
-          </span>
+      {# ---------------- A próxima ação ---------------- #}
+      {% comment %}
+        A tela abria com o anel de calorias, o saldo energético e a barra de
+        macros: cinco números antes de qualquer ação, e quase todos zerados às
+        sete da manhã. Quem abre o app de manhã não quer saber que comeu 0 de
+        2765 kcal — quer saber o que fazer com o café da manhã.
 
-          <span class="ofensiva__corpo">
-            <span class="ofensiva__numero num">
-              {{ ofensiva.dias }}
-              <span class="ofensiva__unidade">dia{{ ofensiva.dias|pluralize }}</span>
-            </span>
-            <span class="ofensiva__texto">{{ ofensiva.mensagem }}</span>
-          </span>
-
-          {% if ofensiva.recorde > ofensiva.dias %}
-            <span class="pill pill--mute ofensiva__recorde num">
-              recorde {{ ofensiva.recorde }}
-            </span>
+        A regra que escolhe esta ação está em `plans/agora.py`, e ela não
+        inventa nada: sai de `MealSlot`, `MealLog`, `HydrationLog` e do estado
+        que o Treino V3 já calcula. Quando não há o que fazer, o cartão diz
+        isso em vez de preencher o espaço.
+      {% endcomment %}
+      <section class="card agora-card agora-card--{{ acao.tipo }}">
+        {% if acao.existe %}
+          <p class="agora__rotulo">{{ acao.rotulo }}</p>
+          <h2 class="agora__titulo">{{ acao.titulo }}</h2>
+          <p class="agora__detalhe">
+            {% if acao.horario %}<span class="num">{{ acao.horario|time:"H:i" }}</span> · {% endif %}{{ acao.detalhe }}
+          </p>
+          {% if acao.tipo == 'agua' %}
+            {% comment %}
+              Água é a única ação que o cartão executa direto: não há opção A e
+              B para escolher errado. O `fila.js` já intercepta todo POST para
+              `/agua/` e carimba `op_id` por envio, então este botão entra na
+              fila offline com o mesmo contrato dos outros três.
+            {% endcomment %}
+            <form method="post" action="{% url 'plans:log_hydration' %}">
+              {% csrf_token %}
+              <input type="hidden" name="ml" value="500">
+              <button type="submit" class="btn btn--primary btn--block agora__cta">
+                {{ acao.cta }}
+              </button>
+            </form>
+          {% else %}
+            <a class="btn btn--primary btn--block agora__cta" href="{{ acao.url }}">
+              {{ acao.cta }}
+            </a>
           {% endif %}
-        </section>
+        {% else %}
+          <p class="agora__rotulo">HOJE</p>
+          <h2 class="agora__titulo">Nada pendente</h2>
+          <p class="agora__detalhe">
+            Refeições marcadas, treino resolvido e água na meta.
+          </p>
+        {% endif %}
+      </section>
+
+      {# ---------------- Resumo do dia ---------------- #}
+      {% comment %}
+        Uma linha, e não uma fileira de cartões de número.
+
+        Ela responde "como está o dia" em uma olhada — refeições, água e
+        treino — e cabe em 40px. A versão anterior gastava a primeira dobra
+        inteira com anel, saldo e macros para dizer menos que isto.
+      {% endcomment %}
+      <p class="resumo-dia">
+        <span class="resumo-dia__item num">
+          {{ summary.done }}/{{ summary.total }} refeições
+        </span>
+        <span class="resumo-dia__item num">
+          {{ hidratacao_bebida }}/{{ hidratacao_ml }} ml
+        </span>
+        {% if treino_hoje.tem_treino %}
+          <a class="resumo-dia__treino" href="{% url 'workouts:now' %}">
+            {% if treino_hoje.concluido %}
+              Treino feito
+            {% elif treino_hoje.sessao.start_time %}
+              Treino <span class="num">{{ treino_hoje.sessao.start_time|time:"H:i" }}</span>
+            {% else %}
+              Treino de hoje
+            {% endif %}
+          </a>
+        {% else %}
+          {% comment %}
+            Descanso é resposta, não ausência: fingir treino num dia que a
+            pessoa não marcou seria a tela inventando agenda.
+          {% endcomment %}
+          <span class="resumo-dia__item">Descanso</span>
+        {% endif %}
+      </p>
+
 
         {% comment %}
           O convite para se pesar, e ele é CONDICIONAL — essa é a decisão
@@ -87,120 +137,6 @@ coluna da direita), não entre ela e o almoço.
         {% endif %}
 
 
-      {# ---------------- Painel do dia ---------------- #}
-      <section class="card today-hero">
-        <div class="ring" style="--pct: {{ summary.progress_pct }}"
-             role="img"
-             aria-label="{{ summary.consumed_kcal }} de {{ summary.target_kcal }} kcal">
-          <span class="ring__inner">
-            <strong class="ring__value">{{ summary.consumed_kcal }}</strong>
-            <span class="ring__unit">kcal hoje</span>
-            <span class="ring__of">de {{ summary.target_kcal }}</span>
-          </span>
-        </div>
-
-        {% comment %}
-          Três linhas de texto em vez de pílulas empilhadas: no celular cada
-          pílula virava uma linha própria e o resumo do dia sozinho ocupava
-          metade da tela — empurrando a comida, que é o motivo de abrir o app,
-          para fora da primeira dobra.
-        {% endcomment %}
-        <div class="today-hero__facts">
-          <p class="today-hero__left">
-            {% if summary.remaining_kcal > 0 %}
-              faltam <b class="num">{{ summary.remaining_kcal }} kcal</b>
-            {% else %}
-              <b>meta atingida</b>
-            {% endif %}
-          </p>
-          <p class="today-hero__meta num">
-            {{ summary.done }}/{{ summary.total }} refeições
-          </p>
-          {% comment %}
-            A meta saiu daqui porque já estava três centímetros acima.
-
-            O anel escreve "de {{ summary.target_kcal }}" logo abaixo do número
-            do dia. Repetida aqui como "· meta 2765 kcal", ela empurrava a
-            frase para QUATRO linhas numa coluna de 159px — medido na tela —,
-            e o "meta 2765 kcal" sozinho já ocupava duas. Sobrou a informação
-            que só esta linha dá: de que lado da conta a pessoa está, e quanto.
-          {% endcomment %}
-          <p class="today-hero__balance balance--{{ balance.kind }}">
-            {% if balance.kind == 'balance' %}
-              Sem déficit nem superávit
-            {% else %}
-              {% if balance.kind == 'deficit' %}Déficit{% else %}Superávit{% endif %}
-              <b class="num">
-                {% if balance.kind == 'deficit' %}−{% else %}+{% endif %}{{ balance.abs_kcal }} kcal/dia
-              </b>
-            {% endif %}
-          </p>
-        </div>
-
-        {% comment %}
-          A divisão de macros no painel, e não só na coluna da direita.
-
-          "P 0 · C 0 · G 0" era texto: três números soltos que não dizem
-          proporção nenhuma. E a barra empilhada que DIZ mora no cartão de
-          macros, que no celular fica depois das cinco refeições — quase dois
-          mil pixels de rolagem abaixo do único lugar em que a pessoa olha
-          antes de escolher o almoço.
-
-          A barra sobe para cá, a lista completa continua lá embaixo. Aqui é o
-          relance ("já bati proteína?"); lá é a consulta.
-
-          A faixa ocupa a largura toda do painel e não a coluna estreita ao
-          lado do anel: proporção de três partes num vão de 150px não se lê.
-        {% endcomment %}
-        <div class="hero-macros">
-          {% comment %}
-            A largura da faixa é a divisão do macro; o preenchimento dentro
-            dela é o quanto já foi comido. Antes só existia a divisão, e a
-            barra aparecia cheia mesmo com nada consumido — bem acima de
-            "P 0 /148" e ao lado da barra de água, que mostra vazio com 0 ml.
-          {% endcomment %}
-          <div class="macro-bar macro-bar--hero"
-               role="img"
-               aria-label="{% for macro in macros %}{{ macro.name }} {{ macro.eaten }} de {{ macro.grams }} g{% if not forloop.last %}, {% endif %}{% endfor %}">
-            {% for macro in macros %}
-              <span class="macro-bar__part macro-bar__part--{{ macro.slug }}"
-                    style="width: {{ macro.pct }}%; --comido: {{ macro.eaten_pct }}%"
-                    title="{{ macro.name }}"></span>
-            {% endfor %}
-          </div>
-          <ul class="hero-macros__legenda">
-            {% for macro in macros %}
-              {% comment %}
-                A proteína carrega uma classe a mais, e é a única que carrega.
-
-                Caloria já tem a hierarquia mais alta desta tela — está no anel,
-                em corpo grande, sozinha. Faltava o segundo degrau: dos três
-                macros, proteína é o que muda a decisão da próxima refeição.
-                Carboidrato e gordura acompanham o cardápio quase sozinhos;
-                proteína é a que fica devendo, e é por ela que existe o aviso de
-                cobertura no fim do dia.
-
-                Empatados os três, a pergunta "já bati proteína?" — que é a que
-                se faz várias vezes por dia — custava uma varredura entre três
-                números do mesmo tamanho.
-              {% endcomment %}
-              <li class="hero-macros__item{% if macro.slug == 'protein' %} hero-macros__item--chave{% endif %}">
-                <span class="macro-dot macro-dot--{{ macro.slug }}" aria-hidden="true"></span>
-                {% comment %}
-                  A inicial é escrita, não é a palavra inteira cortada por
-                  `overflow`. Cortar "Proteína" em 1ch deixava meia perna do P
-                  na tela — e o leitor de tela recebia a palavra toda no meio
-                  dos números, sem dizer que aquilo era um rótulo.
-                {% endcomment %}
-                <span class="hero-macros__nome" aria-hidden="true">{{ macro.name|slice:":1" }}</span>
-                <b class="hero-macros__valor num">{{ macro.eaten }}</b>
-                <span class="hero-macros__meta num">/{{ macro.grams }}</span>
-                <span class="vis-oculto">g de {{ macro.name|lower }}</span>
-              </li>
-            {% endfor %}
-          </ul>
-        </div>
-      </section>
 
       {# ---------------- Refeições ---------------- #}
       <section>
@@ -215,67 +151,7 @@ coluna da direita), não entre ela e o almoço.
           impedia a ofensiva de contar água. Três botões, do tamanho dos
           recipientes que existem no mundo.
         {% endcomment %}
-        <div class="agua">
-          <div class="agua__topo">
-            <span class="agua__icone" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 3.5c3 3.6 5.5 6.3 5.5 9.4a5.5 5.5 0 0 1-11 0c0-3.1 2.5-5.8 5.5-9.4Z"/>
-              </svg>
-            </span>
-            <span class="agua__valor num">
-              <b>{{ hidratacao_bebida }}</b> / {{ hidratacao_ml }} ml
-            </span>
-            {% if agua_completa %}
-              {% comment %}
-                A comemoração aparece uma vez e fica parada. Nada que pulse
-                para sempre — foi exatamente o que o catálogo Impeccable
-                apontou na chama da ofensiva.
-              {% endcomment %}
-              <span class="pill pill--brand agua__feito">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
-                     aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>
-                meta batida
-              </span>
-            {% endif %}
-            {% if hidratacao_bebida %}
-              <form method="post" action="{% url 'plans:log_hydration' %}" class="agua__zerar">
-                {% csrf_token %}
-                <input type="hidden" name="ml" value="0">
-                <button type="submit" class="btn-link">zerar</button>
-              </form>
-            {% endif %}
-          </div>
 
-          <div class="progress {% if agua_completa %}progress--completo{% endif %}"
-               role="img"
-               aria-label="{{ hidratacao_pct }}% da meta de água">
-            <span class="progress__fill progress__fill--agua"
-                  style="width: {{ hidratacao_pct }}%"></span>
-          </div>
-
-          <div class="agua__botoes">
-            <form method="post" action="{% url 'plans:log_hydration' %}">
-              {% csrf_token %}
-              <input type="hidden" name="ml" value="250">
-              <button type="submit" class="agua__botao">+250 <span>copo</span></button>
-            </form>
-            <form method="post" action="{% url 'plans:log_hydration' %}">
-              {% csrf_token %}
-              <input type="hidden" name="ml" value="500">
-              <button type="submit" class="agua__botao">+500 <span>garrafinha</span></button>
-            </form>
-            <form method="post" action="{% url 'plans:log_hydration' %}">
-              {% csrf_token %}
-              <input type="hidden" name="ml" value="750">
-              <button type="submit" class="agua__botao">+750 <span>garrafa</span></button>
-            </form>
-          </div>
-        </div>
-
-          </form>
-        </div>
 
 
 
@@ -299,7 +175,14 @@ coluna da direita), não entre ela e o almoço.
         </div>
 
         {% for slot in slots %}
-          <article class="meal {% if slot.log.status == 'done' %}meal--done{% endif %}">
+          {% comment %}
+            `slot-<pk>` e nao `refeicao-<pk>`: o segundo ja existe, no painel
+            "comi outra coisa" logo abaixo, e e para la que o POST de refeicao
+            fora do plano devolve a pessoa. Roubar o id mandaria o cartao do
+            topo para o formulario de digitar comida em vez de para as opcoes.
+          {% endcomment %}
+          <article class="meal {% if slot.log.status == 'done' %}meal--done{% endif %}"
+                   id="slot-{{ slot.pk }}">
             <header class="meal__head">
               <span class="meal__time">{{ slot.time|time:"H:i" }}</span>
               <span class="meal__title">
@@ -485,6 +368,224 @@ coluna da direita), não entre ela e o almoço.
           {% endif %}
         </p>
       </section>
+
+      {# ---------------- Hidratação ---------------- #}
+      {% comment %}
+        A água desceu para depois do cardápio.
+
+        Ela estava ACIMA das refeições e custava 250px da primeira dobra
+        para uma meta que ninguém abre o app para cumprir. Continua
+        inteira, com os três botões e o mesmo contrato de fila offline —
+        e o cartão do topo chama por ela quando é de fato o que falta.
+      {% endcomment %}
+      <section class="card agua-card" id="hidratacao">
+        <div class="agua">
+          <div class="agua__topo">
+            <span class="agua__icone" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3.5c3 3.6 5.5 6.3 5.5 9.4a5.5 5.5 0 0 1-11 0c0-3.1 2.5-5.8 5.5-9.4Z"/>
+              </svg>
+            </span>
+            <span class="agua__valor num">
+              <b>{{ hidratacao_bebida }}</b> / {{ hidratacao_ml }} ml
+            </span>
+            {% if agua_completa %}
+              {% comment %}
+                A comemoração aparece uma vez e fica parada. Nada que pulse
+                para sempre — foi exatamente o que o catálogo Impeccable
+                apontou na chama da ofensiva.
+              {% endcomment %}
+              <span class="pill pill--brand agua__feito">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                     aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>
+                meta batida
+              </span>
+            {% endif %}
+            {% if hidratacao_bebida %}
+              <form method="post" action="{% url 'plans:log_hydration' %}" class="agua__zerar">
+                {% csrf_token %}
+                <input type="hidden" name="ml" value="0">
+                <button type="submit" class="btn-link">zerar</button>
+              </form>
+            {% endif %}
+          </div>
+
+          <div class="progress {% if agua_completa %}progress--completo{% endif %}"
+               role="img"
+               aria-label="{{ hidratacao_pct }}% da meta de água">
+            <span class="progress__fill progress__fill--agua"
+                  style="width: {{ hidratacao_pct }}%"></span>
+          </div>
+
+          <div class="agua__botoes">
+            <form method="post" action="{% url 'plans:log_hydration' %}">
+              {% csrf_token %}
+              <input type="hidden" name="ml" value="250">
+              <button type="submit" class="agua__botao">+250 <span>copo</span></button>
+            </form>
+            <form method="post" action="{% url 'plans:log_hydration' %}">
+              {% csrf_token %}
+              <input type="hidden" name="ml" value="500">
+              <button type="submit" class="agua__botao">+500 <span>garrafinha</span></button>
+            </form>
+            <form method="post" action="{% url 'plans:log_hydration' %}">
+              {% csrf_token %}
+              <input type="hidden" name="ml" value="750">
+              <button type="submit" class="agua__botao">+750 <span>garrafa</span></button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+        {% comment %}
+          A ofensiva antes de qualquer número da dieta.
+
+          Ela é o motivo de abrir o app num dia ruim: a meta calórica não puxa
+          ninguém de volta, a sequência puxa. E é honesta com o dia de hoje —
+          às sete da manhã ninguém almoçou nem treinou, então hoje aparece como
+          o dia em risco, nunca como falha.
+        {% endcomment %}
+        <section class="ofensiva {% if ofensiva.em_risco %}ofensiva--risco{% endif %}">
+          <span class="ofensiva__chama {% if ofensiva.dias %}is-viva{% endif %}"
+                aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2.5c.5 3 2.2 4 3.6 5.6A7.5 7.5 0 0 1 12 21.5 7.5 7.5 0 0 1 8.4 8.1C9.8 6.5 11.5 5.5 12 2.5Z"/>
+              <path d="M12 21.5a3.2 3.2 0 0 1-1.6-5.8c.6-.7 1.3-1.2 1.6-2.5.3 1.3 1 1.8 1.6 2.5a3.2 3.2 0 0 1-1.6 5.8Z"/>
+            </svg>
+          </span>
+
+          <span class="ofensiva__corpo">
+            <span class="ofensiva__numero num">
+              {{ ofensiva.dias }}
+              <span class="ofensiva__unidade">dia{{ ofensiva.dias|pluralize }}</span>
+            </span>
+            <span class="ofensiva__texto">{{ ofensiva.mensagem }}</span>
+          </span>
+
+          {% if ofensiva.recorde > ofensiva.dias %}
+            <span class="pill pill--mute ofensiva__recorde num">
+              recorde {{ ofensiva.recorde }}
+            </span>
+          {% endif %}
+        </section>
+
+      {# ---------------- Painel do dia ---------------- #}
+      <section class="card today-hero">
+        <div class="ring" style="--pct: {{ summary.progress_pct }}"
+             role="img"
+             aria-label="{{ summary.consumed_kcal }} de {{ summary.target_kcal }} kcal">
+          <span class="ring__inner">
+            <strong class="ring__value">{{ summary.consumed_kcal }}</strong>
+            <span class="ring__unit">kcal hoje</span>
+            <span class="ring__of">de {{ summary.target_kcal }}</span>
+          </span>
+        </div>
+
+        {% comment %}
+          Três linhas de texto em vez de pílulas empilhadas: no celular cada
+          pílula virava uma linha própria e o resumo do dia sozinho ocupava
+          metade da tela — empurrando a comida, que é o motivo de abrir o app,
+          para fora da primeira dobra.
+        {% endcomment %}
+        <div class="today-hero__facts">
+          <p class="today-hero__left">
+            {% if summary.remaining_kcal > 0 %}
+              faltam <b class="num">{{ summary.remaining_kcal }} kcal</b>
+            {% else %}
+              <b>meta atingida</b>
+            {% endif %}
+          </p>
+          <p class="today-hero__meta num">
+            {{ summary.done }}/{{ summary.total }} refeições
+          </p>
+          {% comment %}
+            A meta saiu daqui porque já estava três centímetros acima.
+
+            O anel escreve "de {{ summary.target_kcal }}" logo abaixo do número
+            do dia. Repetida aqui como "· meta 2765 kcal", ela empurrava a
+            frase para QUATRO linhas numa coluna de 159px — medido na tela —,
+            e o "meta 2765 kcal" sozinho já ocupava duas. Sobrou a informação
+            que só esta linha dá: de que lado da conta a pessoa está, e quanto.
+          {% endcomment %}
+          <p class="today-hero__balance balance--{{ balance.kind }}">
+            {% if balance.kind == 'balance' %}
+              Sem déficit nem superávit
+            {% else %}
+              {% if balance.kind == 'deficit' %}Déficit{% else %}Superávit{% endif %}
+              <b class="num">
+                {% if balance.kind == 'deficit' %}−{% else %}+{% endif %}{{ balance.abs_kcal }} kcal/dia
+              </b>
+            {% endif %}
+          </p>
+        </div>
+
+        {% comment %}
+          A divisão de macros no painel, e não só na coluna da direita.
+
+          "P 0 · C 0 · G 0" era texto: três números soltos que não dizem
+          proporção nenhuma. E a barra empilhada que DIZ mora no cartão de
+          macros, que no celular fica depois das cinco refeições — quase dois
+          mil pixels de rolagem abaixo do único lugar em que a pessoa olha
+          antes de escolher o almoço.
+
+          A barra sobe para cá, a lista completa continua lá embaixo. Aqui é o
+          relance ("já bati proteína?"); lá é a consulta.
+
+          A faixa ocupa a largura toda do painel e não a coluna estreita ao
+          lado do anel: proporção de três partes num vão de 150px não se lê.
+        {% endcomment %}
+        <div class="hero-macros">
+          {% comment %}
+            A largura da faixa é a divisão do macro; o preenchimento dentro
+            dela é o quanto já foi comido. Antes só existia a divisão, e a
+            barra aparecia cheia mesmo com nada consumido — bem acima de
+            "P 0 /148" e ao lado da barra de água, que mostra vazio com 0 ml.
+          {% endcomment %}
+          <div class="macro-bar macro-bar--hero"
+               role="img"
+               aria-label="{% for macro in macros %}{{ macro.name }} {{ macro.eaten }} de {{ macro.grams }} g{% if not forloop.last %}, {% endif %}{% endfor %}">
+            {% for macro in macros %}
+              <span class="macro-bar__part macro-bar__part--{{ macro.slug }}"
+                    style="width: {{ macro.pct }}%; --comido: {{ macro.eaten_pct }}%"
+                    title="{{ macro.name }}"></span>
+            {% endfor %}
+          </div>
+          <ul class="hero-macros__legenda">
+            {% for macro in macros %}
+              {% comment %}
+                A proteína carrega uma classe a mais, e é a única que carrega.
+
+                Caloria já tem a hierarquia mais alta desta tela — está no anel,
+                em corpo grande, sozinha. Faltava o segundo degrau: dos três
+                macros, proteína é o que muda a decisão da próxima refeição.
+                Carboidrato e gordura acompanham o cardápio quase sozinhos;
+                proteína é a que fica devendo, e é por ela que existe o aviso de
+                cobertura no fim do dia.
+
+                Empatados os três, a pergunta "já bati proteína?" — que é a que
+                se faz várias vezes por dia — custava uma varredura entre três
+                números do mesmo tamanho.
+              {% endcomment %}
+              <li class="hero-macros__item{% if macro.slug == 'protein' %} hero-macros__item--chave{% endif %}">
+                <span class="macro-dot macro-dot--{{ macro.slug }}" aria-hidden="true"></span>
+                {% comment %}
+                  A inicial é escrita, não é a palavra inteira cortada por
+                  `overflow`. Cortar "Proteína" em 1ch deixava meia perna do P
+                  na tela — e o leitor de tela recebia a palavra toda no meio
+                  dos números, sem dizer que aquilo era um rótulo.
+                {% endcomment %}
+                <span class="hero-macros__nome" aria-hidden="true">{{ macro.name|slice:":1" }}</span>
+                <b class="hero-macros__valor num">{{ macro.eaten }}</b>
+                <span class="hero-macros__meta num">/{{ macro.grams }}</span>
+                <span class="vis-oculto">g de {{ macro.name|lower }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </section>
     </div>
 
     {# ------------- Os números: consulta, não ação ------------- #}
@@ -593,8 +694,11 @@ coluna da direita), não entre ela e o almoço.
         </div>
       </section>
 
-      <section class="card">
-        <div class="card__head"><h2>Como chegamos na sua meta</h2></div>
+      <details class="card explicacao">
+        <summary class="explicacao__head">
+          <h2>Como chegamos na sua meta</h2>
+          <span class="explicacao__dica" aria-hidden="true">abrir</span>
+        </summary>
         <dl class="data-list data-list--total">
           <div>
             <dt>Gasto em repouso (TMB)</dt>
@@ -635,13 +739,14 @@ coluna da direita), não entre ela e o almoço.
           razão mais comum de uma dieta não funcionar. O ritmo em quilos usa a convenção
           de 7.700 kcal por quilo de gordura.
         </p>
-      </section>
+      </details>
 
-      <section class="card">
-        <div class="card__head">
+      <details class="card explicacao">
+        <summary class="explicacao__head">
           <h2>Dados do cálculo</h2>
           <a href="{% url 'accounts:profile' %}">Editar</a>
-        </div>
+          <span class="explicacao__dica" aria-hidden="true">abrir</span>
+        </summary>
         <dl class="data-list">
           <div><dt>Objetivo</dt><dd>{{ plan.get_goal_display }}</dd></div>
           <div><dt>Peso</dt><dd>{{ plan.weight_kg|floatformat:1 }} kg</dd></div>
@@ -669,7 +774,7 @@ coluna da direita), não entre ela e o almoço.
           Mudou peso, objetivo ou rotina? A meta se atualiza sozinha — este botão é só
           para forçar um plano novo com os dados de hoje.
         </p>
-      </section>
+      </details>
 
       <section class="card">
         <div class="card__head"><h2>Lembretes</h2></div>

@@ -5594,3 +5594,158 @@ body.montando { overflow: hidden; }
   .anatomia__botao:active,
   .descanso__pular:active { transform: none; }
 }
+
+/* ==========================================================================
+   39. Hoje V2 — a ação primeiro
+   ========================================================================== */
+
+/* O cartão que responde "e agora?".
+
+   Ele não é um cartão novo de identidade: é o `.card` de sempre, com o rótulo
+   na cor da marca e o botão primário ocupando a largura toda. O que muda é a
+   POSIÇÃO — ele é a primeira coisa da página, e o anel de calorias, o saldo
+   energético e a barra de macros desceram para depois da comida. */
+
+.agora-card { padding-top: .85rem; }
+
+.agora__rotulo {
+  margin: 0 0 .25rem;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+
+/* "HIDRATAÇÃO" e "A SEGUIR" não são urgência, e não usam a cor da marca:
+   ela é o acento de AÇÃO deste app, e gastá-la num aviso de contexto tiraria
+   peso do botão logo abaixo. */
+.agora-card--agua .agora__rotulo,
+.agora-card--vazio .agora__rotulo { color: var(--text-mute); }
+
+.agora__titulo {
+  margin: 0 0 .3rem;
+  font-size: 1.35rem;
+  line-height: 1.15;
+  letter-spacing: -.01em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.agora__detalhe {
+  margin: 0 0 .75rem;
+  color: var(--text-dim);
+  font-size: .9rem;
+  line-height: 1.4;
+  min-width: 0;
+}
+
+.agora__cta { min-height: 2.9rem; }
+
+/* -- O resumo do dia: uma linha, não uma fileira de cartões --------------- */
+
+/* Refeições, água e treino em ~40px. A versão anterior gastava a primeira
+   dobra inteira com anel, saldo e macros para dizer menos que isto. */
+.resumo-dia {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .3rem .6rem;
+  margin: -.2rem 0 .1rem;
+  padding: 0 .15rem;
+  font-size: .82rem;
+  color: var(--text-dim);
+  min-width: 0;
+}
+
+/* Os filhos diretos, e não uma classe repetida: o link do treino é um
+   `<a>` e os outros dois são `<span>`. Com a classe em todos, a régua de
+   toque cobraria `:active` de `.resumo-dia__item` — ou seja, faria dois
+   textos estáticos afundarem sob o dedo para satisfazer um teste. */
+.resumo-dia > * {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* O separador é desenhado ENTRE os itens e não dentro deles: com `flex-wrap`,
+   um "·" preso ao texto sobra pendurado no fim da linha quebrada. */
+.resumo-dia > * + *::before {
+  content: "·";
+  margin-right: .3rem;
+  color: var(--text-mute);
+}
+
+.resumo-dia__treino {
+  color: var(--brand);
+  font-weight: 600;
+  text-decoration: none;
+  min-height: 2.75rem;
+  padding-block: .5rem;
+}
+.resumo-dia__treino:hover { text-decoration: underline; }
+.resumo-dia__treino:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* -- Hidratação, agora depois do cardápio -------------------------------- */
+
+/* Ela estava ACIMA das refeições e custava 250px da primeira dobra para uma
+   meta que ninguém abre o app para cumprir. O conteúdo é o mesmo; o cartão em
+   volta existe só para ela não ficar solta agora que não divide seção com o
+   cardápio. */
+.agua-card { padding-top: .8rem; }
+
+/* -- As explicações do cálculo, recolhidas ------------------------------- */
+
+/* TMB, TDEE, fator de atividade, fórmula e dados de entrada continuam na
+   página, inteiros. O que muda é que eles não abrem sozinhos: eram ~1.100px
+   de tabela numa tela cuja pergunta é "o que eu como agora". */
+.explicacao { padding-block: .2rem; }
+
+.explicacao__head {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-height: 2.75rem;
+  padding-block: .35rem;
+  cursor: pointer;
+  list-style: none;
+}
+.explicacao__head::-webkit-details-marker { display: none; }
+.explicacao__head h2 { margin: 0; }
+.explicacao__head:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* A dica fica à direita e vira "fechar" com a seção aberta. É texto e não só
+   uma seta: seta sozinha não diz o que vai acontecer. */
+.explicacao__dica {
+  margin-left: auto;
+  font-size: .76rem;
+  font-weight: 600;
+  color: var(--text-mute);
+  white-space: nowrap;
+}
+.explicacao[open] .explicacao__dica { visibility: hidden; }
+
+/* -- Retorno ao toque ---------------------------------------------------- */
+
+/* `TouchFeedbackTests` cobra afundar, transitar e ter saída para menos
+   movimento de toda classe clicável com regra própria. */
+.agora__cta,
+.resumo-dia__treino,
+.explicacao__head {
+  transition: transform .12s var(--ease);
+}
+.agora__cta:active,
+.resumo-dia__treino:active,
+.explicacao__head:active { transform: scale(.96); }
+
+@media (prefers-reduced-motion: reduce) {
+  .agora__cta,
+  .resumo-dia__treino,
+  .explicacao__head { transition: none; }
+
+  .agora__cta:active,
+  .resumo-dia__treino:active,
+  .explicacao__head:active { transform: none; }
+}

@@ -18,6 +18,8 @@ from accounts.views import OnboardingRequiredMixin, recusa_pendente
 from catalog.models import Food
 
 from . import services, shopping, streaks, tracking, weight_trend
+from . import agora as agora_mod
+from workouts import services as treino_services
 from .calculations import (
     KCAL_PER_G_CARB,
     KCAL_PER_G_FAT,
@@ -225,6 +227,26 @@ class TodayView(PlanRequiredMixin, TemplateView):
             user=self.request.user, date=today
         ).first()
         bebido = registro.ml if registro else 0
+
+        # O estado do treino de hoje é CONSUMIDO do Treino V3, não recalculado.
+        #
+        # `estado_do_treino` deriva tudo de `ExerciseLog` e não escreve nada —
+        # e não chama `sync_active_routine`: montar rotina é trabalho da aba de
+        # treino, e fazer isso aqui daria à tela de comida o poder de criar
+        # ficha como efeito colateral de uma visita.
+        estado_treino = treino_services.estado_do_treino(self.request.user, dia=today)
+
+        # `localtime()` e não `datetime.now()`: o servidor roda em UTC e o
+        # horário das refeições é o do fuso da pessoa. Sem isso o "agora" erra
+        # por três horas, e a tela mostraria o almoço como ação às nove da
+        # manhã.
+        acao = agora_mod.proxima_acao(
+            slots=slots,
+            treino=estado_treino,
+            meta_agua=meta_agua,
+            bebido=bebido,
+            agora=timezone.localtime(),
+        )
         context.update(
             {
                 "plan": self.plan,
@@ -237,6 +259,8 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 # "bate com a meta" quando é irrelevante, e o número quando não é.
                 "menu_gap": menu["kcal"] - self.plan.target_kcal,
                 "menu_on_target": abs(menu["kcal"] - self.plan.target_kcal) <= MENU_TOLERANCE_KCAL,
+                "acao": acao,
+                "treino_hoje": estado_treino,
                 "hidratacao_ml": meta_agua,
                 "hidratacao_bebida": bebido,
                 "hidratacao_pct": (
