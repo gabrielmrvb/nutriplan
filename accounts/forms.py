@@ -184,7 +184,24 @@ class BodyDataForm(OnboardingStepForm):
         fields = ("sex", "birth_date", "height_cm")
         widgets = {
             "sex": forms.RadioSelect,
-            "birth_date": forms.DateInput(attrs={"type": "date"}),
+            # `format="%Y-%m-%d"`, e não o padrão localizado.
+            #
+            # Sem ele o widget emitia `value="20/05/1990"` — correto para
+            # pt-BR e ilegível para `<input type="date">`, que só entende
+            # ISO. O navegador descartava em silêncio e o campo aparecia
+            # VAZIO ao reabrir o passo 1 pelo perfil: quem só queria corrigir
+            # o peso levava "Este campo é obrigatório" até redigitar a data.
+            #
+            # É a mesma família do peso com vírgula: valor válido no servidor,
+            # formato que o input HTML não sabe ler. Só que aqui a tradução é
+            # na SAÍDA, e o campo já aceitava ISO na entrada — `input_formats`
+            # traz `%Y-%m-%d`, que é o que o navegador envia ao escolher a data.
+            #
+            # Declarativo no widget, e não JavaScript: quem precisa formatar é
+            # quem desenha o campo.
+            "birth_date": forms.DateInput(
+                attrs={"type": "date"}, format="%Y-%m-%d"
+            ),
             "height_cm": forms.NumberInput(
                 attrs={"inputmode": "numeric", "placeholder": "178", "sufixo": "cm"}
             ),

@@ -2417,3 +2417,122 @@ class FaviconTests(TestCase):
         alvo = Path(settings.BASE_DIR) / "static" / "icons" / "favicon.ico"
 
         self.assertTrue(alvo.exists(), "o .ico precisa existir no static")
+
+
+class DataDeNascimentoNaEdicaoTests(TestCase):
+    """A data já salva precisa VOLTAR preenchida ao reabrir o passo 1.
+
+    O widget emitia `value="20/05/1990"` — correto para pt-BR e ilegível para
+    `<input type="date">`, que só entende ISO. O navegador descartava em
+    silêncio e o campo aparecia vazio: quem abria o passo pelo perfil só para
+    corrigir o peso levava "Este campo é obrigatório" até redigitar a data.
+
+    Achado no smoke de produção do Polimento V1, e da mesma família do peso com
+    vírgula: valor válido no servidor, formato que o input HTML não lê.
+    """
+
+    def setUp(self):
+        self.user = create_complete_user(email="data@exemplo.com")
+        self.client.force_login(self.user)
+        Profile.objects.filter(user=self.user).update(birth_date=date(1990, 5, 20))
+
+    def _abrir(self):
+        return self.client.get(step_url(1)).content.decode()
+
+    def _valor_renderizado(self, html):
+        campo = re.search(r'<input[^>]*name="birth_date"[^>]*>', html).group(0)
+        achado = re.search(r'value="([^"]*)"', campo)
+        return achado.group(1) if achado else ""
+
+    def test_a_data_salva_volta_no_formato_que_o_input_entende(self):
+        valor = self._valor_renderizado(self._abrir())
+
+        self.assertEqual(valor, "1990-05-20")
+
+    def test_o_navegador_nao_recebe_o_formato_brasileiro_no_atributo(self):
+        """"20/05/1990" está certo para uma pessoa e errado para o atributo.
+
+        O que a pessoa VÊ continua sendo o formato do locale dela — quem
+        formata a exibição é o navegador, a partir do valor ISO.
+        """
+        self.assertNotIn("20/05/1990", self._valor_renderizado(self._abrir()))
+
+    def test_editar_so_o_peso_preserva_a_data(self):
+        """Mudar só o peso não pode mexer na data.
+
+        Este teste NÃO é o que pega a regressão, e vale dizer por quê: o campo
+        aceita `%d/%m/%Y` na entrada, então devolver "20/05/1990" ao servidor
+        funcionava mesmo com o bug. Quem descartava o valor era o NAVEGADOR, e
+        isso só aparece no atributo renderizado — coberto pelos dois testes de
+        formato acima, que de fato caem quando o `format` sai.
+
+        O que este aqui protege é o outro lado: que salvar peso não apague nem
+        desloque a data por algum efeito colateral do formulário.
+        """
+        html = self._abrir()
+        resposta = self.client.post(step_url(1), {
+            "sex": "M",
+            "birth_date": self._valor_renderizado(html),
+            "height_cm": "178",
+            "weight_kg": "73,5",
+        })
+
+        self.assertNotEqual(resposta.status_code, 500)
+        perfil = Profile.objects.get(user=self.user)
+        self.assertEqual(perfil.birth_date, date(1990, 5, 20))
+        self.assertEqual(
+            WeightEntry.objects.filter(user=self.user).latest("id").weight_kg,
+            Decimal("73.50"),
+        )
+
+    def test_editar_so_a_altura_tambem_preserva_a_data(self):
+        html = self._abrir()
+        self.client.post(step_url(1), {
+            "sex": "M",
+            "birth_date": self._valor_renderizado(html),
+            "height_cm": "181",
+            "weight_kg": "82,4",
+        })
+
+        perfil = Profile.objects.get(user=self.user)
+        self.assertEqual(perfil.birth_date, date(1990, 5, 20))
+        self.assertEqual(perfil.height_cm, 181)
+
+    def test_trocar_a_data_por_outra_valida_persiste(self):
+        self.client.post(step_url(1), {
+            "sex": "M",
+            "birth_date": "1988-11-02",
+            "height_cm": "178",
+            "weight_kg": "82,4",
+        })
+
+        self.assertEqual(
+            Profile.objects.get(user=self.user).birth_date, date(1988, 11, 2)
+        )
+
+    def test_data_invalida_e_recusada_sem_estourar(self):
+        for valor in ("", "1990-13-45", "amanhã"):
+            with self.subTest(birth_date=valor):
+                resposta = self.client.post(step_url(1), {
+                    "sex": "M",
+                    "birth_date": valor,
+                    "height_cm": "178",
+                    "weight_kg": "82,4",
+                })
+
+                self.assertEqual(resposta.status_code, 200)
+                self.assertTrue(resposta.context["form"].errors)
+                self.assertEqual(
+                    Profile.objects.get(user=self.user).birth_date, date(1990, 5, 20)
+                )
+
+    def test_o_widget_declara_o_formato_em_vez_de_delegar_a_javascript(self):
+        """A tradução é do widget.
+
+        Consertar isso no cliente deixaria o formulário dependente de script
+        para exibir um valor que o servidor já tem — e quebraria de novo em
+        toda tela que renderizasse o campo sem esse script.
+        """
+        widget = BodyDataForm().fields["birth_date"].widget
+
+        self.assertEqual(widget.format, "%Y-%m-%d")
