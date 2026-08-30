@@ -8,6 +8,9 @@ app_name = "accounts"
 urlpatterns = [
     path("cadastro/", views.SignupView.as_view(), name="signup"),
     path("entrar/", views.AppLoginView.as_view(), name="login"),
+    # O caso 4 da política de vínculo: e-mail do Google bate com uma conta que
+    # já tem senha, e a senha é pedida uma vez antes de conectar.
+    path("conectar-google/", views.ConectarGoogleView.as_view(), name="conectar_google"),
     path("sair/", LogoutView.as_view(), name="logout"),
     path("onboarding/", views.OnboardingEntryView.as_view(), name="onboarding"),
     path("onboarding/<int:step>/", views.onboarding_step, name="onboarding_step"),

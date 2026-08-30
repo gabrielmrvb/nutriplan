@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Conectar o Google · NutriPlan{% endblock %}
+{% block container_class %}auth auth--entrada{% endblock %}
+
+{% comment %}
+  O caso 4 da política em `accounts/adapters.py`.
+
+  O Google já provou quem a pessoa é do lado dele. Falta ela provar que a conta
+  DAQUI também é dela — e a prova é a senha do NutriPlan, pedida uma vez.
+
+  A tela conta o mínimo: que aquele e-mail já tem conta, e que a senha conecta
+  as duas. Não diz o que a conta tem dentro, não diz quando foi criada, e não
+  oferece "criar outra conta" — criar a segunda é exatamente o que este fluxo
+  existe para impedir.
+{% endcomment %}
+{% block content %}
+  <div class="card">
+    <span class="auth__logo">{% include "partials/marca.html" %}</span>
+    <h1 class="center">Conectar sua conta</h1>
+    <p class="lead center">
+      Este e-mail já tem uma conta no NutriPlan.
+    </p>
+    <p class="muted center vinculo__email num">{{ email }}</p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <p class="vinculo__explica">
+        Digite a sua senha do NutriPlan para conectar o Google a ela. Depois
+        disso você entra pelos dois.
+      </p>
+
+      {% if form.non_field_errors %}
+        <ul class="field__errors">
+          {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+      {% for field in form %}
+        {% include "partials/field.html" with field=field %}
+      {% endfor %}
+
+      <button type="submit" class="btn btn--primary btn--block">
+        Conectar e continuar
+      </button>
+    </form>
+
+    <p class="muted center" style="margin-top:1.25rem">
+      <a class="btn-link" href="{% url 'accounts:login' %}">Entrar com e-mail e senha</a>
+    </p>
+  </div>
+{% endblock %}

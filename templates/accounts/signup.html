@@ -11,6 +11,8 @@
       Leva menos de um minuto. Os dados da dieta vêm no passo seguinte.
     </p>
 
+    {% include "partials/botao_google.html" %}
+
     <form method="post" novalidate>
       {% csrf_token %}
       {% if form.non_field_errors %}

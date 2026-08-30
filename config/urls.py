@@ -1,9 +1,40 @@
+from allauth.urls import build_provider_urlpatterns
 from django.contrib import admin
 from django.urls import include, path
 
 from push import views as push_views
 
 from .health import HealthView
+
+# As rotas do allauth entram PELA METADE, e a metade que fica de fora é a
+# interface.
+#
+# `include("allauth.urls")` traria `allauth.account.urls` junto: outra tela de
+# entrar, outra de criar conta, outra de trocar senha. Seriam duas interfaces
+# de autenticação no mesmo app, e é a mesma armadilha que o `demo/middleware`
+# documenta sobre não ter uma segunda cópia das telas — a segunda nasce igual e
+# diverge na primeira correção.
+#
+# Então montamos só o que é motor:
+#
+#   `build_provider_urlpatterns()`  as rotas do provedor, que é o fluxo OAuth
+#   `allauth.socialaccount.urls`    cancelamento, erro e conexões
+#
+# `AppLoginView` e `SignupView` continuam sendo a única porta de entrada.
+# As auxiliares vão para `social/`, e não para a raiz de `conta/`.
+#
+# `allauth.socialaccount.urls` registra `socialaccount_connections` no caminho
+# VAZIO. Montado direto sob `conta/`, ele tomava `/conta/` — que era 404 — e
+# passava a renderizar a tela "contas conectadas" da biblioteca. Sob `/demo/`
+# ela respondia 200 para a persona.
+#
+# Ela continua registrada, e de propósito: o allauth reverte esses nomes por
+# dentro, e removê-los trocaria uma tela indesejada por um `NoReverseMatch` em
+# algum caminho de erro. Sob um prefixo próprio, ela sai de `/conta/` e ganha
+# um lugar só dela para o demo recusar.
+ROTAS_SOCIAIS = build_provider_urlpatterns() + [
+    path("social/", include("allauth.socialaccount.urls")),
+]
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -21,6 +52,11 @@ urlpatterns = [
     # direto. Uma entrada aqui as deixaria fora do prefixo de script, e a capa
     # voltaria a oferecer "Entrar" e "Criar conta".
     path("conta/", include("accounts.urls")),
+    # Sob `conta/` também, para o endereço do callback ficar junto do resto da
+    # autenticação. O caminho real que sai daqui é
+    # `/conta/google/login/callback/` — é ELE que precisa ser cadastrado no
+    # Google Cloud, e ele é derivado desta linha, não escolhido.
+    path("conta/", include(ROTAS_SOCIAIS)),
     path("push/", include("push.urls")),
     path("treino/", include("workouts.urls")),
     path("suplementos/", include("supplements.urls")),

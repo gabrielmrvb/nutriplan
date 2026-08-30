@@ -3,13 +3,20 @@
 O foco é o fluxo: o que acontece quando a pessoa avança, volta, pula ou
 abandona no meio. É onde um wizard quebra na prática.
 """
+import json
 from datetime import date, time
 from decimal import Decimal
 
 from pathlib import Path
 
+from allauth.core.exceptions import ImmediateHttpResponse
 from django.conf import settings
-from django.test import TestCase
+from django.contrib.messages.storage.fallback import FallbackStorage
+from allauth.socialaccount.models import SocialAccount
+from django.contrib.sessions.backends.db import SessionStore
+from django.contrib.sessions.middleware import SessionMiddleware
+from django.core.management import call_command
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -17,6 +24,7 @@ from catalog.models import DietaryTag, TagKind
 from plans.models import NutritionPlan
 from plans.tests import create_complete_user
 
+from .adapters import MAXIMO_DE_TENTATIVAS, SESSAO_TENTATIVAS, SESSAO_VINCULO
 from .forms import PesagemForm
 from .models import ONBOARDING_DONE, Profile, TrainingDay, User, WeightEntry
 
@@ -867,3 +875,889 @@ class PesagemRapidaTests(TestCase):
         self.client.post(step_url(1), STEP1)
 
         self.assertEqual(self.user.weight_entries.count(), 1)
+
+
+# ==========================================================================
+# Login com Google
+# ==========================================================================
+
+
+def _sociallogin(email="pessoa@gmail.com", uid="google-uid-1", verificado=True, nome="Ana"):
+    """Um `SocialLogin` como o que o provedor entrega depois do OIDC validado.
+
+    Montado à mão de propósito: falar com o Google numa suíte tornaria os
+    testes dependentes de rede e de credencial. O que interessa aqui é a
+    POLÍTICA — o que o adapter faz com uma identidade —, e ela recebe o mesmo
+    objeto vindo do provedor real ou daqui.
+    """
+    from allauth.account.models import EmailAddress
+    from allauth.socialaccount import providers
+    from allauth.socialaccount.models import SocialAccount, SocialApp, SocialLogin
+
+    conta = SocialAccount(
+        provider="google",
+        uid=uid,
+        extra_data={"email": email, "given_name": nome, "sub": uid},
+    )
+    usuario = User(email=email, first_name=nome)
+    # O provider vem do registro do allauth, e não é decoração: `serialize()`
+    # chama `self.provider.serialize()`, e o caso 4 guarda o `SocialLogin`
+    # serializado na sessão. Sem ele, o teste passaria por um caminho que a
+    # aplicação real nunca percorre.
+    classe = providers.registry.get_class("google")
+    # O `client_id` sai das settings em vigor, e não de um literal: ele é
+    # gravado na serialização e é por ele que o allauth reencontra o app ao
+    # desserializar. Dois valores diferentes aqui produzem um
+    # `SocialApp.DoesNotExist` que não tem nada a ver com a política.
+    app = SocialApp(
+        provider="google",
+        client_id=settings.GOOGLE_CLIENT_ID or "id-de-teste",
+        secret=settings.GOOGLE_CLIENT_SECRET or "segredo-de-teste",
+    )
+    login_social = SocialLogin(
+        user=usuario, account=conta, provider=classe(request=None, app=app)
+    )
+    login_social.email_addresses = [
+        EmailAddress(email=email, verified=verificado, primary=True)
+    ]
+    return login_social
+
+
+class BotaoGoogleTests(TestCase):
+    """O botão nas duas telas de entrada, e o que acontece sem credencial."""
+
+    @override_settings(GOOGLE_LOGIN_ENABLED=True)
+    def test_the_button_shows_on_both_entry_screens(self):
+        for rota in ("accounts:login", "accounts:signup"):
+            with self.subTest(rota=rota):
+                html = self.client.get(reverse(rota)).content.decode()
+                self.assertIn("Continuar com Google", html)
+                self.assertIn(reverse("google_login"), html)
+
+    @override_settings(GOOGLE_LOGIN_ENABLED=False)
+    def test_without_credentials_the_button_is_simply_absent(self):
+        """Um deploy sem a variável não pode mostrar um botão que leva a um erro
+        do Google — e também não pode derrubar a tela."""
+        for rota in ("accounts:login", "accounts:signup"):
+            with self.subTest(rota=rota):
+                resposta = self.client.get(reverse(rota))
+                self.assertEqual(resposta.status_code, 200)
+                self.assertNotIn("Continuar com Google", resposta.content.decode())
+
+    @override_settings(GOOGLE_LOGIN_ENABLED=True)
+    def test_the_button_posts_instead_of_linking(self):
+        """Link abriria o fluxo por GET, sem CSRF: qualquer página de terceiro
+        dispararia um login pelo navegador de quem só passou por ela."""
+        html = self.client.get(reverse("accounts:login")).content.decode()
+        # A tag de abertura do formulário do Google, inteira.
+        abertura = html.split('class="google-entrada"', 1)[1].split(">", 1)[0]
+        corpo = html.split('class="google-entrada"', 1)[1].split("</form>", 1)[0]
+
+        self.assertIn('method="post"', abertura)
+        self.assertIn("csrfmiddlewaretoken", corpo)
+        # E nenhum `<a href>` para a rota, que seria a mesma porta sem token.
+        self.assertNotIn('<a href="%s"' % reverse("google_login"), html)
+
+    @override_settings(GOOGLE_LOGIN_ENABLED=True)
+    def test_no_credential_ever_reaches_the_page(self):
+        html = self.client.get(reverse("accounts:login")).content.decode()
+        self.assertNotIn("client_id", html)
+        self.assertNotIn("secret", html.lower())
+
+
+class PoliticaDeVinculoTests(TestCase):
+    """Os quatro casos da política, exercitados pelo adapter.
+
+    Cada teste chama `pre_social_login` diretamente. É o ponto onde a decisão
+    acontece, e testá-lo direto isola a POLÍTICA do transporte OAuth — que é da
+    biblioteca e já tem testes dela.
+    """
+
+    def setUp(self):
+        from accounts.adapters import NutriPlanSocialAccountAdapter
+
+        self.adapter = NutriPlanSocialAccountAdapter()
+        self.pedido = RequestFactory().get("/conta/google/login/callback/")
+        SessionMiddleware(lambda r: None).process_request(self.pedido)
+        self.pedido.session.save()
+        # `messages` precisa de um lugar para escrever fora do ciclo normal.
+        setattr(self.pedido, "_messages", FallbackStorage(self.pedido))
+
+    # -- caso 1 ------------------------------------------------------------
+
+    def test_an_unknown_email_is_left_for_allauth_to_create(self):
+        """Sem usuário com aquele e-mail, o adapter não intervém: quem cria a
+        conta é o allauth, e criar aqui seria uma segunda implementação."""
+        self.adapter.pre_social_login(self.pedido, _sociallogin())
+        self.assertFalse(User.objects.filter(email="pessoa@gmail.com").exists())
+
+    # -- caso 2 ------------------------------------------------------------
+
+    def test_an_existing_link_is_not_touched(self):
+        from allauth.socialaccount.models import SocialAccount
+
+        user = User.objects.create_user(email="volta@gmail.com", password="x-forte-123")
+        SocialAccount.objects.create(user=user, provider="google", uid="uid-recorrente")
+
+        login_social = _sociallogin(email="volta@gmail.com", uid="uid-recorrente")
+        login_social.lookup()  # é o que marca `is_existing`
+
+        self.adapter.pre_social_login(self.pedido, login_social)
+        self.assertEqual(SocialAccount.objects.filter(user=user).count(), 1)
+
+    # -- caso 3 ------------------------------------------------------------
+
+    def test_an_account_without_a_usable_password_links_on_its_own(self):
+        """Não há senha para contornar: aquela conta só pode ter nascido de um
+        fluxo social ou do admin."""
+        from allauth.socialaccount.models import SocialAccount
+
+        user = User.objects.create_user(email="sem-senha@gmail.com")
+        user.set_unusable_password()
+        user.save()
+
+        self.adapter.pre_social_login(
+            self.pedido, _sociallogin(email="sem-senha@gmail.com", uid="uid-3")
+        )
+        self.assertTrue(
+            SocialAccount.objects.filter(user=user, provider="google", uid="uid-3").exists()
+        )
+
+    # -- caso 4 ------------------------------------------------------------
+
+    def test_an_account_with_a_password_is_never_linked_automatically(self):
+        """A trava central desta feature.
+
+        O NutriPlan não tem recuperação de senha, então controlar o e-mail não é
+        um fator de autenticação aqui. Vincular sozinho criaria uma porta para a
+        conta que não existia.
+        """
+        from allauth.socialaccount.models import SocialAccount
+
+        user = User.objects.create_user(email="com-senha@gmail.com", password="senha-forte-123")
+
+        with self.assertRaises(ImmediateHttpResponse) as capturado:
+            self.adapter.pre_social_login(
+                self.pedido, _sociallogin(email="com-senha@gmail.com", uid="uid-4")
+            )
+
+        self.assertEqual(capturado.exception.response.status_code, 302)
+        self.assertIn(reverse("accounts:conectar_google"), capturado.exception.response["Location"])
+        self.assertFalse(SocialAccount.objects.filter(user=user).exists())
+        self.assertIn(SESSAO_VINCULO, self.pedido.session)
+
+    def test_it_never_creates_a_second_account_for_the_same_email(self):
+        User.objects.create_user(email="unico@gmail.com", password="senha-forte-123")
+
+        with self.assertRaises(ImmediateHttpResponse):
+            self.adapter.pre_social_login(
+                self.pedido, _sociallogin(email="unico@gmail.com", uid="uid-dup")
+            )
+
+        self.assertEqual(User.objects.filter(email__iexact="unico@gmail.com").count(), 1)
+
+    # -- recusas -----------------------------------------------------------
+
+    def test_an_unverified_email_is_refused(self):
+        """E-mail não verificado é texto que o provedor não garante: aceitá-lo
+        permitiria a qualquer conta Google reivindicar qualquer endereço."""
+        with self.assertRaises(ImmediateHttpResponse) as capturado:
+            self.adapter.pre_social_login(
+                self.pedido, _sociallogin(verificado=False)
+            )
+        self.assertIn(reverse("accounts:login"), capturado.exception.response["Location"])
+
+    def test_a_deactivated_account_cannot_get_in_or_be_linked(self):
+        """O Google não reativa conta. E vincular a uma desativada seria deixar
+        a porta pronta para quando ela voltasse."""
+        from allauth.socialaccount.models import SocialAccount
+
+        user = User.objects.create_user(email="off@gmail.com", password="senha-forte-123")
+        user.is_active = False
+        user.save()
+
+        with self.assertRaises(ImmediateHttpResponse):
+            self.adapter.pre_social_login(
+                self.pedido, _sociallogin(email="off@gmail.com", uid="uid-off")
+            )
+        self.assertFalse(SocialAccount.objects.filter(user=user).exists())
+        user.refresh_from_db()
+        self.assertFalse(user.is_active)
+
+    def test_the_refusal_never_says_which_wall_was_hit(self):
+        """"E-mail não verificado" e "conta desativada" contam coisas diferentes
+        sobre quem está do outro lado, e as duas contam demais."""
+        from django.contrib.messages import get_messages
+
+        with self.assertRaises(ImmediateHttpResponse):
+            self.adapter.pre_social_login(self.pedido, _sociallogin(verificado=False))
+
+        textos = [str(m) for m in get_messages(self.pedido)]
+        self.assertEqual(textos, ["Não foi possível entrar com o Google. Tente novamente."])
+        for vazamento in ("verific", "desativ", "OAuth", "SocialLogin", "state"):
+            self.assertNotIn(vazamento, " ".join(textos))
+
+    # -- caixa alta --------------------------------------------------------
+
+    def test_a_different_casing_finds_the_same_account(self):
+        """`User.email` é `unique=True`, e a unicidade do Postgres diferencia
+        maiúsculas: sem `iexact` aqui, o login social criaria a segunda conta
+        que o formulário de cadastro recusaria."""
+        User.objects.create_user(email="ana@gmail.com", password="senha-forte-123")
+
+        with self.assertRaises(ImmediateHttpResponse):
+            self.adapter.pre_social_login(
+                self.pedido, _sociallogin(email="Ana@Gmail.com", uid="uid-caixa")
+            )
+        self.assertEqual(User.objects.count(), 1)
+
+
+#: Credenciais de mentira para os testes que precisam do provedor montado.
+#:
+#: Desserializar um `SocialLogin` faz o allauth procurar o app do provedor, e
+#: sem `client_id` ele não acha nenhum. Em produção há credencial; aqui ela é
+#: falsa e explícita — nenhum valor real entra em teste, e o teste do caminho
+#: SEM credencial existe à parte, em `BotaoGoogleTests`.
+GOOGLE_DE_TESTE = {
+    "GOOGLE_LOGIN_ENABLED": True,
+    "GOOGLE_CLIENT_ID": "id-de-teste.apps.googleusercontent.com",
+    "GOOGLE_CLIENT_SECRET": "segredo-de-teste",
+    "SOCIALACCOUNT_PROVIDERS": {
+        "google": {
+            "APP": {
+                "client_id": "id-de-teste.apps.googleusercontent.com",
+                "secret": "segredo-de-teste",
+                "key": "",
+            },
+            "SCOPE": ["openid", "email", "profile"],
+        }
+    },
+}
+
+
+@override_settings(**GOOGLE_DE_TESTE)
+class ConectarGoogleTests(TestCase):
+    """A tela do caso 4: confirmar a senha para conectar."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="dono@gmail.com", password="senha-bem-forte-123"
+        )
+        self.url = reverse("accounts:conectar_google")
+
+    def _com_pendencia(self, uid="uid-tela"):
+        from accounts.adapters import pendencia
+
+        sessao = self.client.session
+        sessao[SESSAO_VINCULO] = pendencia(
+            _sociallogin(email="dono@gmail.com", uid=uid), self.user
+        )
+        sessao.save()
+
+    def test_without_a_pending_attempt_the_url_goes_nowhere(self):
+        """Alguém abriu o endereço direto, ou a sessão expirou."""
+        resposta = self.client.get(self.url)
+        self.assertRedirects(resposta, reverse("accounts:login"))
+
+    def test_it_shows_the_email_and_asks_only_for_the_password(self):
+        self._com_pendencia()
+        html = self.client.get(self.url).content.decode()
+
+        self.assertIn("dono@gmail.com", html)
+        self.assertIn("já tem uma conta", html)
+        # Um campo só. E-mail editável aqui deixaria o cliente escolher a qual
+        # conta se conectar, que é o que esta tela existe para impedir.
+        self.assertEqual(html.count('type="password"'), 1)
+        self.assertNotIn('type="email"', html)
+
+    def test_a_wrong_password_links_nothing_and_lets_you_try_again(self):
+        from allauth.socialaccount.models import SocialAccount
+
+        self._com_pendencia()
+        resposta = self.client.post(self.url, {"password": "chute-errado-999"})
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertContains(resposta, "Senha incorreta")
+        self.assertFalse(SocialAccount.objects.exists())
+        self.assertNotIn("_auth_user_id", self.client.session)
+        # A tentativa FICA: refazer o Google inteiro por um erro de digitação
+        # seria punir o dedo trocado.
+        self.assertIn(SESSAO_VINCULO, self.client.session)
+
+    def test_the_right_password_links_to_that_very_account_and_signs_in(self):
+        from allauth.socialaccount.models import SocialAccount
+
+        self._com_pendencia(uid="uid-certo")
+        resposta = self.client.post(self.url, {"password": "senha-bem-forte-123"})
+
+        self.assertRedirects(
+            resposta, reverse("accounts:onboarding"), fetch_redirect_response=False
+        )
+        self.assertEqual(
+            SocialAccount.objects.filter(
+                user=self.user, provider="google", uid="uid-certo"
+            ).count(),
+            1,
+        )
+        self.assertEqual(int(self.client.session["_auth_user_id"]), self.user.pk)
+        self.assertEqual(User.objects.count(), 1)
+
+    def test_the_pending_attempt_is_cleared_once_it_is_used(self):
+        """Estado pendente que sobrevive ao uso é estado que alguém reaproveita."""
+        self._com_pendencia()
+        self.client.post(self.url, {"password": "senha-bem-forte-123"})
+        self.assertNotIn(SESSAO_VINCULO, self.client.session)
+
+    def test_a_tampered_session_is_discarded_instead_of_crashing(self):
+        sessao = self.client.session
+        sessao[SESSAO_VINCULO] = {"lixo": True}
+        sessao.save()
+
+        resposta = self.client.get(self.url)
+        self.assertRedirects(resposta, reverse("accounts:login"))
+
+    def test_no_token_of_any_kind_reaches_the_page(self):
+        self._com_pendencia()
+        html = self.client.get(self.url).content.decode()
+        for segredo in ("access_token", "id_token", "refresh_token", "client_secret"):
+            self.assertNotIn(segredo, html)
+
+
+class GoogleNoDemoTests(TestCase):
+    """O login social não pode existir sob `/demo/`.
+
+    O middleware do demo monta o app inteiro sob o prefixo, troca
+    `request.user` pela persona e recusa tudo que não é GET. O callback do
+    OAuth é um GET — e callback com usuário autenticado é exatamente a condição
+    de VINCULAR. Sem esta trava, alguém conectaria a própria conta Google ao
+    Carlos e entraria nela pelo app real.
+
+    Nada disso daria erro. O vínculo é silencioso.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        # A mesma ordem de `demo/tests.py`: o `seed_demo` monta a ficha do
+        # Carlos com as funções reais, e elas precisam do catálogo antes.
+        call_command("seed_catalog", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+        call_command("seed_demo", verbosity=0)
+
+    def test_starting_the_flow_through_the_demo_is_refused(self):
+        for rota in ("/demo/conta/google/login/", "/demo/conta/google/login/callback/"):
+            with self.subTest(rota=rota):
+                resposta = self.client.get(rota)
+                self.assertContains(resposta, "não funciona no demo", status_code=200)
+
+    def test_the_callback_through_the_demo_links_nothing(self):
+        from allauth.socialaccount.models import SocialAccount
+
+        self.client.get("/demo/conta/google/login/callback/?code=abc&state=xyz")
+        self.assertFalse(SocialAccount.objects.exists())
+
+    def test_the_demo_persona_is_untouched(self):
+        from allauth.socialaccount.models import SocialAccount
+
+        self.client.get("/demo/conta/google/login/")
+        carlos = User.objects.get(email="carlos.demo@nutriplan.invalid")
+        self.assertFalse(SocialAccount.objects.filter(user=carlos).exists())
+
+    def test_the_password_confirmation_screen_is_refused_too(self):
+        """Ela conecta um vínculo. Sob o demo, conectaria à persona."""
+        resposta = self.client.get("/demo/conta/conectar-google/")
+        self.assertContains(resposta, "não funciona no demo", status_code=200)
+
+    def test_every_social_route_the_project_registers_is_refused(self):
+        """A lista do middleware é conferida contra o URLconf REAL.
+
+        Escrever a lista à mão e confiar nela é como ela envelhece: o allauth
+        registra mais rotas do que as óbvias — `login/token/`, `signup/`,
+        `login/error/` — e um provedor novo traria as dele. Este teste varre o
+        resolvedor e cobra cada uma.
+
+        Foi assim que apareceu a que faltava: `socialaccount_connections` está
+        no caminho VAZIO de `allauth.socialaccount.urls` e, montado direto sob
+        `conta/`, respondia 200 sob `/demo/conta/` com a tela "contas
+        conectadas" da biblioteca renderizada para a persona.
+        """
+        from django.urls import get_resolver
+
+        from demo.middleware import RECUSADAS
+
+        def caminhos(resolver, prefixo=""):
+            for padrao in resolver.url_patterns:
+                alvo = prefixo + str(padrao.pattern)
+                if hasattr(padrao, "url_patterns"):
+                    yield from caminhos(padrao, alvo)
+                else:
+                    yield "/" + alvo, getattr(padrao, "name", None)
+
+        passam = [
+            url
+            for url, nome in caminhos(get_resolver())
+            # O admin fica de fora: ele já era alcançável sob `/demo/` antes
+            # desta feature, e a persona não é `staff` — o próprio admin a
+            # manda para o login dele.
+            if not url.startswith("/admin/")
+            and ("google" in url or "social" in url or "conectar-google" in url)
+            and not url.startswith(RECUSADAS)
+        ]
+        self.assertEqual(passam, [], "rota social alcançável pelo demo")
+
+    def test_the_library_connections_screen_is_not_at_the_account_root(self):
+        """`/conta/` era 404 e não pode virar tela da biblioteca."""
+        self.assertContains(
+            self.client.get("/demo/conta/social/"), "não funciona no demo", status_code=200
+        )
+
+    def test_the_demo_itself_still_works(self):
+        for rota in ("/demo/", "/demo/hoje/", "/demo/treino/", "/demo/conta/perfil/"):
+            with self.subTest(rota=rota):
+                self.assertEqual(self.client.get(rota).status_code, 200)
+
+
+class AutenticacaoTradicionalIntactaTests(TestCase):
+    """O que existia antes continua exatamente como era.
+
+    A feature acrescenta um caminho; não pode mexer no que já havia.
+    """
+
+    def test_signing_up_with_email_and_password_still_works(self):
+        resposta = self.client.post(
+            reverse("accounts:signup"),
+            {
+                "first_name": "Tradicional",
+                "email": "tradicional@exemplo.com",
+                "password1": "senha-bem-forte-123",
+                "password2": "senha-bem-forte-123",
+            },
+        )
+        self.assertRedirects(
+            resposta,
+            reverse("accounts:onboarding_step", kwargs={"step": 1}),
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(User.objects.filter(email="tradicional@exemplo.com").exists())
+
+    def test_logging_in_with_email_and_password_still_works(self):
+        User.objects.create_user(email="volta@exemplo.com", password="senha-bem-forte-123")
+        resposta = self.client.post(
+            reverse("accounts:login"),
+            {"username": "volta@exemplo.com", "password": "senha-bem-forte-123"},
+        )
+        self.assertEqual(resposta.status_code, 302)
+        self.assertIn("_auth_user_id", self.client.session)
+
+    def test_getting_the_password_wrong_shows_the_form_again_and_not_a_500(self):
+        """O caminho MAIS percorrido de qualquer tela de login, e o que a
+        primeira versão desta feature quebrou.
+
+        Com senha certa o `ModelBackend` responde primeiro e nada mais roda —
+        por isso o teste do caminho feliz passava. Com senha errada ele devolve
+        `None`, o Django cai no backend do allauth, e ele filtrava por um campo
+        `username` que este modelo não tem: `FieldError`, 500 na cara de quem
+        errou uma letra.
+
+        Consertado por `ACCOUNT_USER_MODEL_USERNAME_FIELD = None` e
+        `ACCOUNT_LOGIN_METHODS = {"email"}`.
+        """
+        User.objects.create_user(email="erra@exemplo.com", password="senha-bem-forte-123")
+        resposta = self.client.post(
+            reverse("accounts:login"),
+            {"username": "erra@exemplo.com", "password": "chute-errado-999"},
+        )
+        self.assertEqual(resposta.status_code, 200)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_an_email_that_does_not_exist_also_fails_cleanly(self):
+        resposta = self.client.post(
+            reverse("accounts:login"),
+            {"username": "ninguem@exemplo.com", "password": "qualquer-coisa-123"},
+        )
+        self.assertEqual(resposta.status_code, 200)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_allauth_knows_this_model_has_no_username(self):
+        """A configuração que sustenta os dois testes acima."""
+        self.assertIsNone(settings.ACCOUNT_USER_MODEL_USERNAME_FIELD)
+        self.assertEqual(set(settings.ACCOUNT_LOGIN_METHODS), {"email"})
+
+    def test_the_model_backend_is_still_first(self):
+        """Ele é quem autentica e-mail e senha. O do allauth entra ao lado, não
+        no lugar."""
+        self.assertEqual(
+            settings.AUTHENTICATION_BACKENDS[0],
+            "django.contrib.auth.backends.ModelBackend",
+        )
+
+    def test_logging_out_still_ends_the_local_session(self):
+        User.objects.create_user(email="sai@exemplo.com", password="senha-bem-forte-123")
+        self.client.login(username="sai@exemplo.com", password="senha-bem-forte-123")
+        self.client.post(reverse("accounts:logout"))
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+
+class ConfiguracaoDoGoogleTests(TestCase):
+    """As decisões de configuração que sustentam a política."""
+
+    def test_email_authentication_stays_off(self):
+        """O interruptor que entraria na frente da tela de senha.
+
+        Ligá-lo faria o allauth entrar na conta local só porque o e-mail bate —
+        que é exatamente o caso 4, e exatamente o que a política recusa.
+        """
+        self.assertFalse(settings.SOCIALACCOUNT_EMAIL_AUTHENTICATION)
+        self.assertFalse(settings.SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT)
+
+    def test_tokens_are_not_stored(self):
+        """Guardar `access_token` seria guardar credencial de acesso à conta
+        Google de alguém para nunca mais usar."""
+        self.assertFalse(settings.SOCIALACCOUNT_STORE_TOKENS)
+
+    def test_only_the_three_minimum_scopes_are_asked_for(self):
+        escopos = settings.SOCIALACCOUNT_PROVIDERS["google"]["SCOPE"]
+        self.assertEqual(sorted(escopos), ["email", "openid", "profile"])
+
+    def test_the_credentials_come_from_the_environment(self):
+        """Nunca do banco: o plano gratuito do Render apaga o banco por volta de
+        23/09/2026, e credencial que mora nele some junto."""
+        app = settings.SOCIALACCOUNT_PROVIDERS["google"]["APP"]
+        self.assertEqual(app["client_id"], settings.GOOGLE_CLIENT_ID)
+        self.assertEqual(app["secret"], settings.GOOGLE_CLIENT_SECRET)
+
+    def test_the_library_screens_are_not_mounted(self):
+        """O allauth entra como MOTOR, não como interface: uma segunda tela de
+        login nasceria igual e divergiria na primeira correção."""
+        from django.urls import NoReverseMatch
+
+        for nome in ("account_login", "account_signup", "account_reset_password"):
+            with self.subTest(rota=nome):
+                with self.assertRaises(NoReverseMatch):
+                    reverse(nome)
+
+    def test_the_callback_lives_where_the_google_console_will_be_told(self):
+        """O endereço é derivado do ponto de montagem. Se ele mudar, o Google
+        recusa com `redirect_uri_mismatch` — e este teste avisa antes."""
+        self.assertEqual(reverse("google_callback"), "/conta/google/login/callback/")
+        self.assertEqual(reverse("google_login"), "/conta/google/login/")
+
+    def test_sites_framework_was_not_dragged_in(self):
+        """Esta versão do allauth detecta `sites` sozinha e vive sem ele."""
+        self.assertNotIn("django.contrib.sites", settings.INSTALLED_APPS)
+
+
+@override_settings(**GOOGLE_DE_TESTE)
+class ContaDesativadaComGoogleTests(TestCase):
+    """Conta desativada que JÁ tem Google vinculado — o caso 2 pelo avesso.
+
+    Este é o caminho que a revisão pegou e que os outros testes não tocavam:
+    eles chamavam `pre_social_login` direto com um vínculo NOVO, e aí o adapter
+    resolve. Com o vínculo já existente o adapter não intervém — quem confere
+    `is_active` é o `perform_login` da biblioteca, chamando
+    `respond_user_inactive`.
+
+    E o padrão dele faz `reverse("account_inactive")`, rota que mora em
+    `allauth.account.urls` — que este projeto não monta. O resultado era um
+    `NoReverseMatch` que ninguém captura, e a pessoa recebia 500 em vez de uma
+    recusa. `is_active` é campo editável no admin: qualquer conta desativada
+    depois de conectar o Google cairia nisso.
+    """
+
+    def test_refusing_an_inactive_user_does_not_need_a_route_we_never_mounted(self):
+        from accounts.adapters import NutriPlanAccountAdapter
+
+        pedido = RequestFactory().get("/conta/google/login/callback/")
+        SessionMiddleware(lambda r: None).process_request(pedido)
+        pedido.session.save()
+        setattr(pedido, "_messages", FallbackStorage(pedido))
+
+        user = User.objects.create_user(email="off2@gmail.com", password="senha-forte-123")
+        user.is_active = False
+        user.save()
+
+        # Sem o adapter próprio, esta linha levantaria NoReverseMatch.
+        resposta = NutriPlanAccountAdapter().respond_user_inactive(pedido, user)
+
+        self.assertEqual(resposta.status_code, 302)
+        self.assertIn(reverse("accounts:login"), resposta["Location"])
+
+    def test_the_route_the_library_wanted_really_does_not_exist(self):
+        """Se um dia alguém montar `allauth.account.urls`, este teste avisa que
+        o adapter acima virou desnecessário — e que apareceu uma segunda tela
+        de login junto."""
+        from django.urls import NoReverseMatch
+
+        with self.assertRaises(NoReverseMatch):
+            reverse("account_inactive")
+
+
+@override_settings(**GOOGLE_DE_TESTE)
+class ForcaBrutaNaConfirmacaoTests(TestCase):
+    """A confirmação de senha do caso 4 não pode ser um campo de chute infinito.
+
+    Quem chega nessa tela já completou um login Google de verdade — ou seja,
+    controla a caixa de entrada e o e-mail está confirmado. É exatamente a
+    ameaça que o caso 4 existe para conter. Sem limite, a tentativa pendente
+    fica na sessão e o atacante chuta a senha sem repetir o Google: a última
+    defesa da conta vira um formulário de força bruta.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="alvo@gmail.com", password="senha-bem-forte-123"
+        )
+        self.url = reverse("accounts:conectar_google")
+        from accounts.adapters import pendencia
+
+        sessao = self.client.session
+        sessao[SESSAO_VINCULO] = pendencia(
+            _sociallogin(email="alvo@gmail.com", uid="uid-bruta"), self.user
+        )
+        sessao.save()
+
+    def test_the_pending_attempt_survives_a_typo(self):
+        """Descartar no primeiro erro obrigaria a refazer o Google inteiro por
+        um dedo trocado."""
+        self.client.post(self.url, {"password": "errada-1"})
+        self.assertIn(SESSAO_VINCULO, self.client.session)
+
+    def test_it_gives_up_after_a_handful_of_wrong_guesses(self):
+        from allauth.socialaccount.models import SocialAccount
+
+        for tentativa in range(MAXIMO_DE_TENTATIVAS):
+            resposta = self.client.post(self.url, {"password": "errada-%d" % tentativa})
+
+        # A última recusa descarta a pendência e manda para a porta.
+        self.assertRedirects(resposta, reverse("accounts:login"))
+        self.assertNotIn(SESSAO_VINCULO, self.client.session)
+        self.assertFalse(SocialAccount.objects.exists())
+
+        # E aí a tela não abre mais: é preciso refazer o Google.
+        self.assertRedirects(self.client.get(self.url), reverse("accounts:login"))
+
+    def test_the_counter_resets_once_the_link_succeeds(self):
+        """Senão, um erro hoje encurtaria a margem de amanhã."""
+        self.client.post(self.url, {"password": "errada-1"})
+        self.client.post(self.url, {"password": "senha-bem-forte-123"})
+        self.assertNotIn(SESSAO_TENTATIVAS, self.client.session)
+
+
+#: Marcadores falsos e fáceis de procurar. Se algum aparecer onde não deve, o
+#: teste diz exatamente qual credencial vazou.
+ACCESS_FALSO = "TOKEN-SECRETO-DE-TESTE"
+REFRESH_FALSO = "REFRESH-SECRETO-DE-TESTE"
+
+
+@override_settings(**GOOGLE_DE_TESTE)
+class CredencialNuncaEncostaNaSessaoTests(TestCase):
+    """Nenhuma credencial OAuth pode ficar guardada em lugar nenhum.
+
+    A primeira implementação guardava `sociallogin.serialize()` na sessão,
+    porque é o mecanismo oficial do allauth para o fluxo de cadastro dele. Lido
+    o código instalado (`socialaccount/models.py`), ele faz:
+
+        if self.token:
+            ret["token"] = serialize_instance(self.token)
+
+    e `SocialToken` tem `token` (access) e `token_secret` (refresh) como campos
+    de texto. Provado em runtime: os dois apareciam.
+
+    Estes testes são a prova permanente de que não aparecem mais.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="cred@gmail.com", password="senha-bem-forte-123"
+        )
+        self.login_social = _sociallogin(email="cred@gmail.com", uid="uid-cred")
+        # O token que o fluxo real traz junto.
+        from allauth.socialaccount.models import SocialToken
+
+        self.login_social.token = SocialToken(
+            token=ACCESS_FALSO, token_secret=REFRESH_FALSO
+        )
+
+    def _pendencia(self):
+        from accounts.adapters import pendencia
+
+        return pendencia(self.login_social, self.user)
+
+    def test_the_library_serialisation_really_does_carry_the_token(self):
+        """A prova do problema, e o motivo de não voltarmos a usá-la.
+
+        Se um dia o allauth parar de serializar o token, este teste falha — e
+        aí a decisão pode ser revista com evidência, em vez de por memória.
+        """
+        bruto = json.dumps(self.login_social.serialize(), default=str)
+        self.assertIn(ACCESS_FALSO, bruto)
+        self.assertIn(REFRESH_FALSO, bruto)
+
+    def test_what_we_actually_store_carries_no_credential(self):
+        bruto = json.dumps(self._pendencia(), default=str)
+        for marcador in (ACCESS_FALSO, REFRESH_FALSO):
+            self.assertNotIn(marcador, bruto)
+
+    def test_what_we_store_is_only_the_identity(self):
+        """Quatro campos, e nenhum a mais. Um campo novo aqui é uma decisão."""
+        self.assertEqual(
+            sorted(self._pendencia()), ["email", "provider", "uid", "user_pk"]
+        )
+
+    def test_the_uid_and_not_the_email_is_the_permanent_identity(self):
+        """E-mail muda; o `sub` do Google não."""
+        guardado = self._pendencia()
+        self.assertEqual(guardado["uid"], "uid-cred")
+        self.assertEqual(guardado["provider"], "google")
+
+    def test_no_credential_reaches_the_session_store(self):
+        """Fim a fim: o que o servidor grava na sessão, lido do banco."""
+        from django.contrib.sessions.models import Session
+
+        sessao = self.client.session
+        sessao[SESSAO_VINCULO] = self._pendencia()
+        sessao.save()
+
+        cru = Session.objects.get(session_key=sessao.session_key).session_data
+        decodificado = json.dumps(
+            SessionStore().decode(cru), default=str
+        )
+        for marcador in (ACCESS_FALSO, REFRESH_FALSO):
+            self.assertNotIn(marcador, decodificado)
+
+    def test_no_credential_reaches_the_page(self):
+        sessao = self.client.session
+        sessao[SESSAO_VINCULO] = self._pendencia()
+        sessao.save()
+
+        html = self.client.get(reverse("accounts:conectar_google")).content.decode()
+        for marcador in (
+            ACCESS_FALSO,
+            REFRESH_FALSO,
+            "access_token",
+            "id_token",
+            "refresh_token",
+            "client_secret",
+        ):
+            self.assertNotIn(marcador, html)
+
+    def test_no_social_token_is_ever_persisted(self):
+        """`SOCIALACCOUNT_STORE_TOKENS = False`, provado pelo banco e não pela
+        leitura da configuração."""
+        from allauth.socialaccount.models import SocialToken
+
+        sessao = self.client.session
+        sessao[SESSAO_VINCULO] = self._pendencia()
+        sessao.save()
+
+        self.client.post(
+            reverse("accounts:conectar_google"), {"password": "senha-bem-forte-123"}
+        )
+
+        self.assertEqual(SocialToken.objects.count(), 0)
+        # E o vínculo em si aconteceu, senão o teste acima passaria à toa.
+        self.assertTrue(
+            SocialAccount.objects.filter(
+                user=self.user, provider="google", uid="uid-cred"
+            ).exists()
+        )
+
+    def test_linking_twice_produces_a_single_link(self):
+        """A unicidade é `(provider, uid)` no modelo do allauth, e o
+        `get_or_create` se apoia nela: dois envios simultâneos não podem
+        produzir dois vínculos nem estourar."""
+        for _ in range(2):
+            sessao = self.client.session
+            sessao[SESSAO_VINCULO] = self._pendencia()
+            sessao.save()
+            self.client.post(
+                reverse("accounts:conectar_google"), {"password": "senha-bem-forte-123"}
+            )
+
+        self.assertEqual(SocialAccount.objects.filter(user=self.user).count(), 1)
+        self.assertEqual(User.objects.filter(email__iexact="cred@gmail.com").count(), 1)
+
+    def test_a_changed_email_aborts_instead_of_linking_to_the_wrong_account(self):
+        """O `pk` diz qual conta; o e-mail diz que ela ainda é a mesma que o
+        Google confirmou. Se a conta trocar de e-mail entre a ida e a volta, o
+        vínculo é abortado."""
+        sessao = self.client.session
+        sessao[SESSAO_VINCULO] = self._pendencia()
+        sessao.save()
+
+        self.user.email = "outro@gmail.com"
+        self.user.save()
+
+        resposta = self.client.get(reverse("accounts:conectar_google"))
+        self.assertRedirects(resposta, reverse("accounts:login"))
+        self.assertFalse(SocialAccount.objects.exists())
+
+
+@override_settings(**GOOGLE_DE_TESTE)
+class EscopoRealDoLimiteTests(TestCase):
+    """O que o limite de tentativas cobre — e o que ele deixa aberto.
+
+    Estes testes existem para a afirmação "tem limite de 5 tentativas" não
+    virar uma promessa maior do que é. O limite é POR PENDÊNCIA, e quem
+    controla a caixa de entrada pode refazer o handshake e ganhar mais cinco.
+
+    O que o limite compra é custo por tentativa. O que ele não é: proteção
+    completa contra força bruta. A correção de verdade é rate limiting global
+    cobrindo login e linking, com cache compartilhado — o allauth traz um, mas
+    ele depende de `django.core.cache`, é declaradamente não atômico, e este
+    projeto não configura `CACHES`.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="escopo@gmail.com", password="senha-bem-forte-123"
+        )
+        self.url = reverse("accounts:conectar_google")
+
+    def _nova_pendencia(self):
+        """Simula refazer o handshake: o adapter escreve a pendência de novo."""
+        from accounts.adapters import pendencia
+
+        sessao = self.client.session
+        sessao[SESSAO_VINCULO] = pendencia(
+            _sociallogin(email="escopo@gmail.com", uid="uid-escopo"), self.user
+        )
+        sessao.save()
+
+    def test_a_fresh_handshake_grants_a_fresh_allowance(self):
+        """A limitação honesta, provada em vez de descrita.
+
+        Se um dia isto passar a falhar, é porque alguém acrescentou um limite
+        que atravessa pendências — e aí a documentação acima precisa mudar
+        junto.
+        """
+        for rodada in range(2):
+            self._nova_pendencia()
+            for tentativa in range(MAXIMO_DE_TENTATIVAS):
+                self.client.post(self.url, {"password": "errada-%d" % tentativa})
+            # Esgotou: a pendência foi descartada.
+            self.assertNotIn(SESSAO_VINCULO, self.client.session)
+
+        # Dez chutes no total, e a conta segue intacta e sem vínculo.
+        self.assertFalse(SocialAccount.objects.exists())
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("senha-bem-forte-123"))
+
+    def test_the_traditional_login_has_no_limit_at_all(self):
+        """A comparação que dá tamanho ao risco.
+
+        A tela de entrar aceita chutes ilimitados e não exige handshake nenhum.
+        A confirmação de vínculo, mesmo com a brecha acima, é a superfície de
+        força bruta MENOS exposta das duas — não a mais.
+
+        Este teste não aprova a ausência de limite no login; ele registra que
+        ela existe, para a próxima missão de rate limiting achar os dois
+        endpoints em vez de um.
+        """
+        for tentativa in range(12):
+            resposta = self.client.post(
+                reverse("accounts:login"),
+                {"username": "escopo@gmail.com", "password": "errada-%d" % tentativa},
+            )
+        # Nenhum bloqueio, nenhum 429: continua devolvendo o formulário.
+        self.assertEqual(resposta.status_code, 200)
+        self.assertNotIn("_auth_user_id", self.client.session)

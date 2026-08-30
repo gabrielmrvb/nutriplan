@@ -35,6 +35,23 @@ INSTALLED_APPS = [
     "supplements",
     "push",
     "demo",
+    # Login com Google — o allauth como MOTOR, não como interface.
+    #
+    # `allauth.account` entra porque `allauth.socialaccount` depende dele: é
+    # quem guarda `EmailAddress` e quem executa o login em si. O que NÃO entra
+    # são as rotas dele — veja `config/urls.py`. As telas de entrar e criar
+    # conta continuam sendo `AppLoginView` e `SignupView`.
+    #
+    # `django.contrib.sites` NÃO é necessário nesta versão: o allauth detecta
+    # sozinho (`allauth.app_settings.SITES_ENABLED` lê `apps.is_installed`), e
+    # sem ele as credenciais vêm de `SOCIALACCOUNT_PROVIDERS` em vez da tabela
+    # `SocialApp`. É o que queremos: credencial em variável de ambiente, não em
+    # linha de banco — o banco gratuito do Render é apagado por volta de
+    # 23/09/2026, e credencial que mora nele some junto.
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
 ]
 
 MIDDLEWARE = [
@@ -64,6 +81,12 @@ MIDDLEWARE = [
     # visitante anônimo.
     "demo.middleware.DemoMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    # Exigido pelo allauth: `AccountConfig.ready()` levanta
+    # `ImproperlyConfigured` sem ele, então não é opcional nem esquecível.
+    #
+    # DEPOIS do middleware do demo, e isso importa: o do demo recusa qualquer
+    # caminho de OAuth sob `/demo/` antes que este veja o pedido.
+    "allauth.account.middleware.AccountMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -80,6 +103,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "push.context_processors.push",
+                "accounts.context_processors.google_login",
             ],
         },
     },
@@ -109,6 +133,103 @@ AUTH_PASSWORD_VALIDATORS = [
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "plans:today"
 LOGOUT_REDIRECT_URL = "accounts:login"
+
+# ---------------------------------------------------------------------------
+# Login com Google
+# ---------------------------------------------------------------------------
+# O `ModelBackend` continua PRIMEIRO e continua sendo quem autentica e-mail e
+# senha. O do allauth entra ao lado dele porque é o que sabe autenticar a
+# partir de um `SocialAccount`. Nenhum comportamento do login tradicional muda.
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+
+#: O NutriPlan não tem campo `username`, e o allauth precisa saber disso.
+#:
+#: Sem estas duas linhas, ERRAR A SENHA no login tradicional devolvia 500.
+#:
+#: O caminho: com senha certa o `ModelBackend` responde primeiro e nada mais
+#: roda. Com senha errada ele devolve `None`, o Django cai no backend do
+#: allauth, e `_authenticate_by_username` filtra por
+#: `USER_MODEL_USERNAME_FIELD` — que vale "username" por padrão. Como
+#: `USERNAME_FIELD = "email"` e o campo `username` foi removido do modelo, o
+#: ORM levanta `FieldError`.
+#:
+#: `None` faz aquele método desistir logo na primeira guarda; `{"email"}` diz
+#: qual é a chave de verdade. Um erro de digitação na senha é o caminho mais
+#: percorrido de qualquer tela de login, e ele não pode ser um 500.
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_LOGIN_METHODS = {"email"}
+#: O cadastro é o nosso `SignupForm`; isto só mantém o allauth coerente com o
+#: modelo quando ele monta e-mail de conta social.
+ACCOUNT_SIGNUP_FIELDS = ["email*"]
+
+#: As credenciais. Sem elas o botão simplesmente não aparece e o app sobe
+#: igual — um deploy sem variável configurada não pode derrubar o site.
+GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
+GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="")
+GOOGLE_LOGIN_ENABLED = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+
+# A política de vínculo mora em `accounts.adapters`, e é a decisão de produto
+# desta feature. O que fica aqui são os interruptores que a sustentam.
+SOCIALACCOUNT_ADAPTER = "accounts.adapters.NutriPlanSocialAccountAdapter"
+
+#: Existe para uma coisa só: recusar conta desativada sem quebrar a página.
+#:
+#: O `respond_user_inactive` padrão faz `reverse("account_inactive")`, e essa
+#: rota mora em `allauth.account.urls` — que este projeto não monta. Sem este
+#: adapter, uma conta desativada COM Google já vinculado recebia 500 em vez de
+#: uma recusa.
+ACCOUNT_ADAPTER = "accounts.adapters.NutriPlanAccountAdapter"
+
+#: NÃO entrar numa conta local só porque o e-mail bate.
+#:
+#: Este é o interruptor central da política. `False` é o padrão do allauth, e
+#: está escrito aqui de propósito: um dia alguém vai considerar ligá-lo para
+#: tirar a tela de confirmação de senha do caminho, e precisa encontrar o
+#: motivo antes do interruptor. O motivo é que o NutriPlan não tem recuperação
+#: de senha — controlar o e-mail não é, hoje, um fator de autenticação aqui, e
+#: ligar isto criaria uma porta para a conta que não existia.
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = False
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = False
+
+#: Sem tela intermediária de cadastro do allauth: quem chega com identidade
+#: válida do Google já tem tudo o que a conta precisa (e-mail e nome). O que
+#: falta é o onboarding, que é nosso.
+SOCIALACCOUNT_AUTO_SIGNUP = True
+
+#: O provedor já entrega o e-mail verificado; pedir verificação nossa por cima
+#: exigiria enviar e-mail, e o projeto não tem `EMAIL_BACKEND` configurado.
+SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
+SOCIALACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_EMAIL_VERIFICATION = "none"
+
+#: Guardar `access_token` e `refresh_token` seria guardar credencial de acesso
+#: à conta Google de alguém para nunca mais usar: o NutriPlan só precisa saber
+#: QUEM é a pessoa, no instante do login.
+SOCIALACCOUNT_STORE_TOKENS = False
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        # Credencial vinda de `settings`, e não da tabela `SocialApp`: o
+        # allauth monta um `SocialApp` em memória a partir disto, sem tocar no
+        # banco.
+        "APP": {
+            "client_id": GOOGLE_CLIENT_ID,
+            "secret": GOOGLE_CLIENT_SECRET,
+            "key": "",
+        },
+        # O mínimo para saber quem é a pessoa. Nada de Gmail, Drive, Calendar
+        # ou contatos — e pedir a mais empurraria o app para a revisão de
+        # escopos sensíveis do Google sem nenhuma contrapartida.
+        "SCOPE": ["openid", "email", "profile"],
+        "AUTH_PARAMS": {"access_type": "online"},
+        # Exige a assinatura do `id_token`, que é o que transforma "o cliente
+        # disse que é fulano" em "o Google assinou que é fulano".
+        "OAUTH_PKCE_ENABLED": True,
+    }
+}
 
 LANGUAGE_CODE = "pt-br"
 TIME_ZONE = "America/Sao_Paulo"

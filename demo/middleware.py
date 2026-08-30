@@ -68,6 +68,29 @@ APELIDOS = {
 #: Métodos que só leem. Todo o resto é recusado antes de chegar na view.
 SEGUROS = frozenset(("GET", "HEAD", "OPTIONS"))
 
+#: Caminhos que o demo RECUSA, mesmo sendo GET.
+#:
+#: A recusa de escrita acima protege quase tudo, e não protege isto: o callback
+#: do OAuth é um GET.
+#:
+#: Este middleware monta o app inteiro sob `/demo/` e troca `request.user` pela
+#: persona. Um callback de login social rodando aqui chegaria na view com o
+#: Carlos autenticado — e callback com usuário autenticado é exatamente a
+#: condição de VINCULAR. Alguém conectaria a própria conta Google à persona do
+#: demo, e a partir daí entraria nela pelo app real.
+#:
+#: Não daria erro nenhum. O vínculo é silencioso, e só apareceria quando outra
+#: pessoa abrisse o demo e visse os dados de quem se conectou.
+#:
+#: Casa por PREFIXO e não por igualdade: o allauth cria mais de uma rota por
+#: provedor (`login/`, `login/callback/`, `login/token/`), e uma lista de
+#: caminhos exatos ficaria para trás no dia em que um provedor novo entrar.
+RECUSADAS = (
+    "/conta/google/",
+    "/conta/social/",
+    "/conta/conectar-google/",
+)
+
 
 def usuario_demo():
     """O usuário fictício, ou `None` se o seed ainda não rodou."""
@@ -110,6 +133,12 @@ class DemoMiddleware:
         # 200 com o mesmo HTML, e o teste só olhava o código de resposta.
         pedido = caminho[len(PREFIXO):] or "/"
         resto = APELIDOS.get(pedido, pedido)
+
+        # A recusa do login social vem ANTES de tudo — antes de escolher a
+        # persona, antes de trocar `request.user`, antes de qualquer consulta.
+        # Nada de OAuth pode chegar à view com o usuário do demo no lugar.
+        if resto.startswith(RECUSADAS):
+            return render(request, "demo/acao_desativada.html", status=200)
 
         usuario = _quem_ve(resto)
         if usuario is None:

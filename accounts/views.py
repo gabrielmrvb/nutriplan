@@ -1,6 +1,8 @@
 """Cadastro, autenticação e o wizard de onboarding em quatro passos."""
+from allauth.socialaccount.models import SocialAccount
 from django.contrib import messages
 from django.contrib.auth import login
+from django.db import transaction
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView
 from django.shortcuts import redirect
@@ -9,8 +11,10 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, FormView, TemplateView, UpdateView
 
+from .adapters import MAXIMO_DE_TENTATIVAS, SESSAO_TENTATIVAS, SESSAO_VINCULO
 from .forms import (
     BodyDataForm,
+    ConectarGoogleForm,
     EmailAuthenticationForm,
     GoalForm,
     PesagemForm,
@@ -19,7 +23,7 @@ from .forms import (
     SignupForm,
     TrainingForm,
 )
-from .models import ONBOARDING_LAST_STEP, Profile, WeightEntry
+from .models import ONBOARDING_LAST_STEP, Profile, User, WeightEntry
 
 #: Onde o peso recusado espera até a próxima tela.
 #:
@@ -113,7 +117,17 @@ class SignupView(TelaDeEntradaMixin, CreateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        login(self.request, self.object)
+        # O backend vai explícito desde que o login com Google entrou.
+        #
+        # Com mais de um backend em `AUTHENTICATION_BACKENDS`, o `login()` do
+        # Django não tem como adivinhar qual autenticou — ele levanta
+        # `ValueError` em vez de escolher. Quem cria conta aqui foi validado
+        # pelo formulário, e é o `ModelBackend` que a atende.
+        login(
+            self.request,
+            self.object,
+            backend="django.contrib.auth.backends.ModelBackend",
+        )
         return response
 
     def get_success_url(self):
@@ -124,6 +138,149 @@ class AppLoginView(TelaDeEntradaMixin, LoginView):
     authentication_form = EmailAuthenticationForm
     template_name = "accounts/login.html"
     redirect_authenticated_user = True
+
+
+class ConectarGoogleView(TelaDeEntradaMixin, FormView):
+    """O caso 4: confirmar a senha do NutriPlan para conectar o Google.
+
+    Chega aqui quem autenticou no Google com um e-mail que já tem conta local
+    COM senha. O adapter (`accounts/adapters.py`) guardou a tentativa na sessão
+    e desviou para cá em vez de entrar — o porquê está lá.
+
+    A tentativa pendente guarda SÓ a identidade — provedor, `uid`, e-mail
+    verificado e o `pk` da conta alvo —, em sessão do servidor.
+
+    A primeira versão guardava `sociallogin.serialize()`, que é o mecanismo
+    oficial do allauth. Ele carrega o access token e o refresh token junto
+    (`if self.token: ret["token"] = ...`), o que viola a regra de não guardar
+    credencial em sessão. Trocado por um dicionário mínimo depois de a
+    violação ser provada em runtime com marcadores falsos.
+
+    Nada aqui vem do navegador: os quatro campos nascem do callback já validado
+    pelo allauth, e o alvo é reconferido a cada requisição.
+    """
+
+    template_name = "accounts/conectar_google.html"
+    form_class = ConectarGoogleForm
+
+    def dispatch(self, request, *args, **kwargs):
+        self.pendencia = self._pendente(request)
+        if self.pendencia is None:
+            # Sem tentativa pendente não há o que conectar: alguém abriu a URL
+            # direto, ou a sessão expirou. Volta para a porta.
+            return redirect("accounts:login")
+
+        self.usuario = self._alvo(self.pendencia)
+        if self.usuario is None or not self.usuario.is_active:
+            return self._desistir(request)
+        return super().dispatch(request, *args, **kwargs)
+
+    def _pendente(self, request):
+        """A identidade guardada, conferida no formato antes de servir.
+
+        Ela é um dicionário simples escrito pelo adapter a partir do callback
+        já validado — não o `SocialLogin` serializado, que carregava o access
+        token e o refresh token para dentro da sessão.
+        """
+        dados = request.session.get(SESSAO_VINCULO)
+        if not isinstance(dados, dict):
+            request.session.pop(SESSAO_VINCULO, None)
+            return None
+        if not all(dados.get(campo) for campo in ("provider", "uid", "email", "user_pk")):
+            # Sessão de uma versão anterior, ou adulterada. Descarta.
+            request.session.pop(SESSAO_VINCULO, None)
+            return None
+        return dados
+
+    def _alvo(self, pendencia):
+        """A conta a conectar, com o e-mail conferido contra o que foi guardado.
+
+        Duas conferências e não uma: o `pk` diz QUAL conta, e o e-mail diz que
+        ela continua sendo a mesma que o Google confirmou. Se a conta tiver
+        trocado de e-mail entre a ida ao Google e a volta, o vínculo é abortado
+        em vez de cair na conta errada.
+        """
+        usuario = User.objects.filter(pk=pendencia["user_pk"]).first()
+        if usuario is None:
+            return None
+        if usuario.email.lower().strip() != pendencia["email"]:
+            return None
+        return usuario
+
+    def _desistir(self, request):
+        request.session.pop(SESSAO_VINCULO, None)
+        request.session.pop(SESSAO_TENTATIVAS, None)
+        messages.error(request, "Não foi possível entrar com o Google. Tente novamente.")
+        return redirect("accounts:login")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["usuario"] = self.usuario
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        # Só o e-mail, que a pessoa acabou de usar no Google e portanto já
+        # conhece. Nada sobre o que a conta tem dentro.
+        contexto["email"] = self.usuario.email
+        return contexto
+
+    def form_valid(self, form):
+        """Senha certa: conecta e entra.
+
+        O vínculo é reconstruído a partir da identidade guardada — provedor e
+        `uid` —, e não de um `SocialLogin` ressuscitado da sessão. A conta
+        social nasce com `get_or_create` sobre `(provider, uid)`, que é a
+        unicidade que o próprio modelo do allauth declara: duas requisições
+        simultâneas produzem um vínculo só, e a segunda encontra o da primeira
+        em vez de estourar.
+
+        O estado pendente sai da sessão ANTES de gravar, para um duplo envio
+        não chegar duas vezes aqui.
+
+        `extra_data` fica vazio de propósito. Ele é informativo — nome, foto —,
+        não participa da autenticação, e o próprio allauth o preenche no
+        próximo login com os dados frescos do provedor. Guardar menos é o que a
+        missão pede.
+        """
+        self.request.session.pop(SESSAO_VINCULO, None)
+        self.request.session.pop(SESSAO_TENTATIVAS, None)
+
+        with transaction.atomic():
+            SocialAccount.objects.get_or_create(
+                provider=self.pendencia["provider"],
+                uid=self.pendencia["uid"],
+                defaults={"user": self.usuario},
+            )
+
+        login(
+            self.request,
+            self.usuario,
+            backend="django.contrib.auth.backends.ModelBackend",
+        )
+        return redirect("accounts:onboarding")
+
+    def form_invalid(self, form):
+        """Senha errada: não vincula, não troca de usuário, e conta a tentativa.
+
+        A tentativa pendente FICA na sessão nas primeiras vezes — descartá-la
+        no primeiro erro obrigaria a refazer o Google inteiro por causa de um
+        dedo trocado.
+
+        Mas ela não fica para sempre. Quem chega a esta tela já completou um
+        login Google de verdade, o que quer dizer que controla a caixa de
+        entrada — e é justamente essa a ameaça que o caso 4 existe para conter.
+        Sem limite, a última defesa da conta viraria um formulário de força
+        bruta sem atrito nenhum. Esgotadas as tentativas, a pendência é
+        descartada e é preciso refazer o Google.
+        """
+        tentativas = self.request.session.get(SESSAO_TENTATIVAS, 0) + 1
+        if tentativas >= MAXIMO_DE_TENTATIVAS:
+            self.request.session.pop(SESSAO_TENTATIVAS, None)
+            return self._desistir(self.request)
+
+        self.request.session[SESSAO_TENTATIVAS] = tentativas
+        return super().form_invalid(form)
 
 
 class OnboardingStepMixin(LoginRequiredMixin):

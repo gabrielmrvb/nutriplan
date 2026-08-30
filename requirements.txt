@@ -5,6 +5,15 @@ django-environ>=0.12,<1.0
 # Notificacoes push (etapa 5)
 pywebpush>=2.0,<3.0
 
+# Login com Google. O allauth entra como MOTOR de OAuth/OIDC — as telas de
+# entrar e criar conta continuam sendo as do NutriPlan.
+#
+# O extra [socialaccount] nao e enfeite: ele traz o pyjwt[crypto], e sem ele o
+# callback do Google quebra com ModuleNotFoundError na hora de VERIFICAR A
+# ASSINATURA do id_token. A suite nao pega isso — nenhum teste decodifica um
+# id_token real —, so o handshake com o Google de verdade.
+django-allauth[socialaccount]>=65.19,<66.0
+
 # Producao
 gunicorn>=23.0
 whitenoise>=6.8

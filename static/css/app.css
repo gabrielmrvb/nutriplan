@@ -5040,3 +5040,66 @@ body.montando { overflow: hidden; }
   font-variant-numeric: tabular-nums;
 }
 .programa__resumo > span { white-space: nowrap; }
+
+/* ==========================================================================
+   37. Entrar com Google
+   ========================================================================== */
+
+/* O botão é SECUNDÁRIO, e isso é a decisão do bloco.
+
+   `GymReadyTests` trava um destaque por tela, e nas telas de entrada o
+   destaque é "Entrar" e "Criar conta". O Google é uma alternativa: mesma
+   largura, mesmo alvo, peso menor. Invertê-lo empurraria para o caminho que
+   nem todo mundo quer usar. */
+.google-entrada { margin: 0 0 .85rem; }
+
+.btn--google {
+  gap: .6rem;
+  font-weight: 650;
+}
+
+/* O "G" da marca do Google, no tamanho do texto ao lado.
+
+   As quatro cores são exigidas pelas diretrizes de marca deles e vivem no
+   próprio SVG, no template — é o único lugar do app onde uma cor não sai de
+   token, e sai porque é marca de terceiro. Repintá-la em `currentColor` seria
+   descumprir a regra de quem a licencia. */
+.btn__g {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: none;
+}
+
+/* O "ou" entre os dois caminhos: uma linha atravessada pela palavra.
+
+   Grade de três colunas em vez de pseudo-elementos com `border-top`: com
+   `1fr auto 1fr` os dois fios têm exatamente a mesma largura em qualquer
+   tamanho de tela, e a palavra fica centrada sem cálculo. */
+.separador-ou {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: .75rem;
+  margin: 0 0 1.1rem;
+  color: var(--text-mute);
+  font-size: .8rem;
+}
+.separador-ou::before,
+.separador-ou::after {
+  content: "";
+  height: 1px;
+  background: var(--border);
+}
+
+/* A tela de conectar a conta (o caso 4 da política de vínculo). */
+.vinculo__email {
+  margin: -.35rem 0 1.15rem;
+  color: var(--text);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.vinculo__explica {
+  margin: 0 0 1.1rem;
+  color: var(--text-dim);
+  font-size: .88rem;
+}

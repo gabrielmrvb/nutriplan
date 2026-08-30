@@ -9,6 +9,8 @@
     <h1 class="center">Entrar</h1>
     <p class="lead center">Bom te ver de volta.</p>
 
+    {% include "partials/botao_google.html" %}
+
     <form method="post" novalidate>
       {% csrf_token %}
       {% if form.non_field_errors %}

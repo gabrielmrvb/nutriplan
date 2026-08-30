@@ -382,3 +382,40 @@ class RestrictionsForm(OnboardingStepForm):
                     "distribuir as refeições. Confira os horários."
                 )
         return cleaned
+
+
+class ConectarGoogleForm(forms.Form):
+    """A senha do NutriPlan, pedida uma vez, para conectar o Google.
+
+    O caso 4 da política em `accounts/adapters.py`: o Google provou quem a
+    pessoa é do lado dele, e falta ela provar que a conta daqui também é dela.
+
+    Só a senha. Não pede o e-mail: ele já veio do fluxo OIDC validado, e um
+    campo editável aqui deixaria o cliente escolher a qual conta se conectar —
+    que é exatamente o que esta tela existe para impedir.
+    """
+
+    password = forms.CharField(
+        label="Sua senha do NutriPlan",
+        strip=False,
+        widget=forms.PasswordInput(
+            attrs={
+                "autofocus": True,
+                "autocomplete": "current-password",
+                "class": "field-input",
+            }
+        ),
+    )
+
+    def __init__(self, *args, usuario=None, **kwargs):
+        self.usuario = usuario
+        super().__init__(*args, **kwargs)
+
+    def clean_password(self):
+        senha = self.cleaned_data["password"]
+        # `check_password` do model, e não comparação de hash à mão: ele
+        # conhece o algoritmo gravado, atualiza o hash quando o padrão do
+        # Django muda, e tem tempo constante.
+        if self.usuario is None or not self.usuario.check_password(senha):
+            raise forms.ValidationError("Senha incorreta.")
+        return senha
