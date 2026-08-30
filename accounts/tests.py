@@ -26,7 +26,7 @@ from plans.models import NutritionPlan
 from plans.tests import create_complete_user
 
 from .adapters import MAXIMO_DE_TENTATIVAS, SESSAO_TENTATIVAS, SESSAO_VINCULO
-from .forms import PesagemForm
+from .forms import REGRAS_ESPERADAS, BodyDataForm, PesagemForm, SignupForm
 from workouts.services import preferencia_muda_a_divisao, split_for
 
 from .views import CAMINHO_COMPLETO, CAMINHO_CURTO
@@ -2224,3 +2224,196 @@ class OnboardingV22Tests(TestCase):
 
         self.assertRedirects(self.client.get(step_url(5)), step_url(1))
         self.assertRedirects(self.client.get(step_url(3)), step_url(1))
+
+
+class PesoDoOnboardingTests(TestCase):
+    """O peso do passo 1 aceitando vírgula.
+
+    O campo era `DecimalField` com `NumberInput`, ou seja `type="number"`: o
+    NAVEGADOR descartava "72,4" antes de enviar, o campo chegava vazio e o
+    formulário recusava dizendo que faltou preencher. Quem digita vírgula não
+    passava do primeiro passo sem adivinhar que precisava de ponto.
+
+    A defesa é dupla e nenhuma metade basta: o servidor traduz a vírgula, e o
+    widget de texto deixa a vírgula chegar até ele.
+    """
+
+    def _dados(self, peso):
+        return {
+            "sex": "M",
+            "birth_date": "1995-04-12",
+            "height_cm": "178",
+            "weight_kg": peso,
+        }
+
+    def test_virgula_e_aceita_e_vira_o_numero_certo(self):
+        form = BodyDataForm(data=self._dados("72,4"))
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["weight_kg"], Decimal("72.4"))
+
+    def test_ponto_continua_aceito(self):
+        form = BodyDataForm(data=self._dados("72.4"))
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["weight_kg"], Decimal("72.4"))
+
+    def test_o_navegador_nao_pode_barrar_a_virgula(self):
+        """`type="number"` descarta "72,4" antes de o servidor ver.
+
+        Traduzir no servidor não adianta se o campo nunca chega — por isso o
+        widget é de texto, com teclado numérico.
+        """
+        html = str(BodyDataForm()["weight_kg"])
+
+        self.assertIn('type="text"', html)
+        self.assertIn('inputmode="decimal"', html)
+        self.assertNotIn('type="number"', html)
+
+    def test_texto_sem_numero_e_recusado_com_mensagem_clara(self):
+        form = BodyDataForm(data=self._dados("mais ou menos setenta"))
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("use números", form.errors["weight_kg"][0])
+
+    def test_vazio_continua_sendo_erro(self):
+        form = BodyDataForm(data=self._dados(""))
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("weight_kg", form.errors)
+
+    def test_negativo_e_absurdo_continuam_fora_da_faixa(self):
+        for peso in ("-5", "0", "3", "900"):
+            with self.subTest(peso=peso):
+                form = BodyDataForm(data=self._dados(peso))
+                self.assertFalse(form.is_valid())
+                self.assertIn("weight_kg", form.errors)
+
+    def test_o_peso_com_virgula_chega_gravado_no_banco(self):
+        """Aceitar não basta: o número tem que persistir com o valor certo."""
+        user = create_complete_user(email="virgula@exemplo.com")
+        Profile.objects.filter(user=user).update(onboarding_step=1)
+        self.client.force_login(user)
+
+        self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 1}),
+            self._dados("72,4"),
+        )
+
+        self.assertEqual(
+            WeightEntry.objects.filter(user=user).latest("id").weight_kg,
+            Decimal("72.40"),
+        )
+
+    def test_editar_o_peso_depois_tambem_aceita_virgula(self):
+        """O passo 1 é reaberto pelo perfil — o caminho de edição usa o mesmo
+        formulário e não pode divergir."""
+        user = create_complete_user(email="edicao@exemplo.com")
+        self.client.force_login(user)
+
+        self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 1}),
+            self._dados("81,25"),
+        )
+
+        self.assertEqual(
+            WeightEntry.objects.filter(user=user).latest("id").weight_kg,
+            Decimal("81.25"),
+        )
+
+
+class RegrasDeSenhaTests(TestCase):
+    """O texto de ajuda do cadastro, e o que o mantém honesto."""
+
+    def test_a_lista_descreve_os_validadores_realmente_configurados(self):
+        """A ajuda é escrita à mão; os validadores é que recusam senha.
+
+        Se alguém acrescentar, remover ou trocar um validador, o texto passa a
+        mentir sobre a regra. Este teste quebra antes do usuário ver.
+        """
+        configurados = [
+            v["NAME"].rsplit(".", 1)[-1]
+            for v in settings.AUTH_PASSWORD_VALIDATORS
+        ]
+
+        self.assertEqual(tuple(configurados), REGRAS_ESPERADAS)
+
+    def test_o_texto_ficou_mais_curto_que_o_padrao_do_django(self):
+        from django.contrib.auth import password_validation
+
+        padrao = str(password_validation.password_validators_help_text_html())
+        nosso = str(SignupForm().fields["password1"].help_text)
+
+        self.assertLess(len(nosso), len(padrao))
+        self.assertIn("8 caracteres", nosso)
+
+    def test_a_validacao_de_senha_continua_recusando(self):
+        """O texto encurtou; a exigência, não."""
+        casos = ("12345678", "senha123", "abc")
+        for senha in casos:
+            with self.subTest(senha=senha):
+                form = SignupForm(data={
+                    "first_name": "Teste", "email": "senha%s@exemplo.com" % len(senha),
+                    "password1": senha, "password2": senha,
+                })
+                self.assertFalse(form.is_valid())
+                self.assertIn("password2", form.errors)
+
+    def test_uma_senha_boa_continua_passando(self):
+        form = SignupForm(data={
+            "first_name": "Teste", "email": "boa@exemplo.com",
+            "password1": "Girassol!2026#", "password2": "Girassol!2026#",
+        })
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+
+class NavegacaoTests(TestCase):
+    """A navegação de desktop e a de celular precisam alcançar as mesmas telas."""
+
+    def setUp(self):
+        self.user = create_complete_user(email="nav@exemplo.com")
+        self.client.force_login(self.user)
+
+    def test_suplementos_tem_porta_na_barra_do_topo(self):
+        """A tabbar é `display: none` acima de 60rem.
+
+        Suplementos existia só nela: no desktop a tela ficava sem link nenhum,
+        alcançável apenas por quem digitasse o endereço.
+        """
+        html = self.client.get(reverse("plans:today")).content.decode()
+        topo = html.split('class="app-bar__nav"', 1)[1].split("</nav>", 1)[0]
+
+        self.assertIn(reverse("supplements:list"), topo)
+
+    def test_as_duas_barras_levam_ao_mesmo_conjunto_de_telas(self):
+        html = self.client.get(reverse("plans:today")).content.decode()
+        topo = html.split('class="app-bar__nav"', 1)[1].split("</nav>", 1)[0]
+        baixo = html.split('class="tabbar"', 1)[1].split("</nav>", 1)[0]
+        destinos = lambda t: {
+            m for m in re.findall(r'href="([^"]+)"', t) if not m.startswith("#")
+        }
+
+        self.assertEqual(destinos(topo), destinos(baixo))
+
+    def test_a_tela_de_suplementos_marca_o_item_ativo(self):
+        html = self.client.get(reverse("supplements:list")).content.decode()
+        topo = html.split('class="app-bar__nav"', 1)[1].split("</nav>", 1)[0]
+        link = [l for l in topo.split("<a ") if reverse("supplements:list") in l][0]
+
+        self.assertIn("is-active", link)
+
+
+class FaviconTests(TestCase):
+    """O navegador pede `/favicon.ico` na raiz sozinho, sem olhar o `<link>`."""
+
+    def test_a_raiz_deixa_de_responder_404(self):
+        resposta = self.client.get("/favicon.ico")
+
+        self.assertEqual(resposta.status_code, 301)
+        self.assertIn("favicon.ico", resposta["Location"])
+
+    def test_o_destino_do_redirecionamento_e_o_arquivo_que_existe(self):
+        alvo = Path(settings.BASE_DIR) / "static" / "icons" / "favicon.ico"
+
+        self.assertTrue(alvo.exists(), "o .ico precisa existir no static")

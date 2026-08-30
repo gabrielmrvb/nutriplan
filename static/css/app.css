@@ -5788,3 +5788,24 @@ body.montando { overflow: hidden; }
 }
 
 .meal--agora { border-color: var(--border-strong); }
+
+/* -- As regras de senha, no cadastro ------------------------------------- */
+
+/* O padrão do Django repete "Sua senha" quatro vezes e vira um parágrafo de
+   272 caracteres. O sujeito subiu para o título e os requisitos viraram lista
+   curta — mesma exigência, metade da leitura. A validação não mudou: quem
+   recusa senha continua sendo `AUTH_PASSWORD_VALIDATORS`. */
+.senha__titulo {
+  margin: 0 0 .2rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.senha__regras {
+  margin: 0;
+  padding-left: 1.05rem;
+  display: grid;
+  gap: .1rem;
+}
+
+.senha__regras > li { line-height: 1.35; }

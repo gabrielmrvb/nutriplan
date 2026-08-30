@@ -1,6 +1,8 @@
 from allauth.urls import build_provider_urlpatterns
 from django.contrib import admin
+from django.templatetags.static import static as static_url
 from django.urls import include, path
+from django.views.generic.base import RedirectView
 
 from push import views as push_views
 
@@ -40,6 +42,17 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     # O service worker precisa vir da raiz: um arquivo servido de /static/ só
     # teria escopo sobre /static/ e não controlaria as páginas do app.
+    # O navegador pede `/favicon.ico` na RAIZ, sozinho, sem olhar o `<link>`.
+    #
+    # O arquivo existe e é servido em `/static/icons/favicon.ico`; a raiz
+    # respondia 404 em toda visita, local e em produção — conferido nos dois.
+    # Um redirecionamento permanente resolve sem inventar rota de arquivo:
+    # quem pergunta uma vez aprende o caminho e não pergunta de novo.
+    path(
+        "favicon.ico",
+        RedirectView.as_view(url=static_url("icons/favicon.ico"), permanent=True),
+        name="favicon",
+    ),
     path("sw.js", push_views.ServiceWorkerView.as_view(), name="service_worker"),
     path("manifest.webmanifest", push_views.ManifestView.as_view(), name="manifest"),
     path("offline/", push_views.OfflineView.as_view(), name="offline"),

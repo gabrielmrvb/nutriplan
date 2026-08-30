@@ -12,6 +12,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
+from django.utils.safestring import mark_safe
 
 from catalog.models import DietaryTag, TagKind
 
@@ -26,6 +27,26 @@ from .models import (
     User,
     Weekday,
     WeightEntry,
+)
+
+
+#: Os validadores que `REGRAS_DE_SENHA` descreve, na ordem em que aparecem.
+#: O teste compara com `settings.AUTH_PASSWORD_VALIDATORS`.
+REGRAS_ESPERADAS = (
+    "UserAttributeSimilarityValidator",
+    "MinimumLengthValidator",
+    "CommonPasswordValidator",
+    "NumericPasswordValidator",
+)
+
+REGRAS_DE_SENHA = mark_safe(
+    "<p class=\"senha__titulo\">Sua senha precisa:</p>"
+    "<ul class=\"senha__regras\">"
+    "<li>ter pelo menos 8 caracteres</li>"
+    "<li>não ser só números</li>"
+    "<li>não ser uma senha comum</li>"
+    "<li>não parecer com seu nome ou e-mail</li>"
+    "</ul>"
 )
 
 
@@ -47,6 +68,20 @@ class SignupForm(UserCreationForm):
         super().__init__(*args, **kwargs)
         self.fields["password1"].label = "Senha"
         self.fields["password2"].label = "Confirme a senha"
+        # A ajuda da senha, encurtada. A VALIDAÇÃO não muda: quem recusa senha
+        # continua sendo `AUTH_PASSWORD_VALIDATORS`, intacto — isto aqui é
+        # texto de tela.
+        #
+        # O padrão do Django repete "Sua senha" quatro vezes, uma por regra, e
+        # o resultado são 272 caracteres de parágrafo onde a pessoa precisa de
+        # uma lista para conferir. O sujeito sai para o título e sobram os
+        # quatro requisitos, cada um em três a cinco palavras.
+        #
+        # `REGRAS_ESPERADAS` existe porque este texto é escrito à mão: se
+        # alguém acrescentar ou trocar um validador, a lista fica mentindo. Há
+        # teste comparando as duas coisas, e ele quebra antes do usuário ver.
+        self.fields["password1"].help_text = REGRAS_DE_SENHA
+        self.fields["password2"].help_text = ""
         for field in self.fields.values():
             field.widget.attrs.setdefault("class", "field-input")
         self.fields["email"].widget.attrs.update(
@@ -92,18 +127,52 @@ class OnboardingStepForm(forms.ModelForm):
             field.widget.attrs.setdefault("class", self.css_class)
 
 
+class PesoField(forms.DecimalField):
+    """Um peso digitado por gente que escreve "82,5".
+
+    O campo chega como texto porque `type="number"` recusa vírgula, e o app é
+    pt-BR. A troca acontece antes da conversão: `Decimal("82,5")` levanta
+    `InvalidOperation`, então esperar o `to_python` do Django decidir seria
+    recusar exatamente o formato que a tela pede.
+
+    Mesma tradução que a carga da ficha faz em `workouts/views.py`.
+    """
+
+    def to_python(self, value):
+        if isinstance(value, str):
+            value = value.replace(",", ".").strip()
+        return super().to_python(value)
+
+
 class BodyDataForm(OnboardingStepForm):
     """Passo 1 — sexo, nascimento, altura e peso atual."""
 
-    weight_kg = forms.DecimalField(
+    #: O peso do passo 1 — e o único campo decimal do onboarding.
+    #:
+    #: Era `DecimalField` com `NumberInput`, e isso significa `type="number"`:
+    #: o NAVEGADOR descarta "72,4" antes de enviar, o campo chega vazio e o
+    #: formulário recusa dizendo que faltou preencher. Quem digita vírgula —
+    #: ou seja, o Brasil — não conseguia passar do primeiro passo sem adivinhar
+    #: que precisava de ponto.
+    #:
+    #: A defesa é dupla, e nenhuma metade basta sozinha: `PesoField` troca a
+    #: vírgula por ponto no servidor, e `TextInput` deixa a vírgula chegar até
+    #: lá. É a mesma dupla que a pesagem e a carga da ficha já usavam.
+    weight_kg = PesoField(
         label="Peso atual",
         max_digits=5,
         decimal_places=2,
         validators=[MinValueValidator(Decimal("20")), MaxValueValidator(Decimal("400"))],
-        widget=forms.NumberInput(
+        error_messages={
+            "invalid": "Peso inválido — use números, como 82,5.",
+            "min_value": "Peso fora da faixa que o app calcula — use de 20 a 400 kg.",
+            "max_value": "Peso fora da faixa que o app calcula — use de 20 a 400 kg.",
+            "required": "Digite o peso, como 82,5.",
+        },
+        widget=forms.TextInput(
             attrs={
-                "step": "0.1",
                 "inputmode": "decimal",
+                "maxlength": "6",
                 "placeholder": "75,5",
                 "sufixo": "kg",
             }
@@ -165,23 +234,6 @@ class BodyDataForm(OnboardingStepForm):
                 defaults={"weight_kg": self.cleaned_data["weight_kg"]},
             )
         return profile
-
-
-class PesoField(forms.DecimalField):
-    """Um peso digitado por gente que escreve "82,5".
-
-    O campo chega como texto porque `type="number"` recusa vírgula, e o app é
-    pt-BR. A troca acontece antes da conversão: `Decimal("82,5")` levanta
-    `InvalidOperation`, então esperar o `to_python` do Django decidir seria
-    recusar exatamente o formato que a tela pede.
-
-    Mesma tradução que a carga da ficha faz em `workouts/views.py`.
-    """
-
-    def to_python(self, value):
-        if isinstance(value, str):
-            value = value.replace(",", ".").strip()
-        return super().to_python(value)
 
 
 class PesagemForm(forms.Form):

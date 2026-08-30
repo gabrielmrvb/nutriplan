@@ -1021,6 +1021,20 @@ class ResponseCompressionTests(TestCase):
         ) + "".join(
             caminho.read_text(encoding="utf-8")
             for caminho in (RAIZ / "static" / "js").rglob("*.js")
+        ) + "".join(
+            # Marcação também nasce em Python: `SignupForm` monta a lista de
+            # regras de senha com `mark_safe`, porque `help_text` é atributo do
+            # campo e não conteúdo de template. Sem ler estes arquivos, as
+            # classes de lá pareceriam órfãs.
+            #
+            # ARQUIVO DE TESTE FICA DE FORA, e é a parte que importa: um teste
+            # que cita `.foo` faria `.foo` contar como usada, e esta checagem
+            # existe justamente para achar CSS que ninguém renderiza.
+            caminho.read_text(encoding="utf-8")
+            for caminho in RAIZ.rglob("*.py")
+            if ".venv" not in caminho.parts
+            and "migrations" not in caminho.parts
+            and not caminho.name.startswith(("test_", "tests"))
         )
 
         # Só os blocos que definem aparência, e só classes com `__` — as de
