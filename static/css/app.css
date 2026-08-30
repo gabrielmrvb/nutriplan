@@ -647,6 +647,10 @@ h3 { font-size: .95rem; font-weight: 650; }
 .card__head a {
   display: inline-flex;
   align-items: center;
+  /* O `gap` só existe quando o link tem DOIS filhos. Os cabeçalhos que levam
+     apenas texto continuam idênticos: uma caixa de texto sozinha é um item
+     flex só, e gap não separa nada de nada. */
+  gap: .4rem;
   flex: none;
   min-height: 2.75rem;
   padding: 0 .3rem;
@@ -655,6 +659,10 @@ h3 { font-size: .95rem; font-weight: 650; }
   font-weight: 650;
   text-decoration: none;
 }
+
+/* `flex: none` porque o ícone não pode encolher quando o título do cartão for
+   longo: quem cede espaço é o texto, que tem `min-width: 0` no h2 ao lado. */
+.card__head a svg { width: 1.15rem; height: 1.15rem; flex: none; }
 
 /* ==========================================================================
    6. Painel do dia

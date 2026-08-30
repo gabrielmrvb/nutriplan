@@ -281,7 +281,21 @@ coluna da direita), não entre ela e o almoço.
 
         <div class="card__head">
           <h2>Seu cardápio de hoje</h2>
-          <a href="{% url 'plans:shopping' %}">Lista de compras</a>
+          <a href="{% url 'plans:shopping' %}">
+            {% comment %}
+              Decorativo: quem lê por leitor de tela já recebe "Lista de
+              compras" logo ao lado, e um `aria-label` aqui faria o link ser
+              anunciado duas vezes.
+            {% endcomment %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                 aria-hidden="true" focusable="false">
+              <path d="M2.5 3.5h2.5l2.6 11.4h9.6L19.8 8H6"/>
+              <circle cx="10" cy="18.8" r="1.5"/>
+              <circle cx="17" cy="18.8" r="1.5"/>
+            </svg>
+            Lista de compras
+          </a>
         </div>
 
         {% for slot in slots %}

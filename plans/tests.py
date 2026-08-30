@@ -1069,6 +1069,30 @@ class SeededCatalogTests(TestCase):
         self.assertContains(response, slot.name)
         self.assertContains(response, slot.options.first().template.name)
 
+    def test_o_link_da_lista_de_compras_leva_um_icone(self):
+        """O ícone é decorativo: quem enxerga ganha reconhecimento, quem usa
+        leitor de tela continua ouvindo só "Lista de compras".
+
+        A asserção recorta o PRÓPRIO link antes de olhar para dentro. Procurar
+        "<svg" na página inteira passaria por acidente — a barra de navegação
+        tem cinco.
+        """
+        self.client.force_login(create_complete_user())
+
+        response = self.client.get(reverse("plans:today"))
+        html = response.content.decode()
+
+        link = re.search(
+            r'<a[^>]+href="%s"[^>]*>(.*?)</a>' % re.escape(reverse("plans:shopping")),
+            html,
+            re.S,
+        )
+        self.assertIsNotNone(link, "o link da lista de compras sumiu da tela Hoje")
+        dentro = link.group(1)
+        self.assertIn("<svg", dentro)
+        self.assertIn('aria-hidden="true"', dentro)
+        self.assertIn("Lista de compras", dentro)
+
 
 # ---------------------------------------------------------------------------
 # Etapa 5 — acompanhamento diário
