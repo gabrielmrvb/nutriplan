@@ -1,6 +1,6 @@
 """Lista de compras da semana, montada a partir do cardápio.
 
-Duas decisões moldam tudo aqui:
+Três decisões moldam tudo aqui:
 
 1. **A lista é organizada por corredor de supermercado, não por refeição nem
    por macro.** Quem está no mercado anda por corredor. Uma lista que manda
@@ -11,15 +11,31 @@ Duas decisões moldam tudo aqui:
    compra 847 g de arroz. A conta exata serve ao gerador de cardápio; a lista
    de compras serve a quem empurra o carrinho, e para essa pessoa "1 kg" é uma
    informação melhor que "847 g".
+
+3. **Uma alternativa por refeição por dia, e não as duas.** Quem tem frango ou
+   ovo no almoço vai comer um dos dois. Somar as alternativas encheria a lista
+   de comida que ninguém cozinha, e lista inflada é lista em que a pessoa para
+   de confiar. O rótulo pedido (`?opcao=A` ou `B`) escolhe qual seguir.
+
+   A regra é a mesma desde a primeira versão. O que o cardápio V2 mudou foi
+   apenas de onde a alternativa sai: a semana passou a ser projetada dia a dia,
+   pela MESMA função que a tela Hoje usa, em vez de um dia multiplicado por
+   sete.
 """
+from datetime import timedelta
 from decimal import Decimal
+
+from django.utils import timezone
 
 from catalog.models import Aisle
 
-from .models import MealOption
+from . import rodizio
 
-#: Quantos dias a lista cobre. O cardápio é o mesmo todo dia (a meta é única),
-#: então a semana é o cardápio vezes sete.
+#: Quantos dias a lista cobre.
+#:
+#: Já foi um multiplicador — o cardápio era o mesmo todo dia, então a semana
+#: era um dia vezes sete. Com o rodízio do cardápio V2 isso deixou de valer: a
+#: semana é percorrida data a data, e este número diz quantas datas.
 DAYS = 7
 
 #: Ordem em que a lista aparece — a ordem em que se anda num mercado comum:
@@ -65,44 +81,70 @@ def humanize(quantity: Decimal, unit: str) -> str:
     return f"{quantity.to_integral_value()} {unit}"
 
 
-def weekly_quantities(plan, label=None) -> dict:
+def dias_da_semana(inicio=None) -> list:
+    """As sete datas LOCAIS que a lista cobre, a partir de hoje.
+
+    `timezone.localdate()`, nunca `date.today()`: o servidor roda em UTC e, das
+    21h à meia-noite de Brasília, `date.today()` já está no dia seguinte. A
+    lista compraria a semana errada por três horas todo dia.
+    """
+    inicio = inicio or timezone.localdate()
+    return [inicio + timedelta(days=i) for i in range(DAYS)]
+
+
+def weekly_quantities(plan, label=None, inicio=None) -> dict:
     """Quanto de cada alimento o cardápio da semana consome.
 
-    `label` escolhe entre seguir a Opção A ou a B de cada refeição. Sem ele, a
-    lista assume a A — é a que a tela apresenta primeiro e a que o total do dia
-    já usa como referência.
+    A REGRA DE PRODUTO NÃO MUDOU: uma opção por refeição por dia. Quem tem
+    frango ou ovo no almoço vai comer um dos dois, não os dois — somar as
+    alternativas encheria a lista de comida que ninguém vai cozinhar, e o
+    primeiro efeito de uma lista inflada é a pessoa parar de confiar nela.
+
+    `label` escolhe qual das alternativas seguir. Sem ele, a lista assume a A —
+    é a que a tela apresenta primeiro e a que o total do dia usa como
+    referência.
+
+    O QUE MUDOU é de onde sai essa opção. Antes o cardápio era o mesmo todo
+    dia, então bastava pegar a opção A do horário e multiplicar por sete. Com o
+    rodízio do cardápio V2, a opção A de segunda pode ser outra receita que a
+    de terça — multiplicar uma delas por sete compraria uma semana que não vai
+    acontecer.
+
+    Agora a semana é percorrida dia a dia, projetando cada data com a MESMA
+    função que a tela Hoje usa (`rodizio.opcoes_do_dia`). Uma regra de
+    projeção, vários consumidores: uma segunda implementação aqui divergiria da
+    tela na primeira mudança, e a pessoa compraria uma coisa e cozinharia
+    outra.
     """
-    options = (
-        MealOption.objects.filter(slot__plan=plan)
-        .select_related("template", "slot")
-        .prefetch_related("template__items__food")
-        .order_by("slot__order", "label")
+    slots = list(
+        plan.slots.prefetch_related("options__template__items__food").order_by("order")
     )
 
-    escolhidas = {}
-    for option in options:
-        # Uma opção por horário: a primeira do rótulo pedido, ou a primeira que
-        # existir quando aquele horário não tem a opção B.
-        atual = escolhidas.get(option.slot_id)
-        if atual is None or (label and option.label == label and atual.label != label):
-            escolhidas[option.slot_id] = option
-
     totais = {}
-    for option in escolhidas.values():
-        for item in option.template.items.all():
-            quantidade = item.scaled_quantity(option.scale_factor) * DAYS
-            entrada = totais.setdefault(
-                item.food,
-                {"food": item.food, "quantity": Decimal("0"), "recipes": set()},
+    for dia in dias_da_semana(inicio):
+        for slot in slots:
+            projetadas = rodizio.opcoes_do_dia(slot, plan.user_id, dia)
+            if not projetadas:
+                continue
+            # A do rótulo pedido, ou a primeira quando aquele dia projetou só
+            # uma — que é o caso de um horário com repertório de tamanho um.
+            escolhida = next(
+                (opcao for opcao in projetadas if opcao.rotulo == label), projetadas[0]
             )
-            entrada["quantity"] += quantidade
-            entrada["recipes"].add(option.template.name)
+            for item in escolhida.template.items.all():
+                quantidade = item.scaled_quantity(escolhida.scale_factor)
+                entrada = totais.setdefault(
+                    item.food,
+                    {"food": item.food, "quantity": Decimal("0"), "recipes": set()},
+                )
+                entrada["quantity"] += quantidade
+                entrada["recipes"].add(escolhida.template.name)
     return totais
 
 
-def shopping_list(plan, label=None) -> list:
+def shopping_list(plan, label=None, inicio=None) -> list:
     """A lista pronta para a tela: corredores, com os itens de cada um."""
-    totais = weekly_quantities(plan, label=label)
+    totais = weekly_quantities(plan, label=label, inicio=inicio)
 
     por_corredor = {}
     for entrada in totais.values():

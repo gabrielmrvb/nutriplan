@@ -105,17 +105,22 @@ class MealSlot(models.Model):
 
 
 class OptionLabel(models.TextChoices):
-    """Os rótulos possíveis de uma opção — e, por tabela, quantas existem.
+    """Os rótulos que a TELA usa para as opções do dia.
 
-    São duas, e a lista é a fonte da verdade disso: o gerador oferece uma opção
-    por rótulo (veja `meal_planner.OPTIONS_PER_SLOT`), então não há como o
-    cardápio crescer sem alguém acrescentar um rótulo aqui de propósito.
+    Isto é apresentação, e deixou de ser identidade quando o cardápio V2
+    chegou. "A" quer dizer "a primeira opção projetada para hoje", e amanhã
+    pode ser outra receita; quem guarda a identidade persistente de uma opção
+    é `MealOption.rank`, que não muda. Ver `plans/rodizio.py`.
 
-    Duas não é limitação técnica, é decisão de produto: a pessoa abre o app com
-    fome e precisa escolher, não comparar. Com três ou mais a tela vira cardápio
-    de restaurante, a decisão custa mais do que cozinhar, e quem está começando
-    pula a refeição. Duas opções mantêm a escolha ("tenho frango ou tenho ovo")
-    sem transformar o almoço num problema.
+    A lista continua sendo a fonte da verdade de QUANTAS opções aparecem por
+    dia — `rodizio.POR_DIA` sai daqui —, e continuam sendo duas pela mesma
+    decisão de produto de sempre: a pessoa abre o app com fome e precisa
+    escolher, não comparar. Com três ou mais a tela vira cardápio de
+    restaurante, a decisão custa mais do que cozinhar, e quem está começando
+    pula a refeição.
+
+    O que mudou é que agora essas duas saem de um repertório de quatro, em vez
+    de serem as duas únicas que existem.
     """
 
     A = "A", "Opção A"
@@ -129,7 +134,14 @@ class MealOption(models.Model):
     template = models.ForeignKey(
         MealTemplate, on_delete=models.PROTECT, related_name="plan_options"
     )
-    label = models.CharField(max_length=1, choices=OptionLabel.choices)
+    #: A posição desta opção dentro do repertório do slot, a partir de zero.
+    #:
+    #: É a IDENTIDADE ESTRUTURAL da opção, e substituiu o antigo `label`. O
+    #: rótulo era `max_length=1` com escolhas A e B: crescer para quatro
+    #: opções exigiria inventar "C" e "D" e transformar texto de tela em chave
+    #: de negócio. O rank é a posição, e a posição é o que o repertório tem de
+    #: estável — o rótulo A/B passou a ser calculado na projeção do dia.
+    rank = models.PositiveSmallIntegerField("posição no repertório")
     scale_factor = models.DecimalField(
         "fator de escala",
         max_digits=4,
@@ -146,16 +158,21 @@ class MealOption(models.Model):
     class Meta:
         verbose_name = "opção de refeição"
         verbose_name_plural = "opções de refeição"
-        ordering = ["label"]
+        ordering = ["rank"]
         constraints = [
-            models.UniqueConstraint(fields=["slot", "label"], name="unique_label_per_slot"),
+            # Antes era `unique(slot, label)`. A posição é que precisa ser
+            # única dentro do horário; o rótulo A/B nem existe mais no banco.
+            models.UniqueConstraint(fields=["slot", "rank"], name="unique_rank_per_slot"),
+            # Continua valendo, e passa a valer mais: com quatro opções por
+            # horário, receita repetida dentro do mesmo slot seria a pessoa
+            # vendo o mesmo prato como duas alternativas.
             models.UniqueConstraint(
                 fields=["slot", "template"], name="unique_template_per_slot"
             ),
         ]
 
     def __str__(self):
-        return f"{self.label}: {self.template.name}"
+        return f"#{self.rank}: {self.template.name}"
 
     def ingredient_list(self):
         """Ingredientes com as quantidades já escaladas, para exibir na tela.

@@ -7,15 +7,22 @@ disparando toda vez que a tela abre.
 """
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+import ast
+import hashlib
+import inspect
 from pathlib import Path
 import re
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 
 from django.core.management import call_command
 from django.http import QueryDict
 from django.db.models import Sum
-from django.test import TestCase
+from django.db import IntegrityError, connection
+from django.db.migrations.executor import MigrationExecutor
+from django.test import TestCase, TransactionTestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -32,7 +39,7 @@ from accounts.models import (
 )
 from catalog.models import DietaryTag, Food, MealCategory, MealTemplate, MealTemplateItem, TagKind
 
-from . import agora, meal_planner, services, shopping, tracking, views
+from . import agora, meal_planner, rodizio, services, shopping, tracking, views
 from workouts import services as workout_services
 from workouts.models import TrainingSession
 from .calculations import (
@@ -799,12 +806,26 @@ class MealGenerationTests(CatalogFixture):
         self.user = create_complete_user()
         self.plan = services.create_plan(self.user)
 
-    def test_plan_comes_with_five_slots_and_two_options_each(self):
+    def test_cada_horario_guarda_o_repertorio_que_o_catalogo_permite(self):
+        """Quatro quando dá, e o que couber quando não dá.
+
+        A fixture é pequena de propósito — tem dois cafés da manhã — e por isso
+        é justamente ela que prova o teto e o piso na mesma passada: o gerador
+        nunca passa de `OPTIONS_PER_SLOT`, e nunca fica abaixo do que o catálogo
+        oferecia para aquele horário.
+        """
         slots = list(self.plan.slots.all())
         self.assertEqual(len(slots), len(meal_planner.DAY_BLUEPRINT))
+
         for slot in slots:
-            self.assertEqual(slot.options.count(), 2, slot.name)
-        self.assertEqual(MealOption.objects.filter(slot__plan=self.plan).count(), 10)
+            with self.subTest(slot=slot.name):
+                candidatas = len(meal_planner.candidates_for(slot.category, []))
+                esperado = min(candidatas, meal_planner.OPTIONS_PER_SLOT)
+
+                self.assertLessEqual(
+                    slot.options.count(), meal_planner.OPTIONS_PER_SLOT
+                )
+                self.assertGreaterEqual(slot.options.count(), min(esperado, rodizio.POR_DIA))
 
     def test_slot_targets_add_up_to_the_daily_target(self):
         totals = self.plan.slots.aggregate(
@@ -818,13 +839,46 @@ class MealGenerationTests(CatalogFixture):
         self.assertEqual(totals["carb"], self.plan.carb_g)
         self.assertEqual(totals["fat"], self.plan.fat_g)
 
-    def test_the_same_recipe_does_not_repeat_in_the_day(self):
-        used = list(
-            MealOption.objects.filter(slot__plan=self.plan).values_list(
-                "template_id", flat=True
+    def test_a_receita_so_repete_depois_de_esgotar_o_catalogo(self):
+        """Repetir é o último recurso, e o teste mede isso — não o total.
+
+        Com repertório de dois, o dia consumia dez receitas e o catálogo de
+        teste dava conta: bastava exigir zero repetição. Com quatro por horário
+        são vinte, e a fixture não tem vinte — a asserção antiga passou a
+        cobrar do gerador uma coisa que o catálogo não permite, e um teste
+        assim não protege regra nenhuma, só o tamanho da fixture.
+
+        A regra de verdade continua valendo e é esta: enquanto sobrar receita
+        inédita que sirva o horário, o gerador tem que usá-la. Repetição com
+        candidata inédita na prateleira é defeito; repetição com prateleira
+        vazia é o fallback funcionando.
+
+        O catálogo REAL, onde as vinte cabem, tem a asserção forte de zero
+        repetição em `SeededCatalogTests`.
+        """
+        opcoes = MealOption.objects.filter(slot__plan=self.plan).select_related("slot")
+        usadas = {opcao.template_id for opcao in opcoes}
+
+        # Dentro de um mesmo horário a repetição é impossível por constraint —
+        # aqui se confere que ela continua impossível na prática.
+        por_slot = {}
+        for opcao in opcoes:
+            por_slot.setdefault(opcao.slot_id, []).append(opcao.template_id)
+        for slot_id, templates in por_slot.items():
+            self.assertEqual(len(templates), len(set(templates)), slot_id)
+
+        # E nenhuma candidata ficou na prateleira enquanto alguma repetiu.
+        disponiveis = set()
+        for slot in self.plan.slots.all():
+            for template in meal_planner.candidates_for(slot.category, []):
+                disponiveis.add(template.pk)
+        houve_repeticao = len(list(opcoes)) > len(usadas)
+        if houve_repeticao:
+            self.assertEqual(
+                disponiveis - usadas,
+                set(),
+                "repetiu receita com candidata inédita disponível",
             )
-        )
-        self.assertEqual(len(used), len(set(used)))
 
     def test_dinner_lands_after_the_training_session(self):
         # Treino 19:00 + 60 min => pós-treino às 20:45.
@@ -849,33 +903,54 @@ class MealGenerationTests(CatalogFixture):
         self.assertEqual(ingredients[0]["quantity"], item.quantity_g * option.scale_factor)
 
 
-class TwoOptionsPerMealTests(CatalogFixture):
-    """Cada refeição oferece exatamente Opção A e Opção B — nunca uma terceira.
+class RepertorioPorRefeicaoTests(CatalogFixture):
+    """O repertório persistente de cada refeição — quatro opções, no banco.
 
-    A regra é de produto, não de banco: mais de duas escolhas na hora da fome
-    é o que faz a pessoa fechar o app e pedir delivery. Os testes olham para o
-    limite pelos dois lados — o gerador não estica quando sobra receita, e não
-    inventa rótulo quando falta.
+    A regra de produto NÃO mudou do lado da tela: continuam sendo duas escolhas
+    na hora da fome, porque mais que isso é o que faz a pessoa fechar o app e
+    pedir delivery. O que mudou é que essas duas passam a sair de um repertório
+    de quatro, em vez de serem as duas únicas que existem — era daí que vinha o
+    cardápio idêntico todo dia.
+
+    Aqui se testa o REPERTÓRIO. Quantas aparecem por dia, e quais, é assunto de
+    `RodizioDiarioTests`.
     """
 
     def setUp(self):
         self.user = create_complete_user()
         self.plan = services.create_plan(self.user)
 
-    def test_the_number_of_options_comes_from_the_labels(self):
-        self.assertEqual(meal_planner.OPTIONS_PER_SLOT, 2)
-        self.assertEqual(meal_planner.OPTIONS_PER_SLOT, len(OptionLabel.values))
+    def test_o_repertorio_e_maior_que_o_que_a_tela_mostra(self):
+        """As duas grandezas se separaram, e é isso que o cardápio V2 é.
 
-    def test_no_slot_offers_a_third_option(self):
+        Antes eram a mesma coisa: `OPTIONS_PER_SLOT == len(OptionLabel.values)`.
+        Se alguém voltar a amarrá-las, o repertório encolhe para dois e o
+        problema de variedade volta inteiro, sem mais nada quebrar.
+        """
+        self.assertEqual(meal_planner.OPTIONS_PER_SLOT, 4)
+        self.assertEqual(rodizio.POR_DIA, 2)
+        self.assertGreater(meal_planner.OPTIONS_PER_SLOT, rodizio.POR_DIA)
+
+    def test_os_ranks_de_um_horario_sao_uma_sequencia_sem_buraco(self):
+        """Posição é identidade: buraco ou repetição quebra a projeção.
+
+        `rodizio.indices_do_dia` trabalha em posições de 0 a N-1. Um horário com
+        ranks 0, 1 e 3 faria a projeção pedir a posição 2, que não existe.
+        """
         for slot in self.plan.slots.all():
             with self.subTest(slot=slot.name):
-                labels = list(slot.options.values_list("label", flat=True))
-                self.assertLessEqual(len(labels), 2)
-                self.assertEqual(sorted(labels), sorted(set(labels)))
-                self.assertTrue(set(labels) <= {OptionLabel.A, OptionLabel.B})
+                ranks = sorted(slot.options.values_list("rank", flat=True))
 
-    def test_a_large_catalog_still_yields_only_two(self):
-        """Catálogo farto é o caso em que a sobra apareceria."""
+                self.assertLessEqual(len(ranks), meal_planner.OPTIONS_PER_SLOT)
+                self.assertEqual(ranks, list(range(len(ranks))))
+
+    def test_catalogo_farto_para_no_tamanho_do_repertorio(self):
+        """Catálogo farto é o caso em que a sobra apareceria.
+
+        O gerador não estica: com receitas principais de sobra, o almoço
+        continua guardando quatro. Sem este limite o repertório cresceria junto
+        com o catálogo e a rotação viraria sorteio num saco sem fundo.
+        """
         for index in range(8):
             make_template(
                 f"Prato extra {index}",
@@ -886,14 +961,22 @@ class TwoOptionsPerMealTests(CatalogFixture):
         plan = services.create_plan(create_complete_user(email="farto@exemplo.com"))
 
         for slot in plan.slots.filter(category=MealCategory.MAIN):
-            self.assertEqual(slot.options.count(), 2, slot.name)
+            self.assertEqual(
+                slot.options.count(), meal_planner.OPTIONS_PER_SLOT, slot.name
+            )
 
-    def test_the_option_labels_are_handed_out_in_order(self):
+    def test_os_ranks_saem_na_ordem_da_pontuacao(self):
+        """Rank 0 é a melhor opção do horário, e daí para baixo.
+
+        Importa porque um repertório PARCIAL precisa ficar com as melhores
+        receitas, e não com as primeiras que o banco devolveu.
+        """
         for slot in self.plan.slots.all():
             options = list(slot.options.order_by("id"))
+
             self.assertEqual(
-                [option.label for option in options],
-                OptionLabel.values[: len(options)],
+                [option.rank for option in options],
+                list(range(len(options))),
                 slot.name,
             )
 
@@ -987,7 +1070,9 @@ class SeededCatalogTests(TestCase):
 
         self.assertEqual(plan.slots.count(), 5)
         for slot in plan.slots.all():
-            self.assertEqual(slot.options.count(), 2, slot.name)
+            self.assertEqual(
+                slot.options.count(), meal_planner.OPTIONS_PER_SLOT, slot.name
+            )
         self.assertEqual(plan.notes, "")
 
     def test_every_goal_gets_a_complete_menu(self):
@@ -1004,7 +1089,9 @@ class SeededCatalogTests(TestCase):
 
                 self.assertEqual(plan.slots.count(), 5)
                 for slot in plan.slots.all():
-                    self.assertEqual(slot.options.count(), 2, slot.name)
+                    self.assertEqual(
+                        slot.options.count(), meal_planner.OPTIONS_PER_SLOT, slot.name
+                    )
                 self.assertNotIn("catálogo", plan.notes)
 
     def test_the_menu_adds_up_to_the_daily_target(self):
@@ -1020,6 +1107,10 @@ class SeededCatalogTests(TestCase):
                 user = create_complete_user(email=f"menu-{goal}@exemplo.com", goal=goal)
                 plan = services.create_plan(user)
                 slots = list(plan.slots.prefetch_related("options"))
+                # `menu_totals` soma a opção PROJETADA do dia. Sem projetar
+                # antes ele estoura — de propósito, para ninguém somar zero em
+                # silêncio como aconteceu na primeira versão desta mudança.
+                rodizio.projetar(slots, user.pk)
 
                 menu = views.menu_totals(slots)
                 folga = abs(menu["kcal"] - plan.target_kcal)
@@ -1031,15 +1122,38 @@ class SeededCatalogTests(TestCase):
                 )
                 self.assertGreater(menu["protein_g"], 0)
 
-    def test_a_vegan_profile_also_gets_two_options_at_every_meal(self):
-        """A restrição mais apertada do catálogo é a régua da cobertura."""
+    def test_a_vegan_profile_also_gets_a_full_repertoire(self):
+        """A restrição mais apertada do catálogo é a régua da cobertura.
+
+        Com repertório de quatro a régua ficou bem mais dura: o dia inteiro
+        passou a precisar de vinte receitas veganas distintas, contra dez antes.
+        É este teste que diz se o catálogo aguenta o cardápio V2 no pior caso.
+        """
         user = create_complete_user(email="vegana@exemplo.com")
         user.profile.dietary_tags.add(DietaryTag.objects.get(slug="vegana"))
 
         plan = services.create_plan(user)
 
+        # O catálogo vegano não tem as vinte receitas distintas que um dia com
+        # repertório cheio consumiria — são quatro cafés, seis lanches e cinco
+        # principais. O contrato passa a ser o honesto: nenhum horário fica
+        # abaixo do que a TELA precisa, e nenhum passa do teto do repertório.
+        #
+        # Na prática isso dá rodízio no café, no lanche da manhã e no almoço, e
+        # repertório mínimo no lanche da tarde e no jantar — que continuam
+        # mostrando duas opções, sempre as mesmas. É pior que o cardápio
+        # completo e melhor que quatro opções com receita repetida dentro do
+        # mesmo dia, que era o que a versão anterior desta mudança produzia.
         for slot in plan.slots.all():
-            self.assertEqual(slot.options.count(), 2, slot.name)
+            with self.subTest(slot=slot.name):
+                self.assertGreaterEqual(slot.options.count(), rodizio.POR_DIA)
+                self.assertLessEqual(
+                    slot.options.count(), meal_planner.OPTIONS_PER_SLOT
+                )
+
+        # Zero repetição continua sendo a régua, e agora ela é alcançável
+        # porque o gerador parou de completar o repertório com cópias: prefere
+        # um horário com três receitas diferentes a um com quatro e duas iguais.
         usadas = MealOption.objects.filter(slot__plan=plan).values_list(
             "template_id", flat=True
         )
@@ -1069,7 +1183,12 @@ class SeededCatalogTests(TestCase):
         self.assertEqual(response.status_code, 200)
         slot = user.plans.get(is_active=True).slots.first()
         self.assertContains(response, slot.name)
-        self.assertContains(response, slot.options.first().template.name)
+        # A receita que a tela mostra é a PROJETADA de hoje, e não a primeira
+        # do repertório. Antes as duas coisas coincidiam porque só existiam
+        # duas opções e as duas apareciam; agora o rank 0 pode estar de fora
+        # hoje, e o teste pediria na tela um prato que não é o de hoje.
+        for opcao in rodizio.opcoes_do_dia(slot, user.pk):
+            self.assertContains(response, opcao.template.name)
 
     def test_o_link_da_lista_de_compras_leva_um_icone(self):
         """O ícone é decorativo: quem enxerga ganha reconhecimento, quem usa
@@ -3270,3 +3389,863 @@ class EstadoVazioDaListaDeComprasTests(CatalogFixture):
         self.assertEqual(
             self.client.get(reverse("plans:shopping")).status_code, 200
         )
+
+
+class RodizioDiarioTests(TestCase):
+    """A projeção diária: quais opções do repertório aparecem hoje.
+
+    Testes de pura função, sem banco: `indices_do_dia` só precisa saber o
+    tamanho do repertório, quem é a pessoa, qual o horário e que dia é. Manter
+    isso sem banco é o que permite varrer trinta dias em milissegundos e provar
+    distribuição de verdade, em vez de espiar dois dias e torcer.
+    """
+
+    HOJE = date(2026, 8, 30)
+
+    def _dia(self, n=0):
+        return self.HOJE + timedelta(days=n)
+
+    def _indices(self, total=4, pk=7, ordem=2, n=0):
+        return rodizio.indices_do_dia(total, user_pk=pk, slot_order=ordem, dia=self._dia(n))
+
+    # -- o contrato básico ------------------------------------------------
+
+    def test_projeta_exatamente_duas_com_repertorio_cheio(self):
+        for n in range(30):
+            with self.subTest(dia=n):
+                self.assertEqual(len(self._indices(n=n)), 2)
+
+    def test_as_duas_sao_sempre_distintas(self):
+        """Duas fatias do mesmo prato não são escolha nenhuma."""
+        for n in range(60):
+            with self.subTest(dia=n):
+                indices = self._indices(n=n)
+
+                self.assertEqual(len(set(indices)), len(indices))
+
+    def test_o_mesmo_dia_devolve_sempre_a_mesma_dupla(self):
+        """Recarregar a página não pode trocar o almoço.
+
+        É o requisito mais visível do rodízio: a pessoa abre, decide comer a
+        opção B, vai para a cozinha, volta — e a B tem que continuar sendo a
+        mesma comida.
+        """
+        primeira = self._indices()
+
+        for _ in range(20):
+            self.assertEqual(self._indices(), primeira)
+
+    def test_dias_diferentes_mudam_a_dupla(self):
+        """Se não mudasse, o cardápio V2 não existiria."""
+        vistos = {self._indices(n=n) for n in range(6)}
+
+        self.assertGreater(len(vistos), 1)
+
+    def test_pessoas_diferentes_nao_andam_em_bloco(self):
+        por_pessoa = {pk: self._indices(pk=pk) for pk in range(1, 40)}
+
+        self.assertGreater(len(set(por_pessoa.values())), 1)
+
+    def test_horarios_do_mesmo_dia_nao_andam_em_bloco(self):
+        """Sem isto o dia inteiro troca junto.
+
+        Café, almoço e jantar mudando na mesma cadência fazem o app parecer ter
+        dois cardápios que se alternam, em vez de variedade.
+        """
+        por_slot = {ordem: self._indices(ordem=ordem) for ordem in range(5)}
+
+        self.assertGreater(len(set(por_slot.values())), 1)
+
+    # -- distribuição ------------------------------------------------------
+
+    def test_as_quatro_opcoes_aparecem_dentro_de_uma_janela_curta(self):
+        """Distribuição medida, e não afirmada.
+
+        O ciclo de pares de quatro opções tem seis passos, então seis dias
+        bastam para todas aparecerem. A janela do teste é de seis exatamente
+        para provar isso — dar quatorze esconderia um algoritmo que só chega no
+        rank 3 na segunda semana.
+        """
+        for pk in range(1, 25):
+            for ordem in range(5):
+                with self.subTest(user=pk, slot=ordem):
+                    vistos = set()
+                    for n in range(6):
+                        vistos.update(self._indices(pk=pk, ordem=ordem, n=n))
+
+                    self.assertEqual(vistos, {0, 1, 2, 3})
+
+    def test_nenhuma_opcao_aparece_tres_dias_seguidos(self):
+        """A queixa que abriu a missão era comida repetida.
+
+        Ciclar os pares em ordem lexicográfica passaria em todos os testes
+        acima e ainda assim serviria o rank 0 na segunda, na terça e na quarta:
+        `combinations` devolve (0,1) (0,2) (0,3) antes de qualquer outra coisa.
+        É este teste que exige a ordenação gulosa de `_ordenar_pares`.
+        """
+        for pk in range(1, 25):
+            for ordem in range(5):
+                for n in range(20):
+                    tres = [set(self._indices(pk=pk, ordem=ordem, n=n + k)) for k in range(3)]
+                    comum = tres[0] & tres[1] & tres[2]
+
+                    self.assertEqual(comum, set(), "user=%d slot=%d dia=%d" % (pk, ordem, n))
+
+    def test_dias_seguidos_nunca_repetem_a_dupla_inteira(self):
+        for pk in range(1, 25):
+            for ordem in range(5):
+                for n in range(20):
+                    self.assertNotEqual(
+                        self._indices(pk=pk, ordem=ordem, n=n),
+                        self._indices(pk=pk, ordem=ordem, n=n + 1),
+                    )
+
+    # -- fallback: produção tem plano antigo -------------------------------
+
+    def test_repertorio_vazio_projeta_nada(self):
+        self.assertEqual(self._indices(total=0), ())
+
+    def test_repertorio_de_uma_projeta_a_unica(self):
+        """Horário com uma opção só não pode virar erro."""
+        self.assertEqual(self._indices(total=1), (0,))
+
+    def test_repertorio_de_duas_projeta_as_duas_todo_dia(self):
+        """O cardápio V1 continua funcionando enquanto não for regenerado.
+
+        Produção tem planos com duas opções, e eles não podem ficar esperando
+        uma regeneração para abrir a tela. Duas opções não rodam: aparecem as
+        duas, como sempre apareceram.
+        """
+        for n in range(10):
+            with self.subTest(dia=n):
+                self.assertEqual(self._indices(total=2, n=n), (0, 1))
+
+    def test_repertorio_de_tres_roda_entre_as_tres(self):
+        vistos = set()
+        for n in range(6):
+            indices = self._indices(total=3, n=n)
+            self.assertEqual(len(set(indices)), 2)
+            vistos.update(indices)
+
+        self.assertEqual(vistos, {0, 1, 2})
+
+    # -- o que o seed NÃO pode ser -----------------------------------------
+
+    def test_a_projecao_nao_recebe_o_plano(self):
+        """`plan.pk` não entra, e a assinatura é onde isso fica travado.
+
+        O `NutritionPlan` é retrato: nasce um novo a cada pesagem, a cada
+        recalibração, a cada ajuste de altura. Semear pelo pk faria o almoço
+        trocar porque a pessoa subiu na balança — a comida mudaria por um
+        motivo que não é o dia ter virado.
+
+        Travado na ASSINATURA porque é a única forma de o pk não poder entrar
+        por descuido: se ele não é parâmetro, não há como ser lido.
+        """
+        parametros = set(inspect.signature(rodizio.indices_do_dia).parameters)
+
+        self.assertEqual(parametros, {"total", "user_pk", "slot_order", "dia"})
+        for proibido in ("plan", "plan_pk", "plano"):
+            self.assertNotIn(proibido, parametros)
+
+    def test_o_modulo_nao_usa_random_nem_hash_do_python(self):
+        """Duas armadilhas silenciosas, as duas travadas aqui.
+
+        `random.seed()` é estado GLOBAL: semear aqui mudaria o resultado de
+        qualquer outro sorteio do processo. E `hash()` de string é randomizado
+        por processo — dois workers do mesmo servidor serviriam cardápios
+        diferentes no mesmo dia, e ninguém reproduziria o defeito localmente.
+        """
+        fonte = (Path(settings.BASE_DIR) / "plans" / "rodizio.py").read_text(
+            encoding="utf-8"
+        )
+        arvore = ast.parse(fonte)
+
+        # AST, e nao busca de texto. A primeira versao deste teste varria as
+        # linhas do arquivo e falhou na hora: o docstring do modulo EXPLICA por
+        # que `random.seed()` e `hash()` estao proibidos, e a explicacao
+        # disparava a propria proibicao. E a armadilha de sempre neste
+        # repositorio -- o marcador e a prosa sobre o marcador sao a mesma
+        # string. A arvore so enxerga codigo.
+        importados = set()
+        for no in ast.walk(arvore):
+            if isinstance(no, ast.Import):
+                importados.update(alias.name.split(".")[0] for alias in no.names)
+            elif isinstance(no, ast.ImportFrom) and no.module:
+                importados.add(no.module.split(".")[0])
+
+        self.assertNotIn("random", importados)
+
+        chamadas = set()
+        for no in ast.walk(arvore):
+            if not isinstance(no, ast.Call):
+                continue
+            alvo = no.func
+            if isinstance(alvo, ast.Name):
+                chamadas.add(alvo.id)
+            elif isinstance(alvo, ast.Attribute):
+                chamadas.add(alvo.attr)
+
+        for proibida in ("hash", "seed", "today", "now"):
+            self.assertNotIn(proibida, chamadas)
+
+    def test_o_deslocamento_e_estavel_entre_processos(self):
+        """O valor esperado é literal de propósito.
+
+        Um teste que só compara a função consigo mesma passaria mesmo com
+        `hash()` embutido, porque dentro do MESMO processo `hash()` é estável.
+        Cravar o número é o que faz a troca por algo não determinístico quebrar.
+        """
+        esperado = int.from_bytes(hashlib.sha256(b"1:0").digest()[:8], "big")
+
+        self.assertEqual(rodizio._deslocamento(1, 0), esperado)
+
+
+class ProjecaoNoPlanoTests(CatalogFixture):
+    """A projeção sobre objetos reais: rótulo, identidade e prefetch."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = create_complete_user(email="projecao@exemplo.com")
+        self.plan = services.create_plan(self.user)
+        self.slot = self.plan.slots.order_by("order").first()
+
+    def test_as_projetadas_recebem_rotulo_de_apresentacao(self):
+        """A e B viraram posição no dia, e não campo no banco."""
+        projetadas = rodizio.opcoes_do_dia(self.slot, self.user.pk, date(2026, 8, 30))
+
+        self.assertEqual([o.rotulo for o in projetadas], ["A", "B"][: len(projetadas)])
+
+    def test_a_identidade_persistente_e_o_rank_e_ela_nao_muda(self):
+        """O rótulo do dia muda; o pk e o rank, não.
+
+        É a diferença que faz o histórico e a fila offline continuarem válidos:
+        o formulário envia o pk, e o pk aponta para uma linha que existe desde a
+        geração do plano.
+        """
+        pks_por_dia = {}
+        for n in range(6):
+            dia = date(2026, 8, 30) + timedelta(days=n)
+            for opcao in rodizio.opcoes_do_dia(self.slot, self.user.pk, dia):
+                pks_por_dia.setdefault(opcao.pk, set()).add(opcao.rank)
+
+        # Cada pk visto ao longo da semana sempre teve o MESMO rank.
+        for pk, ranks in pks_por_dia.items():
+            self.assertEqual(len(ranks), 1, "pk %s mudou de rank: %s" % (pk, ranks))
+
+    def test_a_projecao_nao_cria_nem_apaga_opcao(self):
+        """Opção é objeto persistente. Recriar por dia arrancaria a identidade
+        que o histórico e a fila usam."""
+        antes = set(MealOption.objects.filter(slot=self.slot).values_list("pk", flat=True))
+
+        for n in range(14):
+            rodizio.opcoes_do_dia(self.slot, self.user.pk, date(2026, 8, 30) + timedelta(days=n))
+
+        depois = set(MealOption.objects.filter(slot=self.slot).values_list("pk", flat=True))
+
+        self.assertEqual(antes, depois)
+
+    def test_projetar_nao_dispara_consulta_por_horario(self):
+        """O prefetch da view precisa continuar servindo a projeção.
+
+        `opcoes_do_dia` lê `slot.options.all()` justamente para aproveitá-lo.
+        Trocar por `slot.options.order_by("rank")` custaria uma consulta por
+        horário — cinco a mais na tela mais visitada do app.
+        """
+        slots = list(self.plan.slots.prefetch_related("options__template__items__food"))
+
+        with self.assertNumQueries(0):
+            rodizio.projetar(slots, self.user.pk, date(2026, 8, 30))
+            for slot in slots:
+                for opcao in slot.opcoes_do_dia:
+                    opcao.template.name
+
+
+class MigracaoDoRankTests(TransactionTestCase):
+    """A migration 0007 rodada de verdade, com dados do cardápio V1 no banco.
+
+    Produção tem plano e histórico. O que este teste prova é que a opção A de
+    um plano antigo vira rank 0 e a B vira rank 1 — sem perder linha, sem
+    duplicar posição e sem tocar em `MealLog`.
+
+    `TransactionTestCase` porque migrar exige DDL, e DDL dentro da transação
+    que o `TestCase` mantém aberta não se comporta.
+    """
+
+    ANTES = ("plans", "0006_meallog_recipe_name")
+    DEPOIS = ("plans", "0007_mealoption_rank")
+
+    def setUp(self):
+        self.frango = make_food("Frango da migração", 165, 31, 0, "3.6")
+
+    def _executor(self):
+        return MigrationExecutor(connection)
+
+    def _migrar(self, alvo):
+        executor = self._executor()
+        executor.loader.build_graph()
+        executor.migrate([alvo])
+        return executor.loader.project_state([alvo]).apps
+
+    def tearDown(self):
+        # Devolve o banco ao estado final, senão os testes seguintes rodam
+        # contra um schema sem `rank`.
+        self._migrar(self.DEPOIS)
+
+    def test_a_opcao_a_vira_rank_zero_e_a_b_vira_rank_um(self):
+        # Modelos REAIS para tudo que a migration não altera — usuário, receita,
+        # plano e horário têm a mesma forma no estado 0006 e no atual. Só
+        # `MealOption` vem do estado histórico, porque é a única tabela que
+        # ainda tem a coluna `label` neste ponto e já não a tem no modelo atual.
+        velho = self._migrar(self.ANTES)
+        Option = velho.get_model("plans", "MealOption")
+
+        user = User.objects.create_user(
+            email="migracao@exemplo.com", password="Migracao!2026#"
+        )
+        plano = NutritionPlan.objects.create(
+            user=user, is_active=True, weight_kg=Decimal("80.0"), height_cm=178,
+            age_years=30, sex="M", activity_level=ActivityLevel.ACTIVE,
+            goal=Goal.CUT, training_days_per_week=3, bmr_kcal=1800, tdee_kcal=2500,
+            target_kcal=2200, protein_g=160, carb_g=220, fat_g=70, notes="",
+        )
+        slot = MealSlot.objects.create(
+            plan=plano, name="Almoço", category=MealCategory.MAIN, time=time(12, 0),
+            order=0, target_kcal=700, target_protein_g=50, target_carb_g=70,
+            target_fat_g=20,
+        )
+        macros = dict(kcal=Decimal("700"), protein_g=Decimal("50"),
+                      carb_g=Decimal("70"), fat_g=Decimal("20"))
+        for letra in ("A", "B"):
+            template = make_template(
+                "Receita %s" % letra, MealCategory.MAIN, [(self.frango, 150, True)]
+            )
+            Option.objects.create(
+                slot_id=slot.pk, template_id=template.pk, label=letra,
+                scale_factor=Decimal("1.00"), **macros
+            )
+
+        novo = self._migrar(self.DEPOIS)
+
+        OptionNovo = novo.get_model("plans", "MealOption")
+        por_receita = {
+            o.template.name: o.rank
+            for o in OptionNovo.objects.filter(slot_id=slot.pk).select_related("template")
+        }
+
+        self.assertEqual(por_receita, {"Receita A": 0, "Receita B": 1})
+
+    def test_a_migration_nao_perde_opcao_nem_toca_no_historico(self):
+        velho = self._migrar(self.ANTES)
+        Option = velho.get_model("plans", "MealOption")
+        Log = velho.get_model("plans", "MealLog")
+        antes_opcoes = Option.objects.count()
+        antes_logs = Log.objects.count()
+
+        novo = self._migrar(self.DEPOIS)
+
+        self.assertEqual(novo.get_model("plans", "MealOption").objects.count(), antes_opcoes)
+        self.assertEqual(novo.get_model("plans", "MealLog").objects.count(), antes_logs)
+
+
+class RankNoBancoTests(CatalogFixture):
+    """A unicidade que substituiu `unique(slot, label)`."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = create_complete_user(email="rank@exemplo.com")
+        self.plan = services.create_plan(self.user)
+        self.slot = self.plan.slots.order_by("order").first()
+
+    def test_dois_ranks_iguais_no_mesmo_horario_sao_recusados(self):
+        """A posição é identidade: repetida, a projeção passa a ter duas
+        respostas para a mesma pergunta."""
+        existente = self.slot.options.order_by("rank").first()
+        outra = make_template(
+            "Prato de colisão", self.slot.category, [(self.chicken, 100, True)]
+        )
+
+        with self.assertRaises(IntegrityError):
+            MealOption.objects.create(
+                slot=self.slot, template=outra, rank=existente.rank,
+                scale_factor=Decimal("1.00"), kcal=Decimal("500"),
+                protein_g=Decimal("30"), carb_g=Decimal("50"), fat_g=Decimal("15"),
+            )
+
+    def test_o_mesmo_rank_em_horarios_diferentes_e_normal(self):
+        ranks = {}
+        for slot in self.plan.slots.all():
+            for opcao in slot.options.all():
+                ranks.setdefault(opcao.rank, 0)
+                ranks[opcao.rank] += 1
+
+        self.assertGreater(ranks.get(0, 0), 1)
+
+    def test_o_campo_label_nao_existe_mais_no_modelo(self):
+        """Se voltar, volta como identidade paralela ao rank — e as duas
+        divergem na primeira geração."""
+        campos = {f.name for f in MealOption._meta.get_fields()}
+
+        self.assertIn("rank", campos)
+        self.assertNotIn("label", campos)
+
+
+class HistoricoComRodizioTests(TestCase):
+    """O contrato do `MealLog` sob rotação. O passado não se recalcula.
+
+    Catálogo REAL, e não a fixture mínima: com duas receitas por categoria o
+    repertório sai de tamanho dois, o rodízio cai no fallback e mostra as duas
+    todo dia. O teste passaria medindo o caminho errado.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def setUp(self):
+        self.user = create_complete_user(email="historico@exemplo.com")
+        self.client.force_login(self.user)
+        self.plan = services.create_plan(self.user)
+        # Um horário com repertório CHEIO: é onde o rodízio realmente gira.
+        self.slot = next(
+            s for s in self.plan.slots.order_by("order")
+            if s.options.count() == meal_planner.OPTIONS_PER_SLOT
+        )
+
+    def _marcar(self, opcao):
+        return self.client.post(
+            reverse("plans:mark_meal", args=[self.slot.pk]),
+            {"status": MealStatus.DONE, "option": opcao.pk},
+        )
+
+    def _projetadas(self, dia=None):
+        return rodizio.opcoes_do_dia(self.slot, self.user.pk, dia)
+
+    def test_marcar_a_opcao_projetada_aponta_para_a_opcao_persistente(self):
+        escolhida = self._projetadas()[0]
+
+        self._marcar(escolhida)
+
+        log = MealLog.objects.get(user=self.user, slot=self.slot)
+        self.assertEqual(log.chosen_option_id, escolhida.pk)
+        self.assertEqual(log.recipe_name, escolhida.template.name)
+        self.assertEqual(log.kcal, escolhida.kcal)
+
+    def test_trocar_de_opcao_no_mesmo_dia_atualiza_a_mesma_linha(self):
+        primeira, segunda = self._projetadas()[:2]
+
+        self._marcar(primeira)
+        self._marcar(segunda)
+
+        logs = MealLog.objects.filter(user=self.user, slot=self.slot)
+        self.assertEqual(logs.count(), 1)
+        self.assertEqual(logs.first().chosen_option_id, segunda.pk)
+        self.assertEqual(logs.first().recipe_name, segunda.template.name)
+
+    def test_o_passado_nao_muda_quando_o_dia_seguinte_projeta_outra_dupla(self):
+        """O teste central do histórico sob rodízio.
+
+        Marca hoje, confere que amanhã a projeção é outra, e confere que o
+        registro de hoje continua contando a mesma história. Se alguém algum
+        dia resolver derivar o histórico do cardápio ATUAL — em vez de ler o
+        retrato guardado —, é aqui que quebra.
+        """
+        hoje = timezone.localdate()
+        escolhida = self._projetadas(hoje)[0]
+        self._marcar(escolhida)
+        retrato = MealLog.objects.get(user=self.user, slot=self.slot)
+        nome_gravado, kcal_gravada = retrato.recipe_name, retrato.kcal
+
+        amanha = self._projetadas(hoje + timedelta(days=1))
+        self.assertNotEqual(
+            {o.pk for o in amanha}, {o.pk for o in self._projetadas(hoje)}
+        )
+
+        retrato.refresh_from_db()
+        self.assertEqual(retrato.recipe_name, nome_gravado)
+        self.assertEqual(retrato.kcal, kcal_gravada)
+        self.assertEqual(retrato.chosen_option_id, escolhida.pk)
+
+    def test_pulei_continua_sem_receita_e_sem_macro(self):
+        self.client.post(
+            reverse("plans:mark_meal", args=[self.slot.pk]),
+            {"status": MealStatus.SKIPPED},
+        )
+
+        log = MealLog.objects.get(user=self.user, slot=self.slot)
+        self.assertEqual(log.recipe_name, "")
+        self.assertIsNone(log.chosen_option_id)
+        self.assertEqual(log.kcal, Decimal("0.00"))
+
+    def test_comi_outra_coisa_continua_sem_apontar_para_opcao(self):
+        self.client.post(
+            reverse("plans:mark_meal", args=[self.slot.pk]),
+            {"status": MealStatus.OFF_PLAN, "notes": "pizza"},
+        )
+
+        log = MealLog.objects.get(user=self.user, slot=self.slot)
+        self.assertEqual(log.status, MealStatus.OFF_PLAN)
+        self.assertIsNone(log.chosen_option_id)
+        self.assertEqual(log.recipe_name, "")
+
+
+class SegurancaDaOpcaoTests(TestCase):
+    """O rodízio não pode abrir porta para marcar comida na conta errada.
+
+    Catálogo real para o horário ter repertório cheio: com repertório de dois
+    não existe opção FORA da projeção, e o teste mais importante desta classe
+    — o que documenta por que a projeção não é usada como validação — seria
+    pulado em silêncio.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def setUp(self):
+        self.user = create_complete_user(email="dono@exemplo.com")
+        self.plan = services.create_plan(self.user)
+        self.slot = next(
+            s for s in self.plan.slots.order_by("order")
+            if s.options.count() == meal_planner.OPTIONS_PER_SLOT
+        )
+        self.outro_slot = self.plan.slots.order_by("order").last()
+
+        self.alheio = create_complete_user(email="alheio@exemplo.com")
+        self.plano_alheio = services.create_plan(self.alheio)
+
+        self.client.force_login(self.user)
+
+    def _marcar(self, opcao_pk):
+        return self.client.post(
+            reverse("plans:mark_meal", args=[self.slot.pk]),
+            {"status": MealStatus.DONE, "option": opcao_pk},
+        )
+
+    def test_opcao_de_outro_horario_do_mesmo_plano_e_recusada(self):
+        intrusa = self.outro_slot.options.first()
+
+        self.assertEqual(self._marcar(intrusa.pk).status_code, 404)
+        self.assertFalse(MealLog.objects.filter(user=self.user).exists())
+
+    def test_opcao_de_outro_usuario_e_recusada(self):
+        alheia = self.plano_alheio.slots.first().options.first()
+
+        self.assertEqual(self._marcar(alheia.pk).status_code, 404)
+        self.assertFalse(MealLog.objects.filter(user=self.user).exists())
+
+    def test_id_inexistente_ou_lixo_nao_estoura(self):
+        for valor in (999999, "abc", "", "0"):
+            with self.subTest(option=valor):
+                resposta = self._marcar(valor)
+
+                self.assertIn(resposta.status_code, (302, 404))
+                self.assertFalse(MealLog.objects.filter(user=self.user).exists())
+
+    def test_opcao_do_repertorio_fora_da_projecao_de_hoje_e_aceita(self):
+        """DE PROPÓSITO, e é a decisão mais delicada desta missão.
+
+        A tentação é validar contra a projeção do dia: "só pode marcar o que
+        está na tela". Isso quebraria a fila offline no primeiro replay. A
+        pessoa marca o almoço no sábado sem rede, o celular só reencontra sinal
+        no domingo, e a fila reenvia — se o servidor validasse contra a
+        projeção de DOMINGO, a refeição de sábado seria recusada e o registro
+        sumiria sem aviso.
+
+        Não é brecha de segurança: a opção continua tendo que pertencer ao slot
+        do plano ativo do próprio usuário, que é o que fecha o IDOR. É a comida
+        da própria pessoa, no próprio horário — só não é a que o rodízio
+        escolheu para hoje.
+        """
+        projetadas = {o.pk for o in rodizio.opcoes_do_dia(self.slot, self.user.pk)}
+        fora = self.slot.options.exclude(pk__in=projetadas).first()
+        if fora is None:
+            self.skipTest("repertório deste horário não tem opção fora da projeção")
+
+        self._marcar(fora.pk)
+
+        log = MealLog.objects.get(user=self.user, slot=self.slot)
+        self.assertEqual(log.chosen_option_id, fora.pk)
+
+
+class FilaOfflineComRodizioTests(CatalogFixture):
+    """O replay da fila continua válido depois de o dia virar."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = create_complete_user(email="fila@exemplo.com")
+        self.client.force_login(self.user)
+        self.plan = services.create_plan(self.user)
+        self.slot = self.plan.slots.order_by("order").first()
+
+    def test_o_formulario_envia_a_chave_persistente_e_nao_o_indice_visivel(self):
+        """O que a fila serializa é o que o formulário tem.
+
+        Se o campo virasse "opção 1" ou o índice na tela, o replay do dia
+        seguinte marcaria outra comida — o índice 1 aponta para outra receita
+        depois que o rodízio gira.
+        """
+        html = self.client.get(reverse("plans:today")).content.decode()
+        projetadas = rodizio.opcoes_do_dia(self.slot, self.user.pk)
+
+        for opcao in projetadas:
+            self.assertIn('value="%d"' % opcao.pk, html)
+
+    def test_um_envio_guardado_ontem_ainda_vale_hoje(self):
+        """A opção de ontem continua existindo, com o mesmo pk e o mesmo rank.
+
+        É a razão de o rodízio ser projeção de LEITURA: se ele criasse a opção
+        do dia, o pk enfileirado ontem apontaria para uma linha apagada.
+        """
+        ontem = timezone.localdate() - timedelta(days=1)
+        enfileirada = rodizio.opcoes_do_dia(self.slot, self.user.pk, ontem)[0]
+
+        # O "replay": o mesmo pk chega hoje, quando a projeção já é outra.
+        resposta = self.client.post(
+            reverse("plans:mark_meal", args=[self.slot.pk]),
+            {"status": MealStatus.DONE, "option": enfileirada.pk},
+        )
+
+        self.assertEqual(resposta.status_code, 302)
+        log = MealLog.objects.get(user=self.user, slot=self.slot)
+        self.assertEqual(log.chosen_option_id, enfileirada.pk)
+
+    def test_reenviar_a_mesma_marcacao_nao_empilha_registro(self):
+        """Idempotência: `update_or_create` por (usuário, dia, horário)."""
+        opcao = rodizio.opcoes_do_dia(self.slot, self.user.pk)[0]
+        url = reverse("plans:mark_meal", args=[self.slot.pk])
+
+        for _ in range(4):
+            self.client.post(url, {"status": MealStatus.DONE, "option": opcao.pk})
+
+        self.assertEqual(
+            MealLog.objects.filter(user=self.user, slot=self.slot).count(), 1
+        )
+
+
+class ListaDeComprasSemanalTests(TestCase):
+    """A lista passou a percorrer sete dias reais em vez de multiplicar um.
+
+    Catálogo real pelo mesmo motivo de `HistoricoComRodizioTests`: sem
+    repertório de quatro não há rotação para a lista refletir.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def setUp(self):
+        self.user = create_complete_user(email="compras-v2@exemplo.com")
+        self.plan = services.create_plan(self.user)
+
+    def test_a_lista_usa_a_mesma_projecao_da_tela(self):
+        """Uma regra de projeção, vários consumidores.
+
+        O teste lê a fonte: uma segunda implementação de rotação aqui
+        divergiria da tela na primeira mudança de regra, e a pessoa compraria
+        uma coisa e cozinharia outra.
+        """
+        fonte = (Path(settings.BASE_DIR) / "plans" / "shopping.py").read_text(
+            encoding="utf-8"
+        )
+        arvore = ast.parse(fonte)
+        chamadas = {
+            no.func.attr
+            for no in ast.walk(arvore)
+            if isinstance(no, ast.Call) and isinstance(no.func, ast.Attribute)
+        }
+
+        self.assertIn("opcoes_do_dia", chamadas)
+        # E nada de refazer a conta por conta própria.
+        self.assertNotIn("toordinal", chamadas)
+        self.assertNotIn("sha256", chamadas)
+
+    def test_a_semana_cobre_sete_datas_locais_consecutivas(self):
+        dias = shopping.dias_da_semana(date(2026, 8, 30))
+
+        self.assertEqual(len(dias), shopping.DAYS)
+        self.assertEqual(dias[0], date(2026, 8, 30))
+        self.assertEqual(dias[-1], date(2026, 9, 5))
+
+    def test_a_lista_reflete_a_rotacao_e_nao_uma_receita_vezes_sete(self):
+        """Com rodízio, a semana tem mais receitas distintas do que um dia.
+
+        Antes a lista pegava a opção A e multiplicava por sete — a semana
+        inteira tinha exatamente as receitas de um dia. Se alguém voltar a
+        fazer isso, este teste cai.
+        """
+        totais = shopping.weekly_quantities(self.plan, inicio=date(2026, 8, 30))
+        receitas_da_semana = set()
+        for entrada in totais.values():
+            receitas_da_semana |= entrada["recipes"]
+
+        de_um_dia = set()
+        for slot in self.plan.slots.all():
+            projetadas = rodizio.opcoes_do_dia(slot, self.user.pk, date(2026, 8, 30))
+            if projetadas:
+                de_um_dia.add(projetadas[0].template.name)
+
+        self.assertGreater(len(receitas_da_semana), len(de_um_dia))
+
+    def test_uma_alternativa_por_refeicao_por_dia_e_nada_de_lista_inflada(self):
+        """A regra de produto que NÃO mudou.
+
+        Quem tem frango ou ovo no almoço vai comer um dos dois. Somar as duas
+        alternativas encheria a lista de comida que ninguém cozinha, e lista
+        inflada é lista em que a pessoa para de confiar.
+
+        A prova: a soma da semana bate com a soma dia a dia de UMA opção por
+        horário — não de duas.
+        """
+        inicio = date(2026, 8, 30)
+        totais = shopping.weekly_quantities(self.plan, inicio=inicio)
+        gramas_lista = sum(e["quantity"] for e in totais.values())
+
+        esperado = Decimal("0")
+        for dia in shopping.dias_da_semana(inicio):
+            for slot in self.plan.slots.prefetch_related("options__template__items"):
+                projetadas = rodizio.opcoes_do_dia(slot, self.user.pk, dia)
+                if not projetadas:
+                    continue
+                escolhida = projetadas[0]
+                for item in escolhida.template.items.all():
+                    esperado += item.scaled_quantity(escolhida.scale_factor)
+
+        self.assertEqual(gramas_lista, esperado)
+
+    def test_o_rotulo_pedido_escolhe_a_segunda_alternativa_do_dia(self):
+        inicio = date(2026, 8, 30)
+        a = shopping.weekly_quantities(self.plan, label="A", inicio=inicio)
+        b = shopping.weekly_quantities(self.plan, label="B", inicio=inicio)
+
+        receitas = lambda t: {n for e in t.values() for n in e["recipes"]}
+        self.assertNotEqual(receitas(a), receitas(b))
+
+    def test_a_lista_nao_depende_do_pk_do_plano(self):
+        """Recalibrar não pode reembaralhar a lista de compras.
+
+        Um plano novo com as MESMAS receitas nas mesmas posições produz a mesma
+        lista, porque o seed não olha para o pk.
+        """
+        inicio = date(2026, 8, 30)
+        antes = shopping.weekly_quantities(self.plan, inicio=inicio)
+
+        gemeo = services.create_plan(self.user)
+        depois = shopping.weekly_quantities(gemeo, inicio=inicio)
+
+        self.assertNotEqual(gemeo.pk, self.plan.pk)
+        self.assertEqual(
+            {f.name: e["quantity"] for f, e in antes.items()},
+            {f.name: e["quantity"] for f, e in depois.items()},
+        )
+
+
+class GeracaoIdempotenteTests(CatalogFixture):
+    """Rodar a geração de novo não pode inflar o repertório."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = create_complete_user(email="idem@exemplo.com")
+
+    def test_sincronizar_duas_vezes_sem_mudar_entrada_nao_cria_plano_novo(self):
+        plano = services.create_plan(self.user)
+        opcoes = MealOption.objects.filter(slot__plan=plano).count()
+
+        services.sync_active_plan(self.user)
+        services.sync_active_plan(self.user)
+
+        ativo = services.get_active_plan(self.user)
+        self.assertEqual(ativo.pk, plano.pk)
+        self.assertEqual(MealOption.objects.filter(slot__plan=ativo).count(), opcoes)
+
+    def test_gerar_de_novo_nao_duplica_rank_dentro_do_horario(self):
+        for _ in range(3):
+            plano = services.create_plan(self.user)
+
+        for slot in plano.slots.all():
+            with self.subTest(slot=slot.name):
+                ranks = list(slot.options.values_list("rank", flat=True))
+
+                self.assertEqual(sorted(ranks), sorted(set(ranks)))
+                self.assertEqual(sorted(ranks), list(range(len(ranks))))
+
+    def test_o_repertorio_nao_cresce_a_cada_geracao(self):
+        """Plano é retrato: gerar de novo cria plano NOVO, não engorda o velho."""
+        primeiro = services.create_plan(self.user)
+        tamanho = {s.pk: s.options.count() for s in primeiro.slots.all()}
+
+        services.create_plan(self.user)
+        primeiro.refresh_from_db()
+
+        self.assertEqual(
+            {s.pk: s.options.count() for s in primeiro.slots.all()}, tamanho
+        )
+
+
+class CustoDaTelaHojeTests(TestCase):
+    """O cardápio V2 não pode custar uma consulta por opção.
+
+    O "antes e depois" é medido DENTRO do mesmo processo, e não contra um
+    commit antigo: um plano com repertório de dois tem exatamente a forma do
+    cardápio V1, então comparar dois contra quatro é comparar V1 com V2 com
+    tudo mais igual. É uma comparação melhor que a histórica, porque isola a
+    única variável que interessa.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def _plano_com(self, email, por_slot):
+        """Um plano cujo repertório é podado até `por_slot` opções."""
+        user = create_complete_user(email=email)
+        plano = services.create_plan(user)
+        for slot in plano.slots.all():
+            sobrando = slot.options.order_by("rank")[por_slot:]
+            MealOption.objects.filter(pk__in=[o.pk for o in sobrando]).delete()
+        return user, plano
+
+    def _consultas(self, user):
+        self.client.force_login(user)
+        # Uma visita antes de medir: a primeira carrega sessão e perfil, e
+        # medir isso mediria o login, não a tela.
+        self.client.get(reverse("plans:today"))
+        with CaptureQueriesContext(connection) as capturado:
+            resposta = self.client.get(reverse("plans:today"))
+        self.assertEqual(resposta.status_code, 200)
+        return len(capturado)
+
+    def test_o_custo_nao_cresce_com_o_tamanho_do_repertorio(self):
+        """A asserção central de performance desta missão.
+
+        Se a projeção tivesse virado `slot.options.order_by("rank")` — que é a
+        forma óbvia e errada de escrever —, o prefetch seria descartado e cada
+        horário custaria uma consulta a mais. Aqui isso apareceria como quatro
+        opções custando mais que duas.
+        """
+        _, _ = self._plano_com("perf-dois@exemplo.com", 2)
+        dois = self._consultas(get_user_model().objects.get(email="perf-dois@exemplo.com"))
+
+        _, _ = self._plano_com("perf-quatro@exemplo.com", 4)
+        quatro = self._consultas(
+            get_user_model().objects.get(email="perf-quatro@exemplo.com")
+        )
+
+        self.assertEqual(
+            quatro,
+            dois,
+            "repertório de quatro custou %d consultas contra %d do de dois"
+            % (quatro, dois),
+        )
+
+    def test_a_tela_hoje_continua_com_custo_de_duas_dezenas_de_consultas(self):
+        """Um teto absoluto, para o número não subir sem ninguém notar.
+
+        O valor é generoso de propósito: o que este teste protege é a ordem de
+        grandeza, e não o número exato — apertar até o valor de hoje faria a
+        suíte quebrar em qualquer mudança inocente de contexto da tela.
+        """
+        self._plano_com("perf-teto@exemplo.com", 4)
+        total = self._consultas(get_user_model().objects.get(email="perf-teto@exemplo.com"))
+
+        self.assertLess(total, 40, "a tela Hoje passou a custar %d consultas" % total)

@@ -8,7 +8,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.urls import reverse
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.generic import TemplateView, View
@@ -17,7 +17,7 @@ from accounts.models import ACTIVITY_FACTORS, SyncedOperation
 from accounts.views import OnboardingRequiredMixin, recusa_pendente
 from catalog.models import Food
 
-from . import services, shopping, streaks, tracking, weight_trend
+from . import rodizio, services, shopping, streaks, tracking, weight_trend
 from . import agora as agora_mod
 from workouts import services as treino_services
 from .calculations import (
@@ -141,10 +141,21 @@ def menu_totals(slots) -> dict:
     um pouco antes quando a porção chegaria ao limite do que é comida de
     verdade. Mostrar a soma real, e não só a pretendida, é o que deixa isso
     visível em vez de escondido.
+
+    "Opção A" é a primeira opção PROJETADA para hoje, e não a primeira do
+    repertório: é a que a pessoa está vendo na tela, e o total precisa somar o
+    cardápio que ela tem diante dos olhos. Lê `slot.opcoes_do_dia`, que
+    `rodizio.projetar` já pendurou — recalcular aqui daria uma segunda resposta
+    para a mesma pergunta.
     """
     totals = {"kcal": 0, "protein_g": 0, "carb_g": 0, "fat_g": 0}
     for slot in slots:
-        option = next(iter(slot.options.all()), None)
+        # `slot.opcoes_do_dia` sem `getattr` com padrão, e isto é deliberado:
+        # quem esquecer de chamar `rodizio.projetar` antes leva um
+        # AttributeError na cara. A primeira versão usava padrão vazio e o
+        # resultado foi um cardápio somando ZERO kcal em silêncio — a tela
+        # diria que o dia inteiro tem 0 de 2 400, e nada acusaria.
+        option = next(iter(slot.opcoes_do_dia), None)
         if option is None:
             continue
         totals["kcal"] += int(option.kcal)
@@ -217,6 +228,13 @@ class TodayView(PlanRequiredMixin, TemplateView):
             # filtro de dicionário — a linguagem de template não indexa por
             # variável, e criar um filtro só para isso é peso morto.
             slot.log = logs.get(slot.pk)
+
+        # A projeção do dia, uma vez, para todos os consumidores desta tela.
+        # `today` é `timezone.localdate()`, calculado no topo do método: a data
+        # local do projeto, e não a data do servidor em UTC. Quem entra às 21h
+        # de Brasília já estaria no dia seguinte em UTC, e o cardápio trocaria
+        # três horas antes da meia-noite dele.
+        rodizio.projetar(slots, self.request.user.pk, today)
 
         summary = tracking.day_summary(self.request.user, self.plan, today)
         menu = menu_totals(slots)
@@ -321,12 +339,30 @@ class MarkMealView(OnboardingRequiredMixin, View):
 
         option = None
         if status == MealStatus.DONE:
+            # O id é convertido ANTES de virar filtro. `pk=""` ou `pk="abc"`
+            # não caem em `get_object_or_404` como "não encontrei": o próprio
+            # ORM levanta `ValueError` ao preparar a consulta, e o que chega na
+            # cara de quem só queria marcar o almoço é um 500.
+            #
+            # Encontrado ao escrever o teste de segurança do cardápio V2, e é a
+            # mesma família do `exercise_id` malformado que derrubava a
+            # conclusão de série no Treino V3.
+            try:
+                option_id = int(request.POST.get("option") or "")
+            except (TypeError, ValueError):
+                raise Http404("opção inválida")
             # `select_related` porque o snapshot do log lê `template.name`:
             # sem ele, marcar uma refeição custaria uma consulta a mais só
             # para buscar o nome que já vem no mesmo caminho.
+            #
+            # O filtro por `slot` é o que fecha o IDOR, e o slot já veio
+            # filtrado pelo plano ativo do próprio usuário. Repare que NÃO se
+            # valida contra a projeção do dia: a fila offline reenvia a opção
+            # que estava na tela quando a pessoa marcou, e depois da virada do
+            # dia essa opção pode não ser mais uma das duas de hoje.
             option = get_object_or_404(
                 MealOption.objects.select_related("template"),
-                pk=request.POST.get("option"),
+                pk=option_id,
                 slot=slot,
             )
 

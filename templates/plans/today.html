@@ -237,10 +237,22 @@ coluna da direita), não entre ela e o almoço.
               </div>
             {% else %}
               <div class="meal__options">
-                {% for option in slot.options.all %}
+                {% comment %}
+                  `opcoes_do_dia`, e não `options.all`: o repertório do horário
+                  tem quatro opções e a tela mostra as duas de hoje. Quem
+                  escolhe quais é `plans/rodizio.py`, e a view já pendurou a
+                  resposta — o template LÊ a projeção, não a refaz.
+
+                  O rótulo também vem de lá: `option.rotulo` é a posição na
+                  projeção ("A" é a primeira de hoje), enquanto `option.rank` é
+                  a identidade persistente que o formulário envia. A pessoa
+                  continua vendo Opção A e Opção B e não precisa saber que
+                  existem quatro por trás.
+                {% endcomment %}
+                {% for option in slot.opcoes_do_dia %}
                   <details class="option">
                     <summary class="option__summary">
-                      <span class="option__label">{{ option.label }}</span>
+                      <span class="option__label">{{ option.rotulo }}</span>
                       <span class="option__name">{{ option.template.name }}</span>
                       <span class="option__facts">
                         <span class="option__kcal">{{ option.kcal|floatformat:0 }} kcal</span>

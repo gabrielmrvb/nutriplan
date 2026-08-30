@@ -20,7 +20,8 @@ from decimal import Decimal
 from accounts.models import MealStyle
 from catalog.models import MealCategory, MealTemplate, TagKind
 
-from .models import MealOption, MealSlot, OptionLabel
+from .models import MealOption, MealSlot
+from .rodizio import POR_DIA
 
 MINUTES_IN_DAY = 24 * 60
 
@@ -34,12 +35,23 @@ MIN_GAP_MINUTES = 45
 #: Quanto tempo depois do FIM do treino cai a refeição pós-treino.
 POST_WORKOUT_DELAY = 45
 
-#: Quantas opções tentamos oferecer por horário — exatamente duas, Opção A e
-#: Opção B. O número não é escrito à mão: ele é a quantidade de rótulos em
-#: `OptionLabel`, que é onde a regra mora. Assim não existe estado possível em
-#: que o gerador queira uma terceira opção sem ter rótulo para ela, nem rótulo
-#: sobrando que o gerador nunca usa.
-OPTIONS_PER_SLOT = len(OptionLabel.values)
+#: Quantas opções cada horário guarda no repertório PERSISTENTE.
+#:
+#: Quatro, e a tela mostra duas por dia — quem escolhe quais é
+#: `plans/rodizio.py`. Antes eram duas, e as duas eram sempre as mesmas: o
+#: cardápio da segunda era o cardápio do domingo, e a queixa de "pouca
+#: variedade" nasceu daí.
+#:
+#: Não é o número de opções na tela. Esse continua sendo dois, e continua
+#: saindo de `OptionLabel`, porque continua sendo decisão de produto: escolher
+#: entre duas é escolher; escolher entre quatro é comparar.
+#:
+#: Quatro e não seis por causa do catálogo. Receita não se repete dentro do
+#: horário (`unique_template_per_slot`) e o gerador ainda evita repetir entre
+#: horários, então o dia inteiro consome quatro vezes o número de horários em
+#: receitas distintas. Com cinco horários são vinte, e é o que o catálogo
+#: sustenta com folga depois de aplicar restrição alimentar.
+OPTIONS_PER_SLOT = 4
 
 #: Limites do fator de escala de uma receita. Fora disso a porção deixa de ser
 #: comida de verdade: 0,4x vira meia colher de arroz, 2,5x vira travessa.
@@ -354,17 +366,37 @@ def score(macros: dict, slot, template, meal_style: str = None) -> Decimal:
     )
 
 
-def choose_options(slot, restriction_slugs, used_templates, meal_style=None) -> list:
+def choose_options(
+    slot, restriction_slugs, used_templates, meal_style=None, limite=None, ja=None
+) -> list:
     """As melhores receitas para um horário, já escaladas.
 
+    Devolve o REPERTÓRIO do horário — `OPTIONS_PER_SLOT` opções persistentes,
+    ordenadas da melhor pontuação para a pior. Quais duas delas aparecem em
+    cada dia é outra pergunta, e quem responde é `plans/rodizio.py`.
+
+    As quatro saem da mesma pontuação que escolhia as duas: alvo calórico do
+    slot, desvio de macro com peso dobrado na proteína, restrições alimentares,
+    estilo de cardápio e praticidade. A terceira e a quarta são as terceira e
+    quarta melhores — não são preenchimento para fechar número.
+
     `used_templates` carrega o que já foi usado nos horários anteriores: sem
-    isso, o almoço e o jantar saem com as mesmas duas receitas, porque ambos
-    olham para a mesma categoria e o mesmo alvo. Receita repetida só volta a
-    ser aceita quando não há candidata inédita suficiente — melhor repetir do
-    que deixar o horário vazio.
+    isso, o almoço e o jantar saem com as mesmas receitas, porque ambos olham
+    para a mesma categoria e o mesmo alvo. Receita repetida só volta a ser
+    aceita quando não há candidata inédita suficiente — melhor repetir do que
+    deixar o horário vazio.
     """
+    limite = OPTIONS_PER_SLOT if limite is None else limite
+    ja = ja or []
+    faltam = limite - len(ja)
+    if faltam <= 0:
+        return []
+    proibidos = {opcao.template_id for opcao in ja}
+
     scored = []
     for template in candidates_for(slot.category, restriction_slugs):
+        if template.pk in proibidos:
+            continue
         scale = scale_for(template, slot.target_kcal)
         macros = template.compute_macros(scale)
         scored.append(
@@ -373,19 +405,34 @@ def choose_options(slot, restriction_slugs, used_templates, meal_style=None) -> 
     scored.sort(key=lambda row: (row[0], row[1]))
 
     fresh = [row for row in scored if row[2].pk not in used_templates]
-    chosen = fresh[:OPTIONS_PER_SLOT]
-    if len(chosen) < OPTIONS_PER_SLOT:
+    chosen = fresh[:faltam]
+    if len(chosen) + len(ja) < POR_DIA:
+        # Repetir receita de outro horário é o ÚLTIMO recurso, e agora ele para
+        # em `POR_DIA` em vez de encher até `OPTIONS_PER_SLOT`.
+        #
+        # O motivo original continua de pé: melhor repetir do que deixar o
+        # horário sem o que mostrar. Só que ele valia quando o repertório era
+        # dois e faltar um deixava a tela pela metade. Com repertório de quatro,
+        # completar até quatro com repetição não salva tela nenhuma — as duas
+        # primeiras já bastam — e cria um problema novo: no catálogo vegano, que
+        # é o mais apertado, o dia inteiro passava a ter a mesma receita
+        # aparecendo em horários diferentes, às vezes no MESMO dia depois do
+        # rodízio projetar as duas.
+        #
+        # Repertório menor e honesto vence repertório cheio de cópia: quem tem
+        # restrição apertada prefere três receitas diferentes a quatro com duas
+        # iguais.
         repeats = [row for row in scored if row[2].pk in used_templates]
-        chosen += repeats[: OPTIONS_PER_SLOT - len(chosen)]
+        chosen += repeats[: POR_DIA - len(chosen) - len(ja)]
 
     options = []
-    for position, (_, _, template, scale, macros) in enumerate(chosen):
+    for position, (_, _, template, scale, macros) in enumerate(chosen, start=len(ja)):
         used_templates.add(template.pk)
         options.append(
             MealOption(
                 slot=slot,
                 template=template,
-                label=OptionLabel.values[position],
+                rank=position,
                 scale_factor=scale,
                 kcal=macros["kcal"].quantize(Decimal("0.01")),
                 protein_g=macros["protein_g"].quantize(Decimal("0.01")),
@@ -415,13 +462,47 @@ def generate(plan, profile) -> list:
     warnings = []
     used_templates = set()
     best_protein = Decimal("0")
+
+    # DUAS RODADAS, e a ordem é o ponto.
+    #
+    # Numa rodada só, o primeiro horário de uma categoria leva o repertório
+    # inteiro e o segundo come as sobras. No catálogo vegano, que tem cinco
+    # receitas principais, o almoço ficava com quatro e o jantar com uma — e
+    # então precisava repetir uma do almoço para conseguir mostrar duas opções.
+    # O cardápio V1 não tinha esse problema porque pedia dois por horário e
+    # dois mais dois cabem em cinco; foi o repertório de quatro que criou a
+    # disputa.
+    #
+    # Rodada 1 garante a TODO horário o que a tela precisa. Rodada 2 distribui
+    # o que sobrou, na mesma ordem. Catálogo farto não nota diferença: as duas
+    # rodadas somadas dão os mesmos quatro de antes, e na mesma ordem de
+    # pontuação, porque a rodada 2 continua de onde a 1 parou.
+    escolhidas = {}
+    for limite in (POR_DIA, OPTIONS_PER_SLOT):
+        for slot in slots:
+            novas = choose_options(
+                slot,
+                restriction_slugs,
+                used_templates,
+                profile.meal_style,
+                limite=limite,
+                ja=escolhidas.get(slot.pk, []),
+            )
+            escolhidas.setdefault(slot.pk, []).extend(novas)
+
     for slot in slots:
-        options = choose_options(
-            slot, restriction_slugs, used_templates, profile.meal_style
-        )
+        options = escolhidas.get(slot.pk, [])
         MealOption.objects.bulk_create(options)
         best_protein += max((option.protein_g for option in options), default=Decimal("0"))
-        if len(options) < OPTIONS_PER_SLOT:
+        # O aviso compara com o que a TELA precisa, e não com o tamanho do
+        # repertório. Ele sempre significou "este horário não consegue mostrar
+        # o que promete"; quando o repertório era de dois e a tela mostrava
+        # dois, as duas contas davam no mesmo. Agora o repertório é quatro e a
+        # tela continua mostrando dois: reclamar de um horário com três
+        # receitas seria avisar sobre um cardápio que funciona perfeitamente,
+        # e um aviso que aparece sem consequência é um aviso que a pessoa
+        # aprende a ignorar.
+        if len(options) < POR_DIA:
             warnings.append(
                 f"{slot.name}: o catálogo tem só {len(options)} receita(s) que atendem "
                 f"às suas restrições."

@@ -34,6 +34,7 @@ from accounts.models import (
     WeightEntry,
 )
 from demo.middleware import DEMO_EMAIL, DEMO_ONBOARDING_EMAIL
+from plans import rodizio as plan_rodizio
 from plans import services as plan_services
 from plans.models import HydrationLog, MealLog, MealStatus
 from workouts import services as workout_services
@@ -380,7 +381,13 @@ class Command(BaseCommand):
             )
 
             for indice, slot in enumerate(do_dia):
-                opcao = slot.options.order_by("label").first()
+                # A opção que o rodízio teria projetado NAQUELE dia, e não a
+                # primeira do repertório. O histórico do demo passa a contar a
+                # mesma história que a regra contaria — sem isso, a semeadura
+                # mostraria a mesma receita em quinze dias seguidos e o demo
+                # exibiria justamente o problema que o cardápio V2 resolve.
+                projetadas = plan_rodizio.opcoes_do_dia(slot, user.pk, dia)
+                opcao = projetadas[0] if projetadas else None
                 if opcao is None:
                     continue
 
