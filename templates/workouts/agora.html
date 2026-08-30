@@ -39,10 +39,17 @@
       registro. Não é um botão que alguém apertou dizendo que terminou — é a
       ficha inteira coberta pelo que foi anotado.
 
-      Os números são contagem, não estimativa. A duração só aparece quando há
-      dois registros para subtrair, e o rótulo diz de onde ela vem: inventar
-      "48 min" a partir de uma média seria descrever um treino que não é o
-      dessa pessoa. Caloria não aparece de jeito nenhum — o app não mede.
+      Os números são contagem, não estimativa.
+
+      A terceira caixa é o INTERVALO entre o primeiro e o último `created_at`
+      de hoje, e o rótulo diz isso — não "duração do treino", que ninguém mede:
+      o app não sabe quanto tempo a pessoa ficou na academia antes da primeira
+      série. Ela some quando há menos de dois registros ou quando o intervalo
+      arredonda para zero, em vez de fabricar um número.
+
+      Esta caixa já mostrou "47 min" para registros separados por 1,1 minuto,
+      porque vinha de `resumo_da_sessao`, cujo `inicio` é o horário CADASTRADO
+      da ficha. Caloria não aparece de jeito nenhum — o app não mede.
     {% endcomment %}
     <div class="page-head">
       <h1>Treino concluído</h1>
@@ -64,21 +71,19 @@
           <span class="fim__valor num">{{ estado.series_feitas }}</span>
           <span class="fim__rotulo">{% if estado.series_feitas == 1 %}série registrada{% else %}séries registradas{% endif %}</span>
         </li>
-        {% if minutos_reais %}
+        {% if estado.minutos_entre_registros %}
           <li>
-            <span class="fim__valor num">{{ minutos_reais }}</span>
-            <span class="fim__rotulo">min do primeiro ao último registro</span>
+            <span class="fim__valor num">{{ estado.minutos_entre_registros }}</span>
+            <span class="fim__rotulo">min entre o primeiro e o último registro</span>
           </li>
         {% endif %}
       </ul>
       <a class="btn btn--primary btn--block" href="{% url 'workouts:routine' %}">
         Ver o treino completo
       </a>
-      {% if resumo.tem_dados %}
-        <a class="btn btn--ghost btn--block" href="{% url 'workouts:health_export' %}">
-          Exportar para o app de saúde
-        </a>
-      {% endif %}
+      <a class="btn btn--ghost btn--block" href="{% url 'workouts:health_export' %}">
+        Exportar para o app de saúde
+      </a>
 
     </section>
 

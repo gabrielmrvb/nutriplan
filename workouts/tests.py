@@ -3271,3 +3271,186 @@ class ModoTreinoTests(TestCase):
         html = sem_scripts(self.client.get(reverse("workouts:routine")).content.decode())
 
         self.assertIn(reverse("workouts:now"), html)
+
+
+class IntervaloDoTreinoTests(TestCase):
+    """O número de minutos da tela de conclusão.
+
+    Ele já foi estimativa apresentada como medição: vinha de
+    `resumo_da_sessao`, cujo `inicio` é o horário CADASTRADO da ficha e cujo
+    `fim` é esse horário mais uma duração de fórmula. Registros separados por
+    pouco mais de um minuto viravam "47 min" na tela.
+
+    O contrato agora é: `created_at`, e só ele.
+    """
+
+    url = reverse("workouts:now")
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def _usuario(self, email="intervalo@exemplo.com"):
+        return create_user(email=email, weekdays=(timezone.localdate().weekday(),))
+
+    def _estado(self, user):
+        services.sync_active_routine(user)
+        return services.estado_do_treino(user)
+
+    def _encher(self, user, itens, peso="50"):
+        for item in itens:
+            for numero in range(1, item.sets + 1):
+                services.record_load(
+                    user, item.exercise, Decimal(peso), set_number=numero, reps=9
+                )
+
+    def _carimbar(self, user, minutos_de_intervalo):
+        """Espalha os registros de hoje ao longo de N minutos."""
+        logs = list(
+            ExerciseLog.objects.filter(user=user, date=timezone.localdate())
+            .order_by("set_number", "id")
+        )
+        agora = timezone.now()
+        primeiro = agora - timedelta(minutes=minutos_de_intervalo)
+        passo = timedelta(minutes=minutos_de_intervalo) / max(1, len(logs) - 1)
+        for i, log in enumerate(logs):
+            ExerciseLog.objects.filter(pk=log.pk).update(created_at=primeiro + i * passo)
+
+    def test_o_intervalo_sai_dos_created_at_reais(self):
+        user = self._usuario()
+        estado = self._estado(user)
+        self._encher(user, estado.itens)
+        self._carimbar(user, 38)
+
+        estado = services.estado_do_treino(user)
+
+        self.assertTrue(estado.concluido)
+        self.assertEqual(estado.minutos_entre_registros, 38)
+
+    def test_o_numero_da_tela_nao_e_a_estimativa_da_ficha(self):
+        """A regressão dos "47 min", reproduzida.
+
+        A ficha tem horário cadastrado (19h), e `resumo_da_sessao` devolve um
+        intervalo inteiro a partir dele. Aqui os registros distam DOIS minutos.
+        O teste exige as duas coisas: que a tela mostre os dois minutos reais,
+        e que o número da estimativa não apareça — sem a segunda metade, uma
+        futura religada da fonte antiga passaria despercebida.
+        """
+        user = self._usuario()
+        estado = self._estado(user)
+        self._encher(user, estado.itens)
+        self._carimbar(user, 2)
+        self.client.force_login(user)
+
+        estimativa = health_export.resumo_da_sessao(user)
+        minutos_estimados = round(
+            (estimativa.fim - estimativa.inicio).total_seconds() / 60
+        )
+        resposta = self.client.get(self.url)
+        html = sem_scripts(resposta.content.decode())
+
+        # A estimativa da ficha é grande; o intervalo real é 2 minutos.
+        self.assertGreater(minutos_estimados, 10)
+        self.assertEqual(resposta.context["estado"].minutos_entre_registros, 2)
+        self.assertIn("min entre o primeiro e o último registro", html)
+        bloco = html.split('class="fim__numeros"', 1)[1].split("</ul>", 1)[0]
+        self.assertIn(">2<", bloco.replace(" ", "").replace("\n", ""))
+        self.assertNotIn(str(minutos_estimados), bloco)
+
+    def test_a_tela_nao_chama_isso_de_duracao_do_treino(self):
+        """O app não sabe quanto tempo a pessoa ficou na academia.
+
+        Ninguém registra a chegada nem a saída: o que existe são dois
+        instantes de gravação. Chamar de "duração" seria descrever um fato que
+        o banco não tem.
+        """
+        user = self._usuario()
+        estado = self._estado(user)
+        self._encher(user, estado.itens)
+        self._carimbar(user, 30)
+        self.client.force_login(user)
+
+        html = sem_scripts(self.client.get(self.url).content.decode())
+        bloco = html.split('class="fim__numeros"', 1)[1].split("</ul>", 1)[0]
+
+        for mentira in ("duração", "Duração", "durou", "tempo de treino"):
+            self.assertNotIn(mentira, bloco)
+
+    def test_com_um_registro_so_a_linha_some(self):
+        """Um instante não é intervalo."""
+        user = self._usuario()
+        estado = self._estado(user)
+        item = estado.itens[0]
+        services.record_load(user, item.exercise, Decimal("40"), set_number=1)
+
+        estado = services.estado_do_treino(user)
+
+        self.assertEqual(estado.minutos_entre_registros, 0)
+
+    def test_intervalo_abaixo_de_um_minuto_some_em_vez_de_virar_zero(self):
+        """"0 min entre o primeiro e o último registro" é ruído, não dado."""
+        user = self._usuario()
+        estado = self._estado(user)
+        self._encher(user, estado.itens)
+        agora = timezone.now()
+        for i, log in enumerate(
+            ExerciseLog.objects.filter(user=user, date=timezone.localdate())
+        ):
+            ExerciseLog.objects.filter(pk=log.pk).update(
+                created_at=agora - timedelta(seconds=i)
+            )
+        self.client.force_login(user)
+
+        resposta = self.client.get(self.url)
+        html = sem_scripts(resposta.content.decode())
+
+        self.assertEqual(resposta.context["estado"].minutos_entre_registros, 0)
+        self.assertNotIn("entre o primeiro e o último registro", html)
+
+    def test_registro_de_outro_dia_nao_entra_na_conta(self):
+        """O intervalo é do treino de HOJE.
+
+        Sem isso, quem treinou na semana passada veria um intervalo de dias.
+        """
+        user = self._usuario()
+        estado = self._estado(user)
+        self._encher(user, estado.itens)
+        self._carimbar(user, 25)
+        item = estado.itens[0]
+        antigo = services.record_load(
+            user, item.exercise, Decimal("40"), set_number=1,
+            day=timezone.localdate() - timedelta(days=7),
+        )
+        ExerciseLog.objects.filter(pk=antigo.pk).update(
+            created_at=timezone.now() - timedelta(days=7)
+        )
+
+        estado = services.estado_do_treino(user)
+
+        self.assertEqual(estado.minutos_entre_registros, 25)
+
+    def test_exercicio_fora_da_ficha_de_hoje_nao_entra_na_conta(self):
+        """Série anotada num exercício que não é do treino de hoje fica fora.
+
+        `series_hoje` é montado a partir da ficha do dia, e é isso que mantém a
+        conta presa ao treino certo.
+        """
+        user = self._usuario()
+        estado = self._estado(user)
+        self._encher(user, estado.itens)
+        self._carimbar(user, 20)
+
+        de_fora = (
+            Exercise.objects.filter(is_active=True)
+            .exclude(pk__in=[item.exercise_id for item in estado.itens])
+            .first()
+        )
+        self.assertIsNotNone(de_fora, "o catálogo precisa ter exercício fora da ficha")
+        intruso = services.record_load(user, de_fora, Decimal("30"), set_number=1)
+        ExerciseLog.objects.filter(pk=intruso.pk).update(
+            created_at=timezone.now() + timedelta(hours=3)
+        )
+
+        estado = services.estado_do_treino(user)
+
+        self.assertEqual(estado.minutos_entre_registros, 20)

@@ -394,20 +394,14 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
             return context
 
         services.sync_active_routine(user)
-        estado = services.estado_do_treino(user)
-        context["estado"] = estado
-
-        if estado.concluido:
-            # O resumo do fim sai do que foi REGISTRADO, e é por isso que ele
-            # pode dizer "47 minutos" sem inventar: são o primeiro e o último
-            # `created_at` de hoje. Sem dois registros não há intervalo, e a
-            # linha simplesmente não aparece.
-            resumo = health_export.resumo_da_sessao(user)
-            context["resumo"] = resumo
-            if resumo.inicio and resumo.fim and resumo.fim > resumo.inicio:
-                context["minutos_reais"] = max(
-                    1, int(round((resumo.fim - resumo.inicio).total_seconds() / 60))
-                )
+        # `estado` já traz o intervalo entre o primeiro e o último registro,
+        # calculado de `created_at`. Esta view NÃO chama
+        # `health_export.resumo_da_sessao`: o `inicio` e o `fim` de lá são
+        # estimativa (horário da ficha mais uma duração de fórmula), e foi
+        # exatamente essa chamada que fez a tela mostrar "47 min" para um
+        # treino cujos registros distavam 1,1 minuto. Quem precisar do resumo
+        # estimado é o TCX, em `HealthExportView`.
+        context["estado"] = services.estado_do_treino(user)
         return context
 
 

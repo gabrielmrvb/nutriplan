@@ -435,6 +435,7 @@ class EstadoDoTreino:
     ultimo_log: object = None
     descanso_total: int = 0
     descanso_restante: int = 0
+    minutos_entre_registros: int = 0
 
     @property
     def tem_treino(self) -> bool:
@@ -589,6 +590,11 @@ def estado_do_treino(user, dia=None) -> EstadoDoTreino:
     # sobreviver a recarregar a página, trocar de aba e voltar do bloqueio de
     # tela — um `setInterval` morreria em todos os três, e voltaria zerado
     # justamente quando a pessoa mais precisa saber se já pode puxar a próxima.
+    carimbos = [
+        log.created_at
+        for item in itens
+        for log in (item.series_hoje or {}).values()
+    ]
     ultimo = max(
         (
             log
@@ -599,6 +605,30 @@ def estado_do_treino(user, dia=None) -> EstadoDoTreino:
         default=None,
     )
     estado.ultimo_log = ultimo
+
+    # Quanto tempo separou o primeiro registro do último.
+    #
+    # Sai de `created_at`, e só dele. A versão anterior desta tela pegava
+    # `inicio` e `fim` de `health_export.resumo_da_sessao`, e aqueles dois NÃO
+    # são medição: `inicio` é o horário cadastrado da ficha (ou 18h quando não
+    # há), e `fim` é esse horário mais uma duração calculada por fórmula a
+    # partir da contagem de séries. O próprio `health_export` avisa disso no
+    # comentário. Pego em captura: registros separados por 1,1 minuto real
+    # aparecendo na tela como "47 min".
+    #
+    # `carimbos` só contém registros de HOJE e dos exercícios DESTA sessão —
+    # `series_hoje` é montado a partir da ficha do dia, então quem treinou
+    # supino fora da ficha não entra na conta.
+    #
+    # Isto NÃO é "duração do treino": ninguém sabe quanto tempo a pessoa
+    # passou na academia antes da primeira série ou depois da última. É o
+    # intervalo entre dois instantes que o banco conhece, e o rótulo da tela
+    # diz exatamente isso.
+    if len(carimbos) >= 2:
+        minutos = (max(carimbos) - min(carimbos)).total_seconds() / 60
+        # Arredondar para baixo de 1 vira zero, e zero não vai para a tela:
+        # "0 min entre o primeiro e o último registro" é ruído, não informação.
+        estado.minutos_entre_registros = int(round(minutos))
     if ultimo is not None:
         prescricao = next(
             (item for item in itens if item.exercise_id == ultimo.exercise_id), None
