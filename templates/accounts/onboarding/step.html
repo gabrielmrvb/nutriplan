@@ -76,6 +76,24 @@
           <div>{% include "partials/field.html" with field=form.start_time %}</div>
           <div>{% include "partials/field.html" with field=form.duration_min %}</div>
         </div>
+        {% comment %}
+          A janela de sono, que morava no passo da comida.
+
+          Os três relógios desta tela respondem à mesma pergunta — como é o
+          seu dia —, e o treino precisa caber dentro da janela que o sono
+          define. Lá embaixo, depois de "alguma restrição alimentar?", ela
+          obrigava a trocar de assunto no meio da tela.
+        {% endcomment %}
+        <div class="field">
+          <span class="field__label">A janela do seu dia</span>
+          <div class="field__help">
+            Os horários das refeições são distribuídos dentro dela.
+          </div>
+          <div class="field-row">
+            <div>{% include "partials/field.html" with field=form.wake_time %}</div>
+            <div>{% include "partials/field.html" with field=form.sleep_time %}</div>
+          </div>
+        </div>
       {% elif step == 4 %}
         {% include "partials/icones.html" %}
         {% include "partials/choice_cards.html" with field=form.split_preference %}
@@ -89,10 +107,6 @@
         {% include "partials/icones.html" %}
         {% include "partials/choice_cards.html" with field=form.meal_style %}
         {% include "partials/field.html" with field=form.dietary_tags %}
-        <div class="field-row">
-          <div>{% include "partials/field.html" with field=form.wake_time %}</div>
-          <div>{% include "partials/field.html" with field=form.sleep_time %}</div>
-        </div>
       {% else %}
         {% for field in form %}
           {% include "partials/field.html" with field=field %}
@@ -199,9 +213,11 @@
                   location.assign(r.url);
                   return;
                 }
-                /* Sem redirecionamento, o formulário voltou com erro — a
-                 * janela de sono inválida, por exemplo. Envio de verdade, para
-                 * o servidor renderizar os erros no lugar certo. */
+                /* Sem redirecionamento, o formulário voltou com erro. Envio
+                 * de verdade, para o servidor renderizar os erros no lugar
+                 * certo. (O exemplo aqui era a janela de sono inválida; ela
+                 * mudou para o passo 3 na V2.1 e não passa mais por esta
+                 * tela.) */
                 esconder();
                 form.submit();
               }, espera);

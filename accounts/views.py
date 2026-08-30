@@ -76,7 +76,9 @@ def recusa_pendente(request, superficie):
 STEP_META = {
     1: ("Seus dados", "Precisamos disso para calcular seu gasto energético."),
     2: ("Seu objetivo", "Define se você come acima ou abaixo do seu gasto."),
-    3: ("Seus treinos", "Definem os horários das refeições e entram na conta."),
+    # "Sua rotina" e não "Seus treinos": desde a V2.1 a tela também pergunta a
+    # janela de sono, e as três respostas são relógios do mesmo dia.
+    3: ("Sua rotina", "Quando você treina e quando o seu dia começa e termina."),
     # A divisão vem DEPOIS dos dias, e não antes: a resposta só faz sentido
     # sabendo a frequência. Perguntar "quantos grupos por dia" para quem ainda
     # não disse quantos dias treina é pedir uma escolha que o app vai ter que
@@ -86,6 +88,8 @@ STEP_META = {
         "Escolha quantos músculos você prefere focar em cada sessão.",
     ),
     5: ("Sua comida", "O estilo do cardápio e o que você não pode comer."),
+    # A janela de sono saiu daqui na V2.1 — o subtítulo já descrevia só comida,
+    # e agora a tela também.
 }
 
 

@@ -7,7 +7,15 @@ campos usam o widget padrão, que já vem com a classe .field-input aplicada
 pelo form.
 {% endcomment %}
 <div class="field">
-  {% if field.widget_type == "radioselect" or field.widget_type == "checkboxselectmultiple" %}
+  {% comment %}
+    `field.name == "weekdays"` entra na condição porque os dias usam uma
+    SUBCLASSE de CheckboxSelectMultiple, e `widget_type` do Django é derivado do
+    nome da classe — a subclasse responde "diasdasemana" e escapava daqui, indo
+    parar no ramo genérico sem `<ul>` nenhum. É um grupo de caixas como os
+    outros; só o widget tem nome próprio, para escrever o `aria-label` de cada
+    dia.
+  {% endcomment %}
+  {% if field.widget_type == "radioselect" or field.widget_type == "checkboxselectmultiple" or field.name == "weekdays" %}
     <span class="field__label">{{ field.label }}</span>
     {% if field.help_text %}<div class="field__help">{{ field.help_text }}</div>{% endif %}
     {% comment %}
@@ -23,7 +31,17 @@ pelo form.
       setas, leitor de tela anuncia "opção 1 de 2", e envia sem uma linha de
       JavaScript.
     {% endcomment %}
-    <ul class="choice-list{% if field.name == 'sex' %} segmented{% endif %}">
+    {% comment %}
+      Os dias da semana viram chips: sete opções curtas e independentes que
+      cabem em duas linhas em vez de sete cartões empilhados.
+
+      Reaproveitam os mesmos `segmented__*` que o campo de sexo usa — o span
+      de fundo e o de texto já saem daqui para TODO radio/checkbox, e é neles
+      que o estado marcado é pintado por seletor irmão. O nome diz "segmented"
+      porque foi lá que o padrão nasceu; o que ele é de fato é a moldura que
+      permite mostrar seleção sem `:has()`.
+    {% endcomment %}
+    <ul class="choice-list{% if field.name == 'sex' %} segmented{% elif field.name == 'weekdays' %} choice-list--dias{% endif %}">
       {% for subwidget in field %}
         <li>
           <label>{{ subwidget.tag }}<span class="segmented__fundo" aria-hidden="true"></span><span class="segmented__texto">{{ subwidget.choice_label }}</span></label>

@@ -4,6 +4,7 @@ O foco é o fluxo: o que acontece quando a pessoa avança, volta, pula ou
 abandona no meio. É onde um wizard quebra na prática.
 """
 import json
+import re
 from datetime import date, time
 from decimal import Decimal
 
@@ -26,7 +27,15 @@ from plans.tests import create_complete_user
 
 from .adapters import MAXIMO_DE_TENTATIVAS, SESSAO_TENTATIVAS, SESSAO_VINCULO
 from .forms import PesagemForm
-from .models import ONBOARDING_DONE, Profile, TrainingDay, User, WeightEntry
+from .models import (
+    ONBOARDING_DONE,
+    ONBOARDING_LAST_STEP,
+    Profile,
+    TrainingDay,
+    User,
+    Weekday,
+    WeightEntry,
+)
 
 
 def step_url(step):
@@ -35,9 +44,17 @@ def step_url(step):
 
 STEP1 = {"sex": "M", "birth_date": "1995-04-12", "height_cm": 178, "weight_kg": "82.4"}
 STEP2 = {"goal": "cut", "activity_level": "light"}
-STEP3 = {"weekdays": ["0", "2", "4"], "start_time": "19:00", "duration_min": 60}
+# A janela do dia entrou no STEP3 na V2.1: os relógios do passo 3 são todos da
+# mesma pergunta, e o passo 5 ficou só com a comida.
+STEP3 = {
+    "weekdays": ["0", "2", "4"],
+    "start_time": "19:00",
+    "duration_min": 60,
+    "wake_time": "07:00",
+    "sleep_time": "23:30",
+}
 STEP4 = {"split_preference": "three"}
-STEP5 = {"meal_style": "quick", "wake_time": "07:00", "sleep_time": "23:30"}
+STEP5 = {"meal_style": "quick"}
 
 
 class SignupTests(TestCase):
@@ -199,23 +216,25 @@ class ValidationTests(TestCase):
         self.assertIn("futuro", str(response.context["form"].errors))
 
     def _ate_a_janela(self):
-        """Os quatro passos anteriores ao da janela do dia."""
+        """Os dois passos anteriores ao da janela do dia.
+
+        A janela é o passo 3 desde a V2.1, e não mais o 5 — então parar no 2 é
+        o que deixa a pessoa exatamente na porta da tela que se quer testar.
+        """
         self.client.post(step_url(1), STEP1)
         self.client.post(step_url(2), STEP2)
-        self.client.post(step_url(3), STEP3)
-        self.client.post(step_url(4), STEP4)
 
     def test_sleeping_after_midnight_is_valid(self):
         self._ate_a_janela()
         response = self.client.post(
-            step_url(5), {**STEP5, "wake_time": "07:00", "sleep_time": "01:30"}
+            step_url(3), {**STEP3, "wake_time": "07:00", "sleep_time": "01:30"}
         )
-        self.assertRedirects(response, reverse("plans:today"))
+        self.assertRedirects(response, step_url(4))
 
     def test_absurdly_short_awake_window_is_blocked(self):
         self._ate_a_janela()
         response = self.client.post(
-            step_url(5), {**STEP5, "wake_time": "07:00", "sleep_time": "10:00"}
+            step_url(3), {**STEP3, "wake_time": "07:00", "sleep_time": "10:00"}
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("muito curta", str(response.context["form"].errors))
@@ -380,11 +399,12 @@ class PlanBuildingScreenTests(TestCase):
         """O caminho arriscado da sobreposição: sem redirecionamento, ela
         precisa sair do caminho e deixar o servidor renderizar os erros. Se
         ficasse no ar, a pessoa olharia uma tela de carregamento para sempre."""
-        resposta = self.client.post(
-            step_url(5), {**STEP5, "wake_time": "07:00", "sleep_time": "10:00"}
-        )
+        # O erro de exemplo era a janela de sono, que mudou para o passo 3 na
+        # V2.1. O estilo de cardápio é obrigatório e continua sendo um erro
+        # deste passo — que é o que o teste precisa: um POST que NÃO redireciona.
+        resposta = self.client.post(step_url(5), {**STEP5, "meal_style": ""})
         self.assertEqual(resposta.status_code, 200)
-        self.assertIn("muito curta", str(resposta.context["form"].errors))
+        self.assertIn("meal_style", str(resposta.context["form"].errors))
 
         script = resposta.content.decode()
         self.assertIn("r.redirected", script)
@@ -504,7 +524,7 @@ class ProfileActionsTests(TestCase):
         O link ficou apontando para a tela errada desde então, mandando quem
         queria editar restrição para a escolha de divisão de treino."""
         html = self.client.get(self.url).content.decode()
-        bloco = html.split("Restrições e rotina", 1)[1].split("</section>", 1)[0]
+        bloco = html.split("Comida e restrições", 1)[1].split("</section>", 1)[0]
         self.assertIn(step_url(5), bloco)
         self.assertNotIn(step_url(4), bloco)
 
@@ -519,7 +539,7 @@ class ProfileActionsTests(TestCase):
         # O cardápio mora no cartão que leva ao passo 5, que é onde ele é
         # editado. Juntos num cartão só, o "Editar" mandava quem queria trocar
         # o cardápio para a tela de divisão de treino.
-        comida = html.split("Restrições e rotina", 1)[1].split("</section>", 1)[0]
+        comida = html.split("Comida e restrições", 1)[1].split("</section>", 1)[0]
         self.assertIn("Rápida e econômica", comida)
         self.assertIn(step_url(5), comida)
 
@@ -1761,3 +1781,188 @@ class EscopoRealDoLimiteTests(TestCase):
         # Nenhum bloqueio, nenhum 429: continua devolvendo o formulário.
         self.assertEqual(resposta.status_code, 200)
         self.assertNotIn("_auth_user_id", self.client.session)
+
+
+class OnboardingV21Tests(TestCase):
+    """A V2.1 mexeu em ONDE se responde, e em nada do que é respondido.
+
+    Duas mudanças: os sete dias viraram chips e a janela de sono saiu do passo
+    da comida para o passo da rotina. Nenhuma toca model, valor, validação ou
+    número de passos — e é exatamente isso que esta classe existe para provar,
+    porque "só mexi no visual" é a frase que antecede a regressão silenciosa.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="v21@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(self.user)
+        self.client.post(step_url(1), STEP1)
+        self.client.post(step_url(2), STEP2)
+
+    def perfil(self):
+        return Profile.objects.get(user=self.user)
+
+    # A ------------------------------------------------------------- valores
+    def test_os_dias_continuam_saindo_como_inteiros_de_weekday(self):
+        """O chip é rótulo; o que trafega é o mesmo inteiro de antes.
+
+        Se a abreviação tivesse virado o valor enviado, o `coerce=int` estouraria
+        — e um formulário que estoura no primeiro dia de uso é melhor que um que
+        grava "Seg" numa coluna de inteiro, mas nenhum dos dois pode acontecer.
+        """
+        self.client.post(step_url(3), STEP3)
+
+        dias = sorted(self.user.training_days.values_list("weekday", flat=True))
+        self.assertEqual(dias, [0, 2, 4])
+        self.assertTrue(all(isinstance(d, int) for d in dias))
+
+    # B -------------------------------------------------------- vários dias
+    def test_marcar_a_semana_inteira_grava_os_sete(self):
+        self.client.post(
+            step_url(3), {**STEP3, "weekdays": ["0", "1", "2", "3", "4", "5", "6"]}
+        )
+        self.assertEqual(self.user.training_days.count(), 7)
+
+    def test_desmarcar_um_dia_remove_so_ele(self):
+        self.client.post(step_url(3), {**STEP3, "weekdays": ["0", "2", "4"]})
+        self.client.post(step_url(3), {**STEP3, "weekdays": ["0", "4"]})
+
+        self.assertEqual(
+            sorted(self.user.training_days.values_list("weekday", flat=True)), [0, 4]
+        )
+
+    # C -------------------------------------------------------- sem mínimo
+    def test_nenhum_dia_continua_sendo_resposta_aceita(self):
+        """Não havia mínimo nem máximo antes, e continua não havendo.
+
+        O campo é `required=False` de propósito: quem ainda não treina precisa
+        conseguir passar da tela. Inventar um mínimo agora seria mudar a regra
+        no meio de uma missão que prometeu não mudar nenhuma.
+        """
+        response = self.client.post(step_url(3), {**STEP3, "weekdays": []})
+
+        self.assertRedirects(response, step_url(4))
+        self.assertEqual(self.user.training_days.count(), 0)
+
+    # D / E ------------------------------------------------- voltar e voltar
+    def test_voltar_ao_passo_3_traz_a_selecao_marcada(self):
+        self.client.post(step_url(3), STEP3)
+        self.client.post(step_url(4), STEP4)
+
+        html = self.client.get(step_url(3)).content.decode()
+        marcados = re.findall(r'<input[^>]*name="weekdays"[^>]*>', html)
+        checados = [i for i in marcados if "checked" in i]
+
+        self.assertEqual(len(marcados), 7)
+        self.assertEqual(len(checados), 3)
+        for valor in ("0", "2", "4"):
+            self.assertTrue(
+                any(f'value="{valor}"' in i and "checked" in i for i in marcados),
+                f"o dia {valor} devia voltar marcado",
+            )
+
+    def test_recarregar_o_passo_3_traz_a_janela_salva(self):
+        """Retomada: o sono agora vem do Profile, e não do TrainingDay.
+
+        Sem o `initial`, reabrir o passo mostraria os campos vazios e um
+        "Continuar" gravaria por cima do que já estava lá.
+        """
+        self.client.post(
+            step_url(3), {**STEP3, "wake_time": "06:15", "sleep_time": "22:10"}
+        )
+
+        html = self.client.get(step_url(3)).content.decode()
+
+        # O widget de hora renderiza com segundos ("06:15:00"); o que importa
+        # é o campo voltar preenchido com o que foi salvo.
+        self.assertIn('name="wake_time" value="06:15:00"', html)
+        self.assertIn('name="sleep_time" value="22:10:00"', html)
+
+    # F ---------------------------------------------------------- o sono
+    def test_a_janela_do_dia_e_gravada_pelo_passo_3(self):
+        self.client.post(
+            step_url(3), {**STEP3, "wake_time": "05:45", "sleep_time": "21:20"}
+        )
+
+        perfil = self.perfil()
+        self.assertEqual(perfil.wake_time, time(5, 45))
+        self.assertEqual(perfil.sleep_time, time(21, 20))
+
+    def test_o_passo_5_nao_pergunta_mais_a_janela(self):
+        """A prova de que o campo MUDOU de tela, e não de que sumiu.
+
+        Ancorada no formulário do passo, e não no HTML inteiro: procurar
+        "wake_time" na página acharia qualquer resquício em script ou rodapé e
+        passaria por acidente.
+        """
+        self.client.post(step_url(3), STEP3)
+        self.client.post(step_url(4), STEP4)
+
+        campos = self.client.get(step_url(5)).context["form"].fields
+
+        self.assertNotIn("wake_time", campos)
+        self.assertNotIn("sleep_time", campos)
+        self.assertIn("meal_style", campos)
+        self.assertIn("wake_time", self.client.get(step_url(3)).context["form"].fields)
+
+    # G / H ------------------------------------------------- retomada e guarda
+    def test_quem_parou_no_passo_3_volta_para_o_passo_3(self):
+        self.client.get(reverse("accounts:onboarding"))
+        self.assertEqual(self.perfil().onboarding_step, 3)
+
+        response = self.client.get(reverse("accounts:onboarding"))
+        self.assertRedirects(response, step_url(3))
+
+    def test_continua_sem_dar_para_pular_etapa(self):
+        """A guarda não mudou, e o sono mudar de tela não pode ter aberto atalho."""
+        response = self.client.get(step_url(5))
+        self.assertRedirects(response, step_url(3))
+
+    # I --------------------------------------------------------- progresso
+    def test_o_wizard_continua_com_cinco_passos(self):
+        """A V2.1 reorganiza; quem mexe no número de passos é a V2.2."""
+        self.assertEqual(ONBOARDING_LAST_STEP, 5)
+
+        contexto = self.client.get(step_url(3)).context
+        self.assertEqual(contexto["total_steps"], 5)
+        self.assertEqual(contexto["progress_pct"], 60)
+
+    # J ---------------------------------------------------- quem consome
+    def test_o_que_o_calculo_le_continua_igual(self):
+        """O consumidor não sabe por qual tela a resposta entrou.
+
+        A janela é lida do Profile e os dias do TrainingDay — os mesmos dois
+        lugares de antes. Este teste percorre o wizard inteiro pelo caminho
+        novo e confere o estado final, que é o que o motor enxerga.
+        """
+        self.client.post(
+            step_url(3), {**STEP3, "wake_time": "06:00", "sleep_time": "23:00"}
+        )
+        self.client.post(step_url(4), STEP4)
+        self.client.post(step_url(5), STEP5)
+
+        perfil = self.perfil()
+        self.assertTrue(perfil.onboarding_complete)
+        self.assertEqual(perfil.wake_time, time(6, 0))
+        self.assertEqual(perfil.sleep_time, time(23, 0))
+        self.assertEqual(
+            sorted(self.user.training_days.values_list("weekday", flat=True)), [0, 2, 4]
+        )
+        self.assertEqual(perfil.split_preference, STEP4["split_preference"])
+        self.assertEqual(perfil.meal_style, STEP5["meal_style"])
+
+    # ------------------------------------------------------------- os chips
+    def test_o_chip_mostra_a_abreviacao_e_fala_o_dia_inteiro(self):
+        """Quem enxerga lê "Qua" numa fila de sete; quem ouve precisa do nome.
+
+        Sem o `aria-label`, o leitor de tela anunciaria três letras sem
+        contexto nenhum para reconstruir o dia.
+        """
+        html = self.client.get(step_url(3)).content.decode()
+
+        self.assertIn("choice-list--dias", html)
+        self.assertIn(">Qua<", html)
+        self.assertIn('aria-label="Quarta-feira"', html)
+        # E o nome completo continua sendo o do model, para o resto do app.
+        self.assertEqual(Weekday(2).label, "Quarta-feira")

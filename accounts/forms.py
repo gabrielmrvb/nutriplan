@@ -242,20 +242,64 @@ class GoalForm(OnboardingStepForm):
         self.fields["activity_level"].choices = ActivityLevel.choices
 
 
+#: A abreviação de cada dia, para o chip caber.
+#:
+#: São RÓTULOS, não valores: o que é enviado continua sendo o inteiro de
+#: `Weekday`, e o perfil continua exibindo "Segunda-feira" pelo
+#: `get_weekday_display()` do model. Encurtar aqui não encurta nada lá.
+DIA_CURTO = {
+    Weekday.MONDAY: "Seg",
+    Weekday.TUESDAY: "Ter",
+    Weekday.WEDNESDAY: "Qua",
+    Weekday.THURSDAY: "Qui",
+    Weekday.FRIDAY: "Sex",
+    Weekday.SATURDAY: "Sáb",
+    Weekday.SUNDAY: "Dom",
+}
+
+
+class DiasDaSemanaWidget(forms.CheckboxSelectMultiple):
+    """Caixas de marcar cujo rótulo VISÍVEL é curto e o falado é inteiro.
+
+    O chip mostra "Qua" porque sete dias precisam caber em duas linhas num
+    celular. Mas "Qua" lido em voz alta é um ruído, não um dia — então cada
+    caixa leva `aria-label` com o nome completo, que substitui o texto do
+    rótulo para quem ouve a tela.
+
+    Quem enxerga lê a abreviação no contexto de uma fila de sete; quem ouve
+    recebe "Quarta-feira", sem contexto nenhum para reconstruir.
+    """
+
+    def create_option(self, name, value, label, *args, **kwargs):
+        option = super().create_option(name, value, label, *args, **kwargs)
+        completo = dict(Weekday.choices).get(getattr(value, "value", value))
+        if completo:
+            option["attrs"]["aria-label"] = completo
+        return option
+
+
 class TrainingForm(forms.Form):
-    """Passo 3 — dias de treino.
+    """Passo 3 — a rotina do dia: dias de treino, horário e janela de sono.
 
     Não é ModelForm porque um único envio cria/remove VÁRIOS TrainingDay.
     Pedimos um horário só para todos os dias: cobre a rotina da maioria e
     reduz o passo de 21 campos para 3. Quem treina em horários diferentes
     ajusta depois na tela de perfil.
+
+    O sono mora aqui desde a V2.1, e não no passo da comida. Os três campos de
+    relógio deste passo respondem à MESMA pergunta — como é o seu dia — e o
+    treino precisa caber dentro da janela que o sono define. Perguntar que
+    horas a pessoa acorda logo depois de "alguma restrição alimentar?" obrigava
+    a trocar de assunto no meio de uma tela; aqui a pergunta continua a
+    anterior.
     """
 
     weekdays = forms.TypedMultipleChoiceField(
         label="Em quais dias você treina?",
-        choices=Weekday.choices,
+        # Rótulo curto, valor idêntico: continua saindo o inteiro de `Weekday`.
+        choices=[(dia.value, DIA_CURTO[dia]) for dia in Weekday],
         coerce=int,
-        widget=forms.CheckboxSelectMultiple,
+        widget=DiasDaSemanaWidget,
         required=False,
         help_text="Se não treina ainda, pode deixar em branco e ajustar depois.",
     )
@@ -265,11 +309,30 @@ class TrainingForm(forms.Form):
         widget=forms.TimeInput(attrs={"type": "time", "class": "field-input"}),
     )
     duration_min = forms.IntegerField(
-        label="Duração média (minutos)",
+        # A unidade entra no campo, como já acontece com altura e peso no passo
+        # 1. "Duração média (minutos)" quebrava em duas linhas a 390px e
+        # empurrava o campo para baixo do vizinho, desalinhando a dupla.
+        label="Duração média",
         initial=60,
         min_value=15,
         max_value=300,
-        widget=forms.NumberInput(attrs={"inputmode": "numeric", "class": "field-input"}),
+        widget=forms.NumberInput(
+            attrs={"inputmode": "numeric", "class": "field-input", "sufixo": "min"}
+        ),
+    )
+    # Rótulos de uma palavra, e a explicação uma vez só acima do par.
+    #
+    # Eram duas perguntas inteiras lado a lado, e só a da esquerda tinha texto
+    # de ajuda — o que empurrava o campo dela 66px abaixo do outro, medidos a
+    # 390px. Dois relógios da mesma janela desalinhados por dois parágrafos
+    # diferentes é ruído que a tela não precisa.
+    wake_time = forms.TimeField(
+        label="Acorda",
+        widget=forms.TimeInput(attrs={"type": "time", "class": "field-input"}),
+    )
+    sleep_time = forms.TimeField(
+        label="Dorme",
+        widget=forms.TimeInput(attrs={"type": "time", "class": "field-input"}),
     )
 
     def __init__(self, *args, user=None, **kwargs):
@@ -280,6 +343,39 @@ class TrainingForm(forms.Form):
             self.fields["weekdays"].initial = [d.weekday for d in existing]
             self.fields["start_time"].initial = existing[0].start_time
             self.fields["duration_min"].initial = existing[0].duration_min
+        # O sono vive no Profile, e não em TrainingDay: o formulário só o
+        # empresta. Sem este initial, voltar ao passo 3 mostraria os campos
+        # vazios e um "Continuar" apagaria o que já estava salvo.
+        perfil = self.perfil()
+        if perfil is not None and not self.is_bound:
+            self.fields["wake_time"].initial = perfil.wake_time
+            self.fields["sleep_time"].initial = perfil.sleep_time
+
+    def perfil(self):
+        return getattr(self.user, "profile", None) if self.user else None
+
+    def clean(self):
+        """A janela entre acordar e dormir precisa caber um dia de refeições.
+
+        Veio junto com os campos, do passo 5. Só barramos janelas absurdas:
+        dormir depois da meia-noite é normal e faz `sleep < wake` — isso é
+        válido, não erro.
+        """
+        cleaned = super().clean()
+        wake, sleep = cleaned.get("wake_time"), cleaned.get("sleep_time")
+        if wake and sleep:
+            same_day = wake < sleep
+            awake_hours = (
+                (sleep.hour * 60 + sleep.minute) - (wake.hour * 60 + wake.minute)
+                if same_day
+                else 1440 - (wake.hour * 60 + wake.minute) + (sleep.hour * 60 + sleep.minute)
+            ) / 60
+            if awake_hours < 6:
+                raise forms.ValidationError(
+                    "A janela entre acordar e dormir ficou muito curta para "
+                    "distribuir as refeições. Confira os horários."
+                )
+        return cleaned
 
     def save(self):
         weekdays = set(self.cleaned_data["weekdays"])
@@ -293,6 +389,16 @@ class TrainingForm(forms.Form):
                 weekday=weekday,
                 defaults={"start_time": start_time, "duration_min": duration},
             )
+
+        # `update_fields` restrito: este passo não é dono do resto do Profile,
+        # e salvar o objeto inteiro sobrescreveria o que outra aba tivesse
+        # gravado enquanto esta tela estava aberta.
+        perfil = self.perfil()
+        if perfil is not None:
+            perfil.wake_time = self.cleaned_data["wake_time"]
+            perfil.sleep_time = self.cleaned_data["sleep_time"]
+            perfil.save(update_fields=["wake_time", "sleep_time", "updated_at"])
+
         return self.user.training_days.all()
 
 
@@ -326,22 +432,24 @@ class SplitPreferenceForm(OnboardingStepForm):
 
 
 class RestrictionsForm(OnboardingStepForm):
-    """Passo 5 — estilo de cardápio, restrições e janela do dia."""
+    """Passo 5 — estilo de cardápio e restrições.
+
+    A janela de sono saiu daqui na V2.1 e foi para o passo 3, junto dos outros
+    horários. Ela nunca foi uma pergunta sobre comida: era uma pergunta sobre o
+    dia da pessoa que tinha ido parar na tela de comida porque é a comida que
+    consome a resposta. Consumidor não é dono.
+    """
 
     class Meta:
         model = Profile
-        fields = ("meal_style", "dietary_tags", "wake_time", "sleep_time")
+        fields = ("meal_style", "dietary_tags")
         widgets = {
             "meal_style": forms.RadioSelect,
             "dietary_tags": forms.CheckboxSelectMultiple,
-            "wake_time": forms.TimeInput(attrs={"type": "time"}),
-            "sleep_time": forms.TimeInput(attrs={"type": "time"}),
         }
         labels = {
             "meal_style": "Que tipo de cardápio você quer?",
             "dietary_tags": "Alguma restrição alimentar?",
-            "wake_time": "Que horas você costuma acordar?",
-            "sleep_time": "Que horas você costuma dormir?",
         }
         help_texts = {
             # A diferença entre este campo e o de baixo é a diferença entre
@@ -353,7 +461,6 @@ class RestrictionsForm(OnboardingStepForm):
                 "opção fora do seu estilo do que horário nenhum."
             ),
             "dietary_tags": "Só serão sugeridas refeições que atendam a tudo que você marcar.",
-            "wake_time": "Os horários das refeições são distribuídos dentro dessa janela.",
         }
 
     def __init__(self, *args, **kwargs):
@@ -363,25 +470,6 @@ class RestrictionsForm(OnboardingStepForm):
         )
         self.fields["dietary_tags"].required = False
         self.fields["meal_style"].choices = MealStyle.choices
-
-    def clean(self):
-        cleaned = super().clean()
-        wake, sleep = cleaned.get("wake_time"), cleaned.get("sleep_time")
-        if wake and sleep:
-            # Só barramos janelas absurdas. Dormir depois da meia-noite é normal
-            # e faz sleep < wake — isso é válido, não erro.
-            same_day = wake < sleep
-            awake_hours = (
-                (sleep.hour * 60 + sleep.minute) - (wake.hour * 60 + wake.minute)
-                if same_day
-                else 1440 - (wake.hour * 60 + wake.minute) + (sleep.hour * 60 + sleep.minute)
-            ) / 60
-            if awake_hours < 6:
-                raise forms.ValidationError(
-                    "A janela entre acordar e dormir ficou muito curta para "
-                    "distribuir as refeições. Confira os horários."
-                )
-        return cleaned
 
 
 class ConectarGoogleForm(forms.Form):

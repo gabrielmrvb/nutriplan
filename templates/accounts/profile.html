@@ -112,13 +112,21 @@
         {% else %}
           <p class="empty-state">Nenhum dia de treino cadastrado ainda.</p>
         {% endif %}
+        {% comment %}
+          A janela do dia entra aqui porque é aqui que ela é editada — o
+          "Editar" deste cartão vai para o passo 3, que é onde ela agora mora.
+        {% endcomment %}
+        <dl class="data-list">
+          <div><dt>Acorda</dt><dd>{{ profile.wake_time|time:"H:i" }}</dd></div>
+          <div><dt>Dorme</dt><dd>{{ profile.sleep_time|time:"H:i" }}</dd></div>
+        </dl>
       </section>
     </div>
 
     <aside class="split__aside stack">
       <section class="card">
         <div class="card__head">
-          <h2>Restrições e rotina</h2>
+          <h2>Comida e restrições</h2>
           {% comment %}
             Passo 5, e não 4. As restrições eram o passo 4 até a preferência de
             divisão entrar na frente delas — e este link ficou apontando para a
@@ -134,10 +142,16 @@
             <span class="chip">Sem restrições</span>
           {% endfor %}
         </div>
+        {% comment %}
+          Acorda e Dorme saíram deste cartão na V2.1.
+
+          É a mesma regra que os dois comentários acima registram: um cartão só
+          pode ter um "Editar" se tudo o que ele mostra for editado na mesma
+          tela. A janela de sono passou a ser respondida no passo 3, e mostrá-la
+          aqui mandaria quem quisesse corrigi-la para a tela de restrições.
+        {% endcomment %}
         <dl class="data-list">
           <div><dt>Cardápio</dt><dd>{{ profile.get_meal_style_display }}</dd></div>
-          <div><dt>Acorda</dt><dd>{{ profile.wake_time|time:"H:i" }}</dd></div>
-          <div><dt>Dorme</dt><dd>{{ profile.sleep_time|time:"H:i" }}</dd></div>
         </dl>
       </section>
 
@@ -150,7 +164,7 @@
 
         É a mesma classe de defeito que o link das restrições tinha: cartão que
         mostra duas coisas de telas diferentes só pode ter um botão se as duas
-        estiverem na mesma tela. O cardápio desceu para "Restrições e rotina",
+        estiverem na mesma tela. O cardápio desceu para "Comida e restrições",
         que já leva ao passo 5 — onde ele de fato é editado.
       {% endcomment %}
       <section class="card">

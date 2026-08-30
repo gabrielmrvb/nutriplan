@@ -1623,6 +1623,77 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 }
 
 .choice-list--inline { grid-template-columns: 1fr 1fr; }
+
+/* Os sete dias da semana, em chips.
+ *
+ * Eram sete cartões de largura inteira: 404px medidos a 390px de viewport, com
+ * o "Continuar" caindo abaixo da dobra. Nenhum daqueles cartões precisava de
+ * uma linha inteira — "Seg" é três letras.
+ *
+ * O estado marcado é pintado por `input:checked ~ .segmented__fundo`, seletor
+ * IRMÃO e não `:has()`. A diferença importa: `:has()` é permitido em cima do
+ * `.choice-list` comum porque lá é só realce e o `accent-color` da caixa
+ * nativa continua mostrando a escolha. Aqui a caixa está fora do fluxo, então
+ * o preenchimento é a ÚNICA pista — e uma regra que o navegador descarta
+ * inteira deixaria a pessoa sem saber quais dias marcou.
+ *
+ * O input não é escondido, é recortado: continua no fluxo de foco, recebe Tab,
+ * alterna com espaço e é anunciado com o nome completo do dia pelo `aria-label`
+ * que `DiasDaSemanaWidget` escreve. */
+.choice-list--dias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+}
+
+/* `1 1 3.8rem`: os chips esticam para preencher a linha em vez de deixarem um
+   vão à direita, e a base é medida, não escolhida — a 360px a lista tem 274px
+   úteis, e quatro por linha com 6.4px de vão exigem no máximo 63px de base.
+   4.2rem (67px) cabia só três e virava uma terceira linha; 3.8rem (61px) fecha
+   4+3 tanto a 360 quanto a 390. */
+.choice-list--dias li { flex: 1 1 3.8rem; min-width: 0; }
+
+.choice-list--dias label {
+  position: relative;
+  justify-content: center;
+  gap: 0;
+  min-height: 2.75rem;
+  padding: .5rem .35rem;
+  border-radius: var(--pill);
+  font-size: .82rem;
+  /* Sempre 650, marcado ou não: deixar o peso mudar na seleção faria o chip
+     crescer e a linha inteira reposicionar debaixo do dedo. */
+  font-weight: 650;
+}
+
+.choice-list--dias input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.choice-list--dias .segmented__fundo {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.choice-list--dias .segmented__texto { position: relative; }
+
+.choice-list--dias input:checked ~ .segmented__fundo { background: var(--brand); }
+.choice-list--dias input:checked ~ .segmented__texto { color: var(--on-brand); }
+.choice-list--dias label:hover .segmented__fundo { background: var(--surface-3); }
+.choice-list--dias label:hover input:checked ~ .segmented__fundo { background: var(--brand-strong); }
+.choice-list--dias input:focus-visible ~ .segmented__fundo { box-shadow: 0 0 0 2px var(--accent); }
+
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
 
 /* ==========================================================================
