@@ -115,13 +115,19 @@ class Exercise(models.Model):
 
     #: Animação de execução — GIF, WebP, MP4 ou WebM num endereço direto.
     #:
-    #: É a demonstração preferida quando existe: mostra o movimento inteiro,
-    #: coisa que duas fotos não fazem. Fica vazia por padrão porque não há
-    #: fonte gratuita e verificável de animação anatômica — MuscleWiki cobra
-    #: US$ 10/mês e serve vídeo, não render 3D; ExerciseDB exige chave. O
-    #: comando `set_exercise_animation` importa de qualquer fonte que você
-    #: contrate, num arquivo JSON.
-    animation_url = models.URLField("animação de execução", blank=True)
+    #: Conteúdo ANATÔMICO: que músculos o movimento recruta.
+    #:
+    #: O rótulo dizia "animação de execução" e o comentário logo abaixo dizia
+    #: "animação anatômica" — a mesma linha se contradizia. A tela acreditou no
+    #: rótulo e promoveu este campo a demonstração principal; auditado em
+    #: 30/08/2026, metade dos vídeos aqui se chama literalmente "<exercício> -
+    #: Músculos Trabalhados", e o supino leva ONZE segundos de diagrama antes
+    #: de alguém deitar no banco. Quem apertava "ver execução" recebia aula de
+    #: anatomia no meio da série.
+    #:
+    #: Agora o campo tem um lugar honesto: alimenta "Músculos trabalhados", que
+    #: é conteúdo secundário e abre sob demanda. Execução é `video_url`.
+    animation_url = models.URLField("animação anatômica", blank=True)
 
     video_url = models.URLField(
         "vídeo de execução",
@@ -320,6 +326,55 @@ class Exercise(models.Model):
             "https://www.youtube.com/results?search_query="
             + quote_plus(f"{self.name} execução correta")
         )
+
+    # -- o contrato de mídia do modo treino -------------------------------
+    #
+    # Uma pergunta por propriedade, para o template não precisar decidir nada:
+    # `execucao_*` é o que a pessoa vê ao abrir o exercício, `anatomia_*` é o
+    # extra. A ordem de qualidade da execução é vídeo, depois fotos — e nunca
+    # a animação anatômica, que foi exatamente a troca que quebrou a tela.
+
+    @property
+    def execucao_tipo(self) -> str:
+        """Como mostrar a execução: "youtube", "video", "gif", "fotos" ou ""."""
+        if self.clip_kind:
+            return self.clip_kind
+        return "fotos" if self.has_frames else ""
+
+    @property
+    def execucao_src(self) -> str:
+        """O endereço já pronto para o `src` — embed quando é YouTube."""
+        if not self.video_url:
+            return ""
+        return self.video_embed_url if self.clip_kind == "youtube" else self.video_url
+
+    @property
+    def execucao_vertical(self) -> bool:
+        return self.is_vertical
+
+    @property
+    def tem_anatomia(self) -> bool:
+        """Só oferece "músculos trabalhados" quando há conteúdo DIFERENTE.
+
+        Em sete exercícios o mesmo endereço está nos dois campos. Abrir um
+        segundo botão que toca o vídeo que já está tocando não informa nada —
+        e faz a tela prometer um conteúdo que ela não tem.
+        """
+        return bool(self.animation_url) and self.animation_url != self.video_url
+
+    @property
+    def anatomia_src(self) -> str:
+        if not self.tem_anatomia:
+            return ""
+        return (
+            self.animation_embed_url
+            if self.animation_kind == "youtube"
+            else self.animation_url
+        )
+
+    @property
+    def anatomia_vertical(self) -> bool:
+        return self.animation_is_vertical
 
 
 class Split(models.TextChoices):

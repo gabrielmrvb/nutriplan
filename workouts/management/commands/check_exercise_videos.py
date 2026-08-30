@@ -7,10 +7,14 @@ de embutir — e a ficha passa a abrir uma tela preta no meio da série de algu�
 Este comando é a forma de descobrir isso antes do usuário, e é o que torna
 honesto ter URL fixa no seed.
 
-Usa o oEmbed do próprio YouTube, que não precisa de chave de API: 200 significa
-"existe e pode ser embutido", 401 é embed bloqueado pelo dono, 404 é vídeo fora
-do ar. Devolve status 1 quando algo está errado, então dá para pendurar num
-agendador e ser avisado.
+Usa o oEmbed do próprio YouTube, que não precisa de chave de API: 401 é embed
+bloqueado pelo dono, 404 é vídeo fora do ar. Devolve status 1 quando algo está
+errado, então dá para pendurar num agendador e ser avisado.
+
+O que 200 NÃO garante: que o vídeo toque. Auditado em 30/08/2026 com captura do
+player, "Supino inclinado com halteres" respondia 200 aqui e desenhava "Vídeo
+indisponível" dentro do embed — restrição que o oEmbed não conta. Este comando
+pega link podre, não player mudo; conferir reprodução exige abrir o player.
 """
 import json
 import urllib.error

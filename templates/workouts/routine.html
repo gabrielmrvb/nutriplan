@@ -130,7 +130,7 @@
               nasce com `hidden` e é revelado pelo mesmo caminho.
             {% endcomment %}
             <a class="btn btn--primary btn--block btn--hoje"
-               {% if hoje.proximo %}href="#exercicio-{{ hoje.proximo.exercise.pk }}"{% endif %}
+               href="{% url 'workouts:now' %}"
                {% if not hoje.proximo %}hidden{% endif %}
                data-hoje-cta>
               <span data-hoje-verbo>{% if hoje.feitos_hoje %}Continuar de onde parou{% else %}Começar treino{% endif %}</span>
@@ -141,7 +141,7 @@
               para — dizer "treino concluído" seria afirmar o que não se sabe.
             {% endcomment %}
             <p class="hoje__completo" {% if hoje.proximo %}hidden{% endif %} data-hoje-completo>
-              Todos os exercícios de hoje já têm série registrada.
+              Todas as séries de hoje já estão registradas.
             </p>
           </section>
 
@@ -1065,7 +1065,8 @@
             var total = salvar ? parseInt(salvar.dataset.total, 10) || 1 : 1;
 
             if (feitas > 0) feitos += 1;
-            if (feitas === 0 && !proximo) proximo = exercicio;
+            /* Falta série, e não "nenhuma série": a mesma regra do servidor. */
+            if (feitas < total && !proximo) proximo = exercicio;
 
             exercicio.classList.remove("exercise--agora");
             marcaExercicio(exercicio, feitas, total);
@@ -1140,7 +1141,10 @@
           if (!botao) return;
 
           botao.hidden = false;
-          botao.setAttribute("href", "#" + proximo.id);
+          /* O destino nao muda mais com o exercicio: o botao abre o modo
+             treino, que descobre sozinho onde a pessoa parou. Reescrever o
+             href para uma ancora era o que fazia "comecar treino" significar
+             "role ate o meio desta pagina". */
 
           var verbo = botao.querySelector("[data-hoje-verbo]");
           if (verbo) {

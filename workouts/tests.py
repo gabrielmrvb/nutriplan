@@ -987,6 +987,15 @@ class ExerciseDrawerTests(TestCase):
     def _pagina(self):
         return self.client.get(reverse("workouts:routine")).content.decode()
 
+    def _cta(self, html):
+        """Só o elemento do botão principal.
+
+        Asserção na página inteira passaria por acidente: `#exercicio-` aparece
+        em todo cartão da ficha, e `hidden` aparece em meia dúzia de lugares.
+        """
+        bloco = html.split('class="card hoje"', 1)[1].split("</section>", 1)[0]
+        return bloco.split("data-hoje-cta", 1)[0].rsplit("<a ", 1)[1]
+
     def test_the_page_has_exactly_one_drawer(self):
         """Um por exercício seriam trinta players no documento, e o custo
         apareceria no 3G da academia antes de qualquer benefício."""
@@ -1072,6 +1081,15 @@ class WeekAccordionTests(TestCase):
 
     def _pagina(self):
         return self.client.get(reverse("workouts:routine")).content.decode()
+
+    def _cta(self, html):
+        """Só o elemento do botão principal.
+
+        Asserção na página inteira passaria por acidente: `#exercicio-` aparece
+        em todo cartão da ficha, e `hidden` aparece em meia dúzia de lugares.
+        """
+        bloco = html.split('class="card hoje"', 1)[1].split("</section>", 1)[0]
+        return bloco.split("data-hoje-cta", 1)[0].rsplit("<a ", 1)[1]
 
     def _fora_de_hoje(self):
         """As sessões que a sanfona ainda guarda.
@@ -2397,6 +2415,15 @@ class TreinoDeHojeTests(TestCase):
     def _pagina(self):
         return self.client.get(reverse("workouts:routine")).content.decode()
 
+    def _cta(self, html):
+        """Só o elemento do botão principal.
+
+        Asserção na página inteira passaria por acidente: `#exercicio-` aparece
+        em todo cartão da ficha, e `hidden` aparece em meia dúzia de lugares.
+        """
+        bloco = html.split('class="card hoje"', 1)[1].split("</section>", 1)[0]
+        return bloco.split("data-hoje-cta", 1)[0].rsplit("<a ", 1)[1]
+
     def _itens(self):
         return list(self.sessao.exercises.all())
 
@@ -2430,32 +2457,53 @@ class TreinoDeHojeTests(TestCase):
         self.assertIn(self.sessao.name, bloco)
         self.assertIn("%d exercícios" % len(self._itens()), bloco)
 
-    def test_the_button_points_at_the_first_exercise_without_a_set_today(self):
-        """A âncora é o destino real, e não um estado inventado.
+    def test_the_button_opens_the_guided_mode(self):
+        """"Começar treino" abre o modo treino — não rola a página.
 
-        Não existe `TrainingSession`: "começar treino" não tem o que salvar. O
-        que o botão faz é levar ao primeiro exercício pendente — que já vem
-        aberto — e isso funciona por teclado e sem JavaScript.
+        Era uma âncora `#exercicio-N` dentro desta mesma página de quase cinco
+        mil pixels: o botão prometia começar e entregava rolagem. O destino
+        agora é uma tela própria, que descobre sozinha onde a pessoa parou.
         """
-        primeiro = self._itens()[0]
         html = self._pagina()
 
-        self.assertIn('href="#exercicio-%d"' % primeiro.exercise.pk, html)
+        self.assertIn('href="%s"' % reverse("workouts:now"), html)
         self.assertIn("Começar treino", html)
 
-    def test_the_anchor_walks_forward_as_sets_get_recorded(self):
-        """Registrar o primeiro move o destino para o segundo.
+    def test_the_destination_stays_put_because_the_target_screen_walks(self):
+        """O destino é fixo, e é isso que impede o botão de mentir.
 
-        Nada foi salvo sobre "onde a pessoa está": a posição é recalculada a
-        cada carregamento a partir das séries do dia. É o que permite anotar
-        fora de ordem sem o app ficar preso num exercício já feito.
+        Antes o `href` precisava andar junto com as séries, e cada
+        recálculo era uma chance de apontar para um exercício já terminado.
+        Hoje quem anda é a tela de destino: `/treino/agora/` recalcula de
+        `ExerciseLog` a cada carregamento — coberto por `ModoTreinoTests`.
         """
         itens = self._itens()
-        self._anotar(itens[0], series=itens[0].sets)
+        alvo = 'href="%s"' % reverse("workouts:now")
 
-        html = self._pagina()
-        self.assertIn('href="#exercicio-%d"' % itens[1].exercise.pk, html)
-        self.assertNotIn('href="#exercicio-%d"' % itens[0].exercise.pk, html)
+        antes = self._cta(self._pagina())
+        self._anotar(itens[0], series=itens[0].sets)
+        depois = self._cta(self._pagina())
+
+        self.assertIn(alvo, antes)
+        self.assertIn(alvo, depois)
+        self.assertNotIn("#exercicio-", depois)
+
+    def test_a_set_short_everywhere_still_leaves_a_way_back_in(self):
+        """Uma série de quatro em TODOS os exercícios ainda é treino a fazer.
+
+        A regra antiga era "primeiro sem NENHUMA série": quem anotasse a
+        primeira série de cada exercício ficava sem "próximo", o botão sumia, e
+        o caminho para a tela guiada — com 27 séries pela frente — desaparecia
+        da lista. Servidor e JavaScript agora usam `feitas < sets`.
+        """
+        itens = self._itens()
+        for item in itens:
+            self._anotar(item, series=1)
+
+        cta = self._cta(self._pagina())
+
+        self.assertNotIn("hidden", cta)
+        self.assertIn('href="%s"' % reverse("workouts:now"), cta)
 
     def test_the_verb_changes_once_something_was_recorded(self):
         self.assertIn("Começar treino", self._pagina())
@@ -2475,14 +2523,18 @@ class TreinoDeHojeTests(TestCase):
         self.assertIn("com série registrada hoje", contagem)
         self.assertIn(">2</b>", contagem)
 
-    def test_the_screen_never_claims_the_workout_is_finished(self):
-        """A trava central desta rodada.
+    def test_the_list_screen_never_claims_the_workout_is_finished(self):
+        """Esta tela descreve o que aconteceu; ela não decreta conclusão.
 
-        Não existe `TrainingSession` persistente. O banco sabe que houve série
-        anotada hoje; não sabe se a pessoa terminou o treino ou parou no meio.
-        Escrever "treino concluído" seria a interface afirmando um estado que
-        nenhuma tabela sustenta — e é o tipo de mentira que só aparece quando
-        alguém confia nela.
+        Continua não existindo `TrainingSession` persistente. O que mudou na V3
+        é o limiar da frase: ela aparecia quando todo exercício tinha ALGUMA
+        série, e agora só quando toda série prescrita tem registro — por isso o
+        texto passou de "já têm série registrada" para "já estão registradas".
+
+        Quem pode dizer "Treino concluído" é a tela guiada, onde o fato é
+        verificável: nenhuma série da ficha de hoje ficou sem linha no banco.
+        Aqui, no cartão de resumo, a afirmação continua proibida — este bloco
+        também aparece no meio do treino.
         """
         for item in self._itens():
             self._anotar(item, series=item.sets)
@@ -2492,7 +2544,7 @@ class TreinoDeHojeTests(TestCase):
 
         for mentira in ("concluído", "Concluído", "finalizado", "Treino completo"):
             self.assertNotIn(mentira, bloco)
-        self.assertIn("já têm série registrada", bloco)
+        self.assertIn("já estão registradas", bloco)
 
     def test_with_everything_recorded_there_is_no_destination_left_to_offer(self):
         """Sem exercício pendente o botão fica escondido em vez de mentir um
@@ -2501,10 +2553,10 @@ class TreinoDeHojeTests(TestCase):
             self._anotar(item, series=item.sets)
 
         bloco = self._pagina().split('class="card hoje"', 1)[1].split("</section>", 1)[0]
-        cta = bloco.split("data-hoje-cta", 1)[0].rsplit("<a ", 1)[1]
 
-        self.assertIn("hidden", cta)
-        self.assertNotIn("href=", cta)
+        # O `href` agora é fixo e continua verdadeiro mesmo aqui: `/treino/agora/`
+        # mostraria a tela de conclusão. Quem esconde o botão é o `hidden`.
+        self.assertIn("hidden", self._cta(self._pagina()))
         completo = bloco.split("hoje__completo", 1)[1].split(">", 1)[0]
         self.assertNotIn("hidden", completo)
 
@@ -2681,3 +2733,541 @@ class DiaDeDescansoTests(TestCase):
         contradizer dentro de uma rolagem."""
         marcado = self.html.split("data-ficha open", 1)[0]
         self.assertEqual(marcado.rsplit('data-dia="', 1)[1][0], self._proximo().label)
+
+
+class ModoTreinoTests(TestCase):
+    """O modo treino: uma tela que responde "o que eu faço agora?".
+
+    O que estes testes protegem não é a aparência — é a afirmação de que todo o
+    estado sai de `ExerciseLog`. Quem trocar isso por um campo "sessão em
+    andamento" vai quebrar retomada, e é isso que estas asserções cobram.
+    """
+
+    url = reverse("workouts:now")
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def _usuario(self, email="modo@exemplo.com"):
+        """Alguém cujo dia de treino é hoje — sem isso a tela é descanso."""
+        return create_user(email=email, weekdays=(timezone.localdate().weekday(),))
+
+    def _estado(self, user):
+        services.sync_active_routine(user)
+        return services.estado_do_treino(user)
+
+    def _preencher(self, user, item, ate=None, peso="50", dia=None):
+        """Anota séries de um exercício, como a pessoa faria."""
+        for numero in range(1, (ate or item.sets) + 1):
+            services.record_load(
+                user, item.exercise, Decimal(peso), set_number=numero, reps=8, day=dia
+            )
+
+    # -- qual é o exercício atual -------------------------------------
+
+    def test_sem_registro_nenhum_o_atual_e_o_primeiro_da_ficha(self):
+        """Quem abre o app antes de começar precisa ver o começo.
+
+        Se o "atual" caísse em qualquer outro exercício, a primeira tela do
+        modo treino já mandaria a pessoa para o meio da ficha.
+        """
+        estado = self._estado(self._usuario())
+
+        self.assertEqual(estado.atual, estado.itens[0])
+        self.assertEqual(estado.atual.proxima_serie, 1)
+        self.assertFalse(estado.concluido)
+        self.assertEqual(estado.series_feitas, 0)
+
+    def test_exercicio_com_series_pela_metade_continua_sendo_o_atual(self):
+        """Duas de quatro séries não é "exercício feito".
+
+        A regra antiga da lista era `not item.feitas` — o primeiro SEM NENHUMA
+        série. No modo guiado ela mandaria quem anotou a segunda série do
+        supino direto para o próximo exercício, com o supino pela metade.
+        """
+        user = self._usuario()
+        estado = self._estado(user)
+        primeiro = estado.itens[0]
+        self._preencher(user, primeiro, ate=2)
+
+        estado = services.estado_do_treino(user)
+
+        self.assertEqual(estado.atual.exercise_id, primeiro.exercise_id)
+        self.assertEqual(estado.atual.proxima_serie, 3)
+        self.assertFalse(estado.atual.concluido)
+
+    def test_exercicio_completo_entrega_a_vez_ao_proximo(self):
+        user = self._usuario()
+        estado = self._estado(user)
+        primeiro, segundo = estado.itens[0], estado.itens[1]
+        self._preencher(user, primeiro)
+
+        estado = services.estado_do_treino(user)
+
+        self.assertEqual(estado.atual.exercise_id, segundo.exercise_id)
+        self.assertEqual(estado.atual.proxima_serie, 1)
+        self.assertEqual(estado.exercicios_concluidos, 1)
+
+    def test_a_proxima_serie_e_o_buraco_e_nao_a_contagem(self):
+        """Anotou a série 3 e deixou a 1 em branco: falta a 1.
+
+        `quantas + 1` diria "próxima é a 2" e pularia a primeira para sempre.
+        Acontece de verdade com quem registra fora de ordem.
+        """
+        user = self._usuario()
+        estado = self._estado(user)
+        item = estado.itens[0]
+        services.record_load(user, item.exercise, Decimal("40"), set_number=3)
+
+        estado = services.estado_do_treino(user)
+
+        self.assertEqual(estado.atual.proxima_serie, 1)
+
+    def test_treino_concluido_quando_toda_serie_prescrita_tem_registro(self):
+        user = self._usuario()
+        estado = self._estado(user)
+        for item in estado.itens:
+            self._preencher(user, item)
+
+        estado = services.estado_do_treino(user)
+
+        self.assertTrue(estado.concluido)
+        self.assertIsNone(estado.atual)
+        self.assertEqual(estado.pct, 100)
+
+    def test_o_progresso_nao_passa_de_cem_por_cento(self):
+        """O modelo aceita anotar mais séries do que a ficha prescreve.
+
+        A barra não pode virar 110% por causa disso — ela descreve a ficha, e a
+        ficha não cresceu.
+        """
+        user = self._usuario()
+        estado = self._estado(user)
+        for item in estado.itens:
+            self._preencher(user, item)
+        extra = estado.itens[0]
+        services.record_load(
+            user, extra.exercise, Decimal("50"), set_number=extra.sets + 1
+        )
+
+        estado = services.estado_do_treino(user)
+
+        self.assertEqual(estado.pct, 100)
+        self.assertLessEqual(estado.series_feitas, estado.total_series)
+
+    # -- retomada ------------------------------------------------------
+
+    def test_recarregar_a_pagina_cai_no_mesmo_ponto(self):
+        """Retomada não depende de nada guardado na aba.
+
+        Duas visitas seguidas, sem nenhuma ação entre elas, precisam descrever
+        o mesmo exercício e a mesma série — é o que garante que fechar o app no
+        meio do treino não perde o lugar.
+        """
+        user = self._usuario()
+        estado = self._estado(user)
+        self._preencher(user, estado.itens[0], ate=2)
+        self.client.force_login(user)
+
+        primeira = self.client.get(self.url)
+        segunda = self.client.get(self.url)
+
+        self.assertEqual(primeira.status_code, 200)
+        self.assertEqual(
+            primeira.context["estado"].atual.exercise_id,
+            segunda.context["estado"].atual.exercise_id,
+        )
+        self.assertEqual(segunda.context["estado"].atual.proxima_serie, 3)
+
+    def test_usuario_sem_nenhum_log_nao_quebra_a_tela(self):
+        user = self._usuario()
+        self.client.force_login(user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Concluir série")
+
+    def test_dia_de_descanso_nao_oferece_treino(self):
+        """Quem não treina hoje recebe uma frase, não um formulário vazio."""
+        amanha = (timezone.localdate().weekday() + 1) % 7
+        user = create_user(email="descanso@exemplo.com", weekdays=(amanha,))
+        self.client.force_login(user)
+
+        response = self.client.get(self.url)
+        html = sem_scripts(response.content.decode())
+
+        self.assertFalse(response.context["estado"].tem_treino)
+        self.assertIn("Hoje não tem treino", html)
+        self.assertNotIn("Concluir série", html)
+
+    # -- registrar a série ---------------------------------------------
+
+    def test_concluir_serie_grava_a_serie_que_o_formulario_mandou(self):
+        user = self._usuario()
+        estado = self._estado(user)
+        item = estado.itens[0]
+        self.client.force_login(user)
+
+        self.client.post(
+            reverse("workouts:record_set"),
+            {
+                "exercise_id": item.exercise_id,
+                "set_number": 1,
+                "weight_kg": "62,5",
+                "reps": "8",
+            },
+        )
+
+        log = ExerciseLog.objects.get(user=user, exercise=item.exercise, set_number=1)
+        self.assertEqual(log.weight_kg, Decimal("62.50"))
+        self.assertEqual(log.reps, 8)
+
+    def test_reenviar_o_mesmo_formulario_corrige_em_vez_de_duplicar(self):
+        """Toque duplo, botão voltar e reenvio não podem inventar série.
+
+        É a regra de idempotência do CLAUDE.md: a série vai explícita no
+        formulário e `record_load` faz `update_or_create`. Se alguém trocar
+        isto por "+1 série", este teste cai — e é para isso que ele existe.
+        """
+        user = self._usuario()
+        estado = self._estado(user)
+        item = estado.itens[0]
+        self.client.force_login(user)
+        dados = {
+            "exercise_id": item.exercise_id,
+            "set_number": 1,
+            "weight_kg": "60",
+            "reps": "10",
+        }
+
+        self.client.post(reverse("workouts:record_set"), dados)
+        self.client.post(reverse("workouts:record_set"), dados)
+
+        self.assertEqual(
+            ExerciseLog.objects.filter(user=user, exercise=item.exercise).count(), 1
+        )
+
+    def test_concluir_a_serie_avanca_para_a_seguinte(self):
+        user = self._usuario()
+        estado = self._estado(user)
+        item = estado.itens[0]
+        self.client.force_login(user)
+
+        self.client.post(
+            reverse("workouts:record_set"),
+            {"exercise_id": item.exercise_id, "set_number": 1, "weight_kg": "60"},
+        )
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.context["estado"].atual.proxima_serie, 2)
+
+    def test_desfazer_apaga_a_ultima_serie_anotada(self):
+        user = self._usuario()
+        estado = self._estado(user)
+        item = estado.itens[0]
+        self._preencher(user, item, ate=2)
+        self.client.force_login(user)
+
+        self.client.post(
+            reverse("workouts:record_set"),
+            {"exercise_id": item.exercise_id, "acao": "desfazer"},
+        )
+
+        restantes = list(
+            ExerciseLog.objects.filter(user=user, exercise=item.exercise)
+            .values_list("set_number", flat=True)
+        )
+        self.assertEqual(restantes, [1])
+
+    def test_formulario_corrompido_devolve_404_e_nao_erro_de_servidor(self):
+        """`pk=""` e `pk="abc"` levantam ValueError dentro do ORM.
+
+        ValueError numa view é 500 — e 500 é a página que faz a pessoa achar
+        que o app quebrou. Achado ao conferir o caminho de erro desta view.
+        """
+        user = self._usuario()
+        self._estado(user)
+        self.client.force_login(user)
+
+        for valor in ("", "abc", "999999"):
+            with self.subTest(exercise_id=valor):
+                resposta = self.client.post(
+                    reverse("workouts:record_set"),
+                    {"exercise_id": valor, "set_number": 1, "weight_kg": "10"},
+                )
+                self.assertEqual(resposta.status_code, 404)
+        self.assertFalse(ExerciseLog.objects.filter(user=user).exists())
+
+    def test_carga_invalida_nao_grava_nada(self):
+        user = self._usuario()
+        estado = self._estado(user)
+        item = estado.itens[0]
+        self.client.force_login(user)
+
+        self.client.post(
+            reverse("workouts:record_set"),
+            {"exercise_id": item.exercise_id, "set_number": 1, "weight_kg": "muito"},
+        )
+
+        self.assertFalse(ExerciseLog.objects.filter(user=user).exists())
+
+    # -- carga e repetições --------------------------------------------
+
+    def test_a_carga_sugerida_vem_da_mesma_serie_do_treino_anterior(self):
+        """Um toque para registrar, sem inventar número.
+
+        A sugestão é histórico real da MESMA série. Sem isso a pessoa digita a
+        mesma carga toda semana.
+        """
+        user = self._usuario()
+        estado = self._estado(user)
+        item = estado.itens[0]
+        ontem = timezone.localdate() - timedelta(days=7)
+        services.record_load(
+            user, item.exercise, Decimal("57.5"), set_number=1, reps=9, day=ontem
+        )
+
+        estado = services.estado_do_treino(user)
+
+        self.assertEqual(estado.atual.sugestao_carga, Decimal("57.50"))
+        self.assertEqual(estado.atual.sugestao_reps, 9)
+
+    def test_a_carga_da_serie_anterior_de_hoje_vem_preenchida(self):
+        """Dentro da sessão, a carga se repete — e o campo é obrigatório.
+
+        Sem isto o campo voltava vazio a cada série e o botão parava de
+        funcionar: pego no navegador, três toques em "Concluir série" que não
+        gravaram nada porque a validação do HTML barrava o envio.
+        """
+        user = self._usuario()
+        estado = self._estado(user)
+        item = estado.itens[0]
+        services.record_load(
+            user, item.exercise, Decimal("62.5"), set_number=1, reps=8
+        )
+
+        estado = services.estado_do_treino(user)
+
+        self.assertEqual(estado.atual.proxima_serie, 2)
+        self.assertEqual(estado.atual.sugestao_carga, Decimal("62.50"))
+        self.assertEqual(estado.atual.sugestao_reps, 8)
+
+    def test_hoje_manda_na_sugestao_e_nao_o_treino_passado(self):
+        """Quem baixou a carga hoje não quer o número da semana passada de
+        volta no campo seguinte."""
+        user = self._usuario()
+        estado = self._estado(user)
+        item = estado.itens[0]
+        semana_passada = timezone.localdate() - timedelta(days=7)
+        services.record_load(
+            user, item.exercise, Decimal("80"), set_number=2, reps=6,
+            day=semana_passada,
+        )
+        services.record_load(user, item.exercise, Decimal("60"), set_number=1)
+
+        estado = services.estado_do_treino(user)
+
+        self.assertEqual(estado.atual.sugestao_carga, Decimal("60.00"))
+
+    def test_sem_historico_o_campo_de_carga_nasce_vazio(self):
+        """Preencher com um valor de fábrica faria a pessoa registrar um peso
+        que ela não levantou com um toque só."""
+        estado = self._estado(self._usuario())
+
+        self.assertIsNone(estado.atual.sugestao_carga)
+        self.assertIsNone(estado.atual.sugestao_reps)
+
+    def test_o_campo_de_carga_aceita_virgula(self):
+        """`type=number` descartaria "62,5" e mandaria vazio — o app é pt-BR."""
+        user = self._usuario()
+        self._estado(user)
+        self.client.force_login(user)
+
+        html = sem_scripts(self.client.get(self.url).content.decode())
+        campo = re.search(r'<input[^>]*name="weight_kg"[^>]*>', html).group(0)
+
+        self.assertIn('type="text"', campo)
+        self.assertIn('inputmode="decimal"', campo)
+
+    # -- descanso -------------------------------------------------------
+
+    def test_o_descanso_restante_sai_do_horario_do_registro(self):
+        """O relógio é subtração, não cronômetro de aba.
+
+        Um `setInterval` morre ao trocar de aba e volta zerado — justamente
+        quando a pessoa saiu do app para ver a hora.
+        """
+        user = self._usuario()
+        estado = self._estado(user)
+        item = estado.itens[0]
+        services.record_load(user, item.exercise, Decimal("60"), set_number=1)
+        ExerciseLog.objects.filter(user=user).update(
+            created_at=timezone.now() - timedelta(seconds=item.rest_seconds - 20)
+        )
+
+        estado = services.estado_do_treino(user)
+
+        self.assertGreater(estado.descanso_restante, 0)
+        self.assertLessEqual(estado.descanso_restante, 21)
+
+    def test_descanso_vencido_nao_aparece(self):
+        user = self._usuario()
+        estado = self._estado(user)
+        item = estado.itens[0]
+        services.record_load(user, item.exercise, Decimal("60"), set_number=1)
+        ExerciseLog.objects.filter(user=user).update(
+            created_at=timezone.now() - timedelta(hours=1)
+        )
+
+        estado = services.estado_do_treino(user)
+
+        self.assertEqual(estado.descanso_restante, 0)
+
+    # -- mídia ----------------------------------------------------------
+
+    def _iframes(self, html):
+        return re.findall(r'<iframe[^>]*\bsrc="([^"]+)"', html)
+
+    def test_a_midia_principal_e_a_execucao_e_nao_a_anatomia(self):
+        """O botão prometia execução e entregava anatomia.
+
+        `animation_url` guarda "<exercício> - Músculos Trabalhados", e a cadeia
+        antiga dava a ele o primeiro lugar: o supino abria com onze segundos de
+        diagrama. Aqui a asserção é ancorada no `src` do iframe, e não no HTML
+        inteiro — o endereço da anatomia CONTINUA na página, num atributo, e um
+        `assertNotIn` solto passaria por acidente.
+        """
+        user = self._usuario()
+        estado = self._estado(user)
+        exercicio = estado.itens[0].exercise
+        exercicio.video_url = "https://www.youtube.com/watch?v=EXECUCAO123"
+        exercicio.animation_url = "https://www.youtube.com/watch?v=ANATOMIA456"
+        exercicio.save()
+        self.client.force_login(user)
+
+        html = self.client.get(self.url).content.decode()
+        fontes = self._iframes(sem_scripts(html))
+
+        self.assertTrue(any("EXECUCAO123" in src for src in fontes))
+        self.assertFalse(any("ANATOMIA456" in src for src in fontes))
+
+    def test_a_anatomia_aparece_como_conteudo_secundario(self):
+        user = self._usuario()
+        estado = self._estado(user)
+        exercicio = estado.itens[0].exercise
+        exercicio.video_url = "https://www.youtube.com/watch?v=EXECUCAO123"
+        exercicio.animation_url = "https://www.youtube.com/watch?v=ANATOMIA456"
+        exercicio.save()
+        self.client.force_login(user)
+
+        html = sem_scripts(self.client.get(self.url).content.decode())
+
+        self.assertIn("Músculos trabalhados", html)
+        self.assertIn("ANATOMIA456", html)
+
+    def test_a_anatomia_nao_toca_sozinha_com_a_secao_fechada(self):
+        """Iframe dentro de `<details>` fechado é baixado e TOCADO.
+
+        Esses vídeos carregam publicidade de terceiro. Ninguém deve receber
+        anúncio de concorrente sem ter pedido — o endereço fica num atributo e
+        só vira iframe quando a pessoa abre.
+        """
+        user = self._usuario()
+        estado = self._estado(user)
+        exercicio = estado.itens[0].exercise
+        exercicio.video_url = "https://www.youtube.com/watch?v=EXECUCAO123"
+        exercicio.animation_url = "https://www.youtube.com/watch?v=ANATOMIA456"
+        exercicio.save()
+        self.client.force_login(user)
+
+        html = sem_scripts(self.client.get(self.url).content.decode())
+
+        self.assertIn('data-anatomia="', html)
+        self.assertFalse(any("ANATOMIA456" in src for src in self._iframes(html)))
+
+    def test_sem_anatomia_distinta_a_secao_nao_aparece(self):
+        """Em sete exercícios o mesmo endereço está nos dois campos.
+
+        Um segundo botão que toca o vídeo que já está tocando não informa nada.
+        """
+        user = self._usuario()
+        estado = self._estado(user)
+        exercicio = estado.itens[0].exercise
+        mesma = "https://www.youtube.com/watch?v=IGUAL789"
+        exercicio.video_url = mesma
+        exercicio.animation_url = mesma
+        exercicio.save()
+        self.client.force_login(user)
+
+        html = sem_scripts(self.client.get(self.url).content.decode())
+
+        self.assertFalse(exercicio.tem_anatomia)
+        self.assertNotIn("Músculos trabalhados", html)
+
+    def test_sem_video_nenhum_a_tela_oferece_a_busca(self):
+        user = self._usuario()
+        estado = self._estado(user)
+        exercicio = estado.itens[0].exercise
+        exercicio.video_url = ""
+        exercicio.animation_url = ""
+        exercicio.frames = []
+        exercicio.save()
+        self.client.force_login(user)
+
+        html = sem_scripts(self.client.get(self.url).content.decode())
+
+        self.assertIn("Sem demonstração cadastrada", html)
+        self.assertIn("results?search_query=", html)
+
+    def test_sem_video_mas_com_fotos_a_demonstracao_sao_as_fotos(self):
+        user = self._usuario()
+        estado = self._estado(user)
+        exercicio = estado.itens[0].exercise
+        exercicio.video_url = ""
+        exercicio.frames = ["https://exemplo.test/a.jpg", "https://exemplo.test/b.jpg"]
+        exercicio.save()
+
+        self.assertEqual(exercicio.execucao_tipo, "fotos")
+
+    # -- conclusão ------------------------------------------------------
+
+    def test_a_tela_de_conclusao_conta_e_nao_estima(self):
+        """Caloria não aparece: o app não mede gasto de treino de força."""
+        user = self._usuario()
+        estado = self._estado(user)
+        for item in estado.itens:
+            self._preencher(user, item)
+        self.client.force_login(user)
+
+        response = self.client.get(self.url)
+        html = sem_scripts(response.content.decode())
+
+        self.assertContains(response, "Treino concluído")
+        self.assertIn("séries registradas", html)
+        self.assertNotIn("kcal", html)
+        self.assertNotIn("caloria", html.lower())
+
+    def test_a_lista_completa_continua_a_um_toque(self):
+        user = self._usuario()
+        self._estado(user)
+        self.client.force_login(user)
+
+        html = sem_scripts(self.client.get(self.url).content.decode())
+
+        self.assertIn(reverse("workouts:routine"), html)
+        self.assertIn("Ver o treino completo", html)
+
+    def test_a_lista_leva_ao_modo_treino(self):
+        """O caminho de ida: o botão da lista abre a tela guiada.
+
+        Antes ele era uma âncora `#exercicio-N` na mesma página de cinco mil
+        pixels — "começar treino" levava a pessoa a rolar.
+        """
+        user = self._usuario()
+        self.client.force_login(user)
+
+        html = sem_scripts(self.client.get(reverse("workouts:routine")).content.decode())
+
+        self.assertIn(reverse("workouts:now"), html)

@@ -14,6 +14,7 @@ não de programação:
    repetir o ciclo dá a cada grupo muscular duas sessões na semana, que é o que
    a literatura mostra render mais que uma.
 """
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from django.db import transaction
@@ -400,3 +401,210 @@ def load_history(user, exercises, day=None) -> dict:
             else None,
         }
     return resultado
+
+
+# ---------------------------------------------------------------------------
+# Modo treino — "o que eu faço agora?"
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class EstadoDoTreino:
+    """Onde a pessoa está no treino de hoje.
+
+    Tudo aqui é DERIVADO de `ExerciseLog`. Não existe tabela de sessão em
+    andamento, e criar uma só para a tela ficar mais fácil seria inventar um
+    estado que ninguém pode confirmar: quem fechou o app no meio da terceira
+    série não avisou o servidor. O que o banco sabe é quais séries foram
+    anotadas hoje, e é disso que sai a resposta.
+
+    A consequência boa é que retomada é de graça: recarregar, voltar, fechar e
+    abrir de novo recalculam a mesma coisa, porque a fonte não é a tela.
+    """
+
+    sessao: object = None
+    itens: list = field(default_factory=list)
+    atual: object = None
+    proximo: object = None
+    total_exercicios: int = 0
+    exercicios_concluidos: int = 0
+    total_series: int = 0
+    series_feitas: int = 0
+    pct: int = 0
+    concluido: bool = False
+    ultimo_log: object = None
+    descanso_total: int = 0
+    descanso_restante: int = 0
+
+    @property
+    def tem_treino(self) -> bool:
+        return self.sessao is not None and bool(self.itens)
+
+    @property
+    def comecou(self) -> bool:
+        return self.series_feitas > 0
+
+
+def _primeira_serie_livre(feitas: dict, total: int):
+    """A menor série de 1..N que ainda não foi anotada hoje.
+
+    É a menor, e não `quantas + 1`, porque as duas divergem no caso real de
+    quem anotou fora de ordem — registrou a série 3 e deixou a 1 em branco.
+    Contar diria "próxima é a 2" e pularia a 1 para sempre; procurar o buraco
+    devolve a 1, que é a série que de fato falta.
+    """
+    for numero in range(1, total + 1):
+        if numero not in feitas:
+            return numero
+    return None
+
+
+def _ultima_de_hoje(item):
+    """O registro mais recente deste exercício HOJE, se houver."""
+    feitas = (item.load or {}).get("hoje") or {}
+    return feitas[max(feitas)] if feitas else None
+
+
+def _sugestao_de_carga(item, serie):
+    """Que carga já mostrar no campo, sem inventar número.
+
+    Ordem: a série anterior DE HOJE, depois a mesma série do último treino,
+    depois a mais pesada do último treino.
+
+    Hoje vem primeiro porque é o que a pessoa está fazendo agora — ninguém
+    troca de carga entre a primeira e a segunda série de propósito. Sem isso o
+    campo voltava vazio a cada série e, como ele é obrigatório, o botão parava
+    de funcionar até alguém digitar de novo: pego no navegador em 30/08/2026,
+    com três toques em "Concluir série" que não gravaram nada.
+
+    Nunca um chute. Sem nenhum histórico o campo fica vazio, porque preencher
+    com um valor de fábrica faria a pessoa registrar, num toque só, um peso que
+    ela não levantou.
+    """
+    if serie is None:
+        return None
+    de_hoje = _ultima_de_hoje(item)
+    if de_hoje is not None:
+        return de_hoje.weight_kg
+    anterior = (item.load or {}).get("anterior") or {}
+    registro = anterior.get(serie)
+    if registro is not None:
+        return registro.weight_kg
+    return (item.load or {}).get("melhor_anterior")
+
+
+def _sugestao_de_reps(item, serie):
+    """As repetições da série anterior — de hoje primeiro, como na carga."""
+    if serie is None:
+        return None
+    de_hoje = _ultima_de_hoje(item)
+    if de_hoje is not None and de_hoje.reps:
+        return de_hoje.reps
+    registro = ((item.load or {}).get("anterior") or {}).get(serie)
+    return registro.reps if registro is not None else None
+
+
+def estado_do_treino(user, dia=None) -> EstadoDoTreino:
+    """O treino de hoje com o ponto exato em que a pessoa parou.
+
+    O exercício atual é o PRIMEIRO da ficha que ainda não tem todas as séries
+    prescritas anotadas — não o primeiro sem nenhuma. A diferença aparece no
+    caso mais comum do modo guiado: quem anotou duas de quatro séries do supino
+    continua no supino, e a regra antiga (`not item.feitas`) já teria passado
+    para o próximo exercício.
+    """
+    dia = dia or timezone.localdate()
+    estado = EstadoDoTreino()
+
+    plan = get_active_routine(user)
+    if plan is None:
+        return estado
+
+    sessao = (
+        TrainingSession.objects.filter(plan=plan, weekday=dia.weekday())
+        .prefetch_related("exercises__exercise")
+        .first()
+    )
+    if sessao is None:
+        return estado
+
+    itens = list(sessao.exercises.all())
+    historico = load_history(user, [item.exercise for item in itens], day=dia)
+
+    for item in itens:
+        item.load = historico.get(item.exercise_id) or {}
+        feitas = (item.load or {}).get("hoje") or {}
+        item.series_hoje = feitas
+        item.feitas = len(feitas)
+        item.concluido = item.feitas >= item.sets
+        item.proxima_serie = _primeira_serie_livre(feitas, item.sets)
+        item.pct = (
+            round(min(item.feitas, item.sets) * 100 / item.sets) if item.sets else 0
+        )
+        item.sugestao_carga = _sugestao_de_carga(item, item.proxima_serie)
+        item.sugestao_reps = _sugestao_de_reps(item, item.proxima_serie)
+        # Uma linha por série PRESCRITA, com o que foi anotado nela.
+        #
+        # A fileira de pastilhas da tela é isto: a carga aparece dentro da
+        # pastilha, então dá para ver que a terceira série caiu de 62,5 para 60
+        # sem abrir nada. Só cor diria "aconteceu" e reprovaria em daltonismo.
+        item.set_rows = [
+            {
+                "number": numero,
+                "weight": feitas[numero].weight_kg if numero in feitas else None,
+                "reps": feitas[numero].reps if numero in feitas else None,
+            }
+            for numero in range(1, item.sets + 1)
+        ]
+
+    atual = next((item for item in itens if not item.concluido), None)
+    proximo = None
+    if atual is not None:
+        depois = itens[itens.index(atual) + 1:]
+        proximo = next((item for item in depois if not item.concluido), None)
+
+    estado.sessao = sessao
+    estado.itens = itens
+    estado.atual = atual
+    estado.proximo = proximo
+    estado.total_exercicios = len(itens)
+    estado.exercicios_concluidos = sum(1 for item in itens if item.concluido)
+    estado.total_series = sum(item.sets for item in itens)
+    # `min` para o percentual não passar de 100 quando alguém anota uma série a
+    # mais do que a ficha prescreve — o que o modelo permite e a barra não deve
+    # transformar em 110%.
+    estado.series_feitas = sum(min(item.feitas, item.sets) for item in itens)
+    estado.pct = (
+        round(estado.series_feitas * 100 / estado.total_series)
+        if estado.total_series
+        else 0
+    )
+    estado.concluido = bool(itens) and atual is None
+
+    # Quanto falta de descanso — contado do relógio, não de um cronômetro que
+    # vive na aba.
+    #
+    # O instante em que a última série foi gravada está em `created_at`, então
+    # "faltam 40 segundos" é subtração, não estado. É o que faz o descanso
+    # sobreviver a recarregar a página, trocar de aba e voltar do bloqueio de
+    # tela — um `setInterval` morreria em todos os três, e voltaria zerado
+    # justamente quando a pessoa mais precisa saber se já pode puxar a próxima.
+    ultimo = max(
+        (
+            log
+            for item in itens
+            for log in (item.series_hoje or {}).values()
+        ),
+        key=lambda log: log.created_at,
+        default=None,
+    )
+    estado.ultimo_log = ultimo
+    if ultimo is not None:
+        prescricao = next(
+            (item for item in itens if item.exercise_id == ultimo.exercise_id), None
+        )
+        total = prescricao.rest_seconds if prescricao else 60
+        passados = (timezone.now() - ultimo.created_at).total_seconds()
+        estado.descanso_total = total
+        estado.descanso_restante = max(0, int(round(total - passados)))
+    return estado

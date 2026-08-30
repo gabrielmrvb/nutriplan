@@ -1,0 +1,421 @@
+{% extends "base.html" %}
+
+{% comment %}
+  O modo treino: uma tela que responde "o que eu faço agora?".
+
+  A lista completa continua em `/treino/`, e continua sendo o lugar certo para
+  conferir e revisar. Ela só não serve para o momento em que a pessoa está em
+  pé, entre séries, com uma mão livre: ali a tela precisa ter UMA pergunta e
+  UMA resposta, e a lista tem sete cartões de altura equivalente.
+
+  Nada aqui é estado novo. Exercício atual, série atual e descanso restante são
+  derivados de `ExerciseLog` em `services.estado_do_treino` — por isso
+  recarregar, voltar, fechar e abrir de novo caem exatamente no mesmo ponto.
+{% endcomment %}
+
+{% block title %}Treinando · NutriPlan{% endblock %}
+
+{% block content %}
+  {% if not estado.tem_treino %}
+    {# ---------- Sem rotina, ou hoje é descanso ---------- #}
+    <div class="page-head">
+      <h1>Modo treino</h1>
+    </div>
+    <section class="card">
+      <p class="empty-state">
+        Hoje não tem treino na sua rotina. Descanso também é parte do plano —
+        é nele que o músculo cresce.
+      </p>
+      <a class="btn btn--primary btn--block" href="{% url 'workouts:routine' %}">
+        Ver minha semana
+      </a>
+    </section>
+
+  {% elif estado.concluido %}
+    {# ---------- Treino concluído ---------- #}
+    {% comment %}
+      Aqui a palavra "concluído" é honesta, e é a primeira vez que o app pode
+      usá-la: todas as séries prescritas de todos os exercícios de hoje têm
+      registro. Não é um botão que alguém apertou dizendo que terminou — é a
+      ficha inteira coberta pelo que foi anotado.
+
+      Os números são contagem, não estimativa. A duração só aparece quando há
+      dois registros para subtrair, e o rótulo diz de onde ela vem: inventar
+      "48 min" a partir de uma média seria descrever um treino que não é o
+      dessa pessoa. Caloria não aparece de jeito nenhum — o app não mede.
+    {% endcomment %}
+    <div class="page-head">
+      <h1>Treino concluído</h1>
+    </div>
+    <section class="card fim">
+      <div class="fim__selo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12.5l5.2 5.2L20 7"/>
+        </svg>
+      </div>
+      <p class="fim__nome">{{ estado.sessao.name }}</p>
+      <ul class="fim__numeros">
+        <li>
+          <span class="fim__valor num">{{ estado.total_exercicios }}</span>
+          <span class="fim__rotulo">{% if estado.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}</span>
+        </li>
+        <li>
+          <span class="fim__valor num">{{ estado.series_feitas }}</span>
+          <span class="fim__rotulo">{% if estado.series_feitas == 1 %}série registrada{% else %}séries registradas{% endif %}</span>
+        </li>
+        {% if minutos_reais %}
+          <li>
+            <span class="fim__valor num">{{ minutos_reais }}</span>
+            <span class="fim__rotulo">min do primeiro ao último registro</span>
+          </li>
+        {% endif %}
+      </ul>
+      <a class="btn btn--primary btn--block" href="{% url 'workouts:routine' %}">
+        Ver o treino completo
+      </a>
+      {% if resumo.tem_dados %}
+        <a class="btn btn--ghost btn--block" href="{% url 'workouts:health_export' %}">
+          Exportar para o app de saúde
+        </a>
+      {% endif %}
+
+    </section>
+
+  {% else %}
+    {# ---------- Em treino: o exercício atual ---------- #}
+    {% with atual=estado.atual %}
+    <div class="page-head agora__head">
+      <h1 class="agora__sessao">{{ estado.sessao.name }}</h1>
+      {% comment %}
+        Duas contagens diferentes, e as duas importam: exercício responde "onde
+        estou na ficha", série responde "quanto falta deste aqui". Mostrar só a
+        primeira faz a barra ficar parada durante quatro séries seguidas.
+      {% endcomment %}
+      <p class="agora__passo num">
+        Exercício {{ estado.exercicios_concluidos|add:1 }}/{{ estado.total_exercicios }}
+        · {{ estado.series_feitas }}/{{ estado.total_series }} séries
+      </p>
+      <div class="progress agora__progresso">
+        <span class="progress__fill" style="width: {{ estado.pct }}%"></span>
+      </div>
+    </div>
+
+    <section class="card agora">
+      <header class="agora__topo">
+        <h2 class="agora__nome">{{ atual.exercise.name }}</h2>
+        <p class="agora__meta">
+          <span class="exercise__tag exercise__tag--target">
+            {{ atual.exercise.get_muscle_group_display }}
+          </span>
+          <span class="exercise__tag exercise__tag--rest num">
+            descanso {{ atual.rest_display }}
+          </span>
+        </p>
+      </header>
+
+      {# ---- Séries ---- #}
+      <div class="series">
+        <p class="series__titulo">
+          Série <b class="num">{{ atual.proxima_serie }}</b>
+          de <span class="num">{{ atual.sets }}</span>
+          <span class="series__faixa num">{{ atual.rep_range }} reps</span>
+        </p>
+        {% comment %}
+          Uma pastilha por série prescrita, e o texto dentro dela é a carga.
+
+          Bolinha colorida sozinha reprovaria em daltonismo e não informaria
+          nada além de "aconteceu". Com o número, a fileira vira o histórico da
+          sessão: dá para ver que a terceira caiu de 62,5 para 60 sem abrir
+          nada.
+        {% endcomment %}
+        <ol class="series__lista">
+          {% for linha in atual.set_rows %}
+            <li class="series__item{% if linha.weight != None %} series__item--feita{% elif linha.number == atual.proxima_serie %} series__item--atual{% endif %}">
+              <span class="series__n num">{{ linha.number }}</span>
+              <span class="series__carga num">
+                {% if linha.weight != None %}{{ linha.weight|floatformat:'-2' }} kg{% else %}—{% endif %}
+              </span>
+            </li>
+          {% endfor %}
+        </ol>
+      </div>
+
+      {% if estado.descanso_restante %}
+        {% comment %}
+          O descanso é informação, não porteiro: o formulário continua aberto
+          embaixo dele. Quem quiser emendar a série antes do tempo emenda —
+          travar o botão transformaria uma sugestão de fisiologia numa regra do
+          aplicativo.
+
+          O número vem do servidor: `agora - created_at da última série`. Um
+          cronômetro que só existisse no JavaScript zeraria ao trocar de aba,
+          que é justamente quando a pessoa sai do app para ver a hora.
+        {% endcomment %}
+        <div class="descanso" role="status" aria-live="polite"
+             data-descanso="{{ estado.descanso_restante }}">
+          <span class="descanso__rotulo">Descanso</span>
+          <span class="descanso__relogio num" data-descanso-relogio>
+            {{ estado.descanso_restante }}s
+          </span>
+          <button type="button" class="btn-link descanso__pular" data-descanso-pular>
+            pular
+          </button>
+        </div>
+      {% endif %}
+
+      {# ---- Registrar a série: dois campos e um botão ---- #}
+      <form class="registro registro--agora" method="post"
+            action="{% url 'workouts:record_set' %}">
+        {% csrf_token %}
+        <input type="hidden" name="exercise_id" value="{{ atual.exercise.pk }}">
+        {% comment %}
+          A série vai EXPLÍCITA no formulário, calculada pelo servidor.
+
+          `record_load` faz `update_or_create` nessa série, então reenviar o
+          formulário — toque duplo, botão voltar, conexão ruim — corrige a
+          mesma linha em vez de criar outra. Se isto virasse "+1 série", cada
+          um desses casos viraria uma série que ninguém fez, e é literalmente o
+          que o CLAUDE.md proíbe.
+        {% endcomment %}
+        <input type="hidden" name="set_number" value="{{ atual.proxima_serie }}">
+
+        <label class="registro__campo">
+          <span class="registro__rotulo">Carga</span>
+          {% comment %}
+            `text` com `inputmode="decimal"`, e não `number`: com type=number o
+            navegador descarta "62,5" e manda campo vazio, e brasileiro digita
+            vírgula. O servidor normaliza.
+
+            O valor já vem preenchido com a MESMA série do último treino quando
+            ela existe — é o que faz "concluir série" custar um toque só. Sem
+            histórico o campo fica vazio: preencher com um número de fábrica
+            faria a pessoa registrar um peso que não levantou.
+          {% endcomment %}
+          <input class="registro__carga num" type="text" name="weight_kg"
+                 maxlength="6" inputmode="decimal" required
+                 value="{% if atual.sugestao_carga != None %}{{ atual.sugestao_carga|floatformat:'-2' }}{% endif %}"
+                 placeholder="kg"
+                 aria-label="Carga da série {{ atual.proxima_serie }} de {{ atual.exercise.name }}">
+        </label>
+
+        <label class="registro__campo registro__campo--reps">
+          <span class="registro__rotulo">Reps</span>
+          <input class="registro__reps num" type="text" name="reps"
+                 maxlength="3" inputmode="numeric"
+                 value="{% if atual.sugestao_reps %}{{ atual.sugestao_reps }}{% endif %}"
+                 placeholder="{{ atual.rep_range }}"
+                 aria-label="Repetições da série {{ atual.proxima_serie }} de {{ atual.exercise.name }}">
+        </label>
+
+        <button type="button" class="registro__passo" data-passo="-2.5"
+                aria-label="Diminuir 2,5 kg">
+          <span aria-hidden="true">&minus;2,5</span>
+        </button>
+        <button type="button" class="registro__passo" data-passo="2.5"
+                aria-label="Aumentar 2,5 kg">
+          <span aria-hidden="true">+2,5</span>
+        </button>
+
+        <button type="submit" class="btn btn--primary agora__concluir">
+          Concluir série {{ atual.proxima_serie }}
+        </button>
+      </form>
+
+      {% if atual.feitas %}
+        <form method="post" action="{% url 'workouts:record_set' %}" class="agora__desfazer">
+          {% csrf_token %}
+          <input type="hidden" name="exercise_id" value="{{ atual.exercise.pk }}">
+          <input type="hidden" name="acao" value="desfazer">
+          <button type="submit" class="btn-link">desfazer última série</button>
+        </form>
+      {% endif %}
+      {# ---- Execução: é o que o botão promete, e é o que aparece ---- #}
+      {% comment %}
+        A execução vem de `video_url` e não de `animation_url`.
+
+        O campo `animation_url` guarda conteúdo ANATÔMICO — metade dos vídeos
+        de lá se chama "<exercício> - Músculos Trabalhados", e o supino levava
+        onze segundos de diagrama antes de alguém deitar no banco. Ele continua
+        no app, embaixo, com o nome do que é.
+      {% endcomment %}
+      <div class="agora__media{% if atual.exercise.execucao_vertical %} agora__media--vertical{% endif %}">
+        {% if atual.exercise.execucao_tipo == 'youtube' %}
+          <iframe src="{{ atual.exercise.execucao_src }}"
+                  title="Execução de {{ atual.exercise.name }}"
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  allowfullscreen loading="lazy"></iframe>
+        {% elif atual.exercise.execucao_tipo == 'video' %}
+          <video src="{{ atual.exercise.execucao_src }}" autoplay loop muted playsinline></video>
+        {% elif atual.exercise.execucao_tipo == 'gif' %}
+          <img src="{{ atual.exercise.execucao_src }}" alt="Execução de {{ atual.exercise.name }}">
+        {% elif atual.exercise.execucao_tipo == 'fotos' %}
+          <img src="{{ atual.exercise.frames.0 }}" alt="Execução de {{ atual.exercise.name }}"
+               data-quadros="{{ atual.exercise.frames|join:'|' }}">
+        {% else %}
+          <p class="agora__sem-media">
+            Sem demonstração cadastrada.
+            <a href="{{ atual.exercise.video_search_url }}" target="_blank" rel="noopener">
+              Buscar no YouTube
+            </a>
+          </p>
+        {% endif %}
+      </div>
+
+      <p class="agora__cue">{{ atual.exercise.cue }}</p>
+
+
+      {% if atual.exercise.tem_anatomia %}
+        {% comment %}
+          Anatomia é secundária, e abre sob demanda.
+
+          O `src` mora num atributo e só vira `<iframe>` quando alguém abre:
+          um iframe dentro de `<details>` fechado é baixado e tocado do mesmo
+          jeito pelo navegador, e esses vídeos trazem publicidade de terceiro.
+          Ninguém deve receber anúncio sem pedir. Sem JavaScript, o link cru
+          continua levando ao conteúdo.
+        {% endcomment %}
+        <details class="anatomia" data-anatomia-area>
+          <summary class="anatomia__botao">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="5" r="2.6"/><path d="M12 7.6v8M8 10h8M9.5 21l2.5-5.4 2.5 5.4"/>
+            </svg>
+            <span>Músculos trabalhados</span>
+          </summary>
+          <div class="anatomia__corpo"
+               data-anatomia="{{ atual.exercise.anatomia_src }}"
+               data-anatomia-tipo="{{ atual.exercise.animation_kind }}"
+               data-anatomia-vertical="{% if atual.exercise.anatomia_vertical %}1{% endif %}">
+            <noscript>
+              <a href="{{ atual.exercise.animation_url }}" target="_blank" rel="noopener">
+                Ver os músculos trabalhados neste exercício
+              </a>
+            </noscript>
+          </div>
+        </details>
+      {% endif %}
+    </section>
+
+    {% comment %}
+      O que vem depois fica visível o tempo todo, e não só quando o exercício
+      acaba: saber que o próximo é agachamento muda como a pessoa gasta a
+      última série do anterior. Quando não há próximo, a frase diz isso — é o
+      aviso de que o fim está perto.
+    {% endcomment %}
+    <p class="agora__proximo">
+      {% if estado.proximo %}
+        <span class="agora__proximo-rotulo">Depois</span>
+        <b>{{ estado.proximo.exercise.name }}</b>
+      {% else %}
+        <span class="agora__proximo-rotulo">Depois</span>
+        <b>último exercício do treino</b>
+      {% endif %}
+    </p>
+
+    <a class="btn btn--ghost btn--block agora__lista"
+       href="{% url 'workouts:routine' %}#exercicio-{{ atual.exercise.pk }}">
+      Ver o treino completo
+    </a>
+    {% endwith %}
+  {% endif %}
+  <script>
+  (function () {
+    "use strict";
+
+    /* Degraus de 2,5 kg — a menor anilha que existe no par, e por isso o menor
+       passo que alguém consegue montar de verdade na barra. */
+    var carga = document.querySelector("[name=weight_kg]");
+    document.querySelectorAll("[data-passo]").forEach(function (botao) {
+      botao.addEventListener("click", function () {
+        if (!carga) return;
+        var atual = parseFloat((carga.value || "0").replace(",", ".")) || 0;
+        var passo = parseFloat(botao.dataset.passo);
+        var novo = Math.max(0, Math.round((atual + passo) * 100) / 100);
+        carga.value = String(novo).replace(".", ",");
+      });
+    });
+
+    /* Descanso: conta do número que o servidor mandou.
+
+       O servidor manda quanto FALTA, calculado do `created_at` da última
+       série. Recarregar no meio do descanso recomeça a contagem do valor
+       certo, e não do total. */
+    var area = document.querySelector("[data-descanso]");
+    if (area) {
+      var restante = parseInt(area.dataset.descanso, 10) || 0;
+      var relogio = area.querySelector("[data-descanso-relogio]");
+      var tique = setInterval(function () {
+        restante -= 1;
+        if (restante <= 0) {
+          clearInterval(tique);
+          area.classList.add("descanso--fim");
+          if (relogio) relogio.textContent = "pode ir";
+          return;
+        }
+        var m = Math.floor(restante / 60), s = restante % 60;
+        if (relogio) {
+          relogio.textContent = m
+            ? m + ":" + (s < 10 ? "0" : "") + s
+            : restante + "s";
+        }
+      }, 1000);
+      var pular = area.querySelector("[data-descanso-pular]");
+      if (pular) {
+        pular.addEventListener("click", function () {
+          clearInterval(tique);
+          area.hidden = true;
+        });
+      }
+    }
+
+    /* Anatomia sob demanda.
+
+       O iframe nasce só quando a pessoa abre, e é destruído ao fechar. Deixar
+       o embed montado dentro de um `<details>` fechado faz o navegador baixar
+       e TOCAR o vídeo — e esses vídeos carregam publicidade de terceiro. */
+    var detalhe = document.querySelector("[data-anatomia-area]");
+    if (detalhe) {
+      var corpo = detalhe.querySelector("[data-anatomia]");
+      detalhe.addEventListener("toggle", function () {
+        if (!corpo) return;
+        if (!detalhe.open) { corpo.innerHTML = ""; return; }
+        if (corpo.querySelector("iframe, img, video")) return;
+        var tipo = corpo.dataset.anatomiaTipo;
+        var elemento;
+        if (tipo === "youtube") {
+          elemento = document.createElement("iframe");
+          elemento.allow = "autoplay; encrypted-media; picture-in-picture";
+          elemento.allowFullscreen = true;
+        } else if (tipo === "video") {
+          elemento = document.createElement("video");
+          elemento.autoplay = true; elemento.loop = true;
+          elemento.muted = true; elemento.playsInline = true;
+        } else {
+          elemento = document.createElement("img");
+          elemento.alt = "Músculos trabalhados";
+        }
+        elemento.src = corpo.dataset.anatomia;
+        if (corpo.dataset.anatomiaVertical === "1") {
+          corpo.classList.add("anatomia__corpo--vertical");
+        }
+        corpo.appendChild(elemento);
+      });
+    }
+
+    /* Fotos alternadas, quando a demonstração são dois quadros. */
+    var foto = document.querySelector("[data-quadros]");
+    if (foto) {
+      var urls = (foto.dataset.quadros || "").split("|").filter(Boolean);
+      if (urls.length > 1) {
+        var pre = new Image(); pre.src = urls[1];
+        var i = 0;
+        setInterval(function () {
+          i = (i + 1) % urls.length;
+          foto.src = urls[i];
+        }, 900);
+      }
+    }
+  })();
+  </script>
+{% endblock %}

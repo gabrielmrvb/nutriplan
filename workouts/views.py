@@ -2,7 +2,7 @@
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -190,9 +190,17 @@ def progresso_do_dia(session) -> None:
     session.feitos_hoje = sum(1 for item in itens if item.feitas)
     session.pct_hoje = round(session.feitos_hoje * 100 / len(itens)) if itens else 0
 
-    # Onde a pessoa retoma: o primeiro sem nenhuma série hoje. Quando todos
-    # têm, não existe "próximo" — e aí o botão some em vez de mentir um destino.
-    session.proximo = next((item for item in itens if not item.feitas), None)
+    # Onde a pessoa retoma: o primeiro com série FALTANDO — e não o primeiro
+    # sem nenhuma.
+    #
+    # A regra era `not item.feitas`, e ela discordava do modo treino: quem
+    # anotasse uma de quatro séries em todos os exercícios não tinha mais
+    # "próximo" aqui, o botão sumia, e o caminho para a tela guiada — que ainda
+    # tinha 27 séries pela frente — desaparecia da lista. Uma regra só nos dois
+    # lugares, e é esta.
+    session.proximo = next(
+        (item for item in itens if item.feitas < item.sets), None
+    )
     for item in itens:
         item.eh_o_proximo = item is session.proximo
 
@@ -359,3 +367,109 @@ class HealthExportView(OnboardingRequiredMixin, View):
             f'attachment; filename="nutriplan-{resumo.data:%Y-%m-%d}.tcx"'
         )
         return resposta
+
+
+class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
+    """Uma tela, uma pergunta: o que eu faço agora?
+
+    A lista inteira continua existindo em `/treino/` — ela é ótima para
+    conferir e revisar. O que ela não faz é responder, entre uma série e outra,
+    com o celular na mão e o braço tremendo, qual é o próximo movimento: para
+    isso a pessoa rolava a página procurando onde tinha parado.
+
+    Aqui nada é guardado a mais. O exercício atual, a série atual e o descanso
+    que falta são calculados de `ExerciseLog` a cada carregamento — ver
+    `services.estado_do_treino`.
+    """
+
+    template_name = "workouts/agora.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        context["nav"] = "workout"
+
+        if not services.has_training_days(user):
+            context["estado"] = services.EstadoDoTreino()
+            return context
+
+        services.sync_active_routine(user)
+        estado = services.estado_do_treino(user)
+        context["estado"] = estado
+
+        if estado.concluido:
+            # O resumo do fim sai do que foi REGISTRADO, e é por isso que ele
+            # pode dizer "47 minutos" sem inventar: são o primeiro e o último
+            # `created_at` de hoje. Sem dois registros não há intervalo, e a
+            # linha simplesmente não aparece.
+            resumo = health_export.resumo_da_sessao(user)
+            context["resumo"] = resumo
+            if resumo.inicio and resumo.fim and resumo.fim > resumo.inicio:
+                context["minutos_reais"] = max(
+                    1, int(round((resumo.fim - resumo.inicio).total_seconds() / 60))
+                )
+        return context
+
+
+class ConcluirSerieView(OnboardingRequiredMixin, View):
+    """Grava UMA série do modo treino, ou desfaz a última.
+
+    O formulário manda `set_number` explícito, calculado pelo servidor e
+    escrito no HTML — e não "mais uma". A diferença importa: `record_load` faz
+    `update_or_create` naquela série, então mandar duas vezes corrige em vez de
+    duplicar. Um contador ("incremente") transformaria toque duplo, botão
+    voltar e reenvio de formulário em séries que ninguém fez, e é exatamente o
+    que o CLAUDE.md manda não fazer com a fila offline.
+    """
+
+    def post(self, request, *args, **kwargs):
+        destino = redirect("workouts:now")
+        # O id é convertido ANTES de ir ao banco: `pk=""` e `pk="abc"` levantam
+        # ValueError dentro do ORM, e ValueError numa view é 500. Formulário
+        # corrompido merece 404, não página de erro.
+        try:
+            exercise_id = int(request.POST.get("exercise_id") or "")
+        except (TypeError, ValueError):
+            raise Http404("exercício inválido")
+        exercise = get_object_or_404(Exercise, pk=exercise_id, is_active=True)
+
+        if request.POST.get("acao") == "desfazer":
+            ultima = (
+                ExerciseLog.objects.filter(
+                    user=request.user, exercise=exercise, date=timezone.localdate()
+                )
+                .order_by("-set_number")
+                .first()
+            )
+            if ultima is not None:
+                ultima.delete()
+            return destino
+
+        bruto = (request.POST.get("weight_kg") or "").replace(",", ".").strip()
+        try:
+            peso = Decimal(bruto)
+        except (InvalidOperation, TypeError):
+            messages.error(request, "Carga inválida — use números, como 42,5.")
+            return destino
+        if peso < 0 or peso > 999:
+            messages.error(request, "Carga fora do que uma barra aguenta.")
+            return destino
+
+        try:
+            serie = int(request.POST.get("set_number", 1))
+        except (TypeError, ValueError):
+            serie = 1
+        serie = max(1, min(serie, 20))
+
+        reps = None
+        bruto_reps = (request.POST.get("reps") or "").strip()
+        if bruto_reps:
+            try:
+                reps = max(1, min(int(bruto_reps), 100))
+            except (TypeError, ValueError):
+                reps = None
+
+        services.record_load(
+            request.user, exercise, peso, set_number=serie, reps=reps
+        )
+        return destino
