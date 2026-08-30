@@ -5749,3 +5749,42 @@ body.montando { overflow: hidden; }
   .resumo-dia__treino:active,
   .explicacao__head:active { transform: none; }
 }
+
+/* -- O selo de "Agora" e "Pendente" na lista de refeições ---------------- */
+
+/* Com café das 7h30 e lanche das 11h os dois pendentes, os cartões ficavam
+   idênticos: nada dizia qual deles o cartão do topo apontava. O selo é a
+   única diferença, e ele mora na fileira que o cabeçalho já tem — `.meal__name`
+   é `display: block`, então pendurar a pílula abaixo do nome custaria uma
+   linha por cartão. */
+.meal__marca {
+  flex: none;
+  margin-left: auto;
+  align-self: center;
+  padding: .2rem .5rem;
+  /* `--pill` e não `999px`: a escala de raios é um token e o sistema de design
+     tem teste proibindo valor cru. Este é o mesmo token das pílulas da ficha
+     de treino — uma pílula, um raio. */
+  border-radius: var(--pill);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-mute);
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+/* A cor da marca fica no SELO e não na borda do cartão.
+
+   `.meal--done` já pinta a borda de verde, e é o único lugar do dia em que a
+   tela comemora. Dar a mesma borda ao "agora" faria "feita" e "é a vez" se
+   parecerem — dois estados opostos com o mesmo sinal. O cartão da vez ganha
+   só uma borda neutra mais firme. */
+.meal__marca--agora {
+  background: var(--brand-soft);
+  border-color: color-mix(in srgb, var(--brand) 34%, transparent);
+  color: var(--brand-strong);
+}
+
+.meal--agora { border-color: var(--border-strong); }

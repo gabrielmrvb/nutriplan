@@ -181,7 +181,7 @@ coluna da direita), não entre ela e o almoço.
             fora do plano devolve a pessoa. Roubar o id mandaria o cartao do
             topo para o formulario de digitar comida em vez de para as opcoes.
           {% endcomment %}
-          <article class="meal {% if slot.log.status == 'done' %}meal--done{% endif %}"
+          <article class="meal {% if slot.log.status == 'done' %}meal--done{% endif %} {% if slot.marcador == 'agora' %}meal--agora{% endif %}"
                    id="slot-{{ slot.pk }}">
             <header class="meal__head">
               <span class="meal__time">{{ slot.time|time:"H:i" }}</span>
@@ -191,6 +191,21 @@ coluna da direita), não entre ela e o almoço.
                   alvo {{ slot.target_kcal }} kcal · {{ slot.target_protein_g }} g de proteína
                 </span>
               </span>
+              {% comment %}
+                O selo entra como TERCEIRO item da fileira do cabeçalho, e não
+                embaixo do nome: `.meal__name` é `display: block`, então uma
+                pílula depois dele cairia numa linha nova e cada cartão ficaria
+                mais alto. Aqui ele divide a linha que a hora e o nome já
+                ocupam, e não acrescenta altura nenhuma.
+
+                O texto é o marcador que `plans/agora.py` escreveu — o template
+                só escolhe a palavra. Nada de recalcular quem é a vez.
+              {% endcomment %}
+              {% if slot.marcador == 'agora' %}
+                <span class="meal__marca meal__marca--agora">Agora</span>
+              {% elif slot.marcador == 'pendente' %}
+                <span class="meal__marca">Pendente</span>
+              {% endif %}
             </header>
 
             {% if slot.log %}

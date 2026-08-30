@@ -163,3 +163,41 @@ def proxima_acao(*, slots, treino, meta_agua, bebido, agora) -> Acao:
 
     # 5. nada pendente. A tela diz isso em vez de preencher o espaço.
     return Acao(tipo="vazio")
+
+
+def marcar_refeicoes(slots, acao, agora) -> None:
+    """Escreve `slot.marcador` para a lista concordar com o topo.
+
+    O cartão de cima dizia "AGORA · Lanche da manhã" e, na lista, o lanche das
+    11h e o café das 7h30 ficavam idênticos: nada indicava qual deles o topo
+    apontava, nem que o café continuava em aberto. Documentado em captura, com
+    os dois cartões lado a lado.
+
+    A marca "agora" NÃO é recalculada aqui — ela é a identidade do slot que
+    `proxima_acao` já escolheu. Reimplementar "quem é o atual" no template ou
+    numa segunda função daria duas respostas para a mesma pergunta, e elas
+    divergiriam na primeira mudança de regra.
+
+    Quando a ação é treino, nenhuma refeição recebe "agora": o topo não está
+    falando de comida, e uma refeição fingindo ser a vez seria a lista
+    contradizendo a tela inteira. As vencidas continuam marcadas como
+    pendentes, porque elas continuam em aberto.
+    """
+    # `atrasada` e não o rótulo: ele é texto de tela, e a pergunta aqui é de
+    # domínio — a refeição já venceu?
+    #
+    # Sem esse filtro, uma refeição das 23h escolhida como "A SEGUIR" ganharia
+    # o selo "Agora" às onze da manhã: o cartão do topo diria uma coisa e a
+    # lista, outra. Refeição futura não recebe selo nenhum.
+    e_a_vez = acao.tipo == "refeicao" and acao.atrasada
+    alvo = acao.slot if e_a_vez else None
+    hora = agora.time()
+    for slot in slots:
+        if alvo is not None and slot.pk == alvo.pk:
+            slot.marcador = "agora"
+        elif _pendente(slot) and slot.time <= hora:
+            slot.marcador = "pendente"
+        else:
+            # Futura, ou já resolvida — comida, pulada e "comi outra coisa"
+            # não voltam a cobrar nada.
+            slot.marcador = ""

@@ -2986,3 +2986,208 @@ class HojeV2ViewTests(CatalogFixture):
 
         if not estado.tem_treino:
             self.assertNotEqual(response.context["acao"].tipo, "treino")
+
+
+class MarcadorDeRefeicaoTests(TestCase):
+    """O selo que faz a lista concordar com o cartão do topo.
+
+    Documentado em captura: com café das 7h30 e lanche das 11h pendentes, o
+    topo dizia "AGORA · Lanche da manhã" e os dois cartões da lista ficavam
+    idênticos. Nada indicava qual deles o topo apontava, nem que o café
+    continuava em aberto.
+
+    A marca "agora" NÃO é recalculada: é a identidade do slot que
+    `proxima_acao` escolheu. Estes testes existem para que continue assim.
+    """
+
+    def _slot(self, pk, nome, hora, log=None):
+        slot = MealSlot(
+            name=nome, time=hora, target_kcal=400, target_protein_g=30,
+            target_carb_g=40, target_fat_g=15, order=pk, category=MealCategory.MAIN,
+        )
+        slot.pk = pk
+        slot.log = log
+        return slot
+
+    def _agora(self, h, m=0):
+        return timezone.make_aware(
+            datetime.combine(timezone.localdate(), time(h, m))
+        )
+
+    def _marcar(self, slots, treino=None, hora=(12, 0), meta_agua=2500, bebido=0):
+        instante = self._agora(*hora)
+        acao = agora.proxima_acao(
+            slots=slots, treino=treino, meta_agua=meta_agua, bebido=bebido,
+            agora=instante,
+        )
+        agora.marcar_refeicoes(slots, acao, instante)
+        return acao, [s.marcador for s in slots]
+
+    def _treino(self, *, inicio=time(18, 30), feitas=0, concluido=False):
+        sessao = TrainingSession(
+            name="Peito e tríceps", start_time=inicio, weekday=0, label="A",
+            duration_min=60,
+        )
+        estado = workout_services.EstadoDoTreino()
+        estado.sessao = sessao
+        estado.itens = [object()] * 7
+        estado.total_exercicios = 7
+        estado.series_feitas = feitas
+        estado.total_series = 20
+        estado.concluido = concluido
+        return estado
+
+    # -- quantas venceram ----------------------------------------------
+
+    def test_uma_vencida_recebe_agora_e_as_futuras_nada(self):
+        slots = [self._slot(1, "Café", time(7, 30)),
+                 self._slot(2, "Almoço", time(14, 30)),
+                 self._slot(3, "Jantar", time(20, 0))]
+
+        acao, marcas = self._marcar(slots, hora=(12, 0))
+
+        self.assertEqual(acao.titulo, "Café")
+        self.assertEqual(marcas, ["agora", "", ""])
+
+    def test_duas_vencidas_a_mais_recente_e_agora_e_a_outra_pendente(self):
+        """O caso da captura: os dois cartões deixam de ser idênticos."""
+        slots = [self._slot(1, "Café", time(7, 30)),
+                 self._slot(2, "Lanche da manhã", time(11, 0)),
+                 self._slot(3, "Almoço", time(14, 30))]
+
+        acao, marcas = self._marcar(slots, hora=(12, 36))
+
+        self.assertEqual(acao.titulo, "Lanche da manhã")
+        self.assertEqual(marcas, ["pendente", "agora", ""])
+
+    def test_tres_vencidas_so_a_ultima_e_agora(self):
+        slots = [self._slot(1, "Café", time(7, 30)),
+                 self._slot(2, "Lanche da manhã", time(11, 0)),
+                 self._slot(3, "Almoço", time(14, 30)),
+                 self._slot(4, "Jantar", time(20, 0))]
+
+        acao, marcas = self._marcar(slots, hora=(15, 0))
+
+        self.assertEqual(acao.titulo, "Almoço")
+        self.assertEqual(marcas, ["pendente", "pendente", "agora", ""])
+
+    # -- o que já foi resolvido não volta a cobrar ----------------------
+
+    def test_refeicao_antiga_comida_nao_recebe_selo(self):
+        slots = [self._slot(1, "Café", time(7, 30),
+                            log=MealLog(status=MealStatus.DONE)),
+                 self._slot(2, "Lanche da manhã", time(11, 0))]
+
+        acao, marcas = self._marcar(slots, hora=(12, 36))
+
+        self.assertEqual(acao.titulo, "Lanche da manhã")
+        self.assertEqual(marcas, ["", "agora"])
+
+    def test_refeicao_pulada_nao_recebe_selo(self):
+        slots = [self._slot(1, "Café", time(7, 30),
+                            log=MealLog(status=MealStatus.SKIPPED)),
+                 self._slot(2, "Lanche da manhã", time(11, 0))]
+
+        _, marcas = self._marcar(slots, hora=(12, 36))
+
+        self.assertEqual(marcas, ["", "agora"])
+
+    def test_refeicao_fora_do_plano_nao_recebe_selo(self):
+        slots = [self._slot(1, "Café", time(7, 30),
+                            log=MealLog(status=MealStatus.OFF_PLAN)),
+                 self._slot(2, "Lanche da manhã", time(11, 0))]
+
+        _, marcas = self._marcar(slots, hora=(12, 36))
+
+        self.assertEqual(marcas, ["", "agora"])
+
+    # -- futuro e treino -------------------------------------------------
+
+    def test_refeicao_futura_escolhida_como_a_seguir_nao_ganha_selo(self):
+        """O topo diz "A SEGUIR"; um selo "Agora" no cartão diria o contrário.
+
+        Sem este filtro, a refeição das 23h vira "Agora" às onze da manhã.
+        """
+        slots = [self._slot(1, "Jantar", time(23, 0))]
+
+        acao, marcas = self._marcar(slots, hora=(11, 0))
+
+        self.assertEqual(acao.rotulo, "A SEGUIR")
+        self.assertEqual(acao.slot.pk, 1)
+        self.assertEqual(marcas, [""])
+
+    def test_com_treino_em_andamento_nenhuma_refeicao_finge_ser_a_vez(self):
+        """O topo não está falando de comida.
+
+        As vencidas continuam marcadas como pendentes — elas continuam em
+        aberto —, mas nenhuma recebe "agora".
+        """
+        slots = [self._slot(1, "Café", time(7, 30)),
+                 self._slot(2, "Almoço", time(14, 30))]
+        treino = self._treino(feitas=6)
+
+        acao, marcas = self._marcar(slots, hora=(19, 0), treino=treino)
+
+        self.assertEqual(acao.tipo, "treino")
+        self.assertNotIn("agora", marcas)
+        self.assertEqual(marcas, ["pendente", "pendente"])
+
+    # -- a tela ----------------------------------------------------------
+
+    def test_o_template_nao_recalcula_quem_e_a_vez(self):
+        """A palavra do selo sai de `slot.marcador`, e nada mais.
+
+        Se alguém reimplementar a regra no template, existirão duas respostas
+        para "quem é a vez" e elas vão divergir na próxima mudança.
+        """
+        alvo = Path(settings.BASE_DIR) / "templates" / "plans" / "today.html"
+        html = alvo.read_text(encoding="utf-8")
+        bloco = html.split("meal__marca", 1)[0][-700:]
+
+        self.assertIn("slot.marcador", bloco)
+        for reimplementacao in ("slot.time <", "slot.time >", "now|", "|time_until"):
+            self.assertNotIn(reimplementacao, bloco)
+
+
+class MarcadorNaTelaTests(CatalogFixture):
+    """O selo renderizado, com plano e cardápio de verdade."""
+
+    url = reverse("plans:today")
+
+    def setUp(self):
+        super().setUp()
+        self.user = create_complete_user(email="marcador@exemplo.com")
+        self.client.force_login(self.user)
+
+    def test_o_cartao_da_vez_e_o_unico_com_selo_de_agora(self):
+        response = self.client.get(self.url)
+        html = response.content.decode()
+        acao = response.context["acao"]
+
+        if acao.tipo == "refeicao" and acao.atrasada:
+            self.assertEqual(html.count("meal__marca--agora"), 1)
+            cartao = html.split('id="slot-%d"' % acao.slot.pk, 1)[1]
+            self.assertIn("meal__marca--agora", cartao[:1400])
+
+    def test_o_selo_nao_usa_vermelho_nem_linguagem_punitiva(self):
+        """Pendência não é falha: a pessoa ainda pode comer, pular ou registrar
+        outra coisa."""
+        html = self.client.get(self.url).content.decode()
+        bloco = html.split("meal__marca", 1)[1][:400] if "meal__marca" in html else ""
+
+        for palavra in ("atrasad", "falhou", "perdeu", "esqueceu"):
+            self.assertNotIn(palavra, bloco.lower())
+
+    def test_o_selo_nao_acrescenta_linha_ao_cabecalho(self):
+        """Ele entra na fileira que a hora e o nome já ocupam.
+
+        `.meal__name` é `display: block`; uma pílula depois dele cairia numa
+        linha nova e cada cartão do dia ficaria mais alto.
+        """
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        regra = css.split("\n.meal__marca {", 1)[1].split("}", 1)[0]
+
+        self.assertIn("margin-left: auto", regra)
+        self.assertIn("flex: none", regra)

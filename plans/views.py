@@ -247,6 +247,9 @@ class TodayView(PlanRequiredMixin, TemplateView):
             bebido=bebido,
             agora=timezone.localtime(),
         )
+        # A lista concorda com o topo porque LÊ a decisão dele, em vez de
+        # refazer a conta.
+        agora_mod.marcar_refeicoes(slots, acao, timezone.localtime())
         context.update(
             {
                 "plan": self.plan,
