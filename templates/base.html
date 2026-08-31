@@ -298,6 +298,13 @@
       para o login é encher a fila de lixo.
     {% endcomment %}
     <script src="{{ fila_js_url }}" defer></script>
+    {% comment %}
+      O gerador de card. Também só para quem entrou: ele desenha resultado de
+      treino e conquista, e não há nem um nem outro sem sessão.
+    {% endcomment %}
+    <script src="{{ card_js_url }}" defer></script>
   {% endif %}
+
+  {% include "partials/_conquista.html" %}
 </body>
 </html>

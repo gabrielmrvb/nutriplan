@@ -404,7 +404,9 @@
                data-volume="{{ resumo_hoje.volume_kg }}"
                data-minutos="{{ resumo_hoje.minutos }}"
                data-kcal="{{ resumo_hoje.kcal }}"
-               data-data="{{ resumo_hoje.data|date:'d/m/Y' }}">
+               data-data="{{ resumo_hoje.data|date:'d/m/Y' }}"
+               data-nome="{% if hoje %}{{ hoje.name }}{% else %}Treino de hoje{% endif %}"
+               {% if minutos_observados %}data-minutos-observados="{{ minutos_observados }}"{% endif %}>
         <div class="card__head"><h2>Treino de hoje</h2></div>
 
         <div class="tiles">
@@ -426,7 +428,8 @@
         </div>
 
         <div class="resumo__acoes">
-          <button type="button" class="btn btn--primary" data-compartilhar>
+          <button type="button" class="btn btn--primary" data-compartilhar
+                  data-formato="story">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 15V3"/><path d="m8 7 4-4 4 4"/>
@@ -434,6 +437,14 @@
             </svg>
             Compartilhar treino
           </button>
+          {% comment %}
+            Duas escolhas, e só duas: story é o formato que a maioria posta, e
+            é por isso que ele é o botão cheio. Feed fica como opção discreta.
+            Um seletor com mais opções transformaria "compartilhar" em
+            formulário — e a experiência aqui é abrir, conferir, mandar.
+          {% endcomment %}
+          <button type="button" class="btn btn--ghost resumo__formato" data-compartilhar
+                  data-formato="feed">Como post do feed</button>
 
           <a class="btn btn--ghost" href="{% url 'workouts:health_export' %}">
             Exportar para o Saúde
@@ -1353,130 +1364,51 @@
     <script>
       /* O card de compartilhamento.
        *
-       * Desenhado em canvas no próprio aparelho, e não gerado no servidor: uma
-       * imagem por treino por pessoa seria processamento e armazenamento para
-       * um arquivo que vive trinta segundos até virar story.
+       * O DESENHO mora em `static/js/card.js`, e nao mais aqui. Ele era um
+       * canvas embutido nesta pagina, com as cores escritas a mao — inclusive
+       * o `#090c0b`, o grafite esverdeado que o design system abandonou quando
+       * o matiz foi para o azul. O card divulgava uma identidade que o app nao
+       * tem mais, e nada apontava isso porque hex fixo nao quebra.
        *
-       * 1080x1350 porque é o formato que o Instagram não corta. */
+       * Com as conquistas precisando do mesmo desenho, manter dois canvas
+       * seria garantir que um dos dois envelhece. Este bloco agora so REUNE os
+       * dados e chama o modulo.
+       *
+       * A duracao entra apenas quando foi OBSERVADA — ver
+       * `achievements.services.duracao_observada`. O resumo do dia calcula uma
+       * estimativa a partir do numero de series, e estimativa estampada em
+       * imagem vira numero que a pessoa repete achando que cronometrou. */
       (function () {
         var alvo = document.querySelector("[data-resumo]");
-        if (!alvo) return;
+        if (!alvo || !window.NutriPlanCard) return;
 
-        var COR = {
-          fundo: "#090c0b",
-          cartao: "#121716",
-          borda: "rgba(255,255,255,.10)",
-          marca: "#4ade9b",
-          texto: "#eef4f2",
-          fraco: "#849592"
-        };
-        var FONTE = "system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
-
-        function caixaArredondada(g, x, y, w, h, r) {
-          /* `roundRect` é recente demais para o Safari que ainda circula nas
-           * academias; o caminho à mão funciona em tudo. */
-          g.beginPath();
-          g.moveTo(x + r, y);
-          g.arcTo(x + w, y, x + w, y + h, r);
-          g.arcTo(x + w, y + h, x, y + h, r);
-          g.arcTo(x, y + h, x, y, r);
-          g.arcTo(x, y, x + w, y, r);
-          g.closePath();
-        }
-
-        function desenhar() {
-          var c = document.createElement("canvas");
-          c.width = 1080;
-          c.height = 1350;
-          var g = c.getContext("2d");
-
-          g.fillStyle = COR.fundo;
-          g.fillRect(0, 0, c.width, c.height);
-
-          /* Um halo verde atrás do número. É o único enfeite, e existe porque
-           * retângulo preto com texto branco não é imagem que alguém posta. */
-          var brilho = g.createRadialGradient(540, 520, 40, 540, 520, 620);
-          brilho.addColorStop(0, "rgba(74,222,155,.20)");
-          brilho.addColorStop(1, "rgba(74,222,155,0)");
-          g.fillStyle = brilho;
-          g.fillRect(0, 0, c.width, c.height);
-
-          g.textAlign = "center";
-
-          g.fillStyle = COR.marca;
-          g.font = "700 34px " + FONTE;
-          g.fillText("NUTRIPLAN", 540, 150);
-
-          g.fillStyle = COR.fraco;
-          g.font = "500 34px " + FONTE;
-          g.fillText(alvo.dataset.data, 540, 210);
-
-          g.fillStyle = COR.texto;
-          g.font = "800 190px " + FONTE;
-          g.fillText(alvo.dataset.volume, 540, 560);
-
-          g.fillStyle = COR.marca;
-          g.font = "700 46px " + FONTE;
-          g.fillText("kg levantados", 540, 630);
-
-          var blocos = [
-            [alvo.dataset.exercicios, "exercícios"],
-            [alvo.dataset.series, "séries"],
-            [alvo.dataset.minutos + " min", "de treino"]
-          ];
-          var largura = 300, altura = 240, espaco = 30;
-          var x0 = (c.width - (largura * 3 + espaco * 2)) / 2;
-
-          blocos.forEach(function (bloco, i) {
-            var x = x0 + i * (largura + espaco);
-            var y = 780;
-            g.fillStyle = COR.cartao;
-            caixaArredondada(g, x, y, largura, altura, 28);
-            g.fill();
-            g.strokeStyle = COR.borda;
-            g.lineWidth = 2;
-            g.stroke();
-
-            g.fillStyle = COR.texto;
-            g.font = "800 68px " + FONTE;
-            g.fillText(bloco[0], x + largura / 2, y + 120);
-            g.fillStyle = COR.fraco;
-            g.font = "500 32px " + FONTE;
-            g.fillText(bloco[1], x + largura / 2, y + 175);
-          });
-
-          g.fillStyle = COR.fraco;
-          g.font = "500 30px " + FONTE;
-          g.fillText("~" + alvo.dataset.kcal + " kcal estimadas", 540, 1160);
-
-          return c;
+        function dados() {
+          var d = {
+            nome: alvo.dataset.nome || "Treino de hoje",
+            exercicios: alvo.dataset.exercicios,
+            series: alvo.dataset.series,
+            volume: alvo.dataset.volume,
+            frase: "Minha evolucao. Meu plano."
+          };
+          /* Sem intervalo medido, o campo simplesmente nao existe — e o card
+           * desenha os blocos que recebeu. */
+          if (alvo.dataset.minutosObservados) {
+            d.minutos = alvo.dataset.minutosObservados;
+          }
+          return d;
         }
 
         document.addEventListener("click", function (evento) {
-          if (!evento.target.closest("[data-compartilhar]")) return;
+          var botao = evento.target.closest("[data-compartilhar]");
+          if (!botao) return;
           evento.preventDefault();
 
-          desenhar().toBlob(function (blob) {
-            if (!blob) return;
-            var arquivo = new File([blob], "treino-nutriplan.png", { type: "image/png" });
-
-            /* Compartilhar de verdade quando o aparelho sabe — é o caminho do
-             * celular, e leva direto ao Instagram ou ao WhatsApp. No desktop a
-             * API não existe, e aí baixar é o que sobra. */
-            if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
-              navigator
-                .share({ files: [arquivo], title: "Meu treino de hoje" })
-                .catch(function () { /* cancelar não é erro */ });
-              return;
-            }
-
-            var url = URL.createObjectURL(blob);
-            var link = document.createElement("a");
-            link.href = url;
-            link.download = "treino-nutriplan.png";
-            link.click();
-            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-          }, "image/png");
+          var formato = botao.dataset.formato === "story" ? "story" : "feed";
+          window.NutriPlanCard.compartilhar(
+            window.NutriPlanCard.desenhar("TRAINING_COMPLETE", dados(), formato),
+            "treino-nutriplan.png",
+            "Meu treino de hoje"
+          );
         });
       })();
     </script>

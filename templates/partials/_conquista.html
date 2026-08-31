@@ -1,0 +1,98 @@
+{% comment %}
+  O aviso de conquista.
+
+  Modelado no convite de instalação (`.install`), e não num modal novo: aquele
+  já resolveu neste app as perguntas difíceis de sobreposição — onde fica em
+  relação à tabbar e o que acontece com `env(safe-area-inset-bottom)` no
+  iPhone. Um segundo padrão para o mesmo problema é dívida de UX nascendo.
+
+  Deliberadamente NÃO interrompe: aparece ancorado embaixo, não escurece a tela
+  e não rouba o foco. A pessoa pode estar em pé entre séries, e um modal que
+  toma a tela no meio do treino é pior do que não comemorar.
+
+  VÁRIAS DE UMA VEZ viram FILA, e não pilha. Quem fecha os 25 treinos junto com
+  a semana completa veria duas caixas empilhadas cobrindo a ficha; aqui as duas
+  ocupam a mesma caixa, uma de cada vez, e "Próxima" avança. Só a última envia
+  o formulário — assim todas são marcadas como vistas de uma vez, e o aviso não
+  volta no refresh.
+
+  A classe vem do servidor, e não de `:has()`: `:has()` é proibido para
+  estrutura neste projeto desde que derrubou a navegação uma vez.
+{% endcomment %}
+{% if conquistas_novas %}
+  <div class="conquista" data-conquista role="status" aria-live="polite">
+    {% for conquista in conquistas_novas %}
+      <div class="conquista__slide" data-conquista-slide
+           {% if not forloop.first %}hidden{% endif %}>
+        <span class="conquista__emoji" aria-hidden="true">{{ conquista.emoji }}</span>
+
+        <div class="conquista__texto">
+          <p class="conquista__rotulo">
+            Conquista desbloqueada{% if conquistas_novas|length > 1 %} · {{ forloop.counter }} de {{ conquistas_novas|length }}{% endif %}
+          </p>
+          <strong class="conquista__titulo">{{ conquista.titulo }}</strong>
+          <span class="conquista__frase">{{ conquista.frase }}</span>
+        </div>
+
+        <div class="conquista__acoes">
+          <button type="button" class="btn btn--primary conquista__compartilhar"
+                  data-conquista-share
+                  data-tipo="{{ conquista.tipo_de_card }}"
+                  data-titulo="{{ conquista.titulo }}"
+                  data-frase="{{ conquista.frase }}"
+                  data-valor="{{ conquista.valor }}"
+                  data-rotulo="{{ conquista.rotulo }}"
+                  data-destaque="{{ conquista.destaque }}"
+                  data-formato="story">Compartilhar</button>
+
+          <form method="post" action="{% url 'achievements:marcar_vistas' %}"
+                class="conquista__fechar-form">
+            {% csrf_token %}
+            {% for c in conquistas_novas %}
+              <input type="hidden" name="id" value="{{ c.pk }}">
+            {% endfor %}
+            <input type="hidden" name="proximo" value="{{ request.path }}">
+            {% if forloop.last %}
+              <button type="submit" class="btn btn--ghost conquista__continuar"
+                      data-conquista-continuar>Continuar</button>
+            {% else %}
+              {% comment %}
+                Sem JavaScript este botão não avança a fila — ele envia o mesmo
+                formulário e fecha tudo. Degradar para "fecha o aviso" é melhor
+                que degradar para "botão morto".
+              {% endcomment %}
+              <button type="submit" class="btn btn--ghost conquista__continuar"
+                      data-conquista-proxima>Próxima</button>
+            {% endif %}
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <script>
+    /* A fila. Sem isto o "Próxima" ainda funciona — envia o formulário e fecha
+     * tudo —, e com isto ele avança um passo de cada vez. */
+    (function () {
+      var caixa = document.querySelector("[data-conquista]");
+      if (!caixa) return;
+
+      var slides = caixa.querySelectorAll("[data-conquista-slide]");
+      if (slides.length < 2) return;
+
+      caixa.addEventListener("click", function (evento) {
+        var botao = evento.target.closest("[data-conquista-proxima]");
+        if (!botao) return;
+        evento.preventDefault();
+
+        for (var i = 0; i < slides.length; i++) {
+          if (!slides[i].hidden) {
+            slides[i].hidden = true;
+            if (slides[i + 1]) slides[i + 1].hidden = false;
+            return;
+          }
+        }
+      });
+    })();
+  </script>
+{% endif %}

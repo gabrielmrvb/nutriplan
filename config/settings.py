@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "supplements",
     "push",
     "demo",
+    "achievements",
     # Login com Google — o allauth como MOTOR, não como interface.
     #
     # `allauth.account` entra porque `allauth.socialaccount` depende dele: é
@@ -104,6 +105,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "push.context_processors.push",
                 "accounts.context_processors.google_login",
+                "achievements.context_processors.conquistas_pendentes",
             ],
         },
     },

@@ -10,6 +10,7 @@ from django.views.generic import TemplateView, View
 
 from accounts.models import Weekday
 from accounts.views import OnboardingRequiredMixin
+from achievements import services as conquistas
 
 from . import health_export, services
 from .models import (
@@ -165,6 +166,11 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
                 # do registro de carga, não da ficha — o que vale é o que
                 # aconteceu, não o que estava previsto.
                 "resumo_hoje": health_export.resumo_da_sessao(user),
+                # Duracao OBSERVADA, e nao a estimada do resumo: o card
+                # so estampa minutos quando existe intervalo real entre a
+                # primeira e a ultima serie anotadas. Sem isso, ele
+                # apresentaria uma conta como se fosse cronometro.
+                "minutos_observados": conquistas.duracao_observada(user),
             }
         )
         return context
@@ -312,6 +318,17 @@ class RecordLoadView(OnboardingRequiredMixin, View):
                 request.user, exercise, peso, set_number=serie, reps=reps
             )
 
+        # As conquistas sao avaliadas AQUI, depois de o `ExerciseLog` estar
+        # gravado, e so aqui.
+        #
+        # Nao no painel, nao em refeicao, nao em agua: as conquistas da V1 sao
+        # todas de treino, e pendurar a avaliacao em toda escrita do app
+        # cobraria consultas o dia inteiro por um evento que acontece algumas
+        # vezes por semana. Este e o unico ponto do fluxo em que um dia de
+        # treino passa a existir.
+        novas = conquistas.avaliar(request.user)
+        ids_novos = conquistas.anunciar(request, novas)
+
         # Quem chegou por busca recebe JSON e a página não recarrega: no meio
         # do treino, perder a posição da rolagem a cada série é o que faz a
         # pessoa parar de anotar.
@@ -323,6 +340,22 @@ class RecordLoadView(OnboardingRequiredMixin, View):
                     "peso": str(peso),
                     "reps": reps,
                     "descanso": _descanso_de(request.user, exercise),
+                    # A pagina nao recarrega, entao o aviso precisa vir por
+                    # aqui — senao a conquista so apareceria na proxima visita.
+                    "conquistas": [
+                        {
+                            "id": c.pk,
+                            "titulo": c.titulo,
+                            "frase": c.frase,
+                            "emoji": c.emoji,
+                            "tipo": c.tipo_de_card,
+                            "valor": c.valor,
+                            "rotulo": c.rotulo,
+                            "destaque": c.destaque,
+                        }
+                        for c in novas
+                    ],
+                    "conquistas_ids": ids_novos,
                 }
             )
         # A âncora devolve a pessoa para o exercício em que ela estava, em vez

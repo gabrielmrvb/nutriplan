@@ -228,6 +228,20 @@
   </div>
 
   {% comment %}
+    A porta das conquistas, e ela fica AQUI e não numa aba nova.
+
+    A barra de baixo tem quatro itens e cada um ficou mais largo depois que
+    Suplementos saiu; devolver o quinto para uma tela que se visita de vez em
+    quando desfaria essa melhora em troca de pouco. O Perfil é onde já se olha
+    "o que eu sou neste app", e conquista é exatamente isso.
+  {% endcomment %}
+  <section class="card">
+    <div class="card__head"><h2>Conquistas</h2></div>
+    <p class="muted">O que o seu histórico já provou — sequências, treinos e recordes.</p>
+    <a class="btn btn--block" href="{% url 'achievements:list' %}">Minhas conquistas</a>
+  </section>
+
+  {% comment %}
     Conta e sessão, no rodapé e fora das duas colunas.
 
     "Sair" morava na barra de cima, ao lado do logotipo, visível em toda tela

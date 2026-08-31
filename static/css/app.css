@@ -1396,6 +1396,9 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .session__head:active,
 .shopping__check:active,
 .supl__marcar:active,
+.conquista__compartilhar:active,
+.conquista__continuar:active,
+.conquista-item__share:active,
 .tabbar__item:active { transform: scale(.96); }
 
 /* Botão já tocado, esperando o servidor: sem isto a pessoa toca de novo. */
@@ -1448,6 +1451,9 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .session__head,
 .shopping__check,
 .supl__marcar,
+.conquista__compartilhar,
+.conquista__continuar,
+.conquista-item__share,
 .tabbar__item {
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
               color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
@@ -1499,6 +1505,9 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   .session__head:active,
   .shopping__check:active,
   .supl__marcar:active,
+  .conquista__compartilhar:active,
+  .conquista__continuar:active,
+  .conquista-item__share:active,
   .tabbar__item:active { transform: none; }
 }
 
@@ -5833,3 +5842,130 @@ body.montando { overflow: hidden; }
 }
 
 .senha__regras > li { line-height: 1.35; }
+
+/* ==========================================================================
+   40. Conquistas: o aviso e a tela
+   ========================================================================== */
+
+/* O aviso segue o convite de instalação (`.install`) de propósito: mesma
+   ancoragem, mesma altura acima da tabbar, mesmo respeito ao
+   `env(safe-area-inset-bottom)`. Um segundo padrão de sobreposição para o
+   mesmo problema é dívida de UX nascendo — e a barra de baixo do NutriPlan já
+   foi coberta uma vez por uma regra que o navegador descartou. */
+.conquista {
+  position: fixed;
+  left: .8rem;
+  right: .8rem;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + .6rem);
+  z-index: 40;
+  padding: .9rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+}
+
+/* Cada conquista da fila ocupa a mesma caixa. O grid mora AQUI e nao no
+   contorno porque so um slide fica visivel por vez. */
+.conquista__slide {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .7rem .9rem;
+}
+
+.conquista__slide[hidden] { display: none; }
+
+.conquista__emoji { font-size: 1.7rem; line-height: 1; }
+
+.conquista__texto { min-width: 0; display: grid; gap: .15rem; }
+
+.conquista__rotulo {
+  margin: 0;
+  color: var(--brand);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.conquista__titulo { font-size: 1.05rem; }
+.conquista__frase { color: var(--text-dim); font-size: .86rem; line-height: 1.45; }
+
+.conquista__acoes {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: .5rem;
+  align-items: stretch;
+}
+
+/* O formulário precisa esticar junto para o botão dentro dele manter os 44px
+   de altura — sem isto ele encolhe para o conteúdo e o alvo perde a régua. */
+.conquista__fechar-form { display: grid; }
+
+.conquista__compartilhar,
+.conquista__continuar { min-height: 44px; min-width: 44px; }
+
+@media (min-width: 30rem) {
+  .conquista { left: auto; right: 1rem; width: 22rem; }
+}
+
+/* ------------------------------------------------------- a tela */
+
+.conquistas { display: grid; gap: var(--gap); }
+
+.conquistas__resumo {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .5rem;
+}
+
+.conquistas__numero {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.conquistas__rotulo { color: var(--text-mute); font-size: .72rem; }
+
+.conquista-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: .8rem;
+  align-items: center;
+  min-height: 44px;
+  padding: .7rem .2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.conquista-item:last-child { border-bottom: 0; }
+.conquista-item__emoji { font-size: 1.4rem; line-height: 1; }
+.conquista-item__nome { min-width: 0; }
+.conquista-item__frase { color: var(--text-dim); font-size: .82rem; line-height: 1.4; }
+.conquista-item__quantas { color: var(--text-mute); font-size: .78rem; }
+
+.conquista-item__share {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 .8rem;
+}
+
+/* Progresso: barra fina, número tabular. O número é o que responde "falta
+   quanto?"; a barra só dá a leitura de relance. */
+.progresso { display: grid; gap: .3rem; }
+
+.progresso__trilho {
+  height: 6px;
+  border-radius: var(--pill);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.progresso__barra { height: 100%; background: var(--brand); }
+
+.progresso__num {
+  color: var(--text-mute);
+  font-size: .78rem;
+  font-variant-numeric: tabular-nums;
+}

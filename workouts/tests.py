@@ -1983,20 +1983,81 @@ class ShareCardTests(TestCase):
             with self.subTest(atributo=atributo):
                 self.assertIn(atributo, html)
 
+    def _card_js(self):
+        return (Path(settings.BASE_DIR) / "static" / "js" / "card.js").read_text(
+            encoding="utf-8"
+        )
+
     def test_it_shares_natively_when_it_can_and_downloads_when_it_cannot(self):
+        """O desenho saiu desta página para `static/js/card.js`.
+
+        Ele era um canvas embutido no template, com as cores escritas à mão.
+        Quando as conquistas passaram a precisar do mesmo desenho, manter dois
+        canvas seria garantir que um dos dois envelhece. O COMPORTAMENTO não
+        mudou, e é ele que este teste continua cobrando — só mudou de arquivo.
+        """
+        js = self._card_js()
+
+        self.assertIn("navigator.canShare", js)
+        self.assertIn("navigator.share", js)
+        # E o caminho de quando o aparelho não sabe compartilhar arquivo.
+        self.assertIn("link.download", js)
+
+    def test_a_pagina_usa_o_modulo_e_nao_desenha_por_conta(self):
+        """Duas implementações de canvas é uma a mais do que este projeto
+        aguenta manter em dia."""
         self._serie()
         html = self.client.get(reverse("workouts:routine")).content.decode()
 
-        self.assertIn("navigator.canShare", html)
-        self.assertIn("navigator", html)
-        self.assertIn('link.download = "treino-nutriplan.png"', html)
+        self.assertIn("NutriPlanCard", html)
+        self.assertNotIn("getContext(\"2d\")", html)
+        self.assertNotIn("createElement(\"canvas\")", html)
 
-    def test_the_canvas_uses_a_format_instagram_does_not_crop(self):
-        self._serie()
-        html = self.client.get(reverse("workouts:routine")).content.decode()
+    def test_os_dois_formatos_existem_e_nao_se_confundem(self):
+        """1080x1350 é feed e 1080x1920 é story.
 
-        self.assertIn("c.width = 1080", html)
-        self.assertIn("c.height = 1350", html)
+        LIMITE DECLARADO: Node não existe neste ambiente, então o teste lê a
+        declaração e não executa o desenho. O que ele garante é que os dois
+        formatos existem, com as alturas certas, e que ninguém trocou uma pela
+        outra — que foi o erro que este teste veio impedir.
+        """
+        js = self._card_js()
+        bloco = js.split("var FORMATOS", 1)[1].split("};", 1)[0]
+
+        self.assertIn("feed:", bloco)
+        self.assertIn("story:", bloco)
+        self.assertIn("h: 1350", bloco)
+        self.assertIn("h: 1920", bloco)
+        # As duas larguras são 1080; o que separa os formatos é a altura.
+        self.assertEqual(bloco.count("w: 1080"), 2)
+
+        feed = bloco.split("feed:", 1)[1].split("}", 1)[0]
+        story = bloco.split("story:", 1)[1].split("}", 1)[0]
+        self.assertIn("1350", feed)
+        self.assertNotIn("1920", feed)
+        self.assertIn("1920", story)
+        self.assertNotIn("1350", story)
+
+    def test_o_card_nao_carrega_a_paleta_antiga(self):
+        """`#090c0b` era o grafite esverdeado que o design system abandonou.
+
+        Ele ficou meses dentro do JavaScript divulgando uma identidade que o
+        app não tem mais, e nada apontou porque hex fixo não quebra. Agora as
+        cores saem dos tokens; os únicos hex que restam são alternativas, e
+        precisam ser os do tema atual.
+        """
+        js = self._card_js()
+
+        # Como VALOR, e nao como texto: o cabecalho do arquivo cita o hex
+        # antigo para contar por que ele saiu, e um teste que proibisse a
+        # mencao proibiria junto a explicacao.
+        aspas = chr(34)
+        valores = [linha for linha in js.splitlines()
+                   if "#090c0b" in linha and aspas in linha]
+        self.assertEqual(valores, [], "paleta antiga usada como valor")
+        self.assertIn("getPropertyValue", js)
+        self.assertIn("--bg", js)
+        self.assertIn("--brand", js)
 
 
 class ImpeccableStyleTests(TestCase):

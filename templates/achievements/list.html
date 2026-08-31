@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Minhas conquistas · NutriPlan{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Minhas conquistas</h1>
+    <p class="lead">
+      O que o seu histórico já provou. Cada uma sai de dado registrado — nenhuma
+      é participação.
+    </p>
+  </div>
+
+  {% comment %}
+    Três números, e só três. A tentação num sistema de conquistas é a parede de
+    medalhas cinzentas: cem coisas que a pessoa não fez. É o oposto do que a
+    ofensiva deste app faz, cujo texto inteiro foi escrito para não cobrar.
+  {% endcomment %}
+  <section class="card">
+    <div class="conquistas__resumo">
+      <div>
+        <span class="conquistas__numero num">{{ total }}</span>
+        <span class="conquistas__rotulo">conquistas</span>
+      </div>
+      <div>
+        <span class="conquistas__numero num">{{ dias_treinados }}</span>
+        <span class="conquistas__rotulo">dias de treino</span>
+      </div>
+      <div>
+        <span class="conquistas__numero num">{{ recordes }}</span>
+        <span class="conquistas__rotulo">recordes</span>
+      </div>
+    </div>
+  </section>
+
+  {% if conquistadas %}
+    <section class="card conquistas">
+      <div class="card__head"><h2>Desbloqueadas</h2></div>
+
+      {% for item in conquistadas %}
+        <div class="conquista-item">
+          <span class="conquista-item__emoji" aria-hidden="true">{{ item.regra.emoji }}</span>
+
+          <div class="conquista-item__nome">
+            <strong>{{ item.regra.titulo }}</strong>
+            <p class="conquista-item__frase">{{ item.ultima.frase }}</p>
+            {% if item.quantas > 1 %}
+              {% comment %}
+                Repetíveis — semana completa e recorde — mostram quantas vezes.
+                A CARGA do recorde não aparece: ela nunca foi persistida, e é
+                por isso que ela não pode vazar daqui para um card.
+              {% endcomment %}
+              <span class="conquista-item__quantas">{{ item.quantas }} vezes</span>
+            {% endif %}
+          </div>
+
+          <button type="button" class="btn btn--ghost conquista-item__share"
+                  data-conquista-share
+                  data-tipo="{{ item.ultima.tipo_de_card }}"
+                  data-titulo="{{ item.regra.titulo }}"
+                  data-frase="{{ item.ultima.frase }}"
+                  data-valor="{{ item.ultima.valor }}"
+                  data-rotulo="{{ item.ultima.rotulo }}"
+                  data-destaque="{{ item.ultima.destaque }}"
+                  data-formato="feed"
+                  aria-label="Compartilhar {{ item.regra.titulo }}">Compartilhar</button>
+        </div>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="card center">
+      <p class="lead">Nenhuma ainda.</p>
+      <p class="muted">
+        A primeira chega quando você registrar a primeira série de um treino.
+      </p>
+      <a class="btn btn--primary" href="{% url 'workouts:routine' %}">Ver o treino</a>
+    </section>
+  {% endif %}
+
+  {% if a_caminho %}
+    <section class="card conquistas">
+      <div class="card__head"><h2>Próximas</h2></div>
+
+      {% comment %}
+        Só entra aqui o que tem progresso REAL para mostrar. Semana completa e
+        recorde não aparecem: "0 de 1" não é progresso, é uma caixa vazia com
+        número — e inventar uma barra para elas seria exatamente a parede de
+        medalhas cinzentas que esta tela evita.
+      {% endcomment %}
+      {% for item in a_caminho %}
+        <div class="conquista-item">
+          <span class="conquista-item__emoji" aria-hidden="true">{{ item.regra.emoji }}</span>
+
+          <div class="conquista-item__nome progresso">
+            <strong>{{ item.regra.titulo }}</strong>
+            <div class="progresso__trilho">
+              <div class="progresso__barra" style="width: {{ item.pct }}%"></div>
+            </div>
+            <span class="progresso__num">{{ item.atual }} / {{ item.alvo }}</span>
+          </div>
+
+          <span></span>
+        </div>
+      {% endfor %}
+    </section>
+  {% endif %}
+{% endblock %}
