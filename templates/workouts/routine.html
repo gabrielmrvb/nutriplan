@@ -540,6 +540,42 @@
          * anatômico gratuito e verificável, e fingir que existe seria pior que
          * a foto que está aí.
          */
+        /* O clipe de EXECUÇÃO — a mídia principal da gaveta.
+         *
+         * Devolve `false` quando não há clipe, para o chamador descer para o
+         * próximo degrau. Antes este bloco vivia solto dentro do `if`, e por
+         * isso não tinha como ser posto na frente da animação sem duplicar
+         * código.
+         */
+        function montarClipe(media, dados) {
+          if (!dados.clipe) return false;
+
+          var elemento;
+          if (dados.tipo === "gif") {
+            elemento = document.createElement("img");
+            elemento.src = dados.clipe;
+            elemento.alt = "Execução: " + dados.nome;
+          } else if (dados.tipo === "video") {
+            elemento = document.createElement("video");
+            elemento.src = dados.clipe;
+            elemento.autoplay = true;
+            elemento.loop = true;
+            elemento.muted = true;
+            elemento.playsInline = true;
+            elemento.setAttribute("muted", "");
+            elemento.setAttribute("playsinline", "");
+          } else {
+            elemento = document.createElement("iframe");
+            elemento.src = dados.clipe;
+            elemento.title = "Execução: " + dados.nome;
+            elemento.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+            elemento.allowFullscreen = true;
+          }
+          media.classList.toggle("drawer__media--vertical", dados.vertical === "1");
+          media.appendChild(elemento);
+          return true;
+        }
+
         function montarAnimacao(media, dados) {
           if (!dados.animacao || !dados.animacaoTipo) return false;
 
@@ -642,39 +678,31 @@
           media.className = "drawer__media";
           media.classList.toggle("drawer__media--vertical", dados.vertical === "1");
 
-          /* Três degraus, em ordem de qualidade: animação, foto, vídeo.
+          /* EXECUÇÃO primeiro. Foto e anatomia só quando não há clipe.
            *
-           * Cada um só entra quando o de cima não existe. Hoje o topo está
-           * vazio para todo mundo — o dia em que houver fonte contratada, é
-           * um comando de importação e nada aqui muda.
+           * A ordem era animação → foto → vídeo, com o comentário "hoje o topo
+           * está vazio para todo mundo". Era verdade quando foi escrito, e
+           * deixou de ser quando `animacoes.json` passou a preencher os 36:
+           * `montarAnimacao` vencia sempre, e o botão que diz "Ver vídeo de
+           * execução" abria o diagrama de músculos — com o banner
+           * "EXPERIMENTE GRÁTIS" de um personal concorrente por cima.
+           *
+           * O Modo Treino já tinha essa prioridade certa (execução no corpo,
+           * anatomia atrás de `<details>`); a ficha ficou para trás. Achado ao
+           * revalidar os 36 vídeos no player depois da curadoria.
+           *
+           * A anatomia NÃO foi apagada: continua em `animation_url`, continua
+           * servida no Modo Treino, e continua sendo o degrau seguinte aqui
+           * para quem um dia não tiver clipe.
            *
            * O `if` envolve SÓ a mídia. Uma versão anterior saía da função com
            * `return`, e com isso nome, séries, descanso e carga anterior
            * ficavam em branco sempre que a mídia existia — ou seja, sempre.
            */
-          if (!montarAnimacao(media, dados) && !montarQuadros(media, dados)) {
-            var elemento;
-            if (dados.tipo === "gif") {
-              elemento = document.createElement("img");
-              elemento.src = dados.clipe;
-              elemento.alt = "Execução: " + dados.nome;
-            } else if (dados.tipo === "video") {
-              elemento = document.createElement("video");
-              elemento.src = dados.clipe;
-              elemento.autoplay = true;
-              elemento.loop = true;
-              elemento.muted = true;
-              elemento.playsInline = true;
-              elemento.setAttribute("muted", "");
-              elemento.setAttribute("playsinline", "");
-            } else {
-              elemento = document.createElement("iframe");
-              elemento.src = dados.clipe;
-              elemento.title = "Execução: " + dados.nome;
-              elemento.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
-              elemento.allowFullscreen = true;
-            }
-            media.appendChild(elemento);
+          if (!montarClipe(media, dados)
+              && !montarQuadros(media, dados)
+              && !montarAnimacao(media, dados)) {
+            /* Sem clipe, sem fotos e sem anatomia: a tela já oferece a busca. */
           }
 
           drawer.querySelector("[data-drawer-nome]").textContent = dados.nome;

@@ -356,9 +356,15 @@ class Exercise(models.Model):
     def tem_anatomia(self) -> bool:
         """Só oferece "músculos trabalhados" quando há conteúdo DIFERENTE.
 
-        Em sete exercícios o mesmo endereço está nos dois campos. Abrir um
-        segundo botão que toca o vídeo que já está tocando não informa nada —
-        e faz a tela prometer um conteúdo que ela não tem.
+        Abrir um segundo botão que toca o vídeo que já está tocando não informa
+        nada — e faz a tela prometer um conteúdo que ela não tem.
+
+        A guarda nasceu porque NOVE exercícios traziam o mesmo endereço nos dois
+        campos. A curadoria dos 36 vídeos de execução desfez todos: hoje o
+        catálogo tem zero colisões, e há teste exigindo que continue assim. A
+        propriedade fica de pé porque a origem dos dois campos é diferente
+        (`exercises.json` e `animacoes.json`) e nada impede que voltem a
+        coincidir.
         """
         return bool(self.animation_url) and self.animation_url != self.video_url
 

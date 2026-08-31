@@ -1457,24 +1457,30 @@ class ExerciseFrameTests(TestCase):
         self.assertTrue(urls[1].endswith("/1.jpg"))
 
     def test_the_drawer_walks_down_the_media_ladder(self):
-        """Três degraus, em ordem de qualidade: animação, foto, vídeo.
+        """Três degraus: EXECUÇÃO, foto, anatomia. Cada um só entra quando o de
+        cima não existe.
 
-        Cada um só entra quando o de cima não existe. Hoje o topo está vazio
-        para todo mundo — não há fonte gratuita e verificável de animação
-        anatômica —, e o `<iframe>` do YouTube passou a ser o último recurso
-        em vez do caminho normal.
+        A ordem era outra — animação primeiro —, e o docstring deste teste
+        repetia a premissa que a justificava: "hoje o topo está vazio para todo
+        mundo". Era verdade quando foi escrito. Quando `animacoes.json` passou a
+        preencher os 36, `montarAnimacao` virou o vencedor permanente e o botão
+        "Ver vídeo de execução" passou a abrir o diagrama de músculos.
+
+        O teste fixava a linha defeituosa LITERALMENTE, então ele passava
+        justamente por estar errado junto. Agora ancora na ordem, que é o que
+        importa.
         """
         user = create_user(email="frames@exemplo.com")
         self.client.force_login(user)
         html = self.client.get(reverse("workouts:routine")).content.decode()
 
-        for atributo in ("data-animacao=", "data-quadros="):
+        for atributo in ("data-animacao=", "data-quadros=", "data-clipe="):
             with self.subTest(atributo=atributo):
                 self.assertIn(atributo, html)
 
-        self.assertIn(
-            "if (!montarAnimacao(media, dados) && !montarQuadros(media, dados)) {",
-            html,
+        condicao = html.split("if (!montarClipe", 1)[1].split(") {", 1)[0]
+        self.assertLess(
+            condicao.index("montarQuadros"), condicao.index("montarAnimacao")
         )
 
     def test_the_numbers_are_filled_no_matter_which_media_is_used(self):
@@ -1486,7 +1492,9 @@ class ExerciseFrameTests(TestCase):
         html = self.client.get(reverse("workouts:routine")).content.decode()
 
         corpo = html.split("function preencher(dados) {", 1)[1]
-        ramo_da_midia = corpo.split("&& !montarQuadros(media, dados)) {", 1)[1]
+        # A condição virou multilinha quando a execução subiu para o primeiro
+        # degrau; ancorar no fechamento do `if` sobrevive a essa formatação.
+        ramo_da_midia = corpo.split("&& !montarAnimacao(media, dados)) {", 1)[1]
         self.assertNotIn("return;", ramo_da_midia.split("data-drawer-nome", 1)[0])
         self.assertIn("data-drawer-series", corpo)
         self.assertIn("data-drawer-carga", corpo)
@@ -3454,3 +3462,191 @@ class IntervaloDoTreinoTests(TestCase):
         estado = services.estado_do_treino(user)
 
         self.assertEqual(estado.minutos_entre_registros, 20)
+
+
+class CuradoriaDosVideosTests(TestCase):
+    """O que a curadoria dos 36 vídeos de execução deixou garantido.
+
+    A curadoria abriu os 36 vídeos no player de verdade, mediu em que segundo o
+    movimento aparece e comparou cada um com alternativas. Trinta e um foram
+    substituídos. Estes testes travam as invariantes que a troca estabeleceu —
+    não a escolha estética, que é decisão de produto, mas as regras que, se
+    quebradas, devolvem o catálogo ao estado anterior sem ninguém perceber.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    #: Os vídeos que a curadoria REPROVOU e removeu.
+    #:
+    #: Ficam aqui pelo nome do defeito, e não como lista solta: cada um foi
+    #: reprovado por um motivo verificado no player — vinheta de marca, cabeça
+    #: falante, propaganda, enquadramento que corta o corpo, ou equipamento que
+    #: não corresponde ao exercício cadastrado.
+    REPROVADOS = {
+        "6ppjJrbrW7g": "cartela e apresentadora falando",
+        "N2hvV6tvZ2w": "ajuste de banco com narração",
+        "cv_iUNfRbpg": "cartelas sobre ajuste da máquina",
+        "mPtTzNYAHi0": "tutorial de cartelas passo a passo",
+        "t4KS5hvhT88": "8s parado explicando a pegada",
+        "clsXeKYr5JY": "esquete com dois homens conversando",
+        "K-EDB8YVrr8": "homem sentado no chão falando",
+        "e0_xHkXw350": "banner INSCREVA-SE",
+        "Hsho8B6ZNhE": "tela preta e vinheta corpodirect.com",
+        "qpVKOlniMXo": "marca d'água RK, horizontal",
+        "ruE_FMY2yCY": "banner MTPERFEITO com teste grátis",
+        "IZL63x3I6lg": "vinheta glitch da marca aos 5s",
+        "hTaY3y09eLc": "cartela estática e X vermelho",
+        "2YebbYuuBJQ": "estático, homem ao lado da máquina",
+        "DNGwvrde5o4": "colagem de quatro painéis",
+        "A6Rjc6aUUB8": "rodapé de marca MANUPLAY",
+        "yoGQNEHGlak": "close-ups que cortam o movimento",
+        "JUp6eoHwl0I": "banner MTPERFEITO com teste grátis",
+        "dm-KfDgmGvM": "estático e distante",
+        "7Dzd-PgVoZc": "halteres para exercício com barra",
+        "G6feTR1uIG4": "vinheta TREINO FOCO por 5s",
+        "L09GZxg0Z84": "corta a cabeça do executante",
+        "_3ea8q-7sTY": "vinheta de logo A/Coach por 5s",
+        "OnVIGDpnMow": "3s montando a posição, barra de marca",
+        "hZVIstfFsIc": "8s em pé falando",
+        "oq4Xb_xI618": "cabeça falante os 8s inteiros",
+        "AdkMdSoRVPE": "estático, homem falando",
+        "0FOiIyUFDPE": "estático, homem falando",
+        "WQ-If5YzMsw": "polia para exercício com barra",
+        "Xqp_-0FIzc4": "banner MTPERFEITO com teste grátis",
+        "MMc0xPdeuZI": "idêntico ao animation_url",
+    }
+
+    def test_nenhum_video_reprovado_volta_pelo_seed(self):
+        """O seed é a fonte: se um reprovado voltar, volta em produção.
+
+        Este é o teste que a missão pediu explicitamente — "nenhum vídeo antigo
+        reaparece após seed". Ele lê o BANCO depois de semear, e não o arquivo,
+        porque o caminho que importa é o que o deploy executa.
+        """
+        no_ar = {e.video_id for e in Exercise.objects.filter(is_active=True)}
+
+        for video_id, defeito in self.REPROVADOS.items():
+            with self.subTest(video=video_id):
+                self.assertNotIn(video_id, no_ar, defeito)
+
+    def test_os_36_continuam_com_execucao_cadastrada(self):
+        ativos = Exercise.objects.filter(is_active=True)
+
+        self.assertEqual(ativos.count(), 36)
+        self.assertEqual(ativos.filter(video_url="").count(), 0)
+
+    def test_execucao_e_anatomia_nunca_apontam_para_o_mesmo_lugar(self):
+        """A colisão que a curadoria desfez, travada para não voltar.
+
+        Nove exercícios traziam o mesmo endereço em `video_url` e
+        `animation_url`: o botão de anatomia abria o vídeo que já estava
+        tocando. Os dois campos vêm de arquivos diferentes — `exercises.json` e
+        `animacoes.json` — e nada além deste teste impede que voltem a
+        coincidir.
+        """
+        colididos = [
+            e.name
+            for e in Exercise.objects.filter(is_active=True)
+            if e.video_url and e.video_url == e.animation_url
+        ]
+
+        self.assertEqual(colididos, [])
+
+    def test_todo_exercicio_oferece_anatomia_de_verdade(self):
+        """`tem_anatomia` deixou de ser falso para alguém."""
+        sem = [e.name for e in Exercise.objects.filter(is_active=True) if not e.tem_anatomia]
+
+        self.assertEqual(sem, [])
+
+    def test_a_execucao_continua_sendo_a_midia_principal(self):
+        """O contrato que a missão mandou preservar.
+
+        `execucao_src` é o que a tela toca primeiro. Se algum dia ele passar a
+        preferir a anatomia, a pessoa abre "execução" e vê músculo desenhado.
+        """
+        for e in Exercise.objects.filter(is_active=True):
+            with self.subTest(exercicio=e.name):
+                self.assertIn(e.video_id, e.execucao_src)
+                self.assertNotEqual(e.execucao_src, e.anatomia_src)
+
+    def test_o_seed_e_idempotente_para_a_midia(self):
+        """Rodar de novo não pode trocar endereço nem duplicar exercício.
+
+        O deploy roda o seed em toda build. Se ele não fosse idempotente, cada
+        publicação embaralharia a mídia dos 36.
+        """
+        antes = {e.name: (e.video_url, e.animation_url)
+                 for e in Exercise.objects.all()}
+        quantidade = Exercise.objects.count()
+
+        call_command("seed_workouts", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+
+        depois = {e.name: (e.video_url, e.animation_url)
+                  for e in Exercise.objects.all()}
+        self.assertEqual(depois, antes)
+        self.assertEqual(Exercise.objects.count(), quantidade)
+
+    def test_os_enderecos_novos_viram_embed(self):
+        """URL que não vira embed é 36 telas quebradas."""
+        for e in Exercise.objects.filter(is_active=True):
+            with self.subTest(exercicio=e.name):
+                self.assertTrue(e.video_embed_url, e.video_url)
+
+
+class PrioridadeDaMidiaNaFichaTests(TestCase):
+    """A gaveta da ficha tocava a ANATOMIA no botão de execução.
+
+    O Modo Treino já tinha a prioridade certa desde o Treino V3 — execução no
+    corpo da tela, anatomia atrás de `<details>`. A ficha (`routine.html`) ficou
+    para trás com a escada antiga, "animação → foto → vídeo", e um comentário
+    dizendo que o topo estava vazio para todo mundo.
+
+    O comentário era verdade quando foi escrito e parou de ser quando
+    `animacoes.json` passou a preencher os 36: `montarAnimacao` vencia sempre, e
+    quem tocava "Ver vídeo de execução" recebia o diagrama de músculos com o
+    banner "EXPERIMENTE GRÁTIS" de um personal concorrente.
+
+    Encontrado ao reabrir os 36 no player depois da curadoria — nenhum teste
+    pegava, porque a escolha mora no JavaScript da gaveta e todos os testes de
+    prioridade apontavam para o Modo Treino.
+    """
+
+    CAMINHO = Path(settings.BASE_DIR) / "templates" / "workouts" / "routine.html"
+
+    def setUp(self):
+        self.fonte = self.CAMINHO.read_text(encoding="utf-8")
+
+    def test_o_clipe_de_execucao_e_o_primeiro_degrau(self):
+        """A ordem das chamadas é a ordem da prioridade.
+
+        Ancorado nas posições dentro do `if`, e não na presença das funções:
+        as três continuam existindo, e o defeito era exatamente a ORDEM.
+        """
+        bloco = self.fonte.split("if (!montarClipe", 1)
+        self.assertEqual(len(bloco), 2, "montarClipe deixou de abrir a escada")
+
+        condicao = bloco[1].split(") {", 1)[0]
+        self.assertIn("montarQuadros", condicao)
+        self.assertIn("montarAnimacao", condicao)
+        self.assertLess(
+            condicao.index("montarQuadros"),
+            condicao.index("montarAnimacao"),
+            "anatomia voltou a passar na frente da foto",
+        )
+
+    def test_a_anatomia_continua_existindo_como_degrau_final(self):
+        """A missão proibiu apagar anatomia — ela desceu, não sumiu."""
+        self.assertIn("function montarAnimacao", self.fonte)
+        self.assertIn("montarAnimacao(media, dados)", self.fonte)
+
+    def test_o_modo_treino_continua_com_a_anatomia_em_gaveta_propria(self):
+        """O contrato do Treino V3, que esta correção não podia tocar."""
+        agora = (Path(settings.BASE_DIR) / "templates" / "workouts" / "agora.html").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("data-anatomia-area", agora)
+        self.assertIn("tem_anatomia", agora)
