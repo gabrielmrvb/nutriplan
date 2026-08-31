@@ -20,7 +20,6 @@ from django.utils import timezone
 from accounts.models import User, WeightEntry
 from plans import services
 from plans.models import HydrationLog, MealLog, MealStatus
-from supplements.models import Supplement, SupplementLog
 from workouts.models import Exercise, ExerciseLog
 from workouts.services import create_routine, get_active_routine
 
@@ -65,7 +64,6 @@ class Command(BaseCommand):
                 pk__in=rotina.sessions.values_list("exercises__exercise", flat=True)
             )
         )
-        suplementos = list(Supplement.objects.filter(is_active=True))
         dias_de_treino = set(rotina.sessions.values_list("weekday", flat=True))
 
         # Semente fixa: rodar duas vezes produz o mesmo histórico, e comparar
@@ -77,7 +75,6 @@ class Command(BaseCommand):
             self._refeicoes(user, slots, inicio, dias, sorteio)
             self._agua(user, inicio, dias, sorteio)
             self._treinos(user, exercicios, dias_de_treino, inicio, dias, sorteio)
-            self._suplementos(user, suplementos, inicio, dias, sorteio)
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -85,8 +82,7 @@ class Command(BaseCommand):
                 f"  {WeightEntry.objects.filter(user=user).count()} pesagens\n"
                 f"  {MealLog.objects.filter(user=user).count()} refeições\n"
                 f"  {HydrationLog.objects.filter(user=user).count()} dias de água\n"
-                f"  {ExerciseLog.objects.filter(user=user).count()} séries\n"
-                f"  {SupplementLog.objects.filter(user=user).count()} suplementos"
+                f"  {ExerciseLog.objects.filter(user=user).count()} séries"
             )
         )
 
@@ -96,7 +92,6 @@ class Command(BaseCommand):
         MealLog.objects.filter(user=user, date__gte=inicio).delete()
         HydrationLog.objects.filter(user=user, date__gte=inicio).delete()
         ExerciseLog.objects.filter(user=user, date__gte=inicio).delete()
-        SupplementLog.objects.filter(user=user, date__gte=inicio).delete()
 
     # -------------------------------------------------------------- peso
     def _peso(self, user, inicio, dias, sorteio):
@@ -200,13 +195,3 @@ class Command(BaseCommand):
                         )
                     )
         ExerciseLog.objects.bulk_create(linhas, ignore_conflicts=True, batch_size=500)
-
-    # -------------------------------------------------------- suplementos
-    def _suplementos(self, user, suplementos, inicio, dias, sorteio):
-        linhas = [
-            SupplementLog(user=user, supplement=s, date=inicio + timedelta(days=i))
-            for i in range(dias)
-            for s in suplementos
-            if sorteio.random() > 0.35
-        ]
-        SupplementLog.objects.bulk_create(linhas, ignore_conflicts=True, batch_size=500)

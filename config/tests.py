@@ -163,7 +163,6 @@ def semear():
     """
     call_command("seed_catalog", verbosity=0)
     call_command("seed_workouts", verbosity=0)
-    call_command("seed_supplements", verbosity=0)
 
 
 class HealthTests(TestCase):
@@ -821,7 +820,7 @@ class BuildScriptTests(TestCase):
 
     def test_every_seed_command_runs_on_deploy(self):
         script = (RAIZ / "scripts" / "build.sh").read_text(encoding="utf-8")
-        for comando in ("seed_catalog", "seed_workouts", "seed_supplements"):
+        for comando in ("seed_catalog", "seed_workouts"):
             with self.subTest(comando=comando):
                 self.assertIn(f"manage.py {comando}", script)
 

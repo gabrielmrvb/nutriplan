@@ -19,8 +19,6 @@ AREAS = [
      "O painel do dia: meta calórica, macros, cardápio, água e ofensiva."),
     ("workouts:routine", "Treino",
      "A ficha da semana, com séries, cargas e o cronômetro de descanso."),
-    ("supplements:list", "Suplementos",
-     "O checklist do dia e o que cada suplemento faz, com nível de evidência."),
     ("plans:history", "Histórico",
      "Aderência, média de calorias e a curva de peso ao longo do tempo."),
     ("plans:shopping", "Lista de compras",

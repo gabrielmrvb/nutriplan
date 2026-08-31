@@ -104,7 +104,6 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         "plans:today": 40,
         "workouts:routine": 25,
         "plans:history": 15,
-        "supplements:list": 15,
         "accounts:profile": 15,
     }
 
@@ -195,7 +194,6 @@ class StressSeedTests(TestCase):
     def setUpTestData(cls):
         CatalogFixture.setUpTestData()
         call_command("seed_workouts", verbosity=0)
-        call_command("seed_supplements", verbosity=0)
 
     def setUp(self):
         self.user = create_complete_user()

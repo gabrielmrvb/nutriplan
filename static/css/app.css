@@ -497,7 +497,7 @@ body:not(.tem-tabbar) .container {
   bottom: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: .2rem;
   padding: .4rem .5rem calc(.4rem + env(safe-area-inset-bottom));
   /* A barra flutua sobre o conteúdo: o fundo é o do app a 80%, e não a
@@ -1395,7 +1395,6 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .rest-timer__more:active,
 .session__head:active,
 .shopping__check:active,
-.supl__marcar:active,
 .conquista__compartilhar:active,
 .conquista__continuar:active,
 .conquista-item__share:active,
@@ -1450,7 +1449,6 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 .rest-timer__more,
 .session__head,
 .shopping__check,
-.supl__marcar,
 .conquista__compartilhar,
 .conquista__continuar,
 .conquista-item__share,
@@ -1504,7 +1502,6 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
   .rest-timer__more:active,
   .session__head:active,
   .shopping__check:active,
-  .supl__marcar:active,
   .conquista__compartilhar:active,
   .conquista__continuar:active,
   .conquista-item__share:active,
@@ -3357,7 +3354,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
  * quebra "emagrecer" em lugares que não existem.
  *
  * `overflow-wrap: break-word` é a válvula para o caso oposto — uma palavra
- * sozinha mais larga que a coluna (nome de suplemento, marca composta). Sem
+ * sozinha mais larga que a coluna (nome de alimento, marca composta). Sem
  * ela a palavra não quebra em lugar NENHUM e empurra a página para o lado;
  * com ela, quebra só quando não há alternativa.
  *
@@ -3635,7 +3632,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .install__close:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* ==========================================================================
-   26. Engajamento: ofensiva, água, suplementos e contador
+   26. Engajamento: ofensiva, água e contador
    ========================================================================== */
 
 /* -------------------------------------------------------------- ofensiva */
@@ -3847,82 +3844,6 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .agua__botao span { color: var(--text-mute); font-size: .7rem; font-weight: 550; }
 .agua__botao:hover { border-color: var(--accent); background: var(--surface-3); }
 .agua__botao:active { transform: scale(.96); }
-
-/* ------------------------------------------------- catálogo de suplementos */
-
-.supl { display: grid; gap: .7rem; }
-.supl--tomado { border-color: color-mix(in srgb, var(--brand) 28%, transparent); }
-
-.supl__head { display: flex; align-items: center; justify-content: space-between; gap: .8rem; }
-.supl__nome { min-width: 0; font-size: 1.05rem; }
-
-.supl__marcar {
-  display: inline-flex;
-  align-items: center;
-  gap: .35rem;
-  flex: none;
-  min-height: 2.75rem;
-  padding: .45rem .85rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--pill);
-  background: var(--surface-2);
-  color: var(--text-dim);
-  font: inherit;
-  font-size: .82rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease),
-              color var(--dur) var(--ease), transform .12s var(--ease);
-}
-
-.supl__marcar svg { width: 1rem; height: 1rem; }
-.supl__marcar:active { transform: scale(.96); }
-
-.supl__marcar.is-on {
-  border-color: color-mix(in srgb, var(--brand) 38%, transparent);
-  background: color-mix(in srgb, var(--brand) 14%, transparent);
-  color: var(--brand);
-}
-
-.supl__pilulas { display: flex; flex-wrap: wrap; gap: .3rem; }
-.supl__para { margin: 0; color: var(--text-dim); font-size: .88rem; line-height: 1.55; }
-
-.supl__dados { display: grid; gap: .55rem; margin: 0; }
-.supl__dados > div { display: grid; gap: .1rem; }
-.supl__dados dt { color: var(--text-mute); font-size: .72rem; font-weight: 700; }
-.supl__dados dd { margin: 0; font-size: .86rem; line-height: 1.5; }
-.supl__dados dd.num { font-size: 1rem; font-weight: 750; }
-.supl__nota { color: var(--text-mute); font-size: .78rem !important; }
-
-.supl__mito {
-  display: grid;
-  gap: .45rem;
-  padding: .7rem .8rem;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-}
-
-.supl__mito-linha {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-  gap: .5rem;
-  margin: 0;
-  color: var(--text-dim);
-  font-size: .82rem;
-  line-height: 1.5;
-}
-
-.supl__cuidado {
-  margin: 0;
-  padding: .55rem .7rem;
-  border: 1px solid color-mix(in srgb, var(--warm) 24%, transparent);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--warm) 9%, transparent);
-  color: var(--warm);
-  font-size: .8rem;
-  line-height: 1.5;
-}
 
 /* Valor que o app sugeriu, e não o que a pessoa digitou.
    A marca existe para o número não passar por registro: pré-posto e confirmado

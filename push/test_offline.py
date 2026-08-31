@@ -81,10 +81,16 @@ class QueueScopeTests(TestCase):
     def setUp(self):
         self.fila = (RAIZ / "static" / "js" / "fila.js").read_text(encoding="utf-8")
 
-    def test_it_covers_the_four_writes_that_happen_mid_activity(self):
-        for rota in ("agua", "suplementos", "refeicao", "carga"):
+    def test_it_covers_the_three_writes_that_happen_mid_activity(self):
+        for rota in ("agua", "refeicao", "carga"):
             with self.subTest(rota=rota):
                 self.assertIn(rota, self.fila)
+
+    def test_suplemento_saiu_da_fila_junto_com_a_tela(self):
+        """A rota não existe mais; enfileirar para ela seria guardar um POST
+        que vai bater em 404 quando a rede voltar — e a fila reenviaria em
+        silêncio, sem ninguém descobrir."""
+        self.assertNotIn("suplementos", self.fila)
 
     def test_it_refuses_anything_that_reads_server_state_to_decide(self):
         """Enfileirar o assistente produziria decisões tomadas sobre dados

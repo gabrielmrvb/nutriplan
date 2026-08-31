@@ -238,7 +238,6 @@ class DemoSemSaidaParaLoginTests(TestCase):
         "/demo/sobre/",
         "/demo/hoje/",
         "/demo/treino/",
-        "/demo/suplementos/",
         "/demo/historico/",
         "/demo/lista-de-compras/",
         "/demo/conta/perfil/",
@@ -364,7 +363,6 @@ class DemoTelasNaoFicamVaziasTests(TestCase):
             "/demo/hoje/",
             "/demo/treino/",
             "/demo/historico/",
-            "/demo/suplementos/",
             "/demo/lista-de-compras/",
             "/demo/conta/perfil/",
         ):

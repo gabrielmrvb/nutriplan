@@ -115,14 +115,6 @@
              href="{% if request.demo %}/demo/hoje/{% else %}{% url 'plans:today' %}{% endif %}">Dieta</a>
           <a class="app-bar__link {% if nav == 'workout' %}is-active{% endif %}"
              href="{% url 'workouts:routine' %}">Treino</a>
-          {% comment %}
-            Suplementos existia só na barra de baixo, e ela é `display: none`
-            acima de 60rem: no desktop a tela ficava sem porta nenhuma —
-            alcançável apenas por quem digitasse o endereço. É a mesma ordem
-            da tabbar, e aqui cabe o nome inteiro.
-          {% endcomment %}
-          <a class="app-bar__link {% if nav == 'supplements' %}is-active{% endif %}"
-             href="{% url 'supplements:list' %}">Suplementos</a>
           <a class="app-bar__link {% if nav == 'history' %}is-active{% endif %}"
              href="{% url 'plans:history' %}">Métricas</a>
           <a class="app-bar__link {% if nav == 'profile' %}is-active{% endif %}"
@@ -228,15 +220,6 @@
           <path d="M6 12h12"/>
         </svg>
         Treino
-      </a>
-      <a class="tabbar__item {% if nav == 'supplements' %}is-active{% endif %}"
-         href="{% url 'supplements:list' %}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M8.5 3.5a5 5 0 0 1 7 7l-5 5a5 5 0 0 1-7-7Z"/>
-          <path d="M6 6 15 15"/>
-        </svg>
-        Suplem.
       </a>
       <a class="tabbar__item {% if nav == 'history' %}is-active{% endif %}"
          href="{% url 'plans:history' %}">

@@ -580,15 +580,18 @@ class BottomNavigationTests(TestCase):
         self.assertNotIn("logout", barra)
         self.assertNotIn("Sair", barra)
 
-    def test_all_five_destinations_are_reachable_from_it(self):
-        """São cinco, e não quatro. Suplementos é uma tela real e a barra é a
-        ÚNICA porta para ela — tirá-la daqui deixaria a tela órfã, alcançável
-        só por quem digitasse o endereço."""
+    def test_all_four_destinations_are_reachable_from_it(self):
+        """São quatro desde que Suplementos saiu do produto.
+
+        Eram cinco, e a quinta era Suplementos — a barra era a ÚNICA porta
+        para aquela tela. Com a tela fora, a barra passa a ter quatro itens
+        mais largos, e isso é melhora: alvo maior no polegar. O que este teste
+        trava é que ninguém invente uma aba nova só para reocupar o espaço.
+        """
         barra = self.html.split('<nav class="tabbar"', 1)[1].split("</nav>", 1)[0]
         for rota in (
             reverse("plans:today"),
             reverse("workouts:routine"),
-            reverse("supplements:list"),
             reverse("plans:history"),
             reverse("accounts:profile"),
         ):
@@ -597,14 +600,35 @@ class BottomNavigationTests(TestCase):
 
     def test_every_tab_has_an_icon_above_its_label(self):
         barra = self.html.split('<nav class="tabbar"', 1)[1].split("</nav>", 1)[0]
-        self.assertEqual(barra.count("<svg"), 5)
+        self.assertEqual(barra.count("<svg"), 4)
 
     def test_the_columns_are_equal_so_the_row_never_drifts(self):
         css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
             encoding="utf-8"
         )
         bloco = css.split(chr(10) + ".tabbar {", 1)[1].split("}", 1)[0]
-        self.assertIn("repeat(5, 1fr)", bloco)
+        self.assertIn("repeat(4, 1fr)", bloco)
+
+    def test_suplementos_nao_volta_para_a_navegacao(self):
+        """Decisão de produto, e não acidente de implementação.
+
+        Suplemento saiu porque o NutriPlan monta alimentação com comida: o
+        plano não depende de suplemento nenhum, e uma aba dedicada sugeria que
+        era preciso comprar algo para cumprir a dieta.
+
+        O model e a tabela continuam de pé, de propósito — histórico de quem
+        marcou não foi apagado. É exatamente por isso que este teste existe:
+        com o model vivo, reabrir a rota e recolocar o link custa duas linhas,
+        e a decisão voltaria sem ninguém notar.
+        """
+        for barra in ("tabbar", "app-bar__nav"):
+            with self.subTest(barra=barra):
+                trecho = self.html.split('class="%s"' % barra, 1)[1].split(
+                    "</nav>", 1
+                )[0]
+
+                self.assertNotIn("suplement", trecho.lower())
+                self.assertNotIn("/suplementos/", trecho)
 
     def test_the_active_pill_fades_in_instead_of_appearing(self):
         """`transition: all` pegaria propriedades que ninguém quer animar —
@@ -2375,17 +2399,6 @@ class NavegacaoTests(TestCase):
         self.user = create_complete_user(email="nav@exemplo.com")
         self.client.force_login(self.user)
 
-    def test_suplementos_tem_porta_na_barra_do_topo(self):
-        """A tabbar é `display: none` acima de 60rem.
-
-        Suplementos existia só nela: no desktop a tela ficava sem link nenhum,
-        alcançável apenas por quem digitasse o endereço.
-        """
-        html = self.client.get(reverse("plans:today")).content.decode()
-        topo = html.split('class="app-bar__nav"', 1)[1].split("</nav>", 1)[0]
-
-        self.assertIn(reverse("supplements:list"), topo)
-
     def test_as_duas_barras_levam_ao_mesmo_conjunto_de_telas(self):
         html = self.client.get(reverse("plans:today")).content.decode()
         topo = html.split('class="app-bar__nav"', 1)[1].split("</nav>", 1)[0]
@@ -2395,13 +2408,6 @@ class NavegacaoTests(TestCase):
         }
 
         self.assertEqual(destinos(topo), destinos(baixo))
-
-    def test_a_tela_de_suplementos_marca_o_item_ativo(self):
-        html = self.client.get(reverse("supplements:list")).content.decode()
-        topo = html.split('class="app-bar__nav"', 1)[1].split("</nav>", 1)[0]
-        link = [l for l in topo.split("<a ") if reverse("supplements:list") in l][0]
-
-        self.assertIn("is-active", link)
 
 
 class FaviconTests(TestCase):

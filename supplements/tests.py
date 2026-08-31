@@ -1,15 +1,22 @@
-"""Testes do catálogo de suplementos e do checklist de um toque."""
+"""Testes do catálogo de suplementos.
+
+A TELA saiu do produto em 31/08/2026 — suplemento não faz parte da dieta
+que o NutriPlan monta, e uma aba dedicada sugeria que era preciso comprar
+algo para cumprir o plano. O MODEL ficou de pé de propósito: apagar a
+tabela levaria junto o histórico de quem marcou, e não há ganho nenhum
+nisso enquanto ela simplesmente não é escrita.
+
+O que sobrou aqui testa o que sobrou lá: o catálogo semeado e o cálculo de
+dose. Os testes de checklist e de tela saíram com as views.
+"""
 from decimal import Decimal
 
 from django.core.management import call_command
 from django.test import TestCase
-from django.urls import reverse
-from django.utils import timezone
 
 from plans.tests import create_complete_user
 
 from .models import Supplement, SupplementLog, Unit
-from .views import checklist
 
 
 class CatalogTests(TestCase):
@@ -115,116 +122,3 @@ class DoseTests(TestCase):
         self.assertIn(
             "dose", Supplement.objects.get(slug="multivitaminico").dose_display(80)
         )
-
-
-class ChecklistTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        call_command("seed_supplements", verbosity=0)
-
-    def setUp(self):
-        self.user = create_complete_user()
-        self.creatina = Supplement.objects.get(slug="creatina")
-        self.client.force_login(self.user)
-
-    def _marcar(self, suplemento=None):
-        return self.client.post(
-            reverse("supplements:toggle", args=[(suplemento or self.creatina).pk])
-        )
-
-    def test_one_tap_marks_it(self):
-        self._marcar()
-
-        self.assertTrue(
-            SupplementLog.objects.filter(
-                user=self.user, supplement=self.creatina, date=timezone.localdate()
-            ).exists()
-        )
-
-    def test_another_tap_unmarks_it(self):
-        """Sem desfazer, o único caminho de volta de um toque errado seria o
-        admin."""
-        self._marcar()
-        self._marcar()
-
-        self.assertFalse(SupplementLog.objects.filter(user=self.user).exists())
-
-    def test_marking_twice_never_creates_two_rows(self):
-        SupplementLog.objects.create(
-            user=self.user, supplement=self.creatina, date=timezone.localdate()
-        )
-        self._marcar()  # desmarca
-        self._marcar()  # marca de novo
-
-        self.assertEqual(SupplementLog.objects.filter(user=self.user).count(), 1)
-
-    def test_the_checklist_reports_the_state(self):
-        linhas = {l["supplement"].slug: l for l in checklist(self.user)}
-        self.assertFalse(linhas["creatina"]["tomado"])
-
-        self._marcar()
-
-        linhas = {l["supplement"].slug: l for l in checklist(self.user)}
-        self.assertTrue(linhas["creatina"]["tomado"])
-
-    def test_the_checklist_carries_the_dose_for_this_person(self):
-        linhas = {l["supplement"].slug: l for l in checklist(self.user)}
-        # O usuário de teste pesa 82,4 kg.
-        # Vírgula, como o resto do app: o campo de carga ao lado mostra "62,50".
-        self.assertEqual(linhas["creatina"]["dose"], "2,5 g")
-
-    def test_a_retired_supplement_leaves_the_checklist(self):
-        Supplement.objects.filter(slug="creatina").update(is_active=False)
-        slugs = [l["supplement"].slug for l in checklist(self.user)]
-        self.assertNotIn("creatina", slugs)
-
-    def test_one_person_never_marks_for_another(self):
-        outro = create_complete_user(email="outro@exemplo.com")
-        self._marcar()
-
-        self.assertFalse(SupplementLog.objects.filter(user=outro).exists())
-
-    def test_marking_a_retired_supplement_is_refused(self):
-        Supplement.objects.filter(slug="creatina").update(is_active=False)
-
-        resposta = self._marcar()
-
-        self.assertEqual(resposta.status_code, 404)
-        self.assertFalse(SupplementLog.objects.filter(user=self.user).exists())
-
-    def test_it_asks_for_login(self):
-        self.client.logout()
-        resposta = self.client.get(reverse("supplements:list"))
-
-        self.assertEqual(resposta.status_code, 302)
-        self.assertIn(reverse("accounts:login"), resposta["Location"])
-
-
-class SupplementScreenTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        call_command("seed_supplements", verbosity=0)
-
-    def setUp(self):
-        self.user = create_complete_user()
-        self.client.force_login(self.user)
-
-    def test_the_tab_lists_everything_with_dose_and_myth(self):
-        html = self.client.get(reverse("supplements:list")).content.decode()
-
-        for item in Supplement.objects.filter(is_active=True):
-            with self.subTest(nome=item.name):
-                self.assertIn(item.name, html)
-                self.assertIn(item.myth, html)
-
-    def test_the_disclaimer_comes_before_the_first_dose(self):
-        """Um aviso depois de seis cartões de dose é um aviso que ninguém leu."""
-        html = self.client.get(reverse("supplements:list")).content.decode()
-
-        aviso = html.index("não é prescrição")
-        primeiro = html.index("Dose")
-        self.assertLess(aviso, primeiro)
-
-    def test_the_bottom_bar_reaches_the_tab(self):
-        html = self.client.get(reverse("plans:today")).content.decode()
-        self.assertIn(reverse("supplements:list"), html)

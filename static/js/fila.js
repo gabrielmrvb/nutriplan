@@ -2,10 +2,10 @@
  *
  * O que ela cobre e por quê:
  *
- *   água, suplemento, marcação de refeição, carga de série.
+ *   água, marcação de refeição, carga de série.
  *
- * São as quatro coisas que a pessoa marca no meio de outra atividade — de pé
- * na academia, na fila do mercado, com o elevador descendo — e são as quatro
+ * São as três coisas que a pessoa marca no meio de outra atividade — de pé
+ * na academia, na fila do mercado, com o elevador descendo — e são as três
  * em que perder a marcação por falta de sinal significa perder o dado do dia.
  *
  * O que ela NÃO cobre, e isso é decisão e não esquecimento: assistente de
@@ -22,7 +22,7 @@
  * **Sobre repetir.** A rede não garante entrega única, então cada item da fila
  * carrega um identificador gerado aqui e o servidor lembra o que já aplicou.
  * Sem isso, reenviar "+500 ml" duas vezes registraria um litro que ninguém
- * bebeu — água soma, e suplemento alterna.
+ * bebeu — água soma.
  */
 (function () {
   "use strict";
@@ -35,7 +35,6 @@
    * depende de estado do servidor. */
   var ROTAS = [
     /^\/agua\/$/,
-    /^\/suplementos\/\d+\/marcar\/$/,
     /^\/refeicao\/\d+\/marcar\/$/,
     /^\/treino\/exercicio\/\d+\/carga\/$/,
   ];

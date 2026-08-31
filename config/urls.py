@@ -73,6 +73,5 @@ urlpatterns = [
     path("push/", include("push.urls")),
     path("treino/", include("workouts.urls")),
     path("conquistas/", include("achievements.urls")),
-    path("suplementos/", include("supplements.urls")),
     path("", include("plans.urls")),
 ]

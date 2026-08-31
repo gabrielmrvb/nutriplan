@@ -26,7 +26,6 @@ class HealthView(View):
         # Importados aqui dentro, e não no topo, porque este módulo é lido
         # durante o carregamento das URLs — antes de os apps estarem prontos.
         from catalog.models import Food, MealTemplate
-        from supplements.models import Supplement
         from workouts.models import Exercise
 
         try:
@@ -46,7 +45,6 @@ class HealthView(View):
             "modelos_de_refeicao": MealTemplate.objects.filter(is_active=True).count(),
             "exercicios": Exercise.objects.count(),
             "exercicios_com_video": Exercise.objects.exclude(video_url="").count(),
-            "suplementos": Supplement.objects.filter(is_active=True).count(),
         }
 
         # Catálogo vazio é app quebrado, não app saudável: o cadastro termina

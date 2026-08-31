@@ -1,7 +1,7 @@
 """Testes da trava de repetição que torna a fila offline segura.
 
 O problema que ela resolve, em uma frase: **duas das quatro escritas do app não
-são idempotentes**. Água soma (`ml + ml`), suplemento alterna. Uma fila que
+são idempotentes**. Água soma (`ml + ml`). Uma fila que
 reenvia o que ficou parado offline reenviaria essas duas também — e reenviar
 "+500 ml" duas vezes registra um litro que ninguém bebeu, sem erro nenhum
 aparecer.
@@ -24,7 +24,6 @@ from django.utils import timezone
 
 from plans.models import HydrationLog
 from plans.tests import CatalogFixture, create_complete_user
-from supplements.models import Supplement, SupplementLog
 
 from .models import SyncedOperation
 
@@ -126,47 +125,6 @@ class WaterReplayTests(TestCase):
 
         registro = HydrationLog.objects.get(user=outro, date=timezone.localdate())
         self.assertEqual(registro.ml, 500)
-
-
-class SupplementReplayTests(TestCase):
-    """Suplemento alterna — o outro caso que quebra sem a trava."""
-
-    @classmethod
-    def setUpTestData(cls):
-        call_command("seed_supplements", verbosity=0)
-
-    def setUp(self):
-        self.user = create_complete_user()
-        self.creatina = Supplement.objects.get(slug="creatina")
-        self.client.force_login(self.user)
-        self.url = reverse("supplements:toggle", args=[self.creatina.pk])
-
-    def _marcado(self):
-        return SupplementLog.objects.filter(
-            user=self.user, supplement=self.creatina, date=timezone.localdate()
-        ).exists()
-
-    def test_replaying_a_toggle_does_not_undo_it(self):
-        """Alternar duas vezes volta ao estado anterior. Um reenvio da fila
-        desmarcaria o que a pessoa marcou — e ela veria o contrário do que fez.
-        """
-        for _ in range(3):
-            self.client.post(self.url, {"op_id": "tomei-creatina"})
-
-        self.assertTrue(self._marcado())
-
-    def test_a_new_operation_still_toggles(self):
-        self.client.post(self.url, {"op_id": "marquei"})
-        self.client.post(self.url, {"op_id": "desmarquei"})
-
-        self.assertFalse(self._marcado())
-
-    def test_without_an_identifier_it_still_toggles(self):
-        self.client.post(self.url)
-        self.assertTrue(self._marcado())
-
-        self.client.post(self.url)
-        self.assertFalse(self._marcado())
 
 
 class IdempotentByNatureTests(TestCase):
