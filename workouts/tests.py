@@ -96,6 +96,45 @@ def create_user(email="atleta@exemplo.com", weekdays=(0, 2, 4), duration=60):
     return user
 
 
+#: Uma tag `<details>` e a LISTA DE CLASSES dela.
+#:
+#: Existe porque contar a string `'<details class="exercise"'` é contar o
+#: template, e não a estrutura: no dia em que o exercício de hoje ganhou
+#: `exercise--agora`, a aspas de fechamento deixou de casar e o teste passou a
+#: falhar às segundas — sem nenhum defeito no produto.
+SANFONA = re.compile(r'<details[^>]*class="([^"]*)"')
+
+
+def sanfonas_com_classe(html, marcador):
+    """As sanfonas cuja lista de classes contém `marcador` como TOKEN.
+
+    Token, e não substring: `exercise` casa com `exercise exercise--agora` e
+    não casa com `exercise__head`. Assim o teste sobrevive a qualquer
+    modificador que o template acrescente — que é o que ele deveria ter feito
+    desde o começo, porque a pergunta é "isto é um `<details>` de exercício?"
+    e não "o atributo está escrito exatamente assim?".
+    """
+    return [c for c in SANFONA.findall(html) if marcador in c.split()]
+
+
+def dias_incluindo_hoje(quantos=5):
+    """Dias de treino escolhidos de modo que HOJE seja um deles.
+
+    Fixar `(0, 1, 2, 3, 4)` amarra o teste ao calendário: de segunda a sexta
+    ele exercita o caminho "treina hoje", e no sábado exercita outro caminho
+    sem avisar. Derivar de `timezone.localdate()` faz o teste medir sempre a
+    mesma coisa, em qualquer dia em que a suíte rodar.
+    """
+    hoje = timezone.localdate().weekday()
+    return tuple(sorted({(hoje + n) % 7 for n in range(quantos)}))
+
+
+def dias_sem_hoje(quantos=3):
+    """Dias de treino escolhidos de modo que HOJE não seja nenhum deles."""
+    hoje = timezone.localdate().weekday()
+    return tuple(sorted({(hoje + n) % 7 for n in range(1, quantos + 1)}))
+
+
 class SplitChoiceTests(TestCase):
     """A divisão sai da frequência — é decisão de treinamento, não de gosto."""
 
@@ -1254,10 +1293,55 @@ class ExerciseAccordionTests(TestCase):
         Abre por teclado, anuncia o estado para leitor de tela, responde ao
         Ctrl+F do navegador e funciona antes de o JavaScript carregar — numa
         academia com sinal ruim, esse último item não é detalhe.
+
+        Roda nos DOIS estados do calendário, e a razão é uma cicatriz: a
+        versão anterior contava a string `'<details class="exercise"'`, com a
+        aspas de fechamento, e o exercício de hoje recebe `exercise--agora`.
+        Em dia de treino a conta dava 44 de 45 e a suíte ficava vermelha — sem
+        nenhum defeito no produto, só uma âncora presa ao texto do atributo.
+        Passava aos sábados e falhava às segundas.
         """
-        total = self._total_de_exercicios()
-        self.assertEqual(self.html.count('<details class="exercise"'), total)
-        self.assertEqual(self.html.count('<summary class="exercise__head"'), total)
+        for rotulo, dias in (
+            ("treina hoje", dias_incluindo_hoje(5)),
+            ("descansa hoje", dias_sem_hoje(3)),
+        ):
+            with self.subTest(calendario=rotulo):
+                user = create_user(
+                    email="sanfona-%s@exemplo.com" % rotulo.replace(" ", "-"),
+                    weekdays=dias,
+                )
+                plano = services.create_routine(user)
+                self.client.force_login(user)
+
+                html = self.client.get(reverse("workouts:routine")).content.decode()
+
+                total = sum(s.exercises.count() for s in plano.sessions.all())
+                self.assertEqual(len(sanfonas_com_classe(html, "exercise")), total)
+                self.assertEqual(html.count('<summary class="exercise__head"'), total)
+
+    def test_o_modificador_do_exercicio_de_hoje_nao_esconde_a_sanfona(self):
+        """A regressão exata que derrubava a suíte, isolada.
+
+        No dia de treino existe pelo menos um `<details>` com classe extra. Ele
+        continua sendo uma sanfona de exercício, e um teste de estrutura tem que
+        enxergá-lo — este é o teste que falharia se alguém voltasse a ancorar
+        na string exata do atributo.
+        """
+        user = create_user(email="modificador@exemplo.com", weekdays=dias_incluindo_hoje(5))
+        services.create_routine(user)
+        self.client.force_login(user)
+
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        com_modificador = [
+            c for c in sanfonas_com_classe(html, "exercise") if len(c.split()) > 1
+        ]
+        self.assertTrue(
+            com_modificador,
+            "em dia de treino o exercício de hoje deveria ter classe extra",
+        )
+        self.assertEqual(html.count('<details class="exercise"'),
+                         len(sanfonas_com_classe(html, "exercise")) - len(com_modificador))
 
     def test_only_the_first_pending_exercise_of_today_starts_open(self):
         """Um aberto, e só um: o primeiro de hoje sem série registrada.
@@ -1306,18 +1390,41 @@ class ExerciseAccordionTests(TestCase):
         descanso. Sem elas a sanfona troca rolagem por toque às cegas, que é
         pior: a pessoa abre três cartões para achar o que queria.
         """
-        cabecalho = self.html.split('<summary class="exercise__head"', 1)[1]
-        cabecalho = cabecalho.split("</summary>", 1)[0]
+        cabecalhos = [
+            trecho.split("</summary>", 1)[0]
+            for trecho in self.html.split('<summary class="exercise__head"')[1:]
+        ]
+        self.assertEqual(len(cabecalhos), self._total_de_exercicios())
 
-        item = self.plano.sessions.first().exercises.first()
+        # TODO cabeçalho responde "é este?", e não só o primeiro.
+        #
+        # A versão anterior comparava o PRIMEIRO `<summary>` da página com
+        # `sessions.first()` do banco. São duas ordens diferentes: o Treino V2
+        # põe a ficha de HOJE no topo, então em terça, quarta ou sexta o
+        # primeiro cabeçalho renderizado era de outra ficha e o teste falhava
+        # sem defeito nenhum no produto. Passava na segunda e no sábado.
+        for cabecalho in cabecalhos:
+            self.assertIn("exercise__order", cabecalho)
+            self.assertIn("exercise__name", cabecalho)
+            self.assertIn("exercise__prescricao", cabecalho)
+            self.assertIn("exercise__tag--target", cabecalho)
+            self.assertIn("exercise__tag--rest", cabecalho)
+            self.assertIn("descanso", cabecalho)
+            # E a seta, que é o que diz que aquilo abre.
+            self.assertIn("exercise__seta", cabecalho)
 
-        self.assertIn("exercise__order", cabecalho)
-        self.assertIn(item.exercise.name, cabecalho)
-        self.assertIn(item.exercise.get_muscle_group_display(), cabecalho)
-        self.assertIn(item.rep_range, cabecalho)
-        self.assertIn("descanso", cabecalho)
-        # E a seta, que é o que diz que aquilo abre.
-        self.assertIn("exercise__seta", cabecalho)
+        # E os exercícios da página são exatamente os do plano — em qualquer
+        # ordem, que é o que muda com o dia.
+        na_pagina = [
+            c.split('class="exercise__name">', 1)[1].split("</strong>", 1)[0]
+            for c in cabecalhos
+        ]
+        no_plano = [
+            item.exercise.name
+            for sessao in self.plano.sessions.all()
+            for item in sessao.exercises.all()
+        ]
+        self.assertCountEqual(na_pagina, no_plano)
 
     def test_the_sets_are_in_the_page_even_when_collapsed(self):
         """O HTML continua inteiro — a sanfona economiza layout, não download.
@@ -1816,14 +1923,53 @@ class ShareCardTests(TestCase):
 
     def test_nothing_logged_means_no_summary_card(self):
         """Um card de resumo vazio em cima da ficha é ruído no dia em que a
-        pessoa ainda não começou."""
+        pessoa ainda não começou.
+
+        Roda nos dois estados do calendário. A versão anterior negava o TEXTO
+        "Treino de hoje" na página inteira, e o Treino V2 tem uma etiqueta
+        legítima com essas mesmas palavras (`<p class="hoje__etiqueta">`), que
+        só aparece em dia de treino. O teste passava no sábado e falhava na
+        segunda por causa de um componente que não era o que ele queria medir.
+        """
+        for rotulo, dias in (
+            ("treina hoje", dias_incluindo_hoje(3)),
+            ("descansa hoje", dias_sem_hoje(3)),
+        ):
+            with self.subTest(calendario=rotulo):
+                user = create_user(
+                    email="resumo-%s@exemplo.com" % rotulo.replace(" ", "-"),
+                    weekdays=dias,
+                )
+                services.create_routine(user)
+                self.client.force_login(user)
+
+                html = self.client.get(reverse("workouts:routine")).content.decode()
+
+                # A âncora é a classe da seção, e não um atributo `data-`: TODOS
+                # os atributos deste card aparecem também no <script> que os lê,
+                # e o script renderiza sempre. Errei nisso duas vezes seguidas —
+                # o seletor do JavaScript e o marcador do HTML são a mesma string.
+                self.assertNotIn('class="card resumo"', html)
+                # E o título do CARD, com a marcação dele, que é o que distingue
+                # do texto igual da etiqueta do Treino V2.
+                self.assertNotIn("<h2>Treino de hoje</h2>", html)
+
+    def test_a_etiqueta_do_treino_v2_nao_e_o_card_de_resumo(self):
+        """Os dois dizem "Treino de hoje", e são coisas diferentes.
+
+        A etiqueta anuncia QUAL treino é o de hoje e aparece sempre que há
+        treino; o card de resumo mostra o que JÁ FOI FEITO e só aparece depois
+        da primeira série. Confundir os dois foi o que quebrou a suíte às
+        segundas — este teste existe para a confusão não voltar.
+        """
+        user = create_user(email="etiqueta@exemplo.com", weekdays=dias_incluindo_hoje(3))
+        services.create_routine(user)
+        self.client.force_login(user)
+
         html = self.client.get(reverse("workouts:routine")).content.decode()
-        # A âncora é a classe da seção, e não um atributo `data-`: TODOS os
-        # atributos deste card aparecem também no <script> que os lê, e o
-        # script renderiza sempre. Errei nisso duas vezes seguidas — o seletor
-        # do JavaScript e o marcador do HTML são a mesma string.
+
+        self.assertIn('class="hoje__etiqueta">Treino de hoje', html)
         self.assertNotIn('class="card resumo"', html)
-        self.assertNotIn("Treino de hoje", html)
 
     def test_the_card_carries_the_numbers_the_canvas_draws(self):
         self._serie()
