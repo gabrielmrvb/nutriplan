@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Senha trocada · NutriPlan{% endblock %}
+
+{% block content %}
+  <h1>Senha trocada</h1>
+
+  {% comment %}
+    Sem "faça login de novo": `PasswordChangeView` chama
+    `update_session_auth_hash`, então a sessão continua válida. Mandar a pessoa
+    entrar outra vez seria descrever um comportamento que o Django não tem.
+  {% endcomment %}
+  <p class="lead">Sua senha nova já está valendo. Você continua conectado.</p>
+
+  <a class="btn btn--primary btn--block" href="{% url 'accounts:profile' %}">Voltar ao perfil</a>
+{% endblock %}

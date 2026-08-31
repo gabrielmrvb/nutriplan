@@ -24,6 +24,15 @@
       <button type="submit" class="btn btn--primary btn--block">Entrar</button>
     </form>
 
+    {% comment %}
+      Fica DEPOIS do botão, e não ao lado do campo de senha: quem chega aqui
+      sabendo a senha não precisa ver a saída de emergência antes de tentar.
+      Quem errou a senha lê o erro e encontra o link logo abaixo.
+    {% endcomment %}
+    <p class="muted center" style="margin-top:.9rem">
+      <a class="btn-link" href="{% url 'accounts:password_reset' %}">Esqueci minha senha</a>
+    </p>
+
     <p class="muted center" style="margin-top:1.25rem">
       Ainda não tem conta? <a class="btn-link" href="{% url 'accounts:signup' %}">Criar agora</a>
     </p>

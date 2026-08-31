@@ -23,6 +23,18 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 python manage.py collectstatic --no-input
+
+# Falha fechado: com `errexit`, um erro aqui derruba o build ANTES de o app
+# subir. O que se verifica e a configuracao de e-mail de producao — sem ela, a
+# recuperacao de senha escreveria links validos no log da plataforma.
+#
+# DEPOIS do collectstatic, e nao antes: `check` importa a URLconf, e
+# `config/urls.py` resolve `static()` em tempo de import para o redirecionamento
+# do favicon. Com DEBUG desligado isso passa pelo storage com manifesto, que so
+# existe depois do collectstatic — a verificacao rodando primeiro derrubava o
+# build com "Missing staticfiles manifest entry", que nao tem nada a ver com o
+# que ela veio verificar. Continua fechando o portao: nada sobe se ela falhar.
+python manage.py check --deploy --fail-level ERROR
 python manage.py migrate --no-input
 python manage.py seed_catalog
 python manage.py seed_workouts

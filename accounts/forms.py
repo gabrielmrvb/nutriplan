@@ -9,7 +9,13 @@ from datetime import time
 from decimal import Decimal
 
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.auth.forms import (
+    AuthenticationForm,
+    PasswordChangeForm,
+    PasswordResetForm,
+    SetPasswordForm,
+    UserCreationForm,
+)
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
 from django.utils.safestring import mark_safe
@@ -576,3 +582,118 @@ class ConectarGoogleForm(forms.Form):
         if self.usuario is None or not self.usuario.check_password(senha):
             raise forms.ValidationError("Senha incorreta.")
         return senha
+
+
+#: O que a pessoa precisa digitar para confirmar a exclusão quando não há senha
+#: local para pedir.
+#:
+#: Maiúscula e sem acento de propósito: é a palavra que o teclado do celular
+#: não completa sozinho, e digitar sete letras é a fricção que separa "toquei
+#: sem querer" de "eu quis".
+PALAVRA_DE_EXCLUSAO = "EXCLUIR"
+
+
+class ExclusaoDeContaForm(forms.Form):
+    """A confirmação final de "excluir minha conta".
+
+    Existe em duas versões porque existem dois tipos de conta, e fingir que são
+    uma só produziria um dos dois erros: pedir senha a quem nunca teve uma, ou
+    aceitar um clique só de quem tem.
+
+    *   **Conta com senha local** — pede a senha. É a prova de posse que o
+        Django já sabe conferir, e é a mesma que o `ConectarGoogleView` usa
+        antes de vincular.
+    *   **Conta só do Google** — `has_usable_password()` é falso, e não existe
+        senha para conferir. Pedir uma seria inventar credencial. O que se pede
+        é a palavra `EXCLUIR`, digitada à mão, sobre uma sessão que já está
+        autenticada: quem chegou aqui provou identidade no login, e o que falta
+        provar é INTENÇÃO.
+
+    Em nenhum dos dois casos a conta é escolhida pelo formulário — ela é sempre
+    `request.user`. Não há campo de id, e por isso não há IDOR possível.
+    """
+
+    senha = forms.CharField(
+        label="Sua senha",
+        widget=forms.PasswordInput(
+            attrs={"autocomplete": "current-password", "class": "field-input"}
+        ),
+        required=False,
+    )
+    confirmacao = forms.CharField(
+        label="Digite %s para confirmar" % PALAVRA_DE_EXCLUSAO,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "autocomplete": "off",
+                "autocapitalize": "characters",
+                "class": "field-input",
+            }
+        ),
+    )
+
+    def __init__(self, *args, usuario=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.usuario = usuario
+        self.tem_senha = bool(usuario and usuario.has_usable_password())
+        # O campo que não se aplica SAI do formulário, em vez de ficar visível e
+        # opcional: campo que aceita vazio ensina que dá para pular a etapa.
+        if self.tem_senha:
+            del self.fields["confirmacao"]
+            self.fields["senha"].required = True
+        else:
+            del self.fields["senha"]
+            self.fields["confirmacao"].required = True
+
+    def clean_senha(self):
+        senha = self.cleaned_data.get("senha") or ""
+        if not self.usuario.check_password(senha):
+            raise forms.ValidationError("Senha incorreta.")
+        return senha
+
+    def clean_confirmacao(self):
+        texto = (self.cleaned_data.get("confirmacao") or "").strip().upper()
+        if texto != PALAVRA_DE_EXCLUSAO:
+            raise forms.ValidationError(
+                "Digite %s exatamente para confirmar." % PALAVRA_DE_EXCLUSAO
+            )
+        return texto
+
+
+class CamposDoNutriPlanMixin:
+    """Põe `field-input` nos widgets de um formulário que veio do Django.
+
+    `partials/field.html` documenta o contrato: "os demais campos usam o widget
+    padrão, que já vem com a classe `.field-input` aplicada PELO FORM". Os
+    formulários próprios do projeto aplicam; os de `django.contrib.auth` —
+    recuperação, redefinição e troca de senha — não conhecem essa convenção, e
+    por isso os campos das telas de senha nasceram com 177x22 em vez dos 44px
+    da régua de toque.
+
+    Existe como mixin, e não como três subclasses copiando a mesma linha,
+    porque são três formulários com o mesmo problema e a quarta cópia é a que
+    alguém esquece de atualizar.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault("class", "field-input")
+
+
+class RecuperarSenhaForm(CamposDoNutriPlanMixin, PasswordResetForm):
+    """O e-mail do pedido de recuperação.
+
+    Só veste o campo. Quem decide a quem enviar continua sendo o
+    `get_users()` do Django, que já filtra por conta ativa e senha utilizável —
+    é ele que faz a conta do Google não receber link, sem que este formulário
+    precise saber que Google existe.
+    """
+
+
+class DefinirSenhaForm(CamposDoNutriPlanMixin, SetPasswordForm):
+    """A senha nova, vinda do link do e-mail."""
+
+
+class TrocarSenhaForm(CamposDoNutriPlanMixin, PasswordChangeForm):
+    """A troca de senha de quem já está dentro."""

@@ -1,0 +1,44 @@
+{% autoescape off %}<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:24px 16px;background:#f4f6f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#14201b">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px">
+    <tr><td style="padding:28px 24px">
+
+      <p style="margin:0 0 20px;font-size:18px;font-weight:700;color:#0c6b40">NutriPlan</p>
+
+      <p style="margin:0 0 16px;font-size:16px;line-height:1.5">
+        Olá{% if user.first_name %}, {{ user.first_name }}{% endif %}.
+      </p>
+      <p style="margin:0 0 24px;font-size:16px;line-height:1.5">
+        Alguém pediu para criar uma senha nova no NutriPlan usando este e-mail.
+      </p>
+
+      <!-- Botão em tabela, e não em <div>: cliente de e-mail antigo ignora
+           display:block num link e o botão vira texto sublinhado. -->
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px">
+        <tr><td style="background:#0c6b40;border-radius:8px">
+          <a href="{{ protocol }}://{{ domain }}{% url 'accounts:password_reset_confirm' uidb64=uid token=token %}"
+             style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none">
+            Criar senha nova
+          </a>
+        </td></tr>
+      </table>
+
+      <p style="margin:0 0 8px;font-size:14px;line-height:1.5;color:#47554e">
+        O link vale por <strong>3 horas</strong> e só funciona uma vez.
+      </p>
+      <p style="margin:0 0 24px;font-size:14px;line-height:1.5;color:#47554e">
+        Se o botão não abrir, copie este endereço no navegador:<br>
+        <span style="word-break:break-all;color:#0c6b40">{{ protocol }}://{{ domain }}{% url 'accounts:password_reset_confirm' uidb64=uid token=token %}</span>
+      </p>
+
+      <p style="margin:0;padding-top:20px;border-top:1px solid #d3dbd7;font-size:14px;line-height:1.5;color:#6b7a73">
+        Se não foi você que pediu, ignore esta mensagem — sua senha atual
+        continua valendo e nada muda na sua conta.
+      </p>
+
+    </td></tr>
+  </table>
+</body>
+</html>{% endautoescape %}

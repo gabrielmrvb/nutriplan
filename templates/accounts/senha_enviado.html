@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Verifique seu e-mail · NutriPlan{% endblock %}
+{% block container_class %}auth auth--entrada{% endblock %}
+
+{% block content %}
+  <div class="card">
+    <span class="auth__logo">{% include "partials/marca.html" %}</span>
+    <h1 class="center">Verifique seu e-mail</h1>
+
+    {% comment %}
+      A frase é condicional de propósito, e é ela que fecha a enumeração de
+      contas: dizer "enviamos para fulano@" confirmaria que fulano tem conta
+      aqui, e dizer "esse e-mail não existe" confirmaria o contrário. As duas
+      respostas transformam a tela num verificador de cadastro para quem
+      estiver testando listas de e-mail.
+
+      Quem tem conta recebe o link. Quem não tem lê exatamente esta mesma
+      página, no mesmo tempo de resposta.
+    {% endcomment %}
+    <p class="lead center">
+      Se existir uma conta com esse e-mail, você vai receber as instruções para
+      criar uma senha nova.
+    </p>
+
+    <p class="muted center">
+      O link vale por <strong>3 horas</strong>. Não chegou? Confira a caixa de
+      spam antes de pedir outro.
+    </p>
+
+    <a class="btn btn--ghost btn--block" href="{% url 'accounts:login' %}"
+       style="margin-top:1.25rem">Voltar para entrar</a>
+  </div>
+{% endblock %}

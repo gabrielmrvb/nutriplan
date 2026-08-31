@@ -258,10 +258,38 @@
     <dl class="data-list">
       <div><dt>Entrou como</dt><dd>{{ user.email }}</dd></div>
     </dl>
+    {% comment %}
+      Trocar senha só aparece para quem TEM senha. Numa conta que entra pelo
+      Google, `has_usable_password` é falso: oferecer o link levaria a um
+      formulário pedindo a "senha atual" que nunca existiu, e o erro seria
+      "senha incorreta" — culpando a pessoa por uma promessa da tela.
+    {% endcomment %}
+    {% if user.has_usable_password %}
+      <a class="btn btn--ghost btn--block" href="{% url 'accounts:password_change' %}"
+         style="margin-bottom:.6rem">Trocar minha senha</a>
+    {% endif %}
+
     <form method="post" action="{% url 'accounts:logout' %}"
           onsubmit="return confirm('Sair da sua conta neste aparelho?');">
       {% csrf_token %}
       <button type="submit" class="btn btn--perigo btn--block">Sair da conta</button>
     </form>
+  </section>
+
+  {% comment %}
+    A exclusão mora num cartão SEPARADO e no fim da página, longe de "Sair da
+    conta". Os dois botões pareciam a mesma coisa se ficassem juntos, e um
+    deles não tem volta.
+
+    O link é discreto de propósito: quem procura encontra, e quem está rolando
+    a página não esbarra num botão vermelho de apagar tudo.
+  {% endcomment %}
+  <section class="card">
+    <div class="card__head"><h2>Excluir conta</h2></div>
+    <p class="muted">
+      Apaga permanentemente seu plano, seu histórico e seus registros. Não há
+      como desfazer.
+    </p>
+    <a class="btn-link" href="{% url 'accounts:excluir_conta' %}">Excluir minha conta</a>
   </section>
 {% endblock %}

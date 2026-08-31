@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Recuperar senha · NutriPlan{% endblock %}
+{% block container_class %}auth auth--entrada{% endblock %}
+
+{% block content %}
+  <div class="card">
+    <span class="auth__logo">{% include "partials/marca.html" %}</span>
+    <h1 class="center">Recuperar senha</h1>
+    <p class="lead center">
+      Diga o e-mail da sua conta e enviamos um link para criar uma senha nova.
+    </p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% for field in form %}
+        {% include "partials/field.html" with field=field %}
+      {% endfor %}
+      <button type="submit" class="btn btn--primary btn--block">Enviar link</button>
+    </form>
+
+    <p class="muted center" style="margin-top:1.25rem">
+      Lembrou? <a class="btn-link" href="{% url 'accounts:login' %}">Voltar para entrar</a>
+    </p>
+  </div>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Senha alterada · NutriPlan{% endblock %}
+{% block container_class %}auth auth--entrada{% endblock %}
+
+{% block content %}
+  <div class="card">
+    <span class="auth__logo">{% include "partials/marca.html" %}</span>
+    <h1 class="center">Senha alterada</h1>
+    <p class="lead center">Pronto. Agora é só entrar com a senha nova.</p>
+    <a class="btn btn--primary btn--block" href="{% url 'accounts:login' %}">Entrar</a>
+  </div>
+{% endblock %}

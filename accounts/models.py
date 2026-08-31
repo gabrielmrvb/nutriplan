@@ -410,3 +410,65 @@ class TrainingDay(models.Model):
 
     def __str__(self):
         return f"{self.get_weekday_display()} às {self.start_time:%H:%M}"
+
+
+class PedidoDeRecuperacao(models.Model):
+    """Um pedido de "esqueci minha senha", guardado para limitar abuso.
+
+    POR QUE UMA TABELA, E NÃO CACHE
+    ================================
+
+    O caminho óbvio seria `django.core.cache`. O projeto não configura
+    `CACHES`, então o cache é o `LocMemCache` padrão: memória do PROCESSO. O
+    Render roda gunicorn com dois workers e reinicia a cada deploy — um limite
+    ali valeria por worker, dobraria na prática e zeraria a cada publicação.
+    Chamar isso de proteção seria mentir sobre o que ela faz.
+
+    Não há Redis, e contratar um é custo. O que existe compartilhado entre os
+    workers é o PostgreSQL, e é nele que o contador precisa morar para ser
+    contador de verdade.
+
+    O QUE FICA GUARDADO
+    ===================
+
+    `chave` NÃO é o e-mail: é um HMAC do e-mail normalizado, com a SECRET_KEY.
+    A tabela responde "quantos pedidos esta chave fez na última hora" sem virar
+    uma lista de quem usa o NutriPlan — que é justamente o que a tela de
+    recuperação passa o tempo todo tentando não revelar. Sem chave, o hash não
+    volta ao e-mail; com a chave, ainda é preciso adivinhar o e-mail para
+    conferir.
+
+    O IP é guardado do mesmo jeito e pelo mesmo motivo.
+    """
+
+    #: HMAC do que está sendo limitado. Ver o docstring acima.
+    #:
+    #: Sem `db_index` próprio: nenhuma consulta procura por chave sozinha — as
+    #: três procuram por (tipo, chave, janela), que o índice composto abaixo
+    #: cobre. Um índice a mais custaria escrita em toda inserção para nunca ser
+    #: usado.
+    chave = models.CharField("chave", max_length=64)
+
+    #: "email", "ip" ou "global" — para os limites não se confundirem e para
+    #: dar para medir cada um separado ao investigar um abuso.
+    tipo = models.CharField("tipo", max_length=8)
+
+    criado_em = models.DateTimeField("criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "pedido de recuperação de senha"
+        verbose_name_plural = "pedidos de recuperação de senha"
+        indexes = [
+            # A consulta dos três limites: tipo + chave + janela de tempo.
+            # `criado_em` no fim porque é a coluna de FAIXA, e coluna de faixa
+            # antes das de igualdade impede o índice de ser usado para as duas.
+            models.Index(
+                fields=["tipo", "chave", "criado_em"], name="idx_pedido_rec_limite"
+            ),
+            # Só a data: é o índice que a retenção usa para apagar o que saiu da
+            # janela sem varrer a tabela.
+            models.Index(fields=["criado_em"], name="idx_pedido_rec_retencao"),
+        ]
+
+    def __str__(self):
+        return "%s em %s" % (self.tipo, self.criado_em)

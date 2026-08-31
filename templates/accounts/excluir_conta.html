@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Excluir conta · NutriPlan{% endblock %}
+
+{% block content %}
+  <h1>Excluir minha conta</h1>
+
+  <section class="card">
+    <p class="lead">
+      Esta ação apaga <strong>permanentemente</strong> seus dados do NutriPlan.
+      Não há como desfazer, e não guardamos cópia.
+    </p>
+
+    {% if resumo %}
+      {% comment %}
+        O que some, contado no banco. Uma tela que diz só "seus dados" não deixa
+        ninguém medir o tamanho do que está prestes a fazer — e é justamente na
+        hora de uma ação irreversível que o número importa.
+      {% endcomment %}
+      <h2>O que será apagado</h2>
+      <dl class="data-list">
+        {% for nome, total in resumo %}
+          <div><dt>{{ nome }}</dt><dd class="num">{{ total }}</dd></div>
+        {% endfor %}
+      </dl>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Confirmar</h2></div>
+
+    {% if tem_senha %}
+      <p>Digite sua senha para confirmar que é você.</p>
+    {% else %}
+      {% comment %}
+        Conta criada pelo Google não tem senha local — `has_usable_password()`
+        é falso. Pedir uma seria inventar credencial que a pessoa nunca
+        escolheu. A sessão já prova identidade; o que falta provar é intenção,
+        e digitar a palavra à mão é isso.
+      {% endcomment %}
+      <p>
+        Sua conta entra pelo Google e não tem senha no NutriPlan. Para confirmar,
+        digite <strong>{{ palavra }}</strong> no campo abaixo.
+      </p>
+    {% endif %}
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <ul class="field__errors">
+          {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+      {% for field in form %}
+        {% include "partials/field.html" with field=field %}
+      {% endfor %}
+      <div class="stack">
+        <button type="submit" class="btn btn--perigo btn--block">
+          Excluir minha conta para sempre
+        </button>
+        <a class="btn btn--ghost btn--block" href="{% url 'accounts:profile' %}">Cancelar</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

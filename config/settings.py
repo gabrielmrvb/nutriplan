@@ -132,6 +132,52 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# --------------------------------------------------------------------------
+# E-mail
+# --------------------------------------------------------------------------
+#
+# Existe por causa da recuperação de senha: sem backend, `PasswordResetView`
+# estoura ao tentar enviar, e o fluxo inteiro morre na primeira tela.
+#
+# O padrão é o CONSOLE, e isso é decisão, não descuido. Em desenvolvimento o
+# link de redefinição aparece no terminal, que é o que se quer. Em produção,
+# enquanto ninguém configurar um provedor de verdade, o console faz o e-mail
+# aparecer NO LOG do Render — feio, e honesto: a alternativa seria o backend
+# `smtp` sem credencial, que levanta exceção na cara de quem pediu a
+# recuperação, ou o `dummy`, que descarta em silêncio e é o pior dos três,
+# porque ninguém descobre que está quebrado.
+#
+# Para ligar e-mail real em produção, basta preencher no ambiente:
+#
+#   DJANGO_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+#   EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD
+#   DEFAULT_FROM_EMAIL
+#
+# Nenhuma credencial é inventada aqui: os padrões são vazios de propósito.
+EMAIL_BACKEND = env(
+    "DJANGO_EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend",
+)
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_TIMEOUT = 10
+
+#: O remetente. `nao-responda@` porque a caixa não é lida — e o dia em que for,
+#: é uma variável de ambiente, não uma edição de código.
+DEFAULT_FROM_EMAIL = env(
+    "DEFAULT_FROM_EMAIL", default="NutriPlan <nao-responda@nutriplan.app>"
+)
+
+#: Quanto tempo o link de redefinição vale, em segundos. Três horas.
+#:
+#: O padrão do Django é três DIAS. Link de senha que vive três dias numa caixa
+#: de entrada é três dias de janela para quem tiver acesso a ela. Três horas
+#: cobre com folga "pedi agora e vou ler o e-mail", que é o caso real.
+PASSWORD_RESET_TIMEOUT = 60 * 60 * 3
+
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "plans:today"
 LOGOUT_REDIRECT_URL = "accounts:login"
@@ -202,7 +248,12 @@ SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = False
 SOCIALACCOUNT_AUTO_SIGNUP = True
 
 #: O provedor já entrega o e-mail verificado; pedir verificação nossa por cima
-#: exigiria enviar e-mail, e o projeto não tem `EMAIL_BACKEND` configurado.
+#: seria mandar a pessoa confirmar o que o Google acabou de confirmar.
+#:
+#: A justificativa antiga era outra — "o projeto não tem EMAIL_BACKEND
+#: configurado" — e deixou de valer quando a recuperação de senha entrou. A
+#: decisão fica de pé pelo motivo que sempre foi o bom; o motivo que caducou
+#: saiu daqui para não virar argumento zumbi na próxima leitura.
 SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
 SOCIALACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = "none"
@@ -307,6 +358,19 @@ if not DEBUG:
     # excesso de redirecionamentos. Já custou uma tarde de depuração num túnel
     # que não enviava o cabeçalho; aqui Render e Railway enviam.
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+    #: Liga a leitura de `X-Forwarded-For` no limite de recuperação de senha.
+    #:
+    #: Só aqui, no bloco de produção, e nunca em desenvolvimento: fora de um
+    #: proxy conhecido, ler o cabeçalho é confiar em quem não se conhece — quem
+    #: manda o pedido escolheria o próprio identificador.
+    #:
+    #: O que o Render entrega, e o que ele NÃO entrega, está documentado em
+    #: `accounts/limites.ip_do_pedido`. Em resumo: o cliente é o PRIMEIRO item
+    #: e o cabeçalho continua falsificável, então o limite por origem é
+    #: best-effort e quem protege a cota são os tetos globais.
+    USA_PROXY_CONFIAVEL = True
+
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True

@@ -3,9 +3,11 @@
 O foco é o fluxo: o que acontece quando a pessoa avança, volta, pula ou
 abandona no meio. É onde um wizard quebra na prática.
 """
+import ast
+from unittest import mock
 import json
 import re
-from datetime import date, time
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from pathlib import Path
@@ -16,6 +18,8 @@ from django.contrib.messages.storage.fallback import FallbackStorage
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sessions.middleware import SessionMiddleware
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.core import mail
 from django.core.management import call_command
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
@@ -25,13 +29,21 @@ from catalog.models import DietaryTag, TagKind
 from plans.models import NutritionPlan
 from plans.tests import create_complete_user
 
+from . import limites
 from .adapters import MAXIMO_DE_TENTATIVAS, SESSAO_TENTATIVAS, SESSAO_VINCULO
-from .forms import REGRAS_ESPERADAS, BodyDataForm, PesagemForm, SignupForm
+from .forms import (
+    PALAVRA_DE_EXCLUSAO,
+    REGRAS_ESPERADAS,
+    BodyDataForm,
+    PesagemForm,
+    SignupForm,
+)
 from workouts.services import preferencia_muda_a_divisao, split_for
 
 from .views import CAMINHO_COMPLETO, CAMINHO_CURTO
 
 from .models import (
+    PedidoDeRecuperacao,
     ONBOARDING_DONE,
     ONBOARDING_LAST_STEP,
     Profile,
@@ -2671,3 +2683,1201 @@ class EstadoVazioDeTreinosTests(TestCase):
         destino = reverse("accounts:onboarding_step", kwargs={"step": 3})
 
         self.assertEqual(self.client.get(destino).status_code, 200)
+
+
+class RecuperacaoDeSenhaTests(TestCase):
+    """"Esqueci minha senha" — o bloqueador de beta que não existia.
+
+    Antes desta missão o app não tinha NENHUMA rota de senha fora do admin:
+    quem esquecia a senha dependia de alguém com acesso ao banco. Agora o fluxo
+    é o do Django — token assinado, expiração e invalidação no uso —, e o que é
+    nosso são as telas e a resposta neutra.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="quem.esqueceu@exemplo.com", password="SenhaAntiga!2026#"
+        )
+        mail.outbox = []
+
+    def _pedir(self, email):
+        return self.client.post(
+            reverse("accounts:password_reset"), {"email": email}, follow=True
+        )
+
+    def _link_do_email(self):
+        corpo = mail.outbox[0].body
+        achado = re.search(r"/conta/senha/nova/[^/]+/[^/\s]+/", corpo)
+        return achado.group(0) if achado else None
+
+    # -- pedido ----------------------------------------------------------
+
+    def test_email_existente_recebe_o_link(self):
+        self._pedir(self.user.email)
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.user.email])
+        self.assertIsNotNone(self._link_do_email())
+
+    def test_email_inexistente_nao_manda_nada(self):
+        self._pedir("ninguem@exemplo.com")
+
+        self.assertEqual(mail.outbox, [])
+
+    def test_a_resposta_e_a_mesma_exista_ou_nao_a_conta(self):
+        """A tela não pode virar um verificador de cadastro.
+
+        É o requisito de não vazar existência de conta: se a página mudasse de
+        texto, de status ou de destino conforme o e-mail existir, bastaria um
+        laço sobre uma lista de e-mails para descobrir quem usa o NutriPlan.
+        """
+        com = self._pedir(self.user.email)
+        sem = self._pedir("ninguem@exemplo.com")
+
+        self.assertEqual(com.status_code, sem.status_code)
+        self.assertEqual(
+            [u for u, _ in com.redirect_chain], [u for u, _ in sem.redirect_chain]
+        )
+        self.assertEqual(com.content, sem.content)
+
+    def test_a_tela_nao_afirma_que_enviou(self):
+        """"Enviamos para você" seria confirmar que a conta existe."""
+        html = self._pedir("ninguem@exemplo.com").content.decode()
+
+        self.assertIn("Se existir uma conta", html)
+
+    # -- token -----------------------------------------------------------
+
+    def test_token_valido_abre_o_formulario(self):
+        self._pedir(self.user.email)
+
+        resposta = self.client.get(self._link_do_email(), follow=True)
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertTrue(resposta.context["validlink"])
+
+    def test_token_adulterado_e_recusado(self):
+        self._pedir(self.user.email)
+        link = self._link_do_email()
+        quebrado = link[:-6] + "aaaaa/"
+
+        resposta = self.client.get(quebrado, follow=True)
+
+        self.assertFalse(resposta.context["validlink"])
+        self.assertContains(resposta, "Link inválido")
+
+    def test_token_expirado_e_recusado(self):
+        """Três horas, e não os três dias do padrão do Django.
+
+        Link de senha vivo por três dias é uma janela de três dias para quem
+        tiver acesso à caixa de entrada.
+
+        O relógio é adiantado no VERIFICADOR, e não via
+        `override_settings(PASSWORD_RESET_TIMEOUT=0)`: o token nasce e é
+        conferido no mesmo segundo, a diferença dá zero, e zero não é MAIOR que
+        zero — o teste passava sem expirar nada.
+        """
+        self.assertEqual(settings.PASSWORD_RESET_TIMEOUT, 3 * 60 * 60)
+        self._pedir(self.user.email)
+        link = self._link_do_email()
+        quatro_horas_depois = datetime.now() + timedelta(hours=4)
+
+        with mock.patch.object(
+            PasswordResetTokenGenerator, "_now", return_value=quatro_horas_depois
+        ):
+            resposta = self.client.get(link, follow=True)
+
+        self.assertFalse(resposta.context["validlink"])
+
+    def test_o_token_nao_serve_duas_vezes(self):
+        """Usar o link invalida o token — senão ele vira uma chave reserva
+        permanente na caixa de entrada."""
+        self._pedir(self.user.email)
+        link = self._link_do_email()
+        self.client.get(link, follow=True)
+        self.client.post(
+            self.client.get(link, follow=True).redirect_chain[-1][0]
+            if False else link.rsplit("/", 2)[0] + "/set-password/",
+            {"new_password1": "OutraSenha!2026#", "new_password2": "OutraSenha!2026#"},
+            follow=True,
+        )
+
+        segunda = self.client.get(link, follow=True)
+
+        self.assertFalse(segunda.context["validlink"])
+
+    # -- senha nova ------------------------------------------------------
+
+    def _redefinir(self, senha):
+        self._pedir(self.user.email)
+        link = self._link_do_email()
+        self.client.get(link, follow=True)
+        return self.client.post(
+            link.rsplit("/", 2)[0] + "/set-password/",
+            {"new_password1": senha, "new_password2": senha},
+            follow=True,
+        )
+
+    def test_senha_nova_valida_passa_e_permite_entrar(self):
+        self._redefinir("SenhaNova!2026#")
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("SenhaNova!2026#"))
+        self.assertTrue(
+            self.client.login(email=self.user.email, password="SenhaNova!2026#")
+        )
+
+    def test_senha_fraca_e_recusada(self):
+        """A validação é a mesma do cadastro — `AUTH_PASSWORD_VALIDATORS`."""
+        for fraca in ("12345678", "senha123", "abc"):
+            with self.subTest(senha=fraca):
+                self._redefinir(fraca)
+                self.user.refresh_from_db()
+
+                self.assertFalse(self.user.check_password(fraca))
+                self.assertTrue(self.user.check_password("SenhaAntiga!2026#"))
+
+    def test_a_senha_antiga_para_de_valer(self):
+        self._redefinir("SenhaNova!2026#")
+
+        self.assertFalse(
+            self.client.login(email=self.user.email, password="SenhaAntiga!2026#")
+        )
+
+    # -- Google ----------------------------------------------------------
+
+    def test_conta_so_do_google_nao_recebe_link_nem_ganha_senha(self):
+        """`PasswordResetForm` só alcança quem tem senha utilizável.
+
+        Uma conta criada pelo Google nunca escolheu senha: `has_usable_password`
+        é falso. Mandar um link para ela criaria uma senha local que a pessoa
+        não pediu — e abriria um segundo caminho de entrada numa conta que só
+        tinha o do provedor.
+
+        A resposta na tela continua sendo a mesma, então isso também não conta
+        para fora que a conta é do Google.
+        """
+        google = User.objects.create_user(email="so.google@exemplo.com")
+        google.set_unusable_password()
+        google.save()
+        mail.outbox = []
+
+        resposta = self._pedir(google.email)
+
+        self.assertEqual(mail.outbox, [])
+        google.refresh_from_db()
+        self.assertFalse(google.has_usable_password())
+        self.assertIn("Se existir uma conta", resposta.content.decode())
+
+    def test_a_tela_de_entrar_oferece_o_caminho(self):
+        html = self.client.get(reverse("accounts:login")).content.decode()
+
+        self.assertIn(reverse("accounts:password_reset"), html)
+        self.assertIn("Esqueci minha senha", html)
+
+    def test_o_email_diz_o_que_fazer_se_nao_foi_a_pessoa(self):
+        """Quem recebe um pedido que não fez precisa saber que nada mudou."""
+        self._pedir(self.user.email)
+        corpo = mail.outbox[0].body
+
+        self.assertIn("Se não foi você", corpo)
+        self.assertIn("3 horas", corpo)
+
+
+class TrocaDeSenhaTests(TestCase):
+    """Trocar a senha estando logado."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="troca@exemplo.com", password="SenhaAtual!2026#"
+        )
+        self.client.force_login(self.user)
+        self.url = reverse("accounts:password_change")
+
+    def _trocar(self, atual, nova):
+        return self.client.post(
+            self.url,
+            {"old_password": atual, "new_password1": nova, "new_password2": nova},
+            follow=True,
+        )
+
+    def test_senha_atual_correta_e_nova_valida_trocam(self):
+        self._trocar("SenhaAtual!2026#", "SenhaNova!2026#")
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("SenhaNova!2026#"))
+
+    def test_senha_atual_errada_nao_troca(self):
+        self._trocar("ChutandoAqui!2026#", "SenhaNova!2026#")
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("SenhaAtual!2026#"))
+
+    def test_senha_nova_fraca_e_recusada(self):
+        self._trocar("SenhaAtual!2026#", "12345678")
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("SenhaAtual!2026#"))
+
+    def test_a_sessao_sobrevive_a_troca(self):
+        """`PasswordChangeView` chama `update_session_auth_hash`.
+
+        Sem isso, trocar a senha derruba a pessoa para a tela de login logo
+        depois de ela fazer a coisa certa — e a tela de sucesso estaria mentindo
+        ao dizer "você continua conectado".
+        """
+        self._trocar("SenhaAtual!2026#", "SenhaNova!2026#")
+
+        resposta = self.client.get(reverse("accounts:profile"))
+
+        self.assertEqual(resposta.status_code, 200)
+
+    def test_quem_nao_esta_logado_nao_abre_a_troca(self):
+        self.client.logout()
+
+        resposta = self.client.get(self.url)
+
+        self.assertEqual(resposta.status_code, 302)
+        self.assertIn(reverse("accounts:login"), resposta["Location"])
+
+    def test_o_perfil_nao_oferece_troca_para_conta_do_google(self):
+        """Formulário de "senha atual" para quem nunca teve senha só produz
+        "senha incorreta" — culpando a pessoa por uma promessa da tela."""
+        google = create_complete_user(email="google.perfil@exemplo.com")
+        google.set_unusable_password()
+        google.save()
+        self.client.force_login(google)
+
+        html = self.client.get(reverse("accounts:profile")).content.decode()
+
+        self.assertNotIn(reverse("accounts:password_change"), html)
+
+
+class ExclusaoDeContaTests(TestCase):
+    """"Excluir minha conta" — a única ação do app que não tem volta."""
+
+    def setUp(self):
+        self.user = create_complete_user(email="vai.sair@exemplo.com")
+        self.user.set_password("MinhaSenha!2026#")
+        self.user.save()
+        self.client.force_login(self.user)
+        self.url = reverse("accounts:excluir_conta")
+
+    def test_a_tela_avisa_que_e_permanente(self):
+        html = self.client.get(self.url).content.decode()
+
+        self.assertIn("permanentemente", html)
+        self.assertIn("Cancelar", html)
+
+    def test_a_tela_conta_o_que_sera_apagado(self):
+        """Número, e não "seus dados": é na hora de uma ação irreversível que
+        a pessoa precisa medir o tamanho do que vai fazer."""
+        # `create_complete_user` já grava a pesagem de hoje, e a unicidade por
+        # dia recusa uma segunda. O que o teste precisa é que EXISTA pesagem.
+        self.assertTrue(WeightEntry.objects.filter(user=self.user).exists())
+
+        resposta = self.client.get(self.url)
+
+        nomes = [nome for nome, _ in resposta.context["resumo"]]
+        self.assertIn("Pesagens", nomes)
+
+    def test_sem_confirmacao_nada_e_apagado(self):
+        self.client.post(self.url, {})
+
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_senha_errada_nao_apaga(self):
+        self.client.post(self.url, {"senha": "ChutandoAqui!2026#"})
+
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_senha_certa_apaga_a_conta(self):
+        self.client.post(self.url, {"senha": "MinhaSenha!2026#"}, follow=True)
+
+        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_depois_de_apagar_nao_da_mais_para_entrar(self):
+        email = self.user.email
+        self.client.post(self.url, {"senha": "MinhaSenha!2026#"}, follow=True)
+
+        self.assertFalse(self.client.login(email=email, password="MinhaSenha!2026#"))
+
+    def test_a_sessao_cai_junto(self):
+        """O `logout` vem ANTES do `delete`, e a sessão é ESVAZIADA.
+
+        Conferir só que o perfil redireciona não prova nada: com o usuário
+        apagado, `request.user` vira anônimo e o perfil redireciona de
+        qualquer jeito — inclusive com a linha de sessão órfã ainda no banco,
+        guardando o id de uma conta que não existe mais. A asserção é a chave
+        de autenticação ter sumido da sessão.
+        """
+        from django.contrib.auth import SESSION_KEY
+
+        self.assertIn(SESSION_KEY, self.client.session)
+
+        self.client.post(self.url, {"senha": "MinhaSenha!2026#"}, follow=True)
+
+        self.assertNotIn(SESSION_KEY, self.client.session)
+        self.assertEqual(
+            self.client.get(reverse("accounts:profile")).status_code, 302
+        )
+
+    def test_ninguem_apaga_a_conta_de_outra_pessoa(self):
+        """Não há id no formulário nem na URL — a conta é sempre
+        `request.user`. A proteção é a AUSÊNCIA do parâmetro, não uma checagem
+        que alguém pode esquecer de escrever."""
+        alheio = create_complete_user(email="alheio.conta@exemplo.com")
+
+        self.client.post(
+            self.url, {"senha": "MinhaSenha!2026#", "user": alheio.pk, "id": alheio.pk},
+            follow=True,
+        )
+
+        self.assertTrue(User.objects.filter(pk=alheio.pk).exists())
+
+    def test_quem_nao_esta_logado_nao_abre_a_exclusao(self):
+        self.client.logout()
+
+        resposta = self.client.get(self.url)
+
+        self.assertEqual(resposta.status_code, 302)
+        self.assertIn(reverse("accounts:login"), resposta["Location"])
+
+    # -- conta do Google --------------------------------------------------
+
+    def _google(self):
+        user = create_complete_user(email="google.exclui@exemplo.com")
+        user.set_unusable_password()
+        user.save()
+        SocialAccount.objects.create(user=user, provider="google", uid="uid-exclusao")
+        self.client.force_login(user)
+        return user
+
+    def test_conta_do_google_confirma_pela_palavra(self):
+        user = self._google()
+
+        self.client.post(self.url, {"confirmacao": PALAVRA_DE_EXCLUSAO}, follow=True)
+
+        self.assertFalse(User.objects.filter(pk=user.pk).exists())
+
+    def test_conta_do_google_nao_apaga_com_palavra_errada(self):
+        user = self._google()
+
+        self.client.post(self.url, {"confirmacao": "excluir por favor"}, follow=True)
+
+        self.assertTrue(User.objects.filter(pk=user.pk).exists())
+
+    def test_conta_do_google_nao_recebe_campo_de_senha(self):
+        """Pedir senha a quem nunca teve uma é inventar credencial."""
+        self._google()
+
+        resposta = self.client.get(self.url)
+
+        self.assertNotIn("senha", resposta.context["form"].fields)
+        self.assertIn("confirmacao", resposta.context["form"].fields)
+
+    def test_o_socialaccount_vai_junto(self):
+        user = self._google()
+
+        self.client.post(self.url, {"confirmacao": PALAVRA_DE_EXCLUSAO}, follow=True)
+
+        self.assertFalse(SocialAccount.objects.filter(user_id=user.pk).exists())
+
+    # -- dados relacionados ----------------------------------------------
+
+    def test_nao_sobra_dado_orfao_de_nenhuma_relacao(self):
+        """Todas as relações diretas com User são CASCADE — a varredura confere
+        isso no `_meta` e depois confirma no banco.
+
+        Escrito assim, e não como uma lista de modelos: um app novo que aponte
+        para `User` entra na verificação sozinho, e é justamente o modelo que
+        ninguém lembrou de listar que deixaria dado pessoal para trás.
+        """
+        from django.contrib.auth import get_user_model
+
+        alvo = get_user_model()
+        relacoes = [
+            r for r in alvo._meta.related_objects
+            if r.field.model is not alvo
+        ]
+        self.assertGreater(len(relacoes), 8)
+
+        pk = self.user.pk
+        antes = {
+            r.related_model._meta.label: r.related_model.objects.filter(
+                **{r.field.name + "_id": pk}
+            ).count()
+            for r in relacoes
+        }
+        self.assertTrue(any(antes.values()), "o fixture precisa ter dado ligado")
+
+        self.client.post(self.url, {"senha": "MinhaSenha!2026#"}, follow=True)
+
+        for r in relacoes:
+            with self.subTest(modelo=r.related_model._meta.label):
+                sobrou = r.related_model.objects.filter(
+                    **{r.field.name + "_id": pk}
+                ).count()
+                self.assertEqual(sobrou, 0)
+
+    def test_toda_relacao_com_user_e_cascade(self):
+        """A garantia estrutural por trás do teste acima.
+
+        Se alguém acrescentar uma FK para `User` com `SET_NULL` ou `PROTECT`, a
+        exclusão passa a deixar dado pessoal órfão (ou a falhar), e é melhor
+        descobrir aqui do que numa conta de gente de verdade.
+        """
+        from django.db.models import CASCADE
+        from django.contrib.auth import get_user_model
+
+        alvo = get_user_model()
+        fora = [
+            "%s.%s" % (r.related_model._meta.label, r.field.name)
+            for r in alvo._meta.related_objects
+            if r.field.model is not alvo
+            and r.field.remote_field.on_delete is not CASCADE
+        ]
+
+        self.assertEqual(fora, [])
+
+
+class ExclusaoSoDaPropriaContaTests(TestCase):
+    """A conta apagada e SEMPRE `request.user`. Nunca um id que veio no pedido.
+
+    A view ja e segura por construcao — ela nem olha para o POST em busca de
+    identificador. Este teste existe porque "seguro por construcao" e uma
+    propriedade que some no dia em que alguem acrescenta um campo achando que
+    esta ajudando, e nada quebraria: nenhum teste passava um id para provar
+    que ele e ignorado. A lacuna apareceu numa sabotagem de integracao.
+    """
+
+    SENHA = "SenhaDoAtacante!2026#"
+
+    def setUp(self):
+        self.vitima = create_complete_user(email="vitima@exemplo.com")
+
+    def _atacante(self, email):
+        user = create_complete_user(email=email)
+        user.set_password(self.SENHA)
+        user.save()
+        self.client.force_login(user)
+        return user
+
+    def _excluir(self, extra):
+        dados = {"confirmacao": PALAVRA_DE_EXCLUSAO, "senha": self.SENHA}
+        dados.update(extra)
+        return self.client.post(reverse("accounts:excluir_conta"), dados, follow=True)
+
+    def test_id_no_corpo_do_pedido_nao_escolhe_a_vitima(self):
+        for campo in ("user_id", "usuario", "id", "pk", "user"):
+            with self.subTest(campo=campo):
+                self._atacante("atk-%s@exemplo.com" % campo)
+
+                self._excluir({campo: self.vitima.pk})
+
+                self.assertTrue(
+                    User.objects.filter(pk=self.vitima.pk).exists(),
+                    "a vitima foi apagada por um id vindo do pedido (%s)" % campo,
+                )
+
+    def test_quem_pede_e_quem_some(self):
+        atacante = self._atacante("atacante@exemplo.com")
+
+        self._excluir({"user_id": self.vitima.pk})
+
+        self.assertFalse(User.objects.filter(pk=atacante.pk).exists())
+        self.assertTrue(User.objects.filter(pk=self.vitima.pk).exists())
+
+
+class LogoutSeguroTests(TestCase):
+    """O logout já era POST-only. Estes testes existem para continuar sendo."""
+
+    def setUp(self):
+        self.user = create_complete_user(email="saindo@exemplo.com")
+        self.client.force_login(self.user)
+        self.url = reverse("accounts:logout")
+
+    def test_post_desloga(self):
+        self.client.post(self.url)
+
+        self.assertEqual(
+            self.client.get(reverse("accounts:profile")).status_code, 302
+        )
+
+    def test_get_nao_desloga(self):
+        """Link GET para sair é um `<img src>` numa página qualquer derrubando
+        a sessão de quem passar por ela.
+
+        A asserção é o 405, e não "a sessão sobreviveu": com um handler GET
+        acrescentado à view, o CSRF ainda barraria o pedido e a sessão
+        continuaria de pé — o teste passaria elogiando a proteção errada.
+        Sabotagem escrita exatamente para isso é que revelou a diferença.
+        """
+        resposta = self.client.get(self.url)
+
+        self.assertEqual(resposta.status_code, 405)
+        self.assertEqual(
+            self.client.get(reverse("accounts:profile")).status_code, 200
+        )
+
+    def test_a_interface_usa_formulario_com_csrf(self):
+        for pagina in (reverse("accounts:profile"), reverse("plans:today")):
+            with self.subTest(pagina=pagina):
+                html = self.client.get(pagina).content.decode()
+                if self.url not in html:
+                    continue
+                antes = html.split(self.url, 1)[0]
+                bloco = antes[antes.rfind("<form"):]
+
+                self.assertIn('method="post"', bloco)
+                self.assertIn("csrfmiddlewaretoken", html.split(self.url, 1)[1][:400])
+
+
+class ConfiguracaoDeEmailTests(TestCase):
+    """O que precisa estar de pé para o link de senha chegar."""
+
+    def test_existe_um_backend_configurado(self):
+        """Sem backend, `PasswordResetView` estoura e o fluxo morre na primeira
+        tela. O padrão é o console — em produção o e-mail aparece no log, que é
+        feio e honesto; `dummy` descartaria em silêncio, que é pior."""
+        self.assertTrue(settings.EMAIL_BACKEND)
+        self.assertNotIn("dummy", settings.EMAIL_BACKEND)
+
+    def test_nenhuma_credencial_de_email_esta_no_codigo(self):
+        """Host e senha vêm do ambiente, e o padrão é vazio de propósito."""
+        fonte = (Path(settings.BASE_DIR) / "config" / "settings.py").read_text(
+            encoding="utf-8"
+        )
+        arvore = ast.parse(fonte)
+        atribuicoes = {}
+        for no in ast.walk(arvore):
+            if isinstance(no, ast.Assign) and isinstance(no.targets[0], ast.Name):
+                atribuicoes[no.targets[0].id] = no.value
+
+        for nome in ("EMAIL_HOST", "EMAIL_HOST_USER", "EMAIL_HOST_PASSWORD"):
+            with self.subTest(variavel=nome):
+                valor = atribuicoes.get(nome)
+                self.assertIsInstance(valor, ast.Call, "%s deixou de vir do env" % nome)
+
+    def test_o_remetente_esta_definido(self):
+        self.assertTrue(settings.DEFAULT_FROM_EMAIL)
+
+
+class LimiteDeRecuperacaoTests(TestCase):
+    """O limite do endpoint que passou a mandar e-mail de verdade.
+
+    O contrato inteiro está em `accounts/limites.py`. Estes testes travam as
+    duas coisas que, se quebrarem, quebram em silêncio: o limite deixar de
+    limitar, e o limite passar a CONTAR ALGUMA COISA para fora — porque uma
+    resposta que muda quando o limite bate vira um jeito de descobrir quem tem
+    conta, que é exatamente o que a tela existe para não revelar.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="limite@exemplo.com", password="SenhaDoLimite!2026#"
+        )
+        self.url = reverse("accounts:password_reset")
+        mail.outbox = []
+
+    def _pedir(self, email=None, ip="203.0.113.10"):
+        return self.client.post(
+            self.url, {"email": email or self.user.email},
+            REMOTE_ADDR=ip, follow=True,
+        )
+
+    # -- o caminho de gente de verdade -----------------------------------
+
+    def test_o_primeiro_pedido_passa(self):
+        self._pedir()
+
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_uso_humano_normal_nao_e_bloqueado(self):
+        """Pede, nao chega, pede de novo, olha o spam, pede mais uma.
+
+        O limite por e-mail e tres justamente para caber essa sequencia — se
+        bloqueasse na segunda, a protecao viraria o defeito.
+        """
+        for _ in range(limites.LIMITE_POR_EMAIL):
+            self._pedir()
+
+        self.assertEqual(len(mail.outbox), limites.LIMITE_POR_EMAIL)
+
+    # -- o abuso ----------------------------------------------------------
+
+    def test_repeticao_abusiva_para_de_enviar(self):
+        for _ in range(limites.LIMITE_POR_EMAIL + 5):
+            self._pedir()
+
+        self.assertEqual(len(mail.outbox), limites.LIMITE_POR_EMAIL)
+
+    def test_trocar_a_caixa_das_letras_nao_burla(self):
+        """`Fulano@X.com` e `fulano@x.com` sao o mesmo contador.
+
+        Sem normalizar, o limite cai na primeira tentativa de quem alternar
+        maiusculas — e e a primeira coisa que alguem tenta.
+        """
+        variacoes = [
+            self.user.email.upper(),
+            self.user.email.capitalize(),
+            "  " + self.user.email + "  ",
+            self.user.email,
+        ]
+        for email in variacoes * 3:
+            self._pedir(email=email)
+
+        self.assertEqual(len(mail.outbox), limites.LIMITE_POR_EMAIL)
+
+    def test_outro_email_nao_herda_o_limite_do_primeiro(self):
+        """O limite por e-mail e POR e-mail. Se vazasse entre contas, um
+        atacante bloquearia a recuperacao de senha de outra pessoa so
+        gastando a propria cota."""
+        outro = User.objects.create_user(
+            email="outro.limite@exemplo.com", password="OutraSenha!2026#"
+        )
+        for _ in range(limites.LIMITE_POR_EMAIL + 3):
+            self._pedir()
+        mail.outbox = []
+
+        self._pedir(email=outro.email)
+
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_o_limite_por_ip_corta_a_troca_de_email(self):
+        """Trocar de e-mail escapa do limite por e-mail — e cai no de origem."""
+        for i in range(limites.LIMITE_POR_IP + 5):
+            User.objects.create_user(
+                email="vitima%d@exemplo.com" % i, password="Senha!2026#Abc"
+            )
+            self._pedir(email="vitima%d@exemplo.com" % i)
+
+        self.assertEqual(len(mail.outbox), limites.LIMITE_POR_IP)
+
+    def test_o_teto_global_segura_quem_troca_de_ip(self):
+        """O limite honesto: quem roda de mil maquinas passa pelos outros dois.
+
+        `LIMITE_GLOBAL` e o que de fato impede uma tarde de abuso de consumir a
+        cota diaria do provedor.
+        """
+        for i in range(limites.LIMITE_GLOBAL + 10):
+            User.objects.create_user(
+                email="alvo%d@exemplo.com" % i, password="Senha!2026#Abc"
+            )
+            self._pedir(email="alvo%d@exemplo.com" % i, ip="198.51.100.%d" % (i % 250))
+
+        self.assertEqual(len(mail.outbox), limites.LIMITE_GLOBAL)
+
+    # -- o limite nao pode contar nada para fora --------------------------
+
+    def test_a_resposta_do_bloqueado_e_igual_a_do_normal(self):
+        primeira = self._pedir()
+        for _ in range(limites.LIMITE_POR_EMAIL + 3):
+            self._pedir()
+        bloqueada = self._pedir()
+
+        self.assertEqual(primeira.status_code, bloqueada.status_code)
+        self.assertEqual(primeira.content, bloqueada.content)
+        self.assertEqual(
+            [u for u, _ in primeira.redirect_chain],
+            [u for u, _ in bloqueada.redirect_chain],
+        )
+
+    def test_bloqueado_continua_indistinguivel_de_email_inexistente(self):
+        for _ in range(limites.LIMITE_POR_EMAIL + 3):
+            self._pedir()
+
+        bloqueada = self._pedir()
+        inexistente = self._pedir(email="ninguem.aqui@exemplo.com")
+
+        self.assertEqual(bloqueada.content, inexistente.content)
+
+    def test_nunca_devolve_429(self):
+        """429 seria um oraculo: bastaria observar quando ele aparece."""
+        for _ in range(limites.LIMITE_POR_EMAIL + 5):
+            resposta = self._pedir()
+
+            self.assertNotEqual(resposta.status_code, 429)
+
+    # -- depois da janela --------------------------------------------------
+
+    def test_passada_a_janela_volta_a_enviar(self):
+        for _ in range(limites.LIMITE_POR_EMAIL + 2):
+            self._pedir()
+        mail.outbox = []
+
+        antigo = timezone.now() - timezone.timedelta(
+            minutes=limites.JANELA_MINUTOS + 5
+        )
+        PedidoDeRecuperacao.objects.update(criado_em=antigo)
+
+        self._pedir()
+
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_a_tabela_nao_cresce_para_sempre(self):
+        """Sem agendador no projeto, a limpeza acontece na propria escrita —
+        tabela que so cresce e problema silencioso de disco num banco
+        gratuito."""
+        PedidoDeRecuperacao.objects.create(tipo="email", chave="velho")
+        PedidoDeRecuperacao.objects.update(
+            criado_em=timezone.now() - timezone.timedelta(days=7)
+        )
+
+        self._pedir()
+
+        self.assertFalse(PedidoDeRecuperacao.objects.filter(chave="velho").exists())
+
+    # -- o que fica guardado ----------------------------------------------
+
+    def test_a_tabela_nao_guarda_o_email_em_texto(self):
+        """Senao ela vira uma lista de quem usa o NutriPlan — o oposto do que
+        a tela de recuperacao passa o tempo todo tentando nao revelar."""
+        self._pedir()
+
+        guardado = " ".join(
+            PedidoDeRecuperacao.objects.values_list("chave", flat=True)
+        )
+        self.assertNotIn(self.user.email, guardado)
+        self.assertNotIn("limite@", guardado)
+        self.assertNotIn("203.0.113.10", guardado)
+
+    # -- IP e proxy --------------------------------------------------------
+
+    def test_sem_proxy_confiavel_o_cabecalho_do_cliente_e_ignorado(self):
+        """`X-Forwarded-For` e escrito pelo CLIENTE.
+
+        Confiar nele sem proxy confiavel deixaria qualquer um escolher o
+        proprio IP e o limite por origem viraria decoracao.
+        """
+        pedido = RequestFactory().get(
+            "/", REMOTE_ADDR="203.0.113.7", HTTP_X_FORWARDED_FOR="1.2.3.4"
+        )
+
+        with override_settings(USA_PROXY_CONFIAVEL=False):
+            self.assertEqual(limites.ip_do_pedido(pedido), "203.0.113.7")
+
+
+
+class FailClosedDeEmailTests(TestCase):
+    """Produção não pode voltar para o console em silêncio.
+
+    O backend padrão é seguro para DESENVOLVIMENTO, e um padrão seguro para
+    desenvolvimento é perigoso em produção: se alguém apagar as variáveis do
+    Render daqui a meses, o Django volta para o console sem reclamar e cada
+    "esqueci minha senha" escreve um link VÁLIDO no log da plataforma.
+
+    `manage.py check` roda no build, então a verificação derruba o deploy em
+    vez de deixar o app subir quebrado.
+    """
+
+    def _erros(self, **cfg):
+        from accounts.checks import email_de_producao_esta_configurado
+
+        with override_settings(**cfg):
+            return [e.id for e in email_de_producao_esta_configurado(None)]
+
+    SMTP_OK = dict(
+        DEBUG=False,
+        EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend",
+        EMAIL_HOST="smtp.exemplo.com",
+        EMAIL_HOST_USER="usuario",
+        EMAIL_HOST_PASSWORD="segredo",
+        DEFAULT_FROM_EMAIL="NutriPlan <nao-responda@exemplo.com>",
+        EMAIL_USE_TLS=True,
+    )
+
+    def test_console_em_desenvolvimento_continua_permitido(self):
+        self.assertEqual(
+            self._erros(
+                DEBUG=True,
+                EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend",
+            ),
+            [],
+        )
+
+    def test_console_em_producao_derruba_a_verificacao(self):
+        self.assertIn(
+            "accounts.E001",
+            self._erros(
+                DEBUG=False,
+                EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend",
+            ),
+        )
+
+    def test_backends_que_descartam_tambem_sao_recusados(self):
+        for backend in ("dummy", "locmem", "filebased"):
+            with self.subTest(backend=backend):
+                self.assertIn(
+                    "accounts.E001",
+                    self._erros(
+                        DEBUG=False,
+                        EMAIL_BACKEND="django.core.mail.backends.%s.EmailBackend"
+                        % backend,
+                    ),
+                )
+
+    def test_smtp_sem_credencial_derruba(self):
+        cfg = dict(self.SMTP_OK, EMAIL_HOST_PASSWORD="")
+
+        self.assertIn("accounts.E002", self._erros(**cfg))
+
+    def test_smtp_sem_tls_derruba(self):
+        cfg = dict(self.SMTP_OK, EMAIL_USE_TLS=False, EMAIL_USE_SSL=False)
+
+        self.assertIn("accounts.E003", self._erros(**cfg))
+
+    def test_smtp_completo_passa(self):
+        self.assertEqual(self._erros(**self.SMTP_OK), [])
+
+    def test_a_verificacao_nunca_imprime_o_valor_do_segredo(self):
+        """Checagem que despeja a credencial no log "para ajudar a
+        diagnosticar" cria o problema que veio evitar."""
+        from accounts.checks import email_de_producao_esta_configurado
+
+        cfg = dict(self.SMTP_OK, EMAIL_HOST_PASSWORD="")
+        with override_settings(**cfg):
+            erros = email_de_producao_esta_configurado(None)
+
+        texto = " ".join("%s %s" % (e.msg, e.hint) for e in erros)
+        self.assertNotIn("segredo", texto)
+        self.assertNotIn("usuario", texto)
+
+    def test_a_verificacao_esta_registrada_como_check_de_deploy(self):
+        """Escrita e não registrada é uma verificação que nunca roda.
+
+        E precisa ser de DEPLOY, não comum: o runner de teste do Django troca o
+        backend por `locmem` e roda com `DEBUG=False`, então uma verificação
+        comum derrubaria a suíte inteira acusando a configuração de teste de ser
+        produção mal configurada — foi o que aconteceu na primeira versão.
+
+        Como contrapartida, ela só roda com `--deploy`, e por isso o teste
+        seguinte exige que o build passe essa flag.
+        """
+        from django.core.checks import registry
+
+        comuns = {c.__name__ for c in registry.registry.get_checks()}
+        de_deploy = {
+            c.__name__
+            for c in registry.registry.get_checks(include_deployment_checks=True)
+        }
+
+        self.assertIn("email_de_producao_esta_configurado", de_deploy)
+        self.assertNotIn("email_de_producao_esta_configurado", comuns)
+
+    def test_o_build_roda_a_verificacao_de_deploy(self):
+        """Check de deploy que ninguém executa não protege nada.
+
+        `scripts/build.sh` roda com `errexit`, então um erro aqui derruba a
+        publicação antes de o app subir — que é o comportamento desejado.
+        """
+        build = (Path(settings.BASE_DIR) / "scripts" / "build.sh").read_text(
+            encoding="utf-8"
+        )
+
+        # Só as linhas de COMANDO. O cabeçalho do arquivo cita `collectstatic`
+        # em prosa, e comparar posições no texto cru mede o comentário em vez
+        # da ordem de execução.
+        comandos = [
+            l.strip() for l in build.splitlines()
+            if l.strip() and not l.strip().startswith("#")
+        ]
+        posicao = lambda trecho: next(
+            (i for i, l in enumerate(comandos) if trecho in l), None
+        )
+
+        self.assertIsNotNone(posicao("check --deploy"))
+        self.assertIn("--fail-level ERROR", build)
+
+        # DEPOIS do collectstatic, e a ordem inversa nao e detalhe: `check`
+        # importa a URLconf, e `config/urls.py` resolve `static()` em tempo de
+        # import para o redirecionamento do favicon. Com DEBUG desligado isso
+        # passa pelo storage com manifesto, que so existe depois do
+        # collectstatic. A primeira versao deste teste exigia o contrario e
+        # derrubava o build com "Missing staticfiles manifest entry" — um erro
+        # que nao tem relacao nenhuma com o que a verificacao veio verificar.
+        self.assertGreater(posicao("check --deploy"), posicao("collectstatic"))
+
+        # E ANTES do migrate: configuracao errada nao pode chegar a mexer no
+        # schema do banco. O portao continua fechado, so mudou de lugar.
+        self.assertLess(posicao("check --deploy"), posicao("migrate"))
+        self.assertLess(posicao("check --deploy"), posicao("seed_catalog"))
+
+
+class TetoDiarioTests(TestCase):
+    """O limite de 24h — o que de fato protege a cota do provedor.
+
+    O teto horário sozinho não bastava: 50/h sustentado por seis horas dá 300,
+    que é a cota diária inteira do plano gratuito consumida só com recuperação
+    de senha, antes do fim da tarde.
+    """
+
+    def setUp(self):
+        self.url = reverse("accounts:password_reset")
+        mail.outbox = []
+
+    def _encher(self, quantos, idade_minutos):
+        """Põe `quantos` pedidos globais no passado, dentro da janela de 24h.
+
+        Escrito direto na tabela para não depender de mandar centenas de
+        e-mails de verdade só para chegar perto do teto — o que o teste mede é
+        a CONTA, e a conta é a mesma.
+        """
+        instante = timezone.now() - timezone.timedelta(minutes=idade_minutos)
+        PedidoDeRecuperacao.objects.bulk_create(
+            [
+                PedidoDeRecuperacao(tipo="global", chave=limites.CHAVE_GLOBAL)
+                for _ in range(quantos)
+            ]
+        )
+        PedidoDeRecuperacao.objects.filter(tipo="global").update(criado_em=instante)
+
+    def _pedir(self, email="alguem@exemplo.com", ip="203.0.113.55"):
+        return self.client.post(self.url, {"email": email}, REMOTE_ADDR=ip, follow=True)
+
+    def test_o_teto_diario_e_menor_que_a_cota_do_provedor(self):
+        """Duzentos, e não 300: a cota é do PROVEDOR, não deste endpoint.
+
+        Se a recuperação de senha pudesse consumir a cota inteira, qualquer
+        outra mensagem que o app precise mandar no mesmo dia ficaria sem espaço.
+        """
+        self.assertLessEqual(limites.LIMITE_GLOBAL_DIARIO, 240)
+        self.assertGreater(limites.LIMITE_GLOBAL_DIARIO, limites.LIMITE_GLOBAL)
+        self.assertEqual(limites.JANELA_DIARIA_MINUTOS, 60 * 24)
+
+    def test_o_teto_horario_sozinho_nao_protegeria_o_dia(self):
+        """A conta que motivou este limite, escrita como asserção.
+
+        Se alguém subir o teto horário achando que é generosidade, este teste
+        mostra a conta antes de a cota ser consumida numa tarde.
+        """
+        em_24h = limites.LIMITE_GLOBAL * 24
+
+        self.assertGreater(em_24h, 300, "o teto horário sozinho estoura a cota")
+        self.assertLessEqual(limites.LIMITE_GLOBAL_DIARIO, 300)
+
+    def test_abaixo_do_teto_diario_ainda_envia(self):
+        # 90 minutos atrás: fora da janela horária, dentro da de 24h.
+        self._encher(limites.LIMITE_GLOBAL_DIARIO - 1, idade_minutos=90)
+        User.objects.create_user(email="alguem@exemplo.com", password="Senha!2026#Abc")
+
+        self._pedir()
+
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_no_teto_diario_para_de_enviar(self):
+        self._encher(limites.LIMITE_GLOBAL_DIARIO, idade_minutos=90)
+        User.objects.create_user(email="alguem@exemplo.com", password="Senha!2026#Abc")
+
+        self._pedir()
+
+        self.assertEqual(mail.outbox, [])
+
+    def test_o_bloqueio_diario_tem_a_mesma_resposta_de_sempre(self):
+        User.objects.create_user(email="alguem@exemplo.com", password="Senha!2026#Abc")
+        normal = self._pedir()
+        self._encher(limites.LIMITE_GLOBAL_DIARIO, idade_minutos=90)
+
+        bloqueada = self._pedir()
+
+        self.assertEqual(normal.status_code, bloqueada.status_code)
+        self.assertEqual(normal.content, bloqueada.content)
+
+    def test_pedido_de_ontem_nao_conta_mais(self):
+        """Fora da janela de 24h, a linha deixa de influenciar."""
+        self._encher(limites.LIMITE_GLOBAL_DIARIO + 20, idade_minutos=60 * 25)
+        User.objects.create_user(email="alguem@exemplo.com", password="Senha!2026#Abc")
+
+        self._pedir()
+
+        self.assertEqual(len(mail.outbox), 1)
+
+
+class RetencaoDosPedidosTests(TestCase):
+    """A tabela não pode crescer para sempre num banco gratuito."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="retencao@exemplo.com", password="Senha!2026#Abc"
+        )
+        mail.outbox = []
+
+    def test_a_retencao_cobre_a_maior_janela_com_folga(self):
+        """Apagar antes de 24h apagaria linha que ainda conta — e o limite
+        diário viraria decoração."""
+        self.assertGreaterEqual(
+            limites.RETENCAO_MINUTOS, limites.JANELA_DIARIA_MINUTOS * 2
+        )
+
+    def test_linha_fora_da_retencao_e_apagada_no_proximo_envio(self):
+        PedidoDeRecuperacao.objects.create(tipo="global", chave="antiga")
+        PedidoDeRecuperacao.objects.filter(chave="antiga").update(
+            criado_em=timezone.now()
+            - timezone.timedelta(minutes=limites.RETENCAO_MINUTOS + 60)
+        )
+
+        self.client.post(
+            reverse("accounts:password_reset"), {"email": self.user.email}, follow=True
+        )
+
+        self.assertFalse(PedidoDeRecuperacao.objects.filter(chave="antiga").exists())
+
+    def test_linha_dentro_da_janela_diaria_NAO_e_apagada(self):
+        """A limpeza não pode comer o contador que ainda está valendo."""
+        PedidoDeRecuperacao.objects.create(tipo="global", chave="recente")
+        PedidoDeRecuperacao.objects.filter(chave="recente").update(
+            criado_em=timezone.now() - timezone.timedelta(hours=20)
+        )
+
+        self.client.post(
+            reverse("accounts:password_reset"), {"email": self.user.email}, follow=True
+        )
+
+        self.assertTrue(PedidoDeRecuperacao.objects.filter(chave="recente").exists())
+
+    def test_pedido_bloqueado_nao_dispara_limpeza(self):
+        """A limpeza roda no caminho raro (envio), e não em todo request —
+        senão um laço de abuso vira um laço de DELETE."""
+        for _ in range(limites.LIMITE_POR_EMAIL):
+            self.client.post(
+                reverse("accounts:password_reset"), {"email": self.user.email},
+                follow=True,
+            )
+        PedidoDeRecuperacao.objects.create(tipo="global", chave="testemunha")
+        PedidoDeRecuperacao.objects.filter(chave="testemunha").update(
+            criado_em=timezone.now()
+            - timezone.timedelta(minutes=limites.RETENCAO_MINUTOS + 60)
+        )
+
+        # este já está bloqueado pelo limite por e-mail
+        self.client.post(
+            reverse("accounts:password_reset"), {"email": self.user.email}, follow=True
+        )
+
+        self.assertTrue(PedidoDeRecuperacao.objects.filter(chave="testemunha").exists())
+
+
+class PrivacidadeDoContadorTests(TestCase):
+    """A tabela de limites não pode virar um registro de quem usou o app."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="privado@exemplo.com", password="Senha!2026#Abc"
+        )
+
+    def test_nem_email_nem_ip_ficam_legiveis(self):
+        self.client.post(
+            reverse("accounts:password_reset"), {"email": self.user.email},
+            REMOTE_ADDR="203.0.113.99", follow=True,
+        )
+
+        guardado = " ".join(
+            "%s %s" % (p.tipo, p.chave) for p in PedidoDeRecuperacao.objects.all()
+        )
+        self.assertNotIn("privado@exemplo.com", guardado)
+        self.assertNotIn("privado", guardado)
+        self.assertNotIn("203.0.113.99", guardado)
+
+    def test_a_chave_e_um_hmac_de_64_caracteres(self):
+        self.client.post(
+            reverse("accounts:password_reset"), {"email": self.user.email},
+            REMOTE_ADDR="203.0.113.99", follow=True,
+        )
+
+        for pedido in PedidoDeRecuperacao.objects.exclude(tipo="global"):
+            with self.subTest(tipo=pedido.tipo):
+                self.assertEqual(len(pedido.chave), 64)
+                self.assertRegex(pedido.chave, r"^[0-9a-f]{64}$")
+
+    def test_o_hmac_depende_da_secret_key(self):
+        """HMAC e não hash simples: sem a chave, uma tabela de e-mails comuns
+        não devolve o endereço."""
+        with override_settings(SECRET_KEY="chave-um"):
+            um = limites._hmac("igual@exemplo.com")
+        with override_settings(SECRET_KEY="chave-dois"):
+            dois = limites._hmac("igual@exemplo.com")
+
+        self.assertNotEqual(um, dois)
+
+    def test_os_indices_esperados_existem(self):
+        """Sem eles, contar e limpar varrem a tabela inteira a cada pedido."""
+        nomes = {i.name for i in PedidoDeRecuperacao._meta.indexes}
+
+        self.assertIn("idx_pedido_rec_limite", nomes)
+        self.assertIn("idx_pedido_rec_retencao", nomes)
+        limite = next(
+            i for i in PedidoDeRecuperacao._meta.indexes
+            if i.name == "idx_pedido_rec_limite"
+        )
+        # `criado_em` por ULTIMO: coluna de faixa antes das de igualdade
+        # impede o indice de servir para as duas.
+        self.assertEqual(limite.fields, ["tipo", "chave", "criado_em"])
+
+
+class OrigemDoPedidoTests(TestCase):
+    """O contrato de `X-Forwarded-For`, conferido no Render e não suposto.
+
+    As duas escolhas ingênuas erram para lados opostos, e este arquivo de teste
+    existe para que nenhuma das duas volte:
+
+      primeiro item sem proxy confiável -> qualquer um escolhe o próprio IP
+      último item atrás do Render       -> todo mundo cai no IP do proxy dele
+    """
+
+    def _pedido(self, **meta):
+        return RequestFactory().get("/", **meta)
+
+    def test_sem_proxy_confiavel_o_cabecalho_e_ignorado(self):
+        pedido = self._pedido(
+            REMOTE_ADDR="203.0.113.7", HTTP_X_FORWARDED_FOR="1.2.3.4"
+        )
+
+        with override_settings(USA_PROXY_CONFIAVEL=False):
+            self.assertEqual(limites.ip_do_pedido(pedido), "203.0.113.7")
+
+    def test_atras_do_render_vale_o_PRIMEIRO_item(self):
+        """O Render põe o cliente na frente e ANEXA o proprio.
+
+        Pegar o ultimo devolveria o IP do proxy — e dez pedidos de dez pessoas
+        diferentes bloqueariam a decima primeira.
+        """
+        pedido = self._pedido(
+            REMOTE_ADDR="10.0.0.1",
+            HTTP_X_FORWARDED_FOR="198.51.100.9, 10.0.0.5, 10.0.0.1",
+        )
+
+        with override_settings(USA_PROXY_CONFIAVEL=True):
+            self.assertEqual(limites.ip_do_pedido(pedido), "198.51.100.9")
+
+    def test_usuarios_diferentes_nao_caem_no_mesmo_balde(self):
+        """O sintoma que o bug do "último item" produziria."""
+        with override_settings(USA_PROXY_CONFIAVEL=True):
+            um = limites.ip_do_pedido(
+                self._pedido(REMOTE_ADDR="10.0.0.1",
+                             HTTP_X_FORWARDED_FOR="198.51.100.9, 10.0.0.1")
+            )
+            dois = limites.ip_do_pedido(
+                self._pedido(REMOTE_ADDR="10.0.0.1",
+                             HTTP_X_FORWARDED_FOR="203.0.113.4, 10.0.0.1")
+            )
+
+        self.assertNotEqual(um, dois)
+
+    def test_cabecalho_vazio_cai_para_remote_addr(self):
+        pedido = self._pedido(REMOTE_ADDR="203.0.113.7", HTTP_X_FORWARDED_FOR="")
+
+        with override_settings(USA_PROXY_CONFIAVEL=True):
+            self.assertEqual(limites.ip_do_pedido(pedido), "203.0.113.7")
+
+    def test_sem_nada_ainda_devolve_uma_chave(self):
+        """Sem chave, `_hmac` estouraria e a recuperação de senha cairia."""
+        pedido = self._pedido()
+        pedido.META.pop("REMOTE_ADDR", None)
+
+        self.assertTrue(limites.ip_do_pedido(pedido))
+
+    def test_o_padrao_do_projeto_e_nao_confiar(self):
+        """Numa configuração desconhecida, ler o cabeçalho é confiar em quem
+        não se conhece."""
+        self.assertFalse(getattr(settings, "USA_PROXY_CONFIAVEL", False) is True
+                         and settings.DEBUG)

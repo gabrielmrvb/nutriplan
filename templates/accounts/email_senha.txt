@@ -1,0 +1,15 @@
+{% autoescape off %}Olá{% if user.first_name %}, {{ user.first_name }}{% endif %}.
+
+Alguém pediu para criar uma senha nova no NutriPlan usando este e-mail.
+
+Abra o link abaixo para escolher a senha:
+
+{{ protocol }}://{{ domain }}{% url 'accounts:password_reset_confirm' uidb64=uid token=token %}
+
+O link vale por 3 horas e só funciona uma vez.
+
+Se não foi você que pediu, ignore esta mensagem — sua senha atual continua
+valendo e nada muda na sua conta.
+
+— NutriPlan
+{% endautoescape %}

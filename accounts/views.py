@@ -1,26 +1,31 @@
 """Cadastro, autenticação e o wizard de onboarding em quatro passos."""
 from allauth.socialaccount.models import SocialAccount
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.db import transaction
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth import views as auth_views
 from django.contrib.auth.views import LoginView
+from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, FormView, TemplateView, UpdateView
 
+from . import limites
 from .adapters import MAXIMO_DE_TENTATIVAS, SESSAO_TENTATIVAS, SESSAO_VINCULO
 from .forms import (
     BodyDataForm,
     ConectarGoogleForm,
     EmailAuthenticationForm,
+    ExclusaoDeContaForm,
     GoalForm,
+    PALAVRA_DE_EXCLUSAO,
     PesagemForm,
-    SplitPreferenceForm,
     RestrictionsForm,
     SignupForm,
+    SplitPreferenceForm,
     TrainingForm,
 )
 from workouts.services import preferencia_muda_a_divisao
@@ -641,3 +646,114 @@ class WeightLogView(OnboardingRequiredMixin, View):
 
 
 
+
+
+class ExcluirContaView(LoginRequiredMixin, FormView):
+    """"Excluir minha conta" — a única ação do app que não tem volta.
+
+    Duas etapas de propósito. `GET` mostra o que será apagado e exige um toque
+    para chegar ao formulário; `POST` só apaga depois de a pessoa provar posse
+    (senha) ou intenção (a palavra EXCLUIR), conforme o tipo de conta. Ver
+    `ExclusaoDeContaForm`.
+
+    A conta apagada é SEMPRE `request.user`. Não existe id no formulário nem na
+    URL, então não existe superfície para apagar a conta de outra pessoa — a
+    proteção não é uma checagem que alguém pode esquecer de escrever, é a
+    ausência do parâmetro.
+
+    O `logout` vem ANTES do `delete`: a sessão guarda o id do usuário e o hash
+    da senha, e deixá-la de pé apontando para uma linha que não existe mais é
+    como o Django começa a levantar exceção no próximo request.
+    """
+
+    template_name = "accounts/excluir_conta.html"
+    form_class = ExclusaoDeContaForm
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["usuario"] = self.request.user
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                # O que a pessoa perde, contado no banco e não no chute. Uma
+                # tela que diz "seus dados" sem número não deixa ninguém medir
+                # o que está prestes a fazer.
+                "resumo": resumo_do_que_sera_apagado(self.request.user),
+                "tem_senha": self.request.user.has_usable_password(),
+                "palavra": PALAVRA_DE_EXCLUSAO,
+                "sem_tabbar": True,
+            }
+        )
+        return context
+
+    @transaction.atomic
+    def form_valid(self, form):
+        usuario = self.request.user
+        email = usuario.email
+        logout(self.request)
+        usuario.delete()
+        messages.success(
+            self.request,
+            "Conta de %s apagada. Sentiremos sua falta." % email,
+        )
+        return redirect("accounts:login")
+
+
+def resumo_do_que_sera_apagado(user) -> list:
+    """Quantos registros de cada tipo somem junto com a conta.
+
+    Lido do banco no momento da pergunta. Todas as relações diretas com
+    `User` são `CASCADE` — conferido no `_meta` —, então o `delete()` do
+    usuário leva tudo; esta função só EXIBE o que a cascata já garante, e não
+    apaga nada por conta própria.
+
+    Se alguém acrescentar um modelo novo apontando para `User`, ele entra na
+    cascata sozinho e some daqui — por isso há teste comparando esta lista com
+    o que o `_meta` do modelo declara.
+    """
+    from plans.models import HydrationLog, MealLog, NutritionPlan
+    from supplements.models import SupplementLog
+    from workouts.models import ExerciseLog, TrainingPlan
+
+    linhas = [
+        ("Planos alimentares", NutritionPlan.objects.filter(user=user).count()),
+        ("Refeições registradas", MealLog.objects.filter(user=user).count()),
+        ("Registros de água", HydrationLog.objects.filter(user=user).count()),
+        ("Pesagens", WeightEntry.objects.filter(user=user).count()),
+        ("Fichas de treino", TrainingPlan.objects.filter(user=user).count()),
+        ("Séries registradas", ExerciseLog.objects.filter(user=user).count()),
+        ("Suplementos marcados", SupplementLog.objects.filter(user=user).count()),
+    ]
+    return [(nome, total) for nome, total in linhas if total]
+
+
+class PedirSenhaView(auth_views.PasswordResetView):
+    """A tela de "esqueci minha senha", com limite de abuso.
+
+    Tudo o que é criptográfico continua sendo do Django: esta subclasse só
+    decide se o envio acontece. Ver `accounts/limites.py` para o contrato dos
+    três limites e para o que eles NÃO protegem.
+
+    A resposta é a MESMA em todos os caminhos — e-mail existente, inexistente
+    ou limitado. É a mesma regra que faz a tela não revelar quem tem conta: se
+    o limite devolvesse 429, ou qualquer texto diferente, bastaria observar
+    quando a resposta muda para descobrir quantos pedidos aquele endereço já
+    recebeu, e portanto que ele existe.
+    """
+
+    def form_valid(self, form):
+        email = form.cleaned_data.get("email", "")
+        ip = limites.ip_do_pedido(self.request)
+
+        if not limites.pode_pedir(email=email, ip=ip):
+            # Pula o envio e cai direto na tela de confirmação. Nada distingue
+            # este caminho do caminho normal do lado de fora.
+            return HttpResponseRedirect(self.get_success_url())
+
+        resposta = super().form_valid(form)
+        limites.registrar(email=email, ip=ip)
+        limites.limpar_antigos()
+        return resposta
