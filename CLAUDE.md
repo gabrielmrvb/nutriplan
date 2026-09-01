@@ -79,6 +79,14 @@ compara os dois arquivos. Subir a versão é o que migra quem já tem o banco
 quebrado — `deleteDatabase()` "resolveria" o console e jogaria fora a água que
 alguém registrou no metrô.
 
+**Água soma NO BANCO, não em Python.** `registro.ml = registro.ml + ml` seguido
+de `save()` é leitura-modificação-escrita: dois toques rápidos leem o mesmo
+valor e o segundo sobrescreve o primeiro. Tocar +250, +500 e +750 em sequência
+dava 1000 em vez de 1500. Nenhum debounce no JavaScript conserta — o servidor
+precisa estar certo com pedidos concorrentes, e a fila offline reenvia
+exatamente assim, em rajada, quando a rede volta. Hoje é
+`Least(F("ml") + ml, Value(10000))`, e há teste com threads reais.
+
 **Idempotência é requisito da fila offline.** Água SOMA e suplemento ALTERNA —
 as duas precisam de `op_id`. Marcação de refeição e carga de série usam
 `update_or_create` e já são seguras; se alguém trocá-las por contador, a fila

@@ -6,6 +6,7 @@ duplicado, plano velho continuar ativo depois de mudar o peso, e recálculo
 disparando toda vez que a tela abre.
 """
 from datetime import date, datetime, time, timedelta
+import threading
 from decimal import Decimal
 import ast
 import hashlib
@@ -52,6 +53,7 @@ from .calculations import (
     target_kcal,
 )
 from .models import (
+    HydrationLog,
     MealLog,
     MealOption,
     MealSlot,
@@ -4329,3 +4331,121 @@ class EquivalenciaHonestaTests(TestCase):
             "o cardápio gerado ficou com macros equivalentes — a frase da tela "
             "precisa ser revista",
         )
+
+
+class AguaConcorrenteTests(TransactionTestCase):
+    """Três toques rápidos precisam somar três, não dois.
+
+    O defeito relatado na auditoria: tocar +250, +500 e +750 em sequência
+    rápida registrava 1000 ml em vez de 1500. Um dos incrementos sumia.
+
+    A causa era `lost update`. A view lia `registro.ml`, somava em Python e
+    gravava de volta:
+
+        registro.ml = min(registro.ml + ml, 10000)
+        registro.save(...)
+
+    Dois pedidos concorrentes leem o MESMO valor antigo, e o segundo sobrescreve
+    o primeiro. Não é problema de velocidade de dedo — é de duas transações
+    lendo antes de a outra gravar, e a fila offline reenvia exatamente assim,
+    em rajada, quando a rede volta.
+
+    `TransactionTestCase` e não `TestCase`: o segundo embrulha tudo numa
+    transação só e as threads não enxergariam as escritas umas das outras — o
+    teste de concorrência passaria sem testar concorrência.
+    """
+
+    def setUp(self):
+        self.user = create_complete_user(email="agua@exemplo.invalid")
+        self.client.force_login(self.user)
+        self.url = reverse("plans:log_hydration")
+
+    def _ml(self):
+        registro = HydrationLog.objects.filter(
+            user=self.user, date=timezone.localdate()
+        ).first()
+        return registro.ml if registro else 0
+
+    def _beber(self, ml, op_id=None):
+        dados = {"ml": ml}
+        if op_id:
+            dados["op_id"] = op_id
+        return self.client.post(self.url, dados, secure=True)
+
+    def test_tres_toques_em_sequencia_somam_os_tres(self):
+        """O caso exato do relato."""
+        self._beber(250)
+        self._beber(500)
+        self._beber(750)
+
+        self.assertEqual(self._ml(), 1500)
+
+    def test_dez_toques_de_250_somam_2500(self):
+        for _ in range(10):
+            self._beber(250)
+
+        self.assertEqual(self._ml(), 2500)
+
+    def test_toques_simultaneos_nao_perdem_nenhum(self):
+        """A prova de que a soma acontece no banco.
+
+        Com a soma em Python, threads concorrentes lendo o mesmo valor faziam
+        o total ficar abaixo da soma real. Aqui cada thread abre a própria
+        conexão, que é o que reproduz o cenário do servidor.
+        """
+        from django.db import connections
+        from django.test import Client
+
+        quantidade = 12
+        erros = []
+
+        def beber():
+            try:
+                c = Client()
+                c.force_login(self.user)
+                c.post(self.url, {"ml": 250}, secure=True)
+            except Exception as e:  # pragma: no cover - só aparece se quebrar
+                erros.append(e)
+            finally:
+                connections.close_all()
+
+        threads = [threading.Thread(target=beber) for _ in range(quantidade)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        self.assertEqual(erros, [])
+        self.assertEqual(
+            self._ml(),
+            250 * quantidade,
+            "algum incremento se perdeu — a soma não está atômica no banco",
+        )
+
+    def test_zerar_continua_zerando(self):
+        self._beber(500)
+        self._beber(0)
+
+        self.assertEqual(self._ml(), 0)
+
+    def test_o_teto_de_dez_litros_continua_valendo(self):
+        for _ in range(50):
+            self._beber(750)
+
+        self.assertEqual(self._ml(), 10000)
+
+    def test_reenvio_da_fila_offline_nao_soma_duas_vezes(self):
+        """Água SOMA, então reenviar aplicaria de novo sem a trava de `op_id`.
+
+        É a garantia que o CLAUDE.md chama de requisito da fila offline, e ela
+        não pode cair junto com a mudança para soma no banco.
+        """
+        self._beber(500, op_id="abc-123")
+        self._beber(500, op_id="abc-123")
+
+        self.assertEqual(self._ml(), 500)
+
+    def test_valor_invalido_nao_soma_nem_cria_lixo(self):
+        self._beber(333)
+
+        self.assertEqual(self._ml(), 0)

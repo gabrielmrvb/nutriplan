@@ -10,6 +10,8 @@ from django.contrib import messages
 from django.urls import reverse
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.db.models import F, Value
+from django.db.models.functions import Least
 from django.utils import timezone
 from django.views.generic import TemplateView, View
 
@@ -641,11 +643,37 @@ class LogHydrationView(OnboardingRequiredMixin, View):
 
         if ml == 0:
             # Zerar é o desfazer: tocou errado, começa o dia de novo.
-            registro.ml = 0
+            HydrationLog.objects.filter(pk=registro.pk).update(
+                ml=0, updated_at=timezone.now()
+            )
         else:
-            # Teto de 10 litros no DIA: acima disso é toque preso, não
-            # hidratação, e um número absurdo estragaria a barra e a ofensiva.
-            registro.ml = min(registro.ml + ml, 10000)
+            # A SOMA ACONTECE NO BANCO, e não em Python. A versão anterior era
+            #
+            #     registro.ml = min(registro.ml + ml, 10000)
+            #     registro.save(...)
+            #
+            # ou seja: lê, soma na memória do processo, escreve de volta. Com
+            # dois toques rápidos, os dois requests leem o MESMO valor antigo e
+            # o segundo sobrescreve o primeiro. Tocar +250, +500 e +750 em
+            # sequência rápida dava 1000 em vez de 1500 — uma perdia.
+            #
+            # Isso é `lost update`, e o defeito não é de velocidade de clique:
+            # é de duas transações concorrentes lendo antes de a outra gravar.
+            # Nenhum debounce no JavaScript conserta, porque o servidor precisa
+            # estar certo mesmo com pedidos simultâneos — e a fila offline
+            # reenvia exatamente assim, em rajada, quando a rede volta.
+            #
+            # Com `F("ml") + ml` o Postgres soma sobre o valor corrente da
+            # linha, dentro da própria instrução. Não há janela entre ler e
+            # escrever, então a ordem de chegada deixa de importar: três
+            # incrementos dão a soma dos três, sempre.
+            #
+            # `Least` mantém o teto de 10 litros no dia sem voltar para Python.
+            # `updated_at` vai explícito porque `auto_now` só age em `save()`,
+            # e `update()` não passa por ele.
+            HydrationLog.objects.filter(pk=registro.pk).update(
+                ml=Least(F("ml") + ml, Value(10000)),
+                updated_at=timezone.now(),
+            )
 
-        registro.save(update_fields=["ml", "updated_at"])
         return redirect("plans:today")
