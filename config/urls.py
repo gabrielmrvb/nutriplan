@@ -6,7 +6,7 @@ from django.views.generic.base import RedirectView
 
 from push import views as push_views
 
-from .health import HealthView
+from .health import HealthView, VivoView
 
 # As rotas do allauth entram PELA METADE, e a metade que fica de fora é a
 # interface.
@@ -59,6 +59,9 @@ urlpatterns = [
     # Fica antes das rotas do app porque é o que a plataforma consulta para
     # decidir se o deploy subiu de pé.
     path("saude/", HealthView.as_view(), name="health"),
+    # Liveness, sem banco: responde se o PROCESSO esta de pe. Ver
+    # `config/health.py` para por que as duas perguntas sao separadas.
+    path("saude/vivo/", VivoView.as_view(), name="liveness"),
     # O modo demo NÃO tem entrada aqui. Ele monta a aplicação inteira sob
     # `/demo/` dentro de `demo.middleware`, que roda antes do resolvedor — e
     # serve as suas duas telas próprias (capa e "sobre") chamando as views

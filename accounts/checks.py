@@ -109,3 +109,96 @@ def email_de_producao_esta_configurado(app_configs, **kwargs):
         )
 
     return problemas
+
+
+#: O valor que `config/settings.py` usa quando a variável não existe. É
+#: deliberadamente feio: um segredo padrão que PARECE segredo é pior do que um
+#: que se denuncia sozinho na primeira leitura.
+CHAVE_DE_DESENVOLVIMENTO = "dev-inseguro-troque-em-producao"
+
+#: A régua do próprio Django (`SECRET_KEY_MIN_LENGTH`). Repetida aqui de
+#: propósito: lá ela é constante privada de `django.core.checks.security.base`,
+#: e importá-la amarraria este arquivo a um detalhe interno do framework.
+TAMANHO_MINIMO_DA_CHAVE = 50
+
+
+@register(Tags.security, deploy=True)
+def chave_secreta_de_producao_e_forte(app_configs, **kwargs):
+    """Impede o deploy quando a SECRET_KEY é fraca, e não só avisa.
+
+    Mora em `accounts` porque o que essa chave assina é, em boa parte, coisa
+    daqui: o token de redefinição de senha, a sessão e o CSRF. Quem tem a chave
+    forja um link de "esqueci minha senha" para qualquer e-mail cadastrado —
+    é a mesma falha que o resto deste arquivo existe para evitar, pela porta
+    dos fundos.
+
+    O Django já reclama disso sozinho, em `security.W009`. O problema é a
+    letra: W de warning. `scripts/build.sh` roda `check --deploy` com
+    `--fail-level ERROR`, então o aviso passava batido em todo deploy, e a
+    produção do NutriPlan subiu meses com ele aceso sem que nada travasse.
+
+    A causa era a plataforma, não descuido: `generateValue: true` no
+    `render.yaml` gera 256 bits em base64, o que dá 44 caracteres — abaixo dos
+    50 que o Django exige. O gerador do Render produz, sem avisar, uma chave
+    que a régua do Django reprova.
+
+    Nada aqui imprime a chave. As mensagens citam TAMANHO, nunca conteúdo: uma
+    verificação que despeja o segredo no log do build para "ajudar a
+    diagnosticar" cria o problema que veio evitar.
+    """
+    if settings.DEBUG:
+        return []
+
+    problemas = []
+    chave = getattr(settings, "SECRET_KEY", "") or ""
+
+    if not chave or chave == CHAVE_DE_DESENVOLVIMENTO:
+        problemas.append(
+            Error(
+                "A SECRET_KEY de produção é o valor padrão de desenvolvimento.",
+                hint=(
+                    "Ela assina sessão, CSRF e o token de redefinição de senha: "
+                    "com o padrão público, qualquer pessoa forja um link de "
+                    "recuperação para qualquer conta. Defina DJANGO_SECRET_KEY "
+                    "no painel, com pelo menos %d caracteres."
+                    % TAMANHO_MINIMO_DA_CHAVE
+                ),
+                id="accounts.E004",
+            )
+        )
+        return problemas
+
+    if len(chave) < TAMANHO_MINIMO_DA_CHAVE:
+        problemas.append(
+            Error(
+                "A SECRET_KEY de produção tem %d caracteres; o mínimo é %d."
+                % (len(chave), TAMANHO_MINIMO_DA_CHAVE),
+                hint=(
+                    "É o que o Render entrega com `generateValue: true` — 256 "
+                    "bits em base64 dão 44 caracteres. Gere uma chave própria "
+                    "e guarde a antiga em DJANGO_SECRET_KEY_FALLBACKS durante a "
+                    "troca, para não deslogar todo mundo."
+                ),
+                id="accounts.E005",
+            )
+        )
+
+    for posicao, antiga in enumerate(getattr(settings, "SECRET_KEY_FALLBACKS", [])):
+        if len(antiga or "") < TAMANHO_MINIMO_DA_CHAVE:
+            problemas.append(
+                Error(
+                    "O fallback nº %d de SECRET_KEY tem %d caracteres; o mínimo "
+                    "é %d." % (posicao + 1, len(antiga or ""),
+                               TAMANHO_MINIMO_DA_CHAVE),
+                    hint=(
+                        "Fallback existe para a janela de troca de chave, e "
+                        "vale só até as sessões antigas expirarem. Se a chave "
+                        "velha era curta demais, tire-a da lista em vez de "
+                        "carregá-la: ela continua assinando o que já foi "
+                        "emitido."
+                    ),
+                    id="accounts.E006",
+                )
+            )
+
+    return problemas

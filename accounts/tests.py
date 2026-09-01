@@ -3881,3 +3881,130 @@ class OrigemDoPedidoTests(TestCase):
         não se conhece."""
         self.assertFalse(getattr(settings, "USA_PROXY_CONFIAVEL", False) is True
                          and settings.DEBUG)
+
+
+class ChaveSecretaDeProducaoTests(TestCase):
+    """A SECRET_KEY fraca precisa DERRUBAR o deploy, e não só piscar um aviso.
+
+    Produção subiu meses com `security.W009` aceso e ninguém foi impedido de
+    nada, porque o build roda `check --deploy --fail-level ERROR` e W é
+    warning. A causa não era descuido: `generateValue: true` no `render.yaml`
+    gera 256 bits em base64, que dão 44 caracteres, e o Django exige 50 — o
+    gerador da plataforma produz, calado, uma chave que a régua do Django
+    reprova.
+
+    Quem tem essa chave forja token de redefinição de senha para qualquer
+    conta cadastrada. É a mesma falha que `FailClosedDeEmailTests` cobre pela
+    porta da frente, entrando pelos fundos.
+    """
+
+    #: 50 caracteres exatos — o mínimo que o Django aceita.
+    FORTE = "k" * 50
+
+    #: 44, que é o que o Render entrega. O número não é decorativo: ele é a
+    #: razão de este teste existir.
+    DO_RENDER = "r" * 44
+
+    def _erros(self, **cfg):
+        from accounts.checks import chave_secreta_de_producao_e_forte
+
+        cfg.setdefault("DEBUG", False)
+        cfg.setdefault("SECRET_KEY_FALLBACKS", [])
+        with override_settings(**cfg):
+            return [e.id for e in chave_secreta_de_producao_e_forte(None)]
+
+    def test_desenvolvimento_pode_usar_a_chave_padrao(self):
+        from accounts.checks import CHAVE_DE_DESENVOLVIMENTO
+
+        self.assertEqual(
+            self._erros(DEBUG=True, SECRET_KEY=CHAVE_DE_DESENVOLVIMENTO), []
+        )
+
+    def test_chave_padrao_em_producao_derruba_o_build(self):
+        from accounts.checks import CHAVE_DE_DESENVOLVIMENTO
+
+        self.assertIn(
+            "accounts.E004", self._erros(SECRET_KEY=CHAVE_DE_DESENVOLVIMENTO)
+        )
+
+    def test_a_chave_de_44_do_render_e_reprovada(self):
+        """O caso real, e o motivo desta verificação existir."""
+        self.assertIn("accounts.E005", self._erros(SECRET_KEY=self.DO_RENDER))
+
+    def test_chave_de_50_passa(self):
+        self.assertEqual(self._erros(SECRET_KEY=self.FORTE), [])
+
+    def test_fallback_curto_tambem_e_reprovado(self):
+        """Fallback assina com a mesma força — ou fraqueza — da chave velha.
+
+        Durante a troca, uma sessão emitida pela chave antiga continua sendo
+        aceita. Deixar uma chave de 44 na lista é manter o problema em pé com
+        outro nome, e o Django avisa disso em `security.W025` — com a mesma
+        letra W que ninguém lê.
+        """
+        self.assertIn(
+            "accounts.E006",
+            self._erros(SECRET_KEY=self.FORTE,
+                        SECRET_KEY_FALLBACKS=[self.DO_RENDER]),
+        )
+
+    def test_fallback_forte_nao_reclama(self):
+        self.assertEqual(
+            self._erros(SECRET_KEY=self.FORTE,
+                        SECRET_KEY_FALLBACKS=["a" * 50, "b" * 60]),
+            [],
+        )
+
+    def test_a_mensagem_nunca_carrega_a_chave(self):
+        """Verificação que despeja o segredo no log cria o problema que veio evitar.
+
+        O log do build do Render fica visível para quem tem acesso ao painel, e
+        um `check` "prestativo" que imprime o valor para ajudar a diagnosticar
+        publicaria ali a chave que assina a sessão de todo mundo.
+        """
+        from accounts.checks import chave_secreta_de_producao_e_forte
+
+        segredo = "chave-que-nao-pode-vazar-de-jeito-nenhum-0123456789"
+        curta = "curta-demais-mas-tambem-secreta"
+        with override_settings(DEBUG=False, SECRET_KEY=curta,
+                               SECRET_KEY_FALLBACKS=[segredo]):
+            texto = " ".join(
+                "%s %s" % (e.msg, e.hint)
+                for e in chave_secreta_de_producao_e_forte(None)
+            )
+
+        self.assertNotIn(segredo, texto)
+        self.assertNotIn(curta, texto)
+        # ...mas o tamanho precisa aparecer, senão a mensagem não ajuda ninguém.
+        self.assertIn(str(len(curta)), texto)
+
+    def test_a_verificacao_so_roda_com_deploy(self):
+        """Mesma razão da de e-mail: a suíte roda com DEBUG=False.
+
+        Registrada como verificação comum, ela derrubaria todo `manage.py test`
+        acusando a chave de desenvolvimento de ser produção mal configurada.
+        """
+        from django.core.checks import registry
+
+        comuns = {c.__name__ for c in registry.registry.get_checks()}
+        de_deploy = {
+            c.__name__
+            for c in registry.registry.get_checks(include_deployment_checks=True)
+        }
+
+        self.assertIn("chave_secreta_de_producao_e_forte", de_deploy)
+        self.assertNotIn("chave_secreta_de_producao_e_forte", comuns)
+
+    def test_o_blueprint_nao_gera_mais_a_chave_pela_plataforma(self):
+        """`generateValue: true` é a causa-raiz, e ela mora no `render.yaml`.
+
+        Sem este teste, alguém restaura a linha antiga em seis meses "porque é
+        mais prático não ter que definir a variável à mão" e o W009 volta —
+        agora como E005, derrubando o build, sem ninguém entender por quê.
+        """
+        texto = (Path(settings.BASE_DIR) / "render.yaml").read_text(
+            encoding="utf-8"
+        )
+        bloco = texto.split("- key: DJANGO_SECRET_KEY", 1)[1].split("- key:", 1)[0]
+        self.assertNotIn("generateValue", bloco)
+        self.assertIn("sync: false", bloco)

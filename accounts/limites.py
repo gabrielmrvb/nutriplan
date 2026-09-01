@@ -91,6 +91,14 @@ def _hmac(valor: str) -> str:
     quem usa o NutriPlan — exatamente o que a tela de recuperação existe para
     não revelar. HMAC e não hash simples: sem a chave, nem uma tabela arco-íris
     de e-mails comuns ajuda.
+
+    EFEITO COLATERAL DE ROTACIONAR A CHAVE, e ele é deliberado: trocada a
+    SECRET_KEY, as linhas antigas passam a ter um HMAC que não bate mais com
+    nada, e o contador começa do zero. As janelas são de 60 minutos e 24 horas,
+    então isso se cura sozinho em um dia — e o preço de não ter esse efeito
+    seria guardar o e-mail de forma reversível, que é caro demais para pagar
+    por um contador. `SECRET_KEY_FALLBACKS` não ajuda aqui: ele vale para
+    VERIFICAR assinatura já emitida, e este HMAC é recalculado a cada consulta.
     """
     return hmac.new(
         settings.SECRET_KEY.encode("utf-8"), valor.encode("utf-8"), hashlib.sha256

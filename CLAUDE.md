@@ -57,6 +57,20 @@ as duas precisam de `op_id`. Marcação de refeição e carga de série usam
 `update_or_create` e já são seguras; se alguém trocá-las por contador, a fila
 quebra em silêncio.
 
+**A SECRET_KEY não é gerada pela plataforma.** `generateValue: true` do Render
+entrega 256 bits em base64 — 44 caracteres —, e o Django exige 50. Isso deixou
+`security.W009` aceso em produção desde o primeiro deploy sem travar nada,
+porque W é *warning* e o build reprova só em ERROR. Hoje é `accounts.E005`, e
+derruba. A chave é definida à mão no painel; `DJANGO_SECRET_KEY_FALLBACKS`
+existe só para a janela de troca, e sai da lista assim que as sessões antigas
+expiram.
+
+**Log não guarda segredo nem dado de saúde.** `config/observabilidade.py` redige
+token de redefinição (que anda **na URL**, e o logger de request grava caminho),
+parâmetro de OAuth, chave de SMTP e URL de banco. `django.db.backends` fica em
+WARNING até em DEBUG: consulta com parâmetro carrega e-mail e peso. Toda linha
+leva o identificador do pedido, que também volta no cabeçalho `X-Request-ID` —
+sem ele, "deu erro" e "fulano reclamou" nunca se encontram.
 ## Testes
 
 Nome descreve o comportamento, não o método. Docstring diz **por que** aquilo
@@ -77,10 +91,40 @@ dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
   `workouts/health_export.py` gera TCX para importar.
 - **Background Sync não existe no Safari do iPhone.** O evento `online` é o
   mecanismo principal; o sync em segundo plano é bônus.
-- O banco gratuito do Render **é apagado por volta de 23/09/2026**.
-
+- O banco gratuito do Render **é apagado em 23/09/2026** — data lida no painel,
+  e o verbo do Render é *deleted*, não *suspended*. Não existe backup
+  gerenciado no plano gratuito: o que não estiver em `nutriplan-backups/` não
+  volta. Ver **Backup e restauração**.
 ## Deploy
 
-`git push` dispara o Render. `scripts/build.sh` roda collectstatic → migrate →
-os três seeds, com `errexit`: build que passa prova que a migração rodou.
-Confira em `/saude/`.
+`git push` dispara o Render. `scripts/build.sh` roda collectstatic →
+`check --deploy` → migrate → os três seeds, com `errexit`: build que passa
+prova que a migração rodou. Confira em `/saude/`.
+
+O `check --deploy` vem **depois** do collectstatic e é um portão, não um aviso:
+ele importa a URLconf, que resolve `static()` para o favicon em tempo de import,
+e sem o manifesto isso estoura com um erro que não tem nada a ver com o que a
+verificação veio checar. Com `--fail-level ERROR`, o que reprova ali não sobe —
+hoje são e-mail de produção (`accounts.E001`–`E003`) e força da SECRET_KEY
+(`accounts.E004`–`E006`).
+
+## Backup e restauração
+
+```bash
+DATABASE_URL='...' scripts/backup.sh ~/nutriplan-backups   # tira e valida
+scripts/restaurar.sh ~/nutriplan-backups/xxx.dump          # prova que volta
+```
+
+O `pg_dump` precisa ser **18 ou mais novo** — o cliente se recusa a despejar um
+servidor mais novo que ele. No Windows os binários ficam em
+`C:\Users\biel-\pg18\pgsql\bin`; os do 16 que vêm com outras ferramentas geram
+um arquivo de zero byte.
+
+`restaurar.sh` se recusa a apontar para qualquer host que não seja local, porque
+ele começa apagando o banco de destino. Ele varre **toda** chave estrangeira
+procurando órfã — não uma lista escrita à mão, que envelheceria na primeira
+migration — e conta linhas sem nunca ler conteúdo: o dump tem e-mail, peso e
+histórico de treino de gente real.
+
+Um dump que ninguém restaurou é uma esperança, não um backup. Restaurar os 12 MB
+deste banco leva 0,3 s: não há desculpa para pular o drill.

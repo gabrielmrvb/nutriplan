@@ -16,24 +16,57 @@ deploy quando o banco não responde — que é o que um health check deveria faz
 O que é exposto são contagens de catálogo, os mesmos números que qualquer
 visitante veria navegando. Nada de usuário, nada de dado pessoal.
 """
-from django.db import OperationalError, connection
+from django.db import OperationalError, ProgrammingError, connection
 from django.http import JsonResponse
 from django.views import View
 
 
-class HealthView(View):
-    def get(self, request, *args, **kwargs):
-        # Importados aqui dentro, e não no topo, porque este módulo é lido
-        # durante o carregamento das URLs — antes de os apps estarem prontos.
-        from catalog.models import Food, MealTemplate
-        from workouts.models import Exercise
+class VivoView(View):
+    """Liveness: o processo responde? Só isso.
 
+    Separado do `/saude/` porque as duas perguntas têm consequências
+    diferentes. "O processo está de pé?" se responde sem tocar no banco — e é o
+    que decide REINICIAR. "A aplicação está pronta para atender?" precisa do
+    banco e do catálogo, e é o que decide MANDAR TRÁFEGO.
+
+    Misturar as duas tem um efeito ruim e não óbvio: uma indisponibilidade
+    momentânea do banco derrubaria um processo que estava perfeitamente vivo, e
+    reiniciar não conserta banco fora do ar — só piora, porque a subida custa
+    mais um cold start.
+    """
+
+    def get(self, request, *args, **kwargs):
+        return JsonResponse({"status": "vivo"})
+
+
+class HealthView(View):
+    """Readiness: subiu inteiro e pronto para receber gente?
+
+    UMA consulta, e não cinco. A versão anterior fazia um `COUNT` por tabela —
+    quatro viagens ao banco a cada batida do health check da plataforma, que
+    acontece de poucos em poucos segundos. Agora as contagens vão juntas num
+    único `SELECT` de subconsultas: a resposta é a mesma e o custo é uma ida.
+    """
+
+    def get(self, request, *args, **kwargs):
         try:
-            connection.ensure_connection()
-        except OperationalError as erro:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    select
+                      (select count(*) from catalog_food where is_active),
+                      (select count(*) from catalog_mealtemplate where is_active),
+                      (select count(*) from workouts_exercise),
+                      (select count(*) from workouts_exercise where video_url <> '')
+                    """
+                )
+                alimentos, modelos, exercicios, com_video = cursor.fetchone()
+        except (OperationalError, ProgrammingError) as erro:
+            # `ProgrammingError` cobre o instante entre o deploy e o `migrate`:
+            # a tabela pode ainda não existir, e isso é "não pronto", não
+            # "banco caiu".
             return JsonResponse(
-                {"status": "sem banco", "erro": str(erro)},
-                status=503,
+                {"status": "sem banco", "erro": str(erro)[:200]}, status=503
             )
 
         # Só o que está ATIVO conta. Alimento aposentado continua na tabela
@@ -41,10 +74,10 @@ class HealthView(View):
         # para ninguém — contá-lo aqui responderia sobre o banco, e a pergunta
         # é sobre o que o usuário encontra na tela.
         catalogo = {
-            "alimentos": Food.objects.filter(is_active=True).count(),
-            "modelos_de_refeicao": MealTemplate.objects.filter(is_active=True).count(),
-            "exercicios": Exercise.objects.count(),
-            "exercicios_com_video": Exercise.objects.exclude(video_url="").count(),
+            "alimentos": alimentos,
+            "modelos_de_refeicao": modelos,
+            "exercicios": exercicios,
+            "exercicios_com_video": com_video,
         }
 
         # Catálogo vazio é app quebrado, não app saudável: o cadastro termina

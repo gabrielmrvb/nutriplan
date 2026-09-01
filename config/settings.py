@@ -6,6 +6,8 @@ Toda configuracao sensivel ou que muda entre ambientes vem do arquivo .env
 """
 from pathlib import Path
 
+from config import observabilidade
+
 import environ
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -17,6 +19,28 @@ env = environ.Env(
 environ.Env.read_env(BASE_DIR / ".env")
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-inseguro-troque-em-producao")
+
+#: Chaves ANTIGAS que continuam validando o que ja foi assinado.
+#:
+#: Existe para a troca da `SECRET_KEY` nao derrubar todo mundo. O que ela
+#: assina no NutriPlan: a sessao, o token de CSRF, o token de recuperacao de
+#: senha, o `state` do OAuth do Google e o HMAC do contador de abuso em
+#: `accounts/limites.py`. Trocar sem rede de seguranca desloga todos, invalida
+#: os links de redefinicao que estao viajando por e-mail e derruba os logins do
+#: Google no meio do caminho.
+#:
+#: Com a chave antiga aqui, o Django ACEITA o que ela assinou e ASSINA o novo
+#: com a nova. A janela precisa cobrir o maior prazo em jogo, que hoje e o
+#: `PASSWORD_RESET_TIMEOUT` de 3 horas — e, para nao deslogar ninguem, a idade
+#: de sessao. Passada a janela, a variavel sai do ambiente e a chave antiga
+#: deixa de valer.
+#:
+#: NOTA sobre o `check --deploy`: ele valida cada fallback com a MESMA regra da
+#: chave principal (`security.W025`). A chave que o Render gera tem 44
+#: caracteres — 256 bits em base64 —, entao ela dispara o aviso por
+#: COMPRIMENTO enquanto estiver aqui. E esperado e temporario; o aviso some
+#: junto com a variavel.
+SECRET_KEY_FALLBACKS = env.list("DJANGO_SECRET_KEY_FALLBACKS", default=[])
 DEBUG = env("DJANGO_DEBUG")
 ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
 
@@ -56,6 +80,10 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # PRIMEIRO de todos: o identificador precisa existir antes de qualquer
+    # coisa poder falhar, senao o 500 que acontece dentro de outro middleware
+    # sai sem marca — e e justamente esse que da trabalho para reconstruir.
+    "config.observabilidade.MarcaDePedidoMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     # Comprime o HTML que o Django gera. O WhiteNoise comprime os ESTÁTICOS e
@@ -121,6 +149,24 @@ DATABASES = {
     )
 }
 
+# O padrão do Django é abrir e fechar uma conexão POR PEDIDO. Contra um Postgres
+# na mesma máquina isso é barato e some no ruído; contra um banco gerenciado do
+# outro lado de TLS, cada pedido paga handshake antes de a primeira consulta
+# sair. Numa tela que faz três consultas, o custo de conectar chega a pesar mais
+# que as consultas.
+#
+# Um minuto, e não "para sempre": o serviço web do plano gratuito hiberna, e
+# conexão pendurada em processo que vai morrer é conexão desperdiçada do lado do
+# banco. Com `WEB_CONCURRENCY=2` isso são duas conexões vivas, longe de qualquer
+# limite.
+#
+# `CONN_HEALTH_CHECKS` é o par obrigatório disto, e não um extra: conexão
+# reaproveitada pode ter morrido do outro lado — o banco reiniciou, a rede caiu,
+# ou (no caso de um Postgres que hiberna por inatividade) o servidor desligou
+# sozinho. Sem a checagem, o primeiro pedido depois disso morre com
+# `OperationalError` na cara de quem estava usando o app.
+DATABASES["default"]["CONN_MAX_AGE"] = env.int("DJANGO_CONN_MAX_AGE", default=60)
+DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 # Usuario customizado desde o inicio: trocar isso depois da primeira
 # migration e um dos poucos caminhos realmente dolorosos no Django.
 AUTH_USER_MODEL = "accounts.User"
@@ -412,3 +458,13 @@ PWA_BACKGROUND_COLOR = "#0d0f12"
 # sistema operacional não troca a tela de abertura do app instalado conforme o
 # tema do aparelho.
 PWA_LIGHT_COLOR = "#f4f6f5"
+
+
+# ==========================================================================
+# Observabilidade
+# ==========================================================================
+#
+# Ver `config/observabilidade.py` para o desenho e para o que NAO se registra.
+# Em resumo: identificador por pedido, 5xx com traceback, e redacao do token de
+# redefinicao — que viaja na URL e apareceria no log de acesso num 500.
+LOGGING = observabilidade.configuracao(DEBUG)

@@ -14,9 +14,16 @@ databases:
     databaseName: nutriplan
     user: nutriplan
     plan: free
-    # O plano gratuito do Render EXPIRA o banco depois de 30 dias. Para um site
-    # que precisa durar, troque para `starter` aqui antes de convidar gente.
-
+    # PRAZO REAL, lido no painel em 31/08/2026: este banco EXPIRA EM
+    # 23/09/2026, e o texto do Render e "will be deleted unless you upgrade" —
+    # apagado, nao suspenso. Nao existe backup gerenciado no plano gratuito,
+    # entao o que nao tiver sido despejado ate la nao volta.
+    #
+    # Tamanho nunca foi o problema: o banco restaurado ocupa 12 MB, e o painel
+    # marca 7,18% de 1 GB. O problema e o relogio.
+    #
+    # `scripts/backup.sh` tira o dump e `scripts/restaurar.sh` prova que ele
+    # volta. Rode o primeiro ANTES de mexer em qualquer coisa aqui.
 services:
   - type: web
     name: nutriplan
@@ -31,11 +38,56 @@ services:
     # ficou vazio — que são as duas formas de o site subir inútil.
     healthCheckPath: /saude/
     envVars:
-      # Gerada pelo Render e nunca vista por ninguém — é o certo para um
-      # segredo que não precisa ser lembrado.
+      # `generateValue: true` ficou aqui por muito tempo, e parecia a escolha
+      # certa: chave gerada pela plataforma, nunca vista por ninguém. O detalhe
+      # que derruba isso é aritmético — o Render gera 256 bits em base64, o que
+      # dá 44 caracteres, e o Django exige 50. Resultado: `security.W009` aceso
+      # em produção desde o primeiro deploy, sem nunca travar nada, porque o
+      # build roda `check --deploy --fail-level ERROR` e W é warning.
+      #
+      # `accounts.E005` agora reprova esse caso como ERRO. Então a chave é
+      # definida à mão no painel, como as de VAPID e SMTP: `sync: false` diz ao
+      # Render "esta variável é gerenciada fora do blueprint, não a toque".
+      #
+      # Ambiente novo criado a partir deste arquivo sobe SEM a variável, cai no
+      # padrão de desenvolvimento e o build falha em `accounts.E004` dizendo
+      # exatamente o que fazer. Falhar assim é o objetivo: o modo antigo subia
+      # calado com uma chave que assina token de redefinição de senha.
       - key: DJANGO_SECRET_KEY
-        generateValue: true
+        sync: false
 
+      # Só durante a troca de chave, e vazia no resto do tempo. O Django aceita
+      # assinatura feita pela chave antiga enquanto ela estiver nesta lista, o
+      # que evita deslogar todo mundo e invalidar os links de recuperação que
+      # já saíram. Tire da lista assim que as sessões antigas expirarem.
+      - key: DJANGO_SECRET_KEY_FALLBACKS
+        sync: false
+
+      # SMTP de produção (Brevo). Declaradas aqui para que o blueprint não
+      # minta sobre o que o serviço precisa — os VALORES continuam só no
+      # painel. Sem elas, `accounts.E001`/`E002` derrubam o build antes de o
+      # app subir, que é melhor que a recuperação de senha escrever link
+      # válido no log.
+      - key: DJANGO_EMAIL_BACKEND
+        value: django.core.mail.backends.smtp.EmailBackend
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        sync: false
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: EMAIL_USE_TLS
+        value: "True"
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+
+      # Entrar com o Google. Ausentes, o app só não oferece o botão.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
       # Com DEBUG ligado, qualquer erro devolve uma página com settings,
       # caminhos de arquivo e trechos de código. Em produção, nunca.
       - key: DJANGO_DEBUG

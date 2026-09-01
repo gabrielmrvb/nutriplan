@@ -1676,3 +1676,319 @@ class MarcaTests(TestCase):
         self.assertIn('sizes="180x180"', self.base)
         dados = (self.icones / "apple-touch-icon.png").read_bytes()
         self.assertEqual(struct.unpack(">II", dados[16:24]), (180, 180))
+
+
+class ObservabilidadeTests(TestCase):
+    """O log precisa servir para diagnosticar sem virar vazamento.
+
+    O NutriPlan não tinha configuração de log nenhuma até esta missão: uma
+    exceção não tratada sumia, e o único sinal era `/saude/`, que responde 200
+    enquanto o processo estiver de pé.
+    """
+
+    def test_o_token_de_redefinicao_nunca_sobrevive_no_log(self):
+        """É o vazamento urgente: o token viaja NA URL.
+
+        `django.request` registra o caminho num 500. Sem redação, um erro na
+        tela de redefinir gravaria um token VÁLIDO por três horas no log da
+        plataforma — o mesmo cenário que `accounts/checks.py` fecha do lado do
+        e-mail.
+        """
+        from config.observabilidade import redigir
+
+        caminho = "/conta/senha/nova/MjM/cf9x2k-4a1b2c3d4e5f6a7b8c9d0e1f2a3b4c/"
+
+        limpo = redigir("Internal Server Error: " + caminho)
+
+        self.assertIn("[REDIGIDO]", limpo)
+        self.assertNotIn("cf9x2k", limpo)
+        self.assertNotIn("MjM", limpo)
+        # E o começo do caminho fica, senão o log perde o que serve.
+        self.assertIn("/senha/nova/", limpo)
+
+    def test_segredos_de_infraestrutura_tambem_somem(self):
+        from config.observabilidade import redigir
+
+        texto = redigir(
+            "erro ao conectar postgresql://usuario:senha@host:5432/banco "
+            "com chave xsmtpsib-abc123def456 e ?code=segredo&state=outro"
+        )
+
+        self.assertNotIn("senha@host", texto)
+        self.assertNotIn("abc123def456", texto)
+        self.assertNotIn("segredo", texto)
+        self.assertIn("[REDIGIDO]", texto)
+
+    def test_cada_resposta_carrega_um_identificador(self):
+        """Sem ele, "deu erro" e "o usuário reclamou" nunca se encontram."""
+        resposta = self.client.get(reverse("health"))
+
+        self.assertIn("X-Request-ID", resposta)
+        self.assertRegex(resposta["X-Request-ID"], r"^[A-Za-z0-9._-]{1,64}$")
+
+    def test_o_identificador_de_fora_e_reaproveitado_quando_e_seguro(self):
+        """Assim a mesma marca atravessa proxy e aplicação."""
+        resposta = self.client.get(reverse("health"), HTTP_X_REQUEST_ID="abc-123")
+
+        self.assertEqual(resposta["X-Request-ID"], "abc-123")
+
+    def test_cabecalho_com_lixo_nao_entra_no_log(self):
+        """Cabeçalho é escrito pelo cliente. Aceitar qualquer coisa
+        transformaria o log num alvo de injeção."""
+        resposta = self.client.get(
+            reverse("health"), HTTP_X_REQUEST_ID="quebra\nlinha INJETADA"
+        )
+
+        self.assertNotIn("INJETADA", resposta["X-Request-ID"])
+        self.assertRegex(resposta["X-Request-ID"], r"^[0-9a-f]{12}$")
+
+    def test_o_sql_nao_vai_para_o_log_nem_em_debug(self):
+        """Consulta com parâmetro carrega e-mail e peso — dado de saúde num
+        log é dado de saúde exposto."""
+        from config import observabilidade
+
+        cfg = observabilidade.configuracao(debug=True)
+
+        self.assertEqual(cfg["loggers"]["django.db.backends"]["level"], "WARNING")
+
+    def test_erro_de_servidor_e_registrado_com_traceback(self):
+        cfg = __import__("config.observabilidade", fromlist=["x"]).configuracao(False)
+
+        self.assertEqual(cfg["loggers"]["django.request"]["level"], "ERROR")
+        self.assertIn("console", cfg["loggers"]["django.request"]["handlers"])
+
+
+class RotacaoDeChaveTests(TestCase):
+    """A troca da `SECRET_KEY` não pode derrubar todo mundo."""
+
+    def test_o_projeto_aceita_chaves_antigas(self):
+        """`SECRET_KEY_FALLBACKS` é o que permite trocar a chave sem deslogar
+        ninguém e sem invalidar link de redefinição em trânsito."""
+        from django.conf import settings
+
+        self.assertTrue(hasattr(settings, "SECRET_KEY_FALLBACKS"))
+        self.assertIsInstance(settings.SECRET_KEY_FALLBACKS, list)
+
+    def test_sem_a_variavel_a_lista_fica_vazia(self):
+        """O padrão é NÃO ter chave antiga valendo: fallback esquecido é uma
+        chave aposentada que continua assinando."""
+        from django.conf import settings
+
+        self.assertEqual(settings.SECRET_KEY_FALLBACKS, [])
+
+    def test_sessao_assinada_com_a_chave_antiga_continua_valendo(self):
+        """O contrato inteiro da janela de migração, em uma asserção."""
+        from django.contrib.auth import get_user_model
+
+        antiga = "chave-antiga-de-teste-com-tamanho-suficiente-1234567890"
+        nova = "chave-nova-de-teste-com-tamanho-suficiente-0987654321abc"
+
+        user = get_user_model().objects.create_user(
+            email="rotacao@exemplo.com", password="SenhaDaRotacao!2026"
+        )
+        with override_settings(SECRET_KEY=antiga, SECRET_KEY_FALLBACKS=[]):
+            cliente = Client()
+            cliente.force_login(user)
+            self.assertIn("_auth_user_id", cliente.session)
+            cookie = cliente.cookies["sessionid"].value
+
+        with override_settings(SECRET_KEY=nova, SECRET_KEY_FALLBACKS=[antiga]):
+            depois = Client()
+            depois.cookies["sessionid"] = cookie
+            resposta = depois.get(reverse("accounts:profile"))
+            self.assertEqual(resposta.status_code, 200)
+
+    def test_sem_fallback_a_sessao_antiga_cai(self):
+        """O custo de trocar sem rede, medido — é o que justifica a janela."""
+        from django.contrib.auth import get_user_model
+
+        antiga = "chave-antiga-de-teste-com-tamanho-suficiente-1234567890"
+        nova = "chave-nova-de-teste-com-tamanho-suficiente-0987654321abc"
+
+        user = get_user_model().objects.create_user(
+            email="semrede@exemplo.com", password="SenhaSemRede!2026"
+        )
+        with override_settings(SECRET_KEY=antiga, SECRET_KEY_FALLBACKS=[]):
+            cliente = Client()
+            cliente.force_login(user)
+            cookie = cliente.cookies["sessionid"].value
+
+        with override_settings(SECRET_KEY=nova, SECRET_KEY_FALLBACKS=[]):
+            depois = Client()
+            depois.cookies["sessionid"] = cookie
+            resposta = depois.get(reverse("accounts:profile"))
+            self.assertEqual(resposta.status_code, 302)
+
+
+class HealthV2Tests(TestCase):
+    """Liveness e readiness respondem perguntas diferentes."""
+
+    @classmethod
+    def setUpTestData(cls):
+        semear()
+
+    def test_liveness_nao_toca_no_banco(self):
+        """"O processo está de pé?" se responde sem banco — e é essa pergunta
+        que decide REINICIAR. Misturar com readiness faria uma queda momentânea
+        do banco derrubar um processo saudável, e reiniciar não conserta banco
+        fora do ar."""
+        with self.assertNumQueries(0):
+            resposta = self.client.get(reverse("liveness"))
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(resposta.json(), {"status": "vivo"})
+
+    def test_readiness_cabe_em_uma_consulta(self):
+        """Eram quatro `COUNT`, uma por tabela, a cada batida do health check
+        da plataforma — que acontece de poucos em poucos segundos."""
+        with self.assertNumQueries(1):
+            resposta = self.client.get(reverse("health"))
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(resposta.json()["status"], "ok")
+
+    def test_readiness_continua_recusando_catalogo_vazio(self):
+        from catalog.models import Food
+
+        Food.objects.update(is_active=False)
+
+        resposta = self.client.get(reverse("health"))
+
+        self.assertEqual(resposta.status_code, 503)
+        self.assertIn("alimentos", resposta.json()["faltando"])
+
+    def test_a_plataforma_aponta_para_o_readiness(self):
+        """Um `healthCheckPath` no liveness deixaria o Render publicar um app
+        que subiu sem banco."""
+        render = (Path(settings.BASE_DIR) / "render.yaml").read_text(encoding="utf-8")
+
+        self.assertIn("healthCheckPath: /saude/", render)
+
+
+class ConexaoDeBancoTests(TestCase):
+    """Conexão por pedido é barata perto de um Postgres local e cara longe dele.
+
+    O banco de produção fica em Oregon, atrás de TLS. Com o padrão do Django —
+    abrir e fechar a cada requisição — toda tela paga um handshake antes de a
+    primeira consulta sair, e numa tela de três consultas o custo de conectar
+    passa a pesar mais que as consultas.
+    """
+
+    def test_a_conexao_e_reaproveitada(self):
+        self.assertGreater(settings.DATABASES["default"]["CONN_MAX_AGE"], 0)
+
+    def test_a_conexao_reaproveitada_e_checada_antes_de_usar(self):
+        """`CONN_MAX_AGE` sem `CONN_HEALTH_CHECKS` é uma armadilha, não um ganho.
+
+        A conexão guardada pode ter morrido do outro lado — o banco reiniciou,
+        a rede caiu, ou o servidor hibernou por inatividade. Sem a checagem, o
+        primeiro pedido depois disso estoura com `OperationalError` na cara de
+        quem estava usando o app, e o segundo funciona: o defeito mais chato de
+        reproduzir que existe.
+        """
+        self.assertIs(settings.DATABASES["default"]["CONN_HEALTH_CHECKS"], True)
+
+
+class BackupTests(TestCase):
+    """O plano gratuito não faz backup, e o banco tem data para ser apagado.
+
+    O que estes testes protegem é uma cicatriz específica: o primeiro backup de
+    produção gerou um arquivo de ZERO BYTE e imprimiu "BACKUP OK". O `pg_dump`
+    era 16.9, o servidor 18.4, e o cliente se recusa a despejar servidor mais
+    novo — mas o script perguntava "o arquivo existe?" em vez de "o comando deu
+    certo?". Existia. Vazio. E o backup seguinte sobrescreveria a única cópia
+    boa com a mesma confiança.
+    """
+
+    BACKUP = RAIZ / "scripts" / "backup.sh"
+    RESTAURAR = RAIZ / "scripts" / "restaurar.sh"
+
+    def test_os_dois_scripts_existem(self):
+        self.assertTrue(self.BACKUP.is_file())
+        self.assertTrue(self.RESTAURAR.is_file())
+
+    def test_o_backup_aborta_quando_um_passo_falha(self):
+        """Sem `errexit`, o `pg_dump` falha e o script segue até o "BACKUP OK"."""
+        texto = self.BACKUP.read_text(encoding="utf-8")
+        self.assertIn("set -o errexit", texto)
+
+    def test_o_backup_confere_o_tamanho_do_arquivo(self):
+        texto = self.BACKUP.read_text(encoding="utf-8")
+        self.assertIn("MINIMO_BYTES", texto)
+        # a comparação, e não só a constante declarada
+        self.assertRegex(texto, r'\$TAMANHO"?\s*-lt\s*"?\$MINIMO_BYTES')
+
+    def test_o_backup_nao_recebe_a_url_por_argumento(self):
+        """Argumento aparece em `ps`, no histórico do shell e no log de CI.
+
+        A URL do banco carrega a senha. Ela entra por ambiente ou não entra.
+        """
+        texto = self.BACKUP.read_text(encoding="utf-8")
+        self.assertIn('DATABASE_URL:-', texto)
+        self.assertNotRegex(texto, r'DATABASE_URL="\$\{?[1-9]')
+
+    def test_nenhum_dos_dois_imprime_a_url(self):
+        for script in (self.BACKUP, self.RESTAURAR):
+            texto = script.read_text(encoding="utf-8")
+            for linha in texto.splitlines():
+                despido = linha.strip()
+                if despido.startswith("#"):
+                    continue
+                if despido.startswith(("echo", "printf")):
+                    self.assertNotIn("$DATABASE_URL", despido, script.name)
+                    self.assertNotIn("$ALVO", despido, script.name)
+                    self.assertNotIn("$DESTINO", despido, script.name)
+
+
+class RestoreDrillTests(TestCase):
+    """O guarda-corpo do restore, testado rodando o script — não lendo o texto.
+
+    `assertIn("localhost", texto)` passaria com a checagem comentada. Aqui o
+    script é EXECUTADO com um alvo remoto e precisa se recusar a continuar:
+    ele começa apagando o banco de destino, e apontá-lo para produção por
+    engano apagaria o banco de verdade.
+    """
+
+    RESTAURAR = RAIZ / "scripts" / "restaurar.sh"
+
+    def _rodar(self, *args, **ambiente):
+        import os
+        import shutil
+        import subprocess
+
+        bash = shutil.which("bash")
+        if not bash:
+            self.skipTest("bash não está disponível neste ambiente")
+
+        env = dict(os.environ)
+        env.update(ambiente)
+        return subprocess.run(
+            [bash, str(self.RESTAURAR), *args],
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=60, env=env,
+        )
+
+    def test_recusa_alvo_que_nao_seja_local(self):
+        dump = RAIZ / "manage.py"  # só precisa existir; não chega a ser lido
+        r = self._rodar(str(dump), "postgres://u:s@banco-de-verdade.com:5432/prod")
+
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("não é local", r.stderr)
+
+    def test_o_escape_existe_e_e_deliberado(self):
+        """Recusar sempre tornaria o script inútil para uma migração real.
+
+        `FORCA=1` é longo o bastante para ninguém digitar por engano, e o
+        pedido some do histórico junto com o comando.
+        """
+        dump = RAIZ / "manage.py"
+        r = self._rodar(str(dump), "postgres://u:s@outro-host.com:5432/x", FORCA="1")
+
+        # Passa do guarda-corpo e morre adiante, tentando falar com o host —
+        # que é exatamente o que se quer provar.
+        self.assertNotIn("não é local", r.stderr)
+
+    def test_sem_arquivo_nao_faz_nada(self):
+        r = self._rodar("/caminho/que/nao/existe.dump")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("uso:", r.stderr)
