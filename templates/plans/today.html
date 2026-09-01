@@ -743,8 +743,34 @@ coluna da direita), não entre ela e o almoço.
                 <span class="progress__fill progress__fill--{{ macro.slug }}"
                       style="width: {{ macro.eaten_pct }}%"></span>
               </div>
+              {% comment %}
+                Todos os números desta linha falam da MESMA coisa: o consumo.
+
+                A versão anterior dizia "faltam X g · Y kcal · Z% da meta", e
+                só o primeiro respondia isso. `Y` era a meta inteira convertida
+                em caloria e `Z%` era a participação do macro no dia — o mesmo
+                número que a barra empilhada acima usa, onde ele está certo.
+                Reunidos sob "faltam", os três se contradiziam: com 39 de 146 g
+                de proteína saía "faltam 107 g · 584 kcal · 21% da meta".
+
+                `left_kcal` vem da view e não de um `×4` escrito aqui: o fator
+                é 4 para proteína e carboidrato e 9 para gordura, e um número
+                fixo no HTML mentiria na linha da gordura.
+
+                Passando da meta, o texto NÃO diz "100% consumido": a barra é
+                que foi limitada a 100, não o consumo. O cabeçalho mostra
+                "160 / 146 g" e esta linha diz o quanto passou.
+              {% endcomment %}
               <span class="macro-line__meta">
-                faltam {{ macro.left }} g · {{ macro.kcal }} kcal · {{ macro.pct }}% da meta
+                {% if macro.acima %}
+                  Meta batida · <b class="num">{{ macro.acima }} g</b> acima
+                {% elif macro.batido %}
+                  Meta batida
+                {% else %}
+                  {{ macro.eaten_pct }}% consumido ·
+                  faltam <b class="num">{{ macro.left }} g</b> ·
+                  ~<b class="num">{{ macro.left_kcal }} kcal</b>
+                {% endif %}
               </span>
             </div>
           {% endfor %}

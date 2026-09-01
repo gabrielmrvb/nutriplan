@@ -75,16 +75,38 @@ def macro_rows(plan, summary=None):
     macros = []
     for name, grams, kcal_per_g, slug, key in rows:
         eaten = (summary or {}).get(key, 0)
+        left = max(grams - eaten, 0)
+        acima = max(eaten - grams, 0)
         macros.append(
             {
                 "name": name,
                 "grams": grams,
+                # `kcal` e `pct` descrevem a META, e `pct` é a participação
+                # daquele macro no orçamento calórico do dia. Isso está certo,
+                # e é o que a barra empilhada precisa: os três somam 100%.
+                #
+                # O defeito não estava aqui — estava na FRASE embaixo dela, que
+                # dizia "faltam X g · Y kcal · Z% da meta" reunindo três
+                # semânticas incompatíveis. Com 39 de 146 g de proteína saía
+                # "faltam 107 g · 584 kcal · 21% da meta": 584 é a meta inteira
+                # vezes quatro, e 21% é quanto a proteína pesa no dia. Só o
+                # primeiro número respondia "quanto falta".
                 "kcal": grams * kcal_per_g,
                 "pct": round(grams * kcal_per_g * 100 / total),
                 "slug": slug,
                 "eaten": eaten,
+                # Limitado a 100 porque é a largura da barra de progresso.
+                # O texto ao lado mostra `eaten / grams` sem limite, então
+                # ultrapassar a meta continua visível.
                 "eaten_pct": min(round(eaten * 100 / (grams or 1)), 100),
-                "left": max(grams - eaten, 0),
+                "left": left,
+                # O par de `left`. Fica AQUI e não no template porque o fator
+                # muda por macro — 4 kcal/g para proteína e carboidrato, 9 para
+                # gordura — e um `×4` escrito no HTML mentiria na linha da
+                # gordura no dia em que alguém reaproveitasse o trecho.
+                "left_kcal": left * kcal_per_g,
+                "batido": eaten >= grams and grams > 0,
+                "acima": acima,
             }
         )
     return macros

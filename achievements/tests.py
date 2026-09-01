@@ -7,6 +7,7 @@ recebe a data, e as séries são criadas com `date=` explícito. Um teste de
 conquista que passa no sábado e quebra na terça seria a mesma cicatriz de novo,
 num app cuja regra central é "dias seguidos".
 """
+import re
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -551,3 +552,87 @@ class RetroatividadeTests(BaseDeConquistas):
             UserAchievement.objects.filter(user=user, slug="primeiro-treino").count(),
             1,
         )
+
+
+class ConcordanciaTests(BaseDeConquistas):
+    """"1 dias de treino" é o app parabenizando alguém com erro de português.
+
+    Não quebra nada, e é exatamente por isso que passou: aparece só na PRIMEIRA
+    conquista de cada pessoa — o momento em que o app está tentando causar boa
+    impressão.
+
+    A regra mora no model e não no template porque `rotulo` vai em
+    `data-rotulo`, que alimenta o card de compartilhamento desenhado em canvas.
+    No template, a tela ficaria certa e a IMAGEM que sai do app continuaria
+    dizendo "1 dias".
+    """
+
+    def test_um_dia_de_ofensiva_no_singular(self):
+        user = self.pessoa()
+        c = UserAchievement(user=user, slug="ofensiva-3", chave="",
+                            contexto={"dias": 1})
+        self.assertEqual(c.valor, 1)
+        self.assertNotIn("dias", c.rotulo)
+        self.assertIn("dia", c.rotulo)
+
+    def test_varios_dias_no_plural(self):
+        user = self.pessoa()
+        c = UserAchievement(user=user, slug="ofensiva-3", chave="",
+                            contexto={"dias": 7})
+        self.assertIn("dias", c.rotulo)
+
+    def test_um_treino_no_singular(self):
+        user = self.pessoa()
+        c = UserAchievement(user=user, slug="primeiro-treino", chave="",
+                            contexto={"treinos": 1})
+        self.assertEqual(c.rotulo, "treino")
+
+    def test_varios_treinos_no_plural(self):
+        user = self.pessoa()
+        c = UserAchievement(user=user, slug="treinos-25", chave="",
+                            contexto={"treinos": 25})
+        self.assertEqual(c.rotulo, "treinos")
+
+    def test_a_tela_concorda_com_um(self):
+        """Uma conquista, um dia de treino, um recorde — tudo no singular."""
+        user = self.pessoa()
+        self.treinar(user, date.today())
+        self.client.force_login(user)
+
+        html = self.client.get(reverse("achievements:list"), secure=True).content.decode()
+
+        # O número e o rótulo vivem em `<span>` SEPARADOS, então procurar a
+        # string "1 dias de treino" não encontra nada nem quando o defeito
+        # está lá — foi o que a sabotagem mostrou. É preciso parear cada
+        # número com o rótulo que vem logo depois dele.
+        pares = re.findall(
+            r'class="conquistas__numero num">\s*(\d+)\s*</span>\s*'
+            r'<span class="conquistas__rotulo">\s*(.*?)\s*</span>',
+            html, re.S,
+        )
+        self.assertEqual(len(pares), 3, "os três contadores sumiram da tela")
+        # O plural está na PRIMEIRA palavra: "dias de treino" termina em "o",
+        # e a primeira versão deste teste olhava o fim da frase inteira — não
+        # pegava nada. A sabotagem mostrou.
+        for numero, rotulo in pares:
+            primeira = rotulo.strip().split()[0]
+            if int(numero) == 1:
+                self.assertFalse(
+                    primeira.endswith("s"),
+                    "com 1, o rótulo veio no plural: %r" % rotulo,
+                )
+            else:
+                self.assertTrue(
+                    primeira.endswith("s"),
+                    "com %s, o rótulo veio no singular: %r" % (numero, rotulo),
+                )
+
+    def test_a_tela_concorda_com_zero_e_com_muitos(self):
+        """Zero é plural em português: "0 conquistas"."""
+        user = self.pessoa(email="zero@exemplo.invalid")
+        self.client.force_login(user)
+
+        html = self.client.get(reverse("achievements:list"), secure=True).content.decode()
+
+        self.assertNotIn("0 conquista<", html)
+        self.assertNotIn("0 dia de treino", html)

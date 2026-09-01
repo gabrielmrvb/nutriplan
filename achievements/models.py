@@ -15,6 +15,18 @@ from django.db import models
 from django.utils import timezone
 
 
+
+def _plural(quantos, singular, plural):
+    """Concordancia de numero para os rotulos das conquistas.
+
+    Seis rotulos precisam disso, e nenhum deles passa por template em todos os
+    caminhos — o card de compartilhamento e canvas. Uma funcao de tres linhas
+    resolve; `django.utils.translation` inteiro para isto seria trocar um
+    problema pequeno por uma dependencia grande.
+    """
+    return singular if quantos == 1 else plural
+
+
 class UserAchievement(models.Model):
     """Uma conquista desbloqueada por alguém, uma vez.
 
@@ -154,13 +166,29 @@ class UserAchievement(models.Model):
 
     @property
     def rotulo(self):
+        """A unidade do número grande do card, no singular quando for um.
+
+        O rótulo era fixamente plural e aparecia colado em `valor`, então a
+        primeira conquista de todo mundo dizia "1 dias de treino". É o tipo de
+        erro que não quebra nada e faz o app parecer descuidado exatamente no
+        momento em que ele está parabenizando alguém.
+
+        A concordância mora aqui, e não no template, porque `rotulo` é
+        consumido também pelo card de compartilhamento — que é canvas, não
+        HTML, e não tem `|pluralize`. Deixar a regra no template daria a
+        imagem certa na tela e a errada na imagem que sai do app.
+        """
         contexto = self.contexto or {}
+        quantos = self.valor
+
         if "dias" in contexto and self.familia == "ofensiva":
-            return "dias de ofensiva"
+            return _plural(quantos, "dia de ofensiva", "dias de ofensiva")
         if "treinos" in contexto:
-            return "treinos"
+            return _plural(quantos, "treino", "treinos")
         if "dias" in contexto:
-            return "dias de treino na semana"
+            return _plural(
+                quantos, "dia de treino na semana", "dias de treino na semana"
+            )
         return ""
 
     @property

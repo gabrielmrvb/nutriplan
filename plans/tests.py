@@ -4449,3 +4449,134 @@ class AguaConcorrenteTests(TransactionTestCase):
         self._beber(333)
 
         self.assertEqual(self._ml(), 0)
+
+
+class MacrosRestantesTests(TestCase):
+    """Sob "faltam", todo número precisa falar de restante.
+
+    A linha dizia "faltam X g · Y kcal · Z% da meta" e só o primeiro respondia
+    isso. Com 39 de 146 g de proteína saía "faltam 107 g · 584 kcal · 21% da
+    meta": 584 é a meta inteira vezes quatro, e 21% é quanto a proteína pesa no
+    orçamento calórico do dia — o mesmo número que a barra empilhada usa, onde
+    ele está certo.
+
+    `pct` e `kcal` continuam existindo e continuam significando o que sempre
+    significaram. O que mudou foi a frase parar de misturá-los com `left`.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.plan = services.create_plan(self.user)
+
+    def _proteina(self, comido):
+        from plans.views import macro_rows
+
+        linhas = macro_rows(self.plan, {"protein_g": comido})
+        return next(m for m in linhas if m["slug"] == "protein")
+
+    def test_nada_comido(self):
+        m = self._proteina(0)
+
+        self.assertEqual(m["left"], self.plan.protein_g)
+        self.assertEqual(m["eaten_pct"], 0)
+        self.assertFalse(m["batido"])
+        self.assertEqual(m["acima"], 0)
+
+    def test_parcial_o_caso_do_relato(self):
+        """39 de 146: o restante é 107 g, e o kcal tem que acompanhar."""
+        meta = self.plan.protein_g
+        comido = round(meta * Decimal("0.27"))
+        m = self._proteina(comido)
+
+        self.assertEqual(m["left"], meta - comido)
+        self.assertEqual(m["left_kcal"], (meta - comido) * 4)
+        self.assertNotEqual(
+            m["left_kcal"], m["kcal"],
+            "o kcal de 'faltam' voltou a ser o da meta inteira",
+        )
+
+    def test_quase_completo(self):
+        m = self._proteina(self.plan.protein_g - 1)
+
+        self.assertEqual(m["left"], 1)
+        self.assertEqual(m["left_kcal"], 4)
+        self.assertFalse(m["batido"])
+
+    def test_meta_exata(self):
+        m = self._proteina(self.plan.protein_g)
+
+        self.assertEqual(m["left"], 0)
+        self.assertEqual(m["left_kcal"], 0)
+        self.assertTrue(m["batido"])
+        self.assertEqual(m["acima"], 0)
+
+    def test_acima_da_meta_nunca_da_restante_negativo(self):
+        excesso = 14
+        m = self._proteina(self.plan.protein_g + excesso)
+
+        self.assertEqual(m["left"], 0)
+        self.assertEqual(m["left_kcal"], 0)
+        self.assertEqual(m["acima"], excesso)
+        self.assertEqual(
+            m["eaten_pct"], 100, "a barra precisa parar em 100"
+        )
+
+    def test_a_gordura_usa_nove_kcal_por_grama(self):
+        """O fator não pode estar escrito no template.
+
+        Proteína e carboidrato são 4 kcal/g, gordura é 9. Um `×4` no HTML
+        daria o número certo em duas linhas e errado na terceira.
+        """
+        from plans.views import macro_rows
+
+        linhas = macro_rows(self.plan, {"fat_g": 0})
+        gordura = next(m for m in linhas if m["slug"] == "fat")
+
+        self.assertEqual(gordura["left_kcal"], gordura["grams"] * 9)
+
+    def test_a_tela_nao_mistura_semantica_na_frase(self):
+        """O defeito visto de fora: a frase com número que não é restante.
+
+        Recortado em `macro-line__meta`, e não na página inteira: "% da meta"
+        aparece legitimamente no `aria-label` da barra de água, e a primeira
+        versão deste teste reprovou por causa dele. Medir a página toda mede
+        outra coisa.
+        """
+        # Com NADA consumido, `left_kcal` é igual a `kcal` e os dois seriam
+        # indistinguíveis — a primeira versão deste teste não pegava a troca de
+        # um pelo outro. Registrar uma refeição afasta os dois números.
+        from plans import tracking
+
+        slot = self.plan.slots.order_by("order").first()
+        opcao = slot.options.order_by("rank").first()
+        tracking.log_meal(self.user, slot, MealStatus.DONE, option=opcao)
+
+        self.client.force_login(self.user)
+        html = self.client.get(reverse("plans:today"), secure=True).content.decode()
+
+        linhas = re.findall(
+            r'<span class="macro-line__meta">(.*?)</span>\s*</div>', html, re.S
+        )
+        self.assertEqual(len(linhas), 3, "as três linhas de macro sumiram")
+
+        from plans.views import macro_rows
+
+        proteina = next(
+            m for m in macro_rows(
+                self.plan, tracking.day_summary(self.user, self.plan, date.today())
+            ) if m["slug"] == "protein"
+        )
+        self.assertGreater(proteina["eaten"], 0, "o cenário precisa ter consumo")
+        self.assertNotEqual(
+            proteina["left_kcal"], proteina["kcal"],
+            "sem diferença entre restante e meta, o teste não distingue nada",
+        )
+
+        for linha in linhas:
+            self.assertNotIn("% da meta", linha)
+        self.assertIn("%d kcal" % proteina["left_kcal"], linhas[0])
+        self.assertNotIn("%d kcal" % proteina["kcal"], linhas[0])

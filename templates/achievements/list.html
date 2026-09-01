@@ -20,15 +20,15 @@
     <div class="conquistas__resumo">
       <div>
         <span class="conquistas__numero num">{{ total }}</span>
-        <span class="conquistas__rotulo">conquistas</span>
+        <span class="conquistas__rotulo">conquista{{ total|pluralize }}</span>
       </div>
       <div>
         <span class="conquistas__numero num">{{ dias_treinados }}</span>
-        <span class="conquistas__rotulo">dias de treino</span>
+        <span class="conquistas__rotulo">dia{{ dias_treinados|pluralize }} de treino</span>
       </div>
       <div>
         <span class="conquistas__numero num">{{ recordes }}</span>
-        <span class="conquistas__rotulo">recordes</span>
+        <span class="conquistas__rotulo">recorde{{ recordes|pluralize }}</span>
       </div>
     </div>
   </section>
