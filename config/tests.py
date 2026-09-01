@@ -2162,12 +2162,22 @@ class HealthCheckNaoAcordaOBancoTests(TestCase):
     procuraria.
     """
 
-    def test_o_blueprint_aponta_para_o_endpoint_sem_consulta(self):
-        blueprint = Path(settings.BASE_DIR) / "render.yaml"
-        conteudo = blueprint.read_text(encoding="utf-8")
+    #: Todo arquivo de plataforma que declara health check automático.
+    #:
+    #: `railway.json` não está em uso — produção é o Render —, mas declarava
+    #: `/saude/` e teria o mesmo defeito no dia em que alguém subisse por lá.
+    #: Configuração dormente é onde um defeito corrigido volta.
+    BLUEPRINTS = (
+        ("render.yaml", "healthCheckPath: /saude/vivo/", "healthCheckPath: /saude/\n"),
+        ("railway.json", '"healthcheckPath": "/saude/vivo/"', '"healthcheckPath": "/saude/"'),
+    )
 
-        self.assertIn("healthCheckPath: /saude/vivo/", conteudo)
-        self.assertNotIn("healthCheckPath: /saude/\n", conteudo)
+    def test_os_blueprints_apontam_para_o_endpoint_sem_consulta(self):
+        for arquivo, esperado, proibido in self.BLUEPRINTS:
+            conteudo = (Path(settings.BASE_DIR) / arquivo).read_text(encoding="utf-8")
+            with self.subTest(arquivo=arquivo):
+                self.assertIn(esperado, conteudo)
+                self.assertNotIn(proibido, conteudo)
 
     def test_o_endpoint_do_health_check_nao_toca_no_banco(self):
         """A outra ponta: o blueprint pode apontar certo e a view mudar.
