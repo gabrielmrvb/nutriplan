@@ -1,5 +1,7 @@
 from allauth.urls import build_provider_urlpatterns
 from django.contrib import admin
+
+from . import admin_entrada
 from django.templatetags.static import static as static_url
 from django.urls import include, path
 from django.views.generic.base import RedirectView
@@ -40,6 +42,16 @@ ROTAS_SOCIAIS = build_provider_urlpatterns() + [
 ]
 
 urlpatterns = [
+    # ANTES de `admin.site.urls`, e a ordem é a integração inteira.
+    #
+    # `reverse("admin:login")` devolve `/admin/login/`, que é o mesmo caminho
+    # declarado aqui — e a resolução de URL usa a PRIMEIRA correspondência.
+    # Então o redirecionamento que o próprio Admin faz para quem não está
+    # autenticado cai nesta view, sem middleware e sem tocar no AdminSite.
+    #
+    # O motivo: o primeiro operador administrativo entra por Google e não tem
+    # senha utilizável. Ver `config/admin_entrada.py`.
+    path("admin/login/", admin_entrada.entrada_do_admin),
     path("admin/", admin.site.urls),
     # O service worker precisa vir da raiz: um arquivo servido de /static/ só
     # teria escopo sobre /static/ e não controlaria as páginas do app.

@@ -4514,3 +4514,126 @@ class PapeisAdministrativosTests(TestCase):
                         ).exists(),
                         f"{app_label}.{modelo} não existe mais",
                     )
+
+
+class EntradaDoAdminTests(TestCase):
+    """O Admin autentica pelo login do NutriPlan e autoriza por `is_staff`.
+
+    O primeiro operador entra por Google e não tem senha utilizável —
+    `has_usable_password()` é False, confirmado no banco de produção. O
+    formulário de login do Django Admin pede senha, e a recuperação de senha
+    não atende contas sociais de propósito. Sem esta integração, a conta
+    promovida ficaria com acesso administrativo que ela não consegue usar.
+
+    O que NÃO muda: `admin_view` continua exigindo `is_active` e `is_staff` em
+    toda view, e as permissões por model continuam valendo. Só a tela de login
+    saiu.
+    """
+
+    def _cria(self, email, **flags):
+        user = User.objects.create_user(email=email, password="senha-bem-forte-123")
+        for campo, valor in flags.items():
+            setattr(user, campo, valor)
+        if flags:
+            user.save(update_fields=list(flags))
+        return user
+
+    def test_anonimo_vai_para_o_login_do_app(self):
+        resposta = self.client.get("/admin/", follow=False)
+        self.assertEqual(resposta.status_code, 302)
+
+        entrada = self.client.get(resposta["Location"], follow=False)
+
+        self.assertEqual(entrada.status_code, 302)
+        self.assertIn(reverse("accounts:login"), entrada["Location"])
+
+    def test_usuario_comum_autenticado_nao_entra_e_nao_entra_em_laco(self):
+        """Mandar de volta ao login criaria um laço: o login veria a sessão
+        válida, devolveria para /admin/, e a pessoa ficaria presa entre duas
+        telas sem nenhuma explicar o que houve."""
+        self.client.force_login(self._cria("comum@exemplo.com"))
+
+        resposta = self.client.get("/admin/login/", follow=False)
+
+        self.assertEqual(resposta.status_code, 403)
+
+    def test_staff_sem_senha_utilizavel_entra(self):
+        """O caso que motivou tudo: conta Google-only."""
+        admin = self._cria("google@exemplo.com", is_staff=True)
+        admin.set_unusable_password()
+        admin.save(update_fields=["password"])
+        self.client.force_login(admin)
+
+        self.assertFalse(admin.has_usable_password())
+        self.assertEqual(self.client.get("/admin/").status_code, 200)
+
+    def test_staff_com_senha_continua_entrando(self):
+        """A integração não pode quebrar quem autentica do jeito antigo."""
+        self.client.force_login(self._cria("comsenha@exemplo.com", is_staff=True))
+
+        self.assertEqual(self.client.get("/admin/").status_code, 200)
+
+    def test_staff_inativo_nao_entra(self):
+        """`is_staff` sozinho não basta: `admin_view` exige conta ativa, e
+        desativar uma conta precisa continuar sendo suficiente para tirar o
+        acesso administrativo dela."""
+        inativo = self._cria("inativo@exemplo.com", is_staff=True, is_active=False)
+        self.client.force_login(inativo)
+
+        resposta = self.client.get("/admin/", follow=False)
+
+        self.assertNotEqual(resposta.status_code, 200)
+
+    def test_superuser_nao_e_necessario(self):
+        """Nenhuma parte disto depende de superuser — a régua é `is_staff`."""
+        admin = self._cria("naosuper@exemplo.com", is_staff=True)
+        self.client.force_login(admin)
+
+        self.client.get("/admin/")
+
+        admin.refresh_from_db()
+        self.assertFalse(admin.is_superuser)
+
+
+class NextDoAdminTests(TestCase):
+    """`next` vem da URL e é controlado por quem monta o link.
+
+    Sem validação, `?next=https://site-falso/` transforma o endereço do
+    NutriPlan numa rampa: a pessoa clica num link do domínio real, autentica de
+    verdade, e termina em outro site logo depois do login — que é o momento em
+    que ela está mais disposta a digitar credencial de novo.
+    """
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email="admin@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.admin.is_staff = True
+        self.admin.save(update_fields=["is_staff"])
+        self.client.force_login(self.admin)
+
+    def _destino(self, next_):
+        resposta = self.client.get(f"/admin/login/?next={next_}", follow=False)
+        return resposta["Location"]
+
+    def test_caminho_interno_e_preservado(self):
+        self.assertEqual(self._destino("/admin/"), "/admin/")
+        self.assertEqual(
+            self._destino("/admin/accounts/user/"), "/admin/accounts/user/"
+        )
+
+    def test_endereco_externo_e_descartado(self):
+        for hostil in (
+            "https://site-falso.exemplo/",
+            "http://site-falso.exemplo/",
+            "//site-falso.exemplo/",
+            "javascript:alert(1)",
+            "\\\\site-falso.exemplo",
+        ):
+            with self.subTest(next=hostil):
+                self.assertEqual(self._destino(hostil), reverse("admin:index"))
+
+    def test_sem_next_volta_para_o_admin(self):
+        resposta = self.client.get("/admin/login/", follow=False)
+
+        self.assertEqual(resposta["Location"], reverse("admin:index"))
