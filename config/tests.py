@@ -2146,3 +2146,50 @@ class RestoreDrillTests(TestCase):
         r = self._rodar("/caminho/que/nao/existe.dump")
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("uso:", r.stderr)
+
+
+class HealthCheckNaoAcordaOBancoTests(TestCase):
+    """O health check do Render não pode consultar o banco.
+
+    Ele bate a cada ~5 segundos — medido no log de produção em 01/09/2026 — e o
+    Neon gratuito hiberna depois de 5 minutos parado, com 100 CU-horas por mês.
+    Um endpoint que consulta o catálogo nessa frequência mantém o banco acordado
+    24 horas por dia: a 0,25 CU contínuo são 180 CU-horas, e a cota acaba por
+    volta do dia 16.
+
+    O defeito não seria um erro na tela. Seria o banco parar de responder no
+    meio do mês, com a causa a três camadas de distância de onde alguém
+    procuraria.
+    """
+
+    def test_o_blueprint_aponta_para_o_endpoint_sem_consulta(self):
+        blueprint = Path(settings.BASE_DIR) / "render.yaml"
+        conteudo = blueprint.read_text(encoding="utf-8")
+
+        self.assertIn("healthCheckPath: /saude/vivo/", conteudo)
+        self.assertNotIn("healthCheckPath: /saude/\n", conteudo)
+
+    def test_o_endpoint_do_health_check_nao_toca_no_banco(self):
+        """A outra ponta: o blueprint pode apontar certo e a view mudar.
+
+        Sem esta metade, alguém acrescenta uma verificação de banco em
+        `VivoView` — o que é uma ideia razoável isolada — e a cota volta a
+        queimar sem nada apontar para a mudança.
+        """
+        with self.assertNumQueries(0):
+            resposta = self.client.get(reverse("liveness"))
+
+        self.assertEqual(resposta.status_code, 200)
+
+    def test_a_verificacao_profunda_continua_existindo(self):
+        """Trocar o health check não pode virar desistir de verificar o banco.
+
+        `/saude/` continua sendo o endpoint que REPROVA quando o catálogo some
+        — ele só deixou de ser o que roda a cada cinco segundos. O 503 com
+        banco vazio é a prova de que ele ainda olha para dentro; um 200 aqui
+        significaria que a verificação profunda virou enfeite.
+        """
+        resposta = self.client.get(reverse("health"))
+
+        self.assertEqual(resposta.status_code, 503)
+        self.assertIn("catalogo", resposta.json())

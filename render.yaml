@@ -33,10 +33,25 @@ services:
     branch: main
     buildCommand: "./scripts/build.sh"
     startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers ${WEB_CONCURRENCY:-2} --log-file -"
-    # Bate no endpoint de saúde, não na tela de login: é mais barato de
-    # responder e, ao contrário dela, falha quando o banco cai ou o catálogo
-    # ficou vazio — que são as duas formas de o site subir inútil.
-    healthCheckPath: /saude/
+    # Bate em /saude/vivo/, que NÃO consulta o banco.
+    #
+    # Era /saude/, e o argumento estava certo enquanto durou: aquele endpoint
+    # confere o catálogo e falha quando o banco cai ou fica vazio, que são as
+    # duas formas de o site subir inútil. A troca não desfaz esse raciocínio —
+    # muda a premissa embaixo dele.
+    #
+    # O Render bate no health check a cada ~5 segundos, medido no log de
+    # produção em 01/09/2026 (17:44:07, :11, :16, :21, :26...). Enquanto o banco
+    # era o PostgreSQL do próprio Render, mantê-lo acordado não custava nada.
+    # Depois da migração para o Neon custa a cota inteira: o plano gratuito dá
+    # 100 CU-horas por mês e hiberna após 5 minutos parado. Uma consulta a cada
+    # 5 segundos significa 17 mil por dia e hibernação nenhuma — a 0,25 CU
+    # contínuo são 180 CU-horas no mês, e a cota acaba por volta do dia 16.
+    #
+    # O que se perde é o Render reiniciar sozinho quando o BANCO cai. O que se
+    # ganha é o banco existir no fim do mês. A verificação profunda continua em
+    # /saude/, para monitor externo em intervalo humano — minutos, não segundos.
+    healthCheckPath: /saude/vivo/
     envVars:
       # `generateValue: true` ficou aqui por muito tempo, e parecia a escolha
       # certa: chave gerada pela plataforma, nunca vista por ninguém. O detalhe
