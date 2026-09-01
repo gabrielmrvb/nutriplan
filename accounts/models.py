@@ -521,10 +521,23 @@ class RegistroAdministrativo(models.Model):
     o que estava espalhado.
     """
 
+    #: CASCADE nos dois lados, e não `SET_NULL`.
+    #:
+    #: A primeira versão usava `SET_NULL` para a trilha sobreviver à exclusão da
+    #: conta. `test_toda_relacao_com_user_e_cascade` reprovou, e o teste está
+    #: certo: o projeto decidiu que toda FK para `User` é CASCADE, para que
+    #: apagar a conta apague o dado pessoal junto. Guardar quem foi promovido
+    #: DEPOIS de a pessoa pedir exclusão é exatamente o que o direito de
+    #: eliminação existe para impedir, e a Política de Privacidade promete.
+    #:
+    #: O preço é real e fica registrado: se a conta de um operador for apagada,
+    #: some também o registro do que ele fez sobre OUTRAS pessoas. Auditoria e
+    #: eliminação estão em tensão aqui, e a eliminação ganha — foi a decisão que
+    #: o projeto já tinha tomado, e não é minha para reabrir num model novo.
     ator = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         verbose_name="quem fez",
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="acoes_administrativas",
@@ -534,16 +547,18 @@ class RegistroAdministrativo(models.Model):
     alvo = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         verbose_name="sobre quem",
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="acoes_administrativas_recebidas",
     )
-    #: O e-mail do alvo, copiado no momento da ação.
+    #: O e-mail do alvo no momento da ação.
     #:
-    #: `alvo` vira nulo se a conta for excluída, e é exatamente aí que a trilha
-    #: mais importa — "quem foi promovido antes de a conta sumir?" precisa ter
-    #: resposta. É a mesma decisão dos macros congelados no `MealLog`.
+    #: NÃO é para sobreviver à exclusão — com CASCADE a linha vai junto com a
+    #: conta, e é assim que tem que ser. Ele existe porque e-mail muda: a trilha
+    #: precisa dizer para qual endereço o acesso foi dado NAQUELE dia, e não
+    #: para qual ele aponta hoje. É a mesma razão dos macros congelados no
+    #: `MealLog`.
     alvo_email = models.EmailField("e-mail na hora da ação", blank=True)
     detalhe = models.JSONField("detalhe", default=dict, blank=True)
     criado_em = models.DateTimeField("quando", auto_now_add=True)

@@ -4441,6 +4441,40 @@ class BootstrapAdministrativoTests(TestCase):
         self.assertFalse(self.user.has_usable_password())
 
 
+    def test_apagar_a_conta_apaga_a_trilha_sobre_ela(self):
+        """O direito de eliminação vence a retenção de auditoria.
+
+        A primeira versão deste model usava `SET_NULL` para a trilha sobreviver
+        à exclusão, com `alvo_email` guardado justamente para responder "quem
+        foi promovido antes de a conta sumir?". `test_toda_relacao_com_user_e_cascade`
+        reprovou, e estava certo: guardar o endereço de quem PEDIU exclusão é o
+        que o direito de eliminação existe para impedir, e é o que a Política de
+        Privacidade promete.
+
+        O preço fica registrado: a trilha administrativa é escopada às contas
+        que existem. Auditoria e eliminação estão em tensão, e aqui a
+        eliminação ganha — decisão que o projeto já tinha tomado e que um model
+        novo não reabre sozinho.
+        """
+        call_command("promover_admin", pk=self.user.pk, bootstrap=True, verbosity=0)
+        self.assertEqual(RegistroAdministrativo.objects.count(), 1)
+
+        self.user.delete()
+
+        self.assertEqual(RegistroAdministrativo.objects.count(), 0)
+
+    def test_o_email_guardado_e_o_do_momento_da_acao(self):
+        """`alvo_email` não existe para sobreviver à exclusão — existe porque
+        e-mail muda. A trilha precisa dizer para qual endereço o acesso foi dado
+        NAQUELE dia, e não para qual ele aponta hoje."""
+        call_command("promover_admin", pk=self.user.pk, verbosity=0)
+
+        User.objects.filter(pk=self.user.pk).update(email="outro@exemplo.com")
+
+        registro = RegistroAdministrativo.objects.get(alvo=self.user)
+        self.assertEqual(registro.alvo_email, self.EMAIL)
+
+
 class PapeisAdministrativosTests(TestCase):
     """Suporte e administração não podem ser a mesma coisa.
 
