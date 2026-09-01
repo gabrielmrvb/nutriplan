@@ -191,6 +191,21 @@ class Profile(models.Model):
         # já tinha uma.
         default=SplitPreference.TRES,
     )
+    #: A pessoa passou pelo passo 4 e salvou?
+    #:
+    #: Existe porque `split_preference` nasce com TRES e, sozinho, ele não
+    #: distingue "escolheu três grupos por dia" de "nunca respondeu nada". A
+    #: diferença importa: `preferencia_muda_a_divisao` não pergunta nada até
+    #: três dias de treino, então quem monta a ficha treinando três vezes passa
+    #: direto pelo passo 4. Ao marcar um quarto dia, o app lia TRES — que ela
+    #: nunca marcou — e entregava ABC para quatro treinos.
+    #:
+    #: Nasce False para todo mundo, inclusive para quem respondeu de verdade:
+    #: não dá para saber retroativamente quem foi quem, e o erro conservador é
+    #: perguntar de novo. O caro é presumir uma escolha que ninguém fez.
+    split_preference_confirmada = models.BooleanField(
+        "divisão de treino confirmada pela pessoa", default=False
+    )
     meal_style = models.CharField(
         "estilo de cardápio",
         max_length=10,

@@ -444,6 +444,23 @@ class OnboardingStepMixin(LoginRequiredMixin):
 
         profile.advance_onboarding(self.step, proximo=proximo)
         if was_complete:
+            # A pergunta de divisão passou a importar agora?
+            #
+            # Quem treinava três dias nunca viu o passo 4 —
+            # `preferencia_muda_a_divisao` devolve False ali — e o perfil ficou
+            # com o TRES que o campo traz de fábrica. No dia em que essa pessoa
+            # marca um quarto dia a resposta passa a mudar a ficha, e o app
+            # estava usando uma escolha que ela nunca fez.
+            #
+            # `split_preference_confirmada` é o que separa os dois casos, e a
+            # edição do passo 3 é o momento exato de perguntar: os dias novos
+            # acabaram de ser salvos e a divisão vai ser decidida em seguida.
+            if (
+                self.step == PASSO_TREINOS
+                and 4 in passos
+                and not profile.split_preference_confirmada
+            ):
+                return redirect("accounts:onboarding_step", step=4)
             # Só na EDIÇÃO. No onboarding, o feedback de ter salvo é o passo
             # seguinte aparecer — dizer "pronto" cinco vezes seguidas durante
             # o cadastro seria a mensagem virando ruído.
@@ -497,6 +514,20 @@ class TrainingStepView(OnboardingStepMixin, FormView):
 class SplitPreferenceStepView(ProfileStepView):
     step = 4
     form_class = SplitPreferenceForm
+
+    def form_valid(self, form):
+        """Salvar aqui é o que transforma o padrão do campo numa escolha.
+
+        `split_preference` sozinho não distingue "marquei três grupos por dia"
+        de "nunca vi esta tela" — nasce com TRES nos dois casos. Passar por
+        aqui é o único fato que o banco tem sobre a intenção da pessoa, e é
+        isso que a marca registra.
+        """
+        resposta = super().form_valid(form)
+        Profile.objects.filter(pk=self.object.pk).update(
+            split_preference_confirmada=True
+        )
+        return resposta
 
 
 class RestrictionsStepView(ProfileStepView):
