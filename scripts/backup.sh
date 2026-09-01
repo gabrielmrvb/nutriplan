@@ -53,7 +53,7 @@ echo "1/4 despejando..."
 # --no-owner e --no-privileges: o dump precisa restaurar num banco cujo dono
 # tem outro nome — que é exatamente o caso de um cluster descartável de teste,
 # e do banco novo no dia em que este for trocado.
-pg_dump "$DATABASE_URL" -Fc --no-owner --no-privileges -f "$ARQUIVO"
+pg_dump -d "$DATABASE_URL" -Fc --no-owner --no-privileges -f "$ARQUIVO"
 
 echo "2/4 conferindo tamanho..."
 TAMANHO="$(wc -c < "$ARQUIVO" | tr -d ' ')"

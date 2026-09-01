@@ -1,0 +1,93 @@
+# Backup do banco de produção, criptografado, guardado como artefato.
+#
+# ------------------------------------------------------------------ ATIVAÇÃO
+# Este fluxo está DESLIGADO no relógio de propósito: só roda quando alguém
+# aperta o botão (`workflow_dispatch`). Para ligá-lo diariamente, descomente o
+# bloco `schedule` — mas leia a análise abaixo antes, porque a decisão não é
+# técnica, é de superfície de ataque.
+#
+# ------------------------------------------------- o que isto custa em risco
+# Ligar este fluxo coloca a DATABASE_URL de produção nos segredos do GitHub.
+# A partir daí, quem tiver permissão de escrita em workflow no repositório
+# consegue ler o banco inteiro — basta abrir um PR que imprima o segredo. Não
+# é hipotético: é a forma mais comum de vazamento em Actions.
+#
+# O que reduz o risco, e já está feito aqui:
+#
+#   * o dump NUNCA existe em claro como artefato — ele é criptografado com
+#     AES-256 antes de sair do runner, e a senha é um segundo segredo. Quem
+#     baixar o artefato sem ela tem um arquivo inútil;
+#   * `permissions: contents: read` — o token do fluxo não escreve nada;
+#   * sem `pull_request_target`, então fork nenhum executa isto;
+#   * retenção curta: cópia de dado de saúde não fica parada por 90 dias.
+#
+# O que NÃO some com nada disso: a DATABASE_URL continua existindo num lugar a
+# mais. A alternativa de superfície menor é rodar `scripts/backup.sh` na máquina
+# do Gabriel pelo Agendador de Tarefas — o segredo nunca sai de lá, e o preço é
+# depender da máquina estar ligada.
+#
+# ------------------------------------------------------------------ segredos
+#   DATABASE_URL        string de conexão do banco de produção
+#   BACKUP_PASSPHRASE   senha longa e aleatória, guardada FORA do GitHub
+#
+# Sem a segunda, o backup não presta: ela é o que separa "artefato" de
+# "banco de dados de saúde exposto".
+name: Backup do banco
+
+on:
+  workflow_dispatch:
+  # Descomente para o backup diário às 06:00 UTC (03:00 em Brasília).
+  # schedule:
+  #   - cron: "0 6 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  despejar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # O cliente PRECISA ser >= servidor. O runner traz um pg_dump mais velho,
+      # e o mais velho se recusa a despejar um servidor mais novo — produzindo
+      # um arquivo vazio se ninguém checar o código de saída.
+      - name: Instalar o cliente PostgreSQL 18
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt \
+            $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
+          sudo sed -i 's|deb |deb [signed-by=/usr/share/keyrings/pgdg.gpg] |' \
+            /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-18
+          pg_dump --version
+
+      # Reaproveita o script versionado, que já valida código de saída,
+      # tamanho e legibilidade — em vez de uma segunda cópia da lógica que
+      # envelheceria em separado.
+      - name: Despejar e validar
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          export PATH="/usr/lib/postgresql/18/bin:$PATH"
+          bash scripts/backup.sh saida
+
+      - name: Criptografar
+        env:
+          SENHA: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          for f in saida/*.dump; do
+            printf '%s' "$SENHA" | gpg --batch --yes --symmetric \
+              --cipher-algo AES256 --passphrase-fd 0 -o "$f.gpg" "$f"
+            rm -f "$f"          # o dump em claro não sobrevive ao runner
+          done
+          ls -la saida/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nutriplan-backup
+          path: saida/*.gpg
+          retention-days: 14
+          if-no-files-found: error

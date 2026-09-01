@@ -91,6 +91,14 @@ dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
   `workouts/health_export.py` gera TCX para importar.
 - **Background Sync não existe no Safari do iPhone.** O evento `online` é o
   mecanismo principal; o sync em segundo plano é bônus.
+- **O serviço web gratuito do Render bloqueia saída SMTP nas portas 25, 465 e
+  587.** O e-mail de produção usa a Brevo na **2525**, que negocia STARTTLS
+  normalmente (TLSv1.3 confirmado no handshake). Isso custou caro para
+  descobrir: o Django **captura** a falha de envio em `PasswordResetForm.save()`
+  e registra `Failed to send password reset email` — a tela devolve 302 e diz
+  "verifique seu e-mail" como se tivesse dado certo. Só o log denuncia, e antes
+  de `config/observabilidade.py` não havia log. Se a recuperação de senha parar
+  de novo, o primeiro lugar a olhar é o `TimeoutError` do socket, não o Django.
 - O banco gratuito do Render **é apagado em 23/09/2026** — data lida no painel,
   e o verbo do Render é *deleted*, não *suspended*. Não existe backup
   gerenciado no plano gratuito: o que não estiver em `nutriplan-backups/` não
@@ -128,3 +136,18 @@ histórico de treino de gente real.
 
 Um dump que ninguém restaurou é uma esperança, não um backup. Restaurar os 12 MB
 deste banco leva 0,3 s: não há desculpa para pular o drill.
+
+Para trocar de provedor de banco, `scripts/migrar.sh` faz dump, restore e
+conferência tabela a tabela **num comando só** — o que importa aqui é o tempo
+entre o dump e a troca da `DATABASE_URL`, porque tudo escrito na origem nessa
+janela se perde. Ele conta linha de verdade, e não `n_live_tup`: num banco
+recém-restaurado a estatística ainda é zero, e a comparação passaria comparando
+nada com nada.
+
+Nos três scripts a string de conexão vai em `-d`, nunca como argumento
+posicional: posicional exige vir por último, e `pg_dump "$URL" -Fc` morre com
+"too many command-line arguments" em cliente mais velho — no meio de uma janela
+de manutenção, que é o pior momento para descobrir isso.
+
+O destino precisa ser **PostgreSQL 17 ou mais novo**: o `pg_dump` 18 emite
+`SET transaction_timeout`, parâmetro que só existe a partir do 17.

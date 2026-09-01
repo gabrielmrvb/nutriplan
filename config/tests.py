@@ -1877,6 +1877,56 @@ class ConexaoDeBancoTests(TestCase):
     def test_a_conexao_e_reaproveitada(self):
         self.assertGreater(settings.DATABASES["default"]["CONN_MAX_AGE"], 0)
 
+    def test_o_sslmode_da_url_chega_ate_o_driver(self):
+        """Um banco gerenciado fora da máquina exige TLS, e é a URL que pede.
+
+        `env.db()` transforma a query string da DATABASE_URL em `OPTIONS`. Se
+        alguém trocar essa leitura por algo que descarte a query — um split no
+        `?`, um parser escrito à mão —, o `sslmode` some e a conexão passa a
+        sair em texto claro, carregando e-mail e peso corporal pela internet.
+        Não haveria erro: o Postgres aceitaria a conexão do mesmo jeito.
+
+        O `channel_binding` anda junto na URL do Neon e amarra a autenticação
+        ao canal TLS, o que fecha um ataque de máquina no meio.
+        """
+        import os
+
+        import environ
+
+        os.environ["URL_DE_TESTE"] = (
+            "postgres://usuario:segredo@ep-exemplo.us-west-2.aws.neon.tech"
+            "/nutriplan?sslmode=require&channel_binding=require"
+        )
+        try:
+            opcoes = environ.Env().db("URL_DE_TESTE").get("OPTIONS") or {}
+        finally:
+            del os.environ["URL_DE_TESTE"]
+
+        self.assertEqual(opcoes.get("sslmode"), "require")
+        self.assertEqual(opcoes.get("channel_binding"), "require")
+
+        # A metade que faltava: o acima prova que a BIBLIOTECA preserva o
+        # sslmode, e não que o NutriPlan passa por ela. Sem esta linha, alguém
+        # troca `env.db()` por um parser próprio, o teste continua verde, e a
+        # conexão sai sem TLS.
+        fonte = (Path(settings.BASE_DIR) / "config" / "settings.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('env.db(', fonte)
+        self.assertIn('"DATABASE_URL"', fonte)
+
+    def test_o_driver_e_novo_o_bastante_para_um_postgres_gerenciado(self):
+        """libpq antiga não manda SNI, e sem SNI o Neon não roteia a conexão.
+
+        O Neon põe muitos bancos atrás do mesmo endereço e decide qual é o seu
+        pelo nome do servidor enviado NO HANDSHAKE TLS. Cliente velho conecta,
+        autentica e cai num lugar errado — ou simplesmente é recusado. libpq 14
+        é o primeiro que manda SNI sempre.
+        """
+        import psycopg
+
+        self.assertGreaterEqual(psycopg.pq.version(), 140000)
+
     def test_a_conexao_reaproveitada_e_checada_antes_de_usar(self):
         """`CONN_MAX_AGE` sem `CONN_HEALTH_CHECKS` é uma armadilha, não um ganho.
 
@@ -1902,11 +1952,29 @@ class BackupTests(TestCase):
 
     BACKUP = RAIZ / "scripts" / "backup.sh"
     RESTAURAR = RAIZ / "scripts" / "restaurar.sh"
-
-    def test_os_dois_scripts_existem(self):
+    MIGRAR = RAIZ / "scripts" / "migrar.sh"
+    def test_os_tres_scripts_existem(self):
         self.assertTrue(self.BACKUP.is_file())
         self.assertTrue(self.RESTAURAR.is_file())
+        self.assertTrue(self.MIGRAR.is_file())
 
+    def test_a_string_de_conexao_nunca_e_argumento_posicional(self):
+        """`psql "$URL" -c ...` funciona no cliente 18 e falha no 16.
+
+        O ensaio local pegou isto: o cliente trata a string de conexão como
+        posicional, ela precisa vir por último, e um `pg_dump "$URL" -Fc`
+        morre com "too many command-line arguments" em cliente mais velho —
+        no meio de uma janela de manutenção, que é o pior momento possível
+        para descobrir uma incompatibilidade de linha de comando.
+
+        `-d` é opção, então a ordem deixa de importar e o script funciona em
+        qualquer versão do cliente.
+        """
+        for script in (self.BACKUP, self.RESTAURAR, self.MIGRAR):
+            texto = script.read_text(encoding="utf-8")
+            self.assertNotRegex(
+                texto, r'\b(psql|pg_dump)\s+"\$', script.name
+            )
     def test_o_backup_aborta_quando_um_passo_falha(self):
         """Sem `errexit`, o `pg_dump` falha e o script segue até o "BACKUP OK"."""
         texto = self.BACKUP.read_text(encoding="utf-8")
@@ -1927,8 +1995,8 @@ class BackupTests(TestCase):
         self.assertIn('DATABASE_URL:-', texto)
         self.assertNotRegex(texto, r'DATABASE_URL="\$\{?[1-9]')
 
-    def test_nenhum_dos_dois_imprime_a_url(self):
-        for script in (self.BACKUP, self.RESTAURAR):
+    def test_nenhum_deles_imprime_a_url(self):
+        for script in (self.BACKUP, self.RESTAURAR, self.MIGRAR):
             texto = script.read_text(encoding="utf-8")
             for linha in texto.splitlines():
                 despido = linha.strip()

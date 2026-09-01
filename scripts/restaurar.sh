@@ -62,14 +62,14 @@ fi
 
 # ------------------------------------------------------------- 2. restauração
 echo "2/5 restaurando em $BANCO..."
-psql "$ALVO" -q -c "DROP DATABASE IF EXISTS $BANCO;"
-psql "$ALVO" -q -c "CREATE DATABASE $BANCO;"
+psql -d "$ALVO" -q -c "DROP DATABASE IF EXISTS $BANCO;"
+psql -d "$ALVO" -q -c "CREATE DATABASE $BANCO;"
 DESTINO="${ALVO%/*}/$BANCO"
 pg_restore --no-owner --no-privileges -d "$DESTINO" "$ARQUIVO"
 
 # ------------------------------------------------------------------ 3. schema
 echo "3/5 conferindo o schema..."
-psql "$DESTINO" -q -c "
+psql -d "$DESTINO" -q -c "
   SELECT
     (SELECT count(*) FROM information_schema.tables
       WHERE table_schema = 'public') AS tabelas,
@@ -83,7 +83,7 @@ psql "$DESTINO" -q -c "
 # corporal e histórico de treino de gente real, e um drill de restauração não
 # precisa ver nada disso para provar que o dado voltou.
 echo "4/5 contando linhas por tabela (sem ler conteúdo)..."
-psql "$DESTINO" -q -c "
+psql -d "$DESTINO" -q -c "
   SELECT relname AS tabela, n_live_tup AS linhas
   FROM pg_stat_user_tables
   WHERE n_live_tup > 0
@@ -95,7 +95,7 @@ psql "$DESTINO" -q -c "
 # escrita à mão envelhece na primeira migration que ninguém lembrou de refletir
 # aqui, e passa a dar "tudo certo" sobre as tabelas de ontem.
 echo "5/5 procurando linha órfã em toda chave estrangeira..."
-psql "$DESTINO" -q -v ON_ERROR_STOP=1 -c "
+psql -d "$DESTINO" -q -v ON_ERROR_STOP=1 -c "
 DO \$\$
 DECLARE r record; n bigint; total bigint := 0;
 BEGIN
@@ -132,4 +132,4 @@ END \$\$;
 echo ""
 echo "RESTORE OK — o backup volta."
 echo "Apagando o banco de teste."
-psql "$ALVO" -q -c "DROP DATABASE IF EXISTS $BANCO;"
+psql -d "$ALVO" -q -c "DROP DATABASE IF EXISTS $BANCO;"
