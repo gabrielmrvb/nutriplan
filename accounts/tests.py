@@ -4341,17 +4341,32 @@ class BootstrapAdministrativoTests(TestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.is_staff)
 
-    def test_o_build_nao_carrega_email_nem_hash_de_email(self):
-        """A trava que impede dado pessoal de voltar para o repositório
-        público."""
+    def test_o_build_nao_promove_ninguem(self):
+        """O bootstrap saiu do fluxo normal de deploy assim que cumpriu.
+
+        Ele existiu por uma janela: produção subiu com `staff = 0` e o Render
+        gratuito não tem shell, então o único lugar que roda dentro de produção
+        era o build. Cumprida a promoção, um comando que dá acesso
+        administrativo a cada deploy é superfície que não paga o que custa.
+
+        O management command CONTINUA no projeto, para uso deliberado. O que
+        sai é a execução automática.
+
+        O teste também guarda o que nunca pode voltar: e-mail ou hash de e-mail
+        no build de um repositório público.
+        """
         build = (Path(settings.BASE_DIR) / "scripts" / "build.sh").read_text(
             encoding="utf-8"
         )
 
-        self.assertIn("promover_admin --id", build)
+        self.assertNotIn("promover_admin", build)
         self.assertNotIn("--sha256", build)
-        self.assertNotIn("--email", build)
-        self.assertNotIn("@", build.split("promover_admin")[-1])
+        self.assertNotIn("@gmail", build)
+
+        # E o comando não sumiu junto.
+        from django.core.management import get_commands
+
+        self.assertIn("promover_admin", get_commands())
 
 
     def test_falha_depois_do_staff_desfaz_tudo(self):
@@ -4473,6 +4488,39 @@ class BootstrapAdministrativoTests(TestCase):
 
         registro = RegistroAdministrativo.objects.get(alvo=self.user)
         self.assertEqual(registro.alvo_email, self.EMAIL)
+
+
+    def test_o_marcador_one_shot_nao_sobrevive_a_exclusao_da_conta(self):
+        """DOCUMENTA o contrato atual; não propõe mudá-lo.
+
+        A trava one-shot mora no `RegistroAdministrativo`, e esse model é
+        CASCADE em relação a `User` — decisão do projeto, verificada por
+        `test_toda_relacao_com_user_e_cascade`. A consequência é que apagar a
+        conta apaga o marcador junto.
+
+        Isso é coerente: a trava protege UMA pessoa contra ser repromovida, e
+        se essa pessoa deixou de existir não há o que proteger. Mas ninguém
+        deve assumir que o marcador é permanente — quem ler a trava sem ler
+        isto pode concluir que "o bootstrap nunca mais roda", quando o correto
+        é "não roda de novo para esta conta enquanto ela existir".
+        """
+        call_command("promover_admin", pk=self.user.pk, bootstrap=True, verbosity=0)
+        self.assertEqual(
+            RegistroAdministrativo.objects.filter(
+                acao=AcaoAdministrativa.PRIMEIRO_ADMIN
+            ).count(),
+            1,
+        )
+
+        self.user.delete()
+
+        self.assertEqual(
+            RegistroAdministrativo.objects.filter(
+                acao=AcaoAdministrativa.PRIMEIRO_ADMIN
+            ).count(),
+            0,
+            "o marcador sobreviveu à exclusão da conta",
+        )
 
 
 class PapeisAdministrativosTests(TestCase):
