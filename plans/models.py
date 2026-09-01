@@ -76,9 +76,21 @@ class NutritionPlan(models.Model):
 class MealSlot(models.Model):
     """Um horário de refeição dentro do plano, com o alvo nutricional dele.
 
-    O slot define o ALVO; cada MealOption é uma receita escalada para atingir
-    esse alvo. É isso que faz as opções serem equivalentes por construção, e
-    não por o cadastro ter sido feito com cuidado.
+    O slot define o ALVO CALÓRICO; cada MealOption é uma receita escalada para
+    atingir esse alvo. É isso que faz as opções fecharem a mesma caloria por
+    construção, e não por o cadastro ter sido feito com cuidado.
+
+    O que a escala NÃO garante é macro. Medido em 226 pares A/B reais: caloria
+    com 0,2% de desvio na mediana — praticamente exato —, mas proteína com
+    14,1%, gordura com 41,7%, e 100% dos pares com algum macro além de 5%.
+    `meal_planner` ranqueia por desvio e pesa a proteína em dobro, então faz o
+    melhor possível; o catálogo é que não tem substituto de mesmo perfil para
+    toda refeição.
+
+    Isto está escrito aqui porque a versão anterior deste texto dizia
+    "equivalentes", e a tela repetia a palavra para o usuário — prometendo que
+    trocar A por B não mudava conta nenhuma. Num app de hipertrofia, a proteína
+    é justamente a conta que muda.
     """
 
     plan = models.ForeignKey(NutritionPlan, on_delete=models.CASCADE, related_name="slots")

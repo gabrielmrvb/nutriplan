@@ -83,6 +83,16 @@ derruba. A chave é definida à mão no painel; `DJANGO_SECRET_KEY_FALLBACKS`
 existe só para a janela de troca, e sai da lista assim que as sessões antigas
 expiram.
 
+**Monitor externo bate em `/saude/vivo/`, nunca em `/saude/`.** As duas rotas
+existem por causa desta diferença: `/saude/` é o readiness — consulta o
+catálogo, e é o healthcheck do deploy. `/saude/vivo/` responde com ZERO
+consultas. O banco no Neon hiberna após 5 minutos parado, e o plano gratuito dá
+100 CU-horas por mês; a 0,25 CU sem hibernar dá 182, e a cota estoura por volta
+do dia 16. Um monitor de 5 em 5 minutos em `/saude/` manteria o banco acordado
+para sempre — o serviço que existe para melhorar a disponibilidade derrubaria o
+banco no meio do mês. Em `/saude/vivo/` ele acorda o serviço web (que é o que
+resolve o cold start de 50 s) e deixa o banco dormir.
+
 **Log não guarda segredo nem dado de saúde.** `config/observabilidade.py` redige
 token de redefinição (que anda **na URL**, e o logger de request grava caminho),
 parâmetro de OAuth, chave de SMTP e URL de banco. `django.db.backends` fica em

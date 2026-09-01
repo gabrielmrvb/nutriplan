@@ -394,9 +394,27 @@ coluna da direita), não entre ela e o almoço.
           {% for food in alimentos %}<option value="{{ food.name }}"></option>{% endfor %}
         </datalist>
 
+        {% comment %}
+          A frase dizia "as duas opções são equivalentes" e "dá para trocar A
+          por B sem refazer conta nenhuma". Medido em 226 pares reais do banco:
+          as CALORIAS batem — mediana de 0,2% de desvio, o motor escala cada
+          receita até o alvo e nisso ele é exato. Os macros não batem: proteína
+          14,1% de desvio na mediana, gordura 41,7%, e 100% dos pares têm algum
+          macro além de 5%.
+
+          Num app de hipertrofia, a proteína é o número que decide. Prometer
+          que trocar A por B não muda conta nenhuma era o app pedindo para a
+          pessoa não conferir justamente o que ela precisa conferir.
+
+          A saída NÃO é perseguir equivalência de macro: com 54 receitas isso
+          destruiria a variedade do cardápio, e não existe substituto de mesmo
+          perfil para toda refeição. A saída é dizer a verdade — o que bate é a
+          caloria, e a proteína de cada opção já está escrita no card ao lado.
+        {% endcomment %}
         <p class="hint">
-          As duas opções de cada horário são equivalentes: cada receita foi escalada até
-          o alvo daquela refeição, então dá para trocar A por B sem refazer conta nenhuma.
+          As duas opções de cada horário fecham a mesma caloria: cada receita foi
+          escalada até o alvo daquela refeição. Os macros variam entre elas — se a
+          proteína for o que importa hoje, vale conferir o número de cada uma.
           Seguindo a opção A do dia inteiro dá <b class="num">{{ menu.kcal }} kcal</b> e
           <b class="num">{{ menu.protein_g }} g</b> de proteína —
           {% if menu_on_target %}

@@ -4249,3 +4249,83 @@ class CustoDaTelaHojeTests(TestCase):
         total = self._consultas(get_user_model().objects.get(email="perf-teto@exemplo.com"))
 
         self.assertLess(total, 40, "a tela Hoje passou a custar %d consultas" % total)
+
+
+class EquivalenciaHonestaTests(TestCase):
+    """A tela não pode prometer uma equivalência que o cardápio não entrega.
+
+    Medido em 226 pares A/B reais do banco: as CALORIAS batem — 0,2% de desvio
+    na mediana, porque o motor escala cada receita até o alvo e nisso ele é
+    exato. Os macros não batem: proteína com 14,1% de desvio na mediana,
+    gordura com 41,7%, e 100% dos pares com algum macro além de 5%.
+
+    A tela dizia "as duas opções são equivalentes" e "dá para trocar A por B
+    sem refazer conta nenhuma". Num app de hipertrofia, a proteína é justamente
+    a conta que muda — e o texto pedia para a pessoa não conferir o número que
+    ela mais precisa conferir.
+
+    A correção não foi no motor. Perseguir equivalência de macro com 54
+    receitas destruiria a variedade do cardápio, e não existe substituto de
+    mesmo perfil para toda refeição. A correção foi dizer a verdade.
+
+    Este teste amarra a frase à medição: enquanto o cardápio real tiver desvio
+    de macro, a tela não pode prometer que ele não tem.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def _pagina_e_desvio(self):
+        # `create_complete_user` já cria a pesagem — repetir aqui esbarra na
+        # constraint de uma por dia.
+        user = create_complete_user()
+        services.sync_active_plan(user)
+        self.client.force_login(user)
+        html = self.client.get(reverse("plans:today"), secure=True).content.decode()
+
+        plan = NutritionPlan.objects.filter(user=user, is_active=True).first()
+        maior = 0.0
+        for slot in plan.slots.prefetch_related("options"):
+            opcoes = sorted(slot.options.all(), key=lambda o: o.rank)[:2]
+            if len(opcoes) < 2:
+                continue
+            a, b = opcoes
+            for campo in ("protein_g", "carb_g", "fat_g"):
+                base = float(getattr(a, campo) or 0)
+                if base:
+                    desvio = abs(float(getattr(b, campo) or 0) - base) / base * 100
+                    maior = max(maior, desvio)
+        return html, maior
+
+    def test_a_promessa_de_trocar_sem_refazer_conta_saiu_da_tela(self):
+        """Era a frase mais enganosa: ela desautoriza a conferência."""
+        html, _ = self._pagina_e_desvio()
+        self.assertNotIn("sem refazer conta nenhuma", html)
+
+    def test_a_tela_nao_chama_as_opcoes_de_equivalentes(self):
+        html, _ = self._pagina_e_desvio()
+        self.assertNotIn("opções de cada horário são equivalentes", html)
+
+    def test_a_tela_continua_dizendo_o_que_de_fato_bate(self):
+        """Tirar a promessa falsa não pode virar silêncio.
+
+        O que o motor entrega de verdade — a mesma caloria — é informação útil,
+        e some se a correção for só apagar a frase.
+        """
+        html, _ = self._pagina_e_desvio()
+        self.assertIn("fecham a mesma caloria", html)
+
+    def test_o_cardapio_real_realmente_tem_desvio_de_macro(self):
+        """A justificativa da frase, medida — e não herdada deste comentário.
+
+        Se um dia o motor passar a igualar macros, este teste falha e obriga a
+        revisitar o texto: continuar dizendo "os macros variam" seria a mesma
+        desonestidade ao contrário.
+        """
+        _, maior = self._pagina_e_desvio()
+        self.assertGreater(
+            maior, 5.0,
+            "o cardápio gerado ficou com macros equivalentes — a frase da tela "
+            "precisa ser revista",
+        )
