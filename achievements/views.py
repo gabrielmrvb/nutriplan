@@ -34,6 +34,22 @@ class ConquistasView(OnboardingRequiredMixin, TemplateView):
         contexto = super().get_context_data(**kwargs)
         user = self.request.user
 
+        # Avaliar AQUI, e a razão é retroatividade.
+        #
+        # O desbloqueio acontecia num lugar só: o POST que registra carga. Quem
+        # já tinha histórico quando as conquistas nasceram nunca era avaliado —
+        # e como esta tela calcula o progresso ao vivo, ela mostrava "1/1" em
+        # "Próximas": progresso completo e conquista trancada, lado a lado. A
+        # pessoa via que cumpriu a condição e que o app não reconheceu.
+        #
+        # A avaliação continua FORA dos demais requests, que era a decisão
+        # original e segue valendo. Aqui ela é proporcional: é a página que
+        # trata do assunto, e a pessoa entra nela de vez em quando.
+        #
+        # `avaliar` é idempotente — `get_or_create` mais a constraint de
+        # unicidade —, então abrir a tela dez vezes não cria dez conquistas.
+        services.avaliar(user)
+
         ganhas = list(UserAchievement.objects.filter(user=user))
         por_slug = {}
         for conquista in ganhas:

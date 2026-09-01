@@ -492,3 +492,62 @@ class PrivacidadeDoCardTests(BaseDeConquistas):
         self.assertIn(exercicio.name, atributos)
         self.assertNotIn("97", atributos)
         self.assertNotIn("60", atributos)
+
+
+class RetroatividadeTests(BaseDeConquistas):
+    """Quem já treinava quando as conquistas nasceram não pode ficar de fora.
+
+    O desbloqueio acontecia num lugar só: o POST que registra carga. Todo mundo
+    com histórico anterior ao lançamento nunca era avaliado — e como a tela de
+    conquistas calcula o progresso AO VIVO, ela mostrava "1/1" em "Próximas".
+    Progresso completo e conquista trancada, lado a lado, sem nada que a pessoa
+    pudesse fazer a respeito: ela já tinha cumprido a condição.
+    """
+
+    def test_historico_anterior_desbloqueia_ao_abrir_a_tela(self):
+        user = self.pessoa()
+        self.treinar(user, date.today())
+
+        # Ninguém passou pelo POST de carga: é o cenário de quem já usava o app
+        # antes de as conquistas existirem.
+        self.assertEqual(self.slugs(user), [])
+
+        self.client.force_login(user)
+        self.client.get(reverse("achievements:list"), secure=True)
+
+        self.assertIn("primeiro-treino", self.slugs(user))
+
+    def test_nada_fica_em_cem_por_cento_na_lista_de_proximas(self):
+        """"1/1" numa medalha trancada é o app dizendo que não reconhece o que já viu.
+
+        Esta é a asserção que descreve o defeito do ponto de vista de quem usa:
+        não interessa por qual caminho, nada pode aparecer em "Próximas" com o
+        progresso cheio.
+        """
+        user = self.pessoa()
+        for n in range(3):
+            self.treinar(user, date.today() - timedelta(days=n))
+
+        self.client.force_login(user)
+        resposta = self.client.get(reverse("achievements:list"), secure=True)
+
+        cheios = [
+            item for item in resposta.context["a_caminho"] if item["pct"] >= 100
+        ]
+        self.assertEqual(
+            cheios, [], "conquista com progresso cheio continuou em 'Próximas'"
+        )
+
+    def test_abrir_a_tela_varias_vezes_nao_duplica(self):
+        """`avaliar` é idempotente, e a tela agora o chama a cada visita."""
+        user = self.pessoa()
+        self.treinar(user, date.today())
+        self.client.force_login(user)
+
+        for _ in range(3):
+            self.client.get(reverse("achievements:list"), secure=True)
+
+        self.assertEqual(
+            UserAchievement.objects.filter(user=user, slug="primeiro-treino").count(),
+            1,
+        )
