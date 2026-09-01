@@ -34,6 +34,7 @@ from accounts.models import (
 )
 
 from . import services
+from .services import SPLIT_BY_PREFERENCE, preferencia_muda_a_divisao
 from .models import (
     Equipment,
     Exercise,
@@ -43,6 +44,7 @@ from .models import (
     MuscleGroup,
     Split,
     TrainingPlan,
+    TrainingSession,
     WorkoutTemplate,
     WorkoutTemplateItem,
 )
@@ -3974,3 +3976,900 @@ class ConclusaoNaoVazaEntreDiasTests(TestCase):
             [],
             "a ficha de hoje deixou de mostrar o exercício concluído",
         )
+
+
+class NotaDaDivisaoTests(TestCase):
+    """A nota descreve o ciclo DESTA ficha, e não a divisão em abstrato.
+
+    O texto do ABC dizia "quem treina cinco vezes faz A, B, C, A, B". Quem
+    treinava quatro lia isso na própria ficha e ficava sem saber o que valia
+    para ele. A frase saiu do texto fixo e virou função, que lê os rótulos
+    realmente atribuídos.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    class _Sessao:
+        def __init__(self, label):
+            self.label = label
+
+    def _nota(self, split, rotulos):
+        return services.nota_da_divisao(split, [self._Sessao(r) for r in rotulos])
+
+    def test_sem_repeticao_a_nota_nao_fala_de_ciclo(self):
+        """Dizer "nenhum dia repete" é ocupar espaço para informar ausência."""
+        nota = self._nota(Split.ABC, ["A", "B", "C"])
+
+        self.assertNotIn("ciclo fica", nota)
+        self.assertNotIn("vezes", nota)
+
+    def test_a_nota_nomeia_o_dia_que_repete(self):
+        nota = self._nota(Split.ABC, ["A", "B", "C", "A"])
+
+        self.assertIn("A-B-C-A", nota)
+        self.assertIn("A cai duas vezes", nota)
+
+    def test_a_contagem_e_por_dia_e_nao_uniforme(self):
+        """Sete dias em ABC dão A três vezes e B e C duas.
+
+        A primeira versão desta função dizia "duas vezes" para os três e
+        errava justo no caso mais desequilibrado — o único em que alguém
+        realmente precisa da informação.
+        """
+        nota = self._nota(Split.ABC, ["A", "B", "C", "A", "B", "C", "A"])
+
+        self.assertIn("A cai três vezes", nota)
+        self.assertIn("B e C caem duas vezes", nota)
+
+    def test_a_nota_nao_promete_volume_que_o_motor_nao_entrega(self):
+        """A frase terminava em "esses músculos recebem mais séries que os
+        outros", e era verdade enquanto o gerador copiava a ficha inteira para
+        cada ocorrência. Deixou de ser com `distribuir_series`.
+
+        Este teste existe porque texto e motor divergem em silêncio: nenhum
+        outro teste falharia se a nota continuasse descrevendo o
+        comportamento antigo.
+        """
+        nota = self._nota(Split.ABC, ["A", "B", "C", "A"])
+
+        self.assertIn("distribuído entre as sessões", nota)
+        self.assertIn("aumenta a frequência", nota)
+        self.assertNotIn("recebem mais séries", nota)
+
+    def test_a_ficha_gerada_carrega_a_nota_do_proprio_ciclo(self):
+        """De ponta a ponta: quem tem quatro dias não lê o caso de cinco."""
+        user = create_user(email="nota@exemplo.com", weekdays=(0, 1, 2, 3))
+        plan = services.create_routine(user)
+
+        self.assertNotIn("quem treina cinco vezes", plan.notes)
+
+
+class TreinoNaoRemontaNoMeioTests(TestCase):
+    """Com série anotada hoje, a ficha não é remontada.
+
+    sync_active_routine roda na entrada da tela de treino. Quando os dias de
+    treino mudam, ela chama create_routine, que apaga as sessões e monta
+    outras — e quem estava na terceira série de supino via o exercício seguinte
+    virar outro, a contagem de séries mudar e o descanso reiniciar.
+
+    Os registros não se perdiam: ExerciseLog é por (usuário, exercício, dia) e
+    não aponta para a sessão. O que se perdia era o treino em execução.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user()
+
+    def _mudar_os_dias(self):
+        TrainingDay.objects.create(
+            user=self.user, weekday=5, start_time=time(10, 0), duration_min=60
+        )
+
+    def test_serie_anotada_hoje_segura_a_remontagem(self):
+        plan = services.create_routine(self.user)
+        exercicio = plan.sessions.first().exercises.first().exercise
+        services.record_load(self.user, exercicio, Decimal("60"), set_number=1)
+
+        self._mudar_os_dias()
+        depois, mudou = services.sync_active_routine(self.user)
+
+        self.assertFalse(mudou)
+        self.assertEqual(depois.pk, plan.pk)
+
+    def test_sem_serie_anotada_a_remontagem_acontece(self):
+        """O contrapeso: sem ele, "não remontar nunca" também passaria."""
+        plan = services.create_routine(self.user)
+
+        self._mudar_os_dias()
+        depois, mudou = services.sync_active_routine(self.user)
+
+        self.assertTrue(mudou)
+        self.assertNotEqual(depois.pk, plan.pk)
+
+    def test_a_espera_acaba_quando_o_dia_vira(self):
+        """A trava é de horas, não de dias: amanhã não há registro de hoje."""
+        plan = services.create_routine(self.user)
+        exercicio = plan.sessions.first().exercises.first().exercise
+        services.record_load(self.user, exercicio, Decimal("60"), set_number=1)
+        self._mudar_os_dias()
+
+        amanha = timezone.localdate() + timedelta(days=1)
+        depois, mudou = services.sync_active_routine(self.user, day=amanha)
+
+        self.assertTrue(mudou)
+        self.assertNotEqual(depois.pk, plan.pk)
+
+    def test_a_serie_anotada_continua_no_banco_depois_da_remontagem(self):
+        """O registro nunca esteve em risco, e o teste guarda isso: se um dia
+        ExerciseLog passar a apontar para a sessão, a remontagem começa a
+        apagar treino e nada mais acusaria.
+        """
+        plan = services.create_routine(self.user)
+        exercicio = plan.sessions.first().exercises.first().exercise
+        services.record_load(self.user, exercicio, Decimal("60"), set_number=1)
+
+        self._mudar_os_dias()
+        services.sync_active_routine(
+            self.user, day=timezone.localdate() + timedelta(days=1)
+        )
+
+        self.assertTrue(
+            ExerciseLog.objects.filter(user=self.user, exercise=exercicio).exists()
+        )
+
+
+class TreinoEmExecucaoSobreviveAoAjusteTests(TestCase):
+    """O fluxo inteiro, por HTTP: treinar, mexer na configuração, voltar.
+
+    O teste de unidade do congelamento chama `sync_active_routine` direto, e
+    isso deixa passar o defeito mais provável: a remontagem não acontece só
+    ali. `WorkoutViewTests` mostra que a tela chama a sincronização na entrada,
+    e o passo 3 do onboarding é o lugar real onde a pessoa mexe nos dias — o
+    mesmo formulário que ela usou para se cadastrar continua sendo a tela de
+    edição depois. Só percorrendo os dois por requisição dá para afirmar que a
+    sessão em execução sobreviveu.
+
+    O caso é concreto: alguém está na academia, anota a primeira série, lembra
+    que mudou de horário na terça, abre a configuração e salva. Antes disso, ao
+    voltar para a ficha ela encontrava outro treino.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user(weekdays=(0, 2, 4))
+        self.client.force_login(self.user)
+
+    def _ficha(self):
+        return services.get_active_routine(self.user)
+
+    def _salvar_novos_dias(self, weekdays):
+        """O passo 3 do onboarding é a tela de edição de dias de treino."""
+        perfil = self.user.profile
+        return self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 3}),
+            {
+                "weekdays": [str(d) for d in weekdays],
+                "start_time": "19:00",
+                "duration_min": "60",
+                "wake_time": perfil.wake_time.strftime("%H:%M"),
+                "sleep_time": perfil.sleep_time.strftime("%H:%M"),
+            },
+        )
+
+    def test_o_treino_em_execucao_atravessa_a_mudanca_de_configuracao(self):
+        # 1. a pessoa abre a ficha e o app monta a rotina de hoje
+        self.assertEqual(self.client.get(reverse("workouts:routine")).status_code, 200)
+        antes = self._ficha()
+        sessao = antes.sessions.order_by("order").first()
+        exercicio = sessao.exercises.select_related("exercise").first()
+
+        # 2. anota a primeira série
+        resposta = self.client.post(
+            reverse("workouts:record_load", args=[exercicio.exercise_id]),
+            {"weight_kg": "60", "set_number": "1", "reps": "10"},
+        )
+        self.assertEqual(resposta.status_code, 302)
+        self.assertTrue(
+            ExerciseLog.objects.filter(
+                user=self.user, exercise=exercicio.exercise_id
+            ).exists(),
+            "a série não foi registrada — o resto do teste não provaria nada",
+        )
+
+        # 3 a 5. muda a frequência na configuração e salva
+        self._salvar_novos_dias((0, 1, 2, 3, 4))
+        self.assertEqual(self.user.training_days.count(), 5)
+
+        # 6 e 7. volta para a ficha: é a MESMA sessão que ela começou
+        self.assertEqual(self.client.get(reverse("workouts:routine")).status_code, 200)
+        depois = self._ficha()
+
+        self.assertEqual(depois.pk, antes.pk, "a ficha foi remontada durante o treino")
+        self.assertEqual(depois.sessions.order_by("order").first().pk, sessao.pk)
+
+        # 8. a série continua onde estava, com o peso que ela anotou
+        log = ExerciseLog.objects.get(
+            user=self.user, exercise=exercicio.exercise_id, set_number=1
+        )
+        self.assertEqual(log.weight_kg, Decimal("60"))
+        self.assertIn(
+            exercicio.exercise.name,
+            self.client.get(reverse("workouts:routine")).content.decode(),
+        )
+
+    def test_a_configuracao_nova_vale_a_partir_do_dia_seguinte(self):
+        """A trava é de horas: adiar não pode virar ignorar.
+
+        Sem esta metade, "nunca remontar" passaria no teste de cima.
+        """
+        self.client.get(reverse("workouts:routine"))
+        antes = self._ficha()
+        exercicio = antes.sessions.first().exercises.first()
+        services.record_load(
+            self.user, exercicio.exercise, Decimal("60"), set_number=1
+        )
+
+        self._salvar_novos_dias((0, 1, 2, 3, 4))
+
+        # A mesma sincronização que a tela faz, no dia seguinte.
+        depois, mudou = services.sync_active_routine(
+            self.user, day=timezone.localdate() + timedelta(days=1)
+        )
+
+        self.assertTrue(mudou)
+        self.assertNotEqual(depois.pk, antes.pk)
+        self.assertEqual(depois.days_per_week, 5)
+        self.assertEqual(
+            {s.weekday for s in depois.sessions.all()}, {0, 1, 2, 3, 4}
+        )
+
+    def test_a_serie_do_dia_do_ajuste_continua_no_historico(self):
+        """O registro nunca dependeu da sessão, e isso precisa continuar
+        verdade depois que a ficha antiga for aposentada."""
+        self.client.get(reverse("workouts:routine"))
+        exercicio = self._ficha().sessions.first().exercises.first().exercise
+        services.record_load(self.user, exercicio, Decimal("72.5"), set_number=1)
+
+        self._salvar_novos_dias((0, 1, 2, 3, 4))
+        services.sync_active_routine(
+            self.user, day=timezone.localdate() + timedelta(days=1)
+        )
+
+        log = ExerciseLog.objects.get(user=self.user, exercise=exercicio, set_number=1)
+        self.assertEqual(log.weight_kg, Decimal("72.5"))
+        self.assertEqual(log.date, timezone.localdate())
+
+
+class MatrizDeVolumeTests(TestCase):
+    """Repetir a letra aumenta a frequência, nunca o volume.
+
+    O relato: quatro dias de treino e 28 séries de peito na semana. O número
+    estava certo — o gerador cicla A-B-C-A e copiava as 14 séries do modelo
+    para as duas ocorrências do dia A. Sete dias chegavam a 42.
+
+    Ninguém prescreveu isso. O orçamento semanal de um grupo é o que a divisão
+    pede numa passagem completa, e está escrito no catálogo; ciclar a divisão
+    para preencher a semana não é motivo para multiplicá-lo. `distribuir_series`
+    inverteu a ordem: primeiro o orçamento, depois as sessões.
+
+    A régua deste teste NÃO é a faixa de 10 a 20 que a tela mostra — aquilo é
+    texto educativo, não lei. A régua é o próprio catálogo: o total semanal
+    depois de ciclar precisa ser o mesmo de uma passagem única.
+    """
+
+    #: Preferências suportadas mais a ausência de resposta.
+    PREFERENCIAS = (None,) + tuple(SPLIT_BY_PREFERENCE)
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def _orcamento(self, split):
+        """O que a divisão prescreve numa passagem completa, por grupo."""
+        orcamento = {}
+        for template in services.templates_for(split):
+            for item in template.items.all():
+                grupo = item.exercise.muscle_group
+                orcamento[grupo] = orcamento.get(grupo, 0) + item.sets
+        return orcamento
+
+    def _ficha(self, dias, preferencia, duracao=60):
+        user = create_user(
+            email="matriz-%s-%s-%s@exemplo.com" % (dias, preferencia, duracao),
+            weekdays=tuple(range(dias)),
+            duration=duracao,
+        )
+        if preferencia:
+            Profile.objects.filter(user=user).update(
+                split_preference=preferencia, split_preference_confirmada=True
+            )
+            user.refresh_from_db()
+        return user, services.create_routine(user)
+
+    def _semanal(self, plan):
+        semanal = {}
+        for sessao in plan.sessions.all():
+            for item in sessao.exercises.select_related("exercise"):
+                grupo = item.exercise.muscle_group
+                semanal[grupo] = semanal.get(grupo, 0) + item.sets
+        return semanal
+
+    def test_nenhum_grupo_cresce_so_porque_a_letra_repetiu(self):
+        for dias in range(1, 8):
+            for preferencia in self.PREFERENCIAS:
+                _, plan = self._ficha(dias, preferencia)
+                semanal = self._semanal(plan)
+                orcamento = self._orcamento(plan.split)
+                estouros = {
+                    grupo: (series, orcamento.get(grupo, 0))
+                    for grupo, series in semanal.items()
+                    if series > orcamento.get(grupo, 0)
+                }
+                with self.subTest(dias=dias, pref=preferencia, split=plan.split):
+                    self.assertEqual(
+                        estouros, {},
+                        "grupo acima do orçamento (semanal, orçamento): %s" % estouros,
+                    )
+
+    def test_o_caso_do_relato_peito_para_de_dobrar(self):
+        """Quatro dias, ciclo A-B-C-A: 28 séries de peito eram o defeito."""
+        _, plan = self._ficha(4, None)
+
+        rotulos = [s.label for s in plan.sessions.order_by("order")]
+        semanal = self._semanal(plan)
+
+        self.assertEqual(rotulos, ["A", "B", "C", "A"], "o ciclo mudou de forma")
+        self.assertEqual(semanal[MuscleGroup.CHEST], self._orcamento(plan.split)[MuscleGroup.CHEST])
+        self.assertLess(semanal[MuscleGroup.CHEST], 28)
+
+    def test_a_frequencia_sobe_mesmo_com_o_volume_estavel(self):
+        """O ganho da repetição é a segunda sessão do grupo na semana — e ele
+        precisa continuar existindo depois da correção."""
+        _, tres = self._ficha(3, None)
+        _, quatro = self._ficha(4, None)
+
+        def frequencia(plan, grupo):
+            return sum(
+                1
+                for sessao in plan.sessions.all()
+                if any(
+                    i.exercise.muscle_group == grupo
+                    for i in sessao.exercises.select_related("exercise")
+                )
+            )
+
+        self.assertEqual(frequencia(tres, MuscleGroup.CHEST), 1)
+        self.assertEqual(frequencia(quatro, MuscleGroup.CHEST), 2)
+        self.assertEqual(
+            self._semanal(tres)[MuscleGroup.CHEST],
+            self._semanal(quatro)[MuscleGroup.CHEST],
+        )
+
+    def test_a_sessao_repetida_nunca_fica_mais_longa_que_a_unica(self):
+        """A duração é a que a TELA mostra — `estimated_minutes`, calculada da
+        prescrição real —, e não a duração declarada pela pessoa.
+
+        As duas coisas são diferentes e a distinção importa: `duration_min` é a
+        "duração média" que a pessoa informou sobre o próprio treino, usada
+        para posicionar a refeição pós-treino e para exibir entre os insumos do
+        plano. O gerador nunca leu esse número, nem antes nem depois desta
+        correção.
+
+        A propriedade guardada aqui é a que a distribuição precisa manter: uma
+        ocorrência de uma letra repetida recebe parte do volume, então não pode
+        durar mais do que a mesma letra dura quando acontece uma vez só. Sem a
+        distribuição isso era falso por construção — as duas ocorrências vinham
+        com a ficha inteira.
+
+        A declaração da pessoa (30/45/60/90) entra no laço para provar o que
+        parece contraintuitivo e é verdade: ela não muda nada na prescrição.
+        """
+        for duracao in (30, 45, 60, 90):
+            _, referencia = self._ficha(3, None, duracao=duracao)
+            teto = {
+                sessao.label: sessao.estimated_minutes
+                for sessao in referencia.sessions.all()
+            }
+            for dias in (4, 5, 6, 7):
+                _, plan = self._ficha(dias, None, duracao=duracao)
+                for sessao in plan.sessions.all():
+                    with self.subTest(duracao=duracao, dias=dias, dia=sessao.label):
+                        self.assertLessEqual(
+                            sessao.estimated_minutes, teto[sessao.label]
+                        )
+
+    def test_a_duracao_declarada_nao_altera_a_prescricao(self):
+        """Contrato auditado: `duration_min` é declaração, não alvo nem teto.
+
+        Está escrito em quatro lugares e nenhum deles é o gerador: o rótulo do
+        formulário diz "Duração média"; `TrainingDay` guarda o número; a tela
+        mostra entre os INSUMOS do plano; e `plans.meal_planner` soma ao
+        horário de início para saber quando o treino acaba e posicionar a
+        refeição de depois.
+
+        Este teste existe para que ninguém "conserte" isso por engano: se um
+        dia o gerador passar a ler a duração, esta asserção cai e a mudança
+        entra por decisão, não por acidente.
+        """
+        fichas = [self._ficha(4, None, duracao=d)[1] for d in (30, 45, 60, 90)]
+
+        retratos = {
+            tuple(
+                (s.label, i.exercise_id, i.sets)
+                for s in plan.sessions.order_by("order")
+                for i in s.exercises.order_by("order")
+            )
+            for plan in fichas
+        }
+
+        self.assertEqual(len(retratos), 1, "a duração declarada mudou a ficha")
+
+    def _minutos(sessao):
+        itens = list(sessao.exercises.all())
+        if not itens:
+            return 0
+        series = sum(i.sets for i in itens)
+        descanso = sum(i.rest_seconds for i in itens) // len(itens)
+        return _duracao_estimada(series, len(itens), descanso) / 60
+
+    def test_a_nota_da_ficha_descreve_o_ciclo_que_foi_gerado(self):
+        """O texto do BUG #7 e o motor precisam contar a mesma história."""
+        for dias in (4, 5, 6, 7):
+            _, plan = self._ficha(dias, None)
+            ciclo = "-".join(s.label for s in plan.sessions.order_by("order"))
+            with self.subTest(dias=dias):
+                self.assertIn(ciclo, plan.notes)
+
+    def test_remontar_com_a_mesma_configuracao_nao_muda_nada(self):
+        """`routine_is_current` compara séries agora que elas são repartidas.
+
+        Se a conferência divergir do gerador, a rotina é julgada obsoleta em
+        toda visita e o gerador roda em laço — remontando a ficha da pessoa
+        várias vezes por dia, em silêncio.
+        """
+        for dias in (3, 4, 5, 6, 7):
+            user, plan = self._ficha(dias, None)
+            with self.subTest(dias=dias):
+                self.assertTrue(
+                    services.routine_is_current(plan, user),
+                    "a ficha recém-criada já foi considerada obsoleta",
+                )
+                _, mudou = services.sync_active_routine(user)
+                self.assertFalse(mudou)
+
+
+class PreferenciaNaoConfirmadaTests(TestCase):
+    """Não responder nada não pode virar "escolheu três grupos por dia".
+
+    `split_preference` nasce com TRES. A intenção estava certa — TRES é o ABC,
+    que é o que a frequência escolhia sozinha antes da pergunta existir — mas o
+    campo passou a devolver uma RESPOSTA para todo mundo.
+
+    E ver a pergunta não é garantido: `preferencia_muda_a_divisao` devolve
+    False até três dias de treino, então quem monta a ficha treinando três
+    vezes passa direto pelo passo 4. Quando essa pessoa marca um quarto dia, a
+    resposta passa a mudar a ficha — e o app usava uma escolha que ela nunca
+    fez.
+
+    A correção não reescreve o passado: não há como saber, olhando o banco,
+    quais TRES foram marcados e quais vieram de fábrica. Entrou um segundo
+    campo que registra o único fato que existe — passou pelo passo 4 e salvou —
+    e o app passou a PERGUNTAR quando a resposta começa a importar.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def _pessoa(self, email, weekdays):
+        user = create_user(email=email, weekdays=weekdays)
+        self.client.force_login(user)
+        return user
+
+    def _salvar_dias(self, user, weekdays):
+        perfil = user.profile
+        return self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 3}),
+            {
+                "weekdays": [str(d) for d in weekdays],
+                "start_time": "19:00",
+                "duration_min": "60",
+                "wake_time": perfil.wake_time.strftime("%H:%M"),
+                "sleep_time": perfil.sleep_time.strftime("%H:%M"),
+            },
+        )
+
+    def test_perfil_novo_nasce_sem_preferencia_confirmada(self):
+        user = self._pessoa("nova@exemplo.com", (0, 2, 4))
+
+        self.assertFalse(user.profile.split_preference_confirmada)
+
+    def test_ate_tres_dias_a_pergunta_nao_aparece_e_nada_se_perde(self):
+        """Até três dias a divisão é a mesma pelas três preferências, e
+        perguntar seria pedir uma escolha que o app vai ignorar."""
+        for dias in (1, 2, 3):
+            with self.subTest(dias=dias):
+                self.assertFalse(preferencia_muda_a_divisao(dias))
+
+    def test_subir_para_quatro_dias_leva_a_pessoa_a_escolher(self):
+        """O caso do relato, pelo caminho real: três dias, depois quatro."""
+        user = self._pessoa("subiu@exemplo.com", (0, 2, 4))
+        Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
+
+        resposta = self._salvar_dias(user, (0, 1, 2, 3))
+
+        self.assertEqual(resposta.status_code, 302)
+        self.assertEqual(
+            resposta["Location"],
+            reverse("accounts:onboarding_step", kwargs={"step": 4}),
+            "a pessoa passou de 3 para 4 dias sem nunca escolher a divisão",
+        )
+
+    def test_subir_para_cinco_dias_tambem_leva(self):
+        user = self._pessoa("cinco@exemplo.com", (0, 2, 4))
+        Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
+
+        resposta = self._salvar_dias(user, (0, 1, 2, 3, 4))
+
+        self.assertEqual(
+            resposta["Location"],
+            reverse("accounts:onboarding_step", kwargs={"step": 4}),
+        )
+
+    def test_quem_ja_escolheu_nao_e_perguntado_de_novo(self):
+        user = self._pessoa("escolheu@exemplo.com", (0, 2, 4))
+        Profile.objects.filter(user=user).update(
+            onboarding_step=ONBOARDING_DONE,
+            split_preference=SplitPreference.DOIS,
+            split_preference_confirmada=True,
+        )
+
+        resposta = self._salvar_dias(user, (0, 1, 2, 3))
+
+        self.assertEqual(resposta["Location"], reverse("accounts:profile"))
+
+    def test_escolher_tres_de_proposito_fica_registrado_como_escolha(self):
+        """TRES continua sendo uma resposta válida — o que mudou é que agora
+        dá para saber que ela foi dada."""
+        user = self._pessoa("tres@exemplo.com", (0, 1, 2, 3))
+        Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
+
+        self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 4}),
+            {"split_preference": SplitPreference.TRES},
+        )
+        user.refresh_from_db()
+
+        self.assertEqual(user.profile.split_preference, SplitPreference.TRES)
+        self.assertTrue(user.profile.split_preference_confirmada)
+
+    def test_escolher_outra_preferencia_tambem_confirma(self):
+        user = self._pessoa("um@exemplo.com", (0, 1, 2, 3, 4))
+        Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
+
+        self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 4}),
+            {"split_preference": SplitPreference.UM},
+        )
+        user.refresh_from_db()
+
+        self.assertEqual(user.profile.split_preference, SplitPreference.UM)
+        self.assertTrue(user.profile.split_preference_confirmada)
+
+    def test_a_divisao_de_quem_ja_existe_nao_muda_sozinha(self):
+        """A propriedade que a migração precisa preservar: ninguém troca de
+        ficha porque um campo novo apareceu no banco."""
+        user = self._pessoa("existente@exemplo.com", (0, 1, 2, 3))
+        antes = services.create_routine(user)
+
+        # É o estado de quem já estava no banco: TRES de fábrica, sem confirmar.
+        Profile.objects.filter(user=user).update(
+            split_preference=SplitPreference.TRES,
+            split_preference_confirmada=False,
+        )
+        user.refresh_from_db()
+
+        depois, mudou = services.sync_active_routine(user)
+
+        self.assertFalse(mudou)
+        self.assertEqual(depois.pk, antes.pk)
+        self.assertEqual(depois.split, antes.split)
+
+    def test_recarregar_a_tela_nao_confirma_nada(self):
+        """Confirmar é um POST no passo 4. Passar perto não conta."""
+        user = self._pessoa("recarrega@exemplo.com", (0, 1, 2, 3))
+        Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
+
+        self.client.get(reverse("accounts:onboarding_step", kwargs={"step": 4}))
+        self.client.get(reverse("workouts:routine"))
+        self.client.get(reverse("accounts:profile"))
+        user.refresh_from_db()
+
+        self.assertFalse(user.profile.split_preference_confirmada)
+
+    def test_editar_depois_mantem_a_confirmacao(self):
+        """Quem já escolheu e volta para trocar continua tendo escolhido."""
+        user = self._pessoa("editou@exemplo.com", (0, 1, 2, 3))
+        Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
+        self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 4}),
+            {"split_preference": SplitPreference.UM},
+        )
+
+        self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 4}),
+            {"split_preference": SplitPreference.DOIS},
+        )
+        user.refresh_from_db()
+
+        self.assertEqual(user.profile.split_preference, SplitPreference.DOIS)
+        self.assertTrue(user.profile.split_preference_confirmada)
+
+
+class DoseMinimaTests(TestCase):
+    """Nenhum exercício é prescrito abaixo da dose que o catálogo usa.
+
+    Distribuir o volume entre as ocorrências resolveu as 28 séries de peito,
+    mas criou outro número que ninguém autorizou: três séries espalhadas por
+    três ocorrências viram 1+1+1, e nenhum modelo do catálogo prescreve menos
+    de três. A matriz mediu 188 ocorrências de uma série — com sete dos nove
+    exercícios do dia A caindo para uma. Isso não é uma sessão, é uma lista.
+
+    A saída foi entrar em MENOS dias com dose cheia, em vez de entrar em todos
+    diluído. As duas ocorrências do dia A passam a ter exercícios diferentes, e
+    a soma da semana não muda — que é a propriedade que o teste de orçamento em
+    `MatrizDeVolumeTests` continua guardando.
+    """
+
+    PREFERENCIAS = (None,) + tuple(SPLIT_BY_PREFERENCE)
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def _fichas(self):
+        for dias in range(1, 8):
+            for preferencia in self.PREFERENCIAS:
+                user = create_user(
+                    email="dose-%s-%s@exemplo.com" % (dias, preferencia),
+                    weekdays=tuple(range(dias)),
+                )
+                if preferencia:
+                    Profile.objects.filter(user=user).update(
+                        split_preference=preferencia,
+                        split_preference_confirmada=True,
+                    )
+                    user.refresh_from_db()
+                yield dias, preferencia, services.create_routine(user)
+
+    def test_nenhum_exercicio_e_prescrito_com_menos_de_duas_series(self):
+        """Duas séries está escrito literalmente aqui, e isso é deliberado.
+
+        A primeira versão comparava contra `services.DOSE_MINIMA` — e baixar a
+        constante para 1 movia a trave junto, com o teste continuando verde.
+        Sabotagem passou. O teste precisa afirmar o NÚMERO que o produto
+        aceita, não repetir a variável que o código usa.
+
+        Dois é o piso porque o catálogo nunca prescreve menos de três séries
+        em nenhum item: uma série é quantidade que ninguém autorizou, e ela só
+        apareceria como subproduto de dividir volume.
+        """
+        for dias, preferencia, plan in self._fichas():
+            magros = [
+                (s.label, i.exercise.name, i.sets)
+                for s in plan.sessions.all()
+                for i in s.exercises.select_related("exercise")
+                if i.sets < 2
+            ]
+            with self.subTest(dias=dias, pref=preferencia, split=plan.split):
+                self.assertEqual(magros, [], "exercício abaixo da dose mínima")
+
+    def test_o_catalogo_nunca_pede_menos_do_que_a_dose_minima(self):
+        """O outro lado da trava: a constante não pode subir acima do que os
+        modelos prescrevem, senão a distribuição passaria a inventar volume
+        para alcançá-la."""
+        menor = min(
+            item.sets
+            for template in WorkoutTemplate.objects.all()
+            for item in template.items.all()
+        )
+
+        self.assertGreaterEqual(menor, services.DOSE_MINIMA)
+        self.assertEqual(services.DOSE_MINIMA, 2)
+
+    def test_nenhum_exercicio_e_renderizado_com_zero_series(self):
+        """Zero significa "não é para fazer hoje", e a linha não deve existir.
+
+        Uma linha com zero séries apareceria na ficha como um exercício a
+        fazer, com nenhuma série para marcar — e a pessoa ficaria olhando para
+        um cartão que não dá para completar.
+        """
+        for dias, preferencia, plan in self._fichas():
+            with self.subTest(dias=dias, pref=preferencia):
+                self.assertFalse(
+                    SessionExercise.objects.filter(
+                        session__plan=plan, sets=0
+                    ).exists()
+                )
+
+    def test_nenhum_exercicio_da_divisao_some_da_semana(self):
+        """Entrar em menos dias não pode virar não entrar em nenhum."""
+        for dias, preferencia, plan in self._fichas():
+            previstos = {
+                item.exercise_id
+                for template in services.templates_for(plan.split)
+                for item in template.items.all()
+            }
+            na_semana = set(
+                SessionExercise.objects.filter(session__plan=plan).values_list(
+                    "exercise_id", flat=True
+                )
+            )
+            with self.subTest(dias=dias, pref=preferencia):
+                self.assertEqual(previstos - na_semana, set())
+
+    def test_as_ocorrencias_da_mesma_letra_ficam_equilibradas(self):
+        """O giro por posição do exercício existe para isto.
+
+        Sem ele todos os exercícios escolhem a mesma ocorrência: com quatro
+        dias, o primeiro A ficava com 29 séries e o segundo com 11.
+        """
+        user = create_user(email="equilibrio@exemplo.com", weekdays=(0, 1, 2, 3))
+        plan = services.create_routine(user)
+
+        series_por_a = [
+            sum(i.sets for i in sessao.exercises.all())
+            for sessao in plan.sessions.order_by("order")
+            if sessao.label == "A"
+        ]
+
+        self.assertEqual(len(series_por_a), 2, "o ciclo A-B-C-A mudou de forma")
+        self.assertLessEqual(
+            max(series_por_a) - min(series_por_a),
+            max(series_por_a) // 2,
+            "uma ocorrência ficou com mais do dobro da outra: %s" % series_por_a,
+        )
+
+
+class SincronizacaoEstavelTests(TestCase):
+    """Abrir a tela de treino várias vezes não remonta a ficha.
+
+    `sync_active_routine` roda na entrada da tela, e `routine_is_current` é
+    quem decide se remonta. As séries deixaram de ser cópia do catálogo — são
+    distribuídas — então a conferência precisa refazer a MESMA conta que o
+    gerador faz. Se as duas divergirem em um único número, toda visita julga a
+    ficha obsoleta e o gerador roda em laço: `TrainingPlan` novo, sessões
+    novas e `SessionExercise` novos várias vezes por dia, em silêncio, sem
+    nenhum erro na tela.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def _retrato(self, plan):
+        """O que precisa ficar idêntico entre visitas."""
+        return [
+            (s.pk, s.label, s.order, i.exercise_id, i.sets, i.order)
+            for s in plan.sessions.order_by("order")
+            for i in s.exercises.order_by("order")
+        ]
+
+    def _contagens(self):
+        return (
+            TrainingPlan.objects.count(),
+            TrainingSession.objects.count(),
+            SessionExercise.objects.count(),
+        )
+
+    def test_tres_visitas_seguidas_nao_mudam_nada(self):
+        for dias in (3, 4, 5, 6, 7):
+            with self.subTest(dias=dias):
+                user = create_user(
+                    email="estavel-%s@exemplo.com" % dias,
+                    weekdays=tuple(range(dias)),
+                )
+                self.client.force_login(user)
+                self.client.get(reverse("workouts:routine"))
+
+                plan = services.get_active_routine(user)
+                retrato = self._retrato(plan)
+                contagens = self._contagens()
+
+                for _ in range(3):
+                    self.client.get(reverse("workouts:routine"))
+
+                depois = services.get_active_routine(user)
+                self.assertEqual(depois.pk, plan.pk, "nasceu ficha nova")
+                self.assertEqual(self._contagens(), contagens, "nasceram linhas novas")
+                self.assertEqual(self._retrato(depois), retrato)
+
+
+    def test_mudar_as_series_no_catalogo_chega_a_quem_ja_tem_ficha(self):
+        """A garantia que a conferência de séries existe para dar.
+
+        Sem este teste, desligar `_series_conferem` passava batido: os testes
+        de estabilidade só provam que nada muda quando NADA mudou, e isso
+        continua verdade com a conferência desligada. Sabotagem passou.
+
+        O defeito que ele guarda é o mesmo que a comparação de prescrição já
+        guardava antes de `sets` sair dela: alguém ajusta as séries de um
+        exercício no catálogo, e quem já tem ficha continua fazendo o número
+        antigo para sempre — sem nada na tela acusando.
+        """
+        user = create_user(email="catalogo@exemplo.com", weekdays=(0, 1, 2, 3))
+        plan = services.create_routine(user)
+        self.assertTrue(services.routine_is_current(plan, user))
+
+        # O catálogo passa a prescrever uma série a mais nesse exercício.
+        item = (
+            WorkoutTemplate.objects.get(split=plan.split, label="B")
+            .items.order_by("order")
+            .first()
+        )
+        WorkoutTemplateItem.objects.filter(pk=item.pk).update(sets=item.sets + 1)
+
+        self.assertFalse(
+            services.routine_is_current(plan, user),
+            "a ficha continuou válida com o catálogo prescrevendo outro número",
+        )
+
+        nova, mudou = services.sync_active_routine(user)
+        self.assertTrue(mudou)
+        series_novas = (
+            SessionExercise.objects.filter(
+                session__plan=nova, session__label="B", exercise_id=item.exercise_id
+            )
+            .values_list("sets", flat=True)
+        )
+        self.assertEqual(sum(series_novas), item.sets + 1)
+
+    def test_mudar_o_descanso_no_catalogo_tambem_chega(self):
+        """O outro campo da prescrição, pelo mesmo caminho. Estava coberto
+        antes de `sets` sair da comparação e precisa continuar."""
+        user = create_user(email="descanso@exemplo.com", weekdays=(0, 2, 4))
+        plan = services.create_routine(user)
+
+        item = (
+            WorkoutTemplate.objects.get(split=plan.split, label="A")
+            .items.order_by("order")
+            .first()
+        )
+        WorkoutTemplateItem.objects.filter(pk=item.pk).update(
+            rest_seconds=item.rest_seconds + 30
+        )
+
+        self.assertFalse(services.routine_is_current(plan, user))
+
+    def test_uma_mudanca_legitima_sincroniza_exatamente_uma_vez(self):
+        user = create_user(email="uma-vez@exemplo.com", weekdays=(0, 2, 4))
+        self.client.force_login(user)
+        self.client.get(reverse("workouts:routine"))
+        antes = services.get_active_routine(user)
+
+        TrainingDay.objects.create(
+            user=user, weekday=5, start_time=time(10, 0), duration_min=60
+        )
+
+        # Primeira visita depois da mudança: remonta.
+        _, mudou = services.sync_active_routine(user)
+        self.assertTrue(mudou)
+        depois = services.get_active_routine(user)
+        self.assertNotEqual(depois.pk, antes.pk)
+
+        # E estabiliza: as próximas não mexem em nada.
+        retrato = self._retrato(depois)
+        contagens = self._contagens()
+        for _ in range(3):
+            _, mudou_de_novo = services.sync_active_routine(user)
+            self.assertFalse(mudou_de_novo, "sincronizou duas vezes pela mesma mudança")
+        self.assertEqual(self._contagens(), contagens)
+        self.assertEqual(self._retrato(services.get_active_routine(user)), retrato)

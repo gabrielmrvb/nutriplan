@@ -48,6 +48,13 @@ class NoTrainingDays(Exception):
 # ABCD e ABCDE existiram aqui e foram retirados. O motivo declarado é o
 # clássico por sinergia: peito e costas são antagonistas e não dividem o dia,
 # empurrar fica junto de empurrar, puxar junto de puxar.
+#
+# O preço dessa escolha está medido, e é alto: quatro dias viram A-B-C-A e o
+# peito sai com 28 séries na semana, contra as 10 a 20 que a própria tela de
+# volume usa como régua. Sete dias chegam a 42. O que existe hoje contra isso
+# é a nota da ficha, que passou a dizer quais dias repetem — ver
+# `nota_da_divisao`. Baixar as séries da sessão repetida resolveria de vez, e
+# é prescrição de treino: não entra aqui sem decisão de produto.
 SPLIT_BY_FREQUENCY = {
     1: Split.FULL,
     2: Split.AB,
@@ -73,9 +80,7 @@ SPLIT_NOTE = {
     Split.ABC: (
         "A divisão clássica por sinergia: empurrar num dia, puxar no outro, "
         "pernas no terceiro. Peito e costas nunca caem no mesmo treino — são "
-        "antagonistas, e treinar um cansa o outro pela metade. O ciclo "
-        "recomeça para preencher a semana, então quem treina cinco vezes faz "
-        "A, B, C, A, B e alguns grupos recebem duas sessões."
+        "antagonistas, e treinar um cansa o outro pela metade."
     ),
     Split.ABCDE: (
         "Cinco treinos: o ciclo de quatro mais um dia para o que sobra de fora "
@@ -203,6 +208,108 @@ def build_sessions(plan, training_days, templates) -> list:
     return sessions
 
 
+#: A menor dose que o catálogo já considera treino.
+#:
+#: Não é número escolhido aqui: é o piso do que os modelos prescrevem. Nenhum
+#: item de `WorkoutTemplateItem` pede menos de três séries, então "uma série"
+#: é uma quantidade que o produto nunca autorizou — ela só apareceria como
+#: subproduto de dividir o volume, e apareceu: 188 ocorrências na matriz de
+#: 7 frequências × 4 preferências, com sete dos nove exercícios do dia A
+#: caindo para uma série cada. Isso não é uma sessão de treino, é uma lista.
+DOSE_MINIMA = 2
+
+
+def distribuir_series(total, ocorrencias, ordem) -> list:
+    """Como as `total` séries de um exercício se espalham pelas ocorrências.
+
+    Devolve uma lista com uma posição por ocorrência da letra na semana. Zero
+    significa que o exercício NÃO entra naquele dia — e quem chama não cria a
+    linha, em vez de criar uma com zero séries.
+
+    VOLUME PRIMEIRO, SESSÃO DEPOIS. O orçamento semanal de um grupo é o que a
+    divisão prescreve numa passagem completa, número escrito no catálogo.
+    Repetir a letra aumenta a FREQUÊNCIA; não pode multiplicar o volume junto —
+    era o que acontecia, e quatro dias em ABC davam 28 séries de peito na
+    semana contra as 14 prescritas. Sete dias davam 42.
+
+    Duas decisões moram aqui, e as duas custaram uma medição:
+
+    A dose mínima. Espalhar três séries por três ocorrências dá 1+1+1, e uma
+    série é quantidade que o catálogo nunca prescreve. Então o exercício entra
+    em MENOS dias, com dose cheia, em vez de entrar em todos diluído: as duas
+    ocorrências do dia A passam a ter exercícios diferentes, e cada uma é uma
+    sessão de verdade. A soma da semana não muda.
+
+    O giro por `ordem`. Sem ele, todos os exercícios escolhem a mesma
+    ocorrência e a primeira sessão fica cheia enquanto a última fica vazia.
+    Girando pela posição do exercício na ficha, os dois dias A ficam
+    equilibrados — 27 e 21 minutos com quatro dias, medidos com
+    `_duracao_estimada`, contra 29 e 16 da versão sem giro.
+    """
+    # Em quantas ocorrências este exercício cabe sem furar a dose mínima.
+    quantas = max(1, min(ocorrencias, total // DOSE_MINIMA))
+    base, resto = divmod(total, quantas)
+
+    espalhado = [0] * ocorrencias
+    for i in range(quantas):
+        espalhado[(i + ordem) % ocorrencias] = base + (1 if i < resto else 0)
+    return espalhado
+
+
+#: Quantas vezes, por extenso. Vai até sete porque a semana tem sete dias.
+VEZES = {2: "duas", 3: "três", 4: "quatro", 5: "cinco", 6: "seis", 7: "sete"}
+
+
+def nota_da_divisao(split, sessoes) -> str:
+    """A nota da ficha, montada a partir do ciclo que ESTA ficha tem.
+
+    Era um texto fixo por divisão, e o do ABC dizia "quem treina cinco vezes
+    faz A, B, C, A, B". Quem treinava QUATRO lia isso na própria ficha e tinha
+    que descobrir sozinho que no caso dele o ciclo era A-B-C-A: a nota
+    descrevia a divisão em abstrato, não a semana que estava logo abaixo dela
+    na tela. Essa frase saiu do texto fixo e virou esta função.
+
+    A contagem é por rótulo e não uniforme, porque não é: sete dias em ABC
+    dão A três vezes e B e C duas. A primeira versão desta função dizia "duas
+    vezes" para os três e errava justamente no caso mais desequilibrado.
+
+    Quando nada repete, a frase não existe — dizer "nenhum dia repete" seria
+    ocupar espaço para informar ausência.
+    """
+    base = SPLIT_NOTE.get(split, "")
+    rotulos = [sessao.label for sessao in sessoes]
+    quantas = {r: rotulos.count(r) for r in dict.fromkeys(rotulos)}
+    repetidos = {r: n for r, n in quantas.items() if n > 1}
+    if not repetidos:
+        return base
+
+    # Agrupa por contagem para não repetir "duas vezes" três vezes seguidas.
+    por_contagem = {}
+    for rotulo, n in repetidos.items():
+        por_contagem.setdefault(n, []).append(rotulo)
+
+    trechos = []
+    for n in sorted(por_contagem, reverse=True):
+        letras = por_contagem[n]
+        if len(letras) == 1:
+            sujeito, verbo = letras[0], "cai"
+        else:
+            sujeito = "%s e %s" % (", ".join(letras[:-1]), letras[-1])
+            verbo = "caem"
+        trechos.append("%s %s %s vezes" % (sujeito, verbo, VEZES.get(n, n)))
+
+    # A frase anterior terminava em "esses músculos recebem mais séries que os
+    # outros", e era verdade: o gerador copiava a ficha inteira para cada
+    # ocorrência. Deixou de ser com `distribuir_series`, e uma nota que descreve
+    # comportamento que o motor não tem mais é pior que nota nenhuma.
+    aviso = (
+        "Na sua semana o ciclo fica %s: %s. O volume semanal é distribuído "
+        "entre as sessões, então repetir o dia aumenta a frequência, não o "
+        "total de séries." % ("-".join(rotulos), "; ".join(trechos))
+    )
+    return "%s %s" % (base, aviso) if base else aviso
+
+
 @transaction.atomic
 def create_routine(user) -> TrainingPlan:
     """Cria a rotina ativa da pessoa, aposentando a anterior.
@@ -226,21 +333,40 @@ def create_routine(user) -> TrainingPlan:
         is_active=True,
         split=split,
         days_per_week=len(training_days),
-        notes=SPLIT_NOTE.get(split, ""),
     )
 
     sessions = build_sessions(plan, training_days, templates)
     TrainingSession.objects.bulk_create(sessions)
+    # A nota depende das sessões, então é escrita depois delas:
+    # `build_sessions` é quem decide o ciclo, e a nota descreve o ciclo.
+    plan.notes = nota_da_divisao(split, sessions)
+    plan.save(update_fields=["notes"])
 
     by_label = {template.label: template for template in templates}
+    # Quantas vezes cada letra cai na semana, e a qual ocorrência esta sessão
+    # corresponde. As duas coisas decidem as séries — ver `distribuir_series`.
+    ocorrencias = {}
+    for session in sessions:
+        ocorrencias[session.label] = ocorrencias.get(session.label, 0) + 1
+    vistas = {}
     exercises = []
     for session in sessions:
-        for item in by_label[session.label].items.all():
+        indice = vistas.get(session.label, 0)
+        vistas[session.label] = indice + 1
+        for ordem, item in enumerate(by_label[session.label].items.all()):
+            series = distribuir_series(
+                item.sets, ocorrencias[session.label], ordem
+            )[indice]
+            if not series:
+                # O exercício ficou para a outra ocorrência da letra. Criar a
+                # linha com zero séries renderizaria um exercício que não é
+                # para fazer hoje.
+                continue
             exercises.append(
                 SessionExercise(
                     session=session,
                     exercise=item.exercise,
-                    sets=item.sets,
+                    sets=series,
                     rep_min=item.rep_min,
                     rep_max=item.rep_max,
                     measure=item.measure,
@@ -254,6 +380,52 @@ def create_routine(user) -> TrainingPlan:
 
 def get_active_routine(user):
     return TrainingPlan.objects.filter(user=user, is_active=True).first()
+
+
+def _series_conferem(sessoes, modelos, itens) -> bool:
+    """As séries da ficha são as que `distribuir_series` daria hoje?
+
+    Existe porque `sets` deixou de ser cópia do catálogo. Antes bastava
+    perguntar "esse número está no modelo?"; agora a resposta certa depende de
+    quantas vezes a letra cai na semana desta pessoa, e é aqui que essa conta é
+    refeita para conferência.
+
+    Sem isto, mudar as séries de um exercício no catálogo não chegaria a quem
+    já tem ficha — exatamente o defeito que a comparação de prescrição existe
+    para pegar, reaberto por outro caminho.
+
+    Recebe as sessões e os modelos JÁ carregados em vez de buscá-los, e isso
+    não é preferência de estilo: a primeira versão consultava os dois por
+    conta própria e a tela de treino passou de 25 para 27 consultas — pego por
+    `ScreenQueryBudgetTests`. Quem chama já tem as duas coisas na mão.
+    """
+    if not modelos:
+        return False
+
+    ocorrencias = {}
+    for sessao in sessoes:
+        ocorrencias[sessao.label] = ocorrencias.get(sessao.label, 0) + 1
+
+    esperado = {}
+    vistas = {}
+    for sessao in sessoes:
+        modelo = modelos.get(sessao.label)
+        if modelo is None:
+            return False
+        indice = vistas.get(sessao.label, 0)
+        vistas[sessao.label] = indice + 1
+        for ordem, item in enumerate(modelo.items.all()):
+            series = distribuir_series(
+                item.sets, ocorrencias[sessao.label], ordem
+            )[indice]
+            if series:
+                esperado[(sessao.pk, item.exercise_id)] = series
+
+    for item in itens:
+        chave = (item.session_id, item.exercise_id)
+        if chave not in esperado or esperado[chave] != item.sets:
+            return False
+    return True
 
 
 def routine_is_current(plan, user) -> bool:
@@ -273,26 +445,42 @@ def routine_is_current(plan, user) -> bool:
         return False
     # A prescrição do catálogo mudou embaixo da ficha?
     #
-    # `sets`, faixa de repetições e descanso são copiados do modelo quando a
-    # ficha nasce, e ficavam congelados: mudar o descanso padrão no catálogo não
+    # A faixa de repetições e o descanso são copiados do modelo quando a ficha
+    # nasce, e ficavam congelados: mudar o descanso padrão no catálogo não
     # chegava a quem já tinha ficha. A pessoa continuava vendo "3 min" numa
     # versão do app que passou a prescrever 1:20.
+    #
+    # `sets` saiu desta comparação e ganhou a sua, logo abaixo, porque deixou
+    # de ser cópia: `distribuir_series` divide o volume entre as ocorrências da
+    # letra, então a ficha de quem treina quatro dias tem 7 séries de supino
+    # onde o catálogo prescreve 14. Comparando contra o catálogo cru, TODA
+    # ficha com letra repetida seria julgada obsoleta e remontada em cada
+    # visita à tela — o gerador rodando em laço, silenciosamente.
+    # Modelos e sessões carregados UMA vez e reaproveitados até o fim da
+    # função: os dois são usados de novo pela conferência de séries e pela
+    # comparação de horários lá embaixo.
+    modelos = {t.label: t for t in templates_for(plan.split)}
+    sessoes = sorted(plan.sessions.all(), key=lambda s: s.order)
     prescrito = {
-        (i.exercise_id, i.sets, i.rep_min, i.rep_max, i.rest_seconds)
-        for template in templates_for(plan.split)
+        (i.exercise_id, i.rep_min, i.rep_max, i.rest_seconds)
+        for template in modelos.values()
         for i in template.items.all()
     }
-    na_ficha = {
-        (i.exercise_id, i.sets, i.rep_min, i.rep_max, i.rest_seconds)
+    itens = list(
         # Uma consulta, e não uma por sessão: esta função roda na entrada de
         # toda visita à tela de treino.
-        for i in SessionExercise.objects.filter(session__plan=plan)
+        SessionExercise.objects.filter(session__plan=plan).select_related("session")
+    )
+    na_ficha = {
+        (i.exercise_id, i.rep_min, i.rep_max, i.rest_seconds) for i in itens
     }
     # Ficha ajustada à mão fica de fora: ali a divergência é a escolha da
     # pessoa, e remontar apagaria justamente o que ela mudou.
     if not plan.is_customized and not na_ficha <= prescrito:
         return False
 
+    if not plan.is_customized and not _series_conferem(sessoes, modelos, itens):
+        return False
     if plan.is_customized:
         # Ficha ajustada à mão não é remontada pelo gerador. A pessoa trocou
         # aqueles exercícios por um motivo — joelho, equipamento ocupado,
@@ -308,19 +496,45 @@ def routine_is_current(plan, user) -> bool:
     }
     na_ficha = {
         (session.weekday, session.start_time, session.duration_min)
-        for session in plan.sessions.all()
+        for session in sessoes
     }
     return atual == na_ficha
 
 
-def sync_active_routine(user) -> tuple:
+def treino_em_andamento(user, day=None) -> bool:
+    """Já existe série anotada hoje?
+
+    É o sinal de "estou treinando agora" que este app tem. Não existe botão de
+    começar nem de terminar treino — a pessoa abre a ficha e vai anotando — e
+    `ExerciseLog` é o único estado de execução que fica gravado.
+    """
+    day = day or timezone.localdate()
+    return ExerciseLog.objects.filter(user=user, date=day).exists()
+
+
+def sync_active_routine(user, day=None) -> tuple:
     """Garante uma rotina coerente com os dias de treino atuais.
 
     Devolve (rotina, mudou). Chamada na entrada da tela, como o plano alimentar:
     enquanto nada muda é só uma comparação de conjuntos em memória.
+
+    Com série anotada hoje, a remontagem espera o dia virar. `create_routine`
+    apaga as sessões e monta outras, e quem estava na terceira série de supino
+    via a ficha trocar debaixo da mão: o exercício seguinte passava a ser outro,
+    a contagem de séries mudava, e o descanso reiniciava. Os registros em si
+    não se perdiam — `ExerciseLog` é por (usuário, exercício, dia) e não aponta
+    para a sessão —, mas o treino que a pessoa estava executando deixava de
+    existir no meio dele.
+
+    A espera é de horas, não de dias: no dia seguinte não há registro de hoje e
+    a rotina se acerta sozinha na primeira visita. E o gatilho quase sempre é a
+    própria pessoa mexendo nos dias de treino — o pior momento possível para
+    isso valer é justamente enquanto ela treina.
     """
     plan = get_active_routine(user)
     if routine_is_current(plan, user):
+        return plan, False
+    if plan is not None and treino_em_andamento(user, day):
         return plan, False
     return create_routine(user), True
 
