@@ -868,3 +868,101 @@ class AssetVersionTests(TestCase):
 
         css = re.search(r"/static/css/app\.css\?v=[0-9a-f]{8}", pagina).group()
         self.assertIn(css, worker)
+
+
+class FilaOfflineIndexedDBTests(TestCase):
+    """Os dois lados da fila offline precisam concordar sobre o banco.
+
+    `static/js/fila.js` (a página) e `templates/pwa/sw.js` (o service worker)
+    abrem o MESMO IndexedDB. Isso já custou caro: o service worker abria
+    `nutriplan-fila` na versão 1 SEM `onupgradeneeded`, e quando ele chegava
+    primeiro — o que acontece num evento `sync` — o navegador criava o banco
+    com ZERO object stores, porque não havia handler para criar nenhuma.
+
+    A partir dali o banco ficava envenenado para sempre. `fila.js` abria na
+    versão 1, encontrava um banco v1 existente, seu `onupgradeneeded` nunca
+    disparava, e toda marcação de refeição, água ou carga feita sem rede morria
+    com
+
+        NotFoundError: One of the specified object stores was not found
+
+    A versão nunca subia, então nada se recuperava sozinho — e o registro
+    offline sumia sem ninguém ver.
+    """
+
+    PAGINA = Path(settings.BASE_DIR) / "static" / "js" / "fila.js"
+    WORKER = Path(settings.BASE_DIR) / "templates" / "pwa" / "sw.js"
+
+    def _constantes(self, texto, nomes):
+        achados = {}
+        for nome in nomes:
+            m = re.search(
+                r'\b%s\s*=\s*(?:"([^"]+)"|(\d+))' % nome, texto
+            )
+            if m:
+                achados[nome] = m.group(1) if m.group(1) else m.group(2)
+        return achados
+
+    def setUp(self):
+        self.pagina = self.PAGINA.read_text(encoding="utf-8")
+        self.worker = self.WORKER.read_text(encoding="utf-8")
+
+    def test_os_dois_lados_usam_o_mesmo_banco_e_a_mesma_loja(self):
+        p = self._constantes(self.pagina, ["BANCO", "LOJA"])
+        w = self._constantes(self.worker, ["FILA_BANCO", "FILA_LOJA"])
+
+        self.assertEqual(p.get("BANCO"), w.get("FILA_BANCO"))
+        self.assertEqual(p.get("LOJA"), w.get("FILA_LOJA"))
+
+    def test_os_dois_lados_declaram_a_mesma_versao(self):
+        """Divergir aqui faz o lado atrasado levar `VersionError` e parar.
+
+        E parar em silêncio: quem ficou para trás não consegue abrir o banco,
+        a fila não drena, e a pessoa continua achando que registrou.
+        """
+        p = self._constantes(self.pagina, ["VERSAO"])
+        w = self._constantes(self.worker, ["FILA_VERSAO"])
+
+        self.assertIsNotNone(p.get("VERSAO"), "fila.js precisa declarar VERSAO")
+        self.assertIsNotNone(
+            w.get("FILA_VERSAO"), "sw.js precisa declarar FILA_VERSAO"
+        )
+        self.assertEqual(p["VERSAO"], w["FILA_VERSAO"])
+
+    def test_a_versao_passou_de_1_para_migrar_bancos_ja_envenenados(self):
+        """Só subir a versão faz o `onupgradeneeded` rodar em quem já instalou.
+
+        Quem usa o app hoje pode ter o banco v1 sem a store. Manter a versão em
+        1 deixaria essas pessoas quebradas para sempre — e a alternativa que
+        NÃO se aceita aqui é `deleteDatabase()`, que jogaria fora o que a
+        pessoa registrou offline e ainda não foi enviado.
+        """
+        p = self._constantes(self.pagina, ["VERSAO"])
+        self.assertGreaterEqual(int(p["VERSAO"]), 2)
+
+    def test_o_service_worker_cria_a_store_ao_abrir(self):
+        """Sem isto, ele volta a criar um banco vazio quando chegar primeiro."""
+        trecho = self.worker.split("function abrirFila", 1)[1].split("\n}", 1)[0]
+
+        self.assertIn("onupgradeneeded", trecho)
+        self.assertIn("createObjectStore", trecho)
+
+    def test_a_pagina_cria_a_store_ao_abrir(self):
+        trecho = self.pagina.split("function abrir(", 1)[1].split("\n  }", 1)[0]
+
+        self.assertIn("onupgradeneeded", trecho)
+        self.assertIn("createObjectStore", trecho)
+
+    def test_ninguem_apaga_o_banco_para_se_livrar_do_problema(self):
+        """`deleteDatabase()` descartaria registro offline não enviado.
+
+        É a correção tentadora e errada: resolve o erro no console e perde a
+        água que a pessoa registrou no metrô. A migração por versão preserva
+        as operações pendentes.
+        """
+        # `indexedDB.deleteDatabase`, e não a palavra solta: os dois arquivos
+        # CITAM `deleteDatabase()` em comentário, explicando por que a correção
+        # não foi essa. Procurar a palavra reprovaria a própria documentação da
+        # decisão — que é o oposto do que este teste quer proteger.
+        for texto, nome in ((self.pagina, "fila.js"), (self.worker, "sw.js")):
+            self.assertNotRegex(texto, r"indexedDB\s*\.\s*deleteDatabase", nome)

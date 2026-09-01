@@ -245,9 +245,29 @@ self.addEventListener("notificationclick", (event) => {
 const FILA_BANCO = "nutriplan-fila";
 const FILA_LOJA = "pendentes";
 
+/* PRECISA ser o mesmo número de `static/js/fila.js`. Um teste compara os dois
+ * arquivos, porque o dia em que só um subir, o outro leva `VersionError` e
+ * para de drenar a fila sem dizer nada. */
+const FILA_VERSAO = 2;
+
+/* A ausência de `onupgradeneeded` aqui foi o defeito: este service worker
+ * abria o banco na versão 1 sem handler nenhum e, quando chegava PRIMEIRO — o
+ * que acontece num evento `sync` —, o IndexedDB criava `nutriplan-fila` COM
+ * ZERO STORES. Dali em diante `fila.js` encontrava um banco v1 já existente,
+ * seu `onupgradeneeded` nunca disparava, e toda gravação offline morria com
+ * `NotFoundError`. Permanentemente, porque a versão nunca subia.
+ *
+ * Agora os dois lados sabem criar a store. Quem abrir primeiro deixa o banco
+ * pronto para o outro. */
 function abrirFila() {
   return new Promise((resolve, reject) => {
-    const pedido = indexedDB.open(FILA_BANCO, 1);
+    const pedido = indexedDB.open(FILA_BANCO, FILA_VERSAO);
+    pedido.onupgradeneeded = () => {
+      const db = pedido.result;
+      if (!db.objectStoreNames.contains(FILA_LOJA)) {
+        db.createObjectStore(FILA_LOJA, { keyPath: "op_id" });
+      }
+    };
     pedido.onsuccess = () => resolve(pedido.result);
     pedido.onerror = () => reject(pedido.error);
   });
@@ -272,13 +292,17 @@ function removerDaFila(db, id) {
 }
 
 async function drenarFila() {
-  let db;
+  /* A leitura entrou no MESMO try da abertura, e não é detalhe: `itensDaFila`
+   * abre uma transação, e era ela que estourava `NotFoundError` quando o banco
+   * estava sem a store. Fora do try, isso virava rejeição não tratada dentro
+   * do service worker — invisível para quem estava usando o app. */
+  let itens;
   try {
-    db = await abrirFila();
+    const db = await abrirFila();
+    itens = await itensDaFila(db);
   } catch (e) {
     return;
   }
-  const itens = await itensDaFila(db);
   for (const item of itens) {
     try {
       const resposta = await fetch(item.url, {

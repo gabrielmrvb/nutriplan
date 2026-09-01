@@ -52,6 +52,16 @@ compara com o que o motor calcula hoje e descarta o que não bate.
 **Ficha ajustada não é remontada.** `TrainingPlan.customized_at` desliga o
 gerador. Sem isso, mudar o horário de terça apaga a troca de ontem.
 
+**Dois lados abrem o mesmo IndexedDB, e eles têm que concordar.**
+`static/js/fila.js` e `templates/pwa/sw.js` abrem `nutriplan-fila`. O service
+worker abria sem `onupgradeneeded`; quando ele chegava primeiro — num evento
+`sync` —, o navegador criava o banco COM ZERO STORES, e daí em diante toda
+gravação offline morria com `NotFoundError`, para sempre, porque a versão nunca
+subia. Hoje os dois criam a store e declaram a MESMA versão; `push/tests.py`
+compara os dois arquivos. Subir a versão é o que migra quem já tem o banco
+quebrado — `deleteDatabase()` "resolveria" o console e jogaria fora a água que
+alguém registrou no metrô.
+
 **Idempotência é requisito da fila offline.** Água SOMA e suplemento ALTERNA —
 as duas precisam de `op_id`. Marcação de refeição e carga de série usam
 `update_or_create` e já são seguras; se alguém trocá-las por contador, a fila

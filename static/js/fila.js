@@ -29,7 +29,32 @@
 
   var BANCO = "nutriplan-fila";
   var LOJA = "pendentes";
-  var VERSAO = 1;
+
+  /* VERSÃO 2, e a subida de 1 para 2 é a correção de um defeito que apagava
+   * gravação offline em silêncio.
+   *
+   * O service worker abria ESTE MESMO banco em `abrirFila()` sem
+   * `onupgradeneeded`. Se ele chegasse primeiro — o que acontece num evento
+   * `sync` —, o IndexedDB criava o banco na versão 1 COM ZERO STORES, porque
+   * não havia handler para criar nenhuma. A partir dali o banco ficava
+   * envenenado para sempre: este arquivo abria na versão 1, encontrava um
+   * banco v1 já existente, o `onupgradeneeded` nunca disparava, e
+   * `transaction("pendentes")` estourava com
+   *
+   *   NotFoundError: One of the specified object stores was not found
+   *
+   * em toda marcação de refeição, água e carga feita sem rede. A versão nunca
+   * subia, então nada se recuperava sozinho.
+   *
+   * Subir para 2 força o `onupgradeneeded` a rodar nos bancos já envenenados e
+   * criar a store que falta. É MIGRAÇÃO, não `deleteDatabase()`: um banco são
+   * mantém as operações pendentes que ainda não foram enviadas, e ninguém
+   * perde o que registrou offline.
+   *
+   * `templates/pwa/sw.js` PRECISA declarar o mesmo número. Se um subir e o
+   * outro não, o que ficou para trás recebe `VersionError` e para de drenar a
+   * fila. Um teste em `push/tests.py` compara os dois arquivos. */
+  var VERSAO = 2;
 
   /* Só estas rotas. Um curinga aqui seria a porta para enfileirar coisa que
    * depende de estado do servidor. */
@@ -68,6 +93,18 @@
   function comLoja(modo, trabalho) {
     return abrir().then(function (db) {
       return new Promise(function (resolve, reject) {
+        /* Cinto e suspensório. Depois da subida para a versão 2 isto não
+         * deveria acontecer nunca — mas o defeito que ela conserta se
+         * manifestava exatamente aqui, com um `NotFoundError` cru que não
+         * dizia de onde vinha. Se um dia voltar, que volte dizendo o nome. */
+        if (!db.objectStoreNames.contains(LOJA)) {
+          db.close();
+          reject(new Error(
+            "A fila offline do NutriPlan está sem a loja '" + LOJA + "'. " +
+            "O banco existe numa versão antiga sem a store."
+          ));
+          return;
+        }
         var tx = db.transaction(LOJA, modo);
         var resultado = trabalho(tx.objectStore(LOJA));
         tx.oncomplete = function () { db.close(); resolve(resultado && resultado.result); };
