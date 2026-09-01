@@ -20,7 +20,11 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core import mail
+from django.contrib.auth.models import Group
+from django.db import IntegrityError
+from django.contrib.contenttypes.models import ContentType
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -29,7 +33,7 @@ from catalog.models import DietaryTag, TagKind
 from plans.models import NutritionPlan
 from plans.tests import create_complete_user
 
-from . import limites
+from . import limites, papeis
 from .adapters import MAXIMO_DE_TENTATIVAS, SESSAO_TENTATIVAS, SESSAO_VINCULO
 from .forms import (
     PALAVRA_DE_EXCLUSAO,
@@ -43,6 +47,8 @@ from workouts.services import preferencia_muda_a_divisao, split_for
 from .views import CAMINHO_COMPLETO, CAMINHO_CURTO
 
 from .models import (
+    AcaoAdministrativa,
+    RegistroAdministrativo,
     PedidoDeRecuperacao,
     ONBOARDING_DONE,
     ONBOARDING_LAST_STEP,
@@ -4176,3 +4182,335 @@ class ExportarDadosTests(TestCase):
         self.assertNotIn("outra.pessoa@exemplo.invalid", corpo)
         self.assertNotIn("55.55", corpo)
         self.assertEqual(len(dados["pesagens"]), 1)
+
+
+class BootstrapAdministrativoTests(TestCase):
+    """Dar acesso administrativo é seguro pelo que o comando RECUSA fazer.
+
+    Produção subiu com `staff = 0`: `/admin/` publicado e ninguém que consiga
+    entrar. O caminho fácil seria `createsuperuser` com uma senha inventada — e
+    ele deixa a senha no histórico do shell, cria conta que ninguém controla, e
+    entrega superuser, que ignora o sistema de permissões inteiro.
+    """
+
+    EMAIL = "operador@exemplo.com"
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email=self.EMAIL, password="senha-bem-forte-123"
+        )
+
+    def test_promove_sem_tocar_na_senha(self):
+        antes = User.objects.get(pk=self.user.pk).password
+
+        call_command("promover_admin", email=self.EMAIL, verbosity=0)
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_staff)
+        self.assertEqual(User.objects.get(pk=self.user.pk).password, antes)
+
+    def test_nao_marca_superuser(self):
+        """Superuser ignora as permissões. A diferença entre "pode administrar
+        o NutriPlan" e "pode tudo que o Django permite" é o que separa um erro
+        de operação de um incidente."""
+        call_command("promover_admin", email=self.EMAIL, verbosity=0)
+
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_superuser)
+
+    def test_recusa_email_que_nao_existe_em_vez_de_criar(self):
+        """Um typo não pode virar conta administrativa com e-mail que ninguém
+        controla."""
+        with self.assertRaises(CommandError):
+            call_command("promover_admin", email="ninguem@exemplo.com", verbosity=0)
+
+        self.assertFalse(User.objects.filter(email="ninguem@exemplo.com").exists())
+
+    def test_rodar_duas_vezes_nao_duplica_nada(self):
+        call_command("promover_admin", email=self.EMAIL, verbosity=0)
+        call_command("promover_admin", email=self.EMAIL, verbosity=0)
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.groups.count(), 1)
+        self.assertEqual(
+            RegistroAdministrativo.objects.filter(alvo=self.user).count(),
+            1,
+            "a segunda execução inventou um evento de auditoria",
+        )
+
+    def test_a_primeira_promocao_e_registrada_como_primeira(self):
+        """A trilha precisa distinguir "nasceu o primeiro operador" de "mais um
+        operador entrou". As duas coisas têm peso diferente numa investigação."""
+        call_command("promover_admin", email=self.EMAIL, verbosity=0)
+
+        registro = RegistroAdministrativo.objects.get(alvo=self.user)
+        self.assertEqual(registro.acao, AcaoAdministrativa.PRIMEIRO_ADMIN)
+        self.assertIsNone(registro.ator)
+        self.assertEqual(registro.alvo_email, self.EMAIL)
+
+    def test_a_segunda_pessoa_nao_e_registrada_como_primeira(self):
+        call_command("promover_admin", email=self.EMAIL, verbosity=0)
+        outra = User.objects.create_user(
+            email="segunda@exemplo.com", password="senha-bem-forte-123"
+        )
+
+        call_command("promover_admin", email=outra.email, verbosity=0)
+
+        self.assertEqual(
+            RegistroAdministrativo.objects.get(alvo=outra).acao,
+            AcaoAdministrativa.PROMOVEU_STAFF,
+        )
+
+    def test_a_trilha_nao_guarda_senha_nem_hash(self):
+        """Trilha de auditoria que vaza é pior que trilha nenhuma: ela
+        concentra num lugar só o que estava espalhado."""
+        call_command("promover_admin", email=self.EMAIL, verbosity=0)
+
+        detalhe = json.dumps(RegistroAdministrativo.objects.get(alvo=self.user).detalhe)
+
+        self.user.refresh_from_db()
+        self.assertNotIn(self.user.password, detalhe)
+        for proibido in ("password", "senha", "token", "hash"):
+            self.assertNotIn(proibido, detalhe.lower())
+
+
+
+    def test_promove_pela_chave_primaria(self):
+        """O identificador que pode viajar num repositório PÚBLICO.
+
+        A primeira versão usava o SHA-256 do e-mail, com o argumento de que o
+        hash "permite confirmar um palpite, não descobrir o endereço". O
+        argumento é falso: o espaço de e-mails é enumerável, e testar milhões
+        de candidatos contra um digest é descobrir. A chave primária é um
+        inteiro sequencial que não carrega nada sobre a pessoa.
+        """
+        call_command("promover_admin", pk=self.user.pk, verbosity=0)
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_staff)
+        self.assertFalse(self.user.is_superuser)
+
+    def test_id_sem_conta_derruba_em_vez_de_criar(self):
+        with self.assertRaises(CommandError):
+            call_command("promover_admin", pk=999999, verbosity=0)
+
+    def test_exige_um_identificador_e_apenas_um(self):
+        """Ambiguidade num comando que dá acesso administrativo se resolve
+        parando."""
+        with self.assertRaises(CommandError):
+            call_command("promover_admin", verbosity=0)
+        with self.assertRaises(CommandError):
+            call_command(
+                "promover_admin", email=self.EMAIL, pk=self.user.pk, verbosity=0
+            )
+
+    def test_o_bootstrap_nao_repromove_quem_perdeu_o_acesso(self):
+        """A trava é a TRILHA, e não o estado da conta.
+
+        "Se não é staff, promove" seria mais simples e estaria errado: no dia em
+        que alguém for deliberadamente removido do grupo, o próximo deploy
+        devolveria o acesso sozinho — desfazendo uma decisão administrativa sem
+        ninguém pedir e sem nada acusar. Este é o teste que separa as duas
+        implementações.
+        """
+        call_command("promover_admin", pk=self.user.pk, bootstrap=True, verbosity=0)
+
+        # Alguém decide remover o acesso, deliberadamente.
+        self.user.refresh_from_db()
+        self.user.is_staff = False
+        self.user.save(update_fields=["is_staff"])
+        self.user.groups.clear()
+
+        # Um deploy roda o build de novo.
+        call_command("promover_admin", pk=self.user.pk, bootstrap=True, verbosity=0)
+
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_staff, "o redeploy devolveu o acesso sozinho")
+        self.assertEqual(self.user.groups.count(), 0)
+
+    def test_sem_bootstrap_a_promocao_continua_possivel(self):
+        """A trava é do caminho automático. Promover de novo pela mão continua
+        sendo uma decisão que alguém pode tomar."""
+        call_command("promover_admin", pk=self.user.pk, bootstrap=True, verbosity=0)
+        self.user.refresh_from_db()
+        self.user.is_staff = False
+        self.user.save(update_fields=["is_staff"])
+
+        call_command("promover_admin", email=self.EMAIL, verbosity=0)
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_staff)
+
+    def test_o_build_nao_carrega_email_nem_hash_de_email(self):
+        """A trava que impede dado pessoal de voltar para o repositório
+        público."""
+        build = (Path(settings.BASE_DIR) / "scripts" / "build.sh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("promover_admin --id", build)
+        self.assertNotIn("--sha256", build)
+        self.assertNotIn("--email", build)
+        self.assertNotIn("@", build.split("promover_admin")[-1])
+
+
+    def test_falha_depois_do_staff_desfaz_tudo(self):
+        """Estado parcial é pior que falha: alguém com `is_staff` e sem grupo
+        entra no Admin e não consegue fazer nada, e nada na trilha explica por
+        quê.
+
+        A falha é injetada na criação do registro, que é a ÚLTIMA etapa — se a
+        transação não envolver o comando inteiro, é exatamente aqui que sobra
+        um usuário promovido sem trilha nenhuma.
+        """
+        with mock.patch.object(
+            RegistroAdministrativo.objects, "create", side_effect=RuntimeError("boom")
+        ):
+            with self.assertRaises(RuntimeError):
+                call_command("promover_admin", pk=self.user.pk, verbosity=0)
+
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_staff, "sobrou is_staff sem trilha")
+        self.assertEqual(self.user.groups.count(), 0)
+        self.assertEqual(RegistroAdministrativo.objects.count(), 0)
+
+    def test_falha_no_grupo_desfaz_o_staff(self):
+        """O outro lado: promoveu, quebrou ao aplicar o papel."""
+        # O patch é no NOME DENTRO DO COMANDO, e não no módulo de origem: o
+        # comando faz `from accounts.papeis import sincronizar_papeis`, então
+        # ele guarda a própria referência e trocar a do módulo não o atinge.
+        with mock.patch(
+            "accounts.management.commands.promover_admin.sincronizar_papeis",
+            side_effect=RuntimeError("boom"),
+        ):
+            with self.assertRaises(RuntimeError):
+                call_command("promover_admin", pk=self.user.pk, verbosity=0)
+
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_staff)
+        self.assertEqual(RegistroAdministrativo.objects.count(), 0)
+
+    def test_depois_de_uma_falha_o_bootstrap_ainda_funciona(self):
+        """Rollback completo significa que nada ficou travado: a trilha está
+        vazia, então a trava one-shot não disparou por engano."""
+        with mock.patch.object(
+            RegistroAdministrativo.objects, "create", side_effect=RuntimeError("boom")
+        ):
+            with self.assertRaises(RuntimeError):
+                call_command("promover_admin", pk=self.user.pk, bootstrap=True, verbosity=0)
+
+        call_command("promover_admin", pk=self.user.pk, bootstrap=True, verbosity=0)
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_staff)
+        self.assertEqual(
+            RegistroAdministrativo.objects.filter(
+                alvo=self.user, acao=AcaoAdministrativa.PRIMEIRO_ADMIN
+            ).count(),
+            1,
+        )
+
+    def test_o_banco_recusa_dois_primeiro_admin_para_a_mesma_pessoa(self):
+        """A checagem em Python é atravessada por duas transações simultâneas
+        antes de qualquer uma gravar. Quem torna o caso raro impossível é a
+        constraint."""
+        call_command("promover_admin", pk=self.user.pk, bootstrap=True, verbosity=0)
+
+        with self.assertRaises(IntegrityError):
+            RegistroAdministrativo.objects.create(
+                acao=AcaoAdministrativa.PRIMEIRO_ADMIN,
+                alvo=self.user,
+                alvo_email=self.user.email,
+            )
+
+    def test_a_conta_do_google_nao_ganha_senha_no_bootstrap(self):
+        """Conta sem senha utilizável continua sem senha utilizável.
+
+        Foi o caso da primeira conta promovida em produção: ela entra por
+        Google, e `has_usable_password()` é False. Gerar uma senha aqui seria
+        criar uma credencial que a pessoa não escolheu e que passaria pelo log
+        do build.
+        """
+        self.user.set_unusable_password()
+        self.user.save(update_fields=["password"])
+
+        call_command("promover_admin", pk=self.user.pk, verbosity=0)
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_staff)
+        self.assertFalse(self.user.has_usable_password())
+
+
+class PapeisAdministrativosTests(TestCase):
+    """Suporte e administração não podem ser a mesma coisa.
+
+    Separar depois, com gente já operando como administrador, é migração de
+    hábito e não de dados — por isso os dois grupos nascem juntos, mesmo com um
+    operador só.
+    """
+
+    def test_sincronizar_e_idempotente(self):
+        primeiro = papeis.sincronizar_papeis()
+        segundo = papeis.sincronizar_papeis()
+
+        self.assertEqual(primeiro, segundo)
+        self.assertEqual(Group.objects.filter(name__in=primeiro).count(), 2)
+
+    def test_suporte_nao_pode_mexer_em_conta(self):
+        """O papel existe para atender quem escreve, não para editar a pessoa."""
+        papeis.sincronizar_papeis()
+        grupo = Group.objects.get(name=papeis.SUPORTE)
+
+        codenames = set(grupo.permissions.values_list("codename", flat=True))
+
+        self.assertIn("view_user", codenames)
+        for proibida in ("change_user", "add_user", "delete_user"):
+            self.assertNotIn(proibida, codenames)
+
+    def test_nenhum_papel_pode_apagar_nada(self):
+        """Excluir conta é decisão da pessoa e tem fluxo próprio. Não pode
+        virar um botão de operação de rotina."""
+        papeis.sincronizar_papeis()
+
+        for papel in papeis.PAPEIS:
+            codenames = set(
+                Group.objects.get(name=papel).permissions.values_list(
+                    "codename", flat=True
+                )
+            )
+            with self.subTest(papel=papel):
+                self.assertEqual(
+                    [c for c in codenames if c.startswith("delete_")], []
+                )
+
+    def test_o_historico_da_pessoa_e_somente_leitura(self):
+        """Plano, refeição e peso são retrato do que ela fez. Editar pelo
+        painel reescreveria o histórico dela."""
+        papeis.sincronizar_papeis()
+        codenames = set(
+            Group.objects.get(name=papeis.ADMINISTRADORES).permissions.values_list(
+                "codename", flat=True
+            )
+        )
+
+        for modelo in ("meallog", "nutritionplan", "trainingplan", "weightentry"):
+            with self.subTest(modelo=modelo):
+                self.assertIn(f"view_{modelo}", codenames)
+                self.assertNotIn(f"change_{modelo}", codenames)
+
+    def test_todo_model_declarado_no_papel_existe_de_verdade(self):
+        """A lista de permissões é escrita à mão e o catálogo de models muda.
+
+        Sem este teste, renomear um model deixa uma entrada morta no papel —
+        e permissão que falta vira "acesso negado" para o operador, sem nada
+        apontando para a causa.
+        """
+        for papel, desejadas in papeis.PAPEIS.items():
+            for app_label, modelo in desejadas:
+                with self.subTest(papel=papel, model=f"{app_label}.{modelo}"):
+                    self.assertTrue(
+                        ContentType.objects.filter(
+                            app_label=app_label, model=modelo
+                        ).exists(),
+                        f"{app_label}.{modelo} não existe mais",
+                    )

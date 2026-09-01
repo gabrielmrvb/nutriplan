@@ -42,3 +42,33 @@ python manage.py seed_workouts
 # porque ele MONTA um plano e uma ficha com o motor de verdade, e o motor
 # precisa do catálogo de alimento e de exercício já no banco.
 python manage.py seed_demo
+
+# Acesso administrativo, quando a plataforma pedir.
+#
+# O Render gratuito não tem shell: não existe onde rodar um comando pontual
+# contra produção. Sem isto, dar acesso administrativo exigiria abrir o banco
+# na mão — que é exatamente o que o painel existe para evitar.
+#
+# `BOOTSTRAP_ADMIN_EMAIL` vazio ou ausente não faz nada. Preenchido, o comando
+# roda; e como ele é idempotente, deixar a variável no painel para sempre é
+# seguro: nos deploys seguintes ele diz "nada mudou" e segue.
+#
+# O comando NÃO cria conta, NÃO aceita senha e NÃO marca superuser. Um e-mail
+# que não existe derruba o build de propósito — a alternativa seria um typo
+# virando conta administrativa fantasma, publicada sem ninguém perceber.
+# BOOTSTRAP ADMINISTRATIVO — ESTE BLOCO É TEMPORÁRIO E SAI NO PRÓXIMO COMMIT.
+#
+# Produção subiu com `staff = 0`: `/admin/` publicado e ninguém que consiga
+# entrar. O Render gratuito não tem shell, então o único lugar que roda dentro
+# de produção é o build — e por isso a promoção passa por aqui UMA vez.
+#
+# O identificador é a chave primária, e não o e-mail nem o hash dele. Este
+# repositório é público: o e-mail é dado pessoal, e o SHA-256 de um e-mail não
+# é anonimização — o espaço de endereços é enumerável, e testar candidatos
+# contra o digest devolve o endereço. A PK é um inteiro sequencial que não
+# carrega nada sobre a pessoa.
+#
+# `--bootstrap` é one-shot pela TRILHA: registrada a promoção inicial, ela não
+# acontece de novo, nem que a conta perca o acesso depois. Um redeploy antigo
+# não pode desfazer uma decisão administrativa.
+python manage.py promover_admin --id 43 --bootstrap

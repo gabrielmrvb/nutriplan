@@ -487,3 +487,89 @@ class PedidoDeRecuperacao(models.Model):
 
     def __str__(self):
         return "%s em %s" % (self.tipo, self.criado_em)
+
+
+class AcaoAdministrativa(models.TextChoices):
+    """O que um operador fez. Cresce conforme o painel ganhar ações.
+
+    Os rótulos falam da CONSEQUÊNCIA, não do campo mexido: quem lê a trilha
+    seis meses depois quer saber o que aconteceu com a pessoa, não qual coluna
+    do banco mudou.
+    """
+
+    PRIMEIRO_ADMIN = "primeiro_admin", "Primeiro administrador criado"
+    PROMOVEU_STAFF = "promoveu_staff", "Deu acesso administrativo"
+    REVOGOU_STAFF = "revogou_staff", "Removeu acesso administrativo"
+
+
+class RegistroAdministrativo(models.Model):
+    """Trilha do que operadores fizeram sobre contas de outras pessoas.
+
+    Existe antes de qualquer ação administrativa, e essa ordem é a decisão: uma
+    trilha adicionada depois começa vazia justamente no período em que ninguém
+    sabia que precisava dela. O primeiro registro deste modelo é a criação do
+    primeiro administrador.
+
+    `ator` é nulo de propósito para a ação executada por comando de terminal,
+    onde não existe pessoa logada. Nulo aqui significa "sistema", e o `detalhe`
+    diz por qual caminho — não é ausência de informação, é a informação.
+
+    `detalhe` é JSON e NÃO recebe segredo nem dado de saúde. O que entra é o
+    suficiente para reconstruir a decisão: quais grupos, qual flag, qual
+    comando. Senha, hash, token e conteúdo clínico ficam fora — uma trilha de
+    auditoria que vaza é pior que trilha nenhuma, porque concentra num lugar só
+    o que estava espalhado.
+    """
+
+    ator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="quem fez",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="acoes_administrativas",
+        help_text="Nulo quando a ação veio de um comando de terminal.",
+    )
+    acao = models.CharField("ação", max_length=32, choices=AcaoAdministrativa.choices)
+    alvo = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="sobre quem",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="acoes_administrativas_recebidas",
+    )
+    #: O e-mail do alvo, copiado no momento da ação.
+    #:
+    #: `alvo` vira nulo se a conta for excluída, e é exatamente aí que a trilha
+    #: mais importa — "quem foi promovido antes de a conta sumir?" precisa ter
+    #: resposta. É a mesma decisão dos macros congelados no `MealLog`.
+    alvo_email = models.EmailField("e-mail na hora da ação", blank=True)
+    detalhe = models.JSONField("detalhe", default=dict, blank=True)
+    criado_em = models.DateTimeField("quando", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "registro administrativo"
+        verbose_name_plural = "registros administrativos"
+        ordering = ["-criado_em"]
+        indexes = [
+            models.Index(fields=["-criado_em"]),
+            models.Index(fields=["alvo", "-criado_em"]),
+        ]
+        constraints = [
+            # A promoção inicial acontece UMA vez por pessoa, e quem garante
+            # isso é o banco — não a checagem em Python, que duas transações
+            # simultâneas atravessam juntas antes de qualquer uma gravar.
+            #
+            # É a mesma decisão do índice único de plano ativo: o código evita
+            # o caso comum, a constraint torna o caso raro impossível.
+            models.UniqueConstraint(
+                fields=["alvo"],
+                condition=models.Q(acao="primeiro_admin"),
+                name="um_primeiro_admin_por_pessoa",
+            ),
+        ]
+
+    def __str__(self):
+        quem = self.ator_id and str(self.ator) or "sistema"
+        return f"{quem} · {self.get_acao_display()} · {self.alvo_email}"
