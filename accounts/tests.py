@@ -26,7 +26,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import RequestFactory, TestCase, override_settings
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 
 from catalog.models import DietaryTag, TagKind
@@ -4719,3 +4719,135 @@ class NextDoAdminTests(TestCase):
         resposta = self.client.get("/admin/login/", follow=False)
 
         self.assertEqual(resposta["Location"], reverse("admin:index"))
+
+
+class DestinoNoLoginSocialTests(TestCase):
+    """O destino de retorno precisa atravessar o botão do Google.
+
+    Medido no navegador, em produção, antes da correção: pedir `/admin/` levava
+    a `/conta/entrar/?next=/admin/` — o destino CHEGAVA ao login —, mas o
+    formulário do Google enviava só `csrfmiddlewaretoken` e `process`. O
+    allauth recebia o fluxo sem destino e caía em `LOGIN_REDIRECT_URL`, que é
+    `/hoje/`.
+
+    O contraste na mesma tela é o que fecha o diagnóstico: o formulário de
+    senha leva o destino de graça, porque não tem `action` e o POST vai para a
+    URL atual com a query string.
+    """
+
+    ENTRAR = reverse_lazy("accounts:login")
+    CADASTRAR = reverse_lazy("accounts:signup")
+
+    def _campos_do_google(self, url):
+        html = self.client.get(url).content.decode()
+        formulario = re.search(
+            r'<form class="google-entrada".*?</form>', html, re.S
+        )
+        return formulario.group(0) if formulario else ""
+
+    def test_entrar_leva_o_destino_para_o_google(self):
+        formulario = self._campos_do_google(f"{self.ENTRAR}?next=/admin/")
+
+        self.assertIn('name="next"', formulario)
+        self.assertIn('value="/admin/"', formulario)
+
+    def test_entrar_leva_subrota_administrativa(self):
+        formulario = self._campos_do_google(
+            f"{self.ENTRAR}?next=/admin/accounts/user/"
+        )
+
+        self.assertIn('value="/admin/accounts/user/"', formulario)
+
+    def test_sem_destino_o_campo_nao_existe(self):
+        """Campo vazio no formulário é ruído que o allauth teria que ignorar."""
+        formulario = self._campos_do_google(self.ENTRAR)
+
+        self.assertNotIn('name="next"', formulario)
+
+    def test_cadastro_nao_carrega_destino_administrativo(self):
+        """Quem cria conta vira usuário comum. Mandá-la direto para uma tela de
+        acesso negado é seguro e péssimo — o primeiro minuto de uso terminaria
+        num 403."""
+        formulario = self._campos_do_google(f"{self.CADASTRAR}?next=/admin/")
+
+        self.assertNotIn('name="next"', formulario)
+
+    def test_o_valor_e_escapado_pelo_template(self):
+        """Sem `safe` e sem concatenação: o escaping normal do Django é o que
+        impede um destino de fechar o atributo e injetar markup."""
+        formulario = self._campos_do_google(
+            f"{self.ENTRAR}?next=/admin/%22%3E%3Cscript%3E"
+        )
+
+        self.assertNotIn("<script>", formulario)
+
+    def test_o_login_por_senha_ja_levava_o_destino(self):
+        """Contrato irmão, verificado para o Admin não depender só do Google.
+
+        O formulário de senha não tem `action`, então o POST vai para a URL
+        atual COM a query string, e `LoginView.get_redirect_url` lê `next` do
+        GET quando não há no POST.
+        """
+        html = self.client.get(f"{self.ENTRAR}?next=/admin/").content.decode()
+        senha = re.search(r'<form method="post"(?![^>]*google).*?</form>', html, re.S)
+
+        self.assertIsNotNone(senha)
+        self.assertNotIn('action=', senha.group(0)[:200])
+
+    def test_o_destino_sobrevive_ao_login_por_senha(self):
+        """A ponta a ponta do caminho da senha, que é a que dá para testar sem
+        sair para o Google."""
+        staff = User.objects.create_user(
+            email="staff@exemplo.com", password="senha-bem-forte-123"
+        )
+        staff.is_staff = True
+        staff.save(update_fields=["is_staff"])
+
+        resposta = self.client.post(
+            f"{self.ENTRAR}?next=/admin/",
+            {"username": staff.email, "password": "senha-bem-forte-123"},
+        )
+
+        self.assertEqual(resposta.status_code, 302)
+        self.assertEqual(resposta["Location"], "/admin/")
+
+    def test_usuario_comum_nao_ganha_admin_pelo_destino(self):
+        """O destino leva à porta; quem decide continua sendo o AdminSite."""
+        comum = User.objects.create_user(
+            email="comum2@exemplo.com", password="senha-bem-forte-123"
+        )
+
+        self.client.post(
+            f"{self.ENTRAR}?next=/admin/",
+            {"username": comum.email, "password": "senha-bem-forte-123"},
+        )
+
+        self.assertEqual(self.client.get("/admin/login/").status_code, 403)
+
+    def test_o_allauth_e_quem_descarta_destino_externo(self):
+        """Não duplicamos a validação: `get_next_redirect_url` do allauth
+        descarta o que não passa em `is_safe_url`.
+
+        O teste afirma o CONTRATO de que a proteção existe e é do allauth — se
+        um dia ele parar de sanitizar, isto quebra e a decisão de onde validar
+        volta para a mesa.
+        """
+        from allauth.account.adapter import get_adapter
+        from allauth.core.context import request_context
+
+        # `is_safe_url` lê o host do contexto de request do allauth, e não do
+        # argumento. Chamá-lo fora do contexto estoura — foi assim que a
+        # primeira versão deste teste errou.
+        pedido = self.client.get(self.ENTRAR).wsgi_request
+
+        with request_context(pedido):
+            adaptador = get_adapter()
+            for hostil in (
+                "https://site-falso.exemplo/",
+                "//site-falso.exemplo/",
+                "javascript:alert(1)",
+            ):
+                with self.subTest(destino=hostil):
+                    self.assertFalse(adaptador.is_safe_url(hostil))
+
+            self.assertTrue(adaptador.is_safe_url("/admin/"))

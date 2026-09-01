@@ -27,6 +27,23 @@
       sessão já autenticada — que não é o caso aqui.
     {% endcomment %}
     <input type="hidden" name="process" value="login">
+    {% comment %}
+      O destino de retorno, quando a TELA disser que ele viaja.
+
+      Sem isto, quem pedia /admin/ e entrava pelo Google terminava em /hoje/: o
+      formulário de senha leva o destino de graça — não tem `action`, então o
+      POST vai para a URL atual com a query string — e este não levava nada.
+
+      Quem decide se o campo existe é a view (`leva_destino_no_google`), e não
+      uma condição escrita aqui: o parcial é compartilhado por entrar e
+      cadastrar, e cadastro NÃO carrega destino administrativo.
+
+      Quem valida o valor é o allauth, em `get_next_redirect_url`, que descarta
+      o que não passa em `is_safe_url`. O template só escapa e entrega.
+    {% endcomment %}
+    {% if destino_do_google %}
+      <input type="hidden" name="next" value="{{ destino_do_google }}">
+    {% endif %}
     <button type="submit" class="btn btn--ghost btn--block btn--google">
       {% comment %}
         O "G" oficial, em traçado. As quatro cores da marca do Google são

@@ -165,14 +165,36 @@ class TelaDeEntradaMixin:
     três centímetros do outro.
     """
 
+    #: O botão do Google leva o destino de retorno? Cada tela decide.
+    #:
+    #: A decisão mora AQUI e não no parcial, que é compartilhado por entrar e
+    #: cadastrar: uma regra escrita lá dentro faria um template decidir política
+    #: de duas telas com contextos diferentes, e a divergência apareceria na
+    #: primeira vez que uma delas mudasse.
+    leva_destino_no_google = False
+
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
         contexto["tela_de_entrada"] = True
+        contexto["destino_do_google"] = (
+            self.request.GET.get("next", "") if self.leva_destino_no_google else ""
+        )
         return contexto
 
 
 class SignupView(TelaDeEntradaMixin, CreateView):
     """Cria a conta e já autentica — pedir login logo após cadastrar é atrito puro."""
+
+    #: Cadastro NÃO leva o destino para o Google.
+    #:
+    #: Quem chega em `/conta/cadastro/?next=/admin/` e cria uma conta acabou de
+    #: virar usuário comum — e mandá-la direto para uma tela de acesso negado é
+    #: um primeiro minuto de uso terrível. Seguro, e péssimo.
+    #:
+    #: Não é "descartar todo next no cadastro": é não deixar um destino que a
+    #: conta recém-criada não pode alcançar atravessar a criação dela. O fluxo
+    #: normal — onboarding — continua valendo.
+    leva_destino_no_google = False
 
     form_class = SignupForm
     template_name = "accounts/signup.html"
@@ -202,6 +224,17 @@ class SignupView(TelaDeEntradaMixin, CreateView):
 
 
 class AppLoginView(TelaDeEntradaMixin, LoginView):
+    #: Entrar leva o destino, inclusive para o Google.
+    #:
+    #: O formulário de senha já levava, de graça: ele não tem `action`, então o
+    #: POST vai para a URL atual COM a query string, e `LoginView` lê `next` do
+    #: GET. O do Google não levava nada, e `/admin/` terminava em `/hoje/`.
+    #:
+    #: Quem valida o destino é o allauth — `get_next_redirect_url` descarta o
+    #: que não passa em `is_safe_url`. Repetir a validação aqui seria uma
+    #: segunda regra para manter alinhada com a primeira.
+    leva_destino_no_google = True
+
     authentication_form = EmailAuthenticationForm
     template_name = "accounts/login.html"
     redirect_authenticated_user = True
