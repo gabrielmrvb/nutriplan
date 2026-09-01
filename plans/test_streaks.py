@@ -301,3 +301,115 @@ class HydrationTests(TestCase):
 
         self.assertEqual(resposta.status_code, 302)
         self.assertIn(reverse("accounts:login"), resposta["Location"])
+
+
+class OmitirNaoPodeCompensarTests(TestCase):
+    """A propriedade que governa a aderência: omitir nunca melhora a nota.
+
+    O comportamento antigo dividia as refeições feitas pelas MARCADAS. Isso
+    invertia o incentivo do app:
+
+        3 feitas + 2 "comi outra coisa"  ->  3/5 = 60%   ->  quebrava
+        3 feitas + 2 SEM MARCAR NADA     ->  3/3 = 100%  ->  mantinha
+
+    Quem registrava honestamente perdia a ofensiva; quem simplesmente não abria
+    o app a mantinha. Num módulo cuja primeira linha diz que "o que a torna
+    honesta é o que ela decide NÃO cobrar", isso era uma contradição interna.
+
+    A correção é o denominador vir do PLANO. Qualquer denominador independente
+    da marcação satisfaz a propriedade — e é por isso que ela vale por
+    construção, e não por sorte de calibragem.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        CatalogFixture.setUpTestData()
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.plan = services.create_plan(self.user)
+        create_routine(self.user)
+        self.hoje = date(2026, 8, 24)
+        self.meta_agua = 2900
+        self.previstas = self.plan.slots.count()
+
+    def _marcar(self, dia, feitas=0, fora_do_plano=0, puladas=0):
+        from .models import MealLog
+
+        MealLog.objects.filter(user=self.user, date=dia).delete()
+        slots = list(self.plan.slots.order_by("order"))
+        combinacao = (
+            [MealStatus.DONE] * feitas
+            + [MealStatus.OFF_PLAN] * fora_do_plano
+            + [MealStatus.SKIPPED] * puladas
+        )
+        for i, status in enumerate(combinacao):
+            MealLog.objects.create(
+                user=self.user, slot=slots[i % len(slots)], date=dia, status=status
+            )
+
+    def _aderiu(self, **marcacao):
+        """A dieta do dia foi considerada cumprida?"""
+        ontem = self.hoje - timedelta(days=1)
+        self._marcar(ontem, **marcacao)
+        HydrationLog.objects.update_or_create(
+            user=self.user, date=ontem, defaults={"ml": self.meta_agua}
+        )
+        if ontem.weekday() in (0, 2, 4):
+            ExerciseLog.objects.update_or_create(
+                user=self.user,
+                exercise=Exercise.objects.filter(is_active=True).first(),
+                date=ontem,
+                set_number=1,
+                defaults={"weight_kg": Decimal("40"), "reps": 10},
+            )
+        return streaks.calcular(
+            self.user, hoje=self.hoje, meta_agua_ml=self.meta_agua
+        ).dias >= 1
+
+    def test_registrar_fora_do_plano_nao_pode_ser_pior_que_nao_registrar(self):
+        """A propriedade, no caso exato que o defeito produzia.
+
+        Mesmo dia, mesma realidade: três refeições seguidas e duas não. A
+        diferença é só se a pessoa contou ao app o que fez com as outras duas.
+        """
+        honesta = self._aderiu(feitas=3, fora_do_plano=2)
+        omissa = self._aderiu(feitas=3)
+
+        self.assertFalse(
+            omissa and not honesta,
+            "omitir produziu um resultado melhor que registrar honestamente",
+        )
+        self.assertEqual(honesta, omissa)
+
+    def test_pular_tambem_nao_pode_ser_pior_que_omitir(self):
+        marcou_pulada = self._aderiu(feitas=3, puladas=2)
+        omitiu = self._aderiu(feitas=3)
+
+        self.assertEqual(marcou_pulada, omitiu)
+
+    def test_seguir_o_plano_inteiro_cumpre_o_dia(self):
+        self.assertTrue(self._aderiu(feitas=self.previstas))
+
+    def test_uma_refeicao_fora_do_plano_ainda_cumpre(self):
+        """80% é o limiar, e ele continua valendo — só mudou o denominador."""
+        self.assertTrue(
+            self._aderiu(feitas=self.previstas - 1, fora_do_plano=1)
+        )
+
+    def test_duas_fora_do_plano_nao_cumprem(self):
+        self.assertFalse(
+            self._aderiu(feitas=self.previstas - 2, fora_do_plano=2)
+        )
+
+    def test_uma_refeicao_marcada_nao_vira_dia_perfeito(self):
+        """Antes isto dependia de um piso artificial; agora é aritmética.
+
+        Uma de cinco é 20%, e nenhuma regra extra precisa existir para dizer
+        isso.
+        """
+        self.assertFalse(self._aderiu(feitas=1))
+
+    def test_nenhuma_marcacao_nao_cumpre(self):
+        self.assertFalse(self._aderiu())

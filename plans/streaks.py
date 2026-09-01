@@ -18,22 +18,28 @@ dieta. Metas que a pessoa não tem não podem quebrar a sequência dela.
 from dataclasses import dataclass
 from datetime import timedelta
 
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Sum
 from django.utils import timezone
 
 from workouts.models import ExerciseLog, TrainingPlan
 
-from .models import HydrationLog, MealLog, MealStatus
+from .models import HydrationLog, MealLog, MealSlot, MealStatus
 
 #: Quanto da meta calórica conta como dia cumprido. Oitenta por cento das
 #: refeições marcadas como feitas — não 100%: exigir perfeição de um contador
 #: de constância é a forma mais rápida de a pessoa desistir dele.
 ADESAO_MINIMA_PCT = 80
 
-#: E pelo menos três refeições marcadas. Sem piso, um dia com uma única
-#: refeição marcada daria 100% de aderência e passaria — premiando quem esqueceu
-#: de usar o app em vez de quem seguiu o plano.
-REFEICOES_MINIMAS = 3
+#: O piso de refeições marcadas SAIU, e a ausência é a correção.
+#:
+#: Ele existia para impedir que uma única refeição marcada desse 100% — o que
+#: só era possível porque o denominador era "o que a pessoa marcou". Com o
+#: denominador vindo do PLANO, uma refeição de cinco dá 20%, e o piso vira
+#: remendo de um problema que não existe mais.
+#:
+#: Mantê-lo seria pior que inútil: ele descartava o dia INTEIRO quando havia
+#: menos de três marcações, transformando "marquei pouco" em "não conta" em vez
+#: de "aderência baixa".
 
 #: Da meta de água. Noventa por cento porque a meta já é estimativa (35 ml/kg),
 #: e cobrar o número cheio de uma estimativa é falsa precisão.
@@ -130,20 +136,65 @@ def calcular(user, hoje=None, meta_agua_ml=None) -> Ofensiva:
     )
 
     # ---------------------------------------------------------- dieta
+    #
+    # O DENOMINADOR É O PLANO, e essa é a correção inteira.
+    #
+    # Antes ele era "refeições que a pessoa marcou de alguma forma", e isso
+    # invertia o incentivo do app:
+    #
+    #     3 feitas + 2 "comi outra coisa"  ->  3/5 = 60%  ->  quebrava
+    #     3 feitas + 2 SEM MARCAR NADA     ->  3/3 = 100% ->  mantinha
+    #
+    # Quem registrava honestamente perdia a sequência; quem não abria o app a
+    # mantinha. Num módulo cuja primeira linha diz que "o que a torna honesta é
+    # o que ela decide NÃO cobrar", isso era uma contradição interna.
+    #
+    # Com o denominador vindo do plano, o resultado não depende mais do que foi
+    # marcado — só do que foi CUMPRIDO. Os dois casos acima dão 3/5, e omitir
+    # deixa de ser vantagem. Essa é a propriedade, e há um teste que a fixa.
+    #
+    # Qual plano: o que estava ativo NAQUELE dia, alcançado pelo próprio
+    # registro (`slot__plan`). Não é o plano de hoje — quem passou de cinco para
+    # quatro refeições seria julgado pela régua errada no passado.
+    #
+    # Dia sem nenhuma marcação não entra no dicionário e, portanto, não é
+    # aderente. É o mesmo destino de quem marcou tudo fora do plano, que é
+    # exatamente o ponto.
+    # DUAS consultas, e nunca mais que duas. A primeira versão desta correção
+    # chamava `log.slot.plan.slots.count()` dentro do laço, o que dá uma
+    # consulta por dia — e `test_the_streak_does_not_query_per_day` reprovou,
+    # que é exatamente para isso que ele existe. A ofensiva olha 400 dias para
+    # trás: um N+1 aqui é 400 idas ao banco na tela mais visitada do app.
     dieta_ok = set()
-    for linha in (
-        MealLog.objects.filter(user=user, date__gte=inicio)
-        .values("date")
-        .annotate(
-            feitas=Count("pk", filter=Q(status=MealStatus.DONE)),
-            marcadas=Count("pk", filter=~Q(status=MealStatus.PENDING)),
+    registros = list(
+        MealLog.objects.filter(user=user, date__gte=inicio).values(
+            "date", "status", "slot__plan_id"
         )
-    ):
-        marcadas = linha["marcadas"] or 0
-        if marcadas < REFEICOES_MINIMAS:
+    )
+    planos = {r["slot__plan_id"] for r in registros if r["slot__plan_id"]}
+    previstas_por_plano = {
+        linha["plan_id"]: linha["quantas"]
+        for linha in MealSlot.objects.filter(plan_id__in=planos)
+        .values("plan_id")
+        .annotate(quantas=Count("pk"))
+    }
+
+    por_dia = {}
+    for r in registros:
+        registro = por_dia.setdefault(r["date"], {"feitas": 0, "previstas": 0})
+        if r["status"] == MealStatus.DONE:
+            registro["feitas"] += 1
+        if not registro["previstas"]:
+            registro["previstas"] = previstas_por_plano.get(r["slot__plan_id"], 0)
+
+    for data, registro in por_dia.items():
+        previstas = registro["previstas"]
+        if not previstas:
+            # Registro órfão de plano (histórico antigo). Sem denominador
+            # confiável, não afirmamos nada sobre o dia.
             continue
-        if linha["feitas"] * 100 / marcadas >= ADESAO_MINIMA_PCT:
-            dieta_ok.add(linha["date"])
+        if registro["feitas"] * 100 / previstas >= ADESAO_MINIMA_PCT:
+            dieta_ok.add(data)
 
     # ----------------------------------------------------------- água
     agua_ok = set()

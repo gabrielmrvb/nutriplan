@@ -60,6 +60,15 @@ compara com o que o motor calcula hoje e descarta o que não bate.
 **Ficha ajustada não é remontada.** `TrainingPlan.customized_at` desliga o
 gerador. Sem isso, mudar o horário de terça apaga a troca de ontem.
 
+**A ofensiva mede aderência AO PLANO, e o denominador vem do plano.** Não do
+que a pessoa marcou — essa era a regra antiga, e ela invertia o incentivo do
+app: três refeições feitas mais duas marcadas como "comi outra coisa" davam
+60% e quebravam a sequência, enquanto três feitas e duas SEM MARCAR NADA davam
+100% e a mantinham. Registrar honestamente custava caro; omitir saía de graça.
+A propriedade que governa isso agora tem teste próprio em `plans/test_streaks.py`:
+**omitir nunca pode produzir resultado melhor que registrar**. Ela vale por
+construção, porque qualquer denominador independente da marcação a satisfaz.
+
 **Dois lados abrem o mesmo IndexedDB, e eles têm que concordar.**
 `static/js/fila.js` e `templates/pwa/sw.js` abrem `nutriplan-fila`. O service
 worker abria sem `onupgradeneeded`; quando ele chegava primeiro — num evento
