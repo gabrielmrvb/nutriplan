@@ -80,9 +80,21 @@ coluna da direita), não entre ela e o almoço.
         treino — e cabe em 40px. A versão anterior gastava a primeira dobra
         inteira com anel, saldo e macros para dizer menos que isto.
       {% endcomment %}
+      {% comment %}
+        "1/5 refeições" respondia ADERÊNCIA e era lido como REGISTRO.
+
+        Num dia com cinco previstas, uma seguindo o plano e uma "comi outra
+        coisa", a pessoa tinha registrado DUAS e lia que tinha feito uma. O
+        "comi outra coisa" existe para ser registrável sem ser conforme —
+        somar zero nas duas contas apaga justamente o registro que ela fez
+        questão de deixar.
+
+        O "· 1 fora" só aparece quando existe. Num dia limpo a linha é a de
+        sempre, e a primeira dobra continua cabendo em 40px.
+      {% endcomment %}
       <p class="resumo-dia">
         <span class="resumo-dia__item num">
-          {{ summary.done }}/{{ summary.total }} refeições
+          {{ summary.no_plano }}/{{ summary.previstas }} refeições{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}
         </span>
         <span class="resumo-dia__item num">
           {{ hidratacao_bebida }}/{{ hidratacao_ml }} ml
@@ -556,7 +568,7 @@ coluna da direita), não entre ela e o almoço.
             {% endif %}
           </p>
           <p class="today-hero__meta num">
-            {{ summary.done }}/{{ summary.total }} refeições
+            {{ summary.no_plano }}/{{ summary.previstas }} refeições{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}
           </p>
           {% comment %}
             A meta saiu daqui porque já estava três centímetros acima.

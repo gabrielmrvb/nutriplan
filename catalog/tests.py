@@ -8,12 +8,14 @@ oferecidas mantêm o prato parecido com o que ele era.
 A conferência contra TACO/USDA é por amostragem e feita à mão; o que está
 travado aqui é a consistência, que é o que pega dado digitado errado.
 """
+import re
+import unicodedata
 from decimal import Decimal
 
 from django.core.management import call_command
 from django.test import TestCase
 
-from catalog.models import Food
+from catalog.models import Food, MealTemplate
 
 
 class AtwaterTests(TestCase):
@@ -104,6 +106,83 @@ class CookedStateTests(TestCase):
                     any(estado in nome for estado in self.ESTADOS),
                     f"{food.name}: o nome não diz se é cru ou pronto",
                 )
+
+
+class PreparoConfereComIngredienteTests(TestCase):
+    """O modo de preparo não pode contradizer o ingrediente que foi contado.
+
+    "Arroz, feijão, ovo e salada" listava *Ovo de galinha cozido* e mandava
+    servir "o ovo frito por cima". Quem seguisse o texto fritava o ovo e comia
+    a gordura da frigideira, que não está em lugar nenhum da conta — os macros
+    saem do ingrediente, não da prosa. Não era um caso isolado: o catálogo tem
+    UM alimento de ovo, o cozido, e quatro receitas descreviam fritar ou mexer.
+
+    A regra é a do ingrediente, porque é ele que vira número. O texto obedece.
+
+    O casamento é por ADJACÊNCIA, e isso é o que separa este teste de um que
+    ninguém aguenta manter: a primeira versão procurava o método numa janela de
+    40 caracteres e acusava "Arroz branco cozido" por causa do "ovo frito" na
+    mesma frase. Três falsos positivos em sete achados — o bastante para o
+    próximo a ver este teste vermelho simplesmente desligá-lo.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    #: Feminino e plural remetidos ao masculino singular, para comparar método
+    #: com método e não palavra com palavra.
+    METODOS = {
+        "cozido": "cozido", "cozida": "cozido", "cozidos": "cozido",
+        "frito": "frito", "frita": "frito", "fritos": "frito",
+        "grelhado": "grelhado", "grelhada": "grelhado",
+        "assado": "assado", "assada": "assado",
+        "refogado": "refogado", "refogada": "refogado",
+        "mexido": "mexido", "mexidos": "mexido",
+        "cru": "cru", "crua": "cru",
+    }
+
+    @staticmethod
+    def _sem_acento(texto):
+        decomposto = unicodedata.normalize("NFD", texto.lower())
+        return "".join(c for c in decomposto if unicodedata.category(c) != "Mn")
+
+    def test_nenhuma_receita_manda_preparar_diferente_do_que_conta(self):
+        for template in MealTemplate.objects.prefetch_related("items__food"):
+            # Pontuacao fora: "o ovo frito," precisa casar com "frito".
+            palavras = [
+                "".join(c for c in p if c.isalpha())
+                for p in self._sem_acento(template.instructions or "").split()
+            ]
+            vizinhos = list(zip(palavras, palavras[1:]))
+
+            for item in template.items.all():
+                nome = self._sem_acento(item.food.name).split()
+                metodo = next(
+                    (self.METODOS[p] for p in nome if p in self.METODOS), None
+                )
+                if metodo is None:
+                    continue
+
+                substantivo = nome[0]
+                divergentes = {
+                    p for p, raiz in self.METODOS.items() if raiz != metodo
+                }
+                colados = [
+                    (a, b)
+                    for a, b in vizinhos
+                    if (a == substantivo and b in divergentes)
+                    or (b == substantivo and a in divergentes)
+                ]
+
+                with self.subTest(receita=template.name, item=item.food.name):
+                    self.assertEqual(
+                        colados,
+                        [],
+                        f"{template.name}: conta {item.food.name} e o preparo "
+                        f"diz {colados} — a gordura ou a água do outro método "
+                        f"não entra nos macros",
+                    )
 
 
 class SubstitutionFidelityTests(TestCase):

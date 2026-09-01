@@ -79,7 +79,7 @@
       "rapida"
     ],
     "prep_minutes": 10,
-    "instructions": "Hidrate o cuscuz, leve à cuscuzeira e sirva com o ovo frito ou cozido.",
+    "instructions": "Hidrate o cuscuz, leve à cuscuzeira e sirva com o ovo cozido.",
     "items": [
       [
         "Cuscuz de milho cozido",
@@ -318,7 +318,7 @@
       "rapida"
     ],
     "prep_minutes": 8,
-    "instructions": "Espalhe a goma na frigideira quente até firmar e recheie com o ovo mexido.",
+    "instructions": "Espalhe a goma na frigideira quente até firmar e recheie com o ovo cozido picado.",
     "items": [
       [
         "Goma de tapioca hidratada",
@@ -342,7 +342,7 @@
       "rapida"
     ],
     "prep_minutes": 8,
-    "instructions": "Firme a goma na frigideira, recheie com o ovo mexido e o queijo e dobre.",
+    "instructions": "Firme a goma na frigideira, recheie com o ovo cozido picado e o queijo e dobre.",
     "items": [
       [
         "Goma de tapioca hidratada",
@@ -1260,7 +1260,7 @@
       "sem-gluten"
     ],
     "prep_minutes": 15,
-    "instructions": "Sirva o arroz com o feijão, o ovo frito por cima e a salada temperada.",
+    "instructions": "Sirva o arroz com o feijão, o ovo cozido fatiado por cima e a salada temperada.",
     "items": [
       [
         "Arroz branco cozido",
