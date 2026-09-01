@@ -29,6 +29,9 @@ from .calculations import (
     activity_factor,
 )
 from .models import HydrationLog, MealOption, MealSlot, MealStatus, OptionLabel
+# A política de arredondamento mora em `tracking` e é importada, não repetida:
+# duas cópias da mesma regra é como as duas nasceram diferentes.
+from .tracking import ZERO, arredondar
 
 
 def proteina_perdida(slots) -> dict:
@@ -172,7 +175,11 @@ def menu_totals(slots) -> dict:
     `rodizio.projetar` já pendurou — recalcular aqui daria uma segunda resposta
     para a mesma pergunta.
     """
-    totals = {"kcal": 0, "protein_g": 0, "carb_g": 0, "fat_g": 0}
+    # Soma em `Decimal` e arredonda UMA vez, no fim. A versão anterior fazia
+    # `int(option.kcal)` por refeição: cinco truncamentos antes da soma, até 5
+    # kcal perdidas, e o rodapé do cardápio não batia com os cards logo acima
+    # dele — que exibem o mesmo número via `floatformat`, que arredonda.
+    totals = {"kcal": ZERO, "protein_g": ZERO, "carb_g": ZERO, "fat_g": ZERO}
     for slot in slots:
         # `slot.opcoes_do_dia` sem `getattr` com padrão, e isto é deliberado:
         # quem esquecer de chamar `rodizio.projetar` antes leva um
@@ -182,11 +189,11 @@ def menu_totals(slots) -> dict:
         option = next(iter(slot.opcoes_do_dia), None)
         if option is None:
             continue
-        totals["kcal"] += int(option.kcal)
-        totals["protein_g"] += int(option.protein_g)
-        totals["carb_g"] += int(option.carb_g)
-        totals["fat_g"] += int(option.fat_g)
-    return totals
+        totals["kcal"] += option.kcal
+        totals["protein_g"] += option.protein_g
+        totals["carb_g"] += option.carb_g
+        totals["fat_g"] += option.fat_g
+    return {chave: arredondar(valor) for chave, valor in totals.items()}
 
 
 def breakdown(plan):

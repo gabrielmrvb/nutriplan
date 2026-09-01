@@ -18,6 +18,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 
 from django.core.management import call_command
+from django.template.defaultfilters import floatformat
 from django.http import QueryDict
 from django.db.models import Sum
 from django.db import IntegrityError, connection
@@ -1274,12 +1275,13 @@ class TrackingTests(CatalogFixture):
 
         summary = tracking.day_summary(self.user, self.plan, self.today)
 
-        self.assertEqual(summary["consumed_kcal"], int(self.option.kcal))
+        self.assertEqual(summary["consumed_kcal"], tracking.arredondar(self.option.kcal))
         self.assertEqual(summary["done"], 1)
         self.assertEqual(summary["marked"], 2)
         self.assertEqual(summary["total"], 5)
         self.assertEqual(
-            summary["remaining_kcal"], self.plan.target_kcal - int(self.option.kcal)
+            summary["remaining_kcal"],
+            self.plan.target_kcal - tracking.arredondar(self.option.kcal),
         )
 
     def test_progress_never_passes_one_hundred_percent(self):
@@ -4580,3 +4582,175 @@ class MacrosRestantesTests(TestCase):
             self.assertNotIn("% da meta", linha)
         self.assertIn("%d kcal" % proteina["left_kcal"], linhas[0])
         self.assertNotIn("%d kcal" % proteina["kcal"], linhas[0])
+
+
+class ArredondamentoUnicoTests(TestCase):
+    """O card e o total do dia precisam dizer o mesmo número.
+
+    Defeito real: uma refeição de 677,50 kcal aparecia como "678 kcal" no card
+    e somava 677 no total do dia. Nenhum dos dois calculava errado — os dois
+    liam o mesmo `Decimal`. O que divergia era a conversão para inteiro: o
+    template usa `floatformat`, que arredonda, e a view usava `int()`, que
+    trunca.
+
+    O teste ancora nos dois lados da fronteira ao mesmo tempo. Verificar só
+    `arredondar()` deixaria passar exatamente a regressão que importa — alguém
+    trocar o filtro do template por `stringformat:"d"` e as duas pontas
+    voltarem a discordar sem nenhum teste reclamar.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.plan = services.create_plan(self.user)
+        self.slot = self.plan.slots.order_by("order").first()
+        self.option = self.slot.options.order_by("rank").first()
+
+    def test_o_card_e_o_total_do_dia_concordam_na_metade_exata(self):
+        """677,50 é o caso que separa arredondar de truncar. Abaixo dele as
+        duas convenções coincidem e o defeito fica invisível."""
+        MealOption.objects.filter(pk=self.option.pk).update(kcal=Decimal("677.50"))
+        self.option.refresh_from_db()
+        tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+
+        no_card = floatformat(self.option.kcal, 0)
+        no_dia = tracking.day_summary(self.user, self.plan, timezone.localdate())
+
+        self.assertEqual(no_card, "678")
+        self.assertEqual(no_dia["consumed_kcal"], 678, "o dia truncou o que o card arredondou")
+
+    def test_a_regra_vale_para_os_tres_macros_e_nao_so_para_a_caloria(self):
+        """A correção original mexeu em `consumed_kcal`. Proteína, carboidrato
+        e gordura passavam pelo mesmo `int()` e ficariam para trás."""
+        MealOption.objects.filter(pk=self.option.pk).update(
+            kcal=Decimal("677.50"),
+            protein_g=Decimal("40.50"),
+            carb_g=Decimal("80.50"),
+            fat_g=Decimal("22.50"),
+        )
+        self.option.refresh_from_db()
+        tracking.log_meal(self.user, self.slot, MealStatus.DONE, self.option)
+
+        resumo = tracking.day_summary(self.user, self.plan, timezone.localdate())
+
+        for chave, decimal_gravado, esperado in [
+            ("protein_g", "40.50", 41),
+            ("carb_g", "80.50", 81),
+            ("fat_g", "22.50", 23),
+        ]:
+            with self.subTest(macro=chave):
+                self.assertEqual(floatformat(Decimal(decimal_gravado), 0), str(esperado))
+                self.assertEqual(resumo[chave], esperado)
+
+    def test_o_total_do_cardapio_arredonda_uma_vez_e_nao_por_refeicao(self):
+        """A soma acontece com a precisão inteira; arredondar é o último passo.
+
+        A versão anterior fazia `int(option.kcal)` DENTRO do laço: cinco
+        truncamentos antes de somar, cada um perdendo até 1 kcal, e o rodapé
+        ficava sistematicamente abaixo do cardápio real. Com 400,60 em cinco
+        refeições ela dava 2 000 para um cardápio de 2 003.
+
+        Repare que o rodapé (2 003) NÃO é a soma dos cards arredondados
+        (5 × 401 = 2 005), e isso não é o defeito — é a diferença entre somar e
+        depois arredondar, que qualquer nota fiscal também tem. O defeito que
+        este teste guarda é o viés de arredondar cedo, sempre para o mesmo
+        lado.
+        """
+        from plans import rodizio
+        from plans.views import menu_totals
+
+        for slot in self.plan.slots.all():
+            slot.options.update(kcal=Decimal("400.60"))
+
+        slots = list(self.plan.slots.order_by("order"))
+        rodizio.projetar(slots, self.user.pk, timezone.localdate())
+        visiveis = [o for s_ in slots for o in list(s_.opcoes_do_dia)[:1]]
+
+        exato = sum((o.kcal for o in visiveis), Decimal("0"))
+        truncando_cedo = sum(int(o.kcal) for o in visiveis)
+
+        self.assertEqual(menu_totals(slots)["kcal"], tracking.arredondar(exato))
+        self.assertNotEqual(menu_totals(slots)["kcal"], truncando_cedo)
+
+
+class RegistroNaoEAderenciaTests(TestCase):
+    """O contador do dia responde duas perguntas, e elas não são a mesma.
+
+    Num dia com cinco refeições previstas, uma seguida conforme o plano e uma
+    marcada como "comi outra coisa", a tela dizia "1/5 refeições". A pessoa
+    tinha registrado DUAS e lia que tinha feito uma.
+
+    O estrago não é o número: é o que ele ensina. "Comi outra coisa" existe
+    para dar um jeito de registrar o dia real sem fingir aderência — e o app
+    respondia somando zero nas duas contas, como se registrar tivesse sido
+    inútil. Quem marca honestamente é quem sai punido.
+
+    Agora `day_summary` devolve os dois eixos com nome próprio, e a tela mostra
+    o segundo só quando ele existe.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.plan = services.create_plan(self.user)
+        self.slots = list(self.plan.slots.order_by("order"))
+
+    def _resumo(self):
+        return tracking.day_summary(self.user, self.plan, timezone.localdate())
+
+    def test_o_caso_do_relato_cinco_previstas_duas_registradas(self):
+        tracking.log_meal(
+            self.user, self.slots[0], MealStatus.DONE,
+            self.slots[0].options.first(),
+        )
+        tracking.log_meal(self.user, self.slots[1], MealStatus.OFF_PLAN)
+
+        resumo = self._resumo()
+
+        self.assertEqual(resumo["previstas"], 5)
+        self.assertEqual(resumo["registradas"], 2)
+        self.assertEqual(resumo["no_plano"], 1)
+        self.assertEqual(resumo["fora_do_plano"], 1)
+
+    def test_pular_conta_como_registro_e_nao_como_aderencia(self):
+        """Pular é uma resposta, não silêncio. Quem pulou o lanche decidiu
+        alguma coisa; quem não marcou nada ainda não decidiu."""
+        tracking.log_meal(self.user, self.slots[0], MealStatus.SKIPPED)
+
+        resumo = self._resumo()
+
+        self.assertEqual(resumo["registradas"], 1)
+        self.assertEqual(resumo["puladas"], 1)
+        self.assertEqual(resumo["no_plano"], 0)
+
+    def test_a_tela_mostra_o_fora_do_plano_quando_ele_existe(self):
+        tracking.log_meal(
+            self.user, self.slots[0], MealStatus.DONE,
+            self.slots[0].options.first(),
+        )
+        tracking.log_meal(self.user, self.slots[1], MealStatus.OFF_PLAN)
+        self.client.force_login(self.user)
+
+        html = self.client.get(reverse("plans:today")).content.decode()
+
+        self.assertIn("1/5 refeições · 1 fora", html)
+
+    def test_num_dia_limpo_a_linha_continua_a_de_sempre(self):
+        """A informação a mais não pode virar ruído permanente: a primeira
+        dobra cabe em 40px e o dia sem desvio é o caso comum."""
+        tracking.log_meal(
+            self.user, self.slots[0], MealStatus.DONE,
+            self.slots[0].options.first(),
+        )
+        self.client.force_login(self.user)
+
+        html = self.client.get(reverse("plans:today")).content.decode()
+
+        self.assertIn("1/5 refeições", html)
+        self.assertNotIn(" fora", html)

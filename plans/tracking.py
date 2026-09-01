@@ -5,7 +5,7 @@ garante isso — e os macros são congelados no momento da marcação. Editar um
 receita amanhã não pode reescrever o que a pessoa comeu hoje.
 """
 from datetime import timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
@@ -16,6 +16,33 @@ from .models import MealLog, MealStatus
 HISTORY_DAYS = 14
 
 ZERO = Decimal("0")
+
+
+#: A ÚNICA regra de arredondamento do app, e ela existe por um defeito concreto:
+#: o card da refeição mostrava 678 kcal e o total do dia subia 677.
+#:
+#: Nenhum dos dois calculava errado. `MealOption.kcal` e `MealLog.kcal` guardam
+#: `Decimal` com duas casas — 677,50 — e os dois números saíam dali. O que
+#: divergia era a conversão para inteiro:
+#:
+#:     card:  {{ option.kcal|floatformat:0 }}  ->  arredonda  ->  678
+#:     dia:   int(totals["kcal"])              ->  trunca     ->  677
+#:
+#: Duas convenções para o mesmo número, e a pessoa via a diferença: confirmava
+#: uma refeição de 678 e o dia subia 677. Um kcal não muda dieta nenhuma; o que
+#: ele estraga é a confiança de que os números do app fecham.
+#:
+#: A regra adotada é a do template, porque é a que a pessoa vê primeiro e a que
+#: o Django já aplica sozinho em `floatformat`: meio para cima. O domínio segue
+#: com a precisão que tem — arredondar é decisão de APRESENTAÇÃO e acontece
+#: aqui, na fronteira, uma vez só.
+#:
+#: Vale para QUANTIDADE (kcal, gramas). Porcentagem continua truncando logo
+#: abaixo, e de propósito: 99,6% de aderência arredondado vira "100%" num dia em
+#: que a pessoa não fechou o plano, e essa é uma mentira pior que o 1% perdido.
+def arredondar(valor) -> int:
+    """Decimal para inteiro, meio para cima — como o `floatformat` do template."""
+    return int(Decimal(valor or 0).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
 #: Quantos alimentos a pessoa pode descrever numa refeição fora do plano.
@@ -118,10 +145,20 @@ def day_summary(user, plan, day) -> dict:
     totals = of_the_plan.filter(status=MealStatus.DONE).aggregate(
         kcal=Sum("kcal"), protein=Sum("protein_g"), carb=Sum("carb_g"), fat=Sum("fat_g")
     )
-    consumed = int(totals["kcal"] or 0)
+    consumed = arredondar(totals["kcal"])
+    # REGISTRO e ADERÊNCIA são coisas diferentes, e o resumo devolve as duas.
+    #
+    # A tela dizia "1/5 refeições" para um dia com cinco previstas, DUAS
+    # registradas (uma seguindo o plano e uma "comi outra coisa") e três ainda
+    # pendentes. Quem registrou as duas lia que tinha feito uma — o número
+    # respondia aderência e a pessoa lia como registro. "Comi outra coisa"
+    # existe justamente para ser registrável sem ser conforme; somar zero nos
+    # dois lugares apaga o registro que a pessoa fez questão de deixar.
     counts = of_the_plan.aggregate(
         done=Count("pk", filter=Q(status=MealStatus.DONE)),
         marked=Count("pk", filter=~Q(status=MealStatus.PENDING)),
+        fora_do_plano=Count("pk", filter=Q(status=MealStatus.OFF_PLAN)),
+        puladas=Count("pk", filter=Q(status=MealStatus.SKIPPED)),
     )
     total_slots = plan.slots.count()
 
@@ -130,12 +167,21 @@ def day_summary(user, plan, day) -> dict:
         "target_kcal": plan.target_kcal,
         "remaining_kcal": plan.target_kcal - consumed,
         "progress_pct": min(int(consumed * 100 / (plan.target_kcal or 1)), 100),
-        "protein_g": int(totals["protein"] or 0),
-        "carb_g": int(totals["carb"] or 0),
-        "fat_g": int(totals["fat"] or 0),
+        "protein_g": arredondar(totals["protein"]),
+        "carb_g": arredondar(totals["carb"]),
+        "fat_g": arredondar(totals["fat"]),
+        # `done`, `marked` e `total` continuam com os nomes antigos: histórico,
+        # ofensiva e fila offline leem os três, e renomear aqui seria mexer em
+        # tudo isso para não ganhar nada.
         "done": counts["done"],
         "marked": counts["marked"],
         "total": total_slots,
+        # Os nomes da TELA, que dizem qual das duas perguntas cada um responde.
+        "previstas": total_slots,
+        "registradas": counts["marked"],
+        "no_plano": counts["done"],
+        "fora_do_plano": counts["fora_do_plano"],
+        "puladas": counts["puladas"],
     }
 
 
@@ -166,7 +212,7 @@ def history(user, days=HISTORY_DAYS) -> list:
         summary.append(
             {
                 "date": row["date"],
-                "kcal": int(row["kcal"] or 0),
+                "kcal": arredondar(row["kcal"]),
                 "done": row["done"],
                 "marked": marked,
                 "adherence_pct": int(row["done"] * 100 / marked) if marked else 0,
@@ -184,6 +230,6 @@ def adherence(rows) -> dict:
     marked = sum(row["marked"] for row in rows)
     return {
         "days": len(rows),
-        "avg_kcal": int(sum(row["kcal"] for row in rows) / len(rows)),
+        "avg_kcal": arredondar(Decimal(sum(row["kcal"] for row in rows)) / len(rows)),
         "adherence_pct": int(done * 100 / marked) if marked else 0,
     }
