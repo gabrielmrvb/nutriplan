@@ -44,6 +44,14 @@ nunca abaixo de 11px.
 
 **Nada rola na horizontal.** Todo container de texto leva `min-width: 0`.
 
+**A ficha da semana desenha vários dias; o histórico só sabe de um.**
+`load_history` devolve um balde `"hoje"` que é de HOJE. A tela da ficha aplicava
+esse balde a TODAS as sessões, e um exercício anotado hoje aparecia como
+concluído dentro do card de sexta, com as cargas preenchidas nas séries de lá.
+`ExerciseLog` sempre teve a data certa — era a LEITURA que perdia o dia. Ao
+mexer nessa tela, lembre: `"anterior"` vale para todos os dias (é o que se
+consulta ao abrir outra ficha), `"hoje"` vale só para a sessão de hoje.
+
 **Plano é retrato, não referência.** `NutritionPlan` e `TrainingPlan` guardam os
 números do dia em que foram criados. Mudou a entrada, nasce plano novo — os
 antigos ficam. Nunca edite os números de um plano ativo: `plan_is_current()`

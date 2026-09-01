@@ -125,9 +125,35 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
         # da ficha para o template não precisar de filtro de dicionário.
         exercicios = [item.exercise for session in sessions for item in session.exercises.all()]
         historico = services.load_history(user, exercicios)
+
+        # O balde "hoje" do histórico é de HOJE — e esta página desenha a
+        # semana inteira. Aplicá-lo às fichas dos OUTROS dias fazia o supino
+        # anotado hoje aparecer como concluído dentro do card de sexta, com as
+        # cargas de hoje preenchidas nas séries de lá. O exercício se repete
+        # entre fichas, então bastava um em comum para a ficha inteira mentir.
+        #
+        # Nada disso era gravado errado: `ExerciseLog` sempre teve a data certa.
+        # Era a LEITURA que perdia o dia, e a tela afirmava um estado que o
+        # banco não sustentava.
+        #
+        # Só o balde "hoje" é zerado, e a estreiteza é deliberada. A primeira
+        # versão desta correção zerava também `delta` e `melhor_hoje`, e a
+        # suíte pegou: o "+5" que compara a carga de hoje com a do último
+        # treino sumia da tela inteira nos dias em que ninguém treina. Aquilo
+        # responde "evoluí neste EXERCÍCIO?", que não é pergunta de um dia da
+        # semana — e é comportamento que já existia e não estava quebrado.
+        #
+        # "anterior" também continua para todos: a carga do último treino
+        # daquele exercício é justamente o que se consulta ao abrir a ficha de
+        # outro dia.
+        hoje_na_semana = timezone.localdate().weekday()
         for session in sessions:
+            do_dia = session.weekday == hoje_na_semana
             for item in session.exercises.all():
-                item.load = historico.get(item.exercise_id)
+                carga = historico.get(item.exercise_id)
+                if carga is not None and not do_dia:
+                    carga = dict(carga, hoje={})
+                item.load = carga
                 item.set_rows = set_rows(item, item.load)
                 # O botão de copiar só existe quando há o que copiar — e a data
                 # vai junto porque "copiar do último treino" sem dizer de quando

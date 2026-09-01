@@ -3857,3 +3857,120 @@ class PrioridadeDaMidiaNaFichaTests(TestCase):
 
         self.assertIn("data-anatomia-area", agora)
         self.assertIn("tem_anatomia", agora)
+
+
+def fichas_das_outras_semanas(html):
+    """Um pedaço de HTML por ficha dos OUTROS dias, recortado por `data-dia`.
+
+    A ficha de hoje é `<section class="card hoje">` e as demais são
+    `<details class="card ficha">` — marcações diferentes de propósito, o que
+    permite isolar umas das outras sem depender da ordem em que aparecem.
+
+    Recortar importa: as duas desenham o mesmo `_exercicio.html`, então contar
+    `exercise--feito` na página inteira não distingue "concluí hoje" de
+    "a ficha de sexta está mentindo".
+    """
+    partes = re.split(r'(?=<details class="card ficha")', sem_scripts(html))
+    blocos = {}
+    for parte in partes[1:]:
+        achado = re.search(r'data-dia="([^"]+)"', parte)
+        if achado:
+            blocos[achado.group(1)] = parte
+    return blocos
+
+
+class ConclusaoNaoVazaEntreDiasTests(TestCase):
+    """Anotar uma série hoje não pode marcar a ficha de outro dia.
+
+    `load_history` devolve um balde "hoje", e a tela da ficha desenha a semana
+    inteira. A leitura aplicava esse balde a TODAS as sessões: um exercício
+    anotado hoje aparecia como `exercise--feito`, com "3/3 séries" e as cargas
+    preenchidas, dentro do card de sexta-feira.
+
+    Nada era gravado errado — `ExerciseLog` sempre teve a data certa. Era a
+    LEITURA que perdia o dia, e a tela afirmava um estado que o banco não
+    sustentava. Quem abrisse a ficha da semana veria treinos concluídos que
+    nunca aconteceram.
+
+    A data é derivada de `timezone.localdate()` e nunca fixa: com dias fixos o
+    teste exercitaria caminhos diferentes conforme o dia em que a suíte roda.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_user(weekdays=dias_incluindo_hoje(3))
+        services.create_routine(self.user)
+        self.client.force_login(self.user)
+
+        plano = services.get_active_routine(self.user)
+        hoje = timezone.localdate().weekday()
+        self.sessao_de_hoje = plano.sessions.filter(weekday=hoje).first()
+        self.sessao_de_outro_dia = plano.sessions.exclude(weekday=hoje).first()
+        self.assertIsNotNone(self.sessao_de_hoje, "hoje precisa ser dia de treino")
+        self.assertIsNotNone(self.sessao_de_outro_dia, "precisa de um segundo dia")
+
+    def _anotar_todas_as_series(self, item):
+        for numero in range(1, item.sets + 1):
+            ExerciseLog.objects.create(
+                user=self.user,
+                exercise=item.exercise,
+                date=timezone.localdate(),
+                set_number=numero,
+                reps=10,
+                weight_kg=Decimal("60"),
+            )
+
+    def test_exercicio_anotado_hoje_nao_marca_a_ficha_de_outro_dia(self):
+        """O caso exato do defeito: a ficha de outro dia dizendo "feito"."""
+        item = self.sessao_de_outro_dia.exercises.first()
+        self._anotar_todas_as_series(item)
+
+        html = self.client.get(reverse("workouts:routine"), secure=True).content.decode()
+        bloco = fichas_das_outras_semanas(html)[self.sessao_de_outro_dia.label]
+
+        self.assertEqual(
+            sanfonas_com_classe(bloco, "exercise--feito"),
+            [],
+            "a ficha de outro dia marcou como concluído um exercício que só "
+            "foi anotado hoje",
+        )
+        self.assertEqual(sanfonas_com_classe(bloco, "exercise--parcial"), [])
+
+    def test_a_carga_de_hoje_nao_aparece_nas_series_de_outro_dia(self):
+        """`set_rows` lia o mesmo balde, então vazava pelo mesmo caminho.
+
+        Uma coisa é a ficha de sexta lembrar a carga do ÚLTIMO treino daquele
+        exercício — isso é o que se consulta ao abrir. Outra é ela mostrar as
+        séries de hoje como se fossem dela.
+        """
+        item = self.sessao_de_outro_dia.exercises.first()
+        self._anotar_todas_as_series(item)
+
+        html = self.client.get(reverse("workouts:routine"), secure=True).content.decode()
+        bloco = fichas_das_outras_semanas(html)[self.sessao_de_outro_dia.label]
+
+        self.assertNotIn("data-feitas=\"%d\"" % item.sets, bloco)
+        self.assertIn('data-feitas="0"', bloco)
+
+    def test_a_ficha_de_hoje_continua_mostrando_o_que_foi_feito(self):
+        """A correção não pode apagar o progresso de verdade.
+
+        É o risco óbvio de escopar por data: zerar demais e a pessoa perder de
+        vista o que acabou de anotar.
+        """
+        item = self.sessao_de_hoje.exercises.first()
+        self._anotar_todas_as_series(item)
+
+        html = sem_scripts(self.client.get(reverse("workouts:routine"), secure=True).content.decode())
+        # A ficha de hoje é `<section class="card hoje">`, e vem antes das
+        # sanfonas das outras — recortar até a primeira delas isola o bloco.
+        bloco_de_hoje = re.split(r'<details class="card ficha"', html)[0]
+
+        self.assertNotEqual(
+            sanfonas_com_classe(bloco_de_hoje, "exercise--feito"),
+            [],
+            "a ficha de hoje deixou de mostrar o exercício concluído",
+        )
