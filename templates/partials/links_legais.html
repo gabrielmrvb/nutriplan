@@ -1,0 +1,18 @@
+{% comment %}
+  Os dois links legais, no rodapé das telas de entrada.
+
+  Só aparecem quando os documentos deixam de ser rascunho. Oferecer "leia nossa
+  Política de Privacidade" e entregar um texto que se declara incompleto é pior
+  que não oferecer: a pessoa clica confiando e encontra um aviso de que aquilo
+  não vale.
+
+  Discretos de propósito — quem procura encontra, e quem está criando conta não
+  tem a atenção desviada do formulário.
+{% endcomment %}
+{% if legal_publicado %}
+  <p class="links-legais">
+    <a href="{% url 'privacidade' %}">Política de Privacidade</a>
+    <span aria-hidden="true">·</span>
+    <a href="{% url 'termos' %}">Termos de Uso</a>
+  </p>
+{% endif %}

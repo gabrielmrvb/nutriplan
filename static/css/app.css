@@ -5890,3 +5890,93 @@ body.montando { overflow: hidden; }
   font-size: .78rem;
   font-variant-numeric: tabular-nums;
 }
+
+
+/* ==========================================================================
+   41. Páginas legais: Política de Privacidade e Termos de Uso
+   ========================================================================== */
+
+/* Texto longo, e a única coisa que ele precisa é ser lido. Nada de coluna
+   estreita decorativa: o `.card` já limita a largura, e a medida de linha do
+   corpo do app vale aqui como vale no resto. */
+.legal h2 {
+  font-size: 1.05rem;
+  margin-bottom: .5rem;
+}
+
+.legal h3 {
+  font-size: .92rem;
+  color: var(--text-mute);
+  margin: 1rem 0 .4rem;
+}
+
+.legal p,
+.legal li { line-height: 1.6; }
+
+.legal ul {
+  margin: 0 0 .4rem 1.1rem;
+  display: grid;
+  gap: .35rem;
+}
+
+/* Termo em cima, explicação embaixo. Duas colunas a 390px espremeriam as duas
+   e o texto quebraria no meio de "restrições alimentares". */
+.legal__dados {
+  display: grid;
+  gap: .1rem;
+  margin: 0 0 .6rem;
+}
+
+.legal__dados dt {
+  font-weight: 600;
+  margin-top: .55rem;
+}
+
+.legal__dados dd {
+  margin: 0;
+  color: var(--text-mute);
+  line-height: 1.55;
+}
+
+/* A lacuna declarada. Fundo tingido para não passar como parágrafo comum:
+   quem lê precisa perceber que ali falta uma informação, e não que o texto
+   simplesmente terminou. */
+.legal__pendencia {
+  padding: .7rem .85rem;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--danger);
+  background: var(--surface-2);
+  color: var(--text-mute);
+}
+
+/* O documento inteiro se declarando rascunho. Mais forte que a pendência
+   pontual, porque a afirmação é sobre a página toda. */
+.legal--rascunho {
+  border-left: 3px solid var(--danger);
+}
+
+.legal__volta {
+  margin: 1.2rem 0 0;
+  text-align: center;
+}
+
+/* Os dois links no rodapé de entrar/criar conta e do perfil. Discretos: a
+   atenção da tela pertence ao formulário. */
+.links-legais {
+  margin: 1.1rem 0 0;
+  text-align: center;
+  font-size: .82rem;
+  color: var(--text-mute);
+  display: flex;
+  justify-content: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.links-legais a { color: var(--text-mute); }
+
+.conta__exportar-nota {
+  margin: -.2rem 0 .9rem;
+  font-size: .8rem;
+  line-height: 1.5;
+}

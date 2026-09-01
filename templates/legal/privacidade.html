@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% comment %}
+  Política de Privacidade.
+
+  Escrita a partir do INVENTÁRIO REAL dos models, e não de um modelo genérico:
+  cada campo listado aqui existe em `accounts/models.py`, `plans/models.py`,
+  `workouts/models.py` ou `push/models.py`. Nada foi inventado, e nada que o
+  código coleta ficou de fora.
+
+  Duas regras que governam este texto:
+
+  1. Nenhuma promessa que o código não cumpra. Se um dia a exclusão deixar de
+     apagar alguma coisa, é ESTE arquivo que passa a mentir — e há teste em
+     `accounts/tests.py` cobrindo a cascata.
+
+  2. Onde falta informação jurídica do responsável, o texto diz que falta. Um
+     CNPJ inventado é pior que um espaço em branco: o espaço em branco se
+     resolve, a informação falsa engana.
+{% endcomment %}
+
+{% block title %}Política de Privacidade · NutriPlan{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Política de Privacidade</h1>
+    <p class="lead">
+      O que o NutriPlan guarda sobre você, por quê, e como você tira isso daqui.
+    </p>
+    <p class="muted">Última atualização: 1 de setembro de 2026.</p>
+  </div>
+
+  {% if not legal_publicado %}
+    {% comment %}
+      Rascunho declarado. Falta a identificação de quem responde pelos dados —
+      e uma política sem isso não é documento, é texto sobre privacidade.
+      Publicá-la como final seria pedir consentimento apoiado numa informação
+      que não existe. Ver `LEGAL_RESPONSAVEL` em `config/settings.py`.
+    {% endcomment %}
+    <section class="card legal legal--rascunho" role="note">
+      <h2>Este documento ainda é um rascunho</h2>
+      <p>
+        Falta a identificação de quem responde pelo NutriPlan e um endereço de
+        contato. Sem isso ele não vale como Política de Privacidade, e não é
+        apresentado como tal em nenhuma tela do app.
+      </p>
+      <p class="muted">
+        O conteúdo abaixo descreve corretamente o que o aplicativo faz hoje.
+      </p>
+    </section>
+  {% endif %}
+
+  <section class="card legal">
+    <h2>Resumo em cinco linhas</h2>
+    <ul>
+      <li>Guardamos o que o app precisa para calcular sua dieta e seu treino — nada além disso.</li>
+      <li>Boa parte é <strong>dado de saúde</strong>: peso, altura, objetivo, restrições alimentares.</li>
+      <li>Não vendemos, não alugamos e não compartilhamos seus dados para publicidade.</li>
+      <li>Você pode apagar sua conta a qualquer momento, e isso apaga o histórico junto.</li>
+      <li>O NutriPlan não substitui médico nem nutricionista.</li>
+    </ul>
+  </section>
+
+  <section class="card legal">
+    <h2>Quem é o responsável</h2>
+    <p>
+      O NutriPlan é um projeto pessoal, mantido por uma pessoa física, sem
+      empresa constituída até esta data.
+    </p>
+    {% if legal_publicado %}
+      <dl class="legal__dados">
+        <dt>Responsável</dt><dd>{{ legal_responsavel }}</dd>
+        <dt>Contato para assuntos de privacidade</dt><dd>{{ legal_contato }}</dd>
+      </dl>
+    {% else %}
+      <p class="legal__pendencia">
+        A identificação do responsável e o endereço de contato ainda não foram
+        preenchidos. Enquanto isso, tudo o que esta política descreve como
+        direito seu está disponível nas telas do app, sem depender de contato:
+        corrigir no Perfil, exportar em "Exportar meus dados", apagar em
+        "Excluir minha conta".
+      </p>
+    {% endif %}
+  </section>
+
+  <section class="card legal">
+    <h2>O que coletamos, e por quê</h2>
+
+    <h3>Para criar e manter sua conta</h3>
+    <dl class="legal__dados">
+      <dt>Nome ou apelido</dt>
+      <dd>Como o app chama você nas telas. Você escolhe o que escrever.</dd>
+      <dt>E-mail</dt>
+      <dd>Identifica sua conta e é por onde chega a recuperação de senha.</dd>
+      <dt>Senha</dt>
+      <dd>
+        Guardada apenas como <em>hash</em> — uma transformação irreversível.
+        Ninguém, nem quem mantém o app, consegue ler sua senha.
+      </dd>
+    </dl>
+
+    <h3>Para calcular sua meta — dados de saúde</h3>
+    <p>
+      Estes são <strong>dados pessoais sensíveis</strong> pela Lei Geral de
+      Proteção de Dados. Eles existem porque sem eles não há cálculo: a fórmula
+      que estima seu gasto energético precisa deles.
+    </p>
+    <dl class="legal__dados">
+      <dt>Sexo e data de nascimento</dt>
+      <dd>Entram na fórmula de taxa metabólica basal.</dd>
+      <dt>Altura</dt>
+      <dd>Mesma fórmula.</dd>
+      <dt>Peso, e o histórico dele</dt>
+      <dd>
+        Refaz a meta quando você muda, e desenha o gráfico de progresso. Cada
+        pesagem fica com a data em que foi registrada.
+      </dd>
+      <dt>Objetivo e nível de atividade</dt>
+      <dd>Definem se a meta fica acima, abaixo ou igual ao seu gasto.</dd>
+      <dt>Restrições alimentares</dt>
+      <dd>
+        Vegetariano, vegano, sem glúten, sem lactose e afins. Filtram o
+        cardápio.
+      </dd>
+      <dt>Horário que você acorda e dorme, e seu fuso</dt>
+      <dd>Distribuem as refeições ao longo do seu dia.</dd>
+    </dl>
+
+    <h3>Para acompanhar o seu dia</h3>
+    <dl class="legal__dados">
+      <dt>Refeições marcadas</dt>
+      <dd>Qual opção você seguiu, quando, e o que comeu quando foi outra coisa.</dd>
+      <dt>Água</dt>
+      <dd>Quanto você registrou em cada dia.</dd>
+      <dt>Treinos, séries e cargas</dt>
+      <dd>
+        Cada série anotada, com peso, repetições e data. É o que permite o app
+        sugerir a carga da próxima vez.
+      </dd>
+      <dt>Dias e horários de treino</dt>
+      <dd>Montam a divisão da sua ficha.</dd>
+      <dt>Conquistas</dt>
+      <dd>
+        Apenas o registro de que você atingiu a condição, com a data. A carga
+        que gerou um recorde <strong>não</strong> é guardada aqui.
+      </dd>
+    </dl>
+
+    <h3>Se você usar recursos opcionais</h3>
+    <dl class="legal__dados">
+      <dt>Entrar com o Google</dt>
+      <dd>
+        Guardamos apenas o identificador da sua conta Google e o e-mail. Não
+        guardamos tokens de acesso, e não pedimos permissão para ler nada da sua
+        conta além do e-mail e do nome.
+      </dd>
+      <dt>Notificações</dt>
+      <dd>
+        Se você autorizar, guardamos o endereço técnico que o seu navegador
+        fornece para receber a notificação, e a identificação do navegador. Sem
+        autorização, nada disso existe.
+      </dd>
+    </dl>
+
+    <h3>O que NÃO coletamos</h3>
+    <ul>
+      <li>Localização.</li>
+      <li>Contatos, fotos, agenda ou qualquer outro dado do seu aparelho.</li>
+      <li>Rastreadores de publicidade ou análise de comportamento de terceiros.</li>
+      <li>Dados de pagamento — o app não cobra nada.</li>
+    </ul>
+  </section>
+
+  <section class="card legal">
+    <h2>Uma exceção que vale explicar</h2>
+    <p>
+      Quando alguém pede recuperação de senha, precisamos limitar tentativas
+      para que a tela não vire uma forma de descobrir quem tem conta aqui. Para
+      isso guardamos uma <strong>impressão digital irreversível</strong> do
+      e-mail e do endereço de rede — nunca os valores em si.
+    </p>
+    <p>
+      Na prática: se alguém obtivesse essa tabela, não conseguiria extrair dela
+      uma lista de quem usa o NutriPlan. Os registros são descartados
+      automaticamente depois de 24 horas.
+    </p>
+  </section>
+
+  <section class="card legal">
+    <h2>Onde seus dados ficam</h2>
+    <p>
+      Em servidores nos <strong>Estados Unidos</strong>, região Oregon. Isso é
+      uma transferência internacional de dados, e você precisa saber disso antes
+      de decidir usar o app.
+    </p>
+    <dl class="legal__dados">
+      <dt>Neon</dt>
+      <dd>Banco de dados. É onde tudo o que está acima fica guardado.</dd>
+      <dt>Render</dt>
+      <dd>Hospeda o aplicativo e processa os pedidos.</dd>
+      <dt>Brevo</dt>
+      <dd>
+        Envia os e-mails de recuperação de senha. Recebe apenas o endereço de
+        destino e o conteúdo da mensagem.
+      </dd>
+      <dt>Google</dt>
+      <dd>Somente se você escolher entrar com a conta Google.</dd>
+    </dl>
+    <p class="muted">
+      Esta lista é exaustiva: não há outro serviço processando seus dados.
+    </p>
+  </section>
+
+  <section class="card legal">
+    <h2>Por quanto tempo guardamos</h2>
+    <p>
+      Enquanto sua conta existir. O histórico é o produto: um gráfico de peso
+      sem o passado não mostra nada, e a sugestão de carga precisa saber o que
+      você levantou da última vez.
+    </p>
+    <p>
+      Quando você apaga a conta, apagamos junto. Não guardamos cópia sua depois
+      disso, exceto nas cópias de segurança descritas abaixo.
+    </p>
+    <p>
+      <strong>Cópias de segurança:</strong> fazemos cópias do banco para não
+      perder tudo em caso de falha. Uma conta apagada pode continuar existindo
+      numa cópia antiga até que ela seja substituída. Não usamos essas cópias
+      para nada além de restaurar o serviço.
+    </p>
+  </section>
+
+  <section class="card legal">
+    <h2>Seus direitos</h2>
+    <p>A LGPD garante alguns direitos, e aqui está como exercer cada um:</p>
+    <dl class="legal__dados">
+      <dt>Saber o que temos sobre você</dt>
+      <dd>É esta página, mais as telas do app, que mostram tudo o que está gravado.</dd>
+      <dt>Corrigir</dt>
+      <dd>
+        Pelo <a href="{% url 'accounts:profile' %}">Perfil</a> você altera seus
+        dados corporais, objetivo, restrições e rotina.
+      </dd>
+      <dt>Apagar</dt>
+      <dd>
+        Em <a href="{% url 'accounts:excluir_conta' %}">Excluir minha conta</a>.
+        A exclusão é imediata e leva junto o histórico de peso, refeições, água,
+        treinos, cargas e conquistas.
+      </dd>
+      <dt>Levar seus dados com você</dt>
+      <dd>
+        Você pode baixar uma cópia em
+        <a href="{% url 'accounts:exportar_dados' %}">Exportar meus dados</a>.
+        O arquivo sai em JSON, sem senha nem dados internos.
+      </dd>
+      <dt>Revogar o consentimento</dt>
+      <dd>
+        Apagar a conta é a forma de retirar o consentimento por inteiro. Não é
+        possível manter a conta sem os dados de saúde, porque sem eles não
+        existe cálculo — e um app de dieta que não calcula não é nada.
+      </dd>
+    </dl>
+  </section>
+
+  <section class="card legal">
+    <h2>Menores de idade</h2>
+    <p>
+      O NutriPlan não é destinado a menores de 18 anos. As fórmulas usadas aqui
+      são para adultos, e necessidade nutricional de quem ainda está crescendo é
+      assunto para profissional, não para aplicativo.
+    </p>
+  </section>
+
+  <section class="card legal">
+    <h2>Isto não é aconselhamento de saúde</h2>
+    <p>
+      O NutriPlan calcula estimativas a partir de fórmulas públicas e conhecidas.
+      Estimativa não é diagnóstico, e nenhum número aqui foi avaliado por
+      profissional de saúde para o seu caso.
+    </p>
+    <p>
+      Se você tem qualquer condição de saúde, faz uso de medicação, está grávida
+      ou amamentando, converse com médico ou nutricionista antes de seguir o que
+      este app sugere.
+    </p>
+  </section>
+
+  <section class="card legal">
+    <h2>Segurança, com honestidade</h2>
+    <p>
+      O que fazemos: todo o tráfego é cifrado, a senha é guardada como hash, os
+      registros técnicos do servidor não gravam senha, token, e-mail nem dado de
+      saúde, e o acesso ao banco é restrito a quem mantém o app.
+    </p>
+    <p>
+      O que não podemos prometer: segurança absoluta. Nenhum serviço pode. Este
+      é um projeto pessoal, não uma empresa com equipe de segurança dedicada —
+      e você merece saber disso ao decidir o que confiar a ele.
+    </p>
+  </section>
+
+  <section class="card legal">
+    <h2>Mudanças nesta política</h2>
+    <p>
+      Se o app passar a coletar algo novo, esta página muda antes — e a data no
+      topo diz quando. Mudança que altere de forma relevante o que fazemos com
+      seus dados será avisada dentro do app.
+    </p>
+  </section>
+
+  <p class="legal__volta">
+    <a href="{% url 'termos' %}">Termos de Uso</a>
+  </p>
+{% endblock %}

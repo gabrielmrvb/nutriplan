@@ -6,6 +6,7 @@ from django.views.generic.base import RedirectView
 
 from push import views as push_views
 
+from . import legal
 from .health import HealthView, VivoView
 
 # As rotas do allauth entram PELA METADE, e a metade que fica de fora é a
@@ -62,6 +63,16 @@ urlpatterns = [
     # Liveness, sem banco: responde se o PROCESSO esta de pe. Ver
     # `config/health.py` para por que as duas perguntas sao separadas.
     path("saude/vivo/", VivoView.as_view(), name="liveness"),
+
+    # Páginas legais. Públicas de propósito: quem está decidindo se cria conta
+    # é justamente quem precisa ler o que fazemos com os dados dele, e exigir
+    # login para isso inverteria a ordem da decisão.
+    #
+    # `TemplateView` direto e sem app novo: são duas páginas de texto, sem
+    # model, sem formulário e sem estado. Um app inteiro para isso seria
+    # estrutura sem conteúdo.
+    path("privacidade/", legal.Privacidade.as_view(), name="privacidade"),
+    path("termos/", legal.Termos.as_view(), name="termos"),
     # O modo demo NÃO tem entrada aqui. Ele monta a aplicação inteira sob
     # `/demo/` dentro de `demo.middleware`, que roda antes do resolvedor — e
     # serve as suas duas telas próprias (capa e "sobre") chamando as views

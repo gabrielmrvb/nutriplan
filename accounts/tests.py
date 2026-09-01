@@ -4008,3 +4008,171 @@ class ChaveSecretaDeProducaoTests(TestCase):
         bloco = texto.split("- key: DJANGO_SECRET_KEY", 1)[1].split("- key:", 1)[0]
         self.assertNotIn("generateValue", bloco)
         self.assertIn("sync: false", bloco)
+
+
+class PaginasLegaisTests(TestCase):
+    """Política e Termos: acessíveis, honestas, e rascunho enquanto forem.
+
+    Quem está decidindo se cria conta é justamente quem precisa ler o que o app
+    faz com os dados — exigir login para isso inverteria a ordem da decisão.
+
+    E enquanto faltar a identificação de quem responde pelos dados, as páginas
+    se declaram rascunho e NÃO são oferecidas nas telas de entrada. Oferecer
+    "leia nossa Política de Privacidade" e entregar um texto que se diz
+    incompleto é pior que não oferecer: a pessoa clica confiando.
+    """
+
+    def test_abrem_sem_login(self):
+        for nome in ("privacidade", "termos"):
+            resposta = self.client.get(reverse(nome), secure=True)
+            self.assertEqual(resposta.status_code, 200, nome)
+
+    def test_uma_aponta_para_a_outra(self):
+        self.assertContains(
+            self.client.get(reverse("privacidade"), secure=True), reverse("termos")
+        )
+        self.assertContains(
+            self.client.get(reverse("termos"), secure=True), reverse("privacidade")
+        )
+
+    def test_sem_os_dados_do_responsavel_a_pagina_se_declara_rascunho(self):
+        with override_settings(LEGAL_PUBLICADO=False):
+            for nome in ("privacidade", "termos"):
+                html = self.client.get(reverse(nome), secure=True).content.decode()
+                self.assertIn("ainda é um rascunho", html, nome)
+
+    def test_rascunho_nao_e_linkado_do_cadastro_nem_do_login(self):
+        with override_settings(LEGAL_PUBLICADO=False):
+            for tela in ("accounts:signup", "accounts:login"):
+                html = self.client.get(reverse(tela), secure=True).content.decode()
+                self.assertNotIn(reverse("privacidade"), html, tela)
+
+    def test_publicada_aparece_nas_telas_de_entrada(self):
+        with override_settings(
+            LEGAL_PUBLICADO=True,
+            LEGAL_RESPONSAVEL="Fulano de Tal",
+            LEGAL_CONTATO="contato@exemplo.com",
+        ):
+            for tela in ("accounts:signup", "accounts:login"):
+                html = self.client.get(reverse(tela), secure=True).content.decode()
+                self.assertIn(reverse("privacidade"), html, tela)
+                self.assertIn(reverse("termos"), html, tela)
+
+            html = self.client.get(reverse("privacidade"), secure=True).content.decode()
+            self.assertNotIn("ainda é um rascunho", html)
+            self.assertIn("Fulano de Tal", html)
+
+    def test_nunca_declaram_empresa_que_nao_existe(self):
+        """Um CNPJ inventado é pior que uma lacuna: a lacuna se resolve."""
+        for nome in ("privacidade", "termos"):
+            html = self.client.get(reverse(nome), secure=True).content.decode()
+            self.assertNotRegex(html, r"\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}", nome)
+
+    def test_nao_prometem_tela_que_nao_existe(self):
+        """Política que manda a pessoa a um 404 promete um direito e não entrega."""
+        html = self.client.get(reverse("privacidade"), secure=True).content.decode()
+        for nome in ("accounts:profile", "accounts:excluir_conta",
+                     "accounts:exportar_dados"):
+            self.assertIn(reverse(nome), html, nome)
+
+    def test_nao_afirmam_conformidade_absoluta(self):
+        """Nenhuma promessa que ninguém pode cumprir.
+
+        A primeira versão deste teste proibia a expressão "segurança absoluta"
+        e reprovou a própria política — que a usa para NEGAR a promessa:
+        "o que não podemos prometer: segurança absoluta". Procurar a frase sem
+        olhar o contexto reprovava exatamente a honestidade que ela deveria
+        proteger. Agora o teste procura a AFIRMAÇÃO.
+        """
+        for nome in ("privacidade", "termos"):
+            html = self.client.get(reverse(nome), secure=True).content.decode().lower()
+            for afirmacao in ("100% conforme", "totalmente seguro",
+                              "garantimos a segurança", "plenamente conforme",
+                              "em total conformidade"):
+                self.assertNotIn(afirmacao, html, "%s: %s" % (nome, afirmacao))
+
+    def test_a_politica_admite_que_seguranca_absoluta_nao_existe(self):
+        """O contrapeso do teste acima: silenciar a promessa não basta.
+
+        Um texto que simplesmente não fala de segurança passaria no teste
+        anterior. O que se quer é a declaração honesta — e ela some fácil numa
+        revisão que busca deixar o texto "mais limpo".
+        """
+        html = self.client.get(reverse("privacidade"), secure=True).content.decode()
+        self.assertIn("segurança absoluta", html.lower())
+        self.assertIn("projeto pessoal", html.lower())
+
+
+class ExportarDadosTests(TestCase):
+    """Portabilidade. O arquivo sai com dado de saúde e passa a viver fora do
+    app — então o que ele NÃO leva importa tanto quanto o que leva."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="dono@exemplo.invalid", password="senha-bem-forte-123"
+        )
+        WeightEntry.objects.create(
+            user=self.user, date=timezone.localdate(), weight_kg=Decimal("82.40")
+        )
+
+    def _exportar(self):
+        self.client.force_login(self.user)
+        resposta = self.client.post(reverse("accounts:exportar_dados"), secure=True)
+        return resposta, json.loads(resposta.content.decode())
+
+    def test_anonimo_nao_exporta(self):
+        resposta = self.client.post(reverse("accounts:exportar_dados"), secure=True)
+        self.assertIn(reverse("accounts:login"), resposta["Location"])
+
+    def test_get_nao_exporta(self):
+        """Com GET, um link de terceiro dispararia o download sozinho."""
+        self.client.force_login(self.user)
+        self.assertEqual(
+            self.client.get(reverse("accounts:exportar_dados"), secure=True).status_code,
+            405,
+        )
+
+    def test_sai_como_arquivo_para_baixar(self):
+        resposta, _ = self._exportar()
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn("application/json", resposta["Content-Type"])
+        self.assertIn("attachment", resposta["Content-Disposition"])
+        self.assertIn("no-store", resposta["Cache-Control"])
+
+    def test_leva_o_que_a_pessoa_produziu(self):
+        _, dados = self._exportar()
+
+        self.assertEqual(dados["conta"]["email"], self.user.email)
+        self.assertEqual(dados["pesagens"][0]["peso_kg"], "82.40")
+        self.assertIn("exportado_em", dados)
+
+    def test_o_peso_nao_vira_float(self):
+        """`82.40` em float vira `82.40000000000001` no arquivo que a pessoa abre."""
+        _, dados = self._exportar()
+        self.assertIsInstance(dados["pesagens"][0]["peso_kg"], str)
+
+    def test_nao_leva_segredo(self):
+        resposta, _ = self._exportar()
+        corpo = resposta.content.decode()
+
+        self.assertNotIn(self.user.password, corpo)
+        for proibido in ("pbkdf2", "argon2", "sessionid", "csrftoken",
+                         "password", "senha", "token", "secret"):
+            self.assertNotIn(proibido, corpo.lower(), proibido)
+
+    def test_so_leva_dado_de_quem_pediu(self):
+        """A defesa contra IDOR é a AUSÊNCIA de parâmetro. Isto prova."""
+        outra = User.objects.create_user(
+            email="outra.pessoa@exemplo.invalid", password="senha-bem-forte-123"
+        )
+        WeightEntry.objects.create(
+            user=outra, date=timezone.localdate(), weight_kg=Decimal("55.55")
+        )
+
+        resposta, dados = self._exportar()
+        corpo = resposta.content.decode()
+
+        self.assertNotIn("outra.pessoa@exemplo.invalid", corpo)
+        self.assertNotIn("55.55", corpo)
+        self.assertEqual(len(dados["pesagens"]), 1)

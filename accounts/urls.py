@@ -2,7 +2,7 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.views import LogoutView
 from django.urls import path, reverse_lazy
 
-from . import views
+from . import exportacao, views
 from .forms import DefinirSenhaForm, RecuperarSenhaForm, TrocarSenhaForm
 
 app_name = "accounts"
@@ -87,6 +87,14 @@ urlpatterns = [
         name="password_change_done",
     ),
     path("excluir/", views.ExcluirContaView.as_view(), name="excluir_conta"),
+    # Portabilidade (LGPD, Art. 18, V). Mora aqui e não numa rota pública
+    # porque o que ela devolve é a conta de quem está logado — e o caminho
+    # inteiro do dado da pessoa começa em `accounts`.
+    path(
+        "exportar/",
+        exportacao.ExportarDadosView.as_view(),
+        name="exportar_dados",
+    ),
     path("onboarding/", views.OnboardingEntryView.as_view(), name="onboarding"),
     path("onboarding/<int:step>/", views.onboarding_step, name="onboarding_step"),
     path("perfil/", views.ProfileSummaryView.as_view(), name="profile"),

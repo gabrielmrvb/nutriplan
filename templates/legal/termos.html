@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% comment %}
+  Termos de Uso.
+
+  Escritos para serem lidos, e não para blindar juridicamente um projeto que
+  não tem empresa por trás. Onde falta informação do responsável, o texto diz
+  que falta — inventar CNPJ ou endereço seria informação falsa, que é pior que
+  lacuna declarada.
+
+  A cláusula que mais importa aqui não é a de responsabilidade: é a que diz que
+  o app estima e não diagnostica. Ela existe porque o NutriPlan devolve números
+  sobre o corpo de alguém, e um número com aparência de autoridade é fácil de
+  confundir com orientação profissional.
+{% endcomment %}
+
+{% block title %}Termos de Uso · NutriPlan{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Termos de Uso</h1>
+    <p class="lead">As regras de usar o NutriPlan, em português claro.</p>
+    <p class="muted">Última atualização: 1 de setembro de 2026.</p>
+  </div>
+
+  {% if not legal_publicado %}
+    <section class="card legal legal--rascunho" role="note">
+      <h2>Este documento ainda é um rascunho</h2>
+      <p>
+        Falta a identificação de quem mantém o NutriPlan e um endereço de
+        contato. Sem isso ele não vale como Termos de Uso, e não é apresentado
+        como tal em nenhuma tela do app.
+      </p>
+      <p class="muted">
+        O conteúdo abaixo descreve corretamente as regras de uso de hoje.
+      </p>
+    </section>
+  {% endif %}
+
+  <section class="card legal">
+    <h2>1. O que é o NutriPlan</h2>
+    <p>
+      Um aplicativo que calcula uma meta calórica e monta um cardápio e uma
+      ficha de treino a partir dos dados que você informa. É um projeto pessoal,
+      gratuito, mantido por uma pessoa física.
+    </p>
+    {% if legal_publicado %}
+      <p>Mantido por <strong>{{ legal_responsavel }}</strong>.</p>
+    {% else %}
+      <p class="legal__pendencia">
+        A identificação de quem mantém o app ainda não foi preenchida. Não há
+        empresa constituída, e nenhum CNPJ é apresentado porque não existe.
+      </p>
+    {% endif %}
+  </section>
+
+  <section class="card legal">
+    <h2>2. O mais importante: isto não é orientação de saúde</h2>
+    <p>
+      O NutriPlan aplica fórmulas públicas e conhecidas sobre os números que
+      você digita. O resultado é uma <strong>estimativa</strong>.
+    </p>
+    <p>
+      Estimativa não é prescrição. Nenhum profissional de saúde avaliou o seu
+      caso, e o app não sabe nada sobre você além do que você contou. Ele não
+      conhece seu histórico clínico, suas medicações, seus exames.
+    </p>
+    <p>
+      <strong>Procure um médico ou nutricionista</strong> antes de mudar sua
+      alimentação ou começar a treinar — e principalmente se você tem alguma
+      condição de saúde, faz uso de medicação, está grávida ou amamentando.
+    </p>
+    <p>
+      As decisões sobre o seu corpo são suas, e a responsabilidade por elas
+      também.
+    </p>
+  </section>
+
+  <section class="card legal">
+    <h2>3. Sua conta</h2>
+    <ul>
+      <li>Você precisa ter 18 anos ou mais.</li>
+      <li>Uma conta por pessoa, com dados verdadeiros — dado errado gera cálculo errado, e quem perde é você.</li>
+      <li>A senha é sua responsabilidade. Se desconfiar que alguém a descobriu, troque-a no Perfil.</li>
+      <li>Você pode apagar a conta a qualquer momento, sem pedir autorização a ninguém.</li>
+    </ul>
+  </section>
+
+  <section class="card legal">
+    <h2>4. O que você não deve fazer</h2>
+    <ul>
+      <li>Tentar acessar a conta ou os dados de outra pessoa.</li>
+      <li>Sobrecarregar o serviço de propósito, ou tentar derrubá-lo.</li>
+      <li>Usar o app para dar orientação de saúde a terceiros como se fosse profissional.</li>
+      <li>Copiar o conteúdo do app para republicar como seu.</li>
+    </ul>
+    <p>
+      Encontrou uma falha de segurança? Avise antes de divulgar. Boa-fé aqui é
+      recebida com gratidão, não com ameaça.
+    </p>
+  </section>
+
+  <section class="card legal">
+    <h2>5. Disponibilidade</h2>
+    <p>
+      O NutriPlan roda em serviços gratuitos de hospedagem. Isso tem
+      consequências concretas, e é justo declará-las:
+    </p>
+    <ul>
+      <li>O app pode demorar alguns segundos para responder depois de um tempo parado.</li>
+      <li>Pode ficar fora do ar sem aviso.</li>
+      <li>Não há garantia de disponibilidade, nem suporte com prazo de resposta.</li>
+    </ul>
+    <p>
+      <strong>Guarde uma cópia do que importa para você.</strong> A tela
+      "Exportar meus dados" existe para isso, e usá-la de vez em quando é uma
+      boa ideia.
+    </p>
+  </section>
+
+  <section class="card legal">
+    <h2>6. Limite de responsabilidade</h2>
+    <p>
+      O app é oferecido como está, de graça. Quem o mantém não responde por
+      danos decorrentes do uso, de indisponibilidade ou de perda de dados.
+    </p>
+    <p>
+      Isso não é uma tentativa de escapar de nada: é a descrição honesta do que
+      um projeto pessoal gratuito pode sustentar. Direitos que a lei brasileira
+      garante ao consumidor continuam valendo, e nenhuma cláusula aqui os afasta.
+    </p>
+  </section>
+
+  <section class="card legal">
+    <h2>7. Encerramento</h2>
+    <p>
+      Você encerra quando quiser, apagando a conta. Nós podemos encerrar uma
+      conta que viole o item 4, ou descontinuar o serviço — e, se isso
+      acontecer, o aviso virá com antecedência suficiente para você exportar
+      seus dados.
+    </p>
+  </section>
+
+  <section class="card legal">
+    <h2>8. Propriedade</h2>
+    <p>
+      O código, o texto, o desenho e o catálogo de receitas e exercícios são de
+      quem mantém o app. <strong>Os seus dados são seus</strong> — nós apenas os
+      guardamos para que o app funcione, e você os leva embora quando quiser.
+    </p>
+  </section>
+
+  <section class="card legal">
+    <h2>9. Mudanças</h2>
+    <p>
+      Estes termos podem mudar. A data no topo diz quando mudaram, e alteração
+      relevante será avisada dentro do app.
+    </p>
+  </section>
+
+  <section class="card legal">
+    <h2>10. Contato</h2>
+    {% if legal_publicado %}
+      <p>{{ legal_contato }}</p>
+    {% else %}
+      <p class="legal__pendencia">
+        O endereço de contato ainda não foi publicado. Enquanto isso, o que dá
+        para resolver sozinho está nas telas do app: corrigir dados no Perfil,
+        exportar em "Exportar meus dados", apagar em "Excluir minha conta".
+      </p>
+    {% endif %}
+  </section>
+
+  <p class="legal__volta">
+    <a href="{% url 'privacidade' %}">Política de Privacidade</a>
+  </p>
+{% endblock %}

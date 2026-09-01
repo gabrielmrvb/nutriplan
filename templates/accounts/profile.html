@@ -269,11 +269,31 @@
          style="margin-bottom:.6rem">Trocar minha senha</a>
     {% endif %}
 
+    {% comment %}
+      Exportar fica AQUI, e não junto de "Excluir conta": levar uma cópia é o
+      oposto de apagar, e vizinhança sugere parentesco. Também é POST e não
+      link — com GET, uma página de terceiro faria o navegador de quem está
+      logado baixar o próprio histórico de saúde sem um clique sequer.
+    {% endcomment %}
+    <form method="post" action="{% url 'accounts:exportar_dados' %}"
+          style="margin-bottom:.6rem">
+      {% csrf_token %}
+      <button type="submit" class="btn btn--ghost btn--block">
+        Exportar meus dados
+      </button>
+    </form>
+    <p class="muted conta__exportar-nota">
+      Baixa um arquivo com seu histórico de peso, refeições, água e treinos.
+      Ele contém dados de saúde — guarde com o mesmo cuidado de um exame.
+    </p>
+
     <form method="post" action="{% url 'accounts:logout' %}"
           onsubmit="return confirm('Sair da sua conta neste aparelho?');">
       {% csrf_token %}
       <button type="submit" class="btn btn--perigo btn--block">Sair da conta</button>
     </form>
+
+    {% include "partials/links_legais.html" %}
   </section>
 
   {% comment %}

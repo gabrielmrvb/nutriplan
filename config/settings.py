@@ -133,6 +133,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "push.context_processors.push",
                 "accounts.context_processors.google_login",
+                "accounts.context_processors.legal",
                 "achievements.context_processors.conquistas_pendentes",
             ],
         },
@@ -261,6 +262,27 @@ ACCOUNT_SIGNUP_FIELDS = ["email*"]
 
 #: As credenciais. Sem elas o botão simplesmente não aparece e o app sobe
 #: igual — um deploy sem variável configurada não pode derrubar o site.
+# --------------------------------------------------------------------------
+# Documentos legais
+# --------------------------------------------------------------------------
+#
+# Política de Privacidade e Termos de Uso precisam identificar QUEM responde
+# pelo tratamento dos dados. Esse dado não está no código porque não é do
+# código: é do Gabriel, e inventá-lo seria publicar informação falsa num
+# documento cujo propósito inteiro é ser confiável.
+#
+# Enquanto estiverem vazios, as duas páginas se declaram RASCUNHO e não são
+# linkadas do cadastro nem do login. Elas continuam acessíveis por URL direta
+# para revisão, e continuam testadas — o que não acontece é serem apresentadas
+# como documento final do beta.
+#
+# Preenchidos, o aviso some e os links aparecem. Nenhum outro código muda.
+LEGAL_RESPONSAVEL = env("LEGAL_RESPONSAVEL", default="")
+LEGAL_CONTATO = env("LEGAL_CONTATO", default="")
+
+#: Só é documento, e não rascunho, quando as duas coisas existem.
+LEGAL_PUBLICADO = bool(LEGAL_RESPONSAVEL and LEGAL_CONTATO)
+
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
 GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="")
 GOOGLE_LOGIN_ENABLED = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
