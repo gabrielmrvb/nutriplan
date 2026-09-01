@@ -1939,6 +1939,45 @@ class ConexaoDeBancoTests(TestCase):
         self.assertIs(settings.DATABASES["default"]["CONN_HEALTH_CHECKS"], True)
 
 
+class BancoDoBlueprintTests(TestCase):
+    """O blueprint não pode mandar a produção de volta para o banco antigo.
+
+    O banco saiu do Render e foi para o Neon em 01/09/2026. O serviço é
+    "Blueprint managed", e enquanto `render.yaml` disser
+
+        - key: DATABASE_URL
+          fromDatabase:
+            name: nutriplan-db
+
+    isso não é documentação — é uma ordem. Na sincronização seguinte o Render
+    sobrescreveria a DATABASE_URL de volta para o banco antigo, e a migração
+    se desfaria sozinha: sem erro, sem log, sem ninguém pedir. O app voltaria
+    a escrever no banco que expira em 23/09/2026, e tudo gravado no Neon
+    depois disso ficaria órfão.
+    """
+
+    def test_a_url_do_banco_nao_vem_do_blueprint(self):
+        texto = (Path(settings.BASE_DIR) / "render.yaml").read_text(
+            encoding="utf-8"
+        )
+        bloco = texto.split("- key: DATABASE_URL", 1)[1].split("- key:", 1)[0]
+        self.assertNotIn("fromDatabase", bloco)
+        self.assertIn("sync: false", bloco)
+
+    def test_o_banco_antigo_continua_declarado(self):
+        """Ele é o rollback, e some do Render se sair daqui.
+
+        Apagar a declaração faria o Render remover o banco na próxima
+        sincronização — junto com a única volta possível se o Neon der
+        problema. Ele expira sozinho em 23/09/2026; até lá, fica.
+        """
+        texto = (Path(settings.BASE_DIR) / "render.yaml").read_text(
+            encoding="utf-8"
+        )
+        self.assertRegex(texto, r"(?m)^databases:")
+        self.assertIn("name: nutriplan-db", texto)
+
+
 class PortaSmtpTests(TestCase):
     """O Render bloqueia SMTP de saída em 25, 465 e 587 no plano gratuito.
 

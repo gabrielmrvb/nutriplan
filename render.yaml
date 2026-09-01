@@ -110,10 +110,17 @@ services:
       - key: DJANGO_ALLOWED_HOSTS
         value: "localhost,127.0.0.1"
 
+      # O banco saiu do Render e foi para o Neon em 01/09/2026, e esta linha
+      # é a parte da migração que quase passou despercebida: o serviço é
+      # "Blueprint managed", então `fromDatabase` aqui não é documentação — é
+      # uma ORDEM. Na próxima sincronização, o Render sobrescreveria a
+      # DATABASE_URL de volta para o banco antigo e a migração se desfaria
+      # sozinha, sem erro, sem log, sem ninguém pedir.
+      #
+      # `sync: false` diz "esta variável é gerenciada fora do blueprint".
+      # O valor vive só no painel.
       - key: DATABASE_URL
-        fromDatabase:
-          name: nutriplan-db
-          property: connectionString
+        sync: false
 
       # Duas gunicorn workers cabem na memória do plano gratuito. Mais que isso
       # e o processo é morto por falta de memória no primeiro pico.
