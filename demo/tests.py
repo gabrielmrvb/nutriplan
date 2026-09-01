@@ -25,6 +25,9 @@ from demo.middleware import DEMO_EMAIL, DEMO_ONBOARDING_EMAIL
 from plans.models import HydrationLog, MealLog, MealStatus
 from workouts.health_export import resumo_da_sessao
 from workouts.models import ExerciseLog
+from workouts.tests import create_user
+
+User = get_user_model()
 
 AREA = r'class="demo-area" href="([^"]+)"'
 LINK = r'(?:href|action)="(/[^"]*)"'
@@ -830,3 +833,132 @@ class DemoPesagemTests(TestCase):
         formulario = html.split('class="pesagem"', 1)[1].split(">", 1)[0]
 
         self.assertIn('action="/demo/conta/peso/"', formulario)
+
+
+class SeedDemoIdempotenteTests(TestCase):
+    """`seed_demo` roda em TODO deploy, então ele não pode acumular nada.
+
+    `workout_services.create_routine` cria um `TrainingPlan` novo toda vez que
+    é chamado, e o comando o chamava direto. Resultado: uma ficha nova por
+    deploy, dezenas acumuladas no demo. Não era perda de dado nem falha
+    visível — era lixo crescendo sozinho, e ele apareceu porque poluiu a
+    comparação de contagens durante a migração para o Neon.
+
+    O lado da nutrição já usava `sync_active_plan`, que só refaz quando a
+    entrada muda. Faltava o par do treino: `sync_active_routine`.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+
+    def _contagens(self):
+        from plans.models import NutritionPlan
+        from workouts.models import SessionExercise, TrainingPlan, TrainingSession
+
+        demo = User.objects.get(email=DEMO_EMAIL)
+        return {
+            "fichas": TrainingPlan.objects.filter(user=demo).count(),
+            "sessoes": TrainingSession.objects.filter(plan__user=demo).count(),
+            "exercicios": SessionExercise.objects.filter(
+                session__plan__user=demo
+            ).count(),
+            "planos_alimentares": NutritionPlan.objects.filter(user=demo).count(),
+            "cargas": ExerciseLog.objects.filter(user=demo).count(),
+            "refeicoes": MealLog.objects.filter(user=demo).count(),
+            "usuarios": User.objects.count(),
+        }
+
+    def test_rodar_tres_vezes_nao_acumula_nada(self):
+        call_command("seed_demo", verbosity=0)
+        primeira = self._contagens()
+
+        call_command("seed_demo", verbosity=0)
+        segunda = self._contagens()
+
+        call_command("seed_demo", verbosity=0)
+        terceira = self._contagens()
+
+        self.assertEqual(primeira, segunda, "a segunda execução mudou o banco")
+        self.assertEqual(segunda, terceira, "a terceira execução mudou o banco")
+
+    def test_o_demo_fica_com_uma_ficha_so(self):
+        """Uma ficha ativa é o estado correto — não N fichas com uma ativa."""
+        from workouts.models import TrainingPlan
+
+        call_command("seed_demo", verbosity=0)
+        call_command("seed_demo", verbosity=0)
+
+        demo = User.objects.get(email=DEMO_EMAIL)
+        self.assertEqual(TrainingPlan.objects.filter(user=demo).count(), 1)
+
+    def test_limpa_as_fichas_que_os_deploys_anteriores_deixaram(self):
+        """O cenário real: produção já tinha dezenas quando a correção chegou.
+
+        Num banco limpo, `sync_active_routine` sozinho já mantém uma ficha só —
+        e foi exatamente isso que enganou a primeira versão destes testes.
+        Remover a limpeza não quebrava nada, porque nada tinha se acumulado. A
+        sabotagem pegou. Este teste cria o acúmulo primeiro.
+        """
+        from workouts import services as workout_services
+        from workouts.models import TrainingPlan
+
+        call_command("seed_demo", verbosity=0)
+        demo = User.objects.get(email=DEMO_EMAIL)
+        for _ in range(3):
+            workout_services.create_routine(demo)
+        self.assertEqual(TrainingPlan.objects.filter(user=demo).count(), 4)
+
+        call_command("seed_demo", verbosity=0)
+
+        self.assertEqual(
+            TrainingPlan.objects.filter(user=demo).count(),
+            1,
+            "as fichas de deploys anteriores continuaram no banco",
+        )
+
+    def test_a_demo_continua_funcionando(self):
+        """Idempotência que quebra a demo não serve de nada."""
+        call_command("seed_demo", verbosity=0)
+        call_command("seed_demo", verbosity=0)
+
+        resposta = self.client.get("/demo/", secure=True)
+        self.assertEqual(resposta.status_code, 200)
+
+    def test_nao_encosta_em_quem_nao_e_demo(self):
+        """A limpeza apaga ficha de treino. O que a separa de apagar histórico
+        de gente de verdade é uma guarda de e-mail — e guarda sem teste é
+        comentário."""
+        from workouts import services as workout_services
+        from workouts.models import TrainingPlan
+
+        outro = create_user(email="pessoa.real@exemplo.invalid", weekdays=(0, 2, 4))
+        workout_services.create_routine(outro)
+        workout_services.create_routine(outro)
+        antes = TrainingPlan.objects.filter(user=outro).count()
+        self.assertEqual(antes, 2)
+
+        call_command("seed_demo", verbosity=0)
+        call_command("seed_demo", verbosity=0)
+
+        self.assertEqual(
+            TrainingPlan.objects.filter(user=outro).count(),
+            antes,
+            "seed_demo apagou ficha de um usuário que não é demo",
+        )
+
+    def test_a_limpeza_se_recusa_a_rodar_para_outro_usuario(self):
+        """A guarda é interna, e não da chamada: quem chama pode mudar."""
+        from django.core.management.base import CommandError
+
+        from demo.management.commands.seed_demo import Command
+        from workouts import services as workout_services
+
+        outro = create_user(email="alvo@exemplo.invalid", weekdays=(0, 2, 4))
+        ficha = workout_services.create_routine(outro)
+
+        comando = Command()
+        comando.verbosity = 0
+        with self.assertRaises(CommandError):
+            comando._limpar_fichas_orfas(outro, ficha)

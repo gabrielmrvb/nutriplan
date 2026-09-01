@@ -17,7 +17,7 @@ from datetime import date, time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
@@ -38,7 +38,7 @@ from plans import rodizio as plan_rodizio
 from plans import services as plan_services
 from plans.models import HydrationLog, MealLog, MealStatus
 from workouts import services as workout_services
-from workouts.models import Equipment, ExerciseLog, MuscleGroup
+from workouts.models import Equipment, ExerciseLog, MuscleGroup, TrainingPlan
 
 IDADE = 28
 PESO_KG = Decimal("78.0")
@@ -249,8 +249,16 @@ class Command(BaseCommand):
 
         # Daqui para baixo e o motor de verdade: as mesmas funcoes que montam
         # o plano de qualquer pessoa. E isso que faz o demo mostrar o app.
+        #
+        # `sync_active_routine` e nao `create_routine`, e a diferenca custou
+        # caro: `create_routine` cria um TrainingPlan NOVO toda vez que roda, e
+        # este comando roda em TODO deploy. O demo tinha acumulado dezenas de
+        # planos — lixo que crescia sozinho e que poluia qualquer comparacao de
+        # integridade do banco. O lado da nutricao ja usava `sync_active_plan`,
+        # que so refaz quando a entrada muda; o do treino nao tinha o par.
         plano, _ = plan_services.sync_active_plan(user)
-        ficha = workout_services.create_routine(user)
+        ficha, _ = workout_services.sync_active_routine(user)
+        self._limpar_fichas_orfas(user, ficha)
 
         self._preencher_o_dia(user, plano)
         self._preencher_cargas(user, ficha)
@@ -339,6 +347,30 @@ class Command(BaseCommand):
         # wizard ainda nao tem nenhuma dessas coisas, e inventa-las aqui seria
         # justamente a "versao inventada do onboarding" que o demo nao quer.
         self._log("Estreia pronta: Ana, parada no passo " + str(ONBOARDING_LAST_STEP) + ".")
+
+    def _limpar_fichas_orfas(self, user, ficha_ativa):
+        """Apaga as fichas que os deploys anteriores deixaram para tras.
+
+        Existe por causa do defeito que `sync_active_routine` acabou de fechar:
+        cada deploy criava um TrainingPlan novo para o demo, e eles se
+        acumularam. Sem esta limpeza, a correcao pararia o crescimento mas
+        deixaria o lixo ja criado.
+
+        A guarda do e-mail nao e decoracao. Este metodo apaga plano de treino,
+        e a unica coisa que separa "limpar o demo" de "apagar o historico de
+        alguem" e a linha abaixo. Ela fica aqui, e nao na chamada, porque quem
+        chama pode mudar.
+        """
+        if user.email not in (DEMO_EMAIL, DEMO_ONBOARDING_EMAIL):
+            raise CommandError(
+                "_limpar_fichas_orfas so roda para os usuarios de demonstracao."
+            )
+
+        antigas = TrainingPlan.objects.filter(user=user).exclude(pk=ficha_ativa.pk)
+        quantas = antigas.count()
+        if quantas:
+            antigas.delete()
+            self._log("%d ficha(s) de deploys anteriores removida(s)." % quantas)
 
     def _preencher_o_dia(self, user, plano):
         """Duas semanas de historico, e o dia de hoje pela metade.
