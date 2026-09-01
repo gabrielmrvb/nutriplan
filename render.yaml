@@ -72,8 +72,20 @@ services:
         value: django.core.mail.backends.smtp.EmailBackend
       - key: EMAIL_HOST
         sync: false
+      # 2525, e NÃO 587, e esta linha é a cicatriz de um defeito que passou
+      # meses invisível: o serviço web gratuito do Render bloqueia saída SMTP
+      # nas portas 25, 465 e 587. O envio estourava com TimeoutError no socket
+      # depois de 10 segundos — e o Django CAPTURA essa falha em
+      # `PasswordResetForm.save()`, devolvendo o mesmo 302 de sempre. A tela
+      # continuava dizendo "verifique seu e-mail". Ninguém recebia nada.
+      #
+      # A Brevo atende na 2525 com STARTTLS normal (TLSv1.3 confirmado no
+      # handshake), então não se troca criptografia por funcionamento.
+      #
+      # Declarada com `value:` e não `sync: false` de propósito: a porta não é
+      # segredo, e deixá-la solta no painel é como o problema volta.
       - key: EMAIL_PORT
-        sync: false
+        value: "2525"
       - key: EMAIL_HOST_USER
         sync: false
       - key: EMAIL_HOST_PASSWORD

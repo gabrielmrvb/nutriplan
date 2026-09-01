@@ -1939,6 +1939,53 @@ class ConexaoDeBancoTests(TestCase):
         self.assertIs(settings.DATABASES["default"]["CONN_HEALTH_CHECKS"], True)
 
 
+class PortaSmtpTests(TestCase):
+    """O Render bloqueia SMTP de saída em 25, 465 e 587 no plano gratuito.
+
+    Isso derrubou a recuperação de senha em produção sem que nada aparecesse:
+    o socket estourava em `TimeoutError` depois de 10 segundos, e o Django
+    CAPTURA essa falha dentro de `PasswordResetForm.save()` — a view devolve o
+    mesmo 302 do caminho feliz e a tela diz "verifique seu e-mail". Do lado de
+    fora, sucesso e fracasso eram indistinguíveis.
+
+    A porta virou parte do blueprint por causa disso. Deixá-la só no painel é
+    exatamente como o defeito volta: alguém apaga a variável, o padrão do
+    `settings.py` é 587, e a recuperação de senha morre de novo em silêncio.
+    """
+
+    #: As três que o Render recusa. 2525 não está na lista, e é onde a Brevo
+    #: também atende — com STARTTLS, então não se troca TLS por conectividade.
+    BLOQUEADAS = {"25", "465", "587"}
+
+    def test_o_blueprint_declara_uma_porta_que_o_render_nao_bloqueia(self):
+        texto = (Path(settings.BASE_DIR) / "render.yaml").read_text(
+            encoding="utf-8"
+        )
+        bloco = texto.split("- key: EMAIL_PORT", 1)[1].split("- key:", 1)[0]
+        achado = re.search(r'value:\s*"?(\d+)"?', bloco)
+
+        self.assertIsNotNone(
+            achado,
+            "EMAIL_PORT precisa de um `value:` no render.yaml — deixá-la "
+            "solta no painel é como a recuperação de senha morre em silêncio.",
+        )
+        self.assertNotIn(achado.group(1), self.BLOQUEADAS)
+
+    def test_o_tls_nao_foi_desligado_para_a_porta_funcionar(self):
+        """A saída fácil seria trocar TLS por conectividade. Não é a daqui.
+
+        A 2525 da Brevo anuncia STARTTLS e negocia TLSv1.3 — provado no
+        handshake antes da troca. Se um dia alguém "consertar" o envio
+        desligando a criptografia, a credencial e o link de redefinição
+        passam a trafegar em texto claro.
+        """
+        texto = (Path(settings.BASE_DIR) / "render.yaml").read_text(
+            encoding="utf-8"
+        )
+        bloco = texto.split("- key: EMAIL_USE_TLS", 1)[1].split("- key:", 1)[0]
+        self.assertRegex(bloco, r'value:\s*"?True"?')
+
+
 class BackupTests(TestCase):
     """O plano gratuito não faz backup, e o banco tem data para ser apagado.
 
