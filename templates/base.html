@@ -80,7 +80,24 @@
   do onboarding, em `partials/icones.html`.
 {% endcomment %}
 <body class="{% if user.is_authenticated and not sem_tabbar %}tem-tabbar{% endif %}"
-      data-autenticado="{% if user.is_authenticated %}1{% else %}0{% endif %}">
+      data-autenticado="{% if user.is_authenticated %}1{% else %}0{% endif %}"
+      {% comment %}
+        Quem é a pessoa desta sessão, para a fila offline saber de quem é cada
+        operação pendente. A fila vive no IndexedDB, que é do NAVEGADOR e não
+        da sessão: sem dono, uma operação que a pessoa A enfileirou sem rede
+        seria enviada na conta de quem entrasse depois.
+
+        É a chave primária dela, e não um segredo: identifica a própria conta
+        para o próprio JavaScript da própria pessoa. Nada aqui autoriza coisa
+        alguma — quem autoriza é o cookie de sessão, do lado do servidor.
+      {% endcomment %}
+      data-usuario="{% if user.is_authenticated %}{{ user.pk }}{% endif %}"
+      {% comment %}
+        Presente só no render seguinte a uma exclusão CONCLUÍDA, e por uma
+        volta só. É o que autoriza o navegador a apagar a fila local daquela
+        conta — sair da conta preserva a fila, excluir não tem volta.
+      {% endcomment %}
+      data-conta-excluida="{{ conta_excluida|default:'' }}">
   {% block header %}
     <header class="app-bar">
       <a class="app-bar__brand" href="{% if request.demo %}/demo/{% else %}{% url 'plans:today' %}{% endif %}">

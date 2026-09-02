@@ -274,12 +274,42 @@
    *
    * Roda sempre que a tela abre sem sessão — o que cobre sair pelo botão,
    * a sessão vencer e o token ser invalidado do outro lado. */
-  if (document.body && document.body.dataset.autenticado === "0" && window.caches) {
-    caches.keys().then(function (nomes) {
-      nomes.filter(function (n) { return n.indexOf("-paginas") !== -1; })
-           .forEach(function (n) { caches.delete(n); });
-    });
+  function limparPaginas() {
+    if (!window.caches) return Promise.resolve();
+    return caches.keys().then(function (nomes) {
+      return Promise.all(
+        nomes
+          .filter(function (n) { return n.indexOf("-paginas") !== -1; })
+          .map(function (n) { return caches.delete(n); })
+      );
+    }).catch(function () { /* sem cache para limpar, e so */ });
   }
+
+  /* SEGUNDA camada: qualquer tela aberta sem sessao. */
+  if (document.body && document.body.dataset.autenticado === "0") {
+    limparPaginas();
+  }
+
+  /* PRIMEIRA camada: o proprio clique em "Sair".
+   *
+   * Ela nao substitui a de cima — antecipa. A camada anonima depende de a
+   * pagina SEGUINTE chegar, e se a rede cair no meio do logout a sessao pode
+   * acabar no servidor sem nenhuma tela nova aparecer. Limpar no submit custa
+   * nada: quem desistisse do logout so perderia paginas guardadas, que voltam
+   * na proxima visita.
+   *
+   * `capture` porque o formulario faz `submit` e a pagina comeca a sair: sem
+   * capturar na descida, o ouvinte pode nao chegar a rodar.
+   *
+   * O que NENHUMA das duas cobre: aparelho que fica offline logo depois de a
+   * sessao expirar no servidor. Nenhuma tela anonima chega, e o worker nao tem
+   * como adivinhar que a sessao morreu. Esta em `docs/privacidade-local.md`. */
+  document.addEventListener("submit", function (evento) {
+    var form = evento.target;
+    if (!form || form.tagName !== "FORM") return;
+    if (new URL(form.action, location.origin).pathname !== "/conta/sair/") return;
+    limparPaginas();
+  }, true);
 
   /* ------------------------------------------------------ olho da senha */
 

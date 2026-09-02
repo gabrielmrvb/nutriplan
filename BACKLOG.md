@@ -120,3 +120,30 @@ que começa e termina na porta de casa publica o endereço.
 Melhor pace de 1 km, melhor pace médio de uma corrida de 1 km, e melhor 1 km
 dentro de uma corrida longa são três coisas. Sem escolher, a tela mostra as
 três com o mesmo nome.
+
+## Fila offline local
+
+### Recuperação/expiração de fila offline legada
+Operações enfileiradas antes da separação por dono ficam em quarentena: não são
+enviadas por ninguém e não são apagadas. Não há tela para elas, e criar um botão
+"recuperar" que peça à pessoa para adivinhar de quem eram os dados trocaria um
+problema por outro. Decidir: mostrar, expirar, ou deixar como está.
+
+### Retenção da fila local
+A fila pode conter alimentação, água e carga — dado pessoal, guardado no
+aparelho por tempo indefinido se a pessoa nunca voltar. Falta política de idade
+máxima, tamanho máximo, limpeza de órfãos e uma tela de "ações aguardando
+sincronização". Nada disso pede criptografia no cliente: a chave teria que ficar
+no mesmo aparelho, e isso é enfeite, não proteção.
+
+### Limpeza/expiração de filas órfãs
+Se o navegador fechar entre a exclusão da conta e a tela seguinte, o sinal morre
+com a sessão e a fila daquela conta fica órfã no aparelho. Não é vazamento — ela
+nunca drena, nunca conta para ninguém e nunca é atribuída. É dado pessoal
+ocupando espaço sem prazo. Mesma família do item de retenção acima.
+
+### Notificação entre abas no logout
+Não existe `BroadcastChannel` nem ouvinte de `storage`. Sair numa aba não avisa
+as outras, que seguem mostrando o HTML já renderizado. Não abre acesso — toda
+navegação cai em 302 e o cache de páginas já foi apagado —, mas é risco
+conhecido de navegador com várias abas.

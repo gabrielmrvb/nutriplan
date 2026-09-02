@@ -1008,3 +1008,449 @@ class TelasOperacionaisForaDoCacheTests(TestCase):
         ][:400]
 
         self.assertIn("url.origin === self.location.origin", trecho)
+
+
+class TrocaDeContaNoMesmoNavegadorTests(TestCase):
+    """A → logout → B. O teste de privacidade mais importante desta fase.
+
+    O IndexedDB pertence ao NAVEGADOR, não à sessão: a fila atravessa o logout
+    inteira. E ela drena sozinha no primeiro carregamento de página, sem
+    ninguém pedir, com `credentials: "same-origin"` — ou seja, na sessão de
+    quem estiver logado AGORA.
+
+    Sem separação por dono, a água que A marcou sem rede entraria na conta de
+    B. Não é hipótese: `drenar()` roda em `DOMContentLoaded`.
+
+    Apagar a fila no logout resolveria o vazamento e criaria outro problema —
+    A perderia o que marcou sem rede. Por isso ela é separada, e não esvaziada.
+
+    Estes testes leem o código do `fila.js` porque não existe Node neste
+    ambiente para executá-lo. O que eles afirmam é a REGRA: o item carrega
+    dono, e leitura e drenagem passam pelo filtro.
+    """
+
+    def setUp(self):
+        from pathlib import Path
+
+        raiz = Path(__file__).resolve().parent.parent
+        self.js = (raiz / "static" / "js" / "fila.js").read_text(encoding="utf-8")
+
+    def test_o_item_enfileirado_carrega_o_dono(self):
+        trecho = self.js[self.js.index("guardar({") :][:300]
+
+        self.assertIn("dono: dono()", trecho)
+
+    def test_o_dono_vem_da_pagina_e_nao_de_palpite(self):
+        trecho = self.js[self.js.index("function dono()") :][:260]
+
+        self.assertIn("dataset.usuario", trecho)
+
+    def test_drenar_so_envia_o_que_e_da_pessoa_logada(self):
+        """`tudo()` devolve a fila inteira; `meus()` filtra. Drenar com
+        `tudo()` é exatamente o vazamento."""
+        trecho = self.js[self.js.index("function drenar()") :][:400]
+
+        self.assertIn("meus()", trecho)
+        self.assertNotIn("tudo()", trecho)
+
+    def test_o_contador_so_conta_o_que_e_da_pessoa_logada(self):
+        """Sem isto, B veria um número de pendências que é de A — e tocaria
+        para tentar resolver algo que não é dele."""
+        trecho = self.js[self.js.index("function recontar()") :][:300]
+
+        self.assertIn("meus()", trecho)
+
+    def test_sem_ninguem_logado_a_fila_nao_drena(self):
+        """Página anônima não pode drenar nada: não há sessão para receber."""
+        trecho = self.js[self.js.index("function meus()") :][:700]
+
+        self.assertIn("if (!eu) return Promise.resolve([])", trecho)
+
+    def test_a_fila_de_outra_pessoa_nao_e_apagada(self):
+        """O que é de A continua lá esperando A voltar. Apagar seria perder a
+        marcação que ela fez sem rede."""
+        trecho = self.js[self.js.index("function meus()") :][:900]
+
+        self.assertNotIn("delete", trecho)
+        self.assertNotIn("clear()", trecho)
+
+    def test_a_limpeza_de_cache_nao_encosta_no_indexeddb(self):
+        """A limpeza do logout apaga PÁGINAS. Se encostasse na fila, o logout
+        passaria a destruir ação pendente da própria pessoa."""
+        from pathlib import Path
+
+        raiz = Path(__file__).resolve().parent.parent
+        pwa = (raiz / "static" / "js" / "pwa.js").read_text(encoding="utf-8")
+        trecho = pwa[pwa.index("function limparPaginas") - 400 :][:2000]
+
+        self.assertNotIn("indexedDB", trecho)
+        self.assertNotIn("localStorage", trecho)
+
+    def test_o_marcador_de_dono_muda_com_a_sessao(self):
+        """Prova de ponta a ponta do lado do servidor: o `data-usuario` que o
+        JavaScript lê é diferente para cada pessoa, e vazio para anônimo."""
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        a = User.objects.create_user(email="a@exemplo.com", password="senha-bem-forte-123")
+        b = User.objects.create_user(email="b@exemplo.com", password="senha-bem-forte-123")
+
+        self.client.force_login(a)
+        de_a = self.client.get("/conta/onboarding/", follow=True).content.decode()
+        self.client.logout()
+        self.client.force_login(b)
+        de_b = self.client.get("/conta/onboarding/", follow=True).content.decode()
+        self.client.logout()
+        anonimo = self.client.get("/conta/entrar/").content.decode()
+
+        self.assertIn(f'data-usuario="{a.pk}"', de_a)
+        self.assertIn(f'data-usuario="{b.pk}"', de_b)
+        self.assertIn('data-usuario=""', anonimo)
+        self.assertNotEqual(a.pk, b.pk)
+
+
+class LogoutLimpaOCacheTests(TestCase):
+    """Duas camadas, e a segunda não substitui a primeira.
+
+    A primeira é o clique em "Sair": dispara antes de o POST terminar, porque
+    se a rede cair no meio do logout a sessão pode acabar no servidor sem a
+    página seguinte chegar — e aí a segunda camada nunca rodaria.
+
+    A segunda é qualquer página renderizada sem sessão: cobre sessão expirada
+    sozinha, logout em outra aba, cookie apagado.
+
+    O que NENHUMA das duas cobre está escrito e não é disfarçado: se o
+    aparelho ficar offline logo depois de a sessão expirar, nenhuma página
+    anônima chega e o service worker não tem como saber que a sessão morreu no
+    servidor.
+    """
+
+    def setUp(self):
+        from pathlib import Path
+
+        raiz = Path(__file__).resolve().parent.parent
+        self.js = (raiz / "static" / "js" / "pwa.js").read_text(encoding="utf-8")
+        # A limpeza vive junto do resto do comportamento de tela, e não num
+        # bloco separado no topo: ela JÁ existia aqui antes desta rodada, e
+        # eu tinha acrescentado uma segunda cópia sem ver a primeira.
+        self.trecho = self.js[self.js.index("function limparPaginas") - 400 :]
+
+    def test_a_primeira_camada_e_o_proprio_logout(self):
+        self.assertIn('"/conta/sair/"', self.trecho)
+        self.assertIn('addEventListener("submit"', self.trecho)
+
+    def test_as_duas_chamam_a_mesma_limpeza(self):
+        """Duas implementações da mesma limpeza divergiriam, e uma delas
+        deixaria de apagar sem ninguém ver.
+
+        A contagem exclui a própria definição: `function limparPaginas() {`
+        contém a mesma substring das chamadas, e contar tudo junto media o
+        número de linhas em vez do número de camadas."""
+        import re
+
+        self.assertEqual(self.trecho.count("function limparPaginas"), 1)
+        chamadas = re.findall(r"(?<!function )limparPaginas\(\)", self.trecho)
+        self.assertEqual(len(chamadas), 2)
+
+    def test_o_marcador_de_sessao_existe_no_html(self):
+        """A camada anônima lê `data-autenticado` do `body`.
+
+        `ServiceWorkerTests.test_logging_out_takes_the_pages_with_it` já prova
+        que o JavaScript LÊ o atributo. O que faltava é a outra ponta: que o
+        servidor o ESCREVE. Sem isto, aquele teste passaria lendo código morto.
+        """
+        self.assertIn(
+            'data-autenticado="0"',
+            self.client.get("/conta/entrar/").content.decode(),
+        )
+
+    def test_o_logout_leva_a_uma_pagina_anonima(self):
+        """A segunda camada só funciona se o destino do logout for realmente
+        anônimo. Se um dia ele passasse a redirecionar para uma tela que exige
+        sessão, a camada morreria em silêncio."""
+        from django.contrib.auth import get_user_model
+
+        pessoa = get_user_model().objects.create_user(
+            email="saida@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(pessoa)
+
+        resposta = self.client.post("/conta/sair/", follow=True)
+
+        self.assertIn('data-autenticado="0"', resposta.content.decode())
+
+
+class FilaSeparadaPorDonoTests(TestCase):
+    """A separação inteira, provada como REGRA no código da fila.
+
+    Não existe Node neste ambiente, então o comportamento do IndexedDB não roda
+    aqui. O que estes testes afirmam é o contrato que o `fila.js` implementa —
+    e cada afirmação tem uma sabotagem que a derruba.
+    """
+
+    def setUp(self):
+        from pathlib import Path
+
+        raiz = Path(__file__).resolve().parent.parent
+        self.js = (raiz / "static" / "js" / "fila.js").read_text(encoding="utf-8")
+
+    def _corpo(self, funcao, tamanho=700):
+        return self.js[self.js.index("function %s(" % funcao) :][:tamanho]
+
+    def test_so_o_dono_exato_e_elegivel(self):
+        """`item.dono === usuarioAtual` é a ÚNICA condição. Qualquer `||`
+        aqui é o fallback "sem dono vira do atual", que é o vazamento."""
+        corpo = self._corpo("meus")
+
+        self.assertIn("i.dono === eu", corpo)
+        self.assertNotIn("i.dono ||", corpo)
+        self.assertNotIn("|| eu", corpo)
+
+    def test_item_sem_dono_fica_em_quarentena(self):
+        """Nem enviado nem apagado. Não enviar porque não há como saber de
+        quem é; não apagar porque pode ser marcação real de alguém."""
+        corpo = self._corpo("emQuarentena")
+
+        self.assertIn("!i.dono", corpo)
+        self.assertNotIn("remover", corpo)
+        self.assertNotIn("delete", corpo)
+
+    def test_a_quarentena_nao_e_adotada_por_ninguem(self):
+        """A versão anterior desta fila ADOTAVA o item sem dono para quem
+        estivesse logado, com a desculpa de que a janela era curta. Janela
+        curta para vazar dado de outra pessoa continua sendo vazar."""
+        corpo = self._corpo("meus", 900)
+
+        for pista in ("adotar", "i.dono = eu", "dono = eu"):
+            with self.subTest(pista=pista):
+                self.assertNotIn(pista, corpo)
+
+    def test_anonimo_nao_drena_nada(self):
+        """O evento `online` dispara sem perguntar quem está na tela."""
+        corpo = self._corpo("drenar", 400)
+
+        self.assertIn("if (!dono()) return", corpo)
+
+    def test_o_contador_conta_so_o_da_pessoa(self):
+        self.assertIn("meus()", self._corpo("recontar", 300))
+
+    def test_drenar_usa_a_lista_filtrada(self):
+        corpo = self._corpo("drenar", 500)
+
+        self.assertIn("meus()", corpo)
+        self.assertNotIn("tudo()", corpo)
+
+    def test_a_exclusao_remove_so_o_dono_apagado(self):
+        """Aparelho compartilhado: excluir a conta A não pode levar a fila de
+        B nem a quarentena junto."""
+        corpo = self._corpo("esquecerConta", 600)
+
+        self.assertIn("i.dono === quem", corpo)
+
+    def test_a_exclusao_e_disparada_pelo_servidor_e_nao_pelo_clique(self):
+        """Tentativa não é conclusão: com o POST recusado, apagar a fila teria
+        perdido o que a pessoa marcou sem rede, com a conta ainda de pé."""
+        gatilho = self.js[self.js.index("dataset.contaExcluida") - 200 :][:400]
+
+        self.assertIn("esquecerConta(document.body.dataset.contaExcluida)", gatilho)
+        self.assertNotIn('addEventListener("submit"', gatilho)
+
+
+class ExclusaoAvisaOAparelhoTests(TestCase):
+    """O lado do servidor do sinal de exclusão."""
+
+    def _pessoa(self, email="excluir@exemplo.com"):
+        """Conta SEM senha utilizável, como a de quem entra por Google.
+
+        O formulário de exclusão pede senha de quem tem uma e a palavra
+        EXCLUIR de quem não tem — a primeira versão deste teste mandava a
+        palavra para uma conta com senha, o formulário recusava, e o teste
+        media a tela de erro em vez do sinal."""
+        from django.contrib.auth import get_user_model
+
+        quem = get_user_model().objects.create_user(
+            email=email, password="senha-bem-forte-123"
+        )
+        quem.set_unusable_password()
+        quem.save(update_fields=["password"])
+        return quem
+
+    def test_a_tela_seguinte_traz_o_id_da_conta_apagada(self):
+        pessoa = self._pessoa()
+        pk = pessoa.pk
+        self.client.force_login(pessoa)
+
+        resposta = self.client.post(
+            "/conta/excluir/", {"confirmacao": "EXCLUIR"}, follow=True
+        )
+
+        self.assertIn(f'data-conta-excluida="{pk}"', resposta.content.decode())
+
+    def test_o_aviso_vale_uma_vez_so(self):
+        """Deixá-lo na sessão faria a fila local ser apagada de novo a cada
+        visita ao login — inclusive por outra pessoa no mesmo aparelho."""
+        pessoa = self._pessoa("uma-vez@exemplo.com")
+        pk = pessoa.pk
+        self.client.force_login(pessoa)
+        primeira = self.client.post(
+            "/conta/excluir/", {"confirmacao": "EXCLUIR"}, follow=True
+        ).content.decode()
+
+        segunda = self.client.get("/conta/entrar/").content.decode()
+
+        self.assertIn(f'data-conta-excluida="{pk}"', primeira)
+        self.assertIn('data-conta-excluida=""', segunda)
+
+    def test_logout_normal_nao_avisa_nada(self):
+        """Sair guarda a fila para a volta. Se o logout avisasse, sair da
+        conta apagaria o que a pessoa marcou sem rede."""
+        pessoa = self._pessoa("saiu@exemplo.com")
+        self.client.force_login(pessoa)
+
+        resposta = self.client.post("/conta/sair/", follow=True)
+
+        self.assertIn('data-conta-excluida=""', resposta.content.decode())
+
+    def test_exclusao_recusada_nao_avisa_nada(self):
+        """Tentativa não é conclusão."""
+        pessoa = self._pessoa("recusada@exemplo.com")
+        self.client.force_login(pessoa)
+
+        resposta = self.client.post(
+            "/conta/excluir/", {"confirmacao": "talvez"}, follow=True
+        )
+
+        corpo = resposta.content.decode()
+        self.assertNotIn('data-conta-excluida="%s"' % pessoa.pk, corpo)
+        self.assertTrue(
+            type(pessoa).objects.filter(pk=pessoa.pk).exists(),
+            "a conta continua existindo depois de uma tentativa recusada",
+        )
+
+
+class OpIdNaoColideEntreContasTests(TestCase):
+    """O identificador nasce no navegador. Dois aparelhos podem sortear igual.
+
+    Se a idempotência fosse global, a segunda pessoa a usar o mesmo `op_id`
+    teria a ação DESCARTADA em silêncio — e o sintoma seria "marquei a água e
+    não salvou", sem erro nenhum.
+    """
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        self.a = User.objects.create_user(
+            email="op-a@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.b = User.objects.create_user(
+            email="op-b@exemplo.com", password="senha-bem-forte-123"
+        )
+
+    def test_o_mesmo_identificador_vale_para_as_duas_contas(self):
+        from accounts.models import SyncedOperation
+
+        self.assertFalse(SyncedOperation.ja_aplicada(self.a, "mesmo-id"))
+        self.assertFalse(SyncedOperation.ja_aplicada(self.b, "mesmo-id"))
+
+        self.assertEqual(SyncedOperation.objects.filter(op_id="mesmo-id").count(), 2)
+
+    def test_repetir_na_mesma_conta_continua_sendo_repetido(self):
+        """Controle: sem ele, uma idempotência quebrada que nunca detectasse
+        repetição passaria no teste acima."""
+        from accounts.models import SyncedOperation
+
+        SyncedOperation.ja_aplicada(self.a, "repetido")
+
+        self.assertTrue(SyncedOperation.ja_aplicada(self.a, "repetido"))
+
+    def test_o_servidor_ignora_qualquer_dono_vindo_do_formulario(self):
+        """A conta que recebe é sempre `request.user`.
+
+        A rota de água exige onboarding completo — a primeira versão deste
+        teste usava uma conta sem perfil, o POST era desviado antes de chegar
+        na view, e o teste media o redirecionamento em vez da gravação.
+        """
+        from accounts.models import SyncedOperation
+        from plans.tests import create_complete_user
+        from plans.views import LogHydrationView
+
+        pessoa = create_complete_user(email="agua-forjada@exemplo.com")
+        self.client.force_login(pessoa)
+        passo = sorted(p for p in LogHydrationView.PASSOS if p > 0)[0]
+
+        self.client.post(
+            "/agua/",
+            {
+                "ml": str(passo),
+                "op_id": "forjado",
+                # Campos que um POST malicioso mandaria para escolher a conta.
+                "dono": self.b.pk,
+                "user": self.b.pk,
+                "user_id": self.b.pk,
+            },
+        )
+
+        self.assertTrue(
+            SyncedOperation.objects.filter(user=pessoa, op_id="forjado").exists(),
+            "a operação foi gravada na conta da sessão",
+        )
+        self.assertFalse(
+            SyncedOperation.objects.filter(user=self.b).exists(),
+            "nenhum campo do formulário conseguiu escolher outra conta",
+        )
+
+
+class FilaLegadaAbreSemMigracaoTests(TestCase):
+    """O banco publicado hoje precisa abrir com o código novo.
+
+    O campo `dono` é uma propriedade do OBJETO guardado, não do schema: object
+    store do IndexedDB não declara colunas fora da chave. Então acrescentá-lo
+    não exige subir a versão — e subir sem necessidade é que reintroduziria o
+    `VersionError` que o comentário deste arquivo já registra ter acontecido,
+    quando duas abas ficaram em versões diferentes.
+
+    O que estes testes travam é justamente a AUSÊNCIA de mudança estrutural.
+    """
+
+    def setUp(self):
+        from pathlib import Path
+
+        raiz = Path(__file__).resolve().parent.parent
+        self.js = (raiz / "static" / "js" / "fila.js").read_text(encoding="utf-8")
+
+    def _upgrade(self):
+        """O HANDLER, e não a primeira menção à palavra.
+
+        A primeira ocorrência de `onupgradeneeded` no arquivo está dentro de um
+        comentário que conta o defeito de versão que já aconteceu aqui — e
+        ancorar nela fazia o teste medir a prosa em vez do código."""
+        marca = "pedido.onupgradeneeded = function"
+        return self.js[self.js.index(marca) :][:400]
+
+    def test_a_versao_do_banco_nao_subiu(self):
+        self.assertIn("var VERSAO = 2;", self.js)
+
+    def test_a_chave_e_o_store_continuam_os_mesmos(self):
+        """Trocar o `keyPath` ou o nome do store faria o banco antigo abrir
+        vazio — a fila de quem estava offline sumiria sem erro nenhum."""
+        upgrade = self._upgrade()
+
+        self.assertIn('keyPath: "op_id"', upgrade)
+        self.assertIn("createObjectStore(LOJA", upgrade)
+
+    def test_a_migracao_nao_apaga_nada(self):
+        """Recriar o banco resolveria qualquer incompatibilidade e destruiria
+        a marcação que a pessoa fez sem rede."""
+        upgrade = self._upgrade()
+
+        for destrutivo in ("deleteObjectStore", "deleteDatabase", ".clear()"):
+            with self.subTest(operacao=destrutivo):
+                self.assertNotIn(destrutivo, upgrade)
+
+    def test_o_store_so_e_criado_se_nao_existir(self):
+        """`createObjectStore` num store que já existe levanta erro e deixa o
+        upgrade pela metade."""
+        upgrade = self._upgrade()
+
+        self.assertIn("if (!db.objectStoreNames.contains(LOJA))", upgrade)

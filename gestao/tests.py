@@ -395,3 +395,38 @@ class OPainelTemPortaTests(BaseDoPainel):
         html = self._perfil(avulso)
 
         self.assertNotIn('href="/gestao/"', html)
+
+
+class OPainelNaoFicaEmCacheHttpTests(BaseDoPainel):
+    """Bypass do service worker não prova ausência de cache HTTP.
+
+    Medido em produção antes desta correção: `/admin/accounts/user/` respondia
+    `no-cache, no-store, must-revalidate, private` — o `never_cache` que o
+    Django Admin já aplica — e `/gestao/` não respondia diretiva nenhuma.
+
+    `Vary: Cookie` já impedia um cache compartilhado de entregar a página de
+    uma conta para outra. Mas estas telas mostram o e-mail de todas as contas e
+    nunca precisam funcionar sem rede: dizer `no-store` é mais forte que
+    depender do comportamento heurístico do navegador.
+    """
+
+    def test_as_tres_telas_dizem_para_nao_guardar(self):
+        self.client.force_login(self.operador())
+
+        for rota in ("/gestao/", "/gestao/pessoas/", "/gestao/atividade/"):
+            with self.subTest(rota=rota):
+                cabecalho = self.client.get(rota)["Cache-Control"]
+                self.assertIn("no-store", cabecalho)
+                self.assertIn("private", cabecalho)
+
+    def test_o_admin_continua_dizendo_o_mesmo(self):
+        """Controle: se um dia o Django parar de aplicar `never_cache` no
+        Admin, o painel ficaria sozinho protegido e ninguém veria."""
+        quem = self.operador("adm-cache@exemplo.com")
+        self.client.force_login(quem)
+
+        cabecalho = self.client.get(
+            "/admin/accounts/user/", secure=True
+        )["Cache-Control"]
+
+        self.assertIn("no-store", cabecalho)

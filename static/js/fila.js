@@ -69,6 +69,22 @@
     return ROTAS.some(function (r) { return r.test(caminho); });
   }
 
+  /* De quem é esta sessão. Vazio quando ninguém está logado.
+   *
+   * A fila vive no IndexedDB, que pertence ao NAVEGADOR e não à sessão: ela
+   * atravessa o logout inteira. Sem dono, uma operação que a pessoa A
+   * enfileirou sem rede seria drenada na conta de quem entrasse depois — e o
+   * drenar acontece no primeiro carregamento de página, sem ninguém pedir.
+   *
+   * Apagar a fila no logout resolveria o vazamento e criaria outro problema:
+   * a pessoa perderia a água e as refeições que marcou sem rede. Por isso a
+   * fila é SEPARADA por dono, e não esvaziada — o que é de A continua lá,
+   * esperando A voltar.
+   */
+  function dono() {
+    return (document.body && document.body.dataset.usuario) || "";
+  }
+
   function identificador() {
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
     /* Navegador antigo: hora mais aleatório é colisão improvável o bastante
@@ -117,6 +133,62 @@
   function remover(id) { return comLoja("readwrite", function (l) { return l.delete(id); }); }
   function tudo() { return comLoja("readonly", function (l) { return l.getAll(); }); }
 
+  /* Só o que é DESTA pessoa. Igualdade estrita, e nenhum atalho.
+   *
+   * Sem dono NÃO quer dizer "é de quem está logado". Quer dizer que não dá
+   * para saber de quem é — e adivinhar é o vazamento que esta separação
+   * existe para fechar. A primeira versão desta função ADOTAVA o item sem
+   * dono para o usuário atual, com a desculpa de que a janela era curta.
+   * Janela curta para vazar dado de outra pessoa continua sendo vazar.
+   */
+  function meus() {
+    var eu = dono();
+    if (!eu) return Promise.resolve([]);
+    return tudo().then(function (itens) {
+      return (itens || []).filter(function (i) { return i.dono === eu; });
+    });
+  }
+
+  /* Operações guardadas antes de a separação existir.
+   *
+   * Não são enviadas por ninguém, e não são apagadas. Não enviar porque não
+   * há como saber de quem são; não apagar porque podem ser água ou refeição
+   * que alguém marcou de verdade, sem rede.
+   *
+   * Ficam aqui esperando uma decisão de produto — está no backlog como
+   * RECUPERAÇÃO/EXPIRAÇÃO DE FILA OFFLINE LEGADA. Esta função existe para que
+   * essa decisão possa ser tomada olhando o que tem, em vez de no escuro.
+   */
+  function emQuarentena() {
+    return tudo().then(function (itens) {
+      return (itens || []).filter(function (i) { return !i.dono; });
+    });
+  }
+
+  /* A conta foi EXCLUÍDA — não é a mesma coisa que sair.
+   *
+   * Sair guarda a fila para a volta. Excluir significa que não há volta: a
+   * conta que receberia aquelas operações deixou de existir no servidor, e
+   * mantê-las é guardar dado pessoal de alguém que pediu para sumir.
+   *
+   * O gatilho é o SERVIDOR confirmando a exclusão, e não o clique em
+   * "Excluir": tentativa não é conclusão, e se o POST falhasse a pessoa
+   * perderia o que marcou sem rede com a conta ainda de pé.
+   *
+   * Remove só o que é daquele dono. Fila de outra conta no mesmo aparelho e
+   * itens em quarentena continuam onde estão.
+   */
+  function esquecerConta(quem) {
+    if (!quem) return Promise.resolve();
+    return tudo().then(function (itens) {
+      return Promise.all(
+        (itens || [])
+          .filter(function (i) { return i.dono === quem; })
+          .map(function (i) { return remover(i.op_id); })
+      );
+    }).catch(function () { /* sem fila, e so */ });
+  }
+
   /* ------------------------------------------------------------ contagem */
 
   function avisar(quantos) {
@@ -126,7 +198,7 @@
   }
 
   function recontar() {
-    return tudo().then(function (itens) {
+    return meus().then(function (itens) {
       avisar((itens || []).length);
       return itens || [];
     });
@@ -149,8 +221,12 @@
 
   function drenar() {
     if (!navigator.onLine) return Promise.resolve();
+    /* Sem sessão não há para onde drenar, e tentar seria mandar a operação de
+     * alguém para um servidor que a atribuiria a quem quer que estivesse
+     * logado. O `online` dispara sem perguntar quem está na tela. */
+    if (!dono()) return Promise.resolve();
 
-    return tudo().then(function (itens) {
+    return meus().then(function (itens) {
       /* Em série e não em paralelo: são poucas, e a ordem importa quando duas
        * marcações tocam a mesma refeição. */
       return (itens || []).reduce(function (antes, item) {
@@ -184,7 +260,13 @@
     new FormData(form).forEach(function (v, k) { dados[k] = v; });
     dados.op_id = identificador();
 
-    guardar({ op_id: dados.op_id, url: form.action, dados: dados, em: Date.now() })
+    guardar({
+      op_id: dados.op_id,
+      url: form.action,
+      dados: dados,
+      em: Date.now(),
+      dono: dono(),
+    })
       .then(recontar)
       .then(function () {
         /* A tela precisa reagir: sem retorno, marcar offline parece não ter
@@ -231,5 +313,18 @@
     if (form && form.classList) form.classList.add("set-row--done");
   });
 
-  window.NutriPlanFila = { drenar: drenar, recontar: recontar, permitida: permitida };
+  /* A conta acabou de ser excluída? O servidor diz, e diz uma vez só. */
+  if (document.body && document.body.dataset.contaExcluida) {
+    esquecerConta(document.body.dataset.contaExcluida).then(recontar);
+  }
+
+  window.NutriPlanFila = {
+    drenar: drenar,
+    recontar: recontar,
+    permitida: permitida,
+    dono: dono,
+    meus: meus,
+    emQuarentena: emQuarentena,
+    esquecerConta: esquecerConta,
+  };
 })();

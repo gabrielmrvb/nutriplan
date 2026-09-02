@@ -62,9 +62,26 @@ class LogoutPrivacyTests(TestCase):
 
     def test_only_the_page_cache_is_cleared(self):
         """Derrubar o cache de CSS e ícones junto faria a próxima abertura
-        baixar tudo de novo, e eles não têm nada pessoal."""
-        trecho = self.pwa.split('dataset.autenticado === "0"', 1)[1]
-        self.assertIn('indexOf("-paginas")', trecho)
+        baixar tudo de novo, e eles não têm nada pessoal.
+
+        A asserção não depende mais da ORDEM do arquivo. A versão anterior
+        dividia o texto no marcador de sessão e procurava `-paginas` depois
+        dele — o que amarrava o teste ao layout do código e quebrou quando a
+        limpeza virou uma função só, chamada de dois lugares.
+
+        Esta versão é mais forte: exige que TODA remoção de cache no arquivo
+        esteja dentro do caminho filtrado por `-paginas`. Uma segunda
+        `caches.delete` em qualquer lugar reprova, inclusive uma que a versão
+        antiga deixaria passar se estivesse antes do marcador.
+        """
+        remocoes = [
+            i for i in range(len(self.pwa))
+            if self.pwa.startswith("caches.delete(", i)
+        ]
+
+        self.assertEqual(len(remocoes), 1, "só a limpeza de páginas remove cache")
+        contexto = self.pwa[max(0, remocoes[0] - 300) : remocoes[0]]
+        self.assertIn('indexOf("-paginas")', contexto)
 
     def test_the_page_says_whether_someone_is_logged_in(self):
         html = self.client.get(reverse("accounts:login")).content.decode()

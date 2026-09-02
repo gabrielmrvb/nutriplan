@@ -11,6 +11,8 @@ is_staff` amarraria a autorização a um flag que existe por outro motivo, e no
 dia em que alguém quisesse separar as duas coisas descobriria que não dá.
 """
 from django.contrib.auth.mixins import AccessMixin
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 
 
 class PainelDeGestaoMixin(AccessMixin):
@@ -23,6 +25,21 @@ class PainelDeGestaoMixin(AccessMixin):
 
     permissao = "accounts.ver_painel_de_gestao"
 
+    #: `no-store` explícito, como o Django Admin já faz.
+    #:
+    #: Medido em produção: `/admin/accounts/user/` respondia
+    #: `no-cache, no-store, must-revalidate, private`, e `/gestao/` não
+    #: respondia diretiva nenhuma. As duas mostram dado de OUTRAS pessoas e
+    #: nenhuma precisa funcionar sem rede.
+    #:
+    #: `Vary: Cookie` já impedia um cache compartilhado de servir a página de
+    #: uma conta para outra — mas depender de cache heurístico para decidir
+    #: sobre a lista de e-mails de todo mundo é mais fraco do que dizer.
+    #:
+    #: Isto NÃO se aplica às telas do app: lá o cache é o que faz a dieta
+    #: abrir no metrô, o dado é da própria pessoa, e a privacidade entre
+    #: contas é resolvida pela limpeza no logout.
+    @method_decorator(never_cache)
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return self.handle_no_permission()

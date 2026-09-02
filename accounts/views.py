@@ -239,6 +239,25 @@ class AppLoginView(TelaDeEntradaMixin, LoginView):
     template_name = "accounts/login.html"
     redirect_authenticated_user = True
 
+    def get_context_data(self, **kwargs):
+        """Entrega, UMA vez, o aviso de que uma conta acabou de ser excluída.
+
+        Esta é a tela para onde a exclusão redireciona, e o `pop` é o que faz
+        o aviso valer só naquele render: deixá-lo na sessão faria a fila local
+        ser apagada de novo a cada visita ao login, inclusive por outra pessoa
+        que fosse entrar no mesmo aparelho.
+
+        O que vai para a tela é a chave primária, e não o e-mail: ela é o
+        mesmo identificador que a fila local usa como dono, e identifica uma
+        linha que acabou de deixar de existir. E-mail identificaria a pessoa
+        fora do app.
+        """
+        contexto = super().get_context_data(**kwargs)
+        contexto["conta_excluida"] = self.request.session.pop(
+            ExcluirContaView.CHAVE_DA_EXCLUSAO, ""
+        )
+        return contexto
+
 
 class ConectarGoogleView(TelaDeEntradaMixin, FormView):
     """O caso 4: confirmar a senha do NutriPlan para conectar o Google.
@@ -753,12 +772,60 @@ class ExcluirContaView(LoginRequiredMixin, FormView):
         )
         return context
 
-    @transaction.atomic
+    #: Chave que avisa o navegador que a exclusão FOI CONCLUÍDA.
+    #:
+    #: O aparelho guarda operações feitas sem rede numa fila local, separada
+    #: por dono. Sair da conta preserva essa fila — a pessoa volta e ela
+    #: sincroniza. Excluir a conta é o oposto: não há volta, e a conta que
+    #: receberia aquelas operações deixou de existir.
+    #:
+    #: O sinal sai daqui e não do clique em "Excluir" porque tentativa não é
+    #: conclusão: com o POST recusado por senha errada, apagar a fila teria
+    #: perdido o que a pessoa marcou sem rede, com a conta ainda de pé.
+    #:
+    #: E não sai de "ficou anônimo", porque ficar anônimo também é logout
+    #: normal, sessão vencida e cookie perdido — nos três a fila TEM que
+    #: sobreviver.
+    CHAVE_DA_EXCLUSAO = "conta_excluida"
+
     def form_valid(self, form):
+        """A exclusão do BANCO acontece sozinha; o resto vem depois do commit.
+
+        `form_valid` NÃO é mais atômico inteiro, e a fronteira é o ponto todo.
+        `transaction.atomic` protege o banco — sessão não participa dela. Com
+        as duas coisas dentro do mesmo bloco e `ATOMIC_REQUESTS` desligado, uma
+        falha no `delete()` desfazia o banco e deixava a sessão nova, vazia,
+        gravada pelo middleware DEPOIS: conta viva, pessoa deslogada.
+
+        Agora só o `delete()` está dentro do bloco. Tudo o que vem abaixo do
+        `with` só executa se o COMMIT tiver passado — se o commit falhar, o
+        `__exit__` levanta e nada abaixo acontece. O contrato fica:
+
+        falhou em qualquer ponto → a conta continua, a sessão continua, a fila
+        local continua, e nenhum sinal definitivo é emitido;
+
+        commitou → a conta não existe, a sessão encerra, e o sinal sai.
+
+        O `logout` vir DEPOIS do `delete` inverte a ordem antiga. O motivo dela
+        — não deixar sessão apontando para uma linha que sumiu — continua
+        atendido: as duas linhas são consecutivas e nenhuma resposta sai entre
+        elas.
+        """
         usuario = self.request.user
         email = usuario.email
+        # Capturado ANTES do `delete()`, que zera o `pk` do objeto em memória.
+        # Em texto porque é assim que o navegador vai comparar: `dataset` só
+        # devolve string, e comparar 43 com "43" com `===` dá falso.
+        apagada = str(usuario.pk)
+
+        with transaction.atomic():
+            usuario.delete()
+
+        # Daqui para baixo, a exclusão é fato consumado no banco.
         logout(self.request)
-        usuario.delete()
+        # A sessão aqui já é a NOVA, criada pelo `logout`. É ela que atravessa
+        # o redirect e chega na tela de login.
+        self.request.session[self.CHAVE_DA_EXCLUSAO] = apagada
         messages.success(
             self.request,
             "Conta de %s apagada. Sentiremos sua falta." % email,

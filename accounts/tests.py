@@ -51,6 +51,7 @@ from workouts.services import preferencia_muda_a_divisao, split_for
 
 from .views import CAMINHO_COMPLETO, CAMINHO_CURTO
 
+from . import views
 from .models import (
     ClassificacaoDeConta,
     AcaoAdministrativa,
@@ -6558,3 +6559,160 @@ class ClassificacaoDaContaTests(TestCase):
         self.assertEqual(
             self.alvo.classificacao, ClassificacaoDeConta.NAO_CLASSIFICADA
         )
+
+
+class ExclusaoFalhaSemDeixarRastroTests(TestCase):
+    """Falhar na exclusão não pode deslogar ninguém.
+
+    `transaction.atomic` protege o BANCO. A sessão não participa dela: o
+    middleware grava a sessão depois, fora da transação, com
+    `ATOMIC_REQUESTS` desligado. Com o `logout` dentro do mesmo bloco do
+    `delete`, uma falha desfazia o banco e deixava a sessão nova gravada —
+    conta viva, pessoa deslogada, e nenhuma explicação na tela.
+
+    Agora só o `delete()` está no bloco. O que vem depois do `with` só executa
+    se o commit passou.
+    """
+
+    def setUp(self):
+        from plans.tests import create_complete_user
+
+        self.pessoa = create_complete_user(email="falha-exclusao@exemplo.com")
+        self.pessoa.set_password("MinhaSenha!2026#")
+        self.pessoa.save(update_fields=["password"])
+        self.client.force_login(self.pessoa)
+        self.url = reverse("accounts:excluir_conta")
+
+    def test_se_o_delete_falhar_o_logout_nem_e_chamado(self):
+        """A asserção é sobre a CHAMADA, e não sobre o banco no fim.
+
+        A primeira versão deste teste conferia "a conta continua e a sessão
+        continua" — e passava com o `logout` dentro ou fora da transação. O
+        motivo: no `TestCase` o teste inteiro roda numa transação, o
+        `atomic` da view vira savepoint, e o rollback desfaz também o flush da
+        sessão. O resultado no banco ficava igual nas duas ordens, e o teste
+        media algo que não distinguia nada.
+
+        Em produção a diferença é real: o middleware grava a sessão DEPOIS da
+        view, fora da transação. Então o que precisa ser afirmado é que, com o
+        `delete` falhando, o `logout` não chega a acontecer.
+        """
+        pk = self.pessoa.pk
+
+        with mock.patch.object(
+            User, "delete", side_effect=RuntimeError("banco caiu no meio")
+        ):
+            with mock.patch("accounts.views.logout") as saida:
+                with self.assertRaises(RuntimeError):
+                    self.client.post(self.url, {"senha": "MinhaSenha!2026#"})
+
+        saida.assert_not_called()
+        self.assertTrue(User.objects.filter(pk=pk).exists(), "a conta continua")
+
+    def test_no_sucesso_o_logout_acontece(self):
+        """Controle positivo: sem ele, um `logout` que nunca fosse chamado
+        passaria no teste acima como se fosse a fronteira funcionando."""
+        with mock.patch("accounts.views.logout") as saida:
+            self.client.post(self.url, {"senha": "MinhaSenha!2026#"})
+
+        saida.assert_called_once()
+
+    def test_se_o_delete_falhar_nenhum_sinal_de_exclusao_e_emitido(self):
+        """Sinal emitido numa exclusão que não aconteceu mandaria o navegador
+        apagar a fila local de uma conta que continua existindo."""
+        with mock.patch.object(User, "delete", side_effect=RuntimeError("caiu")):
+            with self.assertRaises(RuntimeError):
+                self.client.post(self.url, {"senha": "MinhaSenha!2026#"})
+
+        self.assertNotIn(
+            views.ExcluirContaView.CHAVE_DA_EXCLUSAO, self.client.session
+        )
+
+    def test_no_sucesso_o_sinal_sai_e_e_texto(self):
+        """O navegador compara com `===` contra o que veio do `dataset`, que é
+        sempre texto. Guardar 43 e comparar com "43" daria falso, e a fila da
+        conta apagada ficaria órfã para sempre."""
+        pk = self.pessoa.pk
+
+        self.client.post(self.url, {"senha": "MinhaSenha!2026#"})
+
+        self.assertFalse(User.objects.filter(pk=pk).exists())
+        guardado = self.client.session[views.ExcluirContaView.CHAVE_DA_EXCLUSAO]
+        self.assertEqual(guardado, str(pk))
+        self.assertIsInstance(guardado, str)
+
+    def test_o_sinal_nao_aceita_dono_vindo_do_pedido(self):
+        """Um pedido que tentasse escolher qual fila apagar não tem por onde:
+        o identificador nasce de `request.user`, e o formulário não é lido."""
+        outra = User.objects.create_user(
+            email="alheia-fila@exemplo.com", password="senha-bem-forte-123"
+        )
+        pk = self.pessoa.pk
+
+        self.client.post(
+            self.url,
+            {
+                "senha": "MinhaSenha!2026#",
+                "conta_excluida": outra.pk,
+                "dono": outra.pk,
+                "user": outra.pk,
+            },
+        )
+
+        self.assertEqual(
+            self.client.session[views.ExcluirContaView.CHAVE_DA_EXCLUSAO], str(pk)
+        )
+        self.assertTrue(User.objects.filter(pk=outra.pk).exists())
+
+    def test_a_query_string_do_login_nao_inventa_sinal(self):
+        """A tela de login lê o sinal da SESSÃO. Se lesse do GET, qualquer link
+        mandaria o navegador apagar a fila de qualquer conta."""
+        self.client.logout()
+
+        html = self.client.get(
+            reverse("accounts:login") + "?conta_excluida=999"
+        ).content.decode()
+
+        self.assertIn('data-conta-excluida=""', html)
+        self.assertNotIn('data-conta-excluida="999"', html)
+
+
+class DonoCanonicoTests(TestCase):
+    """O dono é texto dos dois lados, e vazio é vazio.
+
+    `dataset` só devolve string. Se o servidor escrevesse o número e o
+    JavaScript comparasse com `===`, nada bateria — e a separação por dono
+    viraria "ninguém drena nada", que passa despercebido porque a fila só
+    enche sem rede.
+    """
+
+    def test_anonimo_nao_tem_dono_nenhum(self):
+        """Vazio, e nunca as strings que um `None` renderizado produziria."""
+        html = self.client.get(reverse("accounts:login")).content.decode()
+
+        self.assertIn('data-usuario=""', html)
+        for falso in ('data-usuario="None"', 'data-usuario="null"',
+                      'data-usuario="undefined"', 'data-usuario="0"'):
+            with self.subTest(valor=falso):
+                self.assertNotIn(falso, html)
+
+    def test_autenticado_traz_a_chave_primaria_como_texto(self):
+        from plans.tests import create_complete_user
+
+        pessoa = create_complete_user(email="canonico@exemplo.com")
+        self.client.force_login(pessoa)
+
+        html = self.client.get(reverse("plans:today")).content.decode()
+
+        self.assertIn(f'data-usuario="{pessoa.pk}"', html)
+
+    def test_o_dono_nao_e_o_email(self):
+        """E-mail identifica a pessoa fora do app e muda com o tempo."""
+        from plans.tests import create_complete_user
+
+        pessoa = create_complete_user(email="nao-vaza@exemplo.com")
+        self.client.force_login(pessoa)
+
+        html = self.client.get(reverse("plans:today")).content.decode()
+
+        self.assertNotIn('data-usuario="nao-vaza@exemplo.com"', html)
