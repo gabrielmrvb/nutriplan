@@ -384,10 +384,19 @@ class TrainingForm(forms.Form):
         widget=forms.TimeInput(attrs={"type": "time", "class": "field-input"}),
     )
     duration_min = forms.IntegerField(
+        # "Tempo disponível", e não mais "Duração média".
+        #
+        # O rótulo antigo descrevia a rotina da pessoa e o gerador nunca lia o
+        # número: quem informava 30 minutos recebia sessão estimada em 47 a 51.
+        # A interface fazia acreditar num limite que o motor ignorava — e entre
+        # mudar o texto para admitir isso ou fazer o motor respeitar, a segunda
+        # é a que deixa o campo valer alguma coisa.
+        #
         # A unidade entra no campo, como já acontece com altura e peso no passo
-        # 1. "Duração média (minutos)" quebrava em duas linhas a 390px e
-        # empurrava o campo para baixo do vizinho, desalinhando a dupla.
-        label="Duração média",
+        # 1. "Tempo disponível (minutos)" quebraria em duas linhas a 390px e
+        # empurraria o campo para baixo do vizinho, desalinhando a dupla.
+        label="Tempo disponível",
+        help_text="O treino é montado para caber nesse tempo.",
         initial=60,
         min_value=15,
         max_value=300,

@@ -105,7 +105,7 @@
             {% for day in training_days %}
               <div>
                 <dt>{{ day.get_weekday_display }}</dt>
-                <dd>{{ day.start_time|time:"H:i" }} · {{ day.duration_min }} min</dd>
+                <dd>{{ day.start_time|time:"H:i" }} · até {{ day.duration_min }} min</dd>
               </div>
             {% endfor %}
           </dl>

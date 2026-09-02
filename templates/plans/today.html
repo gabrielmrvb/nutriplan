@@ -852,7 +852,7 @@ coluna da direita), não entre ela e o almoço.
             <dt>Treinos</dt>
             <dd>
               {% if training_days %}
-                {{ plan.training_days_per_week }} dias · {{ training_days.0.duration_min }} min
+                {{ plan.training_days_per_week }} dias · até {{ training_days.0.duration_min }} min
               {% else %}nenhum{% endif %}
             </dd>
           </div>

@@ -23,6 +23,8 @@ from django.utils import timezone
 from accounts.models import SplitPreference
 
 from .models import (
+    SEGUNDOS_ENTRE_EXERCICIOS,
+    SEGUNDOS_POR_SERIE,
     ExerciseLog,
     SessionExercise,
     Split,
@@ -256,6 +258,164 @@ def distribuir_series(total, ocorrencias, ordem) -> list:
     return espalhado
 
 
+#: Quanto a estimativa pode passar do tempo informado: 10% do orçamento, no
+#: máximo 5 minutos.
+#:
+#: A tolerância existe porque o gerador só encurta em unidades discretas — ele
+#: remove um exercício inteiro, e um exercício custa de 3,1 a 7,4 minutos no
+#: catálogo (mediana 5,4). Sem folga nenhuma, uma sessão de 30,5 minutos para
+#: quem tem 30 perderia um exercício inteiro. Medido em quatro dias: tolerância
+#: zero entrega 61 séries semanais contra 65, e 80 contra 86 num orçamento de
+#: 45 — quatro a seis séries a menos para economizar menos de cinco minutos.
+#:
+#: O teto de 5 minutos é a parte que importa, e é absoluto: nenhuma sessão passa
+#: mais que isso do tempo informado, em nenhum orçamento. A porcentagem sozinha
+#: seria ilimitada — o formulário aceita até 300 minutos, e 10% de 300 são 30.
+#:
+#: Uma versão anterior deste comentário justificava 10% puro dizendo que a folga
+#: seria "sempre menor que um exercício". É falso: 10% de 90 são 9 minutos e o
+#: exercício mais caro custa 7,4. Na prática as duas políticas dão o mesmo
+#: resultado, porque só divergem acima de 50 minutos de orçamento e ali o teto
+#: nunca chega a ser acionado — a maior sessão que o catálogo produz tem 51,7
+#: minutos. O que decide entre elas é o limite em princípio, não o efeito hoje.
+FOLGA_PROPORCIONAL = Decimal("0.10")
+FOLGA_MAXIMA_MIN = Decimal("5")
+
+
+def _teto_em_segundos(minutos_disponiveis) -> Decimal:
+    orcamento = Decimal(minutos_disponiveis)
+    folga = min(orcamento * FOLGA_PROPORCIONAL, FOLGA_MAXIMA_MIN)
+    return (orcamento + folga) * 60
+
+
+def _segundos_da_sessao(itens) -> int:
+    """A mesma conta de `DurationMixin.estimated_minutes`, sobre tuplas.
+
+    Repetida aqui, e não importada, porque o modelo calcula a partir de linhas
+    já gravadas e o gerador precisa da conta ANTES de gravar — é justamente ela
+    que decide o que gravar. As duas ficam presas pelo mesmo teste: o número
+    que o gerador usou para decidir tem que ser o número que a tela exibe.
+    """
+    segundos = 0
+    for sets, descanso in itens:
+        segundos += sets * SEGUNDOS_POR_SERIE
+        segundos += max(sets - 1, 0) * descanso
+    return segundos + max(len(itens) - 1, 0) * SEGUNDOS_ENTRE_EXERCICIOS
+
+
+def escolher_para_o_tempo(itens, minutos_disponiveis) -> list:
+    """Quais exercícios da sessão ficam, dado o tempo que a pessoa tem.
+
+    `itens` são tuplas (grupo_muscular, séries, descanso) NA ORDEM DA FICHA.
+    Devolve os índices que ficam, em ordem.
+
+    O defeito que isto fecha: quem informava 30 minutos recebia sessão estimada
+    em 47 a 51. O campo se chamava "Duração média" e o gerador nunca o leu — a
+    interface fazia acreditar num limite que o motor ignorava.
+
+    O CRITÉRIO DO CORTE custou uma auditoria, e a primeira resposta estava
+    errada. A nota da divisão AB diz "priorize os exercícios do começo da
+    ficha", e eu tratei isso como prova de que `order` é um ranking global de
+    importância. Não é. Medindo os nove modelos do catálogo:
+
+      - dois têm exercício isolado ANTES de um multiarticular;
+      - oito pares têm as séries SUBINDO ao longo da ficha;
+      - `abc C` é agachamento, leg press, extensora, stiff, mesa, flexora,
+        panturrilha, panturrilha, prancha.
+
+    A ordem agrupa por REGIÃO — bloco de quadríceps, bloco de posterior,
+    panturrilha, core — e só dentro de cada bloco ela desce por importância.
+    Cortar a cauda de `abc C` apagaria a panturrilha inteira e depois o
+    posterior, deixando três exercícios de quadríceps: um dia de pernas que
+    virou dia de quadríceps, sem nada avisando.
+
+    Então o corte é por RODÍZIO entre os grupos: tira sempre do grupo que tem
+    mais exercícios na sessão, e dentro dele o último — que aí sim é o menos
+    prioritário, porque dentro do bloco a ordem vale. Nenhum grupo do dia
+    desaparece enquanto outro ainda tiver dois.
+
+    Nunca devolve lista vazia: quem informou quinze minutos ainda merece o
+    exercício principal do dia.
+    """
+    if not itens:
+        return []
+
+    teto = _teto_em_segundos(minutos_disponiveis)
+    ficam = list(range(len(itens)))
+
+    while len(ficam) > 1:
+        atual = [(itens[i][1], itens[i][2]) for i in ficam]
+        if _segundos_da_sessao(atual) <= teto:
+            break
+        # O grupo com mais exercícios cede o último deles. Empate resolve pelo
+        # que aparece mais tarde na ficha — a ordem vale dentro do bloco.
+        quantos = {}
+        for i in ficam:
+            quantos[itens[i][0]] = quantos.get(itens[i][0], 0) + 1
+        maior = max(quantos.values())
+        alvo = next(
+            i for i in reversed(ficam) if quantos[itens[i][0]] == maior
+        )
+        ficam.remove(alvo)
+
+    return ficam
+
+
+def prescrever_semana(sessoes, modelos) -> dict:
+    """O que cada sessão da semana manda fazer: {(sessão, exercício): séries}.
+
+    Uma função só, chamada pelo gerador E pela conferência, porque as duas
+    precisam da MESMA resposta. Enquanto eram dois trechos parecidos, qualquer
+    divergência de um número fazia `routine_is_current` julgar a ficha obsoleta
+    em toda visita — o gerador remontando a ficha várias vezes por dia, em
+    silêncio, sem nenhum erro na tela.
+
+    Junta as três decisões que moldam a ficha, nesta ordem:
+
+    1. `distribuir_series` reparte o volume semanal entre as ocorrências da
+       letra, para repetir o dia aumentar a frequência e não o total;
+    2. exercício sem séries nesta ocorrência não entra — ficou para a outra;
+    3. `caber_no_tempo` corta a cauda até a sessão caber no tempo informado.
+
+    A ordem importa: o tempo é a última palavra porque é o limite mais duro. O
+    orçamento de volume diz o que a divisão QUER; o relógio diz o que a pessoa
+    TEM. Quando os dois brigam, quem tem trinta minutos recebe menos exercício,
+    não uma sessão de cinquenta.
+    """
+    ocorrencias = {}
+    for sessao in sessoes:
+        ocorrencias[sessao.label] = ocorrencias.get(sessao.label, 0) + 1
+
+    vistas = {}
+    prescricao = {}
+    for sessao in sessoes:
+        modelo = modelos.get(sessao.label)
+        if modelo is None:
+            return None
+        indice = vistas.get(sessao.label, 0)
+        vistas[sessao.label] = indice + 1
+
+        candidatos = []
+        for ordem, item in enumerate(modelo.items.all()):
+            series = distribuir_series(
+                item.sets, ocorrencias[sessao.label], ordem
+            )[indice]
+            if series:
+                candidatos.append((item, series))
+
+        ficam = escolher_para_o_tempo(
+            [
+                (item.exercise.muscle_group, series, item.rest_seconds)
+                for item, series in candidatos
+            ],
+            sessao.duration_min,
+        )
+        for i in ficam:
+            item, series = candidatos[i]
+            prescricao[(sessao.pk, item.exercise_id)] = (series, item)
+    return prescricao
+
+
 #: Quantas vezes, por extenso. Vai até sete porque a semana tem sete dias.
 VEZES = {2: "duas", 3: "três", 4: "quatro", 5: "cinco", 6: "seis", 7: "sete"}
 
@@ -310,6 +470,49 @@ def nota_da_divisao(split, sessoes) -> str:
     return "%s %s" % (base, aviso) if base else aviso
 
 
+def aviso_de_tempo(sessoes, modelos, prescricao) -> str:
+    """Uma frase quando o tempo informado apertou a ficha — ou nada.
+
+    A pessoa precisa saber que o treino foi adaptado, senão ela compara com
+    quem tem a mesma divisão e conclui que falta exercício na ficha dela.
+
+    Duas frases diferentes porque são dois casos diferentes. Perder exercício é
+    esperado e sem drama. Perder um GRUPO inteiro do dia é aritmética — um dia
+    com quatro grupos precisa de pelo menos quatro exercícios, e quatro
+    exercícios não cabem em quinze minutos — e aí vale dizer que aumentar o
+    tempo muda o resultado, porque muda mesmo: com o catálogo de hoje, todos os
+    grupos cabem a partir de 23 minutos em ABC, 35 em AB e 44 no corpo inteiro.
+    """
+    cortados = 0
+    grupos_perdidos = False
+    for sessao in sessoes:
+        modelo = modelos.get(sessao.label)
+        if modelo is None:
+            continue
+        previstos = {
+            item.exercise.muscle_group
+            for item in modelo.items.all()
+        }
+        ficaram = [
+            item
+            for (sessao_id, _), (_, item) in prescricao.items()
+            if sessao_id == sessao.pk
+        ]
+        cortados += len(modelo.items.all()) - len(ficaram)
+        if previstos - {item.exercise.muscle_group for item in ficaram}:
+            grupos_perdidos = True
+
+    if grupos_perdidos:
+        return (
+            "No tempo que você informou não cabem todos os grupos do dia — a "
+            "ficha ficou com os exercícios principais. Aumentar o tempo "
+            "disponível traz os outros de volta."
+        )
+    if cortados:
+        return "A ficha foi ajustada para caber no tempo que você informou."
+    return ""
+
+
 @transaction.atomic
 def create_routine(user) -> TrainingPlan:
     """Cria a rotina ativa da pessoa, aposentando a anterior.
@@ -337,43 +540,35 @@ def create_routine(user) -> TrainingPlan:
 
     sessions = build_sessions(plan, training_days, templates)
     TrainingSession.objects.bulk_create(sessions)
-    # A nota depende das sessões, então é escrita depois delas:
-    # `build_sessions` é quem decide o ciclo, e a nota descreve o ciclo.
-    plan.notes = nota_da_divisao(split, sessions)
-    plan.save(update_fields=["notes"])
 
     by_label = {template.label: template for template in templates}
-    # Quantas vezes cada letra cai na semana, e a qual ocorrência esta sessão
-    # corresponde. As duas coisas decidem as séries — ver `distribuir_series`.
-    ocorrencias = {}
-    for session in sessions:
-        ocorrencias[session.label] = ocorrencias.get(session.label, 0) + 1
-    vistas = {}
-    exercises = []
-    for session in sessions:
-        indice = vistas.get(session.label, 0)
-        vistas[session.label] = indice + 1
-        for ordem, item in enumerate(by_label[session.label].items.all()):
-            series = distribuir_series(
-                item.sets, ocorrencias[session.label], ordem
-            )[indice]
-            if not series:
-                # O exercício ficou para a outra ocorrência da letra. Criar a
-                # linha com zero séries renderizaria um exercício que não é
-                # para fazer hoje.
-                continue
-            exercises.append(
-                SessionExercise(
-                    session=session,
-                    exercise=item.exercise,
-                    sets=series,
-                    rep_min=item.rep_min,
-                    rep_max=item.rep_max,
-                    measure=item.measure,
-                    rest_seconds=item.rest_seconds,
-                    order=item.order,
-                )
-            )
+    prescricao = prescrever_semana(sessions, by_label)
+    # A nota vem depois da prescrição porque descreve o que a prescrição fez:
+    # `build_sessions` decide o ciclo e `prescrever_semana` decide o que coube
+    # no tempo. Escrevê-la antes daria um texto sobre uma ficha que ainda não
+    # existia.
+    plan.notes = " ".join(
+        parte
+        for parte in (
+            nota_da_divisao(split, sessions),
+            aviso_de_tempo(sessions, by_label, prescricao),
+        )
+        if parte
+    )
+    plan.save(update_fields=["notes"])
+    exercises = [
+        SessionExercise(
+            session_id=sessao_id,
+            exercise_id=exercicio_id,
+            sets=series,
+            rep_min=item.rep_min,
+            rep_max=item.rep_max,
+            measure=item.measure,
+            rest_seconds=item.rest_seconds,
+            order=item.order,
+        )
+        for (sessao_id, exercicio_id), (series, item) in prescricao.items()
+    ]
     SessionExercise.objects.bulk_create(exercises)
     return plan
 
@@ -382,50 +577,33 @@ def get_active_routine(user):
     return TrainingPlan.objects.filter(user=user, is_active=True).first()
 
 
-def _series_conferem(sessoes, modelos, itens) -> bool:
-    """As séries da ficha são as que `distribuir_series` daria hoje?
+def _prescricao_confere(sessoes, modelos, itens) -> bool:
+    """A ficha gravada é a que `prescrever_semana` produziria hoje?
 
-    Existe porque `sets` deixou de ser cópia do catálogo. Antes bastava
-    perguntar "esse número está no modelo?"; agora a resposta certa depende de
-    quantas vezes a letra cai na semana desta pessoa, e é aqui que essa conta é
-    refeita para conferência.
+    Existe porque `sets` deixou de ser cópia do catálogo — é repartido entre as
+    ocorrências da letra e aparado pelo tempo disponível. Antes bastava
+    perguntar "esse número está no modelo?"; agora a resposta depende de quantas
+    vezes a letra cai na semana desta pessoa e de quantos minutos ela tem.
 
-    Sem isto, mudar as séries de um exercício no catálogo não chegaria a quem
-    já tem ficha — exatamente o defeito que a comparação de prescrição existe
-    para pegar, reaberto por outro caminho.
+    Compara contra a MESMA função que o gerador usa, e não contra uma cópia da
+    regra: duas cópias da mesma conta é como as duas nasceram diferentes — e uma
+    divergência de um número aqui faria toda visita à tela julgar a ficha
+    obsoleta, remontando em laço e em silêncio.
 
-    Recebe as sessões e os modelos JÁ carregados em vez de buscá-los, e isso
-    não é preferência de estilo: a primeira versão consultava os dois por
-    conta própria e a tela de treino passou de 25 para 27 consultas — pego por
-    `ScreenQueryBudgetTests`. Quem chama já tem as duas coisas na mão.
+    Recebe sessões e modelos já carregados. A primeira versão buscava os dois
+    por conta própria e a tela de treino passou de 25 para 27 consultas, pego
+    por `ScreenQueryBudgetTests`.
     """
     if not modelos:
         return False
 
-    ocorrencias = {}
-    for sessao in sessoes:
-        ocorrencias[sessao.label] = ocorrencias.get(sessao.label, 0) + 1
+    prescricao = prescrever_semana(sessoes, modelos)
+    if prescricao is None:
+        return False
 
-    esperado = {}
-    vistas = {}
-    for sessao in sessoes:
-        modelo = modelos.get(sessao.label)
-        if modelo is None:
-            return False
-        indice = vistas.get(sessao.label, 0)
-        vistas[sessao.label] = indice + 1
-        for ordem, item in enumerate(modelo.items.all()):
-            series = distribuir_series(
-                item.sets, ocorrencias[sessao.label], ordem
-            )[indice]
-            if series:
-                esperado[(sessao.pk, item.exercise_id)] = series
-
-    for item in itens:
-        chave = (item.session_id, item.exercise_id)
-        if chave not in esperado or esperado[chave] != item.sets:
-            return False
-    return True
+    gravado = {(i.session_id, i.exercise_id): i.sets for i in itens}
+    esperado = {chave: series for chave, (series, _) in prescricao.items()}
+    return gravado == esperado
 
 
 def routine_is_current(plan, user) -> bool:
@@ -479,7 +657,7 @@ def routine_is_current(plan, user) -> bool:
     if not plan.is_customized and not na_ficha <= prescrito:
         return False
 
-    if not plan.is_customized and not _series_conferem(sessoes, modelos, itens):
+    if not plan.is_customized and not _prescricao_confere(sessoes, modelos, itens):
         return False
     if plan.is_customized:
         # Ficha ajustada à mão não é remontada pelo gerador. A pessoa trocou

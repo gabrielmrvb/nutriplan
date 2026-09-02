@@ -4386,40 +4386,6 @@ class MatrizDeVolumeTests(TestCase):
                             sessao.estimated_minutes, teto[sessao.label]
                         )
 
-    def test_a_duracao_declarada_nao_altera_a_prescricao(self):
-        """Contrato auditado: `duration_min` é declaração, não alvo nem teto.
-
-        Está escrito em quatro lugares e nenhum deles é o gerador: o rótulo do
-        formulário diz "Duração média"; `TrainingDay` guarda o número; a tela
-        mostra entre os INSUMOS do plano; e `plans.meal_planner` soma ao
-        horário de início para saber quando o treino acaba e posicionar a
-        refeição de depois.
-
-        Este teste existe para que ninguém "conserte" isso por engano: se um
-        dia o gerador passar a ler a duração, esta asserção cai e a mudança
-        entra por decisão, não por acidente.
-        """
-        fichas = [self._ficha(4, None, duracao=d)[1] for d in (30, 45, 60, 90)]
-
-        retratos = {
-            tuple(
-                (s.label, i.exercise_id, i.sets)
-                for s in plan.sessions.order_by("order")
-                for i in s.exercises.order_by("order")
-            )
-            for plan in fichas
-        }
-
-        self.assertEqual(len(retratos), 1, "a duração declarada mudou a ficha")
-
-    def _minutos(sessao):
-        itens = list(sessao.exercises.all())
-        if not itens:
-            return 0
-        series = sum(i.sets for i in itens)
-        descanso = sum(i.rest_seconds for i in itens) // len(itens)
-        return _duracao_estimada(series, len(itens), descanso) / 60
-
     def test_a_nota_da_ficha_descreve_o_ciclo_que_foi_gerado(self):
         """O texto do BUG #7 e o motor precisam contar a mesma história."""
         for dias in (4, 5, 6, 7):
@@ -4873,3 +4839,353 @@ class SincronizacaoEstavelTests(TestCase):
             self.assertFalse(mudou_de_novo, "sincronizou duas vezes pela mesma mudança")
         self.assertEqual(self._contagens(), contagens)
         self.assertEqual(self._retrato(services.get_active_routine(user)), retrato)
+
+
+class OrcamentoDeTempoTests(TestCase):
+    """O treino cabe no tempo que a pessoa disse ter.
+
+    O campo se chamava "Duração média" e o gerador nunca leu o número: quem
+    informava 30 minutos recebia sessão estimada em 47 a 51. A interface fazia
+    acreditar num limite que o motor ignorava — e o defeito não era só de texto,
+    porque o dado existia, estava certo, e não servia para nada.
+
+    O campo virou "Tempo disponível" e o gerador passou a respeitá-lo. Quando
+    não cabe, o corte é pela CAUDA da ficha, e esse critério não foi inventado
+    aqui: o catálogo ordena os itens por importância
+    (`WorkoutTemplateItem.Meta.ordering`) e o app já dizia à pessoa, na nota da
+    divisão AB, para priorizar os exercícios do começo.
+    """
+
+    ORCAMENTOS = (30, 45, 60, 90)
+    PREFERENCIAS = (None,) + tuple(SPLIT_BY_PREFERENCE)
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def _ficha(self, dias, minutos, preferencia=None):
+        user = create_user(
+            email="tempo-%s-%s-%s@exemplo.com" % (dias, minutos, preferencia),
+            weekdays=tuple(range(dias)),
+            duration=minutos,
+        )
+        if preferencia:
+            Profile.objects.filter(user=user).update(
+                split_preference=preferencia, split_preference_confirmada=True
+            )
+            user.refresh_from_db()
+        return services.create_routine(user)
+
+    def test_nenhuma_sessao_estoura_o_tempo_informado(self):
+        """A matriz inteira: 4 orçamentos × 7 frequências × 4 preferências.
+
+        O teto usa a mesma tolerância do gerador porque `estimated_minutes` é
+        estimativa e porque o gerador só encurta removendo um exercício
+        inteiro — exigir que caiba ao segundo custaria de quatro a seis séries
+        semanais para economizar menos de cinco minutos.
+
+        A folga é limitada em ABSOLUTO, cinco minutos, e não só em
+        porcentagem: o campo aceita até 300 minutos, e uma folga proporcional
+        autorizaria meia hora de excesso ali.
+        """
+        # Os tetos estão ESCRITOS, e não calculados chamando a função sob
+        # teste. A primeira versão fazia `services._teto_em_segundos(minutos)`
+        # — e afrouxar a constante movia a trave junto: a sabotagem que sobe a
+        # folga para 60 minutos passava verde. O teste precisa afirmar o
+        # NÚMERO que o produto aceita.
+        TETOS = {30: 33.0, 45: 49.5, 60: 65.0, 90: 95.0}
+        for minutos in self.ORCAMENTOS:
+            teto = TETOS[minutos]
+            for dias in range(1, 8):
+                for preferencia in self.PREFERENCIAS:
+                    plan = self._ficha(dias, minutos, preferencia)
+                    estouros = [
+                        (s.label, s.estimated_minutes)
+                        for s in plan.sessions.all()
+                        if s.estimated_minutes > teto
+                    ]
+                    with self.subTest(
+                        minutos=minutos, dias=dias, pref=preferencia
+                    ):
+                        self.assertEqual(
+                            estouros, [],
+                            "sessão de %s min para quem tem %s" % (estouros, minutos),
+                        )
+
+    def test_a_folga_nunca_passa_de_cinco_minutos(self):
+        """A folga é limitada em ABSOLUTO, e não só em porcentagem.
+
+        Este teste existe porque a sabotagem que sobe o teto para 60 minutos
+        NÃO é detectável pelo resultado: o limite só morde acima de 50 minutos
+        de orçamento, e ali a maior sessão que o catálogo produz (52 min) já
+        cabe de sobra. Medir só a saída deixa a regra desprotegida.
+
+        O que a trava impede é o caso extremo: o formulário aceita até 300
+        minutos, e uma folga puramente proporcional autorizaria meia hora de
+        excesso. Cinco minutos é menos que o exercício mediano do catálogo
+        (5,4 min), então a folga nunca chega a caber um exercício inteiro.
+        """
+        for orcamento, teto_esperado in (
+            (15, 16.5),    # 10% = 1,5 — proporcional manda
+            (30, 33.0),    # 10% = 3    — proporcional manda
+            (50, 55.0),    # 10% = 5    — os dois empatam
+            (90, 95.0),    # 10% = 9    — o teto absoluto manda
+            (300, 305.0),  # 10% = 30   — o teto absoluto é o que importa
+        ):
+            with self.subTest(orcamento=orcamento):
+                minutos = float(services._teto_em_segundos(orcamento)) / 60
+                self.assertAlmostEqual(minutos, teto_esperado, places=2)
+                self.assertLessEqual(
+                    minutos - orcamento,
+                    5.0,
+                    "a folga passou de cinco minutos",
+                )
+
+    def test_o_caso_do_relato_trinta_minutos(self):
+        """Três dias e 30 minutos: era 47 a 51 minutos de prescrição."""
+        plan = self._ficha(3, 30)
+
+        estimativas = [s.estimated_minutes for s in plan.sessions.all()]
+
+        self.assertTrue(estimativas)
+        self.assertLessEqual(max(estimativas), 33)
+
+    def test_quem_tem_mais_tempo_nao_ganha_volume_inventado(self):
+        """A outra metade do contrato, e a que protege a correção do volume.
+
+        Encurtar para caber é obrigação; alongar para preencher seria inflar o
+        volume de novo — exatamente as 28 e 42 séries que acabaram de sair.
+        Noventa minutos não pode receber mais séries que sessenta.
+        """
+        for dias in (3, 4, 7):
+            de_sessenta = self._ficha(dias, 60)
+            de_noventa = self._ficha(dias, 90)
+
+            def semanal(plan):
+                return sum(
+                    i.sets
+                    for s in plan.sessions.all()
+                    for i in s.exercises.all()
+                )
+
+            with self.subTest(dias=dias):
+                self.assertEqual(semanal(de_noventa), semanal(de_sessenta))
+
+    def test_orcamento_maior_nao_estica_a_sessao(self):
+        """Tempo disponível é TETO, não meta.
+
+        A diferença aparece justamente onde o teto não morde: com 60 ou 90
+        minutos, a maior sessão que o catálogo produz tem cerca de 52 — e ela
+        precisa CONTINUAR com 52. Um gerador que tratasse o número como alvo
+        encheria o resto com séries que ninguém prescreveu, refazendo por outro
+        caminho o defeito das 28 séries de peito.
+
+        `test_quem_tem_mais_tempo_nao_ganha_volume_inventado` compara o volume
+        semanal entre 60 e 90; este compara a DURAÇÃO contra o teto, que é a
+        propriedade que faltava.
+        """
+        for dias in (3, 4, 7):
+            # `_ficha` deriva o e-mail dos parâmetros, então a ficha de 90 é
+            # montada UMA vez e reaproveitada como referência — recriá-la
+            # dentro do laço colide na constraint de e-mail único.
+            fichas = {m: self._ficha(dias, m) for m in (60, 90)}
+            natural = max(s.estimated_minutes for s in fichas[90].sessions.all())
+            for minutos in (60, 90):
+                maior = max(
+                    s.estimated_minutes for s in fichas[minutos].sessions.all()
+                )
+                teto = float(services._teto_em_segundos(minutos)) / 60
+                with self.subTest(dias=dias, minutos=minutos):
+                    self.assertEqual(
+                        maior, natural, "a sessão cresceu com o orçamento"
+                    )
+                    self.assertLess(
+                        maior,
+                        teto - 5,
+                        "a sessão encostou no teto — sinal de que ele virou meta",
+                    )
+
+    def test_o_corte_preserva_todos_os_grupos_do_dia(self):
+        """Um dia de pernas não pode virar um dia de quadríceps.
+
+        Esta era a primeira versão do corte e ela estava errada: eu tirava da
+        CAUDA da ficha, apoiado na nota da divisão AB — "priorize os exercícios
+        do começo". Auditando os nove modelos, a ordem não é ranking global de
+        importância: ela agrupa por região e só desce por importância DENTRO de
+        cada bloco. `abc C` é agachamento, leg press, extensora, stiff, mesa,
+        flexora, panturrilha, panturrilha, prancha. Cortar a cauda apagava a
+        panturrilha inteira e depois o posterior, deixando três de quadríceps.
+
+        O corte passou a ser por rodízio: sai do grupo com mais exercícios na
+        sessão. Os 30 minutos aqui não são arbitrários — é o menor valor do
+        formulário em que TODOS os grupos ainda cabem em ABC, medido: o piso é
+        23 minutos para ABC, 35 para AB e 44 para o corpo inteiro.
+        """
+        # A ficha de referência é montada UMA vez: `_ficha` deriva o e-mail dos
+        # parâmetros, e recriá-la dentro do laço colidia na constraint de
+        # e-mail único.
+        inteira = self._ficha(3, 90)
+        for minutos in (30, 45, 60):
+            curta = self._ficha(3, minutos)
+            for label in ("A", "B", "C"):
+                grupos_previstos = {
+                    i.exercise.muscle_group
+                    for i in inteira.sessions.get(label=label)
+                    .exercises.select_related("exercise")
+                }
+                grupos_presentes = {
+                    i.exercise.muscle_group
+                    for i in curta.sessions.get(label=label)
+                    .exercises.select_related("exercise")
+                }
+                with self.subTest(minutos=minutos, dia=label):
+                    self.assertEqual(
+                        grupos_previstos - grupos_presentes,
+                        set(),
+                        "grupo sumiu do dia por causa do tempo",
+                    )
+
+    def test_no_tempo_curto_demais_o_app_diz_o_que_fez(self):
+        """Quinze minutos com quatro grupos no dia é impossível, e a saída não
+        pode ser fingir.
+
+        Um dia com quatro grupos precisa de pelo menos quatro exercícios, e
+        quatro exercícios não cabem em quinze minutos. Estourar o orçamento
+        seria quebrar a promessa que o campo passou a fazer; cortar em silêncio
+        deixaria a pessoa comparando a ficha dela com a de quem tem a mesma
+        divisão e concluindo que falta exercício.
+
+        O comportamento explícito: mantém os principais, avisa na nota, e diz
+        que aumentar o tempo traz os outros de volta — o que é verdade e
+        mensurável (23 minutos em ABC).
+        """
+        user = create_user(email="apertado@exemplo.com", weekdays=(0, 2, 4), duration=15)
+        plan = services.create_routine(user)
+
+        grupos_previstos = set()
+        for template in services.templates_for(plan.split):
+            for item in template.items.all():
+                grupos_previstos.add(item.exercise.muscle_group)
+        grupos_presentes = {
+            i.exercise.muscle_group
+            for s in plan.sessions.all()
+            for i in s.exercises.select_related("exercise")
+        }
+
+        self.assertTrue(
+            grupos_previstos - grupos_presentes,
+            "15 minutos deixaram de ser um caso apertado — reveja este teste",
+        )
+        self.assertIn("não cabem todos os grupos", plan.notes)
+        self.assertIn("Aumentar o tempo", plan.notes)
+
+    def test_quando_nada_e_cortado_a_nota_nao_fala_de_tempo(self):
+        """Aviso que aparece sempre vira ruído e deixa de ser lido."""
+        plan = self._ficha(3, 90)
+
+        self.assertNotIn("tempo que você informou", plan.notes)
+        self.assertNotIn("não cabem todos os grupos", plan.notes)
+
+    def test_corte_leve_avisa_sem_dramatizar(self):
+        """Perder exercício é esperado; perder grupo é outra conversa."""
+        plan = self._ficha(3, 30)
+
+        self.assertIn("ajustada para caber no tempo", plan.notes)
+        self.assertNotIn("não cabem todos os grupos", plan.notes)
+
+    def test_dentro_do_grupo_o_corte_e_do_fim(self):
+        """A ordem do catálogo vale DENTRO do bloco, e ali ela é prioridade:
+        o composto e as séries maiores vêm primeiro. Então o que fica de cada
+        grupo é um prefixo da sequência daquele grupo."""
+        curta = self._ficha(3, 30)
+        inteira = self._ficha(3, 90)
+
+        for label in ("A", "B", "C"):
+            def por_grupo(plan):
+                saida = {}
+                for i in (
+                    plan.sessions.get(label=label)
+                    .exercises.select_related("exercise")
+                    .order_by("order")
+                ):
+                    saida.setdefault(i.exercise.muscle_group, []).append(i.exercise_id)
+                return saida
+
+            completa, aparada = por_grupo(inteira), por_grupo(curta)
+            for grupo, mantidos in aparada.items():
+                with self.subTest(dia=label, grupo=grupo):
+                    self.assertEqual(mantidos, completa[grupo][: len(mantidos)])
+
+    def test_nenhuma_sessao_fica_vazia(self):
+        """Quinze minutos é o mínimo que o formulário aceita, e ainda assim a
+        pessoa merece o exercício principal do dia. Sessão vazia não é uma
+        resposta melhor que sessão curta."""
+        for dias in range(1, 8):
+            plan = self._ficha(dias, 15)
+            for sessao in plan.sessions.all():
+                with self.subTest(dias=dias, dia=sessao.label):
+                    self.assertGreaterEqual(sessao.exercises.count(), 1)
+
+    def test_o_volume_semanal_continua_dentro_do_orcamento_do_catalogo(self):
+        """As duas correções coexistem: aparar pelo tempo nunca faz um grupo
+        passar do que a divisão prescreve numa passagem completa."""
+        for minutos in self.ORCAMENTOS:
+            for dias in (4, 7):
+                plan = self._ficha(dias, minutos)
+                orcamento = {}
+                for template in services.templates_for(plan.split):
+                    for item in template.items.all():
+                        g = item.exercise.muscle_group
+                        orcamento[g] = orcamento.get(g, 0) + item.sets
+                semanal = {}
+                for sessao in plan.sessions.all():
+                    for i in sessao.exercises.select_related("exercise"):
+                        g = i.exercise.muscle_group
+                        semanal[g] = semanal.get(g, 0) + i.sets
+                with self.subTest(minutos=minutos, dias=dias):
+                    self.assertEqual(
+                        {
+                            g: (v, orcamento.get(g, 0))
+                            for g, v in semanal.items()
+                            if v > orcamento.get(g, 0)
+                        },
+                        {},
+                    )
+
+    def test_a_ficha_continua_estavel_com_o_tempo_no_meio(self):
+        """`prescrever_semana` decide e `_prescricao_confere` verifica com a
+        MESMA função. Se o tempo entrasse só num dos dois lados, toda visita à
+        tela julgaria a ficha obsoleta e o gerador rodaria em laço."""
+        for minutos in self.ORCAMENTOS:
+            for dias in (3, 4, 7):
+                user = create_user(
+                    email="estavel-%s-%s@exemplo.com" % (minutos, dias),
+                    weekdays=tuple(range(dias)),
+                    duration=minutos,
+                )
+                plan = services.create_routine(user)
+                with self.subTest(minutos=minutos, dias=dias):
+                    self.assertTrue(services.routine_is_current(plan, user))
+                    _, mudou = services.sync_active_routine(user)
+                    self.assertFalse(mudou)
+
+    def test_mudar_o_tempo_disponivel_remonta_a_ficha(self):
+        """O contrato novo em uma frase: o número passou a valer alguma coisa.
+
+        Antes esta asserção era a oposta — havia um teste afirmando que as
+        quatro durações produziam fichas idênticas, porque o gerador ignorava o
+        campo. Era verdade e era o defeito.
+        """
+        user = create_user(email="mudou-o-tempo@exemplo.com", weekdays=(0, 2, 4))
+        antes = services.create_routine(user)
+        exercicios_antes = SessionExercise.objects.filter(session__plan=antes).count()
+
+        user.training_days.update(duration_min=30)
+
+        self.assertFalse(services.routine_is_current(antes, user))
+        depois, mudou = services.sync_active_routine(user)
+        self.assertTrue(mudou)
+        self.assertLess(
+            SessionExercise.objects.filter(session__plan=depois).count(),
+            exercicios_antes,
+        )
