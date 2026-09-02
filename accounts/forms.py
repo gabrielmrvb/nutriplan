@@ -72,6 +72,20 @@ class SignupForm(UserCreationForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # O cursor tem que cair na PRIMEIRA pergunta da tela.
+        #
+        # `UserCreationForm.__init__` marca `autofocus` no `USERNAME_FIELD`, que
+        # aqui é o e-mail — e o e-mail é o SEGUNDO campo. Medido no navegador,
+        # em produção: o atributo estava em `email` enquanto a ordem visual e de
+        # tabulação começa em "Como podemos te chamar?". Quem chega e começa a
+        # digitar o nome escreve dentro do campo de e-mail.
+        #
+        # Não é o teclado que decide a ordem, é a tela: o foco segue a pergunta
+        # que a pessoa acabou de ler.
+        self.fields["email"].widget.attrs.pop("autofocus", None)
+        self.fields["first_name"].widget.attrs["autofocus"] = True
+
         self.fields["password1"].label = "Senha"
         self.fields["password2"].label = "Confirme a senha"
         # A ajuda da senha, encurtada. A VALIDAÇÃO não muda: quem recusa senha
@@ -103,7 +117,29 @@ class SignupForm(UserCreationForm):
 
 
 class EmailAuthenticationForm(AuthenticationForm):
-    """Login por e-mail — só troca rótulo e widget; a autenticação é a do Django."""
+    """Login por e-mail — só troca rótulo, widget e recado; a autenticação é a do Django."""
+
+    #: A frase padrão do Django dizia uma coisa que NESTE app é falsa.
+    #:
+    #: "Note que ambos os campos diferenciam maiúsculas e minúsculas" manda a
+    #: pessoa procurar um erro de capitalização no e-mail — e medido no
+    #: navegador, contra a stack real, o e-mail entra em CAIXA ALTA sem
+    #: problema: `AUTHENTICATION_BACKENDS` tem o backend do allauth depois do
+    #: `ModelBackend`, e ele acha a conta sem diferenciar caixa. Só a senha
+    #: diferencia.
+    #:
+    #: Mandar alguém conferir a caixa do e-mail quando o defeito está na senha
+    #: é pior que não explicar nada: gasta a tentativa seguinte no lugar errado.
+    #:
+    #: O texto padrão ainda vinha com espaço duplo ("um e-mail  e senha"),
+    #: porque o `verbose_name` interpolado já termina em espaço.
+    error_messages = {
+        **AuthenticationForm.error_messages,
+        "invalid_login": (
+            "E-mail ou senha incorretos. A senha diferencia maiúsculas de "
+            "minúsculas; o e-mail, não."
+        ),
+    }
 
     username = forms.EmailField(
         label="E-mail",

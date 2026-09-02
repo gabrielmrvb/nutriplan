@@ -169,7 +169,30 @@ ensina mais que a correção:
 - **P2 — link quebrado na política de privacidade**, apontando para uma rota
   que só aceita POST de propósito.
 
-### PREMIUM POLISH — ESCOPO B1–B11 RECUPERADO
+### PREMIUM POLISH — B1 FEITO, B2 É O PRÓXIMO
+
+**B1 — LOGIN / CADASTRO ✅** Auditado em navegador real em 375, 430, 768 e
+desktop. A tela já estava boa: zero rolagem horizontal, zero alvo abaixo de
+44×44, zero texto abaixo de 11px, contraste AA em todos os textos medidos,
+`autocomplete` correto em todos os campos, foco de teclado visível por
+`:focus-visible`, e o estado de carregamento do botão já implementado com
+`aria-busy`, pulso lento e `prefers-reduced-motion`.
+
+Dois defeitos reais, os dois medidos e não supostos:
+
+1. o `autofocus` do cadastro caía no SEGUNDO campo — `UserCreationForm` o marca
+   no `USERNAME_FIELD`, que aqui é o e-mail, enquanto a tela pergunta o nome
+   primeiro. Quem começava a digitar escrevia o nome dentro do e-mail;
+2. a mensagem de credencial inválida afirmava que "ambos os campos diferenciam
+   maiúsculas e minúsculas". Medido: o e-mail entra em caixa alta sem problema,
+   porque o backend do allauth acha a conta sem diferenciar caixa. A frase
+   mandava conferir a capitalização do e-mail quando o defeito estava na senha.
+
+**B2 — HOJE ⏳ PRÓXIMO**
+
+Escopo em [`docs/premium-polish-b1-b11.md`](docs/premium-polish-b1-b11.md).
+
+### Escopo B1–B11 recuperado
 
 O escopo original está em [`docs/premium-polish-b1-b11.md`](docs/premium-polish-b1-b11.md),
 recuperado do transcript da sessão (linha 29190, mensagem do usuário de
