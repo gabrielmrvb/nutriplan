@@ -727,3 +727,85 @@ class ExerciseLog(models.Model):
 
     def __str__(self):
         return f"{self.exercise} série {self.set_number} — {self.weight_kg} kg em {self.date:%d/%m}"
+
+
+class Corrida(models.Model):
+    """Uma corrida registrada, sem o traçado.
+
+    O TRAÇADO NÃO É GUARDADO, e isso é decisão e não pendência.
+
+    Guardar coordenada é guardar onde a pessoa mora e a que horas ela sai de
+    casa — dado de natureza diferente do peso, que diz quanto ela pesa. E não
+    existe nenhuma tela que use o traçado: não há mapa. Guardar "para quando o
+    mapa existir" é coletar o dado mais sensível do app por antecipação, que é
+    exatamente o que este projeto acabou de recusar em outros três lugares.
+
+    Quando o mapa for desenhado — junto com a decisão de cortar as pontas da
+    rota, que é o que impede uma imagem compartilhada de publicar o endereço —,
+    o traçado vem com ele. Ver `docs/running-analise.md`.
+
+    O que fica: distância, tempo, parciais. Tudo calculado no aparelho a partir
+    das leituras, que morrem lá.
+
+    `teve_lacuna` existe por causa do teto da plataforma. Uma PWA não tem
+    geolocalização em segundo plano: com a tela bloqueada as leituras param.
+    Marcar a corrida é o que permite a tela dizer "houve um trecho não
+    registrado" em vez de mostrar uma distância menor como se fosse a real.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="corridas",
+        verbose_name="usuário",
+    )
+    #: Gerado no navegador ANTES de enviar. Corrida é registro que a fila
+    #: offline pode reenviar, e reenvio sem chave duplica a corrida — o mesmo
+    #: problema que `SyncedOperation` resolve para água e suplemento. Por
+    #: pessoa e não global, porque dois aparelhos podem sortear o mesmo.
+    op_id = models.CharField("identificador da operação", max_length=64)
+
+    comecou_em = models.DateTimeField("começou em")
+    terminou_em = models.DateTimeField("terminou em")
+
+    #: Metros. Inteiro porque o GPS de celular não distingue centímetros, e
+    #: guardar casas decimais sugeriria uma precisão que não existe.
+    distancia_m = models.PositiveIntegerField("distância (m)")
+
+    #: Segundos EM MOVIMENTO: o tempo parado não conta. Quem para no sinal não
+    #: piorou o pace.
+    duracao_s = models.PositiveIntegerField("duração (s)")
+
+    teve_lacuna = models.BooleanField("teve trecho não registrado", default=False)
+
+    #: `[{"km": 1, "segundos": 312.0}, ...]`. Fica aqui e não em tabela própria
+    #: porque nenhuma consulta precisa de uma parcial isolada: elas são lidas
+    #: sempre inteiras, junto da corrida.
+    parciais = models.JSONField("parciais", default=list, blank=True)
+
+    criada_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "corrida"
+        verbose_name_plural = "corridas"
+        ordering = ["-comecou_em"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "op_id"), name="uma_corrida_por_operacao"
+            )
+        ]
+        indexes = [models.Index(fields=["user", "-comecou_em"])]
+
+    def __str__(self):
+        return f"{self.distancia_m / 1000:.2f} km em {self.duracao_s}s"
+
+    @property
+    def pace_s_km(self):
+        """Segundos por quilômetro, ou `None` quando não há o que dividir.
+
+        Propriedade e não coluna: é derivada de dois campos que já estão aqui,
+        e uma terceira cópia do mesmo fato é uma cópia para ficar errada.
+        """
+        if not self.distancia_m or not self.duracao_s:
+            return None
+        return self.duracao_s * 1000 / self.distancia_m

@@ -6168,3 +6168,73 @@ body.montando { overflow: hidden; }
   font-size: .72rem;
   font-weight: 500;
 }
+
+/* ==========================================================================
+   44. Corrida
+   ==========================================================================
+
+   Três números, lidos de relance e correndo. É o contexto mais hostil do app:
+   mais hostil que a academia, porque aqui a pessoa está em movimento. */
+
+.corrida-aviso {
+  margin: 0 0 1rem;
+  color: var(--text-dim);
+  font-size: .85rem;
+  line-height: 1.55;
+}
+
+.corrida-numeros {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .75rem;
+  margin-bottom: 1rem;
+}
+
+.corrida-numero { min-width: 0; text-align: center; }
+
+.corrida-numero__valor {
+  display: block;
+  font-family: var(--font-mono);
+  /* Sem largura fixa por dígito, o cronômetro empurra a distância de lado a
+     cada segundo — e um número que dança é ilegível em movimento. */
+  font-variant-numeric: tabular-nums;
+  font-size: 1.9rem;
+  font-weight: 760;
+  line-height: 1.1;
+}
+
+.corrida-numero__rotulo {
+  display: block;
+  margin-top: .15rem;
+  color: var(--text-mute);
+  font-size: .72rem;
+}
+
+.corrida-estado {
+  margin: 0 0 1rem;
+  min-height: 1.2rem;
+  color: var(--text-dim);
+  font-size: .82rem;
+}
+
+.corrida-acoes { display: flex; flex-direction: column; gap: .6rem; }
+
+/* 48px e não 44: estes três são tocados de pé, em movimento, e a régua maior
+   já vale para os controles do modo treino pela mesma razão. */
+.corrida-acoes .btn { min-height: 48px; }
+
+.corrida-lacuna {
+  display: block;
+  color: var(--warm);
+  font-family: var(--font);
+  font-size: .72rem;
+  font-weight: 620;
+}
+
+.corrida-detalhe {
+  display: block;
+  color: var(--text-mute);
+  font-family: var(--font);
+  font-size: .72rem;
+  font-weight: 500;
+}

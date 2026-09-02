@@ -14,7 +14,7 @@ from unittest.mock import patch
 from django.conf import settings
 from django.core.management import call_command
 from django.db import OperationalError
-from django.test import Client, TestCase, override_settings
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import NoReverseMatch, reverse
 
 from accounts.models import Profile
@@ -2203,3 +2203,33 @@ class HealthCheckNaoAcordaOBancoTests(TestCase):
 
         self.assertEqual(resposta.status_code, 503)
         self.assertIn("catalogo", resposta.json())
+
+
+class ComentarioDeTemplateNaoVazaTests(SimpleTestCase):
+    """`{# #}` comenta UMA linha. Escrito em três, vira texto na tela.
+
+    Encontrado olhando a página: o rodapé da tela de corridas mostrava a frase
+    "A URL versionada vem do contexto..." em letra normal, no meio do conteúdo.
+    Nenhum teste pegou — a suíte inteira passava —, porque o HTML continuava
+    válido e a view continuava devolvendo 200.
+
+    A varredura é sobre TODOS os templates, e não sobre o que eu escrevi: o
+    erro é fácil de repetir e o sintoma é discreto o bastante para sobreviver a
+    uma revisão. Quem quiser comentário de várias linhas usa
+    `{% comment %}`.
+    """
+
+    def test_nenhum_comentario_de_cerquilha_atravessa_linhas(self):
+        import re
+
+        vazando = []
+        for arquivo in (RAIZ / "templates").rglob("*.html"):
+            texto = arquivo.read_text(encoding="utf-8")
+            for achado in re.finditer(r"\{#", texto):
+                resto = texto[achado.start() :]
+                fim = resto.find("#}")
+                if fim == -1 or "\n" in resto[:fim]:
+                    linha = texto[: achado.start()].count("\n") + 1
+                    vazando.append(f"{arquivo.name}:{linha}")
+
+        self.assertEqual(vazando, [])

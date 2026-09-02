@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Corridas · NutriPlan{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Corridas</h1>
+  </div>
+
+  <section class="card corrida-agora" data-corrida
+           data-salvar="{% url 'workouts:salvar_corrida' %}">
+    {% comment %}
+      O aviso vem ANTES do botão, e não depois de a pessoa começar.
+
+      Uma PWA não tem geolocalização em segundo plano — não é limitação de
+      esforço, é ausência de API. Com a tela bloqueada as leituras param.
+      Contar isso depois que a corrida já falhou é contar tarde.
+    {% endcomment %}
+    <p class="corrida-aviso" data-corrida-aviso>
+      O NutriPlan registra a corrida com o app aberto e a tela acesa — ela fica
+      acesa sozinha enquanto você corre, e isso gasta mais bateria. Guardar o
+      telefone no bolso interrompe o registro: o navegador não deixa a página
+      acompanhar a localização em segundo plano.
+    </p>
+
+    <div class="corrida-numeros" hidden data-corrida-painel>
+      <div class="corrida-numero">
+        <strong class="corrida-numero__valor" data-corrida-distancia>0,00</strong>
+        <span class="corrida-numero__rotulo">km</span>
+      </div>
+      <div class="corrida-numero">
+        <strong class="corrida-numero__valor" data-corrida-tempo>00:00</strong>
+        <span class="corrida-numero__rotulo">em movimento</span>
+      </div>
+      <div class="corrida-numero">
+        <strong class="corrida-numero__valor" data-corrida-pace>—</strong>
+        <span class="corrida-numero__rotulo">min/km</span>
+      </div>
+    </div>
+
+    <p class="corrida-estado" role="status" aria-live="polite" data-corrida-estado></p>
+
+    <div class="corrida-acoes">
+      <button type="button" class="btn btn--primary btn--block" data-corrida-comecar>
+        Começar corrida
+      </button>
+      <button type="button" class="btn btn--ghost" hidden data-corrida-pausar>Pausar</button>
+      <button type="button" class="btn btn--ghost" hidden data-corrida-retomar>Retomar</button>
+      <button type="button" class="btn btn--ghost" hidden data-corrida-encerrar>Encerrar</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Suas corridas</h2></div>
+    {% if corridas %}
+      <dl class="data-list">
+        {% for corrida in corridas %}
+          <div>
+            <dt>
+              {{ corrida.comecou_em|date:"d/m/Y" }}
+              {% if corrida.teve_lacuna %}
+                <span class="corrida-lacuna">com trecho não registrado</span>
+              {% endif %}
+            </dt>
+            <dd>
+              {{ corrida.distancia_m|floatformat:0 }} m
+              <span class="corrida-detalhe">
+                {{ corrida.duracao_s }} s em movimento
+              </span>
+            </dd>
+          </div>
+        {% endfor %}
+      </dl>
+      {% if corridas.count %}
+        <p class="hint">
+          A distância vem das leituras de GPS do seu aparelho, e o traçado não é
+          guardado em lugar nenhum.
+        </p>
+      {% endif %}
+    {% else %}
+      <p class="empty-state">
+        Nenhuma corrida ainda. A primeira aparece aqui assim que você encerrar.
+      </p>
+    {% endif %}
+  </section>
+
+  {% comment %}
+    A URL versionada vem do contexto, como as outras: o hash no endereço é o
+    que faz o navegador buscar o arquivo novo depois de um deploy.
+
+    `{% comment %}` e não `{# #}`: a chave-cerquilha só comenta UMA linha, e um
+    comentário de três linhas escrito assim é renderizado como texto na tela.
+    Foi o que aconteceu aqui — apareceu no rodapé da página.
+  {% endcomment %}
+  <script src="{{ corrida_js_url }}" defer></script>
+{% endblock %}
