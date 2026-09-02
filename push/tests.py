@@ -966,3 +966,45 @@ class FilaOfflineIndexedDBTests(TestCase):
         # decisão — que é o oposto do que este teste quer proteger.
         for texto, nome in ((self.pagina, "fila.js"), (self.worker, "sw.js")):
             self.assertNotRegex(texto, r"indexedDB\s*\.\s*deleteDatabase", nome)
+
+
+class TelasOperacionaisForaDoCacheTests(TestCase):
+    """`/admin/` e `/gestao/` não passam pelo service worker.
+
+    O motivo não é offline — é o cache. A estratégia de navegação guarda uma
+    cópia de cada página visitada, e essas duas mostram dado de OUTRAS pessoas:
+    a tela de detalhe de uma conta traz e-mail, perfil e pesagens; a lista do
+    painel traz o e-mail de todas. Guardadas em `caches`, elas sobrevivem ao
+    logout e ficam legíveis para qualquer coisa com acesso ao perfil do
+    navegador.
+
+    O teste lê o código do worker porque não há como executá-lo aqui: não
+    existe Node neste ambiente, e o `sw.js` é servido por template. Então a
+    asserção é sobre a GUARDA existir e vir ANTES de qualquer estratégia — uma
+    guarda depois do `caches.put` não guardaria nada.
+    """
+
+    def setUp(self):
+        self.fonte = self.client.get("/sw.js").content.decode()
+
+    def test_as_duas_telas_estao_na_guarda(self):
+        self.assertIn('"/admin/"', self.fonte)
+        self.assertIn('"/gestao/"', self.fonte)
+
+    def test_a_guarda_vem_antes_da_estrategia_de_navegacao(self):
+        """Guarda depois do `caches.put` não guarda nada: a cópia já foi
+        gravada."""
+        guarda = self.fonte.index("ehTelaOperacional(new URL(request.url))")
+        navegacao = self.fonte.index('request.mode === "navigate"')
+
+        self.assertLess(guarda, navegacao)
+
+    def test_a_guarda_confere_a_origem(self):
+        """Sem conferir origem, um endereço de outro site terminado em
+        `/admin/` casaria — e a guarda passaria a decidir sobre pedido que não
+        é nosso."""
+        trecho = self.fonte[
+            self.fonte.index("function ehTelaOperacional") :
+        ][:400]
+
+        self.assertIn("url.origin === self.location.origin", trecho)

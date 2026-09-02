@@ -103,9 +103,29 @@ function store(request, response) {
   return response;
 }
 
+/* As telas operacionais NÃO passam pelo service worker.
+ *
+ * O motivo não é offline — é o cache. A estratégia de navegação guarda uma
+ * cópia de cada página visitada em `CACHE_PAGINAS`, e essas duas mostram dado
+ * de OUTRAS pessoas: a tela de detalhe de uma conta traz e-mail, perfil e
+ * pesagens; a lista do painel de gestão traz o e-mail de todas. Guardadas no
+ * cache, elas sobrevivem ao logout e ficam legíveis para qualquer coisa com
+ * acesso ao perfil do navegador.
+ *
+ * E nenhuma delas precisa funcionar offline: não fazem parte do app que a
+ * pessoa instala. Deixar passar direto é a resposta para as duas coisas.
+ */
+function ehTelaOperacional(url) {
+  return (
+    url.origin === self.location.origin &&
+    (url.pathname.startsWith("/admin/") || url.pathname.startsWith("/gestao/"))
+  );
+}
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
+  if (ehTelaOperacional(new URL(request.url))) return;
 
   if (request.mode === "navigate") {
     /* Rede primeiro, com PACIÊNCIA LIMITADA.
