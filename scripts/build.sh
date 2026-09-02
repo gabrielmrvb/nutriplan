@@ -36,6 +36,14 @@ python manage.py collectstatic --no-input
 # que ela veio verificar. Continua fechando o portao: nada sobe se ela falhar.
 python manage.py check --deploy --fail-level ERROR
 python manage.py migrate --no-input
+
+# Os papéis administrativos, reconciliados com o que o código declara. Sem
+# isto, `accounts/papeis.py` é documentação: tirar uma permissão de lá não a
+# tira de ninguém, porque o grupo no banco guarda o que recebeu da última vez
+# que alguém rodou o bootstrap. Idempotente, e DEPOIS do migrate porque
+# resolve permissão contra os ContentTypes que a migração acabou de criar.
+python manage.py sincronizar_papeis
+
 python manage.py seed_catalog
 python manage.py seed_workouts
 # O usuário de demonstração, para /demo/ subir pronto. Depois dos outros seeds

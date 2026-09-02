@@ -5541,3 +5541,197 @@ class DiasDeTreinoNaoDependemDoAdminTests(TestCase):
         dias = TrainingDay.objects.filter(user=self.alvo).order_by("weekday")
         self.assertEqual([d.weekday for d in dias], [1, 3])
         self.assertEqual(dias[0].duration_min, 45)
+
+
+class PapeisChegamEmProducaoTests(TestCase):
+    """A declaração dos papéis só vale se alguma coisa a escreve no banco.
+
+    O caso real: `add_user` saiu de `PAPEIS`, a suíte inteira passou, o deploy
+    subiu — e o grupo em produção continuou com `add_user`, porque
+    `sincronizar_papeis()` só era chamado por `promover_admin`, que já tinha
+    saído do build depois de cumprir o bootstrap. Toda a frente de menor
+    privilégio ficou sendo código que ninguém executava.
+
+    Nenhum teste pegou porque todos criavam os grupos chamando a sincronização
+    dentro do próprio teste. Provavam que a função funciona; nunca que algo a
+    chama no deploy. Este lê o script.
+    """
+
+    RAIZ = Path(__file__).resolve().parent.parent
+
+    def test_o_deploy_reconcilia_os_papeis(self):
+        script = (self.RAIZ / "scripts" / "build.sh").read_text(encoding="utf-8")
+
+        self.assertIn("manage.py sincronizar_papeis", script)
+
+    def test_a_reconciliacao_acontece_depois_do_migrate(self):
+        """A sincronização resolve permissão contra ContentType. Antes do
+        `migrate`, o tipo de um model novo ainda não existe e a permissão dele
+        é silenciosamente pulada — o grupo sai do deploy incompleto e ninguém
+        vê erro nenhum."""
+        script = (self.RAIZ / "scripts" / "build.sh").read_text(encoding="utf-8")
+
+        self.assertLess(
+            script.index("manage.py migrate"),
+            script.index("manage.py sincronizar_papeis"),
+        )
+
+    def test_o_comando_deixa_o_grupo_igual_a_declaracao(self):
+        Group.objects.filter(name=papeis.ADMINISTRADORES).delete()
+
+        call_command("sincronizar_papeis", verbosity=0)
+
+        grupo = Group.objects.get(name=papeis.ADMINISTRADORES)
+        self.assertEqual(
+            {p.codename for p in grupo.permissions.all()},
+            {p.codename for p in papeis.permissoes_de(papeis.ADMINISTRADORES)},
+        )
+
+    def test_rodar_de_novo_nao_muda_nada(self):
+        """O build roda isto em todo deploy: se não fosse idempotente, cada
+        deploy seria uma mudança de autorização."""
+        call_command("sincronizar_papeis", verbosity=0)
+        grupo = Group.objects.get(name=papeis.ADMINISTRADORES)
+        antes = {p.codename for p in grupo.permissions.all()}
+
+        call_command("sincronizar_papeis", verbosity=0)
+
+        grupo.refresh_from_db()
+        self.assertEqual({p.codename for p in grupo.permissions.all()}, antes)
+
+    def test_permissao_retirada_da_declaracao_sai_de_quem_ja_tinha(self):
+        """O caso que motivou tudo: acrescentar é fácil, tirar é o que precisa
+        funcionar."""
+        call_command("sincronizar_papeis", verbosity=0)
+        grupo = Group.objects.get(name=papeis.ADMINISTRADORES)
+        sobrando = Permission.objects.get(
+            codename="add_user", content_type__app_label="accounts"
+        )
+        grupo.permissions.add(sobrando)
+
+        call_command("sincronizar_papeis", verbosity=0)
+
+        self.assertNotIn(
+            "add_user", {p.codename for p in grupo.permissions.all()}
+        )
+
+
+class ContratoDaSincronizacaoTests(TestCase):
+    """O que a reconciliação PODE e o que ela NÃO PODE tocar.
+
+    Ela roda em todo deploy, sem ninguém olhando, com permissão de escrever na
+    tabela de autorização. O perigo não é ela falhar — falha aparece no build.
+    É ela fazer a mais: apagar um grupo que alguém criou à mão, limpar uma
+    permissão individual, mexer em `is_staff`. Cada teste aqui é um limite.
+    """
+
+    def setUp(self):
+        self.pessoa = User.objects.create_user(
+            email="limite@exemplo.com", password="senha-bem-forte-123"
+        )
+
+    def test_permissao_declarada_que_nao_existe_derruba_o_comando(self):
+        """Silêncio aqui vira grupo menor sem aviso, e a pessoa descobre
+        operando — num "acesso negado" que não explica nada."""
+        with mock.patch.dict(
+            papeis.PAPEIS[papeis.SUPORTE],
+            {("accounts", "modelo_que_nao_existe"): papeis.LEITURA},
+        ):
+            with self.assertRaises(papeis.PapelMalDeclarado):
+                call_command("sincronizar_papeis", verbosity=0)
+
+    def test_codename_errado_derruba_o_comando(self):
+        """O typo mais provável não é o model, é a ação."""
+        with mock.patch.dict(
+            papeis.PAPEIS[papeis.SUPORTE], {("accounts", "user"): ("ver",)}
+        ):
+            with self.assertRaises(papeis.PapelMalDeclarado):
+                call_command("sincronizar_papeis", verbosity=0)
+
+    def test_falha_num_papel_nao_deixa_o_outro_aplicado(self):
+        """Atômica: autorização reconciliada pela metade é o estado que
+        ninguém consegue diagnosticar depois."""
+        Group.objects.filter(
+            name__in=(papeis.ADMINISTRADORES, papeis.SUPORTE)
+        ).delete()
+
+        with mock.patch.dict(
+            papeis.PAPEIS[papeis.SUPORTE], {("accounts", "user"): ("ver",)}
+        ):
+            with self.assertRaises(papeis.PapelMalDeclarado):
+                call_command("sincronizar_papeis", verbosity=0)
+
+        self.assertFalse(
+            Group.objects.filter(name=papeis.ADMINISTRADORES).exists()
+        )
+
+    def test_grupo_criado_a_mao_fica_intocado(self):
+        """Reconciliar o que o NutriPlan gerencia não é assumir a tabela."""
+        estranho = Group.objects.create(name="Grupo do estagiário")
+        emprestada = Permission.objects.get(
+            codename="add_user", content_type__app_label="accounts"
+        )
+        estranho.permissions.add(emprestada)
+
+        call_command("sincronizar_papeis", verbosity=0)
+
+        estranho.refresh_from_db()
+        self.assertEqual(
+            [p.codename for p in estranho.permissions.all()], ["add_user"]
+        )
+
+    def test_permissao_individual_fica_intocada(self):
+        """`user_permissions` é decisão de alguém sobre UMA pessoa. A
+        sincronização reconcilia GRUPO."""
+        avulsa = Permission.objects.get(
+            codename="delete_user", content_type__app_label="accounts"
+        )
+        self.pessoa.user_permissions.add(avulsa)
+
+        call_command("sincronizar_papeis", verbosity=0)
+
+        self.assertEqual(
+            [p.codename for p in self.pessoa.user_permissions.all()],
+            ["delete_user"],
+        )
+
+    def test_nao_cria_conta_nenhuma(self):
+        antes = User.objects.count()
+
+        call_command("sincronizar_papeis", verbosity=0)
+
+        self.assertEqual(User.objects.count(), antes)
+
+    def test_nao_mexe_em_is_staff_nem_em_is_superuser(self):
+        """Sincronizar papel não é promover ninguém: quem entra no grupo
+        continua sendo decisão de `promover_admin`, com trilha."""
+        promovida = User.objects.create_user(
+            email="ja-staff@exemplo.com", password="senha-bem-forte-123"
+        )
+        promovida.is_staff = True
+        promovida.save(update_fields=["is_staff"])
+
+        call_command("sincronizar_papeis", verbosity=0)
+
+        for pessoa, staff in ((self.pessoa, False), (promovida, True)):
+            with self.subTest(pessoa=pessoa.pk):
+                pessoa.refresh_from_db()
+                self.assertIs(pessoa.is_staff, staff)
+                self.assertFalse(pessoa.is_superuser)
+
+    def test_nao_tira_ninguem_do_grupo(self):
+        """Reconcilia PERMISSÃO do grupo, não quem está nele."""
+        call_command("sincronizar_papeis", verbosity=0)
+        grupo = Group.objects.get(name=papeis.ADMINISTRADORES)
+        self.pessoa.groups.add(grupo)
+
+        call_command("sincronizar_papeis", verbosity=0)
+
+        self.assertIn(grupo, self.pessoa.groups.all())
+
+    def test_so_os_dois_papeis_conhecidos_sao_gerenciados(self):
+        call_command("sincronizar_papeis", verbosity=0)
+
+        self.assertEqual(
+            set(papeis.PAPEIS), {papeis.ADMINISTRADORES, papeis.SUPORTE}
+        )
