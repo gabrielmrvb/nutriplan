@@ -4972,76 +4972,120 @@ class OrcamentoDeTempoTests(TestCase):
                 self.assertEqual(semanal(de_noventa), semanal(de_sessenta))
 
 
+
+    def _prescricao_natural(self, dias, split):
+        """A ficha que o catálogo pede, SEM nenhuma lógica de tempo.
+
+        Referência independente do que está sob teste. Monta-se com duas coisas
+        e só elas: os itens dos modelos e `distribuir_series`, que é a regra de
+        VOLUME — quantas séries cada ocorrência da letra recebe. Nada aqui
+        consulta orçamento, teto, tolerância ou `escolher_para_o_tempo`.
+
+        É o que torna a pré-condição verificável: se a ficha de 60 minutos for
+        idêntica a isto, então 60 não cortou nada por falta de tempo. Sem essa
+        prova, comparar 60 com 90 não diz nada — as duas poderiam estar
+        truncadas no mesmo ponto e a igualdade passaria igual.
+        """
+        modelos = {t.label: t for t in services.templates_for(split)}
+        rotulos = list(modelos)
+        escala = [rotulos[i % len(rotulos)] for i in range(dias)]
+        ocorrencias = {r: escala.count(r) for r in set(escala)}
+
+        vistas, esperado = {}, []
+        for ordem_sessao, rotulo in enumerate(escala):
+            indice = vistas.get(rotulo, 0)
+            vistas[rotulo] = indice + 1
+            for ordem, item in enumerate(modelos[rotulo].items.all()):
+                series = services.distribuir_series(
+                    item.sets, ocorrencias[rotulo], ordem
+                )[indice]
+                if series:
+                    esperado.append(
+                        (rotulo, ordem_sessao, item.exercise_id, series, item.order)
+                    )
+        return sorted(esperado)
+
+    @staticmethod
+    def _retrato(plan):
+        return sorted(
+            (s.label, s.order, i.exercise_id, i.sets, i.order)
+            for s in plan.sessions.all()
+            for i in s.exercises.all()
+        )
+
+    @staticmethod
+    def _semanal(plan):
+        total = {}
+        for s in plan.sessions.all():
+            for i in s.exercises.select_related("exercise"):
+                g = i.exercise.muscle_group
+                total[g] = total.get(g, 0) + i.sets
+        return total
+
+    def test_sessenta_minutos_ja_comporta_a_ficha_natural(self):
+        """PRÉ-CONDIÇÃO do teste seguinte, provada por conta própria.
+
+        Compara a ficha de 60 minutos com a prescrição que o catálogo pede sem
+        nenhuma lógica de tempo. Iguais significa que 60 não truncou — e só
+        então faz sentido comparar 60 com 90.
+        """
+        for dias in (3, 4, 7):
+            plan = self._ficha(dias, 60)
+            with self.subTest(dias=dias, split=plan.split):
+                self.assertEqual(
+                    self._retrato(plan),
+                    self._prescricao_natural(dias, plan.split),
+                    "60 minutos cortou a ficha natural — a pré-condição caiu",
+                )
+
     def test_orcamento_maior_nao_acrescenta_nada(self):
         """Tempo disponível é TETO, não meta.
 
-        Num cenário em que a prescrição completa JÁ CABE nos dois orçamentos,
-        60 e 90 minutos precisam produzir a mesma ficha — mesmos exercícios,
-        mesmas séries, mesmo volume semanal, mesma duração estimada. Um gerador
-        que tratasse o número como alvo encheria o resto com séries que ninguém
-        prescreveu, refazendo por outro caminho o defeito das 28 séries de peito.
+        Num cenário em que a prescrição completa JÁ CABE nos dois orçamentos —
+        garantido pelo teste de pré-condição acima —, 60 e 90 minutos precisam
+        produzir a mesma ficha. Um gerador que tratasse o número como alvo
+        encheria o resto com séries que ninguém prescreveu, refazendo por outro
+        caminho o defeito das 28 séries de peito.
 
-        A afirmação é de IGUALDADE entre os dois, e não "a sessão fica bem
-        abaixo do teto". A primeira versão deste teste exigia
-        `maior < teto - 5`, o que transformava os cerca de 52 minutos que o
-        catálogo produz hoje num contrato: crescer o catálogo legitimamente
-        derrubaria o teste sem nada estar errado. Os 52 minutos pertencem à
-        matriz observacional, não ao contrato.
-
-        `test_quem_tem_mais_tempo_nao_ganha_volume_inventado` compara o volume
-        semanal; este compara a PRESCRIÇÃO inteira, que é mais forte.
+        A afirmação é de IGUALDADE, e não "a sessão fica bem abaixo do teto". A
+        primeira versão exigia `maior < teto - 5`, o que transformava em
+        contrato os cerca de 52 minutos que o catálogo produz hoje: crescer o
+        catálogo legitimamente derrubaria o teste sem nada estar errado. E era
+        fraca onde importa — um gerador que inflasse continuaria passando desde
+        que a sessão coubesse na folga.
         """
         TETOS = {60: 65.0, 90: 95.0}
 
         for dias in (3, 4, 7):
             fichas = {m: self._ficha(dias, m) for m in (60, 90)}
-
-            def retrato(plan):
-                return [
-                    (s.label, s.order, i.exercise_id, i.sets, i.order)
-                    for s in plan.sessions.order_by("order")
-                    for i in s.exercises.order_by("order")
-                ]
-
-            def semanal(plan):
-                total = {}
-                for s in plan.sessions.all():
-                    for i in s.exercises.select_related("exercise"):
-                        g = i.exercise.muscle_group
-                        total[g] = total.get(g, 0) + i.sets
-                return total
-
-            def duracoes(plan):
-                return sorted(s.estimated_minutes for s in plan.sessions.all())
+            natural = self._prescricao_natural(dias, fichas[60].split)
+            duracoes = lambda p: sorted(
+                s.estimated_minutes for s in p.sessions.all()
+            )
 
             with self.subTest(dias=dias):
-                # 1 e 2 — mesmos exercícios e mesmas séries.
-                self.assertEqual(retrato(fichas[60]), retrato(fichas[90]))
+                # Pré-condição repetida aqui: sem ela a igualdade não prova nada.
+                self.assertEqual(self._retrato(fichas[60]), natural)
+
+                # 1, 2 e 6 — mesmos exercícios, mesmas séries, mesma distribuição.
+                self.assertEqual(self._retrato(fichas[90]), self._retrato(fichas[60]))
 
                 # 3 — mesmo volume semanal por grupo.
-                self.assertEqual(semanal(fichas[60]), semanal(fichas[90]))
+                self.assertEqual(self._semanal(fichas[90]), self._semanal(fichas[60]))
 
-                # 4 — 90 não acrescenta exercício nem série.
-                self.assertEqual(
-                    sum(len(list(s.exercises.all())) for s in fichas[90].sessions.all()),
-                    sum(len(list(s.exercises.all())) for s in fichas[60].sessions.all()),
+                # 4 e 5 — 90 não acrescenta exercício nem série.
+                conta = lambda p: (
+                    sum(len(list(s.exercises.all())) for s in p.sessions.all()),
+                    sum(sum(i.sets for i in s.exercises.all()) for s in p.sessions.all()),
                 )
-                self.assertEqual(
-                    sum(sum(i.sets for i in s.exercises.all()) for s in fichas[90].sessions.all()),
-                    sum(sum(i.sets for i in s.exercises.all()) for s in fichas[60].sessions.all()),
-                )
+                self.assertEqual(conta(fichas[90]), conta(fichas[60]))
 
-                # 5 — mesma duração estimada, sessão a sessão.
-                self.assertEqual(duracoes(fichas[60]), duracoes(fichas[90]))
+                # 7 — mesma duração estimada, sessão a sessão.
+                self.assertEqual(duracoes(fichas[90]), duracoes(fichas[60]))
 
-                # 6 — cada um abaixo do SEU teto, sem fixar quanto sobra.
+                # 8 — cada um abaixo do SEU teto, sem fixar quanto sobra.
                 for minutos, plan in fichas.items():
-                    maior = max(duracoes(plan))
-                    self.assertLessEqual(
-                        maior,
-                        TETOS[minutos],
-                        "sessão de %d min para orçamento de %d" % (maior, minutos),
-                    )
+                    self.assertLessEqual(max(duracoes(plan)), TETOS[minutos])
 
     def test_o_corte_preserva_todos_os_grupos_do_dia(self):
         """Um dia de pernas não pode virar um dia de quadríceps.
