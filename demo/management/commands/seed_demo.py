@@ -22,6 +22,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from accounts.models import (
+    ClassificacaoDeConta,
     ONBOARDING_DONE,
     ONBOARDING_LAST_STEP,
     ActivityLevel,
@@ -206,6 +207,15 @@ class Command(BaseCommand):
             user.first_name = "Carlos"
             user.save()
 
+        # A classificacao vai FORA do `if criado`: o seed e dono destas duas
+        # contas, entao ele declara o que elas sao toda vez que roda — e uma
+        # conta que ja existia antes do campo existir precisa ser marcada
+        # tambem. Isto nao e adivinhacao: as demais contas continuam
+        # `nao_classificada`, porque sobre elas o banco nao sabe nada.
+        if user.classificacao != ClassificacaoDeConta.DEMO:
+            user.classificacao = ClassificacaoDeConta.DEMO
+            user.save(update_fields=["classificacao"])
+
         hoje = timezone.localdate()
         # A data de nascimento acompanha o ano corrente: fixa, o demo
         # envelheceria sozinho e a capa passaria a dizer 29, 30, 31 anos.
@@ -315,6 +325,15 @@ class Command(BaseCommand):
             user.set_unusable_password()
             user.first_name = "Ana"
             user.save()
+
+        # A classificacao vai FORA do `if criado`: o seed e dono destas duas
+        # contas, entao ele declara o que elas sao toda vez que roda — e uma
+        # conta que ja existia antes do campo existir precisa ser marcada
+        # tambem. Isto nao e adivinhacao: as demais contas continuam
+        # `nao_classificada`, porque sobre elas o banco nao sabe nada.
+        if user.classificacao != ClassificacaoDeConta.DEMO:
+            user.classificacao = ClassificacaoDeConta.DEMO
+            user.save(update_fields=["classificacao"])
 
         Profile.objects.update_or_create(
             user=user,

@@ -1,0 +1,35 @@
+{% extends "gestao/base.html" %}
+
+{% block title %}Atividade · NutriPlan{% endblock %}
+
+{% block content %}
+  <h1>Atividade</h1>
+  <p class="nota">
+    Quantas PESSOAS registraram cada coisa, por dia, nos últimos {{ janela }}
+    dias. Pessoas e não registros: quem marca cinco refeições continua sendo
+    uma pessoa, e contar registros faria o dia dela parecer um dia movimentado.
+  </p>
+
+  <div class="tabela-rolavel">
+    <table class="tabela-gestao">
+      <thead>
+        <tr>
+          <th>Dia</th>
+          {% for nome in nomes %}<th>{{ nome }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for dia, valores in dias %}
+          <tr>
+            <td>{{ dia|date:"d/m/Y" }}</td>
+            {% for valor in valores %}<td>{{ valor }}</td>{% endfor %}
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5">Ninguém registrou nada nos últimos {{ janela }} dias.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

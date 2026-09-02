@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "push",
     "demo",
     "achievements",
+    "gestao",
     # Login com Google — o allauth como MOTOR, não como interface.
     #
     # `allauth.account` entra porque `allauth.socialaccount` depende dele: é

@@ -97,7 +97,14 @@ PAPEIS = {
 #: models tivessem uma permissão de propósito com o mesmo nome — e encontrar a
 #: errada é pior que não encontrar, porque não avisa.
 EXTRAS = {
-    ADMINISTRADORES: ((("accounts", "profile"), "pedir_nova_escolha_de_divisao"),),
+    ADMINISTRADORES: (
+        (("accounts", "profile"), "pedir_nova_escolha_de_divisao"),
+        # O painel de gestão tem chave própria, e não `is_staff`. Staff é
+        # "entra no Django Admin", que é uma pergunta sobre manutenção de
+        # dado; o painel responde "como o produto está indo". Dá para querer
+        # uma sem a outra, e amarrar as duas num flag só tira essa escolha.
+        (("accounts", "user"), "ver_painel_de_gestao"),
+    ),
 }
 
 

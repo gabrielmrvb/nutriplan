@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% comment %}
+O painel usa a casca do app, com a navegação trocada.
+
+Herdar `base.html` mantém tipografia, tokens e cartões — o painel não precisa
+de identidade própria, e uma segunda folha de estilo seria um sistema paralelo
+para envelhecer sozinho.
+
+O que muda é a navegação: quem está aqui não veio marcar refeição. As abas do
+app sairiam do caminho de qualquer jeito, e a barra de baixo é `sem_tabbar`.
+{% endcomment %}
+
+{% block header %}
+  <header class="app-bar">
+    <a class="app-bar__brand" href="{% url 'gestao:painel' %}">
+      <span class="app-bar__mark">{% include "partials/marca.html" %}</span>
+      <span class="app-bar__word">Nutri<span class="app-bar__accent">Plan</span></span>
+      <span class="app-bar__demo">gestão</span>
+    </a>
+    <nav class="app-bar__nav">
+      <a class="app-bar__quiet" href="{% url 'plans:today' %}">Voltar ao app</a>
+    </nav>
+  </header>
+
+  {% comment %}
+    A navegação do painel é PRÓPRIA, e não `app-bar__link`.
+
+    Medido no navegador: `app-bar__link` some abaixo de 60rem — ele é a
+    navegação de desktop, e no celular quem navega é a barra de baixo. O painel
+    desliga essa barra (não são as abas do app), então usar `app-bar__link`
+    deixava as três telas sem nenhum caminho entre elas em qualquer largura de
+    celular ou tablet. As três rotas respondiam 200 e ninguém conseguia sair da
+    primeira.
+  {% endcomment %}
+  <nav class="gestao-abas" aria-label="Seções do painel">
+    <a class="gestao-abas__item {% if aba == 'painel' %}is-active{% endif %}"
+       href="{% url 'gestao:painel' %}"
+       {% if aba == 'painel' %}aria-current="page"{% endif %}>Painel</a>
+    <a class="gestao-abas__item {% if aba == 'pessoas' %}is-active{% endif %}"
+       href="{% url 'gestao:pessoas' %}"
+       {% if aba == 'pessoas' %}aria-current="page"{% endif %}>Pessoas</a>
+    <a class="gestao-abas__item {% if aba == 'atividade' %}is-active{% endif %}"
+       href="{% url 'gestao:atividade' %}"
+       {% if aba == 'atividade' %}aria-current="page"{% endif %}>Atividade</a>
+  </nav>
+{% endblock %}

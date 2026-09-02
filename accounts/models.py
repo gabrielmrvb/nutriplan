@@ -10,11 +10,44 @@ from django.utils import timezone
 from .managers import UserManager
 
 
+class ClassificacaoDeConta(models.TextChoices):
+    """Para que serve esta conta — a pergunta que o painel de gestão precisa
+    responder antes de qualquer métrica.
+
+    "52 contas" não significa nada enquanto ninguém souber quantas são de
+    gente usando o app e quantas são de teste nosso. Contar todas como cliente
+    infla o número; adivinhar quais são quais inventa o número.
+
+    Por isso o padrão é NAO_CLASSIFICADA e a migração não adivinha nada. As
+    contas que já existem nascem sem classificação, e o painel MOSTRA quantas
+    são — um número honesto que diz "ainda não sabemos" em vez de um número
+    bonito que mente.
+
+    Não existe valor STAFF, e isso é escolha. `is_staff` já é o fato, e é
+    ortogonal: quem administra também usa o app. Um valor STAFF obrigaria a
+    escolher entre "pessoa" e "staff" para quem é os dois, e o painel perderia
+    justamente a informação de que essa pessoa usa o produto. Staff aparece
+    como corte transversal.
+    """
+
+    NAO_CLASSIFICADA = "nao_classificada", "Não classificada"
+    PESSOA = "pessoa", "Pessoa usando o app"
+    DEMO = "demo", "Demonstração"
+    QA_INTERNO = "qa_interno", "Teste interno"
+
+
 class User(AbstractUser):
     """Usuário identificado por e-mail em vez de username."""
 
     username = None
     email = models.EmailField("e-mail", unique=True)
+
+    classificacao = models.CharField(
+        "classificação",
+        max_length=20,
+        choices=ClassificacaoDeConta.choices,
+        default=ClassificacaoDeConta.NAO_CLASSIFICADA,
+    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -24,6 +57,12 @@ class User(AbstractUser):
     class Meta:
         verbose_name = "usuário"
         verbose_name_plural = "usuários"
+        permissions = [
+            (
+                "ver_painel_de_gestao",
+                "Pode ver o painel de gestão",
+            ),
+        ]
 
     def __str__(self):
         return self.get_full_name() or self.email

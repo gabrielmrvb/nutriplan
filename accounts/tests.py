@@ -52,6 +52,7 @@ from workouts.services import preferencia_muda_a_divisao, split_for
 from .views import CAMINHO_COMPLETO, CAMINHO_CURTO
 
 from .models import (
+    ClassificacaoDeConta,
     AcaoAdministrativa,
     SplitPreference,
     ActivityLevel,
@@ -4908,6 +4909,12 @@ class EscaladaDePrivilegioNoUserAdminTests(TestCase):
             "first_name": alvo.first_name,
             "last_name": alvo.last_name,
             "is_active": "on" if alvo.is_active else "",
+            # O formulário passou a ter a classificação da conta, e ela é
+            # obrigatória. Sem mandá-la, TODO POST daqui vira formulário
+            # inválido — e os testes de escalada passariam por invalidez em vez
+            # de por proteção, que é o pior jeito de um teste de segurança
+            # passar. Foi o controle positivo que denunciou.
+            "classificacao": alvo.classificacao,
             "last_login_0": "", "last_login_1": "",
             "date_joined_0": alvo.date_joined.strftime("%Y-%m-%d"),
             "date_joined_1": alvo.date_joined.strftime("%H:%M:%S"),
@@ -6467,3 +6474,87 @@ class RotasExtrasDoAdminTests(TestCase):
                 )
 
         self.assertEqual(encontradas, set(self.DECIDIDAS))
+
+
+class ClassificacaoDaContaTests(TestCase):
+    """Classificar é ato por registro, e por isso mora no Admin.
+
+    O painel de gestão mostra o AGREGADO — quantas contas de cada tipo. Editar
+    uma linha por vez é exatamente o que o Django Admin faz bem, e construir um
+    segundo formulário para isso seria duplicar o Admin, que é o que /gestao/
+    existe para não fazer.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        papeis.sincronizar_papeis()
+
+    def setUp(self):
+        self.operador = User.objects.create_user(
+            email="op-classe@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.operador.is_staff = True
+        self.operador.save(update_fields=["is_staff"])
+        self.operador.groups.add(Group.objects.get(name=papeis.ADMINISTRADORES))
+        self.client.force_login(self.operador)
+        self.alvo = User.objects.create_user(
+            email="a-classificar@exemplo.com", password="senha-bem-forte-123"
+        )
+
+    def test_toda_conta_nasce_sem_classificacao(self):
+        self.assertEqual(
+            self.alvo.classificacao, ClassificacaoDeConta.NAO_CLASSIFICADA
+        )
+
+    def test_o_administrador_classifica_a_conta(self):
+        self.client.post(
+            f"/admin/accounts/user/{self.alvo.pk}/change/",
+            {
+                "email": self.alvo.email,
+                "first_name": "", "last_name": "",
+                "is_active": "on",
+                "classificacao": ClassificacaoDeConta.QA_INTERNO,
+                "last_login_0": "", "last_login_1": "",
+                "date_joined_0": self.alvo.date_joined.strftime("%Y-%m-%d"),
+                "date_joined_1": self.alvo.date_joined.strftime("%H:%M:%S"),
+                "profile-TOTAL_FORMS": "0", "profile-INITIAL_FORMS": "0",
+                "profile-MIN_NUM_FORMS": "0", "profile-MAX_NUM_FORMS": "1",
+                "training_days-TOTAL_FORMS": "0", "training_days-INITIAL_FORMS": "0",
+                "training_days-MIN_NUM_FORMS": "0", "training_days-MAX_NUM_FORMS": "1000",
+                "weight_entries-TOTAL_FORMS": "0", "weight_entries-INITIAL_FORMS": "0",
+                "weight_entries-MIN_NUM_FORMS": "0", "weight_entries-MAX_NUM_FORMS": "1000",
+            },
+            secure=True,
+        )
+
+        self.alvo.refresh_from_db()
+        self.assertEqual(self.alvo.classificacao, ClassificacaoDeConta.QA_INTERNO)
+
+    def test_classificar_nao_abre_mais_nada(self):
+        """O campo novo é um rótulo de negócio. Ele não pode ter trazido junto
+        a autorização que a rodada anterior fechou."""
+        html = self.client.get(
+            f"/admin/accounts/user/{self.alvo.pk}/change/", secure=True
+        ).content.decode()
+
+        self.assertIn('name="classificacao"', html)
+        for campo in ("is_superuser", "is_staff", "groups", "user_permissions"):
+            with self.subTest(campo=campo):
+                self.assertNotIn(f'name="{campo}"', html)
+
+    def test_o_seed_do_demo_marca_as_contas_dele(self):
+        """Não é adivinhação: o seed CRIA essas duas contas, então ele sabe o
+        que elas são. As outras continuam sem classificação."""
+        call_command("seed_catalog", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+        call_command("seed_demo", verbosity=0)
+
+        demo = User.objects.filter(email__endswith="@nutriplan.invalid")
+        self.assertTrue(demo.exists())
+        for conta in demo:
+            with self.subTest(conta=conta.email):
+                self.assertEqual(conta.classificacao, ClassificacaoDeConta.DEMO)
+        self.alvo.refresh_from_db()
+        self.assertEqual(
+            self.alvo.classificacao, ClassificacaoDeConta.NAO_CLASSIFICADA
+        )

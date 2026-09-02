@@ -161,14 +161,26 @@ class UserAdmin(BaseUserAdmin):
         "last_name",
         "is_staff",
         "entra_por_google",
+        "classificacao",
         "date_joined",
     )
-    list_filter = ("is_staff", "is_superuser", "is_active")
+    list_filter = ("classificacao", "is_staff", "is_superuser", "is_active")
     search_fields = ("email", "first_name", "last_name")
     ordering = ("email",)
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         ("Dados pessoais", {"fields": ("first_name", "last_name")}),
+        (
+            "Para que serve esta conta",
+            {
+                "fields": ("classificacao",),
+                "description": (
+                    "Classificar é decisão de gente. Nenhuma conta foi "
+                    "classificada automaticamente, e o painel de gestão mostra "
+                    "quantas continuam sem classificação."
+                ),
+            },
+        ),
         (
             "Permissões",
             {

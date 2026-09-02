@@ -56,6 +56,10 @@ urlpatterns = [
     #
     # O motivo: o primeiro operador administrativo entra por Google e não tem
     # senha utilizável. Ver `config/admin_entrada.py`.
+    # O painel de negócio, com chave própria. Vem antes do admin por
+    # coerência com o resto do bloco, e não por precedência: os prefixos não
+    # colidem.
+    path("gestao/", include("gestao.urls")),
     path("admin/login/", admin_entrada.entrada_do_admin),
     path("admin/", admin.site.urls),
     # O service worker precisa vir da raiz: um arquivo servido de /static/ só

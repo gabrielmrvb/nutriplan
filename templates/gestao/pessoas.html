@@ -1,0 +1,70 @@
+{% extends "gestao/base.html" %}
+
+{% block title %}Pessoas · NutriPlan{% endblock %}
+
+{% block content %}
+  <h1>Pessoas</h1>
+
+  <form class="filtro-gestao" method="get">
+    <label for="classificacao">Classificação</label>
+    <select id="classificacao" name="classificacao" onchange="this.form.submit()">
+      <option value="">Todas</option>
+      {% for valor, rotulo in classificacoes %}
+        <option value="{{ valor }}"
+          {% if valor == classificacao_atual %}selected{% endif %}>{{ rotulo }}</option>
+      {% endfor %}
+    </select>
+    <noscript><button type="submit" class="btn btn--sm">Filtrar</button></noscript>
+  </form>
+
+  <p class="nota">{{ pagina.paginator.count }} conta{{ pagina.paginator.count|pluralize:"s" }}</p>
+
+  {% comment %}
+    Rolagem horizontal no CONTAINER da tabela, nunca no corpo da página. É a
+    regra do app inteiro, e uma tabela é justamente onde ela quebra primeiro.
+  {% endcomment %}
+  <div class="tabela-rolavel">
+    <table class="tabela-gestao">
+      <thead>
+        <tr>
+          <th>Conta</th>
+          <th>Classificação</th>
+          <th>Onboarding</th>
+          <th>Plano</th>
+          <th>Ficha</th>
+          <th>Última refeição</th>
+          <th>Última série</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pessoa in pagina %}
+          <tr>
+            <td>{{ pessoa.email }}</td>
+            <td>{{ pessoa.get_classificacao_display }}</td>
+            <td>{% if pessoa.profile.onboarding_completo %}sim{% else %}não{% endif %}</td>
+            <td>{% if pessoa.tem_plano %}sim{% else %}não{% endif %}</td>
+            <td>{% if pessoa.tem_ficha %}sim{% else %}não{% endif %}</td>
+            <td>{{ pessoa.ultima_refeicao|date:"d/m/Y"|default:"—" }}</td>
+            <td>{{ pessoa.ultima_serie|date:"d/m/Y"|default:"—" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7">Nenhuma conta com esta classificação.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if pagina.has_other_pages %}
+    <nav class="paginacao" aria-label="Páginas">
+      {% if pagina.has_previous %}
+        <a class="btn btn--sm"
+           href="?classificacao={{ classificacao_atual }}&pagina={{ pagina.previous_page_number }}">Anterior</a>
+      {% endif %}
+      <span class="nota">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+      {% if pagina.has_next %}
+        <a class="btn btn--sm"
+           href="?classificacao={{ classificacao_atual }}&pagina={{ pagina.next_page_number }}">Próxima</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

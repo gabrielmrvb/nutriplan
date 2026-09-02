@@ -5980,3 +5980,120 @@ body.montando { overflow: hidden; }
   font-size: .8rem;
   line-height: 1.5;
 }
+
+/* ==========================================================================
+   42. Painel de gestão
+   ==========================================================================
+
+   Quase nada. O painel é feito de `.card`, `.data-list` e da tipografia que já
+   existem — herdar o sistema é o que impede um segundo sistema de nascer aqui
+   e envelhecer sozinho.
+
+   O que sobra é a tabela, que o app não tinha porque nenhuma tela dele mostra
+   linha por linha. E ela vem com a regra de sempre: a rolagem horizontal
+   acontece DENTRO do container, nunca no corpo da página. Tabela é justamente
+   onde essa regra quebra primeiro. */
+
+.tabela-rolavel {
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.tabela-gestao {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .85rem;
+  /* Número em coluna precisa de largura fixa por dígito, ou a coluna dança a
+     cada linha e a leitura vertical some. */
+  font-variant-numeric: tabular-nums;
+}
+
+.tabela-gestao th,
+.tabela-gestao td {
+  padding: .65rem .75rem;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabela-gestao thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-weight: 620;
+  font-size: .78rem;
+}
+
+.tabela-gestao tbody tr:last-child td { border-bottom: 0; }
+
+.filtro-gestao {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1rem;
+}
+
+/* 44px de altura E de largura: a régua do app vale aqui também, e um select
+   de 32px passaria despercebido numa revisão que só olha a altura. */
+.filtro-gestao select {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 .75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+/* As abas do painel. Existem porque `app-bar__link` some abaixo de 60rem — ele
+   é a navegação de desktop, e no celular quem navega é a barra de baixo, que o
+   painel não usa. Sem isto, as três telas respondiam 200 e não havia caminho
+   entre elas em nenhuma largura de celular.
+
+   44px de altura E de largura, como no app inteiro. */
+.gestao-abas {
+  display: flex;
+  gap: .5rem;
+  min-width: 0;
+  overflow-x: auto;
+  padding: .75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  -webkit-overflow-scrolling: touch;
+}
+
+.gestao-abas__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 1rem;
+  border-radius: var(--pill);
+  color: var(--text-dim);
+  font-size: .9rem;
+  font-weight: 620;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* `--text` sobre `--brand-soft`: o contraste dos fundos tingidos é medido em
+   `ContrastTests`, e `--text-mute` sobre este fundo já ficou abaixo do mínimo
+   uma vez — em 4,36:1 — sem nenhum teste enxergar. */
+.gestao-abas__item.is-active {
+  background: var(--brand-soft);
+  color: var(--text);
+}

@@ -1,0 +1,63 @@
+{% extends "gestao/base.html" %}
+
+{% block title %}Painel · NutriPlan{% endblock %}
+
+{% block content %}
+  <h1>Painel</h1>
+
+  <section class="card">
+    <div class="card__head"><h2>Contas</h2></div>
+    <dl class="data-list data-list--total">
+      {% for rotulo, quantas in classificacao %}
+        <div><dt>{{ rotulo }}</dt><dd>{{ quantas }}</dd></div>
+      {% endfor %}
+      <div><dt>Com acesso administrativo</dt><dd>{{ contas.staff }}</dd></div>
+      <div><dt>Total</dt><dd>{{ contas.total }}</dd></div>
+    </dl>
+    {% comment %}
+      "Não classificada" aparece junto das outras, e não escondida num rodapé:
+      enquanto ninguém tiver classificado nada, é o número mais honesto da
+      tela. Nenhuma conta foi classificada por adivinhação.
+    {% endcomment %}
+    <p class="nota">
+      Conta sem classificação é conta sobre a qual ainda não decidimos nada.
+    </p>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Cadastros</h2></div>
+    <dl class="data-list">
+      <div><dt>Últimos {{ janela_curta }} dias</dt><dd>{{ contas.novas_na_semana }}</dd></div>
+      <div><dt>Últimos {{ janela_longa }} dias</dt><dd>{{ contas.novas_no_mes }}</dd></div>
+    </dl>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Do cadastro ao uso</h2></div>
+    <dl class="data-list">
+      <div><dt>Criaram conta</dt><dd>{{ contas.total }}</dd></div>
+      <div><dt>Terminaram o onboarding</dt><dd>{{ onboarding_completo }}</dd></div>
+      <div><dt>Têm plano alimentar</dt><dd>{{ funil.com_plano }}</dd></div>
+      <div><dt>Têm ficha de treino</dt><dd>{{ funil.com_ficha }}</dd></div>
+      <div><dt>Registraram algo por conta própria</dt><dd>{{ funil.com_acao }}</dd></div>
+    </dl>
+    <p class="nota">
+      Registrar por conta própria é marcar refeição, anotar água, salvar série
+      ou marcar suplemento. O peso do cadastro não conta: ele é obrigatório no
+      primeiro passo, e contá-lo faria o funil medir a si mesmo.
+    </p>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Registraram algo nos últimos {{ janela_curta }} dias</h2></div>
+    <dl class="data-list data-list--total">
+      <div><dt>Contas</dt><dd>{{ ativas_na_semana }}</dd></div>
+    </dl>
+    <p class="nota">
+      Isto não é retenção. Retenção acompanha quem entrou junto e mede quem
+      voltou depois; aqui é quantas contas gravaram alguma coisa na semana. As
+      duas respondem perguntas diferentes, e trocar os nomes faria comparar
+      este número com referência de outra coisa.
+    </p>
+  </section>
+{% endblock %}
