@@ -6111,7 +6111,10 @@ body.montando { overflow: hidden; }
 
 .semana {
   display: grid;
-  grid-template-columns: 3.2rem 1fr 1.6rem;
+  /* A terceira coluna é "auto": o treino põe um dígito ali e a água põe
+     quatro mais a unidade. Largura fixa faria uma das duas transbordar ou a
+     outra sobrar. */
+  grid-template-columns: 3.2rem 1fr auto;
   align-items: center;
   gap: .75rem;
   min-height: 2rem;
@@ -6233,6 +6236,23 @@ body.montando { overflow: hidden; }
 
 .corrida-detalhe {
   display: block;
+  color: var(--text-mute);
+  font-family: var(--font);
+  font-size: .72rem;
+  font-weight: 500;
+}
+
+/* A coluna de valor das semanas de água precisa de mais largura que a do
+   treino: ali cabe um dígito, aqui cabem quatro e a unidade. Uma classe a
+   mais, e não uma segunda lista — as duas séries respondem a mesma pergunta e
+   precisam ser lidas com os mesmos olhos. */
+.semana__valor--largo { min-width: 4.4rem; }
+
+/* .72rem e nao .68rem: o piso de texto de interface deste projeto e 11px, e
+   .68rem da 10,88px. O teste mede, e mediu — a regra existe porque letra
+   menor que isso some numa tela ao sol, e a tela de progresso e aberta na
+   academia. */
+.semana__unidade {
   color: var(--text-mute);
   font-family: var(--font);
   font-size: .72rem;

@@ -1,33 +1,46 @@
 {% comment %}
-A média vai SEMPRE acompanhada de quantos dias a sustentam.
+A mesma gramática do cartão de treino, e não outra.
 
-Sozinha ela mente nos dois sentidos: "2,8 L por dia" de uma semana com um único
-registro descreve um dia, não uma semana. E dividir por sete transformaria "3
-litros nos dois dias em que anotei" em "850 ml por dia" — um comportamento que
-não aconteceu. Quem esqueceu de anotar não bebeu zero; o app só não sabe.
+As duas coisas respondem a mesma pergunta — "como foi cada semana?" — e eu
+tinha desenhado uma como barras e a outra como lista. Duas soluções para o
+mesmo problema na MESMA tela é dívida de UX nascendo: quem lê passa a decodificar
+dois formatos para comparar duas séries do próprio hábito.
+
+A barra é o número de DIAS com registro, na mesma escala de 0 a 7 do treino. O
+valor à direita é a média desses dias.
+
+E a média vai SEMPRE acompanhada de quantos dias a sustentam. Sozinha ela mente
+nos dois sentidos: "2,8 L por dia" de uma semana com um único registro descreve
+um dia, não uma semana. E dividir por sete transformaria "3 litros nos dois dias
+em que anotei" em "850 ml por dia" — um comportamento que não aconteceu. Quem
+esqueceu de anotar não bebeu zero; o app só não sabe.
 {% endcomment %}
 <section class="card">
   <div class="card__head"><h2>Água</h2></div>
 
   {% if tem_agua %}
-    <dl class="data-list">
+    <ul class="semanas" aria-label="Dias com água registrada por semana">
       {% for semana in agua_semanas reversed %}
-        {% if semana.dias %}
-          <div>
-            <dt>{{ semana.inicio|date:"d/m" }}</dt>
-            <dd>
-              {{ semana.media_ml }} ml
-              <span class="dias-com-registro">
-                em {{ semana.dias }} dia{{ semana.dias|pluralize:"s" }}
-              </span>
-            </dd>
-          </div>
-        {% endif %}
+        <li class="semana">
+          <span class="semana__rotulo">{{ semana.inicio|date:"d/m" }}</span>
+          <span class="semana__barra">
+            <span class="semana__preenche semana__preenche--{{ semana.dias }}"></span>
+          </span>
+          <span class="semana__valor semana__valor--largo">
+            {% if semana.dias %}
+              {{ semana.media_ml }}
+              <span class="semana__unidade">ml</span>
+            {% else %}
+              —
+            {% endif %}
+          </span>
+        </li>
       {% endfor %}
-    </dl>
+    </ul>
     <p class="hint">
-      A média é dos dias em que você registrou, e não da semana inteira: dia sem
-      registro não é dia sem água — é dia sem registro.
+      A barra é em quantos dias da semana você registrou; o número é a média
+      desses dias, e não da semana inteira — dia sem registro não é dia sem
+      água, é dia sem registro.
     </p>
   {% else %}
     <p class="empty-state">

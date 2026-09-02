@@ -306,3 +306,63 @@ class TelaDeProgressoTests(TestCase):
         html = self._html()
 
         self.assertIn("Nenhuma série anotada ainda", html)
+
+
+class MesmaGramaticaTests(TestCase):
+    """Treino e água respondem a mesma pergunta e são lidos do mesmo jeito.
+
+    Eu tinha desenhado uma como barras e a outra como lista, na MESMA tela.
+    Duas soluções para o mesmo problema é dívida de UX nascendo: quem lê passa
+    a decodificar dois formatos para comparar duas séries do próprio hábito.
+
+    Este teste é sobre CONSISTÊNCIA e não sobre estilo — ele não afirma como a
+    série deve parecer, afirma que as duas parecem a mesma coisa.
+    """
+
+    def setUp(self):
+        from plans.models import HydrationLog
+        from workouts.models import Exercise, ExerciseLog
+
+        self.pessoa = User.objects.create_user(
+            email="gramatica@exemplo.com", password="senha-bem-forte-123"
+        )
+        Profile.objects.create(
+            user=self.pessoa, sex=Sex.MALE, birth_date=date(1995, 4, 12),
+            height_cm=178, activity_level=ActivityLevel.LIGHT, goal=Goal.BULK,
+            wake_time=time(7, 0), sleep_time=time(23, 0),
+            onboarding_step=ONBOARDING_DONE,
+        )
+        hoje = timezone.localdate()
+        exercicio = Exercise.objects.create(name="Supino", muscle_group="peito")
+        ExerciseLog.objects.create(
+            user=self.pessoa, exercise=exercicio, date=hoje,
+            set_number=1, weight_kg=Decimal("60"), reps=10,
+        )
+        HydrationLog.objects.create(user=self.pessoa, date=hoje, ml=2500)
+        MealLog.objects.create(
+            user=self.pessoa, date=hoje, status=MealStatus.DONE,
+            kcal=700, slot_name="almoço",
+        )
+        self.client.force_login(self.pessoa)
+
+    def test_as_duas_series_usam_a_mesma_estrutura(self):
+        html = self.client.get("/historico/").content.decode()
+
+        # Duas listas `.semanas`, uma para cada série.
+        self.assertEqual(html.count('class="semanas"'), 2)
+        self.assertIn("Dias com treino registrado por semana", html)
+        self.assertIn("Dias com água registrada por semana", html)
+
+    def test_as_duas_tem_oito_semanas(self):
+        """Buraco na série é informação nas duas: uma mostrando oito semanas e
+        a outra só as preenchidas seriam duas réguas diferentes."""
+        html = self.client.get("/historico/").content.decode()
+
+        self.assertEqual(html.count('class="semana__barra"'), 16)
+
+    def test_a_media_de_agua_vem_com_os_dias_que_a_sustentam(self):
+        """A média sozinha mente nos dois sentidos. A barra é quantos dias."""
+        html = self.client.get("/historico/").content.decode()
+
+        self.assertIn("2500", html)
+        self.assertIn("semana__preenche--1", html)
