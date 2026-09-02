@@ -1416,4 +1416,28 @@
 
 
   {% endif %}
+
+  {% comment %}
+    A porta para as corridas.
+
+    Ela existe porque a tela de corridas estava alcançável só digitando o
+    endereço — o mesmo defeito da ação administrativa que ganhou rota e não
+    ganhou botão. Tela sem porta não é tela.
+
+    Aqui e não numa quinta aba da barra de baixo, e a razão não é layout: o
+    comportamento do GPS numa PWA ainda NÃO foi medido em aparelho nenhum
+    (ver `docs/running-analise.md`). Promover a destino de topo é dizer "isto
+    funciona", e ninguém verificou que funciona com a tela do celular. A aba
+    entra quando a medição entrar.
+  {% endcomment %}
+  <section class="card">
+    <div class="card__head"><h2>Corrida</h2></div>
+    <p class="hint">
+      Registrar corrida com GPS. O app precisa ficar aberto e a tela acesa —
+      guardar o telefone no bolso interrompe o registro.
+    </p>
+    <a class="btn btn--ghost btn--block" href="{% url 'workouts:corridas' %}">
+      Abrir corridas
+    </a>
+  </section>
 {% endblock %}

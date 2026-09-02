@@ -231,3 +231,105 @@ class MesmosLimitesTests(TestCase):
 
         self.assertIn("estado.ancora = null", trecho)
         self.assertIn("estado.teveLacuna = true", trecho)
+
+
+class ACorridaTemPortaTests(TestCase):
+    """Tela sem porta não é tela.
+
+    A tela de corridas nasceu alcançável só digitando o endereço — o mesmo
+    defeito da ação administrativa que ganhou rota e não ganhou botão. Uma
+    funcionalidade que ninguém encontra é código que passa nos testes e não
+    serve a ninguém, e testar a rota não pega isso: ela respondia 200 o tempo
+    todo.
+    """
+
+    def setUp(self):
+        from datetime import date, time
+
+        from accounts.models import (
+            ONBOARDING_DONE, ActivityLevel, Goal, Profile, Sex,
+        )
+
+        self.pessoa = User.objects.create_user(
+            email="porta@exemplo.com", password="senha-bem-forte-123"
+        )
+        Profile.objects.create(
+            user=self.pessoa, sex=Sex.MALE, birth_date=date(1995, 4, 12),
+            height_cm=178, activity_level=ActivityLevel.LIGHT, goal=Goal.BULK,
+            wake_time=time(7, 0), sleep_time=time(23, 0),
+            onboarding_step=ONBOARDING_DONE,
+        )
+        self.client.force_login(self.pessoa)
+
+    def test_a_tela_de_treino_leva_as_corridas(self):
+        html = self.client.get("/treino/").content.decode()
+
+        self.assertIn('href="/treino/corridas/"', html)
+
+    def test_a_porta_avisa_do_limite_antes_de_abrir(self):
+        """Quem chega na tela de corridas já sabe o que vai encontrar. O aviso
+        aparece de novo lá, e de propósito: este é o que evita a pessoa entrar
+        achando que dá para guardar o telefone."""
+        html = self.client.get("/treino/").content.decode()
+
+        self.assertIn("tela acesa", html)
+
+
+class CsrfDeVerdadeTests(TestCase):
+    """O cliente de teste do Django NÃO confere CSRF por padrão.
+
+    Todos os outros testes daqui postam com a checagem desligada — então
+    nenhum deles prova que o endpoint aceita o token pelo cabeçalho, que é como
+    o `fetch` do navegador manda. Um endpoint que só funciona nos testes é
+    exatamente o tipo de coisa que aparece em produção como "não consegui
+    salvar".
+    """
+
+    def setUp(self):
+        from django.test import Client
+
+        self.pessoa = User.objects.create_user(
+            email="csrf@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client = Client(enforce_csrf_checks=True)
+        self.client.force_login(self.pessoa)
+        self.comecou = timezone.now() - timedelta(minutes=30)
+
+    def _corpo(self):
+        return json.dumps(
+            {
+                "op_id": "corrida-csrf",
+                "comecou_em": self.comecou.isoformat(),
+                "terminou_em": timezone.now().isoformat(),
+                "distancia_m": 5_000,
+                "duracao_s": 1_500,
+                "parciais": [],
+            }
+        )
+
+    def test_com_o_token_no_cabecalho_grava(self):
+        # O cookie nasce numa visita comum; é ele que o `fetch` lê.
+        self.client.get("/treino/corridas/")
+        token = self.client.cookies["csrftoken"].value
+
+        resposta = self.client.post(
+            "/treino/corridas/salvar/",
+            data=self._corpo(),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(Corrida.objects.count(), 1)
+
+    def test_sem_o_token_o_servidor_recusa(self):
+        """Controle: sem isto, o teste acima passaria igual se a proteção
+        estivesse desligada."""
+        resposta = self.client.post(
+            "/treino/corridas/salvar/",
+            data=self._corpo(),
+            content_type="application/json",
+        )
+
+        self.assertEqual(resposta.status_code, 403)
+        self.assertEqual(Corrida.objects.count(), 0)

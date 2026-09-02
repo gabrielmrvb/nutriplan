@@ -251,12 +251,21 @@
     return "corrida-" + Date.now() + "-" + Math.floor(Math.random() * 1e9);
   }
 
-  function biscoito(nome) {
-    var partes = document.cookie.split("; ");
-    for (var i = 0; i < partes.length; i++) {
-      if (partes[i].indexOf(nome + "=") === 0) return partes[i].split("=")[1];
-    }
-    return "";
+  /* A mesma leitura do `pwa.js`, com regex e nao com split em "; ": o
+   * separador de `document.cookie` nem sempre traz o espaco, e a versao com
+   * split falharia em silencio — devolvendo token vazio, que o servidor
+   * recusa com 403 e o app mostraria como "nao consegui salvar". */
+  /* Regex LITERAL, e nao `new RegExp` com string: num literal de string do
+   * JavaScript, "\s" vira apenas "s" — o padrao viraria `(^|;)s*csrftoken=`,
+   * que casa a letra "s" e nao espaco em branco. Com um cookie precedido de
+   * espaco, o token voltaria vazio, o servidor responderia 403 e a tela diria
+   * "nao consegui salvar" sem ninguem entender por que.
+   *
+   * O `pwa.js` ja lia assim, e copiar o padrao dele em vez de reescrever era o
+   * caminho desde o comeco. */
+  function tokenCsrf() {
+    var achado = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+    return achado ? achado[2] : "";
   }
 
   function salvar() {
@@ -274,7 +283,7 @@
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRFToken": biscoito("csrftoken")
+        "X-CSRFToken": tokenCsrf()
       },
       body: JSON.stringify(corpo),
       credentials: "same-origin"

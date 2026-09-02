@@ -93,3 +93,30 @@ ação voluntária. Se o peso contasse como engajamento, "registraram algo por
 conta própria" saltaria de 27 para 44 — exatamente o número de quem terminou o
 onboarding, porque o peso é obrigatório no passo 1. É a prova concreta de por
 que ele fica de fora.
+
+## Corrida
+
+### ⛔ Medir o GPS num aparelho de verdade
+Cinco medições de poucos minutos, listadas em `docs/running-analise.md`: quanto
+tempo `watchPosition` entrega com Wake Lock; quantos segundos até parar ao
+bloquear a tela; se retoma sozinho ao voltar; quantas leituras se perdem ao
+trocar de app por 30 s; e qual a `accuracy` típica na rua onde a pessoa corre.
+
+A última decide o limite do filtro, que hoje é palpite informado — e chutar o
+limite é chutar a distância.
+
+### Corrida vira aba de topo depois da medição
+A visão aprovada é Dieta / Treino / Corrida / Progresso / Perfil. Hoje a porta
+está na tela de treino, e não na barra de baixo, porque promover a destino de
+topo é dizer "isto funciona" — e ninguém verificou que funciona com a tela de
+um celular de verdade.
+
+### Mapa e traçado
+O traçado NÃO é guardado hoje, e é decisão. Quando o mapa for desenhado, a
+decisão que vem junto é o corte das pontas da rota: uma imagem compartilhada
+que começa e termina na porta de casa publica o endereço.
+
+### "Recorde" precisa de definição
+Melhor pace de 1 km, melhor pace médio de uma corrida de 1 km, e melhor 1 km
+dentro de uma corrida longa são três coisas. Sem escolher, a tela mostra as
+três com o mesmo nome.
