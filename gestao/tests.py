@@ -353,3 +353,45 @@ class OPainelNaoFazTests(BaseDoPainel):
                 html = self.client.get(rota).content.decode()
                 self.assertNotIn("81,40", html)
                 self.assertNotIn("81.40", html)
+
+
+class OPainelTemPortaTests(BaseDoPainel):
+    """O painel estava alcançável só digitando o endereço.
+
+    Terceiro caso do mesmo defeito nesta rodada — depois da ação da divisão e
+    da tela de corridas. Testar a rota não pega: ela responde 200 o tempo todo
+    para quem tem permissão. O que faltava era alguém conseguir CHEGAR.
+
+    A condição do link é a permissão e não `is_staff`, pela mesma razão que a
+    autorização da view: as duas andam separadas, e um link preso ao flag
+    errado apareceria para quem clicaria e levaria 403.
+    """
+
+    def _perfil(self, quem):
+        self.perfil(quem)
+        self.client.force_login(quem)
+        return self.client.get("/conta/perfil/").content.decode()
+
+    def test_quem_pode_ve_a_porta_no_perfil(self):
+        html = self._perfil(self.operador())
+
+        self.assertIn('href="/gestao/"', html)
+        self.assertIn("Painel de gestão", html)
+
+    def test_quem_nao_pode_nao_ve_a_porta(self):
+        """Sem isto, o link apareceria para todo mundo e a pessoa comum
+        clicaria para levar 403 — que é pior que não ter o link."""
+        html = self._perfil(self.pessoa("comum-porta@exemplo.com"))
+
+        self.assertNotIn('href="/gestao/"', html)
+        self.assertNotIn("Painel de gestão", html)
+
+    def test_staff_sem_a_permissao_nao_ve_a_porta(self):
+        """A porta segue a permissão, não o flag."""
+        avulso = self.pessoa("staff-porta@exemplo.com")
+        avulso.is_staff = True
+        avulso.save(update_fields=["is_staff"])
+
+        html = self._perfil(avulso)
+
+        self.assertNotIn('href="/gestao/"', html)

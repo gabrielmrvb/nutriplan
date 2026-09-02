@@ -2233,3 +2233,58 @@ class ComentarioDeTemplateNaoVazaTests(SimpleTestCase):
                     vazando.append(f"{arquivo.name}:{linha}")
 
         self.assertEqual(vazando, [])
+
+
+class TodaTelaTemPortaTests(SimpleTestCase):
+    """Tela que ninguém alcança é código que passa nos testes e não serve.
+
+    Três vezes nesta rodada eu criei rota sem porta: a ação de pedir nova
+    escolha de divisão (permissão concedida, endpoint respondendo, e nenhum
+    botão), a tela de corridas e o painel de gestão. Testar a rota não pega
+    nenhuma delas — todas respondiam certo o tempo todo. O que faltava era
+    alguém conseguir CHEGAR.
+
+    Três vezes é padrão, não acidente. Esta tabela é a resposta: destino que
+    uma pessoa precisa alcançar entra aqui, e o teste procura a referência nos
+    templates.
+
+    Ela NÃO lista tudo. Endpoint de POST, rota de API e tela que só se alcança
+    por fluxo (o wizard, o callback do OAuth) ficam de fora de propósito —
+    incluir tudo tornaria a lista impossível de manter e ela deixaria de ser
+    lida. O critério é: alguém precisa poder ir até lá por vontade própria?
+    """
+
+    #: (nome da rota, por que uma pessoa vai até lá)
+    DESTINOS = (
+        ("plans:today", "o dia de hoje"),
+        ("plans:history", "progresso"),
+        ("plans:shopping", "lista de compras"),
+        ("workouts:routine", "a ficha da semana"),
+        ("workouts:corridas", "corridas"),
+        ("accounts:profile", "perfil"),
+        ("accounts:login", "entrar"),
+        ("accounts:signup", "criar conta"),
+        ("accounts:excluir_conta", "excluir a conta"),
+        ("achievements:list", "conquistas"),
+        ("gestao:painel", "painel de gestão"),
+    )
+
+    def test_todo_destino_tem_pelo_menos_um_link(self):
+        import re
+
+        textos = {
+            arquivo: arquivo.read_text(encoding="utf-8")
+            for arquivo in (RAIZ / "templates").rglob("*.html")
+        }
+        sem_porta = []
+        for nome, porque in self.DESTINOS:
+            # Concatenação e não `%`: o padrão tem `%s` de template do
+            # Django dentro dele, e formatar a string trataria o `%{` como
+            # marcador de formato.
+            padrao = re.compile(
+                r"\{%\s*url\s+['\"]" + re.escape(nome) + r"['\"]"
+            )
+            if not any(padrao.search(texto) for texto in textos.values()):
+                sem_porta.append(f"{nome} ({porque})")
+
+        self.assertEqual(sem_porta, [])

@@ -297,6 +297,33 @@
   </section>
 
   {% comment %}
+    A porta do painel de gestão, e só para quem tem a chave.
+
+    Ela existe porque o painel estava alcançável apenas digitando o endereço —
+    o terceiro caso do mesmo defeito nesta rodada, depois da ação da divisão e
+    da tela de corridas. Testar a rota não pega: ela responde 200 o tempo todo
+    para quem tem permissão.
+
+    A condição é a PERMISSÃO e não `is_staff`, pela mesma razão que a
+    autorização da view: as duas coisas podem andar separadas, e um link
+    condicionado ao flag errado apareceria para quem clicaria e levaria 403.
+
+    Fica antes do cartão de excluir conta porque aquele é o fim da página de
+    propósito — nada deve empurrá-lo para o meio.
+  {% endcomment %}
+  {% if perms.accounts.ver_painel_de_gestao %}
+    <section class="card">
+      <div class="card__head"><h2>Painel de gestão</h2></div>
+      <p class="muted">
+        Os números do produto: contas, cadastros e atividade.
+      </p>
+      <a class="btn btn--ghost btn--block" href="{% url 'gestao:painel' %}">
+        Abrir painel de gestão
+      </a>
+    </section>
+  {% endif %}
+
+  {% comment %}
     A exclusão mora num cartão SEPARADO e no fim da página, longe de "Sair da
     conta". Os dois botões pareciam a mesma coisa se ficassem juntos, e um
     deles não tem volta.

@@ -44,6 +44,19 @@ class PushSubscriptionAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        """Negado no MÉTODO, e não só ausente do papel.
+
+        Era a única das três que dependia apenas de ninguém conceder a
+        permissão. As outras superfícies imutáveis do projeto negam as três, e
+        deixar `delete` de fora fazia a proteção desta depender de memória.
+
+        E apagar assinatura pelo painel não resolve nada: quem quer parar de
+        receber desliga no aparelho, e o envio que falha já desativa a
+        assinatura morta sozinho — está em `push/services.py`.
+        """
+        return False
+
 
 @admin.register(NotificationLog)
 class NotificationLogAdmin(admin.ModelAdmin):
@@ -60,4 +73,9 @@ class NotificationLogAdmin(admin.ModelAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        """O registro do que aconteceu. Apagar é destruir a evidência de uma
+        falha de envio — que é justamente o que este log existe para guardar."""
         return False
