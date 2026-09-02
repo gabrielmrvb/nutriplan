@@ -6097,3 +6097,74 @@ body.montando { overflow: hidden; }
   background: var(--brand-soft);
   color: var(--text);
 }
+
+/* ==========================================================================
+   43. Progresso: semanas de treino e carga
+   ==========================================================================
+
+   A barra da semana tem largura por CLASSE escrita pelo servidor, e não por
+   `:has()` nem por cálculo: a regra do projeto é que estrutura não pode
+   depender de seletor que o navegador descarta em silêncio. Sete larguras
+   fixas cobrem a semana inteira. */
+
+.semanas { margin: 0; padding: 0; list-style: none; }
+
+.semana {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr 1.6rem;
+  align-items: center;
+  gap: .75rem;
+  min-height: 2rem;
+}
+
+.semana__rotulo {
+  min-width: 0;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: .75rem;
+}
+
+.semana__barra {
+  height: .45rem;
+  overflow: hidden;
+  border-radius: var(--pill);
+  background: var(--surface-2);
+}
+
+.semana__preenche { display: block; height: 100%; background: var(--brand); }
+
+.semana__preenche--0 { width: 0; }
+.semana__preenche--1 { width: 14%; }
+.semana__preenche--2 { width: 29%; }
+.semana__preenche--3 { width: 43%; }
+.semana__preenche--4 { width: 57%; }
+.semana__preenche--5 { width: 71%; }
+.semana__preenche--6 { width: 86%; }
+.semana__preenche--7 { width: 100%; }
+
+.semana__valor {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+  font-size: .8rem;
+  text-align: right;
+}
+
+.card__head--interno { margin-top: 1.25rem; }
+
+/* O delta da carga: sobe é a cor da marca, desce é o tom de alerta do app.
+   Cor NÃO é o único sinal — o sinal de `+` e o de `-` vêm no próprio número,
+   porque informação transmitida só por cor some para quem não a distingue. */
+.delta { margin-left: .4rem; font-size: .78rem; font-weight: 720; }
+.delta--sobe { color: var(--brand-strong); }
+.delta--desce { color: var(--warm); }
+
+.dias-com-registro {
+  display: block;
+  color: var(--text-mute);
+  font-family: var(--font);
+  font-size: .72rem;
+  font-weight: 500;
+}

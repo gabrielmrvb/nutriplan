@@ -5,9 +5,21 @@
 {% block content %}
   <div class="page-head">
     <h1>Métricas</h1>
-    <p class="lead">Os últimos {{ days }} dias, do mais recente para o mais antigo.</p>
+    <p class="lead">Peso, treino, alimentação e água — o que você registrou.</p>
   </div>
 
+  {% comment %}
+    A ordem é a resposta a "como estou evoluindo?".
+
+    Resumo, depois evolução, depois o detalhe. O dia a dia é a lista mais
+    longa da tela — até catorze linhas — e com ele em cima os cartões de peso,
+    treino e água caíam para além de duas telas de rolagem no celular: medido,
+    o Treino ficava a 1,65 tela com SEIS dias registrados, e a régua real são
+    catorze.
+
+    Não é ruído: cada um desses blocos responde alguma coisa. Estava na ordem
+    errada, e a correção é mover, não remover.
+  {% endcomment %}
   {% if totals.days %}
     <div class="split">
       <div class="split__main stack">
@@ -31,6 +43,15 @@
           </div>
         </section>
 
+      </div>
+
+      <aside class="split__aside stack">
+        {% include "plans/_peso.html" %}
+        {% include "plans/_progresso_treino.html" %}
+        {% include "plans/_progresso_agua.html" %}
+      </aside>
+
+      <div class="split__main stack">
         <section class="card">
           <div class="card__head"><h2>Dia a dia</h2></div>
           {% for row in rows %}
@@ -49,16 +70,13 @@
             </div>
           {% endfor %}
           <p class="hint">
-            A barra compara o dia com a sua meta atual. A coluna da direita é quantas
+            A barra compara o dia com a meta que valia NAQUELE dia — se você
+            recalibrou no meio, cada dia é medido pela régua da época. A coluna da direita é quantas
             refeições você comeu conforme o plano, de quantas marcou no dia — refeição
             não marcada não conta como falha.
           </p>
         </section>
       </div>
-
-      <aside class="split__aside stack">
-        {% include "plans/_peso.html" %}
-      </aside>
     </div>
   {% else %}
     <section class="card">
@@ -72,5 +90,7 @@
     </section>
 
     {% include "plans/_peso.html" %}
+    {% include "plans/_progresso_treino.html" %}
+    {% include "plans/_progresso_agua.html" %}
   {% endif %}
 {% endblock %}

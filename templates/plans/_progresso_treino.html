@@ -1,0 +1,70 @@
+{% comment %}
+O treino nesta tela.
+
+Cada série sempre esteve no banco e nenhuma aparecia aqui: quem treinava há
+dois meses abria uma tela chamada "Métricas" e via só dieta e peso.
+
+Dois blocos, e a separação é deliberada. "Dias com série anotada" é
+comportamento; "dias combinados" é o que a pessoa declarou no perfil. Os dois
+lado a lado, sem virar uma porcentagem — declaração não é comportamento, e uma
+razão entre as duas fingiria medir compromisso.
+{% endcomment %}
+<section class="card">
+  <div class="card__head"><h2>Treino</h2></div>
+
+  {% if tem_treino %}
+    <ul class="semanas" aria-label="Dias com treino registrado por semana">
+      {% for semana in semanas_de_treino reversed %}
+        <li class="semana">
+          <span class="semana__rotulo">{{ semana.inicio|date:"d/m" }}</span>
+          <span class="semana__barra">
+            {% comment %}
+              A largura vem de uma classe escrita pelo servidor, e não de
+              `:has()` nem de cálculo no CSS: a regra do projeto é que estrutura
+              não depende de seletor que o navegador possa descartar em
+              silêncio.
+            {% endcomment %}
+            <span class="semana__preenche semana__preenche--{{ semana.dias }}"></span>
+          </span>
+          <span class="semana__valor">{{ semana.dias }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="hint">
+      Dias em que você anotou pelo menos uma série.
+      {% if dias_combinados %}
+        Você combinou {{ dias_combinados }} dia{{ dias_combinados|pluralize:"s" }} por
+        semana — o número ao lado é o que aconteceu, não uma nota.
+      {% endif %}
+    </p>
+  {% else %}
+    <p class="empty-state">
+      Nenhuma série anotada ainda. Assim que você salvar a primeira carga no
+      treino, ela aparece aqui.
+    </p>
+  {% endif %}
+
+  {% if cargas %}
+    <div class="card__head card__head--interno"><h3>Carga por exercício</h3></div>
+    <dl class="data-list">
+      {% for carga in cargas %}
+        <div>
+          <dt>{{ carga.nome }}</dt>
+          <dd>
+            {{ carga.primeiro|floatformat:0 }} → {{ carga.ultimo|floatformat:0 }} kg
+            {% if carga.delta > 0 %}
+              <span class="delta delta--sobe">+{{ carga.delta|floatformat:0 }}</span>
+            {% elif carga.delta < 0 %}
+              <span class="delta delta--desce">{{ carga.delta|floatformat:0 }}</span>
+            {% endif %}
+          </dd>
+        </div>
+      {% endfor %}
+    </dl>
+    <p class="hint">
+      A primeira e a última carga que você anotou em cada exercício, nas últimas
+      8 semanas. Exercício de peso corporal não aparece — não há carga para
+      comparar.
+    </p>
+  {% endif %}
+</section>

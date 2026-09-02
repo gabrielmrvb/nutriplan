@@ -10,7 +10,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
-from .models import MealLog, MealStatus
+from .models import HydrationLog, MealLog, MealStatus, NutritionPlan
 
 #: Quantos dias a tela de histórico mostra.
 HISTORY_DAYS = 14
@@ -233,3 +233,94 @@ def adherence(rows) -> dict:
         "avg_kcal": arredondar(Decimal(sum(row["kcal"] for row in rows)) / len(rows)),
         "adherence_pct": int(done * 100 / marked) if marked else 0,
     }
+
+
+def metas_por_dia(user, dias) -> dict:
+    """A meta que valia em CADA dia, e não a de hoje.
+
+    A barra do histórico comparava todo dia com a meta atual. Numa tela de
+    evolução isso distorce exatamente onde mais importa: a meta muda quando o
+    peso muda, então o dia em que a pessoa recalibrou é o dia em que a
+    comparação passa a mentir para trás. Quem cortou 200 kcal na terça via a
+    segunda-feira inteira parecendo excesso.
+
+    `NutritionPlan` é retrato e os antigos ficam — a informação sempre esteve
+    no banco. O que faltava era ir buscá-la.
+
+    Uma consulta, e o mapeamento é feito em memória: são poucos planos por
+    pessoa, e uma consulta por dia seria N+1 numa tela que mostra trinta.
+    """
+    planos = list(
+        NutritionPlan.objects.filter(user=user)
+        .order_by("created_at")
+        .values_list("created_at", "target_kcal")
+    )
+    if not planos:
+        return {}
+
+    metas = {}
+    for dia in dias:
+        # O plano em vigor é o último criado ATÉ o fim daquele dia. Comparar
+        # com a data de criação e não com um intervalo evita o caso do plano
+        # criado no meio do dia: ele vale para o dia em que nasceu.
+        valendo = None
+        for criado_em, alvo in planos:
+            if timezone.localtime(criado_em).date() <= dia:
+                valendo = alvo
+            else:
+                break
+        # Dia anterior ao primeiro plano fica sem meta: comparar o que a pessoa
+        # comeu antes de existir plano com uma meta que ainda não existia seria
+        # inventar a régua.
+        metas[dia] = valendo or planos[0][1]
+    return metas
+
+
+def agua_por_semana(user, hoje=None, semanas=8) -> list:
+    """Por semana: em quantos dias houve água registrada, e quanto em média.
+
+    Média sobre os DIAS COM REGISTRO, e não sobre os sete da semana. A
+    diferença não é detalhe: dividir por sete transforma "bebi 3 litros nos
+    dois dias em que anotei" em "média de 850 ml por dia", que descreve um
+    comportamento que não aconteceu. Quem esqueceu de anotar não bebeu zero —
+    o app só não sabe.
+
+    Os dois números vão juntos de propósito: a média sozinha esconde quantos
+    dias a sustentam, e "4 de 7 dias" é o que diz se dá para confiar nela.
+
+    Só conta linha com `ml > 0`: ela nasce por `get_or_create` quando a tela do
+    dia abre, então existir não é ter bebido.
+    """
+    hoje = hoje or timezone.localdate()
+    inicio_atual = hoje - timedelta(days=hoje.weekday())
+    primeira = inicio_atual - timedelta(weeks=semanas - 1)
+
+    linhas = (
+        HydrationLog.objects.filter(user=user, date__gte=primeira, ml__gt=0)
+        .order_by()
+        .values("date", "ml")
+    )
+
+    por_semana = {}
+    for linha in linhas:
+        inicio = linha["date"] - timedelta(days=linha["date"].weekday())
+        acumulado = por_semana.setdefault(inicio, {"dias": 0, "total": 0})
+        acumulado["dias"] += 1
+        acumulado["total"] += linha["ml"]
+
+    resultado = []
+    for n in range(semanas):
+        inicio = primeira + timedelta(weeks=n)
+        dados = por_semana.get(inicio, {"dias": 0, "total": 0})
+        resultado.append(
+            {
+                "inicio": inicio,
+                "dias": dados["dias"],
+                "media_ml": (
+                    arredondar(dados["total"] / dados["dias"])
+                    if dados["dias"]
+                    else 0
+                ),
+            }
+        )
+    return resultado

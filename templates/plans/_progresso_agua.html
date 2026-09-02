@@ -1,0 +1,37 @@
+{% comment %}
+A média vai SEMPRE acompanhada de quantos dias a sustentam.
+
+Sozinha ela mente nos dois sentidos: "2,8 L por dia" de uma semana com um único
+registro descreve um dia, não uma semana. E dividir por sete transformaria "3
+litros nos dois dias em que anotei" em "850 ml por dia" — um comportamento que
+não aconteceu. Quem esqueceu de anotar não bebeu zero; o app só não sabe.
+{% endcomment %}
+<section class="card">
+  <div class="card__head"><h2>Água</h2></div>
+
+  {% if tem_agua %}
+    <dl class="data-list">
+      {% for semana in agua_semanas reversed %}
+        {% if semana.dias %}
+          <div>
+            <dt>{{ semana.inicio|date:"d/m" }}</dt>
+            <dd>
+              {{ semana.media_ml }} ml
+              <span class="dias-com-registro">
+                em {{ semana.dias }} dia{{ semana.dias|pluralize:"s" }}
+              </span>
+            </dd>
+          </div>
+        {% endif %}
+      {% endfor %}
+    </dl>
+    <p class="hint">
+      A média é dos dias em que você registrou, e não da semana inteira: dia sem
+      registro não é dia sem água — é dia sem registro.
+    </p>
+  {% else %}
+    <p class="empty-state">
+      Nenhum registro de água ainda. O contador fica no painel do dia.
+    </p>
+  {% endif %}
+</section>

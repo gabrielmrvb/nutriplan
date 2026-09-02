@@ -19,6 +19,8 @@ from accounts.models import ACTIVITY_FACTORS, SyncedOperation
 from accounts.views import OnboardingRequiredMixin, recusa_pendente
 from catalog.models import Food
 
+from workouts import progresso
+
 from . import rodizio, services, shopping, streaks, tracking, weight_trend
 from . import agora as agora_mod
 from workouts import services as treino_services
@@ -506,16 +508,23 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         rows = tracking.history(self.request.user)
         plan = services.get_active_plan(self.request.user)
+        # A meta DA ÉPOCA, e não a de hoje. `NutritionPlan` é retrato e os
+        # antigos ficam, então a informação sempre esteve no banco: comparar
+        # todo dia com a meta atual fazia a segunda-feira parecer excesso para
+        # quem cortou calorias na terça.
+        metas = tracking.metas_por_dia(self.request.user, [r["date"] for r in rows])
+        atual = plan.target_kcal if plan else 0
         for row in rows:
-            # A barra compara o dia com a meta que vale hoje. O plano é um
-            # snapshot, então o ideal seria a meta da época — fica para quando
-            # existir mais de um plano por semana na prática.
-            row["pct"] = min(int(row["kcal"] * 100 / (plan.target_kcal or 1)), 100)
+            meta = metas.get(row["date"]) or atual or 1
+            row["meta"] = meta
+            row["pct"] = min(int(row["kcal"] * 100 / meta), 100)
         # A lista é materializada aqui porque o peso de hoje sai dela: as
         # pesagens vêm ordenadas por data decrescente, então se existe uma de
         # hoje ela é a primeira. Uma consulta a mais só para reencontrar a
         # linha que já está na mão seria consulta paga duas vezes.
         recusa = recusa_pendente(self.request, "metricas")
+        semanas_de_agua = tracking.agua_por_semana(self.request.user)
+        semanas_de_treino = progresso.dias_treinados(self.request.user)
         entries = list(self.request.user.weight_entries.all()[:10])
         hoje = timezone.localdate()
         de_hoje = entries[0] if entries and entries[0].date == hoje else None
@@ -533,6 +542,23 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
                 "peso_de_hoje": de_hoje.weight_kg if de_hoje else None,
                 "houve_recusa": recusa is not None,
                 "peso_recusado": recusa or "",
+                # O treino nesta tela. Cada série sempre esteve no banco, e a
+                # tela chamada "Métricas" não mostrava nenhuma: quem treinava
+                # há dois meses não via nada do próprio treino aqui.
+                "semanas_de_treino": semanas_de_treino,
+                # Mesma distinção da água, e aqui eu tinha errado: a lista tem
+                # SEMPRE oito semanas, inclusive as zeradas — buraco na série é
+                # informação. `{% if lista %}` é verdadeiro mesmo sem nenhum
+                # treino, e o estado vazio nunca apareceria.
+                "tem_treino": any(s["dias"] for s in semanas_de_treino),
+                "dias_combinados": self.request.user.training_days.count(),
+                "cargas": progresso.progressao_de_carga(self.request.user),
+                "agua_semanas": semanas_de_agua,
+                # A pergunta é "existe algum registro?", e não "a lista tem
+                # itens": a lista SEMPRE tem oito semanas, inclusive as
+                # zeradas — buraco na série é informação. Sem esta distinção o
+                # cartão nunca mostraria o estado vazio.
+                "tem_agua": any(s["dias"] for s in semanas_de_agua),
                 "nav": "history",
             }
         )
