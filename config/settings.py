@@ -106,6 +106,11 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # DEPOIS da autenticação, porque precisa de `request.user`, e ANTES das
+    # views, porque o caso anônimo tem que ser respondido antes do
+    # `LoginRequiredMixin` transformá-lo num redirect que o cliente publicado
+    # leria como sucesso. Ver `config/csrf.py`.
+    "config.csrf.BarreiraDeReplayMiddleware",
     # DEPOIS da autenticação, porque ele SUBSTITUI `request.user` — antes dela,
     # o middleware de autenticação sobrescreveria a troca de volta pelo
     # visitante anônimo.
@@ -405,6 +410,12 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 #: Origens confiáveis para POST vindo de HTTPS. Sem isto o Django devolve 403
 #: em qualquer formulário do site publicado, porque ele compara a origem do
 #: pedido com esta lista antes de aceitar o token de CSRF.
+# Recusa por CSRF num replay da fila responde de forma preservável em vez
+# de 403: o cliente publicado apaga o item em qualquer 4xx, e o token
+# guardado nele fica velho depois de QUALQUER login — inclusive o da
+# própria pessoa voltando. A view continua não executando.
+CSRF_FAILURE_VIEW = "config.csrf.falha_de_csrf"
+
 CSRF_TRUSTED_ORIGINS = env("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])
 
 # --- Domínio dado pela plataforma de hospedagem ---

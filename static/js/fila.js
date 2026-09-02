@@ -73,10 +73,17 @@
    *
    * A fila vive no IndexedDB, que pertence ao NAVEGADOR e não à sessão: ela
    * atravessa o logout inteira. Sem dono, uma operação que a pessoa A
-   * enfileirou sem rede seria drenada na conta de quem entrasse depois — e o
-   * drenar acontece no primeiro carregamento de página, sem ninguém pedir.
+   * enfileirou sem rede seria ENVIADA usando a sessão de quem estivesse
+   * autenticado depois — e o drenar acontece no primeiro carregamento de
+   * página, sem ninguém pedir.
    *
-   * Apagar a fila no logout resolveria o vazamento e criaria outro problema:
+   * O envio é o que está provado. A GRAVAÇÃO na outra conta não: medido com a
+   * stack real, o CSRF do item fica velho depois de qualquer login e o
+   * servidor recusa antes da view. Corrigir o cliente continua valendo — uma
+   * proteção que só funciona porque outra camada é atravessada antes não é
+   * desenho, é sorte —, mas a afirmação honesta para aqui.
+   *
+   * Apagar a fila no logout fecharia esse caminho e criaria outro problema:
    * a pessoa perderia a água e as refeições que marcou sem rede. Por isso a
    * fila é SEPARADA por dono, e não esvaziada — o que é de A continua lá,
    * esperando A voltar.
@@ -206,16 +213,55 @@
 
   /* -------------------------------------------------------------- envio */
 
+  /* O dono viaja no CABEÇALHO, e o servidor o usa como pré-condição.
+   *
+   * Escolher a conta continua sendo do servidor, por `request.user`. Este
+   * cabeçalho diz outra coisa: "esta operação foi criada esperando a sessão de
+   * fulano". Se a sessão atual for de outra pessoa, o servidor recusa antes de
+   * mudar qualquer coisa.
+   *
+   * Isso é necessário porque esta aba pode estar VELHA: cookie de sessão é do
+   * navegador, não da aba. A pessoa pode ter saído e outra entrado numa aba
+   * vizinha, e daqui não há como saber. */
+  /* O token do MOMENTO DO ENVIO, e não o que estava no formulário.
+   *
+   * A fila copia o `FormData` inteiro, então o item guarda o
+   * `csrfmiddlewaretoken` de quando a pessoa marcou a água sem rede. Esse
+   * token é de transporte, não é dado da operação: `login()` chama
+   * `rotate_token`, e depois de qualquer entrada — inclusive a da própria
+   * pessoa voltando — ele fica velho.
+   *
+   * Medido: o Django lê `csrfmiddlewaretoken` do POST PRIMEIRO e só olha o
+   * cabeçalho se o campo estiver vazio. Acrescentar `X-CSRFToken` sem trocar
+   * o campo não adiantaria nada.
+   */
+  function tokenAtual() {
+    var achado = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+    return achado ? achado[2] : "";
+  }
+
   function enviar(item) {
-    var corpo = new URLSearchParams(item.dados);
+    var dados = {};
+    Object.keys(item.dados).forEach(function (k) { dados[k] = item.dados[k]; });
+    var atual = tokenAtual();
+    if (atual) dados.csrfmiddlewaretoken = atual;
+
+    var corpo = new URLSearchParams(dados);
+    var cabecalhos = {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "X-Requested-With": "fetch",
+      "X-NutriPlan-Replay": "1",
+    };
+    if (item.dono) cabecalhos["X-NutriPlan-Dono"] = item.dono;
     return fetch(item.url, {
       method: "POST",
       credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "X-Requested-With": "fetch",
-      },
+      headers: cabecalhos,
       body: corpo,
+      /* Sem seguir redirect. Um POST recusado por falta de sessão vira 302
+       * para o login, e o `fetch` seguiria até uma página 200 — que o
+       * tratamento abaixo leria como sucesso e apagaria a operação. */
+      redirect: "manual",
     });
   }
 
@@ -236,6 +282,28 @@
               /* 4xx é o servidor recusando o conteúdo — reenviar não conserta,
                * e manter na fila faria a pessoa carregar para sempre um item
                * que nunca vai passar. Sai da fila. */
+              /* Só sai da fila com PROVA de aplicação.
+               *
+               * A regra publicada era "2xx ou 4xx removem", e ela foi medida:
+               * depois de qualquer login o token do item fica velho, o CSRF
+               * responde 403, e o item era apagado. A pessoa perdia a
+               * marcação que fez sem rede — inclusive só por ter saído e
+               * voltado.
+               *
+               * Agora a remoção exige sucesso. O que PRESERVA:
+               *
+               *   503 ...... o servidor dizendo que a operação não pode ser
+               *              aplicada agora (sessão, dono ou CSRF)
+               *   401/403 .. autenticação ou CSRF por qualquer outro caminho
+               *   5xx ...... erro do servidor
+               *   redirect . sem sessão, não há o que sincronizar
+               *
+               * 4xx de CONTEÚDO continua removendo: um valor que o servidor
+               * recusa não melhora com reenvio, e manter faria a pessoa
+               * carregar para sempre algo que nunca vai passar. */
+              if (r.type === "opaqueredirect") return;
+              if (r.status === 401 || r.status === 403) return;
+              if (r.status >= 500) return;
               if (r.ok || (r.status >= 400 && r.status < 500)) return remover(item.op_id);
             })
             .catch(function () { /* rede caiu de novo: fica para a próxima */ });

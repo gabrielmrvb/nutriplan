@@ -171,9 +171,24 @@ class ServiceWorkerView(TemplateView):
 
 
 class OfflineView(TemplateView):
-    """Página mostrada quando o navegador está sem rede e o cache não tem a rota."""
+    """Página mostrada quando o navegador está sem rede e o cache não tem a rota.
+
+    Ela é PRÉ-CACHEADA no install do service worker e servida a qualquer pessoa
+    que use o aparelho depois. Por isso renderiza sem identidade: `shell_offline`
+    faz o `base.html` omitir `data-usuario`, forçar `data-autenticado="0"` e
+    pular as mensagens da sessão.
+
+    O service worker já pede a página sem cookie, e esta é a segunda camada: se
+    alguém um dia trocar aquele `Request` por uma URL crua, o shell continua
+    saindo neutro em vez de congelar a sessão de quem instalou o app.
+    """
 
     template_name = "pwa/offline.html"
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto["shell_offline"] = True
+        return contexto
 
 
 @method_decorator(login_required, name="post")

@@ -79,19 +79,26 @@
   A classe `.sprite` continua viva — quem a usa agora é só o sprite de ícones
   do onboarding, em `partials/icones.html`.
 {% endcomment %}
-<body class="{% if user.is_authenticated and not sem_tabbar %}tem-tabbar{% endif %}"
-      data-autenticado="{% if user.is_authenticated %}1{% else %}0{% endif %}"
+{% comment %}
+  `shell_offline` desliga TODA marca de sessão daqui para baixo. A tela de
+  offline é pré-cacheada uma vez e servida a qualquer pessoa que pegue o
+  aparelho depois — gravar identidade nela seria entregar a conta anterior.
+{% endcomment %}
+<body class="{% if user.is_authenticated and not sem_tabbar and not shell_offline %}tem-tabbar{% endif %}"
+      data-autenticado="{% if user.is_authenticated and not shell_offline %}1{% else %}0{% endif %}"
       {% comment %}
         Quem é a pessoa desta sessão, para a fila offline saber de quem é cada
         operação pendente. A fila vive no IndexedDB, que é do NAVEGADOR e não
         da sessão: sem dono, uma operação que a pessoa A enfileirou sem rede
-        seria enviada na conta de quem entrasse depois.
+        seria ENVIADA usando a sessão de quem estivesse autenticado depois.
+        O envio está provado; a gravação na outra conta, não — o CSRF do item
+        fica velho e o servidor recusa antes da view.
 
         É a chave primária dela, e não um segredo: identifica a própria conta
         para o próprio JavaScript da própria pessoa. Nada aqui autoriza coisa
         alguma — quem autoriza é o cookie de sessão, do lado do servidor.
       {% endcomment %}
-      data-usuario="{% if user.is_authenticated %}{{ user.pk }}{% endif %}"
+      data-usuario="{% if user.is_authenticated and not shell_offline %}{{ user.pk }}{% endif %}"
       {% comment %}
         Presente só no render seguinte a uma exclusão CONCLUÍDA, e por uma
         volta só. É o que autoriza o navegador a apagar a fila local daquela
@@ -184,7 +191,7 @@
         <a class="btn-link" href="/demo/sobre/">Saiba mais</a>
       </p>
     {% endif %}
-    {% if messages %}
+    {% if messages and not shell_offline %}
       <ul class="flash">
         {% for message in messages %}
           <li class="{{ message.tags }}">{{ message }}</li>

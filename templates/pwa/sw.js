@@ -35,7 +35,28 @@ const SHELL = [OFFLINE_URL{% for asset in shell %}, "{{ asset }}"{% endfor %}];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting())
+    caches
+      .open(CACHE)
+      /* `credentials: "omit"` e o coracao disto.
+       *
+       * `addAll` com URL crua manda cookie (o padrao same-origin). A tela de
+       * offline e renderizada pelo Django, entao ela vinha AUTENTICADA: o HTML
+       * guardado no cache de estaticos trazia `data-usuario` com a chave
+       * primaria de quem instalou o app, `data-autenticado="1"` e as mensagens
+       * pendentes daquela sessao — consumidas ali dentro e congeladas para
+       * sempre.
+       *
+       * O cache de estaticos NAO e limpo no logout, de proposito: CSS e icone
+       * nao tem nada pessoal. Com o shell autenticado la dentro, essa premissa
+       * deixava de ser verdade, e a proxima pessoa a usar o aparelho recebia o
+       * identificador da anterior — que e exatamente o que `fila.js` le para
+       * decidir de quem e cada operacao pendente.
+       *
+       * Medido no navegador: `data-usuario="717"` servido para a sessao 725. */
+      .then((cache) =>
+        cache.addAll(SHELL.map((url) => new Request(url, { credentials: "omit" })))
+      )
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -316,35 +337,75 @@ async function drenarFila() {
    * abre uma transação, e era ela que estourava `NotFoundError` quando o banco
    * estava sem a store. Fora do try, isso virava rejeição não tratada dentro
    * do service worker — invisível para quem estava usando o app. */
+  /* `db` é declarado AQUI, e não dentro do `try`. Com `const db` lá dentro
+   * ele fica preso ao bloco: `removerDaFila(db, ...)` lançava `ReferenceError`
+   * que o `catch` do laço engolia — nenhum item saía da fila — e o `db.close()`
+   * do fim lançava solto, rejeitando `drenarFila()`. Como quem chama é
+   * `event.waitUntil`, o Background Sync lia isso como falha e REAGENDAVA:
+   * gravava, não removia, e tentava de novo. */
+  let db;
   let itens;
   try {
-    const db = await abrirFila();
+    db = await abrirFila();
     itens = await itensDaFila(db);
   } catch (e) {
     return;
   }
   for (const item of itens) {
     try {
+      /* O worker NÃO TEM DOM: não há como ele saber quem está logado. O que
+         ele tem é o dono gravado no próprio item, e é isso que ele declara ao
+         servidor — que compara com a sessão antes de mudar qualquer coisa.
+
+         Este caminho é o mais perigoso da fila: roda em evento `sync`,
+         possivelmente sem nenhuma aba aberta, e nenhuma correção do lado da
+         página o alcança. Item sem dono não recebe o cabeçalho, e o servidor
+         recusa — é a quarentena chegando aqui também. */
+      const cabecalhos = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-Requested-With": "fetch",
+        "X-NutriPlan-Replay": "1",
+      };
+      if (item.dono) cabecalhos["X-NutriPlan-Dono"] = item.dono;
+
       const resposta = await fetch(item.url, {
         method: "POST",
         credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "X-Requested-With": "fetch",
-        },
+        headers: cabecalhos,
         body: new URLSearchParams(item.dados),
+        /* Sem seguir redirect: o 302 para o login terminaria numa página 200
+           que a regra abaixo leria como sucesso. */
+        redirect: "manual",
       });
-      /* 4xx sai da fila: reenviar não conserta conteúdo recusado, e manter
-         faria a pessoa carregar para sempre algo que nunca vai passar. */
+      /* O worker NÃO renova o CSRF, e isso é decisão.
+         Ele não tem DOM nem acesso a `document.cookie`, e buscar o token
+         exigiria um endpoint novo só para isso. Não precisa: com o token
+         velho o servidor responde de forma preservável, o item fica, e a
+         próxima abertura do app sincroniza pelo `fila.js`, que tem o token
+         atual. O worker adianta o que dá e não perde nada.
+
+         `continue` e não `break`: um item de outra pessoa, ou com token
+         velho, não pode travar a fila inteira e impedir que o item de quem
+         ESTÁ logado sincronize. */
+      if (resposta.type === "opaqueredirect") continue;
+      if (resposta.status === 401 || resposta.status === 403) continue;
+      if (resposta.status >= 500) continue;
       if (resposta.ok || (resposta.status >= 400 && resposta.status < 500)) {
         await removerDaFila(db, item.op_id);
       }
     } catch (e) {
-      /* Rede caiu de novo: fica para a próxima tentativa. */
-      break;
+      /* Rede caiu: este item fica para a próxima. `continue` e não `break` —
+         um item que falha não pode impedir os outros de tentarem. */
+      continue;
     }
   }
-  db.close();
+  /* Fechar não pode derrubar o `waitUntil`: uma rejeição aqui vira sync
+   * falhado e reagendamento, por um erro que não impede nada. */
+  try {
+    db.close();
+  } catch (e) {
+    /* já fechado, ou o banco sumiu debaixo do worker */
+  }
 }
 
 self.addEventListener("sync", (event) => {

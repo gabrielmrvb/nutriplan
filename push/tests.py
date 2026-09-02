@@ -1018,10 +1018,16 @@ class TrocaDeContaNoMesmoNavegadorTests(TestCase):
     ninguém pedir, com `credentials: "same-origin"` — ou seja, na sessão de
     quem estiver logado AGORA.
 
-    Sem separação por dono, a água que A marcou sem rede entraria na conta de
-    B. Não é hipótese: `drenar()` roda em `DOMContentLoaded`.
+    Sem separação por dono, a água que A marcou sem rede seria ENVIADA usando a
+    sessão de B. O envio não é hipótese: `drenar()` roda em `DOMContentLoaded`
+    e seleciona o item de A.
 
-    Apagar a fila no logout resolveria o vazamento e criaria outro problema —
+    A GRAVAÇÃO em B é que nunca foi provada — medido com a stack real, o CSRF
+    do item fica velho depois de qualquer login e o servidor recusa antes da
+    view. O caminho do cliente é corrigido mesmo assim: proteção que só
+    funciona porque outra camada é atravessada antes não é desenho.
+
+    Apagar a fila no logout resolveria isso e criaria outro problema —
     A perderia o que marcou sem rede. Por isso ela é separada, e não esvaziada.
 
     Estes testes leem o código do `fila.js` porque não existe Node neste
