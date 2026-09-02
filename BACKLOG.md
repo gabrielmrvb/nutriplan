@@ -169,12 +169,15 @@ ensina mais que a correção:
 - **P2 — link quebrado na política de privacidade**, apontando para uma rota
   que só aceita POST de propósito.
 
-### PREMIUM POLISH ⏳ AGUARDANDO RESTAURAÇÃO DO ESCOPO B1–B11
+### PREMIUM POLISH — ESCOPO B1–B11 RECUPERADO
 
-O escopo original (B1 a B11) não está documentado neste repositório — ele existe
-apenas na conversa que o definiu. Não foi reconstruído de memória aqui, porque um
-escopo reinventado com os mesmos rótulos é pior que escopo nenhum: parece
-continuidade e não é.
+O escopo original está em [`docs/premium-polish-b1-b11.md`](docs/premium-polish-b1-b11.md),
+recuperado do transcript da sessão (linha 29190, mensagem do usuário de
+02/09/2026) e copiado literalmente — não reconstruído de memória. A emenda
+posterior a B7, de doze minutos depois, está registrada no mesmo arquivo.
+
+Cuidado ao ler: a missão de 01/09 "NUTRIPLAN PREMIUM UI/UX POLISH V1" é OUTRA,
+anterior, e não usa rótulos B. Não misturar as duas.
 
 Estado técnico para retomar, quando o escopo voltar:
 
