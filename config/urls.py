@@ -1,7 +1,7 @@
 from allauth.urls import build_provider_urlpatterns
 from django.contrib import admin
 
-from . import admin_entrada
+from . import admin_entrada, admin_seguranca
 from django.templatetags.static import static as static_url
 from django.urls import include, path
 from django.views.generic.base import RedirectView
@@ -40,6 +40,11 @@ from .health import HealthView, VivoView
 ROTAS_SOCIAIS = build_provider_urlpatterns() + [
     path("social/", include("allauth.socialaccount.urls")),
 ]
+
+# Roda no import de urls.py, que acontece DEPOIS do autodiscover do admin —
+# `accounts` vem antes de `allauth` em INSTALLED_APPS, então tirar as telas de
+# dentro de `accounts/admin.py` não encontraria nada registrado ainda.
+admin_seguranca.esconder_segredos_de_terceiros()
 
 urlpatterns = [
     # ANTES de `admin.site.urls`, e a ordem é a integração inteira.

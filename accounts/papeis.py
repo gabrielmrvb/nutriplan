@@ -24,21 +24,37 @@ SUPORTE = "Suporte NutriPlan"
 
 #: (app_label, model) que cada papel enxerga, e com qual profundidade.
 #:
-#: LEITURA é `view`. ESCRITA é `view`, `add` e `change` — nunca `delete`:
-#: apagar conta é exclusão a pedido da pessoa, tem fluxo próprio em
-#: `ExcluirContaView`, e não pode virar um botão de operação de rotina.
+#: LEITURA é `view`. EDICAO é `view` e `change`. ESCRITA acrescenta `add`.
+#:
+#: Nenhum inclui `delete`: apagar conta é exclusão a pedido da pessoa, tem
+#: fluxo próprio em `ExcluirContaView`, e não pode virar botão de rotina.
+#:
+#: EDICAO existe separada de ESCRITA por causa de `accounts.user`. A pergunta
+#: que a criou: qual é o caso operacional para um administrador CRIAR conta?
+#: Não há. O cadastro é auto-serviço, e conta criada pelo painel nasce sem
+#: perfil, sem plano e sem senha escolhida pela pessoa — um registro que o app
+#: não sabe usar. O bootstrap administrativo já recusa criar conta pela mesma
+#: razão: um typo viraria conta fantasma.
+#:
+#: O catálogo continua com ESCRITA porque ali `add` tem uso real — alguém
+#: acrescenta um alimento que faltava. Separar as constantes é o que permite
+#: tirar `add` de um lado sem tirar do outro.
 LEITURA = ("view",)
+EDICAO = ("view", "change")
 ESCRITA = ("view", "add", "change")
 
 PAPEIS = {
     ADMINISTRADORES: {
-        # Contas e o que sustenta o suporte.
-        ("accounts", "user"): ESCRITA,
-        ("accounts", "profile"): ESCRITA,
-        ("accounts", "trainingday"): ESCRITA,
+        # Contas: ver e corrigir, nunca criar.
+        ("accounts", "user"): EDICAO,
+        # `change_profile` fica porque a ação "solicitar nova escolha de
+        # divisão" grava no perfil. O FORMULÁRIO não oferece campo editável
+        # nenhum — a única escrita possível passa pela ação, que é auditada.
+        ("accounts", "profile"): LEITURA,
+        ("accounts", "trainingday"): LEITURA,
         ("accounts", "registroadministrativo"): LEITURA,
         # Catálogo: é conteúdo do produto e alguém precisa poder corrigir uma
-        # receita errada sem abrir o banco.
+        # receita errada — ou acrescentar um alimento — sem abrir o banco.
         ("catalog", "food"): ESCRITA,
         ("catalog", "mealtemplate"): ESCRITA,
         ("catalog", "dietarytag"): ESCRITA,
@@ -65,6 +81,16 @@ PAPEIS = {
 }
 
 
+#: Permissões de PROPÓSITO, que não seguem o padrão `acao_model`.
+#:
+#: `pedir_nova_escolha_de_divisao` existe porque a única escrita administrativa
+#: aprovada sobre o perfil é uma operação específica, e não "mexer no perfil".
+#: `change_profile` cobriria vinte campos para autorizar um.
+EXTRAS = {
+    ADMINISTRADORES: ("pedir_nova_escolha_de_divisao",),
+}
+
+
 def permissoes_de(papel) -> list:
     """As permissões do papel, resolvidas contra os models que existem HOJE."""
     desejadas = PAPEIS[papel]
@@ -74,7 +100,7 @@ def permissoes_de(papel) -> list:
             app_label__in={app for app, _ in desejadas}
         )
     }
-    codenames = []
+    codenames = list(EXTRAS.get(papel, ()))
     for (app, modelo), acoes in desejadas.items():
         tipo = tipos.get((app, modelo))
         if tipo is None:
@@ -83,10 +109,11 @@ def permissoes_de(papel) -> list:
             # descobre é o teste que compara os dois.
             continue
         codenames.extend(f"{acao}_{modelo}" for acao in acoes)
+    apps_do_papel = {app for app, _ in desejadas} | {"accounts"}
     return list(
         Permission.objects.filter(
             codename__in=codenames,
-            content_type__app_label__in={app for app, _ in desejadas},
+            content_type__app_label__in=apps_do_papel,
         )
     )
 

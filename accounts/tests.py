@@ -20,7 +20,7 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core import mail
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.db import IntegrityError
 from django.contrib.contenttypes.models import ContentType
 from django.core.management import call_command
@@ -32,6 +32,8 @@ from django.utils import timezone
 from catalog.models import DietaryTag, TagKind
 from plans.models import NutritionPlan
 from plans.tests import create_complete_user
+
+from push.models import PushSubscription
 
 from . import limites, papeis
 from .adapters import MAXIMO_DE_TENTATIVAS, SESSAO_TENTATIVAS, SESSAO_VINCULO
@@ -48,6 +50,10 @@ from .views import CAMINHO_COMPLETO, CAMINHO_CURTO
 
 from .models import (
     AcaoAdministrativa,
+    SplitPreference,
+    ActivityLevel,
+    Goal,
+    Sex,
     RegistroAdministrativo,
     PedidoDeRecuperacao,
     ONBOARDING_DONE,
@@ -4851,3 +4857,687 @@ class DestinoNoLoginSocialTests(TestCase):
                     self.assertFalse(adaptador.is_safe_url(hostil))
 
             self.assertTrue(adaptador.is_safe_url("/admin/"))
+
+
+class EscaladaDePrivilegioNoUserAdminTests(TestCase):
+    """Quem tem `change_user` não pode virar superuser pelo formulário.
+
+    O `UserAdmin` do Django traz `is_superuser`, `is_staff`, `groups` e
+    `user_permissions` no fieldset de permissões. Qualquer staff com
+    `change_user` recebe esses controles — e o papel Administradores NutriPlan
+    tem `change_user`, porque precisa ajustar conta de gente.
+
+    O resultado é que a trava construída em outro lugar não vale: `/admin/auth/group/`
+    responde 403 e `/admin/auth/permission/` nem está registrado, mas o
+    formulário de usuário oferece os MESMOS três controles. Uma porta trancada
+    e a janela ao lado aberta.
+
+    Estes testes provam pelo ESTADO NO BANCO, e não pelo código de resposta:
+    um POST que devolve 302 e não grava nada é sucesso; um que devolve 302 e
+    grava é a falha. `refresh_from_db()` é o que separa os dois.
+
+    A regra vale para QUALQUER staff não-superuser com `change_user`, e não
+    para o nome de um grupo: amanhã outro grupo recebe essa permissão, e a
+    proteção precisa acompanhar.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        papeis.sincronizar_papeis()
+
+    def setUp(self):
+        self.operador = User.objects.create_user(
+            email="operador-admin@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.operador.is_staff = True
+        self.operador.save(update_fields=["is_staff"])
+        self.operador.groups.add(Group.objects.get(name=papeis.ADMINISTRADORES))
+
+        self.comum = User.objects.create_user(
+            email="alvo-comum@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(self.operador)
+
+    def _formulario(self, alvo, **mudancas):
+        """O POST mínimo que o UserAdmin aceita, com as mudanças pedidas."""
+        dados = {
+            "email": alvo.email,
+            "first_name": alvo.first_name,
+            "last_name": alvo.last_name,
+            "is_active": "on" if alvo.is_active else "",
+            "last_login_0": "", "last_login_1": "",
+            "date_joined_0": alvo.date_joined.strftime("%Y-%m-%d"),
+            "date_joined_1": alvo.date_joined.strftime("%H:%M:%S"),
+            # Os inlines exigem management form mesmo quando vazios.
+            "profile-TOTAL_FORMS": "0", "profile-INITIAL_FORMS": "0",
+            "profile-MIN_NUM_FORMS": "0", "profile-MAX_NUM_FORMS": "1",
+            "training_days-TOTAL_FORMS": "0", "training_days-INITIAL_FORMS": "0",
+            "training_days-MIN_NUM_FORMS": "0", "training_days-MAX_NUM_FORMS": "1000",
+            "weight_entries-TOTAL_FORMS": "0", "weight_entries-INITIAL_FORMS": "0",
+            "weight_entries-MIN_NUM_FORMS": "0", "weight_entries-MAX_NUM_FORMS": "1000",
+        }
+        dados.update(mudancas)
+        return dados
+
+    def _postar(self, alvo, **mudancas):
+        return self.client.post(
+            f"/admin/accounts/user/{alvo.pk}/change/",
+            self._formulario(alvo, **mudancas),
+            secure=True,
+            follow=True,
+        )
+
+    def test_nao_consegue_virar_superuser(self):
+        """Autoescalada: o operador tenta se promover."""
+        self._postar(self.operador, is_superuser="on", is_staff="on")
+
+        self.operador.refresh_from_db()
+        self.assertFalse(
+            self.operador.is_superuser,
+            "um staff com change_user virou superuser pelo formulário",
+        )
+
+    def test_nao_consegue_promover_outra_pessoa_a_superuser(self):
+        self._postar(self.comum, is_superuser="on", is_staff="on")
+
+        self.comum.refresh_from_db()
+        self.assertFalse(self.comum.is_superuser)
+        self.assertFalse(self.comum.is_staff)
+
+    def test_nao_consegue_conceder_grupo(self):
+        grupo = Group.objects.get(name=papeis.ADMINISTRADORES)
+
+        self._postar(self.comum, groups=[str(grupo.pk)])
+
+        self.comum.refresh_from_db()
+        self.assertEqual(list(self.comum.groups.all()), [])
+
+    def test_nao_consegue_conceder_permissao_avulsa(self):
+        """`user_permissions` é o caminho mais silencioso dos quatro: não passa
+        por grupo nenhum e concede capacidade direta."""
+        permissao = Permission.objects.get(codename="delete_user")
+
+        self._postar(self.comum, user_permissions=[str(permissao.pk)])
+
+        self.comum.refresh_from_db()
+        self.assertEqual(list(self.comum.user_permissions.all()), [])
+
+    def test_o_formulario_nao_oferece_controle_de_autorizacao(self):
+        """Complementa os POSTs: o GET também não deve oferecer os controles.
+
+        Esconder no GET sem barrar o POST seria falso conforto; barrar o POST
+        sem esconder no GET seria uma tela que promete o que não cumpre. Os
+        dois lados precisam concordar.
+        """
+        html = self.client.get(
+            f"/admin/accounts/user/{self.comum.pk}/change/", secure=True
+        ).content.decode()
+
+        for campo in ("is_superuser", "groups", "user_permissions"):
+            with self.subTest(campo=campo):
+                self.assertNotIn(f'name="{campo}"', html)
+
+    def test_o_administrador_continua_conseguindo_o_que_foi_aprovado(self):
+        """Controle positivo: o hardening não pode inutilizar o UserAdmin.
+
+        Sem isto, "negar tudo" passaria em todos os testes acima e destruiria a
+        ferramenta que a missão existe para entregar.
+        """
+        resposta = self._postar(self.comum, first_name="Nome Corrigido")
+
+        self.assertEqual(resposta.status_code, 200)
+        self.comum.refresh_from_db()
+        self.assertEqual(self.comum.first_name, "Nome Corrigido")
+
+    def test_superuser_de_verdade_mantem_as_capacidades(self):
+        """A trava é para staff NÃO-superuser. Um superuser legítimo continua
+        administrando autorização — senão não haveria como corrigir nada."""
+        raiz = User.objects.create_superuser(
+            email="raiz@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(raiz)
+
+        html = self.client.get(
+            f"/admin/accounts/user/{self.comum.pk}/change/", secure=True
+        ).content.decode()
+
+        self.assertIn('name="is_superuser"', html)
+        self.assertIn('name="groups"', html)
+
+
+class SuperficieDoAdminTests(TestCase):
+    """O que o Admin oferece, medido por HTTP e não por `has_perm`.
+
+    Permissão no banco, model registrado e URL alcançável são três coisas
+    diferentes, e confundi-las já produziu duas conclusões erradas nesta
+    auditoria: `Profile` foi dado como não exposto porque a varredura olhava
+    só `admin.site._registry` e não enxergava inlines; e `PushSubscription` foi
+    dado como exposto porque estava registrado, quando a URL responde 403.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        papeis.sincronizar_papeis()
+
+    def setUp(self):
+        self.operador = User.objects.create_user(
+            email="op-superficie@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.operador.is_staff = True
+        self.operador.save(update_fields=["is_staff"])
+        self.operador.groups.add(Group.objects.get(name=papeis.ADMINISTRADORES))
+        self.client.force_login(self.operador)
+
+    def test_telas_que_expoem_credencial_nao_existem(self):
+        """`SocialToken` guarda token de acesso; `SocialApp`, o segredo do app
+        OAuth. Desregistradas: a URL some, em vez de depender de a permissão
+        continuar ausente para sempre."""
+        for rota in (
+            "/admin/socialaccount/socialtoken/",
+            "/admin/socialaccount/socialapp/",
+        ):
+            with self.subTest(rota=rota):
+                self.assertEqual(self.client.get(rota, secure=True).status_code, 404)
+
+    def test_a_assinatura_push_nunca_mostra_o_material_de_assinatura(self):
+        """Mesmo com permissão concedida, endpoint e chaves não aparecem."""
+        from django.contrib.auth.models import Permission
+
+        self.operador.user_permissions.add(
+            Permission.objects.get(codename="view_pushsubscription")
+        )
+        assinatura = PushSubscription.objects.create(
+            user=self.operador,
+            endpoint="https://push.exemplo/inscricao/SEGREDO-DO-ENDPOINT",
+            p256dh_key="CHAVE-P256DH-QUE-NAO-PODE-VAZAR",
+            auth_key="CHAVE-AUTH-QUE-NAO-PODE-VAZAR",
+            user_agent="Mozilla/5.0 " + "x" * 200,
+        )
+
+        for rota in (
+            "/admin/push/pushsubscription/",
+            f"/admin/push/pushsubscription/{assinatura.pk}/change/",
+        ):
+            html = self.client.get(rota, secure=True).content.decode()
+            with self.subTest(rota=rota):
+                self.assertNotIn("SEGREDO-DO-ENDPOINT", html)
+                self.assertNotIn("CHAVE-P256DH-QUE-NAO-PODE-VAZAR", html)
+                self.assertNotIn("CHAVE-AUTH-QUE-NAO-PODE-VAZAR", html)
+
+    def test_a_trilha_administrativa_e_imutavel_inclusive_por_post(self):
+        """Esconder botão não basta: `has_*_permission` é o que o Django
+        consulta antes de aceitar o pedido."""
+        from django.core.management import call_command
+        from django.contrib.auth.models import Permission
+
+        self.operador.user_permissions.add(
+            Permission.objects.get(codename="view_registroadministrativo")
+        )
+        alvo = User.objects.create_user(
+            email="alvo-trilha@exemplo.com", password="senha-bem-forte-123"
+        )
+        call_command("promover_admin", pk=alvo.pk, verbosity=0)
+        registro = RegistroAdministrativo.objects.get(alvo=alvo)
+        antes = (registro.acao, registro.alvo_email)
+
+        self.assertEqual(
+            self.client.get("/admin/accounts/registroadministrativo/", secure=True).status_code,
+            200,
+        )
+        for rota, dados in (
+            ("/admin/accounts/registroadministrativo/add/", {"acao": "primeiro_admin"}),
+            (f"/admin/accounts/registroadministrativo/{registro.pk}/change/", {"acao": "revogou_staff"}),
+            (f"/admin/accounts/registroadministrativo/{registro.pk}/delete/", {"post": "yes"}),
+        ):
+            with self.subTest(rota=rota):
+                self.assertIn(
+                    self.client.post(rota, dados, secure=True).status_code, (403, 404)
+                )
+
+        registro.refresh_from_db()
+        self.assertEqual((registro.acao, registro.alvo_email), antes)
+
+    def test_o_peso_nao_pode_ser_editado_nem_apagado(self):
+        """Peso é o dado mais sensível do app. Editar reescreveria o histórico
+        de alguém; apagar destruiria a série que ela construiu."""
+        from django.contrib.auth.models import Permission
+
+        for codename in ("view_weightentry", "change_weightentry", "delete_weightentry"):
+            self.operador.user_permissions.add(
+                Permission.objects.get(codename=codename)
+            )
+        pesagem = WeightEntry.objects.create(
+            user=self.operador, date=date(2026, 9, 1), weight_kg=Decimal("82.4")
+        )
+
+        self.client.post(
+            f"/admin/accounts/weightentry/{pesagem.pk}/change/",
+            {"user": self.operador.pk, "date": "2026-09-01", "weight_kg": "99.9"},
+            secure=True,
+        )
+        self.client.post(
+            f"/admin/accounts/weightentry/{pesagem.pk}/delete/", {"post": "yes"}, secure=True
+        )
+
+        pesagem.refresh_from_db()
+        self.assertEqual(pesagem.weight_kg, Decimal("82.4"))
+        self.assertTrue(WeightEntry.objects.filter(pk=pesagem.pk).exists())
+
+    def test_o_perfil_nao_aceita_edicao_de_dado_corporal(self):
+        """O inline passou a declarar campo por campo. Altura e nascimento são
+        informação que a própria pessoa deu, e não há caso de suporte para
+        alterá-las pelo painel."""
+        perfil = Profile.objects.create(
+            user=self.operador,
+            sex=Sex.MALE,
+            birth_date=date(1995, 4, 12),
+            height_cm=178,
+            activity_level=ActivityLevel.LIGHT,
+            goal=Goal.BULK,
+            wake_time=time(7, 0),
+            sleep_time=time(23, 0),
+        )
+
+        html = self.client.get(
+            f"/admin/accounts/user/{self.operador.pk}/change/", secure=True
+        ).content.decode()
+
+        for campo in ("profile-0-height_cm", "profile-0-birth_date", "profile-0-goal"):
+            with self.subTest(campo=campo):
+                self.assertNotIn(f'name="{campo}"', html)
+
+        self.assertEqual(perfil.height_cm, 178)
+
+    def test_a_lista_de_usuarios_nao_cresce_uma_consulta_por_linha(self):
+        """Com 50 contas o Admin precisa continuar utilizável."""
+        for i in range(30):
+            User.objects.create_user(
+                email="carga%02d@exemplo.com" % i, password="senha-bem-forte-123"
+            )
+
+        # Sete é o custo MEDIDO, e o número está escrito para que um N+1
+        # futuro apareça como falha em vez de lentidão silenciosa.
+        with self.assertNumQueries(7):
+            self.client.get("/admin/accounts/user/", secure=True)
+
+        # O número sozinho não prova ausência de N+1: sete com 31 contas
+        # também seria o custo de uma lista que faz uma consulta por linha se
+        # a página mostrasse sete linhas. A prova é o custo NÃO MUDAR quando o
+        # número de linhas dobra.
+        #
+        # A coluna "Google" é o motivo de isto existir agora: ela vem de uma
+        # relação (`SocialAccount`) e a forma ingênua — perguntar por conta —
+        # custaria uma consulta por linha. Ela é `Exists` anotado no queryset,
+        # que vira subconsulta dentro do mesmo SELECT.
+        for i in range(30, 60):
+            User.objects.create_user(
+                email="carga%02d@exemplo.com" % i, password="senha-bem-forte-123"
+            )
+        SocialAccount.objects.create(
+            user=User.objects.get(email="carga00@exemplo.com"),
+            provider="google",
+            uid="uid-carga-00",
+        )
+
+        with self.assertNumQueries(7):
+            self.client.get("/admin/accounts/user/", secure=True)
+
+
+class PedirNovaEscolhaDeDivisaoTests(TestCase):
+    """A única escrita administrativa aprovada sobre o perfil.
+
+    O caso de suporte é concreto: `preferencia_muda_a_divisao` não pergunta
+    nada até três dias de treino, então quem monta a ficha treinando três vezes
+    nunca vê o passo 4 e fica com o TRES que o campo trazia de fábrica. Ao
+    marcar o quarto dia, a divisão passa a importar e ela está presa numa
+    escolha que não fez.
+
+    A resposta é fazer o app PERGUNTAR de novo — nunca escolher por ela. Por
+    isso a ação mexe em `split_preference_confirmada` e não encosta em
+    `split_preference`: atribuir uma divisão nova seria a mesma mentira, com
+    outro autor.
+
+    A permissão é de propósito e não `change_profile`: a segunda autorizaria
+    vinte campos para liberar um.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        papeis.sincronizar_papeis()
+
+    def setUp(self):
+        self.operador = self._staff("op-divisao@exemplo.com", papeis.ADMINISTRADORES)
+        self.suporte = self._staff("sup-divisao@exemplo.com", papeis.SUPORTE)
+        self.alvo = User.objects.create_user(
+            email="alvo-divisao@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.perfil = Profile.objects.create(
+            user=self.alvo,
+            sex=Sex.MALE,
+            birth_date=date(1995, 4, 12),
+            height_cm=178,
+            activity_level=ActivityLevel.LIGHT,
+            goal=Goal.BULK,
+            wake_time=time(7, 0),
+            sleep_time=time(23, 0),
+            split_preference=SplitPreference.TRES,
+            split_preference_confirmada=True,
+        )
+
+    @staticmethod
+    def _staff(email, papel):
+        u = User.objects.create_user(email=email, password="senha-bem-forte-123")
+        u.is_staff = True
+        u.save(update_fields=["is_staff"])
+        u.groups.add(Group.objects.get(name=papel))
+        return u
+
+    def _rota(self):
+        return f"/admin/accounts/user/{self.alvo.pk}/pedir-nova-divisao/"
+
+    # A e B — quem tem a capacidade
+    def test_administrador_tem_a_permissao_dedicada(self):
+        self.assertTrue(
+            self.operador.has_perm("accounts.pedir_nova_escolha_de_divisao")
+        )
+
+    def test_suporte_nao_tem_a_permissao(self):
+        self.assertFalse(
+            self.suporte.has_perm("accounts.pedir_nova_escolha_de_divisao")
+        )
+
+    # C — a permissão genérica NÃO foi concedida a ninguém
+    def test_ninguem_recebe_change_profile_generico(self):
+        """`change_profile` cobriria vinte campos para autorizar um."""
+        for papel, usuario in (
+            (papeis.ADMINISTRADORES, self.operador),
+            (papeis.SUPORTE, self.suporte),
+        ):
+            with self.subTest(papel=papel):
+                self.assertFalse(usuario.has_perm("accounts.change_profile"))
+
+    # D — o inline não oferece campo editável
+    def test_o_inline_do_perfil_nao_tem_campo_editavel(self):
+        self.client.force_login(self.operador)
+
+        html = self.client.get(
+            f"/admin/accounts/user/{self.alvo.pk}/change/", secure=True
+        ).content.decode()
+
+        for campo in (
+            "profile-0-split_preference",
+            "profile-0-split_preference_confirmada",
+            "profile-0-kcal_adjustment",
+            "profile-0-height_cm",
+            "profile-0-birth_date",
+        ):
+            with self.subTest(campo=campo):
+                self.assertNotIn(f'name="{campo}"', html)
+
+    # E, F e G — o que a ação faz e o que ela não toca
+    def test_a_acao_apenas_desmarca_a_confirmacao(self):
+        self.client.force_login(self.operador)
+
+        self.client.post(self._rota(), {}, secure=True)
+
+        self.perfil.refresh_from_db()
+        self.assertFalse(self.perfil.split_preference_confirmada)
+        self.assertEqual(self.perfil.split_preference, SplitPreference.TRES)
+
+    def test_a_acao_nao_altera_nenhum_outro_campo(self):
+        self.client.force_login(self.operador)
+        antes = {
+            campo: getattr(self.perfil, campo)
+            for campo in (
+                "split_preference", "kcal_adjustment", "birth_date",
+                "height_cm", "goal", "activity_level", "sex",
+            )
+        }
+
+        self.client.post(self._rota(), {}, secure=True)
+
+        self.perfil.refresh_from_db()
+        for campo, valor in antes.items():
+            with self.subTest(campo=campo):
+                self.assertEqual(getattr(self.perfil, campo), valor)
+
+    # H — no-op quando já está aguardando
+    def test_quando_ja_esta_aguardando_nao_escreve_de_novo(self):
+        """Trilha com evento falso é pior que trilha curta: faz alguém procurar
+        uma causa que não existiu."""
+        Profile.objects.filter(pk=self.perfil.pk).update(
+            split_preference_confirmada=False
+        )
+        self.client.force_login(self.operador)
+        antes = RegistroAdministrativo.objects.count()
+
+        self.client.post(self._rota(), {}, secure=True)
+
+        self.perfil.refresh_from_db()
+        self.assertFalse(self.perfil.split_preference_confirmada)
+        self.assertEqual(RegistroAdministrativo.objects.count(), antes)
+
+    # I — sem a permissão, nada acontece
+    def test_suporte_nao_executa_a_acao(self):
+        self.client.force_login(self.suporte)
+
+        resposta = self.client.post(self._rota(), {}, secure=True)
+
+        self.assertIn(resposta.status_code, (403, 302))
+        self.perfil.refresh_from_db()
+        self.assertTrue(self.perfil.split_preference_confirmada)
+
+    # J — POST forjado com campos extras
+    def test_post_forjado_nao_altera_nada_alem_da_operacao(self):
+        """Mandar junto o que a ação não gerencia não pode funcionar: ela lê
+        `user_id` da URL e ignora o corpo inteiro."""
+        self.client.force_login(self.operador)
+
+        self.client.post(
+            self._rota(),
+            {
+                "split_preference": SplitPreference.UM,
+                "kcal_adjustment": "30000",
+                "birth_date": "1900-01-01",
+                "height_cm": "999",
+                # E as chaves que uma implementação dirigida pelo corpo leria
+                # para decidir O QUE desmarcar: sem elas o teste passaria por
+                # sorte, porque não haveria nada para a ação obedecer.
+                "split_preference_confirmada": "on",
+                "confirmada": "1",
+                "campo": "split_preference",
+            },
+            secure=True,
+        )
+
+        self.perfil.refresh_from_db()
+        self.assertEqual(self.perfil.split_preference, SplitPreference.TRES)
+        self.assertEqual(self.perfil.kcal_adjustment, 0)
+        self.assertEqual(self.perfil.height_cm, 178)
+        self.assertEqual(self.perfil.birth_date, date(1995, 4, 12))
+        self.assertFalse(self.perfil.split_preference_confirmada)
+
+    def test_a_acao_recusa_get(self):
+        """GET que altera estado é acionável por uma imagem em página de
+        terceiro."""
+        self.client.force_login(self.operador)
+
+        resposta = self.client.get(self._rota(), secure=True)
+
+        self.assertEqual(resposta.status_code, 405)
+        self.perfil.refresh_from_db()
+        self.assertTrue(self.perfil.split_preference_confirmada)
+
+    def test_a_mudanca_real_entra_na_trilha(self):
+        self.client.force_login(self.operador)
+
+        self.client.post(self._rota(), {}, secure=True)
+
+        registro = RegistroAdministrativo.objects.get(
+            acao=AcaoAdministrativa.PEDIU_NOVA_DIVISAO
+        )
+        self.assertEqual(registro.ator, self.operador)
+        self.assertEqual(registro.alvo, self.alvo)
+        self.assertNotIn("birth_date", json.dumps(registro.detalhe))
+
+    def test_depois_a_pessoa_escolhe_pelo_fluxo_normal(self):
+        """A ação faz o app perguntar; quem responde continua sendo a pessoa."""
+        self.client.force_login(self.operador)
+        self.client.post(self._rota(), {}, secure=True)
+
+        # Quatro dias de treino: sem eles `preferencia_muda_a_divisao` devolve
+        # False, o passo 4 não entra no caminho da pessoa, e o teste mediria a
+        # ausência do passo em vez da escolha.
+        for dia in range(4):
+            TrainingDay.objects.create(
+                user=self.alvo, weekday=dia, start_time=time(19, 0), duration_min=60
+            )
+        self.client.force_login(self.alvo)
+        Profile.objects.filter(pk=self.perfil.pk).update(
+            onboarding_step=ONBOARDING_DONE
+        )
+        self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 4}),
+            {"split_preference": SplitPreference.DOIS},
+        )
+
+        self.perfil.refresh_from_db()
+        self.assertEqual(self.perfil.split_preference, SplitPreference.DOIS)
+        self.assertTrue(self.perfil.split_preference_confirmada)
+
+
+class DiasDeTreinoNaoDependemDoAdminTests(TestCase):
+    """`change_trainingday` foi retirado dos dois papéis. Isto mede se alguma
+    coisa dependia dele.
+
+    A aparência do inline não responde a pergunta: `readonly_fields` some do
+    formulário, mas um segundo caminho de escrita — outra tela do painel, um
+    formset, uma ação — continuaria funcionando e a queda da permissão o
+    quebraria em silêncio. Então a prova tem três partes: ninguém tem a
+    capacidade, o HTTP do painel não escreve mesmo forjando o formset, e o
+    caminho REAL continua de pé.
+
+    O controle positivo é a parte que impede a conclusão fácil: um teste que só
+    mostra "não escreveu" passaria igual se `TrainingDay` estivesse quebrado
+    para todo mundo.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        papeis.sincronizar_papeis()
+
+    def setUp(self):
+        self.operador = User.objects.create_user(
+            email="op-dias@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.operador.is_staff = True
+        self.operador.save(update_fields=["is_staff"])
+        self.operador.groups.add(Group.objects.get(name=papeis.ADMINISTRADORES))
+
+        self.alvo = User.objects.create_user(
+            email="alvo-dias@exemplo.com", password="senha-bem-forte-123"
+        )
+        Profile.objects.create(
+            user=self.alvo,
+            sex=Sex.MALE,
+            birth_date=date(1995, 4, 12),
+            height_cm=178,
+            activity_level=ActivityLevel.LIGHT,
+            goal=Goal.BULK,
+            wake_time=time(7, 0),
+            sleep_time=time(23, 0),
+        )
+        self.dia = TrainingDay.objects.create(
+            user=self.alvo, weekday=0, start_time=time(19, 0), duration_min=60
+        )
+
+    def test_nenhum_papel_pode_alterar_dia_de_treino(self):
+        """`has_perm` e não `permissoes_de`: a segunda devolve objetos
+        `Permission`, e comparar uma string com eles é um `assertNotIn` que
+        passa sempre — o teste não mede nada e a queda da permissão passaria
+        despercebida."""
+        for papel in (papeis.ADMINISTRADORES, papeis.SUPORTE):
+            with self.subTest(papel=papel):
+                pessoa = User.objects.create_user(
+                    email=f"cap-{papel[:3].lower()}@exemplo.com",
+                    password="senha-bem-forte-123",
+                )
+                pessoa.is_staff = True
+                pessoa.save(update_fields=["is_staff"])
+                pessoa.groups.add(Group.objects.get(name=papel))
+
+                self.assertFalse(pessoa.has_perm("accounts.change_trainingday"))
+                self.assertTrue(pessoa.has_perm("accounts.view_trainingday"))
+
+    def test_o_painel_nao_oferece_campo_de_dia_de_treino(self):
+        self.client.force_login(self.operador)
+
+        html = self.client.get(
+            f"/admin/accounts/user/{self.alvo.pk}/change/", secure=True
+        ).content.decode()
+
+        for campo in ("weekday", "start_time", "duration_min"):
+            with self.subTest(campo=campo):
+                self.assertNotIn(f'name="training_days-0-{campo}"', html)
+
+    def test_formset_forjado_nao_altera_o_dia(self):
+        """Sem input na tela, a tentativa vira POST direto: mandar o formset
+        inteiro à mão é exatamente o que alguém faria."""
+        self.client.force_login(self.operador)
+
+        self.client.post(
+            f"/admin/accounts/user/{self.alvo.pk}/change/",
+            {
+                "email": self.alvo.email,
+                "first_name": "",
+                "last_name": "",
+                "is_active": "on",
+                "date_joined_0": "2026-01-01",
+                "date_joined_1": "10:00:00",
+                "training_days-TOTAL_FORMS": "1",
+                "training_days-INITIAL_FORMS": "1",
+                "training_days-MIN_NUM_FORMS": "0",
+                "training_days-MAX_NUM_FORMS": "1000",
+                "training_days-0-id": str(self.dia.pk),
+                "training_days-0-user": str(self.alvo.pk),
+                "training_days-0-weekday": "5",
+                "training_days-0-start_time": "05:00:00",
+                "training_days-0-duration_min": "300",
+                "training_days-0-DELETE": "on",
+                "profile-TOTAL_FORMS": "0",
+                "profile-INITIAL_FORMS": "0",
+                "weight_entries-TOTAL_FORMS": "0",
+                "weight_entries-INITIAL_FORMS": "0",
+                "_continue": "Salvar",
+            },
+            secure=True,
+        )
+
+        self.dia.refresh_from_db()
+        self.assertEqual(self.dia.weekday, 0)
+        self.assertEqual(self.dia.start_time, time(19, 0))
+        self.assertEqual(self.dia.duration_min, 60)
+        self.assertEqual(TrainingDay.objects.filter(user=self.alvo).count(), 1)
+
+    def test_a_propria_pessoa_continua_marcando_os_dias(self):
+        """Controle positivo: sem ele, um TrainingDay quebrado para todo mundo
+        passaria pelos testes acima como se fosse a proteção funcionando."""
+        Profile.objects.filter(user=self.alvo).update(
+            onboarding_step=ONBOARDING_DONE
+        )
+        self.client.force_login(self.alvo)
+
+        self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 3}),
+            {
+                "weekdays": ["1", "3"],
+                "start_time": "18:30",
+                "duration_min": "45",
+                "wake_time": "07:00",
+                "sleep_time": "23:00",
+            },
+        )
+
+        dias = TrainingDay.objects.filter(user=self.alvo).order_by("weekday")
+        self.assertEqual([d.weekday for d in dias], [1, 3])
+        self.assertEqual(dias[0].duration_min, 45)

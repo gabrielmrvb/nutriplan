@@ -247,6 +247,19 @@ class Profile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        #: A ÚNICA escrita administrativa aprovada sobre o perfil.
+        #:
+        #: `change_profile` genérico ficaria grande demais para o que existe:
+        #: o formulário do Admin não oferece campo editável nenhum, e a única
+        #: operação com caso de suporte é pedir que a pessoa escolha a divisão
+        #: de novo. Uma permissão de propósito diz isso; uma permissão de
+        #: modelo diria "pode mexer no perfil", que é outra coisa.
+        permissions = [
+            (
+                "pedir_nova_escolha_de_divisao",
+                "Pode pedir que a pessoa escolha a divisão de treino de novo",
+            ),
+        ]
         verbose_name = "perfil"
         verbose_name_plural = "perfis"
 
@@ -500,6 +513,10 @@ class AcaoAdministrativa(models.TextChoices):
     PRIMEIRO_ADMIN = "primeiro_admin", "Primeiro administrador criado"
     PROMOVEU_STAFF = "promoveu_staff", "Deu acesso administrativo"
     REVOGOU_STAFF = "revogou_staff", "Removeu acesso administrativo"
+    PEDIU_NOVA_DIVISAO = (
+        "pediu_nova_divisao",
+        "Pediu nova escolha de divisão de treino",
+    )
 
 
 class RegistroAdministrativo(models.Model):
