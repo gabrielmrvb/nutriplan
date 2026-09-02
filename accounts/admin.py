@@ -192,6 +192,31 @@ class UserAdmin(BaseUserAdmin):
     #: O caso de suporte é sobre UMA pessoa — "estou preso num ABC que não
     #: escolhi". Ação em lote resolveria um problema que ninguém tem e criaria
     #: um botão capaz de reperguntar a divisão de cinquenta contas por engano.
+    def user_change_password(self, request, id, form_url=""):
+        """Ninguém troca a senha de outra pessoa por aqui. Nem superuser.
+
+        O `UserAdmin` do Django expõe `<pk>/password/` como rota SEPARADA do
+        formulário de detalhe, e ela não passa por `fieldsets` nem por
+        `readonly_fields` — foi assim que sobreviveu à rodada inteira de
+        hardening: a auditoria olhou os campos do formulário e a rota nunca
+        apareceu.
+
+        Medido em ambiente controlado antes do conserto: um staff não-superuser
+        com apenas `change_user` postava ali e a senha da outra pessoa mudava —
+        302, hash novo, `check_password` da senha do invasor devolvendo True.
+        Tomada de conta com carimbo oficial.
+
+        Não existe caso operacional. Quem esqueceu a senha usa a recuperação,
+        que manda o link para o e-mail DELA — o único caminho em que a pessoa
+        continua sendo quem decide. E o primeiro operador administrativo entra
+        por Google, sem senha utilizável: um botão que CRIA senha para uma conta
+        que não tinha é o oposto do que "Google-only" significa.
+        """
+        raise PermissionDenied(
+            "A senha de uma conta não se troca pelo painel. "
+            "Quem esqueceu a senha usa a recuperação, que vai para o e-mail dela."
+        )
+
     def change_view(self, request, object_id, form_url="", extra_context=None):
         """Leva à tela o que decide se a ação da divisão aparece.
 

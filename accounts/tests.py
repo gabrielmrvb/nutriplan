@@ -20,6 +20,8 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core import mail
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.contrib import admin
 from django.contrib.auth.models import Group, Permission
 from django.db import IntegrityError
@@ -6041,3 +6043,427 @@ class DestinoExternoNaoAtravessaTests(TestCase):
                 self.assertEqual(resposta.status_code, 302)
                 self.assertNotIn("site-de-outra-pessoa", resposta["Location"])
                 self.assertIn("next=/admin/", resposta["Location"])
+
+
+class MatrizDeCapabilityTests(TestCase):
+    """O que cada papel alcança, medido por HTTP e não por `has_perm`.
+
+    `has_perm` responde sobre a permissão; o que interessa é a TELA. As duas
+    divergem em dois sentidos, e os dois já apareceram neste projeto: um model
+    registrado que o papel não alcança (403), e um model que ninguém alcança
+    porque a tela não existe (404) mesmo com a permissão concedida.
+
+    A tabela é o contrato. Uma superfície nova entra aqui ou o teste falha —
+    que é o ponto: o achado desta rodada foi justamente duas telas registradas
+    que ninguém tinha auditado, e nada avisava.
+
+    404 e 403 não são a mesma resposta. 404 é "a tela não existe"; 403 é "a
+    tela existe e você não pode". A segunda depende de ninguém conceder a
+    permissão um dia; a primeira, não. Onde há segredo ou tomada de conta, o
+    contrato exige 404.
+    """
+
+    #: (rota, ADMINISTRADORES, SUPORTE, por quê)
+    ALCANCE = (
+        ("/admin/", 200, 200, "índice"),
+        ("/admin/accounts/user/", 200, 200, "encontrar a pessoa"),
+        ("/admin/accounts/user/add/", 403, 403, "cadastro é auto-serviço"),
+        ("/admin/accounts/weightentry/", 404, 404, "peso só no contexto da conta"),
+        ("/admin/accounts/registroadministrativo/", 200, 403, "trilha é de quem administra"),
+        ("/admin/auth/group/", 200, 403, "conferir papel, sem editar"),
+        ("/admin/auth/group/add/", 403, 403, "papel se muda no código"),
+        ("/admin/account/emailaddress/", 404, 404, "tomada de conta em dois passos"),
+        ("/admin/socialaccount/socialtoken/", 404, 404, "token de acesso"),
+        ("/admin/socialaccount/socialapp/", 404, 404, "segredo do app"),
+        ("/admin/socialaccount/socialaccount/", 404, 404, "extra_data é PII do Google"),
+        ("/admin/push/pushsubscription/", 403, 403, "material de assinatura"),
+        ("/admin/push/notificationlog/", 403, 403, "diagnóstico de envio"),
+        ("/admin/catalog/food/", 200, 403, "catálogo é conteúdo do produto"),
+        ("/admin/catalog/food/add/", 200, 403, "acrescentar alimento que faltava"),
+        ("/admin/plans/nutritionplan/", 200, 200, "o plano existe?"),
+        ("/admin/plans/nutritionplan/add/", 403, 403, "plano é retrato, não se cria à mão"),
+        ("/admin/plans/meallog/", 200, 403, "registro do dia"),
+        ("/admin/workouts/trainingplan/", 200, 200, "a ficha existe?"),
+        ("/admin/workouts/trainingplan/add/", 403, 403, "ficha nasce do gerador"),
+        ("/admin/workouts/exercise/add/", 200, 403, "catálogo de exercício"),
+        ("/admin/supplements/supplementlog/", 403, 403, "sem caso operacional"),
+        ("/admin/achievements/userachievement/", 200, 403, "conquista da pessoa"),
+        ("/admin/catalog/dietarytag/", 200, 403, "restrições do catálogo"),
+        ("/admin/catalog/mealtemplate/", 200, 403, "receitas"),
+        ("/admin/workouts/exercise/", 200, 403, "catálogo de exercício"),
+        ("/admin/workouts/workouttemplate/", 200, 403, "modelos de treino"),
+        ("/admin/supplements/supplement/", 200, 403, "catálogo de suplemento"),
+        # Registradas e que NINGUÉM alcança: `PAPEIS` não concede `view` para
+        # nenhuma das duas. Ficam na matriz de propósito — o valor da tabela é
+        # justamente registrar que a superfície existe e está fechada, em vez
+        # de deixá-la fora do inventário como aconteceu com `auth.Group`.
+        ("/admin/plans/mealslot/", 403, 403, "estrutura do plano, sem caso operacional"),
+        ("/admin/workouts/trainingsession/", 403, 403, "sessão da ficha, sem caso operacional"),
+    )
+
+    @classmethod
+    def setUpTestData(cls):
+        papeis.sincronizar_papeis()
+
+    def _staff(self, email, papel):
+        u = User.objects.create_user(email=email, password="senha-bem-forte-123")
+        u.is_staff = True
+        u.save(update_fields=["is_staff"])
+        u.groups.add(Group.objects.get(name=papel))
+        return u
+
+    def test_a_matriz_de_alcance_esta_travada(self):
+        atores = (
+            (papeis.ADMINISTRADORES, self._staff("m-adm@exemplo.com", papeis.ADMINISTRADORES), 1),
+            (papeis.SUPORTE, self._staff("m-sup@exemplo.com", papeis.SUPORTE), 2),
+        )
+        for papel, quem, coluna in atores:
+            self.client.force_login(quem)
+            for linha in self.ALCANCE:
+                rota, esperado, porque = linha[0], linha[coluna], linha[3]
+                with self.subTest(papel=papel, rota=rota, porque=porque):
+                    resposta = self.client.get(rota, secure=True)
+                    self.assertEqual(resposta.status_code, esperado)
+
+    def test_toda_tela_registrada_esta_na_matriz(self):
+        """Sem isto a matriz vira uma lista que envelhece: alguém registra um
+        model novo, a tabela continua verde, e a superfície nova nunca é
+        auditada. Foi exatamente assim que `auth.Group` e `EmailAddress`
+        ficaram anos sem revisão."""
+        registradas = {
+            f"/admin/{m._meta.app_label}/{m._meta.model_name}/"
+            for m in admin.site._registry
+        }
+        na_matriz = {linha[0] for linha in self.ALCANCE}
+
+        self.assertEqual(registradas - na_matriz, set())
+
+    def test_ninguem_alcanca_exclusao(self):
+        """Nenhum papel tem `delete`: apagar conta é exclusão a pedido da
+        pessoa, com fluxo próprio."""
+        for papel in (papeis.ADMINISTRADORES, papeis.SUPORTE):
+            with self.subTest(papel=papel):
+                for codename in papeis.permissoes_de(papel):
+                    self.assertFalse(codename.codename.startswith("delete_"))
+
+
+class OrcamentoDeConsultasDoAdminTests(TestCase):
+    """O custo das telas não pode crescer com o número de linhas.
+
+    O contrato NÃO é um número. Sete consultas com 31 contas seria também o
+    custo de uma tela que faz uma consulta por linha se a página mostrasse
+    sete linhas — o número sozinho não distingue as duas coisas. O que
+    distingue é o custo NÃO MUDAR quando o volume dobra, e é isso que cada
+    teste aqui compara.
+
+    Os números absolutos aparecem como documentação do desenho de hoje, não
+    como contrato eterno: uma coluna nova legítima pode custar uma consulta a
+    mais, e isso é uma decisão, não uma regressão. N+1 é a regressão.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        papeis.sincronizar_papeis()
+
+    def setUp(self):
+        self.operador = User.objects.create_user(
+            email="orcamento@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.operador.is_staff = True
+        self.operador.save(update_fields=["is_staff"])
+        self.operador.groups.add(Group.objects.get(name=papeis.ADMINISTRADORES))
+        self.client.force_login(self.operador)
+
+    def _contas(self, quantas, prefixo):
+        for i in range(quantas):
+            User.objects.create_user(
+                email=f"{prefixo}{i:03d}@exemplo.com", password="senha-bem-forte-123"
+            )
+
+    def _medir(self, rota):
+        """Uma visita para aquecer, e só então a medição.
+
+        O `ContentType` do Django tem cache por processo, e ele é populado na
+        primeira renderização. Sem descartar essa visita, a primeira medição
+        sai mais cara que a segunda por um motivo que não tem nada a ver com o
+        volume — e a comparação passaria a medir a ordem em que os testes
+        rodam. Foi o que aconteceu: duas telas com listas de SQL IDÊNTICAS
+        deram 7 e 8.
+        """
+        self.client.get(rota, secure=True)
+        with CaptureQueriesContext(connection) as consultas:
+            self.client.get(rota, secure=True)
+        return len(consultas)
+
+    def test_a_lista_de_contas_nao_cresce_com_o_numero_de_contas(self):
+        """A coluna "Google" vem de uma relação. A forma ingênua custaria uma
+        consulta por linha; `Exists` anotado vira subconsulta no mesmo SELECT."""
+        self._contas(20, "orc-a")
+        poucas = self._medir("/admin/accounts/user/")
+
+        self._contas(40, "orc-b")
+        muitas = self._medir("/admin/accounts/user/")
+
+        self.assertEqual(poucas, muitas)
+
+    def test_a_conta_com_google_nao_custa_consulta_extra(self):
+        self._contas(20, "orc-c")
+        sem = self._medir("/admin/accounts/user/")
+
+        for pessoa in User.objects.exclude(pk=self.operador.pk)[:10]:
+            SocialAccount.objects.create(
+                user=pessoa, provider="google", uid=f"uid-orc-{pessoa.pk}"
+            )
+        com = self._medir("/admin/accounts/user/")
+
+        self.assertEqual(sem, com)
+
+    def test_o_detalhe_da_conta_nao_cresce_com_as_linhas_dos_inlines(self):
+        """Três inlines na mesma página: perfil, dias de treino e pesagens. Um
+        `select_related` esquecido em qualquer um deles aparece aqui."""
+        alvo = User.objects.create_user(
+            email="detalhe-orc@exemplo.com", password="senha-bem-forte-123"
+        )
+        Profile.objects.create(
+            user=alvo,
+            sex=Sex.MALE,
+            birth_date=date(1995, 4, 12),
+            height_cm=178,
+            activity_level=ActivityLevel.LIGHT,
+            goal=Goal.BULK,
+            wake_time=time(7, 0),
+            sleep_time=time(23, 0),
+        )
+        for dia in range(3):
+            TrainingDay.objects.create(
+                user=alvo, weekday=dia, start_time=time(19, 0), duration_min=60
+            )
+        for i in range(5):
+            WeightEntry.objects.create(
+                user=alvo, date=date(2026, 8, 1) + timedelta(days=i),
+                weight_kg=Decimal("80.00"),
+            )
+        rota = f"/admin/accounts/user/{alvo.pk}/change/"
+        poucas = self._medir(rota)
+
+        for dia in range(3, 7):
+            TrainingDay.objects.create(
+                user=alvo, weekday=dia, start_time=time(19, 0), duration_min=60
+            )
+        for i in range(5, 40):
+            WeightEntry.objects.create(
+                user=alvo, date=date(2026, 8, 1) + timedelta(days=i),
+                weight_kg=Decimal("80.00"),
+            )
+        muitas = self._medir(rota)
+
+        self.assertEqual(poucas, muitas)
+
+    def test_a_trilha_administrativa_nao_cresce_com_os_registros(self):
+        """Duas FK para User por linha: sem `select_related` seriam duas
+        consultas por registro."""
+        def registrar(quantos, inicio):
+            for i in range(inicio, inicio + quantos):
+                alvo = User.objects.create_user(
+                    email=f"trilha{i:03d}@exemplo.com", password="senha-bem-forte-123"
+                )
+                RegistroAdministrativo.objects.create(
+                    ator=self.operador,
+                    acao=AcaoAdministrativa.PEDIU_NOVA_DIVISAO,
+                    alvo=alvo,
+                    alvo_email=alvo.email,
+                    detalhe={},
+                )
+
+        registrar(5, 0)
+        poucos = self._medir("/admin/accounts/registroadministrativo/")
+
+        registrar(25, 5)
+        muitos = self._medir("/admin/accounts/registroadministrativo/")
+
+        self.assertEqual(poucos, muitos)
+
+    def test_a_tela_de_papeis_nao_cresce_com_as_permissoes(self):
+        """`permissoes` renderiza a lista inteira; sem `prefetch_related` cada
+        permissão custaria uma consulta pelo content type."""
+        pequeno = Group.objects.create(name="Papel pequeno")
+        add_user = Permission.objects.get(
+            codename="add_user", content_type__app_label="accounts"
+        )
+        pequeno.permissions.add(add_user)
+        poucas = self._medir(f"/admin/auth/group/{pequeno.pk}/change/")
+
+        grande = Group.objects.get(name=papeis.ADMINISTRADORES)
+        muitas = self._medir(f"/admin/auth/group/{grande.pk}/change/")
+
+        self.assertEqual(poucas, muitas)
+
+
+class SenhaNaoAtravessaOAdminTests(TestCase):
+    """O que o painel mostra e o que ele deixa mexer sobre credencial.
+
+    O primeiro operador entra por Google e não tem senha utilizável. A pergunta
+    não é se alguém consegue LER a senha — hash não é senha —, é se o painel
+    oferece algum atalho para credencial: um campo que aceite texto puro, um
+    link para trocar a senha de outra pessoa, ou o hash exposto onde ele possa
+    ser copiado para um ataque offline.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        papeis.sincronizar_papeis()
+
+    def setUp(self):
+        self.operador = User.objects.create_user(
+            email="op-senha@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.operador.is_staff = True
+        self.operador.save(update_fields=["is_staff"])
+        self.operador.groups.add(Group.objects.get(name=papeis.ADMINISTRADORES))
+        self.client.force_login(self.operador)
+
+        self.com_senha = User.objects.create_user(
+            email="com-senha@exemplo.com", password="outra-senha-bem-forte-456"
+        )
+        self.so_google = User.objects.create_user(
+            email="so-google@exemplo.com", password="qualquer-coisa-123"
+        )
+        self.so_google.set_unusable_password()
+        self.so_google.save(update_fields=["password"])
+
+    def _html(self, quem):
+        return self.client.get(
+            f"/admin/accounts/user/{quem.pk}/change/", secure=True
+        ).content.decode()
+
+    def test_o_hash_nao_aparece_no_html(self):
+        """Hash copiado da tela é ataque offline sem pressa nenhuma."""
+        self.com_senha.refresh_from_db()
+        hash_inteiro = self.com_senha.password
+        miolo = hash_inteiro.split("$")[-1]
+
+        html = self._html(self.com_senha)
+
+        self.assertNotIn(hash_inteiro, html)
+        self.assertNotIn(miolo, html)
+
+    def test_nao_ha_campo_que_aceite_senha(self):
+        html = self._html(self.com_senha)
+
+        for campo in ('name="password"', 'name="password1"', 'name="password2"'):
+            with self.subTest(campo=campo):
+                self.assertNotIn(campo, html)
+
+    def test_a_troca_de_senha_de_outra_pessoa_e_recusada(self):
+        """A rota `<pk>/password/` é SEPARADA do formulário de detalhe.
+
+        Ela não passa por `fieldsets` nem por `readonly_fields`, e foi assim
+        que sobreviveu à rodada de hardening: a auditoria leu os campos do
+        formulário, e a rota nunca apareceu na lista. Antes do conserto, um
+        staff não-superuser com apenas `change_user` postava e a senha mudava.
+
+        `usable_password` está no corpo de propósito. A primeira versão deste
+        teste não mandava esse campo — o Django 5 acrescentou ele ao formulário
+        — e o POST falhava por payload incompleto. O teste passava, e o que ele
+        provava era que eu tinha montado o pedido errado, não que a proteção
+        existisse.
+        """
+        antes = User.objects.get(pk=self.com_senha.pk).password
+        rota = f"/admin/accounts/user/{self.com_senha.pk}/password/"
+
+        get = self.client.get(rota, secure=True)
+        post = self.client.post(
+            rota,
+            {
+                "password1": "senha-do-invasor-999",
+                "password2": "senha-do-invasor-999",
+                "usable_password": "true",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(get.status_code, 403)
+        self.assertEqual(post.status_code, 403)
+        depois = User.objects.get(pk=self.com_senha.pk)
+        self.assertEqual(depois.password, antes)
+        self.assertFalse(depois.check_password("senha-do-invasor-999"))
+        self.assertTrue(depois.check_password("outra-senha-bem-forte-456"))
+
+    def test_ninguem_cria_senha_para_conta_do_google(self):
+        """"Google-only" é uma propriedade da conta, não uma configuração de
+        tela. Um botão que CRIA senha para quem não tinha desfaz isso."""
+        rota = f"/admin/accounts/user/{self.so_google.pk}/password/"
+
+        self.client.post(
+            rota,
+            {
+                "password1": "senha-inventada-789",
+                "password2": "senha-inventada-789",
+                "usable_password": "true",
+            },
+            secure=True,
+        )
+
+        self.so_google.refresh_from_db()
+        self.assertFalse(self.so_google.has_usable_password())
+
+    def test_nenhuma_rotina_cria_senha_para_quem_entra_por_google(self):
+        """Controle: a conta Google continua sem senha utilizável depois de
+        passar pelo painel."""
+        self._html(self.so_google)
+        call_command("sincronizar_papeis", verbosity=0)
+
+        self.so_google.refresh_from_db()
+        self.assertFalse(self.so_google.has_usable_password())
+
+
+class RotasExtrasDoAdminTests(TestCase):
+    """Toda rota do Admin fora das padrão precisa de decisão explícita.
+
+    Este teste nasce de um furo concreto. A rodada de hardening auditou os
+    CAMPOS de cada formulário: `fieldsets`, `readonly_fields`, o que o POST
+    aceitava. E `<pk>/password/` não é campo de formulário nenhum — é uma rota
+    separada que o `UserAdmin` do Django registra, sem passar por
+    `readonly_fields`. Sobreviveu à auditoria inteira porque a auditoria estava
+    olhando para outro lugar.
+
+    Enumerar `get_urls()` é o que enxerga essa categoria. Uma rota nova entra
+    aqui com decisão escrita, ou o teste falha.
+    """
+
+    #: Rotas que o Django registra por padrão e que a matriz de capability já
+    #: cobre por HTTP.
+    PADRAO = frozenset(
+        (
+            "",
+            "add/",
+            "<path:object_id>/",
+            "<path:object_id>/change/",
+            "<path:object_id>/delete/",
+            "<path:object_id>/history/",
+            "autocomplete/",
+        )
+    )
+
+    #: (model, rota) -> decisão. Cada linha é uma escolha, não um inventário.
+    DECIDIDAS = {
+        ("accounts", "user", "<id>/password/"): (
+            "FECHADA: troca de senha de outra pessoa é tomada de conta"
+        ),
+        ("accounts", "user", "<int:user_id>/pedir-nova-divisao/"): (
+            "ABERTA por POST, com permissão dedicada e trilha"
+        ),
+    }
+
+    def test_toda_rota_extra_tem_decisao(self):
+        encontradas = set()
+        for modelo, opcoes in admin.site._registry.items():
+            for rota in opcoes.get_urls():
+                padrao = str(rota.pattern)
+                if padrao in self.PADRAO:
+                    continue
+                encontradas.add(
+                    (modelo._meta.app_label, modelo._meta.model_name, padrao)
+                )
+
+        self.assertEqual(encontradas, set(self.DECIDIDAS))
