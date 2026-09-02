@@ -148,12 +148,46 @@ as outras, que seguem mostrando o HTML já renderizado. Não abre acesso — tod
 navegação cai em 302 e o cache de páginas já foi apagado —, mas é risco
 conhecido de navegador com várias abas.
 
-## Achados da varredura de navegador (02/09/2026)
+## Achados da varredura de navegador (02/09/2026) — PUBLICADOS
 
-Corrigidos nesta rodada — ficam aqui só como referência do que estava quebrado:
-loop de redirecionamento entre `/` e `/conta/onboarding/`, shell offline
-pré-cacheado com a identidade de quem instalou o app, e link da política de
-privacidade apontando para uma rota que só aceita POST.
+Fechados e no ar em `aac20b8`. Ficam registrados porque a origem de cada um
+ensina mais que a correção:
+
+- **P0 — loop de redirecionamento** entre `/` e `/conta/onboarding/`. Duas
+  réguas de "onboarding completo": o contador de passos e o que o motor exige
+  (que também pede peso). Perfil no passo final sem pesagem ficava preso, com a
+  tela em branco e sem mensagem.
+- **P0 privacidade — shell offline guardava sessão.** `cache.addAll(SHELL)`
+  leva cookie, então `/offline/` era pré-cacheado AUTENTICADO no cache de
+  estáticos, que sobrevive ao logout. No ar isso congelava
+  `data-autenticado="1"` e as mensagens da sessão que instalou o app; nesta
+  branch teria congelado também `data-usuario`, a chave que a fila lê.
+- **P0 — service worker publicado quebrava a drenagem.** `const db` preso ao
+  `try` fazia `removerDaFila` lançar `ReferenceError`; o `catch` executava
+  `break` e a fila abortava no primeiro item, com o `waitUntil` rejeitando e o
+  Background Sync reagendando. Introduzido em `9bc541f`.
+- **P2 — link quebrado na política de privacidade**, apontando para uma rota
+  que só aceita POST de propósito.
+
+### PREMIUM POLISH ⏳ AGUARDANDO RESTAURAÇÃO DO ESCOPO B1–B11
+
+O escopo original (B1 a B11) não está documentado neste repositório — ele existe
+apenas na conversa que o definiu. Não foi reconstruído de memória aqui, porque um
+escopo reinventado com os mesmos rótulos é pior que escopo nenhum: parece
+continuidade e não é.
+
+Estado técnico para retomar, quando o escopo voltar:
+
+- base: `aac20b8` em `main`, publicado e verificado em produção;
+- suíte: 1649 testes verdes, ~17 min; o `pre-push` roda a suíte inteira;
+- identidade visual atual é para MANTER — sem redesenho de produto;
+- réguas travadas em teste que o polimento não pode violar: alvo de toque
+  44×44, texto de interface >= 11px, zero rolagem horizontal, contraste WCAG
+  recalculado a partir dos tokens, catálogo anti-padrão em
+  `ImpeccableStyleTests`;
+- auditoria de navegador desta rodada não achou violação dessas réguas em
+  375/390/430/768/1265 nas telas medidas — o polimento parte de uma base limpa;
+- `:has()` continua proibido para estrutura, e não há build step de CSS.
 
 ### ALIMENTO FORA DO CATÁLOGO GRAVA ZERO SEM AVISAR
 
