@@ -1,5 +1,6 @@
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Exists, OuterRef
@@ -333,27 +334,54 @@ class UserAdmin(BaseUserAdmin):
         return tuple(somente_leitura)
 
 
-@admin.register(WeightEntry)
-class WeightEntryAdmin(admin.ModelAdmin):
-    """Pesagens, somente leitura.
+# O `Group` do Django vem registrado com formulário completo. Trocamos por
+# uma tela de conferência.
+admin.site.unregister(Group)
 
-    Existe como página própria além do inline porque as duas respondem
-    perguntas diferentes: a página serve para procurar quem relatou problema de
-    registro; o inline dá o contexto de quem já está aberto. Nenhuma edita.
 
-    Peso é o dado mais sensível do app. Editar reescreveria o histórico de
-    alguém, acrescentar inventaria uma medição que ninguém fez, e apagar
-    destruiria a série que a pessoa construiu. As três estão negadas no método.
+@admin.register(Group)
+class GrupoAdmin(admin.ModelAdmin):
+    """Os papéis, somente para CONFERIR o que cada um concede.
+
+    Existe por uma pergunta que hoje só o console do banco respondia: "o que o
+    papel Administradores concede AGORA, em produção?". `accounts/papeis.py`
+    diz o que DEVERIA conceder; esta tela diz o que o banco tem. As duas
+    coincidirem é o que a reconciliação garante — e quando não coincidem, é
+    esta tela que mostra.
+
+    Somente leitura, e por um motivo específico deste projeto: `PAPEIS` é a
+    fonte autoritativa e a sincronização roda em todo deploy com `set()`. Uma
+    tela editável aqui seria armadilha — a pessoa concede uma permissão, vê
+    "salvo com sucesso", e o próximo deploy a remove sem avisar ninguém. Papel
+    se muda no código, com revisão e histórico.
+
+    Django registra `Group` sozinho, com formulário completo: nome editável e
+    o seletor de permissões inteiro. Esse formulário é a mesma escalada que o
+    `UserAdmin` já teve fechada, por outra porta — quem edita o grupo edita o
+    que o grupo concede a si mesmo.
     """
 
-    list_display = ("user", "date", "weight_kg")
-    list_filter = ("date",)
-    search_fields = ("user__email",)
-    fields = ("user", "date", "weight_kg", "created_at")
+    list_display = ("name", "quantas_permissoes")
+    fields = ("name", "permissoes")
     readonly_fields = fields
+    search_fields = ("name",)
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related("user")
+        return super().get_queryset(request).prefetch_related(
+            "permissions__content_type"
+        )
+
+    @admin.display(description="permissões")
+    def quantas_permissoes(self, obj):
+        return obj.permissions.count()
+
+    @admin.display(description="o que concede")
+    def permissoes(self, obj):
+        nomes = sorted(
+            f"{p.content_type.app_label}.{p.codename}"
+            for p in obj.permissions.all()
+        )
+        return "\n".join(nomes) or "—"
 
     def has_add_permission(self, request):
         return False
@@ -364,6 +392,19 @@ class WeightEntryAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+
+# `WeightEntry` NÃO tem página própria, e a decisão é do mesmo tipo das outras
+# desta rodada: qual é o caso operacional?
+#
+# A pergunta de suporte é "esta pessoa está registrando o peso?", e ela se
+# responde no inline, dentro da conta dela. O que a página avulsa acrescentava
+# era outra coisa — navegar a série de peso de TODAS as contas, com filtro por
+# data. Isso não responde nenhum atendimento, e peso é o dado mais sensível do
+# app.
+#
+# O que se perde: o diagnóstico agregado ("o registro de peso parou para todo
+# mundo depois do dia X?"). É pergunta legítima e é de painel de negócio, não
+# de tela que lista o peso de cada pessoa uma por uma.
 
 @admin.register(RegistroAdministrativo)
 class RegistroAdministrativoAdmin(admin.ModelAdmin):

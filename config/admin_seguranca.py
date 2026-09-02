@@ -41,6 +41,15 @@ SEM_TELA = (
     # tokens. A pergunta de suporte — "esta conta entra por Google?" — virou
     # uma coluna derivada no UserAdmin, que é um booleano.
     ("socialaccount", "SocialAccount"),
+    # `EmailAddress` guarda o endereço e o estado de verificação de cada conta.
+    # Duas razões para não ter tela: o app roda com
+    # `ACCOUNT_EMAIL_VERIFICATION = "none"`, então o model não responde nenhuma
+    # pergunta de suporte; e o formulário dele EDITA o endereço — trocar o
+    # e-mail de alguém e pedir recuperação de senha é uma tomada de conta em
+    # dois passos. Ausência de permissão já bloqueava, mas segredo e tomada de
+    # conta não devem depender só disso: basta alguém conceder a permissão um
+    # dia.
+    ("account", "EmailAddress"),
 )
 
 

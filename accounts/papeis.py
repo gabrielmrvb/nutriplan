@@ -54,6 +54,10 @@ PAPEIS = {
         ("accounts", "profile"): LEITURA,
         ("accounts", "trainingday"): LEITURA,
         ("accounts", "registroadministrativo"): LEITURA,
+        # Conferir o que cada papel concede AGORA, sem abrir o banco. A tela é
+        # somente leitura: papel se muda no código, e uma tela editável seria
+        # armadilha — a próxima sincronização reverteria a mudança em silêncio.
+        ("auth", "group"): LEITURA,
         # Catálogo: é conteúdo do produto e alguém precisa poder corrigir uma
         # receita errada — ou acrescentar um alimento — sem abrir o banco.
         ("catalog", "food"): ESCRITA,

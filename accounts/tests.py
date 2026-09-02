@@ -5848,3 +5848,196 @@ class BotaoDaNovaEscolhaTests(TestCase):
 
         self.perfil.refresh_from_db()
         self.assertFalse(self.perfil.split_preference_confirmada)
+
+
+class SuperficiesDeAutorizacaoESegredoTests(TestCase):
+    """As telas que não deviam existir, e a que passou a existir.
+
+    Três achados de uma varredura que contou SUPERFÍCIES em vez de models — 29
+    superfícies sobre 27 models, porque `WeightEntry` aparecia duas vezes.
+    Contar models escondia exatamente o que importava: `auth.Group` e
+    `account.EmailAddress` estavam registrados e nunca tinham sido auditados.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        papeis.sincronizar_papeis()
+
+    def setUp(self):
+        self.operador = User.objects.create_user(
+            email="op-superficie@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.operador.is_staff = True
+        self.operador.save(update_fields=["is_staff"])
+        self.operador.groups.add(Group.objects.get(name=papeis.ADMINISTRADORES))
+        self.client.force_login(self.operador)
+
+    def test_o_endereco_de_email_do_allauth_nao_tem_tela(self):
+        """Trocar o e-mail de alguém e pedir recuperação de senha é tomada de
+        conta em dois passos. E com a verificação desligada, o model não
+        responde pergunta de suporte nenhuma."""
+        from allauth.account.models import EmailAddress
+
+        self.assertFalse(admin.site.is_registered(EmailAddress))
+
+    def test_o_papel_e_conferivel_e_nao_editavel(self):
+        html = self.client.get("/admin/auth/group/", secure=True).content.decode()
+
+        self.assertIn(papeis.ADMINISTRADORES, html)
+        self.assertNotIn("/admin/auth/group/add/", html)
+
+    def test_o_formulario_do_papel_nao_edita_nada(self):
+        """Quem edita o grupo edita o que o grupo concede a si mesmo — é a
+        mesma escalada do UserAdmin, por outra porta."""
+        grupo = Group.objects.get(name=papeis.ADMINISTRADORES)
+
+        html = self.client.get(
+            f"/admin/auth/group/{grupo.pk}/change/", secure=True
+        ).content.decode()
+
+        for campo in ('name="name"', 'name="permissions"'):
+            with self.subTest(campo=campo):
+                self.assertNotIn(campo, html)
+
+    def test_o_papel_mostra_o_que_concede(self):
+        grupo = Group.objects.get(name=papeis.ADMINISTRADORES)
+
+        html = self.client.get(
+            f"/admin/auth/group/{grupo.pk}/change/", secure=True
+        ).content.decode()
+
+        self.assertIn("accounts.pedir_nova_escolha_de_divisao", html)
+        self.assertNotIn("accounts.add_user", html)
+
+    def test_nem_com_change_group_o_papel_e_editavel(self):
+        """Guardrail genérico, e não "o papel atual não tem a permissão".
+
+        A primeira versão deste teste postava como Administrador — que não tem
+        `auth.change_group` — e passava por isso, medindo ausência de permissão
+        em vez do formulário. Passaria igual com a tela editável, que é o que
+        ela deveria detectar.
+
+        Então quem posta aqui RECEBE `change_group` direto. O que precisa
+        segurar é o formulário: campo ausente é o que recusa o POST, e é a
+        única proteção que não depende de ninguém lembrar de não conceder a
+        permissão."""
+        armado = User.objects.create_user(
+            email="tem-change-group@exemplo.com", password="senha-bem-forte-123"
+        )
+        armado.is_staff = True
+        armado.save(update_fields=["is_staff"])
+        armado.user_permissions.add(
+            Permission.objects.get(
+                codename="change_group", content_type__app_label="auth"
+            ),
+            Permission.objects.get(
+                codename="view_group", content_type__app_label="auth"
+            ),
+        )
+        self.client.force_login(armado)
+        grupo = Group.objects.get(name=papeis.ADMINISTRADORES)
+        antes = {p.codename for p in grupo.permissions.all()}
+        add_user = Permission.objects.get(
+            codename="add_user", content_type__app_label="accounts"
+        )
+
+        self.client.post(
+            f"/admin/auth/group/{grupo.pk}/change/",
+            {"name": "Renomeado", "permissions": [str(add_user.pk)]},
+            secure=True,
+        )
+
+        grupo.refresh_from_db()
+        self.assertEqual(grupo.name, papeis.ADMINISTRADORES)
+        self.assertEqual({p.codename for p in grupo.permissions.all()}, antes)
+        self.assertNotIn("add_user", {p.codename for p in grupo.permissions.all()})
+
+    def test_pesagem_nao_tem_pagina_propria(self):
+        """A série de peso de todas as contas, com filtro por data, não
+        responde nenhum atendimento — e peso é o dado mais sensível do app."""
+        self.assertFalse(admin.site.is_registered(WeightEntry))
+
+        resposta = self.client.get("/admin/accounts/weightentry/", secure=True)
+
+        self.assertEqual(resposta.status_code, 404)
+
+    def test_a_pesagem_continua_visivel_na_conta_da_pessoa(self):
+        """Contrapartida: o que o suporte precisa ver continua onde faz
+        sentido. Sem isto, remover a página teria removido a capacidade."""
+        pessoa = User.objects.create_user(
+            email="pesagem@exemplo.com", password="senha-bem-forte-123"
+        )
+        WeightEntry.objects.create(
+            user=pessoa, date=date(2026, 8, 30), weight_kg=Decimal("81.40")
+        )
+
+        html = self.client.get(
+            f"/admin/accounts/user/{pessoa.pk}/change/", secure=True
+        ).content.decode()
+
+        self.assertIn("81,40", html.replace("81.40", "81,40"))
+
+
+class DestinoExternoNaoAtravessaTests(TestCase):
+    """O `next` externo é ECOADO no formulário, e isso não é o mesmo que ser
+    honrado.
+
+    Foi medido em produção: `/conta/entrar/?next=https://outro-site/` renderiza
+    esse valor no campo escondido do botão do Google. O template escapa, então
+    não há injeção — mas "aparece no HTML" não responde a pergunta que importa,
+    que é para onde a pessoa vai depois do callback.
+
+    Ficou decidido não sanitizar de novo do nosso lado: o allauth já resolve o
+    destino por `get_next_redirect_url`, que passa por `is_safe_url`, e uma
+    segunda checagem seria duas fontes de verdade sobre a mesma regra.
+
+    O que este teste é, então: uma SENTINELA sobre a garantia de terceiro em
+    que a decisão se apoia. Se um upgrade do allauth parar de sanitizar, isto
+    falha — e a decisão de não duplicar deixa de valer no mesmo instante em que
+    o motivo dela desaparece. Sem esta sentinela, a decisão seria uma suposição
+    sobre código que não é nosso.
+
+    O caminho do Admin é diferente e não depende disto: `admin_entrada` já
+    descarta destino externo antes de renderizar qualquer coisa — medido em
+    produção, `/admin/login/?next=https://outro-site/` redireciona para
+    `/conta/entrar/?next=/admin/`.
+    """
+
+    EXTERNOS = (
+        "https://site-de-outra-pessoa.com/",
+        "//site-de-outra-pessoa.com/",
+        "http://site-de-outra-pessoa.com/admin/",
+        "https://nutriplan-xxfn.onrender.com.site-de-outra-pessoa.com/",
+    )
+
+    def test_o_allauth_recusa_destino_de_outro_host(self):
+        from allauth.core.context import request_context
+        from allauth.account.utils import get_next_redirect_url
+
+        for destino in self.EXTERNOS:
+            with self.subTest(destino=destino):
+                pedido = RequestFactory().post("/conta/google/login/", {"next": destino})
+                with request_context(pedido):
+                    self.assertIsNone(get_next_redirect_url(pedido))
+
+    def test_o_allauth_aceita_destino_do_proprio_app(self):
+        """Controle positivo: sem ele, um `get_next_redirect_url` que devolvesse
+        None para tudo passaria no teste acima como se fosse proteção."""
+        from allauth.core.context import request_context
+        from allauth.account.utils import get_next_redirect_url
+
+        pedido = RequestFactory().post("/conta/google/login/", {"next": "/admin/"})
+        with request_context(pedido):
+            self.assertEqual(get_next_redirect_url(pedido), "/admin/")
+
+    def test_o_admin_descarta_destino_externo_antes_de_renderizar(self):
+        """O que NÓS controlamos, e que não depende do allauth."""
+        for destino in self.EXTERNOS:
+            with self.subTest(destino=destino):
+                resposta = self.client.get(
+                    "/admin/login/", {"next": destino}, secure=True
+                )
+
+                self.assertEqual(resposta.status_code, 302)
+                self.assertNotIn("site-de-outra-pessoa", resposta["Location"])
+                self.assertIn("next=/admin/", resposta["Location"])
