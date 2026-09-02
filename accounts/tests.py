@@ -20,6 +20,7 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core import mail
+from django.contrib import admin
 from django.contrib.auth.models import Group, Permission
 from django.db import IntegrityError
 from django.contrib.contenttypes.models import ContentType
@@ -5735,3 +5736,115 @@ class ContratoDaSincronizacaoTests(TestCase):
         self.assertEqual(
             set(papeis.PAPEIS), {papeis.ADMINISTRADORES, papeis.SUPORTE}
         )
+
+
+class BotaoDaNovaEscolhaTests(TestCase):
+    """A ação precisa ser alcançável pela tela, não só pela rota.
+
+    O caso real: a permissão foi concedida, o endpoint respondia 405 a GET e
+    aceitava POST, os doze testes da ação passavam — e não havia botão nenhum
+    no formulário. A operação existia para quem soubesse montar um POST à mão.
+
+    Testar a rota prova que a operação FUNCIONA. Este prova que ela EXISTE
+    para quem opera.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        papeis.sincronizar_papeis()
+
+    def setUp(self):
+        self.operador = self._staff("op-botao@exemplo.com", papeis.ADMINISTRADORES)
+        self.suporte = self._staff("sup-botao@exemplo.com", papeis.SUPORTE)
+        self.alvo = User.objects.create_user(
+            email="alvo-botao@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.perfil = Profile.objects.create(
+            user=self.alvo,
+            sex=Sex.MALE,
+            birth_date=date(1995, 4, 12),
+            height_cm=178,
+            activity_level=ActivityLevel.LIGHT,
+            goal=Goal.BULK,
+            wake_time=time(7, 0),
+            sleep_time=time(23, 0),
+            split_preference_confirmada=True,
+        )
+
+    @staticmethod
+    def _staff(email, papel):
+        u = User.objects.create_user(email=email, password="senha-bem-forte-123")
+        u.is_staff = True
+        u.save(update_fields=["is_staff"])
+        u.groups.add(Group.objects.get(name=papel))
+        return u
+
+    def _pagina(self, quem):
+        self.client.force_login(quem)
+        return self.client.get(
+            f"/admin/accounts/user/{self.alvo.pk}/change/", secure=True
+        ).content.decode()
+
+    def test_administrador_ve_o_botao(self):
+        html = self._pagina(self.operador)
+
+        self.assertIn("Pedir nova escolha de divisão", html)
+        self.assertIn(
+            f'action="/admin/accounts/user/{self.alvo.pk}/pedir-nova-divisao/"', html
+        )
+
+    def test_o_botao_e_um_post_com_csrf(self):
+        """Link viraria GET, e GET que escreve é acionável por uma imagem em
+        página de terceiro."""
+        html = self._pagina(self.operador)
+
+        pedaco = html[html.index("pedir-nova-divisao") - 400 :][:900]
+        self.assertIn('method="post"', pedaco)
+        self.assertIn("csrfmiddlewaretoken", pedaco)
+
+    def test_suporte_nao_ve_o_botao(self):
+        html = self._pagina(self.suporte)
+
+        self.assertNotIn("Pedir nova escolha de divisão", html)
+        self.assertNotIn("pedir-nova-divisao", html)
+
+    def test_quando_ja_aguarda_o_botao_da_lugar_ao_estado(self):
+        """Oferecer de novo um botão que responderia "já está aguardando" é
+        pedir para a pessoa clicar para descobrir."""
+        Profile.objects.filter(pk=self.perfil.pk).update(
+            split_preference_confirmada=False
+        )
+
+        html = self._pagina(self.operador)
+
+        self.assertIn("Aguardando nova escolha de divisão", html)
+        self.assertNotIn("pedir-nova-divisao", html)
+
+    def test_conta_sem_perfil_nao_oferece_a_acao(self):
+        sem_perfil = User.objects.create_user(
+            email="sem-perfil@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(self.operador)
+
+        html = self.client.get(
+            f"/admin/accounts/user/{sem_perfil.pk}/change/", secure=True
+        ).content.decode()
+
+        self.assertNotIn("pedir-nova-divisao", html)
+
+    def test_o_botao_leva_a_acao_que_funciona(self):
+        """Fecha o circuito: o que a tela oferece é o que a rota aceita."""
+        self.client.force_login(self.operador)
+        html = self._pagina(self.operador)
+        # A action do BOTÃO, não a primeira da página: o formulário principal
+        # do change_form também tem uma, e extrair a errada faria o teste
+        # postar no lugar errado e passar por acidente.
+        fim = html.index("pedir-nova-divisao/")
+        inicio = html.rindex('action="', 0, fim) + len('action="')
+        rota = html[inicio : html.index('"', inicio)]
+        self.assertIn("pedir-nova-divisao", rota)
+
+        self.client.post(rota, {}, secure=True)
+
+        self.perfil.refresh_from_db()
+        self.assertFalse(self.perfil.split_preference_confirmada)

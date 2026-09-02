@@ -191,6 +191,29 @@ class UserAdmin(BaseUserAdmin):
     #: O caso de suporte é sobre UMA pessoa — "estou preso num ABC que não
     #: escolhi". Ação em lote resolveria um problema que ninguém tem e criaria
     #: um botão capaz de reperguntar a divisão de cinquenta contas por engano.
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        """Leva à tela o que decide se a ação da divisão aparece.
+
+        O template não pode decidir sozinho: `has_perm` no template esconderia
+        o botão sem provar nada, e o estado do perfil — já aguardando ou não —
+        é o que separa "operação disponível" de "já pedida". Quem autoriza de
+        verdade continua sendo a checagem dentro da própria ação; isto aqui só
+        evita oferecer um botão que vai recusar.
+        """
+        alvo = self.get_object(request, object_id)
+        perfil = getattr(alvo, "profile", None) if alvo is not None else None
+        extra_context = {
+            **(extra_context or {}),
+            "pode_pedir_nova_divisao": (
+                perfil is not None
+                and request.user.has_perm("accounts.pedir_nova_escolha_de_divisao")
+            ),
+            "divisao_aguardando": (
+                perfil is not None and not perfil.split_preference_confirmada
+            ),
+        }
+        return super().change_view(request, object_id, form_url, extra_context)
+
     def get_urls(self):
         return [
             path(
