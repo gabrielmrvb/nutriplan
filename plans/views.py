@@ -244,7 +244,10 @@ class TodayView(PlanRequiredMixin, TemplateView):
         try:
             self.plan = self.get_plan(request)
         except services.IncompleteProfile:
-            messages.info(request, "Faltou completar seu cadastro para calcularmos a dieta.")
+            # Sem mensagem aqui: quem sabe POR QUE a pessoa esta voltando para
+            # o wizard e a entrada do onboarding, que e quem escolhe o passo.
+            # Com as duas falando, a tela abria com dois avisos quase iguais
+            # empilhados — e no bug do loop, com trinta.
             return redirect("accounts:onboarding")
         return super().get(request, *args, **kwargs)
 

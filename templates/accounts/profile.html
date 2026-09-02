@@ -276,7 +276,7 @@
       logado baixar o próprio histórico de saúde sem um clique sequer.
     {% endcomment %}
     <form method="post" action="{% url 'accounts:exportar_dados' %}"
-          style="margin-bottom:.6rem">
+          id="exportar" style="margin-bottom:.6rem">
       {% csrf_token %}
       <button type="submit" class="btn btn--ghost btn--block">
         Exportar meus dados

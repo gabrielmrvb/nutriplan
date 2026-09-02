@@ -611,12 +611,39 @@ def onboarding_step(request, step):
 class OnboardingEntryView(LoginRequiredMixin, TemplateView):
     """Redireciona para o passo pendente — o atalho 'continuar de onde parei'."""
 
+    #: Onde o peso e coletado. O passo 1 salva `WeightEntry` junto com altura,
+    #: sexo e nascimento — ver `DadosBasicosForm.save`.
+    PASSO_DO_PESO = 1
+
     def get(self, request, *args, **kwargs):
         profile = Profile.objects.filter(user=request.user).first()
         if profile is None:
             return redirect("accounts:onboarding_step", step=1)
         if profile.onboarding_complete:
+            # "Completo" aqui é CONTADOR DE PASSOS. O motor tem outra régua:
+            # `build_inputs` também recusa quando não há peso registrado, e a
+            # tela Hoje devolve para cá quando isso acontece.
+            #
+            # Sem esta checagem as duas réguas discordam e a pessoa fica presa
+            # num LOOP: `/` manda para o onboarding porque falta peso, o
+            # onboarding manda para `/` porque o contador chegou ao fim, e o
+            # navegador vai e volta até desistir. Reproduzido com uma conta
+            # real do banco local — passo 6, nenhuma pesagem.
+            #
+            # A regra: quem decide se dá para entrar no app é o MOTOR. Aqui só
+            # se traduz a recusa dele para o passo que resolve.
+            if profile.current_weight is None:
+                messages.info(
+                    request, "Faltou registrar seu peso para calcularmos a dieta."
+                )
+                return redirect(
+                    "accounts:onboarding_step", step=self.PASSO_DO_PESO
+                )
             return redirect("plans:today")
+
+        # Quem está no meio do wizard NÃO recebe aviso: esta tela também é o
+        # "continuar de onde parei" que a pessoa aciona de propósito, e avisar
+        # ali cobraria por algo que ela está justamente fazendo.
         # `passo_alvo` e não `onboarding_step` cru: quem parou no 4 e depois
         # reduziu os dias de treino tem um progresso salvo que aponta para um
         # passo que não existe mais no caminho dela.

@@ -4086,11 +4086,37 @@ class PaginasLegaisTests(TestCase):
             self.assertNotRegex(html, r"\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}", nome)
 
     def test_nao_prometem_tela_que_nao_existe(self):
-        """Política que manda a pessoa a um 404 promete um direito e não entrega."""
+        """Política que manda a pessoa a um 404 promete um direito e não entrega.
+
+        A exportação NÃO é linkada direto para `accounts:exportar_dados`: aquela
+        rota só aceita POST, de propósito — com GET, uma página de terceiro faria
+        o navegador de quem está logado baixar o próprio histórico de saúde sem
+        um clique. Enquanto o link apontou para lá, quem clicava recebia 405
+        justamente na página que explica como exercer o direito.
+
+        Por isso o direito passou a ser representado pela SEÇÃO do perfil onde o
+        formulário vive. E o teste ficou mais forte: além de exigir que os três
+        direitos estejam representados, ele agora SEGUE cada link interno da
+        política e exige resposta — que é o que a docstring sempre quis dizer, e
+        que a versão anterior, procurando uma string, não verificava.
+        """
         html = self.client.get(reverse("privacidade"), secure=True).content.decode()
-        for nome in ("accounts:profile", "accounts:excluir_conta",
-                     "accounts:exportar_dados"):
+
+        for nome in ("accounts:profile", "accounts:excluir_conta"):
             self.assertIn(reverse(nome), html, nome)
+        self.assertIn(reverse("accounts:profile") + "#exportar", html, "exportar")
+
+        destinos = set(re.findall(r'<a[^>]*href="(/[^"#?]*)', html))
+        self.assertGreater(len(destinos), 2, "a política parou de linkar as telas")
+
+        self.client.force_login(create_complete_user(email="legal@exemplo.com"))
+        for destino in sorted(destinos):
+            with self.subTest(destino=destino):
+                self.assertLess(
+                    self.client.get(destino, secure=True).status_code,
+                    400,
+                    "a política manda para uma tela que não responde",
+                )
 
     def test_nao_afirmam_conformidade_absoluta(self):
         """Nenhuma promessa que ninguém pode cumprir.

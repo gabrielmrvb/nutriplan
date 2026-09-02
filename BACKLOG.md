@@ -147,3 +147,39 @@ Não existe `BroadcastChannel` nem ouvinte de `storage`. Sair numa aba não avis
 as outras, que seguem mostrando o HTML já renderizado. Não abre acesso — toda
 navegação cai em 302 e o cache de páginas já foi apagado —, mas é risco
 conhecido de navegador com várias abas.
+
+## Achados da varredura de navegador (02/09/2026)
+
+Corrigidos nesta rodada — ficam aqui só como referência do que estava quebrado:
+loop de redirecionamento entre `/` e `/conta/onboarding/`, shell offline
+pré-cacheado com a identidade de quem instalou o app, e link da política de
+privacidade apontando para uma rota que só aceita POST.
+
+### ALIMENTO FORA DO CATÁLOGO GRAVA ZERO SEM AVISAR
+
+Em "Comi outra coisa", o nome do alimento é texto livre com um `<datalist>` de
+62 sugestões. Quem digita um nome que não bate com o catálogo tem a linha
+descartada **em silêncio** — a refeição fica registrada pela descrição, com
+0 kcal.
+
+O descarte silencioso é decisão declarada em `_itens_descritos`: recusar a
+refeição inteira por causa de uma linha mal digitada é o caminho mais curto
+para a pessoa parar de registrar. O `<datalist>` reduz o risco, mas não força
+escolha.
+
+O que falta é FEEDBACK, não validação: a tela poderia dizer "2 de 3 itens
+entraram na conta" depois de salvar. Medido no navegador: "Arroz 150 g" +
+"Frango 120 g" → `kcal=0.00`, sem nenhuma indicação.
+
+Não mexi porque a mudança é de produto (o que dizer, e onde), não de correção.
+
+### `navigator.onLine` NÃO COBRE SERVIDOR FORA DO AR
+
+A fila offline só intercepta o POST quando `navigator.onLine` é falso. Com rede
+viva e servidor inacessível — testado derrubando o servidor local — o POST sai,
+falha, e a marcação se perde; a pessoa cai na tela "Sem conexão" sem que nada
+tenha sido enfileirado.
+
+O gatilho por `navigator.onLine` é o que está documentado e funciona para o caso
+principal (celular sem sinal). Cobrir servidor fora do ar exigiria enfileirar no
+ERRO do `fetch`, e isso muda o contrato da fila — decisão de produto.

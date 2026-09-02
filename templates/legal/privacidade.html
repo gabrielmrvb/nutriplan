@@ -249,8 +249,14 @@
       </dd>
       <dt>Levar seus dados com você</dt>
       <dd>
+        {% comment %}
+          Aponta para a SEÇÃO do perfil, e não para a rota de exportar: ela é
+          POST de propósito — com GET, uma página de terceiro faria o navegador
+          de quem está logado baixar o próprio histórico de saúde sem um clique.
+          O link direto respondia 405 para quem clicasse aqui.
+        {% endcomment %}
         Você pode baixar uma cópia em
-        <a href="{% url 'accounts:exportar_dados' %}">Exportar meus dados</a>.
+        <a href="{% url 'accounts:profile' %}#exportar">Exportar meus dados</a>.
         O arquivo sai em JSON, sem senha nem dados internos.
       </dd>
       <dt>Revogar o consentimento</dt>
