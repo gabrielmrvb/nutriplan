@@ -249,6 +249,19 @@ E mais dois, achados na própria correção:
 5. o `<title>` dizia "Treinando" nos três estados, inclusive na tela que diz
    que o treino acabou e na que diz que hoje é descanso.
 
+Publicado em `50668fb` e verificado em produção, em navegador real sobre
+`/demo/treino/` (leitura, nenhuma conta tocada): a barra do cronômetro já não
+tem ancestral com `aria-live`, o aviso escondido existe, e num descanso inteiro
+a barra mudou 7 vezes enquanto a região viva falou DUAS — "Descanso de 5
+segundos." e "Descanso terminado, pode ir.". A porta da Corrida ficou em y=3513
+(375), 3217 (430), 3129 (768) e 3460 (1280), em páginas de 6051 a 5240, sempre
+uma só. Zero rolagem horizontal, zero alvo abaixo de 44×44 e zero texto abaixo
+de 11px nas quatro. Zero 5xx em 16 rotas.
+
+O que NÃO foi provado em produção: o redirect do desfazer e a conclusão do
+treino, porque exigiriam ESCREVER numa conta real. Os dois estão provados no
+navegador contra a stack local, com conta QA descartável.
+
 A primeira versão da mudança da Corrida movia o cartão para dentro da coluna
 lateral e apagava a porta de quem ainda não cadastrou dias de treino —
 `ACorridaTemPortaTests`, que já existia, pegou. O cartão virou
@@ -258,6 +271,15 @@ Não mexido, por decisão: o motor de volume e duração; a fonte e o timestamp 
 vídeos; e o recarregamento de página a cada série — ele é consequência de todo
 o estado sair de `ExerciseLog`, e não custa posição porque o cartão inteiro
 cabe na primeira dobra (medido: `scrollY` volta a 0 e o botão fica em y≈600).
+
+Achado durante o B3 e NÃO corrigido nele, porque não é polimento: a fila
+offline cobre `/treino/exercicio/<id>/carga/` — a gravação pela LISTA — e não
+cobre `/treino/agora/serie/`, que é a tela usada de pé na academia, onde o sinal
+é pior. Não é uma linha de código: `record_load` é idempotente por
+`update_or_create`, então enfileirar a GRAVAÇÃO seria seguro, mas a mesma rota
+também recebe `acao=desfazer`, que apaga o maior `set_number` e reenviado duas
+vezes apaga duas séries. Entrar na fila exige separar as duas ações, ou dar
+`op_id` ao desfazer — decisão de arquitetura, não de tela.
 
 Pendência declarada: "pular" o descanso é só do cliente. Recarregar a página
 traz o descanso de volta, porque ele é derivado de `created_at` — que é
