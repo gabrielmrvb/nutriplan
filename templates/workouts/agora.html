@@ -13,7 +13,14 @@
   recarregar, voltar, fechar e abrir de novo caem exatamente no mesmo ponto.
 {% endcomment %}
 
-{% block title %}Treinando · NutriPlan{% endblock %}
+{% comment %}
+  O título acompanha o estado, porque ele é o nome da página em três lugares
+  que não são decoração: a aba do navegador, a lista de apps abertos da PWA e o
+  anúncio do leitor de tela ao carregar. Fixo em "Treinando", ele afirmava que
+  a pessoa estava treinando na tela que diz que o treino acabou e na que diz
+  que hoje é descanso.
+{% endcomment %}
+{% block title %}{% if not estado.tem_treino %}Modo treino{% elif estado.concluido %}Treino concluído{% else %}Treinando{% endif %} · NutriPlan{% endblock %}
 
 {% block content %}
   {% if not estado.tem_treino %}
@@ -156,9 +163,22 @@
           O número vem do servidor: `agora - created_at da última série`. Um
           cronômetro que só existisse no JavaScript zeraria ao trocar de aba,
           que é justamente quando a pessoa sai do app para ver a hora.
+
+          O bloco NÃO é uma região viva, e o aviso ao lado é.
+
+          Ele já foi `role="status" aria-live="polite"` com o relógio dentro, e
+          o relógio muda de texto a cada segundo: medido no navegador, cinco
+          mutações em 5,2 s dentro da região. Cada mutação faz o leitor de tela
+          reler a região inteira — "Descanso 54s pular", "Descanso 53s pular" —
+          e são oitenta anúncios por descanso, cerca de dois mil num treino de
+          29 séries. Uma fila de fala desse tamanho não informa: ela impede
+          ouvir qualquer outra coisa da tela.
+
+          O relógio continua legível para quem navega até ele; o que sai é o
+          empurrão. Quem anuncia é o parágrafo escondido, e só duas vezes: no
+          começo do descanso e quando ele acaba.
         {% endcomment %}
-        <div class="descanso" role="status" aria-live="polite"
-             data-descanso="{{ estado.descanso_restante }}">
+        <div class="descanso" data-descanso="{{ estado.descanso_restante }}">
           <span class="descanso__rotulo">Descanso</span>
           <span class="descanso__relogio num" data-descanso-relogio>
             {{ estado.descanso_restante }}s
@@ -167,6 +187,7 @@
             pular
           </button>
         </div>
+        <p class="vis-oculto" role="status" aria-live="polite" data-descanso-aviso></p>
       {% endif %}
 
       {# ---- Registrar a série: dois campos e um botão ---- #}
@@ -227,12 +248,30 @@
         </button>
       </form>
 
-      {% if atual.feitas %}
+      {% comment %}
+        O desfazer segue a última série ANOTADA, e não o exercício da tela.
+
+        Ele estava preso a `atual.feitas`, e some junto com o exercício: fechada
+        a quarta série da puxada, a vez passa para a remada, `atual.feitas` é
+        zero e o botão desaparece — medido no navegador. É o instante em que
+        alguém mais precisa dele, porque foi a série que acabou de ser gravada
+        que fechou o exercício, e o único caminho de volta passava a ser a lista
+        em `/treino/`. Nove vezes por treino, uma por exercício.
+
+        `ultimo_log` é a série mais recente de hoje, por `created_at`; quando
+        ela não é do exercício da tela, o rótulo diz de quem é — desfazer às
+        cegas uma série de um exercício que nem está aparecendo seria pior do
+        que não ter botão.
+      {% endcomment %}
+      {% if estado.ultimo_log %}
         <form method="post" action="{% url 'workouts:record_set' %}" class="agora__desfazer">
           {% csrf_token %}
-          <input type="hidden" name="exercise_id" value="{{ atual.exercise.pk }}">
+          <input type="hidden" name="exercise_id" value="{{ estado.ultimo_log.exercise_id }}">
           <input type="hidden" name="acao" value="desfazer">
-          <button type="submit" class="btn-link">desfazer última série</button>
+          <button type="submit" class="btn-link">
+            desfazer última série{% if estado.ultimo_log.exercise_id != atual.exercise_id %}
+              de {{ estado.ultimo_item.exercise.name|default:"outro exercício" }}{% endif %}
+          </button>
         </form>
       {% endif %}
       {# ---- Execução: é o que o botão promete, e é o que aparece ---- #}
@@ -350,12 +389,37 @@
     if (area) {
       var restante = parseInt(area.dataset.descanso, 10) || 0;
       var relogio = area.querySelector("[data-descanso-relogio]");
+      var aviso = document.querySelector("[data-descanso-aviso]");
+
+      /* Só duas falas por descanso, e as duas dizem algo que muda o que fazer:
+         quanto tempo começou a contar, e que ele acabou. O relógio da tela
+         continua com a contagem para quem olha. */
+      function falar(texto) {
+        if (aviso) aviso.textContent = texto;
+      }
+
+      function porExtenso(segundos) {
+        var m = Math.floor(segundos / 60), s = segundos % 60;
+        if (!m) return segundos + " segundos";
+        if (!s) return m + (m === 1 ? " minuto" : " minutos");
+        return m + (m === 1 ? " minuto e " : " minutos e ") + s + " segundos";
+      }
+
+      /* O anúncio sai um instante DEPOIS de a página assentar.
+         Conteúdo que já está no HTML quando o documento carrega não é anunciado
+         — região viva avisa sobre mudança, e no carregamento não houve
+         mudança. Escrever daqui a pouco é o que transforma o texto em fala. */
+      setTimeout(function () {
+        if (restante > 0) falar("Descanso de " + porExtenso(restante) + ".");
+      }, 300);
+
       var tique = setInterval(function () {
         restante -= 1;
         if (restante <= 0) {
           clearInterval(tique);
           area.classList.add("descanso--fim");
           if (relogio) relogio.textContent = "pode ir";
+          falar("Descanso terminado, pode ir.");
           return;
         }
         var m = Math.floor(restante / 60), s = restante % 60;
@@ -370,6 +434,7 @@
         pular.addEventListener("click", function () {
           clearInterval(tique);
           area.hidden = true;
+          falar("Descanso pulado.");
         });
       }
     }

@@ -169,7 +169,7 @@ ensina mais que a correção:
 - **P2 — link quebrado na política de privacidade**, apontando para uma rota
   que só aceita POST de propósito.
 
-### PREMIUM POLISH — B1 FEITO, B2 É O PRÓXIMO
+### PREMIUM POLISH — B1, B2 E B3 FEITOS; B4 É O PRÓXIMO
 
 **B1 — LOGIN / CADASTRO ✅** Auditado em navegador real em 375, 430, 768 e
 desktop. A tela já estava boa: zero rolagem horizontal, zero alvo abaixo de
@@ -206,7 +206,65 @@ Não mexido, por decisão declarada no código: a água só vira cartão AGORA q
 não há refeição nem treino pendente ("sobra a água — e ela só aparece quando
 falta mesmo").
 
-**B3 — TREINO ⏳ PRÓXIMO**
+**B3 — TREINO ✅** Auditado em navegador real em 375, 430, 768 e desktop, nos
+quatro estados da tela: sem rotina, dia de descanso, em treino e concluído.
+Réguas limpas em todos — zero rolagem horizontal, zero alvo abaixo de 44×44,
+zero texto abaixo de 11px. A conclusão foi percorrida no navegador até o fim:
+última série → tela "Treino concluído" com 9 exercícios e 29 séries contadas
+(não estimadas). O `<dialog>` do vídeo abre, nomeia o exercício, prende o foco,
+devolve o foco ao gatilho ao fechar, destrói a mídia e não perde a rolagem.
+
+Cinco defeitos reais, os cinco medidos:
+
+1. **o relógio do descanso falava uma vez por segundo.** Ele vivia dentro de um
+   `role="status" aria-live="polite"` e trocava de texto a cada tique — medido
+   com `MutationObserver`, cinco mutações em 5,2 s, nas DUAS telas de treino.
+   Cada mutação faz o leitor de tela reler a região inteira: são ~80 anúncios
+   por descanso e ~2.200 num treino de 29 séries, e nada mais da tela consegue
+   ser ouvido nesse meio-tempo. O relógio continua na tela e continua legível;
+   quem fala agora é um aviso `.vis-oculto` à parte, duas vezes — quando o
+   descanso começa e quando acaba;
+2. **"desfazer última série" sumia quando o exercício fechava.** A última série
+   da puxada é justamente a que passa a vez para a remada, e aí `atual.feitas`
+   é zero e o botão não existe mais — nove vezes por treino, sempre logo depois
+   da série mais provável de ter sido anotada por engano. Agora ele segue
+   `estado.ultimo_log`, e nomeia o exercício quando não é o da tela;
+3. **a única porta para a Corrida era o último bloco do documento** — medido a
+   375px, o cabeçalho "Corrida" em y=5476 de uma página de 5755, abaixo de três
+   blocos que não são ação nenhuma. Subiu para o começo da coluna lateral, e o
+   cabeçalho passou para y=3155 numa página de 5787. O link em si ficou em
+   y=3250 em 375, 3117 em 430, 2865 em 768 e 3311 em 1280 — e a coluna é única
+   em toda largura, por decisão já registrada no CSS, então a ordem do
+   documento é a ordem da tela nas quatro.
+
+E mais dois, achados na própria correção:
+
+4. **o empate de carimbo escolhia ao acaso.** `ultimo_log` saía de um `max` por
+   `created_at`, e `auto_now_add` chama `timezone.now()` no Python — cujo
+   relógio no Windows tem granularidade de milissegundos. Duas séries gravadas
+   na mesma janela ficam com o carimbo idêntico, e `max` devolvia a primeira da
+   iteração, que era a do exercício ANTERIOR. Enquanto isso só alimentava o
+   cronômetro custava segundos de descanso; com o desfazer pendurado nisso,
+   apagaria a série errada. Desempate agora é `(created_at, pk)`;
+5. o `<title>` dizia "Treinando" nos três estados, inclusive na tela que diz
+   que o treino acabou e na que diz que hoje é descanso.
+
+A primeira versão da mudança da Corrida movia o cartão para dentro da coluna
+lateral e apagava a porta de quem ainda não cadastrou dias de treino —
+`ACorridaTemPortaTests`, que já existia, pegou. O cartão virou
+`_corrida.html` e é incluído nos dois estados.
+
+Não mexido, por decisão: o motor de volume e duração; a fonte e o timestamp dos
+vídeos; e o recarregamento de página a cada série — ele é consequência de todo
+o estado sair de `ExerciseLog`, e não custa posição porque o cartão inteiro
+cabe na primeira dobra (medido: `scrollY` volta a 0 e o botão fica em y≈600).
+
+Pendência declarada: "pular" o descanso é só do cliente. Recarregar a página
+traz o descanso de volta, porque ele é derivado de `created_at` — que é
+exatamente o que o faz sobreviver a trocar de aba e bloquear a tela. Lembrar a
+recusa exigiria estado novo para um elemento que é informação, não porteiro.
+
+**B4 — PROGRESSO V2 ⏳ PRÓXIMO**
 
 Escopo em [`docs/premium-polish-b1-b11.md`](docs/premium-polish-b1-b11.md).
 

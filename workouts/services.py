@@ -825,6 +825,11 @@ class EstadoDoTreino:
     pct: int = 0
     concluido: bool = False
     ultimo_log: object = None
+    #: A prescrição a que `ultimo_log` pertence — quem recebeu a última série
+    #: anotada hoje, que nem sempre é o exercício atual: fechada a última série
+    #: de um exercício, a vez já passou para o seguinte e o desfazer precisa
+    #: continuar apontando para o que acabou de receber a série.
+    ultimo_item: object = None
     descanso_total: int = 0
     descanso_restante: int = 0
     minutos_entre_registros: int = 0
@@ -987,13 +992,25 @@ def estado_do_treino(user, dia=None) -> EstadoDoTreino:
         for item in itens
         for log in (item.series_hoje or {}).values()
     ]
+    # Empate de `created_at` desempata pelo `pk`, e nao ao acaso.
+    #
+    # `auto_now_add` chama `timezone.now()` no Python, e no Windows o relogio
+    # do sistema tem granularidade de milissegundos: duas series gravadas na
+    # mesma janela recebem o MESMO carimbo. Pego ao semear estado de QA — a
+    # quarta serie da puxada e a primeira da remada ficaram com o microssegundo
+    # identico, e `max` devolveu a primeira que apareceu na iteracao, que era a
+    # do exercicio anterior. Enquanto isto so alimentava o cronometro, escolher
+    # errado custava alguns segundos de descanso; agora tambem decide qual
+    # serie o botao "desfazer" apaga, e a escolha precisa ser a mesma sempre.
+    #
+    # `pk` cresce com a insercao, entao no empate ganha a linha gravada depois.
     ultimo = max(
         (
             log
             for item in itens
             for log in (item.series_hoje or {}).values()
         ),
-        key=lambda log: log.created_at,
+        key=lambda log: (log.created_at, log.pk),
         default=None,
     )
     estado.ultimo_log = ultimo
@@ -1025,6 +1042,7 @@ def estado_do_treino(user, dia=None) -> EstadoDoTreino:
         prescricao = next(
             (item for item in itens if item.exercise_id == ultimo.exercise_id), None
         )
+        estado.ultimo_item = prescricao
         total = prescricao.rest_seconds if prescricao else 60
         passados = (timezone.now() - ultimo.created_at).total_seconds()
         estado.descanso_total = total

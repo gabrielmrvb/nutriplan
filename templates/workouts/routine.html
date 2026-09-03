@@ -33,6 +33,12 @@
         Cadastrar meus dias de treino
       </a>
     </section>
+    {% comment %}
+      Sem dias de treino não há ficha — mas há corrida, que não depende de
+      ficha nenhuma. Foi este ramo que a primeira versão da mudança deixou sem
+      porta, e foi `ACorridaTemPortaTests` que pegou.
+    {% endcomment %}
+    {% include "workouts/_corrida.html" %}
   {% else %}
     <div class="split">
       <div class="split__main stack">
@@ -296,6 +302,17 @@
       </div>
 
       <aside class="split__aside stack">
+        {% comment %}
+          A Corrida abre a coluna lateral, e não fecha o documento.
+
+          Ela era o último bloco da página: medido no navegador a 375px, o
+          cabeçalho "Corrida" caía em y=5476 de uma página de 5755 — quase sete
+          dobras, embaixo de três blocos que não são ação nenhuma (o volume por
+          músculo, o texto de como executar e a configuração dos dias). Uma
+          porta que abre outra atividade não fica atrás da consulta e do ajuste.
+        {% endcomment %}
+        {% include "workouts/_corrida.html" %}
+
         <section class="card">
           <div class="card__head"><h2>Séries por músculo</h2></div>
           <div class="macro-list">
@@ -369,8 +386,21 @@
       Cronômetro: barra fixa no rodapé em vez de modal, porque durante o descanso
       a pessoa continua olhando a ficha para saber a próxima série. Vibra no fim
       (som na academia ninguém ouve).
+
+      A barra NÃO é região viva; o aviso escondido embaixo dela é.
+
+      `data-timer-valor` é reescrito uma vez por segundo, e com
+      `role="status" aria-live="polite"` na barra cada escrita fazia o leitor de
+      tela reler tudo — nome do exercício, relógio e os dois botões. Medido no
+      navegador: cinco mutações em 5,2 s dentro da região. Um descanso de 1:20
+      vira oitenta anúncios, e ninguém consegue ouvir mais nada da página
+      enquanto isso.
+
+      O relógio continua na tela e continua legível para quem navegar até ele.
+      O que passou a ser falado são os dois instantes que mudam o que fazer:
+      quando o descanso começa e quando ele termina.
     {% endcomment %}
-    <div class="rest-timer" data-timer hidden role="status" aria-live="polite">
+    <div class="rest-timer" data-timer hidden>
       <div class="rest-timer__bar"><span data-timer-bar></span></div>
       <div class="rest-timer__body">
         <span class="rest-timer__label" data-timer-nome></span>
@@ -380,6 +410,7 @@
                 aria-label="Parar cronômetro">&times;</button>
       </div>
     </div>
+    <p class="vis-oculto" role="status" aria-live="polite" data-timer-aviso></p>
 
     {% comment %}
       Um drawer só para a página inteira, preenchido pelo gatilho que foi
@@ -906,6 +937,7 @@
         var valor = caixa.querySelector("[data-timer-valor]");
         var nome = caixa.querySelector("[data-timer-nome]");
         var barra = caixa.querySelector("[data-timer-bar]");
+        var aviso = document.querySelector("[data-timer-aviso]");
         var intervalo = null;
         var restam = 0;
         var total = 0;
@@ -945,6 +977,19 @@
           return m + ":" + (s < 10 ? "0" : "") + s;
         }
 
+        /* Duas falas por descanso: começou, acabou. O relógio da tela fica com
+           a contagem — ele muda a cada segundo, e a cada segundo não é notícia. */
+        function falar(texto) {
+          if (aviso) aviso.textContent = texto;
+        }
+
+        function porExtenso(segundos) {
+          var m = Math.floor(segundos / 60), s = segundos % 60;
+          if (!m) return segundos + " segundos";
+          if (!s) return m + (m === 1 ? " minuto" : " minutos");
+          return m + (m === 1 ? " minuto e " : " minutos e ") + s + " segundos";
+        }
+
         function desenhar() {
           valor.textContent = formatar(Math.max(restam, 0));
           barra.style.width = total ? (restam / total) * 100 + "%" : "0%";
@@ -955,6 +1000,7 @@
           clearInterval(intervalo);
           intervalo = null;
           caixa.hidden = true;
+          falar("");
           caixa.classList.remove("rest-timer--fim", "rest-timer--acabando");
         }
 
@@ -976,6 +1022,7 @@
             intervalo = null;
             if (navigator.vibrate) navigator.vibrate([200, 100, 400]);
             avisar();
+            falar("Descanso terminado, pode ir.");
           }
         }
 
@@ -987,6 +1034,7 @@
           caixa.hidden = false;
           caixa.classList.remove("rest-timer--fim", "rest-timer--acabando");
           desenhar();
+          falar("Descanso de " + porExtenso(total) + ".");
           intervalo = setInterval(tick, 1000);
         }
 
@@ -1417,27 +1465,4 @@
 
   {% endif %}
 
-  {% comment %}
-    A porta para as corridas.
-
-    Ela existe porque a tela de corridas estava alcançável só digitando o
-    endereço — o mesmo defeito da ação administrativa que ganhou rota e não
-    ganhou botão. Tela sem porta não é tela.
-
-    Aqui e não numa quinta aba da barra de baixo, e a razão não é layout: o
-    comportamento do GPS numa PWA ainda NÃO foi medido em aparelho nenhum
-    (ver `docs/running-analise.md`). Promover a destino de topo é dizer "isto
-    funciona", e ninguém verificou que funciona com a tela do celular. A aba
-    entra quando a medição entrar.
-  {% endcomment %}
-  <section class="card">
-    <div class="card__head"><h2>Corrida</h2></div>
-    <p class="hint">
-      Registrar corrida com GPS. O app precisa ficar aberto e a tela acesa —
-      guardar o telefone no bolso interrompe o registro.
-    </p>
-    <a class="btn btn--ghost btn--block" href="{% url 'workouts:corridas' %}">
-      Abrir corridas
-    </a>
-  </section>
 {% endblock %}
