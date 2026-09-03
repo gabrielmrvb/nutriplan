@@ -86,6 +86,17 @@ class AtividadeView(PainelDeGestaoMixin, TemplateView):
     responde a pergunta que interessa — quantas pessoas apareceram.
 
     Uma consulta por tipo de ação, e nenhuma por dia: o agrupamento é do banco.
+
+    A tabela tem TODOS os dias da janela, inclusive os zerados. Antes ela só
+    tinha os dias que o banco devolveu — um dia em que ninguém abriu o app
+    simplesmente não existia na tela, e quem lesse a coluna de datas precisava
+    notar sozinho que 11/08 não estava entre 12/08 e 10/08. Num painel de
+    operação, dia morto é justamente o que se quer enxergar: é a mesma decisão
+    que a tela de Métricas já tinha tomado para as semanas ("buraco na série é
+    informação"), e não faz sentido o painel de gestão dizer o contrário.
+
+    Preencher é de graça: o agrupamento continua no banco, o número de
+    consultas não muda, e o laço é sobre 30 datas.
     """
 
     template_name = "gestao/atividade.html"
@@ -102,7 +113,10 @@ class AtividadeView(PainelDeGestaoMixin, TemplateView):
 
         contexto = super().get_context_data(**kwargs)
         hoje = timezone.localdate()
-        desde = hoje - timedelta(days=self.DIAS)
+        # `DIAS - 1` porque hoje conta. Com `- self.DIAS` a janela pegava 31
+        # dias e o texto da tela dizia 30: a tabela entregava uma linha a mais
+        # do que a frase prometia.
+        desde = hoje - timedelta(days=self.DIAS - 1)
 
         fontes = (
             ("refeições", MealLog.objects.filter(date__gte=desde)),
@@ -123,10 +137,25 @@ class AtividadeView(PainelDeGestaoMixin, TemplateView):
                 dia[nome] = linha["pessoas"]
 
         contexto["nomes"] = [nome for nome, _ in fontes]
+        # A janela inteira, do mais recente para o mais antigo, e não só os
+        # dias que o banco devolveu.
         contexto["dias"] = [
-            (dia, [por_dia[dia].get(nome, 0) for nome, _ in fontes])
-            for dia in sorted(por_dia, reverse=True)
+            (
+                hoje - timedelta(days=atras),
+                [
+                    por_dia.get(hoje - timedelta(days=atras), {}).get(nome, 0)
+                    for nome, _ in fontes
+                ],
+            )
+            for atras in range(self.DIAS)
         ]
+        # A pergunta é "existe algum registro na janela?", e não "a lista tem
+        # linhas": desde que a janela passou a vir inteira, ela SEMPRE tem 30
+        # linhas, e `{% if dias %}` seria verdadeiro num banco recém-criado.
+        # Sem esta distinção, o estado vazio virava código morto e a tela
+        # respondia com trinta linhas de zero. É a mesma distinção que a tela
+        # de Métricas faz com `tem_agua` e `tem_treino`, pelo mesmo motivo.
+        contexto["tem_atividade"] = bool(por_dia)
         contexto["janela"] = self.DIAS
         contexto["aba"] = "atividade"
         contexto["sem_tabbar"] = True

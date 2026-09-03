@@ -1,5 +1,12 @@
 {% extends "gestao/base.html" %}
 
+{% comment %}
+  Esta tela segura uma tabela, e por isso pede a superfície mais larga.
+  O Painel não pede: os cartões dele são pares rótulo/número, e largura
+  demais afasta um do outro. Ver `.container.gestao-tabela` no CSS.
+{% endcomment %}
+{% block container_class %}gestao-tabela{% endblock %}
+
 {% block title %}Pessoas · NutriPlan{% endblock %}
 
 {% block content %}
@@ -17,7 +24,7 @@
     <noscript><button type="submit" class="btn btn--sm">Filtrar</button></noscript>
   </form>
 
-  <p class="nota">{{ pagina.paginator.count }} conta{{ pagina.paginator.count|pluralize:"s" }}</p>
+  <p class="hint">{{ pagina.paginator.count }} conta{{ pagina.paginator.count|pluralize:"s" }}</p>
 
   {% comment %}
     Rolagem horizontal no CONTAINER da tabela, nunca no corpo da página. É a
@@ -41,7 +48,20 @@
           <tr>
             <td>{{ pessoa.email }}</td>
             <td>{{ pessoa.get_classificacao_display }}</td>
-            <td>{% if pessoa.profile.onboarding_completo %}sim{% else %}não{% endif %}</td>
+            {% comment %}
+              `onboarding_complete`, e não `onboarding_completo`.
+
+              A propriedade do `Profile` está em inglês, o template pedia em
+              português, e atributo que não existe não levanta erro num
+              template do Django: ele vira string vazia, que é falsa. Medido no
+              navegador: a coluna dizia "não" nas 41 contas, valor distinto
+              nenhum — enquanto o Painel, na mesma sessão e sobre os mesmos
+              dados, dizia "Terminaram o onboarding — 36".
+
+              As colunas vizinhas funcionavam porque saem de anotações da view
+              (`tem_plano`, `tem_ficha`), que existem de verdade.
+            {% endcomment %}
+            <td>{% if pessoa.profile.onboarding_complete %}sim{% else %}não{% endif %}</td>
             <td>{% if pessoa.tem_plano %}sim{% else %}não{% endif %}</td>
             <td>{% if pessoa.tem_ficha %}sim{% else %}não{% endif %}</td>
             <td>{{ pessoa.ultima_refeicao|date:"d/m/Y"|default:"—" }}</td>
@@ -60,7 +80,7 @@
         <a class="btn btn--sm"
            href="?classificacao={{ classificacao_atual }}&pagina={{ pagina.previous_page_number }}">Anterior</a>
       {% endif %}
-      <span class="nota">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+      <span class="hint">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
       {% if pagina.has_next %}
         <a class="btn btn--sm"
            href="?classificacao={{ classificacao_atual }}&pagina={{ pagina.next_page_number }}">Próxima</a>

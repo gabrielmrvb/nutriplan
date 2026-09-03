@@ -7,19 +7,36 @@
 
   <section class="card">
     <div class="card__head"><h2>Contas</h2></div>
+    {% comment %}
+      Só a classificação entra nesta lista, e o total fecha embaixo.
+
+      Toda conta tem exatamente uma classificação, então as quatro linhas
+      SOMAM o total — medido: 35 + 3 + 1 + 2 = 41. "Com acesso
+      administrativo" estava no meio delas, acima do Total e com a mesma
+      aparência, e não é um quinto balde: é um recorte que atravessa os
+      quatro, e aquelas contas já estão contadas em alguma linha acima. Quem
+      somasse a coluna de cima para baixo chegava a 44 para um total de 41.
+
+      O número continua na tela, porque é operacional. Ele só saiu de dentro
+      da soma e ganhou a palavra que diz o que ele é.
+
+      "Não classificada" continua junto das outras, e não escondida num
+      rodapé: enquanto ninguém tiver classificado nada, é o número mais
+      honesto da tela. Nenhuma conta foi classificada por adivinhação.
+    {% endcomment %}
     <dl class="data-list data-list--total">
       {% for rotulo, quantas in classificacao %}
         <div><dt>{{ rotulo }}</dt><dd>{{ quantas }}</dd></div>
       {% endfor %}
-      <div><dt>Com acesso administrativo</dt><dd>{{ contas.staff }}</dd></div>
       <div><dt>Total</dt><dd>{{ contas.total }}</dd></div>
     </dl>
-    {% comment %}
-      "Não classificada" aparece junto das outras, e não escondida num rodapé:
-      enquanto ninguém tiver classificado nada, é o número mais honesto da
-      tela. Nenhuma conta foi classificada por adivinhação.
-    {% endcomment %}
-    <p class="nota">
+    <dl class="data-list data-list--recorte">
+      <div>
+        <dt>Destas, com acesso administrativo</dt>
+        <dd>{{ contas.staff }}</dd>
+      </div>
+    </dl>
+    <p class="hint">
       Conta sem classificação é conta sobre a qual ainda não decidimos nada.
     </p>
   </section>
@@ -41,7 +58,7 @@
       <div><dt>Têm ficha de treino</dt><dd>{{ funil.com_ficha }}</dd></div>
       <div><dt>Registraram algo por conta própria</dt><dd>{{ funil.com_acao }}</dd></div>
     </dl>
-    <p class="nota">
+    <p class="hint">
       Registrar por conta própria é marcar refeição, anotar água, salvar série
       ou marcar suplemento. O peso do cadastro não conta: ele é obrigatório no
       primeiro passo, e contá-lo faria o funil medir a si mesmo.
@@ -53,7 +70,7 @@
     <dl class="data-list data-list--total">
       <div><dt>Contas</dt><dd>{{ ativas_na_semana }}</dd></div>
     </dl>
-    <p class="nota">
+    <p class="hint">
       Isto não é retenção. Retenção acompanha quem entrou junto e mede quem
       voltou depois; aqui é quantas contas gravaram alguma coisa na semana. As
       duas respondem perguntas diferentes, e trocar os nomes faria comparar

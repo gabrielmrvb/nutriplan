@@ -169,7 +169,7 @@ ensina mais que a correção:
 - **P2 — link quebrado na política de privacidade**, apontando para uma rota
   que só aceita POST de propósito.
 
-### PREMIUM POLISH — B1 A B4 FEITOS; B5 É O PRÓXIMO
+### PREMIUM POLISH — B1 A B5 FEITOS; B6 É O PRÓXIMO
 
 **B1 — LOGIN / CADASTRO ✅** Auditado em navegador real em 375, 430, 768 e
 desktop. A tela já estava boa: zero rolagem horizontal, zero alvo abaixo de
@@ -351,7 +351,67 @@ de um filho com cartões, que era o caso de Métricas e foi corrigido movendo os
 cartões, sem tocar no mecanismo. Unificar de verdade mudaria o ritmo vertical
 de cinco telas de uma vez, o que é decisão de design e não polimento de uma.
 
-**B5 — /GESTAO ⏳ PRÓXIMO**
+**B5 — /GESTAO/ ✅** Auditado em navegador real em 375, 430, 768 e desktop, nas
+três telas e nas duas sessões que o contrato distingue: com a permissão e sem
+ela. Réguas limpas nos doze cruzamentos — zero rolagem horizontal DA PÁGINA,
+zero alvo abaixo de 44×44, zero texto abaixo de 11px. Contraste medido em 40
+elementos: pior caso 6,42.
+
+Cinco achados. Três deles têm a mesma forma — um nome errado num template do
+Django não levanta erro, vira string vazia, e a tela mente sem quebrar:
+
+1. **a coluna "Onboarding" dizia "não" para todo mundo.** O template pedia
+   `pessoa.profile.onboarding_completo`; a propriedade chama-se
+   `onboarding_complete`. Medido: um valor distinto nas 41 linhas, enquanto o
+   Painel dizia "Terminaram o onboarding — 36" sobre os mesmos dados. Depois:
+   36 "sim" e 5 "não", e as duas telas concordam;
+2. **"Com acesso administrativo" estava dentro de uma soma que não é a dele.**
+   As quatro classificações somam o total (35+3+1+2=41); a linha de staff, no
+   meio delas e acima do "Total", fazia a coluna dar 44. Saiu da soma, ganhou
+   separação e a palavra "Destas";
+3. **as notas eram maiores que os números que explicam.** `class="nota"` não
+   tem uma única regra no CSS: renderizava a 16px em cor cheia, contra 14,4px
+   cinza dos rótulos. A classe de rodapé do app é `.hint` (12,8px), e existe;
+4. **dia sem ninguém sumia da tela de Atividade.** A tabela só listava os dias
+   que o banco devolvia. É o oposto do que Métricas já decidira para as semanas
+   ("buraco na série é informação"), e num painel operacional o dia morto é o
+   que se quer ver. Junto veio um ajuste de um dia: a janela pegava 31 dias com
+   a frase dizendo 30 — medido, 31 linhas antes e 30 depois. E o estado vazio
+   precisou de `tem_atividade`, senão viraria código morto e a tela
+   responderia com trinta linhas de zero.
+
+Contrato de acesso preservado e medido nos dois sentidos: anônimo → login com
+`next`; staff SEM a permissão → **403** nas três rotas; permissão SEM staff →
+200. `Cache-Control: no-cache, no-store, must-revalidate, private` com
+`Vary: Cookie` nas três. A porta para `/gestao/` continua invisível no perfil
+de quem não pode entrar. Nada de pagamento, assinatura, cupom ou exportação
+entrou, nenhuma capability foi ampliada, e o painel continua sem editar
+usuário.
+
+5. **a 1280px o operador via três das sete colunas.** O container ficava em
+   `--max` (480px) e a tabela de Pessoas, que precisa de 788, rolava dentro de
+   uma janela de 440 — na máquina em que um painel de fato é lido. As telas de
+   TABELA passaram a pedir `container.gestao-tabela`, com `max-width: 60rem`,
+   pelo gancho `{% templatetag openblock %} block container_class {% templatetag closeblock %}` que o `base.html` já
+   oferecia às telas de `auth`. Medido depois, por largura (janela da tabela →
+   colunas visíveis de 7): 375 → 334px/1 coluna, **igual a antes**; 430 →
+   389px/2, **igual a antes**; 768 → 711px/**6** (era 438px/3); 1280 →
+   918px/**7**, sem rolagem interna nenhuma (era 440px/3). Nenhuma media query:
+   um `max-width` maior que a tela não faz nada, e é essa a garantia estrutural
+   de que o celular não mudou. O Painel fica em `--max` de propósito: os
+   cartões dele são pares rótulo/número em `space-between`, e a 920px o número
+   ficaria a 900px do rótulo.
+
+Janela de Atividade provada no navegador, exatamente como o contrato exige:
+**30 datas**, a primeira é hoje, a última é hoje−29, todas consecutivas — nem
+29 nem 31 — e a frase da tela diz 30.
+
+**Observação registrada e NÃO corrigida:** a ordem dos cartões do Painel deixa o
+pulso ("registraram algo nos últimos 7 dias") por último, a 1253px — a ordem
+atual tem lógica narrativa (quem existe, quem chegou, quem avançou, quem está
+ativo) e não há dano medido além da rolagem.
+
+**B6 — NAVEGAÇÃO ⏳ PRÓXIMO**
 
 Escopo em [`docs/premium-polish-b1-b11.md`](docs/premium-polish-b1-b11.md).
 

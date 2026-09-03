@@ -1771,6 +1771,24 @@ a.chip { min-height: 2.75rem; padding: .34rem .9rem; }
 
 .data-list--total > div:last-child { font-size: 1rem; }
 
+/* Um recorte que ATRAVESSA a lista de cima, e por isso não entra na soma dela.
+ *
+ * No painel de gestão, "com acesso administrativo" morava dentro da lista de
+ * classificações, acima do "Total", com a mesma aparência das quatro linhas
+ * que somam o total exato. Somando a coluna de cima para baixo dava 44 para um
+ * total de 41 — o número era verdadeiro e a posição mentia sobre o que ele é.
+ *
+ * A linha tracejada é o que separa "isto soma" de "isto atravessa": ela não se
+ * confunde com as divisórias de linha, que são contínuas, e o recuo maior tira
+ * o bloco da cadência da lista anterior. */
+.data-list--recorte {
+  margin-top: .9rem;
+  padding-top: .9rem;
+  border-top: 1px dashed var(--border);
+}
+
+.data-list--recorte > div:first-child { padding-top: 0; }
+
 /* ==========================================================================
    14. Histórico
    ========================================================================== */
@@ -5993,6 +6011,32 @@ body.montando { overflow: hidden; }
    linha por linha. E ela vem com a regra de sempre: a rolagem horizontal
    acontece DENTRO do container, nunca no corpo da página. Tabela é justamente
    onde essa regra quebra primeiro. */
+
+/* A superfície que segura uma tabela larga.
+ *
+ * `--max` são 30rem, e é a medida do APP: uma coluna de leitura, igual no
+ * celular e no monitor, decisão registrada na seção 28. O painel de gestão não
+ * é o app — ninguém o abre entre duas séries, e a tela dele existe para ler
+ * sete colunas ao mesmo tempo.
+ *
+ * Medido a 1280px, antes: o container ficava com 480px e a tabela de Pessoas,
+ * que precisa de 788, rolava dentro de uma janela de 440. Três colunas de sete
+ * visíveis por vez, na máquina em que um painel de fato é lido.
+ *
+ * NÃO tem media query, e isso é a garantia de que o celular não muda: um
+ * `max-width` maior que a tela não faz nada. A 375 e a 430 o container continua
+ * valendo a largura da janela, exatamente como antes; a partir de ~1000px é que
+ * ele passa a crescer, até 60rem.
+ *
+ * 60rem e não "o que couber": 960px dão 920 de conteúdo, folga confortável
+ * sobre os 788 da tabela mais larga, e é o mesmo valor do ponto de virada de
+ * desktop que o app já usa. Largura infinita transformaria a linha da tabela
+ * numa régua de dois metros num monitor ultrawide.
+ *
+ * Só as telas de TABELA levam esta classe. O Painel fica em `--max` de
+ * propósito: os cartões dele são pares rótulo/número em `space-between`, e a
+ * 920px o número ficaria a 900px do próprio rótulo. */
+.container.gestao-tabela { max-width: 60rem; }
 
 .tabela-rolavel {
   min-width: 0;

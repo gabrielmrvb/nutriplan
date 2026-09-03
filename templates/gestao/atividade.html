@@ -1,35 +1,52 @@
 {% extends "gestao/base.html" %}
 
+{% comment %}
+  Esta tela segura uma tabela, e por isso pede a superfície mais larga.
+  O Painel não pede: os cartões dele são pares rótulo/número, e largura
+  demais afasta um do outro. Ver `.container.gestao-tabela` no CSS.
+{% endcomment %}
+{% block container_class %}gestao-tabela{% endblock %}
+
 {% block title %}Atividade · NutriPlan{% endblock %}
 
 {% block content %}
   <h1>Atividade</h1>
-  <p class="nota">
+  <p class="hint">
     Quantas PESSOAS registraram cada coisa, por dia, nos últimos {{ janela }}
     dias. Pessoas e não registros: quem marca cinco refeições continua sendo
     uma pessoa, e contar registros faria o dia dela parecer um dia movimentado.
   </p>
 
-  <div class="tabela-rolavel">
-    <table class="tabela-gestao">
-      <thead>
-        <tr>
-          <th>Dia</th>
-          {% for nome in nomes %}<th>{{ nome }}</th>{% endfor %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for dia, valores in dias %}
+  {% comment %}
+    `tem_atividade`, e não `{% templatetag openblock %} if dias {% templatetag closeblock %}`.
+
+    A janela vem INTEIRA, com os dias zerados dentro — então `dias` tem sempre
+    trinta itens, inclusive num banco em que ninguém registrou nada. Perguntar
+    pela lista faria o estado vazio virar código morto e a tela responder com
+    trinta linhas de zero.
+  {% endcomment %}
+  {% if tem_atividade %}
+    <div class="tabela-rolavel">
+      <table class="tabela-gestao">
+        <thead>
           <tr>
-            <td>{{ dia|date:"d/m/Y" }}</td>
-            {% for valor in valores %}<td>{{ valor }}</td>{% endfor %}
+            <th>Dia</th>
+            {% for nome in nomes %}<th>{{ nome }}</th>{% endfor %}
           </tr>
-        {% empty %}
-          <tr>
-            <td colspan="5">Ninguém registrou nada nos últimos {{ janela }} dias.</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+        </thead>
+        <tbody>
+          {% for dia, valores in dias %}
+            <tr>
+              <td>{{ dia|date:"d/m/Y" }}</td>
+              {% for valor in valores %}<td>{{ valor }}</td>{% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="empty-state">
+      Ninguém registrou nada nos últimos {{ janela }} dias.
+    </p>
+  {% endif %}
 {% endblock %}
