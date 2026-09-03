@@ -595,11 +595,30 @@ class RecalibrateView(OnboardingRequiredMixin, View):
     "Prefiro me mexer mais" não é um botão decorativo: aumentar o gasto é uma
     resposta legítima e às vezes melhor que comer menos. O app registra a
     escolha para não repetir a pergunta na semana seguinte.
+
+    E, desde agora, ele de fato não repete. `recalibrated_at` era gravado aqui
+    pelas duas ações e não era lido por ninguém: a tela recalculava
+    `sugerir_recalibragem` só do peso, e o peso não se mexe em dois minutos.
+    Medido no navegador: dois toques em "Cortar 150 kcal" no mesmo minuto
+    levaram o ajuste para −300 kcal com o cartão ainda na tela, oferecendo o
+    terceiro.
+
+    A tela deixou de oferecer, e esta guarda fecha a outra porta: uma aba
+    aberta antes da resposta continua com o formulário válido, e sem ela o
+    corte seria aplicado de novo por quem só voltou numa aba velha.
     """
 
     def post(self, request, *args, **kwargs):
         profile = request.user.profile
         acao = request.POST.get("acao")
+
+        if weight_trend.respondeu_ha_pouco(request.user):
+            messages.info(
+                request,
+                "Você já respondeu a esse aviso. Vamos esperar duas semanas "
+                "para ver o efeito antes de mexer na meta de novo.",
+            )
+            return redirect(reverse("plans:history"))
 
         if acao == "cortar":
             profile.kcal_adjustment -= weight_trend.AJUSTE_KCAL

@@ -37,6 +37,23 @@ SEMANAS_PARA_RECALIBRAR = 3
 #: déficit levam à fome e ao abandono.
 AJUSTE_KCAL = 150
 
+#: Quanto tempo o app fica quieto depois de a pessoa RESPONDER ao aviso.
+#:
+#: Duas semanas, e o número não é escolha nova: é o que as duas respostas já
+#: prometem por escrito. Cortar responde "Dê duas semanas antes de julgar o
+#: resultado"; recusar responde "perguntamos de novo daqui a algumas semanas".
+#:
+#: `Profile.recalibrated_at` já era gravado pelas duas ações e não era lido por
+#: ninguém — `grep` não achava uma leitura sequer. Medido no navegador: dois
+#: toques em "Cortar 150 kcal" no mesmo minuto levaram o ajuste para −300 kcal,
+#: e o cartão continuou na tela, com o mesmo texto, convidando ao terceiro.
+#: Uma sugestão que não some depois de respondida deixa de ser sugestão e vira
+#: um botão que baixa a meta calórica sem teto.
+#:
+#: O que NÃO muda é `semanas_paradas`: a média continua parada e a tela pode
+#: dizer isso. O que espera é o CONVITE a mexer na dieta de novo.
+ESPERA_APOS_RECALIBRAR = timedelta(days=14)
+
 #: Quantas semanas mostrar no gráfico.
 SEMANAS_NO_HISTORICO = 8
 
@@ -132,6 +149,21 @@ def semanas_de(entries, limite=SEMANAS_NO_HISTORICO) -> list:
     return semanas
 
 
+def respondeu_ha_pouco(user, agora=None) -> bool:
+    """A pessoa já respondeu ao aviso dentro da janela de espera?
+
+    Lê `Profile.recalibrated_at`, que as duas respostas gravam. `getattr` e não
+    `user.profile` direto porque este módulo é folha e não deve explodir para
+    quem ainda não tem perfil — quem chega aqui pela tela sempre tem, mas o
+    módulo é importável de qualquer lugar.
+    """
+    perfil = getattr(user, "profile", None)
+    quando = getattr(perfil, "recalibrated_at", None)
+    if quando is None:
+        return False
+    return (agora or timezone.now()) - quando < ESPERA_APOS_RECALIBRAR
+
+
 def analisar(user) -> Tendencia:
     """Lê o histórico de peso e devolve o que ele está dizendo."""
     entries = list(user.weight_entries.all())
@@ -162,7 +194,11 @@ def analisar(user) -> Tendencia:
         semanas=semanas,
         variacao_semanal=variacao,
         semanas_paradas=paradas,
-        sugerir_recalibragem=paradas >= SEMANAS_PARA_RECALIBRAR,
+        # A média parada continua sendo relatada; o que espera duas semanas é
+        # o convite a mexer na dieta outra vez.
+        sugerir_recalibragem=(
+            paradas >= SEMANAS_PARA_RECALIBRAR and not respondeu_ha_pouco(user)
+        ),
         faltam_registros=0,
     )
 

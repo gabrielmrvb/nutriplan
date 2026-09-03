@@ -1,6 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Histórico · NutriPlan{% endblock %}
+{% comment %}
+  "Métricas", e não "Histórico". A aba diz Métricas, o `<h1>` diz Métricas, e
+  só o título da janela dizia outra coisa — é o nome da página na aba do
+  navegador e na lista de apps abertos da PWA, e quem procura a tela por lá
+  procura pelo nome que viu nela. A rota continua `/historico/`: endereço
+  publicado não se troca por causa de rótulo.
+{% endcomment %}
+{% block title %}Métricas · NutriPlan{% endblock %}
 
 {% block content %}
   <div class="page-head">
@@ -19,6 +26,24 @@
 
     Não é ruído: cada um desses blocos responde alguma coisa. Estava na ordem
     errada, e a correção é mover, não remover.
+  {% endcomment %}
+  {% comment %}
+    Um container, e não três.
+
+    `.split` é coluna única em TODA largura — decisão registrada no CSS, com o
+    motivo: um app que se comporta diferente no monitor e no celular faz a
+    pessoa testar um e confiar no outro. Então partir estes cinco cartões em
+    `split__main` / `split__aside` / `split__main` não produzia coluna nenhuma;
+    produzia espaçamento desigual.
+
+    Medido a 375px: os vãos saíam 16, 32, 32, 16 — porque dentro de um mesmo
+    container o `gap` do flex SOMA com a margem de `.stack`, e entre containers
+    só o `gap` do `.split` conta. O resultado invertia o agrupamento: Peso,
+    Treino e Água, que são a mesma gramática, ficavam mais afastados entre si
+    do que da fronteira com os blocos que não são deles.
+
+    Um container só, e os cinco cartões ficam com o mesmo vão — o mesmo das
+    outras telas do app.
   {% endcomment %}
   {% if totals.days %}
     <div class="split">
@@ -43,15 +68,10 @@
           </div>
         </section>
 
-      </div>
-
-      <aside class="split__aside stack">
         {% include "plans/_peso.html" %}
         {% include "plans/_progresso_treino.html" %}
         {% include "plans/_progresso_agua.html" %}
-      </aside>
 
-      <div class="split__main stack">
         <section class="card">
           <div class="card__head"><h2>Dia a dia</h2></div>
           {% for row in rows %}
@@ -79,18 +99,31 @@
       </div>
     </div>
   {% else %}
-    <section class="card">
-      <p class="empty-state">
-        Ainda não há nada marcado. Assim que você marcar a primeira refeição do dia,
-        o histórico começa aqui.
-      </p>
-      <a class="btn btn--primary btn--block" href="{% url 'plans:today' %}">
-        Ir para o dia de hoje
-      </a>
-    </section>
+    {% comment %}
+      O mesmo container do ramo cheio, e pelo mesmo motivo.
 
-    {% include "plans/_peso.html" %}
-    {% include "plans/_progresso_treino.html" %}
-    {% include "plans/_progresso_agua.html" %}
+      Solto no `.container`, quem espaça os cartões é `.card + .card`, que vale
+      16px; dentro do `.split__main`, o `gap` do flex soma com a margem do
+      `.stack` e vale 32. Medido: a MESMA tela mudava de ritmo conforme a
+      pessoa já tivesse marcado uma refeição ou não. Estado vazio não é outra
+      tela.
+    {% endcomment %}
+    <div class="split">
+      <div class="split__main stack">
+        <section class="card">
+          <p class="empty-state">
+            Ainda não há nada marcado. Assim que você marcar a primeira refeição
+            do dia, o histórico começa aqui.
+          </p>
+          <a class="btn btn--primary btn--block" href="{% url 'plans:today' %}">
+            Ir para o dia de hoje
+          </a>
+        </section>
+
+        {% include "plans/_peso.html" %}
+        {% include "plans/_progresso_treino.html" %}
+        {% include "plans/_progresso_agua.html" %}
+      </div>
+    </div>
   {% endif %}
 {% endblock %}

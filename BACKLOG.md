@@ -169,7 +169,7 @@ ensina mais que a correção:
 - **P2 — link quebrado na política de privacidade**, apontando para uma rota
   que só aceita POST de propósito.
 
-### PREMIUM POLISH — B1, B2 E B3 FEITOS; B4 É O PRÓXIMO
+### PREMIUM POLISH — B1 A B4 FEITOS; B5 É O PRÓXIMO
 
 **B1 — LOGIN / CADASTRO ✅** Auditado em navegador real em 375, 430, 768 e
 desktop. A tela já estava boa: zero rolagem horizontal, zero alvo abaixo de
@@ -286,7 +286,72 @@ traz o descanso de volta, porque ele é derivado de `created_at` — que é
 exatamente o que o faz sobreviver a trocar de aba e bloquear a tela. Lembrar a
 recusa exigiria estado novo para um elemento que é informação, não porteiro.
 
-**B4 — PROGRESSO V2 ⏳ PRÓXIMO**
+**B4 — PROGRESSO V2 ✅** Auditada em navegador real em 375, 430, 768 e desktop,
+nos dois estados: sem nada registrado e com oito semanas de peso, treino, água
+e refeições. Réguas limpas nos oito cruzamentos — zero rolagem horizontal, zero
+alvo abaixo de 44×44, zero texto abaixo de 11px. Contraste medido nos 16 textos
+da tela, compondo os fundos tingidos antes de contar: de 5,68 a 18,18, todos
+acima de AA. A ordem do contrato — Resumo → Peso → Treino → Água → Dia a dia —
+está no documento e, como `.split` é coluna única em toda largura, é também a
+ordem da tela nas quatro.
+
+Quatro defeitos, os quatro medidos:
+
+1. **o convite a recalibrar a dieta não sumia depois de respondido, e o botão
+   não tinha teto.** `Profile.recalibrated_at` era gravado pelas duas respostas
+   e não era lido por ninguém — `grep` não achava uma leitura sequer, e
+   `sugerir_recalibragem` saía só do peso, que não se mexe em dois minutos.
+   Medido no navegador: dois toques em "Cortar 150 kcal" no mesmo minuto
+   levaram `kcal_adjustment` a −300 e a meta a 1773 kcal, com o cartão ainda na
+   tela oferecendo o terceiro. A docstring da própria view já dizia que o app
+   registra a escolha "para não repetir a pergunta na semana seguinte" — dizia,
+   e não fazia. Agora espera duas semanas, que é o prazo que os dois textos de
+   resposta já prometiam por escrito, e a view recusa o reenvio de uma aba
+   velha explicando por quê;
+2. **as barras de Treino e Água não eram comparáveis.** As duas desenham a
+   mesma escala de 0 a 7, uma embaixo da outra, e os trilhos tinham larguras
+   diferentes porque a barra é `1fr` e a coluna de valor da água reserva mais
+   espaço. Medido a 375px: 192px no treino e 129px na água — cinco dias de água
+   (91px) desenhavam quase igual a três dias de treino (83px), que é exatamente
+   a comparação que unificar as duas listas existia para permitir. Agora a
+   coluna de valor reserva a mesma largura nos dois: trilhos de 129/184/234/234
+   px nas quatro larguras, e a mesma semana com 1 dia desenha 18px nos dois
+   cartões;
+3. **os vãos entre cartões saíam 16, 32, 32, 16.** A tela partia cinco cartões
+   em três containers de um `.split` que é coluna única em toda largura — não
+   produzia coluna nenhuma, produzia espaçamento desigual, e o agrupamento saía
+   invertido: Peso, Treino e Água, que são a mesma gramática, mais afastados
+   entre si do que da fronteira com os blocos que não são deles. Um container
+   só, e os cinco ficam com 32px;
+4. **a mesma tela mudava de ritmo entre os estados.** Solto no `.container`, o
+   estado vazio espaçava por `.card + .card` (16px); o cheio, dentro do
+   `split__main`, por `gap` mais margem (32px). Estado vazio não é outra tela.
+
+E um acerto de texto: o `<title>` dizia "Histórico" numa tela cuja aba e cujo
+`<h1>` dizem "Métricas". A rota continua `/historico/` — rótulo se troca,
+endereço publicado não.
+
+Não mexido, por decisão: os cálculos e o motor; a régua da meta por dia
+(snapshot da época), a contagem de dias de treino, a guarda do peso corporal e
+as semanas zeradas — as quatro continuam como estavam, e os testes que já as
+protegiam passaram junto.
+
+Falso positivo descartado: suspeitei que salvar o peso em Métricas custasse a
+posição, como acontecia em Hoje antes do B2. Medido: não custa. A pessoa volta
+ao topo, onde está a mensagem "Peso registrado.", e o cartão de Peso já começa
+em y=507 com a primeira semana em y=606 — dentro da dobra, com a média nova
+(81,3 → 81,1 kg) visível sem rolar.
+
+**Observação registrada e NÃO corrigida:** `.stack > * + *` aplica margem em
+containers que já distribuem por `gap` do flex, e as duas somam. Vale em 11 dos
+12 usos de `.stack` no app — Hoje, Treino, Perfil e Lista de compras inclusive —
+e o efeito é um vão de 32px onde o token diz 16. Não é defeito visível dentro de
+uma tela (lá tudo fica uniforme em 32); só aparece quando um `.split` tem mais
+de um filho com cartões, que era o caso de Métricas e foi corrigido movendo os
+cartões, sem tocar no mecanismo. Unificar de verdade mudaria o ritmo vertical
+de cinco telas de uma vez, o que é decisão de design e não polimento de uma.
+
+**B5 — /GESTAO ⏳ PRÓXIMO**
 
 Escopo em [`docs/premium-polish-b1-b11.md`](docs/premium-polish-b1-b11.md).
 

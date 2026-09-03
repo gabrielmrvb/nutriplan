@@ -6147,7 +6147,16 @@ body.montando { overflow: hidden; }
 .semana__preenche--7 { width: 100%; }
 
 .semana__valor {
-  min-width: 0;
+  /* Largura RESERVADA, e a mesma nos dois cartões.
+     A barra é `1fr`, então ela fica com o que esta coluna não levar — e as
+     duas colunas tinham larguras diferentes: um dígito no treino, quatro mais
+     a unidade na água. Medido a 375px: o trilho do treino saía com 192px e o
+     da água com 129px, os dois na MESMA escala de 0 a 7. Cinco dias de água
+     (91px) desenhavam quase igual a três dias de treino (83px), que é
+     exatamente a comparação que unificar as duas listas existia para
+     permitir. Reservar aqui custa espaço vazio na coluna do treino e devolve
+     o trilho igual nos dois. */
+  min-width: 4.4rem;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-weight: 720;
@@ -6241,12 +6250,6 @@ body.montando { overflow: hidden; }
   font-size: .72rem;
   font-weight: 500;
 }
-
-/* A coluna de valor das semanas de água precisa de mais largura que a do
-   treino: ali cabe um dígito, aqui cabem quatro e a unidade. Uma classe a
-   mais, e não uma segunda lista — as duas séries respondem a mesma pergunta e
-   precisam ser lidas com os mesmos olhos. */
-.semana__valor--largo { min-width: 4.4rem; }
 
 /* .72rem e nao .68rem: o piso de texto de interface deste projeto e 11px, e
    .68rem da 10,88px. O teste mede, e mediu — a regra existe porque letra
