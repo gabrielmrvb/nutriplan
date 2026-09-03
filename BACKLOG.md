@@ -169,7 +169,7 @@ ensina mais que a correção:
 - **P2 — link quebrado na política de privacidade**, apontando para uma rota
   que só aceita POST de propósito.
 
-### PREMIUM POLISH — B1 A B5 FEITOS; B6 É O PRÓXIMO
+### PREMIUM POLISH — B1 A B6 FEITOS; B7 É O PRÓXIMO
 
 **B1 — LOGIN / CADASTRO ✅** Auditado em navegador real em 375, 430, 768 e
 desktop. A tela já estava boa: zero rolagem horizontal, zero alvo abaixo de
@@ -411,7 +411,46 @@ pulso ("registraram algo nos últimos 7 dias") por último, a 1253px — a ordem
 atual tem lógica narrativa (quem existe, quem chegou, quem avançou, quem está
 ativo) e não há dano medido além da rolagem.
 
-**B6 — NAVEGAÇÃO ⏳ PRÓXIMO**
+**B6 — NAVEGAÇÃO ✅** Auditado em navegador real em 375, 430, 768 e desktop,
+com o mapa de portas de onze telas. Réguas limpas — zero rolagem horizontal,
+alvos ≥44×44, todas as abas alcançáveis por hit-test. A aba ativa está correta
+em todas: Hoje→Dieta, Treino/agora/corridas→Treino, histórico→Progresso,
+perfil/conquistas→Perfil, lista de compras→Dieta.
+
+Uma divergência de contrato e dois defeitos:
+
+0. **o rótulo da terceira aba contrariava o contrato.** O documento escreve
+   `Progresso` duas vezes — na barra de hoje e na barra futura, depois da
+   medição do GPS — e não escreve `Métricas` uma única vez. A barra nasceu com
+   "Métricas" no primeiro commit (`git log -S`) e nunca houve decisão
+   registrada; `Progresso` não aparecia em nenhum template. O
+   `[manter a estrutura real atualmente publicada]` do contrato fala de
+   ESTRUTURA — quatro abas, esta ordem, Corrida sob Treino —, não de
+   nomenclatura, e eu tinha estendido o colchete para cobrir o rótulo. Quatro
+   strings trocadas: as duas navegações, o `<h1>` e o `<title>`. A rota
+   continua `/historico/`;
+1. **o passo "Dias de treino" era beco de mão única.** De `/treino/`, o link
+   leva ao passo 3 do cadastro, que não tem barra de abas — e isso é decisão
+   certa, porque os destinos da barra devolveriam quem está no meio do wizard.
+   O problema era a saída: "Voltar" apontava para o passo 2 (a tela de meta) e
+   "Salvar" ia para o Perfil. Nenhum dos dois voltava para o treino, cuja ficha
+   acabara de ser remontada com os dias alterados; só o botão do NAVEGADOR
+   voltava. Corrigido com lista fechada de origens, o mesmo padrão de
+   `LogWeightView` — origem vem do endereço, e endereço é do cliente;
+2. **a aba da vez não era anunciada.** `aria-current` voltava `null` nas quatro
+   abas, em todas as telas, nas DUAS navegações. A barra do painel de gestão já
+   usava o atributo; a que todo mundo usa, não.
+
+Falso positivo descartado: o convite de instalação cobrindo a navegação. Forcei
+o banner visível a 375 e medi — banner em 588–730, tabbar em 744–812, 14px de
+folga, z-index 28 contra 30, `pointer-events: none` no cartão, e as quatro abas
+seguem alcançáveis.
+
+Corrida continua alcançável pelo Treino, não virou aba, e a aba ativa em
+`/treino/corridas/` é Treino nas quatro larguras. `TodaTelaTemPortaTests`
+preservado.
+
+**B7 — PWA / SERVICE WORKER ⏳ PRÓXIMO**
 
 Escopo em [`docs/premium-polish-b1-b11.md`](docs/premium-polish-b1-b11.md).
 

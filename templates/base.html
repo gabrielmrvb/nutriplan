@@ -132,16 +132,25 @@
         O wordmark fica: é a primeira tela que alguém vê do app, e tirar a
         marca dali deixaria um formulário solto sem dono.
       {% endcomment %}
+      {% comment %}
+        Acima de 60rem a barra de baixo some e QUEM navega é esta. Ela carrega
+        `aria-current` pelo mesmo motivo: `is-active` é pintura, e a pessoa que
+        ouve a tela precisa saber em que destino está.
+      {% endcomment %}
       <nav class="app-bar__nav">
         {% if tela_de_entrada %}
         {% elif user.is_authenticated %}
           <a class="app-bar__link {% if nav == 'today' %}is-active{% endif %}"
+             {% if nav == 'today' %}aria-current="page"{% endif %}
              href="{% if request.demo %}/demo/hoje/{% else %}{% url 'plans:today' %}{% endif %}">Dieta</a>
           <a class="app-bar__link {% if nav == 'workout' %}is-active{% endif %}"
+             {% if nav == 'workout' %}aria-current="page"{% endif %}
              href="{% url 'workouts:routine' %}">Treino</a>
           <a class="app-bar__link {% if nav == 'history' %}is-active{% endif %}"
-             href="{% url 'plans:history' %}">Métricas</a>
+             {% if nav == 'history' %}aria-current="page"{% endif %}
+             href="{% url 'plans:history' %}">Progresso</a>
           <a class="app-bar__link {% if nav == 'profile' %}is-active{% endif %}"
+             {% if nav == 'profile' %}aria-current="page"{% endif %}
              href="{% url 'accounts:profile' %}">Perfil</a>
           {% if request.demo %}
             {% comment %}
@@ -225,8 +234,17 @@
       Só aparece no celular — no desktop os mesmos links ficam na barra de cima.
     {% endcomment %}
     {% if not sem_tabbar %}
+    {% comment %}
+      `aria-current="page"` na aba da vez, e não só a classe visual.
+
+      `is-active` pinta a pastilha; para quem ouve a tela, ela não existe — a
+      navegação principal do app era a única do projeto sem o atributo, e a
+      barra do painel de gestão já o usava. Medido no navegador: `aria-current`
+      voltava `null` nas quatro abas, em todas as telas.
+    {% endcomment %}
     <nav class="tabbar" aria-label="Navegação principal">
       <a class="tabbar__item {% if nav == 'today' %}is-active{% endif %}"
+         {% if nav == 'today' %}aria-current="page"{% endif %}
          href="{% if request.demo %}/demo/hoje/{% else %}{% url 'plans:today' %}{% endif %}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -237,6 +255,7 @@
         Dieta
       </a>
       <a class="tabbar__item {% if nav == 'workout' %}is-active{% endif %}"
+         {% if nav == 'workout' %}aria-current="page"{% endif %}
          href="{% url 'workouts:routine' %}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -246,14 +265,16 @@
         Treino
       </a>
       <a class="tabbar__item {% if nav == 'history' %}is-active{% endif %}"
+         {% if nav == 'history' %}aria-current="page"{% endif %}
          href="{% url 'plans:history' %}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M2 20h20"/>
         </svg>
-        Métricas
+        Progresso
       </a>
       <a class="tabbar__item {% if nav == 'profile' %}is-active{% endif %}"
+         {% if nav == 'profile' %}aria-current="page"{% endif %}
          href="{% url 'accounts:profile' %}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

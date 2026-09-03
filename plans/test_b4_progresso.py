@@ -269,7 +269,14 @@ class ATelaNaoParteOsCartoesTests(TestCase):
 
 class OTituloEONomeDaTelaTests(TestCase):
     """A aba do navegador e a lista de apps da PWA chamam a pagina pelo
-    `<title>`; a tela e a barra de abas chamam de "Métricas"."""
+    `<title>`; a tela e a barra de abas chamam de "Progresso".
+
+    O B4 alinhou os três em "Métricas", que era o rótulo com que a barra tinha
+    nascido. O B6 corrigiu o rótulo: o contrato de navegação escreve
+    `Progresso` e nunca escreve `Métricas`. O que este teste protege não é a
+    palavra — é a IGUALDADE entre o título e o nome que a tela mostra, que foi
+    o defeito original.
+    """
 
     def setUp(self):
         self.pessoa = create_complete_user(email="b4titulo@exemplo.com")
@@ -279,14 +286,14 @@ class OTituloEONomeDaTelaTests(TestCase):
     def test_o_titulo_diz_metricas(self):
         titulo = re.search(r"<title>(.*?)</title>", self.html, re.S).group(1)
 
-        self.assertEqual(titulo.strip(), "Métricas · NutriPlan")
+        self.assertEqual(titulo.strip(), "Progresso · NutriPlan")
 
     def test_a_tela_continua_se_chamando_metricas(self):
-        """A premissa. Se o `<h1>` virar "Histórico" amanhã, o titulo acima
+        """A premissa. Se o `<h1>` mudar de nome amanhã, o titulo acima
         passa a estar errado e o teste de cima nao perceberia sozinho."""
         h1 = re.search(r"<h1[^>]*>(.*?)</h1>", self.html, re.S).group(1)
 
-        self.assertEqual(h1.strip(), "Métricas")
+        self.assertEqual(h1.strip(), "Progresso")
 
     def test_o_endereco_publicado_nao_mudou(self):
         """Rotulo se troca, endereco publicado nao."""

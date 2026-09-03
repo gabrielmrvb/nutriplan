@@ -29,7 +29,7 @@
         sem eles não dá para dizer se o seu caso é AB, ABC ou ABCD.
       </p>
       <a class="btn btn--primary btn--block"
-         href="{% url 'accounts:onboarding_step' step=3 %}">
+         href="{% url 'accounts:onboarding_step' step=3 %}?origem=treino">
         Cadastrar meus dias de treino
       </a>
     </section>
@@ -363,7 +363,7 @@
         <section class="card">
           <div class="card__head">
             <h2>Dias de treino</h2>
-            <a href="{% url 'accounts:onboarding_step' step=3 %}">Editar</a>
+            <a href="{% url 'accounts:onboarding_step' step=3 %}?origem=treino">Editar</a>
           </div>
           <dl class="data-list">
             {% for session in sessions %}

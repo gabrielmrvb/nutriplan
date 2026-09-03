@@ -2,10 +2,10 @@
   O formulário de pesagem — um campo, um botão.
 
   Partial porque as duas superfícies precisam exatamente do mesmo campo: a
-  faixa condicional do painel e o cartão de peso em Métricas. O cartão de peso
-  já nasceu duplicado uma vez neste projeto, as duas cópias divergiram, e quem
-  ficou com a pior foi justamente quem só registra peso. Uma cópia, dois
-  lugares.
+  faixa condicional do painel e o cartão de peso em Progresso. O cartão de
+  peso já nasceu duplicado uma vez neste projeto, as duas cópias divergiram,
+  e quem ficou com a pior foi justamente quem só registra peso. Uma cópia,
+  dois lugares.
 
   `type="text"` com `inputmode="decimal"`, e não `type="number"`: aqui se
   digita "82,5", e o campo numérico recusa a vírgula. É a mesma escolha que a
@@ -30,7 +30,7 @@
   {% comment %}
     O rótulo existe para o leitor de tela e não para o olho: as duas
     superfícies já dizem "Peso" logo acima do campo — o cabeçalho do cartão em
-    Métricas e o resumo da sanfona no painel. Escrito, ele aparecia como
+    Progresso e o resumo da sanfona no painel. Escrito, ele aparecia como
     "Peso" seguido de "PESO", uma linha abaixo da outra. `.vis-oculto` é o
     utilitário que o app já usa para isso: continua ocupando um pixel e
     recorta o que se vê, em vez de sumir do leitor junto com o visual.

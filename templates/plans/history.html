@@ -1,17 +1,27 @@
 {% extends "base.html" %}
 
 {% comment %}
-  "Métricas", e não "Histórico". A aba diz Métricas, o `<h1>` diz Métricas, e
-  só o título da janela dizia outra coisa — é o nome da página na aba do
-  navegador e na lista de apps abertos da PWA, e quem procura a tela por lá
-  procura pelo nome que viu nela. A rota continua `/historico/`: endereço
-  publicado não se troca por causa de rótulo.
+  O título é o NOME DA TELA, e a tela se chama Progresso.
+
+  Ele dizia "Histórico" enquanto a aba e o `<h1>` diziam outra coisa — é o nome
+  da página na aba do navegador e na lista de apps abertos da PWA, e quem
+  procura a tela por lá procura pelo nome que viu nela. O B4 alinhou os três em
+  "Métricas", que era o rótulo que a barra tinha desde o primeiro commit.
+
+  O B6 corrigiu o rótulo em si: o contrato de navegação escreve `Progresso`
+  duas vezes — na barra de hoje e na barra futura, depois da medição do GPS — e
+  não escreve `Métricas` uma única vez. "Métricas" nunca foi decisão registrada;
+  era o nome com que a barra nasceu. Os três continuam iguais entre si, e agora
+  iguais ao contrato.
+
+  A rota continua `/historico/`: endereço publicado não se troca por causa de
+  rótulo.
 {% endcomment %}
-{% block title %}Métricas · NutriPlan{% endblock %}
+{% block title %}Progresso · NutriPlan{% endblock %}
 
 {% block content %}
   <div class="page-head">
-    <h1>Métricas</h1>
+    <h1>Progresso</h1>
     <p class="lead">Peso, treino, alimentação e água — o que você registrou.</p>
   </div>
 

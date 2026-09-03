@@ -413,8 +413,39 @@ class OnboardingStepMixin(LoginRequiredMixin):
     step: int = 1
     template_name = "accounts/onboarding/step.html"
 
+    #: De onde a pessoa veio, quando entrou aqui para EDITAR um dado.
+    #:
+    #: Lista fechada, e não a URL que vier no endereço — é a mesma regra de
+    #: `LogWeightView`: destino escolhido pelo cliente é redirecionamento
+    #: aberto. Aqui a lista tem um item porque só existe uma tela do app, fora
+    #: o Perfil, que manda alguém para um passo: `/treino/`, pelo cartão de
+    #: dias de treino e pelo convite de quem ainda não cadastrou nenhum.
+    ORIGENS = {"treino": "workouts:routine"}
+
+    #: Quem chega sem origem reconhecível volta para o Perfil, que é de onde
+    #: vêm todos os outros links de edição.
+    ORIGEM_PADRAO = "accounts:profile"
+
     def get_profile(self):
         return Profile.objects.filter(user=self.request.user).first()
+
+    def origem(self):
+        """A rota de volta, já resolvida. Sempre um nome da lista fechada."""
+        pedida = self.request.GET.get("origem")
+        return self.ORIGENS.get(pedida, self.ORIGEM_PADRAO)
+
+    def voltar_para(self):
+        """Para onde "Voltar" aponta, e é o mesmo lugar que "Salvar".
+
+        No wizard, "Voltar" é o passo anterior — quem está cadastrando anda
+        para trás dentro do caminho. Na EDIÇÃO não: quem entrou de uma tela do
+        app para trocar um dado quer voltar para ela, e o botão apontava para o
+        passo 2 do cadastro. Medido no navegador: de `/treino/`, "Dias de
+        treino" levava ao passo 3 sem barra de abas, "Voltar" ia para o passo 2
+        e "Salvar" ia para o Perfil — nenhum dos dois voltava para o treino, e
+        só o botão do NAVEGADOR fazia isso.
+        """
+        return reverse(self.origem())
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -466,6 +497,13 @@ class OnboardingStepMixin(LoginRequiredMixin):
                     else None
                 ),
                 "is_editing": bool(profile and profile.onboarding_complete),
+                # Só na edição: no wizard, "Voltar" continua sendo o passo
+                # anterior.
+                "voltar_para": (
+                    self.voltar_para()
+                    if profile and profile.onboarding_complete
+                    else None
+                ),
                 "is_last_step": self.step == ONBOARDING_LAST_STEP,
                 # A navegação inferior some no wizard. Os cinco destinos dela
                 # passam por `OnboardingRequiredMixin` e devolvem quem ainda
@@ -512,12 +550,24 @@ class OnboardingStepMixin(LoginRequiredMixin):
                 and 4 in passos
                 and not profile.split_preference_confirmada
             ):
-                return redirect("accounts:onboarding_step", step=4)
+                # A origem viaja junto: quem veio do treino responder a
+                # divisão continua voltando para o treino no fim, e não cai no
+                # Perfil por ter passado por um passo a mais.
+                destino = reverse(
+                    "accounts:onboarding_step", kwargs={"step": 4}
+                )
+                pedida = self.request.GET.get("origem")
+                if pedida in self.ORIGENS:
+                    destino += f"?origem={pedida}"
+                return redirect(destino)
             # Só na EDIÇÃO. No onboarding, o feedback de ter salvo é o passo
             # seguinte aparecer — dizer "pronto" cinco vezes seguidas durante
             # o cadastro seria a mensagem virando ruído.
             messages.success(self.request, "Alterações salvas.")
-            return redirect("accounts:profile")
+            # De volta para a tela de onde a pessoa veio, e não sempre para o
+            # Perfil: ela saiu do treino para trocar os dias de treino, e é a
+            # ficha — que acabou de ser remontada com eles — que ela quer ver.
+            return redirect(self.voltar_para())
         if proximo >= ONBOARDING_DONE:
             return redirect("plans:today")
         return redirect("accounts:onboarding_step", step=proximo)

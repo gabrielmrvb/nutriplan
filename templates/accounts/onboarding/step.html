@@ -114,7 +114,19 @@
       {% endif %}
 
       <div class="form-actions">
-        {% if previous_url %}
+        {% comment %}
+          Na EDIÇÃO, "Voltar" sai do passo; no wizard, anda um passo atrás.
+
+          Eram a mesma coisa, e não são: quem entrou de `/treino/` para trocar
+          os dias de treino via "Voltar" apontando para o passo 2 do cadastro —
+          uma tela de meta que ela não pediu — enquanto "Salvar" ia para o
+          Perfil. Os dois botões saíam por portas diferentes, e nenhuma delas
+          era a tela de onde a pessoa veio. Esta tela não tem barra de abas, e
+          o único caminho de volta era o botão do navegador.
+        {% endcomment %}
+        {% if voltar_para %}
+          <a class="btn btn--ghost" href="{{ voltar_para }}">Voltar</a>
+        {% elif previous_url %}
           <a class="btn btn--ghost" href="{{ previous_url }}">Voltar</a>
         {% endif %}
         <button type="submit" class="btn btn--primary">
