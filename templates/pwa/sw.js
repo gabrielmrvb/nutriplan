@@ -116,8 +116,52 @@ function isAppCode(request) {
   return /\.(css|js)$/.test(new URL(request.url).pathname);
 }
 
+/* A REGRA, no lugar de uma lista de endereços.
+ *
+ * O contrato do painel diz: `/admin/` e `/gestao/` nunca podem virar página
+ * guardada, e "corrigir com regra estrutural, não lista frágil de páginas uma
+ * por uma quando possível". `ehTelaOperacional` é a lista — ela impede que
+ * essas duas cheguem sequer a passar pelo worker, e continua valendo. O que
+ * faltava era a regra: até aqui NADA consultava a resposta antes de guardá-la,
+ * então qualquer tela privada que não estivesse na lista entrava no cache.
+ *
+ * O servidor já diz quais são. `never_cache` responde
+ * `no-cache, no-store, must-revalidate, private`, e `no-store` é literalmente
+ * "não persista isto". Passar a obedecer significa que a próxima view marcada
+ * com `never_cache` fica protegida sem ninguém lembrar de editar este arquivo
+ * — que é a diferença entre uma regra e uma lista.
+ *
+ * `private` NÃO entra na condição, e é decisão. Ele significa "cache
+ * compartilhado não pode guardar"; o cache de um service worker é do perfil do
+ * navegador daquela pessoa, e é o mesmo cache que faz a dieta abrir no metrô.
+ * Tratar `private` como proibição desligaria o app inteiro no dia em que
+ * alguém marcasse uma tela comum com ele.
+ *
+ * As telas do app não mandam `Cache-Control` nenhum — este projeto não tem
+ * middleware de cache —, então para elas nada muda. */
+function podeGuardar(response) {
+  /* Diretiva por diretiva, e nao uma expressao regular.
+   *
+   * A primeira versao usava uma regex com limite de palavra, e o escape
+   * virou CARACTERE DE CONTROLE no arquivo: a expressao passou a procurar
+   * 0x08 seguido de "no-store" seguido de 0x08, que nao casa com nada. A
+   * funcao devolveu "pode guardar" para a tela de entrar, que manda
+   * `no-store`. E os testes que liam o TEXTO do worker continuaram verdes,
+   * porque a string "no-store" estava la — quem pegou foi o navegador,
+   * executando a funcao contra uma resposta de verdade.
+   *
+   * Separar por virgula compara o TOKEN, e nao um pedaco de texto: casa
+   * com "private, no-store", nao casaria com um hipotetico "no-store-x", e
+   * nao tem escape nenhum que possa dar errado no caminho. */
+  const diretivas = (response.headers.get("Cache-Control") || "")
+    .toLowerCase()
+    .split(",")
+    .map(function (d) { return d.trim(); });
+  return response.ok && diretivas.indexOf("no-store") === -1;
+}
+
 function store(request, response) {
-  if (response.ok) {
+  if (podeGuardar(response)) {
     const copy = response.clone();
     caches.open(CACHE).then((cache) => cache.put(request, copy));
   }
@@ -174,7 +218,9 @@ self.addEventListener("fetch", (event) => {
 
     const daRede = fetch(request)
       .then((response) => {
-        if (response.ok) {
+        // `podeGuardar` e não `response.ok`: uma página que o servidor marcou
+        // `no-store` responde 200 e mesmo assim não pode ficar guardada.
+        if (podeGuardar(response)) {
           const copia = response.clone();
           caches.open(CACHE_PAGINAS).then((c) => c.put(request, copia));
         }

@@ -169,7 +169,7 @@ ensina mais que a correção:
 - **P2 — link quebrado na política de privacidade**, apontando para uma rota
   que só aceita POST de propósito.
 
-### PREMIUM POLISH — B1 A B6 FEITOS; B7 É O PRÓXIMO
+### PREMIUM POLISH — B1 A B7 FEITOS; B8 É O PRÓXIMO
 
 **B1 — LOGIN / CADASTRO ✅** Auditado em navegador real em 375, 430, 768 e
 desktop. A tela já estava boa: zero rolagem horizontal, zero alvo abaixo de
@@ -450,7 +450,43 @@ Corrida continua alcançável pelo Treino, não virou aba, e a aba ativa em
 `/treino/corridas/` é Treino nas quatro larguras. `TodaTelaTemPortaTests`
 preservado.
 
-**B7 — PWA / SERVICE WORKER ⏳ PRÓXIMO**
+**B7 — PWA / SERVICE WORKER ✅** O contrato manda preservar `/admin/` e
+`/gestao/` fora do cache, auditar se existe OUTRA rota autenticada com PII
+entrando em `CACHE_PAGINAS` e, se existir, corrigir "com regra estrutural, não
+lista frágil de páginas uma por uma".
+
+O buraco estava na FORMA, não numa rota: nada no worker consultava a resposta
+antes de guardá-la. A única proteção era `ehTelaOperacional`, uma lista de dois
+prefixos que quem escrever a próxima view precisa lembrar. Agora `podeGuardar`
+obedece o `Cache-Control: no-store` que o servidor já emite — toda view marcada
+com `never_cache` fica protegida sem editar o `sw.js`, que é a diferença entre
+regra e lista. A lista continua, porque faz mais do que impedir cache: ela faz
+o pedido não passar pelo worker.
+
+A superfície que a auditoria encontrou: **a tela de entrar**. O `LoginView` do
+Django vem com `never_cache`, então ela responde `no-store` desde sempre — e o
+worker vinha guardando, porque a lista não a incluía. Medido rota a rota e não
+generalizado: `/conta/cadastro/` e `/conta/senha/` não declaram nada.
+
+`private` NÃO entra na condição, e é decisão: ele proíbe cache COMPARTILHADO, e
+o cache do worker é do perfil daquele navegador — é ele que faz a dieta abrir
+no metrô.
+
+**Falso positivo descartado:** a exportação de dados manda `no-store` e carrega
+dado de saúde, mas é `http_method_names = ["post"]` e o worker ignora tudo que
+não é GET. Nunca chegou perto do cache.
+
+**Defeito meu, pego pelo navegador e não pelos testes:** a primeira versão da
+regra usava expressão regular com limite de palavra, e o escape virou
+CARACTERE DE CONTROLE no arquivo — a expressão passou a procurar
+`0x08 no-store 0x08` e nunca casou. Os testes que liam o TEXTO do worker
+continuaram verdes, porque a string estava lá. Quem pegou foi executar a função
+do `sw.js` servido contra respostas HTTP reais no navegador. A regra passou a
+comparar TOKEN separado por vírgula, sem escape nenhum, e entrou um teste que
+proíbe caractere de controle no arquivo inteiro — com sabotagem que o
+reintroduz.
+
+**B8 — VISUAL QA REAL ⏳ PRÓXIMO**
 
 Escopo em [`docs/premium-polish-b1-b11.md`](docs/premium-polish-b1-b11.md).
 
