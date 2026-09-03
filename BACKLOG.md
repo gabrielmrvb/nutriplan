@@ -188,7 +188,25 @@ Dois defeitos reais, os dois medidos e não supostos:
    porque o backend do allauth acha a conta sem diferenciar caixa. A frase
    mandava conferir a capitalização do e-mail quando o defeito estava na senha.
 
-**B2 — HOJE ⏳ PRÓXIMO**
+**B2 — HOJE ✅** Auditada em navegador real em 375, 430, 768 e desktop. A tela
+já respondia "o que preciso fazer agora?" na primeira dobra: o cartão AGORA em
+y=93 com a ação e o CTA em y=202, o resumo de uma linha em y=283, e a primeira
+refeição pendente com seus botões ainda dentro da dobra. Réguas limpas nas
+quatro larguras.
+
+Um defeito real, medido: **toda escrita da tela devolvia a pessoa ao TOPO** de
+uma página de 4 a 5 dobras. O cartão de água começa em y=2491, então cada
+"+250" era rolar 2500px, tocar e ser jogado de volta — doze idas para fechar
+três litros. O mesmo em marcar refeição e desfazer. As âncoras já existiam no
+template (`#hidratacao`, `#slot-<pk>`, esta já usada pelo cartão AGORA); o
+conserto foi usá-las no redirect. Os ramos de ERRO continuam no topo, onde a
+mensagem é renderizada.
+
+Não mexido, por decisão declarada no código: a água só vira cartão AGORA quando
+não há refeição nem treino pendente ("sobra a água — e ela só aparece quando
+falta mesmo").
+
+**B3 — TREINO ⏳ PRÓXIMO**
 
 Escopo em [`docs/premium-polish-b1-b11.md`](docs/premium-polish-b1-b11.md).
 

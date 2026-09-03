@@ -357,6 +357,23 @@ class TodayView(PlanRequiredMixin, TemplateView):
         return context
 
 
+#: A tela Hoje tem 4 a 5 dobras, e toda escrita dela era um POST/redirect que
+#: devolvia a pessoa ao TOPO. Medido no navegador, em 375x812: o cartão de água
+#: começa em y=2491, e cada "+250" custava rolar 2500px, tocar e ser jogado de
+#: volta ao começo. Para fechar três litros de 250 em 250 são doze idas.
+#:
+#: A âncora resolve sem mexer na ordem da tela nem no desenho: o navegador
+#: reabre a página no cartão que a pessoa acabou de usar. As duas já existiam —
+#: `#hidratacao` no cartão de água e `#slot-<pk>` em cada refeição, esta última
+#: já usada pelo cartão AGORA para levar até a refeição da vez.
+#:
+#: NÃO vale para os ramos de erro: a mensagem é renderizada no topo, e ancorar
+#: rolaria a tela para longe do texto que explica o que deu errado. Nem para o
+#: recálculo, que refaz o dia inteiro e tem mensagem própria.
+def _hoje_em(ancora: str) -> str:
+    return reverse("plans:today") + ancora
+
+
 class MarkMealView(OnboardingRequiredMixin, View):
     """Marca uma refeição do dia. Só POST — isso muda estado.
 
@@ -416,7 +433,7 @@ class MarkMealView(OnboardingRequiredMixin, View):
             macros = tracking.macros_de_itens(_itens_descritos(request.POST))
 
         tracking.log_meal(request.user, slot, status, option, notes=notes, macros=macros)
-        return redirect("plans:today")
+        return redirect(_hoje_em("#slot-%d" % slot.pk))
 
 
 #: Teto de gramas por alimento numa refeição fora do plano.
@@ -501,7 +518,7 @@ class ClearMealView(OnboardingRequiredMixin, View):
             MealSlot, pk=slot_id, plan__user=request.user, plan__is_active=True
         )
         slot.logs.filter(user=request.user, date=timezone.localdate()).delete()
-        return redirect("plans:today")
+        return redirect(_hoje_em("#slot-%d" % slot.pk))
 
 
 class HistoryView(OnboardingRequiredMixin, TemplateView):
@@ -694,7 +711,7 @@ class LogHydrationView(OnboardingRequiredMixin, View):
         # Água SOMA, então reenviar aplica de novo. A trava transforma o
         # reenvio da fila offline numa consulta.
         if SyncedOperation.ja_aplicada(request.user, request.POST.get("op_id")):
-            return redirect("plans:today")
+            return redirect(_hoje_em("#hidratacao"))
 
         hoje = timezone.localdate()
         registro, _ = HydrationLog.objects.get_or_create(user=request.user, date=hoje)
@@ -734,4 +751,4 @@ class LogHydrationView(OnboardingRequiredMixin, View):
                 updated_at=timezone.now(),
             )
 
-        return redirect("plans:today")
+        return redirect(_hoje_em("#hidratacao"))

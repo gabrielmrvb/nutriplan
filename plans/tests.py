@@ -1336,7 +1336,13 @@ class MarkMealViewTests(CatalogFixture):
             self.url(), {"status": "done", "option": self.option.pk}
         )
 
-        self.assertRedirects(response, reverse("plans:today"))
+        # A âncora não é detalhe: a tela Hoje tem de 4 a 5 dobras, e sem ela a
+        # marcação devolvia a pessoa ao topo, longe da refeição que ela acabou
+        # de marcar. `test_unknown_status_is_ignored` continua exigindo o topo
+        # no ramo de ERRO, onde a mensagem é renderizada.
+        self.assertRedirects(
+            response, reverse("plans:today") + "#slot-%d" % self.slot.pk
+        )
         log = MealLog.objects.get(user=self.user, slot=self.slot)
         self.assertEqual(log.chosen_option, self.option)
         self.assertEqual(log.kcal, self.option.kcal)
