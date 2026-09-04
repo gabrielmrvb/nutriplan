@@ -75,6 +75,12 @@ Ficou de fora de propósito: acrescentar uma entrada no perfil é decisão de
 produto, não conserto de defeito. A pergunta é se desvincular o Google é coisa
 que alguém faz — se for, o lugar é o perfil, perto de "Trocar minha senha".
 
+É a mesma pergunta que `TodaTelaTemPortaTests` faz para decidir quem entra na
+tabela dele: "alguém precisa poder ir até lá por vontade própria?". Se a
+resposta for sim, o destino entra em `DESTINOS` e o teste passa a cobrar o
+link — hoje ele falharia, porque link nenhum existe. Por isso a decisão vem
+antes do teste, e não o contrário.
+
 ### Retenção do log administrativo, antes de operação multi-staff
 `RegistroAdministrativo` usa CASCADE: apagar a conta apaga a trilha dela,
 inclusive o marcador de primeiro administrador. É o contrato atual do projeto —
@@ -842,3 +848,63 @@ teste. A de erro também foi vista no navegador a 375px (botão 297×47px, sem
 rolagem horizontal). A de contas conectadas **não** foi vista no navegador com
 usuário autenticado: não há conta de teste em produção, e usar a conta real
 para isso seria fabricar evidência.
+
+## QA visual real (04/09/2026) — B8
+
+Matriz completa: 16 telas × 375, 430, 768 e desktop, medidas no navegador com
+conta de QA local (VAZIO, CHEIO e staff), mais login, cadastro, erro social e
+demo em produção. **Nenhum defeito visual real.** Rolagem horizontal zero,
+nenhum alvo abaixo de 44px, nenhum texto abaixo de 11px, nenhum controle
+encoberto, nada preso atrás da barra fixa.
+
+Provado também: foco visível com anel de 6,06:1 sobre o fundo composto
+(alphas somados árvore acima, e não lidos do pai direto); `inputmode="decimal"`
+na carga e `numeric` nas reps; drawer 375x747 dentro da tela com fechar 44x44 e
+foco indo para ele; overlay de montagem do plano com `role="status"`. O modal
+prende o foco de verdade — dos 180 controles fora dele, zero recebem foco
+enquanto está aberto —, e não há `tabindex` positivo nem controle tirado da
+ordem natural em nenhuma tela.
+
+### O que a régua errou, e por quê
+Três achados foram **falsos positivos da medição**, não do produto. Ficam
+escritos porque a próxima varredura visual vai encontrar os mesmos três:
+
+1. **Rádio de 19x19 dentro de `.choice-list`.** Quem recebe o dedo é o RÓTULO,
+   de 294x50 — provado clicando a 8px da borda direita, longe do rádio. Medir o
+   `<input>` cru acusa um alvo que ninguém precisa acertar.
+2. **Tabela de `/gestao/` "estourando" a 375px.** Ela mora em
+   `div.tabela-rolavel` com `overflow-x: auto` — 334 visíveis de 756 roláveis —
+   e a PÁGINA não rola. É o padrão documentado para conteúdo largo.
+3. **Botões "Comi esta" cobertos.** Estão dentro de `<details>` FECHADO, que o
+   navegador torna inerte: `focus()` não move o foco e `elementFromPoint`
+   devolve o `<summary>`. Cobrir conteúdo fechado é o que "fechado" significa.
+
+4. **Contraste de 3,21:1 no botão de desvincular.** O `btn--perigo` tem fundo
+   `color(srgb 0.70 0.15 0.12 / 0.12)`, e os componentes de `color(srgb ...)`
+   vêm em 0–1, não em 0–255. Lidos como 0–255 o número sai inventado. Com o
+   parser certo, e compondo o alpha sobre o cartão, a razão é **5,37:1** —
+   passa. Todo cálculo de contraste passou a ter controle positivo: preto sobre
+   branco tem de dar 21.
+
+Uma quinta armadilha, de ambiente: a primeira medição de produção mediu a
+página **"Render - Application loading"** durante um cold start. Toda medição
+remota passou a conferir o `<title>` antes de valer.
+
+### Espaçamento entre alvos — OBSERVAÇÃO, não defeito
+Os três botões de água ficam a 6,4px um do outro, e as abas a 3,2px. Medidos,
+cada botão de água tem **82x54** e cada aba passa dos 44. O espaçamento do
+WCAG 2.5.8 só é exigido quando o alvo tem MENOS de 24px, então proximidade
+entre alvos grandes não é violação — e um toque errado na água é desfeito pelo
+"zerar", que mede 44x44.
+
+### A rede que faltava
+`TouchTargetTests` trava as REGRAS de CSS, não o uso delas. Sabotando antes de
+escrever qualquer coisa: trocar `class="btn btn--perigo btn--block"` por uma
+classe sem altura no botão de desvincular deixou os 13 testes das telas novas
+**verdes**. `config/test_alvos_das_telas_do_b7.py` fecha isso para as duas
+telas que o B7 criou.
+
+### ⏳ Ainda NÃO PROVADO em produção
+`/conta/social/` renderizada com usuário autenticado. Não há conta de teste em
+produção, e usar a conta real seria fabricar evidência. Provada local/QA, nos
+quatro viewports, nos estados vazio e cheio.
