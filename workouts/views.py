@@ -20,6 +20,7 @@ from .models import (
     SessionExercise,
     TrainingSession,
 )
+from config.acoes import AcaoDeTela
 
 
 def week_overview(sessions) -> list:
@@ -284,8 +285,11 @@ def marcar_ficha_aberta(sessions) -> None:
         session.eh_hoje = session is do_dia
 
 
-class RecordLoadView(OnboardingRequiredMixin, View):
+class RecordLoadView(AcaoDeTela, OnboardingRequiredMixin, View):
     """Salva a carga usada num exercício. Só POST — isso muda estado."""
+
+    #: A carga é anotada na ficha da semana, e é para lá que um GET volta.
+    tela_da_acao = "workouts:routine"
 
     def post(self, request, exercise_id, *args, **kwargs):
         exercise = get_object_or_404(Exercise, pk=exercise_id, is_active=True)
@@ -464,7 +468,7 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
         return context
 
 
-class ConcluirSerieView(OnboardingRequiredMixin, View):
+class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
     """Grava UMA série do modo treino, ou desfaz a última.
 
     O formulário manda `set_number` explícito, calculado pelo servidor e
@@ -474,6 +478,10 @@ class ConcluirSerieView(OnboardingRequiredMixin, View):
     voltar e reenvio de formulário em séries que ninguém fez, e é exatamente o
     que o CLAUDE.md manda não fazer com a fila offline.
     """
+
+    #: A serie e concluida DENTRO do modo treino, com a pessoa de pe entre
+    #: uma serie e outra. Mandar para o dia de hoje a tiraria do treino.
+    tela_da_acao = "workouts:now"
 
     def post(self, request, *args, **kwargs):
         destino = redirect("workouts:now")

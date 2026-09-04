@@ -37,6 +37,7 @@ from .models import (
     User,
     WeightEntry,
 )
+from config.acoes import AcaoDeTela
 
 #: Onde o peso recusado espera até a próxima tela.
 #:
@@ -741,7 +742,7 @@ class OnboardingRequiredMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
-class WeightLogView(OnboardingRequiredMixin, View):
+class WeightLogView(AcaoDeTela, OnboardingRequiredMixin, View):
     """Grava o peso de hoje. Só POST — isso muda estado.
 
     Escreve `WeightEntry` e nada mais. Não toca o `Profile`, não gera plano,

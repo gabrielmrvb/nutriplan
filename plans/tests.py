@@ -533,9 +533,23 @@ class TodayViewTests(TestCase):
         self.assertEqual(NutritionPlan.objects.filter(user=self.user).count(), 2)
         self.assertEqual(NutritionPlan.objects.filter(user=self.user, is_active=True).count(), 1)
 
-    def test_recalculate_is_not_reachable_by_get(self):
+    def test_a_get_does_not_create_a_plan(self):
+        """Recalcular nasce um plano novo, e GET não faz isso.
+
+        A asserção era `status == 405`: o mecanismo, e não a regra — e o 405
+        vinha com zero byte, que é onde o `next` do login aterrissava depois
+        de a sessão expirar. Ver `config/acoes.py`.
+        """
+        antes = NutritionPlan.objects.filter(user=self.user).count()
+
+        self.client.get(reverse("plans:recalculate"))
+
+        self.assertEqual(NutritionPlan.objects.filter(user=self.user).count(), antes)
+
+    def test_a_get_takes_the_person_to_today(self):
         response = self.client.get(reverse("plans:recalculate"))
-        self.assertEqual(response.status_code, 405)
+
+        self.assertRedirects(response, reverse("plans:today"))
 
     def test_the_page_states_the_daily_deficit_in_kcal(self):
         """O número que explica a dieta inteira não pode ficar implícito.
@@ -1387,8 +1401,20 @@ class MarkMealViewTests(CatalogFixture):
         self.assertRedirects(response, reverse("plans:today"))
         self.assertFalse(MealLog.objects.filter(user=self.user).exists())
 
-    def test_marking_is_not_reachable_by_get(self):
-        self.assertEqual(self.client.get(self.url()).status_code, 405)
+    def test_a_get_does_not_mark_the_meal(self):
+        """A asserção era `status == 405`: o mecanismo, e não a regra.
+
+        O 405 vinha com zero byte, e era onde o `next` do login aterrissava
+        depois de a sessão expirar — quem tocava em "Comi esta", entrava de
+        novo e acertava a senha terminava numa página em branco. Ver
+        `config/acoes.py`.
+        """
+        self.client.get(self.url())
+
+        self.assertFalse(MealLog.objects.filter(user=self.user).exists())
+
+    def test_a_get_takes_the_person_back_to_today(self):
+        self.assertRedirects(self.client.get(self.url()), reverse("plans:today"))
 
 
 class HistoryViewTests(CatalogFixture):

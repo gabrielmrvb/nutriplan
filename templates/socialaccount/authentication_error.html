@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% comment %}
+Sobrescreve `socialaccount/authentication_error.html` do allauth.
+
+A tela da biblioteca chega nua: 982 bytes, sem `app.css`, sem navegação e sem
+marca, dizendo "Ocorreu um erro ao tentar fazer login via sua conta de
+terceiros". `config/urls.py` decidiu que o allauth entra como motor e não como
+interface — e esta era a última tela dele que ainda aparecia para uma pessoa.
+
+Ela é alcançável de verdade: quando o `state` do OAuth não bate, o que
+acontece com a página de entrar aberta há muito tempo ou com o cookie de sessão
+descartado, o allauth cai aqui com HTTP 401. Cancelar o consentimento tem
+caminho próprio e não passa por aqui — vai para `socialaccount_login_cancelled`,
+que redireciona para a tela de entrar.
+
+O `auth_error.exception` fica de fora de propósito: é detalhe interno da
+biblioteca, não ajuda ninguém a entrar, e é por onde vaza o que não precisa
+aparecer.
+{% endcomment %}
+
+{% block title %}Não deu para entrar · NutriPlan{% endblock %}
+{% block container_class %}auth auth--entrada{% endblock %}
+
+{% block content %}
+  <div class="card">
+    <span class="auth__logo">{% include "partials/marca.html" %}</span>
+    <h1 class="center">Não deu para entrar</h1>
+    <p class="lead center">
+      A entrada pelo Google não foi concluída. Quase sempre é a página aberta
+      há tempo demais — tentar de novo resolve.
+    </p>
+    <a class="btn btn--primary btn--block" href="{% url 'accounts:login' %}">
+      Tentar de novo
+    </a>
+  </div>
+{% endblock %}

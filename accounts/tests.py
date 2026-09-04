@@ -808,9 +808,28 @@ class PesagemRapidaTests(TestCase):
         )
         self.assertEqual(WeightEntry.objects.count(), 0)
 
-    def test_the_route_only_accepts_post(self):
-        """Isso muda estado. GET que escreve é GET que o navegador repete."""
-        self.assertEqual(self.client.get(self.url).status_code, 405)
+    def test_a_get_does_not_write_anything(self):
+        """Isso muda estado. GET que escreve é GET que o navegador repete.
+
+        A asserção era `status == 405`: o mecanismo, e não a regra — e deixava
+        passar uma view que gravasse ANTES de recusar. Agora a regra está dita.
+
+        O 405 saiu porque respondia com zero byte, e era exatamente onde o
+        `next` do login aterrissava depois de a sessão expirar: quem tocava em
+        "Salvar peso", entrava de novo e acertava a senha terminava numa
+        página em branco. Ver `config/acoes.py`.
+        """
+        antes = WeightEntry.objects.count()
+
+        self.client.get(self.url)
+
+        self.assertEqual(WeightEntry.objects.count(), antes)
+
+    def test_a_get_leva_para_uma_tela_de_verdade(self):
+        resposta = self.client.get(self.url)
+
+        self.assertEqual(resposta.status_code, 302)
+        self.assertEqual(resposta["Location"], reverse("plans:today"))
 
     def test_a_weight_is_always_written_for_whoever_is_logged_in(self):
         """Ownership vive na consulta: a rota não lê identificador de gente
@@ -1522,10 +1541,25 @@ class ConfiguracaoDoGoogleTests(TestCase):
         login nasceria igual e divergiria na primeira correção."""
         from django.urls import NoReverseMatch
 
-        for nome in ("account_login", "account_signup", "account_reset_password"):
+        for nome in ("account_signup", "account_reset_password", "account_email"):
             with self.subTest(rota=nome):
                 with self.assertRaises(NoReverseMatch):
                     reverse(nome)
+
+    def test_o_nome_account_login_aponta_para_a_porta_do_app(self):
+        """`account_login` saiu da lista acima, e a regra não afrouxou.
+
+        Ele estava lá pelo mesmo motivo dos outros — não montar uma segunda
+        tela de entrar. Só que 25 lugares da biblioteca revertem esse nome por
+        dentro, o `AccountMiddleware` instalado entre eles, e a ausência dele
+        derrubava quem DESISTE do consentimento do Google: 500 na porta de
+        entrada.
+
+        O nome agora resolve para o MESMO endereço de `accounts:login`.
+        Continua havendo uma tela de entrar — é esta asserção que garante isso,
+        e é ela que quebra se alguém montar `allauth.account.urls` inteiro.
+        """
+        self.assertEqual(reverse("account_login"), reverse("accounts:login"))
 
     def test_the_callback_lives_where_the_google_console_will_be_told(self):
         """O endereço é derivado do ponto de montagem. Se ele mudar, o Google

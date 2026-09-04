@@ -16,6 +16,7 @@ from accounts.views import OnboardingRequiredMixin
 from . import services
 from .models import UserAchievement
 from .regras import CATALOGO, POR_SLUG
+from config.acoes import AcaoDeTela
 
 
 class ConquistasView(OnboardingRequiredMixin, TemplateView):
@@ -102,7 +103,7 @@ class ConquistasView(OnboardingRequiredMixin, TemplateView):
         return contexto
 
 
-class MarcarVistasView(LoginRequiredMixin, View):
+class MarcarVistasView(AcaoDeTela, LoginRequiredMixin, View):
     """Fecha o aviso de conquista. Só POST — isso muda estado.
 
     Recebe os ids que a página mostrou, e não "todas": entre renderizar o aviso
@@ -110,7 +111,13 @@ class MarcarVistasView(LoginRequiredMixin, View):
     vista aqui a faria nunca aparecer.
     """
 
-    http_method_names = ["post"]
+    tela_da_acao = "achievements:list"
+
+    #: "get" entra porque o GET aqui NAO e acao: ele so devolve a tela.
+    #:
+    #: Sem ele o `AcaoDeTela` nunca roda, e quem volta de um login com
+    #: `next=/conquistas/vistas/` recebe 405 com zero byte.
+    http_method_names = ["get", "post"]
 
     def post(self, request, *args, **kwargs):
         try:

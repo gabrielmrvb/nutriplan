@@ -830,8 +830,23 @@ class RecordLoadViewTests(TestCase):
         self.client.post(self.url, {"weight_kg": "5000"})
         self.assertFalse(ExerciseLog.objects.exists())
 
-    def test_recording_is_not_reachable_by_get(self):
-        self.assertEqual(self.client.get(self.url).status_code, 405)
+    def test_a_get_does_not_record_a_load(self):
+        """A asserção era `status == 405`: o mecanismo, e não a regra — e
+        deixava passar uma view que gravasse ANTES de recusar.
+
+        O 405 vinha com zero byte, e era onde o `next` do login aterrissava
+        depois de a sessão expirar. Ver `config/acoes.py`.
+        """
+        self.client.get(self.url)
+
+        self.assertFalse(ExerciseLog.objects.exists())
+
+    def test_a_get_takes_the_person_to_the_routine(self):
+        """A carga é anotada na ficha da semana, e é para lá que o GET volta —
+        não para o dia de hoje, que é o padrão do mixin."""
+        self.assertRedirects(
+            self.client.get(self.url), reverse("workouts:routine")
+        )
 
     def test_anonymous_cannot_record(self):
         self.client.logout()

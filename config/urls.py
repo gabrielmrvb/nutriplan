@@ -1,6 +1,8 @@
 from allauth.urls import build_provider_urlpatterns
 from django.contrib import admin
 
+from accounts.views import AppLoginView
+
 from . import admin_entrada, admin_seguranca
 from django.templatetags.static import static as static_url
 from django.urls import include, path
@@ -37,7 +39,36 @@ from .health import HealthView, VivoView
 # dentro, e removê-los trocaria uma tela indesejada por um `NoReverseMatch` em
 # algum caminho de erro. Sob um prefixo próprio, ela sai de `/conta/` e ganha
 # um lugar só dela para o demo recusar.
+#
+# O `NoReverseMatch` que o parágrafo acima previu aconteceu — pelo nome que
+# FALTA, e não pelos que ficaram. `account_login` mora em
+# `allauth.account.urls`, e 25 lugares da biblioteca o revertem por dentro, o
+# `AccountMiddleware` instalado entre eles.
+#
+# Sem ele registrado, DESISTIR do consentimento do Google terminava em 500: o
+# allauth traduz `access_denied` em `AuthError.CANCELLED`, redireciona para
+# `socialaccount_login_cancelled`, e a view de lá reverte `account_login`.
+# Mudar de ideia numa tela de permissão é comum, e o preço era erro de
+# servidor na porta de entrada.
 ROTAS_SOCIAIS = build_provider_urlpatterns() + [
+    # Registrar o nome não monta tela nenhuma: o caminho é o MESMO `entrar/`
+    # de `accounts.urls`, que vem antes e ganha a resolução. Este apelido só
+    # existe para o `reverse()` da biblioteca achar a porta que já existe —
+    # uma tela de entrar, um endereço.
+    path("entrar/", AppLoginView.as_view(), name="account_login"),
+    # Antes do `include`, porque a resolução usa a PRIMEIRA correspondência.
+    # As duas telas que a biblioteca serve aqui são páginas nuas — sem
+    # `app.css`, sem navegação e sem marca: exatamente a segunda interface que
+    # este arquivo recusa. E quem desistiu não quer um aviso sobre ter
+    # desistido; quer a tela de entrar.
+    path(
+        "social/login/cancelled/",
+        RedirectView.as_view(pattern_name="accounts:login"),
+    ),
+    path(
+        "social/login/error/",
+        RedirectView.as_view(pattern_name="accounts:login"),
+    ),
     path("social/", include("allauth.socialaccount.urls")),
 ]
 

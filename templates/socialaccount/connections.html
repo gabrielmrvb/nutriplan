@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% comment %}
+  Sobrescreve `socialaccount/connections.html` do allauth.
+
+  Medido com uma conta autenticada e um Google vinculado: a tela da biblioteca
+  respondia 200 com 2.517 bytes, sem `app.css`, sem a navegação e sem a marca,
+  sob o título "Conexões de conta". `config/urls.py` decidiu que o allauth
+  entra como MOTOR e não como interface, e esta era a última tela dele que uma
+  pessoa logada ainda via.
+
+  A rota NÃO foi escondida, e a decisão é essa: ver e desvincular a conta
+  Google só existe aqui. O perfil não oferece nada disso — procurar "Google"
+  em `templates/accounts/` acha uma menção num comentário sobre troca de
+  senha. Tirar a rota do ar removeria a função junto, que é o oposto do
+  problema.
+
+  Só o TEMPLATE muda. A view continua sendo a do allauth, com o
+  `DisconnectForm` e a trava de `validate_disconnect`, que recusa desvincular
+  a última conta social de quem não tem senha utilizável — a pessoa não
+  consegue se trancar para fora daqui.
+
+  `.choice-list` em vez de classe nova: ela já dá `min-height: 3.1rem`, acima
+  da régua de 44px, e já é o jeito de o app fazer escolha em lista.
+{% endcomment %}
+
+{% block title %}Contas conectadas · NutriPlan{% endblock %}
+
+{% block content %}
+  <h1>Contas conectadas</h1>
+
+  {% if form.accounts %}
+    <div class="card">
+      <p class="lead">Você também entra no NutriPlan por estas contas.</p>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <ul class="field__errors">
+            {% for erro in form.non_field_errors %}<li>{{ erro }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+        {% if form.account.errors %}
+          <ul class="field__errors">
+            {% for erro in form.account.errors %}<li>{{ erro }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+
+        <ul class="choice-list">
+          {% for conta in form.accounts %}
+            <li>
+              <label for="conta-{{ conta.pk }}">
+                <input type="radio" name="account" id="conta-{{ conta.pk }}"
+                       value="{{ conta.pk }}"{% if forloop.first %} checked{% endif %}>
+                <span>{{ conta }}</span>
+              </label>
+            </li>
+          {% endfor %}
+        </ul>
+
+        {% comment %}
+          Destrutivo em `btn--perigo`, como em `excluir_conta.html`. Não é o
+          destaque da tela: quem abre isto quase sempre vem olhar, não remover.
+        {% endcomment %}
+        <button type="submit" class="btn btn--perigo btn--block"
+                style="margin-top:1rem">
+          Desvincular a conta escolhida
+        </button>
+      </form>
+    </div>
+  {% else %}
+    <div class="card">
+      <p class="lead">Nenhuma conta de outro serviço está conectada a esta.</p>
+    </div>
+  {% endif %}
+
+  {% if google_login_enabled %}
+    <div class="card">
+      <h2>Conectar o Google</h2>
+      <p class="muted">Depois disso você entra pelos dois.</p>
+      {% comment %}
+        Formulário e não link, pelo mesmo motivo escrito em
+        `partials/botao_google.html`: o allauth aceita GET no começo do fluxo,
+        e aí a rota fica sem CSRF. `process=connect` — e não `login` — porque
+        aqui a pessoa já está autenticada e o que ela pede é vincular.
+      {% endcomment %}
+      <form method="post" action="{% url 'google_login' %}">
+        {% csrf_token %}
+        <input type="hidden" name="process" value="connect">
+        <button type="submit" class="btn btn--ghost btn--block">
+          Conectar uma conta Google
+        </button>
+      </form>
+    </div>
+  {% endif %}
+
+  <a class="btn btn--ghost btn--block" href="{% url 'accounts:profile' %}">
+    Voltar ao perfil
+  </a>
+{% endblock %}

@@ -371,14 +371,33 @@ class AcessoTests(BaseDeConquistas):
         conquista.refresh_from_db()
         self.assertIsNone(conquista.seen_at)
 
-    def test_marcar_vistas_recusa_get(self):
-        """Muda estado; GET não pode."""
+    def test_marcar_vistas_nao_muda_estado_no_get(self):
+        """Muda estado; GET não pode.
+
+        A asserção era `status == 405` — o mecanismo, e não a regra. Ela
+        passava até numa view que gravasse ANTES de recusar, e cobrava um 405
+        de zero byte: era ali que o `next` do login aterrissava depois de a
+        sessão expirar, e a pessoa terminava numa página vazia. Ver
+        `config/acoes.py`.
+        """
+        user = self.pessoa()
+        self.client.force_login(user)
+        antes = UserAchievement.objects.filter(user=user, seen_at__isnull=True).count()
+
+        self.client.get(reverse("achievements:marcar_vistas"))
+
+        self.assertEqual(
+            UserAchievement.objects.filter(user=user, seen_at__isnull=True).count(),
+            antes,
+        )
+
+    def test_marcar_vistas_no_get_leva_para_as_conquistas(self):
         user = self.pessoa()
         self.client.force_login(user)
 
         resposta = self.client.get(reverse("achievements:marcar_vistas"))
 
-        self.assertEqual(resposta.status_code, 405)
+        self.assertRedirects(resposta, reverse("achievements:list"))
 
 
 class AvisoTests(BaseDeConquistas):

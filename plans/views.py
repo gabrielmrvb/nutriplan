@@ -34,6 +34,7 @@ from .models import HydrationLog, MealOption, MealSlot, MealStatus, OptionLabel
 # A política de arredondamento mora em `tracking` e é importada, não repetida:
 # duas cópias da mesma regra é como as duas nasceram diferentes.
 from .tracking import ZERO, arredondar
+from config.acoes import AcaoDeTela
 
 
 def proteina_perdida(slots) -> dict:
@@ -374,7 +375,7 @@ def _hoje_em(ancora: str) -> str:
     return reverse("plans:today") + ancora
 
 
-class MarkMealView(OnboardingRequiredMixin, View):
+class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
     """Marca uma refeição do dia. Só POST — isso muda estado.
 
     A ação chega como `status` e, quando é "comi", vem junto o id da opção
@@ -510,7 +511,7 @@ def _itens_descritos(dados) -> list:
     ]
 
 
-class ClearMealView(OnboardingRequiredMixin, View):
+class ClearMealView(AcaoDeTela, OnboardingRequiredMixin, View):
     """Desfaz a marcação de uma refeição do dia."""
 
     def post(self, request, slot_id, *args, **kwargs):
@@ -585,7 +586,7 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
         return context
 
 
-class RecalibrateView(OnboardingRequiredMixin, View):
+class RecalibrateView(AcaoDeTela, OnboardingRequiredMixin, View):
     """Aplica — ou recusa — o ajuste sugerido quando a média empaca.
 
     O corte fica guardado no perfil e não no plano: plano é snapshot e é
@@ -642,7 +643,7 @@ class RecalibrateView(OnboardingRequiredMixin, View):
         return redirect(reverse("plans:history"))
 
 
-class RecalculatePlanView(OnboardingRequiredMixin, View):
+class RecalculatePlanView(AcaoDeTela, OnboardingRequiredMixin, View):
     """Recálculo manual, só por POST.
 
     O recálculo automático já cobre mudança de dado; este botão existe para o
@@ -699,7 +700,7 @@ class ShoppingListView(PlanRequiredMixin, TemplateView):
         return context
 
 
-class LogHydrationView(OnboardingRequiredMixin, View):
+class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
     """Soma água ao dia. Só POST — isso muda estado.
 
     Soma em vez de definir o total porque é assim que a pessoa mede: ela acabou
