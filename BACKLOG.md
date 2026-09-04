@@ -746,11 +746,39 @@ saudável. Chamar isso de "validado em produção" seria esticar a palavra.
 
 ### Registrado e NÃO feito, com o custo ao lado
 
-- **`403_csrf.html`.** Herdado do B8. Uma página cacheada pelo worker com token
-  vencido cai na página embutida do Django ao enviar o formulário. É a mesma
-  família das três telas de erro criadas, e ficou de fora porque não estava no
-  escopo do B8 e porque o cenário depende do worker — merece ser reproduzido
-  antes de ser corrigido.
+- **`403_csrf.html` — FEITO em 04/09/2026.** Reproduzido antes de corrigir, com
+  `Client(enforce_csrf_checks=True)` postando token inválido em
+  `/conta/entrar/`: **403, 2.881 bytes, `<title>403 Forbidden</title>`**, fundo
+  `#eee`, sem `app.css`, sem marca, sem navegação — e os DOIS únicos links
+  apontando para `docs.djangoproject.com/en/5.2/`, o que dizia framework e
+  versão. O caminho de saída levava para fora do produto.
+
+  O registro anterior enquadrava isto como "página cacheada pelo worker", e a
+  reprodução mostrou que é mais largo: `login()` chama `rotate_token`, então
+  basta a pessoa entrar de novo em outra aba para o token da aba antiga ficar
+  velho. Não precisa de worker, não precisa de nada errado acontecendo.
+
+  A correção é um template e nada mais — `templates/403_csrf.html`, seguindo
+  `403.html` e `404.html`: mesma `.card.center`, mesmo `auth__logo`, mesmo
+  `btn--primary btn--block`, zero CSS novo. Sem formulário e sem botão de
+  recarregar, de propósito: recarregar faria o navegador repetir o POST
+  recusado. Toda saída é por GET.
+
+  Nada enfraqueceu: continua 403, a view não roda, e há contra-controle
+  provando que a água NÃO é registrada. O desvio do replay da fila offline em
+  `config/csrf.py` continua intacto, com teste próprio.
+
+  Django renderiza este template com `t.render(request=request)`: o request vai
+  — então `user.is_authenticated` funciona e a saída muda para quem está
+  logado — e o dicionário interno com `reason`, `docs_version` e `DEBUG` NÃO
+  vai. Não há detalhe interno para vazar porque nenhum é oferecido.
+
+  12 testes em `config/test_csrf_tem_cara_do_app.py`. Sabotagem: 6 cenários, 6
+  detectados — template removido, caminho de volta quebrado nos dois estados,
+  formulário que repetiria o POST, a recusa virando 200, e o desvio da fila
+  atropelado. Dois deles passaram verdes na primeira tentativa: o regex casava
+  com o "Entrar" do CABEÇALHO em vez do botão do cartão — a armadilha do
+  `CLAUDE.md` pela terceira vez nesta base, agora ancorada no texto do botão.
 - **Identificação de versão em `/saude/`.** Expor `RENDER_GIT_COMMIT` provaria
   "o commit testado é o commit publicado" num pedido só. O endpoint é público, e
   acrescentar isso logo depois do bloco que fechou vazamentos merece decisão

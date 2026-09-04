@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% comment %}
+  A recusa por CSRF, com a cara do produto.
+
+  Sem este arquivo o Django cai na página embutida dele. Medido antes:
+  `<title>403 Forbidden</title>`, 2.881 bytes, fundo `#eee`, sem `app.css`, sem
+  marca — e os DOIS únicos links apontando para
+  `docs.djangoproject.com/en/5.2/`. O caminho de saída levava para fora do
+  produto, para a documentação do framework, e a URL dizia qual framework e
+  qual versão.
+
+  Nada aqui enfraquece a proteção: continua 403, a view não roda, nada é
+  mutado. Só a forma de dizer muda.
+
+  NÃO há formulário nem botão de recarregar, e é decisão. Recarregar faria o
+  navegador repetir o POST que acabou de ser recusado, e um formulário aqui
+  convidaria a reenviar o mesmo pedido. Toda saída desta tela é por GET.
+
+  O caso mais comum não tem nada de errado acontecendo: `login()` chama
+  `rotate_token`, então basta a pessoa ter entrado de novo em outra aba para o
+  token da aba antiga ficar velho. Por isso o texto fala da PÁGINA, e não dela.
+
+  O replay da fila offline nunca chega aqui — `config/csrf.py` o desvia antes,
+  para uma resposta JSON que o cliente não descarta. Ver
+  `config/test_csrf_tem_cara_do_app.py`.
+
+  Django renderiza este template com `t.render(request=request)`: o request vem
+  (então `user` existe), e o dicionário interno com `reason`, `docs_version` e
+  `DEBUG` NÃO vem. Não há detalhe interno para vazar aqui porque nenhum é
+  oferecido.
+{% endcomment %}
+
+{% block title %}A página expirou · NutriPlan{% endblock %}
+{% block container_class %}auth{% endblock %}
+
+{% block content %}
+  <div class="card center">
+    <span class="auth__logo" aria-hidden="true">N</span>
+    <h1>Esta página ficou aberta tempo demais</h1>
+    <p class="lead">
+      Por segurança, o NutriPlan confere se o envio saiu mesmo desta página — e
+      essa conferência vence com o tempo. O que você acabou de enviar não foi
+      salvo. Abra a tela de novo e refaça: leva um instante.
+    </p>
+    {% if user.is_authenticated %}
+      <a class="btn btn--primary btn--block" href="{% url 'plans:today' %}">Ir para o dia de hoje</a>
+    {% else %}
+      <a class="btn btn--primary btn--block" href="{% url 'accounts:login' %}">Entrar no NutriPlan</a>
+    {% endif %}
+  </div>
+{% endblock %}
