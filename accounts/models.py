@@ -644,3 +644,109 @@ class RegistroAdministrativo(models.Model):
     def __str__(self):
         quem = self.ator_id and str(self.ator) or "sistema"
         return f"{quem} · {self.get_acao_display()} · {self.alvo_email}"
+
+
+class TokenDeApp(models.Model):
+    """A credencial de um cliente que NÃO é navegador.
+
+    O web continua com sessão e cookie, e nada aqui toca nisso. Isto existe
+    porque um app não tem cookie jar confiável, e porque `SameSite=Lax` — que o
+    projeto usa — foi feito justamente para o navegador.
+
+    POR QUE NÃO O TOKEN DO DRF
+    ==========================
+
+    O `authtoken` do Django REST Framework guarda o valor EM CLARO e não tem
+    validade. Um vazamento do banco entregaria sessões vivas, e não haveria
+    como fazê-las vencer. Aqui o banco guarda só o `sha256`: quem lê a tabela
+    não consegue se autenticar com o que leu.
+
+    O digest é `sha256` sem sal e sem custo, e isso é decisão. `token_urlsafe`
+    sorteia 256 bits de entropia — não há dicionário para atacar, e um KDF caro
+    transformaria cada requisição autenticada numa conta de CPU. Sal e custo
+    protegem SENHA, que é curta e escolhida por gente; não é o caso aqui.
+
+    REVOGAÇÃO E VALIDADE
+    ====================
+
+    Revogar é uma linha no banco, e vale na requisição seguinte — a diferença
+    para JWT, que continua valendo até vencer a menos que alguém mantenha uma
+    lista de bloqueio. Para um app de treino, quem perde o telefone precisa que
+    "sair de todos os aparelhos" funcione AGORA.
+    """
+
+    #: 90 dias. Um app de dieta e treino é aberto todo dia; obrigar login
+    #: mensal seria atrito sem ganho. `ultimo_uso_em` é o que permitirá, se um
+    #: dia fizer falta, expirar por inatividade em vez de por idade.
+    TEMPO_DE_VIDA = timedelta(days=90)
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="tokens_de_app",
+        verbose_name="dono",
+    )
+    #: `sha256` do token, nunca o token.
+    digest = models.CharField("digest", max_length=64, unique=True)
+    criado_em = models.DateTimeField("criado em", auto_now_add=True)
+    expira_em = models.DateTimeField("expira em")
+    revogado_em = models.DateTimeField("revogado em", null=True, blank=True)
+    ultimo_uso_em = models.DateTimeField("último uso em", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "token de app"
+        verbose_name_plural = "tokens de app"
+        ordering = ["-criado_em"]
+        indexes = [models.Index(fields=["user", "-criado_em"])]
+
+    def __str__(self):
+        return f"{self.user} · até {self.expira_em:%d/%m/%Y}"
+
+    @staticmethod
+    def _digest(cru: str) -> str:
+        import hashlib
+
+        return hashlib.sha256(cru.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def emitir(cls, user):
+        """Devolve `(registro, token_em_claro)`.
+
+        O valor em claro existe só neste retorno: ele vai para o cliente e não
+        volta a existir em lugar nenhum do servidor.
+        """
+        import secrets
+
+        cru = secrets.token_urlsafe(32)
+        registro = cls.objects.create(
+            user=user,
+            digest=cls._digest(cru),
+            expira_em=timezone.now() + cls.TEMPO_DE_VIDA,
+        )
+        return registro, cru
+
+    @classmethod
+    def autenticar(cls, cru: str):
+        """A pessoa dona de um token vivo, ou `None`.
+
+        Marca `ultimo_uso_em` com `update()` e não com `save()`: gravar o
+        modelo inteiro a cada requisição autenticada sobrescreveria campos que
+        outra requisição acabou de mudar.
+        """
+        if not cru:
+            return None
+        agora = timezone.now()
+        registro = (
+            cls.objects.select_related("user")
+            .filter(digest=cls._digest(cru), revogado_em__isnull=True, expira_em__gt=agora)
+            .first()
+        )
+        if registro is None:
+            return None
+        cls.objects.filter(pk=registro.pk).update(ultimo_uso_em=agora)
+        return registro.user
+
+    def revogar(self):
+        if self.revogado_em is None:
+            self.revogado_em = timezone.now()
+            self.save(update_fields=["revogado_em"])

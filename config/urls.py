@@ -91,6 +91,13 @@ urlpatterns = [
     # coerência com o resto do bloco, e não por precedência: os prefixos não
     # colidem.
     path("gestao/", include("gestao.urls")),
+    # A API do cliente que não é navegador. Rota NOVA, ao lado do web — as
+    # views atuais continuam servindo template, e `workouts:salvar_corrida`
+    # continua existindo porque a PWA em produção posta nela.
+    #
+    # Ela não olha sessão: autentica só por `Authorization: Bearer`, e o
+    # porquê disso decidir a segurança inteira está em `api/auth.py`.
+    path("api/v1/", include("api.urls")),
     path("admin/login/", admin_entrada.entrada_do_admin),
     path("admin/", admin.site.urls),
     # O service worker precisa vir da raiz: um arquivo servido de /static/ só
