@@ -38,4 +38,33 @@
     </p>
   </div>
   {% include "partials/links_legais.html" %}
+
+  {% comment %}
+    Chegar aqui significa que não há sessão — e as páginas guardadas pelo
+    service worker precisam ir embora.
+
+    O gatilho é ESTA TELA, e não o botão de sair, por um motivo que o botão não
+    cobre: sessão que EXPIRA não passa por logout nenhum. Quem expira é
+    redirecionado para cá do mesmo jeito, e sem isto as telas da sessão anterior
+    ficariam no cache para sempre.
+
+    É seguro rodar para visitante novo — o cache está vazio e a limpeza é um
+    no-op —, e não há risco de apagar o cache de quem está logado: esta tela
+    tem `redirect_authenticated_user`, então quem tem sessão nunca a vê.
+
+    E não é a tela de offline: aquela também renderiza sem autenticação, e
+    apagar as páginas justamente quando a rede caiu seria destruir o que o
+    offline existe para servir. Por isso o gatilho é o login, e não
+    "qualquer página anônima".
+  {% endcomment %}
+  <script>
+    (function () {
+      if (!("serviceWorker" in navigator)) return;
+      navigator.serviceWorker.ready.then(function (registro) {
+        if (registro.active) {
+          registro.active.postMessage({ tipo: "esquecer-paginas" });
+        }
+      }).catch(function () { /* sem worker, nada a esquecer */ });
+    })();
+  </script>
 {% endblock %}

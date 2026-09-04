@@ -94,6 +94,34 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(limpar().then(() => self.clients.claim()));
 });
 
+/* A sessão acabou: as páginas guardadas vão junto.
+ *
+ * `CACHE_PAGINAS` guarda uma cópia de cada tela visitada, e é ela que faz a
+ * dieta abrir no metrô. O comentário de `ehTelaOperacional`, logo abaixo, já
+ * nomeia o problema para as telas de gestão: "guardadas no cache, elas
+ * sobrevivem ao logout e ficam legíveis para qualquer coisa com acesso ao
+ * perfil do navegador". O mesmo vale para as telas da PRÓPRIA pessoa, e nada
+ * as apagava.
+ *
+ * Medido no navegador antes desta mudança: a cópia de `/hoje/` tinha 55.831
+ * bytes, com `data-usuario`, `data-autenticado="1"` e as cinco refeições do
+ * dia — e continuava lá depois de a sessão terminar.
+ *
+ * `limpar()` NÃO resolve: ela roda no `activate` e só joga fora gerações
+ * antigas. Uma sessão que termina não muda a versão do cache.
+ *
+ * O cache de ESTÁTICOS continua intocado, de propósito: CSS e ícone não têm
+ * nada pessoal, e apagá-los faria a próxima abertura ser lenta sem proteger
+ * ninguém. */
+self.addEventListener("message", (event) => {
+  if (!event.data || event.data.tipo !== "esquecer-paginas") return;
+  event.waitUntil(
+    caches.delete(CACHE_PAGINAS).then(() => {
+      if (event.source) event.source.postMessage({ tipo: "paginas-esquecidas" });
+    })
+  );
+});
+
 /* Só entra no cache o que é estático e do próprio site. Guardar HTML de
  * usuário logado seria servir o dia de uma pessoa para outra no mesmo
  * dispositivo — e ainda mostraria dieta desatualizada depois de cada
