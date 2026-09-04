@@ -5,11 +5,30 @@ O que ficou decidido mas não feito, e o que depende de gente. Cada item diz
 
 ## Bloqueado por decisão ou ação humana
 
-### ⛔ Backup independente de produção
-O plano gratuito do Neon dá **um** slot de snapshot manual, sem agendamento, e
-PITR de 6 horas. Não existe mecanismo seguro para eu extrair uma cópia sem
-manipular a `DATABASE_URL`, o que está fora do que posso fazer. Enquanto isso,
-o snapshot pós-0017 precisa ser preservado.
+### ⛔ Backup independente de produção — UM CLIQUE SEU
+Revalidado em 04/09/2026, e o registro anterior estava desatualizado: a máquina
+de backup existe inteira e foi endurecida na INFRA SAFETY P0. O que falta é
+humano e é pequeno.
+
+O que está pronto e provado: `scripts/backup.sh` despeja e confere,
+`scripts/guardar.sh` criptografa em AES-256 e **prova que decifra** antes de
+apagar o original, `scripts/restaurar.sh` aceita o `.gpg` direto e restaura num
+banco descartável varrendo integridade referencial. A cadeia inteira foi
+executada de ponta a ponta contra o banco local em 04/09/2026.
+
+O que falta, e só você pode fazer — **uma das duas**:
+
+1. **Rota da máquina** (menor superfície): rodar as duas linhas de
+   [`docs/infra-recuperacao.md`](docs/infra-recuperacao.md) com a
+   `DATABASE_URL` do painel e uma senha do seu gerenciador. Nenhum segredo sai
+   daqui.
+2. **Rota do GitHub**: cadastrar os segredos `DATABASE_URL` e
+   `BACKUP_PASSPHRASE` em Settings → Secrets → Actions e apertar "Run workflow"
+   em `.github/workflows/backup.yml`. Medido pela API pública em 04/09/2026:
+   `total_count: 0` — **o fluxo nunca rodou nem uma vez**.
+
+Enquanto nenhuma das duas acontecer, a cópia mais nova é de 01/09/2026 16:09,
+está só nesta máquina e está **em claro**.
 
 ### ⛔ Classificar as 52 contas de produção
 O campo `classificacao` existe e o painel mostra quantas estão sem
@@ -72,8 +91,15 @@ pergunta legítima e é de painel agregado — cabe em `/gestao/`.
 ## Prazo
 
 ### Banco gratuito apagado por volta de 23/09/2026
-Vale para Render e Neon. É a data que decide se o produto precisa de plano pago
-ou de migração antes disso.
+O prazo é do banco do **Render**, lido no painel em 31/08/2026. Produção NÃO
+está mais nele desde 01/09 — provado em 04/09 pelo cabeçalho do dump daquele
+dia, que declara servidor 16.9, enquanto o Render rodava 18.4 e um cliente 16.9
+não consegue despejar um servidor 18.4. O bloco `databases:` do `render.yaml`
+mantém o banco antigo de propósito: ele é o rollback, e expira sozinho.
+
+**NÃO verificado por mim:** se o plano gratuito do Neon tem prazo próprio. É
+uma olhada no painel do Neon, e é sua. Até lá, o risco de expiração do banco em
+uso é desconhecido, não descartado.
 
 ## Segurança futura
 

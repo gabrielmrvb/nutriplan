@@ -1,0 +1,11 @@
+# Fim de linha dos scripts, travado.
+#
+# `core.autocrlf` está ligado nesta máquina, e o hook de push já roda em CRLF
+# sem problema porque roda no Windows. O `scripts/backup.sh` é diferente: ele
+# roda num runner Linux do GitHub Actions, e um único `\r` no fim da primeira
+# linha faz o bash morrer com `$'\r': command not found` — mensagem que não
+# tem nada a ver com backup e aparece só no dia em que alguém precisa dele.
+#
+# Hoje o arquivo commitado está em LF por sorte da normalização. Isto o mantém
+# assim por regra.
+*.sh text eol=lf

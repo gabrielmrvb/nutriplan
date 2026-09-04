@@ -67,27 +67,39 @@ jobs:
       # Reaproveita o script versionado, que já valida código de saída,
       # tamanho e legibilidade — em vez de uma segunda cópia da lógica que
       # envelheceria em separado.
+      # Fora do checkout, e nao em `saida/` dentro dele: o dump em claro nao
+      # deve existir nem por um instante numa pasta sob controle de versao. O
+      # `backup.sh` recusa esse destino por conta propria — aqui o destino ja
+      # nasce certo, entao a recusa nunca precisa ser contornada.
       - name: Despejar e validar
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           export PATH="/usr/lib/postgresql/18/bin:$PATH"
-          bash scripts/backup.sh saida
+          bash scripts/backup.sh "$RUNNER_TEMP/saida"
 
-      - name: Criptografar
+      # `scripts/guardar.sh` e nao gpg inline, por dois motivos. O primeiro e
+      # nao ter duas copias da mesma logica envelhecendo em separado. O segundo
+      # e o que a versao inline NAO fazia: ele decifra de volta e compara a
+      # impressao digital antes de apagar o arquivo em claro. Sem isso, um
+      # artefato indecifravel sobe verde e so se revela inutil no dia em que
+      # alguem precisa dele.
+      - name: Criptografar e provar que decifra
         env:
-          SENHA: ${{ secrets.BACKUP_PASSPHRASE }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
         run: |
-          for f in saida/*.dump; do
-            printf '%s' "$SENHA" | gpg --batch --yes --symmetric \
-              --cipher-algo AES256 --passphrase-fd 0 -o "$f.gpg" "$f"
-            rm -f "$f"          # o dump em claro não sobrevive ao runner
+          for f in "$RUNNER_TEMP"/saida/*.dump; do
+            bash scripts/guardar.sh "$f"
           done
-          ls -la saida/
+          ls -la "$RUNNER_TEMP/saida/"
 
+      # O SHA256SUMS sobe junto: sem ele, quem baixar o artefato meses depois
+      # nao tem como saber se o arquivo chegou inteiro.
       - uses: actions/upload-artifact@v4
         with:
           name: nutriplan-backup
-          path: saida/*.gpg
+          path: |
+            ${{ runner.temp }}/saida/*.gpg
+            ${{ runner.temp }}/saida/SHA256SUMS
           retention-days: 14
           if-no-files-found: error

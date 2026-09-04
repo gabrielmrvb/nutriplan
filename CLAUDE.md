@@ -144,10 +144,13 @@ dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
   "verifique seu e-mail" como se tivesse dado certo. Só o log denuncia, e antes
   de `config/observabilidade.py` não havia log. Se a recuperação de senha parar
   de novo, o primeiro lugar a olhar é o `TimeoutError` do socket, não o Django.
-- O banco gratuito do Render **é apagado em 23/09/2026** — data lida no painel,
-  e o verbo do Render é *deleted*, não *suspended*. Não existe backup
-  gerenciado no plano gratuito: o que não estiver em `nutriplan-backups/` não
-  volta. Ver **Backup e restauração**.
+- **O banco saiu do Render e foi para o Neon em 01/09/2026.** Provado em 04/09
+  pelo cabeçalho do dump daquele dia: servidor 16.9, e o Render rodava 18.4 —
+  um cliente 16.9 não despeja um servidor 18.4. O banco do Render **é apagado
+  por volta de 23/09/2026** (verbo do painel: *deleted*), e continua declarado
+  no `render.yaml` de propósito: ele é o rollback. Se o plano gratuito do Neon
+  tem prazo próprio, ninguém verificou — é uma olhada no painel dele.
+  Ver **Backup e restauração** e [`docs/infra-recuperacao.md`](docs/infra-recuperacao.md).
 ## Deploy
 
 `git push` dispara o Render. `scripts/build.sh` roda collectstatic →
@@ -163,10 +166,23 @@ hoje são e-mail de produção (`accounts.E001`–`E003`) e força da SECRET_KEY
 
 ## Backup e restauração
 
+Procedimento completo, incluindo o que fazer se produção desaparecer, em
+[`docs/infra-recuperacao.md`](docs/infra-recuperacao.md).
+
 ```bash
-DATABASE_URL='...' scripts/backup.sh ~/nutriplan-backups   # tira e valida
-scripts/restaurar.sh ~/nutriplan-backups/xxx.dump          # prova que volta
+DATABASE_URL='...' scripts/backup.sh ~/backups-nutriplan   # tira e valida
+BACKUP_PASSPHRASE='...' scripts/guardar.sh ~/backups-nutriplan/xxx.dump
+BACKUP_PASSPHRASE='...' scripts/restaurar.sh ~/backups-nutriplan/xxx.dump.gpg
 ```
+
+`guardar.sh` cifra em AES-256 e **decifra de volta conferindo o sha256** antes
+de apagar o arquivo em claro. Sem isso um cifrado quebrado sobe verde e só se
+revela inútil no dia em que alguém precisa dele.
+
+`backup.sh` **recusa** gravar dentro de um repositório git: este repositório é
+público, e o `.gitignore` registra duas vezes em que um `git add -A` trouxe
+pasta inteira que não era para vir. E ele apaga o arquivo pela metade quando o
+despejo falha — `pg_dump` cria o arquivo antes de terminar de escrevê-lo.
 
 O `pg_dump` precisa ser **18 ou mais novo** — o cliente se recusa a despejar um
 servidor mais novo que ele. No Windows os binários ficam em

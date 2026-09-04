@@ -37,3 +37,19 @@ moldes/
 # ver o histórico de `mu-direct-games` e `mofado-mu` logo acima. É outro
 # projeto, não pertence ao NutriPlan, e por isso este repositório o ignora.
 lostplanet/
+
+# Dump de banco, e o que anda junto dele.
+#
+# `scripts/backup.sh` grava na pasta atual quando ninguém diz outra coisa, e
+# este repositório é PÚBLICO. Uma execução a partir da raiz deixaria dado de
+# saúde de gente real — e-mail, peso, histórico de treino — a um `git add -A`
+# de distância da internet.
+#
+# Duas vezes um `git add -A` meu já trouxe pasta inteira de outro projeto para
+# cá (ver `mu-direct-games` e `mofado-mu` acima). A terceira não pode ser um
+# banco de dados. O script também se recusa a gravar dentro de um repositório;
+# isto aqui é a segunda tranca, não a única.
+*.dump
+*.dump.gpg
+*.sql.gz
+SHA256SUMS
