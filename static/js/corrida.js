@@ -52,6 +52,11 @@
      * cliente a desligava. */
     opId: null,
     correndo: false,
+    /* Envio em voo. Guarda contra duplo toque: `hidden` no botao protege no
+     * navegador real, mas depender do DOM para uma regra de estado e frageis —
+     * um `click()` programatico, um atalho de teclado ou um `hidden` que alguem
+     * mova de lugar reabrem o caminho. */
+    enviando: false,
     /* Carimbo de fim. Declarado aqui, e nao criado no meio do caminho: e ele
      * que a retomada le para saber se a corrida acabou e so falta subir. */
     terminou: null,
@@ -198,8 +203,14 @@
         encerrar(false);
         return;
       }
-      dizer("Sem permissao de localizacao. A corrida nao pode ser registrada.");
+      /* A mensagem vem DEPOIS do `encerrar`, e nao antes.
+       *
+       * Medido: `encerrar(true)` termina dizendo "Corrida encerrada sem
+       * distancia registrada", que sobrescrevia a explicacao. Quem negou a
+       * localizacao lia sobre distancia — e ficava sem saber que o problema
+       * era a permissao, que e a unica coisa que ela pode resolver. */
       encerrar(true);
+      dizer("Sem permissao de localizacao. A corrida nao pode ser registrada.");
       return;
     }
     dizer("Sinal de GPS fraco. Continuo tentando.");
@@ -278,6 +289,12 @@
   }
 
   function comecar() {
+    /* Nao comeca por cima de uma corrida viva nem de um envio em voo.
+     *
+     * Medido: um segundo `comecar()` trocava o `op_id` e zerava os contadores
+     * — a corrida em andamento perdia a identidade com que seria salva. */
+    if (estado.correndo || estado.enviando) return;
+
     /* Corrida nova começa do ZERO, e isto não é obviedade.
      *
      * Antes, `comecar()` só era chamada uma vez por carregamento de página:
@@ -358,6 +375,11 @@
   }
 
   function encerrar(semSalvar) {
+    /* Medido: dois toques em "Encerrar" com a rede caida disparavam DOIS
+     * envios. O servidor e idempotente e nao duplicaria a corrida, mas a
+     * segunda resposta sobrescreve a mensagem da primeira — e a pessoa le um
+     * estado que nao corresponde ao que aconteceu. */
+    if (estado.enviando) return;
     if (estado.vigia != null) navigator.geolocation.clearWatch(estado.vigia);
     if (estado.relogio) clearInterval(estado.relogio);
     /* Zerar os IDs, e não só limpar os sensores.
@@ -428,6 +450,7 @@
       teve_lacuna: estado.teveLacuna,
       parciais: estado.marcas
     };
+    estado.enviando = true;
     dizer("Salvando...");
     fetch(raiz.dataset.salvar, {
       method: "POST",
@@ -438,6 +461,7 @@
       body: JSON.stringify(corpo),
       credentials: "same-origin"
     }).then(function (r) {
+      estado.enviando = false;
       if (r.ok) {
         /* Só agora o registro local deixa de fazer sentido. Apagá-lo antes da
          * confirmação seria trocar "a corrida não subiu" por "a corrida não
@@ -456,6 +480,7 @@
       el.comecar.hidden = false;
       dizer("Nao consegui salvar. A corrida esta guardada neste aparelho.");
     }).catch(function () {
+      estado.enviando = false;
       el.comecar.hidden = false;
       dizer("Sem conexao. A corrida esta guardada e sobe quando o sinal voltar.");
     });

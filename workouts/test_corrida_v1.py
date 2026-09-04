@@ -52,6 +52,22 @@ def corpo_da_funcao(nome):
     raise AssertionError("função %s não fecha" % nome)
 
 
+def sem_comentarios(texto):
+    """O corpo sem os comentários, para a asserção casar com CÓDIGO.
+
+    Este arquivo comenta muito, e de propósito — mas comentário é texto, e uma
+    asserção que procura `encerrar(true)` acha a menção dele numa frase que
+    explica por que ele existe. Foi exatamente o que aconteceu: a sabotagem
+    que REMOVE a chamada passou verde, porque o nome dela continuava escrito
+    logo acima.
+
+    É a armadilha que o `CLAUDE.md` deste projeto descreve, na versão
+    JavaScript.
+    """
+    sem_bloco = re.sub(r"/\*.*?\*/", "", texto, flags=re.S)
+    return re.sub(r"^\s*//.*$", "", sem_bloco, flags=re.M)
+
+
 class OIdentificadorNasceComACorridaTests(SimpleTestCase):
     """A chave precisa sobreviver a tudo o que a corrida sobreviver.
 
@@ -309,3 +325,64 @@ class PermissaoRevogadaNoMeioNaoJogaACorridaForaTests(SimpleTestCase):
         corpo = corpo_da_funcao("erroDoGps")
 
         self.assertIn("encerrar(true)", corpo)
+
+
+class OErroDizOQueAconteceuTests(SimpleTestCase):
+    """A mensagem que explica não pode ser sobrescrita pela genérica.
+
+    Medido no navegador: negar a localização na largada mostrava "Corrida
+    encerrada sem distância registrada". Verdade, mas irrelevante — e escondia
+    a única coisa que a pessoa pode resolver, que é a permissão.
+
+    `encerrar()` termina dizendo a frase da distância, então quem quer explicar
+    o motivo precisa falar DEPOIS dele.
+    """
+
+    def test_a_explicacao_da_permissao_vem_depois_do_encerrar(self):
+        corpo = sem_comentarios(corpo_da_funcao("erroDoGps"))
+        ramo = corpo.split("PERMISSION_DENIED", 1)[1]
+        fecha = ramo.index("encerrar(true)")
+        explica = ramo.index("Sem permissao de localizacao")
+
+        self.assertGreater(
+            explica, fecha,
+            "a explicação é escrita antes e o encerrar a sobrescreve",
+        )
+
+
+class DuploToqueNaoQuebraACorridaTests(SimpleTestCase):
+    """A regra é de ESTADO, não do DOM.
+
+    `hidden` no botão protege no navegador real, e foi o que segurou até aqui.
+    Mas depender do DOM para uma regra de estado é frágil: um `click()`
+    programático, um atalho de teclado, ou alguém mover o `hidden` de lugar
+    reabrem o caminho.
+
+    Medido antes da guarda: um segundo `comecar()` trocava o `op_id` e zerava
+    os contadores da corrida em andamento — ela perdia a identidade com que
+    seria salva. E dois toques em "Encerrar" com a rede caída disparavam DOIS
+    envios; o servidor é idempotente e não duplicaria a corrida, mas a segunda
+    resposta sobrescreve a mensagem da primeira.
+    """
+
+    def test_comecar_recusa_por_cima_de_corrida_viva_ou_envio_em_voo(self):
+        corpo = corpo_da_funcao("comecar")
+        guarda = corpo.index("estado.correndo || estado.enviando")
+        primeira_escrita = corpo.index("estado.opId = identificador()")
+
+        self.assertLess(guarda, primeira_escrita, "a guarda vem depois do estrago")
+
+    def test_encerrar_recusa_durante_o_envio(self):
+        corpo = corpo_da_funcao("encerrar")
+        guarda = corpo.index("if (estado.enviando) return;")
+        limpeza = corpo.index("clearWatch")
+
+        self.assertLess(guarda, limpeza)
+
+    def test_o_envio_marca_e_desmarca_o_estado_nos_dois_ramos(self):
+        """Se ele não desmarcasse na falha, a tela ficaria travada para sempre:
+        nem começar de novo, nem encerrar."""
+        corpo = corpo_da_funcao("salvar")
+
+        self.assertIn("estado.enviando = true", corpo)
+        self.assertEqual(corpo.count("estado.enviando = false"), 2)
