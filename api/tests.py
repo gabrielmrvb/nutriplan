@@ -752,3 +752,114 @@ class OTracadoDaCorridaTests(Base):
         self.pessoa.delete()
 
         self.assertEqual(TracoDaCorrida.objects.count(), 0)
+
+
+class OLoteForaDeOrdemTests(Base):
+    """O aparelho entrega o lote bagunçado, e a corrida não pode encolher.
+
+    Isto não é hipótese de laboratório. O iOS suspende o app, ENFILEIRA as
+    atualizações de localização e as entrega quando ele volta a rodar; um app
+    encerrado no meio da corrida pode subir o lote novo antes de esvaziar o
+    antigo. Chegar fora de ordem é o caso normal do cliente nativo.
+
+    O modo de falha é o pior que existe: silencioso. O motor recusa todo trecho
+    com tempo andando para trás — está certo —, e sem ordenação isso vira uma
+    corrida MENOR do que a pessoa correu, sem erro, sem aviso, sem log.
+    """
+
+    def enviar(self, pontos, op_id):
+        corpo = {
+            "op_id": op_id,
+            "comecou_em": "2026-09-04T07:00:00+00:00",
+            "terminou_em": "2026-09-04T07:30:00+00:00",
+            "duracao_s": 1782,
+            "pontos": pontos,
+        }
+        return self.client.post(
+            reverse("api:corridas"),
+            json.dumps(corpo),
+            content_type="application/json",
+            **self.com_token(self.token_de(self.pessoa)),
+        )
+
+    def pontos_retos(self, quantos=60, passo=0.0001):
+        return [
+            {"lat": -23.55 + i * passo, "lon": -46.63, "t": i, "accuracy": 5}
+            for i in range(quantos)
+        ]
+
+    def test_lote_embaralhado_mede_o_mesmo_que_lote_em_ordem(self):
+        """A asserção é de IGUALDADE contra o caso ordenado, e não um piso.
+
+        Um `assertGreater(distancia, 0)` passaria com metade dos pontos
+        recusados — que é exatamente o defeito que este teste existe para pegar.
+        """
+        ordenados = self.pontos_retos()
+        embaralhados = [ordenados[i] for i in (30, 5, 59, 0, 17)] + [
+            p for i, p in enumerate(ordenados) if i not in (30, 5, 59, 0, 17)
+        ]
+
+        self.enviar(ordenados, "op-em-ordem")
+        self.enviar(embaralhados, "op-bagunca")
+
+        em_ordem = Corrida.objects.get(user=self.pessoa, op_id="op-em-ordem")
+        bagunca = Corrida.objects.get(user=self.pessoa, op_id="op-bagunca")
+
+        self.assertEqual(bagunca.distancia_m, em_ordem.distancia_m)
+        self.assertGreater(em_ordem.distancia_m, 0)
+
+    def test_lote_ao_contrario_ainda_mede_a_corrida_inteira(self):
+        """O pior caso: a entrega chega invertida de ponta a ponta."""
+        ordenados = self.pontos_retos()
+
+        self.enviar(ordenados, "op-frente")
+        self.enviar(list(reversed(ordenados)), "op-tras")
+
+        frente = Corrida.objects.get(user=self.pessoa, op_id="op-frente")
+        tras = Corrida.objects.get(user=self.pessoa, op_id="op-tras")
+
+        self.assertEqual(tras.distancia_m, frente.distancia_m)
+
+    def test_o_tracado_guardado_sai_em_ordem(self):
+        """O mapa liga os pontos na ordem em que estão guardados. Traçado fora
+        de ordem desenha um risco de ida e volta que ninguém correu."""
+        ordenados = self.pontos_retos()
+        self.enviar(list(reversed(ordenados)), "op-tras")
+
+        traco = TracoDaCorrida.objects.get(corrida__op_id="op-tras")
+        instantes = [p["t"] for p in traco.pontos]
+
+        # A completude vem PRIMEIRO, e é o que dá dente à asserção seguinte:
+        # sem ordenação o motor recusa tudo depois da primeira leitura, sobra
+        # um ponto só — e lista de um elemento está trivialmente ordenada.
+        # Sem esta linha, a sabotagem passava verde.
+        self.assertEqual(len(traco.pontos), 60)
+        self.assertEqual(instantes, sorted(instantes))
+
+    def test_lote_novo_antes_do_lote_velho_nao_perde_a_primeira_metade(self):
+        """O cenário concreto que o iOS produz, e o mais caro dos dois.
+
+        O app é encerrado no meio da corrida. Ao relançar, ele sobe o lote
+        recente e só depois esvazia o que tinha ficado no disco — então o
+        servidor recebe os minutos 15–30 ANTES dos minutos 0–15.
+
+        Sem ordenação a primeira metade inteira é recusada, porque cada leitura
+        dela tem tempo menor que a última já processada. A corrida chega ao
+        histórico com metade da distância, sem erro nenhum.
+
+        Uma versão anterior deste teste media leitura REPETIDA. Ela passava
+        verde com a ordenação sabotada — repetição é recusada por dois filtros
+        do motor (tempo zero e deslocamento zero) e nunca dependeu da ordem.
+        Testava algo verdadeiro que não era o que o nome prometia.
+        """
+        ordenados = self.pontos_retos()
+        primeira_metade, segunda_metade = ordenados[:30], ordenados[30:]
+
+        self.enviar(ordenados, "op-inteiro")
+        self.enviar(segunda_metade + primeira_metade, "op-lotes-trocados")
+
+        inteiro = Corrida.objects.get(user=self.pessoa, op_id="op-inteiro")
+        trocados = Corrida.objects.get(user=self.pessoa, op_id="op-lotes-trocados")
+
+        self.assertEqual(trocados.distancia_m, inteiro.distancia_m)
+        self.assertEqual(len(trocados.traco.pontos), 60)

@@ -197,6 +197,28 @@ def _calcular(pontos):
                 return None
         limpos.append(limpo)
 
+    # ORDEM CRONOLÓGICA ANTES DO MOTOR, e a razão é do cliente e não do motor.
+    #
+    # `_aceitavel` recusa todo trecho com `segundos <= 0`, porque tempo que
+    # anda para trás não é deslocamento. Isso está certo para uma sequência
+    # ordenada — e é exatamente o que transforma um lote fora de ordem numa
+    # corrida MENOR do que foi corrida, em silêncio: os pontos são recusados
+    # um a um e o total simplesmente sai baixo.
+    #
+    # E lote fora de ordem é o caso normal do cliente nativo, não a exceção. O
+    # iOS suspende o app, ENFILEIRA as atualizações e as entrega quando ele
+    # volta a rodar; um app encerrado no meio da corrida pode subir o lote
+    # novo antes de esvaziar o antigo.
+    #
+    # Ordenar aqui e não em `workouts/corrida.py`: o motor é função pura sobre
+    # uma sequência, e "sequência" é uma promessa de quem chama. Esta é a
+    # fronteira com o aparelho, e é aqui que a bagunça dele para.
+    #
+    # Ordenação ESTÁVEL, então leituras com o mesmo `t` mantêm a ordem de
+    # chegada — e a segunda continua sendo recusada pelo motor, que é o
+    # comportamento certo para leitura repetida.
+    limpos.sort(key=lambda leitura: leitura["t"])
+
     resultado = motor.percurso(limpos)
     return {
         "distancia_m": int(round(resultado["distancia_m"])),
