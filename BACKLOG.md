@@ -65,6 +65,16 @@ Faltam os dados para as páginas legais.
 
 ## Decisões a revisar antes de crescer
 
+### `/conta/social/` não tem porta no app
+A tela de contas conectadas foi vestida com a identidade do produto em
+`57a9f6a`, e a capability é real: ver e desvincular o Google só existe ali — o
+perfil não oferece nada disso. Mas **nada linka para ela**. Quem quiser
+desvincular precisa digitar a URL.
+
+Ficou de fora de propósito: acrescentar uma entrada no perfil é decisão de
+produto, não conserto de defeito. A pergunta é se desvincular o Google é coisa
+que alguém faz — se for, o lugar é o perfil, perto de "Trocar minha senha".
+
 ### Retenção do log administrativo, antes de operação multi-staff
 `RegistroAdministrativo` usa CASCADE: apagar a conta apaga a trilha dela,
 inclusive o marcador de primeiro administrador. É o contrato atual do projeto —
@@ -125,6 +135,28 @@ A recuperação de senha sai por remetente de terceiro. Domínio próprio muda
 entregabilidade e reduz a chance de a mensagem virar spam.
 
 ## Medido e vale guardar
+
+### Ativar o service worker apaga o cache de páginas inteiro
+Medido em navegador real em 04/09/2026, no local e em produção:
+`nutriplan-v6-paginas` tinha 2 entradas antes; depois de uma ativação de worker
+de verdade, o cache **não existe mais**. Como toda publicação instala um worker
+novo, **todo deploy zera o cache de páginas**.
+
+Quem faz isso é `limpar()`, na primeira das duas limpezas:
+`keys.filter((k) => k !== CACHE)`. `CACHE_PAGINAS` é `"nutriplan-v6-paginas"`,
+que é `!== "nutriplan-v6"` — então ele entra no filtro. O comentário ao lado só
+promete apagar "gerações antigas" (`nutriplan-v4` quando já estamos na v5), e
+o cache de páginas da geração ATUAL não é isso.
+
+**Não corrigir sem defeito comprovado.** O comportamento é defensável: uma
+página guardada aponta para estáticos do build anterior, e servir esse shell
+velho depois de um deploy seria pior que perder o offline por uma navegação. O
+que está errado é a documentação, não o efeito — está certo por acidente de
+nomenclatura, e é isso que fica registrado aqui.
+
+Isto é diferente da limpeza que `f301dc6` acrescentou: aquela é por RECADO, na
+tela de entrar, e existe para a sessão que acaba. Esta é no `activate`, e
+acontece por publicação.
 
 ### O peso sozinho responde por 17 contas
 Medido em produção em 02/09/2026: 17 contas registraram peso e **nenhuma** outra
@@ -757,3 +789,56 @@ tenha sido enfileirado.
 O gatilho por `navigator.onLine` é o que está documentado e funciona para o caso
 principal (celular sem sinal). Cobrir servidor fora do ar exigiria enfileirar no
 ERRO do `fetch`, e isso muda o contrato da fila — decisão de produto.
+
+## Achados da varredura geral (04/09/2026) — PUBLICADOS
+
+Fechados e no ar em `f301dc6` e `57a9f6a`. Ficam registrados porque a origem de
+cada um ensina mais que a correção — e as três primeiras têm a MESMA origem:
+nenhuma fumaça olhava para o caminho, porque ninguém NAVEGA até ele.
+
+- **ALTO privacidade — o dia guardado sobrevivia à sessão.** `CACHE_PAGINAS`
+  guardava cópia de cada tela e nada a apagava. Medido no navegador: a cópia de
+  `/hoje/` tinha 55.831 bytes, com `data-usuario`, `data-autenticado="1"` e as
+  cinco refeições. O `sw.js` já nomeava esta ameaça para `/admin/` e `/gestao/`
+  e nunca a aplicou às telas da própria pessoa. O gatilho é a TELA DE ENTRAR e
+  não o botão de sair: sessão que EXPIRA não passa por logout nenhum.
+- **ALTO — endpoint de ação devolvia 405 com zero byte.** Sessão expira, a
+  pessoa toca em "+250 ml", `login_required` manda para
+  `/conta/entrar/?next=/agua/`, ela acerta a senha, e o Django devolve o `next`
+  com um GET. Página completamente em branco depois de um login bem-sucedido.
+  `TodaTelaTemPortaTests` não pegava: ele cuida de destinos que alguém alcança
+  de propósito, e este caminho quem monta é o Django.
+- **ALTO — desistir do consentimento do Google terminava em 500.** O allauth
+  traduz `access_denied` em `AuthError.CANCELLED` e redireciona para
+  `socialaccount_login_cancelled`, cuja view reverte `account_login` — nome que
+  mora em `allauth.account.urls`, deixado de fora de propósito. Não eram três
+  rotas: 25 lugares da biblioteca revertem esse nome, com o `AccountMiddleware`
+  instalado entre eles. Em produção, `signup/`, `login/cancelled/` e
+  `login/error/` respondiam 500.
+- **A interface que ainda era da biblioteca.** Três telas do allauth chegavam a
+  uma pessoa de verdade. `/conta/social/` respondia 200 com 2.517 bytes para
+  quem está logado — sem `app.css`, sem navegação, sem marca. Ela NÃO foi
+  escondida: ver e desvincular o Google só existe ali. Só o template mudou; a
+  view continua sendo a do allauth, com o `DisconnectForm` e a trava de
+  `validate_disconnect`.
+
+### O que estes achados ensinaram sobre os testes
+Seis sabotagens passaram verdes na primeira rodada e viraram conserto de teste.
+Duas merecem ficar escritas:
+
+- `assertIn('href="/conta/entrar/"', html)` casava com o "Entrar" do cabeçalho,
+  e não com o botão do cartão. É a armadilha que o `CLAUDE.md` descreve, na
+  terceira aparição — agora ancorada no texto do próprio botão.
+- `self.client.post(url, {"account": pk})` provava que a VIEW funciona, e ela
+  era do allauth e já funcionava. Com o nome do campo trocado no template ou o
+  `csrf_token` removido, o teste seguia verde e a tela ficava bonita e
+  quebrada. **Teste de formulário precisa enviar o formulário RENDERIZADO**,
+  com `enforce_csrf_checks=True` — o cliente padrão do Django não confere o
+  token.
+
+### ⏳ QA visual real das telas novas
+`authentication_error.html` e `connections.html` foram provados por HTTP e por
+teste. A de erro também foi vista no navegador a 375px (botão 297×47px, sem
+rolagem horizontal). A de contas conectadas **não** foi vista no navegador com
+usuário autenticado: não há conta de teste em produção, e usar a conta real
+para isso seria fabricar evidência.

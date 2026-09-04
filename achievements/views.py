@@ -104,7 +104,10 @@ class ConquistasView(OnboardingRequiredMixin, TemplateView):
 
 
 class MarcarVistasView(AcaoDeTela, LoginRequiredMixin, View):
-    """Fecha o aviso de conquista. Só POST — isso muda estado.
+    """Fecha o aviso de conquista. A AÇÃO é só POST — isso muda estado.
+
+    O GET devolve a tela de conquistas, e não um 405 em branco: ver
+    `config/acoes.py`.
 
     Recebe os ids que a página mostrou, e não "todas": entre renderizar o aviso
     e a pessoa tocar em "Continuar" outra conquista pode nascer, e marcá-la como

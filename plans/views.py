@@ -376,7 +376,10 @@ def _hoje_em(ancora: str) -> str:
 
 
 class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
-    """Marca uma refeição do dia. Só POST — isso muda estado.
+    """Marca uma refeição do dia. A AÇÃO é só POST — isso muda estado.
+
+    O GET devolve a tela do dia, e não um 405 em branco: ver
+    `config/acoes.py`.
 
     A ação chega como `status` e, quando é "comi", vem junto o id da opção
     escolhida. O slot é buscado dentro do plano ATIVO do próprio usuário: sem
@@ -644,7 +647,7 @@ class RecalibrateView(AcaoDeTela, OnboardingRequiredMixin, View):
 
 
 class RecalculatePlanView(AcaoDeTela, OnboardingRequiredMixin, View):
-    """Recálculo manual, só por POST.
+    """Recálculo manual: a AÇÃO é só por POST.
 
     O recálculo automático já cobre mudança de dado; este botão existe para o
     caso de a pessoa querer forçar um plano novo (voltou de férias, mudou de
@@ -701,7 +704,10 @@ class ShoppingListView(PlanRequiredMixin, TemplateView):
 
 
 class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
-    """Soma água ao dia. Só POST — isso muda estado.
+    """Soma água ao dia. A AÇÃO é só POST — isso muda estado.
+
+    O GET devolve a tela do dia, e não um 405 em branco: ver
+    `config/acoes.py`.
 
     Soma em vez de definir o total porque é assim que a pessoa mede: ela acabou
     de beber um copo, não sabe (nem quer calcular) quanto isso faz no

@@ -743,7 +743,10 @@ class OnboardingRequiredMixin(LoginRequiredMixin):
 
 
 class WeightLogView(AcaoDeTela, OnboardingRequiredMixin, View):
-    """Grava o peso de hoje. Só POST — isso muda estado.
+    """Grava o peso de hoje. A AÇÃO é só POST — isso muda estado.
+
+    O GET devolve a tela do dia, e não um 405 em branco: ver
+    `config/acoes.py`.
 
     Escreve `WeightEntry` e nada mais. Não toca o `Profile`, não gera plano,
     não chama o `meal_planner`. A cadeia que atualiza a meta já existe e é

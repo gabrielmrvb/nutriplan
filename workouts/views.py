@@ -286,7 +286,8 @@ def marcar_ficha_aberta(sessions) -> None:
 
 
 class RecordLoadView(AcaoDeTela, OnboardingRequiredMixin, View):
-    """Salva a carga usada num exercício. Só POST — isso muda estado."""
+    """Salva a carga usada num exercício. A AÇÃO é só POST — isso muda
+    estado; o GET devolve a ficha da semana (`config/acoes.py`)."""
 
     #: A carga é anotada na ficha da semana, e é para lá que um GET volta.
     tela_da_acao = "workouts:routine"
