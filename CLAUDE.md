@@ -3,10 +3,24 @@
 PWA de dieta e treino em Django 5.2 + PostgreSQL. Uma pessoa, um plano, sem
 conta compartilhada. Em produção: https://nutriplan-xxfn.onrender.com
 
+## Trabalho em missão
+
+Campanha, fase, bloco ou lote que termina em publicação: leia a skill
+**`nutriplan-missao`** antes de editar. Ela traz o ciclo (planning →
+decomposição → subagentes → integração → testes → browser QA → sabotagem →
+suíte → deploy → smoke), quando avançar sozinho, e as condições exatas de
+parada humana.
+
+As outras quatro continuam valendo para o que decidem: `nutriplan-product`
+(vale construir?), `nutriplan-architecture` (onde a regra mora?),
+`nutriplan-ux` (como a tela funciona?) e `nutriplan-qa` (como provar?).
+
+Pergunta pontual e ajuste de uma linha **não** precisam de protocolo.
+
 ## Rodar
 
 ```bash
-.venv/Scripts/python.exe manage.py test          # suíte completa (~3 min)
+.venv/Scripts/python.exe manage.py test          # suíte completa (~20 min)
 bash scripts/instalar_hooks.sh                   # liga as travas de git
 ```
 

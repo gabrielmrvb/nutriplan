@@ -15,7 +15,7 @@ o que ela não cobre.
 
 ## O que "a suíte passou" prova, e o que não prova
 
-A suíte tem **692 testes** e leva cerca de três minutos. Ela é boa e vale muito.
+A suíte tem **1.968 testes** e leva cerca de vinte minutos (medida em 04/09/2026). Ela é boa e vale muito.
 E ela prova exatamente uma coisa: **as expectativas que alguém codificou
 continuam valendo**.
 
@@ -359,6 +359,16 @@ Você é a quarta da fila, e a única que trabalha **depois**:
 - **`nutriplan-ux`** — "como deve funcionar para quem usa?"
 - **`/feature-dev`** — "como investigar, arquitetar e implementar?"
 - **`nutriplan-qa`** — "como provar que funciona e não regrediu?"
+
+Essa fila é a de uma FEATURE, e nela as três travas abaixo valem inteiras: você
+não escreve teste sem autorização, não conserta o bug que encontra, e não faz
+deploy.
+
+Dentro de uma MISSÃO é outra situação, e `nutriplan-missao` a descreve: a
+pessoa entregou o objetivo inteiro, publicação incluída, e escrever teste,
+corrigir e publicar passam a fazer parte do contrato recebido. A diferença não
+é de rigor — é de quem autorizou o quê. Fora de missão, o que está escrito aqui
+continua valendo sem exceção.
 
 Você **não** decide se a feature valia a pena, não redesenha UX, não implementa,
 não corrige, e não escreve código de produção.
