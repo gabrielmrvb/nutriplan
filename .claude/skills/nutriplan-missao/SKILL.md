@@ -173,7 +173,7 @@ Onde cada um mora de verdade. Seguir o ponteiro errado é o que faz alguém
 "corrigir" esta cadeia para a versão curta e perder os três comandos:
 
 - **teste dirigido é seu, e à mão.** O `pre-commit` roda um conjunto FIXO de
-  seis classes de estilo e alvo de toque (`scripts/hooks/pre-commit:30`), que
+  seis classes de estilo e alvo de toque (`scripts/hooks/pre-commit:30-37`), que
   não olha para o que você mexeu. Ele não é o primeiro passo da cadeia, e
   tomá-lo por isso é perder o gate que mais importa;
 - `makemigrations --check` esse sim roda sozinho, no mesmo hook
@@ -274,11 +274,17 @@ segunda nasceria para divergir.
 
 Para classificar um ACHADO — que é outra pergunta — use `BUG` · `UX REAL` ·
 `OBSERVAÇÃO` · `FALSO POSITIVO`, e `LIMITAÇÃO` para o que a plataforma não
-permite. Os cinco são convenção **deste protocolo**: medido em 04/09/2026, só
-`OBSERVAÇÃO` tem precedente escrito como rótulo no repositório
-(`BACKLOG.md:934`). O `BACKLOG.md` descarta "falso positivo" várias vezes, mas
-em prosa e em minúscula — o que não é a mesma coisa, e foi exatamente o que
-uma medição com `grep -i` confundiu aqui.
+permite.
+
+Precedente escrito, medido em 04/09/2026: `OBSERVAÇÃO` em `BACKLOG.md:934`,
+`FALSO POSITIVO` em `push/test_b7_no_store.py:19`, e `BUG` como item numerado
+em `workouts/tests.py:4405`. `UX REAL` e `LIMITAÇÃO` não têm precedente
+nenhum — são convenção deste protocolo, e ficam declaradas como tal.
+
+Duas versões desta frase já erraram, por motivos diferentes: a primeira
+afirmou um uso que não existia; a segunda mediu só no `BACKLOG.md` e afirmou
+sobre "o repositório". **O escopo da medição e o escopo da afirmação têm de
+ser o mesmo** — é a régua desta seção aplicada a ela própria.
 
 Separe sempre **PROVADO EM PRODUÇÃO** de **PROVADO LOCAL/QA**. Simulação não é
 aparelho na rua, e teste local não é produção.
