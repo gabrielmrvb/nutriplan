@@ -16,10 +16,13 @@ era de processo. `config/runner.py` é a verificação; este arquivo é a prova 
 que ela está ligada e de que ela pergunta a coisa certa.
 """
 import os
+import tempfile
+import unittest
+from pathlib import Path
 from unittest import mock
 
 from django.conf import settings
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
 from config import runner
 
@@ -58,6 +61,167 @@ class OsQuatroGuardrailsContinuamDePeTests(SimpleTestCase):
                 self.assertTrue(
                     metodos, "%s virou casca vazia" % nome
                 )
+
+
+class CadaGuardrailFicaVermelhoQuandoOMundoQuebraTests(TestCase):
+    """A prova de que os quatro PROTEGEM, e não só existem.
+
+    A classe acima cobra que o guardrail exista e tenha um método `test_*`.
+    Isso pega quem APAGA um guardrail. Não pega quem o esvazia por dentro — e
+    esvaziar é a regressão provável: ninguém deleta uma classe para fazer a
+    suíte passar, mas comentar uma asserção é o atalho de sempre.
+
+    Medido antes de este teste existir: com `return` no topo de
+    `test_nenhum_comentario_de_cerquilha_atravessa_linhas`, o guardrail passou
+    a proteger NADA e a suíte respondeu `Ran 15 tests ... OK`.
+
+    Inspecionar o código-fonte não resolveria: o `return` fica ANTES da
+    asserção, e o texto `assertEqual` continua no arquivo — uma busca por
+    "assert" passaria verde. Só EXECUTAR resolve. Por isso cada guardrail aqui
+    é rodado pela máquina do unittest contra um mundo quebrado de propósito, e
+    precisa ficar vermelho.
+
+    O par mutação/controle é o que dá sentido a cada asserção: sem o controle,
+    um guardrail quebrado por acidente ficaria vermelho sempre e o teste
+    passaria pelo motivo errado.
+    """
+
+    def resultado_de(self, classe, metodo):
+        """Roda UM método de teste e devolve o resultado.
+
+        Pela `TestSuite` e não por chamada direta ao método: é o que faz
+        `setUpClass` e `setUpTestData` rodarem como rodam de verdade — dois dos
+        quatro guardrails dependem disso.
+        """
+        resultado = unittest.TestResult()
+        unittest.TestSuite([classe(metodo)]).run(resultado)
+        return resultado
+
+    # ---- o varredor de comentários ----
+
+    def test_o_de_comentario_pega_um_comentario_vazado(self):
+        from config import tests as guardrails
+
+        with tempfile.TemporaryDirectory() as pasta:
+            templates = Path(pasta) / "templates"
+            templates.mkdir()
+            (templates / "mau.html").write_text(
+                "<p>oi</p>\n{#\ncomentario de tres linhas\n#}\n", encoding="utf-8"
+            )
+            with mock.patch.object(guardrails, "RAIZ", Path(pasta)):
+                r = self.resultado_de(
+                    guardrails.ComentarioDeTemplateNaoVazaTests,
+                    "test_nenhum_comentario_de_cerquilha_atravessa_linhas",
+                )
+
+        self.assertFalse(
+            r.wasSuccessful(),
+            "o guardrail de comentário não viu um `{#` de três linhas",
+        )
+
+    def test_o_de_comentario_aceita_um_template_saudavel(self):
+        """Controle: sem o comentário vazado, o mesmo guardrail passa. Sem
+        isto, um guardrail quebrado ficaria vermelho sempre e o teste de cima
+        passaria sem provar nada."""
+        from config import tests as guardrails
+
+        with tempfile.TemporaryDirectory() as pasta:
+            templates = Path(pasta) / "templates"
+            templates.mkdir()
+            (templates / "bom.html").write_text(
+                "<p>oi</p>\n{# uma linha só #}\n", encoding="utf-8"
+            )
+            with mock.patch.object(guardrails, "RAIZ", Path(pasta)):
+                r = self.resultado_de(
+                    guardrails.ComentarioDeTemplateNaoVazaTests,
+                    "test_nenhum_comentario_de_cerquilha_atravessa_linhas",
+                )
+
+        self.assertTrue(r.wasSuccessful(), "o guardrail reprovou template válido")
+
+    # ---- o varredor de portas ----
+
+    def test_o_de_porta_pega_um_destino_sem_link(self):
+        """Uma pasta de templates vazia é o pior caso do mundo que ele guarda:
+        nenhum destino tem link."""
+        from config import tests as guardrails
+
+        with tempfile.TemporaryDirectory() as pasta:
+            (Path(pasta) / "templates").mkdir()
+            with mock.patch.object(guardrails, "RAIZ", Path(pasta)):
+                r = self.resultado_de(
+                    guardrails.TodaTelaTemPortaTests,
+                    "test_todo_destino_tem_pelo_menos_um_link",
+                )
+
+        self.assertFalse(
+            r.wasSuccessful(), "o guardrail de porta não viu destino sem link"
+        )
+
+    def test_o_de_porta_aceita_os_templates_de_verdade(self):
+        """Controle, e ele vale duas coisas: prova que a mutação é a causa da
+        falha acima, e reconfirma que o app real continua com todas as portas."""
+        from config import tests as guardrails
+
+        r = self.resultado_de(
+            guardrails.TodaTelaTemPortaTests,
+            "test_todo_destino_tem_pelo_menos_um_link",
+        )
+
+        self.assertTrue(r.wasSuccessful(), "há destino sem porta no app real")
+
+    # ---- as rotas extras do Admin ----
+
+    def test_o_de_rota_extra_pega_rota_sem_decisao(self):
+        """Esvaziar a tabela de decisões equivale a uma rota nova aparecer sem
+        ninguém decidir nada — que é o furo de `<pk>/password/` que deu origem
+        a este guardrail."""
+        from accounts import tests as guardrails
+
+        with mock.patch.object(guardrails.RotasExtrasDoAdminTests, "DECIDIDAS", {}):
+            r = self.resultado_de(
+                guardrails.RotasExtrasDoAdminTests, "test_toda_rota_extra_tem_decisao"
+            )
+
+        self.assertFalse(
+            r.wasSuccessful(), "o guardrail aceitou rota extra sem decisão escrita"
+        )
+
+    def test_o_de_rota_extra_aceita_a_tabela_de_verdade(self):
+        from accounts import tests as guardrails
+
+        r = self.resultado_de(
+            guardrails.RotasExtrasDoAdminTests, "test_toda_rota_extra_tem_decisao"
+        )
+
+        self.assertTrue(r.wasSuccessful(), "há rota extra do Admin sem decisão")
+
+    # ---- a matriz de capability ----
+
+    def test_o_de_matriz_pega_alcance_errado(self):
+        """`/admin/` responde 200 para os dois papéis. Declarar 404 é dizer que
+        a tela não existe — e o guardrail existe justamente para não deixar a
+        tabela divergir do que o HTTP responde."""
+        from accounts import tests as guardrails
+
+        mentira = (("/admin/", 404, 404, "mutação: o índice não responde 404"),)
+        with mock.patch.object(guardrails.MatrizDeCapabilityTests, "ALCANCE", mentira):
+            r = self.resultado_de(
+                guardrails.MatrizDeCapabilityTests, "test_a_matriz_de_alcance_esta_travada"
+            )
+
+        self.assertFalse(
+            r.wasSuccessful(), "a matriz aceitou um alcance que o HTTP desmente"
+        )
+
+    def test_o_de_matriz_aceita_a_tabela_de_verdade(self):
+        from accounts import tests as guardrails
+
+        r = self.resultado_de(
+            guardrails.MatrizDeCapabilityTests, "test_a_matriz_de_alcance_esta_travada"
+        )
+
+        self.assertTrue(r.wasSuccessful(), "a matriz de capability divergiu do HTTP")
 
 
 class ORunnerUnicoEstaLigadoTests(SimpleTestCase):

@@ -908,3 +908,39 @@ telas que o B7 criou.
 `/conta/social/` renderizada com usuário autenticado. Não há conta de teste em
 produção, e usar a conta real seria fabricar evidência. Provada local/QA, nos
 quatro viewports, nos estados vazio e cheio.
+
+## Disciplina de testes (04/09/2026) — B9
+
+O contrato do B9 pede duas coisas: preservar quatro guardrails sistêmicos e
+preservar a regra de nunca rodar suíte dirigida enquanto a completa usa o mesmo
+`test_nutriplan`. As duas já tinham mecanismo — `config/test_b9_disciplina.py` e
+`config/runner.py`. A auditoria desta rodada perguntou se o mecanismo PROTEGE,
+e achou um buraco.
+
+### O guardrail podia virar no-op sem ninguém notar
+`OsQuatroGuardrailsContinuamDePeTests` cobrava que a classe existisse e tivesse
+um método `test_*`. Isso pega quem APAGA um guardrail — e ninguém apaga uma
+classe para fazer a suíte passar. O atalho de sempre é esvaziar a asserção.
+
+Medido: com `return` no topo de
+`test_nenhum_comentario_de_cerquilha_atravessa_linhas`, o guardrail passou a
+proteger **nada** e a suíte respondeu `Ran 15 tests ... OK`.
+
+Inspeção de código-fonte não resolveria, e é por isso que a correção não é
+essa: o `return` fica ANTES da asserção, então o texto `assertEqual` continua no
+arquivo e qualquer busca por "assert" passaria verde. **Só executar resolve.**
+
+`CadaGuardrailFicaVermelhoQuandoOMundoQuebraTests` roda cada um dos quatro pela
+máquina do `unittest` contra um mundo quebrado de propósito — pasta de
+templates com `{#` de três linhas, pasta sem template nenhum, tabela de decisões
+do Admin esvaziada, `ALCANCE` declarando 404 onde o HTTP responde 200 — e exige
+vermelho. Cada mutação vem com o controle sem mutação: sem ele, um guardrail
+quebrado por acidente ficaria vermelho sempre e a asserção passaria pelo motivo
+errado.
+
+A checagem antiga ficou: ela pega o caso que a nova não pega, porque a nova
+precisa que a classe exista para poder rodá-la. As duas têm trabalho próprio, e
+a sabotagem S216 é a prova disso.
+
+Sabotagem: 6 cenários, 6 detectados — os quatro guardrails esvaziados por
+dentro, mais os dois contra-controles.
