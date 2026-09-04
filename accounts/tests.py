@@ -6167,6 +6167,17 @@ class MatrizDeCapabilityTests(TestCase):
         # de deixá-la fora do inventário como aconteceu com `auth.Group`.
         ("/admin/plans/mealslot/", 403, 403, "estrutura do plano, sem caso operacional"),
         ("/admin/workouts/trainingsession/", 403, 403, "sessão da ficha, sem caso operacional"),
+        # NÃO registradas, e é isso que a linha declara. `Corrida` diz a que
+        # horas a pessoa sai de casa; `TracoDaCorrida` diz por onde ela passou
+        # — é o dado mais sensível do app. Nenhum dos dois responde pergunta de
+        # suporte, e nenhum tem tela.
+        #
+        # Ficam aqui porque proteção por AUSÊNCIA de registro é a mais frágil
+        # que existe: um `@admin.register` distraído a desfaz sem tocar em
+        # permissão nenhuma, e foi essa a ressalva que o B10 deixou sobre
+        # `WeightEntry`. Declarado, vira 404 exigido em vez de 404 por acaso.
+        ("/admin/workouts/corrida/", 404, 404, "a que horas a pessoa sai de casa"),
+        ("/admin/workouts/tracodacorrida/", 404, 404, "por onde ela passou"),
     )
 
     @classmethod

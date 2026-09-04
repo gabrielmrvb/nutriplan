@@ -112,6 +112,49 @@ isso não é necessário e por isso não foi feito.
 
 ---
 
+## 3-B. Os dois motores são DELIBERADOS. Não unifique em silêncio.
+
+Existem hoje dois caminhos que calculam distância, e eles não concordam por
+construção:
+
+| caminho | motor | traçado | autoritativo? |
+|---|---|---|---|
+| web / PWA | JavaScript, `static/js/corrida.js` | **não persiste** | o cliente |
+| mobile / API | `workouts/corrida.py` | `TracoDaCorrida` | **o servidor** |
+
+Isto tem cara de dívida técnica e **não é**. Foi proposto unificar — fazer a PWA
+enviar os pontos e o servidor recalcular — e a proposta foi **recusada pelo dono
+do produto em 04/09/2026**, com quatro razões:
+
+1. **a PWA não consegue cumprir o requisito central de qualquer jeito.**
+   Geolocalização em segundo plano com a tela bloqueada não existe como API web.
+   Unificar o motor não daria à PWA nada do que falta;
+2. **o custo seria imediato e sobre o dado mais sensível do app.** São 52 contas
+   reais: elas passariam a subir coordenada no deploy seguinte. Pelo caminho da
+   API o custo é zero, porque não há cliente ainda;
+3. **o traçado deve nascer onde há controle.** Execução em segundo plano,
+   persistência local, sincronização, permissão e recuperação de crash são
+   coisas do cliente nativo. A PWA não tem nenhuma delas;
+4. **seria uma ponte provisória**, substituída pela implementação mobile.
+
+### O que isso obriga quem vier depois
+
+- `SalvarCorridaView` **não aceita `pontos`**, e isso é contrato;
+- `static/js/corrida.js` **não envia coordenada** — "as coordenadas morrem
+  aqui", diz o próprio arquivo —, e isso é contrato;
+- há teste exigindo as duas coisas. Uma refatoração bem-intencionada que
+  "aproveite" o motor Python para a web fica vermelha, de propósito.
+
+Reverter isto é **decisão de produto**, não limpeza de código. O dia em que a
+web ganhar mapa é o dia em que alguém decidir que vale coletar coordenada de
+quem usa navegador — e essa frase precisa ser dita por uma pessoa, não deduzida
+por quem estiver refatorando.
+
+A divergência é temporária no sentido de que o cliente nativo vai existir. Não é
+temporária no sentido de "arrume quando puder".
+
+---
+
 ## 4. O modelo de dados de GPS
 
 Guardado hoje, em `TracoDaCorrida`:

@@ -188,10 +188,50 @@ está na tela de treino, e não na barra de baixo, porque promover a destino de
 topo é dizer "isto funciona" — e ninguém verificou que funciona com a tela de
 um celular de verdade.
 
-### Mapa e traçado
-O traçado NÃO é guardado hoje, e é decisão. Quando o mapa for desenhado, a
-decisão que vem junto é o corte das pontas da rota: uma imagem compartilhada
-que começa e termina na porta de casa publica o endereço.
+### Mapa e traçado — PARCIALMENTE RESOLVIDO EM 04/09/2026
+O traçado passou a ser guardado, em `TracoDaCorrida`, **mas só pelo caminho da
+API** (`POST /api/v1/corridas/` com `pontos`). Como não existe cliente mobile
+ainda, na prática **nenhuma corrida real tem traçado hoje**.
+
+A PWA publicada continua sem enviar coordenada: `static/js/corrida.js` calcula
+no navegador e sobe só os números — "as coordenadas morrem aqui" —, e
+`SalvarCorridaView` não aceita `pontos`.
+
+Fica de pé o que a decisão original já anunciava, e ganhou dono:
+
+- **o corte das pontas da rota** continua não implementado. Ele opera só sobre
+  `TracoDaCorrida`, sem tocar em `Corrida` — que é o motivo de serem duas
+  tabelas;
+- **retenção do traçado** não existe.
+
+### ✅ DECIDIDO em 04/09/2026: a PWA NÃO passa a enviar coordenada
+Existem hoje DOIS motores de distância, e **isso é deliberado e temporário**:
+
+| caminho | motor | traçado |
+|---|---|---|
+| web / PWA | JavaScript, em `static/js/corrida.js` | **não persiste** |
+| mobile / API | `workouts/corrida.py`, autoritativo | persiste em `TracoDaCorrida` |
+
+A unificação foi proposta e **recusada pelo dono do produto**, com motivo:
+
+1. a PWA continua incapaz de cumprir o requisito central — GPS em segundo plano
+   com a tela bloqueada. Ela não tem essa API, e nenhuma mudança de código aqui
+   dá isso a ela;
+2. fazer a PWA enviar coordenada agora começaria a coletar localização sensível
+   de **usuários reais** sem resolver a limitação central. O custo seria imediato
+   e sobre o dado mais sensível do app; o ganho, nenhum;
+3. o traçado deve nascer no cliente nativo, onde existe controle de execução em
+   segundo plano, persistência local, sincronização, permissão e recuperação de
+   crash;
+4. uma ponte provisória na PWA seria substituída pela implementação mobile.
+
+**NÃO "unifique" os dois caminhos silenciosamente.** `SalvarCorridaView` não
+aceita `pontos` e `static/js/corrida.js` não envia coordenada — as duas coisas
+são contrato, não pendência, e há teste exigindo que continuem assim. Reverter
+esta decisão é decisão de produto e precisa de dono, não de refatoração.
+
+O raciocínio completo está em
+[`docs/corrida-mobile-arquitetura.md`](docs/corrida-mobile-arquitetura.md).
 
 ### "Recorde" precisa de definição
 Melhor pace de 1 km, melhor pace médio de uma corrida de 1 km, e melhor 1 km
