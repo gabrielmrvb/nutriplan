@@ -399,6 +399,10 @@ class TouchTargetTests(TestCase):
         # suada — o pior lugar possível para um alvo de 34px.
         (".rest-timer__more {", "min-height: 2.75rem"),
         (".rest-timer__close {", "height: 2.75rem"),
+        # O link de volta das telas legais. Media 102x22 na privacidade e
+        # 157x22 nos termos: e o paragrafo inteiro, entao a excecao de alvo
+        # inline da WCAG nao o cobre — ela vale para link no meio de frase.
+        (".legal__volta a {", "min-height: 2.75rem"),
     ]
 
     def test_every_interactive_element_reaches_44px(self):

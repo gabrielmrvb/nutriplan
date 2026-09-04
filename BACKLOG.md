@@ -169,7 +169,7 @@ ensina mais que a correção:
 - **P2 — link quebrado na política de privacidade**, apontando para uma rota
   que só aceita POST de propósito.
 
-### PREMIUM POLISH — B1 A B7 FEITOS; B8 É O PRÓXIMO
+### PREMIUM POLISH — B1 A B8 FEITOS; B9 É O PRÓXIMO
 
 **B1 — LOGIN / CADASTRO ✅** Auditado em navegador real em 375, 430, 768 e
 desktop. A tela já estava boa: zero rolagem horizontal, zero alvo abaixo de
@@ -486,7 +486,54 @@ comparar TOKEN separado por vírgula, sem escape nenhum, e entrou um teste que
 proíbe caractere de controle no arquivo inteiro — com sabotagem que o
 reintroduz.
 
-**B8 — VISUAL QA REAL ⏳ PRÓXIMO**
+**B8 — VISUAL QA REAL ✅** Varredura de navegador em 375, 430, 768 e desktop,
+nas quatro larguras para cada tela: 24 telas do app mais as 4 de erro. Réguas
+limpas — zero rolagem horizontal da página, zero texto abaixo de 11px, zero
+falha de contraste, e nenhum alvo abaixo de 44px fora do caso corrigido abaixo.
+
+O achado principal não estava em nenhuma das telas que a varredura veio medir:
+**o app não tinha página de erro nenhuma**. Medido em produção antes da
+correção, `GET /rota-que-nao-existe/` devolvia 179 bytes da página embutida do
+Django — em inglês, sem marca, sem estilo e sem um link. Num app cuja regra é
+`TodaTelaTemPortaTests`, a única tela sem saída era a de quem chegou no lugar
+errado. As três são alcançáveis: 404 por link velho ou rota renomeada, 403 por
+quem é da equipe sem `ver_painel_de_gestao` (cenário que o B5 já testa), e 500
+quando o resto falhou.
+
+A porta fica DENTRO do cartão, e isso é o desenho: um 404 é alcançável
+deslogado, e nesse estado o `base.html` não desenha barra de abas — medido,
+`<body class="">` sem `tem-tabbar`. Herdar a porta da navegação deixaria sem
+saída exatamente quem mais precisa dela.
+
+O 500 é autocontido porque tem regra diferente: `server_error` faz
+`template.render()` sem request e sem context processors — "Context: None" na
+docstring do Django. Herdar do `base.html` renderizaria `app_css_url` vazio, e
+variável desconhecida vira string vazia sem erro nenhum: sairia uma tela sem
+estilo, e o defeito só apareceria no dia em que o servidor já estivesse
+quebrado. Há teste estrutural proibindo a herança.
+
+Um alvo corrigido: `.legal__volta a`, o link de volta da privacidade e dos
+termos, media 102x22 e 157x22. Ele não é link no meio de frase — é o parágrafo
+inteiro, e serve de navegação —, então a exceção de alvo inline da WCAG (2.5.5
+e 2.5.8) não o cobre. Agora mede 44x131 e 44x186, e entrou em
+`TouchTargetTests`. Os links de "Perfil" e "Excluir minha conta" no meio das
+definições continuam com 22px de propósito: esses SÃO texto corrido.
+
+Dois falsos positivos, e os dois eram cegueira da régua, não defeito do app:
+26 caixas de 22x22 na lista de compras que moram num `<label>` de 242x44 (o
+alvo efetivo), e contraste 1,15 nas pastilhas marcadas do cadastro — o fundo é
+pintado por um IRMÃO absoluto com `pointer-events: none`, invisível tanto para
+a subida na árvore quanto para `elementsFromPoint`. Medida a camada real: 6,58
+e 6,35, ambos passando AA. A régua passou a resolver os dois casos.
+
+`/agua/`, `/conta/peso/` e companhia devolvem 405 com corpo vazio: são
+endpoints de POST, não telas, e não entram na conta de "tela sem porta".
+
+Registrado e NÃO feito aqui, porque é fora do escopo do B8: falta
+`403_csrf.html`. Uma página cacheada pelo worker com token vencido cai na
+página embutida do Django na hora de enviar o formulário. Pertence ao B10.
+
+**B9 — DISCIPLINA DE TESTES ⏳ PRÓXIMO**
 
 Escopo em [`docs/premium-polish-b1-b11.md`](docs/premium-polish-b1-b11.md).
 

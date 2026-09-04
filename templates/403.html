@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% comment %}
+  Alcançável de verdade: quem é da equipe mas não tem
+  `accounts.ver_painel_de_gestao` recebe 403 em /gestao/, e há teste do B5
+  exigindo que continue assim. A tela diz que o acesso não existe SEM sugerir
+  como consegui-lo — a permissão é dada por quem administra, não pedida aqui.
+{% endcomment %}
+
+{% block title %}Sem acesso · NutriPlan{% endblock %}
+{% block container_class %}auth{% endblock %}
+
+{% block content %}
+  <div class="card center">
+    <span class="auth__logo" aria-hidden="true">N</span>
+    <h1>Você não tem acesso a esta página</h1>
+    <p class="lead">
+      Esta área é restrita. Se você acha que deveria entrar, fale com quem
+      administra o NutriPlan.
+    </p>
+    {% if user.is_authenticated %}
+      <a class="btn btn--primary btn--block" href="{% url 'plans:today' %}">Ir para o dia de hoje</a>
+    {% else %}
+      <a class="btn btn--primary btn--block" href="{% url 'accounts:login' %}">Entrar no NutriPlan</a>
+    {% endif %}
+  </div>
+{% endblock %}

@@ -5978,6 +5978,20 @@ body.montando { overflow: hidden; }
   text-align: center;
 }
 
+/* O link de volta e o PARAGRAFO INTEIRO, e nao um link no meio de uma frase.
+   A excecao de alvo inline da WCAG (2.5.5 e 2.5.8) vale para o que esta dentro
+   de um texto corrido — os links de "Perfil" e "Excluir minha conta" no meio
+   das definicoes, por exemplo. Este nao esta: e o unico conteudo do paragrafo
+   e serve de navegacao. Medido a 375px, tinha 102x22 na privacidade e 157x22
+   nos termos. */
+.legal__volta a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0 .9rem;
+}
+
 /* Os dois links no rodapé de entrar/criar conta e do perfil. Discretos: a
    atenção da tela pertence ao formulário. */
 .links-legais {
