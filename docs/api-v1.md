@@ -122,12 +122,43 @@ guardar onde a pessoa mora e a que horas ela sai de casa.
 
 ## `GET /api/v1/corridas/`
 
-**200** — `{"corridas": [...]}`, só as do dono, mais recentes primeiro.
+**200** — `{"corridas": [...], "tem_mais": false}`, só as do dono, mais
+recentes primeiro. **O traçado NÃO vem aqui** — ver a rota de detalhe.
+
+| parâmetro | padrão | o quê |
+|---|---|---|
+| `limite` | 50 | quantas devolver. Teto de **200**; pedir mais devolve 200, não erro |
+| `desde` | — | só corridas que começaram em ou depois desta data ISO 8601 |
+
+`tem_mais` diz se existe página seguinte. Sem ele o cliente pediria para
+sempre, ou pararia cedo demais.
+
+Limite ilegível e data ilegível respondem **400**. Ignorar uma data errada
+devolveria a lista inteira, e a sincronização incremental pareceria funcionar
+enquanto baixa tudo toda vez — falha silenciosa é pior que recusa.
+
+O teto entrou **antes de existir cliente publicado**, e é o único momento
+barato: apertar depois um limite que não existia quebra a versão do app que
+está no telefone de alguém, que é exatamente o que o prefixo `v1` existe para
+impedir.
 
 ## `GET /api/v1/corridas/<op_id>/`
 
 Por `op_id` e não por `pk`: identificador sequencial convida a varrer o
 vizinho.
+
+Devolve os mesmos campos da lista **mais o percurso**:
+
+```json
+{ "tem_traco": true, "pontos": [{"lat": -23.55, "lon": -46.63, "t": 0.0, "acumulado_m": 0.0}], "leituras_descartadas": 3 }
+```
+
+`tem_traco` é `false` e `pontos` é `[]` para corrida sincronizada sem pontos —
+o que é o caso NORMAL, não erro: a PWA publicada manda só os números, por
+decisão registrada em `docs/corrida-mobile-arquitetura.md` (seção 3-B).
+
+O traçado sai só aqui, e só para o dono. Ele é o dado mais sensível do app:
+diz por onde a pessoa passou e a que horas ela sai de casa.
 
 ---
 

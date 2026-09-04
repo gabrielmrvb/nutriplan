@@ -13,6 +13,8 @@ o cookie sozinho; um endpoint que recusa cookie não tem o que ser forjado. Há
 teste exigindo que sessão válida NÃO autentique a API.
 """
 import json
+from datetime import datetime, timedelta
+from datetime import timezone as fuso
 
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -863,3 +865,115 @@ class OLoteForaDeOrdemTests(Base):
 
         self.assertEqual(trocados.distancia_m, inteiro.distancia_m)
         self.assertEqual(len(trocados.traco.pontos), 60)
+
+
+class OHistoricoEPaginadoTests(Base):
+    """Devolver o histórico inteiro a cada abertura de tela é defeito que só
+    aparece em quem usa o app há muito tempo — e aí já é tarde para consertar,
+    porque apertar um teto que não existia quebra o app publicado.
+
+    Por isso o teto entra ANTES de haver cliente. É o único momento barato.
+    """
+
+    def criar_corridas(self, quantas, base_dia=1):
+        Corrida.objects.bulk_create(
+            [
+                Corrida(
+                    user=self.pessoa,
+                    op_id=f"op-{i}",
+                    comecou_em=datetime(2026, 1, base_dia, 7, 0, tzinfo=fuso.utc)
+                    + timedelta(days=i),
+                    terminou_em=datetime(2026, 1, base_dia, 7, 30, tzinfo=fuso.utc)
+                    + timedelta(days=i),
+                    distancia_m=5000,
+                    duracao_s=1800,
+                )
+                for i in range(quantas)
+            ]
+        )
+
+    def listar(self, query=""):
+        return self.client.get(
+            reverse("api:corridas") + query,
+            **self.com_token(self.token_de(self.pessoa)),
+        )
+
+    def test_sem_parametro_o_historico_vem_limitado(self):
+        self.criar_corridas(60)
+
+        corpo = self.json_de(self.listar())
+
+        self.assertEqual(len(corpo["corridas"]), 50)
+        self.assertTrue(corpo["tem_mais"])
+
+    def test_tem_mais_e_falso_quando_acabou(self):
+        """Sem isto o cliente pediria página seguinte para sempre."""
+        self.criar_corridas(3)
+
+        corpo = self.json_de(self.listar())
+
+        self.assertEqual(len(corpo["corridas"]), 3)
+        self.assertFalse(corpo["tem_mais"])
+
+    def test_o_limite_pedido_e_respeitado(self):
+        self.criar_corridas(10)
+
+        corpo = self.json_de(self.listar("?limite=4"))
+
+        self.assertEqual(len(corpo["corridas"]), 4)
+        self.assertTrue(corpo["tem_mais"])
+
+    def test_limite_absurdo_e_aparado_no_teto(self):
+        """Teto de verdade, não sugestão: sem isto `?limite=100000` devolveria
+        o histórico inteiro e o parâmetro seria decoração."""
+        self.criar_corridas(210)
+
+        corpo = self.json_de(self.listar("?limite=100000"))
+
+        self.assertEqual(len(corpo["corridas"]), 200)
+
+    def test_limite_ilegivel_e_recusado(self):
+        resposta = self.listar("?limite=muitas")
+
+        self.assertEqual(resposta.status_code, 400)
+
+    def test_desde_recorta_por_data(self):
+        self.criar_corridas(10)
+
+        corpo = self.json_de(self.listar("?desde=2026-01-06T00:00:00%2B00:00"))
+
+        self.assertEqual(len(corpo["corridas"]), 5)
+
+    def test_data_ilegivel_e_recusada_em_vez_de_ignorada(self):
+        """Ignorar a data errada devolveria a lista inteira, e a sincronização
+        incremental pareceria funcionar enquanto baixa tudo toda vez."""
+        self.criar_corridas(5)
+
+        resposta = self.listar("?desde=ontem")
+
+        self.assertEqual(resposta.status_code, 400)
+
+    def test_a_pagina_continua_sem_coordenada(self):
+        """A paginação não pode ter reaberto o que a tabela separada fechou."""
+        pontos = [
+            {"lat": -23.55 + i * 0.0001, "lon": -46.63, "t": i, "accuracy": 5}
+            for i in range(60)
+        ]
+        self.client.post(
+            reverse("api:corridas"),
+            json.dumps(
+                {
+                    "op_id": "op-com-traco",
+                    "comecou_em": "2026-09-04T07:00:00+00:00",
+                    "terminou_em": "2026-09-04T07:30:00+00:00",
+                    "duracao_s": 1782,
+                    "pontos": pontos,
+                }
+            ),
+            content_type="application/json",
+            **self.com_token(self.token_de(self.pessoa)),
+        )
+
+        cru = self.listar().content.decode()
+
+        self.assertNotIn("-46.63", cru)

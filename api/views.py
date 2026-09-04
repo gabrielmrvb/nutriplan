@@ -283,18 +283,88 @@ def _corrida_em_json(corrida, com_traco=False):
     return corpo
 
 
+LIMITE_PADRAO = 50
+LIMITE_MAXIMO = 200
+
+
+def _limite_do_pedido(request):
+    """Quantas corridas devolver. `(limite, None)` ou `(None, erro)`.
+
+    Teto de verdade e não sugestão: sem `LIMITE_MAXIMO`, `?limite=100000`
+    devolveria o histórico inteiro e o parâmetro seria decoração.
+    """
+    cru = request.GET.get("limite")
+    if cru in (None, ""):
+        return LIMITE_PADRAO, None
+    try:
+        limite = int(cru)
+    except (TypeError, ValueError):
+        return None, erro("limite precisa ser um número", 400)
+    if limite < 1:
+        return None, erro("limite precisa ser pelo menos 1", 400)
+    return min(limite, LIMITE_MAXIMO), None
+
+
+def _desde_do_pedido(request):
+    """Recorte por data. `(datetime|None, None)` ou `(None, erro)`.
+
+    Data ilegível é 400 e não silêncio: devolver a lista inteira porque o
+    cliente errou o formato faria a sincronização incremental parecer
+    funcionar enquanto baixa tudo toda vez.
+    """
+    cru = request.GET.get("desde")
+    if cru in (None, ""):
+        return None, None
+    quando = parse_datetime(cru)
+    if quando is None:
+        return None, erro("desde precisa ser uma data ISO 8601", 400)
+    return quando, None
+
+
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 @exige_token
 def corridas(request):
     """GET lista as do dono. POST cria ou reconhece uma já sincronizada."""
     if request.method == "GET":
+        # HISTÓRICO PAGINADO, e o teto existe agora porque depois é tarde.
+        #
+        # A versão anterior devolvia TODAS as corridas do dono, sem limite. Para
+        # quem correu três vezes isso é indistinguível de uma lista curta; para
+        # quem corre há três anos são centenas de registros num aparelho que
+        # pode estar em rede móvel, a cada abertura da tela.
+        #
+        # Isto muda o contrato da `v1`, e por isso é agora: `v1` ainda não tem
+        # cliente publicado. Depois que houver um app na loja, apertar um teto
+        # que antes não existia quebra a versão de três meses atrás que está no
+        # telefone de alguém — e o prefixo de versão existe justamente para
+        # isso não acontecer.
+        #
+        # `desde` é a outra metade: quem já sincronizou não quer a lista toda,
+        # quer o que apareceu depois. As duas juntas fazem sincronização
+        # incremental caber em dois parâmetros.
+        limite, problema = _limite_do_pedido(request)
+        if problema:
+            return problema
+
+        recorte, problema = _desde_do_pedido(request)
+        if problema:
+            return problema
+
+        consulta = Corrida.objects.filter(user=request.dono)
+        if recorte is not None:
+            consulta = consulta.filter(comecou_em__gte=recorte)
+
+        # Um a mais que o pedido, só para saber se há próxima página — e o
+        # extra é descartado. Contar com `count()` seria uma segunda consulta
+        # para responder um booleano.
+        achadas = list(consulta[: limite + 1])
+        tem_mais = len(achadas) > limite
+
         return responder(
             {
-                "corridas": [
-                    _corrida_em_json(c)
-                    for c in Corrida.objects.filter(user=request.dono)
-                ]
+                "corridas": [_corrida_em_json(c) for c in achadas[:limite]],
+                "tem_mais": tem_mais,
             }
         )
 
