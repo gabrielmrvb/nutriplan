@@ -750,3 +750,44 @@ class TokenDeApp(models.Model):
         if self.revogado_em is None:
             self.revogado_em = timezone.now()
             self.save(update_fields=["revogado_em"])
+
+
+class TentativaDeEntrada(models.Model):
+    """Uma tentativa de autenticação que FALHOU, guardada para limitar abuso.
+
+    Irmã de `PedidoDeRecuperacao` e pelo mesmo motivo de existir: o projeto usa
+    `LocMemCache`, o Render sobe dois workers do gunicorn e reinicia a cada
+    deploy. Um contador em cache valeria por worker, dobraria na prática e
+    zeraria a cada publicação. O que é compartilhado é o PostgreSQL.
+
+    POR QUE UMA TABELA PRÓPRIA, E NÃO A DA RECUPERAÇÃO
+    ==================================================
+
+    As duas contam, mas contam coisas diferentes: lá o que se protege é a cota
+    de e-mail de um provedor, aqui é a senha de uma pessoa. Compartilhar a
+    tabela faria o teto global de uma valer para a outra, e a limpeza de uma
+    apagar a janela da outra. O `tipo` de lá também não caberia — ele tem oito
+    caracteres.
+
+    O QUE FICA GUARDADO
+    ===================
+
+    `chave` é HMAC, nunca o e-mail e nunca o IP. A tabela responde "quantas
+    falhas esta chave teve nos últimos minutos" sem virar uma lista de quem usa
+    o app nem de onde essas pessoas moram — e uma tabela de tentativas de
+    login em claro seria exatamente o presente que um vazamento quer.
+    """
+
+    #: HMAC do que está sendo limitado, com a `SECRET_KEY`.
+    chave = models.CharField("chave", max_length=64)
+    #: "origem+email" ou "origem" ou "global".
+    tipo = models.CharField("tipo", max_length=16)
+    criado_em = models.DateTimeField("criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "tentativa de entrada"
+        verbose_name_plural = "tentativas de entrada"
+        indexes = [models.Index(fields=["tipo", "chave", "criado_em"])]
+
+    def __str__(self):
+        return f"{self.tipo} · {self.criado_em:%d/%m %H:%M}"

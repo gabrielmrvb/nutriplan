@@ -36,6 +36,7 @@ nunca o que o servidor tem dentro.
 | `401` | sem token, token vencido, token revogado, senha errada |
 | `404` | corrida que não existe **ou não é sua** |
 | `405` | método que a rota não aceita |
+| `409` | `op_id` já usado com **outro conteúdo** — terminal, não reenvie |
 | `413` | corpo acima de 1 MB |
 
 `404` e não `403` no detalhe: `403` confirmaria que a corrida existe.
@@ -142,15 +143,58 @@ A chave é `(dono, op_id)`, com `UniqueConstraint` no banco. O aparelho gera o
 | reenvio depois de timeout | **200** |
 | app fechado durante o envio | **200** no próximo envio |
 | dois aparelhos, mesmo `op_id` sorteado | duas corridas — a chave é por PESSOA |
-| conflito de conteúdo | **o primeiro envio vence**; o segundo devolve o que está gravado, sem sobrescrever |
+| mesmo `op_id`, conteúdo **diferente** | **409** — o primeiro envio vence, nada é sobrescrito |
 
-O reenvio nunca devolve erro. Erro faria a fila insistir para sempre — a mesma
-razão pela qual `config/csrf.py` desvia o replay offline em vez de responder
-403.
+Reenvio **idêntico** nunca devolve erro: erro faria a fila insistir para
+sempre, a mesma razão pela qual `config/csrf.py` desvia o replay offline em vez
+de responder 403.
 
-**Limitação conhecida:** um reenvio com conteúdo diferente é aceito em silêncio
-e o conteúdo novo é descartado. Não há campo que registre a divergência, e
-acrescentar um exigiria migração sem caso de uso provado.
+Reenvio **divergente** é outra coisa — ou o cliente tem bug, ou o
+armazenamento local corrompeu, ou dois estados ganharam o mesmo identificador.
+Aceitar em silêncio faria o app acreditar que sincronizou um número que o
+servidor jogou fora.
+
+```json
+{
+  "erro": "op_id já usado com outro conteúdo",
+  "divergiram": ["distancia_m"],
+  "guardado": { "op_id": "...", "distancia_m": 5030, "...": "..." }
+}
+```
+
+A comparação é por VALOR, contra o registro gravado — sem coluna de
+fingerprint, porque todo campo que importa já está no banco. Parcial escrita
+com as chaves em outra ordem **não** é divergência.
+
+### A regra da fila
+
+| resposta | o que o cliente faz |
+|---|---|
+| `2xx` | apaga o item |
+| `409` | apaga o item **e reporta** — reenviar não muda nada |
+| `5xx`, falha de rede | mantém e tenta depois |
+
+### Diferença deliberada em relação ao web
+
+`workouts:salvar_corrida` — a rota que a PWA publicada usa — continua
+respondendo **200** para reenvio divergente. Mudar um contrato já publicado sem
+o cliente saber é pior que a divergência que ele esconde. A regra nova vale
+para a API, que ainda não tem cliente algum.
+
+## Tentativas de autenticação
+
+`POST /api/v1/token/` e o login web compartilham a mesma política, em
+`accounts/entrada.py`: cinco falhas por (origem + e-mail), vinte por origem,
+trezentas globais, janela de quinze minutos, e o sucesso limpa o contador do
+par.
+
+**Não existe limite por e-mail sozinho**, e é de propósito: um limite assim
+deixaria qualquer pessoa trancar a conta de outra só sabendo o endereço.
+
+Quem está limitado recebe **exatamente a mesma resposta de senha errada** —
+`401` com `{"erro": "e-mail ou senha incorretos"}`. Não é 429: um status
+próprio diria ao atacante que ele achou o teto. O custo assumido é que um
+cliente honesto não aprende a recuar sozinho.
 
 ## Offline
 

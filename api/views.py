@@ -18,6 +18,7 @@ from django.utils.dateparse import parse_datetime
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from accounts import entrada
 from accounts.models import TokenDeApp
 from workouts import corrida as motor
 from workouts.corrida_views import DISTANCIA_MAXIMA_M, DURACAO_MAXIMA_S
@@ -68,15 +69,22 @@ def token(request):
     if problema:
         return problema
 
-    pessoa = authenticate(
-        request, username=(dados.get("email") or "").strip(), password=dados.get("senha") or ""
-    )
-    # A recusa é SEMPRE igual, exista o e-mail ou não. Duas mensagens
-    # diferentes transformariam o endpoint num oráculo de cadastro — a mesma
-    # regra que `accounts/limites.py` já aplica na recuperação de senha.
-    if pessoa is None or not pessoa.is_active:
+    email = (dados.get("email") or "").strip()
+    ip = entrada.ip_do_pedido(request)
+
+    # A recusa é SEMPRE igual: e-mail que não existe, senha errada e origem
+    # limitada respondem a mesma coisa. Duas mensagens diferentes
+    # transformariam o endpoint num oráculo — de cadastro na primeira, e de
+    # "achei o teto" na segunda.
+    if not entrada.pode_tentar(email=email, ip=ip):
         return erro("e-mail ou senha incorretos", 401)
 
+    pessoa = authenticate(request, username=email, password=dados.get("senha") or "")
+    if pessoa is None or not pessoa.is_active:
+        entrada.registrar_falha(email=email, ip=ip)
+        return erro("e-mail ou senha incorretos", 401)
+
+    entrada.limpar_apos_sucesso(email=email, ip=ip)
     registro, cru = TokenDeApp.emitir(pessoa)
     return responder(
         {
@@ -192,6 +200,30 @@ def _calcular(pontos):
     }
 
 
+def _divergencias(corrida, dados, distancia, parciais):
+    """Os campos em que o reenvio discorda do que está gravado.
+
+    Comparação por VALOR, e sobre o registro que já existe — não sobre uma
+    impressão digital guardada numa coluna. Todo campo que importa já está no
+    banco; um fingerprint seria uma coluna para rederivar o que se tem.
+
+    `parciais` são listas de dicionários, e `==` em Python compara por valor:
+    a mesma parcial escrita com as chaves em outra ordem NÃO é divergência.
+    Comparar o JSON cru acusaria conflito onde não há um.
+    """
+    esperado = {
+        "comecou_em": parse_datetime(dados["comecou_em"]),
+        "terminou_em": parse_datetime(dados["terminou_em"]),
+        "distancia_m": distancia,
+        "duracao_s": int(dados["duracao_s"]),
+        "teve_lacuna": bool(dados.get("teve_lacuna")),
+        "parciais": parciais,
+    }
+    return sorted(
+        campo for campo, valor in esperado.items() if getattr(corrida, campo) != valor
+    )
+
+
 def _corrida_em_json(corrida):
     return {
         "op_id": corrida.op_id,
@@ -261,9 +293,31 @@ def corridas(request):
     except IntegrityError:
         # Reenvio. A resposta perdida é indistinguível do envio perdido, então
         # o cliente reenvia — e reenviar não pode criar uma segunda corrida.
-        # 200 e não erro: erro faria a fila insistir para sempre.
         corrida = Corrida.objects.get(user=request.dono, op_id=str(dados["op_id"])[:64])
         criada = False
+
+        divergiram = _divergencias(corrida, dados, distancia, parciais)
+        if divergiram:
+            # Reenvio IDÊNTICO é o caso normal e responde 200. Este aqui é
+            # outro: ou o cliente tem bug, ou o armazenamento local corrompeu,
+            # ou dois estados diferentes ganharam o mesmo identificador.
+            #
+            # Aceitar em silêncio faria o app acreditar que sincronizou um
+            # número que o servidor jogou fora. 409 é TERMINAL — reenviar não
+            # muda nada —, e a regra da fila passa a ser: 2xx apaga, 409 apaga
+            # e reporta, 5xx e falha de rede mantêm.
+            #
+            # O primeiro envio vence. O segundo é suspeito por construção, e
+            # sobrescrever perderia o dado que chegou quando havia menos
+            # motivo para desconfiar.
+            return responder(
+                {
+                    "erro": "op_id já usado com outro conteúdo",
+                    "divergiram": divergiram,
+                    "guardado": _corrida_em_json(corrida),
+                },
+                status=409,
+            )
 
     corpo = _corrida_em_json(corrida)
     if calculado is not None:

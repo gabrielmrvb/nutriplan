@@ -424,3 +424,162 @@ class OWebContinuaFuncionandoTests(TestCase):
 
         self.assertEqual(resposta.status_code, 200)
         self.assertTrue(Corrida.objects.filter(user=self.pessoa, op_id="pela-web").exists())
+
+
+class OMesmoOpIdComConteudoDiferenteTests(Base):
+    """O contrato que faltava definir antes de um app depender dele.
+
+    Reenvio IDÊNTICO é o caso normal do offline — resposta perdida é
+    indistinguível de envio perdido, então o cliente reenvia. Isso continua
+    sendo sucesso.
+
+    Reenvio DIVERGENTE é outra coisa: ou o cliente tem bug, ou o armazenamento
+    local corrompeu, ou dois estados diferentes ganharam o mesmo identificador.
+    Aceitar em silêncio faria o app acreditar que sincronizou um número que o
+    servidor jogou fora.
+
+    A resposta é **409**, e ela é TERMINAL: reenviar não muda nada. A regra da
+    fila passa a ser 2xx apaga, 409 apaga e reporta, 5xx e falha de rede
+    mantêm.
+
+    Isto vale só na API. `workouts:salvar_corrida` — a rota que a PWA publicada
+    usa — continua respondendo 200, porque mudar um contrato publicado sem
+    aviso é o que esta missão proíbe. A diferença está em `docs/api-v1.md`.
+    """
+
+    def base(self, **troca):
+        dados = {
+            "op_id": "op-divergente",
+            "comecou_em": "2026-09-04T07:00:00+00:00",
+            "terminou_em": "2026-09-04T07:30:00+00:00",
+            "distancia_m": 5030,
+            "duracao_s": 1782,
+        }
+        dados.update(troca)
+        return dados
+
+    def enviar(self, corpo, token):
+        return self.client.post(
+            reverse("api:corridas"),
+            json.dumps(corpo),
+            content_type="application/json",
+            **self.com_token(token),
+        )
+
+    def test_reenvio_identico_continua_sendo_sucesso(self):
+        token = self.token_de(self.pessoa)
+        self.enviar(self.base(), token)
+
+        self.assertEqual(self.enviar(self.base(), token).status_code, 200)
+
+    def test_reenvio_divergente_responde_409(self):
+        token = self.token_de(self.pessoa)
+        self.enviar(self.base(), token)
+
+        resposta = self.enviar(self.base(distancia_m=9999), token)
+
+        self.assertEqual(resposta.status_code, 409)
+
+    def test_o_409_diz_o_que_divergiu(self):
+        """Sem isso o cliente sabe que deu conflito e não sabe em quê — e o
+        diagnóstico vira adivinhação de quem só tem o log do aparelho."""
+        token = self.token_de(self.pessoa)
+        self.enviar(self.base(), token)
+
+        corpo = self.json_de(self.enviar(self.base(distancia_m=9999), token))
+
+        self.assertIn("distancia_m", corpo["divergiram"])
+        self.assertEqual(corpo["guardado"]["distancia_m"], 5030)
+
+    def test_o_divergente_nao_cria_segunda_corrida(self):
+        token = self.token_de(self.pessoa)
+        self.enviar(self.base(), token)
+        self.enviar(self.base(distancia_m=9999), token)
+
+        self.assertEqual(Corrida.objects.filter(user=self.pessoa).count(), 1)
+
+    def test_o_divergente_nao_sobrescreve_o_que_ja_estava(self):
+        """O primeiro envio vence. O segundo é suspeito por construção."""
+        token = self.token_de(self.pessoa)
+        self.enviar(self.base(), token)
+        self.enviar(self.base(distancia_m=9999), token)
+
+        self.assertEqual(Corrida.objects.get(user=self.pessoa).distancia_m, 5030)
+
+    def test_parciais_em_outra_ordem_nao_contam_como_divergencia(self):
+        """Comparar JSON cru acusaria conflito onde não há um. A comparação é
+        sobre VALOR, e por isso a lista é comparada elemento a elemento."""
+        token = self.token_de(self.pessoa)
+        com_parciais = self.base(parciais=[{"km": 1, "segundos": 354.0}])
+        self.enviar(com_parciais, token)
+
+        de_novo = self.base(parciais=[{"segundos": 354.0, "km": 1}])
+
+        self.assertEqual(self.enviar(de_novo, token).status_code, 200)
+
+    def test_outra_pessoa_com_o_mesmo_op_id_nao_da_conflito(self):
+        self.enviar(self.base(), self.token_de(self.pessoa))
+
+        resposta = self.enviar(self.base(distancia_m=9999), self.token_de(self.outra))
+
+        self.assertEqual(resposta.status_code, 201)
+        self.assertEqual(Corrida.objects.count(), 2)
+
+
+class RevisaoDirigidaDoTokenTests(Base):
+    """A checagem que uma credencial de implementação própria exige.
+
+    Não redesenha nada: confirma, item a item, o que já foi escrito.
+    """
+
+    def test_a_entropia_e_suficiente(self):
+        """`token_urlsafe(32)` são 256 bits. Não há dicionário para atacar
+        isso, e é o motivo de o digest não precisar de sal nem de KDF caro."""
+        _, cru = TokenDeApp.emitir(self.pessoa)
+
+        self.assertGreaterEqual(len(cru), 40)
+        self.assertEqual(len({TokenDeApp.emitir(self.pessoa)[1] for _ in range(20)}), 20)
+
+    def test_o_token_de_uma_pessoa_nao_abre_a_conta_de_outra(self):
+        corpo = self.json_de(
+            self.client.get(reverse("api:eu"), **self.com_token(self.token_de(self.outra)))
+        )
+
+        self.assertEqual(corpo["email"], self.outra.email)
+        self.assertNotEqual(corpo["email"], self.pessoa.email)
+
+    def test_a_resposta_nunca_ecoa_o_digest(self):
+        registro, cru = TokenDeApp.emitir(self.pessoa)
+        corpo = self.client.get(reverse("api:eu"), **self.com_token(cru)).content.decode()
+
+        self.assertNotIn(registro.digest, corpo)
+
+    def test_o_token_nao_viaja_em_url(self):
+        """Query string vai para log de servidor, de proxy e para o histórico
+        do navegador. O token viaja em cabeçalho, e só."""
+        _, cru = TokenDeApp.emitir(self.pessoa)
+
+        pela_url = self.client.get(reverse("api:eu") + "?token=" + cru)
+
+        self.assertEqual(pela_url.status_code, 401)
+
+    def test_a_migracao_nao_carrega_segredo(self):
+        from pathlib import Path
+
+        from config.settings import BASE_DIR
+
+        texto = (
+            Path(BASE_DIR) / "accounts" / "migrations" / "0022_token_de_app.py"
+        ).read_text(encoding="utf-8")
+
+        for proibido in ("SECRET_KEY", "token_urlsafe", "sha256"):
+            with self.subTest(termo=proibido):
+                self.assertNotIn(proibido, texto)
+
+    def test_o_admin_nao_expoe_a_credencial(self):
+        """Registrar `TokenDeApp` no Admin poria o digest numa tela. Ele não
+        está registrado, e a matriz de capability do B10 é quem cobra que
+        superfície nova entre com decisão escrita."""
+        from django.contrib import admin
+
+        self.assertFalse(admin.site.is_registered(TokenDeApp))

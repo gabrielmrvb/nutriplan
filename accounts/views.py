@@ -15,6 +15,7 @@ from django.views.generic import CreateView, FormView, TemplateView, UpdateView
 
 from . import limites
 from .adapters import MAXIMO_DE_TENTATIVAS, SESSAO_TENTATIVAS, SESSAO_VINCULO
+from . import entrada
 from .forms import (
     BodyDataForm,
     ConectarGoogleForm,
@@ -239,6 +240,47 @@ class AppLoginView(TelaDeEntradaMixin, LoginView):
     authentication_form = EmailAuthenticationForm
     template_name = "accounts/login.html"
     redirect_authenticated_user = True
+
+    def post(self, request, *args, **kwargs):
+        """Origem no teto: nem chega a conferir a senha.
+
+        A checagem vem ANTES de `authenticate` de propósito. Depois seria só
+        cosmética — o servidor já teria feito o trabalho que o limite existe
+        para não fazer.
+
+        A resposta é a MESMA de senha errada: mesma tela, mesma mensagem. Quem
+        está limitado não recebe aviso de que está, porque um aviso diria ao
+        atacante que ele achou o teto. Ver `accounts/entrada.py`.
+        """
+        email = (request.POST.get("username") or "").strip()
+        if not entrada.pode_tentar(email=email, ip=entrada.ip_do_pedido(request)):
+            formulario = self.get_form()
+            formulario.is_valid()
+            formulario.add_error(None, formulario.error_messages["invalid_login"] % {
+                "username": formulario.username_field.verbose_name
+            })
+            return self.render_to_response(self.get_context_data(form=formulario))
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        """Entrou: as falhas deste par (origem, e-mail) somem.
+
+        Quem errou duas vezes, acertou e voltou a errar não começa do
+        quase-limite.
+        """
+        entrada.limpar_apos_sucesso(
+            email=(self.request.POST.get("username") or "").strip(),
+            ip=entrada.ip_do_pedido(self.request),
+        )
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        """Errou: conta a falha, e responde igual a sempre."""
+        entrada.registrar_falha(
+            email=(self.request.POST.get("username") or "").strip(),
+            ip=entrada.ip_do_pedido(self.request),
+        )
+        return super().form_invalid(form)
 
     def get_context_data(self, **kwargs):
         """Entrega, UMA vez, o aviso de que uma conta acabou de ser excluída.
