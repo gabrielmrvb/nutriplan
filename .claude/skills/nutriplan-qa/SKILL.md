@@ -24,12 +24,12 @@ que o JavaScript não quebrou, que o console está limpo, que o layout cabe em
 390px, que o dado persistiu depois do refresh, que o demo continua de pé, nem
 que produção continua funcionando.
 
-Tratar "692 verdes" como aprovação é o erro mais provável desta skill — porque é
-um sinal forte, barato e sedutor. Sinal forte não é prova completa.
+Tratar "1.968 verdes" como aprovação é o erro mais provável desta skill —
+porque é um sinal forte, barato e sedutor. Sinal forte não é prova completa.
 
 O inverso também vale: **suíte verde não é motivo para inventar auditoria**. Se
-a mudança é uma frase num template, os 692 já são mais evidência do que ela
-precisa.
+a mudança é uma frase num template, os 1.968 já são mais evidência do que
+ela precisa.
 
 ## Antes de validar qualquer coisa
 

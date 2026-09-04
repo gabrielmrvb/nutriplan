@@ -15,8 +15,8 @@ decisões de domínio em `nutriplan-product`, `nutriplan-architecture` e
 ### A relação com `nutriplan-qa`, dita por inteiro
 
 `nutriplan-qa` descreve um papel de VALIDAÇÃO: alguém entrega, ela julga. Nesse
-papel ela é explícita — não escreve teste sem autorização (`:366`), não
-conserta o bug que encontra (`:239`), e **não faz deploy** (`:191`, `:384`).
+papel ela é explícita — não escreve teste sem autorização (`:376`), não
+conserta o bug que encontra (`:239`), e **não faz deploy** (`:191`, `:394`).
 
 Uma MISSÃO é outra coisa: a pessoa entregou o objetivo inteiro, incluindo
 publicar. Dentro de uma missão, escrever teste, corrigir o defeito e publicar
@@ -155,14 +155,39 @@ saber não impede ninguém de rodar (`config/runner.py:51`).
 `NUTRIPLAN_IGNORAR_RUNNER_UNICO=1` é **último recurso, e aceita o resultado
 embaralhado que a checagem existe para evitar**. Não é atalho para pressa.
 
-A cadeia — é o B11, versionado em `docs/premium-polish-b1-b11.md`, com o
-`fetch` e os três comandos de conferência escritos por extenso:
+A cadeia. O B11 versiona a FORMA dela em `docs/premium-polish-b1-b11.md`, e o
+que está escrito lá é mais curto: a palavra única `gate` onde aqui vão três
+comandos, `sabotage relevante se houver regra nova` em vez de sabotagem sempre,
+e nem `fetch` nem `/saude/`. A cadeia abaixo é a operacional — mais estrita de
+propósito. O B11 nomeia a maior parte dos passos e colapsa três deles na
+palavra `gate`; o que ele não diz é QUE comandos são esses, nem onde cada um
+roda. É o que a lista abaixo resolve:
 
 ```
 testes dirigidos → sabotagem → browser QA → suíte completa
 → manage.py check → makemigrations --check → git diff --check
 → commit → fetch → push → hook → deploy → /saude/ → smoke
 ```
+
+Onde cada um mora de verdade. Seguir o ponteiro errado é o que faz alguém
+"corrigir" esta cadeia para a versão curta e perder os três comandos:
+
+- **teste dirigido é seu, e à mão.** O `pre-commit` roda um conjunto FIXO de
+  seis classes de estilo e alvo de toque (`scripts/hooks/pre-commit:30`), que
+  não olha para o que você mexeu. Ele não é o primeiro passo da cadeia, e
+  tomá-lo por isso é perder o gate que mais importa;
+- `makemigrations --check` esse sim roda sozinho, no mesmo hook
+  (`scripts/hooks/pre-commit:27`) — migração faltando quebra o deploy, não o
+  teste;
+- a suíte completa é do `pre-push` (`scripts/hooks/pre-push:19`);
+- `manage.py check` é seu, antes do commit. Com `--deploy --fail-level ERROR`
+  ele roda DE NOVO no build do Render (`scripts/build.sh:37`), depois do
+  collectstatic — lá é portão, e o que reprova não sobe;
+- `git diff --check` é da seção 10 deste arquivo, e é manual;
+- `/saude/` como prova de deploy é do `CLAUDE.md` (`:172`), e o porquê está na
+  seção 7;
+- `fetch` antes do push não está versionado em lugar nenhum. É prática, e fica
+  dito que é.
 
 A suíte completa levava ~3 min com 692 testes; **medida em 04/09/2026, são
 1.968 testes em ~20 min**. Rode em segundo plano e faça o que for
@@ -247,9 +272,13 @@ categorias, e a própria skill proíbe acrescentar:
 Um segundo vocabulário ao lado seria duas maneiras de dizer a mesma coisa, e a
 segunda nasceria para divergir.
 
-Para classificar um ACHADO — que é outra pergunta — o repositório já usa
-`BUG` · `UX REAL` · `OBSERVAÇÃO` · `FALSO POSITIVO`, e para o que a plataforma
-não permite, `LIMITAÇÃO`.
+Para classificar um ACHADO — que é outra pergunta — use `BUG` · `UX REAL` ·
+`OBSERVAÇÃO` · `FALSO POSITIVO`, e `LIMITAÇÃO` para o que a plataforma não
+permite. Os cinco são convenção **deste protocolo**: medido em 04/09/2026, só
+`OBSERVAÇÃO` tem precedente escrito como rótulo no repositório
+(`BACKLOG.md:934`). O `BACKLOG.md` descarta "falso positivo" várias vezes, mas
+em prosa e em minúscula — o que não é a mesma coisa, e foi exatamente o que
+uma medição com `grep -i` confundiu aqui.
 
 Separe sempre **PROVADO EM PRODUÇÃO** de **PROVADO LOCAL/QA**. Simulação não é
 aparelho na rua, e teste local não é produção.
