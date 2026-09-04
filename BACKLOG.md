@@ -650,6 +650,19 @@ POST na rota `<pk>/password/`; `SocialToken`, `SocialApp`, `SocialAccount`,
 `EscaladaDePrivilegioNoUserAdminTests`, sete testes. Nada foi reaberto por
 B1–B9 — nenhum daqueles blocos tocou permissão, papel ou registro de Admin.
 
+Reverificado em 04/09/2026 por um ângulo diferente: em vez de conferir que
+a trava existe, cada uma das nove foi REABERTA na origem — tirando o model
+de `SEM_TELA`, registrando `WeightEntry` como `ModelAdmin`, trocando
+`EDICAO` por `ESCRITA`, devolvendo a rota de senha ao Django, pondo
+`delete` em `LEITURA`. Nove cenários, nove detectados; nada mudou no
+código, e a conclusão do bloco continua a mesma.
+
+O que essa rodada acrescentou é uma nuance: `WeightEntry` fica em 404
+porque só existe como *inline*, nunca registrado avulso. A proteção é a
+AUSÊNCIA de registro, e não uma negação explícita — mais frágil que as
+outras oito, e a única das nove que um `@admin.register` distraído
+reabriria sem tocar em permissão nenhuma.
+
 O buraco não estava numa capacidade, e sim na FORMA da trava. Cinco das nove
 são protegidas por uma tabela só, a `ALCANCE`, onde a proteção e o valor
 esperado moram no mesmo lugar: quem reabrir `SocialToken` no código e trocar o
@@ -944,36 +957,3 @@ a sabotagem S216 é a prova disso.
 
 Sabotagem: 6 cenários, 6 detectados — os quatro guardrails esvaziados por
 dentro, mais os dois contra-controles.
-
-## Segurança — as nove que não podem reabrir (04/09/2026) — B10
-
-O contrato do B10 é preservação: nove capabilities que não podem voltar, e a
-frase que resume o risco — "mudança visual não pode ressuscitar capability".
-
-Auditar por leitura diz que existe guarda. Só a sabotagem diz que a guarda
-morde. Cada uma foi REABERTA de propósito, e cada uma foi pega:
-
-| capability | como foi reaberta | quem pegou |
-|---|---|---|
-| `SocialToken` | tirada de `SEM_TELA` | matriz de capability |
-| `SocialApp` | tirada de `SEM_TELA` | matriz de capability |
-| `SocialAccount` | tirada de `SEM_TELA` | matriz de capability |
-| `EmailAddress` | tirada de `SEM_TELA` | matriz de capability |
-| `WeightEntry` avulso | registrado como `ModelAdmin` | matriz de capability |
-| `add_user` | `EDICAO` virou `ESCRITA` | matriz de capability |
-| senha de terceiros | a rota voltou a delegar ao Django | `SenhaNaoAtravessaOAdminTests` |
-| `change_profile` | `LEITURA` virou `EDICAO` no papel | `test_ninguem_recebe_change_profile_generico` |
-| permissões amplas | `delete` entrou em `LEITURA` | `test_nenhum_papel_pode_apagar_nada` |
-
-**9 de 9 detectadas. Nenhuma alteração de código foi necessária** — o bloco
-termina com evidência, e não com diff.
-
-Duas observações que a rodada produziu, e que não viram trabalho:
-
-- `WeightEntry` fica em 404 porque só existe como *inline*, nunca registrado
-  avulso. A proteção é a ausência de registro, e não uma negação explícita —
-  e é isso que a sabotagem S222 passou a cobrar.
-- A matriz de capability é quem pega seis das nove. Isso concentra risco num
-  teste só, e é exatamente por isso que o B9 acrescentou a verificação de que
-  ela fica vermelha quando o mundo quebra: uma matriz esvaziada por dentro
-  levaria seis capabilities junto, em silêncio.
