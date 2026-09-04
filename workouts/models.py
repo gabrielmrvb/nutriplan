@@ -730,22 +730,26 @@ class ExerciseLog(models.Model):
 
 
 class Corrida(models.Model):
-    """Uma corrida registrada, sem o traçado.
+    """Uma corrida registrada: distância, tempo e parciais.
 
-    O TRAÇADO NÃO É GUARDADO, e isso é decisão e não pendência.
+    O TRAÇADO MORA EM `TracoDaCorrida`, E É OPCIONAL.
 
     Guardar coordenada é guardar onde a pessoa mora e a que horas ela sai de
-    casa — dado de natureza diferente do peso, que diz quanto ela pesa. E não
-    existe nenhuma tela que use o traçado: não há mapa. Guardar "para quando o
-    mapa existir" é coletar o dado mais sensível do app por antecipação, que é
-    exatamente o que este projeto acabou de recusar em outros três lugares.
+    casa — dado de natureza diferente do peso, que diz quanto ela pesa. Foi por
+    isso que ele ficou de fora enquanto não existia tela que o usasse: guardar
+    "para quando o mapa existir" seria coletar o dado mais sensível do app por
+    antecipação, que é o que este projeto recusou em outros três lugares.
 
-    Quando o mapa for desenhado — junto com a decisão de cortar as pontas da
-    rota, que é o que impede uma imagem compartilhada de publicar o endereço —,
-    o traçado vem com ele. Ver `docs/running-analise.md`.
+    A condição que esta docstring nomeava chegou. O mapa e o resumo
+    compartilhável são o produto agora, e nenhum dos dois existe sem percurso —
+    então o traçado veio junto, em tabela separada, com o corte das pontas da
+    rota declarado como trabalho que vem com ele e não depois dele. Ver
+    `docs/running-analise.md` e `TracoDaCorrida`.
 
-    O que fica: distância, tempo, parciais. Tudo calculado no aparelho a partir
-    das leituras, que morrem lá.
+    CORRIDA SEM TRAÇADO CONTINUA VÁLIDA, e é o caso de quem sincroniza só os
+    números — a PWA publicada faz exatamente isso. `traco` é `OneToOne` e pode
+    não existir: toda leitura precisa tratar a ausência, e nenhuma tela pode
+    supor mapa.
 
     `teve_lacuna` existe por causa do teto da plataforma. Uma PWA não tem
     geolocalização em segundo plano: com a tela bloqueada as leituras param.
@@ -809,3 +813,74 @@ class Corrida(models.Model):
         if not self.distancia_m or not self.duracao_s:
             return None
         return self.duracao_s * 1000 / self.distancia_m
+
+
+class TracoDaCorrida(models.Model):
+    """O percurso de uma corrida — em tabela própria, e isso é o desenho.
+
+    POR QUE EXISTE AGORA, DEPOIS DE TER SIDO RECUSADO
+
+    `Corrida` recusou o traçado enquanto não havia mapa, e a razão continua
+    inteira: guardar coordenada é guardar onde a pessoa mora e a que horas ela
+    sai de casa. O que mudou é exatamente a condição que aquele docstring
+    nomeava — "quando o mapa for desenhado, o traçado vem com ele". Coletar por
+    antecipação continua proibido; coletar para uma tela que existe é outra
+    coisa, e sem percurso não há mapa nem resumo compartilhável.
+
+    POR QUE EM TABELA SEPARADA, E NÃO NUM CAMPO DE `Corrida`
+
+    `parciais` mora dentro da corrida porque ninguém consulta uma parcial
+    isolada, e o traçado tem a mesma propriedade. A diferença é o TAMANHO: duas
+    horas a uma leitura por segundo são ~7.200 pontos, e a tela de histórico
+    LISTA corridas. Um `JSONField` em `Corrida` faria
+    `Corrida.objects.filter(user=...)` arrastar o percurso inteiro de cada uma
+    para uma tela que desenha só distância e tempo.
+
+    Aqui o traçado só é lido quando alguém abre UMA corrida.
+
+    O QUE É GUARDADO, E O QUE ISSO FECHA
+
+    Os pontos ACEITOS pelo motor, não as leituras cruas. As recusadas são
+    justamente as de precisão ruim e as de teleporte: guardá-las seria guardar
+    mais dado sensível para desenhar um mapa pior.
+
+    O preço está declarado em vez de descoberto depois: mudar
+    `PRECISAO_MAXIMA_M` amanhã NÃO recalcula corrida antiga, porque a leitura
+    que o filtro novo aceitaria já não existe. Recalcular parcial em outra
+    distância continua possível — isso só depende dos pontos aceitos.
+
+    PRIVACIDADE
+
+    `CASCADE` a partir da corrida, que é `CASCADE` a partir do usuário: excluir
+    a conta apaga o percurso junto, que é o contrato deste repositório para
+    todo dado pessoal.
+
+    Separar é também o que torna possível, depois, apagar só o traçado e manter
+    a estatística — uma retenção não precisa escolher entre perder a corrida e
+    guardar o endereço de casa. E o corte das pontas da rota, que impede uma
+    imagem compartilhada de publicar onde a pessoa mora, opera só aqui.
+    """
+
+    corrida = models.OneToOneField(
+        Corrida,
+        on_delete=models.CASCADE,
+        related_name="traco",
+        verbose_name="corrida",
+    )
+
+    #: `[{"lat": -23.5, "lon": -46.6, "t": 0.0, "acumulado_m": 0.0}, ...]`,
+    #: na ordem em que o motor aceitou. `acumulado_m` vem junto porque é o que
+    #: permite redesenhar a parcial sem repetir o haversine ponto a ponto.
+    pontos = models.JSONField("pontos", default=list)
+
+    #: Quantas leituras o motor recusou. Fica porque é o que explica um mapa
+    #: com buraco: sem este número, um traçado picotado parece defeito de
+    #: desenho quando é a rua que estava sem sinal.
+    descartadas = models.PositiveIntegerField("leituras descartadas", default=0)
+
+    class Meta:
+        verbose_name = "traçado da corrida"
+        verbose_name_plural = "traçados das corridas"
+
+    def __str__(self):
+        return f"{len(self.pontos)} pontos"

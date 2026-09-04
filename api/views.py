@@ -22,7 +22,7 @@ from accounts import entrada
 from accounts.models import TokenDeApp
 from workouts import corrida as motor
 from workouts.corrida_views import DISTANCIA_MAXIMA_M, DURACAO_MAXIMA_S
-from workouts.models import Corrida
+from workouts.models import Corrida, TracoDaCorrida
 
 from .auth import corpo_json, erro, exige_token, responder, usuario_do_pedido
 
@@ -173,9 +173,14 @@ def _calcular(pontos):
     haversine, corte de precisão, corte de teleporte e corte de ruído, com
     teste — e nenhum caminho vivo o chamava.
 
-    OS PONTOS NÃO SÃO GUARDADOS. O model `Corrida` recusa o traçado de
-    propósito: "guardar coordenada é guardar onde a pessoa mora e a que horas
-    ela sai de casa". Eles entram, viram número, e morrem nesta função.
+    OS PONTOS ACEITOS SÃO DEVOLVIDOS junto com os números, e quem decide
+    guardá-los é `corridas()` — em `TracoDaCorrida`, não em `Corrida`. Esta
+    função continua pura: ela calcula e não escreve.
+
+    Aceitos, e não as leituras cruas: as recusadas são as de precisão ruim e as
+    de teleporte, e guardá-las seria guardar mais dado sensível para desenhar
+    um mapa pior. O teto de volume é o limite de 1 MB do corpo, em
+    `api/auth.py` — ~7.200 pontos, duas horas a uma leitura por segundo.
     """
     limpos = []
     for p in pontos:
@@ -197,6 +202,7 @@ def _calcular(pontos):
         "distancia_m": int(round(resultado["distancia_m"])),
         "parciais": motor.parciais(resultado["pontos"]),
         "descartadas": resultado["descartadas"],
+        "pontos": resultado["pontos"],
     }
 
 
@@ -224,8 +230,16 @@ def _divergencias(corrida, dados, distancia, parciais):
     )
 
 
-def _corrida_em_json(corrida):
-    return {
+def _corrida_em_json(corrida, com_traco=False):
+    """Os números da corrida. O traçado só quando pedido, e nunca na lista.
+
+    `com_traco` é falso por padrão de propósito: a lista do histórico devolve
+    todas as corridas do dono, e anexar o percurso de cada uma arrastaria
+    milhares de pontos para uma tela que desenha distância e tempo. É a mesma
+    razão pela qual `TracoDaCorrida` é tabela separada — anexar aqui desfaria
+    o desenho de lá.
+    """
+    corpo = {
         "op_id": corrida.op_id,
         "comecou_em": corrida.comecou_em.isoformat(),
         "terminou_em": corrida.terminou_em.isoformat(),
@@ -235,6 +249,16 @@ def _corrida_em_json(corrida):
         "teve_lacuna": corrida.teve_lacuna,
         "parciais": corrida.parciais,
     }
+    if com_traco:
+        traco = getattr(corrida, "traco", None)
+        # Corrida sem traçado é o caso NORMAL, não erro: a PWA publicada
+        # sincroniza só os números, e o `OneToOne` pode não existir. `pontos`
+        # vem como lista vazia para o cliente não precisar distinguir os dois
+        # casos ao desenhar — mas `tem_traco` diz qual dos dois é.
+        corpo["tem_traco"] = traco is not None
+        corpo["pontos"] = traco.pontos if traco else []
+        corpo["leituras_descartadas"] = traco.descartadas if traco else 0
+    return corpo
 
 
 @csrf_exempt
@@ -289,6 +313,16 @@ def corridas(request):
                 teve_lacuna=bool(dados.get("teve_lacuna")),
                 parciais=parciais,
             )
+            if calculado is not None:
+                # Na MESMA transação, e não depois: corrida gravada com o
+                # traçado faltando mentiria sobre o percurso na tela de mapa,
+                # e o `create` do traço pode falhar sozinho (banco cheio,
+                # conexão caindo). Ou entram os dois, ou não entra nenhum.
+                TracoDaCorrida.objects.create(
+                    corrida=corrida,
+                    pontos=calculado["pontos"],
+                    descartadas=calculado["descartadas"],
+                )
             criada = True
     except IntegrityError:
         # Reenvio. A resposta perdida é indistinguível do envio perdido, então
@@ -336,7 +370,14 @@ def corrida(request, op_id):
     vizinho. E o filtro por dono vem antes de qualquer coisa — 404 e não 403,
     porque 403 confirmaria que a corrida existe.
     """
-    achada = Corrida.objects.filter(user=request.dono, op_id=op_id).first()
+    achada = (
+        Corrida.objects.filter(user=request.dono, op_id=op_id)
+        # `select_related` porque o traçado SEMPRE sai aqui: sem ele seriam
+        # duas idas ao banco para uma tela só. Na LISTA não há
+        # `select_related` nenhum, e isso também é intencional.
+        .select_related("traco")
+        .first()
+    )
     if achada is None:
         return erro("corrida não encontrada", 404)
-    return responder(_corrida_em_json(achada))
+    return responder(_corrida_em_json(achada, com_traco=True))

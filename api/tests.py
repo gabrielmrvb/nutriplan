@@ -20,7 +20,7 @@ from django.utils import timezone
 
 from accounts.models import TokenDeApp
 from plans.tests import create_complete_user
-from workouts.models import Corrida
+from workouts.models import Corrida, TracoDaCorrida
 
 SENHA = "senha-bem-forte-123"
 
@@ -277,10 +277,20 @@ class OServidorCalculaQuandoRecebePontosTests(Base):
         self.assertNotEqual(corrida.distancia_m, 999_999)
         self.assertGreater(corrida.distancia_m, 0)
 
-    def test_o_tracado_nao_e_guardado(self):
-        """A decisão de privacidade do model continua valendo: os pontos são
-        calculados e DESCARTADOS. Guardar coordenada é guardar onde a pessoa
-        mora."""
+    def test_o_tracado_nunca_fica_na_linha_da_corrida(self):
+        """O percurso é guardado, mas JAMAIS dentro de `Corrida`.
+
+        Este teste nasceu afirmando outra coisa — que o traçado não era
+        guardado de jeito nenhum —, e isso era verdade enquanto não havia mapa.
+        Quando o percurso passou a ser produto, ele foi para `TracoDaCorrida`,
+        e a asserção teria continuado VERDE sem proteger nada: ela só olha os
+        campos de `Corrida`.
+
+        Reescrita, ela protege o que de fato importa agora: a linha da corrida
+        continua sem coordenada. É isso que faz a LISTA do histórico não
+        arrastar o percurso de cada corrida, e é isso que permite apagar o
+        traçado depois sem perder a estatística.
+        """
         self.enviar_pontos(self.pontos_retos())
         corrida = Corrida.objects.get(user=self.pessoa)
 
@@ -290,6 +300,10 @@ class OServidorCalculaQuandoRecebePontosTests(Base):
 
         self.assertNotIn("-46.63", bruto)
         self.assertNotIn("lat", bruto)
+
+        # Controle positivo: sem isto, apagar a gravação do traço deixaria as
+        # duas asserções acima verdes e o teste provaria o oposto do que diz.
+        self.assertTrue(corrida.traco.pontos)
 
     def test_tracado_que_soma_distancia_impossivel_e_recusado(self):
         """O filtro de teleporte é ponto a ponto, e por isso não vê o total.
@@ -583,3 +597,158 @@ class RevisaoDirigidaDoTokenTests(Base):
         from django.contrib import admin
 
         self.assertFalse(admin.site.is_registered(TokenDeApp))
+
+
+class OTracadoDaCorridaTests(Base):
+    """O percurso: quando é guardado, quem enxerga, e o que nunca sai na lista.
+
+    O traçado é o dado mais sensível que este app guarda — ele diz onde a
+    pessoa mora e a que horas ela sai de casa. Todo teste aqui existe para uma
+    pergunta de dono: quem consegue ler isto?
+    """
+
+    def enviar(self, op_id="op-traco", pontos=None, **troca):
+        corpo = {
+            "op_id": op_id,
+            "comecou_em": "2026-09-04T07:00:00+00:00",
+            "terminou_em": "2026-09-04T07:30:00+00:00",
+            "duracao_s": 1782,
+        }
+        if pontos is not None:
+            corpo["pontos"] = pontos
+        corpo.update(troca)
+        return self.client.post(
+            reverse("api:corridas"),
+            json.dumps(corpo),
+            content_type="application/json",
+            **self.com_token(self.token_de(self.pessoa)),
+        )
+
+    def pontos_retos(self, quantos=60, passo=0.0001):
+        return [
+            {"lat": -23.55 + i * passo, "lon": -46.63, "t": i, "accuracy": 5}
+            for i in range(quantos)
+        ]
+
+    def test_o_percurso_e_guardado_quando_vem_ponto(self):
+        """Sem isto não existe mapa nem resumo compartilhável: os dois desenham
+        o traçado, e o traçado precisa sobreviver ao pedido."""
+        self.enviar(pontos=self.pontos_retos())
+
+        traco = TracoDaCorrida.objects.get(corrida__user=self.pessoa)
+        self.assertEqual(len(traco.pontos), 60)
+        self.assertIn("lat", traco.pontos[0])
+
+    def test_corrida_sem_ponto_nao_ganha_tracado(self):
+        """A PWA publicada sincroniza só os números, e continua tendo de
+        funcionar. Corrida sem percurso é caso NORMAL, não erro."""
+        self.enviar(op_id="op-sem-ponto", distancia_m=5000)
+
+        corrida = Corrida.objects.get(user=self.pessoa, op_id="op-sem-ponto")
+        self.assertFalse(TracoDaCorrida.objects.filter(corrida=corrida).exists())
+
+    def test_a_lista_nunca_devolve_o_percurso(self):
+        """A lista existe para desenhar distância e tempo de muitas corridas.
+
+        Mandar o percurso de cada uma junto seria arrastar milhares de
+        coordenadas para uma tela que não as usa — e é exatamente o que a
+        tabela separada existe para evitar. Asserção sobre a COORDENADA, e não
+        sobre a chave: uma chave renomeada continuaria vazando o dado.
+        """
+        self.enviar(pontos=self.pontos_retos())
+
+        resposta = self.client.get(
+            reverse("api:corridas"), **self.com_token(self.token_de(self.pessoa))
+        )
+        cru = resposta.content.decode()
+
+        self.assertNotIn("-46.63", cru)
+        self.assertNotIn("pontos", cru)
+
+    def test_o_detalhe_devolve_o_percurso_para_o_dono(self):
+        """O dono lê o próprio traçado — é o que o mapa da corrida consome."""
+        self.enviar(pontos=self.pontos_retos())
+
+        resposta = self.client.get(
+            reverse("api:corrida", args=["op-traco"]),
+            **self.com_token(self.token_de(self.pessoa)),
+        )
+        corpo = self.json_de(resposta)
+
+        self.assertTrue(corpo["tem_traco"])
+        self.assertEqual(len(corpo["pontos"]), 60)
+
+    def test_o_detalhe_de_corrida_sem_tracado_nao_estoura(self):
+        """`OneToOne` que não existe levanta `RelatedObjectDoesNotExist` se
+        alguém acessar direto. A tela precisa da ausência como valor, não como
+        exceção."""
+        self.enviar(op_id="op-sem-ponto", distancia_m=5000)
+
+        resposta = self.client.get(
+            reverse("api:corrida", args=["op-sem-ponto"]),
+            **self.com_token(self.token_de(self.pessoa)),
+        )
+        corpo = self.json_de(resposta)
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertFalse(corpo["tem_traco"])
+        self.assertEqual(corpo["pontos"], [])
+
+    def test_ninguem_le_o_percurso_de_outra_pessoa(self):
+        """A pergunta que mais importa nesta tabela. 404 e não 403: 403
+        confirmaria que a corrida existe, e com ela que a pessoa correu."""
+        self.enviar(pontos=self.pontos_retos())
+
+        resposta = self.client.get(
+            reverse("api:corrida", args=["op-traco"]),
+            **self.com_token(self.token_de(self.outra)),
+        )
+
+        self.assertEqual(resposta.status_code, 404)
+        self.assertNotIn("-46.63", resposta.content.decode())
+
+    def test_reenvio_identico_nao_duplica_o_percurso(self):
+        """A fila offline reenvia em rajada quando a rede volta. Dois traçados
+        para uma corrida é o mesmo defeito que `op_id` existe para impedir — e
+        `OneToOne` transformaria a segunda gravação em erro 500."""
+        pontos = self.pontos_retos()
+        primeira = self.enviar(pontos=pontos)
+        segunda = self.enviar(pontos=pontos)
+
+        self.assertEqual(primeira.status_code, 201)
+        self.assertEqual(segunda.status_code, 200)
+        self.assertEqual(TracoDaCorrida.objects.count(), 1)
+
+    def test_leitura_recusada_pelo_motor_nao_e_guardada(self):
+        """Guardar a leitura que o filtro rejeitou seria guardar mais
+        coordenada para desenhar um mapa PIOR. O teleporte entra no meio de um
+        percurso reto e não pode sobreviver no banco."""
+        pontos = self.pontos_retos(10)
+        pontos.insert(5, {"lat": -10.0, "lon": -40.0, "t": 5.5, "accuracy": 5})
+
+        self.enviar(pontos=pontos)
+        traco = TracoDaCorrida.objects.get(corrida__user=self.pessoa)
+
+        guardado = json.dumps(traco.pontos)
+        self.assertNotIn("-40.0", guardado)
+        self.assertGreaterEqual(traco.descartadas, 1)
+
+    def test_apagar_a_corrida_apaga_o_percurso(self):
+        """Contrato deste repositório: todo dado pessoal cai junto. Traçado que
+        sobrevive à corrida é coordenada órfã que ninguém sabe que tem."""
+        self.enviar(pontos=self.pontos_retos())
+        self.assertEqual(TracoDaCorrida.objects.count(), 1)
+
+        Corrida.objects.get(user=self.pessoa).delete()
+
+        self.assertEqual(TracoDaCorrida.objects.count(), 0)
+
+    def test_apagar_a_conta_apaga_o_percurso(self):
+        """Excluir a conta é a promessa mais forte do app. Se o traçado
+        sobreviver a ela, o endereço de casa sobrevive junto."""
+        self.enviar(pontos=self.pontos_retos())
+        self.assertEqual(TracoDaCorrida.objects.count(), 1)
+
+        self.pessoa.delete()
+
+        self.assertEqual(TracoDaCorrida.objects.count(), 0)
