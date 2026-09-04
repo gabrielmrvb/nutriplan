@@ -5,6 +5,19 @@ O que ficou decidido mas não feito, e o que depende de gente. Cada item diz
 
 ## Bloqueado por decisão ou ação humana
 
+### ⛔ Validação de GPS em aparelho físico — CORRIDA V1
+O software da Corrida V1 está pronto, publicado e provado em navegador com
+geolocalização SIMULADA. Simulação não é aparelho na rua, e as duas não podem
+ser confundidas.
+
+O roteiro é [`docs/prova-corrida-aparelho.md`](docs/prova-corrida-aparelho.md),
+11 itens, 10 a 15 minutos, com uma caminhada curta. O **item 11 é o novo**, e é
+o que a V1 acrescentou: encerrar a corrida com o modo avião LIGADO e conferir
+que ela sobe sozinha depois — e uma vez só, o que prova a idempotência na rua.
+
+Enquanto isso não acontecer, a Corrida fica em
+**CORRIDA V1 — SOFTWARE ✅ / VALIDAÇÃO GPS FÍSICO ⏳**, e não vira quinta aba.
+
 ### ⛔ Backup independente de produção — UM CLIQUE SEU
 Revalidado em 04/09/2026, e o registro anterior estava desatualizado: a máquina
 de backup existe inteira e foi endurecida na INFRA SAFETY P0. O que falta é

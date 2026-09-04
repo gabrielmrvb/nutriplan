@@ -93,6 +93,29 @@ Marcou "com trecho não registrado"?  ☐ sim ☐ não
 
 A corrida continua lá com os mesmos números?  ☐ sim ☐ não
 
+**11. Sem internet ao encerrar — o item que a V1 acrescentou.**
+
+Este é o cenário para o qual a persistência local foi escrita, e o único jeito
+de saber se ela funciona no seu aparelho é com o rádio desligado de verdade.
+
+Comece outra corrida curta. Ande uns 200 metros. **Ligue o modo avião** (ou
+desligue os dados móveis e o Wi-Fi) e só então toque em **Encerrar**.
+
+A tela deve dizer que a corrida está **guardada** e que sobe quando o sinal
+voltar — e NÃO "não consegui salvar".
+
+O que a tela disse? `_________________________________`
+
+Agora desligue o modo avião, espere alguns segundos e recarregue
+`/treino/corridas/`.
+
+A corrida apareceu no histórico?  ☐ sim ☐ não
+Apareceu UMA vez só, e não duas?  ☐ sim ☐ não
+
+O segundo quadradinho é o que prova a idempotência na rua: o mesmo `op_id` foi
+enviado mais de uma vez e o servidor devolveu a corrida que já existia, em vez
+de criar outra.
+
 **Bateria no fim:** `____%` — em `____` minutos de corrida.
 
 ---
@@ -104,6 +127,9 @@ A corrida continua lá com os mesmos números?  ☐ sim ☐ não
 1. o número do item 4 bater com a distância real dentro de uns 10%;
 2. o item 3 continuar em zero parado;
 3. os itens 7 e 8 avisarem da lacuna em vez de inventar distância.
+
+E a persistência da V1 depende do item 11: se a corrida sumir com o modo avião
+ligado, nada do que foi provado em navegador vale na rua.
 
 Se o item 3 subir, eu ajusto o limite de precisão — e aí o número que você
 anotou vira o limite, em vez do palpite que está no código hoje.
