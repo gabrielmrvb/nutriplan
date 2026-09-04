@@ -5,6 +5,36 @@ O que ficou decidido mas não feito, e o que depende de gente. Cada item diz
 
 ## Bloqueado por decisão ou ação humana
 
+### ⛔ Fundação mobile da Corrida — SERVIDOR PRONTO, CLIENTE BLOQUEADO
+Campanha de 04/09/2026. O lado servidor da Corrida mobile está construído,
+testado e no ar; o cliente nativo **não pode ser criado nesta máquina**.
+
+Pronto e publicado:
+
+- `TracoDaCorrida` guarda o percurso, em tabela separada de `Corrida`;
+- a API recalcula pelo motor Python e **ignora** o número do cliente;
+- lote fora de ordem é ordenado na fronteira da API — sem isso o iOS, que
+  entrega leituras em lote e atrasadas, produziria corrida menor em silêncio;
+- histórico paginado (`limite`, `desde`, `tem_mais`);
+- traçado só no detalhe, só para o dono, e sem tela no Admin;
+- contrato completo em [`docs/api-v1.md`](docs/api-v1.md) e a arquitetura em
+  [`docs/corrida-mobile-arquitetura.md`](docs/corrida-mobile-arquitetura.md).
+
+**O bloqueio é de ambiente e de conta, não de código.** Nesta máquina não
+existem `node`, `npm`, `java`, `gradle`, `adb` nem `xcodebuild`, e o Capacitor 8
+exige Node 22+, Android Studio 2025.2.1+ e **macOS com Xcode 26 para iOS**. Sem
+isso não há projeto nativo, nem build de debug, nem teste em aparelho.
+
+Decisões já fechadas que não precisam ser repensadas:
+
+- **Android por foreground service do tipo `location`**, sem
+  `ACCESS_BACKGROUND_LOCATION`. A doc do Android classifica isso como
+  localização de PRIMEIRO plano e cita a tela apagada — o que dispensa o
+  formulário de declaração do Google Play;
+- **o plugin oficial `@capacitor/geolocation` não serve**: a documentação dele
+  diz, com todas as letras, que não faz background;
+- **a PWA não passa a coletar coordenada** (ver a seção "Mapa e traçado").
+
 ### ⛔ Validação de GPS em aparelho físico — CORRIDA V1
 O software da Corrida V1 está pronto, publicado e provado em navegador com
 geolocalização SIMULADA. Simulação não é aparelho na rua, e as duas não podem
