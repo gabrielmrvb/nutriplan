@@ -169,7 +169,7 @@ ensina mais que a correção:
 - **P2 — link quebrado na política de privacidade**, apontando para uma rota
   que só aceita POST de propósito.
 
-### PREMIUM POLISH — B1 A B8 FEITOS; B9 É O PRÓXIMO
+### PREMIUM POLISH — B1 A B9 FEITOS; B10 É O PRÓXIMO
 
 **B1 — LOGIN / CADASTRO ✅** Auditado em navegador real em 375, 430, 768 e
 desktop. A tela já estava boa: zero rolagem horizontal, zero alvo abaixo de
@@ -533,7 +533,38 @@ Registrado e NÃO feito aqui, porque é fora do escopo do B8: falta
 `403_csrf.html`. Uma página cacheada pelo worker com token vencido cai na
 página embutida do Django na hora de enviar o formulário. Pertence ao B10.
 
-**B9 — DISCIPLINA DE TESTES ⏳ PRÓXIMO**
+**B9 — DISCIPLINA DE TESTES ✅** Os quatro guardrails do contrato —
+`RotasExtrasDoAdminTests`, `TodaTelaTemPortaTests`,
+`ComentarioDeTemplateNaoVazaTests` e `MatrizDeCapabilityTests` — foram lidos um
+a um e estão íntegros. O B8 só ACRESCENTOU referências de `{% url %}`: o
+`TodaTelaTemPortaTests` ficou mais forte.
+
+Mas "preservar" precisava de mecanismo, porque apagar um guardrail não deixa
+nada vermelho — o guardrail ERA o vermelho. Os quatro passaram a ser nomeados
+num teste que falha se a classe sumir ou virar casca sem método dentro.
+
+A regra do runner único era só escrita, e falhou DUAS vezes nesta sessão: uma
+suíte dirigida disparada durante a completa, e uma conexão órfã derrubando o
+hook de push com uma mensagem sobre banco quando o problema era de processo.
+`config/runner.py` agora verifica `pg_stat_activity` antes de criar o banco — a
+ordem é o teste, porque perguntar depois de criar já é tarde. Verifica e não
+mata: derrubar a conexão de uma suíte legítima trocaria um erro claro por um
+resultado errado.
+
+A prova não dá para encenar: com o push do B8 rodando a suíte completa de
+verdade, uma suíte dirigida foi recusada com o pid na tela e saída 1.
+
+A escotilha `NUTRIPLAN_IGNORAR_RUNNER_UNICO` existe porque guardrail sem saída,
+num projeto de uma pessoa, é um jeito de ficar sem poder publicar. O preço dela
+está escrito ao lado, e há teste exigindo que continue escrito.
+
+Sabotagem: 8 execuções, 8 cenários, 8 detectados. Três apareceram como "NÃO
+APLICADA" na primeira rodada porque `config/runner.py` está em CRLF e o roteiro
+lê em bytes — a verificação de âncora em modo texto normaliza sozinha e me
+disse que estava tudo bem. O roteiro passou a normalizar para casar e a
+restaurar pelos bytes originais.
+
+**B10 — SEGURANÇA ⏳ PRÓXIMO**
 
 Escopo em [`docs/premium-polish-b1-b11.md`](docs/premium-polish-b1-b11.md).
 

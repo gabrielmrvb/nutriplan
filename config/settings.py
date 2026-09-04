@@ -174,6 +174,11 @@ DATABASES = {
 # `OperationalError` na cara de quem estava usando o app.
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("DJANGO_CONN_MAX_AGE", default=60)
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
+
+# Um runner de cada vez. A regra e do contrato do B9 e existia so escrita — e
+# regra escrita falha justamente na hora em que alguem esta com pressa.
+# `config/runner.py` registra os dois modos de falha que ela ja teve aqui.
+TEST_RUNNER = "config.runner.RunnerUnico"
 # Usuario customizado desde o inicio: trocar isso depois da primeira
 # migration e um dos poucos caminhos realmente dolorosos no Django.
 AUTH_USER_MODEL = "accounts.User"
