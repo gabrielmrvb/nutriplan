@@ -169,7 +169,7 @@ ensina mais que a correção:
 - **P2 — link quebrado na política de privacidade**, apontando para uma rota
   que só aceita POST de propósito.
 
-### PREMIUM POLISH — B1 A B10 FEITOS; B11 É O PRÓXIMO
+### PREMIUM POLISH — B1 A B11 ✅ COMPLETO
 
 **B1 — LOGIN / CADASTRO ✅** Auditado em navegador real em 375, 430, 768 e
 desktop. A tela já estava boa: zero rolagem horizontal, zero alvo abaixo de
@@ -614,9 +614,58 @@ têm esse artefato, e isso fica dito em vez de contornado.
 Falta também `403_csrf.html`, herdado do B8: uma página cacheada pelo worker
 com token vencido cai na página embutida do Django ao enviar o formulário.
 
-**B11 — TESTES / PUBLICAÇÃO ⏳ PRÓXIMO**
+**B11 — TESTES / PUBLICAÇÃO ✅** Dez blocos, onze commits, todos publicados em
+`origin/main` com a suíte completa verde no hook antes de cada push. O B3 é o
+único com dois commits, e por um motivo: o segundo registra a prova de produção
+no BACKLOG, que só existiu depois do deploy do primeiro. Nenhum commit
+cosmético, nenhum lote publicado sem gate.
 
-Escopo em [`docs/premium-polish-b1-b11.md`](docs/premium-polish-b1-b11.md).
+O achado do bloco é que o `/demo/` é uma superfície de PROVA. Durante os blocos
+anteriores várias verificações ficaram como "não provável sem sessão" — barra
+de navegação, título da tela de progresso, porta para corridas —, porque todas
+moram atrás de login e não se abre sessão em conta real. O demo responde 200
+para anônimo e renderiza as mesmas telas com o mesmo `base.html`: não vale para
+nada que dependa de escrita, mas para estrutura, rótulo e porta é prova de
+produção obtida sem tocar em conta nenhuma.
+
+Destravado e medido em produção: B1 (o primeiro campo da tela de entrar tem
+`autofocus` E é o `activeElement` — o atributo sozinho não prova o foco); B3
+("Abrir corridas" leva a `/demo/treino/corridas/` com a aba Treino ativa); B4
+(`<h1>` "Progresso" igual ao `<title>`, um único `main.container`, `--largo`
+extinto do HTML servido); B6 (quatro abas nas duas navegações, uma só com
+`aria-current`, zero "Métricas").
+
+Do B2 dá para provar em produção a metade que o próprio commit dele diz ser a
+que costuma faltar: as âncoras EXISTIREM. Medido: `id="hidratacao"` presente e
+cinco `id="slot-N"`, um por refeição. O POST devolvendo para a âncora exige
+sessão e fica como prova local.
+
+Smoke final: 24 rotas públicas, zero 5xx.
+
+NENHUM TESTE NOVO. `demo/tests.py` já exige que o demo abra sem sessão, que
+toda área responda, que a navegação nunca aponte para fora dele e que nenhum
+POST altere nada; `config/test_b6_navegacao.py` já trava os rótulos no
+`base.html`, que é o mesmo que o demo usa. Um teste a mais aqui seria trabalho
+sem função.
+
+NÃO PROVADO EM PRODUÇÃO: B9 e B10 não criam superfície de produção — um é o
+runner de teste, o outro é uma trava de teste. Sobem no deploy e ficam inertes.
+O que se verifica deles lá é que o build passou (`scripts/build.sh` roda com
+`errexit`, então deploy verde prova migração e seeds) e que o app seguiu
+saudável. Chamar isso de "validado em produção" seria esticar a palavra.
+
+### Registrado e NÃO feito, com o custo ao lado
+
+- **`403_csrf.html`.** Herdado do B8. Uma página cacheada pelo worker com token
+  vencido cai na página embutida do Django ao enviar o formulário. É a mesma
+  família das três telas de erro criadas, e ficou de fora porque não estava no
+  escopo do B8 e porque o cenário depende do worker — merece ser reproduzido
+  antes de ser corrigido.
+- **Identificação de versão em `/saude/`.** Expor `RENDER_GIT_COMMIT` provaria
+  "o commit testado é o commit publicado" num pedido só. O endpoint é público, e
+  acrescentar isso logo depois do bloco que fechou vazamentos merece decisão
+  explícita, não carona. A alternativa em uso é cada bloco provar a identidade
+  do commit por um artefato observável próprio.
 
 ### Escopo B1–B11 recuperado
 
