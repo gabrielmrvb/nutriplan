@@ -169,7 +169,7 @@ ensina mais que a correção:
 - **P2 — link quebrado na política de privacidade**, apontando para uma rota
   que só aceita POST de propósito.
 
-### PREMIUM POLISH — B1 A B9 FEITOS; B10 É O PRÓXIMO
+### PREMIUM POLISH — B1 A B10 FEITOS; B11 É O PRÓXIMO
 
 **B1 — LOGIN / CADASTRO ✅** Auditado em navegador real em 375, 430, 768 e
 desktop. A tela já estava boa: zero rolagem horizontal, zero alvo abaixo de
@@ -564,7 +564,57 @@ lê em bytes — a verificação de âncora em modo texto normaliza sozinha e me
 disse que estava tudo bem. O roteiro passou a normalizar para casar e a
 restaurar pelos bytes originais.
 
-**B10 — SEGURANÇA ⏳ PRÓXIMO**
+**B10 — SEGURANÇA ✅** As nove capacidades do contrato foram auditadas uma a
+uma, com o teste que fecha cada uma nomeado: `change_profile` em
+`PedirNovaEscolhaDeDivisaoTests`; `add_user` na matriz, 403 nos dois papéis;
+senha de terceiros em `SenhaNaoAtravessaOAdminTests`, cinco testes incluindo o
+POST na rota `<pk>/password/`; `SocialToken`, `SocialApp`, `SocialAccount`,
+`EmailAddress` e `WeightEntry` avulso na matriz, 404; permissões amplas em
+`EscaladaDePrivilegioNoUserAdminTests`, sete testes. Nada foi reaberto por
+B1–B9 — nenhum daqueles blocos tocou permissão, papel ou registro de Admin.
+
+O buraco não estava numa capacidade, e sim na FORMA da trava. Cinco das nove
+são protegidas por uma tabela só, a `ALCANCE`, onde a proteção e o valor
+esperado moram no mesmo lugar: quem reabrir `SocialToken` no código e trocar o
+404 por 200 na linha correspondente tem a suíte verde de novo.
+
+Medido, e o primeiro resultado desmentiu a suposição: reabrindo SÓ o Admin, a
+própria matriz pega — a tela responde 403 onde a tabela diz 404. O que ela não
+pega é a reabertura COM o ajuste na linha dela. Medido: matriz verde, trava do
+B10 vermelha. É a sabotagem S138, e é o único cenário que justifica o bloco.
+
+Os nove nomes passaram a vir do CONTRATO, num arquivo separado, com as
+respostas exigidas asseridas de novo. Reabrir uma delas exige agora mexer em
+dois arquivos que discordam entre si. E há teste exigindo que os nove nomes
+continuem escritos no contrato: apagar uma linha de lá deixaria o teste verde
+por ter menos o que provar.
+
+A regra "mudança visual não pode ressuscitar capability" foi aplicada à
+superfície mais nova: a tela de 403 do B8 aparece também dentro do `/admin/`, e
+uma tela de erro que diz qual permissão falta entrega o nome interno de graça.
+Há teste proibindo `ver_painel_de_gestao` no corpo, e teste exigindo que a
+saída leve para o dia de hoje — um botão de volta para `/gestao/` seria um
+laço, e um para `/admin/` seria a tela de erro sugerindo o caminho.
+
+Sabotagem: 8 execuções, 8 cenários, 8 detectados.
+
+NÃO PROVADO EM PRODUÇÃO: o 403 de equipe-sem-permissão exige sessão
+autenticada, e não abro sessão em conta real. O que está provado lá é o
+anônimo — `/gestao/` responde 302 com `no-store` e `Vary: Cookie`.
+
+REGISTRADO E NÃO FEITO: `/saude/` não informa qual commit está no ar. Expor
+`RENDER_GIT_COMMIT` ali provaria "o commit testado é o commit publicado" em um
+pedido, mas o endpoint é público, e acrescentar identificação de versão logo
+depois de um bloco que fechou vazamentos merece decisão explícita, não carona.
+A alternativa sem custo é a que está em uso: cada bloco prova a identidade do
+commit por um artefato observável próprio — o `podeGuardar` no `sw.js` do B7, a
+tela de 404 do B8. Blocos que não criam superfície de produção (B9, B10) não
+têm esse artefato, e isso fica dito em vez de contornado.
+
+Falta também `403_csrf.html`, herdado do B8: uma página cacheada pelo worker
+com token vencido cai na página embutida do Django ao enviar o formulário.
+
+**B11 — TESTES / PUBLICAÇÃO ⏳ PRÓXIMO**
 
 Escopo em [`docs/premium-polish-b1-b11.md`](docs/premium-polish-b1-b11.md).
 
