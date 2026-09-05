@@ -297,12 +297,17 @@
     "Agora não" escrito por extenso para quem não associa o símbolo a fechar.
     Um convite com uma saída difícil de achar não é convite, é obstáculo.
   {% endcomment %}
-  {# `role="region"` e NAO `dialog`: o convite nao prende foco, e nao deve
-     prender — a decisao de nao roubar o foco de quem esta usando o app e
-     deliberada aqui e no cartao de conquista. O que estava errado era o
-     PAPEL: `dialog` faz o leitor de tela anunciar dialogo, e com o convite
-     aberto 68 controles de fora continuavam alcancaveis por Tab. Papel que
-     promete o que o comportamento nao cumpre e pior que papel nenhum. #}
+  {% comment %}
+    `role="region"` e NAO `dialog`: o convite nao prende foco, e nao deve
+    prender — nao roubar o foco de quem esta usando o app e decisao deliberada
+    aqui e no cartao de conquista. O que estava errado era o PAPEL: `dialog`
+    faz o leitor de tela anunciar dialogo, e com o convite aberto 68 controles
+    de fora continuavam alcancaveis por Tab.
+
+    `{% templatetag openvariable %}#  #{% templatetag closevariable %}` nao serve aqui: o comentario de cerquilha do Django e de
+    UMA linha, e a versao anterior deste texto vazou para dentro do HTML de
+    TODA pagina do app. Quem pegou foi `ComentarioDeTemplateNaoVazaTests`.
+  {% endcomment %}
   <div class="install" data-install hidden role="region" aria-labelledby="install-title">
     <button type="button" class="install__close" data-install-close aria-label="Fechar o convite de instalação">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
