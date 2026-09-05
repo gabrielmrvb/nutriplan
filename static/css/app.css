@@ -6432,3 +6432,106 @@ body.montando { overflow: hidden; }
   font-size: .72rem;
   font-weight: 500;
 }
+
+/* ==========================================================================
+   28. Tela de hidratação
+   ========================================================================== */
+
+/* A lista do que foi registrado hoje.
+
+   Ela é o pagamento da tabela de goles: antes existia só o total do dia, e um
+   total não responde "eu bebi quando?". Quem abre isto às cinco da tarde com
+   400 ml vê que os dois registros foram de manhã — informação que o número
+   3.000 sozinho não carrega. */
+.goles {
+  display: grid;
+  gap: var(--espaco-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gole {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--espaco-4);
+  min-width: 0;
+  padding: var(--espaco-2) var(--espaco-4);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.gole__hora {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--texto-xs);
+}
+
+/* Família própria, e não `.semana__valor` reciclado: um gole é um evento com
+   hora, e a média de uma semana é um agregado. Compartilham a MECÂNICA — mono,
+   tabular, peso — porque são os dois um número que se compara na vertical; não
+   compartilham o nome porque não são a mesma coisa. A régua de
+   `MetricaNaoDependeDoTemplateParaSerMonoTests` cobre este seletor. */
+.gole__valor {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+  font-size: var(--texto-sm);
+}
+
+.gole__unidade {
+  color: var(--text-mute);
+  font-family: var(--font);
+  font-size: var(--texto-xs);
+  font-weight: 500;
+}
+
+/* A quantidade digitada. */
+.agua-livre { margin-top: var(--espaco-5); }
+
+.agua-livre__rotulo {
+  display: block;
+  margin-bottom: var(--espaco-2);
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  font-weight: 600;
+}
+
+.agua-livre__linha { display: flex; gap: var(--espaco-3); }
+
+.agua-livre__campo {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0 var(--espaco-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--texto-md);
+}
+
+.agua-livre__campo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* O link para a tela de hidratação, no rodapé do cartão do dia. Alinhado à
+   esquerda como o resto do cartão, e não centralizado: centralizar o faria
+   parecer um botão principal, que é exatamente o que ele não é.
+
+   O nome é `--rodape` e não `agua__mais` porque ele É um modificador de
+   `.btn-link`: nunca aparece sozinho no HTML, e quem afunda ao toque é o bloco.
+   `TouchFeedbackTests` reprovou a primeira versão — com nome próprio, a classe
+   virava um clicável sem retorno ao dedo, e a régua estava certa. Como
+   modificador, o teste resolve o bloco e o retorno vem de onde sempre veio. */
+.btn-link--rodape { display: inline-flex; margin-top: var(--espaco-2); }
+
+/* A linha "sem horário": mesma família, tom mais baixo. Ela é a água que o app
+   tem no total e não sabe quando entrou — informação de rodapé, não de topo. */
+.gole--sem-hora .gole__hora,
+.gole--sem-hora .gole__valor { color: var(--text-mute); }

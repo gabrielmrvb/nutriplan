@@ -101,6 +101,37 @@ precisa estar certo com pedidos concorrentes, e a fila offline reenvia
 exatamente assim, em rajada, quando a rede volta. Hoje é
 `Least(F("ml") + ml, Value(10000))`, e há teste com threads reais.
 
+**O total do dia e a composição dele são duas tabelas, e uma só é a fonte.**
+`HydrationLog` guarda o total — é dele que leem a ofensiva, o histórico e a
+tela Hoje. `GoleDeAgua` guarda a COMPOSIÇÃO, e só daqui para frente: não houve
+backfill porque inventar de quantos goles os totais antigos foram feitos seria
+fabricar dado. A consequência aparece na tela e está escrita nela: no dia da
+virada a lista mostra uma linha "sem horário" com a diferença, para a soma
+fechar com o painel. As duas escritas andam juntas dentro de `transaction`, nos
+três caminhos — somar, desfazer e zerar. **Zerar apaga os goles do dia também**;
+quando não apagava, a tela mostrava "Registrado 0 ml" com a lista cheia embaixo,
+e "desfazer" continuava oferecido sem mover número nenhum.
+
+**A água sobe no AGORA por ESTADO, não por relógio.** Ela era prioridade 4 —
+aparecia depois de todas as refeições e do treino, ou seja, quando o dia já
+tinha acabado. Hoje um ramo intermediário mede quanto a pessoa está atrás do
+esperado PARA A HORA, e a janela do esperado é a do próprio plano: da primeira
+refeição à última. Não há horário escrito à mão, e isso é a decisão — quem come
+às 5h30 e às 19h tem outra janela, e um "7h às 22h" fixo estaria errado para
+essa pessoa todos os dias. Beber **desliga o cartão na hora** — e só na hora: o
+esperado cresce com o relógio mais depressa do que 500 ml movem o real, então
+quem continua atrás o vê de novo umas duas horas depois. Medido numa janela de
+7h às 20h com meta de 3 L, bebendo 500 toda vez que ele pede: **cinco aparições
+no dia**. A primeira versão desta seção afirmava que ceder DESLIGAVA a regra, e
+a simulação desmentiu — cadência de duas horas não é o mesmo que aparecer uma
+vez. E ela não passa na frente de treino em andamento nem de refeição vencida:
+aquilo tem hora marcada; sede não.
+
+**O campo que diz para onde voltar é uma lista fechada.** `LogHydrationView`
+aceita POST de qualquer sessão autenticada, e `?next=` livre seria
+redirecionamento aberto. O pedido manda o NOME da tela, `DESTINOS` resolve, e o
+que não estiver lá cai no destino padrão.
+
 **Idempotência é requisito da fila offline.** Água SOMA e suplemento ALTERNA —
 as duas precisam de `op_id`. Marcação de refeição e carga de série usam
 `update_or_create` e já são seguras; se alguém trocá-las por contador, a fila

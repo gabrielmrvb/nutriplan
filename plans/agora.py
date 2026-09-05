@@ -91,6 +91,59 @@ def _acao_de_treino(estado, rotulo, atrasada, continuando=False) -> Acao:
     )
 
 
+#: Quantos pontos percentuais atrás do esperado contam como "significativamente
+#: atrás". Abaixo disso é ruído: quem bebeu 1 L às 13h de uma meta de 3 L está
+#: 13 pontos atrás e vai chegar lá sem ninguém avisar.
+ATRASO_DE_HIDRATACAO_PP = 25
+
+#: Abaixo disto não vale tomar a tela. Faltando 200 ml às 20h a pessoa não
+#: precisa de um cartão dizendo isso — ela precisa de um copo.
+FALTA_MINIMA_PARA_AVISAR_ML = 500
+
+
+def atraso_de_hidratacao(*, slots, meta_agua, bebido, agora) -> float:
+    """Pontos percentuais atrás do esperado PARA A HORA. Zero se não dá para saber.
+
+    A ideia é simples e é a única que não inventa horário: a janela de consumo
+    do dia é a do próprio plano — da primeira refeição à última. Antes da
+    primeira, não se espera nada; depois da última, espera-se a meta inteira;
+    no meio, proporcional.
+
+    Usar o plano em vez de "7h às 22h" importa porque o plano é de quem usa:
+    quem come às 5h30 e às 19h tem outra janela, e um horário escrito à mão
+    aqui estaria errado para essa pessoa todos os dias.
+
+    Devolve pontos percentuais e não uma fração porque é assim que a regra é
+    lida em voz alta: "trinta pontos atrás do esperado".
+    """
+    if not meta_agua or not slots:
+        return 0.0
+
+    horarios = [s.time for s in slots if s.time is not None]
+    if len(horarios) < 2:
+        return 0.0
+
+    inicio, fim = min(horarios), max(horarios)
+    if fim <= inicio:
+        return 0.0
+
+    def em_minutos(t):
+        return t.hour * 60 + t.minute
+
+    agora_min = em_minutos(agora.time())
+    inicio_min, fim_min = em_minutos(inicio), em_minutos(fim)
+
+    if agora_min <= inicio_min:
+        esperado = 0.0
+    elif agora_min >= fim_min:
+        esperado = 1.0
+    else:
+        esperado = (agora_min - inicio_min) / (fim_min - inicio_min)
+
+    real = min(bebido / meta_agua, 1.0)
+    return (esperado - real) * 100
+
+
 def proxima_acao(*, slots, treino, meta_agua, bebido, agora) -> Acao:
     """A ação mais útil neste instante.
 
@@ -140,6 +193,50 @@ def proxima_acao(*, slots, treino, meta_agua, bebido, agora) -> Acao:
         if tipo == "treino":
             return _acao_de_treino(alvo, "AGORA", atrasada=True)
         return _acao_de_refeicao(alvo, "AGORA", atrasada=True)
+
+    # 2-B. água muito atrás do esperado PARA A HORA.
+    #
+    # Entra aqui e não antes, e o lugar é a decisão inteira. Não passa na
+    # frente de treino em andamento — ninguém entre séries quer ser mandado
+    # beber água. Não passa na frente de refeição vencida — aquilo tem hora
+    # marcada e passa; sede não.
+    #
+    # O que ela ocupa é o slot do "A SEGUIR", que por definição significa que
+    # nada é urgente agora. Se nada venceu e a pessoa está trinta pontos atrás
+    # do esperado, beber água É a coisa útil deste instante — e mostrar a
+    # próxima refeição daqui a três horas, não.
+    #
+    # De manhã o esperado é baixo e o atraso não alcança o limiar. E beber
+    # DESLIGA O CARTÃO NA HORA: o atraso cai abaixo do limiar no mesmo instante,
+    # medido às 11h com 0 ml, às 15h com 1.000 e às 19h com 2.000.
+    #
+    # O que ele NÃO faz é ficar desligado, e isto está escrito porque a primeira
+    # versão deste comentário afirmava que sim — "ela não domina o dia porque
+    # ceder a ela a desliga". Meia verdade. `esperado` cresce com o relógio mais
+    # depressa do que 500 ml movem `real`, então quem continua atrás vê o cartão
+    # de novo umas duas horas depois. Simulado numa janela de 7h às 20h com meta
+    # de 3 L, bebendo 500 toda vez que ele pede: aparece às 10:30, 12:30, 15:00,
+    # 17:00 e 19:00 — cinco vezes, e a pessoa fecha o dia com 2.500 ml.
+    #
+    # Cinco lembretes espaçados de duas horas é cadência, não wallpaper. Já
+    # quem não bebe NADA vê o cartão sem interrupção das 10:30 em diante, e isso
+    # é honesto e não é novidade: sem nada vencido e sem treino, o ramo 4 já
+    # mostrava água o resto do dia antes desta regra existir. A diferença é que
+    # agora ele aparece enquanto ainda dá tempo de fazer algo a respeito.
+    if meta_agua and bebido < meta_agua:
+        faltam = meta_agua - bebido
+        atraso = atraso_de_hidratacao(
+            slots=slots, meta_agua=meta_agua, bebido=bebido, agora=agora
+        )
+        if atraso >= ATRASO_DE_HIDRATACAO_PP and faltam >= FALTA_MINIMA_PARA_AVISAR_ML:
+            return Acao(
+                tipo="agua",
+                rotulo="HIDRATAÇÃO",
+                titulo="Faltam %d ml" % faltam,
+                detalhe="%d de %d ml hoje" % (bebido, meta_agua),
+                cta="Registrar 500 ml",
+                url="#hidratacao",
+            )
 
     # 3. o que vem a seguir: o mais próximo no futuro
     if futuros:

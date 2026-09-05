@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Hidratação · NutriPlan{% endblock %}
+
+{% block content %}
+  {% comment %}
+    Esta tela responde as perguntas que não cabiam no cartão do Hoje: "bebi
+    quando?", "como foi a semana?", "e se não foi 250, 500 nem 750?".
+
+    Os toques rápidos continuam existindo AQUI TAMBÉM, e isso não é duplicação
+    de decisão: quem chegou até esta tela e percebe que esqueceu de registrar o
+    último copo não deve ter que voltar para o Hoje para somá-lo. O formulário
+    é o mesmo, a view que escreve é a mesma, e o `de=hidratacao` é o que faz o
+    redirect voltar para cá em vez de jogar a pessoa no Hoje.
+  {% endcomment %}
+  <div class="page-head">
+    <h1>Hidratação</h1>
+    <p class="lead">
+      Meta de hoje: {{ meta_ml }} ml · calculada a partir do seu peso
+    </p>
+  </div>
+
+  <div class="split">
+    <div class="split__main stack">
+
+      {# ---------------- O dia ---------------- #}
+      <section class="card" id="hoje">
+        <div class="card__head"><h2>Hoje</h2></div>
+
+        <div class="tiles">
+          <div class="tile">
+            <strong class="tile__value">{{ bebido }}</strong>
+            <span class="tile__label">Registrado</span>
+            <span class="tile__meta">ml</span>
+          </div>
+          <div class="tile">
+            <strong class="tile__value">{{ faltam }}</strong>
+            <span class="tile__label">Faltam</span>
+            <span class="tile__meta">ml</span>
+          </div>
+          <div class="tile">
+            <strong class="tile__value">{{ pct }}%</strong>
+            <span class="tile__label">Da meta</span>
+            <span class="tile__meta">{{ meta_ml }} ml</span>
+          </div>
+        </div>
+
+        <div class="progress {% if completa %}progress--completo{% endif %}"
+             role="img" aria-label="{{ pct }}% da meta de água">
+          <span class="progress__fill progress__fill--agua"
+                style="width: {{ pct }}%"></span>
+        </div>
+
+        <div class="agua__botoes">
+          {% for passo in passos %}
+            <form method="post" action="{% url "plans:log_hydration" %}">
+              {% csrf_token %}
+              <input type="hidden" name="ml" value="{{ passo }}">
+              <input type="hidden" name="de" value="hidratacao">
+              <button type="submit" class="agua__botao">+{{ passo }}</button>
+            </form>
+          {% endfor %}
+        </div>
+
+        {% comment %}
+          A quantidade digitada existe porque os três botões não cobrem a
+          garrafa de 1 L nem o copo de 200 ml do trabalho — e somar 250 mais 250
+          para chegar a 500 registra dois goles onde houve um, o que estraga
+          justamente a lista logo abaixo.
+
+          `inputmode` abre o teclado de números no celular, e o `step` faz as
+          setas andarem de dez em dez. Os limites são os mesmos que a view
+          aplica: o navegador avisa cedo, o servidor é quem decide.
+        {% endcomment %}
+        <form method="post" action="{% url "plans:log_hydration" %}" class="agua-livre">
+          {% csrf_token %}
+          <input type="hidden" name="de" value="hidratacao">
+          <label for="ml-livre" class="agua-livre__rotulo">Outra quantidade</label>
+          <div class="agua-livre__linha">
+            <input type="number" id="ml-livre" name="ml" class="agua-livre__campo"
+                   inputmode="numeric" min="{{ livre_minimo }}" max="{{ livre_maximo }}"
+                   step="{{ livre_multiplo }}" placeholder="ml" required
+                   aria-describedby="ml-livre-ajuda">
+            <button type="submit" class="btn btn--ghost">Somar</button>
+          </div>
+          <p class="hint" id="ml-livre-ajuda">
+            De {{ livre_minimo }} a {{ livre_maximo }} ml, de {{ livre_multiplo }} em
+            {{ livre_multiplo }}.
+          </p>
+        </form>
+      </section>
+
+      {# ---------------- Os goles de hoje ---------------- #}
+      <section class="card">
+        <div class="card__head"><h2>Registros de hoje</h2></div>
+
+        {% comment %}
+          A lista TEM DE SOMAR O TOTAL DO PAINEL, e é por isso que existe a
+          linha "sem horário".
+
+          Duas coisas foram encontradas aqui no navegador, uma depois da outra.
+          A primeira: com total e nenhum gole, a tela dizia "Nada registrado
+          hoje ainda" a três centímetros de um painel escrito "500 ·
+          Registrado" — duas frases da mesma tela discordando sobre o mesmo
+          dia, e a de baixo mentindo, porque o app SABIA dos 500 ml. A segunda,
+          depois de corrigida a primeira: registrando 1.000 num dia que já
+          tinha 500, a lista mostrava 1.000 embaixo de um painel de 1.500.
+
+          Esse dia da virada acontece uma vez para cada pessoa que já usava o
+          app, e uma lista que não fecha com o próprio total é do tipo que faz
+          alguém parar de confiar no número. Não há backfill por trás disto de
+          propósito: inventar de quantos goles aqueles 500 ml foram feitos
+          seria fabricar dado. Dizer "sem horário" é a verdade inteira.
+
+          UMA exceção, e ela é declarada porque a primeira versão deste
+          comentário dizia "TEM DE SOMAR" sem ressalva: acima do teto diário de
+          10 L a soma das linhas passa do painel. O gole guarda o que foi
+          PEDIDO e o total guarda o que coube, e `max(..., 0)` impede um
+          negativo mas não reconcilia os dois. Consertar isso seria mexer nos
+          números que a pessoa registrou para eles fecharem — ou seja, mentir
+          sobre o que ela fez. Fica assim, e fica escrito.
+        {% endcomment %}
+        {% if goles or bebido %}
+          <ul class="goles">
+            {% for gole in goles %}
+              <li class="gole">
+                <span class="gole__hora">{{ gole.registrado_em|time:"H:i" }}</span>
+                <span class="gole__valor">{{ gole.ml }} <span class="gole__unidade">ml</span></span>
+              </li>
+            {% endfor %}
+            {% if sem_horario %}
+              <li class="gole gole--sem-hora">
+                <span class="gole__hora">sem horário</span>
+                <span class="gole__valor">{{ sem_horario }} <span class="gole__unidade">ml</span></span>
+              </li>
+            {% endif %}
+          </ul>
+          {% comment %}
+            O desfazer mora onde a lista está.
+
+            A primeira versão desta tela mandava a pessoa de volta ao painel do
+            dia para tirar um gole — com a lista dele aberta na frente dela. O
+            formulário é o mesmo do Hoje, e o `de` é o que faz o redirect
+            voltar para cá em vez de jogar quem desfez quatro mil pixels acima.
+
+            Só aparece quando existe gole: a linha "sem horário" não é um gole,
+            e um botão que só pode falhar é pior que botão nenhum.
+          {% endcomment %}
+          {% if goles %}
+            <form method="post" action="{% url "plans:log_hydration" %}">
+              {% csrf_token %}
+              <input type="hidden" name="acao" value="desfazer">
+              <input type="hidden" name="de" value="hidratacao">
+              <button type="submit" class="btn-link">desfazer o último</button>
+            </form>
+          {% endif %}
+
+          <p class="hint">
+            Do mais recente para o mais antigo.
+            {% if sem_horario %}
+              A linha sem horário é água que foi registrada antes de o app
+              passar a guardar cada gole separado — o total está certo, o
+              relógio é que não dá para reconstruir.
+            {% endif %}
+          </p>
+        {% else %}
+          <p class="empty-state">
+            Nada registrado hoje ainda. Os botões acima somam ao dia.
+          </p>
+        {% endif %}
+      </section>
+
+      {# ---------------- A semana ---------------- #}
+      <section class="card">
+        <div class="card__head"><h2>Últimos {{ semana.dias }} dias</h2></div>
+
+        <ul class="semanas" aria-label="Água registrada por dia">
+          {% for linha in semana.linhas %}
+            <li class="semana">
+              <span class="semana__rotulo">{{ linha.data|date:"d/m" }}</span>
+              <span class="semana__barra">
+                <span class="semana__preenche" style="width: {{ linha.pct }}%"></span>
+              </span>
+              <span class="semana__valor">
+                {% if linha.tem_registro %}
+                  {{ linha.ml }} <span class="semana__unidade">ml</span>
+                {% else %}
+                  —
+                {% endif %}
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+
+        <div class="tiles">
+          <div class="tile">
+            <strong class="tile__value">{{ semana.com_registro }}/{{ semana.dias }}</strong>
+            <span class="tile__label">Com registro</span>
+          </div>
+          <div class="tile">
+            <strong class="tile__value">{{ semana.bateram }}/{{ semana.dias }}</strong>
+            <span class="tile__label">Na meta de hoje</span>
+            <span class="tile__meta">{{ meta_ml }} ml</span>
+          </div>
+          <div class="tile">
+            <strong class="tile__value">{{ semana.media_ml }}</strong>
+            <span class="tile__label">Média</span>
+            <span class="tile__meta">dos dias com registro</span>
+          </div>
+        </div>
+
+        <p class="hint">
+          Dia sem barra é dia sem registro, e não dia sem água — o app só sabe o
+          que foi anotado aqui. A média é dos dias em que houve registro:
+          dividir por {{ semana.dias }} descreveria uma semana que não
+          aconteceu.
+        </p>
+      </section>
+
+      {# ---------------- O que a meta é, e o que ela não é ---------------- #}
+      <section class="card">
+        <div class="card__head"><h2>Sobre a meta</h2></div>
+        <p class="hint">
+          A meta do app é 35 ml por quilo de peso, arredondada para o meio litro
+          mais próximo. É uma regra prática para adulto ativo, não uma
+          prescrição: as referências oficiais trabalham com valores fixos que já
+          incluem a água dos alimentos — cerca de 2,5 L por dia para homens e
+          2,0 L para mulheres na EFSA (2010), e 3,7 L e 2,7 L no Institute of
+          Medicine (2005).
+        </p>
+        <p class="hint">
+          Café, chá, leite e a água dos alimentos também hidratam, e nada disso
+          entra nesta conta — aqui existe só o que você registrou. A necessidade
+          real varia com calor, treino e o que se come no dia.
+        </p>
+        <p class="hint">
+          Quem tem condição renal, cardíaca ou hepática, ou usa medicação que
+          mexe com líquidos, deve seguir a orientação de quem acompanha o caso.
+          O NutriPlan não avalia isso.
+        </p>
+      </section>
+
+    </div>
+  </div>
+{% endblock %}

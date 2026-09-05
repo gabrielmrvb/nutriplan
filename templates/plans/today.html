@@ -50,10 +50,18 @@ coluna da direita), não entre ela e o almoço.
               B para escolher errado. O `fila.js` já intercepta todo POST para
               `/agua/` e carimba `op_id` por envio, então este botão entra na
               fila offline com o mesmo contrato dos outros três.
+
+              `de=topo` porque este botão está no TOPO da tela. A âncora
+              `#hidratacao` foi desenhada para quem já estava no cartão de água,
+              a 2.500px daqui; sem `de`, tocar aqui jogaria a pessoa lá para
+              baixo, longe do cartão que ela acabou de obedecer. A confirmação
+              deste botão é o próprio cartão mudando — depois de beber, o atraso
+              cai e o AGORA passa a apontar outra coisa.
             {% endcomment %}
             <form method="post" action="{% url 'plans:log_hydration' %}">
               {% csrf_token %}
               <input type="hidden" name="ml" value="500">
+              <input type="hidden" name="de" value="topo">
               <button type="submit" class="btn btn--primary btn--block agora__cta">
                 {{ acao.cta }}
               </button>
@@ -521,6 +529,19 @@ coluna da direita), não entre ela e o almoço.
               <button type="submit" class="agua__botao">+750 <span>garrafa</span></button>
             </form>
           </div>
+
+          {% comment %}
+            A porta para a tela de hidratação, e ela fica DEPOIS dos botões de
+            propósito: o uso frequente é somar um copo aqui mesmo, e um link
+            acima deles competiria com isso todo dia para servir a uma consulta
+            que acontece de vez em quando.
+
+            Não é aba nova. Hidratação é frequente em toques de dois segundos, e
+            uma aba cobraria ida e volta por copo.
+          {% endcomment %}
+          <a class="btn-link btn-link--rodape" href="{% url 'plans:hydration' %}">
+            Registros de hoje e últimos 7 dias
+          </a>
         </div>
       </section>
 

@@ -312,6 +312,7 @@ class MetricaNaoDependeDoTemplateParaSerMonoTests(SimpleTestCase):
         ".semana__valor",
         ".balance__value",
         ".ring__value",
+        ".gole__valor",
     )
 
     def setUp(self):

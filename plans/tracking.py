@@ -324,3 +324,75 @@ def agua_por_semana(user, hoje=None, semanas=8) -> list:
             }
         )
     return resultado
+
+
+def agua_dos_ultimos_dias(user, meta_ml, hoje=None, dias=7) -> dict:
+    """Os últimos dias de água, um a um, e o que dá para dizer sobre eles.
+
+    A visão semanal de `agua_por_semana` responde "como foram as semanas?".
+    Esta responde outra pergunta, que é a da tela de hidratação: "como foi
+    esta semana, dia a dia?". São duas perguntas diferentes e por isso são
+    duas funções — colapsar as duas numa só faria a barra de 0 a 7 dias e a
+    barra de mililitros dividirem uma escala que não é a mesma.
+
+    Dia sem linha aparece com zero e é DIA SEM REGISTRO, não dia sem água. A
+    diferença está escrita na tela junto do número, porque só aqui no código
+    ela não ajuda ninguém.
+
+    `bateu` compara com a meta de HOJE, e não com a meta que valia naquele dia:
+    a meta sai do peso, o peso muda, e reconstruir a meta histórica de cada dia
+    a partir de `WeightEntry` daria um número que nenhuma tela jamais mostrou.
+    A comparação é declarada na tela como "a meta de hoje" pelo mesmo motivo.
+    """
+    hoje = hoje or timezone.localdate()
+    primeiro = hoje - timedelta(days=dias - 1)
+
+    # `date__gte` limita a CONSULTA, não o resultado: quem garante que nada de
+    # fora da janela aparece é o laço abaixo, que só procura as sete datas que
+    # ele mesmo gera. Medido por sabotagem — tirar o `date__gte` deixa todos os
+    # testes verdes, porque a linha antiga volta do banco e nunca é consultada.
+    #
+    # Fica assim mesmo: sem o filtro, um ano de uso carrega 365 linhas para
+    # desenhar 7. É otimização declarada como otimização, e não uma guarda de
+    # correção fingindo ser uma.
+    registrado = {
+        linha["date"]: linha["ml"]
+        for linha in HydrationLog.objects.filter(
+            user=user, date__gte=primeiro, date__lte=hoje
+        )
+        .order_by()
+        .values("date", "ml")
+    }
+
+    linhas = []
+    for n in range(dias):
+        data = primeiro + timedelta(days=n)
+        ml = registrado.get(data, 0)
+        linhas.append(
+            {
+                "data": data,
+                "ml": ml,
+                # O preenchimento satura em 100: quem bebeu 4 L de uma meta de
+                # 3 L não deve desenhar uma barra maior que a caixa. O número
+                # ao lado continua sendo o real.
+                "pct": min(int(ml * 100 / meta_ml), 100) if meta_ml else 0,
+                "bateu": bool(meta_ml) and ml >= meta_ml,
+                "tem_registro": ml > 0,
+                "e_hoje": data == hoje,
+            }
+        )
+
+    com_registro = [linha for linha in linhas if linha["tem_registro"]]
+    return {
+        "linhas": linhas,
+        "dias": dias,
+        "com_registro": len(com_registro),
+        "bateram": sum(1 for linha in linhas if linha["bateu"]),
+        # Média sobre os dias COM registro, pela mesma razão de
+        # `agua_por_semana`: dividir por sete inventaria um comportamento.
+        "media_ml": (
+            arredondar(sum(l["ml"] for l in com_registro) / len(com_registro))
+            if com_registro
+            else 0
+        ),
+    }

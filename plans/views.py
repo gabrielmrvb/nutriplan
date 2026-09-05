@@ -736,14 +736,92 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
     #: Os volumes dos botões: copo, garrafinha, garrafa.
     PASSOS = (250, 500, 750)
 
+    #: A faixa da quantidade digitada, que só a tela de hidratação produz.
+    #:
+    #: A regra anterior aceitava SÓ os três passos, e o comentário dizia por
+    #: quê: "aceitar qualquer múltiplo de dez seria aceitar um valor que
+    #: nenhuma tela produz". Isso deixou de ser verdade — agora existe um campo
+    #: para digitar, e a razão de recusar caiu junto com ela.
+    #:
+    #: Os limites não são decoração. Abaixo de 50 ml não é um gole, é um toque
+    #: errado; acima de 2 L num registro só é quase sempre dedo escorregando
+    #: ("500" virando "5000"), e o teto diário de 10 L não pega esse caso
+    #: porque ele cabe folgado embaixo. Múltiplo de 10 porque ninguém mede
+    #: 237 ml — e porque um passo faz o teclado numérico do celular errar menos.
+    LIVRE_MINIMO = 50
+    LIVRE_MAXIMO = 2000
+    LIVRE_MULTIPLO = 10
+
+    #: Para onde voltar depois de somar. É uma LISTA FECHADA, e não a URL que
+    #: veio no pedido: `?next=` livre é redirecionamento aberto, e esta view
+    #: aceita POST de qualquer origem autenticada. O nome da tela é o bastante.
+    DESTINOS = {"hidratacao": "plans:hydration", "topo": "plans:today"}
+
+    def _aceita(self, ml) -> bool:
+        if ml in self.PASSOS:
+            return True
+        return (
+            self.LIVRE_MINIMO <= ml <= self.LIVRE_MAXIMO
+            and ml % self.LIVRE_MULTIPLO == 0
+        )
+
+    def _volta(self, request, *, erro=False):
+        """A âncora, ou a tela própria quando foi dela que veio o toque.
+
+        Erro continua indo para o TOPO da tela de hoje: a `.flash` é
+        renderizada lá, e ancorar rolaria para longe do texto que explica o que
+        deu errado. Na tela de hidratação não há esse problema — ela é curta, e
+        a mensagem cabe na primeira dobra.
+        """
+        destino = self.DESTINOS.get(request.POST.get("de"))
+        if destino:
+            return redirect(destino)
+
+        # Sem `de`, a âncora. Ela foi desenhada para quem JÁ ESTAVA no cartão de
+        # água, lá embaixo, e continua certa para quem toca nos botões de lá —
+        # `topo` existe porque o cartão AGORA agora chama pela água várias vezes
+        # ao dia, e ancorar mandaria a pessoa 2.500px para baixo do botão que
+        # ela acabou de tocar.
+        return redirect("plans:today" if erro else _hoje_em("#hidratacao"))
+
     def post(self, request, *args, **kwargs):
+        # A trava vem ANTES de escolher o ramo, e não depois.
+        #
+        # Ela ficava lá embaixo, depois do `desfazer` já ter voltado — e o
+        # `CLAUDE.md` é explícito sobre quem precisa dela: "Água SOMA e
+        # suplemento ALTERNA — as duas precisam de op_id". Desfazer SUBTRAI,
+        # que é a mesma família: se o servidor aplica e a resposta se perde, a
+        # fila reenvia e um SEGUNDO gole vai embora. `static/js/fila.js`
+        # enfileira `/agua/` inteiro, e o formulário de desfazer posta ali.
+        #
+        # `ja_aplicada` registra e responde numa chamada só — conferir e depois
+        # gravar abriria a janela em que dois reenvios simultâneos passam os
+        # dois. Sem `op_id` ela devolve `False`, que é o caminho da tela normal.
+        if SyncedOperation.ja_aplicada(request.user, request.POST.get("op_id")):
+            return self._volta(request)
+
         if request.POST.get("acao") == "desfazer":
             return self._desfazer(request)
 
+        # Valor ausente ou ilegível é RECUSADO, e não tratado como zero.
+        #
+        # A versão anterior caía em `ml = 0` — e zero, nesta view, quer dizer
+        # ZERAR O DIA. Enquanto os únicos emissores eram os três botões e o
+        # "zerar" (que manda `value="0"` de propósito), isso era inalcançável.
+        # A tela de hidratação criou o emissor que faltava: um `<input
+        # type="number">` vazio envia `ml=`, `int("")` estoura, e tocar "Somar"
+        # com o campo em branco apagaria o dia INTEIRO — total e goles, agora
+        # que zerar também limpa a composição.
+        #
+        # Encontrado lendo o próprio caminho novo, antes de alguém apagar um
+        # dia de verdade. O `required` no template avisa primeiro; quem decide
+        # é o servidor, porque a fila offline reenvia o corpo cru.
+        bruto = request.POST.get("ml")
         try:
-            ml = int(request.POST.get("ml", 0))
+            ml = int(bruto)
         except (TypeError, ValueError):
-            ml = 0
+            messages.error(request, "Quantidade de água inválida.")
+            return self._volta(request, erro=True)
 
         # A validação vem ANTES de criar a linha. Ao contrário, um valor
         # inválido deixava uma linha de 0 ml no banco — inofensiva na conta e
@@ -752,23 +830,31 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
         # De volta aos três botões: a faixa larga existia para a entrada por
         # voz, que foi removida. Sem ela, aceitar qualquer múltiplo de dez seria
         # aceitar um valor que nenhuma tela produz.
-        if ml != 0 and ml not in self.PASSOS:
+        if ml != 0 and not self._aceita(ml):
             messages.error(request, "Quantidade de água inválida.")
-            return redirect("plans:today")
-
-        # Água SOMA, então reenviar aplica de novo. A trava transforma o
-        # reenvio da fila offline numa consulta.
-        if SyncedOperation.ja_aplicada(request.user, request.POST.get("op_id")):
-            return redirect(_hoje_em("#hidratacao"))
+            return self._volta(request, erro=True)
 
         hoje = timezone.localdate()
         registro, _ = HydrationLog.objects.get_or_create(user=request.user, date=hoje)
 
         if ml == 0:
-            # Zerar é o desfazer: tocou errado, começa o dia de novo.
-            HydrationLog.objects.filter(pk=registro.pk).update(
-                ml=0, updated_at=timezone.now()
-            )
+            # Zerar é recomeçar o dia, e o dia é o total E a composição.
+            #
+            # A versão anterior mexia só em `HydrationLog`, e os goles daquele
+            # dia ficavam órfãos. Encontrado no navegador: a tela de
+            # hidratação mostrava "Registrado 0 ml" com a lista de goles cheia
+            # logo abaixo. Pior que a contradição na tela, "desfazer"
+            # continuava sendo oferecido e não movia número nenhum — o total já
+            # estava no chão, e `Greatest(..., 0)` o segurava lá.
+            #
+            # As duas escritas vão juntas pelo mesmo motivo que o registro:
+            # meio zerar deixaria o dia num estado que nenhuma tela sabe
+            # desenhar.
+            with transaction.atomic():
+                HydrationLog.objects.filter(pk=registro.pk).update(
+                    ml=0, updated_at=timezone.now()
+                )
+                GoleDeAgua.objects.filter(user=request.user, dia=hoje).delete()
         else:
             # A SOMA ACONTECE NO BANCO, e não em Python. A versão anterior era
             #
@@ -805,7 +891,7 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
                 )
                 GoleDeAgua.objects.create(user=request.user, dia=hoje, ml=ml)
 
-        return redirect(_hoje_em("#hidratacao"))
+        return self._volta(request)
 
     def _desfazer(self, request):
         """Tira o ÚLTIMO gole do dia, e só ele.
@@ -842,7 +928,7 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
                 # O sucesso vai para a âncora de propósito: lá o próprio número
                 # mudando é a confirmação, e voltar ao topo custaria a posição.
                 messages.error(request, "Não há registro de hoje para desfazer.")
-                return redirect("plans:today")
+                return self._volta(request, erro=True)
 
             # `Greatest(..., 0)` porque o total tem teto de 10 L: no teto, um
             # gole de 750 pode ter somado menos que 750, e devolver o pedido
@@ -872,4 +958,82 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
         #
         # O ERRO continua falando, e por isso vai para o topo: ali não há
         # número mudando, e sem a frase a pessoa vê um botão não fazer nada.
-        return redirect(_hoje_em("#hidratacao"))
+        return self._volta(request)
+
+
+class HydrationView(PlanRequiredMixin, TemplateView):
+    """A tela da água: o dia, o que foi bebido nele, e a semana.
+
+    Por que ela existe, já que o cartão do Hoje continua inteiro: o cartão
+    responde "quanto falta?" e some com o resto. Ele não tem espaço para a
+    lista do que foi registrado hoje, nem para os sete dias, nem para uma
+    quantidade que não seja um dos três botões — e enfiar isso tudo lá dentro
+    engordaria a tela mais longa do app, que já tem 4.128px em 375 de largura.
+
+    Por que ela NÃO é uma aba: hidratação é frequente, mas é frequente em
+    toques de dois segundos, e esses continuam no Hoje, onde a pessoa já está.
+    Uma aba cobraria uma viagem de ida e volta por copo. Esta tela é para as
+    outras perguntas — "eu bebi quando?", "como foi a semana?" —, que são de
+    consulta, e consulta tem lugar próprio. É a mesma decisão da lista de
+    compras: subtela da dieta, com a aba Dieta acesa.
+
+    Ela é somente leitura. Quem escreve continua sendo `LogHydrationView`, uma
+    só, e os formulários daqui apontam para lá — dois caminhos de escrita para
+    a mesma coisa é como a soma em Python e a soma no banco chegaram a
+    coexistir.
+    """
+
+    template_name = "plans/hydration.html"
+
+    def get(self, request, *args, **kwargs):
+        # O mesmo contrato das outras telas de plano: `PlanRequiredMixin`
+        # oferece `get_plan`, e cada tela decide o que dizer quando o cadastro
+        # está incompleto. Aqui a frase é sobre a meta, que é o que falta.
+        try:
+            self.plan = self.get_plan(request)
+        except services.IncompleteProfile:
+            messages.info(request, "Faltou completar seu cadastro para calcular a meta.")
+            return redirect("accounts:onboarding")
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        hoje = timezone.localdate()
+
+        # A fórmula da meta é a de `weight_trend`, chamada e não copiada: uma
+        # segunda cópia aqui divergiria da do Hoje no primeiro ajuste, e a
+        # mesma pessoa veria duas metas diferentes em duas telas do mesmo app.
+        meta_ml = weight_trend.hidratacao_ml(self.plan.weight_kg)
+        registro = HydrationLog.objects.filter(user=self.request.user, date=hoje).first()
+        bebido = registro.ml if registro else 0
+        goles = list(GoleDeAgua.objects.filter(user=self.request.user, dia=hoje))
+
+        context.update(
+            {
+                "nav": "today",
+                "meta_ml": meta_ml,
+                "bebido": bebido,
+                "faltam": max(meta_ml - bebido, 0),
+                "pct": min(int(bebido * 100 / meta_ml), 100) if meta_ml else 0,
+                "completa": bool(meta_ml) and bebido >= meta_ml,
+                "goles": goles,
+                # A diferença entre o total e a soma dos goles.
+                #
+                # Ela não é erro: é o dia da virada. Quem já usava o app tem
+                # total sem composição, e no primeiro dia em que registra um
+                # gole novo a lista passa a mostrar 1.000 embaixo de um painel
+                # escrito 1.500. Sem esta linha, a conta simplesmente não fecha
+                # na tela — e uma lista que não soma o próprio total é o tipo
+                # de coisa que faz alguém parar de confiar no número.
+                #
+                # `max(..., 0)` porque o teto de 10 L pode ter cortado a soma:
+                # o gole guarda o que foi PEDIDO, e o total guarda o que coube.
+                "sem_horario": max(bebido - sum(g.ml for g in goles), 0),
+                "semana": tracking.agua_dos_ultimos_dias(self.request.user, meta_ml),
+                "passos": LogHydrationView.PASSOS,
+                "livre_minimo": LogHydrationView.LIVRE_MINIMO,
+                "livre_maximo": LogHydrationView.LIVRE_MAXIMO,
+                "livre_multiplo": LogHydrationView.LIVRE_MULTIPLO,
+            }
+        )
+        return context

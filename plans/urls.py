@@ -12,5 +12,8 @@ urlpatterns = [
     path("recalcular/", views.RecalculatePlanView.as_view(), name="recalculate"),
     path("recalibrar/", views.RecalibrateView.as_view(), name="recalibrate"),
     path("agua/", views.LogHydrationView.as_view(), name="log_hydration"),
+    # `agua/` é a AÇÃO (só POST) e `hidratacao/` é a TELA. Nomes diferentes
+    # porque são coisas diferentes: uma escreve, a outra lê.
+    path("hidratacao/", views.HydrationView.as_view(), name="hydration"),
     path("lista-de-compras/", views.ShoppingListView.as_view(), name="shopping"),
 ]

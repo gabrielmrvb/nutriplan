@@ -403,6 +403,10 @@ class TouchTargetTests(TestCase):
         # 157x22 nos termos: e o paragrafo inteiro, entao a excecao de alvo
         # inline da WCAG nao o cobre — ela vale para link no meio de frase.
         (".legal__volta a {", "min-height: 2.75rem"),
+        # O campo de quantidade livre da tela de hidratação. Campo de número
+        # nasce com a altura que o navegador quiser, e no Safari do iPhone isso
+        # é 33px — abaixo da régua no dia em que foi escrito, não meses depois.
+        (".agua-livre__campo {", "min-height: 2.75rem"),
     ]
 
     def test_every_interactive_element_reaches_44px(self):
@@ -2263,6 +2267,7 @@ class TodaTelaTemPortaTests(SimpleTestCase):
         ("plans:today", "o dia de hoje"),
         ("plans:history", "progresso"),
         ("plans:shopping", "lista de compras"),
+        ("plans:hydration", "hidratação"),
         ("workouts:routine", "a ficha da semana"),
         ("workouts:corridas", "corridas"),
         ("accounts:profile", "perfil"),

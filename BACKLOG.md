@@ -1055,3 +1055,47 @@ a sabotagem S216 é a prova disso.
 
 Sabotagem: 6 cenários, 6 detectados — os quatro guardrails esvaziados por
 dentro, mais os dois contra-controles.
+
+## Achados fora do escopo — Hidratação V2 (05/09/2026)
+
+Registrados e **não corrigidos**, porque a campanha era hidratação e consertar
+a fila offline de passagem seria mudar um mecanismo que atende cinco telas sem
+o teste que ele merece.
+
+### ⏳ A fila offline drena em ordem ALEATÓRIA, e o comentário afirma o contrário
+
+`static/js/fila.js:108` cria a store com `keyPath: "op_id"`, e o `op_id` é um
+`crypto.randomUUID()`. `getAll()` devolve em ordem crescente de CHAVE — ou seja,
+em ordem de UUID, que é ordem nenhuma. O campo `em: Date.now()` é gravado na
+linha 335 e **nunca lido**; não há um único `sort(` no arquivo.
+
+O comentário do laço de drenagem diz "em série e não em paralelo… a ordem
+importa". A serialização existe; a ordem, não.
+
+Medido por leitura: `grep -n "keyPath" static/js/fila.js`, `grep -c "sort("
+static/js/fila.js` (zero), e um único ponto de escrita de `em`.
+
+Por que virou prioridade agora, sem ter mudado: **o `zerar` da água passou a
+apagar linhas.** Antes, drenar "zerar" depois de "+500" só deixava o total em 0.
+Hoje ele também remove o `GoleDeAgua` de 500, e a linha não volta. A fila não
+piorou; o que ela derruba é que ficou maior.
+
+O conserto tem duas partes e nenhuma é de uma linha: guardar um contador
+monotônico ao lado do item e ordenar por ele na drenagem, e decidir o que fazer
+com as filas que já existem nos aparelhos — a store atual não tem esse campo, e
+subir a versão do IndexedDB é exatamente o passo que o `CLAUDE.md` já descreve
+como delicado, porque os dois lados (`fila.js` e `sw.js`) precisam concordar.
+
+Classe: `BUG`. Evidência: `[LIDA NO CÓDIGO]`. Sem Node neste ambiente, dirigir o
+navegador para provar a ordem de drenagem não é possível — a afirmação sobre o
+comportamento em campo é `[HIPOTÉTICA]`, a sobre o código não é.
+
+### ⏳ `atraso_de_hidratacao` aceita datetime naive sem reclamar
+
+Ela só chama `.time()`, então devolve a hora de parede do que receber.
+`TodayView` passa `timezone.localtime()`, que é o certo, e `proxima_acao` já
+tinha a mesma propriedade em `hora = agora.time()`. Quem um dia passar
+`timezone.now()` recebe o resultado errado em silêncio, e nada acusa.
+
+Classe: `LIMITAÇÃO` — não há defeito hoje, e não há guarda. Evidência:
+`[EXECUTADA]` (as três formas foram passadas para a função; nenhuma reclama).
