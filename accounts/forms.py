@@ -23,9 +23,11 @@ from django.utils.safestring import mark_safe
 from catalog.models import DietaryTag, TagKind
 
 from .models import (
+    CAMPO_DO_PILAR,
     ActivityLevel,
     Goal,
     MealStyle,
+    Pilar,
     Profile,
     Sex,
     SplitPreference,
@@ -742,3 +744,97 @@ class DefinirSenhaForm(CamposDoNutriPlanMixin, SetPasswordForm):
 
 class TrocarSenhaForm(CamposDoNutriPlanMixin, PasswordChangeForm):
     """A troca de senha de quem já está dentro."""
+
+
+class InteressesForm(OnboardingStepForm):
+    """Passo 6 — o que a pessoa quer cuidar, e o que ela quer cuidar primeiro.
+
+    Uma tela só, e não duas. O onboarding já tem cinco passos e catorze campos;
+    partir esta pergunta em duas telas custaria um sexto passo para responder
+    uma coisa que cabe num cartão e num rádio.
+
+    **A prioridade não é o primeiro checkbox tocado.** Ela é uma pergunta
+    própria, com controle próprio, e é isso que impede a escolha acidental —
+    quem marca quatro áreas de uma vez não vira "prioridade a primeira que o
+    dedo pegou".
+
+    E ela não pode ficar inconsistente, mesmo sem JavaScript: marcar a
+    prioridade **implica** o interesse. Quem escolhe "Corrida" como principal
+    sem ter marcado Corrida acima não recebe erro — recebe Corrida marcada.
+    O contrário (recusar com mensagem) seria cobrar do dedo uma coerência que o
+    formulário pode garantir sozinho.
+
+    Quem marca UMA área e não escolhe principal também não recebe erro: com uma
+    só, não há o que perguntar. A pergunta explícita existe para quem marcou
+    várias, e é aí que ela é obrigatória.
+    """
+
+    interesses = forms.MultipleChoiceField(
+        label="O que você quer cuidar no NutriPlan?",
+        help_text="Escolha tudo que fizer sentido. Você pode mudar depois.",
+        choices=Pilar.choices,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+    )
+    prioridade = forms.ChoiceField(
+        label="Qual delas vem primeiro?",
+        help_text=(
+            "A principal organiza o que aparece antes. Nada fica escondido: "
+            "todas as áreas continuam abertas no menu."
+        ),
+        choices=Pilar.choices,
+        widget=forms.RadioSelect,
+        required=False,
+    )
+
+    class Meta:
+        model = Profile
+        fields = ()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields["interesses"].initial = [
+                str(pilar) for pilar in self.instance.interesses
+            ]
+            self.fields["prioridade"].initial = self.instance.prioridade
+
+    def clean(self):
+        dados = super().clean()
+        marcados = set(dados.get("interesses") or ())
+        principal = dados.get("prioridade") or ""
+
+        # Escolher a principal MARCA a área. Ver a docstring: o formulário
+        # fecha o buraco em vez de devolvê-lo para a pessoa.
+        if principal:
+            marcados.add(principal)
+
+        if not marcados:
+            raise forms.ValidationError(
+                "Escolha pelo menos uma área para o NutriPlan organizar."
+            )
+
+        # Uma área só dispensa a pergunta — ela É a principal.
+        if not principal and len(marcados) == 1:
+            principal = next(iter(marcados))
+
+        if not principal:
+            raise forms.ValidationError(
+                "Você marcou mais de uma área. Escolha qual vem primeiro."
+            )
+
+        dados["interesses"] = sorted(marcados)
+        dados["prioridade"] = principal
+        return dados
+
+    def save(self, commit=True):
+        perfil = super().save(commit=False)
+        marcados = set(self.cleaned_data["interesses"])
+        for pilar, campo in CAMPO_DO_PILAR.items():
+            setattr(perfil, campo, pilar in marcados)
+        perfil.prioridade = self.cleaned_data["prioridade"]
+        if commit:
+            perfil.save(
+                update_fields=list(CAMPO_DO_PILAR.values()) + ["prioridade", "updated_at"]
+            )
+        return perfil

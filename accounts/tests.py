@@ -91,6 +91,11 @@ STEP4 = {"split_preference": "three"}
 #: 4 volta a existir. É o fixture dos testes que precisam do caminho completo.
 STEP3_COM_DIVISAO = {**STEP3, "weekdays": ["0", "1", "3", "5"]}
 STEP5 = {"meal_style": "quick"}
+#: O passo 6 entrou em 05/09/2026, e ele é obrigatório para o onboarding
+#: terminar. Todo teste que CAMINHA o wizard precisa dele — e é por isso que a
+#: barra de navegação caiu quando o passo nasceu: sem o 6, o fixture parava em
+#: "incompleto" e a tela Hoje devolvia 302 para o wizard.
+STEP6 = {"interesses": ["dieta"], "prioridade": "dieta"}
 
 
 class SignupTests(TestCase):
@@ -142,9 +147,14 @@ class OnboardingFlowTests(TestCase):
         self.client.post(step_url(2), STEP2)
         self.client.post(step_url(3), STEP3)
         self.client.post(step_url(4), STEP4)
-        return self.client.post(
+        self.client.post(
             step_url(5), {**STEP5, "dietary_tags": [self.vegetariana.pk]}
         )
+        # O passo 6 é o último desde 05/09/2026, e é ele quem devolve o
+        # redirect para a tela Hoje. A primeira versão desta mudança deixou
+        # esta linha DEPOIS do `return` — código morto, e o teste do fluxo
+        # completo continuou parando no 5.
+        return self.client.post(step_url(6), STEP6)
 
     def test_step_1_creates_profile_and_first_weight_entry(self):
         response = self.client.post(step_url(1), STEP1)
@@ -328,6 +338,7 @@ class WizardChromeTests(TestCase):
         self.client.post(step_url(3), STEP3)
         self.client.post(step_url(4), STEP4)
         self.client.post(step_url(5), STEP5)
+        self.client.post(step_url(6), STEP6)
 
         html = self.client.get(reverse("plans:today")).content.decode()
         self.assertIn('<nav class="tabbar"', html)
@@ -339,6 +350,7 @@ class WizardChromeTests(TestCase):
         self.client.post(step_url(3), STEP3)
         self.client.post(step_url(4), STEP4)
         self.client.post(step_url(5), STEP5)
+        self.client.post(step_url(6), STEP6)
 
         html = self.client.get(step_url(2)).content.decode()
         self.assertNotIn('<nav class="tabbar"', html)
@@ -349,7 +361,9 @@ class WizardChromeTests(TestCase):
         html = self.client.get(step_url(3)).content.decode()
 
         self.assertIn('class="wizard__label num"', html)
-        self.assertIn("Passo 3/5 · 60%", html)
+        # 3/6 desde que o passo das áreas entrou. A barra continua sendo UMA
+        # linha com posição e porcentagem juntas, que é a propriedade.
+        self.assertIn("Passo 3/6 · 50%", html)
 
     def test_the_goal_cards_stand_in_two_columns_and_the_activity_in_one(self):
         """Três colunas para atividade dariam 100px por cartão a 390px, e
@@ -377,6 +391,11 @@ class WizardChromeTests(TestCase):
 class PlanBuildingScreenTests(TestCase):
     """A tela que cobre o vão entre "Concluir" e o painel pronto.
 
+    O último passo virou o 6 em 05/09/2026 — a tela de montagem acompanhou
+    sozinha, porque ela é derivada de `ONBOARDING_LAST_STEP` e não de um
+    número escrito à mão. É o plano sendo montado quando o onboarding acaba,
+    e o onboarding passou a acabar uma tela depois.
+
     O número que a justifica: o POST do último passo leva 9 milissegundos. Quem
     monta o plano é a PRIMEIRA abertura do painel — `sync_active_plan` roda na
     entrada da tela, não no fim do wizard —, e ali são 196ms no banco local e
@@ -395,17 +414,20 @@ class PlanBuildingScreenTests(TestCase):
         # do último passo, e quer os quatro passos anteriores para percorrer.
         self.client.post(step_url(3), STEP3_COM_DIVISAO)
         self.client.post(step_url(4), STEP4)
+        # O 5 também: o último passo virou o 6, e a guarda do wizard recusa
+        # quem tenta chegar num passo à frente do progresso salvo.
+        self.client.post(step_url(5), STEP5)
 
     def test_the_screen_exists_only_on_the_last_step(self):
-        for passo in (1, 2, 3, 4):
+        for passo in (1, 2, 3, 4, 5):
             with self.subTest(passo=passo):
                 self.assertNotContains(self.client.get(step_url(passo)), "data-montagem")
-        self.assertContains(self.client.get(step_url(5)), "data-montagem")
+        self.assertContains(self.client.get(step_url(6)), "data-montagem")
 
     def test_it_starts_hidden(self):
         """Ela cobre a tela inteira. Chegar visível seria esconder o
         formulário que a pessoa precisa preencher."""
-        html = self.client.get(step_url(5)).content.decode()
+        html = self.client.get(step_url(6)).content.decode()
         bloco = html.split("data-montagem", 1)[1][:80]
         self.assertIn("hidden", bloco)
 
@@ -415,7 +437,7 @@ class PlanBuildingScreenTests(TestCase):
 
         Frase que descreve trabalho inexistente é tempo cobrado da pessoa para
         o app parecer que se esforçou."""
-        html = self.client.get(step_url(5)).content.decode()
+        html = self.client.get(step_url(6)).content.decode()
         for frase in ("metabólica basal", "macronutrientes", "divisão de treino"):
             with self.subTest(frase=frase):
                 self.assertIn(frase, html)
@@ -423,30 +445,32 @@ class PlanBuildingScreenTests(TestCase):
     def test_someone_editing_a_finished_wizard_never_sees_it(self):
         """Quem volta para editar recebe "Salvar" e vai para o perfil. Uma tela
         dizendo "montando seu plano" ali seria mentira."""
-        self.client.post(step_url(5), STEP5)
-        self.assertNotContains(self.client.get(step_url(5)), "data-montagem")
+        self.client.post(step_url(6), STEP6)
+        self.client.post(step_url(6), STEP6)
+        self.assertNotContains(self.client.get(step_url(6)), "data-montagem")
 
     def test_the_form_still_submits_without_javascript(self):
         """A sobreposição é melhoria progressiva: quem tem o script desligado
         envia o formulário do jeito de sempre. O `<form>` continua com `action`
         e `method` — nada depende do script para o dado chegar."""
-        html = self.client.get(step_url(5)).content.decode()
+        html = self.client.get(step_url(6)).content.decode()
         formulario = html.split('<div class="card">', 1)[1].split("</form>", 1)[0]
         self.assertIn('method="post"', formulario)
 
-        resposta = self.client.post(step_url(5), STEP5)
+        resposta = self.client.post(step_url(6), STEP6)
         self.assertRedirects(resposta, reverse("plans:today"))
 
     def test_a_form_error_keeps_the_person_on_the_step(self):
         """O caminho arriscado da sobreposição: sem redirecionamento, ela
         precisa sair do caminho e deixar o servidor renderizar os erros. Se
         ficasse no ar, a pessoa olharia uma tela de carregamento para sempre."""
-        # O erro de exemplo era a janela de sono, que mudou para o passo 3 na
-        # V2.1. O estilo de cardápio é obrigatório e continua sendo um erro
-        # deste passo — que é o que o teste precisa: um POST que NÃO redireciona.
-        resposta = self.client.post(step_url(5), {**STEP5, "meal_style": ""})
+        # O erro de exemplo já foi a janela de sono (passo 3, desde a V2.1) e
+        # depois o estilo de cardápio (passo 5). O último passo virou o 6, e o
+        # erro dele é não escolher área nenhuma — que é o que o teste precisa:
+        # um POST que NÃO redireciona.
+        resposta = self.client.post(step_url(6), {"interesses": [], "prioridade": ""})
         self.assertEqual(resposta.status_code, 200)
-        self.assertIn("meal_style", str(resposta.context["form"].errors))
+        self.assertIn("pelo menos uma área", str(resposta.context["form"].errors))
 
         script = resposta.content.decode()
         self.assertIn("r.redirected", script)
@@ -472,7 +496,8 @@ class WizardProgressBarTests(TestCase):
         self.assertNotIn("wizard__step--done", html)
 
     def test_the_fill_carries_the_real_percentage(self):
-        for passo, pct in ((2, 40), (3, 60)):
+        # Com seis passos: 2/6 = 33%, 3/6 = 50%.
+        for passo, pct in ((2, 33), (3, 50)):
             with self.subTest(passo=passo):
                 if passo == 3:
                     self.client.post(step_url(2), STEP2)
@@ -500,6 +525,7 @@ class ProfileActionsTests(TestCase):
         self.client.post(step_url(3), STEP3)
         self.client.post(step_url(4), STEP4)
         self.client.post(step_url(5), STEP5)
+        self.client.post(step_url(6), STEP6)
         # O plano nasce na PRIMEIRA abertura do painel, e não no fim do
         # wizard: `sync_active_plan` roda na entrada da tela. Sem esta visita o
         # perfil abriria sem plano — que é um estado real, e tem teste próprio
@@ -600,7 +626,9 @@ class BottomNavigationTests(TestCase):
             email="abas@exemplo.com", password="senha-bem-forte-123"
         )
         self.client.force_login(self.user)
-        for passo, dados in ((1, STEP1), (2, STEP2), (3, STEP3), (4, STEP4), (5, STEP5)):
+        for passo, dados in (
+            (1, STEP1), (2, STEP2), (3, STEP3), (4, STEP4), (5, STEP5), (6, STEP6)
+        ):
             self.client.post(step_url(passo), dados)
         self.html = self.client.get(reverse("plans:today")).content.decode()
 
@@ -2028,13 +2056,19 @@ class OnboardingV21Tests(TestCase):
         self.assertRedirects(response, step_url(3))
 
     # I --------------------------------------------------------- progresso
-    def test_o_wizard_continua_com_cinco_passos(self):
-        """A V2.1 reorganiza; quem mexe no número de passos é a V2.2."""
-        self.assertEqual(ONBOARDING_LAST_STEP, 5)
+    def test_o_wizard_tem_seis_passos(self):
+        """Este teste existe para que ninguém acrescente passo por acidente.
+
+        Ele travava CINCO, e o sexto entrou em 05/09/2026 de propósito — a
+        pergunta sobre as áreas do NutriPlan. Atualizar o número aqui é a
+        forma certa de acrescentar um passo: alguém tem de vir aqui e dizer
+        que sabe o que está fazendo. Apagar o teste, não.
+        """
+        self.assertEqual(ONBOARDING_LAST_STEP, 6)
 
         contexto = self.client.get(step_url(3)).context
-        self.assertEqual(contexto["total_steps"], 5)
-        self.assertEqual(contexto["progress_pct"], 60)
+        self.assertEqual(contexto["total_steps"], 6)
+        self.assertEqual(contexto["progress_pct"], 50)
 
     # J ---------------------------------------------------- quem consome
     def test_o_que_o_calculo_le_continua_igual(self):
@@ -2049,6 +2083,7 @@ class OnboardingV21Tests(TestCase):
         )
         self.client.post(step_url(4), STEP4)
         self.client.post(step_url(5), STEP5)
+        self.client.post(step_url(6), STEP6)
 
         perfil = self.perfil()
         self.assertTrue(perfil.onboarding_complete)
@@ -2145,9 +2180,12 @@ class OnboardingV22Tests(TestCase):
 
         contexto = self.client.get(step_url(5)).context
 
-        self.assertEqual(contexto["total_steps"], 4)
+        # Cinco no caminho curto: quem pula a divisão percorre 1, 2, 3, 5 e 6.
+        # E a posição do 5 continua sendo 4 — a barra conta POSIÇÃO, que é a
+        # propriedade que este teste protege desde que ele nasceu.
+        self.assertEqual(contexto["total_steps"], 5)
         self.assertEqual(contexto["posicao"], 4)
-        self.assertEqual(contexto["progress_pct"], 100)
+        self.assertEqual(contexto["progress_pct"], 80)
 
     # --------------------------------------------------------- 4 e 5+ dias
     def test_de_quatro_dias_em_diante_a_divisao_continua_sendo_perguntada(self):
@@ -2169,9 +2207,11 @@ class OnboardingV22Tests(TestCase):
 
         contexto = self.client.get(step_url(4)).context
 
-        self.assertEqual(contexto["total_steps"], 5)
+        # Seis desde que o passo das áreas entrou. A barra continua contando
+        # POSIÇÃO e não número do passo — é isso que este teste protege.
+        self.assertEqual(contexto["total_steps"], 6)
         self.assertEqual(contexto["posicao"], 4)
-        self.assertEqual(contexto["progress_pct"], 80)
+        self.assertEqual(contexto["progress_pct"], 66)
 
     # ------------------------------------------------------------- voltar
     def test_voltar_do_passo_5_pula_a_divisao_de_quem_a_pulou(self):
@@ -2241,15 +2281,21 @@ class OnboardingV22Tests(TestCase):
     def test_quem_ja_terminou_reedita_pelo_caminho_dele(self):
         self.client.post(step_url(3), self.dias(2))
         self.client.post(step_url(5), STEP5)
+        self.client.post(step_url(6), STEP6)
         self.assertTrue(self.perfil().onboarding_complete)
 
         self.assertEqual(self.client.get(step_url(1)).status_code, 200)
         self.assertEqual(self.client.get(step_url(3)).status_code, 200)
-        self.assertRedirects(self.client.get(step_url(4)), step_url(5))
+        # O 4 não existe para quem treina dois dias. Quem JÁ TERMINOU e pede o
+        # 4 cai no último passo do caminho dela — que virou o 6 quando as áreas
+        # entraram. Antes era o 5, e a mudança é a do caminho, não da regra:
+        # `passo_alvo` sempre devolveu "o primeiro passo >= o salvo".
+        self.assertRedirects(self.client.get(step_url(4)), step_url(6))
 
     def test_o_perfil_esconde_a_divisao_de_quem_ela_nao_muda(self):
         self.client.post(step_url(3), self.dias(2))
         self.client.post(step_url(5), STEP5)
+        self.client.post(step_url(6), STEP6)
 
         html = self.client.get(reverse("accounts:profile")).content.decode()
 
@@ -2261,6 +2307,7 @@ class OnboardingV22Tests(TestCase):
         self.client.post(step_url(3), self.dias(5))
         self.client.post(step_url(4), STEP4)
         self.client.post(step_url(5), STEP5)
+        self.client.post(step_url(6), STEP6)
 
         html = self.client.get(reverse("accounts:profile")).content.decode()
 
@@ -2285,6 +2332,7 @@ class OnboardingV22Tests(TestCase):
         """
         self.client.post(step_url(3), self.dias(3))
         self.client.post(step_url(5), STEP5)
+        self.client.post(step_url(6), STEP6)
 
         perfil = self.perfil()
         self.assertTrue(perfil.onboarding_complete)

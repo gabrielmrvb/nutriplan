@@ -107,6 +107,21 @@
         {% include "partials/icones.html" %}
         {% include "partials/choice_cards.html" with field=form.meal_style %}
         {% include "partials/field.html" with field=form.dietary_tags %}
+      {% elif step == 6 %}
+        {% comment %}
+          As áreas viram CAIXAS DE MARCAR e a principal vira RÁDIO, e a forma
+          diferente é a informação — a mesma regra do passo 5. Uma é lista, a
+          outra é escolha única, e dar a mesma aparência às duas ensinaria que
+          dá para ter duas principais.
+
+          A principal aparece SEMPRE, mesmo para quem ainda não marcou nada.
+          Escondê-la até o segundo checkbox exigiria JavaScript para uma
+          decisão que o formulário já resolve sozinho: marcar a principal
+          implica o interesse, e uma área só dispensa a pergunta.
+        {% endcomment %}
+        {% include "partials/icones.html" %}
+        {% include "partials/field.html" with field=form.interesses %}
+        {% include "partials/choice_cards.html" with field=form.prioridade %}
       {% else %}
         {% for field in form %}
           {% include "partials/field.html" with field=field %}

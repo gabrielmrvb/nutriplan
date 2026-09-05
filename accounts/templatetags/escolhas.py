@@ -20,6 +20,37 @@ register = template.Library()
 #: em dois lugares, uma opção acaba recomendada no onboarding e não na edição
 #: do perfil, e ninguém percebe até alguém reclamar.
 DETALHES = {
+    # accounts.models.Pilar — as cinco areas do NutriPlan.
+    #
+    # O titulo aqui NAO repete o `label` do TextChoices de proposito: o label
+    # e o nome curto que o painel e o perfil usam, e o cartao precisa de uma
+    # frase que diga o que a area FAZ. "Alimentacao" e o nome; "o cardapio do
+    # dia e o que voce marcou" e a promessa.
+    "dieta": (
+        "panela",
+        "Alimentação",
+        "O cardápio do dia e o que você já marcou.",
+    ),
+    "treino": (
+        "halter",
+        "Musculação",
+        "A ficha da semana, as cargas e as séries.",
+    ),
+    "corrida": (
+        "bicicleta",
+        "Corrida",
+        "Suas corridas registradas e o ritmo delas.",
+    ),
+    "hidratacao": (
+        "gota",
+        "Hidratação",
+        "Quanto você bebeu hoje e como foi a semana.",
+    ),
+    "progresso": (
+        "alvo",
+        "Evolução",
+        "Peso, aderência e o que mudou no tempo.",
+    ),
     # accounts.models.Goal
     "cut": (
         "chama",

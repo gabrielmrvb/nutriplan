@@ -13,6 +13,8 @@ from dataclasses import dataclass
 
 from django.urls import reverse
 
+from accounts.models import Pilar
+
 
 @dataclass
 class Acao:
@@ -94,7 +96,46 @@ def _acao_de_treino(estado, rotulo, atrasada, continuando=False) -> Acao:
 #: Quantos pontos percentuais atrás do esperado contam como "significativamente
 #: atrás". Abaixo disso é ruído: quem bebeu 1 L às 13h de uma meta de 3 L está
 #: 13 pontos atrás e vai chegar lá sem ninguém avisar.
+#:
+#: É o valor de quem NÃO declarou pilar nenhum — ou seja, de todo mundo até
+#: alguém responder. O motor desta pessoa é byte por byte o de antes.
 ATRASO_DE_HIDRATACAO_PP = 25
+
+#: A FAIXA FECHADA dentro da qual o pilar declarado pode mover aquele corte.
+#:
+#: A faixa É a garantia, e é o que separa "mais um sinal" de "regra burra": o
+#: pilar move o limiar, nunca liga nem desliga a regra. Quem escolheu Corrida
+#: continua sendo avisado da água; só mais tarde.
+#:
+#: 15 é o CHÃO porque este módulo já nomeia 13 pp como ruído, logo acima —
+#: descer abaixo disso faria a regra disparar exatamente no caso que ela
+#: documenta como "vai chegar lá sem ninguém avisar".
+#:
+#: 35 é o TETO porque, medido na janela de 7h às 20h com meta de 3 L, quem não
+#: bebe nada AINDA vê o cartão às 11:35. A regra continua viva; ela chega mais
+#: tarde. Um teto maior a mataria para quem escolheu outro pilar, e esconder um
+#: pilar de quem não o escolheu é o que esta campanha proíbe.
+ATRASO_MINIMO_PP = 15
+ATRASO_MAXIMO_PP = 35
+
+
+def limiar_de_atraso(prioridade) -> int:
+    """Quantos pontos de atraso a água exige de quem declarou ESTE pilar.
+
+    Três valores, e a distância entre eles é de propósito pequena. Medido na
+    janela de 7h às 20h com meta de 3 L, bebendo 500 ml a cada aviso: seis
+    aparições a 15 pp, cinco a 25 (o valor de hoje) e quatro a 35. Um lembrete
+    a mais ou a menos é sinal; não é chave.
+
+    Prioridade vazia devolve o valor de sempre. É o caminho de quem nunca
+    respondeu, e ele não pode mudar por causa de uma campanha que essa pessoa
+    não participou.
+    """
+    if prioridade == Pilar.HIDRATACAO:
+        return ATRASO_MINIMO_PP
+    if prioridade:
+        return ATRASO_MAXIMO_PP
+    return ATRASO_DE_HIDRATACAO_PP
 
 #: Abaixo disto não vale tomar a tela. Faltando 200 ml às 20h a pessoa não
 #: precisa de um cartão dizendo isso — ela precisa de um copo.
@@ -144,7 +185,8 @@ def atraso_de_hidratacao(*, slots, meta_agua, bebido, agora) -> float:
     return (esperado - real) * 100
 
 
-def proxima_acao(*, slots, treino, meta_agua, bebido, agora) -> Acao:
+def proxima_acao(*, slots, treino, meta_agua, bebido, agora,
+                 prioridade="", convite_pesagem=False) -> Acao:
     """A ação mais útil neste instante.
 
     A ordem não é uma lista de prioridades escrita à mão — são três perguntas,
@@ -228,7 +270,7 @@ def proxima_acao(*, slots, treino, meta_agua, bebido, agora) -> Acao:
         atraso = atraso_de_hidratacao(
             slots=slots, meta_agua=meta_agua, bebido=bebido, agora=agora
         )
-        if atraso >= ATRASO_DE_HIDRATACAO_PP and faltam >= FALTA_MINIMA_PARA_AVISAR_ML:
+        if atraso >= limiar_de_atraso(prioridade) and faltam >= FALTA_MINIMA_PARA_AVISAR_ML:
             return Acao(
                 tipo="agua",
                 rotulo="HIDRATAÇÃO",
@@ -237,6 +279,32 @@ def proxima_acao(*, slots, treino, meta_agua, bebido, agora) -> Acao:
                 cta="Registrar 500 ml",
                 url="#hidratacao",
             )
+
+    # 2-C. a pesagem da semana, e SÓ para quem declarou Progresso.
+    #
+    # Não é cartão inventado, e a diferença importa: `convite_pesagem` vem de
+    # `weight_trend.convidar_a_pesar`, que já dizia, no mesmo `TodayView`, que a
+    # semana está abaixo da meta de pesagens E que hoje ainda não tem uma. A
+    # ação já está na tela — é a faixa `<details class="pesar">`. O pilar muda o
+    # LUGAR dela, não a existência dela, e os dois leem a MESMA booleana: não há
+    # como discordarem.
+    #
+    # Sem o convite, este ramo não existe. É a diferença entre responder a
+    # preferência de alguém e fabricar tarefa: num dia em que a pessoa já se
+    # pesou, Progresso não muda nada, e isso é a resposta certa.
+    #
+    # DEPOIS da água de propósito. O atraso de hidratação é medida do instante e
+    # envelhece; a pesagem vale o dia inteiro. Ceder a vez custa minutos à
+    # pesagem; o contrário custa à água a hora em que ela ainda resolvia algo.
+    if prioridade == Pilar.PROGRESSO and convite_pesagem:
+        return Acao(
+            tipo="pesagem",
+            rotulo="PROGRESSO",
+            titulo="Peso de hoje",
+            detalhe="A média da semana ainda espera uma medida",
+            cta="Registrar peso",
+            url="#pesar",
+        )
 
     # 3. o que vem a seguir: o mais próximo no futuro
     if futuros:

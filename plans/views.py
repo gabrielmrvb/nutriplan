@@ -313,12 +313,25 @@ class TodayView(PlanRequiredMixin, TemplateView):
         # horário das refeições é o do fuso da pessoa. Sem isso o "agora" erra
         # por três horas, e a tela mostraria o almoço como ação às nove da
         # manhã.
+        # O convite de pesagem sai daqui, e não de dentro do dicionário de
+        # contexto, porque agora DUAS coisas o leem: o cartão do topo e a faixa
+        # de pesagem. Duas chamadas dariam duas respostas na virada do dia, e a
+        # tela mostraria um cartão pedindo o peso ao lado de uma faixa fechada.
+        convite_pesagem = weight_trend.convidar_a_pesar(self.request.user, hoje=today)
+
+        # A prioridade declarada é MAIS UM SINAL, e entra como argumento em vez
+        # de ser lida lá dentro: `proxima_acao` é uma função pura, e é isso que
+        # deixa `plans/test_agua_no_agora.py` provar a regra sem banco.
+        prioridade = getattr(self.plan.user.profile, "prioridade", "")
+
         acao = agora_mod.proxima_acao(
             slots=slots,
             treino=estado_treino,
             meta_agua=meta_agua,
             bebido=bebido,
             agora=timezone.localtime(),
+            prioridade=prioridade,
+            convite_pesagem=convite_pesagem,
         )
         # A lista concorda com o topo porque LÊ a decisão dele, em vez de
         # refazer a conta.
@@ -351,9 +364,11 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 # a view pergunta, `weight_trend` responde. Consulta dirigida à
                 # semana — `analisar()` carregaria o histórico inteiro para
                 # responder isto, e esta é a tela mais aberta do app.
-                "convite_pesagem": weight_trend.convidar_a_pesar(
-                    self.request.user, hoje=today
-                ),
+                "convite_pesagem": convite_pesagem,
+                # A prioridade chega ao template para decidir ONDE a seção do
+                # pilar aparece — nunca SE ela aparece. Nenhum pilar esconde
+                # seção de ninguém.
+                "prioridade": prioridade,
                 # `None` quando não há erro pendente DESTA tela; string
                 # (às vezes vazia) quando há. `houve_recusa` carrega essa
                 # diferença para o template, que não consegue distinguir

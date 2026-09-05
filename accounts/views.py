@@ -24,6 +24,7 @@ from .forms import (
     GoalForm,
     PALAVRA_DE_EXCLUSAO,
     PesagemForm,
+    InteressesForm,
     RestrictionsForm,
     SignupForm,
     SplitPreferenceForm,
@@ -93,10 +94,14 @@ def recusa_pendente(request, superficie):
 #: número em lugar nenhum, porque quem decide se ele existe é `passos_de`.
 PASSO_TREINOS = 3
 
-#: Os dois caminhos possíveis. O 5 é sempre o último, e é isso que mantém
+#: Os dois caminhos possíveis. O 6 é sempre o último, e é isso que mantém
 #: `ONBOARDING_DONE` e `onboarding_complete` valendo sem alteração nenhuma.
-CAMINHO_COMPLETO = (1, 2, 3, 4, 5)
-CAMINHO_CURTO = (1, 2, 3, 5)
+#:
+#: O 6 entrou no FIM em 05/09/2026, e o lugar não é editorial: acrescentar no
+#: fim não mexe em nenhum `onboarding_step` já gravado. Enfiar a pergunta nova
+#: no começo renumeraria os cinco, e quem parou no 3 acordaria noutra tela.
+CAMINHO_COMPLETO = (1, 2, 3, 4, 5, 6)
+CAMINHO_CURTO = (1, 2, 3, 5, 6)
 
 
 def passos_de(user, profile, treinos_respondidos=None) -> tuple:
@@ -153,6 +158,13 @@ STEP_META = {
         "Escolha quantos músculos você prefere focar em cada sessão.",
     ),
     5: ("Sua comida", "O estilo do cardápio e o que você não pode comer."),
+    # O subtítulo diz "organizar" e não "liberar": nenhuma área fica escondida
+    # por não ter sido marcada, e prometer o contrário aqui seria vender uma
+    # restrição que o produto não faz.
+    6: (
+        "Suas áreas",
+        "O que você quer cuidar, e o que organizar primeiro.",
+    ),
     # A janela de sono saiu daqui na V2.1 — o subtítulo já descrevia só comida,
     # e agora a tela também.
 }
@@ -680,12 +692,30 @@ class RestrictionsStepView(ProfileStepView):
     form_class = RestrictionsForm
 
 
+class InteressesStepView(ProfileStepView):
+    """Passo 6 — as áreas do NutriPlan.
+
+    Por último, e não primeiro. Perguntar "o que você quer cuidar?" antes de
+    saber quem a pessoa é seria pedir uma decisão sem contexto; aqui ela já
+    respondeu corpo, objetivo, rotina, divisão e comida, e a pergunta fecha o
+    cadastro dizendo para onde tudo isso vai.
+
+    E há uma razão estrutural, além da editorial: pôr o passo no fim é
+    ACRESCENTAR. Pôr no começo renumeraria os cinco existentes, e todo
+    `onboarding_step` gravado no banco passaria a apontar para a tela errada.
+    """
+
+    step = 6
+    form_class = InteressesForm
+
+
 STEP_VIEWS = {
     1: BodyDataStepView,
     2: GoalStepView,
     3: TrainingStepView,
     4: SplitPreferenceStepView,
     5: RestrictionsStepView,
+    6: InteressesStepView,
 }
 
 

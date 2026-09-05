@@ -66,6 +66,44 @@ concluído dentro do card de sexta, com as cargas preenchidas nas séries de lá
 mexer nessa tela, lembre: `"anterior"` vale para todos os dias (é o que se
 consulta ao abrir outra ficha), `"hoje"` vale só para a sessão de hoje.
 
+**O NutriPlan tem CINCO PILARES, e "Hoje" não é um deles.** Dieta, Treino,
+Corrida, Hidratação e Progresso estão no mesmo nível conceitual —
+`accounts.models.Pilar`. Hoje é o orquestrador do dia; Perfil é utilitário. A
+navegação de hoje diz o contrário (a tela de água acende a aba "Dieta" e a de
+corridas acende "Treino"), e corrigir isso é a parte de navegação da campanha.
+
+**Interesse ORGANIZA; ele não restringe.** Quem marcou só Corrida continua com
+as outras quatro áreas abertas, e há teste varrendo as cinco rotas. Esconder o
+que não foi marcado é a simplificação tentadora que transformaria a
+personalização em prisão.
+
+**A prioridade é uma pergunta PRÓPRIA, não o primeiro checkbox tocado.** Marcar
+várias áreas sem escolher a principal devolve a pergunta explícita; marcar a
+principal sem marcar a área acima MARCA a área, porque cobrar essa coerência do
+dedo seria devolver à pessoa um erro que o formulário fecha sozinho. Uma área
+só dispensa a pergunta.
+
+**A prioridade tem de pertencer aos interesses, e quem garante é o banco.**
+`prioridade_pertence_aos_interesses` é o primeiro `CheckConstraint` do
+repositório. O padrão até aqui era `UniqueConstraint`, que não expressa
+"pertence a" — e a doutrina de `um_primeiro_admin_por_pessoa` já dizia por que
+Python não basta: duas transações simultâneas atravessam juntas uma checagem.
+
+**Preferência ≠ urgência contextual.** O pilar entra em `plans/agora.py` como
+MAIS UM SINAL: ele move o limiar da regra de hidratação dentro de uma faixa
+fechada de 15 a 35 pontos, e abre um ramo para Progresso **só quando
+`convidar_a_pesar` já disse que há uma pesagem faltando**. Ele nunca passa na
+frente de treino em andamento nem de refeição vencida — aquilo tem hora marcada
+e a hora passa; o pilar continua verdadeiro amanhã. E nenhum pilar DESLIGA a
+água: o teto de 35 existe para isso.
+
+**Uso não é intenção declarada.** A migration `0024` não infere preferência de
+ninguém. Quem já usava o app fica com `prioridade == ""`, que é um estado de
+verdade — "ainda não respondeu" — e não um buraco. É o mesmo raciocínio que
+`split_preference_confirmada` pagou caro para aprender. O `RunPython` que
+existe ali só preserva o `onboarding_step` de quem já tinha terminado, porque o
+passo novo moveu `ONBOARDING_DONE` de 6 para 7.
+
 **Plano é retrato, não referência.** `NutritionPlan` e `TrainingPlan` guardam os
 números do dia em que foram criados. Mudou a entrada, nasce plano novo — os
 antigos ficam. Nunca edite os números de um plano ativo: `plan_is_current()`

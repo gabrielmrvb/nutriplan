@@ -1305,3 +1305,71 @@ para que a próxima pessoa tenha de encarar o problema em vez de reabrir a porta
 
 Ver também `/treino/agora/serie/`, registrada acima: ela nunca esteve na fila, e
 a decisão sobre ela é a mesma pergunta.
+
+## NUTRIPLAN PERSONALIZADO V1 (05/09/2026) — unidade 1 de N
+
+### Os cinco pilares, e por que a barra não os carrega
+
+🥗 Dieta · 🏋️ Treino · 🏃 Corrida · 💧 Hidratação · 📈 Progresso.
+**Hoje é orquestrador, não pilar. Perfil é utilitário, não pilar.**
+
+A barra inferior NÃO ganhou cinco itens, e a razão é medida: a 320px, cinco
+colunas dão 58,2px por aba e **51,8px úteis** depois do padding — "Hidratação"
+precisa de 60px e "Progresso" de 55px, e as duas truncam. Abreviar uma e não as
+outras seria incoerente.
+
+E duas decisões escritas no código já diziam o mesmo por outros motivos:
+`_corrida.html` registra que Corrida não vira aba porque **o GPS numa PWA nunca
+foi medido em aparelho** — "promover a destino de topo é dizer 'isto funciona'";
+`today.html` registra que Hidratação não vira aba porque é frequente em toques
+de dois segundos e uma aba cobraria ida e volta por copo.
+
+A saída é a que o dono já preferia: **a barra responde FREQUÊNCIA, o mapa
+responde ESTRUTURA**. Os cinco pilares são reais como camada conceitual e
+ganham entrada de primeira classe no mapa de áreas — que é a unidade seguinte.
+
+### O que entrou nesta unidade
+
+- `accounts.models.Pilar` — cinco valores fechados, em código e não em tabela;
+- cinco booleanos + `prioridade` no `Profile`, com `CAMPO_DO_PILAR` como fonte
+  única para formulário, validação e agregação;
+- `prioridade_pertence_aos_interesses` — o primeiro `CheckConstraint` do
+  repositório;
+- passo 6 do onboarding, no FIM (acrescentar não renumera; pôr no começo
+  faria todo `onboarding_step` gravado apontar para a tela errada);
+- `plans/agora.py` — limiar por pilar numa faixa fechada, e o ramo do Progresso
+  ancorado num fato que já existia.
+
+### ⏳ Ainda ABERTO nesta campanha
+
+1. **mapa de áreas** — o componente. `<dialog class="drawer">` de
+   `routine.html` é a única sobreposição com foco preso e Esc do projeto, mas
+   está inline junto do JS do exercício; reusar exige extrair para partial.
+   `demo/index.html` tem uma grade de áreas pronta (`demo-areas`), hoje
+   desatualizada (sem Corrida e sem Hidratação).
+2. **`nav` de Hidratação e Corrida** — hoje acendem "Dieta" e "Treino", que é a
+   subordinação visível na tela.
+3. **ordem de seção no Hoje** — só Hidratação tem para onde subir; os outros
+   quatro já estão no topo ou não têm seção. Construir máquina de ordenação
+   para cinco serviria a um.
+4. **cartão de personalização no Perfil** — o padrão já existe: cinco cartões
+   de lá já apontam para um passo do wizard.
+5. **agregado de gestão** — cabe como uma chave a mais em `numeros_do_painel()`,
+   no molde de `por_classificacao`.
+6. **k-anonimato** — o painel não tem piso de contagem, e a tela Pessoas lista
+   e-mails sob a mesma permissão. Agregado de dimensão única não reidentifica
+   enquanto preferência individual não aparecer por pessoa; há teste garantindo
+   isso, e a limitação fica declarada.
+
+### ⏳ Desempate de horário EXATO no cartão AGORA — OBSERVAÇÃO
+
+Medido: com refeição e treino no mesmo minuto, o ramo 2 (`vencidos[-1]`)
+devolve o treino e o ramo 3 (`futuros[0]`) devolve a refeição. É acidente de
+`sort()` estável mais a ordem de inserção, não regra escrita — e nenhum teste
+cobre empate exato.
+
+**Não corrigido de propósito.** A concorrência real medida numa varredura do dia
+inteiro é de ZERO minutos em janelas de até 60; só a 90 min aparece um par
+(treino 18:30 × jantar 20:00). Maquinário para um caso que não ocorre é dívida,
+não conserto. Fica registrado para quem um dia mexer na ordenação saber que a
+regra não está escrita.

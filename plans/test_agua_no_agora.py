@@ -56,7 +56,8 @@ class BaseDoAgora(SimpleTestCase):
             datetime.combine(timezone.localdate(), time(h, m))
         )
 
-    def dia(self, *, hora, bebido, meta=3000, pendentes=False, treino=None):
+    def dia(self, *, hora, bebido, meta=3000, pendentes=False, treino=None,
+            prioridade="", convite_pesagem=False):
         """Refeições às 7h, 12h e 20h; as que já passaram, MARCADAS.
 
         Este é o dia em que a regra tem alguma chance de aparecer: nada
@@ -83,6 +84,8 @@ class BaseDoAgora(SimpleTestCase):
             meta_agua=meta,
             bebido=bebido,
             agora=self.instante(hora),
+            prioridade=prioridade,
+            convite_pesagem=convite_pesagem,
         )
 
 
@@ -265,3 +268,147 @@ class OCartaoVoltaSeAPessoaContinuaAtrasTests(BaseDoAgora):
             with self.subTest(hora=hora):
                 bebido = int(3000 * (hora - 7) / 13)
                 self.assertNotEqual(self.dia(hora=hora, bebido=bebido).tipo, "agua")
+
+
+class OPilarDeclaradoMOVE_O_LIMIAR_E_NAO_A_ORDEM_Tests(BaseDoAgora):
+    """A preferência é MAIS UM SINAL, e o formato dela é essa frase.
+
+    Ela não abre um atalho na ordem de decisão: move um corte dentro de uma
+    faixa fechada. Quem escolheu Corrida continua sendo avisado da água — só
+    mais tarde. Quem escolheu Hidratação é avisado mais cedo. Ninguém deixa de
+    ser avisado, e é isso que separa "personalizar" de "esconder".
+
+    Os números vêm da mesma janela de 7h às 20h com meta de 3 L que o resto
+    deste arquivo usa. Às 10h o atraso de quem não bebeu nada é 23,08 pontos:
+    acima do chão de 15 e abaixo do padrão de 25. É o instante que separa os
+    três limiares, e é por isso que ele aparece nos testes.
+    """
+
+    def test_hidratacao_como_pilar_ANTECIPA_o_aviso(self):
+        self.assertEqual(
+            self.dia(hora=10, bebido=0, prioridade="hidratacao").tipo, "agua"
+        )
+
+    def test_sem_pilar_declarado_o_mesmo_instante_fica_calado(self):
+        """O par do teste acima, e o que prova influência: mesma hora, mesma
+        água, resultado diferente. Sem este, o de cima passaria mesmo se a
+        regra ignorasse o pilar e simplesmente disparasse às 10h."""
+        self.assertNotEqual(self.dia(hora=10, bebido=0).tipo, "agua")
+
+    def test_outro_pilar_ADIA_o_aviso(self):
+        """Às 11h o atraso é 30,77: passa o padrão de 25 e não o teto de 35."""
+        self.assertEqual(self.dia(hora=11, bebido=0).tipo, "agua")
+        self.assertNotEqual(self.dia(hora=11, bebido=0, prioridade="corrida").tipo, "agua")
+
+    def test_nenhum_pilar_DESLIGA_a_agua(self):
+        """O teto existe para isso. Quem escolheu Corrida e não bebe nada
+        continua sendo avisado — às 19h o atraso é 92 pontos, e nenhum pilar
+        chega perto disso."""
+        for prioridade in ("", "dieta", "treino", "corrida", "hidratacao", "progresso"):
+            with self.subTest(prioridade=prioridade):
+                self.assertEqual(
+                    self.dia(hora=19, bebido=0, prioridade=prioridade).tipo, "agua"
+                )
+
+    def test_o_limiar_nunca_sai_da_faixa(self):
+        """Uma edição futura do tipo "pilar X → 5 pontos" fica vermelha aqui.
+
+        Sem este teste o chão não é protegido por nada: nenhum outro caso deste
+        arquivo chega perto de 15, então baixar `ATRASO_MINIMO_PP` passaria
+        despercebido — e a regra voltaria a disparar no ruído que ela mesma
+        documenta como ruído.
+        """
+        # Os NÚMEROS, e não as constantes. A primeira versão deste teste
+        # importava `ATRASO_MINIMO_PP` e comparava o limiar com ele — ou seja,
+        # comparava o valor consigo mesmo. Baixar a constante para 5 passava
+        # verde, e a sabotagem provou isso.
+        #
+        # 15 é o chão porque `plans/agora.py` documenta 13 pontos como ruído:
+        # quem bebeu 1 L às 13h de uma meta de 3 L chega lá sem ninguém avisar.
+        # Um limiar abaixo disso faz a regra disparar exatamente no caso que
+        # ela existe para não incomodar.
+        for prioridade in ("", "dieta", "treino", "corrida", "hidratacao", "progresso"):
+            with self.subTest(prioridade=prioridade):
+                limiar = motor.limiar_de_atraso(prioridade)
+                self.assertGreaterEqual(limiar, 15, "o limiar desceu para o ruído")
+                self.assertLessEqual(limiar, 35, "o limiar subiu e a regra some")
+
+
+class NenhumPilarAtropelaUrgenciaTests(BaseDoAgora):
+    """O que a preferência NUNCA ultrapassa, varrido nos seis valores.
+
+    Varre em vez de testar um: uma condição escrita à mão erra num dos ramos, e
+    o teste de um pilar só não veria. E um pilar futuro entra no laço sozinho.
+    """
+
+    TODOS = ("", "dieta", "treino", "corrida", "hidratacao", "progresso")
+
+    def test_refeicao_vencida_ganha_de_qualquer_pilar(self):
+        """Refeição tem hora marcada e a hora passa. Sede não passa, e o pilar
+        continua verdadeiro amanhã."""
+        for prioridade in self.TODOS:
+            with self.subTest(prioridade=prioridade):
+                acao = self.dia(
+                    hora=13, bebido=0, pendentes=True,
+                    prioridade=prioridade, convite_pesagem=True,
+                )
+                self.assertEqual(acao.tipo, "refeicao")
+
+    def test_treino_em_andamento_ganha_de_qualquer_pilar(self):
+        """É estado, não agenda: há série anotada hoje. É a única coisa neste
+        módulo que o app OBSERVOU acontecer."""
+        sessao = TrainingSession(
+            name="Peito", start_time=time(18, 30), weekday=0, label="A",
+            duration_min=60,
+        )
+        estado = workout_services.EstadoDoTreino()
+        estado.sessao = sessao
+        estado.itens = [object()] * 7
+        estado.total_exercicios = 7
+        estado.series_feitas = 3
+        estado.total_series = 20
+        estado.concluido = False
+
+        for prioridade in self.TODOS:
+            with self.subTest(prioridade=prioridade):
+                acao = self.dia(
+                    hora=19, bebido=0, treino=estado,
+                    prioridade=prioridade, convite_pesagem=True,
+                )
+                self.assertEqual(acao.tipo, "treino")
+
+
+class OProgressoSoSOBE_COM_FATO_Tests(BaseDoAgora):
+    """O ramo do Progresso existe porque há um fato por trás dele.
+
+    `convidar_a_pesar` já dizia, no mesmo `TodayView`, que a semana está abaixo
+    da meta de pesagens e que hoje ainda não tem uma. O pilar muda o LUGAR
+    dessa ação, não a existência dela.
+
+    Sem o convite o ramo não existe — e essa é a diferença entre responder à
+    preferência de alguém e fabricar tarefa. O módulo já diz, no topo: quando
+    não há o que fazer, ele diz isso, não preenche o espaço.
+    """
+
+    def test_com_convite_a_pesagem_sobe(self):
+        acao = self.dia(hora=15, bebido=3000, prioridade="progresso", convite_pesagem=True)
+
+        self.assertEqual(acao.tipo, "pesagem")
+        self.assertEqual(acao.url, "#pesar")
+
+    def test_SEM_convite_o_pilar_progresso_nao_muda_nada(self):
+        """Num dia em que a pessoa já se pesou, Progresso não inventa cartão."""
+        acao = self.dia(hora=15, bebido=3000, prioridade="progresso", convite_pesagem=False)
+
+        self.assertNotEqual(acao.tipo, "pesagem")
+
+    def test_o_convite_sozinho_nao_basta(self):
+        """Controle positivo do ramo: quem não declarou Progresso não recebe o
+        cartão de pesagem, mesmo com o convite ligado. Sem isto, o ramo poderia
+        estar ignorando o pilar e respondendo só ao convite."""
+        for prioridade in ("", "dieta", "treino", "corrida", "hidratacao"):
+            with self.subTest(prioridade=prioridade):
+                acao = self.dia(
+                    hora=15, bebido=3000, prioridade=prioridade, convite_pesagem=True
+                )
+                self.assertNotEqual(acao.tipo, "pesagem")

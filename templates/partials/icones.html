@@ -56,6 +56,16 @@ uma família e não uma coleção.
     </symbol>
 
     {# Alvo — poucos grupos por dia #}
+    {% comment %}
+      A gota veio do cartao de agua da tela Hoje, onde ela era um `<svg>` solto
+      no meio do HTML. O cabecalho deste arquivo ja dizia por que ela nao
+      deveria ficar la: "repetir o mesmo desenho em varios lugares custaria
+      bytes e desencontraria versoes" — e agora ela e usada em dois.
+    {% endcomment %}
+    <symbol id="icone-gota" viewBox="0 0 24 24">
+      <path d="M12 3.5c3 3.6 5.5 6.3 5.5 9.4a5.5 5.5 0 0 1-11 0c0-3.1 2.5-5.8 5.5-9.4Z"/>
+    </symbol>
+
     <symbol id="icone-alvo" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="8.5"/>
       <circle cx="12" cy="12" r="4.5"/>

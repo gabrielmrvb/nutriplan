@@ -187,8 +187,52 @@ class MealStyle(models.TextChoices):
     VARIED = "varied", "Variada e elaborada"
 
 
-ONBOARDING_DONE = 6
-ONBOARDING_LAST_STEP = 5
+class Pilar(models.TextChoices):
+    """As cinco áreas do NutriPlan, no MESMO nível conceitual.
+
+    Hidratação não é subfunção de Dieta e Corrida não é subfunção de Treino —
+    e é por isso que esta lista existe: a navegação de hoje diz o contrário,
+    porque a tela de água acende a aba "Dieta" e a de corridas acende "Treino".
+
+    "Hoje" NÃO está aqui, e a ausência é a decisão: ele é o orquestrador do
+    dia, a tela que responde "e agora?" olhando para os cinco. Perfil também
+    não está — é utilitário.
+
+    Cinco valores fechados, em código e não em tabela: eles mudam quando o
+    PRODUTO muda, não quando alguém cadastra uma linha. Um sexto pilar custa
+    uma migration, e esse custo é honesto — é exatamente o peso de uma decisão
+    de estrutura.
+
+    O texto de tela (ícone, título de cartão, linha de apoio) mora em
+    `accounts/templatetags/escolhas.py`, como o de todas as outras escolhas
+    deste onboarding. Enfiar isso aqui faria a camada de dados carregar decisão
+    de tela.
+    """
+
+    DIETA = "dieta", "Alimentação"
+    TREINO = "treino", "Musculação"
+    CORRIDA = "corrida", "Corrida"
+    HIDRATACAO = "hidratacao", "Hidratação"
+    PROGRESSO = "progresso", "Evolução"
+
+
+#: O campo booleano que guarda cada pilar, na ordem em que a tela os mostra.
+#:
+#: Um dicionário e não cinco referências soltas: a agregação do painel, a
+#: validação do invariante e o formulário leem a MESMA fonte, e um pilar novo
+#: entra em todos os três de uma vez. Três listas paralelas divergiriam na
+#: primeira adição.
+CAMPO_DO_PILAR = {
+    Pilar.DIETA: "interesse_dieta",
+    Pilar.TREINO: "interesse_treino",
+    Pilar.CORRIDA: "interesse_corrida",
+    Pilar.HIDRATACAO: "interesse_hidratacao",
+    Pilar.PROGRESSO: "interesse_progresso",
+}
+
+
+ONBOARDING_DONE = 7
+ONBOARDING_LAST_STEP = 6
 
 
 class Profile(models.Model):
@@ -279,6 +323,43 @@ class Profile(models.Model):
     #: mais" — o aviso repetido é o que faz a pessoa parar de ler avisos.
     recalibrated_at = models.DateTimeField("recalibrado em", null=True, blank=True)
 
+    # ------------------------------------------------------------ pilares
+    #
+    # O QUE A PESSOA QUER CUIDAR, e o que ela quer cuidar PRIMEIRO.
+    #
+    # Cinco booleanos e não um M2M, e a razão é medição, não gosto:
+    #
+    #   - agregar interesse no painel vira UMA consulta sem join
+    #     (`Count(filter=Q(...))`). Com M2M o join faz os baldes não fecharem
+    #     com o total — defeito que o painel já teve e documentou em
+    #     `templates/gestao/painel.html`;
+    #   - o conjunto é FECHADO e mora em código. Uma tabela cujas linhas são
+    #     constantes do produto convida alguém a cadastrar um sexto pilar sem
+    #     a tela, a rota e a decisão que um pilar de verdade exige;
+    #   - o projeto não tem `ArrayField` em lugar nenhum, e usa `JSONField` só
+    #     como carga de conteúdo, nunca como preferência validada.
+    #
+    # `prioridade` VAZIA é o estado "ainda não declarou", e é por isso que não
+    # existe um booleano `confirmada` ao lado: a string vazia já distingue quem
+    # respondeu de quem nunca viu a tela. Foi exatamente essa distinção que
+    # faltou em `split_preference` e custou um campo a mais depois.
+    #
+    # Quem chega aqui pela migration cai nesse estado, e é deliberado: uso não
+    # é intenção declarada. Ninguém vira "prioridade treino" por ter ficha.
+    interesse_dieta = models.BooleanField("interesse em alimentação", default=False)
+    interesse_treino = models.BooleanField("interesse em musculação", default=False)
+    interesse_corrida = models.BooleanField("interesse em corrida", default=False)
+    interesse_hidratacao = models.BooleanField("interesse em hidratação", default=False)
+    interesse_progresso = models.BooleanField("interesse em evolução", default=False)
+
+    prioridade = models.CharField(
+        "prioridade principal",
+        max_length=20,
+        choices=Pilar.choices,
+        blank=True,
+        default="",
+    )
+
     onboarding_step = models.PositiveSmallIntegerField("passo do onboarding", default=2)
     onboarding_completed_at = models.DateTimeField(null=True, blank=True)
 
@@ -297,6 +378,38 @@ class Profile(models.Model):
             (
                 "pedir_nova_escolha_de_divisao",
                 "Pode pedir que a pessoa escolha a divisão de treino de novo",
+            ),
+        ]
+        #: A PRIORIDADE TEM DE SER UM DOS INTERESSES MARCADOS.
+        #:
+        #: No banco, e não só no formulário. É a mesma doutrina que
+        #: `um_primeiro_admin_por_pessoa` já aplica logo abaixo: o código evita
+        #: o caso comum, a constraint torna o caso raro impossível — e duas
+        #: transações simultâneas atravessam juntas uma checagem em Python.
+        #:
+        #: Aqui o caso raro é concreto: a tela de personalização posterior
+        #: desmarca interesses e escolhe prioridade no MESMO envio. Uma ordem
+        #: de escrita trocada deixaria "prioridade corrida" com corrida
+        #: desmarcada, e nenhuma tela do app sabe desenhar isso.
+        #:
+        #: Vazio é sempre válido: é o estado de quem ainda não declarou, e é
+        #: onde todo usuário existente entra por esta migration.
+        #:
+        #: É o primeiro `CheckConstraint` do repositório. O padrão até aqui era
+        #: `UniqueConstraint`, que não expressa "pertence a" — e a alternativa
+        #: era deixar o invariante só em Python, que é o que a doutrina acima
+        #: recusa.
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(prioridade="")
+                    | models.Q(prioridade=Pilar.DIETA, interesse_dieta=True)
+                    | models.Q(prioridade=Pilar.TREINO, interesse_treino=True)
+                    | models.Q(prioridade=Pilar.CORRIDA, interesse_corrida=True)
+                    | models.Q(prioridade=Pilar.HIDRATACAO, interesse_hidratacao=True)
+                    | models.Q(prioridade=Pilar.PROGRESSO, interesse_progresso=True)
+                ),
+                name="prioridade_pertence_aos_interesses",
             ),
         ]
         verbose_name = "perfil"
@@ -328,6 +441,28 @@ class Profile(models.Model):
     @property
     def training_days_per_week(self) -> int:
         return self.user.training_days.count()
+
+    @property
+    def interesses(self) -> list:
+        """Os pilares marcados, na ordem em que a tela os mostra.
+
+        Lê `CAMPO_DO_PILAR` em vez de repetir a lista: o formulário, a
+        validação e o painel leem a mesma fonte, e um pilar novo entra nos
+        quatro de uma vez.
+        """
+        return [
+            pilar for pilar, campo in CAMPO_DO_PILAR.items() if getattr(self, campo)
+        ]
+
+    @property
+    def personalizacao_declarada(self) -> bool:
+        """A pessoa já respondeu o que quer cuidar?
+
+        A pergunta é sobre a PRIORIDADE, e não sobre os interesses: nenhum
+        interesse marcado é indistinguível de nunca ter visto a tela, e a
+        prioridade vazia não é — ela só sai do vazio quando alguém escolhe.
+        """
+        return bool(self.prioridade)
 
     @property
     def onboarding_complete(self) -> bool:
