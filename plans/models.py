@@ -342,3 +342,66 @@ class MealLog(models.Model):
         if opcao is not None and opcao.template_id:
             return opcao.template.name
         return ""
+
+
+class GoleDeAgua(models.Model):
+    """Um registro individual de água — o que permite desfazer UM toque.
+
+    POR QUE ELE EXISTE, JÁ QUE `HydrationLog` GUARDA O DIA
+
+    `HydrationLog` é o total do dia e continua sendo a fonte da verdade: a
+    ofensiva, o histórico e a tela de hoje leem dele. Ele resolve "quanto
+    bebi hoje" e não resolve "eu toquei +750 sem querer".
+
+    Antes disto, o único conserto era zerar o dia inteiro. Quem tocasse errado
+    depois de dois litros escolhia entre um número errado e perder tudo — e
+    escolher entre duas perdas não é desfazer.
+
+    ADITIVO DE PROPÓSITO, E SEM BACKFILL
+
+    A tabela nasce vazia e passa a registrar daqui para frente. Os dias que já
+    existem continuam valendo pelo total, e NÃO ganham goles inventados:
+    ninguém sabe como aqueles 2.750 ml foram compostos, e fabricar três goles
+    de 917 ml seria inventar um dado que nunca foi coletado.
+
+    A consequência fica dita em vez de descoberta: em dia anterior a esta
+    tabela, "desfazer o último" não acha nada para desfazer, e a tela precisa
+    dizer isso em vez de fingir.
+
+    O TETO DE DEZ LITROS É UMA FRONTEIRA CONHECIDA
+
+    `HydrationLog` limita o dia a 10.000 ml. No teto, um gole de 750 pode ter
+    somado só 200 — e desfazê-lo devolve 750, tirando 550 que nunca entraram.
+    Guardar o delta aplicado exigiria ler o total antes de somar, que é
+    exatamente o `lost update` que `F("ml") + ml` existe para impedir.
+
+    Entre um desfazer impreciso acima de dez litros por dia e uma soma que
+    perde toque em rajada, a escolha é a primeira. Fica registrado aqui.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="goles_de_agua",
+        verbose_name="usuário",
+    )
+
+    #: O dia a que o gole pertence, em hora LOCAL — o mesmo `timezone.localdate()`
+    #: que `HydrationLog` usa. Guardar só o instante obrigaria a recalcular o dia
+    #: a cada consulta, e a recalcular com o fuso de quem consulta, não com o de
+    #: quem bebeu.
+    dia = models.DateField("dia", default=timezone.localdate)
+
+    registrado_em = models.DateTimeField("registrado em", auto_now_add=True)
+
+    #: Mililitros PEDIDOS. Ver a fronteira do teto no docstring da classe.
+    ml = models.PositiveIntegerField("mililitros")
+
+    class Meta:
+        verbose_name = "gole de água"
+        verbose_name_plural = "goles de água"
+        ordering = ("-registrado_em",)
+        indexes = [models.Index(fields=["user", "dia", "-registrado_em"])]
+
+    def __str__(self):
+        return f"{self.ml} ml em {self.dia}"

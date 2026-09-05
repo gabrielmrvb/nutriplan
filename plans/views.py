@@ -10,8 +10,9 @@ from django.contrib import messages
 from django.urls import reverse
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.db import transaction
 from django.db.models import F, Value
-from django.db.models.functions import Least
+from django.db.models.functions import Greatest, Least
 from django.utils import timezone
 from django.views.generic import TemplateView, View
 
@@ -30,7 +31,14 @@ from .calculations import (
     KCAL_PER_G_PROTEIN,
     activity_factor,
 )
-from .models import HydrationLog, MealOption, MealSlot, MealStatus, OptionLabel
+from .models import (
+    GoleDeAgua,
+    HydrationLog,
+    MealOption,
+    MealSlot,
+    MealStatus,
+    OptionLabel,
+)
 # A política de arredondamento mora em `tracking` e é importada, não repetida:
 # duas cópias da mesma regra é como as duas nasceram diferentes.
 from .tracking import ZERO, arredondar
@@ -718,6 +726,9 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
     PASSOS = (250, 500, 750)
 
     def post(self, request, *args, **kwargs):
+        if request.POST.get("acao") == "desfazer":
+            return self._desfazer(request)
+
         try:
             ml = int(request.POST.get("ml", 0))
         except (TypeError, ValueError):
@@ -772,9 +783,57 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
             # `Least` mantém o teto de 10 litros no dia sem voltar para Python.
             # `updated_at` vai explícito porque `auto_now` só age em `save()`,
             # e `update()` não passa por ele.
-            HydrationLog.objects.filter(pk=registro.pk).update(
-                ml=Least(F("ml") + ml, Value(10000)),
-                updated_at=timezone.now(),
+            # O gole e o total sobem JUNTOS ou não sobem. Sem a transação, um
+            # erro entre as duas escritas deixaria o total somado e o gole
+            # ausente — e aí "desfazer o último" tiraria o gole ANTERIOR, que é
+            # pior que não ter desfazer nenhum.
+            with transaction.atomic():
+                HydrationLog.objects.filter(pk=registro.pk).update(
+                    ml=Least(F("ml") + ml, Value(10000)),
+                    updated_at=timezone.now(),
+                )
+                GoleDeAgua.objects.create(user=request.user, dia=hoje, ml=ml)
+
+        return redirect(_hoje_em("#hidratacao"))
+
+    def _desfazer(self, request):
+        """Tira o ÚLTIMO gole do dia, e só ele.
+
+        O desfazer antigo era zerar o dia inteiro: quem tocasse errado depois de
+        dois litros escolhia entre um número errado e perder tudo. `zerar`
+        continua existindo — é outra intenção, "recomeçar o dia" —, e este aqui
+        é o conserto de um toque.
+
+        Dia anterior à tabela de goles não tem o que desfazer, e a tela diz
+        isso em vez de fingir que desfez.
+        """
+        hoje = timezone.localdate()
+
+        with transaction.atomic():
+            # `select_for_update` no GOLE, não no total: dois toques em
+            # "desfazer" ao mesmo tempo não podem remover o mesmo gole duas
+            # vezes e descontar duas. O total continua sendo somado por `F()`,
+            # sem leitura prévia.
+            gole = (
+                GoleDeAgua.objects.select_for_update(skip_locked=True)
+                .filter(user=request.user, dia=hoje)
+                .order_by("-registrado_em", "-pk")
+                .first()
             )
 
+            if gole is None:
+                messages.error(request, "Não há registro de hoje para desfazer.")
+                return redirect(_hoje_em("#hidratacao"))
+
+            # `Greatest(..., 0)` porque o total tem teto de 10 L: no teto, um
+            # gole de 750 pode ter somado menos que 750, e devolver o pedido
+            # cheio levaria a linha para baixo de zero. A imprecisão acima de
+            # dez litros por dia está declarada em `GoleDeAgua`.
+            HydrationLog.objects.filter(user=request.user, date=hoje).update(
+                ml=Greatest(F("ml") - gole.ml, Value(0)),
+                updated_at=timezone.now(),
+            )
+            gole.delete()
+
+        messages.success(request, "Último registro de água desfeito.")
         return redirect(_hoje_em("#hidratacao"))
