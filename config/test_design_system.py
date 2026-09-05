@@ -173,3 +173,41 @@ class ACatracaDoSistemaVisualTests(SimpleTestCase):
 
         self.assertIsNotNone(casou, "--texto-xs sumiu da escala")
         self.assertGreaterEqual(float(casou.group(1)) * 16, 11.0)
+
+
+class PapelDeDialogoSoEmDialogoDeVerdadeTests(SimpleTestCase):
+    """`role="dialog"` promete foco preso. Quem não prende, não promete.
+
+    O convite de instalação declarava `role="dialog"` sendo uma `<div>` sem
+    `aria-modal`, sem `<dialog>` nativo e sem gerenciar foco. Medido no
+    navegador com o convite aberto: 3 elementos focáveis dentro dele e **68
+    ainda alcançáveis por Tab do lado de fora**.
+
+    O leitor de tela anuncia "diálogo" e o teclado sai andando pela página —
+    papel que promete o que o comportamento não cumpre é pior que papel
+    nenhum, porque ele desliga o cuidado de quem confia no anúncio.
+
+    Não prender foco ali é DECISÃO deste projeto, escrita também no cartão de
+    conquista: um convite não rouba o que a pessoa está fazendo. Então o
+    conserto é o papel, não o comportamento.
+
+    A regra que fica: `role="dialog"` só em `<dialog>` de verdade, que prende
+    foco pelo navegador quando aberto com `showModal()`.
+    """
+
+    TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
+
+    def test_nenhuma_div_se_declara_dialogo(self):
+        culpados = []
+        for arquivo in self.TEMPLATES.rglob("*.html"):
+            texto = arquivo.read_text(encoding="utf-8")
+            for trecho in re.findall(r"<(\w+)[^>]*?\brole=[\"']dialog[\"'][^>]*>", texto):
+                if trecho.lower() != "dialog":
+                    culpados.append(f"{arquivo.name}: <{trecho} role=\"dialog\">")
+
+        self.assertEqual(
+            culpados,
+            [],
+            "role=\"dialog\" fora de um <dialog> nativo — ou prenda o foco, ou "
+            "use um papel que descreva o que a peça faz: " + "; ".join(culpados),
+        )
