@@ -26,9 +26,9 @@
   <div class="mapa__painel">
     <nav class="mapa__lista" aria-label="Áreas do NutriPlan">
       {% for area in areas %}
-        <a class="mapa__area{% if area.atual %} is-active{% endif %}"
-           {% if area.atual %}aria-current="page"{% endif %}
-           href="{% url area.rota %}">
+        <a class="mapa__area{% if area.na_secao %} is-active{% endif %}"
+           {% if area.aqui %}aria-current="page"{% elif area.na_secao %}aria-current="true"{% endif %}
+           href="{{ area.endereco }}">
           <span class="mapa__nome">
             {{ area.titulo }}{% if area.principal %} <span class="pill pill--brand">principal</span>{% endif %}
           </span>

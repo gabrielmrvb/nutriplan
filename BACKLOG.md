@@ -1340,6 +1340,39 @@ ganham entrada de primeira classe no mapa de áreas — que é a unidade seguint
 - `plans/agora.py` — limiar por pilar numa faixa fechada, e o ramo do Progresso
   ancorado num fato que já existia.
 
+### ✅ O que fechou depois da unidade 1
+
+Os itens 1 a 5 da lista abaixo estão ENTREGUES. Só o 6 continua aberto, e ele é
+decisão de produto.
+
+- **mapa de áreas** (`607b5c3`) — `<details>` na barra de cima, e não o
+  `<dialog>` de `routine.html`: `<dialog>` traz foco preso e `inert`, que foi o
+  conserto caro do convite de instalação, e um menu de cinco links não precisa
+  disso. Abre e fecha sem JavaScript; o JS só acrescenta Escape (com retorno de
+  foco) e clique fora;
+- **`nav` de Hidratação e Corrida** (`607b5c3`) — `hydration` e `running`.
+  Nenhuma aba acende nessas telas, e quem orienta é o mapa;
+- **cartão "Suas áreas" no Perfil** (`359d06e`);
+- **agregado de gestão** (`359d06e`) — `declararam_areas`, `por_interesse` e
+  `por_prioridade`, numa varredura só;
+- **ordem de seção no Hoje** — ver abaixo; a análise antiga estava curta.
+
+#### O item 3 ficou pronto, e a leitura antiga pulava uma pergunta
+
+Ela dizia: "só Hidratação tem para onde subir; os outros quatro já estão no topo
+ou não têm seção. Construir máquina de ordenação para cinco serviria a um."
+
+A primeira metade é verdade, e foi ela que economizou a máquina de ordenação. A
+conclusão pulou o **porquê** de Treino, Corrida e Progresso não terem seção: não
+é que já estejam no topo — é que a Home nunca falou deles. Treino era um pedaço
+da linha de resumo; corrida e peso, nada.
+
+Então: Hidratação SOBE (um `{% include %}`, dois pontos de chamada, um `{% if %}`
+em cada — markup uma vez, página emite uma vez), e os outros três ganham
+`plans/_area_promovida.html`, com um fato real do dia e a porta para a área.
+Dieta não se move: promovê-la seria mover um bloco para onde ele já está, e o
+que ela ganha é o selo.
+
 ### ⏳ Ainda ABERTO nesta campanha
 
 1. **mapa de áreas** — o componente. `<dialog class="drawer">` de
@@ -1373,3 +1406,84 @@ inteiro é de ZERO minutos em janelas de até 60; só a 90 min aparece um par
 (treino 18:30 × jantar 20:00). Maquinário para um caso que não ocorre é dívida,
 não conserto. Fica registrado para quem um dia mexer na ordenação saber que a
 regra não está escrita.
+
+## Achados fora do escopo — Personalizado V1 (05/09/2026)
+
+### BLOQUEIO HUMANO — como cada pilar se chama na tela
+
+O mesmo destino tem DOIS nomes, e no celular os dois aparecem ao mesmo tempo —
+a barra fixa embaixo, o mapa aberto em cima:
+
+| destino | a barra diz | o mapa, o onboarding e a gestão dizem |
+|---|---|---|
+| `plans:today` | Dieta | Alimentação |
+| `workouts:routine` | Treino | Musculação |
+| `plans:history` | Progresso | Evolução |
+
+Hidratação e Corrida coincidem. O `CLAUDE.md` usa um terceiro conjunto para o
+quinto pilar ("Progresso"), e o próprio pedido da campanha usou os dois — o
+cabeçalho listou "DIETA/TREINO/CORRIDA/HIDRATAÇÃO/PROGRESSO" e o exemplo dos
+checkboxes listou "Alimentação/Musculação/Corrida/Hidratação/Evolução".
+
+É exatamente o defeito que `escolhas.py` nomeia e diz estar evitando: "ver a
+mesma área com dois nomes na mesma sessão é pior que a duplicata". A regra foi
+aplicada entre `Pilar.label` e `DETALHES`, e não entre `Pilar.label` e a barra
+que já existia.
+
+Duas saídas, e a escolha é do dono:
+
+**A) a barra passa a usar os nomes dos pilares.** Uma palavra por área em todo o
+produto. Custo: "Alimentação" tem 11 caracteres contra 5 de "Dieta", e a barra é
+uma grade de quatro colunas — a 320px isso precisa ser medido antes de valer
+como opção.
+
+**B) os pilares passam a usar os nomes da barra.** Custo: contraria o texto do
+pedido, que escolheu "Alimentação/Musculação/Evolução" para os checkboxes, e
+mexe no rótulo que o painel de gestão já mostra.
+
+Enquanto não houver resposta, nada muda.
+
+### OBSERVAÇÃO — a régua de rolagem horizontal fica cega neste app
+
+`documentElement.scrollWidth` NUNCA acende: `html` e `body` têm
+`overflow-x: hidden`, então o conteúdo é CLIPADO em vez de rolar. Medido — um
+bloco de 5000px injetado na página deixa `documentElement.scrollWidth` em 375, e
+o controle positivo devolve `false`. O que reage é `body.scrollWidth` e a borda
+direita máxima dos elementos, e foi com esses dois que as medições desta
+campanha foram feitas.
+
+O repositório já sabia: `config/test_design_system.py:225-229` diz exatamente
+isto. Fica registrado porque a régua cega foi usada de novo antes de alguém
+conferir o controle positivo.
+
+### OBSERVAÇÃO — estilo inline duplicado no Perfil
+
+`templates/accounts/profile.html` tem `style="margin-bottom:.9rem"` em duas
+`.chip-row`. A segunda é anterior a esta campanha; a primeira a copiou de
+propósito, para o cartão novo não inventar uma segunda maneira de fazer a mesma
+coisa no mesmo arquivo. As duas devem virar um modificador JUNTAS.
+
+### OBSERVAÇÃO — a lista de corridas mostra metro e segundo crus
+
+`templates/workouts/corridas.html` imprime `5200 m` e `1695 s em movimento`. O
+cartão da área promovida mostra `5,20 km`, que é a régua escrita do projeto
+(vírgula decimal, `tabular-nums`). As duas telas falam do mesmo fato em unidades
+diferentes, e a da lista é a que está fora da régua.
+
+### OBSERVAÇÃO — o passo 6 é portão para quem chega, e convite para o legado
+
+Não há "pular" no passo 6 e o formulário recusa zero áreas, então
+`prioridade == ""` só é alcançável pelo LEGADO. A frase do painel — "quem já
+usava o app responde quando quiser" — é verdadeira para quem já existia e falsa
+para quem chega. Não é contradição de código; é assimetria de política que
+ninguém escreveu. Vale saber porque o denominador `declararam` vai convergir
+para "todo mundo menos o legado".
+
+### LIMITAÇÃO — o painel agregado não tem piso de contagem
+
+Com 52 contas, um balde de tamanho 1 existe em "O que as pessoas vieram cuidar".
+Ele não reidentifica ninguém porque preferência não aparece POR PESSOA em lugar
+nenhum do painel — nem na tela Pessoas, que exibe e-mail sob a MESMA permissão.
+Há teste prendendo essa ausência e duas sabotagens vermelhas que a repõem. Repor
+preferência por pessoa exige repensar isto primeiro, e a política de piso é
+decisão de produto.

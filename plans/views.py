@@ -16,11 +16,18 @@ from django.db.models.functions import Greatest, Least
 from django.utils import timezone
 from django.views.generic import TemplateView, View
 
-from accounts.models import ACTIVITY_FACTORS, SyncedOperation
+from accounts.models import (
+    ACTIVITY_FACTORS,
+    CAMPO_DO_PILAR,
+    Pilar,
+    SyncedOperation,
+    WeightEntry,
+)
 from accounts.views import OnboardingRequiredMixin, recusa_pendente
 from catalog.models import Food
 
 from workouts import progresso
+from workouts.models import Corrida
 
 from . import rodizio, services, shopping, streaks, tracking, weight_trend
 from . import agora as agora_mod
@@ -324,6 +331,27 @@ class TodayView(PlanRequiredMixin, TemplateView):
         # deixa `plans/test_agua_no_agora.py` provar a regra sem banco.
         prioridade = getattr(self.plan.user.profile, "prioridade", "")
 
+        # O fato da área promovida, e só dela. Treino já está em
+        # `estado_treino` e o convite de pesagem já foi calculado acima — os
+        # dois custam zero aqui. Corrida e Progresso custam UMA consulta cada,
+        # e só para quem declarou aquela área: a Home é a tela mais aberta do
+        # app, e carregar as três para todo mundo seria cobrar de quem nunca
+        # respondeu a pergunta.
+        ultima_corrida = None
+        ultimo_peso = None
+        if prioridade == Pilar.CORRIDA:
+            ultima_corrida = (
+                Corrida.objects.filter(user=self.request.user)
+                .order_by("-comecou_em")
+                .first()
+            )
+        elif prioridade == Pilar.PROGRESSO:
+            ultimo_peso = (
+                WeightEntry.objects.filter(user=self.request.user)
+                .order_by("-date", "-pk")
+                .first()
+            )
+
         acao = agora_mod.proxima_acao(
             slots=slots,
             treino=estado_treino,
@@ -331,6 +359,13 @@ class TodayView(PlanRequiredMixin, TemplateView):
             bebido=bebido,
             agora=timezone.localtime(),
             prioridade=prioridade,
+            # Declarar interesse em hidratação sem elegê-la principal não pode
+            # PIORAR a hidratação — era o que acontecia, e uma revisão
+            # adversarial pegou: quem marcava a área caía no ramo genérico
+            # (35 pp) e recebia o aviso mais tarde que quem não declarou nada.
+            interesse_em_agua=getattr(
+                self.plan.user.profile, CAMPO_DO_PILAR[Pilar.HIDRATACAO], False
+            ),
             convite_pesagem=convite_pesagem,
         )
         # A lista concorda com o topo porque LÊ a decisão dele, em vez de
@@ -369,6 +404,18 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 # pilar aparece — nunca SE ela aparece. Nenhum pilar esconde
                 # seção de ninguém.
                 "prioridade": prioridade,
+                # A área que ganha o alto da tela. É a MESMA string, com outro
+                # nome, e a separação é de propósito: `prioridade` é o que a
+                # pessoa declarou, `area_promovida` é o que esta tela faz com
+                # isso. Sem declaração as duas são vazias e a Home é a de
+                # sempre — quem não respondeu não recebe personalização
+                # nenhuma, e nada aqui infere intenção de histórico.
+                "area_promovida": prioridade,
+                # Os fatos da área promovida, consultados SÓ quando ela é a
+                # promovida. Quem não declarou não paga consulta nenhuma.
+                "ultima_corrida": ultima_corrida,
+                "corrida_km": (ultima_corrida.distancia_m / 1000) if ultima_corrida else 0,
+                "ultimo_peso": ultimo_peso,
                 # `None` quando não há erro pendente DESTA tela; string
                 # (às vezes vazia) quando há. `houve_recusa` carrega essa
                 # diferença para o template, que não consegue distinguir

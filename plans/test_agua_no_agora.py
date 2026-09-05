@@ -26,6 +26,7 @@ from datetime import datetime, time
 from django.test import SimpleTestCase
 from django.utils import timezone
 
+from accounts.models import Pilar
 from plans import agora as motor
 from plans.models import MealCategory, MealLog, MealSlot, MealStatus
 from workouts import services as workout_services
@@ -412,3 +413,56 @@ class OProgressoSoSOBE_COM_FATO_Tests(BaseDoAgora):
                     hora=15, bebido=3000, prioridade=prioridade, convite_pesagem=True
                 )
                 self.assertNotEqual(acao.tipo, "pesagem")
+
+
+class DeclararInteresseNuncaPioraAAguaTests(SimpleTestCase):
+    """A inversão que uma revisão adversarial encontrou.
+
+    A primeira versão lia SÓ a prioridade: quem marcava [Alimentação,
+    Hidratação] e elegia Alimentação como principal caía no ramo genérico e
+    recebia 35 pp — mais tarde que quem não declarou NADA, que recebe 25.
+    Declarar interesse em hidratação atrasava o aviso de hidratação.
+
+    A propriedade que fecha isso, e que vale por construção agora: **marcar a
+    área nunca pode devolver um limiar pior que não marcar nada.**
+    """
+
+    def test_marcar_a_area_nunca_e_pior_que_nao_declarar(self):
+        neutro = motor.limiar_de_atraso("")
+
+        for pilar in Pilar:
+            with self.subTest(pilar=pilar.value):
+                self.assertLessEqual(
+                    motor.limiar_de_atraso(pilar.value, interessada=True),
+                    neutro,
+                    "declarar interesse em água piorou o aviso com prioridade %s"
+                    % pilar.value,
+                )
+
+    def test_sem_o_interesse_o_ramo_generico_continua_valendo(self):
+        """Controle positivo: se o interesse não mudasse nada, o teste de cima
+        passaria por acidente — os dois ramos devolveriam o mesmo número."""
+        self.assertEqual(motor.limiar_de_atraso("dieta"), motor.ATRASO_MAXIMO_PP)
+        self.assertEqual(
+            motor.limiar_de_atraso("dieta", interessada=True),
+            motor.ATRASO_DE_HIDRATACAO_PP,
+        )
+        self.assertNotEqual(motor.ATRASO_MAXIMO_PP, motor.ATRASO_DE_HIDRATACAO_PP)
+
+    def test_a_principal_continua_ganhando_do_interesse(self):
+        """Eleger hidratação principal é mais forte que marcá-la e escolher
+        outra — senão a pergunta da prioridade não teria efeito nenhum aqui."""
+        self.assertLess(
+            motor.limiar_de_atraso(Pilar.HIDRATACAO, interessada=True),
+            motor.limiar_de_atraso("corrida", interessada=True),
+        )
+
+    def test_a_faixa_fechada_continua_de_pe(self):
+        """Nenhum caminho sai de 15–35. O teto existe para que pilar nenhum
+        DESLIGUE a água."""
+        for prioridade in [""] + [p.value for p in Pilar]:
+            for interessada in (False, True):
+                with self.subTest(prioridade=prioridade, interessada=interessada):
+                    valor = motor.limiar_de_atraso(prioridade, interessada)
+                    self.assertGreaterEqual(valor, 15)
+                    self.assertLessEqual(valor, 35)

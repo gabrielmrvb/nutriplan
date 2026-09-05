@@ -191,8 +191,11 @@ class Pilar(models.TextChoices):
     """As cinco áreas do NutriPlan, no MESMO nível conceitual.
 
     Hidratação não é subfunção de Dieta e Corrida não é subfunção de Treino —
-    e é por isso que esta lista existe: a navegação de hoje diz o contrário,
-    porque a tela de água acende a aba "Dieta" e a de corridas acende "Treino".
+    e é por isso que esta lista existe. A navegação DIZIA o contrário até
+    `607b5c3`: a tela de água acendia a aba "Dieta" e a de corridas acendia
+    "Treino". Hoje `nav` tem `hydration` e `running`, e nessas telas nenhuma
+    aba acende — melhor que acender a errada. Quem orienta é o mapa das áreas,
+    com `aria-current` na área da vez.
 
     "Hoje" NÃO está aqui, e a ausência é a decisão: ele é o orquestrador do
     dia, a tela que responde "e agora?" olhando para os cinco. Perfil também

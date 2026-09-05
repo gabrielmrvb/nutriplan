@@ -300,12 +300,19 @@ class Command(BaseCommand):
         POR QUE `onboarding_step` NO ULTIMO PASSO, E NAO NO PRIMEIRO
         A guarda de `OnboardingStepMixin` so abre o passo N se o progresso
         salvo ja chegou nele — e ela esta certa: sem isso o banco aceita perfil
-        pela metade que o calculo de dieta nao sabe ler. Entao para os cinco
-        passos serem VISITAVEIS por GET, o progresso precisa estar no ultimo.
+        pela metade que o calculo de dieta nao sabe ler. Entao para os passos
+        serem VISITAVEIS por GET, o progresso precisa estar no ultimo.
 
-        Ela continua incompleta: `ONBOARDING_DONE` e 6, e ela para em 5. E como
-        o demo recusa todo POST, ela nunca avanca — o estado e estavel sem
-        precisar de nenhuma trava propria.
+        Ela continua incompleta: o wizard tem SEIS passos e `ONBOARDING_DONE`
+        e 7; ela para em 6. E como o demo recusa todo POST, ela nunca avanca —
+        o estado e estavel sem precisar de nenhuma trava propria.
+
+        Os numeros aqui sao lidos das constantes, e nao escritos a mao. Esta
+        prosa dizia "cinco passos" e "`ONBOARDING_DONE` e 6" ate a campanha do
+        Personalizado V1 acrescentar o passo das areas: o CODIGO acompanhou
+        sozinho, o texto nao. Efeito colateral que vale saber: a persona de
+        primeiro uso estaciona agora na tela "Suas areas", e nao mais em
+        "Sua comida".
 
         POR QUE UM PERFIL PREENCHIDO
         Campo vazio nao mostra componente: o seletor de objetivo sem escolha, o

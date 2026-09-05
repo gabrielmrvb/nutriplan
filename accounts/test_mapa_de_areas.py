@@ -76,16 +76,48 @@ class OMapaMostraAsCincoAreasTests(BaseDoMapa):
         de estourar aqui e não sumir do mapa em silêncio."""
         self.assertEqual(set(DESTINO_DO_PILAR), set(Pilar))
 
+    #: O destino de cada área, escrito AQUI e não lido de `DESTINO_DO_PILAR`.
+    #:
+    #: Ler a tabela sob teste faria o esperado e o obtido saírem da mesma
+    #: fonte: trocar o destino de um pilar moveria os dois lados juntos e o
+    #: teste continuaria verde. Foi uma revisão adversarial que mediu — com a
+    #: versão anterior, apontar Progresso para o Hoje não ficava vermelho em
+    #: teste nenhum deste arquivo.
+    DESTINOS = {
+        "dieta": "plans:today",
+        "treino": "workouts:routine",
+        "corrida": "workouts:corridas",
+        "hidratacao": "plans:hydration",
+        "progresso": "plans:history",
+    }
+
     def test_as_cinco_aparecem_com_o_href_resolvido(self):
         self.pessoa()
 
         mapa = self.mapa()
 
+        self.assertEqual(set(self.DESTINOS), {p.value for p in Pilar})
         for pilar in Pilar:
-            rota, _chave = DESTINO_DO_PILAR[pilar]
             with self.subTest(pilar=pilar.value):
-                self.assertIn('href="%s"' % reverse(rota), mapa)
+                self.assertIn(
+                    'href="%s"' % reverse(self.DESTINOS[pilar.value]), mapa
+                )
                 self.assertIn(pilar.label, mapa)
+
+    def test_dois_pilares_nunca_apontam_para_a_mesma_tela(self):
+        """A outra metade do de cima: cinco `href` e cinco telas distintas.
+
+        Sem isto, apontar dois pilares para o mesmo lugar passaria — as cinco
+        asserções de `assertIn` continuariam verdadeiras, porque `assertIn` não
+        conta.
+        """
+        self.pessoa()
+
+        mapa = self.mapa()
+        enderecos = re.findall(r'href="([^"]+)"', mapa)
+
+        self.assertEqual(len(enderecos), 5, enderecos)
+        self.assertEqual(len(set(enderecos)), 5, enderecos)
 
     def test_a_ordem_e_a_canonica_e_nao_muda_por_pessoa(self):
         """O mapa mostra de que o app é feito, e isso é igual para todo mundo.
@@ -241,10 +273,134 @@ class ODemoNaoPerdeOPrefixoTests(TestCase):
         for endereco in enderecos:
             with self.subTest(endereco=endereco):
                 self.assertTrue(endereco.startswith("/demo/"), endereco)
+        # E o prefixo não basta: `plans:today` mora na RAIZ, então sob o demo
+        # ele reverte para `/demo/` — que NÃO é a tela Hoje, é a capa. O mapa
+        # mandava quem estava avaliando o produto para a página de marketing,
+        # e ainda anunciava "você está aqui" ao fazê-lo. `/demo/hoje/` é o
+        # apelido que o middleware traduz.
+        self.assertIn("/demo/hoje/", enderecos)
+        self.assertNotIn("/demo/", enderecos)
 
-    def test_o_demo_nao_carrega_selo_de_ninguem(self):
-        """O demo é anônimo por fora e uma conta fictícia por dentro. Selo ali
-        seria preferência de um personagem apresentada como do visitante."""
+    def test_a_persona_do_demo_nao_declara_area_nenhuma(self):
+        """O que este teste mede é o SEED, e a versão anterior dizia outra coisa.
+
+        Ela afirmava que o demo "não carrega selo de ninguém", como se houvesse
+        guarda. Não há: a tag lê `context["user"]`, e no demo o usuário é o
+        Carlos autenticado. O único motivo de o selo não sair é que
+        `seed_demo` nunca escreve `prioridade` nem `interesse_*`.
+
+        Ficou como está de propósito. O selo mostraria a preferência da
+        PERSONA, que é o que o demo faz com todo o resto (refeições, peso,
+        treinos) — não é vazamento, é o personagem. Mas a afirmação tinha de
+        dizer o que mede: no dia em que alguém enriquecer o Carlos, este teste
+        fica vermelho e a decisão é tomada ali, de olho aberto.
+        """
         html = self.client.get("/demo/hoje/").content.decode()
 
         self.assertNotIn("principal</span>", html)
+        # O que de fato garante o de cima, dito onde dá para conferir.
+        semente = (
+            __import__("pathlib").Path(__file__).resolve().parent
+            / ".." / "demo" / "management" / "commands" / "seed_demo.py"
+        ).read_text(encoding="utf-8")
+        for campo in ("prioridade", "interesse_"):
+            with self.subTest(campo=campo):
+                self.assertNotIn(campo, semente)
+
+
+class OMapaNaoOfereceSaidaDoWizardTests(BaseDoMapa):
+    """A barra de baixo é desligada no onboarding, e o motivo está escrito em
+    `accounts/views.py`: os destinos dela devolvem quem ainda não terminou.
+
+    O mapa reintroduzia exatamente esses destinos na barra de CIMA — e um
+    deles, `workouts:corridas`, tem só `LoginRequiredMixin`, sem
+    `OnboardingRequiredMixin`. Era saída de verdade no meio do cadastro, para
+    uma lista vazia, com quatro links mortos ao lado. Foi uma revisão
+    adversarial que encontrou.
+    """
+
+    def a_meio_cadastro(self):
+        user = User.objects.create_user(
+            email="meio@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(user)
+        self.client.post(step_url(1), STEP1)
+        return user
+
+    def test_o_mapa_nao_aparece_em_passo_nenhum(self):
+        self.a_meio_cadastro()
+
+        for passo in range(1, 7):
+            with self.subTest(passo=passo):
+                html = self.client.get(step_url(passo)).content.decode()
+                self.assertNotIn('class="mapa"', html)
+
+    def test_a_saida_sem_guarda_nao_e_oferecida(self):
+        """A que doía: as outras quatro áreas devolvem para o wizard, esta não."""
+        self.a_meio_cadastro()
+
+        html = self.client.get(step_url(2)).content.decode()
+
+        self.assertNotIn(reverse("workouts:corridas"), html)
+
+    def test_controle_positivo_o_mapa_volta_quando_o_cadastro_termina(self):
+        """Sem ele, um mapa que nunca renderizasse passaria nos dois acima."""
+        self.pessoa("terminou@exemplo.com", ("dieta",), "dieta")
+
+        html = self.client.get(reverse("plans:history")).content.decode()
+
+        self.assertIn('class="mapa"', html)
+        self.assertIn(reverse("workouts:corridas"), html)
+
+
+class OCustoDoMapaEstaMedidoTests(BaseDoMapa):
+    """Quanto o mapa cobra por página, e por que o número está escrito.
+
+    Ele lê `user.profile` para saber qual área leva o selo, e `profile` é um
+    descritor reverso: dispara um SELECT na primeira leitura de cada pedido.
+    Em telas que já carregam o perfil isso sai de graça pelo cache do
+    descritor; em `/treino/corridas/`, que não carregava, é consulta nova.
+
+    Uma revisão adversarial apontou que o agregado do painel ganhou teste de
+    contagem e esta consulta — que roda em TODA página autenticada — não ganhou
+    nenhum. O número abaixo é medido, e é teto: um teste que quebra ao melhorar
+    ensina a ignorá-lo.
+    """
+
+    def test_o_mapa_custa_no_maximo_uma_consulta_a_mais(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        self.pessoa("custo@exemplo.com", ("corrida",), "corrida")
+        url = reverse("workouts:corridas")
+        self.client.get(url)  # aquece o que é cacheado por processo
+
+        with CaptureQueriesContext(connection) as com_mapa:
+            resposta = self.client.get(url)
+
+        self.assertEqual(resposta.status_code, 200)
+        # Medido em 05/09/2026: 7 consultas na tela de corridas com o mapa.
+        # Teto, não valor exato.
+        self.assertLessEqual(len(com_mapa.captured_queries), 8,
+                             [c["sql"][:90] for c in com_mapa.captured_queries])
+
+    def test_o_perfil_e_lido_uma_vez_so(self):
+        """A pergunta que importa não é "quantas ao todo", é "o mapa repete?".
+
+        Se alguém trocar a `inclusion_tag` por algo que rode por item, isto
+        vira cinco consultas e o teto acima ainda passaria numa tela pequena.
+        """
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        self.pessoa("custo2@exemplo.com", ("corrida",), "corrida")
+        url = reverse("workouts:corridas")
+        self.client.get(url)
+
+        with CaptureQueriesContext(connection) as ctx:
+            self.client.get(url)
+
+        do_perfil = [
+            c for c in ctx.captured_queries if "accounts_profile" in c["sql"]
+        ]
+        self.assertEqual(len(do_perfil), 1, [c["sql"][:120] for c in do_perfil])

@@ -150,8 +150,16 @@
             qualquer pessoa que pegue o aparelho depois; o selo de área
             principal é identidade, e ficaria gravado no cache sem prazo. É o
             mesmo motivo de `data-usuario` sair de lá.
+
+            E não durante o onboarding. A barra de baixo já é desligada lá,
+            e o motivo está escrito em `accounts/views.py`: "os cinco destinos
+            dela passam por `OnboardingRequiredMixin` e devolvem quem ainda não
+            terminou". O mapa reintroduzia exatamente esses destinos — e um
+            deles, `workouts:corridas`, tem só `LoginRequiredMixin`: era uma
+            saída DE VERDADE no meio do cadastro, para uma lista vazia. O mesmo
+            `sem_tabbar` que desliga a barra desliga o mapa.
           {% endcomment %}
-          {% if not shell_offline %}{% mapa_de_areas %}{% endif %}
+          {% if not shell_offline and not sem_tabbar %}{% mapa_de_areas %}{% endif %}
           <a class="app-bar__link {% if nav == 'today' %}is-active{% endif %}"
              {% if nav == 'today' %}aria-current="page"{% endif %}
              href="{% if request.demo %}/demo/hoje/{% else %}{% url 'plans:today' %}{% endif %}">Dieta</a>

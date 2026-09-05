@@ -157,7 +157,20 @@ coluna da direita), não entre ela e o almoço.
           servidor virou falsa. Sem rede, o POST falha e ela continua aqui.
         {% endcomment %}
         {% if convite_pesagem %}
-          <details class="pesar" {% if houve_recusa %}open{% endif %}>
+          {% comment %}
+            O `id` é o destino do `#pesar` que o cartão AGORA oferece quando a
+            área principal é Progresso. Ele NÃO existia: a faixa tinha só a
+            classe, e o botão "Registrar peso" — a ação principal do dia
+            inteiro para essa pessoa, porque o ramo do Progresso fica de pé até
+            ela se pesar — não fazia absolutamente nada. Não rolava, não abria,
+            não navegava; só acrescentava `#pesar` à barra de endereço.
+
+            E abrir a faixa faz parte do conserto: rolar até um `<details>`
+            fechado ainda não mostra o campo. Quando o topo está PEDINDO o
+            peso, a faixa já chega aberta.
+          {% endcomment %}
+          <details class="pesar" id="pesar"
+                   {% if houve_recusa or acao.tipo == 'pesagem' %}open{% endif %}>
             <summary class="pesar__topo">
               <span class="pesar__nome">Peso de hoje</span>
               <span class="pesar__acao">Registrar</span>
@@ -170,8 +183,45 @@ coluna da direita), não entre ela e o almoço.
 
 
 
+      {# ---------------- A área principal da pessoa ---------------- #}
+      {% comment %}
+        AQUI, e não acima do cartão AGORA: urgência vence preferência. Refeição
+        vencida e treino em andamento têm hora marcada, e a hora passa; a área
+        que a pessoa escolheu continua verdadeira amanhã. A prioridade já entra
+        no AGORA como MAIS UM SINAL — ela move o limiar do atraso de hidratação
+        dentro de uma faixa fechada —, e nunca como regra que atropela.
+
+        Ordem, nunca visibilidade: o que não é a área principal continua na
+        página, no lugar de sempre. Quem não declarou nada não vê nada aqui, e
+        a Home é a mesma de antes desta campanha — uso não é intenção.
+
+        Dieta não aparece neste slot porque as refeições JÁ são a primeira
+        seção de área da tela; promovê-la seria mover um bloco para onde ele já
+        está. O que ela ganha é o selo, mais abaixo.
+      {% endcomment %}
+      {% if area_promovida == "hidratacao" %}
+        {% include "plans/_agua.html" with promovida=True %}
+      {% elif area_promovida and area_promovida != "dieta" %}
+        {% include "plans/_area_promovida.html" %}
+      {% endif %}
+
       {# ---------------- Refeições ---------------- #}
-      <section>
+      {% comment %}
+        A classe `refeicoes` não pinta nada: ela é a âncora que os testes de
+        ordem usam para achar esta seção. O `<section>` era o único bloco da
+        Home sem marca própria, e uma asserção de posição precisava cair em
+        texto visível — que muda com a cópia.
+      {% endcomment %}
+      <section class="refeicoes{% if area_promovida == 'dieta' %} is-prioritario{% endif %}">
+        {% if area_promovida == 'dieta' %}
+          {% comment %}
+            Dieta não é MOVIDA: ela já é a primeira seção de área da Home. O
+            que a promoção faz por ela é dizer que o app entendeu — sem isso,
+            quem escolheu Alimentação veria exatamente a tela de quem não
+            escolheu nada, e a escolha pareceria não ter servido para nada.
+          {% endcomment %}
+          <p class="secao__selo"><span class="pill pill--brand">sua área</span></p>
+        {% endif %}
         {% comment %}
           A água fica junto dos macros porque é do mesmo tipo de coisa: uma
           meta diária que a pessoa acompanha. Fora dali vira aviso solto, e
@@ -455,95 +505,7 @@ coluna da direita), não entre ela e o almoço.
         inteira, com os três botões e o mesmo contrato de fila offline —
         e o cartão do topo chama por ela quando é de fato o que falta.
       {% endcomment %}
-      <section class="card agua-card" id="hidratacao">
-        <div class="agua">
-          <div class="agua__topo">
-            <span class="agua__icone" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 3.5c3 3.6 5.5 6.3 5.5 9.4a5.5 5.5 0 0 1-11 0c0-3.1 2.5-5.8 5.5-9.4Z"/>
-              </svg>
-            </span>
-            <span class="agua__valor num">
-              <b>{{ hidratacao_bebida }}</b> / {{ hidratacao_ml }} ml
-            </span>
-            {% if agua_completa %}
-              {% comment %}
-                A comemoração aparece uma vez e fica parada. Nada que pulse
-                para sempre — foi exatamente o que o catálogo Impeccable
-                apontou na chama da ofensiva.
-              {% endcomment %}
-              <span class="pill pill--brand agua__feito">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
-                     aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>
-                meta batida
-              </span>
-            {% endif %}
-            {% comment %}
-              Desfazer e zerar são intenções DIFERENTES, e por isso são dois
-              botões: um conserta o toque errado, o outro recomeça o dia.
-
-              "desfazer" só aparece quando existe gole para desfazer. Dia
-              anterior à tabela de goles tem total e não tem composição —
-              oferecer ali uma ação que só pode falhar seria pior que não
-              oferecer.
-            {% endcomment %}
-            {% if pode_desfazer_agua %}
-              <form method="post" action="{% url 'plans:log_hydration' %}" class="agua__zerar">
-                {% csrf_token %}
-                <input type="hidden" name="acao" value="desfazer">
-                <button type="submit" class="btn-link">desfazer</button>
-              </form>
-            {% endif %}
-            {% if hidratacao_bebida %}
-              <form method="post" action="{% url 'plans:log_hydration' %}" class="agua__zerar">
-                {% csrf_token %}
-                <input type="hidden" name="ml" value="0">
-                <button type="submit" class="btn-link">zerar</button>
-              </form>
-            {% endif %}
-          </div>
-
-          <div class="progress {% if agua_completa %}progress--completo{% endif %}"
-               role="img"
-               aria-label="{{ hidratacao_pct }}% da meta de água">
-            <span class="progress__fill progress__fill--agua"
-                  style="width: {{ hidratacao_pct }}%"></span>
-          </div>
-
-          <div class="agua__botoes">
-            <form method="post" action="{% url 'plans:log_hydration' %}">
-              {% csrf_token %}
-              <input type="hidden" name="ml" value="250">
-              <button type="submit" class="agua__botao">+250 <span>copo</span></button>
-            </form>
-            <form method="post" action="{% url 'plans:log_hydration' %}">
-              {% csrf_token %}
-              <input type="hidden" name="ml" value="500">
-              <button type="submit" class="agua__botao">+500 <span>garrafinha</span></button>
-            </form>
-            <form method="post" action="{% url 'plans:log_hydration' %}">
-              {% csrf_token %}
-              <input type="hidden" name="ml" value="750">
-              <button type="submit" class="agua__botao">+750 <span>garrafa</span></button>
-            </form>
-          </div>
-
-          {% comment %}
-            A porta para a tela de hidratação, e ela fica DEPOIS dos botões de
-            propósito: o uso frequente é somar um copo aqui mesmo, e um link
-            acima deles competiria com isso todo dia para servir a uma consulta
-            que acontece de vez em quando.
-
-            Não é aba nova. Hidratação é frequente em toques de dois segundos, e
-            uma aba cobraria ida e volta por copo.
-          {% endcomment %}
-          <a class="btn-link btn-link--rodape" href="{% url 'plans:hydration' %}">
-            Registros de hoje e últimos 7 dias
-          </a>
-        </div>
-      </section>
+      {% if area_promovida != "hidratacao" %}{% include "plans/_agua.html" %}{% endif %}
 
         {% comment %}
           A ofensiva antes de qualquer número da dieta.

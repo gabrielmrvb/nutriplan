@@ -1,0 +1,107 @@
+{% comment %}
+  O CARTÃO DE ÁGUA — um markup só, dois pontos de chamada, e nunca os dois.
+
+  Ele sai daqui para o alto da Home quando Hidratação é a área principal da
+  pessoa. Copiar o bloco para o outro lugar quebraria a página de dois jeitos
+  concretos: `id="hidratacao"` viraria âncora ambígua (é destino de link) e a
+  página passaria a ter DOIS formulários de registro com os mesmos nomes.
+
+  Por isso `{% include %}` com `{% if %}` nos dois pontos: o markup existe uma
+  vez neste arquivo, e a página emite uma vez.
+
+  E por isso NÃO é `order` do flexbox, que moveria o cartão na pintura e
+  deixaria a ordem de leitura e de foco onde estava — WCAG 1.3.2 e 2.4.3. A
+  ordem muda no servidor, e as três concordam.
+{% endcomment %}
+      <section class="card agua-card{% if promovida %} is-prioritario{% endif %}" id="hidratacao">
+        {% if promovida %}
+          <p class="agua__selo"><span class="pill pill--brand">sua área</span></p>
+        {% endif %}
+        <div class="agua">
+          <div class="agua__topo">
+            <span class="agua__icone" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3.5c3 3.6 5.5 6.3 5.5 9.4a5.5 5.5 0 0 1-11 0c0-3.1 2.5-5.8 5.5-9.4Z"/>
+              </svg>
+            </span>
+            <span class="agua__valor num">
+              <b>{{ hidratacao_bebida }}</b> / {{ hidratacao_ml }} ml
+            </span>
+            {% if agua_completa %}
+              {% comment %}
+                A comemoração aparece uma vez e fica parada. Nada que pulse
+                para sempre — foi exatamente o que o catálogo Impeccable
+                apontou na chama da ofensiva.
+              {% endcomment %}
+              <span class="pill pill--brand agua__feito">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                     aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>
+                meta batida
+              </span>
+            {% endif %}
+            {% comment %}
+              Desfazer e zerar são intenções DIFERENTES, e por isso são dois
+              botões: um conserta o toque errado, o outro recomeça o dia.
+
+              "desfazer" só aparece quando existe gole para desfazer. Dia
+              anterior à tabela de goles tem total e não tem composição —
+              oferecer ali uma ação que só pode falhar seria pior que não
+              oferecer.
+            {% endcomment %}
+            {% if pode_desfazer_agua %}
+              <form method="post" action="{% url 'plans:log_hydration' %}" class="agua__zerar">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="desfazer">
+                <button type="submit" class="btn-link">desfazer</button>
+              </form>
+            {% endif %}
+            {% if hidratacao_bebida %}
+              <form method="post" action="{% url 'plans:log_hydration' %}" class="agua__zerar">
+                {% csrf_token %}
+                <input type="hidden" name="ml" value="0">
+                <button type="submit" class="btn-link">zerar</button>
+              </form>
+            {% endif %}
+          </div>
+
+          <div class="progress {% if agua_completa %}progress--completo{% endif %}"
+               role="img"
+               aria-label="{{ hidratacao_pct }}% da meta de água">
+            <span class="progress__fill progress__fill--agua"
+                  style="width: {{ hidratacao_pct }}%"></span>
+          </div>
+
+          <div class="agua__botoes">
+            <form method="post" action="{% url 'plans:log_hydration' %}">
+              {% csrf_token %}
+              <input type="hidden" name="ml" value="250">
+              <button type="submit" class="agua__botao">+250 <span>copo</span></button>
+            </form>
+            <form method="post" action="{% url 'plans:log_hydration' %}">
+              {% csrf_token %}
+              <input type="hidden" name="ml" value="500">
+              <button type="submit" class="agua__botao">+500 <span>garrafinha</span></button>
+            </form>
+            <form method="post" action="{% url 'plans:log_hydration' %}">
+              {% csrf_token %}
+              <input type="hidden" name="ml" value="750">
+              <button type="submit" class="agua__botao">+750 <span>garrafa</span></button>
+            </form>
+          </div>
+
+          {% comment %}
+            A porta para a tela de hidratação, e ela fica DEPOIS dos botões de
+            propósito: o uso frequente é somar um copo aqui mesmo, e um link
+            acima deles competiria com isso todo dia para servir a uma consulta
+            que acontece de vez em quando.
+
+            Não é aba nova. Hidratação é frequente em toques de dois segundos, e
+            uma aba cobraria ida e volta por copo.
+          {% endcomment %}
+          <a class="btn-link btn-link--rodape" href="{% url 'plans:hydration' %}">
+            Registros de hoje e últimos 7 dias
+          </a>
+        </div>
+      </section>

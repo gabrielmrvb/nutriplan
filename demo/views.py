@@ -12,14 +12,27 @@ from .middleware import PREFIXO, usuario_demo
 #: Só existe aqui o que existe no app. A lista é escrita à mão e não gerada da
 #: URLconf de propósito: rota não é área — `/conta/onboarding/3/` é uma rota e
 #: não é um lugar para onde mandar um visitante.
+#: A ordem e os nomes são os dos CINCO PILARES (`accounts.models.Pilar`),
+#: mais o Hoje na frente. A grade listava "Hoje, Treino, Histórico, Lista de
+#: compras, Perfil" — sem Corrida, sem Hidratação, e com duas entradas que a
+#: campanha decidiu que NÃO são pilares. Desde que o mapa das áreas passou a
+#: aparecer na barra de cima desta mesma tela, a capa mostrava dois
+#: inventários do produto que discordavam, e ela é a primeira coisa que um
+#: avaliador vê.
 AREAS = [
     # O painel usa o apelido e não `reverse()`: `plans:today` mora na raiz
     # da aplicação e reverteria para `/demo/`, que é esta própria capa.
     ("/demo/hoje/", "Hoje",
-     "O painel do dia: meta calórica, macros, cardápio, água e ofensiva."),
-    ("workouts:routine", "Treino",
+     "O orquestrador do dia: o que fazer agora, e como o dia está indo."),
+    ("/demo/hoje/", "Alimentação",
+     "O cardápio do dia, as refeições marcadas e a meta calórica."),
+    ("workouts:routine", "Musculação",
      "A ficha da semana, com séries, cargas e o cronômetro de descanso."),
-    ("plans:history", "Histórico",
+    ("workouts:corridas", "Corrida",
+     "As corridas registradas, com distância e tempo — o traçado não sobe."),
+    ("plans:hydration", "Hidratação",
+     "Quanto você bebeu hoje, em goles, e como foi a semana."),
+    ("plans:history", "Evolução",
      "Aderência, média de calorias e a curva de peso ao longo do tempo."),
     ("plans:shopping", "Lista de compras",
      "O que comprar para o cardápio da semana, agrupado por corredor."),

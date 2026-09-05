@@ -1537,6 +1537,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .conquista__compartilhar,
 .conquista__continuar,
 .conquista-item__share,
+.mapa__area,
+.mapa__botao,
 .tabbar__item {
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
               color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
@@ -1590,6 +1592,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   .conquista__compartilhar:active,
   .conquista__continuar:active,
   .conquista-item__share:active,
+  .mapa__area:active,
+  .mapa__botao:active,
   .tabbar__item:active { transform: none; }
 }
 
@@ -5666,6 +5670,7 @@ body.montando { overflow: hidden; }
    ela é o acento de AÇÃO deste app, e gastá-la num aviso de contexto tiraria
    peso do botão logo abaixo. */
 .agora-card--agua .agora__rotulo,
+.agora-card--pesagem .agora__rotulo,
 .agora-card--vazio .agora__rotulo { color: var(--text-mute); }
 
 .agora__titulo {
@@ -6578,7 +6583,7 @@ body.montando { overflow: hidden; }
   align-items: center;
   min-height: 2.75rem;
   min-width: 2.75rem;
-  padding: .45rem .75rem;
+  padding: var(--espaco-2) var(--espaco-3);
   border-radius: var(--radius-sm);
   color: var(--text-dim);
   font-size: var(--texto-sm);
@@ -6595,30 +6600,43 @@ body.montando { overflow: hidden; }
 
 .mapa__painel {
   position: absolute;
-  top: calc(100% + .4rem);
+  top: calc(100% + var(--espaco-2));
   right: 0;
-  z-index: 40;          /* acima da tabbar, que é 30 */
+  /* `z-index` aqui vale POUCO, e o comentário anterior dizia o contrário.
+     `.app-bar` é `position: sticky` com `z-index: 20`, o que cria um
+     CONTEXTO DE EMPILHAMENTO: este número só disputa com os irmãos
+     dentro da barra. Contra a `.tabbar` (z-index 30, filha do body) o
+     painel vale 20 e PERDE. Quem resolve a sobreposição é o
+     `max-height` abaixo, que impede o painel de chegar lá embaixo. */
+  z-index: 40;
   width: min(19rem, calc(100vw - 1.6rem));
-  padding: .35rem;
+  padding: var(--espaco-2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow-lift);
+  /* O teto que impede o painel de terminar embaixo da barra de baixo.
+     A conta: barra de cima (3,6rem) + barra de baixo (4,4rem) + folga.
+     Em paisagem de celular (360px de altura) as cinco linhas não
+     cabem, e aí o painel rola em vez de esconder a última. */
+  max-height: calc(100vh - 9rem);
+  overflow-y: auto;
 }
 
-.mapa__lista { display: grid; gap: .1rem; }
+.mapa__lista { display: grid; }
 
 .mapa__area {
   display: grid;
-  gap: .1rem;
   min-height: 2.75rem;
-  padding: .5rem .65rem;
+  padding: var(--espaco-3) var(--espaco-4);
   border-radius: var(--radius-sm);
   color: var(--text);
   text-decoration: none;
   min-width: 0;
 }
 .mapa__area:hover { background: var(--surface-2); }
+.mapa__botao:active,
+.mapa__area:active { transform: scale(.96); }
 .mapa__area.is-active { background: var(--brand-soft); }
 
 .mapa__nome { font-size: var(--texto-sm); font-weight: 600; }
@@ -6626,4 +6644,29 @@ body.montando { overflow: hidden; }
   color: var(--text-mute);
   font-size: var(--texto-xs);
   line-height: 1.35;
+}
+
+/* ==========================================================================
+   A ÁREA PROMOVIDA — a Home responde "o que merece destaque para mim agora?"
+
+   Ordem, não visibilidade: nenhuma seção é escondida por não ser a área
+   principal. E abaixo do cartão AGORA, sempre — urgência vence preferência.
+
+   A marca da promoção é uma borda de acento à esquerda, e não um fundo cheio:
+   o fundo tingido é do cartão AGORA, que é urgência, e repeti-lo aqui faria
+   preferência e urgência parecerem a mesma coisa na primeira olhada.
+
+   A classe é escrita pelo SERVIDOR. Sem `:has()` — a regra do repositório é
+   explícita, e o `:has()` estrutural já derrubou a navegação uma vez.
+   ========================================================================== */
+.is-prioritario {
+  border-left: 3px solid color-mix(in srgb, var(--brand) 55%, transparent);
+}
+
+.area-promovida__fato {
+  margin: 0 0 var(--espaco-4);
+  color: var(--text);
+  font-size: var(--texto-md);
+  line-height: 1.45;
+  min-width: 0;
 }

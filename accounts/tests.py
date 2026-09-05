@@ -2511,14 +2511,35 @@ class NavegacaoTests(TestCase):
         self.client.force_login(self.user)
 
     def test_as_duas_barras_levam_ao_mesmo_conjunto_de_telas(self):
+        """Os LINKS da barra de cima e os da de baixo, e só eles.
+
+        O recorte era por `<nav class="app-bar__nav">` inteiro, e parou de
+        funcionar quando o mapa das cinco áreas passou a morar dentro dessa
+        mesma `<nav>`: ele acrescentava `/hidratacao/` e `/treino/corridas/`
+        ao "topo", e o teste acusava divergência entre duas barras que
+        continuavam iguais.
+
+        O mapa é uma TERCEIRA navegação, e ela não é a de desktop: aparece nas
+        duas larguras, e responde outra pergunta — a barra diz o que se toca
+        todo dia, o mapa diz de que o app é feito. Comparar as duas barras
+        exige recortar pelas classes dos itens delas.
+        """
         html = self.client.get(reverse("plans:today")).content.decode()
-        topo = html.split('class="app-bar__nav"', 1)[1].split("</nav>", 1)[0]
-        baixo = html.split('class="tabbar"', 1)[1].split("</nav>", 1)[0]
-        destinos = lambda t: {
-            m for m in re.findall(r'href="([^"]+)"', t) if not m.startswith("#")
+        destinos = lambda classe: {
+            m
+            for m in re.findall(
+                r'<a class="%s[^"]*"[^>]*?href="([^"]+)"' % classe, html, re.S
+            )
+            if not m.startswith("#")
         }
 
-        self.assertEqual(destinos(topo), destinos(baixo))
+        de_cima = destinos("app-bar__link")
+        de_baixo = destinos("tabbar__item")
+
+        self.assertEqual(de_cima, de_baixo)
+        # Controle positivo: um recorte vazio faria dois conjuntos vazios
+        # passarem como iguais, e o teste morreria em silêncio.
+        self.assertEqual(len(de_baixo), 4, de_baixo)
 
 
 class FaviconTests(TestCase):

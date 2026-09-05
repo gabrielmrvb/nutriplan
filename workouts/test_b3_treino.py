@@ -385,9 +385,19 @@ class APortaDaCorridaTests(TestCase):
         self.assertIn('href="/treino/corridas/"', html)
 
     def test_a_porta_e_uma_so(self):
-        """Duas portas para a mesma tela e o comeco de duas que divergem."""
+        """Duas portas para a mesma tela e o comeco de duas que divergem.
+
+        A conta e sobre o CORPO da tela, e nao sobre a pagina inteira: o mapa
+        das cinco areas mora na barra de cima e leva a corrida de toda tela do
+        app. Ele nao e uma segunda porta desta tela — e a navegacao global, e a
+        divergencia que este teste teme e entre dois cartoes DAQUI.
+        """
         self.client.force_login(create_user(email="corrida3@exemplo.com"))
 
         html = self.client.get(reverse("workouts:routine")).content.decode()
+        corpo = html.split("</header>", 1)[1]
 
-        self.assertEqual(html.count('href="/treino/corridas/"'), 1)
+        self.assertEqual(corpo.count('href="/treino/corridas/"'), 1)
+        # Controle positivo do recorte: o cabecalho existe e leva a corrida.
+        cabecalho = html.split("</header>", 1)[0]
+        self.assertIn('href="/treino/corridas/"', cabecalho)

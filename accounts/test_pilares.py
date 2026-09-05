@@ -355,16 +355,27 @@ class OPerfilDaPortaParaMudarDepoisTests(TestCase):
     def perfil_html(self):
         return self.client.get(reverse("accounts:profile")).content.decode()
 
+    def cartao(self):
+        """O CARTÃO "Suas áreas", recortado — e o recorte não é zelo.
+
+        Desde que o mapa das cinco áreas entrou na barra de cima, os cinco
+        rótulos de `Pilar` aparecem em TODA página autenticada. Uma asserção
+        de rótulo sobre a página inteira passaria com o cartão vazio, ou com o
+        `{% for %}` dele quebrado. Foi uma revisão adversarial que pegou.
+        """
+        html = self.perfil_html()
+        self.assertIn("Suas áreas", html)
+        return html.split("Suas áreas", 1)[1].split("</section>", 1)[0]
+
     def test_quem_nao_declarou_recebe_o_convite(self):
         self.client.post(step_url(6), {"interesses": ["dieta"], "prioridade": "dieta"})
         Profile.objects.filter(user=self.user).update(
             prioridade="", **{c: False for c in CAMPO_DO_PILAR.values()}
         )
 
-        html = self.perfil_html()
+        cartao = self.cartao()
 
-        self.assertIn("Suas áreas", html)
-        self.assertIn("ainda não disse o que quer cuidar", html)
+        self.assertIn("ainda não disse o que quer cuidar", cartao)
 
     def test_quem_declarou_ve_as_areas_e_qual_e_a_principal(self):
         self.client.post(
@@ -372,13 +383,17 @@ class OPerfilDaPortaParaMudarDepoisTests(TestCase):
             {"interesses": ["dieta", "corrida"], "prioridade": "corrida"},
         )
 
-        html = self.perfil_html()
+        cartao = self.cartao()
 
-        self.assertIn("Suas áreas", html)
-        self.assertIn("· principal", html)
-        # As duas áreas aparecem; a principal é a que leva o selo.
-        self.assertIn("Corrida", html)
-        self.assertIn("Alimentação", html)
+        self.assertIn("· principal", cartao)
+        # As duas áreas aparecem DENTRO do cartão, e a principal leva o selo.
+        self.assertIn("Corrida", cartao)
+        self.assertIn("Alimentação", cartao)
+        # E as três não escolhidas ficam de fora DELE — o cartão diz o que a
+        # pessoa escolheu, não o que o app tem. Quem lista as cinco é o mapa.
+        for fora in ("Musculação", "Hidratação", "Evolução"):
+            with self.subTest(fora=fora):
+                self.assertNotIn(fora, cartao)
 
     def test_o_cartao_leva_de_volta_ao_passo_das_areas(self):
         """A porta. Sem ela, mudar de ideia exigiria adivinhar uma URL."""
@@ -392,10 +407,69 @@ class OPerfilDaPortaParaMudarDepoisTests(TestCase):
         quer perder nada."""
         self.client.post(step_url(6), {"interesses": ["dieta"], "prioridade": "dieta"})
 
-        html = self.perfil_html()
+        cartao = self.cartao()
 
         # Trechos que cabem numa LINHA do template: `assertIn` compara o HTML
         # cru, e "continuam abertas" quebra entre duas linhas. É a mesma
         # armadilha que já apareceu na Hidratação V2.
-        self.assertIn("Todas as áreas continuam", html)
-        self.assertIn("abertas — trocar não apaga nada", html)
+        self.assertIn("Todas as áreas continuam", cartao)
+        self.assertIn("abertas — trocar não apaga nada", cartao)
+
+
+class NenhumaMigrationFabricaPreferenciaTests(TestCase):
+    """A guarda acima lê DUAS funções nomeadas. Esta lê todas as migrations.
+
+    O buraco que uma revisão adversarial apontou: um terceiro `RunPython`
+    acrescentado a `operations`, um `AddField(default=True)`, ou uma migration
+    0025 que fabrique preferência passavam intocados pelos dois testes de cima,
+    que inspecionam `preservar_quem_ja_terminou` e `desfazer` e nada mais.
+
+    A régua aqui é o ARQUIVO inteiro, de todas as migrations de `accounts`:
+    fora da 0024 — que é quem CRIA os campos — nenhuma pode escrever
+    preferência de ninguém.
+    """
+
+    #: A que cria os campos. Ela cita os nomes por obrigação (`AddField`), e é
+    #: por isso que ela é a exceção — e a única.
+    CRIADORA = "0024_pilares_e_prioridade"
+
+    def migrations(self):
+        from pathlib import Path
+
+        pasta = Path(__file__).resolve().parent / "migrations"
+        return sorted(
+            p for p in pasta.glob("0*.py") if p.stem != self.CRIADORA
+        )
+
+    def test_nenhuma_outra_migration_toca_nos_seis_campos(self):
+        arquivos = self.migrations()
+
+        # Controle positivo: se o `glob` parasse de achar arquivo, o laço
+        # abaixo não rodaria e o teste passaria sem medir nada.
+        self.assertGreater(len(arquivos), 20, arquivos)
+
+        for caminho in arquivos:
+            fonte = caminho.read_text(encoding="utf-8")
+            for campo in list(CAMPO_DO_PILAR.values()) + ["prioridade"]:
+                with self.subTest(migration=caminho.stem, campo=campo):
+                    self.assertNotIn(
+                        campo,
+                        fonte,
+                        "%s escreve preferência — uso não é declaração"
+                        % caminho.stem,
+                    )
+
+    def test_a_criadora_nao_traz_nenhum_default_verdadeiro(self):
+        """O outro jeito de fabricar: `AddField(default=True)`.
+
+        Ele não passa por `RunPython` nenhum, então as duas guardas de função
+        não o veriam — e ele marcaria a área de TODA conta existente de uma vez.
+        """
+        from pathlib import Path
+
+        fonte = (
+            Path(__file__).resolve().parent / "migrations" / (self.CRIADORA + ".py")
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("default=False", fonte)
+        self.assertNotIn("default=True", fonte)

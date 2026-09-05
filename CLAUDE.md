@@ -69,8 +69,73 @@ consulta ao abrir outra ficha), `"hoje"` vale só para a sessão de hoje.
 **O NutriPlan tem CINCO PILARES, e "Hoje" não é um deles.** Dieta, Treino,
 Corrida, Hidratação e Progresso estão no mesmo nível conceitual —
 `accounts.models.Pilar`. Hoje é o orquestrador do dia; Perfil é utilitário. A
-navegação de hoje diz o contrário (a tela de água acende a aba "Dieta" e a de
-corridas acende "Treino"), e corrigir isso é a parte de navegação da campanha.
+navegação DIZIA o contrário: a tela de água acendia a aba "Dieta" e a de
+corridas acendia "Treino". Hoje `nav` tem `hydration` e `running`, e nessas
+telas NENHUMA aba acende — melhor que acender a errada. Quem orienta é o mapa.
+
+**A barra de baixo responde FREQUÊNCIA; o mapa responde ESTRUTURA.** São
+perguntas diferentes, e por isso não competem pelo mesmo espaço. A barra tem
+QUATRO itens e a conta é medida: a 320px, cinco colunas deixam 51,8px úteis por
+item e "Hidratação" precisa de 60. O mapa
+(`templates/partials/mapa_de_areas.html`, um `<details>` na barra de cima) lista
+os cinco pilares, marca a área da vez com `aria-current` e põe um selo na área
+principal da pessoa. Ele **não** reordena por pessoa: um mapa que muda de ordem
+é um mapa pior, porque existe para mostrar de que o app é feito — e isso é igual
+para todo mundo.
+
+Três ausências no mapa são decisão, e as três foram achadas por revisão
+adversarial ANTES de virarem defeito em produção:
+
+- **não tem ícone**: o sprite dos cinco desenhos (`partials/icones.html`, 4 KB)
+  só é incluído no onboarding, e copiar os desenhos é o que o sprite existe para
+  impedir;
+- **não entra no shell de offline**: aquela tela é pré-cacheada e servida a quem
+  pegar o aparelho depois, e o selo de área principal é identidade — o mesmo
+  motivo de `data-usuario` sair de lá. Duas camadas: o `{% if %}` no `base.html`
+  e a tag se recusando a ler o perfil;
+- **não aparece no onboarding**: a barra de baixo já é desligada lá porque os
+  destinos devolvem quem não terminou, e o mapa reintroduzia os mesmos — sendo
+  que `workouts:corridas` tem só `LoginRequiredMixin` e era saída DE VERDADE no
+  meio do cadastro. O mesmo `sem_tabbar` desliga os dois.
+
+E o endereço sai de `{% url %}` passando por `_endereco()`, que traduz a raiz do
+demo: `plans:today` mora em `path("")`, então sob `set_script_prefix("/demo/")`
+ele reverte para `/demo/` — que **não** é a tela Hoje, é a capa. O mapa mandava
+quem estava avaliando o produto para a página de marketing e ainda anunciava
+"você está aqui" ao fazê-lo.
+
+**A Home organiza pela área principal, e o AGORA continua sendo o primeiro
+bloco.** A prioridade declarada move UMA seção para o alto da tela de Hoje,
+logo abaixo do resumo do dia — e nunca acima do cartão AGORA. Urgência vence
+preferência: refeição vencida e treino em andamento têm hora marcada, e a hora
+passa; a área preferida continua verdadeira amanhã.
+
+Hidratação é a única que tem para onde subir — as refeições já são a primeira
+seção de área. Ela sobe por `{% include "plans/_agua.html" %}`, com DOIS pontos
+de chamada e um `{% if %}` em cada: o markup existe uma vez e a página emite uma
+vez. Copiar o bloco quebraria de dois jeitos concretos — `id="hidratacao"` é
+âncora de link e viraria ambíguo, e a página passaria a ter dois formulários de
+registro com os mesmos nomes. **Não é `order` do flexbox**: `.split__main` é
+flex, e `order` moveria o cartão na pintura deixando a ordem de leitura e de
+foco onde estavam (WCAG 1.3.2 e 2.4.3).
+
+Treino, Corrida e Progresso não têm seção própria na Home — não porque já
+estejam no topo, mas porque a tela nunca falou deles. Os três ganham
+`plans/_area_promovida.html`, um cartão com um fato real do dia e a porta para a
+área. Treino sai de `estado_do_treino`, que a Home já calcula; Corrida e
+Progresso custam UMA consulta cada, e só para quem declarou aquela área.
+
+**Quem não declarou nada vê a Home de antes da campanha** — sem selo, sem cartão
+de área, na ordem canônica. E ela não infere área de histórico, peso, treino,
+água ou frequência: há teste com uma pessoa de histórico cheio provando que ela
+continua neutra.
+
+**Declarar interesse numa área nunca pode PIORAR aquela área.** `limiar_de_atraso`
+lia só a prioridade, então quem marcava [Alimentação, Hidratação] e elegia
+Alimentação recebia 35pp — mais tarde que quem não declarou nada, que recebe 25.
+Declarar interesse em hidratação atrasava o aviso de hidratação. Hoje quem marcou
+a área sem elegê-la principal fica no valor neutro, e há teste varrendo os cinco
+pilares com essa propriedade.
 
 **Interesse ORGANIZA; ele não restringe.** Quem marcou só Corrida continua com
 as outras quatro áreas abertas, e há teste varrendo as cinco rotas. Esconder o

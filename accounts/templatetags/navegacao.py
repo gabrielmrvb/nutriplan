@@ -51,6 +51,8 @@ def mapa_de_areas(context):
     tela só, `base.html`, e um processor cobraria a montagem de toda resposta
     do projeto, inclusive das que não têm barra nenhuma.
     """
+    from django.urls import reverse
+
     from accounts.templatetags.escolhas import DETALHES
 
     # Segunda camada da mesma guarda do `base.html`: o selo de área
@@ -62,19 +64,55 @@ def mapa_de_areas(context):
     principal = getattr(perfil, "prioridade", "") or ""
     atual = context.get("nav")
 
+    pedido = context.get("request")
+    aqui = getattr(pedido, "path", "")
+
     areas = []
     for pilar in Pilar:
         rota, chave = DESTINO_DO_PILAR[pilar]
         icone, titulo, apoio = DETALHES[pilar.value][:3]
+        endereco = _endereco(rota)
         areas.append(
             {
                 "valor": pilar.value,
-                "rota": rota,
+                "endereco": endereco,
                 "icone": icone,
                 "titulo": titulo,
                 "apoio": apoio,
-                "atual": chave == atual,
+                # DUAS coisas diferentes, e juntá-las fazia o mapa mentir.
+                #
+                # `aqui` é a página EXATA. `na_secao` é "você está dentro desta
+                # área" — a lista de compras declara `nav = "today"`, e com uma
+                # marca só o mapa anunciava `aria-current="page"` em
+                # "Alimentação" apontando para `/`, que não é a página aberta.
+                "aqui": bool(endereco) and endereco == aqui,
+                "na_secao": chave == atual,
                 "principal": pilar.value == principal,
             }
         )
-    return {"areas": areas, "request": context.get("request")}
+    return {"areas": areas, "request": pedido}
+
+
+def _endereco(rota):
+    """O endereço da área, já com o prefixo do demo quando houver.
+
+    `reverse()` sozinho não basta, e o motivo está escrito em `demo/views.py`:
+    `plans:today` mora na RAIZ da aplicação, então sob `set_script_prefix`
+    ele reverte para `/demo/` — que não é a tela Hoje, é a capa do demo. O
+    mapa mandava quem estava avaliando o produto para a página de marketing,
+    e ainda marcava "você está aqui" ao fazê-lo.
+
+    A tradução sai de `demo.middleware.APELIDOS`, invertido, e não de um
+    terceiro literal escrito à mão: já existem dois (`base.html` e
+    `demo/views.py`), e o terceiro é o que envelhece sozinho.
+    """
+    from django.urls import reverse
+
+    from demo import middleware as demo
+
+    endereco = reverse(rota)
+    raiz_do_demo = demo.PREFIXO + "/"
+    if endereco == raiz_do_demo:
+        de_volta = {destino: apelido for apelido, destino in demo.APELIDOS.items()}
+        return demo.PREFIXO + de_volta["/"]
+    return endereco

@@ -68,7 +68,12 @@ FEZ_ALGUMA = (
 
 
 def numeros_do_painel():
-    """Tudo que o painel mostra, em cinco consultas de custo fixo."""
+    """Tudo que o painel mostra, em consultas de custo fixo.
+
+    Custo fixo é a propriedade que importa aqui, e não o número: nenhuma
+    delas cresce com a quantidade de contas. O número já esteve escrito
+    ("cinco") e envelheceu na primeira chave nova.
+    """
     hoje = timezone.localdate()
     curta = hoje - timedelta(days=JANELA_CURTA)
     longa = hoje - timedelta(days=JANELA_LONGA)

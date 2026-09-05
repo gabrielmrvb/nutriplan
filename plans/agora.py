@@ -119,7 +119,7 @@ ATRASO_MINIMO_PP = 15
 ATRASO_MAXIMO_PP = 35
 
 
-def limiar_de_atraso(prioridade) -> int:
+def limiar_de_atraso(prioridade, interessada=False) -> int:
     """Quantos pontos de atraso a água exige de quem declarou ESTE pilar.
 
     Três valores, e a distância entre eles é de propósito pequena. Medido na
@@ -130,9 +130,22 @@ def limiar_de_atraso(prioridade) -> int:
     Prioridade vazia devolve o valor de sempre. É o caminho de quem nunca
     respondeu, e ele não pode mudar por causa de uma campanha que essa pessoa
     não participou.
+
+    `interessada` corrige uma INVERSÃO que a primeira versão tinha, e que uma
+    revisão adversarial encontrou: só a prioridade era lida, então quem marcou
+    [Alimentação, Hidratação] e elegeu Alimentação como principal caía no ramo
+    genérico e recebia 35 — ADIANDO o aviso de água em relação a quem não
+    declarou nada, que recebe 25. Declarar interesse em hidratação piorava a
+    hidratação. Agora quem marcou a área, sem elegê-la principal, fica no valor
+    neutro: **a declaração nunca prejudica quem a fez**.
+
+    A faixa continua fechada em 15–35, que é o teto que impede qualquer pilar
+    de DESLIGAR a água.
     """
     if prioridade == Pilar.HIDRATACAO:
         return ATRASO_MINIMO_PP
+    if prioridade and interessada:
+        return ATRASO_DE_HIDRATACAO_PP
     if prioridade:
         return ATRASO_MAXIMO_PP
     return ATRASO_DE_HIDRATACAO_PP
@@ -186,7 +199,8 @@ def atraso_de_hidratacao(*, slots, meta_agua, bebido, agora) -> float:
 
 
 def proxima_acao(*, slots, treino, meta_agua, bebido, agora,
-                 prioridade="", convite_pesagem=False) -> Acao:
+                 prioridade="", interesse_em_agua=False,
+                 convite_pesagem=False) -> Acao:
     """A ação mais útil neste instante.
 
     A ordem não é uma lista de prioridades escrita à mão — são três perguntas,
@@ -270,7 +284,10 @@ def proxima_acao(*, slots, treino, meta_agua, bebido, agora,
         atraso = atraso_de_hidratacao(
             slots=slots, meta_agua=meta_agua, bebido=bebido, agora=agora
         )
-        if atraso >= limiar_de_atraso(prioridade) and faltam >= FALTA_MINIMA_PARA_AVISAR_ML:
+        if (
+            atraso >= limiar_de_atraso(prioridade, interesse_em_agua)
+            and faltam >= FALTA_MINIMA_PARA_AVISAR_ML
+        ):
             return Acao(
                 tipo="agua",
                 rotulo="HIDRATAÇÃO",

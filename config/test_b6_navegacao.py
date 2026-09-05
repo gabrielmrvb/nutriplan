@@ -182,14 +182,28 @@ class AAbaDaVezEAnunciadaTests(TestCase):
         call_command("seed_workouts", verbosity=0)
 
     #: (rota, rótulo da aba que deve estar marcada)
+    #: Telas que ACENDEM uma aba, e qual.
+    #:
+    #: `workouts:corridas` saiu daqui, e a saída é a decisão do produto:
+    #: Corrida é um dos cinco pilares e não subárea de Treino. Acender "Treino"
+    #: ali era a subordinação visível na tela. Ver `SEM_ABA` logo abaixo.
     TELAS = (
         ("plans:today", "Dieta"),
         ("workouts:routine", "Treino"),
         ("plans:history", "Progresso"),
         ("accounts:profile", "Perfil"),
-        ("workouts:corridas", "Treino"),
         ("achievements:list", "Perfil"),
         ("plans:shopping", "Dieta"),
+    )
+
+    #: Telas de PILAR que a barra de baixo não carrega — e onde nenhuma aba
+    #: acende, porque acender a errada é pior que não acender nenhuma.
+    #:
+    #: O par de cada uma é a área que o MAPA marca: a orientação não some, ela
+    #: muda de componente.
+    SEM_ABA = (
+        ("workouts:corridas", "Corrida"),
+        ("plans:hydration", "Hidratação"),
     )
 
     def setUp(self):
@@ -270,16 +284,46 @@ class AAbaDaVezEAnunciadaTests(TestCase):
         self.assertEqual(len(destinos), 4)
 
     def test_a_corrida_nao_virou_aba(self):
-        """O GPS numa PWA continua sem medição em aparelho. Enquanto isso,
-        Corrida é alcançada pelo Treino, e a aba da vez ali é Treino."""
-        html = self.client.get(reverse("plans:today")).content.decode()
-        self.assertNotIn(reverse("workouts:corridas"), html)
+        """O GPS numa PWA continua sem medição em aparelho, e a barra continua
+        com quatro itens.
 
-        corridas = self.client.get(reverse("workouts:corridas")).content.decode()
-        marcadas = [
-            r for r, aria, _ in self._abas(corridas, "tabbar__item") if aria
-        ]
-        self.assertEqual(marcadas, ["Treino"])
+        O que MUDOU: a corrida deixou de ser alcançada só pelo treino. Ela é um
+        dos cinco pilares e tem porta de primeiro nível no mapa — o que a
+        asserção antiga (`assertNotIn` na página INTEIRA) proibia sem querer,
+        porque o mapa mora na mesma página.
+
+        A régua certa é a BARRA: corrida não é aba. E ali onde o mapa aparece,
+        ele aparece — este teste passou a exigir as duas coisas.
+        """
+        html = self.client.get(reverse("plans:today")).content.decode()
+        barra = html.split('class="tabbar"', 1)[1].split("</nav>", 1)[0]
+
+        self.assertNotIn(reverse("workouts:corridas"), barra)
+        # Controle positivo do recorte: a barra tem destino, e são quatro.
+        self.assertEqual(len(re.findall(r'href="', barra)), 4)
+        # E a porta de primeiro nível existe, fora da barra.
+        self.assertIn(reverse("workouts:corridas"), html)
+
+    def test_a_tela_de_pilar_sem_aba_nao_acende_nenhuma(self):
+        """Acender a aba errada é pior que não acender nenhuma.
+
+        A tela de água acendia "Dieta" e a de corridas acendia "Treino" — a
+        subordinação que `accounts.models.Pilar` diz não existir. Quem
+        orienta agora é o mapa, e o par está em `SEM_ABA`.
+        """
+        for rota, area in self.SEM_ABA:
+            with self.subTest(rota=rota):
+                html = self.client.get(reverse(rota)).content.decode()
+                barra = html.split('class="tabbar"', 1)[1].split("</nav>", 1)[0]
+                marcadas = [
+                    r for r, aria, _ in self._abas(barra, "tabbar__item") if aria
+                ]
+
+                self.assertEqual(marcadas, [])
+                mapa = html.split('class="mapa"', 1)[1].split("</details>", 1)[0]
+                atual = [t for t in mapa.split("<a ") if 'aria-current="page"' in t]
+                self.assertEqual(len(atual), 1, mapa)
+                self.assertIn(area, atual[0])
 
 
 class AOrigemAtravessaOPassoDaDivisaoTests(TestCase):

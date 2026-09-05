@@ -2513,6 +2513,20 @@ class PesoRecusadoVoltaParaATelaTests(TestCase):
         html = resposta.content.decode()
         return html.split('class="pesagem__valor', 1)[1].split(">", 1)[0]
 
+    def _faixa_de_peso(self, resposta):
+        """A tag de abertura da faixa de pesagem, seja qual for a ordem dos
+        atributos.
+
+        A asserção era o literal `<details class="pesar" open>`, e ela quebrou
+        no dia em que a faixa ganhou `id="pesar"` — o destino do botão do
+        cartão AGORA, que até então apontava para uma âncora inexistente. O
+        contrato que estes testes protegem é "a faixa continua ABERTA", e não a
+        ordem em que os atributos foram escritos.
+        """
+        html = resposta.content.decode()
+        self.assertIn('class="pesar"', html)
+        return html.split('class="pesar"', 1)[1].split(">", 1)[0]
+
     def test_the_panel_reopens_the_strip_with_what_was_typed(self):
         """Fechada, a sanfona esconderia justamente o campo que a pessoa
         precisa corrigir — ela veria a mensagem de erro sem ver onde agir."""
@@ -2520,7 +2534,7 @@ class PesoRecusadoVoltaParaATelaTests(TestCase):
 
         resposta = self.client.get(reverse("plans:today"))
 
-        self.assertContains(resposta, "<details class=\"pesar\" open>", html=False)
+        self.assertIn("open", self._faixa_de_peso(resposta))
         self.assertIn('value="8o,5"', self._campo(resposta))
 
     def test_metrics_brings_back_the_typo_instead_of_todays_weight(self):
@@ -2627,7 +2641,7 @@ class PesoRecusadoVoltaParaATelaTests(TestCase):
 
         resposta = self.client.get(reverse("plans:today"))
 
-        self.assertContains(resposta, '<details class="pesar" open>', html=False)
+        self.assertIn("open", self._faixa_de_peso(resposta))
         self.assertContains(resposta, "Digite o peso")
 
     def test_an_empty_attempt_in_metrics_is_not_the_same_as_no_attempt(self):

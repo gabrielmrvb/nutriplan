@@ -1,0 +1,87 @@
+{% comment %}
+  A ÁREA QUE A PESSOA DISSE QUE VEIO CUIDAR — quando ela não tem seção
+  própria nesta tela.
+
+  Dieta e Hidratação já têm bloco aqui, e para elas a promoção é MOVER o bloco
+  que existe. Treino, Corrida e Progresso não têm nenhum: o que a Home dizia
+  sobre treino era um pedaço da linha de resumo, e sobre corrida e peso, nada.
+  Este cartão é a porta deles, com um fato real do dia e um caminho para
+  dentro da área.
+
+  Ele nunca aparece acima do cartão AGORA. Urgência vence preferência: refeição
+  vencida e treino em andamento têm hora marcada, e a hora passa; a área
+  preferida continua verdadeira amanhã.
+
+  E ele NÃO aparece para quem não declarou nada. Sem declaração não há
+  personalização — uso não é intenção, e inferir a área de alguém pelo
+  histórico é exatamente o que a migration se recusou a fazer.
+{% endcomment %}
+<section class="card area-promovida is-prioritario">
+  <div class="card__head">
+    <h2>
+      {% if area_promovida == 'treino' %}Seu treino
+      {% elif area_promovida == 'corrida' %}Suas corridas
+      {% else %}Sua evolução{% endif %}
+    </h2>
+    <span class="pill pill--brand">sua área</span>
+  </div>
+
+  {% if area_promovida == 'treino' %}
+    {% if treino_hoje.tem_treino %}
+      <p class="area-promovida__fato">
+        {% if treino_hoje.concluido %}
+          Treino de hoje concluído — {{ treino_hoje.total_series }}
+          série{{ treino_hoje.total_series|pluralize }} anotada{{ treino_hoje.total_series|pluralize }}.
+        {% else %}
+          <span class="num">{{ treino_hoje.series_feitas }}</span> de
+          <span class="num">{{ treino_hoje.total_series }}</span> séries de hoje.
+        {% endif %}
+      </p>
+    {% else %}
+      <p class="area-promovida__fato">
+        Hoje não tem treino na sua ficha. A semana inteira está lá.
+      </p>
+    {% endif %}
+    <a class="btn-link btn-link--rodape" href="{% url 'workouts:routine' %}">
+      Abrir a ficha da semana
+    </a>
+
+  {% elif area_promovida == 'corrida' %}
+    {% if ultima_corrida %}
+      <p class="area-promovida__fato">
+        Última corrida em {{ ultima_corrida.comecou_em|date:"d/m" }}:
+        <span class="num">{{ corrida_km|floatformat:2 }} km</span>{% if ultima_corrida.teve_lacuna %},
+        com um trecho não registrado{% endif %}.
+      </p>
+    {% else %}
+      <p class="area-promovida__fato">
+        Você ainda não registrou uma corrida. A tela guarda distância e tempo —
+        o traçado não sai do seu aparelho.
+      </p>
+    {% endif %}
+    <a class="btn-link btn-link--rodape" href="{% url 'workouts:corridas' %}">
+      Abrir as corridas
+    </a>
+
+  {% else %}
+    {% if convite_pesagem %}
+      <p class="area-promovida__fato">
+        Você ainda não se pesou nesta semana. Um número por semana já mostra a
+        tendência.
+      </p>
+    {% elif ultimo_peso %}
+      <p class="area-promovida__fato">
+        Peso mais recente:
+        <span class="num">{{ ultimo_peso.weight_kg|floatformat:2 }} kg</span>,
+        em {{ ultimo_peso.date|date:"d/m" }}.
+      </p>
+    {% else %}
+      <p class="area-promovida__fato">
+        Seu histórico de peso começa no primeiro registro.
+      </p>
+    {% endif %}
+    <a class="btn-link btn-link--rodape" href="{% url 'plans:history' %}">
+      Abrir o progresso
+    </a>
+  {% endif %}
+</section>
