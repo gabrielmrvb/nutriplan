@@ -56,7 +56,7 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: não move um pixel, e a prova está no commit — a assinatura de estilo
 #: computado de `/treino/` (461 elementos) ficou idêntica, 849639245 antes e
 #: depois, com o CSS servido conferido para não medir cache velho.
-TETO_FONT_SIZE_CRU = 145
+TETO_FONT_SIZE_CRU = 144
 TETO_ESPACO_CRU = 291
 
 
@@ -210,4 +210,78 @@ class PapelDeDialogoSoEmDialogoDeVerdadeTests(SimpleTestCase):
             [],
             "role=\"dialog\" fora de um <dialog> nativo — ou prenda o foco, ou "
             "use um papel que descreva o que a peça faz: " + "; ".join(culpados),
+        )
+
+
+class NumeroDeMetricaNaoQuebraNoMeioTests(SimpleTestCase):
+    """Número grande em coluna estreita não pode partir em duas linhas.
+
+    O caso que motivou: `.corrida-numero__valor` era `1.9rem` fixo em três
+    colunas de 90px a 375px. Seis caracteres ocupam 101px, então `100:00` — uma
+    corrida de 1h40 — quebrava no meio, e `123,45` também. Maratona leva de três
+    a cinco horas: o caso é comum, não exótico.
+
+    POR QUE NENHUMA RÉGUA EXISTENTE PEGOU
+
+    `overflow-x: hidden` no `html`/`body` faz "nada rola na horizontal"
+    continuar verde: o texto QUEBRA em vez de vazar, então não há rolagem para
+    detectar. E `scrollWidth` também não acusa, pelo mesmo motivo — só medir a
+    ALTURA do elemento revela (33px contra 67px).
+
+    Por isso a guarda é sobre a DECLARAÇÃO e não sobre o sintoma: um número que
+    declara `white-space: nowrap` não tem como quebrar, e aí a única falha
+    possível vira estouro, que as réguas de rolagem já cobrem.
+    """
+
+    #: Valores que ocupam a coluna inteira. São os que a tela mostra de verdade:
+    #: um cronômetro passando de 99 minutos e uma distância de três dígitos.
+    VALORES_LONGOS = ("100:00", "123,45")
+
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+
+    def _regra(self, seletor):
+        casou = re.search(
+            r"(?:^|\})\s*" + re.escape(seletor) + r"\s*\{([^}]*)\}", self.css
+        )
+        return casou.group(1) if casou else None
+
+    def test_o_numero_da_corrida_nao_quebra(self):
+        corpo = self._regra(".corrida-numero__valor")
+
+        self.assertIsNotNone(corpo, "a regra .corrida-numero__valor sumiu")
+        self.assertIn(
+            "white-space: nowrap",
+            corpo,
+            f"sem nowrap, {self.VALORES_LONGOS} partem em duas linhas a 375px",
+        )
+
+    def test_o_tamanho_do_numero_da_corrida_cede_em_tela_estreita(self):
+        """`min()` com `vw` é o que faz o número caber a 320px.
+
+        Um tamanho fixo que caiba em 320px seria pequeno demais no desktop, e um
+        que sirva ao desktop quebra no celular estreito. O teto é o degrau da
+        escala; o `vw` só entra quando a tela não comporta o teto.
+        """
+        corpo = self._regra(".corrida-numero__valor")
+
+        self.assertIsNotNone(corpo)
+        self.assertRegex(
+            corpo,
+            r"font-size:\s*min\(\s*var\(--texto-2xl\)\s*,\s*[\d.]+vw\s*\)",
+            "o tamanho voltou a ser fixo — a 320px ele não cabe",
+        )
+
+    def test_a_regra_lida_e_mesmo_a_da_corrida(self):
+        """Controle positivo: sem isto, um seletor que não casa deixaria os dois
+        testes acima verdes por não encontrar nada que contrarie."""
+        corpo = self._regra(".corrida-numero__valor")
+
+        self.assertIsNotNone(corpo)
+        self.assertIn("font-variant-numeric: tabular-nums", corpo)
+        self.assertIn("font-weight: 760", corpo)
+
+        self.assertIsNone(
+            self._regra(".seletor-que-nao-existe-em-lugar-nenhum"),
+            "o leitor de regra devolve corpo para seletor inexistente",
         )

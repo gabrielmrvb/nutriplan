@@ -6352,7 +6352,23 @@ body.montando { overflow: hidden; }
   /* Sem largura fixa por dígito, o cronômetro empurra a distância de lado a
      cada segundo — e um número que dança é ilegível em movimento. */
   font-variant-numeric: tabular-nums;
-  font-size: 1.9rem;
+
+  /* O NÚMERO NÃO PODE QUEBRAR NO MEIO, e a 1.9rem fixo ele quebrava.
+     Medido a 375px: a coluna tem 90px e seis caracteres ocupam 101px, então
+     `100:00` — uma corrida de 1h40 — partia em duas linhas, e `123,45` junto.
+     Uma maratona leva de três a cinco horas: o caso não é exótico.
+
+     E era invisível para as réguas que já existiam. `overflow-x: hidden` no
+     `html`/`body` faz "nada rola na horizontal" continuar verde enquanto o
+     número dobra de altura, e `scrollWidth` não acusa porque o texto QUEBRA em
+     vez de vazar. Só medir a ALTURA do elemento revela — 33px contra 67px.
+
+     `min()` e não media query: o teto é o degrau da escala, e o `vw` só entra
+     quando a tela é estreita demais para ele. O 6.7vw sai da medida real —
+     0,554em por caractere monoespaçado, seis caracteres, numa coluna que é um
+     terço do cartão. Confere em 320, 375 e 430px. */
+  white-space: nowrap;
+  font-size: min(var(--texto-2xl), 6.7vw);
   font-weight: 760;
   line-height: 1.1;
 }
