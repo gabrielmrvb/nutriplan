@@ -371,6 +371,11 @@ class TouchTargetTests(TestCase):
 
     ALVOS = [
         (".btn {", "min-height: 2.95rem"),
+        # As duas do mapa de áreas. O botão é um `<summary>`, que não
+        # herda regra de botão nenhuma, e cada linha do painel é um
+        # destino de navegação tocado com o polegar.
+        (".mapa__botao {", "min-height: 2.75rem"),
+        (".mapa__area {", "min-height: 2.75rem"),
         (".btn--sm {", "min-height: 2.75rem"),
         (".btn--quiet {", "min-height: 2.75rem"),
         (".app-bar__quiet {", "min-height: 2.75rem"),

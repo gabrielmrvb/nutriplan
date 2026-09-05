@@ -42,7 +42,10 @@ class HistoricoDeCorridasView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
-        contexto["nav"] = "workout"
+        # Corrida não é subfunção de treino — `Pilar` diz isso com todas as
+        # letras, e com `workout` aqui a aba "Treino" acendia na tela de
+        # corridas. Quem marca a área agora é o mapa da barra de cima.
+        contexto["nav"] = "running"
         return contexto
 
 

@@ -1,4 +1,4 @@
-{% load static %}<!doctype html>
+{% load navegacao static %}<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
@@ -140,6 +140,18 @@
       <nav class="app-bar__nav">
         {% if tela_de_entrada %}
         {% elif user.is_authenticated %}
+          {% comment %}
+            O mapa das cinco áreas. Vem ANTES dos links porque no celular eles
+            não existem — `.app-bar__nav .app-bar__link` é `display:none` até
+            60rem —, e o mapa ficaria pendurado sozinho na ponta oposta de um
+            espaço vazio.
+
+            E não no shell de offline. Aquela tela é pré-cacheada e servida a
+            qualquer pessoa que pegue o aparelho depois; o selo de área
+            principal é identidade, e ficaria gravado no cache sem prazo. É o
+            mesmo motivo de `data-usuario` sair de lá.
+          {% endcomment %}
+          {% if not shell_offline %}{% mapa_de_areas %}{% endif %}
           <a class="app-bar__link {% if nav == 'today' %}is-active{% endif %}"
              {% if nav == 'today' %}aria-current="page"{% endif %}
              href="{% if request.demo %}/demo/hoje/{% else %}{% url 'plans:today' %}{% endif %}">Dieta</a>
@@ -230,8 +242,17 @@
     </div>
 
     {% comment %}
-      Navegação inferior: os cinco destinos do app a um polegar de distância.
-      Só aparece no celular — no desktop os mesmos links ficam na barra de cima.
+      Navegação inferior: os QUATRO destinos mais tocados, a um polegar de
+      distância. Só aparece no celular — no desktop os mesmos links ficam na
+      barra de cima.
+
+      Quatro e não cinco, e a conta é de largura: a 320px, cinco colunas deixam
+      51,8px úteis por item, e "Hidratação" precisa de 60. Esta barra responde
+      FREQUÊNCIA — o que se toca todo dia. As cinco ÁREAS do app, incluindo as
+      duas que não cabem aqui, ficam no mapa da barra de cima.
+
+      (O comentário anterior dizia "os cinco destinos do app". Eram quatro
+      desde alguma poda, e ninguém releu.)
     {% endcomment %}
     {% if not sem_tabbar %}
     {% comment %}

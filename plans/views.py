@@ -1045,7 +1045,12 @@ class HydrationView(PlanRequiredMixin, TemplateView):
 
         context.update(
             {
-                "nav": "today",
+                # A tela de água é da HIDRATAÇÃO, e hidratação não é subfunção
+                # de dieta — está escrito na docstring de `Pilar`. Com `today`
+                # aqui, a aba "Dieta" acendia, e a barra dizia o contrário do
+                # produto. Nenhuma aba acende agora; quem diz onde a pessoa
+                # está é o mapa da barra de cima.
+                "nav": "hydration",
                 "meta_ml": meta_ml,
                 "bebido": bebido,
                 "faltam": max(meta_ml - bebido, 0),

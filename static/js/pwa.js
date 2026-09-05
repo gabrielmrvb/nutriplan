@@ -402,4 +402,29 @@
     });
   });
 
+  /* MAPA DE ÁREAS — só as conveniências.
+   *
+   * O `<details>` já abre e fecha sozinho no clique, e continua funcionando
+   * com o JavaScript desligado. O que falta é o que todo menu aberto deve:
+   * fechar no Escape e fechar quando se toca fora dele. Sem isso, um menu
+   * aberto no celular fica de pé enquanto a pessoa rola a tela inteira.
+   *
+   * Nada aqui é foco preso: `<details>` foi escolhido justamente para não
+   * precisar de `inert`, que foi o conserto caro do convite de instalação. */
+  var mapa = document.querySelector("[data-mapa]");
+  if (mapa) {
+    document.addEventListener("keydown", function (evento) {
+      if (evento.key !== "Escape" || !mapa.open) return;
+      mapa.open = false;
+      /* O foco volta para o botão que abriu: fechar com o teclado e deixar o
+       * foco no nada faria o Tab seguinte recomeçar do topo da página. */
+      var botao = mapa.querySelector("summary");
+      if (botao) botao.focus();
+    });
+
+    document.addEventListener("click", function (evento) {
+      if (mapa.open && !mapa.contains(evento.target)) mapa.open = false;
+    });
+  }
+
 })();

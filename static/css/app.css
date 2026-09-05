@@ -6560,3 +6560,70 @@ body.montando { overflow: hidden; }
   letter-spacing: .04em;
 }
 .card__subtitulo:first-of-type { margin-top: 0; }
+
+/* ==========================================================================
+   MAPA DE ÁREAS — a porta de primeiro nível das cinco.
+
+   A barra de baixo continua com QUATRO itens, e vai continuar: medido a 320px,
+   cinco colunas deixam 51,8px úteis por item e "Hidratação" precisa de 60. Ela
+   responde FREQUÊNCIA; este mapa responde ESTRUTURA.
+
+   `<details>` aberto por clique, e o painel ancorado na barra de cima. Nada de
+   `:has()`: a área da vez recebe `is-active` escrito pelo servidor.
+   ========================================================================== */
+.mapa { position: relative; }
+
+.mapa__botao {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  padding: .45rem .75rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+/* O triângulo padrão do `<summary>`, nos dois motores. */
+.mapa__botao::-webkit-details-marker { display: none; }
+.mapa__botao::marker { content: ""; }
+
+.mapa[open] .mapa__botao,
+.mapa__botao:hover { color: var(--text); background: var(--surface-2); }
+
+.mapa__painel {
+  position: absolute;
+  top: calc(100% + .4rem);
+  right: 0;
+  z-index: 40;          /* acima da tabbar, que é 30 */
+  width: min(19rem, calc(100vw - 1.6rem));
+  padding: .35rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+}
+
+.mapa__lista { display: grid; gap: .1rem; }
+
+.mapa__area {
+  display: grid;
+  gap: .1rem;
+  min-height: 2.75rem;
+  padding: .5rem .65rem;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  text-decoration: none;
+  min-width: 0;
+}
+.mapa__area:hover { background: var(--surface-2); }
+.mapa__area.is-active { background: var(--brand-soft); }
+
+.mapa__nome { font-size: var(--texto-sm); font-weight: 600; }
+.mapa__apoio {
+  color: var(--text-mute);
+  font-size: var(--texto-xs);
+  line-height: 1.35;
+}

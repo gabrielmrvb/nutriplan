@@ -22,10 +22,15 @@ register = template.Library()
 DETALHES = {
     # accounts.models.Pilar — as cinco areas do NutriPlan.
     #
-    # O titulo aqui NAO repete o `label` do TextChoices de proposito: o label
-    # e o nome curto que o painel e o perfil usam, e o cartao precisa de uma
-    # frase que diga o que a area FAZ. "Alimentacao" e o nome; "o cardapio do
-    # dia e o que voce marcou" e a promessa.
+    # O titulo REPETE o `label` do TextChoices, nos cinco. O que este arquivo
+    # acrescenta e a terceira posicao — a frase que diz o que a area FAZ:
+    # "Alimentacao" e o nome, e "o cardapio do dia e o que voce ja marcou" e a
+    # promessa. Quem mudar um dos dois nomes precisa mudar o outro; o painel
+    # de gestao usa o `label` e o cartao usa este titulo, e ver a mesma area
+    # com dois nomes na mesma sessao e pior que a duplicata.
+    #
+    # (O comentario anterior afirmava o contrario — que o titulo NAO repetia o
+    # label. Era falso desde a primeira linha, nos cinco pilares.)
     "dieta": (
         "panela",
         "Alimentação",

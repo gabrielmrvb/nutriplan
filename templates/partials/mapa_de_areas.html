@@ -1,0 +1,40 @@
+{% comment %}
+  O MAPA DAS CINCO ÁREAS.
+
+  Por que ele existe: duas das cinco não têm porta de primeiro nível.
+  Hidratação só se alcança pelo cartão de água do Hoje; Corrida, só pela tela
+  de Treino. E a barra de baixo dizia o contrário do produto — a tela de água
+  acendia "Dieta" e a de corridas acendia "Treino".
+
+  `<details>` e não diálogo: sem foco preso, sem `inert`, sem a lista de
+  controles alcançáveis por trás que o convite de instalação teve de consertar.
+  Sem JavaScript ele abre e fecha no clique — o JS só acrescenta Escape e
+  clique fora, que são conveniências e não o funcionamento.
+
+  SEM ÍCONE, e a ausência é decisão. O sprite que guarda os desenhos das cinco
+  áreas (`partials/icones.html`, 4 KB) é incluído só no onboarding; trazê-lo
+  para toda página do app custaria isso em cada resposta, e copiar os cinco
+  desenhos para cá é exatamente o que o sprite existe para impedir. Numa lista
+  de cinco linhas com nome e frase de apoio o ícone é decoração.
+
+  A ordem é a de `Pilar` — a mesma do onboarding — e não muda por pessoa: o
+  mapa mostra de que o app é feito, e isso é igual para todo mundo. Quem
+  declarou uma área principal a reconhece pelo selo.
+{% endcomment %}
+<details class="mapa" data-mapa>
+  <summary class="mapa__botao">Áreas</summary>
+  <div class="mapa__painel">
+    <nav class="mapa__lista" aria-label="Áreas do NutriPlan">
+      {% for area in areas %}
+        <a class="mapa__area{% if area.atual %} is-active{% endif %}"
+           {% if area.atual %}aria-current="page"{% endif %}
+           href="{% url area.rota %}">
+          <span class="mapa__nome">
+            {{ area.titulo }}{% if area.principal %} <span class="pill pill--brand">principal</span>{% endif %}
+          </span>
+          <span class="mapa__apoio">{{ area.apoio }}</span>
+        </a>
+      {% endfor %}
+    </nav>
+  </div>
+</details>
