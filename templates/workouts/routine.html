@@ -1395,25 +1395,33 @@
               }
             })
             .catch(function () {
-              /* SEM REDE a carga nao vai para lugar nenhum, e a tela diz isso.
+              /* FALHOU: a serie nao foi salva, e a tela diz isso. So isso.
                *
-               * O `form.submit()` era a degradacao graciosa: se o `fetch`
-               * falhasse, o POST normal resolvia. Isso continua valendo COM
-               * rede. Sem rede ele navega para a pagina de offline e leva
-               * embora a ficha inteira no meio do treino — e agora nao ha nem
-               * fila para recolher o toque, porque a carga saiu dela.
+               * Aqui havia `form.submit()` como degradacao graciosa — se o
+               * `fetch` falhasse, um POST nativo resolvia. Ele nao resolvia:
+               * DESTRUIA.
                *
-               * Entao: nao navega, nao marca a serie, nao finge que salvou.
-               * Avisa, e o botao volta no `.then` seguinte. */
-              if (navigator.onLine) {
-                form.submit();
-                return;
-              }
+               * O POST nativo manda o campo REAL do formulario, e quem escreve
+               * esse campo e `atualiza()`, que so roda no `.then` de sucesso.
+               * O fallback mandava, portanto, o contador VELHO — e a view usa o
+               * contador para apagar toda serie acima dele. Com
+               * `series_feitas = 0`, que e o primeiro toque do dia, o laco fica
+               * vazio e o `DELETE ... set_number__gt=0` leva o exercicio
+               * inteiro. Medido em `workouts/test_carga_fora_da_fila.py`.
+               *
+               * E nao era caminho offline: disparava com rede viva, em qualquer
+               * falha do `fetch` — 5xx, requisicao abortada, o cold start de
+               * 50 s do plano gratuito.
+               *
+               * Sem fallback, o unico caminho de gravacao e o `fetch`, que manda
+               * o contador certo. Falhou, nao salvou, e a pessoa fica na ficha
+               * sabendo disso. O botao volta no `.then` seguinte. */
               var aviso = form.querySelector("[data-registro-aviso]");
               if (!aviso) return;
-              aviso.textContent =
-                "Sem rede: esta serie nao foi salva. Anote e registre de novo "
-                + "quando o sinal voltar.";
+              aviso.textContent = navigator.onLine
+                ? "Nao consegui salvar esta serie. Tente de novo."
+                : "Sem rede: esta serie nao foi salva. Anote e registre de novo "
+                  + "quando o sinal voltar.";
               aviso.hidden = false;
             })
             .then(function () { botao.disabled = false; });

@@ -315,6 +315,37 @@ class OAvisoOfflineNaoMenteTests(TestCase):
         self.assertIn('role="status"', self.cartao)
         self.assertIn('aria-live="polite"', self.cartao)
 
+    def test_o_fallback_nativo_NAO_EXISTE_MAIS(self):
+        """`form.submit()` no erro era destrutivo, e não offline.
+
+        Ele mandava o campo REAL do formulário — e quem escreve esse campo é
+        `atualiza()`, que só roda no `.then` de sucesso. Ou seja: o fallback
+        postava o contador VELHO, e a view apaga toda série acima dele. Com
+        `series_feitas = 0`, que é o primeiro toque do dia, o
+        `DELETE ... set_number__gt=0` leva o exercício inteiro — está medido em
+        `test_com_o_contador_em_zero_o_dia_inteiro_daquele_exercicio_some`.
+
+        E disparava COM REDE VIVA: qualquer falha do `fetch` — 5xx, requisição
+        abortada, o cold start de 50 s do plano gratuito. Não era o caminho
+        offline; era o caminho online.
+
+        Sem o fallback, a única gravação é o `fetch`, que manda o contador
+        certo. Falhou, não salvou, e a tela diz isso.
+        """
+        catch = self._catch_do_registro()
+
+        self.assertNotIn("form.submit()", catch)
+
+    def test_o_erro_avisa_com_rede_e_sem_rede(self):
+        """As duas frases existem, e são diferentes: "não consegui" e "sem
+        rede" descrevem situações distintas para quem está de pé na academia."""
+        catch = self._catch_do_registro()
+
+        self.assertIn("navigator.onLine", catch)
+        self.assertIn("Sem rede", catch)
+        self.assertIn("Nao consegui salvar", catch)
+        self.assertIn("aviso.hidden = false;", catch)
+
     def test_sem_rede_a_ficha_NAO_navega_para_fora(self):
         """`form.submit()` offline leva a pessoa para a página de offline e
         tira a ficha da frente dela no meio do treino — e agora não há nem fila
@@ -324,8 +355,12 @@ class OAvisoOfflineNaoMenteTests(TestCase):
         # medindo o bloco errado.
         catch = self._catch_do_registro()
 
-        self.assertIn("if (navigator.onLine) {", catch)
-        self.assertIn("form.submit();", catch)
+        # A asserção era `assertIn("form.submit();")` — ela travava a NAVEGAÇÃO
+        # no ramo online como se fosse desejável. Era o oposto: aquele POST
+        # nativo mandava o contador defasado e apagava o dia. Hoje o teste
+        # irmão exige a AUSÊNCIA dele, e este cuida do que sobrou: a tela não
+        # sai do lugar e avisa.
+        self.assertNotIn("form.submit()", catch)
         self.assertIn("aviso.hidden = false;", catch)
 
     def test_o_aviso_e_limpo_a_cada_tentativa(self):
