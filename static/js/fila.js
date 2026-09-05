@@ -108,7 +108,33 @@
           db.createObjectStore(LOJA, { keyPath: "op_id" });
         }
       };
-      pedido.onsuccess = function () { resolve(pedido.result); };
+      /* `blocked` DISPARA, e sem este handler a promessa nao liquida NUNCA.
+       *
+       * Uma subida de versao so acontece quando nenhuma conexao antiga esta
+       * aberta. O service worker segura a dele durante a drenagem inteira, e a
+       * pagina que pedir a versao nova nesse instante fica bloqueada. Sem
+       * `onblocked`, `abrir()` nao resolve nem rejeita: `comLoja` nao liquida,
+       * `guardar()` nao liquida, o evento `nutriplan:enfileirado` nunca dispara,
+       * e o botao fica travado sem uma linha no console.
+       *
+       * Rejeitar liquida a promessa: o erro chega ao `.catch` do enfileiramento
+       * e vira uma linha no console, em vez de um travamento sem sintoma. Nao
+       * chega a virar aviso NA TELA — isso esta no BACKLOG, declarado, e nao
+       * prometido aqui. Nao ha versao nova hoje; isto e para o dia em que
+       * houver, que e exatamente o dia em que ninguem vai lembrar de olhar. */
+      pedido.onblocked = function () {
+        reject(new Error(
+          "A fila offline do NutriPlan nao pode abrir: outra aba ou o service " +
+          "worker esta com uma versao anterior do banco aberta."
+        ));
+      };
+      pedido.onsuccess = function () {
+        var db = pedido.result;
+        /* O outro lado quer subir a versao: solta o banco em vez de bloquea-lo.
+         * Sem isto, a conexao desta pagina e que trava a atualizacao alheia. */
+        db.onversionchange = function () { db.close(); };
+        resolve(db);
+      };
       pedido.onerror = function () { reject(pedido.error); };
     });
   }
@@ -136,7 +162,78 @@
     });
   }
 
-  function guardar(item) { return comLoja("readwrite", function (l) { return l.put(item); }); }
+  /* ---------------------------------------------------------- a ORDEM */
+
+  /* O NUMERO DE ORDEM DO TOQUE. Sem ele a fila drena embaralhada.
+   *
+   * A chave da store e `op_id`, e `op_id` e um `crypto.randomUUID()`. O
+   * IndexedDB devolve `getAll()` em ordem de CHAVE — ou seja, em ordem de UUID,
+   * que nao tem relacao nenhuma com a ordem em que a pessoa tocou. Medido no
+   * navegador, em 300 rodadas: 51,7% de inversao com duas operacoes e 85,7%
+   * com tres. E com tres operacoes de agua isso muda o resultado, porque somar,
+   * zerar e desfazer nao comutam: `+500 -> +500 -> desfazer` termina em 500, e
+   * drenado como `desfazer -> +500 -> +500` termina em 1.000.
+   *
+   * Por que NAO o `em: Date.now()` que ja existia, que era a correcao obvia:
+   * medido, 199 de 200 chamadas seguidas caem no MESMO milissegundo, e com o
+   * `em` empatado o `sort` estavel preserva a ordem de entrada do array — que
+   * e a ordem do UUID. Ordenar por tempo herdaria o defeito inteiro em 83,5%
+   * dos empates. E relogio de aparelho anda para tras.
+   *
+   * `maior + 1` calculado DENTRO da transacao de escrita e seguro sem lock: o
+   * IndexedDB serializa transacoes de escopo sobreposto. Medido com 60
+   * gravacoes disparadas juntas — zero empates, `seq` de 1 a 60 contiguo.
+   *
+   * Reiniciar do 1 quando a fila esvazia e correto: ordem so importa entre
+   * itens que estao na fila ao mesmo tempo. */
+  function proximoSeq(itens) {
+    var maior = 0;
+    for (var i = 0; i < (itens || []).length; i++) {
+      if (typeof itens[i].seq === "number" && itens[i].seq > maior) {
+        maior = itens[i].seq;
+      }
+    }
+    return maior + 1;
+  }
+
+  /* ORDEM TOTAL, e deterministica ate no empate.
+   *
+   * ESTA FUNCAO EXISTE IDENTICA EM `templates/pwa/sw.js`, e um teste em
+   * `push/test_fila_ordem.py` compara as duas. Os dois lados drenam a mesma fila; se
+   * ordenarem diferente, a mesma sequencia de toques da resultados diferentes
+   * conforme quem chegou primeiro.
+   *
+   * Item sem `seq` e LEGADO — foi enfileirado por uma versao anterior a este
+   * campo, portanto antes de qualquer item novo, e vem primeiro. Entre eles so
+   * existe o `em`, que empata; o `op_id` desempata. Nao e a ordem certa quando
+   * o `em` empata, e nao ha como recuperar a certa: e a ordem POSSIVEL, e ela
+   * pelo menos e estavel entre a pagina e o worker. */
+  function emOrdemDeToque(itens) {
+    return (itens || []).slice().sort(function (a, b) {
+      var la = typeof a.seq === "number" ? 1 : 0;
+      var lb = typeof b.seq === "number" ? 1 : 0;
+      if (la !== lb) return la - lb;
+      var va = la ? a.seq : (a.em || 0);
+      var vb = lb ? b.seq : (b.em || 0);
+      if (va !== vb) return va - vb;
+      if (a.op_id < b.op_id) return -1;
+      if (a.op_id > b.op_id) return 1;
+      return 0;
+    });
+  }
+
+  /* A gravacao numera o item na MESMA transacao em que o guarda. Ler fora e
+   * gravar depois abriria a janela em que duas abas leem o mesmo maior. */
+  function guardar(item) {
+    return comLoja("readwrite", function (l) {
+      var pedido = l.getAll();
+      pedido.onsuccess = function () {
+        item.seq = proximoSeq(pedido.result);
+        l.put(item);
+      };
+      return pedido;
+    });
+  }
   function remover(id) { return comLoja("readwrite", function (l) { return l.delete(id); }); }
   function tudo() { return comLoja("readonly", function (l) { return l.getAll(); }); }
 
@@ -152,7 +249,11 @@
     var eu = dono();
     if (!eu) return Promise.resolve([]);
     return tudo().then(function (itens) {
-      return (itens || []).filter(function (i) { return i.dono === eu; });
+      /* Ordenado ANTES de sair daqui: quem chama drena na ordem que receber, e
+       * a ordem que o `getAll()` entrega e a dos UUIDs. */
+      return emOrdemDeToque(
+        (itens || []).filter(function (i) { return i.dono === eu; })
+      );
     });
   }
 
@@ -240,13 +341,46 @@
     return achado ? achado[2] : "";
   }
 
-  function enviar(item) {
-    var dados = {};
-    Object.keys(item.dados).forEach(function (k) { dados[k] = item.dados[k]; });
-    var atual = tokenAtual();
-    if (atual) dados.csrfmiddlewaretoken = atual;
+  /* O CORPO DO ENVIO, e ele prefere os PARES.
+   *
+   * ESTA FUNCAO EXISTE IDENTICA EM `templates/pwa/sw.js`, e um teste em
+   * `push/test_fila_ordem.py` compara as duas. Os dois lados enviam a mesma fila; se
+   * montarem o corpo diferente, a mesma operacao vira dois pedidos diferentes
+   * conforme quem drenou.
+   *
+   * Item guardado por versao anterior nao tem `pares` — so o objeto `dados`,
+   * com as chaves repetidas ja colapsadas. Nao da para recuperar o que foi
+   * perdido na captura; da para enviar o que sobrou, que e melhor que
+   * descartar a operacao inteira.
+   *
+   * O `csrfmiddlewaretoken` e trocado pelo do MOMENTO DO ENVIO: o item guarda
+   * o token de quando a pessoa tocou sem rede, e ele fica velho depois de
+   * qualquer login. `op_id` nao entra duas vezes. */
+  function corpoDoItem(item, token) {
+    var corpo = new URLSearchParams();
+    var vistos = {};
+    var pares = item.pares;
+    if (!pares || !pares.length) {
+      pares = [];
+      Object.keys(item.dados || {}).forEach(function (k) {
+        pares.push([k, item.dados[k]]);
+      });
+    }
+    for (var i = 0; i < pares.length; i++) {
+      var k = pares[i][0];
+      if (k === "csrfmiddlewaretoken" && token) continue;
+      if (k === "op_id") {
+        if (vistos.op_id) continue;
+        vistos.op_id = 1;
+      }
+      corpo.append(k, pares[i][1]);
+    }
+    if (token) corpo.append("csrfmiddlewaretoken", token);
+    return corpo;
+  }
 
-    var corpo = new URLSearchParams(dados);
+  function enviar(item) {
+    var corpo = corpoDoItem(item, tokenAtual());
     var cabecalhos = {
       "Content-Type": "application/x-www-form-urlencoded",
       "X-Requested-With": "fetch",
@@ -265,50 +399,66 @@
     });
   }
 
+  /* O QUE FAZER COM A RESPOSTA, e sao tres saidas, nao duas.
+   *
+   *   aplicou ..... 2xx. Sai da fila, e a proxima pode ir.
+   *   recusou ..... 4xx que nao seja 401/403. O servidor nao aceita este
+   *                 conteudo, e reenviar nao melhora — manter faria a pessoa
+   *                 carregar para sempre um item que nunca passa. Sai da fila,
+   *                 e a proxima pode ir: esta operacao nunca vai existir.
+   *   espera ...... redirect sem sessao, 401, 403, 5xx, rede caindo. O item
+   *                 FICA — e por isso a fila para nele.
+   *
+   * A regra publicada era "2xx ou 4xx removem", e ela foi medida: depois de
+   * qualquer login o token do item fica velho, o CSRF responde 403, e o item
+   * era apagado. A pessoa perdia a marcacao que fez sem rede. */
+  function veredito(r) {
+    if (r.type === "opaqueredirect") return "espera";
+    if (r.status === 401 || r.status === 403) return "espera";
+    if (r.status >= 500) return "espera";
+    if (r.ok) return "aplicou";
+    if (r.status >= 400 && r.status < 500) return "recusou";
+    return "espera";
+  }
+
+  /* Drena em serie e PARA no primeiro item que ficou na fila.
+   *
+   * O laco anterior era um `reduce` que seguia para o proximo item mesmo com o
+   * anterior preservado. Ordenar sozinho nao conserta isso, e o estrago
+   * SOBREVIVE a drenagem: com `+500` preservado por 503 e `zerar` logo depois
+   * aplicado, o dia fica em 0; na drenagem seguinte o `+500` finalmente passa e
+   * o dia termina em 500, quando o certo era 0. A pessoa zerou o dia e ele
+   * voltou sozinho, horas depois.
+   *
+   * Parar e tambem o que faz a retomada funcionar: os itens continuam na fila,
+   * em ordem, e a proxima drenagem recomeca do mesmo ponto.
+   *
+   * Aqui parar e simples porque `meus()` ja filtrou UM dono. O `sw.js` drena
+   * fila de varios donos e para POR DONO — mesma regra, uma volta a mais. */
+  function emSerieAtePreservar(itens, i) {
+    if (i >= itens.length) return Promise.resolve();
+    var item = itens[i];
+    return enviar(item)
+      .then(function (r) {
+        if (veredito(r) === "espera") return;
+        return remover(item.op_id).then(function () {
+          return emSerieAtePreservar(itens, i + 1);
+        });
+      })
+      .catch(function () { /* rede caiu de novo: fica, e a fila para nele */ });
+  }
+
   function drenar() {
     if (!navigator.onLine) return Promise.resolve();
-    /* Sem sessão não há para onde drenar, e tentar seria mandar a operação de
-     * alguém para um servidor que a atribuiria a quem quer que estivesse
-     * logado. O `online` dispara sem perguntar quem está na tela. */
+    /* Sem sessao nao ha para onde drenar, e tentar seria mandar a operacao de
+     * alguem para um servidor que a atribuiria a quem quer que estivesse
+     * logado. O `online` dispara sem perguntar quem esta na tela. */
     if (!dono()) return Promise.resolve();
 
+    /* `meus()` ja devolve na ORDEM DOS TOQUES. Drenar na ordem do `getAll()`
+     * era drenar na ordem dos UUIDs. */
     return meus().then(function (itens) {
-      /* Em série e não em paralelo: são poucas, e a ordem importa quando duas
-       * marcações tocam a mesma refeição. */
-      return (itens || []).reduce(function (antes, item) {
-        return antes.then(function () {
-          return enviar(item)
-            .then(function (r) {
-              /* 4xx é o servidor recusando o conteúdo — reenviar não conserta,
-               * e manter na fila faria a pessoa carregar para sempre um item
-               * que nunca vai passar. Sai da fila. */
-              /* Só sai da fila com PROVA de aplicação.
-               *
-               * A regra publicada era "2xx ou 4xx removem", e ela foi medida:
-               * depois de qualquer login o token do item fica velho, o CSRF
-               * responde 403, e o item era apagado. A pessoa perdia a
-               * marcação que fez sem rede — inclusive só por ter saído e
-               * voltado.
-               *
-               * Agora a remoção exige sucesso. O que PRESERVA:
-               *
-               *   503 ...... o servidor dizendo que a operação não pode ser
-               *              aplicada agora (sessão, dono ou CSRF)
-               *   401/403 .. autenticação ou CSRF por qualquer outro caminho
-               *   5xx ...... erro do servidor
-               *   redirect . sem sessão, não há o que sincronizar
-               *
-               * 4xx de CONTEÚDO continua removendo: um valor que o servidor
-               * recusa não melhora com reenvio, e manter faria a pessoa
-               * carregar para sempre algo que nunca vai passar. */
-              if (r.type === "opaqueredirect") return;
-              if (r.status === 401 || r.status === 403) return;
-              if (r.status >= 500) return;
-              if (r.ok || (r.status >= 400 && r.status < 500)) return remover(item.op_id);
-            })
-            .catch(function () { /* rede caiu de novo: fica para a próxima */ });
-        });
-      }, Promise.resolve());
+      return emSerieAtePreservar(itens || [], 0);
     }).then(recontar);
   }
 
@@ -324,14 +474,41 @@
 
     evento.preventDefault();
 
+    /* A CAPTURA guarda PARES, e nao um objeto — e inclui o botao que enviou.
+     *
+     * Duas perdas medidas no navegador, as duas neste ponto:
+     *
+     * 1. `new FormData(form)` NAO inclui o botao de envio. O "Pulei" da
+     *    refeicao manda o `status` no proprio `<button name="status"
+     *    value="skipped">`, e nada mais — offline, a fila guardava so o token
+     *    CSRF. O servidor recusa `status` ausente com um redirect mudo, a
+     *    barreira de replay traduz o 302 em 200, e a fila APAGA o item. A
+     *    refeicao pulada sumia sem deixar rastro. Medido: as chaves capturadas
+     *    eram `["csrfmiddlewaretoken"]`.
+     *
+     * 2. `forEach` para dentro de um objeto colapsa chave repetida. O "Comi
+     *    outra coisa" manda tres pares `alimento`/`gramas` e o servidor le com
+     *    `getlist`; sobrava UM — e por ser o ultimo a vencer, sobrava a linha
+     *    VAZIA. O registro nascia com a descricao e macros zerados. Medido:
+     *    `3 -> 1`, e o que restou foi `alimento: ""`.
+     *
+     * `dados` continua sendo gravado, e nao e redundancia: item guardado por
+     * versao anterior so tem ele, e `enviar` precisa saber ler os dois. */
+    var pares = [];
+    new FormData(form).forEach(function (v, k) { pares.push([k, v]); });
+    var botao = evento.submitter;
+    if (botao && botao.name) pares.push([botao.name, botao.value]);
+
     var dados = {};
-    new FormData(form).forEach(function (v, k) { dados[k] = v; });
+    pares.forEach(function (par) { dados[par[0]] = par[1]; });
     dados.op_id = identificador();
+    pares.push(["op_id", dados.op_id]);
 
     guardar({
       op_id: dados.op_id,
       url: form.action,
       dados: dados,
+      pares: pares,
       em: Date.now(),
       dono: dono(),
     })
@@ -342,6 +519,23 @@
         form.dispatchEvent(
           new CustomEvent("nutriplan:enfileirado", { bubbles: true, detail: dados })
         );
+      })
+      /* Se guardar falhou, a tela NAO pode dizer que guardou.
+       *
+       * Este `.catch` existe porque um comentario logo acima prometia que a
+       * rejeicao do `onblocked` viraria "um erro que o `.catch` de quem chamou
+       * trata" — e nao havia `.catch` nenhum nesta cadeia. A promessa estava
+       * escrita e o codigo nao a cumpria.
+       *
+       * O que ele faz e modesto de proposito: NAO dispara
+       * `nutriplan:enfileirado`, porque disparar seria mentir, e deixa o erro
+       * no console em vez de sumir como rejeicao nao tratada. O toque se perde
+       * — e perder um toque avisando e melhor que perder calado.
+       *
+       * O que FALTA e um sinal na tela para quem nao abre o console. Esta
+       * declarado no BACKLOG em vez de fingido aqui. */
+      .catch(function (erro) {
+        console.error("NutriPlan: nao consegui guardar a operacao offline", erro);
       });
   });
 

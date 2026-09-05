@@ -383,8 +383,45 @@ function abrirFila() {
         db.createObjectStore(FILA_LOJA, { keyPath: "op_id" });
       }
     };
-    pedido.onsuccess = () => resolve(pedido.result);
+    /* Mesma razao do `fila.js`: sem `onblocked` a promessa nao liquida, e aqui
+     * o efeito e pior — quem espera e o `waitUntil` de um evento `sync`, que
+     * fica pendurado ate o navegador desistir. */
+    pedido.onblocked = () =>
+      reject(new Error("fila offline bloqueada por uma conexao anterior"));
+    pedido.onsuccess = () => {
+      const db = pedido.result;
+      /* Este worker segura a conexao pela drenagem INTEIRA. Sem soltar no
+       * `versionchange`, e ele quem impede a pagina de subir a versao. */
+      db.onversionchange = () => db.close();
+      resolve(db);
+    };
     pedido.onerror = () => reject(pedido.error);
+  });
+}
+
+/* ORDEM TOTAL, e deterministica ate no empate.
+ *
+ * ESTA FUNCAO EXISTE IDENTICA EM `static/js/fila.js`, e um teste em
+ * `push/test_fila_ordem.py` compara as duas. Os dois lados drenam a mesma fila; se
+ * ordenarem diferente, a mesma sequencia de toques da resultados diferentes
+ * conforme quem chegou primeiro.
+ *
+ * Item sem `seq` e LEGADO — foi enfileirado por uma versao anterior a este
+ * campo, portanto antes de qualquer item novo, e vem primeiro. Entre eles so
+ * existe o `em`, que empata; o `op_id` desempata. Nao e a ordem certa quando
+ * o `em` empata, e nao ha como recuperar a certa: e a ordem POSSIVEL, e ela
+ * pelo menos e estavel entre a pagina e o worker. */
+function emOrdemDeToque(itens) {
+  return (itens || []).slice().sort(function (a, b) {
+    var la = typeof a.seq === "number" ? 1 : 0;
+    var lb = typeof b.seq === "number" ? 1 : 0;
+    if (la !== lb) return la - lb;
+    var va = la ? a.seq : (a.em || 0);
+    var vb = lb ? b.seq : (b.em || 0);
+    if (va !== vb) return va - vb;
+    if (a.op_id < b.op_id) return -1;
+    if (a.op_id > b.op_id) return 1;
+    return 0;
   });
 }
 
@@ -406,6 +443,61 @@ function removerDaFila(db, id) {
   });
 }
 
+/* A PARADA E POR DONO, e a distincao e a razao de este worker existir assim.
+ *
+ * O laco seguia para o proximo item mesmo com o anterior preservado na fila.
+ * Isso quebra a ordem de um jeito que ordenar nao conserta, e o estrago
+ * sobrevive a drenagem: `+500` preservado por 503 e `zerar` logo depois
+ * aplicado deixam o dia em 0; na drenagem seguinte o `+500` passa e o dia
+ * termina em 500, quando o certo era 0.
+ *
+ * Parar a fila INTEIRA, porem, seria trocar um defeito por outro: este worker
+ * drena fila de VARIOS donos — ele nao tem DOM, nao sabe quem esta logado, e
+ * `accounts/replay.py` recusa com 503 todo item de quem nao e a sessao atual.
+ * Um `break` faria o primeiro item estrangeiro travar a sincronizacao de quem
+ * ESTA logado, para sempre. `push/test_replay.py` proibe `break;` por isso.
+ *
+ * Entao trava-se o DONO, e nao a fila: o item de fulano ficou, os proximos de
+ * fulano esperam, e os de todo mundo continuam. FIFO por pessoa, que e a
+ * unidade em que a ordem tem significado — ninguem tem operacao que dependa da
+ * operacao de outra conta. */
+/* O CORPO DO ENVIO, e ele prefere os PARES.
+ *
+ * ESTA FUNCAO EXISTE IDENTICA EM `static/js/fila.js`, e um teste em
+ * `push/test_fila_ordem.py` compara as duas. Os dois lados enviam a mesma fila; se
+ * montarem o corpo diferente, a mesma operacao vira dois pedidos diferentes
+ * conforme quem drenou.
+ *
+ * Item guardado por versao anterior nao tem `pares` — so o objeto `dados`, com
+ * as chaves repetidas ja colapsadas. Nao da para recuperar o que foi perdido
+ * na captura; da para enviar o que sobrou.
+ *
+ * O worker chama com `token` VAZIO de proposito: ele nao tem DOM nem cookie, e
+ * a decisao documentada e mandar o token guardado e deixar o servidor recusar
+ * de forma preservavel. Com `token` vazio o token do item e mantido. */
+function corpoDoItem(item, token) {
+  var corpo = new URLSearchParams();
+  var vistos = {};
+  var pares = item.pares;
+  if (!pares || !pares.length) {
+    pares = [];
+    Object.keys(item.dados || {}).forEach(function (k) {
+      pares.push([k, item.dados[k]]);
+    });
+  }
+  for (var i = 0; i < pares.length; i++) {
+    var k = pares[i][0];
+    if (k === "csrfmiddlewaretoken" && token) continue;
+    if (k === "op_id") {
+      if (vistos.op_id) continue;
+      vistos.op_id = 1;
+    }
+    corpo.append(k, pares[i][1]);
+  }
+  if (token) corpo.append("csrfmiddlewaretoken", token);
+  return corpo;
+}
+
 async function drenarFila() {
   /* A leitura entrou no MESMO try da abertura, e não é detalhe: `itensDaFila`
    * abre uma transação, e era ela que estourava `NotFoundError` quando o banco
@@ -425,7 +517,21 @@ async function drenarFila() {
   } catch (e) {
     return;
   }
-  for (const item of itens) {
+  const travados = new Set();
+  for (const item of emOrdemDeToque(itens)) {
+    /* O dono CRU, sem `||`. Escrever `item.dono || ""` seria o padrao que
+       `push/test_sw_fila.py` proibe — adotar o legado para alguem —, e uma
+       guarda so vale se ninguem escreve o padrao que ela procura. `undefined`
+       e chave valida num Set.
+
+       E os itens SEM dono dividem UMA faixa so, nao uma por item: todo legado
+       tem `dono === undefined`. Se o legado de A e recusado, o legado de B fica
+       para a proxima sincronizacao. Isso e aceito e nao e descuido — item sem
+       dono e quarentena, ninguem sabe de quem ele e, e adiar o envio dele e o
+       lado seguro do erro. Uma versao anterior deste comentario dizia "a
+       propria faixa dele", o que sugeria isolamento por item e era falso. */
+    const deQuem = item.dono;
+    if (travados.has(deQuem)) continue;
     try {
       /* O worker NÃO TEM DOM: não há como ele saber quem está logado. O que
          ele tem é o dono gravado no próprio item, e é isso que ele declara ao
@@ -433,8 +539,15 @@ async function drenarFila() {
 
          Este caminho é o mais perigoso da fila: roda em evento `sync`,
          possivelmente sem nenhuma aba aberta, e nenhuma correção do lado da
-         página o alcança. Item sem dono não recebe o cabeçalho, e o servidor
-         recusa — é a quarentena chegando aqui também. */
+         página o alcança.
+
+         Item sem dono não recebe o cabeçalho — e aqui a versão anterior deste
+         comentário afirmava que "o servidor recusa". Não recusa:
+         `accounts/replay.py` trata a ausência do cabeçalho como PROTOCOLO
+         LEGADO e devolve `None` de propósito, porque recusar quebraria quem
+         ainda não recarregou a página. Quem recusa, quando recusa, é o CSRF —
+         e só se o token guardado estiver velho. A quarentena de verdade é do
+         lado da página, em `meus()`. */
       const cabecalhos = {
         "Content-Type": "application/x-www-form-urlencoded",
         "X-Requested-With": "fetch",
@@ -446,7 +559,7 @@ async function drenarFila() {
         method: "POST",
         credentials: "same-origin",
         headers: cabecalhos,
-        body: new URLSearchParams(item.dados),
+        body: corpoDoItem(item, ""),
         /* Sem seguir redirect: o 302 para o login terminaria numa página 200
            que a regra abaixo leria como sucesso. */
         redirect: "manual",
@@ -461,15 +574,16 @@ async function drenarFila() {
          `continue` e não `break`: um item de outra pessoa, ou com token
          velho, não pode travar a fila inteira e impedir que o item de quem
          ESTÁ logado sincronize. */
-      if (resposta.type === "opaqueredirect") continue;
-      if (resposta.status === 401 || resposta.status === 403) continue;
-      if (resposta.status >= 500) continue;
+      if (resposta.type === "opaqueredirect") { travados.add(deQuem); continue; }
+      if (resposta.status === 401 || resposta.status === 403) { travados.add(deQuem); continue; }
+      if (resposta.status >= 500) { travados.add(deQuem); continue; }
       if (resposta.ok || (resposta.status >= 400 && resposta.status < 500)) {
         await removerDaFila(db, item.op_id);
       }
     } catch (e) {
-      /* Rede caiu: este item fica para a próxima. `continue` e não `break` —
-         um item que falha não pode impedir os outros de tentarem. */
+      /* Rede caiu: este item fica. Trava o DONO — os proximos dele dependem
+         deste — e segue para os outros. `continue` e nao `break`. */
+      travados.add(deQuem);
       continue;
     }
   }

@@ -784,7 +784,27 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
         # ela acabou de tocar.
         return redirect("plans:today" if erro else _hoje_em("#hidratacao"))
 
+    @transaction.atomic
     def post(self, request, *args, **kwargs):
+        """TUDO numa transação, e a razão é a trava de idempotência.
+
+        `ja_aplicada` faz `get_or_create` e este projeto não liga
+        `ATOMIC_REQUESTS` — então, sem este decorador, o `op_id` COMMITA
+        sozinho, antes de o efeito acontecer. Se a escrita seguinte estourasse,
+        o identificador ficava queimado e o efeito não: a fila preservava o
+        item pelo 5xx, reenviava, a trava respondia "já aplicada", a barreira
+        de replay traduzia o redirect em 200 e a fila APAGAVA o item.
+
+        A pessoa registrava água, o servidor falhava, e o registro sumia sem
+        que nada dissesse que falhou. Reproduzido em
+        `OpIdQueimadoPorFalhaNaoPodePerderAOperacaoTests`.
+
+        Com a transação em volta, o identificador e o efeito caem juntos ou não
+        caem: falhar volta ao estado anterior, e o reenvio encontra a operação
+        ainda não aplicada. A proteção contra dois reenvios SIMULTÂNEOS
+        continua sendo o índice único de `SyncedOperation`, que não depende
+        disto.
+        """
         # A trava vem ANTES de escolher o ramo, e não depois.
         #
         # Ela ficava lá embaixo, depois do `desfazer` já ter voltado — e o

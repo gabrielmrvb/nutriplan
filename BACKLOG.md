@@ -1062,7 +1062,7 @@ Registrados e **não corrigidos**, porque a campanha era hidratação e conserta
 a fila offline de passagem seria mudar um mecanismo que atende cinco telas sem
 o teste que ele merece.
 
-### ⏳ A fila offline drena em ordem ALEATÓRIA, e o comentário afirma o contrário
+### ✅ A fila offline drenava em ordem ALEATÓRIA — CORRIGIDO na campanha Fila Offline V2
 
 `static/js/fila.js:108` cria a store com `keyPath: "op_id"`, e o `op_id` é um
 `crypto.randomUUID()`. `getAll()` devolve em ordem crescente de CHAVE — ou seja,
@@ -1099,3 +1099,138 @@ tinha a mesma propriedade em `hora = agora.time()`. Quem um dia passar
 
 Classe: `LIMITAÇÃO` — não há defeito hoje, e não há guarda. Evidência:
 `[EXECUTADA]` (as três formas foram passadas para a função; nenhuma reclama).
+
+## Fila Offline V2 (05/09/2026) — ORDEM, IDEMPOTÊNCIA E CAPTURA
+
+O achado registrado acima foi **revalidado por execução antes de qualquer
+correção**, e não aceito pelo que estava escrito.
+
+### O que a medição provou
+
+Em navegador real, com IndexedDB real, e sempre com controle positivo:
+
+- **A ordem de drenagem é a dos UUIDs.** Inseridas `ccc, bbb, aaa`, o `getAll()`
+  devolve `aaa, bbb, ccc` — ordenação por CHAVE, não por inserção. Com
+  `crypto.randomUUID()`, 300 rodadas: **51,7%** de inversão com duas operações
+  (teórico 50%) e **85,7%** com três (teórico 83,3%).
+- **O `em: Date.now()` NÃO servia** — e esta era a correção óbvia. **199 de 200**
+  chamadas seguidas caem no mesmo milissegundo, e com `em` empatado o `sort`
+  estável preserva a ordem de entrada do array, que é a do UUID: 83,5% errado.
+  Relógio do aparelho andando para trás inverte o par.
+- **As operações de água não comutam**, provado contra as views reais:
+  `+500 → +500 → desfazer` termina em 500 e, drenado ao contrário, em **1.000**;
+  `+500 → zerar → +250` termina em 250 e, fora de ordem, em **0**.
+
+### O que foi feito
+
+`seq`, contador monotônico calculado como `maior + 1` **dentro da transação de
+escrita**. Medido com 60 gravações disparadas juntas: zero empates, 1 a 60
+contíguo, sem lock — o IndexedDB serializa transações de escopo sobreposto.
+
+**Sem subir a versão do IndexedDB**, e isso é o que dispensou a migração
+inteira: acrescentar campo a um registro não exige upgrade. Medido — registro
+legado com só `em` sobreviveu, conviveu com registros novos e o comparador
+ordenou os quatro certo.
+
+`emOrdemDeToque` e `corpoDoItem` existem **idênticas** em `static/js/fila.js` e
+`templates/pwa/sw.js`, e um teste compara as duas com controle positivo.
+
+### Dois defeitos que a auditoria encontrou no caminho
+
+**A captura perdia campo.** `new FormData(form)` não inclui o botão de envio: o
+"Pulei" da refeição manda o `status` no próprio `<button>`, e offline a fila
+guardava só o token CSRF — o servidor recusava com redirect mudo, a barreira
+traduzia em 200 e a fila apagava o item. Medido: as chaves capturadas eram
+`["csrfmiddlewaretoken"]`. E o `forEach` para objeto colapsava chave repetida:
+"Comi outra coisa" ia de três pares `alimento`/`gramas` para **um**, e o que
+sobrava era a linha VAZIA.
+
+**A drenagem seguia com o item anterior preservado.** Ordenar não conserta isso,
+e o estrago sobrevive à drenagem: `+500` preservado por 503 e `zerar` aplicado
+logo depois deixam o dia em 0, e na drenagem seguinte o `+500` passa e o dia
+termina em 500. A pessoa zerou o dia e ele voltou sozinho, horas depois.
+
+### E um terceiro, no servidor
+
+`ja_aplicada` grava o `op_id` com `get_or_create`, e este projeto **não liga
+`ATOMIC_REQUESTS`**. O identificador commitava antes do efeito: uma falha entre
+os dois deixava o `op_id` queimado e a operação não aplicada, e o reenvio era
+respondido com "já aplicada" — a fila apagava o item e a água sumia sem que
+nada dissesse que falhou. `post` passou a ser transacional.
+
+### ⏳ AINDA ABERTO — carga de treino enfileirada com contador defasado
+
+**Não corrigido nesta campanha, e é o achado mais destrutivo.** Ver a seção de
+bloqueio humano abaixo.
+
+`templates/workouts/_exercicio.html` guarda `series_feitas` com a contagem **já
+persistida**. Quem incrementa é o `fetch` de `templates/workouts/routine.html`,
+e ele incrementa numa CÓPIA (`dados.set`); o campo real só é reescrito no `.then`
+de sucesso. Offline, portanto, a fila captura o contador **antigo**.
+
+No replay, `workouts/views.py` grava as séries 1..N com a carga NOVA — ou seja,
+reescreve o peso de séries anteriores — e executa
+`DELETE ... set_number__gt=N`, apagando a série que a pessoa acabou de
+registrar. Com N = 0 o laço é vazio e o DELETE remove tudo daquele exercício no
+dia.
+
+Isto contradiz o que este arquivo afirmava antes: que `record_load` seria
+seguro na fila por ser idempotente. A afirmação vale para o SERVIÇO
+(`workouts/services.py`); não vale para a view que o embrulha.
+
+Evidência: `[LIDA NO CÓDIGO]` para a cadeia inteira; `[EXECUTADA]` para o
+comportamento de `FormData` que a sustenta.
+
+### ⏳ Concorrência entre os dois consumidores — investigada, sem lock
+
+`fila.js` (evento `online`) e `sw.js` (evento `sync`) podem drenar ao mesmo
+tempo, e nada os exclui. **Não foi criado lock**, e a razão é evidência e não
+preguiça: os dois enviam o mesmo `op_id`, e água está protegida pela trava;
+refeição e carga são `update_or_create`, convergentes sob repetição. O que a
+concorrência produz é trabalho repetido, não estado errado.
+
+O que ela PODE produzir e não foi medido: os dois lados parando em pontos
+diferentes da mesma fila, já que a página filtra por dono e o worker não.
+`[HIPOTÉTICA]` — sem Node não há como dirigir os dois ao mesmo tempo neste
+ambiente.
+
+### ⏳ Falha ao enfileirar não tem sinal NA TELA
+
+`static/js/fila.js` ganhou um `.catch` no enfileiramento — antes, uma rejeição
+(o `onblocked` novo, ou o `NotFoundError` nomeado de `comLoja`) sumia como
+rejeição não tratada, com o `preventDefault()` já executado: o toque se perdia e
+a tela não dizia nada.
+
+Hoje o erro vai para o console e o evento `nutriplan:enfileirado` **não** é
+disparado, que é o mínimo honesto — a tela não confirma o que não aconteceu.
+Falta o aviso visível para quem não abre o console. Achado pela revisão
+adversarial, que notou que um comentário prometia um `.catch` inexistente.
+
+Evidência: `[LIDA NO CÓDIGO]`.
+
+### ⏳ `/treino/agora/serie/` não é interceptada pela fila
+
+`ROTAS` cobre `/treino/exercicio/<id>/carga/`, usada pela tela da ficha. A tela
+"Agora" posta em `/treino/agora/serie/` (`record_set`), que nenhuma regex casa —
+então série registrada por ali, sem rede, não é enfileirada por ninguém.
+
+O cabeçalho do `fila.js` promete "carga de série", o que é verdade numa tela e
+não na outra. Não corrigido nesta campanha: acrescentar a rota exige antes
+responder se `record_set` é seguro sob reenvio e sob ordem trocada, que é a
+mesma pergunta ainda aberta da carga.
+
+Evidência: `[LIDA NO CÓDIGO]`.
+
+### ⏳ As simulações Python do laço do worker não modelam a trava por dono
+
+`push/test_sw_fila.py` tem testes cujos nomes vendem comportamento do laço —
+"A não trava B", "legado sem dono não bloqueia o item de B" — e que na verdade
+percorrem a fila item a item aplicando só a regra de REMOÇÃO, sem noção de
+faixa travada. Hoje respondem certo por acidente de fixture: os dois itens de
+cada teste caem em faixas diferentes.
+
+Não reescritos nesta campanha porque a prova do laço passou a existir em
+`push/test_fila_ordem.py`, por ramo e com o caminho de sucesso coberto. O que
+fica é a etiqueta: aqueles nomes prometem mais do que aquelas asserções entregam.
+
+Evidência: `[LIDA NO CÓDIGO]`.

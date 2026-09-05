@@ -33,6 +33,8 @@ preservavel, o item fica, e a proxima abertura do app sincroniza pelo
 `fila.js`, que tem o token atual. O worker adianta o que da e nao perde nada —
 e o `CLAUDE.md` ja registra que Background Sync nem existe no Safari do iPhone.
 """
+from push.test_cache_privado import sem_comentarios
+from push.test_replay import corpo_da_funcao
 import re
 from pathlib import Path
 
@@ -180,9 +182,17 @@ class FilaDoWorkerTests(TestCase):
         self.assertFalse(SyncedOperation.objects.filter(op_id="legada").exists())
 
     def test_o_worker_nao_inventa_dono_para_o_item_legado(self):
-        """Adotar o legado para a sessao atual seria recriar o vazamento."""
-        fonte = self.client.get("/sw.js").content.decode()
-        corpo = fonte[fonte.index("async function drenarFila"):][:2800]
+        """Adotar o legado para a sessao atual seria recriar o vazamento.
+
+        SEM COMENTARIOS, e isso e a licao que o `CLAUDE.md` ja registrava: a
+        asserção procura `item.dono || `, e o comentário que explica POR QUE
+        esse padrão não é usado contém a própria string. O teste ficou vermelho
+        com o código certo — e o gêmeo dessa falha é pior, porque um
+        `assertNotIn` satisfeito por um comentário fica VERDE com o padrão
+        proibido presente no código dez linhas abaixo.
+        """
+        fonte = sem_comentarios(self.client.get("/sw.js").content.decode())
+        corpo = corpo_da_funcao(fonte, "async function drenarFila")
 
         self.assertIn("if (item.dono)", corpo)
         self.assertNotIn("item.dono || ", corpo)

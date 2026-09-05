@@ -908,11 +908,26 @@ class FilaOfflineIndexedDBTests(TestCase):
         self.worker = self.WORKER.read_text(encoding="utf-8")
 
     def test_os_dois_lados_usam_o_mesmo_banco_e_a_mesma_loja(self):
+        """Com `assertIsNotNone` antes, e a falta dele era um buraco real.
+
+        `_constantes` usa `.get()`, então renomear `BANCO` **e** `FILA_BANCO`
+        ao mesmo tempo fazia este teste comparar `None` com `None` e passar —
+        enquanto os dois lados abriam bancos com nomes que a regex não achava
+        mais. O teste irmão da versão já tinha essa checagem; este não.
+        """
         p = self._constantes(self.pagina, ["BANCO", "LOJA"])
         w = self._constantes(self.worker, ["FILA_BANCO", "FILA_LOJA"])
 
-        self.assertEqual(p.get("BANCO"), w.get("FILA_BANCO"))
-        self.assertEqual(p.get("LOJA"), w.get("FILA_LOJA"))
+        for nome, valor in (
+            ("fila.js BANCO", p.get("BANCO")),
+            ("fila.js LOJA", p.get("LOJA")),
+            ("sw.js FILA_BANCO", w.get("FILA_BANCO")),
+            ("sw.js FILA_LOJA", w.get("FILA_LOJA")),
+        ):
+            self.assertIsNotNone(valor, "%s sumiu do arquivo" % nome)
+
+        self.assertEqual(p["BANCO"], w["FILA_BANCO"])
+        self.assertEqual(p["LOJA"], w["FILA_LOJA"])
 
     def test_os_dois_lados_declaram_a_mesma_versao(self):
         """Divergir aqui faz o lado atrasado levar `VersionError` e parar.

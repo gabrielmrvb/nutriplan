@@ -16,6 +16,7 @@ O que estes testes protegem, na ordem em que a medição os produziu:
 """
 from pathlib import Path
 
+from push.test_cache_privado import sem_comentarios
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 
@@ -236,6 +237,40 @@ class ODonoNuncaEscolheAContaTests(TestCase):
                 self.assertNotIn(proibido, fonte)
 
 
+def corpo_da_funcao(texto, assinatura):
+    """O corpo INTEIRO de uma função JavaScript, contando chaves.
+
+    Os testes deste arquivo recortavam um número fixo de caracteres a partir da
+    assinatura — `[:2800]`, `[:3200]`. Funciona até alguém escrever um
+    comentário: a asserção sai da janela e o teste fica vermelho sem que o
+    comportamento tenha mudado. Aconteceu três vezes numa campanha só.
+
+    Pior que o falso vermelho é o falso VERDE do gêmeo: um `assertNotIn` cuja
+    janela encolheu passa a não enxergar o padrão proibido, e continua verde
+    enquanto o padrão está lá, dez linhas abaixo.
+
+    Contar chaves não tem esse problema, e devolve exatamente o escopo sobre o
+    qual a asserção quer falar.
+
+    Os comentários saem ANTES da contagem, e isso é o que impede a próxima
+    armadilha: uma `}` solta dentro de um comentário fecharia o corpo cedo, e um
+    `assertNotIn` sobre o pedaço truncado ficaria VERDE com o padrão proibido
+    dez linhas abaixo. O arquivo hoje não tem chave em comentário — mas a
+    contagem não pode depender disso continuar verdade.
+    """
+    texto = sem_comentarios(texto)
+    inicio = texto.index(assinatura)
+    profundidade = 0
+    for fim in range(inicio, len(texto)):
+        if texto[fim] == "{":
+            profundidade += 1
+        elif texto[fim] == "}":
+            profundidade -= 1
+            if profundidade == 0:
+                return texto[inicio:fim + 1]
+    raise AssertionError("chave nao fechada em %r" % assinatura)
+
+
 class OsDoisClientesTests(TestCase):
     """O que a página e o worker mandam, e o que eles fazem com a resposta."""
 
@@ -246,10 +281,32 @@ class OsDoisClientesTests(TestCase):
     def test_a_pagina_renova_o_csrf_antes_de_enviar(self):
         """O Django lê o campo do POST primeiro e só olha o cabeçalho se ele
         estiver vazio — acrescentar `X-CSRFToken` sem trocar o campo não
-        adiantaria nada."""
-        corpo = self.fila[self.fila.index("function enviar(") :][:900]
+        adiantaria nada.
 
-        self.assertIn("dados.csrfmiddlewaretoken = atual", corpo)
+        A renovação mudou de LUGAR, não de existência: ela era uma linha dentro
+        de `enviar` e virou o parâmetro `token` de `corpoDoItem`, que é
+        compartilhado com o worker. As duas asserções abaixo cobrem as duas
+        metades — quem passa o token atual, e quem descarta o guardado.
+        """
+        envio = self.fila[self.fila.index("function enviar(") :][:400]
+        montagem = self.fila[self.fila.index("function corpoDoItem(") :][:900]
+
+        self.assertIn("corpoDoItem(item, tokenAtual())", envio)
+        self.assertIn('if (k === "csrfmiddlewaretoken" && token) continue;', montagem)
+        self.assertIn('corpo.append("csrfmiddlewaretoken", token)', montagem)
+
+    def test_o_worker_manda_o_token_GUARDADO_por_nao_ter_cookie(self):
+        """Controle positivo do teste acima, e uma decisão que já estava escrita.
+
+        O worker não tem DOM nem cookie, então chama a mesma montagem com token
+        vazio — e nesse caso o `continue` acima não dispara e o token do item
+        sobrevive. Se `corpoDoItem` passasse a descartar o token guardado
+        sempre, o worker mandaria pedido SEM csrf e o servidor recusaria por um
+        motivo diferente do que a decisão previa.
+        """
+        worker = corpo_da_funcao(self.sw, "async function drenarFila")
+
+        self.assertIn('corpoDoItem(item, "")', worker)
 
     def test_a_pagina_le_o_cookie_com_regex_literal(self):
         """`"\\s"` num literal de string do JavaScript vira apenas `s`."""
@@ -259,7 +316,7 @@ class OsDoisClientesTests(TestCase):
 
     def test_os_dois_declaram_o_dono(self):
         pagina = self.fila[self.fila.index("function enviar(") :][:1400]
-        worker = self.sw[self.sw.index("async function drenarFila") :][:2800]
+        worker = corpo_da_funcao(self.sw, "async function drenarFila")
 
         for nome, corpo in (("fila.js", pagina), ("sw.js", worker)):
             with self.subTest(arquivo=nome):
@@ -267,8 +324,13 @@ class OsDoisClientesTests(TestCase):
                 self.assertIn('cabecalhos["X-NutriPlan-Dono"] = item.dono', corpo)
 
     def test_nenhum_dos_dois_apaga_o_que_pode_ser_reenviado(self):
-        pagina = self.fila[self.fila.index("function drenar()") :][:2400]
-        worker = self.sw[self.sw.index("async function drenarFila") :][:3200]
+        # A âncora é `veredito`, e não `drenar`: as três regras saíram do laço
+        # para uma função própria quando a drenagem passou a PARAR no primeiro
+        # item preservado. Ler a partir de `drenar` continuaria passando por
+        # acaso enquanto as funções fossem vizinhas, e falharia no dia em que
+        # alguém as separasse — que é o dia em que o teste mais importa.
+        pagina = self.fila[self.fila.index("function veredito(") :][:1200]
+        worker = corpo_da_funcao(self.sw, "async function drenarFila")
 
         for nome, corpo, var in (
             ("fila.js", pagina, "r"),
@@ -282,14 +344,14 @@ class OsDoisClientesTests(TestCase):
     def test_o_worker_nao_para_no_primeiro_item_estrangeiro(self):
         """Um item de outra pessoa não pode travar a fila e impedir que o item
         de quem ESTÁ logado sincronize."""
-        corpo = self.sw[self.sw.index("async function drenarFila") :][:3200]
+        corpo = corpo_da_funcao(self.sw, "async function drenarFila")
 
         self.assertNotIn("break;", corpo)
         self.assertIn("continue;", corpo)
 
     def test_item_sem_dono_nao_ganha_cabecalho(self):
         """Quarentena: o worker não inventa dono para o item legado."""
-        corpo = self.sw[self.sw.index("async function drenarFila") :][:2800]
+        corpo = corpo_da_funcao(self.sw, "async function drenarFila")
 
         self.assertIn("if (item.dono)", corpo)
 

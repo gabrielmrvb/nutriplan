@@ -93,6 +93,36 @@ compara os dois arquivos. Subir a versão é o que migra quem já tem o banco
 quebrado — `deleteDatabase()` "resolveria" o console e jogaria fora a água que
 alguém registrou no metrô.
 
+**A fila offline drena na ORDEM DOS TOQUES, e ela não vem de graça.** A chave da
+store é `op_id`, que é um `crypto.randomUUID()`, e o `getAll()` do IndexedDB
+devolve por ordem de CHAVE — medido em navegador, 51,7% de inversão com duas
+operações e 85,7% com três. Como somar, zerar e desfazer não comutam, isso muda
+o resultado: `+500 → +500 → desfazer` termina em 500 e, drenado ao contrário, em
+1.000. A ordem hoje vem de `seq`, um contador calculado como `maior + 1` DENTRO
+da transação de escrita — 60 gravações concorrentes, zero empates, sem lock.
+**Não use o `em: Date.now()` para isso**: 199 de 200 chamadas seguidas caem no
+mesmo milissegundo, e com empate o `sort` estável devolve a ordem do UUID.
+`emOrdemDeToque` e `corpoDoItem` existem IDÊNTICAS nos dois arquivos, e um teste
+compara as duas.
+
+**A drenagem PARA no primeiro item que ficou na fila.** Seguir em frente com o
+anterior preservado desordena de um jeito que ordenar não conserta e que
+sobrevive à drenagem. `fila.js` para seco porque `meus()` já filtrou um dono; o
+`sw.js` trava POR DONO, porque drena fila de várias contas e um item estrangeiro
+recusado com 503 não pode travar quem está logado — é por isso que
+`push/test_replay.py` proíbe `break;` lá.
+
+**A captura guarda PARES, não um objeto, e inclui o botão que enviou.**
+`new FormData(form)` não traz o `<button>` do submit: o "Pulei" da refeição
+mandava só o token e sumia em silêncio. E objeto colapsa chave repetida: "Comi
+outra coisa" ia de três alimentos para um — o vazio, porque o último vence.
+
+**Idempotência tem de cair junto com o efeito.** Este projeto não liga
+`ATOMIC_REQUESTS`, então `ja_aplicada` commitava o `op_id` antes da escrita. Uma
+falha no meio queimava o identificador sem aplicar nada, e o reenvio era
+respondido com "já aplicada" — a fila apagava o item e o registro sumia.
+`LogHydrationView.post` é transacional por isso.
+
 **Água soma NO BANCO, não em Python.** `registro.ml = registro.ml + ml` seguido
 de `save()` é leitura-modificação-escrita: dois toques rápidos leem o mesmo
 valor e o segundo sobrescreve o primeiro. Tocar +250, +500 e +750 em sequência
