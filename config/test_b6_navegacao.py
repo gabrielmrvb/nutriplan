@@ -39,7 +39,7 @@ User = get_user_model()
 #: nunca houve decisão registrada a respeito; o `[manter a estrutura real
 #: atualmente publicada]` do contrato fala de ESTRUTURA — quatro abas, esta
 #: ordem, Corrida sob Treino —, não de nomenclatura.
-ABAS = ("Dieta", "Treino", "Progresso", "Perfil")
+ABAS = ("Alimentação", "Treino", "Progresso", "Perfil")
 
 
 class AEdicaoVoltaParaOndeAPessoaEstavaTests(TestCase):
@@ -188,12 +188,12 @@ class AAbaDaVezEAnunciadaTests(TestCase):
     #: Corrida é um dos cinco pilares e não subárea de Treino. Acender "Treino"
     #: ali era a subordinação visível na tela. Ver `SEM_ABA` logo abaixo.
     TELAS = (
-        ("plans:today", "Dieta"),
+        ("plans:today", "Alimentação"),
         ("workouts:routine", "Treino"),
         ("plans:history", "Progresso"),
         ("accounts:profile", "Perfil"),
         ("achievements:list", "Perfil"),
-        ("plans:shopping", "Dieta"),
+        ("plans:shopping", "Alimentação"),
     )
 
     #: Telas de PILAR que a barra de baixo não carrega — e onde nenhuma aba

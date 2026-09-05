@@ -66,12 +66,32 @@ concluído dentro do card de sexta, com as cargas preenchidas nas séries de lá
 mexer nessa tela, lembre: `"anterior"` vale para todos os dias (é o que se
 consulta ao abrir outra ficha), `"hoje"` vale só para a sessão de hoje.
 
-**O NutriPlan tem CINCO PILARES, e "Hoje" não é um deles.** Dieta, Treino,
-Corrida, Hidratação e Progresso estão no mesmo nível conceitual —
+**O NutriPlan tem CINCO PILARES, e "Hoje" não é um deles.** Alimentação,
+Treino, Corrida, Hidratação e Progresso estão no mesmo nível conceitual —
 `accounts.models.Pilar`. Hoje é o orquestrador do dia; Perfil é utilitário. A
 navegação DIZIA o contrário: a tela de água acendia a aba "Dieta" e a de
 corridas acendia "Treino". Hoje `nav` tem `hydration` e `running`, e nessas
 telas NENHUMA aba acende — melhor que acender a errada. Quem orienta é o mapa.
+
+**Uma área, um nome — e o nome mora em `Pilar.label`.** O padrão oficial é
+**Alimentação · Treino · Corrida · Hidratação · Progresso**. O produto já teve
+TRÊS vocabulários: a barra dizia "Dieta/Treino/Progresso", o mapa e o
+onboarding diziam "Alimentação/Musculação/Evolução", e a documentação chamava o
+quinto de "Progresso" — com os dois primeiros visíveis AO MESMO TEMPO no
+celular. `DETALHES` não escreve mais o nome: ele lê o label, e guarda só o que
+o modelo não tem (ícone e frase de apoio). `config/test_nomenclatura.py` compara
+barra, mapa, onboarding, Perfil e gestão POR DESTINO.
+
+O `value` **não** acompanhou o rótulo, e a separação é a prova de que os dois
+planos são independentes: `Pilar.DIETA` continua valendo `"dieta"` enquanto a
+tela diz "Alimentação". O valor está em banco, no `CheckConstraint`, nas chaves
+de `CAMPO_DO_PILAR` e no `name` do formulário — renomear a tela não migra dado
+nenhum, e a `0025` é no-op no PostgreSQL.
+
+E a régua protege NOME DE PRODUTO, não palavra: "dieta", "musculação" e
+"evolução" continuam livres em texto educativo. Um teste que varresse a página
+atrás delas transformaria padronização em censura de vocabulário — o app diz
+"sua dieta calculada" na descrição e "não é prescrição" no texto da água.
 
 **A barra de baixo responde FREQUÊNCIA; o mapa responde ESTRUTURA.** São
 perguntas diferentes, e por isso não competem pelo mesmo espaço. A barra tem

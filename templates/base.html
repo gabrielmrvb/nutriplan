@@ -162,7 +162,7 @@
           {% if not shell_offline and not sem_tabbar %}{% mapa_de_areas %}{% endif %}
           <a class="app-bar__link {% if nav == 'today' %}is-active{% endif %}"
              {% if nav == 'today' %}aria-current="page"{% endif %}
-             href="{% if request.demo %}/demo/hoje/{% else %}{% url 'plans:today' %}{% endif %}">Dieta</a>
+             href="{% if request.demo %}/demo/hoje/{% else %}{% url 'plans:today' %}{% endif %}">Alimentação</a>
           <a class="app-bar__link {% if nav == 'workout' %}is-active{% endif %}"
              {% if nav == 'workout' %}aria-current="page"{% endif %}
              href="{% url 'workouts:routine' %}">Treino</a>
@@ -281,7 +281,7 @@
           <path d="M17.5 3c-1.5 2-2 4-2 6.5 0 1.5.8 2.5 2 2.5s2-1 2-2.5c0-2.5-.5-4.5-2-6.5Z"/>
           <path d="M17.5 12v9"/>
         </svg>
-        Dieta
+        Alimentação
       </a>
       <a class="tabbar__item {% if nav == 'workout' %}is-active{% endif %}"
          {% if nav == 'workout' %}aria-current="page"{% endif %}

@@ -585,8 +585,8 @@ class OQueAsPessoasVieramCuidarTests(BaseDoPainel):
         pessoas = self.client.get("/gestao/pessoas/").content.decode()
 
         self.assertIn("unico@x.com", pessoas)  # controle: a pessoa está lá
-        for rotulo in ("Alimentação", "Musculação", "Corrida", "Hidratação",
-                       "Evolução"):
+        for rotulo in ("Alimentação", "Treino", "Corrida", "Hidratação",
+                       "Progresso"):
             with self.subTest(rotulo=rotulo):
                 self.assertNotIn(rotulo, pessoas)
 

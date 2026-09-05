@@ -391,7 +391,7 @@ class OPerfilDaPortaParaMudarDepoisTests(TestCase):
         self.assertIn("Alimentação", cartao)
         # E as três não escolhidas ficam de fora DELE — o cartão diz o que a
         # pessoa escolheu, não o que o app tem. Quem lista as cinco é o mapa.
-        for fora in ("Musculação", "Hidratação", "Evolução"):
+        for fora in ("Treino", "Hidratação", "Progresso"):
             with self.subTest(fora=fora):
                 self.assertNotIn(fora, cartao)
 
@@ -441,23 +441,53 @@ class NenhumaMigrationFabricaPreferenciaTests(TestCase):
             p for p in pasta.glob("0*.py") if p.stem != self.CRIADORA
         )
 
-    def test_nenhuma_outra_migration_toca_nos_seis_campos(self):
+    #: O que caracteriza FABRICAR preferência: escrever nos campos.
+    #:
+    #: A régua era "não CITAR o campo", e ela reprovou a primeira migration
+    #: honesta que apareceu — a `0025`, que só troca o RÓTULO dos pilares e no
+    #: banco é no-op. Citar não é escrever: o risco real é `RunPython`,
+    #: `RunSQL` e um `default` verdadeiro, que são os três jeitos de uma
+    #: migration marcar área para gente que não pediu.
+    ESCRITAS = ("RunPython", "RunSQL", "default=True")
+
+    def test_nenhuma_outra_migration_ESCREVE_nos_seis_campos(self):
         arquivos = self.migrations()
 
         # Controle positivo: se o `glob` parasse de achar arquivo, o laço
         # abaixo não rodaria e o teste passaria sem medir nada.
         self.assertGreater(len(arquivos), 20, arquivos)
 
+        campos = list(CAMPO_DO_PILAR.values()) + ["prioridade"]
         for caminho in arquivos:
             fonte = caminho.read_text(encoding="utf-8")
-            for campo in list(CAMPO_DO_PILAR.values()) + ["prioridade"]:
-                with self.subTest(migration=caminho.stem, campo=campo):
+            if not any(campo in fonte for campo in campos):
+                continue
+            for escrita in self.ESCRITAS:
+                with self.subTest(migration=caminho.stem, escrita=escrita):
                     self.assertNotIn(
-                        campo,
+                        escrita,
                         fonte,
-                        "%s escreve preferência — uso não é declaração"
-                        % caminho.stem,
+                        "%s cita os campos de preferência E %s — uso não é "
+                        "declaração" % (caminho.stem, escrita),
                     )
+
+    def test_a_migration_do_rotulo_nao_mexe_em_valor_nenhum(self):
+        """A 0025 renomeia a TELA. Se ela tivesse mexido em `value`, todo
+        `CheckConstraint`, todo `CAMPO_DO_PILAR` e toda linha gravada
+        apontariam para um identificador que deixou de existir."""
+        from pathlib import Path
+
+        fonte = (
+            Path(__file__).resolve().parent
+            / "migrations"
+            / "0025_alter_profile_prioridade.py"
+        ).read_text(encoding="utf-8")
+
+        for pilar in Pilar:
+            with self.subTest(pilar=pilar.value):
+                self.assertIn("'%s'" % pilar.value, fonte)
+        self.assertNotIn("RunPython", fonte)
+        self.assertNotIn("RunSQL", fonte)
 
     def test_a_criadora_nao_traz_nenhum_default_verdadeiro(self):
         """O outro jeito de fabricar: `AddField(default=True)`.

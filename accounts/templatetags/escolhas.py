@@ -11,6 +11,8 @@ o mesmo desenho em vários lugares custaria bytes e desencontraria versões.
 """
 from django import template
 
+from accounts.models import Pilar
+
 register = template.Library()
 
 #: valor da escolha -> (ícone, título do cartão, linha de apoio)
@@ -29,31 +31,38 @@ DETALHES = {
     # de gestao usa o `label` e o cartao usa este titulo, e ver a mesma area
     # com dois nomes na mesma sessao e pior que a duplicata.
     #
-    # (O comentario anterior afirmava o contrario — que o titulo NAO repetia o
-    # label. Era falso desde a primeira linha, nos cinco pilares.)
-    "dieta": (
+    # Por isso o titulo dos cinco pilares NAO e escrito aqui: ele e LIDO de
+    # `Pilar.label`. Escrever a mesma palavra em dois arquivos e o comeco de
+    # duas que divergem — e foi exatamente o que aconteceu, com a barra dizendo
+    # "Dieta" enquanto este arquivo dizia "Alimentacao". Um teste compara os
+    # cinco pares.
+    #
+    # As outras escolhas continuam com titulo proprio, e a diferenca e real:
+    # `Goal.CUT.label` e "Emagrecer" e o cartao precisa de "Perder gordura
+    # mantendo o musculo". Pilar e o caso em que o nome da area E o titulo.
+    Pilar.DIETA.value: (
         "panela",
-        "Alimentação",
+        Pilar.DIETA.label,
         "O cardápio do dia e o que você já marcou.",
     ),
-    "treino": (
+    Pilar.TREINO.value: (
         "halter",
-        "Musculação",
+        Pilar.TREINO.label,
         "A ficha da semana, as cargas e as séries.",
     ),
-    "corrida": (
+    Pilar.CORRIDA.value: (
         "bicicleta",
-        "Corrida",
+        Pilar.CORRIDA.label,
         "Suas corridas registradas e o ritmo delas.",
     ),
-    "hidratacao": (
+    Pilar.HIDRATACAO.value: (
         "gota",
-        "Hidratação",
+        Pilar.HIDRATACAO.label,
         "Quanto você bebeu hoje e como foi a semana.",
     ),
-    "progresso": (
+    Pilar.PROGRESSO.value: (
         "alvo",
-        "Evolução",
+        Pilar.PROGRESSO.label,
         "Peso, aderência e o que mudou no tempo.",
     ),
     # accounts.models.Goal

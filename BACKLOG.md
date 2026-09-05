@@ -1409,7 +1409,7 @@ regra não está escrita.
 
 ## Achados fora do escopo — Personalizado V1 (05/09/2026)
 
-### BLOQUEIO HUMANO — como cada pilar se chama na tela
+### ✅ RESOLVIDO — como cada pilar se chama na tela (05/09/2026)
 
 O mesmo destino tem DOIS nomes, e no celular os dois aparecem ao mesmo tempo —
 a barra fixa embaixo, o mapa aberto em cima:
@@ -1441,7 +1441,15 @@ como opção.
 pedido, que escolheu "Alimentação/Musculação/Evolução" para os checkboxes, e
 mexe no rótulo que o painel de gestão já mostra.
 
-Enquanto não houver resposta, nada muda.
+**Resposta do dono: o padrão oficial é Alimentação · Treino · Corrida ·
+Hidratação · Progresso.** Aplicado — e a opção A não custou o que se temia: a
+medição que faltava saiu no navegador. Com QUATRO colunas a 320px cada aba tem
+**73,6px** e "Alimentação" ocupa **67,2px**; cabe com folga, sem quebra de linha
+e com as quatro abas na mesma altura. O que não cabia era CINCO colunas (51,8px
+úteis), e essa continua sendo a razão de a barra não carregar os cinco pilares.
+
+O rótulo passou a viver só em `Pilar.label`; `DETALHES` lê de lá. Os `value`
+não mudaram, e a migration `0025` é no-op no banco.
 
 ### OBSERVAÇÃO — a régua de rolagem horizontal fica cega neste app
 

@@ -212,11 +212,17 @@ class Pilar(models.TextChoices):
     de tela.
     """
 
+    #: O `value` é IDENTIFICADOR e o label é TELA. Os dois vivem juntos aqui
+    #: de propósito: o valor entra em banco, em `CheckConstraint`, em
+    #: `CAMPO_DO_PILAR` e em URL de formulário, e por isso nunca muda; o label
+    #: é o nome que a pessoa lê, e é o único lugar do projeto onde ele é
+    #: escrito. `dieta` continuar valendo "Alimentação" é a prova de que os
+    #: dois planos são separáveis — renomear a tela não migra dado nenhum.
     DIETA = "dieta", "Alimentação"
-    TREINO = "treino", "Musculação"
+    TREINO = "treino", "Treino"
     CORRIDA = "corrida", "Corrida"
     HIDRATACAO = "hidratacao", "Hidratação"
-    PROGRESSO = "progresso", "Evolução"
+    PROGRESSO = "progresso", "Progresso"
 
 
 #: O campo booleano que guarda cada pilar, na ordem em que a tela os mostra.

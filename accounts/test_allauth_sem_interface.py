@@ -143,7 +143,7 @@ class AsContasConectadasUsamAcaraDoProdutoTests(TestCase):
         """Sem ela a pessoa entrava num lugar de onde não dava para sair."""
         html = self.client.get(self.URL).content.decode()
 
-        for aba in ("Dieta", "Treino", "Progresso", "Perfil"):
+        for aba in ("Alimentação", "Treino", "Progresso", "Perfil"):
             with self.subTest(aba=aba):
                 self.assertIn(aba, html)
 
