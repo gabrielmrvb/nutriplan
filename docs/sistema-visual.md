@@ -148,10 +148,54 @@ arquivos; as outras sete são exclusivas de um arquivo cada.
 
 ### Duplicação de primitiva no CSS
 
-- `.chip` e `.pill` — duas pílulas, mesma receita, 7 usos somados;
-- `.tile` e `.day-chip` — mesma superfície rebaixada, raios diferentes sem razão;
-- `.modal::backdrop` e `.drawer::backdrop` — o mesmo preto translúcido escrito
-  de dois jeitos (`rgba(0,0,0,.72)` e `rgba(4,8,7,.72)`).
+- `.chip` e `.pill` — **resolvido em parte, e de propósito.** As duas NÃO foram
+  fundidas: `.chip` é monoespaçada com `tabular-nums` porque carrega dado, e
+  `.pill` carrega rótulo de status. O que era duplicata era a receita de
+  pílula, e ela virou a regra compartilhada `.chip, .pill`;
+- `.tile` e `.day-chip` — mesma superfície rebaixada, raios diferentes sem razão.
+  **Continua aberto.**
+- `.modal::backdrop` e `.drawer::backdrop` — **resolvido**: viraram `--veu`.
+
+---
+
+## 5-B. Métrica: "número + rótulo"
+
+Este padrão tem **21 famílias** no app, não uma. Medido em 05/09/2026 navegando
+as telas reais, não por grep.
+
+### As nove que são VALOR de métrica
+
+`tile` · `fim` · `equation` · `drawer__numero` · `corrida-numero` ·
+`conquistas` · `semana` · `balance` · `ring`
+
+Todas declaram `font-family: var(--font-mono)` e `font-variant-numeric:
+tabular-nums`, e **há teste exigindo isso das nove**. Duas delas (`fim`,
+`conquistas`) dependiam do template escrever `class="num"` — o defeito era
+silencioso, porque só aparecia quando o número atualizava e dançava.
+
+### O que NÃO foi unificado, e por quê
+
+Não existe um componente único, e forçá-lo quebraria coisas que já funcionam:
+
+- **`semana` fica separada.** O `__rotulo` dela é uma DATA à esquerda e o
+  `__valor` é o read-out à direita de uma barra. `plans/test_b4_progresso.py`
+  protege `min-width >= 4rem` nela, com a mensagem "sem largura reservada a
+  barra volta a sobrar no treino e faltar na agua". Absorvê-la numa primitiva
+  centrada reintroduziria um defeito já corrigido e testado;
+- **`balance` fica separada.** É veredito horizontal — número assinado à
+  esquerda, título e frase à direita — com acoplamento cor↔estado
+  (`--deficit`/`--surplus`) que nenhuma outra usa, e não tem par na tela para
+  comparar;
+- **`tile`, `fim` e `conquistas` compartilham papel** (três contagens de peso
+  igual, lidas como conjunto) mas ainda têm escalas diferentes: 22,4px, 24px e
+  24px. Unificá-las move pixel e é unidade própria, ainda não feita.
+
+### Ao criar uma métrica nova
+
+Use uma das nove. Se nenhuma servir, a décima nasce com `font-family` própria e
+`tabular-nums` — o teste vai cobrar as duas. E **número grande em coluna
+estreita precisa de `white-space: nowrap`**: `.corrida-numero__valor` quebrava
+`100:00` em duas linhas antes disso, e nenhuma régua de rolagem pegava.
 
 ---
 
