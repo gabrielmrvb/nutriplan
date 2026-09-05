@@ -472,6 +472,22 @@ coluna da direita), não entre ela e o almoço.
                 meta batida
               </span>
             {% endif %}
+            {% comment %}
+              Desfazer e zerar são intenções DIFERENTES, e por isso são dois
+              botões: um conserta o toque errado, o outro recomeça o dia.
+
+              "desfazer" só aparece quando existe gole para desfazer. Dia
+              anterior à tabela de goles tem total e não tem composição —
+              oferecer ali uma ação que só pode falhar seria pior que não
+              oferecer.
+            {% endcomment %}
+            {% if pode_desfazer_agua %}
+              <form method="post" action="{% url 'plans:log_hydration' %}" class="agua__zerar">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="desfazer">
+                <button type="submit" class="btn-link">desfazer</button>
+              </form>
+            {% endif %}
             {% if hidratacao_bebida %}
               <form method="post" action="{% url 'plans:log_hydration' %}" class="agua__zerar">
                 {% csrf_token %}

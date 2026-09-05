@@ -291,6 +291,16 @@ class TodayView(PlanRequiredMixin, TemplateView):
         ).first()
         bebido = registro.ml if registro else 0
 
+        # Existe gole para desfazer? A pergunta é `exists()` e não a contagem:
+        # a tela só precisa saber se o botão aparece.
+        #
+        # Isto NÃO é o mesmo que `bebido > 0`. Um dia anterior à tabela de goles
+        # tem total e não tem composição — mostrar "desfazer" ali ofereceria uma
+        # ação que só pode falhar.
+        pode_desfazer_agua = GoleDeAgua.objects.filter(
+            user=self.request.user, dia=today
+        ).exists()
+
         # O estado do treino de hoje é CONSUMIDO do Treino V3, não recalculado.
         #
         # `estado_do_treino` deriva tudo de `ExerciseLog` e não escreve nada —
@@ -328,6 +338,7 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 "acao": acao,
                 "treino_hoje": estado_treino,
                 "hidratacao_ml": meta_agua,
+                "pode_desfazer_agua": pode_desfazer_agua,
                 "hidratacao_bebida": bebido,
                 "hidratacao_pct": (
                     min(100, int(bebido * 100 / meta_agua)) if meta_agua else 0
@@ -822,8 +833,16 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
             )
 
             if gole is None:
+                # TOPO, e não a âncora — é a convenção que o B2 fixou: "os
+                # ramos de ERRO continuam no topo, onde a mensagem é
+                # renderizada". A `.flash` mora no começo da página; mandar o
+                # erro para a âncora da água deixaria a pessoa a 2.300px da
+                # explicação, olhando um botão que não fez nada.
+                #
+                # O sucesso vai para a âncora de propósito: lá o próprio número
+                # mudando é a confirmação, e voltar ao topo custaria a posição.
                 messages.error(request, "Não há registro de hoje para desfazer.")
-                return redirect(_hoje_em("#hidratacao"))
+                return redirect("plans:today")
 
             # `Greatest(..., 0)` porque o total tem teto de 10 L: no teto, um
             # gole de 750 pode ter somado menos que 750, e devolver o pedido

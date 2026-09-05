@@ -248,3 +248,32 @@ class TotalEGolesNaoDivergenTests(Base):
 
         self.assertEqual(soma, self.total())
         self.assertEqual(soma, 1000)
+
+
+class OErroDoDesfazerVaiParaOndeAMensagemAparece(Base):
+    """Mensagem que a pessoa não vê é mensagem que não existe.
+
+    A `.flash` é renderizada no topo da página. O sucesso do registro volta
+    para `#hidratacao`, e ali o próprio número mudando é a confirmação — mas o
+    ERRO não tem número para mudar: quem tenta desfazer sem ter o que desfazer
+    precisa da frase, e a frase está a 2.300px dali.
+
+    É a convenção que o B2 já tinha fixado para esta tela, e que a primeira
+    versão deste desfazer violou.
+    """
+
+    def test_erro_de_desfazer_volta_ao_topo(self):
+        resposta = self.desfazer()
+
+        self.assertEqual(resposta.status_code, 302)
+        self.assertNotIn("#hidratacao", resposta["Location"])
+
+    def test_sucesso_do_desfazer_volta_para_a_ancora(self):
+        """Controle positivo do teste acima: se os dois fossem para o mesmo
+        lugar, o primeiro passaria sem provar distinção nenhuma."""
+        self.beber(250)
+
+        resposta = self.desfazer()
+
+        self.assertEqual(resposta.status_code, 302)
+        self.assertIn("#hidratacao", resposta["Location"])
