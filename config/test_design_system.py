@@ -29,6 +29,20 @@ e não com um valor solto.
 Se DESCEU: parabéns, você migrou. Baixe os números abaixo para o novo valor.
 Deixar o teto velho aceitaria dívida que já não existe, e a catraca pararia de
 apertar.
+
+O QUE ESTA CATRACA NÃO PEGA
+
+Dito porque uma trava com buraco não declarado é pior que nenhuma — quem confia
+nela para de olhar:
+
+- **`font-size: 83%`** e outras medidas relativas em porcentagem;
+- **`style=` no template.** Já existe um caso vivo em
+  `templates/accounts/conectar_google.html`, e nada no repositório proíbe;
+- **um arquivo `.css` novo.** O caminho aqui é fixo em `app.css`, e todos os
+  leitores de CSS deste repositório abrem esse arquivo por nome;
+- **a direção.** `TETO_*` é constante editável, e subir o teto é a mesma edição
+  de uma linha que baixá-lo. Esta catraca pega o autor distraído, não o
+  determinado — e a diferença aparece na revisão do commit, não aqui.
 """
 import re
 from pathlib import Path
@@ -43,7 +57,7 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: computado de `/treino/` (461 elementos) ficou idêntica, 849639245 antes e
 #: depois, com o CSS servido conferido para não medir cache velho.
 TETO_FONT_SIZE_CRU = 145
-TETO_ESPACO_CRU = 242
+TETO_ESPACO_CRU = 292
 
 
 def sem_comentarios(texto):
@@ -57,20 +71,46 @@ def sem_comentarios(texto):
     return re.sub(r"/\*.*?\*/", "", texto, flags=re.S)
 
 
+#: Unidades que contam como medida crua. `%` fica de fora e isso é limitação
+#: declarada, não descuido — ver `O QUE ESTA CATRACA NÃO PEGA`.
+UNIDADE = r"(?:rem|em|px|pt)"
+
+
+def _valores(declaracoes):
+    """Os valores crus de uma lista de declarações, VALOR A VALOR.
+
+    A primeira versão desta função descartava a declaração inteira quando ela
+    continha `var()`. Parecia razoável e estava errado de um jeito que se
+    agrava sozinho: `padding: .83rem var(--espaco-3)` ficava INVISÍVEL.
+
+    E é exatamente a forma que uma migração parcial produz. O commit que criou
+    esta catraca migrou só os valores que casavam com um degrau, e com isso
+    fabricou 42 declarações mistas escondendo 46 valores crus — a régua nova
+    nasceu cega para a dívida que ela própria acabara de criar.
+
+    Contar valor a valor é o conserto, e ele subiu o teto de 242 para o número
+    real. Um teto menor que a dívida não é rigor: é uma folga disfarçada de
+    precisão.
+    """
+    return [v for d in declaracoes for v in re.findall(r"([0-9.]+)" + UNIDADE, d)]
+
+
 def font_sizes_crus(css):
-    return re.findall(r"font-size:\s*([0-9.]+)(?:rem|em|px)", css)
+    """Tamanhos de texto escritos à mão, inclusive dentro de `calc()` e do
+    atalho `font:`, que a primeira versão não via."""
+    diretos = re.findall(r"font-size:\s*([^;{}]+)[;}]", css)
+    atalho = re.findall(r"(?<![-a-z])font:\s*([^;{}]+)[;}]", css)
+    return _valores(diretos + atalho)
 
 
 def espacos_crus(css):
-    declaracoes = re.findall(
-        r"(?:padding|margin|gap|row-gap|column-gap)[a-z-]*:\s*([^;]+);", css
+    """Espaçamentos escritos à mão, em qualquer unidade e mesmo ao lado de um
+    `var()` na mesma declaração."""
+    return _valores(
+        re.findall(
+            r"(?:padding|margin|gap|row-gap|column-gap)[a-z-]*:\s*([^;{}]+)[;}]", css
+        )
     )
-    return [
-        valor
-        for d in declaracoes
-        if "var(" not in d
-        for valor in re.findall(r"([0-9.]+)rem", d)
-    ]
 
 
 class ACatracaDoSistemaVisualTests(SimpleTestCase):

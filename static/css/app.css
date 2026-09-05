@@ -144,7 +144,19 @@
      distintos, com cinco degraus diferentes entre 5,4px e 6,7px.
 
      Mesma derivação: os degraus são os valores que o arquivo já usa mais.
-     .5rem aparecia 45 vezes, 1rem 40, .9rem 31, .6rem 31.
+     .5rem aparecia 45 vezes, 1rem 40, .9rem 31.
+
+     ESTA ESCALA NÃO COBRE TUDO, e a revisão adversarial pegou a frase que
+     escondia isso — a versão anterior deste comentário citava `.6rem` com 31
+     usos como evidência de frequência, ao lado de `.9rem` com os mesmos 31, e
+     só uma das duas virou degrau.
+
+     `.6rem` (31 usos), `.75rem` (29), `.3rem` (23), `.4rem` (22), `.8rem` (22)
+     e `.85rem` (22) continuam crus, e estão a 1,6px do degrau mais próximo —
+     o DOBRO do limite de invisibilidade que a escala de texto usou para se
+     justificar. Migrá-los move pixel de verdade, e por isso é outra unidade de
+     trabalho, com prova visual própria. Não é esquecimento: é o que ainda não
+     foi decidido.
 
      `--gap` e `--pad` FICAM, e apontam para degraus daqui. Eles já são usados
      e têm significado próprio (o vão padrão de uma pilha, o respiro interno
