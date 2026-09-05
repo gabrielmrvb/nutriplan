@@ -266,6 +266,29 @@
                       <input type="hidden" name="series_feitas"
                              value="{{ item.feitas }}" data-feitas-campo>
 
+                      {% comment %}
+                        O aviso de "não deu", e ele existe porque a carga saiu
+                        da fila offline.
+
+                        Sem rede, a série NÃO é guardada para depois — o corpo
+                        deste formulário carrega um contador defasado, e
+                        reproduzi-lo apaga série e reescreve peso. A tela tem de
+                        dizer isso: um toque que não faz nada visível é
+                        indistinguível de um botão quebrado, e a pessoa toca de
+                        novo.
+
+                        `role="status"` e `aria-live="polite"` são o mesmo
+                        padrão do aviso do cronômetro — que fica em
+                        `templates/workouts/routine.html`, no
+                        `[data-timer-aviso]`, e não neste arquivo. Uma versão
+                        anterior deste comentário dizia "alguns blocos acima
+                        nesta mesma ficha", e mandava quem confiasse nele
+                        procurar no lugar errado. `hidden` porque a folha base
+                        tem `[hidden] { display: none !important }`.
+                      {% endcomment %}
+                      <p class="registro__aviso" data-registro-aviso
+                         role="status" aria-live="polite" hidden></p>
+
                       <button type="submit" class="registro__salvar"
                               data-feitas="{{ item.feitas }}"
                               data-total="{{ item.sets }}"

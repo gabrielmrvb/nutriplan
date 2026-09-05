@@ -6535,3 +6535,14 @@ body.montando { overflow: hidden; }
    tem no total e não sabe quando entrou — informação de rodapé, não de topo. */
 .gole--sem-hora .gole__hora,
 .gole--sem-hora .gole__valor { color: var(--text-mute); }
+
+/* O aviso de "sem rede" do registro de carga.
+   Ocupa a linha inteira do formulário e some quando o registro dá certo — é
+   estado transitório, como `.registro--salvo`, e não um componente novo. */
+.registro__aviso {
+  grid-column: 1 / -1;
+  margin: var(--espaco-2) 0 0;
+  color: var(--warm);
+  font-size: var(--texto-sm);
+  line-height: 1.4;
+}

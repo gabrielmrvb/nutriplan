@@ -50,6 +50,12 @@ class OsDoisLadosOrdenamIgualTests(TestCase):
     COMPARTILHADAS = (
         "function emOrdemDeToque(itens) {",
         "function corpoDoItem(item, token) {",
+        # `permitida` entrou aqui depois de um comentário no `sw.js` afirmar que
+        # ela era comparada e ela NÃO ser. O corpo dela decide o que é enviado:
+        # o worker passar a comparar `href` em vez de `pathname`, por exemplo,
+        # atravessaria a suíte inteira em verde e reproduziria justamente o que
+        # a página recusa.
+        "function permitida(url) {",
     )
 
     def setUp(self):
@@ -221,14 +227,28 @@ class ADrenagemParaNoPrimeiroPreservadoTests(TestCase):
     def test_a_pagina_so_avanca_depois_de_remover(self):
         """`meus()` já filtrou UM dono, então a página pode parar seco."""
         corpo = corpo_da_funcao(self.pagina, "function emSerieAtePreservar(itens, i) {")
+        # A partir do veredito, e NAO a funcao inteira.
+        #
+        # A funcao ganhou depois um bloco de DESCARTE que contem, caractere por
+        # caractere, as mesmas duas ancoras que este teste procurava — e elas
+        # eram unicas quando ele foi escrito. Medido por revisao adversarial:
+        # tirar o `remover()` do caminho de SUCESSO passou a atravessar este
+        # teste em verde, deixando passar um item aplicado que nunca sai da
+        # fila. Recortar o ramo certo devolve a mordida.
+        sucesso = corpo[corpo.index('if (veredito(r) === "espera") return;') :]
 
-        self.assertIn('if (veredito(r) === "espera") return;', corpo)
-        # O avanço mora DENTRO do `.then` da remoção: sem prova de saída da
-        # fila, o índice não anda.
-        self.assertIn(
-            "return remover(item.op_id).then(function () {", corpo
-        )
-        self.assertIn("return emSerieAtePreservar(itens, i + 1);", corpo)
+        self.assertIn('if (veredito(r) === "espera") return;', sucesso)
+        self.assertIn("return remover(item.op_id).then(function () {", sucesso)
+        self.assertIn("return emSerieAtePreservar(itens, i + 1);", sucesso)
+
+    def test_o_recorte_do_sucesso_nao_alcanca_o_bloco_de_descarte(self):
+        """Controle do recorte acima: o descarte fica ANTES do veredito, e as
+        asserções do sucesso não podem estar lendo ele por engano."""
+        corpo = corpo_da_funcao(self.pagina, "function emSerieAtePreservar(itens, i) {")
+        sucesso = corpo[corpo.index('if (veredito(r) === "espera") return;') :]
+
+        self.assertIn("permitida(item.url)", corpo)
+        self.assertNotIn("permitida(item.url)", sucesso)
 
     #: Os três ramos que PRESERVAM o item. Cada um tem de travar o dono na
     #: própria linha — não em algum lugar da função.

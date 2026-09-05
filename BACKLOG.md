@@ -277,7 +277,7 @@ enviadas por ninguém e não são apagadas. Não há tela para elas, e criar um 
 problema por outro. Decidir: mostrar, expirar, ou deixar como está.
 
 ### Retenção da fila local
-A fila pode conter alimentação, água e carga — dado pessoal, guardado no
+A fila pode conter alimentação e água — dado pessoal, guardado no
 aparelho por tempo indefinido se a pessoa nunca voltar. Falta política de idade
 máxima, tamanho máximo, limpeza de órfãos e uma tela de "ações aguardando
 sincronização". Nada disso pede criptografia no cliente: a chave teria que ficar
@@ -420,7 +420,7 @@ o estado sair de `ExerciseLog`, e não custa posição porque o cartão inteiro
 cabe na primeira dobra (medido: `scrollY` volta a 0 e o botão fica em y≈600).
 
 Achado durante o B3 e NÃO corrigido nele, porque não é polimento: a fila
-offline cobre `/treino/exercicio/<id>/carga/` — a gravação pela LISTA — e não
+offline cobria `/treino/exercicio/<id>/carga/` — a gravação pela LISTA — e não
 cobre `/treino/agora/serie/`, que é a tela usada de pé na academia, onde o sinal
 é pior. Não é uma linha de código: `record_load` é idempotente por
 `update_or_create`, então enfileirar a GRAVAÇÃO seria seguro, mas a mesma rota
@@ -1158,7 +1158,7 @@ os dois deixava o `op_id` queimado e a operação não aplicada, e o reenvio era
 respondido com "já aplicada" — a fila apagava o item e a água sumia sem que
 nada dissesse que falhou. `post` passou a ser transacional.
 
-### ⏳ AINDA ABERTO — carga de treino enfileirada com contador defasado
+### ✅ MITIGADO (05/09/2026) — carga de treino saiu da fila offline
 
 **Não corrigido nesta campanha, e é o achado mais destrutivo.** Ver a seção de
 bloqueio humano abaixo.
@@ -1234,3 +1234,74 @@ Não reescritos nesta campanha porque a prova do laço passou a existir em
 fica é a etiqueta: aqueles nomes prometem mais do que aquelas asserções entregam.
 
 Evidência: `[LIDA NO CÓDIGO]`.
+
+## Nota de 05/09/2026 sobre os dois parágrafos anteriores
+
+`/treino/exercicio/<id>/carga/` **também saiu da fila**. Hoje nenhuma das duas
+telas de treino registra série sem rede, e aquele parágrafo ficou datado no mesmo
+dia em que a mitigação entrou — está mantido como registro, com o verbo no
+passado.
+
+A diferença entre as duas telas importa para quem pegar a campanha: a ficha da
+semana (`routine.html`) AVISA que a série não foi salva; a tela "Agora"
+(`agora.html`) é um POST de formulário puro, **sem nenhum JavaScript** — medido:
+zero ocorrências de `addEventListener("submit")`, `fetch(` ou `.catch(` no
+arquivo. Sem rede ela navega para a tela de offline, perde a série e não diz
+nada. É pré-existente, não foi tocado pela mitigação, e é a tela onde o sinal é
+pior — o parágrafo anterior já dizia isso.
+
+## ⏳ CAMPANHA — CARGA OFFLINE V2
+
+**A mitigação de 05/09/2026 é TEMPORÁRIA.** Hoje a carga de treino simplesmente
+não é registrada sem rede: a rota saiu de `ROTAS` nos dois lados da fila, e item
+de carga já gravado é DESCARTADO na drenagem em vez de reproduzido. A tela avisa
+que a série não foi salva.
+
+Isso elimina o risco e **não** entrega a funcionalidade. Registrar série sem
+sinal é exatamente o caso de uso da academia, que é onde o app é usado de pé e
+com a mão suada — a fila offline existe por causa disso. A campanha definitiva
+tem de devolver o registro offline sem risco de apagar ou reescrever histórico.
+
+### Por que a versão anterior era destrutiva
+
+Medido em `workouts/test_carga_fora_da_fila.py`, contra a view real:
+
+- três séries a 40 kg, mais uma quarta a 50 com o contador defasado → **três
+  séries a 50 kg**: a quarta some E o peso das anteriores é reescrito;
+- com `series_feitas = 0` (primeira série do dia) → o dia inteiro daquele
+  exercício é **apagado**, e nada é gravado no lugar.
+
+A causa é o formulário mandar `series_feitas`, um contador DERIVADO com a
+contagem já persistida: quem o incrementa é o `fetch` da ficha, numa CÓPIA, e o
+campo real só é reescrito no `.then` de sucesso. Offline o sucesso nunca vem.
+
+### O que a campanha precisa resolver, e nenhum item é opcional
+
+- **identidade estável de cada série** — hoje a chave é
+  `(user, exercise, date, set_number)`, e `set_number` é derivado de uma
+  contagem. Uma série precisa de identidade que não dependa de quantas outras
+  existem;
+- **contador e ordem** — o corpo enfileirado não pode carregar estado derivado
+  que envelhece na fila;
+- **append em vez de update** — "fiz mais uma série" é um evento; "tenho N
+  séries" é um estado, e estado enviado com atraso reescreve o presente;
+- **idempotência** — reenvio não pode criar série a mais nem a menos;
+- **conflito** — série registrada online enquanto outra espera na fila;
+- **replay** — o que o servidor faz com um evento antigo;
+- **múltiplas abas** — duas fichas abertas contando separado;
+- **ficha alterada antes da sincronização** — o exercício pode ter saído do
+  treino, ou o número de séries pode ter mudado;
+- **equivalência online/offline** — a mesma sequência de toques tem de terminar
+  no mesmo estado, como já vale para a água;
+- **retry, concorrência e rollback**;
+- **operação antiga depois de a ficha mudar** — e a decisão de descartar ou
+  aplicar precisa ser do produto, não um acidente do código.
+
+### O que NÃO fazer
+
+Repor a rota em `ROTAS` sem resolver o acima. `workouts/test_carga_fora_da_fila.py`
+tem a reprodução do estrago e as guardas que reprovam a reposição — elas existem
+para que a próxima pessoa tenha de encarar o problema em vez de reabrir a porta.
+
+Ver também `/treino/agora/serie/`, registrada acima: ela nunca esteve na fila, e
+a decisão sobre ela é a mesma pergunta.

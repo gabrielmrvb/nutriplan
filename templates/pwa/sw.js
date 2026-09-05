@@ -399,6 +399,26 @@ function abrirFila() {
   });
 }
 
+/* AS MESMAS ROTAS DA PAGINA, e esta funcao existe IDENTICA em
+ * `static/js/fila.js`. `push/test_fila_ordem.py` compara o CORPO das duas, e
+ * `workouts/test_carga_fora_da_fila.py` compara a lista `ROTAS`.
+ *
+ * Ela nao existia aqui: o worker fazia POST em `item.url` sem checar nada, e a
+ * validacao morava so do lado da pagina. Enquanto a pagina era a unica que
+ * gravava, o conjunto era fechado na pratica — deixou de ser suficiente no dia
+ * em que uma rota SAIU da lista e passou a haver item guardado que nao pode
+ * mais ser enviado. O worker e quem drena sem nenhuma aba aberta; sem esta
+ * checagem, ele reproduziria justamente o que a pagina passou a recusar. */
+var ROTAS = [
+  /^\/agua\/$/,
+  /^\/refeicao\/\d+\/marcar\/$/,
+];
+
+function permitida(url) {
+  var caminho = new URL(url, location.origin).pathname;
+  return ROTAS.some(function (r) { return r.test(caminho); });
+}
+
 /* ORDEM TOTAL, e deterministica ate no empate.
  *
  * ESTA FUNCAO EXISTE IDENTICA EM `static/js/fila.js`, e um teste em
@@ -532,7 +552,23 @@ async function drenarFila() {
        propria faixa dele", o que sugeria isolamento por item e era falso. */
     const deQuem = item.dono;
     if (travados.has(deQuem)) continue;
+
     try {
+      /* Rota que saiu da lista nao e enviada, e e DESCARTADA — mesma regra
+         da pagina, pelo mesmo motivo: o replay e que destroi, e ha item de
+         carga guardado por ai desde a versao publicada.
+
+         DENTRO do `try`, e nao antes dele: `new URL()` lanca `TypeError` para
+         entrada invalida, e `removerDaFila` pode rejeitar. Fora daqui, um
+         lance escaparia de `drenarFila()`, o `waitUntil` leria sync falhado e
+         o Background Sync REAGENDARIA — e o `db.close()` do fim nunca rodaria.
+         E o mesmo modo de falha que o comentario do topo desta funcao ja
+         descreve ter custado caro. */
+      if (!permitida(item.url)) {
+        await removerDaFila(db, item.op_id);
+        continue;
+      }
+
       /* O worker NÃO TEM DOM: não há como ele saber quem está logado. O que
          ele tem é o dono gravado no próprio item, e é isso que ele declara ao
          servidor — que compara com a sessão antes de mudar qualquer coisa.

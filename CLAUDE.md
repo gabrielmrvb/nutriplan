@@ -163,9 +163,23 @@ redirecionamento aberto. O pedido manda o NOME da tela, `DESTINOS` resolve, e o
 que não estiver lá cai no destino padrão.
 
 **Idempotência é requisito da fila offline.** Água SOMA e suplemento ALTERNA —
-as duas precisam de `op_id`. Marcação de refeição e carga de série usam
-`update_or_create` e já são seguras; se alguém trocá-las por contador, a fila
-quebra em silêncio.
+as duas precisam de `op_id`. Marcação de refeição usa `update_or_create` e já é
+segura; se alguém a trocar por contador, a fila quebra em silêncio.
+
+**A carga de treino NÃO entra na fila offline, e a frase acima já a incluiu.**
+Ela dizia que `record_load` era segura por `update_or_create` — verdade do
+SERVIÇO, falsa da VIEW, que envolve o serviço num laço mais um
+`DELETE ... set_number__gt=N`. O formulário manda `series_feitas`, contador
+derivado que a ficha só atualiza no sucesso; offline ele fica defasado por um,
+sempre. Medido em `workouts/test_carga_fora_da_fila.py`: três séries a 40 kg
+mais uma quarta a 50 com o contador antigo terminam em três séries a 50 — a
+quarta some e o peso das anteriores é reescrito; com o contador em zero, o dia
+daquele exercício é apagado. A rota saiu de `ROTAS` nos DOIS lados, item de
+carga já gravado é DESCARTADO na drenagem, e a FICHA DA SEMANA avisa que a série
+não foi salva em vez de fingir. A tela "Agora" não avisa — ela é POST de
+formulário puro, sem JavaScript, e sem rede navega para a tela de offline; isso é
+pré-existente e está no BACKLOG. É mitigação temporária: `CAMPANHA — CARGA
+OFFLINE V2`.
 
 **A SECRET_KEY não é gerada pela plataforma.** `generateValue: true` do Render
 entrega 256 bits em base64 — 44 caracteres —, e o Django exige 50. Isso deixou

@@ -152,8 +152,21 @@ Onde um erro custa caro ou aparece tarde:
 
 ## 6. Offline e PWA
 
-Cobertos pela fila: **água, suplemento, marcação de refeição, carga de série** —
-as quatro coisas marcadas no meio de outra atividade.
+Cobertos pela fila: **água e marcação de refeição** — e são só esses dois.
+`static/js/fila.js` tem a lista literal em `ROTAS`, e ela é a fonte.
+
+Esta linha já listou quatro, e as duas que saíram saíram por motivos
+diferentes. **Suplemento** esteve na fila de verdade — `326aaa2` a criou com a
+rota dele — e saiu em `3536b61`, quando a funcionalidade inteira deixou o
+produto. **Carga de série** saiu em 05/09/2026 com a funcionalidade INTACTA:
+o corpo dela carrega um contador defasado que o replay usa para apagar série e
+reescrever peso; ver `CAMPANHA — CARGA OFFLINE V2` no BACKLOG.
+
+Uma versão anterior desta correção dizia que o suplemento "nunca esteve na
+fila". Era falso, e o git desmente em uma linha
+(`git log -S suplementos -- static/js/fila.js`). Fica registrado porque este
+arquivo é lido como autoridade, e trocar uma linha velha por uma acusação
+errada é pior que deixar a linha velha.
 
 **Não** cobertos, e isso é decisão registrada no próprio `fila.js`: assistente de
 treino, recalibragem de metas e geração de plano. As três leem estado do servidor

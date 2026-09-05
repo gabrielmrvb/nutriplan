@@ -7,6 +7,7 @@ abrir o app.
 """
 from pathlib import Path
 
+from push.test_cache_privado import sem_comentarios
 from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
@@ -96,17 +97,49 @@ class QueueScopeTests(TestCase):
     """O que a fila cobre — e o que ela recusa a cobrir."""
 
     def setUp(self):
-        self.fila = (RAIZ / "static" / "js" / "fila.js").read_text(encoding="utf-8")
+        cru = (RAIZ / "static" / "js" / "fila.js").read_text(encoding="utf-8")
+        # SEM COMENTÁRIOS, e a lição custou caro aqui. A versão anterior lia o
+        # arquivo cru e procurava `"carga"` nele. Quando a carga SAIU da fila,
+        # o commit que a removeu escreveu sete menções à palavra explicando por
+        # quê — e o teste continuou VERDE afirmando que a fila cobre a carga.
+        # Medido: `carga` aparecia 3 vezes no arquivo e 0 fora de comentário.
+        #
+        # É a armadilha que o `CLAUDE.md` nomeia, na direção mais perigosa: o
+        # teste não só deixou de proteger como passou a documentar o sistema ao
+        # contrário, e nunca mais reprovaria.
+        self.fila = sem_comentarios(cru)
+        # A lista literal, que é onde a pergunta "o que a fila cobre?" mora.
+        self.rotas = self.fila[self.fila.index("ROTAS = [") :]
+        self.rotas = self.rotas[: self.rotas.index("];") + 2]
 
-    def test_it_covers_the_three_writes_that_happen_mid_activity(self):
-        for rota in ("agua", "refeicao", "carga"):
+    def test_a_fila_cobre_agua_e_marcacao_de_refeicao(self):
+        for rota in ("agua", "marcar"):
             with self.subTest(rota=rota):
-                self.assertIn(rota, self.fila)
+                self.assertIn(rota, self.rotas)
+
+    def test_e_nao_cobre_mais_nada(self):
+        """Controle positivo do teste acima: ele sozinho ficaria verde se a
+        lista GANHASSE rotas. Duas entradas, e são estas duas."""
+        self.assertEqual(self.rotas.count("/^"), 2, self.rotas)
+
+    def test_a_carga_de_treino_saiu_da_fila(self):
+        """Saiu com a funcionalidade INTACTA — o registro online segue igual.
+
+        O corpo daquele formulário carrega um contador defasado, e o replay
+        dele apaga série e reescreve peso. Ver
+        `workouts/test_carga_fora_da_fila.py` e `CAMPANHA — CARGA OFFLINE V2`.
+        """
+        self.assertNotIn("carga", self.rotas)
+        self.assertNotIn("treino", self.rotas)
 
     def test_suplemento_saiu_da_fila_junto_com_a_tela(self):
         """A rota não existe mais; enfileirar para ela seria guardar um POST
         que vai bater em 404 quando a rede voltar — e a fila reenviaria em
-        silêncio, sem ninguém descobrir."""
+        silêncio, sem ninguém descobrir.
+
+        Diferente da carga: o suplemento saiu porque a FUNCIONALIDADE saiu
+        (`3536b61`), e ele esteve mesmo na fila antes disso (`326aaa2`).
+        """
         self.assertNotIn("suplementos", self.fila)
 
     def test_it_refuses_anything_that_reads_server_state_to_decide(self):

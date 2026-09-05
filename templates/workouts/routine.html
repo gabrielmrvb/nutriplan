@@ -1363,6 +1363,12 @@
           if (feitas >= total) return;
 
           botao.disabled = true;
+          /* Toda tentativa comeca limpa: um aviso de "sem rede" que sobrevive
+           * ao registro seguinte vira lixo na tela e passa a mentir na direcao
+           * oposta — diz que nao salvou o que acabou de salvar. */
+          var avisoAnterior = form.querySelector("[data-registro-aviso]");
+          if (avisoAnterior) avisoAnterior.hidden = true;
+
           envia(form, feitas + 1)
             .then(function (dados) {
               atualiza(form, feitas + 1);
@@ -1388,7 +1394,28 @@
                 );
               }
             })
-            .catch(function () { form.submit(); })
+            .catch(function () {
+              /* SEM REDE a carga nao vai para lugar nenhum, e a tela diz isso.
+               *
+               * O `form.submit()` era a degradacao graciosa: se o `fetch`
+               * falhasse, o POST normal resolvia. Isso continua valendo COM
+               * rede. Sem rede ele navega para a pagina de offline e leva
+               * embora a ficha inteira no meio do treino — e agora nao ha nem
+               * fila para recolher o toque, porque a carga saiu dela.
+               *
+               * Entao: nao navega, nao marca a serie, nao finge que salvou.
+               * Avisa, e o botao volta no `.then` seguinte. */
+              if (navigator.onLine) {
+                form.submit();
+                return;
+              }
+              var aviso = form.querySelector("[data-registro-aviso]");
+              if (!aviso) return;
+              aviso.textContent =
+                "Sem rede: esta serie nao foi salva. Anote e registre de novo "
+                + "quando o sinal voltar.";
+              aviso.hidden = false;
+            })
             .then(function () { botao.disabled = false; });
         });
 

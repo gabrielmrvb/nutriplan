@@ -11,9 +11,19 @@ O que cada rota precisa provar:
 2. o MESMO replay enviado duas vezes é aplicado uma vez só.
 
 O item 2 é o que um endpoint novo erra com mais facilidade. O `CLAUDE.md` já
-nomeia a armadilha: água SOMA e suplemento ALTERNA, então as duas dependem de
-`op_id`; marcação e carga usam `update_or_create` e são seguras por
-construção. Trocar qualquer uma por um contador quebra a fila em silêncio.
+nomeia a armadilha: água SOMA, e por isso depende de `op_id`; marcação usa
+`update_or_create` e é segura por construção. Trocar qualquer uma por um
+contador quebra a fila em silêncio.
+
+A CARGA DE TREINO esteve nesta lista e saiu em 05/09/2026 — e este teste é quem
+avisou, ficando vermelho no instante em que a rota deixou `ROTAS` sem a entrada
+daqui sair junto. É exatamente para isso que a lista é LIDA do `fila.js` em vez
+de repetida. A carga não é mais enfileirada porque o corpo dela carrega um
+contador defasado e o replay apaga série; ver
+`workouts/test_carga_fora_da_fila.py` e `CAMPANHA — CARGA OFFLINE V2` no
+BACKLOG. Note que ela tinha a propriedade de idempotência que este arquivo
+exige: repetir o mesmo corpo era seguro. Chegar ATRASADO não era — e o contrato
+daqui nunca mediu isso.
 
 Limite honesto da medição: o estado é lido como (soma de água, nº de marcações,
 nº de séries). Isso pega linha duplicada e soma dobrada — não pegaria um campo
@@ -65,10 +75,6 @@ class ContratoDeReplayPorRotaTests(CatalogFixture):
             r"\/refeicao\/\d+\/marcar\/": (
                 "/refeicao/%d/marcar/" % self.slot.pk,
                 {"status": MealStatus.SKIPPED},
-            ),
-            r"\/treino\/exercicio\/\d+\/carga\/": (
-                "/treino/exercicio/%d/carga/" % self.exercicio.pk,
-                {"weight_kg": "42,5", "set_number": "1"},
             ),
         }
 

@@ -2,11 +2,18 @@
  *
  * O que ela cobre e por quê:
  *
- *   água, marcação de refeição, carga de série.
+ *   água e marcação de refeição.
  *
- * São as três coisas que a pessoa marca no meio de outra atividade — de pé
- * na academia, na fila do mercado, com o elevador descendo — e são as três
- * em que perder a marcação por falta de sinal significa perder o dado do dia.
+ * São coisas que a pessoa marca no meio de outra atividade — na fila do
+ * mercado, com o elevador descendo — e em que perder a marcação por falta de
+ * sinal significa perder o dado do dia.
+ *
+ * A CARGA DE SÉRIE já esteve nesta lista e SAIU. O corpo daquele formulário
+ * carrega um contador derivado que só é atualizado no sucesso, então o que a
+ * fila guardava sem rede vinha sempre defasado — e o replay desse corpo apaga
+ * série e reescreve peso. Ver `ROTAS`, e `CAMPANHA — CARGA OFFLINE V2` no
+ * BACKLOG. Este comentário dizia "as três coisas" e ficou falso no dia em que
+ * a rota saiu; corrigi-lo é parte da mesma mudança.
  *
  * O que ela NÃO cobre, e isso é decisão e não esquecimento: assistente de
  * treino, recalibragem de metas e geração de plano. As três leem o estado do
@@ -43,7 +50,7 @@
    *
    *   NotFoundError: One of the specified object stores was not found
    *
-   * em toda marcação de refeição, água e carga feita sem rede. A versão nunca
+   * em toda marcação de refeição e água feita sem rede. A versão nunca
    * subia, então nada se recuperava sozinho.
    *
    * Subir para 2 força o `onupgradeneeded` a rodar nos bancos já envenenados e
@@ -57,11 +64,29 @@
   var VERSAO = 2;
 
   /* Só estas rotas. Um curinga aqui seria a porta para enfileirar coisa que
-   * depende de estado do servidor. */
+   * depende de estado do servidor.
+   *
+   * A CARGA DO TREINO SAIU DAQUI, e a decisão é temporária e deliberada.
+   *
+   * O corpo daquele formulário carrega `series_feitas`, um contador DERIVADO
+   * com a contagem já persistida. Quem o incrementa é o `fetch` da ficha, e ele
+   * incrementa numa CÓPIA — o campo real só é reescrito no `.then` de sucesso.
+   * Offline o sucesso nunca vem, então o que a fila capturava era o contador
+   * ANTIGO, defasado por exatamente um, sempre, por construção.
+   *
+   * E o replay desse corpo não é escrita inofensiva: a view grava as séries
+   * 1..N com a carga NOVA e roda `DELETE ... set_number__gt=N`. Medido em
+   * `workouts/test_carga_fora_da_fila.py`: três séries a 40 kg mais uma quarta
+   * a 50 com o contador defasado terminam em TRÊS séries a 50 — a quarta some
+   * e o peso das anteriores é reescrito. Com o contador em zero, o dia inteiro
+   * daquele exercício é apagado.
+   *
+   * Perder o toque sem rede é ruim. Reescrever o treino de quem confiou no app
+   * é pior, e é silencioso. `CAMPANHA — CARGA OFFLINE V2` está no BACKLOG com o
+   * que a solução definitiva precisa resolver. */
   var ROTAS = [
     /^\/agua\/$/,
     /^\/refeicao\/\d+\/marcar\/$/,
-    /^\/treino\/exercicio\/\d+\/carga\/$/,
   ];
 
   function permitida(url) {
@@ -259,9 +284,15 @@
 
   /* Operações guardadas antes de a separação existir.
    *
-   * Não são enviadas por ninguém, e não são apagadas. Não enviar porque não
-   * há como saber de quem são; não apagar porque podem ser água ou refeição
-   * que alguém marcou de verdade, sem rede.
+   * Não são enviadas por ninguém, e não são apagadas POR AQUI. Não enviar
+   * porque não há como saber de quem são; não apagar porque podem ser água ou
+   * refeição que alguém marcou de verdade, sem rede.
+   *
+   * Uma exceção nasceu com a saída da carga da fila, e fica declarada em vez de
+   * descoberta depois: o worker drena SEM filtrar por dono, e a guarda de rota
+   * dele roda antes de qualquer outra — então um item legado cuja ROTA saiu da
+   * lista é apagado por ele. Só esse. Item legado de água ou refeição continua
+   * onde está, esperando a decisão de produto.
    *
    * Ficam aqui esperando uma decisão de produto — está no backlog como
    * RECUPERAÇÃO/EXPIRAÇÃO DE FILA OFFLINE LEGADA. Esta função existe para que
@@ -438,6 +469,32 @@
   function emSerieAtePreservar(itens, i) {
     if (i >= itens.length) return Promise.resolve();
     var item = itens[i];
+
+    /* Rota que saiu da lista NÃO é enviada, e é DESCARTADA.
+     *
+     * A versão publicada enfileirava carga de treino, então há aparelho por aí
+     * com item desses guardado agora. Tirar da lista impede novos; sem esta
+     * linha, os que já existem continuariam sendo reproduzidos — e é o replay
+     * que destrói, não o enfileiramento.
+     *
+     * Descartar e não guardar: o corpo é inaplicável por construção, não por
+     * circunstância. Guardá-lo manteria para sempre um item na contagem de
+     * pendências prometendo uma sincronização que não vai acontecer — o que é
+     * outra forma de a tela mentir — e deixaria uma mina para quem um dia
+     * repuser a rota na lista. */
+    if (!permitida(item.url)) {
+      return remover(item.op_id)
+        .then(function () {
+          return emSerieAtePreservar(itens, i + 1);
+        })
+        /* `.catch` PROPRIO: o do envio, mais abaixo, esta preso a cadeia do
+         * `enviar(item)` e nao alcanca esta. Sem ele, uma rejeicao do
+         * `remover` — e `abrir()` rejeita de proposito no `onblocked` —
+         * derrubaria `drenar()` inteiro, e o `recontar` do fim nao rodaria:
+         * a faixa de pendencias ficaria congelada num numero velho. */
+        .catch(function () { /* fica para a proxima drenagem */ });
+    }
+
     return enviar(item)
       .then(function (r) {
         if (veredito(r) === "espera") return;

@@ -128,12 +128,20 @@ class WaterReplayTests(TestCase):
 
 
 class IdempotentByNatureTests(TestCase):
-    """As duas escritas que já eram seguras — travadas para continuarem sendo.
+    """As escritas que já eram seguras — travadas para continuarem sendo.
 
-    Marcação de refeição e carga de série usam `update_or_create` com o valor
-    final, então reenviar grava o mesmo estado. É por isso que elas entram na
-    fila sem precisar de nada: a propriedade é do desenho, e um teste que a
-    afirma é o que impede alguém de trocá-las por um contador algum dia.
+    Marcação de refeição e `record_load` usam `update_or_create` com o valor
+    final, então reenviar o MESMO corpo grava o mesmo estado: a propriedade é do
+    desenho, e um teste que a afirma é o que impede alguém de trocá-las por um
+    contador algum dia.
+
+    Uma ressalva que esta docstring não tinha e precisava ter: idempotência sob
+    repetição não é o mesmo que segurança na fila. A carga de treino tem a
+    propriedade do serviço e **saiu da fila offline** mesmo assim, porque a VIEW
+    envolve o serviço num laço mais um `DELETE ... set_number__gt=N` — e o corpo
+    que ela recebe da fila vem com o contador defasado. Ver
+    `workouts/test_carga_fora_da_fila.py`. Repetir é seguro; chegar atrasado
+    não é.
     """
 
     @classmethod
