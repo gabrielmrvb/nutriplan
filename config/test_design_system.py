@@ -285,3 +285,66 @@ class NumeroDeMetricaNaoQuebraNoMeioTests(SimpleTestCase):
             self._regra(".seletor-que-nao-existe-em-lugar-nenhum"),
             "o leitor de regra devolve corpo para seletor inexistente",
         )
+
+
+class MetricaNaoDependeDoTemplateParaSerMonoTests(SimpleTestCase):
+    """A tipografia de um número é do CSS, nunca do HTML que o escreve.
+
+    `.fim__valor` e `.conquistas__numero` eram monoespaçadas só porque o
+    template escrevia `class="... num"`. As outras famílias de métrica declaram
+    a própria família. Um bloco novo copiado sem o `num` ficava proporcional, e
+    o defeito só aparecia quando o número atualizava e dançava de lugar — que é
+    exatamente o que `tabular-nums` existe para impedir.
+
+    `.num` continua no HTML e continua útil: ele marca "isto é número" para
+    quem lê o template. O que não pode é a família DEPENDER dele.
+    """
+
+    #: Toda classe que é o VALOR de uma métrica. Não inclui rótulos — eles são
+    #: texto e usam a fonte de texto de propósito.
+    VALORES = (
+        ".tile__value",
+        ".fim__valor",
+        ".equation__value",
+        ".drawer__numero-valor",
+        ".corrida-numero__valor",
+        ".conquistas__numero",
+        ".semana__valor",
+        ".balance__value",
+        ".ring__value",
+    )
+
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+
+    def _regra(self, seletor):
+        casou = re.search(
+            r"(?:^|\})\s*" + re.escape(seletor) + r"\s*\{([^}]*)\}", self.css
+        )
+        return casou.group(1) if casou else None
+
+    def test_todo_valor_de_metrica_declara_a_propria_fonte(self):
+        for seletor in self.VALORES:
+            with self.subTest(seletor=seletor):
+                corpo = self._regra(seletor)
+                self.assertIsNotNone(corpo, f"a regra {seletor} sumiu")
+                self.assertIn(
+                    "font-family: var(--font-mono)",
+                    corpo,
+                    f"{seletor} depende do `num` do template para ser mono",
+                )
+
+    def test_todo_valor_de_metrica_e_tabular(self):
+        """Sem `tabular-nums` o número muda de largura ao atualizar, e um
+        cronômetro que dança é ilegível em movimento."""
+        for seletor in self.VALORES:
+            with self.subTest(seletor=seletor):
+                corpo = self._regra(seletor)
+                self.assertIsNotNone(corpo)
+                self.assertIn("font-variant-numeric: tabular-nums", corpo)
+
+    def test_a_lista_de_valores_nao_esta_vazia_nem_casando_com_qualquer_coisa(self):
+        """Controle positivo: se `_regra` devolvesse corpo para qualquer
+        seletor, os dois testes acima passariam sem inspecionar nada."""
+        self.assertGreaterEqual(len(self.VALORES), 9)
+        self.assertIsNone(self._regra(".metrica-que-nao-existe"))

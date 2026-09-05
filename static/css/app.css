@@ -5589,6 +5589,15 @@ body.montando { overflow: hidden; }
   background: var(--surface-2);
 }
 .fim__valor {
+  /* A monoespaçada estava vindo do `class="num"` escrito no TEMPLATE, e não
+     daqui. Um bloco novo copiado sem o `num` ficava proporcional, e ninguém
+     percebia até o número atualizar e dançar de lugar. As outras famílias de
+     métrica declaram a própria família; esta e `.conquistas__numero` eram as
+     duas exceções, e `fim` não tinha teste nenhum protegendo.
+
+     Declarar aqui não muda pixel — o `.num` do template já entregava
+     exatamente esta fonte — e tira a tipografia da mão de quem edita HTML. */
+  font-family: var(--font-mono);
   font-size: 1.5rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -5944,6 +5953,10 @@ body.montando { overflow: hidden; }
 }
 
 .conquistas__numero {
+  /* Mesma correção de `.fim__valor`: a mono vinha do `num` do template.
+     `achievements/tests.py` exige que o `num` continue no HTML, então ele
+     fica; o que muda é a família deixar de DEPENDER dele. */
+  font-family: var(--font-mono);
   display: block;
   font-size: 1.5rem;
   font-weight: 800;
