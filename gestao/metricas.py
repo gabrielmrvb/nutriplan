@@ -25,7 +25,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Count, Exists, OuterRef, Q
 from django.utils import timezone
 
-from accounts.models import ONBOARDING_DONE, Profile
+from accounts.models import CAMPO_DO_PILAR, ONBOARDING_DONE, Profile
 from plans.models import HydrationLog, MealLog, NutritionPlan
 from supplements.models import SupplementLog
 from workouts.models import ExerciseLog, TrainingPlan
@@ -102,12 +102,49 @@ def numeros_do_painel():
         onboarding_step__gte=ONBOARDING_DONE
     ).count()
 
+    # POR QUE AS PESSOAS ESTÃO ENTRANDO NO NUTRIPLAN — o que elas DECLARARAM.
+    #
+    # Duas perguntas, e elas somam de formas diferentes:
+    #
+    #   interesse ...... uma pessoa marca quantas quiser. Os baldes SE
+    #                    SOBREPÕEM, e a soma passa do total de propósito. O
+    #                    painel já teve o defeito de somar um recorte junto com
+    #                    baldes exclusivos e chegar a 44 num total de 41; a
+    #                    tela separa os dois visualmente por isso.
+    #   prioridade ..... uma por pessoa. Esta soma fecha, e é ela que responde
+    #                    a pergunta do título.
+    #
+    # Uma consulta cada, sem join. Foi o que decidiu a modelagem por booleanos:
+    # com um `ManyToMany`, contar interesse exigiria join e os baldes deixariam
+    # de ser comparáveis com `declararam`.
+    #
+    # `declararam` é o denominador honesto das duas: quem nunca respondeu não
+    # é "zero interesse em tudo", é ausência de resposta. Dividir pelo total de
+    # contas afirmaria que o legado declarou desinteresse, e ele não declarou
+    # nada.
+    interesses = Profile.objects.aggregate(
+        declararam=Count("id", filter=~Q(prioridade="")),
+        **{
+            pilar: Count("id", filter=Q(**{campo: True}))
+            for pilar, campo in CAMPO_DO_PILAR.items()
+        },
+    )
+
+    por_prioridade = dict(
+        Profile.objects.exclude(prioridade="")
+        .values_list("prioridade")
+        .annotate(quantas=Count("id"))
+    )
+
     return {
         "contas": contas,
         "por_classificacao": por_classificacao,
         "onboarding_completo": terminaram,
         "funil": funil,
         "ativas_na_semana": recentes["ativas"],
+        "declararam_areas": interesses.pop("declararam"),
+        "por_interesse": interesses,
+        "por_prioridade": por_prioridade,
         "janela_curta": JANELA_CURTA,
         "janela_longa": JANELA_LONGA,
     }

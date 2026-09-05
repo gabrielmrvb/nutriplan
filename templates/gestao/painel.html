@@ -41,6 +41,56 @@
     </p>
   </section>
 
+  {% comment %}
+    POR QUE AS PESSOAS ESTÃO NO NUTRIPLAN — o que elas declararam, agregado.
+
+    Duas listas e não uma tabela, e a separação é a mesma lição de "Com acesso
+    administrativo" logo acima: interesse SE SOBREPÕE (uma pessoa marca
+    quantas quiser, e a soma passa do denominador de propósito) e prioridade é
+    EXCLUSIVA (a soma fecha). Numa tabela só, alguém somaria a coluna e
+    encontraria um número maior que o total — que foi exatamente o defeito que
+    esta tela já teve.
+
+    O denominador é `declararam_areas`, não o total de contas: quem nunca
+    respondeu não é "zero interesse em tudo", é ausência de resposta. Dividir
+    pelo total afirmaria que o legado declarou desinteresse.
+
+    Aqui não aparece preferência de NINGUÉM em particular — só contagem. A
+    tela Pessoas lista e-mails sob a mesma permissão, e cruzar as duas é o que
+    reidentificaria alguém num balde de tamanho 1.
+  {% endcomment %}
+  <section class="card">
+    <div class="card__head"><h2>O que as pessoas vieram cuidar</h2></div>
+
+    {% if declararam_areas %}
+      <h3 class="card__subtitulo">Áreas de interesse</h3>
+      <dl class="data-list data-list--recorte">
+        {% for rotulo, quantas in interesses %}
+          <div><dt>{{ rotulo }}</dt><dd>{{ quantas }}</dd></div>
+        {% endfor %}
+      </dl>
+
+      <h3 class="card__subtitulo">Prioridade principal</h3>
+      <dl class="data-list data-list--total">
+        {% for rotulo, quantas in prioridades %}
+          <div><dt>{{ rotulo }}</dt><dd>{{ quantas }}</dd></div>
+        {% endfor %}
+        <div><dt>Declararam</dt><dd>{{ declararam_areas }}</dd></div>
+      </dl>
+
+      <p class="hint">
+        A lista de cima soma mais que o total: cada pessoa marca quantas áreas
+        quiser. A de baixo fecha — a prioridade é uma só. Quem ainda não
+        respondeu não entra em nenhuma das duas.
+      </p>
+    {% else %}
+      <p class="empty-state">
+        Ninguém declarou áreas ainda. A pergunta entrou no onboarding em
+        05/09/2026, e quem já usava o app responde quando quiser.
+      </p>
+    {% endif %}
+  </section>
+
   <section class="card">
     <div class="card__head"><h2>Cadastros</h2></div>
     <dl class="data-list">

@@ -9,6 +9,7 @@ depois que ficar lento.
 from datetime import date, time, timedelta
 from decimal import Decimal
 
+from accounts.models import CAMPO_DO_PILAR
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.db import connection
@@ -430,3 +431,179 @@ class OPainelNaoFicaEmCacheHttpTests(BaseDoPainel):
         )["Cache-Control"]
 
         self.assertIn("no-store", cabecalho)
+
+
+class OQueAsPessoasVieramCuidarTests(BaseDoPainel):
+    """O agregado que responde "por que as pessoas estão entrando aqui".
+
+    Duas aritméticas diferentes no mesmo cartão, e a separação é o que estes
+    testes protegem: interesse SE SOBREPÕE — a pessoa marca quantas áreas
+    quiser, e a soma passa do denominador — enquanto prioridade é EXCLUSIVA,
+    uma por pessoa, e a soma fecha.
+
+    O denominador é quem DECLAROU, não o total de contas. Quem nunca respondeu
+    não é "zero interesse em tudo"; é ausência de resposta, e contá-la como
+    desinteresse inventaria uma declaração que ninguém fez.
+    """
+
+    def declarante(self, email, interesses=(), prioridade=""):
+        quem = self.pessoa(email)
+        perfil = self.perfil(quem)
+        for pilar, campo in CAMPO_DO_PILAR.items():
+            setattr(perfil, campo, pilar in interesses)
+        perfil.prioridade = prioridade
+        perfil.save()
+        return quem
+
+    def numeros(self):
+        from gestao.metricas import numeros_do_painel
+
+        return numeros_do_painel()
+
+    def test_cada_area_marcada_e_contada(self):
+        self.declarante("a@x.com", ("dieta", "corrida"), "dieta")
+        self.declarante("b@x.com", ("dieta",), "dieta")
+
+        contagem = self.numeros()["por_interesse"]
+
+        self.assertEqual(contagem["dieta"], 2)
+        self.assertEqual(contagem["corrida"], 1)
+        self.assertEqual(contagem["treino"], 0)
+
+    def test_a_soma_dos_interesses_PASSA_do_denominador_e_isso_esta_certo(self):
+        """Não é defeito: é o que "escolha quantas quiser" significa.
+
+        O teste existe para que ninguém "conserte" isso normalizando a soma —
+        normalizar apagaria justamente a informação de que uma pessoa veio
+        cuidar de três coisas, que é a pergunta que o cartão responde.
+        """
+        self.declarante("c@x.com", ("dieta", "corrida", "treino"), "dieta")
+
+        numeros = self.numeros()
+
+        self.assertEqual(numeros["declararam_areas"], 1)
+        self.assertEqual(sum(numeros["por_interesse"].values()), 3)
+
+    def test_a_soma_das_prioridades_FECHA_com_o_denominador(self):
+        """O par do teste acima, e a razão de as duas listas serem separadas na
+        tela: se as duas somassem igual, uma das duas estaria errada."""
+        self.declarante("d@x.com", ("dieta", "corrida"), "dieta")
+        self.declarante("e@x.com", ("treino",), "treino")
+
+        numeros = self.numeros()
+
+        self.assertEqual(numeros["declararam_areas"], 2)
+        self.assertEqual(sum(numeros["por_prioridade"].values()), 2)
+
+    def test_quem_nao_declarou_nao_entra_em_nenhuma_das_duas(self):
+        """Uso não é declaração. Este perfil existe, tem onboarding completo e
+        aparece em todo o resto do painel — e aqui ele é ausência, não zero."""
+        self.declarante("legado@x.com")
+
+        numeros = self.numeros()
+
+        self.assertEqual(numeros["declararam_areas"], 0)
+        self.assertEqual(sum(numeros["por_interesse"].values()), 0)
+        self.assertEqual(sum(numeros["por_prioridade"].values()), 0)
+
+    def test_o_denominador_nao_e_o_total_de_contas(self):
+        """A confusão que este cartão mais convida: dividir por "todo mundo".
+
+        Com um declarante e três silenciosos, um denominador de 4 diria que 75%
+        não se interessa por nada — uma afirmação sobre gente que nunca foi
+        perguntada.
+        """
+        self.declarante("fala@x.com", ("hidratacao",), "hidratacao")
+        for i in range(3):
+            self.declarante("calado%d@x.com" % i)
+
+        numeros = self.numeros()
+
+        self.assertEqual(numeros["declararam_areas"], 1)
+        self.assertEqual(numeros["contas"]["total"], 4)
+
+    def test_o_cartao_mostra_os_dois_recortes(self):
+        self.declarante("f@x.com", ("corrida", "hidratacao"), "corrida")
+        self.client.force_login(self.operador())
+
+        html = self.client.get("/gestao/").content.decode()
+
+        self.assertIn("O que as pessoas vieram cuidar", html)
+        self.assertIn("Áreas de interesse", html)
+        self.assertIn("Prioridade principal", html)
+
+    def test_sem_ninguem_declarado_o_cartao_diz_isso(self):
+        """Controle positivo do teste acima: sem ele, um cartão que só
+        renderizasse o estado vazio passaria pelas duas asserções de rótulo se
+        elas estivessem fora do `{% if %}`."""
+        self.declarante("g@x.com")
+        self.client.force_login(self.operador())
+
+        html = self.client.get("/gestao/").content.decode()
+
+        self.assertIn("Ninguém declarou áreas ainda", html)
+        self.assertNotIn("Áreas de interesse", html)
+
+    def test_cada_numero_cai_no_recorte_certo_da_tela(self):
+        """Os rótulos batendo não prova que os NÚMEROS foram para o lado certo.
+
+        Duas pessoas se interessam por dieta e só uma a elegeu principal: se a
+        montagem da view trocasse as duas listas, os rótulos continuariam todos
+        lá e a tela diria que a dieta é prioridade de duas pessoas.
+        """
+        self.declarante("h@x.com", ("dieta", "treino"), "dieta")
+        self.declarante("i@x.com", ("dieta",), "")
+        self.client.force_login(self.operador())
+
+        html = self.client.get("/gestao/").content.decode()
+        # Recorta o CARTÃO antes das listas: `data-list--recorte` também é a
+        # classe do bloco "com acesso administrativo", e sem este passo a
+        # asserção mediria o cartão errado — foi o que ela fez na primeira
+        # execução, e o vermelho apontou para lá.
+        cartao = html.split("O que as pessoas vieram cuidar")[1].split("</section>")[0]
+        recorte = cartao.split("data-list--recorte")[1].split("</dl>")[0]
+        total = cartao.split("data-list--total")[1].split("</dl>")[0]
+
+        self.assertIn("<dt>Alimentação</dt><dd>2</dd>", recorte)
+        self.assertIn("<dt>Alimentação</dt><dd>1</dd>", total)
+        self.assertIn("<dt>Declararam</dt><dd>1</dd>", total)
+
+    def test_o_painel_nao_liga_area_nenhuma_a_pessoa_nenhuma(self):
+        """A fronteira entre agregado e individual, e o limite dela dito por
+        inteiro.
+
+        Com 52 contas um balde de tamanho 1 existe, e o painel não tem piso de
+        contagem. Ele não reidentifica ninguém porque não há como ligar o balde
+        a uma pessoa: a preferência não aparece por pessoa em lugar nenhum —
+        nem na lista, que exibe e-mail sob a MESMA permissão. É essa ausência
+        que este teste prende. Repor preferência na tela Pessoas sem repensar
+        isto derruba a garantia.
+        """
+        self.declarante("unico@x.com", ("progresso",), "progresso")
+        self.client.force_login(self.operador())
+
+        pessoas = self.client.get("/gestao/pessoas/").content.decode()
+
+        self.assertIn("unico@x.com", pessoas)  # controle: a pessoa está lá
+        for rotulo in ("Alimentação", "Musculação", "Corrida", "Hidratação",
+                       "Evolução"):
+            with self.subTest(rotulo=rotulo):
+                self.assertNotIn(rotulo, pessoas)
+
+    def test_o_agregado_nao_cobra_uma_consulta_por_pilar(self):
+        """Cinco `Count(filter=...)` na MESMA varredura, não cinco varreduras.
+
+        O cartão é o sexto bloco de uma tela que já roda no plano gratuito; a
+        forma errada aqui não aparece com 52 contas e aparece com 5 mil.
+        """
+        for i in range(5):
+            self.declarante("p%d@x.com" % i, ("dieta", "treino"), "dieta")
+
+        from gestao.metricas import numeros_do_painel
+
+        with CaptureQueriesContext(connection) as consultas:
+            numeros_do_painel()
+
+        sql = [c["sql"] for c in consultas.captured_queries]
+        com_interesse = [q for q in sql if "interesse_dieta" in q]
+        self.assertEqual(len(com_interesse), 1, sql)

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load escolhas %}
 
 {% block title %}Meu perfil · NutriPlan{% endblock %}
 
@@ -135,6 +136,44 @@
     </div>
 
     <aside class="split__aside stack">
+      {% comment %}
+        As áreas do NutriPlan, e o cartão segue o padrão que esta tela já repete
+        cinco vezes: um assunto, um "Editar", e o link reabre o passo do wizard
+        que responde por ele. Nenhuma tela nova — mudar o que se quer cuidar é
+        responder a mesma pergunta de novo.
+
+        O cartão aparece SEMPRE, inclusive para quem nunca respondeu. Para essa
+        pessoa ele é o convite — não bloqueante, no lugar onde ela já vai
+        procurar quando quiser mexer no app. Esconder o cartão de quem não
+        declarou nada deixaria a pergunta sem porta.
+      {% endcomment %}
+      <section class="card">
+        <div class="card__head">
+          <h2>Suas áreas</h2>
+          <a href="{% url 'accounts:onboarding_step' step=6 %}">Editar</a>
+        </div>
+        {% if profile.personalizacao_declarada %}
+          <div class="chip-row" style="margin-bottom:.9rem">
+            {% for pilar in profile.interesses %}
+              {% with d=pilar|detalhe %}
+                <span class="chip {% if pilar == profile.prioridade %}chip--brand{% endif %}">
+                  {{ d.titulo }}{% if pilar == profile.prioridade %} · principal{% endif %}
+                </span>
+              {% endwith %}
+            {% endfor %}
+          </div>
+          <p class="hint">
+            A principal organiza o que aparece antes. Todas as áreas continuam
+            abertas — trocar não apaga nada do que você já registrou.
+          </p>
+        {% else %}
+          <p class="empty-state">
+            Você ainda não disse o que quer cuidar. Escolher organiza o que
+            aparece primeiro; nada fica escondido por não ter sido marcado.
+          </p>
+        {% endif %}
+      </section>
+
       <section class="card">
         <div class="card__head">
           <h2>Comida e restrições</h2>

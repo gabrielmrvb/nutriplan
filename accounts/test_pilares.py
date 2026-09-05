@@ -328,3 +328,74 @@ class AMigrationNaoEscreveNENHUMAPreferenciaTests(TestCase):
         for campo in list(CAMPO_DO_PILAR.values()) + ["prioridade"]:
             with self.subTest(campo=campo):
                 self.assertNotIn(campo, fonte)
+
+
+class OPerfilDaPortaParaMudarDepoisTests(TestCase):
+    """A escolha do onboarding não é eterna, e a porta para mudá-la já tinha um
+    padrão pronto: cinco cartões do Perfil apontam para um passo do wizard.
+
+    O cartão aparece SEMPRE, inclusive para quem nunca respondeu — para essa
+    pessoa ele é o convite, no lugar onde ela já vai procurar quando quiser
+    mexer no app. Esconder o cartão de quem não declarou deixaria a pergunta
+    sem porta, que é o defeito que `TodaTelaTemPortaTests` existe para pegar.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="perfil-areas@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(self.user)
+        for passo, dados in ((1, STEP1), (2, STEP2), (3, STEP3), (4, STEP4), (5, STEP5)):
+            self.client.post(step_url(passo), dados)
+
+    def perfil_html(self):
+        return self.client.get(reverse("accounts:profile")).content.decode()
+
+    def test_quem_nao_declarou_recebe_o_convite(self):
+        self.client.post(step_url(6), {"interesses": ["dieta"], "prioridade": "dieta"})
+        Profile.objects.filter(user=self.user).update(
+            prioridade="", **{c: False for c in CAMPO_DO_PILAR.values()}
+        )
+
+        html = self.perfil_html()
+
+        self.assertIn("Suas áreas", html)
+        self.assertIn("ainda não disse o que quer cuidar", html)
+
+    def test_quem_declarou_ve_as_areas_e_qual_e_a_principal(self):
+        self.client.post(
+            step_url(6),
+            {"interesses": ["dieta", "corrida"], "prioridade": "corrida"},
+        )
+
+        html = self.perfil_html()
+
+        self.assertIn("Suas áreas", html)
+        self.assertIn("· principal", html)
+        # As duas áreas aparecem; a principal é a que leva o selo.
+        self.assertIn("Corrida", html)
+        self.assertIn("Alimentação", html)
+
+    def test_o_cartao_leva_de_volta_ao_passo_das_areas(self):
+        """A porta. Sem ela, mudar de ideia exigiria adivinhar uma URL."""
+        self.client.post(step_url(6), {"interesses": ["dieta"], "prioridade": "dieta"})
+
+        self.assertIn(step_url(6), self.perfil_html())
+
+    def test_o_cartao_nao_promete_restricao(self):
+        """A frase importa: interesse organiza, não tranca. Um texto do tipo
+        "só as áreas escolhidas aparecem" seria falso e assustaria quem não
+        quer perder nada."""
+        self.client.post(step_url(6), {"interesses": ["dieta"], "prioridade": "dieta"})
+
+        html = self.perfil_html()
+
+        # Trechos que cabem numa LINHA do template: `assertIn` compara o HTML
+        # cru, e "continuam abertas" quebra entre duas linhas. É a mesma
+        # armadilha que já apareceu na Hidratação V2.
+        self.assertIn("Todas as áreas continuam", html)
+        self.assertIn("abertas — trocar não apaga nada", html)

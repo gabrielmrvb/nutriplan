@@ -13,7 +13,7 @@ from django.core.paginator import Paginator
 from django.db.models import Exists, Max, OuterRef, Q
 from django.views.generic import TemplateView
 
-from accounts.models import ClassificacaoDeConta, Profile
+from accounts.models import ClassificacaoDeConta, Pilar, Profile
 from plans.models import MealLog, NutritionPlan
 from workouts.models import ExerciseLog, TrainingPlan
 
@@ -34,6 +34,19 @@ class PainelView(PainelDeGestaoMixin, TemplateView):
         contexto["classificacao"] = [
             (rotulo, numeros["por_classificacao"].get(valor, 0))
             for valor, rotulo in ClassificacaoDeConta.choices
+        ]
+        # As áreas declaradas, montadas aqui pela mesma razão da classificação
+        # acima. Duas listas e não uma: interesse SE SOBREPÕE (a soma passa do
+        # denominador de propósito) e prioridade é exclusiva (a soma fecha).
+        # Juntá-las numa tabela só convidaria a somar a coluna, que foi o
+        # defeito que o painel já teve com "Com acesso administrativo".
+        contexto["interesses"] = [
+            (rotulo, numeros["por_interesse"].get(valor, 0))
+            for valor, rotulo in Pilar.choices
+        ]
+        contexto["prioridades"] = [
+            (rotulo, numeros["por_prioridade"].get(valor, 0))
+            for valor, rotulo in Pilar.choices
         ]
         contexto["aba"] = "painel"
         contexto["sem_tabbar"] = True

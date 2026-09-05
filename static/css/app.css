@@ -6546,3 +6546,17 @@ body.montando { overflow: hidden; }
   font-size: var(--texto-sm);
   line-height: 1.4;
 }
+
+/* Subtítulo dentro de um cartão do painel de gestão.
+   Existe porque o cartão "O que as pessoas vieram cuidar" carrega DUAS listas
+   com aritméticas diferentes — uma que se sobrepõe e outra que fecha — e sem
+   um rótulo entre elas o operador somaria a de cima. */
+.card__subtitulo {
+  margin: var(--espaco-5) 0 var(--espaco-2);
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.card__subtitulo:first-of-type { margin-top: 0; }
