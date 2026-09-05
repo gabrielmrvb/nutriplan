@@ -854,5 +854,22 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
             )
             gole.delete()
 
-        messages.success(request, "Último registro de água desfeito.")
+        # SEM aviso de confirmação, e isso é regra deste projeto e não
+        # descuido: `ConfirmacaoDeEscritaTests` recusa aviso de êxito nas ações
+        # de alta frequência desta tela, porque "um aviso em cada uma vira uma
+        # tela que fala o tempo todo".
+        #
+        # E a regra é lida no CÓDIGO-FONTE, não no comportamento — escrever o
+        # nome da chamada aqui, mesmo dentro de um comentário que a explica,
+        # deixa o teste vermelho. Aconteceu na primeira tentativa desta
+        # correção. É a armadilha que o CLAUDE.md descreve: o comentário cita o
+        # nome da coisa que a asserção procura.
+        #
+        # O desfazer pertence a essa família — é a correção de uma ação
+        # frequente —, e o número caindo de 750 para 500 já é a confirmação.
+        # A mensagem que eu havia escrito era, além de proibida, invisível: o
+        # redirect volta para a âncora e a `.flash` mora 2.300px acima.
+        #
+        # O ERRO continua falando, e por isso vai para o topo: ali não há
+        # número mudando, e sem a frase a pessoa vê um botão não fazer nada.
         return redirect(_hoje_em("#hidratacao"))
