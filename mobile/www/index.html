@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>NutriPlan — Corrida</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <main class="tela">
+    <h1>NutriPlan</h1>
+
+    <!-- ENTRAR -->
+    <section id="secao-entrar" class="cartao">
+      <h2>Entrar</h2>
+      <label for="email">E-mail</label>
+      <input id="email" type="email" autocomplete="username" inputmode="email">
+      <label for="senha">Senha</label>
+      <input id="senha" type="password" autocomplete="current-password">
+      <button id="botao-entrar" class="botao botao--primario">Entrar</button>
+      <p id="erro-entrar" class="erro" role="alert"></p>
+    </section>
+
+    <!-- CORRIDA -->
+    <section id="secao-corrida" class="cartao" hidden>
+      <div class="numero-grande">
+        <span id="distancia">0,00</span><span class="unidade">km</span>
+      </div>
+      <dl class="metricas">
+        <div><dt>Tempo</dt><dd id="tempo">00:00</dd></div>
+        <div><dt>Pontos</dt><dd id="pontos">0</dd></div>
+        <div><dt>Pace</dt><dd id="pace">—</dd></div>
+      </dl>
+      <p class="aviso">
+        Os números acima são <strong>provisórios</strong>. O valor final é
+        calculado pelo servidor quando a corrida sincroniza.
+      </p>
+      <button id="botao-iniciar" class="botao botao--primario">Iniciar corrida</button>
+      <button id="botao-encerrar" class="botao botao--perigo" hidden>Encerrar e sincronizar</button>
+      <p id="estado-corrida" class="estado" role="status"></p>
+    </section>
+
+    <!-- DIAGNOSTICO: existe para a prova fisica, e nao e enfeite.
+         Sem estes numeros na tela, "o GPS continuou com a tela bloqueada" seria
+         impressao. Com eles, e contagem. -->
+    <section class="cartao diagnostico">
+      <h2>Diagnóstico</h2>
+      <dl>
+        <div><dt>Geolocalização</dt><dd id="diag-geo">—</dd></div>
+        <div><dt>Armazenamento</dt><dd id="diag-store">—</dd></div>
+        <div><dt>Último ponto</dt><dd id="diag-ultimo">—</dd></div>
+        <div><dt>Maior intervalo</dt><dd id="diag-gap">—</dd></div>
+      </dl>
+      <pre id="log" class="log" aria-label="registro de eventos"></pre>
+    </section>
+  </main>
+
+  <script src="geo.js"></script>
+  <script src="corrida.js"></script>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

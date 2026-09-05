@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/regras_de_extracao"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+
+        <!-- MINIMIZACAO: o plugin de background geolocation traz geofencing, e
+             nos nao usamos geofencing. Os dois receivers abaixo existem so para
+             isso, e o de boot ainda faz o app ser acordado a cada partida do
+             aparelho.
+
+             Removidos pelo merger, e nao "desativados" no codigo: superficie que
+             nao existe nao precisa ser auditada depois. -->
+        <receiver
+            android:name="com.capgo.capacitor_background_geolocation.GeofenceBroadcastReceiver"
+            tools:node="remove" />
+        <receiver
+            android:name="com.capgo.capacitor_background_geolocation.GeofenceBootReceiver"
+            tools:node="remove" />
+    </application>
+
+    <!-- Permissions -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- PELO QUE ESTE APP *NAO* PEDE, E POR QUE ISSO IMPORTA
+
+         `ACCESS_BACKGROUND_LOCATION` NAO e pedida, e isso e decisao de
+         arquitetura e nao esquecimento. A documentacao do Android classifica
+         como localizacao de PRIMEIRO plano tudo que acontece enquanto um
+         foreground service esta de pe, e cita a tela apagada com todas as
+         letras: "Your app retains access when it's placed in the background,
+         such as when the user presses the Home button on their device or turns
+         their device's display off."
+
+         Como a corrida so comeca com o app aberto e sobe um foreground service
+         do tipo `location`, a permissao de background nunca e necessaria. E
+         nao pedi-la evita o Permissions Declaration Form do Google Play, cujo
+         proprio criterio de revisao pergunta se o app poderia entregar a mesma
+         experiencia sem ela. Aqui a resposta e sim.
+
+         As demais permissoes (FINE/COARSE_LOCATION, FOREGROUND_SERVICE,
+         FOREGROUND_SERVICE_LOCATION, POST_NOTIFICATIONS, WAKE_LOCK) entram pelo
+         merge do plugin e sao o minimo para o servico de localizacao existir. -->
+    <uses-permission
+        android:name="android.permission.RECEIVE_BOOT_COMPLETED"
+        tools:node="remove" />
+</manifest>

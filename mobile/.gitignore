@@ -1,0 +1,25 @@
+# O que NAO entra no repositorio, e por que.
+#
+# Este projeto ja registrou duas vezes um `git add -A` trazendo pasta inteira
+# que nao era para vir, e o `pre-commit` ganhou uma trava por causa disso. Aqui
+# o risco e maior que o normal: `node_modules` sao 28 MB e milhares de arquivos.
+
+# Dependencias: reconstruiveis por `npm ci` a partir do package-lock.json.
+node_modules/
+
+# Saidas de build do Gradle. O APK e artefato, nao fonte.
+android/build/
+android/app/build/
+android/.gradle/
+android/captures/
+android/.idea/
+android/local.properties
+
+# `local.properties` acima merece a linha propria: ele guarda o CAMINHO DO SDK
+# desta maquina. Commitado, quebraria o build de qualquer outra pessoa com um
+# erro que aponta para um diretorio que ela nao tem.
+
+# O projeto `android/` em si FICA versionado, e isso e decisao: o
+# AndroidManifest.xml tem customizacao nossa — a remocao do geofencing e do
+# receiver de boot, e o bloqueio de backup. `cap add android` regenerado do
+# zero perderia as tres, em silencio.

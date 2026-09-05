@@ -1,0 +1,15 @@
+{
+  "appId": "com.nutriplan.app",
+  "appName": "NutriPlan",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "BackgroundGeolocation": {
+      "notificationTitle": "Corrida em andamento",
+      "notificationText": "O NutriPlan esta registrando seu percurso.",
+      "notificationIcon": "ic_launcher"
+    }
+  }
+}

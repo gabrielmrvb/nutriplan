@@ -1,0 +1,98 @@
+/* As mesmas reguas do app web, e pelos mesmos motivos:
+ * alvo de toque 44x44, numero com virgula e tabular-nums, nada rola na
+ * horizontal. Sem framework e sem build step. */
+:root {
+  --tinta: #1a1a1a;
+  --fundo: #f7f7f5;
+  --cartao: #ffffff;
+  --borda: #e0e0dc;
+  --marca: #2f6f4f;
+  --perigo: #b32d24;
+  --fraco: #5f5f5a;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--tinta);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tela { max-width: 30rem; margin: 0 auto; padding: 16px; }
+h1 { font-size: 1.25rem; margin: 8px 0 16px; }
+h2 { font-size: 1rem; margin: 0 0 12px; }
+
+.cartao {
+  background: var(--cartao);
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  min-width: 0;                 /* nada rola na horizontal */
+}
+
+label { display: block; font-size: 0.875rem; margin: 12px 0 4px; }
+
+input {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 16px;              /* < 16px faz o iOS dar zoom no foco */
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+}
+
+.botao {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 16px;
+  padding: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.botao--primario { background: var(--marca); color: #fff; }
+.botao--perigo { background: var(--perigo); color: #fff; }
+.botao:focus-visible { outline: 3px solid #000; outline-offset: 2px; }
+
+.numero-grande {
+  font-size: 3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  line-height: 1.1;
+}
+.unidade { font-size: 1rem; font-weight: 400; color: var(--fraco); margin-left: 6px; }
+
+.metricas { display: flex; justify-content: space-between; gap: 12px; margin: 16px 0 0; }
+.metricas div { flex: 1; min-width: 0; text-align: center; }
+.metricas dt { font-size: 0.75rem; color: var(--fraco); }
+.metricas dd { margin: 2px 0 0; font-size: 1.125rem; font-variant-numeric: tabular-nums; }
+
+.aviso { font-size: 0.8125rem; color: var(--fraco); margin: 12px 0 0; }
+.estado { font-size: 0.875rem; margin: 12px 0 0; }
+.erro { color: var(--perigo); font-size: 0.875rem; margin: 8px 0 0; }
+
+.diagnostico dl { margin: 0; }
+.diagnostico div { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; }
+.diagnostico dt { font-size: 0.8125rem; color: var(--fraco); }
+.diagnostico dd { margin: 0; font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+
+.log {
+  margin: 12px 0 0;
+  padding: 8px;
+  max-height: 12rem;
+  overflow: auto;               /* o log rola DENTRO de si, nao a pagina */
+  background: #f0f0ee;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

@@ -1,0 +1,19 @@
+{
+  "name": "nutriplan-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cliente Android do NutriPlan. Existe por um motivo só: GPS com a tela bloqueada, que a PWA nao tem como fazer.",
+  "scripts": {
+    "sync": "cap sync android",
+    "build:debug": "cd android && gradlew.bat assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/preferences": "^8.0.0",
+    "@capgo/background-geolocation": "^8.4.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0"
+  }
+}
