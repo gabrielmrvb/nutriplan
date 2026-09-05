@@ -18,8 +18,8 @@ O sistema não é uniforme, e fingir que é seria o começo do problema:
 |---|---|---|---|
 | **quina** | 5 | sim — `config/tests.py:614` | **0** |
 | **cor** | 48 | sim — órfão e não-declarado | 8 |
-| **espaço** | 7 + `--gap`/`--pad` | catraca | 242 |
-| **texto** | 8 | catraca | 145 |
+| **espaço** | 7 + `--gap`/`--pad` | catraca | 291 |
+| **texto** | 8 | catraca | 144 |
 
 A lição que organiza tudo: **onde existe eixo E teste, a violação é zero.** O
 raio não tem nem um valor cru em 6.300 linhas, e não é porque alguém teve mais
@@ -96,7 +96,7 @@ use o degrau.**
 ## 4. A catraca — como trabalhar com ela
 
 `config/test_design_system.py` guarda dois números: quantos valores crus de
-texto e de espaço existem hoje (145 e 242). Ela falha em três situações:
+texto e de espaço existem hoje (144 e 291). Ela falha em três situações:
 
 - **a dívida subiu** — você escreveu valor cru. Use um degrau;
 - **a dívida caiu e o teto ficou** — você migrou e esqueceu de baixar o número.
