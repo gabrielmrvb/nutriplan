@@ -57,7 +57,7 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: computado de `/treino/` (461 elementos) ficou idêntica, 849639245 antes e
 #: depois, com o CSS servido conferido para não medir cache velho.
 TETO_FONT_SIZE_CRU = 145
-TETO_ESPACO_CRU = 292
+TETO_ESPACO_CRU = 291
 
 
 def sem_comentarios(texto):

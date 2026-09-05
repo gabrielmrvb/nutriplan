@@ -114,6 +114,13 @@
   --radius-sm: 11px;
   --pill: 999px;
 
+  /* O véu atrás de qualquer overlay. Existia escrito por extenso em dois
+     lugares e com DOIS pretos diferentes — `rgba(0,0,0,.72)` no modal e
+     `rgba(4,8,7,.72)` no drawer. A mesma intenção divergindo em três pontos
+     de RGB é como as duas telas acabam com veladuras diferentes numa
+     terça-feira. */
+  --veu: rgba(4, 8, 7, .72);
+
   /* A ESCALA DE TEXTO. Ela não existia, e a ausência custou 41 tamanhos
      diferentes em 214 declarações — medido em 05/09/2026.
 
@@ -265,6 +272,11 @@
    depois: os tokens escuros são a base. */
 @media (prefers-color-scheme: light) {
   :root {
+    /* O véu NÃO muda com o tema, e isso é decisão e não esquecimento: antes
+       destes tokens os dois backdrops já eram o mesmo preto translúcido nos
+       dois temas. Um véu claro sobre fundo claro não separa nada — o que
+       separa o overlay do conteúdo é escurecer, venha o tema que vier. */
+    --veu: rgba(4, 8, 7, .72);
     color-scheme: light;
 
     --bg: #f4f6f5;
@@ -938,13 +950,25 @@ h3 { font-size: .95rem; font-weight: 650; }
 
 .chip-row { display: flex; flex-wrap: wrap; gap: .4rem; }
 
-.chip {
+/* A RECEITA COMPARTILHADA das duas pílulas do app.
+   `.chip` e `.pill` NÃO são a mesma coisa e não foram fundidas: `.chip` é
+   monoespaçada com `tabular-nums` porque carrega dado (contagem, medida), e
+   `.pill` carrega rótulo de status. Fundir apagaria essa diferença.
+   O que era duplicata de verdade é a receita de pílula — três declarações
+   idênticas escritas duas vezes —, e ela mora aqui agora. */
+.chip, .pill {
   display: inline-flex;
   align-items: center;
+  /* `.3rem` e não `--espaco-1` (.25rem): a diferença é 0,8px, e migrar por
+     conveniência é exatamente o que esta campanha se proibiu. Casamento
+     exato ou nada; o resto é outra unidade, com prova visual. */
   gap: .3rem;
+  border-radius: var(--pill);
+}
+
+.chip {
   padding: .34rem .72rem;
   border: 1px solid var(--border);
-  border-radius: var(--pill);
   background: var(--surface-2);
   color: var(--text-dim);
   font-size: .76rem;
@@ -2707,7 +2731,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .modal[open] { animation: modal-entra .15s var(--ease); }
 
 .modal::backdrop {
-  background: rgba(0, 0, 0, .72);
+  background: var(--veu);
   animation: drawer-fade .15s ease-out;
 }
 
@@ -2827,11 +2851,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
    deixa a superfície de baixo aparecer, então a mesma regra serve sobre
    grafite e sobre papel. */
 .pill {
-  display: inline-flex;
-  align-items: center;
-  gap: .3rem;
   padding: .18rem .6rem;
-  border-radius: var(--pill);
   font-size: .72rem;
   font-weight: 700;
   line-height: 1.55;
@@ -3077,7 +3097,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 }
 
 .drawer::backdrop {
-  background: rgba(4, 8, 7, .72);
+  background: var(--veu);
   backdrop-filter: blur(3px);
   animation: drawer-fade .26s ease-out;
 }
@@ -3593,7 +3613,10 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .95);
+  /* Havia uma segunda declaração de `box-shadow` acima desta, com um preto
+     cru, e ela nunca pintou: a linha de baixo a sobrescrevia. Era o único
+     bloco do arquivo com propriedade repetida, e sobreviveu porque o
+     resultado visual já estava certo — defeito invisível é o que fica. */
   box-shadow: var(--edge), var(--shadow-deep);
   animation: install-sobe .32s ease-out;
 }
