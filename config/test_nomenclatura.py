@@ -213,15 +213,22 @@ class OOnboardingEOPerfilConcordamTests(BaseDaNomenclatura):
             self.client.post(step_url(passo), dados)
 
         html = self.client.get(step_url(6)).content.decode()
+        # Os CARTÕES, e não a página: o passo 6 declara `sem_tabbar`, que
+        # desliga o mapa e a barra de baixo — mas NÃO a barra de cima, que
+        # continua imprimindo "Alimentação", "Treino" e "Progresso". A versão
+        # anterior varria o HTML inteiro, e três dos cinco subTests passavam
+        # por causa dela: esvaziar o título do cartão os deixaria verdes. Uma
+        # revisão adversarial mediu.
+        cartoes = html.split('class="choice-list', 1)[1].split("</ul>", 1)[0]
 
         for pilar in Pilar:
             with self.subTest(pilar=pilar.value):
-                self.assertIn(OFICIAIS[pilar.value], html)
+                self.assertIn(OFICIAIS[pilar.value], cartoes)
         for velho in APOSENTADOS:
             if velho in OFICIAIS.values():
                 continue
             with self.subTest(nome=velho):
-                self.assertNotIn(velho, html)
+                self.assertNotIn(velho, cartoes)
 
     def test_o_perfil_repete_o_nome_que_o_onboarding_ofereceu(self):
         """A pessoa escolheu uma palavra; o Perfil tem de devolver a MESMA."""
@@ -352,3 +359,49 @@ class ANomenclaturaNaoProibePalavraTests(TestCase):
 
         # Trecho que cabe numa linha do template: o HTML cru quebra a frase.
         self.assertIn("uma regra prática para adulto ativo", conteudo)
+
+
+class ACapaDoDemoNaoFicaParaTrasTests(TestCase):
+    """A capa do demo escreve os cinco nomes à mão, e nada guardava isso.
+
+    `demo.views.AREAS` é uma lista de `(destino, nome, descrição)` montada no
+    Python — ela não lê `Pilar.label`, e não pode ler: metade das entradas não
+    é pilar (Hoje, Lista de compras, Perfil). Nesta campanha ela foi corrigida
+    por edição manual, e uma revisão adversarial apontou o buraco: renomear um
+    pilar amanhã deixa a capa com o nome velho, em silêncio, na tela que o
+    comentário do próprio arquivo chama de primeira coisa que um avaliador vê.
+
+    A régua não exige que a capa liste os cinco — ela lista oito destinos de
+    propósito. Exige que, QUANDO ela nomear uma área, o nome seja o oficial.
+    """
+
+    def nomes_da_capa(self):
+        from demo.views import AREAS
+
+        return [nome for _destino, nome, _descricao in AREAS]
+
+    def test_a_capa_nao_usa_nome_aposentado(self):
+        nomes = self.nomes_da_capa()
+
+        # Controle positivo: sem entradas, o laço abaixo não mediria nada.
+        self.assertGreater(len(nomes), 5, nomes)
+        for velho in APOSENTADOS:
+            with self.subTest(nome=velho):
+                self.assertNotIn(velho, nomes)
+
+    def test_os_cinco_pilares_da_capa_usam_o_label_oficial(self):
+        """Cada pilar que a capa mostra tem de chamar-se como o resto do app.
+
+        Comparado com `Pilar.label` e não com a tabela `OFICIAIS`: aqui a
+        pergunta é "a capa acompanha a fonte?", e não "a fonte está certa?" —
+        essa segunda já tem teste próprio em `OPadraoOficialTests`.
+        """
+        nomes = set(self.nomes_da_capa())
+        rotulos = {p.label for p in Pilar}
+
+        presentes = nomes & rotulos
+        self.assertEqual(
+            presentes,
+            rotulos,
+            "a capa do demo deixou de nomear algum pilar com o rótulo oficial",
+        )

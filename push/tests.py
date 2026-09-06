@@ -268,7 +268,22 @@ class InstallabilityTests(TestCase):
                 if despido.startswith(("/*", "*", "//")):
                     continue
                 if despido.startswith("z-index"):
-                    return int(despido.split(":")[1].strip().rstrip(";"))
+                    valor = despido.split(":", 1)[1].strip().rstrip(";")
+                    # A elevação virou escala com token, e este teste continua
+                    # perguntando a MESMA coisa: quem fica por cima de quem.
+                    # Resolver o `var()` é o que mantém a pergunta viva depois
+                    # de os números saírem do lado da declaração — sem isto o
+                    # teste morreria com `ValueError` num `var(--camada-...)`,
+                    # que é o que aconteceu quando a escala nasceu.
+                    achado = re.match(r"var\((--[a-z-]+)\)$", valor)
+                    if achado:
+                        raiz = css.split(":root {", 1)[1].split("}", 1)[0]
+                        for l in raiz.splitlines():
+                            l = l.strip()
+                            if l.startswith(achado.group(1) + ":"):
+                                return int(l.split(":", 1)[1].split(";")[0].strip())
+                        raise AssertionError("token %s não existe" % achado.group(1))
+                    return int(valor)
             raise AssertionError(f"{seletor} sem z-index")
 
         self.assertLess(z(".install {"), z(".tabbar {"))

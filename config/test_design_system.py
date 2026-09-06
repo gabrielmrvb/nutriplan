@@ -36,8 +36,11 @@ Dito porque uma trava com buraco não declarado é pior que nenhuma — quem con
 nela para de olhar:
 
 - **`font-size: 83%`** e outras medidas relativas em porcentagem;
-- **`style=` no template.** Já existe um caso vivo em
-  `templates/accounts/conectar_google.html`, e nada no repositório proíbe;
+- ~~**`style=` no template.**~~ Deixou de ser buraco: 05/09/2026, quando as
+  intenções de espaçamento ganharam nome e
+  `OEspacamentoNaoVoltaParaODentroDoHTMLTests`, no fim deste arquivo, passou a
+  proibir estático em template do app. Duas exceções declaradas lá: valor
+  calculado pelo servidor e template de e-mail;
 - **um arquivo `.css` novo.** O caminho aqui é fixo em `app.css`, e todos os
   leitores de CSS deste repositório abrem esse arquivo por nome;
 - **a direção.** `TETO_*` é constante editável, e subir o teto é a mesma edição
@@ -349,3 +352,256 @@ class MetricaNaoDependeDoTemplateParaSerMonoTests(SimpleTestCase):
         seletor, os dois testes acima passariam sem inspecionar nada."""
         self.assertGreaterEqual(len(self.VALORES), 9)
         self.assertIsNone(self._regra(".metrica-que-nao-existe"))
+
+
+class AEscalaDeEmpilhamentoTests(SimpleTestCase):
+    """A elevação é vocabulário, e não nove números escritos à mão.
+
+    Era a única escala do sistema visual sem token: 1, 2, 20, 25, 26, 28, 30,
+    40, 40 e 60 espalhados, a ordem em lugar nenhum, e DOIS componentes
+    disputando o mesmo 40. A falta disto custou um defeito nesta base — o
+    painel do mapa declarava "40, acima da tabbar, que é 30" e perdia, porque
+    ele vive dentro da barra de cima, que cria contexto de empilhamento.
+
+    A régua olha o CSS: quem empilha usa a escala, e as exceções são nomeadas
+    aqui uma a uma, com o motivo. Uma exceção nova entra por decisão, não por
+    esquecimento — que é a mesma disciplina de `TouchFeedbackTests.ISENTOS`.
+    """
+
+    #: Os degraus, do fundo para a frente. A ordem é a do produto.
+    ESCALA = (
+        "--camada-conteudo",
+        "--camada-barra-topo",
+        "--camada-flutuante",
+        "--camada-navegacao",
+        "--camada-aviso",
+        "--camada-bloqueio",
+    )
+
+    #: `z-index` que NÃO usa a escala, e por quê.
+    ISENTOS = {
+        ".drawer__fechar-area": "interno ao <dialog> modal, que o navegador já põe na camada de topo",
+        "body::before": "o halo fica ATRÁS de tudo; -1 não é um degrau da escala",
+    }
+
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+
+    def degraus(self):
+        """Os degraus da escala, lidos do `:root`.
+
+        Leitor próprio, e não o `_tokens` de `config.tests`: aquele mora noutro
+        módulo e existe para COR. Importar entre arquivos de teste amarraria
+        duas réguas que mudam por motivos diferentes.
+        """
+        trecho = self.css.split(":root {", 1)[1].split("}", 1)[0]
+        valores = {}
+        for linha in trecho.splitlines():
+            linha = linha.strip()
+            if linha.startswith("--camada") and ":" in linha:
+                nome, valor = linha.split(":", 1)
+                valores[nome.strip()] = valor.split(";")[0].strip()
+        return valores
+
+    def test_a_escala_existe_e_sobe(self):
+        tokens = self.degraus()
+        valores = []
+        for nome in self.ESCALA:
+            with self.subTest(token=nome):
+                self.assertIn(nome, tokens, "degrau ausente da escala")
+                valores.append(int(tokens[nome]))
+
+        self.assertEqual(valores, sorted(valores), valores)
+        self.assertEqual(len(set(valores)), len(valores), "dois degraus com o mesmo valor")
+
+    def test_todo_z_index_usa_a_escala_ou_esta_declarado_como_excecao(self):
+        linhas = self.css.split(chr(10))
+        fora = []
+        for i, linha in enumerate(linhas):
+            achado = re.search(r"z-index:\s*([^;]+);", linha)
+            if not achado or "var(--camada" in achado.group(1):
+                continue
+            seletor = ""
+            for j in range(i, max(0, i - 30), -1):
+                if "{" in linhas[j]:
+                    seletor = linhas[j].split("{")[0].strip()
+                    if seletor:
+                        break
+            if not any(isento in seletor for isento in self.ISENTOS):
+                fora.append("%s → %s" % (seletor[:60], achado.group(1).strip()))
+
+        self.assertEqual(fora, [], "z-index fora da escala e sem isenção declarada")
+
+    def test_nada_cobre_a_barra_de_navegacao(self):
+        """As duas barras NÃO estão no mesmo degrau, e isso é regra de produto.
+
+        A primeira versão desta escala colapsou as duas num degrau só, o que
+        inverteu o par convite/navegação — e `push/tests.py` pegou: o convite
+        de instalação cobriu a barra uma vez, e não pode cobrir de novo. A
+        barra de cima pode ser coberta por um flutuante; a de baixo, não.
+        """
+        tokens = self.degraus()
+
+        self.assertLess(
+            int(tokens["--camada-barra-topo"]), int(tokens["--camada-flutuante"])
+        )
+        self.assertLess(
+            int(tokens["--camada-flutuante"]), int(tokens["--camada-navegacao"])
+        )
+        for seletor, degrau in ((".app-bar {", "--camada-barra-topo"),
+                                (".tabbar {", "--camada-navegacao")):
+            with self.subTest(seletor=seletor):
+                bloco = self.css.split(seletor, 1)[1].split("}", 1)[0]
+                self.assertIn("var(%s)" % degrau, bloco)
+
+    def test_o_que_bloqueia_a_tela_fica_acima_do_que_so_avisa(self):
+        """A ordem não é estética: a montagem do plano toma a tela inteira e
+        não pode ser coberta pelo cartão de conquista, que é um aviso."""
+        tokens = self.degraus()
+
+        self.assertGreater(
+            int(tokens["--camada-bloqueio"]), int(tokens["--camada-aviso"])
+        )
+        self.assertGreater(
+            int(tokens["--camada-aviso"]), int(tokens["--camada-flutuante"])
+        )
+
+
+class OEspacamentoNaoVoltaParaODentroDoHTMLTests(SimpleTestCase):
+    """Espaçamento mora no CSS, com nome. Não em `style=` espalhado.
+
+    Medido antes desta régua: 23 `style=` estáticos em 12 templates, usando
+    `1.25rem`, `1rem`, `.9rem`, `.8rem`, `.6rem` e `0` para CINCO intenções
+    distintas — e três daqueles valores nem estavam na escala de espaçamento.
+    O mesmo rodapé de cartão de entrada aparecia com dois valores diferentes
+    em telas irmãs.
+
+    A saída não foi utilitária genérica (`.mt-4` e parentes): utilitária só
+    muda o lugar onde o número arbitrário é escrito. Cada intenção ganhou nome
+    — `.form__nota`, `.acao-solta`, `.chip-row--conteudo`, `.acoes-empilhadas`,
+    `.nota-do-botao` — e o valor passou a ser um só.
+
+    DUAS EXCEÇÕES, e as duas são obrigatórias:
+
+    - **valor calculado pelo servidor** (`style="width: {{ pct }}%"`): não há
+      classe possível para um número que muda a cada resposta;
+    - **template de e-mail**: cliente de e-mail não lê CSS externo nem
+      variável CSS. Ali o estilo inline com hex literal é a técnica correta, e
+      proibi-lo quebraria o e-mail de recuperação de senha.
+    """
+
+    RAIZ_TEMPLATES = CSS.parent.parent.parent / "templates"
+
+    def templates_do_app(self):
+        for caminho in sorted(self.RAIZ_TEMPLATES.rglob("*.html")):
+            relativo = str(caminho).replace("\\", "/")
+            if "email" in caminho.name or "/admin/" in relativo:
+                continue
+            yield caminho
+
+    def test_nenhum_template_do_app_carrega_estilo_estatico(self):
+        fora = []
+        for caminho in self.templates_do_app():
+            texto = caminho.read_text(encoding="utf-8")
+            for achado in re.finditer(r'style="([^"]*)"', texto):
+                valor = achado.group(1)
+                if "{{" in valor or "{%" in valor:
+                    continue
+                fora.append("%s → %s" % (caminho.name, valor))
+
+        self.assertEqual(fora, [], "espaçamento voltou para dentro do HTML")
+
+    def test_o_controle_positivo_le_arquivo_de_verdade(self):
+        """A régua acima só vale se o caminho de leitura funcionar.
+
+        A primeira versão deste controle rodava o regex contra uma STRING
+        LOCAL — `re.search(padrao, 'style="..."')` — que é verdadeira por
+        construção. Com `read_text()` devolvendo vazio, com o filtro de
+        exclusão engolindo tudo, ou com o corpo do laço apagado, ele
+        continuaria verde. Uma revisão adversarial pegou.
+
+        Agora ele percorre o MESMO caminho da régua — arquivo em disco, mesma
+        leitura, mesmo regex — sobre o template de e-mail, que tem estilo
+        inline de propósito e é o único excluído por conteúdo.
+        """
+        arquivos = list(self.templates_do_app())
+        self.assertGreater(len(arquivos), 30, "a varredura parou de achar template")
+
+        email = self.RAIZ_TEMPLATES / "accounts" / "email_senha.html"
+        achados = [
+            m.group(1)
+            for m in re.finditer(r'style="([^"]*)"', email.read_text(encoding="utf-8"))
+            if "{{" not in m.group(1)
+        ]
+
+        self.assertGreater(len(achados), 3, "a leitura de arquivo parou de enxergar")
+        self.assertNotIn(email, arquivos, "o e-mail tem de ficar FORA da régua")
+
+    def test_o_estilo_calculado_continua_permitido(self):
+        """A barra de progresso não tem outro jeito: a largura é o dado."""
+        hoje = (self.RAIZ_TEMPLATES / "plans" / "today.html").read_text(encoding="utf-8")
+
+        self.assertIn("style=\"width: {{", hoje)
+
+    def test_o_email_continua_com_estilo_inline(self):
+        """Proibir estilo inline no e-mail quebraria o e-mail: cliente de
+        e-mail não lê CSS externo. A exceção é técnica, não preguiça."""
+        email = (
+            self.RAIZ_TEMPLATES / "accounts" / "email_senha.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('style="', email)
+        self.assertIn("#0c6b40", email)
+
+    def test_as_intencoes_nomeadas_existem_no_css(self):
+        css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+
+        for classe in (
+            ".form__nota",
+            ".form__nota--perto",
+            ".acao-solta",
+            ".chip-row--conteudo",
+            ".acoes-empilhadas",
+            ".acao-com-nota",
+            ".nota-do-botao",
+            ".card--prosa",
+        ):
+            with self.subTest(classe=classe):
+                self.assertIn(classe, css)
+
+    def test_toda_intencao_nomeada_e_usada_por_algum_template(self):
+        """Classe que não é usada é CSS morto vendido como sistema.
+
+        `.chip-row--inicio` nasceu neste lote e não fazia nada: `.chip-row`
+        nunca declarou `justify-content`, e `flex-start` já é o valor inicial
+        de um container flex — a classe e o `style=` que ela substituiu eram
+        os dois no-op. Uma revisão adversarial pegou, e a classe saiu.
+        """
+        html = ""
+        for caminho in self.templates_do_app():
+            html += caminho.read_text(encoding="utf-8")
+
+        for classe in (
+            "form__nota",
+            "form__nota--perto",
+            "acao-solta",
+            "chip-row--conteudo",
+            "acoes-empilhadas",
+            "acao-com-nota",
+            "nota-do-botao",
+            "card--prosa",
+        ):
+            with self.subTest(classe=classe):
+                self.assertIn(classe, html, "classe declarada e nunca usada")
+
+    def test_cada_intencao_usa_a_escala_de_espacamento(self):
+        """O valor tem de sair de um degrau. Nomear a intenção e escrever
+        `1.25rem` dentro dela só teria mudado o arbitrário de lugar."""
+        css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+
+        for classe in (".form__nota", ".form__nota--perto", ".acao-solta",
+                       ".chip-row--conteudo", ".acoes-empilhadas",
+                       ".nota-do-botao"):
+            with self.subTest(classe=classe):
+                bloco = css.split(classe, 1)[1].split("}", 1)[0]
+                self.assertIn("var(--espaco-", bloco)

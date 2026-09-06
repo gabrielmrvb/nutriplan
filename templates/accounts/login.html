@@ -29,11 +29,11 @@
       sabendo a senha não precisa ver a saída de emergência antes de tentar.
       Quem errou a senha lê o erro e encontra o link logo abaixo.
     {% endcomment %}
-    <p class="muted center" style="margin-top:.9rem">
+    <p class="muted center form__nota form__nota--perto">
       <a class="btn-link" href="{% url 'accounts:password_reset' %}">Esqueci minha senha</a>
     </p>
 
-    <p class="muted center" style="margin-top:1.25rem">
+    <p class="muted center form__nota">
       Ainda não tem conta? <a class="btn-link" href="{% url 'accounts:signup' %}">Criar agora</a>
     </p>
   </div>

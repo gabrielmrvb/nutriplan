@@ -49,7 +49,7 @@
             ele resolve alguma coisa. Escondê-lo quando não há plano deixaria a
             pessoa numa tela que mostra o problema e não oferece a saída.
           {% endcomment %}
-          <p class="empty-state" style="margin-bottom:.9rem">
+          <p class="empty-state nota-do-botao">
             Você ainda não tem um plano ativo.
           </p>
         {% endif %}
@@ -153,7 +153,7 @@
           <a href="{% url 'accounts:onboarding_step' step=6 %}">Editar</a>
         </div>
         {% if profile.personalizacao_declarada %}
-          <div class="chip-row" style="margin-bottom:.9rem">
+          <div class="chip-row chip-row--conteudo">
             {% for pilar in profile.interesses %}
               {% with d=pilar|detalhe %}
                 <span class="chip {% if pilar == profile.prioridade %}chip--brand{% endif %}">
@@ -185,7 +185,7 @@
           {% endcomment %}
           <a href="{% url 'accounts:onboarding_step' step=5 %}">Editar</a>
         </div>
-        <div class="chip-row" style="margin-bottom:.9rem">
+        <div class="chip-row chip-row--conteudo">
           {% for tag in profile.dietary_tags.all %}
             <span class="chip chip--brand">{{ tag.name }}</span>
           {% empty %}
@@ -297,6 +297,14 @@
     <dl class="data-list">
       <div><dt>Entrou como</dt><dd>{{ user.email }}</dd></div>
     </dl>
+
+    {% comment %}
+      As ações da conta são uma PILHA, e o respiro entre elas mora numa classe
+      só. Antes cada uma carregava o próprio `margin-bottom` inline — o link
+      da senha e o formulário de exportação diziam a mesma coisa de dois
+      jeitos, e o botão de sair não dizia nada e ficava colado.
+    {% endcomment %}
+    <div class="acoes-empilhadas">
     {% comment %}
       Trocar senha só aparece para quem TEM senha. Numa conta que entra pelo
       Google, `has_usable_password` é falso: oferecer o link levaria a um
@@ -304,8 +312,7 @@
       "senha incorreta" — culpando a pessoa por uma promessa da tela.
     {% endcomment %}
     {% if user.has_usable_password %}
-      <a class="btn btn--ghost btn--block" href="{% url 'accounts:password_change' %}"
-         style="margin-bottom:.6rem">Trocar minha senha</a>
+      <a class="btn btn--ghost btn--block" href="{% url 'accounts:password_change' %}">Trocar minha senha</a>
     {% endif %}
 
     {% comment %}
@@ -314,8 +321,17 @@
       link — com GET, uma página de terceiro faria o navegador de quem está
       logado baixar o próprio histórico de saúde sem um clique sequer.
     {% endcomment %}
-    <form method="post" action="{% url 'accounts:exportar_dados' %}"
-          id="exportar" style="margin-bottom:.6rem">
+    {% comment %}
+      O formulário e a nota são UM item da pilha, e não dois.
+
+      A nota tem `margin-top` negativo de propósito, para colar no botão o
+      aviso de que o arquivo carrega dado de saúde. Solta dentro da pilha, ela
+      recebia o respiro entre ações e se afastava 0,9rem do controle que
+      explica — o espaçamento novo vencia a margem antiga por vir depois no
+      arquivo, com a mesma especificidade.
+    {% endcomment %}
+    <div class="acao-com-nota">
+    <form method="post" action="{% url 'accounts:exportar_dados' %}" id="exportar">
       {% csrf_token %}
       <button type="submit" class="btn btn--ghost btn--block">
         Exportar meus dados
@@ -325,12 +341,14 @@
       Baixa um arquivo com seu histórico de peso, refeições, água e treinos.
       Ele contém dados de saúde — guarde com o mesmo cuidado de um exame.
     </p>
+    </div>
 
     <form method="post" action="{% url 'accounts:logout' %}"
           onsubmit="return confirm('Sair da sua conta neste aparelho?');">
       {% csrf_token %}
       <button type="submit" class="btn btn--perigo btn--block">Sair da conta</button>
     </form>
+    </div>
 
     {% include "partials/links_legais.html" %}
   </section>

@@ -177,6 +177,42 @@
   --espaco-6: 1rem;       /* 16px */
   --espaco-7: 1.5rem;     /* 24px */
 
+  /* A ESCALA DE EMPILHAMENTO.
+     Era a única escala do sistema sem vocabulário: os valores estavam
+     escritos à mão em nove lugares — 1, 2, 20, 25, 26, 28, 30, 40, 40, 60 —,
+     a ordem não estava escrita em lugar nenhum, e DOIS componentes disputavam
+     o mesmo 40. A falta disto já custou um defeito nesta base: o painel do
+     mapa declarava `z-index: 40` "acima da tabbar, que é 30" e perdia, porque
+     ele vive dentro da barra de cima, que é `sticky` com z-index próprio e
+     cria contexto de empilhamento.
+
+     A ordem é a do PRODUTO, de baixo para cima:
+
+       conteudo     o que rola na página
+       barra-topo   a barra de cima, que é sticky
+       flutuante    o que aparece por cima do conteúdo sem bloquear: o
+                    cronômetro de descanso, a fila offline, o convite de
+                    instalação, o painel do mapa
+       navegacao    a barra de baixo
+       aviso        o que interrompe para dizer algo: o cartão de conquista
+       bloqueio     o que toma a tela inteira: a montagem do plano
+
+     AS DUAS BARRAS NÃO ESTÃO NO MESMO DEGRAU, e a diferença é regra de
+     produto, não simetria quebrada: **nada pode cobrir a barra de baixo**. O
+     convite de instalação cobriu a navegação uma vez, e `push/tests.py` guarda
+     isso desde então. A barra de cima pode ser coberta por um flutuante; a de
+     baixo, não. A primeira versão desta escala colapsou as duas num degrau só
+     e inverteu o par — o teste que já existia pegou.
+
+     Os degraus são espaçados de 10 de propósito: um componente novo cabe
+     entre dois sem renumerar os outros. */
+  --camada-conteudo: 1;
+  --camada-barra-topo: 20;
+  --camada-flutuante: 30;
+  --camada-navegacao: 40;
+  --camada-aviso: 50;
+  --camada-bloqueio: 60;
+
   /* Não há `--espaco-8`. A escala parou em 1.5rem porque 2rem NÃO é usado
      como espaçamento neste arquivo — zero ocorrências, medido. Eu havia
      escrito o degrau por simetria, e simetria não é evidência: um token que
@@ -446,7 +482,7 @@ button { font-family: inherit; color: inherit; }
 .app-bar {
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: var(--camada-barra-topo);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -568,7 +604,7 @@ body:not(.tem-tabbar) .container {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 30;
+  z-index: var(--camada-navegacao);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: .2rem;
@@ -836,7 +872,7 @@ h3 { font-size: .95rem; font-weight: 650; }
   background: var(--surface);
 }
 
-.ring__inner { position: relative; z-index: 1; line-height: 1.1; text-align: center; }
+.ring__inner { position: relative; z-index: var(--camada-conteudo); line-height: 1.1; text-align: center; }
 
 .ring__value {
   display: block;
@@ -2570,7 +2606,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   left: 0;
   right: 0;
   bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
-  z-index: 25;
+  z-index: var(--camada-flutuante);
   background: var(--glass);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
@@ -2884,6 +2920,9 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 
 /* ==========================================================================
    21. Hidratação e média semanal de peso
+   (não há seção 20: ela foi removida e a numeração não foi refeita —
+    renumerar 24 seções para fechar um buraco produz um diff que ninguém
+    consegue revisar, e o índice serve para achar, não para contar.)
    ========================================================================== */
 
 .hidratacao {
@@ -3129,6 +3168,8 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   background: var(--border-strong);
 }
 
+/* Dentro do drawer, acima da mídia — não é a escala global: o drawer é
+   `<dialog>` modal, e o navegador já o põe na camada de topo. */
 .drawer__fechar-area { position: absolute; top: .5rem; right: .5rem; z-index: 2; }
 
 .drawer__fechar {
@@ -3596,12 +3637,18 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   left: .6rem;
   right: .6rem;
   bottom: calc(.6rem + env(safe-area-inset-bottom));
-  /* ABAIXO da navegação (z-index 30), de propósito. Se qualquer regra de
-     posicionamento falhar num navegador que eu não previ, o pior caso passa a
-     ser um convite parcialmente escondido atrás da barra — e não uma barra de
-     navegação morta atrás do convite. Errar para o lado que deixa o app
-     usável. */
-  z-index: 28;
+  /* ABAIXO da navegação, de propósito: `--camada-flutuante` contra
+     `--camada-navegacao`. Se qualquer regra de posicionamento falhar num
+     navegador que eu não previ, o pior caso passa a ser um convite
+     parcialmente escondido atrás da barra — e não uma barra de navegação
+     morta atrás do convite. Errar para o lado que deixa o app usável.
+
+     E ele divide `--camada-flutuante` com a faixa da fila offline, que ocupa
+     exatamente este mesmo `bottom` quando há tabbar. Empatados, quem pinta
+     por cima é a ORDEM DO DOCUMENTO — e em `base.html` a fila vem antes, o
+     que preserva a ordem que os números soltos (26 e 28) diziam. Mover o
+     bloco do convite para antes da fila inverte o par sem tocar em CSS. */
+  z-index: var(--camada-flutuante);
 
   /* O cartão não intercepta clique; só os botões dele interceptam.
 
@@ -4056,7 +4103,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   left: .75rem;
   right: .75rem;
   bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + .6rem);
-  z-index: 26;
+  z-index: var(--camada-flutuante);
   display: flex;
   align-items: center;
   gap: var(--espaco-3);
@@ -4680,7 +4727,7 @@ body::before {
 .montagem {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: var(--camada-bloqueio);
   display: grid;
   place-items: center;
   padding: var(--pad);
@@ -5894,7 +5941,7 @@ body.montando { overflow: hidden; }
   left: .8rem;
   right: .8rem;
   bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + .6rem);
-  z-index: 40;
+  z-index: var(--camada-aviso);
   padding: var(--espaco-5) var(--espaco-6);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
@@ -6602,13 +6649,15 @@ body.montando { overflow: hidden; }
   position: absolute;
   top: calc(100% + var(--espaco-2));
   right: 0;
-  /* `z-index` aqui vale POUCO, e o comentário anterior dizia o contrário.
-     `.app-bar` é `position: sticky` com `z-index: 20`, o que cria um
-     CONTEXTO DE EMPILHAMENTO: este número só disputa com os irmãos
-     dentro da barra. Contra a `.tabbar` (z-index 30, filha do body) o
-     painel vale 20 e PERDE. Quem resolve a sobreposição é o
-     `max-height` abaixo, que impede o painel de chegar lá embaixo. */
-  z-index: 40;
+  /* Este número vale POUCO, e é por isso que ele usa a camada dos
+     flutuantes sem prometer nada além dela. `.app-bar` é `position: sticky`
+     com camada própria, o que cria um CONTEXTO DE EMPILHAMENTO: o painel é
+     filho dela, então este valor só disputa com os irmãos de DENTRO da
+     barra — contra a `.tabbar`, que é filha do `body`, ele vale o que a
+     barra vale. Quem resolve a sobreposição é o `max-height` abaixo, que
+     impede o painel de chegar lá embaixo. Medido a 640×360: o painel
+     termina em 274px e a barra começa em 292. */
+  z-index: var(--camada-flutuante);
   width: min(19rem, calc(100vw - 1.6rem));
   padding: var(--espaco-2);
   border: 1px solid var(--border);
@@ -6670,3 +6719,71 @@ body.montando { overflow: hidden; }
   line-height: 1.45;
   min-width: 0;
 }
+
+/* ==========================================================================
+   45. Intenções de espaçamento que se repetiam escritas à mão
+
+   Não são utilitárias genéricas (`.mt-4` e parentes): utilitária só muda o
+   lugar onde o número arbitrário é escrito. Cada classe aqui NOMEIA uma
+   intenção que aparecia em vários arquivos com valores diferentes para a
+   mesma coisa — e é o valor que passa a ser um só.
+
+   Medido antes: 23 `style=` estáticos em 12 arquivos, com `1.25rem`, `1rem`,
+   `.9rem`, `.8rem`, `.6rem` e `0` para cinco intenções distintas. Três
+   daqueles valores nem estavam na escala de espaçamento.
+   ========================================================================== */
+
+/* A linha discreta no rodapé de um cartão de entrada: "Ainda não tem conta?".
+   Aparecia em cinco ocorrências, quatro telas, com 1,25rem em quatro e
+   0,9rem numa delas. */
+.form__nota { margin-top: var(--espaco-7); }
+
+/* A saída de emergência do próprio formulário — "Esqueci minha senha" — fica
+   MAIS PERTO dele que o rodapé do cartão. A distância menor era o 0,9rem que
+   a unificação apagou, e ela é decisão escrita no template: quem errou a
+   senha lê o erro e encontra o link logo abaixo. Duas linhas equidistantes
+   apagam a diferença entre "sair desta tentativa" e "ir para o cadastro". */
+.form__nota--perto { margin-top: var(--espaco-5); }
+
+/* Um botão ou link de bloco que fica SOZINHO depois do conteúdo e precisa de
+   ar em cima para não colar no que veio antes. Tinha 1,25rem, 1rem e 0,8rem
+   para o mesmo papel em quatro telas. */
+.acao-solta { margin-top: var(--espaco-6); }
+
+/* Um cartão que é PROSA: o último parágrafo não soma a própria margem ao
+   padding do cartão. Três telas do demo escreviam `margin-bottom:0` à mão.
+
+   `.card--prosa` e não `.card > p:last-child`, e a diferença é enorme: a
+   segunda forma atinge TODO cartão do app. Medido em `/privacidade/`: nove
+   dos doze cartões perderiam a margem do último parágrafo, numa mudança
+   vendida como extração de três templates. Uma revisão adversarial pegou.
+
+   A outra metade daquela extração — `.card > .lead:first-child
+   { margin-top: 0 }` — saiu inteira: `.lead` já nasce com `margin-top: 0`
+   (seção 4), então os três `style="margin-top:0"` do demo nunca fizeram nada,
+   e a regra que os "substituiu" também não fazia. */
+.card--prosa > p:last-child { margin-bottom: 0; }
+
+/* A fileira de pílulas quando ela é o conteúdo do cartão, e não um detalhe de
+   linha: aí ela precisa de ar antes do texto de apoio. */
+.chip-row--conteudo { margin-bottom: var(--espaco-5); }
+
+/* Ações de bloco EMPILHADAS: cada uma precisa de respiro da seguinte. Eram
+   dois `margin-bottom:.6rem` escritos à mão no rodapé do Perfil, um no link e
+   outro no formulário — dois jeitos de dizer a mesma coisa.
+
+   `> * + *` tem a MESMA especificidade de uma classe, e vem depois no arquivo:
+   ela vence qualquer margem que o filho tenha declarado para si. A primeira
+   versão engoliu assim o `margin-top: -.2rem` de `.conta__exportar-nota`, que
+   existia de propósito para colar no botão o aviso de que o arquivo tem dado
+   de saúde — 0,9rem de deslocamento numa frase que precisa ficar junto do
+   controle. Por isso o par formulário+nota entra na pilha como UM item, dentro
+   de `.acao-com-nota`, e a pilha só espaça o que é ação de verdade. */
+.acoes-empilhadas > * + * { margin-top: var(--espaco-4); }
+
+/* Uma ação e a frase que a explica são um bloco só. */
+.acao-com-nota > :first-child { margin-top: 0; }
+
+/* Texto de apoio logo acima de um botão: a linha explica o botão, e as duas
+   coisas são um bloco só. */
+.nota-do-botao { margin: 0 0 var(--espaco-4); }

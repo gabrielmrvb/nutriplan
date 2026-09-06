@@ -79,8 +79,11 @@ TRÊS vocabulários: a barra dizia "Dieta/Treino/Progresso", o mapa e o
 onboarding diziam "Alimentação/Musculação/Evolução", e a documentação chamava o
 quinto de "Progresso" — com os dois primeiros visíveis AO MESMO TEMPO no
 celular. `DETALHES` não escreve mais o nome: ele lê o label, e guarda só o que
-o modelo não tem (ícone e frase de apoio). `config/test_nomenclatura.py` compara
-barra, mapa, onboarding, Perfil e gestão POR DESTINO.
+o modelo não tem (ícone e frase de apoio). `config/test_nomenclatura.py` compara barra e
+mapa POR DESTINO — e onboarding, Perfil e gestão por presença dentro do recorte
+da seção, que é mais fraco e está dito aqui para ninguém confiar demais. A capa
+do demo escreve os cinco nomes à mão em `demo/views.py` e **não tem teste**;
+renomear um pilar deixa ela para trás em silêncio.
 
 O `value` **não** acompanhou o rótulo, e a separação é a prova de que os dois
 planos são independentes: `Pilar.DIETA` continua valendo `"dieta"` enquanto a
@@ -328,6 +331,60 @@ parâmetro de OAuth, chave de SMTP e URL de banco. `django.db.backends` fica em
 WARNING até em DEBUG: consulta com parâmetro carrega e-mail e peso. Toda linha
 leva o identificador do pedido, que também volta no cabeçalho `X-Request-ID` —
 sem ele, "deu erro" e "fulano reclamou" nunca se encontram.
+## Design: o que já existe, e o que não inventar de novo
+
+**O sistema visual já existe, é enforcado por teste, e a primeira coisa a fazer
+antes de criar componente é procurar o equivalente.** Auditado em 05/09/2026:
+70 tokens no `:root` — oito degraus de texto, sete de espaçamento, quatro de
+quina, três de sombra e seis de camada, mais as cores e as receitas. (O número
+já foi escrito como 64 aqui: era a contagem de ANTES dos seis tokens de camada,
+no mesmo parágrafo que os anunciava.) `config/test_design_system.py` congela a
+dívida de valor cru no número atual — ela não pode crescer.
+
+**A escala de empilhamento é vocabulário, e a ordem é regra de produto.** De
+baixo para cima: `--camada-conteudo` → `--camada-barra-topo` →
+`--camada-flutuante` → `--camada-navegacao` → `--camada-aviso` →
+`--camada-bloqueio`. As duas barras
+**não** ficam no mesmo degrau: nada pode cobrir a barra de baixo — o convite de
+instalação cobriu a navegação uma vez, e `push/tests.py` guarda isso desde
+então. A barra de cima pode ser coberta por um flutuante. Colapsar as duas num
+degrau só inverte esse par, e foi o que a primeira versão da escala fez.
+
+E `z-index` alto não vence contexto de empilhamento: o painel do mapa declarava
+40 "acima da tabbar, que é 30" e perdia, porque é filho da barra de cima, que é
+`sticky` com camada própria. Quem resolveu foi `max-height`, medido.
+
+**Espaçamento não volta para dentro do HTML.** Havia 23 `style=` estáticos em
+13 templates, com seis valores para cinco intenções — três deles fora da
+escala. Cada intenção ganhou nome: `.form__nota`, `.acao-solta`,
+`.chip-row--conteudo`, `.chip-row--inicio`, `.acoes-empilhadas`,
+`.nota-do-botao`. Não são utilitárias genéricas (`.mt-4` e parentes): utilitária
+só muda o lugar onde o número arbitrário é escrito. Duas exceções continuam
+válidas e têm teste: valor calculado pelo servidor (`style="width: {{ pct }}%"`)
+e template de **e-mail**, onde cliente não lê CSS externo.
+
+**O que este app deliberadamente NÃO faz** — medido, não afirmado: zero
+gradiente roxo; seis gradientes em 6.700 linhas; vidro em três cartões do topo e
+no cartão de entrada, com `@supports` de contraste e a razão escrita (desfocar
+cor chapada custa quadros para produzir a mesma cor chapada); 89% das sombras
+usando token.
+
+**Antes de criar componente novo, procure.** `templates/partials/` tem oito
+parciais; `card`, `btn`, `chip`, `pill`, `tile`, `data-list`, `empty-state`,
+`hint` e `drawer` já existem e têm regra própria. Uma quarta versão do mesmo
+botão é o defeito que esta seção existe para impedir.
+
+**Sobreposição: `<details>` antes de `<dialog>`.** O drawer do exercício é
+`<dialog>` porque precisa de foco preso; o mapa de áreas é `<details>` porque um
+menu de cinco links não precisa. `<dialog>` traz `inert` e foco preso de graça —
+e traz o custo que o convite de instalação pagou, com 68 controles alcançáveis
+por trás quando o papel estava errado.
+
+**Estado vazio é convite, e os deste app já foram auditados.** Dos 16, quatro
+parecem só constatar — e os quatro têm o motivo escrito no template: dois têm a
+saída ao lado (botão ou campo na mesma tela) e dois são ramos defensivos que
+ninguém alcança. Acrescentar texto ali seria ruído.
+
 ## Testes
 
 Nome descreve o comportamento, não o método. Docstring diz **por que** aquilo

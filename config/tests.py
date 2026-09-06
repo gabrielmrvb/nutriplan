@@ -1320,6 +1320,10 @@ class TouchFeedbackTests(TestCase):
     #: por decisão, e não por esquecimento.
     ISENTOS = {
         ".chip": "três das quatro ocorrências são <span> decorativo",
+        # Classe de ESPAÇAMENTO, não de controle: ela dá ar em cima de um
+        # botão que já afunda pela própria `.btn`. Dar a ela um `:active`
+        # próprio criaria duas escalas na mesma pressão do dedo.
+        ".acao-solta": "só posiciona; o controle abaixo dela é quem afunda",
     }
 
     def setUp(self):

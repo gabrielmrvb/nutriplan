@@ -17,7 +17,7 @@
         <div class="card__head">
           <h2>Baseada na opção</h2>
         </div>
-        <div class="chip-row" style="justify-content:flex-start">
+        <div class="chip-row">
           {% for value, nome in labels %}
             <a class="chip {% if value == label %}chip--brand{% endif %}"
                href="?opcao={{ value }}">{{ nome }}</a>
@@ -75,8 +75,8 @@
           Os itens marcados não somem: a marcação vale só enquanto a página estiver
           aberta, para você ir riscando enquanto anda pelos corredores.
         </p>
-        <a class="btn btn--ghost btn--block" href="{% url 'plans:today' %}"
-           style="margin-top:.8rem">
+        <a class="btn btn--ghost btn--block acao-solta" href="{% url 'plans:today' %}"
+          >
           Voltar para o cardápio
         </a>
       </section>
