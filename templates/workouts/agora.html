@@ -118,7 +118,7 @@
         <h2 class="agora__nome">{{ atual.exercise.name }}</h2>
         <p class="agora__meta">
           <span class="exercise__tag exercise__tag--target">
-            {{ atual.exercise.get_muscle_group_display }}
+            {{ atual.exercise.get_muscle_group_display }}{% if atual.exercise.secondary_muscle_labels %} · também {{ atual.exercise.secondary_muscle_labels|join:", " }}{% endif %}
           </span>
           <span class="exercise__tag exercise__tag--rest num">
             descanso {{ atual.rest_display }}

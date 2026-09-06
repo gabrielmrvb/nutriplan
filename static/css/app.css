@@ -1573,6 +1573,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .conquista__compartilhar,
 .conquista__continuar,
 .conquista-item__share,
+.drawer__midia,
 .mapa__area,
 .mapa__botao,
 .tabbar__item {
@@ -1628,6 +1629,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   .conquista__compartilhar:active,
   .conquista__continuar:active,
   .conquista-item__share:active,
+  .drawer__midia:active,
   .mapa__area:active,
   .mapa__botao:active,
   .tabbar__item:active { transform: none; }
@@ -6787,3 +6789,79 @@ body.montando { overflow: hidden; }
 /* Texto de apoio logo acima de um botão: a linha explica o botão, e as duas
    coisas são um bloco só. */
 .nota-do-botao { margin: 0 0 var(--espaco-4); }
+
+/* ==========================================================================
+   46. Treino V4 — o seletor de mídia do exercício e os músculos
+
+   Duas mídias respondem perguntas diferentes: o vídeo real mostra COMO se faz,
+   a anatomia mostra O QUE trabalha. O seletor só existe quando as duas
+   existem — com uma opção só ele seria um controle que não controla nada, e o
+   `hidden` é escrito pelo JavaScript a partir dos dados, não por CSS.
+
+   Ele fica ENTRE a mídia e o corpo: encostado no que ele muda, e fora do
+   caminho de quem só quer ler as séries.
+   ========================================================================== */
+.drawer__midias {
+  display: flex;
+  gap: var(--espaco-2);
+  padding: var(--espaco-3) var(--pad) 0;
+}
+
+.drawer__midia {
+  flex: 1;
+  min-height: 2.75rem;
+  padding: var(--espaco-2) var(--espaco-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  font-weight: 650;
+  cursor: pointer;
+  min-width: 0;
+}
+
+/* O estado vem de `aria-pressed`, e não de uma classe paralela: um só lugar
+   diz "esta está escolhida", e é o mesmo que o leitor de tela anuncia. Classe
+   separada seria a segunda fonte, e um dia divergiria da acessível. */
+.drawer__midia[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+}
+
+/* O afundar do seletor mora AQUI, e não junto com o do mapa de áreas: o
+   arquivo é lido de ponta a ponta por seção, e uma regra do componente
+   perdida noutra seção é uma regra que a próxima leitura não encontra. As
+   duas listas globais — transição e `prefers-reduced-motion` — continuam
+   agrupadas por natureza, que é onde elas fazem sentido. */
+.drawer__midia:active { transform: scale(.96); }
+
+/* A CAIXA NÃO MUDA DE ALTURA QUANDO A MÍDIA TROCA.
+ *
+ * A execução é 16:9 e a anatomia do catálogo é Short (9:16). Sem isto, tocar
+ * "Anatomia" a 390px fazia a caixa saltar de ~219px para até ~347px, e tudo
+ * abaixo — nome, "Também trabalha", séries, descanso, carga e "Começar
+ * descanso" — descia ~130px de uma vez, debaixo do olho de quem só queria
+ * conferir o músculo. Uma revisão adversarial mediu.
+ *
+ * Com o seletor visível a caixa fica 16:9 para as duas, e o Short aparece
+ * com tarja lateral. É a troca certa aqui: um quadro estável vale mais que o
+ * preenchimento perfeito de uma das duas, e o render anatômico continua
+ * legível. Sem seletor — uma mídia só — a regra de orientação de sempre
+ * continua valendo, e o Short ocupa a caixa inteira. */
+.drawer--duas-midias .drawer__media--vertical {
+  aspect-ratio: 16 / 9;
+  max-height: none;
+}
+
+/* "Também trabalha" é conteúdo de apoio: menor que o principal, e sem pílula.
+   Dar pílula a cada auxiliar encheria a linha de caixinhas para dizer o que
+   uma frase diz melhor. */
+.drawer__auxiliares {
+  margin: var(--espaco-1) 0 0;
+  color: var(--text-mute);
+  font-size: var(--texto-sm);
+  line-height: 1.4;
+  min-width: 0;
+}

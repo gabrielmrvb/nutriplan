@@ -10,6 +10,10 @@
       "knee",
       "hip",
       "lower_back"
+    ],
+    "secundarios": [
+      "hamstrings",
+      "core"
     ]
   },
   {
@@ -22,6 +26,9 @@
     "joints": [
       "knee",
       "hip"
+    ],
+    "secundarios": [
+      "hamstrings"
     ]
   },
   {
@@ -45,6 +52,10 @@
     "joints": [
       "knee",
       "hip"
+    ],
+    "secundarios": [
+      "hamstrings",
+      "core"
     ]
   },
   {
@@ -57,6 +68,10 @@
     "joints": [
       "hip",
       "lower_back"
+    ],
+    "secundarios": [
+      "back",
+      "core"
     ]
   },
   {
@@ -79,6 +94,9 @@
     "equipment": "barbell",
     "joints": [
       "hip"
+    ],
+    "secundarios": [
+      "core"
     ]
   },
   {
@@ -125,6 +143,10 @@
       "shoulder",
       "elbow",
       "wrist"
+    ],
+    "secundarios": [
+      "triceps",
+      "shoulders"
     ]
   },
   {
@@ -137,6 +159,10 @@
     "joints": [
       "shoulder",
       "elbow"
+    ],
+    "secundarios": [
+      "triceps",
+      "shoulders"
     ]
   },
   {
@@ -148,6 +174,9 @@
     "equipment": "machine",
     "joints": [
       "shoulder"
+    ],
+    "secundarios": [
+      "shoulders"
     ]
   },
   {
@@ -161,6 +190,11 @@
       "shoulder",
       "elbow",
       "wrist"
+    ],
+    "secundarios": [
+      "triceps",
+      "shoulders",
+      "core"
     ]
   },
   {
@@ -173,6 +207,10 @@
     "joints": [
       "shoulder",
       "elbow"
+    ],
+    "secundarios": [
+      "biceps",
+      "forearms"
     ]
   },
   {
@@ -185,6 +223,10 @@
     "joints": [
       "shoulder",
       "elbow"
+    ],
+    "secundarios": [
+      "biceps",
+      "forearms"
     ]
   },
   {
@@ -198,6 +240,11 @@
       "shoulder",
       "elbow",
       "lower_back"
+    ],
+    "secundarios": [
+      "biceps",
+      "forearms",
+      "core"
     ]
   },
   {
@@ -210,6 +257,10 @@
     "joints": [
       "shoulder",
       "elbow"
+    ],
+    "secundarios": [
+      "biceps",
+      "forearms"
     ]
   },
   {
@@ -222,6 +273,10 @@
     "joints": [
       "shoulder",
       "elbow"
+    ],
+    "secundarios": [
+      "biceps",
+      "forearms"
     ]
   },
   {
@@ -234,6 +289,10 @@
     "joints": [
       "shoulder",
       "elbow"
+    ],
+    "secundarios": [
+      "triceps",
+      "core"
     ]
   },
   {
@@ -267,6 +326,9 @@
     "equipment": "machine",
     "joints": [
       "shoulder"
+    ],
+    "secundarios": [
+      "back"
     ]
   },
   {
@@ -279,6 +341,9 @@
     "joints": [
       "elbow",
       "wrist"
+    ],
+    "secundarios": [
+      "forearms"
     ]
   },
   {
@@ -290,6 +355,9 @@
     "equipment": "dumbbell",
     "joints": [
       "elbow"
+    ],
+    "secundarios": [
+      "forearms"
     ]
   },
   {
@@ -301,6 +369,9 @@
     "equipment": "dumbbell",
     "joints": [
       "elbow"
+    ],
+    "secundarios": [
+      "forearms"
     ]
   },
   {
@@ -336,6 +407,10 @@
     "joints": [
       "shoulder",
       "elbow"
+    ],
+    "secundarios": [
+      "chest",
+      "shoulders"
     ]
   },
   {
@@ -347,6 +422,9 @@
     "equipment": "bodyweight",
     "joints": [
       "shoulder"
+    ],
+    "secundarios": [
+      "shoulders"
     ]
   },
   {
@@ -381,6 +459,9 @@
     "equipment": "dumbbell",
     "joints": [
       "shoulder"
+    ],
+    "secundarios": [
+      "forearms"
     ]
   },
   {
@@ -393,6 +474,10 @@
     "joints": [
       "shoulder",
       "elbow"
+    ],
+    "secundarios": [
+      "shoulders",
+      "biceps"
     ]
   },
   {
@@ -416,6 +501,9 @@
     "joints": [
       "wrist",
       "elbow"
+    ],
+    "secundarios": [
+      "biceps"
     ]
   }
 ]

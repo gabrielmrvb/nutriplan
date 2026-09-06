@@ -16,6 +16,7 @@ from urllib.parse import quote_plus, urlparse
 
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -137,6 +138,62 @@ class Exercise(models.Model):
             "(o que se copia da barra do navegador); a tela converte para embed na hora."
         ),
     )
+
+    #: O segundo em que a EXECUÇÃO começa dentro do vídeo.
+    #:
+    #: A demonstração quase nunca começa no zero: há apresentação, conversa,
+    #: preparação e posicionamento antes de alguém levantar o peso. Quem abre
+    #: "ver execução" no meio da série não quer nada disso — quer o movimento.
+    #:
+    #: `null` significa "ninguém conferiu este vídeo ainda", e o player começa
+    #: do zero, que é exatamente o comportamento de antes deste campo existir.
+    #: NÃO é o mesmo que zero: zero é "conferido, e começa no início".
+    video_start_seconds = models.PositiveSmallIntegerField(
+        "início da execução (s)",
+        null=True,
+        blank=True,
+        help_text=(
+            "Segundo em que a demonstração do movimento começa de verdade. "
+            "Deixe vazio se você não assistiu ao vídeo para conferir."
+        ),
+    )
+
+    #: O segundo em que a execução termina. Opcional mesmo com `start`
+    #: preenchido: saber onde começa é útil sozinho.
+    video_end_seconds = models.PositiveSmallIntegerField(
+        "fim da execução (s)",
+        null=True,
+        blank=True,
+        help_text="Opcional. Precisa ser maior que o início.",
+    )
+
+    #: Os músculos que o movimento TAMBÉM recruta, além do principal.
+    #:
+    #: O principal continua sendo `muscle_group`, e não foi renomeado: ele está
+    #: em `muscle_volume`, na geração da ficha, nos filtros e no histórico.
+    #: Trocar o nome do campo para agradar a simetria custaria uma migração de
+    #: dados em cima de tudo isso, para não melhorar nada.
+    #:
+    #: O CRITÉRIO DA CURADORIA, no mesmo molde de `joints`: entra o músculo
+    #: que o movimento carrega DE VERDADE, não todo músculo que se contrai.
+    #: Listar tudo em tudo tornaria a informação inútil — todo exercício teria
+    #: quase todos os grupos e a tela deixaria de dizer alguma coisa. Para o
+    #: antebraço, que é o caso limite, a régua é "a pega é o que falha antes":
+    #: ela entra nas puxadas e nas roscas, e não no stiff, em que a barra é
+    #: segurada por poucos segundos por série.
+    #:
+    #: JSONField com valores de `MuscleGroup`, no mesmo molde de `joints` — e
+    #: não uma tabela `Muscle` com `ManyToMany`. A taxonomia JÁ existe como
+    #: `TextChoices`; criar a tabela seria uma SEGUNDA taxonomia, com dois
+    #: lugares para dizer "peito" e a garantia de que um dia eles divergem.
+    #: O que faz disto relação estruturada, e não texto livre, é a validação:
+    #: `clean()` recusa valor fora da taxonomia e recusa repetir o principal.
+    secondary_muscles = models.JSONField(
+        "músculos secundários",
+        default=list,
+        blank=True,
+        help_text="Lista de grupos musculares auxiliares, da mesma taxonomia.",
+    )
     equipment = models.CharField(
         "equipamento",
         max_length=12,
@@ -159,6 +216,76 @@ class Exercise(models.Model):
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        """As três regras que fazem os campos novos serem dado, e não texto.
+
+        ONDE ELAS RODAM DE VERDADE — e a primeira versão desta docstring
+        mentia sobre isto. O Django NÃO chama `clean()` em `save()`, então
+        quem passa por aqui é o ADMIN (via `ModelForm`) e quem chamar
+        `full_clean()` de propósito. O seed usa `update_or_create`, que não
+        valida; o `shell` também não.
+
+        A rede do catálogo é, portanto, um TESTE:
+        `OCatalogoSemeadoEValidoTests.test_todo_exercicio_do_catalogo_passa_no_full_clean`
+        chama `full_clean()` em todos os 36, e um "gluteos" digitado em
+        `exercises.json` aparece ali — não em produção.
+
+        Constraint de banco resolveria de vez, e não dá: o PostgreSQL não sabe
+        ler `MuscleGroup`, e um `CHECK` sobre JSON seria uma segunda cópia da
+        taxonomia dentro do banco — exatamente o que esta fase não pode criar.
+        É a diferença para `prioridade_pertence_aos_interesses`, em `accounts`,
+        que compara colunas e por isso pôde virar `CheckConstraint`.
+        """
+        super().clean()
+        erros = {}
+
+        validos = {escolha.value for escolha in MuscleGroup}
+        secundarios = self.secondary_muscles or []
+        if not isinstance(secundarios, list):
+            erros["secondary_muscles"] = "Precisa ser uma lista."
+        else:
+            fora = [m for m in secundarios if m not in validos]
+            if fora:
+                erros["secondary_muscles"] = (
+                    "Fora da taxonomia: %s. Use os valores de MuscleGroup."
+                    % ", ".join(map(str, fora))
+                )
+            elif len(set(secundarios)) != len(secundarios):
+                erros["secondary_muscles"] = "Há grupo repetido na lista."
+            elif self.muscle_group in secundarios:
+                # Um músculo é principal OU auxiliar, não os dois: repetido, ele
+                # apareceria duas vezes na tela e sugeriria estímulo duplo.
+                erros["secondary_muscles"] = (
+                    "%s já é o grupo principal deste exercício."
+                    % self.get_muscle_group_display()
+                )
+
+        inicio, fim = self.video_start_seconds, self.video_end_seconds
+        if fim is not None and inicio is not None and fim <= inicio:
+            erros["video_end_seconds"] = "O fim precisa ser depois do início."
+        if fim is not None and inicio is None:
+            # Fim sem início é recorte pela metade: o player abriria no zero e
+            # pararia no meio, que é pior que não recortar.
+            erros["video_end_seconds"] = "Informe também o início da execução."
+
+        if erros:
+            raise ValidationError(erros)
+
+    @property
+    def secondary_muscle_labels(self) -> list:
+        """Os nomes de tela dos auxiliares, na ordem da taxonomia.
+
+        Ordem da taxonomia e não a de digitação: duas pessoas cadastrando o
+        mesmo exercício em ordens diferentes produziriam duas telas diferentes
+        para o mesmo fato.
+        """
+        rotulos = {escolha.value: escolha.label for escolha in MuscleGroup}
+        return [
+            rotulos[escolha.value]
+            for escolha in MuscleGroup
+            if escolha.value in (self.secondary_muscles or [])
+        ]
 
     @property
     def video_id(self) -> str:
@@ -308,10 +435,34 @@ class Exercise(models.Model):
         video = self.video_id
         if not video:
             return ""
+
+        # O RECORTE DA EXECUÇÃO.
+        #
+        # `start` e `end` são parâmetros do próprio player do YouTube. Eles
+        # entram só quando há valor conferido: sem eles a URL sai byte a byte
+        # igual à de antes deste campo existir, que é o que mantém os 36
+        # exercícios já cadastrados funcionando sem tocar em nenhum.
+        #
+        # `end` sozinho não existe — `clean()` recusa —, então não há caminho
+        # que produza um corte pela metade.
+        #
+        # UMA LIMITAÇÃO REAL, e ela é do player: com `loop=1`, o YouTube
+        # reinicia do começo do vídeo, não do `start`. A segunda volta perde o
+        # recorte. Trocar o loop por um controlador de tempo exigiria a API
+        # `iframe_api`, que é script de terceiro carregado em toda abertura do
+        # drawer — caro para um ganho que só aparece na repetição. Fica assim,
+        # e fica escrito.
+        recorte = ""
+        if self.video_start_seconds is not None:
+            recorte += f"&start={self.video_start_seconds}"
+            if self.video_end_seconds is not None:
+                recorte += f"&end={self.video_end_seconds}"
+
         return (
             f"https://www.youtube-nocookie.com/embed/{video}"
             f"?autoplay=1&mute=1&loop=1&playlist={video}"
             "&controls=0&modestbranding=1&playsinline=1&rel=0"
+            f"{recorte}"
         )
 
     @property

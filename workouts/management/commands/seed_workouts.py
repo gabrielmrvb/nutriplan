@@ -114,6 +114,12 @@ class Command(BaseCommand):
                     "video_url": row.get("video", ""),
                     "equipment": row["equipment"],
                     "joints": row.get("joints", []),
+                    # Os auxiliares vêm do JSON como os `joints` vêm: lista
+                    # curada, com os MESMOS valores de `MuscleGroup`. Quem
+                    # recusa valor fora da taxonomia é `Exercise.clean()`,
+                    # e o teste do seed chama `full_clean` para que um erro
+                    # de digitação no arquivo apareça aqui e não na tela.
+                    "secondary_muscles": row.get("secundarios", []),
                     "is_active": row.get("active", True),
                 },
             )

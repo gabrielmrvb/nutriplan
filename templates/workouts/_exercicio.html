@@ -132,6 +132,7 @@
                           data-cue="{{ item.exercise.cue }}"
                           data-intensidade="{{ item.intensidade }}"
                           data-musculo="{{ item.exercise.get_muscle_group_display }}"
+                          data-auxiliares="{{ item.exercise.secondary_muscle_labels|join:" · " }}"
                           data-carga="{% if item.load.melhor_anterior %}{{ item.load.melhor_anterior|floatformat:'-2' }}{% endif %}"
                           data-carga-data="{% if item.load.data_anterior %}{{ item.load.data_anterior|date:'d/m' }}{% endif %}"
                           data-busca="{{ item.exercise.video_search_url }}"

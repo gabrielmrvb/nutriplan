@@ -1602,10 +1602,17 @@ class ExerciseFrameTests(TestCase):
             with self.subTest(atributo=atributo):
                 self.assertIn(atributo, html)
 
-        condicao = html.split("if (!montarClipe", 1)[1].split(") {", 1)[0]
-        self.assertLess(
-            condicao.index("montarQuadros"), condicao.index("montarAnimacao")
-        )
+        # A escada mudou de FORMA no Treino V4 e não de REGRA. Ela era um `if`
+        # com três chamadas encadeadas; virou `montarMidia`, que separa o que
+        # é EXECUÇÃO (clipe, e a foto como degrau seguinte) do que é ANATOMIA,
+        # porque as duas passaram a ser escolha da pessoa. A ordem dentro da
+        # execução é a mesma, e é isso que este teste continua medindo.
+        execucao = html.split("return montarClipe(media, dados)", 1)[1].split(";", 1)[0]
+        self.assertIn("montarQuadros", execucao)
+
+        anatomia = html.split("if (qual === \"anatomia\") {", 1)[1].split("}", 1)[0]
+        self.assertIn("montarAnimacao", anatomia)
+        self.assertNotIn("montarClipe", anatomia)
 
     def test_the_numbers_are_filled_no_matter_which_media_is_used(self):
         """Regressão: o `if` da mídia chegou a sair da função com `return`, e
@@ -1616,9 +1623,10 @@ class ExerciseFrameTests(TestCase):
         html = self.client.get(reverse("workouts:routine")).content.decode()
 
         corpo = html.split("function preencher(dados) {", 1)[1]
-        # A condição virou multilinha quando a execução subiu para o primeiro
-        # degrau; ancorar no fechamento do `if` sobrevive a essa formatação.
-        ramo_da_midia = corpo.split("&& !montarAnimacao(media, dados)) {", 1)[1]
+        # A montagem da mídia virou uma chamada (`montarMidia`) no Treino V4.
+        # O que este teste protege é o mesmo: seja qual for a mídia, o resto do
+        # drawer é preenchido — nada pode sair da função no meio.
+        ramo_da_midia = corpo.split("montarMidia(media, dados", 1)[1]
         self.assertNotIn("return;", ramo_da_midia.split("data-drawer-nome", 1)[0])
         self.assertIn("data-drawer-series", corpo)
         self.assertIn("data-drawer-carga", corpo)
@@ -3849,16 +3857,30 @@ class PrioridadeDaMidiaNaFichaTests(TestCase):
         Ancorado nas posições dentro do `if`, e não na presença das funções:
         as três continuam existindo, e o defeito era exatamente a ORDEM.
         """
-        bloco = self.fonte.split("if (!montarClipe", 1)
-        self.assertEqual(len(bloco), 2, "montarClipe deixou de abrir a escada")
+        bloco = self.fonte.split("return montarClipe(media, dados)", 1)
+        self.assertEqual(len(bloco), 2, "montarClipe deixou de abrir a execução")
 
-        condicao = bloco[1].split(") {", 1)[0]
-        self.assertIn("montarQuadros", condicao)
-        self.assertIn("montarAnimacao", condicao)
+        execucao = bloco[1].split(";", 1)[0]
+        self.assertIn("montarQuadros", execucao, "a foto saiu do degrau seguinte")
+
+    def test_a_midia_que_abre_e_a_execucao_e_nao_a_anatomia(self):
+        """O INVARIANTE, agora com trava própria.
+
+        No Treino V4 quem escolhe a mídia inicial é um ternário só, e ele é
+        hoje a única coisa que impede o defeito de agosto de voltar: quem
+        tocava "Ver vídeo de execução" recebia o diagrama de músculos, com o
+        banner de um personal concorrente por cima.
+
+        Os dois testes que protegiam isso ancoravam na escada antiga e foram
+        reescritos junto com ela — o que deixaria o invariante SEM cobertura
+        no mesmo commit que mexeu nele. Uma revisão adversarial pegou.
+        """
+        ternario = self.fonte.split("drawer.dataset.midia =", 1)[1].split(";", 1)[0]
+
         self.assertLess(
-            condicao.index("montarQuadros"),
-            condicao.index("montarAnimacao"),
-            "anatomia voltou a passar na frente da foto",
+            ternario.index("execucao"),
+            ternario.index("anatomia"),
+            "a anatomia voltou a abrir na frente da execução",
         )
 
     def test_a_anatomia_continua_existindo_como_degrau_final(self):
@@ -5286,3 +5308,36 @@ class OrcamentoDeTempoTests(TestCase):
             SessionExercise.objects.filter(session__plan=depois).count(),
             exercicios_antes,
         )
+
+
+class OPredicadoDaAnatomiaTests(TestCase):
+    """O que REVELA o botão tem de ser tão exigente quanto o que o ATENDE.
+
+    `montarAnimacao` desiste sem `animacaoTipo` — e `animation_kind` devolve
+    `""` para todo endereço que ele não reconhece. Com `temAnatomia` olhando
+    só o endereço, a barra aparecia com duas opções e tocar "Anatomia" limpava
+    a mídia sem montar nada: uma caixa vazia, sem volta além de tocar "Vídeo
+    real". Uma revisão adversarial achou o caminho, e a sabotagem que
+    enfraquece o predicado passava verde — este teste é a trava que faltava.
+    """
+
+    CAMINHO = Path(settings.BASE_DIR) / "templates" / "workouts" / "routine.html"
+
+    def setUp(self):
+        self.fonte = self.CAMINHO.read_text(encoding="utf-8")
+
+    def test_temAnatomia_exige_endereco_E_tipo(self):
+        corpo = self.fonte.split("function temAnatomia(dados) {", 1)[1]
+        corpo = corpo.split("}", 1)[0]
+
+        self.assertIn("dados.animacao", corpo)
+        self.assertIn("dados.animacaoTipo", corpo)
+
+    def test_o_construtor_continua_exigindo_os_dois(self):
+        """O outro lado do par: se `montarAnimacao` afrouxar, o predicado
+        acima passa a ser exigente demais e o botão some sem motivo."""
+        corpo = self.fonte.split("function montarAnimacao(media, dados) {", 1)[1]
+        primeira = corpo.split(";", 1)[0]
+
+        self.assertIn("dados.animacao", primeira)
+        self.assertIn("dados.animacaoTipo", primeira)

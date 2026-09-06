@@ -501,11 +501,47 @@
 
       <div class="drawer__puxador" aria-hidden="true"></div>
 
-      <div class="drawer__media" data-drawer-media></div>
+      <div class="drawer__media" id="drawer-media" data-drawer-media></div>
+
+      {% comment %}
+        O SELETOR DE MÍDIA — e ele só existe quando há DUAS coisas para ver.
+
+        Duas mídias, e elas respondem perguntas diferentes: o vídeo real mostra
+        COMO se faz, a anatomia mostra O QUE trabalha. Com uma só, uma barra de
+        uma opção seria um controle que não controla nada — nasce escondida e o
+        JavaScript só a revela quando as duas existem.
+
+        NÃO é `role="tablist"`. Tablist de verdade exige navegação por setas,
+        `aria-controls`, `tabpanel` e gestão de `tabindex`; dois botões que
+        escolhem o que a área acima mostra são exatamente isso — dois botões —,
+        e `aria-pressed` diz o estado sem prometer um padrão de teclado que a
+        implementação não teria. É a mesma escolha de `<details>` antes de
+        `<dialog>` que o CLAUDE.md já registra.
+
+        E NÃO chama nada de "3D": não há personagem 3D neste app. O rótulo diz
+        o que a mídia é.
+      {% endcomment %}
+      <div class="drawer__midias" data-drawer-midias hidden
+           role="group" aria-label="O que mostrar deste exercício">
+        <button type="button" class="drawer__midia" data-drawer-midia="execucao"
+                aria-controls="drawer-media" aria-pressed="true">Vídeo real</button>
+        <button type="button" class="drawer__midia" data-drawer-midia="anatomia"
+                aria-controls="drawer-media" aria-pressed="false">Anatomia</button>
+      </div>
 
       <div class="drawer__corpo">
         <h2 class="drawer__nome" id="drawer-nome" data-drawer-nome></h2>
+        {% comment %}
+          Principal e auxiliares, e a diferença entre eles é visual antes de ser
+          textual: o principal é uma pílula de marca, os auxiliares são texto
+          discreto. Quem bate o olho vê um nome em destaque e uma linha menor.
+
+          A linha dos auxiliares nasce escondida: exercício isolador não tem
+          auxiliar, e "Também trabalha: nenhum" seria informação inútil ocupando
+          espaço numa tela que a pessoa abre entre duas séries.
+        {% endcomment %}
         <p class="drawer__musculo" data-drawer-musculo></p>
+        <p class="drawer__auxiliares" data-drawer-auxiliares hidden></p>
         {% comment %}
           Dentro do corpo, a instrução escrita vem antes dos números: quem
           abriu quer saber COMO se faz, e não a aritmética da série.
@@ -613,7 +649,6 @@
             elemento.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
             elemento.allowFullscreen = true;
           }
-          media.classList.toggle("drawer__media--vertical", dados.vertical === "1");
           media.appendChild(elemento);
           return true;
         }
@@ -622,12 +657,6 @@
           if (!dados.animacao || !dados.animacaoTipo) return false;
 
           media.classList.add("drawer__media--carregando");
-
-          // Short é 9:16. Esticado em 16:9 fica com duas tarjas pretas
-          // ocupando metade da caixa.
-          if (dados.animacaoVertical === "1") {
-            media.classList.add("drawer__media--vertical");
-          }
 
           var elemento;
           if (dados.animacaoTipo === "youtube") {
@@ -713,42 +742,99 @@
           return true;
         }
 
-        function preencher(dados) {
-          var media = drawer.querySelector("[data-drawer-media]");
+        /* O QUE É EXECUÇÃO E O QUE É ANATOMIA.
+         *
+         * Execução = o clipe do movimento, e as FOTOS como degrau seguinte —
+         * as duas respondem "como se faz", então dividem o mesmo lado do
+         * seletor e mantêm a prioridade que já existia (clipe → quadros).
+         * Anatomia = `animation_url`, que responde "o que trabalha".
+         *
+         * A ordem entre elas continua a de antes: execução primeiro, porque é
+         * o que o botão promete. O seletor não muda a prioridade — ele só
+         * oferece a segunda quando ela existe.
+         */
+        function temExecucao(dados) {
+          return !!(dados.clipe || (dados.quadros || "").length);
+        }
+
+        function temAnatomia(dados) {
+          /* As DUAS condições, e não só o endereço.
+           *
+           * `montarAnimacao` exige `animacao` E `animacaoTipo`, porque
+           * `animation_kind` devolve "" para endereço que ele não reconhece.
+           * Com só a primeira aqui, a barra aparecia com duas opções e tocar
+           * "Anatomia" limpava a mídia e não montava nada — caixa vazia, sem
+           * volta além de tocar "Vídeo real". Uma revisão adversarial achou o
+           * caminho: basta um `animation_url` que não seja YouTube nem
+           * arquivo de vídeo/imagem. */
+          return !!(dados.animacao && dados.animacaoTipo);
+        }
+
+        function montarMidia(media, dados, qual) {
+          /* `innerHTML = ""` é o que PARA a mídia anterior: tirar o `<iframe>`
+           * do documento encerra o vídeo e o tráfego dele. Sem isto, trocar
+           * para a anatomia deixaria o clipe tocando atrás — invisível e
+           * consumindo rede. É a mesma técnica do fechamento do drawer.
+           *
+           * O PREÇO, e ele é declarado: ir e voltar N vezes custa N
+           * carregamentos completos do player, e o recorte reinicia no
+           * `start` a cada volta. Guardar o `<iframe>` escondido evitaria
+           * isso e violaria o contrato de cima — o áudio continuaria vivo
+           * atrás de uma tela que ninguém está vendo. A troca é essa, e o
+           * lado escolhido é o que não gasta bateria e dado do bolso alheio. */
           pararAlternancia();
           media.innerHTML = "";
           media.className = "drawer__media";
-          media.classList.toggle("drawer__media--vertical", dados.vertical === "1");
 
-          /* EXECUÇÃO primeiro. Foto e anatomia só quando não há clipe.
+          /* A ORIENTAÇÃO É DECIDIDA AQUI, num lugar só.
            *
-           * A ordem era animação → foto → vídeo, com o comentário "hoje o topo
-           * está vazio para todo mundo". Era verdade quando foi escrito, e
-           * deixou de ser quando `animacoes.json` passou a preencher os 36:
-           * `montarAnimacao` vencia sempre, e o botão que diz "Ver vídeo de
-           * execução" abria o diagrama de músculos — com o banner
-           * "EXPERIMENTE GRÁTIS" de um personal concorrente por cima.
-           *
-           * O Modo Treino já tinha essa prioridade certa (execução no corpo,
-           * anatomia atrás de `<details>`); a ficha ficou para trás. Achado ao
-           * revalidar os 36 vídeos no player depois da curadoria.
-           *
-           * A anatomia NÃO foi apagada: continua em `animation_url`, continua
-           * servida no Modo Treino, e continua sendo o degrau seguinte aqui
-           * para quem um dia não tiver clipe.
-           *
-           * O `if` envolve SÓ a mídia. Uma versão anterior saía da função com
-           * `return`, e com isso nome, séries, descanso e carga anterior
-           * ficavam em branco sempre que a mídia existia — ou seja, sempre.
-           */
-          if (!montarClipe(media, dados)
-              && !montarQuadros(media, dados)
-              && !montarAnimacao(media, dados)) {
-            /* Sem clipe, sem fotos e sem anatomia: a tela já oferece a busca. */
+           * `montarClipe` e `montarAnimacao` também alternavam a classe, cada
+           * um com a sua fonte — três lugares decidindo a mesma coisa. Como
+           * `media.className` é reescrito na linha acima, os toggles de dentro
+           * eram ruído que um dia divergiria: mudar a regra aqui e esquecer lá
+           * produz um estado que só aparece num tipo de mídia. */
+          if (qual === "anatomia") {
+            media.classList.toggle(
+              "drawer__media--vertical", dados.animacaoVertical === "1"
+            );
+            return montarAnimacao(media, dados);
           }
+          media.classList.toggle("drawer__media--vertical", dados.vertical === "1");
+          return montarClipe(media, dados) || montarQuadros(media, dados);
+        }
+
+        function preencher(dados) {
+          var media = drawer.querySelector("[data-drawer-media]");
+          var midias = drawer.querySelector("[data-drawer-midias]");
+          var execucao = temExecucao(dados);
+          var anatomia = temAnatomia(dados);
+
+          /* A barra só aparece com DUAS opções. Com uma, ela seria um controle
+           * que não controla nada; com nenhuma, o corpo do drawer — cue,
+           * séries, descanso, carga anterior — continua inteiro, e é ele que
+           * torna a tela útil quando não há mídia. */
+          midias.hidden = !(execucao && anatomia);
+          /* Com as duas, a caixa de mídia fica 16:9 para ambas — trocar não
+           * pode empurrar o corpo do drawer para baixo do olho de quem está
+           * lendo os números entre duas séries. */
+          drawer.classList.toggle("drawer--duas-midias", !midias.hidden);
+          drawer.dataset.midia = execucao ? "execucao" : (anatomia ? "anatomia" : "");
+          midias.querySelectorAll("[data-drawer-midia]").forEach(function (botao) {
+            botao.setAttribute(
+              "aria-pressed", String(botao.dataset.drawerMidia === drawer.dataset.midia)
+            );
+          });
+
+          montarMidia(media, dados, drawer.dataset.midia);
 
           drawer.querySelector("[data-drawer-nome]").textContent = dados.nome;
           drawer.querySelector("[data-drawer-musculo]").textContent = dados.musculo || "";
+
+          /* "Também trabalha" só existe quando há o que dizer. */
+          var auxiliares = drawer.querySelector("[data-drawer-auxiliares]");
+          var lista = (dados.auxiliares || "").trim();
+          auxiliares.hidden = !lista;
+          auxiliares.textContent = lista ? "Também trabalha " + lista : "";
           drawer.querySelector("[data-drawer-series]").textContent =
             dados.series + " × " + dados.reps;
           drawer.querySelector("[data-drawer-descanso]").textContent = dados.descansoTexto;
@@ -777,12 +863,40 @@
           drawer.querySelector("[data-drawer-busca]").href = dados.busca || "#";
         }
 
+        /* A TROCA DE MÍDIA.
+         *
+         * Ela guarda os dados do gatilho que abriu o drawer e remonta só a
+         * área de mídia. Nada aqui toca em série, descanso, cronômetro,
+         * progresso ou no `<details>` de baixo: o estado do treino vive no
+         * servidor e nos formulários da ficha, e esta função não os alcança.
+         */
+        var dadosAbertos = null;
+
+        document.addEventListener("click", function (event) {
+          var botao = event.target.closest("[data-drawer-midia]");
+          if (!botao || !drawer || !dadosAbertos) return;
+
+          var qual = botao.dataset.drawerMidia;
+          if (qual === drawer.dataset.midia) return;   // já está nela
+
+          drawer.dataset.midia = qual;
+          drawer.querySelectorAll("[data-drawer-midia]").forEach(function (outro) {
+            outro.setAttribute(
+              "aria-pressed", String(outro.dataset.drawerMidia === qual)
+            );
+          });
+          montarMidia(
+            drawer.querySelector("[data-drawer-media]"), dadosAbertos, qual
+          );
+        });
+
         document.addEventListener("click", function (event) {
           var facade = event.target.closest("[data-clipe]");
           if (!facade || !drawer) return;
           // O botão mora dentro do `<summary>`: sem cortar o padrão, o mesmo
           // toque que abre o drawer alterna a sanfona por baixo dele.
           event.preventDefault();
+          dadosAbertos = facade.dataset;
           preencher(facade.dataset);
           drawer.showModal();
         });
