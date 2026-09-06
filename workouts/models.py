@@ -288,6 +288,30 @@ class Exercise(models.Model):
         ]
 
     @property
+    def destaques_anatomicos(self) -> str:
+        """"chest:principal,triceps:auxiliar" — o mapa, pronto para o atributo.
+
+        String e não JSON porque o destino é um `data-`, que só guarda texto;
+        e a montagem é do SERVIDOR porque quem sabe quem é principal e quem é
+        auxiliar é o modelo. O JavaScript recebe a resposta e pinta — ele não
+        conhece nome de músculo nenhum, que é o que impede um
+        `if (musculo === "peito")` de nascer na tela.
+        """
+        from . import anatomia
+
+        return ",".join(
+            "%s:%s" % (grupo, nivel)
+            for grupo, nivel in anatomia.destaques(self).items()
+        )
+
+    @property
+    def vista_anatomica(self) -> str:
+        """A vista que mostra mais do que este exercício trabalha."""
+        from . import anatomia
+
+        return anatomia.vista_preferida(self)
+
+    @property
     def video_id(self) -> str:
         """O identificador do vídeo no YouTube, ou "" se não der para extrair.
 

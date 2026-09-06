@@ -504,6 +504,52 @@
       <div class="drawer__media" id="drawer-media" data-drawer-media></div>
 
       {% comment %}
+        O MAPA MUSCULAR — irmão da área de vídeo, e não conteúdo dela.
+
+        `data-drawer-media` é esvaziado e remontado a cada troca, e é isso que
+        para o vídeo anterior. O mapa não pode pagar esse preço: ele é o MESMO
+        desenho para os 36 exercícios, e só os `data-nivel` mudam. Reconstruí-lo
+        a cada abertura duplicaria ~4 KB de `path` por toque, para desenhar
+        exatamente a mesma coisa.
+
+        Então ele existe UMA vez no documento, escondido, e o JavaScript só
+        pinta as regiões e vira a vista. Zero markup por exercício, zero
+        consulta nova, zero rede — e é o que o faz aparecer instantaneamente no
+        meio da série.
+      {% endcomment %}
+      <div class="drawer__anatomia" id="drawer-anatomia" data-drawer-anatomia hidden>
+        {% comment %}
+          A LEGENDA É HTML, e não `<text>` dentro do SVG.
+
+          Ela já morou lá, e escalava junto com o `viewBox`: com o teto de
+          altura em `dvh`, o fator varia com a tela, e a 320×568 ele é 0,79 —
+          os 11,2px do token viravam 8,9px renderizados, abaixo do piso de
+          11px que o CLAUDE.md fixa para texto de interface. Em HTML, 11,2px
+          são 11,2px em qualquer largura.
+
+          E ela não é enfeite: o estado dos botões Frente/Costas é `aria-pressed`
+          desenhado só com cor (borda, fundo e texto). Esta linha é quem diz
+          qual vista está na tela sem depender de enxergar cor.
+        {% endcomment %}
+        {% include "partials/mapa_muscular.html" %}
+        <div class="corpo__vistas" role="group" aria-label="Vista do corpo">
+          <button type="button" class="corpo__vista-botao" data-corpo-vista="frente"
+                  aria-pressed="true">Frente</button>
+          <button type="button" class="corpo__vista-botao" data-corpo-vista="costas"
+                  aria-pressed="false">Costas</button>
+          {% comment %}
+            A legenda mora NESTA coluna, e não embaixo do desenho, por uma
+            razão medida: a coluna tem 96px (dois alvos de 44 mais o vão) e o
+            desenho tem até 272, então o texto cabe aqui de graça. Embaixo do
+            boneco ele custava 43px de altura ao bloco inteiro, e a 320×568
+            isso empurrava o cartão de séries de 528 para 571 — para fora de
+            uma tela de 568. Foi medido nas duas posições.
+          {% endcomment %}
+          <p class="corpo__vista-nome" data-corpo-legenda>frente</p>
+        </div>
+      </div>
+
+      {% comment %}
         O SELETOR DE MÍDIA — e ele só existe quando há DUAS coisas para ver.
 
         Duas mídias, e elas respondem perguntas diferentes: o vídeo real mostra
@@ -526,7 +572,7 @@
         <button type="button" class="drawer__midia" data-drawer-midia="execucao"
                 aria-controls="drawer-media" aria-pressed="true">Vídeo real</button>
         <button type="button" class="drawer__midia" data-drawer-midia="anatomia"
-                aria-controls="drawer-media" aria-pressed="false">Anatomia</button>
+                aria-controls="drawer-anatomia" aria-pressed="false">Anatomia</button>
       </div>
 
       <div class="drawer__corpo">
@@ -653,57 +699,17 @@
           return true;
         }
 
-        function montarAnimacao(media, dados) {
-          if (!dados.animacao || !dados.animacaoTipo) return false;
-
-          media.classList.add("drawer__media--carregando");
-
-          var elemento;
-          if (dados.animacaoTipo === "youtube") {
-            // O YouTube não serve o arquivo, serve o player — daí `<iframe>` e
-            // não `<video>`. Os parâmetros de autoplay, loop e mudo já vêm
-            // montados no endereço pelo modelo.
-            elemento = document.createElement("iframe");
-            elemento.src = dados.animacao;
-            elemento.title = "Execução: " + dados.nome;
-            elemento.allow = "autoplay; encrypted-media; picture-in-picture";
-            elemento.addEventListener("load", function () {
-              media.classList.remove("drawer__media--carregando");
-            }, {once: true});
-          } else if (dados.animacaoTipo === "video") {
-            // `muted` e `playsinline` não são preferência: sem os dois, o
-            // navegador recusa o autoplay e o iPhone abre em tela cheia.
-            elemento = document.createElement("video");
-            elemento.src = dados.animacao;
-            elemento.autoplay = true;
-            elemento.loop = true;
-            elemento.muted = true;
-            elemento.playsInline = true;
-            elemento.setAttribute("muted", "");
-            elemento.setAttribute("playsinline", "");
-            elemento.addEventListener("loadeddata", function () {
-              media.classList.remove("drawer__media--carregando");
-            }, {once: true});
-          } else {
-            elemento = document.createElement("img");
-            elemento.src = dados.animacao;
-            elemento.alt = "Execução: " + dados.nome;
-            elemento.decoding = "async";
-            elemento.addEventListener("load", function () {
-              media.classList.remove("drawer__media--carregando");
-            }, {once: true});
-          }
-
-          elemento.className = "drawer__quadro";
-          elemento.addEventListener("error", function () {
-            media.classList.remove("drawer__media--carregando");
-            media.classList.add("drawer__media--falhou");
-          }, {once: true});
-
-          media.appendChild(elemento);
-          return true;
-        }
-
+        /* A ANATOMIA POR VÍDEO SAIU DAQUI, e a função que a montava saiu junto.
+         *
+         * `montarAnimacao` ficou sem nenhuma chamada quando a fase B trocou o
+         * Short de terceiro pelo mapa muscular. Deixar a função morta arrastaria
+         * junto `data-animacao`, que carrega a URL de embed COMPLETA de cada
+         * exercício: 27 delas na ficha da semana, para um leitor que não existe
+         * mais.
+         *
+         * O CAMPO NÃO FOI APAGADO. `animation_url` continua no modelo e continua
+         * servido no Modo Treino, em `agora.html`, dentro do `<details>` que já
+         * existia lá. O que saiu foi o consumo MORTO nesta tela. */
         function montarQuadros(media, dados) {
           var urls = dados.quadros.split("|").filter(Boolean);
           if (!urls.length) return false;
@@ -758,17 +764,89 @@
         }
 
         function temAnatomia(dados) {
-          /* As DUAS condições, e não só o endereço.
+          /* SEMPRE — e é essa a mudança da fase B.
            *
-           * `montarAnimacao` exige `animacao` E `animacaoTipo`, porque
-           * `animation_kind` devolve "" para endereço que ele não reconhece.
-           * Com só a primeira aqui, a barra aparecia com duas opções e tocar
-           * "Anatomia" limpava a mídia e não montava nada — caixa vazia, sem
-           * volta além de tocar "Vídeo real". Uma revisão adversarial achou o
-           * caminho: basta um `animation_url` que não seja YouTube nem
-           * arquivo de vídeo/imagem. */
-          return !!(dados.animacao && dados.animacaoTipo);
+           * A anatomia deixou de depender de um vídeo de terceiro e passou a
+           * ser o mapa muscular, desenhado a partir de `muscle_group` e
+           * `secondary_muscles`. Todo exercício tem grupo principal, então
+           * todo exercício tem o que mostrar aqui.
+           *
+           * Antes isto exigia `animacao` E `animacaoTipo` — o predicado que
+           * revelava o botão tinha de ser tão exigente quanto o construtor que
+           * o atendia, senão o botão abria caixa vazia. Com o mapa, o
+           * construtor não pode falhar: ele desenha o corpo com o que houver,
+           * e um grupo sem região apenas não acende. */
+          return !!dados.destaques;
         }
+
+        /* PINTA O CORPO a partir do dado, sem saber nome de músculo nenhum.
+         *
+         * `data-destaques` chega como "chest:principal,triceps:auxiliar" — o
+         * servidor já resolveu quem é o quê, com `anatomia.destaques()`. Aqui
+         * é varredura de regiões: cada `[data-grupo]` pergunta o próprio nível
+         * e escreve `data-nivel`, que é o que o CSS lê. Um grupo sem região
+         * desenhada simplesmente não é encontrado, e nada quebra — o texto
+         * "Principal / Também trabalha" continua dizendo tudo. */
+        function pintarCorpo(dados) {
+          var corpo = drawer.querySelector(".corpo");
+          if (!corpo) return;
+
+          var niveis = {};
+          (dados.destaques || "").split(",").forEach(function (par) {
+            var partes = par.split(":");
+            if (partes.length === 2) niveis[partes[0]] = partes[1];
+          });
+
+          corpo.querySelectorAll("[data-grupo]").forEach(function (regiao) {
+            var nivel = niveis[regiao.dataset.grupo];
+            if (nivel) {
+              regiao.setAttribute("data-nivel", nivel);
+            } else {
+              regiao.removeAttribute("data-nivel");
+            }
+          });
+
+          /* A VISTA É DA ABERTURA, não da montagem.
+           *
+           * `montarMidia` limpa e remonta a área a cada troca do seletor, e a
+           * primeira versão disto repintava com `dados.vista` — a preferência
+           * do SERVIDOR. Quem virava o corpo para as costas, ia ver o vídeo e
+           * voltava encontrava a frente de novo, com o comentário logo acima
+           * afirmando o contrário. `vistaAberta` é o que a PESSOA escolheu
+           * nesta abertura; `preencher` a redefine quando outro exercício
+           * abre, que é exatamente o "recalcular ao abrir outro". */
+          mostrarVista(vistaAberta || dados.vista || "frente");
+        }
+
+        /* Vale enquanto ESTE drawer estiver aberto. Fechar e abrir outro
+         * exercício passa por `preencher`, que zera. */
+        var vistaAberta = null;
+
+        function mostrarVista(qual) {
+          var corpo = drawer.querySelector(".corpo");
+          if (!corpo) return;
+          vistaAberta = qual;
+          corpo.dataset.vista = qual;
+          drawer.querySelectorAll("[data-corpo-vista]").forEach(function (botao) {
+            botao.setAttribute(
+              "aria-pressed", String(botao.dataset.corpoVista === qual)
+            );
+          });
+
+          /* A legenda diz qual vista está na tela sem depender de cor — o
+           * `aria-pressed` dos botões só muda borda, fundo e texto. Ela saiu
+           * de dentro do SVG porque texto ali escala com o `viewBox`. */
+          var legenda = drawer.querySelector("[data-corpo-legenda]");
+          if (legenda) legenda.textContent = qual;
+        }
+
+        /* Virar o corpo é troca de VISTA e nada mais: não toca em série,
+         * descanso, cronômetro, progresso nem no `<dialog>`. */
+        document.addEventListener("click", function (event) {
+          var botao = event.target.closest("[data-corpo-vista]");
+          if (!botao || !drawer) return;
+          mostrarVista(botao.dataset.corpoVista);
+        });
 
         function montarMidia(media, dados, qual) {
           /* `innerHTML = ""` é o que PARA a mídia anterior: tirar o `<iframe>`
@@ -793,11 +871,28 @@
            * `media.className` é reescrito na linha acima, os toggles de dentro
            * eram ruído que um dia divergiria: mudar a regra aqui e esquecer lá
            * produz um estado que só aparece num tipo de mídia. */
+          /* ANATOMIA É O MAPA, e não mais o vídeo anatômico.
+           *
+           * A decisão: `animation_url` responde "o que trabalha" com um Short
+           * de terceiro — que custa rede, demora, e cujo problema esta base já
+           * documentou (metade se chama "<exercício> - Músculos Trabalhados" e
+           * o supino leva onze segundos de diagrama antes de alguém deitar no
+           * banco; um deles traz banner de personal concorrente). O mapa
+           * responde a MESMA pergunta com dado nosso, instantâneo, offline, e
+           * para os 36 exercícios em vez de para os que têm vídeo.
+           *
+           * O campo NÃO foi apagado: ele continua no modelo e continua servido
+           * no Modo Treino, atrás do `<details>` que já existe lá. */
+          /* `caixaDaAnatomia` e não `anatomia`: em `preencher` o mesmo nome
+           * guarda um BOOLEANO, e `anatomia` ainda é o nome do módulo Python
+           * que produz estes dados. Três coisas com um nome só é legível hoje
+           * e armadilha amanhã. */
+          var caixaDaAnatomia = drawer.querySelector("[data-drawer-anatomia]");
+          if (caixaDaAnatomia) caixaDaAnatomia.hidden = qual !== "anatomia";
+          media.hidden = qual === "anatomia";
           if (qual === "anatomia") {
-            media.classList.toggle(
-              "drawer__media--vertical", dados.animacaoVertical === "1"
-            );
-            return montarAnimacao(media, dados);
+            pintarCorpo(dados);
+            return true;
           }
           media.classList.toggle("drawer__media--vertical", dados.vertical === "1");
           return montarClipe(media, dados) || montarQuadros(media, dados);
@@ -808,6 +903,12 @@
           var midias = drawer.querySelector("[data-drawer-midias]");
           var execucao = temExecucao(dados);
           var anatomia = temAnatomia(dados);
+
+          /* ABRIU OUTRO EXERCÍCIO: a vista volta a ser a que o servidor
+           * escolheu para ESTE. Sem esta linha, a preservação de vista viraria
+           * uma preferência global — quem viu a puxada de costas abriria o
+           * supino de costas, que é a vista onde o peito não aparece. */
+          vistaAberta = dados.vista || "frente";
 
           /* A barra só aparece com DUAS opções. Com uma, ela seria um controle
            * que não controla nada; com nenhuma, o corpo do drawer — cue,

@@ -116,10 +116,20 @@
                           linha de baixo quando não cabe — que é o caso a
                           390px. Nenhuma largura fixa decide isso.
                         {% endcomment %}
+                        {% comment %}
+                          `data-animacao`, `data-animacao-tipo` e
+                          `data-animacao-vertical` SAÍRAM na fase B. O único
+                          leitor deles era `montarAnimacao`, e a anatomia desta
+                          tela deixou de ser vídeo de terceiro: virou o mapa
+                          muscular, que sai de `data-destaques` e `data-vista`.
+
+                          O primeiro carregava a URL de embed COMPLETA do
+                          exercício, repetida nos 27 gatilhos da ficha da
+                          semana — peso de HTML para um leitor que não existe
+                          mais. O campo continua no modelo e continua servido
+                          no Modo Treino.
+                        {% endcomment %}
                         <button type="button" class="exercise__ver" data-ver
-                          data-animacao="{% if item.exercise.animation_kind == 'youtube' %}{{ item.exercise.animation_embed_url }}{% else %}{{ item.exercise.animation_url }}{% endif %}"
-                          data-animacao-tipo="{{ item.exercise.animation_kind }}"
-                          data-animacao-vertical="{% if item.exercise.animation_is_vertical %}1{% endif %}"
                           data-quadros="{{ item.exercise.frames|join:'|' }}"
                           data-clipe="{% if item.exercise.clip_kind == 'youtube' %}{{ item.exercise.video_embed_url }}{% else %}{{ item.exercise.video_url }}{% endif %}"
                           data-tipo="{{ item.exercise.clip_kind }}"
@@ -133,6 +143,8 @@
                           data-intensidade="{{ item.intensidade }}"
                           data-musculo="{{ item.exercise.get_muscle_group_display }}"
                           data-auxiliares="{{ item.exercise.secondary_muscle_labels|join:" · " }}"
+                          data-destaques="{{ item.exercise.destaques_anatomicos }}"
+                          data-vista="{{ item.exercise.vista_anatomica }}"
                           data-carga="{% if item.load.melhor_anterior %}{{ item.load.melhor_anterior|floatformat:'-2' }}{% endif %}"
                           data-carga-data="{% if item.load.data_anterior %}{{ item.load.data_anterior|date:'d/m' }}{% endif %}"
                           data-busca="{{ item.exercise.video_search_url }}"

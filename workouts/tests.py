@@ -636,7 +636,11 @@ class WorkoutVideoViewTests(TestCase):
 
         # O endereço do player vem no atributo, mas nenhum player é montado
         # antes do toque — é o que evita dezenove conexões ao abrir a tela.
-        self.assertIn("data-animacao=", marcacao)
+        #
+        # Era `data-animacao=`; a fase B removeu esse atributo junto com o
+        # único leitor dele. `data-clipe=` é o endereço que sobrou, e a REGRA
+        # é a mesma: ele viaja como texto e vira player só no toque.
+        self.assertIn("data-clipe=", marcacao)
         self.assertNotIn("<video", marcacao)
 
     def test_the_fallback_search_link_travels_with_each_exercise(self):
@@ -1581,8 +1585,14 @@ class ExerciseFrameTests(TestCase):
         self.assertTrue(urls[1].endswith("/1.jpg"))
 
     def test_the_drawer_walks_down_the_media_ladder(self):
-        """Três degraus: EXECUÇÃO, foto, anatomia. Cada um só entra quando o de
-        cima não existe.
+        """A execução é uma ESCADA de dois degraus — clipe, depois foto —, e a
+        anatomia não é degrau nenhum: é a outra opção do seletor.
+
+        O docstring dizia "três degraus: EXECUÇÃO, foto, anatomia; cada um só
+        entra quando o de cima não existe". Valia até a fase B, que tirou a
+        anatomia da escada e a pôs ao lado, sempre disponível. O corpo do teste
+        acompanhou a mudança e esta frase não — que é o inverso do que o
+        repositório cobra de um docstring.
 
         A ordem era outra — animação primeiro —, e o docstring deste teste
         repetia a premissa que a justificava: "hoje o topo está vazio para todo
@@ -1598,7 +1608,10 @@ class ExerciseFrameTests(TestCase):
         self.client.force_login(user)
         html = self.client.get(reverse("workouts:routine")).content.decode()
 
-        for atributo in ("data-animacao=", "data-quadros=", "data-clipe="):
+        # `data-animacao=` SAIU desta lista na fase B, e a ausência é o
+        # contrato novo: a anatomia da ficha deixou de ser vídeo de terceiro e
+        # virou o mapa, então o atributo perdeu o único leitor que tinha.
+        for atributo in ("data-quadros=", "data-clipe=", "data-destaques="):
             with self.subTest(atributo=atributo):
                 self.assertIn(atributo, html)
 
@@ -1610,9 +1623,15 @@ class ExerciseFrameTests(TestCase):
         execucao = html.split("return montarClipe(media, dados)", 1)[1].split(";", 1)[0]
         self.assertIn("montarQuadros", execucao)
 
+        # O CONSTRUTOR da anatomia mudou na fase B — de `montarAnimacao`, que
+        # montava um `<iframe>` do YouTube, para `pintarCorpo`, que acende
+        # regiões do mapa. A REGRA não mudou: o ramo da anatomia não pode
+        # montar execução, e este teste ficou vermelho quando o construtor
+        # trocou sem que a asserção acompanhasse.
         anatomia = html.split("if (qual === \"anatomia\") {", 1)[1].split("}", 1)[0]
-        self.assertIn("montarAnimacao", anatomia)
+        self.assertIn("pintarCorpo", anatomia)
         self.assertNotIn("montarClipe", anatomia)
+        self.assertNotIn("montarQuadros", anatomia)
 
     def test_the_numbers_are_filled_no_matter_which_media_is_used(self):
         """Regressão: o `if` da mídia chegou a sair da função com `return`, e
@@ -1727,26 +1746,58 @@ class AnimationImportTests(TestCase):
         exercicio.animation_url = ""
         self.assertEqual(exercicio.animation_kind, "")
 
-    def test_the_animation_wins_over_the_photos_in_the_drawer(self):
+    def test_the_animation_no_longer_reaches_the_week_drawer(self):
+        """A premissa deste teste MORREU na fase B, e o teste virou o contrário.
+
+        Ele se chamava `..._wins_over_the_photos_in_the_drawer` e afirmava que
+        `animation_url` chegava ao gatilho da ficha em `data-animacao`. A fase
+        B trocou a anatomia daquela tela pelo mapa muscular, e o atributo saiu
+        junto com `montarAnimacao`, seu único leitor — deixá-lo lá custava a
+        URL de embed completa em cada um dos 27 gatilhos da semana.
+
+        O campo NÃO foi apagado, e a segunda metade deste teste é quem prova
+        isso: ele continua servido no Modo Treino. Sem essa metade, "removi o
+        atributo" e "removi o recurso" ficariam indistinguíveis.
+        """
         exercicio = Exercise.objects.get(name="Supino reto com barra")
         exercicio.animation_url = "https://exemplo.com/supino.mp4"
         exercicio.save(update_fields=["animation_url"])
 
         user = create_user(email="animacao@exemplo.com")
         self.client.force_login(user)
-        html = self.client.get(reverse("workouts:routine")).content.decode()
+        ficha = self.client.get(reverse("workouts:routine")).content.decode()
 
-        self.assertIn('data-animacao="https://exemplo.com/supino.mp4"', html)
-        self.assertIn('data-animacao-tipo="video"', html)
+        gatilhos = re.findall(r"<button[^>]*exercise__ver[^>]*>", ficha)
+
+        # Sem esta linha o laço passaria vazio no dia em que a regex parasse
+        # de casar — classe renomeada, ordem de atributo trocada. A asserção
+        # gêmea em `config/test_mapa_muscular.py` já tinha a trava; esta não.
+        self.assertGreater(len(gatilhos), 20, "a regex do gatilho parou de casar")
+        for gatilho in gatilhos:
+            with self.subTest(gatilho=gatilho[:50]):
+                self.assertNotIn("data-animacao", gatilho)
+
+        # E o campo continua vivo onde a decisão disse que continuaria.
+        modo_treino = (
+            Path(settings.BASE_DIR) / "templates" / "workouts" / "agora.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("anatomia_src", modo_treino)
+        self.assertIn("animation_kind", modo_treino)
 
     def test_a_video_animation_is_muted_and_inline(self):
         """Sem `muted` o navegador recusa o autoplay; sem `playsinline` o
-        iPhone abre em tela cheia por cima do app."""
+        iPhone abre em tela cheia por cima do app.
+
+        Medido em `montarClipe`, que é o construtor de `<video>` que sobrou no
+        drawer — `montarAnimacao` tinha o mesmo tratamento e saiu na fase B. A
+        regra é do formato, não daquela função.
+        """
         user = create_user(email="mudo@exemplo.com")
         self.client.force_login(user)
         html = self.client.get(reverse("workouts:routine")).content.decode()
 
-        bloco = html.split("function montarAnimacao(media, dados) {", 1)[1]
+        bloco = html.split("function montarClipe(media, dados) {", 1)[1]
         bloco = bloco.split("return true;", 1)[0]
         for atributo in ('setAttribute("muted"', 'setAttribute("playsinline"',
                          "elemento.loop = true", "elemento.autoplay = true"):
@@ -3855,7 +3906,9 @@ class PrioridadeDaMidiaNaFichaTests(TestCase):
         """A ordem das chamadas é a ordem da prioridade.
 
         Ancorado nas posições dentro do `if`, e não na presença das funções:
-        as três continuam existindo, e o defeito era exatamente a ORDEM.
+        as DUAS continuam existindo — `montarClipe` e `montarQuadros` —, e o
+        defeito era exatamente a ORDEM. Eram três até a fase B, quando
+        `montarAnimacao` foi removida por ter ficado sem chamador.
         """
         bloco = self.fonte.split("return montarClipe(media, dados)", 1)
         self.assertEqual(len(bloco), 2, "montarClipe deixou de abrir a execução")
@@ -3883,10 +3936,41 @@ class PrioridadeDaMidiaNaFichaTests(TestCase):
             "a anatomia voltou a abrir na frente da execução",
         )
 
-    def test_a_anatomia_continua_existindo_como_degrau_final(self):
-        """A missão proibiu apagar anatomia — ela desceu, não sumiu."""
-        self.assertIn("function montarAnimacao", self.fonte)
-        self.assertIn("montarAnimacao(media, dados)", self.fonte)
+    def test_a_anatomia_continua_existindo_e_agora_e_o_mapa(self):
+        """A missão proibiu apagar anatomia. Ela não sumiu — TROCOU DE FORMA.
+
+        A versão anterior deste teste dizia "ela desceu, não sumiu" e provava
+        isso com duas asserções sobre `montarAnimacao`. A segunda existia para
+        provar que a função era CHAMADA — e casava com a linha de DECLARAÇÃO,
+        `function montarAnimacao(media, dados) {`. Quando a fase B parou de
+        chamá-la, restou uma ocorrência no arquivo: a própria declaração. O
+        teste seguiu verde sobre código morto, e o docstring passou a mentir.
+        Uma revisão adversarial pegou.
+
+        Hoje a anatomia desta tela é o mapa muscular, e a asserção mede as
+        duas pontas: o ramo que a monta, e o mapa que ele acende.
+        """
+        self.assertIn("function pintarCorpo(dados) {", self.fonte)
+
+        ramo = self.fonte.split('if (qual === "anatomia") {', 1)[1]
+        self.assertIn("pintarCorpo(dados)", ramo.split("}", 1)[0])
+
+        self.assertIn('{% include "partials/mapa_muscular.html" %}', self.fonte)
+
+    def test_a_anatomia_por_video_saiu_inteira_desta_tela(self):
+        """O outro lado da troca: deixar `montarAnimacao` morta no arquivo
+        arrastaria junto `data-animacao`, que carrega a URL de embed completa
+        em cada gatilho da ficha da semana."""
+        self.assertNotIn("montarAnimacao", self.fonte.replace("`montarAnimacao`", ""))
+
+        gatilho = (
+            Path(settings.BASE_DIR) / "templates" / "workouts" / "_exercicio.html"
+        ).read_text(encoding="utf-8")
+        sem_comentario = re.sub(
+            r"\{%\s*comment\s*%\}.*?\{%\s*endcomment\s*%\}", "", gatilho, flags=re.S
+        )
+
+        self.assertNotIn("data-animacao", sem_comentario)
 
     def test_o_modo_treino_continua_com_a_anatomia_em_gaveta_propria(self):
         """O contrato do Treino V3, que esta correção não podia tocar."""
@@ -5313,12 +5397,17 @@ class OrcamentoDeTempoTests(TestCase):
 class OPredicadoDaAnatomiaTests(TestCase):
     """O que REVELA o botão tem de ser tão exigente quanto o que o ATENDE.
 
-    `montarAnimacao` desiste sem `animacaoTipo` — e `animation_kind` devolve
-    `""` para todo endereço que ele não reconhece. Com `temAnatomia` olhando
-    só o endereço, a barra aparecia com duas opções e tocar "Anatomia" limpava
-    a mídia sem montar nada: uma caixa vazia, sem volta além de tocar "Vídeo
-    real". Uma revisão adversarial achou o caminho, e a sabotagem que
-    enfraquece o predicado passava verde — este teste é a trava que faltava.
+    O caso que deu origem a esta classe: `montarAnimacao` desistia sem
+    `animacaoTipo` — e `animation_kind` devolve `""` para todo endereço que ele
+    não reconhece. Com `temAnatomia` olhando só o endereço, a barra aparecia
+    com duas opções e tocar "Anatomia" limpava a mídia sem montar nada: uma
+    caixa vazia, sem volta além de tocar "Vídeo real".
+
+    A FASE B trocou os dois lados do par, e a propriedade continua a mesma. A
+    anatomia deixou de ser vídeo de terceiro e virou o mapa muscular, montado
+    de `data-destaques`; então é `destaques` que os dois lados têm de exigir.
+    Um predicado que aceite mais do que o construtor monta traz de volta a
+    caixa vazia, agora com um boneco todo cinza.
     """
 
     CAMINHO = Path(settings.BASE_DIR) / "templates" / "workouts" / "routine.html"
@@ -5326,18 +5415,77 @@ class OPredicadoDaAnatomiaTests(TestCase):
     def setUp(self):
         self.fonte = self.CAMINHO.read_text(encoding="utf-8")
 
-    def test_temAnatomia_exige_endereco_E_tipo(self):
+    def test_temAnatomia_exige_o_dado_que_o_mapa_consome(self):
         corpo = self.fonte.split("function temAnatomia(dados) {", 1)[1]
-        corpo = corpo.split("}", 1)[0]
+        corpo = corpo.split("return", 1)[1].split(";", 1)[0]
 
-        self.assertIn("dados.animacao", corpo)
-        self.assertIn("dados.animacaoTipo", corpo)
+        self.assertIn("dados.destaques", corpo)
 
-    def test_o_construtor_continua_exigindo_os_dois(self):
-        """O outro lado do par: se `montarAnimacao` afrouxar, o predicado
-        acima passa a ser exigente demais e o botão some sem motivo."""
-        corpo = self.fonte.split("function montarAnimacao(media, dados) {", 1)[1]
-        primeira = corpo.split(";", 1)[0]
+    def test_o_construtor_le_o_mesmo_campo(self):
+        """O outro lado do par: se `pintarCorpo` passar a ler outra coisa, o
+        predicado acima vira uma promessa que ninguém cumpre."""
+        corpo = self.fonte.split("function pintarCorpo(dados) {", 1)[1]
+        corpo = corpo.split("function mostrarVista", 1)[0]
 
-        self.assertIn("dados.animacao", primeira)
-        self.assertIn("dados.animacaoTipo", primeira)
+        self.assertIn("dados.destaques", corpo)
+
+    def test_o_gatilho_publica_o_campo(self):
+        """E o terceiro lado, que os dois primeiros não alcançam: o atributo
+        que vira `dados.destaques` tem de existir no HTML. Sem ele os dois
+        testes acima continuam verdes e o botão nunca aparece."""
+        gatilho = (
+            Path(settings.BASE_DIR)
+            / "templates"
+            / "workouts"
+            / "_exercicio.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("data-destaques=", gatilho)
+
+
+class AVistaSobreviveATrocaDeMidiaTests(TestCase):
+    """Virar o corpo, ver o vídeo e voltar tem de devolver a MESMA vista.
+
+    A primeira versão repintava com `dados.vista` — a preferência do servidor —
+    toda vez que a anatomia era remontada, e `montarMidia` remonta a cada
+    toque no seletor. Quem virava a puxada para ver o peitoral de frente, ia
+    ao vídeo e voltava, encontrava as costas de novo. O comentário do código
+    afirmava o contrário do que o código fazia, e é esse par que este teste
+    trava.
+
+    É teste de ESTRUTURA do JavaScript, e ele diz que é: a prova de
+    comportamento é a do navegador, registrada na campanha. O que ele impede é
+    a regressão silenciosa de alguém trocar a variável de volta pelo campo.
+    """
+
+    CAMINHO = Path(settings.BASE_DIR) / "templates" / "workouts" / "routine.html"
+
+    def setUp(self):
+        self.fonte = self.CAMINHO.read_text(encoding="utf-8")
+
+    def test_a_repintura_prefere_a_escolha_da_pessoa(self):
+        corpo = self.fonte.split("function pintarCorpo(dados) {", 1)[1]
+        corpo = corpo.split("function mostrarVista", 1)[0]
+        chamada = corpo.split("mostrarVista(", 1)[1].split(")", 1)[0]
+
+        self.assertTrue(
+            chamada.startswith("vistaAberta"),
+            "a repintura voltou a impor a vista do servidor: %r" % chamada,
+        )
+
+    def test_virar_o_corpo_registra_a_escolha(self):
+        """Sem esta atribuição, `vistaAberta` nunca muda e a preservação
+        preserva a vista errada — a do servidor, para sempre."""
+        corpo = self.fonte.split("function mostrarVista(qual) {", 1)[1]
+        corpo = corpo.split("\n        }", 1)[0]
+
+        self.assertIn("vistaAberta = qual", corpo)
+
+    def test_abrir_outro_exercicio_recalcula(self):
+        """O limite da preservação: ela vale para UMA abertura. Sem o reset,
+        quem viu a puxada de costas abriria o supino de costas — a vista em
+        que o peito não aparece."""
+        corpo = self.fonte.split("function preencher(dados) {", 1)[1]
+        corpo = corpo.split("montarMidia(media, dados", 1)[0]
+
+        self.assertIn("vistaAberta = dados.vista", corpo)
