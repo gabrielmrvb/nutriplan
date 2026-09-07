@@ -3,9 +3,12 @@
 {% block title %}Criar conta · NutriPlan{% endblock %}
 {% block container_class %}auth auth--entrada{% endblock %}
 
+{% block header %}{% endblock %}
+
 {% block content %}
-  <div class="card">
-    <span class="auth__logo">{% include "partials/marca.html" %}</span>
+  {% include "partials/marca_de_entrada.html" %}
+
+  <div class="card entrada__cartao">
     <h1 class="center">Criar conta</h1>
     <p class="lead center">
       Leva menos de um minuto. Os dados da dieta vêm no passo seguinte.

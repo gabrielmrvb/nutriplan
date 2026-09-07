@@ -399,7 +399,9 @@ class TouchTargetTests(TestCase):
     """
 
     ALVOS = [
-        (".btn {", "min-height: 2.95rem"),
+        # 52px na V3. O piso de alvo continua sendo 44 — este número é o
+        # ALVO de uma ação, não o mínimo aceitável para tocar.
+        (".btn {", "min-height: 3.25rem"),
         # As duas do mapa de áreas. O botão é um `<summary>`, que não
         # herda regra de botão nenhuma, e cada linha do painel é um
         # destino de navegação tocado com o polegar.
@@ -412,7 +414,9 @@ class TouchTargetTests(TestCase):
         # `workouts/test_video_direto.py`.
         # `.mapa__botao` saiu com UX-01: era o `<summary>` do `<details>`
         # no topo, e Áreas virou página. A entrada da lista continua aqui.
-        (".mapa__area {", "min-height: 2.75rem"),
+        # 52px: a entrada de Áreas carrega nome E frase de apoio em duas
+        # linhas, e 44 era o piso apertado para duas linhas de texto.
+        (".mapa__area {", "min-height: 3.25rem"),
         (".btn--sm {", "min-height: 2.75rem"),
         (".btn--quiet {", "min-height: 2.75rem"),
         (".app-bar__quiet {", "min-height: 2.75rem"),
@@ -1685,14 +1689,28 @@ class MarcaTests(TestCase):
 
     def test_the_same_identity_greets_at_login_and_at_signup(self):
         """Uma inclusão, não duas cópias: as telas de entrada são a primeira
-        coisa que alguém vê do app, e duas marcas divergem na primeira
-        troca."""
+        coisa que alguém vê do app, e duas marcas divergem na primeira troca.
+
+        A CADEIA GANHOU UM ELO e o invariante não mudou. As telas de entrada
+        passaram a incluir `marca_de_entrada.html` — o bloco de marca com
+        wordmark e tagline —, e é ELE que inclui a arte. Continua sendo uma
+        origem só; o que existe agora é um lugar a mais onde as três telas de
+        entrada concordam sobre como abrir.
+        """
+        entrada = (RAIZ / "templates" / "partials" / "marca_de_entrada.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("partials/marca.html", entrada)
+
         for tela in ("login.html", "signup.html"):
             with self.subTest(tela=tela):
                 html = (RAIZ / "templates" / "accounts" / tela).read_text(
                     encoding="utf-8"
                 )
-                self.assertIn("partials/marca.html", html)
+                self.assertIn("partials/marca_de_entrada.html", html)
+                # E NÃO as duas: incluir a arte direto além do bloco poria a
+                # marca duas vezes na mesma tela.
+                self.assertNotIn('include "partials/marca.html"', html)
 
     def test_the_top_bar_carries_it_too(self):
         self.assertIn("partials/marca.html", self.base)

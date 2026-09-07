@@ -3,9 +3,20 @@
 {% block title %}Entrar · NutriPlan{% endblock %}
 {% block container_class %}auth auth--entrada{% endblock %}
 
+{% comment %}
+  A BARRA DE CIMA SAI DAQUI, e o bloco de marca ocupa o lugar dela.
+
+  Ela mostrava o wordmark a três centímetros do wordmark deste bloco e
+  reservava altura de navegação numa tela que não tem para onde navegar — quem
+  está aqui está fora da sessão. Um `{% block header %}` vazio custa nada e
+  devolve a tela inteira para a entrada.
+{% endcomment %}
+{% block header %}{% endblock %}
+
 {% block content %}
-  <div class="card">
-    <span class="auth__logo">{% include "partials/marca.html" %}</span>
+  {% include "partials/marca_de_entrada.html" %}
+
+  <div class="card entrada__cartao">
     <h1 class="center">Entrar</h1>
     <p class="lead center">Bom te ver de volta.</p>
 

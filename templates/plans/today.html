@@ -100,29 +100,62 @@ coluna da direita), não entre ela e o almoço.
         O "· 1 fora" só aparece quando existe. Num dia limpo a linha é a de
         sempre, e a primeira dobra continua cabendo em 40px.
       {% endcomment %}
+      {% comment %}
+        O RESUMO DO DIA VIROU MÉTRICA, e continua sendo a mesma informação.
+
+        Era uma linha de texto fina — "1/5 refeições · 0/3500 ml · Treino
+        19:00" — com tudo no mesmo tamanho e na mesma cor. Ela respondia às
+        perguntas certas e não deixava nenhuma delas ser lida de relance, que
+        é o único jeito de ler um resumo enquanto se decide o que comer.
+
+        Agora cada item é um par: valor forte e tabular em cima, rótulo
+        apagado embaixo. A CALORIA ENTROU — ela é o número que governa a tela
+        inteira e vivia só no anel, cinco seções abaixo da primeira dobra.
+
+        O que NÃO mudou: nenhum dado novo foi inventado. Caloria, refeições,
+        água e treino já estavam no contexto; três deles já estavam nesta
+        linha.
+      {% endcomment %}
       <p class="resumo-dia">
-        <span class="resumo-dia__item num">
-          {{ summary.no_plano }}/{{ summary.previstas }} refeições{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}
+        <span class="resumo-dia__item">
+          <b class="resumo-dia__valor num">{{ summary.consumed_kcal }}</b>
+          <span class="resumo-dia__rotulo">de {{ summary.target_kcal }} kcal</span>
         </span>
-        <span class="resumo-dia__item num">
-          {{ hidratacao_bebida }}/{{ hidratacao_ml }} ml
+        <span class="resumo-dia__item">
+          <b class="resumo-dia__valor num">{{ summary.no_plano }}/{{ summary.previstas }}</b>
+          <span class="resumo-dia__rotulo">refeições{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}</span>
         </span>
+        <span class="resumo-dia__item">
+          <b class="resumo-dia__valor num">{{ hidratacao_bebida }}</b>
+          <span class="resumo-dia__rotulo">de {{ hidratacao_ml }} ml</span>
+        </span>
+        {% comment %}
+          A QUARTA COLUNA SEGUE O MESMO PAR das outras três — valor em cima,
+          rótulo embaixo —, mesmo sendo a única que é link. Sem isso ela
+          quebrava o alinhamento da fileira: três itens com duas linhas e um
+          com uma só, e a régua de baixo deixava de existir.
+
+          Descanso é resposta, não ausência: fingir treino num dia que a pessoa
+          não marcou seria a tela inventando agenda.
+        {% endcomment %}
         {% if treino_hoje.tem_treino %}
           <a class="resumo-dia__treino" href="{% url 'workouts:now' %}">
             {% if treino_hoje.concluido %}
-              Treino feito
+              <b class="resumo-dia__valor">Feito</b>
+              <span class="resumo-dia__rotulo">treino</span>
             {% elif treino_hoje.sessao.start_time %}
-              Treino <span class="num">{{ treino_hoje.sessao.start_time|time:"H:i" }}</span>
+              <b class="resumo-dia__valor num">{{ treino_hoje.sessao.start_time|time:"H:i" }}</b>
+              <span class="resumo-dia__rotulo">treino</span>
             {% else %}
-              Treino de hoje
+              <b class="resumo-dia__valor">Hoje</b>
+              <span class="resumo-dia__rotulo">treino</span>
             {% endif %}
           </a>
         {% else %}
-          {% comment %}
-            Descanso é resposta, não ausência: fingir treino num dia que a
-            pessoa não marcou seria a tela inventando agenda.
-          {% endcomment %}
-          <span class="resumo-dia__item">Descanso</span>
+          <span class="resumo-dia__item">
+            <b class="resumo-dia__valor">—</b>
+            <span class="resumo-dia__rotulo">descanso</span>
+          </span>
         {% endif %}
       </p>
 

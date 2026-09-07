@@ -219,6 +219,11 @@
 
      Os degraus são espaçados de 10 de propósito: um componente novo cabe
      entre dois sem renumerar os outros. */
+  /* O degrau ABAIXO do conteúdo, e o único negativo da escala.
+     Ele existe para ambiente: luz, vinheta, textura — coisas que pintam atrás
+     de tudo e não recebem toque. Sem ele, um `z-index: -1` solto era a única
+     saída, e valor solto é como a escala começa a ter exceções. */
+  --camada-fundo: -1;
   --camada-conteudo: 1;
   --camada-barra-topo: 20;
   --camada-flutuante: 30;
@@ -1448,11 +1453,15 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   align-items: center;
   justify-content: center;
   gap: .4rem;
-  min-height: 2.95rem;
+  /* 52px. Era 47, e a diferença aparece no polegar: o CTA principal é o
+     elemento mais tocado de várias telas, e 44 é o PISO de alvo, não o alvo
+     de uma ação primária. O raio acompanha o campo, para botão e input
+     lerem como peças do mesmo formulário. */
+  min-height: 3.25rem;
   padding: var(--espaco-4) 1.15rem;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  font-size: .92rem;
+  border-radius: var(--radius);
+  font-size: var(--texto-md);
   font-weight: 680;
   text-decoration: none;
   cursor: pointer;
@@ -1707,12 +1716,14 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .field-input {
   width: 100%;
-  min-height: 3rem;
-  padding: var(--espaco-4) .85rem;
+  /* 52px, a mesma altura do botão. Campo e ação empilhados num formulário com
+     alturas diferentes leem como peças de dois sistemas. */
+  min-height: 3.25rem;
+  padding: var(--espaco-4) var(--espaco-4);
   color: var(--text);
   background: var(--surface-2);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   font-family: inherit;
   font-size: var(--texto-base);
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
@@ -3056,16 +3067,32 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 .semana {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: baseline;
-  gap: .6rem;
-  padding: var(--espaco-3) .6rem;
-  border-radius: var(--radius-sm);
+  align-items: center;
+  gap: var(--espaco-4);
+  padding: var(--espaco-4);
+  border-radius: var(--radius);
   background: var(--surface-2);
 }
 
-.semana__data { color: var(--text-dim); font-size: .78rem; }
+/* O PESO É O DADO PRINCIPAL DESTA TELA, e estava do tamanho do texto ao lado.
+
+   "95,0 kg" a 0,92rem, na mesma linha de "semana de 07/09" e "1 pesagem", com
+   pesos próximos: a média da semana — que é o número que a tela inteira existe
+   para mostrar — precisava ser procurada. Agora ela domina a linha, e a data
+   e a contagem descem para legenda. É a mesma régua da fileira de métricas do
+   Hoje: valor forte, rótulo apagado.
+
+   A primeira linha da lista é a semana MAIS RECENTE (`reversed` no template),
+   e é ela que carrega o peso de agora. */
+.semana__data { color: var(--text-mute); font-size: var(--texto-xs); }
 .semana__n { display: block; color: var(--text-mute); font-size: var(--texto-xs); }
-.semana__media { font-weight: 700; font-size: .92rem; }
+.semana__media {
+  font-weight: 780;
+  font-size: var(--texto-xl);
+  letter-spacing: -.025em;
+  color: var(--text);
+}
+.semanas > .semana:first-child .semana__media { font-size: var(--texto-2xl); }
 
 .semana__delta { min-width: 3rem; text-align: right; color: var(--text-mute); font-size: var(--texto-sm); }
 .semana__delta--desce { color: var(--brand); }
@@ -4837,7 +4864,7 @@ body::before {
   position: fixed;
   inset: 0 0 auto;
   height: 60vh;
-  z-index: -1;
+  z-index: var(--camada-fundo);
   pointer-events: none;
   background: radial-gradient(
     120% 100% at 50% 0%,
@@ -5050,6 +5077,117 @@ body.montando { overflow: hidden; }
  *
  * Duas telas com necessidades opostas sob o mesmo nome é o tipo de coisa que
  * só aparece quando alguém mexe numa e quebra a outra. Aqui apareceu antes. */
+/* ==========================================================================
+   AS TELAS DE ENTRADA — entrar, criar conta, recuperar senha.
+
+   O que elas precisam fazer antes de qualquer formulário é dizer de quem é o
+   aplicativo. Sem barra de cima e sem navegação: quem está aqui está fora da
+   sessão, e reservar altura para uma navegação que não leva a lugar nenhum é
+   desperdiçar a metade da tela que a marca deveria ocupar.
+
+   SEM FOTOGRAFIA, e a ausência é decisão. Uma foto de academia daria a emoção
+   que a direção pede, mas não existe imagem licenciada neste projeto — e
+   baixar uma foto de banco de imagens ao acaso é exatamente o que a
+   especificação proíbe, além de colocar arte de terceiro num repositório
+   público. A profundidade vem de luz e composição, que não dependem de asset.
+
+   A luz é UMA fonte verde difusa no alto, atrás do bloco de marca, mais uma
+   vinheta que fecha as bordas. Fixa e não rolante: ela é o ambiente da tela,
+   não um elemento do conteúdo. `pointer-events: none` porque ela não é
+   clicável, e `-1` para nunca subir na frente do cartão.
+   ========================================================================== */
+.auth--entrada::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: var(--camada-fundo);
+  pointer-events: none;
+  background:
+    radial-gradient(90% 55% at 50% -8%,
+                    color-mix(in srgb, var(--brand) 20%, transparent) 0%,
+                    transparent 62%),
+    radial-gradient(120% 90% at 50% 108%,
+                    color-mix(in srgb, #000 55%, transparent) 0%,
+                    transparent 70%);
+}
+
+.entrada__marca {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--espaco-2);
+  margin-bottom: var(--espaco-7);
+  text-align: center;
+}
+.entrada__logo {
+  display: block;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-bottom: var(--espaco-3);
+}
+.entrada__logo .marca {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius);
+  /* O mesmo halo difuso do fundo, agora ancorado na própria marca: é o que
+     faz o ícone assentar sobre o escuro em vez de flutuar recortado. */
+  box-shadow: 0 12px 40px -14px color-mix(in srgb, var(--brand) 60%, transparent);
+}
+.entrada__wordmark {
+  margin: 0;
+  font-size: var(--texto-2xl);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  line-height: 1;
+}
+.entrada__accent { color: var(--brand); }
+.entrada__tagline {
+  margin: 0;
+  color: var(--text-mute);
+  font-size: var(--texto-md);
+  letter-spacing: .01em;
+}
+
+/* O CARTÃO DE ENTRADA É TRANSLÚCIDO, para a luz do fundo atravessar.
+
+   Com fundo opaco ele recortava um retângulo chapado no meio do ambiente e
+   desfazia a profundidade que o gradiente acabou de criar. O `@supports` é a
+   regra da casa: onde não há `backdrop-filter`, o fundo volta a ser sólido, e
+   translúcido sobre translúcido sem desfoque é ilegível. */
+/* CELULAR BAIXO: a marca encolhe, o formulário continua inteiro.
+
+   Medido a 320×700 — um iPhone SE com a barra do navegador aberta: o cartão
+   terminava em 738px e "Criar agora" caía abaixo da dobra. A régua é a ALTURA
+   e não a largura, porque o problema é vertical: a mesma tela a 320×900 cabe
+   folgada.
+
+   O que encolhe é a marca, não o formulário. Ela é identidade e pode ser
+   menor; o campo e o botão têm alvo de toque a respeitar. */
+@media (max-height: 46rem) {
+  .entrada__logo {
+    width: 2.75rem;
+    height: 2.75rem;
+    margin-bottom: var(--espaco-2);
+  }
+  .entrada__marca { margin-bottom: var(--espaco-5); }
+  .entrada__wordmark { font-size: var(--texto-xl); }
+  .entrada__tagline { font-size: var(--texto-sm); }
+  .auth .card { padding: var(--espaco-6) var(--espaco-5); }
+  .auth h1 { font-size: var(--texto-xl); }
+}
+
+.entrada__cartao {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--edge), 0 24px 60px -30px rgba(0, 0, 0, .9);
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .entrada__cartao {
+    background: color-mix(in srgb, var(--surface) 82%, transparent);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+}
+
 .auth--entrada {
   display: grid;
   align-content: center;
@@ -5945,16 +6083,42 @@ body.montando { overflow: hidden; }
 
 /* Refeições, água e treino em ~40px. A versão anterior gastava a primeira
    dobra inteira com anel, saldo e macros para dizer menos que isto. */
+/* O RESUMO DO DIA É UMA FILEIRA DE MÉTRICAS, e não uma frase.
+
+   Como frase, os quatro números tinham o mesmo tamanho e a mesma cor das
+   palavras entre eles — quem abria a tela para saber "quanto já comi" tinha
+   de LER a linha inteira. Em pares valor/rótulo, o olho pega os números
+   primeiro e as palavras só quando precisa.
+
+   Grade e não `flex-wrap`: com quebra livre o quarto item descia sozinho e
+   deixava um buraco à direita, e a largura de cada coluna dançava com o
+   conteúdo. Quatro colunas iguais alinham os valores entre si, que é o que
+   faz uma fileira de métricas ser lida como fileira. */
 .resumo-dia {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: .3rem .6rem;
-  margin: -.2rem 0 .1rem;
-  padding: 0 .15rem;
-  font-size: .82rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--espaco-3);
+  /* Sem margem embaixo: a seção seguinte já traz a dela, e as duas somadas
+     davam 46px onde a escala pede 28 a 40 entre seções. */
+  margin: 0;
+  padding: var(--espaco-4) 0 0;
+  border-top: 1px solid var(--border);
   color: var(--text-dim);
   min-width: 0;
+}
+.resumo-dia__valor {
+  display: block;
+  color: var(--text);
+  font-size: var(--texto-lg);
+  font-weight: 760;
+  letter-spacing: -.02em;
+  line-height: 1.1;
+}
+.resumo-dia__rotulo {
+  display: block;
+  color: var(--text-mute);
+  font-size: var(--texto-xs);
+  line-height: 1.25;
 }
 
 /* Os filhos diretos, e não uma classe repetida: o link do treino é um
@@ -5962,9 +6126,8 @@ body.montando { overflow: hidden; }
    toque cobraria `:active` de `.resumo-dia__item` — ou seja, faria dois
    textos estáticos afundarem sob o dedo para satisfazer um teste. */
 .resumo-dia > * {
-  display: inline-flex;
-  align-items: center;
-  gap: .3rem;
+  display: block;
+  min-width: 0;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -5977,14 +6140,16 @@ body.montando { overflow: hidden; }
   color: var(--text-mute);
 }
 
+/* A única coluna que é LINK. Ela mantém o par valor/rótulo das outras três e
+   marca a diferença só no valor, em verde — que é o padrão do resto do app:
+   verde é ação, não decoração. O alvo de 44px vem do padding, sem engordar a
+   linha. */
 .resumo-dia__treino {
-  color: var(--brand);
-  font-weight: 600;
   text-decoration: none;
   min-height: 2.75rem;
-  padding-block: var(--espaco-3);
 }
-.resumo-dia__treino:hover { text-decoration: underline; }
+.resumo-dia__treino .resumo-dia__valor { color: var(--brand); }
+.resumo-dia__treino:hover .resumo-dia__valor { text-decoration: underline; }
 .resumo-dia__treino:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* -- Hidratação, agora depois do cardápio -------------------------------- */
@@ -6824,20 +6989,43 @@ body.montando { overflow: hidden; }
    ========================================================================== */
 .mapa__lista { display: grid; }
 
+/* A ENTRADA DE ÁREA É UMA LINHA DE NAVEGAÇÃO, e precisa parecer uma.
+
+   Sem a seta ela era texto empilhado sobre texto: nada dizia que aquilo leva
+   a algum lugar, e a única pista era o dedo tocar e a tela mudar. A seta é o
+   sinal universal de "isto navega", custa um glifo e resolve.
+
+   Grade de duas colunas: o texto ocupa o que houver e a seta fica na direita,
+   alinhada entre todas as linhas. `min-width: 0` na coluna de texto porque
+   nome de área e frase de apoio são texto livre. */
 .mapa__area {
   display: grid;
-  min-height: 2.75rem;
-  padding: var(--espaco-3) var(--espaco-4);
-  border-radius: var(--radius-sm);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--espaco-4);
+  min-height: 3.25rem;
+  padding: var(--espaco-4);
+  border-radius: var(--radius);
   color: var(--text);
   text-decoration: none;
   min-width: 0;
 }
+.mapa__area > .mapa__nome,
+.mapa__area > .mapa__apoio { grid-column: 1; min-width: 0; }
+.mapa__seta {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: center;
+  color: var(--text-mute);
+}
+.mapa__seta svg { width: 1.1rem; height: 1.1rem; }
+.mapa__area:hover .mapa__seta { color: var(--brand); }
 .mapa__area:hover { background: var(--surface-2); }
 .mapa__area:active { transform: scale(.96); }
 .mapa__area.is-active { background: var(--brand-soft); }
 
-.mapa__nome { font-size: var(--texto-sm); font-weight: 600; }
+.mapa__nome { font-size: var(--texto-base); font-weight: 680; letter-spacing: -.01em; }
 .mapa__apoio {
   color: var(--text-mute);
   font-size: var(--texto-xs);

@@ -729,21 +729,35 @@ class AuthScreenTests(TestCase):
             encoding="utf-8"
         )
 
-    def test_the_header_drops_the_link_that_repeats_the_screen(self):
-        """A barra oferecia "Entrar" e "Criar conta" — e a tela de entrar já É
-        entrar, com o link para criar conta no rodapé do cartão. Dois caminhos
-        para o mesmo lugar, um a três centímetros do outro.
+    def test_the_entry_screens_have_no_app_bar_and_own_the_brand(self):
+        """A tela de entrada não oferece dois caminhos para o mesmo lugar, e a
+        marca continua sendo a primeira coisa que se vê.
 
-        O wordmark fica: é a primeira tela que alguém vê, e tirar a marca dali
-        deixaria um formulário solto sem dono."""
+        A versão anterior deste teste guardava o mesmo invariante com outro
+        mecanismo: a barra de cima ficava, esvaziada dos links "Entrar" e
+        "Criar conta" — porque a tela de entrar JÁ É entrar —, e o wordmark
+        dela sustentava a identidade.
+
+        A V3 tirou a barra inteira. Ela mostrava o wordmark a três centímetros
+        do wordmark do bloco de marca e reservava altura de navegação numa tela
+        que não tem para onde navegar. A marca não se perdeu: ficou maior, com
+        tagline, no conteúdo — que é onde a tela de entrada devia tê-la desde
+        sempre.
+
+        O que este teste continua proibindo é o que ele sempre proibiu: um
+        segundo caminho para a mesma tela.
+        """
         for nome, html in (("entrar", self.login), ("cadastro", self.cadastro)):
             with self.subTest(tela=nome):
-                barra = html.split('<header class="app-bar"', 1)[1].split("</header>", 1)[0]
-                # O wordmark é "Nutri" mais um `<span>` com "Plan" — a palavra
-                # inteira não existe como texto contíguo no HTML.
-                self.assertIn("app-bar__brand", barra)
-                self.assertNotIn(reverse("accounts:login"), barra)
-                self.assertNotIn(reverse("accounts:signup"), barra)
+                self.assertNotIn('<header class="app-bar"', html)
+                # A marca está lá, e é a do bloco de entrada.
+                self.assertIn("entrada__marca", html)
+                self.assertIn("entrada__wordmark", html)
+
+        # E nenhuma das duas telas oferece a outra duas vezes: o único caminho
+        # para a irmã é o link do rodapé do cartão.
+        self.assertEqual(self.login.count(reverse("accounts:signup")), 1)
+        self.assertEqual(self.cadastro.count(reverse("accounts:login")), 1)
 
     def test_the_card_is_centred_and_made_of_glass(self):
         # TODOS os blocos de `.auth`, e não o primeiro: há um one-liner antigo

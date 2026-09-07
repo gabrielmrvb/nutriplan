@@ -162,7 +162,20 @@ class OQuinhentosNaoPodeDependerDeNadaTests(TestCase):
 
         self.assertNotIn('<link rel="stylesheet"', corpo)
         self.assertIn("<style>", corpo)
-        self.assertIn("#0d0f12", corpo)
+
+        # A COR É LIDA DO `--bg`, e não escrita aqui.
+        #
+        # Escrita, este teste virava a terceira cópia do mesmo valor — e a
+        # paleta V3 provou o custo na hora: o `app.css` mudou, a `500.html`
+        # mudou junto, e este teste continuou confirmando o preto antigo com
+        # toda a confiança do mundo. É o mesmo defeito que o teste do
+        # manifesto, em `push/tests.py`, documenta ter cometido antes.
+        css = (BASE_DIR / "static" / "css" / "app.css").read_text(encoding="utf-8")
+        raiz = css.split(":root {", 1)[1].split(chr(10) + "}", 1)[0]
+        fundo = re.search(r"^\s*--bg:\s*(#[0-9a-f]{6});", raiz, re.M)
+        self.assertIsNotNone(fundo, "--bg não é mais um hexadecimal em :root")
+
+        self.assertIn(fundo.group(1), corpo)
 
     def test_nenhuma_variavel_ficou_por_resolver(self):
         """O modo de falhar deste projeto é silencioso: variável desconhecida

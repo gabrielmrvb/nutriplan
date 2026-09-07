@@ -1,0 +1,23 @@
+{% comment %}
+  A MARCA NAS TELAS DE ENTRADA — entrar, criar conta, recuperar senha.
+
+  Ela existe porque essas telas dispensam a barra de cima. Manter a barra ali
+  custava duas coisas: repetia o wordmark a três centímetros do que este bloco
+  já diz, e reservava altura de navegação numa tela que não tem para onde
+  navegar. Quem chega aqui está fora da sessão — a única coisa que o topo
+  precisa fazer é dizer de quem é o aplicativo.
+
+  A TAGLINE É CURTA E NÃO PROMETE NADA. "Disciplina hoje. Resultados amanhã."
+  descreve o que o produto cobra e o que ele devolve, em cinco palavras. Uma
+  frase mais longa aqui viraria o texto motivacional genérico que a
+  especificação proíbe — e que é o jeito mais rápido de uma tela de entrada
+  parecer gerada.
+
+  Um parcial e não três cópias: as três telas de entrada precisam abrir igual,
+  e a segunda cópia é onde a identidade começa a divergir de si mesma.
+{% endcomment %}
+<header class="entrada__marca">
+  <span class="entrada__logo">{% include "partials/marca.html" %}</span>
+  <p class="entrada__wordmark">Nutri<span class="entrada__accent">Plan</span></p>
+  <p class="entrada__tagline">Disciplina hoje. Resultados amanhã.</p>
+</header>

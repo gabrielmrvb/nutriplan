@@ -64,10 +64,10 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: desenhar maior que a fonte de texto no mesmo tamanho. Desceu de novo quando
 #: `.exercise__cue` saiu — a dica virou componente com token. A catraca só
 #: desce: quando a dívida cai, o teto cai junto, senão ela volta sem ninguém ver.
-TETO_FONT_SIZE_CRU = 139
+TETO_FONT_SIZE_CRU = 135
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
-TETO_ESPACO_CRU = 286
+TETO_ESPACO_CRU = 277
 
 
 def sem_comentarios(texto):
