@@ -3064,15 +3064,44 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
    número do dia desiste na primeira quinta-feira em que a balança sobe. */
 .semanas { display: grid; gap: .3rem; margin: 0 0 var(--espaco-5); padding: 0; list-style: none; }
 
-.semana {
+/* DUAS LINHAS, e não três colunas disputando a mesma largura.
+
+   Quando o valor cresceu para dominar a linha, ele passou a comer a coluna da
+   data — "semana de 07/09" quebrava em três linhas ao lado de um "95,0 kg"
+   inteiro. Não era o valor estar grande demais: era a régua de três colunas,
+   que só funcionava enquanto os três tinham tamanhos parecidos.
+
+   Agora o valor e a variação dividem a primeira linha, e a data desce para
+   legenda embaixo — que é a hierarquia real: o peso é o dado, a semana é o
+   contexto dele. */
+/* `.semanas > .semana`, E O ESCOPO É A CORREÇÃO.
+
+   `.semana` é usada por DOIS componentes diferentes: a linha de média de peso
+   (aqui) e a barra semanal de treino/água, lá embaixo. As duas declaravam
+   `grid-template-columns` sem escopo, e a de baixo vencia por vir depois —
+   medido no navegador: a linha do peso computava "51.2px 211.2px 0px", que
+   são as três colunas da OUTRA, e o valor saía espremido em 51px para um
+   texto de 92.
+
+   Duas regras com o mesmo nome de classe para componentes diferentes é dívida
+   de nomenclatura; escopar pela lista resolve sem renomear as duas famílias e
+   sem tocar no HTML. */
+.semanas > .semana {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: var(--espaco-4);
+  /* `auto` e NÃO `minmax(0, 1fr)`: com o mínimo zerado a coluna encolhia
+     abaixo do próprio conteúdo, e o valor — que é `nowrap` — vazava. */
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: var(--espaco-1) var(--espaco-4);
   padding: var(--espaco-4);
   border-radius: var(--radius);
   background: var(--surface-2);
 }
+.semanas > .semana .semana__media { grid-column: 1; grid-row: 1; }
+.semanas > .semana .semana__delta { grid-column: 2; grid-row: 1; }
+.semanas > .semana .semana__data { grid-column: 1 / -1; grid-row: 2; }
+.semana__n { display: inline; }
+.semana__n::before { content: " · "; }
 
 /* O PESO É O DADO PRINCIPAL DESTA TELA, e estava do tamanho do texto ao lado.
 
@@ -3091,10 +3120,13 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   font-size: var(--texto-xl);
   letter-spacing: -.025em;
   color: var(--text);
+  /* "95,0 kg" é uma unidade de leitura, e a coluna é estreita: sem isto ele
+     quebrava em três linhas — "95," / "0" / "kg" — assim que o tamanho subiu. */
+  white-space: nowrap;
 }
 .semanas > .semana:first-child .semana__media { font-size: var(--texto-2xl); }
 
-.semana__delta { min-width: 3rem; text-align: right; color: var(--text-mute); font-size: var(--texto-sm); }
+.semana__delta { justify-self: end; text-align: right; color: var(--text-mute); font-size: var(--texto-sm); }
 .semana__delta--desce { color: var(--brand); }
 .semana__delta--sobe { color: var(--warm); }
 
