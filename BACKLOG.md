@@ -213,10 +213,16 @@ A última decide o limite do filtro, que hoje é palpite informado — e chutar 
 limite é chutar a distância.
 
 ### Corrida vira aba de topo depois da medição
-A visão aprovada é Dieta / Treino / Corrida / Progresso / Perfil. Hoje a porta
-está na tela de treino, e não na barra de baixo, porque promover a destino de
-topo é dizer "isto funciona" — e ninguém verificou que funciona com a tela de
-um celular de verdade.
+### ⚠️ SUPERSEDIDA POR UX-01 (07/09/2026) — resolver as duas juntas
+A visão aprovada era Dieta / Treino / Corrida / Progresso / Perfil. Hoje a
+porta está na tela de treino, e não na barra de baixo, porque promover a
+destino de topo é dizer "isto funciona" — e ninguém verificou que funciona com
+a tela de um celular de verdade.
+
+Duas coisas mudaram desde que isto foi escrito: a medição de largura reprovou
+cinco itens na barra (a 320px sobram 51,8px por item), e **UX-01** decidiu tirar
+Perfil da barra e pôr Áreas no lugar. Sob UX-01, Corrida fica DENTRO de Áreas,
+não na barra. Ver a seção UX-01, no fim deste arquivo.
 
 ### Mapa e traçado — PARCIALMENTE RESOLVIDO EM 04/09/2026
 O traçado passou a ser guardado, em `TracoDaCorrida`, **mas só pelo caminho da
@@ -1495,3 +1501,116 @@ nenhum do painel — nem na tela Pessoas, que exibe e-mail sob a MESMA permissã
 Há teste prendendo essa ausência e duas sabotagens vermelhas que a repõem. Repor
 preferência por pessoa exige repensar isto primeiro, e a política de piso é
 decisão de produto.
+
+## 🎨 UX-01 — REESTRUTURAÇÃO DA NAVEGAÇÃO PRINCIPAL
+
+**Prioridade: ALTA. Registrado em 07/09/2026. NÃO IMPLEMENTAR AGORA.**
+
+Entra na **Revisão Final de UX/UI, depois da Corrida V2**. Não é item solto:
+é a primeira peça de uma revisão que percorre a experiência inteira, do
+primeiro contato até o último recurso — criar conta → login → onboarding →
+tela inicial → Alimentação → Treino → Corrida → Progresso → Áreas →
+Perfil/Conta → demais recursos. Cada tela revista não só por funcionamento,
+mas por clareza, hierarquia, estética, quantidade de informação, textos,
+navegação, consistência, feedback, responsividade, sensação de app mobile,
+fricção, duplicidade e elemento desnecessário.
+
+### O problema, dito por quem usa o app
+
+Hoje a barra de baixo tem **Alimentação · Treino · Progresso · Perfil**, e
+existe um acesso **Áreas** no canto superior direito. O dono do produto,
+usando o app de verdade, descreve isso como "uma barra principal + um segundo
+menu paralelo" — dois sistemas de navegação sem hierarquia clara entre eles.
+
+### A decisão a implementar
+
+A barra passa a ser **Alimentação · Treino · Progresso · Áreas**.
+
+- **Perfil sai da barra** e passa a viver dentro de Áreas.
+- **O acesso "Áreas" do topo é removido**, porque Áreas ganha lugar fixo
+  embaixo.
+
+E a barra deve comunicar, de relance:
+
+```
+ALIMENTAÇÃO → o que vou comer
+TREINO      → o que vou treinar
+PROGRESSO   → como estou evoluindo
+ÁREAS       → demais recursos do NutriPlan
+```
+
+### A regra que define o que entra em Áreas
+
+**Áreas NÃO repete o que já está na barra.** Se a funcionalidade tem acesso
+direto na navegação principal, ela não aparece de novo lá dentro. Áreas
+concentra o **secundário, complementar e administrativo**.
+
+Aplicando a regra ao que existe hoje — os quatro destinos da barra são
+`plans:today`, `workouts:routine`, `plans:history` e `accounts:profile`, e o
+mapa atual lista os cinco pilares —, Áreas ficaria com: **Corrida**,
+**Hidratação**, **Perfil/Conta**, e os utilitários que hoje não têm porta
+fixa (conquistas, lista de compras, e gestão para quem tem o papel). A lista
+final é decisão da revisão, não deste registro.
+
+### Perfil: auditar antes de mover
+
+Não assumir que tudo continua numa tela só chamada "Perfil". A revisão audita
+e reorganiza: dados pessoais, conta, objetivo, nível de atividade,
+preferências, horários, configurações, segurança, sair, exportação e exclusão
+de dados, e o mais que houver. Pode virar mais de uma tela, desde que fique
+mais claro.
+
+### O que esta mudança REVERTE, e é bom que reverta conscientemente
+
+O `CLAUDE.md` registra hoje: *"A barra de baixo responde FREQUÊNCIA; o mapa
+responde ESTRUTURA. São perguntas diferentes, e por isso não competem pelo
+mesmo espaço."* UX-01 diz que na prática elas **competem sim**, e que a
+separação é justamente o que produz a sensação de dois menus paralelos.
+É reversão deliberada de decisão documentada — quem implementar deve atualizar
+o `CLAUDE.md` no mesmo commit, não deixar os dois textos se contradizendo.
+
+### O que a implementação vai esbarrar — medido, para não redescobrir
+
+1. **A conta de largura continua fechando, e por pouco.** A barra segue com
+   QUATRO itens, então o limite documentado não é violado: a 320px, cinco
+   colunas deixam 51,8px úteis e "Hidratação" precisa de 60. Trocar "Perfil"
+   por "Áreas" é seguro; **acrescentar** um quinto não é.
+
+2. **As três ausências do mapa foram decisões, e todas precisam ser
+   redecididas quando ele virar item fixo da barra:**
+   - **não tem ícone** — o sprite dos cinco desenhos só é incluído no
+     onboarding, e copiá-lo é o que o sprite existe para impedir. Item de
+     barra sem ícone ao lado de três com ícone vai parecer defeito;
+   - **não entra no shell de offline** — aquela tela é pré-cacheada e servida
+     a quem pegar o aparelho depois, e o selo de área principal é identidade.
+     Duas camadas guardam isso: o `{% if %}` no `base.html` e a tag se
+     recusando a ler o perfil;
+   - **não aparece no onboarding** — `workouts:corridas` tem só
+     `LoginRequiredMixin` e era saída DE VERDADE no meio do cadastro. O mesmo
+     `sem_tabbar` desliga a barra e o mapa juntos.
+
+3. **`config/test_nomenclatura.py` compara barra e mapa POR DESTINO.** Tirar
+   Perfil da barra e pôr Áreas no lugar mexe exatamente no que esse teste
+   mede. Ele vai ficar vermelho, e isso é o teste funcionando — não é motivo
+   para afrouxá-lo.
+
+4. **`_endereco()` e o prefixo do demo.** `plans:today` mora em `path("")`;
+   sob `set_script_prefix("/demo/")` ele reverte para `/demo/`, que é a CAPA e
+   não a tela Hoje. Já foi consertado uma vez, depois de o mapa mandar quem
+   avaliava o produto para a página de marketing anunciando "você está aqui".
+   Não pode regredir.
+
+5. **A capa do demo escreve os cinco nomes à mão em `demo/views.py` e não tem
+   teste.** Mexer em nome de área a deixa para trás em silêncio.
+
+6. **Supersede a entrada "Corrida vira aba de topo depois da medição"**, mais
+   acima neste arquivo. Aquela previa a barra como Dieta/Treino/Corrida/
+   Progresso/Perfil — cinco itens, que a medição de largura já reprovou, e com
+   Perfil na barra, que é o que UX-01 remove. Sob UX-01, Corrida fica dentro de
+   Áreas. Resolver as duas juntas na revisão.
+
+### O que este registro NÃO autoriza
+
+Não muda o escopo da Corrida V2. Não muda a auditoria técnica em andamento.
+Não é para ser implementado por partes antes da revisão — meia navegação nova
+é pior que a atual.
