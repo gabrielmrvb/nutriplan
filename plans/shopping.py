@@ -70,13 +70,34 @@ def round_up(quantity: Decimal) -> Decimal:
     return quantity
 
 
+def _sem_zeros(valor: Decimal) -> str:
+    """`Decimal` para texto, sem zero à toa e SEM notação científica.
+
+    `Decimal.normalize()` foi a primeira tentativa, e ela é uma armadilha: para
+    quantidade fracionária faz o certo — `Decimal("10.50")` vira `10.5` — mas
+    para múltiplo exato de dez ela move o expoente em vez de cortar o zero.
+    `Decimal("10").normalize()` é `Decimal("1E+1")`, e a lista de compras
+    imprimia **"1E+1 kg"** para dez quilos de arroz. Também "2E+1 kg" para
+    vinte e "1E+2 kg" para cem — medido.
+
+    Acima de um quilo os degraus de `ROUNDING` são de 100 g, então todo valor é
+    múltiplo de 100 e o múltiplo exato de 10 000 é alcançável: um a cada cem
+    degraus. Raro, e não impossível — e quem topasse com ele levaria para o
+    mercado uma quantidade que não dá para ler.
+    """
+    inteiro = valor.to_integral_value()
+    if valor == inteiro:
+        return str(int(inteiro))
+    return str(valor.normalize())
+
+
 def humanize(quantity: Decimal, unit: str) -> str:
     """A quantidade do jeito que se fala na fila do caixa."""
     if unit == "ml" and quantity >= KILO_THRESHOLD:
-        litros = (quantity / Decimal("1000")).normalize()
+        litros = _sem_zeros(quantity / Decimal("1000"))
         return f"{litros} L".replace(".", ",")
     if unit == "g" and quantity >= KILO_THRESHOLD:
-        quilos = (quantity / Decimal("1000")).normalize()
+        quilos = _sem_zeros(quantity / Decimal("1000"))
         return f"{quilos} kg".replace(".", ",")
     return f"{quantity.to_integral_value()} {unit}"
 

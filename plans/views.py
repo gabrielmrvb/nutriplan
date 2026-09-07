@@ -14,6 +14,8 @@ from django.db import transaction
 from django.db.models import F, Value
 from django.db.models.functions import Greatest, Least
 from django.utils import timezone
+
+from .weight_trend import TETO_DIARIO_ML
 from django.views.generic import TemplateView, View
 
 from accounts.models import (
@@ -30,7 +32,7 @@ from catalog.models import Food
 from workouts import progresso
 from workouts.models import Corrida
 
-from . import rodizio, services, shopping, streaks, tracking, weight_trend
+from . import calculations, rodizio, services, shopping, streaks, tracking, weight_trend
 from . import agora as agora_mod
 from workouts import services as treino_services
 from .calculations import (
@@ -182,10 +184,13 @@ def energy_balance(plan) -> dict:
     # plano dizendo "o emagrecimento fica mais lento, e mais seguro". A mesma
     # tela afirmava as duas coisas.
     #
-    # A fonte da verdade é UMA: quem sabe que houve piso é `target_kcal`, e ela
-    # já grava isso em `plan.notes`. Aqui a gente lê, em vez de recalcular por
-    # fora com outra régua.
-    if delta >= 0 and plan.goal == Goal.CUT:
+    # A PERGUNTA CERTA É "HOUVE PISO?", e quem sabe responder é o motor. A
+    # primeira correção nomeava o objetivo na condição e cobria um de três:
+    # Recomposição e Manutenção continuavam com o defeito, porque as duas
+    # também batem no piso nesse perfil. Nomear objetivo aqui é o que fez o
+    # defeito nascer, e é o que faria o próximo objetivo novo nascer com ele.
+    # Achado em revisão adversarial desta própria correção.
+    if delta >= 0 and calculations.piso_elevou(plan.tdee_kcal, plan.goal, plan.target_kcal):
         kind = "piso"
 
     return {
@@ -982,7 +987,10 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
             # escrever, então a ordem de chegada deixa de importar: três
             # incrementos dão a soma dos três, sempre.
             #
-            # `Least` mantém o teto de 10 litros no dia sem voltar para Python.
+            # `Least` mantém o teto do dia sem voltar para Python, e o teto
+            # vem de `weight_trend` — o mesmo módulo que calcula a meta. Eram
+            # dois números independentes, e por isso divergiam: acima de 293 kg
+            # a meta pedia mais do que este `update` deixava entrar.
             # `updated_at` vai explícito porque `auto_now` só age em `save()`,
             # e `update()` não passa por ele.
             # O gole e o total sobem JUNTOS ou não sobem. Sem a transação, um
@@ -991,7 +999,7 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
             # pior que não ter desfazer nenhum.
             with transaction.atomic():
                 HydrationLog.objects.filter(pk=registro.pk).update(
-                    ml=Least(F("ml") + ml, Value(10000)),
+                    ml=Least(F("ml") + ml, Value(TETO_DIARIO_ML)),
                     updated_at=timezone.now(),
                 )
                 GoleDeAgua.objects.create(user=request.user, dia=hoje, ml=ml)

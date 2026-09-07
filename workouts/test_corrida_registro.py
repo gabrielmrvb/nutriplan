@@ -433,3 +433,55 @@ class OServidorRecusaOImpossivelTests(TestCase):
         )
 
         self.assertEqual(resposta.status_code, 200, resposta.content[:200])
+
+
+class DuracaoZeroNaoAtravessaAGuardaDeVelocidadeTests(TestCase):
+    """O `duracao > 0` que protegia a divisão desligava a regra inteira.
+
+    Achado em revisão adversarial da própria correção: a guarda de velocidade
+    foi escrita para recusar o impossível, e a proteção contra divisão por zero
+    abriu a porta exatamente no caso mais extremo. Medido contra o servidor de
+    desenvolvimento com conta de QA: 299.999 m em 0 s respondeu **200** e
+    gravou a corrida.
+    """
+
+    def setUp(self):
+        self.pessoa = User.objects.create_user(
+            email="zero-segundos@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(self.pessoa)
+        self.instante = timezone.now()
+
+    def _postar(self, **mudancas):
+        corpo = {
+            "op_id": "duracao-zero",
+            "comecou_em": self.instante.isoformat(),
+            "terminou_em": self.instante.isoformat(),
+            "distancia_m": 299_999, "duracao_s": 0,
+            "teve_lacuna": False, "parciais": [],
+        }
+        corpo.update(mudancas)
+        return self.client.post("/treino/corridas/salvar/", data=json.dumps(corpo),
+                                content_type="application/json")
+
+    def test_trezentos_km_em_zero_segundos_e_recusado(self):
+        resposta = self._postar()
+
+        self.assertEqual(resposta.status_code, 400)
+        self.assertEqual(Corrida.objects.count(), 0)
+
+    def test_qualquer_distancia_com_duracao_zero_e_recusada(self):
+        """Não é só o número gigante: 100 m em zero segundo também é
+        impossível, e passava pelo mesmo buraco."""
+        resposta = self._postar(distancia_m=100, op_id="cem-metros-zero")
+
+        self.assertEqual(resposta.status_code, 400)
+        self.assertEqual(Corrida.objects.count(), 0)
+
+    def test_uma_corrida_de_um_segundo_ainda_passa_se_for_possivel(self):
+        """CONTROLE POSITIVO: a guarda recusa duração ZERO, não duração curta.
+        Dez metros em um segundo é 10 m/s — abaixo do teto de 12,5."""
+        resposta = self._postar(distancia_m=60, duracao_s=6, op_id="curtinha")
+
+        self.assertEqual(resposta.status_code, 200, resposta.content[:200])
+        self.assertEqual(Corrida.objects.count(), 1)

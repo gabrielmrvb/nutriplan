@@ -159,7 +159,16 @@ class SalvarCorridaView(LoginRequiredMixin, View):
         #    maratona"; ele inventava, só que rápida. VELOCIDADE_MAXIMA_MS é
         #    folgada de propósito: 12,5 m/s é 2:40/km, mais rápido que o
         #    recorde mundial dos 100 m, então nenhuma corrida real esbarra.
-        if duracao > 0 and distancia / duracao > VELOCIDADE_MAXIMA_MS:
+        #    O `duracao > 0` que existia aqui era para evitar divisão por zero,
+        #    e DESLIGAVA a regra inteira justamente no caso mais extremo:
+        #    `distancia_m=299999, duracao_s=0` era aceito com 200, porque a
+        #    duração zero também satisfaz "tempo em movimento menor que o
+        #    relógio". Trezentos quilômetros em zero segundo — o impossível que
+        #    esta guarda foi escrita para recusar, entrando pela porta que ela
+        #    abriu. Achado em revisão adversarial da própria correção.
+        if duracao <= 0:
+            return "velocidade acima do que uma corrida alcança"
+        if distancia / duracao > VELOCIDADE_MAXIMA_MS:
             return "velocidade acima do que uma corrida alcança"
 
         # 3. PARCIAIS SEM TETO. O campo é JSON livre e ia inteiro para o banco:

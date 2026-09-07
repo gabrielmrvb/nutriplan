@@ -67,6 +67,45 @@ class User(AbstractUser):
     def __str__(self):
         return self.get_full_name() or self.email
 
+    def save(self, *args, **kwargs):
+        """Trocar a senha derruba os tokens de app vivos.
+
+        `TokenDeApp` documenta, no próprio docstring, que "quem perde o
+        telefone precisa que 'sair de todos os aparelhos' funcione AGORA". Não
+        funcionava por caminho nenhum: não há endpoint para isso, e trocar a
+        senha — que é o que qualquer pessoa faz ao desconfiar de invasão — não
+        tocava nos tokens. Medido: token emitido, senha trocada, `GET
+        /api/v1/eu/` com o token antigo respondendo **200**. Ele continuaria
+        valendo pelos 90 dias de `TEMPO_DE_VIDA`, e a pessoa não tinha como
+        revogá-lo.
+
+        Sessão de navegador não entra aqui, e não precisa: o Django já
+        invalida sessão na troca de senha pelo hash em `AbstractBaseUser`. O
+        que ficava de fora era exatamente o token, que é a credencial de quem
+        NÃO é navegador.
+
+        A consulta extra só acontece quando `password` pode ter mudado.
+        `update_fields=["last_login"]` — o `save()` de todo login — não paga
+        nada, e é o caminho mais quente que existe aqui.
+        """
+        campos = kwargs.get("update_fields")
+        trocou = False
+        if self.pk and (campos is None or "password" in campos):
+            anterior = (
+                type(self)
+                .objects.filter(pk=self.pk)
+                .values_list("password", flat=True)
+                .first()
+            )
+            trocou = anterior is not None and anterior != self.password
+
+        super().save(*args, **kwargs)
+
+        if trocou:
+            self.tokens_de_app.filter(revogado_em__isnull=True).update(
+                revogado_em=timezone.now()
+            )
+
 
 class Sex(models.TextChoices):
     MALE = "M", "Masculino"

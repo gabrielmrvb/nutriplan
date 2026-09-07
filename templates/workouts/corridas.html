@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load corrida %}
 {% block title %}Corridas · NutriPlan{% endblock %}
 
 {% block content %}
@@ -61,10 +62,19 @@
                 <span class="corrida-lacuna">com trecho não registrado</span>
               {% endif %}
             </dt>
+            {% comment %}
+              As mesmas três unidades do painel ao vivo, vinte linhas acima:
+              km com vírgula, relógio e min/km. O histórico dizia "5230 m" e
+              "1523 s em movimento" — os números certos, na única forma em que
+              ninguém lê a própria corrida —, e o pace, que o painel mostra
+              enquanto se corre, não aparecia aqui nunca, apesar de
+              `Corrida.pace_s_km` existir e estar documentado.
+            {% endcomment %}
             <dd>
-              {{ corrida.distancia_m|floatformat:0 }} m
+              {{ corrida.distancia_m|km }} km
               <span class="corrida-detalhe">
-                {{ corrida.duracao_s }} s em movimento
+                {{ corrida.duracao_s|relogio }} em movimento ·
+                {{ corrida|pace }} min/km
               </span>
             </dd>
           </div>

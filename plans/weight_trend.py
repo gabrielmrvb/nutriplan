@@ -231,6 +231,22 @@ def convidar_a_pesar(user, hoje=None) -> bool:
     return hoje not in dias and len(dias) < PESAGENS_POR_SEMANA
 
 
+#: Teto de água registrada num dia, em mililitros.
+#:
+#: Mora AQUI, junto da meta, e não solto dentro da view que grava. Os dois
+#: números precisam concordar, e enquanto o teto era um `Value(10000)` escrito
+#: no meio de um `update()` eles não concordavam: `hidratacao_ml` é linear em
+#: 35 ml/kg e sem limite, então a partir de **293 kg** ela pedia 10.500 ml num
+#: dia em que o servidor recusa passar de 10.000. A pessoa não tinha como
+#: fechar a meta — e 293 a 400 kg é faixa que o próprio app aceita no cadastro,
+#: porque `PesoField` valida de 20 a 400.
+#:
+#: Dez litros já é o extremo do que se bebe num dia; subir o teto para acomodar
+#: a fórmula seria resolver a incoerência pelo lado errado. Quem passa do teto
+#: recebe o teto como meta.
+TETO_DIARIO_ML = 10000
+
+
 def hidratacao_ml(weight_kg) -> int:
     """Meta diária de água, em mililitros.
 
@@ -240,6 +256,13 @@ def hidratacao_ml(weight_kg) -> int:
 
     Arredondado para o meio litro mais próximo porque ninguém mede 3.570 ml:
     a pessoa enche uma garrafa, e a meta precisa caber em garrafas.
+
+    O empate exato — quando a conta cai em "e meio" de garrafa — resolve pelo
+    arredondamento bancário que o `quantize` traz de fábrica. Varrido: dos
+    38.001 pesos de duas casas entre 20 e 400 kg, exatamente QUATRO caem no
+    empate (50, 150, 250 e 350 kg), e só dois deles (150 e 350) terminam
+    diferente de "meio para cima". Fica como está, e fica medido: trocar a
+    regra mexeria na meta dessas pessoas para ganhar nada.
     """
     ml = Decimal(weight_kg) * 35
-    return int((ml / 500).quantize(Decimal("1")) * 500)
+    return min(int((ml / 500).quantize(Decimal("1")) * 500), TETO_DIARIO_ML)

@@ -284,6 +284,37 @@ def target_kcal(tdee_value, goal, bmr, sex, weight_kg=None) -> tuple:
     return _round(raw), " ".join(avisos)
 
 
+def piso_elevou(tdee_value, goal, target) -> bool:
+    """A meta terminou ACIMA do que o objetivo sozinho pediria?
+
+    Só o piso faz isso. O teto (`SAFE_MAX_KCAL`) puxa para baixo, e por isso a
+    comparação é `>` e não `!=`.
+
+    Existe para a TELA parar de adivinhar. `energy_balance` decidia o rótulo
+    pelo sinal do delta e consertava o caso do piso com `plan.goal == Goal.CUT`
+    escrito à mão — o que cobria um objetivo de três. Medido com a mesma
+    mulher de 45 kg, 150 cm e 60 anos, sedentária (gasto 1.158):
+
+        cut       meta 1200  delta +42   piso  ✔ rotulado certo
+        recomp    meta 1200  delta +42   piso  ✘ dizia "superávit recomendado"
+        maintain  meta 1200  delta +42   piso  ✘ dizia "superávit recomendado"
+        bulk      meta 1274  delta +116  sem piso — superávit de verdade
+
+    Perguntar "houve piso?" em vez de listar objetivos é o que impede o
+    próximo objetivo novo de nascer com o mesmo defeito.
+    """
+    # Objetivo que a tabela não conhece não responde a pergunta, e não pode
+    # derrubar a tela por isso. `NutritionPlan.goal` é `CharField` com
+    # `choices` e SEM default, então vale `""` para todo plano criado sem
+    # informá-lo — e `GOAL_ADJUSTMENT[""]` levanta `KeyError`. A condição
+    # antiga (`plan.goal == Goal.CUT`) simplesmente dava False ali; esta
+    # precisa dar o mesmo, e não uma exceção na tela Hoje. Quatro testes
+    # existentes pegaram isso.
+    if goal not in GOAL_ADJUSTMENT:
+        return False
+    return int(target) > _round(Decimal(tdee_value) + goal_adjustment(tdee_value, goal))
+
+
 def protein_per_kg(goal) -> Decimal:
     """Quantos gramas de proteína por kg o objetivo pede."""
     return PROTEIN_G_PER_KG_BY_GOAL.get(goal, PROTEIN_G_PER_KG)
