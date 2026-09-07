@@ -1407,9 +1407,15 @@ class ExerciseAccordionTests(TestCase):
     def test_the_collapsed_header_says_enough_to_choose_without_opening(self):
         """Fechado, o cartão ainda responde "é este?".
 
-        Número, nome e as três etiquetas — músculo, séries × repetições e
-        descanso. Sem elas a sanfona troca rolagem por toque às cegas, que é
-        pior: a pessoa abre três cartões para achar o que queria.
+        Número, nome, prescrição e a etiqueta de músculo. Sem elas a sanfona
+        troca rolagem por toque às cegas, que é pior: a pessoa abre três
+        cartões para achar o que queria.
+
+        O DESCANSO SAIU DAQUI e foi para o corpo, junto do vídeo e dos
+        músculos. O estado fechado existe para caber — seis cartões numa tela,
+        para quem está em pé procurando um —, e a pergunta que ele responde é
+        "é este?". Descanso não ajuda a escolher; ele importa depois de
+        escolher, e é lá que ele está agora.
         """
         cabecalhos = [
             trecho.split("</summary>", 1)[0]
@@ -1429,8 +1435,9 @@ class ExerciseAccordionTests(TestCase):
             self.assertIn("exercise__name", cabecalho)
             self.assertIn("exercise__prescricao", cabecalho)
             self.assertIn("exercise__tag--target", cabecalho)
-            self.assertIn("exercise__tag--rest", cabecalho)
-            self.assertIn("descanso", cabecalho)
+            # E o descanso NÃO está mais aqui: ele responde "como executo",
+            # não "é este?".
+            self.assertNotIn("exercise__tag--rest", cabecalho)
             # E a seta, que é o que diz que aquilo abre.
             self.assertIn("exercise__seta", cabecalho)
 
@@ -1490,20 +1497,36 @@ class ExerciseAccordionTests(TestCase):
         self.assertEqual(len(bloco), 2, "a seta do exercício não gira ao abrir")
         self.assertIn("rotate(180deg)", bloco[1].split("}", 1)[0])
 
-    def test_the_execution_button_rides_with_the_badges(self):
-        """O botão de vídeo mora no cabeçalho, junto das etiquetas.
+    def test_the_execution_button_lives_in_the_open_body(self):
+        """O botão de vídeo mora no CORPO, e a inversão é deliberada.
 
-        Fechado, o cartão passou a esconder o botão — e ver o movimento é
-        justamente o que se quer ANTES de decidir abrir e anotar. No cabeçalho
-        ele fica a um toque em qualquer estado.
+        A versão anterior deste teste defendia o contrário, com um argumento
+        que continua verdadeiro: ver o movimento é o que se quer ANTES de
+        decidir abrir, e no cabeçalho ele ficava a um toque em qualquer
+        estado.
 
-        Um `<button>` dentro de `<summary>` é HTML válido, mas o toque nele
-        alternaria a sanfona junto — por isso o handler do drawer precisa
-        cortar o comportamento padrão.
+        O QUE MUDOU foi o peso do estado fechado. Um botão de 24 caracteres em
+        cada cartão custava altura em TODOS eles para servir a quem não conhece
+        o movimento — e a lista existe para quem está em pé procurando um
+        exercício entre oito. Fechados e enxutos, seis cabem numa tela; com o
+        botão, cabiam três.
+
+        O CUSTO É REAL E FICA REGISTRADO: quem não reconhece o nome precisa de
+        um toque a mais para ver o vídeo. O que paga é que esse toque abre
+        TAMBÉM as séries, os músculos e a dica — e o exercício da vez já vem
+        aberto, que é o caso mais frequente.
+
+        Um `<button>` dentro de `<summary>` continuaria sendo HTML válido, mas
+        o toque nele alternaria a sanfona junto; fora do `<summary>` esse
+        problema deixa de existir.
         """
         cabecalho = self.html.split('<summary class="exercise__head"', 1)[1]
         cabecalho = cabecalho.split("</summary>", 1)[0]
-        self.assertIn("exercise__ver", cabecalho)
+        self.assertNotIn("exercise__ver", cabecalho)
+
+        # Controle positivo: ele existe, e está no corpo que a sanfona abre.
+        corpo = self.html.split('<div class="exercise__body">', 1)[1]
+        self.assertIn("exercise__ver", corpo)
 
         # E o toque não pode abrir a sanfona junto com o drawer.
         handler = self.html.split('closest("[data-clipe]")', 1)[1].split("});", 1)[0]

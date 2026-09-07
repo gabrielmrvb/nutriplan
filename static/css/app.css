@@ -2284,25 +2284,51 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
  * O vídeo continua a um toque de distância, no drawer. O que mudou é quem
  * paga o espaço: agora paga quem quer ver, e não quem já sabe o movimento. */
 
+/* O ACESSO À EXECUÇÃO VIROU A PRIMEIRA COISA DO CARTÃO ABERTO.
+
+   Ele era uma pílula estreita na fileira de etiquetas do estado FECHADO —
+   discreta a ponto de quem não conhecia o movimento não achar. Agora ocupa a
+   largura do corpo, com o símbolo de play num alvo próprio: parece o que é,
+   um acesso a vídeo, e não mais uma etiqueta entre etiquetas.
+
+   SEM MINIATURA DO YOUTUBE, e a ausência é decisão. `img.youtube.com` serviria
+   a capa de cada exercício, mas cobraria uma requisição ao Google POR
+   EXERCÍCIO no carregamento da ficha — entregando o IP de quem treina e a
+   lista do que ele está olhando, antes de qualquer toque. Hoje o vídeo só
+   fala com o Google quando a pessoa PEDE, e um enfeite não paga desfazer isso.
+   O play cheio dá a mesma leitura sem terceiro na página. */
 .exercise__ver {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: var(--espaco-2);
-  justify-self: start;
-  min-height: 2.75rem;
-  padding: .3rem .8rem;
+  gap: var(--espaco-4);
+  width: 100%;
+  min-height: 3.25rem;
+  padding: var(--espaco-3) var(--espaco-4);
   border: 1px solid var(--border);
-  border-radius: var(--pill);
+  border-radius: var(--radius);
   background: var(--surface-2);
-  color: var(--text-dim);
+  color: var(--text);
   font: inherit;
-  font-size: .82rem;
-  font-weight: 620;
+  font-size: var(--texto-md);
+  font-weight: 640;
+  text-align: left;
   cursor: pointer;
   transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
+.exercise__ver:hover { border-color: var(--brand); }
 
-.exercise__ver svg { width: 1.05rem; height: 1.05rem; flex: none; }
+/* O play é um disco verde-escuro com o glifo em verde: mesma gramática do item
+   ativo da barra de baixo — superfície tingida, e não cor solta. */
+.exercise__ver svg {
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: .5rem;
+  box-sizing: content-box;
+  border-radius: var(--pill);
+  background: var(--brand-soft);
+  color: var(--brand);
+}
 
 .exercise__ver:hover {
   border-color: var(--brand);
@@ -2379,7 +2405,72 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   .exercise[open] .exercise__body { transition: none; animation: none; }
 }
 
-.exercise__cue { margin: 0; color: var(--text-dim); font-size: .84rem; line-height: 1.6; }
+/* MÚSCULOS TRABALHADOS — o dado que sobreviveu ao cancelamento do 3D.
+
+   `muscle_group` e `secondary_muscles` continuaram no banco de propósito: o
+   que foi cancelado era DESENHAR o corpo, não saber qual músculo o movimento
+   usa. Aqui a informação aparece como chip, que é barato, legível a 320px e
+   não precisa de asset nenhum.
+
+   O principal leva a cor da marca e os auxiliares ficam neutros: dois pesos,
+   não seis cores. É a mesma regra do resto do app — verde marca o que importa,
+   e não tudo. */
+.exercise__musculos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+}
+.exercise__musculos-rotulo {
+  color: var(--text-mute);
+  font-size: var(--texto-xs);
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+/* A DICA GANHA MARCA PRÓPRIA.
+
+   Era um `<p>` com o mesmo tratamento de qualquer texto de apoio, e por isso
+   lia como legenda — sendo que é a única frase do cartão que ENSINA. A barra
+   de acento à esquerda é a mesma gramática da área promovida da Home: marca
+   sem encher de fundo. */
+.exercise__dica {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+  padding: var(--espaco-4) var(--espaco-4) var(--espaco-4) var(--espaco-5);
+  border-left: 2px solid var(--brand);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.exercise__dica-rotulo {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-2);
+  color: var(--brand);
+  font-size: var(--texto-xs);
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+.exercise__dica-rotulo svg { width: .95rem; height: .95rem; flex: none; }
+.exercise__dica-texto {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: var(--texto-md);
+  line-height: 1.5;
+  min-width: 0;
+}
+
+/* "Movimento principal" — o papel do exercício na sessão, que `is_compound`
+   já sabia e a tela nunca disse. Neutro de propósito: ele informa, não
+   destaca; o destaque do cabeçalho é o nome. */
+.exercise__tag--papel {
+  color: var(--text-mute);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
 
 /* Alvo de 44px sem engordar a linha de texto: o padding cresce a área e a
    margem negativa devolve o espaço ao parágrafo em volta. */
