@@ -290,6 +290,43 @@
     limparPaginas();
   }
 
+  /* TERCEIRA camada: a pagina restaurada do bfcache.
+   *
+   * As duas camadas acima limpam o cache do SERVICE WORKER. O botao Voltar nao
+   * passa por ele: o navegador guarda a pagina JA RENDERIZADA num cache
+   * proprio (bfcache) e a devolve viva, sem rede e sem service worker. Se a
+   * sessao terminou nesse meio tempo, a tela da pessoa anterior reaparece
+   * inteira — nome, peso, dieta.
+   *
+   * MEDIDO no Chromium deste ambiente: depois do logout, Voltar re-requisitou
+   * a pagina e caiu no login, ou seja o vazamento NAO se reproduziu aqui. Mas
+   * o Safari do iPhone e a plataforma principal deste PWA, ele restaura com
+   * mais folga, e ignora o `Clear-Site-Data` que `SairView` manda. Esta camada
+   * e a que cobre esse caso.
+   *
+   * REVALIDA EM VEZ DE RECARREGAR SEMPRE: `location.reload()` cego custaria
+   * uma ida ao servidor e a rolagem perdida em TODO Voltar dentro da propria
+   * sessao, que e o uso normal. `redirect: "manual"` faz o 302 do login chegar
+   * como resposta opaca, e e so nesse caso que a tela e trocada. */
+  window.addEventListener("pageshow", function (evento) {
+    if (!evento.persisted) return;
+    if (!document.body || document.body.dataset.autenticado !== "1") return;
+
+    fetch(location.href, {
+      method: "HEAD",
+      cache: "no-store",
+      redirect: "manual",
+      credentials: "same-origin",
+    }).then(function (r) {
+      /* `opaqueredirect` e o 302 para o login; 401/403 cobrem quem responder
+       * assim. Falha de rede NAO derruba a tela: sem conexao, a pessoa que
+       * ainda esta logada continua vendo o app offline, que e o produto. */
+      if (r.type === "opaqueredirect" || r.status === 401 || r.status === 403) {
+        location.reload();
+      }
+    }).catch(function () { /* offline: deixa a tela como esta */ });
+  });
+
   /* PRIMEIRA camada: o proprio clique em "Sair".
    *
    * Ela nao substitui a de cima — antecipa. A camada anonima depende de a

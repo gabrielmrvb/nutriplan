@@ -553,6 +553,14 @@ async function drenarFila() {
     const deQuem = item.dono;
     if (travados.has(deQuem)) continue;
 
+    /* ITEM SEM DONO NAO E ENVIADO. Espelha `meus()` da pagina.
+       O worker nao tem DOM e nao sabe quem esta logado; mandar um item de
+       dono desconhecido e pedir para o servidor decidir com o que ele tem —
+       sessao e CSRF —, e isso e defesa atravessada. Aqui ele simplesmente nao
+       sai. Nao e apagado: pode ser agua ou refeicao que alguem marcou de
+       verdade sem rede, e quem decide o destino do legado e o produto. */
+    if (!deQuem) continue;
+
     try {
       /* Rota que saiu da lista nao e enviada, e e DESCARTADA — mesma regra
          da pagina, pelo mesmo motivo: o replay e que destroi, e ha item de

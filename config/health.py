@@ -16,6 +16,8 @@ deploy quando o banco não responde — que é o que um health check deveria faz
 O que é exposto são contagens de catálogo, os mesmos números que qualquer
 visitante veria navegando. Nada de usuário, nada de dado pessoal.
 """
+import logging
+
 from django.db import OperationalError, ProgrammingError, connection
 from django.http import JsonResponse
 from django.views import View
@@ -37,6 +39,9 @@ class VivoView(View):
 
     def get(self, request, *args, **kwargs):
         return JsonResponse({"status": "vivo"})
+
+
+logger = logging.getLogger(__name__)
 
 
 class HealthView(View):
@@ -65,9 +70,18 @@ class HealthView(View):
             # `ProgrammingError` cobre o instante entre o deploy e o `migrate`:
             # a tabela pode ainda não existir, e isso é "não pronto", não
             # "banco caiu".
-            return JsonResponse(
-                {"status": "sem banco", "erro": str(erro)[:200]}, status=503
-            )
+            # O TEXTO DO ERRO VAI PARA O LOG, NÃO PARA O CORPO.
+            #
+            # `/saude/` é público. `OperationalError` do psycopg costuma trazer
+            # host, porta e usuário do banco — "connection to server at
+            # ep-….neon.tech (…), port 5432 failed" —, e devolver isso a quem
+            # perguntar publica a topologia da infraestrutura justamente na
+            # janela em que ela está frágil.
+            #
+            # `config/observabilidade.py` já redige URL de Postgres NO LOG; ele
+            # não alcança o corpo da resposta, que é montado aqui.
+            logger.error("healthcheck sem banco: %s", erro)
+            return JsonResponse({"status": "sem banco"}, status=503)
 
         # Só o que está ATIVO conta. Alimento aposentado continua na tabela
         # para o histórico de quem já comeu não virar buraco, mas não aparece

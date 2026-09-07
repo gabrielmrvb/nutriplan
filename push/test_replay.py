@@ -24,6 +24,7 @@ from accounts.models import SyncedOperation
 from accounts.replay import (
     CODIGO_CSRF_VELHO,
     CODIGO_OUTRA_SESSAO,
+    CODIGO_SEM_DONO,
     CODIGO_SEM_SESSAO,
     STATUS_PRESERVA,
 )
@@ -396,3 +397,90 @@ class ABarreiraEhCentralTests(TestCase):
 
         self.assertFalse(HydrationLog.objects.exists())
         self.assertFalse(SyncedOperation.objects.exists())
+
+
+class DrenagemSemDonoNaoEscreveEmNinguemTests(TestCase):
+    """Item de fila sem dono declarado NÃO é aplicado em quem estiver logado.
+
+    A DEFESA ANTERIOR ERA ATRAVESSADA. A ausência do cabeçalho era tratada
+    como protocolo legado e deixada passar; o que impedia a escrita na conta
+    errada era o CSRF — o item carrega o token de quem o gravou, `login()`
+    chama `rotate_token()`, e o token velho não bate com o cookie do próximo.
+    Funcionava, e dependia de um fato lateral em vez do fato que importa:
+    ninguém sabe de quem é aquele item.
+
+    O worker é o caminho perigoso. Ele não tem DOM, roda em evento `sync`
+    possivelmente sem aba aberta, e drenava sem filtrar por dono — enquanto a
+    página já mantinha esses itens em quarentena (`fila.js: meus()`).
+
+    PRESERVA em vez de recusar seco porque o item pode ser água que alguém
+    registrou de verdade sem rede. Ele fica na fila e não entra em conta
+    nenhuma.
+    """
+
+    def setUp(self):
+        self.a = create_complete_user(email="sem-dono-a@exemplo.com")
+        self.c = Client(enforce_csrf_checks=True)
+        self.c.force_login(self.a)
+        self.c.get("/")
+        self.token = self.c.cookies["csrftoken"].value
+
+    def _drenar_sem_dono(self, ml=250, op_id="op-legado"):
+        return self.c.post(
+            "/agua/",
+            {"ml": str(ml), "op_id": op_id, "csrfmiddlewaretoken": self.token},
+            HTTP_X_REQUESTED_WITH="fetch",
+            HTTP_X_NUTRIPLAN_REPLAY="1",
+        )
+
+    def _total(self):
+        registro = HydrationLog.objects.filter(user=self.a).first()
+        return registro.ml if registro else 0
+
+    def test_o_item_sem_dono_nao_soma_agua_em_ninguem(self):
+        resposta = self._drenar_sem_dono()
+
+        self.assertEqual(resposta.status_code, STATUS_PRESERVA)
+        self.assertEqual(resposta.json()["code"], CODIGO_SEM_DONO)
+        self.assertEqual(self._total(), 0)
+
+    def test_a_recusa_nao_queima_o_op_id(self):
+        """Se marcasse a operação como aplicada, o dono de verdade nunca mais
+        conseguiria reenviá-la — o servidor lembraria de um `op_id` que não
+        mudou nada."""
+        self._drenar_sem_dono(op_id="op-preservado")
+
+        self.assertFalse(
+            SyncedOperation.objects.filter(op_id="op-preservado").exists()
+        )
+
+    def test_o_POST_NORMAL_da_tela_continua_funcionando(self):
+        """CONTROLE POSITIVO, e ele existe por um defeito real.
+
+        `e_replay` devolve `True` para qualquer POST que carregue `op_id` no
+        corpo — é assim que ela reconhece o cliente publicado. Só que o caminho
+        ONLINE também carimba `op_id`. A primeira versão desta guarda não olhou
+        o cabeçalho de replay e passou a recusar a hidratação inteira do app:
+        `plans/test_fila_offline.py` acusou total de água 0 em todos os
+        cenários.
+        """
+        self.c.post(
+            "/agua/",
+            {"ml": "250", "op_id": "op-online", "csrfmiddlewaretoken": self.token},
+        )
+
+        self.assertEqual(self._total(), 250)
+
+    def test_com_dono_declarado_a_drenagem_volta_a_funcionar(self):
+        resposta = self.c.post(
+            "/agua/",
+            {"ml": "500", "op_id": "op-com-dono",
+             "csrfmiddlewaretoken": self.token},
+            HTTP_X_REQUESTED_WITH="fetch",
+            HTTP_X_NUTRIPLAN_REPLAY="1",
+            HTTP_X_NUTRIPLAN_DONO=str(self.a.pk),
+            follow=True,
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(self._total(), 500)

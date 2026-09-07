@@ -22,7 +22,13 @@ import re
 
 from django.test import SimpleTestCase, TestCase
 
+from pathlib import Path
+
+from django.conf import settings
+from django.urls import reverse
+
 from config.settings import BASE_DIR
+from plans.tests import create_complete_user
 
 SW = (BASE_DIR / "templates" / "pwa" / "sw.js").read_text(encoding="utf-8")
 
@@ -122,3 +128,59 @@ class OQueContinuaSendoGuardadoTests(SimpleTestCase):
         """A proteção que já existia não pode ter sido substituída por esta."""
         self.assertIn("ehTelaOperacional", SW)
         self.assertIn('url.pathname.startsWith("/gestao/")', SW)
+
+
+class SairLevaOCacheDoNavegadorJuntoTests(TestCase):
+    """O botão Voltar não passa pelo service worker.
+
+    `pwa.js` já apaga o cache de PÁGINAS ao sair — é o que impede a próxima
+    pessoa de abrir o app e achar a dieta da anterior. O que ficava de fora era
+    o cache do próprio navegador e a pilha de histórico da aba: o Voltar pode
+    devolver a página JÁ RENDERIZADA, sem rede e sem worker.
+
+    O QUE FOI MEDIDO, e o que não foi. No Chromium deste ambiente a sequência
+    entrar → abrir `/conta/perfil/` → sair → Voltar re-requisitou a página,
+    levou 302 e caiu no login: nenhum dado reapareceu. Ou seja, o vazamento NÃO
+    foi reproduzido aqui. O que estas duas camadas fazem é fechar o caminho nos
+    navegadores em que a restauração acontece — o Safari do iPhone, que é a
+    plataforma principal deste PWA, restaura com mais folga e ignora
+    `Clear-Site-Data`.
+    """
+
+    def setUp(self):
+        self.pessoa = create_complete_user("sair-cache@exemplo.com")
+        self.client.force_login(self.pessoa)
+
+    def test_a_resposta_de_sair_manda_limpar_o_cache(self):
+        resposta = self.client.post(reverse("accounts:logout"))
+
+        self.assertIn("Clear-Site-Data", resposta.headers)
+        self.assertIn("cache", resposta.headers["Clear-Site-Data"])
+
+    def test_sair_nao_manda_apagar_o_armazenamento(self):
+        """`"storage"` levaria o Cache Storage e o IndexedDB — ou seja, o app
+        offline e a FILA de operações pendentes. Sair da conta não pode
+        destruir água que alguém registrou no metrô e ainda não subiu."""
+        resposta = self.client.post(reverse("accounts:logout"))
+        valor = resposta.headers["Clear-Site-Data"]
+
+        self.assertNotIn("storage", valor)
+        self.assertNotIn("*", valor)
+
+    def test_a_pagina_revalida_quando_volta_do_bfcache(self):
+        """A camada que cobre o Safari, que ignora `Clear-Site-Data`.
+
+        Ancorado em `persisted`, que é o que distingue restauração de carga
+        normal, e na revalidação — recarregar cego custaria uma ida ao servidor
+        e a rolagem perdida em TODO Voltar dentro da própria sessão.
+        """
+        fonte = (
+            Path(settings.BASE_DIR) / "static" / "js" / "pwa.js"
+        ).read_text(encoding="utf-8")
+        limpa = sem_comentarios(fonte)
+
+        self.assertIn("evento.persisted", limpa)
+        trecho = limpa.split("evento.persisted", 1)[1][:600]
+        self.assertIn('redirect: "manual"', trecho)
+        self.assertIn("opaqueredirect", trecho)
+        self.assertIn("location.reload()", trecho)

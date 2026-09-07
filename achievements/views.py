@@ -122,6 +122,24 @@ class MarcarVistasView(AcaoDeTela, LoginRequiredMixin, View):
     #: `next=/conquistas/vistas/` recebe 405 com zero byte.
     http_method_names = ["get", "post"]
 
+    #: Para onde voltar, e é uma LISTA FECHADA — o pedido manda o NOME da
+    #: tela, não a URL.
+    #:
+    #: Aqui ficava `redirect(request.POST.get("proximo"))`, com o valor cru
+    #: indo para o `redirect()`, que aceita endereço absoluto. Era o único
+    #: destino de retorno do app fora da doutrina que os outros três já
+    #: seguem: `LogHydrationView.DESTINOS`, `WeightLogView.DESTINOS` e
+    #: `OnboardingStepMixin.ORIGENS`.
+    #:
+    #: Explorar exigia o token CSRF de quem está logado, então não era
+    #: alcançável de fora hoje. Fechar custa uma linha e tira o redirecionamento
+    #: aberto do dia em que alguém aceitar GET aqui.
+    DESTINOS = {
+        "conquistas": "achievements:list",
+        "hoje": "plans:today",
+        "treino": "workouts:routine",
+    }
+
     def post(self, request, *args, **kwargs):
         try:
             ids = [int(v) for v in request.POST.getlist("id")[:20]]
@@ -132,4 +150,5 @@ class MarcarVistasView(AcaoDeTela, LoginRequiredMixin, View):
 
         if request.headers.get("X-Requested-With") == "fetch":
             return JsonResponse({"ok": True})
-        return redirect(request.POST.get("proximo") or "plans:today")
+        return redirect(self.DESTINOS.get(request.POST.get("proximo"),
+                                          "plans:today"))

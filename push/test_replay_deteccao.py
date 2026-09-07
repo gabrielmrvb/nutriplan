@@ -250,9 +250,18 @@ class FilaForegroundTests(TestCase):
         self.assertIn("if (item.dono) cabecalhos", envio)
         self.assertNotIn("item.dono || ", envio)
 
-        # E se enviasse assim mesmo, o servidor nao inventaria dono para ele.
+        # E SE ENVIASSE ASSIM MESMO, O SERVIDOR AGORA RECUSA.
+        #
+        # Esta asserção esperava `1` — ou seja, a água do item órfão entrava na
+        # conta de B, a sessão da vez. Era o comportamento aceito enquanto a
+        # defesa era o CSRF: o item carregava o token velho, `login()` girou o
+        # token, e o pedido caía. Defesa atravessada, que dependia de um fato
+        # lateral em vez do que importa — ninguém sabe de quem é o item.
+        #
+        # Hoje `recusa_de_identidade` recusa a DRENAGEM sem dono declarado e
+        # preserva o item. Zero, e não um.
         self._como_a_pagina_envia(legado, token_de_b)
-        self.assertEqual(HydrationLog.objects.filter(user=self.b).count(), 1)
+        self.assertEqual(HydrationLog.objects.filter(user=self.b).count(), 0)
 
 
 class ORuidoDeLogTests(TestCase):

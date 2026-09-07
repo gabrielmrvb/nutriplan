@@ -40,6 +40,7 @@ from pathlib import Path
 
 from django.test import Client, TestCase
 
+from django.conf import settings
 from accounts.models import SyncedOperation
 from accounts.replay import CODIGO_OUTRA_SESSAO, STATUS_PRESERVA
 from plans.models import HydrationLog
@@ -271,3 +272,43 @@ class OWorkerNaoSeAutoDerrubaTests(TestCase):
         fecha = self._fim_do_bloco(abertura + len("try {"))
         self.assertGreater(fecha, onde, "o try fecha antes do `db.close()`")
         self.assertIn("catch", self.corpo[fecha: fecha + 40])
+
+
+class OWorkerNaoDrenaItemSemDonoTests(TestCase):
+    """O caminho mais perigoso da fila, fechado por desenho.
+
+    O worker não tem DOM: ele não sabe quem está logado. Rodava drenando a
+    fila SEM filtrar por dono, enquanto a página já mantinha esses itens em
+    quarentena (`fila.js: meus()`). Um item legado — gravado antes de o campo
+    `dono` existir — era enviado, e o servidor o aceitava como protocolo
+    legado. O que impedia a escrita na conta errada era o CSRF, ou seja uma
+    defesa ATRAVESSADA: ela depende de o token ter girado, não do fato que
+    importa, que é ninguém saber de quem é aquele item.
+
+    NÃO APAGA: pode ser água ou refeição que alguém marcou de verdade sem
+    rede. O item fica na fila, e a decisão sobre o legado é de produto.
+    """
+
+    def setUp(self):
+        self.fonte = sem_comentarios(
+            (Path(settings.BASE_DIR) / "templates" / "pwa" / "sw.js").read_text(
+                encoding="utf-8"
+            )
+        )
+
+    def test_o_laco_pula_o_item_sem_dono(self):
+        self.assertIn("if (!deQuem) continue;", self.fonte)
+
+    def test_ele_pula_ANTES_de_montar_o_pedido(self):
+        """Depois do `fetch` não adiantaria: o efeito já teria acontecido."""
+        laco = self.fonte.split("const deQuem = item.dono;", 1)[1]
+        self.assertLess(
+            laco.index("if (!deQuem) continue;"), laco.index("fetch("),
+            "o item sem dono sai pela rede antes de a guarda rodar",
+        )
+
+    def test_e_continue_e_nao_remover(self):
+        """`removerDaFila` aqui apagaria registro real de alguém. A regra do
+        repositório já proíbe `break` neste laço; apagar seria pior."""
+        trecho = self.fonte.split("if (!deQuem) continue;", 1)[0][-260:]
+        self.assertNotIn("removerDaFila", trecho.split("const deQuem")[-1])

@@ -81,6 +81,7 @@ CODIGO_PROCESSADO = "replay_processado"
 CODIGO_OUTRA_SESSAO = "replay_offline_de_outra_sessao"
 CODIGO_SEM_SESSAO = "replay_offline_sem_sessao"
 CODIGO_CSRF_VELHO = "replay_offline_csrf_expirado"
+CODIGO_SEM_DONO = "replay_offline_sem_dono"
 
 
 def e_replay(request) -> bool:
@@ -173,15 +174,46 @@ def recusa_de_identidade(request):
 
     esperado = (request.headers.get(CABECALHO_DONO) or "").strip()
 
-    if not esperado:
-        # Protocolo LEGADO. Não recusar: o cliente publicado não conhece o
-        # cabeçalho, e recusá-lo quebraria a sincronização de quem ainda não
-        # recarregou a página. A proteção dele continua sendo a que sempre foi
-        # — CSRF e sessão —, e a medição mostrou que ela funciona.
+    if not esperado and not request.headers.get(CABECALHO_REPLAY):
+        # POST NORMAL DA TELA, e não drenagem de fila.
         #
-        # E não inventar dono aqui: aceitar o transporte legado não é adotar a
-        # propriedade do item.
+        # `e_replay` responde `True` para qualquer POST que carregue `op_id` no
+        # corpo — é assim que ela reconhece o cliente publicado. Só que o
+        # caminho ONLINE também carimba `op_id`: é o mesmo formulário, enviado
+        # com rede. Exigir o cabeçalho de dono aqui recusaria a hidratação
+        # inteira do app.
+        #
+        # MEDIDO: a primeira versão desta guarda fez exatamente isso, e
+        # `plans/test_fila_offline.py` acusou — total de água 0 em todos os
+        # cenários. A guarda tem de olhar para o que distingue a DRENAGEM:
+        # `X-NutriPlan-Replay`, que só `fila.js` e o service worker mandam.
         return None
+
+    if not esperado:
+        # DRENAGEM SEM DONO DECLARADO: NÃO APLICA — e preserva.
+        #
+        # Aqui a ausência do cabeçalho era tratada como protocolo LEGADO e
+        # deixada passar, para não quebrar quem ainda não tinha recarregado a
+        # página. A proteção que sobrava era o CSRF: o item carrega o token de
+        # quem o gravou, `login()` chama `rotate_token()`, e o token velho não
+        # bate com o cookie de outra pessoa.
+        #
+        # Isso é defesa ATRAVESSADA, não desenho. Ela depende de o token ter
+        # girado, e não do fato que importa — ninguém sabe de quem é aquele
+        # item. Se o CSRF fosse revalidado por qualquer motivo, um registro de
+        # água gravado sem rede pela pessoa A entraria na conta de B, no mesmo
+        # aparelho, em silêncio.
+        #
+        # PRESERVA em vez de recusar seco: o item pode ser água ou refeição que
+        # alguém marcou de verdade no metrô. Ele fica na fila, não é aplicado
+        # em ninguém, e o lado da página já o mantém em quarentena
+        # (`fila.js: emQuarentena`). A decisão de produto sobre esses itens
+        # está no BACKLOG — RECUPERAÇÃO/EXPIRAÇÃO DE FILA OFFLINE LEGADA.
+        #
+        # O custo é real e fica dito: um aparelho com service worker antigo
+        # para de sincronizar até a página recarregar. Entre atrasar a
+        # sincronização e escrever na conta errada, o lado seguro é este.
+        return resposta_que_preserva(CODIGO_SEM_DONO)
 
     if esperado != str(request.user.pk):
         return resposta_que_preserva(CODIGO_OUTRA_SESSAO)

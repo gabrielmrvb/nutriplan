@@ -13,7 +13,7 @@ urlpatterns = [
     # O caso 4 da política de vínculo: e-mail do Google bate com uma conta que
     # já tem senha, e a senha é pedida uma vez antes de conectar.
     path("conectar-google/", views.ConectarGoogleView.as_view(), name="conectar_google"),
-    path("sair/", LogoutView.as_view(), name="logout"),
+    path("sair/", views.SairView.as_view(), name="logout"),
     # ----------------------------------------------------------------- senha
     #
     # As views são as do Django, e isso é escolha: token assinado, expiração,
