@@ -333,3 +333,103 @@ class CsrfDeVerdadeTests(TestCase):
 
         self.assertEqual(resposta.status_code, 403)
         self.assertEqual(Corrida.objects.count(), 0)
+
+
+class OServidorRecusaOImpossivelTests(TestCase):
+    """Três recusas que faltavam, e a razão de as três terem passado.
+
+    A conferência olhava cada número SOZINHO: distância dentro do teto,
+    duração dentro do teto, fim depois do começo. Nenhuma delas via a relação
+    entre eles nem o tamanho do que vinha junto.
+
+    O docstring de `_conferir` diz que ela existe para um POST forjado não
+    "inventar uma maratona". Ele inventava — só que rápida: 100 km em
+    dezesseis minutos passava, porque 100.000 está abaixo do teto de distância
+    e 1.000 s está abaixo do teto de duração.
+
+    Medido contra o servidor de desenvolvimento durante a auditoria, com conta
+    de QA.
+    """
+
+    def setUp(self):
+        self.pessoa = User.objects.create_user(
+            email="impossivel@exemplo.com", password="senha-bem-forte-123"
+        )
+        self.client.force_login(self.pessoa)
+        self.comecou = timezone.now() - timedelta(minutes=50)
+        self.terminou = timezone.now()
+
+    def _postar(self, **mudancas):
+        corpo = {
+            "op_id": "corrida-limite",
+            "comecou_em": self.comecou.isoformat(),
+            "terminou_em": self.terminou.isoformat(),
+            "distancia_m": 10_000, "duracao_s": 2_900,
+            "teve_lacuna": False, "parciais": [{"km": 1, "segundos": 290.0}],
+        }
+        corpo.update(mudancas)
+        return self.client.post("/treino/corridas/salvar/",
+                                data=json.dumps(corpo),
+                                content_type="application/json")
+
+    def test_corrida_de_distancia_zero_e_recusada(self):
+        """0 m com 2.900 s de duração não é corrida — é o GPS tremendo parado,
+        ou um reenvio torto. Entrava no histórico como uma linha vazia."""
+        resposta = self._postar(distancia_m=0, op_id="zero")
+
+        self.assertEqual(resposta.status_code, 400)
+        self.assertEqual(Corrida.objects.count(), 0)
+
+    def test_velocidade_impossivel_e_recusada(self):
+        """100 km em 1.000 s = 100 m/s. Os dois números passavam sozinhos."""
+        resposta = self._postar(distancia_m=100_000, duracao_s=1_000,
+                                op_id="voando")
+
+        self.assertEqual(resposta.status_code, 400)
+        self.assertIn("velocidade", resposta.json()["erro"])
+        self.assertEqual(Corrida.objects.count(), 0)
+
+    def test_parciais_demais_sao_recusadas(self):
+        """`parciais` é JSON livre e ia inteiro para o banco."""
+        resposta = self._postar(
+            parciais=[{"km": i, "segundos": 300} for i in range(5_000)],
+            op_id="gordo",
+        )
+
+        self.assertEqual(resposta.status_code, 400)
+        self.assertEqual(Corrida.objects.count(), 0)
+
+    def test_parciais_que_nao_sao_lista_sao_recusadas(self):
+        resposta = self._postar(parciais={"km": 1}, op_id="torto")
+
+        self.assertEqual(resposta.status_code, 400)
+
+    def test_uma_corrida_normal_continua_passando(self):
+        """CONTROLE POSITIVO. Sem ele, uma guarda apertada demais recusaria
+        corrida de gente de verdade e os testes acima não notariam.
+
+        10 km em 48 minutos é 3,45 m/s — pace de 4:50/km.
+        """
+        resposta = self._postar(op_id="normal")
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(Corrida.objects.count(), 1)
+
+    def test_um_recorde_mundial_ainda_passa(self):
+        """A guarda recusa o IMPOSSÍVEL, não o excepcional: a maratona mundial
+        é 42,195 km em 2h01 (5,78 m/s), e ela tem de passar.
+
+        A JANELA VIAJA JUNTO, e isto não é arrumação: a primeira versão deste
+        teste trocou só a duração e deixou o `setUp` de 50 minutos, então
+        7.299 s de movimento dentro de 3.000 s de relógio caíam na regra
+        "tempo em movimento maior que o tempo total" — que é ANTERIOR a esta
+        auditoria e estava certa. O teste ficava vermelho acusando o guarda
+        errado, e o guarda de velocidade que ele veio provar nunca era
+        alcançado.
+        """
+        resposta = self._postar(
+            distancia_m=42_195, duracao_s=7_299, op_id="recorde",
+            comecou_em=(self.terminou - timedelta(seconds=7_400)).isoformat(),
+        )
+
+        self.assertEqual(resposta.status_code, 200, resposta.content[:200])

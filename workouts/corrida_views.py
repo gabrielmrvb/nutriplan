@@ -49,6 +49,18 @@ class HistoricoDeCorridasView(LoginRequiredMixin, ListView):
         return contexto
 
 
+#: Abaixo disto não é corrida, é o GPS tremendo parado.
+DISTANCIA_MINIMA_M = 50
+
+#: 12,5 m/s = 2:40/km — mais rápido que o recorde mundial dos 100 metros.
+#: Folgada de propósito: ela existe para recusar o impossível, não para
+#: julgar quem corre bem.
+VELOCIDADE_MAXIMA_MS = 12.5
+
+#: Uma parcial por quilômetro, com folga sobre o teto de distância.
+PARCIAIS_MAXIMAS = 500
+
+
 class SalvarCorridaView(LoginRequiredMixin, View):
     """Recebe o RESULTADO de uma corrida, nunca o traçado.
 
@@ -129,4 +141,33 @@ class SalvarCorridaView(LoginRequiredMixin, View):
 
         if len(str(dados["op_id"])) > 64:
             return "identificador longo demais"
+
+        # AS TRÊS RECUSAS ABAIXO SAÍRAM DE UMA AUDITORIA, e as três passavam
+        # antes porque a conferência olhava cada número sozinho.
+        #
+        # 1. DISTÂNCIA ZERO virava corrida de 0 m no histórico. A tela não
+        #    produz isso — é preciso andar para o GPS somar —, mas um reenvio
+        #    torto ou um POST forjado produzia, e a lista ficava com uma linha
+        #    que não quer dizer nada.
+        if distancia < DISTANCIA_MINIMA_M:
+            return "distância curta demais para virar corrida"
+
+        # 2. A RAZÃO ENTRE OS DOIS não era conferida. Distância 100.000 passava
+        #    (está abaixo do teto) e duração 1.000 s também — juntas, 100 km em
+        #    dezesseis minutos, pace de 0:36/km. O docstring diz que a
+        #    conferência existe para um POST forjado não "inventar uma
+        #    maratona"; ele inventava, só que rápida. VELOCIDADE_MAXIMA_MS é
+        #    folgada de propósito: 12,5 m/s é 2:40/km, mais rápido que o
+        #    recorde mundial dos 100 m, então nenhuma corrida real esbarra.
+        if duracao > 0 and distancia / duracao > VELOCIDADE_MAXIMA_MS:
+            return "velocidade acima do que uma corrida alcança"
+
+        # 3. PARCIAIS SEM TETO. O campo é JSON livre e ia inteiro para o banco:
+        #    um POST forjado com cinco mil parciais era aceito. O teto é o
+        #    número de quilômetros que o app registra, com folga.
+        parciais = dados.get("parciais") or []
+        if not isinstance(parciais, list):
+            return "parciais precisam ser uma lista"
+        if len(parciais) > PARCIAIS_MAXIMAS:
+            return "parciais demais"
         return None
