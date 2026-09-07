@@ -1608,10 +1608,11 @@ class ExerciseFrameTests(TestCase):
         self.client.force_login(user)
         html = self.client.get(reverse("workouts:routine")).content.decode()
 
-        # `data-animacao=` SAIU desta lista na fase B, e a ausência é o
-        # contrato novo: a anatomia da ficha deixou de ser vídeo de terceiro e
-        # virou o mapa, então o atributo perdeu o único leitor que tinha.
-        for atributo in ("data-quadros=", "data-clipe=", "data-destaques="):
+        # A LISTA JÁ PERDEU DOIS. `data-animacao=` saiu na fase B, quando a
+        # anatomia desta tela deixou de ser vídeo de terceiro; `data-destaques=`
+        # saiu agora, com o mapa muscular. Atributo sem leitor é peso de HTML
+        # multiplicado por exercício, e os dois eram grandes.
+        for atributo in ("data-quadros=", "data-clipe="):
             with self.subTest(atributo=atributo):
                 self.assertIn(atributo, html)
 
@@ -1620,18 +1621,19 @@ class ExerciseFrameTests(TestCase):
         # é EXECUÇÃO (clipe, e a foto como degrau seguinte) do que é ANATOMIA,
         # porque as duas passaram a ser escolha da pessoa. A ordem dentro da
         # execução é a mesma, e é isso que este teste continua medindo.
-        execucao = html.split("return montarClipe(media, dados)", 1)[1].split(";", 1)[0]
+        # A ÂNCORA MUDOU DE `return` PARA A ATRIBUIÇÃO, e a suite inteira foi
+        # quem pegou: a escada deixou de ser devolvida direto para virar
+        # `var montou = ...`, porque agora a caixa some quando nada monta.
+        # A ORDEM, que é o que este teste mede, não mudou.
+        execucao = html.split("montou = montarClipe(media, dados)", 1)[1].split(";", 1)[0]
         self.assertIn("montarQuadros", execucao)
 
-        # O CONSTRUTOR da anatomia mudou na fase B — de `montarAnimacao`, que
-        # montava um `<iframe>` do YouTube, para `pintarCorpo`, que acende
-        # regiões do mapa. A REGRA não mudou: o ramo da anatomia não pode
-        # montar execução, e este teste ficou vermelho quando o construtor
-        # trocou sem que a asserção acompanhasse.
-        anatomia = html.split("if (qual === \"anatomia\") {", 1)[1].split("}", 1)[0]
-        self.assertIn("pintarCorpo", anatomia)
-        self.assertNotIn("montarClipe", anatomia)
-        self.assertNotIn("montarQuadros", anatomia)
+        # E O RAMO DA ANATOMIA NÃO EXISTE MAIS. Ele era o outro lado do
+        # seletor; sem seletor, `montarMidia` tem um caminho só e a escada
+        # deixa de ter desvio. Medir a AUSÊNCIA é o que impede o ramo de voltar
+        # em silêncio junto com um botão novo.
+        self.assertNotIn('if (qual === "anatomia")', html)
+        self.assertNotIn("pintarCorpo", html)
 
     def test_the_numbers_are_filled_no_matter_which_media_is_used(self):
         """Regressão: o `if` da mídia chegou a sair da função com `return`, e
@@ -1770,8 +1772,9 @@ class AnimationImportTests(TestCase):
         gatilhos = re.findall(r"<button[^>]*exercise__ver[^>]*>", ficha)
 
         # Sem esta linha o laço passaria vazio no dia em que a regex parasse
-        # de casar — classe renomeada, ordem de atributo trocada. A asserção
-        # gêmea em `config/test_mapa_muscular.py` já tinha a trava; esta não.
+        # de casar — classe renomeada, ordem de atributo trocada. É controle
+        # positivo, e ele já salvou a asserção gêmea que morava em
+        # `config/test_mapa_muscular.py` (arquivo que saiu com o mapa).
         self.assertGreater(len(gatilhos), 20, "a regex do gatilho parou de casar")
         for gatilho in gatilhos:
             with self.subTest(gatilho=gatilho[:50]):
@@ -3910,52 +3913,51 @@ class PrioridadeDaMidiaNaFichaTests(TestCase):
         defeito era exatamente a ORDEM. Eram três até a fase B, quando
         `montarAnimacao` foi removida por ter ficado sem chamador.
         """
-        bloco = self.fonte.split("return montarClipe(media, dados)", 1)
+        bloco = self.fonte.split("montou = montarClipe(media, dados)", 1)
         self.assertEqual(len(bloco), 2, "montarClipe deixou de abrir a execução")
 
         execucao = bloco[1].split(";", 1)[0]
         self.assertIn("montarQuadros", execucao, "a foto saiu do degrau seguinte")
 
-    def test_a_midia_que_abre_e_a_execucao_e_nao_a_anatomia(self):
-        """O INVARIANTE, agora com trava própria.
+    def test_a_ficha_nao_tem_seletor_de_midia_nenhum(self):
+        """O INVARIANTE FICOU MAIS FORTE, e por isso mudou de forma.
 
-        No Treino V4 quem escolhe a mídia inicial é um ternário só, e ele é
-        hoje a única coisa que impede o defeito de agosto de voltar: quem
-        tocava "Ver vídeo de execução" recebia o diagrama de músculos, com o
-        banner de um personal concorrente por cima.
+        Havia aqui um ternário escolhendo a mídia inicial, e um teste medindo
+        que `execucao` vinha antes de `anatomia` nele. Ele existia para impedir
+        o defeito de agosto: quem tocava "Ver vídeo de execução" recebia o
+        diagrama de músculos, com o banner de um personal concorrente por cima.
 
-        Os dois testes que protegiam isso ancoravam na escada antiga e foram
-        reescritos junto com ela — o que deixaria o invariante SEM cobertura
-        no mesmo commit que mexeu nele. Uma revisão adversarial pegou.
+        O dono cancelou a experiência anatômica: a tela do exercício mostra o
+        vídeo real e mais nada. Um ternário que escolhe entre duas mídias não
+        pode escolher errado quando só há uma — e a trava passa a ser a
+        AUSÊNCIA do seletor, que é mais forte que a ordem dentro dele.
         """
-        ternario = self.fonte.split("drawer.dataset.midia =", 1)[1].split(";", 1)[0]
+        for morto in ("data-drawer-midias", "data-drawer-midia=",
+                      "drawer.dataset.midia", "drawer--duas-midias"):
+            with self.subTest(morto=morto):
+                self.assertNotIn(morto, self.fonte)
 
-        self.assertLess(
-            ternario.index("execucao"),
-            ternario.index("anatomia"),
-            "a anatomia voltou a abrir na frente da execução",
-        )
+    def test_o_mapa_muscular_saiu_desta_tela_e_do_repositorio(self):
+        """A anatomia NÃO virou código morto: ela saiu inteira.
 
-    def test_a_anatomia_continua_existindo_e_agora_e_o_mapa(self):
-        """A missão proibiu apagar anatomia. Ela não sumiu — TROCOU DE FORMA.
+        A versão anterior desta classe provava que a anatomia "trocou de forma"
+        — de vídeo de terceiro para mapa em SVG. Agora ela saiu, e a prova mede
+        as duas pontas, senão sobra parcial: o `include` fora do template E o
+        parcial fora do disco. Deixar o arquivo órfão traria de volta um
+        `{% include %}` de uma linha sem ninguém notar.
 
-        A versão anterior deste teste dizia "ela desceu, não sumiu" e provava
-        isso com duas asserções sobre `montarAnimacao`. A segunda existia para
-        provar que a função era CHAMADA — e casava com a linha de DECLARAÇÃO,
-        `function montarAnimacao(media, dados) {`. Quando a fase B parou de
-        chamá-la, restou uma ocorrência no arquivo: a própria declaração. O
-        teste seguiu verde sobre código morto, e o docstring passou a mentir.
-        Uma revisão adversarial pegou.
-
-        Hoje a anatomia desta tela é o mapa muscular, e a asserção mede as
-        duas pontas: o ramo que a monta, e o mapa que ele acende.
+        O QUE FICA É O TEXTO: `data-musculo` e `data-auxiliares` continuam
+        saindo do gatilho e viram "Principal" e "Também trabalha" no drawer.
         """
-        self.assertIn("function pintarCorpo(dados) {", self.fonte)
-
-        ramo = self.fonte.split('if (qual === "anatomia") {', 1)[1]
-        self.assertIn("pintarCorpo(dados)", ramo.split("}", 1)[0])
-
-        self.assertIn('{% include "partials/mapa_muscular.html" %}', self.fonte)
+        self.assertNotIn("mapa_muscular", self.fonte)
+        self.assertNotIn("data-drawer-anatomia", self.fonte)
+        for orfao in ("templates/partials/mapa_muscular.html",
+                      "workouts/anatomia.py"):
+            with self.subTest(orfao=orfao):
+                self.assertFalse(
+                    (Path(settings.BASE_DIR) / orfao).exists(),
+                    "%s continua no disco sem ninguém consumir" % orfao,
+                )
 
     def test_a_anatomia_por_video_saiu_inteira_desta_tela(self):
         """O outro lado da troca: deixar `montarAnimacao` morta no arquivo
@@ -5392,100 +5394,3 @@ class OrcamentoDeTempoTests(TestCase):
             SessionExercise.objects.filter(session__plan=depois).count(),
             exercicios_antes,
         )
-
-
-class OPredicadoDaAnatomiaTests(TestCase):
-    """O que REVELA o botão tem de ser tão exigente quanto o que o ATENDE.
-
-    O caso que deu origem a esta classe: `montarAnimacao` desistia sem
-    `animacaoTipo` — e `animation_kind` devolve `""` para todo endereço que ele
-    não reconhece. Com `temAnatomia` olhando só o endereço, a barra aparecia
-    com duas opções e tocar "Anatomia" limpava a mídia sem montar nada: uma
-    caixa vazia, sem volta além de tocar "Vídeo real".
-
-    A FASE B trocou os dois lados do par, e a propriedade continua a mesma. A
-    anatomia deixou de ser vídeo de terceiro e virou o mapa muscular, montado
-    de `data-destaques`; então é `destaques` que os dois lados têm de exigir.
-    Um predicado que aceite mais do que o construtor monta traz de volta a
-    caixa vazia, agora com um boneco todo cinza.
-    """
-
-    CAMINHO = Path(settings.BASE_DIR) / "templates" / "workouts" / "routine.html"
-
-    def setUp(self):
-        self.fonte = self.CAMINHO.read_text(encoding="utf-8")
-
-    def test_temAnatomia_exige_o_dado_que_o_mapa_consome(self):
-        corpo = self.fonte.split("function temAnatomia(dados) {", 1)[1]
-        corpo = corpo.split("return", 1)[1].split(";", 1)[0]
-
-        self.assertIn("dados.destaques", corpo)
-
-    def test_o_construtor_le_o_mesmo_campo(self):
-        """O outro lado do par: se `pintarCorpo` passar a ler outra coisa, o
-        predicado acima vira uma promessa que ninguém cumpre."""
-        corpo = self.fonte.split("function pintarCorpo(dados) {", 1)[1]
-        corpo = corpo.split("function mostrarVista", 1)[0]
-
-        self.assertIn("dados.destaques", corpo)
-
-    def test_o_gatilho_publica_o_campo(self):
-        """E o terceiro lado, que os dois primeiros não alcançam: o atributo
-        que vira `dados.destaques` tem de existir no HTML. Sem ele os dois
-        testes acima continuam verdes e o botão nunca aparece."""
-        gatilho = (
-            Path(settings.BASE_DIR)
-            / "templates"
-            / "workouts"
-            / "_exercicio.html"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("data-destaques=", gatilho)
-
-
-class AVistaSobreviveATrocaDeMidiaTests(TestCase):
-    """Virar o corpo, ver o vídeo e voltar tem de devolver a MESMA vista.
-
-    A primeira versão repintava com `dados.vista` — a preferência do servidor —
-    toda vez que a anatomia era remontada, e `montarMidia` remonta a cada
-    toque no seletor. Quem virava a puxada para ver o peitoral de frente, ia
-    ao vídeo e voltava, encontrava as costas de novo. O comentário do código
-    afirmava o contrário do que o código fazia, e é esse par que este teste
-    trava.
-
-    É teste de ESTRUTURA do JavaScript, e ele diz que é: a prova de
-    comportamento é a do navegador, registrada na campanha. O que ele impede é
-    a regressão silenciosa de alguém trocar a variável de volta pelo campo.
-    """
-
-    CAMINHO = Path(settings.BASE_DIR) / "templates" / "workouts" / "routine.html"
-
-    def setUp(self):
-        self.fonte = self.CAMINHO.read_text(encoding="utf-8")
-
-    def test_a_repintura_prefere_a_escolha_da_pessoa(self):
-        corpo = self.fonte.split("function pintarCorpo(dados) {", 1)[1]
-        corpo = corpo.split("function mostrarVista", 1)[0]
-        chamada = corpo.split("mostrarVista(", 1)[1].split(")", 1)[0]
-
-        self.assertTrue(
-            chamada.startswith("vistaAberta"),
-            "a repintura voltou a impor a vista do servidor: %r" % chamada,
-        )
-
-    def test_virar_o_corpo_registra_a_escolha(self):
-        """Sem esta atribuição, `vistaAberta` nunca muda e a preservação
-        preserva a vista errada — a do servidor, para sempre."""
-        corpo = self.fonte.split("function mostrarVista(qual) {", 1)[1]
-        corpo = corpo.split("\n        }", 1)[0]
-
-        self.assertIn("vistaAberta = qual", corpo)
-
-    def test_abrir_outro_exercicio_recalcula(self):
-        """O limite da preservação: ela vale para UMA abertura. Sem o reset,
-        quem viu a puxada de costas abriria o supino de costas — a vista em
-        que o peito não aparece."""
-        corpo = self.fonte.split("function preencher(dados) {", 1)[1]
-        corpo = corpo.split("montarMidia(media, dados", 1)[0]
-
-        self.assertIn("vistaAberta = dados.vista", corpo)

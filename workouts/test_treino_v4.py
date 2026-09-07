@@ -401,25 +401,6 @@ class OContratoDoDrawerTests(TestCase):
         # Uma revisão adversarial mediu os cinco.
         self.assertIn('data-auxiliares="Ombros · Tríceps"', html)
 
-    def test_o_seletor_de_midia_existe_e_nasce_escondido(self):
-        """Escondido no HTML e revelado pelo JS a partir dos dados: com uma
-        mídia só, uma barra de uma opção seria um controle que não controla."""
-        html = self.ficha()
-
-        self.assertIn("data-drawer-midias", html)
-        trecho = html.split("data-drawer-midias", 1)[1].split(">", 1)[0]
-        self.assertIn("hidden", trecho)
-
-    def test_o_seletor_nao_promete_3D(self):
-        """Não há personagem 3D neste app. Rotular a anatomia de "3D" seria
-        prometer o que o conteúdo não é — o pedido é explícito nisto."""
-        html = self.ficha()
-        barra = html.split("data-drawer-midias", 1)[1].split("</div>", 1)[0]
-
-        self.assertIn("Vídeo real", barra)
-        self.assertIn("Anatomia", barra)
-        self.assertNotIn("3D", barra)
-
     def test_a_linha_dos_auxiliares_nasce_escondida(self):
         """Isolador não tem auxiliar, e "Também trabalha: nenhum" seria ruído
         numa tela aberta entre duas séries."""
@@ -427,14 +408,6 @@ class OContratoDoDrawerTests(TestCase):
 
         trecho = html.split("data-drawer-auxiliares", 1)[1].split(">", 1)[0]
         self.assertIn("hidden", trecho)
-
-    def test_o_estado_selecionado_e_aria_pressed_e_nao_uma_classe(self):
-        """Um só lugar diz "esta está escolhida", e é o mesmo que o leitor de
-        tela anuncia. Classe paralela seria a segunda fonte."""
-        html = self.ficha()
-        barra = html.split("data-drawer-midias", 1)[1].split("</div>", 1)[0]
-
-        self.assertEqual(barra.count("aria-pressed"), 2)
 
     def test_o_embed_do_gatilho_leva_o_recorte_quando_ele_existe(self):
         """A ponta a ponta do timestamp: do banco até o atributo que o

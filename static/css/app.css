@@ -1573,8 +1573,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .conquista__compartilhar,
 .conquista__continuar,
 .conquista-item__share,
-.corpo__vista-botao,
-.drawer__midia,
 .mapa__area,
 .mapa__botao,
 .tabbar__item {
@@ -1630,8 +1628,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   .conquista__compartilhar:active,
   .conquista__continuar:active,
   .conquista-item__share:active,
-  .corpo__vista-botao:active,
-  .drawer__midia:active,
   .mapa__area:active,
   .mapa__botao:active,
   .tabbar__item:active { transform: none; }
@@ -3203,9 +3199,24 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   background: var(--surface-2);
 }
 
+/* O TETO DE ALTURA, e o número saiu de medição nas quatro larguras.
+ *
+ * Os 36 vídeos do catálogo são Shorts — verticais. Enquanto existiu o seletor
+ * "Vídeo real | Anatomia", `.drawer--duas-midias` prendia todos em 16:9 para
+ * trocar de mídia não fazer a caixa pular de tamanho; o vídeo aparecia com
+ * tarja dos dois lados e menos da metade da área útil. Com o seletor fora, a
+ * caixa volta a 9:16.
+ *
+ * 52dvh era o teto antigo, herdado da época em que o vídeo era 16:9 e o número
+ * não mordia. Em 9:16 ele morde: medido a 320×568, o cartão de séries e a
+ * última carga terminavam em 570px — DOIS pixels abaixo da dobra. Quem abre o
+ * exercício entre duas séries perde justamente o número que veio buscar.
+ *
+ * 48dvh devolve 23px a 320×568 e põe a carga em 547px, dentro da tela; a
+ * 375×812 o vídeo ainda sai com 219×390. Medido nas quatro larguras. */
 .drawer__media--vertical {
   aspect-ratio: 9 / 16;
-  max-height: 52dvh;
+  max-height: 48dvh;
   margin: 0 auto;
   width: auto;
 }
@@ -6793,103 +6804,23 @@ body.montando { overflow: hidden; }
 .nota-do-botao { margin: 0 0 var(--espaco-4); }
 
 /* ==========================================================================
-   46. Treino V4 — o seletor de mídia do exercício e os músculos
+   46. Treino V4 — os músculos do exercício, em texto
 
-   Duas mídias respondem perguntas diferentes: o vídeo real mostra COMO se faz,
-   a anatomia mostra O QUE trabalha. O seletor só existe quando as duas
-   existem — com uma opção só ele seria um controle que não controla nada, e o
-   `hidden` é escrito pelo JavaScript a partir dos dados, não por CSS.
+   ESTA SEÇÃO JÁ FOI UM SELETOR DE MÍDIA. Ela desenhava a barra "Vídeo real |
+   Anatomia" e os botões Frente/Costas do mapa muscular, e a seção 47 logo
+   abaixo desenhava o boneco. As duas saíram por decisão de produto: a tela do
+   exercício mostra o VÍDEO REAL da execução, direto, sem escolha no meio.
 
-   Ele fica DEPOIS das duas áreas que ele alterna — a caixa de vídeo e o mapa —
-   e antes do corpo do drawer: encostado no que ele muda, e fora do caminho de
-   quem só quer ler as séries. A ordem de leitura e a de foco são a mesma, e
-   é a do DOM: fechar, Frente, Costas, Vídeo real, Anatomia.
+   O que sobrou aqui é o que responde "o que trabalha" — em texto, que é a
+   forma que sobreviveu à decisão: uma pílula com o músculo principal e uma
+   linha discreta com os auxiliares.
 
-   (Este parágrafo dizia "ENTRE a mídia e o corpo", de quando só existia a
-   caixa de vídeo acima dele. A fase B acrescentou o mapa como irmão dela.)
+   E SUMIU COM ELAS `.drawer--duas-midias .drawer__media--vertical`, que
+   prendia o clipe vertical em 16:9 para o seletor não fazer a caixa pular de
+   tamanho. Sem seletor, `--vertical` volta a valer sozinha: os 36 vídeos do
+   catálogo são Shorts, e agora aparecem em 9:16 com teto de 52dvh, que é o
+   dobro de área útil do que a tarja lateral dava.
    ========================================================================== */
-.drawer__midias {
-  display: flex;
-  gap: var(--espaco-2);
-  padding: var(--espaco-3) var(--pad) 0;
-}
-
-/* OS DOIS BOTÕES DE ALTERNÂNCIA DO DRAWER, num bloco só.
-   `.corpo__vista-botao` (Frente/Costas, seção 47) nasceu como cópia byte a
-   byte deste bloco — as mesmas onze declarações, na mesma ordem, com os mesmos
-   valores —, e o CLAUDE.md fecha a questão: "Uma quarta versão do mesmo botão
-   é o defeito que esta seção existe para impedir". Duas fontes para a mesma
-   aparência divergem no primeiro ajuste que alguém fizer em uma delas. Uma
-   revisão adversarial mediu a duplicação; ela virou este seletor duplo. */
-.drawer__midia,
-.corpo__vista-botao {
-  flex: 1;
-  min-height: 2.75rem;
-  padding: var(--espaco-2) var(--espaco-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-dim);
-  font-size: var(--texto-sm);
-  font-weight: 650;
-  cursor: pointer;
-  min-width: 0;
-}
-
-/* O estado vem de `aria-pressed`, e não de uma classe paralela: um só lugar
-   diz "esta está escolhida", e é o mesmo que o leitor de tela anuncia. Classe
-   separada seria a segunda fonte, e um dia divergiria da acessível. */
-.drawer__midia[aria-pressed="true"],
-.corpo__vista-botao[aria-pressed="true"] {
-  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
-  color: var(--brand);
-}
-
-/* O afundar do seletor mora AQUI, e não junto com o do mapa de áreas: o
-   arquivo é lido de ponta a ponta por seção, e uma regra do componente
-   perdida noutra seção é uma regra que a próxima leitura não encontra. As
-   duas listas globais — transição e `prefers-reduced-motion` — continuam
-   agrupadas por natureza, que é onde elas fazem sentido. */
-.drawer__midia:active,
-.corpo__vista-botao:active { transform: scale(.96); }
-
-/* A CAIXA DE VÍDEO NÃO MUDA DE ALTURA COM O CLIPE QUE ENTRA NELA.
- *
- * O motivo escrito aqui ENVELHECEU na fase B, e o registro fica: ele dizia
- * "a execução é 16:9 e a anatomia do catálogo é Short (9:16)", e media o
- * salto de ~130px que trocar de mídia causava. A anatomia desta tela deixou
- * de ser Short de terceiro e virou o mapa muscular; a regra abaixo continua
- * viva, mas por outro par.
- *
- * O par de hoje: `--vertical` marca o CLIPE DE EXECUÇÃO vertical (vem de
- * `data-vertical`, que é do clipe e não da anatomia). Com o seletor visível,
- * um clipe vertical faria a caixa crescer e o toque seguinte a encolher —
- * o mesmo defeito, com outro conteúdo. Preso em 16:9, o vertical aparece com
- * tarja lateral e a caixa fica estável.
- *
- * E O RAMO "SEM SELETOR" MORREU NA FASE B, o que fica registrado em vez de
- * apagado. Como todo exercício tem grupo muscular, `temAnatomia` é sempre
- * verdadeiro, então `drawer--duas-midias` passou a valer sempre que existe
- * execução — e `--vertical` só é aplicada no ramo de execução. Ou seja: a
- * classe nunca aparece SEM `drawer--duas-midias`, e o caso 9:16 de tela cheia
- * ficou inalcançável neste drawer. A regra de baixo continua sendo a que
- * governa o que se vê; a de cima virou letra morta que ninguém pode
- * exercitar. O terceiro ramo de `drawer.dataset.midia` morreu pelo mesmo
- * motivo, e está anotado lá.
- *
- * E A ANATOMIA? Ela é mais alta que 16:9, porque um corpo em pé não cabe
- * deitado. Duas coisas da seção 47 pagam essa diferença sem encolher o
- * boneco a ponto de ele não servir: os botões de vista foram para a FAIXA
- * VAZIA ao lado do desenho (economia de 52px, que era o tamanho do problema)
- * e a altura tem teto em `vh`. Medido nas quatro larguras, trocar de mídia
- * move o cartão de séries em 1, 1, 0 e −10 pixels — e ele fica visível sem
- * rolar nas quatro. Igualar as caixas de vez continuaria custando caro: o
- * boneco cairia para 137×48, menor do que era antes desta fase. */
-.drawer--duas-midias .drawer__media--vertical {
-  aspect-ratio: 16 / 9;
-  max-height: none;
-}
 
 /* "Também trabalha" é conteúdo de apoio: menor que o principal, e sem pílula.
    Dar pílula a cada auxiliar encheria a linha de caixinhas para dizer o que
@@ -6900,213 +6831,4 @@ body.montando { overflow: hidden; }
   font-size: var(--texto-sm);
   line-height: 1.4;
   min-width: 0;
-}
-
-/* ==========================================================================
-   47. Treino V4 fase B — o mapa muscular
-
-   TRÊS NÍVEIS, e o número do meio foi escolhido, não sorteado:
-
-     principal   100%  `--brand` cheia
-     auxiliar     50%  meio caminho entre a marca e o corpo neutro
-     neutro        0%  o corpo, sem tinta
-
-   Os 50% estão na faixa de 40–60 que o dono definiu, e QUEM ESCOLHEU O VALOR
-   FOI A CONTA. Varrida sobre os tokens dos dois temas, só 50 e 55 mantêm os
-   três níveis a 2:1 ou mais um do outro: a 40 o auxiliar cola no neutro
-   (1,82 no tema claro) e a 60 cola no principal (1,95 no escuro). A tabela
-   medida está no docstring de `OContrasteDosTresNiveisTests`, em
-   `config/test_mapa_muscular.py`, e a varredura roda a cada suíte.
-
-   O QUE SE MEDE SÃO OS TRÊS UM CONTRA O OUTRO, e não contra o fundo do
-   cartão — duas versões desta frase erraram isso, e a segunda foi pega por
-   revisão. Eles são regiões vizinhas do mesmo desenho, então a distância que
-   importa é entre eles. Resultado: 5,87 no escuro e 5,39 no claro para
-   "trabalha × não trabalha", que é a pergunta que a pessoa faz; 2,36 e 2,51
-   para principal × auxiliar, que é questão de GRAU e fica abaixo do 3:1 que
-   a WCAG 1.4.11 pede — em toda a faixa, e por isso a borda abaixo não é
-   enfeite.
-
-   E O NÍVEL NÃO É SÓ COR. Quem não distingue verde de cinza precisa ler o
-   mapa do mesmo jeito, então a espessura da borda carrega a mesma informação:
-   2px no principal, 1px no auxiliar, nenhuma no neutro. É a régua que o
-   próprio projeto já aplica em `--dia-a..e`, cujo comentário registra a
-   escolha de tons distinguíveis por quem confunde vermelho e verde.
-
-   Nada aqui é `#hex`: os três níveis saem de `--brand` e `--surface-3`, então
-   o tema claro acompanha sozinho.
-   ========================================================================== */
-/* O container do mapa, irmão da área de vídeo dentro do drawer.
- *
- * `display: flex` aqui só é seguro por causa do `[hidden] { display: none
- * !important }` da seção 8 — o JavaScript esconde este bloco por `hidden`, e
- * regra de navegador perde para regra de autor. Sem aquele `!important`, o
- * mapa continuaria pintado com `hidden` ligado e os dois botões de vista
- * continuariam focáveis por trás do vídeo. Medido: com `hidden`, `display`
- * computa `none`, altura 0 e zero botões alcançáveis; sem ele, dois.
- *
- * O `flex` põe os botões de vista ao lado do boneco em vez de embaixo — a
- * razão está em `.corpo__vistas`, e ela é a correção de uma regressão de
- * altura medida. */
-.drawer__anatomia {
-  padding: var(--espaco-4) var(--pad) 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--espaco-4);
-}
-
-/* Frente e costas. Dois botões, e o estado vem de `aria-pressed` — a mesma
-   escolha do seletor de mídia, pelo mesmo motivo: um lugar só diz o que está
-   escolhido, e é o que o leitor de tela anuncia.
-
-   EM COLUNA, AO LADO DO BONECO, e a razão é medida. Empilhados embaixo eles
-   custavam 52px de altura (44 do alvo mais o espaço), e essa altura era o que
-   fazia a caixa da anatomia crescer sobre a do vídeo: a 320×568 trocar de
-   mídia empurrava o cartão de séries de 526 para 580 — para fora de uma tela
-   de 568. Um corpo em pé é alto e ESTREITO (66px de largura a 320), então a
-   faixa ao lado dele estava vazia; os dois botões cabem nela sem custar
-   altura nenhuma.
-
-   Medido depois da mudança, o salto ao trocar de mídia: 1px a 320×568, 1px a
-   375×667, 0 a 390×844, −10 a 1280. O defeito que a seção 46 documenta virou
-   ruído de arredondamento.
-
-   `width: 8rem` com `flex: none` para o alvo não encolher junto com o
-   container: a régua do projeto cobra 44px nas DUAS dimensões, e medido dá
-   128×44 nas quatro larguras. */
-.corpo__vistas {
-  display: flex;
-  flex-direction: column;
-  gap: var(--espaco-2);
-  /* `flex: 0 1 8rem` e não `width: 8rem; flex: none`. Os dois dão os mesmos
-     128px hoje — medido —, mas o primeiro pode ENCOLHER quando o espaço
-     aperta, e `.drawer` recorta na horizontal (`overflow: hidden auto`). O
-     caso é quem aumenta o tamanho de fonte do navegador: a 200%, `8rem` vira
-     256px dentro de um container de ~280, e largura fixa proibida de encolher
-     ou espremia o boneco a nada ou era cortada pelo recorte do drawer.
-     `min-width` segura o piso no alvo de toque. Não consegui medir: o
-     navegador embutido trava o `font-size` da raiz, e a defesa está aqui
-     declarada como defesa, não como medição. */
-  flex: 0 1 8rem;
-  min-width: 2.75rem;
-}
-
-/* QUEM MANDA AQUI É A ALTURA, e ela é limitada PELA TELA.
- *
- * Duas coisas se resolvem nesta regra, e as duas foram medidas.
- *
- * 1. ALTURA E NÃO LARGURA. Antes era `width: 100%; max-width: 15rem;
- *    height: auto`. Funcionava enquanto o `viewBox` era quase quadrado; com o
- *    quadro apertado em volta de UM corpo ele ficou estreito (83×215), e
- *    largura-primeiro daria 240 de largura por 621 de altura.
- *
- * 2. O TETO É `vh` PORQUE O DRAWER NÃO É ELÁSTICO. A anatomia é mais alta que
- *    um vídeo 16:9 — 335px contra 219 no primeiro corte —, e a seção 46 já
- *    tinha pago para aprender que trocar de mídia não pode empurrar séries,
- *    descanso e carga para fora do olho de quem lê os números entre duas
- *    séries. Com altura fixa de 17rem isso voltou a acontecer: medido a
- *    375×667 (iPhone SE, aparelho comum), tocar "Anatomia" empurrava o cartão
- *    de séries de 525 para 649 num viewport de 667 — ou seja, para FORA da
- *    tela. A 390×844 o mesmo toque custava 43px e passava despercebido, que é
- *    o motivo de a primeira medição ter dado o defeito por inexistente.
- *
- * O teto trabalha JUNTO com os botões de vista terem ido para o lado (ver
- * `.corpo__vistas`): aquilo devolveu 52px de altura, e este teto faz o
- * desenho usar o que sobra da tela em vez de um número fixo. Sozinho, cada um
- * resolvia metade. Medido depois dos dois, o salto ao trocar de mídia é de 1,
- * 1, 0 e −10 pixels a 320×568, 375×667, 390×844 e 1280, com o cartão de
- * séries visível sem rolar nas quatro.
- *
- * O boneco resultante: 53×150 a 320×568, 62×176 a 375×667, 78×223 a 390×844.
- * Zerar o salto de vez exigiria caber nos 219 do vídeo — 137×48, menor que o
- * de antes desta fase e ilegível. Esta é a troca, e ela está medida. */
-.corpo {
-  display: block;
-  width: auto;
-  max-width: 100%;
-  /* `dvh` E NÃO `vh`, e a régua já estava escrita neste arquivo: no Safari do
-     iPhone `vh` conta a viewport GRANDE, de barras escondidas. A 375×667 com
-     as barras visíveis sobram ~553px, e `30vh` daria 200px onde a intenção
-     pede ~166 — 34px a mais no aparelho e no cenário exatos que produziram a
-     regressão de altura. A medição em emulador não podia ver isso, porque lá
-     `vh` e a área visível coincidem. `.drawer` (92dvh) e
-     `.drawer__media--vertical` (52dvh) já usavam a unidade certa. */
-  height: min(17rem, 30dvh);
-  /* `margin: 0` e não `0 auto`: dentro de um flex row, margem automática
-     consome TODA a folga antes do `justify-content` do pai (Flexbox §8.1).
-     Com `auto`, o `justify-content: center` e o `gap` de `.drawer__anatomia`
-     ficavam inertes — o boneco ia para a esquerda do centro e os botões para
-     a borda direita, com ~70px de vazio entre os dois a 375 e ~115 no
-     desktop. Quem centra o par é o pai. */
-  margin: 0;
-}
-
-/* A silhueta. Ela não é um músculo — é o contorno que dá lugar aos que são. */
-.corpo__base {
-  fill: var(--surface-2);
-  stroke: var(--border);
-  stroke-width: 1;
-}
-
-/* NEUTRO: o músculo que este exercício não trabalha. Visível como relevo do
-   corpo, e não como informação. */
-.corpo__musculo {
-  fill: var(--surface-3);
-  stroke: none;
-  /* Zero explícito: com `stroke: none` a largura não pinta nada, mas o valor
-     COMPUTADO continuaria 1px — e a distinção sem cor (2 / 1 / 0) precisa ser
-     mensurável, não só verdadeira na intenção. */
-  stroke-width: 0;
-}
-
-/* AUXILIAR — 50%. */
-.corpo__musculo[data-nivel="auxiliar"] {
-  fill: color-mix(in srgb, var(--brand) 50%, var(--surface-3));
-  stroke: color-mix(in srgb, var(--brand) 50%, transparent);
-  stroke-width: 1;
-}
-
-/* PRINCIPAL — 100%, e a borda mais grossa diz o mesmo sem depender da cor. */
-.corpo__musculo[data-nivel="principal"] {
-  fill: var(--brand);
-  stroke: var(--brand-strong);
-  stroke-width: 2;
-}
-
-/* A legenda da vista. HTML, e não `<text>` dentro do SVG.
- *
- * Ela já foi `<text>`, e ali o `font-size` do CSS é resolvido para comprimento
- * no sistema de coordenadas do SVG — ou seja, o `viewBox` multiplica. Como a
- * altura do desenho tem teto em `dvh`, o fator varia com a tela: medido a
- * 320×568 ele é 0,79, e os 11,2px do token viravam 8,9px renderizados. O
- * CLAUDE.md fixa 11px como piso de texto de interface, e nenhum teste via
- * isso, porque a régua mede o TOKEN e não o tamanho na tela. Fora do SVG,
- * 11,2px são 11,2px em qualquer largura.
- *
- * E ela mora na COLUNA DOS BOTÕES, não embaixo do boneco: a coluna tem 96px
- * de conteúdo contra até 272 do desenho, então o texto cabe nela sem custar
- * altura ao bloco. Embaixo do boneco custava 43px, e a 320×568 isso jogava o
- * cartão de séries de 528 para 571 — fora de uma tela de 568. */
-.corpo__vista-nome {
-  margin: var(--espaco-1) 0 0;
-  color: var(--text-mute);
-  font-size: var(--texto-xs);
-  font-weight: 650;
-  text-align: center;
-}
-
-/* Só uma vista por vez: as duas lado a lado a 320px deixariam cada corpo com
-   140px, e um boneco de 140px não mostra onde fica o tríceps. */
-.corpo[data-vista="frente"] .corpo__vista:last-of-type,
-.corpo[data-vista="costas"] .corpo__vista:first-of-type { display: none; }
-
-.corpo[data-vista="costas"] .corpo__vista:last-of-type { transform: translateX(-110px); }
-
-/* A troca é informação, não espetáculo: o suficiente para o olho acompanhar
-   qual região acendeu, e nada além disso. */
-.corpo__musculo { transition: fill var(--dur) var(--ease); }
-
-@media (prefers-reduced-motion: reduce) {
-  .corpo__musculo { transition: none; }
 }

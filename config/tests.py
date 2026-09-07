@@ -375,14 +375,13 @@ class TouchTargetTests(TestCase):
         # herda regra de botão nenhuma, e cada linha do painel é um
         # destino de navegação tocado com o polegar.
         (".mapa__botao {", "min-height: 2.75rem"),
-        # Os dois alternadores do drawer, tocados de pé entre séries: o
-        # seletor de mídia e o Frente/Costas do mapa muscular. Eles dividem um
-        # bloco só — `.corpo__vista-botao` nasceu como cópia byte a byte do
-        # outro, e uma revisão cobrou a régua do CLAUDE.md contra a quarta
-        # versão do mesmo botão. A âncora do primeiro leva a vírgula porque é
-        # assim que ele termina a linha hoje; a do segundo abre a chave.
-        (".drawer__midia,", "min-height: 2.75rem"),
-        (".corpo__vista-botao {", "min-height: 2.75rem"),
+        # OS DOIS ALTERNADORES DO DRAWER SAÍRAM da régua porque saíram do
+        # produto: o seletor "Vídeo real | Anatomia" e o Frente/Costas do mapa
+        # muscular foram removidos quando a tela do exercício passou a mostrar
+        # o vídeo real direto. Medir alvo de toque de botão que ninguém
+        # renderiza é teste ornamental — ele passa para sempre e não protege
+        # nada. Quem garante que eles não voltam é
+        # `workouts/test_video_direto.py`.
         (".mapa__area {", "min-height: 2.75rem"),
         (".btn--sm {", "min-height: 2.75rem"),
         (".btn--quiet {", "min-height: 2.75rem"),
