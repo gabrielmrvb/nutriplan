@@ -1135,25 +1135,53 @@ class DesignSystemTests(TestCase):
         self.escuro = _tokens(self.css, ":root {")
 
     def test_the_dark_palette_is_the_one_the_design_system_names(self):
-        self.assertEqual(self.escuro["--bg"], "#0d0f12")
-        self.assertEqual(self.escuro["--surface-2"], "#1a1d24")
-        self.assertEqual(self.escuro["--border"], "#2a2e39")
-        self.assertEqual(self.escuro["--brand"], "#10b981")
-        self.assertEqual(self.escuro["--text"], "#ffffff")
-        self.assertEqual(self.escuro["--text-mute"], "#9ca3af")
+        """A paleta V3: fundos mais escuros e frios, verde mais vivo.
+
+        A troca não foi estética solta — cada degrau foi medido antes de
+        entrar, e `ContrastTests` continua sendo quem prova a legibilidade.
+        Este teste trava a IDENTIDADE: se alguém mudar um destes por acidente,
+        a interface passa a ter duas paletas.
+        """
+        self.assertEqual(self.escuro["--bg"], "#080d0f")
+        self.assertEqual(self.escuro["--surface"], "#10161a")
+        self.assertEqual(self.escuro["--surface-2"], "#151b21")
+        self.assertEqual(self.escuro["--surface-3"], "#1a2128")
+        self.assertEqual(self.escuro["--brand"], "#10c98a")
+        self.assertEqual(self.escuro["--text"], "#f7f9fa")
+        self.assertEqual(self.escuro["--text-mute"], "#939daa")
+
+    def test_the_border_is_translucent_so_it_reads_on_every_surface(self):
+        """`--border` deixou de ser hex, e a mudança é de comportamento.
+
+        Um cinza sólido tem de escolher UMA superfície para ficar certo: sobre
+        `--bg` ele pesava e sobre `--surface-3` sumia. Translúcido, ele se
+        ajusta ao que estiver embaixo — é o que faz a interface parecer ter
+        camadas em vez de contornos desenhados.
+
+        `_tokens` só lê hexadecimal, então a ausência da chave é a prova de
+        que o valor não é mais um hex — e o `assertIn` abaixo é o controle
+        positivo, para o teste não passar caso o token suma do arquivo.
+        """
+        self.assertNotIn("--border", self.escuro)
+        self.assertIn("--border: rgba(", self.css)
 
     def test_every_card_radius_lands_between_sixteen_and_twenty_pixels(self):
         """A escala tem quatro degraus e três deles são de CARTÃO. Um quinto
         degrau nasce quando alguém escreve `border-radius: 8px` direto na
         regra, e aí a tela tem duas linguagens de quina."""
+        # A FAIXA SUBIU COM A V3, e continua sendo uma faixa e não um valor
+        # solto: o que este teste impede é o quinto degrau nascer de um
+        # `border-radius: 8px` escrito à mão dentro de uma regra qualquer.
+        # 18 para cartão pequeno e 22 para cartão principal são os degraus que
+        # a linguagem nova nomeia; abaixo de 16 a quina volta a parecer web.
         for token in ("--radius", "--radius-lg"):
             # `_tokens` só guarda valores hexadecimais — é um leitor de PALETA.
             achado = re.search(rf"^\s*{token}:\s*(\d+)px;", self.css, re.M)
             self.assertIsNotNone(achado, f"{token} não é mais um valor em px")
             px = int(achado.group(1))
             with self.subTest(token=token):
-                self.assertGreaterEqual(px, 15)
-                self.assertLessEqual(px, 20)
+                self.assertGreaterEqual(px, 16)
+                self.assertLessEqual(px, 24)
 
     def test_no_rule_hardcodes_a_radius_outside_the_scale(self):
         soltos = set(re.findall(r"border-radius:\s*(\d+)px", self.css))

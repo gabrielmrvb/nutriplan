@@ -59,8 +59,14 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: não move um pixel, e a prova está no commit — a assinatura de estilo
 #: computado de `/treino/` (461 elementos) ficou idêntica, 849639245 antes e
 #: depois, com o CSS servido conferido para não medir cache velho.
-TETO_FONT_SIZE_CRU = 144
-TETO_ESPACO_CRU = 289
+#: Desceu para 141 na V3: a família monoespaçada saiu de 34 regras de métrica,
+#: e com ela três `font-size` crus que só existiam para compensar a mono
+#: desenhar maior que a fonte de texto no mesmo tamanho. A catraca só desce —
+#: quando a dívida cai, o teto cai junto, senão ela volta sem ninguém ver.
+TETO_FONT_SIZE_CRU = 141
+#: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
+#: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
+TETO_ESPACO_CRU = 287
 
 
 def sem_comentarios(texto):
@@ -290,17 +296,23 @@ class NumeroDeMetricaNaoQuebraNoMeioTests(SimpleTestCase):
         )
 
 
-class MetricaNaoDependeDoTemplateParaSerMonoTests(SimpleTestCase):
+class MetricaNaoDependeDoTemplateParaSerTabularTests(SimpleTestCase):
     """A tipografia de um número é do CSS, nunca do HTML que o escreve.
 
-    `.fim__valor` e `.conquistas__numero` eram monoespaçadas só porque o
-    template escrevia `class="... num"`. As outras famílias de métrica declaram
-    a própria família. Um bloco novo copiado sem o `num` ficava proporcional, e
-    o defeito só aparecia quando o número atualizava e dançava de lugar — que é
-    exatamente o que `tabular-nums` existe para impedir.
+    `.fim__valor` e `.conquistas__numero` dependiam de o template lembrar de
+    escrever `class="... num"`. Um bloco novo copiado sem o `num` ficava
+    proporcional, e o defeito só aparecia quando o número atualizava e dançava
+    de lugar — que é exatamente o que `tabular-nums` existe para impedir.
+
+    O INVARIANTE NÃO MUDOU NA V3; a implementação dele mudou. Antes a marca de
+    "isto é métrica" era a família monoespaçada, e ela cobrava caro: zero
+    cortado, peso aparente maior que o do rótulo ao lado, e um "19:00" que lia
+    como saída de terminal dentro de uma interface que quer parecer aplicativo.
+    Agora a marca é `font-variant-numeric: tabular-nums` na fonte de texto —
+    que é o que sempre resolveu o problema real, o alinhamento.
 
     `.num` continua no HTML e continua útil: ele marca "isto é número" para
-    quem lê o template. O que não pode é a família DEPENDER dele.
+    quem lê o template. O que não pode é o CSS DEPENDER dele.
     """
 
     #: Toda classe que é o VALOR de uma métrica. Não inclui rótulos — eles são
@@ -327,16 +339,25 @@ class MetricaNaoDependeDoTemplateParaSerMonoTests(SimpleTestCase):
         )
         return casou.group(1) if casou else None
 
-    def test_todo_valor_de_metrica_declara_a_propria_fonte(self):
+    def test_todo_valor_de_metrica_declara_o_proprio_tratamento(self):
         for seletor in self.VALORES:
             with self.subTest(seletor=seletor):
                 corpo = self._regra(seletor)
                 self.assertIsNotNone(corpo, f"a regra {seletor} sumiu")
                 self.assertIn(
-                    "font-family: var(--font-mono)",
+                    "tabular-nums",
                     corpo,
-                    f"{seletor} depende do `num` do template para ser mono",
+                    f"{seletor} depende do `num` do template para alinhar",
                 )
+
+    def test_nenhuma_metrica_volta_para_a_monoespacada(self):
+        """CONTROLE da decisão: a mono saiu da interface na V3, e voltar com
+        ela numa métrica traria de volta o zero cortado e o desalinhamento de
+        peso contra o rótulo vizinho."""
+        for seletor in self.VALORES:
+            with self.subTest(seletor=seletor):
+                corpo = self._regra(seletor) or ""
+                self.assertNotIn("var(--font-mono)", corpo)
 
     def test_todo_valor_de_metrica_e_tabular(self):
         """Sem `tabular-nums` o número muda de largura ao atualizar, e um

@@ -74,12 +74,39 @@
               a linha quebrava no meio de um item, e "9" fechava a linha com
               "exercícios" abrindo a seguinte.
             {% endcomment %}
-            <p class="hoje__meta">
-              <span>{{ hoje.total_exercicios }} exercícios</span>
-              <span>{{ hoje.total_sets }} séries</span>
-              <span>~{{ hoje.estimated_minutes }} min</span>
-              {% if hoje.start_time %}<span>{{ hoje.start_time|time:"H:i" }}</span>{% endif %}
-            </p>
+            <ul class="hoje__meta">
+              <li>
+                <svg class="hoje__meta-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                  <path d="M3 9v6M6 6.5v11M18 6.5v11M21 9v6M6 12h12"/>
+                </svg>
+                <b class="num">{{ hoje.total_exercicios }}</b> exercícios
+              </li>
+              <li>
+                <svg class="hoje__meta-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                  <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>
+                </svg>
+                <b class="num">{{ hoje.total_sets }}</b> séries
+              </li>
+              <li>
+                <svg class="hoje__meta-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="8.5"/><path d="M12 7.2V12l3.2 2"/>
+                </svg>
+                ~<b class="num">{{ hoje.estimated_minutes }}</b> min
+              </li>
+              {% if hoje.start_time %}
+                <li>
+                  <svg class="hoje__meta-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                    <rect x="3.5" y="5" width="17" height="15" rx="2.5"/>
+                    <path d="M8 3v4M16 3v4M3.5 10h17"/>
+                  </svg>
+                  <b class="num">{{ hoje.start_time|time:"H:i" }}</b>
+                </li>
+              {% endif %}
+            </ul>
 
             {% comment %}
               O progresso é derivado, e a frase diz exatamente o que ele mede.
@@ -95,16 +122,34 @@
               procurar por ela. É o mesmo par que a fila offline, o cronômetro
               e a montagem do plano já usam.
             {% endcomment %}
+            {% comment %}
+              A CONTAGEM VEM ANTES DA BARRA, e a porcentagem fecha a linha.
+
+              A barra sozinha diz "quanto", nunca "de quê" — e vinha primeiro,
+              então a primeira coisa a ser lida era uma faixa sem legenda. Com
+              o texto em cima, a barra passa a confirmar um número já dito.
+
+              A porcentagem é o MESMO `pct_hoje` que dá a largura da barra: não
+              é afirmação nova, é a que a barra já fazia, agora legível.
+
+              E a frase continua sendo "com série registrada hoje", não
+              "concluídos". Ela é verificável — são as linhas de `ExerciseLog`
+              com a data de hoje — e "concluído" afirmaria um estado que
+              nenhuma tabela sustenta.
+            {% endcomment %}
             <div class="hoje__progresso" role="status" aria-live="polite">
+              <p class="hoje__contagem">
+                <span class="hoje__contagem-texto">
+                  <b class="num">{{ hoje.feitos_hoje }}</b> de
+                  <span class="num">{{ hoje.total_exercicios }}</span>
+                  {% if hoje.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}
+                  com série registrada hoje
+                </span>
+                <b class="hoje__pct num">{{ hoje.pct_hoje }}%</b>
+              </p>
               <div class="progress hoje__barra">
                 <div class="progress__fill" style="width: {{ hoje.pct_hoje }}%"></div>
               </div>
-              <p class="hoje__contagem">
-                <b class="num">{{ hoje.feitos_hoje }}</b> de
-                <span class="num">{{ hoje.total_exercicios }}</span>
-                {% if hoje.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}
-                com série registrada hoje
-              </p>
             </div>
 
             {% comment %}

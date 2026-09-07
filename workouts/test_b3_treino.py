@@ -387,10 +387,16 @@ class APortaDaCorridaTests(TestCase):
     def test_a_porta_e_uma_so(self):
         """Duas portas para a mesma tela e o comeco de duas que divergem.
 
-        A conta e sobre o CORPO da tela, e nao sobre a pagina inteira: o mapa
-        das cinco areas mora na barra de cima e leva a corrida de toda tela do
-        app. Ele nao e uma segunda porta desta tela — e a navegacao global, e a
-        divergencia que este teste teme e entre dois cartoes DAQUI.
+        A conta e sobre o CORPO desta tela, e nao sobre a pagina inteira: a
+        navegacao global tambem leva a corrida, e ela nao e uma segunda porta
+        DAQUI — a divergencia que este teste teme e entre dois cartoes desta
+        mesma tela.
+
+        UX-01 mudou onde a porta global fica. Ela era o mapa `<details>` na
+        barra de cima, na MESMA pagina, e por isso o controle positivo olhava
+        o cabecalho. Agora e a tela de Areas, que e o quarto item da barra —
+        entao o controle positivo foi buscar la, que e onde a porta passou a
+        morar.
         """
         self.client.force_login(create_user(email="corrida3@exemplo.com"))
 
@@ -398,6 +404,6 @@ class APortaDaCorridaTests(TestCase):
         corpo = html.split("</header>", 1)[1]
 
         self.assertEqual(corpo.count('href="/treino/corridas/"'), 1)
-        # Controle positivo do recorte: o cabecalho existe e leva a corrida.
-        cabecalho = html.split("</header>", 1)[0]
-        self.assertIn('href="/treino/corridas/"', cabecalho)
+        # Controle positivo: a porta global existe, e agora mora em Areas.
+        areas = self.client.get(reverse("areas")).content.decode()
+        self.assertIn('href="/treino/corridas/"', areas)

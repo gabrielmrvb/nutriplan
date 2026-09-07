@@ -2768,7 +2768,16 @@ class TreinoDeHojeTests(TestCase):
 
         self.assertIn("Treino de hoje", bloco)
         self.assertIn(self.sessao.name, bloco)
-        self.assertIn("%d exercícios" % len(self._itens()), bloco)
+        # O NÚMERO E O RÓTULO DEIXARAM DE SER UMA STRING SÓ.
+        #
+        # A linha de metadados era texto corrido monoespaçado; na V3 o número
+        # ficou forte e tabular e o rótulo ficou apagado, cada um na sua tag,
+        # para o olho pegar a quantidade antes da palavra. `assertIn("8
+        # exercícios")` passou a procurar uma string que o HTML não escreve
+        # mais em pedaço nenhum — some a marcação antes de comparar, que é o
+        # que a pessoa lê.
+        texto = " ".join(re.sub(r"<[^>]+>", " ", bloco).split())
+        self.assertIn("%d exercícios" % len(self._itens()), texto)
 
     def test_the_button_opens_the_guided_mode(self):
         """"Começar treino" abre o modo treino — não rola a página.

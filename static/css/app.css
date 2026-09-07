@@ -35,10 +35,10 @@
      esverdeado tingia de leve TODA a tela com o mesmo verde do acento, e o
      acento perdia parte do trabalho dele, que é destacar. Neutro azulado é
      o fundo de Lifesum, Yazio e Fitia pelo mesmo motivo. */
-  --bg: #0d0f12;
-  --surface: #15181e;
-  --surface-2: #1a1d24;
-  --surface-3: #232733;
+  --bg: #080d0f;
+  --surface: #10161a;
+  --surface-2: #151b21;
+  --surface-3: #1a2128;
 
   /* Cinza fixo, e não mais branco translúcido.
      O translúcido tinha uma vantagem real: acompanhava a camada em que
@@ -49,23 +49,32 @@
      9% de branco desaparecia por não ter camada abaixo para clarear.
 
      Se uma quinta superfície mais clara aparecer, este é o token a revisar. */
-  --border: #2a2e39;
-  --border-strong: #3a4050;
+  /* BORDA TRANSLÚCIDA, e não um cinza sólido. Sobre quatro superfícies de
+     luminância diferente, um hex fixo fica pesado na mais escura e sumido na
+     mais clara — era o que acontecia com #2a2e39. A borda agora se ajusta ao
+     que estiver embaixo, que é o que dá a sensação de camada em vez de
+     contorno desenhado. */
+  --border: rgba(150, 165, 180, .16);
+  --border-strong: rgba(150, 165, 180, .30);
 
-  --text: #ffffff;
+  --text: #f7f9fa;
   /* Os dois tons discretos subiram junto com as bordas, e pelo mesmo motivo:
      o mínimo da WCAG é piso de legibilidade, não alvo de projeto. `--text-dim`
      estava em 6,47:1 no pior fundo e `--text-mute` em 4,67:1 — passando por
      centésimos. Em OLED, com brilho baixo, "passa raspando" se lê como texto
      apagado. Agora são 7,50 e 5,62 no mesmo pior caso, e a distância entre os
      três degraus (13,15 / 7,50 / 5,62) continua clara. */
-  --text-dim: #cbd2dc;
-  /* Medido, não escolhido a olho: #71827f dava 4.00:1 sobre --surface-3, e o
-     mínimo da WCAG AA para texto pequeno é 4.5:1. O valor anterior (#849592)
-     era o menor clareamento que PASSAVA; este é o menor que passa com folga —
-     inclusive sobre --brand-soft, onde o antigo dava 4,36 e nenhum teste via,
-     porque o teste dos fundos tingidos só cobre --text e --text-dim. */
-  --text-mute: #9ca3af;
+  --text-dim: #b7bec8;
+  /* Medido a cada troca, nunca escolhido a olho. A paleta V3 escureceu e
+     esfriou os fundos, e o cinza que a spec sugeria para este degrau
+     (#818b98) caía para 4,71:1 sobre --surface-3 — passa, e passa raspando.
+     #939daa devolve 5,92, que é o mesmo patamar do valor anterior sobre o
+     fundo anterior: a paleta muda, a legibilidade não regride.
+
+     Vale também sobre --brand-soft, onde uma versão antiga dava 4,36 e nenhum
+     teste via, porque o teste dos fundos tingidos só cobre --text e
+     --text-dim. */
+  --text-mute: #939daa;
 
   /* Uma cor por dia de treino. Matizes bem separados (verde, azul, âmbar,
      violeta) para serem distinguíveis inclusive por quem confunde vermelho e
@@ -87,10 +96,14 @@
      Era menta #4ade9b — claro o bastante para brilhar, e por isso mesmo sem
      peso: sobre grafite ele lia como brilho, não como cor de marca. Emerald
      é mais saturado e mais escuro, então o botão primário tem massa e o texto
-     grafite por cima dele continua legível (7,4:1, medido). */
-  --brand: #10b981;
+     grafite por cima dele continua legível.
+
+     A V3 subiu meio degrau (#10b981 → #10c98a): sobre o fundo novo ele mede
+     9,07:1 contra os 7,57 de antes. Fundo mais escuro devolve contraste, e o
+     verde pôde ficar mais vivo sem custar legibilidade. */
+  --brand: #10c98a;
   --brand-strong: #34d399;
-  --brand-soft: #103028;
+  --brand-soft: #0c2a22;
   --on-brand: #04140e;
 
   --accent: #6cc7ff;
@@ -108,10 +121,10 @@
      separar WIDGET de cartão: o painel do dia, a ofensiva e a água são as
      três peças que a pessoa lê de relance, e quina mais aberta é o que faz
      uma peça ler como painel em vez de caixa de conteúdo. */
-  --radius-xl: 26px;
-  --radius-lg: 20px;
-  --radius: 15px;
-  --radius-sm: 11px;
+  --radius-xl: 28px;
+  --radius-lg: 22px;
+  --radius: 18px;
+  --radius-sm: 14px;
   --pill: 999px;
 
   /* O véu atrás de qualquer overlay. Existia escrito por extenso em dois
@@ -286,22 +299,6 @@
 
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 
-  /* A monoespaçada do SISTEMA, e não JetBrains Mono nem Geist Mono.
-   *
-   * As duas exigiriam um webfont, e um webfont aqui custa três coisas que este
-   * app não pode pagar: uma requisição a CDN no primeiro carregamento — num
-   * PWA que precisa abrir com o 4G da academia —, ~100 KB por peso, e um
-   * arquivo que o service worker tem que versionar junto com o resto. Não há
-   * build step para embutir só os glifos usados.
-   *
-   * `ui-monospace` resolve em SF Mono no iPhone e no Mac, e a lista cobre o
-   * resto. Chega instantânea, funciona offline, e a largura fixa dos dígitos —
-   * que é o que se quer aqui — é idêntica.
-   *
-   * A largura fixa faz duas coisas: alinha a coluna de números entre linhas, e
-   * impede a caloria de pular de lugar enquanto o contador sobe. */
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-               "Liberation Mono", monospace;
 }
 
 /* Tema claro para quem usa o sistema em claro. É a exceção, e por isso vem
@@ -668,9 +665,30 @@ body:not(.tem-tabbar) .container {
    ========================================================================== */
 
 h1, h2, h3 { margin: 0; letter-spacing: -.03em; line-height: 1.18; }
-h1 { font-size: 1.65rem; font-weight: 750; }
-h2 { font-size: 1.08rem; font-weight: 680; }
-h3 { font-size: .95rem; font-weight: 650; }
+/* A ESCALA DE TÍTULO SUBIU, e é ela que separava "página web bem feita" de
+   "aplicativo". `h1` media 26px e brigava de igual com o corpo: a tela abria
+   sem protagonista, e o olho precisava LER para descobrir onde estava, em vez
+   de reconhecer.
+
+   O tracking negativo é o que impede o tamanho novo de parecer esticado —
+   fonte grande com espaçamento de fonte pequena lê como banner. */
+h1 {
+  font-size: 2rem;
+  font-weight: 780;
+  letter-spacing: -.022em;
+  line-height: 1.15;
+}
+h2 {
+  font-size: 1.3rem;
+  font-weight: 720;
+  letter-spacing: -.015em;
+  line-height: 1.25;
+}
+h3 {
+  font-size: 1.08rem;
+  font-weight: 680;
+  letter-spacing: -.008em;
+}
 
 .page-head { margin-bottom: 1.2rem; }
 .page-head h1 { margin-bottom: var(--espaco-1); }
@@ -681,13 +699,25 @@ h3 { font-size: .95rem; font-weight: 650; }
 /* `.num` marca TODO número da interface, e agora ele também muda de família.
    `tabular-nums` continua: numa monoespaçada é redundante, mas a regra vale
    para a fonte de reserva de quem não tiver nenhuma da lista. */
+/* O QUE `.num` RESOLVE É ALINHAMENTO, e não "parecer número".
+   `font-variant-numeric: tabular-nums` já dá largura fixa por dígito na fonte
+   de TEXTO: a coluna alinha e o contador não dança, que era o objetivo
+   inteiro.
+
+   A família monoespaçada saiu na V3. Ela cobrava caro por isso: desenhava o
+   zero cortado, subia o peso aparente do rótulo ao lado e fazia "19:00" e
+   "descanso 1:20 min" lerem como saída de terminal dentro de uma interface
+   que quer parecer aplicativo. Também sumiu o desconto de `.96em`, que existia
+   só para compensar a mono desenhar maior.
+
+   E o token `--font-mono` SAIU do arquivo junto. Eu tinha escrito aqui que
+   ele "continua tendo dono: código e valores que a pessoa copia" — e
+   `ImpeccableStyleTests` desmentiu na mesma execução: zero usos. Variável
+   declarada e nunca usada é peso morto que a próxima pessoa lê como opção
+   disponível. Quando houver um bloco de código de verdade para estilizar, ele
+   volta com um consumidor. */
 .num {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  /* A monoespaçada do sistema desenha maior que a de texto no mesmo tamanho.
-     Sem o desconto, um "2.480 kcal" ao lado de um rótulo em sans-serif lê como
-     se estivesse um degrau acima na hierarquia, e não está. */
-  font-size: .96em;
   letter-spacing: -.01em;
 }
 
@@ -878,7 +908,6 @@ h3 { font-size: .95rem; font-weight: 650; }
   display: block;
   font-size: var(--texto-3xl);
   font-weight: 780;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: -.045em;
 }
@@ -929,7 +958,6 @@ h3 { font-size: .95rem; font-weight: 650; }
 .hero-macros__nome { flex: none; color: var(--text-dim); font-weight: 680; }
 
 .hero-macros__valor {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
@@ -951,7 +979,6 @@ h3 { font-size: .95rem; font-weight: 650; }
   min-width: 0;
   overflow: hidden;
   color: var(--text-mute);
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1013,7 +1040,6 @@ h3 { font-size: .95rem; font-weight: 650; }
   color: var(--text-dim);
   font-size: .76rem;
   font-weight: 650;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   text-decoration: none;
 }
@@ -1042,7 +1068,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   display: block;
   font-size: var(--texto-xl);
   font-weight: 750;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: -.03em;
 }
@@ -1072,7 +1097,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   flex: none;
   font-size: var(--texto-2xl);
   font-weight: 750;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: -.04em;
 }
@@ -1103,7 +1127,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   display: block;
   font-size: var(--texto-base);
   font-weight: 750;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1186,12 +1209,10 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .macro-line__name { flex: 1; min-width: 0; font-weight: 620; }
 .macro-line__value {
   flex: none;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
-.macro-line__meta { color: var(--text-mute); font-size: .74rem; font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums; }
+.macro-line__meta { color: var(--text-mute); font-size: .74rem; font-variant-numeric: tabular-nums; }
 
 .macro-dot { width: .55rem; height: .55rem; flex: none; border-radius: 50%; }
 .macro-dot--protein { background: var(--brand); }
@@ -1298,7 +1319,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   color: var(--brand);
   font-size: .82rem;
   font-weight: 750;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1318,7 +1338,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   margin-top: .1rem;
   color: var(--text-mute);
   font-size: .76rem;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1359,7 +1378,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   /* Monoespaçado como todo número da interface: numa ficha de nove exercícios
      o "1" e o "10" ocupam a mesma largura, e a coluna de bolinhas não dança
      quando a lista passa de nove. */
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: var(--texto-sm);
   font-weight: 750;
@@ -1375,7 +1393,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   flex: none;
   color: var(--text-mute);
   font-size: .72rem;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1400,8 +1417,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .option__ingrediente { min-width: 0; }
 
 .option__items li:last-child { border-bottom: 0; }
-.option__items b { flex: none; color: var(--text); font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums; font-weight: 720; }
+.option__items b { flex: none; color: var(--text); font-variant-numeric: tabular-nums; font-weight: 720; }
 
 .option__how { margin: 0 0 .8rem; color: var(--text-mute); font-size: var(--texto-sm); line-height: 1.5; }
 
@@ -1715,7 +1731,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .field-input[type="time"],
 .field-input[inputmode="decimal"],
 .field-input[inputmode="numeric"] {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: .96rem;
   letter-spacing: -.01em;
@@ -1901,7 +1916,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   margin: 0;
   min-width: 0;
   font-weight: 720;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -1941,8 +1955,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 }
 
 .history-row:last-of-type { border-bottom: 0; }
-.history-row__date { min-width: 0; color: var(--text-dim); font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums; font-weight: 620; }
+.history-row__date { min-width: 0; color: var(--text-dim); font-variant-numeric: tabular-nums; font-weight: 620; }
 
 .history-row__today {
   display: block;
@@ -1956,8 +1969,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .history-row__bar { height: .45rem; overflow: hidden; border-radius: var(--pill); background: var(--surface-2); }
 .history-row__fill { display: block; height: 100%; background: var(--brand); }
-.history-row__facts { text-align: right; font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums; white-space: nowrap; }
+.history-row__facts { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .history-row__kcal { font-weight: 720; }
 .history-row__meals { display: block; color: var(--text-mute); font-size: .72rem; }
 
@@ -2066,7 +2078,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   gap: .15rem .8rem;
   color: var(--text-mute);
   font-size: .76rem;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2430,7 +2441,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   border-radius: var(--radius-sm);
   background: var(--surface-3);
   color: var(--text-dim);
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: .82rem;
   font-weight: 700;
@@ -2470,7 +2480,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   font: inherit;
   font-size: .95rem;
   font-weight: 700;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2599,8 +2608,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   line-height: 1.55;
 }
 
-.exercise__previous { margin: 0; color: var(--text-mute); font-size: .74rem; font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums; }
+.exercise__previous { margin: 0; color: var(--text-mute); font-size: .74rem; font-variant-numeric: tabular-nums; }
 .exercise__delta { font-weight: 750; }
 .exercise__delta--up { color: var(--brand); }
 .exercise__delta--down { color: var(--warm); }
@@ -2654,7 +2662,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   flex: none;
   font-size: 2rem;
   font-weight: 780;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: -.04em;
   line-height: 1.1;
@@ -2673,7 +2680,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   color: var(--text-dim);
   font-size: var(--texto-sm);
   font-weight: 680;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
@@ -2738,7 +2744,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   font-size: .88rem;
   font-weight: 750;
   white-space: nowrap;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -3390,7 +3395,6 @@ html.drawer-aberto { overflow: hidden; }
 .drawer__numero-valor {
   font-size: 1.05rem;
   font-weight: 700;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
 }
@@ -4054,7 +4058,6 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   font: inherit;
   font-size: .88rem;
   font-weight: 700;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease),
@@ -5105,18 +5108,46 @@ body.montando { overflow: hidden; }
    correção já registrada no cabeçalho da ficha, pelo mesmo motivo: como texto
    corrido a linha quebrava dentro de um item, deixando "9" no fim de uma linha
    e "exercícios" no começo da outra. */
+/* A LINHA DE METADADOS ERA MONOESPAÇADA INTEIRA, e por isso lia como saída de
+   terminal: "8 exercícios 26 séries ~44 min 19:00" com a mesma cor, o mesmo
+   peso e o mesmo espaçamento de letra do começo ao fim.
+
+   Agora o NÚMERO é tabular e forte e o RÓTULO é texto normal e apagado — a
+   informação tem duas camadas, e o olho pega os números primeiro. O ícone
+   ancora cada par e dá o que ler antes de ler.
+
+   Grade de duas colunas e não uma linha que quebra: com `flex-wrap` o quarto
+   item caía sozinho numa linha própria e deixava um buraco à direita. */
 .hoje__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: .15rem .85rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--espaco-4) var(--espaco-5);
   margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hoje__meta > li {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-3);
+  min-width: 0;
   color: var(--text-mute);
-  font-family: var(--font-mono);
-  font-size: .78rem;
+  font-size: var(--texto-sm);
+  line-height: 1.2;
+}
+.hoje__meta b {
+  color: var(--text);
+  font-weight: 700;
+  font-size: var(--texto-base);
   font-variant-numeric: tabular-nums;
 }
-.hoje__meta > span { white-space: nowrap; }
+.hoje__meta-icone {
+  flex: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  color: var(--brand);
+  opacity: .85;
+}
 
 /* O progresso é DERIVADO, e a frase abaixo dele diz exatamente o que ele mede.
 
@@ -5130,14 +5161,29 @@ body.montando { overflow: hidden; }
   gap: var(--espaco-3);
 }
 .hoje__barra { height: .55rem; }
+/* A contagem e a porcentagem dividem a linha: texto à esquerda, número à
+   direita, alinhados pela base. É a legenda da barra que vem logo abaixo. */
 .hoje__contagem {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--espaco-4);
   margin: 0;
   color: var(--text-dim);
-  font-size: .85rem;
+  font-size: var(--texto-sm);
 }
+.hoje__contagem-texto { min-width: 0; }
 .hoje__contagem b {
   color: var(--text);
   font-weight: 750;
+}
+.hoje__pct {
+  flex: none;
+  color: var(--text);
+  font-size: var(--texto-lg);
+  font-weight: 780;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
 }
 
 /* O botão principal ocupa a largura toda e carrega duas linhas: o verbo e, em
@@ -5268,7 +5314,6 @@ body.montando { overflow: hidden; }
   gap: .15rem .85rem;
   margin: 0 0 var(--espaco-5);
   color: var(--text-mute);
-  font-family: var(--font-mono);
   font-size: .76rem;
   font-variant-numeric: tabular-nums;
 }
@@ -5715,7 +5760,6 @@ body.montando { overflow: hidden; }
 
      Declarar aqui não muda pixel — o `.num` do template já entregava
      exatamente esta fonte — e tira a tipografia da mão de quem edita HTML. */
-  font-family: var(--font-mono);
   font-size: 1.5rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -6075,7 +6119,6 @@ body.montando { overflow: hidden; }
   /* Mesma correção de `.fim__valor`: a mono vinha do `num` do template.
      `achievements/tests.py` exige que o `num` continue no HTML, então ele
      fica; o que muda é a família deixar de DEPENDER dele. */
-  font-family: var(--font-mono);
   display: block;
   font-size: 1.5rem;
   font-weight: 800;
@@ -6397,7 +6440,6 @@ body.montando { overflow: hidden; }
 .semana__rotulo {
   min-width: 0;
   color: var(--text-dim);
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: .75rem;
 }
@@ -6431,7 +6473,6 @@ body.montando { overflow: hidden; }
      permitir. Reservar aqui custa espaço vazio na coluna do treino e devolve
      o trilho igual nos dois. */
   min-width: 4.4rem;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-weight: 720;
   font-size: var(--texto-sm);
@@ -6480,7 +6521,6 @@ body.montando { overflow: hidden; }
 
 .corrida-numero__valor {
   display: block;
-  font-family: var(--font-mono);
   /* Sem largura fixa por dígito, o cronômetro empurra a distância de lado a
      cada segundo — e um número que dança é ilegível em movimento. */
   font-variant-numeric: tabular-nums;
@@ -6583,7 +6623,6 @@ body.montando { overflow: hidden; }
 
 .gole__hora {
   color: var(--text-dim);
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: var(--texto-xs);
 }
@@ -6594,7 +6633,6 @@ body.montando { overflow: hidden; }
    compartilham o nome porque não são a mesma coisa. A régua de
    `MetricaNaoDependeDoTemplateParaSerMonoTests` cobre este seletor. */
 .gole__valor {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-weight: 720;
   font-size: var(--texto-sm);
@@ -6629,7 +6667,6 @@ body.montando { overflow: hidden; }
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text);
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: var(--texto-md);
 }

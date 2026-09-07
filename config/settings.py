@@ -490,8 +490,8 @@ PWA_SHORT_NAME = "NutriPlan"
 # #0d0f12 e estas duas ficaram no verde-preto antigo.
 #
 # Há teste comparando as duas com o token do CSS.
-PWA_THEME_COLOR = "#0d0f12"
-PWA_BACKGROUND_COLOR = "#0d0f12"
+PWA_THEME_COLOR = "#080d0f"
+PWA_BACKGROUND_COLOR = "#080d0f"
 
 # O `--bg` do tema claro. Só o `<meta>` usa: o manifesto declara UMA cor, e o
 # sistema operacional não troca a tela de abertura do app instalado conforme o
