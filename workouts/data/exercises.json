@@ -14,7 +14,8 @@
     "secundarios": [
       "hamstrings",
       "core"
-    ]
+    ],
+    "video_titulo": "Agachamento Livre Peso Corporal | Bodyweight Free Squat"
   },
   {
     "name": "Leg press 45°",
@@ -29,7 +30,8 @@
     ],
     "secundarios": [
       "hamstrings"
-    ]
+    ],
+    "video_titulo": "LEG PRESS 45º (EXECUÇÃO CORRETA)"
   },
   {
     "name": "Cadeira extensora",
@@ -40,7 +42,8 @@
     "equipment": "machine",
     "joints": [
       "knee"
-    ]
+    ],
+    "video_titulo": "Cadeira Extensora"
   },
   {
     "name": "Afundo com halteres",
@@ -56,14 +59,15 @@
     "secundarios": [
       "hamstrings",
       "core"
-    ]
+    ],
+    "video_titulo": "Afundo com Halteres"
   },
   {
     "name": "Stiff com barra",
     "muscle_group": "hamstrings",
     "compound": true,
     "cue": "Joelho quase estendido e barra rente à perna — quem deve alongar é a parte de trás da coxa.",
-    "video": "https://www.youtube.com/shorts/mcUpjlWlGZY",
+    "video": "https://www.youtube.com/shorts/6ZbS3jXheMw",
     "equipment": "barbell",
     "joints": [
       "hip",
@@ -72,7 +76,8 @@
     "secundarios": [
       "back",
       "core"
-    ]
+    ],
+    "video_titulo": "4  Stiff barra"
   },
   {
     "name": "Mesa flexora",
@@ -83,7 +88,8 @@
     "equipment": "machine",
     "joints": [
       "knee"
-    ]
+    ],
+    "video_titulo": "Mesa Flexora"
   },
   {
     "name": "Elevação pélvica",
@@ -97,7 +103,8 @@
     ],
     "secundarios": [
       "core"
-    ]
+    ],
+    "video_titulo": "Elevação pélvica barra ou máquina"
   },
   {
     "name": "Cadeira flexora",
@@ -108,7 +115,8 @@
     "equipment": "machine",
     "joints": [
       "knee"
-    ]
+    ],
+    "video_titulo": "Cadeira Flexora"
   },
   {
     "name": "Panturrilha em pé",
@@ -119,7 +127,8 @@
     "equipment": "machine",
     "joints": [
       "ankle"
-    ]
+    ],
+    "video_titulo": "PANTURRILHA EM PÉ (EXECUÇÃO CORRETA)"
   },
   {
     "name": "Panturrilha sentado",
@@ -130,14 +139,15 @@
     "equipment": "machine",
     "joints": [
       "ankle"
-    ]
+    ],
+    "video_titulo": "PANTURRILHA SENTADO (EXECUÇÃO CORRETA)"
   },
   {
     "name": "Supino reto com barra",
     "muscle_group": "chest",
     "compound": true,
     "cue": "Escápulas presas no banco e cotovelo a 45° do tronco, não aberto em T.",
-    "video": "https://www.youtube.com/shorts/-QGC1cL6ETE",
+    "video": "https://www.youtube.com/shorts/UHa9U-O09_U",
     "equipment": "barbell",
     "joints": [
       "shoulder",
@@ -147,14 +157,15 @@
     "secundarios": [
       "triceps",
       "shoulders"
-    ]
+    ],
+    "video_titulo": "Supino reto barra"
   },
   {
     "name": "Supino inclinado com halteres",
     "muscle_group": "chest",
     "compound": true,
     "cue": "Banco entre 30° e 45°; mais que isso vira treino de ombro.",
-    "video": "https://www.youtube.com/shorts/6ZbS3jXheMw",
+    "video": "https://www.youtube.com/shorts/ZaNyRjpoki8",
     "equipment": "dumbbell",
     "joints": [
       "shoulder",
@@ -163,21 +174,23 @@
     "secundarios": [
       "triceps",
       "shoulders"
-    ]
+    ],
+    "video_titulo": "Supino inclinado 30 halteres"
   },
   {
     "name": "Crucifixo na máquina (voador)",
     "muscle_group": "chest",
     "compound": false,
     "cue": "Cotovelo levemente flexionado e fixo do começo ao fim.",
-    "video": "https://www.youtube.com/shorts/JbDATt09ObA",
+    "video": "https://www.youtube.com/shorts/zEcIgGm7fxU",
     "equipment": "machine",
     "joints": [
       "shoulder"
     ],
     "secundarios": [
       "shoulders"
-    ]
+    ],
+    "video_titulo": "Como executar Crucifixo Máquina / Voador / Peck-Deck"
   },
   {
     "name": "Flexão de braço",
@@ -195,7 +208,8 @@
       "triceps",
       "shoulders",
       "core"
-    ]
+    ],
+    "video_titulo": "Flexão de braço | Peito | DICAS DE TREINOS - HARD FITNESS"
   },
   {
     "name": "Puxada frente na polia",
@@ -211,7 +225,8 @@
     "secundarios": [
       "biceps",
       "forearms"
-    ]
+    ],
+    "video_titulo": "Puxada frontal aberta"
   },
   {
     "name": "Remada baixa na polia",
@@ -227,7 +242,8 @@
     "secundarios": [
       "biceps",
       "forearms"
-    ]
+    ],
+    "video_titulo": "Remada baixa fechada triângulo"
   },
   {
     "name": "Remada curvada com barra",
@@ -245,14 +261,15 @@
       "biceps",
       "forearms",
       "core"
-    ]
+    ],
+    "video_titulo": "Remada curvada pronada barra"
   },
   {
     "name": "Remada unilateral com halter",
     "muscle_group": "back",
     "compound": true,
     "cue": "Apoie a mão no banco e puxe até o halter passar da linha do tronco.",
-    "video": "https://www.youtube.com/shorts/WUrn8iFf1js",
+    "video": "https://www.youtube.com/shorts/OhQTM6Mkq-E",
     "equipment": "dumbbell",
     "joints": [
       "shoulder",
@@ -261,7 +278,8 @@
     "secundarios": [
       "biceps",
       "forearms"
-    ]
+    ],
+    "video_titulo": "Remada unilateral com haltere"
   },
   {
     "name": "Barra fixa assistida",
@@ -277,7 +295,8 @@
     "secundarios": [
       "biceps",
       "forearms"
-    ]
+    ],
+    "video_titulo": "Barra fixa aberta graviton"
   },
   {
     "name": "Desenvolvimento com halteres",
@@ -293,7 +312,8 @@
     "secundarios": [
       "triceps",
       "core"
-    ]
+    ],
+    "video_titulo": "Desenvolvimento sentado halteres"
   },
   {
     "name": "Elevação lateral com halteres",
@@ -304,7 +324,8 @@
     "equipment": "dumbbell",
     "joints": [
       "shoulder"
-    ]
+    ],
+    "video_titulo": "Elevação Lateral halteres"
   },
   {
     "name": "Elevação frontal com halteres",
@@ -315,7 +336,8 @@
     "equipment": "dumbbell",
     "joints": [
       "shoulder"
-    ]
+    ],
+    "video_titulo": "Elevação frontal halteres"
   },
   {
     "name": "Crucifixo inverso na máquina",
@@ -329,14 +351,15 @@
     ],
     "secundarios": [
       "back"
-    ]
+    ],
+    "video_titulo": "Crucifixo invertido máquina"
   },
   {
     "name": "Rosca direta com barra",
     "muscle_group": "biceps",
     "compound": false,
     "cue": "Cotovelo colado no tronco do início ao fim.",
-    "video": "https://www.youtube.com/shorts/kJtnD6Orr5A",
+    "video": "https://www.youtube.com/shorts/dc330H9yN3Y",
     "equipment": "barbell",
     "joints": [
       "elbow",
@@ -344,46 +367,50 @@
     ],
     "secundarios": [
       "forearms"
-    ]
+    ],
+    "video_titulo": "Rosca com Barra"
   },
   {
     "name": "Rosca alternada com halteres",
     "muscle_group": "biceps",
     "compound": false,
     "cue": "Gire o punho durante a subida e desça devagar.",
-    "video": "https://www.youtube.com/shorts/OhQTM6Mkq-E",
+    "video": "https://www.youtube.com/shorts/WUrn8iFf1js",
     "equipment": "dumbbell",
     "joints": [
       "elbow"
     ],
     "secundarios": [
       "forearms"
-    ]
+    ],
+    "video_titulo": "ROSCA ALTERNADA  (EXECUÇÃO CORRETA)"
   },
   {
     "name": "Rosca martelo",
     "muscle_group": "biceps",
     "compound": false,
     "cue": "Pegada neutra o tempo todo; é ela que pega o antebraço junto.",
-    "video": "https://www.youtube.com/shorts/UHa9U-O09_U",
+    "video": "https://www.youtube.com/shorts/0rRpv6o140o",
     "equipment": "dumbbell",
     "joints": [
       "elbow"
     ],
     "secundarios": [
       "forearms"
-    ]
+    ],
+    "video_titulo": "Rosca Martelo em Pé"
   },
   {
     "name": "Tríceps na polia com corda",
     "muscle_group": "triceps",
     "compound": false,
     "cue": "Abra a corda no fim do movimento e estenda o cotovelo por completo.",
-    "video": "https://www.youtube.com/shorts/0rRpv6o140o",
+    "video": "https://www.youtube.com/shorts/-QGC1cL6ETE",
     "equipment": "cable",
     "joints": [
       "elbow"
-    ]
+    ],
+    "video_titulo": "Tríceps pulley corda"
   },
   {
     "name": "Tríceps testa com barra",
@@ -395,7 +422,8 @@
     "joints": [
       "elbow",
       "shoulder"
-    ]
+    ],
+    "video_titulo": "Tríceps testa barra w"
   },
   {
     "name": "Mergulho no banco",
@@ -411,7 +439,8 @@
     "secundarios": [
       "chest",
       "shoulders"
-    ]
+    ],
+    "video_titulo": "Tríceps mergulho bco"
   },
   {
     "name": "Prancha abdominal",
@@ -425,7 +454,8 @@
     ],
     "secundarios": [
       "shoulders"
-    ]
+    ],
+    "video_titulo": "PRANCHA ABDOMINAL (EXECUÇÃO CORRETA)"
   },
   {
     "name": "Abdominal supra no solo",
@@ -436,7 +466,8 @@
     "equipment": "bodyweight",
     "joints": [
       "lower_back"
-    ]
+    ],
+    "video_titulo": "Abdominal solo"
   },
   {
     "name": "Elevação de pernas",
@@ -448,7 +479,8 @@
     "joints": [
       "lower_back",
       "hip"
-    ]
+    ],
+    "video_titulo": "Abdominal Infra Elevação de pernas"
   },
   {
     "name": "Encolhimento com halteres",
@@ -462,7 +494,8 @@
     ],
     "secundarios": [
       "forearms"
-    ]
+    ],
+    "video_titulo": "Encolhimento ombro halteres"
   },
   {
     "name": "Remada alta com barra",
@@ -478,25 +511,27 @@
     "secundarios": [
       "shoulders",
       "biceps"
-    ]
+    ],
+    "video_titulo": "Remada alta barra w"
   },
   {
     "name": "Rosca de punho com barra",
     "muscle_group": "forearms",
     "compound": false,
     "cue": "Antebraço apoiado no banco, só o punho se move; desça deixando a barra rolar até a ponta dos dedos.",
-    "video": "https://www.youtube.com/shorts/dc330H9yN3Y",
+    "video": "https://www.youtube.com/shorts/kJtnD6Orr5A",
     "equipment": "barbell",
     "joints": [
       "wrist"
-    ]
+    ],
+    "video_titulo": "Rosca Punho com Barra"
   },
   {
     "name": "Rosca inversa com barra",
     "muscle_group": "forearms",
     "compound": false,
     "cue": "Pegada pronada, cotovelo colado ao tronco; use carga menor que na rosca direta — o braquiorradial é mais fraco.",
-    "video": "https://www.youtube.com/shorts/ZaNyRjpoki8",
+    "video": "https://www.youtube.com/shorts/mcUpjlWlGZY",
     "equipment": "barbell",
     "joints": [
       "wrist",
@@ -504,6 +539,7 @@
     ],
     "secundarios": [
       "biceps"
-    ]
+    ],
+    "video_titulo": "Rosca Inversa Barra"
   }
 ]

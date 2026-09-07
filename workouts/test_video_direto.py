@@ -30,6 +30,7 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from workouts.models import Exercise, MuscleGroup
+from workouts.videos import MOVIMENTO_ESPERADO, titulo_confere
 
 RAIZ = Path(settings.BASE_DIR)
 FICHA = RAIZ / "templates" / "workouts" / "routine.html"
@@ -56,7 +57,7 @@ OFICIAIS = {
     "Cadeira extensora": "PzIfB9MiiX8",
     "Cadeira flexora": "T46yKiz8laY",
     "Crucifixo inverso na máquina": "wUT3hmnzq3c",
-    "Crucifixo na máquina (voador)": "JbDATt09ObA",
+    "Crucifixo na máquina (voador)": "zEcIgGm7fxU",
     "Desenvolvimento com halteres": "5I7ogOjvdnc",
     "Elevação de pernas": "In0EzoOAILw",
     "Elevação frontal com halteres": "GqZRmCow0rw",
@@ -74,16 +75,16 @@ OFICIAIS = {
     "Remada alta com barra": "emPow6X_a_E",
     "Remada baixa na polia": "7lc8Ow4vIwA",
     "Remada curvada com barra": "e53vSzibkO0",
-    "Remada unilateral com halter": "WUrn8iFf1js",
-    "Rosca alternada com halteres": "OhQTM6Mkq-E",
-    "Rosca de punho com barra": "dc330H9yN3Y",
-    "Rosca direta com barra": "kJtnD6Orr5A",
-    "Rosca inversa com barra": "ZaNyRjpoki8",
-    "Rosca martelo": "UHa9U-O09_U",
-    "Stiff com barra": "mcUpjlWlGZY",
-    "Supino inclinado com halteres": "6ZbS3jXheMw",
-    "Supino reto com barra": "-QGC1cL6ETE",
-    "Tríceps na polia com corda": "0rRpv6o140o",
+    "Remada unilateral com halter": "OhQTM6Mkq-E",
+    "Rosca alternada com halteres": "WUrn8iFf1js",
+    "Rosca de punho com barra": "kJtnD6Orr5A",
+    "Rosca direta com barra": "dc330H9yN3Y",
+    "Rosca inversa com barra": "mcUpjlWlGZY",
+    "Rosca martelo": "0rRpv6o140o",
+    "Stiff com barra": "6ZbS3jXheMw",
+    "Supino inclinado com halteres": "ZaNyRjpoki8",
+    "Supino reto com barra": "UHa9U-O09_U",
+    "Tríceps na polia com corda": "-QGC1cL6ETE",
     "Tríceps testa com barra": "40Cx-IfJhA0",
 }
 
@@ -168,6 +169,100 @@ class OsTrintaESeisVideosOficiaisTests(TestCase):
         for chave in ("?is=", "&is=", "?si=", "&si="):
             with self.subTest(chave=chave):
                 self.assertNotIn(chave, bruto)
+
+
+
+class AIdentidadeDoVideoTests(TestCase):
+    """O par exercício -> vídeo é conferido pelo CONTEÚDO, não só pela URL.
+
+    A CLASSE NASCEU DE UM DEFEITO QUE PASSOU POR TODOS OS OUTROS TESTES.
+
+    Em 07/09/2026 dez exercícios abriam o vídeo de outro exercício: o supino
+    reto mostrava tríceps na polia, a rosca martelo mostrava supino, o stiff
+    mostrava rosca inversa. A suíte estava verde — porque cada teste comparava
+    a URL cadastrada com a URL esperada, e as duas eram a MESMA URL errada. Um
+    teste que só sabe qual URL deveria estar lá não consegue perceber que a
+    URL certa aponta para o vídeo errado.
+
+    A âncora nova é o TÍTULO do vídeo, capturado do oEmbed público do YouTube
+    no dia da curadoria e gravado em `exercises.json` como `video_titulo`. Ele
+    é dado do conteúdo, não da nossa expectativa — e é isso que faz esta
+    classe morder onde as outras não mordiam.
+
+    O LIMITE ESTÁ DITO: título não é imagem. Um vídeo bem intitulado que mostre
+    outra coisa atravessa daqui. Conferir o quadro exige assistir, e este
+    ambiente não assiste vídeo do YouTube.
+    """
+
+    def setUp(self):
+        self.catalogo = json.loads(
+            (RAIZ / "workouts" / "data" / "exercises.json").read_text(
+                encoding="utf-8")
+        )
+
+    def test_todo_exercicio_com_video_declara_o_titulo_dele(self):
+        """Sem o título gravado não há o que conferir, e o guarda vira enfeite."""
+        sem = [x["name"] for x in self.catalogo
+               if x.get("video") and not x.get("video_titulo")]
+        self.assertEqual(sem, [], "exercício com vídeo e sem `video_titulo`")
+
+    def test_o_titulo_gravado_menciona_o_movimento_do_exercicio(self):
+        """ESTE é o teste que teria pego a troca.
+
+        Com o par embaralhado, "Supino reto com barra" carregava o título
+        "Tríceps pulley corda" — e nenhuma palavra de supino aparece ali.
+        """
+        for linha in self.catalogo:
+            if not linha.get("video"):
+                continue
+            with self.subTest(exercicio=linha["name"]):
+                self.assertTrue(
+                    titulo_confere(linha["name"], linha["video_titulo"]),
+                    "%r aponta para um vídeo intitulado %r, que não menciona "
+                    "o movimento" % (linha["name"], linha["video_titulo"]),
+                )
+
+    def test_a_tabela_de_movimentos_cobre_o_catalogo_inteiro(self):
+        """`titulo_confere` devolve True para exercício que não está na tabela
+        — é o que impede um exercício novo de derrubar o build. O preço é que
+        a ausência silencia o guarda, então a ausência é o que se testa aqui."""
+        self.assertEqual(
+            {x["name"] for x in self.catalogo}, set(MOVIMENTO_ESPERADO)
+        )
+
+    def test_dois_exercicios_nunca_dividem_o_mesmo_video(self):
+        """Movimento diferente, vídeo diferente. Vídeo repetido é o sintoma
+        mais barato de detectar de uma curadoria que escorregou de linha."""
+        ids = [x["video"].rsplit("/", 1)[-1] for x in self.catalogo
+               if x.get("video")]
+        repetidos = sorted({i for i in ids if ids.count(i) > 1})
+        self.assertEqual(repetidos, [], "vídeo usado por mais de um exercício")
+
+    def test_o_seed_casa_por_NOME_e_nunca_por_posicao(self):
+        """A CAUSA QUE NÃO ERA. Quando a troca apareceu, a primeira hipótese
+        foi associação posicional — `videos[i] -> exercicios[i]` —, e a
+        investigação mostrou que não existe: o seed usa `name` como chave. Este
+        teste congela isso, porque o dia em que alguém introduzir um `zip()`
+        entre duas listas aqui, o embaralhamento volta em silêncio.
+        """
+        fonte = (RAIZ / "workouts" / "management" / "commands"
+                 / "seed_workouts.py").read_text(encoding="utf-8")
+        sem_comentario = re.sub(r"#.*$", "", fonte, flags=re.M)
+
+        # SÓ A FUNÇÃO QUE GRAVA O VÍDEO. A primeira versão varria o arquivo
+        # inteiro e reprovou por causa de um `enumerate()` de `_seed_splits`,
+        # que numera a ORDEM dos exercícios dentro do treino e não tem nada a
+        # ver com mídia. Guarda que reprova código correto é guarda que alguém
+        # desliga.
+        inicio = sem_comentario.index("def _seed_exercises(self)")
+        fim = sem_comentario.index("def _seed_splits(self", inicio)
+        trecho = sem_comentario[inicio:fim]
+
+        self.assertIn('name=row["name"]', trecho)
+        self.assertIn('row.get("video", "")', trecho)
+        for posicional in ("zip(", "videos[", "VIDEOS[", "enumerate(", "[i]"):
+            with self.subTest(posicional=posicional):
+                self.assertNotIn(posicional, trecho)
 
 
 class OLegadoFicaDesativadoTests(TestCase):
