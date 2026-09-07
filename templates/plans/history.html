@@ -95,15 +95,23 @@
               </span>
               <span class="history-row__facts">
                 <span class="history-row__kcal">{{ row.kcal }} kcal</span>
-                <span class="history-row__meals">{{ row.done }}/{{ row.marked }} no plano</span>
+                {% comment %}
+                  O denominador é o PLANO, e não o que foi marcado.
+
+                  Com `row.marked` aqui, quem fez 3 de 5 refeições e marcou
+                  só essas três lia "3/3 no plano" e 100% de aderência — a
+                  mesma pessoa que a ofensiva contava como 60%. Duas telas,
+                  duas respostas para a mesma pergunta.
+                {% endcomment %}
+                <span class="history-row__meals">{{ row.done }}/{{ row.previstas }} no plano</span>
               </span>
             </div>
           {% endfor %}
           <p class="hint">
             A barra compara o dia com a meta que valia NAQUELE dia — se você
-            recalibrou no meio, cada dia é medido pela régua da época. A coluna da direita é quantas
-            refeições você comeu conforme o plano, de quantas marcou no dia — refeição
-            não marcada não conta como falha.
+            recalibrou no meio, cada dia é medido pela régua da época. A coluna
+            da direita é quantas refeições você comeu conforme o plano, de
+            quantas o plano previa para o dia.
           </p>
         </section>
       </div>

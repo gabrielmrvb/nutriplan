@@ -20,7 +20,7 @@ from workouts.models import Exercise, ExerciseLog
 from workouts.services import create_routine
 
 from . import services, streaks
-from .models import HydrationLog, MealStatus
+from .models import HydrationLog, MealSlot, MealStatus
 from .tests import CatalogFixture, create_complete_user
 
 
@@ -413,3 +413,83 @@ class OmitirNaoPodeCompensarTests(TestCase):
 
     def test_nenhuma_marcacao_nao_cumpre(self):
         self.assertFalse(self._aderiu())
+
+
+class OHistoricoUSAOMESMODenominadorDaOfensivaTests(TestCase):
+    """Duas telas, duas respostas para a mesma pergunta.
+
+    A propriedade "omitir nunca pode produzir resultado melhor que registrar"
+    foi corrigida em `streaks.py` e ficou de fora de `tracking.py`. A tela de
+    histórico continuou dividindo pelo que a pessoa MARCOU: três refeições
+    feitas mais duas marcadas como "comi outra coisa" davam 60%, e três feitas
+    com duas sem marcar nada davam 100%.
+
+    A mesma pessoa via 60% na ofensiva e 100% no histórico — e o incentivo
+    perverso que o projeto documenta como corrigido continuava vivo
+    exatamente na tela em que ela vai conferir a própria aderência.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        CatalogFixture.setUpTestData()
+
+    def setUp(self):
+        self.pessoa = create_complete_user("denominador@exemplo.com")
+        services.create_plan(self.pessoa)
+        self.hoje = timezone.localdate()
+        self.slots = list(
+            MealSlot.objects.filter(plan__user=self.pessoa, plan__is_active=True)
+            .order_by("id")
+        )
+        self.assertGreaterEqual(len(self.slots), 4, "o plano precisa de refeições")
+
+    def _marcar(self, quantas_feitas, quantas_puladas):
+        from plans.models import MealLog
+
+        for slot in self.slots[:quantas_feitas]:
+            MealLog.objects.update_or_create(
+                user=self.pessoa, slot=slot, date=self.hoje,
+                defaults={"status": MealStatus.DONE, "kcal": 400},
+            )
+        inicio = quantas_feitas
+        for slot in self.slots[inicio:inicio + quantas_puladas]:
+            MealLog.objects.update_or_create(
+                user=self.pessoa, slot=slot, date=self.hoje,
+                defaults={"status": MealStatus.SKIPPED, "kcal": 0},
+            )
+
+    def test_registrar_honestamente_nao_pode_pontuar_menos_que_omitir(self):
+        from plans import tracking
+
+        previstas = len(self.slots)
+        self._marcar(quantas_feitas=3, quantas_puladas=previstas - 3)
+        registrando = tracking.history(self.pessoa)[0]["adherence_pct"]
+
+        from plans.models import MealLog
+        MealLog.objects.filter(
+            user=self.pessoa, date=self.hoje, status=MealStatus.SKIPPED
+        ).delete()
+        omitindo = tracking.history(self.pessoa)[0]["adherence_pct"]
+
+        self.assertEqual(registrando, omitindo)
+        self.assertEqual(registrando, int(3 * 100 / previstas))
+
+    def test_o_denominador_do_dia_e_o_do_plano(self):
+        from plans import tracking
+
+        self._marcar(quantas_feitas=2, quantas_puladas=1)
+        linha = tracking.history(self.pessoa)[0]
+
+        self.assertEqual(linha["previstas"], len(self.slots))
+        self.assertEqual(linha["done"], 2)
+
+    def test_o_consolidado_usa_o_mesmo_denominador_da_tabela(self):
+        """Somar `marked` no total e `previstas` por dia faria o número grande
+        do topo discordar da tabela logo abaixo dele."""
+        from plans import tracking
+
+        self._marcar(quantas_feitas=2, quantas_puladas=2)
+        linhas = tracking.history(self.pessoa)
+        total = tracking.adherence(linhas)
+
+        self.assertEqual(total["adherence_pct"], linhas[0]["adherence_pct"])

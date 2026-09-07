@@ -7,10 +7,11 @@ receita amanhã não pode reescrever o que a pessoa comeu hoje.
 from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Max, Q, Sum
 from django.utils import timezone
 
-from .models import HydrationLog, MealLog, MealStatus, NutritionPlan
+from .models import (HydrationLog, MealLog, MealSlot, MealStatus,
+                     NutritionPlan)
 
 #: Quantos dias a tela de histórico mostra.
 HISTORY_DAYS = 14
@@ -52,6 +53,23 @@ def arredondar(valor) -> int:
 #: é o que faz a pessoa desistir de registrar — e refeição não registrada some
 #: da aderência inteira, que é pior que uma estimada por três itens.
 MAX_ITENS_FORA = 3
+
+#: Os status que CONSUMIRAM caloria. Não é o mesmo conjunto que "seguiu o
+#: plano", e a diferença é o defeito que esta constante existe para fechar.
+#:
+#: `log_meal` calcula os macros de "comi outra coisa" a partir dos alimentos
+#: que a pessoa descreveu e os grava no registro — o docstring de lá diz, com
+#: todas as letras, que a refeição fora do plano "pode trazer os seus". Só que
+#: as duas somas do módulo filtravam `status=DONE`, então o número era escrito
+#: e nunca lido: quem registrava 200 g de arroz via o painel do dia parado no
+#: mesmo lugar, e o app subnotificava o que a própria pessoa tinha acabado de
+#: contar. Medido na auditoria: 256 kcal e 5 g de proteína gravados no
+#: registro, zero de movimento no painel.
+#:
+#: ADERÊNCIA continua sendo outra pergunta, e continua contando só `DONE`:
+#: comer fora do plano é registro honesto, não é seguir o plano. É por isso
+#: que este conjunto governa `kcal`/macro e NENHUM dos contadores.
+STATUS_QUE_SOMAM = (MealStatus.DONE, MealStatus.OFF_PLAN)
 
 
 def macros_de_itens(itens) -> dict:
@@ -142,7 +160,7 @@ def day_summary(user, plan, day) -> dict:
     # Só o plano ativo entra na conta. Registro preso a um plano aposentado
     # não aparece na tela, e o que não aparece não pode somar no total.
     of_the_plan = MealLog.objects.filter(user=user, date=day, slot__plan=plan)
-    totals = of_the_plan.filter(status=MealStatus.DONE).aggregate(
+    totals = of_the_plan.filter(status__in=STATUS_QUE_SOMAM).aggregate(
         kcal=Sum("kcal"), protein=Sum("protein_g"), carb=Sum("carb_g"), fat=Sum("fat_g")
     )
     consumed = arredondar(totals["kcal"])
@@ -185,6 +203,28 @@ def day_summary(user, plan, day) -> dict:
     }
 
 
+def previstas_por_plano(plan_ids) -> dict:
+    """Quantas refeições cada plano previa. A FONTE ÚNICA do denominador.
+
+    A ofensiva já contava assim, e a razão está no CLAUDE.md: o denominador
+    vem DO PLANO, não do que a pessoa marcou. Com o denominador vindo da
+    marcação, três refeições feitas mais duas marcadas como "comi outra coisa"
+    davam 60%, enquanto três feitas e duas SEM MARCAR NADA davam 100% —
+    registrar honestamente custava caro e omitir saía de graça.
+
+    Esta função existe porque a correção tinha sido aplicada só em
+    `streaks.py`. A tela de histórico continuou dividindo por `marked`, ou
+    seja, a mesma pessoa via 60% na ofensiva e 100% no histórico. Duas
+    fórmulas para a mesma pergunta é a doença; uma função só é a cura.
+    """
+    return {
+        linha["plan_id"]: linha["quantas"]
+        for linha in MealSlot.objects.filter(plan_id__in=set(plan_ids))
+        .values("plan_id")
+        .annotate(quantas=Count("pk"))
+    }
+
+
 def history(user, days=HISTORY_DAYS) -> list:
     """Um resumo por dia, do mais recente para o mais antigo.
 
@@ -195,27 +235,34 @@ def history(user, days=HISTORY_DAYS) -> list:
     today = timezone.localdate()
     start = today - timedelta(days=days - 1)
 
-    rows = (
+    rows = list(
         MealLog.objects.filter(user=user, date__gte=start)
         .values("date")
         .annotate(
-            kcal=Sum("kcal", filter=Q(status=MealStatus.DONE)),
+            kcal=Sum("kcal", filter=Q(status__in=STATUS_QUE_SOMAM)),
             done=Count("pk", filter=Q(status=MealStatus.DONE)),
             marked=Count("pk", filter=~Q(status=MealStatus.PENDING)),
+            plano=Max("slot__plan_id"),
         )
         .order_by("-date")
     )
+    previstas = previstas_por_plano(r["plano"] for r in rows if r["plano"])
 
     summary = []
     for row in rows:
         marked = row["marked"] or 0
+        # O DENOMINADOR É O PLANO, e não o que foi marcado. `marked` continua
+        # sendo devolvido porque a tela mostra "N de M marcadas", que é outra
+        # informação — quanto do dia a pessoa registrou.
+        total = previstas.get(row["plano"], 0)
         summary.append(
             {
                 "date": row["date"],
                 "kcal": arredondar(row["kcal"]),
                 "done": row["done"],
                 "marked": marked,
-                "adherence_pct": int(row["done"] * 100 / marked) if marked else 0,
+                "previstas": total,
+                "adherence_pct": int(row["done"] * 100 / total) if total else 0,
                 "is_today": row["date"] == today,
             }
         )
@@ -227,11 +274,13 @@ def adherence(rows) -> dict:
     if not rows:
         return {"days": 0, "avg_kcal": 0, "adherence_pct": 0}
     done = sum(row["done"] for row in rows)
-    marked = sum(row["marked"] for row in rows)
+    # MESMO DENOMINADOR do dia a dia. Somar `marked` aqui e `previstas` lá
+    # faria o consolidado discordar da própria tabela logo abaixo dele.
+    previstas = sum(row.get("previstas", 0) for row in rows)
     return {
         "days": len(rows),
         "avg_kcal": arredondar(Decimal(sum(row["kcal"] for row in rows)) / len(rows)),
-        "adherence_pct": int(done * 100 / marked) if marked else 0,
+        "adherence_pct": int(done * 100 / previstas) if previstas else 0,
     }
 
 

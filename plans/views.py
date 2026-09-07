@@ -19,6 +19,7 @@ from django.views.generic import TemplateView, View
 from accounts.models import (
     ACTIVITY_FACTORS,
     CAMPO_DO_PILAR,
+    Goal,
     Pilar,
     SyncedOperation,
     WeightEntry,
@@ -147,6 +148,11 @@ ENERGY_BALANCE_LABEL = {
     "deficit": "Déficit diário recomendado",
     "surplus": "Superávit diário recomendado",
     "balance": "Sem déficit nem superávit",
+    # O quarto caso: a meta subiu porque bateu no piso de segurança, e o sinal
+    # da conta ficou positivo mesmo com objetivo de emagrecer. Chamar isso de
+    # "superávit recomendado" seria a tela recomendar o contrário do que a
+    # pessoa pediu.
+    "piso": "Meta no mínimo seguro",
 }
 
 
@@ -165,6 +171,23 @@ def energy_balance(plan) -> dict:
     """
     delta = plan.target_kcal - plan.tdee_kcal
     kind = "deficit" if delta < 0 else "surplus" if delta > 0 else "balance"
+
+    # O PISO DE SEGURANÇA VENCE O SINAL DA CONTA.
+    #
+    # `target_kcal` eleva a meta quando o déficit cheio ficaria abaixo da taxa
+    # basal ou do mínimo clínico. Em gente pequena isso passa do gasto: mulher
+    # de 45 kg, 150 cm e 60 anos, sedentária, tem gasto 1.158 e meta 1.200 —
+    # +42 kcal. Esta função lia só o sinal e devolvia "Superávit diário
+    # recomendado" para quem escolheu Emagrecer, treze linhas acima da nota do
+    # plano dizendo "o emagrecimento fica mais lento, e mais seguro". A mesma
+    # tela afirmava as duas coisas.
+    #
+    # A fonte da verdade é UMA: quem sabe que houve piso é `target_kcal`, e ela
+    # já grava isso em `plan.notes`. Aqui a gente lê, em vez de recalcular por
+    # fora com outra régua.
+    if delta >= 0 and plan.goal == Goal.CUT:
+        kind = "piso"
+
     return {
         "kind": kind,
         "label": ENERGY_BALANCE_LABEL[kind],

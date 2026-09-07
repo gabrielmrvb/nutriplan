@@ -33,13 +33,15 @@ from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 
+from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts.models import WeightEntry
+from accounts.models import ActivityLevel, Goal, Sex, WeightEntry
 
 from . import weight_trend
+from .calculations import ABSOLUTE_MIN_KCAL
 from .models import MealLog, MealStatus
 from .tests import create_complete_user
 
@@ -298,3 +300,221 @@ class OTituloEONomeDaTelaTests(TestCase):
     def test_o_endereco_publicado_nao_mudou(self):
         """Rotulo se troca, endereco publicado nao."""
         self.assertEqual(reverse("plans:history"), "/historico/")
+
+
+class OCorteManualNaoFuraOPisoClinicoTests(TestCase):
+    """`kcal_adjustment` acumula, e a trava só olhava para a taxa basal.
+
+    O módulo declara DOIS pisos: a taxa metabólica basal e
+    `ABSOLUTE_MIN_KCAL` — 1.500 para homem, 1.200 para mulher, "a recomendação
+    clássica de piso para dietas sem acompanhamento clínico". O docstring de
+    `kcal_adjustment` promete que "um corte manual não pode furá-las", no
+    plural. Só o primeiro estava sendo aplicado depois do ajuste.
+
+    Quando a taxa basal é MENOR que o mínimo absoluto, o corte passava por
+    baixo do piso clínico: mulher de 45 kg, 150 cm e 60 anos tem TMB 927, e
+    dois toques em "Cortar 150 kcal" levavam a meta para 927 — 273 abaixo do
+    que o próprio app diz respeitar. E a tela oferece esse corte a cada duas
+    semanas, sem teto.
+    """
+
+    def _meta(self, sex, idade, altura, peso, ajuste, *,
+               atividade=ActivityLevel.SEDENTARY, objetivo=Goal.CUT,
+               sessoes=()):
+        from plans import calculations
+
+        entradas = calculations.PlanInputs(
+            sex=sex, age_years=idade, height_cm=altura, weight_kg=Decimal(peso),
+            activity_level=atividade, goal=objetivo,
+            session_minutes=sessoes, kcal_adjustment=ajuste,
+        )
+        return calculations.calculate(entradas)
+
+    def test_a_mulher_pequena_nao_desce_abaixo_de_1200(self):
+        for ajuste in (0, -150, -300, -900):
+            with self.subTest(ajuste=ajuste):
+                plano = self._meta(Sex.FEMALE, 60, 150, "45", ajuste)
+                self.assertGreaterEqual(
+                    plano.target_kcal, ABSOLUTE_MIN_KCAL[Sex.FEMALE],
+                    "corte de %d furou o piso clínico" % ajuste,
+                )
+
+    def test_o_homem_com_gasto_baixo_nao_desce_abaixo_de_1500(self):
+        for ajuste in (0, -150, -450, -900):
+            with self.subTest(ajuste=ajuste):
+                plano = self._meta(Sex.MALE, 60, 165, "60", ajuste)
+                self.assertGreaterEqual(
+                    plano.target_kcal, ABSOLUTE_MIN_KCAL[Sex.MALE],
+                    "corte de %d furou o piso clínico" % ajuste,
+                )
+
+    def test_o_corte_continua_valendo_quando_cabe_acima_do_piso(self):
+        """CONTROLE POSITIVO: sem ele, um piso que ignorasse o ajuste por
+        completo passaria nos dois testes acima e quebraria a função.
+
+        O perfil tem de ter FOLGA até o piso, e a primeira versão deste teste
+        não tinha: homem sedentário em corte já para na própria taxa basal por
+        `target_kcal`, então o corte manual não tinha para onde descer e o
+        controle reprovava um código correto. Aqui ele treina cinco vezes e
+        quer manter — sobra caminho.
+        """
+        perfil = dict(atividade=ActivityLevel.ACTIVE, objetivo=Goal.MAINTAIN,
+                      sessoes=(60, 60, 60, 60, 60))
+        cheio = self._meta(Sex.MALE, 30, 178, "80", 0, **perfil).target_kcal
+        cortado = self._meta(Sex.MALE, 30, 178, "80", -150, **perfil).target_kcal
+
+        self.assertEqual(cortado, cheio - 150)
+        self.assertGreater(cortado, ABSOLUTE_MIN_KCAL[Sex.MALE])
+
+
+class OPisoDeSegurancaNaoViraSuperavitRecomendadoTests(TestCase):
+    """A tela dizia as duas coisas ao mesmo tempo, com treze linhas de distância.
+
+    Em gente pequena o piso de segurança eleva a meta ACIMA do gasto: mulher de
+    45 kg, 150 cm e 60 anos, sedentária, tem gasto 1.158 e meta 1.200. O
+    classificador lia só o sinal da subtração e devolvia "Superávit diário
+    recomendado" — para quem escolheu Emagrecer —, enquanto a nota do plano,
+    logo abaixo, explicava que "o emagrecimento fica mais lento, e mais
+    seguro".
+
+    Quem sabe que houve piso é `target_kcal`. A classificação passa a
+    considerar o objetivo em vez de recalcular por fora com outra régua.
+    """
+
+    def _balanco(self, sex, idade, altura, peso, objetivo):
+        from decimal import Decimal
+
+        from accounts.models import ActivityLevel
+        from plans import calculations, views
+
+        entradas = calculations.PlanInputs(
+            sex=sex, age_years=idade, height_cm=altura, weight_kg=Decimal(peso),
+            activity_level=ActivityLevel.SEDENTARY, goal=objetivo,
+            session_minutes=(),
+        )
+        r = calculations.calculate(entradas)
+
+        class Fake:
+            target_kcal = r.target_kcal
+            tdee_kcal = r.tdee_kcal
+            goal = objetivo
+
+        return views.energy_balance(Fake())
+
+    def test_meta_acima_do_gasto_em_quem_quer_emagrecer_nao_e_superavit(self):
+        b = self._balanco(Sex.FEMALE, 60, 150, "45", Goal.CUT)
+
+        self.assertGreater(b["delta_kcal"], 0, "o caso de borda mudou; reveja")
+        self.assertEqual(b["kind"], "piso")
+        self.assertNotIn("uperávit", b["label"])
+
+    def test_quem_quer_ganhar_massa_continua_vendo_superavit(self):
+        """CONTROLE POSITIVO: sem ele, marcar tudo que é positivo como piso
+        apagaria o rótulo certo de quem está em ganho."""
+        b = self._balanco(Sex.MALE, 30, 178, "80", Goal.BULK)
+
+        self.assertGreater(b["delta_kcal"], 0)
+        self.assertEqual(b["kind"], "surplus")
+
+    def test_quem_emagrece_com_folga_continua_vendo_deficit(self):
+        b = self._balanco(Sex.MALE, 30, 178, "110", Goal.CUT)
+
+        self.assertLess(b["delta_kcal"], 0)
+        self.assertEqual(b["kind"], "deficit")
+
+
+class ZerarAAguaPedeConfirmacaoTests(TestCase):
+    """Apagar o dia inteiro não pode ser um toque só, colado em "desfazer".
+
+    As duas ações moravam lado a lado como links de um toque, e fazem coisas de
+    tamanhos muito diferentes: "desfazer" tira o último gole, "zerar" apaga o
+    total E a lista de goles do dia, sem volta. Um polegar errado entre séries
+    custava o registro do dia.
+
+    A confirmação é `<details>` e não `<dialog>` — é a ordem que o CLAUDE.md
+    fixa — e funciona sem JavaScript, o que importa porque esta tela é postada
+    por formulário puro.
+    """
+
+    CAMINHO = Path(settings.BASE_DIR) / "templates" / "plans" / "_agua.html"
+
+    def setUp(self):
+        self.fonte = re.sub(
+            r"\{%\s*comment\s*%\}.*?\{%\s*endcomment\s*%\}", "",
+            self.CAMINHO.read_text(encoding="utf-8"), flags=re.S,
+        )
+
+    def test_o_zerar_esta_atras_de_uma_confirmacao(self):
+        self.assertIn("acao-perigosa", self.fonte)
+        bloco = self.fonte.split('name="ml" value="0"', 1)[0]
+        self.assertIn("<details", bloco[-400:],
+                      "o campo que zera não está dentro de uma confirmação")
+
+    def test_desfazer_continua_sendo_um_toque_so(self):
+        """CONTROLE POSITIVO: confirmar TUDO treinaria a pessoa a confirmar sem
+        ler, e desfazer um gole não merece cerimônia."""
+        bloco = self.fonte.split('value="desfazer"', 1)[0]
+        self.assertNotIn("<details", bloco[-300:])
+
+
+class OPerfilMostraAMetaDeHojeTests(TestCase):
+    """Duas telas, dois números, a mesma pessoa e o mesmo instante.
+
+    As telas do app sincronizam o plano no GET (`PlanRequiredMixin`). O Perfil
+    lia `plans.filter(is_active=True).first()` cru — então, depois de qualquer
+    mudança de entrada, ele mostrava a meta ANTIGA até a pessoa passar por
+    Hoje.
+
+    MEDIDO no navegador: registrei 78,4 kg no lugar de 80 e o Perfil continuou
+    dizendo 2.520 kcal enquanto o motor já respondia 2.497. E o número velho
+    aparecia ao lado do botão que recalcula — o pior lugar possível, porque é
+    exatamente ali que a pessoa decide se precisa recalcular.
+    """
+
+    def setUp(self):
+        self.pessoa = create_complete_user("perfil-meta@exemplo.com")
+        from plans.services import sync_active_plan
+        sync_active_plan(self.pessoa)   # a tela precisa de um plano para mostrar
+        self.client.force_login(self.pessoa)
+
+    def _perfil(self):
+        return self.client.get(reverse("accounts:profile"))
+
+    def test_mudar_o_peso_faz_o_perfil_avisar_que_o_numero_envelheceu(self):
+        antes = self._perfil()
+        self.assertFalse(antes.context["plano_vencido"],
+                         "nasceu vencido; o caso perdeu o sentido")
+
+        # `update_or_create`, e não `create`: existe `unique_weight_per_day`
+        # e `create_complete_user` já registrou o peso de hoje. O produto
+        # funciona assim mesmo — pesar de novo no mesmo dia CORRIGE a pesagem,
+        # não acrescenta uma segunda. Medido no navegador: depois de salvar
+        # 78,4 sobre 80, o total de pesagens continuou 1.
+        from django.utils import timezone as _tz
+        WeightEntry.objects.update_or_create(
+            user=self.pessoa, date=_tz.localdate(),
+            defaults={"weight_kg": Decimal("62.0")},
+        )
+        depois = self._perfil()
+
+        # A TELA NÃO RECALCULA SOZINHA — isso escreveria num GET e regeraria o
+        # cardápio inteiro; medido, custava 19 consultas contra um teto de 15.
+        # Ela AVISA, que é o que dá sentido ao botão logo abaixo.
+        self.assertTrue(depois.context["plano_vencido"])
+        self.assertContains(depois, "Recalcular metas")
+        self.assertEqual(depois.context["plano"].target_kcal,
+                         antes.context["plano"].target_kcal,
+                         "o GET do perfil não pode ter reescrito o plano")
+
+    def test_quem_nao_terminou_o_cadastro_nao_quebra_a_tela(self):
+        """`sync_active_plan` precisa do perfil inteiro, e esta tela é só
+        `LoginRequiredMixin` — alguém no meio do onboarding chega aqui."""
+        from accounts.models import ONBOARDING_DONE
+
+        perfil = self.pessoa.profile
+        perfil.onboarding_step = ONBOARDING_DONE - 1
+        perfil.save(update_fields=["onboarding_step"])
+
+        resposta = self.client.get(reverse("accounts:profile"))
+
+        self.assertEqual(resposta.status_code, 200)

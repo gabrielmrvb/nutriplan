@@ -1327,7 +1327,16 @@ class TrackingTests(CatalogFixture):
         tracking.log_meal(self.user, self.plan.slots.get(order=2), MealStatus.OFF_PLAN)
 
         totals = tracking.adherence(tracking.history(self.user))
-        self.assertEqual(totals["adherence_pct"], 33)  # 1 de 3 marcadas
+        # 1 de 5 PREVISTAS, e não 1 de 3 marcadas.
+        #
+        # Este número era 33, e ele codificava o denominador errado: dividir
+        # pelo que a pessoa MARCOU faz omitir render mais que registrar. Três
+        # refeições feitas mais duas marcadas como "comi outra coisa" davam
+        # 60%; as mesmas três com duas sem marcar nada davam 100%. A ofensiva
+        # já contava pelo plano — `plans/streaks.py` —, e a tela de histórico
+        # ficou para trás. Hoje as duas usam `tracking.previstas_por_plano`.
+        previstas = self.plan.slots.count()
+        self.assertEqual(totals["adherence_pct"], int(100 / previstas))
         self.assertEqual(totals["days"], 1)
 
     def test_adherence_of_an_empty_history_does_not_divide_by_zero(self):
@@ -1436,7 +1445,12 @@ class HistoryViewTests(CatalogFixture):
         response = self.client.get(reverse("plans:history"))
 
         self.assertContains(response, "Aderência")
-        self.assertContains(response, "100%")
+        # Uma refeição feita de CINCO previstas é 20%, e não 100%.
+        #
+        # "100%" era o que aparecia quando o denominador vinha da marcação: uma
+        # marcada, uma feita, portanto tudo certo. A tela premiava quem
+        # registrava menos.
+        self.assertContains(response, "%d%%" % int(100 / self.plan.slots.count()))
 
     def test_history_requires_login(self):
         self.client.logout()

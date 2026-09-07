@@ -5,7 +5,7 @@ from django.contrib.auth import login, logout
 from django.db import transaction
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth import views as auth_views
-from django.contrib.auth.views import LoginView
+from django.contrib.auth.views import LogoutView, LoginView
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -235,6 +235,33 @@ class SignupView(TelaDeEntradaMixin, CreateView):
 
     def get_success_url(self):
         return reverse("accounts:onboarding_step", kwargs={"step": 1})
+
+
+class SairView(LogoutView):
+    """Sair leva o cache do navegador junto.
+
+    O QUE ESTE CABEÇALHO RESOLVE, e o que ele NÃO resolve.
+
+    Ao sair, `pwa.js` já apaga o cache de PÁGINAS do service worker — é o que
+    impede a próxima pessoa de abrir o app e encontrar a dieta da anterior. O
+    que ficava de fora era o cache do próprio navegador e a pilha de histórico
+    da aba: o botão Voltar não passa pelo service worker.
+
+    MEDIDO no Chromium deste ambiente: depois do logout, Voltar re-requisitou
+    `/conta/perfil/`, levou 302 e caiu no login — nenhum dado reapareceu. Ou
+    seja, o vazamento NÃO foi reproduzido aqui. Este cabeçalho é defesa em
+    profundidade para os navegadores em que a restauração acontece, e o
+    `pageshow` de `pwa.js` cobre o Safari, que ignora `Clear-Site-Data`.
+
+    `"cache"` e não `"*"`: `"storage"` apagaria o Cache Storage e o IndexedDB
+    — ou seja, o app offline e a fila de operações pendentes. Sair da conta
+    não pode destruir água que alguém registrou no metrô e ainda não subiu.
+    """
+
+    def dispatch(self, request, *args, **kwargs):
+        resposta = super().dispatch(request, *args, **kwargs)
+        resposta["Clear-Site-Data"] = '"cache"'
+        return resposta
 
 
 class AppLoginView(TelaDeEntradaMixin, LoginView):
@@ -779,9 +806,43 @@ class ProfileSummaryView(LoginRequiredMixin, TemplateView):
 
     template_name = "accounts/profile.html"
 
+    def _plano_em_vigor(self, profile):
+        """O plano gravado, e se ele ainda vale — sem escrever nada.
+
+        A PRIMEIRA VERSÃO CHAMAVA `sync_active_plan` E ESTAVA ERRADA por dois
+        motivos que a suíte mediu: ela subiu a tela de 15 para 19 consultas,
+        porque um plano vencido faz o cardápio inteiro ser regerado; e ela
+        CRIAVA plano num GET de tela de leitura, o que apagou o estado "ainda
+        não tem plano" que `ProfileActionsTests` cobre de propósito.
+
+        O defeito de verdade é outro e é mais barato de consertar: a tela
+        chamava o número gravado de "suas metas de hoje" mesmo quando ele já
+        não era. Medido no navegador — depois de registrar 78,4 kg no lugar de
+        80, o Perfil dizia 2.520 e o motor já respondia 2.497.
+
+        Então aqui não se sincroniza: compara-se. `plan_is_current` já existe,
+        não escreve, e é a MESMA função que as telas do app usam para decidir
+        se refazem o plano — uma fonte só para a pergunta "este plano ainda
+        vale?". Quem responde "não" ganha um aviso na tela, ao lado do botão
+        que recalcula.
+        """
+        plano = self.request.user.plans.filter(is_active=True).first()
+        if plano is None or profile is None or not profile.onboarding_complete:
+            return plano, False
+
+        from plans.services import IncompleteProfile, build_inputs, plan_is_current
+
+        try:
+            atual = plan_is_current(plano, build_inputs(self.request.user))
+        except IncompleteProfile:
+            # Falta dado para calcular: não dá para afirmar que venceu.
+            return plano, False
+        return plano, not atual
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         profile = Profile.objects.filter(user=self.request.user).first()
+        plano, plano_vencido = self._plano_em_vigor(profile)
         context.update(
             {
                 "profile": profile,
@@ -790,7 +851,21 @@ class ProfileSummaryView(LoginRequiredMixin, TemplateView):
                 # O plano ATIVO, para o perfil mostrar as metas em vigor ao
                 # lado do botao que as recalcula. Sem ele o botao pedia fe: a
                 # pessoa recalculava sem saber de que numero estava saindo.
-                "plano": self.request.user.plans.filter(is_active=True).first(),
+                #
+                # SINCRONIZADO, e não lido cru. Esta linha era
+                # `plans.filter(is_active=True).first()`, e mostrava o plano
+                # ANTIGO: as telas do app chamam `sync_active_plan` no GET
+                # (`PlanRequiredMixin`), o Perfil não chamava, e as duas
+                # discordavam. Medido — depois de registrar 78,4 kg no lugar de
+                # 80, o Perfil dizia 2.520 kcal enquanto o motor já respondia
+                # 2.497. Quem abrisse o Perfil antes de Hoje via a meta velha
+                # bem ao lado do botão de recalcular.
+                #
+                # Só para quem já terminou o cadastro: `sync_active_plan`
+                # precisa do perfil inteiro, e esta tela é `LoginRequiredMixin`
+                # — alguém no meio do onboarding chega aqui.
+                "plano": plano,
+                "plano_vencido": plano_vencido,
                 "step_meta": STEP_META,
                 # Mesma regra do wizard, para o perfil não oferecer um
                 # "Editar" que leva a uma tela que a guarda vai recusar.

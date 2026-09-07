@@ -23,7 +23,8 @@ from django.utils import timezone
 
 from workouts.models import ExerciseLog, TrainingPlan
 
-from .models import HydrationLog, MealLog, MealSlot, MealStatus
+from . import tracking
+from .models import HydrationLog, MealLog, MealStatus
 
 #: Quanto da meta calórica conta como dia cumprido. Oitenta por cento das
 #: refeições marcadas como feitas — não 100%: exigir perfeição de um contador
@@ -172,12 +173,10 @@ def calcular(user, hoje=None, meta_agua_ml=None) -> Ofensiva:
         )
     )
     planos = {r["slot__plan_id"] for r in registros if r["slot__plan_id"]}
-    previstas_por_plano = {
-        linha["plan_id"]: linha["quantas"]
-        for linha in MealSlot.objects.filter(plan_id__in=planos)
-        .values("plan_id")
-        .annotate(quantas=Count("pk"))
-    }
+    # A MESMA função que o histórico usa. Duas cópias desta consulta foi
+    # exatamente como as duas telas passaram a discordar sobre a aderência da
+    # mesma pessoa.
+    previstas_por_plano = tracking.previstas_por_plano(planos)
 
     por_dia = {}
     for r in registros:

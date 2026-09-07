@@ -292,12 +292,27 @@ coluna da direita), não entre ela e o almoço.
 
             {% if slot.log %}
               <div class="meal__result">
+                {% comment %}
+                  A DESCRIÇÃO VOLTA PARA A TELA, e o número dela também.
+
+                  "Comi outra coisa" exige a descrição — `required` no
+                  navegador e a mesma regra na view — grava a frase em
+                  `notes` e calcula os macros dos alimentos citados. Nada
+                  disso aparecia: o cartão dizia "Comeu outra coisa" e mais
+                  nada, igualzinho à versão que o botão veio substituir. A
+                  pessoa digitava "Feijoada do vizinho" e 200 g de arroz, e a
+                  tela devolvia um rótulo genérico sem caloria nenhuma.
+
+                  O `default_if_none` não é decoração: registro antigo tem
+                  `notes` vazio, e cair no rótulo genérico é o certo para ele.
+                {% endcomment %}
                 <span class="meal__result-name status--{{ slot.log.status }}">
                   {% if slot.log.status == 'done' %}✓ {{ slot.log.recipe_display }}
                   {% elif slot.log.status == 'skipped' %}Refeição pulada
+                  {% elif slot.log.notes %}{{ slot.log.notes }}
                   {% else %}Comeu outra coisa{% endif %}
                 </span>
-                {% if slot.log.status == 'done' %}
+                {% if slot.log.status == 'done' or slot.log.kcal %}
                   <span class="num muted">{{ slot.log.kcal|floatformat:0 }} kcal</span>
                 {% endif %}
                 <form method="post" action="{% url 'plans:clear_meal' slot.pk %}">
@@ -581,6 +596,16 @@ coluna da direita), não entre ela e o almoço.
           <p class="today-hero__balance balance--{{ balance.kind }}">
             {% if balance.kind == 'balance' %}
               Sem déficit nem superávit
+            {% elif balance.kind == 'piso' %}
+              {% comment %}
+                A meta subiu até o mínimo seguro, então ela ficou ACIMA do
+                gasto mesmo com objetivo de emagrecer. Dizer "Superávit
+                recomendado" aqui seria a tela recomendar o contrário do que a
+                pessoa pediu — e ela dizia isso três linhas acima da nota do
+                plano explicando que o emagrecimento ficou mais lento.
+              {% endcomment %}
+              Meta no mínimo seguro
+              <b class="num">+{{ balance.abs_kcal }} kcal/dia</b>
             {% else %}
               {% if balance.kind == 'deficit' %}Déficit{% else %}Superávit{% endif %}
               <b class="num">
@@ -664,7 +689,7 @@ coluna da direita), não entre ela e o almoço.
         <div class="balance balance--{{ balance.kind }}">
           <span class="balance__value">
             {% if balance.kind == 'deficit' %}−{{ balance.abs_kcal }}
-            {% elif balance.kind == 'surplus' %}+{{ balance.abs_kcal }}
+            {% elif balance.kind == 'surplus' or balance.kind == 'piso' %}+{{ balance.abs_kcal }}
             {% else %}0{% endif %}
           </span>
           <span class="balance__body">
@@ -672,6 +697,10 @@ coluna da direita), não entre ela e o almoço.
             <span class="balance__meta">
               {% if balance.kind == 'balance' %}
                 Você come exatamente o que gasta — o peso tende a se manter.
+              {% elif balance.kind == 'piso' %}
+                O déficit cheio ficaria abaixo do mínimo seguro para o seu
+                corpo, então a meta parou nele. Não há ritmo de perda estimado
+                — quem emagrece daqui é o treino e o tempo.
               {% else %}
                 {{ balance.pct }}% do seu gasto · ritmo estimado de
                 {{ balance.weekly_kg|floatformat:2 }} kg por semana
@@ -686,12 +715,14 @@ coluna da direita), não entre ela e o almoço.
             <span class="equation__label">gasto (TDEE)</span>
           </span>
           <span class="equation__op">
-            {% if balance.kind == 'surplus' %}+{% else %}−{% endif %}
+            {% if balance.kind == 'surplus' or balance.kind == 'piso' %}+{% else %}−{% endif %}
           </span>
           <span class="equation__cell">
             <strong class="equation__value num">{{ balance.abs_kcal }}</strong>
             <span class="equation__label">
-              {% if balance.kind == 'surplus' %}superávit{% else %}déficit{% endif %}
+              {% if balance.kind == 'piso' %}até o mínimo
+              {% elif balance.kind == 'surplus' %}superávit
+              {% else %}déficit{% endif %}
             </span>
           </span>
           <span class="equation__op">=</span>

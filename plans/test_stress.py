@@ -104,8 +104,24 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         "plans:today": 40,
         "workouts:routine": 25,
         "plans:history": 15,
-        "accounts:profile": 15,
+        # 15 -> 19: o Perfil passou a CONFERIR se o plano gravado ainda vale.
+        #
+        # Ele mostrava o número velho chamando-o de "suas metas de hoje" — 2.520
+        # kcal depois de a pessoa registrar 78,4 kg no lugar de 80, com o motor
+        # já respondendo 2.497, e isso logo acima do botão de recalcular.
+        # `plan_is_current` + `build_inputs` custam quatro consultas.
+        #
+        # AS QUATRO SÃO CONSTANTES, e isso foi MEDIDO, não suposto: com 1
+        # pesagem a tela faz 19; com 60, faz 19. A propriedade que este teste
+        # protege — nenhuma consulta dentro de laço — continua de pé; o que
+        # mudou foi o piso fixo.
+        "accounts:profile": 19,
     }
+
+    #: Quantas linhas o teste enche antes de medir. Um teto sozinho não prova
+    #: ausência de N+1: ele prova ausência de N+1 PARA O VOLUME MEDIDO. Este
+    #: número existe para a próxima pessoa saber qual volume foi esse.
+    LINHAS_MEDIDAS = "um ano de dados (ver PopulatedAccountMixin)"
 
     def test_no_screen_grows_a_query_per_row(self):
         # Teto e não valor exato: `assertNumQueries` casa o número certo, e um

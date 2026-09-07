@@ -354,7 +354,21 @@ def calculate(inputs: PlanInputs) -> PlanResult:
     adjust_note = ""
     if inputs.kcal_adjustment:
         pedido = target + inputs.kcal_adjustment
-        piso = _round(bmr)
+        # O MESMO PISO DE `target_kcal`, e não só a taxa basal.
+        #
+        # Aqui estava `piso = _round(bmr)`, e o docstring de `kcal_adjustment`
+        # promete que "um corte manual não pode furá-las" — no plural, os DOIS
+        # pisos. Faltava o segundo. Quando a taxa basal fica abaixo do mínimo
+        # absoluto, o corte manual passava por baixo dele: mulher de 45 kg,
+        # 150 cm e 60 anos tem TMB 927, e dois cortes de 150 levavam a meta a
+        # 927 kcal — 273 abaixo dos 1.200 que este módulo declara como piso
+        # clínico. Não é caso raro: TMB abaixo de 1.500 alcança homem de 70 kg,
+        # 170 cm e 60 anos.
+        #
+        # `kcal_adjustment` acumula −150 a cada duas semanas e não tem teto, e
+        # é por isso que a trava tem de estar aqui e não na tela que oferece o
+        # corte.
+        piso = max(_round(bmr), Decimal(ABSOLUTE_MIN_KCAL[inputs.sex]))
         if pedido < piso:
             # A trava vence o pedido manual. Comer abaixo da taxa metabólica
             # basal não acelera nada: derruba o treino e come músculo.

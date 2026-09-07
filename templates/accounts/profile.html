@@ -24,6 +24,26 @@
       {% endcomment %}
       <section class="card card--metas">
         <div class="card__head"><h2>Suas metas de hoje</h2></div>
+        {% comment %}
+          "de hoje" precisa ser verdade.
+
+          O número vem do plano GRAVADO, e plano é retrato: ele guarda a conta
+          do dia em que nasceu. Quando a pessoa muda o peso, o objetivo ou a
+          rotina, ele deixa de valer — e as telas do app refazem o plano na
+          entrada, o Perfil não. Medido no navegador: depois de registrar 78,4
+          kg no lugar de 80, esta tela dizia 2.520 enquanto o motor já
+          respondia 2.497, e dizia isso logo acima do botão de recalcular.
+
+          A tela não recalcula sozinha — isso escreveria num GET e regeraria o
+          cardápio inteiro. Ela AVISA, que é o que falta para o botão logo
+          abaixo fazer sentido.
+        {% endcomment %}
+        {% if plano_vencido %}
+          <p class="callout callout--atencao">
+            Estes números são de antes da sua última mudança. Toque em
+            “Recalcular metas” para atualizá-los.
+          </p>
+        {% endif %}
         {% if plano %}
           <dl class="metas">
             <div>
