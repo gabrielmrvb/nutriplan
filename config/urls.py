@@ -1,6 +1,7 @@
 from allauth.urls import build_provider_urlpatterns
 from django.contrib import admin
 
+from accounts import views as accounts_views
 from accounts.views import AppLoginView
 
 from . import admin_entrada, admin_seguranca
@@ -146,5 +147,9 @@ urlpatterns = [
     path("push/", include("push.urls")),
     path("treino/", include("workouts.urls")),
     path("conquistas/", include("achievements.urls")),
+    # UX-01: Áreas é o quarto destino da barra, e por isso mora na RAIZ.
+    # `accounts.urls` está sob `/conta/`, e `/conta/areas/` diria que Áreas é
+    # uma subseção da conta — que é o contrário do que a barra passa a afirmar.
+    path("areas/", accounts_views.AreasView.as_view(), name="areas"),
     path("", include("plans.urls")),
 ]

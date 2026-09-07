@@ -43,6 +43,56 @@ DESTINO_DO_PILAR = {
 }
 
 
+#: O que a barra de baixo já alcança direto. UX-01: Áreas NÃO repete isso.
+#:
+#: A regra veio do dono, usando o app: "se uma funcionalidade já possui acesso
+#: direto pela navegação principal, ela não precisa aparecer novamente dentro
+#: de Áreas". Um menu que repete a barra é o segundo menu paralelo que UX-01
+#: existe para acabar.
+#:
+#: A lista é de PILARES e não de rotas porque é por pilar que o mapa é montado.
+PILARES_NA_BARRA = (Pilar.DIETA, Pilar.TREINO, Pilar.PROGRESSO)
+
+
+def areas_fora_da_barra(request, usuario, nav, perfil=None):
+    """Os pilares que a barra de baixo NÃO alcança direto: Corrida e Hidratação.
+
+    Eram justamente os dois sem porta de primeiro nível — o motivo de o mapa
+    ter nascido. Com Áreas fixa na barra, eles passam a estar a um toque de um
+    destino permanente, em vez de atrás de um `<details>` no canto de cima que
+    a pessoa precisava descobrir.
+    """
+    from accounts.templatetags.escolhas import DETALHES
+
+    # `perfil` explícito quando quem chama já o tem: a tela de Áreas passa o
+    # que o `dispatch` buscou, e sem isso a mesma tabela é lida duas vezes no
+    # mesmo pedido.
+    if perfil is None and usuario is not None:
+        perfil = getattr(usuario, "profile", None)
+    principal = getattr(perfil, "prioridade", "") or ""
+    aqui = getattr(request, "path", "")
+
+    fora = []
+    for pilar in Pilar:
+        if pilar in PILARES_NA_BARRA:
+            continue
+        rota, chave = DESTINO_DO_PILAR[pilar]
+        _icone, titulo, apoio = DETALHES[pilar.value][:3]
+        endereco = endereco_da_area(rota)
+        fora.append(
+            {
+                "valor": pilar.value,
+                "endereco": endereco,
+                "titulo": titulo,
+                "apoio": apoio,
+                "aqui": bool(endereco) and endereco == aqui,
+                "na_secao": chave == nav,
+                "principal": pilar.value == principal,
+            }
+        )
+    return fora
+
+
 @register.inclusion_tag("partials/mapa_de_areas.html", takes_context=True)
 def mapa_de_areas(context):
     """As cinco áreas, na ordem canônica de `Pilar` — a mesma do onboarding.
@@ -71,7 +121,7 @@ def mapa_de_areas(context):
     for pilar in Pilar:
         rota, chave = DESTINO_DO_PILAR[pilar]
         icone, titulo, apoio = DETALHES[pilar.value][:3]
-        endereco = _endereco(rota)
+        endereco = endereco_da_area(rota)
         areas.append(
             {
                 "valor": pilar.value,
@@ -93,7 +143,7 @@ def mapa_de_areas(context):
     return {"areas": areas, "request": pedido}
 
 
-def _endereco(rota):
+def endereco_da_area(rota):
     """O endereço da área, já com o prefixo do demo quando houver.
 
     `reverse()` sozinho não basta, e o motivo está escrito em `demo/views.py`:

@@ -39,6 +39,7 @@ from .models import (
     User,
     WeightEntry,
 )
+from .templatetags import navegacao
 from config.acoes import AcaoDeTela
 
 #: Onde o peso recusado espera até a próxima tela.
@@ -881,12 +882,66 @@ class ProfileSummaryView(LoginRequiredMixin, TemplateView):
 class OnboardingRequiredMixin(LoginRequiredMixin):
     """Usado pelas telas do app: sem onboarding completo, não há plano possível."""
 
+    #: O perfil que o `dispatch` já buscou, para a view não buscar de novo.
+    #:
+    #: Guardar é ADITIVO: nenhuma tela que não leia este atributo muda de
+    #: comportamento nem de número de consultas. A alternativa era preencher o
+    #: cache do descritor (`request.user.profile = profile`), que ficaria mais
+    #: barato para todo mundo — e mudaria a contagem de telas que hoje têm teto
+    #: medido em `plans/test_stress.py`. Melhorar a conta alheia no meio de uma
+    #: campanha de navegação é otimização sem medição, e ela fica para quem
+    #: medir.
+    perfil_do_dispatch = None
+
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
             profile = Profile.objects.filter(user=request.user).first()
             if profile is None or not profile.onboarding_complete:
                 return redirect("accounts:onboarding")
+            self.perfil_do_dispatch = profile
         return super().dispatch(request, *args, **kwargs)
+
+
+
+class AreasView(OnboardingRequiredMixin, TemplateView):
+    """Áreas — o quarto destino da barra, e o que não cabe nela.
+
+    UX-01. Antes desta tela a navegação tinha DOIS sistemas: a barra de baixo
+    com quatro itens e um `<details>` chamado "Áreas" no canto superior
+    direito. O dono, usando o app, descreveu o efeito: "uma barra principal
+    mais um segundo menu paralelo", sem hierarquia entre os dois.
+
+    A REGRA QUE DEFINE O CONTEÚDO: Áreas não repete o que a barra já alcança
+    direto. Alimentação, Treino e Progresso ficam de fora — quem quer chegar
+    neles toca na barra, que está a um dedo daqui. O que sobra são os dois
+    pilares sem porta de primeiro nível (Corrida e Hidratação), as ferramentas
+    que nunca tiveram porta fixa, e a conta.
+
+    O que esta tela NÃO é: um mapa dos cinco pilares. Aquele mapa mostrava a
+    estrutura inteira porque vivia fora da barra e não competia com ela; aqui
+    ele seria a duplicação que UX-01 veio remover. A nota no topo diz onde
+    estão os outros três, em uma linha, sem link — porque o link é a barra.
+    """
+
+    template_name = "accounts/areas.html"
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto["nav"] = "areas"
+        # O perfil vem do `dispatch`, que já o buscou para decidir se esta
+        # tela abre. Buscá-lo de novo aqui é a segunda consulta na mesma
+        # tabela no mesmo pedido — e é o que `OCustoDaTelaDeAreasEstaMedido`
+        # pega.
+        contexto["areas"] = navegacao.areas_fora_da_barra(
+            self.request, self.request.user, "areas",
+            perfil=self.perfil_do_dispatch,
+        )
+        # `is_staff` e não a permissão de gestão: quem não é staff nem vê a
+        # seção, e quem é staff sem a permissão recebe o 403 da própria tela.
+        # Esconder por permissão exigiria consultar o grupo em toda renderização
+        # desta tela para poupar um clique de uma pessoa.
+        contexto["mostra_gestao"] = self.request.user.is_staff
+        return contexto
 
 
 class WeightLogView(AcaoDeTela, OnboardingRequiredMixin, View):

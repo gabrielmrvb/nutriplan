@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Áreas · NutriPlan{% endblock %}
+
+{% block content %}
+  <header class="page-head">
+    <h1>Áreas</h1>
+    {% comment %}
+      A linha existe para responder uma pergunta só, e responde sem link.
+
+      Quem terminou o onboarding aprendeu que o NutriPlan tem CINCO áreas.
+      Abrindo esta tela ele vê duas, e sem uma palavra concluiria que o app
+      encolheu. Dizer onde estão as outras três custa uma linha; repeti-las
+      aqui com link seria a duplicação que UX-01 veio remover — e o link já
+      está a um dedo, na barra de baixo.
+    {% endcomment %}
+    <p class="muted">
+      Alimentação, Treino e Progresso estão na barra, aqui embaixo.
+    </p>
+  </header>
+
+  <section class="card">
+    <div class="card__head"><h2>Suas áreas</h2></div>
+    <nav class="mapa__lista" aria-label="Áreas do NutriPlan">
+      {% for area in areas %}
+        <a class="mapa__area{% if area.na_secao %} is-active{% endif %}"
+           {% if area.aqui %}aria-current="page"{% endif %}
+           href="{{ area.endereco }}">
+          <span class="mapa__nome">
+            {{ area.titulo }}{% if area.principal %} <span class="pill pill--brand">principal</span>{% endif %}
+          </span>
+          <span class="mapa__apoio">{{ area.apoio }}</span>
+        </a>
+      {% endfor %}
+    </nav>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Ferramentas</h2></div>
+    {% comment %}
+      As duas nunca tiveram porta fixa. A lista de compras só se alcançava pela
+      tela de Alimentação, e as conquistas por link solto — e as duas não são
+      pilar, então nunca caberiam no mapa antigo. Áreas é onde elas passam a
+      morar.
+    {% endcomment %}
+    <nav class="mapa__lista" aria-label="Ferramentas">
+      <a class="mapa__area" href="{% url 'plans:shopping' %}">
+        <span class="mapa__nome">Lista de compras</span>
+        <span class="mapa__apoio">O que comprar para a semana do seu cardápio.</span>
+      </a>
+      <a class="mapa__area" href="{% url 'achievements:list' %}">
+        <span class="mapa__nome">Conquistas</span>
+        <span class="mapa__apoio">A sua ofensiva e o que você já alcançou.</span>
+      </a>
+    </nav>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Conta</h2></div>
+    <nav class="mapa__lista" aria-label="Conta">
+      <a class="mapa__area{% if nav == 'profile' %} is-active{% endif %}"
+         href="{% url 'accounts:profile' %}">
+        <span class="mapa__nome">Perfil</span>
+        <span class="mapa__apoio">Seus dados, o objetivo, a rotina e as suas metas.</span>
+      </a>
+    </nav>
+  </section>
+
+  {% if mostra_gestao %}
+    <section class="card">
+      <div class="card__head"><h2>Gestão</h2></div>
+      <nav class="mapa__lista" aria-label="Gestão">
+        <a class="mapa__area" href="{% url 'gestao:painel' %}">
+          <span class="mapa__nome">Painel</span>
+          <span class="mapa__apoio">As contas do NutriPlan e a atividade recente.</span>
+        </a>
+      </nav>
+    </section>
+  {% endif %}
+{% endblock %}

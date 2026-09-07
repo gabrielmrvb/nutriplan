@@ -39,7 +39,9 @@ User = get_user_model()
 #: nunca houve decisão registrada a respeito; o `[manter a estrutura real
 #: atualmente publicada]` do contrato fala de ESTRUTURA — quatro abas, esta
 #: ordem, Corrida sob Treino —, não de nomenclatura.
-ABAS = ("Alimentação", "Treino", "Progresso", "Perfil")
+#: UX-01: o quarto item passou a ser Áreas. Perfil saiu da barra e mora
+#: dentro dela — a barra responde "onde eu vou", e Perfil é conta.
+ABAS = ("Alimentação", "Treino", "Progresso", "Áreas")
 
 
 class AEdicaoVoltaParaOndeAPessoaEstavaTests(TestCase):
@@ -191,13 +193,17 @@ class AAbaDaVezEAnunciadaTests(TestCase):
         ("plans:today", "Alimentação"),
         ("workouts:routine", "Treino"),
         ("plans:history", "Progresso"),
-        ("accounts:profile", "Perfil"),
-        ("achievements:list", "Perfil"),
+        # UX-01: as duas moram dentro de Áreas agora. Conquistas já declarava
+        # `nav = "profile"` e acendia "Perfil" — uma tela de ofensiva acendendo
+        # a aba de conta —, e o destino novo corrige as duas de uma vez.
+        ("accounts:profile", "Áreas"),
+        ("achievements:list", "Áreas"),
         ("plans:shopping", "Alimentação"),
     )
 
-    #: Telas de PILAR que a barra de baixo não carrega — e onde nenhuma aba
-    #: acende, porque acender a errada é pior que não acender nenhuma.
+    #: Telas de PILAR que a barra de baixo não carrega diretamente. Elas
+    #: moram dentro de Áreas desde UX-01, e é Áreas que acende — antes disso
+    #: nenhuma acendia, porque acender a errada é pior que não acender nenhuma.
     #:
     #: O par de cada uma é a área que o MAPA marca: a orientação não some, ela
     #: muda de componente.
@@ -219,8 +225,19 @@ class AAbaDaVezEAnunciadaTests(TestCase):
         for extras, atributos, corpo in padrao.findall(html):
             rotulo = re.sub(r"<[^>]+>", " ", corpo)
             rotulo = " ".join(rotulo.split())
+            # O VALOR de `aria-current`, e não "é `page`?".
+            #
+            # UX-01 trouxe a distinção que o mapa antigo já fazia: `page` é a
+            # página EXATA, `true` é "você está dentro desta seção". A aba
+            # Áreas fica acesa em Perfil, Corrida e Hidratação, que moram
+            # dentro dela — e anunciar `page` ali seria dizer que a pessoa está
+            # numa página em que ela não está.
+            #
+            # Devolver o valor mantém todo `if aria` deste arquivo funcionando
+            # e ainda deixa cada teste exigir a semântica exata quando importa.
+            marca = re.search(r'aria-current="([^"]+)"', atributos)
             saida.append(
-                (rotulo, 'aria-current="page"' in atributos,
+                (rotulo, marca.group(1) if marca else None,
                  "is-active" in extras)
             )
         return saida
@@ -287,13 +304,10 @@ class AAbaDaVezEAnunciadaTests(TestCase):
         """O GPS numa PWA continua sem medição em aparelho, e a barra continua
         com quatro itens.
 
-        O que MUDOU: a corrida deixou de ser alcançada só pelo treino. Ela é um
-        dos cinco pilares e tem porta de primeiro nível no mapa — o que a
-        asserção antiga (`assertNotIn` na página INTEIRA) proibia sem querer,
-        porque o mapa mora na mesma página.
-
-        A régua certa é a BARRA: corrida não é aba. E ali onde o mapa aparece,
-        ele aparece — este teste passou a exigir as duas coisas.
+        UX-01 mudou ONDE fica a porta de primeiro nível da corrida. Ela era o
+        mapa `<details>` na barra de cima, na mesma página; agora é a tela de
+        Áreas, que é o quarto item da barra. A régua não mudou — corrida não é
+        aba —, mudou o lugar onde a porta é cobrada.
         """
         html = self.client.get(reverse("plans:today")).content.decode()
         barra = html.split('class="tabbar"', 1)[1].split("</nav>", 1)[0]
@@ -301,29 +315,37 @@ class AAbaDaVezEAnunciadaTests(TestCase):
         self.assertNotIn(reverse("workouts:corridas"), barra)
         # Controle positivo do recorte: a barra tem destino, e são quatro.
         self.assertEqual(len(re.findall(r'href="', barra)), 4)
-        # E a porta de primeiro nível existe, fora da barra.
-        self.assertIn(reverse("workouts:corridas"), html)
+        # A barra alcança Áreas...
+        self.assertIn(reverse("areas"), barra)
+        # ...e é lá que a porta da corrida mora.
+        areas = self.client.get(reverse("areas")).content.decode()
+        self.assertIn(reverse("workouts:corridas"), areas)
 
-    def test_a_tela_de_pilar_sem_aba_nao_acende_nenhuma(self):
-        """Acender a aba errada é pior que não acender nenhuma.
+    def test_a_tela_de_pilar_sem_aba_acende_AREAS(self):
+        """Acender a aba errada é pior que não acender nenhuma — e acender a
+        CERTA é melhor que as duas.
 
-        A tela de água acendia "Dieta" e a de corridas acendia "Treino" — a
-        subordinação que `accounts.models.Pilar` diz não existir. Quem
-        orienta agora é o mapa, e o par está em `SEM_ABA`.
+        A tela de água acendia "Dieta" e a de corridas acendia "Treino": a
+        subordinação que `accounts.models.Pilar` diz não existir. A correção
+        anterior tirou a mentira e deixou a barra apagada nessas telas, que era
+        o melhor possível com quatro abas e nenhuma delas correspondendo.
+
+        UX-01 criou a aba correspondente. Corrida e Hidratação moram dentro de
+        Áreas, Áreas é o quarto item da barra, e agora existe uma aba certa
+        para acender. Este teste passou a exigir isso — e continua proibindo
+        que qualquer OUTRA acenda, que é o que ele sempre protegeu.
         """
-        for rota, area in self.SEM_ABA:
+        for rota, _area in self.SEM_ABA:
             with self.subTest(rota=rota):
                 html = self.client.get(reverse(rota)).content.decode()
                 barra = html.split('class="tabbar"', 1)[1].split("</nav>", 1)[0]
-                marcadas = [
-                    r for r, aria, _ in self._abas(barra, "tabbar__item") if aria
+                acesas = [
+                    rotulo
+                    for rotulo, _aria, ativo in self._abas(barra, "tabbar__item")
+                    if ativo
                 ]
 
-                self.assertEqual(marcadas, [])
-                mapa = html.split('class="mapa"', 1)[1].split("</details>", 1)[0]
-                atual = [t for t in mapa.split("<a ") if 'aria-current="page"' in t]
-                self.assertEqual(len(atual), 1, mapa)
-                self.assertIn(area, atual[0])
+                self.assertEqual(acesas, ["Áreas"], barra)
 
 
 class AOrigemAtravessaOPassoDaDivisaoTests(TestCase):

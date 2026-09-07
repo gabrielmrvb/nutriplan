@@ -650,10 +650,18 @@ class BottomNavigationTests(TestCase):
             reverse("plans:today"),
             reverse("workouts:routine"),
             reverse("plans:history"),
-            reverse("accounts:profile"),
+            # UX-01: o quarto destino é Áreas. Perfil saiu da barra e passou a
+            # morar dentro dela — a barra responde "para onde eu vou", e conta
+            # não é destino de uso diário.
+            reverse("areas"),
         ):
             with self.subTest(rota=rota):
                 self.assertIn(f'href="{rota}"', barra)
+
+        # E o Perfil continua alcançável em UM toque a partir do destino novo:
+        # tirar da barra não pode significar esconder.
+        areas = self.client.get(reverse("areas")).content.decode()
+        self.assertIn(f'href="{reverse("accounts:profile")}"', areas)
 
     def test_every_tab_has_an_icon_above_its_label(self):
         barra = self.html.split('<nav class="tabbar"', 1)[1].split("</nav>", 1)[0]

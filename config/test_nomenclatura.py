@@ -125,7 +125,7 @@ class ASBarrasEOMapaFalamAMesmaLinguaTests(BaseDaNomenclatura):
         html = self.client.get(reverse("plans:today")).content.decode()
         abas = self.rotulos(html, "tabbar__item")
 
-        self.assertEqual(abas, ["Alimentação", "Treino", "Progresso", "Perfil"])
+        self.assertEqual(abas, ["Alimentação", "Treino", "Progresso", "Áreas"])
 
     def test_a_barra_de_cima_usa_os_mesmos_nomes_da_de_baixo(self):
         """As duas aparecem na mesma página; divergir aqui é divergir na cara
@@ -139,53 +139,44 @@ class ASBarrasEOMapaFalamAMesmaLinguaTests(BaseDaNomenclatura):
             self.rotulos(html, "tabbar__item"),
         )
 
-    def test_o_mapa_e_a_barra_nomeiam_o_mesmo_destino_igual(self):
-        """O contrato central desta campanha.
+    def test_areas_nao_repete_nenhum_destino_da_barra(self):
+        """O CONTRATO CENTRAL DE UX-01, e ele inverteu.
 
-        Para cada item da barra, se o mapa leva ao MESMO endereço, o nome tem
-        de ser o mesmo. É a comparação por DESTINO, e não por posição: uma
-        reordenação de qualquer das duas não pode fazer este teste mentir.
+        Antes, barra e mapa mostravam destinos em comum de propósito, e o
+        teste cobrava que o mesmo endereço tivesse o mesmo NOME nos dois —
+        três destinos compartilhados, Alimentação, Treino e Progresso.
+
+        UX-01 desfaz a sobreposição: Áreas não repete o que a barra já alcança
+        direto, porque um menu que repete a barra é o "segundo menu paralelo"
+        que a mudança veio remover. A régua deixou de ser "o mesmo destino tem
+        o mesmo nome" e passou a ser "não há destino em comum".
+
+        A comparação continua por DESTINO e não por posição, pelo mesmo motivo
+        de antes: reordenar qualquer uma das duas não pode fazer este teste
+        mentir.
         """
-        self.pessoa("mapa@exemplo.com")
+        self.pessoa("areas@exemplo.com")
         html = self.client.get(reverse("plans:today")).content.decode()
+        pagina = self.client.get(reverse("areas")).content.decode()
 
-        def por_destino(trecho, classe, dentro=None):
-            """destino -> nome visível, sem o texto de apoio.
-
-            O item do mapa carrega nome E frase de apoio dentro do mesmo `<a>`;
-            comparar o `<a>` inteiro faria o teste acusar divergência entre
-            "Treino" e "Treino A ficha da semana...". `dentro` recorta o
-            elemento que carrega só o nome.
-            """
-            pares = {}
-            for m in re.finditer(
-                r'<a class="%s[^"]*"[^>]*?href="([^"]+)"[^>]*>(.*?)</a>' % classe,
-                trecho,
-                re.S,
-            ):
-                corpo = m.group(2)
-                if dentro:
-                    achado = re.search(
-                        r'<span class="%s"[^>]*>(.*?)</span>' % dentro, corpo, re.S
-                    )
-                    corpo = achado.group(1) if achado else ""
-                texto = re.sub(r"<[^>]+>", " ", corpo)
-                pares[m.group(1)] = " ".join(texto.split()).replace(" principal", "")
-            return pares
+        def destinos(trecho, classe):
+            return {
+                m.group(1)
+                for m in re.finditer(
+                    r'<a class="%s[^"]*"[^>]*?href="([^"]+)"' % classe, trecho, re.S
+                )
+            }
 
         barra = html.split('class="tabbar"', 1)[1].split("</nav>", 1)[0]
-        mapa = html.split('class="mapa"', 1)[1].split("</details>", 1)[0]
+        da_barra = destinos(barra, "tabbar__item")
+        de_areas = destinos(pagina, "mapa__area")
 
-        da_barra = por_destino(barra, "tabbar__item")
-        do_mapa = por_destino(mapa, "mapa__area", dentro="mapa__nome")
+        # Controle positivo dos DOIS recortes: um lado vazio faria a
+        # interseção ser vazia por acidente, e o teste passaria sem medir.
+        self.assertEqual(len(da_barra), 4, da_barra)
+        self.assertGreaterEqual(len(de_areas), 3, de_areas)
 
-        comuns = set(da_barra) & set(do_mapa)
-        # Controle positivo: sem destino em comum a comparação abaixo é vazia
-        # e passaria sem medir nada. São três — Alimentação, Treino, Progresso.
-        self.assertEqual(len(comuns), 3, (da_barra, do_mapa))
-        for destino in sorted(comuns):
-            with self.subTest(destino=destino):
-                self.assertEqual(da_barra[destino], do_mapa[destino])
+        self.assertEqual(da_barra & de_areas, set())
 
     def test_nenhum_nome_aposentado_sobrou_na_navegacao(self):
         """A régua é a NAVEGAÇÃO, e não a página: "dieta" e "evolução" seguem
@@ -195,7 +186,9 @@ class ASBarrasEOMapaFalamAMesmaLinguaTests(BaseDaNomenclatura):
         html = self.client.get(reverse("plans:today")).content.decode()
 
         barra = html.split('class="tabbar"', 1)[1].split("</nav>", 1)[0]
-        mapa = html.split('class="mapa"', 1)[1].split("</details>", 1)[0]
+        # O mapa `<details>` da barra de cima não existe mais (UX-01). A outra
+        # metade da navegação agora é a TELA de Áreas.
+        mapa = self.client.get(reverse("areas")).content.decode()
 
         for velho in APOSENTADOS:
             for onde, trecho in (("barra", barra), ("mapa", mapa)):

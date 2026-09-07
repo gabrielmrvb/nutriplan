@@ -403,7 +403,6 @@ class TouchTargetTests(TestCase):
         # As duas do mapa de áreas. O botão é um `<summary>`, que não
         # herda regra de botão nenhuma, e cada linha do painel é um
         # destino de navegação tocado com o polegar.
-        (".mapa__botao {", "min-height: 2.75rem"),
         # OS DOIS ALTERNADORES DO DRAWER SAÍRAM da régua porque saíram do
         # produto: o seletor "Vídeo real | Anatomia" e o Frente/Costas do mapa
         # muscular foram removidos quando a tela do exercício passou a mostrar
@@ -411,6 +410,8 @@ class TouchTargetTests(TestCase):
         # renderiza é teste ornamental — ele passa para sempre e não protege
         # nada. Quem garante que eles não voltam é
         # `workouts/test_video_direto.py`.
+        # `.mapa__botao` saiu com UX-01: era o `<summary>` do `<details>`
+        # no topo, e Áreas virou página. A entrada da lista continua aqui.
         (".mapa__area {", "min-height: 2.75rem"),
         (".btn--sm {", "min-height: 2.75rem"),
         (".btn--quiet {", "min-height: 2.75rem"),

@@ -1582,7 +1582,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .conquista__continuar,
 .conquista-item__share,
 .mapa__area,
-.mapa__botao,
 .tabbar__item {
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
               color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
@@ -1638,7 +1637,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   .conquista__continuar:active,
   .conquista-item__share:active,
   .mapa__area:active,
-  .mapa__botao:active,
   .tabbar__item:active { transform: none; }
 }
 
@@ -6683,64 +6681,19 @@ body.montando { overflow: hidden; }
 .card__subtitulo:first-of-type { margin-top: 0; }
 
 /* ==========================================================================
-   MAPA DE ÁREAS — a porta de primeiro nível das cinco.
+   A TELA DE ÁREAS — o quarto destino da barra, depois de UX-01.
 
-   A barra de baixo continua com QUATRO itens, e vai continuar: medido a 320px,
-   cinco colunas deixam 51,8px úteis por item e "Hidratação" precisa de 60. Ela
-   responde FREQUÊNCIA; este mapa responde ESTRUTURA.
+   ISTO ERA UM `<details>` NA BARRA DE CIMA, e as regras dele (`.mapa`,
+   `.mapa__botao`, `.mapa__painel`) saíram junto com ele: painel ancorado,
+   `max-height` para não terminar embaixo da barra, supressão do triângulo do
+   `<summary>`. Nada disso descreve mais o que existe — Áreas é uma PÁGINA,
+   e página não precisa se ancorar em nada.
 
-   `<details>` aberto por clique, e o painel ancorado na barra de cima. Nada de
-   `:has()`: a área da vez recebe `is-active` escrito pelo servidor.
+   `ResponseCompressionTests` foi quem cobrou: ele proíbe regra que nenhum
+   template renderiza, e apontou as três assim que o parcial sumiu.
+
+   O que ficou é a LISTA, que a página reusa inteira.
    ========================================================================== */
-.mapa { position: relative; }
-
-.mapa__botao {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.75rem;
-  min-width: 2.75rem;
-  padding: var(--espaco-2) var(--espaco-3);
-  border-radius: var(--radius-sm);
-  color: var(--text-dim);
-  font-size: var(--texto-sm);
-  font-weight: 600;
-  cursor: pointer;
-  list-style: none;
-}
-/* O triângulo padrão do `<summary>`, nos dois motores. */
-.mapa__botao::-webkit-details-marker { display: none; }
-.mapa__botao::marker { content: ""; }
-
-.mapa[open] .mapa__botao,
-.mapa__botao:hover { color: var(--text); background: var(--surface-2); }
-
-.mapa__painel {
-  position: absolute;
-  top: calc(100% + var(--espaco-2));
-  right: 0;
-  /* Este número vale POUCO, e é por isso que ele usa a camada dos
-     flutuantes sem prometer nada além dela. `.app-bar` é `position: sticky`
-     com camada própria, o que cria um CONTEXTO DE EMPILHAMENTO: o painel é
-     filho dela, então este valor só disputa com os irmãos de DENTRO da
-     barra — contra a `.tabbar`, que é filha do `body`, ele vale o que a
-     barra vale. Quem resolve a sobreposição é o `max-height` abaixo, que
-     impede o painel de chegar lá embaixo. Medido a 640×360: o painel
-     termina em 274px e a barra começa em 292. */
-  z-index: var(--camada-flutuante);
-  width: min(19rem, calc(100vw - 1.6rem));
-  padding: var(--espaco-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow-lift);
-  /* O teto que impede o painel de terminar embaixo da barra de baixo.
-     A conta: barra de cima (3,6rem) + barra de baixo (4,4rem) + folga.
-     Em paisagem de celular (360px de altura) as cinco linhas não
-     cabem, e aí o painel rola em vez de esconder a última. */
-  max-height: calc(100vh - 9rem);
-  overflow-y: auto;
-}
-
 .mapa__lista { display: grid; }
 
 .mapa__area {
@@ -6753,7 +6706,6 @@ body.montando { overflow: hidden; }
   min-width: 0;
 }
 .mapa__area:hover { background: var(--surface-2); }
-.mapa__botao:active,
 .mapa__area:active { transform: scale(.96); }
 .mapa__area.is-active { background: var(--brand-soft); }
 
