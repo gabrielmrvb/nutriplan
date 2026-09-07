@@ -107,6 +107,22 @@ def create_user(email="atleta@exemplo.com", weekdays=(0, 2, 4), duration=60):
 SANFONA = re.compile(r'<details[^>]*class="([^"]*)"')
 
 
+def so_a_ficha_da_semana(html):
+    """A parte da página em que exercício ainda é sanfona.
+
+    A lista de HOJE deixou de ser sanfona: ela virou linha, porque a tela de
+    treino responde "o que eu vou fazer hoje?" e a EXECUÇÃO tem tela própria
+    (`workouts:now`). A ficha da semana continua com o cartão completo — lá a
+    pergunta é de consulta, "o que tem na terça?", e a sanfona nasce fechada.
+
+    Os testes de sanfona passam a medir esta parte. O que eles guardam —
+    `<details>` nativo, cabeçalho que responde "é este?", séries no HTML mesmo
+    fechado — continua valendo onde a sanfona existe.
+    """
+    partes = html.split('<details class="card ficha"', 1)
+    return partes[1] if len(partes) > 1 else ""
+
+
 def sanfonas_com_classe(html, marcador):
     """As sanfonas cuja lista de classes contém `marcador` como TOKEN.
 
@@ -611,12 +627,19 @@ class WorkoutVideoViewTests(TestCase):
         response = self.client.get(self.url)
         corpo = response.content.decode()
 
+        # Os da ficha da SEMANA: todos menos os de hoje, que viraram linha.
+        hoje = timezone.localdate().weekday()
         exercicios = sum(
             session.exercises.count()
             for session in self.user.training_plans.get(is_active=True).sessions.all()
+            if session.weekday != hoje
         )
-        self.assertEqual(corpo.count('data-clipe="'), exercicios)
-        self.assertEqual(corpo.count("exercise__ver"), exercicios)
+        # `exercise__ver` é o botão do CARTÃO. A lista de hoje tem o mesmo
+        # acesso ao vídeo, por outro caminho (`linha-ex`), e é medida em
+        # `workouts/test_lista_de_hoje.py`.
+        semana = so_a_ficha_da_semana(corpo)
+        self.assertEqual(semana.count('data-clipe="'), exercicios)
+        self.assertEqual(semana.count("exercise__ver"), exercicios)
 
     def test_no_player_is_loaded_before_being_asked_for(self):
         """Dezenove iframes ao abrir a tela seriam dezenove conexões ao YouTube.
@@ -885,14 +908,21 @@ class RestTimerTests(TestCase):
         corpo = response.content.decode()
 
         plan = user.training_plans.get(is_active=True)
+        hoje = timezone.localdate().weekday()
         exercicios = [
-            item for session in plan.sessions.all() for item in session.exercises.all()
+            item
+            for session in plan.sessions.all()
+            if session.weekday != hoje
+            for item in session.exercises.all()
         ]
         # Um cronômetro por EXERCÍCIO.
         #
         # Era um por série, quando cada série tinha a própria linha. Com o
         # registro único, o botão é um só — e o descanso continua sendo entre
         # séries: ele é tocado a cada uma, no mesmo lugar.
+        # O descanso viaja com a execução, e a execução mora na ficha da
+        # semana e em `workouts:now` — não na lista de hoje.
+        corpo = so_a_ficha_da_semana(corpo)
         self.assertEqual(corpo.count('data-descanso="'), len(exercicios))
         for item in exercicios:
             with self.subTest(exercicio=item.exercise.name):
@@ -1264,8 +1294,14 @@ class WeekAccordionTests(TestCase):
         """
         html = self._pagina()
         plano = self.plano
-        total = sum(s.exercises.count() for s in plano.sessions.all())
+        hoje = timezone.localdate().weekday()
+        total = sum(
+            ss.exercises.count()
+            for ss in plano.sessions.all()
+            if ss.weekday != hoje
+        )
 
+        html = so_a_ficha_da_semana(html)
         self.assertEqual(html.count("exercise__ver"), total)
         # Um registro por exercício, e não uma linha por série: as quatro
         # linhas empilhadas viraram um formulário só.
@@ -1308,6 +1344,20 @@ class ExerciseAccordionTests(TestCase):
     def _total_de_exercicios(self):
         return sum(s.exercises.count() for s in self.plano.sessions.all())
 
+    def _exercicios_da_semana(self):
+        """Os que a ficha da semana desenha — ou seja, todos MENOS os de hoje.
+
+        Hoje saiu da sanfona e virou lista de linhas: a tela de treino responde
+        "o que eu vou fazer hoje?", e a execução tem tela própria. Quem mede a
+        lista de hoje é `ALinhaDeHojeSubstituiOCartaoTests`.
+        """
+        hoje = timezone.localdate().weekday()
+        return sum(
+            s.exercises.count()
+            for s in self.plano.sessions.all()
+            if s.weekday != hoje
+        )
+
     def test_every_exercise_is_a_native_disclosure(self):
         """`<details>` e não `<div>` com JavaScript, pela mesma razão da ficha.
 
@@ -1335,58 +1385,87 @@ class ExerciseAccordionTests(TestCase):
                 self.client.force_login(user)
 
                 html = self.client.get(reverse("workouts:routine")).content.decode()
+                semana = so_a_ficha_da_semana(html)
 
-                total = sum(s.exercises.count() for s in plano.sessions.all())
-                self.assertEqual(len(sanfonas_com_classe(html, "exercise")), total)
-                self.assertEqual(html.count('<summary class="exercise__head"'), total)
+                # A PÁGINA TEM DUAS METADES, e o teste cobra as duas.
+                #
+                # A ficha da semana desenha os treinos que NÃO são o de hoje, e
+                # é lá que a sanfona vive. Hoje virou lista de linhas, porque a
+                # execução tem tela própria. Somar as duas dá o plano inteiro —
+                # e é isso que impede a recomposição de perder um exercício
+                # pelo caminho sem ninguém ver.
+                de_hoje = sum(
+                    ss.exercises.count()
+                    for ss in plano.sessions.all()
+                    if ss.weekday == timezone.localdate().weekday()
+                )
+                total = sum(ss.exercises.count() for ss in plano.sessions.all())
 
-    def test_o_modificador_do_exercicio_de_hoje_nao_esconde_a_sanfona(self):
-        """A regressão exata que derrubava a suíte, isolada.
+                self.assertEqual(
+                    len(sanfonas_com_classe(semana, "exercise")), total - de_hoje
+                )
+                self.assertEqual(
+                    semana.count('<summary class="exercise__head"'), total - de_hoje
+                )
+                # `class="linha-ex"` ou `class="linha-ex linha-ex--feito"`, e
+                # nunca `linha-ex__nome`: a régua é o TOKEN, como em
+                # `sanfonas_com_classe`, senão a conta cresce com cada elemento
+                # interno que a linha ganhar.
+                linhas = re.findall(r'class="linha-ex[ "]', html)
+                self.assertEqual(len(linhas), de_hoje)
 
-        No dia de treino existe pelo menos um `<details>` com classe extra. Ele
-        continua sendo uma sanfona de exercício, e um teste de estrutura tem que
-        enxergá-lo — este é o teste que falharia se alguém voltasse a ancorar
-        na string exata do atributo.
+    def test_o_modificador_do_exercicio_de_hoje_nao_esconde_a_linha(self):
+        """A regressão exata que derrubava a suíte, isolada — e ela migrou.
+
+        A cicatriz original: um teste de estrutura ancorado na string exata
+        `'<details class="exercise"'` não enxergava o exercício de hoje, que
+        recebe classe extra. Passava aos sábados e falhava às segundas.
+
+        A composição mudou de lugar e o risco continua o mesmo: hoje o
+        exercício de hoje é uma LINHA, e ela também recebe modificador —
+        `linha-ex--feito` e `linha-ex--parcial`. Um teste ancorado em
+        `class="linha-ex"` com aspas de fechamento voltaria a ficar cego
+        exatamente para as linhas que mudaram de estado.
         """
         user = create_user(email="modificador@exemplo.com", weekdays=dias_incluindo_hoje(5))
         services.create_routine(user)
         self.client.force_login(user)
+        plano = services.get_active_routine(user)
+        hoje = timezone.localdate().weekday()
+        sessao = next(s for s in plano.sessions.all() if s.weekday == hoje)
+        item = sessao.exercises.first()
+        for n in range(1, item.sets + 1):
+            services.record_load(user, item.exercise, Decimal("40"), set_number=n)
 
         html = self.client.get(reverse("workouts:routine")).content.decode()
 
-        com_modificador = [
-            c for c in sanfonas_com_classe(html, "exercise") if len(c.split()) > 1
-        ]
+        # A régua é o TOKEN, e não a string exata do atributo.
+        todas = re.findall(r'class="(linha-ex[^"]*)"', html)
+        com_modificador = [c for c in todas if len(c.split()) > 1]
+
         self.assertTrue(
             com_modificador,
-            "em dia de treino o exercício de hoje deveria ter classe extra",
+            "a linha do exercício concluído deveria ter classe extra",
         )
-        self.assertEqual(html.count('<details class="exercise"'),
-                         len(sanfonas_com_classe(html, "exercise")) - len(com_modificador))
+        self.assertIn("linha-ex--feito", " ".join(com_modificador))
 
-    def test_only_the_first_pending_exercise_of_today_starts_open(self):
-        """Um aberto, e só um: o primeiro de hoje sem série registrada.
+    def test_nenhuma_sanfona_nasce_aberta_em_lugar_nenhum(self):
+        """A regra voltou a ser "nenhuma", e a premissa é que mudou.
 
-        A regra antiga era "nenhum", e o motivo dela era bom: abrir um por
-        antecipação é apostar em qual, e errar a aposta custa exatamente a
-        rolagem que a sanfona veio tirar.
+        A versão anterior abria UMA — o primeiro exercício de hoje sem série
+        anotada — e o argumento era bom: com todos os exercícios empilhados
+        como cartões iguais, apontar o próximo poupava rolagem.
 
-        O que mudou foi a premissa, não o critério. Antes todos os exercícios
-        de todos os dias eram uma pilha indistinta e qualquer escolha era
-        chute. Agora existe uma resposta derivada do banco: o primeiro
-        exercício do treino de HOJE que ainda não tem nenhuma série anotada é,
-        por definição, o próximo a fazer. Não é aposta — é a mesma contagem
-        que o botão "OK 3/4" já mostra.
+        A recomposição tirou a premissa. Hoje deixou de ser uma pilha de
+        cartões e virou uma lista de linhas; não há sanfona de hoje para abrir,
+        e o "próximo a fazer" deixou de ser uma aposta de layout para virar uma
+        tela — `workouts:now` resolve exercício da vez, série da vez e carga no
+        servidor.
 
-        Nos outros dias a regra antiga continua valendo inteira: são treinos
-        que não são o de agora, e nenhum deles abre.
+        O que sobra na página é a ficha da SEMANA, e ali a regra antiga sempre
+        valeu inteira: são treinos que não são o de agora, e nenhum abre.
         """
-        hoje = timezone.localdate().weekday()
-        treina_hoje = self.plano.sessions.filter(weekday=hoje).exists()
-
-        self.assertEqual(
-            self.html.count("data-exercicio open"), 1 if treina_hoje else 0
-        )
+        self.assertNotIn("data-exercicio open", self.html)
 
     def test_no_exercise_of_another_day_ever_starts_open(self):
         """A trava que sobrevive à mudança: fora de hoje, tudo fechado.
@@ -1421,7 +1500,7 @@ class ExerciseAccordionTests(TestCase):
             trecho.split("</summary>", 1)[0]
             for trecho in self.html.split('<summary class="exercise__head"')[1:]
         ]
-        self.assertEqual(len(cabecalhos), self._total_de_exercicios())
+        self.assertEqual(len(cabecalhos), self._exercicios_da_semana())
 
         # TODO cabeçalho responde "é este?", e não só o primeiro.
         #
@@ -1447,9 +1526,13 @@ class ExerciseAccordionTests(TestCase):
             c.split('class="exercise__name">', 1)[1].split("</strong>", 1)[0]
             for c in cabecalhos
         ]
+        # Os exercícios da FICHA são os do plano menos os de hoje — hoje é
+        # lista de linhas, e quem a mede é `ALinhaDeHojeSubstituiOCartaoTests`.
+        hoje = timezone.localdate().weekday()
         no_plano = [
             item.exercise.name
             for sessao in self.plano.sessions.all()
+            if sessao.weekday != hoje
             for item in sessao.exercises.all()
         ]
         self.assertCountEqual(na_pagina, no_plano)
@@ -1464,7 +1547,7 @@ class ExerciseAccordionTests(TestCase):
         Conta REGISTROS e não linhas de série: as quatro linhas por exercício
         viraram um formulário só.
         """
-        total = self._total_de_exercicios()
+        total = self._exercicios_da_semana()
 
         corpo = self.client.get(reverse("workouts:routine")).content.decode()
 
@@ -1792,7 +1875,13 @@ class AnimationImportTests(TestCase):
         self.client.force_login(user)
         ficha = self.client.get(reverse("workouts:routine")).content.decode()
 
-        gatilhos = re.findall(r"<button[^>]*exercise__ver[^>]*>", ficha)
+        # OS DOIS gatilhos de vídeo da página: o botão do cartão, na ficha da
+        # semana, e a linha da lista de hoje. Medir só um dos dois derrubaria o
+        # controle positivo abaixo assim que a lista de hoje mudou de forma —
+        # foi o que aconteceu.
+        gatilhos = re.findall(
+            r"<button[^>]*(?:exercise__ver|linha-ex)[^>]*>", ficha
+        )
 
         # Sem esta linha o laço passaria vazio no dia em que a regex parasse
         # de casar — classe renomeada, ordem de atributo trocada. É controle
@@ -2591,12 +2680,18 @@ class LoadStepperTests(TestCase):
         )
 
     def test_every_exercise_gets_a_pair_of_steps(self):
+        hoje = timezone.localdate().weekday()
         exercicios = sum(
             sessao.exercises.count()
             for sessao in self.user.training_plans.get(is_active=True).sessions.all()
+            if sessao.weekday != hoje
         )
-        self.assertEqual(self.html.count('data-passo="2.5"'), exercicios)
-        self.assertEqual(self.html.count('data-passo="-2.5"'), exercicios)
+        # O passo de carga é EXECUÇÃO, e execução saiu da lista de hoje: ela
+        # responde "o que eu vou fazer", não "quanto eu levantei". Quem carrega
+        # o par de degraus é a ficha da semana.
+        semana = so_a_ficha_da_semana(self.html)
+        self.assertEqual(semana.count('data-passo="2.5"'), exercicios)
+        self.assertEqual(semana.count('data-passo="-2.5"'), exercicios)
 
     def test_the_record_block_uses_two_rows_and_not_one(self):
         """Sete controles nao cabem em 390px, e este arquivo ja registrou a
@@ -2987,22 +3082,36 @@ class TreinoDeHojeTests(TestCase):
         self._anotar(item, series=item.sets)
 
         marcacao = sem_scripts(self._pagina())
-        self.assertIn("exercise__tag--feito", marcacao)
-        self.assertIn("%d/%d séries" % (item.sets, item.sets), marcacao)
+        # A LINHA pinta (`linha-ex--feito`) e o TEXTO informa. A frase mudou de
+        # "3/3 séries" para "3 de 3 séries" quando a lista virou linha —
+        # barra é notação de planilha, e a linha tem largura para escrever.
+        self.assertIn("linha-ex--feito", marcacao)
+        self.assertIn("%d de %d séries" % (item.sets, item.sets), marcacao)
 
-    def test_the_exercise_that_is_next_carries_a_state_of_its_own(self):
-        """Um só, e é o primeiro pendente de hoje.
+    def test_o_proximo_exercicio_e_respondido_pela_tela_de_execucao(self):
+        """O destaque "agora" saiu da LISTA e virou uma TELA.
 
-        Medido sem os `<script>`: a função que move o destaque no cliente cita
-        a mesma classe, e a contagem crua devolvia 3.
+        A versão anterior marcava um cartão de hoje com `exercise--agora`, e o
+        argumento era bom enquanto os exercícios eram cartões empilhados: sem a
+        marca, a pessoa tinha de descobrir sozinha onde tinha parado.
+
+        A recomposição respondeu a mesma pergunta melhor. `workouts:now` resolve
+        no SERVIDOR qual é o exercício da vez, qual é a série da vez, qual foi a
+        carga anterior e quanto falta de descanso — e é para lá que o botão do
+        hero leva. Marcar um item na lista passou a ser redundante com uma tela
+        inteira dedicada à mesma pergunta.
+
+        O que este teste guarda agora: a porta existe, e a tela sabe responder.
         """
         marcacao = sem_scripts(self._pagina())
-        self.assertEqual(marcacao.count("exercise--agora"), 1)
 
-        primeiro = self._itens()[0]
-        cartao = marcacao.split('id="exercicio-%d"' % primeiro.exercise.pk, 1)[0]
-        self.assertTrue(cartao.rstrip().endswith('"'), "o id não fecha a tag de abertura")
-        self.assertIn("exercise--agora", cartao.rsplit("<details", 1)[1])
+        # A lista de hoje não elege ninguém.
+        self.assertNotIn("exercise--agora", marcacao)
+        # E a porta para quem responde está na página.
+        self.assertIn(reverse("workouts:now"), marcacao)
+
+        estado = services.estado_do_treino(self.user)
+        self.assertIsNotNone(estado.atual, "o modo treino não sabe qual é o próximo")
 
     def test_recording_a_load_still_works_from_the_new_layout(self):
         """O formulário mudou de lugar na página, e só de lugar."""
@@ -4145,8 +4254,11 @@ class ConclusaoNaoVazaEntreDiasTests(TestCase):
         # sanfonas das outras — recortar até a primeira delas isola o bloco.
         bloco_de_hoje = re.split(r'<details class="card ficha"', html)[0]
 
+        # A MARCA MUDOU DE NOME, e a garantia é a mesma: o que a pessoa
+        # acabou de anotar não pode sumir da tela. Hoje virou linha, então o
+        # concluído é `linha-ex--feito` — antes era `exercise--feito`.
         self.assertNotEqual(
-            sanfonas_com_classe(bloco_de_hoje, "exercise--feito"),
+            re.findall(r'class="linha-ex linha-ex--feito"', bloco_de_hoje),
             [],
             "a ficha de hoje deixou de mostrar o exercício concluído",
         )

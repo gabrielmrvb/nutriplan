@@ -2416,6 +2416,99 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   .exercise[open] .exercise__body { transition: none; animation: none; }
 }
 
+/* ==========================================================================
+   A LISTA DE HOJE — o plano em linhas, não a execução em cartões.
+
+   Oito exercícios como cartão completo davam quase quatro mil pixels e nenhum
+   deles pesava mais que os outros. Como linha, os oito cabem numa tela e a
+   pergunta que a tela responde volta a ser "o que eu vou fazer hoje?".
+   ========================================================================== */
+.linha-ex-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+  margin: 0 0 var(--espaco-6);
+  padding: 0;
+  list-style: none;
+}
+
+.linha-ex {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--espaco-4);
+  width: 100%;
+  min-height: 3.5rem;
+  padding: var(--espaco-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease),
+              transform .12s var(--ease);
+}
+.linha-ex:hover { border-color: var(--brand); }
+
+/* O número é um disco, e vira tique quando o exercício fecha. Cor sozinha não
+   diz estado para quem não distingue verde de cinza — por isso a prescrição
+   troca para "3 de 3 séries" no mesmo momento. */
+.linha-ex__ordem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--pill);
+  background: var(--surface-3);
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  font-weight: 720;
+  font-variant-numeric: tabular-nums;
+}
+.linha-ex__ordem svg { width: 1.1rem; height: 1.1rem; }
+
+.linha-ex--parcial .linha-ex__ordem { background: var(--warm-soft); color: var(--warm); }
+.linha-ex--feito .linha-ex__ordem { background: var(--brand-soft); color: var(--brand); }
+.linha-ex--feito .linha-ex__nome { color: var(--text-dim); }
+
+.linha-ex__texto { display: grid; gap: var(--espaco-1); min-width: 0; }
+.linha-ex__nome {
+  font-size: var(--texto-md);
+  font-weight: 660;
+  letter-spacing: -.01em;
+  min-width: 0;
+}
+.linha-ex__apoio {
+  color: var(--text-mute);
+  font-size: var(--texto-sm);
+  min-width: 0;
+}
+.linha-ex__sep { padding: 0 var(--espaco-1); }
+.linha-ex--feito .linha-ex__feitas { color: var(--brand); }
+
+/* O ícone é a CÂMERA, e não uma seta: o toque abre o vídeo de execução, e a
+   seta prometeria uma tela de detalhe que não existe. */
+.linha-ex__seta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-mute);
+}
+.linha-ex__seta svg { width: 1.15rem; height: 1.15rem; }
+.linha-ex:hover .linha-ex__seta { color: var(--brand); }
+
+.hoje__titulo {
+  margin: 0 0 var(--espaco-4);
+  font-size: var(--texto-lg);
+}
+
 /* MÚSCULOS TRABALHADOS — o dado que sobreviveu ao cancelamento do 3D.
 
    `muscle_group` e `secondary_muscles` continuaram no banco de propósito: o

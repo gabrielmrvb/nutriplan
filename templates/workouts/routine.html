@@ -197,9 +197,27 @@
           </section>
 
           {# ------------- 2. Os exercícios de hoje ------------- #}
-          <ol class="exercise-list hoje__lista">
+          {% comment %}
+            A LISTA DE HOJE É O PLANO, e a execução tem tela própria.
+
+            Cada exercício renderizava o cartão completo — sanfona, vídeo,
+            chips de músculo, dica e formulário de carga — oito vezes. Era a
+            experiência de execução inteira duplicada numa tela cuja pergunta
+            é "o que eu vou fazer hoje?", e o resultado passava de quatro mil
+            pixels com oito unidades de peso idêntico.
+
+            Quem executa é `workouts:now`, que o botão do hero abre e que já
+            resolve exercício da vez, série da vez, carga e descanso no
+            servidor. Aqui ficam oito linhas que cabem numa tela.
+
+            A ficha da SEMANA continua com o cartão completo: lá a pergunta é
+            de consulta — "o que tem na terça?" — e o cartão fechado já é
+            compacto porque a sanfona nasce fechada.
+          {% endcomment %}
+          <h2 class="hoje__titulo">Exercícios do treino</h2>
+          <ol class="linha-ex-lista hoje__lista">
             {% for item in hoje.exercises.all %}
-              {% include "workouts/_exercicio.html" with item=item ordem=forloop.counter agora=item.eh_o_proximo %}
+              {% include "workouts/_exercicio_linha.html" with item=item ordem=forloop.counter total=hoje.total_exercicios %}
             {% endfor %}
           </ol>
         {% else %}
