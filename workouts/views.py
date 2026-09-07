@@ -430,6 +430,13 @@ class HealthExportView(OnboardingRequiredMixin, View):
         resposta["Content-Disposition"] = (
             f'attachment; filename="nutriplan-{resumo.data:%Y-%m-%d}.tcx"'
         )
+        # `no-store` PELO MESMO MOTIVO da exportação de dados.
+        #
+        # Este arquivo carrega o treino do dia, e o clique num link é
+        # `mode: "navigate"` — o service worker o trata pela estratégia de
+        # navegação, e `podeGuardar` só recusa quem manda `no-store`. Sem este
+        # cabeçalho o TCX entrava em `CACHE_PAGINAS` como se fosse uma tela.
+        resposta["Cache-Control"] = "no-store"
         return resposta
 
 

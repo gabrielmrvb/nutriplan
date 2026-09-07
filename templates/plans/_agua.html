@@ -58,11 +58,30 @@
               </form>
             {% endif %}
             {% if hidratacao_bebida %}
-              <form method="post" action="{% url 'plans:log_hydration' %}" class="agua__zerar">
-                {% csrf_token %}
-                <input type="hidden" name="ml" value="0">
-                <button type="submit" class="btn-link">zerar</button>
-              </form>
+              {% comment %}
+                ZERAR PEDE CONFIRMAÇÃO, e "desfazer" ao lado não pede.
+
+                As duas eram botões de um toque só, coladas uma na outra, e
+                fazem coisas de tamanhos muito diferentes: "desfazer" tira o
+                último gole, "zerar" apaga o dia inteiro — o total E a lista de
+                goles, sem volta. Um polegar errado entre séries custava o
+                registro do dia.
+
+                `<details>` e não `<dialog>`: é a ordem que o CLAUDE.md fixa, e
+                aqui basta. Também funciona sem JavaScript, o que importa
+                porque esta tela é postada por formulário puro e a fila offline
+                reenvia o corpo cru.
+              {% endcomment %}
+              <details class="agua__zerar acao-perigosa">
+                <summary class="btn-link">zerar</summary>
+                <form method="post" action="{% url 'plans:log_hydration' %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="ml" value="0">
+                  <button type="submit" class="btn-link acao-perigosa__confirma">
+                    apagar a água de hoje
+                  </button>
+                </form>
+              </details>
             {% endif %}
           </div>
 

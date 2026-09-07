@@ -499,7 +499,19 @@
         </button>
       </div>
 
-      <div class="drawer__puxador" aria-hidden="true"></div>
+      {% comment %}
+        A ALÇA SAIU: ela prometia um gesto que não existe.
+
+        O comentário do CSS dizia "sinal de que isto sobe do rodapé e dá para
+        arrastar de volta", e arrastar nunca foi implementado — não há
+        `touchstart`, `pointerdown` nem nada parecido em lugar nenhum desta
+        tela. Quem tentava puxar não fechava, e ficava sem entender por quê.
+
+        Entre implementar o gesto e tirar a promessa, a segunda é a correção
+        proporcional: o drawer já fecha de três maneiras que funcionam — o
+        botão de 44px no canto, o Esc e o toque no véu. Uma alça decorativa não
+        acrescenta saída nenhuma e subtrai confiança.
+      {% endcomment %}
 
       <div class="drawer__media" id="drawer-media" data-drawer-media></div>
 
@@ -780,6 +792,9 @@
           dadosAbertos = facade.dataset;
           preencher(facade.dataset);
           drawer.showModal();
+          // Trava a rolagem do corpo. Quem destrava é o `close`, que dispara
+          // nos TRÊS caminhos de saída — botão, Esc e toque no véu.
+          document.documentElement.classList.add("drawer-aberto");
         });
 
         /* O nó da mídia sai na hora do fechamento — é o que garante que o som
@@ -825,6 +840,12 @@
           // dá para limpar antes de a tela sumir.
           drawer.addEventListener("cancel", limparMidia);
           drawer.addEventListener("close", limparMidia);
+          // `close` e não `fecharDrawer`: o Esc fecha o `<dialog>` sozinho,
+          // sem passar pela nossa função, e sem isto a página ficaria travada
+          // para sempre depois de sair pelo teclado.
+          drawer.addEventListener("close", function () {
+            document.documentElement.classList.remove("drawer-aberto");
+          });
         }
 
         /* ---- Sanfona de seleção única ----

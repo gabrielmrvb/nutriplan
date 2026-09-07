@@ -18,6 +18,10 @@ número que a tela de treino mostra.
 uma troca que reinicie série, cronômetro ou progresso transformaria uma
 curiosidade ("o que isso trabalha?") em perda de treino.
 """
+import re
+from pathlib import Path
+
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.test import TestCase
@@ -434,3 +438,100 @@ class OContratoDoDrawerTests(TestCase):
 
         self.assertIn("start=27", html)
         self.assertIn("end=49", html)
+
+
+class APaginaNaoRolaAtrasDoDrawerTests(TestCase):
+    """`<dialog>` modal prende foco, e NÃO prende rolagem.
+
+    É a confusão que produziu o defeito: `showModal()` escurece o fundo e
+    captura o foco, então parece que o resto da tela está inerte. Medido no
+    navegador a 390×844, com o drawer aberto `document.scrollingElement`
+    respondia `overflow-y: auto` — ou seja, o dedo no véu rolava a ficha
+    inteira por trás, e ao fechar a pessoa estava num ponto diferente daquele
+    em que tocou.
+
+    `overscroll-behavior: contain`, que o drawer já tinha, não cobre este caso:
+    ele impede o ENCADEAMENTO de uma rolagem que começa DENTRO do drawer e
+    chega ao fim. O gesto aqui começa fora.
+
+    A trava vai no `<html>` e não no `<body>`, e isso também foi medido:
+    `body { overflow: hidden }` computou `hidden` no body e a página continuou
+    rolando, porque o viewport só herda o overflow do body enquanto o `html`
+    for `visible` — e `body { overflow-x: hidden }`, lá na base do arquivo, já
+    tinha tirado isso.
+    """
+
+    CSS = Path(settings.BASE_DIR) / "static" / "css" / "app.css"
+    FICHA = Path(settings.BASE_DIR) / "templates" / "workouts" / "routine.html"
+
+    def test_existe_a_regra_que_trava_a_rolagem_no_elemento_que_rola(self):
+        css = self.CSS.read_text(encoding="utf-8")
+        regras = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+        self.assertIn("html.drawer-aberto", regras)
+        trecho = regras.split("html.drawer-aberto", 1)[1].split("}", 1)[0]
+        self.assertIn("overflow: hidden", trecho)
+        # No `body` não adianta, e deixar as duas convida a "simplificar" para
+        # a que não funciona.
+        self.assertNotIn("body.drawer-aberto", regras)
+
+    def test_a_barra_de_rolagem_reservada_impede_o_salto_no_desktop(self):
+        """Sem `scrollbar-gutter`, travar a rolagem devolve os pixels da barra
+        e a página inteira desliza para o lado ao abrir o drawer."""
+        regras = re.sub(r"/\*.*?\*/", "",
+                        self.CSS.read_text(encoding="utf-8"), flags=re.S)
+        self.assertIn("scrollbar-gutter: stable", regras)
+
+    def test_abrir_trava_e_o_evento_close_destrava(self):
+        """`close` e não `fecharDrawer`: o Esc fecha o `<dialog>` sozinho, sem
+        passar pela nossa função. Amarrar a destravagem ao botão deixaria a
+        página presa para sempre em quem sai pelo teclado."""
+        fonte = self.FICHA.read_text(encoding="utf-8")
+
+        # Uma janela de caracteres logo depois da abertura: contar LINHAS
+        # quebrou quando o comentario de tres linhas entrou no meio.
+        abertura = fonte.split("drawer.showModal();", 1)[1][:400]
+        self.assertTrue(
+            "classList.add(\"drawer-aberto\")" in abertura,
+            "abrir o drawer não trava a rolagem",
+        )
+        self.assertIn("documentElement.classList.add(\"drawer-aberto\")", fonte)
+        self.assertIn("documentElement.classList.remove(\"drawer-aberto\")", fonte)
+
+        depois = fonte.split('drawer.addEventListener("close"')
+        self.assertEqual(len(depois), 3, "esperava dois ouvintes de `close`")
+
+
+class ODrawerNaoPrometeGestoQueNaoTemTests(TestCase):
+    """A alça sugeria arrastar-para-fechar, e o gesto nunca existiu.
+
+    O CSS descrevia o desenho como "sinal de que isto sobe do rodapé e dá para
+    arrastar de volta". Não há `touchstart`, `pointerdown` nem qualquer
+    manipulador de gesto na tela — quem tentava puxar não fechava nada.
+
+    Entre implementar o gesto e tirar a promessa, tirar é a correção
+    proporcional: o drawer já fecha pelo botão de 44px, pelo Esc e pelo toque
+    no véu. Uma alça decorativa não acrescenta saída e subtrai confiança.
+    """
+
+    def test_a_alca_saiu_do_markup_e_do_css(self):
+        ficha = (Path(settings.BASE_DIR) / "templates" / "workouts"
+                 / "routine.html").read_text(encoding="utf-8")
+        css = (Path(settings.BASE_DIR) / "static" / "css"
+               / "app.css").read_text(encoding="utf-8")
+        sem_comentario_css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+        sem_comentario_html = re.sub(
+            r"\{%\s*comment\s*%\}.*?\{%\s*endcomment\s*%\}", "", ficha, flags=re.S
+        )
+
+        self.assertNotIn("drawer__puxador", sem_comentario_html)
+        self.assertNotIn("drawer__puxador", sem_comentario_css)
+
+    def test_as_tres_saidas_de_verdade_continuam_de_pe(self):
+        """CONTROLE POSITIVO: tirar a alça não pode ter levado uma saída."""
+        ficha = (Path(settings.BASE_DIR) / "templates" / "workouts"
+                 / "routine.html").read_text(encoding="utf-8")
+
+        self.assertIn("data-drawer-fechar", ficha)
+        self.assertIn('drawer.addEventListener("cancel"', ficha)
+        self.assertIn("if (event.target === drawer) fecharDrawer();", ficha)

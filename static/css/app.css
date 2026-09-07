@@ -978,6 +978,10 @@ h3 { font-size: .95rem; font-weight: 650; }
   color: var(--brand);
 }
 
+/* `piso` divide a aparência de `surplus`: nos dois a meta está ACIMA do
+   gasto, e é isso que a cor comunica. O que muda é o texto, porque só
+   um dos dois é recomendação. */
+.today-hero__balance.balance--piso,
 .today-hero__balance.balance--surplus {
   border-color: color-mix(in srgb, var(--warm) 24%, transparent);
   background: color-mix(in srgb, var(--warm) 12%, transparent);
@@ -1061,6 +1065,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 }
 
 .balance--deficit { background: var(--brand-soft); border-color: transparent; }
+.balance--piso,
 .balance--surplus { background: var(--warm-soft); border-color: transparent; }
 
 .balance__value {
@@ -1073,6 +1078,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 }
 
 .balance--deficit .balance__value { color: var(--brand); }
+.balance--piso .balance__value,
 .balance--surplus .balance__value { color: var(--warm); }
 
 .balance__body { flex: 1; min-width: 0; }
@@ -1489,6 +1495,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    `transform` é uma das duas únicas propriedades que o navegador anima sem
    refazer layout; encolher por `width` ou `padding` engasgaria em celular
    velho, que é exatamente onde isto precisa funcionar. */
+.acao-perigosa__confirma:active,
 .agua__botao:active,
 .app-bar__brand:active,
 .app-bar__link:active,
@@ -1543,6 +1550,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    `.chip` ficou de fora de propósito: das quatro ocorrências, três são `<span>`
    decorativo. Afundar um rótulo que não faz nada ensina que ele faz. */
 
+.acao-perigosa__confirma,
 .agua__botao,
 .app-bar__brand,
 .app-bar__link,
@@ -1617,6 +1625,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   .install__later:active,
   .option__summary:active,
   .pesagem__salvar:active,
+  .acao-perigosa__confirma:active,
   .pesar__topo:active,
   .registro__passo:active,
   .registro__salvar:active,
@@ -1859,6 +1868,11 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   font-size: .85rem;
   line-height: 1.55;
 }
+
+/* A variante de ATENÇÃO usa o fundo morno, e não o vermelho de erro: nada
+   está quebrado — o número apenas envelheceu e há um botão logo abaixo que o
+   atualiza. Vermelho aqui assustaria por uma conta desatualizada. */
+.callout--atencao { background: var(--warm-soft); }
 
 .empty-state { padding: 2.25rem var(--espaco-6); color: var(--text-dim); font-size: var(--texto-md); text-align: center; }
 /* O estado vazio virou caixa quando ganhou botão. O `text-align` do bloco já
@@ -3139,6 +3153,40 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   animation: drawer-sobe .26s cubic-bezier(.2, .8, .3, 1);
 }
 
+/* A PÁGINA NÃO ROLA ATRÁS DO DRAWER.
+ *
+ * `<dialog>` modal prende o FOCO e escurece o fundo, e é fácil concluir que
+ * ele também prende a rolagem. Não prende: medido a 390×844, com o drawer
+ * aberto a página andou de 400 para 700 e, ao fechar, a pessoa estava num
+ * ponto da ficha diferente daquele em que tocou. No celular isso acontece com
+ * o dedo no véu — o gesto vaza para a página de trás.
+ *
+ * `overscroll-behavior: contain` no drawer não cobre este caso: ele impede o
+ * ENCADEAMENTO quando a rolagem começa DENTRO do drawer e chega ao fim, e o
+ * gesto aqui começa fora dele.
+ *
+ * A classe é escrita pelo JavaScript, e não por `:has(dialog[open])` — o
+ * CLAUDE.md proíbe `:has()` para CSS estrutural desde o dia em que o navegador
+ * descartou a regra inteira e o convite de instalação cobriu a navegação.
+ *
+ * `scrollbar-gutter: stable` no `html` é o que impede o desktop de saltar
+ * quando a barra de rolagem some: sem ele, travar a rolagem devolve os ~15px
+ * da barra e a página inteira desliza para o lado. No celular não há barra e
+ * a regra não custa nada. */
+html { scrollbar-gutter: stable; }
+
+/* A CLASSE VAI NO `html`, E NÃO NO `body` — medido, nesta ordem:
+ *
+ * `body.drawer-aberto { overflow: hidden }` computou `hidden` no body e a
+ * página CONTINUOU rolando. A razão é a propagação de overflow: o viewport
+ * herda o valor do `body` só enquanto o `html` é `visible`, e aqui ele já
+ * deixou de ser — `body { overflow-x: hidden }`, lá na base, propagou e o
+ * `html` ficou `hidden auto`. Daí em diante o eixo Y do viewport é do `html`,
+ * e mexer no body não alcança mais.
+ *
+ * `document.scrollingElement` é o `<html>`; travar nele trava o que rola. */
+html.drawer-aberto { overflow: hidden; }
+
 .drawer::backdrop {
   background: var(--veu);
   backdrop-filter: blur(3px);
@@ -3159,14 +3207,8 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   .drawer, .drawer::backdrop { animation: none; }
 }
 
-/* A alça: sinal de "isto sobe do rodapé e dá para arrastar de volta". */
-.drawer__puxador {
-  width: 2.4rem;
-  height: .25rem;
-  margin: .6rem auto .2rem;
-  border-radius: var(--pill);
-  background: var(--border-strong);
-}
+/* A REGRA DA ALÇA SAIU COM ELA. O desenho dizia "dá para arrastar de volta" e
+   o gesto nunca existiu; o drawer fecha pelo botão, pelo Esc e pelo véu. */
 
 /* Dentro do drawer, acima da mídia — não é a escala global: o drawer é
    `<dialog>` modal, e o navegador já o põe na camada de topo. */
@@ -3387,8 +3429,6 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
     margin: auto;
     border-radius: var(--radius-lg);
   }
-
-  .drawer__puxador { display: none; }
 }
 
 /* ==========================================================================
@@ -3981,6 +4021,20 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .agua__valor { flex: 1; min-width: 0; color: var(--text-dim); font-size: .84rem; }
 .agua__valor b { color: var(--text); font-weight: 750; }
 .agua__zerar { flex: none; }
+
+/* A CONFIRMAÇÃO DE UMA AÇÃO QUE APAGA.
+   O `<summary>` continua parecendo o link discreto que era — quem não quer
+   zerar não vê diferença nenhuma. Quem toca recebe a segunda metade, e ela
+   diz o que vai acontecer em vez de "confirmar": "apagar a água de hoje". */
+.acao-perigosa > summary { list-style: none; cursor: pointer; }
+.acao-perigosa > summary::-webkit-details-marker { display: none; }
+
+.acao-perigosa__confirma {
+  min-height: 2.75rem;
+  padding: 0 var(--espaco-3);
+  color: var(--danger);
+  font-weight: 600;
+}
 
 .progress__fill--agua { background: var(--accent); }
 

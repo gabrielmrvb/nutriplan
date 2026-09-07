@@ -1953,6 +1953,25 @@ class HealthExportTests(TestCase):
         self.assertIn("attachment", resposta["Content-Disposition"])
         self.assertIn(".tcx", resposta["Content-Disposition"])
 
+    def test_o_arquivo_de_saude_nao_entra_no_cache_do_worker(self):
+        """O MESMO tratamento da exportação de dados, e pelo mesmo motivo.
+
+        Este arquivo carrega o treino do dia. Ele é servido por um LINK, e um
+        clique em link é `mode: "navigate"` — o service worker o trata pela
+        estratégia de navegação, e `podeGuardar` (`templates/pwa/sw.js`) só
+        recusa quem manda `no-store`. Sem o cabeçalho, o TCX entrava em
+        `CACHE_PAGINAS` como se fosse uma tela.
+
+        `accounts/exportacao.py` já fazia isso; as duas exportações nasceram em
+        momentos diferentes e a doutrina só foi escrita na segunda.
+        """
+        self._serie(1)
+
+        resposta = self.client.get(reverse("workouts:health_export"))
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn("no-store", resposta.headers.get("Cache-Control", ""))
+
     def test_nothing_to_export_sends_the_person_back(self):
         resposta = self.client.get(reverse("workouts:health_export"))
         self.assertEqual(resposta.status_code, 302)

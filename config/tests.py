@@ -225,6 +225,35 @@ class HealthTests(TestCase):
         self.assertEqual(resposta.status_code, 503)
         self.assertEqual(resposta.json()["status"], "sem banco")
 
+    def test_a_falha_nao_conta_onde_o_banco_mora(self):
+        """`/saude/` é PÚBLICO, e a mensagem do psycopg traz endereço.
+
+        O corpo trazia `str(erro)[:200]`, e um `OperationalError` real diz
+        "connection to server at ep-….neon.tech (…), port 5432 failed" — ou
+        seja, a rota que existe para dizer se o serviço está de pé publicava a
+        topologia da infraestrutura justamente enquanto ela estava frágil.
+
+        `config/observabilidade.py` redige URL de Postgres NO LOG; ele não
+        alcança o corpo da resposta, que é montado na view.
+        """
+        segredo = (
+            "connection to server at ep-secreto-123.us-east-2.aws.neon.tech "
+            "(10.0.0.9), port 5432 failed: senha do usuario nutriplan"
+        )
+        with patch(
+            "config.health.connection.ensure_connection",
+            side_effect=OperationalError(segredo),
+        ):
+            resposta = self.client.get(reverse("health"))
+
+        corpo = resposta.content.decode()
+        self.assertEqual(resposta.status_code, 503)
+        for vazamento in ("neon.tech", "5432", "10.0.0.9", "nutriplan"):
+            with self.subTest(vazamento=vazamento):
+                self.assertNotIn(vazamento, corpo)
+        # Controle positivo: a resposta continua dizendo o que aconteceu.
+        self.assertEqual(resposta.json()["status"], "sem banco")
+
     def test_it_answers_without_login(self):
         """A plataforma consulta sem sessão; exigir login viraria um health
         check que responde 302 para sempre e nunca detecta nada."""
