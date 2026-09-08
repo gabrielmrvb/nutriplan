@@ -100,18 +100,45 @@ class OsTrintaESeisVideosOficiaisTests(TestCase):
         # arquivo versionado está certo.
         call_command("seed_workouts", verbosity=0)
 
-    def test_o_catalogo_ativo_tem_exatamente_os_36_nomes(self):
+    #: Exercícios do catálogo que saíram do uso ATIVO, por decisão de produto.
+    #:
+    #: Nomeados um a um de propósito. Derivar a lista do próprio JSON deixaria
+    #: o teste concordar com qualquer aposentadoria, inclusive a acidental —
+    #: aposentar passa a exigir uma edição aqui, que é onde alguém pergunta
+    #: "por quê".
+    APOSENTADOS = {"Remada curvada com barra"}
+
+    def test_o_catalogo_ativo_tem_exatamente_os_nomes_oficiais_vivos(self):
         """Nem um a mais, nem um a menos.
 
         Um exercício novo que entrasse no seed sem vídeo curado passaria
-        despercebido por qualquer teste que só varresse os 36 conhecidos: ele
+        despercebido por qualquer teste que só varresse os conhecidos: ele
         não estaria na lista, então ninguém perguntaria por ele. A igualdade de
         CONJUNTOS é o que fecha os dois lados.
+
+        Em 08/09/2026 o conjunto ativo deixou de ser "todos os oficiais": a
+        `Remada curvada com barra` foi aposentada por decisão de produto e
+        continua no catálogo, com o vídeo, para o histórico de quem treinou com
+        ela poder ser lido.
         """
         ativos = set(
             Exercise.objects.filter(is_active=True).values_list("name", flat=True)
         )
-        self.assertEqual(ativos, set(OFICIAIS))
+        self.assertEqual(ativos, set(OFICIAIS) - self.APOSENTADOS)
+
+    def test_o_aposentado_continua_no_catalogo_com_o_video(self):
+        """Controle do teste acima, e a razão de aposentar em vez de apagar.
+
+        `ExerciseLog.exercise` é CASCADE: um `delete()` levaria junto o
+        histórico de carga. Se alguém "limpar" o catálogo apagando o
+        aposentado, este teste cai antes de o dado sumir.
+        """
+        for nome in self.APOSENTADOS:
+            with self.subTest(exercicio=nome):
+                velho = Exercise.objects.filter(name=nome).first()
+                self.assertIsNotNone(velho, "o aposentado foi APAGADO")
+                self.assertFalse(velho.is_active)
+                self.assertTrue(velho.video_url, "o vídeo do aposentado sumiu")
 
     def test_cada_exercicio_serve_o_video_que_o_dono_escolheu(self):
         """ID a ID — e o ID, não a URL.

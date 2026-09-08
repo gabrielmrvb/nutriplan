@@ -31,6 +31,7 @@ from .models import (
     TrainingPlan,
     TrainingSession,
     WorkoutTemplate,
+    segundos_da_sessao,
 )
 
 
@@ -210,52 +211,130 @@ def build_sessions(plan, training_days, templates) -> list:
     return sessions
 
 
-#: A menor dose que o catálogo já considera treino.
+#: A DOSE DO CATÁLOGO É POR SESSÃO, e esta linha é a correção de 08/09/2026.
 #:
-#: Não é número escolhido aqui: é o piso do que os modelos prescrevem. Nenhum
-#: item de `WorkoutTemplateItem` pede menos de três séries, então "uma série"
-#: é uma quantidade que o produto nunca autorizou — ela só apareceria como
-#: subproduto de dividir o volume, e apareceu: 188 ocorrências na matriz de
-#: 7 frequências × 4 preferências, com sete dos nove exercícios do dia A
-#: caindo para uma série cada. Isso não é uma sessão de treino, é uma lista.
-DOSE_MINIMA = 2
+#: Ela já foi lida como orçamento SEMANAL, repartido entre as ocorrências da
+#: letra: com cinco dias em ABC a letra A cai duas vezes, e as quatro séries de
+#: Supino reto viravam `[2, 2]`. Medido no perfil de referência da missão — 27
+#: anos, 102 kg, 1,85 m, segunda a sexta, 90 minutos por sessão — o Supino saía
+#: com DUAS séries na segunda e DUAS na quinta, em sessões de 21 a 26 minutos
+#: para quem informou noventa.
+#:
+#: O que fecha o diagnóstico é o tempo: sobravam mais de sessenta minutos, então
+#: o corte por relógio nem chegou a ser acionado. A redução vinha só da divisão
+#: do volume — exatamente o que um exercício principal não pode sofrer sem razão
+#: calculada.
+#:
+#: O problema que a repartição resolvia continua real: repetir a letra multiplica
+#: o volume semanal, e o dia A duas vezes daria 26 séries de peito. Quem resolve
+#: isso agora é `TETO_SEMANAL_POR_GRUPO`, e o preço é pago pelo ISOLADOR — não
+#: pelo composto.
+
+#: Séries efetivas por grupo muscular por semana, contando participação
+#: secundária pela metade.
+#:
+#: Vinte é o topo da faixa que a literatura de hipertrofia trata como
+#: produtiva para um grupo grande; abaixo de dez o estímulo fica magro. O número
+#: é um TETO, não uma meta: ficha que já cabe embaixo dele não é tocada.
+TETO_SEMANAL_POR_GRUPO = 20
+
+#: Quanto uma série conta para um músculo que ela usa de forma SECUNDÁRIA.
+#:
+#: Meia série, e é regra explícita justamente porque a missão proíbe o
+#: contrário: "não conte uma série de tríceps no supino como se fosse idêntica a
+#: uma série direta de tríceps". Um número escrito num lugar só é auditável;
+#: espalhar a intuição por condicionais não é.
+PESO_SECUNDARIO = Decimal("0.5")
+
+#: Abaixo disto um exercício composto deixa de ser treino e vira aquecimento.
+#:
+#: Três é o piso; o catálogo pede quatro nos principais e é isso que a pessoa
+#: recebe. Duas séries num composto principal só podem existir por decisão
+#: explícita — nunca como sobra de uma conta.
+PISO_COMPOSTO = 3
 
 
-def distribuir_series(total, ocorrencias, ordem) -> list:
-    """Como as `total` séries de um exercício se espalham pelas ocorrências.
+def dose_da_sessao(item) -> int:
+    """Quantas séries deste item a pessoa faz NA SESSÃO.
 
-    Devolve uma lista com uma posição por ocorrência da letra na semana. Zero
-    significa que o exercício NÃO entra naquele dia — e quem chama não cria a
-    linha, em vez de criar uma com zero séries.
-
-    VOLUME PRIMEIRO, SESSÃO DEPOIS. O orçamento semanal de um grupo é o que a
-    divisão prescreve numa passagem completa, número escrito no catálogo.
-    Repetir a letra aumenta a FREQUÊNCIA; não pode multiplicar o volume junto —
-    era o que acontecia, e quatro dias em ABC davam 28 séries de peito na
-    semana contra as 14 prescritas. Sete dias davam 42.
-
-    Duas decisões moram aqui, e as duas custaram uma medição:
-
-    A dose mínima. Espalhar três séries por três ocorrências dá 1+1+1, e uma
-    série é quantidade que o catálogo nunca prescreve. Então o exercício entra
-    em MENOS dias, com dose cheia, em vez de entrar em todos diluído: as duas
-    ocorrências do dia A passam a ter exercícios diferentes, e cada uma é uma
-    sessão de verdade. A soma da semana não muda.
-
-    O giro por `ordem`. Sem ele, todos os exercícios escolhem a mesma
-    ocorrência e a primeira sessão fica cheia enquanto a última fica vazia.
-    Girando pela posição do exercício na ficha, os dois dias A ficam
-    equilibrados — 27 e 21 minutos com quatro dias, medidos com
-    `_duracao_estimada`, contra 29 e 16 da versão sem giro.
+    É o número do catálogo, sem repartir. A função existe para que o lugar
+    onde essa decisão mora tenha nome — e para que mudá-la seja uma edição, e
+    não uma arqueologia.
     """
-    # Em quantas ocorrências este exercício cabe sem furar a dose mínima.
-    quantas = max(1, min(ocorrencias, total // DOSE_MINIMA))
-    base, resto = divmod(total, quantas)
+    return item.sets
 
-    espalhado = [0] * ocorrencias
-    for i in range(quantas):
-        espalhado[(i + ordem) % ocorrencias] = base + (1 if i < resto else 0)
-    return espalhado
+
+#: Os três degraus de prioridade, do que cede primeiro ao que cede por último.
+ISOLADOR, ACESSORIO, PRINCIPAL = 0, 1, 2
+
+#: A partir de quantas séries um composto é PRINCIPAL no catálogo.
+#:
+#: Quatro, e o número não foi escolhido aqui: é o que o catálogo já usa para
+#: dizer isso. Medido nos 111 itens dos 15 modelos — todo composto que a missão
+#: chama de principal pede QUATRO séries (supino reto, agachamento, leg press,
+#: stiff, remada curvada, puxada frente), e todo composto acessório pede TRÊS
+#: (supino inclinado, desenvolvimento, mergulho, flexão de braço). A informação
+#: já estava escrita; faltava lê-la.
+SERIES_DE_PRINCIPAL = 4
+
+
+def prioridades_da_sessao(itens) -> list:
+    """Quem cede primeiro quando falta tempo ou estoura o volume semanal.
+
+    Recebe os itens NA ORDEM DA FICHA e devolve um degrau por item. Menor sai
+    antes: isolador, depois composto acessório, e o composto principal por
+    último. É a ordem que a missão escreve — "é preferível remover um isolador
+    de baixa prioridade a reduzir o Supino reto para duas séries".
+
+    PRINCIPAL não é lista de nomes, e também não é "o primeiro composto do
+    grupo" — essa foi a primeira versão e ela foi medida como errada. Puxada
+    frente e remada curvada dividem o grupo `back`, e a regra rebaixava a
+    remada a acessório só por vir depois: a sexta-feira do perfil de referência
+    perdeu a remada curvada por causa disso.
+
+    O que separa os dois é o número de séries que o CATÁLOGO pede. Quatro é
+    principal, três é acessório, e isso vale para os 111 itens dos 15 modelos.
+    O dado já existia — bastava não inventar um proxy ao lado dele.
+
+    Não usa `secondary_muscles`, e isso também foi medido: ele dá TRÊS
+    secundários para "Flexão de braço", que é acessório, e UM para
+    "Leg press 45°", que é principal. Uma régua que erra nos dois sentidos não
+    é régua.
+    """
+    # UM PRINCIPAL POR GRUPO, POR SESSÃO — e este limite é o que faltava.
+    #
+    # Sem ele, "quatro séries = principal" tornava intocáveis DOIS pressões de
+    # peito no mesmo dia (supino reto e supino inclinado pedem quatro cada), e
+    # com sete dias os dois sozinhos davam 24 séries diretas de peito na
+    # semana: medido, 27 efetivas contra um teto de 20, sem nada que o laço
+    # pudesse ceder.
+    #
+    # O segundo composto do mesmo grupo é justamente o que a missão manda
+    # ajustar antes de tocar no principal — "quantidade de exercícios que
+    # repetem o mesmo padrão". Ele vira ACESSÓRIO: continua na ficha quando cabe
+    # e é o primeiro composto a sair quando não cabe.
+    #
+    # Quem é o principal: o de MAIOR dose no grupo, desempate pela ordem da
+    # ficha. Assim o supino reto continua principal mesmo se alguém reordenar o
+    # dia, e um grupo cujo primeiro composto seja leve não promove o leve.
+    melhor_do_grupo = {}
+    for posicao, item in enumerate(itens):
+        if not item.exercise.is_compound:
+            continue
+        grupo = item.exercise.muscle_group
+        atual = melhor_do_grupo.get(grupo)
+        if atual is None or item.sets > itens[atual].sets:
+            melhor_do_grupo[grupo] = posicao
+
+    graus = []
+    for posicao, item in enumerate(itens):
+        if not item.exercise.is_compound:
+            graus.append(ISOLADOR)
+        elif melhor_do_grupo.get(item.exercise.muscle_group) == posicao:
+            graus.append(PRINCIPAL)
+        else:
+            graus.append(ACESSORIO)
+    return graus
 
 
 #: Quanto a estimativa pode passar do tempo informado: 10% do orçamento, no
@@ -289,24 +368,20 @@ def _teto_em_segundos(minutos_disponiveis) -> Decimal:
 
 
 def _segundos_da_sessao(itens) -> int:
-    """A mesma conta de `DurationMixin.estimated_minutes`, sobre tuplas.
+    """Ponte para a conta única, em `workouts.models.segundos_da_sessao`.
 
-    Repetida aqui, e não importada, porque o modelo calcula a partir de linhas
-    já gravadas e o gerador precisa da conta ANTES de gravar — é justamente ela
-    que decide o que gravar. As duas ficam presas pelo mesmo teste: o número
-    que o gerador usou para decidir tem que ser o número que a tela exibe.
+    Recebe tuplas `(séries, descanso, é_composto)`. Era uma CÓPIA da fórmula do
+    modelo, mantida em sincronia por um teste; hoje é uma chamada. O número que
+    o gerador usa para decidir é, por construção, o número que a tela exibe.
     """
-    segundos = 0
-    for sets, descanso in itens:
-        segundos += sets * SEGUNDOS_POR_SERIE
-        segundos += max(sets - 1, 0) * descanso
-    return segundos + max(len(itens) - 1, 0) * SEGUNDOS_ENTRE_EXERCICIOS
+    return segundos_da_sessao(itens)
 
 
 def escolher_para_o_tempo(itens, minutos_disponiveis) -> list:
     """Quais exercícios da sessão ficam, dado o tempo que a pessoa tem.
 
-    `itens` são tuplas (grupo_muscular, séries, descanso) NA ORDEM DA FICHA.
+    `itens` são tuplas (grupo_muscular, séries, descanso, grau) NA ORDEM DA
+    FICHA — o grau vem de `prioridades_da_sessao`.
     Devolve os índices que ficam, em ordem.
 
     O defeito que isto fecha: quem informava 30 minutos recebia sessão estimada
@@ -334,6 +409,13 @@ def escolher_para_o_tempo(itens, minutos_disponiveis) -> list:
     prioritário, porque dentro do bloco a ordem vale. Nenhum grupo do dia
     desaparece enquanto outro ainda tiver dois.
 
+    E o rodízio acontece DENTRO de um degrau de prioridade, não sobre a ficha
+    inteira. As tuplas trazem o grau (`prioridades_da_sessao`) e o laço só
+    considera o menor presente: isolador sai antes de composto acessório, que
+    sai antes de composto principal. Sem isso, uma sessão apertada cedia o
+    agachamento para poupar duas roscas — e a missão diz o contrário com todas
+    as letras.
+
     Nunca devolve lista vazia: quem informou quinze minutos ainda merece o
     exercício principal do dia.
     """
@@ -344,21 +426,134 @@ def escolher_para_o_tempo(itens, minutos_disponiveis) -> list:
     ficam = list(range(len(itens)))
 
     while len(ficam) > 1:
-        atual = [(itens[i][1], itens[i][2]) for i in ficam]
+        # A conta precisa saber se e composto: composto tem serie de
+        # aproximacao, e ela ocupa o relogio.
+        atual = [
+            (itens[i][1], itens[i][2], itens[i][3] >= ACESSORIO) for i in ficam
+        ]
         if _segundos_da_sessao(atual) <= teto:
             break
-        # O grupo com mais exercícios cede o último deles. Empate resolve pelo
-        # que aparece mais tarde na ficha — a ordem vale dentro do bloco.
+
+        # PRIORIDADE PRIMEIRO, RODÍZIO DEPOIS — e nesta ordem, porque a missão
+        # é explícita: "é preferível remover um isolador de baixa prioridade a
+        # reduzir o Supino reto". O rodízio por grupo continua valendo, mas só
+        # DENTRO do degrau que está cedendo; senão a sessão cede o composto
+        # principal de pernas para poupar duas roscas.
+        grau_minimo = min(itens[i][3] for i in ficam)
+        elegiveis = [i for i in ficam if itens[i][3] == grau_minimo]
+
         quantos = {}
-        for i in ficam:
+        for i in elegiveis:
             quantos[itens[i][0]] = quantos.get(itens[i][0], 0) + 1
         maior = max(quantos.values())
         alvo = next(
-            i for i in reversed(ficam) if quantos[itens[i][0]] == maior
+            i for i in reversed(elegiveis) if quantos[itens[i][0]] == maior
         )
         ficam.remove(alvo)
 
     return ficam
+
+
+def volume_efetivo(itens) -> dict:
+    """Séries efetivas por grupo muscular. Direta vale 1; secundária, metade.
+
+    `itens` são tuplas `(grupo, secundarios, series)`.
+
+    A regra é explícita porque a missão proíbe o contrário: "não conte uma
+    série de tríceps no supino como se fosse idêntica a uma série direta de
+    tríceps". Meia série é uma escolha — o que não podia continuar era não
+    haver escolha nenhuma, com o secundário valendo zero ou um conforme quem
+    olhasse.
+    """
+    volume = {}
+    for grupo, secundarios, series in itens:
+        volume[grupo] = volume.get(grupo, Decimal(0)) + series
+        for outro in secundarios or ():
+            volume[outro] = volume.get(outro, Decimal(0)) + series * PESO_SECUNDARIO
+    return volume
+
+
+def aparar_volume_semanal(candidatos) -> set:
+    """Quais itens da SEMANA ficam para nenhum grupo passar do teto.
+
+    `candidatos` é uma lista de `(chave, grupo, secundarios, series, grau)`, na
+    ordem em que aparecem na semana. Devolve o conjunto de chaves que FICA.
+
+    Por que existe: com a dose do catálogo valendo por sessão, repetir a letra
+    A duas vezes soma o peito duas vezes — 26 séries na semana, medido. A
+    frequência maior é desejada; o volume dobrado não.
+
+    Quem paga é o ISOLADOR, e é aí que esta função difere da solução anterior.
+    `distribuir_series` cobrava do exercício principal, derrubando o supino de
+    quatro séries para duas. Aqui o laço só remove itens do menor degrau
+    presente e **nunca um composto principal**: se o excesso só puder ser
+    resolvido cortando principal, o excesso fica.
+
+    TRÊS TRAVAS, e as três vieram de medição no perfil de referência:
+
+    1. **só sai quem treina o grupo DIRETAMENTE.** Sem isso, o laço tentava
+       resolver o excesso de core apagando a prancha abdominal — e o excesso
+       vinha de agachamento e stiff, que contam meia série cada para o core e
+       continuavam lá. Apagar o único trabalho direto do grupo "com volume
+       demais" é o avesso do objetivo;
+    2. **nunca o último exercício direto de um grupo.** Sem isso, antebraço
+       saía inteiro da semana. Grupo com um exercício só não tem gordura para
+       cortar: se ele estoura, o excesso é secundário e a resposta é não mexer;
+    3. **cede a sessão mais CHEIA, não a última da semana.** A primeira versão
+       tirava sempre do fim; medido, a sexta-feira ficava com dois exercícios e
+       onze minutos para quem informou noventa. Esvaziar a segunda passagem não
+       é reduzir volume, é apagar um treino. Tirando da sessão mais cheia, as
+       duas passagens afinam juntas e ficam com exercícios DIFERENTES — que é
+       variedade, não perda.
+
+    Determinístico de propósito: `prescrever_semana` é chamada pelo gerador E
+    pela conferência de ficha atual, e uma divergência de um item faria a tela
+    remontar a rotina em laço.
+    """
+    ficam = {c[0] for c in candidatos}
+
+    while True:
+        volume = volume_efetivo(
+            [(c[1], c[2], c[3]) for c in candidatos if c[0] in ficam]
+        )
+        pendentes = sorted(
+            (g for g, v in volume.items() if v > TETO_SEMANAL_POR_GRUPO),
+            key=lambda g: (volume[g], g),
+            reverse=True,
+        )
+
+        alvo = None
+        for pior in pendentes:
+            diretos_vivos = {}
+            for c in candidatos:
+                if c[0] in ficam:
+                    diretos_vivos[c[1]] = diretos_vivos.get(c[1], 0) + 1
+            if diretos_vivos.get(pior, 0) <= 1:
+                continue
+
+            podem = [
+                c
+                for c in candidatos
+                if c[0] in ficam and c[4] < PRINCIPAL and c[1] == pior
+            ]
+            if not podem:
+                continue
+
+            vivos_por_sessao = {}
+            for c in candidatos:
+                if c[0] in ficam:
+                    vivos_por_sessao[c[0][0]] = vivos_por_sessao.get(c[0][0], 0) + 1
+
+            grau_minimo = min(c[4] for c in podem)
+            do_grau = [c for c in podem if c[4] == grau_minimo]
+            mais_cheia = max(vivos_por_sessao[c[0][0]] for c in do_grau)
+            alvo = [c for c in do_grau if vivos_por_sessao[c[0][0]] == mais_cheia][-1]
+            break
+
+        if alvo is None:
+            # Nenhum grupo acima do teto tem o que ceder sem desmontar o treino.
+            return ficam
+        ficam.discard(alvo[0])
 
 
 def prescrever_semana(sessoes, modelos) -> dict:
@@ -372,22 +567,28 @@ def prescrever_semana(sessoes, modelos) -> dict:
 
     Junta as três decisões que moldam a ficha, nesta ordem:
 
-    1. `distribuir_series` reparte o volume semanal entre as ocorrências da
-       letra, para repetir o dia aumentar a frequência e não o total;
-    2. exercício sem séries nesta ocorrência não entra — ficou para a outra;
-    3. `caber_no_tempo` corta a cauda até a sessão caber no tempo informado.
+    1. cada sessão nasce com a dose CHEIA do catálogo — `dose_da_sessao`. O
+       número escrito no modelo é o que a pessoa faz naquele dia;
+    2. `aparar_volume_semanal` tira ISOLADORES até nenhum grupo passar do teto
+       da semana, porque repetir a letra multiplica o volume;
+    3. `escolher_para_o_tempo` corta, também por prioridade, até a sessão caber
+       no tempo informado.
 
-    A ordem importa: o tempo é a última palavra porque é o limite mais duro. O
-    orçamento de volume diz o que a divisão QUER; o relógio diz o que a pessoa
-    TEM. Quando os dois brigam, quem tem trinta minutos recebe menos exercício,
-    não uma sessão de cinquenta.
+    A ordem importa. O volume vem antes do relógio porque ele remove o que é
+    redundante — o terceiro isolador de peito na segunda passagem do dia A —, e
+    isso deixa menos trabalho para o corte por tempo, que é mais cego. O tempo
+    é a última palavra porque é o limite mais duro: quem tem trinta minutos
+    recebe menos exercício, não uma sessão de cinquenta.
+
+    O QUE MUDOU EM 08/09/2026. A etapa 1 era `distribuir_series`, que repartia
+    o número do catálogo entre as ocorrências da letra e derrubava o Supino reto
+    para duas séries num perfil com noventa minutos livres. A frequência maior
+    continua não podendo multiplicar o volume — mas quem paga isso agora é o
+    isolador, na etapa 2, e não o exercício principal.
     """
-    ocorrencias = {}
-    for sessao in sessoes:
-        ocorrencias[sessao.label] = ocorrencias.get(sessao.label, 0) + 1
-
     vistas = {}
-    prescricao = {}
+    por_sessao = {}
+    ordem_semanal = []
     for sessao in sessoes:
         modelo = modelos.get(sessao.label)
         if modelo is None:
@@ -395,23 +596,52 @@ def prescrever_semana(sessoes, modelos) -> dict:
         indice = vistas.get(sessao.label, 0)
         vistas[sessao.label] = indice + 1
 
-        candidatos = []
-        for ordem, item in enumerate(modelo.items.all()):
-            series = distribuir_series(
-                item.sets, ocorrencias[sessao.label], ordem
-            )[indice]
-            if series:
-                candidatos.append((item, series))
+        # EXERCÍCIO INATIVO NÃO ENTRA EM PLANO NOVO, e esta linha é a trava
+        # estrutural — não a limpeza do catálogo.
+        #
+        # Aposentar um exercício é `is_active=False`, porque apagar levaria o
+        # histórico junto (`ExerciseLog.exercise` é CASCADE). Mas desativar
+        # sozinho não o tirava das fichas: o modelo continuava apontando para
+        # ele e o gerador copiava sem perguntar. Com este filtro, qualquer
+        # exercício aposentado some das prescrições NOVAS no mesmo instante,
+        # mesmo que algum modelo ainda o referencie.
+        itens = [item for item in modelo.items.all() if item.exercise.is_active]
+        graus = prioridades_da_sessao(itens)
+        candidatos = [
+            (item, dose_da_sessao(item), grau)
+            for item, grau in zip(itens, graus)
+            if dose_da_sessao(item) > 0
+        ]
+        por_sessao[sessao.pk] = (sessao, candidatos)
+        for posicao, (item, series, grau) in enumerate(candidatos):
+            ordem_semanal.append(
+                (
+                    (sessao.pk, item.exercise_id),
+                    item.exercise.muscle_group,
+                    tuple(item.exercise.secondary_muscles or ()),
+                    Decimal(series),
+                    grau,
+                )
+            )
 
+    sobrevivem = aparar_volume_semanal(ordem_semanal)
+
+    prescricao = {}
+    for sessao_pk, (sessao, candidatos) in por_sessao.items():
+        restantes = [
+            (item, series, grau)
+            for item, series, grau in candidatos
+            if (sessao_pk, item.exercise_id) in sobrevivem
+        ]
         ficam = escolher_para_o_tempo(
             [
-                (item.exercise.muscle_group, series, item.rest_seconds)
-                for item, series in candidatos
+                (item.exercise.muscle_group, series, item.rest_seconds, grau)
+                for item, series, grau in restantes
             ],
             sessao.duration_min,
         )
         for i in ficam:
-            item, series = candidatos[i]
+            item, series, _grau = restantes[i]
             prescricao[(sessao.pk, item.exercise_id)] = (series, item)
     return prescricao
 

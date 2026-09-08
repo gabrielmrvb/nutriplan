@@ -262,7 +262,10 @@
       "forearms",
       "core"
     ],
-    "video_titulo": "Remada curvada pronada barra"
+    "video_titulo": "Remada curvada pronada barra",
+    "active": false,
+    "aposentado_em": "2026-09-08",
+    "aposentado_porque": "Decisao de produto: a versao ativa do movimento saiu do uso ativo. Substituida por 'Remada baixa na polia' — mesmo grupo primario, mesmo padrao de puxada horizontal. A linha CONTINUA no catalogo, com o video, porque `ExerciseLog.exercise` e CASCADE e apagar levaria o historico junto."
   },
   {
     "name": "Remada unilateral com halter",

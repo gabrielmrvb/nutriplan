@@ -564,32 +564,82 @@ SEGUNDOS_POR_SERIE = 40
 #: gasta.
 SEGUNDOS_ENTRE_EXERCICIOS = 45
 
+#: Chegar, trocar de roupa não conta — mas subir a frequência cardíaca, soltar
+#: o quadril e o ombro, sim. Cinco minutos é o que uma preparação honesta leva,
+#: e ela acontece uma vez por sessão.
+AQUECIMENTO_GERAL_SEGUNDOS = 300
+
+#: Séries de aproximação num exercício COMPOSTO, que não são séries de trabalho.
+#:
+#: Ninguém deita no supino direto na carga de trabalho. Duas aproximações, cada
+#: uma com execução curta e um descanso menor que o da série pesada: 2 × (20s de
+#: execução + 45s de pausa) = 130s. Elas não entram em `sets` — `sets` é volume
+#: de trabalho, e contá-las ali inflaria o histórico de carga — mas ocupam o
+#: relógio e por isso entram AQUI.
+AQUECIMENTO_DO_COMPOSTO_SEGUNDOS = 130
+
+
+def segundos_da_sessao(itens) -> int:
+    """Quanto a sessão leva, em segundos. A ÚNICA conta de duração do projeto.
+
+    `itens` são tuplas `(séries, descanso, é_composto)` na ordem da ficha.
+
+    Existia em duas cópias — aqui e em `services._segundos_da_sessao` —, uma
+    sobre linhas gravadas e outra sobre tuplas, porque o gerador precisa da
+    conta ANTES de gravar. O comentário de lá admitia a duplicação e dizia que
+    um teste prendia as duas. Prender duas cópias é melhor que nada e pior que
+    ter uma; agora as duas chamam esta.
+
+    A conta é série a série, e não uma média por exercício, porque o descanso é
+    o que domina: agachamento com séries pesadas custa mais tempo que quatro
+    isolados somados.
+
+    O QUE MUDOU EM 08/09/2026, e cada item é um minuto que a estimativa
+    escondia:
+
+    - **aquecimento**, geral e de aproximação nos compostos. A versão anterior
+      começava a contar na primeira série de trabalho;
+    - **a troca entre exercícios é o MAIOR entre o descanso e a caminhada.**
+      Antes eram 45 segundos fixos, e quem descansa 80 entre séries não troca de
+      aparelho em 45. É também onde o descanso depois da última série de cada
+      exercício voltou a ser contado: ele existe, e se confunde com a troca —
+      por isso um `max`, e não uma soma;
+    - nada depois do último exercício: ali a pessoa vai embora.
+    """
+    if not itens:
+        return 0
+
+    segundos = AQUECIMENTO_GERAL_SEGUNDOS
+    ultimo = len(itens) - 1
+    for posicao, (series, descanso, composto) in enumerate(itens):
+        if composto:
+            segundos += AQUECIMENTO_DO_COMPOSTO_SEGUNDOS
+        segundos += series * SEGUNDOS_POR_SERIE
+        segundos += max(series - 1, 0) * descanso
+        if posicao < ultimo:
+            segundos += max(descanso, SEGUNDOS_ENTRE_EXERCICIOS)
+    return segundos
+
 
 class DurationMixin:
     """Estimativa de quanto a sessão leva, em minutos.
 
-    A conta é série a série, e não uma média por exercício, porque o descanso
-    é o que domina: agachamento com três minutos entre séries pesadas custa
-    mais tempo que quatro exercícios de isolado somados.
-
-    O último descanso de cada exercício não é contado — ele se confunde com a
-    troca para o próximo, e contar os dois inflaria a estimativa em vários
-    minutos numa ficha longa.
+    A conta mora em `segundos_da_sessao`, e este mixin só a alimenta com as
+    linhas que ele tem. Uma fonte, dois chamadores.
     """
 
     @property
     def estimated_minutes(self) -> int:
         itens = list(self.items.all() if hasattr(self, "items") else self.exercises.all())
-        if not itens:
-            return 0
-
-        segundos = 0
-        for item in itens:
-            segundos += item.sets * SEGUNDOS_POR_SERIE
-            segundos += max(item.sets - 1, 0) * item.rest_seconds
-        segundos += max(len(itens) - 1, 0) * SEGUNDOS_ENTRE_EXERCICIOS
-
-        return round(segundos / 60)
+        return round(
+            segundos_da_sessao(
+                [
+                    (item.sets, item.rest_seconds, item.exercise.is_compound)
+                    for item in itens
+                ]
+            )
+            / 60
+        )
 
 
 class WorkoutTemplate(DurationMixin, models.Model):

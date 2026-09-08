@@ -27,11 +27,18 @@ As três dependem de condição que não existia no dia da publicação:
    ser vistas no estado de descanso. O código está provadamente publicado
    (`ring--treino` presente no CSS servido) e o comportamento foi validado
    localmente num estado controlado, com os dois lados na mesma sessão.
-2. **Login e logout com conta QA.** Não existe credencial de teste em produção,
-   e a conta do dono não é ferramenta de QA.
-3. **Atualização do anel após registrar série de verdade.** Exige escrita em
-   produção; o demo é público e a escrita seria visível a qualquer visitante. O
-   mecanismo foi verificado localmente com o mesmo código.
+2. ✅ **RESOLVIDO em 08/09/2026 — login e logout com conta QA.** O cadastro não
+   exige confirmação de e-mail (`ACCOUNT_EMAIL_VERIFICATION = "none"`), então uma
+   conta QA PRÓPRIA resolve sem tocar na conta do dono e sem usar o demo. Criada
+   nesta execução: **`qa-carga-offline-v2@example.com`** (pk 66). Login, logout e
+   "rota privada volta a pedir sessão depois do logout" medidos em produção.
+3. ✅ **RESOLVIDO em 08/09/2026 — escrita real em produção.** A objeção era o
+   demo ser público; uma conta QA própria não tem esse problema — o que ela grava
+   é dela. Medido em produção: registrar série (4→5), reenviar o MESMO `op_id`
+   (5→6, uma escrita só), desfazer (6→5) e o ciclo offline inteiro (5→8, três
+   toques, três itens, `op_id` distintos, `seq` na ordem, fila zerada).
+   A contagem NÃO saiu da tela — `estado.series_feitas` clipa série extra. Saiu do
+   `<Notes>` do TCX, que é `len(logs)` cru.
 
 ### Regra de diagnóstico que esta campanha deixou
 
