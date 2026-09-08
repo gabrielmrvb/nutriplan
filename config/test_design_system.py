@@ -71,7 +71,9 @@ TETO_FONT_SIZE_CRU = 135
 #: `margin-right: .3rem` e virou régua de 1px com `padding-left` na escala.
 #: A troca conserta um desalinhamento real — o "·" era inline dentro de um
 #: item `display: block` e roubava uma linha inteira das três últimas colunas.
-TETO_ESPACO_CRU = 276
+#: 275 quando o tile de Progresso deixou de ser cartão dentro de cartão: o
+#: padding dele virou degrau da escala junto com a moldura que saiu.
+TETO_ESPACO_CRU = 275
 
 
 def sem_comentarios(texto):

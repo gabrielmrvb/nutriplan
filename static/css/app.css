@@ -1088,13 +1088,22 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr)); gap: .55rem; }
 
+/* O TILE deixou de ser um cartão.
+
+   Ele vivia dentro de um `.card`: fundo próprio, quina própria e `--inlay`,
+   que desenha uma borda por dentro. Três caixas com borda dentro de uma caixa
+   com borda — e o conteúdo eram três números, que é justamente o que a tela
+   de Progresso existe para mostrar. Moldura repetida não organiza número
+   nenhum; ela só divide a atenção que o número deveria receber inteira.
+
+   O que separa agora é a régua de 1px entre as colunas, o mesmo gesto do
+   resumo do dia. E o que sobra de peso visual vai para o valor. */
 .tile {
-  padding: .85rem .6rem;
-  border-radius: var(--radius);
-  background: var(--surface-2);
-  box-shadow: var(--inlay);
+  padding: .2rem var(--espaco-4);
   text-align: center;
 }
+
+.tiles > .tile + .tile { border-left: 1px solid var(--border); }
 
 .tile__value {
   display: block;
@@ -3296,8 +3305,6 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 .semanas > .semana .semana__media { grid-column: 1; grid-row: 1; }
 .semanas > .semana .semana__delta { grid-column: 2; grid-row: 1; }
 .semanas > .semana .semana__data { grid-column: 1 / -1; grid-row: 2; }
-.semana__n { display: inline; }
-.semana__n::before { content: " · "; }
 
 /* O PESO É O DADO PRINCIPAL DESTA TELA, e estava do tamanho do texto ao lado.
 
@@ -3310,7 +3317,21 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
    A primeira linha da lista é a semana MAIS RECENTE (`reversed` no template),
    e é ela que carrega o peso de agora. */
 .semana__data { color: var(--text-mute); font-size: var(--texto-xs); }
-.semana__n { display: block; color: var(--text-mute); font-size: var(--texto-xs); }
+.semana__n::before { content: " · "; }
+
+.semana__n {
+  /* `inline`, e não `block`. Este seletor tinha DUAS declarações de `display`
+     no arquivo — `inline` lá em cima, junto do `::before` que desenha o " · ",
+     e `block` aqui. A de baixo vencia, então o ponto que existe para LIGAR a
+     contagem à data caía sozinho no começo de uma linha nova: "semana de
+     07/09" e, embaixo, "· 1 pesagem".
+
+     É a mesma colisão de seletor repetido que já derrubou `.semana` uma vez
+     nesta folha. A correção é ter uma declaração só. */
+  display: inline;
+  color: var(--text-mute);
+  font-size: var(--texto-xs);
+}
 .semana__media {
   font-weight: 780;
   font-size: var(--texto-xl);
