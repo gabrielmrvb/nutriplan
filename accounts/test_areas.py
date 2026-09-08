@@ -76,11 +76,12 @@ class BaseDeAreas(TestCase):
         """
         pares = {}
         for m in re.finditer(
-            r'<a class="mapa__area[^"]*"[^>]*?href="([^"]+)"[^>]*>(.*?)</a>',
+            r'<a class="(?:mapa__area|modulo)[^"]*"[^>]*?href="([^"]+)"[^>]*>(.*?)</a>',
             html, re.S,
         ):
-            achado = re.search(r'<span class="mapa__nome"[^>]*>(.*?)</span>',
-                               m.group(2), re.S)
+            achado = re.search(
+                r'<span class="(?:mapa__nome|modulo__nome)"[^>]*>(.*?)</span>',
+                m.group(2), re.S)
             corpo = achado.group(1) if achado else ""
             texto = " ".join(re.sub(r"<[^>]+>", " ", corpo).split())
             pares[m.group(1)] = texto.replace(" principal", "")
@@ -181,7 +182,7 @@ class ATelaDeAreasNaoSeMarcaComoDestinoTests(BaseDeAreas):
 
     def areas_recorte(self, html):
         """Só as entradas — a barra de baixo também tem `aria-current`."""
-        return "".join(re.findall(r'<a class="mapa__area.*?</a>', html, re.S))
+        return "".join(re.findall(r'<a class="(?:mapa__area|modulo).*?</a>', html, re.S))
 
 
 class OSeloDaAreaPrincipalTests(BaseDeAreas):
@@ -190,7 +191,7 @@ class OSeloDaAreaPrincipalTests(BaseDeAreas):
 
         html = self.areas()
 
-        entrada = [t for t in re.findall(r'<a class="mapa__area.*?</a>', html, re.S)
+        entrada = [t for t in re.findall(r'<a class="(?:mapa__area|modulo).*?</a>', html, re.S)
                    if reverse("workouts:corridas") in t]
         self.assertEqual(len(entrada), 1, html)
         self.assertIn("principal", entrada[0])
@@ -256,7 +257,8 @@ class ODemoNaoPerdeOPrefixoTests(TestCase):
     def test_as_entradas_apontam_para_dentro_do_demo(self):
         html = self.client.get("/demo/areas/").content.decode()
 
-        entradas = re.findall(r'<a class="mapa__area[^"]*"[^>]*?href="([^"]+)"', html)
+        entradas = re.findall(
+            r'<a class="(?:mapa__area|modulo)[^"]*"[^>]*?href="([^"]+)"', html)
 
         self.assertTrue(entradas, html[:400])
         for destino in entradas:
@@ -325,7 +327,7 @@ class OCustoDaTelaDeAreasEstaMedidoTests(BaseDeAreas):
         with self.assertNumQueries(6):
             resposta = self.client.get(reverse("areas"))
 
-        linhas = resposta.content.decode().count('class="mapa__area')
+        linhas = resposta.content.decode().count('class="modulo')
         self.assertGreaterEqual(
             linhas, 4, "a tela precisa ter várias linhas para a medição valer"
         )

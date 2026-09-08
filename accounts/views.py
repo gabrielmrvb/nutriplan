@@ -988,14 +988,22 @@ class AreasView(OnboardingRequiredMixin, TemplateView):
             ).first()
             bebido = registro.ml if registro else 0
             if meta:
-                fatos["hidratacao"] = f"{bebido} de {meta} ml hoje"
+                # Valor e rotulo separados porque a tela agora e uma GRADE: o
+                # numero e o protagonista do modulo e o rotulo orbita embaixo
+                # dele. Uma frase unica ("1600 de 2500 ml hoje") obrigaria o
+                # template a fatiar texto para achar o numero.
+                fatos["hidratacao"] = {
+                    "valor": f"{bebido}",
+                    "rotulo": f"de {meta} ml hoje",
+                }
 
         corridas = Corrida.objects.filter(user=self.request.user).count()
         if corridas:
-            fatos["corrida"] = (
-                "1 corrida registrada" if corridas == 1
-                else f"{corridas} corridas registradas"
-            )
+            fatos["corrida"] = {
+                "valor": f"{corridas}",
+                "rotulo": "corrida registrada" if corridas == 1
+                          else "corridas registradas",
+            }
         return fatos
 
 

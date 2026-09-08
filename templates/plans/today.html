@@ -80,6 +80,144 @@ coluna da direita), não entre ela e o almoço.
         {% endif %}
       </section>
 
+      {% comment %}
+        O PAINEL DO DIA SOBE PARA A SEGUNDA POSIÇÃO.
+
+        Ele vivia na SEXTA: depois do resumo, da pesagem, das cinco
+        refeições e da ofensiva — perto de dois mil pixels abaixo do topo.
+        E ele é a resposta visual a "como estou hoje?", que é a primeira
+        pergunta de quem abre o app. O anel, o saldo e a barra de macros
+        respondiam isso para quem tivesse rolado a tela inteira.
+
+        A ordem agora é a das perguntas: AGORA diz o que fazer em seguida,
+        este painel diz como o dia está, e só então vem a lista de comida.
+        Nada foi duplicado — o bloco é o mesmo, mudou de lugar.
+      {% endcomment %}
+      {# ---------------- Painel do dia ---------------- #}
+      <section class="card today-hero">
+        <div class="ring" style="--pct: {{ summary.progress_pct }}"
+             role="img"
+             aria-label="{{ summary.consumed_kcal }} de {{ summary.target_kcal }} kcal">
+          <span class="ring__inner">
+            <strong class="ring__value">{{ summary.consumed_kcal }}</strong>
+            <span class="ring__unit">kcal hoje</span>
+            <span class="ring__of">de {{ summary.target_kcal }}</span>
+          </span>
+        </div>
+
+        {% comment %}
+          Três linhas de texto em vez de pílulas empilhadas: no celular cada
+          pílula virava uma linha própria e o resumo do dia sozinho ocupava
+          metade da tela — empurrando a comida, que é o motivo de abrir o app,
+          para fora da primeira dobra.
+        {% endcomment %}
+        <div class="today-hero__facts">
+          <p class="today-hero__left">
+            {% if summary.remaining_kcal > 0 %}
+              faltam <b class="num">{{ summary.remaining_kcal }} kcal</b>
+            {% else %}
+              <b>meta atingida</b>
+            {% endif %}
+          </p>
+          <p class="today-hero__meta num">
+            {{ summary.no_plano }}/{{ summary.previstas }} refeições{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}
+          </p>
+          {% comment %}
+            A meta saiu daqui porque já estava três centímetros acima.
+
+            O anel escreve "de {{ summary.target_kcal }}" logo abaixo do número
+            do dia. Repetida aqui como "· meta 2765 kcal", ela empurrava a
+            frase para QUATRO linhas numa coluna de 159px — medido na tela —,
+            e o "meta 2765 kcal" sozinho já ocupava duas. Sobrou a informação
+            que só esta linha dá: de que lado da conta a pessoa está, e quanto.
+          {% endcomment %}
+          <p class="today-hero__balance balance--{{ balance.kind }}">
+            {% if balance.kind == 'balance' %}
+              Sem déficit nem superávit
+            {% elif balance.kind == 'piso' %}
+              {% comment %}
+                A meta subiu até o mínimo seguro, então ela ficou ACIMA do
+                gasto mesmo com objetivo de emagrecer. Dizer "Superávit
+                recomendado" aqui seria a tela recomendar o contrário do que a
+                pessoa pediu — e ela dizia isso três linhas acima da nota do
+                plano explicando que o emagrecimento ficou mais lento.
+              {% endcomment %}
+              Meta no mínimo seguro
+              <b class="num">+{{ balance.abs_kcal }} kcal/dia</b>
+            {% else %}
+              {% if balance.kind == 'deficit' %}Déficit{% else %}Superávit{% endif %}
+              <b class="num">
+                {% if balance.kind == 'deficit' %}−{% else %}+{% endif %}{{ balance.abs_kcal }} kcal/dia
+              </b>
+            {% endif %}
+          </p>
+        </div>
+
+        {% comment %}
+          A divisão de macros no painel, e não só na coluna da direita.
+
+          "P 0 · C 0 · G 0" era texto: três números soltos que não dizem
+          proporção nenhuma. E a barra empilhada que DIZ mora no cartão de
+          macros, que no celular fica depois das cinco refeições — quase dois
+          mil pixels de rolagem abaixo do único lugar em que a pessoa olha
+          antes de escolher o almoço.
+
+          A barra sobe para cá, a lista completa continua lá embaixo. Aqui é o
+          relance ("já bati proteína?"); lá é a consulta.
+
+          A faixa ocupa a largura toda do painel e não a coluna estreita ao
+          lado do anel: proporção de três partes num vão de 150px não se lê.
+        {% endcomment %}
+        <div class="hero-macros">
+          {% comment %}
+            A largura da faixa é a divisão do macro; o preenchimento dentro
+            dela é o quanto já foi comido. Antes só existia a divisão, e a
+            barra aparecia cheia mesmo com nada consumido — bem acima de
+            "P 0 /148" e ao lado da barra de água, que mostra vazio com 0 ml.
+          {% endcomment %}
+          <div class="macro-bar macro-bar--hero"
+               role="img"
+               aria-label="{% for macro in macros %}{{ macro.name }} {{ macro.eaten }} de {{ macro.grams }} g{% if not forloop.last %}, {% endif %}{% endfor %}">
+            {% for macro in macros %}
+              <span class="macro-bar__part macro-bar__part--{{ macro.slug }}"
+                    style="width: {{ macro.pct }}%; --comido: {{ macro.eaten_pct }}%"
+                    title="{{ macro.name }}"></span>
+            {% endfor %}
+          </div>
+          <ul class="hero-macros__legenda">
+            {% for macro in macros %}
+              {% comment %}
+                A proteína carrega uma classe a mais, e é a única que carrega.
+
+                Caloria já tem a hierarquia mais alta desta tela — está no anel,
+                em corpo grande, sozinha. Faltava o segundo degrau: dos três
+                macros, proteína é o que muda a decisão da próxima refeição.
+                Carboidrato e gordura acompanham o cardápio quase sozinhos;
+                proteína é a que fica devendo, e é por ela que existe o aviso de
+                cobertura no fim do dia.
+
+                Empatados os três, a pergunta "já bati proteína?" — que é a que
+                se faz várias vezes por dia — custava uma varredura entre três
+                números do mesmo tamanho.
+              {% endcomment %}
+              <li class="hero-macros__item{% if macro.slug == 'protein' %} hero-macros__item--chave{% endif %}">
+                <span class="macro-dot macro-dot--{{ macro.slug }}" aria-hidden="true"></span>
+                {% comment %}
+                  A inicial é escrita, não é a palavra inteira cortada por
+                  `overflow`. Cortar "Proteína" em 1ch deixava meia perna do P
+                  na tela — e o leitor de tela recebia a palavra toda no meio
+                  dos números, sem dizer que aquilo era um rótulo.
+                {% endcomment %}
+                <span class="hero-macros__nome" aria-hidden="true">{{ macro.name|slice:":1" }}</span>
+                <b class="hero-macros__valor num">{{ macro.eaten }}</b>
+                <span class="hero-macros__meta num">/{{ macro.grams }}</span>
+                <span class="vis-oculto">g de {{ macro.name|lower }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </section>
+
       {# ---------------- Resumo do dia ---------------- #}
       {% comment %}
         Uma linha, e não uma fileira de cartões de número.
@@ -116,15 +254,20 @@ coluna da direita), não entre ela e o almoço.
         água e treino já estavam no contexto; três deles já estavam nesta
         linha.
       {% endcomment %}
-      <p class="resumo-dia">
-        <span class="resumo-dia__item">
-          <b class="resumo-dia__valor num">{{ summary.consumed_kcal }}</b>
-          <span class="resumo-dia__rotulo">de {{ summary.target_kcal }} kcal</span>
-        </span>
-        <span class="resumo-dia__item">
-          <b class="resumo-dia__valor num">{{ summary.no_plano }}/{{ summary.previstas }}</b>
-          <span class="resumo-dia__rotulo">refeições{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}</span>
-        </span>
+      {% comment %}
+        CALORIA E REFEIÇÕES SAÍRAM DAQUI no V2, e a razão é o painel do dia,
+        que subiu para a segunda posição da tela.
+
+        Enquanto o painel morava lá embaixo, esta linha era o único lugar em
+        que a caloria aparecia na primeira dobra — e por isso ela entrou aqui.
+        Com o painel agora três centímetros acima, mostrando o mesmo 968 de
+        2765 dentro do anel e as mesmas 2/5 refeições ao lado dele, repetir os
+        dois aqui é dizer duas vezes a mesma coisa em telas de 390px.
+
+        Sobrou o que o painel NÃO responde: quanta água e se há treino. É essa
+        a função da linha agora — completar o painel, não resumi-lo.
+      {% endcomment %}
+      <p class="resumo-dia resumo-dia--complemento">
         <span class="resumo-dia__item">
           <b class="resumo-dia__valor num">{{ hidratacao_bebida }}</b>
           <span class="resumo-dia__rotulo">de {{ hidratacao_ml }} ml</span>
@@ -588,130 +731,6 @@ coluna da direita), não entre ela e o almoço.
           {% endif %}
         </section>
 
-      {# ---------------- Painel do dia ---------------- #}
-      <section class="card today-hero">
-        <div class="ring" style="--pct: {{ summary.progress_pct }}"
-             role="img"
-             aria-label="{{ summary.consumed_kcal }} de {{ summary.target_kcal }} kcal">
-          <span class="ring__inner">
-            <strong class="ring__value">{{ summary.consumed_kcal }}</strong>
-            <span class="ring__unit">kcal hoje</span>
-            <span class="ring__of">de {{ summary.target_kcal }}</span>
-          </span>
-        </div>
-
-        {% comment %}
-          Três linhas de texto em vez de pílulas empilhadas: no celular cada
-          pílula virava uma linha própria e o resumo do dia sozinho ocupava
-          metade da tela — empurrando a comida, que é o motivo de abrir o app,
-          para fora da primeira dobra.
-        {% endcomment %}
-        <div class="today-hero__facts">
-          <p class="today-hero__left">
-            {% if summary.remaining_kcal > 0 %}
-              faltam <b class="num">{{ summary.remaining_kcal }} kcal</b>
-            {% else %}
-              <b>meta atingida</b>
-            {% endif %}
-          </p>
-          <p class="today-hero__meta num">
-            {{ summary.no_plano }}/{{ summary.previstas }} refeições{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}
-          </p>
-          {% comment %}
-            A meta saiu daqui porque já estava três centímetros acima.
-
-            O anel escreve "de {{ summary.target_kcal }}" logo abaixo do número
-            do dia. Repetida aqui como "· meta 2765 kcal", ela empurrava a
-            frase para QUATRO linhas numa coluna de 159px — medido na tela —,
-            e o "meta 2765 kcal" sozinho já ocupava duas. Sobrou a informação
-            que só esta linha dá: de que lado da conta a pessoa está, e quanto.
-          {% endcomment %}
-          <p class="today-hero__balance balance--{{ balance.kind }}">
-            {% if balance.kind == 'balance' %}
-              Sem déficit nem superávit
-            {% elif balance.kind == 'piso' %}
-              {% comment %}
-                A meta subiu até o mínimo seguro, então ela ficou ACIMA do
-                gasto mesmo com objetivo de emagrecer. Dizer "Superávit
-                recomendado" aqui seria a tela recomendar o contrário do que a
-                pessoa pediu — e ela dizia isso três linhas acima da nota do
-                plano explicando que o emagrecimento ficou mais lento.
-              {% endcomment %}
-              Meta no mínimo seguro
-              <b class="num">+{{ balance.abs_kcal }} kcal/dia</b>
-            {% else %}
-              {% if balance.kind == 'deficit' %}Déficit{% else %}Superávit{% endif %}
-              <b class="num">
-                {% if balance.kind == 'deficit' %}−{% else %}+{% endif %}{{ balance.abs_kcal }} kcal/dia
-              </b>
-            {% endif %}
-          </p>
-        </div>
-
-        {% comment %}
-          A divisão de macros no painel, e não só na coluna da direita.
-
-          "P 0 · C 0 · G 0" era texto: três números soltos que não dizem
-          proporção nenhuma. E a barra empilhada que DIZ mora no cartão de
-          macros, que no celular fica depois das cinco refeições — quase dois
-          mil pixels de rolagem abaixo do único lugar em que a pessoa olha
-          antes de escolher o almoço.
-
-          A barra sobe para cá, a lista completa continua lá embaixo. Aqui é o
-          relance ("já bati proteína?"); lá é a consulta.
-
-          A faixa ocupa a largura toda do painel e não a coluna estreita ao
-          lado do anel: proporção de três partes num vão de 150px não se lê.
-        {% endcomment %}
-        <div class="hero-macros">
-          {% comment %}
-            A largura da faixa é a divisão do macro; o preenchimento dentro
-            dela é o quanto já foi comido. Antes só existia a divisão, e a
-            barra aparecia cheia mesmo com nada consumido — bem acima de
-            "P 0 /148" e ao lado da barra de água, que mostra vazio com 0 ml.
-          {% endcomment %}
-          <div class="macro-bar macro-bar--hero"
-               role="img"
-               aria-label="{% for macro in macros %}{{ macro.name }} {{ macro.eaten }} de {{ macro.grams }} g{% if not forloop.last %}, {% endif %}{% endfor %}">
-            {% for macro in macros %}
-              <span class="macro-bar__part macro-bar__part--{{ macro.slug }}"
-                    style="width: {{ macro.pct }}%; --comido: {{ macro.eaten_pct }}%"
-                    title="{{ macro.name }}"></span>
-            {% endfor %}
-          </div>
-          <ul class="hero-macros__legenda">
-            {% for macro in macros %}
-              {% comment %}
-                A proteína carrega uma classe a mais, e é a única que carrega.
-
-                Caloria já tem a hierarquia mais alta desta tela — está no anel,
-                em corpo grande, sozinha. Faltava o segundo degrau: dos três
-                macros, proteína é o que muda a decisão da próxima refeição.
-                Carboidrato e gordura acompanham o cardápio quase sozinhos;
-                proteína é a que fica devendo, e é por ela que existe o aviso de
-                cobertura no fim do dia.
-
-                Empatados os três, a pergunta "já bati proteína?" — que é a que
-                se faz várias vezes por dia — custava uma varredura entre três
-                números do mesmo tamanho.
-              {% endcomment %}
-              <li class="hero-macros__item{% if macro.slug == 'protein' %} hero-macros__item--chave{% endif %}">
-                <span class="macro-dot macro-dot--{{ macro.slug }}" aria-hidden="true"></span>
-                {% comment %}
-                  A inicial é escrita, não é a palavra inteira cortada por
-                  `overflow`. Cortar "Proteína" em 1ch deixava meia perna do P
-                  na tela — e o leitor de tela recebia a palavra toda no meio
-                  dos números, sem dizer que aquilo era um rótulo.
-                {% endcomment %}
-                <span class="hero-macros__nome" aria-hidden="true">{{ macro.name|slice:":1" }}</span>
-                <b class="hero-macros__valor num">{{ macro.eaten }}</b>
-                <span class="hero-macros__meta num">/{{ macro.grams }}</span>
-                <span class="vis-oculto">g de {{ macro.name|lower }}</span>
-              </li>
-            {% endfor %}
-          </ul>
-        </div>
-      </section>
     </div>
 
     {# ------------- Os números: consulta, não ação ------------- #}

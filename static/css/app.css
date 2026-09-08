@@ -1072,6 +1072,87 @@ h3 {
   text-transform: uppercase;
 }
 
+ /* MÓDULOS — a grade que substituiu a lista de Áreas.
+
+   Duas colunas a 390px porque três deixam o número apertado e uma vira a
+   lista de novo. O módulo é alto o bastante para o valor respirar e curto o
+   bastante para os quatro primeiros caberem sem rolagem, que é o que faz um
+   hub ser hub: a escolha inteira visível de uma vez.
+
+   `align-content: start` no conteúdo e o valor empurrado para baixo por
+   `margin-top: auto`: assim o nome alinha no topo entre módulos de altura
+   diferente e o número alinha na base, que é onde o olho compara. */
+.modulos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--espaco-4);
+  margin-bottom: var(--espaco-7);
+}
+
+.modulo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 8.4rem;
+  min-width: 0;
+  padding: var(--espaco-5);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--edge), var(--shadow-rest);
+  color: var(--text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.modulo__nome {
+  color: var(--text-mute);
+  font-size: var(--texto-xs);
+  font-weight: 750;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.modulo__valor {
+  margin-top: auto;
+  font-size: var(--texto-2xl);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  line-height: 1.05;
+}
+
+.modulo__rotulo { color: var(--text-dim); font-size: var(--texto-xs); }
+
+/* Sem dado, a descrição ocupa o lugar do número — e em corpo de leitura, não
+   em 28px: ela é uma frase, e uma frase grande viraria manchete. */
+.modulo__apoio {
+  margin-top: auto;
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  line-height: 1.4;
+}
+
+/* A área principal da pessoa é a única marcada, e o selo fica no alto à
+   direita para não disputar a linha do nome. */
+.modulo--principal { border-color: color-mix(in srgb, var(--brand) 30%, transparent); }
+
+.modulo__selo {
+  position: absolute;
+  top: var(--espaco-4);
+  right: var(--espaco-4);
+  color: var(--brand);
+  font-size: var(--texto-xs);
+  font-weight: 700;
+}
+
+/* Ferramenta não tem métrica: três por linha, mais baixas. */
+.modulos--ferramentas { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.modulo--raso { min-height: 6.4rem; padding: var(--espaco-4); }
+.modulo--raso .modulo__apoio { font-size: var(--texto-xs); }
+
+/* O rótulo de seção acima de cada grade. */
+.secao-rotulo { margin: 0 0 var(--espaco-4); }
+
 .agua-hoje {
   display: flex;
   flex-direction: column;
@@ -1164,21 +1245,29 @@ h3 {
 .today-hero__left b { font-weight: 750; }
 .today-hero__meta { margin: .2rem 0 0; color: var(--text-mute); font-size: var(--texto-sm); }
 
+ /* O SALDO DEIXA DE SER PÍLULA.
+
+   Numa coluna de 159px ao lado do anel, "Meta no mínimo seguro +252 kcal/dia"
+   não cabe em uma linha — então a pílula quebrava em TRÊS, virando um bloco
+   âmbar com quina arredondada que pesava mais que o próprio anel. Cápsula só
+   funciona em texto que cabe numa linha; esta frase nunca coube.
+
+   Agora é texto com um filete de cor à esquerda: a cor continua dizendo de
+   que lado da conta a pessoa está — verde para déficit, âmbar para superávit
+   e piso —, e a frase pode quebrar quantas linhas precisar sem construir uma
+   forma em volta de si. */
 .today-hero__balance {
-  display: inline-block;
-  margin: .6rem 0 0;
-  padding: var(--espaco-2) .8rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--pill);
-  background: color-mix(in srgb, var(--text-mute) 10%, transparent);
+  display: block;
+  margin: var(--espaco-4) 0 0;
+  padding: 0 0 0 var(--espaco-4);
+  border-left: 2px solid var(--border-strong);
   font-size: var(--texto-sm);
   font-weight: 650;
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
 .today-hero__balance.balance--deficit {
-  border-color: color-mix(in srgb, var(--brand) 24%, transparent);
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border-left-color: var(--brand);
   color: var(--brand);
 }
 
@@ -1187,8 +1276,7 @@ h3 {
    um dos dois é recomendação. */
 .today-hero__balance.balance--piso,
 .today-hero__balance.balance--surplus {
-  border-color: color-mix(in srgb, var(--warm) 24%, transparent);
-  background: color-mix(in srgb, var(--warm) 12%, transparent);
+  border-left-color: var(--warm);
   color: var(--warm);
 }
 
@@ -1768,6 +1856,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .conquista__compartilhar:active,
 .conquista__continuar:active,
 .conquista-item__share:active,
+.modulo:active,
 .tabbar__item:active { transform: scale(.96); }
 
 /* Botão já tocado, esperando o servidor: sem isto a pessoa toca de novo. */
@@ -1824,6 +1913,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .conquista__continuar,
 .conquista-item__share,
 .mapa__area,
+.modulo,
 .tabbar__item {
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
               color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
@@ -1879,6 +1969,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   .conquista__continuar:active,
   .conquista-item__share:active,
   .mapa__area:active,
+  .modulo:active,
   .tabbar__item:active { transform: none; }
 }
 
@@ -6622,6 +6713,11 @@ body.montando { overflow: hidden; }
   padding-left: var(--espaco-4);
   border-left: 1px solid var(--border);
 }
+
+/* Com caloria e refeições movidas para o painel do dia, sobraram DUAS
+   colunas. Mantê-la em quatro deixaria metade da régua vazia e os dois itens
+   apertados na esquerda — a grade tem de contar o que existe. */
+.resumo-dia--complemento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 /* A única coluna que é LINK. Ela mantém o par valor/rótulo das outras três e
    marca a diferença só no valor, em verde — que é o padrão do resto do app:

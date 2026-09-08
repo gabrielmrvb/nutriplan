@@ -79,7 +79,9 @@ TETO_FONT_SIZE_CRU = 134
 #: 270 no REDESIGN V2: a barra de baixo flutuante, o aviso do demo sem caixa e
 #: o bloco de água em volta do anel nasceram todos na escala, e substituíram
 #: paddings crus que vinham do desenho antigo.
-TETO_ESPACO_CRU = 270
+#: 268 quando o saldo do painel do dia deixou de ser pílula: a cápsula levava
+#: padding cru dos dois eixos, e o filete que a substituiu usa a escala.
+TETO_ESPACO_CRU = 268
 
 
 def sem_comentarios(texto):

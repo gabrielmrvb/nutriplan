@@ -18,88 +18,59 @@
     </p>
   </header>
 
-  <section class="card">
-    <div class="card__head"><h2>Suas áreas</h2></div>
-    <nav class="mapa__lista" aria-label="Áreas do NutriPlan">
-      {% for area in areas %}
-        <a class="mapa__area{% if area.na_secao %} is-active{% endif %}"
-           {% if area.aqui %}aria-current="page"{% endif %}
-           href="{{ area.endereco }}">
-          <span class="mapa__nome">
-            {{ area.titulo }}{% if area.principal %} <span class="pill pill--brand">principal</span>{% endif %}
-          </span>
-          {% comment %}
-            O FATO substitui a descrição quando existe, e não se soma a ela.
+  {% comment %}
+    ÁREAS DEIXA DE SER LISTA E VIRA GRADE.
 
-            A descrição responde "o que é esta área?" — pergunta de quem chega
-            pela primeira vez. O fato responde "como está esta área?", que é a
-            pergunta de todo dia depois disso. Com as duas na mesma linha, a
-            que importa fica em segundo lugar e a linha dobra de altura numa
-            tela cuja função é ser percorrida de relance.
+    Duas listas dentro de dois painéis é a forma de uma tela de ajustes, e era
+    exatamente essa a queixa: a tela parecia Configurações. Lista pede leitura
+    linha a linha; grade pede varredura, que é o gesto certo para um hub — a
+    pessoa não vem aqui LER as áreas, vem escolher uma.
 
-            Sem dado, a descrição fica: uma linha vazia seria pior que a
-            explicação que já estava ali.
-          {% endcomment %}
-          <span class="mapa__apoio">{% if area.fato %}{{ area.fato }}{% else %}{{ area.apoio }}{% endif %}</span>
-          <span class="mapa__seta" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <path d="m9 6 6 6-6 6"/>
-            </svg>
-          </span>
-        </a>
-      {% endfor %}
-    </nav>
-  </section>
-
-  <section class="card">
-    <div class="card__head"><h2>Ferramentas</h2></div>
-    {% comment %}
-      As duas nunca tiveram porta fixa. A lista de compras só se alcançava pela
-      tela de Alimentação, e as conquistas por link solto — e as duas não são
-      pilar, então nunca caberiam no mapa antigo. Áreas é onde elas passam a
-      morar.
-    {% endcomment %}
-    <nav class="mapa__lista" aria-label="Ferramentas">
-      <a class="mapa__area" href="{% url 'plans:shopping' %}">
-        <span class="mapa__nome">Lista de compras</span>
-        <span class="mapa__apoio">O que comprar para a semana do seu cardápio.</span>
-        <span class="mapa__seta" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <path d="m9 6 6 6-6 6"/>
-          </svg>
-        </span>
+    Cada módulo põe o FATO no lugar de honra: número grande, rótulo embaixo e
+    o nome da área como sobretítulo. Quem tem dado responde antes do toque;
+    quem não tem mantém a descrição, porque um zero inventado afirmaria que a
+    pessoa não corre quando o app apenas não sabe.
+  {% endcomment %}
+  <h2 class="sobretitulo secao-rotulo">Suas áreas</h2>
+  <nav class="modulos" aria-label="Áreas do NutriPlan">
+    {% for area in areas %}
+      <a class="modulo{% if area.na_secao %} is-active{% endif %}{% if area.principal %} modulo--principal{% endif %}"
+         {% if area.aqui %}aria-current="page"{% endif %}
+         href="{{ area.endereco }}">
+        <span class="modulo__nome">{{ area.titulo }}</span>
+        {% if area.fato %}
+          <strong class="modulo__valor num">{{ area.fato.valor }}</strong>
+          <span class="modulo__rotulo">{{ area.fato.rotulo }}</span>
+        {% else %}
+          <span class="modulo__apoio">{{ area.apoio }}</span>
+        {% endif %}
+        {% if area.principal %}<span class="modulo__selo">principal</span>{% endif %}
       </a>
-      <a class="mapa__area" href="{% url 'achievements:list' %}">
-        <span class="mapa__nome">Conquistas</span>
-        <span class="mapa__apoio">A sua ofensiva e o que você já alcançou.</span>
-        <span class="mapa__seta" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <path d="m9 6 6 6-6 6"/>
-          </svg>
-        </span>
-      </a>
-    </nav>
-  </section>
+    {% endfor %}
+  </nav>
 
-  <section class="card">
-    <div class="card__head"><h2>Conta</h2></div>
-    <nav class="mapa__lista" aria-label="Conta">
-      <a class="mapa__area{% if nav == 'profile' %} is-active{% endif %}"
-         href="{% url 'accounts:profile' %}">
-        <span class="mapa__nome">Perfil</span>
-        <span class="mapa__apoio">Seus dados, o objetivo, a rotina e as suas metas.</span>
-        <span class="mapa__seta" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <path d="m9 6 6 6-6 6"/>
-          </svg>
-        </span>
-      </a>
-    </nav>
-  </section>
+  {% comment %}
+    As duas nunca tiveram porta fixa. A lista de compras só se alcançava pela
+    tela de Alimentação, e as conquistas por link solto — e as duas não são
+    pilar, então nunca caberiam no mapa antigo. Áreas é onde elas passam a
+    morar. Ferramenta não tem métrica, então o módulo delas é mais baixo: a
+    grade continua, o peso não.
+  {% endcomment %}
+  <h2 class="sobretitulo secao-rotulo">Ferramentas</h2>
+  <nav class="modulos modulos--ferramentas" aria-label="Ferramentas">
+    <a class="modulo modulo--raso" href="{% url 'plans:shopping' %}">
+      <span class="modulo__nome">Lista de compras</span>
+      <span class="modulo__apoio">O que comprar para a semana.</span>
+    </a>
+    <a class="modulo modulo--raso" href="{% url 'achievements:list' %}">
+      <span class="modulo__nome">Conquistas</span>
+      <span class="modulo__apoio">Sua ofensiva e o que já alcançou.</span>
+    </a>
+    <a class="modulo modulo--raso" href="{% url 'accounts:profile' %}">
+      <span class="modulo__nome">Perfil</span>
+      <span class="modulo__apoio">Seus dados, o objetivo e as metas.</span>
+    </a>
+  </nav>
 
   {% if mostra_gestao %}
     <section class="card">
