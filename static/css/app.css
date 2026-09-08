@@ -62,6 +62,17 @@
      que "destaque" vira "fundo". */
   --surface-focus: #10201a;
 
+  /* O TOPO DO CANVAS.
+
+     O gradiente do `body` nasceu com `#0a1210` escrito à mão, e no tema claro
+     isso pintou uma FAIXA ESCURA atrás do cabeçalho — a marca e o link "Sobre
+     o demo" ficaram ilegíveis sobre ela. Cor de tema escrita fora do bloco de
+     tema é exatamente o defeito que a paleta em token existe para impedir, e
+     eu o reintroduzi.
+
+     Agora é um token, e o tema claro declara o dele logo abaixo. */
+  --canvas-topo: #0a1210;
+
   /* Cinza fixo, e não mais branco translúcido.
      O translúcido tinha uma vantagem real: acompanhava a camada em que
      pousava, então uma regra servia às quatro superfícies. A troca é
@@ -358,6 +369,11 @@
        escuro invertido em intenção — um lavado de verde bem claro, com a
        borda fazendo o trabalho que lá a luminância fazia. */
     --surface-focus: #e6f4ec;
+    /* No claro o canvas clareia para CIMA, e não escurece: a luz continua
+       vindo do alto, que é a mesma leitura do escuro com o sinal invertido.
+       Um branco puro deixaria os painéis brancos sem contraste nenhum contra
+       o fundo, então o topo é um branco levemente esverdeado. */
+    --canvas-topo: #ffffff;
     --text: #101715;
     /* Mesmo degrau que o escuro recebeu, pelo mesmo motivo: 5,05 e 4,52 no
        pior fundo passavam, mas ao sol — que é onde o tema claro é usado — o
@@ -487,7 +503,7 @@ body {
     radial-gradient(120% 62% at 50% -14%,
                     color-mix(in srgb, var(--brand) 9%, transparent) 0%,
                     transparent 62%),
-    linear-gradient(180deg, #0a1210 0%, var(--bg) 46%);
+    linear-gradient(180deg, var(--canvas-topo) 0%, var(--bg) 46%);
   background-attachment: fixed;
   margin: 0;
   overflow-x: hidden;
@@ -5774,17 +5790,44 @@ body.montando { overflow: hidden; }
   .auth h1 { font-size: var(--texto-xl); }
 }
 
+ /* A ENTRADA PERDE O CARTÃO.
+
+   Login era: marca, e embaixo dela um painel com fundo próprio, quina e
+   sombra, contendo um segundo título. Duas identidades empilhadas e uma
+   moldura em volta do formulário — que é a forma que diz "preencha isto".
+
+   Sem o painel, o formulário pousa direto no canvas, e o clarão verde do
+   fundo passa a ser a identidade da tela em vez de um retângulo mais claro no
+   meio dela. Os campos continuam com contorno próprio: eles são controles, e
+   controle mantém a borda pela mesma regra do resto do V2.
+
+   `background: none` e não uma superfície: se o painel voltar a ter fundo,
+   volta o retângulo, e com ele a sensação de formulário dentro de página. */
 .entrada__cartao {
-  border-radius: var(--radius-xl);
-  box-shadow: var(--edge), 0 24px 60px -30px rgba(0, 0, 0, .9);
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
-@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-  .entrada__cartao {
-    background: color-mix(in srgb, var(--surface) 82%, transparent);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-  }
-}
+
+/* O título da tela alinha à esquerda com o resto do formulário. Centralizado,
+   ele lia como cabeçalho de documento; à esquerda, ele abre a coluna que os
+   rótulos e os campos seguem, e o olho desce por uma linha só. */
+.entrada__cartao > h1.center,
+.entrada__cartao > p.lead.center { text-align: left; }
+
+.entrada__cartao > h1.center { margin-bottom: var(--espaco-1); }
+ /* O vidro da entrada saiu junto com o cartão.
+
+   Este bloco dava ao painel de login um fundo de superfície a 82% mais
+   desfoque — e era ele que continuava desenhando o retângulo depois de o
+   cartão perder fundo, borda e sombra: `@supports` não muda especificidade,
+   mas vem depois no arquivo e vencia por ordem.
+
+   Desfocar o que está atrás só faz sentido quando existe um painel na frente.
+   Sem painel, o filtro custa composição de camada para não produzir efeito
+   nenhum. */
 
 .auth--entrada {
   display: grid;
@@ -5796,22 +5839,22 @@ body.montando { overflow: hidden; }
   min-height: calc(100dvh - 3.6rem);
 }
 
-/* O vidro do cartão de entrada.
- *
- * Aqui ele tem o que desfocar: o halo de acento passa por trás, e é a única
- * coisa na tela. Nos cartões de conteúdo o vidro só valeria nos três do topo,
- * pelo mesmo motivo — desfocar cor chapada custa quadros para produzir a mesma
- * cor chapada. */
+/* O CARTÃO DA ENTRADA SAIU, e era daqui que ele vinha.
+
+   Este seletor tem dois níveis de classe — `.auth--entrada .card` — contra o
+   único de `.entrada__cartao`. Removi o fundo lá primeiro e o retângulo
+   continuou na tela por três capturas: especificidade não se resolve por
+   ordem no arquivo.
+
+   O que sai: fundo translúcido, desfoque e sombra. O halo de marca que este
+   painel existia para desfocar continua ali, e agora ele banha o formulário
+   inteiro em vez de ficar espremido atrás de um retângulo. O que fica: o
+   padding, que é o que segura a coluna longe da borda do telefone. */
 .auth--entrada .card {
   padding: 1.4rem 1.15rem;
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
-  box-shadow: var(--shadow-lift);
-}
-
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .auth--entrada .card { background: var(--surface); }
+  background: none;
+  border: 0;
+  box-shadow: none;
 }
 
 /* ---- o olho da senha ---- */
