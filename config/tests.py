@@ -1139,17 +1139,23 @@ class DesignSystemTests(TestCase):
         self.escuro = _tokens(self.css, ":root {")
 
     def test_the_dark_palette_is_the_one_the_design_system_names(self):
-        """A paleta V3: fundos mais escuros e frios, verde mais vivo.
+        """A paleta do REDESIGN V1: grafite com verde medido, verde vivo.
 
         A troca não foi estética solta — cada degrau foi medido antes de
         entrar, e `ContrastTests` continua sendo quem prova a legibilidade.
         Este teste trava a IDENTIDADE: se alguém mudar um destes por acidente,
         a interface passa a ter duas paletas.
+
+        A V3 tinha tirado o verde do fundo porque ele competia com o acento;
+        o V1 do redesign devolve o matiz e resolve a competição por CROMA —
+        fundo a ~2%, marca a 85%. O valor mudou, a trava continua, e é essa
+        a diferença entre revisar uma decisão e não ter decisão.
         """
-        self.assertEqual(self.escuro["--bg"], "#080d0f")
-        self.assertEqual(self.escuro["--surface"], "#10161a")
-        self.assertEqual(self.escuro["--surface-2"], "#151b21")
-        self.assertEqual(self.escuro["--surface-3"], "#1a2128")
+        self.assertEqual(self.escuro["--bg"], "#070c0b")
+        self.assertEqual(self.escuro["--surface"], "#0d1413")
+        self.assertEqual(self.escuro["--surface-2"], "#121a18")
+        self.assertEqual(self.escuro["--surface-3"], "#18211e")
+        self.assertEqual(self.escuro["--surface-focus"], "#10201a")
         self.assertEqual(self.escuro["--brand"], "#10c98a")
         self.assertEqual(self.escuro["--text"], "#f7f9fa")
         self.assertEqual(self.escuro["--text-mute"], "#939daa")

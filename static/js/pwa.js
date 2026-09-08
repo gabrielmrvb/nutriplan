@@ -45,8 +45,32 @@
 
   navigator.serviceWorker.register("/sw.js").then(function (registration) {
     if (!button) return;
+
+    /* ACHADO A2 — esconder o botão sem corrigir o texto deixava instrução
+       órfã na tela.
+
+       O `return` daqui escondia o controle e saía SEM chamar `say()`, então
+       a frase que o servidor escreve continuava de pé: "Ative para receber
+       um aviso 10 minutos antes de cada refeição". O cartão mandava ativar
+       uma coisa que não tinha como ativar. Todos os outros ramos deste
+       arquivo atualizam a frase; só este não atualizava.
+
+       Medido em produção: `NUTRIPLAN_VAPID_KEY` é string vazia, e o
+       navegador suporta Notification, PushManager e serviceWorker. Ou seja,
+       o ramo que disparava era o da CHAVE, e a tela dizia que o problema era
+       a pessoa não ter clicado.
+
+       As duas causas dizem coisas diferentes porque pedem coisas diferentes:
+       navegador sem suporte é do aparelho de quem lê, chave ausente é
+       nosso. Inventar chave não é opção — o estado é real, e o que estava
+       errado era a tela mentir sobre ele. */
     if (!supported || !window.NUTRIPLAN_VAPID_KEY) {
       button.hidden = true;
+      say(
+        supported
+          ? "Os lembretes ainda não estão disponíveis. Nada para fazer aqui por enquanto."
+          : "Este navegador não recebe lembretes. O resto do app funciona normalmente."
+      );
       return;
     }
 

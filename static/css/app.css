@@ -34,11 +34,33 @@
      O matiz saiu do verde e foi para o azul (#090c0b → #0d0f12). O grafite
      esverdeado tingia de leve TODA a tela com o mesmo verde do acento, e o
      acento perdia parte do trabalho dele, que é destacar. Neutro azulado é
-     o fundo de Lifesum, Yazio e Fitia pelo mesmo motivo. */
-  --bg: #080d0f;
-  --surface: #10161a;
-  --surface-2: #151b21;
-  --surface-3: #1a2128;
+     o fundo de Lifesum, Yazio e Fitia pelo mesmo motivo.
+
+     REDESIGN V1 traz o verde de volta ao fundo — e o parágrafo acima é o
+     motivo de ele voltar DIFERENTE, não o motivo de não voltar. A falha que
+     ficou registrada foi tingir a tela com o MESMO verde do acento; quem
+     compete com o acento é a igualdade de matiz, não a existência de matiz.
+
+     Então: o fundo fica em ~168° e o acento em ~161°, e a distância que
+     resolve é a de CROMA — o fundo carrega ~2% e o `--brand` carrega 85%.
+     O fundo lê como grafite orgânico, não como verde; o botão continua
+     sendo a única coisa verde da tela. A régua é `config/tests.py`, que
+     recalcula o contraste dos tokens, inclusive contra os fundos tingidos. */
+  --bg: #070c0b;
+  --surface: #0d1413;
+  --surface-2: #121a18;
+  --surface-3: #18211e;
+
+  /* A QUARTA SUPERFÍCIE: a do elemento que manda na tela.
+
+     As três acima respondem "que profundidade?". Esta responde outra
+     pergunta — "o que eu faço agora?" —, e por isso não é o próximo degrau
+     de claridade: ela é a única que carrega verde de verdade. É onde mora a
+     próxima refeição, a série da vez, o treino em andamento.
+
+     Uma por tela. Duas superfícies de foco é o mesmo que nenhuma, e é assim
+     que "destaque" vira "fundo". */
+  --surface-focus: #10201a;
 
   /* Cinza fixo, e não mais branco translúcido.
      O translúcido tinha uma vantagem real: acompanhava a camada em que
@@ -321,6 +343,11 @@
     --surface: #ffffff;
     --surface-2: #eef2f0;
     --surface-3: #e4eae7;
+    /* No claro a superficie de foco NAO pode ser "mais escura": escurecer
+       um bloco no tema claro lê como desabilitado. Ela é o mesmo gesto do
+       escuro invertido em intenção — um lavado de verde bem claro, com a
+       borda fazendo o trabalho que lá a luminância fazia. */
+    --surface-focus: #e6f4ec;
     --text: #101715;
     /* Mesmo degrau que o escuro recebeu, pelo mesmo motivo: 5,05 e 4,52 no
        pior fundo passavam, mas ao sol — que é onde o tema claro é usado — o
@@ -1468,6 +1495,28 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
               color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
               transform .12s var(--ease);
+}
+
+/* ACHADO A1 — o ícone dentro do botão precisa de tamanho, e não tinha.
+
+   `Compartilhar treino` renderizava o ícone a 176×176px em produção: medido,
+   não estimado. O botão ia a 200px de altura e o rótulo quebrava no meio da
+   palavra — "Compartilha / r treino".
+
+   A causa é de SISTEMA, não daquele botão. O app dimensiona todo SVG por
+   classe de invólucro — são 26 regras (`.pill svg`, `.drawer__fechar svg`,
+   `.btn__g`…) — e nunca existiu regra para o caso mais óbvio de todos: um
+   `<svg>` direto dentro de `.btn`. Sem `width`/`height` próprios e dentro de
+   um `inline-flex`, o SVG usa a razão do `viewBox` e estica até o espaço que
+   houver.
+
+   Corrigir só aquele botão deixaria a armadilha armada para o próximo. Esta
+   regra fecha a classe inteira do defeito, e `test_a1_icone_de_botao.py`
+   impede que ela saia. */
+.btn > svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: none;
 }
 
 /* Sem halo colorido em repouso.
@@ -6167,7 +6216,38 @@ body.montando { overflow: hidden; }
    POSIÇÃO — ele é a primeira coisa da página, e o anel de calorias, o saldo
    energético e a barra de macros desceram para depois da comida. */
 
-.agora-card { padding-top: .85rem; }
+/* A SUPERFÍCIE DE FOCO, e este cartão é o dono dela.
+
+   `AGORA` é a resposta à pergunta que traz a pessoa ao app — "o que eu faço
+   agora?". Ele já era o primeiro bloco da tela; o que faltava era ele PARECER
+   diferente dos outros, e não apenas vir antes. Numa coluna de cartões todos
+   com o mesmo fundo, "primeiro" é uma informação que se perde no instante em
+   que a pessoa rola.
+
+   O verde entra aqui e quase em nenhum outro lugar: é o token que separa
+   "conteúdo" de "ação da vez". A borda também é da marca, e é ela que faz o
+   trabalho quando o fundo tingido não aparece — monitor ruim, luz forte, ou
+   `prefers-contrast`.
+
+   Uma superfície de foco POR TELA. Se um segundo cartão pedir este fundo, a
+   pergunta certa é qual dos dois deixa de ser foco. */
+.agora-card {
+  padding-top: .85rem;
+  background: var(--surface-focus);
+  border-color: color-mix(in srgb, var(--brand) 28%, transparent);
+}
+
+/* Os ramos que NÃO são ação com hora marcada abrem mão do foco.
+
+   Água e pesagem são convites, e o cartão vazio é a ausência de pendência —
+   nenhum dos três tem hora que passa. Deixar os três no verde faria a tela
+   dizer "urgente" todo dia, e uma tela que grita sempre não grita nunca. */
+.agora-card--agua,
+.agora-card--pesagem,
+.agora-card--vazio {
+  background: var(--surface);
+  border-color: var(--border);
+}
 
 .agora__rotulo {
   margin: 0 0 var(--espaco-1);
