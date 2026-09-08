@@ -1153,6 +1153,93 @@ h3 {
 /* O rótulo de seção acima de cada grade. */
 .secao-rotulo { margin: 0 0 var(--espaco-4); }
 
+ /* A CURVA DE PESO — o gráfico que faltava em Progresso.
+
+   `preserveAspectRatio: none` de propósito: a curva é lida como DIREÇÃO, não
+   como forma medida, e esticar horizontalmente até a largura do painel é o
+   que permite ler oito semanas num celular. A escala vertical é a do próprio
+   período (ver `_curva_de_peso`), então a inclinação é sempre visível.
+
+   Sem preenchimento sob a linha: área cheia sugere volume acumulado, e peso
+   não acumula — é uma posição a cada semana. */
+.curva { margin-bottom: var(--espaco-6); }
+
+.curva__cabeca {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--espaco-4);
+  margin-bottom: var(--espaco-4);
+  flex-wrap: wrap;
+}
+
+.curva__valor {
+  font-size: var(--texto-display);
+  font-weight: 800;
+  letter-spacing: -.04em;
+  line-height: 1;
+}
+
+.curva__unidade {
+  margin-left: var(--espaco-2);
+  color: var(--text-mute);
+  font-size: var(--texto-lg);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.curva__delta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: var(--texto-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cor não julga: quem emagrece e quem ganha massa leem a mesma tela. Verde é
+   "desceu" e âmbar é "subiu" porque é o vocabulário que o resto do app já
+   usa para peso — a leitura de bom ou ruim é de quem tem o objetivo. */
+/* UM modificador colore os DOIS filhos, e não um cada.
+
+   A primeira versão tinha `.curva--sobe` no bloco e `.curva__delta--sobe` no
+   número: dois sistemas para o mesmo fato, e o segundo nascia de interpolação
+   no template, então nenhuma busca literal o encontrava — foi o que a régua de
+   classe órfã pegou. Com o modificador só no bloco, a direção é declarada uma
+   vez e a linha e o número não têm como discordar. */
+.curva--desce .curva__delta { color: var(--brand); }
+.curva--sobe .curva__delta { color: var(--warm); }
+.curva--igual .curva__delta { color: var(--text-mute); }
+
+.curva__periodo {
+  color: var(--text-mute);
+  font-size: var(--texto-xs);
+  font-weight: 600;
+}
+
+.curva__grafico { display: block; width: 100%; height: 4.6rem; overflow: visible; }
+
+.curva--desce .curva__grafico { color: var(--brand); }
+.curva--sobe .curva__grafico { color: var(--warm); }
+.curva--igual .curva__grafico { color: var(--text-mute); }
+
+.curva__linha {
+  fill: none;
+  /* A LINHA E O NÚMERO TÊM DE CONCORDAR.
+
+     Na primeira versão a linha era sempre verde: numa pessoa que ganhou peso,
+     ela subia em VERDE ao lado de um "+1,8 kg" em âmbar. Dois sinais opostos
+     para o mesmo fato, na mesma linha da tela. A cor agora vem do modificador
+     do bloco, que é o mesmo que colore o delta. */
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* `non-scaling-stroke` porque o SVG é esticado na horizontal: sem isto a
+     linha engordaria junto com a escala e sairia grossa e achatada. */
+  vector-effect: non-scaling-stroke;
+}
+
 .agua-hoje {
   display: flex;
   flex-direction: column;

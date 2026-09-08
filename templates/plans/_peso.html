@@ -35,6 +35,38 @@
             balança sobe. O que informa é a média da semana comparada com a
             anterior.
           {% endcomment %}
+          {% comment %}
+            A CURVA VEM ANTES DA TABELA, e é a mudança de assunto da tela.
+
+            A lista responde "quanto eu pesava em 31/08?". A curva responde
+            "para onde isso está indo?" — que é a pergunta de quem abre
+            Progresso, e a única que faz alguém SENTIR evolução em vez de
+            conferir um registro.
+
+            Ela é derivada da MESMA lista de semanas logo abaixo: nenhum dado
+            novo, nenhuma projeção, nenhuma linha de tendência inventada. Só
+            os pontos que já existem, ligados. Sem duas semanas não há curva, e
+            aí a tabela aparece sozinha — desenhar uma linha de um ponto
+            afirmaria direção onde não há.
+          {% endcomment %}
+          {% if curva_peso %}
+            <div class="curva curva--{% if curva_peso.delta < 0 %}desce{% elif curva_peso.delta > 0 %}sobe{% else %}igual{% endif %}">
+              <div class="curva__cabeca">
+                <strong class="curva__valor num">{{ curva_peso.ultimo|floatformat:1 }}<span class="curva__unidade">kg</span></strong>
+                <span class="curva__delta">
+                  {% if curva_peso.delta > 0 %}+{% endif %}{{ curva_peso.delta|floatformat:1 }} kg
+                  <span class="curva__periodo">no período</span>
+                </span>
+              </div>
+              <svg class="curva__grafico"
+                   viewBox="0 0 {{ curva_peso.largura }} {{ curva_peso.altura }}"
+                   preserveAspectRatio="none"
+                   role="img"
+                   aria-label="Média semanal de peso, de {{ curva_peso.primeiro|floatformat:1 }} a {{ curva_peso.ultimo|floatformat:1 }} quilos">
+                <polyline class="curva__linha" points="{{ curva_peso.pontos }}"/>
+              </svg>
+            </div>
+          {% endif %}
           {% if tendencia.tem_dados %}
             <ol class="semanas">
               {% for semana in tendencia.semanas reversed %}

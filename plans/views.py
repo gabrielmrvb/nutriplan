@@ -656,6 +656,7 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
         # hoje ela é a primeira. Uma consulta a mais só para reencontrar a
         # linha que já está na mão seria consulta paga duas vezes.
         recusa = recusa_pendente(self.request, "metricas")
+        tendencia = weight_trend.analisar(self.request.user)
         semanas_de_agua = tracking.agua_por_semana(self.request.user)
         semanas_de_treino = progresso.dias_treinados(self.request.user)
         entries = list(self.request.user.weight_entries.all()[:10])
@@ -669,7 +670,13 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
                 "totals": tracking.adherence(rows),
                 "days": tracking.HISTORY_DAYS,
                 "weight_entries": entries,
-                "tendencia": weight_trend.analisar(self.request.user),
+                "tendencia": tendencia,
+                # A CURVA é derivada da MESMA lista de semanas que a tabela
+                # imprime — não é uma segunda fonte, é a mesma leitura em outra
+                # forma. Uma tabela responde "quanto eu pesava em 31/08?"; a
+                # curva responde "para onde isso está indo?", que é a pergunta
+                # de quem abre a tela de Progresso.
+                "curva_peso": _curva_de_peso(tendencia.semanas),
                 # Preenche o campo com o peso já registrado hoje: salvar de
                 # novo é corrigir, e corrigir começa do valor que está lá.
                 "peso_de_hoje": de_hoje.weight_kg if de_hoje else None,
@@ -1155,3 +1162,53 @@ class HydrationView(PlanRequiredMixin, TemplateView):
             }
         )
         return context
+
+
+def _curva_de_peso(semanas, largura=300, altura=64):
+    """Pontos de uma polilinha SVG a partir das médias semanais.
+
+    Apresentação, não cálculo: nenhum número novo nasce aqui. A função pega as
+    médias que a tabela já mostra e as projeta num retângulo, para o mesmo
+    dado poder ser LIDO como direção em vez de lista.
+
+    Três decisões que a curva exige e a tabela não:
+
+    - a escala é a do próprio período, não zero-based. Peso humano varia
+      poucos por cento; ancorar em zero produziria uma reta horizontal que
+      esconde exatamente a variação que a tela existe para mostrar.
+    - com uma faixa muito estreita (todo mundo no mesmo peso), um piso de
+      0,4 kg impede que ruído de balança vire montanha.
+    - menos de dois pontos não é curva. Devolve None, e o template mostra a
+      tabela sozinha — desenhar uma linha de um ponto seria afirmar tendência
+      onde não há.
+    """
+    # SEM `reversed`: `semanas_de` devolve `sorted(por_semana.items())`, ou
+    # seja, do mais ANTIGO para o mais novo — que é a ordem que uma curva
+    # precisa. Quem inverte é o template da tabela, para listar o recente
+    # primeiro. Inverter aqui também desenhava o tempo de trás para frente,
+    # e uma perda de peso subia no gráfico.
+    # `Semana` é dataclass, não dicionário — `s["media"]` estourou aqui na
+    # primeira versão. `getattr` mantém a função utilizável se um dia a lista
+    # vier de outra fonte, sem obrigar quem chama a converter.
+    medias = [getattr(s, "media", None) for s in semanas]
+    pontos = [float(m) for m in medias if m is not None]
+    if len(pontos) < 2:
+        return None
+
+    menor, maior = min(pontos), max(pontos)
+    faixa = max(maior - menor, 0.4)
+    passo = largura / (len(pontos) - 1)
+    coords = []
+    for i, valor in enumerate(pontos):
+        x = i * passo
+        # y invertido: em SVG a origem é em cima, e peso maior tem de subir.
+        y = altura - ((valor - menor) / faixa) * altura
+        coords.append(f"{x:.1f},{y:.1f}")
+    return {
+        "pontos": " ".join(coords),
+        "largura": largura,
+        "altura": altura,
+        "primeiro": pontos[0],
+        "ultimo": pontos[-1],
+        "delta": round(pontos[-1] - pontos[0], 1),
+    }
