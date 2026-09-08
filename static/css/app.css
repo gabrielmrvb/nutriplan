@@ -1066,6 +1066,60 @@ h3 {
    ao lado; aqui ele é o conteúdo da seção, e a 34px lia como título. */
 .ring--agua .ring__value { font-size: var(--texto-display); }
 
+/* O ANEL DO TREINO — terceiro uso do mesmo componente, e é esse o ponto.
+
+   Calorias, água e agora treino: as três telas perguntam "quanto do meu dia
+   já saiu?" e passam a responder com a mesma forma. Antes eram um anel, uma
+   barra de 4px e um número solto — três respostas para uma pergunta, e é
+   assim que um produto passa a parecer montado por partes.
+
+   Ele é menor que o da água porque divide o bloco com o nome do treino e os
+   quatro fatos, como o de calorias faz em Hoje. E o arco é verde chapado,
+   sem varredura: progresso de treino não tem "acima da meta" — ou a série
+   está registrada ou não está. */
+.ring--treino {
+  width: 6.6rem;
+  height: 6.6rem;
+  background: conic-gradient(from 0deg,
+                             var(--brand),
+                             var(--brand) calc(var(--pct) * 3.6deg),
+                             var(--surface-2) 0);
+}
+
+.ring--treino::after { inset: .52rem; }
+.ring--treino .ring__value { font-size: var(--texto-xl); letter-spacing: -.03em; }
+
+/* O "%" acompanha o número num degrau abaixo: colado no mesmo tamanho ele
+   rouba largura do miolo, e o número é quem tem de ser lido. */
+/* O "%" num degrau da escala, e sem margem própria: `.05rem` era um valor
+   inventado para separar dois glifos que a fonte já separa. */
+.ring__pc { font-size: var(--texto-md); font-weight: 700; }
+
+/* O topo do hero: anel à esquerda, identidade à direita. É a mesma gramática
+   do painel do dia em Hoje — e ser a mesma é o objetivo. */
+.hoje__topo {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-5);
+  margin-top: var(--espaco-5);
+  min-width: 0;
+}
+
+.hoje__identidade { min-width: 0; flex: 1; }
+
+/* Os quatro fatos numa linha só, sem ícone. O "·" continua vindo do CSS. */
+  /* `nowrap` no ITEM, e é obrigatório: sem ele "~49 min" quebrou entre o 4 e
+   o 9 e depois entre "mi" e "n" — medido a 390px. Número partido no meio não
+   é apertado, é ilegível. A linha inteira continua podendo quebrar ENTRE
+   itens, que é onde a quebra não custa nada. */
+.hoje__meta--linha > li { display: inline-flex; gap: var(--espaco-1); white-space: nowrap; }
+
+.hoje__meta--linha > li + li::before {
+  content: "·";
+  margin-right: var(--espaco-4);
+  color: var(--text-mute);
+}
+
 /* Meta fechada: o arco vira marca. É o único momento em que a água usa verde,
    e é por isso que ele significa alguma coisa quando aparece. */
 .ring--completo {
@@ -6032,22 +6086,6 @@ body.montando { overflow: hidden; }
   font-size: var(--texto-base);
   font-variant-numeric: tabular-nums;
 }
-/* Os ícones da metadata saíram do verde.
-
-   Eram quatro — halter, lista, relógio, calendário — todos em `--brand`,
-   dentro do mesmo cartão onde mora o botão principal. O verde aqui não
-   informava nada: exercícios, séries, minutos e horário são os mesmos quatro
-   fatos independentemente de estado. Verde repetido em item neutro é como o
-   verde do CTA perde força, e o CTA é a razão deste cartão existir.
-
-   Eles continuam existindo porque ancoram a leitura das quatro medidas; o que
-   muda é que agora pesam como ícone de apoio, e não como destaque. */
-.hoje__meta-icone {
-  flex: none;
-  width: 1.05rem;
-  height: 1.05rem;
-  color: var(--text-mute);
-}
 
 /* O progresso é DERIVADO, e a frase abaixo dele diz exatamente o que ele mede.
 
@@ -6060,7 +6098,6 @@ body.montando { overflow: hidden; }
   flex-direction: column;
   gap: var(--espaco-3);
 }
-.hoje__barra { height: .55rem; }
 /* A contagem e a porcentagem dividem a linha: texto à esquerda, número à
    direita, alinhados pela base. É a legenda da barra que vem logo abaixo. */
 .hoje__contagem {
@@ -6076,14 +6113,6 @@ body.montando { overflow: hidden; }
 .hoje__contagem b {
   color: var(--text);
   font-weight: 750;
-}
-.hoje__pct {
-  flex: none;
-  color: var(--text);
-  font-size: var(--texto-lg);
-  font-weight: 780;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -.02em;
 }
 
 /* O botão principal ocupa a largura toda e carrega duas linhas: o verbo e, em

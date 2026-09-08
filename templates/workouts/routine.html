@@ -61,6 +61,30 @@
           <section class="card hoje" data-dia="{{ hoje.label }}">
             <p class="hoje__etiqueta">Treino de hoje</p>
 
+            {% comment %}
+              O PROGRESSO VIRA ANEL, e o anel vira o assunto do bloco.
+
+              O hero dizia "78%" numa linha de texto e desenhava uma barra de
+              4px logo abaixo — quatro pixels para a informação que responde
+              "quanto falta do meu treino?". E a mesma pergunta já tem uma
+              forma neste app: o anel de calorias em Hoje e o de água em
+              Hidratação. Três telas perguntando a mesma coisa e respondendo de
+              três jeitos é o que faz um produto parecer montado por partes.
+
+              A porcentagem sai da linha de texto e entra no miolo do anel; a
+              barra sai inteira, porque duas réguas para o mesmo número é uma
+              a mais. A FRASE fica: ela é o que torna o número verificável
+              ("com série registrada hoje" são linhas de `ExerciseLog`), e é
+              ela que impede a tela de decretar conclusão que nenhuma tabela
+              sustenta.
+            {% endcomment %}
+            {% comment %}
+              O NOME OCUPA A LARGURA INTEIRA, e o anel desce para a linha dos
+              fatos. A primeira versão pôs os dois lado a lado e, a 390px,
+              "Peito, tríceps e ombro" quebrou em três linhas enquanto "~49
+              min" partia no meio do número. Identidade do treino é a linha
+              mais longa do bloco: ela não divide largura com nada.
+            {% endcomment %}
             <div class="hoje__id">
               <span class="session__badge hoje__badge" data-dia="{{ hoje.label }}">{{ hoje.label }}</span>
               <h2 class="hoje__nome">{{ hoje.name }}</h2>
@@ -68,45 +92,39 @@
 
             {% if hoje.focus %}<p class="hoje__foco">{{ hoje.focus }}</p>{% endif %}
 
-            {% comment %}
-              Um `<span>` por item e o "·" desenhado pelo CSS entre eles, pela
-              mesma razão registrada no cabeçalho da ficha: como texto corrido
-              a linha quebrava no meio de um item, e "9" fechava a linha com
-              "exercícios" abrindo a seguinte.
-            {% endcomment %}
-            <ul class="hoje__meta">
-              <li>
-                <svg class="hoje__meta-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-                  <path d="M3 9v6M6 6.5v11M18 6.5v11M21 9v6M6 12h12"/>
-                </svg>
-                <b class="num">{{ hoje.total_exercicios }}</b> exercícios
-              </li>
-              <li>
-                <svg class="hoje__meta-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-                  <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>
-                </svg>
-                <b class="num">{{ hoje.total_sets }}</b> séries
-              </li>
-              <li>
-                <svg class="hoje__meta-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="8.5"/><path d="M12 7.2V12l3.2 2"/>
-                </svg>
-                ~<b class="num">{{ hoje.estimated_minutes }}</b> min
-              </li>
-              {% if hoje.start_time %}
-                <li>
-                  <svg class="hoje__meta-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                       stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-                    <rect x="3.5" y="5" width="17" height="15" rx="2.5"/>
-                    <path d="M8 3v4M16 3v4M3.5 10h17"/>
-                  </svg>
-                  <b class="num">{{ hoje.start_time|time:"H:i" }}</b>
-                </li>
-              {% endif %}
-            </ul>
+            <div class="hoje__topo">
+              <div class="ring ring--treino" style="--pct: {{ hoje.pct_hoje }}"
+                   role="img"
+                   aria-label="{{ hoje.feitos_hoje }} de {{ hoje.total_exercicios }} exercícios com série registrada hoje">
+                <span class="ring__inner">
+                  <strong class="ring__value num">{{ hoje.pct_hoje }}<span class="ring__pc">%</span></strong>
+                  <span class="ring__unit">do treino</span>
+                </span>
+              </div>
+
+              <div class="hoje__identidade">
+
+                {% comment %}
+                  Os quatro fatos em UMA linha, e sem ícone.
+
+                  Eram quatro itens numa grade 2×2, cada um com o seu desenho.
+                  Quatro ícones para exercícios, séries, minutos e horário —
+                  quatro fatos que ninguém confunde e que não precisam de
+                  desenho para serem lidos. O que eles faziam era ocupar a
+                  metade direita do hero com decoração enquanto o progresso
+                  ficava numa faixa de 4px. O "·" continua vindo do CSS, pelo
+                  motivo já registrado: como texto ele quebrava no meio do item.
+                {% endcomment %}
+                <ul class="hoje__meta hoje__meta--linha">
+                  <li><b class="num">{{ hoje.total_exercicios }}</b> exercícios</li>
+                  <li><b class="num">{{ hoje.total_sets }}</b> séries</li>
+                  <li>~<b class="num">{{ hoje.estimated_minutes }}</b> min</li>
+                  {% if hoje.start_time %}
+                    <li><b class="num">{{ hoje.start_time|time:"H:i" }}</b></li>
+                  {% endif %}
+                </ul>
+              </div>
+            </div>
 
             {% comment %}
               O progresso é derivado, e a frase diz exatamente o que ele mede.
@@ -145,11 +163,7 @@
                   {% if hoje.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}
                   com série registrada hoje
                 </span>
-                <b class="hoje__pct num">{{ hoje.pct_hoje }}%</b>
               </p>
-              <div class="progress hoje__barra">
-                <div class="progress__fill" style="width: {{ hoje.pct_hoje }}%"></div>
-              </div>
             </div>
 
             {% comment %}
@@ -1243,9 +1257,27 @@
            * preso onde o servidor o desenhou. */
           if (proximo) proximo.classList.add("exercise--agora");
 
-          var barra = cartao.querySelector(".hoje__barra .progress__fill");
-          if (barra) {
-            barra.style.width = Math.round(feitos * 100 / exercicios.length) + "%";
+          /* O ANEL substituiu a barra, e a atualização ao vivo veio junto.
+           *
+           * A série é gravada por `fetch`, sem recarregar — o cabeçalho não é
+           * renderizado de novo. Se esta função continuasse mexendo só na
+           * largura de uma barra que não existe mais, o progresso congelaria
+           * no valor com que a página nasceu e só se corrigiria numa recarga:
+           * a pessoa anotaria quatro séries vendo 78% o tempo todo.
+           *
+           * `--pct` é a MESMA variável que o servidor escreve no `style`, e o
+           * `conic-gradient` a lê direto — não há segunda fórmula aqui. */
+          var pct = Math.round(feitos * 100 / exercicios.length);
+          var anel = cartao.querySelector(".ring--treino");
+          if (anel) {
+            anel.style.setProperty("--pct", pct);
+            anel.setAttribute(
+              "aria-label",
+              feitos + " de " + exercicios.length +
+                " exercícios com série registrada hoje"
+            );
+            var valor = anel.querySelector(".ring__value");
+            if (valor) valor.innerHTML = pct + '<span class="ring__pc">%</span>';
           }
           var contagem = cartao.querySelector(".hoje__contagem b");
           if (contagem) contagem.textContent = feitos;
