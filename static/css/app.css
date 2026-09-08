@@ -3031,6 +3031,25 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 }
 
 .shopping__item:last-child { border-bottom: 0; }
+
+/* A CAIXA DE MARCAR tinha 22px de lado.
+
+   O alvo de toque já estava certo, e foi medido: o `<label>` mede 268×44 e é
+   ele que responde ao dedo — tocar no nome do alimento marca o item. O QA de
+   viewport chegou a reprovar isto olhando só o `<input>`, e a reprovação
+   estava errada; o script foi corrigido junto com esta regra.
+
+   O que não estava confortável era MIRAR. A lista se usa de pé, no corredor
+   do mercado, uma mão no telefone e a outra no carrinho, e um quadrado de
+   22px é pequeno para conferir de relance se ficou marcado. 1,6rem não muda
+   a altura da linha — os 44px continuam vindo do label — e não mexe na grade:
+   cresce só o desenho. */
+.shopping__check input[type="checkbox"] {
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: none;
+  accent-color: var(--brand);
+}
 /* O rótulo inteiro é o alvo, não a caixinha: marcar um item da lista com o
    dedo no supermercado precisa funcionar sem mira. Tinha 25px de altura. */
 .shopping__check {
