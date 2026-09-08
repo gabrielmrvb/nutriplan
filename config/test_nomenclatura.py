@@ -169,7 +169,13 @@ class ASBarrasEOMapaFalamAMesmaLinguaTests(BaseDaNomenclatura):
 
         barra = html.split('class="tabbar"', 1)[1].split("</nav>", 1)[0]
         da_barra = destinos(barra, "tabbar__item")
-        de_areas = destinos(pagina, "mapa__area")
+        # `mapa__area` OU `modulo`: a tela de Áreas virou grade no REDESIGN V2
+        # e a peça mudou de nome. O contrato que este teste guarda é de
+        # PRODUTO — Áreas não repete destino da barra —, e travar o nome da
+        # classe faria o teste medir implementação. O controle positivo logo
+        # abaixo é o que garante que a troca não escondeu a medição: com a
+        # grafite antiga sozinha, ele acusou conjunto vazio.
+        de_areas = destinos(pagina, "(?:mapa__area|modulo)")
 
         # Controle positivo dos DOIS recortes: um lado vazio faria a
         # interseção ser vazia por acidente, e o teste passaria sem medir.

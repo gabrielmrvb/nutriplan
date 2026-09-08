@@ -773,7 +773,20 @@ class AuthScreenTests(TestCase):
         self.assertIn("dvh", regra)
 
         cartao = self.css.split(chr(10) + ".auth--entrada .card {", 1)[1].split("}", 1)[0]
-        self.assertIn("backdrop-filter: blur(16px)", cartao)
+        # O VIDRO SAIU NO REDESIGN V2, e a ausência é a decisão.
+        #
+        # A entrada era marca + um painel translúcido com desfoque contendo um
+        # segundo título: duas identidades empilhadas e uma moldura em volta do
+        # formulário, que é a forma que diz "preencha isto". Hoje o formulário
+        # pousa direto no canvas e o halo da marca banha a coluna inteira.
+        #
+        # Desfocar o que está atrás só faz sentido quando há painel na frente;
+        # sem painel, o filtro custa composição de camada para não produzir
+        # efeito nenhum. O que este teste guarda agora é que o painel NÃO
+        # voltou — sem fundo, sem borda e sem sombra.
+        self.assertIn("background: none", cartao)
+        self.assertIn("box-shadow: none", cartao)
+        self.assertNotIn("backdrop-filter", cartao)
 
     def test_a_browser_without_backdrop_filter_still_reads_the_card(self):
         """Sem o desfoque, o fundo translúcido deixaria o halo passar direto e

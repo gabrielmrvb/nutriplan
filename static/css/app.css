@@ -5136,7 +5136,18 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 
 .choice-cards--duas .choice-card__icon { width: 2rem; height: 2rem; }
 .choice-cards--duas .choice-card__icon svg { width: 1.15rem; height: 1.15rem; }
+ /* O TIQUE DE ESCOLHIDO COBRIA A PALAVRA.
+
+   No arranjo de duas colunas o `.choice-card__text` vira `display: contents`
+   e deixa de ser caixa — então o `padding-right` que reservava o canto para o
+   sinal deixou de existir, e o zero abaixo tornava isso explícito. Medido a
+   390px: em "Emagrecer" o tique caía em cima das duas últimas letras.
+
+   Quem reserva o canto agora é a linha do título, que é a peça que de fato
+   ocupa aquela faixa da grade. O `padding-right: 0` continua no wrapper
+   porque ali ele não tem efeito nenhum e tirá-lo não muda nada. */
 .choice-cards--duas .choice-card__text { padding-right: 0; }
+.choice-cards--duas .choice-card__linha { padding-right: var(--espaco-7); }
 .choice-cards--duas .choice-card__title { font-size: var(--texto-md); }
 .choice-cards--duas .choice-card__hint { font-size: .74rem; }
 
@@ -5807,7 +5818,6 @@ body.montando { overflow: hidden; }
   padding: 0;
   background: none;
   border: 0;
-  border-radius: 0;
   box-shadow: none;
 }
 

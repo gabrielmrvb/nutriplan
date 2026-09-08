@@ -115,14 +115,25 @@ class NadaSomeDaHomeTests(BaseDaHome):
     def test_a_home_neutra_e_a_mesma_de_antes_da_campanha(self):
         """Controle mais forte que o de cima: a ORDEM das seções de quem não
         declarou tem de ser a canônica, e não uma ordem nova que por acaso
-        começa igual."""
+        começa igual.
+
+        A canônica MUDOU no REDESIGN V2, e a mudança é de produto: o painel do
+        dia saiu da última posição para a segunda. Ele vivia depois das cinco
+        refeições e da ofensiva, perto de dois mil pixels abaixo do topo — e é
+        a resposta visual a "como estou hoje?", que é a primeira pergunta de
+        quem abre o app.
+
+        O que este teste guarda não é a lista em si: é que a home de quem NÃO
+        declarou prioridade seja a ordem canônica inteira, sem personalização
+        nenhuma. Essa propriedade não mudou; mudou a ordem que ela protege.
+        """
         self.pessoa("legado2@exemplo.com")
 
         posicoes = self.posicoes(self.home())
 
         self.assertEqual(
             [n for n, _ in sorted(posicoes.items(), key=lambda par: par[1])],
-            ["agora", "refeicoes", "agua", "ofensiva", "painel"],
+            ["agora", "painel", "refeicoes", "agua", "ofensiva"],
         )
 
 
