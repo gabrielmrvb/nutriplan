@@ -30,11 +30,20 @@ TRÊS ALVOS, e cada um com regra própria:
    `unique_exercise_per_template`: a linha aposentada sai e o substituto herda a
    dose dela se for maior, mantendo a própria faixa e o próprio descanso;
 
-3. **as fichas já geradas** (`SessionExercise`) — só as de planos **NÃO
-   INICIADOS**. Plano iniciado é aquele em que a pessoa já registrou série
-   depois de o plano nascer; nesse caso a ficha fica como está, porque mudar o
-   exercício por baixo de um treino em andamento é reescrever o que a pessoa
-   está fazendo. O histórico continua acessível nos dois casos.
+3. **as fichas já geradas** (`SessionExercise`) — só as de SESSÕES **NÃO
+   INICIADAS**. Sessão iniciada é aquela em que existe `ExerciseLog` de algum
+   exercício DELA, gravado depois de o plano nascer; nesse caso a ficha fica
+   como está, porque mudar o exercício por baixo de um treino em andamento é
+   reescrever o que a pessoa está fazendo.
+
+   A granularidade é da SESSÃO e não do plano: quem treinou pernas na quarta e
+   nunca começou o dia B recebe a substituição no dia B. A primeira versão
+   olhava o plano inteiro e congelava a ficha toda por causa de um dia.
+
+   E `created_at` do plano não é prova de execução — é só a janela que impede um
+   registro do plano ANTERIOR de marcar a sessão nova como iniciada. A prova é o
+   `ExerciseLog`. O histórico continua acessível nos dois casos, e nenhuma
+   linha de `ExerciseLog` é tocada.
 """
 from django.db import migrations
 
@@ -46,7 +55,6 @@ def aposentar(apps, schema_editor):
     Exercise = apps.get_model("workouts", "Exercise")
     WorkoutTemplateItem = apps.get_model("workouts", "WorkoutTemplateItem")
     SessionExercise = apps.get_model("workouts", "SessionExercise")
-    TrainingPlan = apps.get_model("workouts", "TrainingPlan")
     ExerciseLog = apps.get_model("workouts", "ExerciseLog")
 
     velho = Exercise.objects.filter(name=APOSENTADO).first()
@@ -75,31 +83,60 @@ def aposentar(apps, schema_editor):
                 WorkoutTemplateItem.objects.filter(pk=irmao.pk).update(sets=item.sets)
             WorkoutTemplateItem.objects.filter(pk=item.pk).delete()
 
-    # -------------------------------------------- fichas de planos não iniciados
-    for plano in TrainingPlan.objects.filter(sessions__exercises__exercise=velho).distinct():
-        exercicios_do_plano = SessionExercise.objects.filter(
-            session__plan=plano
-        ).values_list("exercise_id", flat=True)
-        iniciado = ExerciseLog.objects.filter(
+    # ------------------------------------ fichas de SESSÕES não iniciadas
+    #
+    # A EVIDÊNCIA É COMPORTAMENTAL, E É POR SESSÃO.
+    #
+    # Uma sessão está iniciada quando existe `ExerciseLog` de algum exercício
+    # DELA, gravado depois de o plano nascer. Nada além disso conta: nem a data
+    # de criação do plano, nem o dia de hoje, nem o horário previsto, nem a
+    # pessoa ter aberto a tela.
+    #
+    # `plano.created_at` aparece na condição e NÃO é a prova — é a janela. Sem
+    # ela, um registro do plano ANTERIOR (mesmo exercício, meses atrás) marcaria
+    # a sessão nova como iniciada e congelaria uma ficha que ninguém começou. A
+    # comparação é entre `created_at` dos dois, e não entre datas: um registro
+    # feito às 8h não pertence a um plano criado às 14h do mesmo dia.
+    #
+    # POR SESSÃO, e não por plano, porque a versão anterior errava aqui: bastava
+    # uma série em qualquer exercício para o plano inteiro virar intocável, e
+    # quem treinou pernas na quarta ficava com a remada aposentada na sexta sem
+    # nunca ter começado o dia B.
+    for linha in SessionExercise.objects.filter(exercise=velho).select_related(
+        "session", "session__plan"
+    ):
+        sessao = linha.session
+        plano = sessao.plan
+        exercicios_da_sessao = list(
+            SessionExercise.objects.filter(session=sessao).values_list(
+                "exercise_id", flat=True
+            )
+        )
+        sessao_iniciada = ExerciseLog.objects.filter(
             user_id=plano.user_id,
-            exercise_id__in=list(exercicios_do_plano),
-            date__gte=plano.created_at.date(),
+            exercise_id__in=exercicios_da_sessao,
+            created_at__gte=plano.created_at,
         ).exists()
-        if iniciado:
+        if sessao_iniciada:
+            # A prescrição executada fica como está. Trocar o exercício por
+            # baixo de um treino em andamento é reescrever o que a pessoa está
+            # fazendo — e o histórico dela aponta para o nome que ela viu.
             continue
 
-        for linha in SessionExercise.objects.filter(
-            session__plan=plano, exercise=velho
-        ):
-            irmao = SessionExercise.objects.filter(
-                session_id=linha.session_id, exercise=novo
-            ).first()
-            if irmao is None:
-                SessionExercise.objects.filter(pk=linha.pk).update(exercise=novo)
-            else:
-                if linha.sets > irmao.sets:
-                    SessionExercise.objects.filter(pk=irmao.pk).update(sets=linha.sets)
-                SessionExercise.objects.filter(pk=linha.pk).delete()
+        irmao = SessionExercise.objects.filter(
+            session_id=linha.session_id, exercise=novo
+        ).first()
+        if irmao is None:
+            # Troca no lugar: ordem, séries, faixa e descanso continuam os da
+            # linha. O vídeo vem do exercício, então viaja junto por construção.
+            SessionExercise.objects.filter(pk=linha.pk).update(exercise=novo)
+        else:
+            # Duplicar violaria `unique_exercise_per_session`. O substituto
+            # herda a dose quando for maior, e a linha aposentada sai — é
+            # PRESCRIÇÃO que sai, nunca histórico.
+            if linha.sets > irmao.sets:
+                SessionExercise.objects.filter(pk=irmao.pk).update(sets=linha.sets)
+            SessionExercise.objects.filter(pk=linha.pk).delete()
 
 
 class Migration(migrations.Migration):
