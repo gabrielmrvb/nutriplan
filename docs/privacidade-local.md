@@ -46,6 +46,19 @@ que a plataforma não dá.
 É o único store com **escrita pendente**: água, marcação de refeição e carga de
 série que a pessoa registrou sem rede e que ainda não subiram.
 
+**Esta frase esteve FALSA entre 05/09/2026 e 08/09/2026**, e o parágrafo não
+mudou junto — a carga saiu da fila naquela janela porque o replay dela era
+destrutivo, e voltou em 08/09 por outra rota, `/treino/agora/serie/`, que manda
+evento em vez de estado. A lição para quem ler isto depois: **a lista
+autoritativa é `ROTAS`**, declarada igual em `static/js/fila.js` e
+`templates/pwa/sw.js`, e há teste comparando as duas. Confira lá em vez de
+confiar nesta frase — ela já errou uma vez.
+
+Consequência de privacidade que a volta traz: a fila passa a guardar **carga de
+treino**, que é dado de saúde, no aparelho e por tempo indefinido. A política de
+retenção continua não existindo, e está registrada no BACKLOG em "Retenção da
+fila local".
+
 O IndexedDB pertence ao navegador, não à sessão — a fila atravessa o logout
 inteira. E ela drena sozinha no primeiro carregamento de página, com
 `credentials: "same-origin"`, ou seja, na sessão de quem estiver logado agora.

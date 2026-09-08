@@ -15,15 +15,22 @@ nomeia a armadilha: água SOMA, e por isso depende de `op_id`; marcação usa
 `update_or_create` e é segura por construção. Trocar qualquer uma por um
 contador quebra a fila em silêncio.
 
-A CARGA DE TREINO esteve nesta lista e saiu em 05/09/2026 — e este teste é quem
-avisou, ficando vermelho no instante em que a rota deixou `ROTAS` sem a entrada
-daqui sair junto. É exatamente para isso que a lista é LIDA do `fila.js` em vez
-de repetida. A carga não é mais enfileirada porque o corpo dela carrega um
-contador defasado e o replay apaga série; ver
-`workouts/test_carga_fora_da_fila.py` e `CAMPANHA — CARGA OFFLINE V2` no
-BACKLOG. Note que ela tinha a propriedade de idempotência que este arquivo
-exige: repetir o mesmo corpo era seguro. Chegar ATRASADO não era — e o contrato
-daqui nunca mediu isso.
+A CARGA DE TREINO saiu desta lista em 05/09/2026 e voltou em 08/09/2026 — e
+este teste avisou nas duas vezes, ficando vermelho no instante em que `ROTAS`
+mudou sem a entrada daqui mudar junto. É exatamente para isso que a lista é
+LIDA do `fila.js` em vez de repetida.
+
+E ela voltou por OUTRA rota, o que é a coisa toda. A que saiu
+(`/treino/exercicio/<id>/carga/`) manda `series_feitas`: estado, e estado
+enviado com atraso reescreve o presente. A que entrou
+(`/treino/agora/serie/`) manda um EVENTO — "fiz mais uma série" — e o número
+da série é decidido pelo servidor na hora de aplicar.
+
+Vale reler por que o contrato daqui não bastou da primeira vez: a rota antiga
+JÁ tinha idempotência — repetir o mesmo corpo era seguro. Chegar ATRASADO não
+era, e nada aqui media isso. Quem mede é `workouts/test_carga_offline_v2.py`;
+esta lista continua respondendo outra pergunta, mais estreita e ainda
+necessária.
 
 Limite honesto da medição: o estado é lido como (soma de água, nº de marcações,
 nº de séries). Isso pega linha duplicada e soma dobrada — não pegaria um campo
@@ -75,6 +82,15 @@ class ContratoDeReplayPorRotaTests(CatalogFixture):
             r"\/refeicao\/\d+\/marcar\/": (
                 "/refeicao/%d/marcar/" % self.slot.pk,
                 {"status": MealStatus.SKIPPED},
+            ),
+            # A carga de treino VOLTOU em 08/09/2026, por outra rota. A que
+            # saiu manda `series_feitas` — estado, que chega atrasado e
+            # reescreve o presente. Esta manda um EVENTO, e o numero da serie e
+            # do servidor. O contrato daqui e o mesmo de sempre, e agora ela o
+            # cumpre: `op_id` repetido nao grava duas vezes.
+            r"\/treino\/agora\/serie\/": (
+                "/treino/agora/serie/",
+                {"exercise_id": self.exercicio.pk, "weight_kg": "40", "reps": "10"},
             ),
         }
 

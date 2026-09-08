@@ -3381,9 +3381,21 @@ class ModoTreinoTests(TestCase):
     def test_reenviar_o_mesmo_formulario_corrige_em_vez_de_duplicar(self):
         """Toque duplo, botão voltar e reenvio não podem inventar série.
 
-        É a regra de idempotência do CLAUDE.md: a série vai explícita no
-        formulário e `record_load` faz `update_or_create`. Se alguém trocar
-        isto por "+1 série", este teste cai — e é para isso que ele existe.
+        A PROPRIEDADE não mudou; o mecanismo mudou, em 08/09/2026. Antes a
+        série ia explícita no formulário e `record_load` fazia
+        `update_or_create` naquela linha. Isso protegia o reenvio e quebrava
+        offline: sem rede a página não recarrega, então três toques mandavam
+        três vezes o MESMO número e gravavam uma série só.
+
+        Agora quem dá identidade é o `op_id`, um por renderização — reenviar
+        ESTA página repete o identificador e a segunda escrita é recusada,
+        enquanto `fila.js` sorteia um novo a cada toque offline.
+
+        O que este teste mede é a VIEW: dois corpos idênticos, uma série. Ele
+        NÃO percebe o `op_id` sumindo do template, porque o manda à mão — quem
+        guarda a tela é `test_o_formulario_NAO_manda_mais_o_numero_da_serie`,
+        em `workouts/test_carga_offline_v2.py`. Dizer o contrário aqui seria
+        escrever uma promessa que o código não cumpre.
         """
         user = self._usuario()
         estado = self._estado(user)
@@ -3391,7 +3403,7 @@ class ModoTreinoTests(TestCase):
         self.client.force_login(user)
         dados = {
             "exercise_id": item.exercise_id,
-            "set_number": 1,
+            "op_id": "a-mesma-pagina",
             "weight_kg": "60",
             "reps": "10",
         }

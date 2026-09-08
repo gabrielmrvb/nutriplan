@@ -292,20 +292,71 @@ que não estiver lá cai no destino padrão.
 as duas precisam de `op_id`. Marcação de refeição usa `update_or_create` e já é
 segura; se alguém a trocar por contador, a fila quebra em silêncio.
 
-**A carga de treino NÃO entra na fila offline, e a frase acima já a incluiu.**
-Ela dizia que `record_load` era segura por `update_or_create` — verdade do
-SERVIÇO, falsa da VIEW, que envolve o serviço num laço mais um
-`DELETE ... set_number__gt=N`. O formulário manda `series_feitas`, contador
-derivado que a ficha só atualiza no sucesso; offline ele fica defasado por um,
-sempre. Medido em `workouts/test_carga_fora_da_fila.py`: três séries a 40 kg
-mais uma quarta a 50 com o contador antigo terminam em três séries a 50 — a
-quarta some e o peso das anteriores é reescrito; com o contador em zero, o dia
-daquele exercício é apagado. A rota saiu de `ROTAS` nos DOIS lados, item de
-carga já gravado é DESCARTADO na drenagem, e a FICHA DA SEMANA avisa que a série
-não foi salva em vez de fingir. A tela "Agora" não avisa — ela é POST de
-formulário puro, sem JavaScript, e sem rede navega para a tela de offline; isso é
-pré-existente e está no BACKLOG. É mitigação temporária: `CAMPANHA — CARGA
-OFFLINE V2`.
+**A carga de treino entra na fila offline como EVENTO, e a rota da FICHA
+continua fora.** As duas frases são a mesma decisão, e separá-las é o que
+resolveu o problema.
+
+Estado é o que não pode ser enfileirado. O formulário da ficha manda
+`series_feitas`, um contador derivado que ela só atualiza no sucesso — offline
+ele fica defasado por um, sempre, por construção e não por corrida. E o replay
+desse corpo não é escrita inofensiva: a view envolve `record_load` num laço mais
+um `DELETE ... set_number__gt=N`. Medido em
+`workouts/test_carga_fora_da_fila.py`: três séries a 40 kg mais uma quarta a 50
+com o contador antigo terminam em TRÊS séries a 50 — a quarta some e o peso das
+anteriores é reescrito; com o contador em zero, o dia daquele exercício é
+apagado. Aquela rota (`/treino/exercicio/<id>/carga/`) segue fora de `ROTAS` nos
+dois lados, e item já gravado por versão antiga é DESCARTADO na drenagem.
+
+Evento é o que pode. `/treino/agora/serie/` manda "fiz mais uma série" e **não
+manda número nenhum**: quem decide o `set_number` é o servidor, na hora de
+aplicar, procurando o primeiro número livre — a mesma conta que
+`_primeira_serie_livre` já fazia na tela online, e igualá-las é o que faz a
+sequência offline terminar idêntica à online. Não é `maior + 1`: quem anotou a
+série 3 e deixou a 1 em branco recebe a 1 nos dois caminhos.
+
+**A identidade é do TOQUE offline e da PÁGINA online**, e isso é um par, não uma
+inconsistência. O HTML renderiza um `op_id` por renderização, e é ele que faz
+toque duplo e botão voltar corrigirem em vez de duplicar — era o papel do
+`update_or_create` no `set_number`. Offline a página não recarrega entre um
+toque e outro, então `fila.js` DESCARTA o `op_id` do formulário e sorteia um por
+captura; sem isso os três toques sairiam com o mesmo identificador, o servidor
+recusaria os dois últimos como repetição, e a pessoa terminaria o treino com uma
+série de três que fez. O descarte precisa acontecer na captura porque
+`corpoDoItem` mantém o PRIMEIRO `op_id` que encontra, e o do HTML vem antes.
+
+**Desfazer também é idempotente.** Ele entra na mesma fila, e a fila reenvia
+quando a resposta se perde no meio: sem `op_id`, um único toque reproduzido
+apagaria DUAS séries — a que a pessoa desfez e a anterior, que ela queria
+manter.
+
+**O `IntegrityError` concorrente é retentado, e a medição é o motivo.** Duas
+threads leem o mesmo "primeiro número livre" e as duas tentam gravá-lo; o
+`UniqueConstraint`, que está certo em existir, derruba a segunda.
+`select_for_update` não resolve — com o dia vazio não há linha para travar. Oito
+`append_set` simultâneos gravavam CINCO e perdiam três; hoje o serviço aceita a
+colisão e tenta de novo com o conjunto de ocupadas RELIDO, e grava oito. O teste que guarda
+isso precisa de `threading.Barrier`: sem ela, cada thread paga o handshake da
+própria conexão, as oito se escalonam, a corrida nunca acontece e o teste passa
+**mesmo sem o retry** — foi o que a sabotagem mostrou.
+
+**O DIA viaja com o evento, e o servidor não confia cego.** A fila drena quando
+a rede volta, e isso pode ser noutro dia: quem fecha a última série às 23h50 e
+só recupera sinal ao sair da academia via o treino inteiro cair no dia
+seguinte — sumia do dia certo e virava sessão fantasma no outro, e
+`estado_do_treino`, a ofensiva e o histórico leem por DATA, então os três
+passavam a mentir juntos. A tela escreve a data no formulário e ela viaja no
+corpo como qualquer campo. O servidor recusa o que não faz sentido: data
+ilegível, FUTURA (relógio adiantado escreveria num dia que ainda não existe, e
+aquele registro ficaria invisível para toda tela que pergunta "e hoje?") ou mais
+velha que sete dias cai em hoje. Sete porque a fila drena na primeira abertura
+com rede — mais que isso é aparelho esquecido, e escrever um treino de mês
+passado seria pior que descartar a data.
+
+Provado no navegador em 08/09/2026, com a rede desligada pelo CDP: três toques
+sem rede não navegam, viram três itens com `op_id` distintos e sem contador no
+corpo, e drenam para as séries 2, 3 e 4 com os pesos de cada toque. O `getAll()`
+do IndexedDB devolveu os três fora de ordem (2, 3, 1) — é a inversão que o `seq`
+existe para consertar, vista ao vivo.
 
 **A SECRET_KEY não é gerada pela plataforma.** `generateValue: true` do Render
 entrega 256 bits em base64 — 44 caracteres —, e o Django exige 50. Isso deixou

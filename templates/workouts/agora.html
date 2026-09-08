@@ -209,15 +209,28 @@
         {% csrf_token %}
         <input type="hidden" name="exercise_id" value="{{ atual.exercise.pk }}">
         {% comment %}
-          A série vai EXPLÍCITA no formulário, calculada pelo servidor.
+          O NÚMERO DA SÉRIE NÃO VAI NO FORMULÁRIO. Ele é do servidor, decidido
+          na hora de aplicar — o "Concluir série 3" do botão é o que a tela
+          PREVÊ, não o que ela manda gravar.
 
-          `record_load` faz `update_or_create` nessa série, então reenviar o
-          formulário — toque duplo, botão voltar, conexão ruim — corrige a
-          mesma linha em vez de criar outra. Se isto virasse "+1 série", cada
-          um desses casos viraria uma série que ninguém fez, e é literalmente o
-          que o CLAUDE.md proíbe.
+          Ele ia, e estava certo enquanto esta rota ficou fora da fila offline:
+          o número nascia milissegundos antes. Sem rede não nasce — a página
+          não recarrega entre um toque e outro, e três séries seguidas
+          enfileiravam três pedidos com o mesmo número, todos gravando a mesma
+          linha.
+
+          O que protege toque duplo e botão voltar agora é o `op_id`: um por
+          renderização, então reenviar esta página repete o identificador e a
+          segunda escrita é recusada. `fila.js` o substitui a cada captura,
+          porque offline a identidade é do TOQUE.
         {% endcomment %}
-        <input type="hidden" name="set_number" value="{{ atual.proxima_serie }}">
+        <input type="hidden" name="op_id" value="{{ op_registro }}">
+        {% comment %}
+          O DIA VIAJA COM O EVENTO. Sem ele, quem fecha a última série às 23h50
+          e só recupera sinal ao sair da academia vê o treino cair no dia
+          seguinte — some do dia certo e vira sessão fantasma no outro.
+        {% endcomment %}
+        <input type="hidden" name="dia" value="{{ dia_da_sessao|date:'Y-m-d' }}">
 
         <label class="registro__campo">
           <span class="registro__rotulo">Carga</span>
@@ -281,6 +294,19 @@
           {% csrf_token %}
           <input type="hidden" name="exercise_id" value="{{ estado.ultimo_log.exercise_id }}">
           <input type="hidden" name="acao" value="desfazer">
+          {% comment %}
+            Desfazer também é idempotente: sem `op_id`, um reenvio apagaria
+            DUAS séries — a que a pessoa desfez e a anterior.
+
+            Bloco, e não comentário de cerquilha: a cerquilha do Django é de
+            UMA linha, e a versão anterior deste texto foi renderizada como
+            parágrafo visível na tela. `ComentarioDeTemplateNaoVaza` pegou —
+            e pegou de novo quando a explicação daqui citava a cerquilha
+            literalmente, porque a varredura é sobre o ARQUIVO CRU e não sobre
+            o HTML renderizado.
+          {% endcomment %}
+          <input type="hidden" name="op_id" value="{{ op_desfazer }}">
+          <input type="hidden" name="dia" value="{{ dia_da_sessao|date:'Y-m-d' }}">
           <button type="submit" class="btn-link">
             desfazer última série{% if estado.ultimo_log.exercise_id != atual.exercise_id %}
               de {{ estado.ultimo_item.exercise.name|default:"outro exercício" }}{% endif %}

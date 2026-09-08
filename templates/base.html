@@ -386,9 +386,9 @@
   <script src="{{ app_js_url }}" defer></script>
   {% if user.is_authenticated %}
     {% comment %}
-      A fila de escritas offline. Só para quem está autenticado: as quatro
-      rotas que ela cobre exigem sessão, e enfileirar algo que vai voltar 302
-      para o login é encher a fila de lixo.
+      A fila de escritas offline. Só para quem está autenticado: TODA rota
+      que ela cobre exige sessão. Sem contar quantas — esta frase já disse
+      "quatro" com `ROTAS` em duas. A lista mora em `static/js/fila.js`.
     {% endcomment %}
     <script src="{{ fila_js_url }}" defer></script>
     {% comment %}

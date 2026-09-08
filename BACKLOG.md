@@ -233,6 +233,78 @@ Isto é diferente da limpeza que `f301dc6` acrescentou: aquela é por RECADO, na
 tela de entrar, e existe para a sessão que acaba. Esta é no `activate`, e
 acontece por publicação.
 
+### ⏳ `SyncedOperation.podar()` existe, é testado e NUNCA é chamado (08/09/2026)
+
+Achado durante a CARGA OFFLINE V2, e ele ficou mais urgente por causa dela.
+
+`accounts.models.SyncedOperation` tem `VALIDADE_DIAS = 30` e um `podar()` que
+apaga o que passou disso. O docstring do campo diz por que existe: "a tabela
+cresce a cada marcação offline, num banco gratuito com limite de tamanho".
+Medido: `podar()` aparece em DOIS lugares no repositório — a definição e
+`accounts/test_sync.py:72`. **Nenhuma chamada em produção.**
+
+Por que a campanha piorou isso: a tela de treino passou a renderizar um `op_id`
+em toda página, então **toda série registrada — inclusive online — cria uma
+linha** em `SyncedOperation`. Antes, o caminho online da água e da refeição não
+mandava identificador nenhum e `ja_aplicada` devolvia `False` sem gravar nada;
+só o replay da fila criava linha.
+
+Ordem de grandeza, com a ficha padrão: 24 séries por sessão, 3 sessões por
+semana, ~3.700 linhas por pessoa por ano, mais uma por desfazer. O banco inteiro
+hoje tem 12 MB.
+
+Não corrigido nesta campanha **de propósito**, porque a correção é uma escolha
+de infraestrutura e não uma linha de código:
+
+- **cron do Render é recurso PAGO**, e o bloco está comentado no `render.yaml`
+  exatamente por isso — não há agendador disponível;
+- `scripts/build.sh` roda a cada deploy e seria um gancho sem infraestrutura
+  nova, mas prender limpeza de dado a frequência de publicação é decisão de
+  quem opera;
+- podar oportunisticamente na escrita evita agendador e paga custo na rota
+  quente.
+
+Trocar o `op_id` por-página por algo que não persista **não** é saída: é
+justamente ele que protege toque duplo e botão voltar agora que a série não vem
+numerada do HTML.
+
+### QA de navegador que confere CAMPOS não enxerga texto vazado (08/09/2026)
+
+Um comentário de cerquilha de duas linhas no formulário de desfazer foi
+renderizado como parágrafo visível na tela de treino — a cerquilha do Django é
+de UMA linha. O HTML continuou válido, a view continuou 200, e o roteiro de QA
+de navegador que eu tinha rodado passou limpo: ele perguntava "os campos
+`op_id`, `dia` e `set_number` estão como devem?" e nunca olhou para texto.
+
+Quem pegou foi `ComentarioDeTemplateNaoVaza`, que varre todos os templates — a
+mesma guarda que já existia por causa do rodapé da tela de corridas.
+
+A lição é de MÉTODO, não daquele comentário: um roteiro que só verifica
+presença e ausência de campos não percebe uma página falando sozinha. O smoke
+da carga passou a varrer `document.body.innerText` atrás de sintaxe de template
+visível, com controle positivo (planta uma frase com sintaxe e confere que a
+sonda acusa antes de o "limpo" valer).
+
+### O contador de séries da tela NÃO serve como régua de QA (08/09/2026)
+
+`estado.series_feitas` é `sum(min(item.feitas, item.sets))` — ele CLIPA a série
+extra, e está certo em clipar: alimenta a barra de progresso, que não pode
+passar de 100%.
+
+O que ele não é: uma contagem de quantas séries existem no dia. Medido durante
+o QA da CARGA OFFLINE V2 — o banco tinha **16** séries do dia e a tela dizia
+**15**, porque um exercício de 3 séries prescritas tinha 4 feitas. O roteiro de
+smoke leu isso como "a drenagem perdeu uma série" e teria reprovado um deploy
+correto.
+
+A régua que serve, e funciona em produção porque é autenticada e não precisa do
+banco: `<Notes>` de `/treino/exportar/saude.tcx`, que traz `resumo.series` —
+`len(logs)`, contagem crua de `ExerciseLog` do dia.
+
+De quebra, a discrepância confirmou em dado real uma decisão da campanha: a 4ª
+série num exercício de 3 prescritas FOI gravada. O teto de `append_set` é o do
+modelo (20), não o prescrito, porque série extra acontece.
+
 ### O peso sozinho responde por 17 contas
 Medido em produção em 02/09/2026: 17 contas registraram peso e **nenhuma** outra
 ação voluntária. Se o peso contasse como engajamento, "registraram algo por
@@ -322,7 +394,10 @@ enviadas por ninguém e não são apagadas. Não há tela para elas, e criar um 
 problema por outro. Decidir: mostrar, expirar, ou deixar como está.
 
 ### Retenção da fila local
-A fila pode conter alimentação e água — dado pessoal, guardado no
+A fila pode conter alimentação, água e — desde 08/09/2026 — **carga de treino**,
+que é dado de saúde. A categoria cresceu junto com a campanha CARGA OFFLINE V2,
+e o item não foi reaberto por causa disso: o que muda é a sensibilidade do que
+fica parado no aparelho, não a natureza do problema. Dado pessoal, guardado no
 aparelho por tempo indefinido se a pessoa nunca voltar. Falta política de idade
 máxima, tamanho máximo, limpeza de órfãos e uma tela de "ações aguardando
 sincronização". Nada disso pede criptografia no cliente: a chave teria que ficar
@@ -1295,17 +1370,95 @@ arquivo. Sem rede ela navega para a tela de offline, perde a série e não diz
 nada. É pré-existente, não foi tocado pela mitigação, e é a tela onde o sinal é
 pior — o parágrafo anterior já dizia isso.
 
-## ⏳ CAMPANHA — CARGA OFFLINE V2
+## ✅ CAMPANHA — CARGA OFFLINE V2 (concluída em 08/09/2026)
 
-**A mitigação de 05/09/2026 é TEMPORÁRIA.** Hoje a carga de treino simplesmente
-não é registrada sem rede: a rota saiu de `ROTAS` nos dois lados da fila, e item
-de carga já gravado é DESCARTADO na drenagem em vez de reproduzido. A tela avisa
-que a série não foi salva.
+**A carga voltou a ser registrada sem rede, e a rota destrutiva continua fora.**
+A saída não foi consertar o corpo antigo: foi trocar a NATUREZA do pedido.
 
-Isso elimina o risco e **não** entrega a funcionalidade. Registrar série sem
-sinal é exatamente o caso de uso da academia, que é onde o app é usado de pé e
-com a mão suada — a fila offline existe por causa disso. A campanha definitiva
-tem de devolver o registro offline sem risco de apagar ou reescrever histórico.
+- `/treino/exercicio/<id>/carga/` (a ficha) manda ESTADO — `series_feitas`, um
+  contador derivado que envelhece na fila — e segue fora de `ROTAS` nos dois
+  lados, com item antigo descartado na drenagem;
+- `/treino/agora/serie/` (o modo treino) manda EVENTO — "fiz mais uma série" —
+  e entrou na fila. O número da série é decidido pelo SERVIDOR na hora de
+  aplicar.
+
+As guardas de `workouts/test_carga_fora_da_fila.py` continuam de pé e agora
+distinguem as duas: a asserção é sobre `carga` e `exercicio`, não sobre a
+palavra `treino` — a versão anterior proibia a palavra inteira e teria
+reprovado a solução junto com o problema. Do outro lado há um controle positivo
+exigindo que a rota de evento ESTEJA na lista, sem o qual apagá-la passaria
+como "a carga está fora da fila", com a suíte verde.
+
+### Como cada item não-opcional foi resolvido
+
+| item | resolução | onde se prova |
+|---|---|---|
+| identidade estável | `op_id` por TOQUE offline, por PÁGINA online | `ATelaMandaOpIdEmVezDeContador` |
+| contador e ordem | o corpo não carrega contador nenhum | QA de navegador + `test_o_formulario_NAO_manda_mais_o_numero_da_serie` |
+| append em vez de update | `services.append_set` | `OContadorNaoVemMaisDoCliente` |
+| idempotência | `ja_aplicada` DENTRO da transação do efeito | `AIdempotenciaCaiJuntoComOEfeito` |
+| conflito | append pega o próximo número livre; série online não colide | `test_a_sequencia_OFFLINE_termina_igual_a_ONLINE` |
+| replay de evento antigo | o dia viaja no corpo, com janela de 7 dias | `OEventoCarregaODiaDoToque` |
+| múltiplas abas | numeração do servidor, com retry na colisão | `DoisPedidosAoMesmoTempo` |
+| equivalência online/offline | mesma conta de "primeiro número livre" nos dois | `test_o_buraco_e_preenchido_como_a_tela_ONLINE_faria` |
+| retry e concorrência | `IntegrityError` retentado com as ocupadas relidas | `DoisPedidosAoMesmoTempo` |
+| rollback | desfazer também é idempotente | `test_desfazer_reenviado_apaga_UMA_serie_so` |
+| ficha alterada antes da sincronização | o evento não consulta a ficha | ver abaixo |
+| operação antiga depois de a ficha mudar | aplicada — com um limite conhecido | ver abaixo |
+
+**A ficha não alcança o evento, e isso é a resposta e não um esquecimento.**
+`append_set` grava por `(pessoa, exercício, data)` e não lê a rotina em momento
+nenhum. Exercício que saiu do treino, sessão trocada, número de séries
+prescritas alterado: nada disso muda o que o evento faz, porque o evento
+descreve algo que ACONTECEU. O teto de séries é o do modelo (20), não o
+prescrito — série extra é coisa que acontece na academia, e recusá-la seria
+perder o registro de um treino que a pessoa fez. `AIdempotenciaCaiJuntoComOEfeito`
+enche 20 e prova que a 21ª levanta; a prescrição típica é 3 ou 4.
+
+**LIMITE CONHECIDO, e ele não foi resolvido.** Se o exercício sair do CATÁLOGO
+(`is_active=False`) entre o toque e a drenagem, a view devolve 404, e
+`veredito()` classifica todo 4xx como `"recusou"` — o item é descartado e o
+toque se perde **em silêncio**. Não é regressão desta campanha: é como a fila
+trata 4xx em todas as rotas, desde antes. Fica registrado como limite porque a
+alternativa honesta seria um sinal na tela para operação descartada, e isso é
+trabalho próprio — o mesmo sinal que falta para a captura que falha ao gravar.
+
+### Dois defeitos que a revisão adversarial pegou depois de "pronto"
+
+**O retry não existia — e o teste passava.** A primeira versão de `append_set`
+lia `maior + 1` e gravava, sem retentar. Uma sonda direta contra o banco com
+oito escritas simultâneas devolveu **cinco gravadas e três `IntegrityError`**;
+o teste seguia verde porque afirmava `len(gravadas) + len(erros) == 8`, o que é
+verdade também quando as oito falham. A asserção certa não tem lugar para erro.
+
+**E a correção do teste não bastou.** Com a asserção estrita e sem retry, o
+teste continuava VERDE: cada thread paga o handshake da própria conexão, e isso
+as escalona o suficiente para a corrida nunca acontecer — o teste media o
+driver, não o serviço. Só com `threading.Barrier` soltando as oito depois de
+conectadas a sabotagem ficou vermelha, com sete `IntegrityError`.
+
+### Provado no navegador, 08/09/2026
+
+Rede desligada pelo CDP, conta de QA local, `/treino/agora/`:
+
+- três toques em "Concluir série" **não navegam** e viram três itens na fila;
+- os três têm `op_id` distintos — a identidade é do toque, não da página;
+- nenhum item carrega `set_number` nem `series_feitas`;
+- o `getAll()` do IndexedDB devolveu os três **fora de ordem** (seq 2, 3, 1),
+  que é exatamente a inversão para a qual o `seq` existe;
+- voltando a rede, a fila esvazia e o dia termina com as séries 1–4 e os pesos
+  30, 40, 45 e 50 — um por toque, nenhum perdido, nenhum duplicado.
+
+### O que ficou de fora, e é decisão
+
+A tela "Agora" continua sem aviso PRÓPRIO de "guardado sem rede": o retorno é o
+indicador global de pendências do `base.html`, que tem `role="status"` e
+`aria-live="polite"`. É o mesmo retorno que a água e a refeição dão. Um aviso
+no cartão do exercício é melhoria de UX registrada, não pendência desta
+campanha.
+
+<details>
+<summary>O diagnóstico original, preservado</summary>
 
 ### Por que a versão anterior era destrutiva
 
@@ -1344,12 +1497,11 @@ campo real só é reescrito no `.then` de sucesso. Offline o sucesso nunca vem.
 
 ### O que NÃO fazer
 
-Repor a rota em `ROTAS` sem resolver o acima. `workouts/test_carga_fora_da_fila.py`
-tem a reprodução do estrago e as guardas que reprovam a reposição — elas existem
-para que a próxima pessoa tenha de encarar o problema em vez de reabrir a porta.
+Repor a rota da FICHA em `ROTAS`. Isso continua valendo inteiro:
+`workouts/test_carga_fora_da_fila.py` tem a reprodução do estrago e as guardas
+que reprovam a reposição.
 
-Ver também `/treino/agora/serie/`, registrada acima: ela nunca esteve na fila, e
-a decisão sobre ela é a mesma pergunta.
+</details>
 
 ## NUTRIPLAN PERSONALIZADO V1 (05/09/2026) — unidade 1 de N
 

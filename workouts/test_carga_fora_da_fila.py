@@ -18,7 +18,15 @@ anteriores.
 
 A decisão foi tirar a rota da fila enquanto não existir uma solução que
 preserve o histórico. Perder o toque offline é ruim; reescrever o treino de
-quem confiou no app é pior. `CAMPANHA — CARGA OFFLINE V2` está no BACKLOG.
+quem confiou no app é pior.
+
+`CAMPANHA — CARGA OFFLINE V2` resolveu isso — e resolveu para a OUTRA rota. A
+carga voltou à fila por `/treino/agora/serie/`, que manda um EVENTO ("fiz mais
+uma série") e deixa o número para o servidor decidir na hora de aplicar; a
+prova está em `test_carga_offline_v2.py`. A rota da FICHA continua fora, e este
+arquivo continua sendo o que a mantém fora: o corpo dela ainda carrega o
+contador derivado, e o replay dele ainda é destrutivo. Os testes abaixo medem
+esse estrago no código de hoje, não numa lembrança.
 """
 import re
 from datetime import timedelta
@@ -171,9 +179,47 @@ class ACargaSaiuDaFilaOfflineTests(TestCase):
         return trecho[: trecho.index("];") + 2]
 
     def test_a_carga_nao_esta_na_lista_de_nenhum_dos_dois(self):
+        """A rota da FICHA — `/treino/exercicio/<id>/carga/` — continua fora.
+
+        As duas rotas se distinguem pelo caminho, e não por acaso: a
+        destrutiva tem "carga" e a de evento tem "serie". Esta asserção segue
+        proibindo aquela mesmo depois de a campanha ter devolvido esta.
+        """
         for nome, texto in (("fila.js", self.pagina), ("sw.js", self.worker)):
             with self.subTest(arquivo=nome):
                 self.assertNotIn("carga", self._rotas(texto))
+
+    def test_a_rota_de_EVENTO_esta_na_lista_dos_dois(self):
+        """Controle positivo da asserção acima, e ele não é decorativo.
+
+        Sem este teste, apagar a linha de `/treino/agora/serie/` passaria como
+        "a carga está fora da fila" — e a campanha inteira teria sido desfeita
+        em silêncio, com a suíte verde. É o mesmo motivo de existir o controle
+        da água e da refeição logo abaixo.
+        """
+        for nome, texto in (("fila.js", self.pagina), ("sw.js", self.worker)):
+            with self.subTest(arquivo=nome):
+                self.assertIn("agora", self._rotas(texto))
+                self.assertIn("serie", self._rotas(texto))
+
+    def test_a_captura_DESCARTA_o_op_id_que_veio_do_HTML(self):
+        """A metade offline da identidade, e a que quebra sem fazer barulho.
+
+        A tela de treino renderiza um `op_id` por RENDERIZAÇÃO, para que
+        reenviar a mesma página não grave duas séries. Offline a página não
+        recarrega: se esse valor sobrevivesse à captura, os três toques em
+        "Concluir série" sairiam com o mesmo identificador e o servidor
+        recusaria os dois últimos como repetição — a pessoa terminaria o treino
+        com uma série de três que fez.
+
+        `corpoDoItem` mantém o PRIMEIRO `op_id` que encontra, e o do formulário
+        vem antes do sorteado. Por isso o descarte tem de acontecer na captura.
+        """
+        inicio = self.pagina.index('addEventListener("submit"')
+        captura = self.pagina[inicio : self.pagina.index("guardar({", inicio)]
+
+        self.assertIn('if (k === "op_id") return;', captura)
+        self.assertIn("dados.op_id = identificador();", captura)
 
     def test_agua_e_refeicao_CONTINUAM_na_lista(self):
         """Controle positivo: retirar a carga não pode desligar a fila inteira.

@@ -112,25 +112,33 @@ class QueueScopeTests(TestCase):
         self.rotas = self.fila[self.fila.index("ROTAS = [") :]
         self.rotas = self.rotas[: self.rotas.index("];") + 2]
 
-    def test_a_fila_cobre_agua_e_marcacao_de_refeicao(self):
-        for rota in ("agua", "marcar"):
+    def test_a_fila_cobre_agua_refeicao_e_a_serie_de_treino(self):
+        for rota in ("agua", "marcar", "serie"):
             with self.subTest(rota=rota):
                 self.assertIn(rota, self.rotas)
 
     def test_e_nao_cobre_mais_nada(self):
         """Controle positivo do teste acima: ele sozinho ficaria verde se a
-        lista GANHASSE rotas. Duas entradas, e são estas duas."""
-        self.assertEqual(self.rotas.count("/^"), 2, self.rotas)
+        lista GANHASSE rotas. Três entradas, e são estas três."""
+        self.assertEqual(self.rotas.count("/^"), 3, self.rotas)
 
-    def test_a_carga_de_treino_saiu_da_fila(self):
-        """Saiu com a funcionalidade INTACTA — o registro online segue igual.
+    def test_a_rota_da_FICHA_continua_fora_da_fila(self):
+        """A distinção que a campanha de 08/09/2026 construiu, e o motivo de
+        este teste não ter virado `assertNotIn("treino")`.
 
-        O corpo daquele formulário carrega um contador defasado, e o replay
-        dele apaga série e reescreve peso. Ver
-        `workouts/test_carga_fora_da_fila.py` e `CAMPANHA — CARGA OFFLINE V2`.
+        A carga voltou à fila — por `/treino/agora/serie/`, que manda um
+        EVENTO. A rota da FICHA (`/treino/exercicio/<id>/carga/`) continua
+        fora: o corpo dela carrega `series_feitas`, um contador derivado, e o
+        replay dele apaga série e reescreve peso. As duas se distinguem pelo
+        caminho, e é por isso que a asserção é sobre "carga" e não sobre
+        "treino" — a versão anterior proibia a palavra inteira e teria
+        reprovado a solução junto com o problema.
+
+        Ver `workouts/test_carga_fora_da_fila.py`, que mede o estrago, e
+        `workouts/test_carga_offline_v2.py`, que mede a saída.
         """
         self.assertNotIn("carga", self.rotas)
-        self.assertNotIn("treino", self.rotas)
+        self.assertNotIn("exercicio", self.rotas)
 
     def test_suplemento_saiu_da_fila_junto_com_a_tela(self):
         """A rota não existe mais; enfileirar para ela seria guardar um POST
@@ -167,8 +175,11 @@ class QueueScopeTests(TestCase):
         self.assertIn("esperando conexão", self.fila)
 
     def test_the_queue_script_only_loads_for_someone_logged_in(self):
-        """As quatro rotas exigem sessão. Enfileirar algo que vai voltar 302
-        para o login é encher a fila de lixo."""
+        """Toda rota da fila exige sessão. Enfileirar algo que vai voltar 302
+        para o login é encher a fila de lixo.
+
+        Sem contagem nesta frase: ela dizia "as quatro rotas" quando `ROTAS`
+        tinha duas, e diria errado de novo agora que são três."""
         base = (RAIZ / "templates" / "base.html").read_text(encoding="utf-8")
         trecho = base.split("fila_js_url", 1)[0]
         self.assertIn("{% if user.is_authenticated %}", trecho[-400:])

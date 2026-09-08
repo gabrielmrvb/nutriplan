@@ -1,4 +1,6 @@
 """A aba de treino: a rotina da semana, a ficha de cada dia e a carga."""
+import uuid
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
@@ -473,18 +475,43 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
         # treino cujos registros distavam 1,1 minuto. Quem precisar do resumo
         # estimado é o TCX, em `HealthExportView`.
         context["estado"] = services.estado_do_treino(user)
+        # UM IDENTIFICADOR POR RENDERIZAÇÃO, e dois porque são dois
+        # formulários — registrar e desfazer não podem compartilhar identidade,
+        # senão desfazer logo depois de gravar seria recusado como repetição do
+        # próprio registro.
+        #
+        # É isto que protege o toque duplo e o botão voltar agora que a série
+        # não vem mais numerada do HTML: reenviar a MESMA página repete o mesmo
+        # `op_id`, e a segunda escrita é recusada. Offline vale o contrário, e
+        # `fila.js` troca este valor por um novo a cada toque — lá a identidade
+        # é do toque, porque a página não recarrega entre eles.
+        context["op_registro"] = uuid.uuid4().hex
+        context["op_desfazer"] = uuid.uuid4().hex
+        context["dia_da_sessao"] = timezone.localdate()
         return context
 
 
 class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
     """Grava UMA série do modo treino, ou desfaz a última.
 
-    O formulário manda `set_number` explícito, calculado pelo servidor e
-    escrito no HTML — e não "mais uma". A diferença importa: `record_load` faz
-    `update_or_create` naquela série, então mandar duas vezes corrige em vez de
-    duplicar. Um contador ("incremente") transformaria toque duplo, botão
-    voltar e reenvio de formulário em séries que ninguém fez, e é exatamente o
-    que o CLAUDE.md manda não fazer com a fila offline.
+    O NÚMERO DA SÉRIE É DO SERVIDOR, decidido na hora de aplicar. O formulário
+    não manda contador nenhum — e essa é a diferença que devolveu esta rota à
+    fila offline.
+
+    A versão anterior mandava `set_number` escrito no HTML. Online aquilo estava
+    certo: o número nascia milissegundos antes. Offline, não: a página não
+    recarrega entre um toque e outro, então três séries seguidas sem rede
+    enfileiravam TRÊS pedidos com o MESMO número, e as três gravariam a mesma
+    linha. A pessoa terminaria o treino com uma série de três que fez.
+
+    O que substitui o contador é o `op_id`:
+
+    - **online** ele vem do HTML, um por renderização. Toque duplo, botão
+      voltar e reenvio do formulário repetem o mesmo identificador e a segunda
+      escrita é recusada — a mesma proteção que o `update_or_create` dava;
+    - **offline** `fila.js` o SUBSTITUI por um novo a cada captura, porque ali
+      a identidade é do TOQUE e não da página. Sem isso, os três toques
+      voltariam a colapsar num só.
     """
 
     #: A serie e concluida DENTRO do modo treino, com a pessoa de pe entre
@@ -502,16 +529,11 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
             raise Http404("exercício inválido")
         exercise = get_object_or_404(Exercise, pk=exercise_id, is_active=True)
 
+        op_id = (request.POST.get("op_id") or "").strip()[:64]
+        dia = self._dia_do_toque(request)
+
         if request.POST.get("acao") == "desfazer":
-            ultima = (
-                ExerciseLog.objects.filter(
-                    user=request.user, exercise=exercise, date=timezone.localdate()
-                )
-                .order_by("-set_number")
-                .first()
-            )
-            if ultima is not None:
-                ultima.delete()
+            services.remove_last_set(request.user, exercise, op_id=op_id, day=dia)
             return destino
 
         bruto = (request.POST.get("weight_kg") or "").replace(",", ".").strip()
@@ -524,12 +546,6 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
             messages.error(request, "Carga fora do que uma barra aguenta.")
             return destino
 
-        try:
-            serie = int(request.POST.get("set_number", 1))
-        except (TypeError, ValueError):
-            serie = 1
-        serie = max(1, min(serie, 20))
-
         reps = None
         bruto_reps = (request.POST.get("reps") or "").strip()
         if bruto_reps:
@@ -538,7 +554,47 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
             except (TypeError, ValueError):
                 reps = None
 
-        services.record_load(
-            request.user, exercise, peso, set_number=serie, reps=reps
-        )
+        try:
+            services.append_set(
+                request.user, exercise, peso, reps=reps, op_id=op_id, day=dia
+            )
+        except ValueError:
+            # Vinte séries no mesmo exercício num dia. Não é treino, é dedo
+            # preso no botão ou fila reproduzindo algo corrompido — e recusar
+            # em silêncio deixaria a pessoa tocando sem entender.
+            messages.error(request, "Limite de séries deste exercício hoje.")
         return destino
+
+    #: Quantos dias para trás um evento da fila ainda pode escrever.
+    #:
+    #: Sete porque a fila drena na primeira abertura com rede, e uma semana sem
+    #: abrir o app com sinal é o limite do plausível. Mais que isso não é
+    #: "sincronizou tarde": é corpo antigo em aparelho esquecido, e escrever um
+    #: treino de mês passado seria pior que descartar a data.
+    JANELA_DE_ATRASO = 7
+
+    def _dia_do_toque(self, request):
+        """O dia em que a pessoa TOCOU, e não o dia em que a fila drenou.
+
+        Sem isto, quem fecha a última série às 23h50 e só recupera sinal ao sair
+        da academia vê o treino inteiro cair no dia seguinte: some do dia certo,
+        aparece como sessão fantasma no outro, e a ofensiva conta os dois
+        errados. A tela escreve a data no formulário, e ela viaja no corpo
+        enfileirado como qualquer outro campo.
+
+        O que o servidor NÃO faz é confiar cegamente: data ilegível, futura ou
+        mais velha que a janela cai em hoje. Futura é o caso que importa —
+        relógio de celular adiantado escreveria num dia que ainda não existe, e
+        aquele registro ficaria invisível para toda tela que pergunta "e hoje?".
+        """
+        hoje = timezone.localdate()
+        bruto = (request.POST.get("dia") or "").strip()
+        if not bruto:
+            return hoje
+        try:
+            dia = datetime.strptime(bruto, "%Y-%m-%d").date()
+        except ValueError:
+            return hoje
+        if dia > hoje or (hoje - dia).days > self.JANELA_DE_ATRASO:
+            return hoje
+        return dia

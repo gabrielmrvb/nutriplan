@@ -17,7 +17,7 @@ não de programação:
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from accounts.models import SplitPreference
@@ -725,6 +725,42 @@ def has_training_days(user) -> bool:
 # Registro de carga
 # --------------------------------------------------------------------------
 
+def remove_last_set(user, exercise, op_id="", day=None):
+    """Desfaz a ultima serie anotada NAQUELE DIA, naquele exercicio.
+
+    IDEMPOTENTE, e isso nao e enfeite: "desfazer" tambem entra na fila
+    offline, e a fila REENVIA quando a resposta se perde no meio. Sem o
+    `op_id`, um unico toque em desfazer reproduzido duas vezes apagaria DUAS
+    series — a que a pessoa quis desfazer e a anterior, que ela queria manter.
+
+    O registro do identificador mora na MESMA transacao que o `delete`, pelo
+    motivo que `LogHydrationView` pagou caro para aprender: sem
+    `ATOMIC_REQUESTS`, commitar o `op_id` antes do efeito faz uma falha no meio
+    queimar o identificador sem apagar nada, e o reenvio e respondido com "ja
+    aplicada".
+
+    Devolve `(numero_apagado, aplicou)`. Fila vazia nao e erro: desfazer sem
+    nada para desfazer e um no-op, e a tela ja decide o que dizer.
+    """
+    from accounts.models import SyncedOperation
+
+    day = day or timezone.localdate()
+    with transaction.atomic():
+        if SyncedOperation.ja_aplicada(user, op_id):
+            return None, False
+
+        ultima = (
+            ExerciseLog.objects.filter(user=user, exercise=exercise, date=day)
+            .order_by("-set_number")
+            .first()
+        )
+        if ultima is None:
+            return None, True
+        numero = ultima.set_number
+        ultima.delete()
+    return numero, True
+
+
 def record_load(user, exercise, weight_kg, set_number=1, reps=None, day=None):
     """Anota a carga de uma série. Anotar de novo corrige em vez de duplicar."""
     day = day or timezone.localdate()
@@ -736,6 +772,106 @@ def record_load(user, exercise, weight_kg, set_number=1, reps=None, day=None):
         defaults={"weight_kg": Decimal(str(weight_kg)), "reps": reps},
     )
     return log
+
+
+def append_set(user, exercise, weight_kg, reps=None, op_id="", day=None):
+    """Acrescenta UMA série ao dia. O número dela é do SERVIDOR.
+
+    É a peça que faltava para a carga voltar à fila offline, e a diferença com
+    `record_load` é de natureza: aquela recebe QUAL série gravar; esta recebe
+    "fiz mais uma" e decide o número na hora de aplicar.
+
+    Por que isso importa. O corpo que a fila guarda envelhece: quem completa
+    três séries sem rede enfileira três pedidos, e todos eles nasceram na mesma
+    página, com o mesmo número de série escrito no HTML. Com o número vindo do
+    cliente, os três gravariam a MESMA linha — três toques, uma série. Com o
+    número vindo daqui, os três viram 1, 2 e 3 na ordem em que a fila drena, e
+    a fila já drena na ordem dos toques.
+
+    A TRANSAÇÃO SOZINHA NÃO FECHA A CORRIDA, e esta frase já afirmou que
+    fechava. Contar dentro dela não impede dois pedidos de lerem o mesmo
+    "primeiro número livre" e tentarem gravá-lo: em READ COMMITTED nenhum dos
+    dois enxerga a escrita não commitada do outro. Medido — oito chamadas
+    simultâneas gravavam CINCO e perdiam três no `UniqueConstraint`.
+
+    O que fecha é o laço: a colisão é esperada, o `IntegrityError` é retentado,
+    e a releitura devolve o número seguinte. `select_for_update` não serve
+    porque com o dia vazio não existe linha para travar.
+
+    IDEMPOTÊNCIA. `ja_aplicada` grava e responde na mesma chamada, e mora
+    dentro do mesmo `atomic` da escrita — porque este projeto não liga
+    `ATOMIC_REQUESTS`, e registrar o identificador fora da transação faria uma
+    falha no meio queimar o `op_id` sem gravar nada: o reenvio seria respondido
+    com "já aplicada", a fila apagaria o item, e a série sumiria. É o mesmo
+    motivo pelo qual `LogHydrationView.post` é transacional.
+
+    Devolve `(log, criada)`. `criada=False` significa reenvio reconhecido, e
+    não erro.
+    """
+    from accounts.models import SyncedOperation
+
+    day = day or timezone.localdate()
+
+    # A CORRIDA É REAL, E FOI MEDIDA. Oito `append_set` simultâneos contra o
+    # banco de desenvolvimento gravaram CINCO e perderam três em
+    # `IntegrityError`: duas threads leem o mesmo "primeiro número livre", as
+    # duas tentam gravá-lo, e o `UniqueConstraint` — que está certo em existir
+    # — derruba a segunda.
+    #
+    # `select_for_update` não resolve: quando o dia está vazio não há linha
+    # para travar. O que resolve é aceitar a colisão e tentar de novo com o
+    # conjunto de ocupadas RELIDO. Vinte tentativas porque vinte é o teto de
+    # séries do dia: mais que isso não é disputa, é laço.
+    ultimo_erro = None
+    for _ in range(20):
+        try:
+            with transaction.atomic():
+                if SyncedOperation.ja_aplicada(user, op_id):
+                    return None, False
+
+                # O PRIMEIRO BURACO LIVRE, e nao `maior + 1`. As duas contas
+                # divergem para quem anotou fora de ordem — registrou a serie 3
+                # e deixou a 1 em branco —, e a tela ONLINE ja resolve isso com
+                # `_primeira_serie_livre`. Se o caminho da fila contasse
+                # diferente, a mesma sequencia de toques daria resultados
+                # diferentes conforme houvesse rede, que e exatamente a
+                # equivalencia que esta campanha promete.
+                #
+                # O teto aqui e 20 (o do modelo) e nao o numero de series
+                # PRESCRITAS: serie extra e coisa que acontece, e recusa-la
+                # seria perder o registro de um treino que a pessoa fez.
+                ocupadas = set(
+                    ExerciseLog.objects.filter(
+                        user=user, exercise=exercise, date=day
+                    ).values_list("set_number", flat=True)
+                )
+                proxima = next(
+                    (n for n in range(1, 21) if n not in ocupadas), 21
+                )
+                if proxima > 20:
+                    # O modelo trava em 20 séries por exercício por dia.
+                    # Estourar isso é dado corrompido ou dedo preso no botão, e
+                    # recusar em silêncio seria pior: quem chama decide o que
+                    # dizer na tela.
+                    raise ValueError("limite de séries do dia atingido")
+
+                log = ExerciseLog.objects.create(
+                    user=user,
+                    exercise=exercise,
+                    date=day,
+                    set_number=proxima,
+                    weight_kg=Decimal(str(weight_kg)),
+                    reps=reps,
+                )
+            return log, True
+        except IntegrityError as erro:
+            # A transação inteira caiu, então o registro do `op_id` caiu com
+            # ela — a tentativa seguinte reabre as duas coisas juntas, que é a
+            # propriedade que `AIdempotenciaCaiJuntoComOEfeitoTests` guarda.
+            ultimo_erro = erro
+            continue
+
+    raise ultimo_erro
 
 
 def load_history(user, exercises, day=None) -> dict:

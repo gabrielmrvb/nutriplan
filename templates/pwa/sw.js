@@ -412,6 +412,7 @@ function abrirFila() {
 var ROTAS = [
   /^\/agua\/$/,
   /^\/refeicao\/\d+\/marcar\/$/,
+  /^\/treino\/agora\/serie\/$/,
 ];
 
 function permitida(url) {

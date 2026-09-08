@@ -87,6 +87,7 @@
   var ROTAS = [
     /^\/agua\/$/,
     /^\/refeicao\/\d+\/marcar\/$/,
+    /^\/treino\/agora\/serie\/$/,
   ];
 
   function permitida(url) {
@@ -551,8 +552,23 @@
      *
      * `dados` continua sendo gravado, e nao e redundancia: item guardado por
      * versao anterior so tem ele, e `enviar` precisa saber ler os dois. */
+    /* O `op_id` DO HTML E DESCARTADO AQUI, e isto e a metade offline da regra.
+     *
+     * A tela de treino renderiza um `op_id` escondido, um por RENDERIZACAO,
+     * para que reenviar a mesma pagina (toque duplo, botao voltar) nao grave
+     * duas series. Offline a pagina nao recarrega: os tres toques em "Concluir
+     * serie" sairiam com o MESMO identificador, o servidor recusaria os dois
+     * ultimos como repeticao, e a pessoa terminaria o treino com uma serie de
+     * tres que fez.
+     *
+     * Aqui a identidade e do TOQUE. `identificador()` sorteia um por captura, e
+     * o do formulario nao pode sobreviver ate `corpoDoItem` — que mantem o
+     * PRIMEIRO `op_id` que encontra, e o do HTML vem antes. */
     var pares = [];
-    new FormData(form).forEach(function (v, k) { pares.push([k, v]); });
+    new FormData(form).forEach(function (v, k) {
+      if (k === "op_id") return;
+      pares.push([k, v]);
+    });
     var botao = evento.submitter;
     if (botao && botao.name) pares.push([botao.name, botao.value]);
 
