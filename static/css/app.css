@@ -1112,13 +1112,6 @@ h3 {
    o 9 e depois entre "mi" e "n" — medido a 390px. Número partido no meio não
    é apertado, é ilegível. A linha inteira continua podendo quebrar ENTRE
    itens, que é onde a quebra não custa nada. */
-.hoje__meta--linha > li { display: inline-flex; gap: var(--espaco-1); white-space: nowrap; }
-
-.hoje__meta--linha > li + li::before {
-  content: "·";
-  margin-right: var(--espaco-4);
-  color: var(--text-mute);
-}
 
 /* Meta fechada: o arco vira marca. É o único momento em que a água usa verde,
    e é por isso que ele significa alguma coisa quando aparece. */
@@ -1423,7 +1416,20 @@ h3 {
   line-height: 1.45;
 }
 
+ /* O FUNDO SAI NAS VARIANTES, e não na regra base — e a diferença é de
+   especificidade, não de gosto.
+
+   `.balance--deficit`, `--piso` e `--surplus` pintam bloco porque existem
+   para o cartão "Seu balanço de energia", onde o tingido está certo: lá o
+   saldo É um bloco. O hero carrega a MESMA classe modificadora e herdava o
+   fundo junto.
+
+   Declarar `background: none` na base `.today-hero__balance` não resolveu:
+   ela tem uma classe, as variantes genéricas também, e as genéricas vêm
+   depois no arquivo — empate resolvido por ordem, a meu favor nunca. Estes
+   seletores têm DUAS classes e vencem onde estiverem. */
 .today-hero__balance.balance--deficit {
+  background: none;
   border-left-color: var(--brand);
   color: var(--brand);
 }
@@ -1433,6 +1439,7 @@ h3 {
    um dos dois é recomendação. */
 .today-hero__balance.balance--piso,
 .today-hero__balance.balance--surplus {
+  background: none;
   border-left-color: var(--warm);
   color: var(--warm);
 }
@@ -1662,10 +1669,26 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    O movimento não é enfeite: marcar uma refeição recarrega a página, e sem a
    transição a barra simplesmente está diferente — a pessoa não vê o próprio
    progresso acontecer, que é a única recompensa desta tela. */
+ /* A BASE PRECISA DE COR, e não tinha — defeito anterior ao redesign.
+
+   Só as variantes pintavam (`--protein`, `--carb`, `--fat`, `--agua`, e o
+   estado completo). Uma `.progress__fill` sem modificador ficava
+   TRANSPARENTE: a barra de progresso da sessão em `/treino/agora/` vinha com
+   79% de largura e 0% de cor, e a do hero de Treino era o mesmo caso — foi o
+   que a fez parecer um fio vazio antes de virar anel.
+
+   Medido: `getBoundingClientRect()` devolvia 277px de 350, e
+   `getComputedStyle` devolvia `rgba(0, 0, 0, 0)`. A largura estava certa o
+   tempo todo; o que faltava era alguém enxergar.
+
+   Verde é o padrão porque progresso positivo é um dos usos que este app
+   reserva para a marca; quem precisa de outra cor continua declarando
+   variante, e a variante vence por vir depois. */
 .progress__fill {
   display: block;
   height: 100%;
   border-radius: var(--pill);
+  background: var(--brand);
   transition: width .5s var(--ease);
 }
 
@@ -6071,6 +6094,36 @@ body.montando { overflow: hidden; }
   padding: 0;
   list-style: none;
 }
+/* O MODIFICADOR MORA DEPOIS DA BASE, e isso nao e arrumacao.
+
+   A base logo acima e uma GRADE de duas colunas com "·" entre os itens. O
+   modificador tem a mesma especificidade, entao quem decide e a ordem: nascido
+   antes, ele perdia, e a lista voltava a ser grade — com o ponto orfao
+   abrindo a segunda linha. Foi o que o desktop mostrou.
+
+   Ao lado do anel a lista vira COLUNA: em linha, quatro fatos numa faixa de
+   ~200px quebram. Empilhados, cada um cabe inteiro e o bloco fica com a
+   altura do anel. Sem "·", porque separador serve a itens na MESMA linha;
+   numa coluna ele vira sujeira no comeco de cada uma.
+
+   `nowrap` no item e obrigatorio: sem ele "~49 min" quebrou entre o 4 e o 9 e
+   depois entre "mi" e "n", medido a 390px. Numero partido nao e apertado, e
+   ilegivel. */
+.hoje__meta--linha {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+  margin-top: 0;
+}
+
+.hoje__meta--linha > li {
+  display: inline-flex;
+  gap: var(--espaco-1);
+  white-space: nowrap;
+}
+
+.hoje__meta--linha > li + li::before { content: none; }
+
 .hoje__meta > li {
   display: flex;
   align-items: center;
@@ -6324,13 +6377,6 @@ body.montando { overflow: hidden; }
 
 .agora__head { margin-bottom: var(--espaco-3); }
 
-.agora__sessao {
-  margin: 0;
-  font-size: 1.28rem;
-  line-height: 1.15;
-  min-width: 0;
-}
-
 /* Duas contagens, e as duas importam: exercício responde "onde estou na
    ficha", série responde "quanto falta deste". Com só a primeira, a barra fica
    parada durante quatro séries seguidas. */
@@ -6341,7 +6387,23 @@ body.montando { overflow: hidden; }
   font-variant-numeric: tabular-nums;
 }
 
-.agora__progresso { height: .4rem; }
+ /* O PROGRESSO DA SESSÃO ganha corpo.
+
+   Ele era um fio de 6px numa tela em que "quanto falta?" é a segunda
+   pergunta mais frequente — a primeira sendo "qual é a carga?". O mesmo
+   raciocínio que tirou a barra de 4px do hero de Treino vale aqui, com uma
+   diferença: lá o anel coube porque a tela é de consulta; aqui espaço
+   vertical é o recurso escasso, então a barra fica e engorda. */
+.agora__progresso { height: .65rem; border-radius: var(--pill); }
+
+/* O nome da sessão vira sobretítulo: ele diz de que treino este exercício
+   faz parte, e não é o assunto da tela. */
+.agora__sessao-rotulo { margin: 0 0 var(--espaco-2); }
+
+/* O EXERCÍCIO é o título da tela, e agora tem o peso disso. Ele era um `h2`
+   dentro do painel, do tamanho de um título de seção, competindo com o nome
+   da sessão logo acima. */
+.agora__nome { font-size: var(--texto-2xl); font-weight: 800; }
 
 .agora { padding-top: .75rem; }
 
@@ -6576,6 +6638,20 @@ body.montando { overflow: hidden; }
    essa aritmética três vezes na tela da ficha. Em três faixas cada um respira:
    a carga entre os degraus, as repetições na sua linha, e o botão de concluir
    com a largura inteira, que é o controle mais tocado da tela. */
+ /* NA EXECUÇÃO O GRUPO PERDE A CAIXA.
+
+   Carga, reps e "Concluir série" viviam num bloco com fundo e contorno DENTRO
+   do painel do exercício — caixa dentro de caixa, e justamente na tela que
+   existe para ser usada entre uma série e outra, com o telefone numa mão. A
+   moldura não agrupava nada que a posição já não agrupasse: os três controles
+   são a única coisa daquela metade da tela.
+
+   Na FICHA a caixa continua, e a diferença é de contexto: lá o mesmo grupo
+   aparece nove vezes, uma por exercício, e ali a moldura é o que separa o
+   registro de um exercício do registro do seguinte. Aqui só existe um.
+
+   Sem fundo, os controles ficam maiores sem crescer: o que some é a borda que
+   os estreitava por dentro. */
 .registro--agora {
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
@@ -6583,7 +6659,10 @@ body.montando { overflow: hidden; }
     "reps  reps  reps"
     "cta   cta   cta";
   margin-top: 0;
-  padding: .6rem var(--espaco-4);
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
 }
 .registro--agora .registro__campo--reps { grid-area: reps; }
 

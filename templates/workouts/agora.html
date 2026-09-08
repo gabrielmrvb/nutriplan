@@ -97,13 +97,26 @@
   {% else %}
     {# ---------- Em treino: o exercício atual ---------- #}
     {% with atual=estado.atual %}
+    {% comment %}
+      UM TÍTULO POR TELA, e nesta ele é o EXERCÍCIO.
+
+      Havia dois cabeçalhos empilhados: o nome da sessão como `h1` e o nome do
+      exercício como `h2` dentro do painel, um logo abaixo do outro. Duas
+      identidades competindo — o mesmo defeito que a tela de entrada tinha, com
+      a marca e o "Entrar" um sobre o outro.
+
+      Quem manda aqui é o exercício: é o que a pessoa lê entre uma série e
+      outra. O nome da sessão vira SOBRETÍTULO, que é o papel que ele de fato
+      cumpre — dizer de que treino este exercício faz parte —, e desce para
+      11px em caixa alta, a mesma voz do `AGORA` e do `TREINO DE HOJE`.
+
+      A contagem continua sendo duas, pelo motivo já registrado: exercício
+      responde "onde estou na ficha" e série responde "quanto falta deste
+      aqui". Mostrar só a primeira deixa a barra parada por quatro séries
+      seguidas.
+    {% endcomment %}
     <div class="page-head agora__head">
-      <h1 class="agora__sessao">{{ estado.sessao.name }}</h1>
-      {% comment %}
-        Duas contagens diferentes, e as duas importam: exercício responde "onde
-        estou na ficha", série responde "quanto falta deste aqui". Mostrar só a
-        primeira faz a barra ficar parada durante quatro séries seguidas.
-      {% endcomment %}
+      <p class="sobretitulo agora__sessao-rotulo">{{ estado.sessao.name }}</p>
       <p class="agora__passo num">
         Exercício {{ estado.exercicios_concluidos|add:1 }}/{{ estado.total_exercicios }}
         · {{ estado.series_feitas }}/{{ estado.total_series }} séries
@@ -115,7 +128,7 @@
 
     <section class="card agora">
       <header class="agora__topo">
-        <h2 class="agora__nome">{{ atual.exercise.name }}</h2>
+        <h1 class="agora__nome">{{ atual.exercise.name }}</h1>
         <p class="agora__meta">
           <span class="exercise__tag exercise__tag--target">
             {{ atual.exercise.get_muscle_group_display }}{% if atual.exercise.secondary_muscle_labels %} · também {{ atual.exercise.secondary_muscle_labels|join:", " }}{% endif %}

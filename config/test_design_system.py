@@ -67,7 +67,9 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: 134 no REDESIGN V1: o aviso da tela de corridas trocou `.85rem` cru pelo
 #: degrau `--texto-sm` ao virar ressalva, e a oferta que nasceu acima dele já
 #: nasceu na escala.
-TETO_FONT_SIZE_CRU = 134
+#: 133 quando `.agora__sessao` saiu: o nome da sessão virou sobretítulo com
+#: token, e a regra antiga levava embora o último `1.28rem` cru dela.
+TETO_FONT_SIZE_CRU = 133
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
@@ -81,7 +83,9 @@ TETO_FONT_SIZE_CRU = 134
 #: paddings crus que vinham do desenho antigo.
 #: 268 quando o saldo do painel do dia deixou de ser pílula: a cápsula levava
 #: padding cru dos dois eixos, e o filete que a substituiu usa a escala.
-TETO_ESPACO_CRU = 268
+#: 267 quando o grupo de carga da tela de execução perdeu a caixa: o padding
+#: cru dele saiu junto com o fundo e a borda.
+TETO_ESPACO_CRU = 267
 
 
 def sem_comentarios(texto):
