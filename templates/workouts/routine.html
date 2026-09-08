@@ -314,7 +314,6 @@
               </li>
             {% endfor %}
           </ol>
-          {% if plan.notes %}<p class="callout">{{ plan.notes }}</p>{% endif %}
         </section>
 
         {# ------------- 4. Os outros dias ------------- #}
@@ -380,18 +379,32 @@
 
       <aside class="split__aside stack">
         {% comment %}
-          A Corrida abre a coluna lateral, e não fecha o documento.
+          A CORRIDA SAIU DAQUI, e não voltou para o fim da página.
 
-          Ela era o último bloco da página: medido no navegador a 375px, o
-          cabeçalho "Corrida" caía em y=5476 de uma página de 5755 — quase sete
-          dobras, embaixo de três blocos que não são ação nenhuma (o volume por
-          músculo, o texto de como executar e a configuração dos dias). Uma
-          porta que abre outra atividade não fica atrás da consulta e do ajuste.
+          Ela tinha subido para o topo desta coluna porque estava enterrada no
+          rodapé — medido a 375px, o cabeçalho caía em y=5476 de uma página de
+          5755. Aquilo consertou a posição e manteve o problema de fundo: uma
+          segunda porta para uma área que já tem a sua.
+
+          Corrida é um dos cinco pilares e mora em Áreas, que é destino fixo da
+          barra de baixo desde UX-01. Um cartão aqui divide a mesma porta em
+          duas, e é isso que a Fase 2 veio desfazer.
+
+          O QUE SOBROU DA COLUNA virou um bloco recolhido. Volume por músculo,
+          como executar, dias de treino e a nota da divisão continuam
+          acessíveis — o que eles deixam de fazer é ocupar a tela de quem abriu
+          o app para treinar agora. Nada de vídeo, série, carga, repetição,
+          descanso, progressão ou histórico é tocado aqui.
         {% endcomment %}
-        {% include "workouts/_corrida.html" %}
+        <details class="card explicacao" id="detalhes-do-programa">
+          <summary class="explicacao__head">
+            <h2>Detalhes do programa</h2>
+            <span class="explicacao__dica" aria-hidden="true">abrir</span>
+          </summary>
 
-        <section class="card">
-          <div class="card__head"><h2>Séries por músculo</h2></div>
+          {% if plan.notes %}<p class="callout">{{ plan.notes }}</p>{% endif %}
+
+          <h3 class="explicacao__titulo">Séries por músculo</h3>
           <div class="macro-list">
             {% for row in volume %}
               <div class="macro-line">
@@ -415,10 +428,8 @@
             aritmética de tempo, não erro da ficha: quem quer subir o volume abre
             mais um dia na semana, não empilha série no dia que já treina.
           </p>
-        </section>
 
-        <section class="card">
-          <div class="card__head"><h2>Como executar</h2></div>
+          <h3 class="explicacao__titulo">Como executar</h3>
           <dl class="data-list">
             <div><dt>Aquecimento</dt><dd>1-2 séries leves</dd></div>
             <div><dt>Séries de trabalho</dt><dd>até 1-2 reps da falha</dd></div>
@@ -435,13 +446,11 @@
             sistema todo, não o músculo isolado: cortar esse tempo derruba a carga da
             série seguinte, que é justamente o que a gente está tentando aumentar.
           </p>
-        </section>
 
-        <section class="card">
-          <div class="card__head">
-            <h2>Dias de treino</h2>
+          <h3 class="explicacao__titulo">
+            Dias de treino
             <a href="{% url 'accounts:onboarding_step' step=3 %}?origem=treino">Editar</a>
-          </div>
+          </h3>
           <dl class="data-list">
             {% for session in sessions %}
               <div>
@@ -455,7 +464,7 @@
             esta tela — dois dias viram AB, três viram ABC, quatro viram ABCD, e de cinco
             em diante o ciclo ABC recomeça.
           </p>
-        </section>
+        </details>
       </aside>
     </div>
 

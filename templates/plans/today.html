@@ -672,18 +672,21 @@ coluna da direita), não entre ela e o almoço.
           perfil para toda refeição. A saída é dizer a verdade — o que bate é a
           caloria, e a proteína de cada opção já está escrita no card ao lado.
         {% endcomment %}
+        {% comment %}
+          ORIENTAÇÃO BREVE, e a conta do dia mora em "Entender minhas metas".
+
+          Aqui havia um parágrafo com a soma do dia inteiro, a meta e a
+          explicação de por que às vezes elas não batem. Tudo verdade, e tudo
+          no lugar errado: depois de todas as refeições, o que a pessoa precisa
+          é saber COMO escolher entre A e B — não recalcular o dia.
+
+          O que sobra é a única coisa acionável na hora de escolher: as duas
+          fecham a mesma caloria, então o critério é o macro, e ele está escrito
+          no card de cada opção.
+        {% endcomment %}
         <p class="hint">
-          As duas opções de cada horário fecham a mesma caloria: cada receita foi
-          escalada até o alvo daquela refeição. Os macros variam entre elas — se a
-          proteína for o que importa hoje, vale conferir o número de cada uma.
-          Seguindo a opção A do dia inteiro dá <b class="num">{{ menu.kcal }} kcal</b> e
-          <b class="num">{{ menu.protein_g }} g</b> de proteína —
-          {% if menu_on_target %}
-            bate com a sua meta de {{ plan.target_kcal }} kcal.
-          {% else %}
-            {{ menu_gap }} kcal em relação à meta de {{ plan.target_kcal }} kcal, porque
-            em algum horário a porção chegaria ao limite do que é comida de verdade.
-          {% endif %}
+          A e B fecham a mesma caloria. O que muda são os macros — se a proteína
+          é o que importa hoje, o número está no card de cada opção.
         </p>
       </section>
 
@@ -735,8 +738,27 @@ coluna da direita), não entre ela e o almoço.
 
     {# ------------- Os números: consulta, não ação ------------- #}
     <aside class="split__aside stack">
-      <section class="card">
-        <div class="card__head"><h2>Seu balanço de energia</h2></div>
+      {% comment %}
+        MOSTRAR PRIMEIRO, EXPLICAR QUANDO PEDIREM.
+
+        Três blocos moravam aqui sempre abertos — o saldo de energia, os macros
+        do dia e o desdobramento do cálculo —, e os dois primeiros repetiam num
+        segundo formato completo o que o resumo do topo já diz. A tela ficava
+        com duas representações inteiras dos mesmos números.
+
+        Eles viraram UM bloco recolhido. Nada de informação nutricional saiu: o
+        saldo, os macros, o gasto estimado e a meta diária continuam aqui, e
+        abrem no toque de quem quiser entender de onde vem o número.
+
+        `Dados do cálculo` continua separado logo abaixo, e isso é decisão: ali
+        são as ENTRADAS — peso, altura, idade, rotina — mais o botão de
+        recalcular. Pergunta diferente, bloco diferente.
+      {% endcomment %}
+      <details class="card explicacao" id="entender-metas">
+        <summary class="explicacao__head">
+          <h2>Entender minhas metas</h2>
+          <span class="explicacao__dica" aria-hidden="true">abrir</span>
+        </summary>
 
         <div class="balance balance--{{ balance.kind }}">
           <span class="balance__value">
@@ -787,10 +809,8 @@ coluna da direita), não entre ela e o almoço.
         {% if plan.notes %}
           <p class="callout">{{ plan.notes }}</p>
         {% endif %}
-      </section>
 
-      <section class="card">
-        <div class="card__head"><h2>Macros de hoje</h2></div>
+        <h3 class="explicacao__titulo">Macros de hoje</h3>
 
         {% if proteina_perdida %}
           {% comment %}
@@ -869,13 +889,8 @@ coluna da direita), não entre ela e o almoço.
             </div>
           {% endfor %}
         </div>
-      </section>
 
-      <details class="card explicacao">
-        <summary class="explicacao__head">
-          <h2>Como chegamos na sua meta</h2>
-          <span class="explicacao__dica" aria-hidden="true">abrir</span>
-        </summary>
+        <h3 class="explicacao__titulo">Como chegamos na sua meta</h3>
         <dl class="data-list data-list--total">
           <div>
             <dt>Gasto em repouso (TMB)</dt>

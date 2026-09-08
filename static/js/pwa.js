@@ -66,11 +66,24 @@
        errado era a tela mentir sobre ele. */
     if (!supported || !window.NUTRIPLAN_VAPID_KEY) {
       button.hidden = true;
-      say(
-        supported
-          ? "Os lembretes ainda não estão disponíveis. Nada para fazer aqui por enquanto."
-          : "Este navegador não recebe lembretes. O resto do app funciona normalmente."
-      );
+      /* AS DUAS CAUSAS CONTINUAM DIFERENTES, e agora até na forma.
+
+         Navegador sem suporte é do aparelho de quem lê: a frase fica, porque
+         ela é informação — a pessoa pode abrir o app noutro navegador.
+
+         Chave ausente é nosso, e não há nada que quem lê possa fazer. Um cartão
+         inteiro dizendo "nada para fazer aqui por enquanto" é placeholder de
+         funcionalidade inexistente, e some junto com o botão.
+
+         O que o A2 proibia — esconder o botão e deixar a frase mandando ativar
+         — não volta em nenhum dos dois: ou a frase é corrigida, ou o cartão
+         inteiro sai. */
+      if (supported) {
+        var cartao = status && status.closest("section");
+        if (cartao) cartao.hidden = true;
+      } else {
+        say("Este navegador não recebe lembretes. O resto do app funciona normalmente.");
+      }
       return;
     }
 

@@ -48,11 +48,26 @@ class OCartaoDeLembretesNaoMenteTests(SimpleTestCase):
         self.assertIsNotNone(ramo, "sumiu o ramo que trata push indisponível")
         corpo = ramo.group(1)
         self.assertIn("button.hidden = true", corpo)
+        # A SAÍDA PODE SER UMA DE DUAS, e nenhuma delas é o A2.
+        #
+        # Ou o ramo corrige a frase (`say`), ou ele esconde o CARTÃO inteiro —
+        # que é o que passou a acontecer em 08/09/2026 quando a chave VAPID não
+        # está configurada, porque um cartão dizendo "nada para fazer aqui por
+        # enquanto" é placeholder de funcionalidade inexistente.
+        #
+        # O que continua proibido é o defeito original: esconder só o BOTÃO e
+        # deixar a frase mandando ativar o que não dá para ativar.
+        self.assertTrue(
+            "say(" in corpo and "hidden = true" in corpo,
+            "o ramo esconde o botão e sai sem corrigir a frase nem o cartão — "
+            "é o A2 de volta: a tela manda ativar uma coisa que não tem como "
+            "ativar.",
+        )
         self.assertIn(
-            "say(",
+            'closest("section")',
             corpo,
-            "o ramo esconde o botão e sai sem corrigir a frase — é o A2 de "
-            "volta: a tela manda ativar uma coisa que não tem como ativar.",
+            "sem chave, o cartão inteiro precisa sair — senão sobra um bloco "
+            "que só informa a própria ausência.",
         )
 
     def test_as_duas_causas_dizem_coisas_diferentes(self):
@@ -69,12 +84,31 @@ class OCartaoDeLembretesNaoMenteTests(SimpleTestCase):
         )
         corpo = ramo.group(1)
         self.assertIn("supported", corpo)
-        frases = re.findall(r'"([^"]{20,})"', corpo)
-        self.assertEqual(
-            len(set(frases)),
-            2,
-            f"esperava duas frases distintas para as duas causas, veio {frases}",
+
+        # AS DUAS CAUSAS SEGUEM SEPARADAS, e agora até na forma de responder:
+        # navegador sem suporte recebe FRASE (é do aparelho de quem lê, e a
+        # pessoa pode trocar de navegador); chave ausente ESCONDE o cartão (é
+        # nosso, e não há nada que ela possa fazer).
+        #
+        # A versão anterior exigia duas frases distintas. Continuar exigindo
+        # isso obrigaria a manter um texto morto para o caso que deixou de ter
+        # texto — o teste passaria a cobrar de volta o placeholder que a
+        # campanha tirou.
+        # Asserção direta, e não uma varredura de aspas: o corpo passou a ter
+        # `closest("section")`, e um `findall` de strings longas emparelha as
+        # aspas erradas e devolve um trecho de CÓDIGO como se fosse frase.
+        self.assertIn(
+            "Este navegador não recebe lembretes",
+            corpo,
+            "sumiu a frase do navegador sem suporte — quem pode trocar de "
+            "navegador deixou de saber disso",
         )
+        self.assertNotIn(
+            "ainda não estão disponíveis",
+            corpo,
+            "voltou o placeholder: um cartão que só informa a própria ausência",
+        )
+        self.assertIn("if (supported)", corpo, "as duas causas se fundiram")
 
     def test_o_texto_do_servidor_continua_sendo_o_convite(self):
         """Controle positivo, e ele guarda a outra metade do defeito.

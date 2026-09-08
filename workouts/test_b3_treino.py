@@ -345,65 +345,66 @@ class OTituloDizEmQueEstadoATelaEstaTests(TestCase):
 
 
 class APortaDaCorridaTests(TestCase):
-    """A corrida continua dentro do treino, e deixou de ser o rodape dele.
+    """A porta da corrida saiu da tela de Treino e mora em Areas.
 
-    `ACorridaTemPortaTests` ja cobra que a porta EXISTA — e foi ela que pegou a
-    primeira versao desta mudanca, que moveu o cartao para a coluna lateral e
-    apagou a porta de quem ainda nao cadastrou dias de treino. Estes testes
-    cobram a outra metade: onde ela fica, e que ela fique nos dois estados.
+    HISTORICO, porque esta classe ja mudou de alvo duas vezes e o motivo
+    importa. A corrida era o RODAPE da tela de treino — medido a 375px, o
+    cabecalho caia em y=5476 de uma pagina de 5755. Ela subiu para o topo da
+    coluna lateral, e `ACorridaTemPortaTests` pegou que a primeira versao
+    daquela mudanca apagava a porta de quem ainda nao tinha dias de treino.
+
+    Em 08/09/2026 o cartao saiu de vez. Nao por posicao: por DUPLICACAO.
+    Corrida e um dos cinco pilares e tem porta propria em Areas, que e destino
+    fixo da barra de baixo desde UX-01. Um cartao na tela de treino divide a
+    mesma porta em duas — e duas portas para a mesma tela sao o comeco de duas
+    que divergem, que e o que esta classe sempre temeu.
+
+    O que ela guarda agora: a porta EXISTE em Areas, e a tela de Treino NAO a
+    duplica.
     """
 
     @classmethod
     def setUpTestData(cls):
         call_command("seed_workouts", verbosity=0)
 
-    def test_a_porta_vem_antes_das_secoes_de_consulta(self):
+    def test_areas_leva_a_corrida(self):
+        """O controle positivo, e ele vem primeiro de proposito.
+
+        Sem ele, "o treino nao tem porta" ficaria verde num app onde a corrida
+        virou inalcancavel — que e exatamente o defeito que a primeira mudanca
+        desta area cometeu.
+        """
         self.client.force_login(create_user(email="corrida1@exemplo.com"))
 
-        html = self.client.get(reverse("workouts:routine")).content.decode()
+        html = self.client.get(reverse("areas")).content.decode()
 
-        porta = html.index('href="/treino/corridas/"')
-        for secao in ("Séries por músculo", "Como executar", "Dias de treino"):
-            with self.subTest(secao=secao):
-                self.assertLess(
-                    porta,
-                    html.index(secao),
-                    "a porta da corrida voltou para baixo de '%s'" % secao,
-                )
-
-    def test_quem_ainda_nao_tem_rotina_tambem_alcanca_a_corrida(self):
-        """O ramo que a primeira versao quebrou.
-
-        Sem dias de treino nao ha ficha nem coluna lateral — e a corrida nao
-        depende de ficha nenhuma para acontecer.
-        """
-        self.client.force_login(create_user(email="corrida2@exemplo.com", weekdays=()))
-
-        html = self.client.get(reverse("workouts:routine")).content.decode()
-
-        self.assertNotIn("split__aside", html)
         self.assertIn('href="/treino/corridas/"', html)
 
-    def test_a_porta_e_uma_so(self):
-        """Duas portas para a mesma tela e o comeco de duas que divergem.
-
-        A conta e sobre o CORPO desta tela, e nao sobre a pagina inteira: a
-        navegacao global tambem leva a corrida, e ela nao e uma segunda porta
-        DAQUI — a divergencia que este teste teme e entre dois cartoes desta
-        mesma tela.
-
-        UX-01 mudou onde a porta global fica. Ela era o mapa `<details>` na
-        barra de cima, na MESMA pagina, e por isso o controle positivo olhava
-        o cabecalho. Agora e a tela de Areas, que e o quarto item da barra —
-        entao o controle positivo foi buscar la, que e onde a porta passou a
-        morar.
-        """
-        self.client.force_login(create_user(email="corrida3@exemplo.com"))
+    def test_a_tela_de_treino_nao_duplica_a_porta(self):
+        self.client.force_login(create_user(email="corrida2@exemplo.com"))
 
         html = self.client.get(reverse("workouts:routine")).content.decode()
         corpo = html.split("</header>", 1)[1]
 
-        self.assertEqual(corpo.count('href="/treino/corridas/"'), 1)
-        # Controle positivo: a porta global existe, e agora mora em Areas.
+        self.assertEqual(
+            corpo.count('href="/treino/corridas/"'),
+            0,
+            "o cartao de Corrida voltou para a tela de Treino, e agora sao "
+            "duas portas para a mesma area",
+        )
+
+    def test_quem_ainda_nao_tem_rotina_tambem_alcanca_a_corrida(self):
+        """O ramo que a primeira versao desta area quebrou, guardado no lugar novo.
+
+        Sem dias de treino nao ha ficha nem coluna lateral — e a corrida nao
+        depende de ficha nenhuma para acontecer. Areas responde igual para quem
+        acabou de entrar.
+        """
+        self.client.force_login(create_user(email="corrida3@exemplo.com", weekdays=()))
+
+        treino = self.client.get(reverse("workouts:routine")).content.decode()
         areas = self.client.get(reverse("areas")).content.decode()
+
+        self.assertNotIn("split__aside", treino)
         self.assertIn('href="/treino/corridas/"', areas)
+

@@ -3155,13 +3155,46 @@ class HojeV2ViewTests(CatalogFixture):
             self.assertLessEqual(acao.horario, hora_local)
 
     def test_o_calculo_da_meta_fica_recolhido(self):
-        """As explicações continuam na página, atrás de um toque."""
+        """As explicações continuam na página, atrás de um toque.
+
+        A régua era "existe um `<details>` nos 400 caracteres antes do título".
+        Ela media a estrutura de então — cada explicação no próprio `<details>`
+        — e não a propriedade. Em 08/09/2026 os blocos que respondem "por que
+        essa meta?" viraram UM só, `Entender minhas metas`, e o desdobramento
+        passou a ser um `<h3>` lá dentro: o `<details>` continua existindo,
+        mais acima.
+
+        O que este teste passa a medir é a propriedade: o cálculo está DENTRO
+        de um bloco recolhido, e não solto na superfície principal.
+        """
         response = self.client.get(self.url)
         html = response.content.decode()
 
         self.assertIn("Como chegamos na sua meta", html)
-        bloco = html.split("Como chegamos na sua meta", 1)[0]
-        self.assertIn("<details", bloco[-400:])
+
+        antes = html.split("Como chegamos na sua meta", 1)[0]
+        abertos = antes.count("<details") - antes.count("</details>")
+        self.assertGreater(
+            abertos,
+            0,
+            "o cálculo da meta ficou fora de qualquer bloco recolhido",
+        )
+
+    def test_o_saldo_e_os_macros_nao_ocupam_mais_a_superficie_principal(self):
+        """Controle do teste acima, e o objetivo da Fase 2.
+
+        Os números do topo já dizem calorias, refeições, macros, água, treino e
+        peso. Repetir saldo e macros num segundo formato completo, sempre
+        aberto, era ter duas representações inteiras dos mesmos números na
+        mesma tela.
+        """
+        html = self.client.get(self.url).content.decode()
+
+        self.assertIn("Entender minhas metas", html)
+        self.assertNotIn("<h2>Seu balanço de energia</h2>", html)
+        self.assertNotIn("<h2>Macros de hoje</h2>", html)
+        # E o conteúdo NÃO some: ele continua lá, recolhido.
+        self.assertIn("Macros de hoje", html)
 
     def test_dia_de_descanso_nao_oferece_treino_na_tela_hoje(self):
         response = self.client.get(self.url)
