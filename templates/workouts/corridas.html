@@ -10,12 +10,25 @@
   <section class="card corrida-agora" data-corrida
            data-salvar="{% url 'workouts:salvar_corrida' %}">
     {% comment %}
-      O aviso vem ANTES do botão, e não depois de a pessoa começar.
+      PRIMEIRO o que a tela faz, DEPOIS o que ela não faz.
 
-      Uma PWA não tem geolocalização em segundo plano — não é limitação de
-      esforço, é ausência de API. Com a tela bloqueada as leituras param.
-      Contar isso depois que a corrida já falhou é contar tarde.
+      Esta tela abria pelo aviso de bateria e GPS em segundo plano. O aviso
+      está certo e continua aqui — o que estava errado era a ordem. Quem chega
+      pela primeira vez lia uma limitação técnica antes de saber para que a
+      área serve, e "o navegador não deixa acompanhar a localização em segundo
+      plano" é uma frase que só significa alguma coisa para quem já entendeu
+      que dá para registrar corrida aqui.
+
+      Os três nomes abaixo não são promessa: distância, ritmo e tempo são
+      exatamente os três números que o painel desta tela mostra enquanto a
+      corrida roda (`data-corrida-distancia`, `-ritmo`, `-tempo`), e os mesmos
+      que `_corrida.html` imprime no histórico. Estado vazio é convite, e
+      convite que não diz o que se ganha é só uma constatação.
     {% endcomment %}
+    <p class="corrida-oferta">
+      Distância, ritmo e tempo de cada corrida, gravados enquanto você corre.
+    </p>
+
     <p class="corrida-aviso" data-corrida-aviso>
       O NutriPlan registra a corrida com o app aberto e a tela acesa — ela fica
       acesa sozinha enquanto você corre, e isso gasta mais bateria. Guardar o

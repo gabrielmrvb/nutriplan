@@ -64,7 +64,10 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: desenhar maior que a fonte de texto no mesmo tamanho. Desceu de novo quando
 #: `.exercise__cue` saiu — a dica virou componente com token. A catraca só
 #: desce: quando a dívida cai, o teto cai junto, senão ela volta sem ninguém ver.
-TETO_FONT_SIZE_CRU = 135
+#: 134 no REDESIGN V1: o aviso da tela de corridas trocou `.85rem` cru pelo
+#: degrau `--texto-sm` ao virar ressalva, e a oferta que nasceu acima dele já
+#: nasceu na escala.
+TETO_FONT_SIZE_CRU = 134
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com

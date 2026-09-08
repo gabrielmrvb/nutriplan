@@ -7071,10 +7071,21 @@ body.montando { overflow: hidden; }
    Três números, lidos de relance e correndo. É o contexto mais hostil do app:
    mais hostil que a academia, porque aqui a pessoa está em movimento. */
 
+/* A OFERTA e o AVISO são dois pesos, e a diferença entre eles é a hierarquia
+   que faltava nesta tela. A oferta diz o que se ganha e vem em corpo de
+   leitura; o aviso diz o que não funciona e vem menor, porque é ressalva. Com
+   os dois no mesmo tamanho, a tela inteira lia como advertência. */
+.corrida-oferta {
+  margin: 0 0 var(--espaco-4);
+  color: var(--text);
+  font-size: var(--texto-base);
+  line-height: 1.45;
+}
+
 .corrida-aviso {
   margin: 0 0 var(--espaco-6);
-  color: var(--text-dim);
-  font-size: .85rem;
+  color: var(--text-mute);
+  font-size: var(--texto-sm);
   line-height: 1.55;
 }
 

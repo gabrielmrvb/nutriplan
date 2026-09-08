@@ -734,13 +734,20 @@ class VisualRefinementTests(TestCase):
     def test_the_sunken_blocks_get_their_outline_from_inside(self):
         """Contorno por dentro, porque o de fora empurraria a grade.
 
-        O azulejo, a célula da equação, o chip do dia e o resultado da refeição
-        pousam em `--surface-2` sem borda nenhuma. No escuro, dois grafites
-        vizinhos viram um só — o bloco some no cartão. Uma borda de verdade
-        resolveria e custaria 2px em cada eixo, mexendo numa grade que já está
-        certa; `inset` desenha o mesmo fio sem ocupar espaço algum.
+        A célula da equação, o chip do dia e o resultado da refeição pousam em
+        `--surface-2` sem borda nenhuma. No escuro, dois grafites vizinhos
+        viram um só — o bloco some no cartão. Uma borda de verdade resolveria
+        e custaria 2px em cada eixo, mexendo numa grade que já está certa;
+        `inset` desenha o mesmo fio sem ocupar espaço algum.
+
+        `.tile` saiu desta lista no REDESIGN V1, e a saída é o ponto: ele
+        deixou de ser bloco afundado. Eram três tiles com fundo, quina e
+        contorno interno DENTRO de um cartão que já tinha os três — moldura
+        repetida em volta de três números, numa tela cuja função é mostrar
+        número. Hoje ele é coluna separada por régua, e exigir `--inlay` de
+        quem não tem fundo próprio seria pedir contorno de nada.
         """
-        for seletor in (".tile", ".equation__cell", ".day-chip", ".meal__result"):
+        for seletor in (".equation__cell", ".day-chip", ".meal__result"):
             with self.subTest(seletor=seletor):
                 bloco = self.css.split(chr(10) + seletor + " {", 1)[1].split("}", 1)[0]
                 self.assertIn("var(--inlay)", bloco)
