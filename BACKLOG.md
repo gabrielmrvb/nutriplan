@@ -3,6 +3,45 @@
 O que ficou decidido mas não feito, e o que depende de gente. Cada item diz
 **por que** está aqui — item sem motivo vira lista que ninguém lê.
 
+## ✅ REDESIGN V2 — CONCLUÍDO E PUBLICADO (08/09/2026)
+
+Baseline oficial: **`fb4fbb6`**, no ar em https://nutriplan-xxfn.onrender.com,
+suíte de 2.422 testes verde, deploy confirmado por hash de conteúdo do CSS.
+
+O que mudou, em uma linha por camada: o fundo deixou de ser cor chapada; o
+cartão perdeu a borda e virou painel; a barra de baixo descolou das bordas; o
+"quanto do meu dia já saiu?" passou a ter UMA resposta — o anel — em Hoje,
+Hidratação e Treino; Áreas virou grade com dado real; Progresso ganhou curva de
+peso; a entrada perdeu a moldura. Evidência em
+`artifacts/nutriplan-redesign-v2/` (before/after/comparisons/fullpage/indexes).
+
+**Não reabrir por preferência estética.** Só com regressão real, reproduzível e
+medida.
+
+### Pendências de VALIDAÇÃO desta campanha — não são bugs
+
+As três dependem de condição que não existia no dia da publicação:
+
+1. **Treino e Execução em produção com sessão ativa.** A persona do demo treina
+   seg/qua/sex e a publicação caiu numa terça, então as duas telas só puderam
+   ser vistas no estado de descanso. O código está provadamente publicado
+   (`ring--treino` presente no CSS servido) e o comportamento foi validado
+   localmente num estado controlado, com os dois lados na mesma sessão.
+2. **Login e logout com conta QA.** Não existe credencial de teste em produção,
+   e a conta do dono não é ferramenta de QA.
+3. **Atualização do anel após registrar série de verdade.** Exige escrita em
+   produção; o demo é público e a escrita seria visível a qualquer visitante. O
+   mecanismo foi verificado localmente com o mesmo código.
+
+### Regra de diagnóstico que esta campanha deixou
+
+Quatro vezes o sintoma foi tratado antes da causa — três em cascata CSS
+resolvida por ORDEM quando o problema era ESPECIFICIDADE, e uma em verificação
+de deploy comparando o md5 da cópia CRLF local com o checkout LF do servidor.
+Antes de mexer em CSS por regressão visual: reproduzir, medir com
+`getComputedStyle`, achar a regra vencedora, conferir especificidade, conferir
+ordem, só então alterar — e medir de novo depois.
+
 ## Bloqueado por decisão ou ação humana
 
 ### ⛔ Fundação mobile da Corrida — SERVIDOR PRONTO, CLIENTE BLOQUEADO
