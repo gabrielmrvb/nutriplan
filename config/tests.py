@@ -713,10 +713,18 @@ class VisualRefinementTests(TestCase):
         forte do app inteiro estava num formulário de onboarding. São quatro
         respostas para a mesma pergunta ("o que marca o que está ativo"), e a
         pessoa que usa o app vê as quatro na mesma sessão.
+
+        `.tabbar__item.is-active` saiu da lista no REDESIGN V2, e a saída é a
+        decisão: a aba da vez deixou de ser fundo tingido e passou a ser
+        PÍLULA CHEIA da marca. O halo existe para destacar um bloco que só se
+        diferencia por tingimento — sobre marca cheia ele não destaca nada,
+        borra a quina e some no vidro da barra. A barra agora fala o mesmo
+        vocabulário do botão primário, que é um destaque mais forte, não mais
+        fraco. Quem guarda esse estado agora é `test_superficie_de_foco` do
+        lado da ação e a própria régua de contraste do lado da leitura.
         """
         for seletor in (
             ".app-bar__link.is-active",
-            ".tabbar__item.is-active",
             ".meal--done {",
             ".option[open]",
             ".registro--completo",

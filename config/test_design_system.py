@@ -76,7 +76,10 @@ TETO_FONT_SIZE_CRU = 134
 #: item `display: block` e roubava uma linha inteira das três últimas colunas.
 #: 275 quando o tile de Progresso deixou de ser cartão dentro de cartão: o
 #: padding dele virou degrau da escala junto com a moldura que saiu.
-TETO_ESPACO_CRU = 275
+#: 270 no REDESIGN V2: a barra de baixo flutuante, o aviso do demo sem caixa e
+#: o bloco de água em volta do anel nasceram todos na escala, e substituíram
+#: paddings crus que vinham do desenho antigo.
+TETO_ESPACO_CRU = 270
 
 
 def sem_comentarios(texto):

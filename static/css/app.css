@@ -180,6 +180,12 @@
   --texto-xl: 1.4rem;     /* 22,4px — título de seção */
   --texto-2xl: 1.75rem;   /* 28px  — título de tela */
   --texto-3xl: 2.15rem;   /* 34,4px — número de destaque */
+  /* V2: o degrau do NÚMERO PROTAGONISTA. A escala parava em 34px, que é
+     tamanho de título — e por isso métrica e título liam com o mesmo peso.
+     Aqui o número deixa de ser "um texto grande" e passa a ser o objeto
+     principal do bloco, com o rótulo orbitando em 11px. É o degrau que separa
+     "tela que informa" de "tela que mede". */
+  --texto-display: 3.1rem; /* 49,6px — a métrica que manda no bloco */
 
   /* A ESCALA DE ESPAÇO. `--gap` e `--pad` já existiam e eram usados em 18 de
      470 declarações — 4%. Os outros 96% escrevem o valor à mão, em 49 valores
@@ -322,7 +328,11 @@
      coluna estreita no desktop é a leitura mais fiel do que ele é, e custa
      margem vazia, que é barata. */
   --max: 30rem;
-  --tabbar-h: 4.5rem;
+  /* V2: a barra descolou da borda, entao o espaco que ela rouba do conteudo
+     nao e mais a altura dela — e a altura MAIS o ar embaixo. Sem subir este
+     numero junto com o descolamento, o ultimo bloco de toda tela fica
+     escondido atras da barra, que foi o que a primeira captura mostrou. */
+  --tabbar-h: 5.9rem;
 
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 
@@ -465,10 +475,26 @@ html {
   overflow-x: hidden;
 }
 
+/* O FUNDO DEIXA DE SER UMA COR CHAPADA.
+
+   V1 pintava `--bg` liso de ponta a ponta. Chapado, o app não tem topo nem
+   fim: rolar não muda nada e a tela lê como documento. Aqui há um clarão
+   discreto no alto — de onde vem a luz — que escurece na direção da barra de
+   baixo. Custa zero em pintura (é gradiente de fundo fixo, não repintado na
+   rolagem) e dá a primeira coisa que separa aplicativo de página. */
 body {
+  background-image:
+    radial-gradient(120% 62% at 50% -14%,
+                    color-mix(in srgb, var(--brand) 9%, transparent) 0%,
+                    transparent 62%),
+    linear-gradient(180deg, #0a1210 0%, var(--bg) 46%);
+  background-attachment: fixed;
   margin: 0;
   overflow-x: hidden;
-  background: var(--bg);
+  /* `background-color`, e nao o atalho `background`: o atalho vem depois e
+     zeraria o `background-image` acima. Foi o que aconteceu na primeira
+     tentativa -- o gradiente entrou e nao apareceu. */
+  background-color: var(--bg);
   color: var(--text);
   font-family: var(--font);
   font-size: 16px;
@@ -522,10 +548,18 @@ button { font-family: inherit; color: inherit; }
   /* Translúcida de verdade: o conteúdo passa por baixo desfocado em vez de
      sumir atrás de uma faixa opaca. O prefixo `-webkit-` continua aí porque o
      Safari do iPhone ainda pede — e o iPhone é metade dos aparelhos aqui. */
-  background: var(--glass);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border-bottom: 1px solid var(--border);
+  /* SEM vidro e SEM fio embaixo.
+
+     A barra de cima repetia a marca em toda tela dentro de uma faixa opaca
+     com contorno — 68px gastos para dizer o que a pessoa já sabe, e um risco
+     horizontal separando-a do título logo abaixo. Agora ela é transparente e
+     o conteúdo passa por trás sem borrão: quem manda no alto da tela é o
+     TÍTULO DA TELA, e a marca fica como assinatura.
+
+     Ela continua `sticky` e continua guardando os controles (selo do demo,
+     sair, links de desktop) — o que saiu foi o peso, não a função. */
+  background: transparent;
+  border-bottom: 0;
 }
 
 .app-bar__brand {
@@ -628,6 +662,16 @@ body:not(.tem-tabbar) .container {
   padding-bottom: calc(env(safe-area-inset-bottom) + var(--espaco-7));
 }
 
+/* A BARRA DESCOLA DA BORDA E VIRA UMA PEÇA.
+
+   Ela era um rodapé: colado nas três bordas, com um fio em cima separando-a
+   do conteúdo. Rodapé é vocabulário de página. Aqui ela flutua — margem nos
+   lados, quina inteira, sombra por baixo — e passa a ler como o controle
+   permanente de um aplicativo, que é o que ela é.
+
+   O fio de cima sai junto: quem separa agora é o ar em volta. E o vidro
+   continua, porque o conteúdo que passa por baixo desfocado é o que dá a
+   sensação de camada; trocar por opaco devolveria o rodapé. */
 .tabbar {
   position: fixed;
   left: 0;
@@ -636,16 +680,23 @@ body:not(.tem-tabbar) .container {
   z-index: var(--camada-navegacao);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: .2rem;
-  padding: .4rem var(--espaco-3) calc(.4rem + env(safe-area-inset-bottom));
-  /* A barra flutua sobre o conteúdo: o fundo é o do app a 80%, e não a
-     superfície opaca. O que rola por baixo continua visível, desfocado — é o
-     que dá a sensação de camada em vez de rodapé colado. */
+  gap: var(--espaco-1);
+  margin: 0 auto;
+  max-width: calc(var(--max) - 1.4rem);
+  padding: var(--espaco-2);
+  /* A margem de baixo respeita o gesto do iPhone e some quando nao ha area
+     segura -- sem isso a barra encosta no indicador de home em um aparelho e
+     flutua alto demais em outro. */
+  inset-inline: var(--espaco-5);
+  bottom: calc(var(--espaco-4) + env(safe-area-inset-bottom));
   background: var(--glass);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
-  border-top: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lift);
 }
+
 
 .tabbar__item {
   display: flex;
@@ -676,11 +727,18 @@ body:not(.tem-tabbar) .container {
    (garfo, haltere), e preencher caminho aberto produz mancha. Traço mais
    grosso passa o mesmo recado de peso visual, sem o defeito. Declarado no CSS
    porque regra de folha vence atributo de apresentação do SVG. */
+ /* A aba da vez vira PÍLULA CHEIA, e não fundo tingido.
+
+   Tingido, o estado ativo dependia de comparar dois grafites parecidos — e a
+   barra é justamente onde a resposta "onde eu estou?" precisa vir sem
+   comparação. Marca cheia com texto escuro resolve de relance, e é a mesma
+   peça do botão primário, o que amarra navegação e ação no mesmo vocabulário. */
 .tabbar__item.is-active {
-  color: var(--brand);
-  background: var(--brand-soft);
-  box-shadow: var(--halo);
+  color: var(--on-brand);
+  background: var(--brand);
+  box-shadow: none;
 }
+.tabbar__item.is-active svg { stroke-width: 2.4; }
 
 .tabbar__item.is-active svg { stroke-width: 2.2; }
 
@@ -704,11 +762,18 @@ h1, h2, h3 { margin: 0; letter-spacing: -.03em; line-height: 1.18; }
 
    O tracking negativo é o que impede o tamanho novo de parecer esticado —
    fonte grande com espaçamento de fonte pequena lê como banner. */
+ /* O TÍTULO DA TELA passa a mandar no alto da página.
+
+   Com a barra de cima transparente, quem responde "onde eu estou?" é este
+   título — e a 2rem ele empatava com o `h2` das seções logo abaixo. A
+   diferença entre título de TELA e título de SEÇÃO precisa ser visível sem
+   comparar; daí o salto de tamanho e o aperto de entreletras, que é o que
+   segura um texto grande sem ele parecer esticado. */
 h1 {
-  font-size: 2rem;
-  font-weight: 780;
-  letter-spacing: -.022em;
-  line-height: 1.15;
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -.035em;
+  line-height: 1.06;
 }
 h2 {
   font-size: 1.3rem;
@@ -782,14 +847,26 @@ h3 {
    5. Cartões
    ========================================================================== */
 
+ /* O CARTÃO PERDE A BORDA E VIRA PAINEL.
+
+   Esta é a mudança que mais muda a cara do app, e a razão é aritmética: uma
+   tela do NutriPlan empilha de cinco a nove cartões, então a borda de 1px
+   aparecia de cinco a nove vezes por rolagem. Contorno repetido é o que faz
+   uma interface ler como FORMULÁRIO — cada bloco desenhado como um campo.
+
+   O que substitui: superfície mais clara que o fundo, quina bem mais aberta e
+   sombra baixa. A separação passa a ser de LUZ, que é como camada funciona
+   fora da tela, em vez de risco desenhado. O fio de luz do topo (`--edge`)
+   fica, porque é ele que impede o painel de virar mancha no escuro.
+
+   `border: 1px solid transparent` e não `border: 0`: quem quiser marcar um
+   painel (o de foco marca) muda só a COR e não ganha 2px de altura de
+   surpresa, que era o defeito que `--inlay` existia para contornar. */
 .card {
   padding: var(--pad);
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  /* Borda translúcida + fio de luz no topo + sombra curta. A borda sozinha
-     deixava o cartão chapado contra o fundo; a sombra sozinha não aparece no
-     escuro. Os três juntos é o que dá a profundidade. */
+  border: 1px solid transparent;
+  border-radius: var(--radius-xl);
   box-shadow: var(--edge), var(--shadow-rest);
   transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
@@ -946,6 +1023,74 @@ h3 {
 
 .ring__unit { display: block; margin-top: .05rem; color: var(--text-dim); font-size: .72rem; }
 .ring__of { display: block; color: var(--text-mute); font-size: var(--texto-xs); }
+
+/* O ANEL DA ÁGUA — mesmo componente, outro assunto.
+
+   A variante existe por duas razões concretas, e nenhuma é decorativa:
+   o anel de calorias varre do azul-gelo ao verde porque mede ingestão contra
+   uma meta que se pode ULTRAPASSAR; água é o contrário — chegar à meta é o
+   sucesso, e passar dela não é problema nem conquista. Então o arco é de um
+   tom só, e o que muda no fim é o miolo, não a cor do caminho.
+
+   E ele é maior que o de calorias: aqui o anel é o conteúdo da seção
+   inteira, não um item ao lado de uma lista de fatos. */
+.ring--agua {
+  width: 11.2rem;
+  height: 11.2rem;
+  background: conic-gradient(from 0deg,
+                             var(--accent),
+                             var(--accent) calc(var(--pct) * 3.6deg),
+                             var(--surface-2) 0);
+}
+
+.ring--agua::after { inset: .82rem; }
+
+/* O volume bebido é a MÉTRICA PROTAGONISTA desta tela, e agora tem o degrau
+   dela. No anel de calorias o número divide o cartão com uma lista de fatos
+   ao lado; aqui ele é o conteúdo da seção, e a 34px lia como título. */
+.ring--agua .ring__value { font-size: var(--texto-display); }
+
+/* Meta fechada: o arco vira marca. É o único momento em que a água usa verde,
+   e é por isso que ele significa alguma coisa quando aparece. */
+.ring--completo {
+  background: conic-gradient(from 0deg, var(--brand), var(--brand) 360deg);
+}
+
+ /* SOBRETÍTULO — o rótulo curto que abre um bloco.
+
+   Componente do V2, e ele resolve um problema real: com os cartões sem
+   moldura, um `h2` do tamanho antigo passou a competir com o conteúdo que
+   ele apresenta. Aqui o cabeçalho recua para 11px em caixa alta e vira
+   ETIQUETA, deixando o número, o anel ou a lista serem o assunto. É a mesma
+   voz do `AGORA` e do `TREINO DE HOJE`, agora com nome e reusável. */
+.sobretitulo {
+  margin: 0;
+  color: var(--text-mute);
+  font-size: var(--texto-xs);
+  font-weight: 750;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.agua-hoje {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--espaco-5);
+  margin-bottom: var(--espaco-6);
+  text-align: center;
+}
+
+.agua-hoje__estado {
+  margin: 0;
+  max-width: 22rem;
+  color: var(--text-dim);
+  font-size: var(--texto-md);
+  line-height: 1.5;
+  text-wrap: balance;
+}
+
+.agua-hoje__feito { color: var(--brand); }
 
 .today-hero__facts { min-width: 0; }
 
@@ -1126,7 +1271,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   gap: var(--espaco-5);
   padding: var(--espaco-6);
   border-radius: var(--radius);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   background: var(--surface-2);
 }
 
@@ -1304,7 +1449,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .meal {
   padding: var(--pad);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
   box-shadow: var(--edge), var(--shadow-rest);
   transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
@@ -1399,7 +1544,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .meal__options { display: grid; gap: var(--espaco-3); }
 
 .option {
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius);
   background: var(--surface-2);
   overflow: hidden;
@@ -2196,7 +2341,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .exercise {
   padding: 0;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
   background: var(--surface-2);
   box-shadow: var(--edge);
@@ -2718,7 +2863,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   gap: var(--espaco-3);
   margin-top: .6rem;
   padding: var(--espaco-4) .75rem;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius);
   background: var(--surface-2);
   box-shadow: var(--edge);
@@ -2805,7 +2950,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   min-width: 4.2rem;
   min-height: 2.75rem;
   padding: .3rem var(--espaco-4);
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--brand);
   color: var(--on-brand);
@@ -3274,7 +3419,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   gap: var(--espaco-3);
   margin: 0 0 var(--espaco-6);
   padding: var(--espaco-4) .85rem;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius);
   background: var(--surface-2);
   color: var(--text-dim);
@@ -4105,7 +4250,7 @@ html.drawer-aberto { overflow: hidden; }
   gap: var(--espaco-4);
   padding: .85rem;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
   /* Havia uma segunda declaração de `box-shadow` acima desta, com um preto
      cru, e ela nunca pintou: a linha de baixo a sobrescrevia. Era o único
@@ -4308,7 +4453,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
    que termina a 776. */
 .pesar {
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-xl);
   background: var(--surface);
   box-shadow: var(--edge), var(--shadow-rest);
@@ -4397,7 +4542,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   gap: var(--espaco-4);
   margin-bottom: var(--gap);
   padding: var(--espaco-6) 1.05rem;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-xl);
   background: var(--surface);
   box-shadow: var(--edge), var(--shadow-rest);
@@ -4646,7 +4791,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 
 .fora {
   margin-top: .6rem;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius);
   background: var(--surface-2);
 }
@@ -4999,7 +5144,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   gap: .2rem .8rem;
   min-height: 2.75rem;
   padding: .85rem var(--espaco-6);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius);
   background: var(--surface);
   color: inherit;
@@ -5044,17 +5189,24 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
  * Âmbar e não verde: o verde é o acento de AÇÃO deste app — botão primário,
  * escolha feita, meta batida. Um aviso de contexto pintado da mesma cor
  * competiria com eles por atenção sem pedir nada em troca. */
+ /* O AVISO DO DEMO ERA A PRIMEIRA COISA DA TELA, e a mais gritante dela.
+
+   Caixa âmbar com contorno âmbar, no alto de toda página do demo, acima do
+   título. Ele avisa que os dados são fictícios — informação verdadeira e
+   secundária, que estava recebendo tratamento de alerta. Quem chega para ver
+   o produto via primeiro a moldura do aviso.
+
+   Agora é uma linha: um filete âmbar à esquerda marca a natureza da mensagem
+   sem construir uma caixa em volta dela. O texto continua inteiro. */
 .demo-aviso {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--espaco-2);
   margin: 0 0 var(--espaco-6);
-  padding: .6rem .8rem;
-  border: 1px solid color-mix(in srgb, var(--warm) 26%, transparent);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--warm) 10%, transparent);
-  color: var(--text-dim);
+  padding: var(--espaco-1) 0 var(--espaco-1) var(--espaco-5);
+  border-left: 2px solid color-mix(in srgb, var(--warm) 55%, transparent);
+  color: var(--text-mute);
   font-size: var(--texto-sm);
   line-height: 1.45;
 }
@@ -6264,7 +6416,7 @@ body.montando { overflow: hidden; }
   flex: 1 1 6.5rem;
   min-width: 0;
   padding: .6rem var(--espaco-3);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
 }

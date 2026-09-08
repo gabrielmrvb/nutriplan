@@ -25,30 +25,50 @@
 
       {# ---------------- O dia ---------------- #}
       <section class="card" id="hoje">
-        <div class="card__head"><h2>Hoje</h2></div>
+        {% comment %}
+          O DIA VIRA UM ANEL, e três números viram um.
 
-        <div class="tiles">
-          <div class="tile">
-            <strong class="tile__value">{{ bebido }}</strong>
-            <span class="tile__label">Registrado</span>
-            <span class="tile__meta">ml</span>
-          </div>
-          <div class="tile">
-            <strong class="tile__value">{{ faltam }}</strong>
-            <span class="tile__label">Faltam</span>
-            <span class="tile__meta">ml</span>
-          </div>
-          <div class="tile">
-            <strong class="tile__value">{{ pct }}%</strong>
-            <span class="tile__label">Da meta</span>
-            <span class="tile__meta">{{ meta_ml }} ml</span>
-          </div>
-        </div>
+          Antes daqui havia três azulejos — registrado, faltam, % da meta — e
+          uma barra embaixo. Os três diziam a MESMA coisa de três jeitos: quem
+          sabe que bebeu 1600 de 2500 já sabe que faltam 900 e que isso é 64%.
+          Três medidas para um fato é o que fazia esta tela parecer painel de
+          controle em vez de resposta.
 
-        <div class="progress {% if completa %}progress--completo{% endif %}"
-             role="img" aria-label="{{ pct }}% da meta de água">
-          <span class="progress__fill progress__fill--agua"
-                style="width: {{ pct }}%"></span>
+          O anel responde de relance, sem ler número nenhum, e é o MESMO
+          componente do anel de calorias da tela Hoje — reusado, não copiado.
+          A `--pct` vem do servidor, como lá.
+
+          O que sobrou de número está subordinado: o volume no miolo, a meta
+          embaixo dele, e "faltam" numa linha só quando ainda falta. Quando a
+          meta fecha, a frase muda em vez de mostrar "faltam 0".
+        {% endcomment %}
+        {% comment %}
+          O `h2` continua existindo — ele saiu da faixa de cabeçalho do cartão
+          e virou SOBRETÍTULO do anel. Some a caixa, fica a estrutura: leitor
+          de tela continua achando "Hoje" no lugar certo da árvore, e a tela
+          ganha o rótulo curto que faltava acima do número.
+        {% endcomment %}
+        <div class="agua-hoje">
+          <h2 class="sobretitulo">Hoje</h2>
+          <div class="ring ring--agua{% if completa %} ring--completo{% endif %}"
+               style="--pct: {{ pct }}"
+               role="img"
+               aria-label="{{ bebido }} de {{ meta_ml }} mililitros, {{ pct }}% da meta">
+            <span class="ring__inner">
+              <strong class="ring__value num">{{ bebido }}</strong>
+              <span class="ring__unit">ml de {{ meta_ml }}</span>
+            </span>
+          </div>
+
+          <p class="agua-hoje__estado">
+            {% if completa %}
+              <strong class="agua-hoje__feito">Meta do dia fechada.</strong>
+              Beber além disso não faz mal, e o registro continua aberto.
+            {% else %}
+              Faltam <strong class="num">{{ faltam }}</strong> ml para a meta de
+              hoje, calculada a partir do seu peso.
+            {% endif %}
+          </p>
         </div>
 
         <div class="agua__botoes">
