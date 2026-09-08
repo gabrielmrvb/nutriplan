@@ -67,7 +67,11 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 TETO_FONT_SIZE_CRU = 135
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
-TETO_ESPACO_CRU = 277
+#: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
+#: `margin-right: .3rem` e virou régua de 1px com `padding-left` na escala.
+#: A troca conserta um desalinhamento real — o "·" era inline dentro de um
+#: item `display: block` e roubava uma linha inteira das três últimas colunas.
+TETO_ESPACO_CRU = 276
 
 
 def sem_comentarios(texto):

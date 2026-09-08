@@ -941,7 +941,62 @@ class AreasView(OnboardingRequiredMixin, TemplateView):
         # Esconder por permissão exigiria consultar o grupo em toda renderização
         # desta tela para poupar um clique de uma pessoa.
         contexto["mostra_gestao"] = self.request.user.is_staff
+        # O fato entra DENTRO da área, e não num dicionário paralelo: template
+        # do Django não indexa dicionário por variável, e resolver isso com
+        # filtro novo seria inventar infraestrutura para uma linha de HTML.
+        fatos = self._fatos_das_areas()
+        for area in contexto["areas"]:
+            area["fato"] = fatos.get(area["valor"])
         return contexto
+
+    def _fatos_das_areas(self):
+        """Um fato REAL por área, para a tela parar de parecer Configurações.
+
+        Uma lista de nome + descrição + seta é um menu: ela pede um toque
+        para responder qualquer coisa. O que transforma menu em hub é a
+        pergunta já respondida na linha — "quanto bebi hoje?" não deveria
+        custar uma navegação.
+
+        Três regras, e as três são de honestidade:
+
+        1. Só entra fato que existe. Sem dado, a linha fica como estava — um
+           zero inventado ("0 corridas") é pior que silêncio, porque afirma
+           que a pessoa não corre quando o app apenas não sabe.
+        2. O custo é FIXO, não por linha. A meta de água sai do peso do perfil
+           que o `dispatch` já carregou (zero consulta) e as duas consultas
+           daqui não crescem com o número de áreas — que é a propriedade que
+           `OCustoDaTelaDeAreasEstaMedidoTests` protege.
+        3. A meta vem de `weight_trend.hidratacao_ml`, chamada e não copiada.
+           Uma segunda fórmula aqui divergiria da tela de água no primeiro
+           ajuste, e a mesma pessoa veria duas metas no mesmo app.
+        """
+        from plans import weight_trend
+        from plans.models import HydrationLog
+        from workouts.models import Corrida
+
+        fatos = {}
+        # O peso sai de `request.user`, e não de `perfil.current_weight`.
+        # A propriedade faz `self.user.weight_entries.first()`, e o `self.user`
+        # dela re-busca o usuário que este pedido já tem em memória: medido,
+        # eram DUAS consultas para responder uma pergunta.
+        entrada = self.request.user.weight_entries.first()
+        peso = entrada.weight_kg if entrada else None
+        if peso:
+            meta = weight_trend.hidratacao_ml(peso)
+            registro = HydrationLog.objects.filter(
+                user=self.request.user, date=timezone.localdate()
+            ).first()
+            bebido = registro.ml if registro else 0
+            if meta:
+                fatos["hidratacao"] = f"{bebido} de {meta} ml hoje"
+
+        corridas = Corrida.objects.filter(user=self.request.user).count()
+        if corridas:
+            fatos["corrida"] = (
+                "1 corrida registrada" if corridas == 1
+                else f"{corridas} corridas registradas"
+            )
+        return fatos
 
 
 class WeightLogView(AcaoDeTela, OnboardingRequiredMixin, View):

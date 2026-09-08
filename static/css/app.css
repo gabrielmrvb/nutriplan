@@ -1340,6 +1340,17 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .meal__head { display: flex; align-items: center; gap: .75rem; margin-bottom: var(--espaco-5); }
 
+/* A HORA É CONTEXTO, e passou a parecer contexto.
+
+   Ela era um selo de fundo tingido e texto verde; concluída, virava gradiente
+   cheio de verde a ciano. Numa lista de cinco refeições isso dava cinco
+   pastilhas coloridas competindo com cinco nomes — e o nome é a resposta à
+   pergunta ("o que eu como às 7h?"), a hora é só onde aquilo cai no dia.
+
+   O verde saiu daqui porque este app reserva verde para ação, progresso e a
+   vez da pessoa. Hora de refeição não é nenhum dos três: é metadata, e o
+   `CLAUDE.md` já avisa que encapsular metadata em pílula só porque cabe é
+   como a tela junta ruído sem ninguém decidir. */
 .meal__time {
   display: grid;
   place-items: center;
@@ -1347,19 +1358,22 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   flex: none;
   padding: .4rem .55rem;
   border-radius: var(--radius-sm);
-  background: var(--brand-soft);
-  color: var(--brand);
+  background: var(--surface-2);
+  color: var(--text-dim);
   font-size: .82rem;
   font-weight: 750;
   font-variant-numeric: tabular-nums;
 }
 
-/* Estação visitada: o selo de hora troca o fundo tingido pelo gradiente
-   cheio. É o mesmo gesto do distintivo da sessão de treino — peça pequena,
-   marca cheia, e a linha do tempo ganha um ponto sólido onde o dia já passou. */
+/* Estação visitada — e AQUI o verde é informação.
+
+   Refeição feita é progresso positivo, que é um dos usos que o verde guarda.
+   O tom é o tingido, não o gradiente cheio: a diferença entre "já passei por
+   aqui" e "não passei" precisa ser legível de relance, não precisa brilhar.
+   Com cinco refeições na tela, o gradiente fazia o dia inteiro cintilar. */
 .meal--done .meal__time {
-  background: var(--grad-brand);
-  color: var(--on-brand);
+  background: var(--brand-soft);
+  color: var(--brand);
 }
 
 .meal__title { flex: 1; min-width: 0; }
@@ -2329,6 +2343,46 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
 }
+
+/* NA TELA DE EXECUÇÃO as duas etiquetas deixam de ser pílulas.
+
+   Elas estão certas na ficha, onde a pergunta é "o que é este exercício?" e
+   grupo muscular é classificação de verdade. Em `/treino/agora/` a pergunta é
+   outra — "quantos quilos, quantas reps, e concluí?" — e ali as mesmas duas
+   viravam uma faixa verde larga mais uma azul, entre o nome do exercício e a
+   série. Metadata empurrando a ação principal para baixo, com duas cores que
+   este app reserva para outra coisa.
+
+   O texto fica: quem quer saber o músculo continua sabendo. O que sai é o
+   peso visual — sem cápsula, sem borda, sem cor de estado —, e o que sobe na
+   tela é série, carga, reps e o botão. É a ordem que a missão pede e a ordem
+   de quem está com o halter na mão.
+
+   O seletor é de descendência, não de modificador novo: a etiqueta é a mesma
+   peça em dois contextos, e é o CONTEXTO que muda o peso dela. */
+.agora__meta .exercise__tag {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-mute);
+  font-weight: 600;
+  white-space: normal;
+}
+
+.agora__meta .exercise__tag--target,
+.agora__meta .exercise__tag--rest { color: var(--text-mute); }
+
+/* SEM separador de caractere, e o motivo já estava escrito nesta base.
+
+   A primeira versão desta regra pôs um "·" num `::before` da segunda
+   etiqueta. As duas quebram em duas linhas nesta largura, e o ponto foi
+   parar sozinho no começo da linha de baixo — que é EXATAMENTE o que o
+   comentário do separador do resumo do dia avisa que acontece quando um
+   caractere preso ao texto encontra `flex-wrap`.
+
+   Quem separa é o espaço: a linha do músculo e a do descanso não se
+   confundem, e "descanso 1:20 min" já diz o que é sem rótulo ao lado. */
+.agora__meta { gap: var(--espaco-1) var(--espaco-4); }
 
 /* Mídia 16:9 com fundo preto: clipe vertical fica centralizado com barras
    laterais em vez de esticado — numa demonstração de execução, distorcer o
@@ -5445,11 +5499,22 @@ body.montando { overflow: hidden; }
    O fio da cor do dia na borda esquerda vem de graça: `.card[data-dia]` já
    existe e já pinta a ficha, então o topo da tela usa a mesma linguagem que
    o resto do treino em vez de inventar a sua. */
+/* A SUPERFÍCIE DE FOCO desta tela.
+
+   Em `/hoje/` quem manda é o cartão AGORA; aqui é este. A regra é a mesma —
+   uma por tela —, e o critério também: é o bloco que responde à pergunta que
+   trouxe a pessoa ("que treino é hoje, e por onde eu continuo?"). Os
+   exercícios abaixo são a consulta; este é a ação.
+
+   A borda de marca faz o trabalho quando o fundo tingido não aparece — tela
+   ruim, sol na cara, `prefers-contrast`. */
 .hoje {
   display: flex;
   flex-direction: column;
   gap: .85rem;
   border-radius: var(--radius-xl);
+  background: var(--surface-focus);
+  border-color: color-mix(in srgb, var(--brand) 28%, transparent);
 }
 
 /* O sobretítulo é o que responde "que tela é esta" em uma olhada. Ele é
@@ -5544,12 +5609,21 @@ body.montando { overflow: hidden; }
   font-size: var(--texto-base);
   font-variant-numeric: tabular-nums;
 }
+/* Os ícones da metadata saíram do verde.
+
+   Eram quatro — halter, lista, relógio, calendário — todos em `--brand`,
+   dentro do mesmo cartão onde mora o botão principal. O verde aqui não
+   informava nada: exercícios, séries, minutos e horário são os mesmos quatro
+   fatos independentemente de estado. Verde repetido em item neutro é como o
+   verde do CTA perde força, e o CTA é a razão deste cartão existir.
+
+   Eles continuam existindo porque ancoram a leitura das quatro medidas; o que
+   muda é que agora pesam como ícone de apoio, e não como destaque. */
 .hoje__meta-icone {
   flex: none;
   width: 1.05rem;
   height: 1.05rem;
-  color: var(--brand);
-  opacity: .85;
+  color: var(--text-mute);
 }
 
 /* O progresso é DERIVADO, e a frase abaixo dele diz exatamente o que ele mede.
@@ -6337,12 +6411,24 @@ body.montando { overflow: hidden; }
   font-variant-numeric: tabular-nums;
 }
 
-/* O separador é desenhado ENTRE os itens e não dentro deles: com `flex-wrap`,
-   um "·" preso ao texto sobra pendurado no fim da linha quebrada. */
-.resumo-dia > * + *::before {
-  content: "·";
-  margin-right: .3rem;
-  color: var(--text-mute);
+/* O separador é uma RÉGUA, e não um caractere — e a troca conserta um
+   desalinhamento que estava no ar.
+
+   Antes daqui havia um `::before` com `content: "·"`. Ele nasceu quando esta
+   linha era `flex`, para o ponto não sobrar pendurado no fim de uma linha
+   quebrada; a linha virou `grid` de quatro colunas e o motivo caducou, mas o
+   ponto ficou. O efeito, medido na captura de `/demo/hoje/`: o "·" é inline e
+   `.resumo-dia__valor` é `display: block`, então o ponto tomava uma caixa de
+   linha SÓ DELE acima do número — e as três últimas colunas desciam uma
+   linha inteira em relação à primeira. Quatro números que deveriam ler como
+   uma régua liam como escada.
+
+   A régua de 1px não entra no fluxo, então as quatro colunas voltam a
+   compartilhar a mesma linha de base. E ela é estrutura, não enfeite: separa
+   quatro medidas independentes que a pessoa lê de relance. */
+.resumo-dia > * + * {
+  padding-left: var(--espaco-4);
+  border-left: 1px solid var(--border);
 }
 
 /* A única coluna que é LINK. Ela mantém o par valor/rótulo das outras três e

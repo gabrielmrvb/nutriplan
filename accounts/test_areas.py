@@ -302,5 +302,30 @@ class OCustoDaTelaDeAreasEstaMedidoTests(BaseDeAreas):
         # SEIS era um palpite meu; a medição devolveu TRÊS. O número aqui é o
         # medido, e ele é o ponto: a tela lê o perfil uma vez e não uma vez por
         # entrada — que é o defeito que este teste existe para impedir.
-        with self.assertNumQueries(3):  # sessão, usuário, perfil (UMA vez)
+        #
+        # Subiu para SEIS no REDESIGN V1, quando as linhas passaram a mostrar
+        # um fato real em vez de só a descrição: peso, água de hoje e contagem
+        # de corridas. As três são de custo FIXO — é isso que a segunda
+        # medição abaixo prova, e é a propriedade que este teste guarda. O
+        # número sozinho nunca foi o ponto.
+        with self.assertNumQueries(6):
             self.client.get(reverse("areas"))
+
+    def test_o_custo_nao_cresce_com_o_numero_de_areas(self):
+        """A propriedade que o número de consultas existe para proteger.
+
+        Travar só o total deixaria passar a regressão que importa: alguém
+        consultando dentro do laço das áreas mantém o total "parecido" hoje e
+        transforma a tela numa consulta por linha quando um pilar novo entrar.
+        Aqui a mesma tela é medida duas vezes, e o que se afirma é que o custo
+        não acompanha a quantidade de linhas renderizadas.
+        """
+        self.pessoa(interesses=["corrida"], principal="corrida")
+
+        with self.assertNumQueries(6):
+            resposta = self.client.get(reverse("areas"))
+
+        linhas = resposta.content.decode().count('class="mapa__area')
+        self.assertGreaterEqual(
+            linhas, 4, "a tela precisa ter várias linhas para a medição valer"
+        )

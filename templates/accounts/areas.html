@@ -28,7 +28,19 @@
           <span class="mapa__nome">
             {{ area.titulo }}{% if area.principal %} <span class="pill pill--brand">principal</span>{% endif %}
           </span>
-          <span class="mapa__apoio">{{ area.apoio }}</span>
+          {% comment %}
+            O FATO substitui a descrição quando existe, e não se soma a ela.
+
+            A descrição responde "o que é esta área?" — pergunta de quem chega
+            pela primeira vez. O fato responde "como está esta área?", que é a
+            pergunta de todo dia depois disso. Com as duas na mesma linha, a
+            que importa fica em segundo lugar e a linha dobra de altura numa
+            tela cuja função é ser percorrida de relance.
+
+            Sem dado, a descrição fica: uma linha vazia seria pior que a
+            explicação que já estava ali.
+          {% endcomment %}
+          <span class="mapa__apoio">{% if area.fato %}{{ area.fato }}{% else %}{{ area.apoio }}{% endif %}</span>
           <span class="mapa__seta" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round">
