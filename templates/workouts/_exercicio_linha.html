@@ -25,10 +25,17 @@
     item   — o SessionExercise, já com `feitas`
     ordem  — a posição na sessão
     total  — quantos exercícios a sessão tem
+    hoje   — se esta sessão é a de HOJE (padrão: sim)
+
+  `hoje` existe porque a ficha da semana desenha VÁRIOS dias e o histórico só
+  sabe de um. `feitas` é o balde de HOJE; aplicá-lo às outras sessões marcaria a
+  terça como concluída porque alguém treinou o mesmo exercício hoje — que é
+  exatamente o defeito que o `CLAUDE.md` registra. Fora de hoje, a linha diz o
+  PLANO e nada de progresso.
 {% endcomment %}
 <li>
   <button type="button"
-          class="linha-ex{% if item.feitas >= item.sets %} linha-ex--feito{% elif item.feitas %} linha-ex--parcial{% endif %}"
+          class="linha-ex{% if hoje|default_if_none:True %}{% if item.feitas >= item.sets %} linha-ex--feito{% elif item.feitas %} linha-ex--parcial{% endif %}{% endif %}"
           data-ver
           data-quadros="{{ item.exercise.frames|join:'|' }}"
           data-clipe="{% if item.exercise.clip_kind == 'youtube' %}{{ item.exercise.video_embed_url }}{% else %}{{ item.exercise.video_url }}{% endif %}"
@@ -56,7 +63,7 @@
       serve a quem não distingue verde de cinza.
     {% endcomment %}
     <span class="linha-ex__ordem" aria-hidden="true">
-      {% if item.feitas >= item.sets %}
+      {% if hoje|default_if_none:True and item.feitas >= item.sets %}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
              stroke-linecap="round" stroke-linejoin="round">
           <path d="M20 6 9 17l-5-5"/>
@@ -71,10 +78,21 @@
       <span class="linha-ex__apoio">
         {{ item.exercise.get_muscle_group_display }}
         <span class="linha-ex__sep" aria-hidden="true">·</span>
-        {% if item.feitas %}
+        {% if hoje|default_if_none:True and item.feitas %}
           <span class="linha-ex__feitas">{{ item.feitas }} de {{ item.sets }} séries</span>
         {% else %}
-          <span class="num">{{ item.sets }}</span> × <span class="num">{{ item.rep_range }}</span>
+          {% comment %}
+            "4 séries · 8-12 reps", e não "4 × 8-12".
+
+            O formato multiplicado é ambíguo: quem lê "2 × 6-10" não sabe se o
+            primeiro número são séries ou repetições, e a campanha nomeia isso
+            como texto a evitar. Escrever a palavra custa dois caracteres e
+            tira a dúvida.
+          {% endcomment %}
+          <span class="num">{{ item.sets }}</span>
+          {% if item.sets == 1 %}série{% else %}séries{% endif %}
+          <span class="linha-ex__sep" aria-hidden="true">·</span>
+          <span class="num">{{ item.rep_range }}</span> reps
         {% endif %}
       </span>
     </span>

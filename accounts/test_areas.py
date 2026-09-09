@@ -116,26 +116,47 @@ class AreasNaoRepeteABarraTests(BaseDeAreas):
             with self.subTest(pilar=pilar.value):
                 self.assertNotIn(reverse(rota), destinos)
 
-    def test_a_tela_diz_onde_estao_os_outros_tres(self):
-        """Quem terminou o onboarding aprendeu que existem CINCO áreas. Abrindo
-        Áreas e vendo duas, concluiria que o app encolheu. A linha custa nada e
-        não repete link nenhum — o link é a barra."""
+    def test_a_tela_NAO_repete_o_que_a_barra_ja_mostra(self):
+        """A linha explicativa saiu em 09/09/2026, e a intenção continua.
+
+        Ela dizia "Alimentação, Treino e Progresso estão na barra, aqui
+        embaixo" — para quem viu cinco áreas no onboarding e abria Áreas
+        encontrando duas. O problema é que ela aponta para a barra que está
+        VISÍVEL na mesma tela, dizendo à pessoa o que ela está vendo.
+
+        O que a guarda mede agora é a propriedade que sempre importou: Áreas
+        não duplica os destinos da barra. Os três pilares que moram lá não
+        ganham cartão aqui — nem link, nem legenda sobre eles.
+        """
         self.pessoa()
 
         html = self.areas()
+        destinos = self.entradas(html)
 
-        self.assertIn("Alimentação, Treino e Progresso estão na barra", html)
+        self.assertNotIn("estão na barra", html)
+        for da_barra in (reverse("plans:today"), reverse("workouts:routine")):
+            with self.subTest(destino=da_barra):
+                self.assertNotIn(da_barra, destinos)
 
     def test_as_ferramentas_sem_porta_fixa_moram_aqui(self):
-        """Lista de compras e Conquistas não são pilar e nunca tiveram porta
-        própria — a primeira só pela tela de Alimentação, a segunda por link
-        solto."""
+        """Lista de compras não é pilar e nunca teve porta própria — só se
+        alcançava pela tela de Alimentação.
+
+        Conquistas TAMBÉM morava aqui, e saiu em 08/09/2026: a página tem pouco
+        para justificar uma ferramenta própria, e a pergunta que ela responde
+        ("como estou evoluindo") é a do Progresso. O bloco compacto mora lá, e
+        `/conquistas/` continua alcançável por ele.
+        """
         self.pessoa()
 
         destinos = self.entradas(self.areas())
 
         self.assertIn(reverse("plans:shopping"), destinos)
-        self.assertIn(reverse("achievements:list"), destinos)
+        self.assertNotIn(
+            reverse("achievements:list"),
+            destinos,
+            "Conquistas voltou a ser cartão de Áreas",
+        )
 
     def test_o_perfil_saiu_da_barra_e_mora_aqui(self):
         self.pessoa()

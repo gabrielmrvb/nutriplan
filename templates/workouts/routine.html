@@ -367,6 +367,23 @@
               <p class="session__focus">{{ session.focus }}</p>
             {% endif %}
 
+            {% comment %}
+              OS OUTROS DIAS FICAM COM O CARTÃO COMPLETO, e isto é decisão já
+              tomada — `AFichaDaSemanaContinuaSendoSanfonaTests` a guarda.
+
+              Uma tentativa de 09/09/2026 trocou este bloco pela linha compacta
+              de hoje, mirando o tamanho da página (245 KB, 253 blocos de
+              registro). O tamanho caía pela metade e levava junto o que a
+              ficha da semana existe para oferecer: registro de série, carga,
+              repetições, descanso, progressão e histórico. Vinte e um testes
+              reprovaram, e estavam certos.
+
+              A linha compacta responde "o que eu faço agora"; o cartão
+              responde "o que tem na terça, e com que carga eu fiz da última
+              vez". São perguntas diferentes, e a segunda precisa do corpo
+              inteiro. O peso da página é real e fica registrado como tal — a
+              ficha já nasce fechada, então ele não custa rolagem.
+            {% endcomment %}
             <ol class="exercise-list">
               {% for item in session.exercises.all %}
                 {% include "workouts/_exercicio.html" with item=item ordem=forloop.counter agora=False %}
