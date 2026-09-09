@@ -58,7 +58,11 @@ class ConquistasView(OnboardingRequiredMixin, TemplateView):
 
         dados = services.reunir(user)
 
-        conquistadas, a_caminho = [], []
+        # "A caminho" sai de `services.a_caminho`, e não de um laço aqui: o
+        # bloco de Conquistas do Progresso lê a MESMA lista, e a regra do que
+        # entra nela ("só o que dá para medir sem inventar") é a decisão que
+        # impede a parede de medalhas cinzentas. Duas cópias dela divergiriam.
+        conquistadas = []
         for regra in CATALOGO:
             ocorrencias = por_slug.get(regra.slug, [])
             if ocorrencias:
@@ -74,26 +78,14 @@ class ConquistasView(OnboardingRequiredMixin, TemplateView):
                 )
                 continue
 
-            # Só entra na lista de "a caminho" o que dá para medir sem inventar.
-            if regra.alvo and regra.progresso:
-                atual = regra.progresso(dados)
-                a_caminho.append(
-                    {
-                        "regra": regra,
-                        "atual": atual,
-                        "alvo": regra.alvo,
-                        "pct": min(100, round(atual * 100 / regra.alvo)),
-                    }
-                )
 
-        # A mais perto primeiro: é a que a pessoa consegue fechar hoje.
-        a_caminho.sort(key=lambda item: -item["pct"])
+        proximas = services.a_caminho(dados, set(por_slug))
 
         contexto.update(
             {
                 "nav": "profile",
                 "conquistadas": conquistadas,
-                "a_caminho": a_caminho[:4],
+                "a_caminho": proximas[:4],
                 "total": len(ganhas),
                 "ofensiva": dados.ofensiva,
                 "dias_treinados": dados.dias_treinados,

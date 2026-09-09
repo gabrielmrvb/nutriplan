@@ -27,6 +27,7 @@ from accounts.models import (
     WeightEntry,
 )
 from accounts.views import OnboardingRequiredMixin, recusa_pendente
+from achievements import services as conquistas
 from catalog.models import Food
 
 from workouts import progresso
@@ -663,8 +664,21 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
         hoje = timezone.localdate()
         de_hoje = entries[0] if entries and entries[0].date == hoje else None
 
+        # CONQUISTAS ENTRAM AQUI, e a razão é de produto: a pergunta "como
+        # estou evoluindo" é desta tela, e conquista é resposta dela. A página
+        # isolada continua existindo para quem quiser ver tudo.
+        #
+        # `resumo` é a MESMA função que a tela de conquistas usa — a regra do
+        # que entra em "próxima" é delicada ("só o que dá para medir sem
+        # inventar", que é o que impede a parede de medalhas cinzentas), e duas
+        # cópias dela divergiriam na primeira mudança.
+        total_conquistas, recente, proxima = conquistas.resumo(self.request.user)
+
         context.update(
             {
+                "conquistas_total": total_conquistas,
+                "conquistas_recente": recente,
+                "conquistas_proxima": proxima,
                 "plan": plan,
                 "rows": rows,
                 "totals": tracking.adherence(rows),

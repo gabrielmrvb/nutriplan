@@ -50,21 +50,21 @@
   </nav>
 
   {% comment %}
-    As duas nunca tiveram porta fixa. A lista de compras só se alcançava pela
-    tela de Alimentação, e as conquistas por link solto — e as duas não são
-    pilar, então nunca caberiam no mapa antigo. Áreas é onde elas passam a
-    morar. Ferramenta não tem métrica, então o módulo delas é mais baixo: a
-    grade continua, o peso não.
+    Ferramenta não é pilar, e por isso o módulo delas é mais baixo: a grade
+    continua, o peso não.
+
+    A lista de compras entrou aqui porque só se alcançava pela tela de
+    Alimentação. Conquistas TAMBÉM esteve aqui, e saiu em 08/09/2026: a página
+    tem pouco para justificar uma ferramenta própria — as ganhas, as próximas e
+    três números —, e a pergunta que ela responde ("como estou evoluindo") é a
+    do Progresso. O bloco compacto mora lá; `/conquistas/` continua existindo
+    para quem quiser ver tudo, com a porta no próprio bloco.
   {% endcomment %}
   <h2 class="sobretitulo secao-rotulo">Ferramentas</h2>
   <nav class="modulos modulos--ferramentas" aria-label="Ferramentas">
     <a class="modulo modulo--raso" href="{% url 'plans:shopping' %}">
       <span class="modulo__nome">Lista de compras</span>
       <span class="modulo__apoio">O que comprar para a semana.</span>
-    </a>
-    <a class="modulo modulo--raso" href="{% url 'achievements:list' %}">
-      <span class="modulo__nome">Conquistas</span>
-      <span class="modulo__apoio">Sua ofensiva e o que já alcançou.</span>
     </a>
     <a class="modulo modulo--raso" href="{% url 'accounts:profile' %}">
       <span class="modulo__nome">Perfil</span>

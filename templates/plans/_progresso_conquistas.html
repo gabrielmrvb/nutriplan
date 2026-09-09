@@ -1,0 +1,53 @@
+{% comment %}
+  CONQUISTAS DENTRO DO PROGRESSO, e compacto de propósito.
+
+  A página isolada em `/conquistas/` tinha pouco para justificar uma ferramenta
+  própria no cartão de Áreas: as ganhas, as próximas e três números. Progresso é
+  onde a pessoa já vai perguntar "como estou evoluindo" — e conquista é resposta
+  dessa pergunta, não uma ferramenta ao lado dela.
+
+  Três linhas e um link, e nada além disso. A tentação num sistema de conquistas
+  é a parede de medalhas cinzentas; aqui o bloco mostra o que aconteceu e o que
+  está mais perto de acontecer. A página completa continua existindo para quem
+  quiser ver tudo.
+
+  Quando não há nada: o bloco não some. Ele diz o que falta para a primeira, que
+  é a única coisa útil de se dizer para quem ainda não tem nenhuma — e some de
+  vez só quando nem progresso mensurável existe, porque aí ele não teria o que
+  dizer sem inventar.
+{% endcomment %}
+{% if conquistas_total or conquistas_proxima %}
+  <section class="card">
+    <div class="card__head">
+      <h2>Conquistas</h2>
+      <a href="{% url 'achievements:list' %}">Ver todas</a>
+    </div>
+
+    <dl class="data-list">
+      <div>
+        <dt>Desbloqueadas</dt>
+        <dd class="num">{{ conquistas_total }}</dd>
+      </div>
+      {% if conquistas_recente %}
+        <div>
+          <dt>Mais recente</dt>
+          <dd>{{ conquistas_recente.titulo|default:conquistas_recente.slug }}</dd>
+        </div>
+      {% endif %}
+    </dl>
+
+    {% if conquistas_proxima %}
+      <div class="macro-line">
+        <div class="macro-line__head">
+          <span class="macro-line__name">{{ conquistas_proxima.regra.titulo }}</span>
+          <span class="macro-line__value num">
+            {{ conquistas_proxima.atual }}/{{ conquistas_proxima.alvo }}
+          </span>
+        </div>
+        <div class="progress">
+          <span class="progress__fill" style="width: {{ conquistas_proxima.pct }}%"></span>
+        </div>
+      </div>
+    {% endif %}
+  </section>
+{% endif %}

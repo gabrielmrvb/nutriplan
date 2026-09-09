@@ -140,6 +140,73 @@ def avaliar(user, hoje=None) -> list:
     return novas
 
 
+def resumo(user, hoje=None):
+    """O que o bloco compacto do Progresso precisa saber.
+
+    Devolve `(quantas, mais_recente, proxima)`:
+
+      - `quantas` — conquistas ganhas, contando repetição;
+      - `mais_recente` — o `UserAchievement` mais novo, ou `None`;
+      - `proxima` — dict com `regra`, `atual`, `alvo` e `pct` da que está mais
+        perto de fechar, ou `None` quando nada tem progresso mensurável.
+
+    A REGRA NÃO É COPIADA DA VIEW: a tela de conquistas passou a chamar esta
+    função. Duas cópias da mesma decisão divergem na primeira mudança, e aqui a
+    decisão é delicada — "só entra em `próxima` o que dá para medir sem
+    inventar", que é o que impede a parede de medalhas cinzentas.
+
+    `avaliar` roda antes, e é responsabilidade de quem MOSTRA. Ele é idempotente
+    (`get_or_create` mais a constraint de unicidade), então as duas telas
+    chamarem não cria conquista dobrada.
+    """
+    from .models import UserAchievement
+    from .regras import CATALOGO
+
+    avaliar(user, hoje=hoje)
+
+    ganhas = list(UserAchievement.objects.filter(user=user))
+    conquistados = {c.slug for c in ganhas}
+    mais_recente = max(ganhas, key=lambda c: c.pk) if ganhas else None
+
+    candidatas = a_caminho(reunir(user, hoje=hoje), conquistados)
+    return len(ganhas), mais_recente, (candidatas[0] if candidatas else None)
+
+
+def a_caminho(dados, conquistados) -> list:
+    """As conquistas que faltam e que DÁ para medir, da mais perto para a longe.
+
+    A regra fica aqui, num lugar só, porque ela é a decisão delicada do
+    sistema: **só entra o que tem progresso real**. Sem ela, a tela vira a
+    parede de medalhas cinzentas — cem coisas que a pessoa não fez —, que é o
+    oposto do que a ofensiva do NutriPlan faz, cujo texto inteiro foi escrito
+    para não cobrar.
+
+    A tela de conquistas mostra as quatro primeiras; o bloco do Progresso mostra
+    uma. As duas leem esta lista, e não uma cópia da regra: duas cópias
+    divergem na primeira mudança.
+    """
+    from .regras import CATALOGO
+
+    candidatas = []
+    for regra in CATALOGO:
+        if regra.slug in conquistados:
+            continue
+        if not (regra.alvo and regra.progresso):
+            continue
+        atual = regra.progresso(dados)
+        candidatas.append(
+            {
+                "regra": regra,
+                "atual": atual,
+                "alvo": regra.alvo,
+                "pct": min(100, round(atual * 100 / regra.alvo)),
+            }
+        )
+    # A mais perto primeiro: é a que a pessoa consegue fechar hoje.
+    candidatas.sort(key=lambda item: -item["pct"])
+    return candidatas
+
+
 def anunciar(request, novas) -> list:
     """Guarda na sessao o que acabou de nascer, para a proxima tela mostrar.
 
