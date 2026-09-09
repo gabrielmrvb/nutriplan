@@ -358,6 +358,110 @@ corpo, e drenam para as séries 2, 3 e 4 com os pesos de cada toque. O `getAll()
 do IndexedDB devolveu os três fora de ordem (2, 3, 1) — é a inversão que o `seq`
 existe para consertar, vista ao vivo.
 
+**A dose do catálogo vale POR SESSÃO, e a semana é aparada depois.**
+`splits.json` diz quantas séries cada exercício pede numa sessão; repetir a
+letra A duas vezes na semana soma o peito duas vezes. A resposta NÃO é reduzir
+a dose — quem repete a letra quer a frequência maior. `prescrever_semana` monta
+a dose cheia e só então apara: `aparar_volume_semanal` remove ISOLADORES até
+nenhum grupo passar de `TETO_SEMANAL_POR_GRUPO = 20` séries efetivas, e
+`escolher_para_o_tempo` corta até a sessão caber no tempo informado. A versão
+anterior cobrava do exercício principal e derrubava o supino de quatro séries
+para duas.
+
+**Série secundária não é série direta**, e é por isso que o teto fala em
+efetivas: `volume_efetivo` conta 1,0 para o grupo trabalhado e
+`PESO_SECUNDARIO = 0,5` para cada `secondary_muscles`. Um tríceps de supino não
+substitui um tríceps de tríceps.
+
+**PRINCIPAL é o composto de MAIOR DOSE de cada grupo, um por grupo por
+sessão.** Duas versões anteriores foram medidas e reprovadas: "o primeiro
+composto do grupo" rebaixava a remada só por vir depois da puxada; "quatro
+séries = principal" tornava intocáveis os DOIS pressões de peito do mesmo dia, e
+o peito fechava a semana com 27 efetivas contra o teto de 20 sem nada que o laço
+pudesse ceder. E não use `secondary_muscles` como proxy de importância: ele dá
+três secundários para "Flexão de braço", que é acessório, e um para
+"Leg press 45°", que é principal.
+
+**O aparo tem TRÊS TRAVAS, e as três vieram de medição.** Só sai quem treina o
+grupo DIRETAMENTE — senão o laço apagava a prancha para resolver um excesso de
+core que vinha de agachamento e stiff; nunca o último exercício direto de um
+grupo — senão antebraço saía inteiro da semana; e cede sempre a sessão mais
+cheia. Uma primeira versão esvaziou a sexta-feira até dois exercícios e onze
+minutos.
+
+**Tempo disponível é TETO, não cota a preencher.** Noventa minutos informados
+não obrigam a montar noventa; o perfil de referência (homem, 27, 102 kg, 1,85 m,
+segunda a sexta) recebe sessões de 39 a 66 minutos, e isso está certo. Reduzir
+um principal a duas séries só é aceitável com razão calculada — nunca para
+encaixar o relógio.
+
+**Duração tem UMA conta, e ela é `workouts.models.segundos_da_sessao`.**
+Existiam duas cópias, uma sobre linhas gravadas e outra sobre tuplas, com um
+teste prendendo as duas; prender duas cópias é pior que ter uma.
+`DurationMixin.estimated_minutes` e `services._segundos_da_sessao` chamam esta.
+A conta é série a série porque o descanso domina, e inclui o que a versão
+anterior ignorava: aquecimento geral (300 s), aproximação nos compostos (130 s),
+e a troca entre exercícios como o MAIOR entre o descanso e a caminhada — quem
+descansa 80 s não troca de aparelho em 45. Nada é contado depois do último
+exercício: ali a pessoa vai embora. Medido: 31 séries saíram de 52 para 66
+minutos, e os 66 são os verdadeiros.
+
+**Exercício aposentado NUNCA é apagado.** `ExerciseLog.exercise` é `CASCADE`:
+`delete()` no `Exercise` levaria junto todo o histórico de carga de quem já o
+treinou. Aposentar é `is_active=False` mais a troca nas linhas de prescrição, e
+`prescrever_semana` filtra por `is_active` como guarda estrutural. A substituição
+é por IDENTIDADE — nome validado, nunca posição na lista.
+`Remada curvada com barra` saiu em 09/09/2026 e `Remada baixa na polia` herdou a
+dose onde ela já existia.
+
+E o **seed também precisa saber**: `seed_workouts` roda a cada deploy e
+ressuscitava o aposentado toda vez, porque `exercises.json` continuava dizendo
+que ele valia. A aposentadoria mora nos dois lugares — na migration e no
+`"active": false` do catálogo — e há teste rodando o seed DEPOIS da migration.
+
+**"Treino iniciado" é evidência comportamental, não data.** A migration precisa
+saber se pode trocar o exercício de um plano, e `TrainingPlan.created_at` não
+responde isso: plano criado não é treino começado. A prova é `ExerciseLog` DA
+SESSÃO — alguém anotou carga em algum exercício daquele dia depois que o plano
+nasceu. Data atual, horário previsto, abertura da página e presença do exercício
+no plano não provam nada sozinhos.
+
+**A ficha da semana continua sendo o cartão inteiro.** Uma tentativa de
+09/09/2026 trocou os outros dias pela linha compacta de hoje mirando o tamanho
+da página; o tamanho caía pela metade e levava junto registro de série, carga,
+repetições, descanso, progressão e histórico. Vinte e um testes reprovaram e
+estavam certos. A linha compacta responde "o que eu faço agora"; o cartão
+responde "o que tem na terça, e com que carga eu fiz da última vez".
+
+**A lista de compras pede o que se COMPRA.** O cardápio calcula em grama de
+alimento pronto, e ninguém compra arroz cozido nem meio ovo.
+`plans/compra.py` tem três tabelas chaveadas por `Food.name` — `FATOR_CRU` (cozido→cru),
+`POR_UNIDADE` (ovo, banana, pão) e `EMBALAGEM` (lata, pacote, litro) — e toda
+conversão sai marcada com `~`, porque ela É aproximada. Dúzia só quando divide
+exato. E `to_integral_value()` devolve `Decimal`, que imprime
+`5.0E+2 g de macarrão`: a humanização passa por `int()`.
+
+**A marcação da lista é ESTADO ABSOLUTO, e a chave é o alimento.** O pedido diz
+`marcado=1` ou `marcado=0`, nunca "alterne" — assim ele é idempotente por
+construção e dispensa `op_id`, e um reenvio da fila não desfaz o que a pessoa
+fez. A chave é `(pessoa, alimento, opção, semana)`: a lista é recalculada a cada
+visita e não tem identidade estável; o alimento tem. Marcação de alimento que
+saiu do cardápio fica órfã e sem efeito, que é como a troca de plano se invalida
+sozinha sem migration destrutiva.
+
+**O JavaScript da página mora em `pwa.js`.** `static/js/app.js` NÃO é servido —
+`app_js_url` aponta para `pwa.js`. Código posto lá passa em teste de endpoint e
+não roda no navegador; foi assim que a marcação da lista "funcionou" sem salvar
+nada. E o ouvinte de mudança é delegado no `document`: pendurá-lo no
+`[data-lista-compras]` não pega as caixas, que não são filhas dele.
+
+**`achievements.resumo` não chama `avaliar`.** O Progresso mostra um resumo das
+conquistas, e avaliar as regras ali levou a tela de 15 para 50 consultas, com
+crescimento por histórico — 36 contra 54 medidas. `ConquistasView` já
+documentava a mesma decisão. O teto do orçamento subiu de 15 para 26 COM a
+medição escrita, e a guarda de N+1 continua estrita: teto só se mexe depois de
+provar que o custo é constante.
+
 **A SECRET_KEY não é gerada pela plataforma.** `generateValue: true` do Render
 entrega 256 bits em base64 — 44 caracteres —, e o Django exige 50. Isso deixou
 `security.W009` aceso em produção desde o primeiro deploy sem travar nada,
