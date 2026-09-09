@@ -226,8 +226,64 @@
       } catch (e) {}
     }
 
+    //: Quantos dias "Agora não" adia o convite.
+    //:
+    //: Trinta, o teto da faixa que a campanha define (7 a 30). Perto do teto
+    //: porque a decisão anterior deste arquivo foi tornar a dispensa
+    //: DEFINITIVA — "um convite que reaparece é um convite que a pessoa já
+    //: respondeu" —, e adiar pouco reintroduziria a insistência que aquela
+    //: decisão tirou. O "×" continua definitivo; só o "Agora não" adia.
+    var DIAS_DE_ADIAMENTO = 30;
+    var CHAVE_ADIADO = "nutriplan_pwa_adiado_ate";
+
+    function adiar() {
+      esconder();
+      try {
+        var ate = Date.now() + DIAS_DE_ADIAMENTO * 24 * 60 * 60 * 1000;
+        window.localStorage.setItem(CHAVE_ADIADO, String(ate));
+      } catch (e) {}
+    }
+
+    function adiado() {
+      try {
+        var ate = parseInt(window.localStorage.getItem(CHAVE_ADIADO) || "0", 10);
+        // Relógio de aparelho anda para trás, e uma data absurdamente no
+        // futuro esconderia o convite para sempre. Passou do teto, o
+        // adiamento é ignorado — errar mostrando é melhor que errar sumindo.
+        var teto = Date.now() + DIAS_DE_ADIAMENTO * 24 * 60 * 60 * 1000;
+        return ate > Date.now() && ate <= teto;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    /* ONDE O CONVITE NÃO APARECE, e cada item tem motivo próprio.
+     *
+     * `data-sem-convite` vem do servidor: execução do treino e corrida em
+     * andamento são telas de uma coisa só, e um cartão fixo cobrindo o rodapé
+     * delas atrapalha a tarefa que a pessoa foi fazer.
+     *
+     * `dialog[open]` é o drawer de vídeo, que prende o foco. Um convite
+     * pousando por cima dele é um segundo pedido de atenção sobre o primeiro.
+     */
+    function horaRuim() {
+      if (document.body.hasAttribute("data-sem-convite")) return true;
+      return !!document.querySelector("dialog[open]");
+    }
+
     function mostrar() {
-      if (jaInstalado() || dispensado()) return;
+      if (jaInstalado() || dispensado() || adiado() || horaRuim()) return;
+      /* BOTÃO SEM EVENTO NÃO APARECE.
+       *
+       * `beforeinstallprompt` é de uso único: depois de `prompt()` o objeto
+       * guardado deixa de valer, e `convite` volta a ser nulo. Se o cartão
+       * reaparecesse nesse estado, "Instalar" seria um botão que não faz nada
+       * — pior que não ter botão, porque parece que o app quebrou.
+       *
+       * No iPhone ele já era escondido por outro caminho, e lá o cartão
+       * continua útil: o texto é a instrução do menu Compartilhar, que nunca
+       * dependeu de evento nenhum. */
+      if (instalar) instalar.hidden = !convite;
       banner.hidden = false;
       document.body.classList.add("tem-convite");
     }
@@ -249,6 +305,12 @@
       // exatamente o defeito que ele veio consertar.
       var alvo = evento.target;
       if (!alvo || typeof alvo.closest !== "function") return;
+
+      if (alvo.closest("[data-install-later]")) {
+        evento.preventDefault();
+        adiar();
+        return;
+      }
 
       if (alvo.closest("[data-install-close]")) {
         evento.preventDefault();

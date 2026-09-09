@@ -488,6 +488,11 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
         context["op_registro"] = uuid.uuid4().hex
         context["op_desfazer"] = uuid.uuid4().hex
         context["dia_da_sessao"] = timezone.localdate()
+        # TELA CRÍTICA: aqui não entra convite de instalação. A execução do
+        # treino é uma tela de uma coisa só — a pessoa está de pé, entre uma
+        # série e outra —, e um cartão fixo cobrindo o rodapé atrapalha a
+        # tarefa. Ver `data-sem-convite` no `base.html`.
+        context["sem_convite"] = True
         return context
 
 

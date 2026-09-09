@@ -234,7 +234,11 @@ class OOnboardingEOPerfilConcordamTests(BaseDaNomenclatura):
         self.pessoa("perfil@exemplo.com", ("treino", "progresso"), "progresso")
 
         html = self.client.get(reverse("accounts:profile")).content.decode()
-        cartao = html.split("Suas áreas", 1)[1].split("</section>", 1)[0]
+        # O cartão virou "Prioridade no NutriPlan" em 08/09/2026, junto com a
+        # correção do texto que convidava e desconvidava na mesma frase. O que
+        # este teste mede não mudou: o Perfil devolve a MESMA palavra que o
+        # onboarding ofereceu.
+        cartao = html.split("Prioridade no NutriPlan", 1)[1].split("</section>", 1)[0]
 
         self.assertIn("Treino", cartao)
         self.assertIn("Progresso", cartao)

@@ -87,6 +87,15 @@
 <body class="{% if user.is_authenticated and not sem_tabbar and not shell_offline %}tem-tabbar{% endif %}"
       data-autenticado="{% if user.is_authenticated and not shell_offline %}1{% else %}0{% endif %}"
       {% comment %}
+        TELA CRÍTICA: aqui o convite de instalação não aparece.
+
+        O marcador vem do SERVIDOR pelo mesmo motivo que `sem_tabbar` vem: quem
+        sabe em que tela a pessoa está é a view. Adivinhar por URL no
+        JavaScript quebraria no demo, que serve as mesmas telas sob outro
+        prefixo — e quebraria em silêncio, que é pior.
+      {% endcomment %}
+      {% if sem_convite %}data-sem-convite="1"{% endif %}
+      {% comment %}
         Quem é a pessoa desta sessão, para a fila offline saber de quem é cada
         operação pendente. A fila vive no IndexedDB, que é do NAVEGADOR e não
         da sessão: sem dono, uma operação que a pessoa A enfileirou sem rede
@@ -378,7 +387,12 @@
     </div>
     <div class="install__actions">
       <button type="button" class="btn btn--primary install__go" data-install-go>Instalar</button>
-      <button type="button" class="btn btn--ghost install__later" data-install-close>Agora não</button>
+      {% comment %}
+        "Agora não" ADIA; o "×" dispensa. Os dois usavam o mesmo gancho e
+        faziam a mesma coisa — dispensar para sempre —, o que transformava um
+        "não agora" numa decisão definitiva que a pessoa não tomou.
+      {% endcomment %}
+      <button type="button" class="btn btn--ghost install__later" data-install-later>Agora não</button>
     </div>
   </div>
 

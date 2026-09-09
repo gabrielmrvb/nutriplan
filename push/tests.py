@@ -211,7 +211,17 @@ class InstallabilityTests(TestCase):
         """
         html = self.client.get(reverse("accounts:login")).content.decode()
 
-        self.assertEqual(html.count("data-install-close"), 2)
+        # DUAS SAÍDAS, e desde 08/09/2026 elas fazem coisas DIFERENTES: o "×"
+        # dispensa para sempre, "Agora não" adia trinta dias. Antes os dois
+        # usavam `data-install-close` e dispensavam igual — um "não agora"
+        # virava decisão definitiva que a pessoa não tomou.
+        #
+        # A propriedade guardada continua sendo a mesma: existem duas saídas, e
+        # uma delas é escrita por extenso para quem não associa o símbolo a
+        # fechar.
+        self.assertEqual(html.count("data-install-close"), 1)
+        self.assertEqual(html.count("data-install-later"), 1)
+        self.assertIn("Agora não", html)
         self.assertIn("Agora não", html)
         self.assertIn('aria-label="Fechar o convite de instalação"', html)
 

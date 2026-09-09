@@ -215,9 +215,15 @@
             continuam disponíveis.
           </p>
         {% else %}
-          {# A frase fica numa LINHA só: `assertIn` compara o HTML cru, e
-             "organização padrão" quebrada em duas linhas não casa. É a mesma
-             armadilha que a Hidratação V2 já pagou. #}
+          {% comment %}
+            A frase fica numa LINHA só: `assertIn` compara o HTML cru, e
+            "organização padrão" quebrada em duas linhas não casa. É a mesma
+            armadilha que a Hidratação V2 já pagou.
+
+            E bloco, não cerquilha: a cerquilha do Django é de UMA linha, e
+            esta explicação em três vazou para dentro da página. Pego por
+            `ComentarioDeTemplateNaoVaza` — de novo.
+          {% endcomment %}
           <p class="empty-state">
             Nenhuma prioridade definida. O NutriPlan está usando a organização padrão.
           </p>

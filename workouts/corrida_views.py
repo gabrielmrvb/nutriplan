@@ -46,6 +46,11 @@ class HistoricoDeCorridasView(LoginRequiredMixin, ListView):
         # letras, e com `workout` aqui a aba "Treino" acendia na tela de
         # corridas. Quem marca a área agora é o mapa da barra de cima.
         contexto["nav"] = "running"
+        # TELA CRÍTICA: a corrida roda aqui, com o cronômetro na tela e o
+        # aparelho no bolso. Um cartão fixo pedindo para instalar o app no meio
+        # disso é interrupção, não convite. Ver `data-sem-convite` no
+        # `base.html`.
+        contexto["sem_convite"] = True
         return contexto
 
 
