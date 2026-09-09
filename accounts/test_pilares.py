@@ -364,10 +364,22 @@ class OPerfilDaPortaParaMudarDepoisTests(TestCase):
         `{% for %}` dele quebrado. Foi uma revisão adversarial que pegou.
         """
         html = self.perfil_html()
-        self.assertIn("Suas áreas", html)
-        return html.split("Suas áreas", 1)[1].split("</section>", 1)[0]
+        self.assertIn("Prioridade no NutriPlan", html)
+        return html.split("Prioridade no NutriPlan", 1)[1].split("</section>", 1)[0]
 
-    def test_quem_nao_declarou_recebe_o_convite(self):
+    def test_quem_nao_declarou_ve_o_ESTADO_e_nao_uma_cobranca(self):
+        """O texto anterior convidava e desconvidava na mesma frase.
+
+        "Você ainda não disse o que quer cuidar. Escolher organiza o que
+        aparece primeiro; nada fica escondido por não ter sido marcado." — se
+        nada fica escondido, por que escolher? A pergunta parecia não ter
+        consequência, e foi por isso que a etapa passou por morta.
+
+        Ela tem consequência: a prioridade abre ramos no cartão AGORA, decide
+        onde a seção da área entra na Home e move o limiar do aviso de
+        hidratação. O cartão passou a dizer o ESTADO — organização padrão — em
+        vez de cobrar uma resposta cuja utilidade ele mesmo negava.
+        """
         self.client.post(step_url(6), {"interesses": ["dieta"], "prioridade": "dieta"})
         Profile.objects.filter(user=self.user).update(
             prioridade="", **{c: False for c in CAMPO_DO_PILAR.values()}
@@ -375,7 +387,10 @@ class OPerfilDaPortaParaMudarDepoisTests(TestCase):
 
         cartao = self.cartao()
 
-        self.assertIn("ainda não disse o que quer cuidar", cartao)
+        self.assertIn("Nenhuma prioridade definida", cartao)
+        self.assertIn("organização padrão", cartao)
+        self.assertNotIn("ainda não disse o que quer cuidar", cartao)
+        self.assertNotIn("nada fica escondido", cartao)
 
     def test_quem_declarou_ve_as_areas_e_qual_e_a_principal(self):
         self.client.post(
@@ -385,8 +400,12 @@ class OPerfilDaPortaParaMudarDepoisTests(TestCase):
 
         cartao = self.cartao()
 
-        self.assertIn("· principal", cartao)
-        # As duas áreas aparecem DENTRO do cartão, e a principal leva o selo.
+        # A PRINCIPAL VEM NOMEADA, e não marcada com um selo dentro de uma
+        # lista. Antes o cartão listava tudo junto e pintava a importante —
+        # informação correta, leitura pior: quem lê precisava procurar qual era
+        # a principal em vez de já receber a resposta.
+        self.assertIn("Principal", cartao)
+        self.assertIn("Também quero acompanhar", cartao)
         self.assertIn("Corrida", cartao)
         self.assertIn("Alimentação", cartao)
         # E as três não escolhidas ficam de fora DELE — o cartão diz o que a
@@ -410,10 +429,16 @@ class OPerfilDaPortaParaMudarDepoisTests(TestCase):
         cartao = self.cartao()
 
         # Trechos que cabem numa LINHA do template: `assertIn` compara o HTML
-        # cru, e "continuam abertas" quebra entre duas linhas. É a mesma
-        # armadilha que já apareceu na Hidratação V2.
-        self.assertIn("Todas as áreas continuam", cartao)
-        self.assertIn("abertas — trocar não apaga nada", cartao)
+        # cru, e a frase quebra entre duas linhas. É a mesma armadilha que já
+        # apareceu na Hidratação V2.
+        #
+        # A frase mudou em 08/09/2026 junto com o cartão: ela agora nomeia a
+        # consequência ANTES de garantir o acesso, porque era a consequência
+        # que faltava — "nada fica escondido" sozinho fazia a escolha parecer
+        # inútil.
+        self.assertIn("organiza a tela inicial e alguns avisos", cartao)
+        self.assertIn("Todas as áreas", cartao)
+        self.assertIn("continuam disponíveis", cartao)
 
 
 class NenhumaMigrationFabricaPreferenciaTests(TestCase):

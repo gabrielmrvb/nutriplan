@@ -167,29 +167,59 @@
         procurar quando quiser mexer no app. Esconder o cartão de quem não
         declarou nada deixaria a pergunta sem porta.
       {% endcomment %}
+      {% comment %}
+        O CARTÃO MOSTRA O ESTADO, e essa é a correção de 08/09/2026.
+
+        O texto de ausência dizia, na mesma frase: "Você ainda não disse o que
+        quer cuidar. Escolher organiza o que aparece primeiro; nada fica
+        escondido por não ter sido marcado." Convidava e desconvidava junto —
+        se nada fica escondido, por que escolher? A pergunta parecia não ter
+        consequência, e por isso a etapa parecia morta.
+
+        A consequência existe e foi medida: a prioridade abre ramos próprios no
+        cartão AGORA, decide onde a seção da área entra na Home, e move o
+        limiar do aviso de hidratação. O que faltava não era a função — era
+        dizer o que ela faz.
+
+        Dois estados, cada um verdadeiro: com escolha, o que está valendo; sem
+        escolha, que a organização é a padrão. "Nenhuma prioridade definida" é
+        um estado, não uma cobrança.
+      {% endcomment %}
       <section class="card">
         <div class="card__head">
-          <h2>Suas áreas</h2>
+          <h2>Prioridade no NutriPlan</h2>
           <a href="{% url 'accounts:onboarding_step' step=6 %}">Editar</a>
         </div>
         {% if profile.personalizacao_declarada %}
-          <div class="chip-row chip-row--conteudo">
-            {% for pilar in profile.interesses %}
-              {% with d=pilar|detalhe %}
-                <span class="chip {% if pilar == profile.prioridade %}chip--brand{% endif %}">
-                  {{ d.titulo }}{% if pilar == profile.prioridade %} · principal{% endif %}
-                </span>
-              {% endwith %}
-            {% endfor %}
-          </div>
+          <dl class="data-list">
+            <div>
+              <dt>Principal</dt>
+              <dd>{% with d=profile.prioridade|detalhe %}{{ d.titulo }}{% endwith %}</dd>
+            </div>
+            {% if profile.interesses_secundarios %}
+              <div>
+                <dt>Também quero acompanhar</dt>
+                <dd>
+                  {% for pilar in profile.interesses_secundarios %}
+                    {% with d=pilar|detalhe %}{{ d.titulo }}{% endwith %}
+                    {% if not forloop.last %}
+                      {% if forloop.revcounter == 2 %} e {% else %}, {% endif %}
+                    {% endif %}
+                  {% endfor %}
+                </dd>
+              </div>
+            {% endif %}
+          </dl>
           <p class="hint">
-            A principal organiza o que aparece antes. Todas as áreas continuam
-            abertas — trocar não apaga nada do que você já registrou.
+            Sua escolha organiza a tela inicial e alguns avisos. Todas as áreas
+            continuam disponíveis.
           </p>
         {% else %}
+          {# A frase fica numa LINHA só: `assertIn` compara o HTML cru, e
+             "organização padrão" quebrada em duas linhas não casa. É a mesma
+             armadilha que a Hidratação V2 já pagou. #}
           <p class="empty-state">
-            Você ainda não disse o que quer cuidar. Escolher organiza o que
-            aparece primeiro; nada fica escondido por não ter sido marcado.
+            Nenhuma prioridade definida. O NutriPlan está usando a organização padrão.
           </p>
         {% endif %}
       </section>

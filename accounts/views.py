@@ -159,12 +159,20 @@ STEP_META = {
         "Escolha quantos músculos você prefere focar em cada sessão.",
     ),
     5: ("Sua comida", "O estilo do cardápio e o que você não pode comer."),
-    # O subtítulo diz "organizar" e não "liberar": nenhuma área fica escondida
-    # por não ter sido marcada, e prometer o contrário aqui seria vender uma
-    # restrição que o produto não faz.
+    # O SUBTÍTULO NOMEIA A CONSEQUÊNCIA, e essa é a correção de 08/09/2026.
+    #
+    # Ele dizia "o que você quer cuidar, e o que organizar primeiro" — verdade,
+    # e vago. Junto com o texto do Perfil ("nada fica escondido"), a etapa
+    # parecia não mudar nada, a ponto de ser confundida com passo morto.
+    #
+    # Ela muda três coisas medidas: os ramos do cartão AGORA
+    # (`plans/views.py:370-376`), onde a seção da área entra na Home (`:441`) e
+    # o limiar do aviso de hidratação (`plans/agora.py:288`). O subtítulo diz
+    # isso, e continua dizendo que nada some — porque nada some mesmo.
     6: (
-        "Suas áreas",
-        "O que você quer cuidar, e o que organizar primeiro.",
+        "O que você quer priorizar?",
+        "Sua escolha organiza a tela inicial e ajusta alguns avisos. "
+        "Todas as áreas continuam acessíveis.",
     ),
     # A janela de sono saiu daqui na V2.1 — o subtítulo já descrevia só comida,
     # e agora a tela também.

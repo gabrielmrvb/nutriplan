@@ -769,20 +769,32 @@ class InteressesForm(OnboardingStepForm):
     várias, e é aí que ela é obrigatória.
     """
 
+    #: O valor que significa "respondi, e não quero priorizar".
+    #:
+    #: Sem ele, não responder e escolher não priorizar eram o MESMO silêncio —
+    #: e a validação cobrava uma principal de quem marcasse várias áreas, sem
+    #: oferecer saída. Quem escolhe isto recebe a organização canônica, que é
+    #: um resultado legítimo e não uma personalização pela metade.
+    #:
+    #: Ele não é gravado: `clean` o traduz para string vazia, que é como o
+    #: modelo já representa "sem prioridade". Um sentinela em banco seria um
+    #: segundo jeito de dizer a mesma coisa.
+    SEM_PRIORIDADE = "nenhuma"
+
     interesses = forms.MultipleChoiceField(
-        label="O que você quer cuidar no NutriPlan?",
-        help_text="Escolha tudo que fizer sentido. Você pode mudar depois.",
+        label="O que você quer acompanhar?",
+        help_text="Marque quantas quiser. Dá para mudar depois.",
         choices=Pilar.choices,
         widget=forms.CheckboxSelectMultiple,
         required=False,
     )
     prioridade = forms.ChoiceField(
-        label="Qual delas vem primeiro?",
-        help_text=(
-            "A principal organiza o que aparece antes. Nada fica escondido: "
-            "todas as áreas continuam abertas no menu."
-        ),
-        choices=Pilar.choices,
+        label="Qual vem primeiro?",
+        # Sem `help_text` aqui de propósito: a consequência já está no
+        # subtítulo do passo, e repeti-la em cada campo é o que faz a tela
+        # ficar longa. Três explicações da mesma coisa não explicam três vezes
+        # melhor.
+        choices=list(Pilar.choices) + [(SEM_PRIORIDADE, "Não quero priorizar agora")],
         widget=forms.RadioSelect,
         required=False,
     )
@@ -803,6 +815,27 @@ class InteressesForm(OnboardingStepForm):
         dados = super().clean()
         marcados = set(dados.get("interesses") or ())
         principal = dados.get("prioridade") or ""
+        # "Não quero priorizar agora" é uma RESPOSTA, e vira ausência de
+        # prioridade — não erro. Sem esta linha, quem marca três áreas e escolhe
+        # a opção neutra receberia a cobrança de escolher uma principal.
+        escolheu_nenhuma = principal == self.SEM_PRIORIDADE
+        if escolheu_nenhuma:
+            # RESPOSTA COMPLETA, e ela sai por aqui.
+            #
+            # As três regras abaixo existem para quem QUER priorizar: marcar a
+            # área da principal, promover a única marcada, e cobrar a escolha
+            # de quem marcou várias. Nenhuma delas se aplica a quem disse que
+            # não quer priorizar agora — e passar por elas transformaria a
+            # opção neutra em erro (com várias áreas) ou em prioridade
+            # acidental (com uma só).
+            #
+            # Interesses continuam valendo sem principal: `limiar_de_atraso`
+            # lê `interesse_em_agua` por conta própria. E marcar nada também é
+            # resposta: quem não quer priorizar nem acompanhar nada específico
+            # recebe a organização canônica.
+            dados["interesses"] = sorted(marcados)
+            dados["prioridade"] = ""
+            return dados
 
         # Escolher a principal MARCA a área. Ver a docstring: o formulário
         # fecha o buraco em vez de devolvê-lo para a pessoa.

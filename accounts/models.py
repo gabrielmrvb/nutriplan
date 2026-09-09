@@ -503,6 +503,23 @@ class Profile(models.Model):
         ]
 
     @property
+    def interesses_secundarios(self) -> list:
+        """Os pilares marcados MENOS o principal.
+
+        Existe para o Perfil poder dizer "Principal: X" e "Também quero
+        acompanhar: Y e Z" sem repetir X nas duas linhas. A tela anterior
+        listava tudo junto e marcava a principal com um selo — informação
+        correta, leitura pior: quem lê a lista precisa procurar qual é a
+        importante em vez de já receber a resposta.
+
+        Sem prioridade declarada devolve vazio, e não a lista inteira: sem
+        principal não existe "além do principal".
+        """
+        if not self.prioridade:
+            return []
+        return [pilar for pilar in self.interesses if pilar != self.prioridade]
+
+    @property
     def personalizacao_declarada(self) -> bool:
         """A pessoa já respondeu o que quer cuidar?
 
