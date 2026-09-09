@@ -96,7 +96,15 @@ class OBlocoDeConquistasNoProgressoTests(TestCase):
         self.assertIn("Desbloqueadas", html)
 
     def test_com_UMA_conquista_o_bloco_conta_uma(self):
+        """`avaliar` explícito, e a chamada é o próprio contrato.
+
+        `resumo` NÃO desbloqueia: quem faz isso é a página de conquistas, e a
+        decisão está medida — chamar `avaliar` no Progresso levava a tela de 15
+        para 50 consultas, com o número crescendo junto com o histórico. O
+        bloco LÊ o que já está gravado.
+        """
         self._treinar(1)
+        services.avaliar(self.user)
 
         html = self.progresso()
 
@@ -107,6 +115,7 @@ class OBlocoDeConquistasNoProgressoTests(TestCase):
 
     def test_com_VARIAS_o_total_acompanha(self):
         self._treinar(6)
+        services.avaliar(self.user)
 
         total, _recente, _proxima = services.resumo(self.user)
 

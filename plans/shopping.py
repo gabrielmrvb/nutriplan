@@ -25,6 +25,8 @@ Três decisões moldam tudo aqui:
 from datetime import timedelta
 from decimal import Decimal
 
+from . import compra
+
 from django.utils import timezone
 
 from catalog.models import Aisle
@@ -99,7 +101,15 @@ def humanize(quantity: Decimal, unit: str) -> str:
     if unit == "g" and quantity >= KILO_THRESHOLD:
         quilos = _sem_zeros(quantity / Decimal("1000"))
         return f"{quilos} kg".replace(".", ",")
-    return f"{quantity.to_integral_value()} {unit}"
+    # `int()` e NÃO `to_integral_value()`: este devolve um `Decimal`, e um
+    # `Decimal` com expoente imprime em notação científica. Medido depois de a
+    # conversão para forma de compra entrar: 1.200 g de macarrão cozido
+    # dividido por 2,4 dá `Decimal("5.0E+2")`, e a lista pedia
+    # "5.0E+2 g de macarrão (cru)".
+    #
+    # É a MESMA armadilha que `_sem_zeros` documenta logo acima, no caminho que
+    # ela não cobria — ela cuida do ramo de quilo, e este é o de grama.
+    return f"{int(quantity)} {unit}"
 
 
 def dias_da_semana(inicio=None) -> list:
@@ -172,11 +182,21 @@ def shopping_list(plan, label=None, inicio=None) -> list:
         food = entrada["food"]
         bruto = entrada["quantity"]
         arredondado = round_up(bruto)
+        # A CONVERSÃO PARA FORMA DE COMPRA mora em `plans/compra.py`, e não
+        # aqui: a regra é por alimento e precisa ser testável como dado. O que
+        # esta função continua fazendo é a lista; o que se compra é outra
+        # pergunta.
+        texto, aproximado = compra.converter(
+            food.name, arredondado, food.base_unit
+        )
         por_corredor.setdefault(food.aisle, []).append(
             {
                 "food": food,
                 "quantity": arredondado,
-                "display": humanize(arredondado, food.base_unit),
+                "display": texto,
+                # A tela avisa em UMA linha quando houve estimativa, em vez de
+                # imprimir um número exato que ninguém mediu.
+                "aproximado": aproximado,
                 "recipes": sorted(entrada["recipes"]),
             }
         )

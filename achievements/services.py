@@ -155,14 +155,26 @@ def resumo(user, hoje=None):
     decisão é delicada — "só entra em `próxima` o que dá para medir sem
     inventar", que é o que impede a parede de medalhas cinzentas.
 
-    `avaliar` roda antes, e é responsabilidade de quem MOSTRA. Ele é idempotente
-    (`get_or_create` mais a constraint de unicidade), então as duas telas
-    chamarem não cria conquista dobrada.
+    ESTA FUNÇÃO NÃO CHAMA `avaliar`, e isso é decisão medida.
+
+    A primeira versão chamava, para o bloco do Progresso mostrar conquistas
+    recém-fechadas. O custo apareceu no orçamento de consultas: a tela foi de
+    ~12 para **50 consultas** com teto de 15, e o número CRESCIA com o
+    histórico (36 contra 54). `avaliar` percorre o catálogo inteiro com
+    `get_or_create` por regra, e `ScreenQueryBudgetTests` existe exatamente
+    para pegar isso.
+
+    E a decisão já estava escrita: o docstring de `ConquistasView` registra que
+    "a avaliação continua FORA dos demais requests". Desbloquear é da página de
+    conquistas, que a pessoa abre de vez em quando; o Progresso LÊ o que já
+    está gravado.
+
+    A consequência honesta: uma conquista fechada há minutos aparece no
+    Progresso depois que a pessoa abrir a página de conquistas. Melhor que uma
+    tela de histórico que fica lenta com o histórico.
     """
     from .models import UserAchievement
     from .regras import CATALOGO
-
-    avaliar(user, hoje=hoje)
 
     ganhas = list(UserAchievement.objects.filter(user=user))
     conquistados = {c.slug for c in ganhas}

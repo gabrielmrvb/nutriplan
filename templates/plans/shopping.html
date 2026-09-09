@@ -43,7 +43,15 @@
                   <input type="checkbox">
                   <span class="shopping__name">{{ item.food.name }}</span>
                 </label>
-                <span class="shopping__qty num">{{ item.display }}</span>
+                {% comment %}
+                  O "~" marca conversão APROXIMADA — cozido para cru, peso para
+                  unidade, peso para embalagem. Fator de cozimento varia com a
+                  água, o tempo e a panela; lata varia de marca. Imprimir o
+                  número sem a marca seria fingir uma precisão que ninguém
+                  mediu, e o `title` diz isso a quem passar o cursor.
+                {% endcomment %}
+                <span class="shopping__qty num"
+                      {% if item.aproximado %}title="Quantidade aproximada para a forma de compra"{% endif %}>{% if item.aproximado %}~{% endif %}{{ item.display }}</span>
               </li>
             {% endfor %}
           </ul>
@@ -67,9 +75,15 @@
       <section class="card">
         <div class="card__head"><h2>Como usar</h2></div>
         <p class="hint">
-          As quantidades já vêm somadas para os {{ days }} dias e arredondadas para cima,
-          para embalagem: ninguém compra 847 g de arroz, compra 1 kg. Sobra pouca coisa
-          de propósito — faltar no meio da semana custa mais que sobrar.
+          A lista soma os {{ days }} dias e converte para o que se compra: arroz e
+          feijão viram peso CRU, ovo vira unidade, atum e sardinha viram lata. O
+          que já se vende por peso continua em gramas ou quilos.
+        </p>
+        <p class="hint">
+          O que tem <b>~</b> é aproximado. Fator de cozimento varia com a água e a
+          panela, e lata varia de marca — o número serve para não faltar, não para
+          fechar conta. Sobra pouca coisa de propósito: faltar no meio da semana
+          custa mais que sobrar.
         </p>
         <p class="hint">
           Os itens marcados não somem: a marcação vale só enquanto a página estiver

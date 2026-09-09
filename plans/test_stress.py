@@ -103,7 +103,20 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
     TETOS = {
         "plans:today": 40,
         "workouts:routine": 25,
-        "plans:history": 15,
+        # 15 -> 26: o Progresso passou a mostrar o bloco de Conquistas, e ele
+        # custa NOVE consultas constantes — medido, com `reunir` respondendo por
+        # todas e `streaks.calcular` por quatro delas.
+        #
+        # O teto sobe; a guarda NÃO afrouxa. O que ela existe para pegar é
+        # consulta dentro de laço, e essa propriedade é medida por
+        # `test_o_custo_da_tela_nao_cresce_com_os_registros` — que voltou a
+        # passar depois de `resumo` parar de chamar `avaliar`. Aquela chamada
+        # levava a tela a 50 consultas E fazia o número crescer com o histórico
+        # (36 contra 54), que é o defeito de verdade.
+        #
+        # Desbloquear continua sendo da página de conquistas; o Progresso lê o
+        # que já está gravado.
+        "plans:history": 26,
         # 15 -> 19: o Perfil passou a CONFERIR se o plano gravado ainda vale.
         #
         # Ele mostrava o número velho chamando-o de "suas metas de hoje" — 2.520
