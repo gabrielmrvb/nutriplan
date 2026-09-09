@@ -131,6 +131,29 @@ coluna da direita), não entre ela e o almoço.
             e o "meta 2765 kcal" sozinho já ocupava duas. Sobrou a informação
             que só esta linha dá: de que lado da conta a pessoa está, e quanto.
           {% endcomment %}
+          {% comment %}
+            DIA EM BRANCO NÃO TEM SALDO, e é por isso que esta linha tem dois
+            estados.
+
+            A linha diz de que lado da conta a pessoa está. Ela vem do PLANO
+            (meta menos gasto), mas mora entre duas frases que são sobre HOJE —
+            "faltam 2.055 kcal" logo acima e "0/5 refeições" no meio. Lida em
+            sequência, de manhã, sem nada registrado, "Sem déficit nem
+            superávit" só pode significar que o dia fechou empatado. O app não
+            sabe disso.
+
+            Quem decide é `saldo_do_dia_ja_conta`, do servidor, e não uma
+            comparação escrita aqui: a regra é de produto, e HTML não é onde se
+            lê regra de produto.
+
+            O estado vazio é CONVITE e não buraco: sumir com a linha deixaria a
+            pessoa sem saber por que o saldo não está lá.
+          {% endcomment %}
+          {% if not saldo_do_dia_ja_conta %}
+            <p class="today-hero__balance balance--convite">
+              Registre suas refeições para acompanhar o saldo do dia.
+            </p>
+          {% else %}
           <p class="today-hero__balance balance--{{ balance.kind }}">
             {% if balance.kind == 'balance' %}
               Sem déficit nem superávit
@@ -151,6 +174,7 @@ coluna da direita), não entre ela e o almoço.
               </b>
             {% endif %}
           </p>
+          {% endif %}
         </div>
 
         {% comment %}

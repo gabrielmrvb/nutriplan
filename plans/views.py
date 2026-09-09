@@ -410,6 +410,21 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 "macros": macro_rows(self.plan, summary),
                 "breakdown": breakdown(self.plan),
                 "balance": energy_balance(self.plan),
+                # O SALDO DO PLANO SÓ APARECE DEPOIS DO PRIMEIRO REGISTRO DO DIA.
+                #
+                # `energy_balance` responde sobre o PLANO — meta menos gasto —,
+                # e é um número que não depende de registro nenhum. Mas ele é
+                # desenhado dentro de `today-hero__facts`, entre "faltam 2.055
+                # kcal" e "0/5 refeições", que são as duas sobre HOJE. Num dia
+                # em branco, "Sem déficit nem superávit" lido nessa companhia
+                # afirma que o dia fechou empatado — e o app não sabe disso,
+                # porque ninguém comeu ainda.
+                #
+                # A porta é `marked`, e não `consumed_kcal`: quem marcou "Pulei"
+                # nas cinco refeições consumiu zero E registrou o dia inteiro.
+                # Mandar essa pessoa registrar seria pedir o que ela já fez.
+                # Registro ausente e consumo zero são estados diferentes.
+                "saldo_do_dia_ja_conta": summary["marked"] > 0,
                 "menu": menu,
                 # Diferença entre o cardápio montado e a meta. A tela mostra
                 # "bate com a meta" quando é irrelevante, e o número quando não é.

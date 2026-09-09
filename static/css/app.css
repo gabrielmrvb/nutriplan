@@ -1444,6 +1444,21 @@ h3 {
   color: var(--warm);
 }
 
+/* O CONVITE NÃO TEM LADO, e por isso não tem cor.
+
+   Verde diz déficit e âmbar diz superávit; pintar o convite de qualquer uma
+   das duas seria exatamente a afirmação que ele existe para não fazer. Fica no
+   filete neutro da base, com o peso de texto de apoio — ele é instrução, não
+   resultado, e não deve competir com o número do anel logo acima.
+
+   Sem `font-size` nem espaçamento novos: a catraca do sistema visual congela a
+   dívida de valor cru no número atual, e um `.9rem` aqui a faria crescer. */
+.today-hero__balance.balance--convite {
+  background: none;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
 .chip-row { display: flex; flex-wrap: wrap; gap: .4rem; }
 
 /* A RECEITA COMPARTILHADA das duas pílulas do app.
