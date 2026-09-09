@@ -7992,3 +7992,37 @@ body.montando { overflow: hidden; }
   line-height: 1.4;
   min-width: 0;
 }
+
+/* --------------------------------------------------------------------------
+   ALVOS DE TOQUE em dois lugares que a campanha de 09/09/2026 criou.
+
+   A régua mede altura E largura, e os dois nasceram abaixo dela:
+
+   - o "Editar" de "Detalhes do programa" virou link de texto dentro de um
+     `<h3>` quando o bloco foi recolhido, e texto curto dá alvo estreito;
+   - a caixa da lista de compras ganhou `data-marcar` e passou a ser tocada de
+     verdade. Caixa nativa tem ~16px, e quem risca item no mercado está andando.
+
+   `2.75rem` é como este arquivo já escreve os 44px da régua — sete outros
+   controles usam o mesmo degrau.
+
+   E SÓ `min-height`/`min-width`, sem `padding` nem `margin`: a catraca do
+   sistema visual conta espaçamento cru, e uma primeira versão com
+   `calc((44px - 1.15rem) / 2)` levou a dívida de 267 para 273. O teto só
+   desce — a regra existe para o arquivo não voltar a ser escrito à mão.
+   -------------------------------------------------------------------------- */
+.explicacao__titulo a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+.shopping__check input[type="checkbox"] {
+  /* No CONTROLE, e não só no `label`: aumentar a etiqueta deixaria o alvo
+     grande e o controle pequeno, e é nele que o toque precisa acertar em
+     movimento. Caixa maior numa lista tocada andando é ganho, não ruído. */
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
