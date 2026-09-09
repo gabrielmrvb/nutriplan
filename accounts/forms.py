@@ -24,7 +24,9 @@ from catalog.models import DietaryTag, TagKind
 
 from .models import (
     CAMPO_DO_PILAR,
+    MINUTOS_POR_DURACAO,
     ActivityLevel,
+    DuracaoTreino,
     Goal,
     MealStyle,
     Pilar,
@@ -35,6 +37,7 @@ from .models import (
     User,
     Weekday,
     WeightEntry,
+    duracao_de_minutos,
 )
 
 
@@ -421,26 +424,26 @@ class TrainingForm(forms.Form):
         initial=time(19, 0),
         widget=forms.TimeInput(attrs={"type": "time", "class": "field-input"}),
     )
-    duration_min = forms.IntegerField(
-        # "Tempo disponível", e não mais "Duração média".
+    duracao_treino = forms.ChoiceField(
+        # FAIXA, e não um número. O campo anterior era "Tempo disponível", um
+        # inteiro obrigatório, com a ajuda prometendo que o treino cabia nele.
+        # A promessa era falsa e estava medida: 30 informados entregavam 32, 45
+        # entregavam 48, 60 entregavam 61.
         #
-        # O rótulo antigo descrevia a rotina da pessoa e o gerador nunca lia o
-        # número: quem informava 30 minutos recebia sessão estimada em 47 a 51.
-        # A interface fazia acreditar num limite que o motor ignorava — e entre
-        # mudar o texto para admitir isso ou fazer o motor respeitar, a segunda
-        # é a que deixa o campo valer alguma coisa.
+        # A causa era o número ser alvo e teto ao mesmo tempo. O corte é
+        # discreto — sai um exercício inteiro, de 3 a 7 minutos —, então o
+        # motor tolerava passar até 5 minutos para não jogar fora quatro a seis
+        # séries por semana. A tolerância era defensável; a frase, não.
         #
-        # A unidade entra no campo, como já acontece com altura e peso no passo
-        # 1. "Tempo disponível (minutos)" quebraria em duas linhas a 390px e
-        # empurraria o campo para baixo do vizinho, desalinhando a dupla.
-        label="Tempo disponível",
-        help_text="O treino é montado para caber nesse tempo.",
-        initial=60,
-        min_value=15,
-        max_value=300,
-        widget=forms.NumberInput(
-            attrs={"inputmode": "numeric", "class": "field-input", "sufixo": "min"}
-        ),
+        # Na faixa o piso é o alvo e o topo é o teto, e o teto é duro.
+        label="Quanto tempo você tem para treinar?",
+        choices=DuracaoTreino.choices,
+        initial=DuracaoTreino.LIVRE,
+        # Opcional de propósito: quem não responder fica em "sem limite
+        # rígido", que é a única resposta honesta para quem não respondeu.
+        # Qualquer outro padrão prometeria um teto que ninguém pediu.
+        required=False,
+        widget=forms.RadioSelect,
     )
     # Rótulos de uma palavra, e a explicação uma vez só acima do par.
     #
@@ -464,7 +467,15 @@ class TrainingForm(forms.Form):
         if existing and not self.is_bound:
             self.fields["weekdays"].initial = [d.weekday for d in existing]
             self.fields["start_time"].initial = existing[0].start_time
-            self.fields["duration_min"].initial = existing[0].duration_min
+            # A faixa vem do PERFIL, que é onde ela mora. O `duration_min` do
+            # dia só entra como conversão para quem é anterior a esta pergunta
+            # e ainda não tem faixa gravada — o mesmo caminho da migration, e
+            # pela mesma função, para as duas não divergirem.
+            perfil = self.perfil()
+            atual = getattr(perfil, "duracao_treino", None)
+            self.fields["duracao_treino"].initial = (
+                atual or duracao_de_minutos(existing[0].duration_min)
+            )
         # O sono vive no Profile, e não em TrainingDay: o formulário só o
         # empresta. Sem este initial, voltar ao passo 3 mostraria os campos
         # vazios e um "Continuar" apagaria o que já estava salvo.
@@ -502,7 +513,13 @@ class TrainingForm(forms.Form):
     def save(self):
         weekdays = set(self.cleaned_data["weekdays"])
         start_time = self.cleaned_data["start_time"]
-        duration = self.cleaned_data["duration_min"]
+        faixa = self.cleaned_data.get("duracao_treino") or DuracaoTreino.LIVRE
+        # O INTEIRO CONTINUA SENDO GRAVADO, e não é resíduo.
+        #
+        # `plans/meal_planner.py` soma `start_time + duration_min` para não
+        # marcar refeição no meio do treino. A pergunta virou faixa; o contrato
+        # com o cardápio continua sendo um número, e ele passa a ser derivado.
+        duration = MINUTOS_POR_DURACAO[faixa]
 
         self.user.training_days.exclude(weekday__in=weekdays).delete()
         for weekday in weekdays:
@@ -519,7 +536,10 @@ class TrainingForm(forms.Form):
         if perfil is not None:
             perfil.wake_time = self.cleaned_data["wake_time"]
             perfil.sleep_time = self.cleaned_data["sleep_time"]
-            perfil.save(update_fields=["wake_time", "sleep_time", "updated_at"])
+            perfil.duracao_treino = faixa
+            perfil.save(update_fields=[
+                "wake_time", "sleep_time", "duracao_treino", "updated_at",
+            ])
 
         return self.user.training_days.all()
 

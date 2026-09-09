@@ -122,11 +122,23 @@
           <a href="{% url 'accounts:onboarding_step' step=3 %}">Editar</a>
         </div>
         {% if training_days %}
+          {% comment %}
+            A duração saiu da linha de cada dia e virou uma linha só.
+
+            Ela nunca foi por dia: o formulário grava o mesmo número em todos,
+            e repeti-lo sete vezes dizia sete vezes a mesma coisa. E o número
+            deixou de ser a resposta da pessoa — a pergunta virou faixa, e é a
+            faixa que o motor obedece.
+          {% endcomment %}
           <dl class="data-list">
+            <div>
+              <dt>Duração</dt>
+              <dd>{{ profile.get_duracao_treino_display }}</dd>
+            </div>
             {% for day in training_days %}
               <div>
                 <dt>{{ day.get_weekday_display }}</dt>
-                <dd>{{ day.start_time|time:"H:i" }} · até {{ day.duration_min }} min</dd>
+                <dd>{{ day.start_time|time:"H:i" }}</dd>
               </div>
             {% endfor %}
           </dl>

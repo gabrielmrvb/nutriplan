@@ -53,8 +53,10 @@ from .views import CAMINHO_COMPLETO, CAMINHO_CURTO
 
 from . import views
 from .models import (
+    MINUTOS_POR_DURACAO,
     ClassificacaoDeConta,
     AcaoAdministrativa,
+    DuracaoTreino,
     SplitPreference,
     ActivityLevel,
     Goal,
@@ -5707,7 +5709,12 @@ class DiasDeTreinoNaoDependemDoAdminTests(TestCase):
             {
                 "weekdays": ["1", "3"],
                 "start_time": "18:30",
-                "duration_min": "45",
+                # A pergunta virou FAIXA. O passo mandava `duration_min: 45` e
+                # o inteiro deixou de ser perguntado — ele passou a ser
+                # derivado, porque quem precisa dele é o cardápio e não a
+                # pessoa. O controle positivo continua sendo o mesmo: a pessoa
+                # consegue gravar os próprios dias.
+                "duracao_treino": DuracaoTreino.PADRAO,
                 "wake_time": "07:00",
                 "sleep_time": "23:00",
             },
@@ -5715,7 +5722,9 @@ class DiasDeTreinoNaoDependemDoAdminTests(TestCase):
 
         dias = TrainingDay.objects.filter(user=self.alvo).order_by("weekday")
         self.assertEqual([d.weekday for d in dias], [1, 3])
-        self.assertEqual(dias[0].duration_min, 45)
+        self.assertEqual(dias[0].duration_min, MINUTOS_POR_DURACAO[DuracaoTreino.PADRAO])
+        self.alvo.profile.refresh_from_db()
+        self.assertEqual(self.alvo.profile.duracao_treino, DuracaoTreino.PADRAO)
 
 
 class PapeisChegamEmProducaoTests(TestCase):

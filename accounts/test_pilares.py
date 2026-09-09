@@ -475,6 +475,43 @@ class NenhumaMigrationFabricaPreferenciaTests(TestCase):
     #: migration marcar área para gente que não pediu.
     ESCRITAS = ("RunPython", "RunSQL", "default=True")
 
+    @staticmethod
+    def sem_dependencias(fonte):
+        """A migration sem o bloco `dependencies`, que é NOME DE ARQUIVO.
+
+        A régua reprovou a `0026`, que não escreve preferência nenhuma: ela só
+        depende da `0025_alter_profile_prioridade`, e o nome da dependência
+        contém "prioridade". Lida assim, a guarda reprovaria TODA migration de
+        dados de `accounts` daqui para frente — bastaria ter um `RunPython` e
+        depender da última, que por acaso se chama assim.
+
+        Isso é mirar no lugar errado: o risco é escrever NO CAMPO, e o bloco de
+        dependências não escreve em nada. Ele sai da leitura, e o resto — que é
+        onde `RunPython` de verdade opera — continua inteiro sob a régua.
+        """
+        import re
+
+        return re.sub(r"dependencies\s*=\s*\[.*?\]", "", fonte, flags=re.S)
+
+    def test_o_bloco_de_dependencias_nao_conta_como_escrita(self):
+        """Controle da correção acima, com as duas metades.
+
+        Sem ele, alguém poderia "consertar" a guarda apagando fonte demais e
+        ela passaria a aceitar uma escrita de verdade.
+        """
+        so_dependencia = (
+            'dependencies = [("accounts", "0025_alter_profile_prioridade")]\n'
+            "operations = [migrations.RunPython(seja_o_que_for)]"
+        )
+        de_verdade = (
+            'dependencies = [("accounts", "0001_initial")]\n'
+            "operations = [migrations.RunPython(marca_prioridade)]\n"
+            'def marca_prioridade(apps, schema): perfil.prioridade = "treino"'
+        )
+
+        self.assertNotIn("prioridade", self.sem_dependencias(so_dependencia))
+        self.assertIn("prioridade", self.sem_dependencias(de_verdade))
+
     def test_nenhuma_outra_migration_ESCREVE_nos_seis_campos(self):
         arquivos = self.migrations()
 
@@ -484,7 +521,7 @@ class NenhumaMigrationFabricaPreferenciaTests(TestCase):
 
         campos = list(CAMPO_DO_PILAR.values()) + ["prioridade"]
         for caminho in arquivos:
-            fonte = caminho.read_text(encoding="utf-8")
+            fonte = self.sem_dependencias(caminho.read_text(encoding="utf-8"))
             if not any(campo in fonte for campo in campos):
                 continue
             for escrita in self.ESCRITAS:

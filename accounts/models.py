@@ -213,6 +213,91 @@ class SplitPreference(models.TextChoices):
     TRES = "three", "3 grupos por dia"
 
 
+class DuracaoTreino(models.TextChoices):
+    """Quanto tempo a pessoa tem para treinar — em FAIXA, não em número.
+
+    O campo anterior era um inteiro obrigatório, "Tempo disponível", com a
+    ajuda dizendo "o treino é montado para caber nesse tempo". A promessa era
+    falsa, e medida: 30 informados entregavam sessão de 32 minutos, 45
+    entregavam 48 e 60 entregavam 61.
+
+    A CAUSA NÃO ERA O GERADOR ESTAR ERRADO — era o número ser duas coisas ao
+    mesmo tempo. Quem digita 45 quer um treino de mais ou menos 45, e o corte é
+    discreto: sai um exercício inteiro, que custa de 3 a 7 minutos. Para não
+    jogar fora quatro a seis séries semanais por causa de dois minutos, o motor
+    tolerava passar até 5 minutos do informado. A tolerância era razoável e a
+    frase, mentira.
+
+    A FAIXA desfaz o nó: o piso é o alvo e o topo é o TETO, que é duro. "Padrão
+    — 45 a 60" dá ao motor os mesmos 60 minutos que ele hoje usa para caber, e
+    passa a poder prometer que não ultrapassa. O volume não cai; a frase passa
+    a ser verdade.
+
+    LIVRE é o padrão de quem não escolheu nada, e ele NÃO promete teto nenhum —
+    é a única opção honesta para quem não respondeu, porque inventar um teto
+    para essa pessoa seria recomeçar o defeito do outro lado.
+    """
+
+    RAPIDO = "rapido", "Rápido — até 30 minutos"
+    PADRAO = "padrao", "Padrão — 45 a 60 minutos"
+    COMPLETO = "completo", "Completo — 60 a 90 minutos"
+    LIVRE = "livre", "Sem limite rígido — priorizar a ficha completa"
+
+
+#: O TETO de cada faixa, em minutos. `None` é ausência de teto, e não zero.
+#:
+#: É o topo da faixa, e é duro: o gerador não entrega sessão acima disso. O
+#: piso da faixa não entra em conta nenhuma — ele existe no rótulo para a
+#: pessoa saber o que esperar, e um piso imposto obrigaria a INVENTAR
+#: exercício para encher o relógio, que é o oposto do que o app faz.
+TETO_POR_DURACAO = {
+    DuracaoTreino.RAPIDO: 30,
+    DuracaoTreino.PADRAO: 60,
+    DuracaoTreino.COMPLETO: 90,
+    DuracaoTreino.LIVRE: None,
+}
+
+#: Quantos minutos gravar em `TrainingDay.duration_min` para cada faixa.
+#:
+#: O inteiro CONTINUA existindo, e isso é decisão. Ele não é mais a pergunta
+#: feita à pessoa, mas é contrato de outra área: `plans/meal_planner.py` soma
+#: `start_time + duration_min` para não marcar refeição no meio do treino.
+#: Apagar a coluna quebraria o cardápio; mantê-la derivada da faixa preserva o
+#: contrato sem devolver a pergunta.
+#:
+#: LIVRE grava 90 porque o planejador precisa de um número, e 90 é o maior
+#: bloco que o catálogo produz. Isso não vira promessa em lugar nenhum: quem
+#: escolheu LIVRE não vê teto na tela.
+MINUTOS_POR_DURACAO = {
+    DuracaoTreino.RAPIDO: 30,
+    DuracaoTreino.PADRAO: 60,
+    DuracaoTreino.COMPLETO: 90,
+    DuracaoTreino.LIVRE: 90,
+}
+
+
+def duracao_de_minutos(minutos) -> str:
+    """A faixa que corresponde a um `duration_min` antigo.
+
+    Determinística e usada em DOIS lugares — a migration que converte quem já
+    existe e o formulário que abre com a escolha de quem volta ao passo. Duas
+    cópias divergiriam na primeira borda que alguém ajustasse.
+
+    Acima de 90 vira LIVRE e não COMPLETO: quem digitou 120 declarou que tempo
+    não era a restrição dele, e enfiá-lo num teto de 90 seria apertar a ficha
+    de alguém que nunca pediu isso.
+    """
+    if not minutos:
+        return DuracaoTreino.LIVRE
+    if minutos <= 30:
+        return DuracaoTreino.RAPIDO
+    if minutos <= 60:
+        return DuracaoTreino.PADRAO
+    if minutos <= 90:
+        return DuracaoTreino.COMPLETO
+    return DuracaoTreino.LIVRE
+
+
 class MealStyle(models.TextChoices):
     """O tipo de comida que a pessoa quer que o cardápio proponha.
 
@@ -336,6 +421,16 @@ class Profile(models.Model):
     #: perguntar de novo. O caro é presumir uma escolha que ninguém fez.
     split_preference_confirmada = models.BooleanField(
         "divisão de treino confirmada pela pessoa", default=False
+    )
+    #: A faixa de tempo do treino. LIVRE por padrão, e o padrão é a resposta
+    #: honesta para quem não respondeu: qualquer outro valor prometeria um teto
+    #: que a pessoa não pediu. A migration converte quem já existe a partir do
+    #: `duration_min` que ela já tinha, então ninguém cai no padrão por acidente.
+    duracao_treino = models.CharField(
+        "duração do treino",
+        max_length=10,
+        choices=DuracaoTreino.choices,
+        default=DuracaoTreino.LIVRE,
     )
     meal_style = models.CharField(
         "estilo de cardápio",

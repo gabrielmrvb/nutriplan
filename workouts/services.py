@@ -20,7 +20,7 @@ from decimal import Decimal
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from accounts.models import SplitPreference
+from accounts.models import TETO_POR_DURACAO, DuracaoTreino, SplitPreference
 
 from .models import (
     SEGUNDOS_ENTRE_EXERCICIOS,
@@ -362,9 +362,23 @@ FOLGA_MAXIMA_MIN = Decimal("5")
 
 
 def _teto_em_segundos(minutos_disponiveis) -> Decimal:
-    orcamento = Decimal(minutos_disponiveis)
-    folga = min(orcamento * FOLGA_PROPORCIONAL, FOLGA_MAXIMA_MIN)
-    return (orcamento + folga) * 60
+    """O teto em segundos. DURO: o que a tela promete é o que o motor obedece.
+
+    A folga acima foi medida e era defensável enquanto o campo era um número
+    único: quem digitava 45 queria "mais ou menos 45", e ceder um exercício
+    inteiro para economizar dois minutos custava de quatro a seis séries por
+    semana. O comentário de `FOLGA_PROPORCIONAL` guarda essa medição.
+
+    O que mudou não foi a opinião sobre a folga — foi a PERGUNTA. `DuracaoTreino`
+    passou a perguntar uma FAIXA, e numa faixa o piso é o alvo e o topo é o
+    teto. "Padrão — 45 a 60" entrega ao motor os mesmos 60 minutos que a folga
+    lhe dava quando a pessoa digitava 45, e agora ele pode prometer que não
+    passa. O volume não cai; a frase deixa de ser mentira.
+
+    Auditado em produção: 30 informados entregavam 32, 45 entregavam 48 e 60
+    entregavam 61. As três eram a folga aparecendo na tela.
+    """
+    return Decimal(minutos_disponiveis) * 60
 
 
 def _segundos_da_sessao(itens) -> int:
@@ -421,6 +435,13 @@ def escolher_para_o_tempo(itens, minutos_disponiveis) -> list:
     """
     if not itens:
         return []
+
+    # SEM TETO É SEM CORTE. `DuracaoTreino.LIVRE` chega aqui como `None`, e o
+    # significado é "priorizar a ficha completa" — não um teto enorme. Tratar
+    # ausência como um número grande funcionaria por acidente hoje e passaria a
+    # cortar no dia em que o catálogo crescesse.
+    if minutos_disponiveis is None:
+        return list(range(len(itens)))
 
     teto = _teto_em_segundos(minutos_disponiveis)
     ficam = list(range(len(itens)))
@@ -556,6 +577,24 @@ def aparar_volume_semanal(candidatos) -> set:
         ficam.discard(alvo[0])
 
 
+def teto_de_minutos(user) -> int:
+    """O teto de tempo desta pessoa, em minutos, ou `None` quando não há.
+
+    Lê a FAIXA declarada no perfil e não o `duration_min` da sessão. O inteiro
+    continua gravado — `plans/meal_planner.py` precisa dele para não marcar
+    refeição no meio do treino —, mas ele deixou de ser a pergunta: quem
+    respondeu "Padrão" declarou 45 a 60, e é o topo da faixa que o motor deve
+    obedecer.
+
+    Perfil ausente devolve `None`, que é "sem teto". É o caminho de quem monta
+    ficha antes de o perfil existir, e ali prometer um teto seria inventar uma
+    resposta que ninguém deu.
+    """
+    perfil = getattr(user, "profile", None)
+    faixa = getattr(perfil, "duracao_treino", None) or DuracaoTreino.LIVRE
+    return TETO_POR_DURACAO.get(faixa)
+
+
 def prescrever_semana(sessoes, modelos) -> dict:
     """O que cada sessão da semana manda fazer: {(sessão, exercício): séries}.
 
@@ -626,6 +665,11 @@ def prescrever_semana(sessoes, modelos) -> dict:
 
     sobrevivem = aparar_volume_semanal(ordem_semanal)
 
+    # O teto e da PESSOA e nao da sessao, entao ele e lido uma vez. Todas as
+    # sessoes vem do mesmo plano, logo do mesmo usuario — ler dentro do laco
+    # custaria uma consulta por sessao para responder sempre a mesma coisa.
+    teto = teto_de_minutos(sessoes[0].plan.user) if sessoes else None
+
     prescricao = {}
     for sessao_pk, (sessao, candidatos) in por_sessao.items():
         restantes = [
@@ -638,7 +682,7 @@ def prescrever_semana(sessoes, modelos) -> dict:
                 (item.exercise.muscle_group, series, item.rest_seconds, grau)
                 for item, series, grau in restantes
             ],
-            sessao.duration_min,
+            teto,
         )
         for i in ficam:
             item, series, _grau = restantes[i]
