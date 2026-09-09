@@ -365,3 +365,65 @@ class AMarcacaoSOBREVIVEAoRecarregamentoTests(TestCase):
             ItemDaListaMarcado.objects.filter(food=fora).exists(),
             "a marcação órfã foi APAGADA em vez de ignorada",
         )
+
+
+class OJavaScriptDaMarcacaoESERVIDOTests(TestCase):
+    """A guarda que faltou, e que deixou passar um arquivo órfão.
+
+    A primeira versão deste código foi para `static/js/app.js` — um arquivo que
+    NÃO existia e que ninguém carrega: `app_js_url` aponta para `pwa.js`
+    (`push/context_processors.py:19`), e a lista serve pwa, fila e card. O
+    endpoint funcionava, os testes de persistência passavam, e a caixa não
+    salvava nada no navegador.
+
+    Testar o endpoint não prova a tela. Este teste fecha a distância: o código
+    tem de estar num arquivo que a página realmente pede.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.core.management import call_command
+
+        call_command("seed_catalog", verbosity=0)
+
+    def setUp(self):
+        from plans.tests import create_complete_user
+        from plans import services
+
+        self.user = create_complete_user(email="js-lista@exemplo.com")
+        services.create_plan(self.user)
+        self.client.force_login(self.user)
+
+    def test_o_codigo_da_marcacao_vive_num_arquivo_que_a_pagina_carrega(self):
+        from django.conf import settings
+        from django.urls import reverse
+        from pathlib import Path
+        import re
+
+        html = self.client.get(reverse("plans:shopping")).content.decode()
+        carregados = set(re.findall(r'src="[^"]*/js/([a-z]+)\.', html))
+
+        self.assertTrue(carregados, "a tela não carrega nenhum script próprio")
+
+        raiz = Path(settings.BASE_DIR) / "static" / "js"
+        tem_marcacao = {
+            nome
+            for nome in carregados
+            if (raiz / f"{nome}.js").exists()
+            and "data-lista-compras" in (raiz / f"{nome}.js").read_text(encoding="utf-8")
+        }
+        self.assertTrue(
+            tem_marcacao,
+            "o código da marcação não está em nenhum script que a tela carrega: "
+            "carregados=%s" % sorted(carregados),
+        )
+
+    def test_a_tela_publica_o_endereco_para_o_script(self):
+        """O endereço vem do `{% url %}` e não escrito no JavaScript: o demo
+        serve esta tela sob outro prefixo, e um caminho fixo quebraria lá em
+        silêncio."""
+        from django.urls import reverse
+
+        html = self.client.get(reverse("plans:shopping")).content.decode()
+
+        self.assertIn('data-lista-compras="%s"' % reverse("plans:marcar_item"), html)
