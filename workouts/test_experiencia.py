@@ -411,6 +411,12 @@ class OCatalogoAindaNaoSustentaEquipamentoTests(TestCase):
     Este teste é uma CATRACA ao contrário: ele falha no dia em que o catálogo
     crescer o bastante, e aí a personalização por equipamento passa a ser
     implementável sem entregar ficha sem grupo.
+
+    A MATRIZ COMPLETA — 11 grupos x 5 equipamentos, com a contagem célula a
+    célula — está no `BACKLOG.md`, em "Personalização de treino por LOCAL e
+    EQUIPAMENTO". Ela não é repetida aqui de propósito: número copiado em dois
+    lugares diverge no primeiro exercício novo, e o que este arquivo precisa
+    guardar é a PROPRIEDADE, não a tabela.
     """
 
     @classmethod

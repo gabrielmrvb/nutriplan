@@ -156,7 +156,16 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
                 "week": week_overview(sessions),
                 # O que a pessoa pediu, o que foi aplicado e por quê — só
                 # quando divergem. Ver `services.divisao_explicada`.
-                "divisao": services.divisao_explicada(user),
+                #
+                # `dias` VEM DO PLANO, e as duas razões andam juntas. A certa:
+                # a ressalva explica a divisão DESTE plano, e `days_per_week` é
+                # o número congelado nele — plano é retrato. A barata: sem ela
+                # a função faz `training_days.count()`, e a tela subia de 21
+                # para 22 consultas. `sync_active_routine`, logo acima, já
+                # garante que o plano vale para os dias de hoje.
+                "divisao": services.divisao_explicada(
+                    user, dias=plan.days_per_week
+                ),
                 "volume": muscle_volume(sessions),
                 "total_sets": sum(session.total_sets for session in sessions),
                 # O resumo do que foi feito HOJE alimenta duas coisas: o card

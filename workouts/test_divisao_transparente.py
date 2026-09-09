@@ -294,6 +294,50 @@ class AsOcorrenciasRepetidasSeDistinguemTests(TestCase):
         )
 
 
+class AExplicacaoNaoCustaConsultaTests(TestCase):
+    """A ressalva é texto; ela não pode cobrar ida ao banco.
+
+    MEDIDO: `divisao_explicada(user)` sem argumento faz DUAS consultas — o
+    perfil e `training_days.count()`. Na tela de Treino o perfil já está quente
+    (`sync_active_routine` acabou de lê-lo), então sobrava uma, e a tela subiu
+    de 21 para 22 consultas.
+
+    A correção não foi cachear nada: foi passar `dias=plan.days_per_week`, que
+    é o número congelado NO PLANO que a tela está desenhando. Mais barato e
+    mais correto ao mesmo tempo — plano é retrato, e a ressalva explica a
+    divisão daquele retrato, não a contagem de hoje.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def test_com_o_plano_em_maos_a_explicacao_e_de_graca(self):
+        user = com_preferencia("gratis@exemplo.com", 4, SplitPreference.UM)
+        plano = TrainingPlan.objects.filter(user=user, is_active=True).first()
+        user.profile  # o mesmo aquecimento que a view já fez
+
+        with self.assertNumQueries(0):
+            explicada = services.divisao_explicada(
+                user, dias=plano.days_per_week
+            )
+
+        self.assertTrue(explicada["cedeu"])
+
+    def test_sem_o_plano_ela_ainda_funciona_sozinha(self):
+        """Controle: o argumento é otimização, não requisito.
+
+        Quem chamar de um shell ou de um teste sem plano em mãos continua
+        recebendo a resposta certa — só paga a consulta.
+        """
+        user = com_preferencia("sozinha@exemplo.com", 4, SplitPreference.UM)
+
+        self.assertEqual(
+            services.divisao_explicada(user)["aplicada"],
+            services.divisao_explicada(user, dias=4)["aplicada"],
+        )
+
+
 class ONomeDaDivisaoCabeNaTelaTests(TestCase):
     """O nome longo da divisão sumia da tela, e nada avisava.
 

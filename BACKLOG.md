@@ -51,18 +51,82 @@ ordem, só então alterar — e medir de novo depois.
 
 ## Bloqueado por decisão ou ação humana
 
+### ⛔ Vídeo do "Agachamento livre" ensina o movimento SEM CARGA — falta curadoria
+Auditado em produção e confirmado em 09/09/2026. O exercício `Agachamento
+livre` aponta para o id `4PbHkCEUI6I`, cujo título é **"Agachamento Livre Peso
+Corporal | Bodyweight Free Squat"**. A ficha prescreve 4 séries de 6 a 10
+repetições COM CARGA, e o campo de carga da tela registra quilos: quem segue o
+vídeo faz agachamento sem barra e anota 80 kg no histórico.
+
+É o ÚNICO caso em 35 exercícios ativos — os outros 34 têm título que menciona o
+movimento e não anuncia peso corporal.
+
+**Por que não foi corrigido nesta campanha, e a regra que impediu.** A missão é
+explícita: mapeamento de vídeo por identidade estável ou nome validado, **nunca
+por posição**, e nada de substituição automática silenciosa. Escolher outro id
+exige ASSISTIR ao vídeo para confirmar que ele mostra agachamento com barra, na
+amplitude certa, sem introdução falada — e **este ambiente não assiste vídeo**.
+Inventar um id repetiria o defeito de 07/09/2026, quando dez exercícios
+apontaram para o vídeo de outro com a suíte inteira verde.
+
+**O que EXISTE hoje, e por que a pessoa não fica sem saída.** O drawer traz
+"Outra demonstração", que abre a busca do YouTube por
+`Agachamento livre execução correta` — verificado no navegador em 09/09/2026.
+
+**As duas travas que impedem a dívida de crescer**, em
+`workouts/test_video_direto.py`:
+
+- `VIDEO_SEM_CARGA_CONHECIDO = {"Agachamento livre"}` é catraca: qualquer
+  exercício NOVO cujo título anuncie peso corporal reprova o build;
+- `test_a_catraca_do_video_sem_carga_nao_esta_folgada` compara o conjunto por
+  IGUALDADE, então consertar o agachamento e esquecer o nome na lista também
+  fica vermelho.
+
+**O que destrava:** uma pessoa assiste a um candidato e confirma que é
+agachamento com barra. A troca é em TRÊS lugares, e os três de propósito —
+`video` e `video_titulo` em `workouts/data/exercises.json` (a fonte, que o
+`seed_workouts` carrega a cada deploy) e o id na tabela `OFICIAIS` de
+`workouts/test_video_direto.py`, que é a guarda que impede um exercício de
+servir o vídeo de outro. Depois disso, tirar `"Agachamento livre"` de
+`VIDEO_SEM_CARGA_CONHECIDO`.
+
 ### ⛔ Personalização de treino por LOCAL e EQUIPAMENTO — bloqueada pelo catálogo
 Medido em 09/09/2026, durante a revisão da área Treino. A missão pedia três
 ambientes — academia completa, casa com halteres, peso corporal — e os dois
 últimos **não existem** no catálogo de hoje.
 
-A conta, sobre os 35 exercícios ativos e os 11 grupos musculares:
+A MATRIZ COMPLETA do catálogo, medida em 09/09/2026 sobre os **35 exercícios
+ativos** (o 36º, `Remada curvada com barra`, está aposentado e não entra em
+plano novo), **11 grupos** e **5 equipamentos**:
 
-| ambiente | grupos essenciais sem nenhum exercício |
-|---|---|
-| academia completa | nenhum |
-| casa com halteres (halter + peso corporal) | posterior de coxa, panturrilha, antebraço |
-| peso corporal | 8 dos 11 |
+| grupo | barra | peso corporal | polia | halteres | máquina | total |
+|---|---|---|---|---|---|---|
+| back (costas) | 0 | 0 | 2 | 1 | 1 | 4 |
+| biceps | 1 | 0 | 0 | 2 | 0 | 3 |
+| calves (panturrilha) | 0 | 0 | 0 | 0 | 2 | 2 |
+| chest (peito) | 1 | 1 | 0 | 1 | 1 | 4 |
+| core (abdômen) | 0 | 3 | 0 | 0 | 0 | 3 |
+| forearms (antebraço) | 2 | 0 | 0 | 0 | 0 | 2 |
+| hamstrings (posterior) | 2 | 0 | 0 | 0 | 2 | 4 |
+| quads (quadríceps) | 1 | 0 | 0 | 1 | 2 | 4 |
+| shoulders (ombros) | 0 | 0 | 0 | 3 | 1 | 4 |
+| traps (trapézio) | 1 | 0 | 0 | 1 | 0 | 2 |
+| triceps | 1 | 1 | 1 | 0 | 0 | 3 |
+| **total** | **9** | **5** | **3** | **9** | **9** | **35** |
+
+E o que cada ambiente pedido pela missão consegue montar com ela:
+
+| ambiente | grupos cobertos | exercícios | grupos VAZIOS |
+|---|---|---|---|
+| academia completa | 11/11 | 35 | nenhum |
+| casa com halteres (halteres + peso corporal) | 8/11 | 14 | panturrilha, antebraço, posterior de coxa |
+| peso corporal | 3/11 | 5 | costas, bíceps, panturrilha, antebraço, posterior, quadríceps, ombros, trapézio |
+
+Lido da matriz: **panturrilha só existe em máquina** (2 de 2) e **antebraço só
+existe em barra** (2 de 2) — nenhum dos dois tem uma única alternativa de
+halter ou peso corporal no catálogo inteiro. Posterior de coxa tem 2 de barra e
+2 de máquina, e zero fora disso. São esses três que derrubam "casa com
+halteres"; "peso corporal" cai por oito.
 
 Implementar o filtro entregaria ficha com grupo muscular inteiro de fora —
 exatamente o que as três travas de `aparar_volume_semanal` existem para
@@ -70,11 +134,16 @@ impedir, e que já custou uma sexta-feira esvaziada até dois exercícios. Entre
 entregar personalização quebrada e não entregar, a escolha foi a segunda, com
 o número escrito.
 
-**O bloqueio é de DADO, não de código.** O que destrava é catálogo: exercícios
-de halter e de peso corporal para os grupos que hoje ficam vazios — stiff e
-elevação pélvica com halter, panturrilha unilateral, rosca inversa. A régua já
-está no repositório e falha sozinha no dia em que a cobertura chegar:
-`OCatalogoAindaNaoSustentaEquipamentoTests`, em
+**O bloqueio é de DADO, não de código.** O que destrava é catálogo, e a matriz
+diz exatamente o quê: **panturrilha e antebraço com halter ou peso corporal**
+(hoje zero dos dois, em ambos), e **posterior de coxa com halter ou peso
+corporal** (hoje zero). São três buracos, e um punhado de exercícios cobre os
+três — stiff com halteres, elevação pélvica, panturrilha unilateral em pé,
+rosca inversa com halteres. Para "peso corporal" o buraco é grande demais para
+uma leva: faltam oito grupos.
+
+A régua já está no repositório e falha sozinha no dia em que a cobertura
+chegar: `OCatalogoAindaNaoSustentaEquipamentoTests`, em
 `workouts/test_experiencia.py`. Ela é catraca ao contrário — enquanto houver
 buraco ela passa; quando o catálogo cobrir, ela fica vermelha e avisa que a
 personalização virou implementável.
