@@ -2047,7 +2047,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .drawer__fechar:active,
 .exercise__head:active,
 .exercise__ver:active,
-.ficha__resumo:active,
 .fora__abrir:active,
 .install__close:active,
 .install__go:active,
@@ -2060,7 +2059,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .registro__timer:active,
 .rest-timer__close:active,
 .rest-timer__more:active,
-.session__head:active,
 .shopping__check:active,
 .conquista__compartilhar:active,
 .conquista__continuar:active,
@@ -2087,6 +2085,11 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    do app, abrir um exercício e abrir uma opção de refeição, e não davam
    retorno nenhum ao dedo.
 
+   DUAS DAQUELAS SANFONAS NÃO EXISTEM MAIS: `.session__head` e
+   `.ficha__resumo` saíram das listas quando o paredão saiu da tela de Treino
+   e as sessões viraram cartões que LEVAM à ficha. Os nomes ficam aqui porque
+   a auditoria foi feita com eles; os seletores, não.
+
    `.chip` ficou de fora de propósito: das quatro ocorrências, três são `<span>`
    decorativo. Afundar um rótulo que não faz nada ensina que ele faz. */
 
@@ -2103,7 +2106,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .drawer__fechar,
 .exercise__head,
 .exercise__ver,
-.ficha__resumo,
 .fora__abrir,
 .install__close,
 .install__go,
@@ -2116,7 +2118,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .registro__timer,
 .rest-timer__close,
 .rest-timer__more,
-.session__head,
 .shopping__check,
 .conquista__compartilhar,
 .conquista__continuar,
@@ -2158,7 +2159,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   .drawer__fechar:active,
   .exercise__head:active,
   .exercise__ver:active,
-  .ficha__resumo:active,
   .fora__abrir:active,
   .install__close:active,
   .install__go:active,
@@ -2172,7 +2172,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   .registro__timer:active,
   .rest-timer__close:active,
   .rest-timer__more:active,
-  .session__head:active,
   .shopping__check:active,
   .conquista__compartilhar:active,
   .conquista__continuar:active,
@@ -2546,8 +2545,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    discreto continua discreto; o que muda é ele ser legível. */
 .day-chip--training .day-chip__name { color: var(--text-dim); }
 
-.session__head { display: flex; align-items: center; gap: .8rem; margin-bottom: .6rem; }
-
 /* AS SESSÕES DA SEMANA VIRARAM CARTÕES TOCÁVEIS.
 
    Eram `<details>` que traziam o cartão completo de todo exercício — 259 kB e
@@ -2561,6 +2558,21 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    `min-height` de 3.5rem e não `padding` grande: a régua de alvo de toque mede
    altura E largura, e a catraca do sistema visual congela a dívida de valor
    cru — um `padding` novo aqui a faria crescer. */
+/* A RESSALVA DA DIVISÃO: fica visível, e não escondida atrás de um toque.
+
+   Ela existe porque a frequência venceu a preferência, e a pessoa precisa
+   saber disso sem procurar. Filete âmbar à esquerda como o saldo do dia — é a
+   mesma gramática de "isto é uma ressalva sobre o que você pediu", e nenhuma
+   informação depende só da cor: a frase diz tudo por escrito. */
+.programa__ressalva {
+  margin: var(--espaco-4) 0 0;
+  padding: 0 0 0 var(--espaco-4);
+  border-left: 2px solid var(--warm);
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  line-height: 1.5;
+}
+
 .programa__sessoes { display: grid; gap: var(--espaco-3); margin: 0; padding: 0; list-style: none; }
 
 .sessao-cartao {
@@ -2638,8 +2650,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   color: var(--dia);
 }
 
-.session__title { flex: 1; min-width: 0; }
-.session__name { display: block; font-size: 1.08rem; font-weight: 700; }
 /* A linha de metadados quebra ENTRE os itens, nunca dentro deles.
 
    Como texto corrido separado por "·", ela quebrava onde desse: medido na
@@ -3020,11 +3030,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   .exercise[open] .exercise__body { transition: none; animation: none; }
 }
 
-
-.hoje__titulo {
-  margin: 0 0 var(--espaco-4);
-  font-size: var(--texto-lg);
-}
 
 /* MÚSCULOS TRABALHADOS — o dado que sobreviveu ao cancelamento do 3D.
 
@@ -3824,45 +3829,21 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 }
 
 /* ==========================================================================
-   22. Sanfona das fichas da semana
+   22. A seta do cartão de sessão
    ========================================================================== */
 
-/* Cinco fichas abertas eram uma página de rolagem infinita. Agora abre uma —
-   a de hoje — e as outras ficam a um toque.
+/* AQUI ERA A SANFONA DAS FICHAS DA SEMANA, e o que sobrou é a seta.
 
-   O ganho não é só de rolagem: o conteúdo de um `<details>` fechado não entra
-   no layout do navegador. As tabelas de série dos quatro treinos fechados
-   deixam de ser medidas e pintadas a cada mudança de tela. O HTML continua
-   presente, o que é de propósito: buscar os exercícios por rede ao abrir a
-   ficha faria a academia com sinal ruim virar problema de produto. */
+   A sanfona morreu com o paredão: as sessões deixaram de ser `<details>` que
+   traziam o cartão completo de todo exercício e viraram cartões que LEVAM à
+   ficha, em rota própria. `.ficha`, `.ficha__resumo`, `.ficha__corpo` e a
+   animação de abertura ficaram sem elemento, e
+   `ResponseCompressionTests` pegou — CSS para seletor que ninguém renderiza
+   não dá erro, só não faz nada, e o próximo leitor perde tempo procurando o
+   elemento.
 
-.ficha { padding: 0; overflow: hidden; }
-
-.ficha__resumo {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: .8rem;
-  padding: 1rem var(--pad);
-  cursor: pointer;
-  list-style: none;
-  /* Cabeçalho de sanfona é alvo de toque grande por natureza; ainda assim
-     vale o piso explícito para o caso de um título de uma linha só. */
-  min-height: 2.75rem;
-  transition: background var(--dur) var(--ease);
-}
-
-/* O triângulo padrão do Safari e do Chrome some — a seta é desenhada. */
-.ficha__resumo::-webkit-details-marker { display: none; }
-.ficha__resumo::marker { content: ""; }
-
-.ficha__resumo:hover { background: var(--surface-2); }
-
-.ficha__resumo:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: -2px;
-  border-radius: var(--radius-lg);
-}
+   A seta continua: ela é o "vai para lá" do cartão, e `routine.html` a
+   desenha. */
 
 .ficha__seta {
   display: grid;
@@ -3878,47 +3859,9 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 
 .ficha__seta svg { width: 1.1rem; height: 1.1rem; }
 
-.ficha[open] > .ficha__resumo .ficha__seta {
-  transform: rotate(180deg);
-  background: var(--brand-soft);
-  color: var(--brand);
-}
-
-/* A etiqueta "hoje" dentro da ficha saiu com o Treino V2.
- *
- * Ela existia para o olho achar a ficha certa entre cinco. Não há mais o que
- * achar: o treino de hoje deixou de ser uma ficha e virou o primeiro bloco da
- * tela, com nome e progresso próprios. A regra ficou órfã e
- * `ResponseCompressionTests` pegou — CSS para seletor que ninguém renderiza
- * não dá erro, só não faz nada, e o próximo leitor perde tempo procurando o
- * elemento. */
-
-.ficha__corpo { padding: 0 var(--pad) 1.1rem; }
-
-/* A abertura desliza. `<details>` não anima sozinho — o truque da grade de
-   uma linha que vai de 0fr a 1fr é o que funciona sem saber a altura de
-   antemão, e sem JavaScript medindo elemento. */
-@supports (grid-template-rows: 0fr) {
-  .ficha:not([open]) .ficha__corpo { display: none; }
-
-  .ficha[open] .ficha__corpo {
-    animation: sanfona-abre .24s ease-out;
-  }
-
-}
-
-@keyframes sanfona-abre {
-  from { opacity: 0; transform: translateY(-.4rem); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .ficha__seta,
-  .ficha[open] .ficha__corpo { transition: none; animation: none; }
+  .ficha__seta { transition: none; animation: none; }
 }
-
-/* O filete da cor do dia continua valendo na sanfona. */
-.ficha[data-dia] { border-left: 3px solid var(--dia, var(--brand)); }
 
 /* ==========================================================================
    23. Drawer de execução do exercício
@@ -6289,6 +6232,9 @@ body.montando { overflow: hidden; }
   font-variant-numeric: tabular-nums;
 }
 .programa__resumo > span { white-space: nowrap; }
+/* O nome da divisão é frase, e frase quebra. Ver o comentário do
+   template: em ABCD ele estourava o parágrafo e era clipado em silêncio. */
+.programa__resumo > .programa__divisao { white-space: normal; }
 
 /* ==========================================================================
    37. Entrar com Google

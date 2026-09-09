@@ -72,10 +72,26 @@
         {% include "partials/choice_cards.html" with field=form.activity_level %}
       {% elif step == 3 %}
         {% include "partials/field.html" with field=form.weekdays %}
-        <div class="field-row">
-          <div>{% include "partials/field.html" with field=form.start_time %}</div>
-          <div>{% include "partials/field.html" with field=form.duracao_treino %}</div>
-        </div>
+        {% comment %}
+          O PAR VIROU TRÊS PERGUNTAS, E DUAS DELAS SÃO LISTAS DE FRASES.
+
+          `.field-row` é uma grade de DUAS colunas — foi feita para o par de
+          relógios "Acorda | Dorme", dois campos de uma palavra. Aqui ela
+          recebeu "Horário", "Duração" e "Experiência", e o resultado foi
+          medido a 390px: cada coluna com 146px, a terceira pergunta jogada
+          para uma segunda fileira, e "Intermediário" quebrando no meio da
+          palavra dentro do cartão de opção. Cada cartão ficou com 524px de
+          altura para caber o texto espremido.
+
+          As duas listas de rádio ganham a largura inteira porque as opções
+          delas são frases — "Intermediário — treino há mais de 6 meses" não
+          cabe em 146px, e encurtar o rótulo custaria a informação que faz a
+          pessoa escolher certo. O horário fica sozinho na primeira linha: é
+          um campo de relógio, e não precisa de vizinho para se explicar.
+        {% endcomment %}
+        {% include "partials/field.html" with field=form.start_time %}
+        {% include "partials/field.html" with field=form.duracao_treino %}
+        {% include "partials/field.html" with field=form.experiencia %}
         {% comment %}
           A janela de sono, que morava no passo da comida.
 

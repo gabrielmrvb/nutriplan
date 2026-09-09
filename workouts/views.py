@@ -129,6 +129,7 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
         # formulários, mas o resumo de cada sessão continua lendo `feitas`
         # para dizer quanto do dia já saiu.
         anexar_historico(user, sessions)
+        nomear_ocorrencias(sessions)
 
         marcar_ficha_aberta(sessions)
 
@@ -153,6 +154,9 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
                 # que não há treino. Com treino hoje, o próximo é ruído.
                 "proximo": proximo_treino(sessions) if hoje is None else None,
                 "week": week_overview(sessions),
+                # O que a pessoa pediu, o que foi aplicado e por quê — só
+                # quando divergem. Ver `services.divisao_explicada`.
+                "divisao": services.divisao_explicada(user),
                 "volume": muscle_volume(sessions),
                 "total_sets": sum(session.total_sets for session in sessions),
                 # O resumo do que foi feito HOJE alimenta duas coisas: o card
@@ -203,6 +207,60 @@ def progresso_do_dia(session) -> None:
     )
     for item in itens:
         item.eh_o_proximo = item is session.proximo
+
+
+def nomear_ocorrencias(sessions) -> None:
+    """Dá A1 e A2 às sessões que repetem a letra, e deixa A sozinho como A.
+
+    O DEFEITO QUE ISTO FECHA, e ele é de leitura, não de prescrição.
+
+    Cinco dias num ABC viram A, B, C, A, B. As duas ocorrências de A nascem com
+    a dose cheia do catálogo, e `aparar_volume_semanal` cede sempre a sessão
+    mais cheia — então uma das passagens sai menor que a outra. Quem abre o
+    segundo A lê o mesmo título com menos exercícios e conclui que a ficha
+    está incompleta.
+
+    Ela não está: o teto é da SEMANA, e a segunda passagem é o que sobrou
+    depois de ele ser respeitado. Com A1 e A2 a pessoa vê que são duas
+    passagens do mesmo treino, e não duas cópias em que uma deu errado.
+
+    `vezes` VAI JUNTO, e não é enfeite: em sete dias a letra A aparece TRÊS
+    vezes, e a frase da ficha dizia "duas" para todo mundo. Contar aqui é de
+    graça — o laço já contou para decidir o rótulo.
+
+    E ELA NÃO PROMETE VARIEDADE. Uma versão anterior desta frase afirmava que
+    as passagens "trazem exercícios diferentes", com um caso auditado a
+    sustentar. O caso existia; a regra, não. Medido em 09/09/2026 nos perfis
+    de 4, 5, 6 e 7 dias: em quatro dias a segunda passagem de A é um
+    SUBCONJUNTO da primeira, e em sete dias as três são IDÊNTICAS. B e C com
+    seis dias realmente divergem. Uma frase verdadeira em parte dos casos, na
+    tela de todos eles, é uma frase falsa.
+
+    A LETRA CONTINUA SENDO A LETRA NO BANCO. `TrainingSession.label` não é
+    tocado — ele é a identidade que liga a sessão ao modelo do catálogo, e
+    gravar "A1" ali quebraria `templates_for`, a conferência de prescrição e o
+    histórico. O que nasce aqui é `rotulo`, de exibição, calculado por
+    ocorrência e nunca por posição na lista.
+    """
+    quantas = {}
+    for sessao in sessions:
+        quantas[sessao.label] = quantas.get(sessao.label, 0) + 1
+
+    vistas = {}
+    for sessao in sessions:
+        if quantas[sessao.label] > 1:
+            vistas[sessao.label] = vistas.get(sessao.label, 0) + 1
+            sessao.rotulo = "%s%d" % (sessao.label, vistas[sessao.label])
+            sessao.repetida = True
+            sessao.vezes = quantas[sessao.label]
+            sessao.vezes_texto = services.VEZES.get(
+                sessao.vezes, str(sessao.vezes)
+            )
+        else:
+            sessao.rotulo = sessao.label
+            sessao.repetida = False
+            sessao.vezes = 1
+            sessao.vezes_texto = "uma"
 
 
 def anexar_historico(user, sessions) -> None:
@@ -337,6 +395,21 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         # A MESMA preparação da tela principal, pela mesma função. Uma segunda
         # cópia divergiria, e a que fica errada é a que ninguém está olhando.
         anexar_historico(user, [sessao])
+        # A NOMEAÇÃO PRECISA DA SEMANA INTEIRA: "A1" só existe porque há um A2,
+        # e uma sessão sozinha não sabe disso. Buscar as irmãs custa UMA
+        # consulta e é o que faz o título da ficha concordar com o cartão que
+        # levou até ela.
+        irmas = list(sessao.plan.sessions.all())
+        nomear_ocorrencias(irmas)
+        sessao.rotulo = next(
+            (s.rotulo for s in irmas if s.pk == sessao.pk), sessao.label
+        )
+        sessao.repetida = next(
+            (s.repetida for s in irmas if s.pk == sessao.pk), False
+        )
+        sessao.vezes_texto = next(
+            (s.vezes_texto for s in irmas if s.pk == sessao.pk), "uma"
+        )
         marcar_ficha_aberta([sessao])
         if sessao.eh_hoje:
             progresso_do_dia(sessao)

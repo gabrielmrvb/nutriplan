@@ -4496,12 +4496,20 @@ class NotaDaDivisaoTests(TestCase):
         Este teste existe porque texto e motor divergem em silêncio: nenhum
         outro teste falharia se a nota continuasse descrevendo o
         comportamento antigo.
+
+        E ELE MESMO PRENDIA UMA DESCRIÇÃO ERRADA. A asserção cobrava
+        "distribuído entre as sessões" — que é o que `distribuir_series`
+        fazia, e ela tinha acabado de sair. O motor de hoje dá a dose cheia a
+        cada sessão e apara a semana por um TETO POR GRUPO; um teste que
+        exigisse a frase antiga impediria a correção em vez de guardá-la. Foi
+        remirado, não apagado: as duas outras asserções continuam inteiras.
         """
         nota = self._nota(Split.ABC, ["A", "B", "C", "A"])
 
-        self.assertIn("distribuído entre as sessões", nota)
+        self.assertIn("tem um teto", nota)
         self.assertIn("aumenta a frequência", nota)
         self.assertNotIn("recebem mais séries", nota)
+        self.assertNotIn("distribuído entre as sessões", nota)
 
     def test_a_ficha_gerada_carrega_a_nota_do_proprio_ciclo(self):
         """De ponta a ponta: quem tem quatro dias não lê o caso de cinco."""
@@ -5198,9 +5206,14 @@ class DoseMinimaTests(TestCase):
     exercícios do dia A caindo para uma. Isso não é uma sessão, é uma lista.
 
     A saída foi entrar em MENOS dias com dose cheia, em vez de entrar em todos
-    diluído. As duas ocorrências do dia A passam a ter exercícios diferentes, e
-    a soma da semana não muda — que é a propriedade que o teste de orçamento em
-    `MatrizDeVolumeTests` continua guardando.
+    diluído: a soma da semana não muda — que é a propriedade que o teste de
+    orçamento em `MatrizDeVolumeTests` continua guardando —, e nenhuma sessão
+    cai para uma série por exercício.
+
+    Esta docstring dizia também que "as duas ocorrências do dia A passam a ter
+    exercícios diferentes". Medido em 09/09/2026, isso vale em cinco dias e não
+    vale em quatro nem em sete; a propriedade guardada aqui é a soma, e a
+    diferença entre as passagens nunca foi contratada.
     """
 
     PREFERENCIAS = (None,) + tuple(SPLIT_BY_PREFERENCE)

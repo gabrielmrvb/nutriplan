@@ -395,6 +395,91 @@ segunda a sexta) recebe sessões de 39 a 66 minutos, e isso está certo. Reduzir
 um principal a duas séries só é aceitável com razão calculada — nunca para
 encaixar o relógio.
 
+**A pergunta do tempo é uma FAIXA, e o topo dela é teto duro.** Era um inteiro,
+"Tempo disponível", com a ajuda prometendo que o treino cabia nele — e a
+promessa era falsa e estava medida: 30 informados entregavam 32, 45 entregavam
+48, 60 entregavam 61. A culpa não era do corte, era da pergunta: o mesmo número
+servia de ALVO e de TETO, e `_teto_em_segundos` somava até 5 minutos de folga
+para uma sessão não ser rejeitada por trinta segundos. Com faixa, o piso é o
+alvo e o topo é o limite — Rápido até 30, Padrão até 60, Completo até 90, e
+"sem limite rígido", que é `None` e não corta nada. A folga saiu.
+`Profile.duracao_treino` é o dono da resposta; `TrainingDay.duration_min`
+continua gravado porque `plans/meal_planner.py` precisa dele, e deixou de ser a
+pergunta.
+
+**O horário do treino é OPCIONAL, e a ausência é um estado de verdade.** Ele
+nunca participou da montagem da ficha — `create_routine` jamais leu
+`start_time` —, e exigi-lo fazia todo mundo sair do passo 3 com o padrão de
+19:00, que a tela então repetia em cada cartão como se fosse a rotina da
+pessoa. Sem horário, `_training_end_for` devolve `None` e o cardápio volta a
+ser distribuído pela janela de sono: o mesmo caminho de quem não cadastrou dia
+de treino. O que não se faz é inventar um padrão para completar a conta.
+
+**A experiência move o TETO SEMANAL POR GRUPO, e só ele.** `Profile.experiencia`
+vale 12, 20 ou 24 séries efetivas — e vazio, que é "ainda não respondeu", vale
+20, o número que o app já praticava. Ninguém tem a ficha reescrita por uma
+pergunta nova, e a tela não afirma um nível que a pessoa não declarou. Ela não
+mexe em QUAIS exercícios entram: rebaixar o agachamento por ser "complexo demais
+para iniciante" seria o app tirar sozinho o movimento que mais interessa a quem
+está começando.
+
+E **o teto semanal é de APARO, não promessa** — vale para os três níveis e para
+o 20 de sempre. `aparar_volume_semanal` só remove isolador que treina o grupo
+diretamente, e nunca o último deles, então excesso que vem de secundário de
+composto principal fica onde está: medido, o ombro fecha em 14,5 com o teto em
+12, porque baixá-lo exigiria derrubar o supino. O que o número move de verdade
+é o volume da SEMANA — 65 séries contra 88, no perfil de quatro dias. Quem
+tratar o teto como garantia vai "consertar" as travas e esvaziar um treino.
+
+**Personalização por LOCAL e EQUIPAMENTO está bloqueada pelo CATÁLOGO, não por
+escopo.** Dos 11 grupos, "casa com halteres" deixa posterior de coxa,
+panturrilha e antebraço com ZERO exercícios, e "peso corporal" esvazia 8 dos 11.
+O filtro entregaria ficha sem grupo inteiro. A régua está em
+`workouts/test_experiencia.py` e é catraca ao contrário: fica vermelha no dia
+em que o catálogo cobrir, avisando que dá para implementar.
+
+**A ficha tem rota própria, e a tela de Treino não desenha mais os cartões.**
+`workouts:ficha` (`/treino/ficha/<id>/`) serve UMA sessão; a tela de Treino
+mostra o treino de hoje e os cartões da semana, e cada cartão é um link. Medido
+no perfil de seis dias: 259,1 kB para 72,2 kB, 22 formulários para 1, 141
+botões para 8, 266 controles alcançáveis para 30 — e as consultas ficaram em 21,
+constantes. O drawer de vídeo e o cronômetro moram em `_drawer.html` e
+`_cronometro.html` porque agora são DUAS páginas: quando a ficha saiu sem eles,
+os nove botões de vídeo ficaram mortos e nenhum teste pegou, porque todos liam
+a tela antiga. A guarda hoje testa a RELAÇÃO — botão que abre precisa de gaveta
+que abre.
+
+**Texto da ficha só afirma o que aconteceu.** Três frases já mentiram, e as três
+mentiam por comparar com a coisa errada:
+
+- *"A ficha foi ajustada para caber no tempo que você informou"* aparecia para
+  quem respondeu "sem limite rígido". `aviso_de_tempo` media o corte contra o
+  MODELO do catálogo e creditava ao relógio o que o teto de volume tinha
+  tirado. A régua agora é `prescrever_semana` com `teto=None` — a mesma
+  prescrição, sem o relógio —, e a diferença é, por construção, o que o tempo
+  cortou;
+- *"as duas passagens trazem exercícios diferentes"* valia num caso auditado e
+  não como regra: em quatro dias a segunda passagem de A é SUBCONJUNTO da
+  primeira, e em sete as três são IDÊNTICAS. O que é sempre verdade é o teto
+  semanal, e é isso que a frase diz agora;
+- *"85 séries no total"*, ao lado do cartão do treino de hoje, convidava a
+  entender 85 séries num dia. É o total da SEMANA, e duas palavras resolveram.
+
+**A letra repetida vira A1 e A2 na TELA, nunca no banco.**
+`TrainingSession.label` é a identidade que liga a sessão ao modelo do catálogo;
+"A1" gravado ali quebraria `templates_for`, a conferência de prescrição e o
+histórico. `nomear_ocorrencias` calcula `rotulo` por OCORRÊNCIA — nunca por
+posição na lista —, e leva junto a contagem, porque em sete dias a letra A
+aparece três vezes e o template dizia "duas" para todo mundo.
+
+**Preferência de divisão que cede, cede EM VOZ ALTA.** `split_for` cruza
+preferência com frequência e a frequência manda — quem pede "1 grupo por dia" e
+treina quatro vezes recebe ABCD, porque uma divisão maior deixaria parte do
+corpo sem treinar nenhuma vez. A regra está certa; o que estava errado era a
+tela mostrar ABCD e o Perfil continuar dizendo "1 grupo por dia".
+`divisao_explicada` devolve o pedido, o aplicado e o motivo, e a ressalva só
+aparece quando os dois divergem.
+
 **Duração tem UMA conta, e ela é `workouts.models.segundos_da_sessao`.**
 Existiam duas cópias, uma sobre linhas gravadas e outra sobre tuplas, com um
 teste prendendo as duas; prender duas cópias é pior que ter uma.

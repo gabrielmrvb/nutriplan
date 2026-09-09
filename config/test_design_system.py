@@ -69,7 +69,10 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: nasceu na escala.
 #: 133 quando `.agora__sessao` saiu: o nome da sessão virou sobretítulo com
 #: token, e a regra antiga levava embora o último `1.28rem` cru dela.
-TETO_FONT_SIZE_CRU = 133
+#: 132 quando a sanfona das fichas da semana foi removida: o paredão saiu da
+#: tela de Treino, `.session__name` ficou sem elemento e levou junto o
+#: `font-size: 1.08rem` cru dela.
+TETO_FONT_SIZE_CRU = 132
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
@@ -85,7 +88,11 @@ TETO_FONT_SIZE_CRU = 133
 #: padding cru dos dois eixos, e o filete que a substituiu usa a escala.
 #: 267 quando o grupo de carga da tela de execução perdeu a caixa: o padding
 #: cru dele saiu junto com o fundo e a borda.
-TETO_ESPACO_CRU = 267
+#: 262 com a sanfona das fichas da semana: `.ficha__resumo`, `.ficha__corpo`,
+#: `.session__head` e companhia ficaram sem elemento quando as sessões viraram
+#: cartões que levam à ficha, e os cinco espaçamentos crus delas saíram junto.
+#: A ressalva da divisão, que entrou na mesma rodada, é toda em tokens.
+TETO_ESPACO_CRU = 262
 
 
 def sem_comentarios(texto):

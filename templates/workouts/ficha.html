@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Treino {{ sessao.label }} · NutriPlan{% endblock %}
+{% block title %}Treino {{ sessao.rotulo }} · NutriPlan{% endblock %}
 
 {% comment %}
   A FICHA DE UMA SESSÃO, INTEIRA, EM PÁGINA PRÓPRIA.
@@ -28,7 +28,31 @@
       e um botão que não faz nada é pior que nenhum.
     {% endcomment %}
     <a class="btn-link" href="{% url 'workouts:routine' %}">← Treino</a>
-    <h1>Treino {{ sessao.label }}: {{ sessao.name }}</h1>
+    <h1>Treino {{ sessao.rotulo }}: {{ sessao.name }}</h1>
+    {% if sessao.repetida %}
+      {% comment %}
+        A LETRA REPETE NA SEMANA, e a pessoa precisa saber o que isso significa.
+
+        Sem esta frase, a passagem menor parece uma ficha incompleta — é o
+        defeito que `nomear_ocorrencias` documenta por inteiro.
+
+        A FRASE NÃO PROMETE EXERCÍCIOS DIFERENTES. A anterior prometia, e a
+        medição de 09/09/2026 desmentiu: em quatro dias o segundo A é um
+        subconjunto do primeiro, e em sete dias os três A são idênticos. O que
+        é sempre verdade é o teto semanal — `aparar_volume_semanal` conta o
+        volume de cada músculo uma vez na SEMANA e cede a sessão mais cheia,
+        então repetir a letra aumenta a frequência sem dobrar o total.
+
+        E o número vem de `sessao.vezes_texto`: em sete dias a letra A aparece
+        TRÊS vezes, e "duas" escrito à mão mentia para essa pessoa.
+      {% endcomment %}
+      <p class="hint">
+        Este treino aparece {{ sessao.vezes_texto }} vezes na semana.
+        Repetir a letra aumenta a frequência, e não o total de séries:
+        o volume semanal de cada músculo tem limite, e é ele que decide o que
+        fica em cada passagem — por isso uma delas pode vir mais curta.
+      </p>
+    {% endif %}
     <p class="lead">
       <span>{{ sessao.weekday_display }}</span>
       <span>·</span>

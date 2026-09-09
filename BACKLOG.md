@@ -51,6 +51,44 @@ ordem, só então alterar — e medir de novo depois.
 
 ## Bloqueado por decisão ou ação humana
 
+### ⛔ Personalização de treino por LOCAL e EQUIPAMENTO — bloqueada pelo catálogo
+Medido em 09/09/2026, durante a revisão da área Treino. A missão pedia três
+ambientes — academia completa, casa com halteres, peso corporal — e os dois
+últimos **não existem** no catálogo de hoje.
+
+A conta, sobre os 35 exercícios ativos e os 11 grupos musculares:
+
+| ambiente | grupos essenciais sem nenhum exercício |
+|---|---|
+| academia completa | nenhum |
+| casa com halteres (halter + peso corporal) | posterior de coxa, panturrilha, antebraço |
+| peso corporal | 8 dos 11 |
+
+Implementar o filtro entregaria ficha com grupo muscular inteiro de fora —
+exatamente o que as três travas de `aparar_volume_semanal` existem para
+impedir, e que já custou uma sexta-feira esvaziada até dois exercícios. Entre
+entregar personalização quebrada e não entregar, a escolha foi a segunda, com
+o número escrito.
+
+**O bloqueio é de DADO, não de código.** O que destrava é catálogo: exercícios
+de halter e de peso corporal para os grupos que hoje ficam vazios — stiff e
+elevação pélvica com halter, panturrilha unilateral, rosca inversa. A régua já
+está no repositório e falha sozinha no dia em que a cobertura chegar:
+`OCatalogoAindaNaoSustentaEquipamentoTests`, em
+`workouts/test_experiencia.py`. Ela é catraca ao contrário — enquanto houver
+buraco ela passa; quando o catálogo cobrir, ela fica vermelha e avisa que a
+personalização virou implementável.
+
+O que FOI entregue na mesma campanha, porque o catálogo sustenta:
+`Profile.experiencia`, que move o teto semanal por grupo (12 / 20 / 24) e
+muda o volume da semana de 65 para 88 séries entre iniciante e intermediário
+no perfil de quatro dias.
+
+E o que também ficou de fora, por outro motivo: **limitações e lesões**. Não é
+falta de dado, é decisão de produto que ninguém tomou — "não posso agachar"
+precisaria de uma tabela de substituição por padrão de movimento, e escolher
+sozinho o que troca por quê é prescrição, não configuração.
+
 ### ⛔ Fundação mobile da Corrida — SERVIDOR PRONTO, CLIENTE BLOQUEADO
 Campanha de 04/09/2026. O lado servidor da Corrida mobile está construído,
 testado e no ar; o cliente nativo **não pode ser criado nesta máquina**.

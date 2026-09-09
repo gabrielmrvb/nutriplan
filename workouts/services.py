@@ -20,7 +20,13 @@ from decimal import Decimal
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from accounts.models import TETO_POR_DURACAO, DuracaoTreino, SplitPreference
+from accounts.models import (
+    TETO_POR_DURACAO,
+    TETO_POR_EXPERIENCIA,
+    DuracaoTreino,
+    Experiencia,
+    SplitPreference,
+)
 
 from .models import (
     SEGUNDOS_ENTRE_EXERCICIOS,
@@ -159,6 +165,79 @@ def split_for(days_per_week: int, preference: str = None) -> str:
     # aqui não tem ficha para montar, e o corpo inteiro é a resposta menos
     # errada se alguém montar mesmo assim.
     return Split.FULL
+
+
+def _divisao_cheia(preferencia):
+    """Quantos dias esta preferência PEDE, e que divisão ela produz então.
+
+    É o primeiro degrau da escala em `SPLIT_BY_PREFERENCE` — a divisão que
+    aquela preferência entrega quando a semana comporta. Lido da própria tabela
+    e não escrito à mão: no dia em que a tabela mudar, a explicação acompanha.
+    """
+    escala = SPLIT_BY_PREFERENCE.get(preferencia)
+    if not escala:
+        return None, 0
+    minimo, divisao = escala[0]
+    return divisao, minimo
+
+
+#: O nome que a pessoa escolheu, para a explicação falar a língua da pergunta.
+ROTULO_DA_PREFERENCIA = {
+    SplitPreference.UM: "1 grupo por dia",
+    SplitPreference.DOIS: "2 grupos por dia",
+    SplitPreference.TRES: "3 grupos por dia",
+}
+
+
+def divisao_explicada(user, dias=None) -> dict:
+    """O que a pessoa pediu, o que foi aplicado, e por quê — quando divergem.
+
+    O DEFEITO QUE ISTO FECHA. `split_for` cruza preferência com frequência e a
+    frequência manda: quem pede "1 grupo por dia" e treina duas vezes recebe AB,
+    porque uma divisão de cinco dias com duas sessões deixaria três quintos do
+    corpo sem treinar nenhuma vez. A regra está certa. O que estava errado é que
+    ninguém era avisado: a tela mostrava AB e o perfil continuava dizendo
+    "1 grupo por dia", como se a escolha tivesse sido respeitada.
+
+    Pior: abaixo de quatro dias `preferencia_muda_a_divisao` responde False e o
+    onboarding nem PERGUNTA — a preferência gravada fica lá, inerte, e a pessoa
+    não tem como saber que ela não vale para a frequência dela.
+
+    Devolve sempre as três informações. `cedeu` é o que a tela usa para decidir
+    se explica; sem divergência não há o que explicar, e escrever "sua
+    preferência foi respeitada" seria ocupar espaço para informar ausência.
+    """
+    preferencia = _preferencia_de(user)
+    dias = user.training_days.count() if dias is None else dias
+    aplicada = split_for(dias, preferencia)
+
+    cheia, minimo = _divisao_cheia(preferencia)
+    cedeu = bool(preferencia) and cheia is not None and aplicada != cheia
+
+    return {
+        "preferencia": preferencia,
+        "rotulo": ROTULO_DA_PREFERENCIA.get(preferencia, ""),
+        "aplicada": aplicada,
+        "aplicada_rotulo": dict(Split.choices).get(aplicada, aplicada),
+        "pedida": cheia,
+        "pedida_rotulo": dict(Split.choices).get(cheia, cheia),
+        "dias": dias,
+        "dias_necessarios": minimo,
+        "cedeu": cedeu,
+        "motivo": (
+            "Você escolheu %s, que precisa de %d dias de treino por semana. "
+            "Com %d, o app aplicou %s — uma divisão maior deixaria parte do "
+            "corpo sem treinar nenhuma vez."
+            % (
+                ROTULO_DA_PREFERENCIA.get(preferencia, "sua divisão"),
+                minimo,
+                dias,
+                dict(Split.choices).get(aplicada, aplicada),
+            )
+            if cedeu
+            else ""
+        ),
+    }
 
 
 def preferencia_muda_a_divisao(dias_por_semana: int) -> bool:
@@ -494,7 +573,27 @@ def volume_efetivo(itens) -> dict:
     return volume
 
 
-def aparar_volume_semanal(candidatos) -> set:
+def teto_semanal_de(user) -> int:
+    """O teto de séries efetivas por grupo desta pessoa.
+
+    Sai da EXPERIÊNCIA declarada. DOIS caminhos caem no valor do intermediário,
+    e os dois de propósito: perfil ausente — quem monta ficha antes de o perfil
+    existir — e `experiencia == ""`, que é o estado de quem ainda não
+    respondeu. Vinte é o número que o app praticava antes desta pergunta
+    existir, então nenhum dos dois tem a ficha reescrita. É o mesmo critério de
+    `teto_de_minutos`.
+
+    E o valor é TETO DE APARO, não promessa: `aparar_volume_semanal` só remove
+    isolador direto e nunca o último de um grupo, então excesso vindo de
+    secundário de composto principal fica. Ver `TETO_POR_EXPERIENCIA` em
+    `accounts.models` para a medição.
+    """
+    perfil = getattr(user, "profile", None)
+    nivel = getattr(perfil, "experiencia", None) or Experiencia.INTERMEDIARIO
+    return TETO_POR_EXPERIENCIA.get(nivel, TETO_SEMANAL_POR_GRUPO)
+
+
+def aparar_volume_semanal(candidatos, teto=None) -> set:
     """Quais itens da SEMANA ficam para nenhum grupo passar do teto.
 
     `candidatos` é uma lista de `(chave, grupo, secundarios, series, grau)`, na
@@ -524,8 +623,14 @@ def aparar_volume_semanal(candidatos) -> set:
        tirava sempre do fim; medido, a sexta-feira ficava com dois exercícios e
        onze minutos para quem informou noventa. Esvaziar a segunda passagem não
        é reduzir volume, é apagar um treino. Tirando da sessão mais cheia, as
-       duas passagens afinam juntas e ficam com exercícios DIFERENTES — que é
-       variedade, não perda.
+       duas passagens afinam juntas.
+
+       E ISSO NÃO É UMA PROMESSA DE VARIEDADE. Esta linha já disse que as
+       passagens "ficam com exercícios DIFERENTES", e a frase chegou à tela em
+       cima disso. Medido em 09/09/2026: em quatro dias a segunda passagem de A
+       é SUBCONJUNTO da primeira; em cinco elas diferem; em sete as três saem
+       IDÊNTICAS. O que a trava garante é que nenhuma passagem seja esvaziada —
+       variedade, quando aparece, é consequência e não contrato.
 
     Determinístico de propósito: `prescrever_semana` é chamada pelo gerador E
     pela conferência de ficha atual, e uma divergência de um item faria a tela
@@ -538,7 +643,7 @@ def aparar_volume_semanal(candidatos) -> set:
             [(c[1], c[2], c[3]) for c in candidatos if c[0] in ficam]
         )
         pendentes = sorted(
-            (g for g, v in volume.items() if v > TETO_SEMANAL_POR_GRUPO),
+            (g for g, v in volume.items() if v > (teto or TETO_SEMANAL_POR_GRUPO)),
             key=lambda g: (volume[g], g),
             reverse=True,
         )
@@ -600,7 +705,8 @@ def teto_de_minutos(user) -> int:
     return TETO_POR_DURACAO.get(faixa)
 
 
-def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO) -> dict:
+def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO,
+                      teto_semanal=None) -> dict:
     """O que cada sessão da semana manda fazer: {(sessão, exercício): séries}.
 
     Uma função só, chamada pelo gerador E pela conferência, porque as duas
@@ -668,7 +774,7 @@ def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO) -> dict:
                 )
             )
 
-    sobrevivem = aparar_volume_semanal(ordem_semanal)
+    sobrevivem = aparar_volume_semanal(ordem_semanal, teto=teto_semanal)
 
     # O TETO VEM DE FORA quando quem chama já tem a pessoa em mãos.
     #
@@ -747,15 +853,22 @@ def nota_da_divisao(split, sessoes) -> str:
     # outros", e era verdade: o gerador copiava a ficha inteira para cada
     # ocorrência. Deixou de ser com `distribuir_series`, e uma nota que descreve
     # comportamento que o motor não tem mais é pior que nota nenhuma.
+    #
+    # E A SEGUNDA VERSÃO CAIU NA MESMA ARMADILHA, uma linha abaixo do aviso.
+    # Ela dizia "o volume semanal é distribuído entre as sessões", que é
+    # exatamente o que `distribuir_series` fazia — a função que tinha acabado
+    # de sair. Hoje cada sessão nasce com a dose CHEIA do catálogo e quem
+    # segura a soma da semana é `aparar_volume_semanal`, com um teto por grupo.
+    # A conclusão continuava certa; o mecanismo descrito, não.
     aviso = (
-        "Na sua semana o ciclo fica %s: %s. O volume semanal é distribuído "
-        "entre as sessões, então repetir o dia aumenta a frequência, não o "
-        "total de séries." % ("-".join(rotulos), "; ".join(trechos))
+        "Na sua semana o ciclo fica %s: %s. O volume semanal de cada músculo "
+        "tem um teto, então repetir o dia aumenta a frequência, não o total "
+        "de séries." % ("-".join(rotulos), "; ".join(trechos))
     )
     return "%s %s" % (base, aviso) if base else aviso
 
 
-def aviso_de_tempo(sessoes, modelos, prescricao) -> str:
+def aviso_de_tempo(sessoes, prescricao, sem_relogio) -> str:
     """Uma frase quando o tempo informado apertou a ficha — ou nada.
 
     A pessoa precisa saber que o treino foi adaptado, senão ela compara com
@@ -767,24 +880,35 @@ def aviso_de_tempo(sessoes, modelos, prescricao) -> str:
     exercícios não cabem em quinze minutos — e aí vale dizer que aumentar o
     tempo muda o resultado, porque muda mesmo: com o catálogo de hoje, todos os
     grupos cabem a partir de 23 minutos em ABC, 35 em AB e 44 no corpo inteiro.
+
+    A COMPARAÇÃO É CONTRA `sem_relogio`, E NÃO CONTRA O MODELO — foi o defeito
+    que o QA de 09/09/2026 pegou na tela. `prescrever_semana` corta em DOIS
+    lugares: `aparar_volume_semanal` tira isolador redundante por causa do teto
+    semanal do grupo, e `escolher_para_o_tempo` tira o que não cabe no relógio.
+    Medindo contra o modelo, o primeiro corte era creditado ao segundo, e quem
+    respondeu "sem limite rígido" lia na própria ficha que ela "foi ajustada
+    para caber no tempo que você informou" — um tempo que essa pessoa não
+    informou, sobre um corte que o relógio não fez.
+
+    `sem_relogio` é a MESMA prescrição com `teto=None`: o que sobra depois do
+    volume e antes do relógio. Sem teto de tempo as duas são iguais e a frase
+    não existe, que é a resposta certa.
+
+    E o corte de volume continua sem frase de propósito: tirar o terceiro
+    isolador de peito da segunda passagem do dia A é o programa funcionando, e
+    não uma limitação imposta à pessoa. Aviso que aparece sempre vira ruído.
     """
-    cortados = 0
+    cortados = len(sem_relogio) - len(prescricao)
     grupos_perdidos = False
     for sessao in sessoes:
-        modelo = modelos.get(sessao.label)
-        if modelo is None:
-            continue
-        previstos = {
-            item.exercise.muscle_group
-            for item in modelo.items.all()
-        }
-        ficaram = [
-            item
-            for (sessao_id, _), (_, item) in prescricao.items()
-            if sessao_id == sessao.pk
-        ]
-        cortados += len(modelo.items.all()) - len(ficaram)
-        if previstos - {item.exercise.muscle_group for item in ficaram}:
+        def grupos(mapa):
+            return {
+                item.exercise.muscle_group
+                for (sessao_id, _), (_, item) in mapa.items()
+                if sessao_id == sessao.pk
+            }
+
+        if grupos(sem_relogio) - grupos(prescricao):
             grupos_perdidos = True
 
     if grupos_perdidos:
@@ -827,16 +951,28 @@ def create_routine(user) -> TrainingPlan:
     TrainingSession.objects.bulk_create(sessions)
 
     by_label = {template.label: template for template in templates}
-    prescricao = prescrever_semana(sessions, by_label, teto=teto_de_minutos(user))
+    teto_semanal = teto_semanal_de(user)
+    prescricao = prescrever_semana(
+        sessions, by_label,
+        teto=teto_de_minutos(user), teto_semanal=teto_semanal,
+    )
     # A nota vem depois da prescrição porque descreve o que a prescrição fez:
     # `build_sessions` decide o ciclo e `prescrever_semana` decide o que coube
     # no tempo. Escrevê-la antes daria um texto sobre uma ficha que ainda não
     # existia.
+    #
+    # A SEGUNDA CHAMADA É A RÉGUA DA FRASE, e ela é de graça: `templates_for`
+    # já traz `items__exercise` em cache, então rodar a prescrição sem teto de
+    # tempo não custa consulta nenhuma. Ela responde "o que o relógio tirou",
+    # que é a única pergunta que a frase tem o direito de responder.
+    sem_relogio = prescrever_semana(
+        sessions, by_label, teto=None, teto_semanal=teto_semanal,
+    )
     plan.notes = " ".join(
         parte
         for parte in (
             nota_da_divisao(split, sessions),
-            aviso_de_tempo(sessions, by_label, prescricao),
+            aviso_de_tempo(sessions, prescricao, sem_relogio),
         )
         if parte
     )
@@ -882,7 +1018,10 @@ def _prescricao_confere(sessoes, modelos, itens, user) -> bool:
     if not modelos:
         return False
 
-    prescricao = prescrever_semana(sessoes, modelos, teto=teto_de_minutos(user))
+    prescricao = prescrever_semana(
+        sessoes, modelos,
+        teto=teto_de_minutos(user), teto_semanal=teto_semanal_de(user),
+    )
     if prescricao is None:
         return False
 

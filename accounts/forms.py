@@ -5,7 +5,6 @@ SessionWizardView do django-formtools de propósito: num PWA a pessoa fecha o
 app no meio do fluxo o tempo todo, e dado que vive só na sessão desaparece.
 Gravando passo a passo, ela retoma exatamente de onde parou.
 """
-from datetime import time
 from decimal import Decimal
 
 from django import forms
@@ -27,6 +26,7 @@ from .models import (
     MINUTOS_POR_DURACAO,
     ActivityLevel,
     DuracaoTreino,
+    Experiencia,
     Goal,
     MealStyle,
     Pilar,
@@ -420,9 +420,29 @@ class TrainingForm(forms.Form):
         help_text="Se não treina ainda, pode deixar em branco e ajustar depois.",
     )
     start_time = forms.TimeField(
-        label="Horário do treino",
-        initial=time(19, 0),
+        label="Horário do treino (opcional)",
+        help_text="Só para o cardápio não cair no meio do treino.",
+        # OPCIONAL, e sem `initial`. O padrão de 19:00 fazia toda pessoa que
+        # passasse batido pelo campo declarar um horário que ela não escolheu —
+        # e o app repetia "19:00" em todos os cartões como se fosse rotina dela.
+        # O horário nunca participou da montagem do treino.
+        required=False,
         widget=forms.TimeInput(attrs={"type": "time", "class": "field-input"}),
+    )
+    experiencia = forms.ChoiceField(
+        # A ÚNICA dimensão de personalização de treino que o catálogo sustenta.
+        # Local e equipamento ficaram de fora por medição, e não por escopo:
+        # "casa com halteres" deixa posterior de coxa, panturrilha e antebraço
+        # com zero exercícios, e "peso corporal" esvazia oito dos onze grupos.
+        label="Há quanto tempo você treina?",
+        help_text="Ajusta o volume semanal de cada grupo muscular.",
+        choices=Experiencia.choices,
+        # SEM `initial`, e pelo mesmo motivo do horário logo acima: abrir com
+        # "Intermediário" já marcado faz quem passa batido declarar um nível
+        # que não escolheu. Sem resposta o motor usa 20, que é o que o app já
+        # praticava — a ficha não muda, e a tela não inventa a frase.
+        required=False,
+        widget=forms.RadioSelect,
     )
     duracao_treino = forms.ChoiceField(
         # FAIXA, e não um número. O campo anterior era "Tempo disponível", um
@@ -476,6 +496,9 @@ class TrainingForm(forms.Form):
             self.fields["duracao_treino"].initial = (
                 atual or duracao_de_minutos(existing[0].duration_min)
             )
+            self.fields["experiencia"].initial = getattr(
+                perfil, "experiencia", ""
+            )
         # O sono vive no Profile, e não em TrainingDay: o formulário só o
         # empresta. Sem este initial, voltar ao passo 3 mostraria os campos
         # vazios e um "Continuar" apagaria o que já estava salvo.
@@ -512,7 +535,7 @@ class TrainingForm(forms.Form):
 
     def save(self):
         weekdays = set(self.cleaned_data["weekdays"])
-        start_time = self.cleaned_data["start_time"]
+        start_time = self.cleaned_data.get("start_time")
         faixa = self.cleaned_data.get("duracao_treino") or DuracaoTreino.LIVRE
         # O INTEIRO CONTINUA SENDO GRAVADO, e não é resíduo.
         #
@@ -537,8 +560,13 @@ class TrainingForm(forms.Form):
             perfil.wake_time = self.cleaned_data["wake_time"]
             perfil.sleep_time = self.cleaned_data["sleep_time"]
             perfil.duracao_treino = faixa
+            # `or ""` e não `or INTERMEDIARIO`: enviar o passo em branco não
+            # pode gravar uma declaração. E quem já respondeu não é apagado —
+            # o campo abre com o valor do perfil, então o envio o traz de volta.
+            perfil.experiencia = self.cleaned_data.get("experiencia") or ""
             perfil.save(update_fields=[
-                "wake_time", "sleep_time", "duracao_treino", "updated_at",
+                "wake_time", "sleep_time", "duracao_treino", "experiencia",
+                "updated_at",
             ])
 
         return self.user.training_days.all()

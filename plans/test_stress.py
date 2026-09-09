@@ -136,6 +136,49 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
     #: número existe para a próxima pessoa saber qual volume foi esse.
     LINHAS_MEDIDAS = "um ano de dados (ver PopulatedAccountMixin)"
 
+    #: A ficha ficou de fora de `TETOS` porque a rota pede um argumento, e o
+    #: laço acima chama `reverse(rota)` sem nenhum. Ela precisa de teto próprio:
+    #: é a tela que desenha exercício por exercício, com carga anterior e
+    #: séries de hoje em cada um — o formato onde N+1 nasce.
+    #:
+    #: 15 e não 10: medido em 10 no banco de desenvolvimento e mantido com
+    #: folga para o app crescer, do mesmo jeito que os outros tetos.
+    TETO_DA_FICHA = 15
+
+    def test_a_ficha_tem_teto_proprio_e_nao_cresce_com_os_exercicios(self):
+        """A tela nova é a que mais convida a um laço com consulta dentro.
+
+        Duas afirmações: o teto, e a CONSTÂNCIA. A segunda é a que importa —
+        um teto sozinho passa a valer para uma ficha de três exercícios e
+        estoura calado na de nove. Aqui as fichas da semana têm tamanhos
+        diferentes, e o custo tem de ser o mesmo em todas.
+        """
+        sessoes = list(self.rotina.sessions.all())
+        self.assertGreater(len(sessoes), 1)
+
+        custos = {}
+        for sessao in sessoes:
+            url = reverse("workouts:ficha", args=[sessao.pk])
+            self.client.get(url)  # aquece o que é cacheado por processo
+            with CaptureQueriesContext(connection) as ctx:
+                resposta = self.client.get(url)
+            self.assertEqual(resposta.status_code, 200)
+            custos[sessao.exercises.count()] = len(ctx.captured_queries)
+
+        for exercicios, consultas in custos.items():
+            with self.subTest(exercicios=exercicios):
+                self.assertLessEqual(
+                    consultas, self.TETO_DA_FICHA,
+                    "a ficha de %d exercícios fez %d consultas (teto %d) — "
+                    "provável consulta dentro de laço"
+                    % (exercicios, consultas, self.TETO_DA_FICHA),
+                )
+
+        self.assertEqual(
+            len(set(custos.values())), 1,
+            "o custo da ficha varia com o número de exercícios: %s" % custos,
+        )
+
     def test_no_screen_grows_a_query_per_row(self):
         # Teto e não valor exato: `assertNumQueries` casa o número certo, e um
         # teste que quebra ao MELHORAR o desempenho é um teste que ensina a

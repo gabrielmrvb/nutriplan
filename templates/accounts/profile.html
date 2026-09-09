@@ -135,10 +135,25 @@
               <dt>Duração</dt>
               <dd>{{ profile.get_duracao_treino_display }}</dd>
             </div>
+            <div>
+              <dt>Experiência</dt>
+              {% comment %}
+                Vazio é "não respondeu", e a linha diz isso. `get_..._display`
+                sozinho devolveria string vazia e a linha ficaria pendurada
+                sem valor; escrever "Intermediário" no lugar afirmaria o que
+                ninguém declarou. O "Editar" do cabeçalho é a saída.
+              {% endcomment %}
+              <dd>{% if profile.experiencia %}{{ profile.get_experiencia_display }}{% else %}não informada{% endif %}</dd>
+            </div>
             {% for day in training_days %}
               <div>
                 <dt>{{ day.get_weekday_display }}</dt>
-                <dd>{{ day.start_time|time:"H:i" }}</dd>
+                {% comment %}
+                  Sem horário a linha diz o DIA e para aí. Escrever "—" ou
+                  repetir um padrão inventado afirmaria uma rotina que a pessoa
+                  não declarou.
+                {% endcomment %}
+                <dd>{% if day.start_time %}{{ day.start_time|time:"H:i" }}{% else %}sem horário definido{% endif %}</dd>
               </div>
             {% endfor %}
           </dl>

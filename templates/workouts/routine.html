@@ -298,7 +298,22 @@
         <section class="card programa">
           <div class="card__head"><h2>Seu programa</h2></div>
           <p class="programa__resumo">
-            <span>{{ plan.get_split_display }}</span>
+            {% comment %}
+              O NOME DA DIVISÃO PODE QUEBRAR LINHA; os dois números, não.
+
+              `.programa__resumo > span` é `nowrap`, e está certo para "4 dias
+              por semana" e "94 séries por semana" — quebrar "4 / dias por
+              semana" separa o número da unidade. O nome da divisão é outra
+              coisa: em ABCD ele tem 65 caracteres, e medido a 390px o span
+              saía com 374px dentro de um parágrafo de 309px. Nada rolava na
+              horizontal porque a página clipa — o texto simplesmente sumia em
+              "…ombro/perna e complemen".
+
+              Só aparecia em ABCD e ABCDE: em ABC o nome cabe, e foi por isso
+              que passou despercebido até alguém com quatro dias pedir "1 grupo
+              por dia".
+            {% endcomment %}
+            <span class="programa__divisao">{{ plan.get_split_display }}</span>
             <span>{{ plan.days_per_week }}
               {% if plan.days_per_week == 1 %}dia{% else %}dias{% endif %} por semana</span>
             {% comment %}
@@ -310,6 +325,33 @@
             {% endcomment %}
             <span>{{ total_sets }} séries por semana</span>
           </p>
+          {% if divisao.cedeu %}
+            {% comment %}
+              A PREFERÊNCIA NÃO PODE SER IGNORADA EM SILÊNCIO.
+
+              `split_for` cruza preferência com frequência, e a frequência
+              manda: quem pede 1 grupo por dia e treina duas vezes recebe AB,
+              porque uma divisão de cinco dias com duas sessões deixaria três
+              quintos do corpo sem treinar nenhuma vez. A regra está certa.
+
+              O que estava errado era a tela mostrar AB e o Perfil continuar
+              dizendo "1 grupo por dia", como se a escolha tivesse valido. Aqui
+              a pessoa lê o que pediu, o que foi aplicado e o motivo — e o
+              caminho para mudar a frequência, que é o que destrava a divisão
+              que ela quer.
+            {% endcomment %}
+            <p class="programa__ressalva">
+              {{ divisao.motivo }}
+              {% comment %}
+                `?origem=treino` como nos outros dois links desta tela: quem
+                sai daqui para mudar os dias tem de voltar para cá, e não para
+                o Perfil. `config/test_b6_navegacao.py` cobra isso de TODOS os
+                links para o passo 3 que esta tela emite — este entrou sem a
+                origem e a guarda ficou vermelha na mesma rodada.
+              {% endcomment %}
+              <a href="{% url 'accounts:onboarding_step' step=3 %}?origem=treino">Mudar meus dias de treino</a>
+            </p>
+          {% endif %}
           <ol class="week-strip">
             {% for day in week %}
               <li class="day-chip {% if day.session %}day-chip--training{% endif %}{% if day.session and day.session.eh_hoje %} day-chip--hoje{% endif %}"
@@ -374,9 +416,24 @@
                 exercícios", que é o bastante para escolher sem abrir.
               {% endcomment %}
               <a class="sessao-cartao{% if session.eh_hoje %} sessao-cartao--hoje{% endif %}"
-                 aria-label="Treino {{ session.label }}: {{ session.name }}, {{ session.weekday_display }}, {{ session.exercises.count }} exercícios"
+                 aria-label="Treino {{ session.rotulo }}: {{ session.name }}, {{ session.weekday_display }}, {{ session.exercises.count }} exercícios"
                  href="{% url 'workouts:ficha' session.pk %}">
-                <span class="session__badge" data-dia="{{ session.label }}">{{ session.label }}</span>
+                {% comment %}
+                  O SELO MOSTRA `rotulo`, e não `label`.
+
+                  `label` é a letra do catálogo e continua sendo a identidade
+                  no banco. `rotulo` é de exibição: quando a letra repete na
+                  semana, ele vira A1 e A2 — porque `aparar_volume_semanal`
+                  cede sempre a sessão mais cheia, então uma das passagens sai
+                  menor, e sem a numeração ela parece uma ficha incompleta.
+                  `data-dia` continua com a letra, que é o que o CSS usa para
+                  a cor do dia.
+
+                  E não prometa aqui que elas trazem exercícios diferentes:
+                  medido em 09/09/2026, em quatro dias a segunda é subconjunto
+                  da primeira e em sete as três são idênticas.
+                {% endcomment %}
+                <span class="session__badge" data-dia="{{ session.label }}">{{ session.rotulo }}</span>
                 <span class="sessao-cartao__texto">
                   <strong class="sessao-cartao__nome">{{ session.name }}</strong>
                   <span class="session__meta">

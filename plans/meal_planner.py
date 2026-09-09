@@ -535,8 +535,26 @@ def protein_coverage_warning(plan, best_protein) -> list:
 
 
 def _training_end_for(user) -> time:
-    """Fim do treino, a partir do horário único informado no passo 3."""
-    day = user.training_days.order_by("weekday").first()
+    """Fim do treino, ou `None` quando não há horário declarado.
+
+    SEM HORÁRIO NÃO HÁ JANELA A EVITAR, e este é o comportamento explícito que
+    a ausência produz — não um efeito colateral.
+
+    O horário deixou de ser obrigatório no passo 3, porque ele nunca
+    participou da montagem do treino. Aqui ele participa de outra coisa:
+    `build_slots` usa o fim do treino para não marcar refeição no meio dele.
+    Quem não informou horário volta a ter o cardápio distribuído pela janela de
+    sono — exatamente como quem não cadastrou dia de treino nenhum, que é o
+    caminho que `day is None` já cobria.
+
+    O que NÃO se faz aqui é inventar um horário padrão para completar a conta:
+    seria o app afirmar uma rotina que ninguém declarou.
+    """
+    day = (
+        user.training_days.exclude(start_time=None)
+        .order_by("weekday")
+        .first()
+    )
     if day is None:
         return None
     end = (_minutes(day.start_time) + day.duration_min) % MINUTES_IN_DAY

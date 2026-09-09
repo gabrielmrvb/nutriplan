@@ -213,6 +213,58 @@ class SplitPreference(models.TextChoices):
     TRES = "three", "3 grupos por dia"
 
 
+class Experiencia(models.TextChoices):
+    """Há quanto tempo a pessoa treina — e quanto volume isso comporta.
+
+    É a única dimensão de personalização de treino que o CATÁLOGO sustenta hoje,
+    e isso foi medido antes de escolher. Local e equipamento não entram: dos
+    onze grupos musculares, "casa com halteres" deixa posterior de coxa,
+    panturrilha e antebraço com ZERO exercícios, e "peso corporal" esvazia oito
+    dos onze. Um filtro por equipamento entregaria ficha sem grupo inteiro —
+    exatamente o que as travas de `aparar_volume_semanal` existem para impedir.
+
+    O que a experiência move é o TETO SEMANAL POR GRUPO, e só ele. Não mexe em
+    quais exercícios entram: rebaixar o agachamento por ser "complexo demais
+    para iniciante" seria o app decidir sozinho tirar o movimento que mais
+    interessa a quem está começando.
+
+    NÃO HÁ PADRÃO, e o vazio é o quarto estado. `experiencia == ""` significa
+    "ainda não respondeu", e o motor o trata como 20 — o número que o app já
+    pratica —, então quem nunca respondeu não muda de ficha. Gravar
+    INTERMEDIARIO nessa gente daria o mesmo teto e ainda faria a tela afirmar
+    "treino há mais de 6 meses" para quem nunca disse isso, além de abrir o
+    formulário com a opção já marcada. É a doutrina de `prioridade == ""` e de
+    `split_preference_confirmada`: presumir escolha que ninguém fez sai caro,
+    e perguntar de novo é barato.
+    """
+
+    INICIANTE = "iniciante", "Iniciante — comecei há menos de 6 meses"
+    INTERMEDIARIO = "intermediario", "Intermediário — treino há mais de 6 meses"
+    AVANCADO = "avancado", "Avançado — treino há anos, sem interrupções longas"
+
+
+#: Teto de séries EFETIVAS por grupo, por semana, para cada experiência.
+#:
+#: 20 é o valor que o app já praticava e continua sendo o do intermediário —
+#: e é também o que `teto_semanal_de` devolve para quem não respondeu, para
+#: ninguém ter a ficha reescrita por uma pergunta nova. Iniciante desce a 12:
+#: volume alto em quem está começando produz dor sem adaptação proporcional, e
+#: a ficha menor também cabe melhor no tempo de quem ainda não tem rotina.
+#: Avançado sobe a 24, e é só aí que o número passa do que o app fazia.
+#:
+#: É TETO DE APARO, NÃO PROMESSA. `aparar_volume_semanal` só remove isolador
+#: que treina o grupo diretamente e nunca o último deles, então excesso que vem
+#: de secundário de composto principal fica onde está: medido no perfil de
+#: quatro dias, o ombro fecha em 14,5 mesmo com o teto em 12. O que o número
+#: move de verdade é o volume da SEMANA — 65 séries contra 88. A medição inteira
+#: está em `workouts/test_experiencia.py`.
+TETO_POR_EXPERIENCIA = {
+    Experiencia.INICIANTE: 12,
+    Experiencia.INTERMEDIARIO: 20,
+    Experiencia.AVANCADO: 24,
+}
+
+
 class DuracaoTreino(models.TextChoices):
     """Quanto tempo a pessoa tem para treinar — em FAIXA, não em número.
 
@@ -431,6 +483,16 @@ class Profile(models.Model):
         max_length=10,
         choices=DuracaoTreino.choices,
         default=DuracaoTreino.LIVRE,
+    )
+    #: A experiência move o teto semanal por grupo. Vazio é "não respondeu", e
+    #: o motor o lê como 20 — o número que o app já praticava. Ver `Experiencia`
+    #: para por que o padrão não é INTERMEDIARIO.
+    experiencia = models.CharField(
+        "experiência com treino",
+        max_length=15,
+        choices=Experiencia.choices,
+        blank=True,
+        default="",
     )
     meal_style = models.CharField(
         "estilo de cardápio",
@@ -753,7 +815,21 @@ class TrainingDay(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="training_days"
     )
     weekday = models.PositiveSmallIntegerField("dia da semana", choices=Weekday.choices)
-    start_time = models.TimeField("horário de início")
+    #: OPCIONAL, e a ausência é um estado de verdade — não um buraco.
+    #:
+    #: O horário era obrigatório no passo 3 e não participava da montagem do
+    #: treino: `create_routine` nunca o leu. Ele servia a duas coisas, e as
+    #: duas continuam funcionando sem ele: `plans/agora.py` já testava
+    #: `inicio is not None` antes de priorizar o treino na fila do dia, e
+    #: `plans/meal_planner.py` usa `start_time + duration_min` para não marcar
+    #: refeição no meio do treino — sem horário não há janela a evitar, e o
+    #: cardápio volta a ser distribuído pela janela de sono, que é o
+    #: comportamento de quem nunca informou dia de treino.
+    #:
+    #: Nulo NÃO é preenchido com um padrão. Inventar "19:00" para quem não
+    #: respondeu faria o app afirmar uma rotina que ninguém declarou — é a
+    #: mesma doutrina de `prioridade == ""` em `Profile`.
+    start_time = models.TimeField("horário de início", null=True, blank=True)
     duration_min = models.PositiveSmallIntegerField(
         "duração (min)",
         default=60,
@@ -771,6 +847,8 @@ class TrainingDay(models.Model):
         ]
 
     def __str__(self):
+        if self.start_time is None:
+            return self.get_weekday_display()
         return f"{self.get_weekday_display()} às {self.start_time:%H:%M}"
 
 

@@ -137,11 +137,19 @@ class AEdicaoVoltaParaOndeAPessoaEstavaTests(TestCase):
         )
         self.assertEqual(OnboardingStepMixin.ORIGEM_PADRAO, "accounts:profile")
 
-    def test_o_treino_manda_a_origem_nos_dois_links(self):
+    def test_o_treino_manda_a_origem_em_TODOS_os_links(self):
         """De nada adianta a view aceitar `origem` se a tela não a envia.
 
-        São dois links, e os dois importam: o "Editar" do cartão de dias de
-        treino e o convite de quem ainda não cadastrou nenhum.
+        REMIRADO, NÃO AFROUXADO. A versão anterior cobrava exatamente DOIS
+        links — o "Editar" do cartão de dias e o convite de quem não cadastrou
+        nenhum. A ressalva da divisão trouxe um terceiro ("Mudar meus dias de
+        treino"), ele entrou sem `?origem=treino`, e a guarda ficou vermelha
+        pelo número, não pelo defeito. Os dois erros são reais e são
+        diferentes: o link novo estava errado E o teste media a coisa errada.
+
+        A propriedade é "todo link para o passo 3 emitido por esta tela leva a
+        origem". O piso de três impede que ela passe por vacuidade no dia em
+        que alguém apagar os links em vez de corrigi-los.
         """
         from pathlib import Path
 
@@ -155,7 +163,7 @@ class AEdicaoVoltaParaOndeAPessoaEstavaTests(TestCase):
         )
         total = ficha.count("{% url 'accounts:onboarding_step' step=3 %}")
 
-        self.assertEqual(com_origem, 2)
+        self.assertGreaterEqual(total, 3)
         self.assertEqual(total, com_origem)
 
     def test_o_passo_de_edicao_continua_sem_barra_de_abas(self):
