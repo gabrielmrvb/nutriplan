@@ -577,6 +577,11 @@ def aparar_volume_semanal(candidatos) -> set:
         ficam.discard(alvo[0])
 
 
+#: Sentinela para `prescrever_semana`: `None` É um teto válido — significa
+#: "sem limite rígido" —, então ele não pode servir de "não informado".
+_NAO_INFORMADO = object()
+
+
 def teto_de_minutos(user) -> int:
     """O teto de tempo desta pessoa, em minutos, ou `None` quando não há.
 
@@ -595,7 +600,7 @@ def teto_de_minutos(user) -> int:
     return TETO_POR_DURACAO.get(faixa)
 
 
-def prescrever_semana(sessoes, modelos) -> dict:
+def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO) -> dict:
     """O que cada sessão da semana manda fazer: {(sessão, exercício): séries}.
 
     Uma função só, chamada pelo gerador E pela conferência, porque as duas
@@ -665,10 +670,16 @@ def prescrever_semana(sessoes, modelos) -> dict:
 
     sobrevivem = aparar_volume_semanal(ordem_semanal)
 
-    # O teto e da PESSOA e nao da sessao, entao ele e lido uma vez. Todas as
-    # sessoes vem do mesmo plano, logo do mesmo usuario — ler dentro do laco
-    # custaria uma consulta por sessao para responder sempre a mesma coisa.
-    teto = teto_de_minutos(sessoes[0].plan.user) if sessoes else None
+    # O TETO VEM DE FORA quando quem chama já tem a pessoa em mãos.
+    #
+    # Derivá-lo de `sessoes[0].plan.user` custava DUAS consultas por
+    # renderização — o usuário e o perfil, nenhum dos dois em cache nesse
+    # caminho. Medido na tela de treino: 21 para 23. Os dois chamadores de
+    # produção recebem o usuário como argumento, então passar o teto é de
+    # graça; o padrão continua derivando, para quem chamar de fora (teste,
+    # shell) não precisar saber disso.
+    if teto is _NAO_INFORMADO:
+        teto = teto_de_minutos(sessoes[0].plan.user) if sessoes else None
 
     prescricao = {}
     for sessao_pk, (sessao, candidatos) in por_sessao.items():
@@ -816,7 +827,7 @@ def create_routine(user) -> TrainingPlan:
     TrainingSession.objects.bulk_create(sessions)
 
     by_label = {template.label: template for template in templates}
-    prescricao = prescrever_semana(sessions, by_label)
+    prescricao = prescrever_semana(sessions, by_label, teto=teto_de_minutos(user))
     # A nota vem depois da prescrição porque descreve o que a prescrição fez:
     # `build_sessions` decide o ciclo e `prescrever_semana` decide o que coube
     # no tempo. Escrevê-la antes daria um texto sobre uma ficha que ainda não
@@ -851,7 +862,7 @@ def get_active_routine(user):
     return TrainingPlan.objects.filter(user=user, is_active=True).first()
 
 
-def _prescricao_confere(sessoes, modelos, itens) -> bool:
+def _prescricao_confere(sessoes, modelos, itens, user) -> bool:
     """A ficha gravada é a que `prescrever_semana` produziria hoje?
 
     Existe porque `sets` deixou de ser cópia do catálogo — é repartido entre as
@@ -871,7 +882,7 @@ def _prescricao_confere(sessoes, modelos, itens) -> bool:
     if not modelos:
         return False
 
-    prescricao = prescrever_semana(sessoes, modelos)
+    prescricao = prescrever_semana(sessoes, modelos, teto=teto_de_minutos(user))
     if prescricao is None:
         return False
 
@@ -931,7 +942,9 @@ def routine_is_current(plan, user) -> bool:
     if not plan.is_customized and not na_ficha <= prescrito:
         return False
 
-    if not plan.is_customized and not _prescricao_confere(sessoes, modelos, itens):
+    if not plan.is_customized and not _prescricao_confere(
+        sessoes, modelos, itens, user
+    ):
         return False
     if plan.is_customized:
         # Ficha ajustada à mão não é remontada pelo gerador. A pessoa trocou

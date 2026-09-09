@@ -180,6 +180,103 @@ class ATrocaDeFaixaNaoCustouVolumeTests(TestCase):
         self.assertGreaterEqual(sum(s.total_sets for s in sessoes), 55)
 
 
+class MudarAFaixaRemontaAFichaTests(TestCase):
+    """Trocar a faixa tem de invalidar a ficha — senão o campo é decorativo.
+
+    O PERCURSO ATÉ ESTA VERSÃO, porque ele evitou dívida.
+
+    A suspeita era de defeito: `routine_is_current` compara (dia, horário,
+    `duration_min`), e a faixa não mexe em `duration_min` nenhum. Parecia que
+    trocar "Completo" por "Rápido" deixaria a ficha de 90 minutos na tela com a
+    interface prometendo 30.
+
+    A correção escrita foi guardar o teto no retrato do plano — uma coluna e uma
+    migration. E a SABOTAGEM reprovou a correção: com a comparação nova
+    desligada, estes testes continuaram verdes. O motivo é que
+    `_prescricao_confere` já chama `prescrever_semana`, que passou a ler a
+    faixa — a prescrição muda, e a conferência de prescrição pega. A coluna era
+    redundante e foi removida junto com a migration.
+
+    O que ficou é este arquivo: a propriedade continua exigida, e a sabotagem
+    de `_prescricao_confere` mostra que ela é guardada de verdade.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def _pessoa(self, faixa):
+        _, sexo, nasc, alt, peso, dias, pref = MATRIZ[3]
+        return pessoa("remonta", sexo, nasc, alt, peso, dias, pref, faixa)
+
+    @staticmethod
+    def _trocar_faixa(user, faixa):
+        """Troca a faixa e devolve uma instância NOVA da pessoa.
+
+        `user.profile` é um `OneToOne` com cache na instância: gravar no banco
+        e continuar usando o mesmo objeto faz `teto_de_minutos` ler o valor
+        antigo, e o teste mede o estado anterior achando que mede o novo. Foi
+        o que aconteceu na primeira versão deste arquivo — a asserção falhou
+        sem nenhum defeito no produto.
+        """
+        Profile.objects.filter(user=user).update(duracao_treino=faixa)
+        return type(user).objects.get(pk=user.pk)
+
+    def test_a_ficha_fica_obsoleta_quando_a_faixa_encolhe(self):
+        user = self._pessoa(DuracaoTreino.LIVRE)
+        plano = TrainingPlan.objects.filter(user=user, is_active=True).first()
+
+        user = self._trocar_faixa(user, DuracaoTreino.RAPIDO)
+
+        self.assertFalse(services.routine_is_current(plano, user))
+
+    def test_a_ficha_remontada_obedece_a_faixa_nova(self):
+        """Ficar obsoleta não basta: a próxima tem de caber."""
+        user = self._pessoa(DuracaoTreino.LIVRE)
+
+        user = self._trocar_faixa(user, DuracaoTreino.RAPIDO)
+        nova, mudou = services.sync_active_routine(user)
+
+        self.assertTrue(mudou)
+        for sessao in nova.sessions.all():
+            self.assertLessEqual(sessao.estimated_minutes, 30)
+
+    def test_sem_mexer_na_faixa_a_ficha_continua_valendo(self):
+        """Controle: sem isto, "sempre obsoleta" passaria nos dois acima.
+
+        Uma ficha julgada obsoleta em toda visita faria o gerador rodar em laço
+        — o defeito que o comentário de `routine_is_current` já registra.
+        """
+        user = self._pessoa(DuracaoTreino.PADRAO)
+        plano = TrainingPlan.objects.filter(user=user, is_active=True).first()
+
+        self.assertTrue(services.routine_is_current(plano, user))
+
+    def test_a_prescricao_e_quem_denuncia_a_troca(self):
+        """O mecanismo, nomeado — para a próxima pessoa não recriar a coluna.
+
+        Não há teto guardado no plano: quem percebe a mudança é a conferência
+        de prescrição, porque `prescrever_semana` lê a faixa e devolve outra
+        ficha. Este teste falha se alguém tornar a conferência indiferente à
+        faixa.
+        """
+        user = self._pessoa(DuracaoTreino.LIVRE)
+        plano = TrainingPlan.objects.filter(user=user, is_active=True).first()
+        antes = services.prescrever_semana(
+            list(plano.sessions.all()),
+            {t.label: t for t in services.templates_for(plano.split)},
+        )
+
+        user = self._trocar_faixa(user, DuracaoTreino.RAPIDO)
+        plano = TrainingPlan.objects.filter(user=user, is_active=True).first()
+        depois = services.prescrever_semana(
+            list(plano.sessions.all()),
+            {t.label: t for t in services.templates_for(plano.split)},
+        )
+
+        self.assertNotEqual(set(antes), set(depois))
+
+
 class AConversaoDoNumeroAntigoEDeterministicaTests(TestCase):
     """Quem já usava o app não pode cair no padrão em silêncio."""
 

@@ -386,10 +386,16 @@ class OContratoDoDrawerTests(TestCase):
         """
         from plans.tests import create_complete_user
 
+        from workouts.tests import html_de_todas_as_fichas
+
         if not getattr(self, "_pessoa", None):
             self._pessoa = create_complete_user(email="drawer-v4@exemplo.com")
             self.client.force_login(self._pessoa)
-        return self.client.get("/treino/").content.decode()
+        # O CARTÃO MUDOU DE PÁGINA. Estes testes medem o GATILHO do drawer —
+        # os atributos `data-*` que o cartão carrega e que o JavaScript lê para
+        # montar o `<iframe>`. O cartão saiu da tela de treino e virou uma ficha
+        # por sessão; o contrato que eles guardam é o mesmo, no novo endereço.
+        return html_de_todas_as_fichas(self.client, self._pessoa)
 
     def test_o_gatilho_carrega_os_auxiliares(self):
         html = self.ficha()
@@ -462,7 +468,11 @@ class APaginaNaoRolaAtrasDoDrawerTests(TestCase):
     """
 
     CSS = Path(settings.BASE_DIR) / "static" / "css" / "app.css"
-    FICHA = Path(settings.BASE_DIR) / "templates" / "workouts" / "routine.html"
+    # O drawer e o script dele saíram de `routine.html` para
+    # `_drawer.html` quando a ficha ganhou rota própria: DUAS páginas
+    # passaram a precisar dele, e duas cópias divergiriam. O fonte da
+    # tela de treino continua sendo os dois arquivos juntos.
+    FICHA = Path(settings.BASE_DIR) / "templates" / "workouts" / "_drawer.html"
 
     def test_existe_a_regra_que_trava_a_rolagem_no_elemento_que_rola(self):
         css = self.CSS.read_text(encoding="utf-8")
@@ -516,7 +526,7 @@ class ODrawerNaoPrometeGestoQueNaoTemTests(TestCase):
 
     def test_a_alca_saiu_do_markup_e_do_css(self):
         ficha = (Path(settings.BASE_DIR) / "templates" / "workouts"
-                 / "routine.html").read_text(encoding="utf-8")
+                 / "_drawer.html").read_text(encoding="utf-8")
         css = (Path(settings.BASE_DIR) / "static" / "css"
                / "app.css").read_text(encoding="utf-8")
         sem_comentario_css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
@@ -530,7 +540,7 @@ class ODrawerNaoPrometeGestoQueNaoTemTests(TestCase):
     def test_as_tres_saidas_de_verdade_continuam_de_pe(self):
         """CONTROLE POSITIVO: tirar a alça não pode ter levado uma saída."""
         ficha = (Path(settings.BASE_DIR) / "templates" / "workouts"
-                 / "routine.html").read_text(encoding="utf-8")
+                 / "_drawer.html").read_text(encoding="utf-8")
 
         self.assertIn("data-drawer-fechar", ficha)
         self.assertIn('drawer.addEventListener("cancel"', ficha)

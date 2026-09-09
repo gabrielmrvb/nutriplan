@@ -33,7 +33,11 @@ from workouts.models import Exercise, MuscleGroup
 from workouts.videos import MOVIMENTO_ESPERADO, titulo_confere
 
 RAIZ = Path(settings.BASE_DIR)
-FICHA = RAIZ / "templates" / "workouts" / "routine.html"
+# O drawer e o script dele saíram de `routine.html` para
+# `_drawer.html` quando a ficha ganhou rota própria: DUAS páginas
+# passaram a precisar dele, e duas cópias divergiriam. O fonte da
+# tela de treino continua sendo os dois arquivos juntos.
+FICHA = RAIZ / "templates" / "workouts" / "_drawer.html"
 GATILHO = RAIZ / "templates" / "workouts" / "_exercicio.html"
 
 #: O exercício legado. Ele não está no seed, não tem vídeo e não aparece em
@@ -248,6 +252,63 @@ class AIdentidadeDoVideoTests(TestCase):
                     "%r aponta para um vídeo intitulado %r, que não menciona "
                     "o movimento" % (linha["name"], linha["video_titulo"]),
                 )
+
+    #: Exercícios cujo vídeo ANUNCIA peso corporal, e que a prescrição carrega
+    #: em quilos. É dívida de CURADORIA, não de código: trocar exige escolher
+    #: outro vídeo e conferir o que ele mostra, e este ambiente não assiste
+    #: vídeo. Inventar um id seria repetir o defeito de 07/09/2026 — dez
+    #: exercícios apontando para o vídeo de outro, com a suíte verde.
+    #:
+    #: A lista é uma CATRACA: ela não pode crescer. Enquanto o vídeo do
+    #: agachamento não for trocado por uma demonstração com barra, ele fica
+    #: aqui, nomeado, e nenhum exercício novo entra sem alguém decidir.
+    VIDEO_SEM_CARGA_CONHECIDO = {"Agachamento livre"}
+
+    def test_video_de_peso_corporal_nao_se_espalha(self):
+        """A ficha prescreve carga em quilos; o vídeo não pode ensinar sem ela.
+
+        Auditado em produção: "Agachamento livre" abre "Agachamento Livre Peso
+        Corporal | Bodyweight Free Squat". O movimento é o mesmo, a execução
+        que a ficha manda fazer não é — quem segue o vídeo faz agachamento sem
+        barra e anota 80 kg no histórico.
+
+        O guarda não conserta a curadoria; ele impede que ela piore, e nomeia o
+        caso que falta. É a mesma catraca de `TETO_*` no sistema visual.
+        """
+        import re as _re
+
+        sem_carga = _re.compile(r"peso corporal|bodyweight|sem peso|calistenia",
+                                _re.I)
+        achados = {
+            linha["name"]
+            for linha in self.catalogo
+            if linha.get("video_titulo") and sem_carga.search(linha["video_titulo"])
+        }
+
+        novos = achados - self.VIDEO_SEM_CARGA_CONHECIDO
+        self.assertEqual(
+            novos, set(),
+            "exercício com carga apontando para vídeo de peso corporal: %s"
+            % sorted(novos),
+        )
+
+    def test_a_catraca_do_video_sem_carga_nao_esta_folgada(self):
+        """O teto É a dívida, e não um número com folga.
+
+        Sem isto, alguém consertaria o agachamento, deixaria o nome na lista, e
+        a catraca aceitaria um exercício novo com o mesmo defeito sem reclamar.
+        """
+        import re as _re
+
+        sem_carga = _re.compile(r"peso corporal|bodyweight|sem peso|calistenia",
+                                _re.I)
+        achados = {
+            linha["name"]
+            for linha in self.catalogo
+            if linha.get("video_titulo") and sem_carga.search(linha["video_titulo"])
+        }
+
+        self.assertEqual(achados, self.VIDEO_SEM_CARGA_CONHECIDO)
 
     def test_a_tabela_de_movimentos_cobre_o_catalogo_inteiro(self):
         """`titulo_confere` devolve True para exercício que não está na tabela

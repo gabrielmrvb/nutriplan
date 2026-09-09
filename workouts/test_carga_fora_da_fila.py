@@ -332,9 +332,15 @@ class OAvisoOfflineNaoMenteTests(TestCase):
         # ficaria VERMELHO no dia em que alguém escrevesse "não chama
         # `atualiza(`" dentro do próprio `.catch` — falso vermelho, mesma
         # família da armadilha que já custou caro aqui na direção oposta.
+        # OS DOIS ARQUIVOS: o drawer saiu de `routine.html` para `_drawer.html`
+        # quando a ficha ganhou rota própria, e o script do registro de carga
+        # ficou onde estava. Ler os dois juntos deixa este teste indiferente a
+        # qual deles guarda cada trecho — que é o que ele quer medir.
+        pasta = self.raiz / "templates" / "workouts"
         self.ficha = sem_comentarios(
-            (self.raiz / "templates" / "workouts" / "routine.html").read_text(
-                encoding="utf-8"
+            "".join(
+                (pasta / nome).read_text(encoding="utf-8")
+                for nome in ("routine.html", "_drawer.html")
             )
         )
         self.cartao = (

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Treino {{ sessao.label }} · NutriPlan{% endblock %}
+
+{% comment %}
+  A FICHA DE UMA SESSÃO, INTEIRA, EM PÁGINA PRÓPRIA.
+
+  Ela carrega exatamente o que a sanfona da tela principal carregava: vídeo,
+  séries, carga, repetições, descanso, progressão, músculos, instrução e
+  histórico. Nada foi removido — o que mudou é QUEM paga por isso.
+
+  Antes, os trinta e poucos exercícios da semana eram montados de uma vez na
+  tela de treino: 259 kB, 22 formulários, 141 botões e 85 campos no perfil de
+  seis dias, quase todos fora da área visível. Quem só queria saber o que fazer
+  hoje pagava a semana inteira.
+
+  Isto NÃO é a tentativa que foi revertida em 09/09/2026. Aquela trocava o
+  cartão completo pela linha compacta e APAGAVA o registro de série, a carga e o
+  histórico; vinte e um testes reprovaram e estavam certos. Aqui o detalhe não
+  é apagado, é movido.
+{% endcomment %}
+
+{% block content %}
+  <div class="page-head">
+    {% comment %}
+      A volta é um link de verdade e não `history.back()`: quem chega aqui pelo
+      endereço compartilhado ou por uma aba nova não tem histórico para voltar,
+      e um botão que não faz nada é pior que nenhum.
+    {% endcomment %}
+    <a class="btn-link" href="{% url 'workouts:routine' %}">← Treino</a>
+    <h1>Treino {{ sessao.label }}: {{ sessao.name }}</h1>
+    <p class="lead">
+      <span>{{ sessao.weekday_display }}</span>
+      <span>·</span>
+      <span class="num">{{ sessao.exercises.count }} exercícios</span>
+      <span>·</span>
+      <span class="num">{{ sessao.total_sets }} séries</span>
+      <span>·</span>
+      <span class="num">~{{ sessao.estimated_minutes }} min</span>
+    </p>
+  </div>
+
+  <div class="split">
+    <div class="split__main stack">
+      {% if sessao.focus %}
+        <p class="session__focus">{{ sessao.focus }}</p>
+      {% endif %}
+
+      {% if sessao.eh_hoje %}
+        {% comment %}
+          O treino de hoje ganha a porta para a execução AQUI também.
+
+          Quem abriu a ficha do dia veio conferir o que vai fazer, e a ação
+          seguinte é começar. Sem este botão a pessoa teria de voltar à tela
+          anterior para o mesmo destino — e "Começar treino" continua indo
+          direto ao primeiro exercício pendente, que é decisão registrada.
+        {% endcomment %}
+        <a class="btn btn--primary btn--block" href="{% url 'workouts:now' %}">
+          {% if sessao.feitos_hoje %}Continuar treino{% else %}Começar treino{% endif %}
+        </a>
+      {% endif %}
+
+      <ol class="exercise-list">
+        {% for item in sessao.exercises.all %}
+          {% include "workouts/_exercicio.html" with item=item ordem=forloop.counter agora=False %}
+        {% endfor %}
+      </ol>
+    </div>
+  </div>
+
+  {% comment %}
+    O DRAWER VEM JUNTO COM OS CARTÕES.
+
+    Cada cartão traz um botão `data-clipe`, e quem o abre é o drawer. Ele
+    morava dentro de `routine.html` porque a tela de treino era o único lugar
+    que desenhava cartão; quando a ficha ganhou rota própria e levou os cartões,
+    a página ficou com nove botões de vídeo e nenhum drawer para abrir.
+
+    Medido: `data-clipe: 9`, `data-drawer: 0`.
+  {% endcomment %}
+  {% include "workouts/_drawer.html" %}
+
+  {% comment %}
+    O CRONÔMETRO VEM PELO MESMO MOTIVO DO DRAWER.
+
+    Cada cartão traz `data-descanso`, e quem conta é a barra do cronômetro. Ela
+    ficou em `routine.html` quando os cartões mudaram de página, e a ficha
+    nasceu com o gatilho do descanso e nada para acionar.
+  {% endcomment %}
+  {% include "workouts/_cronometro.html" %}
+{% endblock %}

@@ -228,12 +228,24 @@
             de consulta — "o que tem na terça?" — e o cartão fechado já é
             compacto porque a sanfona nasce fechada.
           {% endcomment %}
-          <h2 class="hoje__titulo">Exercícios do treino</h2>
-          <ol class="linha-ex-lista hoje__lista">
-            {% for item in hoje.exercises.all %}
-              {% include "workouts/_exercicio_linha.html" with item=item ordem=forloop.counter total=hoje.total_exercicios %}
-            {% endfor %}
-          </ol>
+          {% comment %}
+            O PAREDÃO DE HOJE VIRA UMA AÇÃO SECUNDÁRIA.
+
+            A lista sempre aberta abaixo do cartão duplicava a ficha: os mesmos
+            exercícios apareciam aqui e de novo em "Seu programa". Quem abre a
+            tela quer saber o que fazer agora — e o botão principal, logo
+            acima, já leva direto ao primeiro exercício pendente.
+
+            Quem quer conferir a ficha antes de começar tem um caminho, e ele
+            diz o que vai encontrar: a letra do treino e quantos exercícios
+            são. Um "Ver ficha" pelado obrigaria a tocar para descobrir o
+            tamanho do que se abre.
+          {% endcomment %}
+          <a class="btn btn--ghost btn--block hoje__ver-ficha"
+             href="{% url 'workouts:ficha' hoje.pk %}">
+            Ver ficha do Treino {{ hoje.label }} ·
+            <span class="num">{{ hoje.total_exercicios }}</span> exercícios
+          </a>
         {% else %}
           {% comment %}
             Dia sem treino previsto, e a tela diz isso em vez de forçar um
@@ -323,82 +335,72 @@
           </ol>
         </section>
 
-        {# ------------- 4. Os outros dias ------------- #}
+        {# ------------- 4. As sessões da semana ------------- #}
         {% comment %}
-          Sanfona, e `<details>` em vez de `<div>` com JavaScript.
+          CARTÃO TOCÁVEL, E A SEMANA INTEIRA — INCLUSIVE HOJE.
 
-          Aqui ficam os treinos que NÃO são o de hoje — o de hoje saiu da
-          sanfona e virou o topo da tela. Todos nascem fechados: nenhum deles é
-          a tarefa de agora, e abrir um por antecipação é apostar em qual.
+          Duas mudanças numa, e as duas vinham da mesma auditoria:
 
-          A exceção é o dia de descanso, em que não há treino no topo: aí abre
-          o PRÓXIMO, que é o mesmo que o cabeçalho acabou de anunciar.
+          1. o treino de hoje era EXCLUÍDO desta lista, porque tinha subido
+             para o topo da tela. O efeito era que "Seu programa" não servia
+             como visão da semana: faltava justamente o dia em que a pessoa
+             está. Agora a lista mostra os sete, e o de hoje ganha marca;
 
-          `<details>` traz de graça o que dá trabalho reimplementar direito:
-          abre e fecha por teclado, anuncia o estado para leitor de tela,
-          responde ao Ctrl+F do navegador, e funciona antes de o JavaScript
-          carregar. O JS só acrescenta o comportamento de seleção única — e se
-          ele falhar, a sanfona continua servindo, com mais de uma ficha aberta.
+          2. cada sessão era um `<details>` que trazia o cartão completo de
+             todo exercício. Medido no perfil de seis dias: 259 kB, 22
+             formulários, 29 sanfonas, 141 botões, 85 campos — quase tudo fora
+             da área visível. E, apesar de conter tudo isso, o cartão não
+             parecia navegável: A, B, C, D e E liam-se como rótulos.
+
+          A ficha continua inteira, em `workouts:ficha`. O que mudou é que ela
+          é montada por quem pede. Isto NÃO é a tentativa revertida em
+          09/09/2026 — aquela APAGAVA registro de série, carga e histórico, e
+          vinte e um testes reprovaram com razão. Aqui nada some: muda de
+          página.
+
+          É `<a>` e não `<div>` com JavaScript: o cartão inteiro é o alvo, o
+          teclado alcança, o leitor de tela anuncia link, e funciona sem JS.
         {% endcomment %}
-        {% for session in outras %}
-          <details class="card ficha" data-dia="{{ session.label }}"
-                   data-ficha {% if session.aberta %}open{% endif %}>
-            <summary class="session__head ficha__resumo">
-              <span class="session__badge" data-dia="{{ session.label }}">{{ session.label }}</span>
-              <span class="session__title">
-                <strong class="session__name">
-                  Treino {{ session.label }}: {{ session.name }}
-                </strong>
-                {% comment %}
-                  Um `<span>` por item, e o "·" desenhado pelo CSS entre eles.
-                  Escrito como texto corrido, a linha quebrava no meio de um
-                  item — "9" terminava a primeira linha e "exercícios" abria a
-                  segunda. Número separado da unidade não é metadado, é ruído.
-                {% endcomment %}
-                <span class="session__meta">
-                  <span>{{ session.weekday_display }}</span>
-                  {% if session.start_time %}<span>{{ session.start_time|time:"H:i" }}</span>{% endif %}
-                  <span>{{ session.exercises.count }} exercícios</span>
-                  <span>{{ session.total_sets }} séries</span>
-                  <span>~{{ session.estimated_minutes }} min</span>
+        <ul class="programa__sessoes">
+          {% for session in sessions %}
+            <li>
+              {% comment %}
+                O NOME FALADO É COMPLETO, e o escrito é curto.
+
+                O cartão mostra a letra num selo e o nome do treino ao lado.
+                Quem ouve a tela recebia "A, Peito tríceps e ombro" — a letra
+                solta, sem dizer do que ela é letra. O `aria-label` diz
+                "Treino A: Peito, tríceps e ombro, Segunda-feira, 5
+                exercícios", que é o bastante para escolher sem abrir.
+              {% endcomment %}
+              <a class="sessao-cartao{% if session.eh_hoje %} sessao-cartao--hoje{% endif %}"
+                 aria-label="Treino {{ session.label }}: {{ session.name }}, {{ session.weekday_display }}, {{ session.exercises.count }} exercícios"
+                 href="{% url 'workouts:ficha' session.pk %}">
+                <span class="session__badge" data-dia="{{ session.label }}">{{ session.label }}</span>
+                <span class="sessao-cartao__texto">
+                  <strong class="sessao-cartao__nome">{{ session.name }}</strong>
+                  <span class="session__meta">
+                    <span>{{ session.weekday_display }}</span>
+                    <span>{{ session.exercises.count }} exercícios</span>
+                    <span>{{ session.total_sets }} séries</span>
+                    <span>~{{ session.estimated_minutes }} min</span>
+                  </span>
                 </span>
-              </span>
-              <span class="ficha__seta" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-              </span>
-            </summary>
-
-            <div class="ficha__corpo">
-            {% if session.focus %}
-              <p class="session__focus">{{ session.focus }}</p>
-            {% endif %}
-
-            {% comment %}
-              OS OUTROS DIAS FICAM COM O CARTÃO COMPLETO, e isto é decisão já
-              tomada — `AFichaDaSemanaContinuaSendoSanfonaTests` a guarda.
-
-              Uma tentativa de 09/09/2026 trocou este bloco pela linha compacta
-              de hoje, mirando o tamanho da página (245 KB, 253 blocos de
-              registro). O tamanho caía pela metade e levava junto o que a
-              ficha da semana existe para oferecer: registro de série, carga,
-              repetições, descanso, progressão e histórico. Vinte e um testes
-              reprovaram, e estavam certos.
-
-              A linha compacta responde "o que eu faço agora"; o cartão
-              responde "o que tem na terça, e com que carga eu fiz da última
-              vez". São perguntas diferentes, e a segunda precisa do corpo
-              inteiro. O peso da página é real e fica registrado como tal — a
-              ficha já nasce fechada, então ele não custa rolagem.
-            {% endcomment %}
-            <ol class="exercise-list">
-              {% for item in session.exercises.all %}
-                {% include "workouts/_exercicio.html" with item=item ordem=forloop.counter agora=False %}
-              {% endfor %}
-            </ol>
-            </div>
-          </details>
-        {% endfor %}
+                {% if session.eh_hoje %}
+                  {% comment %}
+                    A marca de hoje é TEXTO e não só cor: quem não distingue o
+                    verde precisa da mesma informação.
+                  {% endcomment %}
+                  <span class="sessao-cartao__hoje">hoje</span>
+                {% endif %}
+                <span class="ficha__seta" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+                </span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
       </div>
 
       <aside class="split__aside stack">
@@ -492,35 +494,7 @@
       </aside>
     </div>
 
-    {% comment %}
-      Cronômetro: barra fixa no rodapé em vez de modal, porque durante o descanso
-      a pessoa continua olhando a ficha para saber a próxima série. Vibra no fim
-      (som na academia ninguém ouve).
-
-      A barra NÃO é região viva; o aviso escondido embaixo dela é.
-
-      `data-timer-valor` é reescrito uma vez por segundo, e com
-      `role="status" aria-live="polite"` na barra cada escrita fazia o leitor de
-      tela reler tudo — nome do exercício, relógio e os dois botões. Medido no
-      navegador: cinco mutações em 5,2 s dentro da região. Um descanso de 1:20
-      vira oitenta anúncios, e ninguém consegue ouvir mais nada da página
-      enquanto isso.
-
-      O relógio continua na tela e continua legível para quem navegar até ele.
-      O que passou a ser falado são os dois instantes que mudam o que fazer:
-      quando o descanso começa e quando ele termina.
-    {% endcomment %}
-    <div class="rest-timer" data-timer hidden>
-      <div class="rest-timer__bar"><span data-timer-bar></span></div>
-      <div class="rest-timer__body">
-        <span class="rest-timer__label" data-timer-nome></span>
-        <strong class="rest-timer__value num" data-timer-valor>0:00</strong>
-        <button type="button" class="rest-timer__more" data-timer-mais>+30s</button>
-        <button type="button" class="rest-timer__close" data-timer-parar
-                aria-label="Parar cronômetro">&times;</button>
-      </div>
-    </div>
-    <p class="vis-oculto" role="status" aria-live="polite" data-timer-aviso></p>
+    {% include "workouts/_cronometro.html" %}
 
     {% comment %}
       Um drawer só para a página inteira, preenchido pelo gatilho que foi
@@ -601,595 +575,7 @@
     {% endif %}
 
 
-    <dialog class="drawer" data-drawer aria-labelledby="drawer-nome">
-      <div class="drawer__fechar-area">
-        <button type="button" class="drawer__fechar" data-drawer-fechar aria-label="Fechar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-        </button>
-      </div>
-
-      {% comment %}
-        A ALÇA SAIU: ela prometia um gesto que não existe.
-
-        O comentário do CSS dizia "sinal de que isto sobe do rodapé e dá para
-        arrastar de volta", e arrastar nunca foi implementado — não há
-        `touchstart`, `pointerdown` nem nada parecido em lugar nenhum desta
-        tela. Quem tentava puxar não fechava, e ficava sem entender por quê.
-
-        Entre implementar o gesto e tirar a promessa, a segunda é a correção
-        proporcional: o drawer já fecha de três maneiras que funcionam — o
-        botão de 44px no canto, o Esc e o toque no véu. Uma alça decorativa não
-        acrescenta saída nenhuma e subtrai confiança.
-      {% endcomment %}
-
-      <div class="drawer__media" id="drawer-media" data-drawer-media></div>
-
-      <div class="drawer__corpo">
-        <h2 class="drawer__nome" id="drawer-nome" data-drawer-nome></h2>
-        {% comment %}
-          Principal e auxiliares, e a diferença entre eles é visual antes de ser
-          textual: o principal é uma pílula de marca, os auxiliares são texto
-          discreto. Quem bate o olho vê um nome em destaque e uma linha menor.
-
-          A linha dos auxiliares nasce escondida: exercício isolador não tem
-          auxiliar, e "Também trabalha: nenhum" seria informação inútil ocupando
-          espaço numa tela que a pessoa abre entre duas séries.
-        {% endcomment %}
-        <p class="drawer__musculo" data-drawer-musculo></p>
-        <p class="drawer__auxiliares" data-drawer-auxiliares hidden></p>
-        {% comment %}
-          Dentro do corpo, a instrução escrita vem antes dos números: quem
-          abriu quer saber COMO se faz, e não a aritmética da série.
-
-          O vídeo está acima disto tudo, em `drawer__media` — é o que o botão
-          promete, e por isso é a primeira coisa que aparece.
-        {% endcomment %}
-        <p class="drawer__intensidade" data-drawer-intensidade></p>
-
-        <div class="drawer__numeros">
-          <div class="drawer__numero">
-            <span class="drawer__numero-valor" data-drawer-series></span>
-            <span class="drawer__numero-rotulo">séries × reps</span>
-          </div>
-          <div class="drawer__numero">
-            <span class="drawer__numero-valor" data-drawer-descanso></span>
-            <span class="drawer__numero-rotulo">descanso</span>
-          </div>
-          <div class="drawer__numero drawer__numero--carga">
-            <span class="drawer__numero-valor" data-drawer-carga></span>
-            <span class="drawer__numero-rotulo" data-drawer-carga-rotulo>última carga</span>
-          </div>
-        </div>
-
-        <p class="drawer__cue" data-drawer-cue></p>
-
-        <div class="drawer__acoes">
-          <button type="button" class="btn btn--primary" data-drawer-timer>
-            Começar descanso
-          </button>
-          <a class="btn btn--ghost" target="_blank" rel="noopener" data-drawer-busca>
-            Outra demonstração
-          </a>
-        </div>
-      </div>
-    </dialog>
-
-    <script>
-      (function () {
-        /* ---- Drawer de execução ----
-         *
-         * O clipe nasce no toque e morre ao fechar. Criar o elemento na
-         * abertura e apagá-lo no fim é o que impede trinta players de
-         * existirem no documento — e é o que faz o vídeo PARAR quando o
-         * drawer fecha. `iframe.src = ""` não basta em alguns navegadores;
-         * remover o nó basta em todos.
-         */
-        var drawer = document.querySelector("[data-drawer]");
-
-        /* A demonstração alterna as duas fotos do movimento.
-         *
-         * A free-exercise-db entrega o começo e o fim de cada exercício. Duas
-         * posições em loop não são um GIF 3D, e não vale fingir que são — mas
-         * mostram a amplitude, que é o que a pessoa precisa conferir. Em
-         * troca: domínio público, não somem quando o dono apaga, não abrem com
-         * introdução falada, e pesam uns 30 kB contra um player inteiro.
-         *
-         * 900 ms por quadro. Mais rápido vira piscada e cansa; mais lento
-         * deixa de parecer um movimento e vira duas fotos paradas.
-         */
-        var MS_POR_QUADRO = 900;
-        var alternancia = null;
-
-        function pararAlternancia() {
-          if (alternancia) clearInterval(alternancia);
-          alternancia = null;
-        }
-
-        /* Animação de execução, quando o catálogo tem uma.
-         *
-         * É o degrau de cima da escada: mostra o movimento inteiro, o que duas
-         * fotos não fazem e um vídeo de terceiro faz com introdução falada no
-         * meio. Fica vazio até alguém contratar uma fonte — não existe render
-         * anatômico gratuito e verificável, e fingir que existe seria pior que
-         * a foto que está aí.
-         */
-        /* O clipe de EXECUÇÃO — a mídia principal da gaveta.
-         *
-         * Devolve `false` quando não há clipe, para o chamador descer para o
-         * próximo degrau. Antes este bloco vivia solto dentro do `if`, e por
-         * isso não tinha como ser posto na frente da animação sem duplicar
-         * código.
-         */
-        function montarClipe(media, dados) {
-          if (!dados.clipe) return false;
-
-          var elemento;
-          if (dados.tipo === "gif") {
-            elemento = document.createElement("img");
-            elemento.src = dados.clipe;
-            elemento.alt = "Execução: " + dados.nome;
-          } else if (dados.tipo === "video") {
-            elemento = document.createElement("video");
-            elemento.src = dados.clipe;
-            elemento.autoplay = true;
-            elemento.loop = true;
-            elemento.muted = true;
-            elemento.playsInline = true;
-            elemento.setAttribute("muted", "");
-            elemento.setAttribute("playsinline", "");
-          } else {
-            elemento = document.createElement("iframe");
-            elemento.src = dados.clipe;
-            elemento.title = "Execução: " + dados.nome;
-            elemento.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
-            elemento.allowFullscreen = true;
-          }
-          media.appendChild(elemento);
-          return true;
-        }
-
-        /* ESTA TELA MOSTRA UMA COISA SÓ: a execução.
-         *
-         * Duas tentativas de responder "o que trabalha" com desenho já saíram
-         * daqui. A primeira foi `montarAnimacao`, que abria um Short de
-         * terceiro. A segunda foi o mapa muscular em SVG, com Frente/Costas e
-         * um seletor de mídia. O dono avaliou as duas e escolheu o vídeo real
-         * da execução como a única mídia da tela.
-         *
-         * NENHUM CAMPO FOI APAGADO por causa disso: `animation_url` continua
-         * no modelo e continua servido no Modo Treino, e a resposta anatômica
-         * virou TEXTO aqui embaixo — "Principal" e "Também trabalha". O que
-         * saiu foi o desenho e o toque a mais para chegar nele. */
-        function montarQuadros(media, dados) {
-          var urls = dados.quadros.split("|").filter(Boolean);
-          if (!urls.length) return false;
-
-          var img = document.createElement("img");
-          img.className = "drawer__quadro";
-          img.alt = "Execução: " + dados.nome;
-          img.decoding = "async";
-
-          // Enquanto a primeira foto não chega, o esqueleto ocupa o lugar —
-          // sem ele a caixa fica preta e parece que quebrou.
-          media.classList.add("drawer__media--carregando");
-          img.addEventListener("load", function () {
-            media.classList.remove("drawer__media--carregando");
-          }, {once: true});
-          img.addEventListener("error", function () {
-            media.classList.remove("drawer__media--carregando");
-            media.classList.add("drawer__media--falhou");
-          }, {once: true});
-
-          img.src = urls[0];
-          media.appendChild(img);
-
-          if (urls.length > 1) {
-            // O segundo quadro é baixado antes de entrar em cena: trocar para
-            // uma imagem ainda não carregada pisca branco na primeira volta.
-            var pre = new Image();
-            pre.src = urls[1];
-
-            var i = 0;
-            alternancia = setInterval(function () {
-              i = (i + 1) % urls.length;
-              img.src = urls[i];
-            }, MS_POR_QUADRO);
-          }
-          return true;
-        }
-
-        function montarMidia(media, dados) {
-          /* `innerHTML = ""` é o que PARA a mídia anterior: tirar o `<iframe>`
-           * do documento encerra o vídeo e o tráfego dele. É a mesma técnica do
-           * fechamento do drawer, e é o que garante UM iframe vivo por vez. */
-          pararAlternancia();
-          media.innerHTML = "";
-          media.className = "drawer__media";
-
-          /* A ORIENTAÇÃO É DECIDIDA AQUI, num lugar só.
-           *
-           * `montarClipe` e `montarQuadros` também alternavam a classe, cada um
-           * com a sua fonte — três lugares decidindo a mesma coisa. Como
-           * `media.className` é reescrito na linha acima, os toggles de dentro
-           * eram ruído que um dia divergiria. */
-          media.classList.toggle("drawer__media--vertical", dados.vertical === "1");
-
-          /* SEM MÍDIA, SEM CAIXA.
-           *
-           * A classe `--vertical` é aplicada a partir de `data-vertical`, que
-           * é do CADASTRO — ela não sabe se algum construtor conseguiu montar
-           * alguma coisa. Sem esconder, um exercício sem vídeo e sem foto
-           * abria o drawer com um retângulo chapado de 228×405 no topo: a
-           * "caixa preta" que a decisão de produto proíbe.
-           *
-           * Hoje os 36 ativos têm vídeo, então este ramo não é alcançável pelo
-           * catálogo — e é por isso mesmo que ele precisa estar certo: ninguém
-           * vai descobrir o defeito usando o app, só quem cadastrar o 37º.
-           * O resto do drawer continua inteiro embaixo: nome, músculos, séries,
-           * descanso, carga anterior e a busca no YouTube. */
-          var montou = montarClipe(media, dados) || montarQuadros(media, dados);
-          media.hidden = !montou;
-          return montou;
-        }
-
-        function preencher(dados) {
-          var media = drawer.querySelector("[data-drawer-media]");
-
-          /* UMA MÍDIA SÓ, e por decisão de produto.
-           *
-           * Havia aqui um seletor "Vídeo real | Anatomia" e um mapa muscular
-           * desenhado em SVG. Os dois saíram: o dono avaliou a experiência
-           * anatômica e escolheu o vídeo real da execução como a resposta da
-           * tela. Quem abre um exercício entre duas séries quer ver o
-           * movimento, e um toque a mais para chegar nele é um toque a mais.
-           *
-           * A informação anatômica NÃO se perdeu — ela virou texto, logo
-           * abaixo: "Principal" e "Também trabalha", que saem de
-           * `muscle_group` e `secondary_muscles`. O dado continua inteiro; o
-           * que saiu foi o desenho. */
-          montarMidia(media, dados);
-
-          drawer.querySelector("[data-drawer-nome]").textContent = dados.nome;
-          drawer.querySelector("[data-drawer-musculo]").textContent = dados.musculo || "";
-
-          /* "Também trabalha" só existe quando há o que dizer. */
-          var auxiliares = drawer.querySelector("[data-drawer-auxiliares]");
-          var lista = (dados.auxiliares || "").trim();
-          auxiliares.hidden = !lista;
-          auxiliares.textContent = lista ? "Também trabalha " + lista : "";
-          drawer.querySelector("[data-drawer-series]").textContent =
-            dados.series + " × " + dados.reps;
-          drawer.querySelector("[data-drawer-descanso]").textContent = dados.descansoTexto;
-          drawer.querySelector("[data-drawer-cue]").textContent = dados.cue || "";
-          drawer.querySelector("[data-drawer-intensidade]").textContent =
-            dados.intensidade || "";
-
-          var carga = drawer.querySelector("[data-drawer-carga]");
-          var rotulo = drawer.querySelector("[data-drawer-carga-rotulo]");
-          if (dados.carga) {
-            carga.textContent = dados.carga + " kg";
-            rotulo.textContent = dados.cargaData
-              ? "última carga · " + dados.cargaData
-              : "última carga";
-          } else {
-            // Primeira vez neste exercício: dizer "—" é mais honesto que
-            // mostrar 0 kg, que pareceria um registro que não existe.
-            carga.textContent = "—";
-            rotulo.textContent = "sem registro ainda";
-          }
-
-          var timer = drawer.querySelector("[data-drawer-timer]");
-          timer.dataset.descanso = dados.descansoSegundos;
-          timer.dataset.nome = dados.nome;
-
-          drawer.querySelector("[data-drawer-busca]").href = dados.busca || "#";
-        }
-
-        /* Os dados do gatilho que abriu o drawer.
-         *
-         * Guardados porque `fecharDrawer` e o retorno de foco precisam saber
-         * de qual exercício se trata depois que o `<dialog>` já fechou. O
-         * seletor de mídia que também os usava saiu com a Anatomia. */
-        var dadosAbertos = null;
-
-        document.addEventListener("click", function (event) {
-          var facade = event.target.closest("[data-clipe]");
-          if (!facade || !drawer) return;
-          // O botão mora dentro do `<summary>`: sem cortar o padrão, o mesmo
-          // toque que abre o drawer alterna a sanfona por baixo dele.
-          event.preventDefault();
-          dadosAbertos = facade.dataset;
-          preencher(facade.dataset);
-          drawer.showModal();
-          // Trava a rolagem do corpo. Quem destrava é o `close`, que dispara
-          // nos TRÊS caminhos de saída — botão, Esc e toque no véu.
-          document.documentElement.classList.add("drawer-aberto");
-        });
-
-        /* O nó da mídia sai na hora do fechamento — é o que garante que o som
-         * e o tráfego parem junto com a tela. */
-        /* Limpar a mídia é o que faz o vídeo PARAR.
-         *
-         * Chega a ser óbvio e é fácil de errar: o `<dialog>` fechado some da
-         * tela, mas o `<iframe>` continua no documento, continua tocando e
-         * continua baixando. Medido: fechar o drawer deixava o player rodando
-         * atrás da tela.
-         *
-         * A limpeza roda em CADA caminho de fechamento, e não só no evento
-         * `close`. Depender de um evento só é o que produziu o defeito: neste
-         * navegador o `close` do `<dialog>` simplesmente não dispara, e o
-         * iframe ficava. Três caminhos, três chamadas, mais o evento como
-         * rede de segurança para quem fecha por fora.
-         */
-        function limparMidia() {
-          pararAlternancia();
-          var media = drawer.querySelector("[data-drawer-media]");
-          if (media) media.innerHTML = "";
-        }
-
-        function fecharDrawer() {
-          limparMidia();
-          if (drawer.open) drawer.close();
-        }
-
-        if (drawer) {
-          // Botão de fechar.
-          drawer.addEventListener("click", function (event) {
-            if (event.target.closest("[data-drawer-fechar]")) {
-              fecharDrawer();
-              return;
-            }
-            // Toque no fundo escuro. `<dialog>` não faz isso sozinho, e a
-            // comparação com o próprio dialog é como se distingue o fundo do
-            // conteúdo: o clique no conteúdo tem outro alvo.
-            if (event.target === drawer) fecharDrawer();
-          });
-
-          // Esc fecha nativamente — o navegador avisa por `cancel`, e é aí que
-          // dá para limpar antes de a tela sumir.
-          drawer.addEventListener("cancel", limparMidia);
-          drawer.addEventListener("close", limparMidia);
-          // `close` e não `fecharDrawer`: o Esc fecha o `<dialog>` sozinho,
-          // sem passar pela nossa função, e sem isto a página ficaria travada
-          // para sempre depois de sair pelo teclado.
-          drawer.addEventListener("close", function () {
-            document.documentElement.classList.remove("drawer-aberto");
-          });
-        }
-
-        /* ---- Sanfona de seleção única ----
-         *
-         * `<details name="...">` faz isso nativamente, mas só em navegador
-         * recente — e este projeto já perdeu a barra de navegação inteira por
-         * confiar num recurso novo de CSS. Três linhas de JS funcionam em
-         * todo lugar, e sem elas a sanfona continua abrindo e fechando: o que
-         * se perde é só o fechamento automático das outras.
-         */
-        document.addEventListener("toggle", function (event) {
-          var ficha = event.target;
-          if (!ficha.matches("[data-ficha]") || !ficha.open) return;
-
-          document.querySelectorAll("[data-ficha][open]").forEach(function (outra) {
-            if (outra !== ficha) outra.open = false;
-          });
-        }, true);
-
-        /* ---- Sanfona dos exercícios, dentro da ficha ----
-         *
-         * Mesma regra de seleção única, e pelo mesmo motivo: sem fechar o
-         * anterior, abrir três exercícios ao longo do treino devolve a página
-         * comprida que a sanfona veio resolver — e ninguém fecha à mão no meio
-         * de uma série.
-         */
-        document.addEventListener("toggle", function (event) {
-          var exercicio = event.target;
-          if (!exercicio.matches("[data-exercicio]") || !exercicio.open) return;
-
-          document.querySelectorAll("[data-exercicio][open]").forEach(function (outro) {
-            if (outro !== exercicio) outro.open = false;
-          });
-        }, true);
-
-        /* ---- A âncora abre o que ela aponta ----
-         *
-         * `record_load` responde JSON para quem chegou por `fetch`, mas o
-         * caminho sem JavaScript continua existindo e termina em
-         * `#exercicio-<pk>`. Com o cartão fechado por padrão, essa âncora
-         * entregaria um cartão FECHADO: a carga foi para o banco e a tela não
-         * mostra nada — indistinguível de erro, e a resposta é tocar de novo.
-         *
-         * Sobe abrindo todo `<details>` do caminho, porque o exercício mora
-         * dentro da ficha e as duas precisam estar abertas para ele aparecer.
-         */
-        function abrirPeloEndereco() {
-          if (!location.hash || location.hash.length < 2) return;
-
-          var alvo;
-          try {
-            alvo = document.querySelector(location.hash);
-          } catch (erro) {
-            return;  // hash que não é seletor válido: não é problema nosso.
-          }
-          if (!alvo) return;
-
-          for (var no = alvo; no; no = no.parentElement) {
-            if (no.tagName === "DETAILS") no.open = true;
-          }
-          alvo.scrollIntoView({ block: "center" });
-        }
-
-        abrirPeloEndereco();
-        window.addEventListener("hashchange", abrirPeloEndereco);
-
-        /* O botão do treino de hoje abre o cartão ele mesmo, sem depender do
-         * endereço mudar.
-         *
-         * `hashchange` só dispara quando o hash MUDA. No segundo toque o
-         * endereço já é `#exercicio-N`, então o evento não vem — e se o cartão
-         * tiver sido fechado nesse meio-tempo (abrir outro exercício fecha o
-         * anterior, por seleção única), o botão rolava até um cartão fechado.
-         *
-         * Medido: primeiro toque abre; abrir outro exercício fecha o primeiro;
-         * segundo toque no botão rolava até ele ainda fechado.
-         *
-         * Antes desta rodada não havia nada no app apontando para essas
-         * âncoras, então o caminho nasceu com o botão — e é ele quem paga a
-         * conta, porque é um botão feito para ser tocado várias vezes durante
-         * o mesmo treino. */
-        document.addEventListener("click", function (evento) {
-          var botao = evento.target.closest("[data-hoje-cta]");
-          if (!botao) return;
-
-          var destino = botao.getAttribute("href") || "";
-          if (destino.charAt(0) !== "#" || destino.length < 2) return;
-
-          var alvo;
-          try {
-            alvo = document.querySelector(destino);
-          } catch (erro) {
-            return;
-          }
-          if (!alvo) return;
-
-          for (var no = alvo; no; no = no.parentElement) {
-            if (no.tagName === "DETAILS") no.open = true;
-          }
-        });
-
-        /* ---- Cronômetro de descanso ---- */
-        var caixa = document.querySelector("[data-timer]");
-        if (!caixa) return;
-        var valor = caixa.querySelector("[data-timer-valor]");
-        var nome = caixa.querySelector("[data-timer-nome]");
-        var barra = caixa.querySelector("[data-timer-bar]");
-        var aviso = document.querySelector("[data-timer-aviso]");
-        var intervalo = null;
-        var restam = 0;
-        var total = 0;
-
-        /* Um bipe curto, sintetizado na hora.
-         *
-         * Sem arquivo de áudio: seriam bytes baixados por todo mundo para um
-         * som de meio segundo. E é deliberadamente discreto — 660 Hz por 150 ms
-         * com queda suave. Alarme estridente numa academia faz a pessoa desligar
-         * o som do app, e aí o aviso deixa de existir.
-         *
-         * Falha em silêncio de propósito: navegador sem WebAudio, aba sem gesto
-         * prévio ou som desligado não podem quebrar o cronômetro, que continua
-         * avisando pela vibração e pela tela. */
-        function avisar() {
-          try {
-            var Contexto = window.AudioContext || window.webkitAudioContext;
-            if (!Contexto) return;
-            var ctx = new Contexto();
-            var osc = ctx.createOscillator();
-            var ganho = ctx.createGain();
-            osc.frequency.value = 660;
-            osc.type = "sine";
-            ganho.gain.setValueAtTime(0.0001, ctx.currentTime);
-            ganho.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.02);
-            ganho.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
-            osc.connect(ganho).connect(ctx.destination);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.16);
-            osc.onended = function () { ctx.close(); };
-          } catch (e) { /* sem som, o resto continua */ }
-        }
-
-        function formatar(segundos) {
-          var m = Math.floor(segundos / 60);
-          var s = segundos % 60;
-          return m + ":" + (s < 10 ? "0" : "") + s;
-        }
-
-        /* Duas falas por descanso: começou, acabou. O relógio da tela fica com
-           a contagem — ele muda a cada segundo, e a cada segundo não é notícia. */
-        function falar(texto) {
-          if (aviso) aviso.textContent = texto;
-        }
-
-        function porExtenso(segundos) {
-          var m = Math.floor(segundos / 60), s = segundos % 60;
-          if (!m) return segundos + " segundos";
-          if (!s) return m + (m === 1 ? " minuto" : " minutos");
-          return m + (m === 1 ? " minuto e " : " minutos e ") + s + " segundos";
-        }
-
-        function desenhar() {
-          valor.textContent = formatar(Math.max(restam, 0));
-          barra.style.width = total ? (restam / total) * 100 + "%" : "0%";
-          caixa.classList.toggle("rest-timer--fim", restam <= 0);
-        }
-
-        function parar() {
-          clearInterval(intervalo);
-          intervalo = null;
-          caixa.hidden = true;
-          falar("");
-          caixa.classList.remove("rest-timer--fim", "rest-timer--acabando");
-        }
-
-        /* Últimos dez segundos: o cronômetro pulsa.
-         *
-         * Preso a dado que muda de verdade — o critério do catálogo Impeccable
-         * para pulso, e o oposto da chama da ofensiva, que pulsava para sempre
-         * e foi removida. Aqui a contagem está mesmo terminando. */
-        var AVISO_SEGUNDOS = 10;
-
-        function tick() {
-          restam -= 1;
-          caixa.classList.toggle(
-            "rest-timer--acabando", restam > 0 && restam <= AVISO_SEGUNDOS
-          );
-          desenhar();
-          if (restam <= 0) {
-            clearInterval(intervalo);
-            intervalo = null;
-            if (navigator.vibrate) navigator.vibrate([200, 100, 400]);
-            avisar();
-            falar("Descanso terminado, pode ir.");
-          }
-        }
-
-        function iniciar(segundos, rotulo) {
-          clearInterval(intervalo);
-          total = parseInt(segundos, 10) || 60;
-          restam = total;
-          nome.textContent = rotulo || "Descanso";
-          caixa.hidden = false;
-          caixa.classList.remove("rest-timer--fim", "rest-timer--acabando");
-          desenhar();
-          falar("Descanso de " + porExtenso(total) + ".");
-          intervalo = setInterval(tick, 1000);
-        }
-
-        /* Publicado para o contador de séries poder disparar o descanso sozinho
-         * ao salvar uma série. Uma função exposta, e não um clique sintético
-         * num botão escondido: clique falso quebra no dia em que o botão mudar
-         * de lugar, e ninguém liga uma coisa à outra. */
-        window.NutriPlanDescanso = { iniciar: iniciar };
-
-        document.addEventListener("click", function (event) {
-          var botao = event.target.closest("[data-descanso]");
-          if (botao) {
-            // Começar o descanso pelo drawer fecha o drawer: o cronômetro
-            // mora no rodapé da página, e ficaria escondido atrás dele.
-            if (drawer && drawer.open && drawer.contains(botao)) fecharDrawer();
-            iniciar(botao.dataset.descanso, botao.dataset.nome);
-            return;
-          }
-          if (event.target.closest("[data-timer-parar]")) parar();
-          if (event.target.closest("[data-timer-mais]")) {
-            restam = Math.max(restam, 0) + 30;
-            total = Math.max(total, restam);
-            caixa.classList.remove("rest-timer--fim");
-            desenhar();
-            if (!intervalo) intervalo = setInterval(tick, 1000);
-          }
-        });
-      })();
-    </script>
+    {% include "workouts/_drawer.html" %}
 
 
     <script>

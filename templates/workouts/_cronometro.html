@@ -1,0 +1,41 @@
+{% comment %}
+  O CRONÔMETRO DE DESCANSO — num parcial, pelo mesmo motivo do drawer.
+
+  Ele vivia dentro de `routine.html`, quando a tela de treino era o único lugar
+  que desenhava cartão de exercício. Com a ficha em rota própria, os botões
+  `data-descanso` foram junto e o widget ficou para trás: a ficha nasceu com o
+  gatilho do descanso e nenhum cronômetro para ele acionar.
+
+  É a MESMA regressão que os botões de vídeo tiveram, e ela apareceu porque a
+  extração anterior olhou só para o drawer. As duas peças compartilhadas da
+  execução moram aqui agora.
+{% endcomment %}
+    {% comment %}
+      Cronômetro: barra fixa no rodapé em vez de modal, porque durante o descanso
+      a pessoa continua olhando a ficha para saber a próxima série. Vibra no fim
+      (som na academia ninguém ouve).
+
+      A barra NÃO é região viva; o aviso escondido embaixo dela é.
+
+      `data-timer-valor` é reescrito uma vez por segundo, e com
+      `role="status" aria-live="polite"` na barra cada escrita fazia o leitor de
+      tela reler tudo — nome do exercício, relógio e os dois botões. Medido no
+      navegador: cinco mutações em 5,2 s dentro da região. Um descanso de 1:20
+      vira oitenta anúncios, e ninguém consegue ouvir mais nada da página
+      enquanto isso.
+
+      O relógio continua na tela e continua legível para quem navegar até ele.
+      O que passou a ser falado são os dois instantes que mudam o que fazer:
+      quando o descanso começa e quando ele termina.
+    {% endcomment %}
+    <div class="rest-timer" data-timer hidden>
+      <div class="rest-timer__bar"><span data-timer-bar></span></div>
+      <div class="rest-timer__body">
+        <span class="rest-timer__label" data-timer-nome></span>
+        <strong class="rest-timer__value num" data-timer-valor>0:00</strong>
+        <button type="button" class="rest-timer__more" data-timer-mais>+30s</button>
+        <button type="button" class="rest-timer__close" data-timer-parar
+                aria-label="Parar cronômetro">&times;</button>
+      </div>
+    </div>
+    <p class="vis-oculto" role="status" aria-live="polite" data-timer-aviso></p>
