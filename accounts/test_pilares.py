@@ -493,6 +493,76 @@ class NenhumaMigrationFabricaPreferenciaTests(TestCase):
 
         return re.sub(r"dependencies\s*=\s*\[.*?\]", "", fonte, flags=re.S)
 
+    @staticmethod
+    def so_o_codigo(fonte):
+        """A migration sem PROSA — comentários e docstrings fora.
+
+        A régua reprovou a `0028`, que não escreve preferência de ninguém: a
+        docstring dela cita `prioridade` ao explicar a doutrina que segue, e
+        diz, com todas as letras, "RETROCOMPATÍVEL SEM `RunPython`". Duas
+        palavras numa frase que afirma o CONTRÁRIO do que a guarda procura
+        bastaram para reprovar.
+
+        É a armadilha que o `CLAUDE.md` já nomeia: neste repositório o
+        comentário cita o nome da coisa que a asserção procura. A saída dele é
+        a mesma de `push/test_cache_privado.py` — tirar o comentário antes —, e
+        aqui ela precisa de `ast` em vez de regex: docstring de módulo é uma
+        string literal solta, e um `re.sub` de aspas triplas comeria também a
+        SQL de um `RunSQL`, que é exatamente o que a guarda existe para pegar.
+
+        `ast.unparse` derruba comentário de graça; o laço tira só a string
+        inicial de módulo, classe e função — que é a definição de docstring. O
+        resto do código volta inteiro, incluindo `name="prioridade"` dentro de
+        um `AddField`, que precisa continuar visível.
+        """
+        import ast
+
+        arvore = ast.parse(fonte)
+        for no in ast.walk(arvore):
+            if not isinstance(
+                no, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                     ast.AsyncFunctionDef)
+            ):
+                continue
+            corpo = no.body
+            if (
+                corpo
+                and isinstance(corpo[0], ast.Expr)
+                and isinstance(corpo[0].value, ast.Constant)
+                and isinstance(corpo[0].value.value, str)
+            ):
+                no.body = corpo[1:] or [ast.Pass()]
+        return ast.unparse(arvore)
+
+    def test_a_prosa_nao_conta_como_escrita(self):
+        """Controle da correção acima, com as duas metades.
+
+        A primeira: uma migration que só FALA de `RunPython` e de preferência
+        na docstring passa. A segunda, que é a que impede alguém de "consertar"
+        a guarda apagando fonte demais: `RunPython` de verdade, com o campo
+        citado numa string de código, continua sendo pego.
+        """
+        so_prosa = (
+            '"""Sem RunPython: nada é inferido, e prioridade fica como está."""\n'
+            "from django.db import migrations\n"
+        )
+        de_verdade = (
+            '"""Uma migration honesta na aparência."""\n'
+            "from django.db import migrations\n"
+            "def marca(apps, schema):\n"
+            "    pass\n"
+            "operations = [migrations.RunPython(marca)]\n"
+            'campo = "prioridade"\n'
+        )
+
+        limpa = self.so_o_codigo(so_prosa)
+        self.assertNotIn("RunPython", limpa)
+        self.assertNotIn("prioridade", limpa)
+
+        suja = self.so_o_codigo(de_verdade)
+        self.assertIn("RunPython", suja)
+        self.assertIn("prioridade", suja)
+
     def test_o_bloco_de_dependencias_nao_conta_como_escrita(self):
         """Controle da correção acima, com as duas metades.
 
@@ -521,7 +591,13 @@ class NenhumaMigrationFabricaPreferenciaTests(TestCase):
 
         campos = list(CAMPO_DO_PILAR.values()) + ["prioridade"]
         for caminho in arquivos:
-            fonte = self.sem_dependencias(caminho.read_text(encoding="utf-8"))
+            # DUAS PENEIRAS, e as duas por motivos medidos: a prosa cita os
+            # nomes ao explicar a decisão (a `0028` diz "SEM RunPython" e foi
+            # reprovada por isso), e o bloco `dependencies` é NOME DE ARQUIVO.
+            # Nenhum dos dois escreve em campo nenhum.
+            fonte = self.sem_dependencias(
+                self.so_o_codigo(caminho.read_text(encoding="utf-8"))
+            )
             if not any(campo in fonte for campo in campos):
                 continue
             for escrita in self.ESCRITAS:
