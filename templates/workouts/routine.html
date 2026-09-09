@@ -6,7 +6,7 @@
   <div class="page-head">
     <h1>Seu treino</h1>
     {% comment %}
-      A linha "ABC · 3 dias por semana · 88 séries no total" desceu para o
+      A linha "ABC · 3 dias por semana · 88 séries por semana" desceu para o
       cartão do programa, que é de quem ela fala.
 
       Ela custava 42px no topo da tela — medidos — descrevendo a SEMANA, logo
@@ -289,7 +289,14 @@
             <span>{{ plan.get_split_display }}</span>
             <span>{{ plan.days_per_week }}
               {% if plan.days_per_week == 1 %}dia{% else %}dias{% endif %} por semana</span>
-            <span>{{ total_sets }} séries no total</span>
+            {% comment %}
+              "No total" não dizia de que período o número é, e o número é da
+              SEMANA — `total_sets` soma todas as sessões do plano. Lido ao
+              lado do cartão do treino de hoje, "85 séries no total" convida a
+              entender 85 séries num dia, que é absurdo o bastante para a
+              pessoa desconfiar do app inteiro. Duas palavras resolvem.
+            {% endcomment %}
+            <span>{{ total_sets }} séries por semana</span>
           </p>
           <ol class="week-strip">
             {% for day in week %}
