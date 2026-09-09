@@ -1826,6 +1826,20 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .meal__options { display: grid; gap: var(--espaco-3); }
 
+/* A OPÇÃO E O BOTÃO QUE A REGISTRA SÃO UM PAR, e a proximidade é o que diz
+   isso.
+
+   O vão interno é o menor degrau da escala e o externo (`.meal__options`) é
+   maior: assim A cola no botão de A, e o conjunto se separa de B. Sem essa
+   diferença os quatro elementos ficariam equidistantes e a pessoa teria de
+   ler para saber qual botão registra qual opção.
+
+   Não há moldura em volta do par de propósito. A borda acesa é do `[open]` do
+   `<details>`, e um pai que quisesse repeti-la precisaria de `:has()` — que
+   este projeto proíbe para estrutura desde que a regra descartada derrubou a
+   navegação inteira num navegador sem suporte. */
+.option-par { display: grid; gap: var(--espaco-2); }
+
 .option {
   border: 1px solid transparent;
   border-radius: var(--radius);

@@ -535,6 +535,28 @@ coluna da direita), não entre ela e o almoço.
                   existem quatro por trás.
                 {% endcomment %}
                 {% for option in slot.opcoes_do_dia %}
+                  {% comment %}
+                    A AÇÃO SAIU DE DENTRO DA SANFONA.
+
+                    O botão que registra a refeição morava no `option__body`,
+                    que nasce fechado. A tela abria com duas linhas de
+                    informação e nenhuma ação visível: para marcar o almoço era
+                    preciso primeiro descobrir que a linha abre. A ação é o
+                    motivo desta tela existir, e não pode estar atrás de uma
+                    descoberta.
+
+                    O `<details>` continua sendo o `.option` — mesma moldura,
+                    mesmo `[open]`, mesmo comportamento — e o formulário virou
+                    IRMÃO dele dentro de `.option-par`. Não é wrapper com
+                    borda: a moldura acesa depende de `[open]`, e um pai que
+                    quisesse pintá-la precisaria de `:has()`, que este projeto
+                    proíbe desde que derrubou a navegação.
+
+                    O rótulo diz a letra porque agora existem DOIS botões lado
+                    a lado: "Comi esta" tinha antecedente enquanto vivia dentro
+                    de uma opção aberta; fora dela, "esta" não aponta para nada.
+                  {% endcomment %}
+                  <div class="option-par">
                   <details class="option">
                     <summary class="option__summary">
                       <span class="option__label">{{ option.rotulo }}</span>
@@ -573,18 +595,26 @@ coluna da direita), não entre ela e o almoço.
                       {% if option.template.instructions %}
                         <p class="option__how">{{ option.template.instructions }}</p>
                       {% endif %}
-
-
-                      <form method="post" action="{% url 'plans:mark_meal' slot.pk %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="status" value="done">
-                        <input type="hidden" name="option" value="{{ option.pk }}">
-                        <button type="submit" class="btn btn--primary btn--block">
-                          Comi esta
-                        </button>
-                      </form>
                     </div>
                   </details>
+
+                  {% comment %}
+                    `aria-label` porque o texto visível é "Registrar A", e "A"
+                    sozinha não diz o que se registra para quem ouve a tela. O
+                    rótulo falado nomeia a receita e o horário; o escrito fica
+                    curto, que é o que cabe em dois botões lado a lado a 320px.
+                  {% endcomment %}
+                  <form method="post" action="{% url 'plans:mark_meal' slot.pk %}"
+                        class="option-par__acao">
+                    {% csrf_token %}
+                    <input type="hidden" name="status" value="done">
+                    <input type="hidden" name="option" value="{{ option.pk }}">
+                    <button type="submit" class="btn btn--primary btn--block"
+                            aria-label="Registrar {{ option.template.name }} em {{ slot.name }}">
+                      Registrar {{ option.rotulo }}
+                    </button>
+                  </form>
+                  </div>
                 {% empty %}
                   <p class="empty-state">
                     Nenhuma receita do catálogo serve para este horário.
