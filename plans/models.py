@@ -405,3 +405,58 @@ class GoleDeAgua(models.Model):
 
     def __str__(self):
         return f"{self.ml} ml em {self.dia}"
+
+
+class ItemDaListaMarcado(models.Model):
+    """Um item da lista de compras que a pessoa já riscou.
+
+    A tela avisava que a marcação valia "só enquanto a página estiver aberta".
+    Era verdade e era ruim: quem recarrega no meio do corredor perde tudo o que
+    já pegou, e a lista é justamente a tela que se usa andando.
+
+    A CHAVE É (pessoa, alimento, opção, semana), e cada parte tem motivo:
+
+    - **alimento**, e não a linha da lista: a lista é recalculada a cada visita
+      e não tem identidade estável. O alimento tem;
+    - **opção**: A e B compram coisas diferentes. Riscar o atum na lista A não
+      pode aparecer riscado na B, que talvez nem tenha atum;
+    - **semana**: a lista cobre sete dias a partir de hoje. Sem a data, a
+      marcação da semana passada voltaria riscada na próxima compra.
+
+    INVALIDAÇÃO POR CONSTRUÇÃO, e é por isso que não há migração destrutiva
+    quando o plano alimentar muda: a marcação é lida pelo cruzamento com a
+    lista atual. Alimento que saiu do cardápio simplesmente não é desenhado, e
+    a linha órfã fica no banco sem efeito — apagar em massa seria arriscar o
+    dado de quem só trocou de opção e vai voltar.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="itens_marcados",
+    )
+    # PROTECT seria pior aqui: alimento saindo do catálogo não pode travar a
+    # limpeza dele por causa de um "risquei no mercado". CASCADE apaga a
+    # marcação junto, e marcação não é histórico — é estado de uma compra.
+    food = models.ForeignKey(
+        "catalog.Food", on_delete=models.CASCADE, related_name="marcacoes"
+    )
+    #: "A" ou "B". Guardado como texto curto e não como FK porque o rótulo é do
+    #: cardápio projetado do dia, não de uma linha do banco.
+    opcao = models.CharField("opção", max_length=1)
+    #: O primeiro dia que a lista cobre — a âncora do período de sete dias.
+    semana = models.DateField("início da semana")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "item marcado na lista"
+        verbose_name_plural = "itens marcados na lista"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "food", "opcao", "semana"],
+                name="unique_marcacao_por_lista",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.food} ({self.opcao}, {self.semana})"

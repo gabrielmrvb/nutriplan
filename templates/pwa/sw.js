@@ -413,6 +413,7 @@ var ROTAS = [
   /^\/agua\/$/,
   /^\/refeicao\/\d+\/marcar\/$/,
   /^\/treino\/agora\/serie\/$/,
+  /^\/lista-de-compras\/marcar\/$/,
 ];
 
 function permitida(url) {

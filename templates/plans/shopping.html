@@ -3,6 +3,13 @@
 {% block title %}Lista de compras · NutriPlan{% endblock %}
 
 {% block content %}
+  {% comment %}
+    O `data-lista-compras` carrega o ENDEREÇO, e não um marcador vazio: o demo
+    serve esta tela sob outro prefixo, e um caminho escrito no JavaScript
+    quebraria lá em silêncio. `{% templatetag openblock %} url {% templatetag closeblock %}` resolve o prefixo certo.
+  {% endcomment %}
+  <div data-lista-compras="{% url 'plans:marcar_item' %}" hidden></div>
+  <form hidden>{% csrf_token %}</form>
   <div class="page-head">
     <h1>Lista de compras</h1>
     <p class="lead">
@@ -39,8 +46,24 @@
           <ul class="shopping">
             {% for item in aisle.items %}
               <li class="shopping__item">
+                {% comment %}
+                  A CAIXA GUARDA O ESTADO NO SERVIDOR. Ela avisava que a
+                  marcação valia "só enquanto a página estiver aberta" — verdade
+                  e ruim: quem recarrega no meio do corredor perde tudo o que já
+                  pegou, e esta é justamente a tela que se usa andando.
+
+                  Os `data-` carregam a chave inteira (alimento, opção, semana)
+                  porque é ela que identifica a marcação. A linha da lista não
+                  serve: ela é recalculada a cada visita e não tem identidade
+                  estável.
+                {% endcomment %}
                 <label class="shopping__check">
-                  <input type="checkbox">
+                  <input type="checkbox"
+                         data-marcar
+                         data-food="{{ item.food.id }}"
+                         data-opcao="{{ label }}"
+                         data-semana="{{ semana_da_lista|date:'Y-m-d' }}"
+                         {% if item.marcado %}checked{% endif %}>
                   <span class="shopping__name">{{ item.food.name }}</span>
                 </label>
                 {% comment %}
@@ -86,8 +109,9 @@
           custa mais que sobrar.
         </p>
         <p class="hint">
-          Os itens marcados não somem: a marcação vale só enquanto a página estiver
-          aberta, para você ir riscando enquanto anda pelos corredores.
+          O que você risca fica salvo: pode recarregar, sair e voltar que a lista
+          continua de onde parou. Cada opção guarda a própria marcação, e a semana
+          seguinte começa limpa.
         </p>
         <a class="btn btn--ghost btn--block acao-solta" href="{% url 'plans:today' %}"
           >

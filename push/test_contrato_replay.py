@@ -45,7 +45,7 @@ from django.db.models import Sum
 
 from accounts.replay import STATUS_PRESERVA
 from plans import services
-from plans.models import HydrationLog, MealLog, MealStatus
+from plans.models import HydrationLog, ItemDaListaMarcado, MealLog, MealStatus
 from plans.tests import CatalogFixture, create_complete_user
 from workouts.models import Exercise, ExerciseLog
 
@@ -73,6 +73,11 @@ class ContratoDeReplayPorRotaTests(CatalogFixture):
         self.plano = services.create_plan(self.b)
         self.slot = self.plano.slots.get(order=0)
         self.exercicio = Exercise.objects.filter(is_active=True).first()
+        from catalog.models import Food
+        from plans import shopping
+
+        self.alimento = Food.objects.filter(is_active=True).first()
+        self.semana = shopping.dias_da_semana()[0]
         self.client.force_login(self.b)
 
     # A tabela. Chave = a regex escrita no `fila.js`, sem as âncoras.
@@ -92,13 +97,35 @@ class ContratoDeReplayPorRotaTests(CatalogFixture):
                 "/treino/agora/serie/",
                 {"exercise_id": self.exercicio.pk, "weight_kg": "40", "reps": "10"},
             ),
+            # A marcação da lista de compras entrou na fila em 09/09/2026: o
+            # supermercado é o caso offline por excelência, e riscar um item
+            # sem rede não pode se perder.
+            #
+            # Ela dispensa `op_id` e continua cumprindo o contrato, porque o
+            # corpo manda ESTADO ABSOLUTO (`marcado=1`) e não "alterne":
+            # aplicar duas vezes o mesmo estado dá o mesmo resultado. É a forma
+            # do pedido fazendo o trabalho que um identificador faria.
+            r"\/lista-de-compras\/marcar\/": (
+                "/lista-de-compras/marcar/",
+                {
+                    "food_id": self.alimento.pk,
+                    "opcao": "A",
+                    "semana": str(self.semana),
+                    "marcado": "1",
+                },
+            ),
         }
 
     def estado(self):
+        # A MARCAÇÃO ENTRA NA LEITURA, e sem isso o contrato passaria a mentir
+        # para a rota nova: o controle positivo do teste de idempotência exige
+        # que a PRIMEIRA aplicação mude o estado, e uma marcação não mexe em
+        # água, refeição nem série. O estado precisa enxergar o que a rota faz.
         return (
             HydrationLog.objects.aggregate(t=Sum("ml"))["t"] or 0,
             MealLog.objects.count(),
             ExerciseLog.objects.count(),
+            ItemDaListaMarcado.objects.count(),
         )
 
     def _replay(self, url, dados, dono, op_id):

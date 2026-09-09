@@ -113,14 +113,14 @@ class QueueScopeTests(TestCase):
         self.rotas = self.rotas[: self.rotas.index("];") + 2]
 
     def test_a_fila_cobre_agua_refeicao_e_a_serie_de_treino(self):
-        for rota in ("agua", "marcar", "serie"):
+        for rota in ("agua", "marcar", "serie", "lista-de-compras"):
             with self.subTest(rota=rota):
                 self.assertIn(rota, self.rotas)
 
     def test_e_nao_cobre_mais_nada(self):
         """Controle positivo do teste acima: ele sozinho ficaria verde se a
-        lista GANHASSE rotas. Três entradas, e são estas três."""
-        self.assertEqual(self.rotas.count("/^"), 3, self.rotas)
+        lista GANHASSE rotas. Quatro entradas, e são estas quatro."""
+        self.assertEqual(self.rotas.count("/^"), 4, self.rotas)
 
     def test_a_rota_da_FICHA_continua_fora_da_fila(self):
         """A distinção que a campanha de 08/09/2026 construiu, e o motivo de

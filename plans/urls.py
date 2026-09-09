@@ -16,4 +16,9 @@ urlpatterns = [
     # porque são coisas diferentes: uma escreve, a outra lê.
     path("hidratacao/", views.HydrationView.as_view(), name="hydration"),
     path("lista-de-compras/", views.ShoppingListView.as_view(), name="shopping"),
+    path(
+        "lista-de-compras/marcar/",
+        views.MarcarItemDaListaView.as_view(),
+        name="marcar_item",
+    ),
 ]

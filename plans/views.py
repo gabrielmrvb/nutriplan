@@ -4,6 +4,7 @@ A rota `today` concentra o uso diário — meta, refeições e marcação — po
 a única tela que a pessoa abre várias vezes por dia. O histórico fica numa
 rota separada, que é consulta ocasional.
 """
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
@@ -16,6 +17,7 @@ from django.db.models.functions import Greatest, Least
 from django.utils import timezone
 
 from .weight_trend import TETO_DIARIO_ML
+from django.views import View
 from django.views.generic import TemplateView, View
 
 from accounts.models import (
@@ -49,6 +51,7 @@ from .models import (
     MealSlot,
     MealStatus,
     OptionLabel,
+    ItemDaListaMarcado,
 )
 # A política de arredondamento mora em `tracking` e é importada, não repetida:
 # duas cópias da mesma regra é como as duas nasceram diferentes.
@@ -794,6 +797,60 @@ class RecalculatePlanView(AcaoDeTela, OnboardingRequiredMixin, View):
         return redirect("plans:today")
 
 
+class MarcarItemDaListaView(AcaoDeTela, OnboardingRequiredMixin, View):
+    """Risca (ou desrisca) um item da lista de compras.
+
+    ESTADO ABSOLUTO, NUNCA ALTERNÂNCIA. O corpo diz `marcado=1` ou `marcado=0`,
+    e não "inverta" — porque este POST pode chegar duas vezes. A fila offline
+    reenvia quando a resposta se perde no meio, e um "alterne" reproduzido
+    desfaz o que a pessoa fez. É o mesmo defeito que a água pagou para
+    aprender, e aqui ele é evitado pela FORMA do pedido: aplicar duas vezes o
+    mesmo estado absoluto dá o mesmo resultado.
+
+    Por isso esta rota dispensa `op_id`: ela é idempotente por construção, e um
+    identificador seria maquinário para uma corrida que não existe.
+
+    A semana vem do corpo e é conferida contra a lista de hoje: sem isso, um
+    pedido atrasado marcaria o item na semana errada — e a marcação da semana
+    passada voltaria riscada na próxima compra.
+    """
+
+    tela_da_acao = "plans:shopping"
+
+    def post(self, request, *args, **kwargs):
+        destino = redirect("plans:shopping")
+
+        try:
+            food_id = int(request.POST.get("food_id") or "")
+        except (TypeError, ValueError):
+            raise Http404("alimento inválido")
+        food = get_object_or_404(Food, pk=food_id)
+
+        opcao = (request.POST.get("opcao") or OptionLabel.A).strip()
+        if opcao not in OptionLabel.values:
+            opcao = OptionLabel.A
+
+        # A semana é a da lista que a pessoa está vendo. Um valor ilegível cai
+        # na semana de hoje, que é a única que a tela desenha.
+        semana = shopping.dias_da_semana()[0]
+        bruto = (request.POST.get("semana") or "").strip()
+        if bruto:
+            try:
+                semana = datetime.strptime(bruto, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+
+        if (request.POST.get("marcado") or "") in ("1", "true", "on"):
+            ItemDaListaMarcado.objects.get_or_create(
+                user=request.user, food=food, opcao=opcao, semana=semana
+            )
+        else:
+            ItemDaListaMarcado.objects.filter(
+                user=request.user, food=food, opcao=opcao, semana=semana
+            ).delete()
+        return destino
+
+
 class ShoppingListView(PlanRequiredMixin, TemplateView):
     """A lista de compras da semana, por corredor de supermercado."""
 
@@ -816,8 +873,25 @@ class ShoppingListView(PlanRequiredMixin, TemplateView):
             label = OptionLabel.A
 
         aisles = shopping.shopping_list(self.plan, label=label)
+
+        # AS MARCAÇÕES VÊM DO BANCO, e são lidas pelo cruzamento com a lista
+        # de agora. Alimento que saiu do cardápio não é desenhado, então uma
+        # marcação órfã fica sem efeito em vez de reaparecer em lista que não a
+        # contém — é assim que a troca de plano se invalida sozinha, sem
+        # migração destrutiva.
+        semana = shopping.dias_da_semana()[0]
+        marcados = set(
+            ItemDaListaMarcado.objects.filter(
+                user=self.request.user, opcao=label, semana=semana
+            ).values_list("food_id", flat=True)
+        )
+        for corredor in aisles:
+            for item in corredor["items"]:
+                item["marcado"] = item["food"].id in marcados
+
         context.update(
             {
+                "semana_da_lista": semana,
                 # A lista é uma subtela da dieta: manter a aba Dieta acesa é
                 # melhor que deixar a barra inteira apagada, que dá sensação de
                 # ter saído do app.
