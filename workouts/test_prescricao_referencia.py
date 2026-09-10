@@ -97,13 +97,38 @@ class OPerfilDeReferenciaRecebeUmaFichaDeVerdadeTests(TestCase):
                     "supino reto com %s séries em vez de 4" % linha.sets,
                 )
 
-    def test_o_supino_aparece_nas_DUAS_sessoes_de_peito(self):
-        """Segunda e quinta: a divisão ABC em cinco dias dá A duas vezes, e o
-        ganho da repetição é justamente a segunda sessão do grupo."""
-        supinos = self._do_exercicio("Supino reto com barra")
+    def test_as_duas_sessoes_de_peito_trazem_exercicios_DIFERENTES(self):
+        """Segunda e quinta: a divisão em cinco dias dá A duas vezes.
 
-        self.assertEqual(len(supinos), 2)
-        self.assertEqual(sum(s.sets for s in supinos), 8)
+        REMIRADO EM 10/09/2026, e o contrato virou o contrário. Este teste
+        exigia que o Supino reto aparecesse nas DUAS passagens — "o ganho da
+        repetição é a segunda sessão do grupo". A auditoria de produção mostrou
+        o preço disso: com o modelo inteiro entrando duas vezes, o teto semanal
+        cortava variedade e a semana fechava com DOIS exercícios distintos de
+        peito, dos quatro que o modelo lista.
+
+        A regra agora é "não repetir enquanto houver opção não usada". O ganho
+        da repetição continua existindo — peito é treinado duas vezes na
+        semana —, e o que mudou é que a segunda sessão traz OUTROS exercícios.
+
+        O que este teste guarda é o par: peito nas duas, sem repetir nenhum.
+        """
+        peitos = [
+            item
+            for sessao in self.plano.sessions.all().order_by("weekday")
+            for item in sessao.exercises.select_related("exercise")
+            if item.exercise.muscle_group == "chest"
+        ]
+        por_sessao = {}
+        for item in peitos:
+            por_sessao.setdefault(item.session_id, []).append(item.exercise.name)
+
+        self.assertEqual(len(por_sessao), 2, "peito deixou de ter duas sessões")
+        primeira, segunda = list(por_sessao.values())
+        self.assertEqual(
+            set(primeira) & set(segunda), set(),
+            "as duas sessões de peito repetiram exercício",
+        )
 
     def test_a_faixa_do_supino_fica_dentro_de_6_a_12(self):
         """Faixa de hipertrofia. O teste é sobre a FAIXA, não sobre um valor
@@ -220,15 +245,28 @@ class OPerfilDeReferenciaRecebeUmaFichaDeVerdadeTests(TestCase):
     def test_a_duracao_de_cada_sessao_e_realista_e_cabe_no_tempo(self):
         """Nem subdimensionada nem estourando o teto.
 
-        O piso de 30 minutos é o que separa "sessão de musculação planejada" de
-        lista de exercícios: as sessões de 21 a 26 minutos que este perfil
+        O piso de 30 minutos era o que separava "sessão de musculação planejada"
+        de lista de exercícios: as sessões de 21 a 26 minutos que este perfil
         recebia antes eram o sintoma, não a meta. O teto é o tempo informado
         mais a folga documentada — noventa minutos são limite, não alvo.
+
+        O PISO DESCEU PARA 25 EM 10/09/2026, E O MOTIVO NÃO É AFROUXAR.
+        `repartir_ocorrencia` passou a dividir os exercícios do modelo entre as
+        passagens da letra, então A1 e A2 têm metade dos exercícios cada — e
+        29 minutos, não os 45 de quando as duas recebiam o modelo inteiro. O
+        volume da SEMANA não caiu; ele foi distribuído, que é o que a auditoria
+        pediu.
+
+        E a intenção do piso continua cobrada, agora pelo número que a
+        expressava de verdade: o sintoma antigo eram sessões de DOIS ou TRÊS
+        exercícios. A asserção de contagem abaixo é a que separa sessão de
+        lista; o minuto sozinho nunca separou.
         """
         teto = float(services._teto_em_segundos(90)) / 60
         for sessao in self.plano.sessions.all():
             with self.subTest(dia=sessao.weekday, label=sessao.label):
-                self.assertGreaterEqual(sessao.estimated_minutes, 30)
+                self.assertGreaterEqual(sessao.exercises.count(), 4)
+                self.assertGreaterEqual(sessao.estimated_minutes, 25)
                 self.assertLessEqual(sessao.estimated_minutes, teto)
 
     def test_a_duracao_conta_aquecimento_descanso_e_transicao(self):

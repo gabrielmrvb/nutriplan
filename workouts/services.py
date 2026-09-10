@@ -520,16 +520,20 @@ def escolher_para_o_tempo(itens, minutos_disponiveis) -> list:
     # ausência como um número grande funcionaria por acidente hoje e passaria a
     # cortar no dia em que o catálogo crescesse.
     if minutos_disponiveis is None:
-        return list(range(len(itens)))
+        return [(i, itens[i][1]) for i in range(len(itens))]
 
     teto = _teto_em_segundos(minutos_disponiveis)
     ficam = list(range(len(itens)))
+    # As séries que cada item ainda tem. Começa no que o catálogo pede e só
+    # desce quando não há mais exercício que possa sair — ver o ramo de
+    # redução abaixo.
+    series = {i: itens[i][1] for i in range(len(itens))}
 
     while len(ficam) > 1:
         # A conta precisa saber se e composto: composto tem serie de
         # aproximacao, e ela ocupa o relogio.
         atual = [
-            (itens[i][1], itens[i][2], itens[i][3] >= ACESSORIO) for i in ficam
+            (series[i], itens[i][2], itens[i][3] >= ACESSORIO) for i in ficam
         ]
         if _segundos_da_sessao(atual) <= teto:
             break
@@ -539,8 +543,71 @@ def escolher_para_o_tempo(itens, minutos_disponiveis) -> list:
         # reduzir o Supino reto". O rodízio por grupo continua valendo, mas só
         # DENTRO do degrau que está cedendo; senão a sessão cede o composto
         # principal de pernas para poupar duas roscas.
+        # NUNCA O ÚLTIMO EXERCÍCIO DE UM GRUPO — a trava que faltava aqui.
+        #
+        # `aparar_volume_semanal` já tinha esta trava; o corte por tempo, não.
+        # Medido em 10/09/2026 com "até 30 minutos": a ficha "Peito, tríceps e
+        # ombro" saía com Supino e Desenvolvimento e ZERO tríceps, com o
+        # tríceps ainda no título; "Costas, bíceps, antebraço e trapézio"
+        # perdia TRÊS dos quatro grupos anunciados. O rodízio tirava do grupo
+        # mais cheio até o grupo mais cheio ser o único que ainda tinha dois —
+        # e depois tirava o último dos outros.
+        #
+        # Com a trava, o tempo continua sendo teto e continua cortando; o que
+        # ele não faz mais é apagar um músculo que o título promete.
+        vivos_por_grupo = {}
+        for i in ficam:
+            vivos_por_grupo[itens[i][0]] = vivos_por_grupo.get(itens[i][0], 0) + 1
+
         grau_minimo = min(itens[i][3] for i in ficam)
-        elegiveis = [i for i in ficam if itens[i][3] == grau_minimo]
+        elegiveis = [
+            i for i in ficam
+            if itens[i][3] == grau_minimo and vivos_por_grupo[itens[i][0]] > 1
+        ]
+        if not elegiveis:
+            # Nenhum grupo tem o que ceder sem desaparecer. Sobe um degrau de
+            # prioridade antes de desistir: é preferível tirar um composto
+            # acessório de um grupo com dois a apagar o único isolador de
+            # outro.
+            elegiveis = [i for i in ficam if vivos_por_grupo[itens[i][0]] > 1]
+        if not elegiveis:
+            # TODO GRUPO COM UM EXERCÍCIO SÓ. Antes de apagar músculo, REDUZ
+            # SÉRIE — é a ordem que a especificação fixa: "se o contrato
+            # completo não couber, reduza séries ou quantidade de exercícios de
+            # forma equilibrada e mantenha cobertura mínima".
+            #
+            # O caso que obriga isto é o corpo inteiro: `full A` tem NOVE
+            # grupos com um exercício cada, então nenhum pode sair sem apagar um
+            # músculo — e a sessão inteira dava 68 minutos contra um teto de 30.
+            # Cortar exercício ali produziria a "ficha de agachamento e supino"
+            # que o relato descreve; reduzir série mantém os nove movimentos.
+            #
+            # Cede sempre quem tem MAIS série, e o piso respeita
+            # `PISO_COMPOSTO`: abaixo de três um composto vira aquecimento.
+            reduziveis = [
+                i for i in ficam
+                if series[i] > (PISO_COMPOSTO if itens[i][3] >= ACESSORIO else 2)
+            ]
+            if not reduziveis:
+                # ÚLTIMO RECURSO, e a ordem é o que importa aqui.
+                #
+                # Chegando neste ponto: já saiu todo exercício que podia sair
+                # sem apagar músculo, e já desceu toda série que podia descer
+                # sem virar aquecimento. O que resta é a aritmética — medido,
+                # `ab A` tem oito exercícios em SETE grupos, e sete exercícios
+                # no piso de série ainda dão 42 minutos contra um teto de 30.
+                #
+                # Aqui o relógio volta a ganhar, porque ele é o limite mais
+                # duro e a pessoa combinou 30 minutos. `aviso_de_tempo` conta
+                # à pessoa que a ficha foi apertada. A concessão anterior era
+                # tirar exercício ANTES de reduzir série, e é isso que produzia
+                # "Peito, tríceps e ombro" sem tríceps com nove exercícios
+                # ainda em pé.
+                elegiveis = list(ficam)
+            else:
+                alvo = max(reduziveis, key=lambda i: (series[i], -i))
+                series[alvo] -= 1
+                continue
 
         quantos = {}
         for i in elegiveis:
@@ -551,7 +618,10 @@ def escolher_para_o_tempo(itens, minutos_disponiveis) -> list:
         )
         ficam.remove(alvo)
 
-    return ficam
+    # Devolve o índice E as séries: quando a redução entrou em cena, o número
+    # do catálogo deixou de valer para aquele item, e quem prescreve precisa
+    # saber disso.
+    return [(i, series[i]) for i in ficam]
 
 
 def volume_efetivo(itens) -> dict:
@@ -682,6 +752,60 @@ def aparar_volume_semanal(candidatos, teto=None) -> set:
         ficam.discard(alvo[0])
 
 
+def repartir_ocorrencia(itens, indice, ocorrencias):
+    """Os itens que ESTA passagem da letra recebe.
+
+    O DEFEITO QUE ISTO FECHA, medido em 10/09/2026 no perfil de referência.
+    Quando a letra repete na semana, as duas passagens recebiam a lista INTEIRA
+    do modelo. O volume dobrava, `aparar_volume_semanal` cortava para o teto
+    semanal caber — e o que ela cortava era variedade:
+
+        7 dias, antes:  A1 e A2 dividiam 3 exercícios iguais dos 4 que tinham;
+                        C1 e C2 dividiam 4; a semana fechava com 2 exercícios
+                        distintos de peito, contra os 4 que o modelo lista.
+
+    Repare que o catálogo não era o limite: `abcd A` já traz os QUATRO peitos e
+    os TRÊS tríceps que o contrato pede. Eles entravam duas vezes e o aparo os
+    derrubava. Quem estava errado era a duplicação, não o teto.
+
+    A linha exata: `prescrever_semana` calculava `indice = vistas.get(label, 0)`
+    e nunca usava. O número da ocorrência era conhecido e jogado fora.
+
+    COMO REPARTE. Por GRUPO MUSCULAR, e não pela lista inteira: repartir o
+    conjunto todo deixaria uma passagem sem peito e a outra sem tríceps. Dentro
+    de cada grupo, distribuição em rodízio pela ordem do modelo — a passagem
+    `i` de `n` leva as posições `i`, `i+n`, `i+2n`... Determinístico e estável:
+    mesma entrada, mesma saída, sempre.
+
+    QUANDO O GRUPO TEM MENOS EXERCÍCIOS QUE PASSAGENS, ele repete — e só aí.
+    É a cláusula "só permitir repetição depois de esgotar o catálogo elegível",
+    e ela é o que impede o outro defeito: `abc B` tem UM antebraço e UM
+    trapézio, e reparti-los deixaria a segunda passagem anunciando dois
+    músculos que ela não treina.
+    """
+    if ocorrencias <= 1:
+        return list(itens)
+
+    por_grupo = {}
+    for item in itens:
+        por_grupo.setdefault(item.exercise.muscle_group, []).append(item)
+
+    escolhidos = []
+    for grupo, do_grupo in por_grupo.items():
+        if len(do_grupo) >= ocorrencias:
+            escolhidos.extend(do_grupo[indice::ocorrencias])
+        else:
+            # Pool esgotado: cada passagem leva um, ciclando. Ninguém fica sem
+            # o grupo, e a repetição é a saída de último caso, não a primeira.
+            escolhidos.append(do_grupo[indice % len(do_grupo)])
+
+    # Devolve na ORDEM DO MODELO. `prioridades_da_sessao` lê a ordem da ficha
+    # para decidir o grau, e devolver agrupado por músculo mudaria o grau de
+    # exercício que não mudou de lugar nenhum.
+    posicao = {id(item): i for i, item in enumerate(itens)}
+    return sorted(escolhidos, key=lambda item: posicao[id(item)])
+
+
 #: Sentinela para `prescrever_semana`: `None` É um teto válido — significa
 #: "sem limite rígido" —, então ele não pode servir de "não informado".
 _NAO_INFORMADO = object()
@@ -739,6 +863,13 @@ def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO,
     vistas = {}
     por_sessao = {}
     ordem_semanal = []
+    # Quantas vezes cada letra aparece na semana — precisa ser sabido ANTES de
+    # montar a primeira sessão, porque é ele que diz em quantas partes o modelo
+    # se reparte. Ver `repartir_ocorrencia`.
+    ocorrencias = {}
+    for sessao in sessoes:
+        ocorrencias[sessao.label] = ocorrencias.get(sessao.label, 0) + 1
+
     for sessao in sessoes:
         modelo = modelos.get(sessao.label)
         if modelo is None:
@@ -756,6 +887,10 @@ def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO,
         # exercício aposentado some das prescrições NOVAS no mesmo instante,
         # mesmo que algum modelo ainda o referencie.
         itens = [item for item in modelo.items.all() if item.exercise.is_active]
+        # A REPARTIÇÃO VEM ANTES DO GRAU, e a ordem importa: o grau é da
+        # SESSÃO ("o composto de maior dose de cada grupo, um por grupo"), e
+        # calcular sobre a lista inteira daria a A2 o grau que A1 tem.
+        itens = repartir_ocorrencia(itens, indice, ocorrencias[sessao.label])
         graus = prioridades_da_sessao(itens)
         candidatos = [
             (item, dose_da_sessao(item), grau)
@@ -801,9 +936,11 @@ def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO,
             ],
             teto,
         )
-        for i in ficam:
-            item, series, _grau = restantes[i]
-            prescricao[(sessao.pk, item.exercise_id)] = (series, item)
+        for i, series_finais in ficam:
+            item, _series_do_catalogo, _grau = restantes[i]
+            # `series_finais` e não o número do catálogo: quando a sessão só
+            # coube reduzindo série, é a reduzida que a pessoa faz.
+            prescricao[(sessao.pk, item.exercise_id)] = (series_finais, item)
     return prescricao
 
 

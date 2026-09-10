@@ -234,9 +234,17 @@ class AsOcorrenciasRepetidasSeDistinguemTests(TestCase):
             {i.exercise_id for i in s.exercises.all()} for s in ocorrencias
         ]
 
+        # ERAM IDÊNTICAS ATÉ 10/09/2026, e é por isso que a frase da ficha
+        # não promete variedade. `repartir_ocorrencia` mudou o fato: as três
+        # passagens agora trazem exercícios DIFERENTES.
+        #
+        # A frase continua honesta — ela fala do teto semanal, que segue
+        # valendo, e não afirma que as passagens são iguais. O que este teste
+        # guarda mudou de "são idênticas" para "não repetem", que é o contrato
+        # novo.
         self.assertEqual(len(conjuntos), 3)
-        self.assertEqual(conjuntos[0], conjuntos[1])
-        self.assertEqual(conjuntos[1], conjuntos[2])
+        self.assertEqual(conjuntos[0] & conjuntos[1], set())
+        self.assertEqual(conjuntos[1] & conjuntos[2], set())
         for sessao in ocorrencias:
             ficha = self.client.get(
                 reverse("workouts:ficha", args=[sessao.pk])

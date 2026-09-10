@@ -4897,11 +4897,22 @@ class MatrizDeVolumeTests(TestCase):
 
         self.assertEqual(frequencia(tres, MuscleGroup.CHEST), 1)
         self.assertEqual(frequencia(quatro, MuscleGroup.CHEST), 2)
-        # O volume SOBE com a frequência — e é isso que se quer, porque a dose
-        # de cada sessão continua cheia. O que ele não pode é passar do teto.
-        # A versão anterior exigia igualdade, e igualdade só era possível
-        # cortando a dose pela metade.
-        self.assertGreater(
+        # O VOLUME SEMANAL FICA ESTÁVEL, e o ganho é a DISTRIBUIÇÃO. Esta
+        # asserção já mudou de sentido duas vezes, e as duas com motivo
+        # escrito:
+        #
+        #   - a primeira versão exigia igualdade, e igualdade só era possível
+        #     cortando a dose pela metade;
+        #   - a segunda exigiu aumento, porque a dose de cada sessão continuava
+        #     cheia — as duas passagens de A recebiam o modelo INTEIRO;
+        #   - a terceira, de 10/09/2026, aceita estabilidade: `repartir_
+        #     ocorrencia` divide os exercícios do modelo entre as passagens, e
+        #     é isso que a auditoria pediu ("o volume não deve ser duplicado
+        #     cegamente"). Peito passa a ser treinado DUAS vezes na semana com
+        #     o mesmo volume repartido, que é o argumento da frequência maior.
+        #
+        # O que não pode é CAIR: repartir não é cortar.
+        self.assertGreaterEqual(
             self._semanal(quatro)[MuscleGroup.CHEST],
             self._semanal(tres)[MuscleGroup.CHEST],
         )
@@ -5619,7 +5630,12 @@ class OrcamentoDeTempoTests(TestCase):
         itens = [("chest", 4, 80, 2), ("chest", 3, 60, 0), ("triceps", 3, 60, 0)]
 
         self.assertEqual(
-            services.escolher_para_o_tempo(itens, None), [0, 1, 2]
+            services.escolher_para_o_tempo(itens, None),
+            # Índice E séries: desde 10/09/2026 o corte pode REDUZIR série em
+            # vez de apagar músculo, então quem prescreve precisa saber com
+            # quantas séries cada item saiu. Sem faixa não há corte, e as
+            # séries voltam iguais às do catálogo.
+            [(0, itens[0][1]), (1, itens[1][1]), (2, itens[2][1])]
         )
 
     def test_o_caso_do_relato_trinta_minutos(self):
@@ -5688,8 +5704,21 @@ class OrcamentoDeTempoTests(TestCase):
         # tempo — é essa a pré-condição que os testes abaixo usam para provar
         # que o orçamento não truncou nada.
         candidatos, esperado = [], []
+        vistas = {}
         for ordem_sessao, rotulo in enumerate(escala):
             itens = [i for i in modelos[rotulo].items.all() if i.exercise.is_active]
+            # A REPARTIÇÃO ENTRA AQUI TAMBÉM, e isto é o ponto fraco deste
+            # auxiliar: ele REPRODUZ o motor sem a lógica de tempo, então toda
+            # regra nova do motor precisa ser copiada para cá. Quando
+            # `repartir_ocorrencia` nasceu, em 10/09/2026, este auxiliar
+            # continuou montando a ficha antiga e o teste reprovou o motor
+            # corrigido — comparando contra um modelo obsoleto do próprio
+            # motor.
+            indice = vistas.get(rotulo, 0)
+            vistas[rotulo] = indice + 1
+            itens = services.repartir_ocorrencia(
+                itens, indice, ocorrencias[rotulo]
+            )
             graus = services.prioridades_da_sessao(itens)
             for item, grau in zip(itens, graus):
                 chave = (ordem_sessao, item.exercise_id)
@@ -5886,12 +5915,22 @@ class OrcamentoDeTempoTests(TestCase):
             for i in s.exercises.select_related("exercise")
         }
 
-        self.assertTrue(
-            grupos_previstos - grupos_presentes,
-            "15 minutos deixaram de ser um caso apertado — reveja este teste",
+        # O CASO DEIXOU DE PERDER GRUPO EM 10/09/2026, e é notícia boa.
+        #
+        # O corte por tempo passou a REDUZIR SÉRIE antes de apagar músculo — a
+        # ordem que a auditoria de produção exigiu, depois de "Peito, tríceps e
+        # ombro" sair sem tríceps. Com trinta minutos e três dias em ABC, todos
+        # os grupos do modelo continuam na ficha, com menos série cada.
+        #
+        # O que este teste guarda mudou junto: era "perde grupo e avisa", virou
+        # "NÃO perde grupo, e a nota não promete o que não aconteceu".
+        self.assertEqual(
+            grupos_previstos - grupos_presentes, set(),
+            "trinta minutos voltaram a apagar grupo — a redução de série "
+            "deixou de vir antes do corte de exercício",
         )
-        self.assertIn("não cabem todos os grupos", plan.notes)
-        self.assertIn("Aumentar o tempo", plan.notes)
+        self.assertNotIn("não cabem todos os grupos", plan.notes)
+        self.assertIn("tempo que você informou", plan.notes)
 
     def test_quando_nada_e_cortado_a_nota_nao_fala_de_tempo(self):
         """Aviso que aparece sempre vira ruído e deixa de ser lido."""
