@@ -134,19 +134,48 @@ impedir, e que já custou uma sexta-feira esvaziada até dois exercícios. Entre
 entregar personalização quebrada e não entregar, a escolha foi a segunda, com
 o número escrito.
 
-**O bloqueio é de DADO, não de código.** O que destrava é catálogo, e a matriz
-diz exatamente o quê: **panturrilha e antebraço com halter ou peso corporal**
-(hoje zero dos dois, em ambos), e **posterior de coxa com halter ou peso
-corporal** (hoje zero). São três buracos, e um punhado de exercícios cobre os
-três — stiff com halteres, elevação pélvica, panturrilha unilateral em pé,
-rosca inversa com halteres. Para "peso corporal" o buraco é grande demais para
-uma leva: faltam oito grupos.
+**O bloqueio é de DADO, não de código, e a medição de 10/09/2026 diz o número
+exato.** A campanha seguinte varreu os 31 recortes possíveis de equipamento e
+simulou o cadastro que falta. Resultado:
 
-A régua já está no repositório e falha sozinha no dia em que a cobertura
-chegar: `OCatalogoAindaNaoSustentaEquipamentoTests`, em
-`workouts/test_experiencia.py`. Ela é catraca ao contrário — enquanto houver
-buraco ela passa; quando o catálogo cobrir, ela fica vermelha e avisa que a
-personalização virou implementável.
+| ambiente | status hoje | exercícios a cadastrar | quais |
+|---|---|---|---|
+| academia completa | **SUPORTADO** | 0 | é o conjunto completo — não restringe nada |
+| casa + halteres | NÃO SUPORTADO | **3** | 1 de panturrilha, 1 de antebraço, 1 de posterior de coxa — todos com halteres |
+| casa + barra | NÃO SUPORTADO | **3** | 1 de costas, 1 de panturrilha, 1 de ombros — peso do corpo |
+| peso corporal | NÃO SUPORTADO | **8** | costas, bíceps, panturrilha, antebraço, posterior, quadríceps, ombros, trapézio |
+
+Os três exercícios de "casa + halteres" são o item mais barato do backlog de
+conteúdo do app: com eles, o ambiente vira SUPORTADO pela régua, sem sessão
+curta e sem grupo descoberto.
+
+**A CAUSA são três monopólios de equipamento**, e é isso que reprova 30 dos 31
+recortes: core é 3 de 3 em peso do corpo, antebraço 2 de 2 em barra,
+panturrilha 2 de 2 em máquina. Enquanto um grupo inteiro depender de um único
+equipamento, todo recorte que exclua esse equipamento perde o grupo.
+
+**E FILTRAR NÃO É O CAMINHO**, porque a prescrição copia modelos curados em vez
+de selecionar do catálogo: um filtro ingênuo deixa `abcde-C` com ZERO
+exercícios em casa + halteres. Uma implementação real precisa de SUBSTITUIÇÃO —
+trocar o item que caiu por outro do mesmo grupo —, e o app **não tem sistema de
+substituição**: ele existiu em `7819b30` e foi removido em `d86d9c7`. Isso é
+parte do custo, e não um detalhe.
+
+São DUAS réguas no repositório, e as duas são catraca ao contrário — enquanto
+houver buraco elas passam; quando o catálogo cobrir, ficam vermelhas e avisam
+que a personalização virou implementável:
+
+- `OCatalogoAindaNaoSustentaEquipamentoTests`, em
+  `workouts/test_experiencia.py`, mede a COBERTURA por grupo;
+- `workouts/test_capacidade_de_ambiente.py` mede o que o MOTOR faria — o que
+  sobra de cada modelo curado —, congela o veredito de cada ambiente e proíbe a
+  tela de oferecer a escolha enquanto o veredito for NÃO SUPORTADO.
+
+**Freshness, para quem for implementar:** não crie campo novo no snapshot do
+plano. `_prescricao_confere` chama `prescrever_semana` de novo, então um filtro
+de equipamento DENTRO do motor já invalida a ficha antiga sozinho — foi o que a
+faixa de duração provou por sabotagem, e a coluna redundante criada para isso
+naquela campanha teve de ser removida.
 
 O que FOI entregue na mesma campanha, porque o catálogo sustenta:
 `Profile.experiencia`, que move o teto semanal por grupo (12 / 20 / 24) e

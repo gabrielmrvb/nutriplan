@@ -35,7 +35,7 @@ O PostgreSQL é portátil (`C:\Users\biel-\pgsql`, cluster em
 | `accounts` | usuário, perfil, peso, dias de treino, `SyncedOperation` |
 | `catalog` | alimentos e receitas (TACO/IBGE/USDA) |
 | `plans` | motor nutricional, cardápio, hidratação, ofensiva, voz |
-| `workouts` | ficha, cargas, assistente de ajuste, exportação de saúde |
+| `workouts` | ficha, cargas, catálogo de exercícios, exportação de saúde |
 | `supplements` | catálogo e checklist |
 | `push` | service worker, manifesto, notificações |
 
@@ -432,11 +432,41 @@ composto principal fica onde está: medido, o ombro fecha em 14,5 com o teto em
 tratar o teto como garantia vai "consertar" as travas e esvaziar um treino.
 
 **Personalização por LOCAL e EQUIPAMENTO está bloqueada pelo CATÁLOGO, não por
-escopo.** Dos 11 grupos, "casa com halteres" deixa posterior de coxa,
-panturrilha e antebraço com ZERO exercícios, e "peso corporal" esvazia 8 dos 11.
-O filtro entregaria ficha sem grupo inteiro. A régua está em
-`workouts/test_experiencia.py` e é catraca ao contrário: fica vermelha no dia
-em que o catálogo cobrir, avisando que dá para implementar.
+escopo — e a medição de 10/09/2026 diz exatamente quanto falta.**
+
+O erro de leitura a evitar é achar que basta filtrar. A prescrição não SELECIONA
+exercícios: `prescrever_semana` copia MODELOS curados de `splits.json`, com os
+nomes escritos. Filtrar por equipamento não troca de exercício — abre BURACO no
+modelo. Medido nos 15 modelos: em "casa + halteres" oito perdem grupo sem
+substituto e `abcde-C` termina com ZERO exercícios; em "peso corporal" são treze
+modelos e sete zerados.
+
+**Varridos os 31 recortes possíveis de equipamento, UM é viável: o conjunto
+completo** — ou seja, nenhuma restrição, que é o comportamento de hoje. A causa
+é estrutural, e são três monopólios: **core** é 3 de 3 em peso do corpo,
+**antebraço** 2 de 2 em barra, **panturrilha** 2 de 2 em máquina. Todo recorte
+que exclua um desses três perde o grupo inteiro.
+
+O que destrava, medido por simulação e não estimado: **casa + halteres precisa
+de TRÊS exercícios** (panturrilha, antebraço e posterior de coxa, com halteres)
+e vira SUPORTADO; casa + barra precisa de três; peso corporal, de oito. A tabela
+está no `BACKLOG.md`.
+
+E NÃO EXISTE CAMPO DE AMBIENTE NO PERFIL, de propósito. Guardar a preferência
+antes de o motor poder obedecê-la é criar preferência que não vira nada — o
+mesmo defeito de veracidade que `prioridade == ""` evita do outro lado.
+`workouts/test_capacidade_de_ambiente.py` guarda as duas metades: o veredito
+congelado de cada ambiente, que fica VERMELHO quando o catálogo passar a
+sustentar, e a proibição de a tela oferecer a escolha enquanto isso não
+acontece.
+
+**`Equipment` é dado de catálogo sem consumidor no motor**, e isso está dito no
+próprio modelo. O campo nasceu para o assistente de troca ("a máquina está
+ocupada"), que entrou em `7819b30` e saiu em `d86d9c7`; `DISPUTADOS` e
+`disputa_equipamento` sobreviveram à remoção como código morto por três
+campanhas e saíram em 10/09/2026, junto com dois helpers de teste que chamavam
+um módulo `assistant` inexistente. **Não há sistema de substituição de
+exercício no app.**
 
 **A ficha tem rota própria, e a tela de Treino não desenha mais os cartões.**
 `workouts:ficha` (`/treino/ficha/<id>/`) serve UMA sessão; a tela de Treino

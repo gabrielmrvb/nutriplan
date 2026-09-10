@@ -39,7 +39,6 @@ from accounts.models import (
 from . import services
 from .services import SPLIT_BY_PREFERENCE, preferencia_muda_a_divisao
 from .models import (
-    Equipment,
     Exercise,
     ExerciseLog,
     SessionExercise,
@@ -2028,43 +2027,6 @@ class AnimationImportTests(TestCase):
                          "elemento.loop = true", "elemento.autoplay = true"):
             with self.subTest(atributo=atributo):
                 self.assertIn(atributo, bloco)
-
-# ==========================================================================
-# Assistente de ajuste
-# ==========================================================================
-
-def _com_alternativa(plan):
-    """Um item da rotina cujo grupo muscular ainda tem substituto no catálogo.
-
-    Peito, bíceps, panturrilha e tríceps não têm: a ficha gerada já usa todos
-    os exercícios do grupo. Escolher o alvo às cegas testaria a ausência de
-    alternativa em vez da escolha da alternativa.
-    """
-    for sessao in plan.sessions.order_by("order"):
-        for item in sessao.exercises.select_related("exercise").order_by("order"):
-            if assistant.candidatos_para(item):
-                return sessao, item
-    raise AssertionError("nenhum exercício do catálogo tem substituto")
-
-
-def _sem_alternativa(plan):
-    """Um item cujo grupo muscular está esgotado — o caso que exige a verdade."""
-    for sessao in plan.sessions.order_by("order"):
-        for item in sessao.exercises.select_related("exercise").order_by("order"):
-            if not assistant.candidatos_para(item):
-                return sessao, item
-    raise AssertionError("todo exercício tem substituto — fixture mudou")
-
-
-
-
-
-
-
-
-
-
-
 
 # ==========================================================================
 # Repetições, cronômetro automático e exportação

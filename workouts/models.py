@@ -52,10 +52,20 @@ class Measure(models.TextChoices):
 class Equipment(models.TextChoices):
     """O que o exercício ocupa na academia.
 
-    Existe por causa de um pedido só — "a máquina está ocupada" — e é ele que
-    define o corte útil: de um lado o que forma fila (máquina, polia), do
-    outro o que quase sempre sobra (halteres, peso do corpo). Barra fica no
-    meio: costuma ter menos fila que máquina e mais que halter.
+    NASCEU PARA O ASSISTENTE DE TROCA, QUE NÃO EXISTE MAIS. O corte — de um
+    lado o que forma fila (máquina, polia), do outro o que quase sempre sobra
+    (halteres, peso do corpo) — servia a um pedido só: "a máquina está
+    ocupada". O assistente entrou em `7819b30` e saiu em `d86d9c7`, e junto com
+    ele foi embora o único leitor deste campo. `DISPUTADOS` e
+    `disputa_equipamento` sobreviveram à remoção como código morto por três
+    campanhas, e saíram em 10/09/2026.
+
+    HOJE O CAMPO É DADO DE CATÁLOGO SEM CONSUMIDOR NO MOTOR, e isso é
+    deliberado: `workouts/test_capacidade_de_ambiente.py` mede que o catálogo
+    ainda não sustenta nenhum recorte de ambiente além do conjunto completo —
+    um filtro por equipamento abriria buraco nos modelos curados. O campo fica
+    porque é verdadeiro e porque é o insumo daquela medição; o que não existe é
+    a promessa de personalização em cima dele.
     """
 
     BARBELL = "barbell", "barra"
@@ -64,10 +74,6 @@ class Equipment(models.TextChoices):
     CABLE = "cable", "polia"
     BODYWEIGHT = "bodyweight", "peso do corpo"
 
-
-#: Equipamentos que formam fila numa academia cheia. É a lista que o assistente
-#: consulta quando o motivo da troca é equipamento ocupado.
-DISPUTADOS = (Equipment.MACHINE, Equipment.CABLE)
 
 #: As articulações que o app sabe nomear, e os termos que a pessoa usa para
 #: falar delas. O mapa é de sinônimo para chave — "lombar", "coluna" e "costas
@@ -333,11 +339,6 @@ class Exercise(models.Model):
     def is_vertical(self) -> bool:
         """Short do YouTube é vertical; forçar 16:9 nele deixa tarja preta."""
         return "/shorts/" in self.video_url
-
-    @property
-    def disputa_equipamento(self) -> bool:
-        """Costuma ter fila quando a academia enche."""
-        return self.equipment in DISPUTADOS
 
     @property
     def animation_kind(self) -> str:
