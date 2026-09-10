@@ -349,7 +349,16 @@
                 links para o passo 3 que esta tela emite — este entrou sem a
                 origem e a guarda ficou vermelha na mesma rodada.
               {% endcomment %}
-              <a href="{% url 'accounts:onboarding_step' step=3 %}?origem=treino">Mudar meus dias de treino</a>
+              {% comment %}
+                `btn-link` e não um `<a>` pelado. MEDIDO EM PRODUÇÃO a 390px,
+                antes da classe: 149x17 — a altura do texto. Todo outro link
+                desta tela tem 44px, inclusive os que moram dentro de
+                parágrafo: "Saiba mais" da tarja do demo tem 77x44 com esta
+                mesma classe, e o "Editar" do cabeçalho tem 49x44 por
+                `.card__head a`. O componente já existia; era só usá-lo.
+              {% endcomment %}
+              <a class="btn-link"
+                 href="{% url 'accounts:onboarding_step' step=3 %}?origem=treino">Mudar meus dias de treino</a>
             </p>
           {% endif %}
           <ol class="week-strip">

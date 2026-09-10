@@ -294,6 +294,56 @@ class AsOcorrenciasRepetidasSeDistinguemTests(TestCase):
         )
 
 
+class OLinkDaRessalvaCabeNoDedoTests(TestCase):
+    """O link "Mudar meus dias de treino" nasceu sem classe, e sem altura.
+
+    MEDIDO EM PRODUÇÃO em 09/09/2026, a 390px: 149x17 — a altura do texto,
+    contra os 44px que o `CLAUDE.md` exige de altura E de largura. Não é caso
+    de exceção para link inline: TODO link daquela tela tem 44, inclusive os
+    que moram dentro de parágrafo. "Saiba mais", na tarja do demo, tem 77x44
+    com `.btn-link`; "Editar", no cabeçalho do cartão, tem 49x44 por
+    `.card__head a`. O componente já existia — faltava usá-lo.
+
+    POR QUE O TESTE MORA AQUI E NÃO NA RÉGUA DO B7.
+    `TodoControleDasTelasNovasTemAlturaTests` varre templates procurando
+    controle sem "classe que carrega altura", e seria o lugar natural. O
+    modelo dele não descreve esta tela: `routine.html` tem controles cuja
+    altura vem de regra CONTEXTUAL e não de classe própria — o "Editar" acima
+    é exatamente isso, 49x44 sem classe nenhuma. Pôr a tela naquela lista
+    exigiria ou aceitar um falso positivo permanente, ou estender a lista de
+    classes com meia-verdade. Estender aquela régua para valer é trabalho
+    próprio; aqui fica a guarda do caso medido.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def test_o_link_da_ressalva_carrega_a_classe_que_tem_44px(self):
+        user = com_preferencia("dedo@exemplo.com", 4, SplitPreference.UM)
+        self.client.force_login(user)
+
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+
+        ressalva = html.split('class="programa__ressalva"', 1)
+        self.assertEqual(len(ressalva), 2, "a ressalva sumiu da tela")
+        trecho = ressalva[1].split("</p>", 1)[0]
+
+        self.assertIn("Mudar meus dias de treino", trecho)
+        self.assertIn('class="btn-link"', trecho)
+
+    def test_a_classe_continua_valendo_44px_no_css(self):
+        """A outra metade: a classe certa numa regra que encolheu não protege
+        ninguém. 2.75rem é 44px, e é o número que `TouchTargetTests` trava."""
+        css = (
+            pathlib.Path(settings.BASE_DIR) / "static" / "css" / "app.css"
+        ).read_text(encoding="utf-8")
+        regra = css.split(".btn-link {", 1)[1].split("}", 1)[0]
+
+        self.assertIn("min-height: 2.75rem", regra)
+        self.assertIn("min-width: 2.75rem", regra)
+
+
 class AExplicacaoNaoCustaConsultaTests(TestCase):
     """A ressalva é texto; ela não pode cobrar ida ao banco.
 
