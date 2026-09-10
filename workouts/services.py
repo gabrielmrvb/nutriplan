@@ -15,6 +15,7 @@ não de programação:
    a literatura mostra render mais que uma.
 """
 from dataclasses import dataclass, field
+import copy
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
@@ -532,28 +533,43 @@ def escolher_para_o_tempo(itens, minutos_disponiveis, principais=None) -> list:
     lista é COMPLEMENTAR, e a concessão acontece em CINCO CAMADAS, nesta ordem:
 
       1. excedente do complementar — a segunda panturrilha, o segundo abdominal;
-      2. excedente do anunciado — do degrau mais baixo, do grupo mais cheio;
-      3. redução de série, até o piso;
-      4. o ÚLTIMO exercício de um grupo complementar;
+      2. redução de série, do degrau mais BAIXO para o mais alto, até o piso;
+      3. o ÚLTIMO exercício de um grupo complementar;
+      4. excedente do anunciado — do degrau mais baixo, do grupo mais cheio;
       5. o último exercício de um grupo anunciado, e aí o título é reescrito.
 
-    AS DUAS ORDENS QUE JÁ FORAM MEDIDAS E REPROVADAS, porque cada uma quebra um
+    E no fim, a DEVOLUÇÃO: série volta enquanto couber, na ordem inversa.
+
+    A PRIORIDADE QUE ESTA ORDEM CODIFICA, e ela levou três tentativas:
+
+        grupos principais e variedade contratada
+          -> movimentos compostos
+            -> redução equilibrada de séries
+              -> complementares
+                -> aviso explícito do que não coube
+
+    AS TRÊS ORDENS ANTERIORES, medidas e reprovadas, cada uma por quebrar um
     contrato diferente:
 
       - **sem a distinção anunciado/complementar**, o rodízio por grupo mais
         cheio derrubava o bíceps: "Costas e bíceps" a 60 minutos saía com
         bíceps=1 e trapézio=1, porque bíceps tinha três isoladores e o
-        trapézio, com um só, estava protegido pela trava do último do grupo. A
-        ficha protegia o que o título não promete;
+        trapézio, com um só, estava travado. A ficha protegia o que o título
+        não promete;
       - **com o complementar cedendo INTEIRO na primeira camada**, panturrilha
         e abdômen ficavam órfãos da semana inteira em três, quatro e cinco
-        dias, no perfil de dois grupos por dia com 45 a 60 minutos: a letra C
-        cai uma vez só nessas frequências, e o que saía dela não voltava em
-        lugar nenhum.
+        dias: a letra C cai uma vez só nessas frequências, e o que saía dela
+        não voltava em lugar nenhum;
+      - **com a remoção do excedente ANUNCIADO antes da redução de série**,
+        saíam DOIS exercícios de bíceps para caber trapézio e antebraço, e a
+        semana fechava com bíceps=1 contra os três do contrato. Encaixar
+        complementar às custas da variedade contratada troca um defeito por
+        outro, e foi o que esta ordem corrigiu por último.
 
-    A ordem em cinco camadas entrega os dois: costas=4 e bíceps=3 no perfil de
-    referência, e ZERO grupo complementar órfão da semana em qualquer
-    frequência de 45 minutos para cima.
+    Medido em três preferências × sete frequências, a 45-60 minutos: quatro
+    peitos, quatro costas, três tríceps e três bíceps distintos por semana em
+    TODAS elas, com o supino reto em quatro séries, e nenhuma sessão passando
+    do teto.
 
     `principais` vazio ou ausente devolve o comportamento anterior — é o
     caminho de quem chama de fora (teste, shell) e de modelo sem a lista.
@@ -659,15 +675,8 @@ def escolher_para_o_tempo(itens, minutos_disponiveis, principais=None) -> list:
         # CAMADA 1 — O EXCEDENTE DO COMPLEMENTAR.
         #
         # Não é "o complementar inteiro": é a SEGUNDA panturrilha, o SEGUNDO
-        # abdominal, o segundo antebraço. O grupo continua na sessão.
-        #
-        # Uma versão anterior desta função, de 10/09/2026, derrubava o
-        # complementar inteiro nesta camada, e o resultado foi medido: no perfil
-        # de dois grupos por dia com 45 a 60 minutos, panturrilha e abdômen
-        # ficavam órfãos da semana INTEIRA em três, quatro e cinco dias — a
-        # letra C cai uma vez só nessas frequências, e o que saía dela não
-        # voltava em lugar nenhum. Eu tinha chamado isso de limitação
-        # aritmética; a medição desmentiu, e a diferença era só a ordem.
+        # abdominal, o segundo antebraço. O grupo continua na sessão, e nenhum
+        # exercício de grupo anunciado foi tocado para isso.
         excedente = [
             i for i in ficam
             if _e_complementar(itens[i][0]) and vivos_por_grupo[itens[i][0]] > 1
@@ -678,59 +687,41 @@ def escolher_para_o_tempo(itens, minutos_disponiveis, principais=None) -> list:
             )
             continue
 
-        # CAMADA 2 — O EXCEDENTE DO ANUNCIADO.
+        # CAMADA 2 — REDUZIR SÉRIE, e ela vem ANTES de qualquer remoção de
+        # exercício anunciado.
         #
-        # Do degrau mais baixo primeiro (isolador antes de composto acessório,
-        # acessório antes de principal), e do grupo mais cheio da sessão. Nunca
-        # o último de um grupo: isso é a camada 5.
-        excedente = [
-            i for i in ficam
-            if not _e_complementar(itens[i][0]) and vivos_por_grupo[itens[i][0]] > 1
-        ]
-        if excedente:
-            ficam.remove(
-                _quem_cede(_do_degrau_mais_baixo(excedente), itens, vivos_por_grupo)
-            )
-            continue
-
-        # CAMADA 3 — REDUZIR SÉRIE, até o piso.
+        # É a correção de 10/09/2026, e ela desfaz uma troca que eu tinha feito
+        # errado. A ordem anterior removia o excedente ANUNCIADO nesta altura, e
+        # o preço estava medido: no dia de puxar com três ou quatro dias, saíam
+        # DOIS exercícios de bíceps para caber trapézio e antebraço, e a semana
+        # fechava com bíceps=1 contra os três que o contrato pede. Encaixar
+        # complementar às custas da variedade contratada é o contrário da
+        # prioridade — grupos principais e variedade vêm primeiro.
         #
-        # Antes de qualquer grupo sair, inclusive complementar. É a ordem que a
-        # especificação fixa — "reduza séries ou quantidade de exercícios de
-        # forma equilibrada e mantenha cobertura mínima" — e ela vale aqui
-        # porque, chegando neste ponto, TODO grupo da sessão está com um
-        # exercício só: qualquer remoção apaga um músculo.
+        # A REDUÇÃO É GRADUADA, e sem isso ela produz o outro defeito. Cedendo
+        # sempre "quem tem mais série", o primeiro a cair é o composto
+        # PRINCIPAL, que é justamente quem tem quatro — o agachamento perdia
+        # série antes da rosca. Aqui cede o degrau mais baixo primeiro:
+        # isolador, depois composto acessório, e o principal por último.
         #
-        # Medido: é esta camada, e não a anterior, que salva a panturrilha do
-        # `abc C` em três dias com "até 30 minutos". Cede sempre quem tem mais
-        # série, e o piso respeita `PISO_COMPOSTO` — abaixo de três um composto
-        # vira aquecimento.
+        # Medido no dia de puxar a 60 minutos com três dias: quatro costas,
+        # três bíceps, trapézio e antebraço cabem em 60 exatos, com as roscas
+        # em duas séries e as costas intactas.
         reduziveis = [
             i for i in ficam
             if series[i] > (PISO_COMPOSTO if itens[i][3] >= ACESSORIO else 2)
         ]
         if reduziveis:
-            alvo = max(reduziveis, key=lambda i: (series[i], -i))
+            alvo = min(reduziveis, key=lambda i: (itens[i][3], -series[i], i))
             series[alvo] -= 1
             continue
 
-        # CAMADA 4 — O ÚLTIMO COMPLEMENTAR SAI.
+        # CAMADA 3 — O ÚLTIMO COMPLEMENTAR SAI.
         #
-        # Aqui o grupo complementar deixa a sessão. Ele volta na outra passagem
-        # da letra quando ela existe; quando não existe, some da semana, e é
-        # `aviso_de_tempo` que diz isso à pessoa em vez de a ficha omitir.
-        #
-        # Que este caso EXISTE está medido: em `abc2 C` com "até 30 minutos",
-        # os três compostos principais no PISO de série custam 28,2 minutos, e
-        # o complementar mais barato do catálogo leva a sessão a 31,8 contra um
-        # teto de 30.
-        #
-        # E a frase honesta não é "é impossível": cinco isoladores — extensora,
-        # mesa flexora, elevação lateral, panturrilha sentado e prancha —
-        # cobrem os cinco grupos em 20,7 minutos. O que isso não é, é um dia de
-        # perna. Derrubar o agachamento e o stiff para encaixar o relógio é
-        # exatamente o que o contrato proíbe, então a escolha é consciente e o
-        # preço dela é `aviso_de_tempo` dizer o que ficou fora.
+        # Só aqui, com toda série já no piso. O grupo complementar deixa a
+        # sessão; ele volta na outra passagem da letra quando ela existe, e
+        # quando não existe some da semana — e aí é `aviso_de_tempo` que diz
+        # isso com o nome do músculo, em vez de a ficha omitir.
         ultimos = [i for i in ficam if _e_complementar(itens[i][0])]
         if ultimos:
             ficam.remove(
@@ -738,19 +729,56 @@ def escolher_para_o_tempo(itens, minutos_disponiveis, principais=None) -> list:
             )
             continue
 
-        # CAMADA 5 — ÚLTIMO RECURSO: um grupo ANUNCIADO cai.
+        # CAMADA 4 — O EXCEDENTE DO ANUNCIADO.
         #
-        # Já saiu todo excedente, já desceu toda série que podia descer e já
-        # saiu todo complementar. O que resta é a aritmética — medido, `ab A`
-        # tem oito exercícios em SETE grupos, e sete exercícios no piso de série
-        # ainda dão 42 minutos contra um teto de 30.
+        # Do degrau mais baixo e do grupo mais CHEIO da sessão. Chegando aqui,
+        # já não há complementar nenhum na ficha e toda série está no piso: o
+        # que sobra é escolher qual músculo anunciado perde variedade.
+        excedente = [i for i in ficam if vivos_por_grupo[itens[i][0]] > 1]
+        if excedente:
+            ficam.remove(
+                _quem_cede(_do_degrau_mais_baixo(excedente), itens, vivos_por_grupo)
+            )
+            continue
+
+        # CAMADA 5 — ÚLTIMO RECURSO: um grupo ANUNCIADO cai inteiro.
         #
-        # Aqui o relógio ganha, porque ele é o limite mais duro e a pessoa
-        # combinou 30 minutos. `titulo_honesto` tira o grupo do nome da sessão e
-        # `aviso_de_tempo` conta o que aconteceu.
+        # Medido, `ab A` tem oito exercícios em SETE grupos, e sete exercícios
+        # no piso de série ainda dão 42 minutos contra um teto de 30. Aqui o
+        # relógio ganha, porque ele é o limite mais duro e a pessoa combinou
+        # trinta. `titulo_honesto` tira o grupo do nome da sessão.
         ficam.remove(
             _quem_cede(_do_degrau_mais_baixo(list(ficam)), itens, vivos_por_grupo)
         )
+
+    # E DEVOLVE SÉRIE ENQUANTO COUBER.
+    #
+    # A redução aconteceu para a sessão caber, e DEPOIS dela um exercício pode
+    # ter saído — e o que saiu abriu espaço que ninguém reocupou. Sem esta
+    # passada a ficha paga o preço da concessão sem a razão dela: medido, o dia
+    # de puxar a 30 minutos terminava com 24 minutos e todas as séries no piso,
+    # desperdiçando seis minutos do que a pessoa tinha.
+    #
+    # Devolve na ordem INVERSA da que tirou — principal, acessório, isolador —,
+    # e confere a cada devolução, porque o teto continua duro. Nunca passa do
+    # que o catálogo pede: `series[i] >= itens[i][1]` é o limite de cima.
+    houve_devolucao = True
+    while houve_devolucao:
+        houve_devolucao = False
+        for i in sorted(ficam, key=lambda i: (-itens[i][3], i)):
+            if series[i] >= itens[i][1]:
+                continue
+            series[i] += 1
+            cabe = _segundos_da_sessao(
+                [
+                    (series[j], itens[j][2], itens[j][3] >= ACESSORIO)
+                    for j in ficam
+                ]
+            ) <= teto
+            if cabe:
+                houve_devolucao = True
+            else:
+                series[i] -= 1
 
     # Devolve o índice E as séries: quando a redução entrou em cena, o número
     # do catálogo deixou de valer para aquele item, e quem prescreve precisa
@@ -940,6 +968,138 @@ def repartir_ocorrencia(itens, indice, ocorrencias):
     return sorted(escolhidos, key=lambda item: posicao[id(item)])
 
 
+def _encaixar(atuais, item, series, grau, limite):
+    """Tenta pôr um item a mais nesta sessão. Devolve as linhas, ou `None`.
+
+    Reduz série de ISOLADOR e ACESSÓRIO para abrir espaço, nunca do composto
+    PRINCIPAL e nunca abaixo do piso. É a permissão exata que a especificação
+    dá — "reduza somente séries de isoladores/acessórios para encaixar uma
+    prancha, sem ultrapassar 60 minutos" — e o teto continua duro: se não
+    couber nem assim, a resposta é `None` e o aviso conta o que faltou.
+    """
+    linhas = [[i, s, g] for i, s, g in atuais]
+    linhas.append([item, series, grau])
+
+    def custa():
+        return _segundos_da_sessao(
+            [(s, i.rest_seconds, g >= ACESSORIO) for i, s, g in linhas]
+        )
+
+    while custa() > limite:
+        reduziveis = [
+            linha for linha in linhas
+            if linha[2] < PRINCIPAL
+            and linha[1] > (PISO_COMPOSTO if linha[2] >= ACESSORIO else 2)
+        ]
+        if not reduziveis:
+            return None
+        alvo = min(reduziveis, key=lambda linha: (linha[2], -linha[1]))
+        alvo[1] -= 1
+    return linhas
+
+
+def realocar_complementares_orfaos(por_sessao, prescricao, descartados, teto):
+    """O complementar que o relógio tirou de uma sessão procura OUTRA.
+
+    O DEFEITO QUE ISTO FECHA, e ele era meu raciocínio, não o código. Medido
+    que o abdômen não cabia no dia de perna como décimo exercício, eu concluí
+    que ele não cabia na SEMANA e mandei a ficha avisar que ele ficou de fora.
+    As duas coisas não são a mesma, e a diferença estava à vista: com quatro
+    dias, `A2` fecha em 24 minutos de 60 — trinta e seis minutos ociosos ao
+    lado de uma prancha descartada.
+
+    ABDÔMEN NÃO PERTENCE AO DIA DE PERNA; ele só estava listado ali. Prancha no
+    fim do treino de peito é tão sensata quanto no fim do de perna, e é assim
+    que academia inteira programa. O mesmo vale para trapézio e antebraço: o
+    modelo diz onde eles CABEM melhor, não onde eles PODEM estar.
+
+    O QUE ESTA FUNÇÃO NÃO FAZ, e cada limite é um contrato de outra parte:
+
+      - não inventa exercício: o candidato é o item que o relógio descartou,
+        com o nome e a dose do catálogo;
+      - não mexe no volume semanal. O descartado já passou por
+        `aparar_volume_semanal` — ele está em `sobrevivem` —, então mudá-lo de
+        sessão preserva o total da semana por construção;
+      - não toca em grupo anunciado: só reduz série de isolador e acessório
+        para abrir espaço, e nunca do composto principal;
+      - não põe duas vezes o mesmo grupo na mesma sessão, nem repete um
+        exercício que já esteja lá;
+      - não ultrapassa o teto. `_encaixar` devolve `None` e o grupo continua
+        órfão — aí, e só aí, o aviso de `aviso_de_tempo` é a resposta certa.
+
+    A sessão escolhida é a de MAIOR FOLGA, que é o que distribui de verdade: em
+    quatro e cinco dias as segundas passagens `A2` e `B2` são as mais vazias, e
+    é nelas que a prancha cai.
+    """
+    limite = _teto_em_segundos(teto)
+    graus, anunciados = {}, {}
+    for pk, (_sessao, candidatos, principais) in por_sessao.items():
+        anunciados[pk] = set(principais or ())
+        for item, _series, grau in candidatos:
+            graus[(pk, item.exercise_id)] = grau
+
+    def linhas_de(pk):
+        return [
+            (item, series, graus.get((pk, item.exercise_id), ISOLADOR))
+            for (sessao_pk, _e), (series, item) in prescricao.items()
+            if sessao_pk == pk
+        ]
+
+    def folga(pk):
+        atuais = linhas_de(pk)
+        if not atuais:
+            return limite
+        return limite - _segundos_da_sessao(
+            [(s, i.rest_seconds, g >= ACESSORIO) for i, s, g in atuais]
+        )
+
+    presentes = {
+        item.exercise.muscle_group for (_p, _e), (_s, item) in prescricao.items()
+    }
+    orfaos = {}
+    for pk, dispensados in descartados.items():
+        for item, series, grau in dispensados:
+            grupo = item.exercise.muscle_group
+            if grupo in presentes or grupo in anunciados[pk]:
+                continue
+            orfaos.setdefault(grupo, []).append((item, series, grau))
+
+    for grupo in sorted(orfaos):
+        # O mais barato primeiro: uma prancha de três séries entra onde um
+        # encolhimento de quatro não entraria.
+        candidatos = sorted(
+            orfaos[grupo], key=lambda t: t[1] * (t[0].rest_seconds + 40)
+        )
+        for pk in sorted(por_sessao, key=folga, reverse=True):
+            atuais = linhas_de(pk)
+            if any(i.exercise.muscle_group == grupo for i, _s, _g in atuais):
+                continue
+            ja_estao = {i.exercise_id for i, _s, _g in atuais}
+            for item, series, grau in candidatos:
+                if item.exercise_id in ja_estao:
+                    continue
+                encaixe = _encaixar(atuais, item, series, grau, limite)
+                if encaixe is None:
+                    continue
+                ordem = max([i.order for i, _s, _g in atuais] or [0]) + 1
+                for linha_item, linha_series, _g in encaixe:
+                    chave = (pk, linha_item.exercise_id)
+                    if linha_item.exercise_id == item.exercise_id:
+                        # Uma CÓPIA não salva, só para levar a posição do fim
+                        # da ficha: o item veio do modelo de outra letra e a
+                        # `order` dele é de lá. Nada é gravado no catálogo.
+                        copia = copy.copy(item)
+                        copia.order = ordem
+                        prescricao[chave] = (linha_series, copia)
+                    else:
+                        prescricao[chave] = (linha_series, linha_item)
+                break
+            else:
+                continue
+            break
+    return prescricao
+
+
 #: Sentinela para `prescrever_semana`: `None` É um teto válido — significa
 #: "sem limite rígido" —, então ele não pode servir de "não informado".
 _NAO_INFORMADO = object()
@@ -1062,6 +1222,7 @@ def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO,
         teto = teto_de_minutos(sessoes[0].plan.user) if sessoes else None
 
     prescricao = {}
+    descartados = {}
     for sessao_pk, (sessao, candidatos, principais) in por_sessao.items():
         restantes = [
             (item, series, grau)
@@ -1076,11 +1237,25 @@ def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO,
             teto,
             principais=principais,
         )
+        ficaram = {i for i, _series in ficam}
         for i, series_finais in ficam:
             item, _series_do_catalogo, _grau = restantes[i]
             # `series_finais` e não o número do catálogo: quando a sessão só
             # coube reduzindo série, é a reduzida que a pessoa faz.
             prescricao[(sessao.pk, item.exercise_id)] = (series_finais, item)
+        # O QUE O RELÓGIO DISPENSOU, guardado — e não jogado fora.
+        #
+        # Um complementar que não coube AQUI pode caber noutra sessão da
+        # semana, e a folga costuma existir: com quatro dias, `A2` fecha em 24
+        # minutos de 60. Ver `realocar_complementares_orfaos`.
+        descartados[sessao_pk] = [
+            linha for i, linha in enumerate(restantes) if i not in ficaram
+        ]
+
+    if teto is not None:
+        realocar_complementares_orfaos(
+            por_sessao, prescricao, descartados, teto
+        )
     return prescricao
 
 
@@ -1361,6 +1536,20 @@ def aviso_de_tempo(sessoes, prescricao, sem_relogio) -> str:
     """
     cortados = len(sem_relogio) - len(prescricao)
 
+    # SÉRIE REDUZIDA TAMBÉM É AJUSTE, e por um tempo o aviso não a via.
+    #
+    # `cortados` conta EXERCÍCIO removido, e essa era a única forma de ajuste
+    # até 10/09/2026. Quando a redução de série subiu na ordem de concessão —
+    # para preservar a variedade contratada —, passou a existir ficha
+    # fortemente ajustada com ZERO remoções: medido, três dias com 55 minutos
+    # cabem inteiros baixando série, e a nota ficava muda. A pessoa via
+    # números menores que os do catálogo e nada explicando.
+    reduzidos = sum(
+        1
+        for chave, (series, _item) in prescricao.items()
+        if chave in sem_relogio and series < sem_relogio[chave][0]
+    )
+
     def grupos(mapa, sessao_pk=None):
         return {
             item.exercise.muscle_group
@@ -1402,7 +1591,7 @@ def aviso_de_tempo(sessoes, prescricao, sem_relogio) -> str:
             "%s %s para outra sessão da semana."
             % (_lista_em_portugues(_nomes_dos_grupos(sorted(perdidos))), verbo)
         )
-    if cortados:
+    if cortados or reduzidos:
         return "A ficha foi ajustada para caber no tempo que você informou."
     return ""
 

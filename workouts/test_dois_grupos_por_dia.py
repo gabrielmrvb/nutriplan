@@ -22,8 +22,8 @@ E ELES NÃO APARECEM TODA SESSÃO. `repartir_ocorrencia` divide os itens do
 modelo entre as passagens da letra na semana, então B1 leva uns e B2 leva
 outros. A objeção de que "integrar os complementares obrigaria sessões de onze
 exercícios" está MEDIDA aqui, e o recorte importa: `abc2 B` tem onze itens e
-`abc2 C` tem doze, e mesmo assim a maior sessão da semana tem SETE no tempo
-padrão (45 a 60) e QUATRO no rápido (até 30). Doze só chega a quem escolheu
+`abc2 C` tem doze, e mesmo assim a maior sessão da semana tem NOVE no tempo
+padrão (45 a 60) e CINCO no rápido (até 30). Doze só chega a quem escolheu
 "Completo" ou "sem limite rígido" — ali a pessoa pediu a ficha inteira, e
 entregá-la em 88 minutos, dentro do teto de 90, não é inchaço.
 """
@@ -32,7 +32,9 @@ from collections import defaultdict
 from django.core.management import call_command
 from django.test import TestCase
 
-from accounts.models import DuracaoTreino, SplitPreference, TrainingDay
+from accounts.models import (
+    TETO_POR_DURACAO, DuracaoTreino, SplitPreference, TrainingDay,
+)
 
 from . import services
 from .models import MuscleGroup, Split
@@ -232,16 +234,26 @@ class OsComplementaresSeDistribuemTests(TestCase):
         complementares obrigaria toda sessão a ter onze. Medido nas cinco
         frequências que usam esta divisão, com as faixas que têm teto:
 
-            rápido (até 30)   maior sessão da semana: 4 exercícios
-            padrão (45 a 60)  maior sessão da semana: 7 exercícios
+            rápido (até 30)   maior sessão da semana: 5 exercícios
+            padrão (45 a 60)  maior sessão da semana: 9 exercícios
 
-        Sete, não onze — e sem perder complementar: eles se revezam entre as
-        passagens. A PRIMEIRA VERSÃO DESTE TESTE varria as quatro faixas e
-        ficou vermelha em "completo" e "sem limite rígido", com doze. Estava
-        certa em ficar: ali a pessoa PEDIU a ficha inteira, e entregá-la não é
-        inchaço. Ver `test_a_ficha_cheia_so_vai_para_quem_pediu_tempo_para_ela`.
+        Nove, não onze — e sem perder o contrato: o dia de puxar entrega quatro
+        costas, três bíceps, trapézio e antebraço em 60 minutos exatos, com as
+        roscas em duas séries.
+
+        DUAS VERSÕES ANTERIORES DESTE TESTE, e as duas mediram outra coisa. A
+        primeira varria as quatro faixas e ficou vermelha em "completo" com
+        doze — estava certa: ali a pessoa PEDIU a ficha inteira. A segunda
+        cravou o teto em oito, que era o número da ordem de corte que
+        sacrificava bíceps; com a ordem certa a sessão legitimamente chega a
+        nove.
+
+        O QUE IMPORTA NÃO É A CONTAGEM, É O TETO — e é ele que a segunda
+        asserção cobra. Uma sessão de nove exercícios dentro dos 60 minutos
+        combinados não é inchaço; é o orçamento sendo usado.
         """
-        for duracao in (DuracaoTreino.RAPIDO, DuracaoTreino.PADRAO):
+        maximos = {DuracaoTreino.RAPIDO: 5, DuracaoTreino.PADRAO: 9}
+        for duracao, teto_de_itens in maximos.items():
             for dias in range(3, 8):
                 with self.subTest(duracao=duracao, dias=dias):
                     _, plano = perfil(dias, duracao=duracao, sufixo="-onze")
@@ -250,10 +262,16 @@ class OsComplementaresSeDistribuemTests(TestCase):
                     )
 
                     self.assertLessEqual(
-                        maior, 8,
+                        maior, teto_de_itens,
                         "uma sessão de %d dias saiu com %d exercícios"
                         % (dias, maior),
                     )
+                    for sessao in plano.sessions.all():
+                        self.assertLessEqual(
+                            sessao.estimated_minutes,
+                            TETO_POR_DURACAO[duracao],
+                            "%s passou do tempo combinado" % sessao.label,
+                        )
 
     def test_quando_a_letra_repete_nenhuma_passagem_leva_o_modelo_inteiro(self):
         """A repartição, isolada do relógio.

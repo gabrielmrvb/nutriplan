@@ -210,28 +210,40 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
                         item.exercise_id
                         for item in sessao.exercises.all().order_by("order")
                     ]
-                    posicoes = [do_modelo.index(e) for e in na_ficha]
+                    # O REALOCADO NÃO ESTÁ NO MODELO DESTA LETRA, e é assim que
+                    # tem de ser: `realocar_complementares_orfaos` traz para cá
+                    # o complementar que não coube na sessão de origem — uma
+                    # prancha do dia de perna pode terminar no dia de peito.
+                    # A ordem do modelo continua valendo para o que VEIO do
+                    # modelo, e o de fora entra no fim.
+                    vindos = [e for e in na_ficha if e in do_modelo]
+                    posicoes = [do_modelo.index(e) for e in vindos]
 
                     self.assertEqual(
                         posicoes, sorted(posicoes),
                         "%s saiu fora da ordem do modelo" % sessao.label,
                     )
+                    de_fora = [e for e in na_ficha if e not in do_modelo]
+                    if de_fora:
+                        self.assertEqual(
+                            na_ficha[-len(de_fora):], de_fora,
+                            "%s pôs o realocado no meio da ficha" % sessao.label,
+                        )
 
     def test_a_variedade_semanal_cumpre_o_contrato(self):
-        """4 peito, 4 costas, 3 tríceps, 3 bíceps — de CINCO dias para cima.
+        """4 peito, 4 costas, 3 tríceps, 3 bíceps no ciclo da semana.
 
-        A FAIXA MUDOU DE QUATRO PARA CINCO EM 10/09/2026, e o motivo não é o
-        catálogo: é uma troca medida. Ver
-        `test_em_tres_e_quatro_dias_quem_cede_e_o_biceps_e_so_ele`, logo
-        abaixo, que mede o preço e trava o tamanho dele.
+        A FAIXA JÁ FOI DE QUATRO DIAS PARA CIMA, subiu para cinco e voltou para
+        TRÊS, e as três mexidas têm data e motivo. Quatro era o mínimo enquanto
+        `abc B` listava três dorsais; a subida para cinco foi eu aceitando uma
+        concessão errada — o bíceps caindo para um em três e quatro dias — e a
+        volta para três é a correção dela, com a redução de série entrando no
+        lugar da remoção de exercício.
 
-        (A versão anterior desta docstring apontava para
-        `AsLimitacoesQueSobramSaoDeCONTEUDOTests`, que registrava o modelo
-        `abc B` com três costas. Aquela lacuna foi fechada — o quarto dorsal
-        entrou —, e a classe virou o par positivo
-        `AQuartaCostasEntrouNoModeloDeTresGruposTests`.)
+        `test_o_contrato_vale_a_partir_de_TRES_dias_com_45_a_60_minutos` cobre
+        as duas frequências que faltavam aqui.
         """
-        for dias in range(5, 8):
+        for dias in range(3, 8):
             with self.subTest(dias=dias):
                 _, plano = perfil(dias)
                 distintos = defaultdict(set)
@@ -246,34 +258,29 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
                         % (grupo, len(distintos[grupo]), minimo),
                     )
 
-    def test_em_tres_e_quatro_dias_quem_cede_e_o_biceps_e_so_ele(self):
-        """O preço de não abandonar o complementar, medido e travado.
+    def test_o_contrato_vale_a_partir_de_TRES_dias_com_45_a_60_minutos(self):
+        """O par do teste acima, na frequência em que ele quase se perdeu.
 
-        A ARITMÉTICA. No perfil de dois grupos por dia com 45 a 60 minutos, o
-        dia de puxar comporta SETE exercícios. O contrato de variedade pede
-        quatro costas e três bíceps — sete exatos —, e os complementares que
-        moram ali (trapézio e antebraço) precisam de mais dois. Com três ou
-        quatro dias a letra B cai uma vez só, então não há segunda passagem
-        para dividir a conta: alguma coisa fica de fora.
+        ESTE TESTE SUBSTITUI UM QUE CONGELAVA COMPORTAMENTO ERRADO. Houve uma
+        versão do corte que, para encaixar trapézio e antebraço no dia de
+        puxar, removia DOIS exercícios de bíceps — a semana fechava com
+        bíceps=1 —, e eu escrevi um teste chamado
+        `test_em_tres_e_quatro_dias_quem_cede_e_o_biceps_e_so_ele` que media o
+        tamanho dessa concessão e a dava por boa. Ele estava congelando o
+        defeito: complementar não entra às custas da variedade contratada, e a
+        prioridade é grupos principais primeiro.
 
-        A ESCOLHA, e ela é do produto: o complementar entra. Um programa que
-        nunca treina panturrilha, abdômen, trapézio nem antebraço é pior que um
-        que treina bíceps com um exercício em vez de três — ainda mais porque
-        as quatro remadas do dia já trabalham bíceps como secundário, e nada
-        trabalha panturrilha por acidente.
+        A correção não foi abrir mão do complementar — foi reduzir SÉRIE em vez
+        de remover exercício. Medido no dia de puxar a 60 minutos com três
+        dias: quatro costas, três bíceps, trapézio e antebraço cabem em 60
+        exatos, com as roscas em duas séries e as costas intactas.
 
-        O QUE ESTE TESTE TRAVA é o tamanho da concessão. Peito, costas e
-        tríceps continuam cumprindo o contrato inteiro; só o bíceps cede, e
-        cede SOMENTE porque o complementar ocupou o lugar — se um dia a ficha
-        perder o bíceps E o complementar, isto fica vermelho.
+        Por isso a régua desce de volta para TRÊS dias, que é a menor
+        frequência em que esta divisão existe.
         """
-        complementares = {
-            MuscleGroup.TRAPS, MuscleGroup.FOREARMS,
-            MuscleGroup.CALVES, MuscleGroup.CORE,
-        }
         for dias in (3, 4):
             with self.subTest(dias=dias):
-                _, plano = perfil(dias, sufixo="-troca")
+                _, plano = perfil(dias, sufixo="-contrato34")
                 distintos = defaultdict(set)
                 for sessao in plano.sessions.all():
                     for item in sessao.exercises.select_related("exercise"):
@@ -281,20 +288,40 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
                             item.exercise.name
                         )
 
-                for grupo in (MuscleGroup.CHEST, MuscleGroup.BACK,
-                              MuscleGroup.TRICEPS):
+                for grupo, minimo in MINIMOS_SEMANAIS.items():
                     self.assertGreaterEqual(
-                        len(distintos[grupo]), MINIMOS_SEMANAIS[grupo],
-                        "%s cedeu junto com o bíceps: %s"
-                        % (grupo, sorted(distintos[grupo])),
+                        len(distintos[grupo]), minimo,
+                        "%s com %d distintos em %d dias, contrato pede %d: %s"
+                        % (grupo, len(distintos[grupo]), dias, minimo,
+                           sorted(distintos[grupo])),
                     )
 
-                self.assertGreaterEqual(len(distintos[MuscleGroup.BICEPS]), 1)
-                self.assertEqual(
-                    complementares - set(distintos), set(),
-                    "o bíceps cedeu e o complementar não entrou: %s"
-                    % sorted(complementares - set(distintos)),
+    def test_o_complementar_nao_custa_variedade_no_dia_de_puxar(self):
+        """A regressão específica, dita com os dois lados na mesma asserção.
+
+        O dia de puxar comporta o contrato E os complementares em 45 a 60
+        minutos — o que não cabe é a dose cheia de todos eles. Quem cede é a
+        SÉRIE da rosca, não o exercício de rosca.
+
+        Este teste falha nos dois sentidos: se o bíceps voltar a cair para um,
+        e se o trapézio e o antebraço sumirem do dia para o bíceps caber.
+        """
+        for dias in (3, 4):
+            with self.subTest(dias=dias):
+                _, plano = perfil(dias, sufixo="-puxar")
+                sessao = next(
+                    s for s in plano.sessions.all().order_by("weekday")
+                    if s.label == "B"
                 )
+                por_grupo = defaultdict(list)
+                for item in sessao.exercises.select_related("exercise"):
+                    por_grupo[item.exercise.muscle_group].append(item)
+
+                self.assertEqual(len(por_grupo[MuscleGroup.BACK]), 4)
+                self.assertEqual(len(por_grupo[MuscleGroup.BICEPS]), 3)
+                self.assertTrue(por_grupo[MuscleGroup.TRAPS])
+                self.assertTrue(por_grupo[MuscleGroup.FOREARMS])
+                self.assertLessEqual(sessao.estimated_minutes, 60)
 
     def test_a_variedade_nao_piora_quando_a_frequencia_sobe(self):
         """A assinatura do defeito: mais dias davam MENOS movimentos distintos.

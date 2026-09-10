@@ -91,16 +91,45 @@ anunciado. Medido em 3 preferências × 7 frequências × 4 faixas de duração:
 
 | faixa | grupos complementares órfãos da semana |
 |---|---|
-| Padrão, Completo, sem limite | **zero**, em qualquer frequência de 1 a 7 dias |
+| `abc2`, 45 min ou mais, 3 a 7 dias | **zero** |
 | Rápido — até 30 | `full` com 1 dia, `ab` com 2, `abc2` com 3 a 5 |
 
-**O preço, e ele é de três e quatro dias.** O dia de puxar comporta sete
-exercícios em 45 a 60 minutos, o contrato de variedade pede sete (quatro costas
-+ três bíceps), e trapézio e antebraço precisam de mais dois. Com três ou quatro
-dias a letra B cai uma vez só. A semana fecha com costas=4, tríceps=3, peito=4 e
-**bíceps=1**, com os quatro complementares presentes. De cinco dias para cima o
-contrato inteiro volta, porque B repete. Está travado nos dois sentidos por
-`test_em_tres_e_quatro_dias_quem_cede_e_o_biceps_e_so_ele`.
+**A terceira conclusão minha que estava errada.** Eu registrei aqui que o
+abdômen ficava órfão no `abc2` de três a cinco dias, e a prova era que ele não
+cabia no dia de PERNA como décimo exercício. Isso não prova nada sobre a
+semana: com quatro dias, `A2` fecha em 24 minutos de 60. Abdômen não pertence ao
+dia de perna — ele só estava listado ali.
+
+`realocar_complementares_orfaos` procura vaga na sessão de maior folga,
+reduzindo série de isolador e acessório quando precisa, sem tocar no composto
+principal nem no teto. Com três dias a prancha entra em `A1`; com quatro e
+cinco, em `A2`; a partir de seis a repartição já resolve. E ela não mexe no
+volume semanal por construção — o candidato já passou pelo aparo e foi
+descartado pelo relógio.
+
+O que sobra é "até 30 minutos", e ali a régua é **não ficar órfão em
+silêncio**: o aviso nomeia o músculo.
+
+**Uma segunda conclusão minha que estava errada, e a correção dela.** Ao fechar
+a primeira, eu troquei um defeito por outro: para não abandonar trapézio e
+antebraço, o corte passou a remover DOIS exercícios de bíceps do dia de puxar, e
+a semana fechava com bíceps=1 contra os três do contrato. Cheguei a escrever um
+teste que media essa concessão e a dava por boa.
+
+A prioridade correta é **grupos principais e variedade contratada → movimentos
+compostos → redução equilibrada de séries → complementares → aviso**. Duas
+trocas de lugar bastaram: a redução de série subiu para antes da remoção de
+exercício anunciado, e passou a ser graduada (isolador → acessório → principal;
+sem isso ela derrubava o agachamento, que é quem tem quatro séries).
+
+Medido depois: **4 peito, 4 costas, 3 tríceps e 3 bíceps distintos por semana em
+3 a 7 dias, nas três preferências**, com Supino reto em quatro séries e nenhuma
+sessão passando do teto. O dia de puxar a 60 minutos entrega nove exercícios —
+quatro costas, três bíceps, trapézio e antebraço — com as roscas em duas séries.
+
+E a ficha deixou de desperdiçar orçamento: quando a remoção abre espaço depois
+da redução, a série VOLTA enquanto couber. Sem isso o dia de puxar a 30 minutos
+terminava com 24.
 
 **O que sobra em "até 30 minutos" é escolha declarada, não impossibilidade.**
 Em `abc2 C` os três compostos principais no piso de série custam 28,2 minutos, e

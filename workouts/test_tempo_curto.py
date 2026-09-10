@@ -123,12 +123,16 @@ class AOrdemDaConcessaoTests(TestCase):
         empatam e o desempate pela ordem da ficha tira o ombro — que foi o
         defeito real de "Pernas e ombros" com um ombro só.
 
-        QUARENTA MINUTOS, E O NÚMERO IMPORTA. A primeira versão deste teste
-        usava trinta e afirmava só `assertIn("shoulders", ...)`. A sabotagem
-        que devolve a contagem por degrau passou VERDE nele, por dois motivos
-        somados: em trinta minutos as duas versões devolvem a MESMA ficha —
-        dois exercícios —, e "está presente" não distingue ombro com um de
-        ombro com dois. Em quarenta a diferença aparece inteira:
+        O NÚMERO DE MINUTOS JÁ MUDOU DUAS VEZES, e as duas por medição. A
+        primeira versão usava trinta e afirmava só `assertIn("shoulders", ...)`;
+        a sabotagem que devolve a contagem por degrau passou VERDE nela, porque
+        em trinta minutos as duas versões davam a MESMA ficha e "está presente"
+        não distingue ombro com um de ombro com dois. Passou para quarenta.
+
+        Quarenta parou de servir quando a redução de série subiu para antes da
+        remoção: a 40 minutos os cinco exercícios cabem baixando duas séries, e
+        remoção nenhuma acontece. TRINTA E TRÊS é o teto em que a redução já se
+        esgotou — os cinco no piso custam 35,2 — e a remoção precisa escolher:
 
             contando a sessão:   quads 2, ombro 2
             contando o degrau:   quads 3, ombro 1
@@ -142,7 +146,7 @@ class AOrdemDaConcessaoTests(TestCase):
         ]
 
         ficam = services.escolher_para_o_tempo(
-            itens, 40, principais=["quads", "shoulders"]
+            itens, 33, principais=["quads", "shoulders"]
         )
 
         grupos = [itens[i][0] for i, _ in ficam]
@@ -187,8 +191,19 @@ class AOrdemDaConcessaoTests(TestCase):
         ficam = services.escolher_para_o_tempo(itens, 30, principais=grupos)
 
         self.assertLess(len(ficam), len(itens))
+        # NO PISO OU PERTO DELE, e não exatamente no piso: depois de a remoção
+        # abrir espaço, a devolução de série reocupa o que sobrou do teto. Uma
+        # ficha que sai do corte com o teto sobrando é concessão cobrada sem
+        # razão — foi assim que o dia de puxar terminava com 24 minutos de 30.
+        self.assertLessEqual(
+            services._segundos_da_sessao(
+                [(s, 80, True) for _, s in ficam]
+            ) / 60,
+            30,
+        )
         for _, series in ficam:
-            self.assertEqual(series, PISO_COMPOSTO)
+            self.assertLessEqual(series, 4)
+            self.assertGreaterEqual(series, PISO_COMPOSTO)
 
     def test_4b_o_ultimo_complementar_so_sai_depois_da_REDUCAO(self):
         """A camada que faltava, e que custou a panturrilha da semana.
@@ -219,6 +234,35 @@ class AOrdemDaConcessaoTests(TestCase):
         self.assertIn("core", grupos, "o abdômen saiu com série de sobra")
         self.assertEqual(len(ficam), len(itens))
         self.assertTrue(any(series < itens[i][1] for i, series in ficam))
+
+    def test_5_a_serie_VOLTA_quando_a_remocao_abre_espaco(self):
+        """Concessão cobrada sem razão é defeito, e ela acontecia.
+
+        A redução de série vem antes da remoção de exercício — é o que preserva
+        a variedade contratada. Só que quando a remoção acontece MESMO ASSIM, o
+        espaço que ela abre fica vazio: as séries continuam no piso porque
+        ninguém as devolveu. Medido no dia de puxar a 30 minutos: a sessão saía
+        com 24 minutos de 30, com tudo no piso — seis minutos da pessoa jogados
+        fora.
+
+        Aqui: seis grupos com um exercício cada, num teto que obriga a reduzir
+        E a remover. O que sobra tem de ocupar o teto de novo.
+        """
+        grupos = ["quads", "chest", "back", "hamstrings", "shoulders", "biceps"]
+        itens = [(g, 4, 80, PRINCIPAL) for g in grupos]
+
+        ficam = services.escolher_para_o_tempo(itens, 40, principais=grupos)
+
+        self.assertLess(len(ficam), len(itens), "não chegou a remover nada")
+        self.assertTrue(
+            any(series > PISO_COMPOSTO for _, series in ficam),
+            "removeu exercício e deixou toda série no piso: %s"
+            % [(itens[i][0], s) for i, s in ficam],
+        )
+        segundos = services._segundos_da_sessao(
+            [(s, itens[i][2], True) for i, s in ficam]
+        )
+        self.assertLessEqual(segundos / 60, 40)
 
     def test_o_teto_e_duro_nas_cinco_camadas(self):
         """Nenhuma das saídas acima pode passar do tempo informado.
@@ -400,12 +444,27 @@ class NenhumComplementarFicaSemDestinoTests(TestCase):
                 entregues.add(item.exercise.muscle_group)
         return declarados, declarados - entregues
 
-    def test_de_45_minutos_para_cima_nenhum_complementar_fica_orfao(self):
-        """A régua forte, e ela vale para 1 a 7 dias nas três preferências.
+    def test_complementar_so_fica_orfao_com_aviso_que_o_NOMEIA(self):
+        """A régua verdadeira, e ela mudou duas vezes por motivos opostos.
 
-        "Padrão", "Completo" e "sem limite rígido" são as três faixas em que o
-        contrato não abre exceção: todo grupo que o modelo traz aparece pelo
-        menos uma vez na semana.
+        VERSÃO 1: "de 45 minutos para cima, nenhum órfão." Ela era alcançável, e
+        eu a alcancei do jeito errado — o corte removia dois exercícios de
+        bíceps do dia de puxar para caber trapézio e antebraço, e a semana
+        fechava com bíceps=1 contra os três do contrato. Zero órfãos comprados
+        com variedade contratada é trocar um defeito por outro.
+
+        VERSÃO 2, esta. A prioridade é grupos principais e variedade primeiro,
+        complementar depois da redução de série. Com ela o dia de puxar entrega
+        quatro costas, três bíceps, trapézio E antebraço — e o que sobra é o
+        abdômen no dia de perna com três a cinco dias, porque `abc2 C` comporta
+        NOVE exercícios em 60 minutos e o abdômen é o décimo.
+
+        Então a régua não é "nunca fica órfão": é "não fica órfão em silêncio".
+        Órfão é permitido quando mantê-lo custaria o contrato — e aí a ficha
+        diz qual músculo ficou de fora, com o nome dele.
+
+        `test_de_seis_dias_para_cima_nada_fica_orfao` guarda o outro lado: com
+        as duas passagens de cada letra, não sobra nenhum.
         """
         # CONTROLE POSITIVO. `abcd` é a divisão em que o dia D se chama
         # "Complementares" e ANUNCIA trapézio, antebraço, panturrilha e core —
@@ -427,11 +486,18 @@ class NenhumComplementarFicaSemDestinoTests(TestCase):
                         declarados, orfaos = self._complementares(plano)
                         vistos |= declarados
 
-                        self.assertEqual(
-                            orfaos, set(),
-                            "%s com %d dias abandonou %s"
-                            % (plano.split, dias, sorted(orfaos)),
-                        )
+                        for grupo in orfaos:
+                            self.assertIn(
+                                "em nenhuma sessão desta semana", plano.notes,
+                                "%s com %d dias abandonou %s calado"
+                                % (plano.split, dias, sorted(orfaos)),
+                            )
+                            self.assertIn(
+                                services.NOME_CURTO_DO_GRUPO[grupo],
+                                plano.notes.lower(),
+                                "%s sumiu da semana e a ficha não o nomeou: %r"
+                                % (grupo, plano.notes),
+                            )
 
         self.assertEqual(
             {MuscleGroup.TRAPS, MuscleGroup.FOREARMS,
@@ -440,6 +506,99 @@ class NenhumComplementarFicaSemDestinoTests(TestCase):
             "a varredura não chegou a medir todos os complementares: %s"
             % sorted(vistos),
         )
+
+    def test_no_abc2_de_45_min_para_cima_nada_fica_orfao_em_3_a_7_dias(self):
+        """A régua ABSOLUTA da divisão de dois grupos por dia.
+
+        POR QUE ELA PODE SER ABSOLUTA, e por que eu tinha concluído que não.
+        Medido que o abdômen não cabia no dia de perna como décimo exercício,
+        escrevi que ele não cabia na SEMANA e mandei a ficha avisar. As duas
+        coisas não são a mesma, e a diferença estava à vista: com quatro dias,
+        `A2` fecha em 24 minutos de 60 — trinta e seis minutos ociosos ao lado
+        de uma prancha descartada.
+
+        `realocar_complementares_orfaos` procura vaga na semana inteira, na
+        sessão de maior folga, reduzindo série de isolador e acessório quando
+        precisa. Medido depois: com três dias a prancha entra em `A1`, com
+        quatro e cinco entra em `A2`, e a partir de seis a própria repartição
+        já resolve.
+
+        Abdômen não pertence ao dia de perna — ele só estava listado ali.
+        """
+        for duracao in (DuracaoTreino.PADRAO, DuracaoTreino.COMPLETO,
+                        DuracaoTreino.LIVRE):
+            for dias in range(3, 8):
+                with self.subTest(duracao=duracao, dias=dias):
+                    _, plano = perfil(
+                        dias, preferencia=SplitPreference.DOIS,
+                        duracao=duracao, sufixo="-abc2-orfao",
+                    )
+                    self.assertEqual(plano.split, Split.ABC2)
+                    declarados, orfaos = self._complementares(plano)
+
+                    self.assertEqual(len(declarados), 4, sorted(declarados))
+                    self.assertEqual(
+                        orfaos, set(),
+                        "%d dias abandonaram %s" % (dias, sorted(orfaos)),
+                    )
+
+    def test_a_realocacao_nao_quebra_o_contrato_nem_o_teto(self):
+        """O par adversarial: encaixar a prancha não pode custar o resto.
+
+        A realocação reduz série para abrir espaço, e é aí que ela poderia
+        estragar o que o resto do motor garante. Este teste cobra os três
+        limites na mesma varredura: a variedade contratada continua de pé, o
+        composto principal continua com a dose do catálogo, e nenhuma sessão
+        passa do tempo combinado.
+        """
+        from collections import defaultdict
+
+        for dias in range(3, 8):
+            with self.subTest(dias=dias):
+                _, plano = perfil(
+                    dias, preferencia=SplitPreference.DOIS,
+                    duracao=DuracaoTreino.PADRAO, sufixo="-realoc",
+                )
+                distintos = defaultdict(set)
+                for sessao in plano.sessions.all():
+                    self.assertLessEqual(sessao.estimated_minutes, 60, sessao.label)
+                    for item in sessao.exercises.select_related("exercise"):
+                        distintos[item.exercise.muscle_group].add(
+                            item.exercise.name
+                        )
+                        if item.exercise.name == "Supino reto com barra":
+                            self.assertEqual(item.sets, 4)
+
+                self.assertGreaterEqual(len(distintos[MuscleGroup.CHEST]), 4)
+                self.assertGreaterEqual(len(distintos[MuscleGroup.BACK]), 4)
+                self.assertGreaterEqual(len(distintos[MuscleGroup.TRICEPS]), 3)
+                self.assertGreaterEqual(len(distintos[MuscleGroup.BICEPS]), 3)
+
+    def test_de_seis_dias_para_cima_nada_fica_orfao(self):
+        """O outro lado da régua, e ele é o que prova que a distribuição funciona.
+
+        Com seis ou sete dias cada letra cai duas vezes, e `repartir_ocorrencia`
+        divide os complementares entre as passagens: o que não coube na sexta
+        cabe na segunda. Aqui a exigência é absoluta — nenhum órfão, sem
+        exceção e sem aviso que justifique.
+        """
+        for duracao in (DuracaoTreino.PADRAO, DuracaoTreino.COMPLETO,
+                        DuracaoTreino.LIVRE):
+            for preferencia in SplitPreference.values:
+                for dias in (6, 7):
+                    with self.subTest(duracao=duracao, preferencia=preferencia,
+                                      dias=dias):
+                        _, plano = perfil(
+                            dias, preferencia=preferencia, duracao=duracao,
+                            sufixo="-seis",
+                        )
+                        _, orfaos = self._complementares(plano)
+
+                        self.assertEqual(
+                            orfaos, set(),
+                            "%s com %d dias abandonou %s"
+                            % (plano.split, dias, sorted(orfaos)),
+                        )
 
     def test_no_tempo_curto_o_que_nao_coube_e_DITO(self):
         """Em "até 30 minutos" pode faltar — desde que a ficha diga qual.

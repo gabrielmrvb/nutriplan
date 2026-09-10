@@ -5931,21 +5931,34 @@ class OrcamentoDeTempoTests(TestCase):
             for i in s.exercises.select_related("exercise")
         }
 
-        # O CASO DEIXOU DE PERDER GRUPO EM 10/09/2026, e é notícia boa.
+        # TRINTA MINUTOS PERDE GRUPO, E O QUE IMPORTA É QUAL — e que a ficha
+        # diga.
         #
-        # O corte por tempo passou a REDUZIR SÉRIE antes de apagar músculo — a
-        # ordem que a auditoria de produção exigiu, depois de "Peito, tríceps e
-        # ombro" sair sem tríceps. Com trinta minutos e três dias em ABC, todos
-        # os grupos do modelo continuam na ficha, com menos série cada.
+        # Este teste já afirmou as duas coisas opostas, e as duas com data. Até
+        # 10/09/2026 ele cobrava "perde grupo e avisa". Numa versão intermediária
+        # daquele mesmo dia nenhum grupo se perdia, porque o corte removia
+        # exercício ANUNCIADO cedo e sobrava espaço para o complementar — e eu
+        # escrevi aqui que era notícia boa. Não era: aquela ordem sacrificava a
+        # variedade contratada, que é o contrato mais forte dos dois.
         #
-        # O que este teste guarda mudou junto: era "perde grupo e avisa", virou
-        # "NÃO perde grupo, e a nota não promete o que não aconteceu".
+        # Com a ordem final, os grupos ANUNCIADOS do modelo sobrevivem aos
+        # trinta minutos e o que pode faltar é complementar — aqui, o abdômen
+        # do dia de perna. E ele não some calado: `aviso_de_tempo` o nomeia.
+        anunciados = set()
+        for template in services.templates_for(plan.split):
+            anunciados |= set(template.main_groups)
+
         self.assertEqual(
-            grupos_previstos - grupos_presentes, set(),
-            "trinta minutos voltaram a apagar grupo — a redução de série "
-            "deixou de vir antes do corte de exercício",
+            anunciados - grupos_presentes, set(),
+            "trinta minutos apagaram grupo ANUNCIADO: %s"
+            % sorted(anunciados - grupos_presentes),
         )
-        self.assertNotIn("não cabem todos os grupos", plan.notes)
+        for grupo in grupos_previstos - grupos_presentes:
+            self.assertIn(
+                services.NOME_CURTO_DO_GRUPO[grupo], plan.notes.lower(),
+                "%s sumiu da semana e a ficha não o nomeou: %r"
+                % (grupo, plan.notes),
+            )
         self.assertIn("tempo que você informou", plan.notes)
 
     def test_quando_nada_e_cortado_a_nota_nao_fala_de_tempo(self):
@@ -5967,8 +5980,14 @@ class OrcamentoDeTempoTests(TestCase):
         """
         plan = self._ficha(3, 55)
 
+        # E "ajuste" passou a incluir SÉRIE REDUZIDA. Com a ordem de concessão
+        # final, cinquenta e cinco minutos cabem sem remover exercício nenhum —
+        # o que cede é série. `aviso_de_tempo` conta isso desde 10/09/2026;
+        # antes ele só via remoção, e a nota ficava muda numa ficha que a
+        # pessoa via encolhida.
         self.assertIn("ajustada para caber no tempo", plan.notes)
-        self.assertNotIn("não cabem todos os grupos", plan.notes)
+        self.assertNotIn("em nenhuma sessão desta semana", plan.notes)
+        self.assertNotIn("para outra sessão da semana", plan.notes)
 
     def test_o_corte_tira_o_de_MENOR_prioridade_primeiro(self):
         """Quem fica é o mais prioritário, e a régua deixou de ser a posição.
@@ -6005,6 +6024,14 @@ class OrcamentoDeTempoTests(TestCase):
 
             completa, aparada = por_grupo(inteira), por_grupo(curta)
             for grupo, mantidos in aparada.items():
+                if grupo not in completa:
+                    # GRUPO QUE A FICHA CURTA TEM E A INTEIRA NÃO — e ele
+                    # existe desde que o complementar órfão passou a procurar
+                    # vaga na semana. A prancha que não coube no dia de perna
+                    # entra no dia de peito, então a sessão apertada pode
+                    # trazer um grupo que a folgada não traz naquela letra.
+                    # Não há corte para comparar aqui.
+                    continue
                 ids_mantidos = {i for i, _g in mantidos}
                 cortados = [
                     (i, g) for i, g in completa[grupo] if i not in ids_mantidos

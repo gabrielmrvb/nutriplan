@@ -582,12 +582,34 @@ trapézio". Três frases mentiram em produção por causa disso, e uma delas nem
 culpa do relógio: `aparar_volume_semanal` só protege o último exercício do grupo
 na SEMANA, então ele pode tirar a rosca inversa de B1 e deixá-la em B2.
 
-**O tempo curto tem UMA ordem de concessão, e ela é CINCO camadas.**
-`escolher_para_o_tempo`: (1) sai o EXCEDENTE do complementar — a segunda
-panturrilha, o segundo abdominal; (2) sai o excedente do anunciado, do degrau
-mais baixo e do grupo mais CHEIO; (3) reduz série até o piso — três num
-composto, duas num isolado; (4) sai o ÚLTIMO exercício de um grupo
-complementar; (5) só então um anunciado cai, e o título acompanha.
+**O tempo curto tem UMA ordem de concessão, e ela codifica UMA prioridade:**
+
+    grupos principais e variedade contratada -> movimentos compostos ->
+    redução equilibrada de séries -> complementares -> aviso do que não coube
+
+`escolher_para_o_tempo`, em cinco camadas: (1) sai o EXCEDENTE do complementar —
+a segunda panturrilha, o segundo abdominal; (2) **reduz série**, do degrau mais
+BAIXO para o mais alto, até o piso — três num composto, duas num isolado; (3)
+sai o ÚLTIMO exercício de um grupo complementar; (4) sai o excedente do
+anunciado, do grupo mais CHEIO; (5) só então um anunciado cai inteiro, e o
+título acompanha. E no fim a série VOLTA enquanto couber, na ordem inversa.
+
+**A camada 2 já esteve depois da 4, e a redução já foi sem grau. As duas coisas
+eram defeito.** Removendo o excedente anunciado antes de reduzir série, o dia de
+puxar perdia dois bíceps para caber o trapézio. Reduzindo por "quem tem mais
+série", o primeiro a cair era o composto PRINCIPAL — o agachamento perde série
+antes da rosca, porque é ele que tem quatro.
+
+**E a devolução existe porque concessão cobrada sem razão é defeito.** A redução
+acontece para caber; se depois dela um exercício sair, o espaço aberto fica
+vazio e a ficha paga o preço sem o motivo. Medido: o dia de puxar a 30 minutos
+terminava com 24 de 30, com tudo no piso.
+
+**Série reduzida também é ajuste, e o aviso demorou a enxergar isso.**
+`aviso_de_tempo` contava EXERCÍCIO removido, que era a única forma de ajuste
+até a redução subir na ordem. Passou a existir ficha fortemente encolhida com
+zero remoções — três dias com 55 minutos cabem inteiros baixando série —, e a
+nota ficava muda enquanto a pessoa via números menores que os do catálogo.
 
 A ordem resolve duas queixas que puxavam para lados opostos: "a ficha de 30
 minutos virou agachamento e supino" é a camada 5 sem a reescrita do título, e "o
@@ -595,39 +617,55 @@ supino caiu para duas séries num perfil normal" é a camada 3 acontecendo onde 
 camada 2 ainda tinha o que ceder. Medido: no perfil de 45 a 60 minutos o supino
 mantém quatro séries em todas as divisões.
 
-**A camada 1 já foi "sai o complementar inteiro", e isso estava errado.** Com
-ela, panturrilha e abdômen ficavam órfãos da SEMANA em três, quatro e cinco
-dias no perfil de dois grupos por dia — a letra C cai uma vez só nessas
-frequências, e o que saía dela não voltava. Eu registrei isso como limitação
-aritmética e não era: com a ordem em cinco camadas, **de 45 minutos para cima
-nenhum grupo complementar fica órfão em nenhuma frequência de 1 a 7 dias**.
+**A camada 1 já foi "sai o complementar inteiro", e isso também estava errado**
+— pelo motivo oposto. Com ela, panturrilha e abdômen ficavam órfãos da SEMANA em
+três, quatro e cinco dias: a letra C cai uma vez só nessas frequências, e o que
+saía dela não voltava. Eu registrei isso como limitação aritmética e não era.
 
-Em "até 30 minutos" ainda sobram órfãos, e ali a frase honesta não é
-"impossível": os três compostos principais de `abc2 C` no piso custam 28,2
-minutos e o complementar mais barato leva a sessão a 31,8, mas cinco isoladores
-cobririam os cinco grupos em 20,7. O que isso não é, é um dia de perna. A ficha
-escolhe os principais e `aviso_de_tempo` NOMEIA o que ficou fora — omitir seria
-o defeito.
+**O COMPLEMENTAR ÓRFÃO PROCURA VAGA NA SEMANA, e não só na letra dele.**
+`realocar_complementares_orfaos` é a terceira coisa que eu tinha dado por
+impossível e não era. Medido que o abdômen não cabia no dia de perna como
+DÉCIMO exercício, escrevi que ele não cabia na semana — tratando a capacidade
+de uma sessão como a capacidade das cinco. A diferença estava à vista: com
+quatro dias, `A2` fecha em 24 minutos de 60, trinta e seis ociosos ao lado de
+uma prancha descartada.
+
+Abdômen não pertence ao dia de perna; ele só estava listado ali. O modelo diz
+onde o complementar CABE melhor, não onde ele PODE estar. A função procura a
+sessão de MAIOR FOLGA, reduz série de isolador e acessório para abrir espaço —
+nunca do composto principal, nunca abaixo do piso, nunca acima do teto — e
+desiste quando nenhuma sessão comporta.
+
+Ela não mexe no volume da semana **por construção**: o candidato é um item que
+já passou por `aparar_volume_semanal` e foi descartado pelo RELÓGIO, então
+mudá-lo de sessão preserva o total. E não inventa nada — é o item do catálogo,
+com o nome e a dose dele.
+
+Medido no `abc2` a 45 minutos ou mais: **zero grupo órfão de três a sete
+dias**. Com três dias a prancha entra em `A1`, com quatro e cinco em `A2`, e a
+partir de seis a própria repartição resolve. Em "até 30 minutos" ainda sobra
+órfão, e aí — só aí — `aviso_de_tempo` NOMEIA o músculo.
+
+**Consequência que a ficha passou a ter: um exercício pode aparecer numa letra
+que não o lista.** A ordem do modelo continua valendo para o que veio do
+modelo; o realocado entra no fim, e a tela o mostra em "Complementares desta
+sessão" como qualquer outro.
 
 E "mais cheio" conta os exercícios que o grupo tem NA SESSÃO, não quantos deles
 estão no degrau que cede. Contando o degrau, o quadríceps — três exercícios,
 sendo dois compostos intocáveis — parecia o grupo mais magro da sessão e a ficha
 "Pernas e ombros" terminava com UM ombro.
 
-**O contrato de variedade 4/4/3/3 é de CINCO dias para cima, e o que cede em
-três e quatro é o bíceps — de propósito.** O dia de puxar comporta SETE
-exercícios em 45 a 60 minutos. O contrato pede quatro costas e três bíceps —
-sete exatos —, e trapézio e antebraço, que moram ali, precisam de mais dois. Com
-três ou quatro dias a letra B cai UMA vez e não há segunda passagem para dividir
-a conta.
+**O contrato de variedade 4/4/3/3 vale de TRÊS dias para cima, e o complementar
+NÃO entra às custas dele.** Houve uma versão, em 10/09/2026, que removia dois
+exercícios de bíceps do dia de puxar para caber trapézio e antebraço — a semana
+fechava com bíceps=1 —, e eu cheguei a escrever um teste que media essa
+concessão e a dava por boa. Estava congelando o defeito.
 
-A escolha é o complementar entrar: um programa que nunca treina panturrilha,
-abdômen, trapézio nem antebraço é pior que um que treina bíceps com um exercício
-em vez de três — ainda mais porque as quatro remadas do dia já trabalham bíceps
-como secundário, e nada trabalha panturrilha por acidente. Peito, costas e
-tríceps continuam cumprindo o contrato inteiro nessas frequências; só o bíceps
-cede, e `test_em_tres_e_quatro_dias_quem_cede_e_o_biceps_e_so_ele` fica vermelho
-se um dia a ficha perder os dois.
+A saída não foi abrir mão do complementar: foi **reduzir SÉRIE em vez de remover
+exercício**, e reduzir na ordem certa. Medido no dia de puxar a 60 minutos com
+três dias: quatro costas, três bíceps, trapézio e antebraço cabem em 60 exatos,
+com as roscas em duas séries e as costas intactas.
 
 **Preferência de divisão que cede, cede EM VOZ ALTA.** `split_for` cruza
 preferência com frequência e a frequência manda — quem pede "1 grupo por dia" e
