@@ -84,11 +84,45 @@
         </a>
       {% endif %}
 
-      <ol class="exercise-list">
-        {% for item in sessao.exercises.all %}
-          {% include "workouts/_exercicio.html" with item=item ordem=forloop.counter agora=False %}
-        {% endfor %}
-      </ol>
+      {% comment %}
+        A FICHA SEPARA O QUE O TÍTULO PROMETE DO QUE VEM JUNTO.
+
+        "Costas e bíceps" com encolhimento e rosca de punho no meio da lista
+        parecia uma ficha com sete exercícios de puxe, e a pessoa que contava
+        quatro costas achava que faltava um. São coisas diferentes: dorsais e
+        bíceps são o dia; trapézio e antebraço são o complemento que cabe.
+
+        A separação também explica a sessão CURTA sem inventar desculpa. Quando
+        o tempo aperta, o complementar é o primeiro a sair
+        (`escolher_para_o_tempo`), e ele volta na outra passagem da letra —
+        quem vê a seção sumir de uma sexta e voltar na segunda está vendo a
+        regra funcionar, não um defeito.
+
+        `main_groups` vazio — toda ficha montada antes de 10/09/2026 — deixa
+        `exercicios_complementares` vazio, e a tela volta a ser uma lista só.
+      {% endcomment %}
+      {% with principais=sessao.exercicios_principais complementares=sessao.exercicios_complementares %}
+        <ol class="exercise-list">
+          {% for item in principais %}
+            {% include "workouts/_exercicio.html" with item=item ordem=forloop.counter agora=False %}
+          {% endfor %}
+        </ol>
+
+        {% if complementares %}
+          <div class="ficha__complementares stack">
+            <h2 class="ficha__complementares-titulo">Complementares desta sessão</h2>
+            <p class="hint">
+              Não é o foco do dia — é o que cabe junto. Eles se revezam entre as
+              passagens da semana, então nem toda sessão traz os mesmos.
+            </p>
+            <ol class="exercise-list">
+              {% for item in complementares %}
+                {% include "workouts/_exercicio.html" with item=item ordem=principais|length|add:forloop.counter agora=False %}
+              {% endfor %}
+            </ol>
+          </div>
+        {% endif %}
+      {% endwith %}
     </div>
   </div>
 

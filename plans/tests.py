@@ -400,6 +400,21 @@ def create_complete_user(email="pessoa@exemplo.com", **profile_kwargs):
         # que dizia "5" passou a criar gente que NÃO terminou — cinco testes
         # de rotas sem relação nenhuma com onboarding caíram em 302.
         "onboarding_step": ONBOARDING_DONE,
+        # E A DIVISÃO FOI CONFIRMADA, porque "onboarding completo" passou a
+        # incluir essa resposta para esta pessoa.
+        #
+        # O fixture cria TRÊS dias de treino, e até 10/09/2026 três dias não
+        # viam o passo 4 — a preferência não mudava a divisão ali, então sair
+        # do wizard sem confirmá-la era um estado coerente. Deixou de ser: com
+        # `abc2` cabendo em três dias, a pergunta entrou no caminho, e um
+        # perfil "completo" com a divisão por confirmar passou a disparar o
+        # desvio de `OnboardingStepMixin` — seis testes de NAVEGAÇÃO, que não
+        # falam de divisão nenhuma, caíam em `/conta/onboarding/4/`.
+        #
+        # Quem quiser o outro estado — completo e sem confirmar — passa
+        # `split_preference_confirmada=False`, e é o que faz
+        # `test_quem_edita_os_dias_e_ainda_nao_escolheu_a_divisao_e_perguntado`.
+        "split_preference_confirmada": True,
     }
     fields.update(profile_kwargs)
     Profile.objects.create(user=user, **fields)

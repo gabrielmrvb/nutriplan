@@ -547,6 +547,7 @@ class Split(models.TextChoices):
     FULL = "full", "Corpo inteiro"
     AB = "ab", "AB — superior e inferior"
     ABC = "abc", "ABC — empurrar, puxar e pernas"
+    ABC2 = "abc2", "ABC de dois grupos — peito/tríceps, costas/bíceps e pernas/ombros"
     ABCD = "abcd", "ABCD — peito/tríceps, costas/bíceps, ombro/perna e complementares"
     ABCDE = "abcde", "ABCDE — o ciclo de quatro mais um dia de pontos fracos"
 
@@ -652,6 +653,19 @@ class WorkoutTemplate(DurationMixin, models.Model):
     focus = models.CharField("foco", max_length=120, blank=True)
     order = models.PositiveSmallIntegerField("ordem", default=0)
     is_active = models.BooleanField("ativo", default=True)
+    #: Os grupos que o NOME desta sessão promete. É curadoria, não dedução.
+    #:
+    #: O que está na ficha e não está aqui é COMPLEMENTAR — panturrilha no dia
+    #: de perna, abdômen no fim, trapézio junto das costas. A distinção decide
+    #: duas coisas concretas: complementar é o primeiro a ceder quando falta
+    #: tempo (`escolher_para_o_tempo`) e não entra na conta do título honesto
+    #: (`titulo_honesto`), porque o título não o prometeu.
+    #:
+    #: DEDUZIR ISSO SERIA PIOR. "Grupo com poucos exercícios" chamaria o ombro
+    #: de complementar no `abcd C`, que se chama "Pernas e ombros"; "grupo de
+    #: isoladores" chamaria o trapézio de complementar no `abcd D`, que existe
+    #: para ele. Quem sabe o que o nome promete é quem escreveu o nome.
+    main_groups = models.JSONField("grupos anunciados", default=list, blank=True)
 
     class Meta:
         verbose_name = "treino (modelo)"
@@ -822,6 +836,10 @@ class TrainingSession(DurationMixin, models.Model):
     label = models.CharField("letra", max_length=1)
     name = models.CharField("nome", max_length=60)
     focus = models.CharField("foco", max_length=120, blank=True)
+    #: Cópia congelada de `WorkoutTemplate.main_groups`, pela mesma razão que
+    #: `name` e `focus` são cópias: plano é RETRATO. Mudar o catálogo não pode
+    #: reescrever a ficha de quem já treina com ela.
+    main_groups = models.JSONField("grupos anunciados", default=list, blank=True)
     start_time = models.TimeField("horário", null=True, blank=True)
     duration_min = models.PositiveSmallIntegerField("duração (min)", default=60)
     order = models.PositiveSmallIntegerField("ordem", default=0)
@@ -848,6 +866,39 @@ class TrainingSession(DurationMixin, models.Model):
     @property
     def total_sets(self) -> int:
         return sum(item.sets for item in self.exercises.all())
+
+    def _particiona(self):
+        """A ficha em duas listas: o que o título promete, e o resto.
+
+        Uma passagem só sobre `exercises`, porque a tela pede as duas e
+        `prefetch_related` já trouxe tudo — pedir duas vezes custaria consulta
+        em cada cartão da semana.
+        """
+        anunciados = set(self.main_groups or ())
+        principais, complementares = [], []
+        for item in self.exercises.all():
+            alvo = (
+                complementares
+                if anunciados and item.exercise.muscle_group not in anunciados
+                else principais
+            )
+            alvo.append(item)
+        return principais, complementares
+
+    @property
+    def exercicios_principais(self) -> list:
+        return self._particiona()[0]
+
+    @property
+    def exercicios_complementares(self) -> list:
+        """O que entra além do que o título promete.
+
+        Existe para a ficha poder DIZER isso — "Complementares desta sessão" —
+        em vez de misturar panturrilha com agachamento numa lista só e deixar
+        a pessoa achar que o dia perdeu um exercício de perna quando o que
+        saiu foi a panturrilha.
+        """
+        return self._particiona()[1]
 
 
 class SessionExercise(PrescriptionFields):

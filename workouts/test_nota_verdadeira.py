@@ -149,9 +149,23 @@ class ARegraDaNotaEUmaFuncaoPuraTests(TestCase):
         nota = services.aviso_de_tempo(sessoes, final, sem_relogio)
 
         self.assertIn("ajustada para caber", nota)
-        self.assertNotIn("não cabem todos os grupos", nota)
+        self.assertNotIn("para outra sessão da semana", nota)
+        self.assertNotIn("em nenhuma sessão desta semana", nota)
 
-    def test_perder_um_grupo_inteiro_avisa_pesado(self):
+    def test_perder_um_grupo_da_SEMANA_avisa_com_o_nome_do_musculo(self):
+        """A frase mais pesada das três, e ela nomeia.
+
+        A NOTA PASSOU A TER TRÊS FRASES em 10/09/2026, e este teste conhecia
+        duas. A antiga dizia "no tempo que você informou não cabem todos os
+        grupos do dia" para os dois casos pesados — o grupo que sai de UMA
+        sessão e volta na outra, e o que some da semana inteira. São fatos
+        diferentes e a pessoa precisa distingui-los: no primeiro a panturrilha
+        volta na quarta, no segundo ela não volta em dia nenhum.
+
+        Aqui a semana tem UMA sessão, então perder o tríceps dela é perdê-lo
+        da semana. A frase nomeia o músculo, que é o que permite à pessoa
+        decidir se aumenta o tempo ou acrescenta um dia.
+        """
         sessoes = [self._Sessao(1)]
         sem_relogio = self._mapa([(1, "chest"), (1, "triceps")])
         final = {
@@ -161,5 +175,30 @@ class ARegraDaNotaEUmaFuncaoPuraTests(TestCase):
 
         nota = services.aviso_de_tempo(sessoes, final, sem_relogio)
 
-        self.assertIn("não cabem todos os grupos", nota)
+        self.assertIn("em nenhuma sessão desta semana", nota)
+        self.assertIn("tríceps", nota)
         self.assertIn("Aumentar o tempo", nota)
+
+    def test_perder_um_grupo_de_UMA_sessao_diz_que_ele_volta(self):
+        """O caso do meio, que a versão anterior confundia com o de cima.
+
+        Duas sessões; o tríceps sai da primeira e fica na segunda. A ficha de
+        segunda-feira tem um grupo a menos, e isso merece frase — mas a frase
+        NÃO pode ser a de perda semanal, porque o tríceps é treinado na
+        semana. Quem lesse "não coube em nenhuma sessão" concluiria que o
+        programa dele não tem tríceps, e concluiria errado.
+        """
+        sessoes = [self._Sessao(1), self._Sessao(2)]
+        sem_relogio = self._mapa(
+            [(1, "chest"), (1, "triceps"), (2, "triceps")]
+        )
+        final = {
+            k: v for k, v in sem_relogio.items()
+            if not (k[0] == 1 and v[1].exercise.muscle_group == "triceps")
+        }
+
+        nota = services.aviso_de_tempo(sessoes, final, sem_relogio)
+
+        self.assertIn("para outra sessão da semana", nota)
+        self.assertIn("tríceps", nota)
+        self.assertNotIn("em nenhuma sessão desta semana", nota)

@@ -218,13 +218,20 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
                     )
 
     def test_a_variedade_semanal_cumpre_o_contrato(self):
-        """4 peito, 4 costas, 3 tríceps, 3 bíceps no ciclo da semana.
+        """4 peito, 4 costas, 3 tríceps, 3 bíceps — de CINCO dias para cima.
 
-        Só de 4 dias para cima: com três dias a divisão aplicada é `abc`, cujo
-        modelo B lista TRÊS costas — limitação do modelo, não do algoritmo, e
-        está registrada em `AsLimitacoesQueSobramSaoDeCONTEUDOTests`.
+        A FAIXA MUDOU DE QUATRO PARA CINCO EM 10/09/2026, e o motivo não é o
+        catálogo: é uma troca medida. Ver
+        `test_em_tres_e_quatro_dias_quem_cede_e_o_biceps_e_so_ele`, logo
+        abaixo, que mede o preço e trava o tamanho dele.
+
+        (A versão anterior desta docstring apontava para
+        `AsLimitacoesQueSobramSaoDeCONTEUDOTests`, que registrava o modelo
+        `abc B` com três costas. Aquela lacuna foi fechada — o quarto dorsal
+        entrou —, e a classe virou o par positivo
+        `AQuartaCostasEntrouNoModeloDeTresGruposTests`.)
         """
-        for dias in range(4, 8):
+        for dias in range(5, 8):
             with self.subTest(dias=dias):
                 _, plano = perfil(dias)
                 distintos = defaultdict(set)
@@ -238,6 +245,56 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
                         "%s com %d exercícios distintos, contrato pede %d"
                         % (grupo, len(distintos[grupo]), minimo),
                     )
+
+    def test_em_tres_e_quatro_dias_quem_cede_e_o_biceps_e_so_ele(self):
+        """O preço de não abandonar o complementar, medido e travado.
+
+        A ARITMÉTICA. No perfil de dois grupos por dia com 45 a 60 minutos, o
+        dia de puxar comporta SETE exercícios. O contrato de variedade pede
+        quatro costas e três bíceps — sete exatos —, e os complementares que
+        moram ali (trapézio e antebraço) precisam de mais dois. Com três ou
+        quatro dias a letra B cai uma vez só, então não há segunda passagem
+        para dividir a conta: alguma coisa fica de fora.
+
+        A ESCOLHA, e ela é do produto: o complementar entra. Um programa que
+        nunca treina panturrilha, abdômen, trapézio nem antebraço é pior que um
+        que treina bíceps com um exercício em vez de três — ainda mais porque
+        as quatro remadas do dia já trabalham bíceps como secundário, e nada
+        trabalha panturrilha por acidente.
+
+        O QUE ESTE TESTE TRAVA é o tamanho da concessão. Peito, costas e
+        tríceps continuam cumprindo o contrato inteiro; só o bíceps cede, e
+        cede SOMENTE porque o complementar ocupou o lugar — se um dia a ficha
+        perder o bíceps E o complementar, isto fica vermelho.
+        """
+        complementares = {
+            MuscleGroup.TRAPS, MuscleGroup.FOREARMS,
+            MuscleGroup.CALVES, MuscleGroup.CORE,
+        }
+        for dias in (3, 4):
+            with self.subTest(dias=dias):
+                _, plano = perfil(dias, sufixo="-troca")
+                distintos = defaultdict(set)
+                for sessao in plano.sessions.all():
+                    for item in sessao.exercises.select_related("exercise"):
+                        distintos[item.exercise.muscle_group].add(
+                            item.exercise.name
+                        )
+
+                for grupo in (MuscleGroup.CHEST, MuscleGroup.BACK,
+                              MuscleGroup.TRICEPS):
+                    self.assertGreaterEqual(
+                        len(distintos[grupo]), MINIMOS_SEMANAIS[grupo],
+                        "%s cedeu junto com o bíceps: %s"
+                        % (grupo, sorted(distintos[grupo])),
+                    )
+
+                self.assertGreaterEqual(len(distintos[MuscleGroup.BICEPS]), 1)
+                self.assertEqual(
+                    complementares - set(distintos), set(),
+                    "o bíceps cedeu e o complementar não entrou: %s"
+                    % sorted(complementares - set(distintos)),
+                )
 
     def test_a_variedade_nao_piora_quando_a_frequencia_sobe(self):
         """A assinatura do defeito: mais dias davam MENOS movimentos distintos.
@@ -408,11 +465,24 @@ class ORelogioNaoApagaMusculoAnunciadoTests(TestCase):
     def setUpTestData(cls):
         call_command("seed_workouts", verbosity=0)
 
-    def test_todo_grupo_do_modelo_sobrevive_ao_corte(self):
+    def test_todo_grupo_ANUNCIADO_sobrevive_ao_corte(self):
         """A ficha não pode prometer no título o que não entrega.
 
         Varre as QUATRO faixas de duração e as sete frequências: o corte por
-        tempo pode reduzir exercício, nunca zerar um grupo que o modelo lista.
+        tempo pode reduzir exercício, nunca zerar um grupo que o TÍTULO lista.
+
+        A RÉGUA MUDOU EM 10/09/2026, e a mudança tem consequência. Ela era
+        "todo grupo do modelo", contando os itens; passou a ser
+        `WorkoutTemplate.main_groups`, que é o que o nome da sessão promete. A
+        diferença é o COMPLEMENTAR — panturrilha no dia de perna, trapézio e
+        antebraço junto das costas: ele entra quando cabe e é o primeiro a
+        ceder quando não cabe, e tirá-lo não torna o título mentira porque o
+        título não o prometeu.
+
+        Sem essa distinção o corte protegia o que ninguém prometeu e cortava o
+        que estava no nome: medido, "Costas e bíceps" a 60 minutos saía com
+        bíceps=1 e trapézio=1, porque bíceps era o grupo mais cheio entre os
+        isoladores e o trapézio, com um exercício só, estava travado.
         """
         for duracao in DuracaoTreino.values:
             for dias in range(1, 8):
@@ -422,11 +492,12 @@ class ORelogioNaoApagaMusculoAnunciadoTests(TestCase):
                         t.label: t for t in services.templates_for(plano.split)
                     }
                     for sessao in plano.sessions.all():
-                        prometidos = {
-                            item.exercise.muscle_group
-                            for item in modelos[sessao.label].items.all()
-                            if item.exercise.is_active
-                        }
+                        prometidos = set(modelos[sessao.label].main_groups)
+                        self.assertTrue(
+                            prometidos,
+                            "%s %s não declara `main_groups`"
+                            % (plano.split, sessao.label),
+                        )
                         entregues = {
                             item.exercise.muscle_group
                             for item in sessao.exercises.select_related("exercise")
@@ -453,12 +524,24 @@ class ORelogioNaoApagaMusculoAnunciadoTests(TestCase):
                         # esgotar. Abaixo, a faixa curta cobra isso; as outras
                         # cobram a invariante inteira.
                         if duracao == DuracaoTreino.RAPIDO:
-                            no_piso = [
-                                item.sets <= (PISO_COMPOSTO
-                                              if item.exercise.is_compound else 2)
-                                for item in sessao.exercises.select_related("exercise")
-                            ]
                             if prometidos - entregues:
+                                # A ORDEM DA CONCESSÃO, cobrada onde ela dói.
+                                # Grupo anunciado só sai depois de as duas
+                                # concessões anteriores se esgotarem: nenhum
+                                # complementar sobrando na ficha, e nenhuma
+                                # série acima do piso.
+                                self.assertEqual(
+                                    entregues - prometidos, set(),
+                                    "%s perdeu %s com complementar %s ainda na "
+                                    "ficha" % (sessao.label,
+                                               sorted(prometidos - entregues),
+                                               sorted(entregues - prometidos)),
+                                )
+                                no_piso = [
+                                    item.sets <= (PISO_COMPOSTO
+                                                  if item.exercise.is_compound else 2)
+                                    for item in sessao.exercises.select_related("exercise")
+                                ]
                                 self.assertTrue(
                                     all(no_piso),
                                     "%s perdeu %s com série de sobra em %s"
@@ -474,6 +557,50 @@ class ORelogioNaoApagaMusculoAnunciadoTests(TestCase):
                             % (plano.split, sessao.label,
                                sorted(prometidos), sorted(entregues)),
                         )
+
+    def test_o_titulo_nunca_nomeia_musculo_que_a_ficha_nao_tem(self):
+        """A invariante que vale SEMPRE, inclusive onde a anterior cede.
+
+        `aparar_volume_semanal` pode tirar o último exercício de um grupo
+        anunciado de UMA passagem — ele só protege o último da SEMANA. Medido:
+        em `abc B` com cinco dias a rosca inversa sai de B1 e fica em B2, e B1
+        passava a se chamar "Costas, bíceps, antebraço e trapézio" sem nenhum
+        antebraço. O relógio não tinha nada a ver com isso.
+
+        Então a régua forte não é "o grupo sobrevive" — é "o nome diz a
+        verdade". `titulo_honesto` reescreve o nome quando um anunciado cai, e
+        este teste cobra os dois lados: nome do catálogo só quando TODOS os
+        anunciados estão lá, e nome reescrito nomeando só o que ficou.
+        """
+        for duracao in DuracaoTreino.values:
+            for dias in range(1, 8):
+                with self.subTest(duracao=duracao, dias=dias):
+                    _, plano = perfil(dias, duracao=duracao, sufixo="-titulo")
+                    modelos = {
+                        t.label: t for t in services.templates_for(plano.split)
+                    }
+                    for sessao in plano.sessions.all():
+                        modelo = modelos[sessao.label]
+                        entregues = {
+                            item.exercise.muscle_group
+                            for item in sessao.exercises.select_related("exercise")
+                        }
+                        faltam = set(modelo.main_groups) - entregues
+                        if not faltam:
+                            self.assertEqual(sessao.name, modelo.name)
+                            continue
+                        self.assertNotEqual(
+                            sessao.name, modelo.name,
+                            "%s manteve o nome do catálogo sem %s"
+                            % (sessao.label, sorted(faltam)),
+                        )
+                        for grupo in faltam:
+                            self.assertNotIn(
+                                services.NOME_CURTO_DO_GRUPO[grupo],
+                                sessao.name.lower(),
+                                "%r nomeia %s, que não está na ficha"
+                                % (sessao.name, grupo),
+                            )
 
     def test_nenhuma_sessao_fica_com_menos_de_dois_exercicios(self):
         """"Corpo inteiro com dois exercícios" era o sintoma de 1 dia."""
@@ -514,35 +641,99 @@ class AsFalhasNaoDependemDoCorpoTests(TestCase):
         self.assertEqual(receitas[1], receitas[2])
 
 
-class AsLimitacoesQueSobramSaoDeCONTEUDOTests(TestCase):
-    """O que a correção NÃO resolve, separado do que ela resolve.
+class AQuartaCostasEntrouNoModeloDeTresGruposTests(TestCase):
+    """`abc B` lista os QUATRO dorsais ativos do catálogo, e não três.
 
-    A missão pede a separação explícita entre defeito de algoritmo e limitação
-    real. Depois da repartição e da trava do relógio, o que sobra é conteúdo:
+    ERA UMA LIMITAÇÃO DE CONTEÚDO E DEIXOU DE SER. A versão anterior deste
+    arquivo congelava a lacuna com um teste ao contrário — "o modelo tem três,
+    e três é menos que o contrato" —, para ficar vermelho no dia em que o
+    quarto entrasse. Entrou em 10/09/2026: `Barra fixa assistida`, que já abre
+    `abcd B` e `abcde B` com a mesma dose.
 
-    `abc B` — a divisão aplicada a quem pede 2 grupos e treina TRÊS dias —
-    lista três exercícios de costas, e o catálogo tem quatro. O contrato pede
-    quatro no ciclo semanal, e nenhum algoritmo cria o quarto: ele não está no
-    modelo.
+    O QUE ESTE TESTE PROTEGE, item por item, porque cada linha tem um jeito
+    conhecido de dar errado:
 
-    Este teste CONGELA a lacuna. No dia em que o modelo ganhar o quarto, ele
-    fica vermelho e avisa que o contrato passou a caber em três dias também.
+      - QUATRO dorsais DISTINTOS, todos ATIVOS. `Remada curvada com barra`
+        continua aposentada e não pode voltar por esta porta;
+      - o quarto tem metadado válido — grupo, multiarticular, secundários e
+        vídeo —, senão a ficha ganha um exercício que a tela não sabe mostrar;
+      - TRÊS bíceps, que é a outra metade do contrato do dia de puxar;
+      - e o ciclo SEMANAL do perfil de referência entrega os quatro e os três.
+        Ter no modelo não basta: o teto semanal e o relógio ficam entre o
+        modelo e a ficha.
     """
 
     @classmethod
     def setUpTestData(cls):
         call_command("seed_workouts", verbosity=0)
 
-    def test_o_modelo_de_tres_dias_nao_lista_costas_suficiente(self):
-        modelos = {t.label: t for t in services.templates_for("abc")}
-        costas = [
-            item.exercise.name
-            for item in modelos["B"].items.all()
-            if item.exercise.muscle_group == MuscleGroup.BACK
+    def _do_grupo(self, modelo, grupo):
+        return [
+            item.exercise
+            for item in modelo.items.all()
+            if item.exercise.muscle_group == grupo
         ]
 
-        self.assertEqual(
-            len(costas), 3,
-            "o modelo `abc B` mudou de tamanho — reveja o contrato de variedade",
+    def test_o_modelo_lista_quatro_costas_ativas_e_distintas(self):
+        modelo = {t.label: t for t in services.templates_for("abc")}["B"]
+        costas = self._do_grupo(modelo, MuscleGroup.BACK)
+
+        self.assertEqual(len(costas), MINIMOS_SEMANAIS[MuscleGroup.BACK])
+        self.assertEqual(len({e.name for e in costas}), len(costas))
+        for exercicio in costas:
+            self.assertTrue(exercicio.is_active, exercicio.name)
+        self.assertNotIn("Remada curvada com barra", [e.name for e in costas])
+
+    def test_o_quarto_dorsal_tem_metadado_de_verdade(self):
+        """Não basta o nome bater: a linha inteira tem de estar de pé.
+
+        A missão proíbe inventar exercício e proíbe associar conteúdo por
+        posição. O jeito de provar que nada foi inventado é conferir que o item
+        que entrou é o do catálogo, com os campos que a tela lê.
+        """
+        modelo = {t.label: t for t in services.templates_for("abc")}["B"]
+        barra = next(
+            item for item in modelo.items.all()
+            if item.exercise.name == "Barra fixa assistida"
         )
-        self.assertLess(len(costas), MINIMOS_SEMANAIS[MuscleGroup.BACK])
+
+        self.assertEqual(barra.exercise.muscle_group, MuscleGroup.BACK)
+        self.assertTrue(barra.exercise.is_compound)
+        self.assertTrue(barra.exercise.is_active)
+        self.assertEqual(
+            sorted(barra.exercise.secondary_muscles),
+            sorted([MuscleGroup.BICEPS, MuscleGroup.FOREARMS]),
+        )
+        self.assertTrue(barra.exercise.video_url)
+        self.assertEqual((barra.sets, barra.rep_min, barra.rep_max), (4, 6, 10))
+
+    def test_o_modelo_lista_tres_biceps(self):
+        modelo = {t.label: t for t in services.templates_for("abc")}["B"]
+        biceps = self._do_grupo(modelo, MuscleGroup.BICEPS)
+
+        self.assertEqual(len(biceps), MINIMOS_SEMANAIS[MuscleGroup.BICEPS])
+
+    def test_a_semana_do_perfil_de_referencia_entrega_quatro_e_tres(self):
+        """Cinco dias, intermediário, 45 a 60 minutos — o perfil da auditoria.
+
+        `abc` é a divisão de quem pede TRÊS grupos por dia; `abc2` é a de quem
+        pede dois. As duas passam pelo mesmo contrato, porque as duas têm um
+        dia de puxar e um de empurrar.
+        """
+        for preferencia in (SplitPreference.TRES, SplitPreference.DOIS):
+            with self.subTest(preferencia=preferencia):
+                _, plano = perfil(
+                    5, preferencia=preferencia, duracao=DuracaoTreino.PADRAO,
+                    experiencia=Experiencia.INTERMEDIARIO, sufixo="-quatro",
+                )
+                distintos = defaultdict(set)
+                for sessao in plano.sessions.all():
+                    for item in sessao.exercises.select_related("exercise"):
+                        distintos[item.exercise.muscle_group].add(item.exercise.name)
+
+                for grupo, minimo in MINIMOS_SEMANAIS.items():
+                    self.assertGreaterEqual(
+                        len(distintos[grupo]), minimo,
+                        "%s: %s tem %s"
+                        % (plano.split, grupo, sorted(distintos[grupo])),
+                    )

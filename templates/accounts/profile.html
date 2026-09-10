@@ -303,10 +303,12 @@
       {% comment %}
         O cartão só existe para quem a escolha muda alguma coisa.
 
-        Até três dias de treino, as três preferências devolvem a mesma
+        Até DOIS dias de treino, as três preferências devolvem a mesma
         divisão — mostrar o valor com um "Editar" seria oferecer um botão que
         leva a uma tela que o app ignora. O dado continua salvo; só não é
-        exibido enquanto não pesa.
+        exibido enquanto não pesa. (Eram TRÊS dias até 10/09/2026: a
+        preferência de dois grupos por dia passou a ter divisão própria, que
+        cabe em três, e ali as respostas voltaram a divergir.)
       {% endcomment %}
       {% if divisao_importa %}
         <section class="card">
@@ -319,7 +321,31 @@
               <dt>Grupos por dia</dt>
               <dd>{{ profile.get_split_preference_display }}</dd>
             </div>
+            {% if divisao.cedeu %}
+              {% comment %}
+                O PERFIL É O LUGAR ONDE A FRASE MENTIA, e por isso é aqui que a
+                ressalva mais faz falta.
+
+                Quem abre o Perfil vem conferir o que está gravado. Ler
+                "2 grupos por dia" e receber outra divisão na ficha é
+                exatamente o defeito que `divisao_explicada` existe para
+                fechar — e a ressalva tinha ido só para a tela de Treino.
+
+                A escolha CONTINUA GRAVADA: `dd` acima mostra o que a pessoa
+                pediu, e não o que foi aplicado. A adaptação é temporária e se
+                desfaz sozinha quando a frequência voltar a comportar — é
+                `routine_is_current` comparando a divisão do plano com a que a
+                preferência de hoje produz.
+              {% endcomment %}
+              <div>
+                <dt>Aplicada agora</dt>
+                <dd>{{ divisao.aplicada_rotulo }}</dd>
+              </div>
+            {% endif %}
           </dl>
+          {% if divisao.cedeu %}
+            <p class="hint">{{ divisao.motivo }}</p>
+          {% endif %}
         </section>
       {% endif %}
 

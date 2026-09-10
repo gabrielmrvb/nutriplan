@@ -26,6 +26,7 @@ from accounts.models import (
     ONBOARDING_DONE,
     ONBOARDING_LAST_STEP,
     ActivityLevel,
+    DuracaoTreino,
     Goal,
     MealStyle,
     Profile,
@@ -230,6 +231,19 @@ class Command(BaseCommand):
                 "activity_level": ActivityLevel.LIGHT,
                 "goal": Goal.BULK,
                 "split_preference": SplitPreference.DOIS,
+                # A FAIXA DE TEMPO, que ele não declarava.
+                #
+                # Sem ela `duracao_treino` fica em `""`, que o motor lê como
+                # "sem limite rígido" — e o dia de perna do ABC de dois grupos
+                # tem doze exercícios e 88 minutos estimados. A persona já diz
+                # 60 minutos em cada `TrainingDay`, então a tela mostrava um
+                # treino que os próprios dados dela desmentiam.
+                #
+                # `TrainingDay.duration_min` não serve para isso: ele
+                # sobreviveu para `plans/meal_planner.py` não marcar refeição
+                # no meio do treino, e deixou de ser a pergunta quando ela
+                # virou faixa. Quem responde é `Profile.duracao_treino`.
+                "duracao_treino": DuracaoTreino.PADRAO,
                 "meal_style": MealStyle.QUICK,
                 "wake_time": time(6, 30),
                 "sleep_time": time(23, 0),
@@ -266,6 +280,26 @@ class Command(BaseCommand):
         # planos — lixo que crescia sozinho e que poluia qualquer comparacao de
         # integridade do banco. O lado da nutricao ja usava `sync_active_plan`,
         # que so refaz quando a entrada muda; o do treino nao tinha o par.
+        # O DEMO NÃO PODE FICAR PRESO NUMA FICHA VELHA, E ELE FICAVA.
+        #
+        # `sync_active_routine` não remonta enquanto houver série anotada HOJE:
+        # a pessoa está treinando, e trocar a ficha debaixo da mão dela é o
+        # defeito que aquela trava existe para impedir. Só que o Carlos não
+        # está treinando — `_preencher_cargas` escreve as cargas dele com data
+        # de hoje, e essa função roda logo abaixo, a cada deploy.
+        #
+        # O resultado, medido em 10/09/2026: o primeiro seed do dia remontava,
+        # e todos os seguintes viam as séries que o próprio seed tinha acabado
+        # de escrever e desistiam. Quando a preferência de dois grupos por dia
+        # passou a produzir `abc2`, o demo continuou publicando `abc` — a face
+        # pública da mudança não mudava.
+        #
+        # Apagar antes é o mesmo que `_preencher_cargas` já faz na primeira
+        # linha dela; o que muda é a ORDEM, e a ordem é o defeito. A trava
+        # continua inteira para quem treina de verdade: ela olha `ExerciseLog`
+        # do usuário, e este usuário é um fixture de que o seed é dono.
+        ExerciseLog.objects.filter(user=user).delete()
+
         plano, _ = plan_services.sync_active_plan(user)
         ficha, _ = workout_services.sync_active_routine(user)
         self._limpar_fichas_orfas(user, ficha)

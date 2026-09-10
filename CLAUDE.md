@@ -431,6 +431,13 @@ composto principal fica onde está: medido, o ombro fecha em 14,5 com o teto em
 é o volume da SEMANA — 65 séries contra 88, no perfil de quatro dias. Quem
 tratar o teto como garantia vai "consertar" as travas e esvaziar um treino.
 
+**O catálogo cobre o contrato de variedade, e `abc B` foi o último buraco.**
+Quatro peitos, quatro costas, três tríceps e três bíceps por semana é o que o
+produto pede para o intermediário de 45 a 60 minutos. O modelo `abc B` listava
+TRÊS dorsais com quatro no catálogo; `Barra fixa assistida` entrou em
+10/09/2026, com a mesma dose que já abre `abcd B` e `abcde B`.
+`Remada curvada com barra` continua aposentada e não volta por essa porta.
+
 **Personalização por LOCAL e EQUIPAMENTO está bloqueada pelo CATÁLOGO, não por
 escopo — e a medição de 10/09/2026 diz exatamente quanto falta.**
 
@@ -519,6 +526,108 @@ mentiam por comparar com a coisa errada:
 histórico. `nomear_ocorrencias` calcula `rotulo` por OCORRÊNCIA — nunca por
 posição na lista —, e leva junto a contagem, porque em sete dias a letra A
 aparece três vezes e o template dizia "duas" para todo mundo.
+
+**"2 grupos por dia" é ABC, e o quarto dia não existe.** A preferência
+entregava ABCD, cujo quarto dia se chama "Complementares" e é trapézio,
+antebraço, panturrilha, glúteo e core — não são dois grupos principais, são o
+resto, e quem treinava cinco dias recebia A-B-C-D-A com o dia D no meio da
+semana. Hoje ela pede TRÊS dias e produz `Split.ABC2`: peito e tríceps, costas
+e bíceps, pernas e ombros, repetindo a partir do quarto dia (A-B-C-A,
+A-B-C-A-B, A-B-C-A-B-C, A-B-C-A-B-C-A).
+
+Os complementares não sumiram — foram para dentro de B e de C, e é
+`repartir_ocorrencia` que os distribui: B1 leva o encolhimento, B2 leva a remada
+alta; C1 leva a panturrilha em pé, C2 a sentada. **A objeção de que integrar os
+complementares obrigaria sessões de onze exercícios está medida e é falsa**:
+`abc2 B` tem onze itens e `abc2 C` tem doze, e a maior sessão da semana tem
+SETE no tempo padrão e QUATRO no rápido. Doze só chega a quem escolheu
+"Completo" ou "sem limite rígido", em 88 minutos contra um teto de 90 — ali a
+pessoa pediu a ficha inteira.
+
+**O modelo declara os grupos que o NOME promete, e o resto é COMPLEMENTAR.**
+`WorkoutTemplate.main_groups` é curadoria, não dedução: "grupo com poucos
+exercícios" chamaria o ombro de complementar no `abcd C`, que se chama "Pernas e
+ombros", e "grupo de isoladores" chamaria o trapézio de complementar no
+`abcd D`, que existe para ele. A lista decide três coisas concretas —
+
+- **o EXCEDENTE do complementar cede primeiro** quando falta tempo — a segunda
+  panturrilha antes da terceira rosca. Sem essa distinção o corte protegia o que
+  ninguém prometeu: medido, "Costas e bíceps" a 60 minutos saía com bíceps=1 e
+  trapézio=1, porque bíceps era o grupo mais cheio entre os isoladores e o
+  trapézio, com um exercício só, estava travado. Com a regra, o perfil de
+  referência — cinco dias, 45 a 60 minutos — fecha a semana com costas=4 e
+  bíceps=3. E o ÚLTIMO exercício de um grupo complementar só sai depois de a
+  redução de série se esgotar — ver a ordem em cinco camadas, abaixo;
+- **o título só nomeia grupo anunciado**, então tirar a panturrilha não torna o
+  nome mentira;
+- **a ficha separa as duas listas** — "Complementares desta sessão" —, e
+  `TrainingSession.main_groups` é cópia congelada do modelo, pela mesma razão
+  que `name` e `focus` são: plano é retrato.
+
+**O título é MONTADO, então ele tem de caber na coluna — e a folga não basta.**
+`TrainingSession.name` é `varchar(60)`, e o PostgreSQL RECUSA o que não cabe em
+vez de truncar: um nome longo não seria feio, seria a montagem da ficha
+estourando. Medido sobre todos os subconjuntos dos onze grupos, a pior
+combinação possível dá 94 caracteres; a pior combinação REAL do catálogo de
+hoje dá 51. Nove de folga é o tipo de margem que a próxima divisão gasta sem
+ninguém perceber. `_frase_que_cabe` lê o limite do próprio campo do modelo e,
+quando estoura, NOMEIA MENOS e conta o resto — "Quadríceps, peito e mais 4" —,
+nunca cortando no meio de uma palavra.
+
+**O título da sessão é escrito DEPOIS da prescrição, e diz só o que ela tem.**
+`titulo_honesto` reescreve `name` quando um grupo anunciado não sobreviveu —
+"Corpo inteiro" com três exercícios vira "Quadríceps, peito e costas", e
+"Costas, bíceps, antebraço e trapézio" sem antebraço vira "Costas, bíceps e
+trapézio". Três frases mentiram em produção por causa disso, e uma delas nem era
+culpa do relógio: `aparar_volume_semanal` só protege o último exercício do grupo
+na SEMANA, então ele pode tirar a rosca inversa de B1 e deixá-la em B2.
+
+**O tempo curto tem UMA ordem de concessão, e ela é CINCO camadas.**
+`escolher_para_o_tempo`: (1) sai o EXCEDENTE do complementar — a segunda
+panturrilha, o segundo abdominal; (2) sai o excedente do anunciado, do degrau
+mais baixo e do grupo mais CHEIO; (3) reduz série até o piso — três num
+composto, duas num isolado; (4) sai o ÚLTIMO exercício de um grupo
+complementar; (5) só então um anunciado cai, e o título acompanha.
+
+A ordem resolve duas queixas que puxavam para lados opostos: "a ficha de 30
+minutos virou agachamento e supino" é a camada 5 sem a reescrita do título, e "o
+supino caiu para duas séries num perfil normal" é a camada 3 acontecendo onde a
+camada 2 ainda tinha o que ceder. Medido: no perfil de 45 a 60 minutos o supino
+mantém quatro séries em todas as divisões.
+
+**A camada 1 já foi "sai o complementar inteiro", e isso estava errado.** Com
+ela, panturrilha e abdômen ficavam órfãos da SEMANA em três, quatro e cinco
+dias no perfil de dois grupos por dia — a letra C cai uma vez só nessas
+frequências, e o que saía dela não voltava. Eu registrei isso como limitação
+aritmética e não era: com a ordem em cinco camadas, **de 45 minutos para cima
+nenhum grupo complementar fica órfão em nenhuma frequência de 1 a 7 dias**.
+
+Em "até 30 minutos" ainda sobram órfãos, e ali a frase honesta não é
+"impossível": os três compostos principais de `abc2 C` no piso custam 28,2
+minutos e o complementar mais barato leva a sessão a 31,8, mas cinco isoladores
+cobririam os cinco grupos em 20,7. O que isso não é, é um dia de perna. A ficha
+escolhe os principais e `aviso_de_tempo` NOMEIA o que ficou fora — omitir seria
+o defeito.
+
+E "mais cheio" conta os exercícios que o grupo tem NA SESSÃO, não quantos deles
+estão no degrau que cede. Contando o degrau, o quadríceps — três exercícios,
+sendo dois compostos intocáveis — parecia o grupo mais magro da sessão e a ficha
+"Pernas e ombros" terminava com UM ombro.
+
+**O contrato de variedade 4/4/3/3 é de CINCO dias para cima, e o que cede em
+três e quatro é o bíceps — de propósito.** O dia de puxar comporta SETE
+exercícios em 45 a 60 minutos. O contrato pede quatro costas e três bíceps —
+sete exatos —, e trapézio e antebraço, que moram ali, precisam de mais dois. Com
+três ou quatro dias a letra B cai UMA vez e não há segunda passagem para dividir
+a conta.
+
+A escolha é o complementar entrar: um programa que nunca treina panturrilha,
+abdômen, trapézio nem antebraço é pior que um que treina bíceps com um exercício
+em vez de três — ainda mais porque as quatro remadas do dia já trabalham bíceps
+como secundário, e nada trabalha panturrilha por acidente. Peito, costas e
+tríceps continuam cumprindo o contrato inteiro nessas frequências; só o bíceps
+cede, e `test_em_tres_e_quatro_dias_quem_cede_e_o_biceps_e_so_ele` fica vermelho
+se um dia a ficha perder os dois.
 
 **Preferência de divisão que cede, cede EM VOZ ALTA.** `split_for` cruza
 preferência com frequência e a frequência manda — quem pede "1 grupo por dia" e

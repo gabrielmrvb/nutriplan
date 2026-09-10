@@ -49,6 +49,112 @@ Antes de mexer em CSS por regressão visual: reproduzir, medir com
 `getComputedStyle`, achar a regra vencedora, conferir especificidade, conferir
 ordem, só então alterar — e medir de novo depois.
 
+## ✅ GERADOR DE TREINOS — A CORREÇÃO FINAL (10/09/2026)
+
+Fecha as quatro pendências que sobraram de `20f7f48`. O que mudou, e o que foi
+medido em cada uma.
+
+### 1. "2 grupos por dia" virou ABC, e o treino D acabou
+
+`SPLIT_BY_PREFERENCE[DOIS]` pedia QUATRO dias e entregava ABCD — cujo quarto dia
+se chama "Complementares". Quem treinava cinco dias recebia A-B-C-D-A. Agora
+pede TRÊS e entrega `Split.ABC2`, com os nomes simples que a pessoa espera:
+**Peito e tríceps · Costas e bíceps · Pernas e ombros**, repetindo A-B-C-A,
+A-B-C-A-B, A-B-C-A-B-C, A-B-C-A-B-C-A.
+
+Os complementares foram para dentro de B (trapézio, antebraço) e de C
+(panturrilha, glúteo, core; o posterior já era perna), e `repartir_ocorrencia`
+os distribui entre as passagens.
+
+**A objeção das "sessões de onze exercícios" foi medida e é falsa.** `abc2 B`
+tem onze itens e `abc2 C` tem doze; a maior sessão da semana entrega:
+
+| faixa de tempo | maior sessão |
+|---|---|
+| Rápido — até 30 | 4 exercícios |
+| Padrão — 45 a 60 | 7 exercícios |
+| Completo — 60 a 90 | 12, em 88 minutos |
+
+Doze só chega a quem escolheu Completo ou "sem limite rígido" — ali a pessoa
+pediu a ficha inteira, e 88 < 90.
+
+**Uma conclusão minha que estava errada, e a correção.** Eu havia registrado
+aqui que panturrilha e abdômen "só entram a partir de seis dias" com o teto de
+60 minutos, e chamado isso de aritmética. Não era: era a ordem do corte. A
+primeira versão derrubava o grupo complementar INTEIRO na primeira camada,
+antes de tocar em qualquer excedente anunciado — e como a letra C cai uma vez
+só em três, quatro e cinco dias, o que saía dela não voltava em lugar nenhum.
+
+A ordem passou a ter CINCO camadas: excedente do complementar → excedente do
+anunciado → **redução de série até o piso** → último complementar → último
+anunciado. Medido em 3 preferências × 7 frequências × 4 faixas de duração:
+
+| faixa | grupos complementares órfãos da semana |
+|---|---|
+| Padrão, Completo, sem limite | **zero**, em qualquer frequência de 1 a 7 dias |
+| Rápido — até 30 | `full` com 1 dia, `ab` com 2, `abc2` com 3 a 5 |
+
+**O preço, e ele é de três e quatro dias.** O dia de puxar comporta sete
+exercícios em 45 a 60 minutos, o contrato de variedade pede sete (quatro costas
++ três bíceps), e trapézio e antebraço precisam de mais dois. Com três ou quatro
+dias a letra B cai uma vez só. A semana fecha com costas=4, tríceps=3, peito=4 e
+**bíceps=1**, com os quatro complementares presentes. De cinco dias para cima o
+contrato inteiro volta, porque B repete. Está travado nos dois sentidos por
+`test_em_tres_e_quatro_dias_quem_cede_e_o_biceps_e_so_ele`.
+
+**O que sobra em "até 30 minutos" é escolha declarada, não impossibilidade.**
+Em `abc2 C` os três compostos principais no piso de série custam 28,2 minutos, e
+o complementar mais barato leva a sessão a 31,8 contra um teto de 30. Cinco
+isoladores — extensora, mesa flexora, elevação lateral, panturrilha sentado e
+prancha — cobririam os cinco grupos em 20,7 minutos, e isso não é um dia de
+perna: derruba agachamento e stiff, que é o que o contrato proíbe. A ficha
+mantém os principais e `aviso_de_tempo` NOMEIA o que ficou de fora — "no tempo
+que você informou, panturrilha e abdômen não couberam em nenhuma sessão desta
+semana".
+
+### 2. A quarta costas do `abc B`
+
+O catálogo tem quatro dorsais ativos e o modelo listava três.
+**`Barra fixa assistida`** entrou, com a mesma dose (4 × 6-10, 80 s) que já abre
+`abcd B` e `abcde B`. `Remada curvada com barra` continua aposentada. O ciclo
+semanal do perfil de referência (5 dias, intermediário, 45-60) agora entrega
+**4 peitos, 4 costas, 3 tríceps e 3 bíceps** distintos, nas duas divisões que
+têm dia de puxar.
+
+O teste que congelava a lacuna (`AsLimitacoesQueSobramSaoDeCONTEUDO`) ficou
+vermelho ao ser fechada — que é o que ele existia para fazer — e virou o par
+positivo, `AQuartaCostasEntrouNoModeloDeTresGrupos`.
+
+### 3. A contradição dos 30 minutos, resolvida numa ordem só
+
+Quatro passos, em `escolher_para_o_tempo`: (1) sai o complementar; (2) sai o
+excedente do grupo mais CHEIO, do degrau mais baixo, nunca o último de um grupo
+anunciado; (3) reduz série até o piso; (4) só então um anunciado cai — e o
+título acompanha (`titulo_honesto`).
+
+As duas queixas do relato eram sobre casos diferentes: "a ficha de 30 minutos
+virou agachamento e supino" é o passo 4 sem o passo 5, e "o supino caiu para
+duas séries num perfil normal" é o passo 3 acontecendo onde o passo 2 ainda
+tinha o que ceder. Medido depois: o supino mantém **4 séries de 6 a 10** em
+todas as divisões no perfil de 45 a 60 minutos, e nenhuma sessão de nenhuma
+faixa passa do teto informado.
+
+Duas coisas mudaram junto e valem o registro:
+
+- **`WorkoutTemplate.main_groups`** — os grupos que o NOME promete, curados no
+  `splits.json`. Sem eles o corte protegia o que ninguém prometeu: "Costas e
+  bíceps" a 60 minutos saía com bíceps=1 e trapézio=1;
+- **"mais cheio" conta a SESSÃO, não o degrau que cede.** Contando o degrau, o
+  quadríceps parecia o grupo mais magro de "Pernas e ombros" — três exercícios,
+  dois deles compostos intocáveis — e o ombro terminava com um.
+
+E a ficha ganhou a seção **"Complementares desta sessão"**, que é o que faz a
+pessoa entender por que a sexta traz encolhimento e a segunda não.
+
+### 4. QA de produção
+
+Ver a seção de validação abaixo.
+
 ## Bloqueado por decisão ou ação humana
 
 ### ⛔ Vídeo do "Agachamento livre" ensina o movimento SEM CARGA — falta curadoria

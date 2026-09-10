@@ -2598,14 +2598,25 @@ class SplitPreferenceTests(TestCase):
             with self.subTest(dias=dias):
                 self.assertEqual(services.split_for(dias, SplitPreference.UM), divisao)
 
-    def test_two_groups_a_day_tops_out_at_the_four_day_split(self):
-        """Aqui a preferência VENCE a frequência: quem treina cinco ou seis
-        vezes e pede dois grupos por dia continua no ABCD, e o ciclo repete —
-        A, B, C, D, A. É escolha legítima de treino, e é o ponto da tela."""
-        for dias in range(4, 8):
+    def test_two_groups_a_day_is_the_abc2_from_three_days_up(self):
+        """Aqui a preferência VENCE a frequência, e o teto desceu para TRÊS.
+
+        ERA ABCD, E O NOME DO TESTE DIZIA ISSO. A preferência de dois grupos
+        por dia entregava a divisão de quatro letras cujo quarto dia se chama
+        "Complementares" — trapézio, antebraço, panturrilha e core, que não são
+        dois grupos principais. Quem treinava cinco dias recebia A-B-C-D-A, com
+        o dia D no meio da semana sem ter pedido nada parecido.
+
+        Desde 10/09/2026 ela pede TRÊS dias e entrega `abc2`: peito e tríceps,
+        costas e bíceps, pernas e ombros, com os complementares distribuídos
+        DENTRO de B e de C. O ciclo repete a partir do quarto dia — A-B-C-A,
+        A-B-C-A-B, e assim por diante —, e continua sendo escolha legítima de
+        treino, que é o ponto da tela.
+        """
+        for dias in range(3, 8):
             with self.subTest(dias=dias):
-                self.assertEqual(services.split_for(dias, SplitPreference.DOIS), Split.ABCD)
-        self.assertEqual(services.split_for(3, SplitPreference.DOIS), Split.ABC)
+                self.assertEqual(services.split_for(dias, SplitPreference.DOIS), Split.ABC2)
+        self.assertEqual(services.split_for(2, SplitPreference.DOIS), Split.AB)
         self.assertEqual(services.split_for(1, SplitPreference.DOIS), Split.FULL)
 
     def test_three_groups_a_day_is_the_abc_from_three_days_up(self):
@@ -5047,10 +5058,15 @@ class PreferenciaNaoConfirmadaTests(TestCase):
 
         self.assertFalse(user.profile.split_preference_confirmada)
 
-    def test_ate_tres_dias_a_pergunta_nao_aparece_e_nada_se_perde(self):
-        """Até três dias a divisão é a mesma pelas três preferências, e
-        perguntar seria pedir uma escolha que o app vai ignorar."""
-        for dias in (1, 2, 3):
+    def test_ate_dois_dias_a_pergunta_nao_aparece_e_nada_se_perde(self):
+        """Até DOIS dias a divisão é a mesma pelas três preferências, e
+        perguntar seria pedir uma escolha que o app vai ignorar.
+
+        Eram três até 10/09/2026, quando a preferência de dois grupos por dia
+        passou a entregar um ABC próprio — em três dias ela já dá outra
+        divisão, e a pergunta passou a valer ali.
+        """
+        for dias in (1, 2):
             with self.subTest(dias=dias):
                 self.assertFalse(preferencia_muda_a_divisao(dias))
 

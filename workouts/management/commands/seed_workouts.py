@@ -72,7 +72,7 @@ def _frames_de(nome: str, mapa: dict) -> list:
 
 
 class Command(BaseCommand):
-    help = "Carrega exercícios e as divisões de treino (full, AB, ABC, ABCD)."
+    help = "Carrega exercícios e as divisões de treino (full, AB, ABC, ABC2, ABCD, ABCDE)."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -148,6 +148,11 @@ class Command(BaseCommand):
                     "name": row["name"],
                     "focus": row.get("focus", ""),
                     "order": row.get("order", 0),
+                    # Os grupos que o nome promete. Entra nos `defaults` e não
+                    # só na criação porque o seed roda a cada deploy: mudar a
+                    # curadoria no JSON tem de chegar ao banco, pelo mesmo
+                    # motivo que `name` e `focus` estão aqui.
+                    "main_groups": row.get("principais", []),
                     "is_active": True,
                 },
             )

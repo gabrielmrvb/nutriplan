@@ -63,10 +63,23 @@ class APreferenciaQueCedeEDitaTests(TestCase):
         call_command("seed_workouts", verbosity=0)
 
     def test_os_dois_casos_exatos_da_auditoria(self):
-        """2 dias pedindo 1 grupo e 3 dias pedindo 2 grupos."""
+        """2 dias pedindo 1 grupo e 2 dias pedindo 2 grupos.
+
+        O SEGUNDO CASO MUDOU DE NÚMERO EM 10/09/2026, e a mudança é a
+        correção. A auditoria reclamava de "3 dias pedindo 2 grupos", que
+        cedia para ABC porque a preferência de dois grupos exigia QUATRO dias
+        (ela entregava ABCD, cujo quarto dia é o de complementares). Hoje ela
+        pede três, e três dias a atendem inteira — não há mais o que ceder.
+
+        O caso de cessão dessa preferência desceu junto: quem pede dois grupos
+        e treina DUAS vezes recebe AB, porque uma divisão de três letras com
+        duas sessões deixa um terço do corpo sem treinar nenhuma vez.
+        `test_a_preferencia_de_dois_grupos_cabe_em_tres_dias` guarda o outro
+        lado.
+        """
         casos = [
             ("dois-dias@exemplo.com", 2, SplitPreference.UM, "ab"),
-            ("tres-dias@exemplo.com", 3, SplitPreference.DOIS, "abc"),
+            ("dois-dias-dois@exemplo.com", 2, SplitPreference.DOIS, "ab"),
         ]
         for email, dias, preferencia, esperado in casos:
             with self.subTest(dias=dias, preferencia=preferencia):
@@ -77,6 +90,25 @@ class APreferenciaQueCedeEDitaTests(TestCase):
                 self.assertEqual(explicacao["aplicada"], esperado)
                 self.assertTrue(explicacao["cedeu"])
                 self.assertIn(str(dias), explicacao["motivo"])
+
+    def test_a_preferencia_de_dois_grupos_cabe_em_tres_dias(self):
+        """O caso que a auditoria trouxe, agora atendido sem ressalva.
+
+        Três dias pedindo dois grupos por dia recebe ABC de dois grupos, com a
+        preferência intacta no perfil e SEM ressalva na tela — porque não houve
+        adaptação nenhuma para explicar.
+        """
+        user = com_preferencia("tres-dias@exemplo.com", 3, SplitPreference.DOIS)
+
+        explicacao = services.divisao_explicada(user)
+
+        self.assertEqual(explicacao["aplicada"], "abc2")
+        self.assertFalse(explicacao["cedeu"])
+        self.assertEqual(explicacao["motivo"], "")
+        self.assertEqual(
+            user.profile.split_preference, SplitPreference.DOIS,
+            "a preferência gravada não pode mudar por causa da divisão",
+        )
 
     def test_o_motivo_nomeia_o_que_foi_pedido_e_o_que_foi_aplicado(self):
         """"Houve uma adaptação" sem dizer qual não ajuda ninguém."""

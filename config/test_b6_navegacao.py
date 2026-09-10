@@ -93,6 +93,65 @@ class AEdicaoVoltaParaOndeAPessoaEstavaTests(TestCase):
 
         self.assertRedirects(resposta, reverse("workouts:routine"))
 
+    def test_quem_edita_os_dias_e_ainda_nao_escolheu_a_divisao_e_perguntado(self):
+        """O desvio para o passo 4, com a ORIGEM viajando junto.
+
+        POR QUE ELE PRECISOU DE TESTE PRÓPRIO. Este desvio já existia e já
+        funcionava, e nenhum teste o mirava: ele era disparado sem querer pelo
+        fixture `create_complete_user`, que criava gente "com onboarding
+        completo" e a divisão por confirmar. Quando o fixture passou a
+        confirmá-la — porque completar o cadastro passou a incluir essa
+        resposta —, o desvio ficaria sem cobertura nenhuma.
+
+        O caso real é o de quem terminou o cadastro antes de a pergunta existir
+        para a frequência dela, e agora edita os dias de treino: a escolha que
+        o app estava usando é a de fábrica, não a dela, e o passo 3 é o momento
+        exato de perguntar — os dias novos acabaram de ser salvos e a divisão
+        vai ser decidida em seguida.
+
+        E a origem não se perde no caminho: quem veio do Treino continua
+        voltando para o Treino depois de responder, e não cai no Perfil por ter
+        passado por um passo a mais.
+        """
+        pessoa = create_complete_user(
+            email="b6divisao@exemplo.com", split_preference_confirmada=False
+        )
+        self.client.force_login(pessoa)
+
+        resposta = self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 3})
+            + "?origem=treino",
+            self.PASSO_3,
+        )
+
+        self.assertRedirects(
+            resposta,
+            reverse("accounts:onboarding_step", kwargs={"step": 4})
+            + "?origem=treino",
+        )
+
+    def test_a_origem_forjada_nao_sobrevive_ao_desvio_da_divisao(self):
+        """O par adversarial do teste acima: `?origem=` é lista fechada.
+
+        O desvio remonta a URL do passo 4 com a origem colada nela. Uma origem
+        forjada sobrevivendo a essa remontagem seria redirecionamento aberto
+        entrando pela porta que a correção abriu.
+        """
+        pessoa = create_complete_user(
+            email="b6forjada@exemplo.com", split_preference_confirmada=False
+        )
+        self.client.force_login(pessoa)
+
+        resposta = self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 3})
+            + "?origem=https://exemplo.invalido/",
+            self.PASSO_3,
+        )
+
+        self.assertRedirects(
+            resposta, reverse("accounts:onboarding_step", kwargs={"step": 4})
+        )
+
     def test_sem_origem_o_caminho_do_perfil_continua_igual(self):
         """O contra-controle. Uma correção que mandasse todo mundo para o
         treino quebraria os seis links de edição que saem do Perfil."""

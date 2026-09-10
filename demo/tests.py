@@ -919,6 +919,62 @@ class SeedDemoIdempotenteTests(TestCase):
             "usuarios": User.objects.count(),
         }
 
+    def test_a_ficha_do_demo_acompanha_a_divisao_do_catalogo(self):
+        """Idempotente NÃO pode virar imóvel, e por um tempo virou.
+
+        O DEFEITO, medido em 10/09/2026. `sync_active_routine` não remonta a
+        ficha enquanto houver série anotada HOJE — a pessoa está treinando, e
+        trocar a ficha debaixo da mão dela é o que aquela trava impede. Só que
+        `_preencher_cargas` escreve as cargas do Carlos com data de hoje, e ela
+        rodava DEPOIS do sync: do segundo seed do dia em diante, o comando via
+        as séries que ele mesmo tinha acabado de escrever e desistia.
+
+        Ninguém percebeu enquanto o catálogo não mudou. No dia em que a
+        preferência de dois grupos por dia passou a produzir `abc2`, o demo
+        continuou publicando `abc` — e o demo é a face pública do produto.
+
+        A régua aqui não é a contagem, é a IDENTIDADE: rodar de novo tem de
+        deixar a ficha na divisão que a preferência de hoje produz, e não na
+        que ela produzia ontem.
+
+        E O TESTE PRECISA CRIAR O ESTADO PRESO — a primeira versão dele não
+        criava, e a sabotagem que devolve o defeito passou VERDE. Numa base de
+        teste limpa o primeiro seed já monta a divisão certa, então a segunda
+        passada não tem nada para corrigir e as duas versões do comando dão o
+        mesmo resultado. O que o deploy encontra é outra coisa: uma ficha
+        montada por uma versão ANTERIOR do catálogo, com cargas de hoje já
+        escritas. As duas condições juntas são o defeito, e as duas estão
+        armadas abaixo.
+        """
+        from django.utils import timezone
+
+        from workouts.models import Split, TrainingPlan
+        from workouts.services import split_for, _preferencia_de
+
+        call_command("seed_demo", verbosity=0)
+        demo = User.objects.get(email=DEMO_EMAIL)
+        esperada = split_for(demo.training_days.count(), _preferencia_de(demo))
+
+        # 1. a ficha envelhece: é o que acontece quando a tabela de divisões
+        #    muda embaixo de um plano que já existe.
+        ficha = demo.training_plans.get(is_active=True)
+        self.assertNotEqual(esperada, Split.ABCD, "escolha outra divisão velha")
+        TrainingPlan.objects.filter(pk=ficha.pk).update(split=Split.ABCD)
+
+        # 2. e há carga de HOJE, escrita pelo próprio seed anterior — é ela
+        #    que fazia `sync_active_routine` desistir.
+        self.assertTrue(
+            ExerciseLog.objects.filter(
+                user=demo, date=timezone.localdate()
+            ).exists()
+        )
+
+        call_command("seed_demo", verbosity=0)
+
+        self.assertEqual(
+            demo.training_plans.get(is_active=True).split, esperada
+        )
+
     def test_rodar_tres_vezes_nao_acumula_nada(self):
         call_command("seed_demo", verbosity=0)
         primeira = self._contagens()

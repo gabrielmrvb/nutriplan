@@ -208,10 +208,13 @@ class OnboardingFlowTests(TestCase):
         self.client.post(step_url(2), STEP2)
         response = self.client.post(step_url(3), STEP3)
 
-        # Passo 5, e não 4: `STEP3` marca três dias, e desde a V2.2 a pergunta
-        # de divisão é pulada quando as três preferências dariam a mesma
-        # resposta. O passo 4 continua existindo — só não para esta pessoa.
-        self.assertRedirects(response, step_url(5))
+        # PASSO 4, e não 5 — e a virada tem data. `STEP3` marca três dias, e
+        # até 10/09/2026 a pergunta de divisão era pulada nessa frequência
+        # porque as três preferências davam a mesma resposta. A preferência de
+        # dois grupos por dia ganhou divisão própria, que cabe em TRÊS dias, e
+        # ali as respostas voltaram a divergir: a pergunta passou a valer, e
+        # esta pessoa passou a vê-la.
+        self.assertRedirects(response, step_url(4))
         days = TrainingDay.objects.filter(user=self.user).order_by("weekday")
         self.assertEqual([d.weekday for d in days], [0, 2, 4])
         self.assertEqual(days[0].start_time, time(19, 0))
@@ -280,8 +283,9 @@ class ValidationTests(TestCase):
         response = self.client.post(
             step_url(3), {**STEP3, "wake_time": "07:00", "sleep_time": "01:30"}
         )
-        # `STEP3` tem três dias, então o passo seguinte é o 5.
-        self.assertRedirects(response, step_url(5))
+        # `STEP3` tem três dias, e desde 10/09/2026 três dias enxergam a
+        # pergunta de divisão — o passo seguinte é o 4.
+        self.assertRedirects(response, step_url(4))
 
     def test_absurdly_short_awake_window_is_blocked(self):
         self._ate_a_janela()
@@ -2182,15 +2186,29 @@ class OnboardingV22Tests(TestCase):
         Este teste existe para que ninguém troque a chamada por um `>= 4`
         escrito à mão: o dia em que a tabela ganhar uma faixa nova, o número
         cravado ficaria mentindo em silêncio.
+
+        E O DIA CHEGOU, em 10/09/2026. A fronteira era QUATRO porque a
+        preferência de dois grupos por dia entregava ABCD, e abaixo de quatro
+        dias as três preferências caíam todas em ABC. Ela agora entrega um ABC
+        de dois grupos, que cabe em TRÊS — e com três dias as respostas passam
+        a divergir: "1 grupo" e "3 grupos" dão `abc`, "2 grupos" dá `abc2`.
+        A pergunta do onboarding aparece um degrau antes, e este teste era
+        exatamente a trava que avisaria disso. Ele avisou.
         """
-        for poucos in (0, 1, 2, 3):
+        for poucos in (0, 1, 2):
             self.assertFalse(preferencia_muda_a_divisao(poucos), f"{poucos} dias")
-        for muitos in (4, 5, 6, 7):
+        for muitos in (3, 4, 5, 6, 7):
             self.assertTrue(preferencia_muda_a_divisao(muitos), f"{muitos} dias")
 
-    # ----------------------------------------------------- 1, 2 e 3 dias
-    def test_ate_tres_dias_a_divisao_e_pulada(self):
-        for quantos in (1, 2, 3):
+    # ----------------------------------------------------- 1 e 2 dias
+    def test_ate_dois_dias_a_divisao_e_pulada(self):
+        """Com uma ou duas sessões as três preferências dão a mesma divisão.
+
+        Eram três dias até 10/09/2026. Ver
+        `test_a_regra_e_lida_da_tabela_de_divisoes`: a preferência de dois
+        grupos passou a caber em três, e ali ela já muda o resultado.
+        """
+        for quantos in (1, 2):
             with self.subTest(dias=quantos):
                 user = User.objects.create_user(
                     email=f"curto{quantos}@exemplo.com", password="senha-bem-forte-123"
@@ -2283,7 +2301,14 @@ class OnboardingV22Tests(TestCase):
         self.assertEqual(segunda.context["posicao"], 4)
 
     def test_retomar_leva_ao_passo_certo_do_caminho_curto(self):
-        self.client.post(step_url(3), self.dias(3))
+        """DOIS dias, e não três: o caminho curto encolheu junto com a regra.
+
+        Este teste é sobre o caminho CURTO, e ele usava três dias porque três
+        dias eram curtos. Desde 10/09/2026 não são — a preferência de dois
+        grupos por dia cabe em três e a pergunta de divisão passou a valer ali.
+        Manter o três aqui testaria o caminho completo com o nome do curto.
+        """
+        self.client.post(step_url(3), self.dias(2))
 
         resposta = self.client.get(reverse("accounts:onboarding"))
 
@@ -2367,15 +2392,18 @@ class OnboardingV22Tests(TestCase):
         `split_for` já caía na tabela por frequência quando não havia
         preferência, e é isso que sustenta pular a pergunta.
         """
-        self.client.post(step_url(3), self.dias(3))
+        # DOIS dias, pelo mesmo motivo de
+        # `test_retomar_leva_ao_passo_certo_do_caminho_curto`: é o caminho SEM
+        # a pergunta que este teste mede, e três dias deixaram de ser um.
+        self.client.post(step_url(3), self.dias(2))
         self.client.post(step_url(5), STEP5)
         self.client.post(step_url(6), STEP6)
 
         perfil = self.perfil()
         self.assertTrue(perfil.onboarding_complete)
-        self.assertEqual(self.user.training_days.count(), 3)
+        self.assertEqual(self.user.training_days.count(), 2)
         self.assertEqual(
-            split_for(3, perfil.split_preference), split_for(3, None)
+            split_for(2, perfil.split_preference), split_for(2, None)
         )
 
     def test_o_ultimo_passo_continua_sendo_o_cinco_nos_dois_caminhos(self):

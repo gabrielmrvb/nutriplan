@@ -2686,6 +2686,14 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    disputava espaço com o nome do exercício. */
 .exercise-list { display: grid; gap: var(--espaco-4); margin: 0; padding: 0; list-style: none; }
 
+/* O bloco de complementares da ficha.
+
+   Só um respiro e um título menor: os cartões lá dentro são os MESMOS
+   `.exercise-list`, e dar-lhes moldura própria sugeriria que se anota carga de
+   um jeito diferente ali. O que separa as duas listas é o texto, não a caixa. */
+.ficha__complementares { margin-top: var(--espaco-6); }
+.ficha__complementares-titulo { font-size: var(--texto-lg); margin: 0; }
+
 /* O cartão é um `<details>`, e por isso o `display` fica em `block`.
    Grade aqui seria mais curta de escrever e é justamente o tipo de aposta que
    este projeto já pagou caro: `display` diferente de `block` em `<details>`

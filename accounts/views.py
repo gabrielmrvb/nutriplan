@@ -30,7 +30,7 @@ from .forms import (
     SplitPreferenceForm,
     TrainingForm,
 )
-from workouts.services import preferencia_muda_a_divisao
+from workouts.services import divisao_explicada, preferencia_muda_a_divisao
 
 from .models import (
     ONBOARDING_DONE,
@@ -852,6 +852,9 @@ class ProfileSummaryView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         profile = Profile.objects.filter(user=self.request.user).first()
         plano, plano_vencido = self._plano_em_vigor(profile)
+        # Uma contagem só, lida por dois consumidores: o cartão da divisão e a
+        # explicação dela.
+        dias_de_treino = self.request.user.training_days.count()
         context.update(
             {
                 "profile": profile,
@@ -878,9 +881,20 @@ class ProfileSummaryView(LoginRequiredMixin, TemplateView):
                 "step_meta": STEP_META,
                 # Mesma regra do wizard, para o perfil não oferecer um
                 # "Editar" que leva a uma tela que a guarda vai recusar.
-                "divisao_importa": preferencia_muda_a_divisao(
-                    self.request.user.training_days.count()
-                ),
+                "divisao_importa": preferencia_muda_a_divisao(dias_de_treino),
+                # A MESMA EXPLICAÇÃO QUE A TELA DE TREINO MOSTRA.
+                #
+                # `divisao_explicada` nasceu porque o Perfil dizia "1 grupo por
+                # dia" enquanto a ficha entregava AB — e a ressalva foi parar
+                # só na tela de Treino. O Perfil continuava sendo o lugar onde
+                # a frase mentia, que é o lugar onde ela precisava aparecer.
+                # É a mesma chamada e o mesmo dicionário: duas telas contando a
+                # mesma coisa, e não duas versões dela.
+                #
+                # `dias` vem por argumento e não é contado de novo: a linha
+                # acima já pagou por essa consulta, e o orçamento de consultas
+                # desta tela é medido.
+                "divisao": divisao_explicada(self.request.user, dias=dias_de_treino),
                 "nav": "profile",
             }
         )
