@@ -341,8 +341,30 @@
           if (media) media.innerHTML = "";
         }
 
+        /* A TRAVA DE ROLAGEM SAI NO MESMO INSTANTE QUE A MÍDIA.
+         *
+         * Ela saía só no evento `close`, e MEDIDO EM PRODUÇÃO em 09/09/2026:
+         * o `close` do `<dialog>` demorou 2.100 ms para disparar depois do
+         * toque no ✕. Nesses dois segundos a mídia já tinha sumido — porque
+         * `limparMidia` é síncrona — mas `html.drawer-aberto` continuava lá,
+         * com `overflow: hidden`: a pessoa fecha o vídeo e a página não rola.
+         *
+         * O atraso não é do nosso código. Tirar o `<iframe>` do YouTube do
+         * documento derruba o player, e esse trabalho segura a thread
+         * principal; a tarefa do `close`, que é enfileirada, espera atrás
+         * dele. Localmente, com o clipe em cache, isso não aparece.
+         *
+         * É a mesma lição que a limpeza da mídia já tinha aprendido, três
+         * comentários acima: depender de um evento só é o que produziu o
+         * defeito. Agora o destravamento acontece nos DOIS lugares — aqui,
+         * na hora, e no `close`, que continua sendo a rede para o Esc. */
+        function destravarRolagem() {
+          document.documentElement.classList.remove("drawer-aberto");
+        }
+
         function fecharDrawer() {
           limparMidia();
+          destravarRolagem();
           if (drawer.open) drawer.close();
         }
 
@@ -363,12 +385,12 @@
           // dá para limpar antes de a tela sumir.
           drawer.addEventListener("cancel", limparMidia);
           drawer.addEventListener("close", limparMidia);
-          // `close` e não `fecharDrawer`: o Esc fecha o `<dialog>` sozinho,
-          // sem passar pela nossa função, e sem isto a página ficaria travada
-          // para sempre depois de sair pelo teclado.
-          drawer.addEventListener("close", function () {
-            document.documentElement.classList.remove("drawer-aberto");
-          });
+          // O Esc fecha o `<dialog>` sozinho, sem passar por `fecharDrawer`.
+          // `cancel` chega ANTES de a tela sumir e é onde o destravamento é
+          // imediato; o `close` fica como rede para quem fechar por fora —
+          // inclusive um `dialog.close()` chamado de outro lugar.
+          drawer.addEventListener("cancel", destravarRolagem);
+          drawer.addEventListener("close", destravarRolagem);
         }
 
         /* ---- Sanfona de seleção única ----
