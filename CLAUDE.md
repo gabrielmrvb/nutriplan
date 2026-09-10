@@ -456,6 +456,15 @@ funcionar, porque `aparar_volume_semanal` nunca remove o último exercício dire
 de um grupo. O piso real é a FOLGA (duas opções por grupo usado): dez. Igualar a
 variedade da academia custa dezoito. A tabela está no `BACKLOG.md`.
 
+**EXERCÍCIO ATIVO TEM DEMONSTRAÇÃO, e são quatro contratos com nove guardas.**
+`video_url` embutível, `clip_kind` não vazio, `tem_anatomia` verdadeiro e
+presença em `media_map.json`. Isso não é burocracia: foi o que bloqueou a
+expansão de Casa + Halteres em 10/09/2026. Nove variantes com halteres foram
+cadastradas, mediram bem — sete grupos sem folga viraram um, variedade de 13-14
+para 18-19 movimentos por semana — e voltaram atrás, porque escolher vídeo exige
+assistir e este ambiente não assiste. O que falta ali é curadoria de MÍDIA para
+nove movimentos já especificados, não decidir o que cadastrar.
+
 **COBERTURA NÃO É QUALIDADE**, e a régua cobra as duas. Como efeito colateral, o
 catálogo virou contrato: aposentar um dos dois exercícios de panturrilha derruba
 o veredito da própria academia, porque o grupo fica com opção única — e a suíte

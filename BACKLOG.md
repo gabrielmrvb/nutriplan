@@ -171,9 +171,71 @@ As três réguas, todas derivadas do que o motor já faz:
 - **variedade** (opções ≥ vezes que o grupo é pedido na pior semana) — 18
   exercícios. É o padrão que a academia entrega hoje.
 
-`OsTresExerciciosNaoBastamTests`, em `workouts/test_capacidade_de_ambiente.py`,
-simula os três e exige que o veredito pare em **PARCIAL**. Sem esse teste,
-alguém cadastra três, vê a régua virar e publica o treino repetitivo.
+`OsNoveMovimentosPrecisamDeCuradoriaTests`, em
+`workouts/test_capacidade_de_ambiente.py`, simula os candidatos e exige que o
+veredito pare em **PARCIAL**. Sem esse teste, alguém cadastra alguns, vê a régua
+virar e publica o treino repetitivo.
+
+### Os NOVE movimentos, especificados — falta a MÍDIA, não a decisão
+
+Cadastrados de verdade em 10/09/2026, medidos, e **revertidos**. O ganho é real
+e está medido:
+
+| | antes | com os nove |
+|---|---|---|
+| grupos com uma opção só | 7 | **1** (costas) |
+| movimentos distintos por semana | 13-14 | **18-19** |
+| grupos descobertos | 3 | **0** |
+
+Cada um é a variante com halteres de um exercício **que já está no catálogo**, e
+o metadado (grupo, articulações, `compound`, secundários) é herdado da origem —
+nada é inventado:
+
+| movimento | origem no catálogo | grupo |
+|---|---|---|
+| Stiff com halteres | Stiff com barra | posterior/glúteo |
+| Elevação pélvica com halteres | Elevação pélvica | posterior/glúteo |
+| Panturrilha em pé com halteres | Panturrilha em pé | panturrilha |
+| Panturrilha sentado com halteres | Panturrilha sentado | panturrilha |
+| Rosca de punho com halteres | Rosca de punho com barra | antebraço |
+| Rosca inversa com halteres | Rosca inversa com barra | antebraço |
+| Agachamento goblet | Agachamento livre | quadríceps |
+| Tríceps testa com halteres | Tríceps testa com barra | tríceps |
+| Remada alta com halteres | Remada alta com barra | trapézio |
+
+**POR QUE FORAM REVERTIDOS, e é o achado da campanha:** o catálogo tem um
+contrato de QUATRO partes para exercício ativo, defendido por NOVE guardas
+independentes — `video_url` embutível, `clip_kind` não vazio, `tem_anatomia`
+verdadeiro e presença em `media_map.json`. Os nove violam os quatro.
+
+Escolher vídeo exige ASSISTIR ao candidato, e este ambiente não assiste
+(`readyState 0` depois de 60 s, medido e registrado em `workouts/videos.py`).
+Inventar id repetiria o defeito de 07/09/2026, quando dez exercícios apontaram
+para o vídeo de outro com a suíte inteira verde. E afrouxar as nove guardas
+publicaria exercício que a pessoa abre e não vê demonstração nenhuma.
+
+**O trabalho que falta é humano e é de MÍDIA**, para nove movimentos já
+escolhidos: um vídeo de execução, uma animação anatômica e uma entrada em
+`media_map.json` para cada. Não é decidir o que cadastrar — isso já está feito
+e testado.
+
+### E o décimo: COSTAS é decisão de produto, não trabalho
+
+Mesmo com os nove, costas fica com uma opção só (`Remada unilateral com
+halter`), e as três saídas com halteres estão bloqueadas por algo já decidido:
+
+- **`Remada curvada com halteres`** reintroduziria o movimento que a migration
+  `0018` aposentou por decisão de produto, substituindo-o por outra puxada
+  horizontal. Trazer de volta com outro implemento desfaz aquilo por fora;
+- **`Pullover com halter`** tem classificação disputada entre dorsal e peitoral.
+  Escolher um lado para fechar uma contagem é preencher campo para satisfazer
+  teste;
+- **qualquer remada apoiada** é a `Remada unilateral com halter` com outro nome,
+  e variedade falsa não conta.
+
+Puxada vertical em casa exige barra fixa, que está fora do ambiente. Então o
+décimo depende de uma decisão humana: aprovar uma das três, ou aceitar costas
+com uma opção e mudar a régua da folga com o motivo escrito.
 
 **A CAUSA são três monopólios de equipamento**, e é isso que reprova 30 dos 31
 recortes: core é 3 de 3 em peso do corpo, antebraço 2 de 2 em barra,

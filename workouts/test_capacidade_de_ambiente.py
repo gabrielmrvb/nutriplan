@@ -70,8 +70,11 @@ DUAS opções no ambiente. Medido quanto isso custa: cobertura pede 3 exercício
 folga pede 10, e igualar a variedade da academia pede 18. A tabela está no
 `BACKLOG.md`.
 """
+import json
 from collections import defaultdict
+from pathlib import Path
 
+from django.conf import settings
 from django.core.management import call_command
 from django.test import TestCase
 
@@ -411,6 +414,153 @@ class OsTresExerciciosNaoBastamTests(TestCase):
             faltam, 10,
             "a conta da folga mudou — atualize o BACKLOG.md junto",
         )
+
+
+#: OS NOVE MOVIMENTOS QUE FECHAM SEIS DOS SETE BURACOS DE CASA + HALTERES.
+#:
+#: Cada um é a variante com halteres de um exercício QUE JÁ ESTÁ no catálogo —
+#: a coluna `origem` — e é de lá que sai o metadado: grupo, articulações,
+#: `compound` e secundários são herdados, não inventados. Foram cadastrados e
+#: medidos em 10/09/2026, e depois REVERTIDOS; o porquê está em
+#: `OsNoveMovimentosPrecisamDeCuradoriaTests`.
+NOVE_CANDIDATOS = (
+    ("Stiff com halteres", "Stiff com barra", MuscleGroup.HAMSTRINGS),
+    ("Elevação pélvica com halteres", "Elevação pélvica", MuscleGroup.HAMSTRINGS),
+    ("Panturrilha em pé com halteres", "Panturrilha em pé", MuscleGroup.CALVES),
+    ("Panturrilha sentado com halteres", "Panturrilha sentado", MuscleGroup.CALVES),
+    ("Rosca de punho com halteres", "Rosca de punho com barra", MuscleGroup.FOREARMS),
+    ("Rosca inversa com halteres", "Rosca inversa com barra", MuscleGroup.FOREARMS),
+    ("Agachamento goblet", "Agachamento livre", MuscleGroup.QUADS),
+    ("Tríceps testa com halteres", "Tríceps testa com barra", MuscleGroup.TRICEPS),
+    ("Remada alta com halteres", "Remada alta com barra", MuscleGroup.TRAPS),
+)
+
+
+class OsNoveMovimentosPrecisamDeCuradoriaTests(TestCase):
+    """O QUE FALTA PARA CASA + HALTERES, ESPECIFICADO E MEDIDO.
+
+    Em 10/09/2026 os nove movimentos de `NOVE_CANDIDATOS` foram cadastrados de
+    verdade e a semana foi medida. O ganho é real:
+
+        antes    7 grupos com uma opção só, 13-14 movimentos distintos/semana
+        depois   1 grupo  com uma opção só, 18-19 movimentos distintos/semana
+
+    E FORAM REVERTIDOS, por um motivo que a medição descobriu e que não era o
+    esperado: **o bloqueio não são os movimentos, é a MÍDIA.** Este catálogo
+    tem um contrato de quatro partes para exercício ativo, e ele é defendido
+    por nove guardas independentes, cada uma com o motivo escrito:
+
+      `video_url` não vazio e embutível   `test_every_exercise_in_the_catalog_has_a_video`
+      `clip_kind` não vazio               `test_no_exercise_is_left_without_a_demonstration`
+      `tem_anatomia` verdadeiro           `test_todo_exercicio_oferece_anatomia_de_verdade`
+      presente em `media_map.json`        `test_every_exercise_in_the_catalog_is_in_the_map`
+
+    Os nove violam os quatro. Escolher vídeo exige ASSISTIR ao candidato, e
+    este ambiente não assiste — está medido em `workouts/videos.py`:
+    `readyState 0` depois de 60 s. Inventar id repetiria o defeito de
+    07/09/2026, quando dez exercícios apontaram para o vídeo de outro com a
+    suíte inteira verde. E afrouxar as nove guardas publicaria exercício que a
+    pessoa abre e não vê demonstração nenhuma.
+
+    Então o desbloqueio é curadoria humana de mídia para nove movimentos já
+    especificados — não é decidir o que cadastrar. A lista está no
+    `BACKLOG.md`, com origem e metadado de cada um.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    class Candidato:
+        is_active = True
+        equipment = Equipment.DUMBBELL
+
+        def __init__(self, grupo):
+            self.muscle_group = grupo
+
+    def _por_grupo(self, com_os_nove=False):
+        por_grupo = defaultdict(list)
+        for exercicio in Exercise.objects.filter(is_active=True):
+            por_grupo[exercicio.muscle_group].append(exercicio)
+        if com_os_nove:
+            for _, _, grupo in NOVE_CANDIDATOS:
+                por_grupo[grupo].append(self.Candidato(grupo))
+        return por_grupo
+
+    def _modelos(self):
+        return list(
+            WorkoutTemplate.objects.filter(is_active=True)
+            .prefetch_related("items__exercise")
+        )
+
+    def test_cada_candidato_deriva_de_um_exercicio_que_existe(self):
+        """A fonte é o próprio catálogo, e isto prova que ela não envelheceu.
+
+        Se a origem for aposentada ou renomeada, o candidato perde a base do
+        metadado e alguém precisa reavaliá-lo antes de cadastrar.
+        """
+        catalogo = {
+            e.name: e for e in Exercise.objects.filter(is_active=True)
+        }
+        for nome, origem, grupo in NOVE_CANDIDATOS:
+            with self.subTest(candidato=nome):
+                self.assertNotIn(nome, catalogo, "já foi cadastrado")
+                self.assertIn(origem, catalogo, "a origem sumiu do catálogo")
+                self.assertEqual(
+                    catalogo[origem].muscle_group, grupo,
+                    "o grupo da origem mudou — reavalie o candidato",
+                )
+
+    def test_os_nove_fechariam_seis_dos_sete_buracos(self):
+        """O ganho, medido — e o que sobra, nomeado."""
+        modelos = self._modelos()
+        antes = capacidade(AMBIENTES["casa + halteres"], modelos,
+                           self._por_grupo(), com_substituicao=True)
+        depois = capacidade(AMBIENTES["casa + halteres"], modelos,
+                            self._por_grupo(com_os_nove=True),
+                            com_substituicao=True)
+
+        self.assertEqual(len(antes.sem_folga) + len(antes.sem_substituto), 7)
+        self.assertEqual(depois.sem_substituto, set())
+        self.assertEqual(
+            depois.sem_folga, {MuscleGroup.BACK},
+            "mudou o que sobra — refaça a medição antes de mexer no BACKLOG",
+        )
+
+    def test_mesmo_com_os_nove_o_veredito_nao_chega_a_SUPORTADO(self):
+        """Costas continua com uma opção só, e isso basta para segurar.
+
+        As três saídas para costas com halteres estão todas bloqueadas por
+        algo já decidido: `Remada curvada com halteres` reintroduziria o
+        movimento que a migration `0018` aposentou por decisão de produto;
+        `Pullover com halter` tem classificação disputada entre dorsal e
+        peitoral, e escolher um lado para fechar contagem é preencher campo
+        para satisfazer teste; e qualquer remada apoiada é a
+        `Remada unilateral com halter` com outro nome. Puxada vertical em casa
+        exige barra fixa, que está fora do ambiente.
+        """
+        v = capacidade(AMBIENTES["casa + halteres"], self._modelos(),
+                       self._por_grupo(com_os_nove=True), com_substituicao=True)
+
+        self.assertEqual(v.status, "PARCIAL")
+
+    def test_o_contrato_de_midia_e_o_bloqueio_de_verdade(self):
+        """Enquanto isto valer, exercício novo precisa de mídia curada.
+
+        As quatro asserções são as mesmas que as nove guardas espalhadas pela
+        suíte fazem — repetidas aqui juntas porque é a CONJUNÇÃO delas que
+        explica por que os nove candidatos não puderam ser cadastrados.
+        """
+        ativos = list(Exercise.objects.filter(is_active=True))
+        mapa = json.loads(
+            (Path(settings.BASE_DIR) / "workouts" / "data" / "media_map.json")
+            .read_text(encoding="utf-8")
+        )
+
+        self.assertEqual([e.name for e in ativos if not e.video_url], [])
+        self.assertEqual([e.name for e in ativos if not e.clip_kind], [])
+        self.assertEqual([e.name for e in ativos if not e.animation_url], [])
+        self.assertEqual([e.name for e in ativos if e.name not in mapa], [])
 
 
 class OProdutoNaoPrometeAmbienteTests(TestCase):
