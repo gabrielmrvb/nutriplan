@@ -447,10 +447,19 @@ completo** — ou seja, nenhuma restrição, que é o comportamento de hoje. A c
 **antebraço** 2 de 2 em barra, **panturrilha** 2 de 2 em máquina. Todo recorte
 que exclua um desses três perde o grupo inteiro.
 
-O que destrava, medido por simulação e não estimado: **casa + halteres precisa
-de TRÊS exercícios** (panturrilha, antebraço e posterior de coxa, com halteres)
-e vira SUPORTADO; casa + barra precisa de três; peso corporal, de oito. A tabela
-está no `BACKLOG.md`.
+O que destrava, medido por simulação: **casa + halteres precisa de DEZ
+exercícios, e não de três.** Três é a conta da COBERTURA — todo grupo com pelo
+menos uma opção —, e ela engana: com exatamente três, sete dos onze grupos
+ficariam com UM exercício, a semana cairia de 26-29 movimentos distintos para
+13-14 com o mesmo número de séries, e o teto por experiência pararia de
+funcionar, porque `aparar_volume_semanal` nunca remove o último exercício direto
+de um grupo. O piso real é a FOLGA (duas opções por grupo usado): dez. Igualar a
+variedade da academia custa dezoito. A tabela está no `BACKLOG.md`.
+
+**COBERTURA NÃO É QUALIDADE**, e a régua cobra as duas. Como efeito colateral, o
+catálogo virou contrato: aposentar um dos dois exercícios de panturrilha derruba
+o veredito da própria academia, porque o grupo fica com opção única — e a suíte
+diz qual capacidade se perdeu.
 
 E NÃO EXISTE CAMPO DE AMBIENTE NO PERFIL, de propósito. Guardar a preferência
 antes de o motor poder obedecê-la é criar preferência que não vira nada — o

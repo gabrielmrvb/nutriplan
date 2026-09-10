@@ -138,16 +138,42 @@ o número escrito.
 exato.** A campanha seguinte varreu os 31 recortes possíveis de equipamento e
 simulou o cadastro que falta. Resultado:
 
-| ambiente | status hoje | exercícios a cadastrar | quais |
-|---|---|---|---|
-| academia completa | **SUPORTADO** | 0 | é o conjunto completo — não restringe nada |
-| casa + halteres | NÃO SUPORTADO | **3** | 1 de panturrilha, 1 de antebraço, 1 de posterior de coxa — todos com halteres |
-| casa + barra | NÃO SUPORTADO | **3** | 1 de costas, 1 de panturrilha, 1 de ombros — peso do corpo |
-| peso corporal | NÃO SUPORTADO | **8** | costas, bíceps, panturrilha, antebraço, posterior, quadríceps, ombros, trapézio |
+| ambiente | status hoje | cobertura | **folga** | variedade |
+|---|---|---|---|---|
+| academia completa | **SUPORTADO** | 0 | 0 | 0 |
+| casa + halteres | NÃO SUPORTADO | 3 | **10** | 18 |
+| casa + barra | NÃO SUPORTADO | 3 | não medido | não medido |
+| peso corporal | NÃO SUPORTADO | 8 | não medido | não medido |
 
-Os três exercícios de "casa + halteres" são o item mais barato do backlog de
-conteúdo do app: com eles, o ambiente vira SUPORTADO pela régua, sem sessão
-curta e sem grupo descoberto.
+**O NÚMERO QUE VALE É O DA FOLGA, e a correção de 10/09/2026 é esta.** A versão
+anterior desta entrada dizia "3 exercícios e casa + halteres vira SUPORTADO".
+Era verdade para COBERTURA e enganoso como plano: medido o que aconteceria com
+exatamente três,
+
+    academia hoje          26 a 29 exercícios distintos por semana,
+                           reutilização máxima 1, zero grupo com opção única
+    casa + halteres com 3  13 a 14 distintos para o MESMO número de itens,
+                           reutilização até 4, e SETE dos onze grupos com
+                           exatamente um exercício
+
+Mesmo volume, metade dos movimentos: costas viraria a mesma remada quatro vezes
+por semana. E há uma consequência que a cobertura esconde —
+`aparar_volume_semanal` nunca remove o último exercício direto de um grupo, então
+com sete grupos de um exercício só o teto semanal por experiência não tem o que
+ceder, e a personalização por experiência **para de funcionar** justamente nesse
+ambiente.
+
+As três réguas, todas derivadas do que o motor já faz:
+
+- **cobertura** (≥1 por grupo) — 3 exercícios. É o mínimo para não faltar grupo;
+- **folga** (≥2 por grupo usado) — **10 exercícios**. É o piso real: abaixo dele
+  o aparo de volume não funciona;
+- **variedade** (opções ≥ vezes que o grupo é pedido na pior semana) — 18
+  exercícios. É o padrão que a academia entrega hoje.
+
+`OsTresExerciciosNaoBastamTests`, em `workouts/test_capacidade_de_ambiente.py`,
+simula os três e exige que o veredito pare em **PARCIAL**. Sem esse teste,
+alguém cadastra três, vê a régua virar e publica o treino repetitivo.
 
 **A CAUSA são três monopólios de equipamento**, e é isso que reprova 30 dos 31
 recortes: core é 3 de 3 em peso do corpo, antebraço 2 de 2 em barra,
@@ -169,7 +195,15 @@ que a personalização virou implementável:
   `workouts/test_experiencia.py`, mede a COBERTURA por grupo;
 - `workouts/test_capacidade_de_ambiente.py` mede o que o MOTOR faria — o que
   sobra de cada modelo curado —, congela o veredito de cada ambiente e proíbe a
-  tela de oferecer a escolha enquanto o veredito for NÃO SUPORTADO.
+  tela de oferecer a escolha enquanto o veredito for NÃO SUPORTADO. Desde
+  10/09/2026 ela cobra também a FOLGA, e é isso que impede o veredito de virar
+  com cobertura só.
+
+**E O CATÁLOGO VIROU CONTRATO.** A régua da folga vale para a academia também:
+aposentar UM dos dois exercícios de panturrilha derruba o veredito dela, porque
+o grupo passa a ter opção única. Provado por sabotagem. Quem for inativar
+exercício descobre na suíte qual capacidade perdeu, em vez de descobrir em
+produção.
 
 **Freshness, para quem for implementar:** não crie campo novo no snapshot do
 plano. `_prescricao_confere` chama `prescrever_semana` de novo, então um filtro

@@ -48,6 +48,27 @@ que faltam, ele fica VERMELHO dizendo que o ambiente virou implementável — é
 catraca ao contrário, o mesmo desenho de `OCatalogoAindaNaoSustentaEquipamento`
 em `test_experiencia.py`, agora medindo o que o motor faz e não só a contagem
 por grupo.
+
+COBERTURA NÃO É QUALIDADE, e a primeira versão desta régua confundia as duas.
+Ela media só "todo grupo perdido tem substituto" — e teria virado SUPORTADO com
+TRÊS exercícios novos. Medido o que aconteceria nesse cenário:
+
+    academia hoje          26 a 29 exercícios distintos por semana,
+                           reutilização máxima 1, zero grupo com opção única
+    casa + halteres com 3  13 a 14 distintos para o MESMO número de itens,
+                           reutilização até 4, e SETE dos onze grupos com
+                           exatamente um exercício
+
+Mesmo volume, metade dos movimentos. E há uma consequência que a cobertura
+esconde: `aparar_volume_semanal` nunca remove o último exercício direto de um
+grupo. Com sete grupos de um exercício só, o teto semanal por experiência
+deixa de ter o que ceder — a personalização por experiência, que já está no ar,
+pararia de funcionar justamente nesse ambiente.
+
+Por isso a régua ganhou a FOLGA: grupo que os modelos usam precisa de pelo menos
+DUAS opções no ambiente. Medido quanto isso custa: cobertura pede 3 exercícios,
+folga pede 10, e igualar a variedade da academia pede 18. A tabela está no
+`BACKLOG.md`.
 """
 from collections import defaultdict
 
@@ -85,25 +106,28 @@ class Veredito:
     `status` é uma das três palavras que a missão fixou, e ela é DERIVADA — não
     escrita à mão em lugar nenhum:
 
-      SUPORTADO      nenhum modelo perde grupo sem substituto e nenhuma sessão
-                     cai abaixo do piso;
-      PARCIAL        todo grupo perdido tem substituto no ambiente, mas alguma
-                     sessão fica curta demais;
+      SUPORTADO      nenhum modelo perde grupo sem substituto, nenhuma sessão
+                     cai abaixo do piso, e todo grupo que os modelos usam tem
+                     FOLGA — pelo menos duas opções no ambiente;
+      PARCIAL        dá para montar, mas a qualidade cai: sessão curta demais
+                     ou grupo atendido por um exercício só;
       NAO_SUPORTADO  existe grupo que o ambiente não cobre de jeito nenhum.
     """
 
-    def __init__(self, nome, sem_substituto, sessoes_curtas, pior, grupos_cobertos):
+    def __init__(self, nome, sem_substituto, sessoes_curtas, pior,
+                 grupos_cobertos, sem_folga):
         self.nome = nome
         self.sem_substituto = sem_substituto
         self.sessoes_curtas = sessoes_curtas
         self.pior = pior
         self.grupos_cobertos = grupos_cobertos
+        self.sem_folga = sem_folga
 
     @property
     def status(self):
         if self.sem_substituto:
             return "NAO_SUPORTADO"
-        if self.sessoes_curtas:
+        if self.sessoes_curtas or self.sem_folga:
             return "PARCIAL"
         return "SUPORTADO"
 
@@ -168,9 +192,27 @@ def capacidade(permitidos, modelos, por_grupo, com_substituicao=False):
             pior = (chave, vivos)
     cobertos = sum(
         1 for grupo in MuscleGroup.values
-        if any(e.equipment in permitidos for e in por_grupo[grupo])
+        if any(e.equipment in permitidos and e.is_active for e in por_grupo[grupo])
     )
-    return Veredito("", sem_substituto, curtas, pior, cobertos)
+
+    # FOLGA — a régua que separa "cobre" de "serve".
+    #
+    # Só vale para grupo que os MODELOS usam: cobrar duas opções de um grupo
+    # que nenhuma ficha pede seria inventar requisito. E o número é dois porque
+    # é o que `aparar_volume_semanal` precisa para ter o que ceder — ela nunca
+    # remove o último exercício direto de um grupo, e sem isso o teto semanal
+    # por experiência não se aplica àquele grupo.
+    usados = {
+        item.exercise.muscle_group
+        for modelo in modelos for item in modelo.items.all()
+    }
+    sem_folga = {
+        grupo for grupo in usados
+        if grupo not in sem_substituto
+        and len([e for e in por_grupo[grupo]
+                 if e.is_active and e.equipment in permitidos]) < 2
+    }
+    return Veredito("", sem_substituto, curtas, pior, cobertos, sem_folga)
 
 
 class ACapacidadeDeAmbienteEMedidaTests(TestCase):
@@ -214,10 +256,12 @@ class ACapacidadeDeAmbienteEMedidaTests(TestCase):
 
                 self.assertEqual(
                     v.status, self.ESPERADO[nome],
-                    "%s virou %s — grupos sem substituto: %s; sessões curtas: %s"
+                    "%s virou %s — sem substituto: %s; sessões curtas: %s; "
+                    "sem folga: %s"
                     % (nome, v.status,
                        sorted(v.sem_substituto) or "nenhum",
-                       v.sessoes_curtas or "nenhuma"),
+                       v.sessoes_curtas or "nenhuma",
+                       sorted(v.sem_folga) or "nenhum"),
                 )
 
     def test_so_a_academia_completa_passa_e_ela_e_o_estado_atual(self):
@@ -278,6 +322,95 @@ class ACapacidadeDeAmbienteEMedidaTests(TestCase):
         self.assertEqual(completo.status, "SUPORTADO")
         self.assertEqual(sem_peso_do_corpo.status, "NAO_SUPORTADO")
         self.assertIn(MuscleGroup.CORE, sem_peso_do_corpo.sem_substituto)
+
+
+class OsTresExerciciosNaoBastamTests(TestCase):
+    """A ARMADILHA QUE ESTE ARQUIVO EXISTE PARA DESARMAR.
+
+    A medição de 09/09/2026 disse que faltavam TRÊS exercícios para "casa +
+    halteres" — panturrilha, antebraço e posterior de coxa, com halteres — e
+    entrou no `BACKLOG.md` com esse número. É verdade para COBERTURA, e é
+    enganoso: com os três, sete dos onze grupos ficariam com UM exercício só, e
+    a semana cairia de 26-29 movimentos distintos para 13-14, com o mesmo
+    número de séries.
+
+    Sem este teste, alguém cadastra três exercícios, vê o veredito virar e
+    publica um treino em que costas é a mesma remada quatro vezes por semana.
+
+    O que a simulação prova é que o veredito para em PARCIAL — que é o
+    vocabulário para "dá para montar, mas a qualidade cai" — e não em
+    SUPORTADO.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    #: Um exercício que ainda não existe, para a simulação. Só precisa
+    #: responder o que `capacidade` pergunta.
+    class Candidato:
+        is_active = True
+
+        def __init__(self, grupo, equipamento):
+            self.muscle_group = grupo
+            self.equipment = equipamento
+
+    def _com_os_tres(self):
+        por_grupo = defaultdict(list)
+        for exercicio in Exercise.objects.filter(is_active=True):
+            por_grupo[exercicio.muscle_group].append(exercicio)
+        for grupo in (MuscleGroup.CALVES, MuscleGroup.FOREARMS,
+                      MuscleGroup.HAMSTRINGS):
+            por_grupo[grupo].append(self.Candidato(grupo, Equipment.DUMBBELL))
+        return por_grupo
+
+    def test_com_os_tres_o_veredito_para_em_PARCIAL(self):
+        modelos = list(
+            WorkoutTemplate.objects.filter(is_active=True)
+            .prefetch_related("items__exercise")
+        )
+
+        v = capacidade(AMBIENTES["casa + halteres"], modelos, self._com_os_tres(),
+                       com_substituicao=True)
+
+        self.assertEqual(v.sem_substituto, set(), "os três cobrem os buracos")
+        self.assertEqual(
+            v.status, "PARCIAL",
+            "os três exercícios passaram a bastar — releia a medição de "
+            "variedade antes de publicar o ambiente",
+        )
+        self.assertGreaterEqual(
+            len(v.sem_folga), 5,
+            "grupos com um exercício só: %s" % sorted(v.sem_folga),
+        )
+
+    def test_a_conta_do_que_falta_de_verdade(self):
+        """Três é cobertura; dez é folga. O número que o backlog precisa é dez.
+
+        FOLGA é o piso porque abaixo dele `aparar_volume_semanal` não tem o que
+        ceder — e é ela que faz o teto por experiência valer. Igualar a
+        variedade da academia custa mais, e está no `BACKLOG.md`.
+        """
+        por_grupo = defaultdict(list)
+        for exercicio in Exercise.objects.filter(is_active=True):
+            por_grupo[exercicio.muscle_group].append(exercicio)
+        permitidos = AMBIENTES["casa + halteres"]
+        usados = {
+            item.exercise.muscle_group
+            for modelo in WorkoutTemplate.objects.filter(is_active=True)
+            for item in modelo.items.all()
+        }
+
+        faltam = 0
+        for grupo in usados:
+            tem = len([e for e in por_grupo[grupo]
+                       if e.is_active and e.equipment in permitidos])
+            faltam += max(0, 2 - tem)
+
+        self.assertEqual(
+            faltam, 10,
+            "a conta da folga mudou — atualize o BACKLOG.md junto",
+        )
 
 
 class OProdutoNaoPrometeAmbienteTests(TestCase):
