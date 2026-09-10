@@ -394,11 +394,25 @@ class DemoCadaRotaMostraSuaTelaTests(TestCase):
         _semear()
 
     #: (rota, um trecho que só aquela tela tem)
+    #:
+    #: A MARCA DO TREINO MUDOU DE `exercise__ver` PARA `sessao-cartao`, e a
+    #: troca não é cosmética: o botão de vídeo saiu da tela de Treino quando o
+    #: paredão saiu e a ficha ganhou rota própria. Continuar cobrando
+    #: `exercise__ver` aqui seria cobrar da tela de Treino uma coisa que agora
+    #: é da ficha — e o teste ficou vermelho dizendo exatamente isso.
+    #:
+    #: `sessao-cartao` é o que a tela de Treino É hoje: os cartões da semana
+    #: que LEVAM às fichas. E o que saiu daqui não ficou sem guarda —
+    #: `test_a_ficha_do_demo_mostra_o_que_saiu_da_tela_de_treino`, logo abaixo,
+    #: segue um cartão até a ficha e cobra o botão de vídeo lá.
     TELAS = (
         ("/demo/", "As telas do aplicativo"),
         ("/demo/sobre/", "Sobre esta demonstra"),
         ("/demo/hoje/", "kcal hoje"),
-        ("/demo/treino/", "exercise__ver"),
+        # `class="sessao-cartao` com a aspa: sem ela a marca casa também com
+        # `sessao-cartao__texto` e `sessao-cartao__nome`, e renomear o cartão
+        # passaria verde — medido numa sabotagem.
+        ("/demo/treino/", 'class="sessao-cartao'),
         ("/demo/historico/", "Ader"),
         ("/demo/lista-de-compras/", "shopping"),
         ("/demo/conta/perfil/", "Meu perfil"),
@@ -408,6 +422,41 @@ class DemoCadaRotaMostraSuaTelaTests(TestCase):
         for rota, marca in self.TELAS:
             with self.subTest(rota=rota):
                 self.assertContains(self.client.get(rota), marca)
+
+    def test_a_ficha_do_demo_mostra_o_que_saiu_da_tela_de_treino(self):
+        """A cobertura que a marca antiga tinha, no lugar para onde ela foi.
+
+        Remirar sem isto seria PERDER teste: `exercise__ver` deixaria de ser
+        cobrado em lugar nenhum do demo, e uma ficha sem botão de vídeo passaria
+        verde — que é o defeito real desta campanha, quando a ficha nasceu com
+        nove botões e nenhuma gaveta para abrir.
+
+        O endereço da ficha NÃO é escrito à mão: ele sai do cartão, que é o
+        caminho que a pessoa percorre. Assim o teste também prova que o
+        `set_script_prefix` do demo produz um endereço que o demo atende — a
+        armadilha que já mandou quem avaliava o produto para a capa de
+        marketing.
+        """
+        tela = self.client.get("/demo/treino/").content.decode()
+
+        # Ancorado no CARTÃO, e sem cair para "qualquer href de ficha": uma
+        # versão anterior tinha esse plano B, e a sabotagem que renomeava a
+        # classe passou verde por causa dele.
+        enderecos = re.findall(
+            r'<a[^>]*class="sessao-cartao[^"]*"[^>]*href="([^"]+)"', tela
+        )
+        self.assertTrue(enderecos, "a tela de Treino do demo não tem cartão")
+
+        for endereco in enderecos:
+            with self.subTest(ficha=endereco):
+                self.assertTrue(
+                    endereco.startswith("/demo/"),
+                    "o cartão do demo aponta para fora do demo: %s" % endereco,
+                )
+                ficha = self.client.get(endereco)
+
+                self.assertContains(ficha, "exercise__ver")
+                self.assertContains(ficha, "data-drawer")
 
     def test_no_two_routes_return_the_same_page(self):
         """A prova direta da regressão: duas rotas com o mesmo HTML significa
