@@ -355,7 +355,7 @@ class ContrastTests(TestCase):
     TINGIDOS = ("--brand-soft", "--warm-soft", "--accent-soft", "--danger-soft")
 
     def test_dark_theme_text_is_readable_on_every_surface(self):
-        self._conferir(":root {", "escuro")
+        self._conferir("prefers-color-scheme: dark) {" + chr(10) + "  :root {", "escuro")
 
     def _conferir_tingidos(self, escopo, rotulo):
         tokens = _tokens(self.css, escopo)
@@ -376,16 +376,16 @@ class ContrastTests(TestCase):
                     )
 
     def test_dark_theme_text_is_readable_on_tinted_backgrounds(self):
-        self._conferir_tingidos(":root {", "escuro")
+        self._conferir_tingidos("prefers-color-scheme: dark) {" + chr(10) + "  :root {", "escuro")
 
     def test_light_theme_text_is_readable_on_tinted_backgrounds(self):
         self._conferir_tingidos(
-            "prefers-color-scheme: light) {" + chr(10) + "  :root {", "claro"
+            ":root {", "claro"
         )
 
     def test_light_theme_text_is_readable_on_every_surface(self):
         """O tema claro estava pior que o escuro: 3.33:1 no texto discreto."""
-        self._conferir("prefers-color-scheme: light) {\n  :root {", "claro")
+        self._conferir(":root {", "claro")
 
 
 class TouchTargetTests(TestCase):
@@ -547,10 +547,10 @@ class PillContrastTests(TestCase):
                     )
 
     def test_dark_theme_pills_are_readable(self):
-        self._conferir(":root {", "escuro")
+        self._conferir("prefers-color-scheme: dark) {" + chr(10) + "  :root {", "escuro")
 
     def test_light_theme_pills_are_readable(self):
-        self._conferir("prefers-color-scheme: light) {\n  :root {", "claro")
+        self._conferir(":root {", "claro")
 
 
 class CustomPropertyTests(TestCase):
@@ -861,8 +861,8 @@ class VisualRefinementTests(TestCase):
         """
         MARGEM = 5.0
         for escopo, rotulo in (
-            (":root {", "escuro"),
-            ("prefers-color-scheme: light) {" + chr(10) + "  :root {", "claro"),
+            ("prefers-color-scheme: dark) {" + chr(10) + "  :root {", "escuro"),
+            (":root {", "claro"),
         ):
             tokens = _tokens(self.css, escopo)
             fundos = [
@@ -1159,7 +1159,13 @@ class DesignSystemTests(TestCase):
 
     def setUp(self):
         self.css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
-        self.escuro = _tokens(self.css, ":root {")
+        # O ESCURO MUDOU DE ENDEREÇO em 12/09/2026: o `:root` passou a ser o
+        # tema claro (a identidade decidida nas auditorias) e o escuro mora em
+        # `prefers-color-scheme: dark`. Os valores são os mesmos; a base é
+        # que trocou. Ler `:root` aqui devolveria a paleta clara e o teste
+        # abaixo acusaria uma "troca de identidade" que não aconteceu.
+        self.escuro = _tokens(self.css, "prefers-color-scheme: dark) {" + chr(10) + "  :root {")
+        self.claro = _tokens(self.css, ":root {")
 
     def test_the_dark_palette_is_the_one_the_design_system_names(self):
         """A paleta do REDESIGN V1: grafite com verde medido, verde vivo.
@@ -1311,11 +1317,11 @@ class DayColourContrastTests(TestCase):
                 )
 
     def test_dark_theme_day_colours_are_readable(self):
-        self._conferir(":root {", "escuro", "--brand-soft")
+        self._conferir("prefers-color-scheme: dark) {" + chr(10) + "  :root {", "escuro", "--brand-soft")
 
     def test_light_theme_day_colours_are_readable(self):
         self._conferir(
-            "prefers-color-scheme: light) {" + chr(10) + "  :root {",
+            ":root {",
             "claro",
             "--brand-soft",
         )
@@ -1334,7 +1340,7 @@ class DayColourContrastTests(TestCase):
 
         escuro = declarados(":root {")
         claro = declarados(
-            "prefers-color-scheme: light) {" + chr(10) + "  :root {"
+            ":root {"
         )
 
         # `_tokens` não serve aqui: ele é um leitor de PALETA e guarda só

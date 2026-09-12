@@ -158,8 +158,15 @@ class InstallabilityTests(TestCase):
         """Duas cópias do mesmo valor é como uma delas fica para trás. A meta
         do HTML e o manifesto saem da MESMA setting."""
         html = self.client.get(reverse("accounts:login")).content.decode()
+        # A META DA BASE NÃO TEM `media`: ela vale para quem não expressa
+        # preferência, e é a que tem de bater com o manifesto. A escura, com
+        # `media="(prefers-color-scheme: dark)"`, vem de `PWA_DARK_COLOR`.
         self.assertIn(
-            f'content="{self.manifest["theme_color"]}" '
+            f'<meta name="theme-color" content="{self.manifest["theme_color"]}">',
+            html,
+        )
+        self.assertIn(
+            f'content="{settings.PWA_DARK_COLOR}" '
             'media="(prefers-color-scheme: dark)"',
             html,
         )

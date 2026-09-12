@@ -25,7 +25,7 @@
    ========================================================================== */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
 
   /* Grafite em camadas: o fundo é o mais escuro e cada nível de elevação
      clareia um pouco. É o que dá profundidade sem sombra pesada, que no
@@ -46,11 +46,10 @@
      O fundo lê como grafite orgânico, não como verde; o botão continua
      sendo a única coisa verde da tela. A régua é `config/tests.py`, que
      recalcula o contraste dos tokens, inclusive contra os fundos tingidos. */
-  --bg: #070c0b;
-  --surface: #0d1413;
-  --surface-2: #121a18;
-  --surface-3: #18211e;
-
+  --bg: #f4f6f5;
+  --surface: #ffffff;
+  --surface-2: #eef2f0;
+  --surface-3: #e4eae7;
   /* A QUARTA SUPERFÍCIE: a do elemento que manda na tela.
 
      As três acima respondem "que profundidade?". Esta responde outra
@@ -60,8 +59,7 @@
 
      Uma por tela. Duas superfícies de foco é o mesmo que nenhuma, e é assim
      que "destaque" vira "fundo". */
-  --surface-focus: #10201a;
-
+  --surface-focus: #e6f4ec;
   /* O TOPO DO CANVAS.
 
      O gradiente do `body` nasceu com `#0a1210` escrito à mão, e no tema claro
@@ -71,8 +69,7 @@
      eu o reintroduzi.
 
      Agora é um token, e o tema claro declara o dele logo abaixo. */
-  --canvas-topo: #0a1210;
-
+  --canvas-topo: #ffffff;
   /* Cinza fixo, e não mais branco translúcido.
      O translúcido tinha uma vantagem real: acompanhava a camada em que
      pousava, então uma regra servia às quatro superfícies. A troca é
@@ -87,17 +84,16 @@
      mais clara — era o que acontecia com #2a2e39. A borda agora se ajusta ao
      que estiver embaixo, que é o que dá a sensação de camada em vez de
      contorno desenhado. */
-  --border: rgba(150, 165, 180, .16);
-  --border-strong: rgba(150, 165, 180, .30);
-
-  --text: #f7f9fa;
+  --border: rgba(16, 32, 22, .115);
+  --border-strong: rgba(16, 32, 22, .21);
+  --text: #101715;
   /* Os dois tons discretos subiram junto com as bordas, e pelo mesmo motivo:
      o mínimo da WCAG é piso de legibilidade, não alvo de projeto. `--text-dim`
      estava em 6,47:1 no pior fundo e `--text-mute` em 4,67:1 — passando por
      centésimos. Em OLED, com brilho baixo, "passa raspando" se lê como texto
      apagado. Agora são 7,50 e 5,62 no mesmo pior caso, e a distância entre os
      três degraus (13,15 / 7,50 / 5,62) continua clara. */
-  --text-dim: #b7bec8;
+  --text-dim: #4b5b55;
   /* Medido a cada troca, nunca escolhido a olho. A paleta V3 escureceu e
      esfriou os fundos, e o cinza que a spec sugeria para este degrau
      (#818b98) caía para 4,71:1 sobre --surface-3 — passa, e passa raspando.
@@ -107,24 +103,22 @@
      Vale também sobre --brand-soft, onde uma versão antiga dava 4,36 e nenhum
      teste via, porque o teste dos fundos tingidos só cobre --text e
      --text-dim. */
-  --text-mute: #939daa;
-
+  --text-mute: #53625d;
   /* Uma cor por dia de treino. Matizes bem separados (verde, azul, âmbar,
      violeta) para serem distinguíveis inclusive por quem confunde vermelho e
      verde — a distância entre eles é de luminância também, não só de matiz.
      Todas claras o bastante para carregar texto grafite por cima. */
-  --dia-a: #4ade9b;
-  --dia-b: #6cc7ff;
-  --dia-c: #f6c453;
+  --dia-a: #1c6141;
+  --dia-b: #225b77;
+  --dia-c: #734e21;
   /* Meio degrau mais claro que o #c4a6ff original: sobre a própria tinta a
      22% ele dava 4,48:1, dois centésimos abaixo do mínimo AA. Passava porque
      nada media a paleta dos dias — os quatro irmãos ficam entre 4,64 e 5,26,
      então ele era o único fora, e por pouco. */
-  --dia-d: #cbb0ff;
+  --dia-d: #621fd6;
   /* O quinto dia entrou com o ABCDE. Coral fecha o círculo de matizes sem
      encostar no verde do A nem no âmbar do C. */
-  --dia-e: #ff9d8a;
-
+  --dia-e: #8e3a29;
   /* Emerald como acento principal e azul-gelo como secundário.
      Era menta #4ade9b — claro o bastante para brilhar, e por isso mesmo sem
      peso: sobre grafite ele lia como brilho, não como cor de marca. Emerald
@@ -134,22 +128,30 @@
      A V3 subiu meio degrau (#10b981 → #10c98a): sobre o fundo novo ele mede
      9,07:1 contra os 7,57 de antes. Fundo mais escuro devolve contraste, e o
      verde pôde ficar mais vivo sem custar legibilidade. */
-  --brand: #10c98a;
-  --brand-strong: #34d399;
-  --brand-soft: #0c2a22;
-  --on-brand: #04140e;
+  --brand: #0c6b40;
+  --brand-strong: #08512f;
+  --brand-soft: #e2f3ea;
+  /* O VERDE FOLHA é o verde do que FOI FEITO — o arco do anel de treino, a
+     série registrada, a barra da semana. `--brand` continua sendo o verde
+     do que SE FAZ: CTA, link, foco. Dois verdes com papéis diferentes é o
+     que impede a tela de virar um bloco verde só.
 
-  --accent: #6cc7ff;
-
-  --warm: #f59e0b;
-  --warm-soft: #33260f;
-
-  --carb: #e0b25f;
-  --fat: #8fa8d8;
-
-  --danger: #ff8a80;
-  --danger-soft: #33191a;
-
+     #3f9718, e não o #43a11b da spec: medido, o valor da spec dá 2,93:1
+     contra `--surface-2`, que é a trilha vazia do anel — abaixo do 3:1 que a
+     WCAG 1.4.11 pede para objeto gráfico. Este é o vizinho mais próximo que
+     passa em todas as superfícies claras (3,29 / 3,72 / 3,42). Ele NÃO é cor
+     de texto pequeno: 3,7:1 sobre branco não chega aos 4,5 de AA, e é por
+     isso que o "Principal" da ficha e o "3/4" concluído continuam em
+     `--brand`. `config/test_tema_claro.py` mede as duas coisas. */
+  --folha: #3f9718;
+  --on-brand: #ffffff;
+  --accent: #196288;
+  --warm: #8a5109;
+  --warm-soft: #fbf0e0;
+  --carb: #c98a2b;
+  --fat: #6b83b0;
+  --danger: #b3261e;
+  --danger-soft: #fdecea;
   /* A escala de quina. `--radius-xl` é o degrau novo, e ele existe para
      separar WIDGET de cartão: o painel do dia, a ofensiva e a água são as
      três peças que a pessoa lê de relance, e quina mais aberta é o que faz
@@ -166,7 +168,6 @@
      de RGB é como as duas telas acabam com veladuras diferentes numa
      terça-feira. */
   --veu: rgba(4, 8, 7, .72);
-
   /* A ESCALA DE TEXTO. Ela não existia, e a ausência custou 41 tamanhos
      diferentes em 214 declarações — medido em 05/09/2026.
 
@@ -288,8 +289,7 @@
   --glass: color-mix(in srgb, var(--bg) 78%, transparent);
   --glass-blur: saturate(170%) blur(20px);
 
-  --glow: 0 0 0 1px rgba(16, 185, 129, .3), 0 10px 30px -14px rgba(16, 185, 129, .45);
-
+  --glow: 0 0 0 1px rgba(15, 122, 74, .18), 0 10px 26px -16px rgba(15, 122, 74, .3);
   /* O halo de ESTADO, irmão mais discreto do `--glow` de foco.
      Marca o que está ativo agora — a aba aberta, a refeição feita, o botão
      sob o dedo — e nada mais. Nasce de `var(--brand)` em vez de um rgba fixo,
@@ -305,8 +305,7 @@
   /* Um fio de luz na quina de cima, do jeito que superfície elevada responde
      a luz vinda de cima. No escuro a sombra quase não aparece — é este
      `inset` que separa o cartão do fundo. */
-  --edge: inset 0 1px 0 rgba(255, 255, 255, .05);
-
+  --edge: inset 0 -1px 0 rgba(16, 32, 22, .04);
   /* Contorno por DENTRO, para o bloco afundado que não pode ganhar borda.
      O azulejo, a célula da equação e o chip do dia pousam em --surface-2 sem
      borda nenhuma, e no escuro dois grafites vizinhos viram um só. Uma borda
@@ -316,9 +315,8 @@
 
   /* Repouso e elevação. A diferença entre as duas é o que comunica que algo
      está ativo sem mexer em cor nem em tamanho. */
-  --shadow-rest: 0 1px 2px rgba(0, 0, 0, .38), 0 10px 26px -20px rgba(0, 0, 0, .85);
-  --shadow-lift: 0 2px 6px rgba(0, 0, 0, .45), 0 20px 44px -22px rgba(0, 0, 0, .95);
-
+  --shadow-rest: 0 1px 2px rgba(16, 32, 22, .05), 0 8px 22px -16px rgba(16, 32, 22, .2);
+  --shadow-lift: 0 2px 6px rgba(16, 32, 22, .08), 0 18px 38px -20px rgba(16, 32, 22, .3);
   /* O terceiro degrau, para o que flutua ACIMA da página em vez de repousar
      nela: o painel do dia e o convite de instalação. Três camadas de sombra
      porque uma só, no escuro, ou não aparece ou vira mancha — a curta define
@@ -349,105 +347,50 @@
 
 }
 
-/* Tema claro para quem usa o sistema em claro. É a exceção, e por isso vem
-   depois: os tokens escuros são a base. */
-@media (prefers-color-scheme: light) {
+/* TEMA ESCURO PARA QUEM PREFERE, e o claro é a base — invertido em
+   12/09/2026. O NutriPlan nasceu escuro-primeiro e a identidade decidida
+   nas auditorias é a clara: fundo #f4f6f5, verde #0c6b40, folha #43A11B.
+   Os dois conjuntos de valores são os MESMOS de antes; o que mudou é
+   quem é a base e quem é a preferência. `color-scheme: light dark` no
+   `:root` avisa o navegador que os dois existem, e os controles nativos
+   (scrollbar, `<select>`) acompanham. Contraste medido nos dois temas por
+   `config/tests.py`. */
+@media (prefers-color-scheme: dark) {
   :root {
-    /* O véu NÃO muda com o tema, e isso é decisão e não esquecimento: antes
-       destes tokens os dois backdrops já eram o mesmo preto translúcido nos
-       dois temas. Um véu claro sobre fundo claro não separa nada — o que
-       separa o overlay do conteúdo é escurecer, venha o tema que vier. */
+    color-scheme: dark;
+    --bg: #070c0b;
+    --surface: #0d1413;
+    --surface-2: #121a18;
+    --surface-3: #18211e;
+    --surface-focus: #10201a;
+    --canvas-topo: #0a1210;
+    --border: rgba(150, 165, 180, .16);
+    --border-strong: rgba(150, 165, 180, .30);
+    --text: #f7f9fa;
+    --text-dim: #b7bec8;
+    --text-mute: #939daa;
+    --dia-a: #4ade9b;
+    --dia-b: #6cc7ff;
+    --dia-c: #f6c453;
+    --dia-d: #cbb0ff;
+    --dia-e: #ff9d8a;
+    --brand: #10c98a;
+    --brand-strong: #34d399;
+    --brand-soft: #0c2a22;
+    --on-brand: #04140e;
+    --accent: #6cc7ff;
+    --warm: #f59e0b;
+    --warm-soft: #33260f;
+    --carb: #e0b25f;
+    --fat: #8fa8d8;
+    --danger: #ff8a80;
+    --danger-soft: #33191a;
     --veu: rgba(4, 8, 7, .72);
-    color-scheme: light;
-
-    --bg: #f4f6f5;
-    --surface: #ffffff;
-    --surface-2: #eef2f0;
-    --surface-3: #e4eae7;
-    /* No claro a superficie de foco NAO pode ser "mais escura": escurecer
-       um bloco no tema claro lê como desabilitado. Ela é o mesmo gesto do
-       escuro invertido em intenção — um lavado de verde bem claro, com a
-       borda fazendo o trabalho que lá a luminância fazia. */
-    --surface-focus: #e6f4ec;
-    /* No claro o canvas clareia para CIMA, e não escurece: a luz continua
-       vindo do alto, que é a mesma leitura do escuro com o sinal invertido.
-       Um branco puro deixaria os painéis brancos sem contraste nenhum contra
-       o fundo, então o topo é um branco levemente esverdeado. */
-    --canvas-topo: #ffffff;
-    --text: #101715;
-    /* Mesmo degrau que o escuro recebeu, pelo mesmo motivo: 5,05 e 4,52 no
-       pior fundo passavam, mas ao sol — que é onde o tema claro é usado — o
-       que passa raspando desaparece. Agora 5,88 e 5,26. */
-    --text-dim: #4b5b55;
-    /* O tema claro estava pior que o escuro: 3.33:1 sobre --bg. */
-    --text-mute: #53625d;
-
-    /* Os três acentos do tema claro foram escurecidos quando as pílulas
-       chegaram. Sozinhos eles passavam; sobre a própria tinta a 12% — que é
-       como aparecem agora — davam 3.79, 3.88 e 3.97:1, todos abaixo do
-       mínimo AA de 4.5. A tinta clareia o fundo e come o contraste; é a
-       armadilha embutida no padrão "fundo da cor a 12%". */
-    --brand: #0c6b40;
-    /* O estado de foco precisa continuar visível depois que o normal
-       escureceu: com #0b6039 os dois viraram praticamente a mesma cor. */
-    --brand-strong: #08512f;
-    --brand-soft: #e2f3ea;
-    --on-brand: #ffffff;
-
-    --accent: #196288;
-
-    --warm: #8a5109;
-    --warm-soft: #fbf0e0;
-
-    --carb: #c98a2b;
-    --fat: #6b83b0;
-
-    --danger: #b3261e;
-    --danger-soft: #fdecea;
-
-    /* As cinco cores de dia no tema claro.
-     *
-     * Elas eram os ÚNICOS tokens de cor sem versão aqui — os outros que faltam
-     * são raio, tempo e fonte, corretamente independentes de tema. As do
-     * escuro são claras de propósito (menta, azul-gelo, âmbar) e vazavam
-     * inteiras para cá, onde são usadas de duas formas que ambas quebram:
-     *
-     *   .session__badge[data-dia]        branco SOBRE a cor    → 1,72:1
-     *   .day-chip__label[data-dia]       a cor sobre a tinta   → 1,35:1
-     *
-     * A letra do dia na tela de treino ficava ilegível para quem usa o celular
-     * no claro. Nenhum teste via: `ContrastTests` cobre os três tons de texto
-     * e `PillContrastTests` cobre marca, acento e âmbar — a paleta dos dias
-     * nunca entrou em lista nenhuma. Agora entrou.
-     *
-     * Os valores foram PROCURADOS e não escolhidos: para cada matiz, o tom
-     * mais claro que passa nos três usos com folga (≥4,6:1). Os matizes
-     * continuam separados por luminância também, e não só por tom, para quem
-     * confunde vermelho e verde. */
-    --dia-a: #1c6141;
-    --dia-b: #225b77;
-    --dia-c: #734e21;
-    --dia-d: #621fd6;
-    --dia-e: #8e3a29;
-
-    /* No claro a borda não precisa do mesmo empurrão do escuro: tinta escura
-       sobre papel já se lê. Sobe meio degrau só para o raio das quinas ficar
-       igual nos dois temas. */
-    --border: rgba(16, 32, 22, .115);
-    --border-strong: rgba(16, 32, 22, .21);
-
-    --glow: 0 0 0 1px rgba(15, 122, 74, .18), 0 10px 26px -16px rgba(15, 122, 74, .3);
-
-    /* No claro a luz não vem de cima do objeto: vem do papel. O fio vira
-       sombra fina, não brilho — inverter isso é o erro clássico de tema claro
-       feito por inversão automática. */
-    --edge: inset 0 -1px 0 rgba(16, 32, 22, .04);
-    --shadow-rest: 0 1px 2px rgba(16, 32, 22, .05), 0 8px 22px -16px rgba(16, 32, 22, .2);
-    --shadow-lift: 0 2px 6px rgba(16, 32, 22, .08), 0 18px 38px -20px rgba(16, 32, 22, .3);
-    /* No claro a sombra do escuro viraria borrão: papel não carrega preto a
-       90%. A profundidade vem da mesma geometria com um quarto da tinta. */
-    --shadow-deep: 0 1px 3px rgba(16, 32, 22, .07), 0 14px 32px -14px rgba(16, 32, 22, .18),
-                   0 34px 68px -46px rgba(16, 32, 22, .3);
+    --glow: 0 0 0 1px rgba(16, 185, 129, .3), 0 10px 30px -14px rgba(16, 185, 129, .45);
+    --edge: inset 0 1px 0 rgba(255, 255, 255, .05);
+    --shadow-rest: 0 1px 2px rgba(0, 0, 0, .38), 0 10px 26px -20px rgba(0, 0, 0, .85);
+    --shadow-lift: 0 2px 6px rgba(0, 0, 0, .45), 0 20px 44px -22px rgba(0, 0, 0, .95);
+    --folha: #6fcf4a;
   }
 }
 
@@ -1080,9 +1023,12 @@ h3 {
 .ring--treino {
   width: 6.6rem;
   height: 6.6rem;
+  /* O arco é FOLHA: ele conta o que já saiu. O botão embaixo dele é
+     `--brand`, porque é o que se faz a seguir — duas perguntas, dois
+     verdes. */
   background: conic-gradient(from 0deg,
-                             var(--brand),
-                             var(--brand) calc(var(--pct) * 3.6deg),
+                             var(--folha),
+                             var(--folha) calc(var(--pct) * 3.6deg),
                              var(--surface-2) 0);
 }
 
@@ -2763,7 +2709,12 @@ a.ficha-item__link:focus-visible { outline: 2px solid var(--brand); outline-offs
 .ficha-item__estado--feito { color: var(--brand); }
 .ficha-item__estado--cta { color: var(--brand); }
 /* Concluído muda a linha inteira, e o número ao lado diz o mesmo sem cor. */
-.ficha-item--feito .ficha-item__link { background: var(--brand-soft); }
+.ficha-item--feito .ficha-item__link {
+  background: var(--brand-soft);
+  /* O filete de folha na borda esquerda é a marca de "feito" que sobrevive
+     a quem não distingue o verde do fundo tingido: é posição, não só cor. */
+  box-shadow: inset 3px 0 0 var(--folha);
+}
 .ficha-item--feito .ficha-item__nome { color: var(--text-dim); }
 
 .ficha__progresso { margin: 0; color: var(--text-dim); font-size: var(--texto-sm); }
@@ -5989,7 +5940,9 @@ body.montando { overflow: hidden; }
 .series__carga { font-size: var(--texto-sm); font-weight: 600; white-space: nowrap; }
 
 .series__item--feita {
-  border-color: var(--brand);
+  /* A borda é folha (feito); o número continua em `--brand-strong` porque
+     é texto pequeno e a folha não chega aos 4,5:1 sobre o fundo tingido. */
+  border-color: var(--folha);
   background: var(--brand-soft);
   color: var(--brand-strong);
 }
@@ -6936,7 +6889,7 @@ body.montando { overflow: hidden; }
   background: var(--surface-2);
 }
 
-.semana__preenche { display: block; height: 100%; background: var(--brand); }
+.semana__preenche { display: block; height: 100%; background: var(--folha); }
 
 .semana__preenche--0 { width: 0; }
 .semana__preenche--1 { width: 14%; }
