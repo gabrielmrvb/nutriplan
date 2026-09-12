@@ -4447,7 +4447,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
      11,2px — quebrava em "Alimentaç/ão". A fonte não desce (11px é o piso
      do projeto); o que desce é o ar: a barra encosta mais na borda e cada
      aba perde o padding lateral. Medido: 63px -> 70px por aba. */
-  .tabbar { inset-inline: var(--espaco-3); padding: var(--espaco-2) .25rem; }
+  .tabbar { inset-inline: var(--espaco-3); padding: var(--espaco-2) var(--espaco-1); }
   .tabbar__item { padding-inline: 0; }
 }
 

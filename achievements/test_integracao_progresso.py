@@ -175,10 +175,23 @@ class AConquistasSaiuDeAreasSemQuebrarNadaTests(TestCase):
         self.user = pessoa(email="areas-conquista@exemplo.com")
         self.client.force_login(self.user)
 
-    def test_o_cartao_de_conquistas_saiu_de_areas(self):
-        html = self.client.get(reverse("areas")).content.decode()
+    def test_o_cartao_de_conquistas_esta_em_areas_E_no_progresso(self):
+        """As duas portas coexistem, e respondem perguntas diferentes.
 
-        self.assertNotIn('modulo__nome">Conquistas', html)
+        Este teste nasceu afirmando que Conquistas tinha SAÍDO de Áreas
+        (08/09/2026), quando o Progresso ganhou o bloco compacto. A missão
+        mestre de 12/09/2026 (§6) lista Conquistas entre o que Áreas
+        concentra, e `accounts/test_areas.AreasEUmHubENaoUmMenuTests` passou a
+        cobrar a porta lá. O que ESTE arquivo guarda é a integração com o
+        Progresso — e ela não mudou: o bloco compacto continua no Progresso,
+        e a volta a Áreas não o tirou de lá.
+        """
+        html = self.client.get(reverse("areas")).content.decode()
+        self.assertIn('modulo__nome">Conquistas', html)
+
+        progresso = self.client.get(reverse("plans:history")).content.decode()
+        self.assertIn("Conquistas", progresso)
+        self.assertIn(reverse("achievements:list"), progresso)
 
     def test_as_outras_ferramentas_continuam_em_areas(self):
         """Controle positivo: tirar Conquistas não pode ter esvaziado a seção."""
