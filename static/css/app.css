@@ -3151,6 +3151,13 @@ a.ficha-item__link:focus-visible { outline: 2px solid var(--brand); outline-offs
   font-variant-numeric: tabular-nums;
 }
 
+/* O item que a pessoa acrescenta: campo e botão numa faixa só, o campo
+   cresce e o botão não encolhe. Campo e botão são os de sempre (`.field-input`
+   e `.btn`), com a mesma altura de 52px — só a faixa é daqui. */
+.compra-avulsa { margin-top: var(--espaco-4); }
+.compra-avulsa__linha { display: flex; gap: var(--espaco-3); }
+.compra-avulsa__campo { flex: 1; min-width: 0; }
+
 /* Este é o botão mais usado da tela de dieta — tocar no nome do alimento
    abre as substituições — e era o menor de todos, com 21px de altura. Como
    ele vive dentro de uma lista de ingredientes, o alvo cresce por padding

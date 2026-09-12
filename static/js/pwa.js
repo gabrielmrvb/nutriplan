@@ -605,9 +605,15 @@
 
     var corpo = new URLSearchParams();
     corpo.set("csrfmiddlewaretoken", token());
-    corpo.set("food_id", caixa.getAttribute("data-food"));
-    corpo.set("opcao", caixa.getAttribute("data-opcao"));
-    corpo.set("semana", caixa.getAttribute("data-semana"));
+    /* O item avulso é chaveado pelo próprio `pk`; o do cardápio, pela
+       tríade (alimento, opção, dia). A mesma rota atende os dois. */
+    if (caixa.hasAttribute("data-avulso")) {
+      corpo.set("avulso_id", caixa.getAttribute("data-avulso"));
+    } else {
+      corpo.set("food_id", caixa.getAttribute("data-food"));
+      corpo.set("opcao", caixa.getAttribute("data-opcao"));
+      corpo.set("semana", caixa.getAttribute("data-semana"));
+    }
     corpo.set("marcado", caixa.checked ? "1" : "0");
 
     fetch(lista.getAttribute("data-lista-compras"), {

@@ -21,4 +21,14 @@ urlpatterns = [
         views.MarcarItemDaListaView.as_view(),
         name="marcar_item",
     ),
+    path(
+        "lista-de-compras/adicionar/",
+        views.AdicionarItemDaListaView.as_view(),
+        name="adicionar_item",
+    ),
+    path(
+        "lista-de-compras/remover/",
+        views.RemoverItemDaListaView.as_view(),
+        name="remover_item",
+    ),
 ]

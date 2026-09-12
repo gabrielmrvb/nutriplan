@@ -123,6 +123,22 @@ def dias_da_semana(inicio=None) -> list:
     return [inicio + timedelta(days=i) for i in range(DAYS)]
 
 
+def janela_de_marcacao(hoje=None) -> tuple:
+    """(primeiro, último) dia de gravação cujo risco ainda vale hoje.
+
+    A lista cobre sete dias a partir de hoje, e o risco vale o mesmo: o arroz
+    riscado no sábado continua riscado na quarta — a pessoa TEM arroz — e some
+    no sábado seguinte, quando a compra recomeça. A primeira versão gravava a
+    chave como o dia de hoje e lia SÓ ela: o risco durava até a meia-noite, e
+    quem voltava no dia seguinte encontrava a lista limpa, com o texto da tela
+    prometendo que ficava salvo. Medido em `plans/test_lista_de_compras.py`.
+
+    O item avulso vale pela mesma janela: é compra da semana, não cadastro.
+    """
+    hoje = hoje or timezone.localdate()
+    return hoje - timedelta(days=DAYS - 1), hoje
+
+
 def weekly_quantities(plan, label=None, inicio=None) -> dict:
     """Quanto de cada alimento o cardápio da semana consome.
 

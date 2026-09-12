@@ -51,6 +51,7 @@ from .models import (
     MealSlot,
     MealStatus,
     OptionLabel,
+    ItemAvulsoDaLista,
     ItemDaListaMarcado,
 )
 # A política de arredondamento mora em `tracking` e é importada, não repetida:
@@ -841,6 +842,20 @@ class MarcarItemDaListaView(AcaoDeTela, OnboardingRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         destino = redirect("plans:shopping")
 
+        # O item avulso tem a própria coluna de estado — o mesmo contrato
+        # absoluto, chaveado pelo `pk` dele em vez de (alimento, opção, dia).
+        # Só do dono: um `pk` alheio não acha linha e não muda nada.
+        avulso = (request.POST.get("avulso_id") or "").strip()
+        if avulso:
+            try:
+                avulso_id = int(avulso)
+            except ValueError:
+                raise Http404("item inválido")
+            ItemAvulsoDaLista.objects.filter(user=request.user, pk=avulso_id).update(
+                marcado=(request.POST.get("marcado") or "") in ("1", "true", "on")
+            )
+            return destino
+
         try:
             food_id = int(request.POST.get("food_id") or "")
         except (TypeError, ValueError):
@@ -866,10 +881,61 @@ class MarcarItemDaListaView(AcaoDeTela, OnboardingRequiredMixin, View):
                 user=request.user, food=food, opcao=opcao, semana=semana
             )
         else:
+            # Desriscar apaga o risco de QUALQUER dia da janela: o arroz
+            # riscado no sábado e desriscado na quarta não pode reaparecer
+            # riscado na quinta porque a linha de sábado ficou.
             ItemDaListaMarcado.objects.filter(
-                user=request.user, food=food, opcao=opcao, semana=semana
+                user=request.user, food=food, opcao=opcao,
+                semana__range=shopping.janela_de_marcacao(semana),
             ).delete()
         return destino
+
+
+class AdicionarItemDaListaView(AcaoDeTela, OnboardingRequiredMixin, View):
+    """Acrescenta um item que o cardápio não pede (§36).
+
+    `get_or_create` pela chave (pessoa, dia, nome): o toque duplo no botão e
+    o reenvio do formulário produzem UM item. O nome é normalizado no espaço
+    em branco e nada mais — "Café" e "café" são dois itens, e a pessoa vê os
+    dois e remove um; corrigir por ela seria adivinhar.
+    """
+
+    tela_da_acao = "plans:shopping"
+
+    def post(self, request, *args, **kwargs):
+        nome = " ".join((request.POST.get("nome") or "").split())[:60]
+        if nome:
+            ItemAvulsoDaLista.objects.get_or_create(
+                user=request.user, semana=timezone.localdate(), nome=nome
+            )
+        return _de_volta_a_lista(request)
+
+
+class RemoverItemDaListaView(AcaoDeTela, OnboardingRequiredMixin, View):
+    """Remove um item avulso. Só os avulsos: o que vem do cardápio não sai
+    daqui — riscar já diz "tenho em casa", e tirar da lista o que o plano
+    consome faria a lista mentir sobre a semana."""
+
+    tela_da_acao = "plans:shopping"
+
+    def post(self, request, *args, **kwargs):
+        try:
+            item_id = int(request.POST.get("item_id") or "")
+        except ValueError:
+            raise Http404("item inválido")
+        ItemAvulsoDaLista.objects.filter(user=request.user, pk=item_id).delete()
+        return _de_volta_a_lista(request)
+
+
+def _de_volta_a_lista(request):
+    """Para a lista da MESMA opção, na seção dos itens da pessoa.
+
+    A opção vem do corpo e passa pela lista fechada, como na tela: um valor
+    inventado cai na A em vez de virar querystring livre."""
+    opcao = (request.POST.get("opcao") or OptionLabel.A).strip()
+    if opcao not in OptionLabel.values:
+        opcao = OptionLabel.A
+    return redirect(reverse("plans:shopping") + "?opcao=%s#seus-itens" % opcao)
 
 
 class ShoppingListView(PlanRequiredMixin, TemplateView):
@@ -900,10 +966,13 @@ class ShoppingListView(PlanRequiredMixin, TemplateView):
         # marcação órfã fica sem efeito em vez de reaparecer em lista que não a
         # contém — é assim que a troca de plano se invalida sozinha, sem
         # migração destrutiva.
+        # A gravação é chaveada pelo DIA do toque; a leitura cobre a janela
+        # inteira (`janela_de_marcacao`): o risco de sábado vale na quarta.
         semana = shopping.dias_da_semana()[0]
+        janela = shopping.janela_de_marcacao(semana)
         marcados = set(
             ItemDaListaMarcado.objects.filter(
-                user=self.request.user, opcao=label, semana=semana
+                user=self.request.user, opcao=label, semana__range=janela
             ).values_list("food_id", flat=True)
         )
         for corredor in aisles:
@@ -913,6 +982,12 @@ class ShoppingListView(PlanRequiredMixin, TemplateView):
         context.update(
             {
                 "semana_da_lista": semana,
+                # Os itens da pessoa, da mesma janela, em qualquer opção.
+                "avulsos": list(
+                    ItemAvulsoDaLista.objects.filter(
+                        user=self.request.user, semana__range=janela
+                    )
+                ),
                 # A lista é uma subtela da dieta: manter a aba Dieta acesa é
                 # melhor que deixar a barra inteira apagada, que dá sensação de
                 # ter saído do app.

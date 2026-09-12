@@ -92,6 +92,63 @@
           </div>
         </section>
       {% endfor %}
+
+      {% comment %}
+        O QUE O CARDÁPIO NÃO PEDE (§36). Café, papel toalha, o tempero que a
+        receita não lista: sem isto a pessoa levava duas listas ao mercado. O
+        item entra pelo formulário, risca como os outros e some sozinho depois
+        de sete dias — é compra da semana, não cadastro. Remover é só daqui:
+        o que vem do cardápio não sai, porque riscar já diz "tenho em casa".
+
+        Vazio, a explicação é o valor e o formulário é o próximo passo — não
+        há "estado vazio" com botão apontando para outra tela, porque a saída
+        está aqui mesmo (§39).
+      {% endcomment %}
+      <section class="card" id="seus-itens">
+        <div class="card__head">
+          <h2>Seus itens</h2>
+          {% if avulsos %}<span class="chip">{{ avulsos|length }}</span>{% endif %}
+        </div>
+        {% if avulsos %}
+          <ul class="shopping">
+            {% for item in avulsos %}
+              <li class="shopping__item">
+                <label class="shopping__check">
+                  <input type="checkbox"
+                         data-marcar
+                         data-avulso="{{ item.pk }}"
+                         {% if item.marcado %}checked{% endif %}>
+                  <span class="shopping__name">{{ item.nome }}</span>
+                </label>
+                <form method="post" action="{% url 'plans:remover_item' %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="item_id" value="{{ item.pk }}">
+                  <input type="hidden" name="opcao" value="{{ label }}">
+                  <button type="submit" class="btn-link"
+                          aria-label="Remover {{ item.nome }} da lista">remover</button>
+                </form>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="hint">
+            Falta algo que o cardápio não pede — café, papel toalha, tempero?
+            Escreva e ele entra na lista desta semana, junto com o resto.
+          </p>
+        {% endif %}
+        <form method="post" action="{% url 'plans:adicionar_item' %}" class="compra-avulsa">
+          {% csrf_token %}
+          <input type="hidden" name="opcao" value="{{ label }}">
+          <label for="item-avulso" class="vis-oculto">Novo item</label>
+          <div class="compra-avulsa__linha">
+            <input type="text" id="item-avulso" name="nome"
+                   class="field-input compra-avulsa__campo"
+                   maxlength="60" placeholder="Ex.: café" required
+                   autocomplete="off" autocapitalize="sentences" enterkeyhint="done">
+            <button type="submit" class="btn btn--ghost">Adicionar</button>
+          </div>
+        </form>
+      </section>
     </div>
 
     <aside class="split__aside stack">
@@ -110,8 +167,8 @@
         </p>
         <p class="hint">
           O que você risca fica salvo: pode recarregar, sair e voltar que a lista
-          continua de onde parou. Cada opção guarda a própria marcação, e a semana
-          seguinte começa limpa.
+          continua de onde parou. Cada opção guarda a própria marcação, e o risco
+          some sozinho depois de sete dias — quando a compra recomeça.
         </p>
         <a class="btn btn--ghost btn--block acao-solta" href="{% url 'plans:today' %}"
           >

@@ -460,3 +460,48 @@ class ItemDaListaMarcado(models.Model):
 
     def __str__(self):
         return f"{self.food} ({self.opcao}, {self.semana})"
+
+
+class ItemAvulsoDaLista(models.Model):
+    """Um item que a pessoa acrescentou à lista por conta própria.
+
+    A lista é derivada do cardápio e continua sendo: o que o plano consome não
+    se apaga daqui — riscar já diz "tenho em casa". O que faltava era o RESTO
+    do mercado: café, papel toalha, o tempero que a receita não lista. Sem
+    isto a pessoa levava duas listas ao mercado, e a de papel ganhava (§36).
+
+    Vale pela mesma janela dos riscos — sete dias a partir do dia em que
+    entrou (`semana`, ver `shopping.janela_de_marcacao`) — e por isso some
+    sozinho: item avulso é compra da semana, não cadastro. Não depende da
+    opção A/B: café é café nas duas.
+
+    A chave é (pessoa, dia, nome): acrescentar "Café" duas vezes é UM café —
+    o envio duplicado do botão, ou o reenvio de um formulário, não duplica a
+    linha. `marcado` mora aqui e não em `ItemDaListaMarcado` porque aquela
+    tabela é chaveada por alimento do catálogo, e este item não tem um.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="itens_avulsos",
+    )
+    nome = models.CharField("item", max_length=60)
+    #: O dia em que entrou — a âncora da janela de sete dias.
+    semana = models.DateField("dia em que entrou")
+    marcado = models.BooleanField("já pegou", default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "item avulso da lista"
+        verbose_name_plural = "itens avulsos da lista"
+        ordering = ["created_at", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "semana", "nome"],
+                name="unique_item_avulso_por_dia",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.nome} ({self.semana})"
