@@ -3,6 +3,61 @@
 O que ficou decidido mas não feito, e o que depende de gente. Cada item diz
 **por que** está aqui — item sem motivo vira lista que ninguém lê.
 
+## ✅ MISSÃO MESTRE DE IMPLEMENTAÇÃO — CONCLUÍDA E PUBLICADA (12/09/2026)
+
+Spec de 81 seções, mapeada seção a seção em
+`docs/superpowers/plans/2026-09-12-missao-mestre.md` (a tabela de estado é a
+fonte; este bloco é o relatório de §79). Baseline `128aa1b`; no ar
+`128aa1b..74dbd52` em `main`. Duas regras que a missão cobrou e foram
+cumpridas: não recomeçar (§2) e não fingir (§23–27, §37, §77).
+
+| Área | Alteração | Evidência | Testes | Produção | Status |
+|---|---|---|---|---|---|
+| Tema | claro-primeiro (`#f4f6f5`/`#0c6b40`/folha `#3f9718`), escuro por preferência | contraste medido nos dois temas; `theme-color` por tema | `config/test_tema_claro.py` (5) | CSS servido com `--bg: #f4f6f5` | ✅ |
+| Treino | cinco perfis provam a prescrição (§17) | só órfão em "até 30 min", nomeado no aviso | `workouts/test_perfis_de_qa.py` | fluxo já no ar desde `128aa1b` | ✅ |
+| Vídeos | 35/35 alcançáveis por HTTP (§53) | `videos_alcance.py` 12/09 | mapeamento por nome | — | ✅ |
+| Áreas | hub com valor antes do clique (§6): hidratação %, última corrida, conquistas, perfil | `assertNumQueries(8)` | `accounts/test_areas.py` (7) | `/demo/areas/` | ✅ |
+| Hoje | só a refeição da vez aberta; futuras atrás de "Ver opções"; só A é verde (§7) | 390px: ~2.100px de formulário a menos | `plans/test_opcoes_tocaveis.py` | `/demo/treino/` marcador `meal__futuro` | ✅ |
+| Alimentação | módulo percorrido: registrar → ✓ → saldo → desfazer; histórico; lista (§8) | conta de QA local, restaurada a zero | — (auditoria) | — | ✅ |
+| Hidratação | `atraso_de_hidratacao` em hora local; falha ao enfileirar aparece na tela | — | `plans/test_agua_no_agora.py`, `push/test_offline.py` | — | ✅ |
+| Progresso | vazios convidam (treino, água, alimentação) com um botão só cheio por tela (§22, §39) | 390px | `plans/test_progresso.py` | `/demo/historico/` | ✅ |
+| Lista de compras | adicionar / remover / marcar / persistir sete dias (§36); o risco durava até a meia-noite | 320 e 390px, Enter, recarga em outra opção | `plans/test_itens_avulsos.py` (22) | `id="seus-itens"` no demo | ✅ |
+| Login | teclado certo, erro audível, sem toque duplo (§29) | — | `accounts/tests.py OLoginNoCelularTests` | — | ✅ |
+| Onboarding | primeira passagem sem resposta marcada; "Emagrecer" inteiro; uma coluna nos cartões (§31) | seis passos a 390px com conta descartável, apagada | `accounts/test_primeira_passagem_em_branco.py` (10) | `/conta/cadastro/` quatro larguras | ✅ |
+| Corrida | frases com acento; `corrida.js` e `card.js` na versão do cache (§65, §44) | sem permissão o estado explica | `workouts/test_corrida_v1.py`, `push/tests.py` | — (segundo push) | ✅ |
+| Freemium | `accounts/gates.py`, `Profile.plano`, 403 por GET e POST, nada Pro hoje (§37) | — | `accounts/test_gates.py` (12) | `0031` aplicada (`/saude/` 200) | ✅ |
+| Testes | tearDown de migration restaura pelas folhas do grafo | 7 erros reproduzidos e zerados | `accounts/test_duracao_portao.py`, `plans/tests.py` | — | ✅ |
+
+**Git.** 18 commits coerentes por unidade; `git add` por caminho; `artifacts/`
+e `stash@{0}` intocados; nenhuma fixture, conta de QA ou captura no
+repositório. Dois `pre-push` recusaram e os dois estavam certos (500.html
+escuro; contrato de 08/09 revisto pela spec; tearDown de migration).
+
+**Banco.** `0031_plano_gratis_ou_pro` (ADD COLUMN com default constante, sem
+reescrever linha) e `0010_item_avulso_da_lista` (tabela nova). Zero UPDATE em
+massa; zero valor existente apagado. Conta demo pública: nenhuma escrita.
+
+**Treino / Alimentação / Hidratação / Progresso / Corrida / UX / Segurança.**
+Na tabela. UX: 320/375/390/430 sem rolagem horizontal em todas as telas
+tocadas, em produção (`prod-lote3`); alvos ≥ 44px medidos.
+
+**QA.** Suíte completa 2.806 testes, `EXIT_REAL=0` no `pre-push`; 59
+sabotagens (43 herdadas + 16 desta missão), todas vermelhas e restauradas;
+smoke 30/30 com controle positivo; agent-browser 0.37.1 nas quatro larguras.
+
+**Deploy.** `git push` → build → `/saude/` 200 → sinal observável
+(`id="seus-itens"` no `/demo/lista-de-compras/`, presente só depois do lote).
+
+**Pendências (fora do alcance, não são bugs).**
+- §70–71 marketing/Instagram: não há infraestrutura no repositório; token da
+  Meta é bloqueio humano.
+- Corrida nativa (§24–25): Capacitor bloqueado por Android Studio/Xcode
+  (item 421). A PWA diz na tela o que não faz.
+- `SyncedOperation.podar()` nunca é chamado (item 610): decisão do operador —
+  recomendação é chamar no `build.sh`.
+- Casa + halteres continua bloqueado pelo catálogo de mídia (nove movimentos
+  sem vídeo curado).
+
 ## ✅ REDESIGN V2 — CONCLUÍDO E PUBLICADO (08/09/2026)
 
 Baseline oficial: **`fb4fbb6`**, no ar em https://nutriplan-xxfn.onrender.com,

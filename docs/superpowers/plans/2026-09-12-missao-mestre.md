@@ -46,7 +46,14 @@ fase de §72 com o estado REAL medido — ✅ já satisfeito e guardado por test
   locais, isoladas, sem fixture no commit; nunca `git add -A`; `artifacts/` e
   `stash@{0}` fora.
 - 43 sabotagens continuam 43/43 (§49); se o número mudar, o motivo fica
-  escrito aqui.
+  escrito aqui. **Mudou, para cima: 43 → 59.** As 43 originais (18 do motor,
+  9 do fluxo de treino, 16 da fila/replay) continuam e continuam vermelhas;
+  cada guarda nova desta missão trouxe a sua — tema claro (3), faixa de falha
+  da fila (1), G17–G20 do Hoje/Progresso/Áreas (4), portão de migration (1),
+  primeira passagem em branco (1), coluna única dos cartões (1), lista de
+  compras (3: leitura só do dia, rota ignorando o avulso, `name` trocado no
+  template), acento na corrida (1), `VERSIONED` (1). Nenhuma entrou em commit;
+  todas restauraram byte a byte.
 
 ---
 
@@ -57,22 +64,22 @@ fase de §72 com o estado REAL medido — ✅ já satisfeito e guardado por test
 | **0 Baseline** | §81 | ✅ | reconhecimento feito; `128aa1b` no ar; suítes 1/2/3 e `pre-push` com `EXIT_REAL`; 43/43 sabotagens |
 | **1 Contratos e dados** | §13 horário, §14 duração, §15 migrations, §32, §74 | ✅ | `0029` (rede, só vazio) + `0030` (`-- (no-op)`); rotas A/B por execução e em `accounts/test_duracao_portao.py`; `start_time=None` e POST forjado guardados |
 | **2 Treino** | §10 tela principal, §11 ficha, §12 execução, §21 drawer | ✅ | três telas; 0/0/1 iframe; seleção estrita → 404; estado preservado (`OFluxoResisteAoUsoRealTests`); sem caixa preta (`agora__sem-media`) |
-| | §16 séries/reps, §18 cobertura | ✅ regra · 🔧 auditar resultado | 5 camadas + devolução de série; 4/4/3/3; zero órfão ≥45 min (`CLAUDE.md`, `sabotagem.py` 18/18) → **T2.1** cinco perfis |
-| | §17 cinco perfis | 🔧 | **T2.1** |
-| | §19 catálogo, §20 vídeos, §53 100% dos vídeos | ✅ mapeamento por nome (`test_o_seed_casa_por_NOME_e_nunca_por_posicao`, `nenhum_video_e_usado_por_dois`) · 🔧 alcance HTTP | **T2.2** |
+| | §16 séries/reps, §18 cobertura | ✅ | 5 camadas + devolução de série; 4/4/3/3; zero órfão ≥45 min (`CLAUDE.md`, `sabotagem.py` 18/18); resultado auditado em **T2.1** (`78fd530`) — só órfão em "até 30 min", e nomeado |
+| | §17 cinco perfis | ✅ | `workouts/test_perfis_de_qa.py` (`78fd530`) |
+| | §19 catálogo, §20 vídeos, §53 100% dos vídeos | ✅ | mapeamento por nome; 35/35 alcançáveis por HTTP (`videos_alcance.py`, 12/09) |
 | **3 Navegação e shell** | §5 barra, §33 Perfil em Áreas | ✅ | `accounts/tests.py:657`, `test_areas.py` |
-| | §6 Áreas como hub (Conquistas, valor antes do clique, composição assimétrica) | 🔧 | **T3.1** — a decisão de 08/09 (Conquistas fora de Áreas) é revista pela spec, que a lista explicitamente |
+| | §6 Áreas como hub (Conquistas, valor antes do clique, composição assimétrica) | ✅ | **T3.1** (`7f5c018`, `d8df108`): fatos de hidratação/corrida/conquistas/perfil, Perfil largo, orçamento de 8 consultas |
 | **4 Alimentação e hidratação** | §9 zerar com confirmação | ✅ | `_agua.html` `<details class="acao-perigosa">`; `test_o_zerar_esta_atras_de_uma_confirmacao` |
-| | §7 Hoje: ação atual primeiro, estados | 🔧 auditar | **T4.1** (agent-browser, estados vazio/cheio/refeição atual/concluída/offline) |
-| | §8 alimentação: módulo inteiro | 🔧 auditar | **T4.2** |
-| **5 Progresso e secundários** | §22 Progresso, §35 conquistas, §36 compras, §39 vazios, §33 blocos do Perfil | 🔧 auditar | **T5.1–T5.3** |
-| **6 Onboarding/auth** | §29 login estrutural, §30 cadastro, §31 onboarding | 🔧 | **T6.1–T6.2** |
-| **7 Corrida** | §23–27 | ✅ servidor + PWA (`corrida.js`, API v1, `TracoDaCorrida`) · ⛔ nativo | **T7.1** validar e documentar a fronteira; Capacitor bloqueado por Android Studio/Xcode (BACKLOG 421) |
-| **8 Segurança/PWA** | §44–45 cache, logout, SW | ✅ 12 arquivos de teste em `push/` · 🔧 revalidar no navegador | **T8.1** |
-| **9 Freemium** | §37 | 🔧 nada existe além de `Food.is_premium` | **T9.1** gates centralizados, testáveis, sem cobrança |
-| **10 Polimento** | §64 telas-mãe, §65 microcopy, §41, §42 | 🔧 | **T10.x** por tela, depois de 2–9 |
-| **11 QA final** | §47–53, §76 adversarial | 🔧 | **T11** |
-| **12 Entrega** | §57–59, §79 relatório | 🔧 | **T12** |
+| | §7 Hoje: ação atual primeiro, estados | ✅ | **T4.1** (`a007f2c`): só a refeição da vez aberta, futuras atrás de "Ver opções", só A é verde; offline com faixa de falha (`push/test_offline.py`) |
+| | §8 alimentação: módulo inteiro | ✅ | **T4.2** no navegador (12/09): registrar A → ✓ verde + saldo 618/2467 + 1/5 → desfazer → 0; histórico; lista. Achados corrigidos: vazio do Progresso (`ae33c0d`), lista (`e8cca30`) |
+| **5 Progresso e secundários** | §22 Progresso, §35 conquistas, §36 compras, §39 vazios, §33 blocos do Perfil | ✅ | **T5.1** vazios convidam (`a375544`, `ae33c0d`); §35 vazio diz como ganhar a primeira (auditado, sem alteração); **T5.3** compras: adicionar/remover/marcar/persistir sete dias (`e8cca30`); §33 Perfil já em 11 blocos, do dado corporal à exclusão por último (auditado, zero linhas) |
+| **6 Onboarding/auth** | §29 login estrutural, §30 cadastro, §31 onboarding, §32 duração | ✅ | **T6.1** (`8fa213c`); **T6.2** (`39e67b0`): seis passos percorridos a 390px com conta descartável (apagada depois); primeira passagem sem resposta marcada; "Emagrecer" inteiro; §32: duração fora do wizard, `padrao` por omissão (`0030`) |
+| **7 Corrida** | §23–27 | ✅ web · ⛔ nativo | **T7.1** (12/09): sem histórico a tela diz a função e a limitação de segundo plano; sem permissão o estado explica (`74dbd52`: frases com acento, `corrida.js` na versão do cache). Nativo continua bloqueado (BACKLOG 421) |
+| **8 Segurança/PWA** | §44–45 cache, logout, SW | ✅ | **T8.1** no navegador (12/09): A → sair → B, nada de A; `VERSIONED` cobre todo `asset()` (`74dbd52`) |
+| **9 Freemium** | §37 | ✅ | **T9.1** (`3c604a5`): `accounts/gates.py`, `Profile.plano` (`0031`), context processor preguiçoso, 403 por GET e POST; `RECURSOS_PRO` vazio de propósito |
+| **10 Polimento** | §64 telas-mãe, §65 microcopy, §41, §42 | ✅ | §64 auditado tela a tela (12/09); §65 corrida (`74dbd52`); §41/§42 guardados por `config/tests.py` (contraste medido, alvos, `prefers-reduced-motion`) |
+| **11 QA final** | §47–53, §76 adversarial | ✅ | suíte completa 2.806 verde no `pre-push` (EXIT 0); 59 sabotagens; smoke 30/30 com controle positivo; quatro larguras em produção (`prod-lote3`) |
+| **12 Entrega** | §57–59, §79 relatório | ✅ | `128aa1b..ae33c0d` + `74dbd52` em `main`; `/saude/` 200; sinal observável (`id="seus-itens"` no demo); relatório no `BACKLOG.md` |
 | fora do alcance | §70–71 marketing/Instagram | ⛔ | não há infraestrutura de marketing neste repositório; token da Meta é bloqueio humano legítimo (§71) |
 | decisão do operador | BACKLOG 610 `podar()` | ⛔ | três alternativas materialmente diferentes; recomendação: `build.sh` |
 
