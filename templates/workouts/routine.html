@@ -2,6 +2,25 @@
 
 {% block title %}Treino · NutriPlan{% endblock %}
 
+{% comment %}
+  NEM DRAWER NEM CRONÔMETRO NESTA TELA, e a ausência é medida.
+
+  Os dois vieram para cá quando a tela de Treino desenhava o cartão completo de
+  cada exercício: cada cartão trazia `data-clipe` e `data-descanso`, e sem a
+  gaveta os botões de vídeo ficavam mortos. A guarda que nasceu daquele defeito
+  testa a RELAÇÃO — botão que abre precisa de gaveta que abre.
+
+  A relação continua satisfeita, agora pelo outro lado. Medido em 10/09/2026:
+  ZERO `data-clipe`, `data-ver` e `data-descanso` nesta página. Ela é um painel
+  — os cards A, B, C e o treino de hoje —, e a lista de exercícios mora na
+  ficha. Carregar as duas peças aqui era JavaScript que nada acionava.
+
+  E havia um efeito colateral que só apareceu em teste: os comentários dentro
+  do `<script>` do drawer contêm a palavra `<iframe>`, então uma asserção
+  honesta de "esta tela não tem iframe" encontrava a string e reprovava. É a
+  armadilha que o `CLAUDE.md` registra — o seletor do JavaScript e o marcador
+  do HTML são a mesma string.
+{% endcomment %}
 {% block content %}
   <div class="page-head">
     <h1>Seu treino</h1>
@@ -105,7 +124,7 @@
               <div class="hoje__identidade">
 
                 {% comment %}
-                  Os quatro fatos em UMA linha, e sem ícone.
+                  TRÊS fatos em UMA linha, e sem ícone.
 
                   Eram quatro itens numa grade 2×2, cada um com o seu desenho.
                   Quatro ícones para exercícios, séries, minutos e horário —
@@ -114,14 +133,23 @@
                   metade direita do hero com decoração enquanto o progresso
                   ficava numa faixa de 4px. O "·" continua vindo do CSS, pelo
                   motivo já registrado: como texto ele quebrava no meio do item.
+
+                  O HORÁRIO SAIU em 10/09/2026, e ele era o quarto. Ele nunca
+                  participou da montagem da ficha — `create_routine` jamais leu
+                  `start_time` — e não ajuda a executar: quem abriu a tela já
+                  sabe que horas são. O que ele fazia era repetir "19:00" em
+                  todo cartão como se fosse a rotina da pessoa, quando na
+                  maioria das vezes era o padrão que ela nunca escolheu.
+
+                  O VALOR CONTINUA NO BANCO. `plans/meal_planner.py` soma
+                  `start_time + duration_min` para não marcar refeição no meio
+                  do treino; apagar a coluna mudaria o cardápio de quem já usa
+                  o app. O que saiu é a exibição e o controle, não o dado.
                 {% endcomment %}
                 <ul class="hoje__meta hoje__meta--linha">
                   <li><b class="num">{{ hoje.total_exercicios }}</b> exercícios</li>
                   <li><b class="num">{{ hoje.total_sets }}</b> séries</li>
                   <li>~<b class="num">{{ hoje.estimated_minutes }}</b> min</li>
-                  {% if hoje.start_time %}
-                    <li><b class="num">{{ hoje.start_time|time:"H:i" }}</b></li>
-                  {% endif %}
                 </ul>
               </div>
             </div>
@@ -194,13 +222,32 @@
               É o mesmo contrato do "desfazer última série" logo abaixo, que já
               nasce com `hidden` e é revelado pelo mesmo caminho.
             {% endcomment %}
+            {% comment %}
+              O CTA ABRE A FICHA, e não o primeiro exercício.
+
+              Ele apontava para `workouts:now`, que abre direto o próximo
+              pendente — com o vídeo dele já na tela. O fluxo pulava a etapa em
+              que a pessoa decide: ela tocava em "Começar treino" e caía dentro
+              de um movimento sem ter visto o treino.
+
+              O fluxo é: tela de Treino -> ficha -> a pessoa escolhe o
+              exercício -> execução -> Short. A ficha é a tela de preparação, e
+              é nela que se vê tudo antes de começar.
+
+              O ECO SAIU JUNTO. Ele nomeava o exercício que o botão ia abrir
+              ("Supino inclinado com halteres"), e passou a ser mentira: o
+              botão abre a lista. Nomear ali de novo prometeria o comportamento
+              que esta mudança tirou.
+
+              Continua sendo âncora e não POST: "começar treino" não existe
+              como estado no banco, e inventar um registro para acender um
+              botão seria criar dado que nada lê. Abrir a ficha NÃO muda
+              progresso — ver `FichaDaSessaoView`.
+            {% endcomment %}
             <a class="btn btn--primary btn--block btn--hoje"
-               href="{% url 'workouts:now' %}"
+               href="{% url 'workouts:ficha' hoje.pk %}"
                {% if not hoje.proximo %}hidden{% endif %}
-               data-hoje-cta>
-              <span data-hoje-verbo>{% if hoje.feitos_hoje %}Continuar de onde parou{% else %}Começar treino{% endif %}</span>
-              <span class="btn__eco" data-hoje-eco>{% if hoje.proximo %}{{ hoje.proximo.exercise.name }}{% endif %}</span>
-            </a>
+               data-hoje-cta>{% if hoje.feitos_hoje %}Continuar de onde parou{% else %}Começar treino{% endif %}</a>
             {% comment %}
               Todos os exercícios têm série anotada. A frase descreve isso, e
               para — dizer "treino concluído" seria afirmar o que não se sabe.
@@ -560,19 +607,8 @@
       </aside>
     </div>
 
-    {% include "workouts/_cronometro.html" %}
 
-    {% comment %}
-      Um drawer só para a página inteira, preenchido pelo gatilho que foi
-      tocado. Um por exercício seriam trinta iframes no documento, e o custo
-      apareceria no 3G da academia antes de qualquer benefício.
-
-      `<dialog>` e não `<div>`: Esc fecha, o foco fica preso dentro enquanto
-      está aberto e volta para o botão ao fechar, e o resto da página some
-      para o leitor de tela. Tudo isso de graça, e nenhum desses
-      comportamentos é óbvio de reimplementar direito.
-    {% endcomment %}
-    {% if resumo_hoje.tem_dados %}
+        {% if resumo_hoje.tem_dados %}
       {% comment %}
         O que foi feito hoje, e as duas saídas dele.
 
@@ -641,404 +677,34 @@
     {% endif %}
 
 
-    {% include "workouts/_drawer.html" %}
 
 
-    <script>
-      /* O registro da série.
-       *
-       * O botão de salvar é também o contador: cada toque grava mais uma série
-       * com a carga do campo. É o gesto de quem está treinando — terminou,
-       * toca —, e foi a saída para uma aritmética que já apareceu três vezes
-       * nesta tela: carga, contador de três peças, OK e cronômetro deixavam o
-       * campo de carga com 21 pixels a 390px de largura.
-       *
-       * Sem JavaScript o formulário continua funcionando por POST comum: o
-       * campo escondido já leva o valor, e salvar regrava o que estava. */
-      (function () {
-        function atualiza(form, feitas) {
-          var botao = form.querySelector(".registro__salvar");
-          var total = parseInt(botao.dataset.total, 10) || 1;
-          botao.dataset.feitas = feitas;
-          form.querySelector("[data-feitas-campo]").value = feitas;
-          form.querySelector("[data-feitas-texto]").textContent = feitas;
-          form.classList.toggle("registro--completo", feitas >= total);
+    {% comment %}
+      AQUI HAVIA 395 LINHAS DE JAVASCRIPT SEM NADA PARA ACIONAR.
 
-          var desfazer = form.parentElement.querySelector("[data-desfazer-area]");
-          if (desfazer) desfazer.hidden = feitas === 0;
+      Era o registro da série: contador de três peças, degraus de 2,5 kg,
+      desfazer, aviso de rede, atualização do anel de progresso e do verbo do
+      botão. Todo ele começava por `document.querySelector(".hoje__lista")` ou
+      por um `submit` delegado em `.registro` — e esta página deixou de emitir
+      os dois quando a lista de exercícios saiu daqui para a ficha.
 
-          /* O cartão que acabou de receber a série, esteja ele onde estiver.
-           *
-           * Dá para anotar carga dentro da ficha de OUTRO dia — a sanfona
-           * abre, o formulário está lá, e o registro vale para hoje do mesmo
-           * jeito. Aqueles cartões não estão em `.hoje__lista`, então quem
-           * cuidasse do estado só varrendo a lista de hoje os deixaria sem
-           * pílula e sem tinta até a próxima recarga, enquanto o servidor os
-           * desenha marcados. Duas telas para o mesmo dado. */
-          var exercicio = form.closest("[data-exercicio]");
-          if (exercicio) marcaExercicio(exercicio, feitas, total);
+      Medido em 10/09/2026 nesta tela: `.hoje__lista`, `.registro`,
+      `[data-exercicio]`, `[data-passo]`, `[data-feitas-campo]`,
+      `[data-desfazer-area]` e `[data-registro-aviso]` — nenhum deles é
+      renderizado. O código não estava quebrado; estava pendurado no nada, e
+      custava download e leitura a cada abertura do painel.
 
-          atualizaODia();
-        }
+      DUAS COISAS NÃO ERAM LIXO, e mudaram de tela em vez de morrer:
 
-        /* O estado de UM cartão: a tinta no número da ordem e a pílula.
-         *
-         * Não mexe em `exercise--agora` de propósito — "agora" é uma decisão
-         * sobre a lista de hoje inteira, não sobre um cartão isolado, e quem
-         * responde por ela é `atualizaODia`. */
-        function marcaExercicio(exercicio, feitas, total) {
-          exercicio.classList.remove("exercise--feito", "exercise--parcial");
-          if (feitas >= total) exercicio.classList.add("exercise--feito");
-          else if (feitas > 0) exercicio.classList.add("exercise--parcial");
+        - a trava de tela (`navigator.wakeLock`) e o pulso curto de gravar a
+          série (`navigator.vibrate(35)`) foram para `agora.html`. Quem está
+          treinando está na execução; era o painel que ficava aceso;
+        - o pulso longo do fim do descanso (`[200, 100, 400]`) morava em
+          `_cronometro.html` e foi junto, para o cronômetro que a execução já
+          tinha e que nunca vibrou.
 
-          pilula(exercicio, feitas, total);
-        }
-
-        /* O cabeçalho do dia anda junto com o registro.
-         *
-         * Esta função existe por um defeito que a revisão pegou e que a suíte
-         * não pegava: os testes chamam `record_load` e pedem a página de novo,
-         * e nesse caminho o cabeçalho sempre vem certo. O uso real não é esse
-         * — a série é gravada por `fetch` porque perder a rolagem a cada série
-         * é o que faz a pessoa parar de anotar, e aí o cabeçalho nunca era
-         * renderizado outra vez.
-         *
-         * O resultado era um card que mentia durante o treino inteiro: a barra
-         * parada em zero, o halo de "agora" preso no primeiro exercício mesmo
-         * depois de completo, e o botão "Continuar de onde parou" apontando
-         * para um exercício já feito. E o `aria-live="polite"` do bloco de
-         * progresso, que só se justifica se o número mudar, não anunciava nada.
-         *
-         * Tudo é recontado do DOM, e não incrementado: o estado da tela passa a
-         * ser função do que está escrito nos botões, e não de um contador
-         * paralelo que pode dessincronizar. Desfazer usa este mesmo caminho e
-         * anda para trás de graça. */
-        function atualizaODia() {
-          var cartao = document.querySelector(".hoje");
-          var lista = document.querySelector(".hoje__lista");
-          if (!cartao || !lista) return;
-
-          var exercicios = [].slice.call(lista.querySelectorAll("[data-exercicio]"));
-          if (!exercicios.length) return;
-
-          var feitos = 0;
-          var proximo = null;
-
-          exercicios.forEach(function (exercicio) {
-            var salvar = exercicio.querySelector(".registro__salvar");
-            var feitas = salvar ? parseInt(salvar.dataset.feitas, 10) || 0 : 0;
-            var total = salvar ? parseInt(salvar.dataset.total, 10) || 1 : 1;
-
-            if (feitas > 0) feitos += 1;
-            /* Falta série, e não "nenhuma série": a mesma regra do servidor. */
-            if (feitas < total && !proximo) proximo = exercicio;
-
-            exercicio.classList.remove("exercise--agora");
-            marcaExercicio(exercicio, feitas, total);
-          });
-
-          /* "Agora" é o primeiro pendente, recalculado — quem anota fora de
-           * ordem vê o destaque andar para o próximo que falta, e não ficar
-           * preso onde o servidor o desenhou. */
-          if (proximo) proximo.classList.add("exercise--agora");
-
-          /* O ANEL substituiu a barra, e a atualização ao vivo veio junto.
-           *
-           * A série é gravada por `fetch`, sem recarregar — o cabeçalho não é
-           * renderizado de novo. Se esta função continuasse mexendo só na
-           * largura de uma barra que não existe mais, o progresso congelaria
-           * no valor com que a página nasceu e só se corrigiria numa recarga:
-           * a pessoa anotaria quatro séries vendo 78% o tempo todo.
-           *
-           * `--pct` é a MESMA variável que o servidor escreve no `style`, e o
-           * `conic-gradient` a lê direto — não há segunda fórmula aqui. */
-          var pct = Math.round(feitos * 100 / exercicios.length);
-          var anel = cartao.querySelector(".ring--treino");
-          if (anel) {
-            anel.style.setProperty("--pct", pct);
-            anel.setAttribute(
-              "aria-label",
-              feitos + " de " + exercicios.length +
-                " exercícios com série registrada hoje"
-            );
-            var valor = anel.querySelector(".ring__value");
-            if (valor) valor.innerHTML = pct + '<span class="ring__pc">%</span>';
-          }
-          var contagem = cartao.querySelector(".hoje__contagem b");
-          if (contagem) contagem.textContent = feitos;
-
-          chamada(cartao, proximo, feitos);
-        }
-
-        /* A pílula "3/4 séries" no cabeçalho fechado.
-         *
-         * Ela é a metade em TEXTO do estado — a outra é a cor do número da
-         * ordem. Num app que já usa uma cor por dia de treino, deixar o estado
-         * só na cor é a armadilha mais provável de acessibilidade. */
-        function pilula(exercicio, feitas, total) {
-          var etiquetas = exercicio.querySelector(".exercise__tags");
-          if (!etiquetas) return;
-          var atual = etiquetas.querySelector(".exercise__tag--feito");
-
-          if (!feitas) {
-            if (atual && atual.parentNode) atual.parentNode.removeChild(atual);
-            return;
-          }
-          if (!atual) {
-            atual = document.createElement("span");
-            atual.className = "exercise__tag exercise__tag--feito num";
-            /* Antes do botão de vídeo, na mesma ordem em que o servidor
-             * escreve — senão a fileira se reordena ao anotar.
-             *
-             * O gancho é `[data-ver]` e não a classe do botão, e a diferença
-             * não é estilo: `WorkoutVideoViewTests` e `WeekAccordionTests`
-             * contam as ocorrências daquela classe na página para provar que
-             * há uma fatia de mídia por exercício. Escrevê-la aqui somava uma
-             * ocorrência vinda do `<script>` e quebrava as duas.
-             *
-             * É a armadilha que o CLAUDE.md descreve — o seletor do JavaScript
-             * e o marcador do HTML sendo a mesma string —, e ela é tão literal
-             * que pegou duas vezes seguidas: a primeira no seletor, a segunda
-             * no comentário que explicava a primeira. Por isso o nome da
-             * classe não aparece escrito em lugar nenhum deste bloco. */
-            etiquetas.insertBefore(atual, etiquetas.querySelector("[data-ver]"));
-          }
-          atual.textContent = feitas + "/" + total + " séries";
-        }
-
-        /* O botão principal: para onde ele leva, e com que verbo.
-         *
-         * Sem exercício pendente ele some, e entra a frase que diz o que
-         * aconteceu. Nenhuma das duas afirma "treino concluído" — o banco não
-         * sabe disso, e a tela não pode saber mais que o banco. */
-        function chamada(cartao, proximo, feitos) {
-          var botao = cartao.querySelector("[data-hoje-cta]");
-          var completo = cartao.querySelector("[data-hoje-completo]");
-
-          if (!proximo) {
-            if (botao) botao.hidden = true;
-            if (completo) completo.hidden = false;
-            return;
-          }
-          if (completo) completo.hidden = true;
-          if (!botao) return;
-
-          botao.hidden = false;
-          /* O destino nao muda mais com o exercicio: o botao abre o modo
-             treino, que descobre sozinho onde a pessoa parou. Reescrever o
-             href para uma ancora era o que fazia "comecar treino" significar
-             "role ate o meio desta pagina". */
-
-          var verbo = botao.querySelector("[data-hoje-verbo]");
-          if (verbo) {
-            verbo.textContent = feitos
-              ? "Continuar de onde parou"
-              : "Começar treino";
-          }
-          var eco = botao.querySelector("[data-hoje-eco]");
-          var nome = proximo.querySelector(".exercise__name");
-          if (eco && nome) eco.textContent = nome.textContent.trim();
-        }
-
-        function envia(form, feitas) {
-          var dados = new FormData(form);
-          dados.set("series_feitas", feitas);
-          return fetch(form.action, {
-            method: "POST",
-            headers: { "X-Requested-With": "fetch" },
-            body: dados,
-            credentials: "same-origin"
-          }).then(function (r) { return r.ok ? r.json() : Promise.reject(r); });
-        }
-
-        /* Os degraus de 2,5 kg.
-         *
-         * Lê e escreve o MESMO campo de texto que a pessoa digita, com vírgula
-         * decimal — o app é pt-BR, e o valor volta para o campo como "62,5" e
-         * não "62.5". Trocar por `type=number` resolveria o passo de graça e
-         * quebraria a digitação: o navegador descarta "62,5" e envia vazio.
-         *
-         * Sem carga digitada, o primeiro toque parte da carga do último treino
-         * — que é o número que o placeholder já mostra. Começar do zero faria
-         * a pessoa tocar dezoito vezes para chegar onde estava.
-         */
-        function passo(campo, delta, anterior) {
-          var texto = (campo.value || "").replace(",", ".").trim();
-          var atual = parseFloat(texto);
-          if (isNaN(atual)) atual = anterior;
-          var novo = Math.max(0, Math.round((atual + delta) * 100) / 100);
-          campo.value = novo === 0 ? "" : String(novo).replace(".", ",");
-        }
-
-        document.addEventListener("click", function (evento) {
-          var botao = evento.target.closest("[data-passo]");
-          if (!botao) return;
-          evento.preventDefault();
-
-          var form = botao.closest(".registro");
-          var campo = form.querySelector(".registro__carga");
-          var anterior = parseFloat(
-            (campo.getAttribute("placeholder") || "").replace(",", ".")
-          );
-          passo(campo, parseFloat(botao.dataset.passo), isNaN(anterior) ? 0 : anterior);
-
-          /* O piso vira estado do botão: chegar em zero e o "menos" continuar
-           * aceso ensina que ele faz alguma coisa que não faz. */
-          form.querySelectorAll("[data-passo]").forEach(function (b) {
-            if (parseFloat(b.dataset.passo) < 0) {
-              b.disabled = !campo.value || parseFloat(campo.value.replace(",", ".")) <= 0;
-            }
-          });
-        });
-
-        /* A tela não apaga durante o treino.
-         *
-         * O celular fica no banco entre séries, e o descanso é de 1:20 — bem
-         * mais que os 30 segundos de bloqueio automático da maioria dos
-         * aparelhos. Sem isto a pessoa desbloqueia o telefone a cada série, de
-         * mão suada, para ver quantas faltam.
-         *
-         * A trava é SOLTA quando a aba sai de vista, e retomada quando volta:
-         * o navegador solta sozinho ao esconder a aba, e sem o `visibilitychange`
-         * a trava não voltaria depois de atender uma mensagem — que é
-         * exatamente quando ela faz falta.
-         *
-         * `wakeLock` não existe no Safari antigo nem em Firefox de Android. O
-         * `if` é o que impede o erro; onde não existe, a tela apaga como sempre
-         * apagou e nada mais muda.
-         */
-        (function () {
-          if (!("wakeLock" in navigator)) return;
-
-          var trava = null;
-
-          function segurar() {
-            if (trava || document.visibilityState !== "visible") return;
-            navigator.wakeLock
-              .request("screen")
-              .then(function (t) {
-                trava = t;
-                /* O próprio navegador solta a trava em situações que ele
-                 * decide (bateria baixa, por exemplo). Sem zerar a referência,
-                 * a retomada seguinte acharia que ainda está segurando. */
-                t.addEventListener("release", function () { trava = null; });
-              })
-              .catch(function () { /* recusado: a tela apaga, e só */ });
-          }
-
-          function soltar() {
-            if (!trava) return;
-            var t = trava;
-            trava = null;
-            t.release().catch(function () {});
-          }
-
-          document.addEventListener("visibilitychange", function () {
-            if (document.visibilityState === "visible") segurar();
-            else soltar();
-          });
-
-          /* Sai da tela de treino, solta: manter a tela acesa numa aba que a
-           * pessoa deixou aberta no bolso é gastar bateria por nada. */
-          window.addEventListener("pagehide", soltar);
-
-          segurar();
-        })();
-
-        document.addEventListener("submit", function (evento) {
-          var form = evento.target.closest(".registro");
-          if (!form) return;
-          if (!window.fetch || !window.FormData) return;
-          evento.preventDefault();
-
-          var botao = form.querySelector(".registro__salvar");
-          var total = parseInt(botao.dataset.total, 10) || 1;
-          var feitas = parseInt(botao.dataset.feitas, 10) || 0;
-          /* No limite, tocar de novo não faz nada: fazer cinco de quatro é
-           * outra coisa, e o app não sabe o que é. */
-          if (feitas >= total) return;
-
-          botao.disabled = true;
-          /* Toda tentativa comeca limpa: um aviso de "sem rede" que sobrevive
-           * ao registro seguinte vira lixo na tela e passa a mentir na direcao
-           * oposta — diz que nao salvou o que acabou de salvar. */
-          var avisoAnterior = form.querySelector("[data-registro-aviso]");
-          if (avisoAnterior) avisoAnterior.hidden = true;
-
-          envia(form, feitas + 1)
-            .then(function (dados) {
-              atualiza(form, feitas + 1);
-              form.classList.add("registro--salvo");
-              setTimeout(function () { form.classList.remove("registro--salvo"); }, 900);
-
-              /* Um toque curto ao gravar a série.
-               *
-               * Curto e único, e diferente do padrão do fim do descanso
-               * (200-100-400): ali o aparelho está no banco e precisa chamar de
-               * longe; aqui ele está na mão de quem acabou de tocar, e o pulso
-               * só confirma. Vibração longa para confirmação é o que faz a
-               * pessoa desligar a vibração do app inteiro.
-               *
-               * `navigator.vibrate` não existe no iPhone e o `if` é o que
-               * impede o erro — não é otimização, é a metade dos aparelhos. */
-              if (navigator.vibrate) navigator.vibrate(35);
-              if (window.NutriPlanDescanso) {
-                var relogio = form.querySelector("[data-descanso]");
-                window.NutriPlanDescanso.iniciar(
-                  (relogio && relogio.dataset.descanso) || dados.descanso,
-                  (relogio && relogio.dataset.nome) || "Descanso"
-                );
-              }
-            })
-            .catch(function () {
-              /* FALHOU: a serie nao foi salva, e a tela diz isso. So isso.
-               *
-               * Aqui havia `form.submit()` como degradacao graciosa — se o
-               * `fetch` falhasse, um POST nativo resolvia. Ele nao resolvia:
-               * DESTRUIA.
-               *
-               * O POST nativo manda o campo REAL do formulario, e quem escreve
-               * esse campo e `atualiza()`, que so roda no `.then` de sucesso.
-               * O fallback mandava, portanto, o contador VELHO — e a view usa o
-               * contador para apagar toda serie acima dele. Com
-               * `series_feitas = 0`, que e o primeiro toque do dia, o laco fica
-               * vazio e o `DELETE ... set_number__gt=0` leva o exercicio
-               * inteiro. Medido em `workouts/test_carga_fora_da_fila.py`.
-               *
-               * E nao era caminho offline: disparava com rede viva, em qualquer
-               * falha do `fetch` — 5xx, requisicao abortada, o cold start de
-               * 50 s do plano gratuito.
-               *
-               * Sem fallback, o unico caminho de gravacao e o `fetch`, que manda
-               * o contador certo. Falhou, nao salvou, e a pessoa fica na ficha
-               * sabendo disso. O botao volta no `.then` seguinte. */
-              var aviso = form.querySelector("[data-registro-aviso]");
-              if (!aviso) return;
-              aviso.textContent = navigator.onLine
-                ? "Nao consegui salvar esta serie. Tente de novo."
-                : "Sem rede: esta serie nao foi salva. Anote e registre de novo "
-                  + "quando o sinal voltar.";
-              aviso.hidden = false;
-            })
-            .then(function () { botao.disabled = false; });
-        });
-
-        document.addEventListener("click", function (evento) {
-          if (!evento.target.closest("[data-desfazer]")) return;
-          evento.preventDefault();
-
-          var area = evento.target.closest("[data-desfazer-area]");
-          var form = area.parentElement.querySelector(".registro");
-          var botao = form.querySelector(".registro__salvar");
-          var feitas = parseInt(botao.dataset.feitas, 10) || 0;
-          if (feitas === 0) return;
-
-          envia(form, feitas - 1)
-            .then(function () { atualiza(form, feitas - 1); })
-            .catch(function () { /* sem rede: o número na tela não mente */ });
-        });
-      })();
-    </script>
+      `GymHardwareTests` mede os três lá, e não aqui.
+    {% endcomment %}
 
     <script>
       /* O card de compartilhamento.

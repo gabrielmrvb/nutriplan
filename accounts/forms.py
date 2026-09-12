@@ -37,7 +37,6 @@ from .models import (
     User,
     Weekday,
     WeightEntry,
-    duracao_de_minutos,
 )
 
 
@@ -419,16 +418,6 @@ class TrainingForm(forms.Form):
         required=False,
         help_text="Se não treina ainda, pode deixar em branco e ajustar depois.",
     )
-    start_time = forms.TimeField(
-        label="Horário do treino (opcional)",
-        help_text="Só para o cardápio não cair no meio do treino.",
-        # OPCIONAL, e sem `initial`. O padrão de 19:00 fazia toda pessoa que
-        # passasse batido pelo campo declarar um horário que ela não escolheu —
-        # e o app repetia "19:00" em todos os cartões como se fosse rotina dela.
-        # O horário nunca participou da montagem do treino.
-        required=False,
-        widget=forms.TimeInput(attrs={"type": "time", "class": "field-input"}),
-    )
     experiencia = forms.ChoiceField(
         # A ÚNICA dimensão de personalização de treino que o catálogo sustenta.
         # Local e equipamento ficaram de fora por medição, e não por escopo:
@@ -441,27 +430,6 @@ class TrainingForm(forms.Form):
         # "Intermediário" já marcado faz quem passa batido declarar um nível
         # que não escolheu. Sem resposta o motor usa 20, que é o que o app já
         # praticava — a ficha não muda, e a tela não inventa a frase.
-        required=False,
-        widget=forms.RadioSelect,
-    )
-    duracao_treino = forms.ChoiceField(
-        # FAIXA, e não um número. O campo anterior era "Tempo disponível", um
-        # inteiro obrigatório, com a ajuda prometendo que o treino cabia nele.
-        # A promessa era falsa e estava medida: 30 informados entregavam 32, 45
-        # entregavam 48, 60 entregavam 61.
-        #
-        # A causa era o número ser alvo e teto ao mesmo tempo. O corte é
-        # discreto — sai um exercício inteiro, de 3 a 7 minutos —, então o
-        # motor tolerava passar até 5 minutos para não jogar fora quatro a seis
-        # séries por semana. A tolerância era defensável; a frase, não.
-        #
-        # Na faixa o piso é o alvo e o topo é o teto, e o teto é duro.
-        label="Quanto tempo você tem para treinar?",
-        choices=DuracaoTreino.choices,
-        initial=DuracaoTreino.LIVRE,
-        # Opcional de propósito: quem não responder fica em "sem limite
-        # rígido", que é a única resposta honesta para quem não respondeu.
-        # Qualquer outro padrão prometeria um teto que ninguém pediu.
         required=False,
         widget=forms.RadioSelect,
     )
@@ -486,18 +454,10 @@ class TrainingForm(forms.Form):
         existing = list(user.training_days.all()) if user else []
         if existing and not self.is_bound:
             self.fields["weekdays"].initial = [d.weekday for d in existing]
-            self.fields["start_time"].initial = existing[0].start_time
-            # A faixa vem do PERFIL, que é onde ela mora. O `duration_min` do
-            # dia só entra como conversão para quem é anterior a esta pergunta
-            # e ainda não tem faixa gravada — o mesmo caminho da migration, e
-            # pela mesma função, para as duas não divergirem.
-            perfil = self.perfil()
-            atual = getattr(perfil, "duracao_treino", None)
-            self.fields["duracao_treino"].initial = (
-                atual or duracao_de_minutos(existing[0].duration_min)
-            )
+            # A faixa NÃO tem mais campo aqui — ela saiu da tela em
+            # 10/09/2026 e continua vindo do perfil dentro de `save`.
             self.fields["experiencia"].initial = getattr(
-                perfil, "experiencia", ""
+                self.perfil(), "experiencia", ""
             )
         # O sono vive no Profile, e não em TrainingDay: o formulário só o
         # empresta. Sem este initial, voltar ao passo 3 mostraria os campos
@@ -535,8 +495,22 @@ class TrainingForm(forms.Form):
 
     def save(self):
         weekdays = set(self.cleaned_data["weekdays"])
-        start_time = self.cleaned_data.get("start_time")
-        faixa = self.cleaned_data.get("duracao_treino") or DuracaoTreino.LIVRE
+        perfil = self.perfil()
+
+        # A FAIXA VEM DO PERFIL, e não mais do formulário.
+        #
+        # A pergunta saiu da tela em 10/09/2026; o motor continua precisando do
+        # teto. Quem já respondeu mantém a resposta — é `perfil.duracao_treino`
+        # —, e quem nunca respondeu passa a valer "Padrão, 45 a 60 minutos" em
+        # vez de "sem limite rígido".
+        #
+        # O padrão MUDOU DE VALOR, e a consequência está dita aqui porque ela é
+        # real: quem tinha o campo vazio treinava sem teto, e passa a ter um de
+        # 60 minutos. A ficha dessa pessoa é remontada na próxima visita, como
+        # acontece com qualquer mudança de entrada. Ninguém com valor explícito
+        # é tocado — ver `0026_duracao_padrao_para_quem_nao_respondeu`.
+        faixa = getattr(perfil, "duracao_treino", "") or DuracaoTreino.PADRAO
+
         # O INTEIRO CONTINUA SENDO GRAVADO, e não é resíduo.
         #
         # `plans/meal_planner.py` soma `start_time + duration_min` para não
@@ -544,18 +518,29 @@ class TrainingForm(forms.Form):
         # com o cardápio continua sendo um número, e ele passa a ser derivado.
         duration = MINUTOS_POR_DURACAO[faixa]
 
+        # O HORÁRIO EXISTENTE É PRESERVADO, dia a dia.
+        #
+        # O campo saiu da tela, e `update_or_create` com `start_time=None` nos
+        # defaults apagaria o horário de quem já tinha — mudando o cardápio dessa
+        # pessoa em silêncio, que é exatamente o que não pode acontecer. Aqui a
+        # chave `start_time` só entra nos defaults de quem ainda não existe.
+        horarios = dict(
+            self.user.training_days.values_list("weekday", "start_time")
+        )
         self.user.training_days.exclude(weekday__in=weekdays).delete()
         for weekday in weekdays:
             TrainingDay.objects.update_or_create(
                 user=self.user,
                 weekday=weekday,
-                defaults={"start_time": start_time, "duration_min": duration},
+                defaults={
+                    "start_time": horarios.get(weekday),
+                    "duration_min": duration,
+                },
             )
 
         # `update_fields` restrito: este passo não é dono do resto do Profile,
         # e salvar o objeto inteiro sobrescreveria o que outra aba tivesse
         # gravado enquanto esta tela estava aberta.
-        perfil = self.perfil()
         if perfil is not None:
             perfil.wake_time = self.cleaned_data["wake_time"]
             perfil.sleep_time = self.cleaned_data["sleep_time"]

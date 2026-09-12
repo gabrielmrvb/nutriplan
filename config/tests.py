@@ -427,9 +427,16 @@ class TouchTargetTests(TestCase):
         (".explicacao__head a {", "min-height: 2.75rem"),
         (".shopping__check {", "min-height: 2.75rem"),
         # O registro único, no lugar das quatro linhas de série que saíram.
+        # `.registro__salvar` e `.registro__timer` SAÍRAM DA RÉGUA porque
+        # saíram do produto: eram o botão de salvar e o gatilho do cronômetro
+        # do formulário que a ficha desenhava por exercício, e a ficha virou
+        # tela de preparação em 10/09/2026. Quem salva agora é
+        # `.agora__concluir`, na execução — 48px —, e o degrau de 2,5 kg entra
+        # junto. Medir alvo de toque de botão que ninguém renderiza é teste
+        # ornamental: passa para sempre e não protege nada.
         (".registro__carga {", "min-height: 2.75rem"),
-        (".registro__salvar {", "min-height: 2.75rem"),
-        (".registro__timer {", "min-height: 2.75rem"),
+        (".registro__passo {", "min-height: 2.75rem"),
+        (".agora__concluir {", "min-height: 3rem"),
         (".install__close {", "height: 2.75rem"),
         # A pesagem rápida. O campo e o botão nascem já dentro da régua, e a
         # faixa do painel é tocada com a mesma mão que marca a refeição.
@@ -439,12 +446,13 @@ class TouchTargetTests(TestCase):
         # "desfazer" media 20px, e é o link procurado no segundo seguinte a
         # errar o toque em "Pulei".
         (".btn-link {", "min-height: 2.75rem"),
-        # Os dois do cronômetro de descanso. Ficaram de fora da régua desde que
-        # nasceram: "+30s" media 34px e o "×" de fechar, 33,6. É a barra que
-        # aparece EXATAMENTE quando a pessoa está de pé entre séries, com a mão
-        # suada — o pior lugar possível para um alvo de 34px.
-        (".rest-timer__more {", "min-height: 2.75rem"),
-        (".rest-timer__close {", "height: 2.75rem"),
+        # O CRONÔMETRO DE DESCANSO TAMBÉM MUDOU DE TELA, e a régua com ele.
+        # Eram "+30s" e o "×" da barra flutuante de `_cronometro.html`, que
+        # mediam 34px e 33,6 antes de entrarem aqui. Aquele parcial saiu do
+        # repositório em 10/09/2026 sem `{% include %}` nenhum; o descanso da
+        # execução tem um "pular", e é ele que a pessoa toca de pé entre
+        # séries, com a mão suada — o mesmo minuto, o mesmo risco.
+        (".descanso__pular {", "min-height: 2.75rem"),
         # O link de volta das telas legais. Media 102x22 na privacidade e
         # 157x22 nos termos: e o paragrafo inteiro, entao a excecao de alvo
         # inline da WCAG nao o cobre — ela vale para link no meio de frase.

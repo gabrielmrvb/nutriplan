@@ -296,9 +296,13 @@ segura; se alguém a trocar por contador, a fila quebra em silêncio.
 continua fora.** As duas frases são a mesma decisão, e separá-las é o que
 resolveu o problema.
 
-Estado é o que não pode ser enfileirado. O formulário da ficha manda
-`series_feitas`, um contador derivado que ela só atualiza no sucesso — offline
-ele fica defasado por um, sempre, por construção e não por corrida. E o replay
+Estado é o que não pode ser enfileirado. O formulário da ficha mandava
+`series_feitas`, um contador derivado que ela só atualizava no sucesso — offline
+ele ficava defasado por um, sempre, por construção e não por corrida. **Nenhum
+template emite mais esse campo**: aquele formulário saiu com o cartão da ficha
+em 10/09/2026, e há teste varrendo `templates/` para ele não voltar. A rota e o
+descarte na drenagem continuam, porque item gravado por versão antiga do app
+ainda pode chegar. E o replay
 desse corpo não é escrita inofensiva: a view envolve `record_load` num laço mais
 um `DELETE ... set_number__gt=N`. Medido em
 `workouts/test_carga_fora_da_fila.py`: três séries a 40 kg mais uma quarta a 50
@@ -407,6 +411,17 @@ alvo e o topo é o limite — Rápido até 30, Padrão até 60, Completo até 90
 continua gravado porque `plans/meal_planner.py` precisa dele, e deixou de ser a
 pergunta.
 
+**E a pergunta saiu da TELA em 10/09/2026, sem sair do motor.** Ela pedia uma
+calibração que ninguém consegue fazer antes de ver uma ficha — "rápido, padrão,
+completo ou sem limite?" é resposta que depende de já conhecer o resultado. O
+motor continua processando as QUATRO faixas, e quem já respondeu continua com
+o que respondeu; o que mudou é que `duracao_treino == ""` deixou de ser "ainda
+não respondeu" e virou "não tem como responder". Um estado que a pessoa não
+pode mais mudar precisa de um VALOR, não de um buraco: a migration `0029`
+escreve "padrão" (45 a 60) para quem estava em branco, uma vez, deixando
+rastro — em vez de um padrão em tempo de leitura, que mudaria toda consulta
+futura sem ninguém ver.
+
 **O horário do treino é OPCIONAL, e a ausência é um estado de verdade.** Ele
 nunca participou da montagem da ficha — `create_routine` jamais leu
 `start_time` —, e exigi-lo fazia todo mundo sair do passo 3 com o padrão de
@@ -414,6 +429,14 @@ nunca participou da montagem da ficha — `create_routine` jamais leu
 pessoa. Sem horário, `_training_end_for` devolve `None` e o cardápio volta a
 ser distribuído pela janela de sono: o mesmo caminho de quem não cadastrou dia
 de treino. O que não se faz é inventar um padrão para completar a conta.
+
+**Em 10/09/2026 ele saiu da INTERFACE inteira** — do passo 3 e do Perfil —,
+porque exibir um valor que não participa de nada e não dá para editar faz
+procurar o botão que não existe. **O dado permanece no banco**: `save()` relê
+os horários gravados e os devolve no `update_or_create`, senão `start_time=None`
+nos defaults apagaria em silêncio o que o cardápio de quem já usa o app lê. Há
+teste postando `start_time=06:30` num formulário que não tem o campo e provando
+que o 19:00 gravado sobrevive.
 
 **A experiência move o TETO SEMANAL POR GRUPO, e só ele.** `Profile.experiencia`
 vale 12, 20 ou 24 séries efetivas — e vazio, que é "ainda não respondeu", vale
@@ -493,16 +516,50 @@ campanhas e saíram em 10/09/2026, junto com dois helpers de teste que chamavam
 um módulo `assistant` inexistente. **Não há sistema de substituição de
 exercício no app.**
 
-**A ficha tem rota própria, e a tela de Treino não desenha mais os cartões.**
-`workouts:ficha` (`/treino/ficha/<id>/`) serve UMA sessão; a tela de Treino
-mostra o treino de hoje e os cartões da semana, e cada cartão é um link. Medido
-no perfil de seis dias: 259,1 kB para 72,2 kB, 22 formulários para 1, 141
-botões para 8, 266 controles alcançáveis para 30 — e as consultas ficaram em 21,
-constantes. O drawer de vídeo e o cronômetro moram em `_drawer.html` e
-`_cronometro.html` porque agora são DUAS páginas: quando a ficha saiu sem eles,
-os nove botões de vídeo ficaram mortos e nenhum teste pegou, porque todos liam
-a tela antiga. A guarda hoje testa a RELAÇÃO — botão que abre precisa de gaveta
-que abre.
+**A área de Treino são TRÊS telas, e cada uma responde UMA pergunta.**
+
+    painel   (`/treino/`)              -> "como é a minha semana"
+    ficha    (`/treino/ficha/<id>/`)   -> "o que eu vou fazer hoje"
+    execução (`/treino/agora/`)        -> "estou fazendo, e agora"
+
+O painel mostra o treino de hoje e um cartão por sessão, e cada cartão é um
+link. Ele NÃO lista exercício: "Começar treino" abre a ficha. A ficha é uma
+lista numerada — nome, séries × repetições, músculo e o marcador do movimento
+principal —, e cada linha é uma porta para a execução. A execução mostra UM
+exercício: o vídeo dele, a carga, as repetições, o descanso, o desfazer e a
+carga da última vez.
+
+A divisão é por PERGUNTA, e não por tamanho de página — mas o tamanho conta a
+mesma história. Medido no perfil de seis dias quando a ficha ganhou rota
+própria: 259,1 kB para 72,2 kB, 22 formulários para 1, 141 botões para 8, 266
+controles alcançáveis para 30. Medido em 10/09/2026, com as três telas: painel
+28,9 kB e zero exercício listado; ficha 8,9 kB (2 exercícios) e 11,7 kB (7);
+execução 20,0 kB com DOZE controles alcançáveis.
+
+**Nada que se use DURANTE a série mora na ficha.** Nem vídeo, nem campo de
+carga, nem cronômetro, nem histórico detalhado — a ficha é tela de preparação,
+para quem ainda não decidiu o que vai fazer. `_exercicio.html`, `_drawer.html`
+e `_cronometro.html` saíram do repositório em 10/09/2026 por isso.
+
+A guarda antiga era a RELAÇÃO — botão que abre precisa de gaveta que abre —, e
+ela nasceu de um defeito real: quando o cartão mudou para a ficha, a página
+ficou com nove botões de vídeo e nenhum `<dialog>`. A relação continua sendo a
+régua, satisfeita agora com ZERO dos dois: a ficha não tem botão de vídeo
+porque o vídeo mora na execução, onde nasce inline e não precisa de gaveta. O
+teste mede as duas pontas.
+
+**A ficha de OUTRO dia não executa.** A execução lê e grava `ExerciseLog` de
+HOJE; um link "fazer" na ficha de sexta, numa terça, prometeria registrar série
+num treino que não está acontecendo. Fora do dia a linha é `<div>`, não `<a>`.
+
+**Escolher exercício é ESTRITO.** `/treino/agora/?exercicio=<id>` com id
+inexistente, ilegível, negativo, repetido, de outra sessão ou de outra conta
+responde 404 — e não abre outro exercício. O fallback silencioso (`pedido or
+atual`) mascarava link quebrado e podia tocar o vídeo errado, e um link
+quebrado que "funciona" nunca é consertado. Sem o parâmetro, a tela continua
+abrindo sozinha o próximo pendente. `services.ExercicioForaDaSessao` cobre os
+quatro casos num lugar só, porque `estado_do_treino` só enxerga a sessão de
+hoje do próprio usuário — e "não está aqui" é a mesma resposta para todos.
 
 **Texto da ficha só afirma o que aconteceu.** Três frases já mentiram, e as três
 mentiam por comparar com a coisa errada:
@@ -706,12 +763,17 @@ SESSÃO — alguém anotou carga em algum exercício daquele dia depois que o pl
 nasceu. Data atual, horário previsto, abertura da página e presença do exercício
 no plano não provam nada sozinhos.
 
-**A ficha da semana continua sendo o cartão inteiro.** Uma tentativa de
-09/09/2026 trocou os outros dias pela linha compacta de hoje mirando o tamanho
-da página; o tamanho caía pela metade e levava junto registro de série, carga,
-repetições, descanso, progressão e histórico. Vinte e um testes reprovaram e
-estavam certos. A linha compacta responde "o que eu faço agora"; o cartão
-responde "o que tem na terça, e com que carga eu fiz da última vez".
+**O cartão completo saiu da ficha — e a razão pela qual ele ficou uma vez
+continua valendo.** Em 09/09/2026 alguém trocou os outros dias pela linha
+compacta de hoje mirando o TAMANHO da página, e aquilo apagou registro de
+série, carga, repetições, descanso, progressão e histórico. Vinte e um testes
+reprovaram e estavam certos: nada daquilo tinha para onde ir.
+
+Em 10/09/2026 tem. A execução ganhou tela própria com todos os seis recursos, e
+aí a ficha pôde virar lista. A diferença entre as duas mudanças não é de
+opinião: uma removia o detalhe, a outra o MUDA DE ENDEREÇO, e é por isso que a
+segunda passou. Quem for encolher tela neste app, a pergunta é essa —
+"para onde vai o que estou tirando?".
 
 **A lista de compras pede o que se COMPRA.** O cardápio calcula em grama de
 alimento pronto, e ninguém compra arroz cozido nem meio ovo.
@@ -805,15 +867,24 @@ cor chapada custa quadros para produzir a mesma cor chapada); 89% das sombras
 usando token.
 
 **Antes de criar componente novo, procure.** `templates/partials/` tem oito
-parciais; `card`, `btn`, `chip`, `pill`, `tile`, `data-list`, `empty-state`,
-`hint` e `drawer` já existem e têm regra própria. Uma quarta versão do mesmo
-botão é o defeito que esta seção existe para impedir.
+parciais; `card`, `btn`, `chip`, `pill`, `tile`, `data-list`, `empty-state` e
+`hint` já existem e têm regra própria. Uma quarta versão do mesmo botão é o
+defeito que esta seção existe para impedir.
 
-**Sobreposição: `<details>` antes de `<dialog>`.** O drawer do exercício é
-`<dialog>` porque precisa de foco preso; o mapa de áreas é `<details>` porque um
-menu de cinco links não precisa. `<dialog>` traz `inert` e foco preso de graça —
-e traz o custo que o convite de instalação pagou, com 68 controles alcançáveis
-por trás quando o papel estava errado.
+`drawer` esteve nesta lista e saiu em 10/09/2026 com o redesenho do Treino: era
+o `<dialog>` de vídeo do exercício, e a execução virou tela em vez de gaveta.
+Não há mais sobreposição modal no app fora do `.modal`.
+
+**Sobreposição: `<details>` antes de `<dialog>`, e TELA antes das duas.**
+O mapa de áreas é `<details>` porque um menu de cinco links não precisa de foco
+preso. O vídeo do exercício foi `<dialog>` por precisar — e deixou de precisar
+quando a execução virou tela própria: navegar resolve foco, histórico e botão
+voltar sem código nenhum, e uma gaveta que some ao trocar de exercício era
+trabalho para reimplementar o que o navegador já faz.
+
+`<dialog>` traz `inert` e foco preso de graça, e traz o custo que o convite de
+instalação pagou, com 68 controles alcançáveis por trás quando o papel estava
+errado.
 
 **Estado vazio é convite, e os deste app já foram auditados.** Dos 16, quatro
 parecem só constatar — e os quatro têm o motivo escrito no template: dois têm a

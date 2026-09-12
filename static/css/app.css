@@ -2044,9 +2044,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .campo-senha__olho:active,
 .choice-card:active,
 .demo-area:active,
-.drawer__fechar:active,
-.exercise__head:active,
-.exercise__ver:active,
 .fora__abrir:active,
 .install__close:active,
 .install__go:active,
@@ -2055,16 +2052,13 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .pesagem__salvar:active,
 .pesar__topo:active,
 .registro__passo:active,
-.registro__salvar:active,
-.registro__timer:active,
-.rest-timer__close:active,
-.rest-timer__more:active,
 .shopping__check:active,
 .conquista__compartilhar:active,
 .conquista__continuar:active,
 .conquista-item__share:active,
+.ficha-item__link:active,
 .modulo:active,
-.tabbar__item:active { transform: scale(.96); }
+.tabbar__item:active{ transform: scale(.96); }
 
 /* Botão já tocado, esperando o servidor: sem isto a pessoa toca de novo. */
 .btn:disabled,
@@ -2092,7 +2086,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
    `.chip` ficou de fora de propósito: das quatro ocorrências, três são `<span>`
    decorativo. Afundar um rótulo que não faz nada ensina que ele faz. */
-
 .acao-perigosa__confirma,
 .agua__botao,
 .app-bar__brand,
@@ -2103,9 +2096,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .campo-senha__olho,
 .choice-card,
 .demo-area,
-.drawer__fechar,
-.exercise__head,
-.exercise__ver,
 .fora__abrir,
 .install__close,
 .install__go,
@@ -2114,17 +2104,14 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .pesagem__salvar,
 .pesar__topo,
 .registro__passo,
-.registro__salvar,
-.registro__timer,
-.rest-timer__close,
-.rest-timer__more,
 .shopping__check,
 .conquista__compartilhar,
 .conquista__continuar,
 .conquista-item__share,
+.ficha-item__link,
 .mapa__area,
 .modulo,
-.tabbar__item {
+.tabbar__item{
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
               color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
               transform .12s var(--ease);
@@ -2148,37 +2135,31 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   .dias-detalhe summary::after { transition: none; animation: none; }
 
   .agua__botao:active,
-  .app-bar__brand:active,
-  .app-bar__link:active,
-  .app-bar__quiet:active,
-  .btn:active,
-  .btn-link:active,
-  .campo-senha__olho:active,
-  .choice-card:active,
-  .demo-area:active,
-  .drawer__fechar:active,
-  .exercise__head:active,
-  .exercise__ver:active,
-  .fora__abrir:active,
-  .install__close:active,
-  .install__go:active,
-  .install__later:active,
-  .option__summary:active,
-  .pesagem__salvar:active,
-  .acao-perigosa__confirma:active,
-  .pesar__topo:active,
-  .registro__passo:active,
-  .registro__salvar:active,
-  .registro__timer:active,
-  .rest-timer__close:active,
-  .rest-timer__more:active,
-  .shopping__check:active,
-  .conquista__compartilhar:active,
-  .conquista__continuar:active,
-  .conquista-item__share:active,
-  .mapa__area:active,
-  .modulo:active,
-  .tabbar__item:active { transform: none; }
+.app-bar__brand:active,
+.app-bar__link:active,
+.app-bar__quiet:active,
+.btn:active,
+.btn-link:active,
+.campo-senha__olho:active,
+.choice-card:active,
+.demo-area:active,
+.fora__abrir:active,
+.install__close:active,
+.install__go:active,
+.install__later:active,
+.option__summary:active,
+.pesagem__salvar:active,
+.acao-perigosa__confirma:active,
+.pesar__topo:active,
+.registro__passo:active,
+.shopping__check:active,
+.conquista__compartilhar:active,
+.conquista__continuar:active,
+.conquista-item__share:active,
+.ficha-item__link:active,
+.mapa__area:active,
+.modulo:active,
+.tabbar__item:active{ transform: none; }
 }
 
 /* "desfazer" media 20px de altura — e é justamente o link que a pessoa
@@ -2684,7 +2665,108 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    Grid explícito em vez de flex solto — foi o flex solto que produzia o texto
    espremido em coluna, com uma palavra por linha, quando o formulário de carga
    disputava espaço com o nome do exercício. */
-.exercise-list { display: grid; gap: var(--espaco-4); margin: 0; padding: 0; list-style: none; }
+
+/* A comparação com o último treino, na EXECUÇÃO.
+
+   Ela veio do cartão da ficha, que deixou de existir. É o que faz a pessoa
+   escolher a anilha — "68 kg da última vez" —, e por isso mora ao lado do
+   campo em que se anota, e não na tela de quem ainda está lendo o treino.
+   O delta leva seta E sinal: cor sozinha reprova em daltonismo. */
+.agora__anterior {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espaco-1) var(--espaco-4);
+  font-size: var(--texto-sm);
+  color: var(--text-dim);
+}
+/* Três frases, três papéis: o que aconteceu, o que o app sugere, e a
+   comparação de hoje. Separadas no markup porque são afirmações diferentes —
+   juntar as três numa linha corrida foi o que fez "+5 kg" parecer conselho. */
+.agora__anterior-sugestao { color: var(--text); }
+.agora__delta { font-variant-numeric: tabular-nums; }
+.agora__delta--up { color: var(--brand); }
+.agora__delta--down { color: var(--text-dim); }
+
+/* A LISTA DA FICHA — uma linha por exercício, e a linha inteira é o alvo.
+
+   Ela substitui os `<details>` completos que a ficha desenhava: iframe
+   potencial, formulário de carga, pastilhas e comparação de peso, trinta e
+   poucas vezes, para quem ainda não escolheu o exercício. O cabeçalho fechado
+   daquele cartão já era esta linha.
+
+   `min-height: 3.5rem` são 56px — acima dos 44 da régua, escolhido para caber
+   duas linhas de texto sem apertar. O alvo é o `<a>` inteiro, e não um
+   botãozinho no canto: dedo grande, tela pequena. */
+.ficha-lista { display: grid; gap: var(--espaco-2); margin: 0; padding: 0; list-style: none; }
+
+.ficha-item__link {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-4);
+  min-height: 3.5rem;
+  padding: var(--espaco-4);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+  border: 1px solid var(--linha);
+}
+a.ficha-item__link:hover { background: var(--surface-2); }
+a.ficha-item__link:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+/* Fora do dia a linha não é porta para lugar nenhum, e não finge ser. */
+.ficha-item__link--parado { cursor: default; }
+
+/* O número é âncora de leitura: ele casa com a numeração que continua entre
+   principais e complementares. Largura fixa para os nomes começarem todos na
+   mesma coluna. */
+.ficha-item__ordem {
+  flex: none;
+  width: 1.75rem;
+  text-align: center;
+  font-size: var(--texto-sm);
+  color: var(--text-dim);
+  font-weight: 680;
+}
+
+/* `min-width: 0` porque o nome do exercício é o texto mais longo da tela e
+   item de flex não encolhe sozinho — sem isto "Supino inclinado com halteres"
+   empurra a linha e a página rola na horizontal a 320px. */
+.ficha-item__corpo { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.ficha-item__nome { font-weight: 680; line-height: 1.25; }
+.ficha-item__dados {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--espaco-1) var(--espaco-3);
+  font-size: var(--texto-sm);
+  color: var(--text-dim);
+}
+/* O papel é o marcador DISCRETO do movimento principal: peso e caixa, sem cor
+   de destaque, para orientar sem competir com o nome. */
+.ficha-item__papel {
+  font-size: var(--texto-xs);
+  font-weight: 680;
+  padding: 1px var(--espaco-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--text-dim);
+}
+
+.ficha-item__estado {
+  flex: none;
+  font-size: var(--texto-sm);
+  font-weight: 680;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.ficha-item__estado--feito { color: var(--brand); }
+.ficha-item__estado--cta { color: var(--brand); }
+/* Concluído muda a linha inteira, e o número ao lado diz o mesmo sem cor. */
+.ficha-item--feito .ficha-item__link { background: var(--brand-soft); }
+.ficha-item--feito .ficha-item__nome { color: var(--text-dim); }
+
+.ficha__progresso { margin: 0; color: var(--text-dim); font-size: var(--texto-sm); }
 
 /* O bloco de complementares da ficha.
 
@@ -2703,138 +2785,30 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
    O espaço entre cabeçalho e corpo passa a vir do padding de cada um, e não
    de um `gap` — fechado, um `gap` de .85rem sobraria no rodapé do cartão. */
-.exercise {
-  padding: 0;
-  overflow: hidden;
-  border: 1px solid transparent;
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
-  box-shadow: var(--edge);
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
-}
 
 /* O exercício em que a pessoa está anotando série sobe da pilha. Numa ficha
    de sete cartões iguais, é o que responde "qual eu estava fazendo mesmo?"
    depois de dois minutos de descanso olhando o celular. */
-.exercise:focus-within {
-  border-color: var(--border-strong);
-  box-shadow: var(--edge), var(--shadow-lift);
-}
 
 /* Três colunas: número, título e seta. O `minmax(0, 1fr)` é o que deixa o
    nome quebrar em vez de empurrar a linha inteira para o lado.
 
    O cabeçalho inteiro é o alvo: borda a borda, e não só o texto. Em pé, entre
    séries, mirar num rótulo de 20px é o que faz a pessoa tocar duas vezes. */
-.exercise__head {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  /* Três faixas, e o botão de execução NÃO tem coluna própria.
-
-     A coluna era o defeito: 44px de largura para um rótulo de 24 caracteres
-     quebrava "Ver execução por escrito" em sete linhas de uma palavra dentro
-     de um círculo, e o cabeçalho ia de 98px para 364px. O botão agora vive
-     dentro de `tags`, como item de flex, e o `flex-wrap` decide sozinho se ele
-     divide a linha com as pílulas ou desce.
-
-     A seta fica só na faixa do nome, e não atravessando as três: medido, a
-     coluna dela tirava 86px de TODAS as faixas — a de baixo sobrava com 232px
-     para 374 de conteúdo. Ao lado do nome ela ainda é o primeiro alvo do
-     polegar, e as duas faixas de texto ganham a largura inteira. */
-  grid-template-areas:
-    "ordem nome  seta"
-    "presc presc presc"
-    "tags  tags  tags";
-  align-items: center;
-  gap: var(--espaco-2) var(--espaco-3);
-  padding: .8rem var(--espaco-6);
-  min-height: 2.75rem;
-  cursor: pointer;
-  list-style: none;
-  transition: background var(--dur) var(--ease);
-}
 
 /* O triângulo padrão do Safari e do Chrome some — a seta é desenhada. */
-.exercise__head::-webkit-details-marker { display: none; }
-.exercise__head::marker { content: ""; }
-
-.exercise__head:hover { background: var(--surface-3); }
-
-.exercise__head:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: -2px;
-  border-radius: var(--radius-lg);
-}
-
-.exercise__seta {
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  flex: none;
-  align-self: center;
-  border-radius: 50%;
-  background: var(--surface-3);
-  color: var(--text-dim);
-  transition: transform .22s var(--ease), background var(--dur) var(--ease),
-              color var(--dur) var(--ease);
-}
-
-.exercise__seta svg { width: 1.1rem; height: 1.1rem; }
-
-.exercise[open] > .exercise__head .exercise__seta {
-  transform: rotate(180deg);
-  background: var(--brand-soft);
-  color: var(--brand);
-}
 
 /* A âncora `#exercicio-<pk>` devolve a pessoa ao exercício depois de salvar
    sem JavaScript. O realce diz qual dos sete é — sem ele, a página apenas
    rolou. */
-.exercise:target { border-color: color-mix(in srgb, var(--brand) 40%, transparent); }
-
-.exercise__order {
-  grid-area: ordem;
-  display: grid;
-  place-items: center;
-  align-self: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  background: var(--surface-3);
-  color: var(--text-dim);
-  font-size: var(--texto-sm);
-  font-weight: 750;
-}
 
 /* Nome, prescrição e etiquetas empilham na mesma coluna; a seta atravessa as
    três pela direita. Nenhum dos três encosta na largura da seta, então o texto
    tem a linha inteira e nada precisa de largura fixa. */
-.exercise__name { grid-area: nome; }
-.exercise__prescricao { grid-area: presc; }
-.exercise__tags { grid-area: tags; }
-.exercise__seta { grid-area: seta; }
-
-.exercise__title { min-width: 0; display: contents; }
-
-.exercise__name {
-  display: block;
-  font-size: 1.02rem;
-  font-weight: 700;
-  line-height: 1.3;
-  letter-spacing: -.02em;
-}
 
 /* `align-items: center` e não o `stretch` padrão: com um botão de 44px na
    mesma fileira, esticar faria as pílulas de 24px crescerem junto e virarem
    retângulos altos com o texto boiando no meio. */
-.exercise__tags {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--espaco-2);
-  min-width: 0;
-}
 
 /* Mesma gramática das pílulas de estado: tinta da própria cor em opacidade
    baixa, borda um pouco mais forte, texto na cor cheia. Antes cada etiqueta
@@ -2930,46 +2904,9 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    lista do que ele está olhando, antes de qualquer toque. Hoje o vídeo só
    fala com o Google quando a pessoa PEDE, e um enfeite não paga desfazer isso.
    O play cheio dá a mesma leitura sem terceiro na página. */
-.exercise__ver {
-  display: flex;
-  align-items: center;
-  gap: var(--espaco-4);
-  width: 100%;
-  min-height: 3.25rem;
-  padding: var(--espaco-3) var(--espaco-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--texto-md);
-  font-weight: 640;
-  text-align: left;
-  cursor: pointer;
-  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease);
-}
-.exercise__ver:hover { border-color: var(--brand); }
 
 /* O play é um disco verde-escuro com o glifo em verde: mesma gramática do item
    ativo da barra de baixo — superfície tingida, e não cor solta. */
-.exercise__ver svg {
-  flex: none;
-  width: 1.15rem;
-  height: 1.15rem;
-  padding: .5rem;
-  box-sizing: content-box;
-  border-radius: var(--pill);
-  background: var(--brand-soft);
-  color: var(--brand);
-}
-
-.exercise__ver:hover {
-  border-color: var(--brand);
-  background: var(--brand-soft);
-  color: var(--brand);
-}
-
-.exercise__ver:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* Dentro do cabeçalho o botão continua com o rótulo escrito.
  *
@@ -2981,20 +2918,10 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
  * Nenhuma largura agora — o conteúdo mede o botão, e `white-space: nowrap`
  * garante que o rótulo desça inteiro para a linha de baixo em vez de quebrar
  * no meio. O alvo de 44px vem só da altura mínima. */
-.exercise__head .exercise__ver {
-  align-self: center;
-  min-height: 2.75rem;
-  padding-block: .3rem;
-  white-space: nowrap;
-  background: var(--surface-3);
-}
 
 /* A classe do rótulo NÃO pode conter "exercise__ver": três testes contam
    `html.count("exercise__ver")` para saber quantos exercícios a página tem, e
    um nome que carrega a substring dobra as três contagens em silêncio. */
-.exercise__head .exercise__ver:hover { border-color: var(--accent); color: var(--accent); }
-
-.exercise__body { display: grid; min-width: 0; }
 
 /* O envoltório existe para a sanfona animar INTEIRA.
    `grid-template-rows: 0fr` governa a primeira linha da grade; com quatro
@@ -3002,12 +2929,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    — medido fechado: "0px 98.95px 18.34px". Com um filho só, a única linha é
    a que anima. O espaçamento e o respiro moram aqui, e não no pai, porque o
    pai agora é só o mecanismo. */
-.exercise__conteudo {
-  display: grid;
-  gap: .6rem;
-  min-width: 0;
-  padding: 0 var(--espaco-6) var(--espaco-6);
-}
 
 /* Abre E fecha com transição.
    Era uma animação de entrada, então fechar era instantâneo — meio gesto
@@ -3021,22 +2942,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    `var(--ease)` e não a curva `cubic-bezier(.4,0,.2,1)` que foi pedida: o app
    tem UMA curva, e duas na mesma tela é a inconsistência que ninguém aponta e
    todo mundo sente. Há teste travando isso. */
-@supports (grid-template-rows: 0fr) {
-  .exercise__body {
-    display: grid;
-    grid-template-rows: 0fr;
-    transition: grid-template-rows .3s var(--ease);
-  }
-
-  .exercise[open] .exercise__body { grid-template-rows: 1fr; }
-  .exercise__conteudo { overflow: hidden; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .exercise__seta,
-  .exercise__body,
-  .exercise[open] .exercise__body { transition: none; animation: none; }
-}
 
 
 /* MÚSCULOS TRABALHADOS — o dado que sobreviveu ao cancelamento do 3D.
@@ -3049,18 +2954,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    O principal leva a cor da marca e os auxiliares ficam neutros: dois pesos,
    não seis cores. É a mesma regra do resto do app — verde marca o que importa,
    e não tudo. */
-.exercise__musculos {
-  display: flex;
-  flex-direction: column;
-  gap: var(--espaco-3);
-}
-.exercise__musculos-rotulo {
-  color: var(--text-mute);
-  font-size: var(--texto-xs);
-  font-weight: 600;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-}
 
 /* A DICA GANHA MARCA PRÓPRIA.
 
@@ -3068,42 +2961,10 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    lia como legenda — sendo que é a única frase do cartão que ENSINA. A barra
    de acento à esquerda é a mesma gramática da área promovida da Home: marca
    sem encher de fundo. */
-.exercise__dica {
-  display: flex;
-  flex-direction: column;
-  gap: var(--espaco-2);
-  padding: var(--espaco-4) var(--espaco-4) var(--espaco-4) var(--espaco-5);
-  border-left: 2px solid var(--brand);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-}
-.exercise__dica-rotulo {
-  display: flex;
-  align-items: center;
-  gap: var(--espaco-2);
-  color: var(--brand);
-  font-size: var(--texto-xs);
-  font-weight: 700;
-  letter-spacing: .03em;
-  text-transform: uppercase;
-}
-.exercise__dica-rotulo svg { width: .95rem; height: .95rem; flex: none; }
-.exercise__dica-texto {
-  margin: 0;
-  color: var(--text-dim);
-  font-size: var(--texto-md);
-  line-height: 1.5;
-  min-width: 0;
-}
 
 /* "Movimento principal" — o papel do exercício na sessão, que `is_compound`
    já sabia e a tela nunca disse. Neutro de propósito: ele informa, não
    destaca; o destaque do cabeçalho é o nome. */
-.exercise__tag--papel {
-  color: var(--text-mute);
-  background: transparent;
-  border: 1px solid var(--border);
-}
 
 
 /* Alvo de 44px sem engordar a linha de texto: o padding cresce a área e a
@@ -3129,9 +2990,12 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .registro {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    "menos carga mais"
-    "salvar salvar timer";
+  /* UMA LINHA, e não duas. A segunda era `"salvar salvar timer"`, do botão de
+     salvar e do gatilho do cronômetro que a ficha desenhava por exercício —
+     os dois saíram com o formulário da ficha em 10/09/2026. A execução
+     redefine as áreas em `.registro--agora` e põe reps e CTA nas linhas de
+     baixo; deixar a linha órfã aqui reservaria espaço para nada. */
+  grid-template-areas: "menos carga mais";
   align-items: end;
   gap: var(--espaco-3);
   margin-top: .6rem;
@@ -3215,31 +3079,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    Foi a saída para uma aritmética que apareceu três vezes nesta tela — sete
    controles de 44px não cabem em 390 menos o padding, e o campo de carga
    ficava com 21 pixels. */
-.registro__salvar {
-  grid-area: salvar;
-  display: grid;
-  place-items: center;
-  gap: .05rem;
-  min-width: 4.2rem;
-  min-height: 2.75rem;
-  padding: .3rem var(--espaco-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--brand);
-  color: var(--on-brand);
-  font: inherit;
-  font-size: .82rem;
-  font-weight: 750;
-  cursor: pointer;
-  transition: background var(--dur) var(--ease), transform .12s var(--ease),
-              box-shadow var(--dur) var(--ease);
-}
-
-.registro__salvar:hover { background: var(--brand-strong); }
-.registro__salvar:active { transform: scale(.96); }
-.registro__salvar:disabled { opacity: .55; cursor: progress; }
-
-.registro__contagem { font-size: .72rem; font-weight: 700; opacity: .85; }
 
 /* A confirmação ao gravar: um pulso curto com brilho, e some.
  *
@@ -3251,20 +3090,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
  *
  * `pointer-events: none` porque ele cresce para fora do botão, e um anel
  * invisível por cima do alvo seria um toque perdido no meio de uma série. */
-.registro__salvar { position: relative; }
-
-.registro__salvar::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--brand) 28%, transparent);
-  opacity: 0;
-  pointer-events: none;
-}
-
-.registro--salvo .registro__salvar { animation: serie-ok .9s var(--ease); }
-.registro--salvo .registro__salvar::after { animation: serie-anel .9s var(--ease); }
 
 @keyframes serie-ok {
   0%, 100% { transform: scale(1); }
@@ -3279,160 +3104,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 /* O cronômetro precisa ser visível na academia ao meio-dia: fundo em
    cinza-médio, moldura clara, ícone na cor cheia. */
-.registro__timer {
-  grid-area: timer;
-  display: grid;
-  place-items: center;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface-3);
-  color: var(--text);
-  cursor: pointer;
-  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease),
-              color var(--dur) var(--ease), transform .12s var(--ease);
-}
 
-.registro__timer:hover {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface-3));
-  color: var(--accent);
-}
-
-.registro__timer:active { transform: scale(.96); }
-.registro__timer svg { width: 1.1rem; height: 1.1rem; }
-
-.registro__desfazer { margin: var(--espaco-2) 0 0; }
-.registro__desfazer[hidden] { display: none; }
-
-@media (prefers-reduced-motion: reduce) {
-  .registro--salvo .registro__salvar { animation: none; }
-  .registro__salvar:active,
-  .registro__timer:active { transform: none; }
-}
-
-/* A prescrição por extenso, no cabeçalho. */
-.exercise__prescricao {
-  display: block;
-  margin-top: .3rem;
-  color: var(--text-dim);
-  font-size: .82rem;
-  line-height: 1.5;
-}
-
-/* A intensidade e a instrução técnica, dentro do drawer. */
-.drawer__intensidade {
-  margin: 0 0 var(--espaco-4);
-  padding: .6rem .75rem;
-  border: 1px solid color-mix(in srgb, var(--warm) 22%, transparent);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--warm) 9%, transparent);
-  color: var(--warm);
-  font-size: .82rem;
-  line-height: 1.55;
-}
-
-.exercise__previous { margin: 0; color: var(--text-mute); font-size: .74rem; font-variant-numeric: tabular-nums; }
-.exercise__delta { font-weight: 750; }
-.exercise__delta--up { color: var(--brand); }
-.exercise__delta--down { color: var(--warm); }
-
-/* ==========================================================================
-   17. Cronômetro de descanso
-   ========================================================================== */
-
-/* A barra do descanso é moldura flutuante, como as duas barras de navegação:
-   mesmo vidro, mesmo desfoque. Era a única peça fixa do app com fundo opaco —
-   e opaca ela corta a tabela de séries no meio em vez de deixá-la passar por
-   baixo, que é justamente o que a pessoa quer olhar enquanto descansa. */
-.rest-timer {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
-  z-index: var(--camada-flutuante);
-  background: var(--glass);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border-top: 1px solid var(--border);
-  box-shadow: var(--shadow-deep);
-}
-
-.rest-timer__bar { height: .3rem; background: var(--surface-2); }
-.rest-timer__bar span { display: block; height: 100%; width: 100%; background: var(--brand); transition: width 1s linear; }
-.rest-timer--fim .rest-timer__bar span { background: var(--warm); }
-
-.rest-timer__body { display: flex; align-items: center; gap: var(--espaco-4); padding: .65rem var(--pad); }
-
-.rest-timer__label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text-dim);
-  font-size: var(--texto-sm);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* O número do descanso é lido de longe: o celular fica no banco e a pessoa
-   está em pé, a um braço de distância. 1,4rem servia para um rótulo, não para
-   o dado principal da barra.
-
-   `tabular-nums` não é acabamento aqui, é correção: a contagem regressiva
-   redesenha o número a cada segundo, e sem largura fixa "1:09" → "1:08" faz a
-   linha inteira dançar. É a regra 3 do topo deste arquivo, e o único contador
-   do app que estava fora dela. */
-.rest-timer__value {
-  flex: none;
-  font-size: 2rem;
-  font-weight: 780;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -.04em;
-  line-height: 1.1;
-}
-.rest-timer--fim .rest-timer__value { color: var(--warm); }
-
-.rest-timer__more {
-  display: inline-flex;
-  align-items: center;
-  flex: none;
-  min-height: 2.75rem;
-  padding: var(--espaco-2) var(--espaco-6);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--pill);
-  background: var(--surface-2);
-  color: var(--text-dim);
-  font-size: var(--texto-sm);
-  font-weight: 680;
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
-              color var(--dur) var(--ease), transform .12s var(--ease);
-}
-
-.rest-timer__more:hover { border-color: var(--accent); color: var(--text); }
-.rest-timer__more:active { transform: scale(.96); }
-
-.rest-timer__close {
-  display: grid;
-  place-items: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  flex: none;
-  border: 0;
-  border-radius: 50%;
-  background: var(--surface-2);
-  color: var(--text-dim);
-  font-size: 1.2rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: background var(--dur) var(--ease), color var(--dur) var(--ease),
-              transform .12s var(--ease);
-}
-
-.rest-timer__close:hover { background: var(--surface-3); color: var(--text); }
-.rest-timer__close:active { transform: scale(.96); }
 
 /* ==========================================================================
    18. Lista de compras e substituição
@@ -3881,23 +3553,6 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
    aberto e volta para o botão ao fechar. Reimplementar isso à mão dá errado
    de formas que só aparecem com leitor de tela. */
 
-.drawer {
-  width: 100%;
-  max-width: 100%;
-  max-height: 92dvh;
-  margin: auto auto 0;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  background: var(--surface);
-  color: var(--text);
-  overflow: hidden auto;
-  /* `overscroll-behavior` impede que rolar até o fim do drawer continue
-     rolando a página atrás dele — o efeito de "a tela escapou" no celular. */
-  overscroll-behavior: contain;
-  animation: drawer-sobe .26s cubic-bezier(.2, .8, .3, 1);
-}
-
 /* A PÁGINA NÃO ROLA ATRÁS DO DRAWER.
  *
  * `<dialog>` modal prende o FOCO e escurece o fundo, e é fácil concluir que
@@ -3920,71 +3575,26 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
  * a regra não custa nada. */
 html { scrollbar-gutter: stable; }
 
-/* A CLASSE VAI NO `html`, E NÃO NO `body` — medido, nesta ordem:
- *
- * `body.drawer-aberto { overflow: hidden }` computou `hidden` no body e a
- * página CONTINUOU rolando. A razão é a propagação de overflow: o viewport
- * herda o valor do `body` só enquanto o `html` é `visible`, e aqui ele já
- * deixou de ser — `body { overflow-x: hidden }`, lá na base, propagou e o
- * `html` ficou `hidden auto`. Daí em diante o eixo Y do viewport é do `html`,
- * e mexer no body não alcança mais.
- *
- * `document.scrollingElement` é o `<html>`; travar nele trava o que rola. */
-html.drawer-aberto { overflow: hidden; }
+/* A TRAVA DE ROLAGEM SAIU JUNTO COM A GAVETA, e o que ela ensinou fica.
 
-.drawer::backdrop {
-  background: var(--veu);
-  backdrop-filter: blur(3px);
-  animation: drawer-fade .26s ease-out;
-}
+   `html.drawer-aberto { overflow: hidden }` existia porque `<dialog>` modal
+   prende o FOCO e não prende a ROLAGEM: medido a 390×844, com o drawer aberto
+   o dedo no véu rolava a ficha inteira por trás, e ao fechar a pessoa estava
+   noutro ponto. A classe ia no `<html>` e não no `<body>` — o viewport só
+   herda o overflow do body enquanto o `html` for `visible`, e
+   `body { overflow-x: hidden }`, lá na base, já tinha tirado isso.
 
-@keyframes drawer-sobe {
-  from { transform: translateY(12%); opacity: .4; }
-  to { transform: translateY(0); opacity: 1; }
-}
+   O drawer saiu do produto em 10/09/2026 e ninguém mais escreve a classe.
+   `scrollbar-gutter: stable`, acima, FICA: ele impede o salto lateral de ~15px
+   sempre que qualquer coisa esconder a barra, e nunca foi do drawer. Quem
+   voltar a montar sobreposição modal: a trava vai no elemento que rola, que é
+   `document.scrollingElement`. */
 
 @keyframes drawer-fade {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .drawer, .drawer::backdrop { animation: none; }
-}
-
-/* A REGRA DA ALÇA SAIU COM ELA. O desenho dizia "dá para arrastar de volta" e
-   o gesto nunca existiu; o drawer fecha pelo botão, pelo Esc e pelo véu. */
-
-/* Dentro do drawer, acima da mídia — não é a escala global: o drawer é
-   `<dialog>` modal, e o navegador já o põe na camada de topo. */
-.drawer__fechar-area { position: absolute; top: .5rem; right: .5rem; z-index: 2; }
-
-.drawer__fechar {
-  display: grid;
-  place-items: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--bg) 70%, transparent);
-  color: var(--text);
-  cursor: pointer;
-}
-
-.drawer__fechar svg { width: 1.15rem; height: 1.15rem; }
-.drawer__fechar:hover { background: var(--surface-3); }
-
-/* A mídia ocupa a largura toda no 16:9. Short é 9:16 e ficaria com duas
-   tarjas pretas enormes esticado; então ele fica alto e estreito, centrado. */
-.drawer__media {
-  position: relative;
-  aspect-ratio: 16 / 9;
-  /* Deixou de ser preto quando a mídia virou foto: as imagens da
-     free-exercise-db têm fundo claro, e preto em volta criava uma moldura
-     dura no meio de um tema escuro suave. */
-  background: var(--surface-2);
-}
 
 /* O TETO DE ALTURA, e o número saiu de medição nas quatro larguras.
  *
@@ -4001,34 +3611,13 @@ html.drawer-aberto { overflow: hidden; }
  *
  * 48dvh devolve 23px a 320×568 e põe a carga em 547px, dentro da tela; a
  * 375×812 o vídeo ainda sai com 219×390. Medido nas quatro larguras. */
-.drawer__media--vertical {
-  aspect-ratio: 9 / 16;
-  max-height: 48dvh;
-  margin: 0 auto;
-  width: auto;
-}
 
 /* A foto do movimento fica inteira: `contain` e não `cover`, porque cortar a
    borda de uma demonstração pode cortar justamente o pé ou a mão que mostram
    a posição. */
-.drawer__quadro {
-  border-radius: var(--radius);
-  object-fit: contain;
-}
 
 /* Enquanto a primeira foto não chega. Sem isto a caixa fica vazia e parece
    que quebrou. */
-.drawer__media--carregando::after {
-  content: "";
-  position: absolute;
-  /* Mais largo que a caixa e deslocado para a esquerda: é ele que atravessa,
-     e a faixa precisa nascer fora e terminar fora. */
-  inset: 0 -60%;
-  background: linear-gradient(100deg,
-    transparent 35%, var(--surface-3) 50%, transparent 65%);
-  animation: esqueleto 1.1s linear infinite;
-  will-change: transform;
-}
 
 /* `translateX` e não `background-position`.
  *
@@ -4072,108 +3661,15 @@ html.drawer-aberto { overflow: hidden; }
   .esqueleto { animation: none; opacity: .75; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .drawer__media--carregando::after { animation: none; }
-}
 
 /* Imagem que não veio: a caixa diz isso em vez de ficar vazia. */
-.drawer__media--falhou::after {
-  content: "Não foi possível carregar a demonstração.";
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: var(--espaco-6);
-  background: var(--surface-2);
-  color: var(--text-mute);
-  font-size: .82rem;
-  text-align: center;
-}
-
-.drawer__media iframe,
-.drawer__media video,
-.drawer__media img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  object-fit: contain;
-}
-
-.drawer__media--vertical iframe,
-.drawer__media--vertical video,
-.drawer__media--vertical img { aspect-ratio: 9 / 16; }
-
-.drawer__corpo { padding: 1rem var(--pad) calc(1.2rem + env(safe-area-inset-bottom)); }
-
-.drawer__nome { margin: 0; font-size: var(--texto-lg); line-height: 1.25; }
-
-.drawer__musculo {
-  margin: .15rem 0 0;
-  color: var(--text-mute);
-  font-size: var(--texto-sm);
-}
 
 /* Os três números que a pessoa consulta no meio da série. Grid de três para
    que a leitura seja de relance, sem procurar rótulo. */
-.drawer__numeros {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--espaco-3);
-  margin: var(--espaco-5) 0;
-}
-
-.drawer__numero {
-  display: flex;
-  flex-direction: column;
-  gap: .1rem;
-  padding: var(--espaco-4) var(--espaco-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-  text-align: center;
-}
-
-.drawer__numero-valor {
-  font-size: 1.05rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.2;
-}
-
-.drawer__numero-rotulo {
-  color: var(--text-mute);
-  font-size: var(--texto-xs);
-  line-height: 1.25;
-}
 
 /* A carga anterior é o número que decide a série de hoje — é o único que
    ganha cor. */
-.drawer__numero--carga {
-  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
-  background: var(--brand-soft);
-}
 
-.drawer__numero--carga .drawer__numero-valor { color: var(--brand); }
-.drawer__numero--carga .drawer__numero-rotulo { color: var(--text-dim); }
-
-.drawer__cue {
-  margin: 0 0 var(--espaco-6);
-  color: var(--text-dim);
-  font-size: .87rem;
-  line-height: 1.5;
-}
-
-.drawer__acoes { display: grid; grid-template-columns: 1fr 1fr; gap: var(--espaco-3); }
-.drawer__acoes .btn { width: 100%; }
-
-@media (min-width: 40rem) {
-  .drawer {
-    width: min(30rem, calc(100vw - 3rem));
-    margin: auto;
-    border-radius: var(--radius-lg);
-  }
-}
 
 /* ==========================================================================
    24. Cartões de escolha (onboarding)
@@ -4880,24 +4376,12 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 /* Últimos dez segundos do descanso.
    Pulso preso a dado que muda de verdade — o critério do catálogo Impeccable,
    e o oposto exato da chama da ofensiva, que pulsava para sempre e saiu. */
-.rest-timer--acabando {
-  border-color: color-mix(in srgb, var(--warm) 50%, transparent);
-  animation: descanso-acabando 1s var(--ease) infinite;
-}
-
-.rest-timer--acabando .rest-timer__value { color: var(--warm); }
 
 @keyframes descanso-acabando {
   0%, 100% { opacity: 1; }
   50% { opacity: .72; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .rest-timer--acabando { animation: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-}
 
 /* ------------------------------------------------------- metas batidas */
 
@@ -4978,7 +4462,6 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   .app-bar { padding-inline: 1.9rem; }
 
   h1 { font-size: 1.9rem; }
-  .exercise { padding: 1.15rem; }
 }
 
 @media (max-width: 22rem) {
@@ -6118,16 +5601,6 @@ body.montando { overflow: hidden; }
   min-height: 3.4rem;
   font-size: var(--texto-base);
 }
-.btn__eco {
-  max-width: 100%;
-  overflow: hidden;
-  color: inherit;
-  font-size: .74rem;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  opacity: .8;
-}
 
 /* Todos os exercícios têm série anotada. A frase descreve isso e para: dizer
    "treino concluído" seria afirmar o que o banco não sabe. */
@@ -6193,27 +5666,13 @@ body.montando { overflow: hidden; }
 
    O anel é o halo de estado do app — o mesmo que marca a aba atual e a
    refeição feita — e não um segundo dialeto para dizer "este aqui". */
-.exercise--agora {
-  border-color: color-mix(in srgb, var(--brand) 55%, var(--border));
-  box-shadow: var(--halo);
-}
 
 /* Já registrado: o número da ordem se tinge. A informação não fica só na cor —
    a pílula "3/4 séries" no cabeçalho diz o mesmo em texto, que é o que serve
    para quem não distingue os dois tons. */
-.exercise--feito .exercise__order,
-.exercise--parcial .exercise__order {
-  background: color-mix(in srgb, var(--brand) 18%, transparent);
-  color: var(--brand);
-}
 
 /* Mesma construção da pílula de descanso, com a cor da marca: borda e fundo
    pela tinta, texto pela cor cheia. */
-.exercise__tag--feito {
-  border-color: color-mix(in srgb, var(--brand) 24%, transparent);
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
-  color: var(--brand);
-}
 
 /* Hoje, na tira do programa. O contorno por dentro em vez de borda para o chip
    não mudar de tamanho e desalinhar a fileira de sete. */
@@ -7732,13 +7191,6 @@ body.montando { overflow: hidden; }
 /* O aviso de "sem rede" do registro de carga.
    Ocupa a linha inteira do formulário e some quando o registro dá certo — é
    estado transitório, como `.registro--salvo`, e não um componente novo. */
-.registro__aviso {
-  grid-column: 1 / -1;
-  margin: var(--espaco-2) 0 0;
-  color: var(--warm);
-  font-size: var(--texto-sm);
-  line-height: 1.4;
-}
 
 /* Subtítulo dentro de um cartão do painel de gestão.
    Existe porque o cartão "O que as pessoas vieram cuidar" carrega DUAS listas
@@ -7928,13 +7380,6 @@ body.montando { overflow: hidden; }
 /* "Também trabalha" é conteúdo de apoio: menor que o principal, e sem pílula.
    Dar pílula a cada auxiliar encheria a linha de caixinhas para dizer o que
    uma frase diz melhor. */
-.drawer__auxiliares {
-  margin: var(--espaco-1) 0 0;
-  color: var(--text-mute);
-  font-size: var(--texto-sm);
-  line-height: 1.4;
-  min-width: 0;
-}
 
 /* --------------------------------------------------------------------------
    ALVOS DE TOQUE em dois lugares que a campanha de 09/09/2026 criou.

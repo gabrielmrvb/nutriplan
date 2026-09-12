@@ -95,30 +95,45 @@ class ALinhaDeHojeSubstituiOCartaoTests(TestCase):
         """
         html = sem_scripts(self._html())
 
+        # OS MARCADORES ACOMPANHARAM A MUDANÇA. `registro__salvar`,
+        # `exercise__musculos` e `exercise__dica` saíram do CSS e do
+        # repositório junto com o cartão; procurá-los aqui seria asserção de
+        # ausência sobre string que não existe em lugar nenhum — verde para
+        # sempre, medindo nada. Os quatro abaixo são emitidos pela execução,
+        # e é isso que os torna uma prova de separação.
         self.assertNotIn("registro__carga", html)
-        self.assertNotIn("registro__salvar", html)
-        self.assertNotIn("exercise__musculos", html)
-        self.assertNotIn("exercise__dica", html)
+        self.assertNotIn('name="weight_kg"', html)
+        self.assertNotIn("data-passo", html)
+        self.assertNotIn("data-descanso", html)
 
-    def test_o_video_continua_alcancavel_pela_ficha(self):
+    def test_o_video_continua_alcancavel_a_PARTIR_da_ficha(self):
         """O acesso ao vídeo não podia sumir junto com a lista.
 
-        Ele saiu da tela principal e mora na ficha, que é onde a pergunta "como
-        é o movimento?" é feita — na hora de conferir o treino, não na hora de
-        decidir se treina.
-        """
-        item = self.sessao.exercises.first()
+        ELE MUDOU DE TELA DUAS VEZES. Saiu da principal para a ficha, e da
+        ficha para a EXECUÇÃO — que é onde a pergunta "como é o movimento?" é
+        feita de verdade: com o aparelho na frente, não na hora de decidir se
+        treina.
 
-        html = self.client.get(
+        A régua é o CAMINHO, e não o endereço: a ficha precisa oferecer a porta
+        de cada exercício, e a porta precisa entregar o vídeo daquele exercício.
+        Testar só a existência da página de execução deixaria a ficha livre para
+        perder os links, que foi exatamente o defeito de 09/09/2026 — nove
+        botões de vídeo apontando para uma gaveta que a página não tinha.
+        """
+        item = self.sessao.exercises.select_related("exercise").first()
+        porta = "%s?exercicio=%d" % (reverse("workouts:now"), item.exercise_id)
+
+        ficha = self.client.get(
             reverse("workouts:ficha", args=[self.sessao.pk])
         ).content.decode()
+        self.assertIn(porta, ficha)
+        self.assertIn(item.exercise.name, ficha)
 
-        self.assertIn("data-ver", html)
+        execucao = self.client.get(porta).content.decode()
         # Pelo ID do vídeo, e não pela URL inteira: o template escapa `&` como
         # `&amp;`, então comparar a URL crua acusa divergência que não existe.
         identificador = item.exercise.video_embed_url.split("/embed/")[1].split("?")[0]
-        self.assertIn(identificador, html)
-        self.assertIn(item.exercise.name, html)
+        self.assertIn(identificador, execucao)
 
     def test_o_progresso_de_hoje_continua_em_TEXTO_e_nao_so_em_cor(self):
         """Estado por cor sozinho não serve a quem não distingue verde.
@@ -137,11 +152,18 @@ class ALinhaDeHojeSubstituiOCartaoTests(TestCase):
         self.assertIn("exerc", bloco)
         self.assertIn("1", bloco)
 
-    def test_o_botao_do_hero_leva_para_a_execucao(self):
-        """A lista não executa, então tem de haver uma porta — e é uma só."""
+    def test_o_botao_do_hero_leva_para_a_ficha(self):
+        """A lista não executa, então tem de haver uma porta — e é uma só.
+
+        A PORTA MUDOU DE DESTINO. Ela apontava para `/treino/agora/`, que
+        escolhia sozinha o primeiro pendente; hoje abre a ficha do dia, e é
+        dela que se escolhe o exercício. O painel deixou de ter qualquer link
+        direto para a execução: quem chega ali ainda não decidiu o que fazer.
+        """
         html = self._html()
 
-        self.assertIn(reverse("workouts:now"), html)
+        self.assertIn(reverse("workouts:ficha", args=[self.sessao.pk]), html)
+        self.assertNotIn(reverse("workouts:now"), sem_scripts(html))
 
 
 class AFichaCompletaContinuaExistindoTests(TestCase):
@@ -177,50 +199,93 @@ class AFichaCompletaContinuaExistindoTests(TestCase):
         self.client.force_login(self.pessoa)
 
     def _uma_sessao(self):
+        """A sessão de HOJE, e a precisão passou a importar.
+
+        Ela devolvia `sessions.first()`, qualquer uma — servia enquanto a ficha
+        era só leitura. A execução recusa exercício que não é do treino de hoje
+        (`ExercicioForaDaSessao` -> 404), então pedir a execução de um exercício
+        de terça numa quinta deixaria este arquivo vermelho por regra de
+        segurança, e não por composição de tela.
+        """
         from workouts.models import TrainingPlan
 
         plano = TrainingPlan.objects.filter(user=self.pessoa, is_active=True).first()
-        return plano.sessions.first()
+        hoje = timezone.localdate().weekday()
+        return plano.sessions.get(weekday=hoje)
 
-    def test_a_ficha_da_sessao_carrega_o_cartao_completo(self):
-        """O detalhe continua inteiro — na página dele."""
+    def test_o_detalhe_completo_continua_inteiro_NA_EXECUCAO(self):
+        """O detalhe continua inteiro — uma página adiante.
+
+        ELE MUDOU DE ENDEREÇO PELA SEGUNDA VEZ, e a asserção acompanha. Era o
+        `<summary class="exercise__head">` da tela principal; virou o mesmo
+        cartão dentro da ficha; e agora é a tela de execução, que mostra UM
+        exercício por vez em vez de trinta abertos ao mesmo tempo.
+
+        O que este teste guarda não mudou desde a reversão de 09/09/2026: o
+        registro de série, a carga, as repetições, o descanso e o histórico
+        precisam existir e ser alcançáveis. O que não pode voltar é a tentativa
+        de mostrar tudo isso trinta vezes numa tela de planejamento.
+        """
         sessao = self._uma_sessao()
+        item = sessao.exercises.first()
 
-        html = self.client.get(
+        # A ficha não executa; ela oferece a porta.
+        ficha = self.client.get(
             reverse("workouts:ficha", args=[sessao.pk])
         ).content.decode()
+        self.assertIn("ficha-item__nome", ficha)
 
-        self.assertIn('<summary class="exercise__head"', html)
-        self.assertIn("registro__carga", html)
-        self.assertIn("exercise__musculos", html)
+        execucao = self.client.get(
+            "%s?exercicio=%d" % (reverse("workouts:now"), item.exercise_id)
+        ).content.decode()
+
+        self.assertIn("registro__carga", execucao)
+        self.assertIn('name="weight_kg"', execucao)
+        self.assertIn('name="reps"', execucao)
+        self.assertIn("data-descanso", execucao)
 
     def test_a_tela_principal_nao_pre_monta_os_formularios(self):
         """A outra metade: o paredão não pode voltar.
 
-        Sem esta asserção, alguém devolveria o cartão completo à tela principal
-        e o teste acima continuaria verde — ele só olha para a ficha.
+        Sem esta asserção, alguém devolveria a execução à tela principal e o
+        teste acima continuaria verde — ele só olha para a execução.
+
+        E ela vem com CONTROLE POSITIVO, porque asserção de ausência é o lugar
+        onde este repositório mais erra: se `registro__carga` for renomeado, o
+        `assertNotIn` fica verde para sempre. A execução tem de trazê-lo.
         """
         from workouts.tests import sem_scripts as _sem
 
-        html = _sem(self.client.get(reverse("workouts:routine")).content.decode())
+        sessao = self._uma_sessao()
+        painel = _sem(self.client.get(reverse("workouts:routine")).content.decode())
 
-        self.assertNotIn('<summary class="exercise__head"', html)
-        self.assertNotIn("registro__carga", html)
+        self.assertNotIn("registro__carga", painel)
+        self.assertNotIn("ficha-item__nome", painel)
+        self.assertNotIn("<iframe", painel)
 
-    def test_a_ficha_tem_o_drawer_que_os_botoes_dela_abrem(self):
-        """A REGRESSÃO QUE ESTA MISSÃO CRIOU E ESTE TESTE PEGA.
+        execucao = self.client.get(reverse("workouts:now")).content.decode()
+        self.assertIn(
+            "registro__carga",
+            execucao,
+            "o marcador mudou de nome — a asserção de ausência acima parou de "
+            "medir alguma coisa",
+        )
 
-        O cartão do exercício traz um botão `data-clipe`, e quem o abre é o
-        `<dialog data-drawer>`. O drawer morava dentro de `routine.html` porque
-        a tela de treino era o único lugar que desenhava cartão; quando os
-        cartões mudaram para a ficha, a página nasceu com nove botões de vídeo
-        e nenhum drawer. Medido antes da correção: `data-clipe: 9`,
-        `data-drawer: 0` — botões mortos, e nenhum teste existente pegou porque
-        todos liam a tela antiga.
+    def test_a_ficha_nao_tem_botao_de_video_NEM_gaveta(self):
+        """A RELAÇÃO CONTINUA SENDO A RÉGUA, e ela é satisfeita do outro lado.
 
-        A régua é a RELAÇÃO entre os dois, e não a presença de cada um: uma
-        página sem botão nenhum não precisa de drawer, e é isso que a condição
-        abaixo diz.
+        A versão anterior deste teste guardava a regressão de 09/09/2026: o
+        cartão do exercício trazia um botão `data-clipe`, quem o abria era o
+        `<dialog data-drawer>`, e quando os cartões mudaram para a ficha a
+        página nasceu com nove botões e nenhuma gaveta. Medido: `data-clipe: 9`,
+        `data-drawer: 0` — botões mortos, e nenhum teste pegou porque todos
+        liam a tela antiga.
+
+        A régua nunca foi "tem gaveta": era "botão que abre precisa de gaveta
+        que abre". A ficha deixou de ter botão — o vídeo mudou para a execução,
+        onde nasce inline e não precisa de diálogo nenhum —, então a relação é
+        satisfeita com ZERO dos dois. É a versão forte da mesma frase, e é por
+        isso que ela é medida nas duas pontas.
         """
         sessao = self._uma_sessao()
 
@@ -228,28 +293,38 @@ class AFichaCompletaContinuaExistindoTests(TestCase):
             reverse("workouts:ficha", args=[sessao.pk])
         ).content.decode()
 
-        self.assertGreater(html.count("data-clipe"), 0, "a ficha ficou sem vídeo")
-        # `class="drawer"` e não `<dialog`: o script do próprio drawer discute
-        # `<dialog>` em cinco comentários, e eles viajam no HTML. Contar a tag
-        # devolvia 6. É a armadilha que o `CLAUDE.md` registra — o seletor e o
-        # texto procurado são a mesma string.
-        self.assertEqual(html.count('class="drawer"'), 1)
-        self.assertIn("data-drawer", html)
+        self.assertEqual(html.count("data-clipe"), 0)
+        self.assertEqual(html.count("data-drawer"), 0)
+        self.assertEqual(html.count('class="drawer"'), 0)
+        self.assertEqual(html.count("<iframe"), 0)
 
-    def test_um_drawer_por_pagina_e_nao_dois(self):
-        """A extração para parcial não podia duplicar o diálogo.
+        # A OUTRA PONTA: a demonstração existe, e existe onde se treina.
+        item = sessao.exercises.first()
+        execucao = self.client.get(
+            "%s?exercicio=%d" % (reverse("workouts:now"), item.exercise_id)
+        ).content.decode()
+        self.assertEqual(execucao.count("<iframe"), 1)
 
-        Dois `<dialog>` na mesma página seriam dois focos presos disputando o
-        mesmo toque — e o `CLAUDE.md` registra "um drawer por página" como
-        decisão desde que o convite de instalação pagou por ela.
+    def test_no_maximo_um_player_por_tela_do_treino(self):
+        """Dois players na mesma tela seriam duas conexões e dois áudios.
+
+        Era "um `<dialog class="drawer">` por página", e o motivo continua
+        valendo palavra por palavra: dois diálogos seriam dois focos presos
+        disputando o mesmo toque. O diálogo saiu, e o invariante ficou mais
+        simples de dizer e mais fácil de conferir — o painel e a ficha não
+        montam player nenhum, e a execução monta exatamente um, do exercício
+        que está aberto.
         """
-        for rota in (
-            reverse("workouts:routine"),
-            reverse("workouts:ficha", args=[self._uma_sessao().pk]),
-        ):
+        sessao = self._uma_sessao()
+        esperado = {
+            reverse("workouts:routine"): 0,
+            reverse("workouts:ficha", args=[sessao.pk]): 0,
+            reverse("workouts:now"): 1,
+        }
+        for rota, quantos in esperado.items():
             with self.subTest(rota=rota):
                 html = self.client.get(rota).content.decode()
-                self.assertEqual(html.count('class="drawer"'), 1)
+                self.assertEqual(html.count("<iframe"), quantos)
 
     def test_a_tela_principal_leva_para_todas_as_fichas(self):
         """Alcançável, e não só existente.

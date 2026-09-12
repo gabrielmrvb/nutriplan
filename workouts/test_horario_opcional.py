@@ -97,24 +97,31 @@ class OTreinoFuncionaSemHorarioTests(TestCase):
 
         self.assertNotIn("19:00", html)
 
-    def test_o_perfil_diz_que_nao_ha_horario(self):
-        """Silêncio não: a pessoa precisa saber que o campo está vazio."""
-        user = sem_horario(create_user(email="perfil-hora@exemplo.com"))
+    def test_o_perfil_nao_exibe_horario_nenhum(self):
+        """O Perfil parou de mostrar horário, com valor ou sem.
+
+        ERA "sem horário definido", e a frase estava certa enquanto o campo
+        existia: dizer o dia e parar era melhor que inventar um padrão. O campo
+        saiu da interface em 10/09/2026 — ele nunca participou da montagem da
+        ficha, e repetia "19:00" em todo cartão como se fosse a rotina da
+        pessoa. Exibir um valor que não dá para editar faz procurar o botão que
+        não existe.
+
+        O DADO CONTINUA NO BANCO: `plans/meal_planner.py` soma
+        `start_time + duration_min` para não marcar refeição no meio do treino.
+        Quem guarda isso é
+        `OHorarioSalvoNaoESilenciosamenteApagadoTests` e o teste de
+        preservação em `workouts/test_fluxo_do_treino.py`.
+        """
+        user = create_user(email='perfil-sem-horario@exemplo.com')
+        services.create_routine(user)
         self.client.force_login(user)
 
-        resposta = self.client.get(reverse("accounts:profile"))
+        resposta = self.client.get(reverse('accounts:profile'))
 
-        self.assertContains(resposta, "sem horário definido")
-
-
-class OCardapioTemComportamentoExplicitoSemHorarioTests(TestCase):
-    """O contrato compartilhado com Alimentação, dito por inteiro.
-
-    `_training_end_for` devolve o fim do treino para `build_slots` não marcar
-    refeição no meio dele. Sem horário não há janela, e a resposta é `None` — o
-    MESMO caminho de quem não cadastrou dia de treino. Não é efeito colateral:
-    é o comportamento declarado.
-    """
+        self.assertEqual(resposta.status_code, 200)
+        self.assertNotContains(resposta, 'sem horário definido')
+        self.assertNotContains(resposta, '19:00')
 
     def test_sem_horario_nao_ha_fim_de_treino(self):
         from plans.meal_planner import _training_end_for
@@ -178,24 +185,43 @@ class OHorarioSalvoNaoESilenciosamenteApagadoTests(TestCase):
         for dia in dias:
             self.assertIsNone(dia.start_time)
 
-    def test_o_passo_3_continua_aceitando_horario(self):
-        """Controle: o campo não virou decorativo."""
+    def test_o_passo_3_NAO_aceita_mais_horario_e_preserva_o_existente(self):
+        """O controle virou o contrário, e o contrário é o contrato novo.
+
+        ELE ERA "o campo não virou decorativo": postar 06:30 tinha de gravar
+        06:30. O campo saiu da tela em 10/09/2026 — ele nunca participou da
+        montagem da ficha (`create_routine` jamais leu `start_time`) e repetia
+        "19:00" em todo cartão como se fosse a rotina da pessoa.
+
+        Agora são DUAS afirmações, e a segunda é a que protege o cardápio:
+
+          - o formulário IGNORA um horário postado. Não é campo escondido nem
+            decorativo: ele não existe, e um POST forjado não o ressuscita;
+          - o horário JÁ GRAVADO sobrevive ao salvamento. `plans/meal_planner.py`
+            soma `start_time + duration_min` para não marcar refeição no meio do
+            treino, e `update_or_create` com `start_time=None` nos defaults
+            apagaria isso em silêncio — mudando o cardápio de quem já usa o app.
+        """
         from accounts.models import ONBOARDING_DONE, Profile
 
         user = create_user(email="passo3-com@exemplo.com")
         Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
+        TrainingDay.objects.filter(user=user).update(start_time=time(19, 0))
         self.client.force_login(user)
 
         self.client.post(
             reverse("accounts:onboarding_step", kwargs={"step": 3}),
             {
-                "weekdays": ["1"],
+                "weekdays": [str(d.weekday) for d in user.training_days.all()],
                 "start_time": "06:30",
-                "duracao_treino": "padrao",
+                "experiencia": "intermediario",
                 "wake_time": "07:00",
                 "sleep_time": "23:00",
             },
         )
 
-        dia = TrainingDay.objects.get(user=user, weekday=1)
-        self.assertEqual(dia.start_time, time(6, 30))
+        horarios = {d.start_time for d in user.training_days.all()}
+        self.assertEqual(
+            horarios, {time(19, 0)},
+            "o POST forjado mudou o horário, ou o salvamento o apagou",
+        )

@@ -1657,10 +1657,19 @@ nada dissesse que falhou. `post` passou a ser transacional.
 **Não corrigido nesta campanha, e é o achado mais destrutivo.** Ver a seção de
 bloqueio humano abaixo.
 
-`templates/workouts/_exercicio.html` guarda `series_feitas` com a contagem **já
-persistida**. Quem incrementa é o `fetch` de `templates/workouts/routine.html`,
-e ele incrementa numa CÓPIA (`dados.set`); o campo real só é reescrito no `.then`
-de sucesso. Offline, portanto, a fila captura o contador **antigo**.
+`templates/workouts/_exercicio.html` guardava `series_feitas` com a contagem
+**já persistida**. Quem incrementava era o `fetch` de
+`templates/workouts/routine.html`, e ele incrementava numa CÓPIA (`dados.set`);
+o campo real só era reescrito no `.then` de sucesso. Offline, portanto, a fila
+capturava o contador **antigo**.
+
+**Os dois arquivos saíram do repositório em 10/09/2026**, com o redesenho da
+área de Treino: o cartão do exercício virou a tela de execução, e nenhum
+template emite mais `name="series_feitas"` — há teste varrendo `templates/`
+para isso não voltar. A rota continua fora de `ROTAS` nos dois lados e o
+descarte na drenagem continua, porque item gravado por versão antiga do app
+ainda pode chegar. O parágrafo abaixo descreve o mecanismo original, que é o
+que o descarte existe para conter.
 
 No replay, `workouts/views.py` grava as séries 1..N com a carga NOVA — ou seja,
 reescreve o peso de séries anteriores — e executa

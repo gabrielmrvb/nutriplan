@@ -131,10 +131,15 @@
             faixa que o motor obedece.
           {% endcomment %}
           <dl class="data-list">
-            <div>
-              <dt>Duração</dt>
-              <dd>{{ profile.get_duracao_treino_display }}</dd>
-            </div>
+            {% comment %}
+              A DURAÇÃO SAIU DA TELA em 10/09/2026, e por isso saiu daqui.
+
+              Mostrar um valor que a pessoa não tem mais como editar é pior que
+              não mostrar: ela procuraria o "Editar" que não existe. O dado
+              continua no perfil e o motor continua usando — é o teto duro de
+              cada sessão —, e o padrão de quem nunca respondeu passou a ser
+              "45 a 60 minutos".
+            {% endcomment %}
             <div>
               <dt>Experiência</dt>
               {% comment %}
@@ -145,17 +150,22 @@
               {% endcomment %}
               <dd>{% if profile.experiencia %}{{ profile.get_experiencia_display }}{% else %}não informada{% endif %}</dd>
             </div>
-            {% for day in training_days %}
-              <div>
-                <dt>{{ day.get_weekday_display }}</dt>
-                {% comment %}
-                  Sem horário a linha diz o DIA e para aí. Escrever "—" ou
-                  repetir um padrão inventado afirmaria uma rotina que a pessoa
-                  não declarou.
-                {% endcomment %}
-                <dd>{% if day.start_time %}{{ day.start_time|time:"H:i" }}{% else %}sem horário definido{% endif %}</dd>
-              </div>
-            {% endfor %}
+            {% comment %}
+              UMA LINHA COM OS DIAS, e não uma linha por dia.
+
+              Eram sete linhas `dia -> horário`, e o horário saiu da interface
+              em 10/09/2026 junto com o campo que o definia. Sem ele o `<dd>`
+              repetiria o `<dt>`: "Segunda-feira -> Segunda-feira". O que
+              sobrou de verdade é UM fato — quais dias —, e ele cabe numa
+              linha.
+
+              O valor do horário continua no banco: `plans/meal_planner.py` o
+              usa para não marcar refeição no meio do treino.
+            {% endcomment %}
+            <div>
+              <dt>Dias</dt>
+              <dd>{% for day in training_days %}{{ day.get_weekday_display }}{% if not forloop.last %} · {% endif %}{% endfor %}</dd>
+            </div>
           </dl>
         {% else %}
           {% comment %}

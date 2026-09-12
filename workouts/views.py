@@ -618,7 +618,46 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
         # exatamente essa chamada que fez a tela mostrar "47 min" para um
         # treino cujos registros distavam 1,1 minuto. Quem precisar do resumo
         # estimado é o TCX, em `HealthExportView`.
-        context["estado"] = services.estado_do_treino(user)
+        # QUAL EXERCÍCIO — a ficha manda, e a execução obedece.
+        #
+        # `?exercicio=` é o que liga a ficha a esta tela: a pessoa vê a lista
+        # inteira, escolhe, e cai aqui com aquele movimento em foco. Sem o
+        # parâmetro vale a escolha automática de sempre — o primeiro pendente —,
+        # que é o caminho de quem chega por "Continuar de onde parou".
+        #
+        # PARÂMETRO PRESENTE E INVÁLIDO É 404, e nunca "abre outro". Três
+        # formas de inválido caem aqui, e as três pelo mesmo motivo — o pedido
+        # nomeia algo que não existe para esta pessoa hoje:
+        #
+        #   - REPETIDO (`?exercicio=1&exercicio=2`): `get()` devolveria o
+        #     último em silêncio, e o pedido é ambíguo, não claro;
+        #   - MALFORMADO (`?exercicio=abc`, vazio, negativo);
+        #   - INEXISTENTE, de outra sessão ou de outra conta — este último é o
+        #     mesmo fechamento de IDOR que `FichaDaSessaoView` faz, e vem de
+        #     graça: `estado_do_treino` só enxerga a sessão de hoje do próprio
+        #     usuário.
+        #
+        # 404 e não redirecionamento silencioso porque é o padrão do projeto
+        # para "não é seu ou não existe", e porque um link velho que continua
+        # abrindo ALGUMA tela nunca é consertado. A página de erro não tem
+        # iframe, não grava série e não move progresso.
+        escolhido = None
+        pedidos = self.request.GET.getlist("exercicio")
+        if pedidos:
+            if len(pedidos) > 1:
+                raise Http404("exercício pedido mais de uma vez")
+            try:
+                escolhido = int(pedidos[0])
+            except (TypeError, ValueError):
+                raise Http404("exercício ilegível")
+            if escolhido <= 0:
+                raise Http404("exercício inválido")
+        try:
+            context["estado"] = services.estado_do_treino(
+                user, escolhido=escolhido
+            )
+        except services.ExercicioForaDaSessao:
+            raise Http404("exercício não é do treino de hoje")
         # UM IDENTIFICADOR POR RENDERIZAÇÃO, e dois porque são dois
         # formulários — registrar e desfazer não podem compartilhar identidade,
         # senão desfazer logo depois de gravar seria recusado como repetição do

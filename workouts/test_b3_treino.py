@@ -139,34 +139,54 @@ class ORelogioNaoFalaACadaSegundoTests(TestCase):
 
     # ---------------------------------------------- ficha
 
-    def test_o_cronometro_da_ficha_nao_esta_numa_regiao_viva(self):
-        self.client.force_login(create_user(email="fala4@exemplo.com"))
 
-        html = self.client.get(reverse("workouts:routine")).content.decode()
 
-        self.assertIn("data-timer-valor", html)
-        self.assertFalse(
-            dentro_de_regiao_viva(html, "data-timer-valor"),
-            "o cronometro voltou para dentro de uma regiao viva",
+
+    # ---------------------------------------------- e só existe um relógio
+
+    def test_nao_existe_um_SEGUNDO_cronometro_em_outra_tela(self):
+        """CONSOLIDAÇÃO: eram seis testes para duas cópias do mesmo relógio.
+
+        `_cronometro.html` desenhava um cronômetro na tela principal e na ficha
+        da semana, com a mesma regra de acessibilidade do relógio da execução —
+        e três testes daqui repetiam, palavra por palavra, o que os três de
+        cima já dizem: fora de região viva, aviso próprio, fala só no começo e
+        no fim.
+
+        Duas implementações da mesma regra é uma que envelhece. O parcial saiu
+        do repositório nesta missão (zero `{% include %}`), e o que fica é a
+        garantia de que ele não volta por outra porta: nenhuma tela do treino
+        além da execução monta contagem regressiva.
+        """
+        # A SEMANA INTEIRA, e nao `sessions.first()`. A primeira versao deste
+        # teste lia uma ficha so, e a sabotagem que devolvia o cronometro
+        # passou VERDE: o bloco sabotado esta dentro de `{% if sessao.eh_hoje %}`,
+        # e a sessao sorteada pelo `.first()` nao era a de hoje. Ler uma ficha
+        # de sete e afirmar sobre as sete e o erro que este arquivo ja cometeu
+        # de outro jeito, com o `skipTest` que dependia do dia da semana.
+        pessoa = create_user(
+            email="um-relogio@exemplo.com", weekdays=tuple(range(7))
         )
+        self.client.force_login(pessoa)
+        self.client.get(reverse("workouts:routine"))
+        plano = services.get_active_routine(pessoa)
 
-    def test_a_ficha_tem_um_aviso_proprio_para_o_leitor_de_tela(self):
-        self.client.force_login(create_user(email="fala5@exemplo.com"))
+        rotas = [reverse("workouts:routine")] + [
+            reverse("workouts:ficha", args=[s.pk]) for s in plano.sessions.all()
+        ]
+        for rota in rotas:
+            with self.subTest(rota=rota):
+                html = self.client.get(rota).content.decode()
+                self.assertNotIn("data-timer-valor", html)
+                self.assertNotIn("data-descanso-relogio", html)
 
-        html = self.client.get(reverse("workouts:routine")).content.decode()
-
-        aviso = re.search(r"<p[^>]*data-timer-aviso[^>]*>", html)
-        self.assertIsNotNone(aviso)
-        self.assertIn('aria-live="polite"', aviso.group(0))
-        self.assertIn("vis-oculto", aviso.group(0))
-
-    def test_o_cronometro_da_ficha_fala_ao_iniciar_e_ao_terminar(self):
-        self.client.force_login(create_user(email="fala6@exemplo.com"))
-
-        html = self.client.get(reverse("workouts:routine")).content.decode()
-
-        self.assertIn('falar("Descanso de " + porExtenso(total)', html)
-        self.assertIn('falar("Descanso terminado, pode ir.")', html)
+        # CONTROLE POSITIVO: a execucao TEM o relogio, e e ela que os tres
+        # testes acima medem. Sem isto, um `data-descanso-relogio` renomeado
+        # deixaria as asercoes de ausencia verdes para sempre.
+        self.assertIn(
+            "data-descanso-relogio",
+            self.client.get(reverse("workouts:now")).content.decode(),
+        )
 
 
 class ODesfazerSegueAUltimaSerieTests(TestCase):

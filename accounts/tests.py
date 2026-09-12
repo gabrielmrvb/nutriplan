@@ -217,7 +217,18 @@ class OnboardingFlowTests(TestCase):
         self.assertRedirects(response, step_url(4))
         days = TrainingDay.objects.filter(user=self.user).order_by("weekday")
         self.assertEqual([d.weekday for d in days], [0, 2, 4])
-        self.assertEqual(days[0].start_time, time(19, 0))
+        # SEM HORÁRIO, e a ausência é o estado certo. `STEP3` ainda posta
+        # "19:00" — de propósito: o campo saiu do formulário em 10/09/2026, e
+        # um POST forjado não pode ressuscitá-lo. Antes disso todo mundo saía
+        # do passo 3 com 19:00, e a tela repetia esse número em cada cartão
+        # como se fosse a rotina da pessoa.
+        #
+        # `create_routine` nunca leu `start_time`; quem lê é
+        # `plans/meal_planner.py`, para não marcar refeição no meio do treino.
+        # Sem horário ele devolve `None` e o cardápio volta a ser distribuído
+        # pela janela de sono — o mesmo caminho de quem não cadastrou dia de
+        # treino. O que não se faz é inventar um padrão para completar a conta.
+        self.assertIsNone(days[0].start_time)
 
     def test_step_3_removes_weekdays_that_were_unchecked(self):
         self.client.post(step_url(1), STEP1)
@@ -5737,11 +5748,16 @@ class DiasDeTreinoNaoDependemDoAdminTests(TestCase):
             {
                 "weekdays": ["1", "3"],
                 "start_time": "18:30",
-                # A pergunta virou FAIXA. O passo mandava `duration_min: 45` e
-                # o inteiro deixou de ser perguntado — ele passou a ser
-                # derivado, porque quem precisa dele é o cardápio e não a
-                # pessoa. O controle positivo continua sendo o mesmo: a pessoa
-                # consegue gravar os próprios dias.
+                # A pergunta virou FAIXA, e depois saiu da tela inteira. O
+                # passo mandava `duration_min: 45`; o inteiro deixou de ser
+                # perguntado porque quem precisa dele é o cardápio, e a faixa
+                # deixou de ser perguntada em 10/09/2026 porque ela pedia uma
+                # calibração que ninguém faz antes de ver uma ficha.
+                #
+                # ESTE CAMPO É IGNORADO pelo formulário — fica aqui para
+                # documentar que postá-lo não muda nada. Quem decide os 60
+                # minutos abaixo é o `duracao_treino` do PERFIL, que nasce em
+                # "padrão" desde a migration `0030`.
                 "duracao_treino": DuracaoTreino.PADRAO,
                 "wake_time": "07:00",
                 "sleep_time": "23:00",

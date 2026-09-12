@@ -112,26 +112,20 @@ SANFONA = re.compile(r'<details[^>]*class="([^"]*)"')
 def html_de_todas_as_fichas(client, user=None):
     """O HTML de TODAS as fichas da semana, concatenado.
 
-    SUBSTITUI `so_a_ficha_da_semana`, e o motivo é arquitetural, não cosmético.
-    Aquela função fatiava a tela de treino no marcador `<details class="card
-    ficha"` porque o cartão completo de cada exercício era montado ali, para
-    toda sessão da semana — medido no perfil de seis dias: 259 kB, 22
-    formulários, 29 sanfonas, 141 botões, quase tudo fora da área visível. E
-    apesar de carregar tudo isso, o cartão não parecia navegável.
+    Cada sessão tem página própria (`workouts:ficha`), e este ajudante soma as
+    páginas: os testes que contavam ocorrências "na ficha da semana" guardam o
+    CONTEÚDO, não o endereço dele.
 
-    O cartão continua inteiro; ele virou uma página por sessão
-    (`workouts:ficha`). Os testes que contavam ocorrências "na ficha da semana"
-    guardam o CARTÃO, não o endereço dele — então a contagem passa a somar as
-    páginas, e o que eles provam continua o mesmo.
+    A GUARDA MUDOU DE MARCADOR, e a troca é o resumo desta missão. Ela procurava
+    `exercise__head`, o cabeçalho do cartão que a ficha desenhava por exercício
+    — com vídeo, formulário de carga, pastilhas de série e cronômetro dentro.
+    A ficha virou tela de preparação: uma lista numerada de linhas, e a linha é
+    `ficha-item`. Deixar a guarda no marcador antigo faria este ajudante levantar
+    em toda chamada; trocá-la por uma string qualquer faria ele parar de guardar.
 
-    INCLUI O DIA DE HOJE. Antes ele ficava de fora porque tinha subido para o
-    topo da tela principal, e era exatamente a queixa da auditoria: "Seu
-    programa" não servia como visão da semana porque faltava o dia em que a
-    pessoa está.
-
-    Levanta quando não há cartão nenhum. A função anterior devolvia string
-    vazia se o marcador sumisse, e string vazia faz `assertEqual(x.count(...),
-    0)` passar por ausência — um teste verde medindo nada.
+    O que ela guarda continua sendo a mesma coisa: `assertEqual(x.count(...), 0)`
+    passa por ausência quando o recorte volta vazio, e um teste verde medindo
+    nada é pior que um teste vermelho.
     """
     from django.contrib.auth import get_user as _get_user
     from django.urls import reverse as _reverse
@@ -139,16 +133,12 @@ def html_de_todas_as_fichas(client, user=None):
     # A PESSOA PODE VIR DA SESSÃO, e é o padrão de propósito: cada classe de
     # teste guarda o usuário num atributo com nome diferente (`self.user`,
     # `self.pessoa`, atributo de classe), e exigir o argumento fazia o ajudante
-    # estourar com `AttributeError` em metade dos chamadores — ruído que não
-    # tem nada a ver com o que eles medem.
+    # estourar com `AttributeError` em metade dos chamadores.
     if user is None:
         user = _get_user(client)
 
     # A ROTINA É MATERIALIZADA PELA VISITA, e não pelo cadastro. `create_user`
-    # para nos dias de treino; o plano nasce quando `workouts:routine` é
-    # aberta. Abrir a tela aqui é o que uma pessoa faz antes de tocar numa
-    # ficha — e sem isto o ajudante estouraria com `DoesNotExist` em todo teste
-    # que não tivesse chamado `create_routine` na mão.
+    # para nos dias de treino; o plano nasce quando `workouts:routine` é aberta.
     client.get(_reverse("workouts:routine"))
 
     plano = user.training_plans.get(is_active=True)
@@ -156,25 +146,27 @@ def html_de_todas_as_fichas(client, user=None):
         client.get(_reverse("workouts:ficha", args=[sessao.pk])).content.decode()
         for sessao in plano.sessions.all()
     ]
-    junto = "\n".join(partes)
-    if "exercise__head" not in junto:
+    junto = chr(10).join(partes)
+    if "ficha-item__nome" not in junto:
         raise AssertionError(
-            "nenhuma ficha trouxe cartão de exercício — a contagem abaixo "
+            "nenhuma ficha trouxe linha de exercício — a contagem abaixo "
             "mediria zero por ausência, e não por comportamento"
         )
     return junto
 
 
-def sanfonas_com_classe(html, marcador):
-    """As sanfonas cuja lista de classes contém `marcador` como TOKEN.
 
-    Token, e não substring: `exercise` casa com `exercise exercise--agora` e
-    não casa com `exercise__head`. Assim o teste sobrevive a qualquer
-    modificador que o template acrescente — que é o que ele deveria ter feito
-    desde o começo, porque a pergunta é "isto é um `<details>` de exercício?"
-    e não "o atributo está escrito exatamente assim?".
+
+def sem_comentarios_css(css):
+    """O CSS sem `/* ... */`.
+
+    Este projeto comenta muito, e o comentário CITA o nome da coisa que a
+    asserção procura — é a armadilha do `CLAUDE.md` vista dos dois lados: ela
+    produz falso verde quando se procura presença, e falso vermelho quando se
+    procura ausência. `push/test_cache_privado.sem_comentarios` faz o mesmo
+    para JavaScript, e este arquivo já dependia dela por outro caminho.
     """
-    return [c for c in SANFONA.findall(html) if marcador in c.split()]
+    return re.sub(r"/\*.*?\*/", "", css, flags=re.S)
 
 
 def dias_incluindo_hoje(quantos=5):
@@ -512,24 +504,34 @@ class WorkoutViewTests(TestCase):
 
         self.assertRedirects(response, reverse("accounts:onboarding"), target_status_code=302)
 
-    def test_the_page_shows_the_split_and_the_exercises(self):
+    def test_the_page_shows_the_split_and_NOT_the_exercises(self):
+        """O painel responde "como é a minha semana", e só isso.
+
+        ELE JÁ PROVOU O CONTRÁRIO, e a inversão é o contrato desta missão. A
+        versão anterior afirmava que "Empurrar" e "Agachamento livre" estavam
+        alcançáveis a partir desta tela — e estavam, dentro de trinta e poucos
+        cartões abertos ao mesmo tempo, para quem ainda não decidiu o que vai
+        fazer.
+
+        O que ficou aqui é o programa: o nome da divisão e um cartão por sessão,
+        cada um levando à ficha. O exercício continua existindo — na ficha, e o
+        teste conta as duas metades para não trocar um defeito por outro.
+        """
         user = create_user()
         self.client.force_login(user)
 
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, 200)
-        # A TELA PRINCIPAL mostra a divisão e as sessões; o exercício mora na
-        # ficha. "Empurrar" é o foco do treino A, que era escrito no corpo da
-        # sanfona, e "Agachamento livre" é um exercício — os dois desceram
-        # para a ficha junto com o cartão.
         self.assertContains(response, "Seu programa")
         self.assertContains(response, "sessao-cartao")
 
+        painel = sem_scripts(response.content.decode())
+        self.assertNotIn("Agachamento livre", painel)
+
+        # E a outra metade: o exercício não sumiu, mudou de tela.
         ficha = html_de_todas_as_fichas(self.client)
-        self.assertIn("Empurrar", ficha)
         self.assertIn("Agachamento livre", ficha)
-        self.assertIn("descanso", ficha)
 
     def test_the_first_visit_creates_the_routine(self):
         user = create_user()
@@ -656,12 +658,6 @@ class WorkoutVideoViewTests(TestCase):
         self.user = create_user()
         self.client.force_login(self.user)
 
-    def test_each_exercise_offers_the_demonstration(self):
-        """O botão do vídeo mora no CARTÃO, e o cartão mora na ficha."""
-        html = html_de_todas_as_fichas(self.client)
-
-        self.assertIn("Ver vídeo de execução", html)
-        self.assertIn("youtube-nocookie.com/embed/", html)
 
     def test_the_button_does_not_promise_a_video_that_is_missing(self):
         """O rótulo diz "vídeo": todo exercício ativo precisa ter um.
@@ -676,57 +672,8 @@ class WorkoutVideoViewTests(TestCase):
         ]
         self.assertEqual(sem_clipe, [])
 
-    def test_there_is_one_media_slot_per_exercise_in_the_routine(self):
-        response = self.client.get(self.url)
-        corpo = response.content.decode()
 
-        # A SEMANA INTEIRA, hoje incluído: o cartão saiu da tela principal e
-        # virou uma ficha por sessão, e a de hoje é uma delas. Antes ela ficava
-        # de fora porque o dia tinha subido para o topo da tela.
-        exercicios = sum(
-            session.exercises.count()
-            for session in self.user.training_plans.get(is_active=True).sessions.all()
-        )
-        semana = html_de_todas_as_fichas(self.client)
-        self.assertEqual(semana.count('data-clipe="'), exercicios)
-        self.assertEqual(semana.count("exercise__ver"), exercicios)
 
-    def test_no_player_is_loaded_before_being_asked_for(self):
-        """Dezenove iframes ao abrir a tela seriam dezenove conexões ao YouTube.
-
-        O cartão chegou a mostrar uma miniatura 16:9 por exercício, e ela
-        custava 149 px de altura cada — só um cartão e meio cabia na tela do
-        celular. Hoje o cartão traz um botão de uma linha, e o player nasce no
-        toque, dentro do drawer.
-        """
-        corpo = html_de_todas_as_fichas(self.client)
-
-        # Só a marcação: o script traz `createElement("iframe")` e os
-        # comentários citam `<iframe>` — nenhum dos dois é um player montado.
-        marcacao = corpo.split("<script>", 1)[0]
-        self.assertNotIn("<iframe", marcacao)
-        self.assertIn("exercise__ver", marcacao)
-
-        # O endereço do player vem no atributo, mas nenhum player é montado
-        # antes do toque — é o que evita dezenove conexões ao abrir a tela.
-        #
-        # Era `data-animacao=`; a fase B removeu esse atributo junto com o
-        # único leitor dele. `data-clipe=` é o endereço que sobrou, e a REGRA
-        # é a mesma: ele viaja como texto e vira player só no toque.
-        self.assertIn("data-clipe=", marcacao)
-        self.assertNotIn("<video", marcacao)
-
-    def test_the_fallback_search_link_travels_with_each_exercise(self):
-        """Vídeo de terceiro morre: sem saída, sobra um player quebrado.
-
-        O link saiu do cartão e foi para o drawer — só procura outra
-        demonstração quem abriu a primeira e não gostou. No cartão ele era uma
-        linha a mais para quem nunca vai clicar.
-        """
-        corpo = html_de_todas_as_fichas(self.client)
-        self.assertIn("youtube.com/results?search_query=", corpo)
-        self.assertIn("data-busca=", corpo)
-        self.assertIn("data-drawer-busca", corpo)
 
 
 class VideoCheckCommandTests(TestCase):
@@ -932,81 +879,8 @@ class RecordLoadViewTests(TestCase):
         self.assertIn(reverse("accounts:login"), response["Location"])
         self.assertFalse(ExerciseLog.objects.exists())
 
-    def test_the_routine_shows_the_load_and_the_comparison(self):
-        hoje = timezone.localdate()
-        services.record_load(self.user, self.exercise, "75", day=hoje - timedelta(days=7))
-        services.record_load(self.user, self.exercise, "80", day=hoje)
-
-        # O "+5" e o campo de carga são do CARTÃO, e o cartão mora na ficha.
-        html = html_de_todas_as_fichas(self.client)
-
-        self.assertIn("+5", html)
-        self.assertIn('name="weight_kg"', html)
 
 
-class RestTimerTests(TestCase):
-    """O cronômetro é do navegador, mas o tempo vem da ficha."""
-
-    @classmethod
-    def setUpTestData(cls):
-        call_command("seed_workouts", verbosity=0)
-
-    def test_each_exercise_carries_its_own_rest_time(self):
-        user = create_user()
-        self.client.force_login(user)
-
-        response = self.client.get(reverse("workouts:routine"))
-        corpo = response.content.decode()
-
-        plan = user.training_plans.get(is_active=True)
-        hoje = timezone.localdate().weekday()
-        exercicios = [
-            item
-            for session in plan.sessions.all()
-            for item in session.exercises.all()
-        ]
-        # Um cronômetro por EXERCÍCIO.
-        #
-        # Era um por série, quando cada série tinha a própria linha. Com o
-        # registro único, o botão é um só — e o descanso continua sendo entre
-        # séries: ele é tocado a cada uma, no mesmo lugar.
-        # O descanso viaja com a execução, e a execução mora na FICHA de cada
-        # sessão (`workouts:ficha`) e em `workouts:now` — não na tela principal.
-        corpo = html_de_todas_as_fichas(self.client)
-        self.assertEqual(corpo.count('data-descanso="'), len(exercicios))
-        for item in exercicios:
-            with self.subTest(exercicio=item.exercise.name):
-                self.assertIn(f'data-descanso="{item.rest_seconds}"', corpo)
-
-    def test_the_timer_widget_exists_once_for_the_whole_page(self):
-        """Um cronômetro por exercício seriam dezoito contagens concorrendo."""
-        user = create_user()
-        self.client.force_login(user)
-
-        # UM POR PÁGINA. `html_de_todas_as_fichas` concatena as fichas da
-        # semana, então a contagem ali seria uma por sessão — e o que se prova
-        # é que nenhuma PÁGINA monta dois cronômetros concorrendo.
-        from workouts.models import TrainingPlan
-
-        self.client.get(reverse("workouts:routine"))
-        plano = TrainingPlan.objects.filter(user=user, is_active=True).first()
-        for sessao in plano.sessions.all():
-            with self.subTest(sessao=sessao.label):
-                corpo = self.client.get(
-                    reverse("workouts:ficha", args=[sessao.pk])
-                ).content.decode()
-
-                self.assertEqual(corpo.count('class="rest-timer"'), 1)
-                # o elemento e o seletor do script
-                self.assertEqual(corpo.count("data-timer-valor"), 2)
-
-    def test_the_timer_does_not_appear_before_being_started(self):
-        """Barra fixa visível sem ninguém ter pedido é ruído na tela."""
-        user = create_user()
-        self.client.force_login(user)
-
-        corpo = html_de_todas_as_fichas(self.client)
-        self.assertIn('data-timer hidden', corpo)
 
 
 class ShortClipTests(TestCase):
@@ -1062,32 +936,28 @@ class ShortClipTests(TestCase):
         ]
         self.assertEqual(sem_clipe, [])
 
-    def test_the_routine_marks_the_type_of_each_clip(self):
-        user = create_user()
-        self.client.force_login(user)
-
-        corpo = html_de_todas_as_fichas(self.client)
-
-        self.assertIn('data-tipo="youtube"', corpo)
-        self.assertIn("autoplay=1", corpo)
 
     def test_the_media_frame_keeps_a_fixed_box(self):
         """Moldura fixa evita o salto de layout quando o player entra.
 
-        A moldura mudou de lugar: era o segundo bloco do cartão, e passou a ser
-        o topo do drawer. O motivo de existir é o mesmo — sem caixa reservada,
-        a chegada do player empurra o conteúdo para baixo.
+        A moldura mudou de lugar duas vezes: era o segundo bloco do cartão,
+        virou o topo do drawer, e agora é o topo da EXECUÇÃO — a única tela que
+        monta player. O motivo de existir é o mesmo nas três: sem caixa
+        reservada, a chegada do player empurra o conteúdo para baixo.
+
+        O que mudou de valor foi a proporção do vertical, e está escrito no
+        CSS: 3/4 em vez de 9:16, porque a auditoria dos 36 achou canais
+        publicando vídeo HORIZONTAL dentro de Short. Prender 9:16 devolveria em
+        tarja o que economiza em recorte.
         """
         css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
             encoding="utf-8"
         )
-        moldura = css.split("\n.drawer__media {", 1)[1].split("}", 1)[0]
+        moldura = css.split(chr(10) + ".agora__media {", 1)[1].split("}", 1)[0]
         self.assertIn("aspect-ratio: 16 / 9", moldura)
 
-        # Short é 9:16: esticado em 16:9 ficaria com duas tarjas pretas
-        # ocupando metade da tela.
-        vertical = css.split("\n.drawer__media--vertical {", 1)[1].split("}", 1)[0]
-        self.assertIn("aspect-ratio: 9 / 16", vertical)
+        vertical = css.split(chr(10) + ".agora__media--vertical {", 1)[1].split("}", 1)[0]
+        self.assertIn("aspect-ratio: 3 / 4", vertical)
 
 
 class LoadInputFormatTests(TestCase):
@@ -1103,25 +973,35 @@ class LoadInputFormatTests(TestCase):
     def setUpTestData(cls):
         call_command("seed_workouts", verbosity=0)
 
-    def test_the_field_is_not_a_number_input(self):
-        user = create_user()
-        self.client.force_login(user)
-
-        corpo = html_de_todas_as_fichas(self.client)
-
-        self.assertIn('name="weight_kg"', corpo)
-        self.assertNotIn('type="number" name="weight_kg"', corpo)
-        self.assertIn('inputmode="decimal"', corpo)
 
     def test_no_template_comment_leaks_into_the_page(self):
-        """`{# ... #}` do Django não é multilinha — quando é, vaza como texto."""
-        user = create_user()
+        """`{# ... #}` do Django não é multilinha — quando é, vaza como texto.
+
+        VARRE AS TRÊS TELAS DO TREINO, e a ampliação é a consolidação de dois
+        testes: este media só a ficha da semana, e a mesma armadilha existe em
+        cada template novo. Painel, ficha e execução foram reescritos nesta
+        missão; é exatamente quando um `{#` de duas linhas entra.
+        """
+        user = create_user(weekdays=dias_incluindo_hoje(5))
         self.client.force_login(user)
+        # A ROTINA NASCE NA VISITA, e não no cadastro: `create_user` para nos
+        # dias de treino. Sem abrir o painel primeiro, `training_plans` está
+        # vazio e o teste morre de `DoesNotExist` antes de medir qualquer
+        # coisa — que foi como esta reescrita reprovou na primeira execução.
+        painel = self.client.get(reverse("workouts:routine"))
+        sessao = user.training_plans.get(is_active=True).sessions.first()
 
-        corpo = html_de_todas_as_fichas(self.client)
-
-        self.assertNotIn("{#", corpo)
-        self.assertNotIn("#}", corpo)
+        telas = {
+            "painel": painel,
+            "ficha": self.client.get(reverse("workouts:ficha", args=[sessao.pk])),
+            "execução": self.client.get(reverse("workouts:now")),
+        }
+        for nome, resposta in telas.items():
+            with self.subTest(tela=nome):
+                self.assertEqual(resposta.status_code, 200)
+                corpo = resposta.content.decode()
+                self.assertNotIn("{#", corpo)
+                self.assertNotIn("#}", corpo)
 
 
 class ExerciseDrawerTests(TestCase):
@@ -1155,37 +1035,7 @@ class ExerciseDrawerTests(TestCase):
         bloco = html.split('class="card hoje"', 1)[1].split("</section>", 1)[0]
         return bloco.split("data-hoje-cta", 1)[0].rsplit("<a ", 1)[1]
 
-    def test_the_page_has_exactly_one_drawer(self):
-        """Um por exercício seriam trinta players no documento, e o custo
-        apareceria no 3G da academia antes de qualquer benefício."""
-        # UM POR PÁGINA. `_pagina()` concatena as fichas da semana, então a
-        # contagem ali seria uma por sessão — e o que se quer provar é que
-        # nenhuma PÁGINA monta dois. A medição é por ficha.
-        from workouts.models import TrainingPlan
 
-        self.client.get(reverse("workouts:routine"))
-        plano = TrainingPlan.objects.filter(user=self.user, is_active=True).first()
-        for sessao in plano.sessions.all():
-            with self.subTest(sessao=sessao.label):
-                html = self.client.get(
-                    reverse("workouts:ficha", args=[sessao.pk])
-                ).content.decode()
-                self.assertEqual(html.count("data-drawer "), 1)
-                self.assertEqual(html.count('class="drawer"'), 1)
-
-    def test_each_exercise_carries_what_the_drawer_shows(self):
-        html = self._pagina()
-        for atributo in (
-            "data-clipe=",
-            "data-series=",
-            "data-reps=",
-            "data-descanso-texto=",
-            "data-carga=",
-            "data-cue=",
-            "data-musculo=",
-        ):
-            with self.subTest(atributo=atributo):
-                self.assertIn(atributo, html)
 
     def test_the_clip_is_configured_to_loop_without_distraction(self):
         exercicio = Exercise.objects.exclude(video_url="").first()
@@ -1203,32 +1053,7 @@ class ExerciseDrawerTests(TestCase):
         # quem usa, não faz sentido entregar o resto para publicidade.
         self.assertIn("youtube-nocookie.com", url)
 
-    def test_the_media_is_dropped_on_every_way_out(self):
-        """O `<dialog>` fechado some da tela, mas o `<iframe>` continua no
-        documento, tocando e baixando.
 
-        Medido no navegador: fechar o drawer deixava o player rodando atrás da
-        tela. A causa foi depender só do evento `close`, que naquele navegador
-        não disparava. Agora a limpeza roda em cada caminho — botão, fundo,
-        Esc e cronômetro — com o evento como rede de segurança.
-        """
-        html = self._pagina()
-
-        self.assertIn("function limparMidia()", html)
-        self.assertIn("function fecharDrawer()", html)
-
-        limpeza = html.split("function limparMidia() {", 1)[1].split("}", 1)[0]
-        self.assertIn('innerHTML = ""', limpeza)
-
-        # Três caminhos ligados na função, mais os dois eventos nativos.
-        self.assertIn("data-drawer-fechar", html)
-        self.assertIn("if (event.target === drawer) fecharDrawer();", html)
-        self.assertIn('drawer.addEventListener("cancel", limparMidia)', html)
-        self.assertIn('drawer.addEventListener("close", limparMidia)', html)
-
-    def test_the_drawer_can_be_closed_by_the_backdrop(self):
-        html = self._pagina()
-        self.assertIn("event.target === drawer", html)
 
 
 class WeekAccordionTests(TestCase):
@@ -1257,7 +1082,14 @@ class WeekAccordionTests(TestCase):
         call_command("seed_workouts", verbosity=0)
 
     def setUp(self):
-        self.user = create_user(email="sanfona@exemplo.com", weekdays=(0, 1, 2, 3, 4))
+        # DERIVADO DE HOJE, e não `(0, 1, 2, 3, 4)`: com os dias fixos, o teste
+        # do bloco de hoje pulava aos sábados e domingos — foi o único skip da
+        # suíte de 12/09/2026, que rodou num sábado. Cobertura que muda com o
+        # dia da semana é o defeito que `dias_incluindo_hoje` existe para
+        # evitar, e ele já era usado três classes abaixo.
+        self.user = create_user(
+            email="sanfona@exemplo.com", weekdays=dias_incluindo_hoje(5)
+        )
         # A ficha nasce no primeiro acesso à tela; criar aqui é o que permite
         # consultá-la antes de renderizar.
         self.plano = services.create_routine(self.user)
@@ -1332,8 +1164,9 @@ class WeekAccordionTests(TestCase):
         """
         hoje = timezone.localdate().weekday()
         do_dia = self.plano.sessions.filter(weekday=hoje).first()
-        if do_dia is None:
-            self.skipTest("hoje é dia de descanso para este usuário")
+        # Não é mais `skipTest`: `dias_incluindo_hoje` no `setUp` garante a
+        # sessão, e a asserção diz em voz alta se a garantia quebrar.
+        self.assertIsNotNone(do_dia, "o fixture deixou de incluir o dia de hoje")
 
         html = self._pagina()
 
@@ -1385,356 +1218,9 @@ class WeekAccordionTests(TestCase):
         self.assertIn("séries", html)
         self.assertIn("min", html)
 
-    def test_the_exercises_are_in_the_page_even_when_collapsed(self):
-        """O HTML vem inteiro de propósito.
-
-        Buscar os exercícios por rede ao abrir a ficha faria a academia com
-        sinal ruim virar problema de produto. O que a sanfona economiza é
-        layout — conteúdo de `<details>` fechado não é medido nem pintado —,
-        não o download.
-        """
-        plano = self.plano
-        total = sum(ss.exercises.count() for ss in plano.sessions.all())
-
-        html = html_de_todas_as_fichas(self.client)
-        self.assertEqual(html.count("exercise__ver"), total)
-        # Um registro por exercício, e não uma linha por série: as quatro
-        # linhas empilhadas viraram um formulário só.
-        self.assertEqual(html.count('class="registro"'), total)
-
-    def test_opening_one_closes_the_others(self):
-        """`<details name>` faria isso nativamente, mas só em navegador
-        recente — e este projeto já perdeu a barra de navegação por confiar num
-        recurso novo. O JS cobre todo mundo."""
-        html = self._pagina()
-        self.assertIn('addEventListener("toggle"', html)
-        self.assertIn("[data-ficha][open]", html)
-        self.assertIn("outra.open = false", html)
 
 
-class ExerciseAccordionTests(TestCase):
-    """A segunda sanfona: os exercícios dentro da ficha aberta.
 
-    A sanfona da semana resolveu a rolagem ENTRE treinos e deixou intacta a de
-    dentro. A ficha de hoje abre com sete exercícios abertos; cada cartão traz
-    a instrução, o botão de execução e uma tabela de três a quatro séries com
-    campo de carga, campo de repetição e dois botões por linha. Medido nesta
-    tela, a ficha aberta sozinha passa de 3.000 px — e a pessoa está em pé,
-    entre séries, procurando UM exercício.
-
-    Fechados, os sete cabem na tela de uma vez: dá para ver o treino inteiro
-    sem rolar e abrir só aquele em que se vai anotar.
-    """
-
-    @classmethod
-    def setUpTestData(cls):
-        call_command("seed_workouts", verbosity=0)
-
-    def setUp(self):
-        self.user = create_user(email="acordeao@exemplo.com", weekdays=(0, 1, 2, 3, 4))
-        self.plano = services.create_routine(self.user)
-        self.client.force_login(self.user)
-        # O CARTÃO MUDOU DE PÁGINA, e é por isso que `self.html` agora é a
-        # soma das fichas e não a tela de treino.
-        #
-        # A sanfona do exercício continua existindo e continua sendo o que este
-        # arquivo guarda. O que mudou é onde ela vive: a tela principal montava
-        # o cartão completo de toda a semana — 259 kB e 141 botões no perfil de
-        # seis dias — e agora lista sessões, com o detalhe em `workouts:ficha`.
-        self.html = html_de_todas_as_fichas(self.client)
-
-    def _total_de_exercicios(self):
-        return sum(s.exercises.count() for s in self.plano.sessions.all())
-
-    def _exercicios_da_semana(self):
-        """Todos os exercícios do plano, hoje incluído.
-
-        Antes esta conta excluía o dia de hoje, porque ele tinha subido para o
-        topo da tela principal como lista de linhas. Com a ficha em rota
-        própria, o dia de hoje tem ficha como qualquer outro — e a auditoria
-        pedia exatamente isso: "Seu programa" não servia como visão da semana
-        justamente por omitir o dia em que a pessoa está.
-        """
-        return self._total_de_exercicios()
-
-    def test_every_exercise_is_a_native_disclosure(self):
-        """`<details>` e não `<div>` com JavaScript, pela mesma razão da ficha.
-
-        Abre por teclado, anuncia o estado para leitor de tela, responde ao
-        Ctrl+F do navegador e funciona antes de o JavaScript carregar — numa
-        academia com sinal ruim, esse último item não é detalhe.
-
-        Roda nos DOIS estados do calendário, e a razão é uma cicatriz: a
-        versão anterior contava a string `'<details class="exercise"'`, com a
-        aspas de fechamento, e o exercício de hoje recebe `exercise--agora`.
-        Em dia de treino a conta dava 44 de 45 e a suíte ficava vermelha — sem
-        nenhum defeito no produto, só uma âncora presa ao texto do atributo.
-        Passava aos sábados e falhava às segundas.
-        """
-        for rotulo, dias in (
-            ("treina hoje", dias_incluindo_hoje(5)),
-            ("descansa hoje", dias_sem_hoje(3)),
-        ):
-            with self.subTest(calendario=rotulo):
-                user = create_user(
-                    email="sanfona-%s@exemplo.com" % rotulo.replace(" ", "-"),
-                    weekdays=dias,
-                )
-                plano = services.create_routine(user)
-                self.client.force_login(user)
-
-                # A tela principal é lida como tela principal: as duas
-                # últimas asserções cobram o que ela NÃO tem mais.
-                html = self.client.get(
-                    reverse("workouts:routine")
-                ).content.decode()
-                semana = html_de_todas_as_fichas(self.client, user)
-
-                # NENHUM EXERCÍCIO SE PERDE PELO CAMINHO, e é isso que o teste
-                # cobra desde que a tela foi recomposta pela primeira vez.
-                #
-                # Antes a página tinha duas metades — a lista de hoje e a ficha
-                # da semana — e a soma das duas tinha de dar o plano inteiro.
-                # Agora a tela principal não desenha exercício nenhum: ela lista
-                # sessões, e cada sessão tem ficha. A soma das fichas é que tem
-                # de dar o plano inteiro, hoje incluído.
-                total = sum(ss.exercises.count() for ss in plano.sessions.all())
-
-                self.assertEqual(
-                    len(sanfonas_com_classe(semana, "exercise")), total
-                )
-                self.assertEqual(
-                    semana.count('<summary class="exercise__head"'), total
-                )
-                # A tela principal lista uma sessão por cartão, e não um
-                # exercício por linha: o paredão saiu.
-                # O TOKEN, e não o prefixo: `sessao-cartao__texto` e
-                # `sessao-cartao__nome` também começam com a mesma string, e
-                # contar o prefixo faria a conta crescer com cada elemento
-                # interno que o cartão ganhasse. É a mesma régua de
-                # `sanfonas_com_classe`.
-                cartoes = re.findall(r'class="sessao-cartao[ "]', html)
-                self.assertEqual(len(cartoes), plano.sessions.count())
-                self.assertNotIn('class="linha-ex', html)
-
-    def test_o_modificador_do_exercicio_de_hoje_nao_esconde_a_linha(self):
-        """A regressão exata que derrubava a suíte, isolada — e ela migrou.
-
-        A cicatriz original: um teste de estrutura ancorado na string exata
-        `'<details class="exercise"'` não enxergava o exercício de hoje, que
-        recebe classe extra. Passava aos sábados e falhava às segundas.
-
-        A composição mudou de lugar e o risco continua o mesmo: hoje o
-        exercício de hoje é uma LINHA, e ela também recebe modificador —
-        `linha-ex--feito` e `linha-ex--parcial`. Um teste ancorado em
-        `class="linha-ex"` com aspas de fechamento voltaria a ficar cego
-        exatamente para as linhas que mudaram de estado.
-        """
-        user = create_user(email="modificador@exemplo.com", weekdays=dias_incluindo_hoje(5))
-        services.create_routine(user)
-        self.client.force_login(user)
-        plano = services.get_active_routine(user)
-        hoje = timezone.localdate().weekday()
-        sessao = next(s for s in plano.sessions.all() if s.weekday == hoje)
-        item = sessao.exercises.first()
-        for n in range(1, item.sets + 1):
-            services.record_load(user, item.exercise, Decimal("40"), set_number=n)
-
-        html = html_de_todas_as_fichas(self.client)
-
-        # A régua é o TOKEN, e não a string exata do atributo — é a cicatriz
-        # que este teste guarda: uma âncora presa a `'<details class="exercise"'`
-        # não enxergava o exercício de hoje, que ganha classe extra, e a suíte
-        # passava aos sábados e falhava às segundas.
-        #
-        # A LINHA saiu junto com o paredão; quem carrega o estado é o CARTÃO,
-        # e ele mora na ficha. O risco é idêntico e a régua continua sendo o
-        # token.
-        todas = re.findall(r'class="(exercise[^_"][^"]*)"', html)
-        com_modificador = [c for c in todas if len(c.split()) > 1]
-
-        self.assertTrue(
-            com_modificador,
-            "o cartão do exercício concluído deveria ter classe extra",
-        )
-        self.assertIn("exercise--feito", " ".join(com_modificador))
-
-    def test_nenhuma_sanfona_nasce_aberta_em_lugar_nenhum(self):
-        """A regra voltou a ser "nenhuma", e a premissa é que mudou.
-
-        A versão anterior abria UMA — o primeiro exercício de hoje sem série
-        anotada — e o argumento era bom: com todos os exercícios empilhados
-        como cartões iguais, apontar o próximo poupava rolagem.
-
-        A recomposição tirou a premissa. Hoje deixou de ser uma pilha de
-        cartões e virou uma lista de linhas; não há sanfona de hoje para abrir,
-        e o "próximo a fazer" deixou de ser uma aposta de layout para virar uma
-        tela — `workouts:now` resolve exercício da vez, série da vez e carga no
-        servidor.
-
-        O que sobra na página é a ficha da SEMANA, e ali a regra antiga sempre
-        valeu inteira: são treinos que não são o de agora, e nenhum abre.
-        """
-        self.assertNotIn("data-exercicio open", self.html)
-
-    def test_no_exercise_of_another_day_ever_starts_open(self):
-        """A trava que sobrevive à mudança: fora de hoje, tudo fechado.
-
-        Os cartões dos outros dias vêm do mesmo parcial que os de hoje, e é
-        exatamente por isso que este teste existe — uma variável de contexto
-        vazando para dentro do laço das fichas abriria nove sanfonas de um
-        treino que a pessoa não vai fazer, e nada quebraria.
-        """
-        hoje = timezone.localdate().weekday()
-        for ficha in self.html.split('<details class="card ficha"')[1:]:
-            corpo = ficha.split("</details>", 1)[0]
-            self.assertNotIn("data-exercicio open", corpo)
-        # E, no dia de descanso, nenhum aberto em lugar nenhum.
-        if not self.plano.sessions.filter(weekday=hoje).exists():
-            self.assertNotIn("data-exercicio open", self.html)
-
-    def test_the_collapsed_header_says_enough_to_choose_without_opening(self):
-        """Fechado, o cartão ainda responde "é este?".
-
-        Número, nome, prescrição e a etiqueta de músculo. Sem elas a sanfona
-        troca rolagem por toque às cegas, que é pior: a pessoa abre três
-        cartões para achar o que queria.
-
-        O DESCANSO SAIU DAQUI e foi para o corpo, junto do vídeo e dos
-        músculos. O estado fechado existe para caber — seis cartões numa tela,
-        para quem está em pé procurando um —, e a pergunta que ele responde é
-        "é este?". Descanso não ajuda a escolher; ele importa depois de
-        escolher, e é lá que ele está agora.
-        """
-        cabecalhos = [
-            trecho.split("</summary>", 1)[0]
-            for trecho in self.html.split('<summary class="exercise__head"')[1:]
-        ]
-        self.assertEqual(len(cabecalhos), self._exercicios_da_semana())
-
-        # TODO cabeçalho responde "é este?", e não só o primeiro.
-        #
-        # A versão anterior comparava o PRIMEIRO `<summary>` da página com
-        # `sessions.first()` do banco. São duas ordens diferentes: o Treino V2
-        # põe a ficha de HOJE no topo, então em terça, quarta ou sexta o
-        # primeiro cabeçalho renderizado era de outra ficha e o teste falhava
-        # sem defeito nenhum no produto. Passava na segunda e no sábado.
-        for cabecalho in cabecalhos:
-            self.assertIn("exercise__order", cabecalho)
-            self.assertIn("exercise__name", cabecalho)
-            self.assertIn("exercise__prescricao", cabecalho)
-            self.assertIn("exercise__tag--target", cabecalho)
-            # E o descanso NÃO está mais aqui: ele responde "como executo",
-            # não "é este?".
-            self.assertNotIn("exercise__tag--rest", cabecalho)
-            # E a seta, que é o que diz que aquilo abre.
-            self.assertIn("exercise__seta", cabecalho)
-
-        # E os exercícios da página são exatamente os do plano — em qualquer
-        # ordem, que é o que muda com o dia.
-        na_pagina = [
-            c.split('class="exercise__name">', 1)[1].split("</strong>", 1)[0]
-            for c in cabecalhos
-        ]
-        # A semana INTEIRA, hoje incluído: cada sessão tem ficha, e a de hoje
-        # é uma delas. Antes ela ficava de fora porque o dia tinha virado lista
-        # de linhas na tela principal — e a lista saiu com o paredão.
-        no_plano = [
-            item.exercise.name
-            for sessao in self.plano.sessions.all()
-            for item in sessao.exercises.all()
-        ]
-        self.assertCountEqual(na_pagina, no_plano)
-
-    def test_the_sets_are_in_the_page_even_when_collapsed(self):
-        """O HTML continua inteiro — a sanfona economiza layout, não download.
-
-        Vale o mesmo motivo da ficha: buscar o registro por rede ao abrir o
-        exercício faria a academia com sinal ruim virar problema de produto. E é
-        o que mantém o Ctrl+F do navegador achando o exercício que está fechado.
-
-        Conta REGISTROS e não linhas de série: as quatro linhas por exercício
-        viraram um formulário só.
-        """
-        total = self._exercicios_da_semana()
-
-        corpo = html_de_todas_as_fichas(self.client)
-
-        self.assertEqual(corpo.count('class="registro"'), total)
-
-    def test_landing_on_an_exercise_anchor_opens_it(self):
-        """Sem isto, salvar carga sem JavaScript parece não ter salvado.
-
-        `record_load` responde JSON para quem chegou por `fetch`, mas o
-        caminho sem JavaScript continua existindo e termina em
-        `redirect(... + "#exercicio-<pk>")` — a âncora que devolve a pessoa ao
-        exercício em vez de jogá-la no topo da página.
-
-        Com o cartão fechado por padrão, essa âncora entrega um cartão
-        FECHADO: a carga foi para o banco e a tela não mostra nada. É
-        indistinguível de erro, e a resposta é tocar de novo.
-        """
-        self.assertIn("abrirPeloEndereco", self.html)
-        self.assertIn("location.hash", self.html)
-        self.assertIn('addEventListener("hashchange"', self.html)
-
-    def test_the_chevron_turns_when_the_exercise_opens(self):
-        """A seta é o estado. Sem ela virar, fechado e aberto ficam iguais no
-        cabeçalho, e o único aviso de que abriu é o conteúdo aparecer — que é
-        justamente o que sai da tela quando se fecha."""
-        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
-            encoding="utf-8"
-        )
-        bloco = css.split(".exercise[open] > .exercise__head .exercise__seta", 1)
-        self.assertEqual(len(bloco), 2, "a seta do exercício não gira ao abrir")
-        self.assertIn("rotate(180deg)", bloco[1].split("}", 1)[0])
-
-    def test_the_execution_button_lives_in_the_open_body(self):
-        """O botão de vídeo mora no CORPO, e a inversão é deliberada.
-
-        A versão anterior deste teste defendia o contrário, com um argumento
-        que continua verdadeiro: ver o movimento é o que se quer ANTES de
-        decidir abrir, e no cabeçalho ele ficava a um toque em qualquer
-        estado.
-
-        O QUE MUDOU foi o peso do estado fechado. Um botão de 24 caracteres em
-        cada cartão custava altura em TODOS eles para servir a quem não conhece
-        o movimento — e a lista existe para quem está em pé procurando um
-        exercício entre oito. Fechados e enxutos, seis cabem numa tela; com o
-        botão, cabiam três.
-
-        O CUSTO É REAL E FICA REGISTRADO: quem não reconhece o nome precisa de
-        um toque a mais para ver o vídeo. O que paga é que esse toque abre
-        TAMBÉM as séries, os músculos e a dica — e o exercício da vez já vem
-        aberto, que é o caso mais frequente.
-
-        Um `<button>` dentro de `<summary>` continuaria sendo HTML válido, mas
-        o toque nele alternaria a sanfona junto; fora do `<summary>` esse
-        problema deixa de existir.
-        """
-        cabecalho = self.html.split('<summary class="exercise__head"', 1)[1]
-        cabecalho = cabecalho.split("</summary>", 1)[0]
-        self.assertNotIn("exercise__ver", cabecalho)
-
-        # Controle positivo: ele existe, e está no corpo que a sanfona abre.
-        corpo = self.html.split('<div class="exercise__body">', 1)[1]
-        self.assertIn("exercise__ver", corpo)
-
-        # E o toque não pode abrir a sanfona junto com o drawer.
-        handler = self.html.split('closest("[data-clipe]")', 1)[1].split("});", 1)[0]
-        self.assertIn("preventDefault", handler)
-
-    def test_opening_one_exercise_closes_the_others(self):
-        """Seleção única, como na ficha da semana: só o exercício da vez fica
-        aberto.
-
-        É o que mantém a promessa da sanfona depois do primeiro toque. Sem
-        fechar o anterior, abrir três exercícios ao longo do treino devolve a
-        página comprida que a sanfona veio resolver — e a pessoa não fecha
-        manualmente, porque está no meio de uma série.
-        """
-        self.assertIn("[data-exercicio][open]", self.html)
-        self.assertIn("outro.open = false", self.html)
 
 
 class ExerciseFrameTests(TestCase):
@@ -1799,83 +1285,8 @@ class ExerciseFrameTests(TestCase):
         self.assertTrue(urls[0].endswith("/0.jpg"))
         self.assertTrue(urls[1].endswith("/1.jpg"))
 
-    def test_the_drawer_walks_down_the_media_ladder(self):
-        """A execução é uma ESCADA de dois degraus — clipe, depois foto —, e a
-        anatomia não é degrau nenhum: é a outra opção do seletor.
 
-        O docstring dizia "três degraus: EXECUÇÃO, foto, anatomia; cada um só
-        entra quando o de cima não existe". Valia até a fase B, que tirou a
-        anatomia da escada e a pôs ao lado, sempre disponível. O corpo do teste
-        acompanhou a mudança e esta frase não — que é o inverso do que o
-        repositório cobra de um docstring.
 
-        A ordem era outra — animação primeiro —, e o docstring deste teste
-        repetia a premissa que a justificava: "hoje o topo está vazio para todo
-        mundo". Era verdade quando foi escrito. Quando `animacoes.json` passou a
-        preencher os 36, `montarAnimacao` virou o vencedor permanente e o botão
-        "Ver vídeo de execução" passou a abrir o diagrama de músculos.
-
-        O teste fixava a linha defeituosa LITERALMENTE, então ele passava
-        justamente por estar errado junto. Agora ancora na ordem, que é o que
-        importa.
-        """
-        user = create_user(email="frames@exemplo.com")
-        self.client.force_login(user)
-        html = html_de_todas_as_fichas(self.client)
-
-        # A LISTA JÁ PERDEU DOIS. `data-animacao=` saiu na fase B, quando a
-        # anatomia desta tela deixou de ser vídeo de terceiro; `data-destaques=`
-        # saiu agora, com o mapa muscular. Atributo sem leitor é peso de HTML
-        # multiplicado por exercício, e os dois eram grandes.
-        for atributo in ("data-quadros=", "data-clipe="):
-            with self.subTest(atributo=atributo):
-                self.assertIn(atributo, html)
-
-        # A escada mudou de FORMA no Treino V4 e não de REGRA. Ela era um `if`
-        # com três chamadas encadeadas; virou `montarMidia`, que separa o que
-        # é EXECUÇÃO (clipe, e a foto como degrau seguinte) do que é ANATOMIA,
-        # porque as duas passaram a ser escolha da pessoa. A ordem dentro da
-        # execução é a mesma, e é isso que este teste continua medindo.
-        # A ÂNCORA MUDOU DE `return` PARA A ATRIBUIÇÃO, e a suite inteira foi
-        # quem pegou: a escada deixou de ser devolvida direto para virar
-        # `var montou = ...`, porque agora a caixa some quando nada monta.
-        # A ORDEM, que é o que este teste mede, não mudou.
-        execucao = html.split("montou = montarClipe(media, dados)", 1)[1].split(";", 1)[0]
-        self.assertIn("montarQuadros", execucao)
-
-        # E O RAMO DA ANATOMIA NÃO EXISTE MAIS. Ele era o outro lado do
-        # seletor; sem seletor, `montarMidia` tem um caminho só e a escada
-        # deixa de ter desvio. Medir a AUSÊNCIA é o que impede o ramo de voltar
-        # em silêncio junto com um botão novo.
-        self.assertNotIn('if (qual === "anatomia")', html)
-        self.assertNotIn("pintarCorpo", html)
-
-    def test_the_numbers_are_filled_no_matter_which_media_is_used(self):
-        """Regressão: o `if` da mídia chegou a sair da função com `return`, e
-        com isso nome, séries, descanso e carga ficavam em branco sempre que a
-        foto existia — ou seja, sempre."""
-        user = create_user(email="numeros@exemplo.com")
-        self.client.force_login(user)
-        html = html_de_todas_as_fichas(self.client)
-
-        corpo = html.split("function preencher(dados) {", 1)[1]
-        # A montagem da mídia virou uma chamada (`montarMidia`) no Treino V4.
-        # O que este teste protege é o mesmo: seja qual for a mídia, o resto do
-        # drawer é preenchido — nada pode sair da função no meio.
-        ramo_da_midia = corpo.split("montarMidia(media, dados", 1)[1]
-        self.assertNotIn("return;", ramo_da_midia.split("data-drawer-nome", 1)[0])
-        self.assertIn("data-drawer-series", corpo)
-        self.assertIn("data-drawer-carga", corpo)
-
-    def test_the_alternation_stops_when_the_drawer_closes(self):
-        """Um `setInterval` esquecido continua trocando imagem numa tela que
-        ninguém está vendo, e vai junto para o próximo exercício aberto."""
-        user = create_user(email="parar@exemplo.com")
-        self.client.force_login(user)
-        html = html_de_todas_as_fichas(self.client)
-
-        limpeza = html.split("function limparMidia() {", 1)[1].split("}", 1)[0]
-        self.assertIn("pararAlternancia()", limpeza)
 
 
 class AnimationImportTests(TestCase):
@@ -1928,7 +1339,12 @@ class AnimationImportTests(TestCase):
         with self.assertRaises(CommandError):
             call_command("set_exercise_animation", arquivo, "--check", verbosity=0)
 
-    def test_the_supported_formats_are_the_ones_the_drawer_builds(self):
+    def test_the_supported_formats_are_the_ones_the_screen_plays(self):
+        """O nome dizia "drawer", e o drawer não existe mais — a regra, sim.
+
+        Ela nunca foi daquela gaveta: é do formato. `tipo_de` decide o que o
+        importador aceita, e quem toca hoje é a execução.
+        """
         from workouts.management.commands.set_exercise_animation import tipo_de
 
         self.assertEqual(tipo_de("https://x/a.mp4"), "video")
@@ -1963,68 +1379,33 @@ class AnimationImportTests(TestCase):
         exercicio.animation_url = ""
         self.assertEqual(exercicio.animation_kind, "")
 
-    def test_the_animation_no_longer_reaches_the_week_drawer(self):
-        """A premissa deste teste MORREU na fase B, e o teste virou o contrário.
-
-        Ele se chamava `..._wins_over_the_photos_in_the_drawer` e afirmava que
-        `animation_url` chegava ao gatilho da ficha em `data-animacao`. A fase
-        B trocou a anatomia daquela tela pelo mapa muscular, e o atributo saiu
-        junto com `montarAnimacao`, seu único leitor — deixá-lo lá custava a
-        URL de embed completa em cada um dos 27 gatilhos da semana.
-
-        O campo NÃO foi apagado, e a segunda metade deste teste é quem prova
-        isso: ele continua servido no Modo Treino. Sem essa metade, "removi o
-        atributo" e "removi o recurso" ficariam indistinguíveis.
-        """
-        exercicio = Exercise.objects.get(name="Supino reto com barra")
-        exercicio.animation_url = "https://exemplo.com/supino.mp4"
-        exercicio.save(update_fields=["animation_url"])
-
-        user = create_user(email="animacao@exemplo.com")
-        self.client.force_login(user)
-        ficha = html_de_todas_as_fichas(self.client)
-
-        # OS DOIS gatilhos de vídeo da página: o botão do cartão, na ficha da
-        # semana, e a linha da lista de hoje. Medir só um dos dois derrubaria o
-        # controle positivo abaixo assim que a lista de hoje mudou de forma —
-        # foi o que aconteceu.
-        gatilhos = re.findall(
-            r"<button[^>]*(?:exercise__ver|linha-ex)[^>]*>", ficha
-        )
-
-        # Sem esta linha o laço passaria vazio no dia em que a regex parasse
-        # de casar — classe renomeada, ordem de atributo trocada. É controle
-        # positivo, e ele já salvou a asserção gêmea que morava em
-        # `config/test_mapa_muscular.py` (arquivo que saiu com o mapa).
-        self.assertGreater(len(gatilhos), 20, "a regex do gatilho parou de casar")
-        for gatilho in gatilhos:
-            with self.subTest(gatilho=gatilho[:50]):
-                self.assertNotIn("data-animacao", gatilho)
-
-        # E o campo continua vivo onde a decisão disse que continuaria.
-        modo_treino = (
-            Path(settings.BASE_DIR) / "templates" / "workouts" / "agora.html"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("anatomia_src", modo_treino)
-        self.assertIn("animation_kind", modo_treino)
 
     def test_a_video_animation_is_muted_and_inline(self):
         """Sem `muted` o navegador recusa o autoplay; sem `playsinline` o
         iPhone abre em tela cheia por cima do app.
 
-        Medido em `montarClipe`, que é o construtor de `<video>` que sobrou no
-        drawer — `montarAnimacao` tinha o mesmo tratamento e saiu na fase B. A
-        regra é do formato, não daquela função.
+        A regra é do FORMATO, e por isso ela vale nos dois construtores que a
+        execução tem — o `<video>` que o servidor escreve para a demonstração e
+        o que o JavaScript monta para a anatomia sob demanda. Ela era medida em
+        `montarClipe`, dentro do drawer; o drawer saiu, os dois construtores
+        ficaram, e testar só um deixaria o outro livre para regredir.
         """
-        user = create_user(email="mudo@exemplo.com")
-        self.client.force_login(user)
-        html = html_de_todas_as_fichas(self.client)
+        agora = (
+            Path(settings.BASE_DIR) / "templates" / "workouts" / "agora.html"
+        ).read_text(encoding="utf-8")
 
-        bloco = html.split("function montarClipe(media, dados) {", 1)[1]
-        bloco = bloco.split("return true;", 1)[0]
-        for atributo in ('setAttribute("muted"', 'setAttribute("playsinline"',
-                         "elemento.loop = true", "elemento.autoplay = true"):
+        # 1. o que o servidor escreve
+        self.assertIn(
+            "<video src=\"{{ atual.exercise.execucao_src }}\" "
+            "autoplay loop muted playsinline>",
+            agora,
+        )
+
+        # 2. o que o JavaScript monta
+        bloco = agora.split('} else if (tipo === "video") {', 1)[1]
+        bloco = bloco.split("} else {", 1)[0]
+        for atributo in ("elemento.autoplay = true", "elemento.loop = true",
+                         "elemento.muted = true", "elemento.playsInline = true"):
             with self.subTest(atributo=atributo):
                 self.assertIn(atributo, bloco)
 
@@ -2407,114 +1788,6 @@ class ImpeccableStyleTests(TestCase):
 
 
 
-class ExerciseHeaderLayoutTests(TestCase):
-    """O cabeçalho do exercício, medido em vez de conferido no olho.
-
-    Os três defeitos desta rodada tinham a mesma forma: a regra de CSS
-    continuou descrevendo um elemento que o HTML deixou de ser. O botão de
-    execução virou ícone redondo de 44px numa versão, ganhou rótulo de 24
-    caracteres na seguinte, e a regra `width: 2.75rem; border-radius: 50%`
-    ficou — o texto quebrou em SETE linhas de uma palavra dentro do círculo e
-    o cabeçalho inchou de 98px para 364px por cartão.
-
-    Nada disso quebra teste de conteúdo: o rótulo está no HTML, o botão
-    responde ao clique, a página devolve 200. Só se vê olhando, e foi assim
-    que ficou meses errado.
-    """
-
-    url = reverse("workouts:routine")
-
-    @classmethod
-    def setUpTestData(cls):
-        call_command("seed_workouts", verbosity=0)
-
-    def setUp(self):
-        self.user = create_user()
-        self.client.force_login(self.user)
-        self.css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
-            encoding="utf-8"
-        )
-
-    def _regra(self, seletor):
-        """TODOS os corpos de regra daquele seletor, juntos.
-
-        Ler só o primeiro bloco é a armadilha recorrente deste repositório:
-        `.exercise__tags` aparece duas vezes — uma para a área da grade, outra
-        para o flex — e um `split(marca, 1)` devolve a primeira e afirma com
-        segurança que a declaração da segunda não existe.
-        """
-        marca = chr(10) + seletor + " {"
-        self.assertIn(marca, self.css, f"regra ausente: {seletor}")
-        return "".join(t.split("}", 1)[0] for t in self.css.split(marca)[1:])
-
-    def test_the_execution_button_has_no_fixed_width_to_squeeze_its_label(self):
-        """Largura fixa num botão com rótulo é o defeito, não o sintoma.
-
-        44px de largura para um rótulo de vinte e um caracteres não corta o texto nem
-        provoca overflow — o navegador quebra palavra por palavra e cresce
-        para baixo, em silêncio. Por isso a trava é na REGRA: enquanto o botão
-        tiver rótulo, quem mede a largura dele é o conteúdo.
-        """
-        regra = self._regra(".exercise__head .exercise__ver")
-
-        self.assertNotIn("width:", regra.replace("min-width", ""))
-        self.assertNotIn("border-radius: 50%", regra)
-        # O alvo de 44px continua vindo da altura, que é o que a régua mede.
-        self.assertIn("min-height: 2.75rem", regra)
-
-    def test_the_execution_label_stays_on_one_line(self):
-        """`nowrap` é o que faz o rótulo DESCER inteiro em vez de quebrar.
-
-        Sem ele, num cartão estreito o flex encolhe o botão até caber e o
-        texto volta a empilhar — o mesmo defeito, só que mais tarde.
-        """
-        self.assertIn("white-space: nowrap", self._regra(".exercise__head .exercise__ver"))
-
-    def test_the_button_shares_the_tag_row_instead_of_owning_a_column(self):
-        """Ele é irmão das pílulas no HTML; a grade não reserva coluna para ele."""
-        html = html_de_todas_as_fichas(self.client)
-
-        etiquetas = html.split('class="exercise__tags"', 1)[1].split("</span>\n" + " " * 22 + "</span>", 1)[0]
-        self.assertIn("exercise__ver", etiquetas)
-
-        self.assertNotIn('"ordem nome ver seta"', self.css)
-        self.assertNotIn("grid-area: ver", self.css)
-
-    def test_the_tag_row_centres_its_items_so_the_pills_keep_their_height(self):
-        """Com um alvo de 44px na fileira, o `stretch` padrão esticaria as
-        pílulas de 24px para 44 e o texto delas boiaria no meio."""
-        self.assertIn("align-items: center", self._regra(".exercise__tags"))
-
-    def test_the_icon_shows_a_camera_and_not_a_list_of_lines(self):
-        """Ícone e rótulo têm que prometer a MESMA coisa.
-
-        O ícone anterior desenhava três linhas de texto — uma lista — enquanto
-        `drawer__media` fica acima de `drawer__corpo` e a primeira coisa que
-        aparece é o clipe. O desenho prometia a segunda tela.
-        """
-        html = html_de_todas_as_fichas(self.client)
-        botao = html.split('class="exercise__ver"', 1)[1].split("</button>", 1)[0]
-
-        self.assertIn("<rect", botao)
-        # As três linhas do ícone de lista, exatamente como estavam.
-        self.assertNotIn('d="M4 6h11"', botao)
-
-    def test_the_label_reads_the_same_by_eye_and_by_ear(self):
-        """O `aria-label` não pode contar outra história: quem ouve a tela
-        recebe o mesmo verbo e o mesmo objeto, mais o nome do exercício."""
-        html = html_de_todas_as_fichas(self.client)
-        botao = html.split('class="exercise__ver"', 1)[1].split("</button>", 1)[0]
-
-        self.assertIn("aria-label=\"Ver vídeo de execução de ", botao)
-        self.assertIn("<span>Ver vídeo de execução</span>", botao)
-
-    def test_every_header_element_has_a_grid_area(self):
-        """Item de grade sem área nomeada não some: ele vai para uma faixa
-        implícita, fora do desenho. Foi onde a prescrição estava."""
-        areas = self.css.split("grid-template-areas:", 1)[1].split(";", 1)[0]
-        for nome in ("ordem", "nome", "presc", "tags", "seta"):
-            self.assertIn(nome, areas)
-        self.assertIn(".exercise__prescricao { grid-area: presc; }", self.css)
 
 
 class RestBadgeTests(TestCase):
@@ -2755,36 +2028,63 @@ class LoadStepperTests(TestCase):
         call_command("seed_workouts", verbosity=0)
 
     def setUp(self):
-        self.user = create_user()
+        # HOJE PRECISA SER DIA DE TREINO: a execução é a tela de quem está
+        # treinando, e num dia de descanso ela responde outra coisa. Derivar de
+        # `timezone.localdate()` é o que impede este arquivo de exercitar
+        # caminhos diferentes conforme o dia em que a suíte roda.
+        self.user = create_user(weekdays=dias_incluindo_hoje(5))
         self.client.force_login(self.user)
-        self.html = self.client.get(self.url).content.decode()
+        self.client.get(reverse("workouts:routine"))
+        self.html = self.client.get(reverse("workouts:now")).content.decode()
         self.css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
             encoding="utf-8"
         )
 
-    def test_every_exercise_gets_a_pair_of_steps(self):
-        exercicios = sum(
-            sessao.exercises.count()
-            for sessao in self.user.training_plans.get(is_active=True).sessions.all()
-        )
-        # O passo de carga é EXECUÇÃO, e execução saiu da tela principal: ela
-        # responde "o que eu vou fazer", não "quanto eu levantei". Quem carrega
-        # o par de degraus é a ficha da sessão.
-        semana = html_de_todas_as_fichas(self.client)
-        self.assertEqual(semana.count('data-passo="2.5"'), exercicios)
-        self.assertEqual(semana.count('data-passo="-2.5"'), exercicios)
+    def test_a_execucao_traz_UM_par_de_degraus_e_nao_um_por_exercicio(self):
+        """Um par por tela, porque a tela é de um exercício só.
 
-    def test_the_record_block_uses_two_rows_and_not_one(self):
+        A REGRA ANTIGA CONTAVA TRINTA PARES, um por cartão da ficha da semana,
+        e ela estava certa enquanto cada cartão trazia o próprio formulário de
+        carga. A ficha virou tela de preparação: quem anota é a execução, e a
+        execução mostra o exercício da vez.
+
+        Contar exatamente um é mais forte que "pelo menos um": dois formulários
+        de carga na mesma tela foram um defeito real deste app, e o degrau é o
+        primeiro lugar onde a duplicação apareceria.
+        """
+        self.assertEqual(self.html.count('data-passo="2.5"'), 1)
+        self.assertEqual(self.html.count('data-passo="-2.5"'), 1)
+
+    def test_o_bloco_do_registro_nao_espreme_a_carga_numa_faixa_so(self):
         """Sete controles nao cabem em 390px, e este arquivo ja registrou a
         aritmetica duas vezes: carga, dois degraus de 44px, o OK e o cronometro
         numa faixa so deixavam o campo da carga com menos de 70px.
 
-        Medido depois da mudanca: carga 128px, cada degrau 52, o OK 188.
+        A GRADE MUDOU DE DONO. `.registro` declarava duas linhas —
+        `"menos carga mais"` e a do botao de salvar com o gatilho do
+        cronometro —, e a segunda era do formulario que a ficha desenhava por
+        exercicio. Os dois sairam em 10/09/2026; a linha ficaria reservando
+        espaco para nada.
+
+        Quem declara as linhas de baixo agora e `.registro--agora`, e sao
+        outras: reps ganhou faixa propria e o CTA ocupa a largura toda.
+
+        SEM COMENTARIO NA LEITURA, e a primeira versao deste teste reprovou
+        por nao fazer isso: o comentario que EXPLICA a remocao cita a palavra
+        que a assercao procura. E a armadilha que o `CLAUDE.md` registra, do
+        lado avesso — falso VERMELHO em vez de falso verde.
         """
-        bloco = self.css.split(chr(10) + ".registro {", 1)[1].split("}", 1)[0]
-        self.assertIn("grid-template-areas", bloco)
-        self.assertIn('"menos carga mais"', bloco)
-        self.assertIn('"salvar salvar timer"', bloco)
+        regras = sem_comentarios_css(self.css)
+        base = regras.split(chr(10) + ".registro {", 1)[1].split("}", 1)[0]
+        self.assertIn("grid-template-areas", base)
+        self.assertIn('"menos carga mais"', base)
+        self.assertNotIn("salvar", base)
+        self.assertNotIn("timer", base)
+
+        agora = regras.split(chr(10) + ".registro--agora {", 1)[1].split("}", 1)[0]
+        self.assertIn('"menos carga mais"', agora)
+        self.assertIn('"reps  reps  reps"', agora)
+        self.assertIn('"cta   cta   cta"', agora)
 
     def test_the_steps_are_a_touch_target(self):
         regra = self.css.split(chr(10) + ".registro__passo {", 1)[1].split("}", 1)[0]
@@ -2796,37 +2096,42 @@ class LoadStepperTests(TestCase):
         """O campo e `type=text` porque `type=number` descarta "62,5" e envia
         vazio. Entao o degrau precisa ler e devolver virgula — trocar por
         `number` resolveria o passo de graca e quebraria a digitacao."""
-        script = self.html.split("function passo(", 1)[1].split("}", 1)[0]
+        script = self.html.split("[data-passo]", 1)[1].split("});", 1)[0]
         self.assertIn('replace(",", ".")', script)
         self.assertIn('replace(".", ",")', script)
 
-    def test_an_empty_field_steps_up_from_the_last_workout(self):
+    def test_o_degrau_parte_do_numero_que_o_servidor_ja_deixou_no_campo(self):
         """Comecar do zero faria a pessoa tocar dezoito vezes para voltar onde
-        estava. O numero de partida e o que o placeholder ja mostra."""
-        # O trecho do SCRIPT, e nao do HTML: `split("data-passo")` cai no
-        # primeiro botao renderizado, que nao tem nada a ver com a regra.
-        manipulador = self.html.split('closest("[data-passo]")', 1)[1][:900]
-        self.assertIn('getAttribute("placeholder")', manipulador)
+        estava.
 
-        # E o placeholder de fato carrega a carga do treino anterior.
-        self.assertIn("item.load.melhor_anterior", self._template())
+        O NÚMERO DE PARTIDA MUDOU DE LUGAR, e ficou melhor. Na ficha ele era o
+        `placeholder` — o campo nascia vazio e o degrau tinha de ir buscar o
+        texto de dica para saber de onde subir. A execução preenche o `value`
+        com a mesma série do treino anterior, então o degrau lê o valor e
+        pronto: um caminho a menos para desencontrar.
+
+        A sugestão em si é de `ModoTreinoTests`; o que este teste guarda é que
+        o degrau parte DELA, e não de zero.
+        """
+        manipulador = self.html.split("[data-passo]", 1)[1].split("});", 1)[0]
+        self.assertIn('parseFloat((carga.value || "0")', manipulador)
+        self.assertNotIn('getAttribute("placeholder")', manipulador)
+
+        # E o campo de fato nasce com a carga da última vez — sem histórico ele
+        # fica vazio, que é o contrato de `ModoTreinoTests`.
+        self.assertIn("atual.sugestao_carga", self._template())
 
     def _template(self):
-        """A tela de treino são DOIS arquivos desde o Treino V2.
+        """A tela da execução, lida do disco.
 
-        O cartão do exercício saiu para `_exercicio.html` quando o treino de
-        hoje deixou a sanfona: o mesmo cartão passou a ser renderizado em dois
-        contextos — solto, na lista de hoje, e dentro da ficha dos outros dias
-        — e duas cópias divergiriam na primeira correção.
-
-        Ler só o `routine.html` faria este teste afirmar que o degrau perdeu a
-        carga anterior, quando ela só mudou de arquivo.
+        ERAM TRÊS ARQUIVOS: `routine.html`, `_exercicio.html` e `_drawer.html`,
+        de quando o cartão do exercício era renderizado em dois contextos. Os
+        dois parciais saíram do repositório nesta missão — sem `{% include %}`
+        em template nenhum, eles eram 1.050 linhas que ninguém emitia.
         """
-        pasta = Path(settings.BASE_DIR) / "templates" / "workouts"
-        return "".join(
-            (pasta / nome).read_text(encoding="utf-8")
-            for nome in ("routine.html", "_exercicio.html", "_drawer.html")
-        )
+        return (
+            Path(settings.BASE_DIR) / "templates" / "workouts" / "agora.html"
+        ).read_text(encoding="utf-8")
 
 
 class GymHardwareTests(TestCase):
@@ -2843,9 +2148,14 @@ class GymHardwareTests(TestCase):
         call_command("seed_workouts", verbosity=0)
 
     def setUp(self):
-        self.user = create_user()
+        self.user = create_user(weekdays=dias_incluindo_hoje(5))
         self.client.force_login(self.user)
-        self.html = self.client.get(self.url).content.decode()
+        self.client.get(reverse("workouts:routine"))
+        # A TELA MUDOU, e o motivo é o mesmo que justifica os dois recursos:
+        # eles servem quem está com o celular no banco, entre séries. Isso
+        # acontece na execução. O painel — cards da semana e o treino de hoje —
+        # ficava aceso e vibrava sem ninguém treinando nele.
+        self.html = self.client.get(reverse("workouts:now")).content.decode()
 
     def test_the_screen_is_kept_awake_during_the_workout(self):
         """1:20 de descanso e mais que os 30 segundos de bloqueio automatico da
@@ -2986,28 +2296,37 @@ class TreinoDeHojeTests(TestCase):
         texto = " ".join(re.sub(r"<[^>]+>", " ", bloco).split())
         self.assertIn("%d exercícios" % len(self._itens()), texto)
 
-    def test_the_button_opens_the_guided_mode(self):
-        """"Começar treino" abre o modo treino — não rola a página.
+    def test_the_button_opens_the_session_sheet(self):
+        """"Começar treino" abre a ficha do dia — não rola a página, e não
+        pula direto para um exercício.
 
-        Era uma âncora `#exercicio-N` dentro desta mesma página de quase cinco
-        mil pixels: o botão prometia começar e entregava rolagem. O destino
-        agora é uma tela própria, que descobre sozinha onde a pessoa parou.
+        DUAS MUDANÇAS DE DESTINO, e as duas por motivos diferentes. Ele já foi
+        uma âncora `#exercicio-N` dentro desta mesma página de quase cinco mil
+        pixels: prometia começar e entregava rolagem. Depois passou a apontar
+        para `/treino/agora/`, que escolhia sozinha o primeiro pendente.
+
+        Hoje ele abre a FICHA, e o passo intermediário é o produto: quem chega
+        aqui ainda não decidiu o que vai fazer. A ficha apresenta a lista
+        numerada, e cada linha é uma porta para a execução — inclusive para um
+        exercício que não é o próximo da fila.
         """
         html = self._pagina()
 
-        self.assertIn('href="%s"' % reverse("workouts:now"), html)
+        self.assertIn(
+            'href="%s"' % reverse("workouts:ficha", args=[self.sessao.pk]), html
+        )
         self.assertIn("Começar treino", html)
 
     def test_the_destination_stays_put_because_the_target_screen_walks(self):
         """O destino é fixo, e é isso que impede o botão de mentir.
 
-        Antes o `href` precisava andar junto com as séries, e cada
-        recálculo era uma chance de apontar para um exercício já terminado.
-        Hoje quem anda é a tela de destino: `/treino/agora/` recalcula de
-        `ExerciseLog` a cada carregamento — coberto por `ModoTreinoTests`.
+        Antes o `href` precisava andar junto com as séries, e cada recálculo era
+        uma chance de apontar para um exercício já terminado. Hoje quem anda é a
+        tela de destino: a ficha recalcula `feitas/sets` a cada carregamento, e
+        a execução resolve de `ExerciseLog` qual é o exercício da vez.
         """
         itens = self._itens()
-        alvo = 'href="%s"' % reverse("workouts:now")
+        alvo = 'href="%s"' % reverse("workouts:ficha", args=[self.sessao.pk])
 
         antes = self._cta(self._pagina())
         self._anotar(itens[0], series=itens[0].sets)
@@ -3022,8 +2341,8 @@ class TreinoDeHojeTests(TestCase):
 
         A regra antiga era "primeiro sem NENHUMA série": quem anotasse a
         primeira série de cada exercício ficava sem "próximo", o botão sumia, e
-        o caminho para a tela guiada — com 27 séries pela frente — desaparecia
-        da lista. Servidor e JavaScript agora usam `feitas < sets`.
+        o caminho de volta — com 27 séries pela frente — desaparecia da tela. A
+        conta é `feitas < sets`, e ela é do servidor.
         """
         itens = self._itens()
         for item in itens:
@@ -3032,7 +2351,9 @@ class TreinoDeHojeTests(TestCase):
         cta = self._cta(self._pagina())
 
         self.assertNotIn("hidden", cta)
-        self.assertIn('href="%s"' % reverse("workouts:now"), cta)
+        self.assertIn(
+            'href="%s"' % reverse("workouts:ficha", args=[self.sessao.pk]), cta
+        )
 
     def test_the_verb_changes_once_something_was_recorded(self):
         self.assertIn("Começar treino", self._pagina())
@@ -3090,18 +2411,18 @@ class TreinoDeHojeTests(TestCase):
         self.assertNotIn("hidden", completo)
 
     def test_both_states_of_the_button_are_always_in_the_html(self):
-        """O cabeçalho não é re-renderizado durante o treino.
+        """Os dois estados vêm do servidor, e o `hidden` escolhe qual aparece.
 
-        A série é gravada por `fetch` — recarregar a página a cada série
-        perderia a posição da rolagem, que é o que faz a pessoa parar de
-        anotar. Consequência: o JavaScript precisa ter os dois estados no DOM
-        para alternar entre eles. Se o servidor mandasse só o estado em que a
-        página nasceu, quem terminasse o último exercício continuaria vendo
-        "Continuar de onde parou" apontando para um exercício já feito.
+        A RAZÃO ERA OUTRA, e ela morreu com o JavaScript. Enquanto a série era
+        gravada por `fetch` nesta mesma página, o cabeçalho não era
+        re-renderizado — os dois estados PRECISAVAM estar no DOM para o script
+        alternar. Recarregar a cada série perderia a posição da rolagem, que é
+        o que faz a pessoa parar de anotar.
 
-        Foi exatamente esse o defeito que a revisão desta rodada encontrou, e
-        que a suíte não pegava: todo teste daqui chama `record_load` e pede a
-        página de novo, e nesse caminho o cabeçalho sempre vem certo.
+        Ninguém anota mais aqui: o registro mudou para a execução, e o painel é
+        renderizado do zero a cada visita. O que sobrou é mais simples e vale a
+        pena continuar prendendo — o servidor emite os dois e esconde um, então
+        nenhum estado depende de script para estar correto.
         """
         html = self._pagina()
         bloco = html.split('class="card hoje"', 1)[1].split("</section>", 1)[0]
@@ -3112,74 +2433,87 @@ class TreinoDeHojeTests(TestCase):
         completo = bloco.split("hoje__completo", 1)[1].split(">", 1)[0]
         self.assertIn("hidden", completo)
 
-    def test_the_script_recomputes_the_day_header_after_a_set_is_saved(self):
-        """A trava do defeito acima, ancorada no SCRIPT e não na marcação.
+    def test_o_cabecalho_do_dia_e_recalculado_a_cada_visita_pelo_SERVIDOR(self):
+        """A mesma trava, sem JavaScript nenhum para travar.
 
-        Ancorar em `hoje__contagem` não serviria: a string está no HTML de
-        qualquer jeito, e o teste passaria com o JavaScript inteiro apagado —
-        que é a armadilha recorrente deste repositório.
+        ERA UM TESTE DE SCRIPT: `atualizaODia` tinha de ser chamada de dentro de
+        `atualiza`, porque a série era gravada por `fetch` e o cabeçalho não
+        voltava do servidor. As 395 linhas daquele script saíram nesta missão —
+        elas começavam por `.hoje__lista` e por um `submit` em `.registro`, e
+        esta página deixou de emitir os dois.
+
+        O comportamento que importava sobrevive inteiro, e agora por
+        construção: anotar uma série e voltar ao painel mostra a contagem nova.
+        Prender o efeito, e não o mecanismo, é o que faz este teste continuar
+        valendo se o mecanismo mudar de novo.
+
+        O RECORTE É O CARTÃO, e não `_cta`: aquele ajudante devolve só os
+        atributos de abertura do `<a>`, e o verbo é o TEXTO dentro dele. Comparar
+        o elemento de abertura dava duas strings idênticas — o `href` é fixo de
+        propósito, e é o teste ao lado que guarda isso.
         """
-        script = so_scripts(self._pagina())
+        def cartao(html):
+            return html.split('class="card hoje"', 1)[1].split("</section>", 1)[0]
 
-        self.assertIn("atualizaODia", script)
-        # Chamado de dentro de `atualiza`, que é o caminho de salvar E de
-        # desfazer — as duas direções andam pelo mesmo lugar.
-        corpo = script.split("function atualiza(form, feitas)", 1)[1].split("\n        }", 1)[0]
-        self.assertIn("atualizaODia()", corpo)
+        antes = cartao(self._pagina())
+        self.assertIn("Começar treino", antes)
 
-    def test_the_card_that_got_the_set_is_marked_wherever_it_lives(self):
-        """Anotar carga dentro da ficha de OUTRO dia também marca o cartão.
-
-        A sanfona de outro dia abre e o formulário está lá — o registro vale
-        para hoje do mesmo jeito, porque `ExerciseLog` guarda a data e não a
-        sessão. Só que aqueles cartões não estão em `.hoje__lista`: quem
-        cuidasse do estado varrendo apenas a lista de hoje os deixaria sem
-        pílula e sem tinta até a próxima recarga, enquanto o servidor os
-        desenha marcados. Duas telas para o mesmo dado.
-
-        Medido no navegador antes da correção: registrar na ficha A deixava o
-        cartão com `class="exercise"` e sem pílula nenhuma.
-        """
-        script = so_scripts(self._pagina())
-        corpo = script.split("function atualiza(form, feitas)", 1)[1].split("\n        }", 1)[0]
-
-        # O cartão do formulário enviado, e não a lista de hoje.
-        self.assertIn('form.closest("[data-exercicio]")', corpo)
-        self.assertIn("marcaExercicio(exercicio", corpo)
-
-    def test_the_button_opens_the_card_itself_and_not_only_via_the_address(self):
-        """O segundo toque no botão precisa reabrir o cartão.
-
-        `hashchange` só dispara quando o hash MUDA. No segundo toque o endereço
-        já é `#exercicio-N`, então o evento não vem — e se o cartão tiver sido
-        fechado nesse meio-tempo (abrir outro exercício fecha o anterior, por
-        seleção única), o botão rolava até um cartão fechado.
-
-        Medido no navegador: tocar o botão abria; abrir outro exercício
-        fechava o primeiro; tocar o botão de novo rolava até ele ainda
-        fechado. Antes desta rodada não havia nada no app apontando para essas
-        âncoras, então o caminho nasceu junto com o botão — e é um botão feito
-        para ser tocado várias vezes durante o mesmo treino.
-        """
-        script = so_scripts(self._pagina())
-        self.assertIn('closest("[data-hoje-cta]")', script)
-
-    def test_a_finished_exercise_says_so_in_text_and_not_only_in_colour(self):
-        """Num app que já usa uma cor por dia de treino, informação só por cor
-        é a armadilha mais provável — e a pílula responde por ela."""
         item = self._itens()[0]
         self._anotar(item, series=item.sets)
 
-        # O ESTADO MUDOU DE TELA JUNTO COM O EXERCÍCIO.
-        #
-        # A linha de hoje saiu da tela principal — ela duplicava a ficha — e o
-        # cartão do exercício, que é quem carrega o estado, mora na ficha.
-        # `exercise--feito` pinta e a pílula `exercise__tag--feito` informa: a
-        # dupla cor+texto continua sendo o que este teste guarda.
+        depois = cartao(self._pagina())
+        self.assertIn("Continuar de onde parou", depois)
+        self.assertNotIn("Começar treino", depois)
+
+    def test_a_serie_anotada_marca_a_linha_onde_quer_que_ela_esteja(self):
+        """Anotar carga de um exercício que também está na ficha de OUTRO dia.
+
+        `ExerciseLog` guarda a DATA e não a sessão, então a série vale para
+        hoje mesmo que a pessoa tenha aberto a ficha de sexta para consultar. O
+        defeito que este teste nasceu guardando era de leitura: quem cuidasse
+        do estado varrendo só a lista de hoje deixaria o outro cartão sem
+        pastilha até a próxima recarga, enquanto o servidor o desenhava
+        marcado — duas telas para o mesmo dado.
+
+        ELE ERA UM TESTE DE SCRIPT (`form.closest("[data-exercicio]")`), e o
+        script saiu com o formulário. Hoje quem decide é `anexar_historico`, no
+        servidor, e a regra dele é mais estrita: o balde "hoje" só é aplicado à
+        sessão de hoje. É isso que este teste passa a medir — a linha de hoje
+        marca, a de outro dia não.
+        """
+        item = self._itens()[0]
+        self._anotar(item, series=item.sets)
+
+        plano = self.user.training_plans.get(is_active=True)
+        hoje = timezone.localdate().weekday()
+        de_hoje = plano.sessions.get(weekday=hoje)
+
+        pagina = self.client.get(
+            reverse("workouts:ficha", args=[de_hoje.pk])
+        ).content.decode()
+
+        self.assertIn("ficha-item--feito", pagina)
+        self.assertIn(item.exercise.name, pagina)
+
+
+    def test_a_finished_exercise_says_so_in_text_and_not_only_in_colour(self):
+        """Num app que já usa uma cor por dia de treino, informação só por cor
+        é a armadilha mais provável — e o número responde por ela.
+
+        O ESTADO MUDOU DE TELA JUNTO COM O EXERCÍCIO, e mudou de forma. Era a
+        pastilha `exercise__tag--feito` dentro do cartão; hoje é a fração
+        "4/4" na linha da ficha, com o prefixo "Concluído: " para leitor de
+        tela. A dupla continua sendo cor MAIS texto: `ficha-item--feito` pinta,
+        e o número diz sozinho o que aconteceu.
+        """
+        item = self._itens()[0]
+        self._anotar(item, series=item.sets)
+
         marcacao = sem_scripts(html_de_todas_as_fichas(self.client))
 
-        self.assertIn("exercise--feito", marcacao)
-        self.assertIn("exercise__tag--feito", marcacao)
+        self.assertIn("ficha-item--feito", marcacao)
+        self.assertIn("Concluído: ", marcacao)
+        self.assertIn("%d/%d" % (item.sets, item.sets), marcacao)
 
     def test_o_proximo_exercicio_e_respondido_pela_tela_de_execucao(self):
         """O destaque "agora" saiu da LISTA e virou uma TELA.
@@ -3188,20 +2522,19 @@ class TreinoDeHojeTests(TestCase):
         argumento era bom enquanto os exercícios eram cartões empilhados: sem a
         marca, a pessoa tinha de descobrir sozinha onde tinha parado.
 
-        A recomposição respondeu a mesma pergunta melhor. `workouts:now` resolve
-        no SERVIDOR qual é o exercício da vez, qual é a série da vez, qual foi a
-        carga anterior e quanto falta de descanso — e é para lá que o botão do
-        hero leva. Marcar um item na lista passou a ser redundante com uma tela
-        inteira dedicada à mesma pergunta.
+        A recomposição respondeu a mesma pergunta melhor, e em dois degraus. A
+        ficha mostra a lista numerada com `feitas/sets` em cada linha — dá para
+        ver de onde retomar sem eleger ninguém —, e `workouts:now` resolve no
+        SERVIDOR qual é o exercício da vez, qual é a série da vez, qual foi a
+        carga anterior e quanto falta de descanso.
 
-        O que este teste guarda agora: a porta existe, e a tela sabe responder.
+        O que este teste guarda agora: o painel não elege, a porta existe, e a
+        tela do outro lado sabe responder.
         """
         marcacao = sem_scripts(self._pagina())
 
-        # A lista de hoje não elege ninguém.
         self.assertNotIn("exercise--agora", marcacao)
-        # E a porta para quem responde está na página.
-        self.assertIn(reverse("workouts:now"), marcacao)
+        self.assertIn(reverse("workouts:ficha", args=[self.sessao.pk]), marcacao)
 
         estado = services.estado_do_treino(self.user)
         self.assertIsNotNone(estado.atual, "o modo treino não sabe qual é o próximo")
@@ -3836,18 +3169,6 @@ class ModoTreinoTests(TestCase):
         self.assertIn(reverse("workouts:routine"), html)
         self.assertIn("Ver o treino completo", html)
 
-    def test_a_lista_leva_ao_modo_treino(self):
-        """O caminho de ida: o botão da lista abre a tela guiada.
-
-        Antes ele era uma âncora `#exercicio-N` na mesma página de cinco mil
-        pixels — "começar treino" levava a pessoa a rolar.
-        """
-        user = self._usuario()
-        self.client.force_login(user)
-
-        html = sem_scripts(self.client.get(reverse("workouts:routine")).content.decode())
-
-        self.assertIn(reverse("workouts:now"), html)
 
 
 class IntervaloDoTreinoTests(TestCase):
@@ -4177,127 +3498,18 @@ class CuradoriaDosVideosTests(TestCase):
                 self.assertTrue(e.video_embed_url, e.video_url)
 
 
-class PrioridadeDaMidiaNaFichaTests(TestCase):
-    """A gaveta da ficha tocava a ANATOMIA no botão de execução.
-
-    O Modo Treino já tinha a prioridade certa desde o Treino V3 — execução no
-    corpo da tela, anatomia atrás de `<details>`. A ficha (`routine.html`) ficou
-    para trás com a escada antiga, "animação → foto → vídeo", e um comentário
-    dizendo que o topo estava vazio para todo mundo.
-
-    O comentário era verdade quando foi escrito e parou de ser quando
-    `animacoes.json` passou a preencher os 36: `montarAnimacao` vencia sempre, e
-    quem tocava "Ver vídeo de execução" recebia o diagrama de músculos com o
-    banner "EXPERIMENTE GRÁTIS" de um personal concorrente.
-
-    Encontrado ao reabrir os 36 no player depois da curadoria — nenhum teste
-    pegava, porque a escolha mora no JavaScript da gaveta e todos os testes de
-    prioridade apontavam para o Modo Treino.
-    """
-
-    PASTA = Path(settings.BASE_DIR) / "templates" / "workouts"
-    # Os dois arquivos juntos: o drawer saiu de `routine.html` quando a ficha
-    # ganhou rota própria, e ler só um faria este teste afirmar ausência sobre
-    # um trecho que apenas mudou de arquivo.
-    ARQUIVOS = ("routine.html", "_drawer.html")
-
-    def setUp(self):
-        self.fonte = "".join(
-            (self.PASTA / nome).read_text(encoding="utf-8")
-            for nome in self.ARQUIVOS
-        )
-
-    def test_o_clipe_de_execucao_e_o_primeiro_degrau(self):
-        """A ordem das chamadas é a ordem da prioridade.
-
-        Ancorado nas posições dentro do `if`, e não na presença das funções:
-        as DUAS continuam existindo — `montarClipe` e `montarQuadros` —, e o
-        defeito era exatamente a ORDEM. Eram três até a fase B, quando
-        `montarAnimacao` foi removida por ter ficado sem chamador.
-        """
-        bloco = self.fonte.split("montou = montarClipe(media, dados)", 1)
-        self.assertEqual(len(bloco), 2, "montarClipe deixou de abrir a execução")
-
-        execucao = bloco[1].split(";", 1)[0]
-        self.assertIn("montarQuadros", execucao, "a foto saiu do degrau seguinte")
-
-    def test_a_ficha_nao_tem_seletor_de_midia_nenhum(self):
-        """O INVARIANTE FICOU MAIS FORTE, e por isso mudou de forma.
-
-        Havia aqui um ternário escolhendo a mídia inicial, e um teste medindo
-        que `execucao` vinha antes de `anatomia` nele. Ele existia para impedir
-        o defeito de agosto: quem tocava "Ver vídeo de execução" recebia o
-        diagrama de músculos, com o banner de um personal concorrente por cima.
-
-        O dono cancelou a experiência anatômica: a tela do exercício mostra o
-        vídeo real e mais nada. Um ternário que escolhe entre duas mídias não
-        pode escolher errado quando só há uma — e a trava passa a ser a
-        AUSÊNCIA do seletor, que é mais forte que a ordem dentro dele.
-        """
-        for morto in ("data-drawer-midias", "data-drawer-midia=",
-                      "drawer.dataset.midia", "drawer--duas-midias"):
-            with self.subTest(morto=morto):
-                self.assertNotIn(morto, self.fonte)
-
-    def test_o_mapa_muscular_saiu_desta_tela_e_do_repositorio(self):
-        """A anatomia NÃO virou código morto: ela saiu inteira.
-
-        A versão anterior desta classe provava que a anatomia "trocou de forma"
-        — de vídeo de terceiro para mapa em SVG. Agora ela saiu, e a prova mede
-        as duas pontas, senão sobra parcial: o `include` fora do template E o
-        parcial fora do disco. Deixar o arquivo órfão traria de volta um
-        `{% include %}` de uma linha sem ninguém notar.
-
-        O QUE FICA É O TEXTO: `data-musculo` e `data-auxiliares` continuam
-        saindo do gatilho e viram "Principal" e "Também trabalha" no drawer.
-        """
-        self.assertNotIn("mapa_muscular", self.fonte)
-        self.assertNotIn("data-drawer-anatomia", self.fonte)
-        for orfao in ("templates/partials/mapa_muscular.html",
-                      "workouts/anatomia.py"):
-            with self.subTest(orfao=orfao):
-                self.assertFalse(
-                    (Path(settings.BASE_DIR) / orfao).exists(),
-                    "%s continua no disco sem ninguém consumir" % orfao,
-                )
-
-    def test_a_anatomia_por_video_saiu_inteira_desta_tela(self):
-        """O outro lado da troca: deixar `montarAnimacao` morta no arquivo
-        arrastaria junto `data-animacao`, que carrega a URL de embed completa
-        em cada gatilho da ficha da semana."""
-        self.assertNotIn("montarAnimacao", self.fonte.replace("`montarAnimacao`", ""))
-
-        gatilho = (
-            Path(settings.BASE_DIR) / "templates" / "workouts" / "_exercicio.html"
-        ).read_text(encoding="utf-8")
-        sem_comentario = re.sub(
-            r"\{%\s*comment\s*%\}.*?\{%\s*endcomment\s*%\}", "", gatilho, flags=re.S
-        )
-
-        self.assertNotIn("data-animacao", sem_comentario)
-
-    def test_o_modo_treino_continua_com_a_anatomia_em_gaveta_propria(self):
-        """O contrato do Treino V3, que esta correção não podia tocar."""
-        agora = (Path(settings.BASE_DIR) / "templates" / "workouts" / "agora.html").read_text(
-            encoding="utf-8"
-        )
-
-        self.assertIn("data-anatomia-area", agora)
-        self.assertIn("tem_anatomia", agora)
 
 
 def fichas_por_letra(client, user=None):
     """Um pedaço de HTML por ficha, indexado pela LETRA do treino.
 
-    RE-MIRADA: antes ela recortava a tela de treino nos `<details class="card
-    ficha">`, porque as fichas da semana eram sanfonas da mesma página. Hoje
-    cada sessão tem página própria (`workouts:ficha`), então o recorte é a
+    Cada sessão tem página própria (`workouts:ficha`), então o recorte é a
     própria resposta — mais simples e mais forte, porque não depende de a
     marcação continuar distinguível.
 
     Isolar continua importando pelo mesmo motivo de sempre: todas as fichas
-    desenham `_exercicio.html`, e contar `exercise--feito` na semana inteira
-    não distingue "concluí hoje" de "a ficha de sexta está mentindo".
+    desenham `_item_da_ficha.html`, e contar `ficha-item--feito` na semana
+    inteira não distingue "concluí hoje" de "a ficha de sexta está mentindo".
     """
     from django.contrib.auth import get_user as _get_user
     from django.urls import reverse as _reverse
@@ -4359,61 +3571,101 @@ class ConclusaoNaoVazaEntreDiasTests(TestCase):
             )
 
     def test_exercicio_anotado_hoje_nao_marca_a_ficha_de_outro_dia(self):
-        """O caso exato do defeito: a ficha de outro dia dizendo "feito"."""
+        """O caso exato do defeito: a ficha de outro dia dizendo "feito".
+
+        ELE ESTAVA VERDE PELO MOTIVO ERRADO, e é o achado desta migração. A
+        asserção era `sanfonas_com_classe(bloco, "exercise--feito") == []`, e
+        `sanfonas_com_classe` procura `<details>` com aquela classe. A ficha
+        deixou de ter `<details>` de exercício: a lista virou `<li>`. A busca
+        passou a devolver `[]` para qualquer entrada, inclusive para uma ficha
+        gritando "concluído" em toda linha.
+
+        Ausência que passa por ausência é o defeito que este repositório mais
+        paga, e a correção é sempre a mesma: um CONTROLE POSITIVO ao lado. A
+        ficha de hoje precisa trazer a marca — se ela não trouxer, a metade
+        negativa não está provando nada.
+        """
         item = self.sessao_de_outro_dia.exercises.first()
         self._anotar_todas_as_series(item)
 
-        bloco = fichas_por_letra(self.client, self.user)[
-            self.sessao_de_outro_dia.label
-        ]
+        fichas = fichas_por_letra(self.client, self.user)
+        outro_dia = fichas[self.sessao_de_outro_dia.label]
 
-        self.assertEqual(
-            sanfonas_com_classe(bloco, "exercise--feito"),
-            [],
+        self.assertNotIn(
+            "ficha-item--feito",
+            outro_dia,
             "a ficha de outro dia marcou como concluído um exercício que só "
             "foi anotado hoje",
         )
-        self.assertEqual(sanfonas_com_classe(bloco, "exercise--parcial"), [])
+        self.assertNotIn("Concluído: ", outro_dia)
+        self.assertNotIn("Em andamento: ", outro_dia)
 
-    def test_a_carga_de_hoje_nao_aparece_nas_series_de_outro_dia(self):
+        # CONTROLE POSITIVO: anotar na sessão de hoje e ver a marca aparecer.
+        # Sem ele, um marcador renomeado deixaria as asserções acima verdes
+        # para sempre.
+        de_hoje = self.sessao_de_hoje.exercises.first()
+        self._anotar_todas_as_series(de_hoje)
+        self.assertIn(
+            "ficha-item--feito",
+            fichas_por_letra(self.client, self.user)[self.sessao_de_hoje.label],
+            "o marcador de concluído mudou de nome — as asserções negativas "
+            "acima passaram a medir nada",
+        )
+
+    def test_o_progresso_de_hoje_nao_aparece_na_ficha_de_outro_dia(self):
         """`set_rows` lia o mesmo balde, então vazava pelo mesmo caminho.
 
         Uma coisa é a ficha de sexta lembrar a carga do ÚLTIMO treino daquele
         exercício — isso é o que se consulta ao abrir. Outra é ela mostrar as
         séries de hoje como se fossem dela.
+
+        A FORMA MUDOU: era `data-feitas="3"` num atributo do cartão, e hoje é a
+        fração "3/3" na linha. O que não mudou é quem decide — `anexar_historico`
+        zera o balde "hoje" para toda sessão que não é a de hoje, e é essa regra
+        que o teste prende, agora pelo texto que a pessoa lê.
         """
         item = self.sessao_de_outro_dia.exercises.first()
         self._anotar_todas_as_series(item)
 
-        bloco = fichas_por_letra(self.client, self.user)[
-            self.sessao_de_outro_dia.label
-        ]
+        fichas = fichas_por_letra(self.client, self.user)
+        outro_dia = fichas[self.sessao_de_outro_dia.label]
 
-        self.assertNotIn("data-feitas=\"%d\"" % item.sets, bloco)
-        self.assertIn('data-feitas="0"', bloco)
+        # Nem o estado, nem a fração cheia, nem a porta para executar: a ficha
+        # de outro dia é de consulta.
+        self.assertNotIn("ficha-item__estado", outro_dia)
+        self.assertNotIn("%d/%d" % (item.sets, item.sets), outro_dia)
+        self.assertIn("ficha-item__link--parado", outro_dia)
+
+        # CONTROLE POSITIVO: a mesma anotação, na ficha de hoje, aparece.
+        de_hoje = self.sessao_de_hoje.exercises.first()
+        self._anotar_todas_as_series(de_hoje)
+        hoje = fichas_por_letra(self.client, self.user)[self.sessao_de_hoje.label]
+        self.assertIn("ficha-item__estado", hoje)
+        self.assertIn("%d/%d" % (de_hoje.sets, de_hoje.sets), hoje)
 
     def test_a_ficha_de_hoje_continua_mostrando_o_que_foi_feito(self):
         """A correção não pode apagar o progresso de verdade.
 
         É o risco óbvio de escopar por data: zerar demais e a pessoa perder de
-        vista o que acabou de anotar.
+        vista o que acabou de anotar. A marca voltou a mudar de nome junto com
+        a tela — `linha-ex--feito` na lista compacta, `exercise--feito` no
+        cartão, `ficha-item--feito` na linha da preparação —, e o que ela diz é
+        o mesmo desde sempre.
         """
         item = self.sessao_de_hoje.exercises.first()
         self._anotar_todas_as_series(item)
 
-        # A FICHA DE HOJE é uma página, como as outras — e é nela que o
-        # concluído aparece. A marca voltou a ser `exercise--feito`: quando a
-        # lista compacta existia na tela principal era `linha-ex--feito`, e a
-        # lista saiu junto com o paredão.
         bloco_de_hoje = fichas_por_letra(self.client, self.user)[
             self.sessao_de_hoje.label
         ]
 
-        self.assertNotEqual(
-            sanfonas_com_classe(bloco_de_hoje, "exercise--feito"),
-            [],
+        self.assertIn(
+            "ficha-item--feito",
+            bloco_de_hoje,
             "a ficha de hoje deixou de mostrar o exercício concluído",
         )
+        # E com texto, não só com cor.
+        self.assertIn("Concluído: ", bloco_de_hoje)
 
 
 class NotaDaDivisaoTests(TestCase):

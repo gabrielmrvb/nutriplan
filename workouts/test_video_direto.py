@@ -33,12 +33,9 @@ from workouts.models import Exercise, MuscleGroup
 from workouts.videos import MOVIMENTO_ESPERADO, titulo_confere
 
 RAIZ = Path(settings.BASE_DIR)
-# O drawer e o script dele saíram de `routine.html` para
-# `_drawer.html` quando a ficha ganhou rota própria: DUAS páginas
-# passaram a precisar dele, e duas cópias divergiriam. O fonte da
-# tela de treino continua sendo os dois arquivos juntos.
-FICHA = RAIZ / "templates" / "workouts" / "_drawer.html"
-GATILHO = RAIZ / "templates" / "workouts" / "_exercicio.html"
+# `_drawer.html` e `_exercicio.html` saíram do repositório em 10/09/2026: sem
+# `{% include %}` em template nenhum, eram 1.050 linhas que ninguém emitia. A
+# tela do exercício é `agora.html`, e `ATelaDaExecucaoEODoVideoTests` a lê.
 
 #: O exercício legado. Ele não está no seed, não tem vídeo e não aparece em
 #: ficha nenhuma — e `migrations/0017` o DESATIVA em vez de apagar porque
@@ -418,127 +415,120 @@ class OLegadoFicaDesativadoTests(TestCase):
 
 
 
-class ATelaDoExercicioEODoVideoTests(TestCase):
-    """A Anatomia saiu da interface, e o vídeo abre sem toque intermediário."""
 
-    def setUp(self):
-        self.ficha = FICHA.read_text(encoding="utf-8")
-        self.gatilho = GATILHO.read_text(encoding="utf-8")
-        # Este projeto comenta muito, e os comentários CITAM o nome do que
-        # saiu — é a armadilha que o CLAUDE.md registra. Sem tirá-los, um
-        # `assertNotIn("Anatomia")` reprova por causa da própria explicação.
-        self.ficha_limpa = self._sem_comentarios(self.ficha)
-        self.gatilho_limpo = self._sem_comentarios(self.gatilho)
 
-    @staticmethod
-    def _sem_comentarios(fonte):
-        fonte = re.sub(
-            r"\{%\s*comment\s*%\}.*?\{%\s*endcomment\s*%\}", "", fonte, flags=re.S
+
+
+class ATelaDaExecucaoEODoVideoTests(TestCase):
+    """A demonstração é do exercício aberto, e é uma só.
+
+    CONSOLIDA NOVE TESTES DE DUAS CLASSES que liam `_drawer.html` e
+    `_exercicio.html`. Os dois parciais saíram do repositório nesta missão:
+    zero `{% include %}` em template nenhum, 1.050 linhas que ninguém emitia.
+
+    O que eles guardavam não era a gaveta — era o que a gaveta fazia certo, e
+    isso continua valendo na tela que ficou no lugar dela:
+
+        `id="drawer-media"` único        -> um `<iframe>` por tela
+        `media.innerHTML = ""` antes     -> nada de player vivo escondido
+        `montarClipe` antes de `Quadros` -> a escada de mídia
+        `media.hidden = !montou`         -> sem mídia, sem caixa preta
+        sem seletor de mídia             -> a execução não pode virar anatomia
+
+    A DIFERENÇA É QUE AGORA A MAIOR PARTE É DO SERVIDOR. A escada virou um
+    `{% if %}` sobre `execucao_tipo`, e "limpar ao fechar" deixou de existir
+    como problema: a página inteira é o exercício, e trocar de exercício é
+    trocar de página. Um `setInterval` esquecido não sobrevive a uma navegação.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.agora = (
+            RAIZ / "templates" / "workouts" / "agora.html"
+        ).read_text(encoding="utf-8")
+        cls.limpo = re.sub(
+            r"\{%\s*comment\s*%\}.*?\{%\s*endcomment\s*%\}", "", cls.agora,
+            flags=re.S,
         )
-        fonte = re.sub(r"/\*.*?\*/", "", fonte, flags=re.S)
-        return re.sub(r"^\s*//.*$", "", fonte, flags=re.M)
 
-    def test_a_ficha_nao_oferece_anatomia_em_lugar_nenhum(self):
-        """O controle positivo está nas duas primeiras asserções: sem ele, um
-        `_sem_comentarios` que apagasse o arquivo inteiro deixaria este teste
-        verde para sempre."""
-        self.assertIn("data-drawer-media", self.ficha_limpa)
-        self.assertIn("data-drawer-musculo", self.ficha_limpa)
-
-        for morto in ("Anatomia", "data-drawer-anatomia", "data-drawer-midia",
-                      "corpo__vista", "mapa_muscular", "Frente", "Costas",
-                      "pintarCorpo", "mostrarVista", "temAnatomia"):
-            with self.subTest(morto=morto):
-                self.assertNotIn(morto, self.ficha_limpa)
-
-    def test_o_gatilho_nao_carrega_mais_dado_de_anatomia(self):
-        """`data-destaques` e `data-vista` viajavam em CADA gatilho da ficha da
-        semana. Sem leitor, são bytes multiplicados por exercício."""
-        for morto in ("data-destaques", "data-vista", "data-animacao"):
-            with self.subTest(morto=morto):
-                self.assertNotIn(morto, self.gatilho_limpo)
-
-    def test_o_gatilho_continua_publicando_principal_e_auxiliares(self):
-        """O DADO ANATÔMICO FICA. O que saiu foi o desenho."""
-        self.assertIn("data-musculo=", self.gatilho_limpo)
-        self.assertIn("data-auxiliares=", self.gatilho_limpo)
-
-    def test_abrir_o_drawer_monta_a_midia_sem_escolha_no_meio(self):
-        """`preencher` chama `montarMidia` direto, sem consultar seletor.
-
-        Ancorado na CHAMADA e não na definição: `assertIn("montarMidia")`
-        casaria com `function montarMidia(...)` e passaria mesmo se ninguém a
-        chamasse — é o falso positivo que este repositório já pagou duas vezes.
+    def test_a_execucao_monta_UM_player_e_o_recorte_enxerga(self):
+        """Controle positivo junto: um `_sem_comentarios` que apagasse o
+        arquivo inteiro deixaria toda asserção de ausência verde para sempre.
         """
-        corpo = self.ficha.split("function preencher(dados) {", 1)[1]
-        corpo = corpo.split("\n        }", 1)[0]
-        self.assertIn("montarMidia(media, dados);", corpo)
+        self.assertIn("agora__media", self.limpo)
+        self.assertEqual(self.limpo.count("<iframe"), 1)
 
-    def test_sem_midia_a_caixa_some_em_vez_de_ficar_preta(self):
+    def test_a_escada_de_midia_e_do_SERVIDOR_e_tem_uma_ordem(self):
+        """Clipe, vídeo, gif, fotos — e a busca quando não há nada.
+
+        Era `montarClipe` antes de `montarQuadros` dentro de `montarMidia`; a
+        ordem é a mesma, escrita em `{% if %}`. Ancorado nas POSIÇÕES, porque o
+        defeito de agosto foi de ordem e não de ausência: quem tocava "Ver
+        vídeo de execução" recebia o diagrama de músculos, com o banner de um
+        personal concorrente por cima.
+        """
+        posicoes = [
+            self.limpo.index("execucao_tipo == 'youtube'"),
+            self.limpo.index("execucao_tipo == 'video'"),
+            self.limpo.index("execucao_tipo == 'gif'"),
+            self.limpo.index("execucao_tipo == 'fotos'"),
+        ]
+        self.assertEqual(posicoes, sorted(posicoes))
+
+    def test_sem_midia_a_tela_diz_isso_em_vez_de_ficar_preta(self):
         """§16 da decisão: sem vídeo, nada de player vazio nem caixa preta.
 
-        `--vertical` sai de `data-vertical`, que é do CADASTRO: ela dimensiona
-        a caixa mesmo quando nenhum construtor montou nada. Medido no
-        navegador, um exercício sem vídeo e sem foto abria o drawer com um
-        retângulo chapado de 228×405 no topo.
-
-        Os 36 ativos têm vídeo, então este ramo não é alcançável hoje — e é
-        exatamente por isso que ele precisa de teste: ninguém vai encontrar o
-        defeito usando o app.
+        Medido no navegador na versão do drawer: um exercício sem vídeo e sem
+        foto abria com um retângulo chapado de 228×405 no topo. Aqui o `{% else %}`
+        entrega texto e a busca no YouTube — os 36 ativos têm vídeo, então este
+        ramo não é alcançável hoje, e é exatamente por isso que ele precisa de
+        teste: ninguém vai encontrar o defeito usando o app.
         """
-        corpo = self.ficha.split("function montarMidia(media, dados) {", 1)[1]
-        corpo = corpo.split("\n        }", 1)[0]
-        self.assertIn("media.hidden = !montou;", corpo)
-        self.assertLess(
-            corpo.index("montarClipe"), corpo.index("media.hidden = !montou;"),
-            "a caixa some antes de alguém tentar montar a mídia",
-        )
+        ramo = self.limpo.split("execucao_tipo == 'fotos'", 1)[1]
+        ramo = ramo.split("</div>", 1)[0]
+        self.assertIn("agora__sem-media", ramo)
+        self.assertIn("Sem demonstração cadastrada", ramo)
+        self.assertIn("video_search_url", ramo)
 
-    def test_a_regra_de_16_por_9_do_seletor_saiu_junto(self):
-        """`.drawer--duas-midias .drawer__media--vertical` prendia o Short em
-        16:9 para trocar de mídia não fazer a caixa pular de tamanho. Sem
-        seletor ela é letra morta, e mantê-la roubaria metade da área útil do
-        vídeo: os 36 são verticais, e `--vertical` sozinha dá 9:16."""
-        css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
-        # SEM OS COMENTÁRIOS — a armadilha do CLAUDE.md, e ela mordeu aqui na
-        # primeira execução: o comentário que EXPLICA a remoção cita o nome do
-        # seletor removido, e o teste reprovou por causa da própria explicação.
-        regras = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
-        self.assertNotIn("drawer--duas-midias", regras)
-        self.assertIn(".drawer__media--vertical {", regras)
+    def test_a_execucao_nao_tem_seletor_de_midia_nenhum(self):
+        """O INVARIANTE FICOU MAIS FORTE, e por isso mudou de forma.
 
-
-class UmIframeVivoPorVezTests(TestCase):
-    """Vídeo escondido tocando atrás é bateria e dado do bolso alheio."""
-
-    def setUp(self):
-        self.ficha = FICHA.read_text(encoding="utf-8")
-
-    def test_montar_a_midia_esvazia_a_caixa_antes_de_encher(self):
-        """Tirar o `<iframe>` do documento é o que ENCERRA o vídeo. A ordem
-        importa: esvaziar depois de anexar deixaria o novo de fora."""
-        corpo = self.ficha.split("function montarMidia(media, dados) {", 1)[1]
-        corpo = corpo.split("\n        }", 1)[0]
-        self.assertIn('media.innerHTML = "";', corpo)
-        self.assertLess(
-            corpo.index('media.innerHTML = "";'), corpo.index("montarClipe")
-        )
-
-    def test_fechar_o_drawer_limpa_a_midia_pelos_tres_caminhos(self):
-        """Botão, Esc e clique no fundo. `<dialog>` avisa por `cancel` e por
-        `close`; sem os dois, sair pelo teclado deixava o clipe tocando."""
-        self.assertIn('drawer.addEventListener("cancel", limparMidia)', self.ficha)
-        self.assertIn('drawer.addEventListener("close", limparMidia)', self.ficha)
-        self.assertIn("function fecharDrawer() {", self.ficha)
-
-    def test_existe_uma_caixa_de_midia_so_no_documento(self):
-        """Duas caixas seriam dois iframes vivos, e a limpeza só alcança a que
-        ela conhece.
-
-        Ancorado no `id`, que é único por definição, e não na contagem de
-        `data-drawer-media`: essa string aparece também nos `querySelector` do
-        JavaScript, então o número esperado mudaria a cada função nova que
-        procurasse a caixa — um teste que quebra quando nada quebrou.
+        Havia um ternário escolhendo a mídia inicial, e um teste medindo que
+        `execucao` vinha antes de `anatomia` nele. A trava passou a ser a
+        AUSÊNCIA do seletor, que é mais forte que a ordem dentro dele — e
+        atravessou a troca de tela intacta.
         """
-        self.assertEqual(self.ficha.count('id="drawer-media"'), 1)
-        self.assertEqual(self.ficha.count('class="drawer__media"'), 1)
+        for morto in ("data-drawer-midias", "data-drawer-midia=",
+                      "drawer.dataset.midia", "drawer--duas-midias",
+                      "montarAnimacao", "mapa_muscular", "corpo__vista"):
+            with self.subTest(morto=morto):
+                self.assertNotIn(morto, self.limpo)
+
+    def test_a_anatomia_continua_secundaria_e_calada(self):
+        """O DADO ANATÔMICO FICA; o que saiu foi o desenho e a prioridade.
+
+        `animation_url` guarda conteúdo anatômico — metade dos vídeos de lá se
+        chama "<exercício> - Músculos Trabalhados", e o supino levava onze
+        segundos de diagrama antes de alguém deitar no banco. Ele continua no
+        app, embaixo, atrás de um `<details>`, e o embed só nasce quando alguém
+        abre: iframe dentro de `<details>` fechado é baixado e TOCADO pelo
+        navegador, e esses vídeos trazem publicidade de terceiro.
+        """
+        self.assertIn("data-anatomia-area", self.limpo)
+        self.assertIn("tem_anatomia", self.limpo)
+
+        # O `src` mora num atributo, e vira elemento só no `toggle`.
+        self.assertIn('data-anatomia="{{ atual.exercise.anatomia_src }}"', self.limpo)
+        corpo = self.limpo.split('detalhe.addEventListener("toggle"', 1)[1]
+        corpo = corpo.split("});", 1)[0]
+        self.assertIn("if (!detalhe.open)", corpo)
+        self.assertIn('corpo.innerHTML = ""', corpo)
+
+    def test_o_video_da_execucao_e_o_do_exercicio_aberto(self):
+        """A ponta a ponta: o `src` sai do exercício da vez, e de mais ninguém.
+
+        É o que `id="drawer-media"` único protegia por outro caminho — uma
+        caixa só, para a limpeza alcançar. Aqui a caixa é a página.
+        """
+        self.assertIn('src="{{ atual.exercise.execucao_src }}"', self.limpo)
+        self.assertIn('title="Execução de {{ atual.exercise.name }}"', self.limpo)

@@ -607,8 +607,12 @@ class OProdutoNaoPrometeAmbienteTests(TestCase):
 
         campos = set(TrainingForm.base_fields)
 
-        self.assertIn("duracao_treino", campos)
+        # `experiencia` e `weekdays`, e não `duracao_treino`: a duração saiu do
+        # formulário em 10/09/2026 — a pergunta virou decisão do produto, com
+        # padrão de 45 a 60 minutos. O controle positivo precisa apontar para
+        # campos que EXISTEM, senão ele para de provar que a varredura enxerga.
         self.assertIn("experiencia", campos)
+        self.assertIn("weekdays", campos)
         self.assertTrue(
             [c for c in campos | {"ambiente_de_treino"} if "ambiente" in c]
         )

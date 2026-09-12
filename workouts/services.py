@@ -2064,6 +2064,14 @@ class EstadoDoTreino:
     proximo: object = None
     total_exercicios: int = 0
     exercicios_concluidos: int = 0
+    #: A posição do exercício em foco na ficha, de 1 em diante — 0 sem foco.
+    #:
+    #: Ela existe porque a pessoa passou a ESCOLHER o exercício. Enquanto a
+    #: tela só sabia abrir o próximo pendente, "Exercício 3/9" podia sair de
+    #: `exercicios_concluidos + 1`: os concluídos eram sempre os anteriores.
+    #: Escolhendo o último de uma ficha sem nada feito, aquela conta dizia
+    #: "Exercício 1/2" na tela do segundo movimento.
+    posicao_atual: int = 0
     total_series: int = 0
     series_feitas: int = 0
     pct: int = 0
@@ -2146,7 +2154,20 @@ def _sugestao_de_reps(item, serie):
     return registro.reps if registro is not None else None
 
 
-def estado_do_treino(user, dia=None) -> EstadoDoTreino:
+class ExercicioForaDaSessao(LookupError):
+    """Pediram um exercício que não é do treino de hoje desta pessoa.
+
+    É uma condição de PEDIDO, não de dados: o id chegou pela barra de endereço.
+    Ela cobre num lugar só o link velho, o id inventado, o exercício de outra
+    sessão e o de outra conta — porque `estado_do_treino` só enxerga a sessão
+    de hoje do próprio usuário, e "não está aqui" é a mesma resposta para os
+    quatro.
+
+    Quem a converte em 404 é `ModoTreinoView`. O serviço não sabe de HTTP.
+    """
+
+
+def estado_do_treino(user, dia=None, escolhido=None) -> EstadoDoTreino:
     """O treino de hoje com o ponto exato em que a pessoa parou.
 
     O exercício atual é o PRIMEIRO da ficha que ainda não tem todas as séries
@@ -2154,12 +2175,39 @@ def estado_do_treino(user, dia=None) -> EstadoDoTreino:
     caso mais comum do modo guiado: quem anotou duas de quatro séries do supino
     continua no supino, e a regra antiga (`not item.feitas`) já teria passado
     para o próximo exercício.
+
+    `escolhido` é o id do EXERCÍCIO que a pessoa tocou na ficha, e ele vence a
+    escolha automática. O fluxo do app passou a ser "ficha primeiro, exercício
+    depois": a tela de treino leva à ficha, a ficha lista tudo, e é a pessoa
+    que escolhe por onde começar. Sem este argumento a execução só sabia abrir
+    o próximo pendente, e quem quisesse fazer a panturrilha antes do
+    agachamento não tinha como pedir.
+
+    ID QUE NÃO É DA SESSÃO DE HOJE LEVANTA `ExercicioForaDaSessao`, e não cai
+    na escolha automática. A primeira versão desta função fazia `pedido or
+    atual`, e o silêncio era o defeito: um link velho, um id de outra sessão ou
+    um id de outra conta abriam a tela do PRIMEIRO PENDENTE — com o vídeo dele
+    tocando — como se nada tivesse acontecido. A pessoa via um exercício que
+    não pediu e não tinha como saber; e um link quebrado que "funciona" nunca
+    é consertado.
+
+    O que ele NÃO faz: não grava nada, não muda progresso e não reordena a
+    ficha. É uma leitura — o mesmo `EstadoDoTreino` derivado de `ExerciseLog`,
+    com outro item em foco. Escolher um exercício JÁ CONCLUÍDO é legítimo (a
+    pessoa quer conferir a carga que fez), e não corrompe contagem nenhuma:
+    `exercicios_concluidos`, `concluido` e `proximo` continuam saindo da ficha
+    inteira, e não do item em foco.
     """
     dia = dia or timezone.localdate()
     estado = EstadoDoTreino()
 
     plan = get_active_routine(user)
     if plan is None:
+        # SEM FICHA NÃO HÁ ESCOLHA VÁLIDA. O retorno adiantado pulava a
+        # validação: pedir um exercício num dia sem treino devolvia a tela de
+        # descanso com 200, e o link quebrado continuava parecendo bom.
+        if escolhido is not None:
+            raise ExercicioForaDaSessao(escolhido)
         return estado
 
     sessao = (
@@ -2168,6 +2216,8 @@ def estado_do_treino(user, dia=None) -> EstadoDoTreino:
         .first()
     )
     if sessao is None:
+        if escolhido is not None:
+            raise ExercicioForaDaSessao(escolhido)
         return estado
 
     itens = list(sessao.exercises.all())
@@ -2199,17 +2249,34 @@ def estado_do_treino(user, dia=None) -> EstadoDoTreino:
             for numero in range(1, item.sets + 1)
         ]
 
-    atual = next((item for item in itens if not item.concluido), None)
+    pendente = next((item for item in itens if not item.concluido), None)
+    atual = pendente
+    if escolhido is not None:
+        atual = next(
+            (item for item in itens if item.exercise_id == escolhido), None
+        )
+        if atual is None:
+            # SEM FALLBACK. Ver a docstring: cair no próximo pendente aqui
+            # abriria o vídeo de um exercício que ninguém pediu.
+            raise ExercicioForaDaSessao(escolhido)
+
     proximo = None
     if atual is not None:
         depois = itens[itens.index(atual) + 1:]
         proximo = next((item for item in depois if not item.concluido), None)
+        # NADA PENDENTE DEPOIS, mas ainda há pendente ANTES — acontece quando a
+        # pessoa escolhe um exercício já concluído no fim da ficha. "Depois:
+        # último exercício do treino" seria mentira com três séries faltando lá
+        # em cima, então o ponteiro volta para o primeiro que falta.
+        if proximo is None and pendente is not None and pendente is not atual:
+            proximo = pendente
 
     estado.sessao = sessao
     estado.itens = itens
     estado.atual = atual
     estado.proximo = proximo
     estado.total_exercicios = len(itens)
+    estado.posicao_atual = itens.index(atual) + 1 if atual is not None else 0
     estado.exercicios_concluidos = sum(1 for item in itens if item.concluido)
     estado.total_series = sum(item.sets for item in itens)
     # `min` para o percentual não passar de 100 quando alguém anota uma série a
@@ -2221,7 +2288,12 @@ def estado_do_treino(user, dia=None) -> EstadoDoTreino:
         if estado.total_series
         else 0
     )
-    estado.concluido = bool(itens) and atual is None
+    # `concluido` continua olhando a FICHA, não o item em foco: escolher um
+    # exercício já feito não pode fazer a tela dizer que o treino acabou, nem o
+    # contrário.
+    estado.concluido = bool(itens) and not any(
+        not item.concluido for item in itens
+    )
 
     # Quanto falta de descanso — contado do relógio, não de um cronômetro que
     # vive na aba.

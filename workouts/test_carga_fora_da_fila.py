@@ -312,117 +312,40 @@ class ACargaSaiuDaFilaOfflineTests(TestCase):
         self.assertIn("evento.preventDefault()", captura)
         self.assertNotIn("function drenar()", captura)
 
+    def test_nenhum_template_manda_mais_o_CONTADOR_de_series(self):
+        """A raiz do replay destrutivo saiu da interface, e não só da fila.
 
-class OAvisoOfflineNaoMenteTests(TestCase):
-    """Sem rede a série não é salva, e a tela precisa dizer isso.
+        SUBSTITUI `OAvisoOfflineNaoMenteTests`, sete testes que liam o `.catch`
+        do envio por `fetch` em `routine.html` — o caminho que mostrava "Sem
+        rede" e "Nao consegui salvar" ao lado do formulário. Aquele script
+        inteiro saiu nesta missão: ele começava por `.hoje__lista` e por um
+        `submit` delegado em `.registro`, e a tela principal deixou de emitir os
+        dois. Testar o aviso de um formulário que a página não desenha é medir
+        um componente sem consumidor.
 
-    Um toque que não produz nada visível é indistinguível de um botão quebrado,
-    e a pessoa toca de novo. O aviso reusa `role="status"`/`aria-live` — o mesmo
-    padrão do aviso do cronômetro, nesta mesma ficha — em vez de um toast novo.
-    """
-
-    @classmethod
-    def setUpTestData(cls):
-        from django.conf import settings
-
-        cls.raiz = Path(settings.BASE_DIR)
-
-    def setUp(self):
-        # SEM COMENTÁRIOS: `assertNotIn("atualiza(", ...)` sobre o texto cru
-        # ficaria VERMELHO no dia em que alguém escrevesse "não chama
-        # `atualiza(`" dentro do próprio `.catch` — falso vermelho, mesma
-        # família da armadilha que já custou caro aqui na direção oposta.
-        # OS DOIS ARQUIVOS: o drawer saiu de `routine.html` para `_drawer.html`
-        # quando a ficha ganhou rota própria, e o script do registro de carga
-        # ficou onde estava. Ler os dois juntos deixa este teste indiferente a
-        # qual deles guarda cada trecho — que é o que ele quer medir.
-        pasta = self.raiz / "templates" / "workouts"
-        self.ficha = sem_comentarios(
-            "".join(
-                (pasta / nome).read_text(encoding="utf-8")
-                for nome in ("routine.html", "_drawer.html")
-            )
-        )
-        self.cartao = (
-            self.raiz / "templates" / "workouts" / "_exercicio.html"
-        ).read_text(encoding="utf-8")
-
-    def _catch_do_registro(self):
-        """O `.catch` do envio da série, recortado do resto da ficha."""
-        envio = self.ficha.index("envia(form, feitas + 1)")
-        inicio = self.ficha.index(".catch(function () {", envio)
-        return self.ficha[inicio : self.ficha.index(".then(function ()", inicio)]
-
-    def test_o_recorte_pega_mesmo_o_catch_do_registro(self):
-        """Controle do recorte: o arquivo tem outros `.catch`, e o primeiro
-        deles é do wake-lock. Se o recorte escorregasse, as duas asserções
-        abaixo estariam falando de um bloco que não é este."""
-        catch = self._catch_do_registro()
-
-        self.assertIn("data-registro-aviso", catch)
-        self.assertNotIn("release()", catch)
-
-    def test_o_formulario_tem_onde_avisar(self):
-        self.assertIn("data-registro-aviso", self.cartao)
-        self.assertIn('role="status"', self.cartao)
-        self.assertIn('aria-live="polite"', self.cartao)
-
-    def test_o_fallback_nativo_NAO_EXISTE_MAIS(self):
-        """`form.submit()` no erro era destrutivo, e não offline.
-
-        Ele mandava o campo REAL do formulário — e quem escreve esse campo é
-        `atualiza()`, que só roda no `.then` de sucesso. Ou seja: o fallback
-        postava o contador VELHO, e a view apaga toda série acima dele. Com
-        `series_feitas = 0`, que é o primeiro toque do dia, o
-        `DELETE ... set_number__gt=0` leva o exercício inteiro — está medido em
+        O PERIGO QUE ELES GUARDAVAM CONTINUA, e é este teste que fica no lugar.
+        `series_feitas` é um contador DERIVADO: a view o envolve num laço mais
+        um `DELETE ... set_number__gt=N`, então um corpo com o número velho
+        reescreve o peso das séries anteriores e apaga as de cima — medido em
         `test_com_o_contador_em_zero_o_dia_inteiro_daquele_exercicio_some`.
 
-        E disparava COM REDE VIVA: qualquer falha do `fetch` — 5xx, requisição
-        abortada, o cold start de 50 s do plano gratuito. Não era o caminho
-        offline; era o caminho online.
-
-        Sem o fallback, a única gravação é o `fetch`, que manda o contador
-        certo. Falhou, não salvou, e a tela diz isso.
+        Enquanto nenhum formulário o EMITE, não há corpo velho para reenviar.
+        A execução manda "fiz mais uma série" e deixa o número para o servidor.
         """
-        catch = self._catch_do_registro()
+        from django.conf import settings
 
-        self.assertNotIn("form.submit()", catch)
+        pasta = Path(settings.BASE_DIR) / "templates"
+        emissores = [
+            arquivo.relative_to(pasta).as_posix()
+            for arquivo in pasta.rglob("*.html")
+            if 'name="series_feitas"' in arquivo.read_text(encoding="utf-8")
+        ]
+        self.assertEqual(emissores, [])
 
-    def test_o_erro_avisa_com_rede_e_sem_rede(self):
-        """As duas frases existem, e são diferentes: "não consegui" e "sem
-        rede" descrevem situações distintas para quem está de pé na academia."""
-        catch = self._catch_do_registro()
-
-        self.assertIn("navigator.onLine", catch)
-        self.assertIn("Sem rede", catch)
-        self.assertIn("Nao consegui salvar", catch)
-        self.assertIn("aviso.hidden = false;", catch)
-
-    def test_sem_rede_a_ficha_NAO_navega_para_fora(self):
-        """`form.submit()` offline leva a pessoa para a página de offline e
-        tira a ficha da frente dela no meio do treino — e agora não há nem fila
-        para recolher o toque."""
-        # Ancorado no ENVIO da série, e não no primeiro `.catch` do arquivo —
-        # esse é o do wake-lock, centenas de linhas acima, e a asserção falhava
-        # medindo o bloco errado.
-        catch = self._catch_do_registro()
-
-        # A asserção era `assertIn("form.submit();")` — ela travava a NAVEGAÇÃO
-        # no ramo online como se fosse desejável. Era o oposto: aquele POST
-        # nativo mandava o contador defasado e apagava o dia. Hoje o teste
-        # irmão exige a AUSÊNCIA dele, e este cuida do que sobrou: a tela não
-        # sai do lugar e avisa.
-        self.assertNotIn("form.submit()", catch)
-        self.assertIn("aviso.hidden = false;", catch)
-
-    def test_o_aviso_e_limpo_a_cada_tentativa(self):
-        """Aviso que sobrevive ao registro seguinte mente na direção oposta."""
-        self.assertIn("avisoAnterior.hidden = true;", self.ficha)
-
-    def test_a_ficha_nao_marca_a_serie_no_caminho_de_erro(self):
-        """Controle do "não finja que salvou": `atualiza()` só existe dentro do
-        `.then` de sucesso. Se aparecesse no `.catch`, o contador subiria sem
-        nada ter sido gravado."""
-        catch = self._catch_do_registro()
-
-        self.assertNotIn("atualiza(", catch)
+        # CONTROLE POSITIVO: a varredura enxerga um campo que EXISTE.
+        vivos = [
+            arquivo.relative_to(pasta).as_posix()
+            for arquivo in pasta.rglob("*.html")
+            if 'name="weight_kg"' in arquivo.read_text(encoding="utf-8")
+        ]
+        self.assertIn("workouts/agora.html", vivos)

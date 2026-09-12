@@ -118,7 +118,17 @@
     <div class="page-head agora__head">
       <p class="sobretitulo agora__sessao-rotulo">{{ estado.sessao.name }}</p>
       <p class="agora__passo num">
-        Exercício {{ estado.exercicios_concluidos|add:1 }}/{{ estado.total_exercicios }}
+        {% comment %}
+          A POSIÇÃO É A DO EXERCÍCIO EM FOCO, e ela deixou de ser derivada dos
+          concluídos em 10/09/2026.
+
+          `exercicios_concluidos|add:1` funcionava enquanto a tela só abria o
+          próximo pendente — ali os concluídos eram, por construção, os
+          anteriores. Com a ficha escolhendo o exercício, a conta passou a
+          mentir: abrir o segundo movimento de uma ficha sem nada registrado
+          mostrava "Exercício 1/2".
+        {% endcomment %}
+        Exercício {{ estado.posicao_atual }}/{{ estado.total_exercicios }}
         · {{ estado.series_feitas }}/{{ estado.total_series }} séries
       </p>
       <div class="progress agora__progresso">
@@ -345,6 +355,61 @@
         {% endif %}
       </div>
 
+      {% comment %}
+        A CARGA ANTERIOR, migrada do cartão da ficha — e reescrita.
+
+        Era o último recurso do cartão que não tinha equivalente aqui. A ficha
+        virou tela de preparação; tudo que se usa DURANTE a série mudou para
+        esta página, e a carga da última vez é o que faz a pessoa escolher a
+        anilha.
+
+        DUAS AFIRMAÇÕES SEPARADAS, e a separação é a correção:
+
+          - "Última carga" é FATO. Sai de `ExerciseLog`, com a data.
+          - "Sugestão: manter" é o que o sistema realmente recomenda. A regra
+            do app é `_sugestao_de_carga`, e ela repete a última carga
+            conhecida — NUNCA aumenta. O campo já abre preenchido com esse
+            valor, e a frase só torna visível o que ele faz.
+
+        O "▲ +5 kg" que o cartão antigo mostrava NÃO era recomendação: era a
+        diferença entre o mais pesado de hoje e o da última vez — descrição do
+        que a pessoa JÁ tinha levantado. Renderizado ao lado de um campo vazio,
+        ele lia como conselho, e o app não tem regra que autorize subir peso.
+        Aqui ele só aparece depois de existir carga de HOJE, e com o rótulo
+        dizendo que é comparação.
+
+        NADA DISTO APARECE SEM HISTÓRICO. Sem `melhor_anterior` não há
+        comparação vazia, não há "0 kg" e não há sugestão inventada — o campo
+        fica em branco, que é o comportamento de `_sugestao_de_carga`.
+
+        E NÃO APARECE EM EXERCÍCIO DE PESO CORPORAL. Flexão, mergulho, prancha
+        e abdominal não recebem anilha; sugerir "manter 0 kg" ali seria
+        recomendar um número que não existe naquele movimento.
+      {% endcomment %}
+      {% if atual.load.melhor_anterior and atual.exercise.equipment != 'bodyweight' %}
+        <p class="agora__anterior">
+          <span class="agora__anterior-fato">
+            Última carga ({{ atual.load.data_anterior|date:"d/m" }}):
+            <b class="num">{{ atual.load.melhor_anterior|floatformat:'-2' }} kg</b>
+          </span>
+          <span class="agora__anterior-sugestao">
+            Sugestão: manter <b class="num">{{ atual.load.melhor_anterior|floatformat:'-2' }} kg</b>
+          </span>
+          {% if atual.load.melhor_hoje %}
+            <span class="agora__comparacao">
+              Hoje:
+              {% if atual.load.delta > 0 %}
+                <b class="agora__delta agora__delta--up">▲ +{{ atual.load.delta|floatformat:'-2' }} kg</b>
+              {% elif atual.load.delta < 0 %}
+                <b class="agora__delta agora__delta--down">▼ {{ atual.load.delta|floatformat:'-2' }} kg</b>
+              {% else %}
+                <b class="agora__delta">= mesma carga</b>
+              {% endif %}
+            </span>
+          {% endif %}
+        </p>
+      {% endif %}
+
       <p class="agora__cue">{{ atual.exercise.cue }}</p>
 
 
@@ -396,8 +461,20 @@
       {% endif %}
     </p>
 
+    {% comment %}
+      A VOLTA É PARA A FICHA, e a âncora antiga apontava para o nada.
+
+      O destino era `workouts:routine#exercicio-<pk>`, de quando a tela de
+      Treino desenhava o cartão de cada exercício. Ela parou de desenhar em
+      09/09/2026 — o detalhe mudou de página —, e o `#` ficou apontando para um
+      id que não existe mais: o link levava ao topo da tela de Treino, sem erro
+      visível e sem levar a lugar nenhum útil.
+
+      Agora ele volta para a ficha DESTA sessão, que é de onde a pessoa veio e
+      onde estão os outros exercícios para escolher.
+    {% endcomment %}
     <a class="btn btn--ghost btn--block agora__lista"
-       href="{% url 'workouts:routine' %}#exercicio-{{ atual.exercise.pk }}">
+       href="{% url 'workouts:ficha' estado.sessao.pk %}">
       Ver o treino completo
     </a>
     {% endwith %}
@@ -459,6 +536,16 @@
           area.classList.add("descanso--fim");
           if (relogio) relogio.textContent = "pode ir";
           falar("Descanso terminado, pode ir.");
+          /* CHAMAR DE LONGE, e por isso o padrao e longo.
+           *
+           * No fim do descanso o aparelho esta no banco, e a pessoa esta de
+           * costas para ele. E o oposto do toque curto de gravar a serie, que
+           * acontece com o telefone na mao. Vibracao longa para confirmacao e
+           * o que faz alguem desligar a vibracao do app inteiro.
+           *
+           * `navigator.vibrate` nao existe no iPhone. O `if` nao e otimizacao:
+           * e a metade dos aparelhos. */
+          if (navigator.vibrate) navigator.vibrate([200, 100, 400]);
           return;
         }
         var m = Math.floor(restante / 60), s = restante % 60;
@@ -477,6 +564,77 @@
         });
       }
     }
+
+    /* O pulso que confirma a serie.
+
+       Curto e unico. O formulario faz POST e a pagina recarrega — ou `fila.js`
+       o captura quando nao ha rede —, e nos dois caminhos o toque ja aconteceu
+       quando isto roda. E confirmacao de gesto, nao anuncio de resultado.
+
+       Ele morava em `routine.html`, de quando a tela de Treino desenhava o
+       formulario de cada exercicio. Ela parou de desenhar, e o codigo ficou
+       pendurado num `.registro` que aquela pagina nao emite mais. */
+    document.addEventListener("submit", function (evento) {
+      if (!evento.target.closest(".registro")) return;
+      if (navigator.vibrate) navigator.vibrate(35);
+    });
+
+    /* A TELA NAO APAGA DURANTE O TREINO, e esta e a tela do treino.
+     *
+     * O celular fica no banco entre series, e o descanso e de 1:20 — bem mais
+     * que os 30 segundos de bloqueio automatico da maioria dos aparelhos. Sem
+     * isto a pessoa desbloqueia o telefone a cada serie, de mao suada, para
+     * ver quantas faltam.
+     *
+     * Ele tambem veio de `routine.html`, e o lugar estava errado desde que a
+     * execucao virou tela propria: quem esta treinando esta AQUI, e era o
+     * painel que ficava aceso.
+     *
+     * A trava e SOLTA quando a aba sai de vista, e retomada quando volta: o
+     * navegador solta sozinho ao esconder a aba, e sem o `visibilitychange` a
+     * trava nao voltaria depois de atender uma mensagem — que e exatamente
+     * quando ela faz falta.
+     *
+     * `wakeLock` nao existe no Safari antigo nem em Firefox de Android. O `if`
+     * e o que impede o erro; onde nao existe, a tela apaga como sempre apagou.
+     */
+    (function () {
+      if (!("wakeLock" in navigator)) return;
+
+      var trava = null;
+
+      function segurar() {
+        if (trava || document.visibilityState !== "visible") return;
+        navigator.wakeLock
+          .request("screen")
+          .then(function (t) {
+            trava = t;
+            /* O proprio navegador solta a trava em situacoes que ele decide
+             * (bateria baixa, por exemplo). Sem zerar a referencia, a retomada
+             * seguinte acharia que ainda esta segurando. */
+            t.addEventListener("release", function () { trava = null; });
+          })
+          .catch(function () { /* recusado: a tela apaga, e so */ });
+      }
+
+      function soltar() {
+        if (!trava) return;
+        var t = trava;
+        trava = null;
+        t.release().catch(function () {});
+      }
+
+      document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "visible") segurar();
+        else soltar();
+      });
+
+      /* Sai da tela de treino, solta: manter a tela acesa numa aba que a
+       * pessoa deixou aberta no bolso e gastar bateria por nada. */
+      window.addEventListener("pagehide", soltar);
+
+      segurar();
+    })();
 
     /* Anatomia sob demanda.
 

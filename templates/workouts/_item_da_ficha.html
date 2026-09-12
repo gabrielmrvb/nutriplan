@@ -1,0 +1,81 @@
+{% comment %}
+  UMA LINHA DA FICHA — nome, números, músculo e a porta para a execução.
+
+  Recebe:
+    item  — o `SessionExercise`, já com `feitas`/`sets` de `anexar_historico`
+    ordem — a posição na ficha, contínua entre principais e complementares
+    hoje  — verdadeiro na ficha do dia; só então existe execução para abrir
+
+  A FICHA É TELA DE PREPARAÇÃO, e esta linha é o contrato dela: nome, séries ×
+  repetições, músculo e o papel do movimento. Nada que se use DURANTE a série
+  mora aqui — nem vídeo, nem campo de carga, nem cronômetro, nem histórico
+  detalhado. Isso tudo está na execução, que é a tela de quem já escolheu.
+
+  ELA JÁ FOI UM CARTÃO COMPLETO, e a troca não foi cosmética: a ficha montava
+  trinta e poucos `<details>` com iframe potencial, formulário de carga,
+  pastilhas de série e comparação de peso — abertos ao mesmo tempo, para uma
+  pessoa que ainda não decidiu o que vai fazer. O cabeçalho fechado daquele
+  cartão já era esta linha; o resto era peso que a preparação não usa.
+
+  O MARCADOR DE CARGA NÃO ENTRA AQUI. Peso da última vez é informação de quem
+  está escolhendo a anilha, não de quem está lendo o treino — ele está na
+  execução, ao lado do campo em que se anota.
+{% endcomment %}
+<li class="ficha-item{% if item.feitas >= item.sets %} ficha-item--feito{% endif %}">
+  {% if hoje %}
+    <a class="ficha-item__link"
+       href="{% url 'workouts:now' %}?exercicio={{ item.exercise_id }}"
+       {% comment %}
+         O NOME ACESSÍVEL DIZ O EXERCÍCIO, e não "abrir".
+
+         São muitos links iguais na mesma página; um leitor de tela que anuncia
+         "link, abrir" trinta vezes não ajuda a escolher. O texto visível já
+         traz o nome, e `aria-label` o repete junto do verbo.
+       {% endcomment %}
+       aria-label="Fazer {{ item.exercise.name }}">
+  {% else %}
+    {% comment %}
+      SEM LINK FORA DO DIA, e isso é regra de produto e não de layout: a
+      execução lê e grava `ExerciseLog` de HOJE. Um link para "fazer" a ficha
+      de sexta numa terça prometeria registrar série num treino que não está
+      acontecendo. A ficha dos outros dias serve para conferir e planejar.
+    {% endcomment %}
+    <div class="ficha-item__link ficha-item__link--parado">
+  {% endif %}
+
+    <span class="ficha-item__ordem num" aria-hidden="true">{{ ordem }}</span>
+
+    <span class="ficha-item__corpo">
+      <span class="ficha-item__nome">{{ item.exercise.name }}</span>
+      <span class="ficha-item__dados">
+        <span class="num">{{ item.sets }}</span>&nbsp;×&nbsp;<span class="num">{{ item.rep_range }}</span>
+        <span class="ficha-item__musculo">{{ item.exercise.get_muscle_group_display }}</span>
+        {% if item.exercise.is_compound %}
+          {% comment %}
+            O marcador do movimento principal é DISCRETO de propósito: ele
+            orienta quem não sabe por onde começar e não compete com o nome.
+          {% endcomment %}
+          <span class="ficha-item__papel">Principal</span>
+        {% endif %}
+      </span>
+    </span>
+
+    {% comment %}
+      O ESTADO NÃO DEPENDE SÓ DE COR. "3/4" é o mesmo número que a execução
+      mostra, e ele diz sozinho o que aconteceu — daltonismo não muda a
+      leitura. A marca de concluído leva texto junto pelo mesmo motivo.
+    {% endcomment %}
+    {% if item.feitas >= item.sets %}
+      <span class="ficha-item__estado ficha-item__estado--feito">
+        <span class="vis-oculto">Concluído: </span>{{ item.feitas }}/{{ item.sets }}
+      </span>
+    {% elif item.feitas %}
+      <span class="ficha-item__estado">
+        <span class="vis-oculto">Em andamento: </span>{{ item.feitas }}/{{ item.sets }}
+      </span>
+    {% elif hoje %}
+      <span class="ficha-item__estado ficha-item__estado--cta">Fazer</span>
+    {% endif %}
+
+  {% if hoje %}</a>{% else %}</div>{% endif %}
+</li>

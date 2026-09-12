@@ -72,16 +72,38 @@
 
       {% if sessao.eh_hoje %}
         {% comment %}
-          O treino de hoje ganha a porta para a execução AQUI também.
+          O PROGRESSO DO DIA, e ele mora aqui porque aqui é onde se decide.
 
-          Quem abriu a ficha do dia veio conferir o que vai fazer, e a ação
-          seguinte é começar. Sem este botão a pessoa teria de voltar à tela
-          anterior para o mesmo destino — e "Começar treino" continua indo
-          direto ao primeiro exercício pendente, que é decisão registrada.
+          A ficha virou a tela de preparação: quem toca em "Começar treino" na
+          tela de Treino chega NESTA página, vê o treino inteiro e escolhe por
+          onde entrar. Um progresso que só existisse na tela anterior obrigaria
+          a voltar para saber quanto falta.
+
+          A frase é a mesma da tela de Treino, pela mesma razão de sempre: ela
+          é verificável — são as linhas de `ExerciseLog` com a data de hoje — e
+          "treino concluído" afirmaria um estado que nenhuma tabela sustenta.
         {% endcomment %}
-        <a class="btn btn--primary btn--block" href="{% url 'workouts:now' %}">
-          {% if sessao.feitos_hoje %}Continuar treino{% else %}Começar treino{% endif %}
-        </a>
+        <p class="ficha__progresso" role="status" aria-live="polite">
+          <b class="num">{{ sessao.feitos_hoje }}</b> de
+          <span class="num">{{ sessao.total_exercicios }}</span>
+          {% if sessao.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}
+          com série registrada hoje
+        </p>
+
+        {% if sessao.proximo %}
+          {% comment %}
+            O atalho para RETOMAR, e ele é secundário de propósito.
+
+            A porta principal desta tela é a lista: a pessoa escolhe. Este
+            botão existe para quem já sabe onde parou e não quer procurar —
+            ele leva ao primeiro exercício com série faltando, que é a mesma
+            regra que `progresso_do_dia` e `estado_do_treino` usam.
+          {% endcomment %}
+          <a class="btn btn--primary btn--block"
+             href="{% url 'workouts:now' %}?exercicio={{ sessao.proximo.exercise_id }}">
+            {% if sessao.feitos_hoje %}Continuar de onde parou{% else %}Começar pelo primeiro{% endif %}
+          </a>
+        {% endif %}
       {% endif %}
 
       {% comment %}
@@ -102,9 +124,9 @@
         `exercicios_complementares` vazio, e a tela volta a ser uma lista só.
       {% endcomment %}
       {% with principais=sessao.exercicios_principais complementares=sessao.exercicios_complementares %}
-        <ol class="exercise-list">
+        <ol class="ficha-lista">
           {% for item in principais %}
-            {% include "workouts/_exercicio.html" with item=item ordem=forloop.counter agora=False %}
+            {% include "workouts/_item_da_ficha.html" with item=item ordem=forloop.counter hoje=sessao.eh_hoje %}
           {% endfor %}
         </ol>
 
@@ -115,9 +137,16 @@
               Não é o foco do dia — é o que cabe junto. Eles se revezam entre as
               passagens da semana, então nem toda sessão traz os mesmos.
             </p>
-            <ol class="exercise-list">
+            {% comment %}
+              A NUMERAÇÃO CONTINUA, e não recomeça. São duas listas na tela e
+              uma ficha só: o complementar é o oitavo exercício do dia, não o
+              primeiro de outra coisa. `start` mantém o `<ol>` semanticamente
+              certo para quem lê com leitor de tela, e o número visível vem do
+              mesmo cálculo.
+            {% endcomment %}
+            <ol class="ficha-lista" start="{{ principais|length|add:1 }}">
               {% for item in complementares %}
-                {% include "workouts/_exercicio.html" with item=item ordem=principais|length|add:forloop.counter agora=False %}
+                {% include "workouts/_item_da_ficha.html" with item=item ordem=principais|length|add:forloop.counter hoje=sessao.eh_hoje %}
               {% endfor %}
             </ol>
           </div>
@@ -127,23 +156,16 @@
   </div>
 
   {% comment %}
-    O DRAWER VEM JUNTO COM OS CARTÕES.
+    NEM DRAWER NEM CRONÔMETRO AQUI, e a ausência é o par da lista leve.
 
-    Cada cartão traz um botão `data-clipe`, e quem o abre é o drawer. Ele
-    morava dentro de `routine.html` porque a tela de treino era o único lugar
-    que desenhava cartão; quando a ficha ganhou rota própria e levou os cartões,
-    a página ficou com nove botões de vídeo e nenhum drawer para abrir.
+    Os dois vieram para esta página quando ela desenhava o cartão completo:
+    cada cartão trazia `data-clipe` e `data-descanso`, e sem a gaveta os nove
+    botões de vídeo ficavam mortos — foi um defeito real, e a guarda que nasceu
+    dele testa a RELAÇÃO: botão que abre precisa de gaveta que abre.
 
-    Medido: `data-clipe: 9`, `data-drawer: 0`.
+    A relação continua satisfeita, agora pelo outro lado. A ficha não tem mais
+    botão de vídeo nem gatilho de descanso: ela lista e leva para a execução,
+    e é `agora.html` que tem o Short, o cronômetro e o registro de série.
+    Manter as duas aqui seria carregar duas peças que nada nesta página aciona.
   {% endcomment %}
-  {% include "workouts/_drawer.html" %}
-
-  {% comment %}
-    O CRONÔMETRO VEM PELO MESMO MOTIVO DO DRAWER.
-
-    Cada cartão traz `data-descanso`, e quem conta é a barra do cronômetro. Ela
-    ficou em `routine.html` quando os cartões mudaram de página, e a ficha
-    nasceu com o gatilho do descanso e nada para acionar.
-  {% endcomment %}
-  {% include "workouts/_cronometro.html" %}
 {% endblock %}

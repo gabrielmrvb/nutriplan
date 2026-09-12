@@ -72,7 +72,13 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: 132 quando a sanfona das fichas da semana foi removida: o paredão saiu da
 #: tela de Treino, `.session__name` ficou sem elemento e levou junto o
 #: `font-size: 1.08rem` cru dela.
-TETO_FONT_SIZE_CRU = 132
+#: 120 no REDESIGN DO FLUXO DE TREINO: `_exercicio.html`, `_drawer.html` e
+#: `_cronometro.html` saíram do repositório sem `{% include %}` nenhum, e com
+#: eles 645 linhas de CSS das famílias `.exercise`, `.drawer` e `.rest-timer`.
+#: Doze `font-size` crus moravam ali — os números do drawer, os rótulos do
+#: cronômetro e o cabeçalho do cartão. A lista que entrou no lugar
+#: (`.ficha-item`) nasceu inteira na escala de tokens.
+TETO_FONT_SIZE_CRU = 120
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
@@ -92,7 +98,9 @@ TETO_FONT_SIZE_CRU = 132
 #: `.session__head` e companhia ficaram sem elemento quando as sessões viraram
 #: cartões que levam à ficha, e os cinco espaçamentos crus delas saíram junto.
 #: A ressalva da divisão, que entrou na mesma rodada, é toda em tokens.
-TETO_ESPACO_CRU = 262
+#: 249 no mesmo corte, e pelo mesmo motivo: treze espaçamentos crus saíram
+#: junto com as três famílias. A catraca só desce.
+TETO_ESPACO_CRU = 249
 
 
 def sem_comentarios(texto):
@@ -347,7 +355,6 @@ class MetricaNaoDependeDoTemplateParaSerTabularTests(SimpleTestCase):
         ".tile__value",
         ".fim__valor",
         ".equation__value",
-        ".drawer__numero-valor",
         ".corrida-numero__valor",
         ".conquistas__numero",
         ".semana__valor",
@@ -427,7 +434,6 @@ class AEscalaDeEmpilhamentoTests(SimpleTestCase):
 
     #: `z-index` que NÃO usa a escala, e por quê.
     ISENTOS = {
-        ".drawer__fechar-area": "interno ao <dialog> modal, que o navegador já põe na camada de topo",
         "body::before": "o halo fica ATRÁS de tudo; -1 não é um degrau da escala",
     }
 

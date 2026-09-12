@@ -426,10 +426,17 @@ class DemoCadaRotaMostraSuaTelaTests(TestCase):
     def test_a_ficha_do_demo_mostra_o_que_saiu_da_tela_de_treino(self):
         """A cobertura que a marca antiga tinha, no lugar para onde ela foi.
 
-        Remirar sem isto seria PERDER teste: `exercise__ver` deixaria de ser
-        cobrado em lugar nenhum do demo, e uma ficha sem botão de vídeo passaria
-        verde — que é o defeito real desta campanha, quando a ficha nasceu com
-        nove botões e nenhuma gaveta para abrir.
+        O CONTEÚDO MUDOU DE FORMA PELA SEGUNDA VEZ. Era `exercise__ver`, o
+        botão de vídeo do cartão; virou `data-drawer`, a gaveta que ele abria;
+        e agora é `ficha-item`, a linha da tela de preparação. O vídeo desceu
+        mais um degrau, para a execução — a ficha do demo não executa nada,
+        porque ninguém está logado e não há série para registrar.
+
+        O que este teste guarda continua igual: a ficha do demo não pode ser
+        uma casca. Sem ele, `exercise__ver` deixaria de ser cobrado em lugar
+        nenhum do demo e uma ficha vazia passaria verde — que é o defeito real
+        desta campanha, quando a ficha nasceu com nove botões de vídeo e
+        nenhuma gaveta para abrir.
 
         O endereço da ficha NÃO é escrito à mão: ele sai do cartão, que é o
         caminho que a pessoa percorre. Assim o teste também prova que o
@@ -455,8 +462,16 @@ class DemoCadaRotaMostraSuaTelaTests(TestCase):
                 )
                 ficha = self.client.get(endereco)
 
-                self.assertContains(ficha, "exercise__ver")
-                self.assertContains(ficha, "data-drawer")
+                # COM A ASPA, e o motivo está três parágrafos acima neste
+                # arquivo: `class="sessao-cartao` sem ela casava também com
+                # `sessao-cartao__texto`, e renomear o cartão passava verde.
+                # Medido numa sabotagem, de novo, aqui: trocar
+                # `ficha-item__nome` por `ficha-item__nome_` deixava
+                # `assertContains(ficha, "ficha-item__nome")` VERDE, porque o
+                # nome antigo é prefixo do novo.
+                self.assertContains(ficha, 'class="ficha-item__nome"')
+                self.assertContains(ficha, 'class="ficha-item__ordem num"')
+                self.assertContains(ficha, 'class="ficha-item__dados"')
 
     def test_no_two_routes_return_the_same_page(self):
         """A prova direta da regressão: duas rotas com o mesmo HTML significa

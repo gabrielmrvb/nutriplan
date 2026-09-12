@@ -474,15 +474,24 @@ class Profile(models.Model):
     split_preference_confirmada = models.BooleanField(
         "divisão de treino confirmada pela pessoa", default=False
     )
-    #: A faixa de tempo do treino. LIVRE por padrão, e o padrão é a resposta
-    #: honesta para quem não respondeu: qualquer outro valor prometeria um teto
-    #: que a pessoa não pediu. A migration converte quem já existe a partir do
-    #: `duration_min` que ela já tinha, então ninguém cai no padrão por acidente.
+    #: A faixa de tempo do treino. PADRÃO (45 a 60) por omissão desde
+    #: 10/09/2026, e a troca acompanhou a pergunta sair da tela.
+    #:
+    #: Ela era LIVRE, e LIVRE era a resposta honesta ENQUANTO a pergunta
+    #: existia: presumir um teto que ninguém pediu seria pior que não ter teto.
+    #: Com o controle fora da configuração, o argumento se inverte — quem entra
+    #: hoje não pode responder, e LIVRE deixaria todo perfil novo montando
+    #: ficha sem limite nenhum. Medido: `abc2 C` sem teto tem doze exercícios e
+    #: 88 minutos, que é a ficha inteira para quem nunca pediu a ficha inteira.
+    #:
+    #: A `0026` converteu quem já existia a partir do `duration_min` que a
+    #: pessoa tinha, e a `0029` cobre linha em branco; QUEM ESCOLHEU "sem
+    #: limite rígido" CONTINUA NELE — o default só governa quem nasce agora.
     duracao_treino = models.CharField(
         "duração do treino",
         max_length=10,
         choices=DuracaoTreino.choices,
-        default=DuracaoTreino.LIVRE,
+        default=DuracaoTreino.PADRAO,
     )
     #: A experiência move o teto semanal por grupo. Vazio é "não respondeu", e
     #: o motor o lê como 20 — o número que o app já praticava. Ver `Experiencia`
