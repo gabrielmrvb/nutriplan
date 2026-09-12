@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import (
@@ -306,6 +307,23 @@ class TelaDeProgressoTests(TestCase):
         html = self._html()
 
         self.assertIn("Nenhuma série anotada ainda", html)
+        # A PORTA, e não só a frase: a frase sozinha continuava verde com o
+        # vazio frio ("assim que você salvar… aparece aqui", sem link).
+        vazio = html.split("Nenhuma série anotada ainda", 1)[1].split("</div>", 1)[0]
+        self.assertIn(reverse("workouts:routine"), vazio)
+        self.assertIn("btn", vazio)
+
+    def test_sem_agua_nenhuma_o_vazio_da_a_porta_da_agua(self):
+        """O mesmo contrato para a seção de água (§39): benefício + ação."""
+        from plans.models import HydrationLog
+
+        HydrationLog.objects.filter(user=self.pessoa).delete()
+
+        html = self._html()
+
+        self.assertIn("Nenhum registro de água ainda", html)
+        vazio = html.split("Nenhum registro de água ainda", 1)[1].split("</div>", 1)[0]
+        self.assertIn(reverse("plans:hydration"), vazio)
 
 
 class MesmaGramaticaTests(TestCase):

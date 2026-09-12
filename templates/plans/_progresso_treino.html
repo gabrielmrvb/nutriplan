@@ -39,10 +39,18 @@ razão entre as duas fingiria medir compromisso.
       {% endif %}
     </p>
   {% else %}
-    <p class="empty-state">
-      Nenhuma série anotada ainda. Assim que você salvar a primeira carga no
-      treino, ela aparece aqui.
-    </p>
+    {% comment %}
+      VAZIO É CONVITE (§39): o que esta seção faz, o que ela dá em troca e a
+      porta para a primeira ação. "Assim que você salvar… ela aparece aqui"
+      constatava; a pessoa lia e não tinha para onde ir sem a barra de baixo.
+    {% endcomment %}
+    <div class="empty-state">
+      <p>
+        Nenhuma série anotada ainda. Cada série registrada no treino vira um
+        dia marcado aqui — é o mapa da sua constância na semana.
+      </p>
+      <a class="btn btn--ghost" href="{% url 'workouts:routine' %}">Abrir o treino de hoje</a>
+    </div>
   {% endif %}
 
   {% if cargas %}

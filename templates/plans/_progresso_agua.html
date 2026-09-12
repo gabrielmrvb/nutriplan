@@ -43,8 +43,16 @@ esqueceu de anotar não bebeu zero; o app só não sabe.
       água, é dia sem registro.
     </p>
   {% else %}
-    <p class="empty-state">
-      Nenhum registro de água ainda. O contador fica no painel do dia.
-    </p>
+    {% comment %}
+      "O contador fica no painel do dia" apontava o lugar sem dar a porta.
+      A porta é a tela de água, que é onde se marca o primeiro copo.
+    {% endcomment %}
+    <div class="empty-state">
+      <p>
+        Nenhum registro de água ainda. Cada copo marcado no dia vira a média
+        da semana aqui — e é a média que mostra se o hábito está pegando.
+      </p>
+      <a class="btn btn--ghost" href="{% url 'plans:hydration' %}">Registrar o primeiro copo</a>
+    </div>
   {% endif %}
 </section>
