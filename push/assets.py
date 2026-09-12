@@ -26,7 +26,14 @@ from django.templatetags.static import static
 
 #: Arquivos que participam da versão. São os que descrevem a aparência e o
 #: comportamento do app — os que precisam chegar juntos com o HTML.
-VERSIONED = ("css/app.css", "js/pwa.js", "js/fila.js")
+#:
+#: `corrida.js` entrou em 12/09/2026, e entrou por medição: o arquivo é servido
+#: por `asset()` como os outros, mas não participava do hash — mudar as frases
+#: da corrida deixava a URL IGUAL, e o navegador seguia com o script velho
+#: (visto no navegador local, com o servidor já entregando o novo). O teste
+#: que nasceu disso achou o `card.js` na mesma situação. Todo arquivo que
+#: passar por `asset()` tem de estar aqui; `push/tests.py` confere.
+VERSIONED = ("css/app.css", "js/pwa.js", "js/fila.js", "js/corrida.js", "js/card.js")
 
 #: {caminho: (assinatura do stat, hash do conteúdo)}
 _cache = {}

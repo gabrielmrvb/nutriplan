@@ -342,7 +342,7 @@ class OErroDizOQueAconteceuTests(SimpleTestCase):
         corpo = sem_comentarios(corpo_da_funcao("erroDoGps"))
         ramo = corpo.split("PERMISSION_DENIED", 1)[1]
         fecha = ramo.index("encerrar(true)")
-        explica = ramo.index("Sem permissao de localizacao")
+        explica = ramo.index("Sem permissão de localização")
 
         self.assertGreater(
             explica, fecha,
@@ -386,3 +386,22 @@ class DuploToqueNaoQuebraACorridaTests(SimpleTestCase):
 
         self.assertIn("estado.enviando = true", corpo)
         self.assertEqual(corpo.count("estado.enviando = false"), 2)
+
+
+class AsFrasesDaCorridaTemAcentoTests(SimpleTestCase):
+    """O que `dizer()` fala é pt-BR com acento (§65).
+
+    Medido no navegador em 12/09/2026: negar a localização mostrava "Sem
+    permissao de localizacao. A corrida nao pode ser registrada." O arquivo é
+    UTF-8 e os comentários já tinham acento — só as frases da tela não.
+    """
+
+    SEM_ACENTO = re.compile(
+        r"\b(nao|voce|conexao|permissao|localizacao|distancia|esta|ja)\b", re.I
+    )
+
+    def test_nenhuma_frase_da_tela_vem_sem_acento(self):
+        frases = re.findall(r'dizer\("([^"]+)"\)', sem_comentarios(JS))
+        self.assertGreaterEqual(len(frases), 10, "as frases sumiram do arquivo?")
+        feias = [f for f in frases if self.SEM_ACENTO.search(f)]
+        self.assertEqual(feias, [])

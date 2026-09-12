@@ -199,7 +199,7 @@
        * Com distancia, o encerramento e o normal: grava e tenta subir. Achado
        * em revisao independente. */
       if (estado.distancia >= 1) {
-        dizer("A localizacao foi negada. Encerrando e guardando o que ja foi.");
+        dizer("A localização foi negada. Encerrando e guardando o que já foi.");
         encerrar(false);
         return;
       }
@@ -210,7 +210,7 @@
        * localizacao lia sobre distancia — e ficava sem saber que o problema
        * era a permissao, que e a unica coisa que ela pode resolver. */
       encerrar(true);
-      dizer("Sem permissao de localizacao. A corrida nao pode ser registrada.");
+      dizer("Sem permissão de localização. A corrida não pode ser registrada.");
       return;
     }
     dizer("Sinal de GPS fraco. Continuo tentando.");
@@ -353,7 +353,7 @@
     estado.ancora = null;
     el.pausar.hidden = true;
     el.retomar.hidden = false;
-    dizer("Pausada. O tempo parado nao conta.");
+    dizer("Pausada. O tempo parado não conta.");
     guardar();
   }
 
@@ -403,7 +403,7 @@
     el.encerrar.hidden = true;
 
     if (semSalvar || estado.distancia < 1) {
-      dizer("Corrida encerrada sem distancia registrada.");
+      dizer("Corrida encerrada sem distância registrada.");
       esquecer();
       el.comecar.hidden = false;
       return;
@@ -478,11 +478,11 @@
        * ainda estava tentando subir, e o `reload()` do sucesso mataria a nova
        * em silencio. */
       el.comecar.hidden = false;
-      dizer("Nao consegui salvar. A corrida esta guardada neste aparelho.");
+      dizer("Não consegui salvar. A corrida está guardada neste aparelho.");
     }).catch(function () {
       estado.enviando = false;
       el.comecar.hidden = false;
-      dizer("Sem conexao. A corrida esta guardada e sobe quando o sinal voltar.");
+      dizer("Sem conexão. A corrida está guardada e sobe quando o sinal voltar.");
     });
   }
 

@@ -866,6 +866,21 @@ class AssetVersionTests(TestCase):
 
         self.assertNotEqual(antes, depois)
 
+    def test_todo_arquivo_servido_por_asset_participa_da_versao(self):
+        """Quem passa por `asset()` e fica fora de `VERSIONED` ganha uma URL
+        que NÃO muda quando o conteúdo muda — e o navegador serve o velho para
+        sempre. Foi o `corrida.js` em 12/09/2026: o servidor já entregava as
+        frases com acento e a tela continuava sem. Lê os context processors,
+        que é onde as URLs nascem."""
+        from pathlib import Path
+
+        fonte = (Path(settings.BASE_DIR) / "push" / "context_processors.py").read_text(
+            encoding="utf-8"
+        )
+        servidos = set(re.findall(r'asset\("([^"]+)"\)', fonte))
+        self.assertTrue(servidos, "nenhum `asset()` nos context processors?")
+        self.assertLessEqual(servidos, set(assets.VERSIONED))
+
     def test_the_same_file_keeps_the_same_version(self):
         """Estável entre requisições e entre processos — senão nada seria cacheado."""
         primeira = assets.version()
