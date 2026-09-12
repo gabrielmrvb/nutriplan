@@ -969,7 +969,56 @@ class AreasView(OnboardingRequiredMixin, TemplateView):
         fatos = self._fatos_das_areas()
         for area in contexto["areas"]:
             area["fato"] = fatos.get(area["valor"])
+            area["progresso"] = fatos.get(area["valor"] + ":pct")
+            area["convite"] = fatos.get(area["valor"] + ":convite")
+        contexto["ferramentas"] = self._fatos_das_ferramentas()
         return contexto
+
+    def _fatos_das_ferramentas(self):
+        """O que cada ferramenta responde ANTES do toque — a custo fixo.
+
+        Conquistas: quantas e a mais recente, numa consulta. `proxima` fica de
+        fora de propósito: ela passa por `achievements.reunir()`, que o
+        Progresso paga com orçamento de 26 consultas; Áreas é hub de um
+        relance e a régua dela é `OCustoDaTelaDeAreasEstaMedidoTests`.
+
+        Perfil: objetivo e meta de calorias do plano ativo, numa consulta. É a
+        porta da conta, e a primeira coisa que a pessoa confere nela é "para
+        quanto estou comendo".
+        """
+        from achievements.models import UserAchievement
+        from plans.models import NutritionPlan
+
+        fatos = {}
+        # UMA consulta: quantas e a mais recente saem da mesma lista. São
+        # dezenas de linhas no pior caso; duas consultas (count + first)
+        # custariam mais que trazer a lista.
+        ganhas = list(
+            UserAchievement.objects.filter(user=self.request.user).order_by("-pk")
+        )
+        if ganhas:
+            quantas = len(ganhas)
+            fatos["conquistas"] = {
+                "valor": f"{quantas}",
+                "rotulo": ("conquista" if quantas == 1 else "conquistas")
+                + f" · última: {ganhas[0].titulo}",
+            }
+        perfil = self.perfil_do_dispatch
+        plano = NutritionPlan.objects.filter(
+            user=self.request.user, is_active=True
+        ).only("target_kcal").first()
+        if perfil is not None:
+            objetivo = perfil.get_goal_display().lower()
+            if plano is not None:
+                fatos["perfil"] = {
+                    "valor": f"{plano.target_kcal:,}".replace(",", "."),
+                    "rotulo": f"kcal por dia · {objetivo}",
+                }
+            else:
+                # Sem plano ainda (a pessoa nunca abriu Hoje), o objetivo
+                # sozinho já responde "para que este perfil existe".
+                fatos["perfil"] = {"valor": objetivo.capitalize(), "rotulo": "é o objetivo"}
+        return fatos
 
     def _fatos_das_areas(self):
         """Um fato REAL por área, para a tela parar de parecer Configurações.
@@ -1015,17 +1064,36 @@ class AreasView(OnboardingRequiredMixin, TemplateView):
                 # dele. Uma frase unica ("1600 de 2500 ml hoje") obrigaria o
                 # template a fatiar texto para achar o numero.
                 fatos["hidratacao"] = {
-                    "valor": f"{bebido}",
-                    "rotulo": f"de {meta} ml hoje",
+                    "valor": f"{bebido:,}".replace(",", "."),
+                    "rotulo": f"de {meta:,} ml hoje".replace(",", "."),
                 }
+                # A BARRA é o que faz o número caber num relance (§6
+                # "progresso"): 1.250 de 3.500 pede conta; um terço da barra
+                # cheia não pede.
+                fatos["hidratacao:pct"] = min(100, round(100 * bebido / meta))
 
-        corridas = Corrida.objects.filter(user=self.request.user).count()
-        if corridas:
+        # A última corrida diz mais que a contagem — "5,2 km" responde "como
+        # foi" e a contagem só "quantas". Uma consulta a mais, de custo fixo.
+        # UMA consulta para as duas perguntas — "quantas" e "qual foi a
+        # última" —: a lista de distâncias em ordem. Corrida é evento raro
+        # (dezenas por pessoa por ano), e `count()` + `first()` seriam duas.
+        distancias = list(
+            Corrida.objects.filter(user=self.request.user)
+            .order_by("-terminou_em")
+            .values_list("distancia_m", flat=True)
+        )
+        if distancias:
+            corridas = len(distancias)
+            km = f"{distancias[0] / 1000:.1f}".replace(".", ",")
             fatos["corrida"] = {
-                "valor": f"{corridas}",
-                "rotulo": "corrida registrada" if corridas == 1
-                          else "corridas registradas",
+                "valor": f"{km} km",
+                "rotulo": ("última corrida · 1 registrada" if corridas == 1
+                           else f"última corrida · {corridas} registradas"),
             }
+        else:
+            # SEM HISTÓRICO, O VAZIO CONVIDA (§39): dizer o que a área faz e
+            # qual é o primeiro passo, em vez de descrever a ferramenta.
+            fatos["corrida:convite"] = "Grave a primeira com o GPS do celular."
         return fatos
 
 

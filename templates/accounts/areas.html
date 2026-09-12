@@ -43,6 +43,19 @@
         {% if area.fato %}
           <strong class="modulo__valor num">{{ area.fato.valor }}</strong>
           <span class="modulo__rotulo">{{ area.fato.rotulo }}</span>
+          {% if area.progresso != None %}
+            {% comment %}
+              A barra responde de um relance o que o número pede conta para
+              responder. `role="img"` com o percentual: quem ouve a tela recebe
+              a mesma resposta que quem olha.
+            {% endcomment %}
+            <span class="progress modulo__progresso" role="img"
+                  aria-label="{{ area.progresso }}% da meta de água">
+              <span class="progress__fill progress__fill--agua" style="width: {{ area.progresso }}%"></span>
+            </span>
+          {% endif %}
+        {% elif area.convite %}
+          <span class="modulo__apoio modulo__apoio--convite">{{ area.convite }}</span>
         {% else %}
           <span class="modulo__apoio">{{ area.apoio }}</span>
         {% endif %}
@@ -62,15 +75,39 @@
     do Progresso. O bloco compacto mora lá; `/conquistas/` continua existindo
     para quem quiser ver tudo, com a porta no próprio bloco.
   {% endcomment %}
+  {% comment %}
+    CONQUISTAS VOLTOU PARA CÁ em 12/09/2026. Tinha saído em 08/09 porque o
+    Progresso ganhou o bloco compacto; a missão mestre a lista entre o que
+    Áreas concentra, e o fato aqui é barato — quantas e a mais recente, numa
+    consulta. A "próxima", que custa `reunir()`, continua sendo do Progresso.
+
+    DUAS COLUNAS, e não três: a 320px, três colunas davam 93px por módulo e
+    "Lista de compras" quebrava em duas linhas apertadas. O Perfil ocupa a
+    largura toda — é a porta da conta, e a grade diz isso sem palavra.
+  {% endcomment %}
   <h2 class="sobretitulo secao-rotulo">Ferramentas</h2>
   <nav class="modulos modulos--ferramentas" aria-label="Ferramentas">
+    <a class="modulo modulo--raso" href="{% url 'achievements:list' %}">
+      <span class="modulo__nome">Conquistas</span>
+      {% if ferramentas.conquistas %}
+        <strong class="modulo__valor num">{{ ferramentas.conquistas.valor }}</strong>
+        <span class="modulo__rotulo">{{ ferramentas.conquistas.rotulo }}</span>
+      {% else %}
+        <span class="modulo__apoio modulo__apoio--convite">A primeira vem com uma semana de registros.</span>
+      {% endif %}
+    </a>
     <a class="modulo modulo--raso" href="{% url 'plans:shopping' %}">
       <span class="modulo__nome">Lista de compras</span>
-      <span class="modulo__apoio">O que comprar para a semana.</span>
+      <span class="modulo__apoio">O que comprar para a semana do seu cardápio.</span>
     </a>
-    <a class="modulo modulo--raso" href="{% url 'accounts:profile' %}">
+    <a class="modulo modulo--raso modulo--largo" href="{% url 'accounts:profile' %}">
       <span class="modulo__nome">Perfil</span>
-      <span class="modulo__apoio">Seus dados, o objetivo e as metas.</span>
+      {% if ferramentas.perfil %}
+        <strong class="modulo__valor num">{{ ferramentas.perfil.valor }}</strong>
+        <span class="modulo__rotulo">{{ ferramentas.perfil.rotulo }}</span>
+      {% else %}
+        <span class="modulo__apoio">Seus dados, o objetivo e as metas.</span>
+      {% endif %}
     </a>
   </nav>
 

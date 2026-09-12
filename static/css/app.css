@@ -1155,7 +1155,21 @@ h3 {
 }
 
 /* Ferramenta não tem métrica: três por linha, mais baixas. */
-.modulos--ferramentas { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* DUAS COLUNAS, e o Perfil atravessa as duas. A 320px, três colunas davam 93px
+   por módulo e "Lista de compras" quebrava em duas linhas apertadas. A
+   assimetria é intencional: a porta da conta é a maior, e a grade diz isso sem
+   texto. */
+.modulos--ferramentas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.modulo--largo { grid-column: 1 / -1; }
+
+/* A barra de progresso dentro do módulo: mesma peça da tela de água, só
+   que baixa e sem margem própria — o módulo já tem o ar. */
+.modulo__progresso {
+  display: block;
+  height: .35rem;
+  margin-top: var(--espaco-3);
+}
+.modulo__apoio--convite { color: var(--brand-strong); font-weight: 600; }
 .modulo--raso { min-height: 6.4rem; padding: var(--espaco-4); }
 .modulo--raso .modulo__apoio { font-size: var(--texto-xs); }
 
@@ -4419,6 +4433,12 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   :root { --pad: .9rem; }
   .ring { width: 6.5rem; height: 6.5rem; }
   .ring__value { font-size: 1.6rem; } .set-row { grid-template-columns: 2.8rem minmax(0, 1fr) auto auto; }
+  /* A 320px cada aba tinha 63px e "Alimentação" precisa de 62 de texto a
+     11,2px — quebrava em "Alimentaç/ão". A fonte não desce (11px é o piso
+     do projeto); o que desce é o ar: a barra encosta mais na borda e cada
+     aba perde o padding lateral. Medido: 63px -> 70px por aba. */
+  .tabbar { inset-inline: var(--espaco-3); padding: var(--espaco-2) .25rem; }
+  .tabbar__item { padding-inline: 0; }
 }
 
 /* ==========================================================================

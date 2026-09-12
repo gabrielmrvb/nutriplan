@@ -142,22 +142,24 @@ class AreasNaoRepeteABarraTests(BaseDeAreas):
         """Lista de compras não é pilar e nunca teve porta própria — só se
         alcançava pela tela de Alimentação.
 
-        Conquistas TAMBÉM morava aqui, e saiu em 08/09/2026: a página tem pouco
-        para justificar uma ferramenta própria, e a pergunta que ela responde
-        ("como estou evoluindo") é a do Progresso. O bloco compacto mora lá, e
-        `/conquistas/` continua alcançável por ele.
+        CONQUISTAS VOLTOU, e a volta tem data e motivo. Ela saiu em 08/09/2026
+        porque a página tinha pouco e a pergunta dela ("como estou evoluindo")
+        era a do Progresso. A missão mestre de 12/09/2026 (§6) lista Conquistas
+        entre o que Áreas concentra, e é decisão de produto do dono — este
+        teste passa a cobrar a porta em vez de proibi-la. O bloco compacto do
+        Progresso continua existindo; as duas portas respondem perguntas
+        diferentes ("estou evoluindo?" lá, "o que mais o app tem?" aqui).
         """
         self.pessoa()
 
         destinos = self.entradas(self.areas())
 
         self.assertIn(reverse("plans:shopping"), destinos)
-        self.assertNotIn(
+        self.assertIn(
             reverse("achievements:list"),
             destinos,
-            "Conquistas voltou a ser cartão de Áreas",
+            "Conquistas saiu de Áreas — a spec de 12/09/2026 a põe aqui",
         )
-
     def test_o_perfil_saiu_da_barra_e_mora_aqui(self):
         self.pessoa()
 
@@ -331,7 +333,15 @@ class OCustoDaTelaDeAreasEstaMedidoTests(BaseDeAreas):
         # de corridas. As três são de custo FIXO — é isso que a segunda
         # medição abaixo prova, e é a propriedade que este teste guarda. O
         # número sozinho nunca foi o ponto.
-        with self.assertNumQueries(6):
+        #
+        # OITO desde 12/09/2026, quando Áreas virou hub (§6 da missão mestre):
+        # três fatos novos, cada um em UMA consulta de custo fixo — as
+        # conquistas (lista ordenada: quantas e a última saem dela), o plano
+        # ativo (meta de calorias do Perfil) e as distâncias das corridas
+        # (contagem e última na mesma lista). `proxima` conquista ficou de
+        # fora de propósito: passa por `reunir()`, que o Progresso paga com
+        # orçamento de 26.
+        with self.assertNumQueries(8):
             self.client.get(reverse("areas"))
 
     def test_o_custo_nao_cresce_com_o_numero_de_areas(self):
@@ -345,10 +355,100 @@ class OCustoDaTelaDeAreasEstaMedidoTests(BaseDeAreas):
         """
         self.pessoa(interesses=["corrida"], principal="corrida")
 
-        with self.assertNumQueries(6):
+        with self.assertNumQueries(8):
             resposta = self.client.get(reverse("areas"))
 
         linhas = resposta.content.decode().count('class="modulo')
         self.assertGreaterEqual(
             linhas, 4, "a tela precisa ter várias linhas para a medição valer"
         )
+
+
+class AreasEUmHubENaoUmMenuTests(BaseDeAreas):
+    """Cada módulo responde ANTES do toque, e a grade não é uma fileira de iguais.
+
+    A missão mestre (§6) pede de Áreas: destaque principal, resumo real,
+    progresso, valor atual, composição assimétrica, estado — e lista Conquistas
+    entre o que mora aqui. Em 08/09 Conquistas tinha saído porque o Progresso
+    ganhou o bloco compacto; a spec revê essa nota, e o fato aqui é barato de
+    propósito (quantas e a mais recente, numa consulta — nunca `reunir()`).
+    """
+
+    def test_conquistas_tem_porta_e_responde_quantas(self):
+        from achievements.models import UserAchievement
+
+        pessoa = self.pessoa()
+        UserAchievement.objects.create(user=pessoa, slug="primeiro-treino")
+
+        html = self.areas()
+
+        self.assertIn(reverse("achievements:list"), html)
+        bloco = html.split(reverse("achievements:list"), 1)[1].split("</a>", 1)[0]
+        self.assertIn('<strong class="modulo__valor num">1</strong>', bloco)
+        self.assertIn("conquista", bloco)
+
+    def test_sem_conquista_o_modulo_diz_como_ganhar_a_primeira(self):
+        """Estado vazio é convite (§35, §39): nem "0", nem "nenhum dado"."""
+        self.pessoa()
+
+        bloco = self.areas().split(reverse("achievements:list"), 1)[1].split("</a>", 1)[0]
+
+        self.assertNotIn(">0<", bloco)
+        self.assertIn("primeira", bloco)
+
+    def test_a_hidratacao_traz_a_barra_e_a_corrida_vazia_convida(self):
+        self.pessoa()
+        html = self.areas()
+
+        # progresso: a barra com o percentual audível
+        self.assertIn('class="progress modulo__progresso" role="img"', html)
+        self.assertIn("% da meta de água", html)
+        # sem corrida registrada, o módulo explica o primeiro passo em vez de
+        # descrever a ferramenta ou inventar "0 corridas"
+        self.assertIn("Grave a primeira", html)
+        self.assertNotIn("0 corridas", html)
+
+    def test_o_perfil_e_o_modulo_largo_e_diz_a_meta(self):
+        self.pessoa()
+        # O plano alimentar nasce na primeira visita a Hoje, que é para onde o
+        # onboarding manda — ninguém chega em Áreas antes disso. Sem a visita,
+        # o módulo mostra só o objetivo (o outro ramo, coberto abaixo).
+        self.client.get(reverse("plans:today"))
+        html = self.areas()
+
+        perfil = html.split(reverse("accounts:profile"), 1)[0].rsplit("<a ", 1)[1]
+        self.assertIn("modulo--largo", perfil)
+        bloco = html.split(reverse("accounts:profile"), 1)[1].split("</a>", 1)[0]
+        self.assertIn("kcal por dia", bloco)
+
+    def test_sem_plano_ainda_o_perfil_diz_o_objetivo(self):
+        """Quem nunca abriu Hoje não tem plano; o módulo responde com o que
+        existe (o objetivo) em vez de ficar mudo ou inventar meta."""
+        self.pessoa()
+        bloco = self.areas().split(reverse("accounts:profile"), 1)[1].split("</a>", 1)[0]
+        self.assertIn("objetivo", bloco)
+        self.assertNotIn("kcal", bloco)
+
+    def test_as_ferramentas_sao_duas_colunas_e_o_perfil_atravessa(self):
+        """A 320px, três colunas davam 93px por módulo e "Lista de compras"
+        quebrava em duas linhas apertadas — medido na captura de 12/09/2026."""
+        from pathlib import Path
+
+        from django.conf import settings
+
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            ".modulos--ferramentas { grid-template-columns: repeat(2, minmax(0, 1fr)); }",
+            css,
+        )
+        self.assertIn(".modulo--largo { grid-column: 1 / -1; }", css)
+
+    def test_a_tela_continua_sem_os_tres_pilares_da_barra(self):
+        """O hub cresceu e a regra de UX-01 não afrouxou (§6: não duplicar)."""
+        self.pessoa()
+        html = self.areas()
+        modulos = html.split('<nav class="modulos"', 1)[1].split("</main>", 1)[0]
+        for rota in (reverse("plans:today"), reverse("workouts:routine"), reverse("plans:history")):
+            self.assertNotIn('href="%s"' % rota, modulos)
