@@ -906,7 +906,14 @@ dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
 
 ## Limites reais deste ambiente
 
-- **Node/npm/npx não estão instalados.** Nada de `npx`, Lighthouse, Playwright.
+- **Node 24 e npm 11 estão instalados desde 12/09/2026** (WinGet), e com eles
+  o `agent-browser` 0.37.1 da Vercel, com Chrome 153 próprio em
+  `~/.agent-browser/browsers`. É a ferramenta de QA de navegador: sessão
+  própria (`AGENT_BROWSER_SESSION`), saída sempre para arquivo e `stdin`
+  fechado — o daemon herda o stdout, e um pipe espera um EOF que nunca vem.
+  Lighthouse e Playwright continuam de fora por decisão, não por falta de
+  Node: o `agent-browser` cobre o que eles cobririam aqui. O Capacitor da
+  Corrida continua bloqueado por Android Studio/Xcode, não por Node.
 - **PWA não escreve no Apple Saúde nem no Health Connect** — não existe API web.
   `workouts/health_export.py` gera TCX para importar.
 - **Background Sync não existe no Safari do iPhone.** O evento `online` é o

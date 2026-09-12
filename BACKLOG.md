@@ -433,9 +433,10 @@ Pronto e publicado:
 - contrato completo em [`docs/api-v1.md`](docs/api-v1.md) e a arquitetura em
   [`docs/corrida-mobile-arquitetura.md`](docs/corrida-mobile-arquitetura.md).
 
-**O bloqueio é de ambiente e de conta, não de código.** Nesta máquina não
-existem `node`, `npm`, `java`, `gradle`, `adb` nem `xcodebuild`, e o Capacitor 8
-exige Node 22+, Android Studio 2025.2.1+ e **macOS com Xcode 26 para iOS**. Sem
+**O bloqueio é de ambiente e de conta, não de código.** Node 24 e npm 11
+existem desde 12/09/2026; nesta máquina continuam faltando `java`, `gradle`,
+`adb` e `xcodebuild`, e o Capacitor 8 exige Android Studio 2025.2.1+ e
+**macOS com Xcode 26 para iOS**. Sem
 isso não há projeto nativo, nem build de debug, nem teste em aparelho.
 
 Decisões já fechadas que não precisam ser repensadas:
