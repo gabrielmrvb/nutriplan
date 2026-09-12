@@ -2037,6 +2037,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .conquista__continuar:active,
 .conquista-item__share:active,
 .ficha-item__link:active,
+.meal__abrir:active,
 .modulo:active,
 .tabbar__item:active{ transform: scale(.96); }
 
@@ -2090,6 +2091,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .conquista-item__share,
 .ficha-item__link,
 .mapa__area,
+.meal__abrir,
 .modulo,
 .tabbar__item{
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
@@ -2138,6 +2140,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .conquista-item__share:active,
 .ficha-item__link:active,
 .mapa__area:active,
+.meal__abrir:active,
 .modulo:active,
 .tabbar__item:active{ transform: none; }
 }
