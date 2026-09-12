@@ -12,6 +12,7 @@ calcula. Quando não há o que fazer, ele diz isso — não preenche o espaço.
 from dataclasses import dataclass
 
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import Pilar
 
@@ -172,6 +173,14 @@ def atraso_de_hidratacao(*, slots, meta_agua, bebido, agora) -> float:
     """
     if not meta_agua or not slots:
         return 0.0
+
+    # A HORA É A LOCAL, venha o instante de onde vier. `timezone.now()` é
+    # aware em UTC, e `.time()` nele devolve a hora de parede de Londres — a
+    # função respondia errado em silêncio para o próximo chamador que não
+    # passasse `localtime()`. `localtime()` converte o aware e recusa o naive
+    # com `ValueError`, que é o comportamento certo: naive aqui é bug de quem
+    # chamou, não um caso a acomodar.
+    agora = timezone.localtime(agora)
 
     horarios = [s.time for s in slots if s.time is not None]
     if len(horarios) < 2:

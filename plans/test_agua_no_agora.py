@@ -466,3 +466,50 @@ class DeclararInteresseNuncaPioraAAguaTests(SimpleTestCase):
                     valor = motor.limiar_de_atraso(prioridade, interessada)
                     self.assertGreaterEqual(valor, 15)
                     self.assertLessEqual(valor, 35)
+
+
+class AtrasoDeHidratacaoNaoConfiaNoFusoDeQuemChamaTests(SimpleTestCase):
+    """`agora` pode chegar em UTC, e o atraso é da hora LOCAL.
+
+    O BACKLOG registrava a limitação: a função chamava `.time()` no que
+    recebesse, então `timezone.now()` (aware, UTC) devolvia a hora de parede
+    de Londres — e ninguém reclamava. `TodayView` passa `localtime()` e
+    estava certa; o risco era o próximo chamador. Agora a função converte, e
+    naive levanta em vez de responder errado em silêncio.
+    """
+
+    def _slots(self):
+        from datetime import time as _t
+
+        class Slot:
+            def __init__(self, t):
+                self.time = t
+
+        return [Slot(_t(7, 0)), Slot(_t(20, 0))]
+
+    def test_utc_e_convertido_para_a_hora_local(self):
+        from datetime import datetime, timezone as tz
+
+        from plans import agora as motor
+
+        # 02:00 UTC = 23:00 do dia anterior em America/Sao_Paulo: depois da
+        # última refeição, espera-se a meta inteira -> atraso máximo.
+        instante_utc = datetime(2026, 9, 13, 2, 0, tzinfo=tz.utc)
+        local = timezone.localtime(instante_utc)
+        self.assertEqual(local.hour, 23)
+
+        atraso = motor.atraso_de_hidratacao(
+            slots=self._slots(), meta_agua=3000, bebido=0, agora=instante_utc
+        )
+        self.assertGreaterEqual(atraso, 99.0)
+
+    def test_naive_levanta_em_vez_de_responder_errado(self):
+        from datetime import datetime
+
+        from plans import agora as motor
+
+        with self.assertRaises(ValueError):
+            motor.atraso_de_hidratacao(
+                slots=self._slots(), meta_agua=3000, bebido=0,
+                agora=datetime(2026, 9, 12, 12, 0),
+            )

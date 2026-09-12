@@ -606,10 +606,14 @@
        * no console em vez de sumir como rejeicao nao tratada. O toque se perde
        * — e perder um toque avisando e melhor que perder calado.
        *
-       * O que FALTA e um sinal na tela para quem nao abre o console. Esta
-       * declarado no BACKLOG em vez de fingido aqui. */
+       * E o sinal NA TELA sai por evento, como todo o resto deste arquivo: a
+       * faixa de pendencias ja e `role="status"`, entao o texto de erro e
+       * lido por quem ouve e visto por quem olha. O toque continua perdido —
+       * o que muda e que a pessoa fica sabendo, e pode tocar de novo quando
+       * a conexao voltar. */
       .catch(function (erro) {
         console.error("NutriPlan: nao consegui guardar a operacao offline", erro);
+        document.dispatchEvent(new CustomEvent("nutriplan:fila-falhou", { detail: erro }));
       });
   });
 
@@ -639,6 +643,24 @@
           ? "1 marcação esperando conexão"
           : quantos + " marcações esperando conexão";
     }
+  });
+
+  /* A falha ao guardar vira faixa de ERRO — e nao some sozinha: quem nao
+   * viu o instante em que apareceu ainda precisa encontra-la. Ela sai na
+   * proxima recontagem bem-sucedida, que e quando a fila volta a estar
+   * certa. Contorno quente e nao vermelho: nao e perigo, e um toque a
+   * refazer. */
+  document.addEventListener("nutriplan:fila-falhou", function () {
+    var faixa = document.querySelector("[data-fila]");
+    if (!faixa) return;
+    faixa.classList.add("fila--erro");
+    faixa.hidden = false;
+    var texto = faixa.querySelector("[data-fila-texto]");
+    if (texto) texto.textContent = "Não consegui guardar a marcação. Com conexão, toque de novo.";
+  });
+  document.addEventListener("nutriplan:fila", function () {
+    var faixa = document.querySelector("[data-fila]");
+    if (faixa) faixa.classList.remove("fila--erro");
   });
 
   /* Retorno imediato ao enfileirar: sem ele, marcar offline parece não ter

@@ -188,3 +188,65 @@ class QueueScopeTests(TestCase):
         """Um script de offline que só existe online não serve para nada."""
         sw = self.client.get(reverse("service_worker")).content.decode()
         self.assertIn("js/fila", sw)
+
+
+class FalhaAoEnfileirarApareceNaTelaTests(TestCase):
+    """Perder o toque avisando é melhor que perder calado — e avisar no
+    console não é avisar.
+
+    O BACKLOG registrava: o `.catch` do enfileiramento deixava o erro no
+    console e NÃO disparava `nutriplan:enfileirado` (disparar seria mentir),
+    e faltava o sinal para quem não abre o console. A faixa de pendências já
+    é `role="status"`: ela passa a ter um estado de erro, e o `.catch` a
+    aciona por evento — a mesma mecânica do resto do arquivo.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from pathlib import Path
+
+        from django.conf import settings
+
+        from push.test_cache_privado import sem_comentarios
+
+        cls.js = sem_comentarios(
+            (Path(settings.BASE_DIR) / "static" / "js" / "fila.js").read_text(encoding="utf-8")
+        )
+        cls.css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(encoding="utf-8")
+
+    def _catch_do_enfileiramento(self):
+        """O `.catch` que segue o `guardar({` do submit, e só ele."""
+        inicio = self.js.index("guardar({")
+        catch = self.js.index(".catch(function (erro)", inicio)
+        return self.js[catch: self.js.index("});", catch)]
+
+    def test_o_catch_dispara_o_evento_de_falha(self):
+        catch = self._catch_do_enfileiramento()
+        self.assertIn('"nutriplan:fila-falhou"', catch)
+        # e continua NÃO dizendo que guardou
+        self.assertNotIn("nutriplan:enfileirado", catch)
+
+    def test_a_faixa_tem_estado_de_erro_e_texto_para_quem_ouve(self):
+        self.assertIn('addEventListener("nutriplan:fila-falhou"', self.js)
+        ouvinte = self.js.split('addEventListener("nutriplan:fila-falhou"', 1)[1][:600]
+        self.assertIn('classList.add("fila--erro")', ouvinte)
+        self.assertIn("hidden = false", ouvinte)
+        self.assertIn("Não consegui guardar", ouvinte)
+
+    def test_o_estado_de_erro_existe_no_css(self):
+        self.assertIn(".fila--erro", self.css)
+
+    def test_a_faixa_da_pagina_e_uma_regiao_de_status(self):
+        """Sem `role="status"`, o texto novo entraria mudo para leitor de tela.
+
+        Numa página AUTENTICADA: a faixa e o `fila.js` só existem para quem
+        tem fila, e a fila é por conta — o login não os carrega, de propósito.
+        """
+        from django.core.management import call_command
+
+        from plans.tests import create_complete_user
+
+        call_command("seed_workouts", verbosity=0)
+        self.client.force_login(create_complete_user(email="faixa@exemplo.com"))
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+        self.assertIn('data-fila hidden role="status" aria-live="polite"', html)

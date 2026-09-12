@@ -1585,7 +1585,7 @@ Classe: `BUG`. Evidência: `[LIDA NO CÓDIGO]`. Sem Node neste ambiente, dirigir
 navegador para provar a ordem de drenagem não é possível — a afirmação sobre o
 comportamento em campo é `[HIPOTÉTICA]`, a sobre o código não é.
 
-### ⏳ `atraso_de_hidratacao` aceita datetime naive sem reclamar
+### ✅ `atraso_de_hidratacao` converte para a hora local e recusa naive (12/09/2026)
 
 Ela só chama `.time()`, então devolve a hora de parede do que receber.
 `TodayView` passa `timezone.localtime()`, que é o certo, e `proxima_acao` já
@@ -1698,21 +1698,24 @@ diferentes da mesma fila, já que a página filtra por dono e o worker não.
 `[HIPOTÉTICA]` — sem Node não há como dirigir os dois ao mesmo tempo neste
 ambiente.
 
-### ⏳ Falha ao enfileirar não tem sinal NA TELA
+### ✅ Falha ao enfileirar tem sinal NA TELA (12/09/2026)
 
 `static/js/fila.js` ganhou um `.catch` no enfileiramento — antes, uma rejeição
 (o `onblocked` novo, ou o `NotFoundError` nomeado de `comLoja`) sumia como
 rejeição não tratada, com o `preventDefault()` já executado: o toque se perdia e
 a tela não dizia nada.
 
-Hoje o erro vai para o console e o evento `nutriplan:enfileirado` **não** é
+O erro vai para o console e o evento `nutriplan:enfileirado` **não** é
 disparado, que é o mínimo honesto — a tela não confirma o que não aconteceu.
-Falta o aviso visível para quem não abre o console. Achado pela revisão
+**Desde 12/09/2026 o `.catch` dispara `nutriplan:fila-falhou`, e a faixa de
+pendências (que já é `role="status"`) entra em `fila--erro` com "Não consegui
+guardar a marcação. Com conexão, toque de novo." — some na próxima
+recontagem certa. `push/test_offline.FalhaAoEnfileirarApareceNaTelaTests`.** Achado pela revisão
 adversarial, que notou que um comentário prometia um `.catch` inexistente.
 
 Evidência: `[LIDA NO CÓDIGO]`.
 
-### ⏳ `/treino/agora/serie/` não é interceptada pela fila
+### ✅ `/treino/agora/serie/` É interceptada pela fila (desde 08/09/2026)
 
 `ROTAS` cobre `/treino/exercicio/<id>/carga/`, usada pela tela da ficha. A tela
 "Agora" posta em `/treino/agora/serie/` (`record_set`), que nenhuma regex casa —
@@ -1723,7 +1726,13 @@ não na outra. Não corrigido nesta campanha: acrescentar a rota exige antes
 responder se `record_set` é seguro sob reenvio e sob ordem trocada, que é a
 mesma pergunta ainda aberta da carga.
 
-Evidência: `[LIDA NO CÓDIGO]`.
+**Este item ficou desatualizado**: a CARGA OFFLINE V2 (08/09/2026) pôs
+`/^\/treino\/agora\/serie\/$/` em `ROTAS` nos dois lados (`fila.js:87`,
+`sw.js:412`), e `workouts/test_carga_offline_v2.py` prova o replay — o número
+da série é decidido pelo servidor, o `op_id` é do toque. O parágrafo acima
+descreve o estado de 05/09 e fica como histórico.
+
+Evidência: `[LIDA NO CÓDIGO]` em 05/09; `[EXECUTADA]` em 08/09.
 
 ### ⏳ As simulações Python do laço do worker não modelam a trava por dono
 

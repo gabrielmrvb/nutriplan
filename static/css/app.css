@@ -4379,6 +4379,16 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   line-height: 1.4;
 }
 
+/* A faixa em ERRO: o enfileiramento falhou e o toque se perdeu. Mesma
+   peça, contorno mais forte e o ícone de sincronia trocado por cor — não é
+   perigo (o dado não foi destruído), é uma ação a refazer, e por isso é
+   `--warm` e não `--danger`. */
+.fila--erro {
+  border-color: color-mix(in srgb, var(--warm) 70%, transparent);
+  background: color-mix(in srgb, var(--warm) 22%, var(--surface));
+}
+.fila--erro .fila__icone { color: var(--warm); }
+
 .fila[hidden] { display: none; }
 .fila__icone { display: grid; place-items: center; flex: none; }
 .fila__icone svg { width: 1.1rem; height: 1.1rem; }
