@@ -313,6 +313,22 @@ class TelaDeProgressoTests(TestCase):
         self.assertIn(reverse("workouts:routine"), vazio)
         self.assertIn("btn", vazio)
 
+    def test_sem_refeicao_marcada_o_vazio_usa_o_mesmo_botao_dos_outros(self):
+        """Os três vazios da tela falam a mesma língua (§39): a ação primária
+        do Progresso é a pesagem, e o convite da alimentação era um segundo
+        botão cheio acima da dobra."""
+        from plans.models import MealLog
+
+        MealLog.objects.filter(user=self.pessoa).delete()
+
+        html = self._html()
+
+        self.assertIn("Ainda não há nada marcado", html)
+        vazio = html.split("Ainda não há nada marcado", 1)[1].split("</div>", 1)[0]
+        self.assertIn(reverse("plans:today"), vazio)
+        self.assertIn("btn--ghost", vazio)
+        self.assertNotIn("btn--primary", vazio)
+
     def test_sem_agua_nenhuma_o_vazio_da_a_porta_da_agua(self):
         """O mesmo contrato para a seção de água (§39): benefício + ação."""
         from plans.models import HydrationLog

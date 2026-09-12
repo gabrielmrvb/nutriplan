@@ -130,13 +130,19 @@
     <div class="split">
       <div class="split__main stack">
         <section class="card">
-          <p class="empty-state">
-            Ainda não há nada marcado. Assim que você marcar a primeira refeição
-            do dia, o histórico começa aqui.
-          </p>
-          <a class="btn btn--primary btn--block" href="{% url 'plans:today' %}">
-            Ir para o dia de hoje
-          </a>
+          {% comment %}
+            O botão é `--ghost` como o dos vazios de treino e de água, logo
+            abaixo: a ação primária desta tela é a pesagem ("Salvar", no
+            cartão seguinte), e dois botões cheios acima da dobra disputavam
+            o dedo — medido a 390px em 12/09/2026, com os dois à vista.
+          {% endcomment %}
+          <div class="empty-state">
+            <p>
+              Ainda não há nada marcado. Assim que você marcar a primeira
+              refeição do dia, o histórico começa aqui.
+            </p>
+            <a class="btn btn--ghost" href="{% url 'plans:today' %}">Ir para o dia de hoje</a>
+          </div>
         </section>
 
         {% include "plans/_peso.html" %}
