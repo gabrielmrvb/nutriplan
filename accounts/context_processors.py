@@ -32,3 +32,26 @@ def legal(request):
     As páginas seguem acessíveis por URL direta, para revisão.
     """
     return {"legal_publicado": settings.LEGAL_PUBLICADO}
+
+
+def freemium(request):
+    """O que o template pode perguntar sobre o plano: `recursos.<nome>` e `plano`.
+
+    Um dicionário por pedido, e não uma consulta: `recursos_de` lê o perfil
+    que já está em `request.user` (ou devolve tudo `True` para quem não tem
+    perfil). A regra mora em `accounts/gates.py`; aqui só se entrega.
+    """
+    from django.utils.functional import SimpleLazyObject
+
+    from accounts.gates import plano_de, recursos_de
+
+    usuario = getattr(request, "user", None)
+    # PREGUIÇOSO, e a razão está medida: `plano_de` lê `user.profile`, que é
+    # uma consulta quando a view buscou o perfil por outro caminho — e este
+    # processor roda em TODA resposta. `OCustoDaTelaDeAreasEstaMedidoTests`
+    # pegou o +1 na primeira execução. Com `SimpleLazyObject` a consulta só
+    # acontece se um template usar `plano` ou `recursos`.
+    return {
+        "recursos": SimpleLazyObject(lambda: recursos_de(usuario)),
+        "plano": SimpleLazyObject(lambda: plano_de(usuario)),
+    }

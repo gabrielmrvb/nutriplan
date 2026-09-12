@@ -503,6 +503,18 @@ class Profile(models.Model):
         blank=True,
         default="",
     )
+    #: Grátis ou Pro. Quem decide o que cada um alcança é `accounts/gates.py`,
+    #: e SÓ ele; este campo é o dado, não a regra. Ninguém no app escreve
+    #: aqui — até existir cobrança, é o admin quem promove alguém a Pro, e
+    #: quando a cobrança existir ela escreve o mesmo campo. Coluna nova com
+    #: default constante: no PostgreSQL 11+ é mudança de catálogo, sem
+    #: reescrever linha (§66).
+    plano = models.CharField(
+        "plano",
+        max_length=10,
+        choices=(("gratis", "Grátis"), ("pro", "Pro")),
+        default="gratis",
+    )
     meal_style = models.CharField(
         "estilo de cardápio",
         max_length=10,

@@ -140,6 +140,7 @@ TEMPLATES = [
                 "push.context_processors.push",
                 "accounts.context_processors.google_login",
                 "accounts.context_processors.legal",
+                "accounts.context_processors.freemium",
                 "achievements.context_processors.conquistas_pendentes",
             ],
         },
