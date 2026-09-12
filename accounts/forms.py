@@ -148,14 +148,30 @@ class EmailAuthenticationForm(AuthenticationForm):
     username = forms.EmailField(
         label="E-mail",
         widget=forms.EmailInput(
-            attrs={"autofocus": True, "autocomplete": "email", "class": "field-input"}
+            attrs={
+                "autofocus": True,
+                "autocomplete": "email",
+                "class": "field-input",
+                # O TECLADO DO CELULAR: sem isto o iPhone capitaliza a primeira
+                # letra e "corrige" o domínio, e um e-mail com maiúscula
+                # inicial falha no login para quem não viu o que digitou.
+                "autocapitalize": "none",
+                "autocorrect": "off",
+                "spellcheck": "false",
+                "inputmode": "email",
+            }
         ),
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["password"].widget.attrs.update(
-            {"class": "field-input", "autocomplete": "current-password"}
+            {
+                "class": "field-input",
+                "autocomplete": "current-password",
+                # O botão do teclado diz o que faz: "ir", e não "retorno".
+                "enterkeyhint": "go",
+            }
         )
 
 

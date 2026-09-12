@@ -25,14 +25,26 @@
     <form method="post" novalidate>
       {% csrf_token %}
       {% if form.non_field_errors %}
-        <ul class="field__errors">
+        {% comment %}
+          `role="alert"`: a página recarrega com o erro já no HTML, e região
+          viva não anuncia o que estava lá no carregamento — `alert` anuncia.
+          Quem ouve a tela voltava ao campo de e-mail sem saber por quê.
+        {% endcomment %}
+        <ul class="field__errors" role="alert">
           {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
         </ul>
       {% endif %}
       {% for field in form %}
         {% include "partials/field.html" with field=field %}
       {% endfor %}
-      <button type="submit" class="btn btn--primary btn--block">Entrar</button>
+      {% comment %}
+        `data-envia`: depois do primeiro toque o botão trava e diz "Entrando…".
+        O plano gratuito acorda em ~50 s, e o toque duplo nesse intervalo
+        mandava o POST duas vezes. O JS mora em `pwa.js`, delegado no
+        `document`, e vale para todo formulário que pedir.
+      {% endcomment %}
+      <button type="submit" class="btn btn--primary btn--block"
+              data-envia data-envia-texto="Entrando…">Entrar</button>
     </form>
 
     {% comment %}

@@ -6944,3 +6944,46 @@ class DonoCanonicoTests(TestCase):
         html = self.client.get(reverse("plans:today")).content.decode()
 
         self.assertNotIn('data-usuario="nao-vaza@exemplo.com"', html)
+
+
+class OLoginNoCelularTests(TestCase):
+    """O que só aparece no aparelho: teclado, erro audível e toque duplo (§29)."""
+
+    def _html(self, dados=None):
+        if dados is None:
+            return self.client.get(reverse("accounts:login")).content.decode()
+        return self.client.post(reverse("accounts:login"), dados).content.decode()
+
+    def test_o_email_nao_e_capitalizado_pelo_teclado(self):
+        html = self._html()
+        campo = html.split('id="id_username"', 1)[0].rsplit("<input", 1)[1]
+        self.assertIn('autocapitalize="none"', campo)
+        self.assertIn('inputmode="email"', campo)
+        self.assertIn('autocomplete="email"', campo)
+
+    def test_a_senha_diz_ao_teclado_que_o_enter_e_ir(self):
+        html = self._html()
+        campo = html.split('id="id_password"', 1)[0].rsplit("<input", 1)[1]
+        self.assertIn('enterkeyhint="go"', campo)
+        self.assertIn('autocomplete="current-password"', campo)
+
+    def test_o_erro_de_credencial_e_anunciado(self):
+        html = self._html({"username": "ninguem@exemplo.com", "password": "errada-123"})
+        self.assertIn('class="field__errors" role="alert"', html)
+        self.assertIn("E-mail ou senha incorretos", html)
+
+    def test_o_botao_trava_depois_do_primeiro_toque(self):
+        from pathlib import Path
+
+        from django.conf import settings
+
+        from push.test_cache_privado import sem_comentarios
+
+        html = self._html()
+        self.assertIn('data-envia data-envia-texto="Entrando…"', html)
+        js = sem_comentarios(
+            (Path(settings.BASE_DIR) / "static" / "js" / "pwa.js").read_text(encoding="utf-8")
+        )
+        self.assertIn('querySelector("[data-envia]")', js)
+        self.assertIn("botao.disabled = true", js)
+        self.assertIn('setAttribute("aria-busy", "true")', js)

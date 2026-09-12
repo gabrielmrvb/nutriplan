@@ -627,3 +627,30 @@
     });
   });
 })();
+
+/* ---------------------------------------------------------------- envio
+ * Botão que trava depois do primeiro toque. O plano gratuito do Render acorda
+ * em ~50 s, e nesse intervalo um segundo toque em "Entrar" manda o POST duas
+ * vezes — e o segundo chega com o CSRF da sessão que o primeiro já trocou.
+ *
+ * Delegado no `document`, como o resto deste arquivo: qualquer formulário
+ * que marque o botão com `data-envia` ganha o comportamento. O texto de
+ * espera vem de `data-envia-texto`, para o rótulo continuar sendo do
+ * template e não do script. O `setTimeout` de zero é o que deixa o
+ * navegador serializar o formulário ANTES de o botão ficar `disabled` —
+ * botão desabilitado não entra no corpo, e um `submit` com `name` sumiria. */
+(function () {
+  "use strict";
+  document.addEventListener("submit", function (evento) {
+    var form = evento.target;
+    if (!form || !form.querySelector) return;
+    var botao = form.querySelector("[data-envia]");
+    if (!botao || botao.disabled) return;
+    var texto = botao.getAttribute("data-envia-texto");
+    setTimeout(function () {
+      botao.disabled = true;
+      botao.setAttribute("aria-busy", "true");
+      if (texto) botao.textContent = texto;
+    }, 0);
+  });
+})();
