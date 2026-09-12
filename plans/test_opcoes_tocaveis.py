@@ -198,3 +198,89 @@ class ToqueRepetidoNaoDuplicaRegistroTests(TestCase):
             MealLog.objects.filter(user=self.pessoa, slot=outro,
                                    date=timezone.localdate()).exists()
         )
+
+
+class AOpcaoAEASugestaoEABEAAlternativaTests(TestCase):
+    """Dois botões verdes iguais não são hierarquia — são um empate.
+
+    Medido na captura de 12/09/2026 a 390px: o cartão da refeição atual
+    trazia "Registrar A" e "Registrar B" como dois `btn--primary` de largura
+    inteira, um debaixo do outro, e mais nada verde na tela competia com
+    eles. A missão mestre (§7) pede que o verde marque estado positivo e
+    ação principal, "não pintar tudo".
+
+    `rodizio` já ordena as opções, e a primeira da projeção É a sugestão do
+    dia — o rótulo "A" vem daí. O botão dela continua primário; o da segunda
+    vira `btn--ghost`: mesma largura, mesmo alvo de 44px, mesma ação, peso
+    diferente. Quem quer B toca em B; quem só quer marcar toca no verde.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def setUp(self):
+        self.pessoa = com_plano()
+        self.client.force_login(self.pessoa)
+        self.html = self.client.get(reverse("plans:today")).content.decode("utf-8")
+
+    def _acoes(self, bloco):
+        return re.findall(r'<form[^>]*class="option-par__acao"(.*?)</form>', bloco, re.S)
+
+    def test_na_refeicao_atual_so_a_primeira_opcao_e_primaria(self):
+        atual = self.html.split('meal--agora', 1)[1].split("</article>", 1)[0]
+        acoes = self._acoes(atual)
+        self.assertGreaterEqual(len(acoes), 2, "a refeição atual precisa de duas opções para medir")
+        self.assertIn("btn--primary", acoes[0])
+        self.assertNotIn("btn--primary", acoes[1])
+        self.assertIn("btn--ghost", acoes[1])
+
+    def test_as_duas_continuam_registrando_a_mesma_coisa(self):
+        """Peso visual diferente, contrato igual: as duas mandam `status=done`
+        e a própria opção."""
+        atual = self.html.split('meal--agora', 1)[1].split("</article>", 1)[0]
+        for acao in self._acoes(atual)[:2]:
+            self.assertIn('name="status" value="done"', acao)
+            self.assertIn('name="option"', acao)
+            self.assertIn("btn--block", acao)
+
+
+class ARefeicaoFuturaFicaEmSegundoPlanoTests(TestCase):
+    """§7: a ação da vez aberta; o resto do dia atrás de "Ver opções".
+
+    Medido a 390px em 12/09/2026: cinco refeições sem registro renderizavam
+    dez botões de registrar e dez ações secundárias — ~2.100px de formulário
+    para um dia em que só uma refeição é a vez.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def setUp(self):
+        self.pessoa = com_plano()
+        self.client.force_login(self.pessoa)
+        self.html = self.client.get(reverse("plans:today")).content.decode("utf-8")
+
+    def _artigos(self):
+        return re.findall(r'<article class="meal([^"]*)"(.*?)</article>', self.html, re.S)
+
+    def test_a_futura_guarda_as_opcoes_num_details_fechado(self):
+        futuras = [corpo for cls, corpo in self._artigos()
+                   if "meal--agora" not in cls and "meal--done" not in cls
+                   and 'class="meal__marca"' not in corpo and "option-par__acao" in corpo]
+        self.assertTrue(futuras, "precisa de pelo menos uma refeição futura para medir")
+        for corpo in futuras:
+            self.assertIn('<details class="meal__futuro">', corpo)
+            self.assertNotIn('<details class="meal__futuro" open', corpo)
+            self.assertIn("Ver opções", corpo)
+
+    def test_a_refeicao_da_vez_continua_aberta(self):
+        """Controle positivo: o `<details>` é só das futuras. A de agora (ou a
+        pendente) mostra as opções sem toque nenhum."""
+        abertas = [corpo for cls, corpo in self._artigos()
+                   if "meal--agora" in cls or 'class="meal__marca">Pendente' in corpo]
+        self.assertTrue(abertas, "precisa de uma refeição de agora ou pendente")
+        for corpo in abertas:
+            self.assertNotIn("meal__futuro", corpo)
+            self.assertIn("option-par__acao", corpo)

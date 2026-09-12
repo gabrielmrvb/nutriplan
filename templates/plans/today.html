@@ -521,6 +521,19 @@ coluna da direita), não entre ela e o almoço.
                 </form>
               </div>
             {% else %}
+              {% comment %}
+                REFEIÇÃO FUTURA FICA EM SEGUNDO PLANO (§7). A de agora e as
+                pendentes mostram as opções abertas porque são a ação da vez;
+                a das 20h45 às 14h30 mostra hora, nome e alvo, e guarda as
+                opções atrás de "Ver opções". Medido: cinco refeições abertas
+                eram ~2.100px de formulários para um dia em que só uma é a
+                vez. Nada saiu — mudou de plano. `<details>` porque funciona
+                sem script, entra no Tab e anuncia estado.
+              {% endcomment %}
+              {% if slot.marcador == '' %}
+              <details class="meal__futuro">
+                <summary class="meal__abrir">Ver opções</summary>
+              {% endif %}
               <div class="meal__options">
                 {% comment %}
                   `opcoes_do_dia`, e não `options.all`: o repertório do horário
@@ -609,7 +622,17 @@ coluna da direita), não entre ela e o almoço.
                     {% csrf_token %}
                     <input type="hidden" name="status" value="done">
                     <input type="hidden" name="option" value="{{ option.pk }}">
-                    <button type="submit" class="btn btn--primary btn--block"
+                    {% comment %}
+                      SÓ A PRIMEIRA É VERDE. `rodizio` já ordena as opções e a
+                      primeira da projeção é a sugestão do dia — o rótulo "A"
+                      vem daí. Dois `btn--primary` iguais, um debaixo do outro,
+                      eram um empate, e o verde deixava de dizer "esta": a
+                      missão mestre (§7) pede que ele marque a ação principal,
+                      não pinte tudo. A segunda continua com a mesma largura, o
+                      mesmo alvo e o mesmo contrato; muda o peso.
+                    {% endcomment %}
+                    <button type="submit"
+                            class="btn {% if forloop.first %}btn--primary{% else %}btn--ghost{% endif %} btn--block"
                             aria-label="Registrar {{ option.template.name }} em {{ slot.name }}">
                       Registrar {{ option.rotulo }}
                     </button>
@@ -695,6 +718,9 @@ coluna da direita), não entre ela e o almoço.
                   </div>
                 </form>
               </details>
+              {% if slot.marcador == '' %}
+              </details>
+              {% endif %}
             {% endif %}
           </article>
         {% endfor %}

@@ -1786,6 +1786,26 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .meal__options { display: grid; gap: var(--espaco-3); }
 
+/* A refeição futura guarda as opções atrás de "Ver opções". O `<summary>` é
+   um alvo de 44px com a cara do botão discreto — a mesma língua de "Pulei" —
+   e vira só a seta ao abrir; o bloco que abre é o MESMO das refeições de
+   agora, sem cópia. */
+.meal__futuro > .meal__abrir {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  border-radius: var(--pill);
+  color: var(--brand);
+  font-weight: 600;
+  cursor: pointer;
+}
+.meal__futuro > .meal__abrir::-webkit-details-marker { display: none; }
+.meal__futuro > .meal__abrir::after { content: " ▾"; }
+.meal__futuro[open] > .meal__abrir::after { content: " ▴"; }
+.meal__futuro[open] > .meal__abrir { margin-bottom: var(--espaco-3); }
+
 /* A OPÇÃO E O BOTÃO QUE A REGISTRA SÃO UM PAR, e a proximidade é o que diz
    isso.
 
