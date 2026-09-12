@@ -3800,9 +3800,15 @@ class MigracaoDoRankTests(TransactionTestCase):
         return executor.loader.project_state([alvo]).apps
 
     def tearDown(self):
-        # Devolve o banco ao estado final, senão os testes seguintes rodam
-        # contra um schema sem `rank`.
-        self._migrar(self.DEPOIS)
+        # Devolve o banco ao estado FINAL DE VERDADE — as folhas do grafo, e
+        # não `DEPOIS`: `DEPOIS` é a `0007`, e `plans` já vai na `0009`. Voltar
+        # para ela deixava o banco sem `plans_itemdalistamarcado` para todo
+        # `TransactionTestCase` que rodasse depois. O mesmo defeito derrubou
+        # sete testes pela `accounts.0031` em 12/09/2026 — ver
+        # `accounts/test_duracao_portao.py`.
+        executor = self._executor()
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
 
     def test_a_opcao_a_vira_rank_zero_e_a_b_vira_rank_um(self):
         # Modelos REAIS para tudo que a migration não altera — usuário, receita,

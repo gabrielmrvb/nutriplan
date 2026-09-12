@@ -298,9 +298,16 @@ class AsMigrationsDaDuracaoSaoPortaoDeDadosTests(TransactionTestCase):
         return executor.loader.project_state([alvo]).apps
 
     def tearDown(self):
-        # Devolve o banco ao estado final, senão os testes seguintes rodam
-        # contra um schema anterior.
-        self._migrar(self.DEPOIS)
+        # Devolve o banco ao estado FINAL DE VERDADE — as folhas do grafo, e
+        # não `DEPOIS`. `DEPOIS` é o que o teste mede, e era também para onde
+        # ele voltava; quando a `0031` nasceu, este tearDown passou a deixar
+        # o banco em `0030`, sem a coluna `plano`, e os sete testes de
+        # `AguaConcorrenteTests` — que rodam depois, por serem
+        # `TransactionTestCase` — caíram com `UndefinedColumn` no pre-push de
+        # 12/09/2026. Restaurar por folha não envelhece com a próxima migration.
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
 
     def test_so_a_linha_em_branco_muda_e_as_quatro_faixas_ficam(self):
         velho = self._migrar(self.ANTES)
