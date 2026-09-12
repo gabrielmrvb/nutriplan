@@ -176,9 +176,26 @@ class EmailAuthenticationForm(AuthenticationForm):
 
 
 class OnboardingStepForm(forms.ModelForm):
-    """Base dos passos: aplica a classe de estilo em todos os widgets."""
+    """Base dos passos: aplica a classe de estilo em todos os widgets.
+
+    E abre a PRIMEIRA passagem sem resposta marcada. O `Profile` nasce com
+    `goal`, `activity_level`, `split_preference` e `meal_style` preenchidos
+    de fábrica — os padrões existem para a migração não reescrever o plano
+    de quem nunca viu a pergunta —, e o `ModelForm` os punha na tela como
+    se fossem escolha: o passo 2 abria com "Manter o peso" e "Pouco ativo"
+    marcados, o 4 com "3 grupos por dia" ao lado de um "2 grupos" que dizia
+    "Mais popular", o 5 com "Variada" ao lado de "Rápida — Recomendado".
+    Quem toca "Continuar" sem ler declara o que não escolheu; é a regra que
+    `experiencia` e o horário do treino já seguem, dita aqui para o cartão.
+
+    Cada passo diz em `escolhas_abertas` quais campos abrem em branco e em
+    `sem_resposta_previa()` quando ainda não há resposta. Quem já respondeu
+    volta e encontra a resposta dele — o formulário de EDIÇÃO não muda.
+    """
 
     css_class = "field-input"
+    #: Campos de escolha que abrem sem marcação na primeira passagem.
+    escolhas_abertas: tuple = ()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -187,6 +204,13 @@ class OnboardingStepForm(forms.ModelForm):
                                          forms.RadioSelect)):
                 continue
             field.widget.attrs.setdefault("class", self.css_class)
+        if self.escolhas_abertas and self.sem_resposta_previa():
+            for campo in self.escolhas_abertas:
+                self.initial[campo] = None
+
+    def sem_resposta_previa(self) -> bool:
+        """A pessoa ainda não respondeu ESTE passo? Cada passo sabe dizer."""
+        return False
 
 
 class PesoField(forms.DecimalField):
@@ -367,10 +391,18 @@ class GoalForm(OnboardingStepForm):
         # ajuda que repete o cartão custa 77px e empurra o botão para fora da
         # primeira tela.
 
+    escolhas_abertas = ("goal", "activity_level")
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["goal"].choices = Goal.choices
         self.fields["activity_level"].choices = ActivityLevel.choices
+
+    def sem_resposta_previa(self):
+        # `onboarding_step` é o PRÓXIMO passo a fazer: quem ainda está no 2
+        # (ou antes) nunca salvou objetivo nenhum — o que há no perfil é o
+        # padrão de fábrica que o passo 1 gravou junto.
+        return self.instance.pk is None or self.instance.onboarding_step <= 2
 
 
 #: A abreviação de cada dia, para o chip caber.
@@ -597,9 +629,18 @@ class SplitPreferenceForm(OnboardingStepForm):
             ),
         }
 
+    escolhas_abertas = ("split_preference",)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["split_preference"].choices = SplitPreference.choices
+
+    def sem_resposta_previa(self):
+        # Não é o número do passo: quem treina três dias pula o 4 e chega ao
+        # fim do cadastro sem nunca ter respondido. `split_preference_confirmada`
+        # é o fato que o banco tem sobre a intenção da pessoa — e é o que
+        # manda quem marca o quarto dia de volta a esta tela.
+        return not self.instance.split_preference_confirmada
 
 
 class RestrictionsForm(OnboardingStepForm):
@@ -633,6 +674,11 @@ class RestrictionsForm(OnboardingStepForm):
             ),
             "dietary_tags": "Só serão sugeridas refeições que atendam a tudo que você marcar.",
         }
+
+    escolhas_abertas = ("meal_style",)
+
+    def sem_resposta_previa(self):
+        return self.instance.pk is None or self.instance.onboarding_step <= 5
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

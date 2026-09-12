@@ -1246,17 +1246,23 @@ class DesignSystemTests(TestCase):
         # explicação de ser o defeito que ela descreve.
         self.assertNotIn("word-break: break-all", _sem_comentarios(self.css))
 
-    def test_the_choice_grid_stays_single_column_on_a_phone(self):
+    def test_the_choice_grid_is_single_column_at_every_width(self):
         """Duas colunas a 390px dão 155px úteis, e "emagrecer e ganhar massa"
-        não cabe em 155px sem partir palavra. O ponto de virada é medido, não
-        escolhido pela largura redonda."""
-        bloco = self.css.split(".choice-cards {", 1)[1].split("}", 1)[0]
+        não cabe em 155px sem partir palavra — isso já estava medido. O que
+        faltava medir era a segunda coluna "a partir de 30rem": a lista vive
+        no wizard, que para em 25rem (`.auth`), então a 768px ela dava dois
+        cartões de 168px numa coluna de 350, e "Moderadamente ativo" saía da
+        moldura (12/09/2026). Quem quer duas colunas pede `.choice-cards--duas`,
+        que é o cartão empilhado, desenhado para caber."""
+        css = _sem_comentarios(self.css)
+        bloco = css.split(".choice-cards {", 1)[1].split("}", 1)[0]
         self.assertNotIn("grid-template-columns", bloco)
-
-        depois = self.css.split(".choice-cards {", 1)[1]
-        media = depois.split("@media (min-width: 30rem) {", 1)
-        self.assertEqual(len(media), 2, "a segunda coluna não é condicional")
-        self.assertIn("1fr 1fr", media[1].split("}", 1)[0])
+        self.assertNotIn(
+            "@media (min-width: 30rem) {" + chr(10) + "  .choice-cards {", css,
+            "a segunda coluna por largura de janela voltou",
+        )
+        duas = css.split(".choice-cards--duas .choice-card {", 1)[1].split("}", 1)[0]
+        self.assertIn('grid-template-areas: "icone" "titulo" "texto"', duas)
 
 
 class DayColourContrastTests(TestCase):

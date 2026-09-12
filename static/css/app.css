@@ -3687,16 +3687,13 @@ html { scrollbar-gutter: stable; }
   list-style: none;
 }
 
-/* Uma coluna no celular; duas a partir de 30rem, que é onde título e linha de
-   apoio cabem sem quebrar palavra no meio.
-
-   Medido antes de escolher o ponto: a 390px, duas colunas dão 155px úteis por
-   cartão, e "emagrecer e ganhar massa" não cabe em 155px sem hifenizar no
-   meio de "ganhar". Uma coluna no celular não é preguiça de grade — é o
-   resultado de medir a frase mais longa que o campo pode receber. */
-@media (min-width: 30rem) {
-  .choice-cards { grid-template-columns: 1fr 1fr; }
-}
+/* UMA coluna, em qualquer largura. A segunda coluna "a partir de 30rem" foi
+   escrita olhando a janela, e a lista nunca vive na janela: vive no wizard,
+   que para em 25rem (`.auth`). A 768px isso dava dois cartões de 168px
+   dentro de uma coluna de 350 — "Moderadamente ativo" com o ícone ao lado
+   pede 190 e o segundo cartão saía da moldura, medido em 12/09/2026. Quem
+   quer duas colunas pede com `.choice-cards--duas`, que é o cartão
+   empilhado, desenhado para caber. */
 
 .choice-card {
   position: relative;
@@ -4617,47 +4614,47 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
  * espaço dele à direita. */
 .choice-cards--duas { grid-template-columns: 1fr 1fr; }
 
-/* Ícone e texto continuam lado a lado, mas o texto passa a ocupar a largura
-   inteira do cartão numa segunda faixa.
-   Empilhar tudo custava 34px de ícone mais o espaço dele em CADA cartão, e
-   com quatro cartões isso é o botão "Continuar" saindo da tela. Em grade, o
-   ícone divide a primeira faixa com o título e some da conta vertical. */
+/* O cartão de duas colunas é EMPILHADO: ícone, título, apoio — cada um na
+   sua faixa, o título com a largura inteira do cartão.
+
+   Ele já teve o ícone e o título lado a lado para poupar altura, e a conta
+   não fechava em largura nenhuma que o wizard alcança (`.auth` para em
+   25rem): a 390px a coluna tem 139px, sobram 113 por dentro, o ícone e o vão
+   levam 40 e a reserva do tique levava 24 — "Emagrecer" (72px em negrito)
+   tinha 50, e o `overflow-wrap` partia a palavra: "Emagr / ecer". No máximo
+   da coluna sobram 105, e "Ganhar massa" ainda vira duas linhas ao lado do
+   ícone. Empilhado, o título tem 78px a 320px e cabe inteiro. Custa 26px por
+   cartão — medidos: o passo do objetivo fica 52px mais alto — e a regra três
+   seções acima, "nenhuma palavra parte no meio", volta a ser verdade. */
 .choice-cards--duas .choice-card {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: "icone titulo" "texto texto";
-  align-items: center;
-  gap: var(--espaco-2) var(--espaco-3);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "icone" "titulo" "texto";
+  align-content: start;
+  gap: var(--espaco-2);
   min-height: 0;
 }
 
-.choice-cards--duas .choice-card__icon { grid-area: icone; }
-.choice-cards--duas .choice-card__linha { grid-area: titulo; }
-.choice-cards--duas .choice-card__text {
-  display: contents;
-}
-.choice-cards--duas .choice-card__hint { grid-area: texto; }
-
-.choice-cards--duas .choice-card__icon { width: 2rem; height: 2rem; }
+.choice-cards--duas .choice-card__icon { grid-area: icone; width: 2rem; height: 2rem; }
 .choice-cards--duas .choice-card__icon svg { width: 1.15rem; height: 1.15rem; }
- /* O TIQUE DE ESCOLHIDO COBRIA A PALAVRA.
-
-   No arranjo de duas colunas o `.choice-card__text` vira `display: contents`
-   e deixa de ser caixa — então o `padding-right` que reservava o canto para o
-   sinal deixou de existir, e o zero abaixo tornava isso explícito. Medido a
-   390px: em "Emagrecer" o tique caía em cima das duas últimas letras.
-
-   Quem reserva o canto agora é a linha do título, que é a peça que de fato
-   ocupa aquela faixa da grade. O `padding-right: 0` continua no wrapper
-   porque ali ele não tem efeito nenhum e tirá-lo não muda nada. */
-.choice-cards--duas .choice-card__text { padding-right: 0; }
-.choice-cards--duas .choice-card__linha { padding-right: var(--espaco-7); }
+.choice-cards--duas .choice-card__text { display: contents; }
+.choice-cards--duas .choice-card__linha { grid-area: titulo; padding-right: 0; }
+.choice-cards--duas .choice-card__hint { grid-area: texto; }
 .choice-cards--duas .choice-card__title { font-size: var(--texto-md); }
 .choice-cards--duas .choice-card__hint { font-size: .74rem; }
 
-/* Empilhado, o sinal fica em cima do ícone se ficar no mesmo canto de sempre —
-   ele desce para a linha do ícone, do lado oposto. */
-.choice-cards--duas .choice-card__mark { top: 1rem; right: .875rem; }
+/* O tique deixa o canto e vira um selo no ombro do ícone. No canto ele
+   disputava a faixa do título — foi a reserva de 24px que partia a palavra.
+   Sobre o ícone ele fica onde o estado já é desenhado (o ícone muda de cor
+   ao escolher) e não pede espaço a texto nenhum. */
+.choice-cards--duas .choice-card__mark {
+  top: .55rem;
+  left: 2rem;
+  right: auto;
+  width: 1.05rem;
+  height: 1.05rem;
+}
+.choice-cards--duas .choice-card__mark svg { width: .7rem; height: .7rem; }
 
 /* ==========================================================================
    30. Segmented control e unidade dentro do campo
