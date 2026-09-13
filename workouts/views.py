@@ -731,6 +731,24 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
             # preso no botão ou fila reproduzindo algo corrompido — e recusar
             # em silêncio deixaria a pessoa tocando sem entender.
             messages.error(request, "Limite de séries deste exercício hoje.")
+        else:
+            # As conquistas rodam AQUI, na escrita — é o que a doutrina de
+            # `achievements.services` promete e o que esta rota não fazia:
+            # só `RecordLoadView`, a rota do cartão que saiu da tela em
+            # 10/09/2026, chamava `avaliar`. Como a chave do recorde é
+            # `exercício:data`, o recorde de hoje só nascia se a pessoa
+            # abrisse /conquistas/ no mesmo dia. Com o DIA DO TOQUE, e não
+            # `localdate()`: a fila pode drenar amanhã, e a conquista é de
+            # quando a série aconteceu. Só no ramo que gravou — desfazer não
+            # cria conquista.
+            #
+            # E só QUANDO HÁ RECORDE: o catálogo inteiro custa 43 consultas
+            # (medido), e a fila reenvia séries em rajada. A única regra que
+            # depende do dia é o recorde; as outras esperam a próxima visita
+            # a /conquistas/, como sempre esperaram. Uma consulta decide.
+            if services.supera_recorde(request.user, exercise, peso, dia=dia):
+                novas = conquistas.avaliar(request.user, hoje=dia)
+                conquistas.anunciar(request, novas)
         # DEPOIS da escrita: a contagem de séries pendentes já inclui esta,
         # e é isso que faz fechar a última devolver sem parâmetro.
         return self._de_volta_ao_foco(request, dia)

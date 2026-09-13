@@ -19,6 +19,7 @@ import copy
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
+from django.db.models import Max
 from django.utils import timezone
 
 from accounts.models import (
@@ -1993,9 +1994,15 @@ def load_history(user, exercises, day=None) -> dict:
           "anterior": {série: log},            # o mesmo dia de treino passado
           "melhor_hoje": Decimal|None,         # série mais pesada de hoje
           "melhor_anterior": Decimal|None,
+          "recorde_anterior": Decimal|None,    # a maior carga em QUALQUER data anterior
           "delta": Decimal|None,               # subiu ou não subiu
           "data_anterior": date|None,
         }
+
+    `recorde_anterior` é o contrato de `achievements.regras._recorde` — maior
+    carga já registrada, não 1RM nem volume — lido do mesmo laço, para a
+    execução dizer "recorde: 65 kg" e marcar a série que o supera sem uma
+    consulta a mais.
 
     A comparação é entre as séries MAIS PESADAS de cada dia, e não série a série:
     a ordem em que a pessoa anota varia (às vezes a pesada é a primeira, às vezes
@@ -2027,11 +2034,15 @@ def load_history(user, exercises, day=None) -> dict:
 
         melhor_hoje = max((l.weight_kg for l in hoje.values()), default=None)
         melhor_anterior = max((l.weight_kg for l in anterior.values()), default=None)
+        recorde_anterior = max(
+            (l.weight_kg for l in anteriores if l.weight_kg is not None), default=None
+        )
         resultado[exercise_id] = {
             "hoje": hoje,
             "anterior": anterior,
             "melhor_hoje": melhor_hoje,
             "melhor_anterior": melhor_anterior,
+            "recorde_anterior": recorde_anterior,
             "data_anterior": data_anterior,
             "delta": (melhor_hoje - melhor_anterior)
             if (melhor_hoje is not None and melhor_anterior is not None)
@@ -2131,6 +2142,7 @@ def linhas_de_serie(item, load) -> list:
     """
     hoje = (load or {}).get("hoje") or {}
     anterior = (load or {}).get("anterior") or {}
+    recorde = (load or {}).get("recorde_anterior")
     linhas = []
     for numero in range(1, item.sets + 1):
         registro = hoje.get(numero)
@@ -2142,6 +2154,13 @@ def linhas_de_serie(item, load) -> list:
                 "reps": registro.reps if registro else None,
                 "antes_peso": passado.weight_kg if passado else None,
                 "antes_reps": passado.reps if passado else None,
+                # Só SUPERAR conta — a estreia num exercício é, tecnicamente,
+                # a maior carga dele, e chamar isso de recorde seria confete
+                # de estreia (`achievements.regras._recorde`).
+                "recorde": bool(
+                    registro is not None and recorde is not None
+                    and registro.weight_kg is not None and registro.weight_kg > recorde
+                ),
             }
         )
     return linhas
@@ -2219,6 +2238,25 @@ def serie_pendente(user, exercise_id, dia=None) -> bool:
         user=user, exercise_id=exercise_id, date=dia
     ).count()
     return feitas < item.sets
+
+
+def supera_recorde(user, exercise, weight_kg, dia=None) -> bool:
+    """Esta carga é maior que TODAS as anteriores a `dia` neste exercício?
+
+    É a pergunta barata que decide se vale rodar `achievements.avaliar` na
+    hora: o catálogo inteiro custa 43 consultas (medido em 13/09/2026), e
+    a única regra que depende do DIA é o recorde — as outras têm chave sem
+    data e podem esperar a próxima visita a /conquistas/. Uma consulta aqui
+    contra 43 em toda série; quando o recorde acontece, o catálogo roda.
+
+    Estreia não é recorde: sem carga anterior a resposta é `False`
+    (`achievements.regras._recorde`).
+    """
+    dia = dia or timezone.localdate()
+    maior = ExerciseLog.objects.filter(
+        user=user, exercise=exercise, date__lt=dia, weight_kg__isnull=False
+    ).aggregate(maior=Max("weight_kg"))["maior"]
+    return maior is not None and weight_kg > maior
 
 
 class ExercicioForaDaSessao(LookupError):

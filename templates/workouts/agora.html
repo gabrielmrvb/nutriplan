@@ -196,6 +196,10 @@
                 <span class="series__carga num">
                   {% if atual.measure == 'seconds' %}{{ linha.reps|default:"—" }}s{% elif atual.exercise.equipment == 'bodyweight' %}×{{ linha.reps|default:"—" }}{% else %}{{ linha.weight|floatformat:'-2' }}{% if linha.reps %}×{{ linha.reps }}{% endif %}{% endif %}
                 </span>
+                {% if linha.recorde %}
+                  {# A palavra, e não só a cor: a série que SUPEROU a maior carga já registrada. #}
+                  <span class="series__recorde">recorde</span>
+                {% endif %}
               {% elif linha.antes_peso != None %}
                 <span class="series__antes num">
                   <span class="vis-oculto">última vez: </span>{% if atual.measure == 'seconds' %}{{ linha.antes_reps|default:"—" }}s{% elif atual.exercise.equipment == 'bodyweight' %}×{{ linha.antes_reps|default:"—" }}{% else %}{{ linha.antes_peso|floatformat:'-2' }}{% if linha.antes_reps %}×{{ linha.antes_reps }}{% endif %}{% endif %}
@@ -433,6 +437,16 @@
             Última carga ({{ atual.load.data_anterior|date:"d/m" }}):
             <b class="num">{{ atual.load.melhor_anterior|floatformat:'-2' }} kg</b>
           </span>
+          {% comment %}
+            O RECORDE É FATO, com o contrato de `achievements.regras._recorde`:
+            a maior carga já registrada neste exercício, em qualquer data —
+            não 1RM, não volume. Sai do mesmo `load_history`, sem consulta.
+          {% endcomment %}
+          {% if atual.load.recorde_anterior %}
+          <span class="agora__recorde">
+            Recorde: <b class="num">{{ atual.load.recorde_anterior|floatformat:'-2' }} kg</b>
+          </span>
+          {% endif %}
           {% comment %}
             A frase cita O MESMO número do campo — `sugestao_carga`, que é
             hoje > mesma série anterior > melhor anterior — e não

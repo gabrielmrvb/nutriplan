@@ -2667,6 +2667,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    comparação de hoje. Separadas no markup porque são afirmações diferentes —
    juntar as três numa linha corrida foi o que fez "+5 kg" parecer conselho. */
 .agora__anterior-sugestao { color: var(--text); }
+.agora__recorde { color: var(--text-dim); }
 .agora__delta { font-variant-numeric: tabular-nums; }
 .agora__delta--up { color: var(--brand); }
 .agora__delta--down { color: var(--text-dim); }
@@ -6010,6 +6011,15 @@ body.montando { overflow: hidden; }
    corpo, para ler como referência e não como registro. 4,6:1 sobre o
    fundo do cartão — medido em `config.tests`. */
 .series__antes { font-size: var(--texto-sm); font-weight: 500; white-space: nowrap; color: var(--text-mute); }
+/* A série que superou a maior carga já registrada: a palavra, em caixa
+   alta pequena, dentro da pastilha feita. Texto e não só cor. */
+.series__recorde {
+  font-size: var(--texto-xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--brand-strong);
+}
 
 .series__item--feita {
   /* A borda é folha (feito); o número continua em `--brand-strong` porque

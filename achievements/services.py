@@ -1,15 +1,20 @@
 """Detectar e gravar conquistas.
 
-QUANDO ISTO RODA. No caminho de ESCRITA — registrar série, marcar refeição,
-somar água —, e nunca num agendador, porque o projeto não tem um: cron no Render
-é recurso pago, e foi por isso que os lembretes de refeição ficaram desligados.
-Rodar na escrita também é o que mantém a conquista honesta no tempo: ela nasce
-no instante em que a pessoa fez a coisa.
+QUANDO ISTO RODA. No caminho de ESCRITA — registrar série, nas DUAS rotas
+que gravam série (`ConcluirSerieView`, a da execução, e `RecordLoadView`) —,
+e nunca num agendador, porque o projeto não tem um: cron no Render é recurso
+pago, e foi por isso que os lembretes de refeição ficaram desligados. Rodar na
+escrita também é o que mantém a conquista honesta no tempo: ela nasce no
+instante em que a pessoa fez a coisa.
 
-As três escritas estão na lista porque as três podem FECHAR o dia da ofensiva.
-Só o registro de série seria suficiente para as conquistas de treino, e deixaria
-"7 dias de ofensiva" desbloqueando com um dia de atraso para quem termina o dia
-bebendo água.
+Esta docstring já afirmou que refeição e água também avaliavam. Não
+avaliavam, e `ConcluirSerieView` — a rota que a execução usa — tampouco: só a
+rota do cartão antigo chamava `avaliar`, e como a chave do recorde é
+`exercício:data`, o recorde de hoje só nascia se a pessoa abrisse
+/conquistas/ no mesmo dia. Corrigido em 13/09/2026. Refeição e água
+continuam FORA: "7 dias de ofensiva" desbloqueia na próxima série ou na
+próxima visita a /conquistas/, e isso está dito aqui para ninguém confiar no
+contrário.
 
 POR QUE NÃO RODA NA LEITURA. Um GET que grava é um GET que grava — e o painel é
 a tela mais aberta do app. `avaliar` é idempotente e sobreviveria a isso, mas o
