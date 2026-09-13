@@ -2110,6 +2110,43 @@ def _primeira_serie_livre(feitas: dict, total: int):
     return None
 
 
+def linhas_de_serie(item, load) -> list:
+    """Uma linha por série PRESCRITA: o que foi anotado hoje e o que foi
+    anotado NA MESMA SÉRIE da última vez.
+
+    A fileira de pastilhas da tela é isto. A carga e as reps de hoje ficam
+    dentro da pastilha — dá para ver que a terceira série caiu de 62,5 para 60
+    sem abrir nada, e só cor diria "aconteceu" e reprovaria em daltonismo. A
+    série da última vez entra em cinza enquanto a de hoje não existe: é o
+    número que a pessoa está procurando na hora de escolher a anilha, e
+    `load_history` já o trazia por série sem que tela nenhuma o lesse.
+
+    Existiam DUAS cópias disto — aqui e em `views.set_rows` — e elas
+    divergiam: uma carregava a série anterior, a outra não. A pesquisa de
+    13/09/2026 achou a divergência; esta é a única cópia, e `views.set_rows`
+    aponta para cá.
+
+    Montado em Python e não no template porque a linguagem de template não
+    sabe indexar por variável.
+    """
+    hoje = (load or {}).get("hoje") or {}
+    anterior = (load or {}).get("anterior") or {}
+    linhas = []
+    for numero in range(1, item.sets + 1):
+        registro = hoje.get(numero)
+        passado = anterior.get(numero)
+        linhas.append(
+            {
+                "number": numero,
+                "weight": registro.weight_kg if registro else None,
+                "reps": registro.reps if registro else None,
+                "antes_peso": passado.weight_kg if passado else None,
+                "antes_reps": passado.reps if passado else None,
+            }
+        )
+    return linhas
+
+
 def _ultima_de_hoje(item):
     """O registro mais recente deste exercício HOJE, se houver."""
     feitas = (item.load or {}).get("hoje") or {}
@@ -2243,19 +2280,7 @@ def estado_do_treino(user, dia=None, escolhido=None) -> EstadoDoTreino:
         # A instrução de esforço da série da vez, pelo nível da pessoa. Uma
         # leitura do perfil para a sessão inteira, feita acima.
         item.esforco = instrucao_de_esforco(item, item.proxima_serie, experiencia)
-        # Uma linha por série PRESCRITA, com o que foi anotado nela.
-        #
-        # A fileira de pastilhas da tela é isto: a carga aparece dentro da
-        # pastilha, então dá para ver que a terceira série caiu de 62,5 para 60
-        # sem abrir nada. Só cor diria "aconteceu" e reprovaria em daltonismo.
-        item.set_rows = [
-            {
-                "number": numero,
-                "weight": feitas[numero].weight_kg if numero in feitas else None,
-                "reps": feitas[numero].reps if numero in feitas else None,
-            }
-            for numero in range(1, item.sets + 1)
-        ]
+        item.set_rows = linhas_de_serie(item, item.load)
 
     pendente = next((item for item in itens if not item.concluido), None)
     atual = pendente

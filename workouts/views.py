@@ -79,29 +79,10 @@ def muscle_volume(sessions) -> list:
     return rows
 
 
-def set_rows(item, load) -> list:
-    """Uma linha por série prescrita, com o que já foi anotado nela.
-
-    Montado aqui e não no template porque a linguagem de template não sabe
-    contar nem indexar por variável — e a alternativa seria um filtro
-    personalizado só para isso.
-    """
-    hoje = (load or {}).get("hoje") or {}
-    anterior = (load or {}).get("anterior") or {}
-    linhas = []
-    for numero in range(1, item.sets + 1):
-        registro = hoje.get(numero)
-        passado = anterior.get(numero)
-        linhas.append(
-            {
-                "number": numero,
-                "weight": registro.weight_kg if registro else None,
-                "reps": registro.reps if registro else None,
-                "previous": passado.weight_kg if passado else None,
-                "previous_reps": passado.reps if passado else None,
-            }
-        )
-    return linhas
+#: Uma linha por série prescrita. Era uma cópia de `estado_do_treino` que
+#: divergia dela (esta trazia a série anterior, a outra não); a única versão
+#: mora em `services.linhas_de_serie`, e o nome antigo fica para quem chama.
+set_rows = services.linhas_de_serie
 
 
 class WorkoutView(OnboardingRequiredMixin, TemplateView):

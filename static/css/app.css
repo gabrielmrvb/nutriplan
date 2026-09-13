@@ -6006,6 +6006,10 @@ body.montando { overflow: hidden; }
 }
 .series__n { font-size: var(--texto-xs); font-weight: 700; letter-spacing: .04em; }
 .series__carga { font-size: var(--texto-sm); font-weight: 600; white-space: nowrap; }
+/* A mesma série da última vez, enquanto a de hoje não existe: cinza, mesmo
+   corpo, para ler como referência e não como registro. 4,6:1 sobre o
+   fundo do cartão — medido em `config.tests`. */
+.series__antes { font-size: var(--texto-sm); font-weight: 500; white-space: nowrap; color: var(--text-mute); }
 
 .series__item--feita {
   /* A borda é folha (feito); o número continua em `--brand-strong` porque

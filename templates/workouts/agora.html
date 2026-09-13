@@ -173,13 +173,30 @@
           sessão: dá para ver que a terceira caiu de 62,5 para 60 sem abrir
           nada.
         {% endcomment %}
+        {% comment %}
+          O QUE VAI DENTRO DA PASTILHA. Feita: "62,5×9" — carga e reps de
+          hoje, sem "kg" (o campo já diz a unidade, e a largura da pastilha
+          é o que mantém as quatro numa linha a 320px: medido, "62,5 kg × 9"
+          quebrava a fileira em duas). Pendente com histórico: "60×10" em
+          cinza, a MESMA série da última vez — é o número que se procura na
+          hora de escolher a anilha, com "última vez:" para o leitor de tela.
+          Peso do corpo: só as reps ("×12"); segundos: "30s". Sem nada: "—".
+        {% endcomment %}
         <ol class="series__lista">
           {% for linha in atual.set_rows %}
             <li class="series__item{% if linha.weight != None %} series__item--feita{% elif linha.number == atual.proxima_serie %} series__item--atual{% endif %}">
               <span class="series__n num">{{ linha.number }}</span>
-              <span class="series__carga num">
-                {% if linha.weight != None %}{{ linha.weight|floatformat:'-2' }} kg{% else %}—{% endif %}
-              </span>
+              {% if linha.weight != None %}
+                <span class="series__carga num">
+                  {% if atual.measure == 'seconds' %}{{ linha.reps|default:"—" }}s{% elif atual.exercise.equipment == 'bodyweight' %}×{{ linha.reps|default:"—" }}{% else %}{{ linha.weight|floatformat:'-2' }}{% if linha.reps %}×{{ linha.reps }}{% endif %}{% endif %}
+                </span>
+              {% elif linha.antes_peso != None %}
+                <span class="series__antes num">
+                  <span class="vis-oculto">última vez: </span>{% if atual.measure == 'seconds' %}{{ linha.antes_reps|default:"—" }}s{% elif atual.exercise.equipment == 'bodyweight' %}×{{ linha.antes_reps|default:"—" }}{% else %}{{ linha.antes_peso|floatformat:'-2' }}{% if linha.antes_reps %}×{{ linha.antes_reps }}{% endif %}{% endif %}
+                </span>
+              {% else %}
+                <span class="series__carga num">—</span>
+              {% endif %}
             </li>
           {% endfor %}
         </ol>
@@ -401,9 +418,17 @@
             Última carga ({{ atual.load.data_anterior|date:"d/m" }}):
             <b class="num">{{ atual.load.melhor_anterior|floatformat:'-2' }} kg</b>
           </span>
+          {% comment %}
+            A frase cita O MESMO número do campo — `sugestao_carga`, que é
+            hoje > mesma série anterior > melhor anterior — e não
+            `melhor_anterior`: com uma série a 62,5 hoje, o campo dizia 62,5
+            e a frase dizia 60. Dois números para uma sugestão é um a mais.
+          {% endcomment %}
+          {% if atual.sugestao_carga != None %}
           <span class="agora__anterior-sugestao">
-            Sugestão: manter <b class="num">{{ atual.load.melhor_anterior|floatformat:'-2' }} kg</b>
+            Sugestão: manter <b class="num">{{ atual.sugestao_carga|floatformat:'-2' }} kg</b>
           </span>
+          {% endif %}
           {% if atual.load.melhor_hoje %}
             <span class="agora__comparacao">
               Hoje:
