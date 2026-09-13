@@ -252,6 +252,26 @@ class TelaDeProgressoTests(TestCase):
     def _html(self):
         return self.client.get("/historico/").content.decode()
 
+    def test_a_carga_de_dois_e_meio_nao_vira_um_numero_que_nao_existe(self):
+        """`floatformat:0` arredondava 62,5 para 63 e 12,5 para 13 — e a barra
+        não tem 63 kg. Medido em 13/09/2026: "60 → 63 kg +3" para quem foi de
+        60 a 62,5. `-2` mostra "62,5" e continua mostrando "60" sem casa."""
+        from workouts.models import ExerciseLog
+
+        ExerciseLog.objects.filter(user=self.pessoa, exercise=self.supino).delete()
+        for atras, carga in ((14, "60"), (0, "62.5")):
+            ExerciseLog.objects.create(
+                user=self.pessoa, exercise=self.supino,
+                date=self.hoje - timedelta(days=atras),
+                set_number=1, weight_kg=Decimal(carga), reps=10,
+            )
+        html = self._html()
+        linha = html.split("Supino reto com barra", 1)[1].split("</dd>", 1)[0]
+        linha = " ".join(linha.split())
+        self.assertIn("60 → 62,50 kg", linha)
+        self.assertIn("+2,50", linha)
+        self.assertNotIn("63", linha)
+
     def test_o_treino_aparece_na_tela(self):
         """O buraco que a V2 fecha: cada série estava no banco e nenhuma
         aparecia numa tela chamada Métricas."""

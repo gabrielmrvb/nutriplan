@@ -60,11 +60,16 @@ razão entre as duas fingiria medir compromisso.
         <div>
           <dt>{{ carga.nome }}</dt>
           <dd>
-            {{ carga.primeiro|floatformat:0 }} → {{ carga.ultimo|floatformat:0 }} kg
+            {% comment %}
+              `-2` e não `0`: a barra sobe de 2,5 em 2,5, e `floatformat:0`
+              arredondava 62,5 para 63 — um número que não existe na anilha.
+              Medido em 13/09/2026: "60 → 63 kg +3" para quem foi de 60 a 62,5.
+            {% endcomment %}
+            {{ carga.primeiro|floatformat:'-2' }} → {{ carga.ultimo|floatformat:'-2' }} kg
             {% if carga.delta > 0 %}
-              <span class="delta delta--sobe">+{{ carga.delta|floatformat:0 }}</span>
+              <span class="delta delta--sobe">+{{ carga.delta|floatformat:'-2' }}</span>
             {% elif carga.delta < 0 %}
-              <span class="delta delta--desce">{{ carga.delta|floatformat:0 }}</span>
+              <span class="delta delta--desce">{{ carga.delta|floatformat:'-2' }}</span>
             {% endif %}
           </dd>
         </div>
