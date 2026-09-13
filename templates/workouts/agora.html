@@ -157,6 +157,15 @@
           <span class="series__faixa num">{{ atual.rep_range }} reps</span>
         </p>
         {% comment %}
+          QUÃO PERTO DA FALHA. `intensidade` sempre existiu no modelo e era
+          desenhada no cartão do exercício; saiu da tela no redesenho de
+          12/09/2026 sem constar em "o que mudou de lugar". Volta aqui, por
+          série e por nível (`instrucao_de_esforco`): o isolador só vai à
+          falha na última série, e o iniciante nunca lê "falha" em composto.
+          Uma linha discreta sob a faixa — é instrução, não alerta.
+        {% endcomment %}
+        <p class="series__esforco">{{ atual.esforco }}</p>
+        {% comment %}
           Uma pastilha por série prescrita, e o texto dentro dela é a carga.
 
           Bolinha colorida sozinha reprovaria em daltonismo e não informaria

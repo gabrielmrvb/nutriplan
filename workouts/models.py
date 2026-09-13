@@ -728,23 +728,13 @@ class PrescriptionFields(models.Model):
 
     @property
     def intensidade(self) -> str:
-        """Quão perto da falha levar cada série.
+        """Quão perto da falha levar cada série, sem saber qual série é.
 
-        Depende do exercício, e não é detalhe. Levar agachamento e supino à
-        falha em toda série é onde o risco de lesão mora e onde a fadiga
-        acumulada come o treino seguinte — a recomendação usual em movimento
-        multiarticular pesado é parar com uma ou duas repetições na reserva. No
-        isolado o custo de falhar é baixo e o estímulo compensa.
-
-        Um app que manda ir à falha em tudo está dando um conselho que um bom
-        treinador não daria.
+        É o texto NEUTRO — sem série e sem nível — para quem lê a prescrição
+        fora da execução. A execução usa `instrucao_de_esforco`, que sabe a
+        série da vez e a experiência da pessoa. Ver a função, logo abaixo.
         """
-        if self.exercise.is_compound:
-            return (
-                "Pare com 1 a 2 repetições na reserva — em movimento pesado, "
-                "falhar toda série cobra caro no treino seguinte."
-            )
-        return "Leve até a falha na última série, com carga que permita a faixa."
+        return instrucao_de_esforco(self, None, "")
 
     @property
     def rest_display(self) -> str:
@@ -761,6 +751,47 @@ class PrescriptionFields(models.Model):
         if self.rest_seconds > 60:
             return f"{self.rest_seconds // 60}:{self.rest_seconds % 60:02d} min"
         return f"{self.rest_seconds}s"
+
+
+def instrucao_de_esforco(item, serie, experiencia) -> str:
+    """Quão perto da falha levar ESTA série, para ESTA pessoa.
+
+    Existia como `intensidade` — "1 a 2 na reserva" no composto, "até a
+    falha" no isolador — e era renderizada no cartão do exercício. Saiu da
+    tela no redesenho de 12/09/2026 sem constar na lista do que mudou de
+    lugar; a pesquisa de 13/09 achou zero ocorrências em `templates/`. Volta
+    aqui, e volta sabendo duas coisas que o texto antigo não sabia (Refalo
+    2023/2024, Helms 2016):
+
+    - o ISOLADOR só vai à falha na ÚLTIMA série. Falhar em toda série
+      acrescenta fadiga, não estímulo; nas anteriores fica 1 a 2 na reserva;
+    - o INICIANTE nunca lê "até a falha" em composto e para com 2 sobrando:
+      em quem ainda aprende o movimento, técnica vale mais que a última
+      repetição.
+
+    `serie=None` é o texto neutro (sem "última"); `experiencia == ""` é "ainda
+    não respondeu" e recebe o texto do intermediário — o mesmo critério de
+    `teto_semanal_de`: a tela nunca afirma nível que a pessoa não declarou.
+    Segundos (prancha) não têm repetição para reservar: o limite é a técnica.
+
+    É função pura, sem consulta, para a execução chamá-la por série e o
+    teste medi-la sem banco.
+    """
+    # Frases de UMA LINHA A 320PX, de propósito: cada linha a mais aqui
+    # empurra "Concluir série" para baixo. Medido em 13/09/2026: a versão de
+    # duas orações custava 61px a 390 e 44 a 360; estas custam 26 em todas.
+    # Quem for reescrever mede a altura de `.series__esforco` a 320 antes.
+    if item.measure == Measure.SECONDS:
+        return "Segure até a técnica ceder."
+    iniciante = experiencia == "iniciante"
+    if item.exercise.is_compound:
+        if iniciante:
+            return "2 sobrando: técnica antes de peso."
+        return "1 a 2 repetições na reserva, sem falhar."
+    ultima = serie is not None and serie >= item.sets
+    if ultima:
+        return "Última série: até a falha, na faixa."
+    return "1 a 2 na reserva; falha só na última série."
 
 
 class WorkoutTemplateItem(PrescriptionFields):

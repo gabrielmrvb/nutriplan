@@ -39,6 +39,7 @@ from .models import (
     TrainingPlan,
     TrainingSession,
     WorkoutTemplate,
+    instrucao_de_esforco,
     segundos_da_sessao,
 )
 
@@ -2222,6 +2223,10 @@ def estado_do_treino(user, dia=None, escolhido=None) -> EstadoDoTreino:
 
     itens = list(sessao.exercises.all())
     historico = load_history(user, [item.exercise for item in itens], day=dia)
+    # `getattr` e não `user.profile`: quem chega aqui já passou pelo
+    # onboarding, mas o perfil pode não estar em cache, e `""` (não
+    # respondeu) tem de virar o texto do intermediário, nunca um erro.
+    experiencia = getattr(getattr(user, "profile", None), "experiencia", "") or ""
 
     for item in itens:
         item.load = historico.get(item.exercise_id) or {}
@@ -2235,6 +2240,9 @@ def estado_do_treino(user, dia=None, escolhido=None) -> EstadoDoTreino:
         )
         item.sugestao_carga = _sugestao_de_carga(item, item.proxima_serie)
         item.sugestao_reps = _sugestao_de_reps(item, item.proxima_serie)
+        # A instrução de esforço da série da vez, pelo nível da pessoa. Uma
+        # leitura do perfil para a sessão inteira, feita acima.
+        item.esforco = instrucao_de_esforco(item, item.proxima_serie, experiencia)
         # Uma linha por série PRESCRITA, com o que foi anotado nela.
         #
         # A fileira de pastilhas da tela é isto: a carga aparece dentro da

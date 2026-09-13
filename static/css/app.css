@@ -5967,6 +5967,17 @@ body.montando { overflow: hidden; }
   font-size: var(--texto-sm);
 }
 
+/* A instrução de esforço da série da vez ("1 a 2 na reserva", "última série:
+   até a falha"). Uma linha discreta entre o título e as pastilhas: é
+   instrução, não alerta — não leva negrito nem cor de marca. 12,8px, acima
+   do piso de 11. */
+.series__esforco {
+  margin: 0 0 var(--espaco-3);
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  line-height: 1.4;
+}
+
 /* Uma pastilha por série prescrita, com a CARGA dentro.
 
    Bolinha colorida sozinha reprovaria em daltonismo e diria só "aconteceu".
