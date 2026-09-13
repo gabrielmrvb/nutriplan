@@ -1,0 +1,116 @@
+# -*- coding: utf-8 -*-
+"""Concluir e desfazer devolvem ao exercício EM FOCO — não ao primeiro pendente.
+
+`estado_do_treino` documenta que a pessoa ESCOLHE por onde começar (a ficha
+oferece cada exercício como porta), e `ConcluirSerieView` descartava a
+escolha: os três ramos terminavam em `redirect("workouts:now")`, sem
+`?exercicio=`, e a tela voltava a abrir sozinha o primeiro pendente. Quem
+começou pelo décimo exercício era levado ao primeiro depois de cada série.
+Offline a fila deixa a pessoa onde está (`fila.js`) — o caminho degradado
+era melhor que o normal. Achado da pesquisa de 13/09/2026.
+
+O formulário passa a levar `exercicio` (o que está EM FOCO — não
+`exercise_id`, que no desfazer pode ser outro exercício), e a view devolve a
+ele enquanto houver série pendente. O campo viaja no corpo como qualquer
+outro, então a fila offline o reenvia sem mudança de contrato; item antigo
+sem o campo cai no redirect sem parâmetro, nunca em 404.
+
+E a saída da tela ganha duas portas que faltavam: "Depois: X" vira link e o
+cabeçalho ganha "← Ficha".
+"""
+import re
+from decimal import Decimal
+
+from django.core.management import call_command
+from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
+
+from workouts import services
+from workouts.models import ExerciseLog
+from workouts.tests import create_user, dias_incluindo_hoje, sem_scripts
+
+
+class OFocoTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.pessoa = create_user(email="foco@exemplo.com", weekdays=dias_incluindo_hoje(5))
+        services.create_routine(self.pessoa)
+        self.client.force_login(self.pessoa)
+        self.hoje = timezone.localdate()
+        plano = services.get_active_routine(self.pessoa)
+        sessao = next(s for s in plano.sessions.all() if s.weekday == self.hoje.weekday())
+        self.itens = list(sessao.exercises.select_related("exercise").order_by("order"))
+        self.assertGreaterEqual(len(self.itens), 3, "o fixture precisa de três exercícios")
+        self.terceiro = self.itens[2]
+
+    def _post(self, **campos):
+        corpo = {
+            "exercise_id": self.terceiro.exercise_id,
+            "weight_kg": "40",
+            "reps": "10",
+            "op_id": "op-%d" % ExerciseLog.objects.count(),
+            "dia": self.hoje.isoformat(),
+        }
+        corpo.update(campos)
+        return self.client.post(reverse("workouts:record_set"), corpo)
+
+    def _url(self, item):
+        return "%s?exercicio=%d" % (reverse("workouts:now"), item.exercise_id)
+
+    def test_concluir_uma_serie_do_terceiro_devolve_ao_terceiro(self):
+        resposta = self._post(exercicio=self.terceiro.exercise_id)
+        self.assertEqual(resposta.status_code, 302)
+        self.assertEqual(resposta["Location"], self._url(self.terceiro))
+
+    def test_fechar_a_ultima_serie_devolve_sem_parametro(self):
+        """Sem série pendente no exercício, o parâmetro sobraria: a tela abre
+        sozinha o próximo pendente, que é o comportamento de sempre."""
+        for n in range(1, self.terceiro.sets):
+            self._post(exercicio=self.terceiro.exercise_id, op_id="op-fim-%d" % n)
+        resposta = self._post(exercicio=self.terceiro.exercise_id, op_id="op-fim-ultima")
+        self.assertEqual(resposta["Location"], reverse("workouts:now"))
+
+    def test_desfazer_serie_de_outro_exercicio_volta_ao_foco(self):
+        """`exercise_id` do desfazer é o exercício que RECEBEU a última série;
+        o foco é outro campo, e é ele que manda."""
+        primeiro = self.itens[0]
+        self._post(exercise_id=primeiro.exercise_id, exercicio=primeiro.exercise_id)
+        resposta = self._post(
+            exercise_id=primeiro.exercise_id, exercicio=self.terceiro.exercise_id,
+            acao="desfazer", op_id="op-desfazer",
+        )
+        self.assertEqual(resposta["Location"], self._url(self.terceiro))
+        self.assertEqual(ExerciseLog.objects.count(), 0)
+
+    def test_foco_ausente_ou_ilegivel_cai_no_redirect_sem_parametro(self):
+        """Item antigo da fila não tem o campo; um POST forjado pode ter lixo.
+        Nenhum dos dois pode virar 404 no POST — a série foi gravada."""
+        for foco in (None, "abc", "-1", "999999"):
+            with self.subTest(foco=foco):
+                extra = {} if foco is None else {"exercicio": foco}
+                resposta = self._post(op_id="op-%s" % foco, **extra)
+                self.assertEqual(resposta.status_code, 302)
+                self.assertEqual(resposta["Location"], reverse("workouts:now"))
+
+    def test_o_formulario_leva_o_foco_e_a_tela_oferece_as_duas_portas(self):
+        html = sem_scripts(self.client.get(self._url(self.terceiro)).content.decode())
+        # O hidden vale o exercício em foco, nos DOIS formulários.
+        self.assertIn(
+            '<input type="hidden" name="exercicio" value="%d">' % self.terceiro.exercise_id,
+            html,
+        )
+        # "Depois" é um link para o próximo exercício.
+        proximo = self.itens[3] if len(self.itens) > 3 else None
+        if proximo is not None:
+            self.assertRegex(
+                html, r'<a class="agora__proximo-link"[^>]*href="[^"]*\?exercicio=%d"' % proximo.exercise_id
+            )
+        # "← Ficha" no cabeçalho, apontando para a sessão de hoje.
+        sessao_url = reverse("workouts:ficha", args=[self.terceiro.session_id])
+        cabecalho = html.split('class="page-head agora__head"', 1)[1].split("</div>", 1)[0]
+        self.assertIn('href="%s"' % sessao_url, cabecalho)
+        self.assertIn("Ficha", cabecalho)

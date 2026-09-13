@@ -2192,6 +2192,35 @@ def _sugestao_de_reps(item, serie):
     return registro.reps if registro is not None else None
 
 
+def serie_pendente(user, exercise_id, dia=None) -> bool:
+    """Este exercício ainda tem série por fazer HOJE?
+
+    É a pergunta que `ConcluirSerieView` faz para devolver a pessoa ao
+    exercício em foco depois de gravar: enquanto houver série pendente, a
+    tela reabre nele; fechada a última, o parâmetro sobraria e a tela volta a
+    escolher o próximo sozinha. Duas consultas (a sessão do dia e a contagem
+    de hoje), e não o `estado_do_treino` inteiro, porque isto roda a cada
+    série gravada. Exercício que não é da sessão de hoje responde `False`.
+    """
+    dia = dia or timezone.localdate()
+    plan = get_active_routine(user)
+    if plan is None:
+        return False
+    item = (
+        SessionExercise.objects.filter(
+            session__plan=plan, session__weekday=dia.weekday(), exercise_id=exercise_id
+        )
+        .only("sets")
+        .first()
+    )
+    if item is None:
+        return False
+    feitas = ExerciseLog.objects.filter(
+        user=user, exercise_id=exercise_id, date=dia
+    ).count()
+    return feitas < item.sets
+
+
 class ExercicioForaDaSessao(LookupError):
     """Pediram um exercício que não é do treino de hoje desta pessoa.
 

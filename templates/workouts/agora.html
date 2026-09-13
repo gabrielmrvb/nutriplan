@@ -116,6 +116,12 @@
       seguidas.
     {% endcomment %}
     <div class="page-head agora__head">
+      {% comment %}
+        A volta para a ficha, no topo: quem chega por link compartilhado ou
+        aba nova não tem histórico para voltar, e a ação de baixo
+        (`.agora__lista`) só aparece depois de rolar a tela inteira.
+      {% endcomment %}
+      <a class="btn-link agora__voltar" href="{% url 'workouts:ficha' estado.sessao.pk %}">← Ficha</a>
       <p class="sobretitulo agora__sessao-rotulo">{{ estado.sessao.name }}</p>
       <p class="agora__passo num">
         {% comment %}
@@ -267,6 +273,13 @@
           seguinte — some do dia certo e vira sessão fantasma no outro.
         {% endcomment %}
         <input type="hidden" name="dia" value="{{ dia_da_sessao|date:'Y-m-d' }}">
+        {% comment %}
+          O EXERCÍCIO EM FOCO viaja junto: a view devolve a ele enquanto
+          houver série pendente, em vez de reabrir o primeiro pendente da
+          ficha. É um campo comum do corpo — a fila offline o reenvia como
+          qualquer outro, e item antigo sem ele cai no redirect de sempre.
+        {% endcomment %}
+        <input type="hidden" name="exercicio" value="{{ atual.exercise.pk }}">
 
         <label class="registro__campo">
           <span class="registro__rotulo">Carga</span>
@@ -343,6 +356,8 @@
           {% endcomment %}
           <input type="hidden" name="op_id" value="{{ op_desfazer }}">
           <input type="hidden" name="dia" value="{{ dia_da_sessao|date:'Y-m-d' }}">
+          {# O foco é o exercício NA TELA, que no desfazer pode não ser o que recebeu a série. #}
+          <input type="hidden" name="exercicio" value="{{ atual.exercise.pk }}">
           <button type="submit" class="btn-link">
             desfazer última série{% if estado.ultimo_log.exercise_id != atual.exercise_id %}
               de {{ estado.ultimo_item.exercise.name|default:"outro exercício" }}{% endif %}
@@ -488,7 +503,12 @@
     <p class="agora__proximo">
       {% if estado.proximo %}
         <span class="agora__proximo-rotulo">Depois</span>
-        <b>{{ estado.proximo.exercise.name }}</b>
+        {% comment %}
+          "Depois: X" era só texto; quem quisesse pular para o próximo tinha
+          de voltar à ficha. É a mesma porta que a ficha oferece, com o mesmo
+          `?exercicio=`, e um alvo de 44px.
+        {% endcomment %}
+        <a class="agora__proximo-link" href="{% url 'workouts:now' %}?exercicio={{ estado.proximo.exercise_id }}"><b>{{ estado.proximo.exercise.name }}</b></a>
       {% else %}
         <span class="agora__proximo-rotulo">Depois</span>
         <b>último exercício do treino</b>

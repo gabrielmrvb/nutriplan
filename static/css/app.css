@@ -6139,6 +6139,18 @@ body.montando { overflow: hidden; }
   flex: none;
 }
 .agora__proximo b { color: var(--text); overflow-wrap: anywhere; min-width: 0; }
+/* O próximo exercício é uma porta, não só um nome: 44px de altura, com o
+   texto alinhado ao rótulo "Depois". */
+.agora__proximo-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  min-width: 0;
+  text-decoration: underline;
+  text-underline-offset: .15em;
+  color: var(--text);
+}
+.agora__proximo-link b { color: inherit; }
 
 .agora__lista { margin-bottom: .4rem; }
 
@@ -6214,12 +6226,14 @@ body.montando { overflow: hidden; }
    `.btn`. Foi assim que estes quatro apareceram na suíte completa. */
 .agora__concluir,
 .agora__lista,
+.agora__proximo-link,
 .anatomia__botao,
 .descanso__pular {
   transition: transform .12s var(--ease);
 }
 .agora__concluir:active,
 .agora__lista:active,
+.agora__proximo-link:active,
 .anatomia__botao:active,
 .descanso__pular:active { transform: scale(.96); }
 
@@ -6228,11 +6242,13 @@ body.montando { overflow: hidden; }
      não quer o retorno suavizado, quer ele imediato. */
   .agora__concluir,
   .agora__lista,
+  .agora__proximo-link,
   .anatomia__botao,
   .descanso__pular { transition: none; }
 
   .agora__concluir:active,
   .agora__lista:active,
+  .agora__proximo-link:active,
   .anatomia__botao:active,
   .descanso__pular:active { transform: none; }
 }

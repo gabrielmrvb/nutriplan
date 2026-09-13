@@ -688,7 +688,6 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
     tela_da_acao = "workouts:now"
 
     def post(self, request, *args, **kwargs):
-        destino = redirect("workouts:now")
         # O id é convertido ANTES de ir ao banco: `pk=""` e `pk="abc"` levantam
         # ValueError dentro do ORM, e ValueError numa view é 500. Formulário
         # corrompido merece 404, não página de erro.
@@ -703,17 +702,17 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
 
         if request.POST.get("acao") == "desfazer":
             services.remove_last_set(request.user, exercise, op_id=op_id, day=dia)
-            return destino
+            return self._de_volta_ao_foco(request, dia)
 
         bruto = (request.POST.get("weight_kg") or "").replace(",", ".").strip()
         try:
             peso = Decimal(bruto)
         except (InvalidOperation, TypeError):
             messages.error(request, "Carga inválida — use números, como 42,5.")
-            return destino
+            return self._de_volta_ao_foco(request, dia)
         if peso < 0 or peso > 999:
             messages.error(request, "Carga fora do que uma barra aguenta.")
-            return destino
+            return self._de_volta_ao_foco(request, dia)
 
         reps = None
         bruto_reps = (request.POST.get("reps") or "").strip()
@@ -732,7 +731,37 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
             # preso no botão ou fila reproduzindo algo corrompido — e recusar
             # em silêncio deixaria a pessoa tocando sem entender.
             messages.error(request, "Limite de séries deste exercício hoje.")
-        return destino
+        # DEPOIS da escrita: a contagem de séries pendentes já inclui esta,
+        # e é isso que faz fechar a última devolver sem parâmetro.
+        return self._de_volta_ao_foco(request, dia)
+
+    def _de_volta_ao_foco(self, request, dia):
+        """Para o exercício EM FOCO, enquanto ele tiver série pendente.
+
+        `estado_do_treino` documenta que a pessoa escolhe por onde começar, e
+        esta view descartava a escolha: os três ramos voltavam para
+        `workouts:now` sem parâmetro, e a tela reabria o primeiro pendente —
+        quem começou pelo décimo exercício era levado ao primeiro a cada
+        série. O foco viaja no campo `exercicio` (e não em `exercise_id`, que
+        no desfazer é o exercício que RECEBEU a última série, não o que está
+        na tela). O campo vai no corpo como qualquer outro, então a fila
+        offline o reenvia sem mudança de contrato.
+
+        Ausente, ilegível ou de um exercício sem série pendente hoje, o
+        parâmetro fica de fora e a tela escolhe sozinha — nunca 404: a série
+        já foi gravada, e item antigo da fila não tem o campo.
+
+        Chamada DEPOIS da escrita: a contagem de pendentes já inclui a série
+        de agora, e é por isso que fechar a última devolve sem parâmetro.
+        """
+        bruto = (request.POST.get("exercicio") or "").strip()
+        try:
+            foco = int(bruto)
+        except (TypeError, ValueError):
+            return redirect("workouts:now")
+        if foco <= 0 or not services.serie_pendente(request.user, foco, dia=dia):
+            return redirect("workouts:now")
+        return redirect("%s?exercicio=%d" % (reverse("workouts:now"), foco))
 
     #: Quantos dias para trás um evento da fila ainda pode escrever.
     #:
