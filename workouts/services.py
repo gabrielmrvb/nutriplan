@@ -90,17 +90,23 @@ SPLIT_NOTE = {
         "uma vez, então priorize os exercícios do começo da ficha — são eles que "
         "carregam o resultado."
     ),
+    # ORGANIZAÇÃO, não fisiologia. A versão anterior dizia que peito e costas
+    # "são antagonistas, e treinar um cansa o outro pela metade" — a
+    # meta-análise de supersets agonista-antagonista (Zhang 2025) mede o
+    # oposto, e o próprio `ab A` treina supino e remada juntos. A frase
+    # afirma o que a divisão FAZ: separar os movimentos por dia.
     Split.ABC: (
         "A divisão clássica por sinergia: empurrar num dia, puxar no outro, "
-        "pernas no terceiro. Peito e costas nunca caem no mesmo treino — são "
-        "antagonistas, e treinar um cansa o outro pela metade."
+        "pernas no terceiro. Cada movimento tem o dia dele, e os músculos que "
+        "ajudam — tríceps no empurrar, bíceps no puxar — treinam junto."
     ),
+    # O ABCDE de hoje é UM grupo por dia. A nota descrevia o modelo antigo
+    # (ABCD mais um dia "para o que sobra"), que o catálogo não tem mais.
     Split.ABCDE: (
-        "Cinco treinos: o ciclo de quatro mais um dia para o que sobra de fora "
-        "dele. Somando as séries da semana no ABCD, posterior de coxa e "
-        "panturrilha ficam bem abaixo da faixa em que o ganho aparece — o "
-        "quinto dia existe para fechar essa conta, não para adicionar treino "
-        "por adicionar."
+        "Cinco treinos, um grupo por dia: peito, costas, pernas, ombros e "
+        "braços. Cada músculo recebe a sessão inteira e uma semana de "
+        "descanso até voltar — é a divisão de quem quer volume alto num dia "
+        "só e tem cinco dias para isso."
     ),
     Split.ABC2: (
         "Dois grupos principais por dia: peito e tríceps, costas e bíceps, "
@@ -1449,7 +1455,7 @@ def ajustar_titulos(sessoes, prescricao) -> list:
 VEZES = {2: "duas", 3: "três", 4: "quatro", 5: "cinco", 6: "seis", 7: "sete"}
 
 
-def nota_da_divisao(split, sessoes) -> str:
+def nota_da_divisao(split, sessoes, teto_semanal=None) -> str:
     """A nota da ficha, montada a partir do ciclo que ESTA ficha tem.
 
     Era um texto fixo por divisão, e o do ABC dizia "quem treina cinco vezes
@@ -1469,6 +1475,15 @@ def nota_da_divisao(split, sessoes) -> str:
     rotulos = [sessao.label for sessao in sessoes]
     quantas = {r: rotulos.count(r) for r in dict.fromkeys(rotulos)}
     repetidos = {r: n for r, n in quantas.items() if n > 1}
+    # A CAUSA, quando a experiência esvazia a passagem repetida. Com o teto
+    # do iniciante (12 séries efetivas por grupo) três dias já fecham a
+    # semana; o quarto e o quinto ficam com o que sobra — medido em
+    # 13/09/2026: cinco dias em ABC2 dão [30, 24, 60, 14, 24] minutos, com
+    # A2 reduzida a um exercício. "Corte de volume continua sem frase" vale
+    # para o aparo comum; aqui a pessoa vê uma sessão de treze minutos e
+    # precisa saber por quê — e a frase só entra quando há passagem repetida.
+    if teto_semanal is not None and teto_semanal <= TETO_POR_EXPERIENCIA[Experiencia.INICIANTE] and repetidos:
+        base = "%s Com o volume de quem está começando, três dias já entregam a semana inteira — as passagens repetidas ficam mais curtas de propósito, e crescem quando você mudar o nível no Perfil." % base
     if not repetidos:
         return base
 
@@ -1647,7 +1662,7 @@ def create_routine(user) -> TrainingPlan:
     plan.notes = " ".join(
         parte
         for parte in (
-            nota_da_divisao(split, sessions),
+            nota_da_divisao(split, sessions, teto_semanal=teto_semanal),
             aviso_de_tempo(sessions, prescricao, sem_relogio),
         )
         if parte

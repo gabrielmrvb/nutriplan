@@ -549,7 +549,7 @@ class Split(models.TextChoices):
     ABC = "abc", "ABC — empurrar, puxar e pernas"
     ABC2 = "abc2", "ABC de dois grupos — peito/tríceps, costas/bíceps e pernas/ombros"
     ABCD = "abcd", "ABCD — peito/tríceps, costas/bíceps, ombro/perna e complementares"
-    ABCDE = "abcde", "ABCDE — o ciclo de quatro mais um dia de pontos fracos"
+    ABCDE = "abcde", "ABCDE — peito, costas, pernas, ombros e braços, um por dia"
 
 
 #: Quanto tempo uma série leva executando, em segundos.
