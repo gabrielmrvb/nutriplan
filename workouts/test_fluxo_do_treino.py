@@ -654,9 +654,11 @@ class ACargaAnteriorNaoViraRecomendacaoTests(BaseDoFluxo):
     descrição do que a pessoa já tinha levantado. Renderizado ao lado de um
     campo de carga vazio, ele lia como conselho: "põe mais cinco".
 
-    O app NÃO TEM regra que autorize subir peso. `_sugestao_de_carga` repete a
-    última carga conhecida e nunca aumenta — e é ela que preenche o campo. A
-    tela agora diz as três coisas separadas, e nenhuma promete progressão.
+    O app NÃO TINHA regra que autorizasse subir peso. Desde 13/09/2026 tem —
+    a dupla progressão (`proxima_carga`, `test_dupla_progressao.py`) —, e
+    ela só age com HISTÓRICO COMPLETO e com a razão escrita. Os casos daqui
+    continuam valendo porque `_semana_passada` anota UMA série: sem a faixa
+    fechada em todas, a sugestão é "manter", e nada é inventado.
     """
 
     def setUp(self):

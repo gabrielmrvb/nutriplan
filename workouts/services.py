@@ -34,6 +34,7 @@ from .models import (
     SEGUNDOS_ENTRE_EXERCICIOS,
     SEGUNDOS_POR_SERIE,
     ExerciseLog,
+    Measure,
     MuscleGroup,
     SessionExercise,
     Split,
@@ -2208,11 +2209,103 @@ def _sugestao_de_carga(item, serie):
     de_hoje = _ultima_de_hoje(item)
     if de_hoje is not None:
         return de_hoje.weight_kg
+    # A dupla progressão decide a ABERTURA da sessão: quando a faixa fechou
+    # da última vez, o campo já abre com a carga nova. Hoje continua
+    # mandando — a progressão devolve `None` com série anotada hoje.
+    progressao = getattr(item, "progressao", None)
+    if progressao is not None and progressao.estado == "subir":
+        return progressao.valor
     anterior = (item.load or {}).get("anterior") or {}
     registro = anterior.get(serie)
     if registro is not None:
         return registro.weight_kg
     return (item.load or {}).get("melhor_anterior")
+
+
+#: Grupos que sobem de 5 em 5: a barra da perna aguenta o dobro do degrau
+#: do tronco. Os outros (peito, costas, ombro, braços, trapézio, core) sobem
+#: de 2,5 — a menor anilha comum.
+GRUPOS_INFERIORES = frozenset({
+    MuscleGroup.QUADS, MuscleGroup.HAMSTRINGS, MuscleGroup.CALVES,
+})
+
+#: A menor anilha: todo degrau e todo arredondamento saem dela.
+DEGRAU_MINIMO = Decimal("2.5")
+
+
+@dataclass(frozen=True)
+class Progressao:
+    """O que a dupla progressão decidiu para a PRÓXIMA sessão de um exercício."""
+
+    estado: str        # "subir" | "manter"
+    valor: Decimal     # a carga a abrir no campo
+    razao: str         # a frase que a tela mostra ao lado
+
+
+def proxima_carga(item):
+    """Dupla progressão: sobe a carga quando a faixa de reps fechou.
+
+    A regra estava impressa no painel em prosa — "quando fechar o topo da
+    faixa em todas as séries, suba a carga" — e `_sugestao_de_carga` só
+    repetia a última carga. Passa a ser calculada (decisão do dono em
+    13/09/2026; ACSM 2009: +2-10% ao fechar a faixa; Plotkin 2022: reps com
+    carga fixa ≈ carga; calibração do degrau declarada baixa na literatura,
+    e por isso ABSOLUTA e pequena: a menor anilha).
+
+    Devolve `None` quando NÃO há o que dizer, e isso é parte da regra:
+
+    - sem histórico, ou com histórico INCOMPLETO (menos séries anotadas na
+      última data do que a prescrição pede) — sem histórico não se inventa
+      número, e uma sessão pela metade não fechou faixa nenhuma;
+    - com série anotada HOJE — hoje manda (`_sugestao_de_carga`), e a
+      progressão é decisão de abertura da sessão, não de meio;
+    - peso do corpo e segundos — não há anilha para subir.
+
+    SUBIR: todas as séries prescritas da última data com reps ≥ rep_max.
+    O degrau é absoluto — 2,5 kg no tronco, 5 na perna — sobre a MAIOR carga
+    daquela data, arredondado para cima ao múltiplo de 2,5. MANTER: a faixa
+    não fechou, e a razão diz em que série faltou quanto.
+
+    O prefill das reps é o risco conhecido desta regra: a série anterior
+    copia as reps para o campo, e quem não edita "fecha" a faixa sem ter
+    fechado. A mitigação é a própria dupla progressão: ao subir, as reps
+    voltam ao PISO (`_sugestao_de_reps` respeita `item.progressao`), e a
+    próxima subida exige que a pessoa aumente as reps por conta própria.
+    """
+    load = item.load or {}
+    if load.get("hoje"):
+        return None
+    if item.measure != Measure.REPS or item.exercise.equipment == "bodyweight":
+        return None
+    anterior = load.get("anterior") or {}
+    if len(anterior) < item.sets:
+        return None
+    series = [anterior[n] for n in sorted(anterior)][: item.sets]
+    maior = max(s.weight_kg for s in series)
+    if maior is None:
+        return None
+
+    faltas = [
+        (numero, item.rep_max - (log.reps or 0))
+        for numero, log in zip(sorted(anterior)[: item.sets], series)
+        if (log.reps or 0) < item.rep_max
+    ]
+    if not faltas:
+        degrau = Decimal("5") if item.exercise.muscle_group in GRUPOS_INFERIORES else DEGRAU_MINIMO
+        alvo = maior + degrau
+        # Múltiplo de 2,5 para cima: 61 + 2,5 = 63,5 vira 65.
+        resto = alvo % DEGRAU_MINIMO
+        if resto:
+            alvo = alvo - resto + DEGRAU_MINIMO
+        return Progressao(
+            "subir", alvo,
+            "fechou %d×%d na última vez" % (item.sets, item.rep_max),
+        )
+    numero, quanto = faltas[0]
+    return Progressao(
+        "manter", maior,
+        "faltaram %d rep%s na série %d para subir" % (quanto, "" if quanto == 1 else "s", numero),
+    )
 
 
 def _sugestao_de_reps(item, serie):
@@ -2222,6 +2315,11 @@ def _sugestao_de_reps(item, serie):
     de_hoje = _ultima_de_hoje(item)
     if de_hoje is not None and de_hoje.reps:
         return de_hoje.reps
+    # Carga nova, reps no PISO da faixa: é a dupla progressão, e é o que
+    # segura o prefill — subir de novo exige fechar a faixa de novo.
+    progressao = getattr(item, "progressao", None)
+    if progressao is not None and progressao.estado == "subir":
+        return item.rep_min
     registro = ((item.load or {}).get("anterior") or {}).get(serie)
     return registro.reps if registro is not None else None
 
@@ -2357,6 +2455,8 @@ def estado_do_treino(user, dia=None, escolhido=None) -> EstadoDoTreino:
         item.pct = (
             round(min(item.feitas, item.sets) * 100 / item.sets) if item.sets else 0
         )
+        # A progressão vem ANTES das sugestões: as duas a leem.
+        item.progressao = proxima_carga(item)
         item.sugestao_carga = _sugestao_de_carga(item, item.proxima_serie)
         item.sugestao_reps = _sugestao_de_reps(item, item.proxima_serie)
         # A instrução de esforço da série da vez, pelo nível da pessoa. Uma
