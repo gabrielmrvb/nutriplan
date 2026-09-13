@@ -950,13 +950,16 @@ class ShortClipTests(TestCase):
         publicando vídeo HORIZONTAL dentro de Short. Prender 9:16 devolveria em
         tarja o que economiza em recorte.
         """
+        # Desde o poster (13/09/2026) a caixa do player é `.demo--aberta`:
+        # nasce no toque, dentro da faixa, presa a 60vh.
         css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
             encoding="utf-8"
         )
-        moldura = css.split(chr(10) + ".agora__media {", 1)[1].split("}", 1)[0]
+        moldura = css.split(chr(10) + ".demo--aberta {", 1)[1].split("}", 1)[0]
         self.assertIn("aspect-ratio: 16 / 9", moldura)
+        self.assertIn("max-height: 60vh", moldura)
 
-        vertical = css.split(chr(10) + ".agora__media--vertical {", 1)[1].split("}", 1)[0]
+        vertical = css.split(chr(10) + ".demo--aberta.demo--vertical {", 1)[1].split("}", 1)[0]
         self.assertIn("aspect-ratio: 3 / 4", vertical)
 
 
@@ -1390,23 +1393,27 @@ class AnimationImportTests(TestCase):
         `montarClipe`, dentro do drawer; o drawer saiu, os dois construtores
         ficaram, e testar só um deixaria o outro livre para regredir.
         """
-        agora = (
-            Path(settings.BASE_DIR) / "templates" / "workouts" / "agora.html"
+        # Desde o poster (13/09/2026) o servidor não escreve `<video>`
+        # nenhum: os DOIS construtores são do JavaScript partilhado —
+        # a demonstração (no toque do poster) e a anatomia (no `toggle`).
+        script = (
+            Path(settings.BASE_DIR) / "templates" / "workouts" / "_demonstracao_js.html"
         ).read_text(encoding="utf-8")
 
-        # 1. o que o servidor escreve
-        self.assertIn(
-            "<video src=\"{{ atual.exercise.execucao_src }}\" "
-            "autoplay loop muted playsinline>",
-            agora,
-        )
-
-        # 2. o que o JavaScript monta
-        bloco = agora.split('} else if (tipo === "video") {', 1)[1]
+        # 1. a demonstração
+        bloco = script.split('} else if (tipo === "video") {', 1)[1]
         bloco = bloco.split("} else {", 1)[0]
         for atributo in ("elemento.autoplay = true", "elemento.loop = true",
                          "elemento.muted = true", "elemento.playsInline = true"):
-            with self.subTest(atributo=atributo):
+            with self.subTest(construtor="demonstracao", atributo=atributo):
+                self.assertIn(atributo, bloco)
+
+        # 2. a anatomia
+        bloco = script.split('} else if (tipoAnatomia === "video") {', 1)[1]
+        bloco = bloco.split("} else {", 1)[0]
+        for atributo in ("el.autoplay = true", "el.loop = true",
+                         "el.muted = true", "el.playsInline = true"):
+            with self.subTest(construtor="anatomia", atributo=atributo):
                 self.assertIn(atributo, bloco)
 
 # ==========================================================================
@@ -3057,11 +3064,16 @@ class ModoTreinoTests(TestCase):
         exercicio.save()
         self.client.force_login(user)
 
-        html = self.client.get(self.url).content.decode()
-        fontes = self._iframes(sem_scripts(html))
-
-        self.assertTrue(any("EXECUCAO123" in src for src in fontes))
-        self.assertFalse(any("ANATOMIA456" in src for src in fontes))
+        html = sem_scripts(self.client.get(self.url).content.decode())
+        # Desde o poster (13/09/2026) o servidor não escreve iframe: a
+        # demonstração é o `data-src` do `[data-demo]`, e a anatomia fica no
+        # `data-anatomia` do `<details>`. Ancorado nos atributos, não no HTML
+        # inteiro — os dois endereços continuam na página.
+        self.assertEqual(self._iframes(html), [])
+        demo = html.split("data-demo", 1)[1].split(">", 1)[0]
+        self.assertIn("EXECUCAO123", demo)
+        self.assertNotIn("ANATOMIA456", demo)
+        self.assertIn("ANATOMIA456", html.split('data-anatomia="', 1)[1].split('"', 1)[0])
 
     def test_a_anatomia_aparece_como_conteudo_secundario(self):
         user = self._usuario()

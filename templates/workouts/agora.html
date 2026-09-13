@@ -121,8 +121,10 @@
         aba nova não tem histórico para voltar, e a ação de baixo
         (`.agora__lista`) só aparece depois de rolar a tela inteira.
       {% endcomment %}
-      <a class="btn-link agora__voltar" href="{% url 'workouts:ficha' estado.sessao.pk %}">← Ficha</a>
-      <p class="sobretitulo agora__sessao-rotulo">{{ estado.sessao.name }}</p>
+      <div class="agora__linha-do-topo">
+        <p class="sobretitulo agora__sessao-rotulo">{{ estado.sessao.name }}</p>
+        <a class="btn-link agora__voltar" href="{% url 'workouts:ficha' estado.sessao.pk %}">← Ficha</a>
+      </div>
       <p class="agora__passo num">
         {% comment %}
           A POSIÇÃO É A DO EXERCÍCIO EM FOCO, e ela deixou de ser derivada dos
@@ -154,6 +156,15 @@
           </span>
         </p>
       </header>
+
+      {% comment %}
+        A DEMONSTRAÇÃO VEM ANTES DA SÉRIE. Era o sexto bloco do cartão —
+        depois do botão — e a 320×568 tinha zero pixel visível; a 375×667,
+        63. "Vê a série, não vê o vídeo" era literal. Sobe como poster
+        compacto (`_demonstracao.html`), e o `cue` sobe junto: é a instrução
+        do movimento, e lê-se antes de fazer, não depois.
+      {% endcomment %}
+      {% include "workouts/_demonstracao.html" with exercicio=atual.exercise %}
 
       {# ---- Séries ---- #}
       <div class="series">
@@ -393,28 +404,6 @@
         onze segundos de diagrama antes de alguém deitar no banco. Ele continua
         no app, embaixo, com o nome do que é.
       {% endcomment %}
-      <div class="agora__media{% if atual.exercise.execucao_vertical %} agora__media--vertical{% endif %}">
-        {% if atual.exercise.execucao_tipo == 'youtube' %}
-          <iframe src="{{ atual.exercise.execucao_src }}"
-                  title="Execução de {{ atual.exercise.name }}"
-                  allow="autoplay; encrypted-media; picture-in-picture"
-                  allowfullscreen loading="lazy"></iframe>
-        {% elif atual.exercise.execucao_tipo == 'video' %}
-          <video src="{{ atual.exercise.execucao_src }}" autoplay loop muted playsinline></video>
-        {% elif atual.exercise.execucao_tipo == 'gif' %}
-          <img src="{{ atual.exercise.execucao_src }}" alt="Execução de {{ atual.exercise.name }}">
-        {% elif atual.exercise.execucao_tipo == 'fotos' %}
-          <img src="{{ atual.exercise.frames.0 }}" alt="Execução de {{ atual.exercise.name }}"
-               data-quadros="{{ atual.exercise.frames|join:'|' }}">
-        {% else %}
-          <p class="agora__sem-media">
-            Sem demonstração cadastrada.
-            <a href="{{ atual.exercise.video_search_url }}" target="_blank" rel="noopener">
-              Buscar no YouTube
-            </a>
-          </p>
-        {% endif %}
-      </div>
 
       {% comment %}
         A CARGA ANTERIOR, migrada do cartão da ficha — e reescrita.
@@ -488,9 +477,6 @@
           {% endif %}
         </p>
       {% endif %}
-
-      <p class="agora__cue">{{ atual.exercise.cue }}</p>
-
 
       {% if atual.exercise.tem_anatomia %}
         {% comment %}
@@ -720,53 +706,7 @@
       segurar();
     })();
 
-    /* Anatomia sob demanda.
-
-       O iframe nasce só quando a pessoa abre, e é destruído ao fechar. Deixar
-       o embed montado dentro de um `<details>` fechado faz o navegador baixar
-       e TOCAR o vídeo — e esses vídeos carregam publicidade de terceiro. */
-    var detalhe = document.querySelector("[data-anatomia-area]");
-    if (detalhe) {
-      var corpo = detalhe.querySelector("[data-anatomia]");
-      detalhe.addEventListener("toggle", function () {
-        if (!corpo) return;
-        if (!detalhe.open) { corpo.innerHTML = ""; return; }
-        if (corpo.querySelector("iframe, img, video")) return;
-        var tipo = corpo.dataset.anatomiaTipo;
-        var elemento;
-        if (tipo === "youtube") {
-          elemento = document.createElement("iframe");
-          elemento.allow = "autoplay; encrypted-media; picture-in-picture";
-          elemento.allowFullscreen = true;
-        } else if (tipo === "video") {
-          elemento = document.createElement("video");
-          elemento.autoplay = true; elemento.loop = true;
-          elemento.muted = true; elemento.playsInline = true;
-        } else {
-          elemento = document.createElement("img");
-          elemento.alt = "Músculos trabalhados";
-        }
-        elemento.src = corpo.dataset.anatomia;
-        if (corpo.dataset.anatomiaVertical === "1") {
-          corpo.classList.add("anatomia__corpo--vertical");
-        }
-        corpo.appendChild(elemento);
-      });
-    }
-
-    /* Fotos alternadas, quando a demonstração são dois quadros. */
-    var foto = document.querySelector("[data-quadros]");
-    if (foto) {
-      var urls = (foto.dataset.quadros || "").split("|").filter(Boolean);
-      if (urls.length > 1) {
-        var pre = new Image(); pre.src = urls[1];
-        var i = 0;
-        setInterval(function () {
-          i = (i + 1) % urls.length;
-          foto.src = urls[i];
-        }, 900);
-      }
-    }
   })();
   </script>
+  {% include "workouts/_demonstracao_js.html" %}
 {% endblock %}

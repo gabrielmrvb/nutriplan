@@ -5811,6 +5811,18 @@ body.montando { overflow: hidden; }
    faz parte, e não é o assunto da tela. */
 .agora__sessao-rotulo { margin: 0 0 var(--espaco-2); }
 
+/* Nome da sessão e "← Ficha" na MESMA linha: medido a 390px, o link numa
+   linha própria custava 26px acima do botão de concluir. */
+.agora__linha-do-topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--espaco-3);
+  min-width: 0;
+}
+.agora__linha-do-topo .agora__sessao-rotulo { min-width: 0; }
+.agora__voltar { flex: none; }
+
 /* O EXERCÍCIO é o título da tela, e agora tem o peso disso. Ele era um `h2`
    dentro do painel, do tamanho de um título de seção, competindo com o nome
    da sessão logo acima. */
@@ -5855,19 +5867,91 @@ body.montando { overflow: hidden; }
    3/4 para Short, e não 9:16 como o drawer: a auditoria dos 36 achou canais
    publicando vídeo HORIZONTAL dentro de Short, então 9:16 desperdiçaria em
    tarja o que economiza em recorte. 3/4 erra menos nos dois casos. */
-.agora__media {
+/* O POSTER DA DEMONSTRAÇÃO — uma faixa, não uma caixa de vídeo.
+ *
+ * A decisão de 30/08/2026 ("mídia abaixo do botão") foi tomada com o
+ * iframe medindo 371px e o CTA saindo da dobra. Medido de novo em
+ * 13/09/2026: o iframe no topo custaria 391px; esta faixa custa ~96 — foto
+ * 4:3 à esquerda, "toque para ver o vídeo" à direita, alvo inteiro de 44px+.
+ * O player só nasce no toque, dentro da mesma caixa (`.demo--aberta`), com
+ * altura presa a 60vh para o botão de concluir não sumir da tela. */
+.demo {
   position: relative;
-  aspect-ratio: 16 / 9;
-  margin-bottom: .55rem;
+  display: flex;
+  align-items: stretch;
+  gap: var(--espaco-4);
+  margin-bottom: var(--espaco-3);
   border-radius: var(--radius);
   overflow: hidden;
+  background: var(--surface-2);
+}
+
+/* A FOTO É O BOTÃO: 128×96, com "ver vídeo" por cima. O alvo é a foto
+   inteira, e a dica fica de fora dele para o leitor de tela ouvir as duas
+   coisas separadas — o nome do botão e a instrução do movimento. */
+.demo__abrir {
+  position: relative;
+  flex: none;
+  width: 8rem;
+  height: 6rem;
+  padding: 0;
+  border: 0;
+  background: var(--surface-3);
+  font: inherit;
+  cursor: pointer;
+}
+
+.demo__foto {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.demo__foto--so { flex: none; width: 8rem; height: 6rem; background: var(--surface-3); }
+
+.demo__rotulo {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--espaco-1);
+  padding: var(--espaco-1) var(--espaco-2);
+  background: rgba(0, 0, 0, .62);
+  color: #fff;
+  /* .7rem = 11,2px: o piso. */
+  font-size: var(--texto-xs);
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.demo__rotulo svg { width: .9rem; height: .9rem; flex: none; }
+
+/* A dica do movimento, na coluna da direita da faixa. */
+.demo__cue {
+  flex: 1;
+  min-width: 0;
+  align-self: center;
+  margin: 0;
+  padding: var(--espaco-2) var(--espaco-3) var(--espaco-2) 0;
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  line-height: 1.4;
+}
+
+/* Aberta: o player ocupa a caixa, presa a 60vh; vertical (Shorts) fica 3/4. */
+.demo--aberta {
+  display: block;
+  aspect-ratio: 16 / 9;
+  max-height: 60vh;
   background: #000;
 }
-.agora__media--vertical { aspect-ratio: 3 / 4; }
+.demo--aberta.demo--vertical { aspect-ratio: 3 / 4; }
 
-.agora__media > iframe,
-.agora__media > video,
-.agora__media > img {
+.demo--aberta > iframe,
+.demo--aberta > video,
+.demo--aberta > img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -5876,13 +5960,25 @@ body.montando { overflow: hidden; }
   object-fit: cover;
   display: block;
 }
-/* Foto de demonstração é enquadrada inteira: recortar um agachamento pela
-   metade esconde justamente a profundidade que a foto existe para mostrar. */
-.agora__media > img { object-fit: contain; background: var(--surface-2); }
+
+.demo__fechar {
+  position: absolute;
+  top: var(--espaco-3);
+  right: var(--espaco-3);
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0 var(--espaco-4);
+  border: 0;
+  border-radius: var(--pill);
+  background: rgba(0, 0, 0, .62);
+  color: #fff;
+  font: inherit;
+  font-size: var(--texto-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
 
 .agora__sem-media {
-  position: absolute;
-  inset: 0;
   display: grid;
   place-content: center;
   gap: .3rem;
@@ -5894,13 +5990,6 @@ body.montando { overflow: hidden; }
   background: var(--surface-2);
 }
 
-.agora__cue {
-  margin: 0 0 .55rem;
-  color: var(--text-dim);
-  font-size: var(--texto-md);
-  line-height: 1.4;
-  min-width: 0;
-}
 
 /* -- Anatomia: secundária, e parecendo secundária ------------------------- */
 
@@ -6127,6 +6216,10 @@ body.montando { overflow: hidden; }
 }
 
 .agora__desfazer { margin: var(--espaco-3) 0 0; text-align: center; }
+/* Sem a margem negativa do `.btn-link` aqui: com "de <exercício longo>" o
+   rótulo ocupa duas linhas, e o alvo de 44px vazava por cima da linha de
+   "Última carga" logo abaixo — medido a 390px em 13/09/2026. */
+.agora__desfazer .btn-link { margin: 0; }
 
 /* O que vem depois fica visível o tempo todo: saber que o próximo é
    agachamento muda como a pessoa gasta a última série do anterior. */
@@ -6237,14 +6330,20 @@ body.montando { overflow: hidden; }
 .agora__concluir,
 .agora__lista,
 .agora__proximo-link,
+.agora__voltar,
 .anatomia__botao,
+.demo__abrir,
+.demo__fechar,
 .descanso__pular {
   transition: transform .12s var(--ease);
 }
 .agora__concluir:active,
 .agora__lista:active,
 .agora__proximo-link:active,
+.agora__voltar:active,
 .anatomia__botao:active,
+.demo__abrir:active,
+.demo__fechar:active,
 .descanso__pular:active { transform: scale(.96); }
 
 @media (prefers-reduced-motion: reduce) {
@@ -6253,13 +6352,19 @@ body.montando { overflow: hidden; }
   .agora__concluir,
   .agora__lista,
   .agora__proximo-link,
+  .agora__voltar,
   .anatomia__botao,
+  .demo__abrir,
+  .demo__fechar,
   .descanso__pular { transition: none; }
 
   .agora__concluir:active,
   .agora__lista:active,
   .agora__proximo-link:active,
+  .agora__voltar:active,
   .anatomia__botao:active,
+  .demo__abrir:active,
+  .demo__fechar:active,
   .descanso__pular:active { transform: none; }
 }
 

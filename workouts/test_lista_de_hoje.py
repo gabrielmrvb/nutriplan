@@ -298,12 +298,15 @@ class AFichaCompletaContinuaExistindoTests(TestCase):
         self.assertEqual(html.count('class="drawer"'), 0)
         self.assertEqual(html.count("<iframe"), 0)
 
-        # A OUTRA PONTA: a demonstração existe, e existe onde se treina.
+        # A OUTRA PONTA: a demonstração existe, e existe onde se treina —
+        # como POSTER: o HTML servido não tem iframe; o `data-demo` carrega o
+        # vídeo do exercício e o toque monta o player (13/09/2026).
         item = sessao.exercises.first()
         execucao = self.client.get(
             "%s?exercicio=%d" % (reverse("workouts:now"), item.exercise_id)
         ).content.decode()
-        self.assertEqual(execucao.count("<iframe"), 1)
+        self.assertEqual(execucao.count("<iframe"), 0)
+        self.assertEqual(execucao.count("data-demo" + chr(10)), 1)
 
     def test_no_maximo_um_player_por_tela_do_treino(self):
         """Dois players na mesma tela seriam duas conexões e dois áudios.
@@ -316,6 +319,10 @@ class AFichaCompletaContinuaExistindoTests(TestCase):
         que está aberto.
         """
         sessao = self._uma_sessao()
+        # Zero iframe SERVIDO em qualquer rota desde o poster (13/09/2026);
+        # o player da execução nasce no toque, um só, e é destruído ao
+        # fechar — medido no navegador. O que o servidor garante é UM
+        # `data-demo` na execução e nenhum nas outras duas.
         esperado = {
             reverse("workouts:routine"): 0,
             reverse("workouts:ficha", args=[sessao.pk]): 0,
@@ -324,7 +331,8 @@ class AFichaCompletaContinuaExistindoTests(TestCase):
         for rota, quantos in esperado.items():
             with self.subTest(rota=rota):
                 html = self.client.get(rota).content.decode()
-                self.assertEqual(html.count("<iframe"), quantos)
+                self.assertEqual(html.count("<iframe"), 0)
+                self.assertEqual(html.count("data-demo" + chr(10)), quantos)
 
     def test_a_tela_principal_leva_para_todas_as_fichas(self):
         """Alcançável, e não só existente.

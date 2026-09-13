@@ -100,7 +100,10 @@ TETO_FONT_SIZE_CRU = 120
 #: A ressalva da divisão, que entrou na mesma rodada, é toda em tokens.
 #: 249 no mesmo corte, e pelo mesmo motivo: treze espaçamentos crus saíram
 #: junto com as três famílias. A catraca só desce.
-TETO_ESPACO_CRU = 249
+#: 247 com o POSTER da execução (13/09/2026): `.agora__media` e `.agora__cue`
+#: saíram — a demonstração virou a faixa `.demo`, que nasceu na escala — e
+#: com elas dois `margin-bottom: .55rem` crus.
+TETO_ESPACO_CRU = 247
 
 
 def sem_comentarios(texto):

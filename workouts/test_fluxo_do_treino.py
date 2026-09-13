@@ -350,7 +350,11 @@ class AEscolhaDoExercicioEEstritaTests(BaseDoFluxo):
 
         self.assertEqual(resposta.status_code, 200)
         self.assertContains(resposta, escolhido.exercise.name)
-        self.assertEqual(self._corpo(resposta).count("<iframe"), 1)
+        # O poster do escolhido, e não um iframe: o player nasce no toque.
+        corpo = self._corpo(resposta)
+        self.assertEqual(corpo.count("<iframe"), 0)
+        self.assertEqual(corpo.count("data-demo" + chr(10)), 1)
+        self.assertIn('data-nome="%s"' % escolhido.exercise.name, corpo)
 
     def test_id_inexistente_devolve_404_sem_iframe(self):
         resposta = self.client.get(self.url + "?exercicio=999999")

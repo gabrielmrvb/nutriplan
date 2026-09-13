@@ -1,0 +1,59 @@
+{% comment %}
+  A DEMONSTRAÇÃO DO EXERCÍCIO, como poster. Recebe `exercicio`.
+
+  Usado pela execução (acima das pastilhas) e pela rota de leitura
+  (`workouts:exercicio`). É UMA cópia de propósito: a escada de mídia
+  (clipe, vídeo, gif, fotos, busca) é do SERVIDOR e mora nos `data-`; o
+  JavaScript só monta o elemento que o `data-tipo` manda.
+
+  O HTML servido não tem iframe nenhum. O player nasce no toque e é
+  destruído ao fechar — nunca `class toggle`: iframe escondido continua
+  tocando e trazendo anúncio de terceiro. Medido em 13/09/2026 a 390px: o
+  iframe no topo custava 391px; esta faixa custa ~96, e "Concluir série"
+  continua na dobra a 360×800 e 390×844.
+
+  A foto é de OUTRA pessoa (free-exercise-db, domínio público), não o
+  primeiro quadro do Short — o rótulo "toque para ver o vídeo" existe para
+  isso. Sem script, o `<noscript>` leva ao vídeo no YouTube.
+{% endcomment %}
+<div class="demo{% if exercicio.execucao_vertical %} demo--vertical{% endif %}"
+     data-demo
+     data-tipo="{{ exercicio.execucao_tipo }}"
+     data-src="{{ exercicio.execucao_src }}"
+     data-nome="{{ exercicio.name }}">
+  {% comment %}
+    A FAIXA: a foto é o botão (128×96, alvo inteiro), com "ver vídeo" por
+    cima; a dica do movimento (`cue`) ocupa a coluna da direita. Medido a
+    390px em 13/09/2026: com a dica como parágrafo à parte a faixa custava
+    104px mais 46 da dica; dentro da faixa, 104 no total.
+  {% endcomment %}
+  {% if exercicio.execucao_tipo == 'youtube' or exercicio.execucao_tipo == 'video' or exercicio.execucao_tipo == 'gif' %}
+    <button type="button" class="demo__abrir" data-demo-abrir
+            aria-label="Ver o vídeo de {{ exercicio.name }}">
+      {% if exercicio.has_frames %}
+        <img class="demo__foto" src="{{ exercicio.frames.0 }}" alt=""
+             width="128" height="96" decoding="async"
+             data-quadros="{{ exercicio.frames|join:'|' }}">
+      {% endif %}
+      <span class="demo__rotulo">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+        ver vídeo
+      </span>
+    </button>
+    <noscript>
+      <a href="{{ exercicio.video_url }}" target="_blank" rel="noopener">Ver o vídeo de {{ exercicio.name }}</a>
+    </noscript>
+  {% elif exercicio.execucao_tipo == 'fotos' %}
+    <img class="demo__foto demo__foto--so" src="{{ exercicio.frames.0 }}"
+         alt="Execução de {{ exercicio.name }}" decoding="async"
+         data-quadros="{{ exercicio.frames|join:'|' }}">
+  {% else %}
+    <p class="agora__sem-media">
+      Sem demonstração cadastrada.
+      <a href="{{ exercicio.video_search_url }}" target="_blank" rel="noopener">
+        Buscar no YouTube
+      </a>
+    </p>
+  {% endif %}
+  <p class="demo__cue">{{ exercicio.cue }}</p>
+</div>

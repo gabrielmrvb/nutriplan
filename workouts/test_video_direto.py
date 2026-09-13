@@ -446,17 +446,29 @@ class ATelaDaExecucaoEODoVideoTests(TestCase):
         cls.agora = (
             RAIZ / "templates" / "workouts" / "agora.html"
         ).read_text(encoding="utf-8")
-        cls.limpo = re.sub(
-            r"\{%\s*comment\s*%\}.*?\{%\s*endcomment\s*%\}", "", cls.agora,
-            flags=re.S,
+        # A escada de mídia mora no parcial do POSTER desde 13/09/2026 —
+        # usado pela execução e pela rota de leitura, uma cópia só.
+        cls.demo = (
+            RAIZ / "templates" / "workouts" / "_demonstracao.html"
+        ).read_text(encoding="utf-8")
+        tirar = lambda texto: re.sub(
+            r"\{%\s*comment\s*%\}.*?\{%\s*endcomment\s*%\}", "", texto, flags=re.S
         )
+        cls.limpo = tirar(cls.demo)
+        cls.agora_limpo = tirar(cls.agora)
 
-    def test_a_execucao_monta_UM_player_e_o_recorte_enxerga(self):
+    def test_a_execucao_serve_ZERO_player_e_o_poster_carrega_o_video(self):
         """Controle positivo junto: um `_sem_comentarios` que apagasse o
         arquivo inteiro deixaria toda asserção de ausência verde para sempre.
+
+        Desde o poster (13/09/2026) o HTML servido não tem iframe: o player
+        nasce no toque, dentro do `[data-demo]`, e é destruído ao fechar.
         """
-        self.assertIn("agora__media", self.limpo)
-        self.assertEqual(self.limpo.count("<iframe"), 1)
+        self.assertIn("data-demo", self.limpo)
+        self.assertIn("data-src=", self.limpo)
+        self.assertEqual(self.limpo.count("<iframe"), 0)
+        self.assertEqual(self.agora_limpo.count("<iframe"), 0)
+        self.assertIn('include "workouts/_demonstracao.html"', self.agora_limpo)
 
     def test_a_escada_de_midia_e_do_SERVIDOR_e_tem_uma_ordem(self):
         """Clipe, vídeo, gif, fotos — e a busca quando não há nada.
@@ -514,12 +526,15 @@ class ATelaDaExecucaoEODoVideoTests(TestCase):
         abre: iframe dentro de `<details>` fechado é baixado e TOCADO pelo
         navegador, e esses vídeos trazem publicidade de terceiro.
         """
-        self.assertIn("data-anatomia-area", self.limpo)
-        self.assertIn("tem_anatomia", self.limpo)
+        # A anatomia continua na execução (13/09/2026: o markup e o script
+        # viraram parciais partilhados com a rota de leitura).
+        self.assertIn("data-anatomia-area", self.agora_limpo)
+        self.assertIn("tem_anatomia", self.agora_limpo)
 
         # O `src` mora num atributo, e vira elemento só no `toggle`.
-        self.assertIn('data-anatomia="{{ atual.exercise.anatomia_src }}"', self.limpo)
-        corpo = self.limpo.split('detalhe.addEventListener("toggle"', 1)[1]
+        self.assertIn('data-anatomia="{{ atual.exercise.anatomia_src }}"', self.agora_limpo)
+        script = (RAIZ / "templates" / "workouts" / "_demonstracao_js.html").read_text(encoding="utf-8")
+        corpo = script.split('detalhe.addEventListener("toggle"', 1)[1]
         corpo = corpo.split("});", 1)[0]
         self.assertIn("if (!detalhe.open)", corpo)
         self.assertIn('corpo.innerHTML = ""', corpo)
@@ -530,5 +545,9 @@ class ATelaDaExecucaoEODoVideoTests(TestCase):
         É o que `id="drawer-media"` único protegia por outro caminho — uma
         caixa só, para a limpeza alcançar. Aqui a caixa é a página.
         """
-        self.assertIn('src="{{ atual.exercise.execucao_src }}"', self.limpo)
-        self.assertIn('title="Execução de {{ atual.exercise.name }}"', self.limpo)
+        # O poster recebe o exercício ABERTO (`with exercicio=atual.exercise`)
+        # e carrega o `src` dele no `data-src`; o título do player nasce no
+        # toque, a partir do `data-nome` do mesmo exercício.
+        self.assertIn('include "workouts/_demonstracao.html" with exercicio=atual.exercise', self.agora_limpo)
+        self.assertIn('data-src="{{ exercicio.execucao_src }}"', self.limpo)
+        self.assertIn('data-nome="{{ exercicio.name }}"', self.limpo)

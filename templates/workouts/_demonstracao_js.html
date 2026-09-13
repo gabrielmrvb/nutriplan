@@ -1,0 +1,115 @@
+{% comment %}
+  O SCRIPT DA DEMONSTRAÇÃO — poster, anatomia e fotos alternadas. Partilhado
+  pela execução e pela rota de leitura do exercício: os três blocos viviam no
+  script da execução e a rota de leitura precisaria copiá-los. Uma cópia.
+{% endcomment %}
+<script>
+  (function () {
+    "use strict";
+
+    /* Fotos alternadas, quando a demonstração são dois quadros. É função
+       porque o poster é remontado ao fechar o player, e um relógio antigo
+       apontaria para uma imagem que já saiu do documento. */
+    var relogio = null;
+    function alternar(foto) {
+      if (relogio) { clearInterval(relogio); relogio = null; }
+      if (!foto) return;
+      var urls = (foto.dataset.quadros || "").split("|").filter(Boolean);
+      if (urls.length > 1) {
+        var pre = new Image(); pre.src = urls[1];
+        var i = 0;
+        relogio = setInterval(function () {
+          i = (i + 1) % urls.length;
+          foto.src = urls[i];
+        }, 900);
+      }
+    }
+    alternar(document.querySelector("[data-quadros]"));
+
+    /* O POSTER: o player nasce no toque e morre no "fechar".
+     *
+     * Mesmo padrão da anatomia, pelo mesmo motivo — iframe escondido
+     * continua tocando e trazendo anúncio. A escada de mídia é do servidor
+     * (`data-tipo`); aqui só se cria o elemento que ela mandou. */
+    var demo = document.querySelector("[data-demo]");
+    var abrir = demo && demo.querySelector("[data-demo-abrir]");
+    if (demo && abrir) {
+      var posterHtml = null;
+      var montar;
+      var fechar = function () {
+        demo.classList.remove("demo--aberta");
+        demo.innerHTML = posterHtml;
+        posterHtml = null;
+        var novo = demo.querySelector("[data-demo-abrir]");
+        if (novo) { novo.addEventListener("click", montar); novo.focus(); }
+        alternar(demo.querySelector("[data-quadros]"));
+      };
+      montar = function () {
+        if (demo.querySelector("iframe, video")) return;
+        posterHtml = demo.innerHTML;
+        if (relogio) { clearInterval(relogio); relogio = null; }
+        var tipo = demo.dataset.tipo;
+        var elemento;
+        if (tipo === "youtube") {
+          elemento = document.createElement("iframe");
+          elemento.allow = "autoplay; encrypted-media; picture-in-picture";
+          elemento.allowFullscreen = true;
+          elemento.title = "Execução de " + (demo.dataset.nome || "");
+        } else if (tipo === "video") {
+          elemento = document.createElement("video");
+          elemento.autoplay = true; elemento.loop = true;
+          elemento.muted = true; elemento.playsInline = true;
+        } else {
+          elemento = document.createElement("img");
+          elemento.alt = "Execução de " + (demo.dataset.nome || "");
+        }
+        elemento.src = demo.dataset.src;
+        var botao = document.createElement("button");
+        botao.type = "button";
+        botao.className = "demo__fechar";
+        botao.textContent = "fechar";
+        botao.addEventListener("click", fechar);
+        demo.innerHTML = "";
+        demo.classList.add("demo--aberta");
+        demo.appendChild(elemento);
+        demo.appendChild(botao);
+        botao.focus();
+      };
+      abrir.addEventListener("click", montar);
+    }
+
+    /* Anatomia sob demanda.
+
+       O iframe nasce só quando a pessoa abre, e é destruído ao fechar. Deixar
+       o embed montado dentro de um `<details>` fechado faz o navegador baixar
+       e TOCAR o vídeo — e esses vídeos carregam publicidade de terceiro. */
+    var detalhe = document.querySelector("[data-anatomia-area]");
+    if (detalhe) {
+      var corpo = detalhe.querySelector("[data-anatomia]");
+      detalhe.addEventListener("toggle", function () {
+        if (!corpo) return;
+        if (!detalhe.open) { corpo.innerHTML = ""; return; }
+        if (corpo.querySelector("iframe, img, video")) return;
+        var tipoAnatomia = corpo.dataset.anatomiaTipo;
+        var el;
+        if (tipoAnatomia === "youtube") {
+          el = document.createElement("iframe");
+          el.allow = "autoplay; encrypted-media; picture-in-picture";
+          el.allowFullscreen = true;
+        } else if (tipoAnatomia === "video") {
+          el = document.createElement("video");
+          el.autoplay = true; el.loop = true;
+          el.muted = true; el.playsInline = true;
+        } else {
+          el = document.createElement("img");
+          el.alt = "Músculos trabalhados";
+        }
+        el.src = corpo.dataset.anatomia;
+        if (corpo.dataset.anatomiaVertical === "1") {
+          corpo.classList.add("anatomia__corpo--vertical");
+        }
+        corpo.appendChild(el);
+      });
+    }
+  })();
+</script>
