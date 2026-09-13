@@ -705,6 +705,10 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
             return self._de_volta_ao_foco(request, dia)
 
         bruto = (request.POST.get("weight_kg") or "").replace(",", ".").strip()
+        # Peso do corpo sem carga é 0 — e SÓ peso do corpo: num supino, campo
+        # esquecido continua sendo erro, senão gravaria 0 kg em silêncio.
+        if not bruto and exercise.equipment == "bodyweight":
+            bruto = "0"
         try:
             peso = Decimal(bruto)
         except (InvalidOperation, TypeError):

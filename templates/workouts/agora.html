@@ -160,7 +160,7 @@
         <p class="series__titulo">
           Série <b class="num">{{ atual.proxima_serie }}</b>
           de <span class="num">{{ atual.sets }}</span>
-          <span class="series__faixa num">{{ atual.rep_range }} reps</span>
+          <span class="series__faixa num">{{ atual.rep_range }}{% if atual.measure != 'seconds' %} reps{% endif %}</span>
         </p>
         {% comment %}
           QUÃO PERTO DA FALHA. `intensidade` sempre existiu no modelo e era
@@ -297,22 +297,37 @@
             histórico o campo fica vazio: preencher com um número de fábrica
             faria a pessoa registrar um peso que não levantou.
           {% endcomment %}
+          {% comment %}
+            PESO DO CORPO NÃO PEDE ANILHA. Flexão, mergulho, prancha e
+            abdominal não recebem carga, e o campo obrigatório fazia a pessoa
+            digitar um número para um peso que não levantou — o oposto do que
+            este comentário defende. Ali o campo abre em branco, sem
+            `required`, e o servidor grava 0 SÓ nesse caso; num supino, campo
+            esquecido continua sendo erro.
+          {% endcomment %}
           <input class="registro__carga num" type="text" name="weight_kg"
-                 maxlength="6" inputmode="decimal" required
-                 value="{% if atual.sugestao_carga != None %}{{ atual.sugestao_carga|floatformat:'-2' }}{% endif %}"
-                 placeholder="kg"
+                 maxlength="6" inputmode="decimal"{% if atual.exercise.equipment != 'bodyweight' %} required{% endif %}
+                 value="{% if atual.sugestao_carga != None and atual.exercise.equipment != 'bodyweight' %}{{ atual.sugestao_carga|floatformat:'-2' }}{% endif %}"
+                 placeholder="{% if atual.exercise.equipment == 'bodyweight' %}peso do corpo{% else %}kg{% endif %}"
                  aria-label="Carga da série {{ atual.proxima_serie }} de {{ atual.exercise.name }}">
         </label>
 
+        {% comment %}
+          SEGUNDOS SÃO SEGUNDOS. A prancha tem `measure == seconds`, e a tela
+          rotulava o campo de "Reps" ao lado de uma faixa "30-45s reps". O
+          dado continua em `reps` (é a coluna que existe); muda o que a
+          pessoa lê e ouve.
+        {% endcomment %}
         <label class="registro__campo registro__campo--reps">
-          <span class="registro__rotulo">Reps</span>
+          <span class="registro__rotulo">{% if atual.measure == 'seconds' %}Segundos{% else %}Reps{% endif %}</span>
           <input class="registro__reps num" type="text" name="reps"
                  maxlength="3" inputmode="numeric"
                  value="{% if atual.sugestao_reps %}{{ atual.sugestao_reps }}{% endif %}"
                  placeholder="{{ atual.rep_range }}"
-                 aria-label="Repetições da série {{ atual.proxima_serie }} de {{ atual.exercise.name }}">
+                 aria-label="{% if atual.measure == 'seconds' %}Segundos{% else %}Repetições{% endif %} da série {{ atual.proxima_serie }} de {{ atual.exercise.name }}">
         </label>
 
+        {% if atual.exercise.equipment != 'bodyweight' %}
         <button type="button" class="registro__passo" data-passo="-2.5"
                 aria-label="Diminuir 2,5 kg">
           <span aria-hidden="true">&minus;2,5</span>
@@ -321,6 +336,7 @@
                 aria-label="Aumentar 2,5 kg">
           <span aria-hidden="true">+2,5</span>
         </button>
+        {% endif %}
 
         <button type="submit" class="btn btn--primary agora__concluir">
           Concluir série {{ atual.proxima_serie }}
