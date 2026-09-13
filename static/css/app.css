@@ -2696,10 +2696,41 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   text-decoration: none;
   border: 1px solid var(--linha);
 }
-a.ficha-item__link:hover { background: var(--surface-2); }
-a.ficha-item__link:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-/* Fora do dia a linha não é porta para lugar nenhum, e não finge ser. */
+/* Fora do dia a linha inteira não é porta — mas o NOME é (13/09/2026). */
 .ficha-item__link--parado { cursor: default; }
+
+/* DUAS PORTAS NA MESMA LINHA (13/09/2026). O nome leva à leitura do
+   exercício em qualquer dia; "Fazer" leva à execução, só hoje. O nome ocupa
+   a altura inteira da linha (56px) para o dedo não precisar mirar o texto;
+   o "Fazer" tem 44px de altura e largura próprias. */
+.ficha-item__ver {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.75rem;
+  align-self: stretch;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+.ficha-item__ver:hover .ficha-item__nome { text-decoration: underline; text-underline-offset: .15em; }
+.ficha-item__ver:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+.ficha-item__fazer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0 var(--espaco-3);
+  border-radius: var(--pill);
+  text-decoration: none;
+  color: var(--brand);
+}
+.ficha-item__fazer:hover { background: var(--surface-2); }
+.ficha-item__fazer:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* O número é âncora de leitura: ele casa com a numeração que continua entre
    principais e complementares. Largura fixa para os nomes começarem todos na
@@ -2713,10 +2744,6 @@ a.ficha-item__link:focus-visible { outline: 2px solid var(--brand); outline-offs
   font-weight: 680;
 }
 
-/* `min-width: 0` porque o nome do exercício é o texto mais longo da tela e
-   item de flex não encolhe sozinho — sem isto "Supino inclinado com halteres"
-   empurra a linha e a página rola na horizontal a 320px. */
-.ficha-item__corpo { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .ficha-item__nome { font-weight: 680; line-height: 1.25; }
 .ficha-item__dados {
   display: flex;
@@ -5823,6 +5850,17 @@ body.montando { overflow: hidden; }
 .agora__linha-do-topo .agora__sessao-rotulo { min-width: 0; }
 .agora__voltar { flex: none; }
 
+/* O título da execução leva à leitura do exercício: mesma cor, sublinhado
+   fino, para ser porta sem virar botão. */
+.agora__nome-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: .18em;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+}
+.agora__nome-link:hover { text-decoration-color: currentColor; }
+
 /* O EXERCÍCIO é o título da tela, e agora tem o peso disso. Ele era um `h2`
    dentro do painel, do tamanho de um título de seção, competindo com o nome
    da sessão logo acima. */
@@ -6329,43 +6367,55 @@ body.montando { overflow: hidden; }
    `.btn`. Foi assim que estes quatro apareceram na suíte completa. */
 .agora__concluir,
 .agora__lista,
+.agora__nome-link,
 .agora__proximo-link,
 .agora__voltar,
 .anatomia__botao,
 .demo__abrir,
 .demo__fechar,
-.descanso__pular {
+.descanso__pular,
+.ficha-item__fazer,
+.ficha-item__ver {
   transition: transform .12s var(--ease);
 }
 .agora__concluir:active,
 .agora__lista:active,
+.agora__nome-link:active,
 .agora__proximo-link:active,
 .agora__voltar:active,
 .anatomia__botao:active,
 .demo__abrir:active,
 .demo__fechar:active,
-.descanso__pular:active { transform: scale(.96); }
+.descanso__pular:active,
+.ficha-item__fazer:active,
+.ficha-item__ver:active { transform: scale(.96); }
 
 @media (prefers-reduced-motion: reduce) {
   /* Sem transição também, e não só sem afundar: quem pediu menos movimento
      não quer o retorno suavizado, quer ele imediato. */
   .agora__concluir,
   .agora__lista,
+  .agora__nome-link,
   .agora__proximo-link,
   .agora__voltar,
   .anatomia__botao,
   .demo__abrir,
   .demo__fechar,
-  .descanso__pular { transition: none; }
+  .descanso__pular,
+  .ficha-item__fazer,
+  .ficha-item__ver { transition: none; }
 
   .agora__concluir:active,
   .agora__lista:active,
+  .agora__nome-link:active,
   .agora__proximo-link:active,
   .agora__voltar:active,
   .anatomia__botao:active,
   .demo__abrir:active,
   .demo__fechar:active,
-  .descanso__pular:active { transform: none; }
+  .descanso__pular:active,
+  .ficha-item__fazer:active,
+  .ficha-item__ver:active { transform: none; }
 }
 
 /* ==========================================================================

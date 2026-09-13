@@ -526,13 +526,16 @@ class ATelaDaExecucaoEODoVideoTests(TestCase):
         abre: iframe dentro de `<details>` fechado é baixado e TOCADO pelo
         navegador, e esses vídeos trazem publicidade de terceiro.
         """
-        # A anatomia continua na execução (13/09/2026: o markup e o script
-        # viraram parciais partilhados com a rota de leitura).
-        self.assertIn("data-anatomia-area", self.agora_limpo)
-        self.assertIn("tem_anatomia", self.agora_limpo)
+        # A anatomia continua na execução (13/09/2026: markup e script viraram
+        # parciais partilhados com a rota de leitura — `_anatomia.html`,
+        # incluído por `agora.html` com `exercicio=atual.exercise`).
+        anatomia = (RAIZ / "templates" / "workouts" / "_anatomia.html").read_text(encoding="utf-8")
+        self.assertIn('include "workouts/_anatomia.html" with exercicio=atual.exercise', self.agora_limpo)
+        self.assertIn("data-anatomia-area", anatomia)
+        self.assertIn("tem_anatomia", anatomia)
 
         # O `src` mora num atributo, e vira elemento só no `toggle`.
-        self.assertIn('data-anatomia="{{ atual.exercise.anatomia_src }}"', self.agora_limpo)
+        self.assertIn('data-anatomia="{{ exercicio.anatomia_src }}"', anatomia)
         script = (RAIZ / "templates" / "workouts" / "_demonstracao_js.html").read_text(encoding="utf-8")
         corpo = script.split('detalhe.addEventListener("toggle"', 1)[1]
         corpo = corpo.split("});", 1)[0]

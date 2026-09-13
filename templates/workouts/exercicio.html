@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}{{ exercicio.name }} · NutriPlan{% endblock %}
+
+{% block content %}
+  {% comment %}
+    A TELA DE LEITURA DO EXERCÍCIO — a quarta da área de Treino, e ela
+    responde uma pergunta só: "como é este movimento?".
+
+        painel   -> "como é a minha semana"
+        ficha    -> "o que eu vou fazer hoje"
+        execução -> "estou fazendo, e agora"
+        exercício -> "como é este movimento"
+
+    Ela existe porque, fora da sessão de hoje, não havia caminho nenhum até
+    a demonstração: a linha da ficha de outro dia era um `<div>` inerte e
+    `?exercicio=` fora do dia dá 404 — a decisão de 10/09/2026 fechou o
+    REGISTRO fora do dia e levou junto o VER, sem que isso tivesse sido
+    decidido. Ver não é executar: esta tela não grava `ExerciseLog`, não tem
+    formulário, não tem cronômetro — a régua é a mesma da ficha
+    (`test_exercicio_leitura.py`). Zero iframe servido: o poster monta o
+    player no toque, como na execução, pelo MESMO parcial.
+
+    O exercício é buscado pelo PLANO ATIVO da própria pessoa (IDOR fechado
+    como `FichaDaSessaoView`), e não "de hoje" — senão reproduz o defeito.
+  {% endcomment %}
+  <div class="page-head">
+    <a class="btn-link" href="{% url 'workouts:routine' %}">← Treino</a>
+    <h1>{{ exercicio.name }}</h1>
+    <p class="lead">
+      {{ exercicio.get_muscle_group_display }}{% if exercicio.secondary_muscle_labels %}
+        · também {{ exercicio.secondary_muscle_labels|join:", " }}{% endif %}
+    </p>
+  </div>
+
+  <section class="card">
+    {% include "workouts/_demonstracao.html" with exercicio=exercicio %}
+
+    <dl class="data-list">
+      <div>
+        <dt>Na sua ficha</dt>
+        <dd class="num">
+          {{ prescricao.sets }} × {{ prescricao.rep_range }}{% if prescricao.measure != 'seconds' %} reps{% endif %}
+          · descanso {{ prescricao.rest_display }}
+        </dd>
+      </div>
+      <div>
+        <dt>Quando</dt>
+        <dd>{{ dias|join:", " }}</dd>
+      </div>
+      <div>
+        <dt>Papel</dt>
+        <dd>{% if exercicio.is_compound %}Principal — composto, abre a sessão{% else %}Isolador — complementa o principal{% endif %}</dd>
+      </div>
+    </dl>
+
+    {% include "workouts/_anatomia.html" with exercicio=exercicio %}
+  </section>
+
+  {% if item_de_hoje %}
+    {% comment %}
+      A porta para EXECUTAR só existe quando o exercício é da sessão de
+      hoje — é a regra "a ficha de outro dia não executa", aplicada aqui.
+    {% endcomment %}
+    <a class="btn btn--primary btn--block acao-solta"
+       href="{% url 'workouts:now' %}?exercicio={{ exercicio.pk }}">
+      {% if item_de_hoje.feitas %}Continuar de onde parou{% else %}Fazer agora{% endif %}
+    </a>
+  {% endif %}
+
+  {% include "workouts/_demonstracao_js.html" %}
+{% endblock %}

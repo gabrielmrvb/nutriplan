@@ -146,7 +146,8 @@
 
     <section class="card agora">
       <header class="agora__topo">
-        <h1 class="agora__nome">{{ atual.exercise.name }}</h1>
+        {# O título é a porta para a leitura do exercício (demonstração, dica, músculos), como na ficha. #}
+        <h1 class="agora__nome"><a class="agora__nome-link" href="{% url 'workouts:exercicio' atual.exercise.pk %}">{{ atual.exercise.name }}</a></h1>
         <p class="agora__meta">
           <span class="exercise__tag exercise__tag--target">
             {{ atual.exercise.get_muscle_group_display }}{% if atual.exercise.secondary_muscle_labels %} · também {{ atual.exercise.secondary_muscle_labels|join:", " }}{% endif %}
@@ -478,36 +479,7 @@
         </p>
       {% endif %}
 
-      {% if atual.exercise.tem_anatomia %}
-        {% comment %}
-          Anatomia é secundária, e abre sob demanda.
-
-          O `src` mora num atributo e só vira `<iframe>` quando alguém abre:
-          um iframe dentro de `<details>` fechado é baixado e tocado do mesmo
-          jeito pelo navegador, e esses vídeos trazem publicidade de terceiro.
-          Ninguém deve receber anúncio sem pedir. Sem JavaScript, o link cru
-          continua levando ao conteúdo.
-        {% endcomment %}
-        <details class="anatomia" data-anatomia-area>
-          <summary class="anatomia__botao">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="5" r="2.6"/><path d="M12 7.6v8M8 10h8M9.5 21l2.5-5.4 2.5 5.4"/>
-            </svg>
-            <span>Músculos trabalhados</span>
-          </summary>
-          <div class="anatomia__corpo"
-               data-anatomia="{{ atual.exercise.anatomia_src }}"
-               data-anatomia-tipo="{{ atual.exercise.animation_kind }}"
-               data-anatomia-vertical="{% if atual.exercise.anatomia_vertical %}1{% endif %}">
-            <noscript>
-              <a href="{{ atual.exercise.animation_url }}" target="_blank" rel="noopener">
-                Ver os músculos trabalhados neste exercício
-              </a>
-            </noscript>
-          </div>
-        </details>
-      {% endif %}
+      {% include "workouts/_anatomia.html" with exercicio=atual.exercise %}
     </section>
 
     {% comment %}

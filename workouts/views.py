@@ -567,6 +567,66 @@ class HealthExportView(OnboardingRequiredMixin, View):
         return resposta
 
 
+class ExercicioView(OnboardingRequiredMixin, TemplateView):
+    """A leitura de UM exercício: como é o movimento, e onde ele cai na semana.
+
+    A quarta tela da área de Treino, e ela responde uma pergunta só — "como é
+    este movimento?" —, em QUALQUER dia. Existe porque fora da sessão de hoje
+    não havia caminho nenhum até a demonstração: a linha da ficha de outro dia
+    era um `<div>` inerte e `?exercicio=` fora do dia dá 404. A decisão de
+    10/09/2026 fechou o REGISTRO fora do dia e levou junto o VER, sem que
+    isso tivesse sido decidido (pesquisa de 13/09/2026).
+
+    VER NÃO É EXECUTAR: esta view não grava nada, e o template não tem
+    formulário nem cronômetro — a régua é a mesma da ficha. O exercício é
+    buscado pelo PLANO ATIVO da própria pessoa (IDOR fechado como
+    `FichaDaSessaoView`), e não "de hoje": senão reproduz o defeito.
+    """
+
+    template_name = "workouts/exercicio.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        plano = services.get_active_routine(user)
+        if plano is None:
+            raise Http404("sem ficha")
+        exercicio = get_object_or_404(
+            Exercise.objects.filter(
+                sessions__session__plan=plano, is_active=True
+            ).distinct(),
+            pk=kwargs["exercise_id"],
+        )
+        # As ocorrências na semana, com a letra que a ficha mostra (A1/A2).
+        sessoes = list(plano.sessions.prefetch_related("exercises").order_by("weekday"))
+        nomear_ocorrencias(sessoes)
+        itens = []
+        for sessao in sessoes:
+            for item in sessao.exercises.all():
+                if item.exercise_id == exercicio.pk:
+                    item.session = sessao
+                    itens.append(item)
+        hoje = timezone.localdate().weekday()
+        item_de_hoje = next((i for i in itens if i.session.weekday == hoje), None)
+        if item_de_hoje is not None:
+            # Só a contagem de hoje deste exercício — UMA consulta — para o
+            # botão dizer "Fazer agora" ou "Continuar de onde parou".
+            item_de_hoje.feitas = ExerciseLog.objects.filter(
+                user=user, exercise=exercicio, date=timezone.localdate()
+            ).count()
+        context.update({
+            "nav": "workout",
+            "exercicio": exercicio,
+            "prescricao": itens[0],
+            "dias": [
+                "%s (%s)" % (i.session.weekday_display, i.session.rotulo)
+                for i in itens
+            ],
+            "item_de_hoje": item_de_hoje,
+        })
+        return context
+
+
 class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
     """Uma tela, uma pergunta: o que eu faço agora?
 
