@@ -74,21 +74,30 @@ def _acao_de_refeicao(slot, rotulo, atrasada) -> Acao:
 
 def _acao_de_treino(estado, rotulo, atrasada, continuando=False) -> Acao:
     sessao = estado.sessao
+    # O VERBO DECIDE O DESTINO, e é o mesmo par em toda tela do app:
+    # "Começar treino" abre a FICHA — a pessoa vê o treino inteiro e escolhe
+    # por onde começar (requisito fechado em 13/09/2026: nunca o primeiro
+    # vídeo) —; "Continuar de onde parou" abre a EXECUÇÃO, que resolve
+    # sozinha o próximo pendente de `ExerciseLog`. Este cartão mandava os
+    # dois para a execução, e o painel mandava os dois para a ficha: o mesmo
+    # rótulo com dois destinos (UX P1-11, 14/09/2026).
     if continuando:
         detalhe = "%d de %d séries registradas" % (
             estado.series_feitas, estado.total_series
         )
         cta = "Continuar de onde parou"
+        url = reverse("workouts:now")
     else:
         detalhe = "%d exercícios" % estado.total_exercicios
         cta = "Começar treino"
+        url = reverse("workouts:ficha", args=[sessao.pk])
     return Acao(
         tipo="treino",
         rotulo=rotulo,
         titulo=sessao.name,
         detalhe=detalhe,
         cta=cta,
-        url=reverse("workouts:now"),
+        url=url,
         horario=sessao.start_time,
         atrasada=atrasada,
     )
@@ -331,6 +340,25 @@ def proxima_acao(*, slots, treino, meta_agua, bebido, agora,
             cta="Registrar peso",
             url="#pesar",
         )
+
+    # 2-D. o treino de hoje SEM HORÁRIO, ainda não começado.
+    #
+    # O horário do treino é opcional desde 10/09/2026, e toda conta nova nasce
+    # sem ele. Um treino sem hora nunca entrava em `vencidos` nem em
+    # `futuros` — e o cartão terminava o dia dizendo "Nada pendente ·
+    # treino resolvido" para quem tinha zero de vinte e quatro séries
+    # (medido em 14/09/2026, conta nova com treino hoje). Sem hora, o treino é
+    # "hoje, a qualquer momento": não passa na frente do que TEM hora e já
+    # venceu (ramo 2) nem da água muito atrás do esperado (2-B), mas vem
+    # antes do que ainda não chegou (3): a refeição das 21h não é acionável
+    # às 20h; o treino é.
+    if (
+        treino is not None
+        and treino.tem_treino
+        and not treino.concluido
+        and treino.sessao.start_time is None
+    ):
+        return _acao_de_treino(treino, "HOJE", atrasada=False)
 
     # 3. o que vem a seguir: o mais próximo no futuro
     if futuros:

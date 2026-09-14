@@ -2363,10 +2363,17 @@ class TreinoDeHojeTests(TestCase):
         )
 
     def test_the_verb_changes_once_something_was_recorded(self):
+        """O destino do painel é a ficha, e o verbo diz isso quando já há série.
+
+        "Continuar de onde parou" é o verbo da EXECUÇÃO (cartão AGORA da
+        Home); aqui, com destino fixo na ficha, ele prometia continuar e
+        abria uma lista — o mesmo rótulo com dois destinos (UX P1-11).
+        """
         self.assertIn("Começar treino", self._pagina())
 
         self._anotar(self._itens()[0])
-        self.assertIn("Continuar de onde parou", self._pagina())
+        self.assertIn("Abrir a ficha de hoje", self._pagina())
+        self.assertNotIn("Continuar de onde parou", self._pagina())
 
     def test_the_progress_counts_exercises_that_have_a_set_today(self):
         """O número é derivado do `ExerciseLog` de hoje, e a frase diz isso."""
@@ -2469,7 +2476,7 @@ class TreinoDeHojeTests(TestCase):
         self._anotar(item, series=item.sets)
 
         depois = cartao(self._pagina())
-        self.assertIn("Continuar de onde parou", depois)
+        self.assertIn("Abrir a ficha de hoje", depois)
         self.assertNotIn("Começar treino", depois)
 
     def test_a_serie_anotada_marca_a_linha_onde_quer_que_ela_esteja(self):

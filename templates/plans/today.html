@@ -306,7 +306,15 @@ coluna da direita), não entre ela e o almoço.
           não marcou seria a tela inventando agenda.
         {% endcomment %}
         {% if treino_hoje.tem_treino %}
-          <a class="resumo-dia__treino" href="{% url 'workouts:now' %}">
+          {% comment %}
+            A linha abre o PAINEL, não a execução: ela é o resumo do dia, e
+            a porta da área é o painel — a ficha e a execução ficam um toque
+            adiante, cada uma atrás do verbo certo ("Começar treino" abre a
+            ficha; "Continuar de onde parou" abre a execução). Apontar para a
+            execução daqui era abrir o primeiro exercício por um toque num
+            número.
+          {% endcomment %}
+          <a class="resumo-dia__treino" href="{% url 'workouts:routine' %}">
             {% if treino_hoje.concluido %}
               <b class="resumo-dia__valor">Feito</b>
               <span class="resumo-dia__rotulo">treino</span>

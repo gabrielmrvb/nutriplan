@@ -85,7 +85,12 @@
           </li>
         {% endif %}
       </ul>
-      <a class="btn btn--primary btn--block" href="{% url 'workouts:routine' %}">
+      {% comment %}
+        O mesmo rótulo do rodapé da execução, e o MESMO destino: a ficha
+        desta sessão, que é o treino completo. Apontava para o painel da
+        semana — um rótulo, dois lugares.
+      {% endcomment %}
+      <a class="btn btn--primary btn--block" href="{% url 'workouts:ficha' estado.sessao.pk %}">
         Ver o treino completo
       </a>
       <a class="btn btn--ghost btn--block" href="{% url 'workouts:health_export' %}">

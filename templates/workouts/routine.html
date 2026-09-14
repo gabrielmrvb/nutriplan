@@ -247,7 +247,7 @@
             <a class="btn btn--primary btn--block btn--hoje"
                href="{% url 'workouts:ficha' hoje.pk %}"
                {% if not hoje.proximo %}hidden{% endif %}
-               data-hoje-cta>{% if hoje.feitos_hoje %}Continuar de onde parou{% else %}Começar treino{% endif %}</a>
+               data-hoje-cta>{% if hoje.feitos_hoje %}Abrir a ficha de hoje{% else %}Começar treino{% endif %}</a>
             {% comment %}
               Todos os exercícios têm série anotada. A frase descreve isso, e
               para — dizer "treino concluído" seria afirmar o que não se sabe.

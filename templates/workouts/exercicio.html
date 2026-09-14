@@ -86,7 +86,7 @@
     {% endcomment %}
     <a class="btn btn--primary btn--block acao-solta"
        href="{% url 'workouts:now' %}?exercicio={{ exercicio.pk }}">
-      {% if item_de_hoje.feitas %}Continuar de onde parou{% else %}Fazer agora{% endif %}
+      {% if item_de_hoje.feitas %}Continuar de onde parou{% else %}Fazer este exercício{% endif %}
     </a>
   {% endif %}
 

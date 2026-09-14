@@ -2941,6 +2941,7 @@ class AcaoAgoraTests(TestCase):
         sessao = TrainingSession(
             name=nome, start_time=inicio, weekday=0, label="A", duration_min=60
         )
+        sessao.pk = 42  # "Começar treino" aponta para a ficha DESTA sessão
         estado = workout_services.EstadoDoTreino()
         estado.sessao = sessao
         estado.itens = [object()] * exercicios
@@ -3060,6 +3061,8 @@ class AcaoAgoraTests(TestCase):
         self.assertEqual(acao.tipo, "treino")
         self.assertEqual(acao.cta, "Continuar de onde parou")
         self.assertIn("6 de 20 séries", acao.detalhe)
+        # Continuar é EXECUTAR: a tela resolve sozinha o próximo pendente.
+        self.assertEqual(acao.url, reverse("workouts:now"))
 
     def test_treino_nao_iniciado_disputa_pelo_horario(self):
         slots = [self._slot(1, "Lanche da tarde", time(15, 0))]
@@ -3069,7 +3072,9 @@ class AcaoAgoraTests(TestCase):
 
         self.assertEqual(acao.tipo, "treino")
         self.assertEqual(acao.cta, "Começar treino")
-        self.assertEqual(acao.url, reverse("workouts:now"))
+        # Requisito fechado (13/09/2026): "Começar treino" abre a FICHA da
+        # sessão, nunca o primeiro exercício com o vídeo tocando.
+        self.assertEqual(acao.url, reverse("workouts:ficha", args=[42]))
 
     def test_refeicao_mais_recente_ganha_do_treino_mais_antigo(self):
         slots = [self._slot(1, "Jantar", time(19, 30))]
@@ -3078,6 +3083,50 @@ class AcaoAgoraTests(TestCase):
         acao = self._chamar(slots, treino=treino, hora=(20, 0))
 
         self.assertEqual(acao.tipo, "refeicao")
+
+    # -- o treino SEM HORÁRIO, que é o de toda conta nova desde 10/09/2026 --
+
+    def test_treino_sem_horario_pendente_aparece_como_hoje(self):
+        """Sem hora, o treino é "hoje, a qualquer momento" — e é acionável agora.
+
+        Medido em 14/09/2026 numa conta nova com treino hoje: às 20h40, com as
+        refeições marcadas e a água na meta, o cartão dizia "Nada pendente ·
+        treino resolvido" para zero de vinte e quatro séries. Um treino sem
+        `start_time` não entrava em vencidos nem em futuros — sumia.
+        """
+        slots = [self._slot(1, "Jantar", time(21, 0))]
+        treino = self._treino(inicio=None)
+
+        acao = self._chamar(slots, treino=treino, hora=(20, 0), meta_agua=0)
+
+        self.assertEqual(acao.tipo, "treino")
+        self.assertEqual(acao.rotulo, "HOJE")
+        self.assertEqual(acao.cta, "Começar treino")
+        self.assertEqual(acao.url, reverse("workouts:ficha", args=[42]))
+        self.assertFalse(acao.atrasada)
+
+    def test_treino_sem_horario_nunca_deixa_o_dia_terminar_como_nada_pendente(self):
+        acao = self._chamar([], treino=self._treino(inicio=None), hora=(22, 0), meta_agua=0)
+        self.assertEqual(acao.tipo, "treino")
+
+    def test_treino_sem_horario_cede_a_refeicao_vencida(self):
+        slots = [self._slot(1, "Almoço", time(12, 0))]
+        acao = self._chamar(slots, treino=self._treino(inicio=None), hora=(13, 0), meta_agua=0)
+        self.assertEqual(acao.tipo, "refeicao")
+
+    def test_treino_sem_horario_cede_a_agua_muito_atras(self):
+        """Água muito atrás do esperado é urgência de estado; o treino sem hora espera."""
+        slots = [self._slot(1, "Café", time(7, 0), log=self._log(MealStatus.DONE)),
+                 self._slot(2, "Jantar", time(20, 0))]
+        acao = self._chamar(
+            slots, treino=self._treino(inicio=None), hora=(18, 0), meta_agua=3000, bebido=0
+        )
+        self.assertEqual(acao.tipo, "agua")
+
+    def test_treino_sem_horario_ja_comecado_continua_sendo_agora(self):
+        acao = self._chamar([], treino=self._treino(inicio=None, feitas=3), hora=(20, 0), meta_agua=0)
+        self.assertEqual(acao.cta, "Continuar de onde parou")
+        self.assertEqual(acao.url, reverse("workouts:now"))
 
     def test_treino_concluido_sai_da_disputa(self):
         slots = []
