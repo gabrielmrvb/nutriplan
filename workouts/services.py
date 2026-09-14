@@ -1847,6 +1847,35 @@ def has_training_days(user) -> bool:
     return user.training_days.exists()
 
 
+def acertar_rotina(user) -> tuple:
+    """Os dias de treino acabaram de ser salvos: a ficha nasce, se remonta ou desliga.
+
+    É o chamador que faltava. `sync_active_routine` só rodava na entrada das
+    telas de Treino, e a Home — que consome `estado_do_treino` sem montar
+    nada, de propósito — negava o treino de hoje a toda conta recém-criada:
+    "Hoje não tem treino na sua ficha", até a pessoa abrir a aba de Treino
+    por conta própria (auditoria de UX, P1-01, 14/09/2026). O lugar certo de
+    montar é onde a ENTRADA muda: o fim do wizard e a edição dos dias.
+
+    A outra metade é o inverso (P1-02): quem remove todos os dias ficava com o
+    plano ativo, e a Home e a ofensiva (`plans.streaks._dias_de_treino` lê o
+    plano ativo) seguiam cobrando um treino que a pessoa disse que não vai
+    fazer. Plano é retrato: ele não é apagado, é DESLIGADO — o histórico de
+    carga não aponta para a sessão, e o plano continua consultável.
+
+    Devolve `(plano, mudou)` como `sync_active_routine`; sem dias, `plano` é
+    `None` e `mudou` diz se havia um ativo para desligar.
+    """
+    if has_training_days(user):
+        return sync_active_routine(user)
+    plano = get_active_routine(user)
+    if plano is None:
+        return None, False
+    plano.is_active = False
+    plano.save(update_fields=["is_active"])
+    return None, True
+
+
 # --------------------------------------------------------------------------
 # Registro de carga
 # --------------------------------------------------------------------------
@@ -2113,6 +2142,10 @@ class EstadoDoTreino:
     descanso_total: int = 0
     descanso_restante: int = 0
     minutos_entre_registros: int = 0
+    #: Existe um plano ativo? Separa "hoje é descanso" de "a ficha ainda não
+    #: foi montada" — dois estados que a Home mostrava com a mesma frase, e o
+    #: segundo era o de toda conta recém-criada até abrir a aba de Treino.
+    tem_ficha: bool = False
 
     @property
     def tem_treino(self) -> bool:
@@ -2460,6 +2493,7 @@ def estado_do_treino(user, dia=None, escolhido=None) -> EstadoDoTreino:
         if escolhido is not None:
             raise ExercicioForaDaSessao(escolhido)
         return estado
+    estado.tem_ficha = True
 
     sessao = (
         TrainingSession.objects.filter(plan=plan, weekday=dia.weekday())

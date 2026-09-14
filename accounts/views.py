@@ -1,4 +1,6 @@
 """Cadastro, autenticação e o wizard de onboarding em quatro passos."""
+import logging
+
 from allauth.socialaccount.models import SocialAccount
 from django.contrib import messages
 from django.contrib.auth import login, logout
@@ -30,7 +32,9 @@ from .forms import (
     SplitPreferenceForm,
     TrainingForm,
 )
-from workouts.services import divisao_explicada, preferencia_muda_a_divisao
+from workouts.services import (
+    NoTrainingDays, acertar_rotina, divisao_explicada, preferencia_muda_a_divisao,
+)
 
 from .models import (
     ONBOARDING_DONE,
@@ -93,6 +97,8 @@ def recusa_pendente(request, superficie):
 #:
 #: É o único passo que precisa de nome próprio: o 4 não é referenciado por
 #: número em lugar nenhum, porque quem decide se ele existe é `passos_de`.
+logger = logging.getLogger(__name__)
+
 PASSO_TREINOS = 3
 
 #: Os dois caminhos possíveis. O 6 é sempre o último, e é isso que mantém
@@ -605,6 +611,20 @@ class OnboardingStepMixin(LoginRequiredMixin):
         )
         return context
 
+    def acertar_ficha(self):
+        """Monta, remonta ou desliga a ficha depois de salvar os dias.
+
+        O que pode dar errado aqui é o CATÁLOGO (`NoTrainingDays`: divisão
+        sem modelo, catálogo não semeado), e isso não é motivo para o cadastro
+        de quem veio pela comida terminar em 500. Fica registrado com o
+        identificador do pedido; a aba de Treino levanta o mesmo erro ao
+        abrir, que é onde ele sempre apareceu.
+        """
+        try:
+            acertar_rotina(self.request.user)
+        except NoTrainingDays:
+            logger.warning("ficha não montada ao salvar os dias", exc_info=True)
+
     def finish_step(self, profile):
         """Avança o progresso e decide para onde ir.
 
@@ -651,6 +671,13 @@ class OnboardingStepMixin(LoginRequiredMixin):
                 if pedida in self.ORIGENS:
                     destino += f"?origem={pedida}"
                 return redirect(destino)
+            if self.step in (PASSO_TREINOS, 4):
+                # Os dias ou a divisão mudaram, e a ficha muda com eles AGORA
+                # — não na próxima visita ao Treino. A Home lê o plano ativo
+                # sem montar nada, e é para a Home que "Salvar" pode voltar.
+                # Zero dias desliga o plano (P1-02): a ofensiva e o resumo do
+                # dia param de cobrar um treino que a pessoa tirou da semana.
+                self.acertar_ficha()
             # Só na EDIÇÃO. No onboarding, o feedback de ter salvo é o passo
             # seguinte aparecer — dizer "pronto" cinco vezes seguidas durante
             # o cadastro seria a mensagem virando ruído.
@@ -660,6 +687,12 @@ class OnboardingStepMixin(LoginRequiredMixin):
             # ficha — que acabou de ser remontada com eles — que ela quer ver.
             return redirect(self.voltar_para())
         if proximo >= ONBOARDING_DONE:
+            # A ficha nasce AQUI, e não na primeira visita ao Treino. A
+            # primeira Home de quem marcou treino hoje dizia "Hoje não tem
+            # treino na sua ficha" (P1-01): a Home consome o estado sem montar
+            # nada — decisão certa para a tela de comida —, e ninguém montava
+            # antes dela. Quem terminou sem dia nenhum não ganha plano.
+            self.acertar_ficha()
             return redirect("plans:today")
         return redirect("accounts:onboarding_step", step=proximo)
 

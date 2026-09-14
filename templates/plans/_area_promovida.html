@@ -37,9 +37,20 @@
           <span class="num">{{ treino_hoje.total_series }}</span> séries de hoje.
         {% endif %}
       </p>
-    {% else %}
+    {% elif treino_hoje.tem_ficha %}
       <p class="area-promovida__fato">
         Hoje não tem treino na sua ficha. A semana inteira está lá.
+      </p>
+    {% else %}
+      {% comment %}
+        Sem plano ativo não é descanso — é ficha que ainda não existe: quem
+        terminou o cadastro antes de a ficha nascer no "Concluir", ou quem
+        tirou todos os dias da semana. Dizer "hoje não tem treino na sua
+        ficha" aqui era afirmar uma ficha que não há.
+      {% endcomment %}
+      <p class="area-promovida__fato">
+        Ainda não há ficha montada. Abra o Treino: com dias de treino
+        marcados, ela nasce na hora.
       </p>
     {% endif %}
     <a class="btn-link btn-link--rodape" href="{% url 'workouts:routine' %}">
