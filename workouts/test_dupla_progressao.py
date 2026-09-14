@@ -48,6 +48,7 @@ class _Item:
 
         self.exercise = _Ex()
         self.exercise.equipment = equipment
+        self.exercise.sem_carga = equipment == "bodyweight"
         self.exercise.muscle_group = grupo
 
 

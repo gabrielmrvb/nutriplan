@@ -467,6 +467,18 @@ class Exercise(models.Model):
         )
 
     @property
+    def sem_carga(self) -> bool:
+        """Peso do corpo: não há anilha para anotar nem para subir.
+
+        É a pergunta que a execução e a progressão fazem, e ela mora aqui — e
+        não em `services.py` — de propósito: `test_o_motor_nao_le_equipamento`
+        proíbe o motor de ler `equipment`, porque a prescrição não filtra por
+        equipamento (ver `test_capacidade_de_ambiente.py`). "Tem anilha?" é
+        uma propriedade do exercício; o motor lê a propriedade, não o campo.
+        """
+        return self.equipment == "bodyweight"
+
+    @property
     def video_search_url(self) -> str:
         """Plano B: busca pelo nome do exercício.
 

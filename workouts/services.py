@@ -2275,7 +2275,7 @@ def proxima_carga(item):
     load = item.load or {}
     if load.get("hoje"):
         return None
-    if item.measure != Measure.REPS or item.exercise.equipment == "bodyweight":
+    if item.measure != Measure.REPS or item.exercise.sem_carga:
         return None
     anterior = load.get("anterior") or {}
     if len(anterior) < item.sets:
