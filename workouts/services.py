@@ -2324,6 +2324,39 @@ def _sugestao_de_reps(item, serie):
     return registro.reps if registro is not None else None
 
 
+#: Quantas datas o histórico da leitura mostra. Oito é o que cabe numa tela
+#: sem virar relatório; o Progresso é quem responde "estou evoluindo?".
+DATAS_DO_HISTORICO = 8
+
+
+def historico_do_exercicio(user, exercise, datas=DATAS_DO_HISTORICO) -> list:
+    """As últimas `datas` sessões deste exercício: data, carga e reps por série.
+
+    UMA consulta, limitada no banco a `datas × 10` linhas (dez é o teto de
+    séries por dia de `append_set`) e cortada em Python por data — o limite
+    por data não existe em SQL sem janela, e a janela custaria mais que as
+    poucas linhas a mais. Sem série registrada, lista vazia.
+
+    "Como fui neste exercício?" é a pergunta; a resposta é o registro cru
+    ("03/09 · 60 × 10, 10, 9"), sem e1RM nem volume — `progresso.py` já
+    decidiu que a tela não inventa métrica.
+    """
+    linhas = (
+        ExerciseLog.objects.filter(user=user, exercise=exercise)
+        .order_by("-date", "set_number")[: datas * 10]
+    )
+    por_data = {}
+    for log in linhas:
+        if log.date not in por_data:
+            if len(por_data) == datas:
+                break
+            por_data[log.date] = {"data": log.date, "carga": log.weight_kg, "reps": []}
+        sessao = por_data[log.date]
+        sessao["carga"] = max(sessao["carga"], log.weight_kg) if log.weight_kg is not None else sessao["carga"]
+        sessao["reps"].append(log.reps if log.reps is not None else "—")
+    return list(por_data.values())
+
+
 def serie_pendente(user, exercise_id, dia=None) -> bool:
     """Este exercício ainda tem série por fazer HOJE?
 

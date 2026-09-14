@@ -617,6 +617,7 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
         context.update({
             "nav": "workout",
             "exercicio": exercicio,
+            "historico": services.historico_do_exercicio(user, exercicio),
             "prescricao": itens[0],
             "dias": [
                 "%s (%s)" % (i.session.weekday_display, i.session.rotulo)

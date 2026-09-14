@@ -57,6 +57,28 @@
     {% include "workouts/_anatomia.html" with exercicio=exercicio %}
   </section>
 
+  <section class="card">
+    <div class="card__head"><h2>Como fui</h2></div>
+    {% comment %}
+      O registro cru das últimas sessões — data, carga e as reps de cada
+      série — e nada calculado por cima: e1RM e volume ficaram fora por
+      decisão de `progresso.py`. Oito datas, uma consulta. Vazio, a frase
+      diz que ainda não há série, sem tabela em branco.
+    {% endcomment %}
+    {% if historico %}
+      <dl class="data-list historico">
+        {% for sessao in historico %}
+          <div>
+            <dt class="num">{{ sessao.data|date:"d/m" }}</dt>
+            <dd class="num">{% if exercicio.equipment != 'bodyweight' %}{{ sessao.carga|floatformat:'-2' }} × {% endif %}{{ sessao.reps|join:", " }}</dd>
+          </div>
+        {% endfor %}
+      </dl>
+    {% else %}
+      <p class="hint">Ainda sem série registrada neste exercício. A primeira aparece aqui assim que você concluir uma na execução.</p>
+    {% endif %}
+  </section>
+
   {% if item_de_hoje %}
     {% comment %}
       A porta para EXECUTAR só existe quando o exercício é da sessão de
