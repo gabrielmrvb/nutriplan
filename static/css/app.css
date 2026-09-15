@@ -3418,7 +3418,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 /* A média da semana vem antes das pesagens do dia, e a ordem é a decisão: o
    peso do dia oscila com sal e com o carboidrato de ontem, e quem olha o
    número do dia desiste na primeira quinta-feira em que a balança sobe. */
-.semanas { display: grid; gap: .3rem; margin: 0 0 var(--espaco-5); padding: 0; list-style: none; }
+.pesagens { display: grid; gap: .3rem; margin: 0 0 var(--espaco-5); padding: 0; list-style: none; }
 
 /* DUAS LINHAS, e não três colunas disputando a mesma largura.
 
@@ -3430,7 +3430,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
    Agora o valor e a variação dividem a primeira linha, e a data desce para
    legenda embaixo — que é a hierarquia real: o peso é o dado, a semana é o
    contexto dele. */
-/* `.semanas > .semana`, E O ESCOPO É A CORREÇÃO.
+/* `.pesagens > .pesagem`, E O ESCOPO É A CORREÇÃO.
 
    `.semana` é usada por DOIS componentes diferentes: a linha de média de peso
    (aqui) e a barra semanal de treino/água, lá embaixo. As duas declaravam
@@ -3439,10 +3439,12 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
    são as três colunas da OUTRA, e o valor saía espremido em 51px para um
    texto de 92.
 
-   Duas regras com o mesmo nome de classe para componentes diferentes é dívida
-   de nomenclatura; escopar pela lista resolve sem renomear as duas famílias e
-   sem tocar no HTML. */
-.semanas > .semana {
+   Escopar pela lista (`.semanas > .semana`) resolveu o peso e quebrou o
+   resto: as listas de treino e água TAMBÉM são `.semanas > .semana`, e
+   ganhavam este padding, este fundo e estas duas colunas — 552 px para oito
+   linhas de 32 (DESIGN CA-02, 14/09/2026). Duas famílias com o mesmo nome
+   era a dívida; o peso pagou renomeando-se. */
+.pesagens > .pesagem {
   display: grid;
   /* `auto` e NÃO `minmax(0, 1fr)`: com o mínimo zerado a coluna encolhia
      abaixo do próprio conteúdo, e o valor — que é `nowrap` — vazava. */
@@ -3453,9 +3455,9 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   border-radius: var(--radius);
   background: var(--surface-2);
 }
-.semanas > .semana .semana__media { grid-column: 1; grid-row: 1; }
-.semanas > .semana .semana__delta { grid-column: 2; grid-row: 1; }
-.semanas > .semana .semana__data { grid-column: 1 / -1; grid-row: 2; }
+.pesagens > .pesagem .pesagem__media { grid-column: 1; grid-row: 1; }
+.pesagens > .pesagem .pesagem__delta { grid-column: 2; grid-row: 1; }
+.pesagens > .pesagem .pesagem__data { grid-column: 1 / -1; grid-row: 2; }
 
 /* O PESO É O DADO PRINCIPAL DESTA TELA, e estava do tamanho do texto ao lado.
 
@@ -3467,10 +3469,10 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 
    A primeira linha da lista é a semana MAIS RECENTE (`reversed` no template),
    e é ela que carrega o peso de agora. */
-.semana__data { color: var(--text-mute); font-size: var(--texto-xs); }
-.semana__n::before { content: " · "; }
+.pesagem__data { color: var(--text-mute); font-size: var(--texto-xs); }
+.pesagem__n::before { content: " · "; }
 
-.semana__n {
+.pesagem__n {
   /* `inline`, e não `block`. Este seletor tinha DUAS declarações de `display`
      no arquivo — `inline` lá em cima, junto do `::before` que desenha o " · ",
      e `block` aqui. A de baixo vencia, então o ponto que existe para LIGAR a
@@ -3483,7 +3485,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   color: var(--text-mute);
   font-size: var(--texto-xs);
 }
-.semana__media {
+.pesagem__media {
   font-weight: 780;
   font-size: var(--texto-xl);
   letter-spacing: -.025em;
@@ -3492,11 +3494,11 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
      quebrava em três linhas — "95," / "0" / "kg" — assim que o tamanho subiu. */
   white-space: nowrap;
 }
-.semanas > .semana:first-child .semana__media { font-size: var(--texto-2xl); }
+.pesagens > .pesagem:first-child .pesagem__media { font-size: var(--texto-2xl); }
 
-.semana__delta { justify-self: end; text-align: right; color: var(--text-mute); font-size: var(--texto-sm); }
-.semana__delta--desce { color: var(--brand); }
-.semana__delta--sobe { color: var(--warm); }
+.pesagem__delta { justify-self: end; text-align: right; color: var(--text-mute); font-size: var(--texto-sm); }
+.pesagem__delta--desce { color: var(--brand); }
+.pesagem__delta--sobe { color: var(--warm); }
 
 /* O aviso de estagnação. Só aparece depois de três semanas paradas — duas
    acontecem por acaso o tempo todo. */

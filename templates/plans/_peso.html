@@ -68,17 +68,17 @@
             </div>
           {% endif %}
           {% if tendencia.tem_dados %}
-            <ol class="semanas">
+            <ol class="pesagens">
               {% for semana in tendencia.semanas reversed %}
-                <li class="semana">
-                  <span class="semana__data">
+                <li class="pesagem">
+                  <span class="pesagem__data">
                     semana de {{ semana.inicio|date:"d/m" }}
-                    <span class="semana__n">{{ semana.registros }} pesage{{ semana.registros|pluralize:"m,ns" }}</span>
+                    <span class="pesagem__n">{{ semana.registros }} pesage{{ semana.registros|pluralize:"m,ns" }}</span>
                   </span>
-                  <span class="semana__media num">{{ semana.media|floatformat:1 }} kg</span>
-                  <span class="semana__delta num
-                    {% if semana.delta < 0 %}semana__delta--desce
-                    {% elif semana.delta > 0 %}semana__delta--sobe{% endif %}">
+                  <span class="pesagem__media num">{{ semana.media|floatformat:1 }} kg</span>
+                  <span class="pesagem__delta num
+                    {% if semana.delta < 0 %}pesagem__delta--desce
+                    {% elif semana.delta > 0 %}pesagem__delta--sobe{% endif %}">
                     {% if semana.delta != None %}
                       {% if semana.delta > 0 %}+{% endif %}{{ semana.delta|floatformat:1 }}
                     {% else %}—{% endif %}
