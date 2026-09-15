@@ -224,7 +224,15 @@ class AOpcaoAEASugestaoEABEAAlternativaTests(TestCase):
     def setUp(self):
         self.pessoa = com_plano()
         self.client.force_login(self.pessoa)
-        self.html = self.client.get(reverse("plans:today")).content.decode("utf-8")
+        # Meio-dia e meia, sempre: só assim existe uma refeição "de agora"
+        # (`meal--agora`) para medir. Lendo a hora da máquina, de madrugada
+        # não há vencida nenhuma — o `pre-push` de 15/09/2026 às 00h15 pegou,
+        # com `IndexError` no `split('meal--agora')`.
+        meio_dia = timezone.make_aware(
+            datetime.combine(timezone.localdate(), time(12, 30))
+        )
+        with mock.patch("plans.views.relogio", return_value=meio_dia):
+            self.html = self.client.get(reverse("plans:today")).content.decode("utf-8")
 
     def _acoes(self, bloco):
         return re.findall(r'<form[^>]*class="option-par__acao"(.*?)</form>', bloco, re.S)
