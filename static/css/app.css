@@ -4294,12 +4294,20 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   box-shadow: var(--edge), var(--shadow-rest);
 }
 
-.agua__topo { display: flex; align-items: center; gap: var(--espaco-3); }
+/* O cabeçalho QUEBRA LINHA, e a confirmação de zerar ocupa a linha inteira
+   quando abre: renderizada ao lado de "0 / 3000 ml", ela empurrava o número
+   para duas linhas (UX P1-04, medido a 320 e 390). O número nunca quebra. */
+.agua__topo { display: flex; flex-wrap: wrap; align-items: center; gap: var(--espaco-3); }
 .agua__icone { display: grid; place-items: center; flex: none; color: var(--accent); }
 .agua__icone svg { width: 1.15rem; height: 1.15rem; }
-.agua__valor { flex: 1; min-width: 0; color: var(--text-dim); font-size: .84rem; }
+.agua__valor { flex: 1; min-width: 0; color: var(--text-dim); font-size: .84rem; white-space: nowrap; }
 .agua__valor b { color: var(--text); font-weight: 750; }
 .agua__zerar { flex: none; }
+.agua__zerar[open] { flex: 1 0 100%; display: flex; align-items: center; gap: var(--espaco-3); }
+/* Sem a metade horizontal da margem negativa do `.btn-link`: dois links com
+   8 px de vão se tocavam por 3 px (MOB-11). O alvo continua com 44 px; o
+   que muda é que ele não avança sobre o vão. */
+.agua__zerar .btn-link { margin-inline: 0; }
 
 /* A CONFIRMAÇÃO DE UMA AÇÃO QUE APAGA.
    O `<summary>` continua parecendo o link discreto que era — quem não quer
@@ -4317,7 +4325,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 
 .progress__fill--agua { background: var(--accent); }
 
-.agua__botoes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; }
+.agua__botoes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--espaco-3); }
 
 /* 48px de altura — o pedido é explícito, e estes três são tocados de pé, com
    a garrafa na outra mão. */

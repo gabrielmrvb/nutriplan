@@ -103,7 +103,9 @@ TETO_FONT_SIZE_CRU = 120
 #: 247 com o POSTER da execução (13/09/2026): `.agora__media` e `.agora__cue`
 #: saíram — a demonstração virou a faixa `.demo`, que nasceu na escala — e
 #: com elas dois `margin-bottom: .55rem` crus.
-TETO_ESPACO_CRU = 247
+#: 246 com o vão dos botões de água (14/09/2026): `gap: .4rem` era 6,4 px
+#: entre três alvos tocados de pé (MOB-13), e virou `var(--espaco-3)`.
+TETO_ESPACO_CRU = 246
 
 
 def sem_comentarios(texto):
