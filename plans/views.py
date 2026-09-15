@@ -586,7 +586,21 @@ class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
 
         macros = None
         if status == MealStatus.OFF_PLAN:
-            macros = tracking.macros_de_itens(_itens_descritos(request.POST))
+            desconhecidos = []
+            macros = tracking.macros_de_itens(
+                _itens_descritos(request.POST, desconhecidos)
+            )
+            if desconhecidos:
+                # A refeição entra do mesmo jeito; o que a pessoa fica sabendo
+                # é que aquela linha não contou nas calorias.
+                messages.warning(
+                    request,
+                    "Não achei %s no catálogo — a refeição foi registrada sem %s."
+                    % (
+                        ", ".join('"%s"' % n for n in desconhecidos),
+                        "isso" if len(desconhecidos) == 1 else "esses itens",
+                    ),
+                )
 
         tracking.log_meal(request.user, slot, status, option, notes=notes, macros=macros)
         return redirect(_hoje_em("#slot-%d" % slot.pk))
@@ -600,14 +614,17 @@ class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
 LIMITE_GRAMAS = Decimal("3000")
 
 
-def _itens_descritos(dados) -> list:
+def _itens_descritos(dados, desconhecidos=None) -> list:
     """Os pares `(Food, gramas)` que a pessoa descreveu, ignorando o resto.
 
     Casa por NOME e não por id porque a entrada é um `<input list="...">`: o
     datalist sugere, e a pessoa pode digitar qualquer coisa por cima. Nome que
-    não bate com o catálogo é descartado em silêncio — o registro ainda vale
-    pela descrição, e recusar a refeição inteira por causa de uma linha mal
-    digitada é o caminho mais curto para ela parar de registrar.
+    não bate com o catálogo é descartado — o registro ainda vale pela
+    descrição, e recusar a refeição inteira por causa de uma linha mal
+    digitada é o caminho mais curto para ela parar de registrar. Descartado,
+    mas NÃO em silêncio: quem passar `desconhecidos` (uma lista) recebe os
+    nomes que não casaram, e a tela avisa (UX UXA-04 — "input ignorado sem
+    aviso").
 
     Um `<select>` com os 61 alimentos daria o id de graça e custaria 61 opções
     por linha, vezes três linhas, vezes cinco horários: 900 nós de DOM na tela
@@ -617,6 +634,7 @@ def _itens_descritos(dados) -> list:
     gramas = dados.getlist("gramas")[: tracking.MAX_ITENS_FORA]
 
     pedidos = {}
+    originais = {}
     for nome, quantidade in zip(nomes, gramas):
         nome = (nome or "").strip()
         if not nome:
@@ -649,6 +667,7 @@ def _itens_descritos(dados) -> list:
         if somado > LIMITE_GRAMAS:
             continue
         pedidos[chave] = somado
+        originais.setdefault(chave, nome)
 
     if not pedidos:
         return []
@@ -659,6 +678,10 @@ def _itens_descritos(dados) -> list:
     por_nome = {
         food.name.casefold(): food for food in Food.objects.filter(is_active=True)
     }
+    if desconhecidos is not None:
+        # Como a pessoa escreveu, e não a chave normalizada: o aviso cita o
+        # que ela digitou.
+        desconhecidos.extend(originais[nome] for nome in pedidos if nome not in por_nome)
     return [
         (por_nome[nome], quantidade)
         for nome, quantidade in pedidos.items()

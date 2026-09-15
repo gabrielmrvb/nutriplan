@@ -11,7 +11,7 @@ from django.contrib.auth.views import LogoutView, LoginView
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils import timezone
+from django.utils import formats, timezone
 from django.views import View
 from django.views.generic import CreateView, FormView, TemplateView, UpdateView
 
@@ -1195,7 +1195,15 @@ class WeightLogView(AcaoDeTela, OnboardingRequiredMixin, View):
         # digitar —, então antes e depois do envio ela vê a mesma coisa. Nas
         # outras ações do app o próprio elemento muda de estado e a mensagem
         # seria ruído; aqui não há elemento que mude.
-        messages.success(request, "Peso registrado.")
+        # COM O NÚMERO (UX UXA-06): a faixa da Home some depois de salvar —
+        # o convite de pesagem deixa de valer — e "Peso registrado." sem o
+        # valor deixava a pessoa sem ver o dígito que acabou de digitar.
+        messages.success(
+            request,
+            "Peso registrado: %s kg." % formats.number_format(
+                form.cleaned_data["weight_kg"], decimal_pos=2
+            ),
+        )
         return redirect(destino)
 
 
