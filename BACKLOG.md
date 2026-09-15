@@ -3,6 +3,21 @@
 O que ficou decidido mas não feito, e o que depende de gente. Cada item diz
 **por que** está aqui — item sem motivo vira lista que ninguém lê.
 
+## ✅ PLANO MESTRE UX × TREINO × DESIGN — ONDAS 0 E 1 PUBLICADAS (15/09/2026)
+
+Os três briefs de 13-14/09 (treino v2, UX/onboarding, design visual) estão
+em `docs/briefs/` e `docs/ux-audit/`; o plano que os cruza, com as três
+decisões do dono (Mesa & Ferro corrigida; Home com a refeição da vez aberta;
+onboarding em três telas), está em
+`docs/superpowers/plans/2026-09-14-plano-mestre.md`, seção "Estado de
+execução". Onda 0 (briefs, `scripts/qa/medir.js` + baseline, `nav.py`) e
+onda 1 (os 13 P1 confirmados da auditoria de UX mais os P2 que os
+acompanham — T1.1 a T1.18) estão publicadas, cada push provado em produção.
+Dois achados fora dos briefs entraram na onda: o treino SEM HORÁRIO nunca
+chegava ao cartão AGORA, e `overflow-x: hidden` no `body` impedia todo
+`sticky` de grudar. Próximo: onda 2 (TREINO HONESTO). As ondas 3-6 esperam
+a 2 e a 2b; a 3 (fundação de design) depende só da decisão já tomada.
+
 ## ✅ MISSÃO MESTRE DE IMPLEMENTAÇÃO — CONCLUÍDA E PUBLICADA (12/09/2026)
 
 Spec de 81 seções, mapeada seção a seção em

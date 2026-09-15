@@ -88,6 +88,67 @@ Global Constraints).
 
 ---
 
+## Estado de execução — 15/09/2026
+
+**Ondas 0 e 1 CONCLUÍDAS** (22 commits sobre `9430f78` contando este, 5 pushes; cada push
+provado em produção por sinal observável, `/saude/` e smoke). Suíte: 2873
+→ 2960+ testes. Registro das sabotagens em `scratchpad/sabotagem_onda1.txt`
+da sessão (T1.1–T1.18, cada uma vermelha e restaurada).
+
+- `3e497b7` Onda 0: os três briefs, o plano mestre e a régua visual entram no repositório
+- `377a444` Onboarding: a ficha nasce no Concluir, e zero dias desliga a rotina
+- `1cf3f15` Treino: um verbo, um destino — "Começar" abre a ficha, "Continuar" abre a execução
+- `b7ecedb` Home: o relógio da tela vira costura, e dois testes param de depender da hora
+- `a6b13a5` Execução: exercício concluído é um estado, não "Série None de 4"
+- `7231d08` Execução: "Concluir série" gruda acima da tabbar — e o sticky volta a funcionar no app inteiro
+- `93506f0` Treino: a tela pergunta ao exercício, e não ao campo — e dois comentários param de envelhecer
+- `f17aaa4` Lista de compras: a quantidade não repete o nome, e mora dentro do rótulo
+- `70a7ee1` Água: zerar não empurra o número para duas linhas, e nenhum par de alvos se toca
+- `99109c3` Lembretes e GPS: permissão negada é um estado que a tela mostra — e não apaga 0,1 ms depois
+- `d3777e9` Compartilhar: a imagem não diz "concluído" com 4 de 16 séries
+- `6698d4a` Progresso: a família do peso vira `.pesagem`, e as barras de treino e água voltam a 32 px
+- `576f71e` Lista: "entrou na lista" tem flash e pousa no item; toda âncora respeita a barra de cima
+- `c1e518e` Entrada: a vinheta cai de 55 % para 12 %, e o rodapé volta a ler a 4,5:1
+- `105b06a` Hoje: a segunda classe de opções tocáveis também congela o relógio
+- `0cd8fa8` Convite de instalação: só depois de entrar e da primeira ação — e tocar fora não dispensa
+- `c1ac4ac` Leitura do exercício: volta para onde a pessoa veio; a linha da ficha inteira é a porta
+- `56ed401` Execução: reps fora de 1..100 são recusadas; fechar e desfazer falam; desfazer de outro pede o segundo toque
+- `8a09c36` Execução e leitura: um player por página — "Músculos trabalhados" é texto, sem vídeo de terceiro
+- `f3283d0` Três avisos que faltavam: sessão vencida, alimento não reconhecido, peso com o número
+- `a17e7b2` Offline: o toque aparece na tela na hora — água, refeição e série
+
+**Desvios do plano, com o motivo:**
+
+- **T1.15** — o brief pedia "200 com o valor preservado"; a convenção de
+  `ConcluirSerieView` é PRG com mensagem (é o que a carga inválida já faz),
+  e o HTML ganhou `pattern` para o navegador barrar antes de enviar. Orçamento
+  do POST 16 → 17 com medição escrita (`series_de_hoje` em uma consulta).
+- **T1.18 / UXA-06** — a faixa fixa "Peso de hoje · Corrigir" na Home foi
+  RECUSADA: fere a decisão medida da dobra (740/776,
+  `ConvitePesagemNoPainelTests`: "estado ocupado sem ação pendente é espaço da
+  dobra gasto"). O eco mora na mensagem ("Peso registrado: 82,50 kg."), e
+  corrigir continua em Progresso. **PA-03** (histórico cresce a cada água)
+  fica em E: exige envio sem navegação, que é o caminho online de `fila.js`.
+- **T1.5** — `FOLGA_*` não foram removidos: são o registro de uma medição
+  citado por `_teto_em_segundos` e por um teste.
+- **T1.2** — achado fora do brief: treino SEM HORÁRIO (toda conta nova desde
+  10/09) nunca chegava ao cartão AGORA; ramo 2-D com cinco testes.
+- **T1.4** — achado fora do brief: `overflow-x: hidden` no `body` quebrava
+  TODO `position: sticky` (a `.app-bar` nunca grudou). Saiu, com teste.
+- **T1.12** — 15 % deixava `--text-mute` em 4,39:1 na borda; a vinheta ficou
+  em 12 % (4,66), com o teto de 15 % guardado como intenção.
+- **Relógio** — dois lotes foram rejeitados pelo `pre-push` por testes que
+  liam a hora da máquina (`plans/test_opcoes_tocaveis.py`, o meu
+  `test_verbos_do_treino`); nasceu a costura `plans.views.relogio` e os
+  testes congelam a hora.
+- **agent-browser** continua bloqueado pelo Controle de Aplicativo do
+  Windows; `scripts/qa/nav.py` (CDP) fez todo o QA, com `permissao` e
+  `offline` acrescentados nesta onda.
+
+**Próxima:** onda 2 (TREINO HONESTO), T2.1.
+
+---
+
 ## 0. Correções dos céticos — o que entrou e o que não
 
 **Aplicadas (cético 1):**
