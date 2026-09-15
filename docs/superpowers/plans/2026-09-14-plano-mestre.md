@@ -145,7 +145,22 @@ da sessão (T1.1–T1.18, cada uma vermelha e restaurada).
   Windows; `scripts/qa/nav.py` (CDP) fez todo o QA, com `permissao` e
   `offline` acrescentados nesta onda.
 
-**Próxima:** onda 2 (TREINO HONESTO), T2.1.
+**C-ONB EXECUTADA FORA DE ORDEM (15/09/2026)** — o dono pausou a onda 2
+antes de T2.1 começar (nada iniciado, nada a preservar) porque a produção
+ainda mostrava "Passo 1/6 · 16%". O plano de execução está em
+`2026-09-15-onboarding-tres-etapas.md`; T4.8 fica satisfeita por ele e não
+volta a existir na onda 4. Resumo: três rotas reais (1 Sobre você · 2 Seu
+objetivo e rotina · 3 Sua personalização), etapas 2 e 3 compostas dos cinco
+`ModelForm` antigos (`EtapaCompostaView`), divisão progressiva a partir de
+`MINIMO_DE_DIAS_PARA_DIVISAO`, "Criar meu plano" montando cardápio E ficha,
+`0032` remapeando quem estava no meio, `ONBOARDING_DONE = 7` intacto. A
+revisão adversarial achou um BUG real que nenhum teste media — a edição da
+divisão remontava a ficha lendo `user.profile` em cache, com a preferência
+velha — e ele foi coberto e corrigido antes do push. Sabotagens (7, todas
+vermelhas) em `scratchpad/sabotagem_onb.txt`.
+
+**Próxima:** onda 2 (TREINO HONESTO), T2.1 — retomada no ponto exato em que
+foi pausada.
 
 ---
 

@@ -192,6 +192,34 @@ verdade — "ainda não respondeu" — e não um buraco. É o mesmo raciocínio 
 existe ali só preserva o `onboarding_step` de quem já tinha terminado, porque o
 passo novo moveu `ONBOARDING_DONE` de 6 para 7.
 
+**O onboarding tem TRÊS etapas, e `ONBOARDING_DONE` continua 7.** Eram seis
+passos (`/conta/onboarding/1/` a `/6/`, "Passo 1/6 · 16%", CTA "Salvar"), e
+sete perguntas passavam antes de qualquer consequência. Desde 15/09/2026 são
+três rotas reais — Sobre você · Seu objetivo e rotina · Sua personalização —,
+e a tela só diz "Etapa N de 3". `ONBOARDING_LAST_STEP` é 3; o 7 de DONE
+ficou de propósito, porque é o valor gravado em toda conta concluída e mudá-lo
+custaria uma migration de dado para trocar um número por outro. A `0032` faz o
+único remapeamento que importa: quem estava no meio (2-6) cai na etapa que
+contém o passo antigo.
+
+As etapas 2 e 3 são formulários COMPOSTOS (`EtapaCompostaView`): os cinco
+`ModelForm` antigos continuam existindo com a validação e o `save()` de cada
+um — e é isso que faz três etapas sem reescrever regra nenhuma. Duas coisas
+custaram caro ali: **os formulários compostos compartilham UMA instância de
+`Profile`** (com instâncias separadas, o último `save()` sobrescrevia o
+objetivo gravado pelo primeiro — a etapa 3 mostrava "Emagrecer" sumido), e a
+ordem dos saves é objetivo → divisão → rotina, porque `TrainingForm.save()`
+relê o perfil. A divisão é PROGRESSIVA: aparece a partir de
+`MINIMO_DE_DIAS_PARA_DIVISAO` dias marcados (a régua é
+`preferencia_muda_a_divisao`, a mesma do antigo passo 4), e sem JavaScript o
+servidor reabre a tela com o bloco visível e o erro no campo.
+
+**"Criar meu plano" monta os DOIS planos e devolve JSON quando é XHR.** A
+tela de montagem envia o último POST por `fetch` e SEGUE o redirect — o que
+consumia a mensagem "Seu plano está pronto" antes de a Home ser aberta pelo
+navegador. Com `X-Requested-With` o servidor responde `{"destino": url}` e o
+JavaScript navega; sem JavaScript continua sendo o 302 de sempre.
+
 **Plano é retrato, não referência.** `NutritionPlan` e `TrainingPlan` guardam os
 números do dia em que foram criados. Mudou a entrada, nasce plano novo — os
 antigos ficam. Nunca edite os números de um plano ativo: `plan_is_current()`
