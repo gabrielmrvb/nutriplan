@@ -812,7 +812,16 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
         dia = self._dia_do_toque(request)
 
         if request.POST.get("acao") == "desfazer":
-            services.remove_last_set(request.user, exercise, op_id=op_id, day=dia)
+            numero, aplicou = services.remove_last_set(
+                request.user, exercise, op_id=op_id, day=dia
+            )
+            # A tela diz QUAL série de QUAL exercício saiu (UX TR-03): o
+            # desfazer segue a última série anotada, que pode ser de outro
+            # exercício, e "desfiz" sem sujeito era adivinhação.
+            if aplicou and numero:
+                messages.info(
+                    request, "Série %d de %s desfeita." % (numero, exercise.name)
+                )
             return self._de_volta_ao_foco(request, dia)
 
         bruto = (request.POST.get("weight_kg") or "").replace(",", ".").strip()
@@ -832,10 +841,19 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
         reps = None
         bruto_reps = (request.POST.get("reps") or "").strip()
         if bruto_reps:
+            # RECUSA, e não aparo: `max(1, min(int(x), 100))` gravava 100 para
+            # quem digitou 999 e 1 para quem digitou 0 — um número que a
+            # pessoa não fez (UX TR-08). O teto continua o mesmo; o que
+            # muda é que fora dele nada é gravado, e a tela diz por quê —
+            # o mesmo PRG da carga inválida, logo acima. Reps em branco
+            # continua aceito: quem anota só a carga não é barrado.
             try:
-                reps = max(1, min(int(bruto_reps), 100))
+                reps = int(bruto_reps)
             except (TypeError, ValueError):
                 reps = None
+            if reps is None or not 1 <= reps <= 100:
+                messages.error(request, "Repetições fora de 1 a 100 — a série não foi gravada.")
+                return self._de_volta_ao_foco(request, dia)
 
         try:
             services.append_set(
@@ -864,12 +882,33 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
             if services.supera_recorde(request.user, exercise, peso, dia=dia):
                 novas = conquistas.avaliar(request.user, hoje=dia)
                 conquistas.anunciar(request, novas)
+            # Fechou a última série: a tela seguinte já é outro exercício, e
+            # sem esta frase a pessoa não sabia que o anterior tinha fechado
+            # (UX TR-02). Só no fechamento — uma frase por série seria ruído.
+            fechadas, prescritas = services.series_de_hoje(
+                request.user, exercise, dia=dia
+            )
+            if prescritas and fechadas == prescritas:
+                messages.success(
+                    request,
+                    "%s concluído · %d/%d." % (exercise.name, fechadas, prescritas),
+                )
+            # A mesma contagem responde "ainda tem série pendente?" para o
+            # redirect — sem repetir as três consultas de `serie_pendente`.
+            # O orçamento do POST é medido (`test_recorde_na_hora`).
+            return self._de_volta_ao_foco(
+                request, dia, pendente=(exercise.pk, bool(prescritas) and fechadas < prescritas)
+            )
         # DEPOIS da escrita: a contagem de séries pendentes já inclui esta,
         # e é isso que faz fechar a última devolver sem parâmetro.
         return self._de_volta_ao_foco(request, dia)
 
-    def _de_volta_ao_foco(self, request, dia):
+    def _de_volta_ao_foco(self, request, dia, pendente=None):
         """Para o exercício EM FOCO, enquanto ele tiver série pendente.
+
+        `pendente` é `(exercise_id, bool)` quando quem chama JÁ contou as
+        séries daquele exercício — evita repetir as consultas de
+        `serie_pendente` no caminho que grava.
 
         `estado_do_treino` documenta que a pessoa escolhe por onde começar, e
         esta view descartava a escolha: os três ramos voltavam para
@@ -892,7 +931,13 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
             foco = int(bruto)
         except (TypeError, ValueError):
             return redirect("workouts:now")
-        if foco <= 0 or not services.serie_pendente(request.user, foco, dia=dia):
+        if foco <= 0:
+            return redirect("workouts:now")
+        if pendente is not None and pendente[0] == foco:
+            tem_pendente = pendente[1]
+        else:
+            tem_pendente = services.serie_pendente(request.user, foco, dia=dia)
+        if not tem_pendente:
             return redirect("workouts:now")
         return redirect("%s?exercicio=%d" % (reverse("workouts:now"), foco))
 

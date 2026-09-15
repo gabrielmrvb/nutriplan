@@ -358,8 +358,14 @@
         {% endcomment %}
         <label class="registro__campo registro__campo--reps">
           <span class="registro__rotulo">{% if atual.measure == 'seconds' %}Segundos{% else %}Reps{% endif %}</span>
+          {% comment %}
+            O navegador barra 0 e 999 ANTES de enviar (`pattern`): o servidor
+            recusa também, mas aqui a fila offline nunca chega a capturar um
+            item inválido. Em branco continua valendo — reps é opcional.
+          {% endcomment %}
           <input class="registro__reps num" type="text" name="reps"
                  maxlength="3" inputmode="numeric"
+                 pattern="([1-9][0-9]?|100)?" title="De 1 a 100 repetições"
                  value="{% if atual.sugestao_reps %}{{ atual.sugestao_reps }}{% endif %}"
                  placeholder="{{ atual.rep_range }}"
                  aria-label="{% if atual.measure == 'seconds' %}Segundos{% else %}Repetições{% endif %} da série {{ atual.serie_prevista }} de {{ atual.exercise.name }}">
@@ -418,10 +424,22 @@
           <input type="hidden" name="dia" value="{{ dia_da_sessao|date:'Y-m-d' }}">
           {# O foco é o exercício NA TELA, que no desfazer pode não ser o que recebeu a série. #}
           <input type="hidden" name="exercicio" value="{{ atual.exercise.pk }}">
-          <button type="submit" class="btn-link">
-            desfazer última série{% if estado.ultimo_log.exercise_id != atual.exercise_id %}
-              de {{ estado.ultimo_item.exercise.name|default:"outro exercício" }}{% endif %}
-          </button>
+          {% if estado.ultimo_log.exercise_id != atual.exercise_id %}
+            {% comment %}
+              DESFAZER SÉRIE DE OUTRO EXERCÍCIO PEDE UM SEGUNDO TOQUE (UX
+              MOB-12): o botão está na tela do supino e apaga uma série da
+              remada, que nem aparece. No próprio exercício continua sendo
+              um toque — ali a pessoa está vendo o que desfaz.
+            {% endcomment %}
+            <details class="acao-perigosa">
+              <summary class="btn-link">desfazer última série de {{ estado.ultimo_item.exercise.name|default:"outro exercício" }}</summary>
+              <button type="submit" class="btn-link acao-perigosa__confirma">
+                apagar a série {{ estado.ultimo_log.set_number }} de {{ estado.ultimo_item.exercise.name|default:"outro exercício" }}
+              </button>
+            </details>
+          {% else %}
+            <button type="submit" class="btn-link">desfazer última série</button>
+          {% endif %}
         </form>
       {% endif %}
       {# ---- Execução: é o que o botão promete, e é o que aparece ---- #}

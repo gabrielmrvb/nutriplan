@@ -19,7 +19,7 @@ import copy
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
-from django.db.models import Max
+from django.db.models import Count, Max, OuterRef, Subquery
 from django.utils import timezone
 
 from accounts.models import (
@@ -2390,6 +2390,38 @@ def historico_do_exercicio(user, exercise, datas=DATAS_DO_HISTORICO) -> list:
         sessao["carga"] = max(sessao["carga"], log.weight_kg) if log.weight_kg is not None else sessao["carga"]
         sessao["reps"].append(log.reps if log.reps is not None else "—")
     return list(por_data.values())
+
+
+def series_de_hoje(user, exercise, dia=None) -> tuple:
+    """(séries anotadas hoje, séries prescritas) deste exercício na sessão de hoje.
+
+    UMA consulta no caminho comum: a prescrição da sessão de hoje com a
+    contagem de hoje em subconsulta. Roda a cada série gravada — é o que
+    decide se a tela diz "concluído · 4/4" —, e o orçamento do POST é
+    medido em `test_recorde_na_hora`. Fora da sessão de hoje (série extra
+    num exercício que não é de hoje) devolve `(anotadas, 0)` com uma segunda
+    consulta: não há prescrição para fechar.
+    """
+    dia = dia or timezone.localdate()
+    contagem = (
+        ExerciseLog.objects.filter(user=user, exercise=OuterRef("exercise"), date=dia)
+        .order_by().values("exercise").annotate(n=Count("pk")).values("n")[:1]
+    )
+    item = (
+        SessionExercise.objects.filter(
+            session__plan__user=user,
+            session__plan__is_active=True,
+            session__weekday=dia.weekday(),
+            exercise=exercise,
+        )
+        .annotate(feitas=Subquery(contagem))
+        .values_list("sets", "feitas")
+        .first()
+    )
+    if item is None:
+        return ExerciseLog.objects.filter(user=user, exercise=exercise, date=dia).count(), 0
+    prescritas, feitas = item
+    return feitas or 0, prescritas
 
 
 def serie_pendente(user, exercise_id, dia=None) -> bool:

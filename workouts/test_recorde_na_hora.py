@@ -143,4 +143,9 @@ CONSULTAS_DA_EXECUCAO = 20
 #: Consultas do POST de uma série SEM recorde: as 15 de antes mais UMA
 #: (`supera_recorde`), medidas em 13/09/2026. Com recorde o catálogo roda e
 #: custa ~43 a mais — raro, e é o evento que a conquista existe para marcar.
-CONSULTAS_DO_POST_SEM_RECORDE = 16
+#: 17 em 15/09/2026: mais UMA, `series_de_hoje` (a prescrição da sessão de
+#: hoje com a contagem em subconsulta), que decide "concluído · 4/4" e
+#: responde ao redirect no lugar de `serie_pendente`. Custo constante —
+#: não cresce com o histórico —, medido com `CaptureQueriesContext`: 19 na
+#: primeira versão (três consultas), 17 com a subconsulta.
+CONSULTAS_DO_POST_SEM_RECORDE = 17
