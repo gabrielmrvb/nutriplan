@@ -18,7 +18,16 @@
   "use strict";
 
   var raiz = document.querySelector("[data-corrida]");
-  if (!raiz || !("geolocation" in navigator)) return;
+  if (!raiz) return;
+  if (!("geolocation" in navigator)) {
+    /* Sem geolocation o script saia MUDO, e a tela ficava com um "Comecar"
+     * que nao faz nada (UX E10). O botao diz por que nao da. */
+    var comecar = raiz.querySelector("[data-corrida-comecar]");
+    var recado = raiz.querySelector("[data-corrida-estado]");
+    if (comecar) comecar.disabled = true;
+    if (recado) recado.textContent = "Este navegador não tem localização. A corrida precisa do GPS do aparelho.";
+    return;
+  }
 
   /* Os mesmos limites de `workouts/corrida.py`. Duas copias do mesmo numero e
    * como uma delas fica para tras — e existe um teste que compara as duas
@@ -210,7 +219,7 @@
        * localizacao lia sobre distancia — e ficava sem saber que o problema
        * era a permissao, que e a unica coisa que ela pode resolver. */
       encerrar(true);
-      dizer("Sem permissão de localização. A corrida não pode ser registrada.");
+      dizer("Sem permissão de localização. Libere a localização para este site nas configurações do navegador e tente de novo.");
       return;
     }
     dizer("Sinal de GPS fraco. Continuo tentando.");

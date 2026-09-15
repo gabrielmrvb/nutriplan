@@ -9,6 +9,13 @@
 
   var button = document.querySelector("[data-push-toggle]");
   var status = document.querySelector("[data-push-status]");
+  /* O estado "a pessoa negou" é um VALOR, e não `null`. `enable()` devolvia
+   * `null` depois de escrever "Permissão negada…", e o `.then` do clique
+   * chamava `render(registration, null)` — que caía no ramo sem inscrição e
+   * sobrescrevia a frase 0,1 ms depois (UX P1-05, medido com
+   * MutationObserver). Botão e texto voltavam ao início; quem tinha
+   * bloqueado as notificações nunca lia o que fazer. */
+  var NEGADA = "negada";
   var supported =
     "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 
@@ -98,6 +105,12 @@
     if (subscription) {
       button.textContent = "Desativar lembretes";
       say("Você recebe um aviso 10 minutos antes de cada refeição.");
+    } else if (Notification.permission === "denied") {
+      /* Quem já negou lê isso ao abrir a tela, e não só depois de tocar. O
+       * botão fica: o navegador não pergunta de novo, mas a pessoa pode
+       * liberar nas configurações e voltar. */
+      button.textContent = "Ativar lembretes das refeições";
+      say("Permissão negada. Dá para liberar nas configurações do navegador.");
     } else {
       button.textContent = "Ativar lembretes das refeições";
       say("Um aviso 10 minutos antes de cada refeição, no celular.");
@@ -109,6 +122,7 @@
       action
         .then(function (next) {
           button.disabled = false;
+          if (next === NEGADA) return;
           render(registration, next);
         })
         .catch(function () {
@@ -122,7 +136,7 @@
     return Notification.requestPermission().then(function (permission) {
       if (permission !== "granted") {
         say("Permissão negada. Dá para liberar nas configurações do navegador.");
-        return null;
+        return NEGADA;
       }
       return registration.pushManager
         .subscribe({
