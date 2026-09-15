@@ -449,7 +449,14 @@ body {
     linear-gradient(180deg, var(--canvas-topo) 0%, var(--bg) 46%);
   background-attachment: fixed;
   margin: 0;
-  overflow-x: hidden;
+  /* SEM `overflow-x: hidden` AQUI, de propósito. O `html` já trava a rolagem
+     horizontal na raiz; repetir no `body` fazia dele o CONTÊINER DE ROLAGEM
+     de todo `position: sticky` da página — e o body é tão alto quanto o
+     conteúdo, então nada grudava. Medido em 14/09/2026: a `.app-bar`,
+     declarada `sticky; top: 0`, estava em y=-300 com `scrollY=300`; o bloco
+     de "Concluir série" não subia acima da tabbar. Um `overflow` diferente
+     de `visible` no `html` impede o do `body` de propagar para o viewport
+     (CSS Overflow §3.3), e é esse detalhe que quebrava tudo. */
   /* `background-color`, e nao o atalho `background`: o atalho vem depois e
      zeraria o `background-image` acima. Foi o que aconteceu na primeira
      tentativa -- o gradiente entrou e nao apareceu. */
@@ -6216,15 +6223,29 @@ body.montando { overflow: hidden; }
 
    Sem fundo, os controles ficam maiores sem crescer: o que some é a borda que
    os estreitava por dentro. */
+/* E O GRUPO GRUDA NO RODAPÉ, acima da tabbar.
+
+   Medido em 14/09/2026 (`medir_cta.sh`): "Concluir série" nascia em
+   y=589-637 em todas as larguras — a 320×568 a tabbar começa em 489 e a
+   375×667 em 588. O botão mais tocado da tela ficava fora da dobra ou
+   debaixo da navegação (UX P1-08). `sticky` no rodapé do viewport resolve
+   sem tirar nada da tela: enquanto o cartão está à vista, os três controles
+   ficam à mão; passado o cartão, soltam. O degrau é o flutuante — abaixo da
+   navegação, que nada cobre —, e o fundo é o da superfície do cartão, para
+   a anatomia e a carga anterior não aparecerem através dos campos quando
+   rolam por baixo. A caixa continua fora: sem borda, sem sombra. */
 .registro--agora {
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
     "menos carga mais"
     "reps  reps  reps"
     "cta   cta   cta";
+  position: sticky;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  z-index: var(--camada-flutuante);
   margin-top: 0;
-  padding: 0;
-  background: none;
+  padding: var(--espaco-2) 0 var(--espaco-2);
+  background: var(--surface);
   border: 0;
   box-shadow: none;
 }
