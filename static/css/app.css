@@ -327,7 +327,35 @@
   /* Curva de saída rápida: arranca e desacelera. É o que faz um toque parecer
      resposta, e não animação. */
   --ease: cubic-bezier(.2, .8, .3, 1);
-  --dur: .2s;
+  /* Curva de ENTRADA (o que sai de cena acelera): o par da `--ease`. */
+  --ease-sai: cubic-bezier(.4, 0, 1, 1);
+
+  /* A LINGUAGEM DE MOVIMENTO, em seis tempos e dois passos (15/09/2026).
+     Toda duração de `transition`/`animation` deste arquivo lê daqui —
+     `config/test_movimento.py` conta as escritas à mão e só deixa descer.
+
+       toque      resposta ao dedo: afundar, soltar
+       estado     cor, borda, sombra, seta girando
+       expansao   sanfona abrindo e fechando
+       tela       a página que chega e a que sai
+       modal      o que cobre a tela
+       sucesso    o único tempo longo: check, selo, número que conta
+
+     Deslocamento curto: 6 px é o passo de tudo que "entra" (cartão, aviso,
+     página); 12 px é o eco que sobe e some (+250 ml). `transform` e
+     `opacity` só — nada aqui pede layout. */
+  --mov-toque: .1s;
+  --mov-estado: .18s;
+  --mov-expansao: .25s;
+  --mov-tela: .2s;
+  --mov-modal: .28s;
+  --mov-sucesso: .5s;
+  --mov-passo: 6px;
+  --mov-passo-longo: 12px;
+  /* O degrau entre um item e o seguinte numa lista que entra escalonada. */
+  --mov-degrau: .035s;
+  /* `--dur` é o nome antigo do tempo de estado; fica como apelido. */
+  --dur: var(--mov-estado);
 
   --gap: var(--espaco-6);
   --pad: 1.25rem;
@@ -957,7 +985,7 @@ h3 {
 
 .ring {
   --pct: 0;
-  animation: varrer .9s var(--ease) both;
+  animation: varrer calc(var(--mov-sucesso) * 1.8) var(--ease) both;
   position: relative;
   display: grid;
   place-items: center;
@@ -1580,14 +1608,14 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 }
 
 .macro-bar__part {
-  transition: width .5s var(--ease);
-  animation: encher .7s var(--ease) both;
+  transition: width var(--mov-sucesso) var(--ease);
+  animation: encher calc(var(--mov-sucesso) * 1.4) var(--ease) both;
 }
 
 /* Cada faixa entra um pouco depois da anterior: a barra empilhada é uma soma,
    e ver as partes chegarem em ordem diz que são três coisas e não uma. */
-.macro-bar__part--carb { animation-delay: .08s; }
-.macro-bar__part--fat { animation-delay: .16s; }
+.macro-bar__part--carb { animation-delay: calc(var(--mov-degrau) * 2); }
+.macro-bar__part--fat { animation-delay: calc(var(--mov-degrau) * 4); }
 
 .macro-bar__part--protein { background: var(--brand); --cor: var(--brand); }
 .macro-bar__part--carb { background: var(--carb); --cor: var(--carb); }
@@ -1610,7 +1638,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   background-image: linear-gradient(var(--cor), var(--cor));
   background-repeat: no-repeat;
   background-size: var(--comido, 100%) 100%;
-  transition: width .5s var(--ease), background-size .5s var(--ease);
+  transition: width var(--mov-sucesso) var(--ease), background-size var(--mov-sucesso) var(--ease);
 }
 
 /* O corte entre os macros, porque apagados eles não se separam sozinhos.
@@ -1682,7 +1710,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   height: 100%;
   border-radius: var(--pill);
   background: var(--brand);
-  transition: width .5s var(--ease);
+  transition: width var(--mov-sucesso) var(--ease);
 }
 
 /* A barra enche do zero ao abrir a tela.
@@ -1698,7 +1726,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   from { width: 0; }
 }
 
-.progress__fill { animation: encher .7s var(--ease) both; }
+.progress__fill { animation: encher calc(var(--mov-sucesso) * 1.4) var(--ease) both; }
 .progress__fill--protein { background: var(--brand); }
 .progress__fill--carb { background: var(--carb); }
 .progress__fill--fat { background: var(--fat); }
@@ -1820,8 +1848,15 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   cursor: pointer;
 }
 .meal__futuro > .meal__abrir::-webkit-details-marker { display: none; }
-.meal__futuro > .meal__abrir::after { content: " ▾"; }
-.meal__futuro[open] > .meal__abrir::after { content: " ▴"; }
+/* A seta GIRA em vez de trocar de glifo: um `▾` que vira `▴` de uma vez é a
+   sanfona "saltando" em miniatura. `inline-block` porque `transform` não
+   pega em inline. */
+.meal__futuro > .meal__abrir::after {
+  content: " ▾";
+  display: inline-block;
+  transition: transform var(--mov-estado) var(--ease);
+}
+.meal__futuro[open] > .meal__abrir::after { transform: rotate(180deg); }
 .meal__futuro[open] > .meal__abrir { margin-bottom: var(--espaco-3); }
 
 /* A OPÇÃO E O BOTÃO QUE A REGISTRA SÃO UM PAR, e a proximidade é o que diz
@@ -1957,7 +1992,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   cursor: pointer;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
               color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
-              transform .12s var(--ease);
+              transform var(--mov-toque) var(--ease);
 }
 
 /* ACHADO A1 — o ícone dentro do botão precisa de tamanho, e não tinha.
@@ -2057,6 +2092,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .ficha-item__link:active,
 .meal__abrir:active,
 .modulo:active,
+.sessao-cartao:active,
 .tabbar__item:active{ transform: scale(.96); }
 
 /* Botão já tocado, esperando o servidor: sem isto a pessoa toca de novo. */
@@ -2111,10 +2147,11 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .mapa__area,
 .meal__abrir,
 .modulo,
+.sessao-cartao,
 .tabbar__item{
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
               color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
-              transform .12s var(--ease);
+              transform var(--mov-toque) var(--ease);
 }
 
 /* Quem pediu menos movimento recebe as cores e o foco, e nada que se mexa.
@@ -2157,6 +2194,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .conquista__continuar:active,
 .conquista-item__share:active,
 .ficha-item__link:active,
+.sessao-cartao:active,
 .mapa__area:active,
 .meal__abrir:active,
 .modulo:active,
@@ -2568,7 +2606,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   background: var(--surface-2);
   color: inherit;
   text-decoration: none;
-  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+  /* A transição é a da lista de toque (seção 8), que inclui `transform`;
+     uma própria aqui a sobrescrevia e o cartão afundava sem transição. */
 }
 
 .sessao-cartao:hover { border-color: var(--border-strong); }
@@ -3089,7 +3128,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   font-weight: 700;
   cursor: pointer;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
-              color var(--dur) var(--ease), transform .12s var(--ease);
+              color var(--dur) var(--ease), transform var(--mov-toque) var(--ease);
 }
 
 .registro__passo[data-passo="-2.5"] { grid-area: menos; }
@@ -3271,14 +3310,14 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
  * `transform` e `opacity`, e nada mais: são as duas propriedades que o
  * compositor anima sozinho, sem refazer layout nem repintar. */
 @keyframes modal-entra {
-  from { transform: translateY(6px) scale(.985); opacity: 0; }
+  from { transform: translateY(var(--mov-passo)) scale(.985); opacity: 0; }
 }
 
-.modal[open] { animation: modal-entra .15s var(--ease); }
+.modal[open] { animation: modal-entra var(--mov-modal) var(--ease); }
 
 .modal::backdrop {
   background: var(--veu);
-  animation: drawer-fade .15s ease-out;
+  animation: drawer-fade var(--mov-modal) var(--ease);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3321,7 +3360,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   height: 100%;
   border-radius: var(--pill);
   background: var(--brand);
-  transition: width .3s var(--ease);
+  transition: width var(--mov-expansao) var(--ease);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3609,7 +3648,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   border-radius: 50%;
   background: var(--surface-2);
   color: var(--text-dim);
-  transition: transform .22s var(--ease), background var(--dur) var(--ease), color var(--dur) var(--ease);
+  transition: transform var(--mov-expansao) var(--ease), background var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 
 .ficha__seta svg { width: 1.1rem; height: 1.1rem; }
@@ -3716,7 +3755,7 @@ html { scrollbar-gutter: stable; }
 .esqueleto {
   border-radius: var(--radius-sm);
   background: var(--surface-2);
-  animation: pulso 1.6s var(--ease) infinite;
+  animation: pulso calc(var(--mov-sucesso) * 3.2) var(--ease) infinite;
 }
 
 /* Enquanto as equivalências chegam.
@@ -3729,8 +3768,8 @@ html { scrollbar-gutter: stable; }
    piscando, e em cascata lê como carregamento. */
 .esqueleto--linha { height: 2.75rem; }
 .esqueleto--linha + .esqueleto--linha { margin-top: var(--espaco-2); }
-.esqueleto--linha:nth-child(2) { animation-delay: .15s; }
-.esqueleto--linha:nth-child(3) { animation-delay: .3s; }
+.esqueleto--linha:nth-child(2) { animation-delay: calc(var(--mov-degrau) * 4); }
+.esqueleto--linha:nth-child(3) { animation-delay: calc(var(--mov-degrau) * 8); }
 
 @media (prefers-reduced-motion: reduce) {
   .esqueleto { animation: none; opacity: .75; }
@@ -3801,7 +3840,7 @@ html { scrollbar-gutter: stable; }
      cartão fica com texto pendurado fora da moldura. */
   overflow: hidden;
   cursor: pointer;
-  transition: background var(--dur) var(--ease), transform .12s var(--ease);
+  transition: background var(--dur) var(--ease), transform var(--mov-toque) var(--ease);
 }
 
 .choice-card:hover { background: var(--surface-3); }
@@ -4036,7 +4075,7 @@ html { scrollbar-gutter: stable; }
      bloco do arquivo com propriedade repetida, e sobreviveu porque o
      resultado visual já estava certo — defeito invisível é o que fica. */
   box-shadow: var(--edge), var(--shadow-deep);
-  animation: install-sobe .32s ease-out;
+  animation: install-sobe var(--mov-modal) var(--ease);
 }
 
 /* Com a navegação inferior na tela, a faixa sobe para não tapar os atalhos.
@@ -4379,7 +4418,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease),
-              transform .12s var(--ease);
+              transform var(--mov-toque) var(--ease);
 }
 
 .agua__botao span { color: var(--text-mute); font-size: var(--texto-xs); font-weight: 550; }
@@ -4431,15 +4470,15 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 
    Onde a API nao existe, nada disto e' lido e a navegacao continua como
    sempre foi: uma pagina substitui a outra. */
-::view-transition-old(root) { animation: aba-sai .16s var(--ease) both; }
-::view-transition-new(root) { animation: aba-entra .22s var(--ease) both; }
+::view-transition-old(root) { animation: aba-sai calc(var(--mov-tela) * .8) var(--ease-sai) both; }
+::view-transition-new(root) { animation: aba-entra var(--mov-tela) var(--ease) both; }
 
 @keyframes aba-sai {
   to { opacity: 0; }
 }
 
 @keyframes aba-entra {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(var(--mov-passo)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4615,14 +4654,15 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .fora__abrir::-webkit-details-marker { display: none; }
 .fora[open] .fora__abrir { color: var(--text); }
 
-/* A mesma transição da sanfona do exercício, e pela mesma razão:
-   `grid-template-rows` de 0fr a 1fr é o único jeito de animar altura
-   desconhecida sem medir em JavaScript. */
+/* `grid-template-rows` de 0fr a 1fr foi o jeito de animar a abertura sem
+   medir em JavaScript — e só a abertura: `<details>` fechado esconde os
+   filhos na hora, e o fechamento nunca animou. Desde 15/09/2026 quem anima
+   abrir E fechar é o animador de sanfonas de `pwa.js`, que mede; a grade
+   fica sem transição, senão a medida seria tirada no meio dela. */
 @supports (grid-template-rows: 0fr) {
   .fora__corpo {
     display: grid;
     grid-template-rows: 0fr;
-    transition: grid-template-rows .3s var(--ease);
   }
 
   .fora[open] .fora__corpo { grid-template-rows: 1fr; }
@@ -5038,7 +5078,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 }
 
 [type="submit"][aria-busy="true"] {
-  animation: aguardando 1.1s var(--ease) infinite;
+  animation: aguardando calc(var(--mov-sucesso) * 2.2) var(--ease) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -5141,7 +5181,7 @@ body::before {
   place-items: center;
   padding: var(--pad);
   background: var(--bg);
-  animation: montagem-entra .2s var(--ease);
+  animation: montagem-entra var(--mov-tela) var(--ease);
 }
 
 @keyframes montagem-entra {
@@ -5170,7 +5210,7 @@ body.montando { overflow: hidden; }
   border: 3px solid color-mix(in srgb, var(--brand) 22%, transparent);
   border-top-color: var(--brand);
   border-radius: 50%;
-  animation: montagem-gira .8s linear infinite;
+  animation: montagem-gira calc(var(--mov-sucesso) * 1.6) linear infinite;
 }
 
 @keyframes montagem-gira {
@@ -6433,7 +6473,7 @@ body.montando { overflow: hidden; }
 .descanso__pular,
 .ficha-item__fazer,
 .ficha-item__ver {
-  transition: transform .12s var(--ease);
+  transition: transform var(--mov-toque) var(--ease);
 }
 .agora__concluir:active,
 .agora__lista:active,
@@ -6707,7 +6747,7 @@ body.montando { overflow: hidden; }
 .agora__cta,
 .resumo-dia__treino,
 .explicacao__head {
-  transition: transform .12s var(--ease);
+  transition: transform var(--mov-toque) var(--ease);
 }
 .agora__cta:active,
 .resumo-dia__treino:active,
@@ -7673,4 +7713,167 @@ body.montando { overflow: hidden; }
      movimento. Caixa maior numa lista tocada andando é ganho, não ruído. */
   min-height: 2.75rem;
   min-width: 2.75rem;
+}
+
+/* ==========================================================================
+   47. Movimento — a linguagem única (15/09/2026)
+
+   Os tempos são os tokens `--mov-*` da seção 1. Aqui mora o que responde
+   ao toque, o que entra em cena e o que muda de estado — sempre por
+   `transform` e `opacity`, e tudo com saída em `prefers-reduced-motion`
+   (a regra geral da seção 1 zera durações; os atrasos são zerados aqui,
+   porque `animation-delay` não é duração e um cartão com `both` ficaria
+   invisível durante o atraso).
+   ========================================================================== */
+
+/* ---- Entrada em cena: 6 px para cima, e escalonada quando é lista. ---- */
+@keyframes entra {
+  from { opacity: 0; transform: translateY(var(--mov-passo)); }
+}
+
+/* `pwa.js` escreve `--i` em cada filho de `[data-escalonado]`; sem
+   JavaScript `--i` é 0 e a lista inteira entra junta. O teto do índice é 8
+   (= 280 ms de atraso máximo), e não "um degrau por linha até o fim". */
+[data-escalonado] > * {
+  animation: entra var(--mov-tela) var(--ease) both;
+  animation-delay: calc(var(--i, 0) * var(--mov-degrau));
+}
+
+/* O descanso e a área promovida chegam do mesmo jeito que a página. */
+.descanso,
+.aguardando-rede:not([hidden]) { animation: entra var(--mov-tela) var(--ease) both; }
+
+/* ---- Toque: UMA escala, a da seção 8 (.96), e uma lista só. ----
+   O cartão de sessão do painel era o único tocável sem afundamento; ele
+   entrou nas três listas daquela seção (transição, `:active`, saída de
+   movimento reduzido), e `config/tests.py` confere que as três são a mesma
+   lista. Nada aqui declara uma segunda escala. */
+
+/* ---- Processamento: o botão já tocado mostra que está trabalhando. ----
+   `pwa.js` desliga o botão e marca `aria-busy` no envio; a opacidade de
+   `:disabled` já existia (seção 8). O anel diz "esperando o servidor" sem
+   afirmar sucesso, e sai sozinho quando a página seguinte chega. */
+.btn[aria-busy="true"],
+.agua__botao[aria-busy="true"] { position: relative; }
+.btn[aria-busy="true"]::after,
+.agua__botao[aria-busy="true"]::after {
+  content: "";
+  /* Fora do fluxo: o botão de água é `grid` de duas linhas, e um `::after`
+     no fluxo virava a terceira — os três botões engordavam juntos no toque. */
+  position: absolute;
+  right: var(--espaco-3);
+  top: 50%;
+  width: .85em;
+  height: .85em;
+  transform: translateY(-50%);
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: montagem-gira calc(var(--mov-sucesso) * 1.6) linear infinite;
+}
+
+/* ---- Navegação: o indicador da aba MORFA entre as abas. ----
+   Nome de view transition na aba ativa (a classe é escrita pelo servidor):
+   na troca de tela o navegador anima o pill da posição velha para a nova,
+   em vez de apagar um e acender outro. A barra e a barra de cima ficam
+   fora do fade da página. Nome é ÚNICO por documento — há uma aba ativa
+   por vez, e `config/test_movimento.py` conta. */
+.app-bar { view-transition-name: barra-topo; }
+.tabbar { view-transition-name: barra-abas; }
+.tabbar__item.is-active { view-transition-name: aba-ativa; }
+
+/* ---- Onboarding: a trilha morfa (um terço → dois terços → inteira) e a
+   tela entra da direita ao avançar, da esquerda ao voltar. ---- */
+.wizard__avanco { view-transition-name: trilha-do-cadastro; }
+/* `block-size: auto` do UA esticaria a imagem velha enquanto o grupo
+   alarga (⅓ → ⅔): a trilha ficaria com o dobro da altura por um instante. */
+::view-transition-old(trilha-do-cadastro),
+::view-transition-new(trilha-do-cadastro) { height: 100%; }
+:root[data-transicao="avanca"]::view-transition-new(root) { animation-name: tela-avanca; }
+:root[data-transicao="volta"]::view-transition-new(root) { animation-name: tela-volta; }
+@keyframes tela-avanca {
+  from { opacity: 0; transform: translateX(var(--mov-passo-longo)); }
+}
+@keyframes tela-volta {
+  from { opacity: 0; transform: translateX(calc(-1 * var(--mov-passo-longo))); }
+}
+
+/* ---- Alimentação: os fatos do dia trocam no lugar; a refeição
+   recém-marcada é a única que celebra. O cartão AGORA NÃO leva nome: ele
+   muda de slot ao ser marcado, e um nome faria o cartão A morfar no B. ---- */
+.today-hero__facts { view-transition-name: fatos-do-dia; }
+@keyframes recem {
+  from { opacity: 0; transform: scale(.92); }
+  60% { transform: scale(1.02); }
+}
+.meal.is-recem .meal__result-name { animation: recem var(--mov-sucesso) var(--ease) both; }
+
+/* ---- Hidratação: o eco do toque sobe 12 px e some. ---- */
+.agua__botoes > form { position: relative; }
+.agua__eco {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, 0);
+  pointer-events: none;
+  font-weight: 700;
+  font-size: var(--texto-sm);
+  color: var(--brand);
+  animation: eco-sobe var(--mov-sucesso) var(--ease) both;
+}
+@keyframes eco-sobe {
+  from { opacity: 1; transform: translate(-50%, 0); }
+  to { opacity: 0; transform: translate(-50%, calc(-1 * var(--mov-passo-longo))); }
+}
+
+/* ---- Treino: o número da série troca no lugar; o vídeo abre e fecha em
+   fade; o selo do fim chega com o tempo de sucesso. ---- */
+.series__titulo > b.num { display: inline-block; view-transition-name: numero-da-serie; }
+.agora__nome { view-transition-name: nome-do-exercicio; }
+@keyframes entra-suave {
+  from { opacity: 0; transform: scale(.985); }
+}
+.demo--aberta > iframe,
+.demo--aberta > video,
+.demo--aberta > img,
+.demo__abrir { animation: entra-suave var(--mov-expansao) var(--ease) both; }
+@keyframes selo-chega {
+  from { opacity: 0; transform: scale(.6); }
+  70% { transform: scale(1.06); }
+}
+.fim__selo { animation: selo-chega var(--mov-sucesso) var(--ease) both; }
+.fim__selo > svg { animation: entra-suave var(--mov-sucesso) var(--ease) both; animation-delay: calc(var(--mov-sucesso) * .4); }
+
+/* ---- Progresso: as barras crescem da esquerda, escalonadas. ---- */
+@keyframes barra-cresce {
+  from { transform: scaleX(0); }
+}
+.history-row__fill,
+.semana__preenche {
+  transform-origin: left center;
+  animation: barra-cresce var(--mov-sucesso) var(--ease) both;
+  animation-delay: calc(var(--i, 0) * var(--mov-degrau));
+}
+/* A barra herda o índice da linha (`--i` está na linha, não na barra). */
+.history-row__fill { animation-delay: calc(var(--i, 0) * var(--mov-degrau) + var(--mov-tela)); }
+
+/* ---- Menos movimento: nada entra atrasado, nada morfa, nada afunda. ---- */
+@media (prefers-reduced-motion: reduce) {
+  [data-escalonado] > *,
+  .history-row__fill,
+  .semana__preenche,
+  .fim__selo > svg { animation: none; animation-delay: 0s; opacity: 1; transform: none; }
+  .descanso,
+  .aguardando-rede:not([hidden]),
+  .meal.is-recem .meal__result-name,
+  .demo--aberta > iframe,
+  .demo--aberta > video,
+  .demo--aberta > img,
+  .demo__abrir,
+  .fim__selo,
+  .agua__eco { animation: none; }
+  .btn[aria-busy="true"]::after,
+  .agua__botao[aria-busy="true"]::after { animation: none; }
+  .app-bar, .tabbar, .tabbar__item.is-active, .wizard__avanco,
+  .today-hero__facts, .series__titulo > b.num, .agora__nome { view-transition-name: none; }
 }

@@ -55,7 +55,7 @@
                role="img"
                aria-label="{{ bebido }} de {{ meta_ml }} mililitros, {{ pct }}% da meta">
             <span class="ring__inner">
-              <strong class="ring__value num">{{ bebido }}</strong>
+              <strong class="ring__value num" data-agua-total>{{ bebido }}</strong>
               <span class="ring__unit">ml de {{ meta_ml }}</span>
             </span>
           </div>
@@ -77,7 +77,7 @@
               {% csrf_token %}
               <input type="hidden" name="ml" value="{{ passo }}">
               <input type="hidden" name="de" value="hidratacao">
-              <button type="submit" class="agua__botao">+{{ passo }}</button>
+              <button type="submit" class="agua__botao" data-agua-eco="+{{ passo }} ml">+{{ passo }}</button>
             </form>
           {% endfor %}
         </div>

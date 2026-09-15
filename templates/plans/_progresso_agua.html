@@ -19,7 +19,7 @@ esqueceu de anotar não bebeu zero; o app só não sabe.
   <div class="card__head"><h2>Água</h2></div>
 
   {% if tem_agua %}
-    <ul class="semanas" aria-label="Dias com água registrada por semana">
+    <ul class="semanas" data-escalonado aria-label="Dias com água registrada por semana">
       {% for semana in agua_semanas reversed %}
         <li class="semana">
           <span class="semana__rotulo">{{ semana.inicio|date:"d/m" }}</span>

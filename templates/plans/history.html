@@ -61,17 +61,17 @@
         <section class="card">
           <div class="tiles">
             <div class="tile">
-              <strong class="tile__value">{{ totals.adherence_pct }}%</strong>
+              <strong class="tile__value" data-conta>{{ totals.adherence_pct }}%</strong>
               <span class="tile__label">Aderência</span>
               <span class="tile__meta">refeições do plano</span>
             </div>
             <div class="tile">
-              <strong class="tile__value">{{ totals.avg_kcal }}</strong>
+              <strong class="tile__value" data-conta>{{ totals.avg_kcal }}</strong>
               <span class="tile__label">kcal/dia</span>
               <span class="tile__meta">meta: {{ plan.target_kcal }}</span>
             </div>
             <div class="tile">
-              <strong class="tile__value">{{ totals.days }}</strong>
+              <strong class="tile__value" data-conta>{{ totals.days }}</strong>
               <span class="tile__label">dias</span>
               <span class="tile__meta">com registro</span>
             </div>
@@ -85,6 +85,8 @@
 
         <section class="card">
           <div class="card__head"><h2>Dia a dia</h2></div>
+          {# `data-escalonado`: as linhas entram uma atrás da outra (pwa.js numera, o CSS atrasa). #}
+          <div class="history-rows" data-escalonado>
           {% for row in rows %}
             <div class="history-row">
               <span class="history-row__date">
@@ -108,6 +110,7 @@
               </span>
             </div>
           {% endfor %}
+          </div>
           <p class="hint">
             A barra compara o dia com a meta que valia NAQUELE dia — se você
             recalibrou no meio, cada dia é medido pela régua da época. A coluna

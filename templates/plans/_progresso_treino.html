@@ -14,7 +14,7 @@ razão entre as duas fingiria medir compromisso.
   <div class="card__head"><h2>Treino</h2></div>
 
   {% if tem_treino %}
-    <ul class="semanas" aria-label="Dias com treino registrado por semana">
+    <ul class="semanas" data-escalonado aria-label="Dias com treino registrado por semana">
       {% for semana in semanas_de_treino reversed %}
         <li class="semana">
           <span class="semana__rotulo">{{ semana.inicio|date:"d/m" }}</span>

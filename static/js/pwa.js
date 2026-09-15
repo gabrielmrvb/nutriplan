@@ -793,3 +793,285 @@
     }, 0);
   });
 })();
+
+/* ==========================================================================
+   MOVIMENTO — sanfonas, ecos e contagens (15/09/2026)
+
+   Fora do bloco do service worker de propósito: nada aqui depende dele, e
+   um navegador sem SW continua tendo sanfona que abre com suavidade.
+
+   Os tempos vêm dos tokens `--mov-*` do CSS (uma fonte só), e TUDO consulta
+   `prefers-reduced-motion` antes de mexer: quem pediu menos movimento recebe
+   o comportamento nativo, sem nenhuma animação em JavaScript.
+   ========================================================================== */
+(function () {
+  "use strict";
+  var raiz = document.documentElement;
+
+  function reduzido() {
+    return !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
+  /* Lê um token de tempo do `:root`, em milissegundos. */
+  function tempo(nome, padrao) {
+    var valor = getComputedStyle(raiz).getPropertyValue(nome).trim();
+    var numero = parseFloat(valor);
+    if (!numero) return padrao;
+    return valor.indexOf("ms") > -1 ? numero : numero * 1000;
+  }
+  function token(nome, padrao) {
+    var valor = getComputedStyle(raiz).getPropertyValue(nome).trim();
+    return valor || padrao;
+  }
+  var CURVA = token("--ease", "cubic-bezier(.2, .8, .3, 1)");
+  var PASSO = token("--mov-passo", "6px");
+
+  /* SANFONAS — `<details>` abre e fecha com a altura acompanhando.
+   *
+   * O navegador troca `open` de uma vez: a refeição saltava de 44 para
+   * 422 px sem quadro intermediário (baseline de 15/09/2026). Aqui o toque
+   * no `summary` é interceptado, a altura de partida e de chegada são
+   * MEDIDAS, e o `<details>` anima entre as duas com `overflow: clip`
+   * enquanto o conteúdo entra (ou sai) em fade. Ao terminar, os estilos
+   * em linha saem e o elemento volta a ser um `<details>` comum — o CSS de
+   * `[open]` continua mandando, o `toggle` continua disparando, o foco
+   * continua no `summary`, e nada rola.
+   *
+   * Fica de fora: quem pedir `data-sem-animacao`, e todo toque que caiu
+   * num controle dentro do `summary`. Sem `Element.animate` (ou com movimento reduzido), o clique
+   * segue nativo. */
+  document.addEventListener("click", function (evento) {
+    var summary = evento.target.closest && evento.target.closest("summary");
+    if (!summary) return;
+    var details = summary.parentElement;
+    if (!details || details.tagName !== "DETAILS") return;
+    if (details.hasAttribute("data-sem-animacao")) return;
+    if (evento.target.closest("a, button, input, select, textarea, label")) return;
+    if (!details.animate || reduzido()) return;
+    evento.preventDefault();
+    if (details.dataset.animando) return;
+    /* O toque nativo já foca o `summary`; o interceptado também deve. */
+    if (document.activeElement !== summary && summary.focus) summary.focus({ preventScroll: true });
+    if (details.open) fecharSanfona(details, summary);
+    else abrirSanfona(details, summary);
+  });
+
+  function conteudoDe(details, summary) {
+    return Array.prototype.filter.call(details.children, function (filho) { return filho !== summary; });
+  }
+
+  function abrirSanfona(details, summary) {
+    var de = details.offsetHeight;
+    details.dataset.animando = "1";
+    details.style.overflow = "clip";
+    details.open = true;
+    var ate = details.offsetHeight;
+    details.style.height = de + "px";
+    var ms = tempo("--mov-expansao", 250);
+    var anim = details.animate([{ height: de + "px" }, { height: ate + "px" }], { duration: ms, easing: CURVA });
+    conteudoDe(details, summary).forEach(function (filho) {
+      filho.animate([{ opacity: 0, transform: "translateY(calc(-1 * " + PASSO + "))" }, { opacity: 1, transform: "none" }],
+                    { duration: ms, easing: CURVA, delay: ms * .2, fill: "backwards" });
+    });
+    anim.onfinish = anim.oncancel = function () { limpar(details); };
+  }
+
+  function fecharSanfona(details, summary) {
+    var de = details.offsetHeight;
+    /* A altura fechada é MEDIDA fechando e reabrindo antes de qualquer
+       pintura — assim o CSS de `[open]` (a margem do `summary`, por
+       exemplo) entra na conta, e o fim da animação não dá um salto. */
+    var rolagem = window.scrollY;
+    details.open = false;
+    var ate = details.offsetHeight;
+    details.open = true;
+    /* O documento encurtou por um instante e a rolagem pode ter sido
+       fixada no layout fechado; com a página alta de novo, ela volta. */
+    if (window.scrollY !== rolagem) window.scrollTo(window.scrollX, rolagem);
+    details.dataset.animando = "1";
+    details.style.overflow = "clip";
+    details.style.height = de + "px";
+    var ms = tempo("--mov-expansao", 250);
+    conteudoDe(details, summary).forEach(function (filho) {
+      filho.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms * .6, easing: CURVA, fill: "forwards" });
+    });
+    var anim = details.animate([{ height: de + "px" }, { height: ate + "px" }], { duration: ms, easing: CURVA });
+    anim.onfinish = anim.oncancel = function () {
+      details.open = false;
+      /* Os fades ficaram em `forwards`; cancelados, o conteúdo volta ao
+         normal para a próxima abertura. */
+      conteudoDe(details, summary).forEach(function (filho) {
+        filho.getAnimations().forEach(function (a) { a.cancel(); });
+      });
+      limpar(details);
+    };
+  }
+
+  function limpar(details) {
+    details.style.height = "";
+    details.style.overflow = "";
+    delete details.dataset.animando;
+  }
+
+  /* MEMÓRIA DE UM TOQUE, entre uma página e a seguinte.
+   *
+   * O app é multi-página: registrar água, marcar refeição e concluir série
+   * são POST → redirect → GET. O que a tela seguinte precisa saber para
+   * animar — de onde o número saiu, qual cartão acabou de mudar, se a pessoa
+   * avançou ou voltou — é gravado aqui, no `sessionStorage`, no instante do
+   * envio, e lido UMA vez ao carregar. Nada disto afirma sucesso: o
+   * servidor respondeu, a página nova É a confirmação, e a animação só
+   * mostra a diferença entre o que estava e o que está. */
+  function guardar(chave, valor) { try { sessionStorage.setItem(chave, valor); } catch (e) {} }
+  function retirar(chave) {
+    try { var v = sessionStorage.getItem(chave); if (v !== null) sessionStorage.removeItem(chave); return v; }
+    catch (e) { return null; }
+  }
+
+  document.addEventListener("submit", function (evento) {
+    var form = evento.target;
+    if (!form || !form.getAttribute) return;
+    if (form.dataset.celebra) guardar("nutriplan:celebra", form.dataset.celebra);
+    if (form.dataset.direcao) guardar("nutriplan:direcao", form.dataset.direcao);
+    var acao = new URL(form.getAttribute("action") || location.href, location.origin).pathname;
+    if (/^\/agua\/$/.test(acao)) {
+      var total = document.querySelector("[data-agua-total]");
+      var barra = document.querySelector("[data-agua-barra]");
+      if (total) guardar("nutriplan:agua-antes", total.textContent.trim());
+      if (barra) guardar("nutriplan:agua-barra-antes", barra.style.width || "");
+    }
+  });
+  document.addEventListener("click", function (evento) {
+    var alvo = evento.target.closest && evento.target.closest("a[data-direcao]");
+    if (alvo) guardar("nutriplan:direcao", alvo.dataset.direcao);
+  });
+  /* Sem rede o envio ficou na fila e a página não muda: a memória do toque
+     não pode esperar pelo próximo carregamento, horas depois. */
+  document.addEventListener("nutriplan:enfileirado", function () {
+    retirar("nutriplan:celebra");
+    retirar("nutriplan:agua-antes");
+    retirar("nutriplan:agua-barra-antes");
+  });
+
+  /* ÁGUA — o eco do toque: "+250 ml" sobe do botão e some.
+   *
+   * Nasce no toque e não espera o servidor: é o eco do DEDO, não a
+   * confirmação do registro (essa é o número da página seguinte, que conta
+   * do valor antigo ao novo). Um por toque; o elemento se apaga ao
+   * terminar. Sem rede o formulário não navega e o eco fica sendo o único
+   * retorno imediato — o aviso "guardado, aguardando rede" vem logo atrás. */
+  document.addEventListener("click", function (evento) {
+    var botao = evento.target.closest && evento.target.closest("[data-agua-eco]");
+    if (!botao || reduzido()) return;
+    var eco = document.createElement("span");
+    eco.className = "agua__eco";
+    eco.setAttribute("aria-hidden", "true");
+    eco.textContent = botao.dataset.aguaEco;
+    (botao.parentNode || botao).appendChild(eco);
+    var fim = function () { if (eco.parentNode) eco.parentNode.removeChild(eco); };
+    eco.addEventListener("animationend", fim);
+    setTimeout(fim, tempo("--mov-sucesso", 500) * 2);
+  });
+
+  /* Conta de `de` até `ate` em `ms`, com a curva de saída, e escreve com
+     `formatar`. `requestAnimationFrame`, e o valor final é escrito SEMPRE —
+     o número certo não depende de o relógio ter chegado. */
+  function contar(elemento, de, ate, ms, formatar) {
+    if (reduzido() || !window.requestAnimationFrame || de === ate) {
+      elemento.textContent = formatar(ate);
+      return;
+    }
+    var inicio = null;
+    function quadro(agora) {
+      if (inicio === null) inicio = agora;
+      var t = Math.min(1, (agora - inicio) / ms);
+      var suave = 1 - Math.pow(1 - t, 3);
+      elemento.textContent = formatar(de + (ate - de) * suave);
+      if (t < 1) requestAnimationFrame(quadro);
+      else elemento.textContent = formatar(ate);
+    }
+    requestAnimationFrame(quadro);
+  }
+
+  /* Lê "2.055", "82,4", "68%" e devolve {valor, formatar} que reescreve no
+     mesmo formato pt-BR — milhar com ponto, decimal com vírgula, sufixo
+     preservado. Qualquer texto que não seja só um número devolve null. */
+  function numeroDe(texto) {
+    var m = /^\s*(-?[\d.]+)(,(\d+))?\s*(%?)\s*$/.exec(texto);
+    if (!m) return null;
+    var inteiro = m[1].replace(/\./g, "");
+    if (!/^-?\d+$/.test(inteiro)) return null;
+    var decimais = m[3] ? m[3].length : 0;
+    var milhar = /\d\.\d{3}/.test(m[1]);
+    var valor = parseFloat(inteiro + (m[3] ? "." + m[3] : ""));
+    var sufixo = m[4] || "";
+    return {
+      valor: valor,
+      formatar: function (n) {
+        var fixo = Math.abs(n).toFixed(decimais);
+        var partes = fixo.split(".");
+        var i = partes[0];
+        if (milhar) i = i.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        return (n < 0 ? "-" : "") + i + (partes[1] ? "," + partes[1] : "") + sufixo;
+      }
+    };
+  }
+
+  /* AO CARREGAR: o que a página anterior deixou, e o que esta anuncia. */
+  function aoCarregar() {
+    /* A direção gravada por "Voltar"/"Continuar" só vale para a etapa
+       seguinte do cadastro, que a lê antes da primeira pintura (script em
+       linha de `step.html`). Qualquer outra página que a encontre — a edição
+       pelo Perfil termina no Perfil — a descarta, senão a próxima visita ao
+       cadastro entraria pelo lado errado. */
+    if (!raiz.hasAttribute("data-transicao")) retirar("nutriplan:direcao");
+
+    /* O cartão que acabou de mudar (refeição marcada) ganha `is-recem`;
+       o CSS anima só ele. */
+    var celebra = retirar("nutriplan:celebra");
+    if (celebra) {
+      var cartao = document.getElementById(celebra);
+      if (cartao) cartao.classList.add("is-recem");
+    }
+
+    /* A água conta do valor de antes ao de agora, e a barra preenche a
+       partir de onde estava — desfazer e zerar contam para baixo. */
+    var total = document.querySelector("[data-agua-total]");
+    var antes = retirar("nutriplan:agua-antes");
+    var barraAntes = retirar("nutriplan:agua-barra-antes");
+    if (total && antes !== null) {
+      var de = numeroDe(antes), ate = numeroDe(total.textContent.trim());
+      if (de && ate && de.valor !== ate.valor) {
+        contar(total, de.valor, ate.valor, tempo("--mov-sucesso", 500), ate.formatar);
+        var barra = document.querySelector("[data-agua-barra]");
+        if (barra && barraAntes && !reduzido() && barra.animate) {
+          /* A barra já tem `encher` (0 → largura) no CSS; as duas juntas
+             fariam a barra recuar no fim. Só a que parte do valor anterior. */
+          barra.style.animation = "none";
+          barra.animate([{ width: barraAntes }, { width: barra.style.width || "0%" }],
+                        { duration: tempo("--mov-sucesso", 500), easing: CURVA });
+        }
+      }
+    }
+
+    /* Números que contam até o valor (Progresso). Começam em 60 % do valor,
+       não em zero: o número já é legível no primeiro quadro, e o movimento
+       diz "chegou" em vez de fazer a pessoa esperar para ler. */
+    Array.prototype.forEach.call(document.querySelectorAll("[data-conta]"), function (el) {
+      var n = numeroDe(el.textContent);
+      if (!n || !n.valor) return;
+      contar(el, n.valor * .6, n.valor, tempo("--mov-sucesso", 500), n.formatar);
+    });
+
+    /* Listas escalonadas: cada filho recebe o índice, e o CSS o transforma
+       em atraso. O teto de 8 é para a nona linha não chegar meio segundo
+       depois — dali em diante tudo entra junto com a oitava. */
+    Array.prototype.forEach.call(document.querySelectorAll("[data-escalonado]"), function (lista) {
+      Array.prototype.forEach.call(lista.children, function (filho, i) {
+        filho.style.setProperty("--i", Math.min(i, 8));
+      });
+    });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", aoCarregar);
+  else aoCarregar();
+})();

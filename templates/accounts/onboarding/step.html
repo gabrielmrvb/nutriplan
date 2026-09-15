@@ -4,6 +4,21 @@
 {% block container_class %}auth{% endblock %}
 
 {% block content %}
+  <script>
+    /* A DIREÇÃO DA TROCA DE TELA, lida antes da primeira pintura. "Voltar" e
+       "Continuar" gravam para onde a pessoa foi (pwa.js); aqui a etapa que
+       chega lê e escreve no `<html>`, e a view transition entra da direita
+       ao avançar e da esquerda ao voltar. Sem view transition, nada muda. */
+    (function () {
+      try {
+        var d = sessionStorage.getItem("nutriplan:direcao");
+        if (d) {
+          document.documentElement.setAttribute("data-transicao", d);
+          sessionStorage.removeItem("nutriplan:direcao");
+        }
+      } catch (e) {}
+    })();
+  </script>
   <div class="wizard">
     {% comment %}
       Uma trilha contínua, e não segmentos: a largura anima, e o avanço vira
@@ -28,7 +43,7 @@
     <h1>{{ step_title }}</h1>
     <p class="lead">{{ step_subtitle }}</p>
 
-    <form method="post" novalidate>
+    <form method="post" novalidate data-direcao="avanca">
       {% csrf_token %}
       {% if form.non_field_errors %}
         <ul class="field__errors">
@@ -134,7 +149,7 @@
         {% if voltar_para %}
           <a class="btn btn--ghost" href="{{ voltar_para }}">Voltar</a>
         {% elif previous_url %}
-          <a class="btn btn--ghost" href="{{ previous_url }}">Voltar</a>
+          <a class="btn btn--ghost" href="{{ previous_url }}" data-direcao="volta">Voltar</a>
         {% endif %}
         <button type="submit" class="btn btn--primary">{% if is_editing %}Salvar{% elif is_last_step %}Criar meu plano{% else %}Continuar{% endif %}</button>
       </div>

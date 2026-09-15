@@ -34,7 +34,7 @@
     pessoa não corre quando o app apenas não sabe.
   {% endcomment %}
   <h2 class="sobretitulo secao-rotulo">Suas áreas</h2>
-  <nav class="modulos" aria-label="Áreas do NutriPlan">
+  <nav class="modulos" data-escalonado aria-label="Áreas do NutriPlan">
     {% for area in areas %}
       <a class="modulo{% if area.na_secao %} is-active{% endif %}{% if area.principal %} modulo--principal{% endif %}"
          {% if area.aqui %}aria-current="page"{% endif %}

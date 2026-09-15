@@ -26,7 +26,7 @@
               </svg>
             </span>
             <span class="agua__valor num">
-              <b>{{ hidratacao_bebida }}</b> / {{ hidratacao_ml }} ml
+              <b data-agua-total>{{ hidratacao_bebida }}</b> / {{ hidratacao_ml }} ml
             </span>
             {% if agua_completa %}
               {% comment %}
@@ -93,7 +93,7 @@
           <div class="progress {% if agua_completa %}progress--completo{% endif %}"
                role="img"
                aria-label="{{ hidratacao_pct }}% da meta de água">
-            <span class="progress__fill progress__fill--agua"
+            <span class="progress__fill progress__fill--agua" data-agua-barra
                   style="width: {{ hidratacao_pct }}%"></span>
           </div>
 
@@ -101,17 +101,17 @@
             <form method="post" action="{% url 'plans:log_hydration' %}">
               {% csrf_token %}
               <input type="hidden" name="ml" value="250">
-              <button type="submit" class="agua__botao">+250 <span>copo</span></button>
+              <button type="submit" class="agua__botao" data-agua-eco="+250 ml">+250 <span>copo</span></button>
             </form>
             <form method="post" action="{% url 'plans:log_hydration' %}">
               {% csrf_token %}
               <input type="hidden" name="ml" value="500">
-              <button type="submit" class="agua__botao">+500 <span>garrafinha</span></button>
+              <button type="submit" class="agua__botao" data-agua-eco="+500 ml">+500 <span>garrafinha</span></button>
             </form>
             <form method="post" action="{% url 'plans:log_hydration' %}">
               {% csrf_token %}
               <input type="hidden" name="ml" value="750">
-              <button type="submit" class="agua__botao">+750 <span>garrafa</span></button>
+              <button type="submit" class="agua__botao" data-agua-eco="+750 ml">+750 <span>garrafa</span></button>
             </form>
           </div>
 

@@ -528,7 +528,7 @@ class WizardProgressBarTests(TestCase):
             encoding="utf-8"
         )
         regra = css.split(chr(10) + ".wizard__avanco {", 1)[1].split("}", 1)[0]
-        self.assertIn("transition: width .3s var(--ease)", regra)
+        self.assertIn("transition: width var(--mov-expansao) var(--ease)", regra)
 
 
 class ProfileActionsTests(TestCase):

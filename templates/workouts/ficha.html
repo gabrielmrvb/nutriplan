@@ -124,7 +124,7 @@
         `exercicios_complementares` vazio, e a tela volta a ser uma lista só.
       {% endcomment %}
       {% with principais=sessao.exercicios_principais complementares=sessao.exercicios_complementares %}
-        <ol class="ficha-lista">
+        <ol class="ficha-lista" data-escalonado>
           {% for item in principais %}
             {% include "workouts/_item_da_ficha.html" with item=item ordem=forloop.counter hoje=sessao.eh_hoje %}
           {% endfor %}
@@ -144,7 +144,7 @@
               certo para quem lê com leitor de tela, e o número visível vem do
               mesmo cálculo.
             {% endcomment %}
-            <ol class="ficha-lista" start="{{ principais|length|add:1 }}">
+            <ol class="ficha-lista" data-escalonado start="{{ principais|length|add:1 }}">
               {% for item in complementares %}
                 {% include "workouts/_item_da_ficha.html" with item=item ordem=principais|length|add:forloop.counter hoje=sessao.eh_hoje %}
               {% endfor %}

@@ -627,7 +627,7 @@ coluna da direita), não entre ela e o almoço.
                     rótulo falado nomeia a receita e o horário; o escrito fica
                     curto, que é o que cabe em dois botões lado a lado a 320px.
                   {% endcomment %}
-                  <form method="post" action="{% url 'plans:mark_meal' slot.pk %}"
+                  <form method="post" action="{% url 'plans:mark_meal' slot.pk %}" data-celebra="slot-{{ slot.pk }}"
                         class="option-par__acao">
                     {% csrf_token %}
                     <input type="hidden" name="status" value="done">
@@ -655,7 +655,7 @@ coluna da direita), não entre ela e o almoço.
                 {% endfor %}
               </div>
 
-              <form method="post" action="{% url 'plans:mark_meal' slot.pk %}"
+              <form method="post" action="{% url 'plans:mark_meal' slot.pk %}" data-celebra="slot-{{ slot.pk }}"
                     class="meal__actions">
                 {% csrf_token %}
                 <button type="submit" name="status" value="skipped" class="btn btn--quiet">
@@ -686,7 +686,7 @@ coluna da direita), não entre ela e o almoço.
               <details class="fora" id="refeicao-{{ slot.pk }}">
                 <summary class="fora__abrir">Comi outra coisa</summary>
 
-                <form method="post" action="{% url 'plans:mark_meal' slot.pk %}"
+                <form method="post" action="{% url 'plans:mark_meal' slot.pk %}" data-celebra="slot-{{ slot.pk }}"
                       class="fora__corpo">
                   {% comment %}
                     Um envoltório pelo mesmo motivo da ficha de treino: `0fr`

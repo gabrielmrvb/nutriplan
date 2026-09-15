@@ -591,7 +591,7 @@ class MotionTests(TestCase):
 
     def test_the_macro_bars_grow_instead_of_jumping(self):
         bloco = self.css.split("\n.progress__fill {", 1)[1].split("}", 1)[0]
-        self.assertIn("transition: width .5s", bloco)
+        self.assertIn("transition: width var(--mov-sucesso)", bloco)
 
         # A barra empilhada do topo tem a mesma regra — agora num bloco, porque
         # ela ganhou também a animação de encher do zero.
@@ -602,7 +602,7 @@ class MotionTests(TestCase):
             t.split("}", 1)[0]
             for t in self.css.split(chr(10) + ".macro-bar__part {")[1:]
         ]
-        self.assertTrue(any("transition: width .5s" in b for b in blocos))
+        self.assertTrue(any("transition: width var(--mov-sucesso)" in b for b in blocos))
 
     def test_the_bars_fill_from_zero_when_the_screen_opens(self):
         """A transição sozinha só anima MUDANÇAS depois da primeira pintura.
@@ -1515,7 +1515,7 @@ class TouchFeedbackTests(TestCase):
         # Nenhum alarme, porque a comparação parava aqui.
         transita = set()
         for regra in re.finditer(
-            r"([^{}]+)\{[^}]*transform \.12s var\(--ease\)[^}]*\}",
+            r"([^{}]+)\{[^}]*transform var\(--mov-toque\) var\(--ease\)[^}]*\}",
             _sem_comentarios(self.css),
         ):
             for seletor in regra.group(1).split(","):
