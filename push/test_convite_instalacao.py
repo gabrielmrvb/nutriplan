@@ -93,7 +93,13 @@ class AsTelasCriticasSeDeclaramTests(TestCase):
     def test_as_telas_COMUNS_continuam_podendo_convidar(self):
         """Controle positivo, e ele é o que impede a correção de virar
         "nunca convide": se todas as telas fossem críticas, o convite estaria
-        desligado e este arquivo passaria dizendo que a política funciona."""
+        desligado e este arquivo passaria dizendo que a política funciona.
+
+        DEPOIS da primeira ação de valor (D5, 14/09/2026): antes dela, a
+        sessão não tem `primeira_acao` e o convite espera — ver a classe
+        abaixo. Aqui a ação é um gole de água, pelo POST de verdade.
+        """
+        self.client.post(reverse("plans:log_hydration"), {"ml": "250", "op_id": "convite-1"})
         for nome in ("plans:today", "workouts:routine", "plans:history"):
             with self.subTest(tela=nome):
                 self.assertFalse(
@@ -173,3 +179,73 @@ class AFormaDaPoliticaNoClienteTests(TestCase):
         futuro esconderia o convite para sempre. Errar mostrando é melhor que
         errar sumindo."""
         self.assertIn("ate <= teto", self.js)
+
+
+class OConviteEsperaAPessoaEntrarEAgirTests(TestCase):
+    """O convite aparecia no cadastro, no login, na recuperação de senha, no
+    meio do onboarding e no 404 de quem nem entrou (UX P1-13, medido a 320).
+
+    Pedir para instalar um app que ainda não mostrou o que faz é o pedido
+    que ninguém aceita — e o "×" naquele momento dispensava PARA SEMPRE. O
+    convite espera a primeira ação de valor (D5): `AcaoDeTela` escreve
+    `primeira_acao` na sessão no primeiro POST de ação, e `base.html` lê a
+    sessão — zero consulta a mais em qualquer tela.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+        # O painel de Treino monta a ficha na primeira visita, e sem o
+        # catálogo de exercícios `create_routine` levanta `NoTrainingDays`.
+        call_command("seed_workouts", verbosity=0)
+
+    def marcador(self, url):
+        return "data-sem-convite" in self.client.get(url).content.decode()
+
+    def test_quem_nao_entrou_nao_recebe_convite(self):
+        for nome in ("accounts:login", "accounts:signup", "accounts:password_reset"):
+            with self.subTest(tela=nome):
+                self.assertTrue(self.marcador(reverse(nome)))
+
+    def test_o_404_de_quem_nao_entrou_nao_recebe_convite(self):
+        resposta = self.client.get("/nao-existe/")
+        self.assertEqual(resposta.status_code, 404)
+        self.assertIn("data-sem-convite", resposta.content.decode())
+
+    def test_o_onboarding_nao_recebe_convite(self):
+        user = User.objects.create_user(email="wizard@exemplo.com", password="x8Kd2Lm9Qp4z")
+        self.client.force_login(user)
+        self.assertTrue(self.marcador(reverse("accounts:onboarding_step", kwargs={"step": 1})))
+
+    def test_antes_da_primeira_acao_a_home_espera_e_depois_convida(self):
+        self.client.force_login(pessoa("acao@exemplo.com"))
+        self.assertTrue(self.marcador(reverse("plans:today")), "sem ação, sem convite")
+
+        self.client.post(reverse("plans:log_hydration"), {"ml": "250", "op_id": "convite-2"})
+
+        self.assertFalse(self.marcador(reverse("plans:today")), "depois do gole, o convite pode aparecer")
+        self.assertFalse(self.marcador(reverse("workouts:routine")))
+
+    def test_o_onboarding_nao_conta_como_acao(self):
+        """O POST do passo 1 não é ação de valor: é cadastro. Quem termina o
+        wizard chega à Home ainda sem convite, e é isso que o achado pedia."""
+        user = User.objects.create_user(email="passo@exemplo.com", password="x8Kd2Lm9Qp4z")
+        self.client.force_login(user)
+        self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 1}),
+            {"sex": "M", "birth_date": "1995-04-12", "height_cm": 178, "weight_kg": "82.4"},
+        )
+        self.assertFalse(self.client.session.get("primeira_acao"))
+
+
+class TocarForaSoEscondeTests(TestCase):
+    """Estrutural, como as outras asserções sobre `pwa.js`: tocar fora do
+    cartão chama `esconder()` (nesta visita), nunca `dispensar()` (para
+    sempre). Quem tocou num botão da tela com o cartão aberto respondeu à
+    tela, não ao convite."""
+
+    def test_o_toque_fora_esconde_e_nao_dispensa(self):
+        js = PWA_JS.read_text(encoding="utf-8")
+        trecho = js.split('if (!alvo.closest("[data-install]"))', 1)[1].split(";", 1)[0]
+        self.assertIn("esconder()", trecho)
+        self.assertNotIn("dispensar()", trecho)

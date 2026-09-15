@@ -332,10 +332,13 @@
         return;
       }
 
-      // Toque fora do cartão também dispensa. Sem cortina escura por cima da
-      // tela: a cortina seria exatamente o bloqueio que este convite não pode
-      // causar. O clique continua chegando ao que estiver embaixo.
-      if (!alvo.closest("[data-install]")) dispensar();
+      // Toque fora do cartão ESCONDE, nesta visita — e não dispensa para
+      // sempre: quem tocou num botão da tela com o cartão aberto não
+      // respondeu ao convite, respondeu à tela (UX P1-13, D5). Sem cortina
+      // escura por cima: a cortina seria exatamente o bloqueio que este
+      // convite não pode causar. O clique continua chegando ao que estiver
+      // embaixo. Dispensa definitiva só no "×"; adiar só no "Agora não".
+      if (!alvo.closest("[data-install]")) esconder();
     });
 
     document.addEventListener("keydown", function (evento) {

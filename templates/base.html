@@ -95,7 +95,16 @@
         JavaScript quebraria no demo, que serve as mesmas telas sob outro
         prefixo — e quebraria em silêncio, que é pior.
       {% endcomment %}
-      {% if sem_convite %}data-sem-convite="1"{% endif %}
+      {% comment %}
+        E NÃO SÓ A TELA CRÍTICA. O convite aparecia no cadastro, no login, na
+        recuperação de senha, no meio do onboarding e no 404 de quem nem
+        entrou (UX P1-13): instalar o app antes de ele ter mostrado o que faz
+        é o pedido que ninguém aceita. Ele espera a PRIMEIRA AÇÃO DE VALOR —
+        uma refeição marcada, uma série, um gole (D5): `AcaoDeTela` escreve
+        `primeira_acao` na sessão quando um POST de ação acontece, e a
+        sessão é o que o app já carrega em toda requisição — zero consulta.
+      {% endcomment %}
+      {% if sem_convite or sem_tabbar or not user.is_authenticated or not request.session.primeira_acao %}data-sem-convite="1"{% endif %}
       {% comment %}
         Quem é a pessoa desta sessão, para a fila offline saber de quem é cada
         operação pendente. A fila vive no IndexedDB, que é do NAVEGADOR e não

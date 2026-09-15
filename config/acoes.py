@@ -40,3 +40,18 @@ class AcaoDeTela:
 
     def get(self, request, *args, **kwargs):
         return redirect(self.tela_da_acao)
+
+    def dispatch(self, request, *args, **kwargs):
+        resposta = super().dispatch(request, *args, **kwargs)
+        # A PRIMEIRA AÇÃO DE VALOR fica na sessão: é o que libera o convite de
+        # instalação (`base.html`, `data-sem-convite`). Toda view que herda
+        # daqui é um POST de ação — refeição, água, série, peso, item da
+        # lista —, e é isso que "a pessoa já usou o app" significa. Escrito
+        # uma vez: sessão só é salva quando muda.
+        if (
+            request.method == "POST"
+            and request.user.is_authenticated
+            and not request.session.get("primeira_acao")
+        ):
+            request.session["primeira_acao"] = True
+        return resposta
