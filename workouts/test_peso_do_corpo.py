@@ -13,8 +13,11 @@ num supino, campo esquecido continua sendo erro, senão gravaria 0 kg em
 silêncio. Em segundos o rótulo e o `aria-label` dizem "Segundos" e a faixa
 deixa de concatenar "reps".
 """
+from pathlib import Path
+
+from django.conf import settings
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -102,3 +105,30 @@ class PesoDoCorpoTests(TestCase):
         self.assertIn(">Reps<", html)
         faixa = html.split('class="series__faixa num"', 1)[1].split("</span>", 1)[0]
         self.assertIn("reps", faixa)
+
+
+class ATelaPerguntaAoExercicioENaoAoCampoTests(SimpleTestCase):
+    """`bodyweight` não aparece na view nem nos templates da execução.
+
+    "Tem anilha?" é `Exercise.sem_carga` — uma propriedade do exercício, o
+    mesmo motivo pelo qual o motor a lê em vez de `equipment`
+    (`test_o_motor_nao_le_equipamento`). Nove leituras do campo cru
+    sobreviveram em `views.py`, `agora.html` e `exercicio.html` (TREINO
+    ONDA-0, 14/09/2026): cada uma é um lugar a corrigir quando a resposta
+    mudar, e a propriedade existe para haver UM.
+
+    Controle positivo: sabotar `sem_carga` para `False` derruba
+    `test_flexao_sem_carga_grava_zero` — a tela lê a propriedade de verdade.
+    """
+
+    def test_nenhuma_tela_da_execucao_le_o_campo_cru(self):
+        base = Path(settings.BASE_DIR)
+        arquivos = [base / "workouts" / "views.py"] + sorted(
+            (base / "templates" / "workouts").glob("*.html")
+        )
+        com_leitura = [
+            a.relative_to(base).as_posix()
+            for a in arquivos
+            if "bodyweight" in a.read_text(encoding="utf-8")
+        ]
+        self.assertEqual(com_leitura, [])

@@ -63,12 +63,14 @@ class NoTrainingDays(Exception):
 # clássico por sinergia: peito e costas são antagonistas e não dividem o dia,
 # empurrar fica junto de empurrar, puxar junto de puxar.
 #
-# O preço dessa escolha está medido, e é alto: quatro dias viram A-B-C-A e o
-# peito sai com 28 séries na semana, contra as 10 a 20 que a própria tela de
-# volume usa como régua. Sete dias chegam a 42. O que existe hoje contra isso
-# é a nota da ficha, que passou a dizer quais dias repetem — ver
-# `nota_da_divisao`. Baixar as séries da sessão repetida resolveria de vez, e
-# é prescrição de treino: não entra aqui sem decisão de produto.
+# O preço dessa escolha foi medido quando a tabela nasceu: quatro dias viravam
+# A-B-C-A e o peito saía com 28 séries na semana. Hoje isso NÃO acontece —
+# `prescrever_semana` monta a dose cheia e `aparar_volume_semanal` remove
+# isoladores até nenhum grupo passar de `TETO_SEMANAL_POR_GRUPO` séries
+# efetivas (12/20/24 pela experiência), com as três travas do CLAUDE.md.
+# Esta tabela é só o caminho de quem tem plano anterior à pergunta de
+# preferência existir: `split_for` lê `SPLIT_BY_PREFERENCE` quando há
+# preferência, e é lá que ABC2, ABCD e ABCDE moram.
 SPLIT_BY_FREQUENCY = {
     1: Split.FULL,
     2: Split.AB,

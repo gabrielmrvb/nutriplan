@@ -226,7 +226,7 @@
               <span class="series__n num">{{ linha.number }}</span>
               {% if linha.weight != None %}
                 <span class="series__carga num">
-                  {% if atual.measure == 'seconds' %}{{ linha.reps|default:"—" }}s{% elif atual.exercise.equipment == 'bodyweight' %}×{{ linha.reps|default:"—" }}{% else %}{{ linha.weight|floatformat:'-2' }}{% if linha.reps %}×{{ linha.reps }}{% endif %}{% endif %}
+                  {% if atual.measure == 'seconds' %}{{ linha.reps|default:"—" }}s{% elif atual.exercise.sem_carga %}×{{ linha.reps|default:"—" }}{% else %}{{ linha.weight|floatformat:'-2' }}{% if linha.reps %}×{{ linha.reps }}{% endif %}{% endif %}
                 </span>
                 {% if linha.recorde %}
                   {# A palavra, e não só a cor: a série que SUPEROU a maior carga já registrada. #}
@@ -234,7 +234,7 @@
                 {% endif %}
               {% elif linha.antes_peso != None %}
                 <span class="series__antes num">
-                  <span class="vis-oculto">última vez: </span>{% if atual.measure == 'seconds' %}{{ linha.antes_reps|default:"—" }}s{% elif atual.exercise.equipment == 'bodyweight' %}×{{ linha.antes_reps|default:"—" }}{% else %}{{ linha.antes_peso|floatformat:'-2' }}{% if linha.antes_reps %}×{{ linha.antes_reps }}{% endif %}{% endif %}
+                  <span class="vis-oculto">última vez: </span>{% if atual.measure == 'seconds' %}{{ linha.antes_reps|default:"—" }}s{% elif atual.exercise.sem_carga %}×{{ linha.antes_reps|default:"—" }}{% else %}{{ linha.antes_peso|floatformat:'-2' }}{% if linha.antes_reps %}×{{ linha.antes_reps }}{% endif %}{% endif %}
                 </span>
               {% else %}
                 <span class="series__carga num">—</span>
@@ -344,9 +344,9 @@
             esquecido continua sendo erro.
           {% endcomment %}
           <input class="registro__carga num" type="text" name="weight_kg"
-                 maxlength="6" inputmode="decimal"{% if atual.exercise.equipment != 'bodyweight' %} required{% endif %}
-                 value="{% if atual.sugestao_carga != None and atual.exercise.equipment != 'bodyweight' %}{{ atual.sugestao_carga|floatformat:'-2' }}{% endif %}"
-                 placeholder="{% if atual.exercise.equipment == 'bodyweight' %}peso do corpo{% else %}kg{% endif %}"
+                 maxlength="6" inputmode="decimal"{% if not atual.exercise.sem_carga %} required{% endif %}
+                 value="{% if atual.sugestao_carga != None and not atual.exercise.sem_carga %}{{ atual.sugestao_carga|floatformat:'-2' }}{% endif %}"
+                 placeholder="{% if atual.exercise.sem_carga %}peso do corpo{% else %}kg{% endif %}"
                  aria-label="Carga da série {{ atual.serie_prevista }} de {{ atual.exercise.name }}">
         </label>
 
@@ -365,7 +365,7 @@
                  aria-label="{% if atual.measure == 'seconds' %}Segundos{% else %}Repetições{% endif %} da série {{ atual.serie_prevista }} de {{ atual.exercise.name }}">
         </label>
 
-        {% if atual.exercise.equipment != 'bodyweight' %}
+        {% if not atual.exercise.sem_carga %}
         <button type="button" class="registro__passo" data-passo="-2.5"
                 aria-label="Diminuir 2,5 kg">
           <span aria-hidden="true">&minus;2,5</span>
@@ -445,16 +445,21 @@
         DUAS AFIRMAÇÕES SEPARADAS, e a separação é a correção:
 
           - "Última carga" é FATO. Sai de `ExerciseLog`, com a data.
-          - "Sugestão: manter" é o que o sistema realmente recomenda. A regra
-            do app é `_sugestao_de_carga`, e ela repete a última carga
-            conhecida — NUNCA aumenta. O campo já abre preenchido com esse
-            valor, e a frase só torna visível o que ele faz.
+          - "Sugestão: subir/manter" é o que o sistema realmente recomenda —
+            a DUPLA PROGRESSÃO de `proxima_carga` (b14efff, 13/09/2026): a
+            carga sobe um degrau quando TODAS as séries prescritas da última
+            data fecharam a faixa, e mantém quando não; a razão vem escrita.
+            Sem histórico completo, `_sugestao_de_carga` repete a última
+            carga conhecida. O campo abre preenchido com o mesmo número da
+            frase, e a frase só torna visível o que ele faz. (Uma versão
+            anterior deste comentário dizia "NUNCA aumenta": era verdade até
+            a progressão existir, e ficou aqui envelhecendo por um dia.)
 
         O "▲ +5 kg" que o cartão antigo mostrava NÃO era recomendação: era a
         diferença entre o mais pesado de hoje e o da última vez — descrição do
         que a pessoa JÁ tinha levantado. Renderizado ao lado de um campo vazio,
-        ele lia como conselho, e o app não tem regra que autorize subir peso.
-        Aqui ele só aparece depois de existir carga de HOJE, e com o rótulo
+        ele lia como conselho. Aqui ele só aparece depois de existir carga de
+        HOJE, e com o rótulo
         dizendo que é comparação.
 
         NADA DISTO APARECE SEM HISTÓRICO. Sem `melhor_anterior` não há
@@ -465,7 +470,7 @@
         e abdominal não recebem anilha; sugerir "manter 0 kg" ali seria
         recomendar um número que não existe naquele movimento.
       {% endcomment %}
-      {% if atual.load.melhor_anterior and atual.exercise.equipment != 'bodyweight' %}
+      {% if atual.load.melhor_anterior and not atual.exercise.sem_carga %}
         <p class="agora__anterior">
           <span class="agora__anterior-fato">
             Última carga ({{ atual.load.data_anterior|date:"d/m" }}):
