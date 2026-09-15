@@ -894,6 +894,41 @@ no cartão de entrada, com `@supports` de contraste e a razão escrita (desfocar
 cor chapada custa quadros para produzir a mesma cor chapada); 89% das sombras
 usando token.
 
+**O movimento tem UMA linguagem, e ela mora nos tokens `--mov-*` (15/09/2026).**
+Toque `.1s`, estado `.18s`, expansão `.25s`, tela `.2s`, modal `.28s`,
+sucesso `.5s`, passo 6 px, passo longo 12 px, degrau de lista 35 ms — e
+`config/test_movimento.py` conta as durações escritas à mão em
+`transition`/`animation` (o teto é ZERO; `.01ms` da saída de movimento
+reduzido é a única exceção). Antes dos tokens o app tinha `.12s`, `.15s`,
+`.16s`, `.22s`, `.32s`, `.5s`, `.7s` e `.9s` espalhados: uma segunda
+linguagem nasce de um valor solto. Quatro decisões medidas:
+
+- **`<details>` anima por JavaScript, abrindo E fechando** (`pwa.js`,
+  "MOVIMENTO"): o navegador troca `open` de uma vez, e a refeição saltava de
+  44 para 422 px. O animador mede as duas alturas, anima com `overflow:
+  clip` e limpa os estilos ao terminar; `grid-template-rows: 0fr → 1fr` só
+  animava a abertura e saiu da `.fora__corpo` porque a medida era tirada no
+  meio da transição. Quem pedir `data-sem-animacao` fica nativo, e com
+  `prefers-reduced-motion` TUDO fica nativo — o JS consulta `matchMedia`.
+- **`view-transition-name` é ÚNICO por documento, e o teste lê os nomes do
+  CSS.** Duplicado, o navegador PULA a transição inteira sem erro. O cartão
+  AGORA da Home **não** leva nome de propósito: ele muda de slot ao ser
+  marcado, e um nome faria o cartão A morfar no B. O número da série leva
+  `display: inline-block`, porque elemento sem caixa derruba a transição
+  da execução inteira.
+- **Uma escala de toque, `.96`, e uma lista só** (seção 8 do CSS, três
+  listas que `config/tests.py` confere serem a mesma). O brief pedia
+  .97–.99; uma segunda escala no mesmo gesto é o que aquele teste existe
+  para impedir. `.sessao-cartao` entrou na lista — e perdeu a `transition`
+  própria, que sobrescrevia a da lista e afundava sem transição.
+- **A memória de um toque entre páginas é `sessionStorage`, lida UMA vez.**
+  O app é multi-página: o número da água conta do valor de ANTES do POST ao
+  de agora, o cartão marcado celebra na página seguinte, o onboarding entra
+  da direita ao avançar e da esquerda ao voltar. Nada disso afirma sucesso
+  antes do servidor — a página nova É a confirmação. Enfileirado sem rede,
+  a memória é apagada: um almoço marcado no metrô não pode "celebrar"
+  horas depois.
+
 **Antes de criar componente novo, procure.** `templates/partials/` tem oito
 parciais; `card`, `btn`, `chip`, `pill`, `tile`, `data-list`, `empty-state` e
 `hint` já existem e têm regra própria. Uma quarta versão do mesmo botão é o
