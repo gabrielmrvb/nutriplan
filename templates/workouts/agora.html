@@ -173,10 +173,25 @@
       {% include "workouts/_demonstracao.html" with exercicio=atual.exercise %}
 
       {# ---- Séries ---- #}
+      {% comment %}
+        EXERCÍCIO CONCLUÍDO É UM ESTADO, e a tela tem ramo para ele. Escolher
+        na ficha um exercício com todas as séries anotadas é legítimo — a
+        pessoa quer conferir a carga —, e a execução renderizava "Série None
+        de 4" com o formulário inteiro e "Concluir série None" (UX P1-06):
+        `proxima_serie` é `None` sem série livre, e nada lia isso. Aqui as
+        pastilhas ficam, o desfazer e o próximo ficam, e o formulário só
+        volta se a pessoa pedir a série a mais (`?extra=1`).
+      {% endcomment %}
+      {% with concluido=atual.concluido %}
       <div class="series">
         <p class="series__titulo">
-          Série <b class="num">{{ atual.proxima_serie }}</b>
+          {% if concluido and not extra %}
+          Concluído — <b class="num">{{ atual.feitas }}</b>
+          de <span class="num">{{ atual.sets }}</span> séries
+          {% else %}
+          Série <b class="num">{{ atual.serie_prevista }}</b>
           de <span class="num">{{ atual.sets }}</span>
+          {% endif %}
           <span class="series__faixa num">{{ atual.rep_range }}{% if atual.measure != 'seconds' %} reps{% endif %}</span>
         </p>
         {% comment %}
@@ -187,7 +202,7 @@
           falha na última série, e o iniciante nunca lê "falha" em composto.
           Uma linha discreta sob a faixa — é instrução, não alerta.
         {% endcomment %}
-        <p class="series__esforco">{{ atual.esforco }}</p>
+        {% if not concluido or extra %}<p class="series__esforco">{{ atual.esforco }}</p>{% endif %}
         {% comment %}
           Uma pastilha por série prescrita, e o texto dentro dela é a carga.
 
@@ -267,6 +282,12 @@
       {% endif %}
 
       {# ---- Registrar a série: dois campos e um botão ---- #}
+      {% if concluido and not extra %}
+      <p class="agora__extra">
+        Tudo registrado.
+        <a class="btn-link" href="{% url 'workouts:now' %}?exercicio={{ atual.exercise.pk }}&amp;extra=1">Registrar uma série a mais</a>
+      </p>
+      {% else %}
       <form class="registro registro--agora" method="post"
             action="{% url 'workouts:record_set' %}">
         {% csrf_token %}
@@ -326,7 +347,7 @@
                  maxlength="6" inputmode="decimal"{% if atual.exercise.equipment != 'bodyweight' %} required{% endif %}
                  value="{% if atual.sugestao_carga != None and atual.exercise.equipment != 'bodyweight' %}{{ atual.sugestao_carga|floatformat:'-2' }}{% endif %}"
                  placeholder="{% if atual.exercise.equipment == 'bodyweight' %}peso do corpo{% else %}kg{% endif %}"
-                 aria-label="Carga da série {{ atual.proxima_serie }} de {{ atual.exercise.name }}">
+                 aria-label="Carga da série {{ atual.serie_prevista }} de {{ atual.exercise.name }}">
         </label>
 
         {% comment %}
@@ -341,7 +362,7 @@
                  maxlength="3" inputmode="numeric"
                  value="{% if atual.sugestao_reps %}{{ atual.sugestao_reps }}{% endif %}"
                  placeholder="{{ atual.rep_range }}"
-                 aria-label="{% if atual.measure == 'seconds' %}Segundos{% else %}Repetições{% endif %} da série {{ atual.proxima_serie }} de {{ atual.exercise.name }}">
+                 aria-label="{% if atual.measure == 'seconds' %}Segundos{% else %}Repetições{% endif %} da série {{ atual.serie_prevista }} de {{ atual.exercise.name }}">
         </label>
 
         {% if atual.exercise.equipment != 'bodyweight' %}
@@ -356,9 +377,11 @@
         {% endif %}
 
         <button type="submit" class="btn btn--primary agora__concluir">
-          Concluir série {{ atual.proxima_serie }}
+          Concluir série {{ atual.serie_prevista }}
         </button>
       </form>
+      {% endif %}
+      {% endwith %}
 
       {% comment %}
         O desfazer segue a última série ANOTADA, e não o exercício da tela.

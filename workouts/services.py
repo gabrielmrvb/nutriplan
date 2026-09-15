@@ -2519,16 +2519,22 @@ def estado_do_treino(user, dia=None, escolhido=None) -> EstadoDoTreino:
         item.feitas = len(feitas)
         item.concluido = item.feitas >= item.sets
         item.proxima_serie = _primeira_serie_livre(feitas, item.sets)
+        # A série que a tela PREVÊ registrar. Com série livre é ela; com o
+        # exercício concluído é a seguinte — a extra que a pessoa pode pedir
+        # (`?extra=1`). `proxima_serie` continua `None` no concluído, e é isso
+        # que o template lê para trocar o formulário pelo ramo "concluído":
+        # "Série None de 4" foi o que a tela mostrava sem esse ramo (UX P1-06).
+        item.serie_prevista = item.proxima_serie or item.feitas + 1
         item.pct = (
             round(min(item.feitas, item.sets) * 100 / item.sets) if item.sets else 0
         )
         # A progressão vem ANTES das sugestões: as duas a leem.
         item.progressao = proxima_carga(item)
-        item.sugestao_carga = _sugestao_de_carga(item, item.proxima_serie)
-        item.sugestao_reps = _sugestao_de_reps(item, item.proxima_serie)
+        item.sugestao_carga = _sugestao_de_carga(item, item.serie_prevista)
+        item.sugestao_reps = _sugestao_de_reps(item, item.serie_prevista)
         # A instrução de esforço da série da vez, pelo nível da pessoa. Uma
         # leitura do perfil para a sessão inteira, feita acima.
-        item.esforco = instrucao_de_esforco(item, item.proxima_serie, experiencia)
+        item.esforco = instrucao_de_esforco(item, item.serie_prevista, experiencia)
         item.set_rows = linhas_de_serie(item, item.load)
 
     pendente = next((item for item in itens if not item.concluido), None)

@@ -700,6 +700,14 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
             )
         except services.ExercicioForaDaSessao:
             raise Http404("exercício não é do treino de hoje")
+        # `?extra=1` reabre o formulário num exercício já concluído — a série
+        # a mais, que `append_set` sempre aceitou (até 20). LISTA FECHADA,
+        # como `?exercicio=`: valor desconhecido é 404, e não "ignora e abre
+        # a tela normal" — link quebrado que funciona nunca é consertado.
+        extras = self.request.GET.getlist("extra")
+        if extras and extras != ["1"]:
+            raise Http404("pedido de série extra ilegível")
+        context["extra"] = bool(extras)
         # UM IDENTIFICADOR POR RENDERIZAÇÃO, e dois porque são dois
         # formulários — registrar e desfazer não podem compartilhar identidade,
         # senão desfazer logo depois de gravar seria recusado como repetição do

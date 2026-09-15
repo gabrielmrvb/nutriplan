@@ -84,10 +84,23 @@
       A porta para EXECUTAR só existe quando o exercício é da sessão de
       hoje — é a regra "a ficha de outro dia não executa", aplicada aqui.
     {% endcomment %}
+    {% comment %}
+      Concluído não é "continuar": com todas as séries anotadas a porta
+      continua existindo — a pessoa quer conferir a carga —, mas o verbo e o
+      peso do botão mudam. "Continuar de onde parou" aqui era o mesmo rótulo
+      da execução prometendo uma série que não existe (UX P1-06).
+    {% endcomment %}
+    {% if item_de_hoje.feitas >= item_de_hoje.sets %}
+    <a class="btn btn--ghost btn--block acao-solta"
+       href="{% url 'workouts:now' %}?exercicio={{ exercicio.pk }}">
+      Ver as séries de hoje
+    </a>
+    {% else %}
     <a class="btn btn--primary btn--block acao-solta"
        href="{% url 'workouts:now' %}?exercicio={{ exercicio.pk }}">
       {% if item_de_hoje.feitas %}Continuar de onde parou{% else %}Fazer este exercício{% endif %}
     </a>
+    {% endif %}
   {% endif %}
 
   {% include "workouts/_demonstracao_js.html" %}

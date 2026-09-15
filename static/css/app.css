@@ -6258,6 +6258,11 @@ body.montando { overflow: hidden; }
    rótulo ocupa duas linhas, e o alvo de 44px vazava por cima da linha de
    "Última carga" logo abaixo — medido a 390px em 13/09/2026. */
 .agora__desfazer .btn-link { margin: 0; }
+/* O exercício concluído troca o formulário por uma linha: "Tudo registrado"
+   e a porta, em texto, para a série a mais. Mesma margem zero do desfazer,
+   pelo mesmo motivo — o alvo de 44px não pode vazar sobre a linha de baixo. */
+.agora__extra { margin: var(--espaco-3) 0 0; text-align: center; color: var(--text-mute); }
+.agora__extra .btn-link { margin: 0; }
 
 /* O que vem depois fica visível o tempo todo: saber que o próximo é
    agachamento muda como a pessoa gasta a última série do anterior. */
