@@ -5307,8 +5307,17 @@ body.montando { overflow: hidden; }
     radial-gradient(90% 55% at 50% -8%,
                     color-mix(in srgb, var(--brand) 20%, transparent) 0%,
                     transparent 62%),
+    /* 12 % de preto no ponto mais forte, e não 55 %: o rodapé da entrada
+       ("Esqueci minha senha", "Criar agora", os links legais) mora na borda
+       inferior, onde a vinheta antiga ainda pesava ~48 % — `--text-mute`
+       lia a 1,6:1 ali (DESIGN P1-07, medido por cálculo e por captura). A
+       proposta era "≤ 15 %"; a 15 % os links legais ficam em 4,39:1, e 12 %
+       é o maior valor que dá 4,5 a `--text-mute` na borda (4,66). A vinheta
+       continua fechando as bordas; ela só deixou de escurecer o texto que
+       está em cima dela. `config/test_vinheta_da_entrada.py` lê este número
+       e recalcula o contraste na borda. */
     radial-gradient(120% 90% at 50% 108%,
-                    color-mix(in srgb, #000 55%, transparent) 0%,
+                    color-mix(in srgb, #000 12%, transparent) 0%,
                     transparent 70%);
 }
 
