@@ -21,6 +21,7 @@ O QUE ESTE MÓDULO NÃO FAZ: fingir precisão. Fator de cozimento varia com a
 aproximada é MARCADA, e a tela diz isso em uma linha — em vez de imprimir um
 número exato que ninguém mediu.
 """
+import re
 from decimal import Decimal
 
 #: Quanto o alimento CRU rende depois de cozido, em peso.
@@ -95,6 +96,18 @@ def converter(nome: str, quantidade: Decimal, unidade: str):
     if nome in FATOR_CRU:
         fator, rotulo = FATOR_CRU[nome]
         crua = round_up(quantidade / fator)
+        # O NOME NÃO SE REPETE. A linha da lista já diz "Arroz branco cozido"
+        # no rótulo; a quantidade dizia "1,4 kg de arroz branco (cru)" ao
+        # lado, `nowrap`, e quem encolhia era o nome — letra por letra a
+        # 320 px (UX P1-03, 14/09/2026). Quando o que se compra é o mesmo
+        # alimento, a quantidade fica só com o número e o estado: "1,4 kg
+        # (cru)", "600 g (crua)". Quando é OUTRO produto — cuscuz se compra
+        # como flocão de milho —, o rótulo inteiro fica, porque aí ele é
+        # informação, não repetição.
+        raiz = re.sub(r"\s+cozid[oa]$", "", nome, flags=re.I)
+        if rotulo.lower().startswith(raiz.lower()):
+            estado = rotulo[len(raiz):].strip()
+            return f"{humanize(crua, unidade)} {estado}".strip(), True
         return f"{humanize(crua, unidade)} de {rotulo.lower()}", True
 
     if nome in POR_UNIDADE:

@@ -64,17 +64,29 @@
                          data-opcao="{{ label }}"
                          data-semana="{{ semana_da_lista|date:'Y-m-d' }}"
                          {% if item.marcado %}checked{% endif %}>
-                  <span class="shopping__name">{{ item.food.name }}</span>
+                  {% comment %}
+                    NOME E QUANTIDADE NO MESMO RÓTULO. A quantidade ficava
+                    fora, `nowrap`, e quem encolhia era o nome — letra por
+                    letra a 320 px, com "~1,4 kg de arroz branco (cru)" ao
+                    lado de "Arroz branco cozido" (UX P1-03). Dentro do
+                    rótulo os dois dividem a linha e, quando não cabem, a
+                    quantidade desce para baixo do nome — nunca o contrário.
+                    E o nome só aparece uma vez: a quantidade diz o número e o
+                    estado (`plans/compra.py`).
+
+                    O "~" marca conversão APROXIMADA — cozido para cru, peso
+                    para unidade, peso para embalagem. Fator de cozimento
+                    varia com a água, o tempo e a panela; lata varia de
+                    marca. Imprimir o número sem a marca seria fingir uma
+                    precisão que ninguém mediu, e o `title` diz isso a quem
+                    passar o cursor.
+                  {% endcomment %}
+                  <span class="shopping__texto">
+                    <span class="shopping__name">{{ item.food.name }}</span>
+                    <span class="shopping__qty num"
+                          {% if item.aproximado %}title="Quantidade aproximada para a forma de compra"{% endif %}>{% if item.aproximado %}~{% endif %}{{ item.display }}</span>
+                  </span>
                 </label>
-                {% comment %}
-                  O "~" marca conversão APROXIMADA — cozido para cru, peso para
-                  unidade, peso para embalagem. Fator de cozimento varia com a
-                  água, o tempo e a panela; lata varia de marca. Imprimir o
-                  número sem a marca seria fingir uma precisão que ninguém
-                  mediu, e o `title` diz isso a quem passar o cursor.
-                {% endcomment %}
-                <span class="shopping__qty num"
-                      {% if item.aproximado %}title="Quantidade aproximada para a forma de compra"{% endif %}>{% if item.aproximado %}~{% endif %}{{ item.display }}</span>
               </li>
             {% endfor %}
           </ul>
@@ -118,7 +130,9 @@
                          data-marcar
                          data-avulso="{{ item.pk }}"
                          {% if item.marcado %}checked{% endif %}>
-                  <span class="shopping__name">{{ item.nome }}</span>
+                  <span class="shopping__texto">
+                    <span class="shopping__name">{{ item.nome }}</span>
+                  </span>
                 </label>
                 <form method="post" action="{% url 'plans:remover_item' %}">
                   {% csrf_token %}

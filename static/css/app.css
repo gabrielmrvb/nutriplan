@@ -3175,11 +3175,23 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   cursor: pointer;
 }
 .shopping__check input { width: 1.4rem; height: 1.4rem; flex: none; accent-color: var(--brand); }
-.shopping__name { min-width: 0; font-size: .92rem; }
-.shopping__check input:checked + .shopping__name { color: var(--text-mute); text-decoration: line-through; }
+/* Nome e quantidade dividem a linha; quando não cabem, a quantidade DESCE
+   para baixo do nome. Era o nome que encolhia — letra por letra a 320 px —
+   porque a quantidade ficava fora do rótulo e não quebrava (UX P1-03). */
+.shopping__texto {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--espaco-3);
+}
+.shopping__name { flex: 1 1 auto; min-width: 0; font-size: .92rem; overflow-wrap: normal; }
+.shopping__check input:checked + .shopping__texto .shopping__name { color: var(--text-mute); text-decoration: line-through; }
 
 .shopping__qty {
   flex: none;
+  margin-left: auto;
   font-size: .88rem;
   font-weight: 750;
   white-space: nowrap;
