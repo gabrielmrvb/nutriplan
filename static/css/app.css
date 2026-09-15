@@ -2707,7 +2707,11 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   align-items: center;
   gap: var(--espaco-4);
   min-height: 3.5rem;
-  padding: var(--espaco-4);
+  /* O respiro mora NOS LINKS, não na moldura: com o padding aqui, 38 % da
+     linha (a borda interna, o vão) não abria nada — medido a 320 e 390 em
+     15/09/2026, 61-68 % tocável. Com o padding dentro de `ver` e `fazer`,
+     a linha inteira é porta (UX CA-03). */
+  padding: 0;
   border-radius: var(--radius);
   background: var(--surface);
   color: inherit;
@@ -2724,15 +2728,28 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .ficha-item__ver {
   flex: 1;
   min-width: 0;
-  min-height: 2.75rem;
+  min-height: 3.5rem;
   align-self: stretch;
+  padding: var(--espaco-4) 0 var(--espaco-4) var(--espaco-4);
   display: grid;
+  /* O número da linha mora DENTRO do link (UX CA-03): era a única parte da
+     linha que não abria nada. Duas colunas — número e texto —, e o texto
+     empilha nome e dados como antes. */
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  grid-template-areas:
+    "ordem nome"
+    "ordem dados";
   align-content: center;
-  gap: 2px;
+  align-items: center;
+  column-gap: var(--espaco-4);
+  row-gap: 2px;
   color: inherit;
   text-decoration: none;
   border-radius: var(--radius-sm);
 }
+.ficha-item__ver .ficha-item__ordem { grid-area: ordem; }
+.ficha-item__ver .ficha-item__nome { grid-area: nome; }
+.ficha-item__ver .ficha-item__dados { grid-area: dados; }
 .ficha-item__ver:hover .ficha-item__nome { text-decoration: underline; text-underline-offset: .15em; }
 .ficha-item__ver:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
@@ -2740,9 +2757,12 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.75rem;
+  align-self: stretch;
+  min-height: 3.5rem;
   min-width: 2.75rem;
-  padding: 0 var(--espaco-3);
+  /* O respiro da moldura mora aqui (ver `.ficha-item__link`): a pastilha
+     ocupa a altura inteira da linha e leva a borda direita consigo. */
+  padding: 0 var(--espaco-4) 0 var(--espaco-3);
   border-radius: var(--pill);
   text-decoration: none;
   color: var(--brand);
@@ -5902,6 +5922,12 @@ body.montando { overflow: hidden; }
 /* O título da execução leva à leitura do exercício: mesma cor, sublinhado
    fino, para ser porta sem virar botão. */
 .agora__nome-link {
+  /* Alvo de 44px também no título: era um `<a>` inline de 31px de altura
+     dentro do h1 (UX NOVO-06). `inline-flex` com altura mínima, sem mexer no
+     tamanho do texto. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
   color: inherit;
   text-decoration: underline;
   text-decoration-thickness: 1px;

@@ -26,14 +26,19 @@
 {% endcomment %}
 <li class="ficha-item{% if item.feitas >= item.sets %} ficha-item--feito{% endif %}">
   <div class="ficha-item__link{% if not hoje %} ficha-item__link--parado{% endif %}">
-    <span class="ficha-item__ordem num" aria-hidden="true">{{ ordem }}</span>
+    {% comment %}
+      O NÚMERO ESTÁ DENTRO DO LINK (UX CA-03): era a única parte da linha que
+      não abria nada. E o link diz de onde veio (`?de=ficha&sessao=`), para
+      a leitura voltar para ESTA ficha, e não para o painel.
+    {% endcomment %}
     <a class="ficha-item__ver"
-       href="{% url 'workouts:exercicio' item.exercise_id %}"
+       href="{% url 'workouts:exercicio' item.exercise_id %}?de=ficha&amp;sessao={{ item.session_id }}"
        {% comment %}
          O NOME ACESSÍVEL DIZ O EXERCÍCIO E O VERBO. São muitos links iguais
          na mesma página; "link, ver" trinta vezes não ajuda a escolher.
        {% endcomment %}
        aria-label="Ver {{ item.exercise.name }}">
+      <span class="ficha-item__ordem num" aria-hidden="true">{{ ordem }}</span>
       <span class="ficha-item__nome">{{ item.exercise.name }}</span>
       <span class="ficha-item__dados">
         <span class="num">{{ item.sets }}</span>&nbsp;×&nbsp;<span class="num">{{ item.rep_range }}</span>

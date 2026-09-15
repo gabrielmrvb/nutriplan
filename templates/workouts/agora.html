@@ -152,7 +152,7 @@
     <section class="card agora">
       <header class="agora__topo">
         {# O título é a porta para a leitura do exercício (demonstração, dica, músculos), como na ficha. #}
-        <h1 class="agora__nome"><a class="agora__nome-link" href="{% url 'workouts:exercicio' atual.exercise.pk %}">{{ atual.exercise.name }}</a></h1>
+        <h1 class="agora__nome"><a class="agora__nome-link" href="{% url 'workouts:exercicio' atual.exercise.pk %}?de=agora">{{ atual.exercise.name }}</a></h1>
         <p class="agora__meta">
           <span class="exercise__tag exercise__tag--target">
             {{ atual.exercise.get_muscle_group_display }}{% if atual.exercise.secondary_muscle_labels %} · também {{ atual.exercise.secondary_muscle_labels|join:", " }}{% endif %}

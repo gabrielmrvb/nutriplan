@@ -25,7 +25,11 @@
     como `FichaDaSessaoView`), e não "de hoje" — senão reproduz o defeito.
   {% endcomment %}
   <div class="page-head">
-    <a class="btn-link" href="{% url 'workouts:routine' %}">← Treino</a>
+    {% comment %}
+      A volta é para onde a pessoa VEIO — ficha, execução ou painel —, e a
+      view decide a partir de `?de=` em lista fechada (`_de_onde_veio`).
+    {% endcomment %}
+    <a class="btn-link" href="{{ volta.href }}">{{ volta.rotulo }}</a>
     <h1>{{ exercicio.name }}</h1>
     <p class="lead">
       {{ exercicio.get_muscle_group_display }}{% if exercicio.secondary_muscle_labels %}

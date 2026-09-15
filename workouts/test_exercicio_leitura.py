@@ -87,7 +87,8 @@ class ALeituraDoExercicioTests(TestCase):
         ficha = sem_scripts(self.client.get(
             reverse("workouts:ficha", args=[self.de_outro_dia.pk])
         ).content.decode())
-        self.assertIn('href="%s"' % self._url(self.item_outro), ficha)
+        # `?de=ficha&sessao=`: a leitura volta para ESTA ficha (T1.14).
+        self.assertIn('href="%s?de=ficha&amp;' % self._url(self.item_outro), ficha)
         self.assertNotIn("?exercicio=", ficha)
         self.assertIn('aria-label="Ver %s"' % self.item_outro.exercise.name, ficha)
 
@@ -95,7 +96,7 @@ class ALeituraDoExercicioTests(TestCase):
         ficha = sem_scripts(self.client.get(
             reverse("workouts:ficha", args=[self.de_hoje.pk])
         ).content.decode())
-        self.assertIn('href="%s"' % self._url(self.item_hoje), ficha)
+        self.assertIn('href="%s?de=ficha&amp;' % self._url(self.item_hoje), ficha)
         self.assertIn(
             'href="%s?exercicio=%d"' % (reverse("workouts:now"), self.item_hoje.exercise_id), ficha
         )
@@ -106,7 +107,8 @@ class ALeituraDoExercicioTests(TestCase):
             "%s?exercicio=%d" % (reverse("workouts:now"), self.item_hoje.exercise_id)
         ).content.decode())
         titulo = html.split('class="agora__nome"', 1)[1].split("</h1>", 1)[0]
-        self.assertIn('href="%s"' % self._url(self.item_hoje), titulo)
+        # `?de=agora`: a leitura volta para a execução (T1.14).
+        self.assertIn('href="%s?de=agora"' % self._url(self.item_hoje), titulo)
 
     def test_so_o_exercicio_de_hoje_oferece_executar(self):
         self.assertIn("?exercicio=%d" % self.item_hoje.exercise_id, self._html(self.item_hoje))

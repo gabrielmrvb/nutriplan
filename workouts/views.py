@@ -624,8 +624,50 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
                 for i in itens
             ],
             "item_de_hoje": item_de_hoje,
+            "volta": self._de_onde_veio(exercicio, itens),
         })
         return context
+
+    #: De onde a pessoa pode ter vindo. LISTA FECHADA, como `?exercicio=`.
+    ORIGENS = ("ficha", "agora", "painel")
+
+    def _de_onde_veio(self, exercicio, itens):
+        """A volta certa: para a ficha de onde veio, para a execução, ou o painel.
+
+        Quem abria a leitura a partir da ficha A1 lia "← Treino" e voltava
+        ao painel — dois toques para estar de novo onde estava (UX NOVO-03).
+        `?de=` diz a origem em lista fechada; valor desconhecido é 404, e o
+        `href` nunca é montado a partir do pedido: é `reverse()` da tela
+        nomeada. `sessao=` acompanha `ficha` e tem de ser uma sessão em que
+        o exercício está — senão, 404 —, porque o mesmo exercício pode
+        aparecer em A1 e A2 e a volta é para a ficha CERTA.
+        """
+        pedidos = self.request.GET.getlist("de")
+        if not pedidos:
+            return {"href": reverse("workouts:routine"), "rotulo": "← Treino"}
+        if len(pedidos) > 1 or pedidos[0] not in self.ORIGENS:
+            raise Http404("origem ilegível")
+        origem = pedidos[0]
+        if origem == "painel":
+            return {"href": reverse("workouts:routine"), "rotulo": "← Treino"}
+        if origem == "agora":
+            return {
+                "href": "%s?exercicio=%d" % (reverse("workouts:now"), exercicio.pk),
+                "rotulo": "← Execução",
+            }
+        sessoes = {i.session.pk: i.session for i in itens}
+        bruto = self.request.GET.get("sessao")
+        if bruto is None:
+            sessao = itens[0].session
+        else:
+            try:
+                sessao = sessoes[int(bruto)]
+            except (TypeError, ValueError, KeyError):
+                raise Http404("sessão não tem este exercício")
+        return {
+            "href": reverse("workouts:ficha", args=[sessao.pk]),
+            "rotulo": "← Ficha %s" % sessao.rotulo,
+        }
 
 
 class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
