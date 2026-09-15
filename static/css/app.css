@@ -6104,52 +6104,6 @@ body.montando { overflow: hidden; }
 }
 
 
-/* -- Anatomia: secundária, e parecendo secundária ------------------------- */
-
-/* Foi promovida a principal por engano e custou onze segundos de diagrama a
-   quem apertava "ver execução". Aqui ela é um botão discreto que abre sob
-   demanda — e o vídeo só é montado no toque, porque iframe dentro de
-   `<details>` fechado é baixado e tocado do mesmo jeito. */
-.anatomia { margin-bottom: .8rem; }
-
-.anatomia__botao {
-  display: flex;
-  align-items: center;
-  gap: .45rem;
-  min-height: 2.75rem;
-  padding: var(--espaco-3) var(--espaco-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  color: var(--text-dim);
-  font-size: .84rem;
-  font-weight: 600;
-  cursor: pointer;
-  list-style: none;
-}
-.anatomia__botao::-webkit-details-marker { display: none; }
-.anatomia__botao > svg { width: 1.05rem; height: 1.05rem; flex: none; }
-.anatomia__botao:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-
-.anatomia__corpo {
-  position: relative;
-  aspect-ratio: 16 / 9;
-  margin-top: var(--espaco-3);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  background: #000;
-}
-.anatomia__corpo--vertical { aspect-ratio: 3 / 4; }
-.anatomia__corpo > iframe,
-.anatomia__corpo > video,
-.anatomia__corpo > img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  display: block;
-}
 
 /* -- Séries --------------------------------------------------------------- */
 
@@ -6464,7 +6418,6 @@ body.montando { overflow: hidden; }
 .agora__nome-link,
 .agora__proximo-link,
 .agora__voltar,
-.anatomia__botao,
 .demo__abrir,
 .demo__fechar,
 .descanso__pular,
@@ -6477,7 +6430,6 @@ body.montando { overflow: hidden; }
 .agora__nome-link:active,
 .agora__proximo-link:active,
 .agora__voltar:active,
-.anatomia__botao:active,
 .demo__abrir:active,
 .demo__fechar:active,
 .descanso__pular:active,
@@ -6492,8 +6444,7 @@ body.montando { overflow: hidden; }
   .agora__nome-link,
   .agora__proximo-link,
   .agora__voltar,
-  .anatomia__botao,
-  .demo__abrir,
+    .demo__abrir,
   .demo__fechar,
   .descanso__pular,
   .ficha-item__fazer,
@@ -6504,8 +6455,7 @@ body.montando { overflow: hidden; }
   .agora__nome-link:active,
   .agora__proximo-link:active,
   .agora__voltar:active,
-  .anatomia__botao:active,
-  .demo__abrir:active,
+    .demo__abrir:active,
   .demo__fechar:active,
   .descanso__pular:active,
   .ficha-item__fazer:active,

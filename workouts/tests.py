@@ -1394,27 +1394,21 @@ class AnimationImportTests(TestCase):
         ficaram, e testar só um deixaria o outro livre para regredir.
         """
         # Desde o poster (13/09/2026) o servidor não escreve `<video>`
-        # nenhum: os DOIS construtores são do JavaScript partilhado —
-        # a demonstração (no toque do poster) e a anatomia (no `toggle`).
+        # nenhum: o construtor é do JavaScript partilhado, no toque do
+        # poster. O segundo construtor — a anatomia sob demanda — saiu em
+        # 15/09/2026 com o segundo player (UX NOVO-05/D6): um player por
+        # página, e "Músculos trabalhados" é texto.
         script = (
             Path(settings.BASE_DIR) / "templates" / "workouts" / "_demonstracao_js.html"
         ).read_text(encoding="utf-8")
 
-        # 1. a demonstração
         bloco = script.split('} else if (tipo === "video") {', 1)[1]
         bloco = bloco.split("} else {", 1)[0]
         for atributo in ("elemento.autoplay = true", "elemento.loop = true",
                          "elemento.muted = true", "elemento.playsInline = true"):
             with self.subTest(construtor="demonstracao", atributo=atributo):
                 self.assertIn(atributo, bloco)
-
-        # 2. a anatomia
-        bloco = script.split('} else if (tipoAnatomia === "video") {', 1)[1]
-        bloco = bloco.split("} else {", 1)[0]
-        for atributo in ("el.autoplay = true", "el.loop = true",
-                         "el.muted = true", "el.playsInline = true"):
-            with self.subTest(construtor="anatomia", atributo=atributo):
-                self.assertIn(atributo, bloco)
+        self.assertNotIn("tipoAnatomia", script)
 
 # ==========================================================================
 # Repetições, cronômetro automático e exportação
@@ -3073,48 +3067,50 @@ class ModoTreinoTests(TestCase):
 
         html = sem_scripts(self.client.get(self.url).content.decode())
         # Desde o poster (13/09/2026) o servidor não escreve iframe: a
-        # demonstração é o `data-src` do `[data-demo]`, e a anatomia fica no
-        # `data-anatomia` do `<details>`. Ancorado nos atributos, não no HTML
-        # inteiro — os dois endereços continuam na página.
+        # demonstração é o `data-src` do `[data-demo]`. E desde 15/09/2026
+        # o endereço da anatomia NÃO está mais na página: o segundo player
+        # saiu (UX NOVO-05/D6), e os músculos aparecem como texto.
         self.assertEqual(self._iframes(html), [])
         demo = html.split("data-demo", 1)[1].split(">", 1)[0]
         self.assertIn("EXECUCAO123", demo)
-        self.assertNotIn("ANATOMIA456", demo)
-        self.assertIn("ANATOMIA456", html.split('data-anatomia="', 1)[1].split('"', 1)[0])
+        self.assertNotIn("ANATOMIA456", html)
 
-    def test_a_anatomia_aparece_como_conteudo_secundario(self):
-        user = self._usuario()
-        estado = self._estado(user)
-        exercicio = estado.itens[0].exercise
-        exercicio.video_url = "https://www.youtube.com/watch?v=EXECUCAO123"
-        exercicio.animation_url = "https://www.youtube.com/watch?v=ANATOMIA456"
-        exercicio.save()
-        self.client.force_login(user)
+    def test_os_musculos_aparecem_como_texto_e_nao_como_segundo_player(self):
+        """Um player por página (UX NOVO-05/TR-07, D6, 15/09/2026).
 
-        html = sem_scripts(self.client.get(self.url).content.decode())
-
-        self.assertIn("Músculos trabalhados", html)
-        self.assertIn("ANATOMIA456", html)
-
-    def test_a_anatomia_nao_toca_sozinha_com_a_secao_fechada(self):
-        """Iframe dentro de `<details>` fechado é baixado e TOCADO.
-
-        Esses vídeos carregam publicidade de terceiro. Ninguém deve receber
-        anúncio de concorrente sem ter pedido — o endereço fica num atributo e
-        só vira iframe quando a pessoa abre.
+        "Músculos trabalhados" era um `<details>` que montava um SEGUNDO
+        iframe do YouTube — com publicidade de terceiro — para dizer o que o
+        cabeçalho já diz em texto: o grupo principal e os secundários. O
+        `<details>` e o parcial `_anatomia.html` saíram; o dado continua na
+        tela, como texto, e `tem_anatomia`/`animation_url` continuam no
+        catálogo (são contrato de curadoria, não de tela). O 3D não reabre.
         """
         user = self._usuario()
         estado = self._estado(user)
         exercicio = estado.itens[0].exercise
         exercicio.video_url = "https://www.youtube.com/watch?v=EXECUCAO123"
         exercicio.animation_url = "https://www.youtube.com/watch?v=ANATOMIA456"
+        exercicio.secondary_muscles = ["triceps"]
         exercicio.save()
         self.client.force_login(user)
 
         html = sem_scripts(self.client.get(self.url).content.decode())
 
-        self.assertIn('data-anatomia="', html)
-        self.assertFalse(any("ANATOMIA456" in src for src in self._iframes(html)))
+        self.assertNotIn("Músculos trabalhados", html)
+        self.assertNotIn("data-anatomia", html)
+        self.assertNotIn("ANATOMIA456", html)
+        self.assertEqual(html.count("data-demo" + chr(10)), 1)
+        self.assertIn(exercicio.get_muscle_group_display(), html)
+        self.assertIn("também", html)
+
+    def test_o_parcial_da_anatomia_nao_volta(self):
+        """A guarda contra o segundo player é a ausência do parcial e do
+        `[data-anatomia]` — em qualquer template de treino."""
+        pasta = Path(settings.BASE_DIR) / "templates" / "workouts"
+        self.assertFalse((pasta / "_anatomia.html").exists())
+        for arquivo in pasta.glob("*.html"):
+            with self.subTest(arquivo=arquivo.name):
+                self.assertNotIn("data-anatomia", arquivo.read_text(encoding="utf-8"))
 
     def test_sem_anatomia_distinta_a_secao_nao_aparece(self):
         """Em sete exercícios o mesmo endereço está nos dois campos.
@@ -3133,7 +3129,9 @@ class ModoTreinoTests(TestCase):
         html = sem_scripts(self.client.get(self.url).content.decode())
 
         self.assertFalse(exercicio.tem_anatomia)
-        self.assertNotIn("Músculos trabalhados", html)
+        # A tela não muda com `tem_anatomia` desde 15/09/2026: a propriedade
+        # é contrato do catálogo (curadoria), não de tela.
+        self.assertEqual(html.count("data-demo" + chr(10)), 1)
 
     def test_sem_video_nenhum_a_tela_oferece_a_busca(self):
         user = self._usuario()

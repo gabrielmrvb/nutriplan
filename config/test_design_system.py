@@ -78,7 +78,9 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: Doze `font-size` crus moravam ali — os números do drawer, os rótulos do
 #: cronômetro e o cabeçalho do cartão. A lista que entrou no lugar
 #: (`.ficha-item`) nasceu inteira na escala de tokens.
-TETO_FONT_SIZE_CRU = 120
+#: 119 em 15/09/2026: `.anatomia__botao { font-size: .84rem }` saiu com o
+#: segundo player da execução (um player por página; músculos como texto).
+TETO_FONT_SIZE_CRU = 119
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
@@ -105,7 +107,9 @@ TETO_FONT_SIZE_CRU = 120
 #: com elas dois `margin-bottom: .55rem` crus.
 #: 246 com o vão dos botões de água (14/09/2026): `gap: .4rem` era 6,4 px
 #: entre três alvos tocados de pé (MOB-13), e virou `var(--espaco-3)`.
-TETO_ESPACO_CRU = 246
+#: 244 em 15/09/2026: `.anatomia { margin-bottom: .8rem }` e
+#: `.anatomia__botao { gap: .45rem }` saíram com o segundo player.
+TETO_ESPACO_CRU = 244
 
 
 def sem_comentarios(texto):

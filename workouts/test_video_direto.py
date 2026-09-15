@@ -516,31 +516,23 @@ class ATelaDaExecucaoEODoVideoTests(TestCase):
             with self.subTest(morto=morto):
                 self.assertNotIn(morto, self.limpo)
 
-    def test_a_anatomia_continua_secundaria_e_calada(self):
-        """O DADO ANATÔMICO FICA; o que saiu foi o desenho e a prioridade.
+    def test_a_anatomia_saiu_da_tela_e_o_dado_ficou_no_catalogo(self):
+        """O DADO ANATÔMICO FICA no catálogo; a tela deixou de montar um segundo player.
 
         `animation_url` guarda conteúdo anatômico — metade dos vídeos de lá se
-        chama "<exercício> - Músculos Trabalhados", e o supino levava onze
-        segundos de diagrama antes de alguém deitar no banco. Ele continua no
-        app, embaixo, atrás de um `<details>`, e o embed só nasce quando alguém
-        abre: iframe dentro de `<details>` fechado é baixado e TOCADO pelo
-        navegador, e esses vídeos trazem publicidade de terceiro.
+        chama "<exercício> - Músculos Trabalhados". Ele esteve na execução
+        atrás de um `<details>` que montava um SEGUNDO iframe do YouTube, com
+        publicidade de terceiro, para dizer o que o cabeçalho já diz em texto
+        (grupo principal e secundários). Saiu em 15/09/2026 (UX NOVO-05/D6):
+        um player por página. `tem_anatomia` e `animation_url` continuam
+        sendo contrato de curadoria do catálogo, não de tela; o 3D não reabre.
         """
-        # A anatomia continua na execução (13/09/2026: markup e script viraram
-        # parciais partilhados com a rota de leitura — `_anatomia.html`,
-        # incluído por `agora.html` com `exercicio=atual.exercise`).
-        anatomia = (RAIZ / "templates" / "workouts" / "_anatomia.html").read_text(encoding="utf-8")
-        self.assertIn('include "workouts/_anatomia.html" with exercicio=atual.exercise', self.agora_limpo)
-        self.assertIn("data-anatomia-area", anatomia)
-        self.assertIn("tem_anatomia", anatomia)
-
-        # O `src` mora num atributo, e vira elemento só no `toggle`.
-        self.assertIn('data-anatomia="{{ exercicio.anatomia_src }}"', anatomia)
+        self.assertFalse((RAIZ / "templates" / "workouts" / "_anatomia.html").exists())
+        self.assertNotIn("_anatomia.html", self.agora_limpo)
+        self.assertNotIn("data-anatomia", self.agora_limpo)
         script = (RAIZ / "templates" / "workouts" / "_demonstracao_js.html").read_text(encoding="utf-8")
-        corpo = script.split('detalhe.addEventListener("toggle"', 1)[1]
-        corpo = corpo.split("});", 1)[0]
-        self.assertIn("if (!detalhe.open)", corpo)
-        self.assertIn('corpo.innerHTML = ""', corpo)
+        self.assertNotIn("data-anatomia-area", script)
+        self.assertNotIn("tipoAnatomia", script)
 
     def test_o_video_da_execucao_e_o_do_exercicio_aberto(self):
         """A ponta a ponta: o `src` sai do exercício da vez, e de mais ninguém.
