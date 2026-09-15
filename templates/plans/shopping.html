@@ -124,7 +124,7 @@
         {% if avulsos %}
           <ul class="shopping">
             {% for item in avulsos %}
-              <li class="shopping__item">
+              <li class="shopping__item" id="item-{{ item.pk }}">
                 <label class="shopping__check">
                   <input type="checkbox"
                          data-marcar

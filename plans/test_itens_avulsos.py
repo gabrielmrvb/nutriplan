@@ -65,7 +65,9 @@ class AdicionarTests(_Lista):
         resposta = cliente.post(form.group(1), {"csrfmiddlewaretoken": token, campo: "Papel toalha", "opcao": "B"})
 
         self.assertEqual(resposta.status_code, 302)
-        self.assertIn("#seus-itens", resposta["Location"])
+        # Pousa no ITEM, e não no topo do cartão (UX P1-10): a 320 o item
+        # novo ficava fora da tela.
+        self.assertRegex(resposta["Location"], r"#item-\d+$")
         self.assertIn("opcao=B", resposta["Location"])
         self.assertEqual(list(ItemAvulsoDaLista.objects.values_list("nome", flat=True)), ["Papel toalha"])
 

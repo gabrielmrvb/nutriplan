@@ -921,11 +921,16 @@ class AdicionarItemDaListaView(AcaoDeTela, OnboardingRequiredMixin, View):
 
     def post(self, request, *args, **kwargs):
         nome = " ".join((request.POST.get("nome") or "").split())[:60]
-        if nome:
-            ItemAvulsoDaLista.objects.get_or_create(
-                user=request.user, semana=timezone.localdate(), nome=nome
-            )
-        return _de_volta_a_lista(request)
+        if not nome:
+            return _de_volta_a_lista(request)
+        item, _ = ItemAvulsoDaLista.objects.get_or_create(
+            user=request.user, semana=timezone.localdate(), nome=nome
+        )
+        # A tela DIZ que entrou e POUSA no item, não no topo do cartão: a 320
+        # o item novo — o último da lista — ficava fora da tela, e nada
+        # dizia que algo tinha acontecido (UX P1-10).
+        messages.success(request, "%s entrou na lista." % item.nome)
+        return _de_volta_a_lista(request, ancora="item-%d" % item.pk)
 
 
 class RemoverItemDaListaView(AcaoDeTela, OnboardingRequiredMixin, View):
@@ -944,15 +949,16 @@ class RemoverItemDaListaView(AcaoDeTela, OnboardingRequiredMixin, View):
         return _de_volta_a_lista(request)
 
 
-def _de_volta_a_lista(request):
-    """Para a lista da MESMA opção, na seção dos itens da pessoa.
+def _de_volta_a_lista(request, ancora="seus-itens"):
+    """Para a lista da MESMA opção, na seção dos itens da pessoa — ou no item.
 
     A opção vem do corpo e passa pela lista fechada, como na tela: um valor
-    inventado cai na A em vez de virar querystring livre."""
+    inventado cai na A em vez de virar querystring livre. A âncora é do
+    servidor, nunca do pedido."""
     opcao = (request.POST.get("opcao") or OptionLabel.A).strip()
     if opcao not in OptionLabel.values:
         opcao = OptionLabel.A
-    return redirect(reverse("plans:shopping") + "?opcao=%s#seus-itens" % opcao)
+    return redirect(reverse("plans:shopping") + "?opcao=%s#%s" % (opcao, ancora))
 
 
 class ShoppingListView(PlanRequiredMixin, TemplateView):

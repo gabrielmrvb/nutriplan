@@ -342,6 +342,10 @@
      numero junto com o descolamento, o ultimo bloco de toda tela fica
      escondido atras da barra, que foi o que a primeira captura mostrou. */
   --tabbar-h: 5.9rem;
+  /* A barra de cima gruda (é `sticky`, e desde 14/09/2026 gruda de verdade —
+     ver o `body` sem `overflow-x`). Toda âncora precisa pousar ABAIXO dela:
+     medido, 60px a 16px de fonte. */
+  --appbar-h: 3.75rem;
 
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 
@@ -426,6 +430,13 @@
  * bug. O `!important` não é força bruta: é o que devolve ao atributo a
  * prioridade que a folha do navegador não consegue defender sozinha. */
 [hidden] { display: none !important; }
+
+/* TODA ÂNCORA POUSA ABAIXO DA BARRA DE CIMA. `#slot-N` ("Ver refeição" do
+   cartão AGORA), `#seus-itens`, `#hidratacao`, `#pesar`, `#item-N`: com a
+   barra `sticky`, o alvo do pouso ficava debaixo dela (UX NOVO-02). Uma
+   regra para todo elemento com `id`, e não uma por âncora — a próxima
+   âncora já nasce certa. */
+[id] { scroll-margin-top: var(--appbar-h); }
 
 html {
   -webkit-text-size-adjust: 100%;
