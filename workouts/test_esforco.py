@@ -30,7 +30,7 @@ from django.utils import timezone
 from accounts.models import Experiencia, Profile
 from workouts import services
 from workouts.models import Measure
-from workouts.tests import create_user, dias_incluindo_hoje, sem_scripts
+from workouts.tests import create_user, dias_incluindo_hoje, escolher_opcao_de_hoje, sem_scripts
 
 
 class _Item:
@@ -102,8 +102,14 @@ class AInstrucaoApareceNaExecucaoTests(TestCase):
         Profile.objects.filter(user=self.pessoa).update(
             experiencia=Experiencia.INICIANTE
         )
+        # RECARREGADA DO BANCO: `Profile` fica em cache no objeto, e a ficha
+        # montada com o perfil velho seria remontada na primeira visita —
+        # levando junto a escolha do dia, que aponta para a sessão antiga.
+        self.pessoa = type(self.pessoa).objects.get(pk=self.pessoa.pk)
         services.create_routine(self.pessoa)
         self.client.force_login(self.pessoa)
+        # A execução abre a opção ESCOLHIDA de hoje (15/09/2026).
+        escolher_opcao_de_hoje(self.pessoa)
 
     def _execucao(self, item):
         url = "%s?exercicio=%d" % (reverse("workouts:now"), item.exercise_id)
@@ -117,8 +123,10 @@ class AInstrucaoApareceNaExecucaoTests(TestCase):
     def test_a_execucao_mostra_a_instrucao_da_serie_da_vez(self):
         """Ancorado na classe com aspas: a frase muda com a série, e o teste
         precisa achar o bloco, não a palavra."""
+        # Da opção ESCOLHIDA (a 1): a execução recusa exercício que só está
+        # na outra versão da letra.
         composto = next(
-            i for i in self._sessao_de_hoje().exercises.select_related("exercise")
+            i for i in self._sessao_de_hoje().da_opcao(1)
             if i.exercise.is_compound
         )
         html = self._execucao(composto)

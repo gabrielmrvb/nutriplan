@@ -108,6 +108,18 @@ def sessao_de_hoje(user):
     )
 
 
+def escolher_a_opcao_1(user, sessao):
+    """Grava a escolha de hoje — o que "Começar esta opção" faz na ficha.
+
+    Desde 15/09/2026 a letra tem até duas versões, e `/treino/agora/` com
+    duas opções e nenhuma escolha REDIRECIONA para a ficha: a execução não
+    decide por ninguém. Todo teste que abre a execução direto passa por aqui
+    primeiro, e mede a opção 1 — a que a ficha lista primeiro.
+    """
+    services.registrar_escolha(user, sessao, 1)
+    return sessao.da_opcao(1)
+
+
 class OPainelNaoDespejaAListaTests(BaseDoFluxo):
     """A tela de Treino é painel, e a lista mora na ficha."""
 
@@ -228,11 +240,36 @@ class AFichaEAPreparacaoTests(BaseDoFluxo):
         ).content.decode()
 
     def test_cada_exercicio_tem_porta_para_a_execucao(self):
-        for item in self.sessao.exercises.select_related("exercise"):
+        """Cada exercício da OPÇÃO ESCOLHIDA leva à execução; a outra opção se
+        compara, não se executa.
+
+        Desde 15/09/2026 a letra tem até duas versões e "Fazer" só existe na
+        escolhida de hoje — sem escolha gravada a ficha não abre porta
+        nenhuma, porque a execução ainda não sabe que treino é. O teste grava
+        a escolha da opção 1, como o botão "Começar esta opção" faz.
+        """
+        services.registrar_escolha(self.user, self.sessao, 1)
+        html = self.client.get(
+            reverse("workouts:ficha", args=[self.sessao.pk])
+        ).content.decode()
+        escolhida = self.sessao.da_opcao(1)
+        for item in escolhida:
             with self.subTest(exercicio=item.exercise.name):
                 self.assertIn(
                     "%s?exercicio=%d" % (reverse("workouts:now"), item.exercise_id),
-                    self.html,
+                    html,
+                )
+        # O que só está na outra opção não tem porta: executar é da escolhida.
+        so_na_outra = [
+            item for opcao in self.sessao.opcoes[1:]
+            for item in self.sessao.da_opcao(opcao)
+            if item.exercise_id not in {i.exercise_id for i in escolhida}
+        ]
+        for item in so_na_outra:
+            with self.subTest(exercicio=item.exercise.name, opcao="outra"):
+                self.assertNotIn(
+                    "%s?exercicio=%d" % (reverse("workouts:now"), item.exercise_id),
+                    html,
                 )
 
     def test_a_ficha_e_LEVE_e_nao_carrega_o_que_e_da_execucao(self):
@@ -271,13 +308,23 @@ class AFichaEAPreparacaoTests(BaseDoFluxo):
         html = self.client.get(
             reverse("workouts:ficha", args=[sessao.pk])
         ).content.decode()
-        principais = sessao.exercicios_principais
-        complementares = sessao.exercicios_complementares
-        self.assertTrue(
-            complementares, "o dia de pernas deixou de trazer complementar"
-        )
+        # POR OPÇÃO: a ficha desenha cada versão da letra como uma lista
+        # própria, numerada do 1, e dentro de cada uma o complementar continua
+        # a numeração dos principais.
+        esperados = []
+        for opcao in sessao.opcoes:
+            principais = sessao.principais_da_opcao(opcao)
+            complementares = sessao.complementares_da_opcao(opcao)
+            self.assertTrue(
+                complementares,
+                "o dia de pernas deixou de trazer complementar na opção %d" % opcao,
+            )
+            esperados += list(range(1, len(principais) + len(complementares) + 1))
+            # E o `<ol>` dos complementares COMEÇA onde o dos principais
+            # parou: sem o `start`, o navegador recomeçaria do 1 e o oitavo
+            # exercício do dia se apresentaria como primeiro de outra coisa.
+            self.assertIn('start="%d"' % (len(principais) + 1), html)
 
-        esperados = list(range(1, len(principais) + len(complementares) + 1))
         vistos = [
             int(t.split("</span>")[0])
             for t in html.split(
@@ -285,10 +332,6 @@ class AFichaEAPreparacaoTests(BaseDoFluxo):
             )[1:]
         ]
         self.assertEqual(vistos, esperados)
-        # E o `<ol>` dos complementares COMEÇA onde o dos principais parou:
-        # sem o `start`, o navegador recomeçaria do 1 e o oitavo exercício do
-        # dia se apresentaria como primeiro de outra coisa.
-        self.assertIn('start="%d"' % (len(principais) + 1), html)
 
     def test_a_linha_diz_nome_series_reps_e_musculo(self):
         """O que a ficha precisa apresentar, sem abrir nada."""
@@ -330,7 +373,11 @@ class AEscolhaDoExercicioEEstritaTests(BaseDoFluxo):
         self.user = pessoa("escolha@exemplo.com")
         self.client.force_login(self.user)
         self.sessao = sessao_de_hoje(self.user)
+        # `meus` são TODOS os exercícios da sessão de hoje (as duas opções),
+        # para excluir o que é de outra sessão; `escolhidos` são os da opção
+        # que a execução vai abrir.
         self.meus = [i.exercise_id for i in self.sessao.exercises.all()]
+        self.escolhidos = [i.exercise_id for i in escolher_a_opcao_1(self.user, self.sessao)]
         self.url = reverse("workouts:now")
 
     def _corpo(self, resposta):
@@ -341,10 +388,10 @@ class AEscolhaDoExercicioEEstritaTests(BaseDoFluxo):
         resposta = self.client.get(self.url)
 
         self.assertEqual(resposta.status_code, 200)
-        self.assertContains(resposta, self.sessao.exercises.first().exercise.name)
+        self.assertContains(resposta, self.sessao.da_opcao(1)[0].exercise.name)
 
     def test_com_id_valido_abre_exatamente_o_escolhido(self):
-        escolhido = self.sessao.exercises.select_related("exercise").last()
+        escolhido = self.sessao.da_opcao(1)[-1]
 
         resposta = self.client.get(self.url + "?exercicio=%d" % escolhido.exercise_id)
 
@@ -361,6 +408,26 @@ class AEscolhaDoExercicioEEstritaTests(BaseDoFluxo):
 
         self.assertEqual(resposta.status_code, 404)
         self.assertNotIn("<iframe", self._corpo(resposta))
+
+    def test_id_so_da_outra_opcao_devolve_404(self):
+        """A opção não escolhida se compara, não se executa.
+
+        Um exercício que só existe na outra versão da letra não é "do treino
+        de hoje": abri-lo pela URL cairia no mesmo silêncio que este arquivo
+        proíbe — a execução de um movimento que a pessoa não escolheu.
+        """
+        so_da_outra = [
+            i.exercise_id
+            for opcao in self.sessao.opcoes[1:]
+            for i in self.sessao.da_opcao(opcao)
+            if i.exercise_id not in self.escolhidos
+        ]
+        if not so_da_outra:
+            self.skipTest("a letra de hoje não tem exercício exclusivo da outra opção")
+
+        resposta = self.client.get(self.url + "?exercicio=%d" % so_da_outra[0])
+
+        self.assertEqual(resposta.status_code, 404)
 
     def test_id_de_outra_sessao_devolve_404(self):
         """Exercício da terça não abre na quinta, mesmo sendo da própria pessoa."""
@@ -419,7 +486,7 @@ class AEscolhaDoExercicioEEstritaTests(BaseDoFluxo):
             "?exercicio=abc",
             "?exercicio=",
             "?exercicio=-3",
-            "?exercicio=%d&exercicio=%d" % (self.meus[0], self.meus[-1]),
+            "?exercicio=%d&exercicio=%d" % (self.escolhidos[0], self.escolhidos[-1]),
         ]
         for consulta in casos:
             with self.subTest(consulta=consulta):
@@ -448,7 +515,7 @@ class AEscolhaDoExercicioEEstritaTests(BaseDoFluxo):
         ).delete()
         services.sync_active_routine(self.user)
 
-        resposta = self.client.get(self.url + "?exercicio=%d" % self.meus[0])
+        resposta = self.client.get(self.url + "?exercicio=%d" % self.escolhidos[0])
 
         self.assertEqual(resposta.status_code, 404)
 
@@ -460,7 +527,8 @@ class AEscolhaDoExercicioEEstritaTests(BaseDoFluxo):
         ficha inteira. Abrir o último exercício já concluído não pode fazer a
         tela dizer que o treino acabou com séries faltando lá em cima.
         """
-        itens = list(self.sessao.exercises.select_related("exercise"))
+        # A OPÇÃO ESCOLHIDA é a ficha da execução; a outra não entra na conta.
+        itens = self.sessao.da_opcao(1)
         if len(itens) < 2:
             self.skipTest("a sessão de hoje tem um exercício só")
         ultimo = itens[-1]
@@ -490,7 +558,7 @@ class ACargaContinuaNaExecucaoTests(BaseDoFluxo):
         self.user = pessoa("carga@exemplo.com")
         self.client.force_login(self.user)
         self.sessao = sessao_de_hoje(self.user)
-        self.item = self.sessao.exercises.select_related("exercise").first()
+        self.item = escolher_a_opcao_1(self.user, self.sessao)[0]
 
     def test_a_execucao_tem_campo_de_carga(self):
         resposta = self.client.get(
@@ -669,7 +737,7 @@ class ACargaAnteriorNaoViraRecomendacaoTests(BaseDoFluxo):
         self.item = next(
             (
                 i
-                for i in self.sessao.exercises.select_related("exercise")
+                for i in escolher_a_opcao_1(self.user, self.sessao)
                 if i.exercise.equipment != "bodyweight"
             ),
             None,
@@ -737,14 +805,18 @@ class ACargaAnteriorNaoViraRecomendacaoTests(BaseDoFluxo):
         # A letra A do `abc2` traz Flexão de braço e Mergulho no banco, os dois
         # de peso corporal. Forçá-la para hoje tira este teste do calendário.
         sessao = tornar_hoje(self.user, "A")
-        corporal = next(
-            (
-                i
-                for i in sessao.exercises.select_related("exercise")
-                if i.exercise.equipment == "bodyweight"
-            ),
-            None,
-        )
+        # As duas opções repartem o modelo: a de peso corporal pode ser a 1
+        # ou a 2. O teste escolhe a opção que o tem — é a escolha que a
+        # pessoa faria na ficha.
+        corporal = None
+        for k in sessao.opcoes:
+            candidato = next(
+                (i for i in sessao.da_opcao(k) if i.exercise.equipment == "bodyweight"), None
+            )
+            if candidato is not None:
+                services.registrar_escolha(self.user, sessao, k)
+                corporal = candidato
+                break
         self.assertIsNotNone(
             corporal, "o dia de peito deixou de ter exercício de peso corporal"
         )
@@ -764,7 +836,10 @@ class OFluxoResisteAoUsoRealTests(BaseDoFluxo):
         self.user = pessoa("uso@exemplo.com")
         self.client.force_login(self.user)
         self.sessao = sessao_de_hoje(self.user)
-        self.item = self.sessao.exercises.select_related("exercise").first()
+        # Sem escolha gravada de propósito: a primeira série registrada É a
+        # escolha (`ConcluirSerieView` grava a opção junto), e é esse caminho
+        # que o uso real segue.
+        self.item = self.sessao.da_opcao(1)[0]
 
     def _registrar(self, op_id):
         return self.client.post(

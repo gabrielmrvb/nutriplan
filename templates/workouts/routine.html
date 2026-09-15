@@ -107,6 +107,12 @@
             <div class="hoje__id">
               <span class="session__badge hoje__badge" data-dia="{{ hoje.label }}">{{ hoje.label }}</span>
               <h2 class="hoje__nome">{{ hoje.name }}</h2>
+              {% if hoje.tem_duas_opcoes %}
+                <p class="hoje__opcao">
+                  {% if hoje.escolha %}Opção {{ hoje.escolha.opcao }}{% if hoje.escolha.versao == 'rapido' %} · versão rápida{% endif %}
+                  {% else %}{{ hoje.versoes_texto }} disponíveis · recomendada: opção {{ hoje.recomendada }}{% endif %}
+                </p>
+              {% endif %}
             </div>
 
             {% if hoje.focus %}<p class="hoje__foco">{{ hoje.focus }}</p>{% endif %}
@@ -460,50 +466,34 @@
           teclado alcança, o leitor de tela anuncia link, e funciona sem JS.
         {% endcomment %}
         <ul class="programa__sessoes" data-escalonado>
-          {% for session in sessions %}
+          {% comment %}
+            UM CARTÃO POR LETRA (15/09/2026). A · B · C, e não um cartão por
+            dia: as ocorrências da mesma letra carregam as MESMAS opções, e
+            "A1"/"A2" diziam "dois treinos obrigatórios" quando eram duas
+            versões da mesma letra. O cartão diz os dias em que a letra cai,
+            os números da opção de referência e quantas versões existem. Um
+            plano antigo AJUSTADO (A1 ≠ A2 de verdade) continua com um cartão
+            por sessão — `agrupar_por_letra` decide.
+          {% endcomment %}
+          {% for letra in letras %}
             <li>
-              {% comment %}
-                O NOME FALADO É COMPLETO, e o escrito é curto.
-
-                O cartão mostra a letra num selo e o nome do treino ao lado.
-                Quem ouve a tela recebia "A, Peito tríceps e ombro" — a letra
-                solta, sem dizer do que ela é letra. O `aria-label` diz
-                "Treino A: Peito, tríceps e ombro, Segunda-feira, 5
-                exercícios", que é o bastante para escolher sem abrir.
-              {% endcomment %}
-              <a class="sessao-cartao{% if session.eh_hoje %} sessao-cartao--hoje{% endif %}"
-                 aria-label="Treino {{ session.rotulo }}: {{ session.name }}, {{ session.weekday_display }}, {{ session.exercises.count }} exercícios"
-                 href="{% url 'workouts:ficha' session.pk %}">
-                {% comment %}
-                  O SELO MOSTRA `rotulo`, e não `label`.
-
-                  `label` é a letra do catálogo e continua sendo a identidade
-                  no banco. `rotulo` é de exibição: quando a letra repete na
-                  semana, ele vira A1 e A2 — porque `aparar_volume_semanal`
-                  cede sempre a sessão mais cheia, então uma das passagens sai
-                  menor, e sem a numeração ela parece uma ficha incompleta.
-                  `data-dia` continua com a letra, que é o que o CSS usa para
-                  a cor do dia.
-
-                  E não prometa aqui que elas trazem exercícios diferentes:
-                  medido em 09/09/2026, em quatro dias a segunda é subconjunto
-                  da primeira e em sete as três são idênticas.
-                {% endcomment %}
-                <span class="session__badge" data-dia="{{ session.label }}">{{ session.rotulo }}</span>
+              <a class="sessao-cartao{% if letra.eh_hoje %} sessao-cartao--hoje{% endif %}"
+                 aria-label="Treino {{ letra.rotulo }}: {{ letra.name }}, {{ letra.dias|join:' e ' }}, {{ letra.exercicios }} exercícios{% if letra.opcoes > 1 %}, {{ letra.versoes_texto|lower }}{% endif %}"
+                 href="{% url 'workouts:ficha' letra.sessao.pk %}">
+                <span class="session__badge" data-dia="{{ letra.label }}">{{ letra.rotulo }}</span>
                 <span class="sessao-cartao__texto">
-                  <strong class="sessao-cartao__nome">{{ session.name }}</strong>
+                  <strong class="sessao-cartao__nome">{{ letra.name }}</strong>
                   <span class="session__meta">
-                    <span>{{ session.weekday_display }}</span>
-                    <span>{{ session.exercises.count }} exercícios</span>
-                    <span>{{ session.total_sets }} séries</span>
-                    <span>~{{ session.estimated_minutes }} min</span>
+                    <span>{{ letra.dias|join:" · " }}</span>
+                    <span>{{ letra.exercicios }} exercícios</span>
+                    <span>{{ letra.series }} séries</span>
+                    <span>~{{ letra.minutos }} min</span>
                   </span>
+                  {% if letra.opcoes > 1 %}
+                    <span class="sessao-cartao__versoes">{{ letra.versoes_texto }} disponíveis</span>
+                  {% endif %}
                 </span>
-                {% if session.eh_hoje %}
-                  {% comment %}
-                    A marca de hoje é TEXTO e não só cor: quem não distingue o
-                    verde precisa da mesma informação.
-                  {% endcomment %}
+                {% if letra.eh_hoje %}
                   <span class="sessao-cartao__hoje">hoje</span>
                 {% endif %}
                 <span class="ficha__seta" aria-hidden="true">

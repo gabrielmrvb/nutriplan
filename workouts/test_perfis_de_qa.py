@@ -118,20 +118,25 @@ class CincoPerfisTests(TestCase):
                 teto = services.teto_de_minutos(user)
                 por_grupo_na_semana = {}
                 for s in sessoes:
-                    itens = list(s.exercises.all())
+                  # POR OPÇÃO (15/09/2026): a sessão guarda até duas versões
+                  # da letra, e cada uma é um treino — tamanho, repetição e
+                  # tempo são medidos nela. A variedade da semana é a UNIÃO.
+                  for opcao in s.opcoes:
+                    itens = s.da_opcao(opcao)
                     nomes = [i.exercise.name for i in itens]
+                    onde = "%s opção %d" % (s.label, opcao)
 
                     self.assertGreaterEqual(
-                        len(itens), 2, "%s: sessão %s com %d exercício" % (rotulo, s.label, len(itens))
+                        len(itens), 2, "%s: sessão %s com %d exercício" % (rotulo, onde, len(itens))
                     )
                     self.assertEqual(len(nomes), len(set(nomes)),
-                                     "%s: exercício repetido em %s" % (rotulo, s.label))
+                                     "%s: exercício repetido em %s" % (rotulo, onde))
 
                     if teto is not None:
                         self.assertLessEqual(
-                            s.estimated_minutes, teto,
+                            s.minutos_da_opcao(opcao), teto,
                             "%s: %s estima %d min com teto de %d" % (
-                                rotulo, s.label, s.estimated_minutes, teto),
+                                rotulo, onde, s.minutos_da_opcao(opcao), teto),
                         )
 
                     if dur != DuracaoTreino.RAPIDO:
@@ -144,7 +149,7 @@ class CincoPerfisTests(TestCase):
                                 self.assertGreaterEqual(
                                     i.sets, 3,
                                     "%s: %s com %d série(s) em %s" % (
-                                        rotulo, i.exercise.name, i.sets, s.label),
+                                        rotulo, i.exercise.name, i.sets, onde),
                                 )
 
                     for i in itens:
@@ -187,6 +192,9 @@ class CincoPerfisTests(TestCase):
             p[0] = "faixa-%s" % dur
             p[8] = dur
             user = nascer(*p)
+            # A soma da opção de referência (a 1) de cada sessão: as opções
+            # são equivalentes por construção, e somar as duas contaria dois
+            # treinos por dia.
             minutos[dur] = sum(s.estimated_minutes for s in self._sessoes(user))
         self.assertLessEqual(minutos[DuracaoTreino.RAPIDO], minutos[DuracaoTreino.PADRAO])
         self.assertLessEqual(minutos[DuracaoTreino.PADRAO], minutos[DuracaoTreino.COMPLETO])

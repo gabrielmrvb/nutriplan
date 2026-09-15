@@ -29,38 +29,22 @@
     {% endcomment %}
     <a class="btn-link" href="{% url 'workouts:routine' %}">← Treino</a>
     <h1>Treino {{ sessao.rotulo }}: {{ sessao.name }}</h1>
-    {% if sessao.repetida %}
-      {% comment %}
-        A LETRA REPETE NA SEMANA, e a pessoa precisa saber o que isso significa.
-
-        Sem esta frase, a passagem menor parece uma ficha incompleta — é o
-        defeito que `nomear_ocorrencias` documenta por inteiro.
-
-        A FRASE NÃO PROMETE EXERCÍCIOS DIFERENTES. A anterior prometia, e a
-        medição de 09/09/2026 desmentiu: em quatro dias o segundo A é um
-        subconjunto do primeiro, e em sete dias os três A são idênticos. O que
-        é sempre verdade é o teto semanal — `aparar_volume_semanal` conta o
-        volume de cada músculo uma vez na SEMANA e cede a sessão mais cheia,
-        então repetir a letra aumenta a frequência sem dobrar o total.
-
-        E o número vem de `sessao.vezes_texto`: em sete dias a letra A aparece
-        TRÊS vezes, e "duas" escrito à mão mentia para essa pessoa.
-      {% endcomment %}
-      <p class="hint">
-        Este treino aparece {{ sessao.vezes_texto }} vezes na semana.
-        Repetir a letra aumenta a frequência, e não o total de séries:
-        o volume semanal de cada músculo tem limite, e é ele que decide o que
-        fica em cada passagem — por isso uma delas pode vir mais curta.
-      </p>
-    {% endif %}
+    {% comment %}
+      UMA LETRA, ATÉ DUAS VERSÕES (15/09/2026). A ficha deixou de ser "a
+      sessão de segunda": é o Treino A, com as opções lado a lado, e a pessoa
+      escolhe qual faz no dia. As duas são completas e equivalentes por
+      construção (`workouts/opcoes.py`); a recomendada é a menos usada
+      recentemente — um selo, nunca uma obrigação.
+    {% endcomment %}
     <p class="lead">
       <span>{{ sessao.weekday_display }}</span>
       <span>·</span>
-      <span class="num">{{ sessao.exercises.count }} exercícios</span>
+      <span class="num">{{ opcoes.0.itens|length }} exercícios</span>
       <span>·</span>
-      <span class="num">{{ sessao.total_sets }} séries</span>
+      <span class="num">{{ opcoes.0.series }} séries</span>
       <span>·</span>
-      <span class="num">~{{ sessao.estimated_minutes }} min</span>
+      <span class="num">~{{ opcoes.0.minutos }} min</span>
+      {% if sessao.tem_duas_opcoes %}<span>·</span> <span>{{ versoes_texto }} disponíveis</span>{% endif %}
     </p>
   </div>
 
@@ -70,35 +54,35 @@
         <p class="session__focus">{{ sessao.focus }}</p>
       {% endif %}
 
-      {% if sessao.eh_hoje %}
+      {% if trocar %}
         {% comment %}
-          O PROGRESSO DO DIA, e ele mora aqui porque aqui é onde se decide.
-
-          A ficha virou a tela de preparação: quem toca em "Começar treino" na
-          tela de Treino chega NESTA página, vê o treino inteiro e escolhe por
-          onde entrar. Um progresso que só existisse na tela anterior obrigaria
-          a voltar para saber quanto falta.
-
-          A frase é a mesma da tela de Treino, pela mesma razão de sempre: ela
-          é verificável — são as linhas de `ExerciseLog` com a data de hoje — e
-          "treino concluído" afirmaria um estado que nenhuma tabela sustenta.
+          TROCAR DEPOIS DA PRIMEIRA SÉRIE PEDE CONFIRMAÇÃO, e nada é apagado:
+          `ExerciseLog` é por exercício e data. A pergunta é explícita porque
+          trocar em silêncio faria a execução abrir outro treino no meio do
+          que a pessoa estava fazendo.
         {% endcomment %}
+        <section class="card opcoes__confirmar" role="region" aria-live="polite" aria-labelledby="trocar-titulo">
+          <h2 id="trocar-titulo">Trocar para a opção {{ trocar }}?</h2>
+          <p>Você já registrou <b class="num">{{ series_hoje }}</b> {% if series_hoje == 1 %}série{% else %}séries{% endif %} hoje na opção {{ escolha.opcao }}. Elas continuam no histórico; só a lista de exercícios de hoje muda.</p>
+          <form method="post" action="{% url 'workouts:escolher' sessao.pk %}" class="form-actions">
+            {% csrf_token %}
+            <input type="hidden" name="opcao" value="{{ trocar }}">
+            <input type="hidden" name="versao" value="{{ versao }}">
+            <input type="hidden" name="confirmar" value="1">
+            <a class="btn btn--ghost" href="{% url 'workouts:ficha' sessao.pk %}">Manter a opção {{ escolha.opcao }}</a>
+            <button type="submit" class="btn btn--primary">Trocar e manter o registro</button>
+          </form>
+        </section>
+      {% endif %}
+
+      {% if sessao.eh_hoje %}
         <p class="ficha__progresso" role="status" aria-live="polite">
           <b class="num">{{ sessao.feitos_hoje }}</b> de
           <span class="num">{{ sessao.total_exercicios }}</span>
           {% if sessao.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}
-          com série registrada hoje
+          com série registrada hoje{% if sessao.tem_duas_opcoes %} · opção {{ sessao.opcao_do_dia }}{% if not escolha %} (recomendada){% endif %}{% endif %}{% if escolha and escolha.versao == 'rapido' %} · versão rápida{% endif %}
         </p>
-
         {% if sessao.proximo %}
-          {% comment %}
-            O atalho para RETOMAR, e ele é secundário de propósito.
-
-            A porta principal desta tela é a lista: a pessoa escolhe. Este
-            botão existe para quem já sabe onde parou e não quer procurar —
-            ele leva ao primeiro exercício com série faltando, que é a mesma
-            regra que `progresso_do_dia` e `estado_do_treino` usam.
-          {% endcomment %}
           <a class="btn btn--primary btn--block"
              href="{% url 'workouts:now' %}?exercicio={{ sessao.proximo.exercise_id }}">
             {% if sessao.feitos_hoje %}Continuar de onde parou{% else %}Começar pelo primeiro{% endif %}
@@ -106,52 +90,71 @@
         {% endif %}
       {% endif %}
 
-      {% comment %}
-        A FICHA SEPARA O QUE O TÍTULO PROMETE DO QUE VEM JUNTO.
+      {% if pode_escolher and rapida_muda %}
+        {% comment %}
+          COMPLETO OU RÁPIDO é uma escolha da área de Treino, e não do
+          cadastro: a versão rápida é a opção escolhida passando pelo corte de
+          tempo (`escolher_para_o_tempo`, ~40 min) — os principais ficam, o
+          acessório de menor prioridade sai primeiro, e a linha diz o que
+          ficou de fora. Não é uma terceira ficha.
+        {% endcomment %}
+        <nav class="versoes" aria-label="Versão do treino">
+          <a class="versoes__opcao{% if versao == 'completo' %} is-active{% endif %}"
+             href="?versao=completo{% if trocar %}&amp;trocar={{ trocar }}{% endif %}"
+             {% if versao == 'completo' %}aria-current="true"{% endif %}>Treino completo <span class="num">~{{ opcoes.0.minutos }} min</span></a>
+          <a class="versoes__opcao{% if versao == 'rapido' %} is-active{% endif %}"
+             href="?versao=rapido{% if trocar %}&amp;trocar={{ trocar }}{% endif %}"
+             {% if versao == 'rapido' %}aria-current="true"{% endif %}>Versão rápida <span class="num">até 40 min</span></a>
+        </nav>
+      {% endif %}
 
-        "Costas e bíceps" com encolhimento e rosca de punho no meio da lista
-        parecia uma ficha com sete exercícios de puxe, e a pessoa que contava
-        quatro costas achava que faltava um. São coisas diferentes: dorsais e
-        bíceps são o dia; trapézio e antebraço são o complemento que cabe.
-
-        A separação também explica a sessão CURTA sem inventar desculpa. Quando
-        o tempo aperta, o complementar é o primeiro a sair
-        (`escolher_para_o_tempo`), e ele volta na outra passagem da letra —
-        quem vê a seção sumir de uma sexta e voltar na segunda está vendo a
-        regra funcionar, não um defeito.
-
-        `main_groups` vazio — toda ficha montada antes de 10/09/2026 — deixa
-        `exercicios_complementares` vazio, e a tela volta a ser uma lista só.
-      {% endcomment %}
-      {% with principais=sessao.exercicios_principais complementares=sessao.exercicios_complementares %}
-        <ol class="ficha-lista" data-escalonado>
-          {% for item in principais %}
-            {% include "workouts/_item_da_ficha.html" with item=item ordem=forloop.counter hoje=sessao.eh_hoje %}
-          {% endfor %}
-        </ol>
-
-        {% if complementares %}
-          <div class="ficha__complementares stack">
-            <h2 class="ficha__complementares-titulo">Complementares desta sessão</h2>
-            <p class="hint">
-              Não é o foco do dia — é o que cabe junto. Eles se revezam entre as
-              passagens da semana, então nem toda sessão traz os mesmos.
+      <div class="opcoes" data-escalonado>
+        {% for op in opcoes %}
+          <section class="card opcao{% if op.escolhida %} opcao--escolhida{% endif %}{% if op.recomendada %} opcao--recomendada{% endif %}" id="opcao-{{ op.numero }}">
+            <div class="card__head opcao__head">
+              <h2>{% if sessao.tem_duas_opcoes %}Opção {{ op.numero }}{% else %}A ficha{% endif %}</h2>
+              {% if op.escolhida %}<span class="pill pill--brand">Escolhida hoje</span>
+              {% elif op.recomendada %}<span class="pill pill--brand">Recomendada hoje</span>{% endif %}
+            </div>
+            <p class="opcao__meta num">
+              {% if versao == 'rapido' %}
+                {{ op.rapida_series }} séries · ~{{ op.rapida_minutos }} min
+                <span class="muted">(completo: {{ op.series }} séries · ~{{ op.minutos }} min)</span>
+              {% else %}
+                {{ op.itens|length }} exercícios · {{ op.series }} séries · ~{{ op.minutos }} min
+              {% endif %}
             </p>
-            {% comment %}
-              A NUMERAÇÃO CONTINUA, e não recomeça. São duas listas na tela e
-              uma ficha só: o complementar é o oitavo exercício do dia, não o
-              primeiro de outra coisa. `start` mantém o `<ol>` semanticamente
-              certo para quem lê com leitor de tela, e o número visível vem do
-              mesmo cálculo.
-            {% endcomment %}
-            <ol class="ficha-lista" data-escalonado start="{{ principais|length|add:1 }}">
-              {% for item in complementares %}
-                {% include "workouts/_item_da_ficha.html" with item=item ordem=principais|length|add:forloop.counter hoje=sessao.eh_hoje %}
+            {% if op.equipamentos %}
+              <p class="opcao__equipamentos muted">{{ op.equipamentos|join:" · " }}</p>
+            {% endif %}
+            <ol class="ficha-lista" data-escalonado>
+              {% for item in op.principais %}
+                {% include "workouts/_item_da_ficha.html" with item=item ordem=forloop.counter hoje=op.executavel rapida=rapida %}
               {% endfor %}
             </ol>
-          </div>
-        {% endif %}
-      {% endwith %}
+            {% if op.complementares %}
+              <div class="ficha__complementares">
+                <h3 class="ficha__complementares-titulo">Complementares desta sessão</h3>
+                <ol class="ficha-lista" data-escalonado start="{{ op.principais|length|add:1 }}">
+                  {% for item in op.complementares %}
+                    {% include "workouts/_item_da_ficha.html" with item=item ordem=op.principais|length|add:forloop.counter hoje=op.executavel rapida=rapida %}
+                  {% endfor %}
+                </ol>
+              </div>
+            {% endif %}
+            {% if pode_escolher %}
+              <form method="post" action="{% url 'workouts:escolher' sessao.pk %}" class="opcao__comecar">
+                {% csrf_token %}
+                <input type="hidden" name="opcao" value="{{ op.numero }}">
+                <input type="hidden" name="versao" value="{{ versao }}">
+                <button type="submit" class="btn {% if op.escolhida or op.recomendada or not sessao.tem_duas_opcoes %}btn--primary{% else %}btn--ghost{% endif %} btn--block">
+                  {% if op.escolhida %}Continuar esta opção{% else %}Começar esta opção{% endif %}
+                </button>
+              </form>
+            {% endif %}
+          </section>
+        {% endfor %}
+      </div>
     </div>
   </div>
 

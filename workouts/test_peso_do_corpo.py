@@ -23,7 +23,7 @@ from django.utils import timezone
 
 from workouts import services
 from workouts.models import Exercise, ExerciseLog, Measure, SessionExercise
-from workouts.tests import create_user, dias_incluindo_hoje, sem_scripts
+from workouts.tests import create_user, dias_incluindo_hoje, escolher_opcao_de_hoje, sem_scripts
 
 
 class PesoDoCorpoTests(TestCase):
@@ -38,6 +38,9 @@ class PesoDoCorpoTests(TestCase):
         self.hoje = timezone.localdate()
         plano = services.get_active_routine(self.pessoa)
         self.sessao = next(s for s in plano.sessions.all() if s.weekday == self.hoje.weekday())
+        # A execução abre a opção ESCOLHIDA de hoje (15/09/2026): a 1, e os
+        # itens de teste entram NELA (`opcao=1`, o padrão do modelo).
+        escolher_opcao_de_hoje(self.pessoa)
         # A sessão de hoje pode não ter flexão nem prancha: elas ENTRAM na
         # ficha de hoje como itens de teste, com a dose do catálogo.
         self.flexao = self._garantir("Flexão de braço", Measure.REPS, 10, 15)
@@ -47,16 +50,16 @@ class PesoDoCorpoTests(TestCase):
         plano.customized_at = timezone.now()
         plano.save(update_fields=["customized_at"])
         self.supino = next(
-            i for i in self.sessao.exercises.select_related("exercise")
+            i for i in self.sessao.da_opcao(1)
             if i.exercise.equipment != "bodyweight" and i.measure == Measure.REPS
         )
 
     def _garantir(self, nome, measure, rep_min, rep_max):
         exercicio = Exercise.objects.get(name=nome)
-        item = self.sessao.exercises.filter(exercise=exercicio).first()
+        item = self.sessao.exercises.filter(exercise=exercicio, opcao=1).first()
         if item is None:
             item = SessionExercise.objects.create(
-                session=self.sessao, exercise=exercicio, order=99,
+                session=self.sessao, exercise=exercicio, order=99, opcao=1,
                 sets=3, rep_min=rep_min, rep_max=rep_max, measure=measure, rest_seconds=60,
             )
         return item

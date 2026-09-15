@@ -187,6 +187,104 @@ def dias_sem_hoje(quantos=3):
     return tuple(sorted({(hoje + n) % 7 for n in range(1, quantos + 1)}))
 
 
+# --------------------------------------------------------------- opções
+#
+# UMA LETRA, ATÉ DUAS OPÇÕES (15/09/2026, `workouts/opcoes.py`). A sessão
+# guarda as linhas das DUAS opções, e `session.exercises.all()` é a soma —
+# um treino que ninguém faz. Todo teste que mede volume, tamanho ou tempo de
+# sessão passa por estes ajudantes, que olham UMA opção por vez.
+
+
+def escolher_opcao_de_hoje(user, opcao=1):
+    """Grava a escolha de hoje — o que "Começar esta opção" faz na ficha.
+
+    `/treino/agora/` com duas opções e nenhuma escolha REDIRECIONA para a
+    ficha (15/09/2026): a execução não decide por ninguém. Todo teste que
+    abre a execução direto, ou que espera a linha "Concluído"/"Fazer" da
+    opção escolhida, passa por aqui antes. Devolve a sessão de hoje, ou
+    `None` quando hoje é descanso (aí não há o que escolher). A rotina
+    nasce aqui se ainda não existe, como a visita ao painel faria.
+    """
+    plano = user.training_plans.filter(is_active=True).first()
+    if plano is None:
+        plano = services.create_routine(user)
+    sessao = plano.sessions.filter(weekday=timezone.localdate().weekday()).first()
+    if sessao is None:
+        return None
+    services.registrar_escolha(user, sessao, opcao)
+    return sessao
+
+
+def linhas_da_opcao(sessao, opcao=None):
+    """As linhas de UMA opção da sessão, com `exercise` já carregado."""
+    if opcao is None:
+        opcao = sessao.opcoes[0]
+    return [
+        item
+        for item in sessao.exercises.select_related("exercise")
+        if item.opcao == opcao
+    ]
+
+
+def series_diretas_da_semana(plan) -> dict:
+    """Séries DIRETAS por grupo na semana, no PIOR CASO: cada ocorrência da
+    letra faz a opção mais pesada naquele grupo. É a versão "sem secundário"
+    de `services.volume_da_semana`, para os testes que comparam com o número
+    escrito no catálogo."""
+    semanal = {}
+    for sessao in plan.sessions.all():
+        por_opcao = []
+        for k in sessao.opcoes:
+            volume = {}
+            for item in linhas_da_opcao(sessao, k):
+                grupo = item.exercise.muscle_group
+                volume[grupo] = volume.get(grupo, 0) + item.sets
+            por_opcao.append(volume)
+        for grupo in set().union(*(v.keys() for v in por_opcao)):
+            semanal[grupo] = semanal.get(grupo, 0) + max(v.get(grupo, 0) for v in por_opcao)
+    return semanal
+
+
+def excesso_e_irredutivel(plan, grupo) -> tuple:
+    """`(irredutível, evidência)`: o grupo passou do teto e NENHUMA opção de
+    NENHUMA letra tem o que ceder nele.
+
+    A régua é a de `opcoes._ceder`, que é quem apara: cede série acrescentada
+    pelo preenchimento (acima da dose do catálogo), série de isolador acima de
+    duas, e só então um isolador/acessório inteiro — nunca o último exercício
+    direto do grupo na opção, nunca o composto principal. Se alguma opção
+    ainda tem uma dessas concessões, o excesso NÃO é irredutível e o aparo
+    parou cedo. `workouts/test_opcoes.py::test_repetir_a_mesma_opcao_cabe_no_
+    teto_semanal` afirma a mesma coisa para os cinco perfis do brief.
+    """
+    dose_do_catalogo = {
+        (template.label, item.exercise_id): item.sets
+        for template in services.templates_for(plan.split)
+        for item in template.items.all()
+    }
+    vistas = set()
+    evidencia = []
+    for sessao in plan.sessions.all():
+        if sessao.label in vistas:
+            continue
+        vistas.add(sessao.label)
+        for k in sessao.opcoes:
+            itens = linhas_da_opcao(sessao, k)
+            graus = services.prioridades_da_sessao(itens)
+            diretos = [(i, g) for i, g in zip(itens, graus) if i.exercise.muscle_group == grupo]
+            podem = [(i, g) for i, g in diretos if g < services.PRINCIPAL]
+            cedem = [
+                i.exercise.name
+                for i, g in podem
+                if i.sets > dose_do_catalogo.get((sessao.label, i.exercise_id), i.sets)
+                or (g == services.ISOLADOR and i.sets > 2)
+                or len(diretos) > 1
+            ]
+            if cedem:
+                evidencia.append((sessao.label, k, cedem))
+    return (not evidencia), evidencia
+
+
 class SplitChoiceTests(TestCase):
     """A divisão sai da frequência — é decisão de treinamento, não de gosto."""
 
@@ -993,6 +1091,7 @@ class LoadInputFormatTests(TestCase):
         # coisa — que foi como esta reescrita reprovou na primeira execução.
         painel = self.client.get(reverse("workouts:routine"))
         sessao = user.training_plans.get(is_active=True).sessions.first()
+        escolher_opcao_de_hoje(user)
 
         telas = {
             "painel": painel,
@@ -1134,11 +1233,24 @@ class WeekAccordionTests(TestCase):
         html = self._pagina()
         todas = list(self.plano.sessions.all())
 
-        cartoes = re.findall(r'class="sessao-cartao[ "]', html)
-        self.assertEqual(len(cartoes), len(todas))
+        # UM CARTÃO POR LETRA (15/09/2026), e não por dia: as ocorrências da
+        # mesma letra carregam as mesmas opções, então A de segunda e A de
+        # quinta são o mesmo treino. O cartão é um link para a ficha da letra
+        # e lista os DIAS em que ela cai — é assim que a semana inteira
+        # continua visível, inclusive o dia de hoje.
+        letras = {}
         for sessao in todas:
-            with self.subTest(sessao=sessao.label):
-                self.assertIn(reverse("workouts:ficha", args=[sessao.pk]), html)
+            letras.setdefault(sessao.label, []).append(sessao)
+        cartoes = re.findall(r'class="sessao-cartao[ "]', html)
+        self.assertEqual(len(cartoes), len(letras))
+        for letra, sessoes in letras.items():
+            with self.subTest(letra=letra):
+                self.assertTrue(
+                    any(reverse("workouts:ficha", args=[s.pk]) in html for s in sessoes),
+                    "a letra %s não tem cartão-link para a ficha" % letra,
+                )
+                for sessao in sessoes:
+                    self.assertIn(sessao.weekday_display, html)
 
     def test_a_sanfona_da_semana_nao_existe_mais(self):
         """O paredão não pode voltar por outro caminho."""
@@ -2036,6 +2148,7 @@ class LoadStepperTests(TestCase):
         self.user = create_user(weekdays=dias_incluindo_hoje(5))
         self.client.force_login(self.user)
         self.client.get(reverse("workouts:routine"))
+        escolher_opcao_de_hoje(self.user)
         self.html = self.client.get(reverse("workouts:now")).content.decode()
         self.css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
             encoding="utf-8"
@@ -2156,6 +2269,7 @@ class GymHardwareTests(TestCase):
         # eles servem quem está com o celular no banco, entre séries. Isso
         # acontece na execução. O painel — cards da semana e o treino de hoje —
         # ficava aceso e vibrava sem ninguém treinando nele.
+        escolher_opcao_de_hoje(self.user)
         self.html = self.client.get(reverse("workouts:now")).content.decode()
 
     def test_the_screen_is_kept_awake_during_the_workout(self):
@@ -2254,7 +2368,13 @@ class TreinoDeHojeTests(TestCase):
         return bloco.split("data-hoje-cta", 1)[0].rsplit("<a ", 1)[1]
 
     def _itens(self):
-        return list(self.sessao.exercises.all())
+        """Os exercícios do treino de HOJE — a opção de referência da letra.
+
+        A sessão guarda até duas opções (15/09/2026), e `exercises.all()`
+        seria a soma de dois treinos. O cartão de hoje mostra os números da
+        opção recomendada, que sem histórico é a primeira.
+        """
+        return self.sessao.da_opcao(self.sessao.opcoes[0])
 
     def _anotar(self, item, series=1):
         """Uma série registrada hoje, pelo mesmo serviço que a tela usa."""
@@ -2516,6 +2636,9 @@ class TreinoDeHojeTests(TestCase):
         """
         item = self._itens()[0]
         self._anotar(item, series=item.sets)
+        # "Concluído" é a porta da opção ESCOLHIDA; anotar pelo serviço não
+        # grava a escolha (só a tela grava), então ela é gravada aqui.
+        escolher_opcao_de_hoje(self.user)
 
         marcacao = sem_scripts(html_de_todas_as_fichas(self.client))
 
@@ -3669,8 +3792,10 @@ class ConclusaoNaoVazaEntreDiasTests(TestCase):
         cartão, `ficha-item--feito` na linha da preparação —, e o que ela diz é
         o mesmo desde sempre.
         """
-        item = self.sessao_de_hoje.exercises.first()
+        item = self.sessao_de_hoje.da_opcao(1)[0]
         self._anotar_todas_as_series(item)
+        # A marca de concluído com texto é a da opção ESCOLHIDA de hoje.
+        escolher_opcao_de_hoje(self.user)
 
         bloco_de_hoje = fichas_por_letra(self.client, self.user)[
             self.sessao_de_hoje.label
@@ -4030,31 +4155,24 @@ class MatrizDeVolumeTests(TestCase):
         return user, services.create_routine(user)
 
     def _semanal(self, plan):
-        semanal = {}
-        for sessao in plan.sessions.all():
-            for item in sessao.exercises.select_related("exercise"):
-                grupo = item.exercise.muscle_group
-                semanal[grupo] = semanal.get(grupo, 0) + item.sets
-        return semanal
+        """Séries DIRETAS por grupo na semana, no PIOR CASO por ocorrência.
+
+        Desde 15/09/2026 a sessão guarda até DUAS opções, e a pessoa faz UMA
+        por dia. Somar `sessao.exercises` contava os dois treinos no mesmo
+        dia — um volume que ninguém recebe. A conta aqui é a de
+        `services.volume_da_semana`, sem o secundário: cada ocorrência da
+        letra faz a opção mais pesada no grupo.
+        """
+        return series_diretas_da_semana(plan)
 
     def _efetivo(self, plan):
         """Séries efetivas por grupo: direta vale 1, secundária vale metade.
 
-        A mesma conta de `services.volume_efetivo`, alimentada pelas linhas
-        gravadas — é assim que o teste mede o que a pessoa RECEBEU, e não o que
-        o gerador pretendia.
+        É `services.volume_da_semana` — a conta oficial do teto, alimentada
+        pelas linhas gravadas, uma opção por ocorrência. Assim o teste mede o
+        que a pessoa RECEBE num dia, e não a soma das duas versões da letra.
         """
-        return services.volume_efetivo(
-            [
-                (
-                    item.exercise.muscle_group,
-                    item.exercise.secondary_muscles or (),
-                    Decimal(item.sets),
-                )
-                for sessao in plan.sessions.all()
-                for item in sessao.exercises.select_related("exercise")
-            ]
-        )
+        return services.volume_da_semana(plan)
 
     def test_nenhum_grupo_passa_do_teto_semanal(self):
         """Repetir a letra não pode explodir o volume — e a régua mudou.
@@ -4070,6 +4188,11 @@ class MatrizDeVolumeTests(TestCase):
         participação secundária valendo metade, nunca acima de
         `TETO_SEMANAL_POR_GRUPO`. Medido em toda a matriz de 7 frequências × 4
         preferências: o pior grupo fica exatamente no teto, nenhum passa.
+
+        E A CONTA MUDOU EM 15/09/2026: a letra tem até duas OPÇÕES, e a
+        pessoa faz uma por dia. A semana é medida por `volume_da_semana` —
+        pior caso, cada ocorrência na opção mais pesada do grupo —, nunca
+        pela soma das duas opções, que é um treino que ninguém faz.
         """
         for dias in range(1, 8):
             for preferencia in self.PREFERENCIAS:
@@ -4085,9 +4208,10 @@ class MatrizDeVolumeTests(TestCase):
                 #
                 # Então a régua tem duas partes: o volume DIRETO nunca passa do
                 # teto, e todo grupo que passa no efetivo tem de PROVAR o
-                # motivo — ou tem um exercício direto só, ou os que restam são
-                # todos principais. Sem essa segunda metade, "acima do teto"
-                # viraria desculpa para qualquer coisa.
+                # motivo — em NENHUMA opção de NENHUMA letra sobrou isolador
+                # ou acessório direto que `opcoes._ceder` pudesse ceder. Sem
+                # essa segunda metade, "acima do teto" viraria desculpa para
+                # qualquer coisa.
                 for grupo, volume in diretas.items():
                     with self.subTest(dias=dias, pref=preferencia, grupo=grupo):
                         self.assertLessEqual(
@@ -4099,19 +4223,12 @@ class MatrizDeVolumeTests(TestCase):
                 for grupo, volume in efetivo.items():
                     if volume <= services.TETO_SEMANAL_POR_GRUPO:
                         continue
-                    linhas = [
-                        i
-                        for sessao in plan.sessions.all()
-                        for i in sessao.exercises.select_related("exercise")
-                        if i.exercise.muscle_group == grupo
-                    ]
-                    so_um_direto = len(linhas) <= 1
-                    so_principais = all(i.exercise.is_compound for i in linhas)
+                    irredutivel, evidencia = excesso_e_irredutivel(plan, grupo)
                     with self.subTest(dias=dias, pref=preferencia, grupo=grupo):
                         self.assertTrue(
-                            so_um_direto or so_principais,
+                            irredutivel,
                             "%s passou do teto (%s) tendo o que ceder: %s"
-                            % (grupo, volume, [i.exercise.name for i in linhas]),
+                            % (grupo, volume, evidencia),
                         )
 
     def test_o_composto_principal_nunca_e_cortado_pela_metade(self):
@@ -5010,88 +5127,58 @@ class OrcamentoDeTempoTests(TestCase):
 
 
 
-    def _prescricao_natural(self, dias, split):
+    def _prescricao_natural(self, plan):
         """A ficha que o catálogo pede, SEM nenhuma lógica de tempo.
 
-        Referência independente do que está sob teste. Monta-se com duas coisas
-        e só elas: os itens dos modelos e `distribuir_series`, que é a regra de
-        VOLUME — quantas séries cada ocorrência da letra recebe. Nada aqui
-        consulta orçamento, teto, tolerância ou `escolher_para_o_tempo`.
+        Referência independente do que está sob teste: a MESMA cadeia do
+        motor (`prescrever_opcoes`) com `teto=None`, que desde 15/09/2026
+        significa "sem relógio" — a faixa "livre" da pessoa é traduzida em
+        65 minutos ANTES de chegar ao motor (`teto_completo_de`), então
+        `None` aqui não é uma decisão de produto, é a ausência do corte.
 
-        É o que torna a pré-condição verificável: se a ficha de 60 minutos for
-        idêntica a isto, então 60 não cortou nada por falta de tempo. Sem essa
-        prova, comparar 60 com 90 não diz nada — as duas poderiam estar
+        É o que torna a pré-condição verificável: se a ficha de 90 minutos for
+        idêntica a isto, então 90 não cortou nada por falta de tempo. Sem essa
+        prova, comparar 90 com 120 não diz nada — as duas poderiam estar
         truncadas no mesmo ponto e a igualdade passaria igual.
+
+        Já foi uma CÓPIA do motor sem a lógica de tempo, e cada regra nova
+        (repartição por ocorrência em 10/09, opções por letra em 15/09) fazia
+        a cópia envelhecer e o teste reprovar o motor corrigido. Pedir ao
+        motor com `None` fecha isso: o que muda no motor muda aqui junto.
         """
-        modelos = {t.label: t for t in services.templates_for(split)}
-        rotulos = list(modelos)
-        escala = [rotulos[i % len(rotulos)] for i in range(dias)]
-        ocorrencias = {r: escala.count(r) for r in set(escala)}
-
-        # A FICHA NATURAL É A DOSE CHEIA DO CATÁLOGO, APARADA SÓ PELO VOLUME.
-        #
-        # Era `distribuir_series`, que repartia a dose entre as ocorrências da
-        # letra. Aquilo saiu em 08/09/2026: a dose do catálogo passou a valer
-        # por sessão, e quem controla a soma da semana é `aparar_volume_semanal`.
-        #
-        # O que este auxiliar tem de reproduzir é a prescrição SEM lógica de
-        # tempo — é essa a pré-condição que os testes abaixo usam para provar
-        # que o orçamento não truncou nada.
-        candidatos, esperado = [], []
-        vistas = {}
-        for ordem_sessao, rotulo in enumerate(escala):
-            itens = [i for i in modelos[rotulo].items.all() if i.exercise.is_active]
-            # A REPARTIÇÃO ENTRA AQUI TAMBÉM, e isto é o ponto fraco deste
-            # auxiliar: ele REPRODUZ o motor sem a lógica de tempo, então toda
-            # regra nova do motor precisa ser copiada para cá. Quando
-            # `repartir_ocorrencia` nasceu, em 10/09/2026, este auxiliar
-            # continuou montando a ficha antiga e o teste reprovou o motor
-            # corrigido — comparando contra um modelo obsoleto do próprio
-            # motor.
-            indice = vistas.get(rotulo, 0)
-            vistas[rotulo] = indice + 1
-            itens = services.repartir_ocorrencia(
-                itens, indice, ocorrencias[rotulo]
-            )
-            graus = services.prioridades_da_sessao(itens)
-            for item, grau in zip(itens, graus):
-                chave = (ordem_sessao, item.exercise_id)
-                candidatos.append(
-                    (
-                        chave,
-                        item.exercise.muscle_group,
-                        tuple(item.exercise.secondary_muscles or ()),
-                        Decimal(item.sets),
-                        grau,
-                    )
-                )
-                esperado.append(
-                    (chave, rotulo, ordem_sessao, item.exercise_id, item.sets, item.order)
-                )
-
-        sobrevivem = services.aparar_volume_semanal(candidatos)
+        modelos = {t.label: t for t in services.templates_for(plan.split)}
+        sessoes = sorted(plan.sessions.all(), key=lambda s: s.order)
+        prescricao = services.prescrever_opcoes(
+            sessoes, modelos, teto=None, teto_semanal=services.teto_semanal_de(plan.user)
+        )
+        ordem = {s.pk: s for s in sessoes}
         return sorted(
-            (rotulo, ordem_sessao, exercicio, series, ordem)
-            for chave, rotulo, ordem_sessao, exercicio, series, ordem in esperado
-            if chave in sobrevivem
+            (ordem[spk].label, ordem[spk].order, opcao, exercise_id, series, item.order)
+            for (spk, opcao, exercise_id), (series, item) in prescricao.items()
         )
 
     @staticmethod
     def _retrato(plan):
         return sorted(
-            (s.label, s.order, i.exercise_id, i.sets, i.order)
+            (s.label, s.order, i.opcao, i.exercise_id, i.sets, i.order)
             for s in plan.sessions.all()
             for i in s.exercises.all()
         )
 
     @staticmethod
     def _semanal(plan):
-        total = {}
-        for s in plan.sessions.all():
-            for i in s.exercises.select_related("exercise"):
-                g = i.exercise.muscle_group
-                total[g] = total.get(g, 0) + i.sets
-        return total
+        """Séries diretas por grupo, uma opção por ocorrência (pior caso)."""
+        return series_diretas_da_semana(plan)
+
+    @staticmethod
+    def _por_opcao(plan):
+        """`{(letra, ordem, opção): (exercícios, séries, minutos)}` — o tamanho
+        de cada OPÇÃO, que é o que a pessoa faz num dia."""
+        return {
+            (s.label, s.order, k): (len(s.da_opcao(k)), s.series_da_opcao(k), s.minutos_da_opcao(k))
+            for s in plan.sessions.prefetch_related("exercises__exercise")
+            for k in s.opcoes
+        }
 
     def test_sessenta_minutos_ja_comporta_a_ficha_natural(self):
         """PRÉ-CONDIÇÃO do teste seguinte, provada por conta própria.
@@ -5110,7 +5197,7 @@ class OrcamentoDeTempoTests(TestCase):
             with self.subTest(dias=dias, split=plan.split):
                 self.assertEqual(
                     self._retrato(plan),
-                    self._prescricao_natural(dias, plan.split),
+                    self._prescricao_natural(plan),
                     "90 minutos cortou a ficha natural — a pré-condição caiu",
                 )
 
@@ -5133,13 +5220,20 @@ class OrcamentoDeTempoTests(TestCase):
         # 90 e 120 pelo mesmo motivo da pré-condição acima: com a duração
         # honesta, 60 minutos truncam a ficha natural e a comparação passaria a
         # medir o corte, não a ausência de invenção.
-        TETOS = {90: 95.0, 120: 125.0}
+        # E "SEM LIMITE RÍGIDO" NÃO É UM ORÇAMENTO MAIOR desde 15/09/2026:
+        # quem não tem teto recebe a sessão completa de ~65 minutos
+        # (`opcoes.TETO_COMPLETO_MIN`). O par continua valendo porque a ficha
+        # natural cabe nos dois — a pré-condição prova isso —, e é a
+        # igualdade que interessa: nenhum dos dois inventa volume.
+        TETOS = {90: 90.0, 120: 65.0}
 
         for dias in (3, 4, 7):
             fichas = {m: self._ficha(dias, m) for m in (90, 120)}
-            natural = self._prescricao_natural(dias, fichas[90].split)
+            natural = self._prescricao_natural(fichas[90])
+            # Por OPÇÃO: a duração de uma sessão é a de UMA das versões da
+            # letra, e `estimated_minutes` só vê a primeira.
             duracoes = lambda p: sorted(
-                s.estimated_minutes for s in p.sessions.all()
+                minutos for _ex, _series, minutos in self._por_opcao(p).values()
             )
 
             with self.subTest(dias=dias):
@@ -5152,14 +5246,11 @@ class OrcamentoDeTempoTests(TestCase):
                 # 3 — mesmo volume semanal por grupo.
                 self.assertEqual(self._semanal(fichas[120]), self._semanal(fichas[90]))
 
-                # 4 e 5 — 90 não acrescenta exercício nem série.
-                conta = lambda p: (
-                    sum(len(list(s.exercises.all())) for s in p.sessions.all()),
-                    sum(sum(i.sets for i in s.exercises.all()) for s in p.sessions.all()),
-                )
-                self.assertEqual(conta(fichas[120]), conta(fichas[90]))
+                # 4 e 5 — 90 não acrescenta exercício nem série, em NENHUMA
+                # opção de nenhuma sessão.
+                self.assertEqual(self._por_opcao(fichas[120]), self._por_opcao(fichas[90]))
 
-                # 7 — mesma duração estimada, sessão a sessão.
+                # 7 — mesma duração estimada, opção a opção.
                 self.assertEqual(duracoes(fichas[120]), duracoes(fichas[90]))
 
                 # 8 — cada um abaixo do SEU teto, sem fixar quanto sobra.
@@ -5296,7 +5387,14 @@ class OrcamentoDeTempoTests(TestCase):
         52 — medido. Trinta minutos hoje é corte PESADO, e o teste passaria a
         cobrar o aviso errado.
         """
-        plan = self._ficha(3, 55)
+        # DOIS DIAS, E NÃO TRÊS, desde 15/09/2026. Com a letra repartida em
+        # duas opções de tamanho de sessão (15 a 18 séries, ~45 minutos), ABC
+        # cabe INTEIRO em 60 minutos — medido: a maior opção tem 44 — e não há
+        # corte nenhum para avisar; a nota muda ali é a resposta certa. O
+        # corte leve mora onde a letra tem UMA opção só e o modelo é grande:
+        # "Superior" da divisão AB, que passa de 60 minutos com a dose cheia e
+        # cede série para caber.
+        plan = self._ficha(2, 55)
 
         # E "ajuste" passou a incluir SÉRIE REDUZIDA. Com a ordem de concessão
         # final, cinquenta e cinco minutos cabem sem remover exercício nenhum —
@@ -5391,11 +5489,9 @@ class OrcamentoDeTempoTests(TestCase):
         for minutos in self.ORCAMENTOS:
             for dias in (4, 7):
                 plan = self._ficha(dias, minutos)
-                semanal = {}
-                for sessao in plan.sessions.all():
-                    for i in sessao.exercises.select_related("exercise"):
-                        g = i.exercise.muscle_group
-                        semanal[g] = semanal.get(g, 0) + i.sets
+                # Uma opção por ocorrência, a mais pesada no grupo — somar as
+                # duas opções da letra mediria um treino que ninguém faz.
+                semanal = self._semanal(plan)
                 with self.subTest(minutos=minutos, dias=dias):
                     self.assertEqual(
                         {

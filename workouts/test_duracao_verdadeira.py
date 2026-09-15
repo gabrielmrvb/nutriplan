@@ -274,7 +274,13 @@ class MudarAFaixaRemontaAFichaTests(TestCase):
             {t.label: t for t in services.templates_for(plano.split)},
         )
 
-        self.assertNotEqual(set(antes), set(depois))
+        # Desde 15/09/2026 a opção cabe em 30 minutos REDUZINDO série antes
+        # de tirar exercício, então a troca aparece nos números — e é o que a
+        # conferência compara.
+        self.assertNotEqual(
+            {chave: series for chave, (series, _) in antes.items()},
+            {chave: series for chave, (series, _) in depois.items()},
+        )
 
 
 class AConversaoDoNumeroAntigoEDeterministicaTests(TestCase):

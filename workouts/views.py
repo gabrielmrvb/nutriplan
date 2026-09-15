@@ -60,7 +60,10 @@ def muscle_volume(sessions) -> list:
     # daqui, num total de 66 da página.
     totals = {}
     for session in sessions:
-        for item in session.exercises.all():
+        # A OPÇÃO DE REFERÊNCIA, e não `exercises.all()`: desde 15/09/2026 a
+        # sessão guarda até duas opções, e somar as duas diria que a pessoa
+        # faz os dois treinos no mesmo dia.
+        for item in session.da_opcao(session.opcoes[0]):
             grupo = item.exercise.muscle_group
             totals[grupo] = totals.get(grupo, 0) + item.sets
 
@@ -122,6 +125,7 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
         # inteiro, em sanfona, embaixo.
         hoje = next((s for s in sessions if s.eh_hoje), None)
         if hoje is not None:
+            preparar_dia(user, hoje)
             progresso_do_dia(hoje)
 
         context.update(
@@ -129,6 +133,7 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
                 "nav": "workout",
                 "plan": plan,
                 "sessions": sessions,
+                "letras": agrupar_por_letra(sessions),
                 "hoje": hoje,
                 "outras": [s for s in sessions if s is not hoje],
                 # Só faz sentido perguntar "e quando é o próximo?" no dia em
@@ -179,7 +184,7 @@ def progresso_do_dia(session) -> None:
     Trocar essa frase por "treino concluído" seria a interface afirmando um
     estado que nenhuma tabela sustenta.
     """
-    itens = list(session.exercises.all())
+    itens = list(getattr(session, "itens_do_dia", None) or session.da_opcao(session.opcoes[0]))
     session.total_exercicios = len(itens)
     session.feitos_hoje = sum(1 for item in itens if item.feitas)
     session.pct_hoje = round(session.feitos_hoje * 100 / len(itens)) if itens else 0
@@ -197,6 +202,72 @@ def progresso_do_dia(session) -> None:
     )
     for item in itens:
         item.eh_o_proximo = item is session.proximo
+
+
+def preparar_dia(user, sessao) -> None:
+    """A sessão de hoje ganha a opção do dia: escolhida, senão recomendada."""
+    escolha = services.escolha_do_dia(user)
+    if escolha is not None and escolha.session_id != sessao.pk:
+        escolha = None
+    sessao.escolha = escolha
+    sessao.recomendada = services.opcao_recomendada(user, sessao)
+    sessao.opcao_do_dia = escolha.opcao if escolha else sessao.recomendada
+    sessao.versao_do_dia = escolha.versao if escolha else "completo"
+    sessao.itens_do_dia = sessao.da_opcao(sessao.opcao_do_dia)
+    sessao.versoes_texto = VERSOES_TEXTO.get(len(sessao.opcoes), "%d versões" % len(sessao.opcoes))
+
+
+def agrupar_por_letra(sessions) -> list:
+    """Um cartão por LETRA — A · B · C —, e não um por dia.
+
+    Desde 15/09/2026 as ocorrências da mesma letra carregam as MESMAS opções,
+    então dois cartões "A" seriam a mesma ficha duas vezes; a letra diz os
+    dias em que cai. Plano antigo AJUSTADO pela pessoa (`customized_at`) pode
+    ter A1 ≠ A2 de verdade — aí a letra não agrupa, e cada sessão continua
+    sendo um cartão, com o rótulo numerado de `nomear_ocorrencias`.
+    """
+    por_letra = {}
+    for sessao in sessions:
+        assinatura = tuple(
+            (item.opcao, item.exercise_id, item.sets) for item in sessao.exercises.all()
+        )
+        por_letra.setdefault(sessao.label, []).append((sessao, assinatura))
+    cartoes = []
+    for label, grupo in por_letra.items():
+        iguais = len({assinatura for _, assinatura in grupo}) == 1
+        if not iguais:
+            for sessao, _ in grupo:
+                cartoes.append(_cartao_da_letra(sessao.rotulo, [sessao]))
+            continue
+        cartoes.append(_cartao_da_letra(label, [sessao for sessao, _ in grupo]))
+    cartoes.sort(key=lambda c: c["ordem"])
+    return cartoes
+
+
+def _cartao_da_letra(rotulo, sessoes) -> dict:
+    hoje = next((s for s in sessoes if getattr(s, "eh_hoje", False)), None)
+    referencia = hoje or sessoes[0]
+    opcao = referencia.opcoes[0]
+    return {
+        "rotulo": rotulo,
+        "label": referencia.label,
+        "sessao": referencia,
+        "name": referencia.name,
+        "focus": referencia.focus,
+        "dias": [s.weekday_display for s in sessoes],
+        "eh_hoje": hoje is not None,
+        "exercicios": len(referencia.da_opcao(opcao)),
+        "series": referencia.series_da_opcao(opcao),
+        "minutos": referencia.minutos_da_opcao(opcao),
+        "opcoes": len(referencia.opcoes),
+        "versoes_texto": VERSOES_TEXTO.get(len(referencia.opcoes), "%d versões" % len(referencia.opcoes)),
+        "ordem": min(s.order for s in sessoes),
+    }
+
+
+#: "Duas versões disponíveis" — e "Três" quando a letra cai três vezes na
+#: semana (uma opção por ocorrência, mínimo duas). Só no cartão.
+VERSOES_TEXTO = {2: "Duas versões", 3: "Três versões", 4: "Quatro versões"}
 
 
 def nomear_ocorrencias(sessions) -> None:
@@ -236,9 +307,17 @@ def nomear_ocorrencias(sessions) -> None:
     for sessao in sessions:
         quantas[sessao.label] = quantas.get(sessao.label, 0) + 1
 
+    # DESDE 15/09/2026 a numeração só existe quando as ocorrências DIFEREM
+    # de verdade (plano antigo ajustado à mão). Com as mesmas opções nas duas
+    # passagens, "A1" e "A2" diriam dois treinos onde há um.
+    conteudos = {}
+    for sessao in sessions:
+        conteudos.setdefault(sessao.label, set()).add(
+            tuple((item.opcao, item.exercise_id, item.sets) for item in sessao.exercises.all())
+        )
     vistas = {}
     for sessao in sessions:
-        if quantas[sessao.label] > 1:
+        if quantas[sessao.label] > 1 and len(conteudos[sessao.label]) > 1:
             vistas[sessao.label] = vistas.get(sessao.label, 0) + 1
             sessao.rotulo = "%s%d" % (sessao.label, vistas[sessao.label])
             sessao.repetida = True
@@ -389,7 +468,7 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         # e uma sessão sozinha não sabe disso. Buscar as irmãs custa UMA
         # consulta e é o que faz o título da ficha concordar com o cartão que
         # levou até ela.
-        irmas = list(sessao.plan.sessions.all())
+        irmas = list(sessao.plan.sessions.prefetch_related("exercises"))
         nomear_ocorrencias(irmas)
         sessao.rotulo = next(
             (s.rotulo for s in irmas if s.pk == sessao.pk), sessao.label
@@ -402,6 +481,7 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         )
         marcar_ficha_aberta([sessao])
         if sessao.eh_hoje:
+            preparar_dia(user, sessao)
             progresso_do_dia(sessao)
 
         context.update({
@@ -409,7 +489,128 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             "sessao": sessao,
             "plan": sessao.plan,
         })
+        context.update(self.contexto_das_opcoes(user, sessao))
         return context
+
+    def contexto_das_opcoes(self, user, sessao) -> dict:
+        """As opções da letra, cada uma com principais, complementares, séries,
+        minutos e a versão rápida — para comparar antes de começar.
+
+        `?versao=rapido` mostra o que a rápida mantém e o que tira; `?trocar=N`
+        é a confirmação de troca depois da primeira série (a view de escolha
+        manda para cá em vez de trocar por conta própria).
+        """
+        from . import opcoes as motor_de_opcoes
+
+        eh_hoje = getattr(sessao, "eh_hoje", False)
+        escolha = getattr(sessao, "escolha", None) if eh_hoje else None
+        recomendada = getattr(sessao, "recomendada", sessao.opcoes[0]) if eh_hoje else sessao.opcoes[0]
+        versao = self.request.GET.get("versao") or (escolha.versao if escolha else "completo")
+        if versao not in ("completo", "rapido"):
+            versao = "completo"
+        trocar = self.request.GET.get("trocar")
+        try:
+            trocar = int(trocar) if trocar else None
+        except ValueError:
+            trocar = None
+        opcoes = []
+        for numero in sessao.opcoes:
+            itens = sessao.da_opcao(numero)
+            graus = services.prioridades_da_sessao(itens)
+            ficam, removidos = motor_de_opcoes.versao_rapida(
+                [(item, item.sets, grau) for item, grau in zip(itens, graus)],
+                sessao.main_groups,
+            )
+            rapida_series = {item.exercise_id: series for item, series in ficam}
+            for item in itens:
+                item.series_rapida = rapida_series.get(item.exercise_id)
+                item.fora_da_rapida = item.exercise_id not in rapida_series
+            equipamentos = sorted({
+                item.exercise.get_equipment_display()
+                for item in itens if getattr(item.exercise, "equipment", "")
+            })
+            opcoes.append({
+                "numero": numero,
+                # A porta para executar: a escolhida — ou, sem escolha ainda,
+                # a recomendada (é a que a execução abre).
+                "executavel": eh_hoje and (
+                    (escolha.opcao == numero) if escolha is not None else (numero == recomendada)
+                ),
+                "itens": itens,
+                "principais": sessao.principais_da_opcao(numero),
+                "complementares": sessao.complementares_da_opcao(numero),
+                "series": sum(item.sets for item in itens),
+                "minutos": sessao.minutos_da_opcao(numero),
+                "rapida_series": sum(series for _, series in ficam),
+                "rapida_minutos": round(
+                    services.segundos_da_sessao(
+                        [(series, item.rest_seconds, item.exercise.is_compound) for item, series in ficam]
+                    ) / 60
+                ),
+                "removidos": removidos,
+                "equipamentos": equipamentos,
+                "recomendada": numero == recomendada and sessao.tem_duas_opcoes,
+                "escolhida": escolha is not None and escolha.opcao == numero,
+            })
+        series_hoje = services.series_registradas_hoje(user, sessao) if eh_hoje else 0
+        # A rápida só é oferecida quando muda alguma coisa: uma opção que já
+        # cabe em 40 minutos não tem versão rápida, e oferecer o mesmo treino
+        # com outro nome seria uma escolha falsa.
+        rapida_muda = any(op["rapida_series"] != op["series"] or op["removidos"] for op in opcoes)
+        return {
+            "rapida_muda": rapida_muda,
+            "versoes_texto": VERSOES_TEXTO.get(len(sessao.opcoes), "%d versões" % len(sessao.opcoes)),
+            "opcoes": opcoes,
+            "escolha": escolha,
+            "versao": versao,
+            "rapida": versao == "rapido",
+            "pode_escolher": eh_hoje,
+            "series_hoje": series_hoje,
+            "trocar": trocar if trocar in sessao.opcoes else None,
+        }
+
+
+class EscolherOpcaoView(OnboardingRequiredMixin, View):
+    """POST: "Começar esta opção" — grava a opção (e a versão) de hoje.
+
+    Só a sessão de HOJE aceita: a ficha de outro dia não executa. Trocar de
+    opção DEPOIS da primeira série não acontece em silêncio: sem `confirmar`,
+    a pessoa volta à ficha com a pergunta explícita, e nada é apagado em
+    nenhum caminho — `ExerciseLog` é por exercício e data. Trocar só a
+    versão (completo ↔ rápido) nunca pede confirmação.
+    """
+
+    def post(self, request, *args, **kwargs):
+        sessao = get_object_or_404(
+            TrainingSession.objects.select_related("plan").prefetch_related("exercises__exercise"),
+            pk=kwargs["sessao_id"], plan__user=request.user, plan__is_active=True,
+        )
+        if sessao.weekday != timezone.localdate().weekday():
+            raise Http404("a ficha de outro dia não executa")
+        try:
+            opcao = int(request.POST.get("opcao") or "1")
+        except ValueError:
+            raise Http404("opção ilegível")
+        if opcao not in sessao.opcoes:
+            raise Http404("opção não existe nesta letra")
+        versao = request.POST.get("versao") or "completo"
+        if versao not in ("completo", "rapido"):
+            versao = "completo"
+        atual = services.escolha_do_dia(request.user)
+        if atual is not None and atual.session_id == sessao.pk and atual.opcao != opcao:
+            feitas = services.series_registradas_hoje(request.user, sessao)
+            if feitas and request.POST.get("confirmar") != "1":
+                return redirect(
+                    "%s?trocar=%d&versao=%s" % (reverse("workouts:ficha", args=[sessao.pk]), opcao, versao)
+                )
+            if feitas:
+                messages.info(
+                    request,
+                    "Opção %d escolhida. As %d séries que você já registrou hoje continuam no histórico."
+                    % (opcao, feitas),
+                )
+        services.registrar_escolha(request.user, sessao, opcao, versao=versao)
+        return redirect("workouts:now")
 
 
 class RecordLoadView(AcaoDeTela, OnboardingRequiredMixin, View):
@@ -603,11 +804,30 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
         itens = []
         for sessao in sessoes:
             for item in sessao.exercises.all():
-                if item.exercise_id == exercicio.pk:
+                if item.exercise_id == exercicio.pk and not any(
+                    i.session is sessao for i in itens
+                ):
+                    # Uma linha por sessão: o exercício pode estar nas duas
+                    # opções da letra, e "Segunda (A), Segunda (A)" é ruído.
                     item.session = sessao
                     itens.append(item)
         hoje = timezone.localdate().weekday()
-        item_de_hoje = next((i for i in itens if i.session.weekday == hoje), None)
+        # "Fazer este exercício" só existe se ele está na OPÇÃO do dia — a
+        # execução só abre a opção escolhida (ou a recomendada), e um link
+        # para a outra opção daria 404.
+        item_de_hoje = None
+        sessao_de_hoje = next((s for s in sessoes if s.weekday == hoje), None)
+        if sessao_de_hoje is not None:
+            escolha = services.escolha_do_dia(user)
+            opcao = (
+                escolha.opcao if escolha is not None and escolha.session_id == sessao_de_hoje.pk
+                else services.opcao_recomendada(user, sessao_de_hoje)
+            )
+            item_de_hoje = next(
+                (i for i in sessao_de_hoje.da_opcao(opcao) if i.exercise_id == exercicio.pk), None
+            )
+            if item_de_hoje is not None:
+                item_de_hoje.session = sessao_de_hoje
         if item_de_hoje is not None:
             # Só a contagem de hoje deste exercício — UMA consulta — para o
             # botão dizer "Fazer agora" ou "Continuar de onde parou".
@@ -671,6 +891,7 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
 
 
 class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
+
     """Uma tela, uma pergunta: o que eu faço agora?
 
     A lista inteira continua existindo em `/treino/` — ela é ótima para
@@ -742,6 +963,14 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
             )
         except services.ExercicioForaDaSessao:
             raise Http404("exercício não é do treino de hoje")
+        estado = context["estado"]
+        if estado.precisa_escolher:
+            # Duas versões e nenhuma escolhida ainda: a execução abre a
+            # RECOMENDADA e diz isso, com a porta para trocar na ficha. Não
+            # redireciona: a Home, o demo e um link antigo chegam aqui
+            # direto, e uma tela que expulsa é pior que uma que explica. A
+            # primeira série grava a escolha (`_garantir_escolha`).
+            context["escolher_na_ficha"] = reverse("workouts:ficha", args=[estado.sessao.pk])
         # `?extra=1` reabre o formulário num exercício já concluído — a série
         # a mais, que `append_set` sempre aceitou (até 20). LISTA FECHADA,
         # como `?exercicio=`: valor desconhecido é 404, e não "ignora e abre
@@ -865,6 +1094,7 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
             # em silêncio deixaria a pessoa tocando sem entender.
             messages.error(request, "Limite de séries deste exercício hoje.")
         else:
+            self._garantir_escolha(request, dia)
             # As conquistas rodam AQUI, na escrita — é o que a doutrina de
             # `achievements.services` promete e o que esta rota não fazia:
             # só `RecordLoadView`, a rota do cartão que saiu da tela em
@@ -902,6 +1132,38 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
         # DEPOIS da escrita: a contagem de séries pendentes já inclui esta,
         # e é isso que faz fechar a última devolver sem parâmetro.
         return self._de_volta_ao_foco(request, dia)
+
+    def _garantir_escolha(self, request, dia) -> None:
+        """A primeira série do dia grava qual opção está sendo feita.
+
+        O formulário da execução traz `sessao`, `opcao` e `versao` (escritos
+        pelo servidor); item antigo da fila offline não traz, e aí a escolha
+        cai na opção 1 da sessão do dia. Idempotente: uma escolha por dia.
+        """
+        if services.escolha_do_dia(request.user, dia) is not None:
+            return
+        try:
+            sessao_id = int(request.POST.get("sessao") or "")
+        except (TypeError, ValueError):
+            sessao_id = None
+        sessao = None
+        if sessao_id:
+            sessao = TrainingSession.objects.filter(
+                pk=sessao_id, plan__user=request.user, plan__is_active=True
+            ).prefetch_related("exercises").first()
+        if sessao is None:
+            sessao = TrainingSession.objects.filter(
+                plan__user=request.user, plan__is_active=True, weekday=dia.weekday()
+            ).prefetch_related("exercises").first()
+        if sessao is None:
+            return
+        try:
+            opcao = int(request.POST.get("opcao") or "1")
+        except ValueError:
+            opcao = 1
+        services.registrar_escolha(
+            request.user, sessao, opcao, versao=request.POST.get("versao") or "completo", dia=dia
+        )
 
     def _de_volta_ao_foco(self, request, dia, pendente=None):
         """Para o exercício EM FOCO, enquanto ele tiver série pendente.

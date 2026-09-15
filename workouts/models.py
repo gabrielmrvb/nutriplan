@@ -645,15 +645,17 @@ class DurationMixin:
     @property
     def estimated_minutes(self) -> int:
         itens = list(self.items.all() if hasattr(self, "items") else self.exercises.all())
-        return round(
-            segundos_da_sessao(
-                [
-                    (item.sets, item.rest_seconds, item.exercise.is_compound)
-                    for item in itens
-                ]
-            )
-            / 60
+        return minutos_de(itens)
+
+
+def minutos_de(itens) -> int:
+    """Minutos de uma lista de linhas (modelo ou ficha), pela conta única."""
+    return round(
+        segundos_da_sessao(
+            [(item.sets, item.rest_seconds, item.exercise.is_compound) for item in itens]
         )
+        / 60
+    )
 
 
 class WorkoutTemplate(DurationMixin, models.Model):
@@ -906,11 +908,48 @@ class TrainingSession(DurationMixin, models.Model):
 
         return Weekday(self.weekday).label
 
+    # ---------------------------------------------------------------- opções
+    #
+    # UMA LETRA, ATÉ DUAS VERSÕES (15/09/2026). Cada linha da ficha diz a que
+    # opção pertence (`SessionExercise.opcao`); a sessão guarda as duas, e a
+    # pessoa escolhe qual faz no dia (`EscolhaDeTreino`). "Todas as linhas"
+    # (`exercises.all()`) NÃO é uma sessão — é a soma de duas — e é por isso
+    # que total, duração e listas passam por `da_opcao`. Plano antigo tem
+    # tudo em `opcao=1` e continua sendo lido pelas mesmas propriedades.
+
+    @property
+    def opcoes(self) -> list:
+        """Os números das opções desta sessão, em ordem — `[1]` ou `[1, 2]`."""
+        return sorted({item.opcao for item in self.exercises.all()}) or [1]
+
+    @property
+    def tem_duas_opcoes(self) -> bool:
+        return len(self.opcoes) > 1
+
+    def da_opcao(self, opcao) -> list:
+        """As linhas da ficha de UMA opção, na ordem da ficha."""
+        return [item for item in self.exercises.all() if item.opcao == opcao]
+
+    def series_da_opcao(self, opcao) -> int:
+        return sum(item.sets for item in self.da_opcao(opcao))
+
+    def minutos_da_opcao(self, opcao) -> int:
+        return minutos_de(self.da_opcao(opcao))
+
     @property
     def total_sets(self) -> int:
-        return sum(item.sets for item in self.exercises.all())
+        """As séries de UMA sessão: a opção 1 é a referência para a semana.
 
-    def _particiona(self):
+        As duas opções são equivalentes por construção (diferença ≤ 1 série
+        por grupo), então a referência vale para qualquer escolha — e somar
+        as duas diria que a pessoa faz os dois treinos no mesmo dia."""
+        return self.series_da_opcao(self.opcoes[0])
+
+    @property
+    def estimated_minutes(self) -> int:
+        return self.minutos_da_opcao(self.opcoes[0])
+
+    def _particiona(self, opcao=None):
         """A ficha em duas listas: o que o título promete, e o resto.
 
         Uma passagem só sobre `exercises`, porque a tela pede as duas e
@@ -919,7 +958,8 @@ class TrainingSession(DurationMixin, models.Model):
         """
         anunciados = set(self.main_groups or ())
         principais, complementares = [], []
-        for item in self.exercises.all():
+        linhas = self.da_opcao(opcao) if opcao is not None else self.da_opcao(self.opcoes[0])
+        for item in linhas:
             alvo = (
                 complementares
                 if anunciados and item.exercise.muscle_group not in anunciados
@@ -931,6 +971,12 @@ class TrainingSession(DurationMixin, models.Model):
     @property
     def exercicios_principais(self) -> list:
         return self._particiona()[0]
+
+    def principais_da_opcao(self, opcao) -> list:
+        return self._particiona(opcao)[0]
+
+    def complementares_da_opcao(self, opcao) -> list:
+        return self._particiona(opcao)[1]
 
     @property
     def exercicios_complementares(self) -> list:
@@ -952,15 +998,66 @@ class SessionExercise(PrescriptionFields):
     )
     exercise = models.ForeignKey(Exercise, on_delete=models.PROTECT, related_name="sessions")
     order = models.PositiveSmallIntegerField("ordem", default=0)
+    #: A que VERSÃO da letra esta linha pertence. Uma letra tem até duas
+    #: opções completas e equivalentes; a pessoa faz UMA por dia. Plano
+    #: anterior a 15/09/2026 tem tudo em 1 — uma opção só, e continua lido
+    #: pelas mesmas telas.
+    opcao = models.PositiveSmallIntegerField("opção", default=1)
 
     class Meta(PrescriptionFields.Meta):
         abstract = False
         verbose_name = "exercício da ficha"
         verbose_name_plural = "exercícios da ficha"
-        ordering = ["order", "id"]
+        ordering = ["opcao", "order", "id"]
 
     def __str__(self):
         return f"{self.exercise} — {self.sets}x{self.rep_range}"
+
+
+class VersaoDoTreino(models.TextChoices):
+    COMPLETO = "completo", "Treino completo"
+    RAPIDO = "rapido", "Versão rápida"
+
+
+class EscolhaDeTreino(models.Model):
+    """Qual opção (e qual versão) a pessoa fez num dia.
+
+    É o único estado que a execução guarda além de `ExerciseLog`, e existe
+    por uma razão só: a letra tem duas versões, e "qual delas eu fiz na
+    terça" não se deduz das séries — as duas podem ter o supino. A recomendação
+    ("a menos usada recentemente") lê daqui; o histórico e o compartilhamento
+    também.
+
+    Uma por pessoa por dia: o app não tem dois treinos no mesmo dia, e a
+    unicidade é o que faz o duplo toque em "Começar esta opção" ser
+    idempotente. Trocar de opção DEPOIS da primeira série é permitido com
+    confirmação e não apaga registro nenhum — `ExerciseLog` é por exercício e
+    data, e o exercício continua tendo sido feito.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="escolhas_de_treino"
+    )
+    date = models.DateField("data")
+    session = models.ForeignKey(
+        TrainingSession, on_delete=models.CASCADE, related_name="escolhas"
+    )
+    opcao = models.PositiveSmallIntegerField("opção", default=1)
+    versao = models.CharField(
+        "versão", max_length=8, choices=VersaoDoTreino.choices, default=VersaoDoTreino.COMPLETO
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "escolha de treino"
+        verbose_name_plural = "escolhas de treino"
+        ordering = ["-date"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "date"], name="uma_escolha_de_treino_por_dia")
+        ]
+
+    def __str__(self):
+        return f"{self.session.label} · opção {self.opcao} · {self.date:%d/%m}"
 
 
 class ExerciseLog(models.Model):

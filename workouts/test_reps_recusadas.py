@@ -26,13 +26,14 @@ from django.urls import reverse
 
 from . import services
 from .models import ExerciseLog
-from .test_fluxo_do_treino import BaseDoFluxo, pessoa, tornar_hoje
+from .test_fluxo_do_treino import BaseDoFluxo, escolher_a_opcao_1, pessoa, tornar_hoje
 
 
 class RepsForaDaFaixaTests(BaseDoFluxo):
     def setUp(self):
         self.user = pessoa("reps@exemplo.com")
         self.sessao = tornar_hoje(self.user, "A")
+        escolher_a_opcao_1(self.user, self.sessao)
         self.client.force_login(self.user)
         self.item = self.sessao.exercises.first()
 
@@ -88,6 +89,7 @@ class FecharEDesfazerFalamTests(BaseDoFluxo):
     def setUp(self):
         self.user = pessoa("fala@exemplo.com")
         self.sessao = tornar_hoje(self.user, "A")
+        escolher_a_opcao_1(self.user, self.sessao)
         self.client.force_login(self.user)
         self.item = self.sessao.exercises.first()
 

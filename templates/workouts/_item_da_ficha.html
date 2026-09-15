@@ -4,7 +4,10 @@
   Recebe:
     item  — o `SessionExercise`, já com `feitas`/`sets` de `anexar_historico`
     ordem — a posição na ficha, contínua entre principais e complementares
-    hoje  — verdadeiro na ficha do dia; só então existe execução para abrir
+    hoje  — verdadeiro na ficha do dia E na opção escolhida; só então existe
+            execução para abrir (a outra opção se compara, não se executa)
+    rapida — a ficha está mostrando a versão rápida: a linha mostra as séries
+            reduzidas, ou diz que ficou de fora
 
   A FICHA É TELA DE PREPARAÇÃO, e esta linha é o contrato dela: nome, séries ×
   repetições, músculo e o papel do movimento. Nada que se use DURANTE a série
@@ -24,7 +27,7 @@
   está escolhendo a anilha, não de quem está lendo o treino — ele está na
   execução, ao lado do campo em que se anota.
 {% endcomment %}
-<li class="ficha-item{% if item.feitas >= item.sets %} ficha-item--feito{% endif %}">
+<li class="ficha-item{% if item.feitas >= item.sets %} ficha-item--feito{% endif %}{% if rapida and item.fora_da_rapida %} ficha-item--fora{% endif %}">
   <div class="ficha-item__link{% if not hoje %} ficha-item__link--parado{% endif %}">
     {% comment %}
       O NÚMERO ESTÁ DENTRO DO LINK (UX CA-03): era a única parte da linha que
@@ -41,7 +44,14 @@
       <span class="ficha-item__ordem num" aria-hidden="true">{{ ordem }}</span>
       <span class="ficha-item__nome">{{ item.exercise.name }}</span>
       <span class="ficha-item__dados">
-        <span class="num">{{ item.sets }}</span>&nbsp;×&nbsp;<span class="num">{{ item.rep_range }}</span>
+        {% if rapida and item.fora_da_rapida %}
+          {# A versão rápida deixou este de fora — dito na linha, e não escondido. #}
+          <span class="ficha-item__fora">fora da versão rápida</span>
+        {% elif rapida and item.series_rapida %}
+          <span class="num">{{ item.series_rapida }}</span>&nbsp;×&nbsp;<span class="num">{{ item.rep_range }}</span>
+        {% else %}
+          <span class="num">{{ item.sets }}</span>&nbsp;×&nbsp;<span class="num">{{ item.rep_range }}</span>
+        {% endif %}
         <span class="ficha-item__musculo">{{ item.exercise.get_muscle_group_display }}</span>
         {% if item.exercise.is_compound %}
           {% comment %}
@@ -59,7 +69,18 @@
       ficha de hoje o estado É a porta para executar (continuar, ou conferir
       a carga do que já fechou).
     {% endcomment %}
-    {% if hoje %}
+    {% if not hoje and item.feitas %}
+      {% comment %}
+        A série feita hoje aparece MESMO na opção que não é a escolhida: quem
+        trocou de opção no meio do treino continua vendo o que registrou —
+        é o histórico, e ele não muda de opção. Só não é porta: executar é
+        da opção escolhida.
+      {% endcomment %}
+      <span class="ficha-item__estado{% if item.feitas >= item.sets %} ficha-item__estado--feito{% endif %}">
+        <span class="vis-oculto">Registrado hoje: </span>{{ item.feitas }}/{{ item.sets }}
+      </span>
+    {% endif %}
+    {% if hoje and not item.fora_da_rapida or hoje and not rapida %}
       <a class="ficha-item__estado ficha-item__fazer{% if item.feitas >= item.sets %} ficha-item__estado--feito{% elif not item.feitas %} ficha-item__estado--cta{% endif %}"
          href="{% url 'workouts:now' %}?exercicio={{ item.exercise_id }}"
          aria-label="Fazer {{ item.exercise.name }}">

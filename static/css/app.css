@@ -7877,3 +7877,67 @@ body.montando { overflow: hidden; }
   .app-bar, .tabbar, .tabbar__item.is-active, .wizard__avanco,
   .today-hero__facts, .series__titulo > b.num, .agora__nome { view-transition-name: none; }
 }
+
+/* ==========================================================================
+   48. Treino — uma letra, até duas opções (15/09/2026)
+
+   A ficha mostra as opções lado a lado (empilhadas no celular), a versão
+   Completo/Rápido é um par de links no molde do `.segmented`, e a linha
+   que a rápida deixa de fora diz isso em texto. Tudo com os tokens de
+   sempre; o movimento é o da seção 47 (`data-escalonado`, toque, sanfona).
+   ========================================================================== */
+.opcoes { display: grid; gap: var(--espaco-6); }
+@media (min-width: 48rem) {
+  .opcoes { grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); align-items: start; }
+}
+.opcao { border: 1px solid var(--border); }
+.opcao--escolhida { border-color: var(--brand); box-shadow: var(--halo); }
+.opcao--recomendada:not(.opcao--escolhida) { border-color: var(--border-strong); }
+.opcao__head { display: flex; align-items: center; justify-content: space-between; gap: var(--espaco-3); }
+.opcao__meta { margin: 0 0 var(--espaco-3); color: var(--text-dim); font-size: var(--texto-sm); }
+.opcao__equipamentos { margin: 0 0 var(--espaco-4); font-size: var(--texto-xs); }
+.opcao__comecar { margin-top: var(--espaco-5); }
+.opcoes__confirmar { border: 1px solid var(--warm); background: var(--warm-soft); }
+.opcoes__confirmar h2 { margin-top: 0; }
+
+/* Completo / Rápido: dois links que se comportam como o `.segmented`, e o
+   ativo é escrito pelo servidor (`is-active` + `aria-current`). */
+.versoes {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: var(--espaco-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.versoes__opcao {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--espaco-1);
+  min-height: 2.75rem;
+  padding: var(--espaco-3) var(--espaco-4);
+  border-radius: calc(var(--radius-sm) - 3px);
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  font-weight: 650;
+  text-align: center;
+  text-decoration: none;
+  transition: background var(--mov-estado) var(--ease), color var(--mov-estado) var(--ease);
+}
+.versoes__opcao .num { font-size: var(--texto-xs); font-weight: 600; }
+.versoes__opcao.is-active { background: var(--surface); color: var(--brand); box-shadow: var(--shadow-rest); }
+
+/* A linha que a rápida deixa de fora: apagada e dita. */
+.ficha-item--fora .ficha-item__nome { color: var(--text-mute); text-decoration: line-through; }
+.ficha-item__fora { color: var(--text-mute); font-size: var(--texto-xs); font-weight: 600; }
+
+.sessao-cartao__versoes { display: block; margin-top: var(--espaco-1); color: var(--brand); font-size: var(--texto-xs); font-weight: 650; }
+.hoje__opcao { margin: var(--espaco-1) 0 0; color: var(--text-dim); font-size: var(--texto-sm); }
+.agora__removidos { margin: var(--espaco-4) 0 0; font-size: var(--texto-sm); }
+
+@media (prefers-reduced-motion: reduce) {
+  .versoes__opcao { transition: none; }
+}

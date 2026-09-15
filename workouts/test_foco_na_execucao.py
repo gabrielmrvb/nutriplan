@@ -28,7 +28,7 @@ from django.utils import timezone
 
 from workouts import services
 from workouts.models import ExerciseLog
-from workouts.tests import create_user, dias_incluindo_hoje, sem_scripts
+from workouts.tests import create_user, dias_incluindo_hoje, escolher_opcao_de_hoje, sem_scripts
 
 
 class OFocoTests(TestCase):
@@ -41,9 +41,10 @@ class OFocoTests(TestCase):
         services.create_routine(self.pessoa)
         self.client.force_login(self.pessoa)
         self.hoje = timezone.localdate()
-        plano = services.get_active_routine(self.pessoa)
-        sessao = next(s for s in plano.sessions.all() if s.weekday == self.hoje.weekday())
-        self.itens = list(sessao.exercises.select_related("exercise").order_by("order"))
+        # A execução abre a opção ESCOLHIDA de hoje (15/09/2026): a 1, e os
+        # itens são os dela.
+        sessao = escolher_opcao_de_hoje(self.pessoa)
+        self.itens = sorted(sessao.da_opcao(1), key=lambda i: (i.order, i.pk))
         self.assertGreaterEqual(len(self.itens), 3, "o fixture precisa de três exercícios")
         self.terceiro = self.itens[2]
 

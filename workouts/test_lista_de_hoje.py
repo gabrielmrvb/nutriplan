@@ -23,7 +23,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from workouts import services
-from workouts.tests import create_user, dias_incluindo_hoje, sem_scripts
+from workouts.tests import create_user, dias_incluindo_hoje, escolher_opcao_de_hoje, sem_scripts
 
 
 class ALinhaDeHojeSubstituiOCartaoTests(TestCase):
@@ -44,6 +44,8 @@ class ALinhaDeHojeSubstituiOCartaoTests(TestCase):
         self.sessao = next(
             s for s in self.plano.sessions.all() if s.weekday == hoje
         )
+        # "Fazer" e a execução são da opção ESCOLHIDA de hoje (15/09/2026).
+        escolher_opcao_de_hoje(self.pessoa)
 
     def _html(self):
         return self.client.get(reverse("workouts:routine")).content.decode()
@@ -120,7 +122,7 @@ class ALinhaDeHojeSubstituiOCartaoTests(TestCase):
         perder os links, que foi exatamente o defeito de 09/09/2026 — nove
         botões de vídeo apontando para uma gaveta que a página não tinha.
         """
-        item = self.sessao.exercises.select_related("exercise").first()
+        item = self.sessao.da_opcao(1)[0]
         porta = "%s?exercicio=%d" % (reverse("workouts:now"), item.exercise_id)
 
         ficha = self.client.get(
@@ -197,6 +199,9 @@ class AFichaCompletaContinuaExistindoTests(TestCase):
         )
         services.create_routine(self.pessoa)
         self.client.force_login(self.pessoa)
+        # A execução abre a opção ESCOLHIDA de hoje (15/09/2026): sem escolha
+        # gravada ela redireciona para a ficha, e os itens são os da opção 1.
+        escolher_opcao_de_hoje(self.pessoa)
 
     def _uma_sessao(self):
         """A sessão de HOJE, e a precisão passou a importar.
@@ -227,7 +232,7 @@ class AFichaCompletaContinuaExistindoTests(TestCase):
         de mostrar tudo isso trinta vezes numa tela de planejamento.
         """
         sessao = self._uma_sessao()
-        item = sessao.exercises.first()
+        item = sessao.da_opcao(1)[0]
 
         # A ficha não executa; ela oferece a porta.
         ficha = self.client.get(
@@ -301,7 +306,7 @@ class AFichaCompletaContinuaExistindoTests(TestCase):
         # A OUTRA PONTA: a demonstração existe, e existe onde se treina —
         # como POSTER: o HTML servido não tem iframe; o `data-demo` carrega o
         # vídeo do exercício e o toque monta o player (13/09/2026).
-        item = sessao.exercises.first()
+        item = sessao.da_opcao(1)[0]
         execucao = self.client.get(
             "%s?exercicio=%d" % (reverse("workouts:now"), item.exercise_id)
         ).content.decode()
@@ -346,8 +351,20 @@ class AFichaCompletaContinuaExistindoTests(TestCase):
         plano = TrainingPlan.objects.filter(user=self.pessoa, is_active=True).first()
         html = self.client.get(reverse("workouts:routine")).content.decode()
 
+        # UM CARTÃO POR LETRA (15/09/2026): as ocorrências da mesma letra
+        # carregam as mesmas opções, então a ficha de A é uma só — o cartão
+        # leva a ela e lista os dias em que A cai. O que tem de ser
+        # alcançável é toda LETRA, e o cartão de hoje leva à sessão de hoje.
+        por_letra = {}
         for sessao in plano.sessions.all():
-            with self.subTest(sessao=sessao.label):
-                self.assertIn(
-                    reverse("workouts:ficha", args=[sessao.pk]), html
+            por_letra.setdefault(sessao.label, []).append(sessao)
+        hoje = timezone.localdate().weekday()
+        for letra, sessoes in por_letra.items():
+            with self.subTest(sessao=letra):
+                self.assertTrue(
+                    any(reverse("workouts:ficha", args=[s.pk]) in html for s in sessoes),
+                    "a letra %s não é alcançável pela tela principal" % letra,
                 )
+                de_hoje = next((s for s in sessoes if s.weekday == hoje), None)
+                if de_hoje is not None:
+                    self.assertIn(reverse("workouts:ficha", args=[de_hoje.pk]), html)

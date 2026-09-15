@@ -17,6 +17,7 @@ urlpatterns = [
     # todos fora da área visível. O detalhe continua inteiro; ele mudou de
     # página, e agora só é montado por quem pede.
     path("ficha/<int:sessao_id>/", views.FichaDaSessaoView.as_view(), name="ficha"),
+    path("ficha/<int:sessao_id>/escolher/", views.EscolherOpcaoView.as_view(), name="escolher"),
     # A leitura de um exercício, em qualquer dia: demonstração, dica, músculos.
     # GET puro — não colide com `ROTAS` de `fila.js`, que são só POST.
     path("exercicio/<int:exercise_id>/", views.ExercicioView.as_view(), name="exercicio"),

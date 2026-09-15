@@ -182,7 +182,12 @@ class ORelogioNaoFalaACadaSegundoTests(TestCase):
 
         # CONTROLE POSITIVO: a execucao TEM o relogio, e e ela que os tres
         # testes acima medem. Sem isto, um `data-descanso-relogio` renomeado
-        # deixaria as asercoes de ausencia verdes para sempre.
+        # deixaria as asercoes de ausencia verdes para sempre. (A execucao
+        # abre a opcao ESCOLHIDA de hoje — 15/09/2026 —, entao a escolha e
+        # gravada antes, como o botao da ficha faz.)
+        from workouts.tests import escolher_opcao_de_hoje
+
+        escolher_opcao_de_hoje(pessoa)
         self.assertIn(
             "data-descanso-relogio",
             self.client.get(reverse("workouts:now")).content.decode(),

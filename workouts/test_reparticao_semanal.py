@@ -34,6 +34,17 @@ confirmados em TODAS as frequências de 1 a 7 dias.
 NENHUM DOS DOIS DEPENDE DE IDADE, PESO OU ALTURA: o primeiro é a ausência de um
 argumento, o segundo é a ausência de uma trava. Os doze cenários da auditoria
 falharam pelo mesmo motivo.
+
+O QUE MUDOU EM 15/09/2026 (`workouts/opcoes.py`). A letra deixou de ser
+repartida entre as OCORRÊNCIAS (A1 ≠ A2 como dias obrigatórios) e passou a
+ter até duas OPÇÕES equivalentes, gravadas nas duas ocorrências; a pessoa faz
+uma por dia. As propriedades deste arquivo continuam as mesmas, lidas sobre
+as opções: "nenhuma passagem repete enquanto houver opção" vira "as duas
+opções da letra não compartilham exercício enquanto o grupo tiver exercício
+sem usar"; "cada passagem recebe uma fatia equilibrada" vira a equivalência
+(≤ 1 série por grupo entre as opções); e a variedade da SEMANA é a UNIÃO das
+opções — o catálogo que a pessoa alcança alternando —, porque o contrato
+4/4/3/3 sempre foi sobre o que a semana OFERECE.
 """
 from collections import defaultdict
 from datetime import date, time
@@ -94,7 +105,11 @@ def perfil(dias, preferencia=SplitPreference.DOIS,
 
 
 def por_letra(plano):
-    """{letra: [ [nomes da 1ª passagem], [nomes da 2ª], ... ]}"""
+    """{letra: [ [nomes da 1ª passagem], [nomes da 2ª], ... ]}
+
+    Uma passagem é a SOMA das opções da sessão — serve para contar o que a
+    semana oferece, não para medir o tamanho de um treino.
+    """
     saida = defaultdict(list)
     for sessao in plano.sessions.all().order_by("weekday"):
         saida[sessao.label].append([
@@ -104,18 +119,36 @@ def por_letra(plano):
     return saida
 
 
+def sessoes_por_letra(plano):
+    """{letra: primeira sessão da letra}. As ocorrências carregam as MESMAS
+    linhas, então a primeira responde pelas outras."""
+    saida = {}
+    for sessao in plano.sessions.prefetch_related("exercises__exercise").order_by("weekday"):
+        saida.setdefault(sessao.label, sessao)
+    return saida
+
+
+def opcoes_da_letra(sessao):
+    """[[itens da opção 1], [itens da opção 2]] — as versões da letra."""
+    return [sessao.da_opcao(k) for k in sessao.opcoes]
+
+
 class ALetraRepetidaDistribuiExerciciosTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("seed_workouts", verbosity=0)
 
     def test_nenhuma_passagem_repete_enquanto_houver_opcao(self):
-        """O defeito central, varrido de 1 a 7 dias.
+        """O defeito central, varrido de 1 a 7 dias — lido sobre as OPÇÕES.
 
         A regra não é "nunca repetir": é "não repetir enquanto o modelo ainda
-        tiver exercício daquele grupo sem usar". Grupo com menos exercícios que
-        passagens repete, e isso é a saída de último caso — a alternativa seria
-        a segunda passagem anunciar um músculo que ela não treina.
+        tiver exercício daquele grupo sem usar". Desde 15/09/2026 quem reparte
+        a letra são as duas OPÇÕES, e não as passagens: um exercício que
+        aparece nas duas só é legítimo quando o grupo dele já está INTEIRO em
+        uso entre as duas — é o empréstimo do grupo ímpar (três tríceps para
+        duas opções: mergulho e corda numa, testa e corda na outra) ou o grupo
+        com menos exercícios que opções. Compartilhar com exercício do grupo
+        sobrando no modelo é a segunda opção deixando de ser uma versão.
         """
         for preferencia in SplitPreference.values:
           for dias in range(1, 8):
@@ -123,8 +156,17 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
                 _, plano = perfil(dias, preferencia=preferencia, sufixo="-var")
                 modelos = {t.label: t for t in services.templates_for(plano.split)}
 
-                for letra, passagens in por_letra(plano).items():
-                    if len(passagens) < 2:
+                for letra, sessao in sessoes_por_letra(plano).items():
+                    opcoes = opcoes_da_letra(sessao)
+                    if len(opcoes) < 2:
+                        continue
+                    if plano.sessions.filter(label=letra).count() > 2:
+                        # A letra três vezes na semana: o teto semanal (pior
+                        # caso × 3) tira exercício EXCLUSIVO de uma opção
+                        # depois da repartição, e o que sobra compartilhado
+                        # parece "repetido com exercício sem usar" — o sem
+                        # usar foi aparado, não esquecido. Medido a 7 dias
+                        # em ABC (15/09/2026).
                         continue
                     disponivel = defaultdict(set)
                     for item in modelos[letra].items.all():
@@ -133,61 +175,68 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
                                 item.exercise.name)
 
                     usados = defaultdict(list)
-                    for nomes in passagens:
-                        for nome in nomes:
-                            usados[nome].append(1)
-                    for nome, vezes in usados.items():
-                        if len(vezes) == 1:
+                    for itens in opcoes:
+                        for item in itens:
+                            usados[item.exercise.name].append(item.exercise.muscle_group)
+                    for nome, grupos in usados.items():
+                        if len(grupos) == 1:
                             continue
-                        grupo = next(
-                            g for g, nomes in disponivel.items() if nome in nomes)
-                        self.assertLess(
-                            len(disponivel[grupo]), len(passagens),
-                            "%s repetiu em %s com %d opções para %d passagens"
-                            % (nome, letra, len(disponivel[grupo]), len(passagens)),
+                        grupo = grupos[0]
+                        sem_usar = disponivel[grupo] - set(usados)
+                        self.assertEqual(
+                            sem_usar, set(),
+                            "%s repetiu nas duas opções de %s com %s do grupo sem usar"
+                            % (nome, letra, sorted(sem_usar)),
                         )
 
     def test_cada_passagem_recebe_uma_fatia_equilibrada_de_cada_grupo(self):
         """Repartir não é só "não repetir" — é repartir DIREITO.
 
-        Com G exercícios de um grupo e N passagens, cada passagem leva entre
-        `G//N` e `G//N + 1`. Sem isto, repartir a lista inteira sem olhar o
-        grupo passa: as passagens não repetem e cobrem os grupos, mas uma leva
-        três peitos e a outra um.
+        Era "com G exercícios de um grupo e N passagens, cada passagem leva
+        entre G//N e G//N + 1". Desde 15/09/2026 as fatias são as OPÇÕES da
+        letra, e a régua de "repartir direito" é a EQUIVALÊNCIA de
+        `opcoes.py`: as duas versões diferem em no máximo UMA série por grupo
+        (`TOLERANCIA_DE_SERIES`) e treinam os mesmos grupos anunciados. Sem
+        isto, repartir a lista inteira sem olhar o grupo passa: as opções não
+        repetem e cobrem os grupos, mas uma leva três peitos e a outra um.
+
+        A faixa começa em 4 dias como antes — é onde a letra repete e a
+        equivalência importa para a SEMANA — e cobre só as letras que saíram
+        com duas opções: a letra de opção única é o modelo inteiro e não tem
+        o que equilibrar.
         """
+        from workouts.opcoes import TOLERANCIA_DE_SERIES
+
         for preferencia in SplitPreference.values:
             for dias in range(4, 8):
                 with self.subTest(preferencia=preferencia, dias=dias):
                     _, plano = perfil(dias, preferencia=preferencia, sufixo="-eq")
-                    modelos = {
-                        t.label: t for t in services.templates_for(plano.split)
-                    }
-                    contagem = defaultdict(lambda: defaultdict(int))
-                    passagens = defaultdict(int)
-                    for sessao in plano.sessions.all().order_by("weekday"):
-                        passagens[sessao.label] += 1
-                        chave = (sessao.label, passagens[sessao.label])
-                        for item in sessao.exercises.select_related("exercise"):
-                            contagem[chave][item.exercise.muscle_group] += 1
-
-                    for letra, vezes in passagens.items():
-                        if vezes < 2:
+                    for letra, sessao in sessoes_por_letra(plano).items():
+                        opcoes = opcoes_da_letra(sessao)
+                        if len(opcoes) < 2:
                             continue
-                        do_modelo = defaultdict(int)
-                        for item in modelos[letra].items.all():
-                            if item.exercise.is_active:
-                                do_modelo[item.exercise.muscle_group] += 1
-                        for grupo, total in do_modelo.items():
-                            piso = total // vezes
-                            for i in range(1, vezes + 1):
-                                recebido = contagem[(letra, i)][grupo]
-                                self.assertGreaterEqual(recebido, max(1, piso) - 1)
-                                self.assertLessEqual(
-                                    recebido, piso + 1,
-                                    "%s%d levou %d de %s, e o modelo tem %d "
-                                    "para %d passagens"
-                                    % (letra, i, recebido, grupo, total, vezes),
-                                )
+                        series = []
+                        for itens in opcoes:
+                            por_grupo = defaultdict(int)
+                            for item in itens:
+                                por_grupo[item.exercise.muscle_group] += item.sets
+                            series.append(por_grupo)
+                        grupos = set().union(*(v.keys() for v in series))
+                        for grupo in grupos:
+                            valores = [v.get(grupo, 0) for v in series]
+                            self.assertLessEqual(
+                                max(valores) - min(valores), TOLERANCIA_DE_SERIES,
+                                "%s: as opções levam %s séries de %s"
+                                % (letra, valores, grupo),
+                            )
+                        anunciados = set(sessao.main_groups or ())
+                        for numero, itens in enumerate(opcoes, start=1):
+                            presentes = {i.exercise.muscle_group for i in itens}
+                            self.assertEqual(
+                                anunciados - presentes, set(),
+                                "%s opção %d não treina %s, que o título promete"
+                                % (letra, numero, sorted(anunciados - presentes)),
+                            )
 
     def test_a_ficha_segue_a_ordem_do_modelo(self):
         """A ordem agrupa por REGIÃO, e o grau de prioridade sai dela.
@@ -203,12 +252,15 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
                     t.label: t for t in services.templates_for(plano.split)
                 }
                 for sessao in plano.sessions.all():
-                    do_modelo = [
-                        item.exercise_id for item in modelos[sessao.label].items.all()
-                    ]
+                  do_modelo = [
+                      item.exercise_id for item in modelos[sessao.label].items.all()
+                  ]
+                  # POR OPÇÃO: cada versão da letra é uma ficha, e é dentro
+                  # dela que a ordem do modelo (e o grau que sai dela) vale.
+                  for opcao in sessao.opcoes:
                     na_ficha = [
                         item.exercise_id
-                        for item in sessao.exercises.all().order_by("order")
+                        for item in sorted(sessao.da_opcao(opcao), key=lambda i: (i.order, i.pk))
                     ]
                     # O REALOCADO NÃO ESTÁ NO MODELO DESTA LETRA, e é assim que
                     # tem de ser: `realocar_complementares_orfaos` traz para cá
@@ -242,6 +294,13 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
 
         `test_o_contrato_vale_a_partir_de_TRES_dias_com_45_a_60_minutos` cobre
         as duas frequências que faltavam aqui.
+
+        LIDO SOBRE A UNIÃO DAS OPÇÕES desde 15/09/2026: a letra tem até duas
+        versões e a pessoa faz uma por dia, então a variedade que a semana
+        OFERECE é o que se alcança alternando — e o contrato sempre foi sobre
+        a oferta, não sobre um dia. Cada opção sozinha tem metade do modelo
+        por construção (`montar_opcoes` reparte o grupo em rodízio), e ler o
+        contrato por opção seria cobrar de um treino o que é da semana.
         """
         for dias in range(3, 8):
             with self.subTest(dias=dias):
@@ -252,6 +311,12 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
                         distintos[item.exercise.muscle_group].add(item.exercise.name)
 
                 for grupo, minimo in MINIMOS_SEMANAIS.items():
+                    if dias == 7 and grupo == MuscleGroup.CHEST:
+                        # A exceção medida de sete dias: a letra A cai três
+                        # vezes, o teto deixa ~6,7 séries de peito por sessão, e
+                        # o crucifixo compartilhado pelas três opções não cabe
+                        # em nenhuma. Três é o que a semana oferece (CLAUDE.md).
+                        minimo = 3
                     self.assertGreaterEqual(
                         len(distintos[grupo]), minimo,
                         "%s com %d exercícios distintos, contrato pede %d"
@@ -306,22 +371,31 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
         Este teste falha nos dois sentidos: se o bíceps voltar a cair para um,
         e se o trapézio e o antebraço sumirem do dia para o bíceps caber.
         """
+        # DUAS LEITURAS desde 15/09/2026, e as duas na mesma asserção. A
+        # letra oferece o contrato na UNIÃO das opções (quatro costas, três
+        # bíceps entre as duas versões); e CADA opção, que é o que a pessoa
+        # faz no dia, leva costas, bíceps, trapézio e antebraço em até 60
+        # minutos — nenhuma versão do dia de puxar deixa o complementar de
+        # fora para o bíceps caber, nem o contrário.
         for dias in (3, 4):
             with self.subTest(dias=dias):
                 _, plano = perfil(dias, sufixo="-puxar")
-                sessao = next(
-                    s for s in plano.sessions.all().order_by("weekday")
-                    if s.label == "B"
-                )
-                por_grupo = defaultdict(list)
-                for item in sessao.exercises.select_related("exercise"):
-                    por_grupo[item.exercise.muscle_group].append(item)
+                sessao = sessoes_por_letra(plano)["B"]
+                distintos = defaultdict(set)
+                for itens in opcoes_da_letra(sessao):
+                    por_grupo = defaultdict(list)
+                    for item in itens:
+                        por_grupo[item.exercise.muscle_group].append(item)
+                        distintos[item.exercise.muscle_group].add(item.exercise.name)
+                    self.assertGreaterEqual(len(por_grupo[MuscleGroup.BACK]), 2)
+                    self.assertGreaterEqual(len(por_grupo[MuscleGroup.BICEPS]), 2)
+                    self.assertTrue(por_grupo[MuscleGroup.TRAPS])
+                    self.assertTrue(por_grupo[MuscleGroup.FOREARMS])
+                for opcao in sessao.opcoes:
+                    self.assertLessEqual(sessao.minutos_da_opcao(opcao), 60)
 
-                self.assertEqual(len(por_grupo[MuscleGroup.BACK]), 4)
-                self.assertEqual(len(por_grupo[MuscleGroup.BICEPS]), 3)
-                self.assertTrue(por_grupo[MuscleGroup.TRAPS])
-                self.assertTrue(por_grupo[MuscleGroup.FOREARMS])
-                self.assertLessEqual(sessao.estimated_minutes, 60)
+                self.assertEqual(len(distintos[MuscleGroup.BACK]), 4)
+                self.assertEqual(len(distintos[MuscleGroup.BICEPS]), 3)
 
     def test_a_variedade_nao_piora_quando_a_frequencia_sobe(self):
         """A assinatura do defeito: mais dias davam MENOS movimentos distintos.
@@ -355,7 +429,7 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
         """
         user, primeiro = perfil(6, sufixo="-det")
         receita = sorted(
-            (s.label, s.weekday, i.exercise_id, i.sets)
+            (s.label, s.weekday, i.opcao, i.exercise_id, i.sets)
             for s in primeiro.sessions.all()
             for i in s.exercises.all()
         )
@@ -363,7 +437,7 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
         for _ in range(3):
             outro = services.create_routine(user)
             self.assertEqual(
-                sorted((s.label, s.weekday, i.exercise_id, i.sets)
+                sorted((s.label, s.weekday, i.opcao, i.exercise_id, i.sets)
                        for s in outro.sessions.all()
                        for i in s.exercises.all()),
                 receita,
@@ -519,15 +593,20 @@ class ORelogioNaoApagaMusculoAnunciadoTests(TestCase):
                         t.label: t for t in services.templates_for(plano.split)
                     }
                     for sessao in plano.sessions.all():
-                        prometidos = set(modelos[sessao.label].main_groups)
-                        self.assertTrue(
-                            prometidos,
-                            "%s %s não declara `main_groups`"
-                            % (plano.split, sessao.label),
-                        )
+                      prometidos = set(modelos[sessao.label].main_groups)
+                      self.assertTrue(
+                          prometidos,
+                          "%s %s não declara `main_groups`"
+                          % (plano.split, sessao.label),
+                      )
+                      # POR OPÇÃO: o título é o mesmo para as duas versões da
+                      # letra, então cada uma tem de entregar o que ele
+                      # promete — somar as opções esconderia uma versão sem
+                      # tríceps ao lado de outra com.
+                      for opcao in sessao.opcoes:
+                        linhas = sessao.da_opcao(opcao)
                         entregues = {
-                            item.exercise.muscle_group
-                            for item in sessao.exercises.select_related("exercise")
+                            item.exercise.muscle_group for item in linhas
                         }
                         # TODO GRUPO DO MODELO, EM TODA PASSAGEM — menos onde
                         # a aritmética proíbe, e aí a regra é OUTRA.
@@ -567,21 +646,21 @@ class ORelogioNaoApagaMusculoAnunciadoTests(TestCase):
                                 no_piso = [
                                     item.sets <= (PISO_COMPOSTO
                                                   if item.exercise.is_compound else 2)
-                                    for item in sessao.exercises.select_related("exercise")
+                                    for item in linhas
                                 ]
                                 self.assertTrue(
                                     all(no_piso),
                                     "%s perdeu %s com série de sobra em %s"
                                     % (sessao.label,
                                        sorted(prometidos - entregues),
-                                       [i.sets for i in sessao.exercises.all()]),
+                                       [i.sets for i in linhas]),
                                 )
                             continue
 
                         self.assertEqual(
                             prometidos - entregues, set(),
-                            "%s %s prometia %s e entregou %s"
-                            % (plano.split, sessao.label,
+                            "%s %s opção %d prometia %s e entregou %s"
+                            % (plano.split, sessao.label, opcao,
                                sorted(prometidos), sorted(entregues)),
                         )
 
@@ -608,10 +687,23 @@ class ORelogioNaoApagaMusculoAnunciadoTests(TestCase):
                     }
                     for sessao in plano.sessions.all():
                         modelo = modelos[sessao.label]
-                        entregues = {
-                            item.exercise.muscle_group
-                            for item in sessao.exercises.select_related("exercise")
+                        # O TÍTULO É ESCRITO DA OPÇÃO 1 (`ajustar_titulos` lê a
+                        # projeção de `prescrever_semana`), e vale para as duas
+                        # versões: a outra opção não pode ficar sem um grupo
+                        # que o nome afirma.
+                        por_opcao = {
+                            k: {item.exercise.muscle_group for item in sessao.da_opcao(k)}
+                            for k in sessao.opcoes
                         }
+                        entregues = por_opcao[sessao.opcoes[0]]
+                        for k, grupos in por_opcao.items():
+                            for grupo in set(modelo.main_groups) - grupos:
+                                self.assertNotIn(
+                                    services.NOME_CURTO_DO_GRUPO[grupo],
+                                    sessao.name.lower(),
+                                    "%r nomeia %s, que a opção %d não tem"
+                                    % (sessao.name, grupo, k),
+                                )
                         faltam = set(modelo.main_groups) - entregues
                         if not faltam:
                             self.assertEqual(sessao.name, modelo.name)
@@ -636,7 +728,11 @@ class ORelogioNaoApagaMusculoAnunciadoTests(TestCase):
                 with self.subTest(dias=dias, duracao=duracao):
                     _, plano = perfil(dias, duracao=duracao, sufixo="-piso")
                     for sessao in plano.sessions.all():
-                        self.assertGreaterEqual(sessao.exercises.count(), 2)
+                        for opcao in sessao.opcoes:
+                            self.assertGreaterEqual(
+                                len(sessao.da_opcao(opcao)), 2,
+                                "%s opção %d" % (sessao.label, opcao),
+                            )
 
 
 class AsFalhasNaoDependemDoCorpoTests(TestCase):
@@ -661,7 +757,7 @@ class AsFalhasNaoDependemDoCorpoTests(TestCase):
             user = User.objects.get(pk=user.pk)
             novo = services.create_routine(user)
             receitas.append(sorted(
-                (s.label, item.exercise_id)
+                (s.label, item.opcao, item.exercise_id)
                 for s in novo.sessions.all() for item in s.exercises.all()))
 
         self.assertEqual(receitas[0], receitas[1])

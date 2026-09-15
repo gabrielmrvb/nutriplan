@@ -43,6 +43,8 @@ from .models import (
     WorkoutTemplate,
     instrucao_de_esforco,
     segundos_da_sessao,
+    EscolhaDeTreino,
+    VersaoDoTreino,
 )
 
 
@@ -817,6 +819,26 @@ def volume_efetivo(itens) -> dict:
     return volume
 
 
+def volume_da_semana(plan) -> dict:
+    """Séries EFETIVAS por grupo na semana deste plano, no PIOR CASO.
+
+    Uma opção por ocorrência da letra — a mais pesada no grupo —, nunca as
+    duas somadas: ninguém faz os dois treinos no mesmo dia. É a conta que
+    `aparar_opcoes` fecha no teto, e é a que todo teste de teto semanal deve
+    usar; somar `session.exercises.all()` conta um treino que não existe.
+    """
+    from . import opcoes as motor_de_opcoes
+
+    por_letra, ocorrencias = {}, {}
+    for sessao in plan.sessions.all().prefetch_related("exercises__exercise"):
+        ocorrencias[sessao.label] = ocorrencias.get(sessao.label, 0) + 1
+        if sessao.label not in por_letra:
+            por_letra[sessao.label] = [
+                [(item, item.sets, 0) for item in sessao.da_opcao(k)] for k in sessao.opcoes
+            ]
+    return motor_de_opcoes.volume_semanal_pior_caso(por_letra, ocorrencias)
+
+
 def teto_semanal_de(user) -> int:
     """O teto de séries efetivas por grupo desta pessoa.
 
@@ -1117,6 +1139,21 @@ def realocar_complementares_orfaos(por_sessao, prescricao, descartados, teto):
 _NAO_INFORMADO = object()
 
 
+def teto_completo_de(user):
+    """O teto de minutos da SESSÃO COMPLETA desta pessoa.
+
+    Quem escolheu uma faixa fica com a faixa dela — a escolha não é
+    sobrescrita. Quem não tem teto ("sem limite rígido", ou nunca respondeu)
+    recebe `TETO_COMPLETO_MIN` (65): a sessão completa mira perto de uma
+    hora, e "sem limite" não é "sem tamanho". `None` NÃO sai daqui: no
+    motor, `None` significa sem relógio — a referência da nota de tempo.
+    """
+    from .opcoes import TETO_COMPLETO_MIN
+
+    teto = teto_de_minutos(user)
+    return teto if teto is not None else TETO_COMPLETO_MIN
+
+
 def teto_de_minutos(user) -> int:
     """O teto de tempo desta pessoa, em minutos, ou `None` quando não há.
 
@@ -1135,9 +1172,177 @@ def teto_de_minutos(user) -> int:
     return TETO_POR_DURACAO.get(faixa)
 
 
+def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
+                      teto_semanal=None) -> dict:
+    """O que cada OPÇÃO de cada sessão manda fazer:
+    `{(sessão.pk, opção, exercício): (séries, item)}`.
+
+    UMA LETRA, ATÉ DUAS OPÇÕES (15/09/2026, `workouts/opcoes.py`). A
+    repartição por ocorrência (`repartir_ocorrencia`) dava a cada passagem da
+    letra METADE do modelo com a dose cheia: sessões curtas, "A1" e "A2" como
+    dias obrigatórios. Aqui a repartição vira duas VERSÕES da mesma letra,
+    cada uma completa (piso de 15 séries, teto de 18), equivalentes (mesmos
+    grupos, ≤ 1 série por grupo e ≤ 5 minutos de diferença, metade dos
+    exercícios próprios), e a pessoa faz UMA por ocorrência. Sem catálogo
+    para duas assim, a letra sai com uma opção só.
+
+    A ordem das decisões:
+
+    1. cada letra é repartida em opções (`montar_opcoes`), com os graus da
+       SESSÃO (`prioridades_da_sessao` sobre a opção, não sobre o modelo);
+    2. cada opção sobe até o piso de séries pelo isolador e acessório dos
+       grupos anunciados (`preencher_ate_a_faixa`), dentro do tempo;
+    3. o pior caso da semana — cada ocorrência fazendo a opção mais pesada no
+       grupo — cabe no teto semanal (`aparar_opcoes`), com as três travas;
+       as opções NUNCA são somadas;
+    4. cada opção cabe no tempo (`escolher_para_o_tempo`, cinco camadas);
+    5. as opções são equilibradas e conferidas (`equivalentes`); se ainda
+       assim não forem, a letra fica com a opção 1.
+
+    Determinística, e chamada pelo gerador E pela conferência.
+    """
+    from . import opcoes as motor_de_opcoes
+
+    ocorrencias = {}
+    for sessao in sessoes:
+        ocorrencias[sessao.label] = ocorrencias.get(sessao.label, 0) + 1
+    if teto is _NAO_INFORMADO:
+        teto = teto_completo_de(sessoes[0].plan.user) if sessoes else None
+    # `None` é SEM RELÓGIO — a referência que `aviso_de_tempo` compara e que
+    # os testes usam como "ficha natural". A faixa "livre" da pessoa NÃO
+    # chega aqui como `None`: `teto_completo_de` a traduz em 65 minutos.
+    teto_completo = teto
+    faixa = motor_de_opcoes.faixa_de_series(teto_semanal or TETO_SEMANAL_POR_GRUPO)
+    letras = list(ocorrencias)
+    itens_de = {}
+    principais_de = {}
+    for label in letras:
+        modelo = modelos.get(label)
+        if modelo is None:
+            return None
+        itens_de[label] = [item for item in modelo.items.all() if item.exercise.is_active]
+        principais_de[label] = list(getattr(modelo, "main_groups", None) or ())
+
+    def montar(letras_com_duas):
+        """Passa a semana inteira pela cadeia, com duas opções nas letras
+        pedidas e uma (o modelo inteiro) nas demais. Devolve `{letra: opções}`
+        já no tempo — a conferência de equivalência é do chamador."""
+        por_letra = {}
+        for label in letras:
+            itens = itens_de[label]
+            opcoes = [list(itens)]
+            if label in letras_com_duas:
+                # TANTAS OPÇÕES QUANTAS OCORRÊNCIAS (mínimo duas): com a letra
+                # três vezes na semana, duas opções de meio modelo cada
+                # dariam, no pior caso, 1,5 modelo por semana — e o teto
+                # esvaziava as duas até a letra ficar com um exercício de
+                # peito. Com três opções de um terço, repetir a preferida
+                # três vezes é exatamente a dose do modelo.
+                # Tenta com o número de ocorrências; sem catálogo para
+                # tantas opções distintas, tenta duas; só então uma.
+                for n in sorted({max(2, ocorrencias[label]), 2}, reverse=True):
+                    candidatas, compartilhados = motor_de_opcoes.montar_opcoes(itens, n=n)
+                    if motor_de_opcoes.distintas_o_bastante(candidatas, compartilhados):
+                        opcoes = candidatas
+                        break
+            linhas_por_opcao = []
+            for op in opcoes:
+                graus = prioridades_da_sessao(op)
+                linhas = [
+                    (item, dose_da_sessao(item), grau)
+                    for item, grau in zip(op, graus)
+                    if dose_da_sessao(item) > 0
+                ]
+                # O preenchimento até a faixa é da sessão de ~60 minutos. Com
+                # "até 30" ele enchia os anunciados e o relógio tirava os
+                # complementares em seguida: a 30 minutos, abc2 de cinco dias
+                # ficava sem panturrilha, abdômen, antebraço e trapézio na
+                # semana inteira. Abaixo de 45 minutos a dose é a do catálogo.
+                if teto_completo is None or teto_completo >= motor_de_opcoes.MINUTOS_PARA_PREENCHER:
+                    linhas = motor_de_opcoes.preencher_ate_a_faixa(
+                        linhas, teto_completo, principais_de[label], faixa=faixa,
+                    )
+                linhas_por_opcao.append(linhas)
+            por_letra[label] = linhas_por_opcao
+        por_letra = motor_de_opcoes.aparar_opcoes(
+            por_letra, ocorrencias, teto_semanal or TETO_SEMANAL_POR_GRUPO, dose_da_sessao
+        )
+        no_tempo = {}
+        descartados = {}
+        for label, opcoes in por_letra.items():
+            principais = principais_de[label]
+            prontas = []
+            descartados[label] = []
+            for linhas in opcoes:
+                ficam = escolher_para_o_tempo(
+                    [(item.exercise.muscle_group, series, item.rest_seconds, grau)
+                     for item, series, grau in linhas],
+                    teto_completo,
+                    principais=principais,
+                )
+                ficaram = {i for i, _ in ficam}
+                prontas.append([(linhas[i][0], series, linhas[i][2]) for i, series in ficam])
+                # O que o relógio dispensou, guardado: um complementar que não
+                # coube aqui pode caber noutra letra (`realocar_orfaos_nas_opcoes`).
+                descartados[label].append([l for i, l in enumerate(linhas) if i not in ficaram])
+            if len(prontas) > 1:
+                prontas = motor_de_opcoes.equilibrar(
+                    prontas, principais, teto_completo, teto_series=faixa[1]
+                )
+            no_tempo[label] = prontas
+        motor_de_opcoes.realocar_orfaos_nas_opcoes(no_tempo, descartados, principais_de, teto_completo)
+        # Equilibrar pode ter DADO série: o teto semanal é conferido de novo,
+        # e o que ele tirar de uma opção é acompanhado pela outra (só tirando).
+        no_tempo = motor_de_opcoes.aparar_opcoes(
+            no_tempo, ocorrencias, teto_semanal or TETO_SEMANAL_POR_GRUPO, dose_da_sessao
+        )
+        return {
+            label: (
+                motor_de_opcoes.equilibrar(
+                    opcoes, principais_de[label], teto_completo, dar=False, teto_series=faixa[1]
+                )
+                if len(opcoes) > 1 else opcoes
+            )
+            for label, opcoes in no_tempo.items()
+        }
+
+    # Primeiro com duas opções em toda letra; a letra que não fechar as
+    # réguas de equivalência volta a UMA opção — o modelo inteiro, e não a
+    # metade que sobrou —, e a semana é montada de novo, porque o teto é
+    # partilhado entre as letras.
+    com_duas = set(letras)
+    for _ in range(len(letras) + 1):
+        semana = montar(com_duas)
+        reprovadas = {
+            label for label, opcoes in semana.items()
+            if len(opcoes) > 1 and not motor_de_opcoes.equivalentes(opcoes, principais_de[label])
+        }
+        if not reprovadas:
+            break
+        com_duas -= reprovadas
+    prescricao = {}
+    for label, opcoes in semana.items():
+        for sessao in sessoes:
+            if sessao.label != label:
+                continue
+            for k, linhas in enumerate(opcoes, start=1):
+                for item, series, _grau in linhas:
+                    prescricao[(sessao.pk, k, item.exercise_id)] = (series, item)
+    return prescricao
+
+
 def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO,
                       teto_semanal=None) -> dict:
-    """O que cada sessão da semana manda fazer: {(sessão, exercício): séries}.
+    """A OPÇÃO 1 de cada sessão: `{(sessão.pk, exercício): (séries, item)}`.
+
+    Desde 15/09/2026 quem prescreve é `prescrever_opcoes`; esta é a projeção
+    da primeira opção, que os títulos (`ajustar_titulos`), a nota da divisão
+    e o aviso de tempo leem — as opções são equivalentes por construção, então
+    o que vale para a 1 vale para a 2. Tudo abaixo desta docstring é a
+    história da prescrição por ocorrência, mantida porque cada decisão dela
+    continua valendo dentro de cada opção.
+
+    O que cada sessão da semana manda fazer: {(sessão, exercício): séries}.
 
     Uma função só, chamada pelo gerador E pela conferência, porque as duas
     precisam da MESMA resposta. Enquanto eram dois trechos parecidos, qualquer
@@ -1165,6 +1370,27 @@ def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO,
     para duas séries num perfil com noventa minutos livres. A frequência maior
     continua não podendo multiplicar o volume — mas quem paga isso agora é o
     isolador, na etapa 2, e não o exercício principal.
+    """
+    completa = prescrever_opcoes(sessoes, modelos, teto=teto, teto_semanal=teto_semanal)
+    if completa is None:
+        return None
+    return {
+        (sessao_pk, exercicio_id): valor
+        for (sessao_pk, opcao, exercicio_id), valor in completa.items()
+        if opcao == 1
+    }
+
+
+def _prescrever_por_ocorrencia(sessoes, modelos, teto=_NAO_INFORMADO,
+                               teto_semanal=None) -> dict:
+    """A prescrição por OCORRÊNCIA da letra (A1 ≠ A2), como era até 15/09/2026.
+
+    Fica como referência medida de `repartir_ocorrencia`,
+    `aparar_volume_semanal` e `realocar_complementares_orfaos` — as três
+    continuam existindo e testadas, mas quem prescreve em produção é
+    `prescrever_opcoes`, cujas peças homônimas estão em `workouts/opcoes.py`
+    (`montar_opcoes`, `aparar_opcoes`, `realocar_orfaos_nas_opcoes`). Nenhum
+    caminho de produção chama isto.
     """
     vistas = {}
     por_sessao = {}
@@ -1647,10 +1873,15 @@ def create_routine(user) -> TrainingPlan:
 
     by_label = {template.label: template for template in templates}
     teto_semanal = teto_semanal_de(user)
-    prescricao = prescrever_semana(
+    completa = prescrever_opcoes(
         sessions, by_label,
-        teto=teto_de_minutos(user), teto_semanal=teto_semanal,
+        teto=teto_completo_de(user), teto_semanal=teto_semanal,
     )
+    prescricao = {
+        (sessao_pk, exercicio_id): valor
+        for (sessao_pk, opcao, exercicio_id), valor in completa.items()
+        if opcao == 1
+    }
     # A nota vem depois da prescrição porque descreve o que a prescrição fez:
     # `build_sessions` decide o ciclo e `prescrever_semana` decide o que coube
     # no tempo. Escrevê-la antes daria um texto sobre uma ficha que ainda não
@@ -1660,8 +1891,14 @@ def create_routine(user) -> TrainingPlan:
     # já traz `items__exercise` em cache, então rodar a prescrição sem teto de
     # tempo não custa consulta nenhuma. Ela responde "o que o relógio tirou",
     # que é a única pergunta que a frase tem o direito de responder.
-    sem_relogio = prescrever_semana(
-        sessions, by_label, teto=None, teto_semanal=teto_semanal,
+    # A referência SEM RELÓGIO da nota de tempo. Quem escolheu "sem limite
+    # rígido" não informou tempo nenhum: a sessão completa dele é a de 65
+    # minutos (`teto_completo_de`) e não há corte a avisar — comparar com
+    # `None` faria a nota dizer "para caber no tempo que você informou" a
+    # quem não informou.
+    sem_relogio = (
+        prescrever_semana(sessions, by_label, teto=None, teto_semanal=teto_semanal)
+        if teto_de_minutos(user) is not None else prescricao
     )
     plan.notes = " ".join(
         parte
@@ -1690,8 +1927,9 @@ def create_routine(user) -> TrainingPlan:
             measure=item.measure,
             rest_seconds=item.rest_seconds,
             order=item.order,
+            opcao=opcao,
         )
-        for (sessao_id, exercicio_id), (series, item) in prescricao.items()
+        for (sessao_id, opcao, exercicio_id), (series, item) in completa.items()
     ]
     SessionExercise.objects.bulk_create(exercises)
     return plan
@@ -1721,14 +1959,14 @@ def _prescricao_confere(sessoes, modelos, itens, user) -> bool:
     if not modelos:
         return False
 
-    prescricao = prescrever_semana(
+    prescricao = prescrever_opcoes(
         sessoes, modelos,
-        teto=teto_de_minutos(user), teto_semanal=teto_semanal_de(user),
+        teto=teto_completo_de(user), teto_semanal=teto_semanal_de(user),
     )
     if prescricao is None:
         return False
 
-    gravado = {(i.session_id, i.exercise_id): i.sets for i in itens}
+    gravado = {(i.session_id, i.opcao, i.exercise_id): i.sets for i in itens}
     esperado = {chave: series for chave, (series, _) in prescricao.items()}
     return gravado == esperado
 
@@ -2145,6 +2383,27 @@ class EstadoDoTreino:
     descanso_total: int = 0
     descanso_restante: int = 0
     minutos_entre_registros: int = 0
+    #: A opção da letra que está sendo feita hoje, e de onde ela veio.
+    opcao: int = 1
+    opcoes: list = field(default_factory=list)
+    versao: str = "completo"
+    escolha: object = None
+    recomendada: int = 1
+    #: Os exercícios que a versão rápida deixou de fora, nomeados na tela.
+    removidos: list = field(default_factory=list)
+
+    @property
+    def tem_duas_opcoes(self) -> bool:
+        return len(self.opcoes) > 1
+
+    @property
+    def precisa_escolher(self) -> bool:
+        """Duas opções e nenhuma escolha gravada hoje: a ficha pergunta."""
+        return self.tem_duas_opcoes and self.escolha is None and not self.comecou
+
+    @property
+    def rapida(self) -> bool:
+        return self.versao == VersaoDoTreino.RAPIDO
     #: Existe um plano ativo? Separa "hoje é descanso" de "a ficha ainda não
     #: foi montada" — dois estados que a Home mostrava com a mesma frase, e o
     #: segundo era o de toda conta recém-criada até abrir a aba de Treino.
@@ -2157,6 +2416,68 @@ class EstadoDoTreino:
     @property
     def comecou(self) -> bool:
         return self.series_feitas > 0
+
+
+def escolha_do_dia(user, dia=None):
+    """A opção que a pessoa escolheu hoje, ou `None`."""
+    dia = dia or timezone.localdate()
+    return (
+        EscolhaDeTreino.objects.filter(user=user, date=dia)
+        .select_related("session")
+        .first()
+    )
+
+
+def opcao_recomendada(user, sessao) -> int:
+    """A opção menos usada recentemente NESTA letra — nunca uma obrigação.
+
+    Com duas opções, é a que não foi a última: quem fez a 1 na segunda vê a 2
+    recomendada na quinta. Sem histórico, a 1. A pessoa pode ignorar e repetir
+    a preferida — a recomendação é um selo, e o motor já garantiu que repetir
+    cabe no teto semanal.
+    """
+    opcoes = sessao.opcoes
+    if len(opcoes) < 2:
+        return opcoes[0]
+    # A última data em que cada opção foi feita, numa consulta; a que nunca
+    # foi (ou foi há mais tempo) é a recomendada — com três opções, a 3
+    # entra na vez dela.
+    ultimas = dict(
+        EscolhaDeTreino.objects.filter(
+            user=user, session__plan_id=sessao.plan_id, session__label=sessao.label
+        )
+        .values_list("opcao")
+        .annotate(ultima=Max("date"))
+        .values_list("opcao", "ultima")
+    )
+    return min(opcoes, key=lambda k: (ultimas.get(k) is not None, ultimas.get(k), k))
+
+
+def registrar_escolha(user, sessao, opcao, versao=VersaoDoTreino.COMPLETO, dia=None):
+    """Grava (ou atualiza) a escolha do dia. Uma por dia; idempotente."""
+    dia = dia or timezone.localdate()
+    if opcao not in sessao.opcoes:
+        opcao = sessao.opcoes[0]
+    if versao not in VersaoDoTreino.values:
+        versao = VersaoDoTreino.COMPLETO
+    escolha, criada = EscolhaDeTreino.objects.get_or_create(
+        user=user, date=dia,
+        defaults={"session": sessao, "opcao": opcao, "versao": versao},
+    )
+    if not criada and (escolha.session_id != sessao.pk or escolha.opcao != opcao or escolha.versao != versao):
+        escolha.session = sessao
+        escolha.opcao = opcao
+        escolha.versao = versao
+        escolha.save(update_fields=["session", "opcao", "versao"])
+    return escolha
+
+
+def series_registradas_hoje(user, sessao, dia=None) -> int:
+    """Quantas séries de exercícios DESTA sessão a pessoa anotou hoje —
+    qualquer opção. É o que decide se trocar de opção pede confirmação."""
+    dia = dia or timezone.localdate()
+    exercicios = {item.exercise_id for item in sessao.exercises.all()}
+    return ExerciseLog.objects.filter(user=user, date=dia, exercise_id__in=exercicios).count()
 
 
 def _primeira_serie_livre(feitas: dict, total: int):
@@ -2393,6 +2714,39 @@ def historico_do_exercicio(user, exercise, datas=DATAS_DO_HISTORICO) -> list:
     return list(por_data.values())
 
 
+def prescricao_de_hoje(user, exercise_id, dia=None):
+    """Quantas séries este exercício pede HOJE, na opção e versão do dia.
+
+    A sessão guarda as opções; `.first()` sem filtro devolveria a opção 1
+    mesmo quando a pessoa está fazendo a 2, e a versão rápida reduz série
+    só em memória. Devolve `None` fora da sessão de hoje. Custa a consulta
+    da escolha mais a da linha; na versão rápida, mais a lista da opção.
+    """
+    from . import opcoes as motor_de_opcoes
+
+    dia = dia or timezone.localdate()
+    escolha = escolha_do_dia(user, dia)
+    linhas = SessionExercise.objects.filter(
+        session__plan__user=user, session__plan__is_active=True, session__weekday=dia.weekday(),
+    )
+    if escolha is not None:
+        linhas = linhas.filter(opcao=escolha.opcao)
+    item = linhas.filter(exercise_id=exercise_id).first()
+    if item is None:
+        return None
+    if escolha is not None and escolha.versao == VersaoDoTreino.RAPIDO:
+        da_opcao = list(linhas.select_related("exercise", "session").order_by("order", "id"))
+        graus = prioridades_da_sessao(da_opcao)
+        sessao = da_opcao[0].session if da_opcao else None
+        ficam, _ = motor_de_opcoes.versao_rapida(
+            [(i, i.sets, g) for i, g in zip(da_opcao, graus)],
+            sessao.main_groups if sessao else (),
+        )
+        reduzidas = {i.exercise_id: series for i, series in ficam}
+        return reduzidas.get(exercise_id, 0)
+    return item.sets
+
+
 def series_de_hoje(user, exercise, dia=None) -> tuple:
     """(séries anotadas hoje, séries prescritas) deste exercício na sessão de hoje.
 
@@ -2404,21 +2758,27 @@ def series_de_hoje(user, exercise, dia=None) -> tuple:
     consulta: não há prescrição para fechar.
     """
     dia = dia or timezone.localdate()
+    # DESDE 15/09/2026 a prescrição é a da OPÇÃO do dia: a escolha (uma
+    # consulta) filtra a linha, e a contagem continua em subconsulta. Na
+    # versão rápida a prescrição é a reduzida (`prescricao_de_hoje`).
+    escolha = escolha_do_dia(user, dia)
+    if escolha is not None and escolha.versao == VersaoDoTreino.RAPIDO:
+        prescritas = prescricao_de_hoje(user, exercise.pk, dia)
+        feitas = ExerciseLog.objects.filter(user=user, exercise=exercise, date=dia).count()
+        return feitas, prescritas or 0
     contagem = (
         ExerciseLog.objects.filter(user=user, exercise=OuterRef("exercise"), date=dia)
         .order_by().values("exercise").annotate(n=Count("pk")).values("n")[:1]
     )
-    item = (
-        SessionExercise.objects.filter(
-            session__plan__user=user,
-            session__plan__is_active=True,
-            session__weekday=dia.weekday(),
-            exercise=exercise,
-        )
-        .annotate(feitas=Subquery(contagem))
-        .values_list("sets", "feitas")
-        .first()
+    linhas = SessionExercise.objects.filter(
+        session__plan__user=user,
+        session__plan__is_active=True,
+        session__weekday=dia.weekday(),
+        exercise=exercise,
     )
+    if escolha is not None:
+        linhas = linhas.filter(opcao=escolha.opcao)
+    item = linhas.annotate(feitas=Subquery(contagem)).values_list("sets", "feitas").first()
     if item is None:
         return ExerciseLog.objects.filter(user=user, exercise=exercise, date=dia).count(), 0
     prescritas, feitas = item
@@ -2436,22 +2796,13 @@ def serie_pendente(user, exercise_id, dia=None) -> bool:
     série gravada. Exercício que não é da sessão de hoje responde `False`.
     """
     dia = dia or timezone.localdate()
-    plan = get_active_routine(user)
-    if plan is None:
-        return False
-    item = (
-        SessionExercise.objects.filter(
-            session__plan=plan, session__weekday=dia.weekday(), exercise_id=exercise_id
-        )
-        .only("sets")
-        .first()
-    )
-    if item is None:
+    prescritas = prescricao_de_hoje(user, exercise_id, dia)
+    if not prescritas:
         return False
     feitas = ExerciseLog.objects.filter(
         user=user, exercise_id=exercise_id, date=dia
     ).count()
-    return feitas < item.sets
+    return feitas < prescritas
 
 
 def supera_recorde(user, exercise, weight_kg, dia=None) -> bool:
@@ -2486,7 +2837,7 @@ class ExercicioForaDaSessao(LookupError):
     """
 
 
-def estado_do_treino(user, dia=None, escolhido=None) -> EstadoDoTreino:
+def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) -> EstadoDoTreino:
     """O treino de hoje com o ponto exato em que a pessoa parou.
 
     O exercício atual é o PRIMEIRO da ficha que ainda não tem todas as séries
@@ -2540,7 +2891,37 @@ def estado_do_treino(user, dia=None, escolhido=None) -> EstadoDoTreino:
             raise ExercicioForaDaSessao(escolhido)
         return estado
 
-    itens = list(sessao.exercises.all())
+    # A OPÇÃO DO DIA: a pedida, senão a gravada hoje, senão a recomendada.
+    # A versão rápida é a opção passando por `versao_rapida` — os itens são
+    # os mesmos objetos, com `sets` reduzido em memória (nada é gravado), e o
+    # que saiu fica nomeado em `removidos`.
+    from . import opcoes as motor_de_opcoes
+
+    escolha = escolha_do_dia(user, dia)
+    if escolha is not None and escolha.session_id != sessao.pk:
+        escolha = None
+    estado.escolha = escolha
+    estado.opcoes = sessao.opcoes
+    estado.recomendada = opcao_recomendada(user, sessao)
+    if opcao is None:
+        opcao = escolha.opcao if escolha is not None else estado.recomendada
+    if opcao not in estado.opcoes:
+        opcao = estado.opcoes[0]
+    if versao is None:
+        versao = escolha.versao if escolha is not None else VersaoDoTreino.COMPLETO
+    estado.opcao = opcao
+    estado.versao = versao
+    itens = sessao.da_opcao(opcao)
+    if versao == VersaoDoTreino.RAPIDO and itens:
+        graus = prioridades_da_sessao(itens)
+        ficam, removidos = motor_de_opcoes.versao_rapida(
+            [(item, item.sets, grau) for item, grau in zip(itens, graus)],
+            sessao.main_groups,
+        )
+        for item, series in ficam:
+            item.sets = series
+        estado.removidos = removidos
+        itens = [item for item, _ in ficam]
     historico = load_history(user, [item.exercise for item in itens], day=dia)
     # `getattr` e não `user.profile`: quem chega aqui já passou pelo
     # onboarding, mas o perfil pode não estar em cache, e `""` (não

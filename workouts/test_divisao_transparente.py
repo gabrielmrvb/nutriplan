@@ -31,6 +31,14 @@ O que ficou proibido, e tem teste: mexer em `TrainingSession.label`. Ele é a
 identidade que liga a sessão ao modelo do catálogo; "A1" gravado ali quebraria
 `templates_for`, a conferência de prescrição e o histórico. A numeração é de
 EXIBIÇÃO, calculada por ocorrência e nunca por posição na lista.
+
+E DESDE 15/09/2026 A NUMERAÇÃO QUASE NÃO EXISTE: as ocorrências da mesma letra
+carregam as MESMAS duas opções (`workouts/opcoes.py`), então A de segunda e A
+de quinta são o mesmo treino, e "A1"/"A2" diriam dois treinos onde há um.
+`nomear_ocorrencias` só numera quando os conteúdos DIFEREM de verdade — o
+plano antigo ajustado à mão —, e é esse caso que os testes de rótulo fabricam
+(`diferenciar_ocorrencias`). O texto "aparece duas vezes na semana" saiu da
+ficha; quem diz os dias em que a letra cai é o cartão do painel.
 """
 import pathlib
 
@@ -41,8 +49,10 @@ from django.urls import reverse
 
 from accounts.models import Profile, SplitPreference
 
+from django.utils import timezone
+
 from . import services
-from .models import TrainingPlan
+from .models import SessionExercise, TrainingPlan
 from .tests import create_user
 from .views import nomear_ocorrencias
 
@@ -55,6 +65,23 @@ def com_preferencia(email, dias, preferencia):
     user.refresh_from_db()
     services.create_routine(user)
     return user
+
+
+def diferenciar_ocorrencias(user, letras=("A",)):
+    """Simula o plano ANTERIOR a 15/09/2026, ajustado à mão: só opção 1, e a
+    segunda ocorrência de cada letra pedida com um exercício a menos.
+
+    É o único caso em que A1 ≠ A2 continua existindo — o mesmo cenário de
+    `test_opcoes.PlanoAntigoTests` —, e é ele que dá aos testes de rótulo um
+    conteúdo que difere de verdade.
+    """
+    plano = TrainingPlan.objects.filter(user=user, is_active=True).first()
+    SessionExercise.objects.filter(session__plan=plano, opcao=2).delete()
+    for letra in letras:
+        segunda = sorted(plano.sessions.filter(label=letra), key=lambda s: s.order)[1]
+        SessionExercise.objects.filter(session=segunda).first().delete()
+    TrainingPlan.objects.filter(pk=plano.pk).update(customized_at=timezone.now())
+    return plano
 
 
 class APreferenciaQueCedeEDitaTests(TestCase):
@@ -184,11 +211,25 @@ class AsOcorrenciasRepetidasSeDistinguemTests(TestCase):
         return sessoes
 
     def test_cinco_dias_em_abc_viram_a1_b1_c_a2_b2(self):
+        """A numeração existe para o conteúdo que DIFERE — e só para ele.
+
+        A ficha nova grava as mesmas opções nas duas ocorrências de A, então
+        elas são o mesmo treino e o rótulo é a letra. O plano antigo ajustado
+        à mão continua tendo A1 ≠ A2 de verdade, e aí — e só aí — a numeração
+        volta, por ocorrência, com a letra que não repete ficando sem número.
+        """
         user = com_preferencia("cinco@exemplo.com", 5, SplitPreference.TRES)
 
-        rotulos = [s.rotulo for s in self._sessoes(user)]
+        self.assertEqual(
+            [s.rotulo for s in self._sessoes(user)], ["A", "B", "C", "A", "B"],
+            "ocorrências iguais receberam número",
+        )
 
-        self.assertEqual(rotulos, ["A1", "B1", "C", "A2", "B2"])
+        diferenciar_ocorrencias(user, letras=("A", "B"))
+
+        self.assertEqual(
+            [s.rotulo for s in self._sessoes(user)], ["A1", "B1", "C", "A2", "B2"]
+        )
 
     def test_letra_que_nao_repete_fica_sem_numero(self):
         """"C1" sozinho seria um número que não distingue nada."""
@@ -213,24 +254,40 @@ class AsOcorrenciasRepetidasSeDistinguemTests(TestCase):
             sessao.refresh_from_db()
             self.assertIn(sessao.label, ("A", "B", "C"))
 
-    def test_as_duas_ocorrencias_trazem_exercicios_diferentes(self):
-        """O fato que a numeração existe para explicar.
+    def test_as_duas_ocorrencias_sao_iguais_e_as_opcoes_diferem(self):
+        """O fato que a numeração existia para explicar — e deixou de existir.
 
-        Se elas fossem idênticas, A1/A2 seria enfeite — e a queixa da auditoria
-        ("o segundo A parece incompleto") não teria fundamento nenhum.
+        Até 15/09/2026 as duas passagens de A eram diferentes, e A1/A2 dizia
+        isso. Hoje as duas ocorrências carregam as MESMAS linhas, e quem
+        difere são as OPÇÕES dentro da letra: é por isso que o rótulo voltou a
+        ser a letra e a variedade mora na escolha do dia. Se as ocorrências
+        voltassem a divergir em silêncio, a queixa da auditoria ("o segundo A
+        parece incompleto") voltaria junto.
         """
         user = com_preferencia("difere@exemplo.com", 5, SplitPreference.TRES)
         sessoes = [s for s in self._sessoes(user) if s.label == "A"]
 
-        conjuntos = [
-            {i.exercise_id for i in s.exercises.all()} for s in sessoes
+        assinaturas = [
+            sorted((i.opcao, i.exercise_id, i.sets) for i in s.exercises.all())
+            for s in sessoes
         ]
 
-        self.assertEqual(len(conjuntos), 2)
-        self.assertNotEqual(conjuntos[0], conjuntos[1])
+        self.assertEqual(len(assinaturas), 2)
+        self.assertEqual(assinaturas[0], assinaturas[1], "A de segunda ≠ A de quinta")
+        primeira = sessoes[0]
+        self.assertEqual(primeira.opcoes, [1, 2], "a letra A saiu com uma opção só")
+        self.assertNotEqual(
+            {i.exercise_id for i in primeira.da_opcao(1)},
+            {i.exercise_id for i in primeira.da_opcao(2)},
+        )
 
     def test_a_tela_e_a_ficha_concordam_no_rotulo(self):
-        """O cartão leva a pessoa a uma ficha, e as duas dizem a mesma coisa."""
+        """O cartão leva a pessoa a uma ficha, e as duas dizem a mesma coisa.
+
+        Nos dois regimes: com as ocorrências iguais, painel e ficha dizem
+        "A" e nenhum dos dois inventa "A2" nem "aparece duas vezes"; no plano
+        antigo ajustado, o cartão A2 leva a uma ficha que se chama A2.
+        """
         user = com_preferencia("concorda@exemplo.com", 5, SplitPreference.TRES)
         self.client.force_login(user)
         segunda_a = [s for s in self._sessoes(user) if s.label == "A"][1]
@@ -240,9 +297,22 @@ class AsOcorrenciasRepetidasSeDistinguemTests(TestCase):
             reverse("workouts:ficha", args=[segunda_a.pk])
         ).content.decode()
 
-        self.assertIn("A2", tela)
-        self.assertIn("A2", ficha)
-        self.assertIn("aparece duas vezes na semana", ficha)
+        self.assertIn("Treino A:", ficha)
+        # Ancorado no selo (`>A2<`), e não na substring: "A2" aparece em
+        # token e em hash de arquivo estático, e a primeira versão desta
+        # asserção ficou vermelha por um deles.
+        self.assertNotIn(">A2<", tela)
+        self.assertNotIn("Treino A2", ficha)
+        self.assertNotIn("aparece duas vezes na semana", ficha)
+
+        diferenciar_ocorrencias(user)
+        tela = self.client.get(reverse("workouts:routine")).content.decode()
+        ficha = self.client.get(
+            reverse("workouts:ficha", args=[segunda_a.pk])
+        ).content.decode()
+
+        self.assertIn(">A2<", tela)
+        self.assertIn("Treino A2:", ficha)
 
     def test_a_ficha_nao_promete_exercicios_diferentes(self):
         """A frase que a medição desmentiu não pode voltar.
@@ -263,26 +333,25 @@ class AsOcorrenciasRepetidasSeDistinguemTests(TestCase):
         self.client.force_login(user)
         ocorrencias = [s for s in self._sessoes(user) if s.label == "A"]
         conjuntos = [
-            {i.exercise_id for i in s.exercises.all()} for s in ocorrencias
+            sorted((i.opcao, i.exercise_id, i.sets) for i in s.exercises.all())
+            for s in ocorrencias
         ]
 
-        # ERAM IDÊNTICAS ATÉ 10/09/2026, e é por isso que a frase da ficha
-        # não promete variedade. `repartir_ocorrencia` mudou o fato: as três
-        # passagens agora trazem exercícios DIFERENTES.
-        #
-        # A frase continua honesta — ela fala do teto semanal, que segue
-        # valendo, e não afirma que as passagens são iguais. O que este teste
-        # guarda mudou de "são idênticas" para "não repetem", que é o contrato
-        # novo.
+        # ERAM IDÊNTICAS ATÉ 10/09/2026; `repartir_ocorrencia` as fez
+        # DIFERENTES; e desde 15/09/2026 são IDÊNTICAS DE NOVO — por
+        # construção: as três ocorrências carregam as mesmas opções, e a
+        # variedade mora na escolha do dia, não na passagem. A frase que
+        # prometia "exercícios diferentes" entre passagens seria falsa nos
+        # três regimes de um jeito diferente, e é por isso que ela não volta.
         self.assertEqual(len(conjuntos), 3)
-        self.assertEqual(conjuntos[0] & conjuntos[1], set())
-        self.assertEqual(conjuntos[1] & conjuntos[2], set())
+        self.assertEqual(conjuntos[0], conjuntos[1])
+        self.assertEqual(conjuntos[1], conjuntos[2])
         for sessao in ocorrencias:
             ficha = self.client.get(
                 reverse("workouts:ficha", args=[sessao.pk])
             ).content.decode()
             self.assertNotIn("exercícios diferentes", ficha)
-            self.assertIn("aumenta a frequência", ficha)
+            self.assertNotIn("aparece três vezes na semana", ficha)
 
     def test_tres_ocorrencias_nao_sao_chamadas_de_duas(self):
         """Sete dias em ABC dão A três vezes, e a frase dizia "duas".
@@ -290,6 +359,10 @@ class AsOcorrenciasRepetidasSeDistinguemTests(TestCase):
         Número escrito à mão no template mente para o perfil que não foi o
         usado ao escrevê-lo. Aqui ele vem da contagem que o rótulo já fez.
         """
+        # DESDE 15/09/2026 A FRASE SAIU DA FICHA, e quem diz quantas vezes a
+        # letra cai é o cartão do painel — listando os DIAS, que vêm das
+        # sessões e não de um número escrito à mão. A propriedade continua a
+        # mesma: nenhuma tela diz "duas" para quem treina A três vezes.
         user = com_preferencia("sete@exemplo.com", 7, SplitPreference.TRES)
         self.client.force_login(user)
         ocorrencias = [s for s in self._sessoes(user) if s.label == "A"]
@@ -298,9 +371,12 @@ class AsOcorrenciasRepetidasSeDistinguemTests(TestCase):
         ficha = self.client.get(
             reverse("workouts:ficha", args=[ocorrencias[0].pk])
         ).content.decode()
+        painel = self.client.get(reverse("workouts:routine")).content.decode()
 
-        self.assertIn("aparece três vezes na semana", ficha)
         self.assertNotIn("aparece duas vezes na semana", ficha)
+        self.assertNotIn("aparece duas vezes na semana", painel)
+        dias = " e ".join(s.weekday_display for s in ocorrencias)
+        self.assertIn(dias, painel, "o cartão de A não lista os três dias")
 
     def test_a_ficha_de_letra_unica_nao_fala_de_repeticao(self):
         user = com_preferencia("unica@exemplo.com", 3, SplitPreference.TRES)
@@ -320,8 +396,10 @@ class AsOcorrenciasRepetidasSeDistinguemTests(TestCase):
         substituição de exercício: identidade própria, nunca índice.
         """
         user = com_preferencia("ordem@exemplo.com", 5, SplitPreference.TRES)
+        diferenciar_ocorrencias(user, letras=("A", "B"))
         sessoes = self._sessoes(user)
         por_pk = {s.pk: s.rotulo for s in sessoes}
+        self.assertIn("A2", por_pk.values(), "controle: sem numeração não há o que comparar")
 
         invertidas = list(reversed(sessoes))
         nomear_ocorrencias(invertidas)
@@ -502,17 +580,33 @@ class OVolumeSemanalEConsequenciaDasRegrasTests(TestCase):
         call_command("seed_workouts", verbosity=0)
 
     def _volume(self, user):
+        """Direto, indireto e frequência por grupo — UMA OPÇÃO POR OCORRÊNCIA.
+
+        Desde 15/09/2026 a sessão guarda as duas versões da letra, e somar as
+        linhas contaria os dois treinos no mesmo dia. Cada ocorrência entra
+        com a opção mais pesada no grupo (o pior caso, como
+        `services.volume_da_semana`); a frequência conta o dia se qualquer
+        opção treina o grupo.
+        """
         from collections import defaultdict
 
         plano = TrainingPlan.objects.filter(user=user, is_active=True).first()
         direto, indireto, freq = defaultdict(int), defaultdict(float), defaultdict(set)
-        for sessao in plano.sessions.all():
-            for item in sessao.exercises.select_related("exercise"):
-                grupo = item.exercise.muscle_group
-                direto[grupo] += item.sets
-                freq[grupo].add(sessao.weekday)
-                for secundario in item.exercise.secondary_muscles or []:
-                    indireto[secundario] += item.sets * 0.5
+        for sessao in plano.sessions.prefetch_related("exercises__exercise"):
+            por_opcao = []
+            for opcao in sessao.opcoes:
+                d, i = defaultdict(int), defaultdict(float)
+                for item in sessao.da_opcao(opcao):
+                    grupo = item.exercise.muscle_group
+                    d[grupo] += item.sets
+                    freq[grupo].add(sessao.weekday)
+                    for secundario in item.exercise.secondary_muscles or []:
+                        i[secundario] += item.sets * 0.5
+                por_opcao.append((d, i))
+            for grupo in set().union(*(d.keys() for d, _ in por_opcao)):
+                direto[grupo] += max(d.get(grupo, 0) for d, _ in por_opcao)
+            for grupo in set().union(*(i.keys() for _, i in por_opcao)):
+                indireto[grupo] += max(i.get(grupo, 0) for _, i in por_opcao)
         return direto, indireto, freq
 
     def _perfil_da_queixa(self):
@@ -536,12 +630,15 @@ class OVolumeSemanalEConsequenciaDasRegrasTests(TestCase):
         outra coisa que um total alto concentrado num só — e é exatamente essa
         diferença que o teto garante.
         """
-        direto, indireto, _ = self._volume(self._perfil_da_queixa())
+        user = self._perfil_da_queixa()
+        plano = TrainingPlan.objects.filter(user=user, is_active=True).first()
+        efetivo = services.volume_da_semana(plano)
 
-        for grupo in set(direto) | set(indireto):
+        # Medido: este perfil (quatro dias, três grupos, 45 a 60) FECHA no
+        # teto — nenhum excesso irredutível —, então a asserção é estrita.
+        for grupo, volume in efetivo.items():
             with self.subTest(grupo=grupo):
-                efetivo = direto[grupo] + indireto[grupo]
-                self.assertLessEqual(efetivo, services.TETO_SEMANAL_POR_GRUPO)
+                self.assertLessEqual(volume, services.TETO_SEMANAL_POR_GRUPO)
 
     def test_o_total_e_a_soma_de_muitos_grupos_e_nao_de_um(self):
         """"85 séries" só assusta enquanto parece ser de um músculo."""

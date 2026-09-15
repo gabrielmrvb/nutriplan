@@ -536,8 +536,17 @@ class Command(BaseCommand):
         ExerciseLog.objects.filter(user=user).delete()
 
         registros = []
+        # Um registro por EXERCICIO, mesmo quando as DUAS opcoes da letra (ou
+        # duas ocorrencias dela) o trazem (15/09/2026): todas as sessoes sao
+        # semeadas nas mesmas datas, o historico e por exercicio e data, e a
+        # linha repetida estourava `unique_load_per_set_per_day`. Semear as
+        # duas opcoes e o que faz "a carga anterior" aparecer em qualquer uma.
+        semeados = set()
         for sessao in ficha.sessions.all():
             for item in sessao.exercises.select_related("exercise").all():
+                if item.exercise_id in semeados:
+                    continue
+                semeados.add(item.exercise_id)
                 fator_eq = FATOR_EQUIPAMENTO.get(
                     item.exercise.equipment, Decimal("1")
                 )

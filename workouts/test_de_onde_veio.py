@@ -2,7 +2,9 @@
 
 UX NOVO-03 (14/09/2026): quem abria a leitura a partir da ficha A1 lia
 "← Treino" e voltava ao painel — dois toques para estar de novo onde
-estava. `?de=` diz de onde veio, em LISTA FECHADA (`ficha`, `agora`,
+estava. (Desde 15/09/2026 a ficha se chama pela LETRA — "Ficha A" —, porque
+as ocorrências carregam as mesmas opções; "A1" só volta num plano antigo
+ajustado à mão.) `?de=` diz de onde veio, em LISTA FECHADA (`ficha`, `agora`,
 `painel`), como `?exercicio=`: valor desconhecido é 404, e o `href` da
 volta nunca é montado a partir do pedido — é `reverse()` da tela nomeada.
 `sessao=` acompanha `ficha` e tem de ser uma sessão em que o exercício
@@ -17,13 +19,14 @@ from django.test import TestCase
 from django.urls import reverse
 
 from . import services
-from .test_fluxo_do_treino import BaseDoFluxo, pessoa, tornar_hoje
+from .test_fluxo_do_treino import escolher_a_opcao_1, BaseDoFluxo, pessoa, tornar_hoje
 
 
 class DeOndeVeioTests(BaseDoFluxo):
     def setUp(self):
         self.user = pessoa("de-onde@exemplo.com")
         self.sessao = tornar_hoje(self.user, "A")
+        escolher_a_opcao_1(self.user, self.sessao)
         self.client.force_login(self.user)
         self.item = self.sessao.exercises.first()
         self.url = reverse("workouts:exercicio", args=[self.item.exercise_id])
@@ -43,7 +46,10 @@ class DeOndeVeioTests(BaseDoFluxo):
     def test_da_ficha_volta_para_a_ficha_com_o_rotulo_dela(self):
         volta = self._volta("?de=ficha&sessao=%d" % self.sessao.pk)
         self.assertIn('href="%s"' % reverse("workouts:ficha", args=[self.sessao.pk]), volta)
-        self.assertIn("← Ficha A1", volta)
+        # O rótulo é o MESMO que a ficha usa no título: a letra, sem número,
+        # porque as duas ocorrências de A são o mesmo treino.
+        self.assertIn("← Ficha A<", volta)
+        self.assertNotIn("Ficha A1", volta)
 
     def test_da_execucao_volta_para_a_execucao_deste_exercicio(self):
         volta = self._volta("?de=agora")

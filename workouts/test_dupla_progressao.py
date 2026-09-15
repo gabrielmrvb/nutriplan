@@ -34,7 +34,7 @@ from django.utils import timezone
 
 from workouts import services
 from workouts.models import ExerciseLog, Measure, MuscleGroup
-from workouts.tests import create_user, dias_incluindo_hoje, sem_scripts
+from workouts.tests import create_user, dias_incluindo_hoje, escolher_opcao_de_hoje, sem_scripts
 
 
 class _Item:
@@ -122,10 +122,11 @@ class ATelaTests(TestCase):
         services.create_routine(self.pessoa)
         self.client.force_login(self.pessoa)
         self.hoje = timezone.localdate()
-        plano = services.get_active_routine(self.pessoa)
-        sessao = next(s for s in plano.sessions.all() if s.weekday == self.hoje.weekday())
+        # A execução abre a opção ESCOLHIDA de hoje (15/09/2026): a escolha
+        # é gravada aqui, e o item vem dela.
+        sessao = escolher_opcao_de_hoje(self.pessoa)
         self.item = next(
-            i for i in sessao.exercises.select_related("exercise")
+            i for i in sessao.da_opcao(1)
             if i.exercise.equipment != "bodyweight" and i.measure == Measure.REPS
         )
 

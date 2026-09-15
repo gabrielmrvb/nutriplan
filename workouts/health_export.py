@@ -100,7 +100,15 @@ def resumo_da_sessao(user, dia=None) -> ResumoDaSessao:
     ).first()
     descanso = 90
     if sessao:
-        prescritos = list(sessao.exercises.values_list("rest_seconds", flat=True))
+        # O descanso médio é o da OPÇÃO do dia (a escolhida, senão a 1):
+        # somar as duas opções mediria uma sessão que ninguém faz.
+        from .services import escolha_do_dia
+
+        escolha = escolha_do_dia(user, dia)
+        opcao = escolha.opcao if escolha and escolha.session_id == sessao.pk else 1
+        prescritos = list(
+            sessao.exercises.filter(opcao=opcao).values_list("rest_seconds", flat=True)
+        ) or list(sessao.exercises.values_list("rest_seconds", flat=True))
         if prescritos:
             descanso = round(sum(prescritos) / len(prescritos))
 

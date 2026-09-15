@@ -35,7 +35,7 @@ from django.utils import timezone
 from achievements.models import UserAchievement as Conquista
 from workouts import services
 from workouts.models import ExerciseLog, Measure
-from workouts.tests import create_user, dias_incluindo_hoje, sem_scripts
+from workouts.tests import create_user, dias_incluindo_hoje, escolher_opcao_de_hoje, sem_scripts
 
 
 class ORecordeTests(TestCase):
@@ -48,10 +48,10 @@ class ORecordeTests(TestCase):
         services.create_routine(self.pessoa)
         self.client.force_login(self.pessoa)
         self.hoje = timezone.localdate()
-        plano = services.get_active_routine(self.pessoa)
-        sessao = next(s for s in plano.sessions.all() if s.weekday == self.hoje.weekday())
+        # A execução abre a opção ESCOLHIDA de hoje (15/09/2026).
+        sessao = escolher_opcao_de_hoje(self.pessoa)
         self.item = next(
-            i for i in sessao.exercises.select_related("exercise")
+            i for i in sessao.da_opcao(1)
             if i.exercise.equipment != "bodyweight" and i.measure == Measure.REPS
         )
 
@@ -139,7 +139,11 @@ class ORecordeTests(TestCase):
 
 #: Consultas de `/treino/agora/?exercicio=<id>` com histórico, medidas em
 #: 13/09/2026 antes desta mudança. Teto, não alvo: só sobe com medição escrita.
-CONSULTAS_DA_EXECUCAO = 20
+#: 22 em 15/09/2026: mais DUAS, e as duas são a opção do dia —
+#: `escolha_do_dia` (a escolha gravada hoje) e `opcao_recomendada` (a última
+#: escolha desta letra). Custo constante, medido com `CaptureQueriesContext`
+#: e 3 contra 30 registros de histórico: 22 nos dois.
+CONSULTAS_DA_EXECUCAO = 22
 #: Consultas do POST de uma série SEM recorde: as 15 de antes mais UMA
 #: (`supera_recorde`), medidas em 13/09/2026. Com recorde o catálogo roda e
 #: custa ~43 a mais — raro, e é o evento que a conquista existe para marcar.
@@ -148,4 +152,11 @@ CONSULTAS_DA_EXECUCAO = 20
 #: responde ao redirect no lugar de `serie_pendente`. Custo constante —
 #: não cresce com o histórico —, medido com `CaptureQueriesContext`: 19 na
 #: primeira versão (três consultas), 17 com a subconsulta.
-CONSULTAS_DO_POST_SEM_RECORDE = 17
+#: 18 em 15/09/2026: mais UMA, `escolha_do_dia` — a primeira série grava a
+#: opção do dia, e a view precisa saber se já há escolha. Constante: 18 com
+#: 3 e com 30 registros de histórico.
+#: 19 em 15/09/2026, mais tarde: `series_de_hoje` passou a ler a escolha do
+#: dia (uma consulta) para filtrar a linha da OPÇÃO — a prescrição de "4/4"
+#: era a da opção 1 mesmo quando a pessoa fazia a 2. A contagem continua em
+#: subconsulta. Constante: 19 com 3 e com 30 registros.
+CONSULTAS_DO_POST_SEM_RECORDE = 19

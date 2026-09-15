@@ -37,9 +37,9 @@ from accounts.models import (
     TrainingDay,
 )
 
-from . import services
+from . import opcoes, services
 from .models import Equipment, Exercise, TrainingPlan
-from .tests import create_user
+from .tests import create_user, excesso_e_irredutivel
 
 
 def com_experiencia(email, nivel, dias=4):
@@ -51,14 +51,14 @@ def com_experiencia(email, nivel, dias=4):
 
 
 def volume_efetivo_por_grupo(user):
+    """Séries efetivas por grupo na semana — `services.volume_da_semana`.
+
+    Desde 15/09/2026 a sessão guarda até duas OPÇÕES da letra, e somar as
+    linhas contaria os dois treinos no mesmo dia. A conta oficial é a do
+    pior caso: cada ocorrência faz a opção mais pesada no grupo.
+    """
     plano = TrainingPlan.objects.filter(user=user, is_active=True).first()
-    volume = defaultdict(float)
-    for sessao in plano.sessions.all():
-        for item in sessao.exercises.select_related("exercise"):
-            volume[item.exercise.muscle_group] += item.sets
-            for secundario in item.exercise.secondary_muscles or []:
-                volume[secundario] += item.sets * 0.5
-    return volume
+    return services.volume_da_semana(plano)
 
 
 class AExperienciaMudaOVolumeTests(TestCase):
@@ -85,30 +85,44 @@ class AExperienciaMudaOVolumeTests(TestCase):
         e a trava existe para impedir isso. Ver
         `OTetoDeAparoNaoEPromessaDeTetoTests`, logo abaixo, com a medição.
         """
+        # DESDE 15/09/2026 QUEM APARA É `opcoes.aparar_opcoes` — o pior caso
+        # da semana, uma opção por ocorrência — e é ela que recebe o teto do
+        # nível. `aparar_volume_semanal` continua existindo para a prescrição
+        # por ocorrência de referência, que nenhum caminho de produção chama.
+        # O espião fica na ÚLTIMA chamada (o motor apara duas vezes por
+        # montagem, antes e depois de equilibrar), e a prova de "foi até o
+        # fim" é a mesma: rodar de novo sobre o resultado não muda nada.
+        def retrato(por_letra):
+            return {
+                label: [[(item.exercise_id, series, grau) for item, series, grau in op] for op in ops]
+                for label, ops in por_letra.items()
+            }
+
         for nivel, teto in TETO_POR_EXPERIENCIA.items():
             with self.subTest(nivel=nivel):
                 visto = {}
-                original = services.aparar_volume_semanal
+                original = opcoes.aparar_opcoes
 
-                def espiao(candidatos, teto=None, _orig=original, _visto=visto):
-                    ficam = _orig(candidatos, teto=teto)
-                    _visto["candidatos"] = list(candidatos)
+                def espiao(por_letra, ocorrencias, teto, dose, _orig=original, _visto=visto):
+                    resultado = _orig(por_letra, ocorrencias, teto, dose)
                     _visto["teto"] = teto
-                    _visto["ficam"] = set(ficam)
-                    return ficam
+                    _visto["ocorrencias"] = dict(ocorrencias)
+                    _visto["resultado"] = resultado
+                    _visto["dose"] = dose
+                    return resultado
 
-                services.aparar_volume_semanal = espiao
+                opcoes.aparar_opcoes = espiao
                 try:
                     com_experiencia("t-%s@exemplo.com" % nivel, nivel)
                 finally:
-                    services.aparar_volume_semanal = original
+                    opcoes.aparar_opcoes = original
 
                 self.assertEqual(visto["teto"], teto)
-                sobreviventes = [
-                    c for c in visto["candidatos"] if c[0] in visto["ficam"]
-                ]
+                de_novo = original(
+                    visto["resultado"], visto["ocorrencias"], teto, visto["dose"]
+                )
                 self.assertEqual(
-                    original(sobreviventes, teto=teto), visto["ficam"],
+                    retrato(de_novo), retrato(visto["resultado"]),
                     "o aparo parou antes de esgotar o que podia ceder",
                 )
 
@@ -165,7 +179,7 @@ class AExperienciaMudaOVolumeTests(TestCase):
         def receita(user):
             plano = TrainingPlan.objects.filter(user=user, is_active=True).first()
             return sorted(
-                (s.label, i.exercise_id, i.sets)
+                (s.label, i.opcao, i.exercise_id, i.sets)
                 for s in plano.sessions.all()
                 for i in s.exercises.all()
             )
@@ -250,24 +264,30 @@ class OTetoDeAparoNaoEPromessaDeTetoTests(TestCase):
         teto = TETO_POR_EXPERIENCIA[Experiencia.INICIANTE]
         plano = TrainingPlan.objects.filter(user=user, is_active=True).first()
 
-        diretos = defaultdict(list)
-        for sessao in plano.sessions.all():
-            itens = list(sessao.exercises.select_related("exercise"))
-            for grau, item in zip(services.prioridades_da_sessao(itens), itens):
-                diretos[item.exercise.muscle_group].append(grau)
-
+        # A régua é a de `opcoes._ceder`, POR OPÇÃO: nenhuma versão de
+        # nenhuma letra pode ter sobrado com série acrescentada, isolador
+        # acima de duas ou um segundo exercício direto do grupo.
         for grupo, series in volume_efetivo_por_grupo(user).items():
             if series <= teto:
                 continue
-            graus = diretos[grupo]
+            irredutivel, evidencia = excesso_e_irredutivel(plano, grupo)
             self.assertTrue(
-                len(graus) <= 1 or all(g == services.PRINCIPAL for g in graus),
-                "%s ficou em %.1f com o teto em %d e ainda tinha o que ceder"
-                % (grupo, series, teto),
+                irredutivel,
+                "%s ficou em %.1f com o teto em %d e ainda tinha o que ceder: %s"
+                % (grupo, series, teto, evidencia),
             )
 
     def test_o_iniciante_treina_menos_apesar_do_excesso_irredutivel(self):
-        """O que a personalização promete é o volume da SEMANA, e ele cai."""
+        """O que a personalização promete é o volume da SEMANA, e ele cai.
+
+        A margem de 15% é a da medição de 10/09/2026 (65 contra 88 no perfil
+        de quatro dias). MEDIDO DE NOVO EM 15/09/2026, com as opções por
+        letra: 60 contra 70 — o nível só aperta a letra que REPETE (A), porque
+        `preencher_ate_a_faixa` sobe toda opção ao piso de 15 séries sem
+        olhar o teto do nível. A margem não é afrouxada aqui: se o número
+        continuar em 60/70, é o motor que deixou a experiência valer menos, e
+        não o teste que pede demais.
+        """
         iniciante = com_experiencia("v-ini@exemplo.com", Experiencia.INICIANTE)
         intermediario = com_experiencia("v-int@exemplo.com",
                                         Experiencia.INTERMEDIARIO)

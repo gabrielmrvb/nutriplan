@@ -19,7 +19,9 @@ from django.urls import reverse
 from django.utils import timezone
 
 from workouts import services
-from workouts.tests import create_user, dias_incluindo_hoje, dias_sem_hoje, sem_scripts
+from workouts.tests import (
+    create_user, dias_incluindo_hoje, dias_sem_hoje, escolher_opcao_de_hoje, sem_scripts,
+)
 
 
 class ALeituraDoExercicioTests(TestCase):
@@ -36,8 +38,10 @@ class ALeituraDoExercicioTests(TestCase):
         sessoes = list(plano.sessions.order_by("weekday"))
         self.de_hoje = next(s for s in sessoes if s.weekday == hoje)
         self.de_outro_dia = next(s for s in sessoes if s.weekday != hoje)
-        self.item_hoje = self.de_hoje.exercises.select_related("exercise").first()
-        self.item_outro = self.de_outro_dia.exercises.select_related("exercise").first()
+        # "Fazer" e a execução são da opção ESCOLHIDA de hoje (15/09/2026).
+        escolher_opcao_de_hoje(self.pessoa)
+        self.item_hoje = self.de_hoje.da_opcao(1)[0]
+        self.item_outro = self.de_outro_dia.da_opcao(1)[0]
 
     def _url(self, item):
         return reverse("workouts:exercicio", args=[item.exercise_id])
@@ -165,4 +169,8 @@ class ALeituraDoExercicioTests(TestCase):
 #: perfil, plano, exercício, sessões da semana com itens, contagem de hoje,
 #: e o histórico limitado a oito datas).
 #: Teto: só sobe com medição escrita.
-CONSULTAS_DA_LEITURA = 8
+#: 9 em 15/09/2026: mais UMA, a escolha do dia (`escolha_do_dia`) — "Fazer
+#: este exercício" só existe se ele está na OPÇÃO do dia, senão o link daria
+#: 404 na execução. (`opcao_recomendada` só é consultada sem escolha gravada,
+#: e o teste grava a escolha antes.) Constante com o histórico.
+CONSULTAS_DA_LEITURA = 9

@@ -307,8 +307,12 @@ class NomeDeViewTransitionUnicoTests(TestCase):
         TrainingDay.objects.update_or_create(
             user=self.user, weekday=date.today().weekday(), defaults={"duration_min": 45}
         )
-        from workouts.services import acertar_rotina
-        acertar_rotina(self.user)
+        from workouts.services import acertar_rotina, registrar_escolha
+        plano, _ = acertar_rotina(self.user)
+        # Desde 15/09/2026 a letra pode ter duas opções e a execução pede a
+        # escolha na ficha; o teste escolhe a 1 para abrir a execução direto.
+        sessao = plano.sessions.get(weekday=date.today().weekday())
+        registrar_escolha(self.user, sessao, 1)
         self.client.force_login(self.user)
 
     def test_o_css_declara_cada_nome_uma_vez(self):

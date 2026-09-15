@@ -310,15 +310,17 @@ class OTempoCurtoNaoMenteTests(TestCase):
                 yield preferencia, dias, plano
 
     def test_nenhuma_sessao_passa_de_trinta_minutos(self):
+        # POR OPÇÃO (15/09/2026): cada versão da letra é uma sessão.
         for preferencia, dias, plano in self._semanas("-teto"):
-            for sessao in plano.sessions.all():
-                with self.subTest(preferencia=preferencia, dias=dias,
-                                  letra=sessao.label):
-                    self.assertLessEqual(
-                        sessao.estimated_minutes, 30,
-                        "%s %s saiu com %d min"
-                        % (plano.split, sessao.label, sessao.estimated_minutes),
-                    )
+            for sessao in plano.sessions.prefetch_related("exercises__exercise"):
+                for opcao in sessao.opcoes:
+                    with self.subTest(preferencia=preferencia, dias=dias,
+                                      letra=sessao.label, opcao=opcao):
+                        self.assertLessEqual(
+                            sessao.minutos_da_opcao(opcao), 30,
+                            "%s %s opção %d saiu com %d min"
+                            % (plano.split, sessao.label, opcao, sessao.minutos_da_opcao(opcao)),
+                        )
 
     def test_o_titulo_nunca_diz_corpo_inteiro_sem_ser(self):
         """"Corpo inteiro" com três exercícios era o pior sintoma do relato.
@@ -329,18 +331,21 @@ class OTempoCurtoNaoMenteTests(TestCase):
         """
         modelo = {t.label: t for t in services.templates_for(Split.FULL)}["A"]
         for preferencia, dias, plano in self._semanas("-inteiro"):
-            for sessao in plano.sessions.all():
+            for sessao in plano.sessions.prefetch_related("exercises__exercise"):
                 if sessao.name != modelo.name:
                     continue
-                with self.subTest(preferencia=preferencia, dias=dias):
-                    entregues = {
-                        item.exercise.muscle_group
-                        for item in sessao.exercises.select_related("exercise")
-                    }
-                    self.assertEqual(
-                        set(modelo.main_groups) - entregues, set(),
-                        "%r com %s" % (sessao.name, sorted(entregues)),
-                    )
+                # O título é um só para as duas opções: cada uma tem de
+                # sustentá-lo.
+                for opcao in sessao.opcoes:
+                    with self.subTest(preferencia=preferencia, dias=dias, opcao=opcao):
+                        entregues = {
+                            item.exercise.muscle_group
+                            for item in sessao.da_opcao(opcao)
+                        }
+                        self.assertEqual(
+                            set(modelo.main_groups) - entregues, set(),
+                            "%r com %s" % (sessao.name, sorted(entregues)),
+                        )
 
     def test_toda_sessao_curta_avisa_que_foi_apertada(self):
         """Silêncio faria a pessoa comparar a ficha dela com a de outra pessoa
@@ -559,17 +564,29 @@ class NenhumComplementarFicaSemDestinoTests(TestCase):
                     dias, preferencia=SplitPreference.DOIS,
                     duracao=DuracaoTreino.PADRAO, sufixo="-realoc",
                 )
+                # Tempo por OPÇÃO; variedade pela UNIÃO das opções — é o que
+                # a semana oferece a quem alterna (15/09/2026).
                 distintos = defaultdict(set)
-                for sessao in plano.sessions.all():
-                    self.assertLessEqual(sessao.estimated_minutes, 60, sessao.label)
-                    for item in sessao.exercises.select_related("exercise"):
+                for sessao in plano.sessions.prefetch_related("exercises__exercise"):
+                    for opcao in sessao.opcoes:
+                        self.assertLessEqual(
+                            sessao.minutos_da_opcao(opcao), 60,
+                            "%s opção %d" % (sessao.label, opcao),
+                        )
+                    for item in sessao.exercises.all():
                         distintos[item.exercise.muscle_group].add(
                             item.exercise.name
                         )
                         if item.exercise.name == "Supino reto com barra":
                             self.assertEqual(item.sets, 4)
 
-                self.assertGreaterEqual(len(distintos[MuscleGroup.CHEST]), 4)
+                # SETE DIAS É A EXCEÇÃO MEDIDA (15/09/2026): a letra A cai três
+                # vezes, o teto de 20 séries efetivas por semana deixa ~6,7 de
+                # peito por sessão, e o crucifixo — o quarto peito, compartilhado
+                # pelas três opções equivalentes — não cabe em nenhuma delas.
+                # Três exercícios distintos de peito é o que a semana oferece; o
+                # contrato 4/4/3/3 vale de 3 a 6 dias (CLAUDE.md).
+                self.assertGreaterEqual(len(distintos[MuscleGroup.CHEST]), 3 if dias == 7 else 4)
                 self.assertGreaterEqual(len(distintos[MuscleGroup.BACK]), 4)
                 self.assertGreaterEqual(len(distintos[MuscleGroup.TRICEPS]), 3)
                 self.assertGreaterEqual(len(distintos[MuscleGroup.BICEPS]), 3)

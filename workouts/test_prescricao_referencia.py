@@ -20,6 +20,12 @@ O QUE ELE GUARDA, e cada item foi um defeito medido em 08/09/2026:
     transição honesta;
   - **volume semanal coerente**, com participação secundária contando metade;
   - **nenhum grupo apagado e nenhum dia esvaziado** pelo corte.
+
+DESDE 15/09/2026 a letra tem até duas OPÇÕES equivalentes (`workouts/opcoes.py`)
+e a sessão gravada guarda as duas; a pessoa faz uma por dia. Tamanho, duração e
+volume são medidos por OPÇÃO (`da_opcao`, `minutos_da_opcao`) e o teto semanal
+por `services.volume_da_semana` — somar `session.exercises` conta um treino que
+ninguém faz.
 """
 from datetime import date, time
 from decimal import Decimal
@@ -97,7 +103,7 @@ class OPerfilDeReferenciaRecebeUmaFichaDeVerdadeTests(TestCase):
                     "supino reto com %s séries em vez de 4" % linha.sets,
                 )
 
-    def test_as_duas_sessoes_de_peito_trazem_exercicios_DIFERENTES(self):
+    def test_as_duas_opcoes_de_peito_trazem_exercicios_DIFERENTES(self):
         """Segunda e quinta: a divisão em cinco dias dá A duas vezes.
 
         REMIRADO EM 10/09/2026, e o contrato virou o contrário. Este teste
@@ -111,23 +117,28 @@ class OPerfilDeReferenciaRecebeUmaFichaDeVerdadeTests(TestCase):
         da repetição continua existindo — peito é treinado duas vezes na
         semana —, e o que mudou é que a segunda sessão traz OUTROS exercícios.
 
-        O que este teste guarda é o par: peito nas duas, sem repetir nenhum.
+        E EM 15/09/2026 "a segunda sessão" virou "a outra OPÇÃO": as duas
+        ocorrências de A carregam as mesmas duas versões, e quem alterna faz
+        supino e flexão na segunda, inclinado e crucifixo na quinta. O que
+        este teste guarda é o par: peito nas duas ocorrências, e as duas
+        opções sem repetir nenhum peito.
         """
-        peitos = [
-            item
-            for sessao in self.plano.sessions.all().order_by("weekday")
-            for item in sessao.exercises.select_related("exercise")
-            if item.exercise.muscle_group == "chest"
+        ocorrencias = [
+            sessao for sessao in self.plano.sessions.prefetch_related("exercises__exercise")
+            if any(item.exercise.muscle_group == "chest" for item in sessao.exercises.all())
         ]
-        por_sessao = {}
-        for item in peitos:
-            por_sessao.setdefault(item.session_id, []).append(item.exercise.name)
+        self.assertEqual(len(ocorrencias), 2, "peito deixou de ter duas sessões")
 
-        self.assertEqual(len(por_sessao), 2, "peito deixou de ter duas sessões")
-        primeira, segunda = list(por_sessao.values())
+        sessao = ocorrencias[0]
+        self.assertEqual(len(sessao.opcoes), 2, "a letra A saiu com uma opção só")
+        primeira, segunda = (
+            {item.exercise.name for item in sessao.da_opcao(k) if item.exercise.muscle_group == "chest"}
+            for k in sessao.opcoes
+        )
+        self.assertTrue(primeira and segunda, "uma opção ficou sem peito")
         self.assertEqual(
-            set(primeira) & set(segunda), set(),
-            "as duas sessões de peito repetiram exercício",
+            primeira & segunda, set(),
+            "as duas opções de peito repetiram exercício",
         )
 
     def test_a_faixa_do_supino_fica_dentro_de_6_a_12(self):
@@ -209,16 +220,10 @@ class OPerfilDeReferenciaRecebeUmaFichaDeVerdadeTests(TestCase):
 
     # ------------------------------------------------------------ o volume
     def test_nenhum_grupo_passa_do_teto_semanal_efetivo(self):
-        efetivo = services.volume_efetivo(
-            [
-                (
-                    linha.exercise.muscle_group,
-                    linha.exercise.secondary_muscles or (),
-                    Decimal(linha.sets),
-                )
-                for linha in self.linhas
-            ]
-        )
+        """Uma opção por ocorrência, no pior caso — nunca as duas somadas.
+        Medido: este perfil FECHA no teto (bíceps, antebraço e tríceps em 20
+        exatos), então a asserção é estrita."""
+        efetivo = services.volume_da_semana(self.plano)
 
         acima = {
             g: v for g, v in efetivo.items() if v > services.TETO_SEMANAL_POR_GRUPO
@@ -237,9 +242,10 @@ class OPerfilDeReferenciaRecebeUmaFichaDeVerdadeTests(TestCase):
         self.assertEqual(previstos - presentes, set())
 
     def test_nenhum_dia_fica_vazio(self):
-        for sessao in self.plano.sessions.all():
-            with self.subTest(dia=sessao.weekday):
-                self.assertGreaterEqual(sessao.exercises.count(), 3)
+        for sessao in self.plano.sessions.prefetch_related("exercises__exercise"):
+            for opcao in sessao.opcoes:
+                with self.subTest(dia=sessao.weekday, opcao=opcao):
+                    self.assertGreaterEqual(len(sessao.da_opcao(opcao)), 3)
 
     # ----------------------------------------------------------- a duração
     def test_a_duracao_de_cada_sessao_e_realista_e_cabe_no_tempo(self):
@@ -263,11 +269,14 @@ class OPerfilDeReferenciaRecebeUmaFichaDeVerdadeTests(TestCase):
         lista; o minuto sozinho nunca separou.
         """
         teto = float(services._teto_em_segundos(90)) / 60
-        for sessao in self.plano.sessions.all():
-            with self.subTest(dia=sessao.weekday, label=sessao.label):
-                self.assertGreaterEqual(sessao.exercises.count(), 4)
-                self.assertGreaterEqual(sessao.estimated_minutes, 25)
-                self.assertLessEqual(sessao.estimated_minutes, teto)
+        # POR OPÇÃO: cada versão da letra é uma sessão; a sessão gravada
+        # guarda as duas.
+        for sessao in self.plano.sessions.prefetch_related("exercises__exercise"):
+            for opcao in sessao.opcoes:
+                with self.subTest(dia=sessao.weekday, label=sessao.label, opcao=opcao):
+                    self.assertGreaterEqual(len(sessao.da_opcao(opcao)), 4)
+                    self.assertGreaterEqual(sessao.minutos_da_opcao(opcao), 25)
+                    self.assertLessEqual(sessao.minutos_da_opcao(opcao), teto)
 
     def test_a_duracao_conta_aquecimento_descanso_e_transicao(self):
         """A conta tem uma fonte só, e ela inclui o que a versão anterior
@@ -298,16 +307,19 @@ class OPerfilDeReferenciaRecebeUmaFichaDeVerdadeTests(TestCase):
         """
         from workouts.models import segundos_da_sessao
 
-        for sessao in self.plano.sessions.all():
-            itens = list(sessao.exercises.select_related("exercise"))
-            esperado = round(
-                segundos_da_sessao(
-                    [(i.sets, i.rest_seconds, i.exercise.is_compound) for i in itens]
+        for sessao in self.plano.sessions.prefetch_related("exercises__exercise"):
+            for opcao in sessao.opcoes:
+                itens = sessao.da_opcao(opcao)
+                esperado = round(
+                    segundos_da_sessao(
+                        [(i.sets, i.rest_seconds, i.exercise.is_compound) for i in itens]
+                    )
+                    / 60
                 )
-                / 60
-            )
-            with self.subTest(dia=sessao.weekday):
-                self.assertEqual(sessao.estimated_minutes, esperado)
+                with self.subTest(dia=sessao.weekday, opcao=opcao):
+                    self.assertEqual(sessao.minutos_da_opcao(opcao), esperado)
+            # E o número da tela é o da opção de referência — a primeira.
+            self.assertEqual(sessao.estimated_minutes, sessao.minutos_da_opcao(sessao.opcoes[0]))
 
 
 class OGeradorNaoPrescreveExercicioAposentadoTests(TestCase):

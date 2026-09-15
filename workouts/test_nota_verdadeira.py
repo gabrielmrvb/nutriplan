@@ -64,15 +64,34 @@ class ANotaNaoInventaUmCorteDeTempoTests(TestCase):
         o aparo parar de cortar aqui, este teste avisa em vez de deixar o
         outro passar por vacuidade.
         """
-        user, plano = com_faixa("livre-2@exemplo.com", DuracaoTreino.LIVRE)
+        # CINCO dias: com a letra duas vezes na semana o teto semanal age;
+        # com quatro (uma vez cada) as opções já nascem abaixo dele e não
+        # há aparo a provar.
+        user, plano = com_faixa("livre-2@exemplo.com", DuracaoTreino.LIVRE, dias=5)
 
+        # DESDE 15/09/2026 a sessão guarda duas OPÇÕES, e as duas juntas podem
+        # cobrir o modelo inteiro — contar linhas contra o catálogo deixou de
+        # dizer se o aparo agiu. A régua passa a ser a própria prescrição com
+        # o teto semanal SOLTO: se a semana com teto tem menos séries que a
+        # mesma semana sem ele, foi o aparo que tirou — e não o relógio, que
+        # nas duas é o mesmo (`teto=None`).
+        sessoes = list(plano.sessions.all())
         modelos = {t.label: t for t in services.templates_for(plano.split)}
-        do_catalogo = sum(
-            len(modelos[s.label].items.all()) for s in plano.sessions.all()
+        com_teto = services.prescrever_opcoes(
+            sessoes, modelos, teto=None, teto_semanal=services.teto_semanal_de(user)
         )
-        na_ficha = sum(s.exercises.count() for s in plano.sessions.all())
+        sem_teto = services.prescrever_opcoes(
+            sessoes, modelos, teto=None, teto_semanal=10_000
+        )
+        series = lambda prescricao: sum(series for series, _ in prescricao.values())
 
-        self.assertLess(na_ficha, do_catalogo)
+        self.assertLess(series(com_teto), series(sem_teto))
+        # E o que está gravado é a versão COM teto, não a solta.
+        gravado = {
+            (i.session_id, i.opcao, i.exercise_id): i.sets
+            for s in sessoes for i in s.exercises.all()
+        }
+        self.assertEqual(gravado, {chave: series for chave, (series, _) in com_teto.items()})
 
     def test_a_nota_de_tempo_aparece_quando_o_relogio_corta(self):
         """Controle positivo: a frase não virou letra morta."""

@@ -248,8 +248,19 @@ class OVolumeNaoMudouTests(TestCase):
         self.assertTrue(itens, "o seed não trouxe itens")
 
         class SessaoFalsa:
+            """O mínimo que `muscle_volume` lê de uma sessão: a opção de
+            referência (15/09/2026 — a sessão guarda até duas opções, e o
+            volume soma UMA delas)."""
+
             def __init__(self, itens):
                 self._itens = itens
+
+            @property
+            def opcoes(self):
+                return [1]
+
+            def da_opcao(self, opcao):
+                return self._itens
 
             @property
             def exercises(self):

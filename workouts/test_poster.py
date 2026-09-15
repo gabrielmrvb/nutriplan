@@ -18,7 +18,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from workouts import services
-from workouts.tests import create_user, dias_incluindo_hoje, sem_scripts
+from workouts.tests import create_user, dias_incluindo_hoje, escolher_opcao_de_hoje, sem_scripts
 
 
 class OPosterTests(TestCase):
@@ -30,10 +30,9 @@ class OPosterTests(TestCase):
         self.pessoa = create_user(email="poster@exemplo.com", weekdays=dias_incluindo_hoje(5))
         services.create_routine(self.pessoa)
         self.client.force_login(self.pessoa)
-        plano = services.get_active_routine(self.pessoa)
-        hoje = timezone.localdate().weekday()
-        sessao = next(s for s in plano.sessions.all() if s.weekday == hoje)
-        self.item = sessao.exercises.select_related("exercise").first()
+        # A execução abre a opção ESCOLHIDA de hoje (15/09/2026).
+        sessao = escolher_opcao_de_hoje(self.pessoa)
+        self.item = sessao.da_opcao(1)[0]
         self.html = sem_scripts(self.client.get(
             "%s?exercicio=%d" % (reverse("workouts:now"), self.item.exercise_id)
         ).content.decode())
