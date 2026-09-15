@@ -3844,7 +3844,7 @@ class TreinoEmExecucaoSobreviveAoAjusteTests(TestCase):
     O teste de unidade do congelamento chama `sync_active_routine` direto, e
     isso deixa passar o defeito mais provável: a remontagem não acontece só
     ali. `WorkoutViewTests` mostra que a tela chama a sincronização na entrada,
-    e o passo 3 do onboarding é o lugar real onde a pessoa mexe nos dias — o
+    e a etapa 2 do onboarding é o lugar real onde a pessoa mexe nos dias — o
     mesmo formulário que ela usou para se cadastrar continua sendo a tela de
     edição depois. Só percorrendo os dois por requisição dá para afirmar que a
     sessão em execução sobreviveu.
@@ -3866,18 +3866,27 @@ class TreinoEmExecucaoSobreviveAoAjusteTests(TestCase):
         return services.get_active_routine(self.user)
 
     def _salvar_novos_dias(self, weekdays):
-        """O passo 3 do onboarding é a tela de edição de dias de treino."""
+        """A etapa 2 do onboarding é a tela de edição de dias de treino.
+
+        Ela também pede o objetivo e a atividade (vão os do perfil, para o
+        teste medir só os dias) e, com cinco dias, a divisão — vai a que o
+        perfil já tem. O 302 é conferido AQUI: um formulário recusado
+        devolveria 200 e o resto do teste mediria uma ficha que nunca mudou.
+        """
         perfil = self.user.profile
-        return self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 3}),
+        resposta = self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 2}),
             {
+                "goal": perfil.goal,
+                "activity_level": perfil.activity_level,
                 "weekdays": [str(d) for d in weekdays],
-                "start_time": "19:00",
-                "duration_min": "60",
                 "wake_time": perfil.wake_time.strftime("%H:%M"),
                 "sleep_time": perfil.sleep_time.strftime("%H:%M"),
+                "split_preference": perfil.split_preference,
             },
         )
+        self.assertEqual(resposta.status_code, 302, "a etapa 2 recusou os dias")
+        return resposta
 
     def test_o_treino_em_execucao_atravessa_a_mudanca_de_configuracao(self):
         # 1. a pessoa abre a ficha e o app monta a rotina de hoje
@@ -4289,15 +4298,18 @@ class PreferenciaNaoConfirmadaTests(TestCase):
     campo passou a devolver uma RESPOSTA para todo mundo.
 
     E ver a pergunta não é garantido: `preferencia_muda_a_divisao` devolve
-    False até três dias de treino, então quem monta a ficha treinando três
-    vezes passa direto pelo passo 4. Quando essa pessoa marca um quarto dia, a
-    resposta passa a mudar a ficha — e o app usava uma escolha que ela nunca
-    fez.
+    False até dois dias de treino (eram três até 10/09/2026), então quem monta
+    a ficha treinando duas vezes nunca vê a pergunta. Quando essa pessoa marca
+    o terceiro dia, a resposta passa a mudar a ficha — e o app usava uma
+    escolha que ela nunca fez.
 
     A correção não reescreve o passado: não há como saber, olhando o banco,
     quais TRES foram marcados e quais vieram de fábrica. Entrou um segundo
-    campo que registra o único fato que existe — passou pelo passo 4 e salvou —
-    e o app passou a PERGUNTAR quando a resposta começa a importar.
+    campo que registra o único fato que existe — respondeu a divisão e salvou
+    — e o app passou a PERGUNTAR quando a resposta começa a importar. Com três
+    etapas (15/09/2026) a pergunta mora DENTRO da etapa 2, a dos dias: o
+    servidor recusa o envio sem ela quando os dias pedem, e é o POST dessa
+    etapa com a divisão que confirma.
     """
 
     @classmethod
@@ -4309,18 +4321,26 @@ class PreferenciaNaoConfirmadaTests(TestCase):
         self.client.force_login(user)
         return user
 
-    def _salvar_dias(self, user, weekdays):
+    def _etapa_2(self):
+        return reverse("accounts:onboarding_step", kwargs={"step": 2})
+
+    def _salvar_dias(self, user, weekdays, divisao=None):
+        """POST da etapa 2 com os dias — e a divisão só quando o teste a dá.
+
+        Objetivo e atividade vão os do perfil: a etapa os pede, e o teste
+        está medindo os dias e a divisão, não eles.
+        """
         perfil = user.profile
-        return self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 3}),
-            {
-                "weekdays": [str(d) for d in weekdays],
-                "start_time": "19:00",
-                "duration_min": "60",
-                "wake_time": perfil.wake_time.strftime("%H:%M"),
-                "sleep_time": perfil.sleep_time.strftime("%H:%M"),
-            },
-        )
+        dados = {
+            "goal": perfil.goal,
+            "activity_level": perfil.activity_level,
+            "weekdays": [str(d) for d in weekdays],
+            "wake_time": perfil.wake_time.strftime("%H:%M"),
+            "sleep_time": perfil.sleep_time.strftime("%H:%M"),
+        }
+        if divisao is not None:
+            dados["split_preference"] = divisao
+        return self.client.post(self._etapa_2(), dados)
 
     def test_perfil_novo_nasce_sem_preferencia_confirmada(self):
         user = self._pessoa("nova@exemplo.com", (0, 2, 4))
@@ -4339,6 +4359,29 @@ class PreferenciaNaoConfirmadaTests(TestCase):
             with self.subTest(dias=dias):
                 self.assertFalse(preferencia_muda_a_divisao(dias))
 
+    def test_com_dois_dias_a_etapa_salva_sem_divisao_e_nao_confirma_nada(self):
+        """O outro lado da régua, pelo caminho real: dois dias não pedem a
+        divisão, o envio sem ela é aceito, e a escolha que a pessoa nunca viu
+        continua não confirmada."""
+        user = self._pessoa("dois@exemplo.com", (0, 3))
+        Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
+
+        resposta = self._salvar_dias(user, (1, 4))
+
+        self.assertRedirects(resposta, reverse("accounts:profile"))
+        user.refresh_from_db()
+        self.assertFalse(user.profile.split_preference_confirmada)
+        self.assertEqual(user.training_days.count(), 2)
+
+    def _e_perguntada(self, user, resposta, dias_antes):
+        """A etapa 2 recusou o envio e reabriu com a pergunta — sem gravar."""
+        self.assertEqual(resposta.status_code, 200)
+        self.assertTrue(resposta.context["mostrar_divisao"])
+        self.assertTrue(resposta.context["forms"]["divisao"].errors)
+        user.refresh_from_db()
+        self.assertFalse(user.profile.split_preference_confirmada)
+        self.assertEqual(user.training_days.count(), dias_antes)
+
     def test_subir_para_quatro_dias_leva_a_pessoa_a_escolher(self):
         """O caso do relato, pelo caminho real: três dias, depois quatro."""
         user = self._pessoa("subiu@exemplo.com", (0, 2, 4))
@@ -4346,12 +4389,7 @@ class PreferenciaNaoConfirmadaTests(TestCase):
 
         resposta = self._salvar_dias(user, (0, 1, 2, 3))
 
-        self.assertEqual(resposta.status_code, 302)
-        self.assertEqual(
-            resposta["Location"],
-            reverse("accounts:onboarding_step", kwargs={"step": 4}),
-            "a pessoa passou de 3 para 4 dias sem nunca escolher a divisão",
-        )
+        self._e_perguntada(user, resposta, dias_antes=3)
 
     def test_subir_para_cinco_dias_tambem_leva(self):
         user = self._pessoa("cinco@exemplo.com", (0, 2, 4))
@@ -4359,12 +4397,13 @@ class PreferenciaNaoConfirmadaTests(TestCase):
 
         resposta = self._salvar_dias(user, (0, 1, 2, 3, 4))
 
-        self.assertEqual(
-            resposta["Location"],
-            reverse("accounts:onboarding_step", kwargs={"step": 4}),
-        )
+        self._e_perguntada(user, resposta, dias_antes=3)
 
-    def test_quem_ja_escolheu_nao_e_perguntado_de_novo(self):
+    def test_quem_ja_escolheu_encontra_a_resposta_dele_e_nao_e_perguntado_de_novo(self):
+        """A pergunta da divisão continua na tela para quem já respondeu —
+        mas PREENCHIDA com a resposta dele, e não em branco como para quem
+        nunca a viu. Salvar os dias com ela mantém a escolha e a confirmação.
+        """
         user = self._pessoa("escolheu@exemplo.com", (0, 2, 4))
         Profile.objects.filter(user=user).update(
             onboarding_step=ONBOARDING_DONE,
@@ -4372,9 +4411,31 @@ class PreferenciaNaoConfirmadaTests(TestCase):
             split_preference_confirmada=True,
         )
 
-        resposta = self._salvar_dias(user, (0, 1, 2, 3))
+        tela = self.client.get(self._etapa_2())
+        self.assertEqual(
+            tela.context["forms"]["divisao"]["split_preference"].value(),
+            SplitPreference.DOIS,
+        )
 
-        self.assertEqual(resposta["Location"], reverse("accounts:profile"))
+        resposta = self._salvar_dias(user, (0, 1, 2, 3), divisao=SplitPreference.DOIS)
+
+        self.assertRedirects(resposta, reverse("accounts:profile"))
+        user.refresh_from_db()
+        self.assertEqual(user.profile.split_preference, SplitPreference.DOIS)
+        self.assertTrue(user.profile.split_preference_confirmada)
+
+    def test_quem_nunca_respondeu_encontra_a_pergunta_em_branco(self):
+        """O par do teste acima: TRES de fábrica não aparece marcado — seria
+        a tela afirmando uma escolha que a pessoa não fez."""
+        user = self._pessoa("branco@exemplo.com", (0, 1, 2, 3))
+        Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
+
+        tela = self.client.get(self._etapa_2())
+
+        self.assertTrue(tela.context["mostrar_divisao"])
+        self.assertIsNone(
+            tela.context["forms"]["divisao"]["split_preference"].value()
+        )
 
     def test_escolher_tres_de_proposito_fica_registrado_como_escolha(self):
         """TRES continua sendo uma resposta válida — o que mudou é que agora
@@ -4382,10 +4443,7 @@ class PreferenciaNaoConfirmadaTests(TestCase):
         user = self._pessoa("tres@exemplo.com", (0, 1, 2, 3))
         Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
 
-        self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 4}),
-            {"split_preference": SplitPreference.TRES},
-        )
+        self._salvar_dias(user, (0, 1, 2, 3), divisao=SplitPreference.TRES)
         user.refresh_from_db()
 
         self.assertEqual(user.profile.split_preference, SplitPreference.TRES)
@@ -4395,10 +4453,7 @@ class PreferenciaNaoConfirmadaTests(TestCase):
         user = self._pessoa("um@exemplo.com", (0, 1, 2, 3, 4))
         Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
 
-        self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 4}),
-            {"split_preference": SplitPreference.UM},
-        )
+        self._salvar_dias(user, (0, 1, 2, 3, 4), divisao=SplitPreference.UM)
         user.refresh_from_db()
 
         self.assertEqual(user.profile.split_preference, SplitPreference.UM)
@@ -4424,11 +4479,11 @@ class PreferenciaNaoConfirmadaTests(TestCase):
         self.assertEqual(depois.split, antes.split)
 
     def test_recarregar_a_tela_nao_confirma_nada(self):
-        """Confirmar é um POST no passo 4. Passar perto não conta."""
+        """Confirmar é um POST da etapa 2 com a divisão. Passar perto não conta."""
         user = self._pessoa("recarrega@exemplo.com", (0, 1, 2, 3))
         Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
 
-        self.client.get(reverse("accounts:onboarding_step", kwargs={"step": 4}))
+        self.client.get(self._etapa_2())
         self.client.get(reverse("workouts:routine"))
         self.client.get(reverse("accounts:profile"))
         user.refresh_from_db()
@@ -4439,15 +4494,9 @@ class PreferenciaNaoConfirmadaTests(TestCase):
         """Quem já escolheu e volta para trocar continua tendo escolhido."""
         user = self._pessoa("editou@exemplo.com", (0, 1, 2, 3))
         Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
-        self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 4}),
-            {"split_preference": SplitPreference.UM},
-        )
+        self._salvar_dias(user, (0, 1, 2, 3), divisao=SplitPreference.UM)
 
-        self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 4}),
-            {"split_preference": SplitPreference.DOIS},
-        )
+        self._salvar_dias(user, (0, 1, 2, 3), divisao=SplitPreference.DOIS)
         user.refresh_from_db()
 
         self.assertEqual(user.profile.split_preference, SplitPreference.DOIS)

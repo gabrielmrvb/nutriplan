@@ -49,8 +49,6 @@ from .forms import (
 )
 from workouts.services import preferencia_muda_a_divisao, split_for
 
-from .views import CAMINHO_COMPLETO, CAMINHO_CURTO
-
 from . import views
 from .models import (
     MINUTOS_POR_DURACAO,
@@ -74,13 +72,18 @@ from .models import (
 
 
 def step_url(step):
+    """A rota de uma das TRÊS etapas. `/4/`, `/5/` e `/6/` são 404 desde 15/09/2026."""
+    assert step in (1, 2, 3), f"o onboarding tem três etapas; não existe a {step}"
     return reverse("accounts:onboarding_step", kwargs={"step": step})
 
 
 STEP1 = {"sex": "M", "birth_date": "1995-04-12", "height_cm": 178, "weight_kg": "82.4"}
+#: Os SEIS payloads antigos continuam existindo como PEDAÇOS: as etapas de
+#: hoje são compostas dos formulários de ontem, e cada pedaço ainda descreve
+#: uma pergunta (objetivo, rotina, divisão, comida, áreas).
 STEP2 = {"goal": "cut", "activity_level": "light"}
-# A janela do dia entrou no STEP3 na V2.1: os relógios do passo 3 são todos da
-# mesma pergunta, e o passo 5 ficou só com a comida.
+# A janela do dia entrou no STEP3 na V2.1: os relógios da rotina são todos da
+# mesma pergunta, e a comida ficou só com a comida.
 STEP3 = {
     "weekdays": ["0", "2", "4"],
     "start_time": "19:00",
@@ -89,15 +92,23 @@ STEP3 = {
     "sleep_time": "23:30",
 }
 STEP4 = {"split_preference": "three"}
-#: Quatro dias — a partir daí a preferência de divisão muda o plano, e o passo
-#: 4 volta a existir. É o fixture dos testes que precisam do caminho completo.
+#: Quatro dias — a divisão muda o plano com folga. Três já bastam para a
+#: pergunta valer (`preferencia_muda_a_divisao(3)` é True desde 10/09/2026);
+#: o fixture de quatro fica para os testes que falam do caso "com folga".
 STEP3_COM_DIVISAO = {**STEP3, "weekdays": ["0", "1", "3", "5"]}
 STEP5 = {"meal_style": "quick"}
-#: O passo 6 entrou em 05/09/2026, e ele é obrigatório para o onboarding
-#: terminar. Todo teste que CAMINHA o wizard precisa dele — e é por isso que a
-#: barra de navegação caiu quando o passo nasceu: sem o 6, o fixture parava em
-#: "incompleto" e a tela Hoje devolvia 302 para o wizard.
+#: As áreas entraram em 05/09/2026, e são obrigatórias para o onboarding
+#: terminar. Todo teste que CAMINHA o wizard precisa delas — e é por isso que a
+#: barra de navegação caiu quando a pergunta nasceu: sem ela, o fixture parava
+#: em "incompleto" e a tela Hoje devolvia 302 para o wizard.
 STEP6 = {"interesses": ["dieta"], "prioridade": "dieta"}
+
+#: AS TRÊS ETAPAS (15/09/2026, decisão C-ONB). A etapa 2 é os passos 2, 3 e 4
+#: antigos num POST só; a 3 é os passos 5 e 6. `STEP3` tem três dias, e três
+#: dias já exigem a divisão — por isso `ETAPA2` a inclui.
+ETAPA2 = {**STEP2, **STEP3, "split_preference": "three"}
+ETAPA2_COM_DIVISAO = {**STEP2, **STEP3_COM_DIVISAO, **STEP4}
+ETAPA3 = {**STEP5, **STEP6}
 
 
 class SignupTests(TestCase):
@@ -146,17 +157,14 @@ class OnboardingFlowTests(TestCase):
 
     def complete_all_steps(self):
         self.client.post(step_url(1), STEP1)
-        self.client.post(step_url(2), STEP2)
-        self.client.post(step_url(3), STEP3)
-        self.client.post(step_url(4), STEP4)
-        self.client.post(
-            step_url(5), {**STEP5, "dietary_tags": [self.vegetariana.pk]}
+        self.client.post(step_url(2), ETAPA2)
+        # A etapa 3 é a última, e é ela quem devolve o redirect para a tela
+        # Hoje. Quando o passo das áreas nasceu (05/09/2026), a primeira versão
+        # deixou o POST dele DEPOIS do `return` — código morto, e o teste do
+        # fluxo completo continuou parando uma tela antes.
+        return self.client.post(
+            step_url(3), {**ETAPA3, "dietary_tags": [self.vegetariana.pk]}
         )
-        # O passo 6 é o último desde 05/09/2026, e é ele quem devolve o
-        # redirect para a tela Hoje. A primeira versão desta mudança deixou
-        # esta linha DEPOIS do `return` — código morto, e o teste do fluxo
-        # completo continuou parando no 5.
-        return self.client.post(step_url(6), STEP6)
 
     def test_step_1_creates_profile_and_first_weight_entry(self):
         response = self.client.post(step_url(1), STEP1)
@@ -178,7 +186,7 @@ class OnboardingFlowTests(TestCase):
 
     def test_can_go_back_and_edit_a_previous_step(self):
         self.client.post(step_url(1), STEP1)
-        self.client.post(step_url(2), STEP2)
+        self.client.post(step_url(2), ETAPA2)
 
         response = self.client.get(step_url(1))
         self.assertEqual(response.status_code, 200)
@@ -188,7 +196,7 @@ class OnboardingFlowTests(TestCase):
 
     def test_reediting_step_1_does_not_reset_progress(self):
         self.client.post(step_url(1), STEP1)
-        self.client.post(step_url(2), STEP2)
+        self.client.post(step_url(2), ETAPA2)
         self.client.post(step_url(1), {**STEP1, "height_cm": 180})
 
         profile = Profile.objects.get(user=self.user)
@@ -203,21 +211,18 @@ class OnboardingFlowTests(TestCase):
         self.assertEqual(entries.count(), 1)
         self.assertEqual(entries.get().weight_kg, Decimal("81.00"))
 
-    def test_step_3_creates_one_training_day_per_weekday(self):
+    def test_step_2_creates_one_training_day_per_weekday(self):
         self.client.post(step_url(1), STEP1)
-        self.client.post(step_url(2), STEP2)
-        response = self.client.post(step_url(3), STEP3)
+        response = self.client.post(step_url(2), ETAPA2)
 
-        # PASSO 4, e não 5 — e a virada tem data. `STEP3` marca três dias, e
-        # até 10/09/2026 a pergunta de divisão era pulada nessa frequência
-        # porque as três preferências davam a mesma resposta. A preferência de
-        # dois grupos por dia ganhou divisão própria, que cabe em TRÊS dias, e
-        # ali as respostas voltaram a divergir: a pergunta passou a valer, e
-        # esta pessoa passou a vê-la.
-        self.assertRedirects(response, step_url(4))
+        # Os dias moram na etapa 2 desde 15/09/2026, junto com o objetivo e a
+        # divisão. `ETAPA2` marca três dias, e três dias exigem a divisão
+        # (desde 10/09/2026 a preferência de dois grupos cabe em três) — o
+        # payload a traz, e a etapa avança para a 3.
+        self.assertRedirects(response, step_url(3))
         days = TrainingDay.objects.filter(user=self.user).order_by("weekday")
         self.assertEqual([d.weekday for d in days], [0, 2, 4])
-        # SEM HORÁRIO, e a ausência é o estado certo. `STEP3` ainda posta
+        # SEM HORÁRIO, e a ausência é o estado certo. `ETAPA2` ainda posta
         # "19:00" — de propósito: o campo saiu do formulário em 10/09/2026, e
         # um POST forjado não pode ressuscitá-lo. Antes disso todo mundo saía
         # do passo 3 com 19:00, e a tela repetia esse número em cada cartão
@@ -230,11 +235,10 @@ class OnboardingFlowTests(TestCase):
         # treino. O que não se faz é inventar um padrão para completar a conta.
         self.assertIsNone(days[0].start_time)
 
-    def test_step_3_removes_weekdays_that_were_unchecked(self):
+    def test_step_2_removes_weekdays_that_were_unchecked(self):
         self.client.post(step_url(1), STEP1)
-        self.client.post(step_url(2), STEP2)
-        self.client.post(step_url(3), STEP3)
-        self.client.post(step_url(3), {**STEP3, "weekdays": ["1"]})
+        self.client.post(step_url(2), ETAPA2)
+        self.client.post(step_url(2), {**ETAPA2, "weekdays": ["1"]})
 
         self.assertEqual([d.weekday for d in TrainingDay.objects.filter(user=self.user)], [1])
 
@@ -250,7 +254,9 @@ class OnboardingFlowTests(TestCase):
 
     def test_editing_after_completion_returns_to_profile_not_to_the_next_step(self):
         self.complete_all_steps()
-        response = self.client.post(step_url(2), {"goal": "bulk", "activity_level": "active"})
+        response = self.client.post(
+            step_url(2), {**ETAPA2, "goal": "bulk", "activity_level": "active"}
+        )
 
         self.assertRedirects(response, reverse("accounts:profile"))
         self.assertEqual(Profile.objects.get(user=self.user).goal, "bulk")
@@ -281,30 +287,29 @@ class ValidationTests(TestCase):
         self.assertIn("futuro", str(response.context["form"].errors))
 
     def _ate_a_janela(self):
-        """Os dois passos anteriores ao da janela do dia.
+        """A etapa anterior à da janela do dia.
 
-        A janela é o passo 3 desde a V2.1, e não mais o 5 — então parar no 2 é
-        o que deixa a pessoa exatamente na porta da tela que se quer testar.
+        A janela mora na etapa 2 (a rotina) — então parar na 1 é o que deixa a
+        pessoa exatamente na porta da tela que se quer testar.
         """
         self.client.post(step_url(1), STEP1)
-        self.client.post(step_url(2), STEP2)
 
     def test_sleeping_after_midnight_is_valid(self):
         self._ate_a_janela()
         response = self.client.post(
-            step_url(3), {**STEP3, "wake_time": "07:00", "sleep_time": "01:30"}
+            step_url(2), {**ETAPA2, "wake_time": "07:00", "sleep_time": "01:30"}
         )
-        # `STEP3` tem três dias, e desde 10/09/2026 três dias enxergam a
-        # pergunta de divisão — o passo seguinte é o 4.
-        self.assertRedirects(response, step_url(4))
+        self.assertRedirects(response, step_url(3))
 
     def test_absurdly_short_awake_window_is_blocked(self):
         self._ate_a_janela()
         response = self.client.post(
-            step_url(3), {**STEP3, "wake_time": "07:00", "sleep_time": "10:00"}
+            step_url(2), {**ETAPA2, "wake_time": "07:00", "sleep_time": "10:00"}
         )
         self.assertEqual(response.status_code, 200)
-        self.assertIn("muito curta", str(response.context["form"].errors))
+        # O erro é da ROTINA, que é o segundo formulário da etapa composta;
+        # `context["form"]` é o primeiro (objetivo) e não o carrega.
+        self.assertIn("muito curta", str(response.context["forms"]["rotina"].errors))
 
 
 class AccessControlTests(TestCase):
@@ -339,7 +344,7 @@ class WizardChromeTests(TestCase):
         )
         self.client.force_login(self.user)
         self.client.post(step_url(1), STEP1)
-        self.client.post(step_url(2), STEP2)
+        self.client.post(step_url(2), ETAPA2)
 
     def test_the_tab_bar_is_gone_while_the_wizard_is_open(self):
         """Os cinco destinos da barra passam por `OnboardingRequiredMixin`:
@@ -352,10 +357,7 @@ class WizardChromeTests(TestCase):
         self.assertNotIn("tem-tabbar", html)
 
     def test_the_tab_bar_comes_back_once_there_is_somewhere_to_go(self):
-        self.client.post(step_url(3), STEP3)
-        self.client.post(step_url(4), STEP4)
-        self.client.post(step_url(5), STEP5)
-        self.client.post(step_url(6), STEP6)
+        self.client.post(step_url(3), ETAPA3)
 
         html = self.client.get(reverse("plans:today")).content.decode()
         self.assertIn('<nav class="tabbar"', html)
@@ -364,10 +366,7 @@ class WizardChromeTests(TestCase):
         """Quem já terminou e volta para editar está no mesmo fluxo focado, com
         "Voltar" e "Salvar". A barra ali só oferece saídas — por isso a trava é
         da PÁGINA e não do estado do perfil."""
-        self.client.post(step_url(3), STEP3)
-        self.client.post(step_url(4), STEP4)
-        self.client.post(step_url(5), STEP5)
-        self.client.post(step_url(6), STEP6)
+        self.client.post(step_url(3), ETAPA3)
 
         html = self.client.get(step_url(2)).content.decode()
         self.assertNotIn('<nav class="tabbar"', html)
@@ -375,12 +374,14 @@ class WizardChromeTests(TestCase):
     def test_the_progress_reads_as_one_line_of_monospaced_digits(self):
         """Eram dois textos nas pontas opostas da linha, e o olho atravessava a
         tela para juntar duas metades da mesma informação: onde eu estou."""
-        html = self.client.get(step_url(3)).content.decode()
+        html = self.client.get(step_url(2)).content.decode()
 
         self.assertIn('class="wizard__label num"', html)
-        # 3/6 desde que o passo das áreas entrou. A barra continua sendo UMA
-        # linha com posição e porcentagem juntas, que é a propriedade.
-        self.assertIn("Passo 3/6 · 50%", html)
+        # "Etapa 2 de 3", e só. Era "Passo 3/6 · 50%": três números para uma
+        # informação, e o 6 era o wizard antigo vazando (C-ONB, 15/09/2026).
+        # A propriedade continua: UMA linha dizendo onde a pessoa está.
+        self.assertIn("Etapa 2 de 3", html)
+        self.assertNotIn("/6", html.split("<main", 1)[1])
 
     def test_the_goal_cards_stand_in_two_columns_and_the_activity_in_one(self):
         """Três colunas para atividade dariam 100px por cartão a 390px, e
@@ -406,18 +407,17 @@ class WizardChromeTests(TestCase):
 
 
 class PlanBuildingScreenTests(TestCase):
-    """A tela que cobre o vão entre "Concluir" e o painel pronto.
+    """A tela que cobre o vão entre "Criar meu plano" e o painel pronto.
 
-    O último passo virou o 6 em 05/09/2026 — a tela de montagem acompanhou
-    sozinha, porque ela é derivada de `ONBOARDING_LAST_STEP` e não de um
-    número escrito à mão. É o plano sendo montado quando o onboarding acaba,
-    e o onboarding passou a acabar uma tela depois.
+    A última etapa é a 3 desde 15/09/2026 (era o passo 6) — a tela de
+    montagem acompanhou sozinha, porque ela é derivada de
+    `ONBOARDING_LAST_STEP` e não de um número escrito à mão.
 
-    O número que a justifica: o POST do último passo leva 9 milissegundos. Quem
-    monta o plano é a PRIMEIRA abertura do painel — `sync_active_plan` roda na
-    entrada da tela, não no fim do wizard —, e ali são 196ms no banco local e
-    bem mais no Render, com Postgres remoto. Nesse intervalo a pessoa acabou de
-    tocar "Concluir" e a tela não muda.
+    O número que a justificava: o POST do último passo levava 9 milissegundos,
+    porque quem montava o plano era a PRIMEIRA abertura do painel. Hoje os
+    dois planos nascem NO POST de "Criar meu plano" (`acertar_ficha` e
+    `montar_cardapio`), e a tela cobre exatamente esse trabalho — 196ms no
+    banco local e bem mais no Render, com Postgres remoto.
     """
 
     def setUp(self):
@@ -426,25 +426,22 @@ class PlanBuildingScreenTests(TestCase):
         )
         self.client.force_login(self.user)
         self.client.post(step_url(1), STEP1)
-        self.client.post(step_url(2), STEP2)
-        # Caminho COMPLETO de propósito: esta classe testa a tela de montagem
-        # do último passo, e quer os quatro passos anteriores para percorrer.
-        self.client.post(step_url(3), STEP3_COM_DIVISAO)
-        self.client.post(step_url(4), STEP4)
-        # O 5 também: o último passo virou o 6, e a guarda do wizard recusa
-        # quem tenta chegar num passo à frente do progresso salvo.
-        self.client.post(step_url(5), STEP5)
+        # Com divisão de propósito: esta classe testa a tela de montagem da
+        # última etapa, e quer as duas anteriores percorridas por inteiro. A
+        # guarda do wizard recusa quem tenta chegar numa etapa à frente do
+        # progresso salvo.
+        self.client.post(step_url(2), ETAPA2_COM_DIVISAO)
 
     def test_the_screen_exists_only_on_the_last_step(self):
-        for passo in (1, 2, 3, 4, 5):
+        for passo in (1, 2):
             with self.subTest(passo=passo):
                 self.assertNotContains(self.client.get(step_url(passo)), "data-montagem")
-        self.assertContains(self.client.get(step_url(6)), "data-montagem")
+        self.assertContains(self.client.get(step_url(3)), "data-montagem")
 
     def test_it_starts_hidden(self):
         """Ela cobre a tela inteira. Chegar visível seria esconder o
         formulário que a pessoa precisa preencher."""
-        html = self.client.get(step_url(6)).content.decode()
+        html = self.client.get(step_url(3)).content.decode()
         bloco = html.split("data-montagem", 1)[1][:80]
         self.assertIn("hidden", bloco)
 
@@ -454,7 +451,7 @@ class PlanBuildingScreenTests(TestCase):
 
         Frase que descreve trabalho inexistente é tempo cobrado da pessoa para
         o app parecer que se esforçou."""
-        html = self.client.get(step_url(6)).content.decode()
+        html = self.client.get(step_url(3)).content.decode()
         for frase in ("metabólica basal", "macronutrientes", "divisão de treino"):
             with self.subTest(frase=frase):
                 self.assertIn(frase, html)
@@ -462,19 +459,19 @@ class PlanBuildingScreenTests(TestCase):
     def test_someone_editing_a_finished_wizard_never_sees_it(self):
         """Quem volta para editar recebe "Salvar" e vai para o perfil. Uma tela
         dizendo "montando seu plano" ali seria mentira."""
-        self.client.post(step_url(6), STEP6)
-        self.client.post(step_url(6), STEP6)
-        self.assertNotContains(self.client.get(step_url(6)), "data-montagem")
+        self.client.post(step_url(3), ETAPA3)
+        self.client.post(step_url(3), ETAPA3)
+        self.assertNotContains(self.client.get(step_url(3)), "data-montagem")
 
     def test_the_form_still_submits_without_javascript(self):
         """A sobreposição é melhoria progressiva: quem tem o script desligado
         envia o formulário do jeito de sempre. O `<form>` continua com `action`
         e `method` — nada depende do script para o dado chegar."""
-        html = self.client.get(step_url(6)).content.decode()
+        html = self.client.get(step_url(3)).content.decode()
         formulario = html.split('<div class="card">', 1)[1].split("</form>", 1)[0]
         self.assertIn('method="post"', formulario)
 
-        resposta = self.client.post(step_url(6), STEP6)
+        resposta = self.client.post(step_url(3), ETAPA3)
         self.assertRedirects(resposta, reverse("plans:today"))
 
     def test_a_form_error_keeps_the_person_on_the_step(self):
@@ -482,12 +479,17 @@ class PlanBuildingScreenTests(TestCase):
         precisa sair do caminho e deixar o servidor renderizar os erros. Se
         ficasse no ar, a pessoa olharia uma tela de carregamento para sempre."""
         # O erro de exemplo já foi a janela de sono (passo 3, desde a V2.1) e
-        # depois o estilo de cardápio (passo 5). O último passo virou o 6, e o
-        # erro dele é não escolher área nenhuma — que é o que o teste precisa:
-        # um POST que NÃO redireciona.
-        resposta = self.client.post(step_url(6), {"interesses": [], "prioridade": ""})
+        # depois o estilo de cardápio (passo 5). A última etapa é a 3, e o
+        # erro dela é não escolher área nenhuma — que é o que o teste precisa:
+        # um POST que NÃO redireciona. A comida vai válida de propósito, para
+        # o erro ser SÓ o das áreas, que é o segundo formulário da etapa.
+        resposta = self.client.post(
+            step_url(3), {**STEP5, "interesses": [], "prioridade": ""}
+        )
         self.assertEqual(resposta.status_code, 200)
-        self.assertIn("pelo menos uma área", str(resposta.context["form"].errors))
+        self.assertIn(
+            "pelo menos uma área", str(resposta.context["forms"]["areas"].errors)
+        )
 
         script = resposta.content.decode()
         self.assertIn("r.redirected", script)
@@ -513,11 +515,11 @@ class WizardProgressBarTests(TestCase):
         self.assertNotIn("wizard__step--done", html)
 
     def test_the_fill_carries_the_real_percentage(self):
-        # Com seis passos: 2/6 = 33%, 3/6 = 50%.
-        for passo, pct in ((2, 33), (3, 50)):
+        # Com três etapas: 1/3 = 33%, 2/3 = 66%, 3/3 = 100%.
+        for passo, pct in ((1, 33), (2, 66), (3, 100)):
             with self.subTest(passo=passo):
                 if passo == 3:
-                    self.client.post(step_url(2), STEP2)
+                    self.client.post(step_url(2), ETAPA2)
                 html = self.client.get(step_url(passo)).content.decode()
                 self.assertIn(f"width: {pct}%", html)
 
@@ -538,16 +540,11 @@ class ProfileActionsTests(TestCase):
         )
         self.client.force_login(self.user)
         self.client.post(step_url(1), STEP1)
-        self.client.post(step_url(2), STEP2)
-        self.client.post(step_url(3), STEP3)
-        self.client.post(step_url(4), STEP4)
-        self.client.post(step_url(5), STEP5)
-        self.client.post(step_url(6), STEP6)
-        # O plano nasce na PRIMEIRA abertura do painel, e não no fim do
-        # wizard: `sync_active_plan` roda na entrada da tela. Sem esta visita o
-        # perfil abriria sem plano — que é um estado real, e tem teste próprio
-        # logo abaixo.
-        self.client.get(reverse("plans:today"))
+        self.client.post(step_url(2), ETAPA2)
+        # "Criar meu plano" monta o cardápio no próprio POST desde 15/09/2026
+        # (antes ele nascia na primeira abertura do painel). O perfil abre com
+        # plano; o estado SEM plano é real e tem teste próprio logo abaixo.
+        self.client.post(step_url(3), ETAPA3)
         self.url = reverse("accounts:profile")
 
     def test_logging_out_left_the_header_and_lives_here(self):
@@ -607,11 +604,12 @@ class ProfileActionsTests(TestCase):
     def test_the_restrictions_link_points_at_the_step_they_actually_live_in(self):
         """Elas eram o passo 4 até a preferência de divisão entrar na frente.
         O link ficou apontando para a tela errada desde então, mandando quem
-        queria editar restrição para a escolha de divisão de treino."""
+        queria editar restrição para a escolha de divisão de treino. Hoje a
+        comida mora na etapa 3 e a divisão na 2 — e o link tem de acompanhar."""
         html = self.client.get(self.url).content.decode()
         bloco = html.split("Comida e restrições", 1)[1].split("</section>", 1)[0]
-        self.assertIn(step_url(5), bloco)
-        self.assertNotIn(step_url(4), bloco)
+        self.assertIn(step_url(3), bloco)
+        self.assertNotIn(step_url(2), bloco)
 
     def test_the_two_new_preferences_are_visible_and_editable(self):
         """Elas entraram no onboarding e nunca apareceram aqui — quem quisesse
@@ -620,19 +618,18 @@ class ProfileActionsTests(TestCase):
         Quatro dias de treino porque, desde a V2.2, o cartão da divisão só
         aparece para quem a escolha muda alguma coisa.
         """
-        self.client.post(step_url(3), STEP3_COM_DIVISAO)
-        self.client.post(step_url(4), STEP4)
+        self.client.post(step_url(2), ETAPA2_COM_DIVISAO)
         html = self.client.get(self.url).content.decode()
         divisao = html.split("Divisão de treino", 1)[1].split("</section>", 1)[0]
         self.assertIn("3 grupos por dia", divisao)
-        self.assertIn(step_url(4), divisao)
+        self.assertIn(step_url(2), divisao)
 
-        # O cardápio mora no cartão que leva ao passo 5, que é onde ele é
+        # O cardápio mora no cartão que leva à etapa 3, que é onde ele é
         # editado. Juntos num cartão só, o "Editar" mandava quem queria trocar
         # o cardápio para a tela de divisão de treino.
         comida = html.split("Comida e restrições", 1)[1].split("</section>", 1)[0]
         self.assertIn("Rápida e econômica", comida)
-        self.assertIn(step_url(5), comida)
+        self.assertIn(step_url(3), comida)
 
 
 class BottomNavigationTests(TestCase):
@@ -643,9 +640,7 @@ class BottomNavigationTests(TestCase):
             email="abas@exemplo.com", password="senha-bem-forte-123"
         )
         self.client.force_login(self.user)
-        for passo, dados in (
-            (1, STEP1), (2, STEP2), (3, STEP3), (4, STEP4), (5, STEP5), (6, STEP6)
-        ):
+        for passo, dados in ((1, STEP1), (2, ETAPA2), (3, ETAPA3)):
             self.client.post(step_url(passo), dados)
         self.html = self.client.get(reverse("plans:today")).content.decode()
 
@@ -1973,9 +1968,13 @@ class OnboardingV21Tests(TestCase):
     """A V2.1 mexeu em ONDE se responde, e em nada do que é respondido.
 
     Duas mudanças: os sete dias viraram chips e a janela de sono saiu do passo
-    da comida para o passo da rotina. Nenhuma toca model, valor, validação ou
-    número de passos — e é exatamente isso que esta classe existe para provar,
-    porque "só mexi no visual" é a frase que antecede a regressão silenciosa.
+    da comida para o passo da rotina. Nenhuma toca model, valor ou validação
+    — e é exatamente isso que esta classe existe para provar, porque "só mexi
+    no visual" é a frase que antecede a regressão silenciosa.
+
+    Em 15/09/2026 a rotina passou a morar na ETAPA 2, junto com o objetivo e
+    a divisão (C-ONB); a comida ficou na 3. O que se responde continua o
+    mesmo — só a tela em que se responde mudou de novo.
     """
 
     def setUp(self):
@@ -1984,7 +1983,6 @@ class OnboardingV21Tests(TestCase):
         )
         self.client.force_login(self.user)
         self.client.post(step_url(1), STEP1)
-        self.client.post(step_url(2), STEP2)
 
     def perfil(self):
         return Profile.objects.get(user=self.user)
@@ -1997,7 +1995,7 @@ class OnboardingV21Tests(TestCase):
         — e um formulário que estoura no primeiro dia de uso é melhor que um que
         grava "Seg" numa coluna de inteiro, mas nenhum dos dois pode acontecer.
         """
-        self.client.post(step_url(3), STEP3)
+        self.client.post(step_url(2), ETAPA2)
 
         dias = sorted(self.user.training_days.values_list("weekday", flat=True))
         self.assertEqual(dias, [0, 2, 4])
@@ -2006,13 +2004,13 @@ class OnboardingV21Tests(TestCase):
     # B -------------------------------------------------------- vários dias
     def test_marcar_a_semana_inteira_grava_os_sete(self):
         self.client.post(
-            step_url(3), {**STEP3, "weekdays": ["0", "1", "2", "3", "4", "5", "6"]}
+            step_url(2), {**ETAPA2, "weekdays": ["0", "1", "2", "3", "4", "5", "6"]}
         )
         self.assertEqual(self.user.training_days.count(), 7)
 
     def test_desmarcar_um_dia_remove_so_ele(self):
-        self.client.post(step_url(3), {**STEP3, "weekdays": ["0", "2", "4"]})
-        self.client.post(step_url(3), {**STEP3, "weekdays": ["0", "4"]})
+        self.client.post(step_url(2), {**ETAPA2, "weekdays": ["0", "2", "4"]})
+        self.client.post(step_url(2), {**ETAPA2, "weekdays": ["0", "4"]})
 
         self.assertEqual(
             sorted(self.user.training_days.values_list("weekday", flat=True)), [0, 4]
@@ -2026,19 +2024,19 @@ class OnboardingV21Tests(TestCase):
         conseguir passar da tela. Inventar um mínimo agora seria mudar a regra
         no meio de uma missão que prometeu não mudar nenhuma.
         """
-        response = self.client.post(step_url(3), {**STEP3, "weekdays": []})
+        response = self.client.post(step_url(2), {**ETAPA2, "weekdays": []})
 
-        # Zero dias também pula a divisão: sem treino nenhum, nenhuma das três
-        # preferências muda o que o app monta.
-        self.assertRedirects(response, step_url(5))
+        # Zero dias também dispensa a divisão: sem treino nenhum, nenhuma das
+        # três preferências muda o que o app monta — e a etapa avança sem ela.
+        self.assertRedirects(response, step_url(3))
         self.assertEqual(self.user.training_days.count(), 0)
+        self.assertFalse(self.perfil().split_preference_confirmada)
 
     # D / E ------------------------------------------------- voltar e voltar
-    def test_voltar_ao_passo_3_traz_a_selecao_marcada(self):
-        self.client.post(step_url(3), STEP3)
-        self.client.post(step_url(4), STEP4)
+    def test_voltar_a_etapa_2_traz_a_selecao_marcada(self):
+        self.client.post(step_url(2), ETAPA2)
 
-        html = self.client.get(step_url(3)).content.decode()
+        html = self.client.get(step_url(2)).content.decode()
         marcados = re.findall(r'<input[^>]*name="weekdays"[^>]*>', html)
         checados = [i for i in marcados if "checked" in i]
 
@@ -2050,17 +2048,17 @@ class OnboardingV21Tests(TestCase):
                 f"o dia {valor} devia voltar marcado",
             )
 
-    def test_recarregar_o_passo_3_traz_a_janela_salva(self):
+    def test_recarregar_a_etapa_2_traz_a_janela_salva(self):
         """Retomada: o sono agora vem do Profile, e não do TrainingDay.
 
-        Sem o `initial`, reabrir o passo mostraria os campos vazios e um
+        Sem o `initial`, reabrir a etapa mostraria os campos vazios e um
         "Continuar" gravaria por cima do que já estava lá.
         """
         self.client.post(
-            step_url(3), {**STEP3, "wake_time": "06:15", "sleep_time": "22:10"}
+            step_url(2), {**ETAPA2, "wake_time": "06:15", "sleep_time": "22:10"}
         )
 
-        html = self.client.get(step_url(3)).content.decode()
+        html = self.client.get(step_url(2)).content.decode()
 
         # O widget de hora renderiza com segundos ("06:15:00"); o que importa
         # é o campo voltar preenchido com o que foi salvo.
@@ -2068,59 +2066,62 @@ class OnboardingV21Tests(TestCase):
         self.assertIn('name="sleep_time" value="22:10:00"', html)
 
     # F ---------------------------------------------------------- o sono
-    def test_a_janela_do_dia_e_gravada_pelo_passo_3(self):
+    def test_a_janela_do_dia_e_gravada_pela_etapa_2(self):
         self.client.post(
-            step_url(3), {**STEP3, "wake_time": "05:45", "sleep_time": "21:20"}
+            step_url(2), {**ETAPA2, "wake_time": "05:45", "sleep_time": "21:20"}
         )
 
         perfil = self.perfil()
         self.assertEqual(perfil.wake_time, time(5, 45))
         self.assertEqual(perfil.sleep_time, time(21, 20))
 
-    def test_o_passo_5_nao_pergunta_mais_a_janela(self):
+    def test_a_etapa_da_comida_nao_pergunta_mais_a_janela(self):
         """A prova de que o campo MUDOU de tela, e não de que sumiu.
 
-        Ancorada no formulário do passo, e não no HTML inteiro: procurar
+        Ancorada nos formulários da etapa, e não no HTML inteiro: procurar
         "wake_time" na página acharia qualquer resquício em script ou rodapé e
-        passaria por acidente.
+        passaria por acidente. A etapa 3 é composta (comida + áreas), e a 2
+        também (objetivo + rotina + divisão): a janela mora na ROTINA.
         """
-        self.client.post(step_url(3), STEP3)
-        self.client.post(step_url(4), STEP4)
+        self.client.post(step_url(2), ETAPA2)
 
-        campos = self.client.get(step_url(5)).context["form"].fields
+        forms_da_3 = self.client.get(step_url(3)).context["forms"]
+        campos = {campo for form in forms_da_3.values() for campo in form.fields}
 
         self.assertNotIn("wake_time", campos)
         self.assertNotIn("sleep_time", campos)
         self.assertIn("meal_style", campos)
-        self.assertIn("wake_time", self.client.get(step_url(3)).context["form"].fields)
+        self.assertIn(
+            "wake_time", self.client.get(step_url(2)).context["forms"]["rotina"].fields
+        )
 
     # G / H ------------------------------------------------- retomada e guarda
-    def test_quem_parou_no_passo_3_volta_para_o_passo_3(self):
+    def test_quem_parou_na_etapa_2_volta_para_a_etapa_2(self):
         self.client.get(reverse("accounts:onboarding"))
-        self.assertEqual(self.perfil().onboarding_step, 3)
+        self.assertEqual(self.perfil().onboarding_step, 2)
 
         response = self.client.get(reverse("accounts:onboarding"))
-        self.assertRedirects(response, step_url(3))
+        self.assertRedirects(response, step_url(2))
 
     def test_continua_sem_dar_para_pular_etapa(self):
         """A guarda não mudou, e o sono mudar de tela não pode ter aberto atalho."""
-        response = self.client.get(step_url(5))
-        self.assertRedirects(response, step_url(3))
+        response = self.client.get(step_url(3))
+        self.assertRedirects(response, step_url(2))
 
     # I --------------------------------------------------------- progresso
-    def test_o_wizard_tem_seis_passos(self):
-        """Este teste existe para que ninguém acrescente passo por acidente.
+    def test_o_wizard_tem_tres_etapas(self):
+        """Este teste existe para que ninguém acrescente etapa por acidente.
 
-        Ele travava CINCO, e o sexto entrou em 05/09/2026 de propósito — a
-        pergunta sobre as áreas do NutriPlan. Atualizar o número aqui é a
-        forma certa de acrescentar um passo: alguém tem de vir aqui e dizer
-        que sabe o que está fazendo. Apagar o teste, não.
+        Ele travava CINCO, depois SEIS (as áreas, 05/09/2026), e em 15/09/2026
+        os seis passos viraram TRÊS etapas de propósito (C-ONB). Atualizar o
+        número aqui é a forma certa de mexer no caminho: alguém tem de vir
+        aqui e dizer que sabe o que está fazendo. Apagar o teste, não.
         """
-        self.assertEqual(ONBOARDING_LAST_STEP, 6)
+        self.assertEqual(ONBOARDING_LAST_STEP, 3)
 
-        contexto = self.client.get(step_url(3)).context
-        self.assertEqual(contexto["total_steps"], 6)
-        self.assertEqual(contexto["progress_pct"], 50)
+        contexto = self.client.get(step_url(2)).context
+        self.assertEqual(contexto["total_steps"], 3)
+        self.assertEqual(contexto["progress_pct"], 66)
 
     # J ---------------------------------------------------- quem consome
     def test_o_que_o_calculo_le_continua_igual(self):
@@ -2131,11 +2132,9 @@ class OnboardingV21Tests(TestCase):
         novo e confere o estado final, que é o que o motor enxerga.
         """
         self.client.post(
-            step_url(3), {**STEP3, "wake_time": "06:00", "sleep_time": "23:00"}
+            step_url(2), {**ETAPA2, "wake_time": "06:00", "sleep_time": "23:00"}
         )
-        self.client.post(step_url(4), STEP4)
-        self.client.post(step_url(5), STEP5)
-        self.client.post(step_url(6), STEP6)
+        self.client.post(step_url(3), ETAPA3)
 
         perfil = self.perfil()
         self.assertTrue(perfil.onboarding_complete)
@@ -2144,8 +2143,8 @@ class OnboardingV21Tests(TestCase):
         self.assertEqual(
             sorted(self.user.training_days.values_list("weekday", flat=True)), [0, 2, 4]
         )
-        self.assertEqual(perfil.split_preference, STEP4["split_preference"])
-        self.assertEqual(perfil.meal_style, STEP5["meal_style"])
+        self.assertEqual(perfil.split_preference, ETAPA2["split_preference"])
+        self.assertEqual(perfil.meal_style, ETAPA3["meal_style"])
 
     # ------------------------------------------------------------- os chips
     def test_o_chip_mostra_a_abreviacao_e_fala_o_dia_inteiro(self):
@@ -2154,7 +2153,7 @@ class OnboardingV21Tests(TestCase):
         Sem o `aria-label`, o leitor de tela anunciaria três letras sem
         contexto nenhum para reconstruir o dia.
         """
-        html = self.client.get(step_url(3)).content.decode()
+        html = self.client.get(step_url(2)).content.decode()
 
         self.assertIn("choice-list--dias", html)
         self.assertIn(">Qua<", html)
@@ -2164,16 +2163,20 @@ class OnboardingV21Tests(TestCase):
 
 
 class OnboardingV22Tests(TestCase):
-    """O caminho deixou de ser uma fila fixa: ele depende da resposta do passo 3.
+    """A divisão só é perguntada quando a resposta muda alguma coisa.
 
-    A pergunta de divisão só muda o plano de quem treina quatro dias ou mais —
-    até três, as três preferências devolvem a mesma divisão, porque divisão não
-    inventa dias que a semana não tem. Perguntar ali custava um passo inteiro e
+    A pergunta de divisão só muda o plano de quem treina três dias ou mais —
+    até dois, as três preferências devolvem a mesma divisão, porque divisão
+    não inventa dias que a semana não tem. Perguntar ali custava uma tela e
     não comprava nada.
 
-    O que estes testes protegem não é o número 4: é o fato de a regra ser LIDA
-    de `workouts.services`, e de a navegação inteira — voltar, avançar,
-    recarregar, retomar, reeditar — entender o caminho que sobrou.
+    Na V2.2 isso era um PASSO condicional (o 4 existia ou não). Desde
+    15/09/2026 (C-ONB) o caminho é fixo em três etapas e a condição vive
+    DENTRO da etapa 2: o servidor exige a divisão quando os dias postados
+    pedem, e a ignora quando não pedem. O que estes testes protegem não é o
+    número 3: é o fato de a regra ser LIDA de `workouts.services`, e de a
+    etapa inteira — exigir, dispensar, voltar, recarregar, retomar, reeditar
+    — obedecer à mesma régua.
     """
 
     def setUp(self):
@@ -2182,10 +2185,16 @@ class OnboardingV22Tests(TestCase):
         )
         self.client.force_login(self.user)
         self.client.post(step_url(1), STEP1)
-        self.client.post(step_url(2), STEP2)
 
-    def dias(self, quantos):
-        return {**STEP3, "weekdays": [str(d) for d in range(quantos)]}
+    def dias(self, quantos, com_divisao=None):
+        """A etapa 2 com N dias. Sem `com_divisao`, a divisão vai junto só
+        quando os dias pedem — é o que um formulário com JavaScript envia."""
+        if com_divisao is None:
+            com_divisao = preferencia_muda_a_divisao(quantos)
+        dados = {**ETAPA2, "weekdays": [str(d) for d in range(quantos)]}
+        if not com_divisao:
+            dados.pop("split_preference")
+        return dados
 
     def perfil(self):
         return Profile.objects.get(user=self.user)
@@ -2210,14 +2219,20 @@ class OnboardingV22Tests(TestCase):
             self.assertFalse(preferencia_muda_a_divisao(poucos), f"{poucos} dias")
         for muitos in (3, 4, 5, 6, 7):
             self.assertTrue(preferencia_muda_a_divisao(muitos), f"{muitos} dias")
+        # E a etapa 2 lê o MESMO número para dizer ao JavaScript quando
+        # revelar o bloco.
+        self.assertEqual(views.MINIMO_DE_DIAS_PARA_DIVISAO, 3)
 
     # ----------------------------------------------------- 1 e 2 dias
-    def test_ate_dois_dias_a_divisao_e_pulada(self):
+    def test_ate_dois_dias_a_divisao_e_dispensada(self):
         """Com uma ou duas sessões as três preferências dão a mesma divisão.
 
         Eram três dias até 10/09/2026. Ver
         `test_a_regra_e_lida_da_tabela_de_divisoes`: a preferência de dois
         grupos passou a caber em três, e ali ela já muda o resultado.
+
+        Sem a divisão no POST a etapa avança mesmo assim — e
+        `split_preference_confirmada` fica False, porque ninguém escolheu.
         """
         for quantos in (1, 2):
             with self.subTest(dias=quantos):
@@ -2226,149 +2241,179 @@ class OnboardingV22Tests(TestCase):
                 )
                 self.client.force_login(user)
                 self.client.post(step_url(1), STEP1)
-                self.client.post(step_url(2), STEP2)
 
-                resposta = self.client.post(step_url(3), self.dias(quantos))
+                resposta = self.client.post(step_url(2), self.dias(quantos))
 
-                self.assertRedirects(resposta, step_url(5))
-                self.assertEqual(Profile.objects.get(user=user).onboarding_step, 5)
+                self.assertRedirects(resposta, step_url(3))
+                perfil = Profile.objects.get(user=user)
+                self.assertEqual(perfil.onboarding_step, 3)
+                self.assertFalse(perfil.split_preference_confirmada)
 
-    def test_quem_pula_a_divisao_nao_consegue_abrir_o_passo_4(self):
-        """Não basta não oferecer: digitar a URL também não pode levar lá."""
-        self.client.post(step_url(3), self.dias(2))
+    def test_quem_dispensa_a_divisao_nao_a_ve_na_etapa_2(self):
+        """Não basta não exigir: reabrir a etapa também não pode mostrá-la.
 
-        resposta = self.client.get(step_url(4))
+        Sem JavaScript o bloco nasce `hidden` do servidor, por
+        `mostrar_divisao`, que lê os dias já gravados.
+        """
+        self.client.post(step_url(2), self.dias(2))
 
-        self.assertRedirects(resposta, step_url(5))
+        resposta = self.client.get(step_url(2))
 
-    def test_o_progresso_conta_quatro_passos_para_quem_pula(self):
-        self.client.post(step_url(3), self.dias(2))
+        self.assertFalse(resposta.context["mostrar_divisao"])
+        bloco = resposta.content.decode().split("data-revela-divisao", 1)[1][:120]
+        self.assertIn("hidden", bloco)
 
-        contexto = self.client.get(step_url(5)).context
+    def test_o_progresso_conta_tres_etapas_para_quem_dispensa(self):
+        self.client.post(step_url(2), self.dias(2))
 
-        # Cinco no caminho curto: quem pula a divisão percorre 1, 2, 3, 5 e 6.
-        # E a posição do 5 continua sendo 4 — a barra conta POSIÇÃO, que é a
-        # propriedade que este teste protege desde que ele nasceu.
-        self.assertEqual(contexto["total_steps"], 5)
-        self.assertEqual(contexto["posicao"], 4)
-        self.assertEqual(contexto["progress_pct"], 80)
+        contexto = self.client.get(step_url(3)).context
 
-    # --------------------------------------------------------- 4 e 5+ dias
-    def test_de_quatro_dias_em_diante_a_divisao_continua_sendo_perguntada(self):
-        for quantos in (4, 5, 6, 7):
+        # Três etapas para todo mundo: quem dispensa a divisão não percorre um
+        # caminho mais curto — ela só não vê um bloco. A barra conta POSIÇÃO,
+        # que é a propriedade que este teste protege desde que ele nasceu.
+        self.assertEqual(contexto["total_steps"], 3)
+        self.assertEqual(contexto["posicao"], 3)
+        self.assertEqual(contexto["progress_pct"], 100)
+
+    # --------------------------------------------------------- 3 e 4+ dias
+    def test_de_tres_dias_em_diante_a_divisao_e_exigida(self):
+        """Sem a divisão o POST volta com 200 e o erro no campo — e o bloco
+        aberto, para quem está sem JavaScript enxergar o que faltou."""
+        for quantos in (3, 4, 5, 6, 7):
             with self.subTest(dias=quantos):
                 user = User.objects.create_user(
                     email=f"longo{quantos}@exemplo.com", password="senha-bem-forte-123"
                 )
                 self.client.force_login(user)
                 self.client.post(step_url(1), STEP1)
-                self.client.post(step_url(2), STEP2)
 
-                resposta = self.client.post(step_url(3), self.dias(quantos))
+                resposta = self.client.post(
+                    step_url(2), self.dias(quantos, com_divisao=False)
+                )
 
-                self.assertRedirects(resposta, step_url(4))
+                self.assertEqual(resposta.status_code, 200)
+                self.assertTrue(resposta.context["mostrar_divisao"])
+                self.assertIn(
+                    "split_preference", resposta.context["forms"]["divisao"].errors
+                )
+                self.assertEqual(Profile.objects.get(user=user).onboarding_step, 2)
 
-    def test_o_progresso_conta_cinco_passos_para_quem_responde_a_divisao(self):
-        self.client.post(step_url(3), self.dias(5))
+                resposta = self.client.post(step_url(2), self.dias(quantos))
 
-        contexto = self.client.get(step_url(4)).context
+                self.assertRedirects(resposta, step_url(3))
+                self.assertTrue(Profile.objects.get(user=user).split_preference_confirmada)
 
-        # Seis desde que o passo das áreas entrou. A barra continua contando
-        # POSIÇÃO e não número do passo — é isso que este teste protege.
-        self.assertEqual(contexto["total_steps"], 6)
-        self.assertEqual(contexto["posicao"], 4)
+    def test_o_progresso_conta_tres_etapas_para_quem_responde_a_divisao(self):
+        self.client.post(step_url(2), self.dias(5))
+
+        contexto = self.client.get(step_url(2)).context
+
+        # Responder a divisão não acrescenta etapa: é a mesma 2 de 3. A barra
+        # continua contando POSIÇÃO e não número do passo — é isso que este
+        # teste protege.
+        self.assertTrue(contexto["mostrar_divisao"])
+        self.assertEqual(contexto["total_steps"], 3)
+        self.assertEqual(contexto["posicao"], 2)
         self.assertEqual(contexto["progress_pct"], 66)
 
     # ------------------------------------------------------------- voltar
-    def test_voltar_do_passo_5_pula_a_divisao_de_quem_a_pulou(self):
+    def test_voltar_da_etapa_3_cai_na_etapa_2_de_quem_dispensou_a_divisao(self):
         """O botão "Voltar" segue o mesmo caminho da ida.
 
-        Sem isto, quem pulou o 4 na ida bateria nele na volta — e o passo que
-        o app decidiu esconder reapareceria pela porta dos fundos.
+        No wizard de seis passos, quem pulava o 4 na ida não podia bater nele
+        na volta. Com três etapas o caminho é um só — e a volta da 3 é a 2,
+        onde a divisão continua escondida para quem ela não muda.
         """
-        self.client.post(step_url(3), self.dias(2))
+        self.client.post(step_url(2), self.dias(2))
 
-        anterior = self.client.get(step_url(5)).context["previous_url"]
+        anterior = self.client.get(step_url(3)).context["previous_url"]
 
-        self.assertEqual(anterior, step_url(3))
+        self.assertEqual(anterior, step_url(2))
+        self.assertFalse(self.client.get(anterior).context["mostrar_divisao"])
 
-    def test_voltar_do_passo_5_cai_na_divisao_de_quem_a_respondeu(self):
-        self.client.post(step_url(3), self.dias(5))
-        self.client.post(step_url(4), STEP4)
+    def test_voltar_da_etapa_3_cai_na_etapa_2_de_quem_respondeu_a_divisao(self):
+        self.client.post(step_url(2), self.dias(5))
 
-        anterior = self.client.get(step_url(5)).context["previous_url"]
+        anterior = self.client.get(step_url(3)).context["previous_url"]
 
-        self.assertEqual(anterior, step_url(4))
+        self.assertEqual(anterior, step_url(2))
+        self.assertTrue(self.client.get(anterior).context["mostrar_divisao"])
 
     # ------------------------------------------------- recarregar e retomar
-    def test_recarregar_mantem_a_pessoa_no_mesmo_passo(self):
-        self.client.post(step_url(3), self.dias(2))
+    def test_recarregar_mantem_a_pessoa_na_mesma_etapa(self):
+        self.client.post(step_url(2), self.dias(2))
 
-        primeira = self.client.get(step_url(5))
-        segunda = self.client.get(step_url(5))
+        primeira = self.client.get(step_url(3))
+        segunda = self.client.get(step_url(3))
 
         self.assertEqual(primeira.status_code, 200)
         self.assertEqual(segunda.status_code, 200)
-        self.assertEqual(segunda.context["posicao"], 4)
+        self.assertEqual(segunda.context["posicao"], 3)
 
-    def test_retomar_leva_ao_passo_certo_do_caminho_curto(self):
-        """DOIS dias, e não três: o caminho curto encolheu junto com a regra.
+    def test_retomar_leva_a_etapa_certa_de_quem_dispensou_a_divisao(self):
+        """DOIS dias, e não três: a régua encolheu junto com a tabela.
 
-        Este teste é sobre o caminho CURTO, e ele usava três dias porque três
-        dias eram curtos. Desde 10/09/2026 não são — a preferência de dois
-        grupos por dia cabe em três e a pergunta de divisão passou a valer ali.
-        Manter o três aqui testaria o caminho completo com o nome do curto.
+        Este teste é sobre quem NÃO responde a divisão, e ele usava três dias
+        porque três dias dispensavam a pergunta. Desde 10/09/2026 não
+        dispensam — a preferência de dois grupos por dia cabe em três e a
+        pergunta passou a valer ali. Manter o três aqui testaria o caso com
+        divisão com o nome do caso sem.
         """
-        self.client.post(step_url(3), self.dias(2))
+        self.client.post(step_url(2), self.dias(2))
 
         resposta = self.client.get(reverse("accounts:onboarding"))
 
-        self.assertRedirects(resposta, step_url(5))
+        self.assertRedirects(resposta, step_url(3))
 
-    def test_quem_parou_no_passo_4_e_depois_reduziu_os_dias_nao_trava(self):
-        """O caso que faria o app entrar em laço.
+    def test_quem_respondeu_a_divisao_e_depois_reduziu_os_dias_nao_trava(self):
+        """O caso que fazia o app entrar em laço no wizard de seis passos.
 
         A pessoa parou no 4 treinando cinco dias. Voltou ao 3, reduziu para
-        dois — e agora o progresso salvo aponta para um passo que sumiu do
-        caminho dela. Sem o mapeamento, a entrada mandaria para o 4, a guarda
-        devolveria para a entrada, e assim por diante.
+        dois — e o progresso salvo apontava para um passo que sumiu do caminho
+        dela. Com três etapas fixas o passo não some, mas o cenário continua
+        valendo: reduzir os dias depois de responder a divisão não pode
+        retroceder o progresso nem quebrar a retomada.
         """
-        self.client.post(step_url(3), self.dias(5))
-        self.assertEqual(self.perfil().onboarding_step, 4)
+        self.client.post(step_url(2), self.dias(5))
+        self.assertEqual(self.perfil().onboarding_step, 3)
 
-        self.client.post(step_url(3), self.dias(2))
+        self.client.post(step_url(2), self.dias(2))
 
+        self.assertEqual(self.perfil().onboarding_step, 3)
         entrada = self.client.get(reverse("accounts:onboarding"))
-        self.assertRedirects(entrada, step_url(5))
-        self.assertEqual(self.client.get(step_url(5)).status_code, 200)
+        self.assertRedirects(entrada, step_url(3))
+        self.assertEqual(self.client.get(step_url(3)).status_code, 200)
 
     def test_aumentar_os_dias_traz_a_divisao_de_volta(self):
-        self.client.post(step_url(3), self.dias(2))
-        self.assertRedirects(self.client.get(step_url(4)), step_url(5))
+        self.client.post(step_url(2), self.dias(2))
+        self.assertFalse(self.client.get(step_url(2)).context["mostrar_divisao"])
 
-        self.client.post(step_url(3), self.dias(5))
+        self.client.post(step_url(2), self.dias(5))
 
-        self.assertEqual(self.client.get(step_url(4)).status_code, 200)
+        self.assertTrue(self.client.get(step_url(2)).context["mostrar_divisao"])
 
     # --------------------------------------------------- edição posterior
     def test_quem_ja_terminou_reedita_pelo_caminho_dele(self):
-        self.client.post(step_url(3), self.dias(2))
-        self.client.post(step_url(5), STEP5)
-        self.client.post(step_url(6), STEP6)
+        self.client.post(step_url(2), self.dias(2))
+        self.client.post(step_url(3), ETAPA3)
         self.assertTrue(self.perfil().onboarding_complete)
 
         self.assertEqual(self.client.get(step_url(1)).status_code, 200)
+        self.assertEqual(self.client.get(step_url(2)).status_code, 200)
         self.assertEqual(self.client.get(step_url(3)).status_code, 200)
-        # O 4 não existe para quem treina dois dias. Quem JÁ TERMINOU e pede o
-        # 4 cai no último passo do caminho dela — que virou o 6 quando as áreas
-        # entraram. Antes era o 5, e a mudança é a do caminho, não da regra:
-        # `passo_alvo` sempre devolveu "o primeiro passo >= o salvo".
-        self.assertRedirects(self.client.get(step_url(4)), step_url(6))
+        # O 4 não existe para NINGUÉM desde 15/09/2026. No wizard de seis
+        # passos ele não existia para quem treinava dois dias, e quem já tinha
+        # terminado e o pedia caía no último passo do caminho dela. Hoje é
+        # 404 — um link velho que "funciona" abrindo outra tela nunca é
+        # consertado.
+        self.assertEqual(
+            self.client.get(reverse("accounts:onboarding_step", kwargs={"step": 4})).status_code,
+            404,
+        )
 
     def test_o_perfil_esconde_a_divisao_de_quem_ela_nao_muda(self):
-        self.client.post(step_url(3), self.dias(2))
-        self.client.post(step_url(5), STEP5)
-        self.client.post(step_url(6), STEP6)
+        self.client.post(step_url(2), self.dias(2))
+        self.client.post(step_url(3), ETAPA3)
 
         html = self.client.get(reverse("accounts:profile")).content.decode()
 
@@ -2377,10 +2422,8 @@ class OnboardingV22Tests(TestCase):
         self.assertIsNotNone(self.perfil().split_preference)
 
     def test_o_perfil_mostra_a_divisao_de_quem_ela_muda(self):
-        self.client.post(step_url(3), self.dias(5))
-        self.client.post(step_url(4), STEP4)
-        self.client.post(step_url(5), STEP5)
-        self.client.post(step_url(6), STEP6)
+        self.client.post(step_url(2), self.dias(5))
+        self.client.post(step_url(3), ETAPA3)
 
         html = self.client.get(reverse("accounts:profile")).content.decode()
 
@@ -2388,12 +2431,16 @@ class OnboardingV22Tests(TestCase):
 
     # ------------------------------------------------------ compatibilidade
     def test_quem_ja_tinha_preferencia_salva_continua_valendo(self):
-        """Ninguém perde dado por causa da mudança de fluxo."""
-        self.client.post(step_url(3), self.dias(5))
-        self.client.post(step_url(4), STEP4)
-        escolhida = self.perfil().split_preference
+        """Ninguém perde dado por causa da mudança de fluxo.
 
-        self.client.post(step_url(3), self.dias(2))
+        Reduzir para dois dias tira a divisão do POST — e o formulário que não
+        vai não pode apagar o que o anterior gravou.
+        """
+        self.client.post(step_url(2), self.dias(5))
+        escolhida = self.perfil().split_preference
+        self.assertTrue(self.perfil().split_preference_confirmada)
+
+        self.client.post(step_url(2), self.dias(2))
 
         self.assertEqual(self.perfil().split_preference, escolhida)
 
@@ -2401,14 +2448,14 @@ class OnboardingV22Tests(TestCase):
         """A regra de negócio não mudou — só quem responde o quê.
 
         `split_for` já caía na tabela por frequência quando não havia
-        preferência, e é isso que sustenta pular a pergunta.
+        preferência, e é isso que sustenta dispensar a pergunta.
         """
         # DOIS dias, pelo mesmo motivo de
-        # `test_retomar_leva_ao_passo_certo_do_caminho_curto`: é o caminho SEM
-        # a pergunta que este teste mede, e três dias deixaram de ser um.
-        self.client.post(step_url(3), self.dias(2))
-        self.client.post(step_url(5), STEP5)
-        self.client.post(step_url(6), STEP6)
+        # `test_retomar_leva_a_etapa_certa_de_quem_dispensou_a_divisao`: é o
+        # caso SEM a pergunta que este teste mede, e três dias deixaram de
+        # ser um.
+        self.client.post(step_url(2), self.dias(2))
+        self.client.post(step_url(3), ETAPA3)
 
         perfil = self.perfil()
         self.assertTrue(perfil.onboarding_complete)
@@ -2417,24 +2464,28 @@ class OnboardingV22Tests(TestCase):
             split_for(2, perfil.split_preference), split_for(2, None)
         )
 
-    def test_o_ultimo_passo_continua_sendo_o_cinco_nos_dois_caminhos(self):
+    def test_a_ultima_etapa_e_a_mesma_para_todo_mundo(self):
         """`ONBOARDING_DONE` e `onboarding_complete` dependem disso.
 
-        Se o caminho curto terminasse em outro número, "terminou o onboarding"
-        precisaria de duas definições — e a segunda envelheceria.
+        Havia dois caminhos (com e sem o passo 4), e o teste garantia que os
+        dois terminavam no mesmo número — senão "terminou o onboarding"
+        precisaria de duas definições, e a segunda envelheceria. Hoje o
+        caminho é um só, e `passos_de` devolve o mesmo para qualquer pessoa.
         """
-        self.assertEqual(CAMINHO_CURTO[-1], ONBOARDING_LAST_STEP)
-        self.assertEqual(CAMINHO_COMPLETO[-1], ONBOARDING_LAST_STEP)
+        self.assertEqual(views.ETAPAS, (1, 2, 3))
+        self.assertEqual(views.ETAPAS[-1], ONBOARDING_LAST_STEP)
+        self.assertEqual(views.passos_de(self.user, self.perfil()), views.ETAPAS)
+        self.assertEqual(views.passos_de(None, None), views.ETAPAS)
 
-    def test_ninguem_pula_etapa_no_caminho_curto(self):
-        """Pular a divisão não abriu atalho para o resto."""
+    def test_ninguem_pula_etapa(self):
+        """Dispensar a divisão não abriu atalho para o resto."""
         outro = User.objects.create_user(
             email="pulador@exemplo.com", password="senha-bem-forte-123"
         )
         self.client.force_login(outro)
 
-        self.assertRedirects(self.client.get(step_url(5)), step_url(1))
         self.assertRedirects(self.client.get(step_url(3)), step_url(1))
+        self.assertRedirects(self.client.get(step_url(2)), step_url(1))
 
 
 class PesoDoOnboardingTests(TestCase):
@@ -2855,7 +2906,7 @@ class ConfirmacaoDeEscritaTests(TestCase):
 class EstadoVazioDeTreinosTests(TestCase):
     """O cartão de treinos sem nenhum dia.
 
-    É alcançável: `weekdays` é `required=False` no passo 3, então quem responde
+    É alcançável: `weekdays` é `required=False` na etapa 2, então quem responde
     que não treina cai aqui. O cabeçalho tem "Editar", e mesmo assim o cartão
     ganhou botão — "editar" é o verbo errado quando não existe nada para
     editar, e um link de texto ao lado do título não é o convite de um cartão
@@ -2871,14 +2922,15 @@ class EstadoVazioDeTreinosTests(TestCase):
         html = self.client.get(reverse("accounts:profile")).content.decode()
         bloco = html.split("Nenhum dia de treino", 1)[1][:400]
 
+        # Os dias moram na etapa 2 (objetivo e rotina) desde 15/09/2026.
         self.assertIn(
-            reverse("accounts:onboarding_step", kwargs={"step": 3}), bloco
+            reverse("accounts:onboarding_step", kwargs={"step": 2}), bloco
         )
         self.assertIn("Cadastrar dias de treino", bloco)
 
     def test_o_destino_do_botao_responde(self):
         """CTA que aponta para rota quebrada é pior que CTA nenhum."""
-        destino = reverse("accounts:onboarding_step", kwargs={"step": 3})
+        destino = reverse("accounts:onboarding_step", kwargs={"step": 2})
 
         self.assertEqual(self.client.get(destino).status_code, 200)
 
@@ -5604,19 +5656,24 @@ class PedirNovaEscolhaDeDivisaoTests(TestCase):
         self.client.post(self._rota(), {}, secure=True)
 
         # Quatro dias de treino: sem eles `preferencia_muda_a_divisao` devolve
-        # False, o passo 4 não entra no caminho da pessoa, e o teste mediria a
-        # ausência do passo em vez da escolha.
-        for dia in range(4):
-            TrainingDay.objects.create(
-                user=self.alvo, weekday=dia, start_time=time(19, 0), duration_min=60
-            )
+        # False, a etapa 2 ignora a divisão, e o teste mediria a ausência da
+        # pergunta em vez da escolha. A divisão mora na etapa 2 desde
+        # 15/09/2026, junto com o objetivo e a rotina — e a etapa composta
+        # exige os três formulários no mesmo POST.
         self.client.force_login(self.alvo)
         Profile.objects.filter(pk=self.perfil.pk).update(
             onboarding_step=ONBOARDING_DONE
         )
         self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 4}),
-            {"split_preference": SplitPreference.DOIS},
+            reverse("accounts:onboarding_step", kwargs={"step": 2}),
+            {
+                "goal": Goal.BULK,
+                "activity_level": ActivityLevel.LIGHT,
+                "weekdays": ["0", "1", "2", "3"],
+                "wake_time": "07:00",
+                "sleep_time": "23:00",
+                "split_preference": SplitPreference.DOIS,
+            },
         )
 
         self.perfil.refresh_from_db()
@@ -5745,9 +5802,13 @@ class DiasDeTreinoNaoDependemDoAdminTests(TestCase):
         )
         self.client.force_login(self.alvo)
 
+        # A rotina mora na etapa 2 desde 15/09/2026, composta com o objetivo:
+        # o POST leva os dois, senão a etapa recusa inteira.
         self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 3}),
+            reverse("accounts:onboarding_step", kwargs={"step": 2}),
             {
+                "goal": Goal.BULK,
+                "activity_level": ActivityLevel.LIGHT,
                 "weekdays": ["1", "3"],
                 "start_time": "18:30",
                 # A pergunta virou FAIXA, e depois saiu da tela inteira. O

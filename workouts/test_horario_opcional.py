@@ -9,8 +9,8 @@ prescrição.
   - `plans/meal_planner.py` soma `start_time + duration_min` para não marcar
     refeição no meio do treino.
 
-O preço de exigi-lo era concreto: todo mundo saía do passo 3 com "19:00", o
-padrão do campo, e a tela repetia esse horário em cada cartão como se fosse a
+O preço de exigi-lo era concreto: todo mundo saía do passo dos dias (hoje a
+etapa 2) com "19:00", o padrão do campo, e a tela repetia esse horário em cada cartão como se fosse a
 rotina da pessoa.
 
 A AUSÊNCIA É UM ESTADO DE VERDADE, e o comportamento dela é explícito: sem
@@ -162,16 +162,19 @@ class OHorarioSalvoNaoESilenciosamenteApagadoTests(TestCase):
         for dia in TrainingDay.objects.filter(user=user):
             self.assertEqual(dia.start_time, time(19, 0))
 
-    def test_o_passo_3_aceita_envio_sem_horario(self):
+    def test_a_etapa_2_aceita_envio_sem_horario(self):
         from accounts.models import ONBOARDING_DONE, Profile
 
         user = create_user(email="passo3@exemplo.com")
         Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
         self.client.force_login(user)
 
-        self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 3}),
+        resposta = self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 2}),
             {
+                # A etapa 2 também pede objetivo e atividade: vão os do perfil.
+                "goal": user.profile.goal,
+                "activity_level": user.profile.activity_level,
                 "weekdays": ["1", "3"],
                 "start_time": "",
                 "duracao_treino": "padrao",
@@ -179,13 +182,16 @@ class OHorarioSalvoNaoESilenciosamenteApagadoTests(TestCase):
                 "sleep_time": "23:00",
             },
         )
+        # Dois dias não pedem a divisão; um 200 aqui seria o formulário
+        # recusando o envio, e o resto mediria os dias antigos.
+        self.assertEqual(resposta.status_code, 302)
 
         dias = TrainingDay.objects.filter(user=user).order_by("weekday")
         self.assertEqual([d.weekday for d in dias], [1, 3])
         for dia in dias:
             self.assertIsNone(dia.start_time)
 
-    def test_o_passo_3_NAO_aceita_mais_horario_e_preserva_o_existente(self):
+    def test_a_etapa_2_NAO_aceita_mais_horario_e_preserva_o_existente(self):
         """O controle virou o contrário, e o contrário é o contrato novo.
 
         ELE ERA "o campo não virou decorativo": postar 06:30 tinha de gravar
@@ -209,16 +215,23 @@ class OHorarioSalvoNaoESilenciosamenteApagadoTests(TestCase):
         TrainingDay.objects.filter(user=user).update(start_time=time(19, 0))
         self.client.force_login(user)
 
-        self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 3}),
+        resposta = self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 2}),
             {
+                "goal": user.profile.goal,
+                "activity_level": user.profile.activity_level,
                 "weekdays": [str(d.weekday) for d in user.training_days.all()],
                 "start_time": "06:30",
                 "experiencia": "intermediario",
                 "wake_time": "07:00",
                 "sleep_time": "23:00",
+                # Três dias pedem a divisão. Sem ela o envio seria recusado, e
+                # o horário sobreviveria por NÃO ter havido salvamento nenhum
+                # — o teste passaria pelo motivo errado.
+                "split_preference": user.profile.split_preference,
             },
         )
+        self.assertEqual(resposta.status_code, 302, "a etapa 2 recusou o envio")
 
         horarios = {d.start_time for d in user.training_days.all()}
         self.assertEqual(

@@ -10,6 +10,11 @@ quem nunca viu a pergunta. Na TELA eles viram outra coisa: quem toca
 "2 grupos por dia" dizia "Mais popular" ao lado de um "3 grupos" já marcado —
 a tela recomendava um e entregava outro.
 
+Desde 15/09/2026 as mesmas perguntas moram em três etapas: objetivo, rotina e
+divisão na 2; comida e áreas na 3. A regra é a mesma, e é dos FORMULÁRIOS,
+que a composição reaproveitou — por isso os testes continuam contando rádios
+por campo, e não por tela.
+
 É a regra que `experiencia` já segue (`workouts/test_experiencia.py`): opção
 pré-marcada é o padrão silencioso, na entrada. Vale só na primeira passagem;
 quem já respondeu volta e encontra a resposta dele.
@@ -33,6 +38,11 @@ STEP3_QUATRO_DIAS = {
 }
 STEP4 = {"split_preference": "three"}
 STEP5 = {"meal_style": "quick"}
+#: A etapa 2 inteira, com quatro dias — a divisão é exigida e vai junto.
+ETAPA2_QUATRO_DIAS = {**STEP2, **STEP3_QUATRO_DIAS, **STEP4}
+#: As áreas fecham a etapa 3 junto com a comida; a resposta neutra é a que
+#: menos interfere no que estes testes medem.
+AREAS = {"prioridade": "nenhuma"}
 
 
 def passo(n):
@@ -83,59 +93,59 @@ class OPasso2AbreEmBrancoTests(_Cadastro):
         self.assertEqual(Profile.objects.get(user=self.pessoa).onboarding_step, 2)
 
     def test_quem_respondeu_volta_e_encontra_a_resposta(self):
-        self.client.post(passo(2), STEP2)
+        self.client.post(passo(2), ETAPA2_QUATRO_DIAS)
         self.assertEqual(self.radios(2, "goal"), (4, ["cut"]))
         self.assertEqual(self.radios(2, "activity_level"), (3, ["light"]))
 
 
-class OPasso4AbreEmBrancoTests(_Cadastro):
+class ADivisaoAbreEmBrancoTests(_Cadastro):
+    """A divisão mora na etapa 2, num bloco que o JavaScript revela a partir
+    de três dias. O bloco está no HTML desde o primeiro GET — é por isso que
+    os rádios podem ser contados sem dia nenhum gravado."""
+
     def setUp(self):
         super().setUp()
         self.client.post(passo(1), STEP1)
-        self.client.post(passo(2), STEP2)
-        self.client.post(passo(3), STEP3_QUATRO_DIAS)
 
     def test_a_divisao_abre_sem_marcacao_e_o_selo_de_mais_popular_esta_la(self):
-        total, marcados = self.radios(4, "split_preference")
+        total, marcados = self.radios(2, "split_preference")
         self.assertEqual(total, 3)
         self.assertEqual(marcados, [])
-        self.assertContains(self.client.get(passo(4)), "Mais popular")
+        self.assertContains(self.client.get(passo(2)), "Mais popular")
 
     def test_escolher_tres_de_proposito_volta_marcado(self):
         """TRES é o padrão de fábrica E uma resposta válida; a diferença é a
         confirmação, e é ela que faz o rádio voltar marcado."""
-        self.client.post(passo(4), STEP4)
-        self.assertEqual(self.radios(4, "split_preference"), (3, ["three"]))
+        self.client.post(passo(2), ETAPA2_QUATRO_DIAS)
+        self.assertEqual(self.radios(2, "split_preference"), (3, ["three"]))
 
     def test_quem_terminou_o_cadastro_sem_responder_ainda_abre_em_branco(self):
-        """Quem treinava três dias pulou o passo 4. Ao marcar o quarto dia, o
-        app manda de volta para cá — e a pergunta continua sem resposta."""
+        """Quem treinava dois dias nunca viu a divisão. Ao marcar o terceiro
+        dia, o bloco aparece — e a pergunta continua sem resposta."""
         Profile.objects.filter(user=self.pessoa).update(
             onboarding_step=ONBOARDING_DONE, split_preference_confirmada=False
         )
-        self.assertEqual(self.radios(4, "split_preference"), (3, []))
+        self.assertEqual(self.radios(2, "split_preference"), (3, []))
 
 
-class OPasso5AbreEmBrancoTests(_Cadastro):
+class AComidaAbreEmBrancoTests(_Cadastro):
     def setUp(self):
         super().setUp()
         self.client.post(passo(1), STEP1)
-        self.client.post(passo(2), STEP2)
-        self.client.post(passo(3), STEP3_QUATRO_DIAS)
-        self.client.post(passo(4), STEP4)
+        self.client.post(passo(2), ETAPA2_QUATRO_DIAS)
 
     def test_o_cardapio_abre_sem_marcacao_e_o_recomendado_esta_la(self):
-        total, marcados = self.radios(5, "meal_style")
+        total, marcados = self.radios(3, "meal_style")
         self.assertEqual(total, 2)
         self.assertEqual(marcados, [])
-        self.assertContains(self.client.get(passo(5)), "Recomendado")
+        self.assertContains(self.client.get(passo(3)), "Recomendado")
 
     def test_quem_respondeu_volta_e_encontra_a_resposta(self):
-        self.client.post(passo(5), STEP5)
-        self.assertEqual(self.radios(5, "meal_style"), (2, ["quick"]))
+        self.client.post(passo(3), {**STEP5, **AREAS})
+        self.assertEqual(self.radios(3, "meal_style"), (2, ["quick"]))
 
     def test_quem_terminou_o_cadastro_edita_com_a_resposta_gravada(self):
         """Edição pelo Perfil: o valor do banco é a resposta, e aparece."""
-        self.client.post(passo(5), {"meal_style": "varied"})
+        self.client.post(passo(3), {"meal_style": "varied", **AREAS})
         Profile.objects.filter(user=self.pessoa).update(onboarding_step=ONBOARDING_DONE)
-        self.assertEqual(self.radios(5, "meal_style"), (2, ["varied"]))
+        self.assertEqual(self.radios(3, "meal_style"), (2, ["varied"]))

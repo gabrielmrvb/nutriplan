@@ -2,13 +2,19 @@
 
 Dois achados, medidos no navegador.
 
-1. `/treino/` manda para o passo 3 do cadastro ("Dias de treino"), e esse passo
-   NÃO tem barra de abas — `sem_tabbar` é decisão registrada, e é certa: os
-   destinos da barra devolveriam quem está no meio do wizard. O problema era o
-   que sobrava como saída. Medido: "Voltar" apontava para o passo 2 (a tela de
+1. `/treino/` manda para a etapa 2 do cadastro ("Seu objetivo e rotina", onde
+   moram os dias de treino), e essa etapa NÃO tem barra de abas — `sem_tabbar`
+   é decisão registrada, e é certa: os destinos da barra devolveriam quem está
+   no meio do wizard. O problema era o que sobrava como saída. Medido, quando
+   os dias eram o passo 3 de seis: "Voltar" apontava para o passo 2 (a tela de
    meta, que ninguém pediu) e "Salvar" ia para o Perfil. Nenhum dos dois voltava
    para o treino — de onde a pessoa veio e cuja ficha acabou de ser remontada
    com os dias que ela mudou. O único caminho de volta era o botão do NAVEGADOR.
+
+   Desde 15/09/2026 o onboarding tem TRÊS etapas, e a divisão é perguntada
+   DENTRO da etapa 2 quando os dias pedem — não há mais salto para um "passo
+   4". A origem precisa sobreviver a isso também: ao erro de validação (a
+   tela reabre com a pergunta) e ao salvar.
 
 2. As duas navegações principais do app — a barra de baixo no celular e a de
    cima no desktop — marcavam a aba da vez só com uma classe visual. Medido:
@@ -54,16 +60,18 @@ class AEdicaoVoltaParaOndeAPessoaEstavaTests(TestCase):
         # teste medir NAVEGAÇÃO em vez de medir a ausência do catálogo.
         call_command("seed_workouts", verbosity=0)
 
-    #: O passo 3 pede cinco campos: os dias, o horário, o tempo disponível e a
-    #: janela de sono. Faltando um, o POST devolve 200 com o formulário
-    #: inválido — e um teste de redirecionamento que aceitasse isso estaria
-    #: medindo a recusa do formulário, não o caminho de volta.
-    PASSO_3 = {
+    #: A etapa 2 pede o objetivo, a atividade, os dias, a janela de sono e —
+    #: com três dias, que já pedem a divisão — a preferência de divisão.
+    #: Faltando um, o POST devolve 200 com o formulário inválido — e um teste
+    #: de redirecionamento que aceitasse isso estaria medindo a recusa do
+    #: formulário, não o caminho de volta.
+    ETAPA_2 = {
+        "goal": "cut",
+        "activity_level": "light",
         "weekdays": ["0", "2", "4"],
-        "start_time": "19:00",
-        "duration_min": "60",
         "wake_time": "07:00",
         "sleep_time": "23:00",
+        "split_preference": "three",
     }
 
     def setUp(self):
@@ -71,14 +79,17 @@ class AEdicaoVoltaParaOndeAPessoaEstavaTests(TestCase):
         self.client.force_login(self.pessoa)
 
     def _botao_voltar(self, url):
-        html = self.client.get(url).content.decode()
+        return self._voltar_em(self.client.get(url).content.decode())
+
+    @staticmethod
+    def _voltar_em(html):
         trecho = html[html.index('class="form-actions"'):]
         achado = re.search(r'href="([^"]+)"[^>]*>\s*Voltar', trecho)
         return achado.group(1) if achado else None
 
     def test_vindo_do_treino_o_voltar_aponta_para_o_treino(self):
         destino = self._botao_voltar(
-            reverse("accounts:onboarding_step", kwargs={"step": 3})
+            reverse("accounts:onboarding_step", kwargs={"step": 2})
             + "?origem=treino"
         )
 
@@ -86,89 +97,110 @@ class AEdicaoVoltaParaOndeAPessoaEstavaTests(TestCase):
 
     def test_vindo_do_treino_salvar_devolve_ao_treino(self):
         resposta = self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 3})
+            reverse("accounts:onboarding_step", kwargs={"step": 2})
             + "?origem=treino",
-            self.PASSO_3,
+            self.ETAPA_2,
         )
 
         self.assertRedirects(resposta, reverse("workouts:routine"))
 
     def test_quem_edita_os_dias_e_ainda_nao_escolheu_a_divisao_e_perguntado(self):
-        """O desvio para o passo 4, com a ORIGEM viajando junto.
+        """A pergunta da divisão, feita NA PRÓPRIA etapa 2, com a origem intacta.
 
-        POR QUE ELE PRECISOU DE TESTE PRÓPRIO. Este desvio já existia e já
-        funcionava, e nenhum teste o mirava: ele era disparado sem querer pelo
-        fixture `create_complete_user`, que criava gente "com onboarding
-        completo" e a divisão por confirmar. Quando o fixture passou a
-        confirmá-la — porque completar o cadastro passou a incluir essa
-        resposta —, o desvio ficaria sem cobertura nenhuma.
+        POR QUE ELE PRECISOU DE TESTE PRÓPRIO. Esta pergunta já existia — era
+        um desvio para o passo 4 — e nenhum teste a mirava: ela era disparada
+        sem querer pelo fixture `create_complete_user`, que criava gente "com
+        onboarding completo" e a divisão por confirmar. Quando o fixture
+        passou a confirmá-la — porque completar o cadastro passou a incluir
+        essa resposta —, a pergunta ficaria sem cobertura nenhuma.
 
         O caso real é o de quem terminou o cadastro antes de a pergunta existir
         para a frequência dela, e agora edita os dias de treino: a escolha que
-        o app estava usando é a de fábrica, não a dela, e o passo 3 é o momento
-        exato de perguntar — os dias novos acabaram de ser salvos e a divisão
-        vai ser decidida em seguida.
+        o app estava usando é a de fábrica, não a dela, e a etapa 2 é o momento
+        exato de perguntar — os dias novos estão sendo salvos e a divisão vai
+        ser decidida junto.
 
-        E a origem não se perde no caminho: quem veio do Treino continua
-        voltando para o Treino depois de responder, e não cai no Perfil por ter
-        passado por um passo a mais.
+        Com três etapas não há salto: a etapa 2 RECUSA o envio sem a divisão
+        quando os dias pedem, reabre com o bloco visível e o erro no campo, e
+        não grava nada. E a origem não se perde no caminho: a tela reaberta
+        continua com a saída apontando para o Treino, e responder leva de
+        volta para lá — não para o Perfil por ter passado por uma pergunta a
+        mais.
         """
         pessoa = create_complete_user(
             email="b6divisao@exemplo.com", split_preference_confirmada=False
         )
         self.client.force_login(pessoa)
-
-        resposta = self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 3})
-            + "?origem=treino",
-            self.PASSO_3,
+        sem_divisao = {k: v for k, v in self.ETAPA_2.items() if k != "split_preference"}
+        url = (
+            reverse("accounts:onboarding_step", kwargs={"step": 2})
+            + "?origem=treino"
         )
 
-        self.assertRedirects(
-            resposta,
-            reverse("accounts:onboarding_step", kwargs={"step": 4})
-            + "?origem=treino",
+        resposta = self.client.post(url, sem_divisao)
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertTrue(resposta.context["mostrar_divisao"])
+        self.assertTrue(resposta.context["forms"]["divisao"].errors)
+        pessoa.profile.refresh_from_db()
+        self.assertFalse(pessoa.profile.split_preference_confirmada)
+        # A origem sobreviveu à recusa: a saída da tela reaberta é o Treino.
+        self.assertEqual(
+            self._voltar_em(resposta.content.decode()), reverse("workouts:routine")
         )
 
-    def test_a_origem_forjada_nao_sobrevive_ao_desvio_da_divisao(self):
+        resposta = self.client.post(url, self.ETAPA_2)
+
+        self.assertRedirects(resposta, reverse("workouts:routine"))
+        pessoa.profile.refresh_from_db()
+        self.assertTrue(pessoa.profile.split_preference_confirmada)
+
+    def test_a_origem_forjada_nao_sobrevive_a_pergunta_da_divisao(self):
         """O par adversarial do teste acima: `?origem=` é lista fechada.
 
-        O desvio remonta a URL do passo 4 com a origem colada nela. Uma origem
-        forjada sobrevivendo a essa remontagem seria redirecionamento aberto
-        entrando pela porta que a correção abriu.
+        A tela reaberta com a pergunta escreve a saída a partir da origem, e
+        responder redireciona a partir dela. Uma origem forjada sobrevivendo a
+        qualquer uma das duas seria redirecionamento aberto entrando pela
+        porta que a correção abriu.
         """
         pessoa = create_complete_user(
             email="b6forjada@exemplo.com", split_preference_confirmada=False
         )
         self.client.force_login(pessoa)
-
-        resposta = self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 3})
-            + "?origem=https://exemplo.invalido/",
-            self.PASSO_3,
+        sem_divisao = {k: v for k, v in self.ETAPA_2.items() if k != "split_preference"}
+        url = (
+            reverse("accounts:onboarding_step", kwargs={"step": 2})
+            + "?origem=https://exemplo.invalido/"
         )
 
-        self.assertRedirects(
-            resposta, reverse("accounts:onboarding_step", kwargs={"step": 4})
-        )
+        resposta = self.client.post(url, sem_divisao)
+
+        self.assertEqual(resposta.status_code, 200)
+        html = resposta.content.decode()
+        self.assertEqual(self._voltar_em(html), reverse("accounts:profile"))
+        self.assertNotIn("exemplo.invalido", html)
+
+        resposta = self.client.post(url, self.ETAPA_2)
+
+        self.assertRedirects(resposta, reverse("accounts:profile"))
 
     def test_sem_origem_o_caminho_do_perfil_continua_igual(self):
         """O contra-controle. Uma correção que mandasse todo mundo para o
         treino quebraria os seis links de edição que saem do Perfil."""
         resposta = self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 3}),
-            self.PASSO_3,
+            reverse("accounts:onboarding_step", kwargs={"step": 2}),
+            self.ETAPA_2,
         )
 
         self.assertRedirects(resposta, reverse("accounts:profile"))
 
     def test_sem_origem_o_voltar_tambem_sai_do_wizard(self):
         """Editando, "Voltar" é saída, e não um passo atrás: ele apontava para
-        o passo 2 enquanto "Salvar" ia para o Perfil — dois botões, duas portas
-        diferentes, nenhuma delas a tela de origem."""
+        a etapa anterior enquanto "Salvar" ia para o Perfil — dois botões, duas
+        portas diferentes, nenhuma delas a tela de origem."""
         self.assertEqual(
             self._botao_voltar(
-                reverse("accounts:onboarding_step", kwargs={"step": 3})
+                reverse("accounts:onboarding_step", kwargs={"step": 2})
             ),
             reverse("accounts:profile"),
         )
@@ -180,9 +212,9 @@ class AEdicaoVoltaParaOndeAPessoaEstavaTests(TestCase):
                         "/gestao/", "treino/../../etc"):
             with self.subTest(origem=forjada):
                 resposta = self.client.post(
-                    reverse("accounts:onboarding_step", kwargs={"step": 3})
+                    reverse("accounts:onboarding_step", kwargs={"step": 2})
                     + "?origem=" + forjada,
-                    self.PASSO_3,
+                    self.ETAPA_2,
                 )
                 self.assertRedirects(resposta, reverse("accounts:profile"))
 
@@ -206,9 +238,9 @@ class AEdicaoVoltaParaOndeAPessoaEstavaTests(TestCase):
         pelo número, não pelo defeito. Os dois erros são reais e são
         diferentes: o link novo estava errado E o teste media a coisa errada.
 
-        A propriedade é "todo link para o passo 3 emitido por esta tela leva a
-        origem". O piso de três impede que ela passe por vacuidade no dia em
-        que alguém apagar os links em vez de corrigi-los.
+        A propriedade é "todo link para a etapa dos dias (a 2) emitido por
+        esta tela leva a origem". O piso de três impede que ela passe por
+        vacuidade no dia em que alguém apagar os links em vez de corrigi-los.
         """
         from pathlib import Path
 
@@ -218,9 +250,9 @@ class AEdicaoVoltaParaOndeAPessoaEstavaTests(TestCase):
         ).read_text(encoding="utf-8")
 
         com_origem = ficha.count(
-            "{% url 'accounts:onboarding_step' step=3 %}?origem=treino"
+            "{% url 'accounts:onboarding_step' step=2 %}?origem=treino"
         )
-        total = ficha.count("{% url 'accounts:onboarding_step' step=3 %}")
+        total = ficha.count("{% url 'accounts:onboarding_step' step=2 %}")
 
         self.assertGreaterEqual(total, 3)
         self.assertEqual(total, com_origem)
@@ -230,10 +262,10 @@ class AEdicaoVoltaParaOndeAPessoaEstavaTests(TestCase):
 
         Ela sai de propósito: os destinos dela passam por
         `OnboardingRequiredMixin` e devolveriam quem ainda não terminou. O
-        conserto é a saída do próprio passo levar de volta.
+        conserto é a saída da própria etapa levar de volta.
         """
         resposta = self.client.get(
-            reverse("accounts:onboarding_step", kwargs={"step": 3})
+            reverse("accounts:onboarding_step", kwargs={"step": 2})
         )
 
         self.assertTrue(resposta.context["sem_tabbar"])
@@ -415,28 +447,38 @@ class AAbaDaVezEAnunciadaTests(TestCase):
                 self.assertEqual(acesas, ["Áreas"], barra)
 
 
-class AOrigemAtravessaOPassoDaDivisaoTests(TestCase):
-    """Quem veio do treino e passou pelo passo 4 continua voltando ao treino.
+class AOrigemSobreviveAPerguntaDaDivisaoTests(TestCase):
+    """A divisão é pedida NA PRÓPRIA etapa 2, e a origem sobrevive à pergunta.
 
     Editar os dias de treino pode ABRIR uma pergunta a mais: quem passa a
-    treinar quatro dias ou mais e nunca confirmou a preferência de divisão é
-    levado ao passo 4 antes de terminar. Sem carregar a origem nesse salto, a
-    pessoa cairia no Perfil por ter passado por uma tela extra — o mesmo
-    defeito, um passo adiante.
+    treinar dias suficientes para a preferência de divisão mudar a ficha
+    (`preferencia_muda_a_divisao`) precisa respondê-la. Com seis passos isso
+    era um salto para o passo 4, e a origem tinha de viajar nele; com três
+    etapas a pergunta é feita na mesma tela — o servidor recusa o envio sem
+    ela, reabre com o bloco visível e o erro no campo, e a origem continua na
+    URL da tela reaberta. O que este arquivo protege é o mesmo: quem veio do
+    Treino volta ao Treino depois de responder, e não cai no Perfil por ter
+    passado por uma pergunta a mais.
     """
 
     @classmethod
     def setUpTestData(cls):
         call_command("seed_workouts", verbosity=0)
 
-    #: Quatro dias: é o que faz a preferência de divisão passar a importar.
-    PASSO_3 = {
+    #: Quatro dias: é o que faz a preferência de divisão passar a importar
+    #: (três já bastam hoje; quatro é a folga para a régua do motor mudar).
+    ETAPA_2 = {
+        "goal": "cut",
+        "activity_level": "light",
         "weekdays": ["0", "2", "4", "6"],
-        "start_time": "19:00",
-        "duration_min": "60",
         "wake_time": "07:00",
         "sleep_time": "23:00",
     }
+    # O VALOR do choice, não o nome da constante: `SplitPreference.TRES`
+    # vale "three".
+    ETAPA_2_COM_DIVISAO = {**ETAPA_2, "split_preference": "three"}
+    #: Dois dias: a divisão não muda nada e não é pedida.
+    ETAPA_2_DOIS_DIAS = {**ETAPA_2, "weekdays": ["0", "3"]}
 
     def setUp(self):
         self.pessoa = create_complete_user(email="b6divisao@exemplo.com")
@@ -444,49 +486,96 @@ class AOrigemAtravessaOPassoDaDivisaoTests(TestCase):
         self.pessoa.profile.save(update_fields=["split_preference_confirmada"])
         self.client.force_login(self.pessoa)
 
-    def _passo_3(self, origem=""):
-        url = reverse("accounts:onboarding_step", kwargs={"step": 3})
+    def _etapa_2(self, origem=""):
+        url = reverse("accounts:onboarding_step", kwargs={"step": 2})
         return url + ("?origem=" + origem if origem else "")
 
-    def test_o_salto_para_a_divisao_leva_a_origem_junto(self):
-        resposta = self.client.post(self._passo_3("treino"), self.PASSO_3)
+    def _voltar_em(self, html):
+        trecho = html[html.index('class="form-actions"'):]
+        achado = re.search(r'href="([^"]+)"[^>]*>\s*Voltar', trecho)
+        return achado.group(1) if achado else None
 
-        self.assertRedirects(
-            resposta,
-            reverse("accounts:onboarding_step", kwargs={"step": 4})
-            + "?origem=treino",
+    def _confirmada(self):
+        self.pessoa.profile.refresh_from_db()
+        return self.pessoa.profile.split_preference_confirmada
+
+    def test_a_divisao_e_pedida_na_propria_etapa_quando_os_dias_pedem(self):
+        """Sem a divisão, com dias que pedem: 200, bloco visível, erro no
+        campo — e NADA gravado, nem os dias, nem a confirmação."""
+        dias_antes = sorted(self.pessoa.training_days.values_list("weekday", flat=True))
+
+        resposta = self.client.post(self._etapa_2("treino"), self.ETAPA_2)
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertTrue(resposta.context["mostrar_divisao"])
+        self.assertTrue(resposta.context["forms"]["divisao"].errors)
+        self.assertEqual(
+            sorted(self.pessoa.training_days.values_list("weekday", flat=True)),
+            dias_antes,
         )
+        self.assertFalse(self._confirmada())
 
-    def test_terminando_a_divisao_a_pessoa_volta_ao_treino(self):
-        """A ponta do caminho, e é ela que importa: o salto só vale se a volta
-        chegar no treino."""
-        self.client.post(self._passo_3("treino"), self.PASSO_3)
+    def test_a_origem_sobrevive_ao_erro_de_validacao(self):
+        """A tela reaberta com a pergunta ainda sabe de onde a pessoa veio:
+        "Voltar" aponta para o Treino, e o formulário reenvia para a MESMA
+        URL — sem `action` próprio que descartasse o `?origem=`."""
+        resposta = self.client.post(self._etapa_2("treino"), self.ETAPA_2)
+
+        html = resposta.content.decode()
+        self.assertEqual(self._voltar_em(html), reverse("workouts:routine"))
+        # O formulário DA ETAPA — o último `<form` antes do campo dos dias; a
+        # barra de cima tem o de sair, que tem `action` e não é este.
+        formulario = re.findall(r"<form[^>]*>", html[: html.index('name="weekdays"')])[-1]
+        self.assertNotIn("action=", formulario)
+
+    def test_respondendo_a_divisao_a_pessoa_volta_ao_treino(self):
+        """A ponta do caminho, e é ela que importa: a pergunta só vale se a
+        volta chegar no treino — e com a divisão confirmada."""
+        self.client.post(self._etapa_2("treino"), self.ETAPA_2)
 
         resposta = self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 4})
-            + "?origem=treino",
-            # O VALOR do choice, não o nome da constante: `SplitPreference.TRES`
-            # vale "three".
-            {"split_preference": "three"},
+            self._etapa_2("treino"), self.ETAPA_2_COM_DIVISAO
         )
 
         self.assertRedirects(resposta, reverse("workouts:routine"))
+        self.assertTrue(self._confirmada())
+        self.assertEqual(self.pessoa.training_days.count(), 4)
 
-    def test_sem_origem_o_salto_continua_indo_para_o_perfil(self):
+    def test_sem_origem_a_pergunta_continua_levando_ao_perfil(self):
         """O contra-controle: quem editou pelo Perfil não pode ser desviado."""
-        resposta = self.client.post(self._passo_3(), self.PASSO_3)
+        resposta = self.client.post(self._etapa_2(), self.ETAPA_2)
 
-        self.assertRedirects(
-            resposta, reverse("accounts:onboarding_step", kwargs={"step": 4})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(
+            self._voltar_em(resposta.content.decode()), reverse("accounts:profile")
         )
 
-    def test_origem_forjada_nao_viaja_no_salto(self):
-        """A interpolação só acontece depois de a origem passar pela lista
-        fechada — o valor nunca chega cru na URL."""
-        resposta = self.client.post(
-            self._passo_3("https://exemplo.invalido/roubo"), self.PASSO_3
-        )
+        resposta = self.client.post(self._etapa_2(), self.ETAPA_2_COM_DIVISAO)
 
-        self.assertRedirects(
-            resposta, reverse("accounts:onboarding_step", kwargs={"step": 4})
-        )
+        self.assertRedirects(resposta, reverse("accounts:profile"))
+
+    def test_origem_forjada_nao_viaja_na_pergunta(self):
+        """A saída da tela reaberta e o redirecionamento de quem responde
+        passam pela lista fechada — o valor nunca chega cru em lugar nenhum."""
+        forjada = self._etapa_2("https://exemplo.invalido/roubo")
+
+        resposta = self.client.post(forjada, self.ETAPA_2)
+
+        html = resposta.content.decode()
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(self._voltar_em(html), reverse("accounts:profile"))
+        self.assertNotIn("exemplo.invalido", html)
+
+        resposta = self.client.post(forjada, self.ETAPA_2_COM_DIVISAO)
+
+        self.assertRedirects(resposta, reverse("accounts:profile"))
+
+    def test_com_poucos_dias_a_divisao_nao_e_pedida(self):
+        """O outro lado da régua: dois dias não pedem divisão, e o envio sem
+        ela salva e volta direto ao Treino — sem confirmar uma escolha que a
+        pessoa nunca viu."""
+        resposta = self.client.post(self._etapa_2("treino"), self.ETAPA_2_DOIS_DIAS)
+
+        self.assertRedirects(resposta, reverse("workouts:routine"))
+        self.assertFalse(self._confirmada())
+        self.assertEqual(self.pessoa.training_days.count(), 2)

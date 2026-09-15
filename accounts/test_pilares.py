@@ -25,7 +25,7 @@ from django.urls import reverse
 
 from accounts.forms import InteressesForm
 from accounts.models import CAMPO_DO_PILAR, Pilar, Profile, User
-from accounts.tests import STEP1, STEP2, STEP3, STEP4, STEP5, STEP6, step_url
+from accounts.tests import ETAPA2, STEP1, STEP5, step_url
 
 
 class OInvarianteMoraNoBancoTests(TestCase):
@@ -207,10 +207,12 @@ class OUsuarioQueJaExistiaNaoGanhaPreferenciaInventadaTests(TestCase):
             email="antigo@exemplo.com", password="senha-bem-forte-123"
         )
         self.client.force_login(self.user)
-        for passo, dados in ((1, STEP1), (2, STEP2), (3, STEP3), (4, STEP4), (5, STEP5)):
+        for passo, dados in ((1, STEP1), (2, ETAPA2)):
             self.client.post(step_url(passo), dados)
-        # E NÃO responde o 6 — é o usuário que a migration deixou completo sem
-        # nunca ter visto a pergunta.
+        # E NÃO responde a etapa 3 — é o usuário que a migration deixou
+        # completo sem nunca ter visto a pergunta das áreas. (Desde 15/09/2026
+        # as áreas dividem a etapa com a comida; a comida fica no padrão do
+        # modelo, como ficava para quem a migration promoveu.)
         Profile.objects.filter(user=self.user).update(onboarding_step=7)
 
     def test_ele_continua_entrando_no_app(self):
@@ -256,10 +258,10 @@ class NenhumPilarFicaEscondidoTests(TestCase):
             email="so-corrida@exemplo.com", password="senha-bem-forte-123"
         )
         self.client.force_login(self.user)
-        for passo, dados in ((1, STEP1), (2, STEP2), (3, STEP3), (4, STEP4), (5, STEP5)):
+        for passo, dados in ((1, STEP1), (2, ETAPA2)):
             self.client.post(step_url(passo), dados)
         self.client.post(
-            step_url(6), {"interesses": ["corrida"], "prioridade": "corrida"}
+            step_url(3), {**STEP5, "interesses": ["corrida"], "prioridade": "corrida"}
         )
 
     def test_as_cinco_areas_continuam_respondendo(self):
@@ -332,7 +334,7 @@ class AMigrationNaoEscreveNENHUMAPreferenciaTests(TestCase):
 
 class OPerfilDaPortaParaMudarDepoisTests(TestCase):
     """A escolha do onboarding não é eterna, e a porta para mudá-la já tinha um
-    padrão pronto: cinco cartões do Perfil apontam para um passo do wizard.
+    padrão pronto: cinco cartões do Perfil apontam para uma etapa do wizard.
 
     O cartão aparece SEMPRE, inclusive para quem nunca respondeu — para essa
     pessoa ele é o convite, no lugar onde ela já vai procurar quando quiser
@@ -349,8 +351,13 @@ class OPerfilDaPortaParaMudarDepoisTests(TestCase):
             email="perfil-areas@exemplo.com", password="senha-bem-forte-123"
         )
         self.client.force_login(self.user)
-        for passo, dados in ((1, STEP1), (2, STEP2), (3, STEP3), (4, STEP4), (5, STEP5)):
+        for passo, dados in ((1, STEP1), (2, ETAPA2)):
             self.client.post(step_url(passo), dados)
+
+    def areas(self, **resposta):
+        """A etapa 3 com esta resposta de áreas — e a comida junto, porque a
+        etapa é composta e valida os dois formulários no mesmo POST."""
+        return self.client.post(step_url(3), {**STEP5, **resposta})
 
     def perfil_html(self):
         return self.client.get(reverse("accounts:profile")).content.decode()
@@ -380,7 +387,7 @@ class OPerfilDaPortaParaMudarDepoisTests(TestCase):
         hidratação. O cartão passou a dizer o ESTADO — organização padrão — em
         vez de cobrar uma resposta cuja utilidade ele mesmo negava.
         """
-        self.client.post(step_url(6), {"interesses": ["dieta"], "prioridade": "dieta"})
+        self.areas(interesses=["dieta"], prioridade="dieta")
         Profile.objects.filter(user=self.user).update(
             prioridade="", **{c: False for c in CAMPO_DO_PILAR.values()}
         )
@@ -393,10 +400,7 @@ class OPerfilDaPortaParaMudarDepoisTests(TestCase):
         self.assertNotIn("nada fica escondido", cartao)
 
     def test_quem_declarou_ve_as_areas_e_qual_e_a_principal(self):
-        self.client.post(
-            step_url(6),
-            {"interesses": ["dieta", "corrida"], "prioridade": "corrida"},
-        )
+        self.areas(interesses=["dieta", "corrida"], prioridade="corrida")
 
         cartao = self.cartao()
 
@@ -414,17 +418,17 @@ class OPerfilDaPortaParaMudarDepoisTests(TestCase):
             with self.subTest(fora=fora):
                 self.assertNotIn(fora, cartao)
 
-    def test_o_cartao_leva_de_volta_ao_passo_das_areas(self):
+    def test_o_cartao_leva_de_volta_a_etapa_das_areas(self):
         """A porta. Sem ela, mudar de ideia exigiria adivinhar uma URL."""
-        self.client.post(step_url(6), {"interesses": ["dieta"], "prioridade": "dieta"})
+        self.areas(interesses=["dieta"], prioridade="dieta")
 
-        self.assertIn(step_url(6), self.perfil_html())
+        self.assertIn(step_url(3), self.perfil_html())
 
     def test_o_cartao_nao_promete_restricao(self):
         """A frase importa: interesse organiza, não tranca. Um texto do tipo
         "só as áreas escolhidas aparecem" seria falso e assustaria quem não
         quer perder nada."""
-        self.client.post(step_url(6), {"interesses": ["dieta"], "prioridade": "dieta"})
+        self.areas(interesses=["dieta"], prioridade="dieta")
 
         cartao = self.cartao()
 

@@ -409,7 +409,8 @@ def create_complete_user(email="pessoa@exemplo.com", **profile_kwargs):
         # `abc2` cabendo em três dias, a pergunta entrou no caminho, e um
         # perfil "completo" com a divisão por confirmar passou a disparar o
         # desvio de `OnboardingStepMixin` — seis testes de NAVEGAÇÃO, que não
-        # falam de divisão nenhuma, caíam em `/conta/onboarding/4/`.
+        # falam de divisão nenhuma, caíam no antigo `/conta/onboarding/4/`
+        # (desde 15/09/2026 a divisão é pedida na própria etapa 2).
         #
         # Quem quiser o outro estado — completo e sem confirmar — passa
         # `split_preference_confirmada=False`, e é o que faz

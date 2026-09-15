@@ -282,11 +282,12 @@ def preferencia_muda_a_divisao(dias_por_semana: int) -> bool:
     rodando `split_for` para cada preferência e vendo se sobra mais de uma
     resposta. O dia em que a tabela mudar, o onboarding acompanha sozinho.
 
-    Hoje isso responde `False` para 0, 1, 2 e 3 dias e `True` de 4 em diante:
-    quem treina três vezes recebe ABC pelas três preferências, porque a
+    Hoje isso responde `False` para 0, 1 e 2 dias e `True` de 3 em diante
+    (medido em 15/09/2026; foi "de 4 em diante" até `abc2` caber em três
+    dias): com dois dias toda preferência vira superior/inferior, porque a
     divisão não pode inventar dias que a semana não tem. Perguntar ali é pedir
-    uma escolha que o app vai ignorar — e o onboarding fica um passo mais
-    longo em troca de nada.
+    uma escolha que o app vai ignorar — e o onboarding fica mais longo em
+    troca de nada. `accounts.views.MINIMO_DE_DIAS_PARA_DIVISAO` lê daqui.
     """
     respostas = {split_for(dias_por_semana, p) for p in SPLIT_BY_PREFERENCE}
     return len(respostas) > 1

@@ -37,6 +37,13 @@ def step_url(numero):
     return reverse("accounts:onboarding_step", kwargs={"step": numero})
 
 
+#: As áreas moram na ETAPA 3 desde 15/09/2026, junto com a comida — e a etapa
+#: composta valida os dois formulários no mesmo POST. A comida vai sempre
+#: igual, para o que cada teste mede ser SÓ a resposta de áreas.
+ETAPA_DAS_AREAS = 3
+COMIDA = {"meal_style": "quick"}
+
+
 class AOpcaoNeutraEUmaRespostaTests(TestCase):
     """"Não quero priorizar agora" precisa ser possível, e não um silêncio.
 
@@ -52,19 +59,22 @@ class AOpcaoNeutraEUmaRespostaTests(TestCase):
         )
         Profile.objects.create(
             user=self.user, sex="M", birth_date="1995-04-12",
-            height_cm=178, onboarding_step=6,
+            height_cm=178, onboarding_step=ETAPA_DAS_AREAS,
         )
         self.client.force_login(self.user)
 
+    def areas(self, **resposta):
+        return self.client.post(step_url(ETAPA_DAS_AREAS), {**COMIDA, **resposta})
+
     def test_a_opcao_neutra_aparece_na_tela(self):
-        html = self.client.get(step_url(6)).content.decode()
+        html = self.client.get(step_url(ETAPA_DAS_AREAS)).content.decode()
 
         self.assertIn("Não quero priorizar agora", html)
 
     def test_usuario_novo_pode_nao_priorizar_sem_marcar_nada(self):
         """Resposta completa por si só. Sem isto, a tela exigiria pelo menos
         uma área de quem só quer seguir em frente."""
-        resposta = self.client.post(step_url(6), {"prioridade": "nenhuma"})
+        resposta = self.areas(prioridade="nenhuma")
 
         perfil = Profile.objects.get(user=self.user)
         self.assertEqual(perfil.prioridade, "")
@@ -78,10 +88,7 @@ class AOpcaoNeutraEUmaRespostaTests(TestCase):
         Escolha qual vem primeiro." para quem já tinha dito que não queria
         escolher.
         """
-        self.client.post(
-            step_url(6),
-            {"interesses": ["dieta", "corrida", "hidratacao"], "prioridade": "nenhuma"},
-        )
+        self.areas(interesses=["dieta", "corrida", "hidratacao"], prioridade="nenhuma")
 
         perfil = Profile.objects.get(user=self.user)
         self.assertEqual(perfil.prioridade, "")
@@ -95,9 +102,7 @@ class AOpcaoNeutraEUmaRespostaTests(TestCase):
         Quem disse "não quero priorizar" respondeu — promover a única marcada
         seria escolher por ela.
         """
-        self.client.post(
-            step_url(6), {"interesses": ["corrida"], "prioridade": "nenhuma"}
-        )
+        self.areas(interesses=["corrida"], prioridade="nenhuma")
 
         perfil = Profile.objects.get(user=self.user)
         self.assertEqual(perfil.prioridade, "")
@@ -105,9 +110,7 @@ class AOpcaoNeutraEUmaRespostaTests(TestCase):
 
     def test_quem_QUER_priorizar_continua_conseguindo(self):
         """Controle positivo: a saída neutra não pode ter desligado a escolha."""
-        self.client.post(
-            step_url(6), {"interesses": ["corrida", "hidratacao"], "prioridade": "corrida"}
-        )
+        self.areas(interesses=["corrida", "hidratacao"], prioridade="corrida")
 
         perfil = Profile.objects.get(user=self.user)
         self.assertEqual(perfil.prioridade, Pilar.CORRIDA)
@@ -176,7 +179,7 @@ class OTextoDoPerfilCorrespondeAosDadosTests(TestCase):
 
         for estado, cartao in (("sem escolha", sem), ("com escolha", com)):
             with self.subTest(estado=estado):
-                self.assertIn("/conta/onboarding/6/", cartao)
+                self.assertIn(step_url(ETAPA_DAS_AREAS), cartao)
 
 
 class APersonalizacaoCONTINUAValendoTests(TestCase):

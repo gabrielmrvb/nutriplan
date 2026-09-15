@@ -6,29 +6,21 @@
 {% block content %}
   <div class="wizard">
     {% comment %}
-      Uma trilha contínua, e não cinco segmentos.
-
-      Os segmentos diziam quantos passos existem, e a linha logo abaixo já diz
-      isso melhor ("Passo 4/5 · 80%"). O que eles NÃO conseguiam era mostrar o
-      avanço: segmento é ligado ou desligado, então a barra pulava de 60% para
-      80% sem passar pelo meio.
-
-      Com uma trilha só, a largura anima — e o avanço vira movimento em vez de
-      troca de estado.
+      Uma trilha contínua, e não segmentos: a largura anima, e o avanço vira
+      movimento em vez de troca de estado. Ela anda por etapa — um terço,
+      dois terços, inteira.
     {% endcomment %}
     <div class="wizard__trilha" role="presentation">
       <span class="wizard__avanco" style="width: {{ progress_pct }}%"></span>
     </div>
     {% comment %}
-      "Passo 4/5 · 80%" numa linha só, em monoespaçada.
-
-      Eram dois textos nas pontas opostas da linha, e o olho tinha que
-      atravessar a largura da tela para juntar a informação — que é uma só:
-      onde eu estou. Junto, e com dígito de largura fixa, o número não dança
-      de posição quando o passo troca.
+      "Etapa 2 de 3", e só isso, em dígito de largura fixa. O rótulo dizia
+      o passo, o total e uma porcentagem — três números para uma informação,
+      e o total era o wizard antigo de seis passos vazando na tela (C-ONB,
+      15/09/2026). A trilha acima já mostra o avanço.
     {% endcomment %}
     <p class="wizard__label num">
-      Passo {{ posicao }}/{{ total_steps }} · {{ progress_pct }}%
+      Etapa {{ posicao }} de {{ total_steps }}
     </p>
   </div>
 
@@ -45,6 +37,12 @@
       {% endif %}
 
       {% if step == 1 %}
+        {% comment %}
+          ETAPA 1 — SOBRE VOCÊ. Quatro dados, cada um com a razão curta de
+          existir (a ajuda do campo, escrita no formulário): sexo e idade
+          entram na fórmula da taxa metabólica; altura e peso são a base do
+          gasto. Nada aqui é preferência — é o mínimo para calcular.
+        {% endcomment %}
         {% include "partials/field.html" with field=form.sex %}
         <div class="field-row">
           <div>{% include "partials/field.html" with field=form.birth_date %}</div>
@@ -53,102 +51,69 @@
         {% include "partials/field.html" with field=form.weight_kg %}
       {% elif step == 2 %}
         {% comment %}
+          ETAPA 2 — SEU OBJETIVO E ROTINA. Três formulários que já existiam
+          (objetivo, rotina, divisão) compostos numa tela, e é isso que
+          faz três etapas sem reescrever regra nenhuma: a validação e o
+          `save()` de cada um continuam onde estavam.
+
           Objetivo e nível de atividade viram cartões: são as duas escolhas
-          que mais mudam o plano, e ler quatro linhas de texto corrido para
-          decidir é mais lento que reconhecer um desenho. Os outros passos
-          seguem com o campo comum — cartão em campo de data não ajuda.
+          que mais mudam o plano, e reconhecer um desenho é mais rápido que
+          ler quatro linhas. A DIVISÃO É PROGRESSIVA: o bloco só aparece
+          quando os dias marcados pedem (`dias_para_divisao`, lido da
+          tabela do motor); sem JavaScript o servidor reabre a tela com o
+          bloco visível e o erro no campo.
         {% endcomment %}
         {% include "partials/icones.html" %}
-        {% comment %}
-          Objetivo em duas colunas, atividade em uma.
-
-          Você pediu três colunas para a atividade e ofereceu "lista horizontal
-          limpa" como alternativa — fui pela alternativa, e por medição: três
-          colunas a 390px dão 100px por cartão, e "Sedentário / pouco ativo"
-          ocupa quatro linhas ali dentro. São três opções só; empilhadas elas
-          custam 228px e se leem de uma vez.
-        {% endcomment %}
-        {% include "partials/choice_cards.html" with field=form.goal colunas=2 %}
-        {% include "partials/choice_cards.html" with field=form.activity_level %}
-      {% elif step == 3 %}
-        {% include "partials/field.html" with field=form.weekdays %}
-        {% comment %}
-          O PAR VIROU TRÊS PERGUNTAS, E DUAS DELAS SÃO LISTAS DE FRASES.
-
-          `.field-row` é uma grade de DUAS colunas — foi feita para o par de
-          relógios "Acorda | Dorme", dois campos de uma palavra. Aqui ela
-          recebeu "Horário", "Duração" e "Experiência", e o resultado foi
-          medido a 390px: cada coluna com 146px, a terceira pergunta jogada
-          para uma segunda fileira, e "Intermediário" quebrando no meio da
-          palavra dentro do cartão de opção.
-
-          HORÁRIO E DURAÇÃO SAÍRAM DA TELA EM 10/09/2026, e sobrou a
-          experiência — que ganha a largura inteira porque as opções dela são
-          frases: "Intermediário — treino há mais de 6 meses" não cabe em
-          146px, e encurtar o rótulo custaria a informação que faz a pessoa
-          escolher certo.
-
-          Os dois campos saíram por motivos diferentes:
-
-          O HORÁRIO nunca participou da montagem da ficha — `create_routine`
-          jamais leu `start_time`. Ele servia só para o cardápio não cair no
-          meio do treino, e cobrava de todo mundo uma resposta que quase
-          ninguém tinha. O VALOR CONTINUA no banco e o cardápio continua
-          usando: `TrainingDayForm.save` preserva o que já estava lá.
-
-          A DURAÇÃO o motor usa de verdade — ela é o teto duro de cada sessão.
-          O que saiu foi a PERGUNTA: escolher entre rápido, padrão, completo e
-          "sem limite" é decisão que a pessoa não tem como calibrar antes de
-          ver uma ficha. O padrão passou a ser 45 a 60 minutos, e quem já
-          respondeu mantém o que respondeu.
-        {% endcomment %}
-        {% include "partials/field.html" with field=form.experiencia %}
-        {% comment %}
-          A janela de sono, que morava no passo da comida.
-
-          Os três relógios desta tela respondem à mesma pergunta — como é o
-          seu dia —, e o treino precisa caber dentro da janela que o sono
-          define. Lá embaixo, depois de "alguma restrição alimentar?", ela
-          obrigava a trocar de assunto no meio da tela.
-        {% endcomment %}
+        {% include "partials/choice_cards.html" with field=forms.objetivo.goal colunas=2 %}
+        {% include "partials/choice_cards.html" with field=forms.objetivo.activity_level %}
+        {% include "partials/field.html" with field=forms.rotina.experiencia %}
+        {% include "partials/field.html" with field=forms.rotina.weekdays %}
         <div class="field">
           <span class="field__label">A janela do seu dia</span>
           <div class="field__help">
             Os horários das refeições são distribuídos dentro dela.
           </div>
+          {% if forms.rotina.non_field_errors %}
+            {# A janela curta demais é erro dos DOIS relógios; fica junto deles. #}
+            <ul class="field__errors">
+              {% for error in forms.rotina.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+            </ul>
+          {% endif %}
           <div class="field-row">
-            <div>{% include "partials/field.html" with field=form.wake_time %}</div>
-            <div>{% include "partials/field.html" with field=form.sleep_time %}</div>
+            <div>{% include "partials/field.html" with field=forms.rotina.wake_time %}</div>
+            <div>{% include "partials/field.html" with field=forms.rotina.sleep_time %}</div>
           </div>
         </div>
-      {% elif step == 4 %}
-        {% include "partials/icones.html" %}
-        {% include "partials/choice_cards.html" with field=form.split_preference %}
-      {% elif step == 5 %}
+        <div class="revela" data-revela-divisao data-dias-minimos="{{ dias_para_divisao }}"
+             {% if not mostrar_divisao %}hidden{% endif %}>
+          {% include "partials/choice_cards.html" with field=forms.divisao.split_preference %}
+        </div>
+      {% elif step == 3 %}
         {% comment %}
-          O estilo de cardápio vira cartão e a restrição continua caixa de
-          marcar, e a forma diferente é a informação: um é escolha ÚNICA que
-          pesa, o outro é lista que elimina. Dar a mesma aparência aos dois
-          ensinaria que restrição também é "preferência forte", e ela não é.
+          ETAPA 3 — SUA PERSONALIZAÇÃO. O resumo vem PRIMEIRO: é a pessoa
+          conferindo o que respondeu antes de "Criar meu plano" — e a porta
+          de corrigir é o "Voltar", que não apaga nada. Depois, o que ainda
+          falta para montar os planos: estilo do cardápio, restrições, áreas
+          e prioridade. As formas são diferentes de propósito — cartão para
+          escolha única que pesa, caixa para lista que elimina.
         {% endcomment %}
+        {% if resumo %}
+          <dl class="data-list resumo-etapas">
+            {% for rotulo, valor in resumo %}
+              <div><dt>{{ rotulo }}</dt><dd>{{ valor }}</dd></div>
+            {% endfor %}
+          </dl>
+        {% endif %}
         {% include "partials/icones.html" %}
-        {% include "partials/choice_cards.html" with field=form.meal_style %}
-        {% include "partials/field.html" with field=form.dietary_tags %}
-      {% elif step == 6 %}
-        {% comment %}
-          As áreas viram CAIXAS DE MARCAR e a principal vira RÁDIO, e a forma
-          diferente é a informação — a mesma regra do passo 5. Uma é lista, a
-          outra é escolha única, e dar a mesma aparência às duas ensinaria que
-          dá para ter duas principais.
-
-          A principal aparece SEMPRE, mesmo para quem ainda não marcou nada.
-          Escondê-la até o segundo checkbox exigiria JavaScript para uma
-          decisão que o formulário já resolve sozinho: marcar a principal
-          implica o interesse, e uma área só dispensa a pergunta.
-        {% endcomment %}
-        {% include "partials/icones.html" %}
-        {% include "partials/field.html" with field=form.interesses %}
-        {% include "partials/choice_cards.html" with field=form.prioridade %}
+        {% include "partials/choice_cards.html" with field=forms.comida.meal_style %}
+        {% include "partials/field.html" with field=forms.comida.dietary_tags %}
+        {% if forms.areas.non_field_errors %}
+          <ul class="field__errors">
+            {% for error in forms.areas.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+        {% include "partials/field.html" with field=forms.areas.interesses %}
+        {% include "partials/choice_cards.html" with field=forms.areas.prioridade %}
       {% else %}
         {% for field in form %}
           {% include "partials/field.html" with field=field %}
@@ -171,18 +136,14 @@
         {% elif previous_url %}
           <a class="btn btn--ghost" href="{{ previous_url }}">Voltar</a>
         {% endif %}
-        <button type="submit" class="btn btn--primary">
-          {% if is_editing %}Salvar
-          {% elif is_last_step %}Concluir
-          {% else %}Continuar{% endif %}
-        </button>
+        <button type="submit" class="btn btn--primary">{% if is_editing %}Salvar{% elif is_last_step %}Criar meu plano{% else %}Continuar{% endif %}</button>
       </div>
     </form>
   </div>
 
   {% if not is_editing %}
     <p class="muted center form__nota">
-      Pode fechar o app à vontade — cada passo é salvo assim que você avança.
+      Pode fechar o app à vontade — cada etapa é salva assim que você avança.
     </p>
   {% endif %}
 
@@ -263,15 +224,23 @@
               var espera = Math.max(0, PISO_MS - (Date.now() - inicio));
               setTimeout(function () {
                 clearInterval(relogio);
+                /* Concluiu: o servidor devolve o destino no corpo (JSON) em
+                 * vez de redirecionar, para a mensagem "seu plano está
+                 * pronto" não ser consumida pelo próprio fetch. */
+                var tipo = (r.headers.get("Content-Type") || "");
+                if (r.ok && tipo.indexOf("application/json") === 0) {
+                  r.json().then(function (dados) { location.assign(dados.destino); });
+                  return;
+                }
                 if (r.redirected) {
                   location.assign(r.url);
                   return;
                 }
-                /* Sem redirecionamento, o formulário voltou com erro. Envio
-                 * de verdade, para o servidor renderizar os erros no lugar
-                 * certo. (O exemplo aqui era a janela de sono inválida; ela
-                 * mudou para o passo 3 na V2.1 e não passa mais por esta
-                 * tela.) */
+                /* Sem redirecionamento, o formulário voltou com erro (a
+                 * prioridade fora dos interesses, o estilo de cardápio em
+                 * branco). Envio de verdade, para o servidor renderizar os
+                 * erros no lugar certo — a tela de montagem aparece pelo
+                 * piso e some; é o preço de validar no servidor. */
                 esconder();
                 form.submit();
               }, espera);

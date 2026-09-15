@@ -139,7 +139,7 @@ class APreferenciaQueCedeEDitaTests(TestCase):
         self.assertContains(resposta, "1 grupo por dia")
         # E o caminho para destravar: mudar a frequência é o que libera a
         # divisão pedida, e mandar a pessoa procurar seria devolver o problema.
-        self.assertContains(resposta, reverse("accounts:onboarding_step", kwargs={"step": 3}))
+        self.assertContains(resposta, reverse("accounts:onboarding_step", kwargs={"step": 2}))
 
     def test_a_tela_nao_mostra_ressalva_quando_a_preferencia_valeu(self):
         user = com_preferencia("tela-ok@exemplo.com", 5, SplitPreference.UM)

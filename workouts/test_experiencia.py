@@ -284,14 +284,18 @@ class AExperienciaAtravessaOFormularioTests(TestCase):
     def setUpTestData(cls):
         call_command("seed_workouts", verbosity=0)
 
-    def test_o_passo_3_grava_a_experiencia(self):
+    def test_a_etapa_2_grava_a_experiencia(self):
         user = create_user(email="form@exemplo.com")
         Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
         self.client.force_login(user)
 
-        self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 3}),
+        resposta = self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 2}),
             {
+                # A etapa 2 também pede objetivo e atividade: vão os do perfil.
+                # Dois dias não pedem a divisão.
+                "goal": user.profile.goal,
+                "activity_level": user.profile.activity_level,
                 "weekdays": ["1", "3"],
                 "start_time": "",
                 "duracao_treino": "padrao",
@@ -300,6 +304,7 @@ class AExperienciaAtravessaOFormularioTests(TestCase):
                 "sleep_time": "23:00",
             },
         )
+        self.assertEqual(resposta.status_code, 302, "a etapa 2 recusou o envio")
 
         user.refresh_from_db()
         self.assertEqual(user.profile.experiencia, Experiencia.INICIANTE)
@@ -310,9 +315,11 @@ class AExperienciaAtravessaOFormularioTests(TestCase):
         Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
         self.client.force_login(user)
 
-        self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 3}),
+        resposta = self.client.post(
+            reverse("accounts:onboarding_step", kwargs={"step": 2}),
             {
+                "goal": user.profile.goal,
+                "activity_level": user.profile.activity_level,
                 "weekdays": ["1"],
                 "start_time": "",
                 "duracao_treino": "padrao",
@@ -321,6 +328,8 @@ class AExperienciaAtravessaOFormularioTests(TestCase):
                 "sleep_time": "23:00",
             },
         )
+        # Sem o 302, "não gravou nada" e "gravou vazio" seriam indistinguíveis.
+        self.assertEqual(resposta.status_code, 302, "a etapa 2 recusou o envio")
 
         user.refresh_from_db()
         self.assertEqual(user.profile.experiencia, "")
@@ -355,7 +364,7 @@ class AExperienciaAtravessaOFormularioTests(TestCase):
         renderizadas sempre.
         """
         html = self.client.get(
-            reverse("accounts:onboarding_step", kwargs={"step": 3})
+            reverse("accounts:onboarding_step", kwargs={"step": 2})
         ).content.decode()
         return [
             trecho for trecho in html.split("<input")
@@ -367,7 +376,7 @@ class AExperienciaAtravessaOFormularioTests(TestCase):
 
         OS DOIS CAMINHOS, e a sabotagem é o motivo de existirem dois. O
         `initial` do campo só governa quem AINDA NÃO TEM dia de treino — a
-        primeira passagem pelo passo 3 —, porque para quem já tem o `__init__`
+        primeira passagem pela etapa 2 —, porque para quem já tem o `__init__`
         sobrescreve com o valor do perfil. Uma versão anterior deste teste só
         exercitava o segundo caminho: devolver `initial="intermediario"` ao
         campo passava VERDE, e a primeira pessoa a cadastrar treino no app

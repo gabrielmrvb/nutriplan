@@ -1,4 +1,4 @@
-"""Cadastro, autenticação e o wizard de onboarding em quatro passos."""
+"""Cadastro, autenticação e o wizard de onboarding em três etapas."""
 import logging
 
 from allauth.socialaccount.models import SocialAccount
@@ -8,7 +8,7 @@ from django.db import transaction
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.views import LogoutView, LoginView
-from django.http import HttpResponseRedirect
+from django.http import Http404, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import formats, timezone
@@ -93,54 +93,41 @@ def recusa_pendente(request, superficie):
     return guardado[1]
 
 
-#: Onde os dias de treino são respondidos — o passo que decide o caminho.
+#: Onde os dias de treino são respondidos — a etapa que decide a ficha.
 #:
-#: É o único passo que precisa de nome próprio: o 4 não é referenciado por
-#: número em lugar nenhum, porque quem decide se ele existe é `passos_de`.
+#: É a única etapa com nome próprio: é nela que os dias, a experiência e a
+#: divisão nascem, e é ela que remonta a ficha quando é editada.
 logger = logging.getLogger(__name__)
 
-PASSO_TREINOS = 3
+PASSO_TREINOS = 2
 
-#: Os dois caminhos possíveis. O 6 é sempre o último, e é isso que mantém
-#: `ONBOARDING_DONE` e `onboarding_complete` valendo sem alteração nenhuma.
-#:
-#: O 6 entrou no FIM em 05/09/2026, e o lugar não é editorial: acrescentar no
-#: fim não mexe em nenhum `onboarding_step` já gravado. Enfiar a pergunta nova
-#: no começo renumeraria os cinco, e quem parou no 3 acordaria noutra tela.
-CAMINHO_COMPLETO = (1, 2, 3, 4, 5, 6)
-CAMINHO_CURTO = (1, 2, 3, 5, 6)
+#: As TRÊS etapas, sempre as três (15/09/2026, decisão C-ONB). O wizard
+#: antigo tinha seis passos e um caminho condicional — o passo da divisão só
+#: existia quando os dias de treino pediam (quatro; três desde 10/09/2026). A divisão continua condicional,
+#: mas DENTRO da etapa 2, por revelação progressiva: o servidor a exige quando
+#: os dias postados pedem (`preferencia_muda_a_divisao`), e o JavaScript só a
+#: mostra antes. Um caminho fixo é o que faz "Etapa 2 de 3" ser sempre
+#: verdade.
+ETAPAS = (1, 2, 3)
 
 
 def passos_de(user, profile, treinos_respondidos=None) -> tuple:
-    """Os passos que ESTA pessoa realmente percorre.
+    """As etapas que ESTA pessoa percorre — hoje, sempre as três.
 
-    Quem treina até três dias recebe a mesma divisão pelas três preferências
-    — `preferencia_muda_a_divisao` lê isso da tabela de `workouts.services`,
-    em vez de repetir aqui um número que envelheceria escondido. Para essa
-    pessoa o passo 4 não é uma escolha, é uma tela que não muda nada.
-
-    Antes de o passo 3 ser respondido não dá para saber, e aí o caminho
-    completo é a resposta honesta: a barra pode encurtar depois, e encurtar é
-    uma boa notícia. O contrário — prometer quatro e cobrar cinco — não é.
+    A assinatura fica (quem chama passa `treinos_respondidos`) porque o
+    caminho já foi condicional e pode voltar a ser; o que não volta é o
+    número de etapas mudar por pessoa.
     """
-    if treinos_respondidos is None:
-        treinos_respondidos = (
-            profile is not None and profile.onboarding_step > PASSO_TREINOS
-        )
-    if not treinos_respondidos:
-        return CAMINHO_COMPLETO
-    dias = user.training_days.count()
-    return CAMINHO_COMPLETO if preferencia_muda_a_divisao(dias) else CAMINHO_CURTO
+    return ETAPAS
 
 
 def passo_alvo(profile, passos) -> int:
     """Para onde mandar quem chega fora de hora — ou com progresso obsoleto.
 
-    O caso que exige isto: alguém parou no passo 4 quando treinava cinco dias,
-    voltou, reduziu para dois, e agora o 4 sumiu do caminho dela. O progresso
-    salvo diz "4", e 4 não existe mais. Sem este mapeamento, a entrada
-    redirecionaria para 4, a guarda devolveria para a entrada, e o app entraria
-    em laço.
+    O progresso salvo diz a próxima etapa; se ela não está no caminho (não
+    acontece com três etapas fixas, mas a guarda fica por ser barata e por já
+    ter evitado um laço de redirecionamento uma vez), vale a primeira etapa
+    a partir dela.
     """
     salvo = profile.onboarding_step if profile else 1
     for passo in passos:
@@ -149,39 +136,22 @@ def passo_alvo(profile, passos) -> int:
     return passos[-1]
 
 
-#: Título e subtítulo de cada passo, usados na barra de progresso e no cabeçalho.
+#: Título e subtítulo de cada etapa, usados no cabeçalho.
 STEP_META = {
-    1: ("Seus dados", "Precisamos disso para calcular seu gasto energético."),
-    2: ("Seu objetivo", "Define se você come acima ou abaixo do seu gasto."),
-    # "Sua rotina" e não "Seus treinos": desde a V2.1 a tela também pergunta a
-    # janela de sono, e as três respostas são relógios do mesmo dia.
-    3: ("Sua rotina", "Quando você treina e quando o seu dia começa e termina."),
-    # A divisão vem DEPOIS dos dias, e não antes: a resposta só faz sentido
-    # sabendo a frequência. Perguntar "quantos grupos por dia" para quem ainda
-    # não disse quantos dias treina é pedir uma escolha que o app vai ter que
-    # corrigir por baixo.
-    4: (
-        "Sua divisão de treino",
-        "Escolha quantos músculos você prefere focar em cada sessão.",
+    1: ("Sobre você", "Quatro dados que entram no cálculo do seu gasto energético."),
+    2: (
+        "Seu objetivo e rotina",
+        "O objetivo decide se você come acima ou abaixo do gasto; a rotina "
+        "monta a ficha e distribui as refeições no seu dia.",
     ),
-    5: ("Sua comida", "O estilo do cardápio e o que você não pode comer."),
-    # O SUBTÍTULO NOMEIA A CONSEQUÊNCIA, e essa é a correção de 08/09/2026.
-    #
-    # Ele dizia "o que você quer cuidar, e o que organizar primeiro" — verdade,
-    # e vago. Junto com o texto do Perfil ("nada fica escondido"), a etapa
-    # parecia não mudar nada, a ponto de ser confundida com passo morto.
-    #
-    # Ela muda três coisas medidas: os ramos do cartão AGORA
-    # (`plans/views.py:370-376`), onde a seção da área entra na Home (`:441`) e
-    # o limiar do aviso de hidratação (`plans/agora.py:288`). O subtítulo diz
-    # isso, e continua dizendo que nada some — porque nada some mesmo.
-    6: (
-        "O que você quer priorizar?",
-        "Sua escolha organiza a tela inicial e ajusta alguns avisos. "
-        "Todas as áreas continuam acessíveis.",
+    # O SUBTÍTULO NOMEIA A CONSEQUÊNCIA da prioridade (correção de
+    # 08/09/2026): ela muda os ramos do cartão AGORA, onde a seção da área
+    # entra na Home e o limiar do aviso de hidratação — e nada some.
+    3: (
+        "Sua personalização",
+        "O estilo do cardápio, o que você não come e o que o app organiza "
+        "primeiro. Todas as áreas continuam acessíveis.",
     ),
-    # A janela de sono saiu daqui na V2.1 — o subtítulo já descrevia só comida,
-    # e agora a tela também.
 }
 
 
@@ -500,10 +470,10 @@ class ConectarGoogleView(TelaDeEntradaMixin, FormView):
 
 
 class OnboardingStepMixin(LoginRequiredMixin):
-    """Regras comuns aos quatro passos: guarda de navegação e contexto do wizard.
+    """Regras comuns às três etapas: guarda de navegação e contexto do wizard.
 
-    A guarda impede pular passos digitando a URL — o passo N só abre se o
-    progresso salvo já chegou nele. Isso não é sobre segurança, é sobre não
+    A guarda impede pular etapa digitando a URL — a etapa N só abre se o
+    progresso salvo já chegou nela. Isso não é sobre segurança, é sobre não
     deixar o banco com um perfil pela metade que o cálculo de dieta não sabe ler.
     """
 
@@ -515,10 +485,9 @@ class OnboardingStepMixin(LoginRequiredMixin):
     #: Lista fechada, e não a URL que vier no endereço — é a mesma regra de
     #: `LogWeightView`: destino escolhido pelo cliente é redirecionamento
     #: aberto. Aqui a lista tem um item porque só existe uma tela do app, fora
-    #: o Perfil, que manda alguém para um passo: `/treino/`, pelo cartão de
+    #: o Perfil, que manda alguém para uma etapa: `/treino/`, pelo cartão de
     #: dias de treino e pelo convite de quem ainda não cadastrou nenhum.
     ORIGENS = {"treino": "workouts:routine"}
-
     #: Quem chega sem origem reconhecível volta para o Perfil, que é de onde
     #: vêm todos os outros links de edição.
     ORIGEM_PADRAO = "accounts:profile"
@@ -534,23 +503,17 @@ class OnboardingStepMixin(LoginRequiredMixin):
     def voltar_para(self):
         """Para onde "Voltar" aponta, e é o mesmo lugar que "Salvar".
 
-        No wizard, "Voltar" é o passo anterior — quem está cadastrando anda
+        No wizard, "Voltar" é a etapa anterior — quem está cadastrando anda
         para trás dentro do caminho. Na EDIÇÃO não: quem entrou de uma tela do
-        app para trocar um dado quer voltar para ela, e o botão apontava para o
-        passo 2 do cadastro. Medido no navegador: de `/treino/`, "Dias de
-        treino" levava ao passo 3 sem barra de abas, "Voltar" ia para o passo 2
-        e "Salvar" ia para o Perfil — nenhum dos dois voltava para o treino, e
-        só o botão do NAVEGADOR fazia isso.
+        app para trocar um dado quer voltar para ela.
         """
         return reverse(self.origem())
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return super().dispatch(request, *args, **kwargs)
-
         profile = self.get_profile()
         passos = passos_de(request.user, profile)
-
         if self.step > 1:
             if profile is None:
                 return redirect("accounts:onboarding_step", step=1)
@@ -558,13 +521,8 @@ class OnboardingStepMixin(LoginRequiredMixin):
                 return redirect(
                     "accounts:onboarding_step", step=passo_alvo(profile, passos)
                 )
-
-        # O passo existe, mas não para esta pessoa: quem treina até três dias
-        # não responde divisão. Vale inclusive para quem já terminou e volta
-        # pelo perfil — uma tela que não muda o plano não é edição, é ruído.
         if self.step not in passos:
             return redirect("accounts:onboarding_step", step=passo_alvo(profile, passos))
-
         self.passos = passos
         return super().dispatch(request, *args, **kwargs)
 
@@ -577,13 +535,12 @@ class OnboardingStepMixin(LoginRequiredMixin):
         context.update(
             {
                 "step": self.step,
-                # POSIÇÃO no caminho, não o número do passo. Para quem pula a
-                # divisão, o passo 5 é o quarto de quatro — mostrar "Passo 5/4"
-                # seria a barra denunciando a própria gambiarra.
                 "posicao": posicao,
                 "total_steps": len(passos),
                 "step_title": title,
                 "step_subtitle": subtitle,
+                # A trilha anda por etapa: 1/3, 2/3, 3/3. Sem porcentagem na
+                # tela — "16%" era o número de seis passos vazando.
                 "progress_pct": int(posicao / len(passos) * 100),
                 "previous_url": (
                     reverse(
@@ -594,7 +551,7 @@ class OnboardingStepMixin(LoginRequiredMixin):
                     else None
                 ),
                 "is_editing": bool(profile and profile.onboarding_complete),
-                # Só na edição: no wizard, "Voltar" continua sendo o passo
+                # Só na edição: no wizard, "Voltar" continua sendo a etapa
                 # anterior.
                 "voltar_para": (
                     self.voltar_para()
@@ -620,6 +577,15 @@ class OnboardingStepMixin(LoginRequiredMixin):
         identificador do pedido; a aba de Treino levanta o mesmo erro ao
         abrir, que é onde ele sempre apareceu.
         """
+        # `TrainingForm.__init__` já leu `user.profile` neste pedido, e o
+        # Django guarda a reversa do OneToOne no próprio `user`. A divisão e
+        # o objetivo foram gravados por OUTRA instância (`self.profile`), e
+        # `acertar_rotina(user)` leria a preferência VELHA pelo cache — "só a
+        # divisão mudou" virava "nada mudou", e a ficha não remontava. O
+        # cache sai antes de o motor ler.
+        reversa = Profile._meta.get_field("user").remote_field
+        if reversa.is_cached(self.request.user):
+            reversa.delete_cached_value(self.request.user)
         try:
             acertar_rotina(self.request.user)
         except NoTrainingDays as erro:
@@ -627,61 +593,40 @@ class OnboardingStepMixin(LoginRequiredMixin):
             # a saída de todo teste de onboarding que roda sem catálogo.
             logger.warning("ficha não montada ao salvar os dias: %s", erro)
 
-    def finish_step(self, profile):
-        """Avança o progresso e decide para onde ir.
+    def montar_cardapio(self):
+        """O plano alimentar nasce em "Criar meu plano", e não na primeira Home.
 
-        O caminho é recalculado DEPOIS de salvar, não antes: é o passo 3 que
-        define se o 4 existe, e ele acabou de ser respondido. Recalcular antes
-        leria os dias de treino de ontem.
+        `sync_active_plan` é idempotente — devolve o plano vigente quando os
+        dados não mudaram —, então concluir duas vezes não duplica nada. O
+        que pode faltar é peso (`IncompleteProfile`): não acontece por este
+        caminho, porque a etapa 1 grava a pesagem, e se acontecer a Home já
+        sabe mandar de volta ao onboarding.
         """
+        from plans import services as plans_services
+
+        try:
+            plans_services.sync_active_plan(self.request.user)
+        except plans_services.IncompleteProfile as erro:
+            logger.warning("cardápio não montado ao concluir: %s", erro)
+
+    def finish_step(self, profile):
+        """Avança o progresso e decide para onde ir."""
         was_complete = profile.onboarding_complete
-        # `treinos_respondidos` explícito: ao CONCLUIR o passo 3 o progresso
-        # salvo ainda diz "3", e a inferência normal leria isso como "ainda não
-        # respondeu" — mandando para o passo 4 justamente quem acabou de dizer
-        # que treina pouco. Quem está terminando o passo dos treinos sabe que
-        # eles foram respondidos; os dias já estão no banco.
-        respondeu = self.step >= PASSO_TREINOS or profile.onboarding_step > PASSO_TREINOS
-        passos = passos_de(self.request.user, profile, treinos_respondidos=respondeu)
+        passos = passos_de(self.request.user, profile)
         indice = passos.index(self.step) if self.step in passos else len(passos) - 1
         proximo = passos[indice + 1] if indice + 1 < len(passos) else ONBOARDING_DONE
 
         profile.advance_onboarding(self.step, proximo=proximo)
         if was_complete:
-            # A pergunta de divisão passou a importar agora?
-            #
-            # Quem treinava três dias nunca viu o passo 4 —
-            # `preferencia_muda_a_divisao` devolve False ali — e o perfil ficou
-            # com o TRES que o campo traz de fábrica. No dia em que essa pessoa
-            # marca um quarto dia a resposta passa a mudar a ficha, e o app
-            # estava usando uma escolha que ela nunca fez.
-            #
-            # `split_preference_confirmada` é o que separa os dois casos, e a
-            # edição do passo 3 é o momento exato de perguntar: os dias novos
-            # acabaram de ser salvos e a divisão vai ser decidida em seguida.
-            if (
-                self.step == PASSO_TREINOS
-                and 4 in passos
-                and not profile.split_preference_confirmada
-            ):
-                # A origem viaja junto: quem veio do treino responder a
-                # divisão continua voltando para o treino no fim, e não cai no
-                # Perfil por ter passado por um passo a mais.
-                destino = reverse(
-                    "accounts:onboarding_step", kwargs={"step": 4}
-                )
-                pedida = self.request.GET.get("origem")
-                if pedida in self.ORIGENS:
-                    destino += f"?origem={pedida}"
-                return redirect(destino)
-            if self.step in (PASSO_TREINOS, 4):
+            if self.step == PASSO_TREINOS:
                 # Os dias ou a divisão mudaram, e a ficha muda com eles AGORA
                 # — não na próxima visita ao Treino. A Home lê o plano ativo
                 # sem montar nada, e é para a Home que "Salvar" pode voltar.
                 # Zero dias desliga o plano (P1-02): a ofensiva e o resumo do
                 # dia param de cobrar um treino que a pessoa tirou da semana.
                 self.acertar_ficha()
-            # Só na EDIÇÃO. No onboarding, o feedback de ter salvo é o passo
-            # seguinte aparecer — dizer "pronto" cinco vezes seguidas durante
+            # Só na EDIÇÃO. No onboarding, o feedback de ter salvo é a etapa
+            # seguinte aparecer — dizer "pronto" três vezes seguidas durante
             # o cadastro seria a mensagem virando ruído.
             messages.success(self.request, "Alterações salvas.")
             # De volta para a tela de onde a pessoa veio, e não sempre para o
@@ -689,24 +634,38 @@ class OnboardingStepMixin(LoginRequiredMixin):
             # ficha — que acabou de ser remontada com eles — que ela quer ver.
             return redirect(self.voltar_para())
         if proximo >= ONBOARDING_DONE:
-            # A ficha nasce AQUI, e não na primeira visita ao Treino. A
-            # primeira Home de quem marcou treino hoje dizia "Hoje não tem
-            # treino na sua ficha" (P1-01): a Home consome o estado sem montar
-            # nada — decisão certa para a tela de comida —, e ninguém montava
-            # antes dela. Quem terminou sem dia nenhum não ganha plano.
+            # "Criar meu plano" cria os dois planos AQUI: a ficha (P1-01) e o
+            # cardápio. A tela de montagem diz "calculando… ajustando…
+            # estruturando…" enquanto isto roda, e com os dois montados aqui
+            # ela deixa de ser promessa. Quem terminou sem dia nenhum não
+            # ganha ficha; o cardápio não depende de treino.
             self.acertar_ficha()
-            return redirect("plans:today")
+            self.montar_cardapio()
+            messages.success(
+                self.request, "Seu plano está pronto: cardápio e ficha montados."
+            )
+            destino = reverse("plans:today")
+            if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                # A tela de montagem envia por `fetch`. Se a resposta fosse o
+                # redirect, o `fetch` SEGUIRIA para a Home e consumiria a
+                # mensagem acima ali — e a navegação de verdade, logo depois,
+                # abriria a Home sem ela. O destino vai no corpo; quem navega
+                # é o navegador, e a mensagem chega inteira.
+                return JsonResponse({"destino": destino})
+            return redirect(destino)
         return redirect("accounts:onboarding_step", step=proximo)
 
 
-class ProfileStepView(OnboardingStepMixin, UpdateView):
-    """Passos que editam o Profile diretamente (1, 2 e 4)."""
+class SobreVoceView(OnboardingStepMixin, UpdateView):
+    """Etapa 1 — sexo, nascimento, altura e peso. A única que pode CRIAR o perfil."""
+
+    step = 1
+    form_class = BodyDataForm
 
     def get_object(self, queryset=None):
         profile = self.get_profile()
         if profile is None:
-            # Passo 1 é o único que pode criar: os campos obrigatórios do
-            # Profile são justamente os dele.
+            # Os campos obrigatórios do Profile são justamente os desta etapa.
             profile = Profile(user=self.request.user)
         return profile
 
@@ -715,98 +674,202 @@ class ProfileStepView(OnboardingStepMixin, UpdateView):
         return self.finish_step(self.object)
 
 
-class BodyDataStepView(ProfileStepView):
-    step = 1
-    form_class = BodyDataForm
+class EtapaCompostaView(OnboardingStepMixin, TemplateView):
+    """Uma etapa feita de mais de um formulário existente.
 
+    Os formulários dos seis passos antigos continuam sendo a fonte de
+    validação, de `save()` e de "escolhas abrem em branco": compor é o que
+    permite três etapas sem reescrever regra nenhuma. Cada subclasse diz
+    quais formulários entram (`nomes_dos_forms`) e como cada um nasce
+    (`instanciar`). Todos validam antes de qualquer um salvar, e a gravação é
+    uma transação: ou a etapa inteira entra, ou nada.
+    """
 
-class GoalStepView(ProfileStepView):
-    step = 2
-    form_class = GoalForm
+    #: Os nomes dos formulários, na ordem em que a tela os desenha.
+    nomes_dos_forms: tuple = ()
 
+    def instanciar(self, nome, dados):
+        raise NotImplementedError
 
-class TrainingStepView(OnboardingStepMixin, FormView):
-    step = 3
-    form_class = TrainingForm
+    def get_forms(self, dados=None):
+        # UMA instância do perfil para todos os formulários da etapa. Cada
+        # `ModelForm.save()` grava o objeto INTEIRO: com uma instância por
+        # formulário, o último a salvar devolvia ao banco os campos velhos
+        # dos outros (o objetivo voltava a "cut" depois de a divisão salvar).
+        self.profile = self.get_profile()
+        return {nome: self.instanciar(nome, dados) for nome in self.nomes_dos_forms}
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
+    def forms_exigidos(self, forms):
+        """Quais formulários precisam validar neste envio. Subclasse decide."""
+        return list(forms)
 
-    def form_valid(self, form):
-        form.save()
+    def get_context_data(self, **kwargs):
+        forms = kwargs.pop("forms", None) or self.get_forms()
+        context = super().get_context_data(**kwargs)
+        context["forms"] = forms
+        # `form` é o primeiro, para o template e os testes que leem
+        # `context["form"]` continuarem valendo.
+        context["form"] = forms[self.nomes_dos_forms[0]]
+        return context
+
+    def salvar(self, forms):
+        raise NotImplementedError
+
+    def post(self, request, *args, **kwargs):
+        forms = self.get_forms(request.POST)
+        exigidos = self.forms_exigidos(forms)
+        validos = [forms[nome].is_valid() for nome in exigidos]
+        if not all(validos):
+            return self.render_to_response(self.get_context_data(forms=forms))
+        with transaction.atomic():
+            self.salvar({nome: forms[nome] for nome in exigidos})
         return self.finish_step(self.get_profile())
 
 
-class SplitPreferenceStepView(ProfileStepView):
-    step = 4
-    form_class = SplitPreferenceForm
+class ObjetivoERotinaView(EtapaCompostaView):
+    """Etapa 2 — objetivo, atividade, experiência, dias, janela do dia e divisão.
 
-    def form_valid(self, form):
-        """Salvar aqui é o que transforma o padrão do campo numa escolha.
-
-        `split_preference` sozinho não distingue "marquei três grupos por dia"
-        de "nunca vi esta tela" — nasce com TRES nos dois casos. Passar por
-        aqui é o único fato que o banco tem sobre a intenção da pessoa, e é
-        isso que a marca registra.
-        """
-        resposta = super().form_valid(form)
-        Profile.objects.filter(pk=self.object.pk).update(
-            split_preference_confirmada=True
-        )
-        return resposta
-
-
-class RestrictionsStepView(ProfileStepView):
-    step = 5
-    form_class = RestrictionsForm
-
-
-class InteressesStepView(ProfileStepView):
-    """Passo 6 — as áreas do NutriPlan.
-
-    Por último, e não primeiro. Perguntar "o que você quer cuidar?" antes de
-    saber quem a pessoa é seria pedir uma decisão sem contexto; aqui ela já
-    respondeu corpo, objetivo, rotina, divisão e comida, e a pergunta fecha o
-    cadastro dizendo para onde tudo isso vai.
-
-    E há uma razão estrutural, além da editorial: pôr o passo no fim é
-    ACRESCENTAR. Pôr no começo renumeraria os cinco existentes, e todo
-    `onboarding_step` gravado no banco passaria a apontar para a tela errada.
+    A DIVISÃO É PROGRESSIVA: só é exigida quando os dias postados pedem
+    (`preferencia_muda_a_divisao`, a mesma régua do passo 4 antigo). O
+    JavaScript mostra o bloco antes de a pessoa enviar; sem JavaScript o
+    servidor recusa o envio com quatro dias e sem divisão, e reabre a tela
+    com o bloco visível e o erro no campo. `split_preference_confirmada` só
+    vira verdadeiro quando a divisão foi de fato respondida — é o que separa
+    "escolheu" de "nunca viu a pergunta".
     """
 
-    step = 6
-    form_class = InteressesForm
+    step = 2
+    nomes_dos_forms = ("objetivo", "rotina", "divisao")
+
+    def instanciar(self, nome, dados):
+        if nome == "objetivo":
+            return GoalForm(dados, instance=self.profile)
+        if nome == "rotina":
+            return TrainingForm(dados, user=self.request.user)
+        return SplitPreferenceForm(dados, instance=self.profile)
+
+    def dias_pedidos(self, forms):
+        """Quantos dias este envio (ou o banco, num GET) declara."""
+        rotina = forms["rotina"]
+        if rotina.is_bound:
+            return len(set(rotina.data.getlist("weekdays")))
+        return self.request.user.training_days.count()
+
+    def mostrar_divisao(self, forms):
+        return preferencia_muda_a_divisao(self.dias_pedidos(forms))
+
+    def forms_exigidos(self, forms):
+        exigidos = ["objetivo", "rotina"]
+        if self.mostrar_divisao(forms):
+            exigidos.append("divisao")
+        return exigidos
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["mostrar_divisao"] = self.mostrar_divisao(context["forms"])
+        # `preferencia_muda_a_divisao` lê a tabela do motor: o JavaScript
+        # precisa do mesmo número para revelar o bloco na hora certa.
+        context["dias_para_divisao"] = MINIMO_DE_DIAS_PARA_DIVISAO
+        return context
+
+    def salvar(self, forms):
+        # Os `ModelForm` (objetivo, divisão) salvam o perfil inteiro e vêm
+        # PRIMEIRO; `TrainingForm.save` vem por último porque grava o perfil
+        # com `update_fields` restrito a partir de `user.profile` — uma
+        # instância própria — e um save inteiro depois dele devolveria a
+        # experiência e a janela do dia antigas ao banco.
+        forms["objetivo"].save()
+        if "divisao" in forms:
+            divisao = forms["divisao"].save()
+            # Salvar a divisão é o que transforma o padrão do campo numa
+            # escolha (era o `form_valid` do passo 4).
+            Profile.objects.filter(pk=divisao.pk).update(split_preference_confirmada=True)
+        forms["rotina"].save()
+
+
+class PersonalizacaoView(EtapaCompostaView):
+    """Etapa 3 — estilo do cardápio, restrições, áreas e prioridade; e o resumo."""
+
+    step = 3
+    nomes_dos_forms = ("comida", "areas")
+
+    def instanciar(self, nome, dados):
+        if nome == "comida":
+            return RestrictionsForm(dados, instance=self.profile)
+        return InteressesForm(dados, instance=self.profile)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Só no cadastro: o resumo é a conferência antes de "Criar meu plano".
+        # Quem veio do Perfil trocar o cardápio não tem esse botão, e um
+        # `<dl>` de altura e dias que não se editam ali seria ruído.
+        if not context.get("is_editing"):
+            context["resumo"] = resumo_das_escolhas(self.request.user, self.get_profile())
+        return context
+
+    def salvar(self, forms):
+        forms["comida"].save()
+        forms["areas"].save()
+
+
+#: A partir de quantos dias a divisão passa a mudar a ficha — o mesmo número
+#: que `preferencia_muda_a_divisao` lê da tabela do motor. Calculado uma vez,
+#: para o template dizer ao JavaScript "revele com N dias".
+MINIMO_DE_DIAS_PARA_DIVISAO = next(
+    (dias for dias in range(1, 8) if preferencia_muda_a_divisao(dias)), 8
+)
+
+
+def resumo_das_escolhas(user, profile) -> list:
+    """As escolhas das etapas 1 e 2, em pares (rótulo, valor), para a etapa 3.
+
+    Só leitura: é a pessoa conferindo antes de "Criar meu plano". Dias sem
+    treino é uma resposta, e aparece como tal.
+    """
+    if profile is None:
+        return []
+    peso = profile.current_weight
+    dias = sorted(user.training_days.values_list("weekday", flat=True))
+    nomes = ("Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom")
+    itens = [
+        ("Altura e peso", "%d cm · %s kg" % (profile.height_cm, formats.number_format(peso, decimal_pos=1)) if peso is not None else "%d cm" % profile.height_cm),
+        ("Objetivo", profile.get_goal_display()),
+        ("Atividade", profile.get_activity_level_display()),
+        ("Dias de treino", ", ".join(nomes[d] for d in dias) if dias else "Nenhum por enquanto"),
+    ]
+    if profile.experiencia:
+        itens.append(("Experiência", profile.get_experiencia_display()))
+    if profile.split_preference_confirmada:
+        itens.append(("Divisão", profile.get_split_preference_display()))
+    return itens
 
 
 STEP_VIEWS = {
-    1: BodyDataStepView,
-    2: GoalStepView,
-    3: TrainingStepView,
-    4: SplitPreferenceStepView,
-    5: RestrictionsStepView,
-    6: InteressesStepView,
+    1: SobreVoceView,
+    2: ObjetivoERotinaView,
+    3: PersonalizacaoView,
 }
 
 
 def onboarding_step(request, step):
-    """Despacha /onboarding/<n>/ para a view do passo.
+    """Despacha /conta/onboarding/<n>/ para a view da etapa.
 
-    Uma rota só em vez de quatro mantém a navegação (voltar, avançar, retomar)
-    resolvida por um reverse() com número, sem espalhar nomes de rota pelo código.
+    Uma rota só em vez de três mantém a navegação (voltar, avançar, retomar)
+    resolvida por um reverse() com número. Etapa que não existe é 404 — e
+    não "cai na 1": `/conta/onboarding/4/` foi rota por meses, e um link
+    velho que "funciona" abrindo outra tela nunca é consertado.
     """
     view = STEP_VIEWS.get(step)
     if view is None:
-        return redirect("accounts:onboarding_step", step=1)
+        raise Http404("etapa não existe")
     return view.as_view()(request)
 
 
 class OnboardingEntryView(LoginRequiredMixin, TemplateView):
-    """Redireciona para o passo pendente — o atalho 'continuar de onde parei'."""
+    """Redireciona para a etapa pendente — o atalho 'continuar de onde parei'."""
 
-    #: Onde o peso e coletado. O passo 1 salva `WeightEntry` junto com altura,
-    #: sexo e nascimento — ver `DadosBasicosForm.save`.
+    #: Onde o peso é coletado. A etapa 1 salva `WeightEntry` junto com altura,
+    #: sexo e nascimento — ver `BodyDataForm.save`.
     PASSO_DO_PESO = 1
 
     def get(self, request, *args, **kwargs):
@@ -814,7 +877,7 @@ class OnboardingEntryView(LoginRequiredMixin, TemplateView):
         if profile is None:
             return redirect("accounts:onboarding_step", step=1)
         if profile.onboarding_complete:
-            # "Completo" aqui é CONTADOR DE PASSOS. O motor tem outra régua:
+            # "Completo" aqui é CONTADOR DE ETAPAS. O motor tem outra régua:
             # `build_inputs` também recusa quando não há peso registrado, e a
             # tela Hoje devolve para cá quando isso acontece.
             #
@@ -822,10 +885,10 @@ class OnboardingEntryView(LoginRequiredMixin, TemplateView):
             # num LOOP: `/` manda para o onboarding porque falta peso, o
             # onboarding manda para `/` porque o contador chegou ao fim, e o
             # navegador vai e volta até desistir. Reproduzido com uma conta
-            # real do banco local — passo 6, nenhuma pesagem.
+            # real do banco local — último passo, nenhuma pesagem.
             #
             # A regra: quem decide se dá para entrar no app é o MOTOR. Aqui só
-            # se traduz a recusa dele para o passo que resolve.
+            # se traduz a recusa dele para a etapa que resolve.
             if profile.current_weight is None:
                 messages.info(
                     request, "Faltou registrar seu peso para calcularmos a dieta."
@@ -838,9 +901,6 @@ class OnboardingEntryView(LoginRequiredMixin, TemplateView):
         # Quem está no meio do wizard NÃO recebe aviso: esta tela também é o
         # "continuar de onde parei" que a pessoa aciona de propósito, e avisar
         # ali cobraria por algo que ela está justamente fazendo.
-        # `passo_alvo` e não `onboarding_step` cru: quem parou no 4 e depois
-        # reduziu os dias de treino tem um progresso salvo que aponta para um
-        # passo que não existe mais no caminho dela.
         passos = passos_de(request.user, profile)
         return redirect("accounts:onboarding_step", step=passo_alvo(profile, passos))
 

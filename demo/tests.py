@@ -712,10 +712,10 @@ class DemoOnboardingTests(TestCase):
         self.assertEqual(resposta.status_code, 200)
 
     def test_the_door_lands_on_the_first_step(self):
-        """No primeiro passo, e não no pendente.
+        """Na primeira etapa, e não na pendente.
 
-        `/conta/onboarding/` sozinho redireciona para o passo em que a pessoa
-        parou — que na Ana é o último. Quem chega para avaliar o primeiro uso
+        `/conta/onboarding/` sozinho redireciona para a etapa em que a pessoa
+        parou — que na Ana é a última. Quem chega para avaliar o primeiro uso
         quer começar do começo.
 
         E chega SEM salto: o apelido reescreve o caminho dentro do middleware,
@@ -730,14 +730,17 @@ class DemoOnboardingTests(TestCase):
         self.assertEqual(resposta.context["step"], 1)
         self.assertIn(STEP_META[1][0], resposta.content.decode())
 
-    # --------------------------------------------------- os passos da persona
+    # --------------------------------------------------- as etapas da persona
     def test_os_passos_reais_da_persona_podem_ser_percorridos(self):
-        """O caminho é o DELA, e não uma fila fixa de cinco.
+        """O caminho é o que o app oferece — lido de `passos_de`, e não
+        escrito aqui.
 
-        Ana treina dois dias, e desde a V2.2 quem treina até três pula a
-        pergunta de divisão. Percorrer 1..5 aqui testaria um fluxo que o app
-        não oferece a ninguém — e falharia no passo 4 por acerto do produto,
-        não por defeito.
+        Já foi condicional: Ana treina dois dias, e com seis passos quem
+        treinava até três pulava a pergunta de divisão, então percorrer 1..5
+        testava um fluxo que o app não oferecia a ninguém. Desde 15/09/2026
+        são TRÊS etapas fixas, e a divisão é revelada dentro da etapa 2 —
+        a lista vem da view, e o teste confere que ela termina na última
+        etapa e que cada uma abre.
         """
         from accounts.models import Profile
         from accounts.views import passos_de
@@ -745,6 +748,7 @@ class DemoOnboardingTests(TestCase):
         persona = User.objects.get(email=DEMO_ONBOARDING_EMAIL)
         passos = passos_de(persona, Profile.objects.get(user=persona))
         self.assertEqual(passos[-1], ONBOARDING_LAST_STEP)
+        self.assertEqual(tuple(passos), tuple(range(1, ONBOARDING_LAST_STEP + 1)))
 
         for passo in passos:
             with self.subTest(passo=passo):
@@ -753,16 +757,15 @@ class DemoOnboardingTests(TestCase):
 
     def test_each_step_shows_its_own_title_from_the_real_app(self):
         """Os textos são os do app: `STEP_META` é lido da view real, e não
-        copiado para cá."""
+        copiado para cá — e ele tem UMA entrada por etapa."""
         from accounts.models import Profile
         from accounts.views import STEP_META, passos_de
 
         persona = User.objects.get(email=DEMO_ONBOARDING_EMAIL)
         caminho = passos_de(persona, Profile.objects.get(user=persona))
+        self.assertEqual(sorted(STEP_META), list(caminho))
 
         for passo, (titulo, _sub) in STEP_META.items():
-            if passo not in caminho:
-                continue
             with self.subTest(passo=passo):
                 corpo = self.client.get(
                     f"/demo/conta/onboarding/{passo}/"

@@ -227,7 +227,7 @@ class OConviteEsperaAPessoaEntrarEAgirTests(TestCase):
         self.assertFalse(self.marcador(reverse("workouts:routine")))
 
     def test_o_onboarding_nao_conta_como_acao(self):
-        """O POST do passo 1 não é ação de valor: é cadastro. Quem termina o
+        """O POST da etapa 1 não é ação de valor: é cadastro. Quem termina o
         wizard chega à Home ainda sem convite, e é isso que o achado pedia."""
         user = User.objects.create_user(email="passo@exemplo.com", password="x8Kd2Lm9Qp4z")
         self.client.force_login(user)

@@ -28,7 +28,7 @@ from django.urls import reverse
 
 from accounts.models import CAMPO_DO_PILAR, Pilar, Profile, User
 from accounts.templatetags.navegacao import DESTINO_DO_PILAR, PILARES_NA_BARRA
-from accounts.tests import STEP1, STEP2, STEP3, STEP4, STEP5, step_url
+from accounts.tests import ETAPA2, STEP1, STEP5, step_url
 
 
 class BaseDeAreas(TestCase):
@@ -47,11 +47,13 @@ class BaseDeAreas(TestCase):
         """
         user = User.objects.create_user(email=email, password="senha-bem-forte-123")
         self.client.force_login(user)
-        for passo, dados in ((1, STEP1), (2, STEP2), (3, STEP3), (4, STEP4), (5, STEP5)):
+        for passo, dados in ((1, STEP1), (2, ETAPA2)):
             self.client.post(step_url(passo), dados)
+        # A etapa 3 é comida + áreas num POST só (15/09/2026).
         self.client.post(
-            step_url(6),
-            {"interesses": list(interesses) or ["dieta"],
+            step_url(3),
+            {**STEP5,
+             "interesses": list(interesses) or ["dieta"],
              "prioridade": principal or "dieta"},
         )
         if not interesses:
@@ -302,9 +304,11 @@ class AreasNaoOfereceSaidaDoWizardTests(BaseDeAreas):
         self.client.post(step_url(1), STEP1)
         return user
 
-    def test_nenhum_passo_do_wizard_oferece_areas(self):
+    def test_nenhuma_etapa_do_wizard_oferece_areas(self):
         self.caminhando()
 
+        # As duas etapas alcançáveis com só a 1 respondida: a guarda do wizard
+        # devolve quem pede a 3 antes da 2.
         for passo in (1, 2):
             with self.subTest(passo=passo):
                 html = self.client.get(step_url(passo)).content.decode()
@@ -410,10 +414,9 @@ class AreasEUmHubENaoUmMenuTests(BaseDeAreas):
 
     def test_o_perfil_e_o_modulo_largo_e_diz_a_meta(self):
         self.pessoa()
-        # O plano alimentar nasce na primeira visita a Hoje, que é para onde o
-        # onboarding manda — ninguém chega em Áreas antes disso. Sem a visita,
-        # o módulo mostra só o objetivo (o outro ramo, coberto abaixo).
-        self.client.get(reverse("plans:today"))
+        # O plano alimentar nasce em "Criar meu plano" (15/09/2026; antes,
+        # na primeira visita a Hoje). Sem plano ativo o módulo mostra só o
+        # objetivo — o outro ramo, coberto abaixo.
         html = self.areas()
 
         perfil = html.split(reverse("accounts:profile"), 1)[0].rsplit("<a ", 1)[1]
@@ -422,9 +425,18 @@ class AreasEUmHubENaoUmMenuTests(BaseDeAreas):
         self.assertIn("kcal por dia", bloco)
 
     def test_sem_plano_ainda_o_perfil_diz_o_objetivo(self):
-        """Quem nunca abriu Hoje não tem plano; o módulo responde com o que
-        existe (o objetivo) em vez de ficar mudo ou inventar meta."""
-        self.pessoa()
+        """Sem plano ativo, o módulo responde com o que existe (o objetivo)
+        em vez de ficar mudo ou inventar meta.
+
+        O estado é real: o cardápio pode não ter nascido (perfil sem peso,
+        `IncompleteProfile`) ou ter sido desligado. Desde que "Criar meu
+        plano" monta o cardápio no próprio POST, quem sai do wizard já tem
+        plano — então o teste o desliga à mão para chegar ao ramo.
+        """
+        from plans.models import NutritionPlan
+
+        user = self.pessoa()
+        NutritionPlan.objects.filter(user=user).update(is_active=False)
         bloco = self.areas().split(reverse("accounts:profile"), 1)[1].split("</a>", 1)[0]
         self.assertIn("objetivo", bloco)
         self.assertNotIn("kcal", bloco)

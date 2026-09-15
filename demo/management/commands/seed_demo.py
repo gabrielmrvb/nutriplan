@@ -331,28 +331,30 @@ class Command(BaseCommand):
         como se fosse o primeiro uso seria mostrar uma tela que o primeiro uso
         nao tem.
 
-        POR QUE `onboarding_step` NO ULTIMO PASSO, E NAO NO PRIMEIRO
-        A guarda de `OnboardingStepMixin` so abre o passo N se o progresso
-        salvo ja chegou nele — e ela esta certa: sem isso o banco aceita perfil
-        pela metade que o calculo de dieta nao sabe ler. Entao para os passos
-        serem VISITAVEIS por GET, o progresso precisa estar no ultimo.
+        POR QUE `onboarding_step` NA ULTIMA ETAPA, E NAO NA PRIMEIRA
+        A guarda de `OnboardingStepMixin` so abre a etapa N se o progresso
+        salvo ja chegou nela — e ela esta certa: sem isso o banco aceita perfil
+        pela metade que o calculo de dieta nao sabe ler. Entao para as etapas
+        serem VISITAVEIS por GET, o progresso precisa estar na ultima.
 
-        Ela continua incompleta: o wizard tem SEIS passos e `ONBOARDING_DONE`
-        e 7; ela para em 6. E como o demo recusa todo POST, ela nunca avanca —
-        o estado e estavel sem precisar de nenhuma trava propria.
+        Ela continua incompleta: o wizard tem TRES etapas (`ONBOARDING_LAST_STEP`)
+        e `ONBOARDING_DONE` e 7; ela para na 3. E como o demo recusa todo POST,
+        ela nunca avanca — o estado e estavel sem precisar de nenhuma trava
+        propria.
 
         Os numeros aqui sao lidos das constantes, e nao escritos a mao. Esta
         prosa dizia "cinco passos" e "`ONBOARDING_DONE` e 6" ate a campanha do
-        Personalizado V1 acrescentar o passo das areas: o CODIGO acompanhou
-        sozinho, o texto nao. Efeito colateral que vale saber: a persona de
-        primeiro uso estaciona agora na tela "Suas areas", e nao mais em
-        "Sua comida".
+        Personalizado V1 acrescentar o passo das areas, e "seis passos" ate o
+        onboarding virar tres etapas (15/09/2026): o CODIGO acompanhou sozinho,
+        o texto nao. Efeito colateral que vale saber: a persona de primeiro uso
+        estaciona na tela "Sua personalizacao" — comida e areas na mesma etapa
+        —, e nao mais em "Suas areas".
 
         POR QUE UM PERFIL PREENCHIDO
         Campo vazio nao mostra componente: o seletor de objetivo sem escolha, o
-        de divisao sem escolha e os dias de treino em branco deixariam tres dos
-        cinco passos sem nada para avaliar. Os valores sao ficticios e
-        diferentes dos do Carlos, de proposito.
+        de divisao sem escolha e os dias de treino em branco deixariam a etapa
+        2 sem nada para avaliar. Os valores sao ficticios e diferentes dos do
+        Carlos, de proposito.
         """
         User = get_user_model()
         hoje = timezone.localdate()
@@ -388,14 +390,14 @@ class Command(BaseCommand):
                 "meal_style": MealStyle.QUICK,
                 "wake_time": time(6, 0),
                 "sleep_time": time(22, 30),
-                # Ultimo passo, e nao ONBOARDING_DONE: incompleta de verdade.
+                # Ultima etapa, e nao ONBOARDING_DONE: incompleta de verdade.
                 "onboarding_step": ONBOARDING_LAST_STEP,
                 "onboarding_completed_at": None,
             },
         )
 
-        # O passo 3 le os dias de treino do usuario. Sem eles o formulario abre
-        # com todos os dias desmarcados, e o passo perde o que ele tem para
+        # A etapa 2 le os dias de treino do usuario. Sem eles o formulario abre
+        # com todos os dias desmarcados, e a etapa perde o que ela tem para
         # mostrar.
         TrainingDay.objects.filter(user=user).delete()
         for dia, hora in ANA_DIAS_DE_TREINO:
@@ -406,7 +408,7 @@ class Command(BaseCommand):
         # E so. Nada de plano, ficha, peso ou refeicao: quem esta no meio do
         # wizard ainda nao tem nenhuma dessas coisas, e inventa-las aqui seria
         # justamente a "versao inventada do onboarding" que o demo nao quer.
-        self._log("Estreia pronta: Ana, parada no passo " + str(ONBOARDING_LAST_STEP) + ".")
+        self._log("Estreia pronta: Ana, parada na etapa " + str(ONBOARDING_LAST_STEP) + ".")
 
     def _limpar_fichas_orfas(self, user, ficha_ativa):
         """Apaga as fichas que os deploys anteriores deixaram para tras.

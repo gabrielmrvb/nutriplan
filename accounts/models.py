@@ -185,7 +185,6 @@ class Weekday(models.IntegerChoices):
     SUNDAY = 6, "Domingo"
 
 
-#: Número do passo seguinte ao último do wizard — significa "onboarding concluído".
 class SplitPreference(models.TextChoices):
     """Quantos grupos musculares principais a pessoa quer por sessão.
 
@@ -416,8 +415,17 @@ CAMPO_DO_PILAR = {
 }
 
 
+#: O onboarding tem TRÊS etapas (15/09/2026, decisão C-ONB): 1 "Sobre você",
+#: 2 "Seu objetivo e rotina", 3 "Sua personalização". `onboarding_step` é a
+#: PRÓXIMA etapa a fazer, e a coluna guarda a escala nova — quem parou no
+#: meio do wizard antigo (2..6) foi remapeado pela migration `0032`.
+#:
+#: `ONBOARDING_DONE` continua 7, de propósito: é o valor gravado em toda
+#: conta concluída, e mantê-lo é o que faz a migration não tocar em nenhuma
+#: delas. Um "concluído" que virasse 4 exigiria reescrever cada perfil do
+#: banco para dizer o que ele já diz.
 ONBOARDING_DONE = 7
-ONBOARDING_LAST_STEP = 6
+ONBOARDING_LAST_STEP = 3
 
 
 class Profile(models.Model):
@@ -586,6 +594,8 @@ class Profile(models.Model):
         default="",
     )
 
+    #: A PRÓXIMA etapa a fazer (1..3), ou `ONBOARDING_DONE`. Nasce 2 porque
+    #: o perfil é criado pela etapa 1 — ver `SobreVoceView`.
     onboarding_step = models.PositiveSmallIntegerField("passo do onboarding", default=2)
     onboarding_completed_at = models.DateTimeField(null=True, blank=True)
 
@@ -717,10 +727,10 @@ class Profile(models.Model):
         Sem o max(), reeditar o passo 1 depois de ter terminado o wizard
         jogaria a pessoa de volta para o começo do fluxo.
 
-        `proximo` existe porque o caminho deixou de ser uma fila fixa na V2.2:
-        quem treina até três dias pula a pergunta de divisão, e para essa
-        pessoa o passo seguinte ao 3 é o 5, não o 4. Quem chama sabe o
-        caminho; este método só registra até onde ela chegou.
+        `proximo` nasceu na V2.2, quando o caminho deixou de ser uma fila
+        fixa (quem treinava até três dias pulava o passo da divisão). Desde
+        15/09/2026 as três etapas são sempre as três, mas quem chama continua
+        sabendo o caminho; este método só registra até onde ela chegou.
         """
         alvo = proximo if proximo is not None else completed_step + 1
         self.onboarding_step = max(self.onboarding_step, alvo)

@@ -531,8 +531,9 @@ class ADuracaoSaiDaTelaMasNaoDoMotorTests(BaseDoFluxo):
         self.client.force_login(self.user)
 
     def test_a_configuracao_nao_oferece_mais_a_escolha(self):
+        # A etapa 2 é onde os dias de treino moram — e onde a faixa moraria.
         html = self.client.get(
-            reverse("accounts:onboarding_step", kwargs={"step": 3})
+            reverse("accounts:onboarding_step", kwargs={"step": 2})
         ).content.decode()
 
         self.assertNotIn('name="duracao_treino"', html)

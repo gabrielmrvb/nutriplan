@@ -48,7 +48,7 @@
         sem eles não dá para dizer se o seu caso é AB, ABC ou ABCD.
       </p>
       <a class="btn btn--primary btn--block"
-         href="{% url 'accounts:onboarding_step' step=3 %}?origem=treino">
+         href="{% url 'accounts:onboarding_step' step=2 %}?origem=treino">
         Cadastrar meus dias de treino
       </a>
     </section>
@@ -393,7 +393,7 @@
                 `?origem=treino` como nos outros dois links desta tela: quem
                 sai daqui para mudar os dias tem de voltar para cá, e não para
                 o Perfil. `config/test_b6_navegacao.py` cobra isso de TODOS os
-                links para o passo 3 que esta tela emite — este entrou sem a
+                links para a etapa 2 que esta tela emite — este entrou sem a
                 origem e a guarda ficou vermelha na mesma rodada.
               {% endcomment %}
               {% comment %}
@@ -405,7 +405,7 @@
                 `.card__head a`. O componente já existia; era só usá-lo.
               {% endcomment %}
               <a class="btn-link"
-                 href="{% url 'accounts:onboarding_step' step=3 %}?origem=treino">Mudar meus dias de treino</a>
+                 href="{% url 'accounts:onboarding_step' step=2 %}?origem=treino">Mudar meus dias de treino</a>
             </p>
           {% endif %}
           <ol class="week-strip">
@@ -588,7 +588,7 @@
 
           <h3 class="explicacao__titulo">
             Dias de treino
-            <a href="{% url 'accounts:onboarding_step' step=3 %}?origem=treino">Editar</a>
+            <a href="{% url 'accounts:onboarding_step' step=2 %}?origem=treino">Editar</a>
           </h3>
           <dl class="data-list">
             {% for session in sessions %}

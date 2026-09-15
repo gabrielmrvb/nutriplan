@@ -650,6 +650,27 @@
     else if (/^\/treino\/agora\/serie\/$/.test(acao)) serieEnfileirada(form, dados);
   });
 
+  /* ONBOARDING — a divisão de treino aparece quando os dias pedem.
+   *
+   * A etapa 2 pergunta a divisão só a partir de N dias de treino (N vem do
+   * servidor em `data-dias-minimos`, lido da tabela do motor). Sem
+   * JavaScript o servidor decide do mesmo jeito: recusa o envio sem divisão
+   * e reabre a tela com o bloco visível. Aqui o bloco aparece na hora em
+   * que a pessoa marca o dia que o torna necessário — e some se ela
+   * desmarca — para ninguém enviar e voltar. */
+  var revela = document.querySelector("[data-revela-divisao]");
+  if (revela) {
+    var minimo = parseInt(revela.dataset.diasMinimos, 10) || 0;
+    var dias = document.querySelectorAll('input[name="weekdays"]');
+    function acertarDivisao() {
+      var marcados = 0;
+      dias.forEach(function (d) { if (d.checked) marcados++; });
+      revela.hidden = marcados < minimo;
+    }
+    dias.forEach(function (d) { d.addEventListener("change", acertarDivisao); });
+    acertarDivisao();
+  }
+
   /* MAPA DE ÁREAS — só as conveniências.
    *
    * O `<details>` já abre e fecha sozinho no clique, e continua funcionando

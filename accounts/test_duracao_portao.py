@@ -147,12 +147,16 @@ class ODefaultNasceEmPadraoTests(TestCase):
             "sex": Sex.MALE, "birth_date": "1995-04-12", "height_cm": "178",
             "weight_kg": "80.0",
         })
-        passo(2, {"activity_level": ActivityLevel.LIGHT, "goal": Goal.BULK})
-        passo(3, {
+        # Objetivo e rotina são a MESMA etapa desde 15/09/2026; três dias
+        # exigem a divisão, que vai junto. Nenhum dos dois campos medidos
+        # aqui (duração, horário) é perguntado.
+        passo(2, {
+            "activity_level": ActivityLevel.LIGHT, "goal": Goal.BULK,
             "weekdays": ["0", "2", "4"],
             "experiencia": "intermediario",
             "wake_time": "07:00",
             "sleep_time": "23:00",
+            "split_preference": "three",
         })
 
         perfil = Profile.objects.get(user=user)
@@ -172,8 +176,9 @@ class ODefaultNasceEmPadraoTests(TestCase):
         Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
         self.client.force_login(user)
         self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 3}),
-            {"weekdays": ["0", "2"], "experiencia": "intermediario",
+            reverse("accounts:onboarding_step", kwargs={"step": 2}),
+            {"activity_level": ActivityLevel.LIGHT, "goal": Goal.BULK,
+             "weekdays": ["0", "2"], "experiencia": "intermediario",
              "wake_time": "07:00", "sleep_time": "23:00"},
         )
 
@@ -187,7 +192,7 @@ class QuemJaEscolheuNaoEReescritoTests(TestCase):
     """As quatro faixas sobrevivem ao salvamento, e o POST não as troca.
 
     O risco não é teórico: `TrainingForm.save()` reescreve `TrainingDay` a cada
-    visita ao passo 3, e ele deriva `duration_min` do perfil. Um `or PADRAO`
+    visita à etapa da rotina, e ele deriva `duration_min` do perfil. Um `or PADRAO`
     escrito no lugar errado — ou um campo escondido que voltasse a aceitar
     valor — apagaria a escolha de quem pediu 30 ou 90 minutos.
     """
@@ -195,7 +200,11 @@ class QuemJaEscolheuNaoEReescritoTests(TestCase):
     def _salvar_dias(self, user, extra=None):
         Profile.objects.filter(user=user).update(onboarding_step=ONBOARDING_DONE)
         self.client.force_login(user)
+        # A rotina divide a etapa 2 com o objetivo (15/09/2026): o POST leva
+        # os dois, com o objetivo igual ao do perfil.
         corpo = {
+            "activity_level": ActivityLevel.LIGHT,
+            "goal": Goal.BULK,
             "weekdays": ["1", "3"],
             "experiencia": "intermediario",
             "wake_time": "07:00",
@@ -203,7 +212,7 @@ class QuemJaEscolheuNaoEReescritoTests(TestCase):
         }
         corpo.update(extra or {})
         return self.client.post(
-            reverse("accounts:onboarding_step", kwargs={"step": 3}), corpo
+            reverse("accounts:onboarding_step", kwargs={"step": 2}), corpo
         )
 
     def test_as_quatro_faixas_atravessam_o_salvamento(self):

@@ -231,9 +231,9 @@ class PesoField(forms.DecimalField):
 
 
 class BodyDataForm(OnboardingStepForm):
-    """Passo 1 — sexo, nascimento, altura e peso atual."""
+    """Etapa 1 — sexo, nascimento, altura e peso atual."""
 
-    #: O peso do passo 1 — e o único campo decimal do onboarding.
+    #: O peso da etapa 1 — e o único campo decimal do onboarding.
     #:
     #: Era `DecimalField` com `NumberInput`, e isso significa `type="number"`:
     #: o NAVEGADOR descarta "72,4" antes de enviar, o campo chega vazio e o
@@ -373,7 +373,9 @@ class PesagemForm(forms.Form):
 
 
 class GoalForm(OnboardingStepForm):
-    """Passo 2 — objetivo e nível de atividade fora do treino."""
+    """Etapa 2 (o objetivo) — objetivo e nível de atividade fora do treino.
+
+    Era o passo 2 de seis; desde 15/09/2026 abre a etapa 2 com a rotina."""
 
     class Meta:
         model = Profile
@@ -442,7 +444,10 @@ class DiasDaSemanaWidget(forms.CheckboxSelectMultiple):
 
 
 class TrainingForm(forms.Form):
-    """Passo 3 — a rotina do dia: dias de treino, horário e janela de sono.
+    """Etapa 2 (a rotina) — dias de treino, horário e janela de sono.
+
+    Era o passo 3 de seis; desde 15/09/2026 compõe a etapa 2 com o objetivo
+    e a divisão (`accounts.views.ObjetivoERotinaView`).
 
     Não é ModelForm porque um único envio cria/remove VÁRIOS TrainingDay.
     Pedimos um horário só para todos os dias: cobre a rotina da maioria e
@@ -606,11 +611,12 @@ class TrainingForm(forms.Form):
 
 
 class SplitPreferenceForm(OnboardingStepForm):
-    """Passo 4 — quantos grupos musculares por sessão.
+    """Etapa 2 (a divisão) — quantos grupos musculares por sessão.
 
-    Vem DEPOIS dos dias de treino de propósito: a resposta só faz sentido
-    sabendo a frequência, e a tela do passo seguinte pode dizer o que a
-    escolha vai virar. Quem treina duas vezes escolhendo "poucos grupos por
+    Era o passo 4 de seis. Hoje mora na MESMA tela dos dias, revelada quando
+    os dias marcados pedem (`preferencia_muda_a_divisao`): a resposta só faz
+    sentido sabendo a frequência, e a tela pode dizer o que a escolha vai
+    virar. Quem treina duas vezes escolhendo "poucos grupos por
     dia" não recebe uma divisão de três — recebe superior e inferior, porque
     a terceira letra nunca chegaria na semana dele.
     """
@@ -636,17 +642,18 @@ class SplitPreferenceForm(OnboardingStepForm):
         self.fields["split_preference"].choices = SplitPreference.choices
 
     def sem_resposta_previa(self):
-        # Não é o número do passo: quem treina três dias pula o 4 e chega ao
-        # fim do cadastro sem nunca ter respondido. `split_preference_confirmada`
+        # Não é o número da etapa: quem treina até dois dias não vê a pergunta
+        # e chega ao fim do cadastro sem nunca ter respondido. `split_preference_confirmada`
         # é o fato que o banco tem sobre a intenção da pessoa — e é o que
-        # manda quem marca o quarto dia de volta a esta tela.
+        # manda quem marca o terceiro dia de volta a esta pergunta.
         return not self.instance.split_preference_confirmada
 
 
 class RestrictionsForm(OnboardingStepForm):
-    """Passo 5 — estilo de cardápio e restrições.
+    """Etapa 3 (a comida) — estilo de cardápio e restrições.
 
-    A janela de sono saiu daqui na V2.1 e foi para o passo 3, junto dos outros
+    Era o passo 5 de seis. A janela de sono saiu daqui na V2.1 e foi para a
+    rotina (hoje etapa 2), junto dos outros
     horários. Ela nunca foi uma pergunta sobre comida: era uma pergunta sobre o
     dia da pessoa que tinha ido parar na tela de comida porque é a comida que
     consome a resposta. Consumidor não é dono.
@@ -678,7 +685,7 @@ class RestrictionsForm(OnboardingStepForm):
     escolhas_abertas = ("meal_style",)
 
     def sem_resposta_previa(self):
-        return self.instance.pk is None or self.instance.onboarding_step <= 5
+        return self.instance.pk is None or self.instance.onboarding_step <= 3
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -842,11 +849,12 @@ class TrocarSenhaForm(CamposDoNutriPlanMixin, PasswordChangeForm):
 
 
 class InteressesForm(OnboardingStepForm):
-    """Passo 6 — o que a pessoa quer cuidar, e o que ela quer cuidar primeiro.
+    """Etapa 3 (as áreas) — o que a pessoa quer cuidar, e o que ela quer cuidar
+    primeiro.
 
-    Uma tela só, e não duas. O onboarding já tem cinco passos e catorze campos;
-    partir esta pergunta em duas telas custaria um sexto passo para responder
-    uma coisa que cabe num cartão e num rádio.
+    Era o passo 6 de seis; hoje fecha a etapa 3 junto da comida. Uma pergunta
+    só, e não duas: partir isto em duas telas custaria uma etapa a mais para
+    responder uma coisa que cabe num cartão e num rádio.
 
     **A prioridade não é o primeiro checkbox tocado.** Ela é uma pergunta
     própria, com controle próprio, e é isso que impede a escolha acidental —

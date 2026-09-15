@@ -57,15 +57,17 @@ EMAIL_DEMO = "joao@demo.local"
 # assim que a captura mostra "Comi outra coisa" expandido, sem precisar de um
 # navegador que clique.
 TELAS = [
+    # Três etapas desde 15/09/2026: objetivo, rotina e divisão moram na 2;
+    # comida e áreas, na 3. `/conta/onboarding/4/` deixou de existir.
     {
         "nome": "01-onboarding-objetivo",
         "url": "/conta/onboarding/2/",
-        "rotulo": "Onboarding · Seu objetivo",
+        "rotulo": "Onboarding · Seu objetivo e rotina",
     },
     {
-        "nome": "02-onboarding-divisao",
-        "url": "/conta/onboarding/4/",
-        "rotulo": "Onboarding · Sua divisão de treino",
+        "nome": "02-onboarding-personalizacao",
+        "url": "/conta/onboarding/3/",
+        "rotulo": "Onboarding · Sua personalização",
     },
     {
         "nome": "03-diario-alimentar",

@@ -33,7 +33,7 @@ from accounts.models import (
     WeightEntry,
 )
 from plans.models import HydrationLog
-from accounts.tests import STEP1, STEP2, STEP3, STEP4, STEP5, step_url
+from accounts.tests import ETAPA2, ETAPA3, STEP1, step_url
 
 #: Os marcadores de cada seção da Home, ancorados na CLASSE e não no texto.
 #: Texto visível muda com a cópia; classe é contrato de estrutura. E ancorar no
@@ -57,11 +57,12 @@ class BaseDaHome(TestCase):
         """Nasce do wizard: a Home exige plano, e plano nasce do onboarding."""
         user = User.objects.create_user(email=email, password="senha-bem-forte-123")
         self.client.force_login(user)
-        for passo, dados in ((1, STEP1), (2, STEP2), (3, STEP3), (4, STEP4), (5, STEP5)):
-            self.client.post(step_url(passo), dados)
+        for etapa, dados in ((1, STEP1), (2, ETAPA2)):
+            self.client.post(step_url(etapa), dados)
         self.client.post(
-            step_url(6),
+            step_url(3),
             {
+                **ETAPA3,
                 "interesses": list(interesses) or ["dieta"],
                 "prioridade": principal or "dieta",
             },
@@ -301,7 +302,7 @@ class OCTADoProgressoLevaAAlgumLugarTests(BaseDaHome):
         plano = get_active_plan(user)
         self.assertIsNotNone(plano)
 
-        # O passo 2 do wizard grava o peso de HOJE, e com ele `convidar_a_pesar`
+        # A etapa 1 do wizard grava o peso de HOJE, e com ele `convidar_a_pesar`
         # é falso — a faixa nem renderiza. A pesagem é EMPURRADA para trás, e
         # não apagada: sem nenhum peso o perfil fica incompleto e a Home
         # redireciona para o wizard, que foi o que este teste fez na primeira

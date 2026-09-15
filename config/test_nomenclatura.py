@@ -36,7 +36,7 @@ from django.urls import reverse
 from accounts.models import CAMPO_DO_PILAR, Pilar, User
 from accounts.templatetags.escolhas import DETALHES
 from accounts.templatetags.navegacao import DESTINO_DO_PILAR
-from accounts.tests import STEP1, STEP2, STEP3, STEP4, STEP5, step_url
+from accounts.tests import ETAPA2, ETAPA3, STEP1, step_url
 
 RAIZ = Path(__file__).resolve().parent.parent
 
@@ -99,11 +99,11 @@ class BaseDaNomenclatura(TestCase):
     def pessoa(self, email="nome@exemplo.com", interesses=("dieta",), principal="dieta"):
         user = User.objects.create_user(email=email, password="senha-bem-forte-123")
         self.client.force_login(user)
-        for passo, dados in ((1, STEP1), (2, STEP2), (3, STEP3), (4, STEP4), (5, STEP5)):
-            self.client.post(step_url(passo), dados)
+        for etapa, dados in ((1, STEP1), (2, ETAPA2)):
+            self.client.post(step_url(etapa), dados)
         self.client.post(
-            step_url(6),
-            {"interesses": list(interesses), "prioridade": principal},
+            step_url(3),
+            {**ETAPA3, "interesses": list(interesses), "prioridade": principal},
         )
         return user
 
@@ -208,17 +208,22 @@ class OOnboardingEOPerfilConcordamTests(BaseDaNomenclatura):
             email="wizard@exemplo.com", password="senha-bem-forte-123"
         )
         self.client.force_login(user)
-        for passo, dados in ((1, STEP1), (2, STEP2), (3, STEP3), (4, STEP4), (5, STEP5)):
-            self.client.post(step_url(passo), dados)
+        for etapa, dados in ((1, STEP1), (2, ETAPA2)):
+            self.client.post(step_url(etapa), dados)
 
-        html = self.client.get(step_url(6)).content.decode()
-        # Os CARTÕES, e não a página: o passo 6 declara `sem_tabbar`, que
+        html = self.client.get(step_url(3)).content.decode()
+        # Os CARTÕES, e não a página: a etapa 3 declara `sem_tabbar`, que
         # desliga o mapa e a barra de baixo — mas NÃO a barra de cima, que
         # continua imprimindo "Alimentação", "Treino" e "Progresso". A versão
         # anterior varria o HTML inteiro, e três dos cinco subTests passavam
         # por causa dela: esvaziar o título do cartão os deixaria verdes. Uma
         # revisão adversarial mediu.
-        cartoes = html.split('class="choice-list', 1)[1].split("</ul>", 1)[0]
+        #
+        # E a lista das ÁREAS, não a primeira `choice-list` da página: com
+        # três etapas as restrições alimentares moram na mesma tela e vêm
+        # antes, com a mesma classe.
+        areas = html.split("O que você quer acompanhar?", 1)[1]
+        cartoes = areas.split('class="choice-list', 1)[1].split("</ul>", 1)[0]
 
         for pilar in Pilar:
             with self.subTest(pilar=pilar.value):

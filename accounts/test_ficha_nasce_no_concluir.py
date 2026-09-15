@@ -25,16 +25,19 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import Profile, User
-from accounts.tests import STEP1, STEP2, STEP3, STEP4, STEP5, step_url
+from accounts.tests import ETAPA2, STEP1, STEP5, step_url
 from plans.streaks import _dias_de_treino
 from workouts.models import TrainingPlan
 
 HOJE = str(timezone.localdate().weekday())
-STEP6_TREINO = {"interesses": ["treino"], "prioridade": "treino"}
+#: A etapa 3 (comida + áreas) com Treino como área principal.
+ETAPA3_TREINO = {**STEP5, "interesses": ["treino"], "prioridade": "treino"}
 
 
 def _dias(*weekdays):
-    return {**STEP3, "weekdays": [str(d) for d in weekdays]}
+    """A etapa 2 com estes dias. A divisão vai junto e só é lida quando os
+    dias pedem (três ou mais); com zero dias o servidor a ignora."""
+    return {**ETAPA2, "weekdays": [str(d) for d in weekdays]}
 
 
 class FichaNasceNoConcluirTests(TestCase):
@@ -48,20 +51,16 @@ class FichaNasceNoConcluirTests(TestCase):
         )
         self.client.force_login(self.user)
         self.client.post(step_url(1), STEP1)
-        self.client.post(step_url(2), STEP2)
 
-    def concluir(self, passo3):
-        # O passo 4 existe ou não conforme os dias respondidos; quem decide é
-        # o redirect do passo 3, e o fixture o segue em vez de adivinhar.
-        resposta = self.client.post(step_url(3), passo3)
-        if resposta["Location"] == step_url(4):
-            self.client.post(step_url(4), STEP4)
-        self.client.post(step_url(5), STEP5)
-        return self.client.post(step_url(6), STEP6_TREINO)
+    def concluir(self, etapa2):
+        # Três etapas fixas desde 15/09/2026: a rotina (com a divisão, quando
+        # os dias pedem) é a 2, e "Criar meu plano" é o POST da 3.
+        resposta = self.client.post(step_url(2), etapa2)
+        self.assertRedirects(resposta, step_url(3))
+        return self.client.post(step_url(3), ETAPA3_TREINO)
 
     def test_a_primeira_home_depois_do_concluir_ja_tem_o_treino_de_hoje(self):
-        # Hoje mais dois dias: o passo 4 não existe com três, e o caminho é o
-        # mais curto — que era justamente o que chegava à Home sem ficha.
+        # Hoje mais dois dias — o caso que chegava à Home sem ficha.
         hoje = int(HOJE)
         resposta = self.concluir(_dias(hoje, (hoje + 2) % 7, (hoje + 4) % 7))
         self.assertRedirects(resposta, reverse("plans:today"))
@@ -86,7 +85,7 @@ class FichaNasceNoConcluirTests(TestCase):
         self.concluir(_dias(hoje, (hoje + 2) % 7, (hoje + 4) % 7))
         plano = TrainingPlan.objects.get(user=self.user, is_active=True)
 
-        resposta = self.client.post(step_url(3), _dias())
+        resposta = self.client.post(step_url(2), _dias())
         self.assertEqual(resposta.status_code, 302)
 
         plano.refresh_from_db()
@@ -105,7 +104,7 @@ class FichaNasceNoConcluirTests(TestCase):
             self.client.get(reverse("plans:today")), 'class="resumo-dia__treino"'
         )
 
-        self.client.post(step_url(3), _dias(hoje, (hoje + 2) % 7, (hoje + 4) % 7))
+        self.client.post(step_url(2), _dias(hoje, (hoje + 2) % 7, (hoje + 4) % 7))
 
         novo = TrainingPlan.objects.get(user=self.user, is_active=True)
         self.assertNotEqual(novo.pk, antigo.pk)
@@ -156,15 +155,11 @@ class SemCatalogoTests(TestCase):
         )
         self.client.force_login(user)
         self.client.post(step_url(1), STEP1)
-        self.client.post(step_url(2), STEP2)
         hoje = int(HOJE)
-        resposta = self.client.post(step_url(3), _dias(hoje, (hoje + 2) % 7, (hoje + 4) % 7))
-        if resposta["Location"] == step_url(4):
-            self.client.post(step_url(4), STEP4)
-        self.client.post(step_url(5), STEP5)
+        self.client.post(step_url(2), _dias(hoje, (hoje + 2) % 7, (hoje + 4) % 7))
 
         with self.assertLogs("accounts.views", level="WARNING") as log:
-            resposta = self.client.post(step_url(6), STEP6_TREINO)
+            resposta = self.client.post(step_url(3), ETAPA3_TREINO)
 
         self.assertRedirects(resposta, reverse("plans:today"))
         self.assertFalse(TrainingPlan.objects.filter(user=user).exists())
