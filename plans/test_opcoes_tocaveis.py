@@ -17,6 +17,8 @@ O QUE NÃO MUDA, e cada item aqui tem teste: os campos que o formulário envia
 "Pulei" e "Comi outra coisa".
 """
 import re
+from datetime import datetime, time
+from unittest import mock
 
 from django.core.management import call_command
 from django.test import TestCase
@@ -260,7 +262,16 @@ class ARefeicaoFuturaFicaEmSegundoPlanoTests(TestCase):
     def setUp(self):
         self.pessoa = com_plano()
         self.client.force_login(self.pessoa)
-        self.html = self.client.get(reverse("plans:today")).content.decode("utf-8")
+        # Meio-dia e meia, sempre: o café já venceu, o almoço é a vez e o
+        # resto do dia é futuro. Lendo a hora da máquina, este teste
+        # reprovava depois da última refeição do plano — o `pre-push` de
+        # 14/09/2026 às 20h44 pegou, com "precisa de pelo menos uma refeição
+        # futura para medir".
+        meio_dia = timezone.make_aware(
+            datetime.combine(timezone.localdate(), time(12, 30))
+        )
+        with mock.patch("plans.views.relogio", return_value=meio_dia):
+            self.html = self.client.get(reverse("plans:today")).content.decode("utf-8")
 
     def _artigos(self):
         return re.findall(r'<article class="meal([^"]*)"(.*?)</article>', self.html, re.S)

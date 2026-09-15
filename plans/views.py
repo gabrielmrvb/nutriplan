@@ -286,6 +286,20 @@ class PlanRequiredMixin(OnboardingRequiredMixin):
         return plan
 
 
+def relogio():
+    """A hora local que a tela Hoje usa para decidir o cartão AGORA e os selos.
+
+    Existe para ser CONGELADA em teste. A Home é a única tela cujo conteúdo
+    muda com o relógio de parede — refeição vencida, treino de hoje, água
+    atrás do esperado —, e dois testes passavam de dia e reprovavam de noite:
+    depois da última refeição não há "refeição futura", e depois do jantar a
+    refeição vencida passa na frente do treino das 19h. O `pre-push` de
+    14/09/2026 às 20h44 pegou os dois. Um teste que lê a hora da máquina não
+    está medindo a tela; está medindo a hora.
+    """
+    return timezone.localtime()
+
+
 class TodayView(PlanRequiredMixin, TemplateView):
     template_name = "plans/today.html"
 
@@ -385,12 +399,15 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 .first()
             )
 
+        # UMA leitura do relógio para o topo e para a lista: os dois têm de
+        # concordar, e é este instante que os testes congelam (ver `relogio`).
+        agora = relogio()
         acao = agora_mod.proxima_acao(
             slots=slots,
             treino=estado_treino,
             meta_agua=meta_agua,
             bebido=bebido,
-            agora=timezone.localtime(),
+            agora=agora,
             prioridade=prioridade,
             # Declarar interesse em hidratação sem elegê-la principal não pode
             # PIORAR a hidratação — era o que acontecia, e uma revisão
@@ -403,7 +420,7 @@ class TodayView(PlanRequiredMixin, TemplateView):
         )
         # A lista concorda com o topo porque LÊ a decisão dele, em vez de
         # refazer a conta.
-        agora_mod.marcar_refeicoes(slots, acao, timezone.localtime())
+        agora_mod.marcar_refeicoes(slots, acao, agora)
         context.update(
             {
                 "plan": self.plan,

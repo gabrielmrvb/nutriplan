@@ -622,8 +622,10 @@ class OnboardingStepMixin(LoginRequiredMixin):
         """
         try:
             acertar_rotina(self.request.user)
-        except NoTrainingDays:
-            logger.warning("ficha não montada ao salvar os dias", exc_info=True)
+        except NoTrainingDays as erro:
+            # Sem traceback: a mensagem já diz a causa, e o traceback sujava
+            # a saída de todo teste de onboarding que roda sem catálogo.
+            logger.warning("ficha não montada ao salvar os dias: %s", erro)
 
     def finish_step(self, profile):
         """Avança o progresso e decide para onde ir.

@@ -19,12 +19,15 @@ a execução ficam um toque adiante, com o verbo certo.
 """
 
 import re
+from datetime import datetime, time
 from decimal import Decimal
 from pathlib import Path
+from unittest import mock
 
 from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import Pilar, Profile
 
@@ -59,7 +62,16 @@ class VerbosDoTreinoTests(BaseDoFluxo):
         services.record_load(self.user, item.exercise, Decimal("40"), set_number=1, reps=10)
 
     def _home(self):
-        return self.client.get(reverse("plans:today")).content.decode()
+        # 19h30, sempre: o treino das 19h é o vencido mais recente e ganha o
+        # cartão AGORA. Lendo a hora da máquina, depois do jantar a refeição
+        # vencida passava na frente e a Home não oferecia "Começar treino" —
+        # o `pre-push` de 14/09/2026 às 20h44 pegou. O que se prova aqui é o
+        # DESTINO do verbo, não a escada do cartão (essa é de `plans/tests`).
+        noite = timezone.make_aware(
+            datetime.combine(timezone.localdate(), time(19, 30))
+        )
+        with mock.patch("plans.views.relogio", return_value=noite):
+            return self.client.get(reverse("plans:today")).content.decode()
 
     def _painel(self):
         return self.client.get(reverse("workouts:routine")).content.decode()
