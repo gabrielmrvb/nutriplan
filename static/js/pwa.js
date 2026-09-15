@@ -555,6 +555,101 @@
     });
   });
 
+  /* O TOQUE OFFLINE APARECE NA TELA NA HORA (UX P1-09 / E02 / E07).
+   *
+   * Sem rede o formulário não navega: `fila.js` guarda o pedido e dispara
+   * `nutriplan:enfileirado` no formulário. Até aqui a tela só devolvia o
+   * botão — o número da água continuava o mesmo, a série não aparecia na
+   * pastilha, a refeição continuava "pendente". Parecia que não tinha
+   * funcionado, e a pessoa tocava de novo, enfileirando duas vezes.
+   *
+   * Cada tela escreve o que o servidor escreveria, com um selo "aguardando
+   * rede" — a nota já existe no HTML, escondida (`[data-aguardando-rede]`),
+   * e o JavaScript só a mostra. Nada aqui grava: quando a rede volta, a fila
+   * drena e a página recarregada mostra o que o servidor tem. A tela é
+   * reconhecida pela AÇÃO do formulário, com as mesmas rotas de `fila.js`. */
+  /* O `detail` do evento é o objeto de campos que `fila.js` guardou
+   * (`dados`): chave → valor, já sem o `op_id` da página. */
+  function valorDoPar(dados, nome) {
+    return dados && dados[nome] != null ? String(dados[nome]) : "";
+  }
+  function mostrarNota(raiz, texto) {
+    var nota = raiz.querySelector("[data-aguardando-rede]");
+    if (!nota) return;
+    nota.textContent = texto;
+    nota.hidden = false;
+  }
+  function aguaEnfileirada(form, dados) {
+    var cartao = form.closest(".agua");
+    if (!cartao) return;
+    var ml = parseInt(valorDoPar(dados, "ml"), 10);
+    var valor = cartao.querySelector(".agua__valor b");
+    if (valor && !isNaN(ml)) {
+      var atual = parseInt(valor.textContent.replace(/\D/g, ""), 10) || 0;
+      valor.textContent = String(ml === 0 ? 0 : atual + ml);
+    }
+    mostrarNota(cartao, "Registrado — aguardando rede.");
+  }
+  function refeicaoEnfileirada(form) {
+    var artigo = form.closest(".meal");
+    if (!artigo) return;
+    artigo.classList.add("meal--pendente-rede");
+    mostrarNota(artigo, "Registrada — aguardando rede.");
+  }
+  function serieEnfileirada(form, dados) {
+    var secao = form.closest(".agora");
+    if (!secao) return;
+    var pastilha = secao.querySelector(".series__item--atual");
+    if (pastilha) {
+      pastilha.classList.remove("series__item--atual");
+      pastilha.classList.add("series__item--feita", "series__item--pendente-rede");
+      var peso = valorDoPar(dados, "weight_kg");
+      var reps = valorDoPar(dados, "reps");
+      var texto = (peso ? peso : "") + (reps ? "×" + reps : "");
+      var carga = pastilha.querySelector(".series__carga, .series__antes");
+      if (carga) {
+        carga.className = "series__carga num";
+        carga.textContent = texto || "✓";
+      }
+      var proxima = pastilha.nextElementSibling;
+      if (proxima && proxima.classList.contains("series__item")) {
+        proxima.classList.add("series__item--atual");
+      }
+    }
+    var titulo = secao.querySelector(".series__titulo");
+    var numero = titulo && titulo.querySelector("b.num");
+    var total = titulo && titulo.querySelector("span.num");
+    var botao = form.querySelector(".agora__concluir");
+    if (numero) {
+      var n = parseInt(numero.textContent, 10);
+      var m = total ? parseInt(total.textContent, 10) : NaN;
+      if (!isNaN(n)) {
+        /* Fechou a última: o título diz "Concluído — 3 de 3", como o
+         * servidor diria; o formulário fica, porque a série a mais continua
+         * valendo e a página não recarrega sem rede. */
+        if (!isNaN(m) && n + 1 > m) {
+          numero.textContent = String(m);
+          if (titulo.firstChild && titulo.firstChild.nodeType === 3) {
+            titulo.firstChild.textContent = "Concluído — ";
+          }
+        } else {
+          numero.textContent = String(n + 1);
+        }
+        if (botao) botao.textContent = "Concluir série " + (n + 1);
+      }
+    }
+    mostrarNota(secao, "Série guardada — aguardando rede.");
+  }
+  document.addEventListener("nutriplan:enfileirado", function (evento) {
+    var form = evento.target;
+    if (!form || !form.getAttribute) return;
+    var acao = new URL(form.getAttribute("action") || location.href, location.origin).pathname;
+    var dados = evento.detail || {};
+    if (/^\/agua\/$/.test(acao)) aguaEnfileirada(form, dados);
+    else if (/^\/refeicao\/\d+\/marcar\/$/.test(acao)) refeicaoEnfileirada(form);
+    else if (/^\/treino\/agora\/serie\/$/.test(acao)) serieEnfileirada(form, dados);
+  });
+
   /* MAPA DE ÁREAS — só as conveniências.
    *
    * O `<details>` já abre e fecha sozinho no clique, e continua funcionando

@@ -280,6 +280,8 @@
         </div>
         <p class="vis-oculto" role="status" aria-live="polite" data-descanso-aviso></p>
       {% endif %}
+      {# O selo do toque offline (ver `pwa.js`): a série entra na pastilha e esta nota aparece. #}
+      <p class="aguardando-rede" data-aguardando-rede hidden role="status"></p>
 
       {# ---- Registrar a série: dois campos e um botão ---- #}
       {% if concluido and not extra %}

@@ -15,6 +15,7 @@ Uso (sempre com o python do .venv):
   nav.py <sessao> screenshot <arquivo.png> [full]
   nav.py <sessao> cookie <nome> <valor> [dominio]
   nav.py <sessao> permissao <notifications|geolocation> <granted|denied|prompt> [origem]
+  nav.py <sessao> offline on|off
   nav.py <sessao> url | title | text [max] | links | clicaveis
   nav.py <sessao> close
 
@@ -84,6 +85,7 @@ class Sessao:
         self.ws = websocket.create_connection(paginas[0]["webSocketDebuggerUrl"], timeout=60, suppress_origin=True)
         self._id = 0
         self._viewport()
+        self._offline()
         self.cmd("Page.enable"); self.cmd("Runtime.enable")
 
     def _viewport(self):
@@ -184,6 +186,22 @@ class Sessao:
         self.cmd("Browser.setPermission", permission={"name": nome}, setting=decisao, origin=origem)
         return {"permissao": nome, "decisao": decisao}
 
+    def offline(self, ligado):
+        """Rede desligada (`on`) ou de volta (`off`) — é como se prova a fila offline.
+
+        A emulação é DA SESSÃO CDP e morre quando a conexão fecha — e cada
+        comando deste arquivo abre uma conexão nova. O estado fica num
+        arquivo e é reaplicado em todo comando, como o viewport."""
+        (BASE / ("offline-" + self.nome + ".json")).write_text(json.dumps(ligado == "on"))
+        self._offline()
+        return {"offline": ligado == "on"}
+
+    def _offline(self):
+        cfg = BASE / ("offline-" + self.nome + ".json")
+        ligado = cfg.exists() and json.loads(cfg.read_text())
+        self.cmd("Network.enable")
+        self.cmd("Network.emulateNetworkConditions", offline=bool(ligado), latency=0, downloadThroughput=-1, uploadThroughput=-1)
+
     def cookie(self, nome, valor, dominio="127.0.0.1"):
         self.cmd("Network.setCookie", name=nome, value=valor, domain=dominio, path="/", httpOnly=True)
         return {"cookie": nome}
@@ -228,6 +246,7 @@ def main():
         elif cmd == "screenshot": out = s.screenshot(args[0], full=(len(args) > 1 and args[1] == "full"))
         elif cmd == "cookie": out = s.cookie(args[0], args[1], *(args[2:3]))
         elif cmd == "permissao": out = s.permissao(args[0], args[1], *(args[2:3]))
+        elif cmd == "offline": out = s.offline(args[0])
         elif cmd == "url": out = s.eval("location.href")
         elif cmd == "title": out = s.eval("document.title")
         elif cmd == "text": out = s.text(*(args[:1]))

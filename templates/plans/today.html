@@ -473,6 +473,8 @@ coluna da direita), não entre ela e o almoço.
           {% endcomment %}
           <article class="meal {% if slot.log.status == 'done' %}meal--done{% endif %} {% if slot.marcador == 'agora' %}meal--agora{% endif %}"
                    id="slot-{{ slot.pk }}">
+            {# O selo do toque offline: `pwa.js` mostra quando a fila guarda a marcação sem rede. #}
+            <p class="aguardando-rede" data-aguardando-rede hidden role="status"></p>
             <header class="meal__head">
               <span class="meal__time">{{ slot.time|time:"H:i" }}</span>
               <span class="meal__title">

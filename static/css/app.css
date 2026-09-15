@@ -6184,6 +6184,16 @@ body.montando { overflow: hidden; }
   background: var(--brand-soft);
   color: var(--brand-strong);
 }
+/* A série guardada SEM REDE: feita na tela, tracejada até a fila drenar.
+   É o que o JavaScript escreve quando `nutriplan:enfileirado` dispara na
+   execução (UX P1-09); a página recarregada mostra o que o servidor tem. */
+.series__item--pendente-rede { border-style: dashed; }
+.meal--pendente-rede { opacity: .85; }
+.aguardando-rede {
+  margin: var(--espaco-3) 0 0;
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+}
 .series__item--atual {
   border-color: var(--border-strong);
   border-style: dashed;

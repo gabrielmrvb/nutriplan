@@ -85,6 +85,11 @@
             {% endif %}
           </div>
 
+          {% comment %}
+            O selo do toque offline: escondido até `fila.js` enfileirar um
+            gole sem rede; `pwa.js` soma o número acima e mostra esta nota.
+          {% endcomment %}
+          <p class="aguardando-rede" data-aguardando-rede hidden role="status"></p>
           <div class="progress {% if agua_completa %}progress--completo{% endif %}"
                role="img"
                aria-label="{{ hidratacao_pct }}% da meta de água">
