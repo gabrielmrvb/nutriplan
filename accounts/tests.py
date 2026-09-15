@@ -2785,7 +2785,9 @@ class ConfirmacaoDeEscritaTests(TestCase):
             follow=True,
         )
 
-        self.assertIn("Peso registrado.", self._mensagens(resposta))
+        # Com o número (UX UXA-06, 15/09/2026): a faixa da Home some depois de
+        # salvar, e a mensagem é o único eco do dígito que a pessoa digitou.
+        self.assertIn("Peso registrado: 81,30 kg.", self._mensagens(resposta))
 
     def test_peso_recusado_nao_confirma(self):
         resposta = self.client.post(
@@ -2794,7 +2796,7 @@ class ConfirmacaoDeEscritaTests(TestCase):
             follow=True,
         )
 
-        self.assertNotIn("Peso registrado.", self._mensagens(resposta))
+        self.assertFalse(any(m.startswith("Peso registrado") for m in self._mensagens(resposta)))
 
     # -- edição de perfil -------------------------------------------------
 
