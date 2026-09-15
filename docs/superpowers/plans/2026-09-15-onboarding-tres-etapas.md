@@ -399,12 +399,25 @@ que reprovar), e a lista do Explore.
 
 ### Task 8: Publicar e provar
 
-- [ ] `manage.py check`, `makemigrations --check`, `git diff --check`, commits por unidade, `git fetch`, push pelo `pre-push` (suíte completa), deploy provado (HTML servido de `/conta/onboarding/1/` com "Etapa 1 de 3" — com a conta descartável de produção), `/saude/`, smoke.
-- [ ] QA em PRODUÇÃO com agent-browser, conta `qa-onb-20260915@nutriplan-qa.invalid` (já criada no baseline): os 13 passos do dono, nas 4 larguras + desktop; capturas em `scratchpad/shots-onb/prod/`. Ao fim, "Excluir conta" pela tela; demo intocado (GET em `/demo/hoje/` antes/depois com a mesma impressão).
-- [ ] Relatório final + notificação sonora; retomar a onda 2 em T2.1.
+- [x] `manage.py check`, `makemigrations --check`, `git diff --check`, commits por unidade, `git fetch`, push pelo `pre-push` (suíte completa), deploy provado (HTML servido de `/conta/onboarding/1/` com "Etapa 1 de 3" — com a conta descartável de produção), `/saude/`, smoke.
+- [x] QA em PRODUÇÃO com agent-browser, conta `qa-onb-20260915@nutriplan-qa.invalid` (já criada no baseline): os 13 passos do dono, nas 4 larguras + desktop; capturas em `scratchpad/shots-onb/prod/`. Ao fim, "Excluir conta" pela tela; demo intocado (GET em `/demo/hoje/` antes/depois com a mesma impressão).
+- [x] Relatório final + notificação sonora; retomar a onda 2 em T2.1.
 
 ## Self-review
 
 - **Cobertura da spec:** rotas/textos/CTAs (T1, T3, T4); persistência ida-e-volta e refresh (T1, T3); erros junto ao campo (partial existente, T4); teclado/CTA (QA T7/T8 — sem tabbar no wizard); compatibilidade e edição (T1 `QuemJaConcluiuTests`, T2 migration, T5 links); conclusão com cálculo + cardápio + ficha + zero dias + sem horário + redirect (T1, T3); sem alterar motor (Global); demo intocado (T8); testes obrigatórios da lista (T1 + T6 cobrem cadastro novo, edição, ida-e-volta, refresh, validação/limites — `ValidationTests` existentes adaptados —, objetivos, atividades, experiências, zero/3/4/5 dias, sem horário, cardápio, ficha, duplicação, sessão expirada — `AccessControlTests` —, etapa fora de ordem, compatibilidade, ausência de "/6", três rotas).
 - **Placeholders:** `00XX` da migration é o próximo número livre (conferir `ls accounts/migrations`); `<última>` idem.
 - **Consistência:** `ETAPAS`, `PASSO_TREINOS = 2`, `ONBOARDING_LAST_STEP = 3`, `ONBOARDING_DONE = 7`, `acertar_ficha()` (existe desde T1.1), `sync_active_plan(user) -> (plano, mudou)`.
+
+## Provado em produção — 15/09/2026
+
+- Push `a1df7f1..29dc378` (suíte 2991 OK no `pre-push`); deploy provado com
+  a conta descartável: `/conta/onboarding/1/` servindo "Etapa 1 de 3 · Sobre
+  você · Continuar", zero "Passo 1/6"; `/saude/` 200; smoke sem falhas.
+- QA em produção (agent-browser, 13 passos, 390 + 320/375/430 + desktop):
+  OK=36 FALHAS=0 — ida e volta sem perder dado, divisão revelada no 3.º
+  dia, "Criar meu plano" → Home com "Seu plano está pronto", 5 refeições, 3
+  cartões de sessão, `/4/` 404, zero rolagem horizontal.
+- Conta descartável apagada pela tela "Excluir conta" (login recusado
+  depois); demo público com a mesma impressão antes e depois do QA.
+
