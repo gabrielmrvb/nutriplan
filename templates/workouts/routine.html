@@ -623,6 +623,13 @@
                data-kcal="{{ resumo_hoje.kcal }}"
                data-data="{{ resumo_hoje.data|date:'d/m/Y' }}"
                data-nome="{% if hoje %}{{ hoje.name }}{% else %}Treino de hoje{% endif %}"
+               {% comment %}
+                 CONCLUÍDO É DO SERVIDOR. A imagem desenhava "Treino concluído"
+                 em cima de qualquer número — 4 de 16 séries viravam um treino
+                 concluído no story (UX P1-12). O atributo só existe quando não
+                 há série pendente, e `card.js` lê só o que vem de `data-`.
+               {% endcomment %}
+               {% if hoje and not hoje.proximo %}data-concluido="1"{% endif %}
                {% if minutos_observados %}data-minutos-observados="{{ minutos_observados }}"{% endif %}>
         <div class="card__head"><h2>Treino de hoje</h2></div>
 
@@ -652,7 +659,7 @@
               <path d="M12 15V3"/><path d="m8 7 4-4 4 4"/>
               <path d="M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>
             </svg>
-            Compartilhar treino
+            {% if hoje and not hoje.proximo %}Compartilhar treino{% else %}Compartilhar o que já fiz{% endif %}
           </button>
           {% comment %}
             Duas escolhas, e só duas: story é o formato que a maioria posta, e
@@ -733,7 +740,8 @@
             exercicios: alvo.dataset.exercicios,
             series: alvo.dataset.series,
             volume: alvo.dataset.volume,
-            frase: "Minha evolucao. Meu plano."
+            concluido: alvo.dataset.concluido === "1",
+            frase: "Minha evolução. Meu plano."
           };
           /* Sem intervalo medido, o campo simplesmente nao existe — e o card
            * desenha os blocos que recebeu. */

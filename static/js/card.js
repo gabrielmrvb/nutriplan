@@ -188,7 +188,10 @@
   }
 
   function desenharTreino(g, f, cor, d) {
-    titulo(g, f, cor, "Treino concluído");
+    /* O título diz o que aconteceu: "concluído" só quando o servidor disse
+     * que não há série pendente. Antes era fixo, e 4 de 16 séries saíam
+     * como treino concluído no story de alguém (UX P1-12). */
+    titulo(g, f, cor, d.concluido ? "Treino concluído" : "Treino em andamento");
 
     var meio = f.topo + (f.h - f.topo - f.base) / 2;
     g.textAlign = "center";
