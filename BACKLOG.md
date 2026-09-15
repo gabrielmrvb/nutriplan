@@ -3,6 +3,19 @@
 O que ficou decidido mas não feito, e o que depende de gente. Cada item diz
 **por que** está aqui — item sem motivo vira lista que ninguém lê.
 
+## Catálogo: o que falta para duas opções de "peito e tríceps" de 5–6 exercícios (15/09/2026)
+
+As opções por letra (`workouts/opcoes.py`) exigem metade dos exercícios
+próprios em cada opção. Com 4 peitos e 3 tríceps ativos, cada opção de A fica
+com 2 peitos + 2 tríceps (um tríceps compartilhado). Para duas opções de
+3 peitos + 3 tríceps sem compartilhar, faltam **2 peitos e 3 tríceps**; para
+o brief inteiro (3 do maior, 2–3 do menor, 5–6 exercícios, ~60 min) em
+todas as letras de `abc2`, faltam também 1 costas, 3 bíceps e 2 ombros. Todo
+exercício novo passa pelos quatro contratos de mídia (vídeo embutível,
+`clip_kind`, anatomia, `media_map.json`) — é curadoria humana, a mesma que
+bloqueou Casa + Halteres. Enquanto isso, a letra oferece o que o catálogo
+sustenta e o teste `test_quantas_opcoes_cada_perfil_recebe_hoje` diz quanto é.
+
 ## ✅ PLANO MESTRE UX × TREINO × DESIGN — ONDAS 0 E 1 PUBLICADAS (15/09/2026)
 
 Os três briefs de 13-14/09 (treino v2, UX/onboarding, design visual) estão

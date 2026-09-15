@@ -629,6 +629,61 @@ SETE no tempo padrão e QUATRO no rápido. Doze só chega a quem escolheu
 "Completo" ou "sem limite rígido", em 88 minutos contra um teto de 90 — ali a
 pessoa pediu a ficha inteira.
 
+**UMA LETRA, ATÉ DUAS OPÇÕES — e "A1/A2" deixaram de ser dias obrigatórios
+(15/09/2026).** Medido em produção: intermediário, cinco dias, dois grupos
+por dia recebia A1 com 4 exercícios/13 séries/~36 min e A2 com 4/13/~29 — a
+mesma letra com conteúdos diferentes em dias diferentes, cada sessão curta, e
+o nome dizendo "dois treinos". `repartir_ocorrencia` já repartia o modelo
+entre as passagens; o que faltava era tratar as metades como VERSÕES da
+mesma letra. Hoje (`workouts/opcoes.py`, `services.prescrever_opcoes`):
+
+- o calendário só diz letras (A · B · C · A · B); a ocorrência de segunda e
+  a de quinta carregam EXATAMENTE as mesmas linhas (`SessionExercise.opcao`
+  1 e 2); `nomear_ocorrencias` só numera quando os conteúdos diferem de
+  verdade — plano antigo ajustado à mão, que continua legível;
+- as duas opções são equivalentes por construção: mesmos grupos anunciados,
+  volume DIRETO por grupo com diferença ≤ 1 série, duração ≤ 5 min de
+  diferença, metade dos exercícios próprios. A régua é o volume direto, e
+  não o efetivo: a flexão de braço tem três secundários e desequilibraria
+  ombro e core sem ser exercício de ombro;
+- o teto semanal vale para o PIOR CASO — cada ocorrência da letra fazendo a
+  opção mais pesada no grupo —, nunca para a soma das duas: ninguém faz os
+  dois treinos no mesmo dia. `services.volume_da_semana(plan)` é a conta
+  oficial; somar `session.exercises.all()` conta um treino que não existe;
+- sem catálogo para duas opções distintas, a letra sai com UMA — o modelo
+  inteiro, e não a metade que sobrou. É o caso do "Superior" de dois dias;
+- **tantas opções quantas ocorrências (mínimo duas)**: com a letra três
+  vezes na semana (7 dias em ABC), duas opções de meio modelo dariam, no
+  pior caso, 1,5 modelo por semana, e o teto esvaziava as duas até sobrar um
+  exercício de peito. Com três opções de um terço, repetir a preferida três
+  vezes é exatamente a dose do modelo. Preço medido: a 7 dias o peito fica
+  com TRÊS exercícios distintos na semana (o crucifixo compartilhado não
+  cabe no teto em nenhuma das três) — o contrato 4/4/3/3 vale de 3 a 6 dias;
+- a repartição por grupo COMEÇA PELA OUTRA OPÇÃO a cada grupo, e a
+  concessão num exercício compartilhado é ESPELHADA nas irmãs: sem as duas
+  regras, uma opção ficava com três compostos e a outra com um (doze minutos
+  de diferença) e o teto tirava o crucifixo de uma opção só;
+- a faixa de séries por sessão é do NÍVEL (12–15 iniciante, 15–18
+  intermediário, 16–20 avançado), lida do mesmo teto semanal que já traduz
+  a experiência — uma régua, dois usos;
+- a pessoa escolhe qual faz (`EscolhaDeTreino`, uma por dia); a recomendada
+  é a menos usada recentemente e é um selo, nunca uma obrigação; a
+  primeira série grava a escolha; trocar depois da primeira série pede
+  confirmação e não apaga nada (`ExerciseLog` é por exercício e data);
+- Completo/Rápido é escolha da área de Treino, não do cadastro: a rápida é a
+  opção escolhida passando por `escolher_para_o_tempo` a 40 min — não é uma
+  terceira ficha, e a linha diz o que ficou de fora.
+
+**O que o catálogo NÃO deixa fazer, medido:** "peito e tríceps" tem 4
+exercícios por opção porque o catálogo tem 4 peitos e 3 tríceps — duas
+opções distintas de 3+3 pediriam 6 e 6. E com a letra duas vezes na semana,
+o teto de 20 séries efetivas deixa ~10 por sessão para o tríceps já contando
+o secundário dos supinos. Sessões de 13–22 séries e 30–52 minutos são o
+número de hoje, escrito em `workouts/test_opcoes.py`; "perto de 60" é o alvo
+do brief e só chega com catálogo maior. A equilibragem PRIMEIRO DÁ série à
+opção mais leve e só depois tira da mais pesada: tirar primeiro deixava as
+duas com o tríceps em duas séries.
+
 **O modelo declara os grupos que o NOME promete, e o resto é COMPLEMENTAR.**
 `WorkoutTemplate.main_groups` é curadoria, não dedução: "grupo com poucos
 exercícios" chamaria o ombro de complementar no `abcd C`, que se chama "Pernas e
