@@ -18,10 +18,15 @@ Anexos do brief de design: [`design/direcao-c-mesa-e-ferro.md`](design/direcao-c
 cita em `shots/…` somam 14 MB e ficam FORA do repositório (`artifacts/design-audit/shots/`
 na máquina de quem auditou); o texto se sustenta sem elas.
 
-Referências geradas no Claude Design em 16/09/2026 a partir da direção C:
-[`design/referencias/claude-design/`](design/referencias/claude-design/) (seis
-telas a 390 px, renderizadas do export; o export inteiro — design system com
-166 arquivos e o projeto das seis telas — fica em `artifacts/claude-design/`,
+Referências geradas no Claude Design em 16/09/2026: a direção escolhida por
+critério em [`design/DIRECAO-ESCOLHIDA.md`](design/DIRECAO-ESCOLHIDA.md)
+(CORTE, contra NERVURA e VENAÇÃO) e, a partir dela, o
+[`design/DESIGN.md`](design/DESIGN.md) reescrito; as sete telas da direção a
+390 px no tema padrão em
+[`design/referencias/claude-design/`](design/referencias/claude-design/), e as
+três direções lado a lado em `design/referencias/direcoes/`. O export inteiro
+— o design system fiel à Mesa & Ferro (166 arquivos), o projeto das seis telas
+daquela rodada e o das três direções — fica em `artifacts/claude-design/`,
 fora do git; o inventário está em
 [`2026-09-15-chatgpt-claude-design/inventario-export.md`](2026-09-15-chatgpt-claude-design/inventario-export.md)
 e o que o Claude Design propôs e não entrou em
