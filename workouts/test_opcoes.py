@@ -461,6 +461,25 @@ class EscolhaDoDiaTests(Catalogo):
         ficha = self.client.get(reverse("workouts:ficha", args=[self.sessao.pk])).content.decode()
         self.assertIn('class="ficha-item__estado ficha-item__fazer', ficha)
 
+    def test_a_ficha_de_outro_dia_nao_recomenda_nada(self):
+        """"Recomendada hoje" só na ficha DE HOJE. Fora do dia a recomendação
+        não é calculada — `preparar_dia` só roda para a sessão de hoje —, e a
+        opção 1 ganhava o selo por ser a primeira (avaliação de 16/09/2026,
+        B8: ficha A aberta numa quarta, com "hoje" sendo C). Sem cálculo não
+        há recomendação, e a pill some junto com o realce."""
+        outra = self.plan.sessions.exclude(pk=self.sessao.pk).filter(label__in=[
+            s.label for s in self.plan.sessions.all() if s.tem_duas_opcoes
+        ]).exclude(label=self.sessao.label).first()
+        self.assertIsNotNone(outra, "o plano precisa de outra letra com duas opções")
+        html = self.client.get(reverse("workouts:ficha", args=[outra.pk])).content.decode()
+        self.assertIn("Opção 1", html)
+        self.assertIn("Opção 2", html)
+        self.assertNotIn("Recomendada hoje", html)
+        self.assertNotIn("opcao--recomendada", html)
+        # Controle positivo: na ficha de hoje o selo continua.
+        hoje = self.client.get(reverse("workouts:ficha", args=[self.sessao.pk])).content.decode()
+        self.assertIn("Recomendada hoje", hoje)
+
     def test_a_ficha_mostra_as_duas_e_recomenda_a_menos_usada(self):
         html = self.client.get(reverse("workouts:ficha", args=[self.sessao.pk])).content.decode()
         self.assertIn("Opção 1", html)

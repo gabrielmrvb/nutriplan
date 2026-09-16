@@ -510,7 +510,12 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
 
         eh_hoje = getattr(sessao, "eh_hoje", False)
         escolha = getattr(sessao, "escolha", None) if eh_hoje else None
-        recomendada = getattr(sessao, "recomendada", sessao.opcoes[0]) if eh_hoje else sessao.opcoes[0]
+        # Fora do dia NÃO há recomendação: `preparar_dia` só roda para a sessão
+        # de hoje, e o `else sessao.opcoes[0]` que ficava aqui dava o selo
+        # "Recomendada hoje" à opção 1 de qualquer ficha aberta em outro dia —
+        # por ser a primeira, não por ser recomendada (avaliação de
+        # 16/09/2026, B8: ficha A numa quarta, com "hoje" sendo C).
+        recomendada = getattr(sessao, "recomendada", sessao.opcoes[0]) if eh_hoje else None
         versao = self.request.GET.get("versao") or (escolha.versao if escolha else "completo")
         if versao not in ("completo", "rapido"):
             versao = "completo"
