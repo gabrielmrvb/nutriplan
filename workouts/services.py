@@ -1160,7 +1160,7 @@ def teto_de_minutos(user) -> int:
     Lê a FAIXA declarada no perfil e não o `duration_min` da sessão. O inteiro
     continua gravado — `plans/meal_planner.py` precisa dele para não marcar
     refeição no meio do treino —, mas ele deixou de ser a pergunta: quem
-    respondeu "Padrão" declarou 45 a 60, e é o topo da faixa que o motor deve
+    respondeu "Padrão" declarou "até 60", e é esse teto que o motor deve
     obedecer.
 
     Perfil ausente devolve `None`, que é "sem teto". É o caminho de quem monta

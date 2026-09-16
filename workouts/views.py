@@ -557,8 +557,13 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         # cabe em 40 minutos não tem versão rápida, e oferecer o mesmo treino
         # com outro nome seria uma escolha falsa.
         rapida_muda = any(op["rapida_series"] != op["series"] or op["removidos"] for op in opcoes)
+        rapidas = [op["rapida_minutos"] for op in opcoes] or [0]
         return {
             "rapida_muda": rapida_muda,
+            # A faixa CALCULADA das opções, e não "até 40": é o que a rápida
+            # entrega a esta pessoa.
+            "rapida_minutos_min": min(rapidas),
+            "rapida_minutos_max": max(rapidas),
             "versoes_texto": VERSOES_TEXTO.get(len(sessao.opcoes), "%d versões" % len(sessao.opcoes)),
             "opcoes": opcoes,
             "escolha": escolha,

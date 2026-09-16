@@ -1040,14 +1040,15 @@ coluna da direita), não entre ela e o almoço.
             <dd>
               {% if training_days %}
                 {% comment %}
-                  A FAIXA, e não o inteiro. `duration_min` continua gravado
+                  O TETO, e não o inteiro. `duration_min` continua gravado
                   porque o cardápio precisa dele para não marcar refeição no
                   meio do treino, mas ele deixou de ser a resposta da pessoa:
-                  quem escolheu "sem limite rígido" tem 90 gravado e NÃO pediu
-                  teto nenhum. Imprimir "até 90 min" ali seria inventar uma
-                  promessa — o mesmo defeito que a faixa veio consertar.
+                  quem escolheu "sem limite rígido" tem 90 gravado, e o motor
+                  monta a sessão completa em até 65. Imprimir "até 90 min"
+                  ali seria inventar uma promessa — o mesmo defeito que a
+                  faixa veio consertar. Todo mundo tem teto desde 15/09/2026.
                 {% endcomment %}
-                {{ plan.training_days_per_week }} dias{% if teto_do_treino %} · até {{ teto_do_treino }} min{% endif %}
+                {{ plan.training_days_per_week }} dias · até {{ teto_do_treino }} min
               {% else %}nenhum{% endif %}
             </dd>
           </div>

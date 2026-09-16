@@ -443,12 +443,15 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 # Mandar essa pessoa registrar seria pedir o que ela já fez.
                 # Registro ausente e consumo zero são estados diferentes.
                 "saldo_do_dia_ja_conta": summary["marked"] > 0,
-                # O TETO DO TREINO, ou nada. `duration_min` continua gravado
-                # porque este app precisa dele para não marcar refeição no meio
-                # do treino, mas ele deixou de ser a resposta da pessoa: quem
-                # escolheu "sem limite rígido" tem 90 gravado e não pediu teto.
-                # Imprimir "até 90 min" seria inventar promessa.
-                "teto_do_treino": treino_services.teto_de_minutos(self.request.user),
+                # O TETO DO TREINO, de todo mundo. `duration_min` continua
+                # gravado porque este app precisa dele para não marcar refeição
+                # no meio do treino, mas ele deixou de ser a resposta da pessoa.
+                # `teto_completo_de`, e não `teto_de_minutos`: desde 15/09/2026
+                # quem é "sem limite rígido" também tem teto — a sessão
+                # completa é de até 65 —, e a Home não dizia nada para essa
+                # pessoa. Imprimir os 90 gravados seria inventar promessa; o
+                # 65 é o que o motor obedece.
+                "teto_do_treino": treino_services.teto_completo_de(self.request.user),
                 "menu": menu,
                 # Diferença entre o cardápio montado e a meta. A tela mostra
                 # "bate com a meta" quando é irrelevante, e o número quando não é.

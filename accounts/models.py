@@ -287,12 +287,28 @@ class DuracaoTreino(models.TextChoices):
     LIVRE é o padrão de quem não escolheu nada, e ele NÃO promete teto nenhum —
     é a única opção honesta para quem não respondeu, porque inventar um teto
     para essa pessoa seria recomeçar o defeito do outro lado.
+
+    OS RÓTULOS SÓ DIZEM O TETO (16/09/2026). "45 a 60" e "60 a 90" prometiam
+    pisos que o gerador não garante: medido em 3 níveis × 3 preferências ×
+    2–7 dias, a sessão entregue vai de 14 a 61 minutos, e nenhuma combinação
+    passa disso — a faixa de séries do nível (≤ 20) e a dose do catálogo
+    limitam a sessão antes do relógio. `Completo` (teto 90) e `Sem limite`
+    (65) produziam o MESMO treino nas 54 combinações; hoje `Completo` usa 65
+    por construção, e `Sem limite` é o mesmo que `Completo` — continua no
+    banco para quem já tem, e não é oferecido em formulário nenhum
+    (`escolhas_visiveis`). A diferença entre os dois só nasce com catálogo
+    maior ou com um bloco de complementares orçado à parte (pendente).
     """
 
     RAPIDO = "rapido", "Rápido — até 30 minutos"
-    PADRAO = "padrao", "Padrão — 45 a 60 minutos"
-    COMPLETO = "completo", "Completo — 60 a 90 minutos"
-    LIVRE = "livre", "Sem limite rígido — priorizar a ficha completa"
+    PADRAO = "padrao", "Padrão — até 60 minutos"
+    COMPLETO = "completo", "Completo — a sessão inteira, até 65 minutos"
+    LIVRE = "livre", "Sem limite rígido — o mesmo que Completo, até 65 minutos"
+
+    @classmethod
+    def escolhas_visiveis(cls):
+        """As faixas que um formulário pode oferecer: sem `LIVRE`."""
+        return [cls.RAPIDO, cls.PADRAO, cls.COMPLETO]
 
 
 #: O TETO de cada faixa, em minutos. `None` é ausência de teto, e não zero.
@@ -304,7 +320,11 @@ class DuracaoTreino(models.TextChoices):
 TETO_POR_DURACAO = {
     DuracaoTreino.RAPIDO: 30,
     DuracaoTreino.PADRAO: 60,
-    DuracaoTreino.COMPLETO: 90,
+    # 65, e não 90: com 90 o gerador entregava exatamente o mesmo treino
+    # (medido, 54 combinações), porque nada passa de ~61 minutos. O teto
+    # passa a ser o que ele já entregava, para o rótulo ser verdade por
+    # construção — e é o mesmo de "sem limite" (`teto_completo_de`).
+    DuracaoTreino.COMPLETO: 65,
     DuracaoTreino.LIVRE: None,
 }
 
@@ -316,9 +336,11 @@ TETO_POR_DURACAO = {
 #: Apagar a coluna quebraria o cardápio; mantê-la derivada da faixa preserva o
 #: contrato sem devolver a pergunta.
 #:
-#: LIVRE grava 90 porque o planejador precisa de um número, e 90 é o maior
-#: bloco que o catálogo produz. Isso não vira promessa em lugar nenhum: quem
-#: escolheu LIVRE não vê teto na tela.
+#: COMPLETO e LIVRE gravam 90 porque o planejador precisa de um número, e 90
+#: é o bloco que o cardápio já reserva para essas pessoas — a reserva é folga
+#: para não marcar refeição no fim do treino, não o tamanho da sessão. O teto
+#: que a pessoa vê e o motor obedece é o de `TETO_POR_DURACAO` (65); trocar
+#: este 90 mudaria o horário das refeições de quem já usa o app, sem ganho.
 MINUTOS_POR_DURACAO = {
     DuracaoTreino.RAPIDO: 30,
     DuracaoTreino.PADRAO: 60,

@@ -104,7 +104,7 @@
              {% if versao == 'completo' %}aria-current="true"{% endif %}>Treino completo <span class="num">~{{ opcoes.0.minutos }} min</span></a>
           <a class="versoes__opcao{% if versao == 'rapido' %} is-active{% endif %}"
              href="?versao=rapido{% if trocar %}&amp;trocar={{ trocar }}{% endif %}"
-             {% if versao == 'rapido' %}aria-current="true"{% endif %}>Versão rápida <span class="num">até 40 min</span></a>
+             {% if versao == 'rapido' %}aria-current="true"{% endif %}>Versão rápida <span class="num">~{% if rapida_minutos_min != rapida_minutos_max %}{{ rapida_minutos_min }}–{% endif %}{{ rapida_minutos_max }} min</span></a>
         </nav>
       {% endif %}
 

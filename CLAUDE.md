@@ -433,11 +433,31 @@ promessa era falsa e estava medida: 30 informados entregavam 32, 45 entregavam
 48, 60 entregavam 61. A culpa não era do corte, era da pergunta: o mesmo número
 servia de ALVO e de TETO, e `_teto_em_segundos` somava até 5 minutos de folga
 para uma sessão não ser rejeitada por trinta segundos. Com faixa, o piso é o
-alvo e o topo é o limite — Rápido até 30, Padrão até 60, Completo até 90, e
+alvo e o topo é o limite — Rápido até 30, Padrão até 60, Completo até 65, e
 "sem limite rígido", que é `None` e não corta nada. A folga saiu.
 `Profile.duracao_treino` é o dono da resposta; `TrainingDay.duration_min`
 continua gravado porque `plans/meal_planner.py` precisa dele, e deixou de ser a
 pergunta.
+
+**O RÓTULO SÓ DIZ O TETO, e Padrão ≈ Completo HOJE (16/09/2026).** "Padrão —
+45 a 60" e "Completo — 60 a 90" prometiam pisos que o gerador não garante.
+Medido em 3 níveis × 3 preferências × 2–7 dias: com teto 60 a sessão entregue
+vai de 14 a 59 minutos e 4 a 25 séries; com teto 90 e com "sem limite" (65),
+o treino é IDÊNTICO nas 54 combinações, de 14 a 61 minutos. Nenhuma faixa
+chega a 60 porque a faixa de séries do nível (`FAIXA_POR_TETO_SEMANAL`, no
+máximo 16–20) e a dose do catálogo limitam a sessão antes do relógio — e a
+faixa é de PREENCHIMENTO, não de teto: `preencher_ate_a_faixa` só sobe séries
+de isolador até ela; a dose do catálogo pode passar dela, e passa ("Superior"
+em 2 dias = 26 séries, porque `ab` dá 26 ao modelo). Por isso `Completo`
+passou a usar 65 em `TETO_POR_DURACAO` — o teto que já entregava, para o
+rótulo ser verdade por construção —, "Sem limite rígido" virou "o mesmo que
+Completo" e saiu de todo formulário (`DuracaoTreino.escolhas_visiveis`; segue
+no `choices` e no banco para quem já tem, sem migração de dado), e a Home diz
+o teto de todo mundo. A diferença entre Padrão e Completo só nasce com
+catálogo maior (objetivo 3 da missão de 16/09) e/ou com um **bloco de
+complementares orçado à parte** — 60 minutos só com esse bloco, e isso é
+decisão de produto pendente, não feita. O seletor da ficha diz a faixa
+CALCULADA da rápida ("~19–24 min"), e não "até 40".
 
 **E a pergunta saiu da TELA em 10/09/2026, sem sair do motor.** Ela pedia uma
 calibração que ninguém consegue fazer antes de ver uma ficha — "rápido, padrão,
@@ -446,7 +466,7 @@ motor continua processando as QUATRO faixas, e quem já respondeu continua com
 o que respondeu; o que mudou é que `duracao_treino == ""` deixou de ser "ainda
 não respondeu" e virou "não tem como responder". Um estado que a pessoa não
 pode mais mudar precisa de um VALOR, não de um buraco: a migration `0029`
-escreve "padrão" (45 a 60) para quem estava em branco, uma vez, deixando
+escreve "padrão" (até 60) para quem estava em branco, uma vez, deixando
 rastro — em vez de um padrão em tempo de leitura, que mudaria toda consulta
 futura sem ninguém ver.
 

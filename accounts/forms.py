@@ -554,7 +554,7 @@ class TrainingForm(forms.Form):
         #
         # A pergunta saiu da tela em 10/09/2026; o motor continua precisando do
         # teto. Quem já respondeu mantém a resposta — é `perfil.duracao_treino`
-        # —, e quem nunca respondeu passa a valer "Padrão, 45 a 60 minutos" em
+        # —, e quem nunca respondeu passa a valer "Padrão, até 60 minutos" em
         # vez de "sem limite rígido".
         #
         # O padrão MUDOU DE VALOR, e a consequência está dita aqui porque ela é

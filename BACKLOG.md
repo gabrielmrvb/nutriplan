@@ -159,11 +159,13 @@ tem onze itens e `abc2 C` tem doze; a maior sessão da semana entrega:
 | faixa de tempo | maior sessão |
 |---|---|
 | Rápido — até 30 | 4 exercícios |
-| Padrão — 45 a 60 | 7 exercícios |
-| Completo — 60 a 90 | 12, em 88 minutos |
+| Padrão — até 60 | 7 exercícios |
+| Completo — até 90, à época | 12, em 88 minutos |
 
-Doze só chega a quem escolheu Completo ou "sem limite rígido" — ali a pessoa
-pediu a ficha inteira, e 88 < 90.
+Doze só chegava a quem escolheu Completo ou "sem limite rígido" — ali a pessoa
+pediu a ficha inteira, e 88 < 90. Desde 15/09/2026 a letra chega em DUAS
+opções de ~50 minutos, e desde 16/09/2026 `Completo` usa 65 — medido que 90
+entregava o mesmo treino (ver `CLAUDE.md`, "O RÓTULO SÓ DIZ O TETO").
 
 **Uma conclusão minha que estava errada, e a correção.** Eu havia registrado
 aqui que panturrilha e abdômen "só entram a partir de seis dias" com o teto de

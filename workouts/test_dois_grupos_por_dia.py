@@ -346,13 +346,15 @@ class OsComplementaresSeDistribuemTests(TestCase):
     def test_a_ficha_cheia_so_vai_para_quem_pediu_tempo_para_ela(self):
         """Doze exercícios existem, e chegam inteiros a quem pediu tempo.
 
-        Com "Completo — 60 a 90" e três dias, a letra C não repete e os doze
-        itens do modelo chegam à pessoa. ATÉ 15/09/2026 chegavam numa sessão
-        só — 88 minutos, dentro do teto de 90. Hoje chegam como DUAS versões
-        equivalentes de ~50 minutos, e a união delas é o modelo inteiro: a
-        pessoa que alterna faz os doze na quinzena. É a mesma doutrina de
-        sempre — tempo é TETO, não cota —, e o que este teste proíbe é o
-        contrário: uma versão da ficha cheia estourando o tempo combinado.
+        Com "Completo" e três dias, a letra C não repete e os doze itens do
+        modelo chegam à pessoa. ATÉ 15/09/2026 chegavam numa sessão só — 88
+        minutos, dentro do teto de 90 que "Completo" tinha então. Hoje chegam
+        como DUAS versões equivalentes de ~50 minutos, e a união delas é o
+        modelo inteiro: a pessoa que alterna faz os doze na quinzena. É a
+        mesma doutrina de sempre — tempo é TETO, não cota —, e o que este
+        teste proíbe é o contrário: uma versão da ficha cheia estourando o
+        tempo combinado, que desde 16/09/2026 é o teto de `Completo` (65,
+        `TETO_POR_DURACAO`), e não um 90 escrito à mão.
         """
         _, plano = perfil(3, duracao=DuracaoTreino.COMPLETO, sufixo="-cheia")
         modelo = {t.label: t for t in services.templates_for(plano.split)}["C"]
@@ -369,7 +371,10 @@ class OsComplementaresSeDistribuemTests(TestCase):
         self.assertEqual(len(oferecidos), 12)
         for s in plano.sessions.prefetch_related("exercises__exercise"):
             for opcao in s.opcoes:
-                self.assertLessEqual(s.minutos_da_opcao(opcao), 90, "%s opção %d" % (s.label, opcao))
+                self.assertLessEqual(
+                    s.minutos_da_opcao(opcao), TETO_POR_DURACAO[DuracaoTreino.COMPLETO],
+                    "%s opção %d" % (s.label, opcao),
+                )
 
     def test_a_semana_de_seis_dias_treina_TODOS_os_complementares(self):
         """Com as duas passagens de B e de C, nada fica de fora."""
