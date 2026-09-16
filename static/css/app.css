@@ -321,7 +321,13 @@
   --glass: color-mix(in srgb, var(--bg) 78%, transparent);
   --glass-blur: saturate(170%) blur(20px);
 
-  --glow: 0 0 0 1px rgba(15, 122, 74, .18), 0 10px 26px -16px rgba(15, 122, 74, .3);
+  /* MESA & FERRO (16/09/2026): o brilho difuso virou anel de 1 px na cor da
+     ação — somado à borda de 1 px do `:focus`, são os 2 px do DESIGN.md
+     ("foco é `--brand` em todo controle"). Antes eram DUAS sombras, um anel
+     a 18% mais uma difusão de 26 px, e nada de foco deve se espalhar para
+     fora do campo. O nome fica porque `workouts/tests.py` lê `var(--glow)`
+     no foco do campo e proíbe token órfão. */
+  --glow: 0 0 0 1px var(--brand);
   /* O halo de ESTADO, irmão mais discreto do `--glow` de foco.
      Marca o que está ativo agora — a aba aberta, a refeição feita, o botão
      sob o dedo — e nada mais. Nasce de `var(--brand)` em vez de um rgba fixo,
@@ -452,7 +458,8 @@
   --ferro-edge: inset 0 1px 0 rgba(255, 255, 255, .05);
   --ferro-shadow-rest: 0 1px 2px rgba(0, 0, 0, .38), 0 10px 26px -20px rgba(0, 0, 0, .85);
   --ferro-shadow-lift: 0 2px 6px rgba(0, 0, 0, .45), 0 20px 44px -22px rgba(0, 0, 0, .95);
-  --ferro-glow: 0 0 0 1px rgba(34, 201, 138, .3), 0 10px 30px -14px rgba(34, 201, 138, .45);
+  /* Mesma receita do `--glow` de Mesa: anel de 1 px, sem difusão. */
+  --ferro-glow: 0 0 0 1px var(--ferro-brand);
 }
 
 /* TEMA ESCURO PARA QUEM PREFERE, e o claro é a base — invertido em
@@ -2426,6 +2433,11 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   letter-spacing: -.01em;
 }
 
+/* O campo com erro FALA onde está o erro. O Django 5.2 escreve
+   `aria-invalid="true"` no widget inválido; até 16/09/2026 nenhuma regra lia
+   isso, e a borda do campo errado era igual à do campo certo. */
+.field-input[aria-invalid="true"] { border-color: var(--danger); }
+
 .field__errors {
   margin: .45rem 0 0;
   padding: .6rem .75rem;
@@ -2535,7 +2547,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .choice-list--dias input:checked ~ .segmented__texto { color: var(--on-brand); }
 .choice-list--dias label:hover .segmented__fundo { background: var(--surface-3); }
 .choice-list--dias label:hover input:checked ~ .segmented__fundo { background: var(--brand-strong); }
-.choice-list--dias input:focus-visible ~ .segmented__fundo { box-shadow: 0 0 0 2px var(--agua); }
+/* Foco é `--brand`; `--agua` é cor de pilar. */
+.choice-list--dias input:focus-visible ~ .segmented__fundo { box-shadow: 0 0 0 2px var(--brand); }
 
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--espaco-4); }
 
@@ -4185,10 +4198,11 @@ html { scrollbar-gutter: stable; }
 }
 
 /* Foco visível para quem navega por teclado: o anel vai na moldura, que é
-   exatamente o contorno do cartão. */
+   exatamente o contorno do cartão. Foco é `--brand`; `--agua` é cor de
+   pilar. */
 .choice-card__input:focus-visible ~ .choice-card__frame {
-  border-color: var(--agua);
-  box-shadow: 0 0 0 2px var(--agua);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -5048,8 +5062,9 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .segmented input:checked ~ .segmented__fundo:hover,
 .segmented label:hover input:checked ~ .segmented__fundo { background: var(--brand-strong); }
 
+/* Foco é `--brand`; `--agua` é cor de pilar. */
 .segmented input:focus-visible ~ .segmented__fundo {
-  box-shadow: 0 0 0 2px var(--agua);
+  box-shadow: 0 0 0 2px var(--brand);
 }
 
 /* A unidade encostada à direita, dentro do campo.
@@ -5716,7 +5731,8 @@ body.montando { overflow: hidden; }
 
 .campo-senha__olho svg { width: 1.2rem; height: 1.2rem; }
 .campo-senha__olho:hover { color: var(--text); background: var(--surface-3); }
-.campo-senha__olho:focus-visible { outline: 2px solid var(--agua); outline-offset: 2px; }
+/* Foco é `--brand`; `--agua` é cor de pilar. */
+.campo-senha__olho:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* O corte só existe enquanto a senha está OCULTA: o ícone mostra o que vai
    acontecer ao tocar, e não o estado em que está. Olho riscado com senha
@@ -7686,8 +7702,9 @@ body.montando { overflow: hidden; }
   font-size: var(--texto-md);
 }
 
+/* Foco é `--brand`; `--agua` é cor de pilar — mesmo no campo da água. */
 .agua-livre__campo:focus-visible {
-  outline: 2px solid var(--agua);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 
