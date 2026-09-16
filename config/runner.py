@@ -22,6 +22,7 @@ Verificar, e não matar: derrubar a conexão de uma suíte legítima em andament
 trocaria um erro claro por um resultado errado.
 """
 import os
+import re
 
 from django.db import connections
 from django.test.runner import DiscoverRunner
@@ -46,7 +47,9 @@ def conexoes_ativas(conexao, nome_de_teste):
 
     Inclui os clones do `--parallel` (`test_nutriplan_1`, `_2`, ...): uma
     execução paralela também é uma execução, e brigar com ela dá o mesmo
-    resultado embaralhado.
+    resultado embaralhado. E SÓ os clones numéricos: `LIKE 'test_nutriplan\_%'`
+    casava com `test_nutriplan_design`, o banco de teste de outro worktree,
+    que não disputa nada com este — e recusava uma execução legítima.
 
     Devolve `None` quando não dá para saber — banco fora do ar, backend que não
     é Postgres, permissão negada. Não saber não é motivo para impedir a pessoa
@@ -64,10 +67,10 @@ def conexoes_ativas(conexao, nome_de_teste):
                        COALESCE(EXTRACT(EPOCH FROM (now() - state_change)), 0)
                   FROM pg_stat_activity
                  WHERE pid <> pg_backend_pid()
-                   AND (datname = %s OR datname LIKE %s)
+                   AND (datname = %s OR datname ~ %s)
                  ORDER BY pid
                 """,
-                [nome_de_teste, nome_de_teste + r"\_%"],
+                [nome_de_teste, "^" + re.escape(nome_de_teste) + "_[0-9]+$"],
             )
             return cursor.fetchall()
     except Exception:
