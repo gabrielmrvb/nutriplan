@@ -2235,6 +2235,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .conquista__continuar:active,
 .conquista-item__share:active,
 .ficha-item__link:active,
+.mapa__area:active,
 .meal__abrir:active,
 .modulo:active,
 .sessao-cartao:active,
@@ -7764,7 +7765,9 @@ body.montando { overflow: hidden; }
 .mapa__seta svg { width: 1.1rem; height: 1.1rem; }
 .mapa__area:hover .mapa__seta { color: var(--brand); }
 .mapa__area:hover { background: var(--surface-2); }
-.mapa__area:active { transform: scale(.96); }
+/* O `:active` mora na lista única da seção 8. Ele já esteve aqui, com o
+   mesmo `.96` escrito de novo — mesmo valor não é mesma lista, e a próxima
+   mudança de escala teria deixado o mapa para trás. */
 .mapa__area.is-active { background: var(--brand-soft); }
 
 .mapa__nome { font-size: var(--texto-base); font-weight: 680; letter-spacing: -.01em; }
@@ -7956,14 +7959,23 @@ body.montando { overflow: hidden; }
    O cartão de sessão do painel era o único tocável sem afundamento; ele
    entrou nas três listas daquela seção (transição, `:active`, saída de
    movimento reduzido), e `config/tests.py` confere que as três são a mesma
-   lista. Nada aqui declara uma segunda escala. */
+   lista. Nada aqui declara uma segunda escala. A área do mapa (`.mapa__area`)
+   foi a última a entrar, em 16/09/2026: afundava por regra própria com o
+   mesmo `.96`, e `config/test_design_system.py` passou a recusar a cópia. */
 
 /* ---- Processamento: o botão já tocado mostra que está trabalhando. ----
    `pwa.js` desliga o botão e marca `aria-busy` no envio; a opacidade de
    `:disabled` já existia (seção 8). O anel diz "esperando o servidor" sem
-   afirmar sucesso, e sai sozinho quando a página seguinte chega. */
+   afirmar sucesso, e sai sozinho quando a página seguinte chega.
+
+   `.btn.is-carregando` é o MESMO estado no `<a class="btn">` que leva a outra
+   tela: `pwa.js` escreve a classe e o `aria-busy` no toque, e a página nova
+   é o que os apaga. Entra como par do seletor, nunca como bloco próprio —
+   dois blocos divergiriam na primeira mudança do anel. */
+.btn.is-carregando,
 .btn[aria-busy="true"],
 .agua__botao[aria-busy="true"] { position: relative; }
+.btn.is-carregando::after,
 .btn[aria-busy="true"]::after,
 .agua__botao[aria-busy="true"]::after {
   content: "";
@@ -8081,6 +8093,7 @@ body.montando { overflow: hidden; }
   .demo__abrir,
   .fim__selo,
   .agua__eco { animation: none; }
+  .btn.is-carregando::after,
   .btn[aria-busy="true"]::after,
   .agua__botao[aria-busy="true"]::after { animation: none; }
   .app-bar, .tabbar, .tabbar__item.is-active, .wizard__avanco,

@@ -566,6 +566,50 @@
     });
   });
 
+  /* O LINK-BOTÃO TAMBÉM AVISA QUE ESTÁ INDO.
+   *
+   * `<a class="btn">` que leva a outra tela — "Ver o treino completo",
+   * "Começar treino" — ficava mudo entre o toque e a página nova. Numa rede
+   * de academia são segundos com a tela idêntica, e a pessoa toca de novo.
+   * O `<button type=submit>` já recebe `aria-busy` acima; o link recebe o
+   * MESMO nome de estado e a mesma receita visual: a classe é o gancho do
+   * CSS (`.btn.is-carregando`, par de `.btn[aria-busy]`), e o atributo é o
+   * que o leitor de tela anuncia.
+   *
+   * A página nova É a confirmação; o estado só cobre o intervalo. Nada aqui
+   * afirma sucesso, nada é desligado — o link continua sendo um link, e um
+   * segundo toque só repete a mesma navegação.
+   *
+   * Fica de fora o que NÃO troca esta página: `target` (abre em outra aba),
+   * `download`, âncora na mesma tela (`#`), `mailto:` e `javascript:`;
+   * clique com modificador ou botão que não é o principal (abre em nova aba,
+   * e esta fica); e o que outro ouvinte já cancelou (`defaultPrevented`).
+   * Em todos esses, marcar seria prometer uma página que não vem — e a
+   * marca nunca seria limpa. */
+  document.addEventListener("click", function (evento) {
+    if (evento.defaultPrevented || evento.button !== 0) return;
+    if (evento.ctrlKey || evento.metaKey || evento.shiftKey || evento.altKey) return;
+    var alvo = evento.target;
+    if (!alvo || typeof alvo.closest !== "function") return;
+    var link = alvo.closest("a.btn[href]");
+    if (!link || link.classList.contains("is-carregando")) return;
+    if (link.hasAttribute("target") || link.hasAttribute("download")) return;
+    var destino = (link.getAttribute("href") || "").trim();
+    if (/^(#|mailto:|javascript:)/i.test(destino)) return;
+
+    link.classList.add("is-carregando");
+    link.setAttribute("aria-busy", "true");
+  });
+
+  /* Voltar pelo histórico traz a página do bfcache exatamente como saiu —
+   * com o link marcado. Mesmo caminho de volta do botão de envio, acima. */
+  window.addEventListener("pageshow", function () {
+    document.querySelectorAll(".btn.is-carregando").forEach(function (b) {
+      b.classList.remove("is-carregando");
+      b.removeAttribute("aria-busy");
+    });
+  });
+
   /* O TOQUE OFFLINE APARECE NA TELA NA HORA (UX P1-09 / E02 / E07).
    *
    * Sem rede o formulário não navega: `fila.js` guarda o pedido e dispara

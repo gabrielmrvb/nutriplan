@@ -77,7 +77,13 @@
       O erro foi do nosso lado, não seu. Nada que você registrou foi perdido —
       tente de novo em alguns instantes.
     </p>
-    <a class="btn" href="/">Tentar de novo</a>
+    {% comment %}
+      `btn--primary` não pinta nada aqui — o CSS acima só conhece `a.btn`, e
+      é assim de propósito (esta tela não carrega o `app.css`). O rótulo está
+      escrito porque a régua de `config/test_design_system` vale para o HTML:
+      todo `.btn` diz qual botão é, e a porta da tela de erro é a primária.
+    {% endcomment %}
+    <a class="btn btn--primary" href="/">Tentar de novo</a>
   </div>
 </body>
 </html>
