@@ -164,10 +164,20 @@ palavra `gate`; o que ele não diz é QUE comandos são esses, nem onde cada um
 roda. É o que a lista abaixo resolve:
 
 ```
-testes dirigidos → sabotagem → browser QA → suíte completa
+testes dirigidos → sabotagem → browser QA → suíte completa (local, opcional)
 → manage.py check → makemigrations --check → git diff --check
-→ commit → fetch → push → hook → deploy → /saude/ → smoke
+→ commit → fetch → push da BRANCH (hook = atalho) → PR → check "suíte completa"
+→ merge pela API → deploy → /saude/ → smoke
 ```
+
+**Desde 17/09/2026 o gate é o CI e ninguém empurra em `main`** (branch
+protection: check verde, branch atualizada, vale para admin). O PR se abre,
+espera e faz merge com `scripts/github.py` (`pr <branch> "<título>"`,
+`esperar <n>`, `merge <n>`); quem abre é quem faz o merge quando o check
+fica verde. O `pre-push` virou atalho (`config`, dourado, doutrina, gate
+por letra, orçamentos) e `NUTRIPLAN_SUITE_COMPLETA=1` roda tudo localmente
+antes de abrir o PR, para quem quer a resposta antes dos 40 minutos de
+runner.
 
 Onde cada um mora de verdade. Seguir o ponteiro errado é o que faz alguém
 "corrigir" esta cadeia para a versão curta e perder os três comandos:
@@ -179,7 +189,8 @@ Onde cada um mora de verdade. Seguir o ponteiro errado é o que faz alguém
 - `makemigrations --check` esse sim roda sozinho, no mesmo hook
   (`scripts/hooks/pre-commit:27`) — migração faltando quebra o deploy, não o
   teste;
-- a suíte completa é do `pre-push` (`scripts/hooks/pre-push:19`);
+- a suíte completa é do CI (`.github/workflows/suite.yml`), no PR; o
+  `pre-push` roda o atalho no worktree do SHA que sobe;
 - `manage.py check` é seu, antes do commit. Com `--deploy --fail-level ERROR`
   ele roda DE NOVO no build do Render (`scripts/build.sh:37`), depois do
   collectstatic — lá é portão, e o que reprova não sobe;
@@ -193,11 +204,14 @@ A suíte completa levava ~3 min com 692 testes; **medida em 04/09/2026, são
 1.968 testes em ~20 min**. Rode em segundo plano e faça o que for
 paralelizável enquanto ela corre.
 
-**E espere ela terminar antes de dar `git push`.** O `pre-push` roda
-`manage.py test` INTEIRO de novo (`scripts/hooks/pre-push:19`): empurrar com a
-suíte de fundo ainda viva é exatamente a colisão que o B9 existe para impedir,
-e ela já derrubou o hook uma vez com `database "test_nutriplan" is being
-accessed by other users`.
+**E espere ela terminar antes de dar `git push`.** O `pre-push` roda o
+atalho no mesmo banco de teste (a suíte inteira com
+`NUTRIPLAN_SUITE_COMPLETA=1`): empurrar com a suíte de fundo ainda viva é
+exatamente a colisão que o B9 existe para impedir, e ela já derrubou o hook
+uma vez com `database "test_nutriplan" is being accessed by other users`.
+Com mais de uma sessão na máquina, cada uma roda a sua com `--settings` num
+banco de teste próprio (`scratchpad/settings_missao.py` é o modelo:
+`TEST["NAME"] = "test_nutriplan_<sessão>"`).
 
 **O código de saída importa.** `manage.py test | tail` devolve o status do
 `tail`, não da suíte — já enganou aqui. Capture o exit code direto.

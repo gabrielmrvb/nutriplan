@@ -1408,7 +1408,32 @@ dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
   Ver **Backup e restauração** e [`docs/infra-recuperacao.md`](docs/infra-recuperacao.md).
 ## Deploy
 
-`git push` dispara o Render. `scripts/build.sh` roda collectstatic →
+**O GATE É O CI, E NINGUÉM EMPURRA EM `main` (17/09/2026).** Um push chegou
+ao GitHub naquele dia sem passar pelo reflog de nenhuma sessão desta
+máquina; um gate que só existe numa máquina não é gate, porque ninguém
+consegue conferir se ele rodou. Desde então:
+
+- `.github/workflows/suite.yml` roda a suíte COMPLETA — o mesmo comando do
+  hook, `manage.py test --verbosity=1 --noinput` — em todo PR para `main`
+  e em todo push que chegue lá, com Postgres 16 de serviço (a versão de
+  produção), sem segredo nenhum, teto de 40 minutos e o log como artefato;
+- `main` tem branch protection pela API: o check **"suíte completa"** verde
+  é obrigatório, a branch tem de estar atualizada (`strict`), vale para
+  admin (`enforce_admins`), sem force push, sem apagar. Push direto é
+  recusado — para todo mundo, o dono inclusive;
+- o fluxo é **branch → PR → check verde → merge pela API → `/saude/`**, e a
+  sessão que abre o PR é quem faz o merge (merge commit: os SHAs testados
+  continuam em `main`, e o merge commit é o que `/saude/` mostra). Sem `gh`
+  nesta máquina, o helper é `scripts/github.py` (`pr`, `status`,
+  `esperar`, `merge`, `fechar`, `proteger`, `protecao`), com o token do
+  Git Credential Manager — nunca impresso, nunca em argumento;
+- o `pre-push` local virou ATALHO: no worktree descartável do SHA que sobe,
+  `config` + teste dourado + doutrina + gate por letra + orçamentos, em
+  poucos minutos; `NUTRIPLAN_SUITE_COMPLETA=1` roda tudo localmente como
+  antes. `config/test_ci.py` prende o contrato dos três (fluxo, hook,
+  helper).
+
+O merge em `main` dispara o Render. `scripts/build.sh` roda collectstatic →
 `check --deploy` → migrate → os três seeds, com `errexit`: build que passa
 prova que a migração rodou. Confira em `/saude/`.
 
