@@ -1,21 +1,57 @@
 #!/usr/bin/env bash
-# Trava de push: a suíte inteira.
+# Trava de push: a suíte inteira — SOBRE O COMMIT QUE SOBE.
 #
 # Aqui o custo se paga. Empurrar é o gesto que chega em produção — o deploy do
 # Render dispara sozinho —, então é o último ponto em que um teste vermelho
 # ainda é barato.
+#
+# POR QUE NUM WORKTREE, E NÃO NA ÁRVORE DE TRABALHO (17/09/2026). A versão
+# anterior rodava `manage.py test` aqui mesmo, na árvore. Isso valida o que
+# está no disco, que não é o que sobe: um arquivo não commitado (um teste
+# novo, um dado de catálogo) entra na conta e não entra no push, e um arquivo
+# commitado que foi apagado do disco sai da conta e entra no push. Foi assim
+# que o pre-push de 15/09 passou "3044 OK" e o mesmo `main` reprovava dois
+# dias depois — o teste que reprovou dependia do calendário, e a árvore
+# testada não era o commit. Agora o SHA do push é exportado num worktree
+# descartável, o `.env` é copiado (o banco de teste é o mesmo, e o
+# `RunnerUnico` continua valendo) e a suíte roda LÁ.
 set -o errexit
 set -o pipefail
 
-# `--noinput` nos testes não é detalhe: um banco de teste órfão de uma execução
-# interrompida faz o Django PERGUNTAR se pode apagá-lo, e um hook não tem
-# terminal para responder. Sem isto ele morre com EOFError e o commit é
-# abortado por um motivo que não tem nada a ver com o código.
-
-PY=".venv/Scripts/python.exe"
+RAIZ="$(git rev-parse --show-toplevel)"
+PY="$RAIZ/.venv/Scripts/python.exe"
 [ -x "$PY" ] || PY="python"
 
-echo "→ suíte completa"
-"$PY" manage.py test --verbosity=1 --noinput
+# O git manda, no stdin, uma linha por ref: local_ref local_sha remote_ref remote_sha.
+sha=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Push de remoção (sha zerado) não tem código para testar.
+  if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+    continue
+  fi
+  sha="$local_sha"
+done
+if [ -z "$sha" ]; then
+  echo "→ nada para testar (push sem commit)"
+  exit 0
+fi
+
+WT="$(mktemp -d "${TMPDIR:-/tmp}/nutriplan-push-XXXXXX")"
+limpar() {
+  cd "$RAIZ"
+  git worktree remove --force "$WT" >/dev/null 2>&1 || true
+  rm -rf "$WT"
+}
+trap limpar EXIT
+
+echo "→ suíte completa sobre $(git rev-parse --short "$sha") (worktree descartável)"
+git worktree add --detach "$WT" "$sha" >/dev/null
+[ -f "$RAIZ/.env" ] && cp "$RAIZ/.env" "$WT/.env"
+
+# `--noinput` nos testes não é detalhe: um banco de teste órfão de uma execução
+# interrompida faz o Django PERGUNTAR se pode apagá-lo, e um hook não tem
+# terminal para responder. Sem isto ele morre com EOFError e o push é
+# abortado por um motivo que não tem nada a ver com o código.
+( cd "$WT" && "$PY" manage.py test --verbosity=1 --noinput )
 
 echo "✓ push liberado"

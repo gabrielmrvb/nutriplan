@@ -268,7 +268,9 @@ class HealthTests(TestCase):
 
         corpo = self.client.get(reverse("health")).json()
 
-        self.assertEqual(set(corpo), {"status", "catalogo"})
+        # `commit` entrou em 17/09/2026: é o SHA do deploy, dado público
+        # (o repositório é público) e sem nada sobre pessoas.
+        self.assertEqual(set(corpo), {"status", "catalogo", "commit"})
         for chave in corpo["catalogo"]:
             with self.subTest(chave=chave):
                 self.assertNotIn("usuario", chave)
@@ -1987,6 +1989,26 @@ class HealthV2Tests(TestCase):
 
         self.assertEqual(resposta.status_code, 200)
         self.assertEqual(resposta.json()["status"], "ok")
+
+    def test_readiness_diz_qual_commit_esta_vivo(self):
+        """A prova de deploy, de dentro. "O push foi feito" não é "o deploy
+        terminou": até aqui a prova era um sinal de conteúdo da própria
+        mudança — e um commit que só toca teste ou consulta não tem sinal
+        nenhum. O Render publica `RENDER_GIT_COMMIT`; o readiness devolve os
+        sete primeiros caracteres, e vazio quando a variável não existe (o
+        ambiente local), em vez de inventar."""
+        from unittest import mock
+
+        with mock.patch.dict("os.environ", {"RENDER_GIT_COMMIT": "abcdef0123456789"}):
+            resposta = self.client.get(reverse("health"))
+        self.assertEqual(resposta.json()["commit"], "abcdef0")
+
+        with mock.patch.dict("os.environ", {}, clear=False):
+            import os
+
+            os.environ.pop("RENDER_GIT_COMMIT", None)
+            resposta = self.client.get(reverse("health"))
+        self.assertEqual(resposta.json()["commit"], "")
 
     def test_readiness_continua_recusando_catalogo_vazio(self):
         from catalog.models import Food
