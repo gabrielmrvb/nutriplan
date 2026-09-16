@@ -801,10 +801,15 @@ class VisualRefinementTests(TestCase):
                 bloco = self.css.split(chr(10) + seletor, 1)[1].split("}", 1)[0]
                 self.assertIn("var(--halo)", bloco)
 
-        # E nenhum anel de marca escrito à mão sobrou. A única ocorrência que
-        # pode existir é a definição do próprio token.
-        mao = re.findall(r"0 0 0 1px (?:var\(--brand\)|color-mix\(in srgb, var\(--brand\))", self.css)
-        self.assertEqual(len(mao), 1, "anel de marca escrito à mão fora do token")
+        # E nenhum anel de marca escrito à mão sobrou: a receita só pode
+        # aparecer na DEFINIÇÃO de um token (`--halo`, e desde 16/09/2026 também
+        # `--glow`, o anel de foco sem difusão). Uma regra de componente que a
+        # escreva de novo é um segundo idioma para o mesmo estado.
+        anel = re.compile(r"0 0 0 1px (?:var\(--brand\)|color-mix\(in srgb, var\(--brand\))")
+        definicoes = [l for l in self.css.splitlines() if anel.search(l) and re.match(r"\s*--[\w-]+:", l)]
+        mao = [l.strip() for l in self.css.splitlines() if anel.search(l) and not re.match(r"\s*--[\w-]+:", l)]
+        self.assertGreaterEqual(len(definicoes), 1, "o token do anel sumiu")
+        self.assertEqual(mao, [], "anel de marca escrito à mão fora do token")
 
     def test_the_sunken_blocks_get_their_outline_from_inside(self):
         """Contorno por dentro, porque o de fora empurraria a grade.
