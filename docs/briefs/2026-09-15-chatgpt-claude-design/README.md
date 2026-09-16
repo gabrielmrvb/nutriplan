@@ -11,6 +11,7 @@ o contexto do zero.
 | `transcricao-chatgpt.md` (**local, fora do git**) | as 50 mensagens do chat, incluindo a auditoria de produção (msg 23), a primeira versão do prompt "MISSÃO MESTRE" (msg 26) e o adendo "FASE 0" (msg 31) — contém mensagens pessoais do dono, por isso não é versionada; as referências "msg N" abaixo apontam para ela |
 | [`transcricao-videos.md`](transcricao-videos.md) | a NARRAÇÃO dos três Reels, transcrita localmente com faster-whisper e resumida passo a passo (o bruto fica fora do repo) |
 | [`prompt-do-autor-4-partes.md`](prompt-do-autor-4-partes.md) | o prompt ORIGINAL do @matheusgomes, nas quatro partes, copiado verbatim dos comentários do Reel — é o que o ChatGPT adaptou |
+| [`roteiro-claude-design.md`](roteiro-claude-design.md) | os nove passos do dono no claude.ai/design, com os seis prompts de mockup |
 
 ## O que aconteceu no chat, em ordem
 
