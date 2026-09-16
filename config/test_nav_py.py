@@ -24,7 +24,29 @@ class ComandoTemaTests(SimpleTestCase):
         na conexão viva e nunca voltava depois de fechada — `tema escuro`
         seguido de `screenshot` capturava a tela CLARA em silêncio. A
         correção segue o padrão de `viewport`/`offline`: grava a escolha num
-        arquivo por sessão e reaplica em todo `Sessao.__init__`."""
+        arquivo por sessão e reaplica em todo `Sessao.__init__`.
+
+        Apagar a chamada em `__init__` é exatamente reverter a correção, e as
+        duas strings antigas continuariam no arquivo — por isso o teste
+        deve âncora na presença de `self._tema()` DENTRO do `__init__`."""
         fonte = NAV.read_text(encoding="utf-8")
         self.assertIn('"tema-" + self.nome + ".json"', fonte)
         self.assertIn("def _tema(self):", fonte)
+
+        # Slice do __init__ e verifica que _tema() é chamado ali
+        linhas = fonte.split("\n")
+        inicio = None
+        fim = None
+        for i, linha in enumerate(linhas):
+            if linha.strip().startswith("def __init__(self, nome):"):
+                inicio = i
+            elif inicio is not None and linha.strip().startswith("def ") and "def __init__" not in linha:
+                fim = i
+                break
+
+        self.assertIsNotNone(inicio, "def __init__ não encontrado")
+        self.assertIsNotNone(fim, "próximo método após __init__ não encontrado")
+
+        init_source = "\n".join(linhas[inicio:fim])
+        self.assertIn("self._tema()", init_source,
+                      "self._tema() não é chamado dentro de __init__ — a wiring foi quebrada")
