@@ -540,6 +540,20 @@ escreve "padrão" (até 60) para quem estava em branco, uma vez, deixando
 rastro — em vez de um padrão em tempo de leitura, que mudaria toda consulta
 futura sem ninguém ver.
 
+**E voltou para a TELA em 16/09/2026 — na área de Treino, onde a ficha está.**
+A avaliação daquele dia (D4) mostrou que "escolha da área de Treino" era
+frase sem porta: a ficha oferecia só a "Versão rápida" do dia, "Dados do
+cálculo" dizia "até 60 min" fixo, e o Completo de 90 — a ficha inteira —
+não tinha onde ser escolhido. Hoje "Seu programa" no painel tem
+Rápido · Padrão · Completo com o teto de cada um (`DuracaoDoTreinoView`,
+`POST /treino/duracao/`, lista fechada em `escolhas_visiveis`); "Aplicar"
+grava `Profile.duracao_treino`, deriva `TrainingDay.duration_min` como
+`TrainingForm.save` já fazia, e `sync_active_routine` remonta — faixa
+diferente da que a ficha guarda é `rotina_invalida`. As travas continuam e a
+tela diz qual valeu: série registrada hoje, a ficha muda amanhã; ficha
+ajustada à mão não é remontada. Medido no intermediário de cinco dias:
+Padrão 23–26 séries/~58 min; Completo 26–28 séries/58–68 min.
+
 **O horário do treino é OPCIONAL, e a ausência é um estado de verdade.** Ele
 nunca participou da montagem da ficha — `create_routine` jamais leu
 `start_time` —, e exigi-lo fazia todo mundo sair do passo 3 com o padrão de

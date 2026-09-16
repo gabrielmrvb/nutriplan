@@ -414,6 +414,42 @@
                  href="{% url 'accounts:onboarding_step' step=2 %}?origem=treino">Mudar meus dias de treino</a>
             </p>
           {% endif %}
+          {% comment %}
+            A DURAÇÃO SE ESCOLHE AQUI (avaliação de 16/09/2026, D4). A pergunta
+            saiu do cadastro em 10/09 — ninguém calibra "rápido, padrão ou
+            completo" antes de ver uma ficha —, e o CLAUDE.md passou a dizer
+            que Completo/Rápido é escolha da área de Treino. A área não tinha
+            onde escolher: a ficha oferecia só a "Versão rápida" do dia, e a
+            ficha inteira de 90 minutos não tinha porta.
+
+            A linha fechada diz o teto EM VIGOR — o mesmo número que "Dados do
+            cálculo" imprime na Home —; aberta, as três faixas com o teto de
+            cada uma e "Aplicar". `.choice-list` e `.dias-detalhe` já
+            existiam; uma quarta versão do mesmo radio é o defeito que a
+            seção de design do CLAUDE.md existe para impedir.
+          {% endcomment %}
+          <details class="dias-detalhe programa__duracao">
+            <summary>Duração: até <span class="num">{{ duracao.teto }}</span> min por sessão · trocar</summary>
+            <form method="post" action="{% url 'workouts:duracao' %}" class="programa__duracao-form">
+              {% csrf_token %}
+              <ul class="choice-list" role="radiogroup" aria-label="Duração de cada sessão">
+                {% for opcao in duracao.opcoes %}
+                  <li>
+                    <label>
+                      <input type="radio" name="duracao_treino" value="{{ opcao.valor }}"
+                             {% if opcao.valor == duracao.atual %}checked{% endif %}>
+                      <span>{{ opcao.nome }} <span class="muted">— até <span class="num">{{ opcao.teto }}</span> min</span></span>
+                    </label>
+                  </li>
+                {% endfor %}
+              </ul>
+              <p class="hint">
+                O teto é duro: a ficha é remontada para caber nele. Com série
+                registrada hoje, a troca vale a partir de amanhã.
+              </p>
+              <button type="submit" class="btn btn--ghost">Aplicar</button>
+            </form>
+          </details>
           <ol class="week-strip">
             {% for day in week %}
               <li class="day-chip {% if day.session %}day-chip--training{% endif %}{% if day.session and day.session.eh_hoje %} day-chip--hoje{% endif %}"

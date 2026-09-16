@@ -10,7 +10,13 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import TemplateView, View
 
-from accounts.models import Weekday
+from accounts.models import (
+    MINUTOS_POR_DURACAO,
+    TETO_POR_DURACAO,
+    DuracaoTreino,
+    Profile,
+    Weekday,
+)
 from accounts.views import OnboardingRequiredMixin
 from achievements import services as conquistas
 
@@ -170,9 +176,38 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
                 # primeira e a ultima serie anotadas. Sem isso, ele
                 # apresentaria uma conta como se fosse cronometro.
                 "minutos_observados": conquistas.duracao_observada(user),
+                # A DURAÇÃO SE ESCOLHE AQUI (16/09/2026, avaliação D4). A
+                # pergunta saiu do cadastro em 10/09 porque ninguém calibra
+                # "rápido, padrão ou completo" antes de ver uma ficha; a
+                # área de Treino é onde a ficha está — e não tinha onde
+                # escolher. `teto_completo_de` é o teto que o motor obedece
+                # HOJE para esta pessoa (65 para quem nunca respondeu).
+                "duracao": {
+                    "atual": services.duracao_de(user),
+                    "teto": services.teto_completo_de(user),
+                    "opcoes": opcoes_de_duracao(),
+                },
             }
         )
         return context
+
+
+def opcoes_de_duracao() -> list:
+    """As faixas que a área de Treino oferece: valor, nome curto e teto.
+
+    Lê `DuracaoTreino.escolhas_visiveis` — sem "Sem limite", que continua no
+    banco para quem já tem e não é oferecido em formulário nenhum — e o teto
+    de `TETO_POR_DURACAO`, o mesmo que o motor obedece. O nome curto é a
+    parte do rótulo antes do travessão: "Rápido", "Padrão", "Completo".
+    """
+    return [
+        {
+            "valor": faixa.value,
+            "nome": faixa.label.split(" — ")[0],
+            "teto": TETO_POR_DURACAO[faixa],
+        }
+        for faixa in DuracaoTreino.escolhas_visiveis()
+    ]
 
 
 def progresso_do_dia(session) -> None:
@@ -756,6 +791,73 @@ class RegenerarTreinoView(OnboardingRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         services.create_routine(request.user)
         messages.success(request, "Treino regenerado com o catálogo de hoje.")
+        return redirect("workouts:routine")
+
+
+class DuracaoDoTreinoView(OnboardingRequiredMixin, View):
+    """Rápido · Padrão · Completo, escolhido na área de Treino (D4, 16/09/2026).
+
+    Grava `Profile.duracao_treino`, deriva `TrainingDay.duration_min` (o
+    contrato do cardápio — `plans/meal_planner.py` soma `start_time +
+    duration_min`; é o que `TrainingForm.save` já fazia quando a pergunta
+    morava no cadastro) e deixa `sync_active_routine` decidir: faixa
+    diferente da que a ficha guarda é `rotina_invalida`, e remonta. As travas
+    de sempre valem e a tela DIZ qual valeu — com série registrada hoje a
+    ficha muda amanhã; ficha ajustada à mão não é remontada, e a faixa fica
+    gravada para a próxima remontagem.
+
+    Lista fechada: só `escolhas_visiveis`. "Sem limite" não entra por aqui —
+    quem tem continua tendo, e ninguém passa a ter.
+
+    O GET leva ao painel, onde a escolha mora — é onde o `next` do login
+    aterrissa quando a sessão expira no meio do toque.
+    """
+
+    def get(self, request, *args, **kwargs):
+        return redirect("workouts:routine")
+
+    def post(self, request, *args, **kwargs):
+        pedido = request.POST.get("duracao_treino", "")
+        visiveis = {f.value: f for f in DuracaoTreino.escolhas_visiveis()}
+        if pedido not in visiveis:
+            messages.error(request, "Escolha uma das três durações.")
+            return redirect("workouts:routine")
+        faixa = visiveis[pedido]
+        teto = TETO_POR_DURACAO[faixa]
+
+        perfil = Profile.objects.filter(user=request.user).first()
+        if perfil is None:
+            return redirect("workouts:routine")
+        if perfil.duracao_treino == faixa:
+            messages.info(request, "Sua ficha já é montada para até %d minutos." % teto)
+            return redirect("workouts:routine")
+
+        # `update_fields` restrito, como em `TrainingForm.save`: esta ação não
+        # é dona do resto do Profile.
+        perfil.duracao_treino = faixa
+        perfil.save(update_fields=["duracao_treino", "updated_at"])
+        request.user.training_days.update(duration_min=MINUTOS_POR_DURACAO[faixa])
+
+        plano = services.get_active_routine(request.user)
+        if plano is not None and plano.is_customized:
+            messages.info(
+                request,
+                "Duração gravada: até %d minutos. Você ajustou a ficha à mão, "
+                "então ela não é remontada — a duração vale na próxima remontagem." % teto,
+            )
+            return redirect("workouts:routine")
+        if plano is not None and services.treino_em_andamento(request.user):
+            messages.info(
+                request,
+                "Duração gravada: até %d minutos. Há série registrada hoje, "
+                "então a ficha muda amanhã." % teto,
+            )
+            return redirect("workouts:routine")
+        _, mudou = services.sync_active_routine(request.user)
+        if mudou:
+            messages.success(request, "Ficha remontada para até %d minutos por sessão." % teto)
+        else:
+            messages.info(request, "Duração gravada: até %d minutos." % teto)
         return redirect("workouts:routine")
 
 

@@ -3658,6 +3658,11 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   transform: rotate(-135deg) translate(-.15rem, -.15rem);
 }
 
+/* A escolha da duração no painel de Treino (D4, 16/09/2026): a lista de
+   três faixas e o "Aplicar" empilhados, no mesmo ritmo do resto do cartão. */
+.programa__duracao-form { display: grid; gap: var(--espaco-3); margin-top: var(--espaco-2); }
+.programa__duracao-form .hint { margin: 0; }
+
 /* ==========================================================================
    22. A seta do cartão de sessão
    ========================================================================== */
