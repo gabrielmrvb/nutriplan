@@ -1,0 +1,111 @@
+# O GATE DE VERDADE: a suíte inteira, no GitHub, sobre o que vai para `main`.
+#
+# Até 17/09/2026 o gate era o `pre-push` da máquina do Gabriel — e um push
+# chegou ao GitHub naquele dia sem passar pelo reflog de nenhuma sessão. Um
+# gate que só existe numa máquina não é gate: ninguém consegue conferir se
+# ele rodou. Este fluxo roda o MESMO comando do hook (`manage.py test
+# --verbosity=1 --noinput`, o de `scripts/hooks/pre-push` em modo completo)
+# em todo PR para `main` e em todo push que chegar lá, e a branch protection
+# exige o check verde e a branch atualizada antes de qualquer merge — de
+# qualquer pessoa, admin inclusive. O hook local virou atalho.
+#
+# Sem segredo nenhum: a suíte usa um Postgres de serviço e uma SECRET_KEY
+# fictícia (com os 50 caracteres que `accounts.E005` exige). `permissions:
+# contents: read` — o token do fluxo não escreve nada, como em `backup.yml`.
+#
+# O banco é `postgres:16` porque produção roda 16.x no Neon (CLAUDE.md, "O
+# banco saiu do Render"): o que o teste prova tem de ser o que produção
+# executa. O `pg_restore` dos testes de backup vem do cliente 16 do runner —
+# um cliente mais velho que o servidor se recusa a restaurar.
+#
+# `pipefail` não é enfeite: `manage.py test | tee` devolveria o status do
+# `tee`, e o job ficaria verde com a suíte vermelha — o mesmo engano que o
+# CLAUDE.md registra para `| tail`.
+name: Suíte completa
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Um push novo no mesmo PR cancela o run anterior: testar um commit que já
+# foi substituído é gastar 40 minutos para nada.
+concurrency:
+  group: suite-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  suite:
+    name: "suíte completa"
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nutriplan
+          POSTGRES_PASSWORD: nutriplan
+          POSTGRES_DB: nutriplan
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nutriplan"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgres://nutriplan:nutriplan@localhost:5432/nutriplan
+      DJANGO_SECRET_KEY: "ci-somente-nao-e-segredo-0123456789abcdefghijklmnopqrstuvwxyz"
+      # `True`, como no `.env` que o pre-push copia para o worktree: com DEBUG
+      # desligado o `STORAGES` escolhe o manifesto do WhiteNoise, e a URLconf
+      # resolve `static("icons/favicon.ico")` em tempo de import — sem
+      # `collectstatic` a suíte morre antes do primeiro teste ("Missing
+      # staticfiles manifest entry", visto no primeiro run deste fluxo). O
+      # Django força DEBUG=False durante os testes de qualquer jeito; o que
+      # esta variável decide é o backend de estáticos, e a suíte local roda
+      # com o mesmo. Produção é `check --deploy` no build do Render.
+      DJANGO_DEBUG: "true"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,testserver"
+      # Placeholders, NÃO segredos: `GOOGLE_LOGIN_ENABLED` é `bool(id and
+      # secret)` em tempo de import, e três testes cobram o botão "Continuar
+      # com Google" e o `next` do formulário dele — nenhum teste fala com o
+      # Google (CLAUDE.md: "nenhum teste decodifica um id_token real"). Sem
+      # os dois o CI reprovava 3 de 3272 (segundo run do PR #1); o pre-push
+      # nunca viu isso porque copia o `.env`, que tem os reais.
+      GOOGLE_CLIENT_ID: "ci-somente.apps.googleusercontent.com"
+      GOOGLE_CLIENT_SECRET: "ci-somente-nao-e-segredo"
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Instalar dependências
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+
+      # O mesmo comando do pre-push, sobre o merge do PR (ou o push em main).
+      - name: Suíte completa
+        shell: bash
+        run: |
+          set -o pipefail
+          python manage.py test --verbosity=1 --noinput 2>&1 | tee suite.log
+
+      - name: Guardar o log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: suite-log-${{ github.sha }}
+          path: suite.log
+          retention-days: 14

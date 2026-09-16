@@ -164,10 +164,20 @@ palavra `gate`; o que ele não diz é QUE comandos são esses, nem onde cada um
 roda. É o que a lista abaixo resolve:
 
 ```
-testes dirigidos → sabotagem → browser QA → suíte completa
+testes dirigidos → sabotagem → browser QA → suíte completa (local, opcional)
 → manage.py check → makemigrations --check → git diff --check
-→ commit → fetch → push → hook → deploy → /saude/ → smoke
+→ commit → fetch → push da BRANCH (hook = atalho) → PR → check "suíte completa"
+→ merge pela API → deploy → /saude/ → smoke
 ```
+
+**Desde 17/09/2026 o gate é o CI e ninguém empurra em `main`** (branch
+protection: check verde, branch atualizada, vale para admin). O PR se abre,
+espera e faz merge com `scripts/github.py` (`pr <branch> "<título>"`,
+`esperar <n>`, `merge <n>`); quem abre é quem faz o merge quando o check
+fica verde. O `pre-push` virou atalho (`config`, dourado, doutrina, gate
+por letra, orçamentos) e `NUTRIPLAN_SUITE_COMPLETA=1` roda tudo localmente
+antes de abrir o PR, para quem quer a resposta antes dos 40 minutos de
+runner.
 
 Onde cada um mora de verdade. Seguir o ponteiro errado é o que faz alguém
 "corrigir" esta cadeia para a versão curta e perder os três comandos:
@@ -179,7 +189,8 @@ Onde cada um mora de verdade. Seguir o ponteiro errado é o que faz alguém
 - `makemigrations --check` esse sim roda sozinho, no mesmo hook
   (`scripts/hooks/pre-commit:27`) — migração faltando quebra o deploy, não o
   teste;
-- a suíte completa é do `pre-push` (`scripts/hooks/pre-push:19`);
+- a suíte completa é do CI (`.github/workflows/suite.yml`), no PR; o
+  `pre-push` roda o atalho no worktree do SHA que sobe;
 - `manage.py check` é seu, antes do commit. Com `--deploy --fail-level ERROR`
   ele roda DE NOVO no build do Render (`scripts/build.sh:37`), depois do
   collectstatic — lá é portão, e o que reprova não sobe;
@@ -193,11 +204,14 @@ A suíte completa levava ~3 min com 692 testes; **medida em 04/09/2026, são
 1.968 testes em ~20 min**. Rode em segundo plano e faça o que for
 paralelizável enquanto ela corre.
 
-**E espere ela terminar antes de dar `git push`.** O `pre-push` roda
-`manage.py test` INTEIRO de novo (`scripts/hooks/pre-push:19`): empurrar com a
-suíte de fundo ainda viva é exatamente a colisão que o B9 existe para impedir,
-e ela já derrubou o hook uma vez com `database "test_nutriplan" is being
-accessed by other users`.
+**E espere ela terminar antes de dar `git push`.** O `pre-push` roda o
+atalho no mesmo banco de teste (a suíte inteira com
+`NUTRIPLAN_SUITE_COMPLETA=1`): empurrar com a suíte de fundo ainda viva é
+exatamente a colisão que o B9 existe para impedir, e ela já derrubou o hook
+uma vez com `database "test_nutriplan" is being accessed by other users`.
+Com mais de uma sessão na máquina, cada uma roda a sua com `--settings` num
+banco de teste próprio (`scratchpad/settings_missao.py` é o modelo:
+`TEST["NAME"] = "test_nutriplan_<sessão>"`).
 
 **O código de saída importa.** `manage.py test | tail` devolve o status do
 `tail`, não da suíte — já enganou aqui. Capture o exit code direto.
@@ -341,19 +355,50 @@ Achou defeito no escopo? O laço é:
 REPRODUZA → CLASSIFIQUE → CORRIJA → TESTE → BROWSER QA → SABOTE → REVALIDE
 ```
 
-### Pare somente por bloqueio humano real
+### DECIDA E REGISTRE — as quatro únicas paradas (regra permanente, 17/09/2026)
 
-Credencial que só a pessoa tem · 2FA · CAPTCHA · pagamento · aceite legal ·
-conta em serviço externo · operação destrutiva relevante · risco de perda de
-dado real · decisão de produto com alternativas materialmente diferentes ·
-decisão arquitetural fora do contrato — e o portão de `nutriplan-architecture`
-é mais largo que "irreversível": **escolha de fundo que precisa ser feita antes
-de existir código** para aí, com as opções e os custos · teste físico que exige
-o aparelho · autorização para usar dado ou conta real · conflito de requisitos
-que o contrato não resolve · infraestrutura externa fora do ar sem alternativa
-segura.
+Uma sessão só para e pergunta quando UMA destas vale:
 
-Encontrou algo inesperado que não está nessa lista? **Investigue primeiro.**
+1. **gasta dinheiro novo** — plano do Render, serviço pago, API cobrada;
+2. **apaga ou altera dado de usuário real em produção**;
+3. **muda direção visual ou de produto que ainda não está escrita** em
+   `DESIGN.md` / `TREINO.md`;
+4. **precisa de credencial que não existe no ambiente**.
+
+Tudo o mais — escolha técnica, ordem de execução, defaults de infra,
+tolerância de teste, rótulo de texto, nome de campo, parâmetro de motor —
+decide com o melhor padrão, registra em **"Decisões que tomei sozinha"** com
+uma linha de razão, e segue. Vetos vêm depois, no relatório; nunca antes.
+A lista antiga desta seção (2FA, CAPTCHA, pagamento, aceite legal, dado
+real, decisão de produto fora da spec, credencial inexistente) cabe inteira
+nas quatro condições; o que ficava de fora dela — "decisão arquitetural",
+"alternativas materialmente diferentes" — agora se decide e se registra.
+
+**Padrões já decididos — não perguntar de novo:** superpowers em toda
+missão · TDD + sabotagem 100 % vermelha + revisão adversarial + suíte · o
+gate é o CI, fluxo branch → PR → merge pela API (`enforce_admins: true`,
+merge commit) · deploy provado por `/saude/` + smoke + QA em produção com
+conta descartável pelo signup público, conta apagada pela tela, demo
+intacto · `scripts/qa/nav.py` (CDP) para navegador, inclusive sites de
+terceiros na sessão logada do dono (Render, GitHub, claude.ai) · mídia de
+exercício ativa com curadoria e mosaico para veto posterior · plano ativo
+antigo nunca remonta sozinho · o teste dourado da ficha nunca afrouxa · spec
+(`DESIGN.md` / `TREINO.md`) vence proposta externa, e a divergência vai para
+"recomendo rever" · segredo nunca no repositório nem no relatório.
+
+**Relatório:** "O que preciso de você" só lista itens que caem nas quatro
+condições. Lista vazia se escreve "nada" — e a sessão vai para o próximo
+item do plano mestre sem esperar.
+
+**Coordenação entre sessões:** antes de tocar arquivo em comum, a sessão
+avisa as outras pelo ledger compartilhado —
+`C:\Users\biel-\nutriplan-ledger.md`, fora de qualquer worktree, uma linha
+por aviso (`data hora · sessão · arquivo · o que vai fazer`), lido antes de
+editar e escrito antes de commitar. Conflito de merge é resolvido por quem
+faz o rebase.
+
+Encontrou algo inesperado que não cai nas quatro? **Investigue, decida,
+registre.**
 
 ---
 

@@ -1,20 +1,34 @@
 #!/usr/bin/env bash
-# Trava de push: a suíte inteira — SOBRE O COMMIT QUE SOBE.
+# Trava de push: o ATALHO local — SOBRE O COMMIT QUE SOBE.
 #
-# Aqui o custo se paga. Empurrar é o gesto que chega em produção — o deploy do
-# Render dispara sozinho —, então é o último ponto em que um teste vermelho
-# ainda é barato.
+# O GATE DE VERDADE É O CI (17/09/2026). Até esta data este hook rodava a
+# suíte inteira (30–40 minutos) e era o único gate; um push chegou ao
+# GitHub naquele dia sem passar pelo reflog de nenhuma sessão, e um gate que
+# só existe numa máquina não é gate — ninguém consegue conferir se rodou.
+# Hoje `.github/workflows/suite.yml` roda a suíte completa em todo PR para
+# `main` e a branch protection exige o check verde: é lá que o push é
+# julgado. Este hook virou o atalho que pega regressão cara em poucos
+# minutos, antes de gastar 40 minutos de runner:
 #
-# POR QUE NUM WORKTREE, E NÃO NA ÁRVORE DE TRABALHO (17/09/2026). A versão
-# anterior rodava `manage.py test` aqui mesmo, na árvore. Isso valida o que
-# está no disco, que não é o que sobe: um arquivo não commitado (um teste
-# novo, um dado de catálogo) entra na conta e não entra no push, e um arquivo
+#   config                          régua de design, nomenclatura, disciplina
+#   workouts.test_ficha_de_verdade  o teste dourado do dono
+#   workouts.test_treino_md         a doutrina do TREINO.md
+#   workouts.test_catalogo          o gate por letra
+#   plans.test_stress               os orçamentos de consulta
+#
+# `NUTRIPLAN_SUITE_COMPLETA=1 git push ...` roda a suíte inteira aqui, como
+# antes — para quem quer a resposta antes de abrir o PR.
+#
+# POR QUE NUM WORKTREE, E NÃO NA ÁRVORE DE TRABALHO. A versão anterior
+# rodava `manage.py test` aqui mesmo, na árvore. Isso valida o que está no
+# disco, que não é o que sobe: um arquivo não commitado (um teste novo, um
+# dado de catálogo) entra na conta e não entra no push, e um arquivo
 # commitado que foi apagado do disco sai da conta e entra no push. Foi assim
 # que o pre-push de 15/09 passou "3044 OK" e o mesmo `main` reprovava dois
 # dias depois — o teste que reprovou dependia do calendário, e a árvore
-# testada não era o commit. Agora o SHA do push é exportado num worktree
+# testada não era o commit. O SHA do push é exportado num worktree
 # descartável, o `.env` é copiado (o banco de teste é o mesmo, e o
-# `RunnerUnico` continua valendo) e a suíte roda LÁ.
+# `RunnerUnico` continua valendo) e o subconjunto roda LÁ.
 set -o errexit
 set -o pipefail
 
@@ -50,7 +64,13 @@ limpar() {
 }
 trap limpar EXIT
 
-echo "→ suíte completa sobre $(git rev-parse --short "$sha") (worktree descartável)"
+if [ "${NUTRIPLAN_SUITE_COMPLETA:-0}" = "1" ]; then
+  ALVOS=""
+  echo "→ suíte completa sobre $(git rev-parse --short "$sha") (worktree descartável)"
+else
+  ALVOS="config workouts.test_ficha_de_verdade workouts.test_treino_md workouts.test_catalogo plans.test_stress"
+  echo "→ atalho sobre $(git rev-parse --short "$sha") (worktree descartável); o gate é o CI no PR"
+fi
 git worktree add --detach "$WT" "$sha" >/dev/null
 [ -f "$RAIZ/.env" ] && cp "$RAIZ/.env" "$WT/.env"
 
@@ -58,6 +78,6 @@ git worktree add --detach "$WT" "$sha" >/dev/null
 # interrompida faz o Django PERGUNTAR se pode apagá-lo, e um hook não tem
 # terminal para responder. Sem isto ele morre com EOFError e o push é
 # abortado por um motivo que não tem nada a ver com o código.
-( cd "$WT" && "$PY" manage.py test --verbosity=1 --noinput )
+( cd "$WT" && "$PY" manage.py test $ALVOS --verbosity=1 --noinput )
 
-echo "✓ push liberado"
+echo "✓ push liberado — o julgamento é o check \"suíte completa\" no PR"

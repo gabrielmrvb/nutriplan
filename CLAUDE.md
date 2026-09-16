@@ -17,6 +17,44 @@ As outras quatro continuam valendo para o que decidem: `nutriplan-product`
 
 Pergunta pontual e ajuste de uma linha **não** precisam de protocolo.
 
+## Autonomia
+
+**DECIDA E REGISTRE (regra permanente, 17/09/2026).** Uma sessão só para e
+pergunta quando UMA das quatro condições vale:
+
+1. **gasta dinheiro novo** — plano do Render, serviço pago, API cobrada;
+2. **apaga ou altera dado de usuário real em produção**;
+3. **muda direção visual ou de produto que ainda não está escrita** em
+   `DESIGN.md` / `TREINO.md`;
+4. **precisa de credencial que não existe no ambiente**.
+
+Tudo o mais — escolha técnica, ordem de execução, defaults de infra,
+tolerância de teste, rótulo de texto, nome de campo, parâmetro de motor —
+decide com o melhor padrão, registra em **"Decisões que tomei sozinha"** com
+uma linha de razão, e segue. Vetos vêm depois, no relatório; nunca antes.
+
+**Padrões já decididos — não perguntar de novo:** superpowers em toda missão
+· TDD + sabotagem 100 % vermelha + revisão adversarial + suíte · o gate é o
+CI, fluxo branch → PR → merge pela API (`enforce_admins: true`, merge commit)
+· deploy provado por `/saude/` + smoke + QA em produção com conta descartável
+pelo signup público, conta apagada pela tela, demo intacto · `scripts/qa/
+nav.py` (CDP) para navegador, inclusive sites de terceiros na sessão logada do
+dono (Render, GitHub, claude.ai) · mídia de exercício ativa com curadoria e
+mosaico para veto posterior · plano ativo antigo nunca remonta sozinho · o
+teste dourado da ficha nunca afrouxa · spec (`DESIGN.md` / `TREINO.md`) vence
+proposta externa, e a divergência vai para "recomendo rever" · segredo nunca
+no repositório nem no relatório.
+
+**Relatório:** "O que preciso de você" só lista itens que caem nas quatro
+condições. Lista vazia se escreve "nada" — e a sessão vai para o próximo item
+do plano mestre sem esperar.
+
+**Coordenação entre sessões:** antes de tocar arquivo em comum, a sessão
+avisa as outras pelo ledger compartilhado — `C:\Users\biel-\nutriplan-ledger.md`,
+fora de qualquer worktree, uma linha por aviso (`data hora · sessão · arquivo
+· o que vai fazer`), lido antes de editar e escrito antes de commitar. Conflito
+de merge é resolvido por quem faz o rebase.
+
 ## Rodar
 
 ```bash
@@ -1370,7 +1408,32 @@ dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
   Ver **Backup e restauração** e [`docs/infra-recuperacao.md`](docs/infra-recuperacao.md).
 ## Deploy
 
-`git push` dispara o Render. `scripts/build.sh` roda collectstatic →
+**O GATE É O CI, E NINGUÉM EMPURRA EM `main` (17/09/2026).** Um push chegou
+ao GitHub naquele dia sem passar pelo reflog de nenhuma sessão desta
+máquina; um gate que só existe numa máquina não é gate, porque ninguém
+consegue conferir se ele rodou. Desde então:
+
+- `.github/workflows/suite.yml` roda a suíte COMPLETA — o mesmo comando do
+  hook, `manage.py test --verbosity=1 --noinput` — em todo PR para `main`
+  e em todo push que chegue lá, com Postgres 16 de serviço (a versão de
+  produção), sem segredo nenhum, teto de 40 minutos e o log como artefato;
+- `main` tem branch protection pela API: o check **"suíte completa"** verde
+  é obrigatório, a branch tem de estar atualizada (`strict`), vale para
+  admin (`enforce_admins`), sem force push, sem apagar. Push direto é
+  recusado — para todo mundo, o dono inclusive;
+- o fluxo é **branch → PR → check verde → merge pela API → `/saude/`**, e a
+  sessão que abre o PR é quem faz o merge (merge commit: os SHAs testados
+  continuam em `main`, e o merge commit é o que `/saude/` mostra). Sem `gh`
+  nesta máquina, o helper é `scripts/github.py` (`pr`, `status`,
+  `esperar`, `merge`, `fechar`, `proteger`, `protecao`), com o token do
+  Git Credential Manager — nunca impresso, nunca em argumento;
+- o `pre-push` local virou ATALHO: no worktree descartável do SHA que sobe,
+  `config` + teste dourado + doutrina + gate por letra + orçamentos, em
+  poucos minutos; `NUTRIPLAN_SUITE_COMPLETA=1` roda tudo localmente como
+  antes. `config/test_ci.py` prende o contrato dos três (fluxo, hook,
+  helper).
+
+O merge em `main` dispara o Render. `scripts/build.sh` roda collectstatic →
 `check --deploy` → migrate → os três seeds, com `errexit`: build que passa
 prova que a migração rodou. Confira em `/saude/`.
 
