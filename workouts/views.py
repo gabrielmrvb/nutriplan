@@ -1,6 +1,6 @@
 """A aba de treino: a rotina da semana, a ficha de cada dia e a carga."""
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
@@ -110,9 +110,16 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
             return context
 
         plan, _ = services.sync_active_routine(user)
-        sessions = list(
+        linhas = list(
             plan.sessions.prefetch_related("exercises__exercise")
         )
+        # A SEMANA VISTA PELA POSIÇÃO NO CICLO (17/09/2026): com a rotação
+        # contínua a letra de cada dia muda de semana para semana, e o que o
+        # painel desenha é a semana de HOJE — cada dia de treino vestindo a
+        # letra da posição dele (`sessoes_da_semana`). No plano antigo são as
+        # próprias linhas, presas ao dia da semana.
+        hoje_data = timezone.localdate()
+        sessions = services.sessoes_da_semana(plan, hoje_data, linhas)
 
         # O histórico é anexado ao item por `anexar_historico`, que faz UMA
         # consulta para a página inteira. A tela principal já não desenha os
@@ -144,7 +151,7 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
                 "outras": [s for s in sessions if s is not hoje],
                 # Só faz sentido perguntar "e quando é o próximo?" no dia em
                 # que não há treino. Com treino hoje, o próximo é ruído.
-                "proximo": proximo_treino(sessions) if hoje is None else None,
+                "proximo": proximo_treino(sessions, plan, hoje_data, linhas) if hoje is None else None,
                 "week": week_overview(sessions),
                 # O que a pessoa pediu, o que foi aplicado e por quê — só
                 # quando divergem. Ver `services.divisao_explicada`.
@@ -400,7 +407,10 @@ def anexar_historico(user, sessions) -> None:
     historico = services.load_history(user, exercicios)
     hoje_na_semana = timezone.localdate().weekday()
 
-    for session in sessions:
+    # A de hoje POR ÚLTIMO: com a rotação, a letra que cai duas vezes na
+    # semana é a MESMA linha vestindo dois dias, e os itens são os mesmos
+    # objetos — a ocorrência que não é hoje apagaria o "hoje" da que é.
+    for session in sorted(sessions, key=lambda s: s.weekday == hoje_na_semana):
         do_dia = session.weekday == hoje_na_semana
         for item in session.exercises.all():
             carga = historico.get(item.exercise_id)
@@ -413,15 +423,25 @@ def anexar_historico(user, sessions) -> None:
             item.feitas = len((item.load or {}).get("hoje") or {})
 
 
-def proximo_treino(sessions):
+def proximo_treino(sessions, plan=None, hoje=None, linhas=None):
     """Qual treino vem a seguir, para o dia em que hoje é descanso.
 
     Sai de `weekday`, que a pessoa escolheu no cadastro — não é previsão. Anda
     os sete dias seguintes e devolve o primeiro que tem sessão, com quantos
     dias faltam, para a tela poder dizer "amanhã" em vez de repetir o nome do
-    dia da semana.
+    dia da semana. Com a rotação contínua a letra do próximo dia sai da DATA
+    dele (`sessao_do_dia`): a segunda-feira que vem pode ser C, e não a A
+    desta semana.
     """
     if not sessions:
+        return None
+
+    if services.ciclo_roda(plan):
+        hoje_data = hoje or timezone.localdate()
+        for adiante in range(1, 8):
+            sessao = services.sessao_do_dia(plan, hoje_data + timedelta(days=adiante), linhas)
+            if sessao is not None:
+                return {"session": sessao, "dias": adiante}
         return None
 
     hoje = timezone.localdate().weekday()
@@ -509,7 +529,9 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         # e uma sessão sozinha não sabe disso. Buscar as irmãs custa UMA
         # consulta e é o que faz o título da ficha concordar com o cartão que
         # levou até ela.
-        irmas = list(sessao.plan.sessions.prefetch_related("exercises"))
+        hoje_data = timezone.localdate()
+        linhas = list(sessao.plan.sessions.prefetch_related("exercises"))
+        irmas = services.sessoes_da_semana(sessao.plan, hoje_data, linhas)
         nomear_ocorrencias(irmas)
         sessao.rotulo = next(
             (s.rotulo for s in irmas if s.pk == sessao.pk), sessao.label
@@ -520,7 +542,18 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         sessao.vezes_texto = next(
             (s.vezes_texto for s in irmas if s.pk == sessao.pk), "uma"
         )
-        marcar_ficha_aberta([sessao])
+        if services.ciclo_roda(sessao.plan):
+            # Com a rotação, "é hoje" é a LETRA de hoje — o dia da semana da
+            # linha é o da primeira semana —, e o cabeçalho diz em que dias
+            # desta semana a letra cai.
+            sessao.eh_hoje = services.letra_do_dia(sessao.plan, hoje_data, linhas) == sessao.label
+            sessao.aberta = True
+            sessao.dias_texto = " · ".join(
+                s.weekday_display for s in irmas if s.label == sessao.label
+            ) or sessao.weekday_display
+        else:
+            marcar_ficha_aberta([sessao])
+            sessao.dias_texto = sessao.weekday_display
         if sessao.eh_hoje:
             preparar_dia(user, sessao)
             progresso_do_dia(sessao)
@@ -638,7 +671,8 @@ class EscolherOpcaoView(OnboardingRequiredMixin, View):
             TrainingSession.objects.select_related("plan").prefetch_related("exercises__exercise"),
             pk=kwargs["sessao_id"], plan__user=request.user, plan__is_active=True,
         )
-        if sessao.weekday != timezone.localdate().weekday():
+        de_hoje = services.sessao_do_dia(sessao.plan, timezone.localdate())
+        if de_hoje is None or de_hoje.pk != sessao.pk:
             raise Http404("a ficha de outro dia não executa")
         try:
             opcao = int(request.POST.get("opcao") or "1")
@@ -952,8 +986,14 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
             ).distinct(),
             pk=kwargs["exercise_id"],
         )
-        # As ocorrências na semana, com a letra que a ficha mostra (A1/A2).
-        sessoes = list(plano.sessions.prefetch_related("exercises").order_by("weekday"))
+        # As ocorrências na semana, com a letra que a ficha mostra (A1/A2) —
+        # a semana de HOJE pela posição no ciclo, na ordem dos dias.
+        sessoes = sorted(
+            services.sessoes_da_semana(
+                plano, timezone.localdate(), list(plano.sessions.prefetch_related("exercises"))
+            ),
+            key=lambda s: s.weekday,
+        )
         nomear_ocorrencias(sessoes)
         itens = []
         for sessao in sessoes:
@@ -1317,9 +1357,7 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
                 pk=sessao_id, plan__user=request.user, plan__is_active=True
             ).prefetch_related("exercises").first()
         if sessao is None:
-            sessao = TrainingSession.objects.filter(
-                plan__user=request.user, plan__is_active=True, weekday=dia.weekday()
-            ).prefetch_related("exercises").first()
+            sessao = services.sessao_do_dia(services.get_active_routine(request.user), dia)
         if sessao is None:
             return
         try:

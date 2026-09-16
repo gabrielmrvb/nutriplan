@@ -114,7 +114,7 @@ class SeletorDaRapidaTests(TestCase):
         for d in {hoje, (hoje + 2) % 7, (hoje + 4) % 7}:
             TrainingDay.objects.create(user=user, weekday=d, duration_min=60)
         plan = services.create_routine(user)
-        sessao = plan.sessions.get(weekday=hoje)
+        sessao = services.sessao_do_dia(plan, timezone.localdate())
         self.client.force_login(user)
         resposta = self.client.get(reverse("workouts:ficha", args=[sessao.pk]))
         html = resposta.content.decode()

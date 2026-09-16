@@ -215,8 +215,7 @@ class AFichaCompletaContinuaExistindoTests(TestCase):
         from workouts.models import TrainingPlan
 
         plano = TrainingPlan.objects.filter(user=self.pessoa, is_active=True).first()
-        hoje = timezone.localdate().weekday()
-        return plano.sessions.get(weekday=hoje)
+        return services.sessao_do_dia(plano, timezone.localdate())
 
     def test_o_detalhe_completo_continua_inteiro_NA_EXECUCAO(self):
         """O detalhe continua inteiro — uma página adiante.

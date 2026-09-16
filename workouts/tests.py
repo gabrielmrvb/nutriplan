@@ -208,7 +208,7 @@ def escolher_opcao_de_hoje(user, opcao=1):
     plano = user.training_plans.filter(is_active=True).first()
     if plano is None:
         plano = services.create_routine(user)
-    sessao = plano.sessions.filter(weekday=timezone.localdate().weekday()).first()
+    sessao = services.sessao_do_dia(plano, timezone.localdate())
     if sessao is None:
         return None
     services.registrar_escolha(user, sessao, opcao)
@@ -1325,8 +1325,7 @@ class WeekAccordionTests(TestCase):
         A ficha do dia deixou de existir como ficha: o mesmo treino é o
         primeiro bloco da tela, com o próprio cabeçalho.
         """
-        hoje = timezone.localdate().weekday()
-        do_dia = self.plano.sessions.filter(weekday=hoje).first()
+        do_dia = services.sessao_do_dia(self.plano, timezone.localdate())
         # Não é mais `skipTest`: `dias_incluindo_hoje` no `setUp` garante a
         # sessão, e a asserção diz em voz alta se a garantia quebrar.
         self.assertIsNotNone(do_dia, "o fixture deixou de incluir o dia de hoje")
@@ -2394,7 +2393,7 @@ class TreinoDeHojeTests(TestCase):
             weekdays=sorted({hoje, (hoje + 2) % 7, (hoje + 4) % 7}),
         )
         self.plano = services.create_routine(self.user)
-        self.sessao = self.plano.sessions.get(weekday=hoje)
+        self.sessao = services.sessao_do_dia(self.plano, timezone.localdate())
         self.client.force_login(self.user)
 
     def _pagina(self):
@@ -2661,8 +2660,7 @@ class TreinoDeHojeTests(TestCase):
         self._anotar(item, series=item.sets)
 
         plano = self.user.training_plans.get(is_active=True)
-        hoje = timezone.localdate().weekday()
-        de_hoje = plano.sessions.get(weekday=hoje)
+        de_hoje = services.sessao_do_dia(plano, timezone.localdate())
 
         pagina = self.client.get(
             reverse("workouts:ficha", args=[de_hoje.pk])
@@ -3744,9 +3742,8 @@ class ConclusaoNaoVazaEntreDiasTests(TestCase):
         self.client.force_login(self.user)
 
         plano = services.get_active_routine(self.user)
-        hoje = timezone.localdate().weekday()
-        self.sessao_de_hoje = plano.sessions.filter(weekday=hoje).first()
-        self.sessao_de_outro_dia = plano.sessions.exclude(weekday=hoje).first()
+        self.sessao_de_hoje = services.sessao_do_dia(plano, timezone.localdate())
+        self.sessao_de_outro_dia = plano.sessions.exclude(label=self.sessao_de_hoje.label).first()
         self.assertIsNotNone(self.sessao_de_hoje, "hoje precisa ser dia de treino")
         self.assertIsNotNone(self.sessao_de_outro_dia, "precisa de um segundo dia")
 

@@ -445,7 +445,7 @@ class EscolhaDoDiaTests(Catalogo):
         hoje = timezone.localdate().weekday()
         TrainingDay.objects.get_or_create(user=self.user, weekday=hoje, defaults={"duration_min": 60})
         self.plan = services.create_routine(self.user)
-        self.sessao = self.plan.sessions.get(weekday=hoje)
+        self.sessao = services.sessao_do_dia(self.plan, timezone.localdate())
         self.client.force_login(self.user)
 
     def test_sem_escolha_a_execucao_abre_a_recomendada_e_diz_isso(self):
@@ -547,7 +547,7 @@ class EscolhaDoDiaTests(Catalogo):
         self.assertEqual(sum(i.sets for i in self.sessao.da_opcao(1)), sum(i.sets for i in completa))
 
     def test_a_ficha_de_outro_dia_nao_aceita_escolha(self):
-        outra = self.plan.sessions.exclude(weekday=timezone.localdate().weekday()).first()
+        outra = self.plan.sessions.exclude(label=self.sessao.label).first()
         self.assertEqual(
             self.client.post(reverse("workouts:escolher", args=[outra.pk]), {"opcao": 1}).status_code, 404
         )

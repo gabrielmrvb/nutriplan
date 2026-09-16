@@ -250,6 +250,28 @@ Em branco é desconhecido, e desconhecido não invalida nada. O demo é
 fixture de que o seed é dono: `seed_demo` regenera sozinho quando a
 prescrição mudou.
 
+**O CICLO DA DIVISÃO RODA CONTÍNUO, e a letra de hoje sai da POSIÇÃO, não
+do dia da semana (17/09/2026).** Em 5 dias com ABC o ciclo fixo A B C A B
+recomeçava toda segunda, peito e costas caíam 2× e "Pernas e ombros" 1× —
+quadríceps em 7 diretas por semana, para sempre. O desequilíbrio era do
+calendário. Hoje a semana seguinte continua de onde a anterior parou (C A B
+C A, depois B C A B C; em 3 semanas cada letra cai 5 vezes), e a média do
+ciclo está medida no `TREINO.md`. Como funciona: `TrainingPlan.
+inicio_do_ciclo` é a posição zero (o primeiro dia de treino da semana em que
+o plano nasce — a primeira semana é a de sempre, a rotação começa na
+segunda); as linhas de `sessions` continuam UMA POR DIA DA SEMANA, com a
+letra da primeira semana — são o retrato de dias, horários e durações que
+`rotina_invalida` compara —; `services.sessao_do_dia(plan, dia)` devolve a
+linha da LETRA da posição vestindo o dia da semana (`_no_dia`: horário,
+duração e `weekday` do dia, `pk` da letra — a escolha e a ficha apontam
+para a letra); `sessoes_da_semana` é a semana de hoje que o painel, a ficha
+e a leitura desenham. A posição é do CALENDÁRIO: treino pulado conta, como
+o quadro da academia. Toda letra recebe o teto e o número de opções da PIOR
+semana (`ocorrencias_das_letras`: 2× para A, B e C em 5 dias). Plano de
+antes da rotação (`inicio_do_ciclo` em branco) segue preso ao dia da semana,
+não é remontado, e a Home pergunta. NUNCA volte a resolver "a sessão de hoje"
+por `weekday=hoje.weekday()`: era isso que prendia o ciclo.
+
 **A ofensiva mede aderência AO PLANO, e o denominador vem do plano.** Não do
 que a pessoa marcou — essa era a regra antiga, e ela invertia o incentivo do
 app: três refeições feitas mais duas marcadas como "comi outra coisa" davam

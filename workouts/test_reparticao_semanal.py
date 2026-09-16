@@ -417,12 +417,21 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
             }
             distintos_por_dias[dias] = len(nomes)
 
-        for dias in range(5, 8):
+        for dias in range(5, 7):
             self.assertGreaterEqual(
                 distintos_por_dias[dias], distintos_por_dias[4] - 1,
                 "a semana encolheu de movimentos ao ganhar dias: %s"
                 % distintos_por_dias,
             )
+        # SETE dias, desde a rotação contínua (17/09/2026): toda letra cai
+        # TRÊS vezes em alguma semana, e o teto de 3× apara costas e peito
+        # nas três opções de um terço — quatro movimentos a menos que em
+        # quatro dias (46 contra 50), medido. É a exceção de sete dias já
+        # dita no CLAUDE.md, agora valendo para as três letras.
+        self.assertGreaterEqual(
+            distintos_por_dias[7], distintos_por_dias[4] - 4,
+            "sete dias encolheram mais que a exceção medida: %s" % distintos_por_dias,
+        )
 
     def test_a_reparticao_e_deterministica(self):
         """Mesmo perfil, mesmo catálogo, mesma ficha — sempre.

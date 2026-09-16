@@ -160,13 +160,27 @@ class OGeradorObedeceAoDocumentoTests(TestCase):
                         self.assertGreaterEqual(sum(por_grupo.get(g, 0) for g in cota), minimo, cota)
 
     def test_series_por_exercicio(self):
+        """Todo exercício dentro da faixa do nível — com UMA exceção dita no
+        documento: o isolador de um grupo que bateu no teto semanal pode
+        ficar em 2, o piso do aparo. É o ombro de "Pernas e ombros" a 2×
+        com o secundário de todos os supinos e remadas; abaixo de 3 sem o
+        grupo estar no teto seria defeito."""
         piso, teto = doutrina.series_por_exercicio("intermediario")
+        efetivo = services.volume_da_semana(self.plano)
+        tetos = services.tetos_da_semana(self.plano)
         for letra, sessao in self.letras.items():
             for k in sessao.opcoes:
                 for item in sessao.da_opcao(k):
-                    with self.subTest(letra=letra, opcao=k, exercicio=item.exercise.name):
-                        self.assertGreaterEqual(item.sets, piso)
+                    grupo = item.exercise.muscle_group
+                    with self.subTest(letra=letra, opcao=k, exercicio=item.exercise.name, series=item.sets):
                         self.assertLessEqual(item.sets, teto)
+                        if item.sets < piso:
+                            self.assertFalse(item.exercise.is_compound, "composto abaixo do piso")
+                            self.assertGreaterEqual(item.sets, 2, "abaixo do piso do aparo")
+                            self.assertGreaterEqual(
+                                efetivo[grupo], tetos[grupo] - 1,
+                                "isolador em 2 sem o grupo estar no teto semanal",
+                            )
 
     def test_series_diretas_por_sessao(self):
         """Dos grupos ANUNCIADOS (`main_groups`) — o complementar não
@@ -229,15 +243,22 @@ class ADoseDoNivelValeEmTodoNivelTests(TestCase):
         for nivel in doutrina.NIVEIS:
             piso, teto = doutrina.series_por_exercicio(nivel)
             plano = _plano(nivel, 5, "two", DuracaoTreino.COMPLETO)
+            efetivo = services.volume_da_semana(plano)
+            tetos = services.tetos_da_semana(plano)
             for sessao in plano.sessions.prefetch_related("exercises__exercise"):
                 anunciados = set(sessao.main_groups)
                 for k in sessao.opcoes:
                     for item in sessao.da_opcao(k):
-                        if item.exercise.muscle_group not in anunciados:
+                        grupo = item.exercise.muscle_group
+                        if grupo not in anunciados:
                             continue
                         with self.subTest(nivel=nivel, letra=sessao.label, opcao=k, exercicio=item.exercise.name, series=item.sets):
-                            self.assertGreaterEqual(item.sets, piso)
                             self.assertLessEqual(item.sets, teto)
+                            if item.sets < piso:
+                                # A exceção do aparo (ver `test_series_por_exercicio`).
+                                self.assertFalse(item.exercise.is_compound)
+                                self.assertGreaterEqual(item.sets, 2)
+                                self.assertGreaterEqual(efetivo[grupo], tetos[grupo] - 1)
         # Controle positivo: os níveis pedem coisas diferentes.
         self.assertNotEqual(doutrina.series_por_exercicio("iniciante"), doutrina.series_por_exercicio("avancado"))
 

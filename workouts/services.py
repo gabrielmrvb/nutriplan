@@ -16,6 +16,7 @@ não de programação:
 """
 from dataclasses import dataclass, field
 import copy
+from datetime import timedelta
 from decimal import Decimal
 from functools import lru_cache
 import hashlib
@@ -306,6 +307,137 @@ def templates_for(split: str) -> list:
         .order_by("order")
         .prefetch_related("items__exercise")
     )
+
+
+def inicio_do_ciclo_de(hoje, dias):
+    """A posição zero do ciclo: o primeiro dia de treino da SEMANA em que o
+    plano nasce (segunda a domingo). Assim a primeira semana é exatamente a
+    que as linhas guardam (A na segunda, B na terça...), e a rotação começa
+    a valer da segunda semana em diante — quem entra na quarta faz o treino
+    de quarta, como sempre fez, e na semana seguinte o ciclo continua."""
+    segunda = hoje - timedelta(days=hoje.weekday())
+    return segunda + timedelta(days=min(dias))
+
+
+def letras_do_ciclo(sessoes) -> list:
+    """As letras da divisão na ordem do ciclo (A, B, C), sem repetição."""
+    letras = []
+    for sessao in sorted(sessoes, key=lambda s: s.order):
+        if sessao.label not in letras:
+            letras.append(sessao.label)
+    return letras
+
+
+def dias_de_treino_de(sessoes) -> list:
+    """Os dias da semana do plano, em ordem (o retrato que as linhas guardam)."""
+    return sorted({s.weekday for s in sessoes})
+
+
+def posicao_no_ciclo(inicio, dia, dias) -> int:
+    """Quantos dias de treino há entre `inicio` (posição zero) e `dia`,
+    contando pelo CALENDÁRIO — dia de treino que a pessoa pulou conta do
+    mesmo jeito, como o quadro da academia. Data anterior ao início dá
+    posição negativa, e a sequência continua coerente para trás."""
+    delta = (dia - inicio).days
+    semanas, resto = divmod(delta, 7)
+    marcados = set(dias)
+    parcial = sum(1 for k in range(resto) if (inicio.weekday() + k) % 7 in marcados)
+    return semanas * len(dias) + parcial
+
+
+def ciclo_roda(plan) -> bool:
+    """O plano tem rotação contínua? Só o nascido com `inicio_do_ciclo` e
+    NÃO ajustado à mão: a ficha ajustada pode ter A1 ≠ A2 de verdade (a
+    pessoa mexeu na ocorrência de quinta), e "a linha da letra" deixaria de
+    dizer o que ela faz na quinta. Ajustada, a ficha fica presa ao dia da
+    semana — como o plano de antes da rotação."""
+    return plan is not None and plan.inicio_do_ciclo is not None and not plan.is_customized
+
+
+def letra_do_dia(plan, dia, sessoes=None):
+    """A letra que cai em `dia`, ou `None` se não é dia de treino.
+
+    Plano com `inicio_do_ciclo`: a letra da POSIÇÃO do dia no ciclo
+    (rotação contínua). Plano antigo: a letra presa ao dia da semana.
+    """
+    if plan is None:
+        return None
+    sessoes = list(sessoes if sessoes is not None else plan.sessions.all())
+    dias = dias_de_treino_de(sessoes)
+    if dia.weekday() not in dias:
+        return None
+    if not ciclo_roda(plan):
+        return next(s.label for s in sessoes if s.weekday == dia.weekday())
+    letras = letras_do_ciclo(sessoes)
+    return letras[posicao_no_ciclo(plan.inicio_do_ciclo, dia, dias) % len(letras)]
+
+
+def _no_dia(sessao, molde, dia=None):
+    """Uma cópia em memória da sessão da LETRA vestindo o dia, o horário e a
+    duração do dia da semana `molde` — o que a tela e o AGORA leem. O
+    `pk` é o da letra (a escolha e a ficha apontam para ela); o cache dos
+    exercícios é compartilhado, então nada é consultado de novo."""
+    if sessao.pk == molde.pk:
+        vestida = sessao
+    else:
+        vestida = copy.copy(sessao)
+        vestida.weekday = molde.weekday
+        vestida.start_time = molde.start_time
+        vestida.duration_min = molde.duration_min
+        vestida.order = molde.order
+    vestida.data = dia
+    return vestida
+
+
+def sessao_do_dia(plan, dia, sessoes=None):
+    """A sessão de `dia` — a linha da LETRA daquele dia, vestindo horário e
+    duração do dia da semana —, ou `None` em dia sem treino."""
+    if plan is None:
+        return None
+    sessoes = list(sessoes if sessoes is not None else plan.sessions.all())
+    molde = next((s for s in sessoes if s.weekday == dia.weekday()), None)
+    if molde is None:
+        return None
+    if not ciclo_roda(plan):
+        molde.data = dia
+        return molde
+    letra = letra_do_dia(plan, dia, sessoes)
+    da_letra = next(s for s in sorted(sessoes, key=lambda s: s.order) if s.label == letra)
+    return _no_dia(da_letra, molde, dia)
+
+
+def sessoes_da_semana(plan, hoje, sessoes=None) -> list:
+    """As sessões da semana de `hoje` (segunda a domingo), uma por dia de
+    treino, na ordem dos dias: as próprias linhas no plano antigo, e no
+    plano com rotação a letra de cada dia vestindo o dia (`_no_dia`) — é a
+    lista que o painel, a ficha e a leitura do exercício desenham."""
+    sessoes = list(sessoes if sessoes is not None else plan.sessions.all())
+    if not ciclo_roda(plan):
+        return sorted(sessoes, key=lambda s: s.order)
+    segunda = hoje - timedelta(days=hoje.weekday())
+    semana = []
+    for molde in sorted(sessoes, key=lambda s: s.order):
+        dia = segunda + timedelta(days=molde.weekday)
+        semana.append(sessao_do_dia(plan, dia, sessoes))
+    return semana
+
+
+def ocorrencias_das_letras(sessoes) -> dict:
+    """Quantas vezes cada letra cai numa semana — a PIOR semana do ciclo.
+
+    Plano antigo: a contagem das linhas (A B C A B: A=2, B=2, C=1). Com a
+    rotação toda letra cai o máximo em alguma semana (C A B C A tem C
+    duas vezes), então toda letra recebe o máximo: é a semana que o teto
+    semanal e o número de opções têm de comportar.
+    """
+    contagem = {}
+    for sessao in sessoes:
+        contagem[sessao.label] = contagem.get(sessao.label, 0) + 1
+    plan = sessoes[0].plan if sessoes else None
+    if ciclo_roda(plan) and contagem:
+        maximo = max(contagem.values())
+        return {letra: maximo for letra in contagem}
+    return contagem
 
 
 def build_sessions(plan, training_days, templates) -> list:
@@ -856,14 +988,14 @@ def volume_da_semana(plan) -> dict:
     """
     from . import opcoes as motor_de_opcoes
 
-    por_letra, ocorrencias = {}, {}
-    for sessao in plan.sessions.all().prefetch_related("exercises__exercise"):
-        ocorrencias[sessao.label] = ocorrencias.get(sessao.label, 0) + 1
+    por_letra = {}
+    sessoes = list(plan.sessions.all().prefetch_related("exercises__exercise"))
+    for sessao in sessoes:
         if sessao.label not in por_letra:
             por_letra[sessao.label] = [
                 [(item, item.sets, 0) for item in sessao.da_opcao(k)] for k in sessao.opcoes
             ]
-    return motor_de_opcoes.volume_semanal_pior_caso(por_letra, ocorrencias)
+    return motor_de_opcoes.volume_semanal_pior_caso(por_letra, ocorrencias_das_letras(sessoes))
 
 
 def nivel_de(user) -> str:
@@ -926,10 +1058,14 @@ def tetos_da_semana(plan) -> dict:
     from . import doutrina
 
     nivel = nivel_de(plan.user)
+    sessoes = list(plan.sessions.prefetch_related("exercises__exercise"))
+    ocorrencias = ocorrencias_das_letras(sessoes)
     frequencia = {}
-    for sessao in plan.sessions.prefetch_related("exercises__exercise"):
+    for sessao in sessoes:
+        if sessao.label in {s.label for s in sessoes if s.order < sessao.order}:
+            continue  # a letra repetida já contou pelas ocorrências
         for grupo in grupos_treinados(item.exercise for item in sessao.exercises.all()):
-            frequencia[grupo] = frequencia.get(grupo, 0) + 1
+            frequencia[grupo] = frequencia.get(grupo, 0) + ocorrencias[sessao.label]
     return {grupo: doutrina.teto_semanal(nivel, vezes) for grupo, vezes in frequencia.items()}
 
 
@@ -1311,9 +1447,7 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
     """
     from . import opcoes as motor_de_opcoes
 
-    ocorrencias = {}
-    for sessao in sessoes:
-        ocorrencias[sessao.label] = ocorrencias.get(sessao.label, 0) + 1
+    ocorrencias = ocorrencias_das_letras(sessoes)
     if teto is _NAO_INFORMADO:
         teto = teto_completo_de(sessoes[0].plan.user) if sessoes else None
     # `None` é SEM RELÓGIO — a referência que `aviso_de_tempo` compara e que
@@ -2008,6 +2142,10 @@ def create_routine(user) -> TrainingPlan:
         catalogo=versao_do_catalogo(),
         nivel=nivel_de(user),
         duracao=duracao_de(user),
+        # A posição zero do ciclo: o primeiro dia de treino desta semana.
+        inicio_do_ciclo=inicio_do_ciclo_de(
+            timezone.localdate(), [day.weekday for day in training_days]
+        ),
     )
 
     sessions = build_sessions(plan, training_days, templates)
@@ -2168,6 +2306,10 @@ def rotina_desatualizada(plan, user) -> bool:
     """
     if plan is None or plan.is_customized:
         return False
+    if plan.inicio_do_ciclo is None and plan.days_per_week > len(letras_do_ciclo(plan.sessions.all())):
+        # Plano de antes da rotação contínua, com letra repetida na semana:
+        # a ficha nova roda o ciclo; esta continua presa ao dia da semana.
+        return True
     if plan.catalogo and plan.catalogo == versao_do_catalogo():
         # O mesmo catálogo com que ela nasceu: nada mudou embaixo dela, e a
         # conferência exata (represcrever a semana) seria onze consultas
@@ -2883,9 +3025,10 @@ def prescricao_de_hoje(user, exercise_id, dia=None):
 
     dia = dia or timezone.localdate()
     escolha = escolha_do_dia(user, dia)
-    linhas = SessionExercise.objects.filter(
-        session__plan__user=user, session__plan__is_active=True, session__weekday=dia.weekday(),
-    )
+    sessao = escolha.session if escolha is not None else sessao_do_dia(get_active_routine(user), dia)
+    if sessao is None:
+        return None
+    linhas = SessionExercise.objects.filter(session_id=sessao.pk)
     if escolha is not None:
         linhas = linhas.filter(opcao=escolha.opcao)
     item = linhas.filter(exercise_id=exercise_id).first()
@@ -2927,12 +3070,13 @@ def series_de_hoje(user, exercise, dia=None) -> tuple:
         ExerciseLog.objects.filter(user=user, exercise=OuterRef("exercise"), date=dia)
         .order_by().values("exercise").annotate(n=Count("pk")).values("n")[:1]
     )
-    linhas = SessionExercise.objects.filter(
-        session__plan__user=user,
-        session__plan__is_active=True,
-        session__weekday=dia.weekday(),
-        exercise=exercise,
-    )
+    # A sessão de hoje é a da LETRA de hoje: a escolha gravada já a traz;
+    # sem escolha, `sessao_do_dia` a acha (plano + linhas, duas consultas
+    # a mais só na primeira série do dia).
+    sessao = escolha.session if escolha is not None else sessao_do_dia(get_active_routine(user), dia)
+    if sessao is None:
+        return ExerciseLog.objects.filter(user=user, exercise=exercise, date=dia).count(), 0
+    linhas = SessionExercise.objects.filter(session_id=sessao.pk, exercise=exercise)
     if escolha is not None:
         linhas = linhas.filter(opcao=escolha.opcao)
     item = linhas.annotate(feitas=Subquery(contagem)).values_list("sets", "feitas").first()
@@ -3039,10 +3183,11 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
     estado.tem_ficha = True
     estado.plan = plan
 
-    sessao = (
-        TrainingSession.objects.filter(plan=plan, weekday=dia.weekday())
-        .prefetch_related("exercises__exercise")
-        .first()
+    # A sessão de HOJE é a da LETRA de hoje (rotação contínua), vestindo o
+    # dia da semana: uma consulta com todas as linhas da semana, que é o que
+    # `sessao_do_dia` precisa para achar a posição.
+    sessao = sessao_do_dia(
+        plan, dia, list(plan.sessions.prefetch_related("exercises__exercise"))
     )
     if sessao is None:
         if escolhido is not None:

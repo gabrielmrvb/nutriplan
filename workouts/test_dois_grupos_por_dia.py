@@ -505,9 +505,13 @@ class AVariedadeSemanalDeDoisGruposTests(TestCase):
 
         for dias in range(4, 8):
             for grupo in MuscleGroup.values:
-                if dias == 7 and grupo == MuscleGroup.CHEST:
+                if dias == 7 and grupo in (MuscleGroup.CHEST, MuscleGroup.BACK, MuscleGroup.SHOULDERS):
                     # A exceção medida de sete dias (ver o teste acima): o
-                    # quarto peito não cabe no teto com a letra três vezes.
+                    # quarto peito não cabe no teto com a letra três vezes —
+                    # e, com a rotação contínua (17/09/2026), toda letra é
+                    # 3× em alguma semana, então costas (8 → 6) e ombro
+                    # (6 → 4, com o secundário de seis pressões e remadas)
+                    # também. Sete dias em ABC é o extremo da divisão.
                     continue
                 with self.subTest(dias=dias, grupo=grupo):
                     self.assertGreaterEqual(

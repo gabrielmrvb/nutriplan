@@ -947,6 +947,15 @@ class TrainingPlan(models.Model):
     catalogo = models.CharField("catálogo de origem", max_length=64, blank=True, default="")
     nivel = models.CharField("nível de origem", max_length=20, blank=True, default="")
     duracao = models.CharField("faixa de duração de origem", max_length=10, blank=True, default="")
+    #: O CICLO RODA CONTÍNUO (17/09/2026): a posição zero é o primeiro dia de
+    #: treino do plano, e a letra de qualquer data é a da posição dela na
+    #: sequência de dias de treino — A B C A B, depois C A B C A, depois
+    #: B C A B C. As linhas de `sessions` continuam uma por dia da semana (o
+    #: retrato de dias, horários e durações) com a letra da PRIMEIRA semana;
+    #: `services.sessao_do_dia` é quem diz a letra de hoje. Em branco é plano
+    #: de antes da rotação: preso ao dia da semana, como sempre foi — a Home
+    #: pergunta, o painel não remonta (política da Fase 5).
+    inicio_do_ciclo = models.DateField("início do ciclo", null=True, blank=True)
 
     @property
     def is_customized(self) -> bool:

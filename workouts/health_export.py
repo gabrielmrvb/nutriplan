@@ -109,9 +109,9 @@ def resumo_da_sessao(user, dia=None, sessao=None, escolha=NAO_INFORMADA) -> Resu
     # O descanso médio vem da ficha ativa do dia, quando existe; sem ela, 90
     # segundos, que é a mediana das prescrições do catálogo.
     if sessao is None:
-        sessao = TrainingSession.objects.filter(
-            plan__user=user, plan__is_active=True, weekday=dia.weekday()
-        ).prefetch_related("exercises").first()
+        from .services import get_active_routine, sessao_do_dia
+
+        sessao = sessao_do_dia(get_active_routine(user), dia)
     descanso = 90
     if sessao:
         # O descanso médio é o da OPÇÃO do dia (a escolhida, senão a 1):

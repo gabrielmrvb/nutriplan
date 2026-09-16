@@ -16,7 +16,7 @@ O fluxo agora é:
 E cada tela responde uma pergunta: o painel diz "o que tem hoje", a ficha diz
 "o que tem nesse treino", a execução diz "como eu faço isto agora".
 """
-from datetime import time
+from datetime import time, timedelta
 
 from django.core.management import call_command
 from django.test import TestCase
@@ -26,7 +26,7 @@ from django.utils import timezone
 from accounts.models import DuracaoTreino, Profile, SplitPreference, TrainingDay
 
 from . import services
-from .models import ExerciseLog, TrainingSession
+from .models import ExerciseLog, TrainingPlan, TrainingSession
 from .tests import create_user
 
 
@@ -81,10 +81,33 @@ def tornar_hoje(user, letra):
     `unique_session_per_weekday`: o dia de hoje é liberado para um valor que
     ninguém usa antes de a sessão desejada assumi-lo.
     """
-    hoje = timezone.localdate().weekday()
+    hoje = timezone.localdate()
     plano = user.training_plans.get(is_active=True)
+    linhas = list(plano.sessions.all())
+    letras = services.letras_do_ciclo(linhas)
+    assert letra in letras, "a divisão não tem a letra %s" % letra
+    if services.ciclo_roda(plano):
+        # COM A ROTAÇÃO A LETRA É DA POSIÇÃO, não do dia da semana: em vez de
+        # trocar `weekday` entre linhas, move-se a posição zero do ciclo para
+        # uma data em que hoje caia na letra pedida. A sessão devolvida é a
+        # da letra vestindo hoje (`sessao_do_dia`).
+        dias = services.dias_de_treino_de(linhas)
+        assert hoje.weekday() in dias, "hoje precisa ser dia de treino"
+        alvo = letras.index(letra)
+        for atras in range(0, 8 * len(dias)):
+            candidato = hoje - timedelta(days=atras)
+            if candidato.weekday() not in dias:
+                continue
+            if services.posicao_no_ciclo(candidato, hoje, dias) % len(letras) == alvo:
+                TrainingPlan.objects.filter(pk=plano.pk).update(inicio_do_ciclo=candidato)
+                plano.inicio_do_ciclo = candidato
+                return services.sessao_do_dia(plano, hoje)
+        raise AssertionError("não achei posição zero para %s cair hoje" % letra)
+
+    # Plano preso ao dia da semana: a troca de `weekday` de sempre, em três
+    # passos por causa de `unique_session_per_weekday`.
+    hoje = hoje.weekday()
     alvo = plano.sessions.filter(label=letra).order_by("weekday").first()
-    assert alvo is not None, "a divisão não tem a letra %s" % letra
     if alvo.weekday == hoje:
         return alvo
 
@@ -101,11 +124,12 @@ def tornar_hoje(user, letra):
 
 
 def sessao_de_hoje(user):
-    return TrainingSession.objects.get(
-        plan__user=user,
-        plan__is_active=True,
-        weekday=timezone.localdate().weekday(),
-    )
+    """A sessão de hoje como o app a resolve — pela LETRA da posição no
+    ciclo (`sessao_do_dia`), não pelo dia da semana da linha."""
+    plano = TrainingSession.objects.filter(plan__user=user, plan__is_active=True).first().plan
+    sessao = services.sessao_do_dia(plano, timezone.localdate())
+    assert sessao is not None, "hoje precisa ser dia de treino"
+    return sessao
 
 
 def escolher_a_opcao_1(user, sessao):

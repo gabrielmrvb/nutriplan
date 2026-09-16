@@ -58,8 +58,11 @@ contrato, dita aqui para ninguém procurar a linha.
 `exercicios_grande` e `exercicios_pequeno` valem POR GRUPO da classe (em
 `superior`, 2 grandes × `exercicios_grande` + 3 pequenos × `exercicios_pequeno`).
 `series_por_exercicio` é a faixa de qualquer exercício da sessão montada: o
-composto principal no topo, o isolador podendo ficar no piso — e o corte por
-relógio ainda leva um isolador a 2, piso de `escolher_para_o_tempo`.
+composto principal no topo, o isolador podendo ficar no piso — e dois cortes
+ainda levam um isolador a 2: o relógio (`escolher_para_o_tempo`) e o teto
+semanal (`aparar_opcoes`, quando o grupo bate no `teto_efetivo` da Tabela B:
+o ombro de "Pernas e ombros" a 2× com o secundário de todos os supinos e
+remadas). Abaixo de 3 sem uma dessas duas razões é defeito, e o teste cobra.
 `series_diretas` soma os exercícios dos grupos ANUNCIADOS (`main_groups` do
 modelo — a panturrilha conta em "Pernas completo", que a anuncia, e não em
 "Costas e bíceps", onde trapézio e antebraço são complementares); o
@@ -158,79 +161,123 @@ uma conta, escrita para poder ser desfeita:
 
 ## Tabela B — Por semana, por grupo, pela FREQUÊNCIA com que o grupo cai na semana
 
+Duas colunas com papéis DIFERENTES, e a diferença é a decisão do dono de
+16/09/2026 ("não baixe a sessão para caber"):
+
+- `series_diretas_semana` é a **faixa-alvo da MÉDIA do ciclo** para um grupo
+  treinado `ocorrencias` vezes por semana. É o que a literatura chama de
+  volume semanal produtivo: Schoenfeld, Ogborn & Krieger (2017), a
+  meta-análise dose-resposta, acham ganho crescente até ≥ 10 séries por
+  grupo por semana, com a curva achatando acima disso; Helms e Baz-Valle
+  (2022) põem o intermediário em 10–20; e o MRV de Israetel (o máximo
+  recuperável) fica perto de 20–22 para peito e quadríceps treinados 1× e
+  sobe com 2 a 3 sessões — é daí que a linha `2` vai até 24 para os grupos
+  grandes. A média é medida sobre o ciclo inteiro da divisão com a ROTAÇÃO
+  CONTÍNUA (abaixo): em `abc2` com 5 dias cada letra cai 5 vezes em 3
+  semanas, a frequência de todo grupo é 5/3, e a faixa que vale é a
+  interpolada entre `1` e `2`;
+- `teto_efetivo` é o **teto de APARO da PIOR semana** — a semana do ciclo em
+  que a letra cai `ocorrencias` vezes —, cobrado em séries EFETIVAS
+  (secundária vale meia) no pior caso das opções. Ele é deliberadamente MAIOR
+  que o topo da faixa mais os secundários porque a sessão do teste dourado
+  (4 de peito, 21–28 séries) não é reduzida para a semana caber: 16 de peito
+  duas vezes são 32 diretas, e o aparo só entra acima de 40. A margem é
+  ABSOLUTA (8 a 2×, 9 a 3×, igual em todo nível — o secundário vem do
+  catálogo, não do nível; com margem proporcional o iniciante a 2× perdia o
+  terceiro peito).
+
 `ocorrencias` é quantas sessões da semana TREINAM o grupo — direto ou como
-secundário de um composto (`services.grupos_treinados`) —, pela divisão E
-pela frequência: em `abc2` com 5 dias, peito cai duas vezes; com 7, três; e
-o ombro de "Pernas e ombros" cai três ou mais, porque metade de cada supino
-e de cada remada é ombro. Contar só o anunciado dava ao ombro o teto de UMA
-vez (23) com vinte séries efetivas vindas dos outros dias, e o aparo tirava
-um dos três exercícios de ombro de um dia que se chama "Pernas e ombros". A
-tese da tabela — mais sessões, mais recuperação entre elas, mais volume —
-vale para o estímulo secundário do mesmo jeito. `series_diretas_semana` é a
-faixa que o preenchimento persegue e onde para; `teto_efetivo` é o topo
-mais uma margem ABSOLUTA de secundários (8 a 2×, 9 a 3×, a mesma em todo
-nível — o secundário vem do catálogo, não do nível; com a margem
-proporcional o iniciante a 2× perdia o terceiro peito), cobrado em séries
-EFETIVAS no pior caso das opções — é o que o motor apara.
+secundário (`services.grupos_treinados`), pela divisão E pela frequência: o
+ombro de "Pernas e ombros" cai três ou mais, porque metade de cada supino e
+de cada remada é ombro; contar só o anunciado dava ao ombro o teto de UMA
+vez (23) com vinte efetivas vindas dos outros dias, e o aparo tirava um dos
+três exercícios de ombro do dia que se chama "Pernas e ombros". Com a
+rotação, toda letra cai o MÁXIMO em alguma semana (`ocorrencias_das_letras`):
+em 5 dias com ABC, A, B e C recebem o teto de 2× — e "Pernas e ombros"
+deixou de ser a letra de 1×.
 
 | nivel | ocorrencias | series_diretas_semana | teto_efetivo |
 |---|---|---|---|
 | iniciante | 1 | 8–12 | 15 |
-| iniciante | 2 | 14–20 | 28 |
-| iniciante | 3 | 18–24 | 33 |
-| intermediario | 1 | 12–18 | 23 |
-| intermediario | 2 | 24–32 | 40 |
-| intermediario | 3 | 28–36 | 45 |
-| avancado | 1 | 16–22 | 28 |
-| avancado | 2 | 26–36 | 45 |
-| avancado | 3 | 30–40 | 50 |
+| iniciante | 2 | 12–18 | 28 |
+| iniciante | 3 | 16–22 | 33 |
+| intermediario | 1 | 10–20 | 23 |
+| intermediario | 2 | 16–24 | 40 |
+| intermediario | 3 | 20–28 | 45 |
+| avancado | 1 | 12–22 | 28 |
+| avancado | 2 | 18–26 | 45 |
+| avancado | 3 | 22–30 | 50 |
 
-A referência "10 a 20 séries por grupo por semana, 12 a 18 no intermediário" é
-a de Helms e a de Baz-Valle (12–20), e as duas descrevem o grupo treinado UMA
-vez — a sessão é a semana inteira, e é por isso que a linha `1` do
-intermediário é 12–18. A faixa SOBE com a frequência porque o que limita a
-sessão é a fadiga local e o que limita a semana é a recuperação: Israetel
-descreve o MRV subindo com 2 a 3 sessões por semana, Schoenfeld (2016, 2019)
-mede a frequência ajudando quando o volume é alto, e o mesmo Schoenfeld (2019)
-mostra treinados ainda ganhando acima de 30 séries semanais — o que justifica o
-avançado a 3× chegar a 40 e o teto a 50. A conta que ancora tudo, e que é o
-teste dourado: **duas sessões de `dois_grupos` intermediário — peito/tríceps
-duas vezes, 5 dias em ABC — somam 32 de peito** (4 exercícios × 4 séries ×
-2). É a ficha padrão de academia, e está ACIMA dos "10 a 20 por semana" da
-referência clássica — que descrevem o grupo treinado uma vez, de onde vem
-a linha `1`. A 2× a semana comporta mais porque cada sessão fica em 16 e a
-recuperação entre elas é de 72 horas: Israetel põe o MRV do peito perto de
-22 a 1× e o vê subir com 2 a 3 sessões; Schoenfeld (2019) mede ganhos ainda
-crescendo em treinados a 30+ séries semanais. É por isso que a linha `2` do
-intermediário vai a 32 e o teto a 40 — e é o preço, escrito, de a sessão
-Completo de "Peito e tríceps" ter 60 a 80 minutos: com 24–26 na semana (o
-que este documento dizia numa primeira versão) o teto aparava a sessão a
-24 séries e 57 minutos. O iniciante a 2× ficou em 14–20 (o dono propôs
-12–16) porque `dois_grupos` iniciante duas vezes dá 14 a 18 de peito; a
-faixa de 3× subiu junto, e os tetos acompanharam. Quem quiser a semana mais
-curta escolhe "Padrão — até 60 minutos", e o relógio apara antes do teto.
+### A rotação contínua do ciclo, e a média medida em 3 semanas
+
+Até 16/09/2026 o ciclo recomeçava toda segunda-feira: em 5 dias com ABC era
+A B C A B toda semana, peito e costas caíam 2× e "Pernas e ombros" 1× —
+quadríceps em 7 diretas, ombro em 9, para sempre. O desequilíbrio era do
+CALENDÁRIO, não do motor. Desde 17/09 a semana seguinte continua de onde a
+anterior parou (A B C A B → C A B C A → B C A B C; `TrainingPlan.
+inicio_do_ciclo`, `services.letra_do_dia`), e em 3 semanas cada letra cai 5
+vezes. O plano de antes da rotação continua preso ao dia da semana (não é
+remontado; a Home pergunta), como manda a política da Fase 5.
+
+Medido em 17/09/2026, média semanal de séries DIRETAS por grupo sobre 3
+semanas, no pior caso por dia (a opção mais pesada no grupo):
+
+| perfil | peito | costas | tríceps | bíceps | ombro | quadríceps | posterior | panturrilha | trapézio | antebraço | core |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| intermediário 5d abc2, Padrão | **25,0** | 21,7 | 16,7 | 11,7 | 15,0 | 11,7 | 10,0 | 5,0 | 5,0 | 3,3 | 5,0 |
+| intermediário 5d abc2, Completo | **26,7** | **26,7** | 18,3 | 16,7 | 15,0 | 13,3 | 13,3 | 6,7 | 5,0 | 5,0 | 5,0 |
+| intermediário 4d ABC, Padrão | 17,3 | 18,7 | 8,0 | 6,7 | 8,0 | 10,7 | 10,7 | 10,7 | 4,0 | 4,0 | 4,0 |
+| intermediário 3d ABC, Padrão | 13,0 | 14,0 | 6,0 | 5,0 | 6,0 | 8,0 | 8,0 | 8,0 | 3,0 | 3,0 | 3,0 |
+| avançado 5d abc2, Completo | **26,7** | **26,7** | 18,3 | 20,0 | 18,3 | 13,3 | 13,3 | 6,7 | 5,0 | 5,0 | 5,0 |
+
+O que a tabela diz, sem enfeite: pernas e ombro entraram na faixa de 10–20
+(era 6–9 com o ciclo fixo); tríceps, bíceps e ombro, que só têm 2–3
+exercícios por sessão, ficam entre 5 e 18 diretas mais o secundário dos
+compostos; panturrilha, trapézio, antebraço e core são complementares (1–2
+exercícios, 3–7 por semana) por decisão de modelo. E **peito e costas do
+`abc2` passam do topo de 24 por 1 a 3 séries** — 25 no Padrão, 26,7 no
+Completo —, porque a sessão de 4 exercícios do teste dourado a 5/3 por
+semana dá exatamente isso. É o preço escrito da decisão de não baixar a
+sessão; fica dentro do MRV de Israetel para peito a ≥ 2×, e é a única
+linha em que a média do ciclo passa da faixa-alvo.
+
+A referência "10 a 20 séries por grupo por semana" é a de Schoenfeld,
+Ogborn & Krieger (2017), a de Helms e a de Baz-Valle (12–20), e descreve o
+grupo treinado UMA vez — de onde vem a linha `1`. A faixa SOBE com a
+frequência porque o que limita a sessão é a fadiga local e o que limita a
+semana é a recuperação: Israetel descreve o MRV subindo com 2 a 3 sessões por
+semana, e Schoenfeld (2016, 2019) mede a frequência ajudando quando o volume
+é alto. O teto de aparo sobe mais que a faixa pela conta que ancora o teste
+dourado: **na pior semana do ciclo, "Peito e tríceps" duas vezes soma 32 de
+peito** (4 exercícios × 4 séries × 2), e o aparo só pode entrar acima
+disso (40 efetivas) — com o teto em 33 (uma primeira versão deste documento)
+ele aparava a sessão a 24 séries e 57 minutos, que é o que o dono proibiu. A
+média do ciclo é outra conta, e está medida acima. O iniciante a 2× ficou
+em 12–18 e os tetos acompanharam. Quem quiser a semana mais curta escolhe
+"Padrão — até 60 minutos", e o relógio apara antes do teto.
 
 Três regras de leitura, para o teste e para quem for mexer no motor:
 
-- **B vence A.** A é a sessão, B é a semana, e a semana é a unidade do
-  estímulo: `preencher_ate_a_faixa` só sobe série enquanto a semana do grupo
-  cabe em B, e `aparar_opcoes` cobra o teto de B. A sessão de A é o que sobra
-  — a 3× (`abc2` a 7 dias) o peito do intermediário fica em 3 por exercício,
-  não em 4.
+- **O teto de B vence A; a faixa de B é média.** A é a sessão, e ela vale
+  inteira (o dourado); o teto efetivo de B é o que `aparar_opcoes` cobra na
+  pior semana, e é ele que segura o ciclo — a 3× (`abc2` a 7 dias) o peito do
+  intermediário fica em 3 por exercício, não em 4. A faixa de B não é cobrada
+  por sessão nem por semana: é a média do ciclo, medida na tabela acima, e
+  onde a sessão a ultrapassa isso está escrito, não escondido.
 - **O grande é medido em DIRETAS; o pequeno, em EFETIVAS.** Tríceps, bíceps e
   ombros recebem metade de cada série dos compostos do dia, e os marcos da
   literatura são menores para eles por isso. Tríceps em `dois_grupos`
   intermediário a 2×: 12 diretas + 6 secundárias = 18 por sessão, 36 na
-  semana — dentro do teto de 40. O teto vale em efetivas para os dois.
+  pior semana — dentro do teto de 40. O teto vale em efetivas para os dois.
 - **Duas divisões ficam abaixo do piso por construção, e uma frequência fica
   acima do topo.** `superior` no iniciante e no intermediário (peito com 2
   exercícios, 2×: 10 a 16) e `full` em todos os níveis (um exercício por
   grupo: 3 a 4) não alcançam o piso de B — é o preço de cinco ou sete grupos
   numa sessão, dito aqui em vez de fingido; ali o teste cobra só o teto. E a
-  letra três vezes (`abc2` a 7 dias) encosta no topo: 4 exercícios a 3 séries
-  são 36 — vale o teto de 45, e a sessão NÃO perde o quarto exercício para
-  caber numa faixa-alvo: trocar variedade contratada por número é o defeito
-  que o 4/4/3/3 impede.
+  letra três vezes (`abc2` a 7 dias) passa do topo na pior semana: 4
+  exercícios a 3 séries são 36 — vale o teto de 45, e a sessão NÃO perde o
+  quarto exercício para caber numa faixa-alvo: trocar variedade contratada
+  por número é o defeito que o 4/4/3/3 impede.
 
 ## Tabela C — Descanso e ordem
 
