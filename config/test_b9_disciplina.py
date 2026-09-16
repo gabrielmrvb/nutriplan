@@ -341,7 +341,7 @@ class OQueORunnerPerguntaTests(SimpleTestCase):
         """`--parallel` cria `test_nutriplan_1`, `_2`... Uma execução paralela
         é uma execução, e brigar com ela embaralha igual.
 
-        E SÓ o clone numérico conta. `LIKE 'test_nutriplan\_%'` casava com
+        E SÓ o clone numérico conta. ``LIKE 'test_nutriplan\\_%'`` casava com
         `test_nutriplan_design` — o banco de teste de OUTRO worktree, que não
         briga com este por nada — e o runner recusou uma execução legítima
         em 16/09/2026 por causa de um nome parecido."""

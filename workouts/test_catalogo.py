@@ -279,17 +279,22 @@ class GateDeOpcoesPorLetraTests(TestCase):
         call_command("seed_catalog", verbosity=0)
         call_command("seed_workouts", verbosity=0)
 
-    def test_nenhum_deploy_reduz_as_letras_com_duas_opcoes(self):
+    def test_nenhuma_letra_que_producao_tem_com_duas_opcoes_perde_a_segunda(self):
+        """POR LETRA, não por contagem (17/09/2026): dezesseis letras com
+        duas opções em que `abcd C` perdeu a segunda e `full A` ganhou uma
+        é uma regressão para quem treina quatro dias, e a contagem total
+        diria "16 = 16, pode subir"."""
         from workouts import opcoes_em_producao as gate
 
         por_letra = gate.opcoes_por_letra()
-        com_duas = gate.letras_com_opcoes(por_letra)
+        perdidas = gate.letras_perdidas(por_letra)
         tabela = "\n".join("  %s %s: %d" % (s, l, n) for (s, l), n in sorted(por_letra.items()))
-        self.assertGreaterEqual(
-            len(com_duas), gate.LETRAS_COM_OPCOES_EM_PRODUCAO,
-            "\n%d letras com duas opções contra %d em produção:\n%s"
-            % (len(com_duas), gate.LETRAS_COM_OPCOES_EM_PRODUCAO, tabela),
+        self.assertEqual(
+            perdidas, [],
+            "\nletras que produção tem com duas opções e aqui saem com uma: %s\n%s"
+            % (", ".join("%s %s" % p for p in perdidas), tabela),
         )
+        self.assertEqual(len(gate.LETRAS_COM_OPCOES_EM_PRODUCAO), 16)
 
     def test_a_conta_do_gate_nao_deixa_rastro(self):
         from accounts.models import User

@@ -9,18 +9,28 @@ isso a conta aqui monta uma pessoa transitória por divisão (intermediária,
 `create_routine` que produção usa, dentro de uma transação desfeita ao
 sair: nada fica no banco.
 
-`LETRAS_COM_OPCOES_EM_PRODUCAO` é o número que produção TEM. Sobe quando um
-deploy sobe o número (o relatório de deploy mostra "antes / depois" por
+`LETRAS_COM_OPCOES_EM_PRODUCAO` é o CONJUNTO de letras que produção TEM com
+duas opções — por letra, e não uma contagem (17/09/2026): uma letra que
+perde a segunda opção enquanto outra ganha é regressão para quem treina
+naquela divisão, e "16 = 16" esconderia isso. O conjunto cresce quando um
+deploy sobe uma letra (o relatório de deploy mostra "antes / depois" por
 letra); o teste em `workouts/test_catalogo.py` fica vermelho enquanto o
-código local entregar menos — e é para ficar: o pre-push roda a suíte.
+código local tirar a segunda opção de qualquer letra do conjunto — e é para
+ficar: o pre-push roda a suíte.
 """
 from datetime import date, time
 
 from django.db import transaction
 
-#: O número que produção tem hoje. 16 letras em 16/09/2026, medidas com o
-#: catálogo ativo (35 exercícios) e a régua de opções de 15/09.
-LETRAS_COM_OPCOES_EM_PRODUCAO = 16
+#: As letras que produção tem com duas opções: 16 em 16/09/2026, medidas com
+#: o catálogo ativo (35 exercícios) e a régua de opções de 15/09.
+LETRAS_COM_OPCOES_EM_PRODUCAO = frozenset({
+    ("ab", "B"),
+    ("abc", "A"), ("abc", "B"), ("abc", "C"),
+    ("abc2", "A"), ("abc2", "B"), ("abc2", "C"),
+    ("abcd", "A"), ("abcd", "B"), ("abcd", "C"), ("abcd", "D"),
+    ("abcde", "A"), ("abcde", "B"), ("abcde", "C"), ("abcde", "D"), ("abcde", "E"),
+})
 
 #: Uma pessoa por divisão: (split, dias de treino, preferência de divisão).
 #: `split_for` cruza preferência com frequência, e estes pares são os que
@@ -100,3 +110,12 @@ def letras_com_opcoes(por_letra=None) -> list:
     """As letras `(split, letra)` que saem com duas opções ou mais."""
     por_letra = opcoes_por_letra() if por_letra is None else por_letra
     return sorted(chave for chave, n in por_letra.items() if n >= 2)
+
+
+def letras_perdidas(por_letra=None) -> list:
+    """As letras que produção tem com duas opções e que aqui saem com uma —
+    a lista que tem de ser VAZIA para um deploy subir."""
+    por_letra = opcoes_por_letra() if por_letra is None else por_letra
+    return sorted(
+        chave for chave in LETRAS_COM_OPCOES_EM_PRODUCAO if por_letra.get(chave, 0) < 2
+    )

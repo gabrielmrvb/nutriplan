@@ -47,7 +47,7 @@ def conexoes_ativas(conexao, nome_de_teste):
 
     Inclui os clones do `--parallel` (`test_nutriplan_1`, `_2`, ...): uma
     execução paralela também é uma execução, e brigar com ela dá o mesmo
-    resultado embaralhado. E SÓ os clones numéricos: `LIKE 'test_nutriplan\_%'`
+    resultado embaralhado. E SÓ os clones numéricos: ``LIKE 'test_nutriplan\\_%'``
     casava com `test_nutriplan_design`, o banco de teste de outro worktree,
     que não disputa nada com este — e recusava uma execução legítima.
 

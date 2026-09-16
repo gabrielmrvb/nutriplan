@@ -738,16 +738,20 @@ visível: "Pernas e ombros" tem OITO exercícios por opção (o único
 desenvolvimento é compartilhado), 24–26 séries em 54–58 minutos, dentro
 do teto de 60.
 
-**GATE PERMANENTE: nenhum deploy reduz o número de letras com duas opções em
-produção.** `workouts/opcoes_em_producao.py` conta com o MOTOR e o catálogo
-ATIVO (uma pessoa transitória por divisão, desfeita ao sair), e
-`LETRAS_COM_OPCOES_EM_PRODUCAO` é o número que produção tem — 16 em
-16/09/2026. O teste em `workouts/test_catalogo.py` fica VERMELHO enquanto o
-código local entregar menos, e o pre-push roda a suíte: para subir, ou o
-catálogo ativado devolve as letras, ou a decisão de reduzir é tomada em voz
-alta, atualizando a constante com a razão escrita. O relatório de deploy
-mostra "antes / depois" por letra: `manage.py opcoes_por_letra` no commit
-de produção e no candidato.
+**GATE PERMANENTE, POR LETRA: nenhuma letra que produção tem com duas opções
+pode perder a segunda.** `workouts/opcoes_em_producao.py` conta com o MOTOR
+e o catálogo ATIVO (uma pessoa transitória por divisão, desfeita ao sair), e
+`LETRAS_COM_OPCOES_EM_PRODUCAO` é o CONJUNTO de letras que produção tem com
+duas — 16 pares em 16/09/2026. Por letra, e não por contagem (17/09): `abcd
+C` perdendo a segunda enquanto `full A` ganha uma dá "16 = 16" e é
+regressão para quem treina quatro dias. O teste em
+`workouts/test_catalogo.py` fica VERMELHO enquanto o código local tirar a
+segunda opção de qualquer letra do conjunto, e o pre-push roda a suíte: para
+subir, ou o catálogo ativado devolve a letra, ou a decisão de reduzir é
+tomada em voz alta, tirando a letra do conjunto com a razão escrita. O
+conjunto só cresce depois do deploy que provou a letra nova. O relatório de
+deploy mostra "antes / depois" por letra: `manage.py opcoes_por_letra` no
+commit de produção e no candidato.
 
 **O CATÁLOGO CRESCEU INATIVO ATÉ SUSTENTAR DUAS OPÇÕES CHEIAS (16/09/2026).**
 28 exercícios novos (64 no total, 35 ativos como antes) entraram com

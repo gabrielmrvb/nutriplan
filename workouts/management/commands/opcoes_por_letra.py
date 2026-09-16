@@ -10,6 +10,7 @@ from django.core.management.base import BaseCommand
 from workouts.opcoes_em_producao import (
     LETRAS_COM_OPCOES_EM_PRODUCAO,
     letras_com_opcoes,
+    letras_perdidas,
     opcoes_por_letra,
 )
 
@@ -23,8 +24,14 @@ class Command(BaseCommand):
         self.stdout.write("%-7s %-5s %s" % ("split", "letra", "opções"))
         for (split, letra), n in sorted(por_letra.items()):
             self.stdout.write("%-7s %-5s %d" % (split, letra, n))
+        perdidas = letras_perdidas(por_letra)
+        ganhas = sorted(set(com_duas) - LETRAS_COM_OPCOES_EM_PRODUCAO)
         self.stdout.write(
-            "letras com 2 opções: %d (produção: %d)" % (len(com_duas), LETRAS_COM_OPCOES_EM_PRODUCAO)
+            "letras com 2 opções: %d (produção: %d)" % (len(com_duas), len(LETRAS_COM_OPCOES_EM_PRODUCAO))
         )
-        if len(com_duas) < LETRAS_COM_OPCOES_EM_PRODUCAO:
-            self.stdout.write(self.style.ERROR("ABAIXO de produção: este estado não pode subir."))
+        if ganhas:
+            self.stdout.write("ganhou: " + ", ".join("%s %s" % p for p in ganhas))
+        if perdidas:
+            self.stdout.write(self.style.ERROR(
+                "PERDEU: " + ", ".join("%s %s" % p for p in perdidas) + " — este estado não pode subir."
+            ))
