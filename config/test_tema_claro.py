@@ -38,7 +38,7 @@ class OClaroEOPadraoTests(TestCase):
 
     def test_o_root_declara_a_paleta_clara(self):
         root = _bloco_root(self.css)
-        self.assertIn("--bg: #f4f6f5;", root)
+        self.assertIn("--bg: #f5f3ee;", root)
         self.assertIn("--brand: #0c6b40;", root)
         self.assertIn("--folha: #3f9718;", root.lower())
         self.assertIn("color-scheme: light dark;", root)
@@ -47,10 +47,22 @@ class OClaroEOPadraoTests(TestCase):
         self.assertIn("@media (prefers-color-scheme: dark)", self.css)
         escuro = self.css.split("@media (prefers-color-scheme: dark)", 1)[1]
         escuro = escuro[: escuro.index("\n}\n")]
-        self.assertIn("--bg: #070c0b;", escuro)
-        self.assertIn("--brand: #10c98a;", escuro)
+        # MESA & FERRO (15/09/2026): o bloco escuro não carrega mais hex — ele
+        # liga `var(--ferro-*)`, e o valor mora uma vez no `:root`. `_tokens`
+        # resolve o `var()` para continuar provando a IDENTIDADE, e não só a
+        # indireção.
+        self.assertIn("--bg: var(--ferro-bg);", escuro)
+        self.assertIn("--brand: var(--ferro-brand);", escuro)
         self.assertIn("--folha:", escuro)
         self.assertNotIn("@media (prefers-color-scheme: light)", self.css)
+
+        from config.tests import _tokens
+        tokens = _tokens(
+            CSS.read_text(encoding="utf-8"),
+            "prefers-color-scheme: dark) {" + chr(10) + "  :root {",
+        )
+        self.assertEqual(tokens["--bg"], "#0e1412")
+        self.assertEqual(tokens["--brand"], "#22c98a")
 
     def test_a_moldura_do_navegador_acompanha_a_base(self):
         """`theme-color` e manifesto pintam a barra de status e a tela de

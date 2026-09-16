@@ -366,7 +366,34 @@ class ContrastTests(TestCase):
     #: ausência deles aqui foi uma lacuna real: medido na página renderizada,
     #: `--text-mute` sobre `--brand-soft` dava 4,36:1 no chip do dia de treino
     #: e no azulejo do drawer, e nenhum teste via.
-    TINGIDOS = ("--brand-soft", "--warm-soft", "--accent-soft", "--danger-soft")
+    TINGIDOS = ("--brand-soft", "--terra-soft", "--agua-soft", "--danger-soft")
+
+    #: Pares que a direção C mediu à mão e que a trava geral não cobre:
+    #: verde de ação como texto sobre o chip tonal, texto quieto sobre a
+    #: superfície mais escura do claro, e a folha como OBJETO GRÁFICO
+    #: (1.4.11: 3,0) sobre o trilho do anel. Nos dois temas.
+    PARES_MEDIDOS = (("--brand", "--brand-soft", 4.5), ("--text-mute", "--surface-3", 4.5), ("--folha", "--surface-2", 3.0), ("--agua", "--surface-2", 3.0), ("--brasa", "--surface-2", 3.0), ("--terra", "--surface-2", 3.0))
+
+    def _conferir_pares(self, escopo, rotulo):
+        tokens = _tokens(self.css, escopo)
+        for cor, fundo, minimo in self.PARES_MEDIDOS:
+            if cor not in tokens or fundo not in tokens:
+                continue
+            with self.subTest(tema=rotulo, cor=cor, fundo=fundo):
+                razao = _contraste(tokens[cor], tokens[fundo])
+                self.assertGreaterEqual(razao, minimo, f"{cor} sobre {fundo} dá {razao:.2f}:1")
+
+    def test_light_theme_measured_pairs(self):
+        self._conferir_pares(":root {", "claro")
+
+    def test_dark_theme_measured_pairs(self):
+        self._conferir_pares("prefers-color-scheme: dark) {" + chr(10) + "  :root {", "escuro")
+
+    def test_modo_foco_is_the_dark_palette(self):
+        """O segundo gatilho resolve para a MESMA paleta do escuro."""
+        escuro = _tokens(self.css, "prefers-color-scheme: dark) {" + chr(10) + "  :root {")
+        foco = _tokens(self.css, "body.modo-foco {")
+        self.assertEqual(foco, escuro)
 
     def test_dark_theme_text_is_readable_on_every_surface(self):
         self._conferir("prefers-color-scheme: dark) {" + chr(10) + "  :root {", "escuro")
@@ -537,7 +564,7 @@ class PillContrastTests(TestCase):
     MINIMO = 4.5
 
     # (token da cor, opacidade da tinta) — os pares que o CSS realmente usa.
-    PARES = [("--warm", 0.12), ("--brand", 0.12), ("--accent", 0.12)]
+    PARES = [("--terra", 0.12), ("--brand", 0.12), ("--agua", 0.12)]
 
     def setUp(self):
         self.css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
@@ -887,7 +914,7 @@ class VisualRefinementTests(TestCase):
                     "--surface-2",
                     "--surface-3",
                     "--brand-soft",
-                    "--warm-soft",
+                    "--terra-soft",
                     "--danger-soft",
                 )
                 if nome in tokens
@@ -1194,23 +1221,29 @@ class DesignSystemTests(TestCase):
         fundo a ~2%, marca a 85%. O valor mudou, a trava continua, e é essa
         a diferença entre revisar uma decisão e não ter decisão.
 
-        `--surface-2` e `--surface-3` subiram em 16/09/2026 (avaliação, U28):
-        #121a18 sobre #0d1413 dava 1,05:1 — botão quieto sem cara de botão,
-        anel sem trilha. #1d2622 é o valor do Ferro no DESIGN.md; #223029 é o
-        maior `--surface-3` que mantém `--text-mute` acima da margem de 5,0.
-        Ver `config/test_superficie_escura.py`.
+        MESA & FERRO (15/09/2026): a identidade passou a ser a da direção C
+        — linho e grafite esverdeado; os valores foram medidos na direção e
+        no plano mestre, e `ContrastTests` continua provando a legibilidade.
+
+        U28 (avaliação de 16/09/2026, publicado em `3a60f8e` sobre a paleta
+        antiga): `--surface-2` escuro a 1,05:1 sobre `--surface` apagava o
+        botão quieto e a trilha dos anéis. O Ferro já nasce com #1d2622 — o
+        mesmo valor que a correção escolheu —, e `--surface-3` fica em
+        #26312b porque o `--text-mute` do Ferro é #96a29c (5,10:1 sobre ele;
+        o 4,91 que fez `3a60f8e` recuar para #223029 era com #939daa).
+        `config/test_superficie_escura.py` mede a trilha e o botão.
         """
-        self.assertEqual(self.escuro["--bg"], "#070c0b")
-        self.assertEqual(self.escuro["--surface"], "#0d1413")
+        self.assertEqual(self.escuro["--bg"], "#0e1412")
+        self.assertEqual(self.escuro["--surface"], "#161d1a")
         self.assertEqual(self.escuro["--surface-2"], "#1d2622")
-        self.assertEqual(self.escuro["--surface-3"], "#223029")
-        self.assertEqual(self.escuro["--surface-focus"], "#10201a")
-        self.assertEqual(self.escuro["--brand"], "#10c98a")
-        self.assertEqual(self.escuro["--text"], "#f7f9fa")
-        self.assertEqual(self.escuro["--text-mute"], "#939daa")
+        self.assertEqual(self.escuro["--surface-3"], "#26312b")
+        self.assertEqual(self.escuro["--surface-focus"], "#123024")
+        self.assertEqual(self.escuro["--brand"], "#22c98a")
+        self.assertEqual(self.escuro["--text"], "#f4f7f5")
+        self.assertEqual(self.escuro["--text-mute"], "#96a29c")
 
     def test_the_border_is_translucent_so_it_reads_on_every_surface(self):
-        """`--border` deixou de ser hex, e a mudança é de comportamento.
+        """`--fio` deixou de ser hex, e a mudança é de comportamento.
 
         Um cinza sólido tem de escolher UMA superfície para ficar certo: sobre
         `--bg` ele pesava e sobre `--surface-3` sumia. Translúcido, ele se
@@ -1221,8 +1254,8 @@ class DesignSystemTests(TestCase):
         que o valor não é mais um hex — e o `assertIn` abaixo é o controle
         positivo, para o teste não passar caso o token suma do arquivo.
         """
-        self.assertNotIn("--border", self.escuro)
-        self.assertIn("--border: rgba(", self.css)
+        self.assertNotIn("--fio", self.escuro)
+        self.assertIn("--fio: rgba(", self.css)
 
     def test_every_card_radius_lands_between_sixteen_and_twenty_pixels(self):
         """A escala tem quatro degraus e três deles são de CARTÃO. Um quinto

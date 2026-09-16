@@ -65,7 +65,7 @@
     return {
       fundo: token("--bg", "#0d0f12"),
       cartao: token("--surface", "#15181e"),
-      borda: token("--border", "#2a2e39"),
+      borda: token("--fio", "#2a2e39"),
       marca: token("--brand", "#4ade9b"),
       texto: token("--text", "#ffffff"),
       fraco: token("--text-mute", "#8b93a3")

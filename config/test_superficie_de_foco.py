@@ -55,14 +55,26 @@ class ASuperficieDeFocoTemDonoTests(SimpleTestCase):
         """
         valores = re.findall(r"--surface-focus:\s*([^;]+);", self.css)
 
+        # MESA & FERRO (15/09/2026): o escuro ganhou um SEGUNDO gatilho
+        # (`body.modo-foco`), que liga o MESMO `var(--ferro-surface-focus)`
+        # do `@media` — são o mesmo regime de luz, e a repetição é de
+        # propósito (`config/test_ferro.py` é quem prova que os dois
+        # concordam). Hoje são três ocorrências no arquivo: claro, escuro,
+        # modo-foco — e o que este teste continua garantindo é que o CLARO
+        # não é um dos dois escuros.
         self.assertEqual(
-            len(valores), 2,
-            f"esperava um valor por tema, achei {valores}",
+            len(valores), 3,
+            f"esperava claro + escuro + modo-foco, achei {valores}",
         )
+        claro, escuro, foco = (v.strip() for v in valores)
         self.assertNotEqual(
-            valores[0].strip(), valores[1].strip(),
+            claro, escuro,
             "os dois temas receberam a MESMA cor de foco — um dos dois está "
             "com o valor do outro",
+        )
+        self.assertEqual(
+            escuro, foco,
+            "o escuro e o modo-foco têm de ligar o MESMO --ferro-surface-focus",
         )
 
     def test_cada_dono_pinta_o_proprio_fundo_com_ela(self):
