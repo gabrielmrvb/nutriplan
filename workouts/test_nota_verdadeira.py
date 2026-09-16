@@ -64,10 +64,12 @@ class ANotaNaoInventaUmCorteDeTempoTests(TestCase):
         o aparo parar de cortar aqui, este teste avisa em vez de deixar o
         outro passar por vacuidade.
         """
-        # CINCO dias: com a letra duas vezes na semana o teto semanal age;
-        # com quatro (uma vez cada) as opções já nascem abaixo dele e não
-        # há aparo a provar.
-        user, plano = com_faixa("livre-2@exemplo.com", DuracaoTreino.LIVRE, dias=5)
+        # SETE dias: com a letra TRÊS vezes na semana o teto semanal age.
+        # Eram cinco até 16/09/2026; desde 17/09 o teto é da frequência
+        # (TREINO.md, tabela B: 40 efetivas a 2×) e a semana de cinco dias
+        # nasce abaixo dele — a 3× (45) o peito passa e o aparo tem o que
+        # provar.
+        user, plano = com_faixa("livre-2@exemplo.com", DuracaoTreino.LIVRE, dias=7)
 
         # DESDE 15/09/2026 a sessão guarda duas OPÇÕES, e as duas juntas podem
         # cobrir o modelo inteiro — contar linhas contra o catálogo deixou de

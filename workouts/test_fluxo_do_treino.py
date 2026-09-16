@@ -667,8 +667,9 @@ class ADuracaoSaiDaTelaMasNaoDoMotorTests(BaseDoFluxo):
         self.user.refresh_from_db()
 
         self.assertEqual(self.user.profile.duracao_treino, DuracaoTreino.COMPLETO)
-        # 65 desde 16/09/2026: `Completo` usa o teto que já entregava.
-        self.assertEqual(services.teto_de_minutos(self.user), 65)
+        # 65 em 16/09/2026 (o teto que o catálogo de 35 entregava); 90 desde
+        # 17/09, com os 63 ativos e a doutrina do TREINO.md.
+        self.assertEqual(services.teto_de_minutos(self.user), 90)
 
     def test_o_horario_existente_sobrevive_ao_salvamento(self):
         """O campo saiu da tela e o cardápio depende do valor.
@@ -706,8 +707,9 @@ class ADuracaoSaiDaTelaMasNaoDoMotorTests(BaseDoFluxo):
         esperado = {
             DuracaoTreino.RAPIDO: 30,
             DuracaoTreino.PADRAO: 60,
-            # 65 desde 16/09/2026: com 90 o gerador entregava o mesmo treino.
-            DuracaoTreino.COMPLETO: 65,
+            # 65 em 16/09/2026 (com 90 o gerador entregava o mesmo treino);
+            # 90 desde 17/09, quando a sessão passou a chegar lá.
+            DuracaoTreino.COMPLETO: 90,
             DuracaoTreino.LIVRE: None,
         }
         for faixa, teto in esperado.items():

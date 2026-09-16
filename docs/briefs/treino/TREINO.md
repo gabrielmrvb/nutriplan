@@ -1,0 +1,316 @@
+# TREINO.md — o contrato do gerador de treino
+
+Este documento decide QUANTO uma sessão tem e QUANTO uma semana aguenta, por
+nível e por tipo de dia: exercícios por grupo, séries por exercício, séries
+diretas por sessão, séries por grupo na semana, descanso e ordem. É para o
+motor de treino o que `DESIGN.md` é para o visual. **Todo número escrito nas
+tabelas tem um teste em `workouts/test_treino_md.py`**, que lê as tabelas
+deste arquivo (uma linha por combinação, faixa como `a–b` ou inteiro) e as
+compara com o que o gerador entrega. Mudar um número aqui sem mudar o motor
+deixa a suíte vermelha; mudar o motor sem mudar aqui, também.
+
+O vocabulário é o do `CLAUDE.md`: **letra** é a sessão do calendário (A, B, C);
+**opção**, uma das versões equivalentes da mesma letra; **grupo anunciado**, o
+que o nome da sessão promete (`WorkoutTemplate.main_groups`); **complementar**,
+o que o modelo traz sem prometer (trapézio, antebraço, panturrilha, core);
+**composto principal**, o composto de maior dose de cada grupo, um por grupo por
+sessão. **Série direta** é a do grupo que o exercício trabalha; **série efetiva**
+conta a direta por 1 e cada `secondary_muscles` por 0,5 (`PESO_SECUNDARIO`) — o
+teto semanal é cobrado em efetivas, porque um tríceps de supino não substitui
+um tríceps de tríceps, mas também não vale zero.
+
+## Níveis
+
+Três níveis, com as chaves `iniciante`, `intermediario` e `avancado` — as de
+`Profile.experiencia`. Quem não respondeu é tratado como intermediário, o que
+o app já praticava antes da pergunta existir. O nível muda a DOSE — quantos
+exercícios, quantas séries, quanto a semana aguenta —, e não QUAIS exercícios
+entram: rebaixar o agachamento por ser "complexo demais para iniciante" seria
+tirar de quem está começando o movimento que mais interessa.
+
+## Tipos de dia
+
+Seis tipos, um por resposta a "quantos grupos esta sessão promete". A chave é
+a do teste, e o mapa para os modelos de `splits.json` está fechado:
+
+| chave | o que é | modelos |
+|---|---|---|
+| `um_grupo` | um grupo grande anunciado: Peito; Costas; Ombros (trapézio entra como complementar) | `abcde A`, `abcde B`, `abcde D` |
+| `dois_grupos` | um grande e um pequeno: peito/tríceps, costas/bíceps, pernas/ombros; em Braços bíceps e tríceps são os dois pequenos (3 cada — o catálogo tem seis de cada) | `abc2 A–C`, `abcd A–C`, `abcde E` |
+| `tres_grupos` | um grande e dois pequenos: peito/tríceps/ombro; costas/bíceps + antebraço e trapézio dividindo a terceira cota; quadríceps e posterior dividindo o grande + panturrilha | `abc A–C`, `abcde C` |
+| `inferior` | quadríceps (grande) e posterior (pequeno); panturrilha e core complementares | `ab B` |
+| `superior` | peito e costas (grandes); ombros, bíceps e tríceps (pequenos) | `ab A` |
+| `full` | corpo inteiro num dia: quadríceps, peito, costas e posterior (grandes); ombros, bíceps e tríceps (pequenos) | `full A` |
+
+Em "Pernas e ombros" quadríceps e posterior dividem a cota do grande. Em
+"Costas, bíceps, antebraço e trapézio" antebraço e trapézio dividem a cota do
+segundo pequeno. **Panturrilha e core são complementares em todo tipo de
+dia, mesmo quando anunciados** ("Pernas completo"): no máximo dois exercícios
+por opção, de duas a quatro séries — a cota de EXERCÍCIOS de pequeno não
+vale para eles, e os testes cobram `min(pequeno, 2)`; as séries deles
+entram em `series_diretas` só onde o nome os promete. `abcd D` ("Complementares") não é nenhum
+dos seis: é o dia que só tem complementar, a Tabela A não o cobre, e ele
+segue a dose do catálogo sob o teto da Tabela B — a única sessão fora do
+contrato, dita aqui para ninguém procurar a linha.
+
+## Tabela A — Por sessão
+
+`exercicios_grande` e `exercicios_pequeno` valem POR GRUPO da classe (em
+`superior`, 2 grandes × `exercicios_grande` + 3 pequenos × `exercicios_pequeno`).
+`series_por_exercicio` é a faixa de qualquer exercício da sessão montada: o
+composto principal no topo, o isolador podendo ficar no piso — e o corte por
+relógio ainda leva um isolador a 2, piso de `escolher_para_o_tempo`.
+`series_diretas` soma os exercícios dos grupos ANUNCIADOS (`main_groups` do
+modelo — a panturrilha conta em "Pernas completo", que a anuncia, e não em
+"Costas e bíceps", onde trapézio e antebraço são complementares); o
+complementar não anunciado (zero a dois por opção, de duas a três séries)
+fica fora dessa soma — é a mesma conta do teste dourado, que só olha "Peito e
+tríceps". `duracao_min` é medida por `segundos_da_sessao` sobre a sessão
+inteira, complementares incluídos, com **Completo** (teto 90): é a sessão
+que nada corta pelo relógio; Padrão para em 60 e Rápido em 30.
+
+**A tabela foi MEDIDA, não estimada** (17/09/2026): as duas colunas da
+direita cobrem, arredondadas para fora de 5 em 5 minutos, todas as letras
+de todos os modelos de cada tipo, nas duas opções, com o catálogo de 63
+ativos — `scratchpad/dose_medir_tudo.py` na sessão da missão. Onde a
+medição discordou da primeira versão, a medição venceu, e o motivo está na
+lista abaixo.
+
+| nivel | tipo_de_dia | exercicios_grande | exercicios_pequeno | series_por_exercicio | series_diretas | duracao_min |
+|---|---|---|---|---|---|---|
+| iniciante | um_grupo | 3 | 0 | 2–3 | 10–14 | 30–40 |
+| iniciante | dois_grupos | 3 | 2 | 2–3 | 14–18 | 40–60 |
+| iniciante | tres_grupos | 3 | 2 | 2–3 | 16–20 | 40–55 |
+| iniciante | inferior | 3 | 2 | 2–3 | 14–18 | 50–65 |
+| iniciante | superior | 2 | 1 | 2–3 | 18–24 | 55–70 |
+| iniciante | full | 1 | 1 | 2–3 | 18–24 | 55–70 |
+| intermediario | um_grupo | 4 | 0 | 3–4 | 12–20 | 40–50 |
+| intermediario | dois_grupos | 4 | 3 | 3–4 | 21–28 | 55–75 |
+| intermediario | tres_grupos | 4 | 2 | 3–4 | 21–28 | 55–70 |
+| intermediario | inferior | 3 | 3 | 3–4 | 20–26 | 60–75 |
+| intermediario | superior | 2 | 1 | 3–4 | 24–30 | 70–80 |
+| intermediario | full | 1 | 1 | 3–4 | 20–26 | 65–75 |
+| avancado | um_grupo | 4 | 0 | 3–4 | 16–24 | 40–55 |
+| avancado | dois_grupos | 4 | 3 | 3–4 | 22–28 | 55–80 |
+| avancado | tres_grupos | 4 | 2 | 3–4 | 22–32 | 55–75 |
+| avancado | inferior | 3 | 3 | 3–4 | 20–26 | 60–75 |
+| avancado | superior | 2 | 1 | 3–4 | 24–30 | 70–80 |
+| avancado | full | 1 | 1 | 3–4 | 20–26 | 65–75 |
+
+A linha de referência é o intermediário em `dois_grupos`: 4 exercícios do
+grande, 3 do pequeno, 3 a 4 séries, 21 a 28 diretas — sete exercícios que
+fecham a semana com peito=4 e tríceps=3, o contrato de variedade do
+`CLAUDE.md`. As outras dezessete derivam dela, e cada coluna fecha com as
+vizinhas: exercícios × piso não passa do piso de `series_diretas`, e
+exercícios × topo mais o complementar cobre o topo.
+
+**O que mudou em relação à referência do dono, e por quê** — cada ajuste tem
+uma conta, escrita para poder ser desfeita:
+
+- **iniciante em `2–3`, não `3`**: o composto principal fica em 3 (o supino
+  de quatro do catálogo vira três para ele); acessório e isolador em 2 ou 3.
+  A ACSM (2009) põe o novato em 1 a 3 séries — e sete exercícios travados em
+  3 dão 21, onde nenhuma faixa chega. É o mesmo modelo dos outros níveis com
+  a dose do nível: o iniciante aprende os mesmos movimentos com menos série,
+  e `preencher_ate_a_faixa` desce até o topo da faixa antes de subir.
+- **`tres_grupos` iniciante com 3 do grande, não 2**: na divisão ABC o grupo
+  cai UMA vez, e dois exercícios de peito a 3 séries são 6 na semana — abaixo
+  do piso 8 da Tabela B. Com 3 são 9.
+- **`tres_grupos` com a MESMA faixa de séries de `dois_grupos` e o grande em
+  4 (intermediário e avançado), os pequenos em 2**: o teste dourado vale
+  para "Peito, tríceps e ombro" de 3 e 4 dias do mesmo jeito que para "Peito
+  e tríceps" — 4 de peito, 21–28 séries, 55–65 minutos —, e três pequenos
+  em 3 dariam dez exercícios e 31 séries antes de qualquer preenchimento.
+  Quatro de peito, dois de tríceps, dois de ombro: oito exercícios, a ficha
+  de academia de peito com dia de ombro.
+- **`superior` com 1 por pequeno, não 2**: 2|2 são dez exercícios e 30 a 40
+  séries, o dobro da faixa 22–28 do próprio brief; 3|2 são doze.
+- **`full` com 1 por grande em todos os níveis**: são quatro grandes; dois por
+  grande dão onze exercícios e mais de 85 minutos para quem treina uma vez por
+  semana. O nível muda a dose por exercício, não a lista.
+- **`superior` e `full` iniciante 18–24**: nove exercícios por opção, e os
+  compostos principais (três em `superior`, quatro em `full`) ficam em 3 —
+  medido, 21 nos dois.
+- **`um_grupo` intermediário 12–20 e avançado 16–24**: "Peito" e "Costas"
+  de cinco dias têm QUATRO exercícios por opção, e quatro a quatro séries
+  são 16 — o topo do brief (20 e 24) só chega em "Ombros", que tem seis.
+  Mais catálogo de peito e de costas é o que devolve as linhas do brief.
+- **`dois_grupos` avançado 22–28, não 26–32, e o avançado igual ao
+  intermediário em Completo**: sete exercícios a quatro séries são 28, o
+  máximo físico da linha; e "Braços" fecha em 23–24. O que separa os dois
+  níveis hoje é a Tabela B — o teto semanal deixa o avançado com 28 em
+  "Costas e bíceps" onde o intermediário para em 26 — e não a sessão. Cinco
+  de peito para o avançado é dívida de catálogo, dita abaixo.
+- **`inferior` com 3 do grande, e o avançado com 4|3, 3|3, 3|3 e 2|1 em vez
+  de 5|3, 4|3, 5|3 e 3|1 — DÍVIDA DE CATÁLOGO, não decisão de treino**: cada
+  opção recebe metade do modelo, e o modelo não passa do catálogo ativo: seis
+  quadríceps dão 3 por opção; oito peitos dão 4; seis ombros dão 3; quatro
+  peitos em `superior` dão 2. O avançado ganha o resto pela dose (4 séries
+  em tudo, 28 a 32 diretas), não pela quantidade. O que devolve as linhas do
+  brief: 4 quadríceps, 2 peitos, 2 tríceps e 2 ombros a mais no catálogo,
+  com mídia conferida (`docs/superpowers/specs/2026-09-17-ficha-de-verdade-design.md`).
+- **durações 10 a 15 minutos abaixo do brief**: o brief mediu relógio de
+  academia; a coluna mede `segundos_da_sessao` — 40 s por série, 80/60 s de
+  descanso, 5 min de aquecimento, 130 s de aproximação por composto, nada
+  depois do último exercício. É o número que a ficha mostra e o único que um
+  teste confere. Simulado linha a linha nas duas pontas da faixa de séries e
+  arredondado para fora, de 5 em 5.
+
+## Tabela B — Por semana, por grupo, pela FREQUÊNCIA com que o grupo cai na semana
+
+`ocorrencias` é quantas sessões da semana TREINAM o grupo — direto ou como
+secundário de um composto (`services.grupos_treinados`) —, pela divisão E
+pela frequência: em `abc2` com 5 dias, peito cai duas vezes; com 7, três; e
+o ombro de "Pernas e ombros" cai três ou mais, porque metade de cada supino
+e de cada remada é ombro. Contar só o anunciado dava ao ombro o teto de UMA
+vez (23) com vinte séries efetivas vindas dos outros dias, e o aparo tirava
+um dos três exercícios de ombro de um dia que se chama "Pernas e ombros". A
+tese da tabela — mais sessões, mais recuperação entre elas, mais volume —
+vale para o estímulo secundário do mesmo jeito. `series_diretas_semana` é a
+faixa que o preenchimento persegue e onde para; `teto_efetivo` é o topo
+mais uma margem ABSOLUTA de secundários (8 a 2×, 9 a 3×, a mesma em todo
+nível — o secundário vem do catálogo, não do nível; com a margem
+proporcional o iniciante a 2× perdia o terceiro peito), cobrado em séries
+EFETIVAS no pior caso das opções — é o que o motor apara.
+
+| nivel | ocorrencias | series_diretas_semana | teto_efetivo |
+|---|---|---|---|
+| iniciante | 1 | 8–12 | 15 |
+| iniciante | 2 | 14–20 | 28 |
+| iniciante | 3 | 18–24 | 33 |
+| intermediario | 1 | 12–18 | 23 |
+| intermediario | 2 | 24–32 | 40 |
+| intermediario | 3 | 28–36 | 45 |
+| avancado | 1 | 16–22 | 28 |
+| avancado | 2 | 26–36 | 45 |
+| avancado | 3 | 30–40 | 50 |
+
+A referência "10 a 20 séries por grupo por semana, 12 a 18 no intermediário" é
+a de Helms e a de Baz-Valle (12–20), e as duas descrevem o grupo treinado UMA
+vez — a sessão é a semana inteira, e é por isso que a linha `1` do
+intermediário é 12–18. A faixa SOBE com a frequência porque o que limita a
+sessão é a fadiga local e o que limita a semana é a recuperação: Israetel
+descreve o MRV subindo com 2 a 3 sessões por semana, Schoenfeld (2016, 2019)
+mede a frequência ajudando quando o volume é alto, e o mesmo Schoenfeld (2019)
+mostra treinados ainda ganhando acima de 30 séries semanais — o que justifica o
+avançado a 3× chegar a 40 e o teto a 50. A conta que ancora tudo, e que é o
+teste dourado: **duas sessões de `dois_grupos` intermediário — peito/tríceps
+duas vezes, 5 dias em ABC — somam 32 de peito** (4 exercícios × 4 séries ×
+2). É a ficha padrão de academia, e está ACIMA dos "10 a 20 por semana" da
+referência clássica — que descrevem o grupo treinado uma vez, de onde vem
+a linha `1`. A 2× a semana comporta mais porque cada sessão fica em 16 e a
+recuperação entre elas é de 72 horas: Israetel põe o MRV do peito perto de
+22 a 1× e o vê subir com 2 a 3 sessões; Schoenfeld (2019) mede ganhos ainda
+crescendo em treinados a 30+ séries semanais. É por isso que a linha `2` do
+intermediário vai a 32 e o teto a 40 — e é o preço, escrito, de a sessão
+Completo de "Peito e tríceps" ter 60 a 80 minutos: com 24–26 na semana (o
+que este documento dizia numa primeira versão) o teto aparava a sessão a
+24 séries e 57 minutos. O iniciante a 2× ficou em 14–20 (o dono propôs
+12–16) porque `dois_grupos` iniciante duas vezes dá 14 a 18 de peito; a
+faixa de 3× subiu junto, e os tetos acompanharam. Quem quiser a semana mais
+curta escolhe "Padrão — até 60 minutos", e o relógio apara antes do teto.
+
+Três regras de leitura, para o teste e para quem for mexer no motor:
+
+- **B vence A.** A é a sessão, B é a semana, e a semana é a unidade do
+  estímulo: `preencher_ate_a_faixa` só sobe série enquanto a semana do grupo
+  cabe em B, e `aparar_opcoes` cobra o teto de B. A sessão de A é o que sobra
+  — a 3× (`abc2` a 7 dias) o peito do intermediário fica em 3 por exercício,
+  não em 4.
+- **O grande é medido em DIRETAS; o pequeno, em EFETIVAS.** Tríceps, bíceps e
+  ombros recebem metade de cada série dos compostos do dia, e os marcos da
+  literatura são menores para eles por isso. Tríceps em `dois_grupos`
+  intermediário a 2×: 12 diretas + 6 secundárias = 18 por sessão, 36 na
+  semana — dentro do teto de 40. O teto vale em efetivas para os dois.
+- **Duas divisões ficam abaixo do piso por construção, e uma frequência fica
+  acima do topo.** `superior` no iniciante e no intermediário (peito com 2
+  exercícios, 2×: 10 a 16) e `full` em todos os níveis (um exercício por
+  grupo: 3 a 4) não alcançam o piso de B — é o preço de cinco ou sete grupos
+  numa sessão, dito aqui em vez de fingido; ali o teste cobra só o teto. E a
+  letra três vezes (`abc2` a 7 dias) encosta no topo: 4 exercícios a 3 séries
+  são 36 — vale o teto de 45, e a sessão NÃO perde o quarto exercício para
+  caber numa faixa-alvo: trocar variedade contratada por número é o defeito
+  que o 4/4/3/3 impede.
+
+## Tabela C — Descanso e ordem
+
+| tipo | descanso_s |
+|---|---|
+| composto | 80 |
+| isolador | 60 |
+
+São os dois valores que o catálogo já escreve em toda linha de `splits.json`:
+Schoenfeld (2016) e Grgic (2017) medem descanso de um minuto ou mais como
+suficiente para hipertrofia e o mais longo como melhor para o composto pesado;
+80 e 60 são os degraus que `segundos_da_sessao` já conta ("1:20 min", "1 min").
+
+A ordem tem três regras, e as três são de prescrição, não de estética:
+
+- **o composto principal do grande abre a sessão** — é o que mais carga move e
+  o que mais sofre com fadiga acumulada; dentro de cada grupo, compostos antes
+  de isoladores; grande antes de pequeno; os complementares fecham, e um
+  complementar realocado de outra letra entra por último;
+- **pelo menos um composto por grupo anunciado que tenha composto no
+  catálogo** — peito, costas, quadríceps, posterior, ombros e tríceps. Bíceps,
+  antebraço, trapézio, panturrilha e core são isoladores por natureza;
+- **num grupo GRANDE, isoladores são no máximo metade dos exercícios dele**:
+  3 → 1 isolador, 4 → 2, 5 → 2. O pequeno pode ser todo isolador.
+
+## Como o motor obedece
+
+Leitura, não decisão — o que decide está acima. `workouts/doutrina.py` lê as
+três tabelas deste arquivo e é a única porta de entrada dos números no motor:
+`TETO_POR_EXPERIENCIA` (12/20/24) e `FAIXA_POR_TETO_SEMANAL` passam a ser
+derivados da linha — 12/20/24 era o teto de UMA ocorrência sem dizer que era.
+
+- `preencher_ate_a_faixa` (`workouts/opcoes.py`) sobe isoladores e acessórios,
+  até 4 por exercício (`TETO_SERIES_POR_EXERCICIO`), até a faixa de
+  `series_diretas` da linha de A — só enquanto a semana do grupo cabe em B;
+- `aparar_opcoes` (`workouts/opcoes.py`) cobra o `teto_efetivo` da linha
+  (nível, ocorrências) de B, em efetivas, no pior caso das opções
+  (`services.volume_da_semana`) — com as três travas de `aparar_volume_semanal`;
+- `escolher_para_o_tempo` (`workouts/services.py`) corta pelo teto de tempo,
+  nas cinco camadas de sempre: Rápido 30, Padrão 60, Completo 90
+  (`TETO_POR_DURACAO`). `Completo` valeu 65 entre 16 e 17/09/2026, enquanto
+  o catálogo de 35 ativos não passava de 61 minutos; com os 63 ativos e
+  estas faixas ele voltou a 90;
+- a versão rápida é a opção escolhida passando por `escolher_para_o_tempo` a
+  40 minutos (`TETO_RAPIDO_MIN`); não é uma terceira ficha;
+- `segundos_da_sessao` mede `duracao_min`; `volume_efetivo` mede `teto_efetivo`.
+
+## Fontes
+
+Só o que existe; nenhum DOI inventado.
+
+- Schoenfeld BJ, Ogborn D, Krieger JW. *Dose-response relationship between
+  weekly resistance training volume and increases in muscle mass: a systematic
+  review and meta-analysis.* Journal of Sports Sciences, 2017; 35(11):
+  1073–1082.
+- Schoenfeld BJ, Contreras B, Krieger J, Grgic J, Delcastillo K, Belliard R,
+  Alto A. *Resistance training volume enhances muscle hypertrophy but not
+  strength in trained men.* Medicine & Science in Sports & Exercise, 2019;
+  51(1): 94–103.
+- Schoenfeld BJ, Ogborn D, Krieger JW. *Effects of resistance training
+  frequency on measures of muscle hypertrophy: a systematic review and
+  meta-analysis.* Sports Medicine, 2016; 46(11): 1689–1697.
+- Schoenfeld BJ, Grgic J, Krieger J. *How many times per week should a muscle
+  be trained to maximize muscle hypertrophy? A systematic review and
+  meta-analysis of studies examining the effects of resistance training
+  frequency.* Journal of Sports Sciences, 2019; 37(11): 1286–1295.
+- Baz-Valle E, Balsalobre-Fernández C, Alix-Fages C, Santos-Concejero J. *A
+  systematic review of the effects of different resistance training volumes on
+  muscle hypertrophy.* Journal of Human Kinetics, 2022; 81: 199–210.
+- Helms E, Morgan A, Valdez A. *The Muscle and Strength Pyramid: Training.*
+  2ª edição, 2019.
+- Israetel M. *Training Volume Landmarks for Muscle Growth.* Renaissance
+  Periodization, divulgação (MEV/MAV/MRV) — vocabulário, não evidência revisada.
+- American College of Sports Medicine. *Progression models in resistance
+  training for healthy adults.* Position stand. Medicine & Science in Sports &
+  Exercise, 2009; 41(3): 687–708.
+- Schoenfeld BJ, Pope ZK, Benik FM, et al. *Longer interset rest periods
+  enhance muscle strength and hypertrophy in resistance-trained men.* Journal
+  of Strength and Conditioning Research, 2016; 30(7): 1805–1812.
+- Grgic J, Lazinica B, Mikulic P, Krieger JW, Schoenfeld BJ. *The effects of
+  short versus long inter-set rest intervals in resistance training on measures
+  of muscle hypertrophy: a systematic review.* European Journal of Sport
+  Science, 2017; 17(8): 983–993.

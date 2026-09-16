@@ -20,6 +20,15 @@ E OS 36 VÍDEOS SÃO CURADORIA HUMANA. O dono escolheu um por um, à mão. A tab
 `OFICIAIS` abaixo é essa escolha, e é a razão principal deste arquivo existir:
 qualquer coisa que troque um vídeo — um seed remendado, um `update` no banco,
 um merge malfeito — fica vermelha aqui, com o nome do exercício e os dois IDs.
+
+OS 28 DE 17/09/2026 SÃO OUTRA COISA, E A TABELA É OUTRA. `CURADOS_POR_TITULO`
+guarda os vídeos dos 28 exercícios ativados naquele dia: escolhidos pelo
+TÍTULO do oEmbed e conferidos por `titulo_confere`, com o quadro NÃO
+assistido — a limitação está em `curadoria.video_por` de cada linha do
+`exercises.json`, e o mosaico de veto do dono cobre a FOTO, não o vídeo. Ficam
+travados aqui pelo mesmo motivo dos 36: trocar um sem dizer é regressão. O
+dia em que o dono assistir e aprovar um deles é o dia de movê-lo para
+`OFICIAIS`.
 """
 import json
 import re
@@ -90,8 +99,45 @@ OFICIAIS = {
 }
 
 
+#: OS 28 VÍDEOS CURADOS POR TÍTULO (17/09/2026) — ver o cabeçalho do módulo.
+CURADOS_POR_TITULO = {
+    "Agachamento goblet": "nu0gvBN5bjM",
+    "Agachamento no hack": "Kbh-1n8CHTs",
+    "Barra fixa com pegada supinada": "BBmjDutLmAo",
+    "Bom dia com barra": "B0t7Vpvjr34",
+    "Crossover na polia": "tBsuahKuvUc",
+    "Crucifixo com halteres": "mQoTwHqoJuY",
+    "Crucifixo inverso com halteres": "UC2Rd0fLLco",
+    "Desenvolvimento com barra": "Xy0HBD2K4Jk",
+    "Desenvolvimento na máquina": "q_iHlstGEcc",
+    "Encolhimento com barra": "BrwUPSLC_hE",
+    "Face pull na polia": "kamdxk0L4Yw",
+    "Mergulho nas paralelas": "ZyyBF-RHWi0",
+    "Panturrilha em pé com halteres": "Yv-HBl6VUpA",
+    "Panturrilha no leg press": "rtIDLA6aKwM",
+    "Puxada frente com pegada supinada": "vXKcuyaQD0w",
+    "Remada alta na polia": "LVQq6ZnM97U",
+    "Remada articulada na máquina": "I-VquBHcA6E",
+    "Remada curvada com halteres": "eFfCvsaoyhs",
+    "Rosca Scott com barra": "VCCmzbShrTM",
+    "Rosca concentrada": "f2s-ODuUKUo",
+    "Rosca de punho com halteres": "QQCZ7XZsenM",
+    "Rosca de punho invertida com halteres": "K7ghYI10T2c",
+    "Rosca na polia baixa": "xkmg-Qy0adI",
+    "Stiff com halteres": "hTSsiQaS9pU",
+    "Supino fechado com barra": "3uCFueFJAM0",
+    "Supino na máquina": "N5dcVKWRXvw",
+    "Supino reto com halteres": "kgZwiUZvhOU",
+    "Tríceps francês com halter": "mfXokM_VnMY",
+}
+
+#: Tudo que está ativo tem vídeo travado numa das duas tabelas.
+TRAVADOS = {**OFICIAIS, **CURADOS_POR_TITULO}
+
+
 class OsTrintaESeisVideosOficiaisTests(TestCase):
-    """A curadoria manual do dono, travada exercício por exercício."""
+    """A curadoria manual do dono, travada exercício por exercício — e, desde
+    17/09/2026, os 28 curados por título ao lado, em tabela própria."""
 
     @classmethod
     def setUpTestData(cls):
@@ -125,7 +171,9 @@ class OsTrintaESeisVideosOficiaisTests(TestCase):
         ativos = set(
             Exercise.objects.filter(is_active=True).values_list("name", flat=True)
         )
-        self.assertEqual(ativos, set(OFICIAIS) - self.APOSENTADOS)
+        self.assertEqual(ativos, set(TRAVADOS) - self.APOSENTADOS)
+        self.assertEqual(set(OFICIAIS) & set(CURADOS_POR_TITULO), set(), "as duas tabelas não se sobrepõem")
+        self.assertEqual(len(CURADOS_POR_TITULO), 28)
 
     def test_o_aposentado_continua_no_catalogo_com_o_video(self):
         """Controle do teste acima, e a razão de aposentar em vez de apagar.
@@ -149,7 +197,7 @@ class OsTrintaESeisVideosOficiaisTests(TestCase):
         comparar só "tem vídeo" deixaria passar o defeito que este teste existe
         para pegar, que é um exercício servir o clipe de outro.
         """
-        for nome, esperado in sorted(OFICIAIS.items()):
+        for nome, esperado in sorted(TRAVADOS.items()):
             with self.subTest(exercicio=nome):
                 servido = Exercise.objects.get(name=nome).video_id
                 self.assertEqual(servido, esperado)
@@ -168,7 +216,7 @@ class OsTrintaESeisVideosOficiaisTests(TestCase):
             with self.subTest(exercicio=exercicio.name):
                 self.assertEqual(exercicio.clip_kind, "youtube")
                 self.assertIn(
-                    "youtube-nocookie.com/embed/" + OFICIAIS[exercicio.name],
+                    "youtube-nocookie.com/embed/" + TRAVADOS[exercicio.name],
                     exercicio.video_embed_url,
                 )
 
@@ -182,7 +230,7 @@ class OsTrintaESeisVideosOficiaisTests(TestCase):
         segunda passada devolve o valor do arquivo e a comparação quebra.
         """
         call_command("seed_workouts", verbosity=0)
-        for nome, esperado in sorted(OFICIAIS.items()):
+        for nome, esperado in sorted(TRAVADOS.items()):
             with self.subTest(exercicio=nome):
                 self.assertEqual(Exercise.objects.get(name=nome).video_id, esperado)
 

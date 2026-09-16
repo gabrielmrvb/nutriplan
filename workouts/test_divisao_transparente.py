@@ -625,14 +625,20 @@ class OVolumeSemanalEConsequenciaDasRegrasTests(TestCase):
     def test_nenhum_grupo_passa_do_teto_semanal(self):
         """A regra que torna o total plausível, medida onde ela age.
 
-        `TETO_SEMANAL_POR_GRUPO` conta séries EFETIVAS: direta vale 1 e
-        secundária vale meia. Um total alto distribuído entre onze grupos é
-        outra coisa que um total alto concentrado num só — e é exatamente essa
-        diferença que o teto garante.
+        O teto semanal conta séries EFETIVAS: direta vale 1 e secundária
+        vale meia. Um total alto distribuído entre onze grupos é outra coisa
+        que um total alto concentrado num só — e é exatamente essa diferença
+        que o teto garante. Desde 17/09/2026 o teto é POR GRUPO, pela
+        frequência com que ele é treinado (`tetos_da_semana`, TREINO.md
+        tabela B), e a régua do que ainda "tem o que ceder" é a de
+        `excesso_e_irredutivel` — a mesma de `opcoes._ceder`.
         """
+        from workouts.tests import excesso_e_irredutivel
+
         user = self._perfil_da_queixa()
         plano = TrainingPlan.objects.filter(user=user, is_active=True).first()
         efetivo = services.volume_da_semana(plano)
+        tetos = services.tetos_da_semana(plano)
 
         # Medido: este perfil (quatro dias, três grupos, até 60) FECHAVA no
         # teto até 16/09/2026. Desde o lockstep de `aparar_opcoes`, o ombro
@@ -641,16 +647,11 @@ class OVolumeSemanalEConsequenciaDasRegrasTests(TestCase):
         # semana perderia o isolador. O excesso só pode ser IRREDUTÍVEL:
         # nenhuma opção tem isolador do grupo acima do piso para ceder.
         for grupo, volume in efetivo.items():
-            with self.subTest(grupo=grupo):
-                if volume <= services.TETO_SEMANAL_POR_GRUPO:
+            with self.subTest(grupo=grupo, volume=volume, teto=tetos[grupo]):
+                if volume <= tetos[grupo]:
                     continue
-                for sessao in plano.sessions.prefetch_related("exercises__exercise"):
-                    for k in sessao.opcoes:
-                        itens = sessao.da_opcao(k)
-                        graus = services.prioridades_da_sessao(itens)
-                        cedem = [i for i, g in zip(itens, graus)
-                                 if i.exercise.muscle_group == grupo and g < services.PRINCIPAL and i.sets > 2]
-                        self.assertEqual(cedem, [], f"{grupo} passa do teto ({volume}) com o que ceder")
+                irredutivel, evidencia = excesso_e_irredutivel(plano, grupo)
+                self.assertTrue(irredutivel, f"{grupo} passa do teto ({volume} > {tetos[grupo]}) com o que ceder: {evidencia}")
 
     def test_o_total_e_a_soma_de_muitos_grupos_e_nao_de_um(self):
         """"85 séries" só assusta enquanto parece ser de um músculo."""
@@ -673,8 +674,13 @@ class OVolumeSemanalEConsequenciaDasRegrasTests(TestCase):
 
         total = sum(direto.values())
 
+        # 60–100 até 16/09/2026 (catálogo de 35 ativos, faixa 15–18 por
+        # sessão). Com a doutrina do TREINO.md a sessão de três grupos do
+        # intermediário tem 21–28 diretas: quatro sessões dão 84–112, e o
+        # perfil fecha em 102 — mais volume, ainda a média de ~9 por grupo
+        # que o teste ao lado cobra.
         self.assertGreaterEqual(total, 60, "a ficha encolheu demais")
-        self.assertLessEqual(total, 100, "o volume voltou a inflar")
+        self.assertLessEqual(total, 112, "o volume voltou a inflar")
 
     def test_a_frequencia_de_cada_grupo_e_pelo_menos_semanal(self):
         """Volume distribuído não pode virar grupo treinado nenhuma vez."""

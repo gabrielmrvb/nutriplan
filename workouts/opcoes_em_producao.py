@@ -22,10 +22,12 @@ from datetime import date, time
 
 from django.db import transaction
 
-#: As letras que produção tem com duas opções: 16 em 16/09/2026, medidas com
-#: o catálogo ativo (35 exercícios) e a régua de opções de 15/09.
+#: As letras que produção tem com duas opções: 16 em 16/09/2026 (catálogo de
+#: 35 ativos, sem `ab A` e `full A`); TODAS as 18 desde o deploy de 17/09/2026,
+#: com os 63 ativos e os modelos redimensionados pelo `TREINO.md`.
 LETRAS_COM_OPCOES_EM_PRODUCAO = frozenset({
-    ("ab", "B"),
+    ("ab", "A"), ("ab", "B"),
+    ("full", "A"),
     ("abc", "A"), ("abc", "B"), ("abc", "C"),
     ("abc2", "A"), ("abc2", "B"), ("abc2", "C"),
     ("abcd", "A"), ("abcd", "B"), ("abcd", "C"), ("abcd", "D"),

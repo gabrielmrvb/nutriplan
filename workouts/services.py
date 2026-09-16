@@ -17,6 +17,9 @@ não de programação:
 from dataclasses import dataclass, field
 import copy
 from decimal import Decimal
+from functools import lru_cache
+import hashlib
+from pathlib import Path
 
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Max, OuterRef, Subquery
@@ -349,12 +352,11 @@ def build_sessions(plan, training_days, templates) -> list:
 #: pelo composto.
 
 #: Séries efetivas por grupo muscular por semana, contando participação
-#: secundária pela metade.
-#:
-#: Vinte é o topo da faixa que a literatura de hipertrofia trata como
-#: produtiva para um grupo grande; abaixo de dez o estímulo fica magro. O número
+#: secundária pela metade — para um grupo que cai UMA vez na semana, no
+#: intermediário. Desde 17/09/2026 vem do `TREINO.md` (tabela B), e o grupo
+#: que cai duas ou três vezes tem teto maior (`tetos_da_semana`). O número
 #: é um TETO, não uma meta: ficha que já cabe embaixo dele não é tocada.
-TETO_SEMANAL_POR_GRUPO = 20
+TETO_SEMANAL_POR_GRUPO = TETO_POR_EXPERIENCIA[Experiencia.INTERMEDIARIO]
 
 #: Quanto uma série conta para um músculo que ela usa de forma SECUNDÁRIA.
 #:
@@ -839,8 +841,77 @@ def volume_da_semana(plan) -> dict:
     return motor_de_opcoes.volume_semanal_pior_caso(por_letra, ocorrencias)
 
 
+def nivel_de(user) -> str:
+    """A experiência declarada, ou o intermediário para quem não respondeu —
+    e para o perfil ausente, que é quem monta ficha antes de o perfil
+    existir. É o mesmo critério de `teto_de_minutos`."""
+    perfil = getattr(user, "profile", None)
+    return getattr(perfil, "experiencia", None) or Experiencia.INTERMEDIARIO
+
+
+def duracao_de(user) -> str:
+    """A faixa de duração declarada (`DuracaoTreino`), ou vazio."""
+    perfil = getattr(user, "profile", None)
+    return getattr(perfil, "duracao_treino", None) or ""
+
+
+#: O que decide a prescrição SEM a pessoa: o catálogo de exercícios, os
+#: modelos e a doutrina. Mudou um deles, mudou o que o gerador produziria.
+_ARQUIVOS_DO_CATALOGO = (
+    Path(__file__).resolve().parent / "data" / "exercises.json",
+    Path(__file__).resolve().parent / "data" / "splits.json",
+    Path(__file__).resolve().parent.parent / "docs" / "briefs" / "treino" / "TREINO.md",
+)
+
+
+@lru_cache(maxsize=1)
+def versao_do_catalogo() -> str:
+    """Impressão digital do catálogo que o deploy carrega — a de HOJE, lida
+    do disco uma vez por processo. `TrainingPlan.catalogo` guarda a de quando
+    a ficha nasceu; iguais, nada mudou embaixo dela e a Home não precisa
+    represcrever a semana a cada visita para saber (17/09/2026: eram onze
+    consultas por visita para um aviso que quase nunca aparece)."""
+    resumo = hashlib.sha256()
+    for arquivo in _ARQUIVOS_DO_CATALOGO:
+        resumo.update(arquivo.read_bytes())
+    return resumo.hexdigest()[:16]
+
+
+def grupos_treinados(exercicios) -> set:
+    """Os grupos que uma sessão TREINA: o direto de cada exercício e os
+    secundários — de TODO exercício, a mesma conta de `volume_efetivo`, para
+    todo grupo que recebe volume ter um teto (o face pull é isolador e dá
+    meia série ao trapézio). É a frequência que a Tabela B do TREINO.md
+    conta — o ombro de "Pernas e ombros" cai uma vez anunciado e mais quatro
+    dentro dos supinos e das remadas, e o teto de uma vez só (23) o aparava
+    a dois exercícios enquanto o secundário sozinho já somava vinte."""
+    grupos = set()
+    for exercicio in exercicios:
+        grupos.add(exercicio.muscle_group)
+        grupos.update(exercicio.secondary_muscles or ())
+    return grupos
+
+
+def tetos_da_semana(plan) -> dict:
+    """O teto de séries efetivas de cada grupo NESTE plano: o do nível da
+    pessoa para a FREQUÊNCIA com que o grupo é treinado na semana
+    (`TREINO.md`, tabela B; `grupos_treinados`) — um grupo que cai duas vezes
+    tem teto maior que o que cai uma. É a régua que `volume_da_semana` deve
+    respeitar, grupo a grupo."""
+    from . import doutrina
+
+    nivel = nivel_de(plan.user)
+    frequencia = {}
+    for sessao in plan.sessions.prefetch_related("exercises__exercise"):
+        for grupo in grupos_treinados(item.exercise for item in sessao.exercises.all()):
+            frequencia[grupo] = frequencia.get(grupo, 0) + 1
+    return {grupo: doutrina.teto_semanal(nivel, vezes) for grupo, vezes in frequencia.items()}
+
+
 def teto_semanal_de(user) -> int:
-    """O teto de séries efetivas por grupo desta pessoa.
+    """O teto de séries efetivas por grupo desta pessoa, para um grupo que
+    cai UMA vez na semana — a identidade do nível. Grupo que cai duas ou
+    três vezes tem teto maior (`tetos_da_semana`, `doutrina.teto_semanal`).
 
     Sai da EXPERIÊNCIA declarada. DOIS caminhos caem no valor do intermediário,
     e os dois de propósito: perfil ausente — quem monta ficha antes de o perfil
@@ -854,9 +925,7 @@ def teto_semanal_de(user) -> int:
     secundário de composto principal fica. Ver `TETO_POR_EXPERIENCIA` em
     `accounts.models` para a medição.
     """
-    perfil = getattr(user, "profile", None)
-    nivel = getattr(perfil, "experiencia", None) or Experiencia.INTERMEDIARIO
-    return TETO_POR_EXPERIENCIA.get(nivel, TETO_SEMANAL_POR_GRUPO)
+    return TETO_POR_EXPERIENCIA.get(nivel_de(user), TETO_SEMANAL_POR_GRUPO)
 
 
 def aparar_volume_semanal(candidatos, teto=None) -> set:
@@ -1172,8 +1241,22 @@ def teto_de_minutos(user) -> int:
     return TETO_POR_DURACAO.get(faixa)
 
 
+def _nivel_do_teto(teto_semanal, sessoes):
+    """O nível por trás de um `teto_semanal` recebido — a chamada antiga
+    passa o número, e o número é a identidade do nível (o teto de UMA
+    ocorrência). `None` lê o perfil; um teto absurdo (≥ 1000) é "sem teto"."""
+    if teto_semanal is None:
+        return nivel_de(sessoes[0].plan.user) if sessoes else Experiencia.INTERMEDIARIO
+    if teto_semanal >= 1000:
+        return None
+    for nivel, valor in TETO_POR_EXPERIENCIA.items():
+        if valor == teto_semanal:
+            return nivel
+    return Experiencia.INTERMEDIARIO
+
+
 def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
-                      teto_semanal=None) -> dict:
+                      teto_semanal=None, nivel=_NAO_INFORMADO) -> dict:
     """O que cada OPÇÃO de cada sessão manda fazer:
     `{(sessão.pk, opção, exercício): (séries, item)}`.
 
@@ -1212,16 +1295,43 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
     # os testes usam como "ficha natural". A faixa "livre" da pessoa NÃO
     # chega aqui como `None`: `teto_completo_de` a traduz em 65 minutos.
     teto_completo = teto
-    faixa = motor_de_opcoes.faixa_de_series(teto_semanal or TETO_SEMANAL_POR_GRUPO)
+    from . import doutrina
+
+    if nivel is _NAO_INFORMADO:
+        nivel = _nivel_do_teto(teto_semanal, sessoes)
+    sem_teto = nivel is None
     letras = list(ocorrencias)
     itens_de = {}
     principais_de = {}
+    faixa_de = {}
     for label in letras:
         modelo = modelos.get(label)
         if modelo is None:
             return None
         itens_de[label] = [item for item in modelo.items.all() if item.exercise.is_active]
         principais_de[label] = list(getattr(modelo, "main_groups", None) or ())
+        # A FAIXA É DO TIPO DE DIA E DO NÍVEL (TREINO.md, tabela A): "Peito e
+        # tríceps" do intermediário quer 21–28 séries diretas; "Peito" de
+        # cinco dias, 14–20; o corpo inteiro de um dia, 20–26.
+        tipo = doutrina.tipo_de_dia(getattr(modelo, "split", ""), label)
+        # Fora do contrato (`abcd D`, só complementares): dose do catálogo,
+        # sem preenchimento e sem teto de sessão.
+        faixa_de[label] = (
+            doutrina.faixa_de_series(nivel or doutrina.NIVEL_PADRAO, tipo) if tipo else (0, 10_000)
+        )
+
+    def limites_de(por_letra):
+        """O teto de cada grupo pela FREQUÊNCIA com que ele é treinado na
+        semana (TREINO.md, tabela B; `grupos_treinados`): a letra que se
+        repete soma o grupo duas ou três vezes, e o teto acompanha."""
+        if sem_teto:
+            return {"*": 10_000}
+        frequencia = {}
+        for label, opcoes in por_letra.items():
+            grupos = grupos_treinados(item.exercise for op in opcoes for item, _, _ in op)
+            for grupo in grupos:
+                frequencia[grupo] = frequencia.get(grupo, 0) + ocorrencias.get(label, 1)
+        return {grupo: doutrina.teto_semanal(nivel, vezes) for grupo, vezes in frequencia.items()}
 
     def montar(letras_com_duas):
         """Passa a semana inteira pela cadeia, com duas opções nas letras
@@ -1262,12 +1372,13 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
                 # semana inteira. Abaixo de 45 minutos a dose é a do catálogo.
                 if teto_completo is None or teto_completo >= motor_de_opcoes.MINUTOS_PARA_PREENCHER:
                     linhas = motor_de_opcoes.preencher_ate_a_faixa(
-                        linhas, teto_completo, principais_de[label], faixa=faixa,
+                        linhas, teto_completo, principais_de[label], faixa=faixa_de[label],
+                        por_exercicio=doutrina.series_por_exercicio(nivel or doutrina.NIVEL_PADRAO),
                     )
                 linhas_por_opcao.append(linhas)
             por_letra[label] = linhas_por_opcao
         por_letra = motor_de_opcoes.aparar_opcoes(
-            por_letra, ocorrencias, teto_semanal or TETO_SEMANAL_POR_GRUPO, dose_da_sessao
+            por_letra, ocorrencias, limites_de(por_letra), dose_da_sessao
         )
         no_tempo = {}
         descartados = {}
@@ -1289,19 +1400,19 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
                 descartados[label].append([l for i, l in enumerate(linhas) if i not in ficaram])
             if len(prontas) > 1:
                 prontas = motor_de_opcoes.equilibrar(
-                    prontas, principais, teto_completo, teto_series=faixa[1]
+                    prontas, principais, teto_completo, teto_series=faixa_de[label][1]
                 )
             no_tempo[label] = prontas
         motor_de_opcoes.realocar_orfaos_nas_opcoes(no_tempo, descartados, principais_de, teto_completo)
         # Equilibrar pode ter DADO série: o teto semanal é conferido de novo,
         # e o que ele tirar de uma opção é acompanhado pela outra (só tirando).
         no_tempo = motor_de_opcoes.aparar_opcoes(
-            no_tempo, ocorrencias, teto_semanal or TETO_SEMANAL_POR_GRUPO, dose_da_sessao
+            no_tempo, ocorrencias, limites_de(no_tempo), dose_da_sessao
         )
         return {
             label: (
                 motor_de_opcoes.equilibrar(
-                    opcoes, principais_de[label], teto_completo, dar=False, teto_series=faixa[1]
+                    opcoes, principais_de[label], teto_completo, dar=False, teto_series=faixa_de[label][1]
                 )
                 if len(opcoes) > 1 else opcoes
             )
@@ -1334,7 +1445,7 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
 
 
 def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO,
-                      teto_semanal=None) -> dict:
+                      teto_semanal=None, nivel=_NAO_INFORMADO) -> dict:
     """A OPÇÃO 1 de cada sessão: `{(sessão.pk, exercício): (séries, item)}`.
 
     Desde 15/09/2026 quem prescreve é `prescrever_opcoes`; esta é a projeção
@@ -1373,7 +1484,7 @@ def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO,
     continua não podendo multiplicar o volume — mas quem paga isso agora é o
     isolador, na etapa 2, e não o exercício principal.
     """
-    completa = prescrever_opcoes(sessoes, modelos, teto=teto, teto_semanal=teto_semanal)
+    completa = prescrever_opcoes(sessoes, modelos, teto=teto, teto_semanal=teto_semanal, nivel=nivel)
     if completa is None:
         return None
     return {
@@ -1868,6 +1979,10 @@ def create_routine(user) -> TrainingPlan:
         is_active=True,
         split=split,
         days_per_week=len(training_days),
+        # Retrato das entradas: com que catálogo, nível e faixa ela nasceu.
+        catalogo=versao_do_catalogo(),
+        nivel=nivel_de(user),
+        duracao=duracao_de(user),
     )
 
     sessions = build_sessions(plan, training_days, templates)
@@ -1877,7 +1992,7 @@ def create_routine(user) -> TrainingPlan:
     teto_semanal = teto_semanal_de(user)
     completa = prescrever_opcoes(
         sessions, by_label,
-        teto=teto_completo_de(user), teto_semanal=teto_semanal,
+        teto=teto_completo_de(user), teto_semanal=teto_semanal, nivel=nivel_de(user),
     )
     prescricao = {
         (sessao_pk, exercicio_id): valor
@@ -1899,7 +2014,7 @@ def create_routine(user) -> TrainingPlan:
     # `None` faria a nota dizer "para caber no tempo que você informou" a
     # quem não informou.
     sem_relogio = (
-        prescrever_semana(sessions, by_label, teto=None, teto_semanal=teto_semanal)
+        prescrever_semana(sessions, by_label, teto=None, teto_semanal=teto_semanal, nivel=nivel_de(user))
         if teto_de_minutos(user) is not None else prescricao
     )
     plan.notes = " ".join(
@@ -1963,7 +2078,7 @@ def _prescricao_confere(sessoes, modelos, itens, user) -> bool:
 
     prescricao = prescrever_opcoes(
         sessoes, modelos,
-        teto=teto_completo_de(user), teto_semanal=teto_semanal_de(user),
+        teto=teto_completo_de(user), teto_semanal=teto_semanal_de(user), nivel=nivel_de(user),
     )
     if prescricao is None:
         return False
@@ -1973,21 +2088,83 @@ def _prescricao_confere(sessoes, modelos, itens, user) -> bool:
     return gravado == esperado
 
 
-def routine_is_current(plan, user) -> bool:
-    """A rotina ativa ainda corresponde aos dias de treino de hoje?
+def rotina_invalida(plan, user) -> bool:
+    """A rotina ativa NÃO PODE ficar de pé: é o que `sync_active_routine`
+    remonta sozinho (17/09/2026).
 
-    Compara o conjunto (dia da semana, horário, duração) — mudou qualquer coisa
-    aí, a ficha é remontada. Sem o horário e a duração na comparação, trocar o
-    treino da manhã para a noite deixaria a ficha dizendo o horário errado.
+    Inválida é sem sessão, com exercício aposentado numa sessão, com divisão
+    que não corresponde mais à frequência, ou com dias/horários/durações
+    diferentes dos cadastrados. Prescrição diferente NÃO é inválida — é
+    `rotina_desatualizada`, e essa a pessoa decide (aviso na Home).
     """
     if plan is None or not plan.sessions.exists():
-        return False
+        return True
     if plan.sessions.filter(exercises__exercise__is_active=False).exists():
         # Exercício aposentado no catálogo: a ficha manda fazer o que saiu do
         # ar. Vale inclusive para ficha ajustada — aqui o gerador não está
         # desfazendo a escolha da pessoa, está avisando que o catálogo mudou
         # embaixo dela.
+        return True
+    if plan.is_customized:
+        # Ficha ajustada à mão não é remontada pelo gerador. A pessoa trocou
+        # aqueles exercícios por um motivo — joelho, equipamento ocupado,
+        # preferência — e mudar o horário de terça-feira não é motivo para
+        # descartar a escolha e voltar ao modelo do catálogo.
         return False
+    # A pessoa mudou a PRÓPRIA entrada — nível ou faixa de duração — depois
+    # de a ficha nascer: é o mesmo caso dos dias de treino, e remonta. Em
+    # branco é ficha de antes de 17/09/2026: desconhecido não invalida.
+    if plan.nivel and plan.nivel != nivel_de(user):
+        return True
+    if plan.duracao and plan.duracao != duracao_de(user):
+        return True
+    if plan.split != split_for(user.training_days.count(), _preferencia_de(user)):
+        return True
+    sessoes = plan.sessions.all()
+    atual = {
+        (day.weekday, day.start_time, day.duration_min)
+        for day in user.training_days.all()
+    }
+    na_ficha = {
+        (session.weekday, session.start_time, session.duration_min)
+        for session in sessoes
+    }
+    return atual != na_ficha
+
+
+def rotina_desatualizada(plan, user) -> bool:
+    """A prescrição do catálogo mudou embaixo de uma ficha VÁLIDA?
+
+    É a pergunta do aviso "Seu treino pode ficar mais completo — regenerar?".
+    Até 17/09/2026 isso remontava a ficha na entrada do painel, sem ninguém
+    pedir — o deploy que ativou 28 exercícios trocaria a ficha de todo mundo
+    no meio da semana. Agora a ficha fica (plano é retrato) e a pessoa
+    decide. Ficha ajustada à mão não conta: ali a divergência é escolha.
+    """
+    if plan is None or plan.is_customized:
+        return False
+    if plan.catalogo and plan.catalogo == versao_do_catalogo():
+        # O mesmo catálogo com que ela nasceu: nada mudou embaixo dela, e a
+        # conferência exata (represcrever a semana) seria onze consultas
+        # para confirmar o que a impressão digital já diz. Antes de
+        # `rotina_invalida` de propósito: com o plano em mãos, a resposta
+        # de todo dia custa ZERO consultas.
+        return False
+    if rotina_invalida(plan, user):
+        return False
+    return not _prescricao_bate(plan, user)
+
+
+def routine_is_current(plan, user) -> bool:
+    """A rotina ativa é válida E a prescrição ainda bate — a pergunta
+    antiga, que hoje é as duas de cima somadas. `sync_active_routine` só
+    olha `rotina_invalida`; quem quer saber se há coisa melhor no catálogo
+    olha `rotina_desatualizada`."""
+    return not rotina_invalida(plan, user) and not rotina_desatualizada(plan, user)
+
+
+def _prescricao_bate(plan, user) -> bool:
+    """A prescrição gravada é a que o motor produziria hoje?"""
     # A prescrição do catálogo mudou embaixo da ficha?
     #
     # A faixa de repetições e o descanso são copiados do modelo quando a ficha
@@ -2019,33 +2196,9 @@ def routine_is_current(plan, user) -> bool:
     na_ficha = {
         (i.exercise_id, i.rep_min, i.rep_max, i.rest_seconds) for i in itens
     }
-    # Ficha ajustada à mão fica de fora: ali a divergência é a escolha da
-    # pessoa, e remontar apagaria justamente o que ela mudou.
-    if not plan.is_customized and not na_ficha <= prescrito:
+    if not na_ficha <= prescrito:
         return False
-
-    if not plan.is_customized and not _prescricao_confere(
-        sessoes, modelos, itens, user
-    ):
-        return False
-    if plan.is_customized:
-        # Ficha ajustada à mão não é remontada pelo gerador. A pessoa trocou
-        # aqueles exercícios por um motivo — joelho, equipamento ocupado,
-        # preferência — e mudar o horário de terça-feira não é motivo para
-        # descartar a escolha e voltar ao modelo do catálogo.
-        return True
-    if plan.split != split_for(user.training_days.count(), _preferencia_de(user)):
-        return False
-
-    atual = {
-        (day.weekday, day.start_time, day.duration_min)
-        for day in user.training_days.all()
-    }
-    na_ficha = {
-        (session.weekday, session.start_time, session.duration_min)
-        for session in sessoes
-    }
-    return atual == na_ficha
+    return _prescricao_confere(sessoes, modelos, itens, user)
 
 
 def treino_em_andamento(user, day=None) -> bool:
@@ -2079,11 +2232,23 @@ def sync_active_routine(user, day=None) -> tuple:
     isso valer é justamente enquanto ela treina.
     """
     plan = get_active_routine(user)
-    if routine_is_current(plan, user):
+    # SÓ O INVÁLIDO É REMONTADO (17/09/2026). Prescrição diferente — o
+    # catálogo cresceu, a faixa de séries mudou — fica para a pessoa decidir
+    # na Home ("regenerar?"); plano é retrato, e ninguém tem a ficha trocada
+    # no meio da semana por um deploy.
+    if not rotina_invalida(plan, user):
         return plan, False
     if plan is not None and treino_em_andamento(user, day):
         return plan, False
     return create_routine(user), True
+
+
+def aviso_de_regenerar(user, plan=None) -> bool:
+    """A Home deve oferecer "regenerar?" a esta pessoa agora?"""
+    plan = get_active_routine(user) if plan is None else plan
+    if plan is None or plan.aviso_dispensado_em is not None:
+        return False
+    return rotina_desatualizada(plan, user)
 
 
 def has_training_days(user) -> bool:
@@ -2359,6 +2524,9 @@ class EstadoDoTreino:
     """
 
     sessao: object = None
+    #: A rotina ativa, já carregada — quem precisa dela depois (o aviso de
+    #: regenerar na Home) não a busca de novo.
+    plan: object = None
     itens: list = field(default_factory=list)
     atual: object = None
     proximo: object = None
@@ -2882,6 +3050,7 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
             raise ExercicioForaDaSessao(escolhido)
         return estado
     estado.tem_ficha = True
+    estado.plan = plan
 
     sessao = (
         TrainingSession.objects.filter(plan=plan, weekday=dia.weekday())

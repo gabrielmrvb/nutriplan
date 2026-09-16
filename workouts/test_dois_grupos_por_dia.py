@@ -290,10 +290,15 @@ class OsComplementaresSeDistribuemTests(TestCase):
         OITO desde 16/09/2026, e remedido: as duas opções de "Pernas e
         ombros" precisam da mesma pressão vertical, e o modelo tem UM
         desenvolvimento — ele é compartilhado, e cada opção ganha um item
-        (24–26 séries, 54–58 minutos, dentro do teto de 60). Volta a sete
-        quando o modelo tiver uma segunda pressão vertical ativa.
+        (24–26 séries, 54–58 minutos, dentro do teto de 60).
+
+        NOVE desde 17/09/2026, e é a ficha de academia: com os 63 ativos e a
+        doutrina do TREINO.md, "Costas e bíceps" e "Pernas e ombros" têm 4
+        do grande + 3 do pequeno + 2 complementares por opção (24–26 séries,
+        57–60 minutos, dentro do teto de 60) — e o rápido continua em 4. O
+        que este teste proíbe segue sendo o modelo inteiro numa versão (18).
         """
-        maximos = {DuracaoTreino.RAPIDO: 4, DuracaoTreino.PADRAO: 8}
+        maximos = {DuracaoTreino.RAPIDO: 4, DuracaoTreino.PADRAO: 9}
         for duracao, teto_de_itens in maximos.items():
             for dias in range(3, 8):
                 with self.subTest(duracao=duracao, dias=dias):
@@ -359,8 +364,8 @@ class OsComplementaresSeDistribuemTests(TestCase):
         modelo inteiro: a pessoa que alterna faz os doze na quinzena. É a
         mesma doutrina de sempre — tempo é TETO, não cota —, e o que este
         teste proíbe é o contrário: uma versão da ficha cheia estourando o
-        tempo combinado, que desde 16/09/2026 é o teto de `Completo` (65,
-        `TETO_POR_DURACAO`), e não um 90 escrito à mão.
+        tempo combinado, que é o teto de `Completo` em `TETO_POR_DURACAO`
+        (65 em 16/09/2026, 90 desde 17/09), e não um número escrito à mão.
         """
         _, plano = perfil(3, duracao=DuracaoTreino.COMPLETO, sufixo="-cheia")
         modelo = {t.label: t for t in services.templates_for(plano.split)}["C"]
@@ -374,10 +379,11 @@ class OsComplementaresSeDistribuemTests(TestCase):
             {item.exercise_id for item in modelo.items.all() if item.exercise.is_active},
             "a letra C não oferece o modelo inteiro entre as opções",
         )
-        # 13 desde 16/09/2026: a cadeira flexora entrou no modelo `abc2 C`
-        # como segunda flexão de joelho (os 28 novos são inativos e não
-        # contam aqui).
-        self.assertEqual(len(oferecidos), 13)
+        # 13 em 16/09/2026 (cadeira flexora como segunda flexão de joelho,
+        # os 28 novos inativos); 18 desde 17/09, com o modelo redimensionado
+        # pelo TREINO.md: 4 quadríceps, 4 posteriores, 6 ombros, 2
+        # panturrilhas e 2 abdominais — 9 por opção.
+        self.assertEqual(len(oferecidos), 18)
         for s in plano.sessions.prefetch_related("exercises__exercise"):
             for opcao in s.opcoes:
                 self.assertLessEqual(

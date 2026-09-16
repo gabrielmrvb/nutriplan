@@ -16,7 +16,7 @@ from unittest.mock import patch
 from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -270,7 +270,9 @@ def excesso_e_irredutivel(plan, grupo) -> tuple:
     # séries para cobrir uma não é aparo — e a irmã acompanharia.
     from workouts.opcoes import FRACAO_DE_EXCESSO_QUE_DESTRAVA
 
-    teto = services.TETO_SEMANAL_POR_GRUPO
+    # O teto é o do GRUPO neste plano — pela frequência com que ele é
+    # treinado na semana (TREINO.md, tabela B; `services.tetos_da_semana`).
+    teto = services.tetos_da_semana(plan).get(grupo, services.TETO_SEMANAL_POR_GRUPO)
     efetivo = services.volume_da_semana(plan).get(grupo, 0)
     ocorrencias = {}
     for sessao in plan.sessions.all():
@@ -3617,11 +3619,12 @@ class CuradoriaDosVideosTests(TestCase):
         """
         ativos = Exercise.objects.filter(is_active=True)
 
-        self.assertEqual(ativos.count(), 35)
+        # 63 ativos: os 35 de sempre e os 28 de 16/09/2026, ATIVADOS em
+        # 17/09 com a curadoria escrita em cada linha (`test_catalogo`).
+        self.assertEqual(ativos.count(), 63)
         self.assertEqual(ativos.filter(video_url="").count(), 0)
-        # 64 linhas no catálogo semeado: 35 ativas, a aposentada, que
-        # continua existindo, e os 28 INATIVOS de 16/09/2026 — cadastrados
-        # completos, à espera de mídia conferida (`test_catalogo`). A linha
+        # 64 linhas no catálogo semeado: 63 ativas e a aposentada, que
+        # continua existindo. A linha
         # LEGADA `Remada curvada` (sem "com barra") não entra nesta conta —
         # ela não está no `exercises.json` e só existe em bancos que vêm de
         # uma versão anterior, aposentada pela `0017`.
@@ -4247,6 +4250,8 @@ class MatrizDeVolumeTests(TestCase):
                 _, plan = self._ficha(dias, preferencia)
                 efetivo = self._efetivo(plan)
                 diretas = self._semanal(plan)
+                # Um teto POR GRUPO, pela frequência (TREINO.md, tabela B).
+                tetos = services.tetos_da_semana(plan)
 
                 # O TETO É SOBRE O QUE O MOTOR PODE CORTAR, e a diferença é
                 # medida, não retórica. Com sete dias, ombro chega a 22,5
@@ -4266,7 +4271,7 @@ class MatrizDeVolumeTests(TestCase):
                 # nove séries por uma. Acima do teto, direto ou efetivo, o
                 # excesso tem de PROVAR que é irredutível.
                 for grupo, volume in diretas.items():
-                    if volume <= services.TETO_SEMANAL_POR_GRUPO:
+                    if volume <= tetos[grupo]:
                         continue
                     irredutivel, evidencia = excesso_e_irredutivel(plan, grupo)
                     with self.subTest(dias=dias, pref=preferencia, grupo=grupo, direto=True):
@@ -4277,7 +4282,7 @@ class MatrizDeVolumeTests(TestCase):
                         )
 
                 for grupo, volume in efetivo.items():
-                    if volume <= services.TETO_SEMANAL_POR_GRUPO:
+                    if volume <= tetos[grupo]:
                         continue
                     irredutivel, evidencia = excesso_e_irredutivel(plan, grupo)
                     with self.subTest(dias=dias, pref=preferencia, grupo=grupo):
@@ -4332,9 +4337,14 @@ class MatrizDeVolumeTests(TestCase):
 
         self.assertEqual(rotulos, ["A", "B", "C", "A"], "o ciclo mudou de forma")
         self.assertLessEqual(
-            efetivo[MuscleGroup.CHEST], services.TETO_SEMANAL_POR_GRUPO
+            efetivo[MuscleGroup.CHEST], services.tetos_da_semana(plan)[MuscleGroup.CHEST]
         )
-        self.assertLess(self._semanal(plan)[MuscleGroup.CHEST], 28)
+        # O relato eram 28 DIRETAS de peito em quatro dias, com o modelo
+        # copiado inteiro para as duas passagens de A. Desde 17/09/2026 o
+        # peito a duas ocorrências pode chegar a 32 diretas por DOUTRINA
+        # (TREINO.md, tabela B: 24–32) — o que este teste guarda é que a
+        # segunda passagem não DOBRA a primeira.
+        self.assertLessEqual(self._semanal(plan)[MuscleGroup.CHEST], 2 * self._semanal(self._ficha(3, None)[1])[MuscleGroup.CHEST])
         self.assertTrue(supinos, "o supino reto sumiu do ciclo")
         for series in supinos:
             self.assertGreaterEqual(
@@ -4380,7 +4390,7 @@ class MatrizDeVolumeTests(TestCase):
         )
         self.assertLessEqual(
             self._efetivo(quatro)[MuscleGroup.CHEST],
-            services.TETO_SEMANAL_POR_GRUPO,
+            services.tetos_da_semana(quatro)[MuscleGroup.CHEST],
         )
 
     def test_toda_sessao_respeita_o_teto_de_tempo_declarado(self):
@@ -4942,28 +4952,39 @@ class SincronizacaoEstavelTests(TestCase):
         plan = services.create_routine(user)
         self.assertTrue(services.routine_is_current(plan, user))
 
-        # O catálogo passa a prescrever uma série a mais nesse exercício.
-        item = (
-            WorkoutTemplate.objects.get(split=plan.split, label="B")
-            .items.order_by("order")
-            .first()
+        # O catálogo passa a prescrever uma série a mais nesse exercício — e
+        # um catálogo diferente tem outra impressão digital (o deploy que o
+        # trouxe mudou `exercises.json`/`splits.json`; aqui o arquivo não
+        # muda, então a impressão é simulada). O item é o PRINCIPAL, com a
+        # dose do catálogo: um isolador a mais seria absorvido pela faixa.
+        modelo = WorkoutTemplate.objects.get(split=plan.split, label="B")
+        item = max(
+            (i for i in modelo.items.select_related("exercise") if i.exercise.is_compound),
+            key=lambda i: (i.sets, -i.order),
         )
-        WorkoutTemplateItem.objects.filter(pk=item.pk).update(sets=item.sets + 1)
+        WorkoutTemplateItem.objects.filter(pk=item.pk).update(sets=item.sets - 1)
 
-        self.assertFalse(
-            services.routine_is_current(plan, user),
-            "a ficha continuou válida com o catálogo prescrevendo outro número",
-        )
+        with patch.object(services, "versao_do_catalogo", return_value="catalogo-novo"):
+            self.assertFalse(
+                services.routine_is_current(plan, user),
+                "a ficha continuou válida com o catálogo prescrevendo outro número",
+            )
 
-        nova, mudou = services.sync_active_routine(user)
-        self.assertTrue(mudou)
+            # DESDE 17/09/2026 A FICHA NÃO É REMONTADA POR ISSO: ela fica
+            # (plano é retrato), a Home pergunta, e é a pessoa que regenera.
+            mesma, mudou = services.sync_active_routine(user)
+            self.assertFalse(mudou)
+            self.assertEqual(mesma.pk, plan.pk)
+            self.assertTrue(services.rotina_desatualizada(plan, user))
+
+            nova = services.create_routine(user)
         series_novas = (
             SessionExercise.objects.filter(
                 session__plan=nova, session__label="B", exercise_id=item.exercise_id
             )
             .values_list("sets", flat=True)
         )
-        self.assertEqual(sum(series_novas), item.sets + 1)
+        self.assertEqual(max(series_novas), item.sets - 1)
 
     def test_mudar_o_descanso_no_catalogo_tambem_chega(self):
         """O outro campo da prescrição, pelo mesmo caminho. Estava coberto
@@ -4980,7 +5001,8 @@ class SincronizacaoEstavelTests(TestCase):
             rest_seconds=item.rest_seconds + 30
         )
 
-        self.assertFalse(services.routine_is_current(plan, user))
+        with patch.object(services, "versao_do_catalogo", return_value="catalogo-novo"):
+            self.assertFalse(services.routine_is_current(plan, user))
 
     def test_uma_mudanca_legitima_sincroniza_exatamente_uma_vez(self):
         user = create_user(email="uma-vez@exemplo.com", weekdays=(0, 2, 4))
@@ -5277,11 +5299,14 @@ class OrcamentoDeTempoTests(TestCase):
         # honesta, 60 minutos truncam a ficha natural e a comparação passaria a
         # medir o corte, não a ausência de invenção.
         # E "SEM LIMITE RÍGIDO" NÃO É UM ORÇAMENTO MAIOR desde 15/09/2026:
-        # quem não tem teto recebe a sessão completa de ~65 minutos
-        # (`opcoes.TETO_COMPLETO_MIN`). O par continua valendo porque a ficha
-        # natural cabe nos dois — a pré-condição prova isso —, e é a
-        # igualdade que interessa: nenhum dos dois inventa volume.
-        TETOS = {90: 90.0, 120: 65.0}
+        # quem não tem teto recebe a sessão completa de `TETO_COMPLETO_MIN`
+        # minutos (65 até 16/09/2026, 90 desde 17/09 — os dois orçamentos
+        # caem no mesmo teto). O par continua valendo porque a ficha natural
+        # cabe nos dois — a pré-condição prova isso —, e é a igualdade que
+        # interessa: nenhum dos dois inventa volume.
+        from workouts.opcoes import TETO_COMPLETO_MIN
+
+        TETOS = {90: 90.0, 120: float(TETO_COMPLETO_MIN)}
 
         for dias in (3, 4, 7):
             fichas = {m: self._ficha(dias, m) for m in (90, 120)}
@@ -5553,12 +5578,13 @@ class OrcamentoDeTempoTests(TestCase):
                 # Uma opção por ocorrência, a mais pesada no grupo — somar as
                 # duas opções da letra mediria um treino que ninguém faz.
                 semanal = self._semanal(plan)
+                tetos = services.tetos_da_semana(plan)
                 # Desde 16/09/2026 o direto pode ficar UMA série acima a 7
                 # dias (ver `MatrizDeVolumeTests`): o que este teste guarda
                 # é que o corte por tempo não ADICIONA volume — o excesso,
                 # se houver, tem de ser irredutível pela régua do penúltimo.
                 for g, v in semanal.items():
-                    if v <= services.TETO_SEMANAL_POR_GRUPO:
+                    if v <= tetos[g]:
                         continue
                     irredutivel, evidencia = excesso_e_irredutivel(plan, g)
                     with self.subTest(minutos=minutos, dias=dias, grupo=g):
@@ -5614,3 +5640,22 @@ class OrcamentoDeTempoTests(TestCase):
             SessionExercise.objects.filter(session__plan=depois).count(),
             exercicios_antes,
         )
+
+
+class OTituloDoTreinoDeHojeNaoDivideLarguraTests(SimpleTestCase):
+    """`.hoje__opcao` virou o terceiro filho do flex `.hoje__id` em 7d222a6 e
+    passou a dividir a largura com o título: a 390px "Costas e bíceps" cabia
+    em 79px e quebrava em três linhas ao lado de "Duas versões disponíveis"
+    (visto em produção, 17/09/2026). O flex quebra linha e a opção ocupa a
+    linha inteira embaixo — a identidade volta a ser a linha mais longa."""
+
+    def test_o_flex_quebra_linha_e_a_opcao_desce(self):
+        from pathlib import Path
+
+        css = (Path(__file__).resolve().parent.parent / "static" / "css" / "app.css").read_text(encoding="utf-8")
+        bloco = css[css.index(".hoje__id {"):]
+        bloco = bloco[:bloco.index("}")]
+        self.assertIn("flex-wrap: wrap", bloco)
+        opcao = css[css.index(".hoje__opcao {"):]
+        opcao = opcao[:opcao.index("}")]
+        self.assertIn("flex-basis: 100%", opcao)

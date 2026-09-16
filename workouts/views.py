@@ -733,6 +733,40 @@ class RecordLoadView(AcaoDeTela, OnboardingRequiredMixin, View):
         return redirect(reverse("workouts:routine") + f"#exercicio-{exercise.pk}")
 
 
+class RegenerarTreinoView(OnboardingRequiredMixin, View):
+    """A pessoa pediu: a ficha é remontada com o catálogo de hoje. O plano
+    antigo fica inativo — é retrato, e o histórico de carga não aponta para
+    ele (`ExerciseLog` é por exercício e data).
+
+    O GET leva de volta à Home, onde o aviso mora: é ali que o `next` do
+    login aterrissa quando a sessão expira no meio do toque
+    (`config/test_acoes_com_tela.py` — nenhuma ação responde 405 em branco).
+    """
+
+    def get(self, request, *args, **kwargs):
+        return redirect("plans:today")
+
+    def post(self, request, *args, **kwargs):
+        services.create_routine(request.user)
+        messages.success(request, "Treino regenerado com o catálogo de hoje.")
+        return redirect("workouts:routine")
+
+
+class DispensarAvisoView(OnboardingRequiredMixin, View):
+    """"Agora não": o aviso some deste plano, em todo aparelho. O GET volta
+    à Home, pela mesma razão de `RegenerarTreinoView`."""
+
+    def get(self, request, *args, **kwargs):
+        return redirect("plans:today")
+
+    def post(self, request, *args, **kwargs):
+        plan = services.get_active_routine(request.user)
+        if plan is not None:
+            plan.aviso_dispensado_em = timezone.now()
+            plan.save(update_fields=["aviso_dispensado_em"])
+        return redirect("plans:today")
+
+
 def _descanso_de(user, exercise) -> int:
     """O descanso prescrito para este exercício na ficha ativa.
 

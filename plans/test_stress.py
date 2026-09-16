@@ -177,6 +177,7 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         """
         sessoes = list(self.rotina.sessions.all())
         self.assertGreater(len(sessoes), 1)
+        hoje = timezone.localdate().weekday()
 
         custos = {}
         for sessao in sessoes:
@@ -185,10 +186,10 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
             with CaptureQueriesContext(connection) as ctx:
                 resposta = self.client.get(url)
             self.assertEqual(resposta.status_code, 200)
-            custos[sessao.exercises.count()] = len(ctx.captured_queries)
+            custos[(sessao.label, sessao.exercises.count(), sessao.weekday == hoje)] = len(ctx.captured_queries)
 
-        for exercicios, consultas in custos.items():
-            with self.subTest(exercicios=exercicios):
+        for (letra, exercicios, e_hoje), consultas in custos.items():
+            with self.subTest(letra=letra, exercicios=exercicios, hoje=e_hoje):
                 self.assertLessEqual(
                     consultas, self.TETO_DA_FICHA,
                     "a ficha de %d exercícios fez %d consultas (teto %d) — "
@@ -196,10 +197,19 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
                     % (exercicios, consultas, self.TETO_DA_FICHA),
                 )
 
+        # A constância é por TAMANHO, com a sessão de hoje à parte: a ficha
+        # de hoje faz três consultas fixas a mais (a escolha da opção, a
+        # última escolha para recomendar, as séries já registradas) — é
+        # estado do dia, não linha da lista. Medido em 17/09/2026: 11 nas
+        # outras, 14 na de hoje, com 14 e 16 exercícios.
+        de_outros_dias = {v for (_, _, e_hoje), v in custos.items() if not e_hoje}
+        de_hoje = {v for (_, _, e_hoje), v in custos.items() if e_hoje}
         self.assertEqual(
-            len(set(custos.values())), 1,
+            len(de_outros_dias), 1,
             "o custo da ficha varia com o número de exercícios: %s" % custos,
         )
+        self.assertLessEqual(len(de_hoje), 1, custos)
+        self.assertLessEqual(max(de_hoje) - max(de_outros_dias), 3, custos)
 
     #: Uma quarta-feira: dia de treino do fixture, com série registrada nele.
     PIOR_DIA = date(2026, 9, 16)

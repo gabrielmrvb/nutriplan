@@ -302,6 +302,12 @@ class Command(BaseCommand):
 
         plano, _ = plan_services.sync_active_plan(user)
         ficha, _ = workout_services.sync_active_routine(user)
+        # O DEMO É FIXTURE DE QUE O SEED É DONO: quando a prescrição do
+        # catálogo mudou (17/09/2026: `sync_active_routine` deixou de
+        # remontar por isso — a pessoa de verdade decide na Home), o demo
+        # regenera sozinho, para a face pública mostrar a ficha de hoje.
+        if workout_services.rotina_desatualizada(ficha, user):
+            ficha = workout_services.create_routine(user)
         self._limpar_fichas_orfas(user, ficha)
 
         self._preencher_o_dia(user, plano)

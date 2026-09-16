@@ -10,6 +10,8 @@ urlpatterns = [
     # pessoa precisa poder voltar para ele, recarregar e compartilhar o
     # endereço sem cair no meio de uma página de cinco mil pixels.
     path("agora/", views.ModoTreinoView.as_view(), name="now"),
+    path("regenerar/", views.RegenerarTreinoView.as_view(), name="regenerar"),
+    path("aviso/dispensar/", views.DispensarAvisoView.as_view(), name="dispensar_aviso"),
     # A FICHA DE UMA SESSÃO É UMA PÁGINA, e não uma sanfona da tela principal.
     #
     # A tela de treino desenhava o cartão completo de todo exercício de toda

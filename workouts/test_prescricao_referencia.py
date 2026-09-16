@@ -230,13 +230,15 @@ class OPerfilDeReferenciaRecebeUmaFichaDeVerdadeTests(TestCase):
         from workouts.tests import excesso_e_irredutivel
 
         efetivo = services.volume_da_semana(self.plano)
+        # Um teto POR GRUPO, pela frequência (TREINO.md, tabela B) — 17/09/2026.
+        tetos = services.tetos_da_semana(self.plano)
 
         for grupo, volume in efetivo.items():
-            if volume <= services.TETO_SEMANAL_POR_GRUPO:
+            if volume <= tetos[grupo]:
                 continue
             irredutivel, evidencia = excesso_e_irredutivel(self.plano, grupo)
-            with self.subTest(grupo=grupo):
-                self.assertTrue(irredutivel, "%s em %s tendo o que ceder: %s" % (grupo, volume, evidencia))
+            with self.subTest(grupo=grupo, volume=volume, teto=tetos[grupo]):
+                self.assertTrue(irredutivel, "%s em %s (teto %s) tendo o que ceder: %s" % (grupo, volume, tetos[grupo], evidencia))
 
     def test_nenhum_grupo_do_catalogo_desaparece_da_semana(self):
         previstos = {

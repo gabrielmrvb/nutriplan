@@ -407,6 +407,27 @@ coluna da direita), não entre ela e o almoço.
         seção de área da tela; promovê-la seria mover um bloco para onde ele já
         está. O que ela ganha é o selo, mais abaixo.
       {% endcomment %}
+      {% if aviso_regenerar %}
+        {% comment %}
+          O catálogo mudou embaixo de uma ficha válida (17/09/2026). O plano é
+          retrato e NÃO foi remontado; a pessoa decide. Uma vez: "Agora não"
+          grava a dispensa no plano, e o aviso não volta em aparelho nenhum.
+          Depois do AGORA, porque urgência vence sugestão.
+        {% endcomment %}
+        <section class="card aviso-regenerar">
+          <h2 class="aviso-regenerar__titulo">Seu treino pode ficar mais completo — regenerar?</h2>
+          <p class="aviso-regenerar__texto">O catálogo de exercícios cresceu desde que sua ficha foi montada. Regenerar monta uma ficha nova com ele; a atual continua no histórico.</p>
+          <div class="aviso-regenerar__acoes">
+            <form method="post" action="{% url 'workouts:regenerar' %}">{% csrf_token %}
+              <button type="submit" class="btn btn--primary">Regenerar treino</button>
+            </form>
+            <form method="post" action="{% url 'workouts:dispensar_aviso' %}">{% csrf_token %}
+              <button type="submit" class="btn btn--ghost">Agora não</button>
+            </form>
+          </div>
+        </section>
+      {% endif %}
+
       {% if area_promovida == "hidratacao" %}
         {% include "plans/_agua.html" with promovida=True %}
       {% elif area_promovida and area_promovida != "dieta" %}

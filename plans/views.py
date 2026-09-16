@@ -362,6 +362,16 @@ class TodayView(PlanRequiredMixin, TemplateView):
         # treino, e fazer isso aqui daria à tela de comida o poder de criar
         # ficha como efeito colateral de uma visita.
         estado_treino = treino_services.estado_do_treino(self.request.user, dia=today)
+        # "Seu treino pode ficar mais completo — regenerar?": só quando o
+        # catálogo mudou embaixo de uma ficha válida e a pessoa ainda não
+        # dispensou (17/09/2026). Com a ficha nascida deste catálogo custa
+        # ZERO consultas (a impressão digital está no plano, que o estado
+        # já carregou); com ficha de antes ou de outro catálogo, a
+        # conferência exata da prescrição — medido em `plans.test_stress`.
+        aviso_regenerar = (
+            estado_treino.tem_ficha
+            and treino_services.aviso_de_regenerar(self.request.user, plan=estado_treino.plan)
+        )
 
         # `localtime()` e não `datetime.now()`: o servidor roda em UTC e o
         # horário das refeições é o do fuso da pessoa. Sem isso o "agora" erra
@@ -459,6 +469,7 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 "menu_on_target": abs(menu["kcal"] - self.plan.target_kcal) <= MENU_TOLERANCE_KCAL,
                 "acao": acao,
                 "treino_hoje": estado_treino,
+                "aviso_regenerar": aviso_regenerar,
                 "hidratacao_ml": meta_agua,
                 "pode_desfazer_agua": pode_desfazer_agua,
                 "hidratacao_bebida": bebido,

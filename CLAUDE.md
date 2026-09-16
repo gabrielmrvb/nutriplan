@@ -228,6 +228,28 @@ compara com o que o motor calcula hoje e descarta o que não bate.
 **Ficha ajustada não é remontada.** `TrainingPlan.customized_at` desliga o
 gerador. Sem isso, mudar o horário de terça apaga a troca de ontem.
 
+**Ficha que o CATÁLOGO deixou para trás também não é remontada — a Home
+pergunta (17/09/2026).** O painel remontava a ficha na entrada sempre que a
+prescrição do catálogo divergia da gravada; o deploy que ativou 28
+exercícios trocaria a ficha de todo mundo no meio da semana, sem ninguém
+pedir. Hoje `sync_active_routine` só remonta a ficha INVÁLIDA
+(`rotina_invalida`: sem sessão, exercício aposentado, divisão que não
+corresponde à frequência, dias/horários diferentes — e nível ou faixa de
+duração diferentes dos que a ficha guarda, porque aí foi a pessoa que mexeu
+na própria entrada). Prescrição diferente é `rotina_desatualizada`, e a
+resposta é um aviso único e dispensável na Home, depois do AGORA: "Seu
+treino pode ficar mais completo — regenerar?". Regenerar é `POST
+/treino/regenerar/`; "Agora não" grava `aviso_dispensado_em` NO PLANO, não
+no navegador. O plano virou retrato também das ENTRADAS (`catalogo`,
+`nivel`, `duracao`): `catalogo` é a impressão digital de `exercises.json` +
+`splits.json` + `TREINO.md` (`versao_do_catalogo`), e com ela igual à de
+hoje a Home responde "nada mudou" com ZERO consultas — a conferência exata
+(represcrever a semana, onze consultas) só roda para ficha nascida de outro
+catálogo ou de antes da migration `0023`, que ficou com os três em branco.
+Em branco é desconhecido, e desconhecido não invalida nada. O demo é
+fixture de que o seed é dono: `seed_demo` regenera sozinho quando a
+prescrição mudou.
+
 **A ofensiva mede aderência AO PLANO, e o denominador vem do plano.** Não do
 que a pessoa marcou — essa era a regra antiga, e ela invertia o incentivo do
 app: três refeições feitas mais duas marcadas como "comi outra coisa" davam
@@ -395,10 +417,12 @@ existe para consertar, vista ao vivo.
 letra A duas vezes na semana soma o peito duas vezes. A resposta NÃO é reduzir
 a dose — quem repete a letra quer a frequência maior. `prescrever_semana` monta
 a dose cheia e só então apara: `aparar_volume_semanal` remove ISOLADORES até
-nenhum grupo passar de `TETO_SEMANAL_POR_GRUPO = 20` séries efetivas, e
-`escolher_para_o_tempo` corta até a sessão caber no tempo informado. A versão
-anterior cobrava do exercício principal e derrubava o supino de quatro séries
-para duas.
+nenhum grupo passar do teto semanal de séries efetivas — até 16/09/2026
+`TETO_SEMANAL_POR_GRUPO = 20` para todo grupo; desde 17/09 o teto é do NÍVEL
+e da FREQUÊNCIA com que o grupo é treinado na semana (`TREINO.md`, tabela B;
+`services.tetos_da_semana`) —, e `escolher_para_o_tempo` corta até a sessão
+caber no tempo informado. A versão anterior cobrava do exercício principal e
+derrubava o supino de quatro séries para duas.
 
 **Série secundária não é série direta**, e é por isso que o teto fala em
 efetivas: `volume_efetivo` conta 1,0 para o grupo trabalhado e
@@ -439,25 +463,71 @@ alvo e o topo é o limite — Rápido até 30, Padrão até 60, Completo até 65
 continua gravado porque `plans/meal_planner.py` precisa dele, e deixou de ser a
 pergunta.
 
-**O RÓTULO SÓ DIZ O TETO, e Padrão ≈ Completo HOJE (16/09/2026).** "Padrão —
-45 a 60" e "Completo — 60 a 90" prometiam pisos que o gerador não garante.
-Medido em 3 níveis × 3 preferências × 2–7 dias: com teto 60 a sessão entregue
-vai de 14 a 59 minutos e 4 a 25 séries; com teto 90 e com "sem limite" (65),
-o treino é IDÊNTICO nas 54 combinações, de 14 a 61 minutos. Nenhuma faixa
-chega a 60 porque a faixa de séries do nível (`FAIXA_POR_TETO_SEMANAL`, no
-máximo 16–20) e a dose do catálogo limitam a sessão antes do relógio — e a
-faixa é de PREENCHIMENTO, não de teto: `preencher_ate_a_faixa` só sobe séries
-de isolador até ela; a dose do catálogo pode passar dela, e passa ("Superior"
-em 2 dias = 26 séries, porque `ab` dá 26 ao modelo). Por isso `Completo`
-passou a usar 65 em `TETO_POR_DURACAO` — o teto que já entregava, para o
-rótulo ser verdade por construção —, "Sem limite rígido" virou "o mesmo que
-Completo" e saiu de todo formulário (`DuracaoTreino.escolhas_visiveis`; segue
-no `choices` e no banco para quem já tem, sem migração de dado), e a Home diz
-o teto de todo mundo. A diferença entre Padrão e Completo só nasce com
-catálogo maior (objetivo 3 da missão de 16/09) e/ou com um **bloco de
-complementares orçado à parte** — 60 minutos só com esse bloco, e isso é
-decisão de produto pendente, não feita. O seletor da ficha diz a faixa
-CALCULADA da rápida ("~19–24 min"), e não "até 40".
+**O RÓTULO SÓ DIZ O TETO — Rápido 30, Padrão 60, Completo 90 — e desde
+17/09/2026 a sessão CHEGA lá.** "Padrão — 45 a 60" e "Completo — 60 a 90"
+prometiam pisos que o gerador não garantia: medido em 16/09, com teto 60 a
+sessão ia de 14 a 59 minutos, e com 90 o treino era IDÊNTICO ao de 65 em 54
+combinações, porque a faixa de séries do nível (no máximo 16–20) e o
+catálogo de 35 ativos limitavam a sessão antes do relógio. `Completo` valeu
+65 por um dia, para o rótulo ser verdade por construção. Com os 63 ativos e a
+doutrina do `TREINO.md` ele voltou a 90 (`accounts.0034`, só rótulo), e
+"Sem limite rígido" continua "o mesmo que Completo", fora de todo formulário
+(`DuracaoTreino.escolhas_visiveis`; segue no `choices` e no banco para quem
+já tem). O seletor da ficha diz a faixa CALCULADA da rápida ("~19–24 min"), e
+não "até 40". Medido em 17/09 na letra A do intermediário de cinco dias:
+Padrão 25 séries em 59 minutos; Completo 27 em 62–63.
+
+**A DOUTRINA DO TREINO MORA EM `docs/briefs/treino/TREINO.md`, e os testes
+LEEM o arquivo (17/09/2026).** É o contrato do gerador por nível × tipo de
+dia — `um_grupo`, `dois_grupos`, `tres_grupos`, `inferior`, `superior`,
+`full` —: exercícios por grupo (grande/pequeno), séries por exercício,
+séries diretas por sessão, semanal por frequência do grupo, descanso
+(composto 80 s, isolador 60 s) e duração esperada, com Schoenfeld, Helms e
+Israetel citados onde o número vem deles. `workouts/doutrina.py` lê as
+tabelas do disco uma vez (`lru_cache`) e o mapa "Tipos de dia" diz o tipo de
+cada letra de cada modelo; `workouts/test_treino_md.py` reprova o gerador
+contra o documento, e `workouts/test_ficha_de_verdade.py` é o TESTE DOURADO
+do dono, imutável: intermediário, 5 dias, `abc2`, Padrão → A com ≥ 6
+exercícios (≥ 4 peito, ≥ 2 tríceps), 21–28 séries diretas, 55–65 min, nas
+DUAS opções; Completo 60–80 min; o mesmo para 4 dias e 3 dias em ABC; os
+outros níveis com os valores do `TREINO.md`. Se não passar com o catálogo,
+ajusta-se o motor ou pede-se catálogo — nunca se afrouxa o teste. Antes da
+missão: 4 exercícios, 13 séries, ~36 minutos.
+
+Cinco decisões da doutrina que custaram medição, e o motivo de cada uma:
+
+- **a faixa de séries é do TIPO DE DIA e do nível, e o preenchimento vai até
+  o TOPO dela** (`preencher_ate_a_faixa`): parar no piso deixava "Peito e
+  tríceps" em 22 séries e 54 minutos com o catálogo inteiro. O que segura é
+  o relógio, o teto semanal e o teto por exercício do nível — e para o
+  iniciante (2–3 por exercício) a mesma função DESCE até o topo antes de
+  subir: o supino de quatro do catálogo vira três para ele, e "Peito,
+  tríceps e ombro" com oito exercícios fecha em 18–20;
+- **`tres_grupos` tem o grande em 4 e os pequenos em 2, com a MESMA faixa de
+  `dois_grupos`**: o teste dourado vale para "Peito, tríceps e ombro" de 3 e
+  4 dias, e três pequenos em 3 dariam dez exercícios e 31 séries antes do
+  preenchimento. Os modelos de `abc` foram redesenhados para isso (peito 8,
+  tríceps 4, ombro 4; costas 8, bíceps 4, antebraço+trapézio 4; quadríceps
+  4, posterior 4, panturrilha 4, core 2);
+- **a frequência da tabela B conta o grupo TREINADO — direto ou como
+  secundário de composto** (`grupos_treinados`): contando só o anunciado, o
+  ombro de "Pernas e ombros" caía uma vez (teto 23) com vinte séries
+  efetivas vindas dos supinos e das remadas, e o aparo tirava um dos três
+  exercícios de ombro do dia que se chama "Pernas e ombros". A tese da
+  tabela — mais sessões, mais recuperação, mais volume — vale para o
+  estímulo secundário do mesmo jeito;
+- **a margem de secundários do teto efetivo é ABSOLUTA (8 a 2×, 9 a 3×), a
+  mesma em todo nível**: o secundário vem do catálogo, não do nível; com a
+  margem proporcional (25%) o iniciante a 2× perdia o terceiro peito;
+- **o avançado é igual ao intermediário em Completo na sessão de dois
+  grupos** (27–28 séries, 62–63 min): sete exercícios a quatro séries são 28,
+  o máximo físico da linha; o que separa os níveis hoje é a tabela B (o
+  avançado fecha "Costas e bíceps" em 28, o intermediário em 26). Cinco de
+  peito para o avançado é dívida de CATÁLOGO, escrita no documento.
+
+A duração da tabela A foi MEDIDA em 17/09 com Completo, todas as letras de
+todos os modelos, e não estimada: onde a medição discordou da primeira
+versão, a medição venceu, e a lista de ajustes está no documento.
 
 **E a pergunta saiu da TELA em 10/09/2026, sem sair do motor.** Ela pedia uma
 calibração que ninguém consegue fazer antes de ver uma ficha — "rápido, padrão,
@@ -486,13 +556,16 @@ nos defaults apagaria em silêncio o que o cardápio de quem já usa o app lê. 
 teste postando `start_time=06:30` num formulário que não tem o campo e provando
 que o 19:00 gravado sobrevive.
 
-**A experiência move o TETO SEMANAL POR GRUPO, e só ele.** `Profile.experiencia`
-vale 12, 20 ou 24 séries efetivas — e vazio, que é "ainda não respondeu", vale
-20, o número que o app já praticava. Ninguém tem a ficha reescrita por uma
-pergunta nova, e a tela não afirma um nível que a pessoa não declarou. Ela não
-mexe em QUAIS exercícios entram: rebaixar o agachamento por ser "complexo demais
-para iniciante" seria o app tirar sozinho o movimento que mais interessa a quem
-está começando.
+**A experiência move o TETO SEMANAL POR GRUPO e a dose por exercício, e não
+a lista.** `Profile.experiencia` valia 12, 20 ou 24 séries efetivas até
+16/09/2026; desde 17/09 `TETO_POR_EXPERIENCIA` vem da tabela B do `TREINO.md`
+para o grupo que cai UMA vez (15, 23, 28), e o grupo que cai duas ou três
+vezes tem teto maior (`tetos_da_semana`). Vazio, que é "ainda não respondeu",
+vale intermediário. Ninguém tem a ficha reescrita por uma pergunta nova, e a
+tela não afirma um nível que a pessoa não declarou. Ela não mexe em QUAIS
+exercícios entram: rebaixar o agachamento por ser "complexo demais para
+iniciante" seria o app tirar sozinho o movimento que mais interessa a quem
+está começando — o iniciante faz os mesmos movimentos com 2 a 3 séries.
 
 E **o teto semanal é de APARO, não promessa** — vale para os três níveis e para
 o 20 de sempre. `aparar_volume_semanal` só remove isolador que treina o grupo
@@ -519,20 +592,27 @@ modelo. Medido nos 15 modelos: em "casa + halteres" oito perdem grupo sem
 substituto e `abcde-C` termina com ZERO exercícios; em "peso corporal" são treze
 modelos e sete zerados.
 
-**Varridos os 31 recortes possíveis de equipamento, UM é viável: o conjunto
-completo** — ou seja, nenhuma restrição, que é o comportamento de hoje. A causa
-é estrutural, e são três monopólios: **core** é 3 de 3 em peso do corpo,
-**antebraço** 2 de 2 em barra, **panturrilha** 2 de 2 em máquina. Todo recorte
-que exclua um desses três perde o grupo inteiro.
+**Varridos os 31 recortes possíveis de equipamento, UM era viável em 10/09: o
+conjunto completo** — ou seja, nenhuma restrição, que é o comportamento de
+hoje. A causa era estrutural, três monopólios: **core** 3 de 3 em peso do
+corpo, **antebraço** 2 de 2 em barra, **panturrilha** 2 de 2 em máquina. Com
+os 63 ativos de 17/09/2026 sobrou o core, e **casa + halteres virou PARCIAL**:
+nenhum grupo sem substituto, nenhuma sessão abaixo do piso, e três grupos
+sem folga (panturrilha, posterior, trapézio).
 
-O que destrava, medido por simulação: **casa + halteres precisa de DEZ
-exercícios, e não de três.** Três é a conta da COBERTURA — todo grupo com pelo
-menos uma opção —, e ela engana: com exatamente três, sete dos onze grupos
-ficariam com UM exercício, a semana cairia de 26-29 movimentos distintos para
-13-14 com o mesmo número de séries, e o teto por experiência pararia de
-funcionar, porque `aparar_volume_semanal` nunca remove o último exercício direto
-de um grupo. O piso real é a FOLGA (duas opções por grupo usado): dez. Igualar a
-variedade da academia custa dezoito. A tabela está no `BACKLOG.md`.
+O que destrava, medido: **casa + halteres precisava de DEZ exercícios em
+10/09, e precisa de TRÊS desde 17/09** — e não de "três" no sentido de
+10/09. Aquele três era a conta da COBERTURA — todo grupo com pelo menos uma
+opção —, e ela engana: com exatamente três, sete dos onze grupos ficariam
+com UM exercício, a semana cairia de 26-29 movimentos distintos para 13-14
+com o mesmo número de séries, e o teto por experiência pararia de funcionar,
+porque `aparar_volume_semanal` nunca remove o último exercício direto de um
+grupo. O piso real é a FOLGA (duas opções por grupo usado): eram dez, e
+quatro variantes com halteres entraram com foto conferida (stiff,
+panturrilha em pé, rosca de punho, agachamento goblet) — faltam a
+panturrilha sentado, a elevação pélvica e a remada alta com halteres, com
+mídia curada. A tabela está no `BACKLOG.md`; a régua, em
+`workouts/test_capacidade_de_ambiente.py`.
 
 **EXERCÍCIO ATIVO TEM DEMONSTRAÇÃO, e são quatro contratos com nove guardas.**
 `video_url` embutível, `clip_kind` não vazio, `tem_anatomia` verdadeiro e
@@ -540,8 +620,12 @@ presença em `media_map.json`. Isso não é burocracia: foi o que bloqueou a
 expansão de Casa + Halteres em 10/09/2026. Nove variantes com halteres foram
 cadastradas, mediram bem — sete grupos sem folga viraram um, variedade de 13-14
 para 18-19 movimentos por semana — e voltaram atrás, porque escolher vídeo exige
-assistir e este ambiente não assiste. O que falta ali é curadoria de MÍDIA para
-nove movimentos já especificados, não decidir o que cadastrar.
+assistir e este ambiente não assiste. Quatro delas entraram em 17/09/2026 pela
+porta certa — foto conferida pelo dono num mosaico de veto, licença
+registrada em `curadoria` no `exercises.json` —, junto com outros 24; o veto
+é `manage.py desativar_exercicio <nome>` (reversível com `--reativar`), e
+ele desativa no JSON e no banco. O que falta para os cinco restantes é
+curadoria de MÍDIA, não decidir o que cadastrar.
 
 **COBERTURA NÃO É QUALIDADE**, e a régua cobra as duas. Como efeito colateral, o
 catálogo virou contrato: aposentar um dos dois exercícios de panturrilha derruba
@@ -683,9 +767,10 @@ mesma letra. Hoje (`workouts/opcoes.py`, `services.prescrever_opcoes`):
   concessão num exercício compartilhado é ESPELHADA nas irmãs: sem as duas
   regras, uma opção ficava com três compostos e a outra com um (doze minutos
   de diferença) e o teto tirava o crucifixo de uma opção só;
-- a faixa de séries por sessão é do NÍVEL (12–15 iniciante, 15–18
-  intermediário, 16–20 avançado), lida do mesmo teto semanal que já traduz
-  a experiência — uma régua, dois usos;
+- a faixa de séries por sessão é do NÍVEL e do TIPO DE DIA (`TREINO.md`,
+  tabela A: 21–28 para "Peito e tríceps" do intermediário; 14–18 para o
+  iniciante), e o preenchimento vai até o topo dela — até 16/09/2026 era só
+  do nível (12–15 / 15–18 / 16–20) e parava no piso;
 - a pessoa escolhe qual faz (`EscolhaDeTreino`, uma por dia); a recomendada
   é a menos usada recentemente e é um selo, nunca uma obrigação; a
   primeira série grava a escolha; trocar depois da primeira série pede
@@ -742,9 +827,9 @@ do teto de 60.
 pode perder a segunda.** `workouts/opcoes_em_producao.py` conta com o MOTOR
 e o catálogo ATIVO (uma pessoa transitória por divisão, desfeita ao sair), e
 `LETRAS_COM_OPCOES_EM_PRODUCAO` é o CONJUNTO de letras que produção tem com
-duas — 16 pares em 16/09/2026. Por letra, e não por contagem (17/09): `abcd
-C` perdendo a segunda enquanto `full A` ganha uma dá "16 = 16" e é
-regressão para quem treina quatro dias. O teste em
+duas — 16 pares em 16/09/2026, TODAS as 18 desde o deploy de 17/09. Por
+letra, e não por contagem (17/09): `abcd C` perdendo a segunda enquanto
+`full A` ganha uma dá "16 = 16" e é regressão para quem treina quatro dias. O teste em
 `workouts/test_catalogo.py` fica VERMELHO enquanto o código local tirar a
 segunda opção de qualquer letra do conjunto, e o pre-push roda a suíte: para
 subir, ou o catálogo ativado devolve a letra, ou a decisão de reduzir é
@@ -753,38 +838,37 @@ conjunto só cresce depois do deploy que provou a letra nova. O relatório de
 deploy mostra "antes / depois" por letra: `manage.py opcoes_por_letra` no
 commit de produção e no candidato.
 
-**O CATÁLOGO CRESCEU INATIVO ATÉ SUSTENTAR DUAS OPÇÕES CHEIAS (16/09/2026).**
-28 exercícios novos (64 no total, 35 ativos como antes) entraram com
-`active: false`, padrão, equipamento, dica, articulações, secundários, chave
-CONFERIDA na free-exercise-db (56 fotos respondendo) e `candidatos` de mídia
-achados por BUSCA — não por visualização. Ativar é curadoria da manhã: mover
-um candidato para `video` com o `video_titulo` do oEmbed, pôr a anatomia em
-`animacoes.json` e trocar `active`. A régua: para um grupo com `k`
-exercícios na sessão, duas opções com metade própria pedem
-`2·ceil(k/2) + floor(k/2)` e duas opções CHEIAS pedem `2k` — peito 8,
-tríceps 6, costas 8, bíceps 6, quadríceps 6, posterior 6, ombro 8,
-panturrilha/trapézio/antebraço 4 (`CatalogoDimensionadoTests.K_HOJE` congela
-o `k` de hoje). Os modelos de `splits.json` JÁ listam os novos: o
-`is_active` os filtra até a ativação, e `abc A` fica no mínimo (peito 6,
-tríceps 5, ombro 4) porque com 18 exercícios em três grupos o corte por
-tempo caía diferente em cada opção e a letra perdia a segunda.
+**O CATÁLOGO CRESCEU INATIVO ATÉ SUSTENTAR DUAS OPÇÕES CHEIAS (16/09/2026),
+E FOI ATIVADO EM 17/09 COM FOTO CONFERIDA.** 28 exercícios novos (64 no
+total) entraram com `active: false`, padrão, equipamento, dica,
+articulações, secundários, chave CONFERIDA na free-exercise-db (The
+Unlicense) e `candidatos` de mídia achados por BUSCA — não por visualização.
+No dia seguinte entraram ativos (63; "Remada curvada com barra" continua
+aposentada): cada foto conferida — mesma pessoa, mesmo movimento, sem marca
+d'água, licença — e registrada em `curadoria` no `exercises.json`, com um
+mosaico de veto para o dono. A régua dos modelos é a tabela A do
+`TREINO.md`: cada opção é metade do modelo, então o modelo lista o DOBRO da
+cota de exercícios por grupo anunciado (`CatalogoDimensionadoTests` cobra
+isso com `_cotas` do `test_treino_md`) — peito 8, tríceps 6 em "Peito e
+tríceps".
 
 E os modelos também ganharam exercícios que JÁ ERAM ATIVOS onde faltava um
 segundo do mesmo padrão composto (elevação pélvica em `ab B`, barra fixa
-assistida em `full A`, stiff em `abcd D`...): com isso o gate fecha em 16
+assistida em `full A`, stiff em `abcd D`...): com isso o gate fechava em 16
 sem ativar nada. Medido em 16/09: ativar só "Desenvolvimento na máquina" dá
-17 (`abcd C` volta); com os 28 ativos, 18 de 18 — e as sessões chegam a
-59–60 minutos, que é o "perto de 60" do brief.
+17 (`abcd C` volta); com os 28 ativos, 18 de 18 — e é o estado de produção
+desde 17/09, com as sessões em 55–60 minutos no Padrão.
 
-**O que o catálogo NÃO deixa fazer, medido:** "peito e tríceps" tem 4
-exercícios por opção porque o catálogo tem 4 peitos e 3 tríceps — duas
-opções distintas de 3+3 pediriam 6 e 6. E com a letra duas vezes na semana,
-o teto de 20 séries efetivas deixa ~10 por sessão para o tríceps já contando
-o secundário dos supinos. Sessões de 13–22 séries e 30–52 minutos são o
-número de hoje, escrito em `workouts/test_opcoes.py`; "perto de 60" é o alvo
-do brief e só chega com catálogo maior. A equilibragem PRIMEIRO DÁ série à
-opção mais leve e só depois tira da mais pesada: tirar primeiro deixava as
-duas com o tríceps em duas séries.
+**O que o catálogo NÃO deixava fazer, medido em 15/09:** "peito e tríceps"
+tinha 4 exercícios por opção porque o catálogo tinha 4 peitos e 3 tríceps —
+duas opções distintas de 3+3 pediam 6 e 6 —, e com a letra duas vezes na
+semana o teto de 20 séries efetivas deixava ~10 por sessão para o tríceps.
+Sessões de 13–22 séries e 30–52 minutos eram o número daquele dia; desde
+17/09/2026, com 8 peitos e 6 tríceps no modelo e o teto da frequência (40 a
+2×), são 7 exercícios por opção, 24–26 séries e 57–60 minutos no Padrão
+(`workouts/test_opcoes.py`), e o teste dourado cobra a letra A. A
+equilibragem PRIMEIRO DÁ série à opção mais leve e só depois tira da mais
+pesada: tirar primeiro deixava as duas com o tríceps em duas séries.
 
 **O modelo declara os grupos que o NOME promete, e o resto é COMPLEMENTAR.**
 `WorkoutTemplate.main_groups` é curadoria, não dedução: "grupo com poucos

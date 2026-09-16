@@ -78,7 +78,7 @@
   "Crucifixo inverso com halteres": "Seated_Bent-Over_Rear_Delt_Raise",
 
   "Agachamento no hack": "Hack_Squat",
-  "Agachamento goblet com halter": "Goblet_Squat",
+  "Agachamento goblet": "Goblet_Squat",
 
   "Stiff com halteres": "Stiff-Legged_Dumbbell_Deadlift",
   "Bom dia com barra": "Good_Morning",
@@ -98,5 +98,5 @@
   "Remada alta na polia": "Upright_Cable_Row",
 
   "Rosca de punho com halteres": "Palms-Up_Dumbbell_Wrist_Curl_Over_A_Bench",
-  "Rosca inversa com halteres": "Palms-Down_Dumbbell_Wrist_Curl_Over_A_Bench"
+  "Rosca de punho invertida com halteres": "Palms-Down_Dumbbell_Wrist_Curl_Over_A_Bench"
 }

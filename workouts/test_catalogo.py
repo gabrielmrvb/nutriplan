@@ -33,9 +33,9 @@ class CopyDeTempoTests(SimpleTestCase):
                 self.assertIn("até", faixa.label)
 
     def test_completo_e_sem_limite_dizem_que_sao_a_mesma_coisa(self):
-        self.assertEqual(DuracaoTreino.COMPLETO.label, "Completo — a sessão inteira, até 65 minutos")
+        self.assertEqual(DuracaoTreino.COMPLETO.label, "Completo — a ficha inteira, até 90 minutos")
         self.assertEqual(
-            DuracaoTreino.LIVRE.label, "Sem limite rígido — o mesmo que Completo, até 65 minutos"
+            DuracaoTreino.LIVRE.label, "Sem limite rígido — o mesmo que Completo, até 90 minutos"
         )
         self.assertEqual(DuracaoTreino.RAPIDO.label, "Rápido — até 30 minutos")
         self.assertEqual(DuracaoTreino.PADRAO.label, "Padrão — até 60 minutos")
@@ -77,8 +77,8 @@ class TetoNaHomeTests(TestCase):
     def test_quem_e_sem_limite_tambem_le_o_teto(self):
         """"até {{ teto }} min" era só para quem tinha teto; sem limite lia
         nada — e desde 15/09/2026 essa pessoa tem a sessão de até 65."""
-        self.assertIn("até 65 min", self._home_de(DuracaoTreino.LIVRE))
-        self.assertIn("até 65 min", self._home_de(DuracaoTreino.COMPLETO))
+        self.assertIn("até 90 min", self._home_de(DuracaoTreino.LIVRE))
+        self.assertIn("até 90 min", self._home_de(DuracaoTreino.COMPLETO))
         self.assertIn("até 60 min", self._home_de(DuracaoTreino.PADRAO))
         self.assertIn("até 30 min", self._home_de(DuracaoTreino.RAPIDO))
 
@@ -152,6 +152,7 @@ class PadraoDeMovimentoTests(TestCase):
         sem = [e.name for e in Exercise.objects.all() if e.padrao not in validos]
         self.assertEqual(sem, [])
         self.assertGreaterEqual(Exercise.objects.count(), 36)
+        self.assertTrue(all(e.equipment for e in Exercise.objects.all()))
 
     def test_composto_e_o_padrao_concordam(self):
         """`is_compound` continua decidindo série e descanso; o padrão decide
@@ -294,7 +295,11 @@ class GateDeOpcoesPorLetraTests(TestCase):
             "\nletras que produção tem com duas opções e aqui saem com uma: %s\n%s"
             % (", ".join("%s %s" % p for p in perdidas), tabela),
         )
-        self.assertEqual(len(gate.LETRAS_COM_OPCOES_EM_PRODUCAO), 16)
+        # Dezoito: TODAS as letras do catálogo, desde o deploy de 17/09/2026.
+        # Um `ab A` ou `full A` fora do conjunto seria voltar à medição de
+        # 16/09 (35 ativos).
+        self.assertEqual(len(gate.LETRAS_COM_OPCOES_EM_PRODUCAO), 18)
+        self.assertEqual(set(por_letra), set(gate.LETRAS_COM_OPCOES_EM_PRODUCAO), "letra sem par no gate")
 
     def test_a_conta_do_gate_nao_deixa_rastro(self):
         from accounts.models import User
@@ -309,11 +314,14 @@ class GateDeOpcoesPorLetraTests(TestCase):
 
 class CatalogoDimensionadoTests(TestCase):
     """Objetivo 3 (16/09/2026): o catálogo cresce até sustentar DUAS opções
-    cheias por letra — e cresce INATIVO, porque exercício ativo tem
-    demonstração conferida por alguém que assistiu, e este ambiente não
-    assiste. Os 28 novos entram com padrão, equipamento, dica, chave
-    conferida na free-exercise-db e candidatos de mídia achados por busca;
-    ativar é curadoria da manhã, não deploy.
+    cheias por letra. Entrou INATIVO em 16/09 e foi ATIVADO em 17/09/2026
+    com a curadoria escrita em cada linha (`curadoria`): as 56 fotos
+    vistas (26 ok, 2 dúvida — o goblet com kettlebell e a rosca de punho
+    invertida, renomeada), vídeo escolhido pelo TÍTULO do oEmbed e conferido
+    por `titulo_confere` (quadro não assistido — é a limitação, dita), e a
+    anatomia do mesmo padrão de movimento já curado. O mosaico para veto
+    está em `scratchpad/shots-dose/mosaico.html`; o veto é
+    `manage.py desativar_exercicio "<nome>"`.
 
     A fórmula: para um grupo com `k` exercícios ATIVOS no modelo da letra,
     duas opções com metade própria pedem `2·ceil(k/2) + floor(k/2)`; duas
@@ -332,32 +340,72 @@ class CatalogoDimensionadoTests(TestCase):
 
         return json.loads((RAIZ / "workouts" / "data" / "exercises.json").read_text(encoding="utf-8"))
 
-    def test_os_novos_entram_inativos_e_completos(self):
+    def test_os_novos_entraram_ativos_com_os_quatro_contratos_e_a_curadoria_escrita(self):
+        """Ativo tem demonstração: vídeo com título conferido, anatomia
+        diferente do vídeo, chave de foto — e a linha diz COMO foi curado,
+        para ninguém tomar "título conferido" por "vídeo assistido"."""
         import json
 
         from workouts.models import Exercise
+        from workouts.videos import titulo_confere
 
         mapa = json.loads((RAIZ / "workouts" / "data" / "media_map.json").read_text(encoding="utf-8"))
-        novos = [x for x in self._catalogo() if not x.get("active", True) and x["name"] != "Remada curvada com barra"]
+        anatomias = json.loads((RAIZ / "workouts" / "data" / "animacoes.json").read_text(encoding="utf-8"))
+        novos = [x for x in self._catalogo() if "curadoria" in x]
         self.assertEqual(len(novos), self.NOVOS)
         for linha in novos:
             with self.subTest(exercicio=linha["name"]):
-                self.assertFalse(Exercise.objects.get(name=linha["name"]).is_active)
+                exercicio = Exercise.objects.get(name=linha["name"])
+                self.assertTrue(exercicio.is_active)
                 self.assertTrue(linha["padrao"] and linha["equipment"] and linha["cue"])
                 self.assertIn(linha["name"], mapa, "sem chave na free-exercise-db")
-                self.assertTrue(linha["candidatos"]["execucao"], "sem candidato de execução")
-                self.assertTrue(linha["candidatos"]["anatomia"], "sem candidato de anatomia")
-                # Candidato NÃO é vídeo: `video` só entra com `video_titulo`,
-                # depois de alguém assistir.
-                self.assertNotIn("video", linha)
+                self.assertTrue(linha.get("video") and linha.get("video_titulo"))
+                self.assertTrue(titulo_confere(linha["name"], linha["video_titulo"]))
+                self.assertIn(linha["name"], anatomias)
+                self.assertNotEqual(anatomias[linha["name"]], linha["video"])
+                self.assertIn(linha["curadoria"]["fotos"], ("ok", "duvida"))
+                self.assertIn("não assistido", linha["curadoria"]["video_por"])
+                self.assertTrue(exercicio.tem_anatomia)
 
-    def test_os_ativos_continuam_os_mesmos_trinta_e_cinco(self):
-        """O deploy sobe o catálogo pronto, não a variedade: nenhum novo
-        ativo por acidente."""
+    def test_os_ativos_sao_sessenta_e_tres(self):
+        """35 de sempre + os 28 de 17/09/2026; a aposentada continua inativa."""
         from workouts.models import Exercise
 
-        self.assertEqual(Exercise.objects.filter(is_active=True).count(), 35)
+        self.assertEqual(Exercise.objects.filter(is_active=True).count(), 35 + self.NOVOS)
         self.assertEqual(Exercise.objects.count(), 36 + self.NOVOS)
+        self.assertFalse(Exercise.objects.get(name="Remada curvada com barra").is_active)
+
+    def test_o_veto_desativa_nos_dois_lugares_e_e_reversivel(self):
+        """`desativar_exercicio` é a resposta ao veto do mosaico: banco E
+        JSON, senão o seed do próximo deploy ressuscita o exercício."""
+        import json
+        import shutil
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+
+        from workouts.management.commands import desativar_exercicio as comando
+        from workouts.models import Exercise
+
+        # Numa CÓPIA temporária do catálogo, nunca no arquivo versionado: com
+        # `--parallel` outro worker roda o seed a qualquer instante, e um
+        # `exercises.json` real com o exercício desativado por meio segundo
+        # faria um teste alheio contar 62 ativos (revisão de 17/09/2026).
+        with tempfile.TemporaryDirectory() as pasta:
+            caminho = Path(pasta) / "exercises.json"
+            shutil.copy(RAIZ / "workouts" / "data" / "exercises.json", caminho)
+            with mock.patch.object(comando, "CATALOGO", caminho):
+                call_command("desativar_exercicio", "Agachamento goblet", verbosity=0)
+                self.assertFalse(Exercise.objects.get(name="Agachamento goblet").is_active)
+                linha = next(x for x in json.loads(caminho.read_text(encoding="utf-8")) if x["name"] == "Agachamento goblet")
+                self.assertFalse(linha["active"])
+                call_command("desativar_exercicio", "Agachamento goblet", reativar=True, verbosity=0)
+                self.assertTrue(Exercise.objects.get(name="Agachamento goblet").is_active)
+                linha = next(x for x in json.loads(caminho.read_text(encoding="utf-8")) if x["name"] == "Agachamento goblet")
+                self.assertTrue(linha["active"])
+        # O arquivo versionado não foi tocado.
+        real = next(x for x in json.loads((RAIZ / "workouts" / "data" / "exercises.json").read_text(encoding="utf-8")) if x["name"] == "Agachamento goblet")
+        self.assertTrue(real["active"])
 
     def test_todo_padrao_composto_anunciado_tem_dois_exercicios_no_modelo(self):
         """A condição estrutural para duas opções depois da ativação: em cada
@@ -376,51 +424,35 @@ class CatalogoDimensionadoTests(TestCase):
                     with self.subTest(modelo="%s %s" % (modelo.split, modelo.label), grupo=grupo, padrao=padrao):
                         self.assertGreaterEqual(n, 2)
 
-    #: A tabela "hoje" de 16/09/2026: quantos exercícios ATIVOS cada grupo
-    #: anunciado tinha no modelo da letra ANTES da expansão — é o `k` da
-    #: fórmula, a dose de uma sessão. Congelada porque o modelo cresceu e
-    #: recalcular `k` do modelo novo faria a régua correr atrás dela mesma.
-    K_HOJE = {
-        ("full", "A", "quads"): 1, ("full", "A", "chest"): 1, ("full", "A", "back"): 1,
-        ("full", "A", "hamstrings"): 1, ("full", "A", "shoulders"): 1, ("full", "A", "biceps"): 1,
-        ("full", "A", "triceps"): 1,
-        ("ab", "A", "chest"): 1, ("ab", "A", "back"): 2, ("ab", "A", "shoulders"): 1,
-        ("ab", "A", "biceps"): 1, ("ab", "A", "triceps"): 1,
-        ("ab", "B", "quads"): 2, ("ab", "B", "hamstrings"): 2,
-        ("abc", "A", "chest"): 4, ("abc", "A", "triceps"): 3, ("abc", "A", "shoulders"): 2,
-        ("abc", "B", "back"): 4, ("abc", "B", "biceps"): 3, ("abc", "B", "forearms"): 1, ("abc", "B", "traps"): 1,
-        ("abc", "C", "quads"): 3, ("abc", "C", "hamstrings"): 3, ("abc", "C", "calves"): 2,
-        ("abcd", "A", "chest"): 4, ("abcd", "A", "triceps"): 3,
-        ("abcd", "B", "back"): 4, ("abcd", "B", "biceps"): 3,
-        ("abcd", "C", "quads"): 3, ("abcd", "C", "hamstrings"): 2, ("abcd", "C", "shoulders"): 2,
-        ("abcd", "D", "hamstrings"): 1, ("abcd", "D", "traps"): 2, ("abcd", "D", "calves"): 2,
-        ("abcd", "D", "forearms"): 2, ("abcd", "D", "core"): 1,
-        ("abcde", "A", "chest"): 4, ("abcde", "B", "back"): 4,
-        ("abcde", "C", "quads"): 3, ("abcde", "C", "hamstrings"): 3, ("abcde", "C", "calves"): 2,
-        ("abcde", "D", "shoulders"): 4, ("abcde", "D", "traps"): 2,
-        ("abcde", "E", "biceps"): 3, ("abcde", "E", "triceps"): 3,
-        ("abc2", "A", "chest"): 4, ("abc2", "A", "triceps"): 3,
-        ("abc2", "B", "back"): 4, ("abc2", "B", "biceps"): 3,
-        ("abc2", "C", "quads"): 3, ("abc2", "C", "hamstrings"): 3, ("abc2", "C", "shoulders"): 2,
-    }
-
-    def test_o_modelo_tem_o_minimo_da_formula_para_duas_opcoes(self):
-        """Cada grupo anunciado de cada letra lista (contando os inativos)
-        pelo menos `2·ceil(k/2) + floor(k/2)` exercícios — o mínimo
-        matemático para duas opções com metade própria — sobre o `k` de
-        hoje; e nas letras de referência do brief (peito e tríceps de
-        `abc2`, `abcd`) o recomendado `2k`: peito 8, tríceps 6."""
-        import math
-
+    def test_o_modelo_lista_o_dobro_da_cota_do_treino_md(self):
+        """Cada opção é metade do modelo, então o modelo lista o DOBRO da
+        cota de exercícios da Tabela A do TREINO.md (intermediário) por grupo
+        anunciado — quadríceps e posterior somando a cota do grande em
+        "Pernas e ombros", antebraço e trapézio somando a do pequeno, e
+        panturrilha/core em no máximo dois por opção. A fórmula de 16/09
+        (`2·ceil(k/2) + floor(k/2)` sobre o modelo daquele dia) foi a régua
+        de um dia; a doutrina a substituiu em 17/09/2026. Nas letras de
+        referência do brief: peito 8, tríceps 6."""
+        from workouts import doutrina
         from workouts.models import WorkoutTemplate
+        from workouts.test_treino_md import COMPLEMENTARES_SEMPRE, _cotas
 
         modelos = {(m.split, m.label): m for m in WorkoutTemplate.objects.filter(is_active=True)}
-        for (split, letra, grupo), k in self.K_HOJE.items():
-            itens = [i for i in modelos[(split, letra)].items.select_related("exercise")
-                     if i.exercise.muscle_group == grupo]
-            minimo = 2 * math.ceil(k / 2) + math.floor(k / 2)
-            with self.subTest(modelo="%s %s" % (split, letra), grupo=grupo):
-                self.assertGreaterEqual(len(itens), minimo)
+        for (split, letra), modelo in modelos.items():
+            tipo = doutrina.tipo_de_dia(split, letra)
+            if tipo is None:
+                continue
+            grande_min, pequeno_min = doutrina.exercicios_por_grupo("intermediario", tipo)
+            grandes, pequenos = _cotas(modelo.main_groups, tipo)
+            por_grupo = {}
+            for item in modelo.items.select_related("exercise"):
+                por_grupo[item.exercise.muscle_group] = por_grupo.get(item.exercise.muscle_group, 0) + 1
+            with self.subTest(modelo="%s %s" % (split, letra), por_grupo=por_grupo):
+                for cota in grandes:
+                    self.assertGreaterEqual(sum(por_grupo.get(g, 0) for g in cota), 2 * grande_min, cota)
+                for cota in pequenos:
+                    minimo = min(pequeno_min, 2) if set(cota) <= set(COMPLEMENTARES_SEMPRE) else pequeno_min
+                    self.assertGreaterEqual(sum(por_grupo.get(g, 0) for g in cota), 2 * minimo, cota)
         for split in ("abc2", "abcd"):
             a = modelos[(split, "A")]
             por_grupo = {}

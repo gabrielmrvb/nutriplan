@@ -596,16 +596,14 @@
       "triceps",
       "shoulders"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/kgZwiUZvhOU",
-        "https://www.youtube.com/shorts/k1gMi4IZZEA"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/watch?v=yyin7LezX5E",
-        "https://www.youtube.com/results?search_query=supino+reto+com+halteres+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/kgZwiUZvhOU",
+    "video_titulo": "Aprenda a treinar Supino Reto com Halteres",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "candidato próprio (candidatos.anatomia) e igual à de 'Supino reto com barra' — 'Supino Reto - Músculos Trabalhados' [Meu",
+      "data": "2026-09-17"
     }
   },
   {
@@ -623,16 +621,14 @@
       "triceps",
       "shoulders"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/N5dcVKWRXvw",
-        "https://www.youtube.com/shorts/PfFxqDN-TKc"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/watch?v=yyin7LezX5E",
-        "https://www.youtube.com/results?search_query=supino+máquina+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/N5dcVKWRXvw",
+    "video_titulo": "SUPINO RETO MAQUINA",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "candidato próprio (candidatos.anatomia) e igual à de 'Supino reto com barra' — 'Supino Reto - Músculos Trabalhados' [Meu",
+      "data": "2026-09-17"
     }
   },
   {
@@ -648,15 +644,14 @@
     "secundarios": [
       "shoulders"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/mQoTwHqoJuY",
-        "https://www.youtube.com/shorts/35VzplpPLG4"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=crucifixo+com+halteres+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/mQoTwHqoJuY",
+    "video_titulo": "COMO FAZER CRUCIFIXO COM HALTERES",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Crucifixo na máquina (voador)' (ativo, mesmo padrão e grupo) — mesmo canal sem o destaque anatômico: Peito -",
+      "data": "2026-09-17"
     }
   },
   {
@@ -672,15 +667,14 @@
     "secundarios": [
       "shoulders"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/tBsuahKuvUc",
-        "https://www.youtube.com/watch?v=E3aha5zhlc0"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=crossover+polia+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/tBsuahKuvUc",
+    "video_titulo": "Crucifixo cross over polia média - peitoral #musculação",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Crucifixo na máquina (voador)' (ativo, mesmo padrão e grupo) — mesmo canal sem o destaque anatômico: Peito -",
+      "data": "2026-09-17"
     }
   },
   {
@@ -698,15 +692,14 @@
       "biceps",
       "forearms"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/vXKcuyaQD0w",
-        "https://www.youtube.com/watch?v=IFDUGxHRIKA"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=puxada+supinada+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/vXKcuyaQD0w",
+    "video_titulo": "Como fazer puxada a frente supinada",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Puxada frente na polia' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Puxada Frente na Polia",
+      "data": "2026-09-17"
     }
   },
   {
@@ -724,15 +717,14 @@
       "biceps",
       "forearms"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/results?search_query=barra+fixa+supinada+chin+up+shorts",
-        "https://www.youtube.com/watch?v=BBmjDutLmAo"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=barra+fixa+supinada+m%C3%BAsculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/watch?v=BBmjDutLmAo",
+    "video_titulo": "BARRA FIXA - COMO FAZER? (PULL-UP)",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Puxada frente na polia' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Puxada Frente na Polia",
+      "data": "2026-09-17"
     }
   },
   {
@@ -752,15 +744,14 @@
       "forearms",
       "core"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/krw3W1_PM18",
-        "https://www.youtube.com/shorts/eFfCvsaoyhs"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=remada+curvada+com+halteres+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/eFfCvsaoyhs",
+    "video_titulo": "Remada Curvada com Halteres - Pegada Neutra",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Remada curvada com barra' — APOSENTADA, mas a URL segue em animacoes.json — único 'Músculos Trabalhados' de ",
+      "data": "2026-09-17"
     }
   },
   {
@@ -778,15 +769,14 @@
       "biceps",
       "forearms"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/I-VquBHcA6E",
-        "https://www.youtube.com/shorts/NpMy1qsS3jE"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=remada+articulada+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/I-VquBHcA6E",
+    "video_titulo": "Remada na Máquina Articulada com Pegada Neutra",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Remada baixa na polia' (ativo, mesmo padrão e grupo) — mesmo canal sem o destaque anatômico: Remada Sentado ",
+      "data": "2026-09-17"
     }
   },
   {
@@ -803,15 +793,14 @@
     "secundarios": [
       "triceps"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/q_iHlstGEcc",
-        "https://www.youtube.com/shorts/JzicyWYUw0c"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=desenvolvimento+máquina+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/q_iHlstGEcc",
+    "video_titulo": "DESENVOLVIMENTO NA MÁQUINA",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Desenvolvimento com halteres' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Desenvolvimento ",
+      "data": "2026-09-17"
     }
   },
   {
@@ -830,15 +819,14 @@
       "triceps",
       "core"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/Xy0HBD2K4Jk",
-        "https://www.youtube.com/shorts/tZH8QkgWkL0"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=desenvolvimento+militar+barra+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/Xy0HBD2K4Jk",
+    "video_titulo": "OHP |  PRESS MILITAR | Desenvolvimento para ombros com barra",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Desenvolvimento com halteres' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Desenvolvimento ",
+      "data": "2026-09-17"
     }
   },
   {
@@ -854,15 +842,14 @@
     "secundarios": [
       "traps"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/kamdxk0L4Yw",
-        "https://www.youtube.com/shorts/752CtwjnGm4"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=face+pull+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/kamdxk0L4Yw",
+    "video_titulo": "Aprenda a realizar o Face Pull #academia #motivation #treino",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Crucifixo inverso na máquina' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Crucifixo Invert",
+      "data": "2026-09-17"
     }
   },
   {
@@ -878,15 +865,14 @@
     "secundarios": [
       "back"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/UC2Rd0fLLco",
-        "https://www.youtube.com/watch?v=H9Yh36fNFpk"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/shorts/yBpQOjLPFbY"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/UC2Rd0fLLco",
+    "video_titulo": "Crucifixo inverso com halteres #crucifixoinverso #deltoidesposterior",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "candidato próprio (candidatos.anatomia): 'Crucifixo Inverso com Halteres - Músculos Trabalhados' [Meu Treino Perfeito] —",
+      "data": "2026-09-17"
     }
   },
   {
@@ -903,22 +889,21 @@
     "secundarios": [
       "hamstrings"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/Kbh-1n8CHTs",
-        "https://www.youtube.com/watch?v=weyTbC-AjRg"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=agachamento+hack+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/Kbh-1n8CHTs",
+    "video_titulo": "Agachamento Hack",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Agachamento livre' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Agachamento - Músculos Trab",
+      "data": "2026-09-17"
     }
   },
   {
-    "name": "Agachamento goblet com halter",
+    "name": "Agachamento goblet",
     "muscle_group": "quads",
     "compound": true,
-    "cue": "Halter junto ao peito, cotovelos por dentro dos joelhos na descida; tronco ereto.",
+    "cue": "Halter (ou kettlebell) junto ao peito, cotovelos por dentro dos joelhos na descida; tronco ereto.",
     "equipment": "dumbbell",
     "padrao": "agachamento",
     "joints": [
@@ -929,15 +914,14 @@
       "hamstrings",
       "core"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/nu0gvBN5bjM",
-        "https://www.youtube.com/shorts/w6jCt94KAZk"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=agachamento+goblet+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/nu0gvBN5bjM",
+    "video_titulo": "Agachamento goblet com halter",
+    "curadoria": {
+      "fotos": "duvida",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Agachamento livre' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Agachamento - Músculos Trab",
+      "data": "2026-09-17"
     }
   },
   {
@@ -955,15 +939,14 @@
       "back",
       "core"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/hTSsiQaS9pU",
-        "https://www.youtube.com/watch?v=XlGjQYUN4RQ"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=stiff+com+halteres+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/hTSsiQaS9pU",
+    "video_titulo": "Como fazer o Stiff com halteres ?",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Stiff com barra' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Stiff com a Barra Reta - Músc",
+      "data": "2026-09-17"
     }
   },
   {
@@ -981,15 +964,14 @@
       "back",
       "core"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/B0t7Vpvjr34",
-        "https://www.youtube.com/shorts/VODQGpOciPo"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=bom+dia+good+morning+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/B0t7Vpvjr34",
+    "video_titulo": "Como fazer o exercício bom dia ? Good Morning",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Stiff com barra' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Stiff com a Barra Reta - Músc",
+      "data": "2026-09-17"
     }
   },
   {
@@ -1003,15 +985,14 @@
       "ankle"
     ],
     "secundarios": [],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/zt_CQ3vbT0A",
-        "https://www.youtube.com/shorts/rtIDLA6aKwM"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=panturrilha+leg+press+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/rtIDLA6aKwM",
+    "video_titulo": "Panturrilha no leg press 45°",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Panturrilha em pé' (ativo, mesmo padrão e grupo) — mesmo canal sem o destaque anatômico: Panturrilha - Gêmeo",
+      "data": "2026-09-17"
     }
   },
   {
@@ -1025,15 +1006,14 @@
       "ankle"
     ],
     "secundarios": [],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/Yv-HBl6VUpA",
-        "https://www.youtube.com/watch?v=taJ1LKIwwKI"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=panturrilha+em+pé+com+halteres+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/Yv-HBl6VUpA",
+    "video_titulo": "Panturrilha com halteres no solo",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Panturrilha em pé' (ativo, mesmo padrão e grupo) — mesmo canal sem o destaque anatômico: Panturrilha - Gêmeo",
+      "data": "2026-09-17"
     }
   },
   {
@@ -1050,15 +1030,14 @@
     "secundarios": [
       "forearms"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/VCCmzbShrTM",
-        "https://www.youtube.com/watch?v=FxrrSYi9nks"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=rosca+scott+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/VCCmzbShrTM",
+    "video_titulo": "TREINO COM ROSCA SCOTT",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Rosca direta com barra' (ativo, mesmo padrão e grupo) — mesmo canal sem o destaque anatômico: Rosca Direta n",
+      "data": "2026-09-17"
     }
   },
   {
@@ -1075,15 +1054,14 @@
     "secundarios": [
       "forearms"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/f2s-ODuUKUo",
-        "https://www.youtube.com/shorts/HgimXl2MyVU"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=rosca+concentrada+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/f2s-ODuUKUo",
+    "video_titulo": "Execução do exercício Rosca Bíceps Concentrada #academia #personaltrainer",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Rosca alternada com halteres' (ativo, mesmo padrão e grupo) — mesmo canal sem o destaque anatômico: Rosca Al",
+      "data": "2026-09-17"
     }
   },
   {
@@ -1100,15 +1078,14 @@
     "secundarios": [
       "forearms"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/_eoH4C5HAzQ",
-        "https://www.youtube.com/watch?v=xkmg-Qy0adI"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=rosca+direta+polia+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/watch?v=xkmg-Qy0adI",
+    "video_titulo": "Rosca direta na polia",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Rosca direta com barra' (ativo, mesmo padrão e grupo) — mesmo canal sem o destaque anatômico: Rosca Direta n",
+      "data": "2026-09-17"
     }
   },
   {
@@ -1127,15 +1104,14 @@
       "chest",
       "shoulders"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/3uCFueFJAM0",
-        "https://www.youtube.com/watch?v=rlFTMzADrkc"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=supino+fechado+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/3uCFueFJAM0",
+    "video_titulo": "Supino pegada fechada para tríceps",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Mergulho no banco' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Tríceps no Banco - Músculos",
+      "data": "2026-09-17"
     }
   },
   {
@@ -1153,15 +1129,14 @@
       "chest",
       "shoulders"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/8EOW8rG4iTc",
-        "https://www.youtube.com/watch?v=ZyyBF-RHWi0"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=mergulho+paralelas+tríceps+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/watch?v=ZyyBF-RHWi0",
+    "video_titulo": "A melhor execução do Triceps mergulho na barra paralela | Treino de Tríceps",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Mergulho no banco' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Tríceps no Banco - Músculos",
+      "data": "2026-09-17"
     }
   },
   {
@@ -1176,15 +1151,14 @@
       "shoulder"
     ],
     "secundarios": [],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/mfXokM_VnMY",
-        "https://www.youtube.com/shorts/IXjf5FClW8o"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=tríceps+francês+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/mfXokM_VnMY",
+    "video_titulo": "Tríceps Francês com Halter",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Tríceps testa com barra' (ativo, mesmo padrão e grupo) — mesmo canal sem o destaque anatômico: Tríceps Testa",
+      "data": "2026-09-17"
     }
   },
   {
@@ -1200,15 +1174,14 @@
     "secundarios": [
       "forearms"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/watch?v=BrwUPSLC_hE",
-        "https://www.youtube.com/watch?v=qCOOMxQPPSA"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=encolhimento+com+barra+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/watch?v=BrwUPSLC_hE",
+    "video_titulo": "Encolhimento de Ombros pela Frente com Barra (Trapézio)",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Encolhimento com halteres' (ativo, mesmo padrão e grupo) — mesmo canal sem o destaque anatômico: Encolhiment",
+      "data": "2026-09-17"
     }
   },
   {
@@ -1226,15 +1199,14 @@
       "shoulders",
       "biceps"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/watch?v=LVQq6ZnM97U",
-        "https://www.youtube.com/watch?v=rBHduJbFqxY"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=remada+alta+polia+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/watch?v=LVQq6ZnM97U",
+    "video_titulo": "REMADA ALTA POLIA - O JEITO CERTO DE FAZER",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Remada alta com barra' (ativo, mesmo padrão e grupo) — vídeo comum (nível 3 de animacoes.json): REMADA ALTA ",
+      "data": "2026-09-17"
     }
   },
   {
@@ -1248,22 +1220,21 @@
       "wrist"
     ],
     "secundarios": [],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/shorts/QQCZ7XZsenM",
-        "https://www.youtube.com/shorts/WQ-If5YzMsw"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=rosca+de+punho+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/shorts/QQCZ7XZsenM",
+    "video_titulo": "ROSCA PUNHO COM HALTER    EXECUÇÃO CORRETA",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Rosca de punho com barra' (ativo, mesmo padrão e grupo) — vídeo comum (nível 3 de animacoes.json): Rosca Pun",
+      "data": "2026-09-17"
     }
   },
   {
-    "name": "Rosca inversa com halteres",
+    "name": "Rosca de punho invertida com halteres",
     "muscle_group": "forearms",
     "compound": false,
-    "cue": "Antebraço apoiado, palma para baixo; suba o dorso da mão devagar e desça controlando.",
+    "cue": "Antebraço apoiado no banco, palma para baixo; suba o dorso da mão devagar e desça controlando.",
     "equipment": "dumbbell",
     "padrao": "extensao_de_punho",
     "joints": [
@@ -1272,15 +1243,14 @@
     "secundarios": [
       "biceps"
     ],
-    "active": false,
-    "candidatos": {
-      "execucao": [
-        "https://www.youtube.com/watch?v=K7ghYI10T2c",
-        "https://www.youtube.com/watch?v=5A4mnGSJ_rY"
-      ],
-      "anatomia": [
-        "https://www.youtube.com/results?search_query=rosca+inversa+punho+músculos+trabalhados"
-      ]
+    "active": true,
+    "video": "https://www.youtube.com/watch?v=K7ghYI10T2c",
+    "video_titulo": "ROSCA PUNHO PRONADA COM HALTER - antebraço com halteres",
+    "curadoria": {
+      "fotos": "duvida",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Rosca inversa com barra' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Rosca Invertida na Ba",
+      "data": "2026-09-17"
     }
   }
 ]

@@ -5598,6 +5598,13 @@ body.montando { overflow: hidden; }
 
 .hoje__id {
   display: flex;
+  /* `wrap`, porque `.hoje__opcao` ("Duas versões disponíveis · recomendada:
+     opção 1") virou o TERCEIRO filho deste flex em 7d222a6 e passou a dividir
+     a largura com o título: a 390px "Costas e bíceps" cabia em 79px e
+     quebrava em três linhas, ao lado da opção. A opção desce para a linha
+     de baixo (`flex-basis: 100%`) e a identidade volta a ser a linha mais
+     longa do bloco, como o comentário do template promete. */
+  flex-wrap: wrap;
   align-items: center;
   gap: .85rem;
   min-width: 0;
@@ -7935,9 +7942,20 @@ body.montando { overflow: hidden; }
 .ficha-item__fora { color: var(--text-mute); font-size: var(--texto-xs); font-weight: 600; }
 
 .sessao-cartao__versoes { display: block; margin-top: var(--espaco-1); color: var(--brand); font-size: var(--texto-xs); font-weight: 650; }
-.hoje__opcao { margin: var(--espaco-1) 0 0; color: var(--text-dim); font-size: var(--texto-sm); }
+.hoje__opcao { flex-basis: 100%; margin: 0; color: var(--text-dim); font-size: var(--texto-sm); }
 .agora__removidos { margin: var(--espaco-4) 0 0; font-size: var(--texto-sm); }
 
 @media (prefers-reduced-motion: reduce) {
   .versoes__opcao { transition: none; }
 }
+
+/* ==========================================================================
+   49. Aviso de regenerar — "Seu treino pode ficar mais completo" (17/09/2026)
+   O catálogo mudou embaixo de uma ficha válida; o plano é retrato e a pessoa
+   decide. Cartão comum, duas ações lado a lado que empilham em tela estreita.
+   ========================================================================== */
+.aviso-regenerar__titulo { margin: 0; font-size: var(--texto-lg); }
+.aviso-regenerar__texto { margin: var(--espaco-2) 0 0; color: var(--text-dim); font-size: var(--texto-sm); }
+.aviso-regenerar__acoes { display: flex; flex-wrap: wrap; gap: var(--espaco-2); margin-top: var(--espaco-3); }
+.aviso-regenerar__acoes form { flex: 1 1 10rem; min-width: 0; }
+.aviso-regenerar__acoes .btn { width: 100%; }

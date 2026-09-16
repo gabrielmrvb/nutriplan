@@ -394,8 +394,12 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
                 for opcao in sessao.opcoes:
                     self.assertLessEqual(sessao.minutos_da_opcao(opcao), 60)
 
-                self.assertEqual(len(distintos[MuscleGroup.BACK]), 4)
-                self.assertEqual(len(distintos[MuscleGroup.BICEPS]), 3)
+                # Quatro e três até 16/09/2026 (catálogo de 35); desde 17/09 a
+                # união das duas opções de `abc2 B` oferece OITO costas e SEIS
+                # bíceps — o contrato é piso, e o modelo lista o dobro da cota
+                # do TREINO.md para as duas opções serem cheias.
+                self.assertGreaterEqual(len(distintos[MuscleGroup.BACK]), 4)
+                self.assertGreaterEqual(len(distintos[MuscleGroup.BICEPS]), 3)
 
     def test_a_variedade_nao_piora_quando_a_frequencia_sobe(self):
         """A assinatura do defeito: mais dias davam MENOS movimentos distintos.
@@ -800,12 +804,15 @@ class AQuartaCostasEntrouNoModeloDeTresGruposTests(TestCase):
     def test_o_modelo_lista_quatro_costas_ativas_e_distintas(self):
         modelo = {t.label: t for t in services.templates_for("abc")}["B"]
         costas = self._do_grupo(modelo, MuscleGroup.BACK)
-        # Desde 16/09/2026 o modelo lista também os INATIVOS que esperam
-        # mídia (oito costas no total); o contrato de variedade é sobre os
-        # ativos.
+        # Quatro ativas até 16/09/2026; desde 17/09 as OITO estão ativas —
+        # o dobro da cota de `tres_grupos` do TREINO.md (4 do grande por
+        # opção), porque cada opção é metade do modelo.
+        from workouts import doutrina
+
         ativas = [e for e in costas if e.is_active]
 
-        self.assertEqual(len(ativas), MINIMOS_SEMANAIS[MuscleGroup.BACK])
+        self.assertGreaterEqual(len(ativas), MINIMOS_SEMANAIS[MuscleGroup.BACK])
+        self.assertEqual(len(ativas), 2 * doutrina.exercicios_por_grupo("intermediario", doutrina.TRES_GRUPOS)[0])
         self.assertEqual(len({e.name for e in costas}), len(costas))
         self.assertNotIn("Remada curvada com barra", [e.name for e in costas])
 
@@ -836,7 +843,14 @@ class AQuartaCostasEntrouNoModeloDeTresGruposTests(TestCase):
         modelo = {t.label: t for t in services.templates_for("abc")}["B"]
         biceps = [e for e in self._do_grupo(modelo, MuscleGroup.BICEPS) if e.is_active]
 
-        self.assertEqual(len(biceps), MINIMOS_SEMANAIS[MuscleGroup.BICEPS])
+        # Três até 16/09/2026; QUATRO desde 17/09 — dois por opção, a cota de
+        # pequeno de `tres_grupos` no TREINO.md (4 costas + 2 bíceps + 2 de
+        # antebraço/trapézio por opção, 21–28 séries). O contrato semanal de
+        # três bíceps segue valendo na união das opções.
+        from workouts import doutrina
+
+        self.assertGreaterEqual(len(biceps), MINIMOS_SEMANAIS[MuscleGroup.BICEPS])
+        self.assertEqual(len(biceps), 2 * doutrina.exercicios_por_grupo("intermediario", doutrina.TRES_GRUPOS)[1])
 
     def test_a_semana_do_perfil_de_referencia_entrega_quatro_e_tres(self):
         """Cinco dias, intermediário, 45 a 60 minutos — o perfil da auditoria.

@@ -99,8 +99,9 @@ smoke 30/30 com controle positivo; agent-browser 0.37.1 nas quatro larguras.
   (item 421). A PWA diz na tela o que não faz.
 - `SyncedOperation.podar()` nunca é chamado (item 610): decisão do operador —
   recomendação é chamar no `build.sh`.
-- Casa + halteres continua bloqueado pelo catálogo de mídia (nove movimentos
-  sem vídeo curado).
+- Casa + halteres é PARCIAL desde 17/09/2026 (três grupos sem folga); o que
+  falta são três movimentos com mídia curada, e o motor ainda não lê
+  equipamento.
 
 ## ✅ REDESIGN V2 — CONCLUÍDO E PUBLICADO (08/09/2026)
 
@@ -380,6 +381,22 @@ simulou o cadastro que falta. Resultado:
 | casa + halteres | NÃO SUPORTADO | 3 | **10** | 18 |
 | casa + barra | NÃO SUPORTADO | 3 | não medido | não medido |
 | peso corporal | NÃO SUPORTADO | 8 | não medido | não medido |
+
+**REMEDIDO EM 17/09/2026, com os 63 ativos** (28 entraram com foto conferida,
+quatro deles variantes com halteres — stiff, panturrilha em pé, rosca de
+punho, agachamento goblet):
+
+| ambiente | status 17/09 | cobertura | **folga** |
+|---|---|---|---|
+| academia completa | **SUPORTADO** | 0 | 0 |
+| casa + halteres | **PARCIAL** | 0 | **3** (panturrilha, posterior, trapézio) |
+| casa + barra | NÃO SUPORTADO | 1 (panturrilha) | 3 |
+| peso corporal | NÃO SUPORTADO | 7 | 2 |
+
+Sobrou UM monopólio (core, 3 de 3 em peso do corpo). O que fecha a folga de
+casa + halteres são três dos cinco de 10/09 que ainda esperam mídia:
+panturrilha sentado, elevação pélvica e remada alta com halteres
+(`workouts/test_capacidade_de_ambiente.py::CINCO_QUE_FALTAM`).
 
 **O NÚMERO QUE VALE É O DA FOLGA, e a correção de 10/09/2026 é esta.** A versão
 anterior desta entrada dizia "3 exercícios e casa + halteres vira SUPORTADO".

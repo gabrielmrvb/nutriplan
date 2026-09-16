@@ -117,9 +117,19 @@ class AExperienciaMudaOVolumeTests(TestCase):
                 finally:
                     opcoes.aparar_opcoes = original
 
-                self.assertEqual(visto["teto"], teto)
+                # DESDE 17/09/2026 o teto chega como UM POR GRUPO, pela
+                # frequência (TREINO.md, tabela B): todo valor é o do NÍVEL
+                # para uma, duas ou três ocorrências, e o de uma ocorrência
+                # é `TETO_POR_EXPERIENCIA[nivel]`.
+                from workouts import doutrina
+
+                permitidos = {doutrina.teto_semanal(nivel, vezes) for vezes in (1, 2, 3)}
+                self.assertIsInstance(visto["teto"], dict)
+                self.assertTrue(visto["teto"])
+                self.assertLessEqual(set(visto["teto"].values()), permitidos, visto["teto"])
+                self.assertEqual(doutrina.teto_semanal(nivel, 1), teto)
                 de_novo = original(
-                    visto["resultado"], visto["ocorrencias"], teto, visto["dose"]
+                    visto["resultado"], visto["ocorrencias"], visto["teto"], visto["dose"]
                 )
                 self.assertEqual(
                     retrato(de_novo), retrato(visto["resultado"]),
@@ -154,14 +164,19 @@ class AExperienciaMudaOVolumeTests(TestCase):
         As duas metades importam. A primeira: o campo NÃO nasce
         `intermediario` — gravar isso seria o app declarar por quem não
         declarou. A segunda: mesmo assim a ficha não muda, porque o motor lê o
-        vazio como `TETO_SEMANAL_POR_GRUPO`.
+        vazio como o intermediário (`TETO_SEMANAL_POR_GRUPO`) — que valia 20
+        até 16/09/2026 e desde 17/09 é o da tabela B do TREINO.md para o
+        grupo que cai uma vez (23).
         """
+        from workouts import doutrina
+
         user = create_user(email="padrao@exemplo.com")
 
         self.assertEqual(user.profile.experiencia, "")
         self.assertEqual(services.teto_semanal_de(user),
                          services.TETO_SEMANAL_POR_GRUPO)
-        self.assertEqual(services.teto_semanal_de(user), 20)
+        self.assertEqual(services.teto_semanal_de(user), doutrina.teto_semanal("intermediario", 1))
+        self.assertEqual(services.nivel_de(user), "intermediario")
 
     def test_o_vazio_produz_a_mesma_ficha_do_intermediario(self):
         """A retrocompatibilidade dita na migration `0028`, medida na ficha.
@@ -261,20 +276,21 @@ class OTetoDeAparoNaoEPromessaDeTetoTests(TestCase):
         exercício só, ou o que resta é tudo principal.
         """
         user = com_experiencia("excesso@exemplo.com", Experiencia.INICIANTE)
-        teto = TETO_POR_EXPERIENCIA[Experiencia.INICIANTE]
         plano = TrainingPlan.objects.filter(user=user, is_active=True).first()
+        # Um teto POR GRUPO, pela frequência (TREINO.md, tabela B).
+        tetos = services.tetos_da_semana(plano)
 
         # A régua é a de `opcoes._ceder`, POR OPÇÃO: nenhuma versão de
         # nenhuma letra pode ter sobrado com série acrescentada, isolador
         # acima de duas ou um segundo exercício direto do grupo.
         for grupo, series in volume_efetivo_por_grupo(user).items():
-            if series <= teto:
+            if series <= tetos[grupo]:
                 continue
             irredutivel, evidencia = excesso_e_irredutivel(plano, grupo)
             self.assertTrue(
                 irredutivel,
                 "%s ficou em %.1f com o teto em %d e ainda tinha o que ceder: %s"
-                % (grupo, series, teto, evidencia),
+                % (grupo, series, tetos[grupo], evidencia),
             )
 
     def test_o_iniciante_treina_menos_apesar_do_excesso_irredutivel(self):
@@ -468,14 +484,16 @@ class OCatalogoAindaNaoSustentaEquipamentoTests(TestCase):
         )
         return self.ESSENCIAIS - grupos
 
-    def test_casa_com_halteres_ainda_deixa_grupos_sem_exercicio(self):
+    def test_casa_com_halteres_cobre_os_essenciais_mas_sem_folga(self):
+        """A catraca girou em 17/09/2026: com os 63 ativos, casa + halteres
+        COBRE os nove essenciais — e nem por isso virou implementável.
+        Cobertura não é qualidade: `workouts/test_capacidade_de_ambiente.py`
+        mede a FOLGA (duas opções por grupo usado) e prende o veredito em
+        PARCIAL, com panturrilha, posterior e trapézio numa opção só. É lá
+        que a régua mora; aqui fica a metade que este arquivo sempre mediu."""
         faltam = self._cobertura([Equipment.DUMBBELL, Equipment.BODYWEIGHT])
 
-        self.assertTrue(
-            faltam,
-            "o catálogo passou a cobrir casa com halteres — a personalização "
-            "por equipamento virou implementável",
-        )
+        self.assertEqual(faltam, set())
 
     def test_peso_corporal_ainda_deixa_grupos_sem_exercicio(self):
         faltam = self._cobertura([Equipment.BODYWEIGHT])

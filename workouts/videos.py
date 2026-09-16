@@ -114,7 +114,7 @@ MOVIMENTO_ESPERADO = {
     "Crucifixo inverso com halteres": ["crucifixo inverso", "crucifixo invertido",
                                        "reverse fly", "rear delt"],
     "Agachamento no hack": ["hack"],
-    "Agachamento goblet com halter": ["goblet", "agachamento com halter",
+    "Agachamento goblet": ["goblet", "agachamento com halter",
                                       "agachamento frontal"],
     "Stiff com halteres": ["stiff", "romeno", "rdl", "romanian"],
     "Bom dia com barra": ["bom dia", "bom-dia", "good morning"],
@@ -132,7 +132,7 @@ MOVIMENTO_ESPERADO = {
     "Remada alta na polia": ["remada alta", "upright row"],
     "Rosca de punho com halteres": ["rosca punho", "rosca de punho",
                                     "wrist curl", "antebraco"],
-    "Rosca inversa com halteres": ["rosca inversa", "rosca punho", "pronada",
+    "Rosca de punho invertida com halteres": ["rosca inversa", "rosca punho", "pronada",
                                    "reverse", "antebraco", "invertida",
                                    "inverso"],
 }

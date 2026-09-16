@@ -7,6 +7,8 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
+from workouts import doutrina
+
 from .managers import UserManager
 
 
@@ -257,10 +259,16 @@ class Experiencia(models.TextChoices):
 #: quatro dias, o ombro fecha em 14,5 mesmo com o teto em 12. O que o número
 #: move de verdade é o volume da SEMANA — 65 séries contra 88. A medição inteira
 #: está em `workouts/test_experiencia.py`.
+#: DESDE 17/09/2026 OS NÚMEROS VÊM DO `docs/briefs/treino/TREINO.md` (tabela
+#: B, uma ocorrência): 15 / 23 / 28 séries efetivas para um grupo que cai
+#: UMA vez na semana; grupo que cai duas ou três vezes tem teto maior
+#: (`workouts.doutrina.teto_semanal`). Os 12 / 20 / 24 de antes eram o teto
+#: de qualquer frequência, e com "Peito e tríceps" duas vezes por semana
+#: aparavam a sessão até 13 séries — metade de uma ficha de academia.
 TETO_POR_EXPERIENCIA = {
-    Experiencia.INICIANTE: 12,
-    Experiencia.INTERMEDIARIO: 20,
-    Experiencia.AVANCADO: 24,
+    Experiencia.INICIANTE: doutrina.teto_semanal("iniciante", 1),
+    Experiencia.INTERMEDIARIO: doutrina.teto_semanal("intermediario", 1),
+    Experiencia.AVANCADO: doutrina.teto_semanal("avancado", 1),
 }
 
 
@@ -289,21 +297,18 @@ class DuracaoTreino(models.TextChoices):
     para essa pessoa seria recomeçar o defeito do outro lado.
 
     OS RÓTULOS SÓ DIZEM O TETO (16/09/2026). "45 a 60" e "60 a 90" prometiam
-    pisos que o gerador não garante: medido em 3 níveis × 3 preferências ×
-    2–7 dias, a sessão entregue vai de 14 a 61 minutos, e nenhuma combinação
-    passa disso — a faixa de séries do nível (≤ 20) e a dose do catálogo
-    limitam a sessão antes do relógio. `Completo` (teto 90) e `Sem limite`
-    (65) produziam o MESMO treino nas 54 combinações; hoje `Completo` usa 65
-    por construção, e `Sem limite` é o mesmo que `Completo` — continua no
-    banco para quem já tem, e não é oferecido em formulário nenhum
-    (`escolhas_visiveis`). A diferença entre os dois só nasce com catálogo
-    maior ou com um bloco de complementares orçado à parte (pendente).
+    pisos que o gerador não garante. Em 16/09 `Completo` caiu para 65 porque
+    o catálogo (35 ativos) não passava disso; em 17/09/2026, com 63 ativos e
+    a faixa de séries do `TREINO.md`, `Completo` VOLTOU a 90 — a ficha
+    inteira, medida em 60–80 minutos para o intermediário de dois grupos —
+    e `Sem limite` é o mesmo que `Completo`: continua no banco para quem já
+    tem, e não é oferecido em formulário nenhum (`escolhas_visiveis`).
     """
 
     RAPIDO = "rapido", "Rápido — até 30 minutos"
     PADRAO = "padrao", "Padrão — até 60 minutos"
-    COMPLETO = "completo", "Completo — a sessão inteira, até 65 minutos"
-    LIVRE = "livre", "Sem limite rígido — o mesmo que Completo, até 65 minutos"
+    COMPLETO = "completo", "Completo — a ficha inteira, até 90 minutos"
+    LIVRE = "livre", "Sem limite rígido — o mesmo que Completo, até 90 minutos"
 
     @classmethod
     def escolhas_visiveis(cls):
@@ -320,11 +325,10 @@ class DuracaoTreino(models.TextChoices):
 TETO_POR_DURACAO = {
     DuracaoTreino.RAPIDO: 30,
     DuracaoTreino.PADRAO: 60,
-    # 65, e não 90: com 90 o gerador entregava exatamente o mesmo treino
-    # (medido, 54 combinações), porque nada passa de ~61 minutos. O teto
-    # passa a ser o que ele já entregava, para o rótulo ser verdade por
-    # construção — e é o mesmo de "sem limite" (`teto_completo_de`).
-    DuracaoTreino.COMPLETO: 65,
+    # 90 de novo (17/09/2026): o 65 de 16/09 era o que o catálogo de 35
+    # entregava; com 63 ativos e a faixa do TREINO.md a ficha inteira chega
+    # a 80 minutos. É o mesmo de "sem limite" (`teto_completo_de`).
+    DuracaoTreino.COMPLETO: 90,
     DuracaoTreino.LIVRE: None,
 }
 

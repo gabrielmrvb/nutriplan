@@ -931,6 +931,22 @@ class TrainingPlan(models.Model):
     # treino de terça remontaria a ficha inteira a partir do catálogo e
     # apagaria a troca de ontem sem aviso nenhum.
     customized_at = models.DateTimeField("ajustada em", null=True, blank=True)
+    #: Quando a pessoa dispensou o aviso "Seu treino pode ficar mais completo —
+    #: regenerar?" (17/09/2026). No plano, e não no navegador: um aviso que
+    #: volta em cada aparelho é ruído. `None` é "nunca dispensou".
+    aviso_dispensado_em = models.DateTimeField("aviso de regenerar dispensado em", null=True, blank=True)
+    #: RETRATO DAS ENTRADAS (17/09/2026): com que catálogo (a impressão
+    #: digital de `exercises.json`, `splits.json` e `TREINO.md` —
+    #: `services.versao_do_catalogo`), que nível e que faixa de duração a
+    #: ficha foi montada. Nível ou faixa diferentes do perfil de hoje: a
+    #: pessoa mexeu na PRÓPRIA entrada, a ficha ficou inválida e é remontada
+    #: como sempre foi. Catálogo diferente: a ficha fica — plano é retrato —
+    #: e a Home pergunta. Vazio é "montada antes de 17/09", desconhecido, e
+    #: desconhecido não invalida nada: o catálogo vazio cai na conferência
+    #: exata da prescrição, que é como o aviso chega a quem já tinha ficha.
+    catalogo = models.CharField("catálogo de origem", max_length=64, blank=True, default="")
+    nivel = models.CharField("nível de origem", max_length=20, blank=True, default="")
+    duracao = models.CharField("faixa de duração de origem", max_length=10, blank=True, default="")
 
     @property
     def is_customized(self) -> bool:

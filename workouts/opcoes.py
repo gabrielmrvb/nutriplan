@@ -33,24 +33,25 @@ import copy
 from collections import OrderedDict
 from decimal import Decimal
 
+from . import doutrina
 from .models import PADROES_COMPOSTOS, segundos_da_sessao
 
-#: Quantas séries uma sessão completa quer ter, POR NÍVEL. A faixa do brief
-#: ("15–18 séries totais por sessão") é a do intermediário; quem está
-#: começando pede menos (o brief: "iniciante 4–5 exercícios") e o avançado
-#: um pouco mais. A chave é o teto semanal da pessoa (`teto_semanal_de`),
-#: que já é a tradução do nível — uma régua, dois usos. Abaixo do piso a
-#: opção pede série ao isolador e ao acessório — até QUATRO por exercício,
-#: nunca mais —; acima do teto ela não cresce.
-FAIXA_POR_TETO_SEMANAL = {12: (12, 15), 20: (15, 18), 24: (16, 20)}
-PISO_SERIES_COMPLETO = 15
-TETO_SERIES_COMPLETO = 18
+#: Quantas séries DIRETAS uma sessão quer ter, POR NÍVEL E POR TIPO DE DIA —
+#: desde 17/09/2026 lidas do `docs/briefs/treino/TREINO.md` (`doutrina`).
+#: A faixa antiga (12–15 / 15–18 / 16–20, só por nível) era a causa, junto
+#: com o catálogo, de "Peito e tríceps" sair com 13 séries em 36 minutos:
+#: uma ficha de academia de dois grupos tem 21–28. Abaixo do piso a opção
+#: pede série ao isolador e ao acessório — até QUATRO por exercício, nunca
+#: mais —; acima do teto ela não cresce. `PISO_SERIES_COMPLETO` e
+#: `TETO_SERIES_COMPLETO` são o intermediário de dois grupos, o padrão de
+#: quem chama sem faixa.
+PISO_SERIES_COMPLETO, TETO_SERIES_COMPLETO = doutrina.faixa_de_series(doutrina.NIVEL_PADRAO, doutrina.DOIS_GRUPOS)
 TETO_SERIES_POR_EXERCICIO = 4
 
 
-def faixa_de_series(teto_semanal) -> tuple:
-    """`(piso, teto)` de séries por sessão para este teto semanal."""
-    return FAIXA_POR_TETO_SEMANAL.get(int(teto_semanal or 20), (PISO_SERIES_COMPLETO, TETO_SERIES_COMPLETO))
+def faixa_de_series(nivel, tipo_de_dia) -> tuple:
+    """`(piso, teto)` de séries diretas por sessão, do TREINO.md."""
+    return doutrina.faixa_de_series(nivel, tipo_de_dia)
 
 #: A partir de quantos minutos de teto a opção sobe até a faixa. Abaixo
 #: disso (a faixa "até 30"), encher os anunciados só tirava os complementares
@@ -63,10 +64,13 @@ MINUTOS_PARA_PREENCHER = 45
 #: sai primeiro. Não é uma terceira ficha.
 TETO_RAPIDO_MIN = 40
 
-#: A sessão completa mira perto de uma hora. É o teto para quem não tem teto
-#: (`duracao_treino` "livre") e para quem nunca respondeu; quem escolheu uma
-#: faixa continua com a faixa dela — a escolha não é sobrescrita.
-TETO_COMPLETO_MIN = 65
+#: A sessão completa é a FICHA INTEIRA: até 90 minutos. É o teto para quem
+#: não tem teto (`duracao_treino` "livre") e para quem nunca respondeu; quem
+#: escolheu uma faixa continua com a faixa dela — a escolha não é
+#: sobrescrita. Foi 65 entre 15 e 17/09/2026, enquanto o catálogo não
+#: sustentava mais que isso; com o catálogo dos 63 e a faixa do TREINO.md, a
+#: ficha de dois grupos do intermediário fecha em 60–80 minutos.
+TETO_COMPLETO_MIN = 90
 
 #: Diferença máxima entre as opções: uma série por grupo, cinco minutos.
 TOLERANCIA_DE_SERIES = 1
@@ -217,31 +221,76 @@ def _cabe(linhas, teto_min) -> bool:
     return teto_min is None or _minutos(linhas) <= teto_min
 
 
-def preencher_ate_a_faixa(linhas, teto_min, principal, faixa=None) -> list:
-    """Sobe a série de isolador e acessório até a sessão chegar ao piso.
+def preencher_ate_a_faixa(linhas, teto_min, principal, faixa=None, por_exercicio=None) -> list:
+    """Leva a sessão à faixa de séries diretas dos grupos anunciados: sobe a
+    série de isolador e acessório até o TOPO dela — e, quando a dose do
+    catálogo já passa do topo, desce até ele.
 
     `linhas` são `(item, series, grau)` na ordem da ficha. Uma série por vez,
     do PRIMEIRO isolador/acessório de um grupo ANUNCIADO (o complementar não
-    faz um treino de peito e tríceps parecer maior), nunca acima de quatro por
-    exercício, nunca acima do teto de séries, nunca além do tempo. O composto
-    principal não recebe: ele já tem a dose que o catálogo pede.
+    faz um treino de peito e tríceps parecer maior, e não entra na conta),
+    nunca acima do teto por exercício do NÍVEL, nunca acima do teto de
+    séries, nunca além do tempo. O composto principal não recebe: ele já tem
+    a dose que o catálogo pede.
+
+    ATÉ O TOPO, e não até o piso (17/09/2026): a ficha padrão de academia é
+    3 a 4 séries por exercício, e parar no piso (21, para dois grupos)
+    deixava "Peito e tríceps" em 22 séries e 54 minutos com o catálogo
+    inteiro. O que segura é o relógio (`teto_min`), o teto semanal da
+    frequência (`aparar_opcoes`, depois) e o teto por exercício.
+
+    `por_exercicio` é `(piso, teto)` de séries por exercício do nível
+    (TREINO.md, tabela A): o iniciante faz 2 a 3, e o modelo é o MESMO dos
+    outros níveis — o supino de quatro do catálogo vira três para ele, e
+    "Peito, tríceps e ombro" com oito exercícios desce a 18 séries baixando
+    isolador e acessório a duas antes de subir de volta até o topo. Sem o
+    argumento vale o intermediário (3 a 4).
     """
     piso, teto_series = faixa or (PISO_SERIES_COMPLETO, TETO_SERIES_COMPLETO)
-    linhas = list(linhas)
-    total = sum(s for _, s, _ in linhas)
-    if total >= piso:
-        return linhas
+    piso_ex, teto_ex = por_exercicio or doutrina.series_por_exercicio(doutrina.NIVEL_PADRAO)
     anunciados = set(principal or ())
+
+    def anunciado(item):
+        return not anunciados or item.exercise.muscle_group in anunciados
+
+    # O teto por exercício do nível vale para todo anunciado, principal
+    # incluído: quatro séries de supino não são dose de iniciante.
+    linhas = [
+        (item, min(series, teto_ex) if anunciado(item) else series, grau)
+        for item, series, grau in linhas
+    ]
+
+    def diretas_anunciadas():
+        return sum(s for item, s, _ in linhas if anunciado(item))
+
+    total = diretas_anunciadas()
+    # Acima do topo, desce: uma série por vez, do isolador para o acessório,
+    # do mais cheio para o mais vazio, nunca abaixo do piso do nível e nunca
+    # do principal. Sobrando excesso depois disso, fica — o teto semanal e o
+    # relógio ainda passam por aqui.
+    while total > teto_series:
+        cedem = [
+            i for i, (item, series, grau) in enumerate(linhas)
+            if grau < 2 and series > piso_ex and anunciado(item)
+        ]
+        if not cedem:
+            break
+        cedem.sort(key=lambda i: (linhas[i][2], -linhas[i][1], -i))
+        i = cedem[0]
+        item, series, grau = linhas[i]
+        linhas[i] = (item, series - 1, grau)
+        total -= 1
+    if total >= teto_series:
+        return linhas
     mudou = True
-    while total < piso and mudou:
+    while total < teto_series and mudou:
         mudou = False
         # Em RODÍZIO: uma série por exercício por volta, do acessório para o
         # isolador — para nenhum isolador chegar a quatro enquanto outro
         # continua em três.
         elegiveis = [
             i for i, (item, series, grau) in enumerate(linhas)
-            if grau < 2 and series < TETO_SERIES_POR_EXERCICIO
-            and (not anunciados or item.exercise.muscle_group in anunciados)
+            if grau < 2 and series < teto_ex and anunciado(item)
         ]
         elegiveis.sort(key=lambda i: (-linhas[i][2], linhas[i][1], i))
         for i in elegiveis:
@@ -253,7 +302,7 @@ def preencher_ate_a_faixa(linhas, teto_min, principal, faixa=None) -> list:
             linhas = tentativa
             total += 1
             mudou = True
-            if total >= piso:
+            if total >= teto_series:
                 break
     return linhas
 
@@ -375,6 +424,16 @@ def _espelhar(outra, grupo, exercise_id, series_agora) -> None:
         return
 
 
+def _limites(teto, grupos) -> dict:
+    """O teto de cada grupo: um número para todos (a chamada antiga) ou um
+    dicionário grupo → teto — o da FREQUÊNCIA do grupo na semana, desde
+    17/09/2026 (`doutrina.teto_semanal`)."""
+    if isinstance(teto, dict):
+        padrao = Decimal(teto.get("*", 10_000))
+        return {g: Decimal(teto.get(g, padrao)) for g in grupos}
+    return {g: Decimal(teto) for g in grupos}
+
+
 def aparar_opcoes(por_letra, ocorrencias, teto, dose_do_catalogo) -> dict:
     """Faz o pior caso da semana caber no teto por grupo, cedendo por opção.
 
@@ -392,16 +451,17 @@ def aparar_opcoes(por_letra, ocorrencias, teto, dose_do_catalogo) -> dict:
     letra perder a segunda opção.
     """
     por_letra = {label: [list(op) for op in opcoes] for label, opcoes in por_letra.items()}
-    limite = Decimal(teto)
     for _ in range(200):
         pior_caso = volume_semanal_pior_caso(por_letra, ocorrencias)
+        limites = _limites(teto, pior_caso)
         pendentes = sorted(
-            (g for g, v in pior_caso.items() if v > limite),
+            (g for g, v in pior_caso.items() if v > limites[g]),
             key=lambda g: (pior_caso[g], g),
             reverse=True,
         )
         cedeu = False
         for grupo in pendentes:
+            limite = limites[grupo]
             candidatas = []
             for label, opcoes in por_letra.items():
                 for k, op in enumerate(opcoes):

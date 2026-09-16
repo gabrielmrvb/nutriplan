@@ -2,7 +2,10 @@
 
 A PERGUNTA. O produto deveria deixar a pessoa dizer onde treina — academia
 completa, casa com halteres, peso corporal — e a ficha mudar de verdade. Este
-arquivo responde se dá, e a resposta de hoje é NÃO, com número.
+arquivo responde se dá, e a resposta de hoje é NÃO, com número — e o número
+mudou em 17/09/2026, quando 28 exercícios com foto conferida entraram ativos
+(63 ativos): "casa + halteres" passou de NAO_SUPORTADO a PARCIAL. Continua
+sem consumidor no motor; o que este arquivo diz é o que o catálogo SUSTENTA.
 
 POR QUE NÃO É "É SÓ FILTRAR". A prescrição não SELECIONA exercícios do
 catálogo: `prescrever_semana` copia MODELOS curados de `splits.json`, com os
@@ -15,7 +18,10 @@ exercício — ele abre um BURACO no modelo. Medido nos 15 modelos ativos:
                          e SETE modelos terminam com zero.
 
 É exatamente a ficha incompleta que a regra central proíbe: integridade da
-prescrição vem antes da promessa de ambiente.
+prescrição vem antes da promessa de ambiente. (Os números acima são os de
+10/09/2026, com 35 ativos; com os 63 de 17/09 "casa + halteres" não perde
+grupo sem substituto e nenhuma sessão fica abaixo do piso — o que falta é
+FOLGA, ver o fim deste texto.)
 
 A VARREDURA COMPLETA, e ela é o que impede este arquivo de ser opinião. Cinco
 equipamentos dão 31 recortes possíveis. Medidos todos, contra a régua da
@@ -23,15 +29,16 @@ equipamentos dão 31 recortes possíveis. Medidos todos, contra a régua da
 "academia completa", que é o comportamento de hoje. Nenhum recorte não trivial
 passa.
 
-A CAUSA É ESTRUTURAL, e são três monopólios de equipamento no catálogo:
+A CAUSA ERA ESTRUTURAL, e eram três monopólios de equipamento no catálogo:
 
     abdômen e core -> 3 de 3 exercícios em peso do corpo
     antebraço      -> 2 de 2 em barra
     panturrilha    -> 2 de 2 em máquina
 
-Qualquer recorte que exclua um desses três equipamentos perde o grupo inteiro,
-sem substituto. É por isso que "tirar a polia" quase passa (11/11 grupos) e
-"tirar o peso do corpo" não passa nunca.
+Qualquer recorte que exclua um desses três equipamentos perdia o grupo inteiro,
+sem substituto. Desde 17/09/2026 sobrou UM: core continua 3 de 3 em peso do
+corpo — antebraço ganhou a rosca de punho com halteres e panturrilha a em pé
+com halteres. É por isso que "tirar o peso do corpo" continua não passando.
 
 POR QUE A REGRA MORA NUM ARQUIVO DE TESTE, e não em `workouts/services.py`.
 Ela não tem consumidor de produto: não há campo de ambiente no `Profile`, não
@@ -66,9 +73,12 @@ deixa de ter o que ceder — a personalização por experiência, que já está 
 pararia de funcionar justamente nesse ambiente.
 
 Por isso a régua ganhou a FOLGA: grupo que os modelos usam precisa de pelo menos
-DUAS opções no ambiente. Medido quanto isso custa: cobertura pede 3 exercícios,
-folga pede 10, e igualar a variedade da academia pede 18. A tabela está no
-`BACKLOG.md`.
+DUAS opções no ambiente. Medido quanto isso custava em 10/09: cobertura pedia 3
+exercícios, folga pedia 10, e igualar a variedade da academia pedia 18. Em
+17/09/2026 quatro dos nove candidatos com halteres entraram de verdade, com
+foto conferida — stiff, panturrilha em pé, rosca de punho e agachamento
+goblet —, e a conta da folga caiu de 10 para 3: panturrilha, posterior e
+trapézio ainda têm UMA opção em casa + halteres. A tabela está no `BACKLOG.md`.
 """
 import json
 from collections import defaultdict
@@ -241,7 +251,9 @@ class ACapacidadeDeAmbienteEMedidaTests(TestCase):
     #: crescer, este teste fica vermelho e diz qual ambiente virou possível.
     ESPERADO = {
         "academia completa": "SUPORTADO",
-        "casa + halteres": "NAO_SUPORTADO",
+        # PARCIAL desde 17/09/2026 (63 ativos): todo grupo coberto, nenhuma
+        # sessão curta, três grupos sem folga — ver `OQueFaltaParaCasaComHalteresTests`.
+        "casa + halteres": "PARCIAL",
         "casa + barra": "NAO_SUPORTADO",
         "peso corporal": "NAO_SUPORTADO",
     }
@@ -277,21 +289,26 @@ class ACapacidadeDeAmbienteEMedidaTests(TestCase):
         self.assertEqual(AMBIENTES["academia completa"], frozenset(Equipment.values))
 
     def test_o_filtro_ingenuo_esvaziaria_sessoes_inteiras(self):
-        """O cenário que a regra central proíbe, medido em vez de afirmado."""
+        """O cenário que a regra central proíbe, medido em vez de afirmado.
+
+        Em 10/09/2026 "casa + halteres" também zerava uma sessão
+        (`abcde-C`); com os 63 ativos a pior sessão dela fica no piso, e é
+        "peso corporal" que continua esvaziando."""
         vazias = {}
         for nome in ("casa + halteres", "peso corporal"):
             v = self.veredito(nome)
             vazias[nome] = v.pior
 
-        self.assertEqual(vazias["casa + halteres"][1], 0, vazias)
+        self.assertGreaterEqual(vazias["casa + halteres"][1], PISO_DE_EXERCICIOS, vazias)
         self.assertEqual(vazias["peso corporal"][1], 0, vazias)
 
     def test_os_tres_monopolios_de_equipamento(self):
         """A CAUSA, e não o sintoma.
 
         Enquanto um grupo inteiro depender de um único equipamento, todo
-        recorte que exclua esse equipamento perde o grupo. São estes três que
-        reprovam 30 dos 31 recortes possíveis.
+        recorte que exclua esse equipamento perde o grupo. Eram três em
+        10/09/2026 (core, antebraço, panturrilha) e reprovavam 30 dos 31
+        recortes; desde 17/09 sobrou o core, em peso do corpo.
         """
         monopolios = {}
         for grupo, exercicios in self.por_grupo.items():
@@ -301,11 +318,7 @@ class ACapacidadeDeAmbienteEMedidaTests(TestCase):
 
         self.assertEqual(
             monopolios,
-            {
-                MuscleGroup.CORE: (Equipment.BODYWEIGHT, 3),
-                MuscleGroup.FOREARMS: (Equipment.BARBELL, 2),
-                MuscleGroup.CALVES: (Equipment.MACHINE, 2),
-            },
+            {MuscleGroup.CORE: (Equipment.BODYWEIGHT, 3)},
             "o catálogo mudou de forma — releia a matriz antes de ajustar",
         )
 
@@ -327,144 +340,57 @@ class ACapacidadeDeAmbienteEMedidaTests(TestCase):
         self.assertIn(MuscleGroup.CORE, sem_peso_do_corpo.sem_substituto)
 
 
-class OsTresExerciciosNaoBastamTests(TestCase):
-    """A ARMADILHA QUE ESTE ARQUIVO EXISTE PARA DESARMAR.
-
-    A medição de 09/09/2026 disse que faltavam TRÊS exercícios para "casa +
-    halteres" — panturrilha, antebraço e posterior de coxa, com halteres — e
-    entrou no `BACKLOG.md` com esse número. É verdade para COBERTURA, e é
-    enganoso: com os três, sete dos onze grupos ficariam com UM exercício só, e
-    a semana cairia de 26-29 movimentos distintos para 13-14, com o mesmo
-    número de séries.
-
-    Sem este teste, alguém cadastra três exercícios, vê o veredito virar e
-    publica um treino em que costas é a mesma remada quatro vezes por semana.
-
-    O que a simulação prova é que o veredito para em PARCIAL — que é o
-    vocabulário para "dá para montar, mas a qualidade cai" — e não em
-    SUPORTADO.
-    """
-
-    @classmethod
-    def setUpTestData(cls):
-        call_command("seed_workouts", verbosity=0)
-
-    #: Um exercício que ainda não existe, para a simulação. Só precisa
-    #: responder o que `capacidade` pergunta.
-    class Candidato:
-        is_active = True
-
-        def __init__(self, grupo, equipamento):
-            self.muscle_group = grupo
-            self.equipment = equipamento
-
-    def _com_os_tres(self):
-        por_grupo = defaultdict(list)
-        for exercicio in Exercise.objects.filter(is_active=True):
-            por_grupo[exercicio.muscle_group].append(exercicio)
-        for grupo in (MuscleGroup.CALVES, MuscleGroup.FOREARMS,
-                      MuscleGroup.HAMSTRINGS):
-            por_grupo[grupo].append(self.Candidato(grupo, Equipment.DUMBBELL))
-        return por_grupo
-
-    def test_com_os_tres_o_veredito_para_em_PARCIAL(self):
-        modelos = list(
-            WorkoutTemplate.objects.filter(is_active=True)
-            .prefetch_related("items__exercise")
-        )
-
-        v = capacidade(AMBIENTES["casa + halteres"], modelos, self._com_os_tres(),
-                       com_substituicao=True)
-
-        self.assertEqual(v.sem_substituto, set(), "os três cobrem os buracos")
-        self.assertEqual(
-            v.status, "PARCIAL",
-            "os três exercícios passaram a bastar — releia a medição de "
-            "variedade antes de publicar o ambiente",
-        )
-        self.assertGreaterEqual(
-            len(v.sem_folga), 5,
-            "grupos com um exercício só: %s" % sorted(v.sem_folga),
-        )
-
-    def test_a_conta_do_que_falta_de_verdade(self):
-        """Três é cobertura; dez é folga. O número que o backlog precisa é dez.
-
-        FOLGA é o piso porque abaixo dele `aparar_volume_semanal` não tem o que
-        ceder — e é ela que faz o teto por experiência valer. Igualar a
-        variedade da academia custa mais, e está no `BACKLOG.md`.
-        """
-        por_grupo = defaultdict(list)
-        for exercicio in Exercise.objects.filter(is_active=True):
-            por_grupo[exercicio.muscle_group].append(exercicio)
-        permitidos = AMBIENTES["casa + halteres"]
-        usados = {
-            item.exercise.muscle_group
-            for modelo in WorkoutTemplate.objects.filter(is_active=True)
-            for item in modelo.items.all()
-        }
-
-        faltam = 0
-        for grupo in usados:
-            tem = len([e for e in por_grupo[grupo]
-                       if e.is_active and e.equipment in permitidos])
-            faltam += max(0, 2 - tem)
-
-        self.assertEqual(
-            faltam, 10,
-            "a conta da folga mudou — atualize o BACKLOG.md junto",
-        )
-
-
-#: OS NOVE MOVIMENTOS QUE FECHAM SEIS DOS SETE BURACOS DE CASA + HALTERES.
+#: OS CINCO MOVIMENTOS QUE AINDA FALTAM DOS NOVE DE 10/09/2026.
 #:
-#: Cada um é a variante com halteres de um exercício QUE JÁ ESTÁ no catálogo —
-#: a coluna `origem` — e é de lá que sai o metadado: grupo, articulações,
-#: `compound` e secundários são herdados, não inventados. Foram cadastrados e
-#: medidos em 10/09/2026, e depois REVERTIDOS; o porquê está em
-#: `OsNoveMovimentosPrecisamDeCuradoriaTests`.
-NOVE_CANDIDATOS = (
-    ("Stiff com halteres", "Stiff com barra", MuscleGroup.HAMSTRINGS),
+#: Os nove eram variantes com halteres de exercícios que já estavam no
+#: catálogo, cadastrados, medidos e revertidos naquele dia porque não tinham
+#: mídia. Em 17/09/2026 QUATRO entraram para valer, com foto conferida pelo
+#: dono: `Stiff com halteres`, `Panturrilha em pé com halteres`,
+#: `Rosca de punho com halteres` e `Agachamento goblet`. Estes cinco
+#: continuam esperando mídia curada — e continuam a especificação: grupo,
+#: `compound` e secundários vêm da origem, não são inventados.
+CINCO_QUE_FALTAM = (
     ("Elevação pélvica com halteres", "Elevação pélvica", MuscleGroup.HAMSTRINGS),
-    ("Panturrilha em pé com halteres", "Panturrilha em pé", MuscleGroup.CALVES),
     ("Panturrilha sentado com halteres", "Panturrilha sentado", MuscleGroup.CALVES),
-    ("Rosca de punho com halteres", "Rosca de punho com barra", MuscleGroup.FOREARMS),
     ("Rosca inversa com halteres", "Rosca inversa com barra", MuscleGroup.FOREARMS),
-    ("Agachamento goblet", "Agachamento livre", MuscleGroup.QUADS),
     ("Tríceps testa com halteres", "Tríceps testa com barra", MuscleGroup.TRICEPS),
     ("Remada alta com halteres", "Remada alta com barra", MuscleGroup.TRAPS),
 )
 
+#: Os quatro que entraram em 17/09/2026, e de onde cada um deriva.
+QUATRO_QUE_ENTRARAM = (
+    ("Stiff com halteres", "Stiff com barra", MuscleGroup.HAMSTRINGS),
+    ("Panturrilha em pé com halteres", "Panturrilha em pé", MuscleGroup.CALVES),
+    ("Rosca de punho com halteres", "Rosca de punho com barra", MuscleGroup.FOREARMS),
+    ("Agachamento goblet", "Agachamento livre", MuscleGroup.QUADS),
+)
 
-class OsNoveMovimentosPrecisamDeCuradoriaTests(TestCase):
-    """O QUE FALTA PARA CASA + HALTERES, ESPECIFICADO E MEDIDO.
 
-    Em 10/09/2026 os nove movimentos de `NOVE_CANDIDATOS` foram cadastrados de
-    verdade e a semana foi medida. O ganho é real:
+class OQueFaltaParaCasaComHalteresTests(TestCase):
+    """O QUE FALTA PARA CASA + HALTERES, MEDIDO COM O CATÁLOGO DE HOJE.
 
-        antes    7 grupos com uma opção só, 13-14 movimentos distintos/semana
-        depois   1 grupo  com uma opção só, 18-19 movimentos distintos/semana
+    A ARMADILHA QUE ESTE ARQUIVO EXISTE PARA DESARMAR continua a mesma:
+    COBERTURA não é QUALIDADE. Em 10/09/2026 a medição disse que três
+    exercícios "resolviam" casa + halteres, e era verdade só para cobertura —
+    com os três, sete dos onze grupos ficariam com UM exercício, e a semana
+    cairia de 26-29 movimentos distintos para 13-14. Por isso a régua cobra
+    FOLGA (duas opções por grupo usado), e por isso o veredito para em
+    PARCIAL enquanto houver grupo sem folga.
 
-    E FORAM REVERTIDOS, por um motivo que a medição descobriu e que não era o
-    esperado: **o bloqueio não são os movimentos, é a MÍDIA.** Este catálogo
-    tem um contrato de quatro partes para exercício ativo, e ele é defendido
-    por nove guardas independentes, cada uma com o motivo escrito:
+    Hoje (17/09/2026, 63 ativos): nenhum grupo sem substituto, nenhuma sessão
+    abaixo do piso, e TRÊS grupos sem folga — panturrilha, posterior e
+    trapézio, cada um com uma opção só em halteres/peso do corpo. Três
+    exercícios com mídia curada (a panturrilha sentado, a elevação pélvica e
+    a remada alta com halteres, de `CINCO_QUE_FALTAM`) fecham a folga; o
+    veredito só vira SUPORTADO com os três, e é este teste que fica vermelho
+    nesse dia — notícia boa, e a hora de implementar o ambiente no motor.
 
-      `video_url` não vazio e embutível   `test_every_exercise_in_the_catalog_has_a_video`
-      `clip_kind` não vazio               `test_no_exercise_is_left_without_a_demonstration`
-      `tem_anatomia` verdadeiro           `test_todo_exercicio_oferece_anatomia_de_verdade`
-      presente em `media_map.json`        `test_every_exercise_in_the_catalog_is_in_the_map`
-
-    Os nove violam os quatro. Escolher vídeo exige ASSISTIR ao candidato, e
-    este ambiente não assiste — está medido em `workouts/videos.py`:
-    `readyState 0` depois de 60 s. Inventar id repetiria o defeito de
-    07/09/2026, quando dez exercícios apontaram para o vídeo de outro com a
-    suíte inteira verde. E afrouxar as nove guardas publicaria exercício que a
-    pessoa abre e não vê demonstração nenhuma.
-
-    Então o desbloqueio é curadoria humana de mídia para nove movimentos já
-    especificados — não é decidir o que cadastrar. A lista está no
-    `BACKLOG.md`, com origem e metadado de cada um.
+    E O BLOQUEIO CONTINUA SENDO A MÍDIA. Exercício ativo tem contrato de
+    quatro partes, defendido por nove guardas independentes; os cinco que
+    faltam violam os quatro. Escolher vídeo exige assistir ao candidato, e
+    este ambiente não assiste (`workouts/videos.py`). Os quatro que entraram
+    entraram pela porta certa: foto conferida pelo dono, mosaico de veto,
+    licença registrada (`curadoria` em `exercises.json`).
     """
 
     @classmethod
@@ -478,12 +404,12 @@ class OsNoveMovimentosPrecisamDeCuradoriaTests(TestCase):
         def __init__(self, grupo):
             self.muscle_group = grupo
 
-    def _por_grupo(self, com_os_nove=False):
+    def _por_grupo(self, com_os_cinco=False):
         por_grupo = defaultdict(list)
         for exercicio in Exercise.objects.filter(is_active=True):
             por_grupo[exercicio.muscle_group].append(exercicio)
-        if com_os_nove:
-            for _, _, grupo in NOVE_CANDIDATOS:
+        if com_os_cinco:
+            for _, _, grupo in CINCO_QUE_FALTAM:
                 por_grupo[grupo].append(self.Candidato(grupo))
         return por_grupo
 
@@ -493,63 +419,71 @@ class OsNoveMovimentosPrecisamDeCuradoriaTests(TestCase):
             .prefetch_related("items__exercise")
         )
 
-    def test_cada_candidato_deriva_de_um_exercicio_que_existe(self):
-        """A fonte é o próprio catálogo, e isto prova que ela não envelheceu.
-
-        Se a origem for aposentada ou renomeada, o candidato perde a base do
-        metadado e alguém precisa reavaliá-lo antes de cadastrar.
-        """
-        catalogo = {
-            e.name: e for e in Exercise.objects.filter(is_active=True)
-        }
-        for nome, origem, grupo in NOVE_CANDIDATOS:
-            with self.subTest(candidato=nome):
-                self.assertNotIn(nome, catalogo, "já foi cadastrado")
+    def test_os_quatro_entraram_e_os_cinco_ainda_nao(self):
+        """A lista não envelhece em silêncio: o que entrou está ativo e
+        deriva da origem certa; o que falta continua fora."""
+        catalogo = {e.name: e for e in Exercise.objects.filter(is_active=True)}
+        for nome, origem, grupo in QUATRO_QUE_ENTRARAM:
+            with self.subTest(entrou=nome):
+                self.assertIn(nome, catalogo, "saiu do catálogo ativo")
+                self.assertEqual(catalogo[nome].equipment, Equipment.DUMBBELL)
+                self.assertEqual(catalogo[nome].muscle_group, grupo)
                 self.assertIn(origem, catalogo, "a origem sumiu do catálogo")
-                self.assertEqual(
-                    catalogo[origem].muscle_group, grupo,
-                    "o grupo da origem mudou — reavalie o candidato",
-                )
+        for nome, origem, grupo in CINCO_QUE_FALTAM:
+            with self.subTest(falta=nome):
+                self.assertNotIn(nome, catalogo, "já foi cadastrado — releia este arquivo")
+                self.assertIn(origem, catalogo, "a origem sumiu do catálogo")
+                self.assertEqual(catalogo[origem].muscle_group, grupo)
 
-    def test_os_nove_fechariam_seis_dos_sete_buracos(self):
-        """O ganho, medido — e o que sobra, nomeado."""
-        modelos = self._modelos()
-        antes = capacidade(AMBIENTES["casa + halteres"], modelos,
-                           self._por_grupo(), com_substituicao=True)
-        depois = capacidade(AMBIENTES["casa + halteres"], modelos,
-                            self._por_grupo(com_os_nove=True),
-                            com_substituicao=True)
-
-        self.assertEqual(len(antes.sem_folga) + len(antes.sem_substituto), 7)
-        self.assertEqual(depois.sem_substituto, set())
-        self.assertEqual(
-            depois.sem_folga, {MuscleGroup.BACK},
-            "mudou o que sobra — refaça a medição antes de mexer no BACKLOG",
-        )
-
-    def test_mesmo_com_os_nove_o_veredito_nao_chega_a_SUPORTADO(self):
-        """Costas continua com uma opção só, e isso basta para segurar.
-
-        As três saídas para costas com halteres estão todas bloqueadas por
-        algo já decidido: `Remada curvada com halteres` reintroduziria o
-        movimento que a migration `0018` aposentou por decisão de produto;
-        `Pullover com halter` tem classificação disputada entre dorsal e
-        peitoral, e escolher um lado para fechar contagem é preencher campo
-        para satisfazer teste; e qualquer remada apoiada é a
-        `Remada unilateral com halter` com outro nome. Puxada vertical em casa
-        exige barra fixa, que está fora do ambiente.
-        """
+    def test_casa_com_halteres_e_PARCIAL_por_tres_grupos_sem_folga(self):
         v = capacidade(AMBIENTES["casa + halteres"], self._modelos(),
-                       self._por_grupo(com_os_nove=True), com_substituicao=True)
+                       self._por_grupo(), com_substituicao=True)
 
         self.assertEqual(v.status, "PARCIAL")
+        self.assertEqual(v.sem_substituto, set())
+        self.assertEqual(v.sessoes_curtas, [])
+        self.assertEqual(
+            v.sem_folga,
+            {MuscleGroup.CALVES, MuscleGroup.HAMSTRINGS, MuscleGroup.TRAPS},
+            "mudou o que falta — refaça a medição antes de mexer no BACKLOG",
+        )
+
+    def test_a_conta_do_que_falta_de_verdade(self):
+        """Três exercícios com mídia fecham a folga. Era dez em 10/09/2026.
+
+        FOLGA é o piso porque abaixo dele `aparar_volume_semanal` não tem o
+        que ceder — e é ela que faz o teto por experiência valer.
+        """
+        por_grupo = self._por_grupo()
+        permitidos = AMBIENTES["casa + halteres"]
+        usados = {
+            item.exercise.muscle_group
+            for modelo in WorkoutTemplate.objects.filter(is_active=True)
+            for item in modelo.items.all()
+        }
+
+        faltam = 0
+        for grupo in usados:
+            tem = len([e for e in por_grupo[grupo] if e.equipment in permitidos])
+            faltam += max(0, 2 - tem)
+
+        self.assertEqual(faltam, 3, "a conta da folga mudou — atualize o BACKLOG.md junto")
+
+    def test_com_os_cinco_o_veredito_vira_SUPORTADO(self):
+        """O controle positivo da régua: com os cinco cadastrados (três
+        deles bastam), casa + halteres passa. É o dia de implementar o
+        ambiente no motor — e de mover esta régua para junto dele."""
+        v = capacidade(AMBIENTES["casa + halteres"], self._modelos(),
+                       self._por_grupo(com_os_cinco=True), com_substituicao=True)
+
+        self.assertEqual(v.status, "SUPORTADO")
 
     def test_o_contrato_de_midia_e_o_bloqueio_de_verdade(self):
         """Enquanto isto valer, exercício novo precisa de mídia curada.
 
         As quatro asserções são as mesmas que as nove guardas espalhadas pela
         suíte fazem — repetidas aqui juntas porque é a CONJUNÇÃO delas que
-        explica por que os nove candidatos não puderam ser cadastrados.
+        explica por que os cinco candidatos não puderam ser cadastrados.
         """
         ativos = list(Exercise.objects.filter(is_active=True))
         mapa = json.loads(

@@ -12,8 +12,10 @@ apagar nada.
 
 Os cinco perfis do brief são medidos um a um, e os números que o motor
 entrega hoje (com o catálogo de hoje) ficam escritos nos testes, não em
-promessa: a sessão de "peito e tríceps" tem 4 exercícios porque o catálogo
-tem 4 peitos e 3 tríceps — duas opções distintas de 3+3 pediriam 6 e 6.
+promessa. Até 16/09/2026 a sessão de "peito e tríceps" tinha 4 exercícios
+porque o catálogo tinha 4 peitos e 3 tríceps; desde 17/09, com 63 ativos e
+a doutrina do `TREINO.md`, ela tem 4 de peito e 3 de tríceps POR OPÇÃO — o
+teste dourado (`test_ficha_de_verdade`) é quem cobra a ficha de academia.
 """
 from datetime import timedelta
 from decimal import Decimal
@@ -38,9 +40,11 @@ PERFIS = {
     # ganharam um segundo do mesmo padrão composto por grupo e as duas
     # letras saem com duas.
     "intermediario_2d": ("intermediario", SplitPreference.DOIS, [1, 4]),
-    # Quatro dias, um grupo: `abcd C` "Pernas e ombros" tem UMA pressão
-    # vertical ativa no modelo (a segunda, "Desenvolvimento na máquina",
-    # espera mídia) — é a letra que hoje sai com uma opção só.
+    # Quatro dias, um grupo: `abcd C` "Pernas e ombros" saiu com UMA opção
+    # até 16/09/2026 (uma pressão vertical ativa no modelo); com o
+    # "Desenvolvimento na máquina" ativo desde 17/09 tem duas, e é o
+    # perfil em que a regra "sem catálogo, uma opção inteira" é provada
+    # desativando-o de novo.
     "intermediario_4d_1g": ("intermediario", SplitPreference.UM, [0, 1, 3, 4]),
 }
 
@@ -126,9 +130,10 @@ class CincoPerfisTests(Catalogo):
         padrões compostos compartilha o stiff e a letra caía para UMA opção;
         voltou a duas no mesmo dia, porque o modelo passou a listar a
         elevação pélvica (ativa) como segunda extensão de quadril. "Superior"
-        (`ab A`) ganhou duas pelo mesmo caminho. `abcd C` é a que espera:
-        "Desenvolvimento na máquina" inativo. É o gate de
-        `opcoes_em_producao` que diz quando isso volta.
+        (`ab A`) ganhou duas pelo mesmo caminho. `abcd C` esperou o
+        "Desenvolvimento na máquina" até 17/09/2026, quando os 28 com foto
+        conferida entraram ativos: hoje TODA letra tem duas, e é o gate de
+        `opcoes_em_producao` (por letra) que impede uma de voltar a uma.
         """
         esperado = {
             "iniciante_3d_2g": {"A": 2, "B": 2, "C": 2},
@@ -136,7 +141,7 @@ class CincoPerfisTests(Catalogo):
             "avancado_6d_2g": {"A": 2, "B": 2, "C": 2},
             "intermediario_4d_3g": {"A": 2, "B": 2, "C": 2},
             "intermediario_2d": {"A": 2, "B": 2},
-            "intermediario_4d_1g": {"A": 2, "B": 2, "C": 1, "D": 2},
+            "intermediario_4d_1g": {"A": 2, "B": 2, "C": 2, "D": 2},
         }
         for nome, por_label in esperado.items():
             plan = services.create_routine(pessoa(nome))
@@ -145,27 +150,30 @@ class CincoPerfisTests(Catalogo):
                     self.assertEqual(len(sessao.opcoes), por_label[label])
 
     def test_o_tamanho_das_sessoes_hoje(self):
-        """13 a 22 séries e 30 a 52 minutos, e a razão está no catálogo e no
-        teto: "peito e tríceps" tem 4 exercícios por opção porque o catálogo
-        tem 4 peitos e 3 tríceps (duas opções distintas de 3+3 pediriam 6 e
-        6), e com a letra duas vezes na semana o teto de 20 séries efetivas
-        deixa ~10 por sessão para o tríceps, já contando o secundário dos
-        supinos. A faixa é registrada para a próxima leitura não achar que
-        houve regressão — e para o dia em que o catálogo crescer ficar visível.
+        """Com Padrão (até 60), o intermediário de cinco dias recebe sessões
+        de 24 a 26 séries em 57 a 60 minutos, e "Peito e tríceps" tem SETE
+        exercícios por opção — 4 de peito e 3 de tríceps (17/09/2026; até o
+        dia anterior eram 4 exercícios, 13 séries e ~36 minutos, porque o
+        catálogo tinha 4 peitos e 3 tríceps para as duas opções dividirem).
+        A faixa é registrada para a próxima leitura não achar que houve
+        regressão — o teste dourado cobra a letra A com precisão.
         """
         plan = services.create_routine(pessoa("intermediario_5d_2g"))
         sessoes = por_letra(plan)
         for label, sessao in sessoes.items():
             for k in sessao.opcoes:
                 with self.subTest(letra=label, opcao=k):
-                    self.assertGreaterEqual(sessao.series_da_opcao(k), 13)
-                    # C leva panturrilha e abdômen além dos anunciados, e
-                    # desde 16/09/2026 o desenvolvimento compartilhado (a
-                    # única pressão vertical do modelo): até 8 acima do
-                    # teto da faixa — 26 séries em 58 minutos.
-                    self.assertLessEqual(sessao.series_da_opcao(k), opcoes.TETO_SERIES_COMPLETO + 8)
+                    self.assertGreaterEqual(sessao.series_da_opcao(k), opcoes.PISO_SERIES_COMPLETO)
+                    # B e C levam complementares além dos anunciados
+                    # (trapézio e antebraço; panturrilha e abdômen).
+                    self.assertLessEqual(sessao.series_da_opcao(k), opcoes.TETO_SERIES_COMPLETO + 6)
                     self.assertLessEqual(sessao.minutos_da_opcao(k), 60)
-        self.assertEqual(len(sessoes["A"].da_opcao(1)), 4)
+                    self.assertGreaterEqual(sessao.minutos_da_opcao(k), 55)
+        for k in sessoes["A"].opcoes:
+            itens = sessoes["A"].da_opcao(k)
+            self.assertEqual(len(itens), 7)
+            self.assertEqual(sum(1 for i in itens if i.exercise.muscle_group == "chest"), 4)
+            self.assertEqual(sum(1 for i in itens if i.exercise.muscle_group == "triceps"), 3)
 
     def test_repetir_a_mesma_opcao_cabe_no_teto_semanal(self):
         """O pior caso — toda ocorrência da letra na opção mais pesada de cada
@@ -174,9 +182,10 @@ class CincoPerfisTests(Catalogo):
         for nome in PERFIS:
             user = pessoa(nome)
             plan = services.create_routine(user)
-            teto = services.teto_semanal_de(user)
+            tetos = services.tetos_da_semana(plan)
             pior = services.volume_da_semana(plan)
             for grupo, volume in pior.items():
+                teto = tetos[grupo]
                 with self.subTest(perfil=nome, grupo=grupo):
                     if volume > teto:
                         # Só pode sobrar excesso irredutível: nenhuma opção
@@ -201,7 +210,7 @@ class CincoPerfisTests(Catalogo):
         # Somar as duas opções dá um número maior que o pior caso em todo
         # grupo com duas opções — é o treino que ninguém faz.
         self.assertGreater(soma["chest"], pior["chest"])
-        self.assertLessEqual(pior["chest"], 20)
+        self.assertLessEqual(pior["chest"], services.tetos_da_semana(plan)["chest"])
 
     def test_a_ocorrencia_da_letra_carrega_as_mesmas_opcoes(self):
         """A de segunda e A de quinta são o MESMO treino com as mesmas duas
@@ -213,15 +222,35 @@ class CincoPerfisTests(Catalogo):
         self.assertEqual(assinatura(a1), assinatura(a2))
 
     def test_sem_catalogo_para_duas_a_letra_sai_com_uma_e_inteira(self):
-        """`abcd C` "Pernas e ombros": uma pressão vertical ativa no modelo,
-        que as duas opções teriam de compartilhar — sobra pouco próprio, e
-        a letra sai com UMA opção: o modelo inteiro no tempo, não a metade
-        que sobrou. (Até 16/09/2026 o exemplo era "Superior" de dois dias,
-        que hoje tem duas.)"""
-        plan = services.create_routine(pessoa("intermediario_4d_1g"))
-        c = por_letra(plan)["C"]
-        self.assertEqual(c.opcoes, [1])
-        self.assertGreaterEqual(len(c.da_opcao(1)), 6)
+        """Sem catálogo para duas opções distintas, a letra sai com UMA: o
+        modelo inteiro no tempo, não a metade que sobrou.
+
+        Até 16/09/2026 o exemplo real era `abcd C` (uma pressão vertical
+        ativa); com os 63 ativos toda letra tem duas, então o estado é
+        FABRICADO: "Peito" de cinco dias com o catálogo de peito reduzido a
+        um supino e um crucifixo — os dois compartilhados, zero próprio, e
+        a régua de `distintas_o_bastante` recusa a segunda opção."""
+        from workouts.models import Exercise
+
+        sobram = ("Supino reto com barra", "Crucifixo na máquina (voador)")
+        Exercise.objects.filter(muscle_group="chest").exclude(name__in=sobram).update(is_active=False)
+        user = create_complete_user(
+            email="um-grupo-5d@exemplo.com", experiencia="intermediario",
+            split_preference=SplitPreference.UM, split_preference_confirmada=True,
+            duracao_treino=DuracaoTreino.PADRAO,
+        )
+        TrainingDay.objects.filter(user=user).delete()
+        for d in range(5):
+            TrainingDay.objects.create(user=user, weekday=d, duration_min=60)
+        plan = services.create_routine(user)
+        a = por_letra(plan)["A"]
+        self.assertEqual(plan.split, "abcde")
+        self.assertEqual(a.opcoes, [1])
+        self.assertEqual(
+            {i.exercise.name for i in a.da_opcao(1)},
+            set(sobram) | {"Abdominal supra no solo"},
+            "a opção única é o modelo inteiro que sobrou",
+        )
 
     def test_a_regeneracao_preserva_o_historico(self):
         user = pessoa("intermediario_4d_3g")
@@ -237,13 +266,20 @@ class CincoPerfisTests(Catalogo):
     def test_a_conferencia_reconhece_a_propria_ficha(self):
         """`routine_is_current` compara opção a opção com o que sairia hoje —
         senão toda visita remontaria a ficha em laço."""
+        from unittest import mock
+
         user = pessoa("intermediario_5d_2g")
         plan = services.create_routine(user)
         self.assertTrue(services.routine_is_current(plan, user))
-        # Uma linha da opção 2 mexida à mão: a ficha deixa de ser atual.
+        # Uma linha da opção 2 mexida à mão: a ficha deixa de ser atual —
+        # quando a conferência exata roda, que desde 17/09/2026 é só para
+        # ficha nascida de OUTRO catálogo (a impressão digital igual responde
+        # "atual" sem represcrever).
         item = SessionExercise.objects.filter(session__plan=plan, opcao=2).first()
         SessionExercise.objects.filter(pk=item.pk).update(sets=item.sets + 1)
-        self.assertFalse(services.routine_is_current(plan, user))
+        self.assertTrue(services.routine_is_current(plan, user), "mesmo catálogo: não represcreve")
+        with mock.patch.object(services, "versao_do_catalogo", return_value="catalogo-novo"):
+            self.assertFalse(services.routine_is_current(plan, user))
 
 
 class VersaoRapidaTests(Catalogo):

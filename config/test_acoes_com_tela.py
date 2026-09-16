@@ -89,6 +89,9 @@ class TodaAcaoDevolveUmaTelaTests(TestCase):
         "/treino/agora/serie/": "/treino/agora/",
         "/treino/exercicio/<int:exercise_id>/carga/": "/treino/",
         "/conquistas/vistas/": "/conquistas/",
+        # O aviso "regenerar?" mora na Home (17/09/2026).
+        "/treino/regenerar/": "/",
+        "/treino/aviso/dispensar/": "/",
     }
 
     def setUp(self):
