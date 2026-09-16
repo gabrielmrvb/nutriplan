@@ -800,11 +800,13 @@ class AQuartaCostasEntrouNoModeloDeTresGruposTests(TestCase):
     def test_o_modelo_lista_quatro_costas_ativas_e_distintas(self):
         modelo = {t.label: t for t in services.templates_for("abc")}["B"]
         costas = self._do_grupo(modelo, MuscleGroup.BACK)
+        # Desde 16/09/2026 o modelo lista também os INATIVOS que esperam
+        # mídia (oito costas no total); o contrato de variedade é sobre os
+        # ativos.
+        ativas = [e for e in costas if e.is_active]
 
-        self.assertEqual(len(costas), MINIMOS_SEMANAIS[MuscleGroup.BACK])
+        self.assertEqual(len(ativas), MINIMOS_SEMANAIS[MuscleGroup.BACK])
         self.assertEqual(len({e.name for e in costas}), len(costas))
-        for exercicio in costas:
-            self.assertTrue(exercicio.is_active, exercicio.name)
         self.assertNotIn("Remada curvada com barra", [e.name for e in costas])
 
     def test_o_quarto_dorsal_tem_metadado_de_verdade(self):
@@ -832,7 +834,7 @@ class AQuartaCostasEntrouNoModeloDeTresGruposTests(TestCase):
 
     def test_o_modelo_lista_tres_biceps(self):
         modelo = {t.label: t for t in services.templates_for("abc")}["B"]
-        biceps = self._do_grupo(modelo, MuscleGroup.BICEPS)
+        biceps = [e for e in self._do_grupo(modelo, MuscleGroup.BICEPS) if e.is_active]
 
         self.assertEqual(len(biceps), MINIMOS_SEMANAIS[MuscleGroup.BICEPS])
 

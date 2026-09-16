@@ -710,10 +710,10 @@
     }
   },
   {
-    "name": "Barra fixa",
+    "name": "Barra fixa com pegada supinada",
     "muscle_group": "back",
     "compound": true,
-    "cue": "Pendure com o braço estendido e suba até o queixo passar a barra; se não sair uma, use a assistida.",
+    "cue": "Palmas viradas para você, mãos na largura dos ombros; suba até o queixo passar a barra e desça até estender o braço.",
     "equipment": "bodyweight",
     "padrao": "puxada_vertical",
     "joints": [
@@ -727,11 +727,11 @@
     "active": false,
     "candidatos": {
       "execucao": [
-        "https://www.youtube.com/watch?v=BBmjDutLmAo",
-        "https://www.youtube.com/watch?v=e0_JPPnPNXo"
+        "https://www.youtube.com/results?search_query=barra+fixa+supinada+chin+up+shorts",
+        "https://www.youtube.com/watch?v=BBmjDutLmAo"
       ],
       "anatomia": [
-        "https://www.youtube.com/results?search_query=barra+fixa+músculos+trabalhados"
+        "https://www.youtube.com/results?search_query=barra+fixa+supinada+m%C3%BAsculos+trabalhados"
       ]
     }
   },

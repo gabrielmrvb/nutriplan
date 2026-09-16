@@ -262,23 +262,58 @@ def excesso_e_irredutivel(plan, grupo) -> tuple:
         for template in services.templates_for(plan.split)
         for item in template.items.all()
     }
+    # A régua do PENÚLTIMO direto (16/09/2026), a mesma de `opcoes._ceder`:
+    # com duas opções, ele só sai quando o excesso EFETIVO da semana, por
+    # ocorrência da letra, passa de um quinto do teto
+    # (`FRACAO_DE_EXCESSO_QUE_DESTRAVA`) e a própria letra repetida já passa
+    # do teto no grupo. Pagar quatro
+    # séries para cobrir uma não é aparo — e a irmã acompanharia.
+    from workouts.opcoes import FRACAO_DE_EXCESSO_QUE_DESTRAVA
+
+    teto = services.TETO_SEMANAL_POR_GRUPO
+    efetivo = services.volume_da_semana(plan).get(grupo, 0)
+    ocorrencias = {}
+    for sessao in plan.sessions.all():
+        ocorrencias[sessao.label] = ocorrencias.get(sessao.label, 0) + 1
     vistas = set()
     evidencia = []
     for sessao in plan.sessions.all():
         if sessao.label in vistas:
             continue
         vistas.add(sessao.label)
+        # ...e só quando a PRÓPRIA letra, repetida, passa do teto no grupo.
+        proprio = max(
+            sum(
+                Decimal(i.sets) * (Decimal(1) if i.exercise.muscle_group == grupo
+                                   else Decimal("0.5") if grupo in (i.exercise.secondary_muscles or [])
+                                   else Decimal(0))
+                for i in linhas_da_opcao(sessao, k)
+            )
+            for k in sessao.opcoes
+        ) * ocorrencias[sessao.label]
+        excesso_grande = (
+            (efetivo - teto) / ocorrencias[sessao.label] > teto * FRACAO_DE_EXCESSO_QUE_DESTRAVA
+            and proprio > teto
+        )
         for k in sessao.opcoes:
             itens = linhas_da_opcao(sessao, k)
             graus = services.prioridades_da_sessao(itens)
             diretos = [(i, g) for i, g in zip(itens, graus) if i.exercise.muscle_group == grupo]
             podem = [(i, g) for i, g in diretos if g < services.PRINCIPAL]
+
+            def pode_sair(item):
+                if len(diretos) <= 1:
+                    return False
+                if len(sessao.opcoes) == 1 or len(diretos) > 2:
+                    return True
+                return excesso_grande
+
             cedem = [
                 i.exercise.name
                 for i, g in podem
                 if i.sets > dose_do_catalogo.get((sessao.label, i.exercise_id), i.sets)
                 or (g == services.ISOLADOR and i.sets > 2)
-                or len(diretos) > 1
+                or pode_sair(i)
             ]
             if cedem:
                 evidencia.append((sessao.label, k, cedem))
@@ -384,12 +419,23 @@ class SeededWorkoutTests(TestCase):
         descanso nos compostos pesados cabem, e é o que permite três
         exercícios de tríceps e de bíceps sem espremer o descanso.
         """
+        # DESDE 16/09/2026 O MODELO É A UNIÃO DE DUAS OPÇÕES: ele lista o
+        # dobro de exercícios por grupo anunciado (`CatalogoDimensionadoTests`)
+        # e ninguém faz o modelo inteiro numa sessão — cada opção é uma
+        # sessão. A régua vale por opção, sobre os itens ATIVOS (os 28
+        # inativos esperam mídia e não entram em ficha nenhuma).
+        from workouts import opcoes as motor_de_opcoes
+        from workouts.models import minutos_de
+
         for template in WorkoutTemplate.objects.filter(is_active=True):
+            ativos = [i for i in template.items.select_related("exercise") if i.exercise.is_active]
+            partes, _ = motor_de_opcoes.montar_opcoes(ativos, n=2, principais=template.main_groups)
             with self.subTest(treino=str(template)):
-                self.assertGreaterEqual(template.items.count(), 4)
-                self.assertLessEqual(template.estimated_minutes, 90)
+                self.assertGreaterEqual(len(ativos), 4)
+                for parte in partes:
+                    self.assertLessEqual(minutos_de(parte), 90)
                 # Menos de meia hora não é treino, é aquecimento.
-                self.assertGreaterEqual(template.estimated_minutes, 30)
+                self.assertGreaterEqual(minutos_de(ativos), 30)
 
     def test_compound_lifts_come_first_and_rest_longer(self):
         """Quem puxa carga vem descansado, e descansa mais entre as séries."""
@@ -4214,12 +4260,20 @@ class MatrizDeVolumeTests(TestCase):
                 # ou acessório direto que `opcoes._ceder` pudesse ceder. Sem
                 # essa segunda metade, "acima do teto" viraria desculpa para
                 # qualquer coisa.
+                # DESDE 16/09/2026 o direto também pode passar do teto — e
+                # só pela mesma razão: a 7 dias (A três vezes) o peito fecha
+                # em 21 porque tirar a flexão de braço de uma opção pagaria
+                # nove séries por uma. Acima do teto, direto ou efetivo, o
+                # excesso tem de PROVAR que é irredutível.
                 for grupo, volume in diretas.items():
-                    with self.subTest(dias=dias, pref=preferencia, grupo=grupo):
-                        self.assertLessEqual(
-                            volume,
-                            services.TETO_SEMANAL_POR_GRUPO,
-                            "volume DIRETO acima do teto em %s" % grupo,
+                    if volume <= services.TETO_SEMANAL_POR_GRUPO:
+                        continue
+                    irredutivel, evidencia = excesso_e_irredutivel(plan, grupo)
+                    with self.subTest(dias=dias, pref=preferencia, grupo=grupo, direto=True):
+                        self.assertTrue(
+                            irredutivel,
+                            "volume DIRETO acima do teto em %s (%s) tendo o que ceder: %s"
+                            % (grupo, volume, evidencia),
                         )
 
                 for grupo, volume in efetivo.items():
@@ -5396,7 +5450,12 @@ class OrcamentoDeTempoTests(TestCase):
         # corte leve mora onde a letra tem UMA opção só e o modelo é grande:
         # "Superior" da divisão AB, que passa de 60 minutos com a dose cheia e
         # cede série para caber.
-        plan = self._ficha(2, 55)
+        #
+        # UM DIA, desde 16/09/2026. "Superior" ganhou uma segunda opção (o
+        # modelo lista dois de cada padrão composto) e as duas cabem em 59
+        # minutos sem ceder nada. Quem ainda cede série para caber é "Corpo
+        # inteiro", de um dia: nove exercícios por opção, em 60 exatos.
+        plan = self._ficha(1, 55)
 
         # E "ajuste" passou a incluir SÉRIE REDUZIDA. Com a ordem de concessão
         # final, cinquenta e cinco minutos cabem sem remover exercício nenhum —
@@ -5494,16 +5553,20 @@ class OrcamentoDeTempoTests(TestCase):
                 # Uma opção por ocorrência, a mais pesada no grupo — somar as
                 # duas opções da letra mediria um treino que ninguém faz.
                 semanal = self._semanal(plan)
-                with self.subTest(minutos=minutos, dias=dias):
-                    self.assertEqual(
-                        {
-                            g: v
-                            for g, v in semanal.items()
-                            if v > services.TETO_SEMANAL_POR_GRUPO
-                        },
-                        {},
-                        "grupo acima do teto depois do corte por tempo",
-                    )
+                # Desde 16/09/2026 o direto pode ficar UMA série acima a 7
+                # dias (ver `MatrizDeVolumeTests`): o que este teste guarda
+                # é que o corte por tempo não ADICIONA volume — o excesso,
+                # se houver, tem de ser irredutível pela régua do penúltimo.
+                for g, v in semanal.items():
+                    if v <= services.TETO_SEMANAL_POR_GRUPO:
+                        continue
+                    irredutivel, evidencia = excesso_e_irredutivel(plan, g)
+                    with self.subTest(minutos=minutos, dias=dias, grupo=g):
+                        self.assertTrue(
+                            irredutivel,
+                            "%s acima do teto (%s) depois do corte por tempo, tendo o que ceder: %s"
+                            % (g, v, evidencia),
+                        )
 
     def test_a_ficha_continua_estavel_com_o_tempo_no_meio(self):
         """`prescrever_semana` decide e `_prescricao_confere` verifica com a

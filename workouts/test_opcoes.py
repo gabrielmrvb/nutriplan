@@ -614,10 +614,7 @@ class AparoEmLockstepTests(TestCase):
         self.assertEqual(diretos, [5, 5])
         self.assertTrue(opcoes.equivalentes(aparado["A"], ["triceps"]))
 
-    def test_nenhuma_opcao_perde_o_penultimo_direto_do_grupo(self):
-        """Com duas opções, a corda não sai de uma opção que só tem mergulho
-        e corda: o tríceps ficaria só no composto compartilhado nas duas, e a
-        semana com UM tríceps distinto. O excesso fica."""
+    def _peito_e_triceps(self):
         supino = Falso(1, "chest", sets=4, composto=True, padrao="pressao_de_peito")
         supino.exercise.secondary_muscles = ["triceps"]
         op1 = [(supino, 4, 2)] + self._linhas(
@@ -629,11 +626,32 @@ class AparoEmLockstepTests(TestCase):
             (2, "triceps", 3, True, "pressao_fechada", 2),
             (4, "triceps", 2, False, "extensao_de_cotovelo", 0),
         )
-        aparado = opcoes.aparar_opcoes({"A": [op1, op2]}, {"A": 2}, teto=10, dose_do_catalogo=lambda i: i.sets)
+        return op1, op2
+
+    def test_o_penultimo_direto_nao_sai_por_um_excesso_de_uma_serie(self):
+        """Com duas opções, a corda não sai de uma opção que só tem mergulho
+        e corda para cobrir UMA série de excesso: o tríceps ficaria só no
+        composto compartilhado nas duas, e a semana com UM tríceps distinto.
+        Pior caso: op1 = 3 + 2 + 2 (secundário do supino) = 7 por ocorrência,
+        ×2 = 14 contra o teto 13 — um excesso de UMA série, muito abaixo de
+        um quarto do teto. O excesso fica."""
+        op1, op2 = self._peito_e_triceps()
+        aparado = opcoes.aparar_opcoes({"A": [op1, op2]}, {"A": 2}, teto=13, dose_do_catalogo=lambda i: i.sets)
         self.assertEqual([len(op) for op in aparado["A"]], [3, 3])
         # Com UMA opção a trava é a de sempre: o último direto fica, o penúltimo sai.
-        sozinha = opcoes.aparar_opcoes({"A": [list(op1)]}, {"A": 2}, teto=10, dose_do_catalogo=lambda i: i.sets)
+        op1, _ = self._peito_e_triceps()
+        sozinha = opcoes.aparar_opcoes({"A": [op1]}, {"A": 2}, teto=13, dose_do_catalogo=lambda i: i.sets)
         self.assertEqual(len(sozinha["A"][0]), 2)
+
+    def test_o_penultimo_direto_sai_quando_o_excesso_e_grande(self):
+        """O iniciante (teto 12) com o ombro em 21 não é o caso de uma série:
+        14 contra um teto de 6 é mais que um quarto acima, o aparo que o
+        nível pede acontece — a corda sai, a irmã acompanha, e o que sobra
+        é o secundário dos pressões, irredutível."""
+        op1, op2 = self._peito_e_triceps()
+        aparado = opcoes.aparar_opcoes({"A": [op1, op2]}, {"A": 2}, teto=6, dose_do_catalogo=lambda i: i.sets)
+        self.assertEqual([len(op) for op in aparado["A"]], [2, 2])
+        self.assertTrue(opcoes.equivalentes(aparado["A"], ["triceps"]))
 
     def test_a_concessao_que_a_irma_nao_acompanha_nao_acontece(self):
         """Ensaiada numa cópia: se depois dela a irmã ficar mais de uma

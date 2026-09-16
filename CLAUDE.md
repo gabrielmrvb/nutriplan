@@ -720,14 +720,23 @@ alta ATIVA.
 E `aparar_opcoes` cede EM LOCKSTEP, ensaiando numa cópia: a irmã acompanha
 pelo volume DIRETO (a régua de equivalência), não pelo efetivo (a régua do
 teto) — os dois divergem quando uma opção carrega mais secundário, e a
-flexão de braço tem três; com duas opções ou mais nenhuma perde o PENÚLTIMO
-exercício direto de um grupo (`minimo_diretos=2`), porque a irmã seguiria e
-a semana ficava com UM tríceps distinto; e a concessão que a irmã não
-consegue acompanhar NÃO acontece — o excesso fica, teto de aparo. Medido
-no abc2 de seis dias: sem as três, a letra A perdia a segunda opção ou
-ficava com só o mergulho nas duas. O custo visível: "Pernas e ombros" tem
-OITO exercícios por opção (o único desenvolvimento é compartilhado), 24–26
-séries em 54–58 minutos, dentro do teto de 60.
+flexão de braço tem três; a concessão que a irmã não consegue acompanhar
+NÃO acontece — o excesso fica, teto de aparo. E com duas opções o
+PENÚLTIMO exercício direto de um grupo só sai quando o excesso é GRANDE:
+mais de um quinto do teto POR OCORRÊNCIA da letra
+(`FRACAO_DE_EXCESSO_QUE_DESTRAVA`), e com a própria letra repetida já
+acima do teto no grupo. Sem isso a irmã seguia e a semana ficava com UM
+tríceps distinto (abc2, seis dias: corda e testa saíam por um excesso de
+uma série); com "nunca" o iniciante (teto 12) fechava a semana com o
+mesmo volume do intermediário (73 contra 74) e o nível deixava de valer;
+e sem "a própria letra" o ombro de "Pernas e ombros" pagava o secundário
+dos pressões de "Peito e tríceps" a seis e sete dias. Consequência
+escrita: o volume DIRETO pode ficar UMA série acima do teto (a 7 dias, A
+três vezes, peito 21) — `excesso_e_irredutivel`, em `workouts/tests.py`, é
+a régua dos testes e diz exatamente quando o excesso é legítimo. O custo
+visível: "Pernas e ombros" tem OITO exercícios por opção (o único
+desenvolvimento é compartilhado), 24–26 séries em 54–58 minutos, dentro
+do teto de 60.
 
 **GATE PERMANENTE: nenhum deploy reduz o número de letras com duas opções em
 produção.** `workouts/opcoes_em_producao.py` conta com o MOTOR e o catálogo

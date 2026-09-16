@@ -33,7 +33,7 @@ class OAdminNaoApagaExercicioTests(TestCase):
         """O dono é o único `is_staff` do banco e tem todas as permissões —
         medido. A trava não pode depender de permissão, porque a permissão ele
         tem."""
-        exercicio = Exercise.objects.create(name="Um exercício", muscle_group="back")
+        exercicio = Exercise.objects.create(name="Um exercício", muscle_group="back", padrao="remada_horizontal")
 
         self.assertFalse(self.admin.has_delete_permission(self.pedido, exercicio))
         self.assertFalse(self.admin.has_delete_permission(self.pedido))
@@ -63,7 +63,7 @@ class OCascataDoHistoricoExisteEEstaDocumentadaTests(TestCase):
         pessoa = User.objects.create_user(
             email="quem-treina@exemplo.com", password="senha-bem-forte-123"
         )
-        exercicio = Exercise.objects.create(name="Solto no catálogo",
+        exercicio = Exercise.objects.create(name="Solto no catálogo", padrao="remada_horizontal",
                                             muscle_group="back")
         for serie in (1, 2, 3):
             ExerciseLog.objects.create(user=pessoa, exercise=exercicio,
@@ -81,7 +81,7 @@ class OCascataDoHistoricoExisteEEstaDocumentadaTests(TestCase):
         de uma linha que a remontagem da ficha remove."""
         from workouts.models import WorkoutTemplate, WorkoutTemplateItem
 
-        exercicio = Exercise.objects.create(name="Na ficha", muscle_group="back")
+        exercicio = Exercise.objects.create(name="Na ficha", muscle_group="back", padrao="remada_horizontal")
         ficha = WorkoutTemplate.objects.create(split="ab", label="A", name="Superior")
         WorkoutTemplateItem.objects.create(template=ficha, exercise=exercicio)
 

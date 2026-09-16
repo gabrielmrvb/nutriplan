@@ -221,14 +221,22 @@ class OPerfilDeReferenciaRecebeUmaFichaDeVerdadeTests(TestCase):
     # ------------------------------------------------------------ o volume
     def test_nenhum_grupo_passa_do_teto_semanal_efetivo(self):
         """Uma opção por ocorrência, no pior caso — nunca as duas somadas.
-        Medido: este perfil FECHA no teto (bíceps, antebraço e tríceps em 20
-        exatos), então a asserção é estrita."""
+        Medido: este perfil FECHAVA no teto (bíceps, antebraço e tríceps em
+        20 exatos) até 16/09/2026. Desde o lockstep de `aparar_opcoes`, o
+        ombro fica 1,5 acima: a elevação lateral é o penúltimo direto do
+        grupo nas duas opções de A e não sai por um excesso de meia série
+        por ocorrência. O excesso só pode ser IRREDUTÍVEL pela régua de
+        `excesso_e_irredutivel`."""
+        from workouts.tests import excesso_e_irredutivel
+
         efetivo = services.volume_da_semana(self.plano)
 
-        acima = {
-            g: v for g, v in efetivo.items() if v > services.TETO_SEMANAL_POR_GRUPO
-        }
-        self.assertEqual(acima, {}, "grupo acima do teto: %s" % acima)
+        for grupo, volume in efetivo.items():
+            if volume <= services.TETO_SEMANAL_POR_GRUPO:
+                continue
+            irredutivel, evidencia = excesso_e_irredutivel(self.plano, grupo)
+            with self.subTest(grupo=grupo):
+                self.assertTrue(irredutivel, "%s em %s tendo o que ceder: %s" % (grupo, volume, evidencia))
 
     def test_nenhum_grupo_do_catalogo_desaparece_da_semana(self):
         previstos = {

@@ -72,6 +72,23 @@ TETO_COMPLETO_MIN = 65
 TOLERANCIA_DE_SERIES = 1
 TOLERANCIA_DE_MINUTOS = 5
 
+#: Com duas opções, o PENÚLTIMO exercício direto de um grupo só sai da opção
+#: quando a semana passa do teto em mais do que esta fração dele. Abaixo
+#: disso o excesso fica (teto de aparo, não promessa): tirar a corda de uma
+#: opção — e da irmã, que acompanha — para cobrir uma série deixava a semana
+#: com UM tríceps distinto. Acima disso é o aparo que o nível pede: o
+#: iniciante (teto 12) com o ombro em 21 perde a elevação lateral, como
+#: sempre perdeu. Medido POR OCORRÊNCIA da letra: a letra que cai duas ou
+#: três vezes soma o mesmo secundário duas ou três vezes, e esse excesso de
+#: frequência não se conserta apagando o único isolador do dia — e só quando
+#: a própria letra, repetida, já passa do teto no grupo. Um quinto, e não
+#: metade: com metade o iniciante ficava com o mesmo volume do intermediário
+#: (73 contra 74 séries na semana) e o nível deixava de valer; com um quarto
+#: o crucifixo do iniciante (teto 12, peito em 17 com A duas vezes: 2,5 por
+#: ocorrência) ficava, e a semana dele fechava em 88% da do intermediário
+#: contra os 85% que `test_experiencia` mede desde 10/09/2026.
+FRACAO_DE_EXCESSO_QUE_DESTRAVA = Decimal("0.2")
+
 #: Fração mínima de exercícios PRÓPRIOS em cada opção. Meio a meio é o que
 #: separa "duas versões" de "a mesma ficha com um exercício trocado".
 FRACAO_MINIMA_DISTINTA = Decimal("0.5")
@@ -270,7 +287,19 @@ def volume_semanal_pior_caso(por_letra, ocorrencias) -> dict:
     return total
 
 
-def _ceder(op, grupo, dose_do_catalogo, minimo_diretos=1):
+def _pior_caso_direto(por_letra, ocorrencias) -> dict:
+    """Como `volume_semanal_pior_caso`, sobre séries DIRETAS."""
+    total = {}
+    for label, opcoes in por_letra.items():
+        volumes = [_volume_direto(op) for op in opcoes]
+        grupos = set().union(*(v.keys() for v in volumes)) if volumes else set()
+        for grupo in grupos:
+            pior = max(v.get(grupo, 0) for v in volumes)
+            total[grupo] = total.get(grupo, 0) + pior * ocorrencias.get(label, 1)
+    return total
+
+
+def _ceder(op, grupo, dose_do_catalogo, minimo_diretos=1, excesso=None):
     """Uma concessão no grupo, nesta ordem: a série que o preenchimento
     acrescentou volta ao catálogo; um isolador desce ao piso de duas; só então
     um exercício sai — o de menor grau (isolador antes de acessório), nunca o
@@ -279,13 +308,19 @@ def _ceder(op, grupo, dose_do_catalogo, minimo_diretos=1):
     exercício saiu — ou `None` quando não há o que ceder.
 
     `minimo_diretos` é quantos exercícios diretos do grupo a opção precisa
-    manter para um poder sair. Com UMA opção é 1 (a trava de sempre); com
-    duas ou mais é 2: uma opção que perde o penúltimo direto fica só com o
-    composto — que é compartilhado quando é único —, a irmã acompanha e a
-    letra termina com o mesmo tríceps nas duas versões. Medido no abc2 de
-    seis dias em 16/09/2026: corda e testa saíam e a semana ficava com UM
-    tríceps distinto. O excesso que só essa remoção resolveria fica — teto
-    de aparo, não promessa.
+    manter para um poder sair (1: a trava de sempre). `excesso` só é
+    informado quando a letra tem duas opções ou mais, e diz se o excesso da
+    semana é GRANDE (`FRACAO_DE_EXCESSO_QUE_DESTRAVA`): com excesso pequeno
+    o PENÚLTIMO direto não sai. Uma opção que perde o penúltimo direto fica
+    só com o composto — compartilhado quando é único —, a irmã acompanha e
+    a letra termina com o mesmo tríceps nas duas versões; pagar quatro
+    séries para cobrir uma não é aparo, é amputação (medido no abc2 de seis
+    dias, 16/09/2026: corda e testa saíam por UM excesso de uma série; a 7
+    dias, com A três vezes, o peito fica 21 direto contra 20 e a flexão de
+    braço ficaria de fora da semana por uma série). Com excesso grande — o
+    iniciante, teto 12, com o ombro em 21 —, a remoção é o aparo que o
+    nível pede, e acontece. O que sobra é teto de aparo, não promessa —
+    inclusive uma série DIRETA acima dele.
     """
     diretos = [i for i, (item, _, _) in enumerate(op) if item.exercise.muscle_group == grupo]
     podem = [i for i in diretos if op[i][2] < 2]
@@ -307,12 +342,14 @@ def _ceder(op, grupo, dose_do_catalogo, minimo_diretos=1):
         return None
     grau_minimo = min(op[i][2] for i in podem)
     i = [i for i in podem if op[i][2] == grau_minimo][-1]
+    if len(diretos) == 2 and excesso is not None and not excesso:
+        return None
     saiu = op[i][0].exercise_id
     del op[i]
     return (saiu, None)
 
 
-def _espelhar(outra, grupo, exercise_id, series_agora, minimo_diretos=1) -> None:
+def _espelhar(outra, grupo, exercise_id, series_agora) -> None:
     """A concessão num exercício COMPARTILHADO vale para a irmã também.
 
     O crucifixo entra nas três opções de uma letra que cai três vezes; se
@@ -330,7 +367,7 @@ def _espelhar(outra, grupo, exercise_id, series_agora, minimo_diretos=1) -> None
             return
         if series_agora is None:
             diretos = [j for j, (o, _, _) in enumerate(outra) if o.exercise.muscle_group == grupo]
-            if len(diretos) > minimo_diretos:
+            if len(diretos) > 1:
                 del outra[i]
         elif series > series_agora:
             piso = 3 if grau >= 1 else 2
@@ -387,25 +424,47 @@ def aparar_opcoes(por_letra, ocorrencias, teto, dose_do_catalogo) -> dict:
                 # opção deixava tríceps 3 contra 6 e a letra perdia a
                 # segunda opção; seguir a irmã até o fim deixava as duas só
                 # com o mergulho. Ficar uma série efetiva acima do teto é
-                # o menor dos três preços.
+                # o menor dos três preços — e é por isso que o penúltimo
+                # direto só sai quando o excesso vale metade das séries dele
+                # (`_ceder`, `excesso`).
                 tentativa = [list(o) for o in por_letra[label]]
-                minimo = 2 if len(tentativa) > 1 else 1
+                excesso = None
+                if len(tentativa) > 1:
+                    # O penúltimo direto só sai com excesso GRANDE: mais de um
+                    # quinto do teto POR OCORRÊNCIA da letra
+                    # (`FRACAO_DE_EXCESSO_QUE_DESTRAVA`). Por ocorrência,
+                    # porque a letra que cai duas ou três vezes soma o mesmo
+                    # secundário duas ou três vezes — excesso de frequência,
+                    # que apagar o único isolador do dia não conserta.
+                    # E só se a PRÓPRIA letra, repetida, já passa do teto
+                    # no grupo: o ombro de "Pernas e ombros" não paga o
+                    # secundário dos pressões de "Peito e tríceps".
+                    por_ocorrencia = (pior_caso[grupo] - limite) / Decimal(ocorrencias.get(label, 1))
+                    proprio = max(_volume(o).get(grupo, Decimal(0)) for o in tentativa) * ocorrencias.get(label, 1)
+                    excesso = (
+                        por_ocorrencia > limite * FRACAO_DE_EXCESSO_QUE_DESTRAVA
+                        and proprio > limite
+                    )
                 op = tentativa[k]
-                concessao = _ceder(op, grupo, dose_do_catalogo, minimo)
+                concessao = _ceder(op, grupo, dose_do_catalogo, excesso=excesso)
                 if concessao is None:
                     continue
                 exercise_id, series_agora = concessao
                 for outra in tentativa:
                     if outra is op:
                         continue
-                    _espelhar(outra, grupo, exercise_id, series_agora, minimo)
+                    _espelhar(outra, grupo, exercise_id, series_agora)
                     for _ in range(TETO_SERIES_POR_EXERCICIO):
                         diferenca = (
                             _volume_direto(outra).get(grupo, 0) - _volume_direto(op).get(grupo, 0)
                         )
                         if diferenca <= TOLERANCIA_DE_SERIES:
                             break
-                        if _ceder(outra, grupo, dose_do_catalogo, minimo) is None:
+                        # A irmã acompanha com a MESMA régua: se seguir
+                        # exigiria dela o penúltimo direto por um excesso
+                        # pequeno, ela não segue — e a concessão inteira é
+                        # descartada logo abaixo.
+                        if _ceder(outra, grupo, dose_do_catalogo, excesso=excesso) is None:
                             break
                 diretos = [_volume_direto(o).get(grupo, 0) for o in tentativa]
                 if len(tentativa) > 1 and max(diretos) - min(diretos) > TOLERANCIA_DE_SERIES:
