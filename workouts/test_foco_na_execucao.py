@@ -60,7 +60,16 @@ class OFocoTests(TestCase):
         return self.client.post(reverse("workouts:record_set"), corpo)
 
     def _url(self, item):
-        return "%s?exercicio=%d" % (reverse("workouts:now"), item.exercise_id)
+        # `#registro` (U7, 16/09/2026): a página seguinte abre com o bloco de
+        # registro em foco, e não no topo — a pessoa descia de novo até a
+        # carga a cada série. Alvo com `tabindex="-1"`, então o foco de
+        # teclado e de leitor de tela cai nele (`test_o_alvo_do_fragmento`).
+        return "%s?exercicio=%d#registro" % (reverse("workouts:now"), item.exercise_id)
+
+    def test_o_alvo_do_fragmento_e_o_bloco_de_registro_e_recebe_foco(self):
+        html = self.client.get(self._url(self.terceiro).split("#")[0]).content.decode()
+        self.assertRegex(html, r'<div class="agora__registro"[^>]*id="registro"')
+        self.assertRegex(html, r'<div class="agora__registro"[^>]*tabindex="-1"')
 
     def test_concluir_uma_serie_do_terceiro_devolve_ao_terceiro(self):
         resposta = self._post(exercicio=self.terceiro.exercise_id)

@@ -78,7 +78,7 @@ class OCabecalhoDaExecucaoTests(TestCase):
 
     def test_as_pastilhas_ficam_dentro_do_bloco_preso(self):
         html = self._html()
-        bloco = _bloco(html, '<div class="agora__registro">', "</form>")
+        bloco = _bloco(html, '<div class="agora__registro"', "</form>")
         self.assertIn('<ol class="series__lista">', bloco)
         self.assertIn("data-aguardando-rede", bloco)
         self.assertIn('class="registro registro--agora"', bloco)
@@ -92,7 +92,7 @@ class OCabecalhoDaExecucaoTests(TestCase):
             services.append_set(self.pessoa, item.exercise, 40, reps=10, op_id="")
         url = "%s?exercicio=%d" % (reverse("workouts:now"), item.exercise_id)
         html = sem_scripts(self.client.get(url).content.decode())
-        bloco = _bloco(html, '<div class="agora__registro">', "agora__extra")
+        bloco = _bloco(html, '<div class="agora__registro"', "agora__extra")
         self.assertIn('<ol class="series__lista">', bloco)
 
 
@@ -129,3 +129,17 @@ class OBlocoPresoTests(SimpleTestCase):
         corpo = _regra(self.css, ".agora__opcao-aviso")
         self.assertIsNotNone(corpo, "a frase da opção continua sem CSS")
         self.assertRegex(corpo, r"margin:")
+
+
+class OFocoVoltaAoRegistroTests(SimpleTestCase):
+    """U7 (16/09/2026): a página seguinte abre em `#registro`, e o alvo do
+    fragmento deixa espaço acima para "Série N de M" e o descanso — sem a
+    margem de rolagem o bloco colaria no topo e o relógio ficaria fora."""
+
+    def test_o_bloco_tem_margem_de_rolagem(self):
+        css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+        preso = [b for b in _regras(css, ".agora__registro") if "position: sticky" in b]
+        self.assertEqual(len(preso), 1)
+        self.assertRegex(preso[0], r"scroll-margin-top:")
+        # Foco programático no bloco não pode desenhar anel: ele é alvo, não controle.
+        self.assertRegex(css, r"\.agora__registro:focus\s*\{[^}]*outline:\s*none")

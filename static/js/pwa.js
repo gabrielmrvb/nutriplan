@@ -591,13 +591,24 @@
     nota.hidden = false;
   }
   function aguaEnfileirada(form, dados) {
-    var cartao = form.closest(".agua");
+    /* `[data-agua]` e não `.agua`: a classe só existe no cartão da Home, e a
+     * tela de Hidratação ficava muda ao toque sem rede — o anel em 500 e
+     * nenhuma nota (avaliação de 16/09/2026, B11). As duas telas levam o
+     * marcador e o número em `[data-agua-total]`. */
+    var cartao = form.closest("[data-agua]");
     if (!cartao) return;
     var ml = parseInt(valorDoPar(dados, "ml"), 10);
-    var valor = cartao.querySelector(".agua__valor b");
+    var valor = cartao.querySelector("[data-agua-total]");
     if (valor && !isNaN(ml)) {
       var atual = parseInt(valor.textContent.replace(/\D/g, ""), 10) || 0;
-      valor.textContent = String(ml === 0 ? 0 : atual + ml);
+      var novo = ml === 0 ? 0 : atual + ml;
+      valor.textContent = String(novo);
+      /* O anel acompanha o número quando a tela diz a meta. */
+      var anel = cartao.querySelector("[data-agua-meta]");
+      var meta = anel ? parseInt(anel.getAttribute("data-agua-meta"), 10) : NaN;
+      if (anel && meta > 0) {
+        anel.style.setProperty("--pct", String(Math.min(100, Math.round(novo * 100 / meta))));
+      }
     }
     mostrarNota(cartao, "Registrado — aguardando rede.");
   }

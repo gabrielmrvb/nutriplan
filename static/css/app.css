@@ -6364,7 +6364,13 @@ body.montando { overflow: hidden; }
   z-index: var(--camada-flutuante);
   padding: var(--espaco-2) 0 var(--espaco-2);
   background: var(--surface);
+  /* Alvo de `#registro` depois de cada série (U7): a rolagem para aqui
+     deixa "Série N de M" e o relógio do descanso visíveis acima, em vez de
+     colar o bloco no topo da tela. */
+  scroll-margin-top: 45vh;
 }
+/* Foco programático no alvo do fragmento: é caixa, não controle — sem anel. */
+.agora__registro:focus { outline: none; }
 /* Sem barra de abas, o bloco cola no rodapé: reservava 94px para uma barra
    que a partir daqui é `display: none` (avaliação de 16/09/2026, B32,
    medido a 1280px). DEPOIS da regra geral, senão o `bottom` dela vence. */

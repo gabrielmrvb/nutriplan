@@ -24,7 +24,13 @@
     <div class="split__main stack">
 
       {# ---------------- O dia ---------------- #}
-      <section class="card" id="hoje">
+      {% comment %}
+        `data-agua` e a nota `[data-aguardando-rede]`: o toque SEM REDE soma o
+        número do anel e mostra "Registrado — aguardando rede", como na Home.
+        Até 16/09/2026 `pwa.js` procurava `.agua`, que só existe na Home, e
+        aqui o toque offline não mudava nada (avaliação, B11).
+      {% endcomment %}
+      <section class="card" id="hoje" data-agua>
         {% comment %}
           O DIA VIRA UM ANEL, e três números viram um.
 
@@ -52,6 +58,7 @@
           <h2 class="sobretitulo">Hoje</h2>
           <div class="ring ring--agua{% if completa %} ring--completo{% endif %}"
                style="--pct: {{ pct }}"
+               data-agua-meta="{{ meta_ml }}"
                role="img"
                aria-label="{{ bebido }} de {{ meta_ml }} mililitros, {{ pct }}% da meta">
             <span class="ring__inner">
@@ -70,6 +77,8 @@
             {% endif %}
           </p>
         </div>
+
+        <p class="aguardando-rede" data-aguardando-rede hidden role="status"></p>
 
         <div class="agua__botoes">
           {% for passo in passos %}

@@ -1366,7 +1366,13 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
             tem_pendente = services.serie_pendente(request.user, foco, dia=dia)
         if not tem_pendente:
             return redirect("workouts:now")
-        return redirect("%s?exercicio=%d" % (reverse("workouts:now"), foco))
+        # `#registro` (U7, 16/09/2026): a página seguinte abre com o BLOCO DE
+        # REGISTRO em foco — `tabindex="-1"` no alvo faz o navegador pousar o
+        # foco nele —, e não no topo: a cada série a pessoa descia de novo
+        # até a carga, e o teclado/leitor de tela recomeçava da marca.
+        # `scroll-margin-top` no bloco deixa "Série N de M" e o descanso
+        # visíveis acima. Só na MESMA página: exercício novo abre pelo nome.
+        return redirect("%s?exercicio=%d#registro" % (reverse("workouts:now"), foco))
 
     #: Quantos dias para trás um evento da fila ainda pode escrever.
     #:

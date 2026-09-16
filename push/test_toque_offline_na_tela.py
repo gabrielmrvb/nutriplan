@@ -44,6 +44,24 @@ class OToqueOfflineApareceNaTelaTests(SimpleTestCase):
                 html = sem_comentarios((TEMPLATES / arquivo).read_text(encoding="utf-8"))
                 self.assertIn('data-aguardando-rede hidden', html)
 
+    def test_a_tela_de_hidratacao_tambem_responde_ao_toque_offline(self):
+        """Avaliação de 16/09/2026 (B11): `aguaEnfileirada` procurava `.agua`,
+        que só existe na Home — na tela de Hidratação o toque sem rede não
+        mudava o anel (ficava 500) e não mostrava nota nenhuma. A raiz é
+        reconhecida por `[data-agua]` nas duas telas, e o número por
+        `[data-agua-total]`, que as duas já tinham."""
+        html = sem_comentarios((TEMPLATES / "plans/hydration.html").read_text(encoding="utf-8"))
+        self.assertIn("data-agua", html.split("agua__botoes", 1)[0])
+        self.assertIn("data-aguardando-rede hidden", html)
+        self.assertIn("data-agua-total", html)
+        agua = self.pwa.split("function aguaEnfileirada", 1)[1].split("function refeicaoEnfileirada", 1)[0]
+        self.assertIn('form.closest("[data-agua]")', agua)
+        self.assertIn('querySelector("[data-agua-total]")', agua)
+        self.assertNotIn('".agua__valor b"', agua)
+        # E a Home continua respondendo: o cartão dela leva o mesmo marcador.
+        home = sem_comentarios((TEMPLATES / "plans/_agua.html").read_text(encoding="utf-8"))
+        self.assertIn("data-agua", home.split("agua__botoes", 1)[0] if "agua__botoes" in home else home)
+
     def test_o_pwa_reconhece_as_mesmas_rotas_da_fila(self):
         """As rotas que a fila aceita são as que a tela sabe responder — as
         mesmas três expressões, e não uma lista paralela que envelhece."""
