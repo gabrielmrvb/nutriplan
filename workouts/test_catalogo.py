@@ -48,14 +48,25 @@ class CopyDeTempoTests(SimpleTestCase):
         self.assertIsNone(TETO_POR_DURACAO[DuracaoTreino.LIVRE])
 
     def test_sem_limite_nao_e_oferecido_em_formulario_nenhum(self):
-        """Continua no `choices` e no banco (quem tem, mantém); some da UI."""
+        """Continua no `choices` e no banco (quem tem, mantém); some da UI.
+
+        Desde 16/09/2026 a pergunta MORA na área de Treino (D4 da
+        avaliação: `workouts/routine.html`, "Seu programa") — e só lá: não
+        volta ao cadastro nem ao Perfil, que é o que a régua de 10/09
+        protegia. E nenhum formulário, em lugar nenhum, oferece `livre`."""
         self.assertEqual(
             [f for f in DuracaoTreino.escolhas_visiveis()],
             [DuracaoTreino.RAPIDO, DuracaoTreino.PADRAO, DuracaoTreino.COMPLETO],
         )
+        com_a_pergunta = []
         for caminho in RAIZ.glob("templates/**/*.html"):
+            html = caminho.read_text(encoding="utf-8")
+            if 'name="duracao_treino"' in html:
+                com_a_pergunta.append(caminho.relative_to(RAIZ).as_posix())
             with self.subTest(template=caminho.name):
-                self.assertNotIn('name="duracao_treino"', caminho.read_text(encoding="utf-8"))
+                self.assertNotRegex(html, r'name="duracao_treino"[^>]*value="livre"')
+                self.assertNotRegex(html, r'value="livre"[^>]*name="duracao_treino"')
+        self.assertEqual(com_a_pergunta, ["templates/workouts/routine.html"])
 
     def test_a_ficha_nao_promete_ate_40_min(self):
         html = (RAIZ / "templates" / "workouts" / "ficha.html").read_text(encoding="utf-8")

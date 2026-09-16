@@ -314,6 +314,17 @@ class TelaDeProgressoTests(TestCase):
                 date=self.hoje - timedelta(days=n % 40),
                 set_number=n, weight_kg=Decimal("65"), reps=10,
             )
+        # A PRIMEIRA visita depois de 38 dias de treino DESBLOQUEIA o que
+        # chegou a 100 % (5, 10 e 25 treinos — `achievements.resumo`,
+        # 16/09/2026, B35): custo de UMA vez, limitado pelo CATÁLOGO de
+        # regras e não pelos registros. A régua de N+1 é a visita seguinte.
+        from achievements.regras import CATALOGO
+        with CaptureQueriesContext(connection) as desbloqueio:
+            self.client.get("/historico/")
+        self.assertLessEqual(
+            len(desbloqueio.captured_queries) - len(poucos.captured_queries),
+            5 * len(CATALOGO),
+        )
         with CaptureQueriesContext(connection) as muitos:
             self.client.get("/historico/")
 
