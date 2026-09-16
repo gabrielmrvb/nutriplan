@@ -327,14 +327,23 @@ class BodyDataForm(OnboardingStepForm):
         return birth_date
 
     def save(self, commit=True):
+        # ANTES do `super().save()`: o peso atual é a última pesagem gravada, e
+        # é com ela que o valor enviado é comparado.
+        peso_atual = self.instance.current_weight if self.instance.pk else None
+        peso_enviado = self.cleaned_data["weight_kg"]
         profile = super().save(commit=commit)
-        if commit:
-            # Um registro de peso por dia: reabrir o passo 1 no mesmo dia
-            # atualiza a medição em vez de criar uma duplicada.
+        # Pesagem só quando o número MUDOU (ou é a primeira). O campo abre
+        # pré-preenchido com a última pesagem, de qualquer data; gravar sempre
+        # fabricava uma pesagem datada de hoje com o número de dez dias atrás
+        # para quem só veio corrigir a altura — e `convidar_a_pesar` parava de
+        # convidar, porque "hoje já tem pesagem" (avaliação de 16/09/2026,
+        # B4). Um registro por dia continua valendo: mudar o peso duas vezes
+        # no mesmo dia atualiza a medição em vez de duplicar.
+        if commit and (peso_atual is None or peso_enviado != peso_atual):
             WeightEntry.objects.update_or_create(
                 user=profile.user,
                 date=timezone.localdate(),
-                defaults={"weight_kg": self.cleaned_data["weight_kg"]},
+                defaults={"weight_kg": peso_enviado},
             )
         return profile
 
@@ -507,18 +516,24 @@ class TrainingForm(forms.Form):
         existing = list(user.training_days.all()) if user else []
         if existing and not self.is_bound:
             self.fields["weekdays"].initial = [d.weekday for d in existing]
-            # A faixa NÃO tem mais campo aqui — ela saiu da tela em
-            # 10/09/2026 e continua vindo do perfil dentro de `save`.
-            self.fields["experiencia"].initial = getattr(
-                self.perfil(), "experiencia", ""
-            )
-        # O sono vive no Profile, e não em TrainingDay: o formulário só o
-        # empresta. Sem este initial, voltar ao passo 3 mostraria os campos
-        # vazios e um "Continuar" apagaria o que já estava salvo.
+        # O sono e a experiência vivem no Profile, e não em TrainingDay: o
+        # formulário só os empresta. Sem este initial, voltar ao passo
+        # mostraria os campos vazios e um "Continuar" apagaria o que já estava
+        # salvo.
+        #
+        # A experiência ficava DENTRO do `if existing` acima, e isso apagava a
+        # resposta de quem ainda não tinha dia marcado — "Se não treina ainda,
+        # pode deixar em branco" é convite explícito da tela. Reproduzido em
+        # produção em 16/09/2026 (avaliação, B2): a etapa 3 mostrava
+        # "Experiência: Intermediário", reabrir a 2 mostrava o rádio vazio, e
+        # salvar gravava "". Só os DIAS dependem de haver dias.
         perfil = self.perfil()
         if perfil is not None and not self.is_bound:
             self.fields["wake_time"].initial = perfil.wake_time
             self.fields["sleep_time"].initial = perfil.sleep_time
+            # A faixa NÃO tem mais campo aqui — ela saiu da tela em
+            # 10/09/2026 e continua vindo do perfil dentro de `save`.
+            self.fields["experiencia"].initial = perfil.experiencia
 
     def perfil(self):
         return getattr(self.user, "profile", None) if self.user else None
@@ -912,7 +927,28 @@ class InteressesForm(OnboardingStepForm):
             self.fields["interesses"].initial = [
                 str(pilar) for pilar in self.instance.interesses
             ]
-            self.fields["prioridade"].initial = self.instance.prioridade
+            self.fields["prioridade"].initial = self._prioridade_inicial()
+
+    def _prioridade_inicial(self):
+        """A resposta gravada, traduzida de volta para o rádio.
+
+        "Não quero priorizar agora" é gravado como `""` (ver `SEM_PRIORIDADE`),
+        e `""` também é "ainda não respondeu". Abrir o rádio VAZIO para quem já
+        respondeu era o defeito: salvar de novo com UMA área marcada promovia
+        a área a principal em silêncio, e com duas recusava com "Escolha qual
+        vem primeiro" — cobrando uma resposta já dada (avaliação de
+        16/09/2026, B3).
+
+        O que distingue os dois silêncios é a etapa já ter sido respondida:
+        interesse marcado (uma área sem principal só existe por esta opção —
+        `clean` promove a única marcada) ou onboarding concluído. Quem está
+        na primeira passagem continua abrindo sem marcação.
+        """
+        if self.instance.prioridade:
+            return self.instance.prioridade
+        if self.instance.interesses or self.instance.onboarding_complete:
+            return self.SEM_PRIORIDADE
+        return ""
 
     def clean(self):
         dados = super().clean()
