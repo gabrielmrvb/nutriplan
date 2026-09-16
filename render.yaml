@@ -154,21 +154,29 @@ services:
       - key: VAPID_ADMIN_EMAIL
         sync: false
 
-  # Os lembretes de refeição ficam DESLIGADOS neste arquivo, e a razão é
-  # prosaica: cron job no Render é recurso pago, e um `render.yaml` com
-  # qualquer serviço pago faz o painel exigir cartão antes de criar até os
-  # serviços gratuitos. Como o app funciona inteiro sem lembrete — quem não
-  # tem chave VAPID nem vê o botão —, o padrão é o que sobe sem custo.
+  # Os lembretes de refeição ficam FORA deste arquivo, e a razão é
+  # prosaica: cron job no Render é recurso pago (mínimo US$ 1/mês por cron,
+  # rateado por segundo de execução), e um `render.yaml` com qualquer
+  # serviço pago faz o painel exigir cartão antes de criar até os serviços
+  # gratuitos. Como o app funciona inteiro sem lembrete — quem não tem
+  # chave VAPID nem vê o botão —, o padrão do Blueprint é o que sobe sem
+  # custo.
   #
-  # Para ligar depois: descomente o bloco, faça commit, e o Render sincroniza
-  # sozinho. Rodar duas vezes no mesmo minuto é seguro: quem decide se alguém
-  # já foi avisado é a constraint no banco, não o agendador.
+  # O cron EXISTE desde 16/09/2026, criado pela API (B7 da avaliação); este
+  # bloco é o ESPELHO dele — `push/test_cadencia_do_lembrete` confere que o
+  # `schedule` daqui e `push.services.CRON_INTERVALO_MINUTOS` dizem o mesmo.
+  # Horário em UTC (o Render só entende UTC): `8-23,0-2` são 05h–23h59 em
+  # Brasília, a faixa em que existe refeição; de madrugada o cron não roda e
+  # o banco do Neon dorme. De 15 em 15 e não de 5 em 5 pelo mesmo motivo —
+  # ver o comentário de `CRON_INTERVALO_MINUTOS`. Rodar duas vezes no mesmo
+  # minuto é seguro: quem decide se alguém já foi avisado é a constraint no
+  # banco, não o agendador.
   #
   # - type: cron
   #   name: nutriplan-lembretes
   #   runtime: python
   #   plan: starter
-  #   schedule: "*/5 * * * *"
+  #   schedule: "*/15 8-23,0-2 * * *"
   #   buildCommand: "pip install -r requirements.txt"
   #   startCommand: "python manage.py send_meal_reminders"
   #   envVars:

@@ -21,12 +21,23 @@ from .models import NotificationLog, PushSubscription
 
 logger = logging.getLogger(__name__)
 
-#: Quanto antes do horário da refeição o lembrete sai.
-REMINDER_LEAD_MINUTES = 10
-#: Tolerância do job. Se ele roda de 5 em 5 minutos, uma janela maior que o
-#: intervalo garante que nenhum horário passa batido quando um ciclo atrasa —
-#: e a constraint no banco cuida de não duplicar por causa da sobreposição.
-REMINDER_WINDOW_MINUTES = 10
+#: De quantos em quantos minutos o agendador roda — o cron do Render
+#: (`render.yaml`, `*/15`; `push/test_cadencia_do_lembrete` confere que os
+#: dois dizem o mesmo). Quinze, e não cinco, por causa do banco: cada rodada
+#: acorda o Neon, que dorme após 5 min parado, e de 5 em 5 ele nunca dormiria
+#: — a cota gratuita (100 CU-h/mês) acabaria por volta do dia 16 (`CLAUDE.md`,
+#: "Monitor externo"). A 15 e só nas horas de refeição (05h–03h BRT) o banco
+#: fica acordado ~um terço do dia.
+CRON_INTERVALO_MINUTOS = 15
+#: Até quanto antes do horário da refeição o lembrete sai. Com a cadência de
+#: 15 e a janela de 15, o aviso cai de 5 a 20 minutos antes — nunca depois
+#: (propriedade varrida minuto a minuto no teste).
+REMINDER_LEAD_MINUTES = 20
+#: Tolerância do job: a janela tem de ser ≥ o intervalo do agendador, senão
+#: `(T, T+10]` e `(T+15, T+25]` deixam `(T+10, T+15]` sem aviso. Igual ao
+#: intervalo, e não maior: sobreposição não faz mal (a constraint no banco
+#: não deixa duplicar), mas também não acrescenta nada.
+REMINDER_WINDOW_MINUTES = 15
 
 #: Códigos que o serviço de push devolve quando a assinatura morreu (app
 #: desinstalado, permissão revogada). Nesses casos ela é desativada.
@@ -93,6 +104,17 @@ def meal_payload(slot) -> dict:
     }
 
 
+def janela_do_lembrete(now):
+    """`(start, target)`: a refeição cujo horário cai em `(start, target]`
+    recebe o aviso nesta rodada. Separada de `due_slots` para a propriedade
+    da cadência ser varrida sem banco (`test_cadencia_do_lembrete`)."""
+    target = (now + timedelta(minutes=REMINDER_LEAD_MINUTES)).time()
+    start = (
+        datetime.combine(now.date(), target) - timedelta(minutes=REMINDER_WINDOW_MINUTES)
+    ).time()
+    return start, target
+
+
 def due_slots(now=None):
     """Refeições cujo lembrete cai agora, em todos os planos ativos.
 
@@ -100,10 +122,7 @@ def due_slots(now=None):
     direto no SQL, sem trazer todos os horários para a memória.
     """
     now = now or timezone.localtime()
-    target = (now + timedelta(minutes=REMINDER_LEAD_MINUTES)).time()
-    start = (
-        datetime.combine(now.date(), target) - timedelta(minutes=REMINDER_WINDOW_MINUTES)
-    ).time()
+    start, target = janela_do_lembrete(now)
 
     window = Q(time__gt=start, time__lte=target)
     if start > target:

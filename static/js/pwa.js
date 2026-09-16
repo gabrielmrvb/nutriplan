@@ -104,7 +104,7 @@
     button.hidden = false;
     if (subscription) {
       button.textContent = "Desativar lembretes";
-      say("Você recebe um aviso 10 minutos antes de cada refeição.");
+      say("Você recebe um aviso até 20 minutos antes de cada refeição.");
     } else if (Notification.permission === "denied") {
       /* Quem já negou lê isso ao abrir a tela, e não só depois de tocar. O
        * botão fica: o navegador não pergunta de novo, mas a pessoa pode
@@ -113,7 +113,7 @@
       say("Permissão negada. Dá para liberar nas configurações do navegador.");
     } else {
       button.textContent = "Ativar lembretes das refeições";
-      say("Um aviso 10 minutos antes de cada refeição, no celular.");
+      say("Um aviso até 20 minutos antes de cada refeição, no celular.");
     }
 
     button.onclick = function () {
