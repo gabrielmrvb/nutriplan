@@ -62,7 +62,15 @@ jobs:
     env:
       DATABASE_URL: postgres://nutriplan:nutriplan@localhost:5432/nutriplan
       DJANGO_SECRET_KEY: "ci-somente-nao-e-segredo-0123456789abcdefghijklmnopqrstuvwxyz"
-      DJANGO_DEBUG: "false"
+      # `True`, como no `.env` que o pre-push copia para o worktree: com DEBUG
+      # desligado o `STORAGES` escolhe o manifesto do WhiteNoise, e a URLconf
+      # resolve `static("icons/favicon.ico")` em tempo de import — sem
+      # `collectstatic` a suíte morre antes do primeiro teste ("Missing
+      # staticfiles manifest entry", visto no primeiro run deste fluxo). O
+      # Django força DEBUG=False durante os testes de qualquer jeito; o que
+      # esta variável decide é o backend de estáticos, e a suíte local roda
+      # com o mesmo. Produção é `check --deploy` no build do Render.
+      DJANGO_DEBUG: "true"
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,testserver"
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
