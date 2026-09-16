@@ -2316,3 +2316,21 @@ o `CLAUDE.md` no mesmo commit, não deixar os dois textos se contradizendo.
 Não muda o escopo da Corrida V2. Não muda a auditoria técnica em andamento.
 Não é para ser implementado por partes antes da revisão — meia navegação nova
 é pior que a atual.
+
+## Design / Onda 3
+
+### ✅ Contraste WCAG dos tokens da direção C, medido no CSS real (16/09/2026)
+
+`scripts/qa/auditar_contraste.py` mede TODO par texto × fundo (AA, 4,5:1) e
+gráfico × superfície (1.4.11, 3:1) da Mesa & Ferro, nos dois temas, com a
+mesma régua da suíte (`config.tests._tokens`/`_contraste`, que resolve o
+`var(--ferro-*)` do bloco escuro). **274 pares, 137 por tema, ZERO
+reprovados** — nenhum token precisa mudar. Quatro passam raspando, todos na
+Mesa e todos objeto gráfico: `--folha` sobre `--surface-3` (3,03), sobre
+`--brand-soft` (3,14) e sobre `--surface-2` (3,15), e `--chama` sobre
+`--surface-3` (3,29). No Ferro o par mais apertado é `--text-mute` sobre
+`--surface-3`, 5,10. O script já sabe propor o hex vizinho que passaria
+(mistura com preto/branco em 2%, matiz preservado) e diz quantas regras o
+token pinta; hoje não tem o que propor. Quem mexer em `--surface-3` ou em
+`--surface-2` roda o script antes — a folga da folha é a que o comentário do
+token em `app.css` diz não ser folga para gastar.
