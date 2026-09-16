@@ -50,4 +50,3 @@ class DirecoesTests(SimpleTestCase):
             with self.subTest(nome=nome):
                 self.assertIn(f"referencias/direcoes/{nome}.png", doc)
         self.assertIn("Direção escolhida:", doc)
-
