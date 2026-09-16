@@ -128,12 +128,18 @@
       {% endcomment %}
       <div class="agora__linha-do-topo">
         <p class="sobretitulo agora__sessao-rotulo">Treino {{ estado.sessao.label }} · {{ estado.sessao.name }}{% if estado.tem_duas_opcoes %} · Opção {{ estado.opcao }}{% endif %}{% if estado.rapida %} · rápida{% endif %}</p>
-        {% if escolher_na_ficha %}
-          {# Sem escolha gravada: esta é a opção RECOMENDADA, e a porta para trocar é a ficha. #}
-          <p class="agora__opcao-aviso muted">Opção {{ estado.opcao }}, a recomendada de hoje — <a href="{{ escolher_na_ficha }}">trocar de opção na ficha</a>.</p>
-        {% endif %}
         <a class="btn-link agora__voltar" href="{% url 'workouts:ficha' estado.sessao.pk %}">← Ficha</a>
       </div>
+      {% if escolher_na_ficha %}
+        {% comment %}
+          Sem escolha gravada: esta é a opção RECOMENDADA, e a porta para
+          trocar é a ficha. Em linha PRÓPRIA, depois da linha do topo: como
+          terceiro item do flex ela espremia o sobretítulo em quatro linhas
+          de caixa alta (avaliação de 16/09/2026, B28). No DOM, e não por
+          `order`, para a ordem de foco seguir a visual.
+        {% endcomment %}
+        <p class="agora__opcao-aviso muted">Opção {{ estado.opcao }}, a recomendada de hoje — <a href="{{ escolher_na_ficha }}">trocar de opção na ficha</a>.</p>
+      {% endif %}
       <p class="agora__passo num">
         {% comment %}
           A POSIÇÃO É A DO EXERCÍCIO EM FOCO, e ela deixou de ser derivada dos
@@ -207,45 +213,6 @@
           Uma linha discreta sob a faixa — é instrução, não alerta.
         {% endcomment %}
         {% if not concluido or extra %}<p class="series__esforco">{{ atual.esforco }}</p>{% endif %}
-        {% comment %}
-          Uma pastilha por série prescrita, e o texto dentro dela é a carga.
-
-          Bolinha colorida sozinha reprovaria em daltonismo e não informaria
-          nada além de "aconteceu". Com o número, a fileira vira o histórico da
-          sessão: dá para ver que a terceira caiu de 62,5 para 60 sem abrir
-          nada.
-        {% endcomment %}
-        {% comment %}
-          O QUE VAI DENTRO DA PASTILHA. Feita: "62,5×9" — carga e reps de
-          hoje, sem "kg" (o campo já diz a unidade, e a largura da pastilha
-          é o que mantém as quatro numa linha a 320px: medido, "62,5 kg × 9"
-          quebrava a fileira em duas). Pendente com histórico: "60×10" em
-          cinza, a MESMA série da última vez — é o número que se procura na
-          hora de escolher a anilha, com "última vez:" para o leitor de tela.
-          Peso do corpo: só as reps ("×12"); segundos: "30s". Sem nada: "—".
-        {% endcomment %}
-        <ol class="series__lista">
-          {% for linha in atual.set_rows %}
-            <li class="series__item{% if linha.weight != None %} series__item--feita{% elif linha.number == atual.proxima_serie %} series__item--atual{% endif %}">
-              <span class="series__n num">{{ linha.number }}</span>
-              {% if linha.weight != None %}
-                <span class="series__carga num">
-                  {% if atual.measure == 'seconds' %}{{ linha.reps|default:"—" }}s{% elif atual.exercise.sem_carga %}×{{ linha.reps|default:"—" }}{% else %}{{ linha.weight|floatformat:'-2' }}{% if linha.reps %}×{{ linha.reps }}{% endif %}{% endif %}
-                </span>
-                {% if linha.recorde %}
-                  {# A palavra, e não só a cor: a série que SUPEROU a maior carga já registrada. #}
-                  <span class="series__recorde">recorde</span>
-                {% endif %}
-              {% elif linha.antes_peso != None %}
-                <span class="series__antes num">
-                  <span class="vis-oculto">última vez: </span>{% if atual.measure == 'seconds' %}{{ linha.antes_reps|default:"—" }}s{% elif atual.exercise.sem_carga %}×{{ linha.antes_reps|default:"—" }}{% else %}{{ linha.antes_peso|floatformat:'-2' }}{% if linha.antes_reps %}×{{ linha.antes_reps }}{% endif %}{% endif %}
-                </span>
-              {% else %}
-                <span class="series__carga num">—</span>
-              {% endif %}
-            </li>
-          {% endfor %}
-        </ol>
       </div>
 
       {% if estado.descanso_restante %}
@@ -284,6 +251,55 @@
         </div>
         <p class="vis-oculto" role="status" aria-live="polite" data-descanso-aviso></p>
       {% endif %}
+      {% comment %}
+        O BLOCO PRESO AO RODAPÉ: a fileira de pastilhas, a nota do toque
+        offline e o formulário (ou "Tudo registrado"), numa caixa só. Era só
+        o formulário que ficava `sticky`, e ele cobria a metade de baixo das
+        pastilhas na primeira abertura do dia, quando o cabeçalho é mais alto
+        (avaliação de 16/09/2026, B32). O que a pessoa toca e o que muda com
+        o toque ficam juntos, e nada da caixa cobre a fileira.
+      {% endcomment %}
+      <div class="agora__registro">
+          {% comment %}
+            Uma pastilha por série prescrita, e o texto dentro dela é a carga.
+
+            Bolinha colorida sozinha reprovaria em daltonismo e não informaria
+            nada além de "aconteceu". Com o número, a fileira vira o histórico da
+            sessão: dá para ver que a terceira caiu de 62,5 para 60 sem abrir
+            nada.
+          {% endcomment %}
+          {% comment %}
+            O QUE VAI DENTRO DA PASTILHA. Feita: "62,5×9" — carga e reps de
+            hoje, sem "kg" (o campo já diz a unidade, e a largura da pastilha
+            é o que mantém as quatro numa linha a 320px: medido, "62,5 kg × 9"
+            quebrava a fileira em duas). Pendente com histórico: "60×10" em
+            cinza, a MESMA série da última vez — é o número que se procura na
+            hora de escolher a anilha, com "última vez:" para o leitor de tela.
+            Peso do corpo: só as reps ("×12"); segundos: "30s". Sem nada: "—".
+          {% endcomment %}
+          <ol class="series__lista">
+            {% for linha in atual.set_rows %}
+              <li class="series__item{% if linha.weight != None %} series__item--feita{% elif linha.number == atual.proxima_serie %} series__item--atual{% endif %}">
+                <span class="series__n num">{{ linha.number }}</span>
+                {% if linha.weight != None %}
+                  <span class="series__carga num">
+                    {% if atual.measure == 'seconds' %}{{ linha.reps|default:"—" }}s{% elif atual.exercise.sem_carga %}×{{ linha.reps|default:"—" }}{% else %}{{ linha.weight|floatformat:'-2' }}{% if linha.reps %}×{{ linha.reps }}{% endif %}{% endif %}
+                  </span>
+                  {% if linha.recorde %}
+                    {# A palavra, e não só a cor: a série que SUPEROU a maior carga já registrada. #}
+                    <span class="series__recorde">recorde</span>
+                  {% endif %}
+                {% elif linha.antes_peso != None %}
+                  <span class="series__antes num">
+                    <span class="vis-oculto">última vez: </span>{% if atual.measure == 'seconds' %}{{ linha.antes_reps|default:"—" }}s{% elif atual.exercise.sem_carga %}×{{ linha.antes_reps|default:"—" }}{% else %}{{ linha.antes_peso|floatformat:'-2' }}{% if linha.antes_reps %}×{{ linha.antes_reps }}{% endif %}{% endif %}
+                  </span>
+                {% else %}
+                  <span class="series__carga num">—</span>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+
       {# O selo do toque offline (ver `pwa.js`): a série entra na pastilha e esta nota aparece. #}
       <p class="aguardando-rede" data-aguardando-rede hidden role="status"></p>
 
@@ -397,6 +413,7 @@
         </button>
       </form>
       {% endif %}
+      </div>
       {% endwith %}
 
       {% comment %}

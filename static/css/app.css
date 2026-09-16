@@ -6001,6 +6001,10 @@ body.montando { overflow: hidden; }
 }
 .agora__linha-do-topo .agora__sessao-rotulo { min-width: 0; }
 .agora__voltar { flex: none; }
+/* A frase da opção recomendada, em linha PRÓPRIA abaixo da linha do topo.
+   Como terceiro item do flex ela espremia o sobretítulo em quatro linhas de
+   caixa alta a 390px (avaliação de 16/09/2026, B28). */
+.agora__opcao-aviso { margin: 0 0 var(--espaco-2); font-size: var(--texto-sm); }
 
 /* O título da execução leva à leitura do exercício: mesma cor, sublinhado
    fino, para ser porta sem virar botão. */
@@ -6349,17 +6353,37 @@ body.montando { overflow: hidden; }
    navegação, que nada cobre —, e o fundo é o da superfície do cartão, para
    a anatomia e a carga anterior não aparecerem através dos campos quando
    rolam por baixo. A caixa continua fora: sem borda, sem sombra. */
+.agora__registro {
+  position: sticky;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  z-index: var(--camada-flutuante);
+  padding: var(--espaco-2) 0 var(--espaco-2);
+  background: var(--surface);
+}
+/* Sem barra de abas, o bloco cola no rodapé: reservava 94px para uma barra
+   que a partir daqui é `display: none` (avaliação de 16/09/2026, B32,
+   medido a 1280px). DEPOIS da regra geral, senão o `bottom` dela vence. */
+@media (min-width: 60rem) {
+  .agora__registro { bottom: 0; }
+}
+/* QUEM É `sticky` É O BLOCO, e as pastilhas estão dentro dele. Só o
+   formulário ficava preso, e na primeira abertura do dia — cabeçalho mais
+   alto, com a frase da opção — ele cobria a metade de baixo das pastilhas
+   "1 2 3 4", a fileira que é o histórico da sessão e o único retorno visual
+   do toque (avaliação de 16/09/2026, B32; depois da primeira série sobravam
+   9–10px). Dentro do bloco, o que se toca e o que muda com o toque ficam na
+   mesma caixa, e nada dela cobre a fileira. */
+.agora__registro .series__lista { margin-bottom: var(--espaco-3); }
+.agora__registro .aguardando-rede { margin: 0 0 var(--espaco-3); }
+.agora__registro .agora__extra { margin-top: 0; }
 .registro--agora {
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
     "menos carga mais"
     "reps  reps  reps"
     "cta   cta   cta";
-  position: sticky;
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
-  z-index: var(--camada-flutuante);
   margin-top: 0;
-  padding: var(--espaco-2) 0 var(--espaco-2);
+  padding: 0;
   background: var(--surface);
   border: 0;
   box-shadow: none;

@@ -15,6 +15,12 @@ e no degrau `--camada-flutuante` — abaixo de `--camada-navegacao`, que é a
 regra de produto que `test_nada_cobre_a_barra_de_navegacao` guarda: nada
 cobre a barra de baixo. Sabotagem que precisa ficar vermelha: trocar o
 degrau por `--camada-navegacao`, ou tirar o `sticky`.
+
+Desde 16/09/2026 quem é `sticky` é `.agora__registro`, o bloco que envolve
+as pastilhas, a nota de rede e o formulário — o formulário sozinho cobria a
+metade de baixo das pastilhas na primeira abertura do dia (avaliação, B32;
+`test_execucao_legivel`). As propriedades guardadas aqui são as mesmas; só
+mudou o dono.
 """
 
 import re
@@ -41,7 +47,7 @@ def bloco(css, seletor):
 class ConcluirSerieVisivelTests(SimpleTestCase):
     def setUp(self):
         self.css = CSS.read_text(encoding="utf-8")
-        self.regra = bloco(self.css, ".registro--agora")
+        self.regra = bloco(self.css, ".agora__registro")
 
     def test_o_bloco_de_registro_gruda_no_rodape_acima_da_tabbar(self):
         self.assertIn("position: sticky", self.regra)
