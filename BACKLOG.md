@@ -2317,6 +2317,21 @@ Não muda o escopo da Corrida V2. Não muda a auditoria técnica em andamento.
 Não é para ser implementado por partes antes da revisão — meia navegação nova
 é pior que a atual.
 
+## accounts
+
+### BUG — "Exportar meus dados" fica desligado e girando depois de o arquivo salvar (16/09/2026)
+
+`templates/accounts/profile.html:452`: o botão é `<button type="submit">` num
+formulário cuja resposta é `Content-Disposition: attachment`. `pwa.js` marca o
+botão de envio com `aria-busy` no `submit` e conta com a PÁGINA NOVA para
+limpá-lo — mas um arquivo não troca de página, então o botão fica desligado,
+com o anel girando, até a pessoa recarregar. Achado pela revisão da N5 da
+onda 3 de design (mesma classe de problema do link do TCX, que ganhou
+`data-arquivo` para ficar de fora). Correção candidata: a mesma marca
+`data-arquivo` no `<form>`, lida pelo `submit` de `pwa.js`; ou o servidor
+responder com página e link, e o arquivo vir de um GET marcado. Decisão de
+`accounts`, fora da campanha de design.
+
 ## Design / Onda 3
 
 ### ✅ Contraste WCAG dos tokens da direção C, medido no CSS real (16/09/2026)
