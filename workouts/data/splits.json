@@ -78,6 +78,55 @@
         12,
         15,
         60
+      ],
+      [
+        "Leg press 45°",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Supino reto com halteres",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Barra fixa assistida",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Elevação pélvica",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Desenvolvimento na máquina",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Rosca martelo",
+        2,
+        10,
+        12,
+        60
+      ],
+      [
+        "Tríceps testa com barra",
+        2,
+        10,
+        12,
+        60
       ]
     ]
   },
@@ -150,6 +199,62 @@
         12,
         15,
         60
+      ],
+      [
+        "Supino reto com halteres",
+        4,
+        6,
+        10,
+        80
+      ],
+      [
+        "Remada unilateral com halter",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Desenvolvimento na máquina",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Barra fixa assistida",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Rosca alternada com halteres",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Tríceps testa com barra",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Encolhimento com barra",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Rosca inversa com barra",
+        3,
+        10,
+        15,
+        60
       ]
     ]
   },
@@ -206,6 +311,34 @@
         45,
         60,
         "seconds"
+      ],
+      [
+        "Elevação pélvica",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Agachamento no hack",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Cadeira flexora",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Panturrilha sentado",
+        3,
+        15,
+        20,
+        60
       ]
     ]
   },
@@ -283,6 +416,48 @@
         10,
         15,
         80
+      ],
+      [
+        "Supino reto com halteres",
+        4,
+        6,
+        10,
+        80
+      ],
+      [
+        "Crucifixo com halteres",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Supino fechado com barra",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Tríceps francês com halter",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Desenvolvimento na máquina",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Face pull na polia",
+        3,
+        12,
+        15,
+        60
       ]
     ]
   },
@@ -357,6 +532,69 @@
       ],
       [
         "Encolhimento com halteres",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Puxada frente com pegada supinada",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Barra fixa",
+        4,
+        6,
+        10,
+        80
+      ],
+      [
+        "Remada curvada com halteres",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Remada articulada na máquina",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Rosca Scott com barra",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca concentrada",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca na polia baixa",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca inversa com halteres",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Encolhimento com barra",
         3,
         10,
         15,
@@ -439,6 +677,55 @@
         45,
         60,
         "seconds"
+      ],
+      [
+        "Agachamento no hack",
+        4,
+        10,
+        12,
+        80
+      ],
+      [
+        "Agachamento goblet com halter",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Stiff com halteres",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Bom dia com barra",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Elevação pélvica",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Panturrilha no leg press",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Panturrilha em pé com halteres",
+        3,
+        12,
+        15,
+        60
       ]
     ]
   },
@@ -500,6 +787,55 @@
         3,
         10,
         15,
+        60
+      ],
+      [
+        "Supino reto com halteres",
+        4,
+        6,
+        10,
+        80
+      ],
+      [
+        "Supino na máquina",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Crucifixo com halteres",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Crossover na polia",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Supino fechado com barra",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Mergulho nas paralelas",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Tríceps francês com halter",
+        3,
+        10,
+        12,
         60
       ]
     ]
@@ -563,6 +899,55 @@
         10,
         15,
         60
+      ],
+      [
+        "Puxada frente com pegada supinada",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Barra fixa",
+        4,
+        6,
+        10,
+        80
+      ],
+      [
+        "Remada curvada com halteres",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Remada articulada na máquina",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Rosca Scott com barra",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca concentrada",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca na polia baixa",
+        3,
+        10,
+        12,
+        60
       ]
     ]
   },
@@ -622,6 +1007,48 @@
       ],
       [
         "Elevação lateral com halteres",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Agachamento no hack",
+        4,
+        10,
+        12,
+        80
+      ],
+      [
+        "Agachamento goblet com halter",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Elevação pélvica",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Stiff com halteres",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Desenvolvimento na máquina",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Face pull na polia",
         3,
         12,
         15,
@@ -699,6 +1126,62 @@
         45,
         60,
         "seconds"
+      ],
+      [
+        "Stiff com halteres",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Remada alta na polia",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Encolhimento com barra",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Panturrilha no leg press",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Panturrilha em pé com halteres",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Rosca de punho com halteres",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Rosca inversa com halteres",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Elevação de pernas",
+        3,
+        12,
+        15,
+        60
       ]
     ]
   },
@@ -746,6 +1229,34 @@
         15,
         20,
         60
+      ],
+      [
+        "Supino reto com halteres",
+        4,
+        6,
+        10,
+        80
+      ],
+      [
+        "Supino na máquina",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Crucifixo com halteres",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Crossover na polia",
+        3,
+        12,
+        15,
+        60
       ]
     ]
   },
@@ -784,6 +1295,34 @@
         "Remada unilateral com halter",
         3,
         10,
+        12,
+        80
+      ],
+      [
+        "Puxada frente com pegada supinada",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Barra fixa",
+        4,
+        6,
+        10,
+        80
+      ],
+      [
+        "Remada curvada com halteres",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Remada articulada na máquina",
+        3,
+        8,
         12,
         80
       ]
@@ -856,6 +1395,55 @@
         15,
         20,
         60
+      ],
+      [
+        "Agachamento no hack",
+        4,
+        10,
+        12,
+        80
+      ],
+      [
+        "Agachamento goblet com halter",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Stiff com halteres",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Bom dia com barra",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Elevação pélvica",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Panturrilha no leg press",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Panturrilha em pé com halteres",
+        3,
+        12,
+        15,
+        60
       ]
     ]
   },
@@ -907,6 +1495,48 @@
       ],
       [
         "Encolhimento com halteres",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Desenvolvimento na máquina",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Desenvolvimento com barra",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Face pull na polia",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Crucifixo inverso com halteres",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Remada alta na polia",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Encolhimento com barra",
         3,
         10,
         15,
@@ -980,6 +1610,62 @@
         10,
         15,
         60
+      ],
+      [
+        "Rosca Scott com barra",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca concentrada",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca na polia baixa",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Supino fechado com barra",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Mergulho nas paralelas",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Tríceps francês com halter",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca de punho com halteres",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Rosca inversa com halteres",
+        3,
+        10,
+        15,
+        60
       ]
     ]
   },
@@ -1041,6 +1727,55 @@
         3,
         10,
         15,
+        60
+      ],
+      [
+        "Supino reto com halteres",
+        4,
+        6,
+        10,
+        80
+      ],
+      [
+        "Supino na máquina",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Crucifixo com halteres",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Crossover na polia",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Supino fechado com barra",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Mergulho nas paralelas",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Tríceps francês com halter",
+        3,
+        10,
+        12,
         60
       ]
     ]
@@ -1128,6 +1863,83 @@
       ],
       [
         "Rosca inversa com barra",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Puxada frente com pegada supinada",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Barra fixa",
+        4,
+        6,
+        10,
+        80
+      ],
+      [
+        "Remada curvada com halteres",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Remada articulada na máquina",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Rosca Scott com barra",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca concentrada",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca na polia baixa",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Encolhimento com barra",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Remada alta na polia",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Rosca de punho com halteres",
+        3,
+        10,
+        15,
+        60
+      ],
+      [
+        "Rosca inversa com halteres",
         3,
         10,
         15,
@@ -1230,6 +2042,69 @@
         3,
         12,
         20,
+        60
+      ],
+      [
+        "Agachamento no hack",
+        4,
+        10,
+        12,
+        80
+      ],
+      [
+        "Agachamento goblet com halter",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Cadeira flexora",
+        3,
+        10,
+        12,
+        60
+      ],
+      [
+        "Stiff com halteres",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Bom dia com barra",
+        3,
+        10,
+        12,
+        80
+      ],
+      [
+        "Desenvolvimento na máquina",
+        3,
+        8,
+        12,
+        80
+      ],
+      [
+        "Face pull na polia",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Panturrilha no leg press",
+        3,
+        12,
+        15,
+        60
+      ],
+      [
+        "Panturrilha em pé com halteres",
+        3,
+        12,
+        15,
         60
       ]
     ]

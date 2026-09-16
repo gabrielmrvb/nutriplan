@@ -374,7 +374,10 @@ class OsComplementaresSeDistribuemTests(TestCase):
             {item.exercise_id for item in modelo.items.all() if item.exercise.is_active},
             "a letra C não oferece o modelo inteiro entre as opções",
         )
-        self.assertEqual(len(oferecidos), 12)
+        # 13 desde 16/09/2026: a cadeira flexora entrou no modelo `abc2 C`
+        # como segunda flexão de joelho (os 28 novos são inativos e não
+        # contam aqui).
+        self.assertEqual(len(oferecidos), 13)
         for s in plano.sessions.prefetch_related("exercises__exercise"):
             for opcao in s.opcoes:
                 self.assertLessEqual(

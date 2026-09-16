@@ -740,6 +740,29 @@ alta, atualizando a constante com a razão escrita. O relatório de deploy
 mostra "antes / depois" por letra: `manage.py opcoes_por_letra` no commit
 de produção e no candidato.
 
+**O CATÁLOGO CRESCEU INATIVO ATÉ SUSTENTAR DUAS OPÇÕES CHEIAS (16/09/2026).**
+28 exercícios novos (64 no total, 35 ativos como antes) entraram com
+`active: false`, padrão, equipamento, dica, articulações, secundários, chave
+CONFERIDA na free-exercise-db (56 fotos respondendo) e `candidatos` de mídia
+achados por BUSCA — não por visualização. Ativar é curadoria da manhã: mover
+um candidato para `video` com o `video_titulo` do oEmbed, pôr a anatomia em
+`animacoes.json` e trocar `active`. A régua: para um grupo com `k`
+exercícios na sessão, duas opções com metade própria pedem
+`2·ceil(k/2) + floor(k/2)` e duas opções CHEIAS pedem `2k` — peito 8,
+tríceps 6, costas 8, bíceps 6, quadríceps 6, posterior 6, ombro 8,
+panturrilha/trapézio/antebraço 4 (`CatalogoDimensionadoTests.K_HOJE` congela
+o `k` de hoje). Os modelos de `splits.json` JÁ listam os novos: o
+`is_active` os filtra até a ativação, e `abc A` fica no mínimo (peito 6,
+tríceps 5, ombro 4) porque com 18 exercícios em três grupos o corte por
+tempo caía diferente em cada opção e a letra perdia a segunda.
+
+E os modelos também ganharam exercícios que JÁ ERAM ATIVOS onde faltava um
+segundo do mesmo padrão composto (elevação pélvica em `ab B`, barra fixa
+assistida em `full A`, stiff em `abcd D`...): com isso o gate fecha em 16
+sem ativar nada. Medido em 16/09: ativar só "Desenvolvimento na máquina" dá
+17 (`abcd C` volta); com os 28 ativos, 18 de 18 — e as sessões chegam a
+59–60 minutos, que é o "perto de 60" do brief.
+
 **O que o catálogo NÃO deixa fazer, medido:** "peito e tríceps" tem 4
 exercícios por opção porque o catálogo tem 4 peitos e 3 tríceps — duas
 opções distintas de 3+3 pediriam 6 e 6. E com a letra duas vezes na semana,

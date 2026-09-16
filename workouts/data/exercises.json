@@ -580,5 +580,707 @@
       "biceps"
     ],
     "video_titulo": "Rosca Inversa Barra"
+  },
+  {
+    "name": "Supino reto com halteres",
+    "muscle_group": "chest",
+    "compound": true,
+    "cue": "Halteres na linha do peito, não do pescoço; suba fechando um pouco os cotovelos, sem bater os halteres no topo.",
+    "equipment": "dumbbell",
+    "padrao": "pressao_de_peito",
+    "joints": [
+      "shoulder",
+      "elbow"
+    ],
+    "secundarios": [
+      "triceps",
+      "shoulders"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/kgZwiUZvhOU",
+        "https://www.youtube.com/shorts/k1gMi4IZZEA"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/watch?v=yyin7LezX5E",
+        "https://www.youtube.com/results?search_query=supino+reto+com+halteres+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Supino na máquina",
+    "muscle_group": "chest",
+    "compound": true,
+    "cue": "Ajuste o banco para as pegadas ficarem na linha do peito; costas apoiadas do início ao fim.",
+    "equipment": "machine",
+    "padrao": "pressao_de_peito",
+    "joints": [
+      "shoulder",
+      "elbow"
+    ],
+    "secundarios": [
+      "triceps",
+      "shoulders"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/N5dcVKWRXvw",
+        "https://www.youtube.com/shorts/PfFxqDN-TKc"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/watch?v=yyin7LezX5E",
+        "https://www.youtube.com/results?search_query=supino+máquina+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Crucifixo com halteres",
+    "muscle_group": "chest",
+    "compound": false,
+    "cue": "Cotovelo levemente dobrado e travado nesse ângulo; desça até sentir o alongamento do peito, não além.",
+    "equipment": "dumbbell",
+    "padrao": "crucifixo",
+    "joints": [
+      "shoulder"
+    ],
+    "secundarios": [
+      "shoulders"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/mQoTwHqoJuY",
+        "https://www.youtube.com/shorts/35VzplpPLG4"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=crucifixo+com+halteres+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Crossover na polia",
+    "muscle_group": "chest",
+    "compound": false,
+    "cue": "Um passo à frente da polia, tronco levemente inclinado; junte as mãos na frente do peito sem dobrar mais o cotovelo.",
+    "equipment": "cable",
+    "padrao": "crucifixo",
+    "joints": [
+      "shoulder"
+    ],
+    "secundarios": [
+      "shoulders"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/tBsuahKuvUc",
+        "https://www.youtube.com/watch?v=E3aha5zhlc0"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=crossover+polia+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Puxada frente com pegada supinada",
+    "muscle_group": "back",
+    "compound": true,
+    "cue": "Pegada na largura dos ombros, palmas para você; puxe o cotovelo para baixo e para trás, peito para a barra.",
+    "equipment": "cable",
+    "padrao": "puxada_vertical",
+    "joints": [
+      "shoulder",
+      "elbow"
+    ],
+    "secundarios": [
+      "biceps",
+      "forearms"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/vXKcuyaQD0w",
+        "https://www.youtube.com/watch?v=IFDUGxHRIKA"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=puxada+supinada+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Barra fixa",
+    "muscle_group": "back",
+    "compound": true,
+    "cue": "Pendure com o braço estendido e suba até o queixo passar a barra; se não sair uma, use a assistida.",
+    "equipment": "bodyweight",
+    "padrao": "puxada_vertical",
+    "joints": [
+      "shoulder",
+      "elbow"
+    ],
+    "secundarios": [
+      "biceps",
+      "forearms"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/watch?v=BBmjDutLmAo",
+        "https://www.youtube.com/watch?v=e0_JPPnPNXo"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=barra+fixa+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Remada curvada com halteres",
+    "muscle_group": "back",
+    "compound": true,
+    "cue": "Tronco a 45° com a coluna neutra; puxe os halteres para o quadril, não para o peito.",
+    "equipment": "dumbbell",
+    "padrao": "remada_horizontal",
+    "joints": [
+      "shoulder",
+      "elbow",
+      "lower_back"
+    ],
+    "secundarios": [
+      "biceps",
+      "forearms",
+      "core"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/krw3W1_PM18",
+        "https://www.youtube.com/shorts/eFfCvsaoyhs"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=remada+curvada+com+halteres+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Remada articulada na máquina",
+    "muscle_group": "back",
+    "compound": true,
+    "cue": "Peito apoiado no encosto; puxe com o cotovelo e segure um instante no fim, sem jogar o tronco para trás.",
+    "equipment": "machine",
+    "padrao": "remada_horizontal",
+    "joints": [
+      "shoulder",
+      "elbow"
+    ],
+    "secundarios": [
+      "biceps",
+      "forearms"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/I-VquBHcA6E",
+        "https://www.youtube.com/shorts/NpMy1qsS3jE"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=remada+articulada+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Desenvolvimento na máquina",
+    "muscle_group": "shoulders",
+    "compound": true,
+    "cue": "Pegadas na altura da orelha no início; empurre para cima sem travar o cotovelo no topo.",
+    "equipment": "machine",
+    "padrao": "pressao_vertical",
+    "joints": [
+      "shoulder",
+      "elbow"
+    ],
+    "secundarios": [
+      "triceps"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/q_iHlstGEcc",
+        "https://www.youtube.com/shorts/JzicyWYUw0c"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=desenvolvimento+máquina+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Desenvolvimento com barra",
+    "muscle_group": "shoulders",
+    "compound": true,
+    "cue": "Em pé, glúteo e abdômen firmes; a barra sobe rente ao rosto e termina sobre a cabeça, não à frente dela.",
+    "equipment": "barbell",
+    "padrao": "pressao_vertical",
+    "joints": [
+      "shoulder",
+      "elbow",
+      "lower_back"
+    ],
+    "secundarios": [
+      "triceps",
+      "core"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/Xy0HBD2K4Jk",
+        "https://www.youtube.com/shorts/tZH8QkgWkL0"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=desenvolvimento+militar+barra+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Face pull na polia",
+    "muscle_group": "shoulders",
+    "compound": false,
+    "cue": "Corda na altura do rosto; puxe abrindo as mãos até as orelhas, cotovelo alto, sem inclinar o tronco.",
+    "equipment": "cable",
+    "padrao": "deltoide_posterior",
+    "joints": [
+      "shoulder"
+    ],
+    "secundarios": [
+      "traps"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/kamdxk0L4Yw",
+        "https://www.youtube.com/shorts/752CtwjnGm4"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=face+pull+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Crucifixo inverso com halteres",
+    "muscle_group": "shoulders",
+    "compound": false,
+    "cue": "Tronco inclinado à frente, cotovelo levemente dobrado; abra os braços até a linha do ombro, sem encolher.",
+    "equipment": "dumbbell",
+    "padrao": "deltoide_posterior",
+    "joints": [
+      "shoulder"
+    ],
+    "secundarios": [
+      "back"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/UC2Rd0fLLco",
+        "https://www.youtube.com/watch?v=H9Yh36fNFpk"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/shorts/yBpQOjLPFbY"
+      ]
+    }
+  },
+  {
+    "name": "Agachamento no hack",
+    "muscle_group": "quads",
+    "compound": true,
+    "cue": "Pés na largura do quadril e um pouco à frente; desça até a coxa passar da linha do joelho sem tirar o calcanhar.",
+    "equipment": "machine",
+    "padrao": "agachamento",
+    "joints": [
+      "knee",
+      "hip"
+    ],
+    "secundarios": [
+      "hamstrings"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/Kbh-1n8CHTs",
+        "https://www.youtube.com/watch?v=weyTbC-AjRg"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=agachamento+hack+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Agachamento goblet com halter",
+    "muscle_group": "quads",
+    "compound": true,
+    "cue": "Halter junto ao peito, cotovelos por dentro dos joelhos na descida; tronco ereto.",
+    "equipment": "dumbbell",
+    "padrao": "agachamento",
+    "joints": [
+      "knee",
+      "hip"
+    ],
+    "secundarios": [
+      "hamstrings",
+      "core"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/nu0gvBN5bjM",
+        "https://www.youtube.com/shorts/w6jCt94KAZk"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=agachamento+goblet+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Stiff com halteres",
+    "muscle_group": "hamstrings",
+    "compound": true,
+    "cue": "Halteres rentes à perna, joelho quase estendido; o quadril vai para trás até a parte de trás da coxa alongar.",
+    "equipment": "dumbbell",
+    "padrao": "extensao_de_quadril",
+    "joints": [
+      "hip",
+      "lower_back"
+    ],
+    "secundarios": [
+      "back",
+      "core"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/hTSsiQaS9pU",
+        "https://www.youtube.com/watch?v=XlGjQYUN4RQ"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=stiff+com+halteres+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Bom dia com barra",
+    "muscle_group": "hamstrings",
+    "compound": true,
+    "cue": "Barra nas costas, joelho levemente dobrado; incline o tronco até quase paralelo ao chão com a coluna neutra. Carga leve.",
+    "equipment": "barbell",
+    "padrao": "extensao_de_quadril",
+    "joints": [
+      "hip",
+      "lower_back"
+    ],
+    "secundarios": [
+      "back",
+      "core"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/B0t7Vpvjr34",
+        "https://www.youtube.com/shorts/VODQGpOciPo"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=bom+dia+good+morning+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Panturrilha no leg press",
+    "muscle_group": "calves",
+    "compound": false,
+    "cue": "Só a ponta do pé na plataforma, joelho estendido; passe pela posição alongada em toda repetição.",
+    "equipment": "machine",
+    "padrao": "flexao_plantar",
+    "joints": [
+      "ankle"
+    ],
+    "secundarios": [],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/zt_CQ3vbT0A",
+        "https://www.youtube.com/shorts/rtIDLA6aKwM"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=panturrilha+leg+press+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Panturrilha em pé com halteres",
+    "muscle_group": "calves",
+    "compound": false,
+    "cue": "Ponta do pé num degrau, halteres ao lado do corpo; suba o máximo e desça abaixo do degrau.",
+    "equipment": "dumbbell",
+    "padrao": "flexao_plantar",
+    "joints": [
+      "ankle"
+    ],
+    "secundarios": [],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/Yv-HBl6VUpA",
+        "https://www.youtube.com/watch?v=taJ1LKIwwKI"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=panturrilha+em+pé+com+halteres+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Rosca Scott com barra",
+    "muscle_group": "biceps",
+    "compound": false,
+    "cue": "Axila encaixada no banco, braço todo apoiado; não estenda o cotovelo por completo embaixo.",
+    "equipment": "barbell",
+    "padrao": "rosca",
+    "joints": [
+      "elbow",
+      "wrist"
+    ],
+    "secundarios": [
+      "forearms"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/VCCmzbShrTM",
+        "https://www.youtube.com/watch?v=FxrrSYi9nks"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=rosca+scott+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Rosca concentrada",
+    "muscle_group": "biceps",
+    "compound": false,
+    "cue": "Cotovelo apoiado na parte interna da coxa; suba girando a palma para cima e desça devagar.",
+    "equipment": "dumbbell",
+    "padrao": "rosca",
+    "joints": [
+      "elbow",
+      "wrist"
+    ],
+    "secundarios": [
+      "forearms"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/f2s-ODuUKUo",
+        "https://www.youtube.com/shorts/HgimXl2MyVU"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=rosca+concentrada+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Rosca na polia baixa",
+    "muscle_group": "biceps",
+    "compound": false,
+    "cue": "Cotovelo colado no tronco; a polia mantém tensão embaixo, então não descanse no fim da descida.",
+    "equipment": "cable",
+    "padrao": "rosca",
+    "joints": [
+      "elbow",
+      "wrist"
+    ],
+    "secundarios": [
+      "forearms"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/_eoH4C5HAzQ",
+        "https://www.youtube.com/watch?v=xkmg-Qy0adI"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=rosca+direta+polia+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Supino fechado com barra",
+    "muscle_group": "triceps",
+    "compound": true,
+    "cue": "Mãos na largura dos ombros, não mais fechadas; cotovelo junto ao corpo na descida.",
+    "equipment": "barbell",
+    "padrao": "pressao_fechada",
+    "joints": [
+      "shoulder",
+      "elbow",
+      "wrist"
+    ],
+    "secundarios": [
+      "chest",
+      "shoulders"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/3uCFueFJAM0",
+        "https://www.youtube.com/watch?v=rlFTMzADrkc"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=supino+fechado+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Mergulho nas paralelas",
+    "muscle_group": "triceps",
+    "compound": true,
+    "cue": "Tronco reto e cotovelo apontando para trás; desça até 90° e suba sem balançar. Peso corporal.",
+    "equipment": "bodyweight",
+    "padrao": "pressao_fechada",
+    "joints": [
+      "shoulder",
+      "elbow"
+    ],
+    "secundarios": [
+      "chest",
+      "shoulders"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/8EOW8rG4iTc",
+        "https://www.youtube.com/watch?v=ZyyBF-RHWi0"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=mergulho+paralelas+tríceps+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Tríceps francês com halter",
+    "muscle_group": "triceps",
+    "compound": false,
+    "cue": "Halter acima da cabeça com as duas mãos; só o antebraço se move e o cotovelo fica apontando para frente.",
+    "equipment": "dumbbell",
+    "padrao": "extensao_de_cotovelo",
+    "joints": [
+      "elbow",
+      "shoulder"
+    ],
+    "secundarios": [],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/mfXokM_VnMY",
+        "https://www.youtube.com/shorts/IXjf5FClW8o"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=tríceps+francês+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Encolhimento com barra",
+    "muscle_group": "traps",
+    "compound": false,
+    "cue": "Barra à frente do corpo, braço estendido; suba os ombros na direção das orelhas sem girar.",
+    "equipment": "barbell",
+    "padrao": "elevacao_escapular",
+    "joints": [
+      "shoulder"
+    ],
+    "secundarios": [
+      "forearms"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/watch?v=BrwUPSLC_hE",
+        "https://www.youtube.com/watch?v=qCOOMxQPPSA"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=encolhimento+com+barra+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Remada alta na polia",
+    "muscle_group": "traps",
+    "compound": true,
+    "cue": "Puxe a barra até a linha do peito com o cotovelo acima do punho; se o ombro doer, pare mais baixo.",
+    "equipment": "cable",
+    "padrao": "remada_alta",
+    "joints": [
+      "shoulder",
+      "elbow"
+    ],
+    "secundarios": [
+      "shoulders",
+      "biceps"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/watch?v=LVQq6ZnM97U",
+        "https://www.youtube.com/watch?v=rBHduJbFqxY"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=remada+alta+polia+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Rosca de punho com halteres",
+    "muscle_group": "forearms",
+    "compound": false,
+    "cue": "Antebraço apoiado no banco, palma para cima; só o punho se move.",
+    "equipment": "dumbbell",
+    "padrao": "flexao_de_punho",
+    "joints": [
+      "wrist"
+    ],
+    "secundarios": [],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/shorts/QQCZ7XZsenM",
+        "https://www.youtube.com/shorts/WQ-If5YzMsw"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=rosca+de+punho+músculos+trabalhados"
+      ]
+    }
+  },
+  {
+    "name": "Rosca inversa com halteres",
+    "muscle_group": "forearms",
+    "compound": false,
+    "cue": "Antebraço apoiado, palma para baixo; suba o dorso da mão devagar e desça controlando.",
+    "equipment": "dumbbell",
+    "padrao": "extensao_de_punho",
+    "joints": [
+      "wrist"
+    ],
+    "secundarios": [
+      "biceps"
+    ],
+    "active": false,
+    "candidatos": {
+      "execucao": [
+        "https://www.youtube.com/watch?v=K7ghYI10T2c",
+        "https://www.youtube.com/watch?v=5A4mnGSJ_rY"
+      ],
+      "anatomia": [
+        "https://www.youtube.com/results?search_query=rosca+inversa+punho+músculos+trabalhados"
+      ]
+    }
   }
 ]

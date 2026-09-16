@@ -634,11 +634,23 @@ class OVolumeSemanalEConsequenciaDasRegrasTests(TestCase):
         plano = TrainingPlan.objects.filter(user=user, is_active=True).first()
         efetivo = services.volume_da_semana(plano)
 
-        # Medido: este perfil (quatro dias, três grupos, 45 a 60) FECHA no
-        # teto — nenhum excesso irredutível —, então a asserção é estrita.
+        # Medido: este perfil (quatro dias, três grupos, até 60) FECHAVA no
+        # teto até 16/09/2026. Desde o lockstep de `aparar_opcoes`, o ombro
+        # fica 1,5 acima: a elevação lateral é o penúltimo exercício direto
+        # do grupo nas duas opções de A e não sai — sairia das duas e a
+        # semana perderia o isolador. O excesso só pode ser IRREDUTÍVEL:
+        # nenhuma opção tem isolador do grupo acima do piso para ceder.
         for grupo, volume in efetivo.items():
             with self.subTest(grupo=grupo):
-                self.assertLessEqual(volume, services.TETO_SEMANAL_POR_GRUPO)
+                if volume <= services.TETO_SEMANAL_POR_GRUPO:
+                    continue
+                for sessao in plano.sessions.prefetch_related("exercises__exercise"):
+                    for k in sessao.opcoes:
+                        itens = sessao.da_opcao(k)
+                        graus = services.prioridades_da_sessao(itens)
+                        cedem = [i for i, g in zip(itens, graus)
+                                 if i.exercise.muscle_group == grupo and g < services.PRINCIPAL and i.sets > 2]
+                        self.assertEqual(cedem, [], f"{grupo} passa do teto ({volume}) com o que ceder")
 
     def test_o_total_e_a_soma_de_muitos_grupos_e_nao_de_um(self):
         """"85 séries" só assusta enquanto parece ser de um músculo."""

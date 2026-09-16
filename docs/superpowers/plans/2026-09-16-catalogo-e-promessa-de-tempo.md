@@ -39,7 +39,7 @@ reuso de `equipment`, régua de compostos, gate de deploy.
 
 ### Task 1: copy de tempo (F') — FEITA em `2b3abf5`
 
-### Task 2: `Exercise.padrao` + constraints + seed
+### Task 2: `Exercise.padrao` + constraints + seed — FEITA em `ec5c130`
 
 **Files:** `workouts/models.py`, `workouts/migrations/0022_padrao_de_movimento.py`,
 `workouts/management/commands/seed_workouts.py`, `workouts/data/exercises.json`,
@@ -58,7 +58,7 @@ reuso de `equipment`, régua de compostos, gate de deploy.
   faltar — o build para).
 - [ ] Verde; commit.
 
-### Task 3: régua de compostos em `opcoes.py`
+### Task 3: régua de compostos em `opcoes.py` — FEITA em `e9cd274` (com o lockstep de `aparar_opcoes`)
 
 **Files:** `workouts/opcoes.py`, `workouts/services.py` (chamada de
 `montar_opcoes` com `principais`), `workouts/test_opcoes.py`
@@ -74,7 +74,7 @@ reuso de `equipment`, régua de compostos, gate de deploy.
   compartilhar → vermelho.
 - [ ] Verde nos módulos de opções; commit.
 
-### Task 4: gate de opções por letra
+### Task 4: gate de opções por letra — FEITA em `e9cd274`
 
 **Files:** `workouts/opcoes_em_producao.py` (novo),
 `workouts/management/commands/opcoes_por_letra.py` (novo),

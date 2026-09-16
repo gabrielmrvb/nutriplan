@@ -3,18 +3,30 @@
 O que ficou decidido mas não feito, e o que depende de gente. Cada item diz
 **por que** está aqui — item sem motivo vira lista que ninguém lê.
 
-## Catálogo: o que falta para duas opções de "peito e tríceps" de 5–6 exercícios (15/09/2026)
+## ⛔ Catálogo: 28 exercícios CADASTRADOS e INATIVOS — falta a mídia conferida (16/09/2026)
 
-As opções por letra (`workouts/opcoes.py`) exigem metade dos exercícios
-próprios em cada opção. Com 4 peitos e 3 tríceps ativos, cada opção de A fica
-com 2 peitos + 2 tríceps (um tríceps compartilhado). Para duas opções de
-3 peitos + 3 tríceps sem compartilhar, faltam **2 peitos e 3 tríceps**; para
-o brief inteiro (3 do maior, 2–3 do menor, 5–6 exercícios, ~60 min) em
-todas as letras de `abc2`, faltam também 1 costas, 3 bíceps e 2 ombros. Todo
-exercício novo passa pelos quatro contratos de mídia (vídeo embutível,
-`clip_kind`, anatomia, `media_map.json`) — é curadoria humana, a mesma que
-bloqueou Casa + Halteres. Enquanto isso, a letra oferece o que o catálogo
-sustenta e o teste `test_quantas_opcoes_cada_perfil_recebe_hoje` diz quanto é.
+O que faltava em 15/09 ("2 peitos e 3 tríceps…") está cadastrado: 28
+exercícios em `exercises.json` com padrão, equipamento, dica, chave
+conferida na free-exercise-db e `candidatos` de mídia achados por busca;
+os modelos de `splits.json` já os listam (`CatalogoDimensionadoTests`). O que
+NÃO existe é alguém que assistiu aos vídeos — e exercício ativo tem
+demonstração conferida. Ativar um = mover um candidato para `video`, gravar
+`video_titulo` (oEmbed), pôr a anatomia em `animacoes.json`, `active: true`.
+
+**Ordem de ativação, medida com o motor (`manage.py opcoes_por_letra`):**
+
+| ativar | letras com 2 opções | o que volta |
+|---|---|---|
+| nada (estado do deploy) | 16 | — (`ab B`, `abcd D`, `full A`, `ab A` já voltaram pelos modelos) |
+| Desenvolvimento na máquina | 17 | `abcd C` Pernas e ombros |
+| + Desenvolvimento com barra OU Remada alta na polia | 18 | `abcde D` Ombros |
+| os 28 | 18 | sessões de 59–60 min em todas as letras |
+
+"Desenvolvimento com barra" sozinho não devolve nada — o modelo de `abcd C`
+só lista o da máquina; para `abcde D` qualquer um dos dois basta.
+
+O gate (`LETRAS_COM_OPCOES_EM_PRODUCAO = 16`) sobe junto com cada ativação
+publicada, com a razão escrita no commit.
 
 ## ✅ PLANO MESTRE UX × TREINO × DESIGN — ONDAS 0 E 1 PUBLICADAS (15/09/2026)
 

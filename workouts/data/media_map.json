@@ -60,5 +60,43 @@
   "Encolhimento com halteres": "Dumbbell_Shrug",
   "Remada alta com barra": "Upright_Barbell_Row",
   "Rosca de punho com barra": "Palms-Up_Barbell_Wrist_Curl_Over_A_Bench",
-  "Rosca inversa com barra": "Reverse_Barbell_Curl"
+  "Rosca inversa com barra": "Reverse_Barbell_Curl",
+
+  "Supino reto com halteres": "Dumbbell_Bench_Press",
+  "Supino na máquina": "Machine_Bench_Press",
+  "Crucifixo com halteres": "Dumbbell_Flyes",
+  "Crossover na polia": "Cable_Crossover",
+
+  "Puxada frente com pegada supinada": "Underhand_Cable_Pulldowns",
+  "Barra fixa": "Pullups",
+  "Remada curvada com halteres": "Bent_Over_Two-Dumbbell_Row",
+  "Remada articulada na máquina": "Leverage_Iso_Row",
+
+  "Desenvolvimento na máquina": "Leverage_Shoulder_Press",
+  "Desenvolvimento com barra": "Barbell_Shoulder_Press",
+  "Face pull na polia": "Face_Pull",
+  "Crucifixo inverso com halteres": "Seated_Bent-Over_Rear_Delt_Raise",
+
+  "Agachamento no hack": "Hack_Squat",
+  "Agachamento goblet com halter": "Goblet_Squat",
+
+  "Stiff com halteres": "Stiff-Legged_Dumbbell_Deadlift",
+  "Bom dia com barra": "Good_Morning",
+
+  "Panturrilha no leg press": "Calf_Press_On_The_Leg_Press_Machine",
+  "Panturrilha em pé com halteres": "Standing_Dumbbell_Calf_Raise",
+
+  "Rosca Scott com barra": "Preacher_Curl",
+  "Rosca concentrada": "Concentration_Curls",
+  "Rosca na polia baixa": "Standing_Biceps_Cable_Curl",
+
+  "Supino fechado com barra": "Close-Grip_Barbell_Bench_Press",
+  "Mergulho nas paralelas": "Dips_-_Triceps_Version",
+  "Tríceps francês com halter": "Seated_Triceps_Press",
+
+  "Encolhimento com barra": "Barbell_Shrug",
+  "Remada alta na polia": "Upright_Cable_Row",
+
+  "Rosca de punho com halteres": "Palms-Up_Dumbbell_Wrist_Curl_Over_A_Bench",
+  "Rosca inversa com halteres": "Palms-Down_Dumbbell_Wrist_Curl_Over_A_Bench"
 }

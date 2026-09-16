@@ -300,3 +300,214 @@ class GateDeOpcoesPorLetraTests(TestCase):
         por_letra = gate.opcoes_por_letra()
         self.assertEqual((User.objects.count(), TrainingPlan.objects.count()), antes)
         self.assertEqual({s for s, _ in por_letra}, {"full", "ab", "abc", "abc2", "abcd", "abcde"})
+
+
+class CatalogoDimensionadoTests(TestCase):
+    """Objetivo 3 (16/09/2026): o catálogo cresce até sustentar DUAS opções
+    cheias por letra — e cresce INATIVO, porque exercício ativo tem
+    demonstração conferida por alguém que assistiu, e este ambiente não
+    assiste. Os 28 novos entram com padrão, equipamento, dica, chave
+    conferida na free-exercise-db e candidatos de mídia achados por busca;
+    ativar é curadoria da manhã, não deploy.
+
+    A fórmula: para um grupo com `k` exercícios ATIVOS no modelo da letra,
+    duas opções com metade própria pedem `2·ceil(k/2) + floor(k/2)`; duas
+    opções CHEIAS pedem `2k`. E a régua dos compostos pede dois exercícios
+    por padrão composto do grupo no modelo.
+    """
+
+    NOVOS = 28
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def _catalogo(self):
+        import json
+
+        return json.loads((RAIZ / "workouts" / "data" / "exercises.json").read_text(encoding="utf-8"))
+
+    def test_os_novos_entram_inativos_e_completos(self):
+        import json
+
+        from workouts.models import Exercise
+
+        mapa = json.loads((RAIZ / "workouts" / "data" / "media_map.json").read_text(encoding="utf-8"))
+        novos = [x for x in self._catalogo() if not x.get("active", True) and x["name"] != "Remada curvada com barra"]
+        self.assertEqual(len(novos), self.NOVOS)
+        for linha in novos:
+            with self.subTest(exercicio=linha["name"]):
+                self.assertFalse(Exercise.objects.get(name=linha["name"]).is_active)
+                self.assertTrue(linha["padrao"] and linha["equipment"] and linha["cue"])
+                self.assertIn(linha["name"], mapa, "sem chave na free-exercise-db")
+                self.assertTrue(linha["candidatos"]["execucao"], "sem candidato de execução")
+                self.assertTrue(linha["candidatos"]["anatomia"], "sem candidato de anatomia")
+                # Candidato NÃO é vídeo: `video` só entra com `video_titulo`,
+                # depois de alguém assistir.
+                self.assertNotIn("video", linha)
+
+    def test_os_ativos_continuam_os_mesmos_trinta_e_cinco(self):
+        """O deploy sobe o catálogo pronto, não a variedade: nenhum novo
+        ativo por acidente."""
+        from workouts.models import Exercise
+
+        self.assertEqual(Exercise.objects.filter(is_active=True).count(), 35)
+        self.assertEqual(Exercise.objects.count(), 36 + self.NOVOS)
+
+    def test_todo_padrao_composto_anunciado_tem_dois_exercicios_no_modelo(self):
+        """A condição estrutural para duas opções depois da ativação: em cada
+        letra, cada padrão composto de um grupo anunciado tem pelo menos dois
+        exercícios no modelo (contando os inativos)."""
+        from workouts.models import PADROES_COMPOSTOS, WorkoutTemplate
+
+        for modelo in WorkoutTemplate.objects.filter(is_active=True):
+            itens = list(modelo.items.select_related("exercise"))
+            for grupo in modelo.main_groups or []:
+                por_padrao = {}
+                for item in itens:
+                    if item.exercise.muscle_group == grupo and item.exercise.padrao in PADROES_COMPOSTOS:
+                        por_padrao[item.exercise.padrao] = por_padrao.get(item.exercise.padrao, 0) + 1
+                for padrao, n in por_padrao.items():
+                    with self.subTest(modelo="%s %s" % (modelo.split, modelo.label), grupo=grupo, padrao=padrao):
+                        self.assertGreaterEqual(n, 2)
+
+    #: A tabela "hoje" de 16/09/2026: quantos exercícios ATIVOS cada grupo
+    #: anunciado tinha no modelo da letra ANTES da expansão — é o `k` da
+    #: fórmula, a dose de uma sessão. Congelada porque o modelo cresceu e
+    #: recalcular `k` do modelo novo faria a régua correr atrás dela mesma.
+    K_HOJE = {
+        ("full", "A", "quads"): 1, ("full", "A", "chest"): 1, ("full", "A", "back"): 1,
+        ("full", "A", "hamstrings"): 1, ("full", "A", "shoulders"): 1, ("full", "A", "biceps"): 1,
+        ("full", "A", "triceps"): 1,
+        ("ab", "A", "chest"): 1, ("ab", "A", "back"): 2, ("ab", "A", "shoulders"): 1,
+        ("ab", "A", "biceps"): 1, ("ab", "A", "triceps"): 1,
+        ("ab", "B", "quads"): 2, ("ab", "B", "hamstrings"): 2,
+        ("abc", "A", "chest"): 4, ("abc", "A", "triceps"): 3, ("abc", "A", "shoulders"): 2,
+        ("abc", "B", "back"): 4, ("abc", "B", "biceps"): 3, ("abc", "B", "forearms"): 1, ("abc", "B", "traps"): 1,
+        ("abc", "C", "quads"): 3, ("abc", "C", "hamstrings"): 3, ("abc", "C", "calves"): 2,
+        ("abcd", "A", "chest"): 4, ("abcd", "A", "triceps"): 3,
+        ("abcd", "B", "back"): 4, ("abcd", "B", "biceps"): 3,
+        ("abcd", "C", "quads"): 3, ("abcd", "C", "hamstrings"): 2, ("abcd", "C", "shoulders"): 2,
+        ("abcd", "D", "hamstrings"): 1, ("abcd", "D", "traps"): 2, ("abcd", "D", "calves"): 2,
+        ("abcd", "D", "forearms"): 2, ("abcd", "D", "core"): 1,
+        ("abcde", "A", "chest"): 4, ("abcde", "B", "back"): 4,
+        ("abcde", "C", "quads"): 3, ("abcde", "C", "hamstrings"): 3, ("abcde", "C", "calves"): 2,
+        ("abcde", "D", "shoulders"): 4, ("abcde", "D", "traps"): 2,
+        ("abcde", "E", "biceps"): 3, ("abcde", "E", "triceps"): 3,
+        ("abc2", "A", "chest"): 4, ("abc2", "A", "triceps"): 3,
+        ("abc2", "B", "back"): 4, ("abc2", "B", "biceps"): 3,
+        ("abc2", "C", "quads"): 3, ("abc2", "C", "hamstrings"): 3, ("abc2", "C", "shoulders"): 2,
+    }
+
+    def test_o_modelo_tem_o_minimo_da_formula_para_duas_opcoes(self):
+        """Cada grupo anunciado de cada letra lista (contando os inativos)
+        pelo menos `2·ceil(k/2) + floor(k/2)` exercícios — o mínimo
+        matemático para duas opções com metade própria — sobre o `k` de
+        hoje; e nas letras de referência do brief (peito e tríceps de
+        `abc2`, `abcd`) o recomendado `2k`: peito 8, tríceps 6."""
+        import math
+
+        from workouts.models import WorkoutTemplate
+
+        modelos = {(m.split, m.label): m for m in WorkoutTemplate.objects.filter(is_active=True)}
+        for (split, letra, grupo), k in self.K_HOJE.items():
+            itens = [i for i in modelos[(split, letra)].items.select_related("exercise")
+                     if i.exercise.muscle_group == grupo]
+            minimo = 2 * math.ceil(k / 2) + math.floor(k / 2)
+            with self.subTest(modelo="%s %s" % (split, letra), grupo=grupo):
+                self.assertGreaterEqual(len(itens), minimo)
+        for split in ("abc2", "abcd"):
+            a = modelos[(split, "A")]
+            por_grupo = {}
+            for item in a.items.select_related("exercise"):
+                por_grupo[item.exercise.muscle_group] = por_grupo.get(item.exercise.muscle_group, 0) + 1
+            self.assertEqual(por_grupo["chest"], 8, split)
+            self.assertEqual(por_grupo["triceps"], 6, split)
+
+    def test_o_seed_e_idempotente_com_os_novos(self):
+        from workouts.models import Exercise, WorkoutTemplateItem
+
+        antes = (
+            dict(Exercise.objects.values_list("name", "is_active")),
+            WorkoutTemplateItem.objects.count(),
+        )
+        call_command("seed_workouts", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+        self.assertEqual(
+            (dict(Exercise.objects.values_list("name", "is_active")), WorkoutTemplateItem.objects.count()),
+            antes,
+        )
+
+
+class VolumeSemanalPorPropriedadeTests(TestCase):
+    """Objetivo 4 (16/09/2026): a propriedade que vale para QUALQUER perfil.
+
+    Sem `hypothesis` no ambiente, o domínio é percorrido INTEIRO — 3 níveis
+    × 3 preferências × 6 frequências (2–7 dias) = 54 perfis, que é o espaço
+    todo que `split_for` e `teto_semanal_de` distinguem. Um gerador aleatório
+    cobriria menos que isso.
+
+    A propriedade: escolher esta ou aquela opção NÃO muda o volume direto da
+    semana em mais de uma série por grupo em cada sessão com opções. Para
+    cada sessão e cada grupo, a opção mais pesada e a mais leve diferem em
+    no máximo uma série direta; logo a semana toda, feita sempre com a mais
+    pesada ou sempre com a mais leve, difere da projeção (opção 1 em toda
+    sessão, `prescrever_semana`) em no máximo o número de sessões com opções.
+    E todo grupo anunciado aparece em toda opção.
+    """
+
+    NIVEIS = ("iniciante", "intermediario", "avancado")
+    PREFERENCIAS = ("one", "two", "three")
+    DIAS = range(2, 8)
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+
+    def _plano(self, nivel, preferencia, dias):
+        from django.utils import timezone
+
+        user = create_complete_user(
+            email="prop-%s-%s-%d@exemplo.com" % (nivel, preferencia, dias),
+            experiencia=nivel, split_preference=preferencia, split_preference_confirmada=True,
+            duracao_treino=DuracaoTreino.PADRAO,
+        )
+        TrainingDay.objects.filter(user=user).delete()
+        for d in range(dias):
+            TrainingDay.objects.create(user=user, weekday=d, duration_min=60)
+        return services.create_routine(user)
+
+    def _direto(self, itens):
+        volume = {}
+        for item in itens:
+            volume[item.exercise.muscle_group] = volume.get(item.exercise.muscle_group, 0) + item.sets
+        return volume
+
+    def test_a_escolha_da_opcao_move_o_volume_direto_em_no_maximo_uma_serie_por_grupo(self):
+        for nivel in self.NIVEIS:
+            for preferencia in self.PREFERENCIAS:
+                for dias in self.DIAS:
+                    plano = self._plano(nivel, preferencia, dias)
+                    sessoes = list(plano.sessions.prefetch_related("exercises__exercise"))
+                    projecao, pesada, leve = {}, {}, {}
+                    com_opcoes = 0
+                    for sessao in sessoes:
+                        volumes = [self._direto(sessao.da_opcao(k)) for k in sessao.opcoes]
+                        anunciados = set(sessao.main_groups or [])
+                        grupos = set().union(*(v.keys() for v in volumes))
+                        if len(volumes) > 1:
+                            com_opcoes += 1
+                        for grupo in grupos:
+                            valores = [v.get(grupo, 0) for v in volumes]
+                            with self.subTest(perfil=(nivel, preferencia, dias), sessao=sessao.label, grupo=grupo):
+                                self.assertLessEqual(max(valores) - min(valores), 1)
+                                if grupo in anunciados:
+                                    self.assertTrue(all(valores), "grupo anunciado ausente numa opção")
+                            projecao[grupo] = projecao.get(grupo, 0) + valores[0]
+                            pesada[grupo] = pesada.get(grupo, 0) + max(valores)
+                            leve[grupo] = leve.get(grupo, 0) + min(valores)
+                    for grupo in projecao:
+                        with self.subTest(perfil=(nivel, preferencia, dias), grupo=grupo, semana=True):
+                            self.assertLessEqual(pesada[grupo] - projecao[grupo], com_opcoes)
+                            self.assertLessEqual(projecao[grupo] - leve[grupo], com_opcoes)

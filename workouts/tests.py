@@ -3573,11 +3573,13 @@ class CuradoriaDosVideosTests(TestCase):
 
         self.assertEqual(ativos.count(), 35)
         self.assertEqual(ativos.filter(video_url="").count(), 0)
-        # 36 linhas no catálogo semeado: 35 ativas mais a aposentada, que
-        # continua existindo. A linha LEGADA `Remada curvada` (sem "com barra")
-        # não entra nesta conta — ela não está no `exercises.json` e só existe
-        # em bancos que vêm de uma versão anterior, aposentada pela `0017`.
-        self.assertEqual(Exercise.objects.count(), 36, "o catálogo perdeu linha")
+        # 64 linhas no catálogo semeado: 35 ativas, a aposentada, que
+        # continua existindo, e os 28 INATIVOS de 16/09/2026 — cadastrados
+        # completos, à espera de mídia conferida (`test_catalogo`). A linha
+        # LEGADA `Remada curvada` (sem "com barra") não entra nesta conta —
+        # ela não está no `exercises.json` e só existe em bancos que vêm de
+        # uma versão anterior, aposentada pela `0017`.
+        self.assertEqual(Exercise.objects.count(), 64, "o catálogo perdeu linha")
 
     def test_execucao_e_anatomia_nunca_apontam_para_o_mesmo_lugar(self):
         """A colisão que a curadoria desfez, travada para não voltar.

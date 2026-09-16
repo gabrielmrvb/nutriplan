@@ -33,9 +33,15 @@ PERFIS = {
     "intermediario_5d_2g": ("intermediario", SplitPreference.DOIS, [0, 1, 2, 3, 4]),
     "avancado_6d_2g": ("avancado", SplitPreference.DOIS, [0, 1, 2, 3, 4, 5]),
     "intermediario_4d_3g": ("intermediario", SplitPreference.TRES, [0, 1, 3, 4]),
-    # Dois dias: o modelo "Superior" tem um exercício por grupo em quase
-    # tudo — o catálogo não sustenta duas opções distintas para a letra A.
+    # Dois dias: até 16/09/2026 o modelo "Superior" tinha um exercício por
+    # grupo em quase tudo e a letra A saía com UMA opção; os modelos
+    # ganharam um segundo do mesmo padrão composto por grupo e as duas
+    # letras saem com duas.
     "intermediario_2d": ("intermediario", SplitPreference.DOIS, [1, 4]),
+    # Quatro dias, um grupo: `abcd C` "Pernas e ombros" tem UMA pressão
+    # vertical ativa no modelo (a segunda, "Desenvolvimento na máquina",
+    # espera mídia) — é a letra que hoje sai com uma opção só.
+    "intermediario_4d_1g": ("intermediario", SplitPreference.UM, [0, 1, 3, 4]),
 }
 
 
@@ -117,17 +123,20 @@ class CincoPerfisTests(Catalogo):
         "Inferior" de dois dias (`ab B`) TINHA duas opções até 16/09/2026, e
         elas não eram intercambiáveis: o stiff — a única extensão de quadril
         do modelo — ficava numa e a mesa flexora na outra. A régua dos
-        padrões compostos compartilha o stiff, sobra um exercício próprio em
-        cinco, e a letra volta a UMA opção até o modelo ter uma segunda
-        extensão de quadril ativa. É o gate de `opcoes_em_producao` que diz
-        quando isso volta.
+        padrões compostos compartilha o stiff e a letra caía para UMA opção;
+        voltou a duas no mesmo dia, porque o modelo passou a listar a
+        elevação pélvica (ativa) como segunda extensão de quadril. "Superior"
+        (`ab A`) ganhou duas pelo mesmo caminho. `abcd C` é a que espera:
+        "Desenvolvimento na máquina" inativo. É o gate de
+        `opcoes_em_producao` que diz quando isso volta.
         """
         esperado = {
             "iniciante_3d_2g": {"A": 2, "B": 2, "C": 2},
             "intermediario_5d_2g": {"A": 2, "B": 2, "C": 2},
             "avancado_6d_2g": {"A": 2, "B": 2, "C": 2},
             "intermediario_4d_3g": {"A": 2, "B": 2, "C": 2},
-            "intermediario_2d": {"A": 1, "B": 1},
+            "intermediario_2d": {"A": 2, "B": 2},
+            "intermediario_4d_1g": {"A": 2, "B": 2, "C": 1, "D": 2},
         }
         for nome, por_label in esperado.items():
             plan = services.create_routine(pessoa(nome))
@@ -204,12 +213,15 @@ class CincoPerfisTests(Catalogo):
         self.assertEqual(assinatura(a1), assinatura(a2))
 
     def test_sem_catalogo_para_duas_a_letra_sai_com_uma_e_inteira(self):
-        """Dois dias: "Superior" tem um exercício em quase todo grupo. Uma
-        opção só — e é o modelo inteiro no tempo, não a metade que sobrou."""
-        plan = services.create_routine(pessoa("intermediario_2d"))
-        a = por_letra(plan)["A"]
-        self.assertEqual(a.opcoes, [1])
-        self.assertGreaterEqual(len(a.da_opcao(1)), 6)
+        """`abcd C` "Pernas e ombros": uma pressão vertical ativa no modelo,
+        que as duas opções teriam de compartilhar — sobra pouco próprio, e
+        a letra sai com UMA opção: o modelo inteiro no tempo, não a metade
+        que sobrou. (Até 16/09/2026 o exemplo era "Superior" de dois dias,
+        que hoje tem duas.)"""
+        plan = services.create_routine(pessoa("intermediario_4d_1g"))
+        c = por_letra(plan)["C"]
+        self.assertEqual(c.opcoes, [1])
+        self.assertGreaterEqual(len(c.da_opcao(1)), 6)
 
     def test_a_regeneracao_preserva_o_historico(self):
         user = pessoa("intermediario_4d_3g")
