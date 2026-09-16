@@ -16,6 +16,7 @@ Uso (sempre com o python do .venv):
   nav.py <sessao> cookie <nome> <valor> [dominio]
   nav.py <sessao> permissao <notifications|geolocation> <granted|denied|prompt> [origem]
   nav.py <sessao> offline on|off
+  nav.py <sessao> tema claro|escuro         -> emula prefers-color-scheme (vale até `close`)
   nav.py <sessao> url | title | text [max] | links | clicaveis
   nav.py <sessao> close
 
@@ -168,6 +169,19 @@ class Sessao:
         self.cmd("Emulation.setDeviceMetricsOverride", width=int(w), height=int(h), deviceScaleFactor=1, mobile=True)
         return {"viewport": [int(w), int(h)]}
 
+    def tema(self, qual):
+        """Emula `prefers-color-scheme` sem mexer no Windows.
+
+        É o que a T3.0 do plano mestre precisava e nunca teve: o escuro nunca
+        foi capturado nesta campanha. Vale para a sessão inteira, então a
+        captura clara e a escura saem do MESMO Chrome, com o mesmo perfil.
+        """
+        if qual not in ("claro", "escuro"):
+            raise SystemExit("tema: claro|escuro")
+        valor = "dark" if qual == "escuro" else "light"
+        self.cmd("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": valor}])
+        return {"tema": qual, "prefers-color-scheme": valor}
+
     def screenshot(self, arquivo, full=False):
         params = {"format": "png"}
         if full:
@@ -247,6 +261,7 @@ def main():
         elif cmd == "cookie": out = s.cookie(args[0], args[1], *(args[2:3]))
         elif cmd == "permissao": out = s.permissao(args[0], args[1], *(args[2:3]))
         elif cmd == "offline": out = s.offline(args[0])
+        elif cmd == "tema": out = s.tema(args[0])
         elif cmd == "url": out = s.eval("location.href")
         elif cmd == "title": out = s.eval("document.title")
         elif cmd == "text": out = s.text(*(args[:1]))
