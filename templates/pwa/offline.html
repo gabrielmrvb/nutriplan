@@ -4,15 +4,89 @@
 {% block container_class %}auth{% endblock %}
 
 {% block content %}
-  <div class="card center">
+  {% comment %}
+    Um shell, dois estados — e quem decide é a rede, não o service worker.
+
+    O worker entrega esta tela quando a paciência de três segundos esgota
+    numa rota que não está em cache, ou quando o `fetch` rejeita. Os dois
+    caíam em "Você está sem conexão" — inclusive com a rede viva e o servidor
+    do plano gratuito acordando, que é o que acontece em todo cold start
+    (medido em produção em 16/09/2026, avaliação B6). Aqui: com
+    `navigator.onLine`, a tela diz que o servidor está acordando e sonda
+    `/saude/vivo/` — a rota SEM consulta, porque a sonda repete a cada poucos
+    segundos e `/saude/` acordaria o banco (ver CLAUDE.md, "Monitor externo")
+    —, recarregando sozinha quando ele responde. Sem rede, diz que está sem
+    rede e espera o evento `online`.
+
+    Sem identidade e sem "Entrar / Criar conta" no cabeçalho: o shell é
+    pré-cacheado como anônimo de propósito (`shell_offline`), e os dois botões
+    mentiam para quem está logado.
+  {% endcomment %}
+  <div class="card center" data-shell-offline data-estado="sem-rede">
     <span class="auth__logo" aria-hidden="true">N</span>
-    <h1>Você está sem conexão</h1>
-    <p class="lead">
+    <h1 data-estado-titulo>Você está sem conexão</h1>
+    <p class="lead" data-estado-texto>
       O NutriPlan precisa da internet para carregar o seu dia. Assim que a rede
       voltar, é só recarregar.
     </p>
+    <p class="muted center" data-estado-espera hidden aria-live="polite"></p>
     <button type="button" class="btn btn--primary btn--block" onclick="location.reload()">
       Tentar de novo
     </button>
   </div>
+  <script>
+    (function () {
+      var raiz = document.querySelector("[data-shell-offline]");
+      var titulo = raiz.querySelector("[data-estado-titulo]");
+      var texto = raiz.querySelector("[data-estado-texto]");
+      var espera = raiz.querySelector("[data-estado-espera]");
+      var SONDA = "/saude/vivo/";
+      var INTERVALO_MS = 3000;
+      var DESISTE_MS = 90000;
+      var inicio = 0;
+      var sondando = false;
+
+      function semRede() {
+        raiz.setAttribute("data-estado", "sem-rede");
+        titulo.textContent = "Você está sem conexão";
+        texto.textContent = "O NutriPlan precisa da internet para carregar o seu dia. Assim que a rede voltar, é só recarregar.";
+        espera.hidden = true;
+      }
+
+      function acordando() {
+        raiz.setAttribute("data-estado", "acordando");
+        titulo.textContent = "O servidor está acordando";
+        texto.textContent = "Você está conectado; o NutriPlan é que está demorando para responder. A tela recarrega sozinha assim que ele acordar.";
+        espera.hidden = false;
+      }
+
+      function sondar() {
+        if (sondando) return;
+        sondando = true;
+        inicio = Date.now();
+        acordando();
+        (function tenta() {
+          var passados = Math.round((Date.now() - inicio) / 1000);
+          espera.textContent = "Tentando há " + passados + " s…";
+          fetch(SONDA, { cache: "no-store" }).then(function (r) {
+            if (r.ok) { location.reload(); return; }
+            throw new Error("ainda não");
+          }).catch(function () {
+            if (!navigator.onLine) { sondando = false; semRede(); return; }
+            if (Date.now() - inicio > DESISTE_MS) {
+              sondando = false;
+              texto.textContent = "O servidor não respondeu em um minuto e meio. Tente de novo daqui a pouco.";
+              espera.hidden = true;
+              return;
+            }
+            setTimeout(tenta, INTERVALO_MS);
+          });
+        })();
+      }
+
+      if (navigator.onLine) sondar(); else semRede();
+      window.addEventListener("online", sondar);
+      window.addEventListener("offline", function () { sondando = false; semRede(); });
+    })();
+  </script>
 {% endblock %}

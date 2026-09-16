@@ -401,8 +401,19 @@
     }).catch(function () { /* sem cache para limpar, e so */ });
   }
 
-  /* SEGUNDA camada: qualquer tela aberta sem sessao. */
-  if (document.body && document.body.dataset.autenticado === "0") {
+  /* SEGUNDA camada: qualquer tela aberta sem sessao.
+
+     MENOS o shell de offline. Ele sai com `data-autenticado="0"` porque e
+     pre-cacheado sem identidade de proposito — nao porque a sessao acabou. O
+     worker o entrega quando o servidor demora ou a rede cai, e ler isso como
+     "sem sessao" APAGAVA as paginas que a pessoa logada tinha em cache:
+     medido em 16/09/2026, todo cold start que virava shell jogava fora o
+     cache e transformava a tela seguinte em shell tambem. */
+  if (
+    document.body &&
+    document.body.dataset.autenticado === "0" &&
+    !document.body.dataset.shellOffline
+  ) {
     limparPaginas();
   }
 
@@ -1074,4 +1085,66 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", aoCarregar);
   else aoCarregar();
+})();
+
+/* PÁGINA DO CACHE — a faixa que diz "isto pode estar desatualizado".
+ *
+ * O service worker entrega a cópia guardada de uma tela quando o servidor
+ * passa de três segundos (paciência esgotada) ou quando a rede cai. Medido em
+ * produção em 16/09/2026 (avaliação, B6): no cold start do plano gratuito a
+ * Home saía do cache com o saldo de ANTES e nenhuma tela dizia isso — a
+ * pessoa via o dia de ontem como se fosse o de agora.
+ *
+ * O worker não mexe no HTML que entrega; ele LEMBRA o que entregou. Esta
+ * página pergunta "de onde vim?" ao carregar, e o worker responde só quando
+ * a resposta veio do cache — com o motivo, porque a frase é diferente:
+ * "o servidor está demorando" não é "você está sem conexão". Quando a rede
+ * finalmente responde, o worker avisa ("pagina-nova-disponivel") e a faixa
+ * passa a oferecer "Atualizar", que recarrega — agora com o servidor
+ * acordado, a mesma paciência de três segundos basta.
+ *
+ * A faixa é a `.flash` de sempre, escondida no HTML e preenchida aqui: um
+ * segundo componente para o mesmo aviso é o que a seção de design proíbe. */
+(function () {
+  "use strict";
+  if (!("serviceWorker" in navigator)) return;
+
+  var faixa = document.querySelector("[data-aviso-cache]");
+  if (!faixa) return;
+  var texto = faixa.querySelector("[data-aviso-cache-texto]");
+  var atualizar = faixa.querySelector("[data-aviso-cache-atualizar]");
+
+  var FRASES = {
+    demora: "O servidor está demorando — esta tela é a última versão salva e pode estar desatualizada.",
+    "sem-rede": "Você está sem conexão — esta tela é a última versão salva e pode estar desatualizada.",
+    nova: "O servidor respondeu: há uma versão mais nova desta tela.",
+  };
+
+  function mostrar(frase, comBotao) {
+    if (texto) texto.textContent = frase;
+    if (atualizar) atualizar.hidden = !comBotao;
+    faixa.hidden = false;
+  }
+
+  if (atualizar) {
+    atualizar.addEventListener("click", function () { location.reload(); });
+  }
+
+  navigator.serviceWorker.addEventListener("message", function (event) {
+    var dado = event.data || {};
+    if (dado.tipo === "pagina-do-cache") {
+      if (dado.redeChegou) mostrar(FRASES.nova, true);
+      else mostrar(FRASES[dado.motivo] || FRASES.demora, true);
+    } else if (dado.tipo === "pagina-nova-disponivel") {
+      mostrar(FRASES.nova, true);
+    }
+  });
+
+  function perguntar() {
+    var controlador = navigator.serviceWorker.controller;
+    if (!controlador) return;
+    controlador.postMessage({ tipo: "de-onde-vim", url: location.href });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", perguntar);
+  else perguntar();
 })();

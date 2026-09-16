@@ -87,6 +87,7 @@
 {% endcomment %}
 <body class="{% if user.is_authenticated and not sem_tabbar and not shell_offline %}tem-tabbar{% endif %}"
       data-autenticado="{% if user.is_authenticated and not shell_offline %}1{% else %}0{% endif %}"
+      {% if shell_offline %}data-shell-offline="1"{% endif %}
       {% comment %}
         TELA CRÍTICA: aqui o convite de instalação não aparece.
 
@@ -157,7 +158,14 @@
         ouve a tela precisa saber em que destino está.
       {% endcomment %}
       <nav class="app-bar__nav">
-        {% if tela_de_entrada %}
+        {% comment %}
+          O shell de offline também fica só com o wordmark. Ele é pré-cacheado
+          SEM identidade de propósito (ver `ShellOfflineView`), então a barra
+          o tratava como anônimo e oferecia "Entrar / Criar conta" — a quem
+          está logado, e sem rede para os dois botões levarem a lugar nenhum
+          (avaliação de 16/09/2026, B6).
+        {% endcomment %}
+        {% if tela_de_entrada or shell_offline %}
         {% elif user.is_authenticated %}
           {% comment %}
             A NAVEGAÇÃO SOME NO WIZARD, nas duas barras.
@@ -242,6 +250,20 @@
         Ambiente de demonstração. Todos os dados apresentados são fictícios.
         <a class="btn-link" href="/demo/sobre/">Saiba mais</a>
       </p>
+    {% endif %}
+    {% if not shell_offline %}
+      {% comment %}
+        A faixa "esta tela pode estar desatualizada". Nasce escondida; quem a
+        preenche e mostra é `pwa.js` ("PÁGINA DO CACHE"), depois de perguntar
+        ao service worker se a página veio do cache — por paciência esgotada
+        (servidor lento) ou por rede caída. É a `.flash` de sempre, e não um
+        componente novo. Fora do shell de offline, que decide sozinho o que
+        dizer. Ver `templates/pwa/sw.js` e a avaliação de 16/09/2026, B6.
+      {% endcomment %}
+      <ul class="flash" data-aviso-cache hidden role="status" aria-live="polite">
+        <li><span data-aviso-cache-texto></span>
+          <button type="button" class="btn-link" data-aviso-cache-atualizar hidden>Atualizar</button></li>
+      </ul>
     {% endif %}
     {% if messages and not shell_offline %}
       <ul class="flash">

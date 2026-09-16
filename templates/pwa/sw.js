@@ -114,13 +114,65 @@ self.addEventListener("activate", (event) => {
  * nada pessoal, e apagá-los faria a próxima abertura ser lenta sem proteger
  * ninguém. */
 self.addEventListener("message", (event) => {
-  if (!event.data || event.data.tipo !== "esquecer-paginas") return;
+  if (!event.data) return;
+  if (event.data.tipo === "de-onde-vim") {
+    /* A página pergunta ao carregar, e o worker responde se a entregou do
+     * cache. Ver `servidaDoCache`. */
+    const registro = servidas.get(String(event.data.url || ""));
+    if (registro && event.source) {
+      event.source.postMessage({
+        tipo: "pagina-do-cache",
+        motivo: registro.motivo,
+        redeChegou: registro.redeChegou,
+      });
+    }
+    return;
+  }
+  if (event.data.tipo !== "esquecer-paginas") return;
   event.waitUntil(
     caches.delete(CACHE_PAGINAS).then(() => {
       if (event.source) event.source.postMessage({ tipo: "paginas-esquecidas" });
     })
   );
 });
+
+/* PÁGINA SERVIDA DO CACHE — a página tem de saber, e o worker é quem sabe.
+ *
+ * A navegação abaixo tem paciência de três segundos e depois entrega a cópia
+ * guardada. Medido em produção em 16/09/2026: o servidor do plano gratuito
+ * passa de três segundos em todo cold start, e a Home saiu do cache com o
+ * saldo de ANTES sem nenhum aviso — a pessoa via o dia de ontem como se fosse
+ * o de agora. O worker não consegue mexer no HTML que entrega (e não devia);
+ * o que ele consegue é LEMBRAR o que entregou e responder quando a página
+ * perguntar. `pwa.js` pergunta ao carregar ("de-onde-vim", com a URL) e
+ * mostra a faixa; quando a rede finalmente responde, o worker avisa de novo
+ * ("pagina-nova-disponivel") e a faixa passa a oferecer "Atualizar".
+ *
+ * Por URL, e não por `event.resultingClientId`: o Safari não expõe o id do
+ * cliente da navegação, e a página que pergunta sabe a própria URL. Duas abas
+ * na mesma URL em menos de um minuto dividem a resposta — aceitável, e é a
+ * mesma resposta. Entradas com mais de cinco minutos são esquecidas. */
+const servidas = new Map();
+const SERVIDA_VALE_POR_MS = 5 * 60 * 1000;
+
+function servidaDoCache(url, motivo) {
+  const agora = Date.now();
+  for (const [chave, registro] of servidas) {
+    if (agora - registro.em > SERVIDA_VALE_POR_MS) servidas.delete(chave);
+  }
+  servidas.set(url, { motivo, em: agora, redeChegou: false });
+}
+
+function redeRespondeuDepois(url) {
+  const registro = servidas.get(url);
+  if (!registro) return Promise.resolve();
+  registro.redeChegou = true;
+  return self.clients.matchAll({ type: "window" }).then((clientes) => {
+    clientes
+      .filter((c) => c.url === url)
+      .forEach((c) => c.postMessage({ tipo: "pagina-nova-disponivel" }));
+  });
+}
 
 /* Só entra no cache o que é estático e do próprio site. Guardar HTML de
  * usuário logado seria servir o dia de uma pessoa para outra no mesmo
@@ -240,9 +292,19 @@ self.addEventListener("fetch", (event) => {
      * A tela de offline continua existindo para quem nunca visitou a página. */
     const PACIENCIA_MS = 3000;
 
-    const doCache = () =>
+    /* `motivo` diz POR QUE o cache foi usado — "demora" (paciência
+     * esgotada, rede viva) ou "sem-rede" (fetch rejeitou) — e a página lê a
+     * frase certa para cada um. Só a cópia da PRÓPRIA página é marcada: o
+     * shell de offline decide sozinho o que dizer, sondando `/saude/vivo/`. */
+    const doCache = (motivo) =>
       caches.match(request, { cacheName: CACHE_PAGINAS })
-        .then((cached) => cached || caches.match(OFFLINE_URL));
+        .then((cached) => {
+          if (cached) {
+            servidaDoCache(request.url, motivo);
+            return cached;
+          }
+          return caches.match(OFFLINE_URL);
+        });
 
     const daRede = fetch(request)
       .then((response) => {
@@ -255,30 +317,45 @@ self.addEventListener("fetch", (event) => {
         return response;
       });
 
+    let respondido = false;
+    let daRedeEntregou = false;
     event.respondWith(
       new Promise((resolve) => {
-        let respondido = false;
         const responder = (r) => {
           if (respondido || !r) return;
           respondido = true;
           resolve(r);
         };
+        const responderDaRede = (r) => {
+          if (!respondido) daRedeEntregou = true;
+          responder(r);
+        };
 
         const relogio = setTimeout(
-          () => doCache().then(responder),
+          () => doCache("demora").then(responder),
           PACIENCIA_MS
         );
 
         daRede
-          .then((r) => { clearTimeout(relogio); responder(r); })
-          .catch(() => { clearTimeout(relogio); doCache().then(responder); });
+          .then((r) => { clearTimeout(relogio); responderDaRede(r); })
+          .catch(() => { clearTimeout(relogio); doCache("sem-rede").then(responder); });
       })
     );
 
     /* A rede continua correndo mesmo depois de a página do cache ter sido
        entregue — é ela que atualiza o cache para a próxima abertura. Sem o
-       `waitUntil`, o navegador pode encerrar o worker antes de ela terminar. */
-    event.waitUntil(daRede.catch(() => {}));
+       `waitUntil`, o navegador pode encerrar o worker antes de ela terminar.
+       E quando ela chega DEPOIS da cópia (`daRedeEntregou` fica falso porque
+       quem respondeu foi o cache), a página aberta recebe o aviso e oferece
+       "Atualizar". Na mesma cadeia do `waitUntil`, e não num `waitUntil`
+       aninhado: o evento pode já não estar ativo quando o `then` roda. Os dois
+       `then` de `daRede` correm na ordem em que foram pendurados — o do
+       `respondWith` primeiro, e é ele que escreve `daRedeEntregou`. */
+    event.waitUntil(
+      daRede
+        .then(() => (daRedeEntregou ? undefined : redeRespondeuDepois(request.url)))
+        .catch(() => {})
+    );
     return;
   }
 
