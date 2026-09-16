@@ -107,3 +107,44 @@ class FocoUnicoTests(TestCase):
         ids = set(re.findall(r'\sid="([^"]+)"', html))
         orfas = [r for r in referencias if r not in ids]
         self.assertEqual(orfas, [], f"aria-describedby sem alvo: {orfas}")
+
+    def test_a_opcao_marcada_tem_anel_com_vao(self):
+        """Decisão do dono (16/09/2026): no chip de dia e no segmented, o foco é
+        anel com VÃO — `outline` 2 px com `outline-offset: 2px`. A opção marcada
+        já tem o fundo em `--brand`, e o anel colado (`box-shadow 0 0 0 2px`)
+        só engordava a pílula: em rádio a seta move foco e marcação juntos, e
+        o foco sumia exatamente no caso mais comum de teclado."""
+        for seletor in (
+            r"\.choice-list--dias input:focus-visible ~ \.segmented__fundo",
+            r"\.segmented input:focus-visible ~ \.segmented__fundo",
+        ):
+            with self.subTest(seletor=seletor):
+                casou = re.search(seletor + r"\s*\{([^}]*)\}", self.css)
+                self.assertIsNotNone(casou, "a regra de foco sumiu")
+                corpo = casou.group(1)
+                self.assertIn("outline: 2px solid var(--brand)", corpo)
+                self.assertIn("outline-offset: 2px", corpo)
+                self.assertNotIn("box-shadow", corpo, "anel colado de volta")
+
+    def test_o_campo_invalido_em_foco_fala_uma_cor_so(self):
+        """Decisão do dono (16/09/2026): inválido E em foco = borda e anel em
+        `--danger`; `--brand` só volta sem erro. Antes, o e-mail do login (que
+        tem `autofocus`) mostrava borda vermelha com anel verde."""
+        casou = re.search(r'\.field-input\[aria-invalid="true"\]:focus\s*\{([^}]*)\}', self.css)
+        self.assertIsNotNone(casou, "a regra inválido+foco não existe")
+        corpo = casou.group(1)
+        self.assertIn("border-color: var(--danger)", corpo)
+        self.assertRegex(corpo, r"box-shadow:\s*0 0 0 1px var\(--danger\)")
+        self.assertNotIn("--brand", corpo)
+        # E o foco SEM erro continua `--brand`: a regra nova não pode ter
+        # engolido a de cima.
+        sem_erro = re.search(r"\.field-input:focus\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("var(--glow)", sem_erro)
+
+    def test_o_primario_mantem_o_halo_no_foco(self):
+        """Decisão do dono (16/09/2026): o halo difuso do `.btn--primary` em
+        `:focus-visible` FICA — é a única difusão de foco do app, e é
+        deliberada; `config/tests.py` já exige `var(--halo)` ali. Este teste
+        registra que a revisão da N2 apontou e o dono decidiu manter."""
+        corpo = re.search(r"\.btn--primary:focus-visible\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("var(--halo)", corpo)

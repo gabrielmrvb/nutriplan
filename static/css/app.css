@@ -2433,6 +2433,13 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    `aria-invalid="true"` no widget inválido; até 16/09/2026 nenhuma regra lia
    isso, e a borda do campo errado era igual à do campo certo. */
 .field-input[aria-invalid="true"] { border-color: var(--danger); }
+/* Inválido E em foco: borda e anel na cor do erro (decisão do dono,
+   16/09/2026). Sem esta regra o `:focus` de cima pintava o anel de `--brand`
+   sobre a borda `--danger`, e o campo errado com o cursor dentro — o e-mail
+   do login tem `autofocus` — falava duas cores ao mesmo tempo. `--brand` só
+   volta quando o erro some. `[aria-invalid]:focus` vence `.field-input:focus`
+   por especificidade, não por ordem. */
+.field-input[aria-invalid="true"]:focus { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
 
 .field__errors {
   margin: .45rem 0 0;
@@ -2543,8 +2550,13 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .choice-list--dias input:checked ~ .segmented__texto { color: var(--on-brand); }
 .choice-list--dias label:hover .segmented__fundo { background: var(--surface-3); }
 .choice-list--dias label:hover input:checked ~ .segmented__fundo { background: var(--brand-strong); }
-/* Foco é `--brand`; `--agua` é cor de pilar. */
-.choice-list--dias input:focus-visible ~ .segmented__fundo { box-shadow: 0 0 0 2px var(--brand); }
+/* Foco é `--brand`; `--agua` é cor de pilar. E é ANEL COM VÃO (decisão do
+   dono, 16/09/2026): a opção MARCADA já tem o fundo em `--brand`, e um anel
+   colado só engordava a pílula — em rádio, a seta move foco e marcação
+   juntos, então esse era o caso mais comum de teclado. `outline-offset: 2px`
+   abre um vão que mostra a superfície, e o anel se vê nos dois estados;
+   `outline` acompanha o raio. */
+.choice-list--dias input:focus-visible ~ .segmented__fundo { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--espaco-4); }
 
@@ -5034,9 +5046,12 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .segmented input:checked ~ .segmented__fundo:hover,
 .segmented label:hover input:checked ~ .segmented__fundo { background: var(--brand-strong); }
 
-/* Foco é `--brand`; `--agua` é cor de pilar. */
+/* Foco é `--brand`; `--agua` é cor de pilar. Anel COM VÃO, pelo mesmo motivo
+   do chip de dia (decisão do dono, 16/09/2026): a opção marcada é `--brand`
+   cheio, e sem o vão o foco sumia dentro dela. */
 .segmented input:focus-visible ~ .segmented__fundo {
-  box-shadow: 0 0 0 2px var(--brand);
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 
 /* A unidade encostada à direita, dentro do campo.
