@@ -18,6 +18,16 @@ Anexos do brief de design: [`design/direcao-c-mesa-e-ferro.md`](design/direcao-c
 cita em `shots/…` somam 14 MB e ficam FORA do repositório (`artifacts/design-audit/shots/`
 na máquina de quem auditou); o texto se sustenta sem elas.
 
+Referências geradas no Claude Design em 16/09/2026 a partir da direção C:
+[`design/referencias/claude-design/`](design/referencias/claude-design/) (seis
+telas a 390 px, renderizadas do export; o export inteiro — design system com
+166 arquivos e o projeto das seis telas — fica em `artifacts/claude-design/`,
+fora do git; o inventário está em
+[`2026-09-15-chatgpt-claude-design/inventario-export.md`](2026-09-15-chatgpt-claude-design/inventario-export.md)
+e o que o Claude Design propôs e não entrou em
+[`2026-09-15-chatgpt-claude-design/proposto-nao-adotado.md`](2026-09-15-chatgpt-claude-design/proposto-nao-adotado.md)).
+Spec e handoff: [`2026-09-15-chatgpt-claude-design/`](2026-09-15-chatgpt-claude-design/README.md).
+
 Decisões C tomadas pelo dono em 14/09/2026: direção visual "Mesa & Ferro"
 corrigida; Home com a refeição da vez aberta e as demais colapsadas;
 onboarding em três telas com personalização progressiva.
