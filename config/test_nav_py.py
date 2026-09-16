@@ -17,3 +17,14 @@ class ComandoTemaTests(SimpleTestCase):
         self.assertIn('elif cmd == "tema": out = s.tema(args[0])', fonte)
         self.assertIn("Emulation.setEmulatedMedia", fonte)
         self.assertIn('"prefers-color-scheme"', fonte)
+
+    def test_o_tema_sobrevive_entre_comandos_como_o_viewport(self):
+        """Cada comando de `nav.py` é um processo novo, com uma conexão CDP
+        nova: `Emulation.setEmulatedMedia` morre com ela. `tema` gravava só
+        na conexão viva e nunca voltava depois de fechada — `tema escuro`
+        seguido de `screenshot` capturava a tela CLARA em silêncio. A
+        correção segue o padrão de `viewport`/`offline`: grava a escolha num
+        arquivo por sessão e reaplica em todo `Sessao.__init__`."""
+        fonte = NAV.read_text(encoding="utf-8")
+        self.assertIn('"tema-" + self.nome + ".json"', fonte)
+        self.assertIn("def _tema(self):", fonte)
