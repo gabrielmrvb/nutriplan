@@ -409,3 +409,38 @@ class AMensagemPrecisaDizerOQueFazerTests(SimpleTestCase):
 
         self.assertIn(runner.IGNORAR, texto)
         self.assertIn("embaralhado", texto)
+
+
+class OPrePushTestaOShaQueSobeTests(SimpleTestCase):
+    """O hook de push roda a suíte sobre o COMMIT que sobe, não sobre a árvore.
+
+    Incidente de 15–17/09/2026: o pre-push rodava `manage.py test` na árvore
+    de trabalho. Passou "3044 OK" numa terça e o mesmo `main` reprovava
+    `plans.test_stress` na quarta — o teste dependia do calendário, e a
+    árvore podia ter arquivo que o commit não tinha (ou faltar arquivo que
+    ele tinha). O hook agora exporta o SHA do push num `git worktree`
+    descartável, copia o `.env` e testa LÁ; a árvore de trabalho não entra
+    na conta.
+    """
+
+    def _hook(self):
+        from pathlib import Path
+
+        return (Path(__file__).resolve().parent.parent / "scripts" / "hooks" / "pre-push").read_text(
+            encoding="utf-8"
+        )
+
+    def test_o_hook_le_o_sha_do_push_e_testa_num_worktree(self):
+        hook = self._hook()
+        self.assertIn("local_sha", hook)
+        self.assertIn("git worktree add", hook)
+        self.assertIn("git worktree remove", hook)
+        self.assertIn(".env", hook)
+
+    def test_o_hook_recusa_testar_a_arvore_de_trabalho(self):
+        """`manage.py test` só pode aparecer dentro do worktree — um
+        `manage.py test` solto na raiz seria a versão antiga de volta."""
+        hook = self._hook()
+        linhas = [l for l in hook.splitlines() if "manage.py test" in l and not l.strip().startswith("#")]
+        self.assertEqual(len(linhas), 1, linhas)
+        self.assertIn("$WT", linhas[0])

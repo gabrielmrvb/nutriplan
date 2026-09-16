@@ -1162,6 +1162,26 @@ verificação veio checar. Com `--fail-level ERROR`, o que reprova ali não sobe
 hoje são e-mail de produção (`accounts.E001`–`E003`) e força da SECRET_KEY
 (`accounts.E004`–`E006`).
 
+**O PRE-PUSH TESTA O COMMIT QUE SOBE, NÃO A ÁRVORE DE TRABALHO (17/09/2026).**
+Incidente: o push de 15/09 (terça) passou "3044 OK" e o mesmo `main`
+reprovava `plans.test_stress` na quarta. Duas causas, e as duas eram do
+hook: (1) o teste de orçamento de consultas media a Home e o painel NO DIA
+EM QUE A SUÍTE RODAVA — 36/21 consultas num dia de descanso do fixture,
+41/27 num dia de treino com série registrada —, e o teto (40/25) tinha sido
+medido numa terça; (2) o hook rodava `manage.py test` na árvore de
+trabalho, que não é o que sobe: arquivo não commitado entra na conta e não
+no push, e vice-versa. Hoje o teste congela a data no PIOR estado (quarta,
+com série registrada) e o orçamento da Home é 41 com as consultas únicas
+listadas; o painel ficou em 25 porque `resumo_da_sessao` passou a receber a
+sessão e a escolha que o painel já tinha (27 → 24). E o hook exporta o SHA
+do push num `git worktree` descartável, copia o `.env` e testa lá
+(`scripts/hooks/pre-push`; `config/test_b9_disciplina.py` cobra). Não era
+N+1: nenhuma consulta cresce com o histórico
+(`test_o_custo_da_tela_nao_cresce_com_os_registros`); era estado e
+calendário. E `/saude/` passou a devolver `commit` (`RENDER_GIT_COMMIT`,
+sete caracteres): a prova de deploy deixou de depender de a mudança ter
+superfície visível.
+
 ## Backup e restauração
 
 Procedimento completo, incluindo o que fazer se produção desaparecer, em

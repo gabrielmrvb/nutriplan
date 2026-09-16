@@ -17,6 +17,7 @@ O que é exposto são contagens de catálogo, os mesmos números que qualquer
 visitante veria navegando. Nada de usuário, nada de dado pessoal.
 """
 import logging
+import os
 
 from django.db import OperationalError, ProgrammingError, connection
 from django.http import JsonResponse
@@ -104,4 +105,11 @@ class HealthView(View):
                 status=503,
             )
 
-        return JsonResponse({"status": "ok", "catalogo": catalogo})
+        # O COMMIT QUE ESTÁ VIVO, para o deploy ter prova de dentro: o Render
+        # publica `RENDER_GIT_COMMIT`. Sete caracteres bastam para conferir
+        # contra `git rev-parse --short`, e vazio é "não sei", não um palpite.
+        return JsonResponse({
+            "status": "ok",
+            "commit": os.environ.get("RENDER_GIT_COMMIT", "")[:7],
+            "catalogo": catalogo,
+        })
