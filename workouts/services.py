@@ -33,6 +33,7 @@ from accounts.models import (
     SplitPreference,
 )
 
+from . import adaptacao
 from .models import (
     SEGUNDOS_ENTRE_EXERCICIOS,
     SEGUNDOS_POR_SERIE,
@@ -2474,7 +2475,14 @@ def load_history(user, exercises, day=None) -> dict:
           "recorde_anterior": Decimal|None,    # a maior carga em QUALQUER data anterior
           "delta": Decimal|None,               # subiu ou não subiu
           "data_anterior": date|None,
+          "sessoes": [(date, {série: log})],   # as últimas datas ANTERIORES, da mais
+                                               # recente para trás (≤ SESSOES_LIDAS)
+          "ultimo_registro": log|None,         # o registro mais recente antes de `day`
+          "dia": date,                         # o `day` da leitura
         }
+
+    `sessoes` e `ultimo_registro` são o que `adaptacao.ajuste` lê (T2.1):
+    saem do MESMO laço, sem consulta a mais — a adaptação é leitura.
 
     `recorde_anterior` é o contrato de `achievements.regras._recorde` — maior
     carga já registrada, não 1RM nem volume — lido do mesmo laço, para a
@@ -2514,6 +2522,14 @@ def load_history(user, exercises, day=None) -> dict:
         recorde_anterior = max(
             (l.weight_kg for l in anteriores if l.weight_kg is not None), default=None
         )
+        # As últimas datas, agrupadas — `anteriores` já vem por `-date`.
+        sessoes = []
+        for log in anteriores:
+            if not sessoes or sessoes[-1][0] != log.date:
+                if len(sessoes) == adaptacao.SESSOES_LIDAS:
+                    break
+                sessoes.append((log.date, {}))
+            sessoes[-1][1][log.set_number] = log
         resultado[exercise_id] = {
             "hoje": hoje,
             "anterior": anterior,
@@ -2524,6 +2540,9 @@ def load_history(user, exercises, day=None) -> dict:
             "delta": (melhor_hoje - melhor_anterior)
             if (melhor_hoje is not None and melhor_anterior is not None)
             else None,
+            "sessoes": sessoes,
+            "ultimo_registro": anteriores[0] if anteriores else None,
+            "dia": day,
         }
     return resultado
 
@@ -2760,11 +2779,12 @@ def _sugestao_de_carga(item, serie):
     de_hoje = _ultima_de_hoje(item)
     if de_hoje is not None:
         return de_hoje.weight_kg
-    # A dupla progressão decide a ABERTURA da sessão: quando a faixa fechou
-    # da última vez, o campo já abre com a carga nova. Hoje continua
-    # mandando — a progressão devolve `None` com série anotada hoje.
+    # A adaptação decide a ABERTURA da sessão: o campo abre com o número da
+    # frase — a carga nova ao subir, a maior da última vez ao manter (60/60/55
+    # abre com 60 nas três séries, e não com 55 na terceira: frase == campo).
+    # Hoje continua mandando — `ajuste` devolve `None` com série anotada hoje.
     progressao = getattr(item, "progressao", None)
-    if progressao is not None and progressao.estado == "subir":
+    if progressao is not None:
         return progressao.valor
     anterior = (item.load or {}).get("anterior") or {}
     registro = anterior.get(serie)
@@ -2773,90 +2793,33 @@ def _sugestao_de_carga(item, serie):
     return (item.load or {}).get("melhor_anterior")
 
 
-#: Grupos que sobem de 5 em 5: a barra da perna aguenta o dobro do degrau
-#: do tronco. Os outros (peito, costas, ombro, braços, trapézio, core) sobem
-#: de 2,5 — a menor anilha comum.
-GRUPOS_INFERIORES = frozenset({
-    MuscleGroup.QUADS, MuscleGroup.HAMSTRINGS, MuscleGroup.CALVES,
-})
-
-#: A menor anilha: todo degrau e todo arredondamento saem dela.
-DEGRAU_MINIMO = Decimal("2.5")
-
-
-@dataclass(frozen=True)
-class Progressao:
-    """O que a dupla progressão decidiu para a PRÓXIMA sessão de um exercício."""
-
-    estado: str        # "subir" | "manter"
-    valor: Decimal     # a carga a abrir no campo
-    razao: str         # a frase que a tela mostra ao lado
+#: A REGRA MORA EM `workouts/adaptacao.py` (T2.1, 17/09/2026): módulo puro,
+#: sem banco nem relógio, com o estado nomeado (`Estado`, `MUDA_CARGA`). Os
+#: nomes seguem exportados daqui porque os testes de 13/09 os leem.
+GRUPOS_INFERIORES = adaptacao.GRUPOS_INFERIORES
+DEGRAU_MINIMO = adaptacao.DEGRAU_MINIMO
+Progressao = adaptacao.Progressao
 
 
 def proxima_carga(item):
-    """Dupla progressão: sobe a carga quando a faixa de reps fechou.
+    """Dupla progressão para a próxima sessão — o alias de `adaptacao.ajuste`
+    sobre o que `load_history` já carregou no item (`sessoes`,
+    `ultimo_registro`, `dia`). Compatível com o `load` antigo, que só tinha
+    `anterior`: vira uma sessão de uma data só.
 
-    A regra estava impressa no painel em prosa — "quando fechar o topo da
-    faixa em todas as séries, suba a carga" — e `_sugestao_de_carga` só
-    repetia a última carga. Passa a ser calculada (decisão do dono em
-    13/09/2026; ACSM 2009: +2-10% ao fechar a faixa; Plotkin 2022: reps com
-    carga fixa ≈ carga; calibração do degrau declarada baixa na literatura,
-    e por isso ABSOLUTA e pequena: a menor anilha).
-
-    Devolve `None` quando NÃO há o que dizer, e isso é parte da regra:
-
-    - sem histórico, ou com histórico INCOMPLETO (menos séries anotadas na
-      última data do que a prescrição pede) — sem histórico não se inventa
-      número, e uma sessão pela metade não fechou faixa nenhuma;
-    - com série anotada HOJE — hoje manda (`_sugestao_de_carga`), e a
-      progressão é decisão de abertura da sessão, não de meio;
-    - peso do corpo e segundos — não há anilha para subir.
-
-    SUBIR: todas as séries prescritas da última data com reps ≥ rep_max.
-    O degrau é absoluto — 2,5 kg no tronco, 5 na perna — sobre a MAIOR carga
-    daquela data, arredondado para cima ao múltiplo de 2,5. MANTER: a faixa
-    não fechou, e a razão diz em que série faltou quanto.
-
-    O prefill das reps é o risco conhecido desta regra: a série anterior
-    copia as reps para o campo, e quem não edita "fecha" a faixa sem ter
-    fechado. A mitigação é a própria dupla progressão: ao subir, as reps
-    voltam ao PISO (`_sugestao_de_reps` respeita `item.progressao`), e a
-    próxima subida exige que a pessoa aumente as reps por conta própria.
+    A regra, dita inteira, está no módulo: SUBIR quando todas as séries
+    prescritas da última data fecharam `rep_max` na MESMA carga (60/60/55
+    mantém 60 e diz por quê), MANTER com a razão quando não, `None` sem
+    histórico completo, com série hoje, sem anilha. O prefill das reps é o
+    risco conhecido: ao subir, `_sugestao_de_reps` volta ao piso da faixa, e
+    a próxima subida exige fechar a faixa de novo.
     """
     load = item.load or {}
-    if load.get("hoje"):
-        return None
-    if item.measure != Measure.REPS or item.exercise.sem_carga:
-        return None
-    anterior = load.get("anterior") or {}
-    if len(anterior) < item.sets:
-        return None
-    series = [anterior[n] for n in sorted(anterior)][: item.sets]
-    maior = max(s.weight_kg for s in series)
-    if maior is None:
-        return None
-
-    faltas = [
-        (numero, item.rep_max - (log.reps or 0))
-        for numero, log in zip(sorted(anterior)[: item.sets], series)
-        if (log.reps or 0) < item.rep_max
-    ]
-    if not faltas:
-        degrau = Decimal("5") if item.exercise.muscle_group in GRUPOS_INFERIORES else DEGRAU_MINIMO
-        alvo = maior + degrau
-        # Múltiplo de 2,5 para cima: 61 + 2,5 = 63,5 vira 65.
-        resto = alvo % DEGRAU_MINIMO
-        if resto:
-            alvo = alvo - resto + DEGRAU_MINIMO
-        return Progressao(
-            "subir", alvo,
-            "fechou %d×%d na última vez" % (item.sets, item.rep_max),
-        )
-    numero, quanto = faltas[0]
-    return Progressao(
-        "manter", maior,
-        "faltaram %d rep%s na série %d para subir" % (quanto, "" if quanto == 1 else "s", numero),
-    )
+    sessoes = load.get("sessoes")
+    if sessoes is None:
+        anterior = load.get("anterior") or {}
+        sessoes = [(load.get("data_anterior"), anterior)] if anterior else []
+    return adaptacao.ajuste(item, sessoes, load.get("ultimo_registro"), load.get("dia"))
 
 
 def _sugestao_de_reps(item, serie):
@@ -2869,7 +2832,7 @@ def _sugestao_de_reps(item, serie):
     # Carga nova, reps no PISO da faixa: é a dupla progressão, e é o que
     # segura o prefill — subir de novo exige fechar a faixa de novo.
     progressao = getattr(item, "progressao", None)
-    if progressao is not None and progressao.estado == "subir":
+    if progressao is not None and progressao.estado in adaptacao.MUDA_CARGA:
         return item.rep_min
     registro = ((item.load or {}).get("anterior") or {}).get(serie)
     return registro.reps if registro is not None else None

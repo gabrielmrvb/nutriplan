@@ -1004,6 +1004,22 @@ tela mostrar ABCD e o Perfil continuar dizendo "1 grupo por dia".
 `divisao_explicada` devolve o pedido, o aplicado e o motivo, e a ressalva só
 aparece quando os dois divergem.
 
+**A ADAPTAÇÃO DA CARGA É LEITURA, e mora em `workouts/adaptacao.py` — um
+módulo PURO com o estado nomeado (T2.1, 17/09/2026).** Ele não abre consulta,
+não olha o relógio e não fala com a rede (`workouts/test_adaptacao.py` lê o
+texto do módulo e tem controle positivo); recebe o que `load_history` já
+carregou — `sessoes` (≤ 10 datas) e `ultimo_registro`, do MESMO laço, sem
+consulta a mais — e devolve `Progressao(estado, valor, razao)` com `Estado`
+em `SUBIR`/`MANTER` e `MUDA_CARGA = {SUBIR}` dizendo quem muda o número do
+campo. É o que permite simular um ano de treino em memória para calibrar
+RETOMAR e ESTAGNADO (T2.3) antes de publicar. A regra é a dupla progressão
+de 13/09 com UMA correção: fechar a faixa é fechar NA MESMA carga — 60/60/55
+com todas as reps no topo era SUBIR para 62,5, e virou MANTER 60, com a frase
+dizendo "a série 3 foi a 55 kg". E **frase == campo**: com `Progressao` o
+campo abre com `valor` em toda série (antes a terceira abria com 55 — a
+mesma série da última vez — enquanto a frase falava de 60). `services.
+proxima_carga` é o alias que continua servindo os testes de b14efff.
+
 **Duração tem UMA conta, e ela é `workouts.models.segundos_da_sessao`.**
 Existiam duas cópias, uma sobre linhas gravadas e outra sobre tuplas, com um
 teste prendendo as duas; prender duas cópias é pior que ter uma.
