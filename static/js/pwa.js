@@ -594,8 +594,13 @@
     var link = alvo.closest("a.btn[href]");
     if (!link || link.classList.contains("is-carregando")) return;
     if (link.hasAttribute("target") || link.hasAttribute("download")) return;
+    /* `data-arquivo`: a resposta é um arquivo (Content-Disposition:
+     * attachment) e a página não troca — o link de exportar o TCX. Não é
+     * `download` porque a view pode responder com redirect e mensagem quando
+     * não há treino hoje, e `download` faria o navegador SALVAR aquele HTML. */
+    if (link.hasAttribute("data-arquivo")) return;
     var destino = (link.getAttribute("href") || "").trim();
-    if (/^(#|mailto:|javascript:)/i.test(destino)) return;
+    if (/^(#|mailto:|tel:|sms:|javascript:)/i.test(destino)) return;
 
     link.classList.add("is-carregando");
     link.setAttribute("aria-busy", "true");

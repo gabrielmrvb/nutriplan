@@ -94,12 +94,14 @@
         Ver o treino completo
       </a>
       {% comment %}
-        `download`: a resposta é um arquivo (Content-Disposition: attachment), a
-        página não troca — e o link-botão só marca `is-carregando` em quem vai
-        navegar (pwa.js). Sem o atributo, o anel ficaria girando depois de o
-        arquivo salvar.
+        `data-arquivo`: a resposta é um arquivo (Content-Disposition:
+        attachment), a página não troca — e o link-botão só marca
+        `is-carregando` em quem vai navegar (pwa.js). Sem a marca, o anel
+        ficaria girando depois de o TCX salvar. Não é `download`: sem treino
+        hoje a view responde 302 com mensagem, e `download` faria o navegador
+        salvar aquele HTML como arquivo.
       {% endcomment %}
-      <a class="btn btn--ghost btn--block" href="{% url 'workouts:health_export' %}" download>
+      <a class="btn btn--ghost btn--block" href="{% url 'workouts:health_export' %}" data-arquivo>
         Exportar para o app de saúde
       </a>
 

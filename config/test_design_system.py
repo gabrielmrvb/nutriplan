@@ -706,15 +706,23 @@ class OEspacamentoNaoVoltaParaODentroDoHTMLTests(SimpleTestCase):
 
 RAIZ_TEMPLATES = CSS.parent.parent.parent / "templates"
 PWA_JS = CSS.parent.parent / "js" / "pwa.js"
-#: O atributo `download` numa tag `<a …>`: precedido de espaço, seguido de
-#: espaço, `>` ou `=` — `downloads` numa classe não conta.
-TEM_DOWNLOAD = re.compile(r"\sdownload(\s|>|=)")
+#: A marca `data-arquivo` numa tag `<a …>`: precedida de espaço, seguida de
+#: espaço, `>` ou `=` — `data-arquivos` ou uma classe parecida não contam.
+DIZ_QUE_E_ARQUIVO = re.compile(r"\sdata-arquivo(\s|>|=)")
+
+
+#: O que DIZ qual botão é. `btn--block`, `btn--sm` e `btn--hoje` são tamanho e
+#: posição, não variante — um `btn btn--block` continua sendo o botão sem
+#: decisão. `btn--google` é a variante do OAuth, com receita própria.
+VARIANTES_DE_BOTAO = frozenset(
+    {"btn--primary", "btn--ghost", "btn--quiet", "btn--perigo", "btn--google", "btn-link"}
+)
 
 
 def botoes_sem_variante(texto):
     """As ocorrências de `class="btn …"` em que nenhuma classe diz QUAL botão.
 
-    Variante é `btn--*` (primário, fantasma, perigo, bloco…) ou `btn-link`.
+    Variante é uma de `VARIANTES_DE_BOTAO` — tamanho e posição não contam.
     Devolve o atributo inteiro, como está no HTML, para a mensagem do teste
     apontar a linha culpada sem que ninguém precise procurar.
 
@@ -724,9 +732,12 @@ def botoes_sem_variante(texto):
     varredura deixa de achar arquivo — e ninguém vê.
     """
     culpados = []
-    for m in re.finditer(r'class="btn(?:\s+[^"]*)?"', texto):
+    # Lógica de template dentro do atributo (`{% if %}btn--primary{% endif %}`)
+    # sai antes de tokenizar: o que sobra é o que TODO ramo renderiza.
+    limpo = re.sub(r"{%.*?%}", " ", texto)
+    for m in re.finditer(r'class="btn(?:\s+[^"]*)?"', limpo):
         classes = m.group(0)[len('class="'):-1].split()
-        if not any(c.startswith("btn--") or c == "btn-link" for c in classes):
+        if not any(c in VARIANTES_DE_BOTAO for c in classes):
             culpados.append(m.group(0))
     return culpados
 
@@ -789,26 +800,34 @@ class LinkBotaoAvisaQueEstaIndoTests(SimpleTestCase):
         self.assertRegex(self.js, r'classList\.add\("is-carregando"\)')
         self.assertRegex(self.js, r'setAttribute\("aria-busy", "true"\)')
 
-    def test_o_link_que_baixa_arquivo_diz_download(self):
+    def test_o_link_que_baixa_arquivo_diz_que_e_arquivo(self):
         """`workouts:health_export` responde `Content-Disposition: attachment`:
-        a página NÃO troca, o arquivo salva. Sem `download` no `<a class="btn">`,
+        a página NÃO troca, o arquivo salva. Sem a marca no `<a class="btn">`,
         o anel de `is-carregando` ficaria girando depois de o TCX salvar — foi
-        o primeiro caso que a N5 achou ao testar no navegador."""
-        raiz = CSS.parent.parent.parent / "templates"
-        sem_download = []
-        for arquivo in sorted(raiz.rglob("*.html")):
+        o primeiro caso que a N5 achou ao testar no navegador.
+
+        A marca é `data-arquivo`, e não `download`: sem treino hoje a view
+        responde 302 com mensagem, e `download` faria o navegador salvar aquele
+        HTML como arquivo (achado da revisão da N5)."""
+        sem_marca, encontrados = [], 0
+        for arquivo in sorted(RAIZ_TEMPLATES.rglob("*.html")):
             texto = arquivo.read_text(encoding="utf-8")
             for m in re.finditer(r"<a [^>]*workouts:health_export[^>]*>", texto):
-                if not TEM_DOWNLOAD.search(m.group(0)):
-                    sem_download.append(f"{arquivo.relative_to(raiz)}: {m.group(0)}")
-        self.assertEqual(sem_download, [], "link que baixa arquivo sem `download`")
+                encontrados += 1
+                if not DIZ_QUE_E_ARQUIVO.search(m.group(0)):
+                    sem_marca.append(f"{arquivo.relative_to(RAIZ_TEMPLATES)}: {m.group(0)}")
+                self.assertNotRegex(m.group(0), r"\sdownload[\s>=]", "`download` salvaria o HTML do redirect")
+        self.assertEqual(encontrados, 2, "os dois links de exportar: renomear a rota deixaria o teste cego")
+        self.assertEqual(sem_marca, [], "link que baixa arquivo sem `data-arquivo`")
+        # E o JS respeita a marca.
+        self.assertIn('hasAttribute("data-arquivo")', self.js)
 
-    def test_o_leitor_enxerga_o_link_sem_download(self):
-        """Controle positivo do regex acima: um `<a>` de exportação sem o
-        atributo tem de ser flagrado, e `downloads` (outra palavra) não conta."""
-        self.assertIsNone(TEM_DOWNLOAD.search('<a class="btn" href="/treino/exportar/">'))
-        self.assertIsNotNone(TEM_DOWNLOAD.search('<a class="btn" href="/treino/exportar/" download>'))
-        self.assertIsNone(TEM_DOWNLOAD.search('<a class="downloads" href="x">'))
+    def test_o_leitor_enxerga_o_link_sem_marca(self):
+        """Controle positivo do regex acima: um `<a>` de exportação sem a marca
+        tem de ser flagrado, e `data-arquivos` (outra palavra) não conta."""
+        self.assertIsNone(DIZ_QUE_E_ARQUIVO.search('<a class="btn" href="/treino/exportar/">'))
+        self.assertIsNotNone(DIZ_QUE_E_ARQUIVO.search('<a class="btn" href="/treino/exportar/" data-arquivo>'))
+        self.assertIsNone(DIZ_QUE_E_ARQUIVO.search('<a class="btn" data-arquivos="x" href="x">'))
 
     def test_o_que_nao_troca_de_pagina_fica_de_fora(self):
         """`target` abre outra aba, `download` guarda arquivo, `#` fica na
