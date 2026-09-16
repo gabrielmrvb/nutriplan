@@ -261,3 +261,42 @@ class AMigrationDoPadraoTests(TransactionTestCase):
         with self.assertRaisesRegex(RuntimeError, "Cadastrado à mão"):
             self._migrar(self.DEPOIS)
         Exercicio.objects.all().delete()
+
+
+class GateDeOpcoesPorLetraTests(TestCase):
+    """Nenhum deploy reduz o número de letras com duas opções (16/09/2026).
+
+    O número é o que o MOTOR entrega com o catálogo ATIVO, passando pela
+    mesma `create_routine` de produção — não uma conta sobre o JSON. Fica
+    VERMELHO enquanto o código local entregar menos do que produção tem, e
+    é para ficar: a régua de padrões compostos derruba a segunda opção das
+    letras que só a tinham por acidente, e o que a devolve é ativar, com
+    mídia conferida, o exercício que cada uma pede.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+
+    def test_nenhum_deploy_reduz_as_letras_com_duas_opcoes(self):
+        from workouts import opcoes_em_producao as gate
+
+        por_letra = gate.opcoes_por_letra()
+        com_duas = gate.letras_com_opcoes(por_letra)
+        tabela = "\n".join("  %s %s: %d" % (s, l, n) for (s, l), n in sorted(por_letra.items()))
+        self.assertGreaterEqual(
+            len(com_duas), gate.LETRAS_COM_OPCOES_EM_PRODUCAO,
+            "\n%d letras com duas opções contra %d em produção:\n%s"
+            % (len(com_duas), gate.LETRAS_COM_OPCOES_EM_PRODUCAO, tabela),
+        )
+
+    def test_a_conta_do_gate_nao_deixa_rastro(self):
+        from accounts.models import User
+        from workouts import opcoes_em_producao as gate
+        from workouts.models import TrainingPlan
+
+        antes = (User.objects.count(), TrainingPlan.objects.count())
+        por_letra = gate.opcoes_por_letra()
+        self.assertEqual((User.objects.count(), TrainingPlan.objects.count()), antes)
+        self.assertEqual({s for s, _ in por_letra}, {"full", "ab", "abc", "abc2", "abcd", "abcde"})

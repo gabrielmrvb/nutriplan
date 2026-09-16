@@ -112,13 +112,22 @@ class CincoPerfisTests(Catalogo):
                         )
 
     def test_quantas_opcoes_cada_perfil_recebe_hoje(self):
-        """O número de hoje, com o catálogo de hoje — escrito, não prometido."""
+        """O número de hoje, com o catálogo de hoje — escrito, não prometido.
+
+        "Inferior" de dois dias (`ab B`) TINHA duas opções até 16/09/2026, e
+        elas não eram intercambiáveis: o stiff — a única extensão de quadril
+        do modelo — ficava numa e a mesa flexora na outra. A régua dos
+        padrões compostos compartilha o stiff, sobra um exercício próprio em
+        cinco, e a letra volta a UMA opção até o modelo ter uma segunda
+        extensão de quadril ativa. É o gate de `opcoes_em_producao` que diz
+        quando isso volta.
+        """
         esperado = {
             "iniciante_3d_2g": {"A": 2, "B": 2, "C": 2},
             "intermediario_5d_2g": {"A": 2, "B": 2, "C": 2},
             "avancado_6d_2g": {"A": 2, "B": 2, "C": 2},
             "intermediario_4d_3g": {"A": 2, "B": 2, "C": 2},
-            "intermediario_2d": {"A": 1, "B": 2},
+            "intermediario_2d": {"A": 1, "B": 1},
         }
         for nome, por_label in esperado.items():
             plan = services.create_routine(pessoa(nome))
@@ -141,8 +150,11 @@ class CincoPerfisTests(Catalogo):
             for k in sessao.opcoes:
                 with self.subTest(letra=label, opcao=k):
                     self.assertGreaterEqual(sessao.series_da_opcao(k), 13)
-                    # C leva panturrilha e abdômen além dos anunciados: até 6 acima do teto da faixa.
-                    self.assertLessEqual(sessao.series_da_opcao(k), opcoes.TETO_SERIES_COMPLETO + 6)
+                    # C leva panturrilha e abdômen além dos anunciados, e
+                    # desde 16/09/2026 o desenvolvimento compartilhado (a
+                    # única pressão vertical do modelo): até 8 acima do
+                    # teto da faixa — 26 séries em 58 minutos.
+                    self.assertLessEqual(sessao.series_da_opcao(k), opcoes.TETO_SERIES_COMPLETO + 8)
                     self.assertLessEqual(sessao.minutos_da_opcao(k), 60)
         self.assertEqual(len(sessoes["A"].da_opcao(1)), 4)
 
@@ -265,15 +277,19 @@ class Falso:
     """Um item de catálogo de mentira, para os testes puros de `opcoes.py`."""
 
     class Exercicio:
-        def __init__(self, pk, grupo, composto=False, secundarios=()):
+        def __init__(self, pk, grupo, composto=False, secundarios=(), padrao=""):
             self.pk = pk
             self.muscle_group = grupo
             self.is_compound = composto
             self.secondary_muscles = list(secundarios)
+            # O padrão de movimento (16/09/2026). Sem um explícito, o falso
+            # segue a regra do catálogo — composto tem padrão composto —,
+            # para os testes antigos continuarem coerentes.
+            self.padrao = padrao or ("pressao_de_peito" if composto else "crucifixo")
 
-    def __init__(self, pk, grupo, sets=3, composto=False, rest=60):
+    def __init__(self, pk, grupo, sets=3, composto=False, rest=60, padrao=""):
         self.exercise_id = pk
-        self.exercise = Falso.Exercicio(pk, grupo, composto)
+        self.exercise = Falso.Exercicio(pk, grupo, composto, padrao=padrao)
         self.sets = sets
         self.rest_seconds = rest
 
@@ -293,6 +309,61 @@ class EquivalenciaPuraTests(TestCase):
         self.assertFalse(opcoes.equivalentes([op1, op2], ["chest", "triceps"]))
         op2[1] = (op2[1][0], 3, 0)
         self.assertTrue(opcoes.equivalentes([op1, op2], ["chest", "triceps"]))
+
+    def test_os_mesmos_padroes_compostos_em_cada_grupo_anunciado(self):
+        """Puxada + remada numa opção e duas puxadas na outra têm o MESMO
+        volume, os MESMOS minutos e o grupo presente nas duas — e não são
+        intercambiáveis: uma semana sem remada horizontal não é a mesma
+        semana. A régua compara os padrões COMPOSTOS por grupo anunciado."""
+        op1 = [
+            (Falso(1, "back", sets=4, composto=True, padrao="puxada_vertical"), 4, 2),
+            (Falso(2, "back", sets=3, composto=True, padrao="remada_horizontal"), 3, 1),
+        ]
+        op2 = [
+            (Falso(3, "back", sets=4, composto=True, padrao="puxada_vertical"), 4, 2),
+            (Falso(4, "back", sets=3, composto=True, padrao="puxada_vertical"), 3, 1),
+        ]
+        self.assertEqual(opcoes._minutos(op1), opcoes._minutos(op2))
+        self.assertFalse(opcoes.equivalentes([op1, op2], ["back"]))
+        # Com a remada dos dois lados, passa.
+        op2[1] = (Falso(4, "back", sets=3, composto=True, padrao="remada_horizontal"), 3, 1)
+        self.assertTrue(opcoes.equivalentes([op1, op2], ["back"]))
+
+    def test_tres_supinos_contra_tres_crucifixos_reprovam(self):
+        supinos = [
+            (Falso(pk, "chest", sets=3, composto=True, padrao="pressao_de_peito"), 3, 1)
+            for pk in (1, 2, 3)
+        ]
+        crucifixos = [
+            (Falso(pk, "chest", sets=3, composto=False, padrao="crucifixo"), 3, 0)
+            for pk in (4, 5, 6)
+        ]
+        self.assertFalse(opcoes.equivalentes([supinos, crucifixos], ["chest"]))
+
+    def test_isoladores_diferentes_com_os_mesmos_compostos_passam(self):
+        op1 = [
+            (Falso(1, "chest", sets=4, composto=True, padrao="pressao_de_peito"), 4, 2),
+            (Falso(2, "chest", sets=3, composto=False, padrao="crucifixo"), 3, 0),
+        ]
+        op2 = [
+            (Falso(3, "chest", sets=4, composto=True, padrao="pressao_de_peito"), 4, 2),
+            (Falso(4, "chest", sets=3, composto=False, padrao="crucifixo"), 3, 0),
+        ]
+        self.assertTrue(opcoes.equivalentes([op1, op2], ["chest"]))
+
+    def test_grupo_complementar_nao_entra_na_regua_de_padrao(self):
+        """A régua é dos grupos ANUNCIADOS: o trapézio complementar pode ter
+        encolhimento numa opção e remada alta na outra, como
+        `repartir_ocorrencia` sempre fez com B1 e B2."""
+        op1 = [
+            (Falso(1, "back", sets=4, composto=True, padrao="puxada_vertical"), 4, 2),
+            (Falso(2, "traps", sets=3, composto=False, padrao="elevacao_escapular"), 3, 0),
+        ]
+        op2 = [
+            (Falso(3, "back", sets=4, composto=True, padrao="puxada_vertical"), 4, 2),
+            (Falso(4, "traps", sets=3, composto=False, padrao="remada_alta"), 3, 0),
+        ]
+        self.assertTrue(opcoes.equivalentes([op1, op2], ["back"]))
 
     def test_grupo_anunciado_ausente_reprova(self):
         op1 = self._op((1, "chest", 4, True, 2), (3, "triceps", 3, False, 0))
@@ -440,3 +511,138 @@ class PlanoAntigoTests(Catalogo):
         self.assertNotIn("Duas versões disponíveis", html)
         for sessao in plan.sessions.all():
             self.assertEqual(sessao.opcoes, [1])
+
+
+class RepartirPorPadraoTests(TestCase):
+    """`montar_opcoes` reparte o grupo ANUNCIADO por padrão composto —
+    cada opção leva pelo menos um de cada — e o padrão composto único é
+    compartilhado. Os isoladores continuam em rodízio, e podem diferir."""
+
+    def _itens(self, *linhas):
+        return [Falso(pk, grupo, composto=composto, padrao=padrao) for pk, grupo, composto, padrao in linhas]
+
+    def test_cada_opcao_leva_uma_pressao_de_peito_sem_compartilhar(self):
+        # Pressão nas posições 0 e 2: o rodízio cego por grupo daria as duas
+        # pressões a uma opção e os dois crucifixos à outra — os "três
+        # supinos contra três crucifixos" da régua.
+        itens = self._itens(
+            (1, "chest", True, "pressao_de_peito"), (2, "chest", False, "crucifixo"),
+            (3, "chest", True, "pressao_de_peito"), (4, "chest", False, "crucifixo"),
+        )
+        ops, compartilhados = opcoes.montar_opcoes(itens, n=2, principais=["chest"])
+        for op in ops:
+            self.assertTrue(any(i.exercise.padrao == "pressao_de_peito" for i in op), op)
+        self.assertEqual(compartilhados, set())
+        self.assertEqual(sorted(len(op) for op in ops), [2, 2])
+
+    def test_o_padrao_composto_unico_e_compartilhado(self):
+        itens = self._itens(
+            (1, "triceps", False, "extensao_de_cotovelo"), (2, "triceps", False, "extensao_de_cotovelo"),
+            (3, "triceps", True, "pressao_fechada"),
+        )
+        ops, compartilhados = opcoes.montar_opcoes(itens, n=2, principais=["triceps"])
+        self.assertEqual(compartilhados, {3})
+        for op in ops:
+            self.assertIn(3, [i.exercise_id for i in op])
+        proprios = [[i.exercise_id for i in op if i.exercise_id != 3] for op in ops]
+        self.assertEqual(sorted(sum(proprios, [])), [1, 2])
+
+    def test_grupo_nao_anunciado_segue_o_rodizio_de_sempre(self):
+        """Sem estar em `principais`, nada muda: é o rodízio por grupo, com o
+        grupo ímpar emprestando o último."""
+        itens = self._itens(
+            (1, "traps", False, "elevacao_escapular"), (2, "traps", True, "remada_alta"),
+            (3, "traps", False, "elevacao_escapular"), (4, "traps", True, "remada_alta"),
+        )
+        ops, compartilhados = opcoes.montar_opcoes(itens, n=2, principais=["back"])
+        self.assertEqual(compartilhados, set())
+        self.assertEqual([[i.exercise_id for i in op] for op in ops], [[1, 3], [2, 4]])
+
+    def test_dois_compostos_diferentes_com_um_de_cada_ficam_nas_duas_opcoes(self):
+        """Costas com UMA puxada e UMA remada: as duas são compartilhadas — e
+        aí a régua de metade própria decide se a letra sai com duas opções."""
+        itens = self._itens(
+            (1, "back", True, "puxada_vertical"), (2, "back", True, "remada_horizontal"),
+            (3, "back", False, "deltoide_posterior"), (4, "back", False, "deltoide_posterior"),
+        )
+        ops, compartilhados = opcoes.montar_opcoes(itens, n=2, principais=["back"])
+        self.assertEqual(compartilhados, {1, 2})
+        self.assertFalse(opcoes.distintas_o_bastante(ops, compartilhados))
+
+
+class AparoEmLockstepTests(TestCase):
+    """`aparar_opcoes` cede sem desfazer a equivalência: a irmã acompanha
+    pelo volume DIRETO, e nenhuma opção perde o penúltimo exercício direto
+    de um grupo — o excesso que só isso resolveria fica (teto de aparo)."""
+
+    def _linhas(self, *itens):
+        return [(Falso(pk, grupo, sets=sets, composto=composto, padrao=padrao), sets, grau)
+                for pk, grupo, sets, composto, padrao, grau in itens]
+
+    def test_a_irma_acompanha_a_remocao_pelo_volume_direto(self):
+        """Uma opção carrega o supino (tríceps secundário) e por isso puxa o
+        teto; o corte tira o acessório dela e deixa a irmã DUAS séries
+        diretas acima — a irmã cede também, senão a letra perde a segunda
+        opção por um corte que só uma delas pagou."""
+        supino = Falso(1, "chest", sets=4, composto=True, padrao="pressao_de_peito")
+        supino.exercise.secondary_muscles = ["triceps"]
+        op1 = [(supino, 4, 2)] + self._linhas(
+            (2, "triceps", 3, True, "pressao_fechada", 2),
+            (3, "triceps", 2, False, "extensao_de_cotovelo", 0),
+            (4, "triceps", 2, False, "extensao_de_cotovelo", 0),
+        )
+        op2 = self._linhas(
+            (5, "chest", 4, False, "crucifixo", 2),
+            (6, "triceps", 3, True, "pressao_fechada", 2),
+            (7, "triceps", 2, False, "extensao_de_cotovelo", 0),
+            (8, "triceps", 2, False, "extensao_de_cotovelo", 0),
+        )
+        aparado = opcoes.aparar_opcoes({"A": [op1, op2]}, {"A": 1}, teto=8, dose_do_catalogo=lambda i: i.sets)
+        diretos = [opcoes._volume_direto(op).get("triceps") for op in aparado["A"]]
+        self.assertEqual(diretos, [5, 5])
+        self.assertTrue(opcoes.equivalentes(aparado["A"], ["triceps"]))
+
+    def test_nenhuma_opcao_perde_o_penultimo_direto_do_grupo(self):
+        """Com duas opções, a corda não sai de uma opção que só tem mergulho
+        e corda: o tríceps ficaria só no composto compartilhado nas duas, e a
+        semana com UM tríceps distinto. O excesso fica."""
+        supino = Falso(1, "chest", sets=4, composto=True, padrao="pressao_de_peito")
+        supino.exercise.secondary_muscles = ["triceps"]
+        op1 = [(supino, 4, 2)] + self._linhas(
+            (2, "triceps", 3, True, "pressao_fechada", 2),
+            (3, "triceps", 2, False, "extensao_de_cotovelo", 0),
+        )
+        op2 = self._linhas(
+            (5, "chest", 4, False, "crucifixo", 2),
+            (2, "triceps", 3, True, "pressao_fechada", 2),
+            (4, "triceps", 2, False, "extensao_de_cotovelo", 0),
+        )
+        aparado = opcoes.aparar_opcoes({"A": [op1, op2]}, {"A": 2}, teto=10, dose_do_catalogo=lambda i: i.sets)
+        self.assertEqual([len(op) for op in aparado["A"]], [3, 3])
+        # Com UMA opção a trava é a de sempre: o último direto fica, o penúltimo sai.
+        sozinha = opcoes.aparar_opcoes({"A": [list(op1)]}, {"A": 2}, teto=10, dose_do_catalogo=lambda i: i.sets)
+        self.assertEqual(len(sozinha["A"][0]), 2)
+
+    def test_a_concessao_que_a_irma_nao_acompanha_nao_acontece(self):
+        """Ensaiada numa cópia: se depois dela a irmã ficar mais de uma
+        série direta acima SEM ter o que ceder, a concessão não vale e o
+        excesso fica — cortar de um lado só era o que derrubava a letra
+        para uma opção."""
+        supino = Falso(1, "chest", sets=4, composto=True, padrao="pressao_de_peito")
+        supino.exercise.secondary_muscles = ["triceps"]
+        op1 = [(supino, 4, 2)] + self._linhas(
+            (2, "triceps", 3, True, "pressao_fechada", 2),
+            (3, "triceps", 2, False, "extensao_de_cotovelo", 0),
+            (4, "triceps", 2, False, "extensao_de_cotovelo", 0),
+        )
+        # A irmã: composto principal e um acessório (grau 1) no piso de três
+        # — nada que `_ceder` possa tirar sem passar do penúltimo direto.
+        op2 = self._linhas(
+            (5, "chest", 4, False, "crucifixo", 2),
+            (6, "triceps", 4, True, "pressao_fechada", 2),
+            (7, "triceps", 3, True, "pressao_fechada", 1),
+        )
+        aparado = opcoes.aparar_opcoes({"A": [op1, op2]}, {"A": 1}, teto=8, dose_do_catalogo=lambda i: i.sets)
+        self.assertEqual([len(op) for op in aparado["A"]], [4, 3])
+        diretos = [opcoes._volume_direto(op).get("triceps") for op in aparado["A"]]
+        self.assertEqual(diretos, [7, 7])

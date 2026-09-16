@@ -1241,7 +1241,9 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
                 # Tenta com o número de ocorrências; sem catálogo para
                 # tantas opções distintas, tenta duas; só então uma.
                 for n in sorted({max(2, ocorrencias[label]), 2}, reverse=True):
-                    candidatas, compartilhados = motor_de_opcoes.montar_opcoes(itens, n=n)
+                    candidatas, compartilhados = motor_de_opcoes.montar_opcoes(
+                        itens, n=n, principais=principais_de[label],
+                    )
                     if motor_de_opcoes.distintas_o_bastante(candidatas, compartilhados):
                         opcoes = candidatas
                         break

@@ -694,6 +694,52 @@ mesma letra. Hoje (`workouts/opcoes.py`, `services.prescrever_opcoes`):
   opção escolhida passando por `escolher_para_o_tempo` a 40 min — não é uma
   terceira ficha, e a linha diz o que ficou de fora.
 
+**TODO EXERCÍCIO TEM `padrao`, E AS OPÇÕES COBREM OS MESMOS PADRÕES
+COMPOSTOS (16/09/2026).** `Padrao` são 22 valores de um nível só — ângulo e
+pegada ficam no nome (reto e inclinado são a mesma `pressao_de_peito`;
+lateral e frontal a mesma `elevacao`); se um dia precisar distinguir, é um
+campo `variante`, não um padrão novo. `PADROES_COMPOSTOS` (oito) marca os
+compostos, e `is_compound` tem de concordar com ele (há teste).
+`equipment` já existia com os cinco valores e foi REUSADO, não duplicado.
+O banco recusa exercício sem padrão ou sem equipamento (`CheckConstraint`),
+e a `0022` preencheu os 36 pelo nome.
+
+A régua nova de `equivalentes`: em cada grupo ANUNCIADO, as opções cobrem
+os MESMOS padrões compostos; isolador pode diferir. Três supinos contra três
+crucifixos passavam nas réguas de volume e de minutos — e treze das
+dezesseis letras com duas opções eram assim (crucifixo numa, mergulho na
+outra; stiff numa, mesa flexora na outra). Para a régua ser satisfazível,
+`montar_opcoes` reparte o grupo anunciado por bloco de padrão composto
+(`_partes_por_padrao`) e COMPARTILHA o padrão composto de exercício único; o
+empréstimo do grupo ímpar continua no nível do grupo. Preço com o catálogo
+ativo de hoje: **16 letras com duas opções viram 12** — `ab B`, `abcd C`,
+`abcd D` e `abcde D` só tinham a segunda por acidente, e voltam quando o
+modelo tiver uma segunda extensão de quadril, pressão vertical ou remada
+alta ATIVA.
+
+E `aparar_opcoes` cede EM LOCKSTEP, ensaiando numa cópia: a irmã acompanha
+pelo volume DIRETO (a régua de equivalência), não pelo efetivo (a régua do
+teto) — os dois divergem quando uma opção carrega mais secundário, e a
+flexão de braço tem três; com duas opções ou mais nenhuma perde o PENÚLTIMO
+exercício direto de um grupo (`minimo_diretos=2`), porque a irmã seguiria e
+a semana ficava com UM tríceps distinto; e a concessão que a irmã não
+consegue acompanhar NÃO acontece — o excesso fica, teto de aparo. Medido
+no abc2 de seis dias: sem as três, a letra A perdia a segunda opção ou
+ficava com só o mergulho nas duas. O custo visível: "Pernas e ombros" tem
+OITO exercícios por opção (o único desenvolvimento é compartilhado), 24–26
+séries em 54–58 minutos, dentro do teto de 60.
+
+**GATE PERMANENTE: nenhum deploy reduz o número de letras com duas opções em
+produção.** `workouts/opcoes_em_producao.py` conta com o MOTOR e o catálogo
+ATIVO (uma pessoa transitória por divisão, desfeita ao sair), e
+`LETRAS_COM_OPCOES_EM_PRODUCAO` é o número que produção tem — 16 em
+16/09/2026. O teste em `workouts/test_catalogo.py` fica VERMELHO enquanto o
+código local entregar menos, e o pre-push roda a suíte: para subir, ou o
+catálogo ativado devolve as letras, ou a decisão de reduzir é tomada em voz
+alta, atualizando a constante com a razão escrita. O relatório de deploy
+mostra "antes / depois" por letra: `manage.py opcoes_por_letra` no commit
+de produção e no candidato.
+
 **O que o catálogo NÃO deixa fazer, medido:** "peito e tríceps" tem 4
 exercícios por opção porque o catálogo tem 4 peitos e 3 tríceps — duas
 opções distintas de 3+3 pediriam 6 e 6. E com a letra duas vezes na semana,

@@ -281,13 +281,19 @@ class OsComplementaresSeDistribuemTests(TestCase):
         os dois treinos. Medido opção a opção, nas cinco frequências:
 
             rápido (até 30)   maior opção da semana: 4 exercícios
-            padrão (45 a 60)  maior opção da semana: 7 exercícios
+            padrão (até 60)   maior opção da semana: 7 exercícios
 
         Sete e quatro, e não nove e cinco: cada opção é metade do modelo com a
         série subida ao piso, e não o modelo inteiro aparado. A catraca desce
         junto — um motor que voltasse a pôr nove numa versão reaparece aqui.
+
+        OITO desde 16/09/2026, e remedido: as duas opções de "Pernas e
+        ombros" precisam da mesma pressão vertical, e o modelo tem UM
+        desenvolvimento — ele é compartilhado, e cada opção ganha um item
+        (24–26 séries, 54–58 minutos, dentro do teto de 60). Volta a sete
+        quando o modelo tiver uma segunda pressão vertical ativa.
         """
-        maximos = {DuracaoTreino.RAPIDO: 4, DuracaoTreino.PADRAO: 7}
+        maximos = {DuracaoTreino.RAPIDO: 4, DuracaoTreino.PADRAO: 8}
         for duracao, teto_de_itens in maximos.items():
             for dias in range(3, 8):
                 with self.subTest(duracao=duracao, dias=dias):

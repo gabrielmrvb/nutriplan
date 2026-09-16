@@ -18,6 +18,9 @@ diferentes.
 AS REGRAS DE EQUIVALÊNCIA, e cada uma tem teste:
 
 - os mesmos grupos principais nas duas opções;
+- os mesmos PADRÕES COMPOSTOS em cada grupo principal (16/09/2026): puxada
+  e remada numa opção contra duas puxadas na outra têm o mesmo volume e os
+  mesmos minutos, e não são a mesma semana. Os isoladores podem diferir;
 - volume por grupo com diferença de no máximo UMA série;
 - duração estimada com diferença de no máximo CINCO minutos;
 - pelo menos METADE dos exercícios de cada opção não está na outra;
@@ -30,7 +33,7 @@ import copy
 from collections import OrderedDict
 from decimal import Decimal
 
-from .models import segundos_da_sessao
+from .models import PADROES_COMPOSTOS, segundos_da_sessao
 
 #: Quantas séries uma sessão completa quer ter, POR NÍVEL. A faixa do brief
 #: ("15–18 séries totais por sessão") é a do intermediário; quem está
@@ -81,7 +84,42 @@ def _por_grupo(itens) -> "OrderedDict":
     return grupos
 
 
-def montar_opcoes(itens, n=2) -> list:
+def _partes_por_padrao(lista, n, compartilhados) -> list:
+    """Reparte um grupo ANUNCIADO em `n` partes, por padrão composto.
+
+    Cada padrão composto do grupo é um bloco em rodízio próprio — assim cada
+    parte recebe uma pressão de peito, uma puxada, uma remada. Bloco com
+    menos exercícios que partes vai INTEIRO para todas, como compartilhado:
+    é a única forma de as duas opções cobrirem o padrão, e a régua de metade
+    própria (`distintas_o_bastante`) decide depois se a letra sai com duas.
+    Os isoladores formam um bloco só, em rodízio, e podem diferir entre as
+    partes — a régua de equivalência não os compara. O rodízio continua de
+    um bloco para o outro (`deslocamento`), para os tamanhos se equilibrarem
+    entre blocos e não dentro de cada um.
+    """
+    blocos = OrderedDict()
+    isoladores = []
+    for item in lista:
+        padrao = getattr(item.exercise, "padrao", "")
+        if padrao in PADROES_COMPOSTOS:
+            blocos.setdefault(padrao, []).append(item)
+        else:
+            isoladores.append(item)
+    partes = [[] for _ in range(n)]
+    deslocamento = 0
+    for bloco in list(blocos.values()) + ([isoladores] if isoladores else []):
+        if bloco is not isoladores and len(bloco) < n:
+            for parte in partes:
+                parte.extend(bloco)
+            compartilhados.update(item.exercise_id for item in bloco)
+            continue
+        for i, item in enumerate(bloco):
+            partes[(i + deslocamento) % n].append(item)
+        deslocamento = (deslocamento + len(bloco)) % n
+    return partes
+
+
+def montar_opcoes(itens, n=2, principais=()) -> list:
     """Divide os itens do modelo em `n` opções, e diz quais são compartilhados.
 
     Devolve `(opcoes, compartilhados)`: `opcoes` é uma lista de listas de itens
@@ -95,24 +133,36 @@ def montar_opcoes(itens, n=2) -> list:
     último do rodízio da outra como compartilhado, para as duas terem o mesmo
     tamanho (com três tríceps, uma leva mergulho e corda, a outra testa e
     corda). Grupo com menos exercícios que opções: todos compartilham.
+
+    GRUPO ANUNCIADO (`principais`) é repartido por PADRÃO COMPOSTO
+    (`_partes_por_padrao`), para cada opção levar uma pressão, uma puxada,
+    uma remada — o padrão composto com um exercício só é compartilhado. Sem
+    isso a régua de equivalência (mesmos padrões compostos por grupo
+    anunciado) reprovava 13 das 16 letras que hoje saem com duas opções: o
+    rodízio cego dava o crucifixo a uma e o mergulho à outra.
     """
     opcoes = [[] for _ in range(n)]
     compartilhados = set()
-    for j, lista in enumerate(_por_grupo(itens).values()):
+    anunciados = set(principais or ())
+    for j, (grupo, lista) in enumerate(_por_grupo(itens).items()):
         if len(lista) < n:
             for k in range(n):
                 opcoes[k].extend(lista)
             compartilhados.update(item.exercise_id for item in lista)
             continue
-        partes = [lista[k::n] for k in range(n)]
+        if grupo in anunciados:
+            partes = _partes_por_padrao(lista, n, compartilhados)
+        else:
+            partes = [lista[k::n] for k in range(n)]
         maior = max(len(parte) for parte in partes)
         for k, parte in enumerate(partes):
             faltam = maior - len(parte)
             if faltam:
                 # Os últimos da parte mais cheia, que são os de menor
-                # prioridade pela ordem do modelo.
+                # prioridade pela ordem do modelo — e que esta parte ainda
+                # não tem (um compartilhado já está nas duas).
                 doadora = max(partes, key=len)
-                emprestados = doadora[-faltam:]
+                emprestados = [item for item in doadora if item not in parte][-faltam:]
                 parte = parte + emprestados
                 compartilhados.update(item.exercise_id for item in emprestados)
             # O GRUPO SEGUINTE COMEÇA PELA OUTRA OPÇÃO. O primeiro exercício
@@ -220,13 +270,23 @@ def volume_semanal_pior_caso(por_letra, ocorrencias) -> dict:
     return total
 
 
-def _ceder(op, grupo, dose_do_catalogo):
+def _ceder(op, grupo, dose_do_catalogo, minimo_diretos=1):
     """Uma concessão no grupo, nesta ordem: a série que o preenchimento
     acrescentou volta ao catálogo; um isolador desce ao piso de duas; só então
     um exercício sai — o de menor grau (isolador antes de acessório), nunca o
-    último exercício direto do grupo na opção, nunca o composto principal. Devolve `(exercise_id, séries_agora)` — `None` em
-    `séries_agora` quando o exercício saiu — ou `None` quando não há o que
-    ceder."""
+    último exercício direto do grupo na opção, nunca o composto principal.
+    Devolve `(exercise_id, séries_agora)` — `None` em `séries_agora` quando o
+    exercício saiu — ou `None` quando não há o que ceder.
+
+    `minimo_diretos` é quantos exercícios diretos do grupo a opção precisa
+    manter para um poder sair. Com UMA opção é 1 (a trava de sempre); com
+    duas ou mais é 2: uma opção que perde o penúltimo direto fica só com o
+    composto — que é compartilhado quando é único —, a irmã acompanha e a
+    letra termina com o mesmo tríceps nas duas versões. Medido no abc2 de
+    seis dias em 16/09/2026: corda e testa saíam e a semana ficava com UM
+    tríceps distinto. O excesso que só essa remoção resolveria fica — teto
+    de aparo, não promessa.
+    """
     diretos = [i for i, (item, _, _) in enumerate(op) if item.exercise.muscle_group == grupo]
     podem = [i for i in diretos if op[i][2] < 2]
     if not podem:
@@ -243,7 +303,7 @@ def _ceder(op, grupo, dose_do_catalogo):
         item, series, grau = op[i]
         op[i] = (item, series - 1, grau)
         return (item.exercise_id, series - 1)
-    if len(diretos) <= 1:
+    if len(diretos) <= minimo_diretos:
         return None
     grau_minimo = min(op[i][2] for i in podem)
     i = [i for i in podem if op[i][2] == grau_minimo][-1]
@@ -252,7 +312,7 @@ def _ceder(op, grupo, dose_do_catalogo):
     return (saiu, None)
 
 
-def _espelhar(outra, grupo, exercise_id, series_agora) -> None:
+def _espelhar(outra, grupo, exercise_id, series_agora, minimo_diretos=1) -> None:
     """A concessão num exercício COMPARTILHADO vale para a irmã também.
 
     O crucifixo entra nas três opções de uma letra que cai três vezes; se
@@ -270,7 +330,7 @@ def _espelhar(outra, grupo, exercise_id, series_agora) -> None:
             return
         if series_agora is None:
             diretos = [j for j, (o, _, _) in enumerate(outra) if o.exercise.muscle_group == grupo]
-            if len(diretos) > 1:
+            if len(diretos) > minimo_diretos:
                 del outra[i]
         elif series > series_agora:
             piso = 3 if grau >= 1 else 2
@@ -313,19 +373,45 @@ def aparar_opcoes(por_letra, ocorrencias, teto, dose_do_catalogo) -> dict:
                         candidatas.append((vol, label, k))
             candidatas.sort(key=lambda c: c[0], reverse=True)
             for _vol, label, k in candidatas:
-                op = por_letra[label][k]
-                concessao = _ceder(op, grupo, dose_do_catalogo)
+                # A CONCESSÃO É ENSAIADA NUMA CÓPIA, e só vale se a letra
+                # continuar equivalente no grupo. A irmã acompanha pelo
+                # volume DIRETO, que é a régua de equivalência — e não pelo
+                # efetivo, que é a régua do teto; os dois divergem quando
+                # uma opção carrega mais secundário (flexão de braço, três).
+                # Quando nem assim a diferença cabe em uma série — a
+                # concessão tiraria o último isolador de uma opção e a irmã
+                # não tem o que ceder —, a concessão NÃO acontece e o
+                # excesso fica: teto de aparo, não promessa, exatamente como
+                # o excesso que só um composto principal resolveria. Medido
+                # em 16/09/2026 no abc2 de seis dias: cortar a corda de uma
+                # opção deixava tríceps 3 contra 6 e a letra perdia a
+                # segunda opção; seguir a irmã até o fim deixava as duas só
+                # com o mergulho. Ficar uma série efetiva acima do teto é
+                # o menor dos três preços.
+                tentativa = [list(o) for o in por_letra[label]]
+                minimo = 2 if len(tentativa) > 1 else 1
+                op = tentativa[k]
+                concessao = _ceder(op, grupo, dose_do_catalogo, minimo)
                 if concessao is None:
                     continue
-                cedeu = True
                 exercise_id, series_agora = concessao
-                agora = _volume(op).get(grupo, Decimal(0))
-                for outra in por_letra[label]:
+                for outra in tentativa:
                     if outra is op:
                         continue
-                    _espelhar(outra, grupo, exercise_id, series_agora)
-                    if _volume(outra).get(grupo, Decimal(0)) - agora > TOLERANCIA_DE_SERIES:
-                        _ceder(outra, grupo, dose_do_catalogo)
+                    _espelhar(outra, grupo, exercise_id, series_agora, minimo)
+                    for _ in range(TETO_SERIES_POR_EXERCICIO):
+                        diferenca = (
+                            _volume_direto(outra).get(grupo, 0) - _volume_direto(op).get(grupo, 0)
+                        )
+                        if diferenca <= TOLERANCIA_DE_SERIES:
+                            break
+                        if _ceder(outra, grupo, dose_do_catalogo, minimo) is None:
+                            break
+                diretos = [_volume_direto(o).get(grupo, 0) for o in tentativa]
+                if len(tentativa) > 1 and max(diretos) - min(diretos) > TOLERANCIA_DE_SERIES:
+                    continue
+                por_letra[label] = tentativa
+                cedeu = True
                 break
             if cedeu:
                 break
@@ -344,11 +430,28 @@ def _volume_direto(linhas) -> dict:
     return volume
 
 
+def _padroes_compostos(linhas, grupo) -> frozenset:
+    """Os padrões COMPOSTOS que a opção cobre num grupo."""
+    return frozenset(
+        getattr(item.exercise, "padrao", "")
+        for item, _, _ in linhas
+        if item.exercise.muscle_group == grupo
+        and getattr(item.exercise, "padrao", "") in PADROES_COMPOSTOS
+    )
+
+
 def equivalentes(opcoes, principais) -> bool:
-    """As opções da letra são intercambiáveis pelas cinco réguas?"""
+    """As opções da letra são intercambiáveis pelas seis réguas?"""
     if len(opcoes) < 2:
         return True
     anunciados = set(principais or ())
+    # OS MESMOS PADRÕES COMPOSTOS em cada grupo anunciado. Três supinos
+    # contra três crucifixos passavam nas réguas de volume e de minutos; a
+    # semana sem remada horizontal também. Isolador pode diferir.
+    for grupo in anunciados:
+        cobertos = {_padroes_compostos(op, grupo) for op in opcoes}
+        if len(cobertos) > 1:
+            return False
     volumes = [_volume_direto(op) for op in opcoes]
     minutos = [_minutos(op) for op in opcoes]
     grupos = set().union(*(v.keys() for v in volumes))
