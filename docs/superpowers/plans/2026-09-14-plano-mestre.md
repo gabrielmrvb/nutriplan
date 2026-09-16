@@ -159,8 +159,14 @@ divisão remontava a ficha lendo `user.profile` em cache, com a preferência
 velha — e ele foi coberto e corrigido antes do push. Sabotagens (7, todas
 vermelhas) em `scratchpad/sabotagem_onb.txt`.
 
-**Próxima:** onda 2 (TREINO HONESTO), T2.1 — retomada no ponto exato em que
-foi pausada.
+**Onda 2 — retomada em 15/09/2026 com a missão "Variações intercambiáveis
+de treino" incorporada como primeiro lote** (plano em
+`2026-09-15-variacoes-de-treino.md`, push `9e45a78`, provado em produção):
+uma letra, até N opções equivalentes, `EscolhaDeTreino`, versão rápida,
+painel por letra. Entre a C-ONB e a onda 2 entrou também a missão de Motion
+Design (`2026-09-15-motion.md`, push `37fdc14`).
+
+**Próxima:** onda 2, T2.1 (`workouts/adaptacao.py`) em diante.
 
 ---
 

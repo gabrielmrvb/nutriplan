@@ -102,3 +102,20 @@ opções de 7 séries ~20 min, B 17/18, C 21/23; 2 dias A uma opção (25 série
 `scratchpad/var_contrato_testes.md`): 236 falhas → 0, nenhum apagado; três
 achados do auxiliar viraram as regras acima.
 
+## Provado em produção — 15/09/2026, 22:20–22:26
+
+Push `37fdc14..9e45a78` (suíte 3044 OK no `pre-push`; a primeira rodada
+reprovou um teste do movimento que lia a hora da máquina — congelado às 7h).
+Deploy provado pelo CSS servido com os estilos das opções; `/saude/` 200;
+smoke sem falhas (o smoke passou a conferir uma lista numerada POR opção).
+QA (agent-browser, 390 + smoke 320) com conta descartável criada PELA
+INTERFACE PÚBLICA (cinco dias, intermediário, dois grupos): calendário
+A·B·C·A·B sem A1/A2, um cartão por letra, "Duas versões disponíveis", 82
+séries/semana = uma opção por ocorrência, ficha com as duas opções e
+"Recomendada hoje", Completo/Rápido, "Começar esta opção" → execução "Opção
+2", série concluída, volta à ficha com estado, troca com confirmação e
+registro preservado, painel dizendo a opção do dia. **OK=22 FALHAS=0.**
+Conta apagada pela tela "Excluir conta" (login recusado depois). Demo com a
+mesma impressão antes e depois. O demo público mostra os cartões por letra
+com "Duas versões disponíveis".
+
