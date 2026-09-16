@@ -103,7 +103,11 @@ apagada. Registra todo nascimento de `WindowsTerminal`/`OpenConsole`/`wt`
 os `powershell.exe` com pai `claude.exe` são a ferramenta PowerShell desta
 sessão, com console oculto do harness, e não abrem nada.
 
-Resultado: preenchido em §7 quando o watcher terminar (20:10:44).
+**Resultado: `FIM 20:10:44 — janelas (WindowsTerminal/OpenConsole/wt) nascidas: 0`.**
+21 consoles nasceram no período, todos filhos de `claude.exe` (16), `bash.exe` (4) e
+`psql.exe` (1) — as ferramentas das sessões, com console oculto — e nenhum abriu
+janela. Pela tarefa apagada às 18:55, o período 18:55–20:10 (75 min) não teve
+nenhum `WindowsTerminal.exe -Embedding` novo; o das 18:51 foi o último.
 
 ### Notificação sem abrir nada
 
