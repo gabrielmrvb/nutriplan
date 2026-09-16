@@ -35,7 +35,9 @@ def sprite_como_svg(raiz):
     """O sprite mora num template Django; o Claude Design lê SVG puro."""
     texto = (raiz / "templates" / "partials" / "icones.html").read_text(encoding="utf-8")
     texto = re.sub(r"{%\s*comment\s*%}.*?{%\s*endcomment\s*%}", "", texto, flags=re.S)
-    texto = re.sub(r"{%.*?%}|{{.*?}}", "", texto, flags=re.S)
+    # Django tem três sintaxes de comentário/tag: {% %}, {{ }} e {# #}
+    # O sprite usa a de linha para rotular cada símbolo — remover todos
+    texto = re.sub(r"{%.*?%}|{{.*?}}|{#.*?#}", "", texto, flags=re.S)
     inicio = texto.find("<svg")
     fim = texto.rfind("</svg>") + len("</svg>")
     if inicio < 0 or fim < len("</svg>"):

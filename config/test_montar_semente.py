@@ -31,4 +31,5 @@ class MontarSementeTests(SimpleTestCase):
         svg = modulo.sprite_como_svg(Path(settings.BASE_DIR))
         self.assertTrue(svg.lstrip().startswith("<svg"))
         self.assertNotIn("{%", svg)
+        self.assertNotIn("{#", svg)
         self.assertIn("<symbol", svg)
