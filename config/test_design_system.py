@@ -331,7 +331,9 @@ class NumeroDeMetricaNaoQuebraNoMeioTests(SimpleTestCase):
 
         self.assertIsNotNone(corpo)
         self.assertIn("font-variant-numeric: tabular-nums", corpo)
-        self.assertIn("font-weight: 760", corpo)
+        # 750 desde 16/09/2026: é o peso do número em todo tile (`.tile__value`,
+        # `.balance__value`, `.agua__valor b`); 760 era um degrau só da corrida.
+        self.assertIn("font-weight: 750", corpo)
 
         self.assertIsNone(
             self._regra(".seletor-que-nao-existe-em-lugar-nenhum"),

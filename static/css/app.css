@@ -1095,31 +1095,26 @@ h3 {
    fundo: ele não vai para trás sozinho. */
 .today-hero > * { position: relative; }
 
-/* O anel varre de zero até o valor ao abrir a tela.
+/* `--pct` é o valor do anel, e é uma propriedade personalizada TIPADA.
  *
- * `--pct` é uma propriedade personalizada comum, e propriedade comum NÃO é
- * animável: o navegador não sabe que aquilo é um número, então trata como
- * texto e troca de um valor para o outro sem passar pelo meio. Era por isso
- * que o anel aparecia pronto enquanto as barras enchiam.
+ * Propriedade comum NÃO é animável: o navegador não sabe que aquilo é um
+ * número, então trata como texto e troca de um valor para o outro sem passar
+ * pelo meio. `@property` é o que declara o tipo; com ele o navegador
+ * interpola, e o `conic-gradient` acompanha — sem JavaScript e sem SVG. É o
+ * que vai permitir animar o anel do valor ANTERIOR ao atual quando houver
+ * evento para confirmar.
  *
- * `@property` é o que declara o tipo. Com ele o navegador interpola, e o
- * `conic-gradient` acompanha — sem uma linha de JavaScript e sem um SVG.
- *
- * Onde `@property` não existe, o bloco inteiro é ignorado e o anel volta a
- * aparecer pronto. É a degradação certa: nada quebra, só não anima. */
+ * Onde `@property` não existe, o bloco inteiro é ignorado e o anel aparece
+ * pronto — que hoje é o comportamento em todo navegador. */
 @property --pct {
   syntax: "<number>";
   inherits: false;
   initial-value: 0;
 }
 
-@keyframes varrer {
-  from { --pct: 0; }
-}
-
 .ring {
   --pct: 0;
-  animation: varrer calc(var(--mov-sucesso) * 1.8) var(--ease) both;
+  /* varreu até 16/09/2026; o anel nasce pronto — movimento que confirma ação volta com `--recem` na onda 4 */
   position: relative;
   display: grid;
   place-items: center;
@@ -3353,27 +3348,13 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    controles de 44px não cabem em 390 menos o padding, e o campo de carga
    ficava com 21 pixels. */
 
-/* A confirmação ao gravar: um pulso curto com brilho, e some.
- *
- * O brilho era `box-shadow` animado, e sombra animada é repintura a cada
- * quadro — justamente enquanto o aparelho está ocupado gravando a série e
- * disparando o cronômetro. Agora ele é um pseudoelemento que ESCALA e
- * desvanece: as duas propriedades que o compositor resolve sozinho, sem
- * repintar nada.
- *
- * `pointer-events: none` porque ele cresce para fora do botão, e um anel
- * invisível por cima do alvo seria um toque perdido no meio de uma série. */
-
-@keyframes serie-ok {
-  0%, 100% { transform: scale(1); }
-  30% { transform: scale(1.07); }
-}
-
-@keyframes serie-anel {
-  0% { transform: scale(.92); opacity: 0; }
-  30% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(1.12); opacity: 0; }
-}
+/* A confirmação ao gravar a série — o botão que pulsa (`serie-ok`) e o anel
+   que cresce e desvanece (`serie-anel`) — foi escrita aqui em 09/2026 e nunca
+   ganhou a classe que a dispara: ela depende de `workouts/views.py` escrever
+   `serie--recem` no redirect (T4.2 / onda 6). Os dois keyframes saíram em
+   16/09/2026 e nascem de novo NO MESMO COMMIT que o consumidor. O que fica de
+   lição: escala e opacidade, nunca `box-shadow` animado — sombra animada é
+   repintura a cada quadro, justamente enquanto o aparelho grava a série. */
 
 /* O cronômetro precisa ser visível na academia ao meio-dia: fundo em
    cinza-médio, moldura clara, ícone na cor cheia. */
@@ -3915,23 +3896,16 @@ html { scrollbar-gutter: stable; }
    borda de uma demonstração pode cortar justamente o pé ou a mão que mostram
    a posição. */
 
-/* Enquanto a primeira foto não chega. Sem isto a caixa fica vazia e parece
-   que quebrou. */
+/* A faixa deslizante de esqueleto (`@keyframes esqueleto`, um `translateX`
+   de -45% a 45%) saiu em 16/09/2026: era a animação da foto do exercício que
+   ainda não chegou, e a caixa que a usaria mora na execução do treino
+   (`workouts/`, T4.2 / onda 6). Nasce de novo junto com o elemento que a
+   dispara. A lição fica: `translateX`, e não `background-position` — deslocar
+   o fundo repinta a caixa inteira a cada quadro, em laço. */
 
-/* `translateX` e não `background-position`.
- *
- * Deslocar o fundo repinta a caixa inteira a cada quadro, e este brilho roda
- * em laço enquanto a foto não chega — é a animação mais longa do app, e a
- * única que ainda cobrava repintura contínua. Transladar a faixa é trabalho de
- * compositor: a textura é desenhada uma vez e só muda de lugar. */
-@keyframes esqueleto {
-  from { transform: translateX(-45%); }
-  to { transform: translateX(45%); }
-}
-
-/* Pulso, para o esqueleto que não é faixa deslizante — um bloco parado que só
-   respira. Entre 1 e 0,55 de opacidade: abaixo disso ele pisca, e piscar cansa
-   numa tela que a pessoa encara entre séries. */
+/* Pulso, para o esqueleto: um bloco parado que só respira. Entre 1 e 0,55 de
+   opacidade: abaixo disso ele pisca, e piscar cansa numa tela que a pessoa
+   encara entre séries. */
 @keyframes pulso {
   0%, 100% { opacity: 1; }
   50% { opacity: .55; }
@@ -4682,14 +4656,11 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 
 /* --------------------------------------------------------- série feita */
 
-/* Últimos dez segundos do descanso.
-   Pulso preso a dado que muda de verdade — o critério do catálogo Impeccable,
-   e o oposto exato da chama da ofensiva, que pulsava para sempre e saiu. */
-
-@keyframes descanso-acabando {
-  0%, 100% { opacity: 1; }
-  50% { opacity: .72; }
-}
+/* Últimos dez segundos do descanso (`@keyframes descanso-acabando`, opacidade
+   1 → .72 → 1) saíram em 16/09/2026: o cronômetro que os dispararia mora na
+   execução do treino (`workouts/`, T4.2 / onda 6) e nunca ganhou a classe.
+   Nasce de novo com o consumidor. O critério continua: pulso preso a dado que
+   muda de verdade — o oposto da chama da ofensiva, que pulsava para sempre. */
 
 
 /* ------------------------------------------------------- metas batidas */
@@ -6851,7 +6822,8 @@ body.montando { overflow: hidden; }
   display: block;
   color: var(--text);
   font-size: var(--texto-lg);
-  font-weight: 760;
+  /* 750 é o peso do número em todo tile; 760 era um degrau só dele */
+  font-weight: 750;
   letter-spacing: -.02em;
   line-height: 1.1;
 }
@@ -7569,7 +7541,8 @@ body.montando { overflow: hidden; }
      terço do cartão. Confere em 320, 375 e 430px. */
   white-space: nowrap;
   font-size: min(var(--texto-2xl), 6.7vw);
-  font-weight: 760;
+  /* 750 é o peso do número em todo tile; 760 era um degrau só dele */
+  font-weight: 750;
   line-height: 1.1;
 }
 
