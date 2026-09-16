@@ -111,6 +111,12 @@ MIDDLEWARE = [
     # `LoginRequiredMixin` transformá-lo num redirect que o cliente publicado
     # leria como sucesso. Ver `config/csrf.py`.
     "config.csrf.BarreiraDeReplayMiddleware",
+    # DEPOIS da autenticação (lê `request.user` ANTES da view) e depois da
+    # barreira de replay, que responde o anônimo da fila antes de qualquer
+    # redirect. Marca `envio=1` no 302 para o login quando um POST chegou
+    # anônimo — é o único caso em que "sua sessão venceu" é verdade. Ver
+    # `accounts/envio_barrado.py`.
+    "accounts.envio_barrado.EnvioBarradoMiddleware",
     # DEPOIS da autenticação, porque ele SUBSTITUI `request.user` — antes dela,
     # o middleware de autenticação sobrescreveria a troca de volta pelo
     # visitante anônimo.

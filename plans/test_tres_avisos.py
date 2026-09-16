@@ -38,16 +38,63 @@ from plans.tests import create_complete_user
 
 
 class SessaoVencidaTests(TestCase):
-    def test_com_next_a_entrada_diz_que_o_toque_nao_foi_salvo(self):
-        html = self.client.get(reverse("accounts:login") + "?next=/agua/").content.decode()
+    """A frase "sua sessão venceu" só quando um ENVIO foi barrado.
+
+    A primeira versão (UX E01) usava a presença de `?next=` como prova de que
+    um toque se perdeu — e `next` é escrito em TODO GET anônimo a rota
+    protegida. Resultado medido em produção em 16/09/2026 (avaliação, B1): a
+    primeira frase que um visitante novo lia ao abrir a raiz era "Sua sessão
+    venceu. O que você tocou não foi salvo", e o ícone do PWA deslogado
+    (`start_url /`) dizia o mesmo. O sinal honesto é o MÉTODO do pedido
+    barrado: um POST redirecionado para o login é toque não salvo; um GET é só
+    "entre para continuar".
+    """
+
+    def test_get_anonimo_na_raiz_nao_acusa_sessao_vencida(self):
+        """`next=/` é o ícone do PWA e a raiz digitada: nunca a frase."""
+        resposta = self.client.get("/")
+        self.assertEqual(resposta.status_code, 302)
+        self.assertNotIn("envio=", resposta["Location"])
+
+        html = self.client.get(resposta["Location"]).content.decode()
+        self.assertNotIn("Sua sessão venceu", html)
+        self.assertNotIn("não foi salvo", html)
+        self.assertIn("Entre para continuar", html)
+
+    def test_get_anonimo_em_rota_protegida_diz_so_entre_para_continuar(self):
+        resposta = self.client.get("/treino/")
+        html = self.client.get(resposta["Location"]).content.decode()
+        self.assertIn("Entre para continuar", html)
+        self.assertNotIn("Sua sessão venceu", html)
+        self.assertNotIn("Bom te ver de volta", html)
+
+    def test_post_anonimo_barrado_diz_que_o_toque_nao_foi_salvo(self):
+        """O caso real de UX E01: a sessão venceu debaixo de um toque."""
+        resposta = self.client.post("/agua/", {"ml": "250"})
+        self.assertEqual(resposta.status_code, 302)
+        self.assertIn(reverse("accounts:login"), resposta["Location"])
+        self.assertIn("next=", resposta["Location"])
+        self.assertIn("envio=1", resposta["Location"])
+
+        html = self.client.get(resposta["Location"]).content.decode()
         self.assertIn("Sua sessão venceu", html)
         self.assertIn("não foi salvo", html)
         self.assertNotIn("Bom te ver de volta", html)
+        self.assertNotIn("Entre para continuar", html)
 
     def test_sem_next_a_entrada_e_a_de_sempre(self):
         html = self.client.get(reverse("accounts:login")).content.decode()
         self.assertIn("Bom te ver de volta", html)
         self.assertNotIn("Sua sessão venceu", html)
+
+    def test_sair_da_conta_nao_acusa_sessao_vencida(self):
+        """Quem estava autenticado e tocou em Sair não teve toque perdido: o
+        marcador é para quem chegou ANÔNIMO a um POST."""
+        user = create_complete_user()
+        self.client.force_login(user)
+        resposta = self.client.post(reverse("accounts:logout"))
+        self.assertEqual(resposta.status_code, 302)
+        self.assertNotIn("envio=", resposta["Location"])
 
 
 class AlimentoNaoReconhecidoTests(TestCase):

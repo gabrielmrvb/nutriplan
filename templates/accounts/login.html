@@ -19,13 +19,23 @@
   <div class="card entrada__cartao">
     <h1 class="center">Entrar</h1>
     {% comment %}
-      Com `next`, quem chega aqui estava no meio de alguma coisa — a sessão
-      venceu debaixo de um toque, e o POST virou este redirecionamento (UX
-      E01, reproduzido com o cookie invalidado). O toque não foi salvo, e a
-      tela diz isso em vez de "bom te ver de volta".
+      Três frases, três situações — e a diferença entre elas é o MÉTODO do
+      pedido que trouxe a pessoa aqui, não a presença de `next`.
+
+      `envio=1` é escrito por `accounts.envio_barrado.EnvioBarradoMiddleware`
+      quando um POST chegou anônimo e virou 302 para o login: a sessão venceu
+      debaixo de um toque (UX E01, reproduzido com o cookie invalidado), e o
+      toque não foi salvo. A primeira versão lia `next` como essa prova, e
+      `next` vem em TODO GET anônimo a rota protegida — a raiz digitada, o
+      ícone do PWA deslogado, um link salvo. Medido em produção em 16/09/2026
+      (avaliação, B1): a primeira frase que um visitante novo lia era "Sua
+      sessão venceu. O que você tocou não foi salvo". Com `next` e sem
+      `envio`, a tela só pede para entrar.
     {% endcomment %}
-    {% if request.GET.next %}
+    {% if request.GET.envio %}
       <p class="lead center">Sua sessão venceu. O que você tocou não foi salvo — entre e refaça.</p>
+    {% elif request.GET.next %}
+      <p class="lead center">Entre para continuar.</p>
     {% else %}
       <p class="lead center">Bom te ver de volta.</p>
     {% endif %}
