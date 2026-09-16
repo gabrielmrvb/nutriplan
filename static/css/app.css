@@ -5002,7 +5002,11 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   gap: 0;
-  padding: var(--espaco-1);
+  /* 6 px, e não o degrau de 4: o foco da opção marcada é anel de 2 px com
+     vão de 2 px (`outline-offset`), e com 4 de padding o anel encostava na
+     borda do contêiner (decisão do dono, 16/09/2026). `calc` sobre o token
+     em vez de `6px` cru: a catraca de espaçamento não sobe. */
+  padding: calc(var(--espaco-1) * 1.5);
   border: 1px solid var(--fio);
   border-radius: var(--radius-sm);
   background: var(--surface-2);

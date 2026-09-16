@@ -148,3 +148,11 @@ class FocoUnicoTests(TestCase):
         registra que a revisão da N2 apontou e o dono decidiu manter."""
         corpo = re.search(r"\.btn--primary:focus-visible\s*\{([^}]*)\}", self.css).group(1)
         self.assertIn("var(--halo)", corpo)
+
+    def test_o_segmented_tem_folga_para_o_anel_com_vao(self):
+        """Anel de 2 px + vão de 2 px = 4 px para fora da opção; com o padding
+        de 4 px do contêiner o anel encostava na borda dele (medido na captura
+        de 16/09/2026). Decisão do dono: 6 px — escrito como `calc` sobre o
+        token para não subir a catraca de espaçamento cru."""
+        corpo = re.search(r"\.segmented\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("padding: calc(var(--espaco-1) * 1.5)", corpo)
