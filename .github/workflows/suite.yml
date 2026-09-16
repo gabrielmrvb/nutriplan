@@ -72,6 +72,14 @@ jobs:
       # com o mesmo. Produção é `check --deploy` no build do Render.
       DJANGO_DEBUG: "true"
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,testserver"
+      # Placeholders, NÃO segredos: `GOOGLE_LOGIN_ENABLED` é `bool(id and
+      # secret)` em tempo de import, e três testes cobram o botão "Continuar
+      # com Google" e o `next` do formulário dele — nenhum teste fala com o
+      # Google (CLAUDE.md: "nenhum teste decodifica um id_token real"). Sem
+      # os dois o CI reprovava 3 de 3272 (segundo run do PR #1); o pre-push
+      # nunca viu isso porque copia o `.env`, que tem os reais.
+      GOOGLE_CLIENT_ID: "ci-somente.apps.googleusercontent.com"
+      GOOGLE_CLIENT_SECRET: "ci-somente-nao-e-segredo"
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
 
