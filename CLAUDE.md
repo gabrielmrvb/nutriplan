@@ -1078,6 +1078,45 @@ sobrando, mesmo passando de 10." tem 44 caracteres — o teto do teste — e
 quebrava em duas linhas a 320 e 360; a de 37 cabe. A tela não mudou:
 `agora.html` já lia `atual.esforco`.
 
+**RETOMAR E ESTAGNADO FALAM; NUNCA BAIXAM NÚMERO (T2.3, 17/09/2026).** Dois
+estados a mais em `workouts/adaptacao.py`, na mesma leitura pura, com
+precedência fixa — hoje manda > sem anilha > sem referência completa nas 4
+datas > RETOMAR > SUBIR > ESTAGNADO > MANTER:
+
+- **RETOMAR**: 21 dias ou mais sem NENHUMA série do exercício
+  (`DIAS_PARA_RETOMAR`; o intervalo conta do último registro, de qualquer
+  série — parcial há 5 dias com a completa há 20 não é pausa). Mesma carga
+  (`valor` = a maior da referência, nunca × 0,9), SUBIR suspenso mesmo com
+  a faixa fechada, reps no piso (`REPS_NO_PISO = {SUBIR, RETOMAR}`; a
+  `_sugestao_de_reps` lê esse conjunto, não `MUDA_CARGA`), e a frase pede
+  para confirmar; de 28 em diante acrescenta "comece mais leve se
+  precisar". 21 e não 15: Hwang 2017 dá duas semanas sem perda e Bosquet
+  2013 diz "significativo a partir da terceira semana"; frear antes disso
+  era freio sem evidência.
+- **ESTAGNADO**: três sessões completas seguidas (≤ 27 dias entre elas) na
+  mesma carga máxima, nenhuma fechou a faixa, e o total de repetições da
+  última não passou o da primeira por mais de 1 (Mitter 2022: uma rep é
+  ruído). "Manter e dizer": o campo abre com a mesma carga, a tela mostra o
+  verbo **manter** (`Progressao.rotulo`; "estagnado" não é verbo e não
+  aparece) e a frase diz "três treinos em 60 kg sem ganhar repetição".
+  `ESTAGNADO_PERSISTENTE` é a trava escrita ANTES de existir RESET: o mesmo
+  platô depois de um recomeço (sessão mais leve seguida da volta à mesma
+  carga em ≤ 56 dias) é só frase, nunca outro RESET em cadeia.
+
+Os quatro negativos que congelam o veto ("a adaptação é leitura") têm
+teste em `workouts/test_retomar_estagnado.py`: a ficha da semana 8 é igual
+à da semana 1 com sete semanas de registro no meio; a série de ontem não
+muda a prescrição de hoje; treinar em dia não declarado não altera dias,
+teto nem divisão; o módulo não escreve em `SessionExercise` (controle
+textual, e o retrato das linhas antes e depois das telas). Medido sobre o
+ano sintético de `seed_stress` (1.254 aberturas, 50 exercícios): manter
+71,9 %, retomar 21,7 %, sem sugestão 4,0 %, subir 1,8 %, estagnado 0,7 % —
+o retomar alto é do GERADOR, que sorteia 6 de 50 exercícios por dia e
+deixa intervalos de 3+ semanas em 22 % das aberturas; o gatilho de
+recalibrar era "estagnado > 30 %" e está longe. Os dias (21, 28, 27, 56) e
+o "+1" são calibração [HIPOTÉTICA] do brief de 13/09, e é o
+`medir_progressao` (T2.4) que vai revê-los com dado de produção.
+
 **Duração tem UMA conta, e ela é `workouts.models.segundos_da_sessao`.**
 Existiam duas cópias, uma sobre linhas gravadas e outra sobre tuplas, com um
 teste prendendo as duas; prender duas cópias é pior que ter uma.

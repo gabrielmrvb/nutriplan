@@ -883,16 +883,25 @@ ESTAGNADO após três sessões sem avanço ⇒ "manter e dizer",
 `estagnado_persistente` como trava contra frase em cadeia); Tests:
 `workouts/test_adaptacao.py`, `plans/test_stress.py` (medição sintética).
 
-- [ ] **Teste que falha:** matriz gap ∈ {0,14,20,21,27,28,90} × fechou ×
+- [x] **Teste que falha:** matriz gap ∈ {0,14,20,21,27,28,90} × fechou ×
   tronco/perna × completa/parcial; estagnação 60×{8,8,7}/{8,8,8}/{8,9,7} ⇒
   ESTAGNADO; reps `None` ⇒ MANTER; **quatro negativos que congelam o veto:**
   semana 8 == semana 1 sem histórico novo; ontem perdido não muda hoje;
   frequência observada não altera dia/teto/split; nenhuma escrita em
   `SessionExercise` (o módulo é puro — controle textual).
-- [ ] Implementar → verde. **Sabotagem:** 21 → 15 e 21 → 0 derrubam a matriz;
+- [x] Implementar → verde. **Sabotagem:** 21 → 15 e 21 → 0 derrubam a matriz;
   RETOMAR devolvendo `carga * 0.9` → vermelho ("nunca número menor").
-- [ ] Distribuição de estados sobre o ano sintético de `test_stress` escrita
+- [x] Distribuição de estados sobre o ano sintético de `test_stress` escrita
   no commit; "estagnado" > 30 % ⇒ recalibrar ANTES de publicar. Commit.
+  *Feito em 17/09/2026 (`workouts/test_retomar_estagnado.py`, 24 testes;
+  nove sabotagens vermelhas: 21→15, 21→0, ×0,9, ruído 1→2, reps None→0,
+  platô sem prazo, sem trava persistente, SUBIR vencendo RETOMAR, reps
+  fora do piso). Ano sintético (1.254 aberturas, 50 exercícios): manter
+  71,9 %, retomar 21,7 %, sem sugestão 4,0 %, subir 1,8 %, estagnado 0,7 %
+  — o retomar é do gerador (6 de 50 exercícios por dia). `agora.html`
+  imprime `Progressao.rotulo` (uma linha); QA local a 320–1280: RETOMAR
+  em 3 linhas no span, campo 60 e reps no piso; ESTAGNADO com o verbo
+  "manter"; CTA no mesmo y.*
 
 #### T2.4 — o instrumento: `medir_progressao`, guarda do recorde, convite de nível, poda
 

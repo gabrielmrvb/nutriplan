@@ -541,10 +541,14 @@
             A DUPLA PROGRESSÃO fala aqui, com a razão: "subir para 62,5 —
             fechou 3×10 na última vez" ou "manter 60 — faltaram 2 reps na
             série 3 para subir". Sem histórico completo, a frase de sempre.
+            O verbo é `rotulo`, não `estado` (T2.3): "retomar 60 kg — 25
+            dias sem este exercício" e, no platô, "manter 60 kg — três
+            treinos em 60 kg sem ganhar repetição" — "estagnado" é estado
+            interno, não verbo, e não aparece.
           {% endcomment %}
           {% if atual.progressao %}
           <span class="agora__anterior-sugestao">
-            Sugestão: {{ atual.progressao.estado }} <b class="num">{{ atual.progressao.valor|floatformat:'-2' }} kg</b>
+            Sugestão: {{ atual.progressao.rotulo }} <b class="num">{{ atual.progressao.valor|floatformat:'-2' }} kg</b>
             — {{ atual.progressao.razao }}
           </span>
           {% elif atual.sugestao_carga != None %}

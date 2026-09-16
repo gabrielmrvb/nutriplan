@@ -2963,12 +2963,15 @@ def proxima_carga(item):
     `ultimo_registro`, `dia`). Compatível com o `load` antigo, que só tinha
     `anterior`: vira uma sessão de uma data só.
 
-    A regra, dita inteira, está no módulo: SUBIR quando todas as séries
-    prescritas da última data fecharam `rep_max` na MESMA carga (60/60/55
-    mantém 60 e diz por quê), MANTER com a razão quando não, `None` sem
-    histórico completo, com série hoje, sem anilha. O prefill das reps é o
-    risco conhecido: ao subir, `_sugestao_de_reps` volta ao piso da faixa, e
-    a próxima subida exige fechar a faixa de novo.
+    A regra, dita inteira, está no módulo: RETOMAR com 21 dias ou mais sem
+    série (mesma carga, a confirmar; SUBIR suspenso), SUBIR quando todas as
+    séries prescritas da referência fecharam `rep_max` na MESMA carga
+    (60/60/55 mantém 60 e diz por quê), ESTAGNADO depois de três sessões na
+    mesma carga sem ganhar repetição (manter e dizer), MANTER com a razão
+    quando não, `None` sem sessão completa recente, com série hoje, sem
+    anilha. O prefill das reps é o risco conhecido: ao subir e ao retomar,
+    `_sugestao_de_reps` volta ao piso da faixa, e a próxima subida exige
+    fechar a faixa de novo.
     """
     load = item.load or {}
     sessoes = load.get("sessoes")
@@ -2986,9 +2989,11 @@ def _sugestao_de_reps(item, serie):
     if de_hoje is not None and de_hoje.reps:
         return de_hoje.reps
     # Carga nova, reps no PISO da faixa: é a dupla progressão, e é o que
-    # segura o prefill — subir de novo exige fechar a faixa de novo.
+    # segura o prefill — subir de novo exige fechar a faixa de novo. Ao
+    # RETOMAR (T2.3) também: a carga é a mesma, a confirmar, e o piso é o
+    # teste de que ela ainda fecha.
     progressao = getattr(item, "progressao", None)
-    if progressao is not None and progressao.estado in adaptacao.MUDA_CARGA:
+    if progressao is not None and progressao.estado in adaptacao.REPS_NO_PISO:
         return item.rep_min
     registro = ((item.load or {}).get("anterior") or {}).get(serie)
     return registro.reps if registro is not None else None
