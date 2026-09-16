@@ -1364,6 +1364,105 @@ parecem só constatar — e os quatro têm o motivo escrito no template: dois t�
 saída ao lado (botão ou campo na mesma tela) e dois são ramos defensivos que
 ninguém alcança. Acrescentar texto ali seria ruído.
 
+## Design / Onda 3
+
+Seção da campanha Mesa & Ferro (branch `design/mesa-e-ferro`, 15–16/09/2026).
+Tudo aqui foi MEDIDO no `app.css` real; onde uma frase de outra seção deste
+arquivo ficou velha, a verdade nova está aqui e a velha não foi editada — as
+duas sessões da campanha só escrevem nesta seção para não brigar no merge.
+
+**Ferro é escrito UMA vez, e dois gatilhos o ligam.** A paleta escura mora em
+36 tokens `--ferro-*` no `:root`; `@media (prefers-color-scheme: dark)` e
+`body.modo-foco` (classe que o servidor escreve na execução do treino) só
+fazem `--x: var(--ferro-x)`. Antes, a mesma cor estava escrita em dois blocos
+e divergia sem ninguém ver. `config/test_ferro.py` guarda a estrutura — todo
+`--ferro-x` tem um `--x` de Mesa, os dois gatilhos mapeiam o mesmo conjunto
+e nada além de `var(--ferro-…)` entra neles — e `config/tests.py` resolve o
+`var()` antes de medir contraste. Os pilares têm cor nomeada: `--agua`,
+`--brasa`, `--terra`, `--chama`, `--folha`; `--accent`/`--warm`/`--border`
+saíram de vez.
+
+**Foco é `--brand` em todo controle, e o `--glow` virou anel de 1 px.** Cinco
+controles pintavam o foco com `--agua` — a cor do pilar Hidratação num
+formulário de perfil —, e o campo em foco tinha um brilho difuso de 26 px. O
+anel de 1 px somado à borda que já vira `--brand` dá os 2 px do DESIGN.md. O
+NOME `--glow` ficou porque `workouts/tests.py` lê `var(--glow)` no foco do
+campo e proíbe token órfão; a receita é que mudou. `config/tests.py` conta o
+anel de marca por DEFINIÇÃO de token ({`--halo`, `--glow`, `--ferro-glow`}) e
+exige zero fora delas. E o campo inválido FALA: `.field-input[aria-invalid]`
+pinta a borda de `--danger`, e `partials/field.html` escreve os ids
+`{{ auto_id }}_error` / `_helptext` que o `aria-describedby` do Django 5.2 já
+apontava sem alvo. `config/test_foco.py`.
+
+**O sprite entra em toda página, uma vez, pela base — e não no shell
+offline.** A frase "só é incluído no onboarding" da seção anterior era
+verdade até 16/09/2026. Hoje `base.html` inclui `partials/icones.html`
+dentro do mesmo `{% if not shell_offline %}` do `data-usuario`; onboarding e
+vitrine deixaram de incluir por conta própria. Medido: ficha +2 939 bytes
+(sprite 2 946 B brutos, 849 B gzip, 13 símbolos) — abaixo do teto de +4 KB do
+plano mestre; `/offline/` zero símbolos. E o `stroke-width="2"` está em CADA
+`<symbol>`, não na raiz: o clone do `<use>` herda do consumidor, e com o
+atributo só na raiz o cartão de escolha desenhava traço 1 (1 397 px de tinta
+contra 2 789). `config/test_sprite.py` lê os 13 símbolos e fecha a lista de
+traços do consumidor em {2, 2.8 (o visto do cartão marcado)}.
+
+**Keyframe sem consumidor é linguagem morta, e a catraca está em zero.**
+`serie-ok`, `serie-anel`, `esqueleto` e `descanso-acabando` foram escritos
+para a execução e nunca ganharam a classe que os dispara; `varrer` fazia o
+anel de progresso varrer do zero a cada abertura — movimento que não confirma
+ação nenhuma. Os cinco saíram (23 → 18 keyframes), e
+`config/test_movimento.py` exige que toda `@keyframes X` tenha `animation: X`
+ou `animation-name` em algum lugar. Se a onda 6 os quiser, nascem com o
+consumidor no mesmo commit. `font-weight: 760` (dois números) virou 750, o
+peso de todo tile — pesos distintos 12 → 11.
+
+**Todo botão diz qual botão é, e a variante é lista fechada.** {`btn--primary`,
+`btn--ghost`, `btn--quiet`, `btn--perigo`, `btn--google`, `btn-link`};
+`btn--block`, `btn--sm` e `btn--hoje` são tamanho e posição, não decisão.
+Eram cinco botões nus (500.html, "Minhas conquistas" no Perfil, três na
+gestão); hoje zero, e `config/test_design_system.py` varre `templates/`. O
+`.mapa__area:active` entrou na lista única de `:active` da seção 8 em vez de
+ter escala própria. E o `<a class="btn">` que leva a outra tela avisa que
+está indo: `pwa.js` marca `is-carregando` + `aria-busy` no clique (mesma
+receita visual do `[aria-busy]` do `<button>`), e o `pageshow` limpa ao
+voltar pelo bfcache. Fica de fora quem não troca de página: `target`,
+`download`, `#`, `mailto:`, `tel:`, `sms:`, `javascript:`, clique com
+modificador — e **`data-arquivo`**, a marca dos dois links que exportam o TCX:
+a resposta é `attachment` e a página não troca, mas a view pode responder 302
+com mensagem quando não há treino, e `download` faria o navegador SALVAR
+aquele HTML. Sem a guarda de `#`, o CTA da Home (`acao.url = "#slot-N"`)
+ficaria com o anel para sempre.
+
+**A vitrine mora em `/gestao/vitrine/`** (mesma permissão do painel de
+gestão): toda parcial e componente em todo estado, nos dois regimes
+(`?regime=ferro` escreve `body.modo-foco`), coberta por um teste que lê a
+pasta `templates/partials/` e exige cada arquivo lá ou nos dois `base.html`.
+É onde se fotografa antes de mexer em token.
+
+**Contraste: 274 pares medidos no CSS real, zero reprovados.** Todo texto ×
+todo fundo a 4,5:1 e todo gráfico × superfície a 3:1, Mesa e Ferro
+(`scripts/qa/auditar_contraste.py`, mesma régua da suíte). Quatro passam
+raspando, todos gráficos em Mesa: `--folha` sobre `--surface-3` (3,03),
+`--brand-soft` (3,14) e `--surface-2` (3,15); `--chama` sobre `--surface-3`
+(3,29). Quem mexer em `--surface-2`/`--surface-3` roda o script antes.
+
+**O export do Claude Design ainda não chegou, e o terreno está pronto.**
+`scripts/inventariar_export.py` classifica a árvore extraída (tolerante a
+pasta desconhecida; `--estrito` falha nomeando cada arquivo incerto) e
+`scripts/tokens_do_export.py` compara os tokens do export com o `:root` de
+Mesa (CSS custom properties e JSON W3C/plano; nomes e cores normalizados).
+Os dois estão testados contra árvores sintéticas com a estrutura documentada;
+o primeiro uso real é a Task 12 do plano do design system.
+
+**O que a onda 3 NÃO fez, e por quê** (plano da noite de 16/09,
+`docs/superpowers/plans/2026-09-16-onda-3-noite.md`): famílias de cartão
+(T3.3 — 114 cartões e três decisões de direção abertas), variantes novas de
+botão (T3.4 — `--tonal`/`--texto`/`--icone`), o renome
+`.choice-list--dias → .segmented--envolve`, emoji → glifo nas conquistas (3
+desenhos novos e o cartão de compartilhar desenha o emoji), a fonte própria
+(T3.2 — download externo e decisão do dono). Cartão dentro de cartão foi
+MEDIDO e é zero em sete rotas (`config/test_cartoes.py`, catraca em 0).
+
 ## Testes
 
 Nome descreve o comportamento, não o método. Docstring diz **por que** aquilo

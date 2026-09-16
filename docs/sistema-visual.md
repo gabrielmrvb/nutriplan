@@ -17,7 +17,7 @@ O sistema não é uniforme, e fingir que é seria o começo do problema:
 | eixo | tokens | travado por teste? | valores crus |
 |---|---|---|---|
 | **quina** | 5 | sim — `config/tests.py:614` | **0** |
-| **cor** | 48 | sim — órfão e não-declarado | 8 |
+| **cor** | 48 → 123 em 16/09/2026 (36 são `--ferro-*`) | sim — órfão, não-declarado, `config/test_ferro.py` e contraste medido em 274 pares | 8 |
 | **espaço** | 7 + `--gap`/`--pad` | catraca | 291 |
 | **texto** | 8 | catraca | 144 |
 
@@ -28,6 +28,19 @@ recusa. Texto e espaço passaram anos sem eixo e acumularam centenas.
 
 **Não crie um eixo novo sem criar a trava junto.** Um eixo sem teste vira
 sugestão, e sugestão perde para pressa.
+
+### Regimes (16/09/2026)
+
+Um material, dois regimes de luz: **Mesa** (claro, o `:root`) e **Ferro**
+(escuro). Ferro é escrito UMA vez, em `--ferro-*`, e ligado por dois gatilhos
+que só mapeiam — `@media (prefers-color-scheme: dark)` e `body.modo-foco`,
+classe que o servidor escreve na execução do treino. Foco é `--brand` em todo
+controle (`--glow` = anel de 1 px, sem difusão); movimento só por `--mov-*` e
+nenhum `@keyframes` sem consumidor (18 declarados, 0 órfãos); botão sempre com
+variante de uma lista fechada; o sprite de ícones (13 símbolos, traço 2 em
+cada `<symbol>`) entra em toda página pela base, fora do shell offline. A
+vitrine de tudo isso está em `/gestao/vitrine/`. Detalhes e números na seção
+"Design / Onda 3" do `CLAUDE.md`.
 
 ---
 
