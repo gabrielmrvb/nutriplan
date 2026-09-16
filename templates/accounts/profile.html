@@ -164,8 +164,24 @@
             {% endcomment %}
             <div>
               <dt>Dias</dt>
-              <dd>{% for day in training_days %}{{ day.get_weekday_display }}{% if not forloop.last %} · {% endif %}{% endfor %}</dd>
+              {% comment %}
+                Curtos, como o resumo da etapa 3 já escreve ("Seg, Ter, Qua"):
+                "Segunda-feira · Terça-feira · Quarta-feira · Quinta-feira ·
+                Sexta-feira" partia em "Quinta-/feira" a 390 px (avaliação de
+                16/09/2026, B33). O vocabulário vem de `DIA_CURTO`, a mesma
+                lista do formulário — não de uma terceira.
+              {% endcomment %}
+              <dd>{{ dias_de_treino_curtos }}</dd>
             </div>
+            {% comment %}
+              A janela do dia entra na MESMA lista: é aqui que ela é editada —
+              o "Editar" deste cartão vai para a etapa 2, que é onde ela mora.
+              Eram duas `<dl>` coladas, e a `:last-child` sem borda da primeira
+              encostava na `:first-child` sem respiro da segunda: "Acorda"
+              grudado em "Dias", sem divisor (avaliação de 16/09/2026, B33).
+            {% endcomment %}
+            <div><dt>Acorda</dt><dd>{{ profile.wake_time|time:"H:i" }}</dd></div>
+            <div><dt>Dorme</dt><dd>{{ profile.sleep_time|time:"H:i" }}</dd></div>
           </dl>
         {% else %}
           {% comment %}
@@ -180,15 +196,14 @@
             <a class="btn btn--ghost btn--sm"
                href="{% url 'accounts:onboarding_step' step=2 %}">Cadastrar dias de treino</a>
           </div>
+          {% comment %}
+            Sem dias, a janela do dia é a única lista do cartão.
+          {% endcomment %}
+          <dl class="data-list">
+            <div><dt>Acorda</dt><dd>{{ profile.wake_time|time:"H:i" }}</dd></div>
+            <div><dt>Dorme</dt><dd>{{ profile.sleep_time|time:"H:i" }}</dd></div>
+          </dl>
         {% endif %}
-        {% comment %}
-          A janela do dia entra aqui porque é aqui que ela é editada — o
-          "Editar" deste cartão vai para a etapa 2, que é onde ela agora mora.
-        {% endcomment %}
-        <dl class="data-list">
-          <div><dt>Acorda</dt><dd>{{ profile.wake_time|time:"H:i" }}</dd></div>
-          <div><dt>Dorme</dt><dd>{{ profile.sleep_time|time:"H:i" }}</dd></div>
-        </dl>
       </section>
     </div>
 

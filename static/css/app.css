@@ -2448,8 +2448,9 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .data-list > div {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: var(--espaco-6);
+  gap: var(--espaco-1) var(--espaco-6);
   padding: .75rem 0;
   border-bottom: 1px solid var(--border);
   font-size: var(--texto-md);
@@ -2457,10 +2458,30 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .data-list > div:first-child { padding-top: 0; }
 .data-list > div:last-child { border-bottom: 0; padding-bottom: 0; }
-.data-list dt { margin: 0; min-width: 0; color: var(--text-dim); }
+
+/* Rótulo INTEIRO; valor à direita; e quando os dois não cabem lado a lado, o
+   valor desce inteiro para a linha de baixo — nunca a palavra parte.
+
+   Medido em produção em 16/09/2026 (avaliação, B23/B24/B25/B33): a regra
+   global `overflow-wrap: anywhere` (para nome de alimento e de exercício não
+   estourar a tela) dentro deste flex com os dois filhos encolhíveis dava
+   "Experiên/cia", "Di/as", "Quinta-/feira", "Entrou/como" e — pior — "×1,4"
+   numa linha e "5" na outra: um fator de atividade que lê como número
+   errado. A saída é o `flex-wrap` acima: o rótulo mede o próprio conteúdo
+   (`flex-basis: auto`) e não parte dentro da palavra; o valor ganha a linha
+   inteira quando precisa, e continua podendo partir (`anywhere`) só quando
+   nem a linha inteira basta — o e-mail de 33 caracteres a 320px. */
+.data-list dt {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: normal;
+  color: var(--text-dim);
+}
 
 .data-list dd {
-  margin: 0;
+  margin: 0 0 0 auto;
+  flex: 0 1 auto;
   min-width: 0;
   font-weight: 720;
   font-variant-numeric: tabular-nums;

@@ -19,6 +19,7 @@ from . import limites
 from .adapters import MAXIMO_DE_TENTATIVAS, SESSAO_TENTATIVAS, SESSAO_VINCULO
 from . import entrada
 from .forms import (
+    DIA_CURTO,
     BodyDataForm,
     ConectarGoogleForm,
     EmailAuthenticationForm,
@@ -41,6 +42,7 @@ from .models import (
     ONBOARDING_LAST_STEP,
     Profile,
     User,
+    Weekday,
     WeightEntry,
 )
 from .templatetags import navegacao
@@ -954,6 +956,13 @@ class ProfileSummaryView(LoginRequiredMixin, TemplateView):
             {
                 "profile": profile,
                 "training_days": self.request.user.training_days.all(),
+                # "Seg · Qua · Sex": o mesmo vocabulário curto do resumo da
+                # etapa 3, lido de `DIA_CURTO` (o do formulário). O nome inteiro
+                # partia em "Quinta-/feira" a 390 px (avaliação de 16/09, B33).
+                "dias_de_treino_curtos": " · ".join(
+                    DIA_CURTO[Weekday(d.weekday)]
+                    for d in self.request.user.training_days.order_by("weekday")
+                ),
                 "weight_entries": self.request.user.weight_entries.all()[:10],
                 # O plano ATIVO, para o perfil mostrar as metas em vigor ao
                 # lado do botao que as recalcula. Sem ele o botao pedia fe: a
