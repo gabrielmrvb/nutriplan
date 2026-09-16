@@ -19,7 +19,7 @@ class DiasTreinadosTests(TestCase):
             email="treino@exemplo.com", password="senha-bem-forte-123"
         )
         self.supino = Exercise.objects.create(
-            name="Supino reto com barra", muscle_group="peito",
+            name="Supino reto com barra", muscle_group="peito", padrao="pressao_de_peito",
         )
         # Uma quarta-feira, para a semana não depender do dia em que a suíte
         # roda: com "hoje" variável, o teste passaria ou falharia conforme o
@@ -81,10 +81,10 @@ class ProgressaoDeCargaTests(TestCase):
             email="carga@exemplo.com", password="senha-bem-forte-123"
         )
         self.supino = Exercise.objects.create(
-            name="Supino reto com barra", muscle_group="peito",
+            name="Supino reto com barra", muscle_group="peito", padrao="pressao_de_peito",
         )
         self.remada = Exercise.objects.create(
-            name="Remada curvada", muscle_group="costas",
+            name="Remada curvada", muscle_group="costas", padrao="remada_horizontal",
         )
         self.hoje = date(2026, 9, 2)
 

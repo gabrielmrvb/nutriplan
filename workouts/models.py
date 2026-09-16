@@ -75,6 +75,64 @@ class Equipment(models.TextChoices):
     BODYWEIGHT = "bodyweight", "peso do corpo"
 
 
+class Padrao(models.TextChoices):
+    """O PADRÃO DE MOVIMENTO — o que uma troca de exercício preserva.
+
+    Um nível só, 22 valores (16/09/2026). Ângulo e pegada ficam no NOME:
+    supino reto, inclinado e flexão de braço são a mesma pressão de peito;
+    elevação lateral e frontal a mesma elevação; rosca direta e martelo a
+    mesma rosca. Se um dia isso precisar de distinção, é um campo
+    `variante`, não um padrão novo — separar reto de inclinado deixaria
+    "Peito e tríceps" sem duas opções com o catálogo de hoje, por um
+    detalhe que nenhuma troca de exercício invalida.
+
+    Quem lê isto é a régua de equivalência das opções
+    (`workouts.opcoes.equivalentes`): duas opções da mesma letra precisam
+    dos MESMOS padrões COMPOSTOS em cada grupo anunciado — três supinos
+    contra três crucifixos não são intercambiáveis —, e podem diferir nos
+    isoladores. `PADROES_COMPOSTOS` diz quais são compostos; `is_compound`
+    continua decidindo série e descanso, e os dois têm de concordar (há
+    teste).
+    """
+
+    PRESSAO_DE_PEITO = "pressao_de_peito", "pressão de peito"
+    CRUCIFIXO = "crucifixo", "crucifixo"
+    PUXADA_VERTICAL = "puxada_vertical", "puxada vertical"
+    REMADA_HORIZONTAL = "remada_horizontal", "remada horizontal"
+    PRESSAO_VERTICAL = "pressao_vertical", "pressão vertical"
+    ELEVACAO = "elevacao", "elevação de ombro"
+    DELTOIDE_POSTERIOR = "deltoide_posterior", "deltoide posterior"
+    AGACHAMENTO = "agachamento", "agachamento"
+    EXTENSAO_DE_JOELHO = "extensao_de_joelho", "extensão de joelho"
+    EXTENSAO_DE_QUADRIL = "extensao_de_quadril", "extensão de quadril"
+    FLEXAO_DE_JOELHO = "flexao_de_joelho", "flexão de joelho"
+    FLEXAO_PLANTAR = "flexao_plantar", "flexão plantar"
+    ROSCA = "rosca", "rosca"
+    EXTENSAO_DE_COTOVELO = "extensao_de_cotovelo", "extensão de cotovelo"
+    PRESSAO_FECHADA = "pressao_fechada", "pressão fechada"
+    ANTI_EXTENSAO = "anti_extensao", "anti-extensão"
+    FLEXAO_DE_TRONCO = "flexao_de_tronco", "flexão de tronco"
+    FLEXAO_DE_QUADRIL = "flexao_de_quadril", "flexão de quadril"
+    ELEVACAO_ESCAPULAR = "elevacao_escapular", "elevação escapular"
+    REMADA_ALTA = "remada_alta", "remada alta"
+    FLEXAO_DE_PUNHO = "flexao_de_punho", "flexão de punho"
+    EXTENSAO_DE_PUNHO = "extensao_de_punho", "extensão de punho"
+
+
+#: Os padrões que são MOVIMENTO COMPOSTO — o que as duas opções de uma letra
+#: têm de cobrir igualmente. O resto é isolamento, e pode diferir entre elas.
+PADROES_COMPOSTOS = frozenset({
+    Padrao.PRESSAO_DE_PEITO,
+    Padrao.PUXADA_VERTICAL,
+    Padrao.REMADA_HORIZONTAL,
+    Padrao.PRESSAO_VERTICAL,
+    Padrao.AGACHAMENTO,
+    Padrao.EXTENSAO_DE_QUADRIL,
+    Padrao.PRESSAO_FECHADA,
+    Padrao.REMADA_ALTA,
+})
+
+
 #: As articulações que o app sabe nomear, e os termos que a pessoa usa para
 #: falar delas. O mapa é de sinônimo para chave — "lombar", "coluna" e "costas
 #: baixas" apontam todos para `lower_back`.
@@ -206,6 +264,15 @@ class Exercise(models.Model):
         choices=Equipment.choices,
         default=Equipment.MACHINE,
     )
+    #: O padrão de movimento (`Padrao`). Sem padrão o exercício não entra:
+    #: `padrao_nao_vazio` é constraint de banco, porque é o que a régua de
+    #: equivalência lê — e um exercício sem padrão tornaria duas opções
+    #: "equivalentes" por omissão. O `default=""` existe só para a migration
+    #: que acrescenta a coluna; o `RunPython` dela preenche os 36 e a
+    #: constraint entra depois.
+    padrao = models.CharField(
+        "padrão de movimento", max_length=24, choices=Padrao.choices, default="",
+    )
 
     # As articulações que o movimento carrega de verdade — não toda articulação
     # que se mexe. Listar tudo tornaria a lista inútil: todo exercício teria
@@ -219,6 +286,18 @@ class Exercise(models.Model):
         verbose_name = "exercício"
         verbose_name_plural = "exercícios"
         ordering = ["muscle_group", "name"]
+        constraints = [
+            # Nenhum exercício sem padrão nem sem equipamento — e é o banco
+            # quem garante, pela mesma razão de
+            # `prioridade_pertence_aos_interesses`: `clean()` não roda no
+            # `update_or_create` do seed.
+            models.CheckConstraint(
+                condition=~models.Q(padrao=""), name="padrao_nao_vazio",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(equipment=""), name="equipment_nao_vazio",
+            ),
+        ]
 
     def __str__(self):
         return self.name

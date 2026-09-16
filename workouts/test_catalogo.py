@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 
 from django.core.management import call_command
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from django.urls import reverse
 
 from accounts.models import DuracaoTreino, Profile, TETO_POR_DURACAO, TrainingDay
@@ -115,3 +115,149 @@ class SeletorDaRapidaTests(TestCase):
             self.assertLessEqual(maximo, opcoes.TETO_RAPIDO_MIN)
             self.assertIn("~%d–%d min" % (minimo, maximo) if minimo != maximo else "~%d min" % maximo, html)
         self.assertNotIn("até 40 min", html)
+
+
+class PadraoDeMovimentoTests(TestCase):
+    """Todo exercício declara o PADRÃO de movimento, e o banco não aceita
+    exercício sem ele nem sem equipamento.
+
+    A taxonomia tem 22 valores e um nível só (16/09/2026): ângulo e pegada
+    ficam no nome — reto e inclinado são a mesma pressão de peito; lateral e
+    frontal a mesma elevação. É o que a régua de equivalência das opções lê:
+    duas opções de "Peito e tríceps" precisam das MESMAS pressões, e podem
+    diferir nos isoladores.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def test_a_taxonomia_tem_vinte_e_dois_padroes_e_oito_compostos(self):
+        from workouts.models import PADROES_COMPOSTOS, Padrao
+
+        self.assertEqual(len(Padrao), 22)
+        self.assertEqual(
+            set(PADROES_COMPOSTOS),
+            {
+                Padrao.PRESSAO_DE_PEITO, Padrao.PUXADA_VERTICAL, Padrao.REMADA_HORIZONTAL,
+                Padrao.PRESSAO_VERTICAL, Padrao.AGACHAMENTO, Padrao.EXTENSAO_DE_QUADRIL,
+                Padrao.PRESSAO_FECHADA, Padrao.REMADA_ALTA,
+            },
+        )
+
+    def test_todo_exercicio_semeado_tem_padrao_da_taxonomia(self):
+        from workouts.models import Exercise, Padrao
+
+        validos = {p.value for p in Padrao}
+        sem = [e.name for e in Exercise.objects.all() if e.padrao not in validos]
+        self.assertEqual(sem, [])
+        self.assertGreaterEqual(Exercise.objects.count(), 36)
+
+    def test_composto_e_o_padrao_concordam(self):
+        """`is_compound` continua decidindo série e descanso; o padrão decide
+        a equivalência. Os dois dizem a mesma coisa sobre cada exercício, e
+        este teste é o que impede um "supino isolador" por digitação."""
+        from workouts.models import PADROES_COMPOSTOS, Exercise
+
+        discordam = [
+            e.name for e in Exercise.objects.all()
+            if e.is_compound != (e.padrao in PADROES_COMPOSTOS)
+        ]
+        self.assertEqual(discordam, [])
+
+    def test_o_banco_recusa_exercicio_sem_padrao(self):
+        from django.db import IntegrityError, transaction
+
+        from workouts.models import Equipment, Exercise, MuscleGroup
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Exercise.objects.create(
+                name="Sem padrão", muscle_group=MuscleGroup.CHEST,
+                equipment=Equipment.MACHINE, padrao="",
+            )
+
+    def test_o_banco_recusa_exercicio_sem_equipamento(self):
+        from django.db import IntegrityError, transaction
+
+        from workouts.models import Exercise, MuscleGroup, Padrao
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Exercise.objects.create(
+                name="Sem equipamento", muscle_group=MuscleGroup.CHEST,
+                equipment="", padrao=Padrao.CRUCIFIXO,
+            )
+
+    def test_o_json_do_catalogo_declara_padrao_e_equipamento_em_todos(self):
+        """O seed lê `row["padrao"]` sem `.get`: linha sem padrão derruba o
+        build, que é onde um catálogo pela metade tem de parar."""
+        import json
+
+        from workouts.models import Equipment, Padrao
+
+        catalogo = json.loads(
+            (RAIZ / "workouts" / "data" / "exercises.json").read_text(encoding="utf-8")
+        )
+        padroes = {p.value for p in Padrao}
+        equipamentos = {e.value for e in Equipment}
+        for linha in catalogo:
+            with self.subTest(exercicio=linha["name"]):
+                self.assertIn(linha.get("padrao"), padroes)
+                self.assertIn(linha.get("equipment"), equipamentos)
+
+    def test_o_seed_depois_da_migration_mantem_o_padrao(self):
+        """A migration preenche quem já existe; o seed, que roda em todo
+        deploy, precisa gravar o mesmo valor — senão o próximo build zera o
+        campo e o `CheckConstraint` derruba a publicação."""
+        from workouts.models import Exercise
+
+        antes = dict(Exercise.objects.values_list("name", "padrao"))
+        call_command("seed_workouts", verbosity=0)
+        self.assertEqual(dict(Exercise.objects.values_list("name", "padrao")), antes)
+
+
+class AMigrationDoPadraoTests(TransactionTestCase):
+    """A `0022` preenche o padrão de quem JÁ existe pelo nome, e recusa
+    exercício que ela não conhece — em vez de deixá-lo em branco para a
+    constraint derrubar o deploy com uma mensagem pior."""
+
+    ANTES = ("workouts", "0021_opcoes_por_letra")
+    DEPOIS = ("workouts", "0022_padrao_de_movimento")
+
+    def _migrar(self, alvo):
+        from django.db import connection
+        from django.db.migrations.executor import MigrationExecutor
+
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate([alvo])
+        return executor.loader.project_state([alvo]).apps
+
+    def tearDown(self):
+        from django.db import connection
+        from django.db.migrations.executor import MigrationExecutor
+
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
+
+    def test_quem_ja_existe_recebe_o_padrao_pelo_nome(self):
+        velho = self._migrar(self.ANTES)
+        Exercicio = velho.get_model("workouts", "Exercise")
+        Exercicio.objects.create(name="Supino reto com barra", muscle_group="chest", equipment="barbell")
+        Exercicio.objects.create(name="Remada curvada", muscle_group="back", equipment="barbell", is_active=False)
+
+        novo = self._migrar(self.DEPOIS)
+
+        Exercicio = novo.get_model("workouts", "Exercise")
+        self.assertEqual(Exercicio.objects.get(name="Supino reto com barra").padrao, "pressao_de_peito")
+        # A linha legada, anterior à `0017`, é o mesmo movimento da sucessora.
+        self.assertEqual(Exercicio.objects.get(name="Remada curvada").padrao, "remada_horizontal")
+
+    def test_exercicio_desconhecido_derruba_a_migration(self):
+        velho = self._migrar(self.ANTES)
+        Exercicio = velho.get_model("workouts", "Exercise")
+        Exercicio.objects.create(name="Cadastrado à mão", muscle_group="chest", equipment="barbell")
+
+        with self.assertRaisesRegex(RuntimeError, "Cadastrado à mão"):
+            self._migrar(self.DEPOIS)
+        Exercicio.objects.all().delete()

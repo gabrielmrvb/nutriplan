@@ -35,6 +35,9 @@ def exercicio(**extras):
         "name": extras.pop("name", "Teste V4"),
         "muscle_group": extras.pop("muscle_group", MuscleGroup.CHEST),
         "equipment": "machine",
+        # Obrigatório desde a `0022` (`padrao_nao_vazio`), e `full_clean`
+        # cobra `choices` — um valor da taxonomia, não um texto qualquer.
+        "padrao": "crucifixo",
     }
     dados.update(extras)
     return Exercise(**dados)

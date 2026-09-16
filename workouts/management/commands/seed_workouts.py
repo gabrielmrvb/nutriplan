@@ -113,6 +113,10 @@ class Command(BaseCommand):
                     "animation_url": animacoes.get(row["name"], ""),
                     "video_url": row.get("video", ""),
                     "equipment": row["equipment"],
+                    # Sem `.get`: linha sem padrão derruba o build, que é
+                    # onde um catálogo pela metade tem de parar — o banco
+                    # recusaria de qualquer jeito (`padrao_nao_vazio`).
+                    "padrao": row["padrao"],
                     "joints": row.get("joints", []),
                     # Os auxiliares vêm do JSON como os `joints` vêm: lista
                     # curada, com os MESMOS valores de `MuscleGroup`. Quem

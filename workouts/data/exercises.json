@@ -6,6 +6,7 @@
     "cue": "Desça até a coxa ficar paralela ao chão, com o joelho na direção do pé.",
     "video": "https://www.youtube.com/shorts/4PbHkCEUI6I",
     "equipment": "barbell",
+    "padrao": "agachamento",
     "joints": [
       "knee",
       "hip",
@@ -24,6 +25,7 @@
     "cue": "Não deixe o quadril descolar do banco no fim da descida.",
     "video": "https://www.youtube.com/shorts/NY5fw4Zaofg",
     "equipment": "machine",
+    "padrao": "agachamento",
     "joints": [
       "knee",
       "hip"
@@ -40,6 +42,7 @@
     "cue": "Segure meio segundo no topo em vez de jogar a carga.",
     "video": "https://www.youtube.com/shorts/PzIfB9MiiX8",
     "equipment": "machine",
+    "padrao": "extensao_de_joelho",
     "joints": [
       "knee"
     ],
@@ -52,6 +55,7 @@
     "cue": "Passo largo e tronco ereto; o joelho de trás desce em direção ao chão.",
     "video": "https://www.youtube.com/shorts/a5zYhGUSp-8",
     "equipment": "dumbbell",
+    "padrao": "agachamento",
     "joints": [
       "knee",
       "hip"
@@ -69,6 +73,7 @@
     "cue": "Joelho quase estendido e barra rente à perna — quem deve alongar é a parte de trás da coxa.",
     "video": "https://www.youtube.com/shorts/6ZbS3jXheMw",
     "equipment": "barbell",
+    "padrao": "extensao_de_quadril",
     "joints": [
       "hip",
       "lower_back"
@@ -86,6 +91,7 @@
     "cue": "Volte devagar: a fase de descida é onde o posterior trabalha mais.",
     "video": "https://www.youtube.com/shorts/IXg1PQ_5gmw",
     "equipment": "machine",
+    "padrao": "flexao_de_joelho",
     "joints": [
       "knee"
     ],
@@ -98,6 +104,7 @@
     "cue": "Suba até o corpo ficar em linha reta e aperte o glúteo no topo.",
     "video": "https://www.youtube.com/shorts/cOvGedlKlD4",
     "equipment": "barbell",
+    "padrao": "extensao_de_quadril",
     "joints": [
       "hip"
     ],
@@ -113,6 +120,7 @@
     "cue": "Sem tirar as costas do encosto para ganhar amplitude.",
     "video": "https://www.youtube.com/shorts/T46yKiz8laY",
     "equipment": "machine",
+    "padrao": "flexao_de_joelho",
     "joints": [
       "knee"
     ],
@@ -125,6 +133,7 @@
     "cue": "Amplitude total: desça o calcanhar abaixo do degrau e suba na ponta do pé.",
     "video": "https://www.youtube.com/shorts/fVGkOlkOrnA",
     "equipment": "machine",
+    "padrao": "flexao_plantar",
     "joints": [
       "ankle"
     ],
@@ -137,6 +146,7 @@
     "cue": "Movimento lento; panturrilha não responde a repetição jogada.",
     "video": "https://www.youtube.com/shorts/9fIw0ue8iQE",
     "equipment": "machine",
+    "padrao": "flexao_plantar",
     "joints": [
       "ankle"
     ],
@@ -149,6 +159,7 @@
     "cue": "Escápulas presas no banco e cotovelo a 45° do tronco, não aberto em T.",
     "video": "https://www.youtube.com/shorts/UHa9U-O09_U",
     "equipment": "barbell",
+    "padrao": "pressao_de_peito",
     "joints": [
       "shoulder",
       "elbow",
@@ -167,6 +178,7 @@
     "cue": "Banco entre 30° e 45°; mais que isso vira treino de ombro.",
     "video": "https://www.youtube.com/shorts/ZaNyRjpoki8",
     "equipment": "dumbbell",
+    "padrao": "pressao_de_peito",
     "joints": [
       "shoulder",
       "elbow"
@@ -184,6 +196,7 @@
     "cue": "Cotovelo levemente flexionado e fixo do começo ao fim.",
     "video": "https://www.youtube.com/shorts/zEcIgGm7fxU",
     "equipment": "machine",
+    "padrao": "crucifixo",
     "joints": [
       "shoulder"
     ],
@@ -199,6 +212,7 @@
     "cue": "Corpo em prancha: quadril não sobe nem cai.",
     "video": "https://www.youtube.com/shorts/qqECekG4jMo",
     "equipment": "bodyweight",
+    "padrao": "pressao_de_peito",
     "joints": [
       "shoulder",
       "elbow",
@@ -218,6 +232,7 @@
     "cue": "Puxe com o cotovelo em direção ao bolso, não com a mão.",
     "video": "https://www.youtube.com/shorts/_2MfZAj98tk",
     "equipment": "cable",
+    "padrao": "puxada_vertical",
     "joints": [
       "shoulder",
       "elbow"
@@ -235,6 +250,7 @@
     "cue": "Tronco parado; quem se move é o braço, não a lombar.",
     "video": "https://www.youtube.com/shorts/7lc8Ow4vIwA",
     "equipment": "cable",
+    "padrao": "remada_horizontal",
     "joints": [
       "shoulder",
       "elbow"
@@ -252,6 +268,7 @@
     "cue": "Coluna neutra e tronco a 45°; a barra encosta no umbigo.",
     "video": "https://www.youtube.com/shorts/e53vSzibkO0",
     "equipment": "barbell",
+    "padrao": "remada_horizontal",
     "joints": [
       "shoulder",
       "elbow",
@@ -274,6 +291,7 @@
     "cue": "Apoie a mão no banco e puxe até o halter passar da linha do tronco.",
     "video": "https://www.youtube.com/shorts/OhQTM6Mkq-E",
     "equipment": "dumbbell",
+    "padrao": "remada_horizontal",
     "joints": [
       "shoulder",
       "elbow"
@@ -291,6 +309,7 @@
     "cue": "Use o mínimo de assistência que permita fechar a série com técnica.",
     "video": "https://www.youtube.com/shorts/lRCROSJkTKM",
     "equipment": "machine",
+    "padrao": "puxada_vertical",
     "joints": [
       "shoulder",
       "elbow"
@@ -308,6 +327,7 @@
     "cue": "Não estenda o cotovelo com tranco no topo.",
     "video": "https://www.youtube.com/shorts/5I7ogOjvdnc",
     "equipment": "dumbbell",
+    "padrao": "pressao_vertical",
     "joints": [
       "shoulder",
       "elbow"
@@ -325,6 +345,7 @@
     "cue": "Suba até a altura do ombro; carga leve com técnica vence carga pesada com impulso.",
     "video": "https://www.youtube.com/shorts/ot9nwSC1JnA",
     "equipment": "dumbbell",
+    "padrao": "elevacao",
     "joints": [
       "shoulder"
     ],
@@ -337,6 +358,7 @@
     "cue": "Sem balançar o tronco para ajudar a subir.",
     "video": "https://www.youtube.com/shorts/GqZRmCow0rw",
     "equipment": "dumbbell",
+    "padrao": "elevacao",
     "joints": [
       "shoulder"
     ],
@@ -349,6 +371,7 @@
     "cue": "Puxe com a parte de trás do ombro, sem juntar as escápulas com força.",
     "video": "https://www.youtube.com/shorts/wUT3hmnzq3c",
     "equipment": "machine",
+    "padrao": "deltoide_posterior",
     "joints": [
       "shoulder"
     ],
@@ -364,6 +387,7 @@
     "cue": "Cotovelo colado no tronco do início ao fim.",
     "video": "https://www.youtube.com/shorts/dc330H9yN3Y",
     "equipment": "barbell",
+    "padrao": "rosca",
     "joints": [
       "elbow",
       "wrist"
@@ -380,6 +404,7 @@
     "cue": "Gire o punho durante a subida e desça devagar.",
     "video": "https://www.youtube.com/shorts/WUrn8iFf1js",
     "equipment": "dumbbell",
+    "padrao": "rosca",
     "joints": [
       "elbow"
     ],
@@ -395,6 +420,7 @@
     "cue": "Pegada neutra o tempo todo; é ela que pega o antebraço junto.",
     "video": "https://www.youtube.com/shorts/0rRpv6o140o",
     "equipment": "dumbbell",
+    "padrao": "rosca",
     "joints": [
       "elbow"
     ],
@@ -410,6 +436,7 @@
     "cue": "Abra a corda no fim do movimento e estenda o cotovelo por completo.",
     "video": "https://www.youtube.com/shorts/-QGC1cL6ETE",
     "equipment": "cable",
+    "padrao": "extensao_de_cotovelo",
     "joints": [
       "elbow"
     ],
@@ -422,6 +449,7 @@
     "cue": "Só o antebraço se move; o braço fica parado apontando para cima.",
     "video": "https://www.youtube.com/shorts/40Cx-IfJhA0",
     "equipment": "barbell",
+    "padrao": "extensao_de_cotovelo",
     "joints": [
       "elbow",
       "shoulder"
@@ -435,6 +463,7 @@
     "cue": "Desça até o cotovelo formar 90° e mantenha o quadril perto do banco.",
     "video": "https://www.youtube.com/shorts/Q07t33qOow0",
     "equipment": "bodyweight",
+    "padrao": "pressao_fechada",
     "joints": [
       "shoulder",
       "elbow"
@@ -452,6 +481,7 @@
     "cue": "Aperte glúteo e abdômen; o corpo fica reto da cabeça ao calcanhar.",
     "video": "https://www.youtube.com/shorts/yZaYCfWS3mQ",
     "equipment": "bodyweight",
+    "padrao": "anti_extensao",
     "joints": [
       "shoulder"
     ],
@@ -467,6 +497,7 @@
     "cue": "Suba com o abdômen, sem puxar o pescoço com a mão.",
     "video": "https://www.youtube.com/shorts/vRDR_MmFHcI",
     "equipment": "bodyweight",
+    "padrao": "flexao_de_tronco",
     "joints": [
       "lower_back"
     ],
@@ -479,6 +510,7 @@
     "cue": "Lombar colada no chão; desça as pernas só até onde conseguir manter isso.",
     "video": "https://www.youtube.com/shorts/In0EzoOAILw",
     "equipment": "bodyweight",
+    "padrao": "flexao_de_quadril",
     "joints": [
       "lower_back",
       "hip"
@@ -492,6 +524,7 @@
     "cue": "Suba os ombros na direção das orelhas sem dobrar o cotovelo e sem girar o ombro; segure um instante no topo.",
     "video": "https://www.youtube.com/shorts/x9Im5d1H-Xw",
     "equipment": "dumbbell",
+    "padrao": "elevacao_escapular",
     "joints": [
       "shoulder"
     ],
@@ -507,6 +540,7 @@
     "cue": "Puxe a barra até a altura do peito com o cotovelo acima do punho; se o ombro doer, pare na linha do esterno.",
     "video": "https://www.youtube.com/shorts/emPow6X_a_E",
     "equipment": "barbell",
+    "padrao": "remada_alta",
     "joints": [
       "shoulder",
       "elbow"
@@ -524,6 +558,7 @@
     "cue": "Antebraço apoiado no banco, só o punho se move; desça deixando a barra rolar até a ponta dos dedos.",
     "video": "https://www.youtube.com/shorts/kJtnD6Orr5A",
     "equipment": "barbell",
+    "padrao": "flexao_de_punho",
     "joints": [
       "wrist"
     ],
@@ -536,6 +571,7 @@
     "cue": "Pegada pronada, cotovelo colado ao tronco; use carga menor que na rosca direta — o braquiorradial é mais fraco.",
     "video": "https://www.youtube.com/shorts/mcUpjlWlGZY",
     "equipment": "barbell",
+    "padrao": "extensao_de_punho",
     "joints": [
       "wrist",
       "elbow"

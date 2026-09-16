@@ -232,7 +232,7 @@ class TelaDeProgressoTests(TestCase):
         )
         self.hoje = timezone.localdate()
         self.supino = Exercise.objects.create(
-            name="Supino reto com barra", muscle_group="peito"
+            name="Supino reto com barra", muscle_group="peito", padrao="pressao_de_peito",
         )
         for atras, carga in ((14, "60"), (0, "70")):
             ExerciseLog.objects.create(
@@ -387,7 +387,7 @@ class MesmaGramaticaTests(TestCase):
             onboarding_step=ONBOARDING_DONE,
         )
         hoje = timezone.localdate()
-        exercicio = Exercise.objects.create(name="Supino", muscle_group="peito")
+        exercicio = Exercise.objects.create(name="Supino", muscle_group="peito", padrao="pressao_de_peito")
         ExerciseLog.objects.create(
             user=self.pessoa, exercise=exercicio, date=hoje,
             set_number=1, weight_kg=Decimal("60"), reps=10,

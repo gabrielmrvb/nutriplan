@@ -376,8 +376,11 @@ class OLegadoFicaDesativadoTests(TestCase):
         modulo.desativar(registro, None)
 
     def test_a_migracao_desativa_o_legado_e_preserva_a_linha(self):
+        # `padrao` porque o banco recusa exercício sem ele desde a `0022`;
+        # a linha legada continua sendo o que era — uma remada.
         Exercise.objects.create(
-            name=LEGADO, muscle_group="costas", equipment="machine", is_active=True
+            name=LEGADO, muscle_group="costas", equipment="machine", is_active=True,
+            padrao="remada_horizontal",
         )
 
         self._rodar_a_migracao()
@@ -390,8 +393,11 @@ class OLegadoFicaDesativadoTests(TestCase):
         """Desativar não tira o exercício do histórico, e a tela de histórico
         chama `get_muscle_group_display()` — que devolve `"costas"` cru quando
         o valor está fora de `MuscleGroup`."""
+        # `padrao` porque o banco recusa exercício sem ele desde a `0022`;
+        # a linha legada continua sendo o que era — uma remada.
         Exercise.objects.create(
-            name=LEGADO, muscle_group="costas", equipment="machine", is_active=True
+            name=LEGADO, muscle_group="costas", equipment="machine", is_active=True,
+            padrao="remada_horizontal",
         )
 
         self._rodar_a_migracao()

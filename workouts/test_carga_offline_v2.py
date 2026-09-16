@@ -53,7 +53,7 @@ def _exercicio(nome="Supino de teste"):
     do seed: renomear um exercício do catálogo quebraria testes que não falam
     de catálogo nenhum.
     """
-    return Exercise.objects.create(name=nome, muscle_group="chest")
+    return Exercise.objects.create(name=nome, muscle_group="chest", padrao="pressao_de_peito")
 
 
 class OContadorNaoVemMaisDoClienteTests(TestCase):
