@@ -91,15 +91,19 @@ avisar. Para trocar algum, edite `workouts/data/exercises.json` e rode `seed_wor
 
 ### Lembretes
 
-Os lembretes saem de um comando, feito para rodar de 5 em 5 minutos no
-Agendador de Tarefas do Windows (tarefa de usuário, não precisa de admin):
+Em produção, quem dispara é o cron do Render (`render.yaml` explica por que ele
+fica fora do Blueprint). Na máquina local, o comando é este:
 
 ```bash
 .venv\Scripts\python.exe manage.py send_meal_reminders --dry-run
 ```
 
-`scripts\send_reminders.ps1` é o que a tarefa agendada chama. Rodar duas vezes no mesmo
-minuto é seguro — quem decide se alguém já foi avisado é a constraint no banco.
+Se quiser os lembretes locais de 5 em 5 minutos, a tarefa do Agendador nasce por
+`scripts/fundo.py agendar-lembretes` — e só por ele. A versão antiga chamava
+`powershell.exe`, e cada disparo abria uma janela do Windows Terminal na tela;
+a de agora roda por `pythonw`, que não tem console para abrir. Rodar duas vezes
+no mesmo minuto é seguro — quem decide se alguém já foi avisado é a constraint
+no banco.
 
 ## Organização
 
