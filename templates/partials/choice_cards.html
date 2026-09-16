@@ -17,8 +17,15 @@ depender de `:has()` num navegador que não o suporta, então a moldura é um
 irmão do input: `~` alcança, e funciona em qualquer navegador.
 {% endcomment %}
 <div class="field">
-  <span class="field__label">{{ field.label }}</span>
-  {% if field.help_text %}<div class="field__help">{{ field.help_text }}</div>{% endif %}
+  {% comment %}
+    Os mesmos `id`s de `partials/field.html`: `{auto_id}_helptext` e
+    `{auto_id}_error` são o que o Django 5.2 referencia em
+    `aria-describedby`; como grupo de rádio não recebe o atributo no
+    `<input>`, a `<ul>` é o grupo — com papel, rótulo e descrição
+    (avaliação de 16/09/2026, B10).
+  {% endcomment %}
+  <span class="field__label" id="{{ field.auto_id }}_label">{{ field.label }}</span>
+  {% if field.help_text %}<div class="field__help" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</div>{% endif %}
 
   {% comment %}
     `colunas=2` liga a grade de duas colunas em QUALQUER largura, e com ela o
@@ -35,7 +42,8 @@ irmão do input: `~` alcança, e funciona em qualquer navegador.
     Pernas+Ombros" numa pílula, e isso não cabe em 155px sem virar quatro
     linhas.
   {% endcomment %}
-  <ul class="choice-cards{% if colunas == 2 %} choice-cards--duas{% endif %}" role="list">
+  <ul class="choice-cards{% if colunas == 2 %} choice-cards--duas{% endif %}"
+      role="group" aria-labelledby="{{ field.auto_id }}_label"{% if field.help_text or field.errors %} aria-describedby="{% if field.help_text %}{{ field.auto_id }}_helptext{% endif %}{% if field.help_text and field.errors %} {% endif %}{% if field.errors %}{{ field.auto_id }}_error{% endif %}"{% endif %}>
     {% for subwidget in field %}
       {% with d=subwidget.data.value|detalhe %}
         <li>
@@ -107,7 +115,7 @@ irmão do input: `~` alcança, e funciona em qualquer navegador.
   </ul>
 
   {% if field.errors %}
-    <ul class="field__errors">
+    <ul class="field__errors" id="{{ field.auto_id }}_error">
       {% for error in field.errors %}<li>{{ error }}</li>{% endfor %}
     </ul>
   {% endif %}

@@ -15,9 +15,18 @@ pelo form.
     outros; só o widget tem nome próprio, para escrever o `aria-label` de cada
     dia.
   {% endcomment %}
+  {% comment %}
+    Os `id`s de ajuda e de erro são os que o Django 5.2 escreve em
+    `aria-describedby` no `<input>` (`{auto_id}_helptext`, `{auto_id}_error`).
+    Sem eles o atributo apontava para o nada: o leitor de tela anunciava
+    "inválido" e não lia o erro nem a ajuda — medido em produção em
+    16/09/2026 (avaliação, B10). Grupo de rádio/caixa não recebe o atributo
+    no `<input>` (o Django o põe no `<fieldset>` do template dele); aqui o
+    grupo é a `<ul>`, e é ela que carrega o papel, o rótulo e a descrição.
+  {% endcomment %}
   {% if field.widget_type == "radioselect" or field.widget_type == "checkboxselectmultiple" or field.name == "weekdays" %}
-    <span class="field__label">{{ field.label }}</span>
-    {% if field.help_text %}<div class="field__help">{{ field.help_text }}</div>{% endif %}
+    <span class="field__label" id="{{ field.auto_id }}_label">{{ field.label }}</span>
+    {% if field.help_text %}<div class="field__help" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</div>{% endif %}
     {% comment %}
       Duas opções curtas e mutuamente exclusivas viram um segmented control:
       dois botões colados dividindo uma moldura, com o escolhido preenchido.
@@ -41,7 +50,8 @@ pelo form.
       porque foi lá que o padrão nasceu; o que ele é de fato é a moldura que
       permite mostrar seleção sem `:has()`.
     {% endcomment %}
-    <ul class="choice-list{% if field.name == 'sex' %} segmented{% elif field.name == 'weekdays' %} choice-list--dias{% endif %}">
+    <ul class="choice-list{% if field.name == 'sex' %} segmented{% elif field.name == 'weekdays' %} choice-list--dias{% endif %}"
+        role="group" aria-labelledby="{{ field.auto_id }}_label"{% if field.help_text or field.errors %} aria-describedby="{% if field.help_text %}{{ field.auto_id }}_helptext{% endif %}{% if field.help_text and field.errors %} {% endif %}{% if field.errors %}{{ field.auto_id }}_error{% endif %}"{% endif %}>
       {% for subwidget in field %}
         <li>
           <label>{{ subwidget.tag }}<span class="segmented__fundo" aria-hidden="true"></span><span class="segmented__texto">{{ subwidget.choice_label }}</span></label>
@@ -50,7 +60,7 @@ pelo form.
     </ul>
   {% else %}
     <label class="field__label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-    {% if field.help_text %}<div class="field__help">{{ field.help_text }}</div>{% endif %}
+    {% if field.help_text %}<div class="field__help" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</div>{% endif %}
     {% if field.field.widget.attrs.sufixo %}
       {% comment %}
         A unidade fica DENTRO do campo, encostada à direita.
@@ -97,7 +107,7 @@ pelo form.
   {% endif %}
 
   {% if field.errors %}
-    <ul class="field__errors">
+    <ul class="field__errors" id="{{ field.auto_id }}_error">
       {% for error in field.errors %}<li>{{ error }}</li>{% endfor %}
     </ul>
   {% endif %}
