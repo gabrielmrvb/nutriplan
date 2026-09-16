@@ -54,12 +54,18 @@ class OClaroEOPadraoTests(TestCase):
 
     def test_a_moldura_do_navegador_acompanha_a_base(self):
         """`theme-color` e manifesto pintam a barra de status e a tela de
-        abertura do app instalado ANTES da página. Divergir do fundo real
-        produz uma emenda visível de meio segundo toda vez que o app abre —
-        e já aconteceu, numa troca de paleta anterior."""
-        self.assertEqual(settings.PWA_THEME_COLOR, "#f4f6f5")
-        self.assertEqual(settings.PWA_BACKGROUND_COLOR, "#f4f6f5")
-        self.assertEqual(settings.PWA_DARK_COLOR, "#070c0b")
+        abertura ANTES da página. Divergir do fundo real produz uma emenda
+        visível de meio segundo toda vez que o app abre — e já aconteceu.
+        A trava lê o `--bg` de cada tema no CSS em vez de repetir o hex:
+        assim a Mesa & Ferro (15/09/2026) troca a paleta sem que este teste
+        vire uma segunda cópia dela."""
+        from config.tests import _tokens
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(encoding="utf-8")
+        claro = _tokens(css, ":root {")
+        escuro = _tokens(css, "prefers-color-scheme: dark) {" + chr(10) + "  :root {")
+        self.assertEqual(settings.PWA_THEME_COLOR, claro["--bg"])
+        self.assertEqual(settings.PWA_BACKGROUND_COLOR, claro["--bg"])
+        self.assertEqual(settings.PWA_DARK_COLOR, escuro["--bg"])
 
     def test_a_folha_e_legivel_como_objeto_grafico_nos_dois_temas(self):
         """3:1 contra a trilha vazia do anel (WCAG 1.4.11), medido — e não o

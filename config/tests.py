@@ -301,14 +301,26 @@ def _contraste(cor, fundo):
 
 
 def _tokens(css, escopo):
-    """Lê as variáveis de cor de um bloco `:root` (ou do bloco do tema claro)."""
+    """Lê as variáveis de cor de um bloco (`:root`, tema escuro, `body.modo-foco`).
+
+    Desde a Mesa & Ferro (15/09/2026) os blocos-gatilho não carregam hex:
+    escrevem `--bg: var(--ferro-bg)`, e o valor mora UMA vez no `:root`.
+    Este leitor resolve o `var()` contra o `:root` para que todo teste de
+    contraste continue medindo cor de verdade — sabotar um hex de
+    `--ferro-*` deixa os testes do escuro vermelhos, que é o controle.
+    """
     trecho = css.split(escopo, 1)[1].split("}", 1)[0]
+    raiz = None
     valores = {}
     for linha in trecho.splitlines():
         linha = linha.strip()
         if linha.startswith("--") and ":" in linha:
             nome, valor = linha.split(":", 1)
             valor = valor.split(";")[0].strip()
+            if valor.startswith("var(--") and valor.endswith(")"):
+                if raiz is None:
+                    raiz = _tokens(css, ":root {") if escopo != ":root {" else {}
+                valor = raiz.get(valor[4:-1], valor)
             if valor.startswith("#") and len(valor) == 7:
                 valores[nome.strip()] = valor
     return valores
