@@ -341,19 +341,50 @@ Achou defeito no escopo? O laço é:
 REPRODUZA → CLASSIFIQUE → CORRIJA → TESTE → BROWSER QA → SABOTE → REVALIDE
 ```
 
-### Pare somente por bloqueio humano real
+### DECIDA E REGISTRE — as quatro únicas paradas (regra permanente, 17/09/2026)
 
-Credencial que só a pessoa tem · 2FA · CAPTCHA · pagamento · aceite legal ·
-conta em serviço externo · operação destrutiva relevante · risco de perda de
-dado real · decisão de produto com alternativas materialmente diferentes ·
-decisão arquitetural fora do contrato — e o portão de `nutriplan-architecture`
-é mais largo que "irreversível": **escolha de fundo que precisa ser feita antes
-de existir código** para aí, com as opções e os custos · teste físico que exige
-o aparelho · autorização para usar dado ou conta real · conflito de requisitos
-que o contrato não resolve · infraestrutura externa fora do ar sem alternativa
-segura.
+Uma sessão só para e pergunta quando UMA destas vale:
 
-Encontrou algo inesperado que não está nessa lista? **Investigue primeiro.**
+1. **gasta dinheiro novo** — plano do Render, serviço pago, API cobrada;
+2. **apaga ou altera dado de usuário real em produção**;
+3. **muda direção visual ou de produto que ainda não está escrita** em
+   `DESIGN.md` / `TREINO.md`;
+4. **precisa de credencial que não existe no ambiente**.
+
+Tudo o mais — escolha técnica, ordem de execução, defaults de infra,
+tolerância de teste, rótulo de texto, nome de campo, parâmetro de motor —
+decide com o melhor padrão, registra em **"Decisões que tomei sozinha"** com
+uma linha de razão, e segue. Vetos vêm depois, no relatório; nunca antes.
+A lista antiga desta seção (2FA, CAPTCHA, pagamento, aceite legal, dado
+real, decisão de produto fora da spec, credencial inexistente) cabe inteira
+nas quatro condições; o que ficava de fora dela — "decisão arquitetural",
+"alternativas materialmente diferentes" — agora se decide e se registra.
+
+**Padrões já decididos — não perguntar de novo:** superpowers em toda
+missão · TDD + sabotagem 100 % vermelha + revisão adversarial + suíte · o
+gate é o CI, fluxo branch → PR → merge pela API (`enforce_admins: true`,
+merge commit) · deploy provado por `/saude/` + smoke + QA em produção com
+conta descartável pelo signup público, conta apagada pela tela, demo
+intacto · `scripts/qa/nav.py` (CDP) para navegador, inclusive sites de
+terceiros na sessão logada do dono (Render, GitHub, claude.ai) · mídia de
+exercício ativa com curadoria e mosaico para veto posterior · plano ativo
+antigo nunca remonta sozinho · o teste dourado da ficha nunca afrouxa · spec
+(`DESIGN.md` / `TREINO.md`) vence proposta externa, e a divergência vai para
+"recomendo rever" · segredo nunca no repositório nem no relatório.
+
+**Relatório:** "O que preciso de você" só lista itens que caem nas quatro
+condições. Lista vazia se escreve "nada" — e a sessão vai para o próximo
+item do plano mestre sem esperar.
+
+**Coordenação entre sessões:** antes de tocar arquivo em comum, a sessão
+avisa as outras pelo ledger compartilhado —
+`C:\Users\biel-\nutriplan-ledger.md`, fora de qualquer worktree, uma linha
+por aviso (`data hora · sessão · arquivo · o que vai fazer`), lido antes de
+editar e escrito antes de commitar. Conflito de merge é resolvido por quem
+faz o rebase.
+
+Encontrou algo inesperado que não cai nas quatro? **Investigue, decida,
+registre.**
 
 ---
 
