@@ -846,7 +846,19 @@ class PrescriptionFields(models.Model):
         return f"{self.rest_seconds}s"
 
 
-def instrucao_de_esforco(item, serie, experiencia) -> str:
+#: Até este `rep_max` a última série de composto diz "mesmo passando de N":
+#: a faixa é alvo de progressão, não teto — quem fecha 10 com 1 a 2 sobrando
+#: faz 11 (Helms 2016: RIR governa, o número é orientação). Acima disso
+#: (15, 20) a faixa já é longa e o aviso vira ruído.
+REP_MAX_EM_QUE_A_FAIXA_NAO_E_TETO = 12
+
+#: A partir desta idade nenhuma série pede falha, nem o isolador: em quem
+#: tem 65 ou mais a recuperação e o risco articular pesam mais que a última
+#: repetição (Fragala 2019, posição da NSCA para idosos).
+IDADE_CAUTELOSA = 65
+
+
+def instrucao_de_esforco(item, serie, experiencia, cauteloso=False) -> str:
     """Quão perto da falha levar ESTA série, para ESTA pessoa.
 
     Existia como `intensidade` — "1 a 2 na reserva" no composto, "até a
@@ -867,6 +879,14 @@ def instrucao_de_esforco(item, serie, experiencia) -> str:
     `teto_semanal_de`: a tela nunca afirma nível que a pessoa não declarou.
     Segundos (prancha) não têm repetição para reservar: o limite é a técnica.
 
+    T2.2 (17/09/2026), duas coisas a mais:
+
+    - a ÚLTIMA série de composto com `rep_max` até 12 diz "mesmo passando de
+      N": a faixa de reps é alvo de progressão, não teto — quem chega em 10
+      com 1 a 2 sobrando continua. Com faixa longa (15+) o aviso não entra;
+    - `cauteloso` (65 anos ou mais, `IDADE_CAUTELOSA`) nunca lê "falha", nem
+      no isolador: a última série pede 1 na reserva e técnica limpa.
+
     É função pura, sem consulta, para a execução chamá-la por série e o
     teste medi-la sem banco.
     """
@@ -877,11 +897,21 @@ def instrucao_de_esforco(item, serie, experiencia) -> str:
     if item.measure == Measure.SECONDS:
         return "Segure até a técnica ceder."
     iniciante = experiencia == "iniciante"
+    ultima = serie is not None and serie >= item.sets
+    rep_max = getattr(item, "rep_max", None) or 0
     if item.exercise.is_compound:
-        if iniciante:
+        conservador = iniciante or cauteloso
+        if ultima and 0 < rep_max <= REP_MAX_EM_QUE_A_FAIXA_NAO_E_TETO:
+            # Medido a 320px em 17/09: "Pare com 1–2 sobrando, mesmo passando
+            # de 10." (44 caracteres) quebrava em duas linhas; esta cabe em uma.
+            return "%s sobrando, mesmo passando de %d." % ("2" if conservador else "1 a 2", rep_max)
+        if conservador:
             return "2 sobrando: técnica antes de peso."
         return "1 a 2 repetições na reserva, sem falhar."
-    ultima = serie is not None and serie >= item.sets
+    if cauteloso:
+        if ultima:
+            return "Última série: 1 na reserva, técnica limpa."
+        return "1 a 2 na reserva, técnica limpa."
     if ultima:
         return "Última série: até a falha, na faixa."
     return "1 a 2 na reserva; falha só na última série."

@@ -1056,6 +1056,21 @@ campo abre com `valor` em toda série (antes a terceira abria com 55 — a
 mesma série da última vez — enquanto a frase falava de 60). `services.
 proxima_carga` é o alias que continua servindo os testes de b14efff.
 
+**A FAIXA DE REPETIÇÕES É ALVO, NÃO TETO — e quem tem 65 anos ou mais nunca
+lê "falha" (T2.2, 17/09/2026).** `instrucao_de_esforco(item, serie,
+experiencia, cauteloso=False)` diz, na ÚLTIMA série de composto com
+`rep_max` até 12 (`REP_MAX_EM_QUE_A_FAIXA_NAO_E_TETO`), "1 a 2 sobrando,
+mesmo passando de 10": quem chega em 10 com 1 a 2 na reserva faz 11 — o RIR
+governa, o número orienta (Helms 2016). Com faixa longa (15, 20) o aviso não
+entra: seria ruído. `cauteloso` é `perfil.age >= IDADE_CAUTELOSA` (65,
+Fragala 2019/NSCA), lido em `services` no mesmo ponto que a experiência,
+do perfil já carregado — zero consulta a mais —, e tira a falha até do
+isolador ("Última série: 1 na reserva, técnica limpa."). Toda frase cabe
+numa linha a 320px, e a régua foi MEDIDA, não só contada: "Pare com 1–2
+sobrando, mesmo passando de 10." tem 44 caracteres — o teto do teste — e
+quebrava em duas linhas a 320 e 360; a de 37 cabe. A tela não mudou:
+`agora.html` já lia `atual.esforco`.
+
 **Duração tem UMA conta, e ela é `workouts.models.segundos_da_sessao`.**
 Existiam duas cópias, uma sobre linhas gravadas e outra sobre tuplas, com um
 teste prendendo as duas; prender duas cópias é pior que ter uma.

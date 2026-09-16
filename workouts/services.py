@@ -46,6 +46,7 @@ from .models import (
     TrainingPlan,
     TrainingSession,
     WorkoutTemplate,
+    IDADE_CAUTELOSA,
     instrucao_de_esforco,
     segundos_da_sessao,
     EscolhaDeTreino,
@@ -3229,7 +3230,15 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
     # `getattr` e não `user.profile`: quem chega aqui já passou pelo
     # onboarding, mas o perfil pode não estar em cache, e `""` (não
     # respondeu) tem de virar o texto do intermediário, nunca um erro.
-    experiencia = getattr(getattr(user, "profile", None), "experiencia", "") or ""
+    perfil = getattr(user, "profile", None)
+    experiencia = getattr(perfil, "experiencia", "") or ""
+    # 65+ nunca lê "falha" (T2.2): a idade sai do perfil já carregado, no
+    # mesmo ponto que a experiência — zero consulta a mais.
+    cauteloso = (
+        perfil is not None
+        and getattr(perfil, "birth_date", None) is not None
+        and perfil.age >= IDADE_CAUTELOSA
+    )
 
     for item in itens:
         item.load = historico.get(item.exercise_id) or {}
@@ -3253,7 +3262,7 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
         item.sugestao_reps = _sugestao_de_reps(item, item.serie_prevista)
         # A instrução de esforço da série da vez, pelo nível da pessoa. Uma
         # leitura do perfil para a sessão inteira, feita acima.
-        item.esforco = instrucao_de_esforco(item, item.serie_prevista, experiencia)
+        item.esforco = instrucao_de_esforco(item, item.serie_prevista, experiencia, cauteloso)
         item.set_rows = linhas_de_serie(item, item.load)
 
     pendente = next((item for item in itens if not item.concluido), None)

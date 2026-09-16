@@ -857,12 +857,20 @@ perfil.age >= 65`, lido no mesmo ponto que `experiencia`),
 `<span class="agora__anterior-sugestao">`); Tests: `workouts/test_esforco.py`,
 `test_dupla_progressao.py` (ATelaTests).
 
-- [ ] **Teste que falha:** rep_max=10, última série de composto → contém
+- [x] **Teste que falha:** rep_max=10, última série de composto → contém
   "mesmo passando de 10" e não "falha"; rep_max=15 → não contém;
   `age >= 65` + composto → nunca "falha"; `_sugestao_de_*` leem `MUDA_CARGA`.
-- [ ] Medir y do CTA ANTES; implementar → verde; sabotagem: `<= 12` → `<= 5`
+- [x] Medir y do CTA ANTES; implementar → verde; sabotagem: `<= 12` → `<= 5`
   → vermelho. QA: `.series__esforco` uma linha a 320; y DEPOIS nas 5
   larguras + 360×800 com a frase mais longa. Commit.
+  *Feito em 17/09/2026: 16 testes em `test_esforco.py`; cinco sabotagens
+  vermelhas (teto 5, idade exclusiva, `cauteloso` não chega à tela, isolador
+  do cauteloso à falha, última série sem aviso). Medido a 320/360/375/390/
+  430/1280: a frase de 44 caracteres ("Pare com 1–2 sobrando, mesmo passando
+  de 10.") quebrava em DUAS linhas a 320 e 360 — ficou "1 a 2 sobrando,
+  mesmo passando de 10." (37), uma linha em todas; CTA com a mesma altura
+  de linha da frase de antes (40 caracteres). `agora.html` não foi tocado:
+  os estados novos no `<span class="agora__anterior-sugestao">` são do T2.3.*
 
 #### T2.3 — RETOMAR e ESTAGNADO falam; nunca baixam número
 
