@@ -61,6 +61,17 @@ def duracoes_cruas(css):
     return achados
 
 
+#: Catraca dos keyframes sem consumidor. Só desce.
+KEYFRAMES_ORFAOS_TETO = 0
+
+#: O que o shorthand `animation` escreve e que NÃO é nome de keyframe.
+PALAVRAS_DO_SHORTHAND = frozenset(
+    "none infinite both forwards backwards normal reverse alternate alternate-reverse "
+    "running paused ease ease-in ease-out ease-in-out linear step-start step-end steps "
+    "cubic-bezier var calc s ms".split()
+)
+
+
 def keyframes_orfaos(css):
     """Cada `@keyframes X` que nenhuma `animation`/`animation-name` dispara.
 
@@ -68,9 +79,13 @@ def keyframes_orfaos(css):
     explicação, e `serie-ok` mencionado num comentário não é consumidor."""
     declarados = set(re.findall(r"@keyframes\s+([\w-]+)", css))
     usados = set()
-    for corpo in re.findall(r"animation(?:-name)?\s*:\s*([^;]+);", css):
+    # `[;}]` fecha a declaração: a última de um bloco pode vir sem `;`, e
+    # `[^;]+` engoliria a regra seguinte — o mesmo cuidado de `duracoes_cruas`.
+    for corpo in re.findall(r"animation(?:-name)?\s*:\s*([^;{}]+)[;}]", css):
         usados.update(re.findall(r"[a-zA-Z_][\w-]*", corpo))
-    return sorted(declarados - usados)
+    # Palavra do shorthand não é nome de keyframe: `@keyframes both` existiria
+    # órfão e passaria escondido atrás do `both` de qualquer `animation`.
+    return sorted(declarados - (usados - PALAVRAS_DO_SHORTHAND))
 
 
 def _partes_reduzidas(css):
@@ -147,8 +162,7 @@ class KeyframeSemConsumidorTests(SimpleTestCase):
     consumidor no mesmo commit. `varrer` sai porque o anel nascia varrendo a
     cada abertura — movimento que não confirma ação nenhuma."""
 
-    #: Catraca: keyframes declarados sem `animation` que os dispare. Só desce.
-    TETO = 0
+    TETO = KEYFRAMES_ORFAOS_TETO
 
     def test_o_leitor_enxerga_um_orfao(self):
         """Controle positivo do leitor: sem isto, um CSS que declarasse os
@@ -158,6 +172,13 @@ class KeyframeSemConsumidorTests(SimpleTestCase):
         self.assertEqual(keyframes_orfaos("@keyframes x { } .a { animation: x 1s; }"), [])
         # `animation-name` também conta como consumidor.
         self.assertEqual(keyframes_orfaos("@keyframes x { } .a { animation-name: x; }"), [])
+        # Duas animações na mesma declaração; a última do bloco sem `;`.
+        self.assertEqual(keyframes_orfaos("@keyframes x { } @keyframes y { } .a { animation: x 1s, y 2s }"), [])
+        self.assertEqual(keyframes_orfaos("@keyframes x { } .a { animation: y 1s } .x { color: red; }"), ["x"])
+        # Palavra do shorthand não esconde um keyframe com o mesmo nome.
+        self.assertEqual(keyframes_orfaos("@keyframes both { } .a { animation: y 1s both; }"), ["both"])
+        # O leitor recebe CSS SEM comentários; com comentário, a menção contaria.
+        self.assertEqual(keyframes_orfaos(sem_comentarios("@keyframes x { } /* animation: x; */")), ["x"])
 
     def test_todo_keyframe_tem_quem_o_anime(self):
         orfaos = keyframes_orfaos(CSS_LIMPO)
