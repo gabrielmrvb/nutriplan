@@ -1,56 +1,71 @@
 {% comment %}
-Sprite dos ícones do onboarding.
+Sprite dos ícones do app.
 
 Um `<symbol>` por desenho, referenciado com `<use href="#icone-x">`. O sprite
-entra uma vez na página e cada cartão só aponta para ele — repetir os traços
-em cada cartão multiplicaria o mesmo desenho por quatro e faria versões
-divergirem na primeira vez que alguém ajustasse um deles.
+entra UMA vez por página — `base.html` o inclui logo depois do `<body>`, fora
+do shell offline — e cada consumidor só aponta para ele. Repetir os traços em
+cada cartão multiplicaria o mesmo desenho por quatro e faria versões divergirem
+na primeira vez que alguém ajustasse um deles; incluir o sprite de novo numa
+tela (o onboarding e a vitrine faziam isso até 16/09/2026) duplica `id` sem
+erro nenhum, e o segundo fica na página como peso morto.
 
-Todos os desenhos são de traço (`stroke`), sem preenchimento, com a mesma
-espessura dos ícones da navegação inferior — é o que faz o conjunto parecer
-uma família e não uma coleção.
+Todos os desenhos são de traço (`stroke`), sem preenchimento, na grade de 24
+e com traço 2 — o mesmo dos ícones da navegação inferior (direção C §7). O
+consumidor NÃO redefine a espessura: ele só diz a cor (`stroke="currentColor"`)
+e o `fill="none"`; `config/test_sprite.py` recusa traço fracionário em quem
+usa o sprite.
+
+O `stroke-width="2"` está na raiz E em cada `<symbol>`, e a repetição não é
+descuido. O `<use>` clona o SÍMBOLO para dentro do consumidor, e o clone herda
+do consumidor — nunca da raiz deste arquivo, que fica onde está. Medido no
+Chrome em 16/09/2026 com a espessura só na raiz: consumidor sem
+`stroke-width` desenhou o alvo com 1 397 px de tinta, o mesmo que
+`stroke-width="1"` (o valor inicial do SVG); com `"2"`, 2 789. Ou seja, a raiz
+sozinha deixava os cartões de escolha mais finos do que os 1.7 que tinham. A
+raiz continua como declaração legível do traço; quem chega ao desenho é o
+atributo do símbolo.
 {% endcomment %}
-<svg class="sprite" aria-hidden="true" focusable="false" width="0" height="0">
+<svg class="sprite" aria-hidden="true" focusable="false" width="0" height="0" stroke-width="2">
   <defs>
     {# Chama — emagrecer #}
-    <symbol id="icone-chama" viewBox="0 0 24 24">
+    <symbol id="icone-chama" viewBox="0 0 24 24" stroke-width="2">
       <path d="M12 2.6c.7 2.2 2.1 3.3 3.3 4.7A6.6 6.6 0 1 1 5.4 12c0-1.5.5-2.6 1.4-3.6.2 1.1.7 1.8 1.5 2.2-.4-3.2.9-5.8 3.7-8Z"/>
       <path d="M12 20.5a3.1 3.1 0 0 0 3.1-3.1c0-1.5-1.2-2.5-1.9-3.6-.6 1.2-1.4 1.7-2.3 2.1-.9.4-2 1-2 2.4a3.1 3.1 0 0 0 3.1 2.2Z"/>
     </symbol>
 
     {# Halter — ganhar massa #}
-    <symbol id="icone-halter" viewBox="0 0 24 24">
+    <symbol id="icone-halter" viewBox="0 0 24 24" stroke-width="2">
       <path d="M3 10v4M6.5 7.5v9M17.5 7.5v9M21 10v4M6.5 12h11"/>
     </symbol>
 
     {# Raio — os dois ao mesmo tempo #}
-    <symbol id="icone-raio" viewBox="0 0 24 24">
+    <symbol id="icone-raio" viewBox="0 0 24 24" stroke-width="2">
       <path d="M13 2.5 5 13.5h5.5L10 21.5l8.5-11h-5.5l1-8Z"/>
     </symbol>
 
     {# Balança de dois pratos — manter o peso #}
-    <symbol id="icone-balanca" viewBox="0 0 24 24">
+    <symbol id="icone-balanca" viewBox="0 0 24 24" stroke-width="2">
       <path d="M12 4v16M8.5 20h7M5 8h14M12 5.4 5 8M12 5.4 19 8"/>
       <path d="M5 8 2.4 13.6a2.9 2.9 0 0 0 5.2 0L5 8Z"/>
       <path d="M19 8l-2.6 5.6a2.9 2.9 0 0 0 5.2 0L19 8Z"/>
     </symbol>
 
     {# Notebook na escrivaninha — sentado o dia todo #}
-    <symbol id="icone-escrivaninha" viewBox="0 0 24 24">
+    <symbol id="icone-escrivaninha" viewBox="0 0 24 24" stroke-width="2">
       <path d="M5 5.5h14v9H5z"/>
       <path d="M2.5 18.5h19l-2-4h-15l-2 4Z"/>
       <path d="M10 18.5h4"/>
     </symbol>
 
     {# Bicicleta — movimento leve #}
-    <symbol id="icone-bicicleta" viewBox="0 0 24 24">
+    <symbol id="icone-bicicleta" viewBox="0 0 24 24" stroke-width="2">
       <circle cx="6" cy="16.5" r="3.5"/>
       <circle cx="18" cy="16.5" r="3.5"/>
       <path d="M6 16.5 10 8h4.5l3.5 8.5M9.5 8h5.5M14.5 8l1.5-3h2"/>
     </symbol>
 
     {# Chave e martelo — trabalho braçal #}
-    <symbol id="icone-ferramentas" viewBox="0 0 24 24">
+    <symbol id="icone-ferramentas" viewBox="0 0 24 24" stroke-width="2">
       <path d="M14.2 5.4a3.6 3.6 0 0 0 4.8 4.8l-9 9a2.1 2.1 0 0 1-3-3l9-9Z"/>
       <path d="M4.6 4.6 8 8M3.4 8 6.8 4.6"/>
     </symbol>
@@ -62,36 +77,36 @@ uma família e não uma coleção.
       deveria ficar la: "repetir o mesmo desenho em varios lugares custaria
       bytes e desencontraria versoes" — e agora ela e usada em dois.
     {% endcomment %}
-    <symbol id="icone-gota" viewBox="0 0 24 24">
+    <symbol id="icone-gota" viewBox="0 0 24 24" stroke-width="2">
       <path d="M12 3.5c3 3.6 5.5 6.3 5.5 9.4a5.5 5.5 0 0 1-11 0c0-3.1 2.5-5.8 5.5-9.4Z"/>
     </symbol>
 
-    <symbol id="icone-alvo" viewBox="0 0 24 24">
+    <symbol id="icone-alvo" viewBox="0 0 24 24" stroke-width="2">
       <circle cx="12" cy="12" r="8.5"/>
       <circle cx="12" cy="12" r="4.5"/>
       <circle cx="12" cy="12" r="1"/>
     </symbol>
 
     {# Duas metades — superior e inferior #}
-    <symbol id="icone-metades" viewBox="0 0 24 24">
+    <symbol id="icone-metades" viewBox="0 0 24 24" stroke-width="2">
       <rect x="3.5" y="3.5" width="17" height="7" rx="2"/>
       <rect x="3.5" y="13.5" width="17" height="7" rx="2"/>
     </symbol>
 
     {# Corpo inteiro — tudo na mesma sessão #}
-    <symbol id="icone-corpo" viewBox="0 0 24 24">
+    <symbol id="icone-corpo" viewBox="0 0 24 24" stroke-width="2">
       <circle cx="12" cy="4.6" r="2.3"/>
       <path d="M12 7.2v7.3M12 8.6 6.6 11M12 8.6 17.4 11M12 14.5 8.2 21M12 14.5 15.8 21"/>
     </symbol>
 
     {# Relógio — cardápio rápido #}
-    <symbol id="icone-relogio" viewBox="0 0 24 24">
+    <symbol id="icone-relogio" viewBox="0 0 24 24" stroke-width="2">
       <circle cx="12" cy="12" r="8.5"/>
       <path d="M12 7.2V12l3.2 2"/>
     </symbol>
 
     {# Panela — cardápio elaborado #}
-    <symbol id="icone-panela" viewBox="0 0 24 24">
+    <symbol id="icone-panela" viewBox="0 0 24 24" stroke-width="2">
       <path d="M4 10h16v5.5A3.5 3.5 0 0 1 16.5 19h-9A3.5 3.5 0 0 1 4 15.5Z"/>
       <path d="M4 12.5H2.2M20 12.5h1.8"/>
       <path d="M9 7.2c0-1 1-1.4 1-2.4M13 7.2c0-1 1-1.4 1-2.4"/>

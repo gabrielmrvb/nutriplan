@@ -9,16 +9,17 @@
   dentro da vitrine ou o teste avisa. Sem `style=`, sem `:has()`; o regime
   vem do servidor (`?regime=ferro` → `body.modo-foco`).
 
-  `partials/marca.html` e `partials/_conquista.html` NÃO entram aqui: as
-  duas bases (`templates/base.html` e `templates/gestao/base.html`) já os
-  incluem em TODA página — a marca no cabeçalho do painel, o aviso de
-  conquista no rodapé de `base.html`. Incluir de novo duplicaria o
-  `<div data-conquista>` e a marca; `CoberturaDaVitrineTests` soma os três
-  arquivos ao procurar cada parcial, não só este.
+  `partials/marca.html`, `partials/_conquista.html` e `partials/icones.html`
+  NÃO entram aqui: as duas bases (`templates/base.html` e
+  `templates/gestao/base.html`) já os incluem em TODA página — a marca no
+  cabeçalho do painel, o aviso de conquista no rodapé de `base.html`, o sprite
+  logo depois do `<body>` (desde 16/09/2026; esta tela o incluía por conta
+  própria e ficaria com dois `<symbol id>` iguais). Incluir de novo duplicaria
+  o `<div data-conquista>`, a marca e o sprite; `CoberturaDaVitrineTests` soma
+  os três arquivos ao procurar cada parcial, não só este.
 {% endcomment %}
 {% block title %}Vitrine · {{ regime|capfirst }} · NutriPlan{% endblock %}
 {% block content %}
-  {% include "partials/icones.html" %}
   <h1>Vitrine · {{ regime|capfirst }}</h1>
   <p class="hint">A mesma página nos dois regimes:
     <a href="{% url 'gestao:vitrine' %}">Mesa</a> ·

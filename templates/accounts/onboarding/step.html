@@ -78,7 +78,6 @@
           tabela do motor); sem JavaScript o servidor reabre a tela com o
           bloco visível e o erro no campo.
         {% endcomment %}
-        {% include "partials/icones.html" %}
         {% include "partials/choice_cards.html" with field=forms.objetivo.goal colunas=2 %}
         {% include "partials/choice_cards.html" with field=forms.objetivo.activity_level %}
         {% include "partials/field.html" with field=forms.rotina.experiencia %}
@@ -119,7 +118,6 @@
             {% endfor %}
           </dl>
         {% endif %}
-        {% include "partials/icones.html" %}
         {% include "partials/choice_cards.html" with field=forms.comida.meal_style %}
         {% include "partials/field.html" with field=forms.comida.dietary_tags %}
         {% if forms.areas.non_field_errors %}

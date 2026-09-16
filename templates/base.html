@@ -70,15 +70,22 @@
   empurrava o "Continuar" para fora da primeira tela.
 {% endcomment %}
 {% comment %}
-  O `<defs>` do gradiente da marca saiu daqui junto com a marca antiga.
+  Sprite dos ícones — em toda página, uma vez, fora do shell offline.
 
-  Ele existia porque a marca era um SVG desenhado com `linearGradient`, e a
-  mesma definição não podia repetir em duas marcas na mesma página. A
-  identidade aprovada é uma imagem: não há gradiente a definir, e o `<svg
-  class="sprite">` deste arquivo ficou sem conteúdo.
+  `partials/icones.html` (13 símbolos, 2,9 kB brutos, ~850 B gzip) entra logo
+  depois do `<body>`, e é a ÚNICA inclusão: o onboarding e a vitrine paravam de
+  incluí-lo por conta própria em 16/09/2026, porque `id` duplicado não dá erro
+  — o `<use>` resolve para o primeiro e o segundo fica como peso morto —, e a
+  vitrine teria dois no instante em que a base trouxesse o seu.
+  `config/test_sprite.py` conta `<symbol id="icone-chama"` por rota: exatamente
+  um. Medido em 16/09/2026: a ficha e a execução do treino crescem 2 939 bytes cada.
 
-  A classe `.sprite` continua viva — quem a usa agora é só o sprite de ícones
-  do onboarding, em `partials/icones.html`.
+  E ele NÃO entra no shell offline, pelo mesmo `{% if not shell_offline %}` do
+  mapa e do `data-usuario`: aquela tela é pré-cacheada no cache de estáticos,
+  que sobrevive ao logout, e o sprite é peso que ela não usa.
+
+  (O `<defs>` do gradiente da marca antiga que morava aqui saiu com ela; a
+  classe `.sprite` continua viva e é deste sprite.)
 {% endcomment %}
 {% comment %}
   `shell_offline` desliga TODA marca de sessão daqui para baixo. A tela de
@@ -125,6 +132,7 @@
         conta — sair da conta preserva a fila, excluir não tem volta.
       {% endcomment %}
       data-conta-excluida="{{ conta_excluida|default:'' }}">
+  {% if not shell_offline %}{% include "partials/icones.html" %}{% endif %}
   {% block header %}
     <header class="app-bar">
       <a class="app-bar__brand" href="{% if request.demo %}/demo/{% else %}{% url 'plans:today' %}{% endif %}">
@@ -285,7 +293,7 @@
     {% endcomment %}
     <div class="fila" data-fila hidden role="status" aria-live="polite">
       <span class="fila__icone" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 12a8 8 0 0 1 13.7-5.7L20 8"/><path d="M20 4v4h-4"/>
           <path d="M20 12a8 8 0 0 1-13.7 5.7L4 16"/><path d="M4 20v-4h4"/>
@@ -320,7 +328,7 @@
       <a class="tabbar__item {% if nav == 'today' %}is-active{% endif %}"
          {% if nav == 'today' %}aria-current="page"{% endif %}
          href="{% if request.demo %}/demo/hoje/{% else %}{% url 'plans:today' %}{% endif %}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M6 3v8a3 3 0 0 0 6 0V3"/><path d="M9 11v10"/>
           <path d="M17.5 3c-1.5 2-2 4-2 6.5 0 1.5.8 2.5 2 2.5s2-1 2-2.5c0-2.5-.5-4.5-2-6.5Z"/>
@@ -331,7 +339,7 @@
       <a class="tabbar__item {% if nav == 'workout' %}is-active{% endif %}"
          {% if nav == 'workout' %}aria-current="page"{% endif %}
          href="{% url 'workouts:routine' %}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M3 9v6"/><path d="M6 6.5v11"/><path d="M18 6.5v11"/><path d="M21 9v6"/>
           <path d="M6 12h12"/>
@@ -341,7 +349,7 @@
       <a class="tabbar__item {% if nav == 'history' %}is-active{% endif %}"
          {% if nav == 'history' %}aria-current="page"{% endif %}
          href="{% url 'plans:history' %}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M2 20h20"/>
         </svg>
@@ -368,7 +376,7 @@
       <a class="tabbar__item {% if nav == 'areas' or nav == 'profile' or nav == 'running' or nav == 'hydration' %}is-active{% endif %}"
          {% if nav == 'areas' %}aria-current="page"{% elif nav == 'profile' or nav == 'running' or nav == 'hydration' %}aria-current="true"{% endif %}
          href="{% url 'areas' %}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="3" y="3" width="7" height="7" rx="1.5"/>
           <rect x="14" y="3" width="7" height="7" rx="1.5"/>
