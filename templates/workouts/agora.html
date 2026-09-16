@@ -93,7 +93,13 @@
       <a class="btn btn--primary btn--block" href="{% url 'workouts:ficha' estado.sessao.pk %}">
         Ver o treino completo
       </a>
-      <a class="btn btn--ghost btn--block" href="{% url 'workouts:health_export' %}">
+      {% comment %}
+        `download`: a resposta é um arquivo (Content-Disposition: attachment), a
+        página não troca — e o link-botão só marca `is-carregando` em quem vai
+        navegar (pwa.js). Sem o atributo, o anel ficaria girando depois de o
+        arquivo salvar.
+      {% endcomment %}
+      <a class="btn btn--ghost btn--block" href="{% url 'workouts:health_export' %}" download>
         Exportar para o app de saúde
       </a>
 

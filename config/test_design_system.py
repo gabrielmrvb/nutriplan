@@ -706,6 +706,9 @@ class OEspacamentoNaoVoltaParaODentroDoHTMLTests(SimpleTestCase):
 
 RAIZ_TEMPLATES = CSS.parent.parent.parent / "templates"
 PWA_JS = CSS.parent.parent / "js" / "pwa.js"
+#: O atributo `download` numa tag `<a …>`: precedido de espaço, seguido de
+#: espaço, `>` ou `=` — `downloads` numa classe não conta.
+TEM_DOWNLOAD = re.compile(r"\sdownload(\s|>|=)")
 
 
 def botoes_sem_variante(texto):
@@ -785,6 +788,27 @@ class LinkBotaoAvisaQueEstaIndoTests(SimpleTestCase):
         )
         self.assertRegex(self.js, r'classList\.add\("is-carregando"\)')
         self.assertRegex(self.js, r'setAttribute\("aria-busy", "true"\)')
+
+    def test_o_link_que_baixa_arquivo_diz_download(self):
+        """`workouts:health_export` responde `Content-Disposition: attachment`:
+        a página NÃO troca, o arquivo salva. Sem `download` no `<a class="btn">`,
+        o anel de `is-carregando` ficaria girando depois de o TCX salvar — foi
+        o primeiro caso que a N5 achou ao testar no navegador."""
+        raiz = CSS.parent.parent.parent / "templates"
+        sem_download = []
+        for arquivo in sorted(raiz.rglob("*.html")):
+            texto = arquivo.read_text(encoding="utf-8")
+            for m in re.finditer(r"<a [^>]*workouts:health_export[^>]*>", texto):
+                if not TEM_DOWNLOAD.search(m.group(0)):
+                    sem_download.append(f"{arquivo.relative_to(raiz)}: {m.group(0)}")
+        self.assertEqual(sem_download, [], "link que baixa arquivo sem `download`")
+
+    def test_o_leitor_enxerga_o_link_sem_download(self):
+        """Controle positivo do regex acima: um `<a>` de exportação sem o
+        atributo tem de ser flagrado, e `downloads` (outra palavra) não conta."""
+        self.assertIsNone(TEM_DOWNLOAD.search('<a class="btn" href="/treino/exportar/">'))
+        self.assertIsNotNone(TEM_DOWNLOAD.search('<a class="btn" href="/treino/exportar/" download>'))
+        self.assertIsNone(TEM_DOWNLOAD.search('<a class="downloads" href="x">'))
 
     def test_o_que_nao_troca_de_pagina_fica_de_fora(self):
         """`target` abre outra aba, `download` guarda arquivo, `#` fica na
