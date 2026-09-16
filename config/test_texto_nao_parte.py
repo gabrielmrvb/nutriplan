@@ -64,4 +64,19 @@ class RotuloDaListaDeDadosNaoParteTests(SimpleTestCase):
         self.assertRegex(
             self.css, r"h1, h2, h3, p, li, dt, dd, span, strong, b, a, button, label \{\s*overflow-wrap: anywhere"
         )
+class NumeroDoMacroNaoECortadoTests(SimpleTestCase):
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
 
+    def test_a_meta_do_macro_nao_esconde_a_ultima_cifra(self):
+        corpo = _regra(self.css, ".hero-macros__meta")
+        self.assertIsNotNone(corpo, "a regra .hero-macros__meta sumiu")
+        self.assertNotIn("overflow: hidden", corpo)
+        self.assertNotIn("text-overflow", corpo)
+        self.assertIn("white-space: nowrap", corpo)
+        self.assertIn("flex: none", corpo)
+
+    def test_o_item_do_macro_quebra_a_linha_em_vez_de_encolher_o_numero(self):
+        corpo = _regra(self.css, ".hero-macros__item")
+        self.assertIsNotNone(corpo)
+        self.assertIn("flex-wrap: wrap", corpo)

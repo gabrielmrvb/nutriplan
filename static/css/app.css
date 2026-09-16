@@ -1356,11 +1356,13 @@ h3 {
 
 .hero-macros__item {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: .3rem;
   min-width: 0;
   font-size: .76rem;
 }
+.hero-macros__valor { flex: none; }
 
 /* O ponto é redondo e a linha alinha por baseline: sem `align-self` ele
    desceria junto com o texto e sairia do lugar. */
@@ -1389,12 +1391,16 @@ h3 {
 .hero-macros__item--chave .hero-macros__nome { color: var(--text); }
 .hero-macros__item--chave .hero-macros__valor { font-size: 1.12rem; font-weight: 780; }
 
+/* Sem `overflow: hidden` nem reticências: o `letter-spacing` negativo de `.num`
+   encurta o avanço da última cifra e a tinta dela passa da caixa — "/140"
+   saía "/14C", com o zero cortado pela metade (medido em produção em
+   16/09/2026, avaliação B26). Número não se resume com "…"; se um dia não
+   couber, o item quebra a linha (`flex-wrap` em `.hero-macros__item`) e
+   continua legível. */
 .hero-macros__meta {
-  min-width: 0;
-  overflow: hidden;
+  flex: none;
   color: var(--text-mute);
   font-variant-numeric: tabular-nums;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .today-hero__left { margin: 0; font-size: 1.05rem; line-height: 1.3; }
