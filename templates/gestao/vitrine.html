@@ -1,0 +1,12 @@
+{% extends "gestao/base.html" %}
+{% block title %}Vitrine · {{ regime|capfirst }} · NutriPlan{% endblock %}
+{% block content %}
+  <h1>Vitrine · {{ regime|capfirst }}</h1>
+  <p class="hint">A mesma página nos dois regimes:
+    <a href="{% url 'gestao:vitrine' %}">Mesa</a> ·
+    <a href="{% url 'gestao:vitrine' %}?regime=ferro">Ferro</a></p>
+  <section class="card">
+    <div class="card__head"><h2>Campo com erro</h2></div>
+    <form>{% include "partials/field.html" with field=form_com_erro.email %}</form>
+  </section>
+{% endblock %}

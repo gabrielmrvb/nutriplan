@@ -85,7 +85,7 @@
   offline é pré-cacheada uma vez e servida a qualquer pessoa que pegue o
   aparelho depois — gravar identidade nela seria entregar a conta anterior.
 {% endcomment %}
-<body class="{% if user.is_authenticated and not sem_tabbar and not shell_offline %}tem-tabbar{% endif %}"
+<body class="{% if body_class %}{{ body_class }} {% endif %}{% if user.is_authenticated and not sem_tabbar and not shell_offline %}tem-tabbar{% endif %}"
       data-autenticado="{% if user.is_authenticated and not shell_offline %}1{% else %}0{% endif %}"
       {% if shell_offline %}data-shell-offline="1"{% endif %}
       {% comment %}
