@@ -18,7 +18,13 @@
 set -o errexit
 set -o pipefail
 
+# A RAIZ é onde moram o `.venv` e o `.env`: o worktree de onde o push sai e,
+# quando ele não os tem (um worktree ligado, recém-criado), o repositório
+# principal (`--git-common-dir` aponta para o `.git` de verdade).
 RAIZ="$(git rev-parse --show-toplevel)"
+if [ ! -x "$RAIZ/.venv/Scripts/python.exe" ]; then
+  RAIZ="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+fi
 PY="$RAIZ/.venv/Scripts/python.exe"
 [ -x "$PY" ] || PY="python"
 
