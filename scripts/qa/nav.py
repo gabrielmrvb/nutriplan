@@ -219,6 +219,21 @@ class Sessao:
         qual = json.loads(cfg.read_text())
         valor = "dark" if qual == "escuro" else "light"
         self.cmd("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": valor}])
+        # A emulação vale na hora; o RECÁLCULO não. Esta conexão é nova — a
+        # anterior morreu e levou o tema junto, e a página voltou ao claro —,
+        # e o Chrome só refaz o estilo numa tarefa posterior: medido em
+        # 16/09/2026, `getComputedStyle(body).color` ainda era o de Mesa
+        # logo depois do `setEmulatedMedia` e virava Ferro 34 ms depois; uma
+        # captura nesse intervalo saía com texto claro sobre fundo escuro
+        # (`/treino/` e `/` a 390 e 1280). Dois `requestAnimationFrame` NÃO
+        # bastaram. Aqui espera-se a cor do `body` MUDAR (o tema trocou) ou
+        # 300 ms (não trocou) antes de qualquer comando.
+        self.eval(
+            "new Promise(r => { const c0 = getComputedStyle(document.body).color;"
+            " const t0 = performance.now(); const t = setInterval(() => {"
+            " const c = getComputedStyle(document.body).color;"
+            " if (c !== c0 || performance.now() - t0 > 300) { clearInterval(t); r(c); } }, 15); })"
+        )
 
     def screenshot(self, arquivo, full=False):
         params = {"format": "png"}

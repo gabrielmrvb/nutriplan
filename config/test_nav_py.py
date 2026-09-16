@@ -50,3 +50,20 @@ class ComandoTemaTests(SimpleTestCase):
         init_source = "\n".join(linhas[inicio:fim])
         self.assertIn("self._tema()", init_source,
                       "self._tema() não é chamado dentro de __init__ — a wiring foi quebrada")
+
+    def test_o_tema_espera_o_recalculo_antes_de_qualquer_comando(self):
+        """Reaplicar a emulação não basta: o Chrome só refaz o estilo numa
+        tarefa posterior. Medido em 16/09/2026 — `getComputedStyle(body).color`
+        ainda era o de Mesa logo depois do `setEmulatedMedia` e virava Ferro
+        34 ms depois; a captura nesse intervalo saía com texto claro sobre
+        fundo escuro em `/treino/` e `/`, a 390 e a 1280. Dois
+        `requestAnimationFrame` não bastaram; `_tema()` espera a cor do
+        `body` MUDAR (ou um teto curto) antes de devolver a sessão."""
+        fonte = NAV.read_text(encoding="utf-8")
+        inicio = fonte.index("def _tema(self):")
+        fim = fonte.index("def ", inicio + 10)
+        corpo = fonte[inicio:fim]
+        self.assertIn("Emulation.setEmulatedMedia", corpo)
+        self.assertIn("getComputedStyle(document.body).color", corpo)
+        self.assertIn("c !== c0", corpo, "a espera tem de ser por MUDANÇA, não por tempo fixo")
+        self.assertLess(corpo.index("Emulation.setEmulatedMedia"), corpo.index("c !== c0"), "a espera vem DEPOIS de emular")
