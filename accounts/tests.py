@@ -2996,6 +2996,31 @@ class RecuperacaoDeSenhaTests(TestCase):
 
         self.assertIn("Se existir uma conta", html)
 
+    def test_o_nome_da_pessoa_nao_vira_html_dentro_do_email(self):
+        """O e-mail HTML fica em `autoescape off` para a URL sair sem `&amp;` —
+        e isso deixava `first_name` cru (avaliação de 16/09/2026, B13).
+
+        Como o cadastro não confirma e-mail, qualquer um cadastra o endereço de
+        um terceiro com HTML no nome e pede "esqueci minha senha": a vítima
+        recebe, do remetente oficial, um link do atacante dentro da mensagem.
+        O nome tem de sair escapado no HTML; no `.txt` ele é texto e fica como
+        está.
+        """
+        self.user.first_name = '<a href="https://exemplo.invalid/phish">Confirmar</a>'
+        self.user.save(update_fields=["first_name"])
+
+        self._pedir(self.user.email)
+
+        mensagem = mail.outbox[0]
+        html = next(corpo for corpo, tipo in mensagem.alternatives if tipo == "text/html")
+        self.assertNotIn('<a href="https://exemplo.invalid', html)
+        self.assertIn("&lt;a href=&quot;https://exemplo.invalid/phish&quot;&gt;Confirmar&lt;/a&gt;", html)
+        # Controle positivo: o link de redefinição continua cru no HTML — o
+        # `autoescape off` existe para ele.
+        self.assertRegex(html, r'href="https?://[^"]+/conta/senha/nova/[^/]+/[^/"]+/"')
+        # E o texto plano segue sendo texto: nada a escapar ali.
+        self.assertIn('Olá, <a href="https://exemplo.invalid/phish">Confirmar</a>.', mensagem.body)
+
     # -- token -----------------------------------------------------------
 
     def test_token_valido_abre_o_formulario(self):

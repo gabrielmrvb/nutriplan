@@ -7,8 +7,17 @@
 
       <p style="margin:0 0 20px;font-size:18px;font-weight:700;color:#0c6b40">NutriPlan</p>
 
+      {% comment %}
+        `force_escape`, e não a confiança no `autoescape`: o documento inteiro
+        está em `autoescape off` para a URL do link sair sem `&amp;`, e isso
+        deixava o NOME cru. Como o cadastro não confirma e-mail, qualquer um
+        cadastra o endereço de um terceiro com HTML no nome e pede "esqueci
+        minha senha" — a vítima recebia, do remetente oficial, um link do
+        atacante (avaliação de 16/09/2026, B13). O `.txt` é texto e não
+        precisa disso.
+      {% endcomment %}
       <p style="margin:0 0 16px;font-size:16px;line-height:1.5">
-        Olá{% if user.first_name %}, {{ user.first_name }}{% endif %}.
+        Olá{% if user.first_name %}, {{ user.first_name|force_escape }}{% endif %}.
       </p>
       <p style="margin:0 0 24px;font-size:16px;line-height:1.5">
         Alguém pediu para criar uma senha nova no NutriPlan usando este e-mail.
