@@ -392,8 +392,14 @@
     color-scheme: dark;
     --bg: #070c0b;
     --surface: #0d1413;
-    --surface-2: #121a18;
-    --surface-3: #18211e;
+    /* #1d2622 é o `--surface-2` do Ferro no DESIGN.md. Os anteriores (#121a18
+       e #18211e) davam 1,05:1 sobre a superfície: botão quieto sem cara de
+       botão, anel sem trilha, barras dos sete dias invisíveis — medido no
+       pixel em 16/09/2026 (avaliação, U28). O `--surface-3` do brief (#26312b)
+       deixava `--text-mute` em 4,91:1 sobre ele, abaixo da margem de 5,0 que
+       `config.tests` cobra; #223029 mantém a ordem das camadas e dá 5,02. */
+    --surface-2: #1d2622;
+    --surface-3: #223029;
     --surface-focus: #10201a;
     --canvas-topo: #0a1210;
     --border: rgba(150, 165, 180, .16);
@@ -1003,7 +1009,7 @@ h3 {
   background: conic-gradient(from 0deg,
                              var(--accent),
                              var(--brand) calc(var(--pct) * 3.6deg),
-                             var(--surface-2) 0);
+                             var(--border) 0);
 }
 
 .ring::after {
@@ -1045,7 +1051,7 @@ h3 {
   background: conic-gradient(from 0deg,
                              var(--accent),
                              var(--accent) calc(var(--pct) * 3.6deg),
-                             var(--surface-2) 0);
+                             var(--border) 0);
 }
 
 .ring--agua::after { inset: .82rem; }
@@ -1075,7 +1081,7 @@ h3 {
   background: conic-gradient(from 0deg,
                              var(--folha),
                              var(--folha) calc(var(--pct) * 3.6deg),
-                             var(--surface-2) 0);
+                             var(--border) 0);
 }
 
 .ring--treino::after { inset: .52rem; }
@@ -2049,6 +2055,9 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .btn--quiet {
   min-height: 2.75rem;
   padding: .45rem .85rem;
+  /* Borda como o ghost: a cara de botão não pode depender do preenchimento,
+     que o tema escuro apaga (1,05:1 medido — avaliação de 16/09/2026, U28). */
+  border: 1px solid var(--border-strong);
   background: var(--surface-2);
   color: var(--text-dim);
   font-size: .82rem;
@@ -2541,7 +2550,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   text-transform: uppercase;
 }
 
-.history-row__bar { height: .45rem; overflow: hidden; border-radius: var(--pill); background: var(--surface-2); }
+.history-row__bar { height: .45rem; overflow: hidden; border-radius: var(--pill); background: var(--border); }
 .history-row__fill { display: block; height: 100%; background: var(--brand); }
 .history-row__facts { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .history-row__kcal { font-weight: 720; }
@@ -7267,7 +7276,10 @@ body.montando { overflow: hidden; }
   height: .45rem;
   overflow: hidden;
   border-radius: var(--pill);
-  background: var(--surface-2);
+  /* `--border`, e não `--surface-2`: trilha é o que diz que há uma barra
+     mesmo quando ela está vazia, e superfície sobre superfície some no
+     escuro (avaliação de 16/09/2026, U28). */
+  background: var(--border);
 }
 
 .semana__preenche { display: block; height: 100%; background: var(--folha); }

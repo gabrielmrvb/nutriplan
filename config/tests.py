@@ -1181,11 +1181,17 @@ class DesignSystemTests(TestCase):
         o V1 do redesign devolve o matiz e resolve a competição por CROMA —
         fundo a ~2%, marca a 85%. O valor mudou, a trava continua, e é essa
         a diferença entre revisar uma decisão e não ter decisão.
+
+        `--surface-2` e `--surface-3` subiram em 16/09/2026 (avaliação, U28):
+        #121a18 sobre #0d1413 dava 1,05:1 — botão quieto sem cara de botão,
+        anel sem trilha. #1d2622 é o valor do Ferro no DESIGN.md; #223029 é o
+        maior `--surface-3` que mantém `--text-mute` acima da margem de 5,0.
+        Ver `config/test_superficie_escura.py`.
         """
         self.assertEqual(self.escuro["--bg"], "#070c0b")
         self.assertEqual(self.escuro["--surface"], "#0d1413")
-        self.assertEqual(self.escuro["--surface-2"], "#121a18")
-        self.assertEqual(self.escuro["--surface-3"], "#18211e")
+        self.assertEqual(self.escuro["--surface-2"], "#1d2622")
+        self.assertEqual(self.escuro["--surface-3"], "#223029")
         self.assertEqual(self.escuro["--surface-focus"], "#10201a")
         self.assertEqual(self.escuro["--brand"], "#10c98a")
         self.assertEqual(self.escuro["--text"], "#f7f9fa")
