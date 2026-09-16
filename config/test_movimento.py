@@ -15,12 +15,14 @@ descarta a transição inteira, em silêncio); e o vídeo continua sendo um
 player só.
 """
 import re
-from datetime import date
+from datetime import date, datetime, time
 from pathlib import Path
+from unittest import mock
 
 from django.core.management import call_command
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import TrainingDay, User
 from push.test_cache_privado import sem_comentarios
@@ -360,7 +362,11 @@ class SemJavaScriptTests(TestCase):
     def test_a_refeicao_e_um_details_nativo_e_a_agua_um_formulario_comum(self):
         from plans.tests import create_complete_user
         self.client.force_login(create_complete_user(email="semjs@exemplo.com"))
-        html = self.client.get(reverse("plans:today")).content.decode()
+        # Sete da manhã, sempre: a sanfona "Ver opções" só existe em refeição
+        # FUTURA, e o `pre-push` de 15/09/2026 às 21h30 não tinha nenhuma.
+        manha = timezone.make_aware(datetime.combine(timezone.localdate(), time(7, 0)))
+        with mock.patch("plans.views.relogio", return_value=manha):
+            html = self.client.get(reverse("plans:today")).content.decode()
         self.assertIn('<details class="meal__futuro">', html)
         self.assertIn('<summary class="meal__abrir">Ver opções</summary>', html)
         # O eco e a contagem são atributos de dados: sem script, o botão é
