@@ -20,6 +20,16 @@ vir diferente — uma `src/` de Vite, um `index.html` na raiz —, e fora das
 pastas conhecidas a EXTENSÃO decide: html, imagem e fonte são referência;
 css, json e md com "token", "design" ou "guideline" no caminho são tokens;
 `.js` fora de `_ds_` e tudo o mais é incerto. Palpite não ganha classe.
+
+O ZIP REAL CHEGOU em 16/09/2026, e são DOIS: o do design system (166
+arquivos: `components/` em React `.jsx` + `.d.ts` + `.prompt.md`,
+`ui_kits/pwa/*.jsx`, `guidelines/`, `reference/`, `tokens/`, `uploads/`,
+`SKILL.md`) e o do projeto das seis telas (`Hoje.html`… + uma cópia do
+sistema em `_ds/`). Os dois foram extraídos em SUBPASTAS do export
+(`design-system/`, `telas/`), então a pasta conhecida pode estar em qualquer
+nível do caminho — e não só no primeiro. Os `.zip` originais ficam na raiz
+como `interno`. Componente React é REFERÊNCIA: o app é Django + templates,
+e o `.jsx` é para ler, não para importar.
 """
 import hashlib
 import sys
@@ -31,10 +41,11 @@ DESTINO = RAIZ / "docs" / "briefs" / "2026-09-15-chatgpt-claude-design" / "inven
 CLASSES = ("tokens", "referencia", "interno", "incerto")
 
 # Pastas de primeiro nível da estrutura documentada, e o que cada uma vale.
-PASTAS_INTERNAS = ("design-system-export", "uploads", ".thumbnail")
-PASTAS_DE_TOKENS = ("tokens", "guidelines")
+PASTAS_INTERNAS = ("design-system-export", "_ds", "uploads", ".thumbnail")
+PASTAS_DE_TOKENS = ("tokens", "guidelines", "reference")
 PASTAS_DE_REFERENCIA = ("components", "ui_kits", "templates", "assets", "export")
 NOMES_INTERNOS = (".thumbnail", "thumbnail.html")
+EXTENSOES_INTERNAS = (".zip",)
 NOMES_DE_TOKENS = ("readme.md", "skill.md", "styles.css", "design.md")
 
 # Fora das pastas conhecidas, a extensão decide.
@@ -49,13 +60,20 @@ PALAVRAS_DE_DESIGN = ("token", "design", "guideline")
 def classificar(rel):
     rel = rel.replace("\\", "/").strip("/")
     partes = rel.split("/")
-    pasta = partes[0] if len(partes) > 1 else ""
+    pastas = partes[:-1]  # toda pasta do caminho: o zip pode ter sido extraído numa subpasta
     nome = partes[-1]
     minusculo = nome.lower()
     extensao = Path(minusculo).suffix
 
-    if pasta in PASTAS_INTERNAS or nome.startswith("_ds_") or minusculo in NOMES_INTERNOS:
-        return "interno"  # export aninhado é duplicata do que já está na raiz
+    # Interno vence: um `components/` DENTRO de um export aninhado ou de `_ds/`
+    # continua sendo duplicata.
+    if any(p in PASTAS_INTERNAS for p in pastas) or nome.startswith("_ds_") or minusculo in NOMES_INTERNOS:
+        return "interno"
+    if extensao in EXTENSOES_INTERNAS:
+        return "interno"  # o zip original, guardado ao lado do que saiu dele
+    # Fora do interno, a pasta conhecida MAIS PRÓXIMA do arquivo decide
+    # (`assets/telas/x.png` é assets; `ui_kits/pwa/Hoje.jsx` é ui_kits).
+    pasta = next((p for p in reversed(pastas) if p in PASTAS_DE_TOKENS or p in PASTAS_DE_REFERENCIA), "")
     if nome.startswith("_adherence") or pasta in PASTAS_DE_TOKENS or minusculo in NOMES_DE_TOKENS:
         return "tokens"
     if pasta in PASTAS_DE_REFERENCIA or extensao in EXTENSOES_DE_REFERENCIA:

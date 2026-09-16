@@ -152,3 +152,64 @@ class InventarioTests(SimpleTestCase):
             self.assertEqual(codigo, 2)
             self.assertIn("inventário vazio", erro.getvalue())
             self.assertFalse(saida.exists())
+
+
+class OZipRealTests(SimpleTestCase):
+    """16/09/2026: os dois zips chegaram e a árvore documentada estava certa —
+    mas extraída em SUBPASTAS (`design-system/`, `telas/`), com `components/`
+    em React (`.jsx`, `.d.ts`, `.prompt.md`), `ui_kits/pwa/*.jsx`, uma pasta
+    `reference/` e uma cópia do sistema em `telas/_ds/`. A primeira rodada do
+    `--estrito` reprovou com 49 incertos, todos `.jsx`/`.d.ts`, porque a pasta
+    conhecida só era lida no primeiro nível. Esta é a árvore real, reduzida."""
+
+    REAL = (
+        "nutriplan-design-system.zip",
+        "nutriplan-telas.zip",
+        "design-system/SKILL.md",
+        "design-system/_adherence.oxlintrc.json",
+        "design-system/_ds_bundle.js",
+        "design-system/_ds_manifest.json",
+        "design-system/.thumbnail",
+        "design-system/thumbnail.html",
+        "design-system/readme.md",
+        "design-system/styles.css",
+        "design-system/assets/icones.svg",
+        "design-system/assets/telas/hoje-claro.png",
+        "design-system/components/core/Button.jsx",
+        "design-system/components/core/Button.d.ts",
+        "design-system/components/core/Button.prompt.md",
+        "design-system/css/base.css",
+        "design-system/guidelines/cores/agir-e-feito.html",
+        "design-system/reference/DESIGN.md",
+        "design-system/tokens/colors.css",
+        "design-system/ui_kits/pwa/Hoje.jsx",
+        "design-system/ui_kits/pwa/index.html",
+        "design-system/uploads/app.css",
+        "telas/Hoje.html",
+        "telas/_ds/nutriplan-design-system-abc/tokens/colors.css",
+        "telas/_ds/nutriplan-design-system-abc/_ds_bundle.js",
+        "telas/assets/icones.svg",
+    )
+
+    def test_a_arvore_real_classifica_sem_incerto(self):
+        m = importlib.import_module("scripts.inventariar_export")
+        classes = {rel: m.classificar(rel) for rel in self.REAL}
+        incertos = [r for r, c in classes.items() if c == "incerto"]
+        self.assertEqual(incertos, [])
+        self.assertEqual(classes["design-system/components/core/Button.jsx"], "referencia")
+        self.assertEqual(classes["design-system/ui_kits/pwa/Hoje.jsx"], "referencia")
+        self.assertEqual(classes["design-system/tokens/colors.css"], "tokens")
+        self.assertEqual(classes["design-system/reference/DESIGN.md"], "tokens")
+        self.assertEqual(classes["design-system/css/base.css"], "tokens")
+        self.assertEqual(classes["telas/Hoje.html"], "referencia")
+        # A cópia do sistema dentro do projeto das telas é duplicata, inteira.
+        self.assertEqual(classes["telas/_ds/nutriplan-design-system-abc/tokens/colors.css"], "interno")
+        self.assertEqual(classes["nutriplan-telas.zip"], "interno")
+        self.assertEqual(classes["design-system/uploads/app.css"], "interno")
+
+    def test_um_arquivo_estranho_continua_incerto(self):
+        """Controle positivo: abrir a pasta conhecida em qualquer nível não
+        pode ter transformado a triagem em "tudo é referência"."""
+        m = importlib.import_module("scripts.inventariar_export")
+        self.assertEqual(m.classificar("design-system/scripts/build.py"), "incerto")
+        self.assertEqual(m.classificar("telas/misterio.xyz"), "incerto")
