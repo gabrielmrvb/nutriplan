@@ -101,6 +101,14 @@ def rodar(comando, log=None, cwd=None):
     stdin fechado, porque processo de fundo que espera teclado fica pendurado
     para sempre. Saída vai para `log` (acrescentando) ou para lugar nenhum.
     """
+    comando = list(comando)
+    # `CreateProcess` procura o executável relativo ao cwd de QUEM CHAMA, não
+    # ao `cwd` do filho: `rodar --cwd X -- .venv/Scripts/python.exe` morria com
+    # "arquivo não encontrado" mesmo com o python lá. Resolvido aqui, uma vez.
+    if cwd and comando and not os.path.isabs(comando[0]):
+        candidato = Path(cwd) / comando[0]
+        if candidato.exists():
+            comando[0] = str(candidato)
     saida = open(log, "ab") if log else subprocess.DEVNULL
     try:
         if os.name != "nt":

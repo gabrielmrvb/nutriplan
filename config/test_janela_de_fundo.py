@@ -194,6 +194,20 @@ class OFundoNaoAbreJanelaTests(SimpleTestCase):
         else:
             self.assertTrue(kwargs["start_new_session"])
 
+    def test_rodar_resolve_o_executavel_relativo_ao_cwd_pedido(self):
+        """`rodar --cwd X -- .venv/Scripts/python.exe` morria com "arquivo não
+        encontrado": o Windows procura o executável no cwd de quem chama."""
+        with tempfile.TemporaryDirectory() as pasta:
+            exe = Path(pasta) / "bin" / "ferramenta.exe"
+            exe.parent.mkdir()
+            exe.write_bytes(b"")
+            with mock.patch.object(fundo.subprocess, "Popen") as popen:
+                fundo.rodar(["bin/ferramenta.exe", "--x"], cwd=pasta)
+            self.assertEqual(popen.call_args.args[0][0], str(exe))
+            with mock.patch.object(fundo.subprocess, "Popen") as popen:
+                fundo.rodar(["nao-existe-ali", "--x"], cwd=pasta)
+            self.assertEqual(popen.call_args.args[0][0], "nao-existe-ali", "sem o arquivo lá, deixa o PATH decidir")
+
     @skipUnless(os.name == "nt", "pythonw e o Agendador são do Windows")
     def test_notificar_lanca_pythonw_e_volta_na_hora(self):
         with mock.patch.object(fundo.subprocess, "Popen") as popen:
