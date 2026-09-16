@@ -421,19 +421,27 @@
      execução e a corrida em andamento nascem em Ferro por decisão de
      produto). Nenhum dos dois repete hex — `config/test_ferro.py` é a
      trava. Direção C, docs/briefs/design/direcao-c-mesa-e-ferro.md §2;
-     `--ferro-text-mute` é #96a29c e não o #8f9b95 da direção: medido,
-     5,10:1 sobre surface-3 contra 4,68. */
+     Três valores saem da direção por MEDIÇÃO (16/09/2026):
+     - `--ferro-surface-2` #243029 e não #1d2622: U28 (avaliação de 16/09)
+       cobra ≥ 1,2:1 entre a segunda superfície e a primeira — sobre
+       #161d1a, #1d2622 dava 1,10 (botão quieto sem cara, trilha do anel
+       sumida); #243029 dá 1,25 (`config/test_superficie_escura.py`);
+     - `--ferro-surface-3` #2c3a32 e não #26312b: com a segunda subindo,
+       #26312b ficava a 1,02 dela e o hover deixava de existir; 1,15 agora;
+     - `--ferro-text-mute` #a0aca6 (era #96a29c; a direção dizia #8f9b95):
+       é o menor tom que passa da MARGEM de 5,0 de `config.tests` sobre a
+       surface-3 nova (5,09), e não o piso de 4,5. */
   --ferro-bg: #0e1412;
   --ferro-surface: #161d1a;
-  --ferro-surface-2: #1d2622;
-  --ferro-surface-3: #26312b;
+  --ferro-surface-2: #243029;
+  --ferro-surface-3: #2c3a32;
   --ferro-surface-focus: #123024;
   --ferro-canvas-topo: #0a1210;
   --ferro-fio: rgba(255, 255, 255, .08);
   --ferro-fio-forte: rgba(255, 255, 255, .16);
   --ferro-text: #f4f7f5;
   --ferro-text-dim: #b6c1bb;
-  --ferro-text-mute: #96a29c;
+  --ferro-text-mute: #a0aca6;
   --ferro-brand: #22c98a;
   --ferro-brand-strong: #4ddb9f;
   --ferro-brand-soft: #0f2a20;

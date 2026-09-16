@@ -11,15 +11,18 @@ que faltava era o de componente (WCAG 1.4.11).
 
 Três correções, cada uma com a sua guarda aqui:
 
-1. `--surface-2` e `--surface-3` do escuro sobem para os valores que o
-   DESIGN.md (Mesa & Ferro) já fixa para o Ferro — #1d2622 e #26312b —,
-   mantendo a ordem das camadas e o texto legível sobre elas
-   (`config.tests.ContrastTests` continua cobrando 4,5:1);
+1. `--surface-2` e `--surface-3` do escuro sobem — e, no Ferro (a paleta
+   da direção C, escrita uma vez em `--ferro-*`), sobem de novo: sobre
+   `--surface` #161d1a o #1d2622 do DESIGN.md dava 1,10:1, e a régua deste
+   arquivo é 1,2. Hoje #243029 e #2c3a32, mantendo a ordem das camadas e o
+   texto legível sobre elas (`config.tests.ContrastTests` cobra 4,5:1 e a
+   margem de 5,0 para `--text-mute`);
 2. `.btn--quiet` ganha borda, como `.btn--ghost` já tem: a affordance do botão
    não pode depender de um preenchimento que o tema escuro apaga;
 3. trilha de progresso — o resto do anel e o fundo das barras — usa
-   `--border`, que é translúcida e desenha sobre qualquer superfície, em vez
-   de `--surface-2`, que é uma superfície e some sobre a outra.
+   `--fio` (o hairline; chamava-se `--border` até a direção C), que é
+   translúcido e desenha sobre qualquer superfície, em vez de `--surface-2`,
+   que é uma superfície e some sobre a outra.
 """
 import re
 
@@ -58,7 +61,7 @@ class BotaoQuietoTemCaraDeBotaoTests(SimpleTestCase):
     def test_o_quiet_tem_borda_como_o_ghost(self):
         corpo = _regra(self.css, ".btn--quiet")
         self.assertIsNotNone(corpo, "a regra .btn--quiet sumiu")
-        self.assertRegex(corpo, r"border:\s*1px solid var\(--border-strong\)")
+        self.assertRegex(corpo, r"border:\s*1px solid var\(--fio-forte\)")
 
 
 class TrilhaDeProgressoAparecemTests(SimpleTestCase):
@@ -68,11 +71,11 @@ class TrilhaDeProgressoAparecemTests(SimpleTestCase):
     def test_o_resto_do_anel_e_desenhado_com_a_borda(self):
         corpo = _regra(self.css, ".ring")
         self.assertIsNotNone(corpo)
-        self.assertIn("var(--border) 0)", corpo)
+        self.assertIn("var(--fio) 0)", corpo)
         self.assertNotIn("var(--surface-2) 0)", corpo)
 
     def test_as_barras_de_semana_e_de_historico_usam_a_borda(self):
         for seletor in (".semana__barra", ".history-row__bar"):
             corpo = _regra(self.css, seletor)
             self.assertIsNotNone(corpo, seletor)
-            self.assertIn("background: var(--border)", corpo, seletor)
+            self.assertIn("background: var(--fio)", corpo, seletor)

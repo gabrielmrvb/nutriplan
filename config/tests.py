@@ -1253,20 +1253,21 @@ class DesignSystemTests(TestCase):
 
         U28 (avaliação de 16/09/2026, publicado em `3a60f8e` sobre a paleta
         antiga): `--surface-2` escuro a 1,05:1 sobre `--surface` apagava o
-        botão quieto e a trilha dos anéis. O Ferro já nasce com #1d2622 — o
-        mesmo valor que a correção escolheu —, e `--surface-3` fica em
-        #26312b porque o `--text-mute` do Ferro é #96a29c (5,10:1 sobre ele;
-        o 4,91 que fez `3a60f8e` recuar para #223029 era com #939daa).
-        `config/test_superficie_escura.py` mede a trilha e o botão.
+        botão quieto e a trilha dos anéis; a régua ficou em ≥ 1,2:1
+        (`config/test_superficie_escura.py`). Sobre a `--surface` do Ferro
+        (#161d1a) o #1d2622 da direção dava 1,10 — por isso a segunda
+        superfície é #243029 (1,25), a terceira #2c3a32 (1,15 acima dela,
+        para o hover existir) e `--text-mute` #a0aca6 (5,09 sobre a
+        terceira: a margem de 5,0 de `test_the_quiet_text_clears_the_minimum`).
         """
         self.assertEqual(self.escuro["--bg"], "#0e1412")
         self.assertEqual(self.escuro["--surface"], "#161d1a")
-        self.assertEqual(self.escuro["--surface-2"], "#1d2622")
-        self.assertEqual(self.escuro["--surface-3"], "#26312b")
+        self.assertEqual(self.escuro["--surface-2"], "#243029")
+        self.assertEqual(self.escuro["--surface-3"], "#2c3a32")
         self.assertEqual(self.escuro["--surface-focus"], "#123024")
         self.assertEqual(self.escuro["--brand"], "#22c98a")
         self.assertEqual(self.escuro["--text"], "#f4f7f5")
-        self.assertEqual(self.escuro["--text-mute"], "#96a29c")
+        self.assertEqual(self.escuro["--text-mute"], "#a0aca6")
 
     def test_the_border_is_translucent_so_it_reads_on_every_surface(self):
         """`--fio` deixou de ser hex, e a mudança é de comportamento.

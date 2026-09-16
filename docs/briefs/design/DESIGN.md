@@ -40,12 +40,12 @@ regimes.
 |---|---|---|---|
 | `--bg` | `#f5f3ee` (linho) | `#0e1412` | chão |
 | `--surface` | `#ffffff` | `#161d1a` | prato / cartão |
-| `--surface-2` | `#efece4` | `#1d2622` | agrupamento dentro do cartão, trilho do anel |
-| `--surface-3` | `#ebe8de` | `#26312b` | célula vazia de gráfico, silhueta de vazio |
+| `--surface-2` | `#efece4` | `#243029` | agrupamento dentro do cartão; ≥ 1,2:1 sobre `--surface` (U28) |
+| `--surface-3` | `#ebe8de` | `#2c3a32` | célula vazia de gráfico, silhueta de vazio, hover |
 | `--surface-focus` | `#e3f1e8` | `#123024` | UMA por tela: a próxima refeição, a série da vez |
 | `--text` | `#141f1a` | `#f4f7f5` | texto |
 | `--text-dim` | `#485550` | `#b6c1bb` | texto de apoio |
-| `--text-mute` | `#55625c` | `#96a29c` | rótulo, legenda (≥ 4,5:1 no pior fundo) |
+| `--text-mute` | `#55625c` | `#a0aca6` | rótulo, legenda (≥ 5,0:1 no pior fundo neutro) |
 | `--brand` | `#0c6b40` | `#22c98a` | AGIR: CTA, link, aba ativa, foco |
 | `--brand-strong` | `#08512f` | `#4ddb9f` | só `:active`/hover |
 | `--brand-soft` | `#dff0e6` | `#0f2a20` | botão tonal, chip |
