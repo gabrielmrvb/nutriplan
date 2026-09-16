@@ -76,7 +76,7 @@ class ShellOfflineNaoCarregaSessaoTests(TestCase):
     def test_o_shell_offline_nao_carrega_o_sprite(self):
         """Shell é cacheado e servido a quem pegar o aparelho depois; o sprite
         entra em toda página pela base, mas aqui o `{% if not shell_offline %}`
-        o segura — o mesmo portão do mapa e do `data-usuario`.
+        o segura — o mesmo portão do `data-usuario` e das mensagens.
 
         Não é identidade, é peso: 2,9 kB de desenho que aquela tela não usa,
         congelados no cache de estáticos que sobrevive ao logout. A segunda
