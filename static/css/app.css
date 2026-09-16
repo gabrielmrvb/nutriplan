@@ -148,7 +148,15 @@
      passa em todas as superfícies claras (3,29 / 3,72 / 3,42). Ele NÃO é cor
      de texto pequeno: 3,7:1 sobre branco não chega aos 4,5 de AA, e é por
      isso que o "Principal" da ficha e o "3/4" concluído continuam em
-     `--brand`. `config/test_tema_claro.py` mede as duas coisas. */
+     `--brand`. `config/test_tema_claro.py` mede as duas coisas.
+
+     MESA & FERRO (15/09/2026): as três superfícies claras mudaram de valor,
+     e o mesmo `--folha` mede 3,15:1 contra `--surface-2` (a trilha do anel,
+     o caso que `ContrastTests.PARES_MEDIDOS` prova), 3,72:1 contra
+     `--surface` e 3,03:1 contra `--surface-3` — a margem sobre o piso de
+     3:1 da WCAG 1.4.11 caiu para 0,03 nessa terceira, a mais apertada das
+     três. Não é folga para gastar: a próxima paleta que mexer em
+     `--surface-3` sem medir de novo pode derrubar este token. */
   --folha: #3f9718;
   --on-brand: #ffffff;
   /* MESA & FERRO (15/09/2026): quatro cores de PILAR, não de decoração —
@@ -161,12 +169,17 @@
      três (fio do prato, arco do gráfico, ponto do ícone) e os contrastes
      medidos; `ContrastTests.PARES_MEDIDOS` é quem prova aqui.
 
-     #1b6589, e não o #1e6e96 da direção: medido como pílula (texto sobre a
-     própria tinta a 12%, `PillContrastTests`), a direção dá 4,78:1 sobre
-     `--surface` e 4,09:1 sobre `--surface-2` — abaixo do mínimo AA de 4,5
-     no pior caso. Este é o vizinho mais próximo que passa nos dois
-     (5,41 / 4,62), pela mesma regra que já valeu para `--folha`. */
-  --agua: #1b6589;
+     `--agua` é #1e6e96, o valor da direção — medido como objeto gráfico
+     (WCAG 1.4.11, ≥3:1) contra `--surface-2`, o fundo mais escuro em que ele
+     pousa como arco/ícone: 4,77:1. Ele NÃO precisa passar como texto pequeno
+     sobre a própria tinta, porque o CSS nunca pinta texto com `--agua`
+     cheio — `.exercise__tag--rest` pinta com `--agua-texto`. É por isso que
+     `PillContrastTests.PARES` nomeia o token de TEXTO e o de TINTA
+     separadamente: o par da água é (`--agua-texto`, `--agua`), nunca
+     (`--agua`, `--agua`). Medido nessa composição — `--agua-texto` #175877
+     sobre a tinta de `--agua` a 12% —, 6,60:1 sobre `--surface` e 5,64:1
+     sobre `--surface-2`, os dois acima do mínimo AA de 4,5. */
+  --agua: #1e6e96;
   --agua-texto: #175877;
   --brasa: #a63f18;
   --terra: #8a5109;

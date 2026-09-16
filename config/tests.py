@@ -559,12 +559,29 @@ class PillContrastTests(TestCase):
     o contraste. No tema claro isso já aconteceu — o âmbar `#a9671a` dava
     4.00:1 sobre a própria tinta, abaixo do mínimo AA de 4.5:1, num aviso que é
     texto pequeno. O teste refaz a composição e mede.
+
+    MESA & FERRO (15/09/2026): a pílula da água NÃO pinta o texto com
+    `--agua` cheio — pinta com `--agua-texto` (`.exercise__tag--rest`,
+    `static/css/app.css`). `--agua` é cor de PILAR, objeto gráfico medido a
+    ≥3:1 (`ContrastTests.PARES_MEDIDOS`), não texto pequeno; forçá-lo a
+    também passar como texto sobre a própria tinta a 4,5:1 escurecia o pilar
+    inteiro para satisfazer uma composição que o CSS não pinta. Por isso cada
+    par nomeia o token de TEXTO e o token de TINTA separadamente — terra e
+    brand pintam o texto com a própria cor, água pinta com `--agua-texto`
+    sobre a tinta de `--agua` — e o teste mede exatamente o que a regra CSS
+    faz, não uma composição hipotética.
     """
 
     MINIMO = 4.5
 
-    # (token da cor, opacidade da tinta) — os pares que o CSS realmente usa.
-    PARES = [("--terra", 0.12), ("--brand", 0.12), ("--agua", 0.12)]
+    # (token do TEXTO, token da TINTA, opacidade da tinta) — os pares que o
+    # CSS realmente pinta. Terra e brand pintam o texto com a própria cor;
+    # a água pinta com `--agua-texto` sobre a tinta de `--agua`.
+    PARES = [
+        ("--terra", "--terra", 0.12),
+        ("--brand", "--brand", 0.12),
+        ("--agua-texto", "--agua", 0.12),
+    ]
 
     def setUp(self):
         self.css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
@@ -577,14 +594,15 @@ class PillContrastTests(TestCase):
         # `--surface-3` como pai. Medir contra ele obrigaria a escurecer os
         # acentos por causa de um caso que não existe na tela.
         for fundo in (tokens["--surface"], tokens["--surface-2"]):
-            for nome, pct in self.PARES:
-                cor = tokens[nome]
-                with self.subTest(tema=rotulo, cor=nome, fundo=fundo):
-                    razao = _contraste(cor, _sobre(cor, pct, fundo))
+            for texto, tinta_nome, pct in self.PARES:
+                cor = tokens[texto]
+                tinta = tokens[tinta_nome]
+                with self.subTest(tema=rotulo, texto=texto, tinta=tinta_nome, fundo=fundo):
+                    razao = _contraste(cor, _sobre(tinta, pct, fundo))
                     self.assertGreaterEqual(
                         razao,
                         self.MINIMO,
-                        f"{nome} ({cor}) sobre a própria tinta dá {razao:.2f}:1",
+                        f"{texto} ({cor}) sobre a tinta de {tinta_nome} ({tinta}) dá {razao:.2f}:1",
                     )
 
     def test_dark_theme_pills_are_readable(self):

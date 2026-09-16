@@ -61,14 +61,22 @@
   function paleta() {
     /* As alternativas existem para o card não sair preto num contexto onde as
      * variáveis não resolvem — canvas fora do documento, por exemplo. São os
-     * valores ATUAIS do tema escuro, e precisam ser revisados junto dele. */
+     * valores ATUAIS do tema escuro, e precisam ser revisados junto dele.
+     *
+     * MESA & FERRO (15/09/2026): os seis viraram os valores de Ferro —
+     * `--ferro-bg` #0e1412, `--ferro-surface` #161d1a, `--ferro-text` #f4f7f5,
+     * `--ferro-text-mute` #96a29c, `--ferro-brand` #22c98a. `--ferro-fio` é
+     * `rgba(255, 255, 255, .08)`, translúcido; a alternativa fica em hex
+     * (canvas aceita os dois, mas um hex fixo não depende do fundo por trás)
+     * com o tom que essa opacidade produz sobre `--ferro-surface`, #26312b —
+     * que por coincidência é o mesmo valor de `--ferro-surface-3`. */
     return {
-      fundo: token("--bg", "#0d0f12"),
-      cartao: token("--surface", "#15181e"),
-      borda: token("--fio", "#2a2e39"),
-      marca: token("--brand", "#4ade9b"),
-      texto: token("--text", "#ffffff"),
-      fraco: token("--text-mute", "#8b93a3")
+      fundo: token("--bg", "#0e1412"),
+      cartao: token("--surface", "#161d1a"),
+      borda: token("--fio", "#26312b"),
+      marca: token("--brand", "#22c98a"),
+      texto: token("--text", "#f4f7f5"),
+      fraco: token("--text-mute", "#96a29c")
     };
   }
 

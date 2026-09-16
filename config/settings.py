@@ -497,7 +497,7 @@ PWA_SHORT_NAME = "NutriPlan"
 # #0d0f12 e estas duas ficaram no verde-preto antigo.
 #
 # Há teste comparando as duas com o token do CSS.
-# O CLARO É A BASE desde 12/09/2026: `--bg` do `:root` é #f4f6f5, e é ele
+# O CLARO É A BASE desde 12/09/2026: `--bg` do `:root` é #f5f3ee, e é ele
 # que o manifesto declara — o sistema operacional não troca a tela de abertura
 # do app instalado conforme o tema do aparelho, então a cor única é a da base.
 #
