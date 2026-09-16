@@ -158,7 +158,13 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
                 # de compartilhamento e a exportação para o app de saúde. Sai
                 # do registro de carga, não da ficha — o que vale é o que
                 # aconteceu, não o que estava previsto.
-                "resumo_hoje": health_export.resumo_da_sessao(user),
+                # A sessão e a escolha de hoje vão junto: o painel já as
+                # tem, e refazê-las custava três consultas.
+                "resumo_hoje": health_export.resumo_da_sessao(
+                    user,
+                    sessao=hoje,
+                    escolha=hoje.escolha if hoje is not None else health_export.NAO_INFORMADA,
+                ),
                 # Duracao OBSERVADA, e nao a estimada do resumo: o card
                 # so estampa minutos quando existe intervalo real entre a
                 # primeira e a ultima serie anotadas. Sem isso, ele

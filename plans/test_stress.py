@@ -10,8 +10,10 @@ a pessoa já depende do app e a tela demora. Foi assim que `muscle_volume`
 apareceu: 44 idas ao banco num total de 66, porque recebia o plano e reabria um
 queryset sem o prefetch que a view tinha acabado de montar.
 """
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
+
+from unittest import mock
 
 from django.core.management import call_command
 from django.db import connection
@@ -100,8 +102,28 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
 
     #: Os números vêm da medição com um ano de dados, com folga para o app
     #: crescer. Se algum deles subir de repente, apareceu um N+1.
+    #: MEDIDO NO PIOR DIA, e não no dia em que a suíte roda (17/09/2026).
+    #:
+    #: O fixture treina seg/qua/sex e tem série registrada HOJE. A Home faz
+    #: 36 consultas num dia de descanso e 41 num dia de treino; o painel faz
+    #: 21, 23 e 27 (descanso / treino / treino com série registrada). Os
+    #: tetos de 40 e 25 foram medidos numa terça — dia de descanso — e o
+    #: teste passou no pre-push de 15/09 e reprovou na quarta seguinte com o
+    #: MESMO código: dependia do calendário. Agora `setUp` congela a data
+    #: numa quarta com série registrada, o pior estado das duas telas.
+    #:
+    #: 40 → 41 na Home, e as cinco consultas a mais são de `estado_do_treino`
+    #: no dia de treino, cada uma UMA vez por tela: a sessão de hoje com os
+    #: dois prefetches (3), a escolha do dia (1), a opção recomendada (1),
+    #: o histórico das cargas (1) e as séries de hoje (1) — menos a que o
+    #: dia de descanso já fazia. Nenhuma cresce com o histórico:
+    #: `test_o_custo_da_tela_nao_cresce_com_os_registros` mede isso.
+    #:
+    #: O painel FICA em 25: `resumo_da_sessao` refazia a sessão, a escolha e
+    #: o descanso que o painel já tinha carregado (27 no pior dia); passou
+    #: a recebê-los e fecha em 24.
     TETOS = {
-        "plans:today": 40,
+        "plans:today": 41,
         "workouts:routine": 25,
         # 15 -> 26: o Progresso passou a mostrar o bloco de Conquistas, e ele
         # custa NOVE consultas constantes — medido, com `reunir` respondendo por
@@ -178,6 +200,30 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
             len(set(custos.values())), 1,
             "o custo da ficha varia com o número de exercícios: %s" % custos,
         )
+
+    #: Uma quarta-feira: dia de treino do fixture, com série registrada nele.
+    PIOR_DIA = date(2026, 9, 16)
+
+    def setUp(self):
+        # A data é congelada ANTES de povoar: os registros de "hoje" e a
+        # sessão de "hoje" têm de ser do mesmo dia — o pior.
+        patcher = mock.patch("django.utils.timezone.localdate", return_value=self.PIOR_DIA)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        super().setUp()
+
+    def test_o_pior_dia_e_mesmo_o_pior(self):
+        """Controle positivo do congelamento: no dia congelado há treino E
+        série registrada — senão o orçamento estaria sendo medido num dia
+        fácil de novo."""
+        from workouts.models import ExerciseLog, TrainingSession
+
+        self.assertTrue(
+            TrainingSession.objects.filter(
+                plan__user=self.user, plan__is_active=True, weekday=self.PIOR_DIA.weekday()
+            ).exists()
+        )
+        self.assertTrue(ExerciseLog.objects.filter(user=self.user, date=self.PIOR_DIA).exists())
 
     def test_no_screen_grows_a_query_per_row(self):
         # Teto e não valor exato: `assertNumQueries` casa o número certo, e um

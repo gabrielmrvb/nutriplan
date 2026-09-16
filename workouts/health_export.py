@@ -57,6 +57,12 @@ class ResumoDaSessao:
         return self.series > 0
 
 
+#: "Ninguém informou a escolha" é diferente de "não há escolha hoje": o
+#: painel passa `None` quando a pessoa ainda não escolheu, e isso não pode
+#: virar uma consulta a mais.
+NAO_INFORMADA = object()
+
+
 def _duracao_estimada(series: int, exercicios: int, descanso_medio: int) -> int:
     """Quanto tempo aquele volume levou, em segundos.
 
@@ -70,12 +76,19 @@ def _duracao_estimada(series: int, exercicios: int, descanso_medio: int) -> int:
     return segundos
 
 
-def resumo_da_sessao(user, dia=None) -> ResumoDaSessao:
+def resumo_da_sessao(user, dia=None, sessao=None, escolha=NAO_INFORMADA) -> ResumoDaSessao:
     """Consolida o treino de um dia a partir das cargas registradas.
 
     A fonte é o `ExerciseLog` e não a ficha: a ficha é o que estava previsto, e
     o que foi feito é o que se exporta. Quem fez quatro dos seis exercícios não
     deve mandar seis para o app de saúde.
+
+    `sessao` e `escolha` são a sessão de hoje e a escolha do dia quando quem
+    chama JÁ AS TEM — o painel carrega as duas antes de pedir o resumo. Sem
+    isso o resumo refazia a consulta da sessão, a da escolha e a do descanso
+    (o painel tem `exercises` em prefetch): três consultas a mais no dia em
+    que há série registrada, e foi o que estourou o orçamento de
+    `plans.test_stress` — só nesse dia (17/09/2026).
     """
     dia = dia or timezone.localdate()
     logs = list(
@@ -95,20 +108,25 @@ def resumo_da_sessao(user, dia=None) -> ResumoDaSessao:
 
     # O descanso médio vem da ficha ativa do dia, quando existe; sem ela, 90
     # segundos, que é a mediana das prescrições do catálogo.
-    sessao = TrainingSession.objects.filter(
-        plan__user=user, plan__is_active=True, weekday=dia.weekday()
-    ).first()
+    if sessao is None:
+        sessao = TrainingSession.objects.filter(
+            plan__user=user, plan__is_active=True, weekday=dia.weekday()
+        ).prefetch_related("exercises").first()
     descanso = 90
     if sessao:
         # O descanso médio é o da OPÇÃO do dia (a escolhida, senão a 1):
         # somar as duas opções mediria uma sessão que ninguém faz.
-        from .services import escolha_do_dia
+        if escolha is NAO_INFORMADA:
+            from .services import escolha_do_dia
 
-        escolha = escolha_do_dia(user, dia)
+            escolha = escolha_do_dia(user, dia)
         opcao = escolha.opcao if escolha and escolha.session_id == sessao.pk else 1
-        prescritos = list(
-            sessao.exercises.filter(opcao=opcao).values_list("rest_seconds", flat=True)
-        ) or list(sessao.exercises.values_list("rest_seconds", flat=True))
+        # Em Python sobre o prefetch, e não `.filter(opcao=...)`: o filtro
+        # abre consulta nova mesmo com `exercises` já carregado.
+        linhas = list(sessao.exercises.all())
+        prescritos = [i.rest_seconds for i in linhas if i.opcao == opcao] or [
+            i.rest_seconds for i in linhas
+        ]
         if prescritos:
             descanso = round(sum(prescritos) / len(prescritos))
 
