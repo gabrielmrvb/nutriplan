@@ -339,6 +339,35 @@ class NumeroDeMetricaNaoQuebraNoMeioTests(SimpleTestCase):
         )
 
 
+class NumeroDoTileNaoQuebraNoMeioTests(SimpleTestCase):
+    """O valor do tile é `<strong>`, e `strong` herda `overflow-wrap: anywhere`
+    do seletor global (nome de alimento e de exercício precisam quebrar dentro
+    da palavra). Número não: "12.345" partido em "12.3 / 45" é outro número.
+
+    Medido em 16/09/2026 a 390 px: 3 colunas de 97 px, caixa de 74 px; o maior
+    valor real ("10000" ml, "20000" kg) ocupa 61,6 px. A guarda é sobre a
+    DECLARAÇÃO, como a da corrida: `nowrap` não tem como quebrar, e o estouro
+    — que nenhum valor real produz — é assunto de formatação."""
+
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+
+    def _regra(self, seletor):
+        casou = re.search(r"(?:^|\})\s*" + re.escape(seletor) + r"\s*\{([^}]*)\}", self.css)
+        return casou.group(1) if casou else None
+
+    def test_o_valor_do_tile_nao_quebra(self):
+        corpo = self._regra(".tile__value")
+        self.assertIsNotNone(corpo, "a regra .tile__value sumiu")
+        self.assertIn("white-space: nowrap", corpo)
+        self.assertIn("overflow-wrap: normal", corpo)
+
+    def test_a_regra_lida_e_mesmo_a_do_tile(self):
+        corpo = self._regra(".tile__value")
+        self.assertIsNotNone(corpo)
+        self.assertIn("font-variant-numeric: tabular-nums", corpo)
+
+
 class MetricaNaoDependeDoTemplateParaSerTabularTests(SimpleTestCase):
     """A tipografia de um número é do CSS, nunca do HTML que o escreve.
 

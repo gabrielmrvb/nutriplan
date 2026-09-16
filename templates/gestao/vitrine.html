@@ -74,7 +74,14 @@
       <div class="tile"><strong class="tile__value" data-conta>87%</strong><span class="tile__label">Aderência</span><span class="tile__meta">refeições do plano</span></div>
       <div class="tile"><strong class="tile__value" data-conta>2.140</strong><span class="tile__label">kcal/dia</span><span class="tile__meta">meta: 2.200</span></div>
       <div class="tile"><strong class="tile__value" data-conta>2,6 L</strong><span class="tile__label">Água</span><span class="tile__meta">média da semana</span></div>
-      <div class="tile"><strong class="tile__value" data-conta>1.234.567,89</strong><span class="tile__label">Número longo</span><span class="tile__meta">não quebra no meio</span></div>
+      {% comment %}
+        O maior valor real que um tile exibe: volume de um dia pesado de treino.
+        Medido a 390 px em 16/09/2026: 5 dígitos ocupam 61,6 px numa caixa de
+        74 px — é o teto prático. 6 dígitos dão 74,0 px, o limite exato, e uma
+        fonte de fallback estoura por 1 px; se um valor real chegar lá, a
+        correção é formatação (abreviar ou a unidade em linha própria), não CSS.
+      {% endcomment %}
+      <div class="tile"><strong class="tile__value" data-conta>20000</strong><span class="tile__label">kg de volume</span><span class="tile__meta">5 dígitos: o teto prático</span></div>
     </div>
     <dl class="data-list">
       <div><dt>Meta</dt><dd>Emagrecer</dd></div>

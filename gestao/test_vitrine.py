@@ -107,6 +107,10 @@ class CoberturaDaVitrineTests(BaseDoPainel):
     def test_conteudo_longo_e_quebrado_esta_previsto(self):
         html = self.client.get("/gestao/vitrine/").content.decode()
         self.assertIn("Supercalifragilisticexpialidocious", html)
+        # O tile do maior valor real (dia pesado de treino) guarda o teto
+        # prático de 5 dígitos — ver config.test_design_system.NumeroDoTileNaoQuebraNoMeioTests.
+        self.assertIn("20000", html)
+        self.assertIn("kg de volume", html)
 
     def test_nenhum_estilo_inline(self):
         self.assertNotIn('style="', self.template)
