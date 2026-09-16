@@ -52,6 +52,27 @@ if "testserver" not in settings.ALLOWED_HOSTS:
 
 EMAIL_DEMO = "joao@demo.local"
 
+from django.urls import reverse  # noqa: E402
+
+
+def ficha_de_hoje(usuario):
+    """URL da ficha da sessão de hoje — ou da primeira do plano ativo.
+
+    A ficha tem id na URL e o id é da pessoa; `estado_do_treino` já sabe
+    qual sessão é a de hoje. Sem plano de treino não há ficha, e a resposta
+    é `None`: o exportador pula a tela com aviso em vez de inventar um id.
+    """
+    from workouts.services import estado_do_treino
+
+    sessao = estado_do_treino(usuario).sessao
+    if sessao is None:
+        plano = usuario.training_plans.filter(is_active=True).first()
+        sessao = plano.sessions.order_by("weekday", "id").first() if plano else None
+    if sessao is None:
+        return None
+    return reverse("workouts:ficha", args=[sessao.id])
+
+
 # Cada tela: (nome do arquivo, URL, rótulo humano, ajustes no HTML).
 # `abrir_details` recebe o texto do <summary> e força aquele bloco aberto — é
 # assim que a captura mostra "Comi outra coisa" expandido, sem precisar de um
@@ -90,6 +111,16 @@ TELAS = [
         "url": "/conta/perfil/",
         "rotulo": "Ajustes · Seus dados",
     },
+    # As seis telas da spec de 15/09/2026 (design system pelo Claude Design):
+    # é o que vai para `artifacts/claude-design/seed/telas/`. A ENTRADA é
+    # anônima porque logado ela redireciona para a Home; a FICHA calcula o
+    # id pela pessoa.
+    {"nome": "10-hoje", "url": "/", "rotulo": "Hoje"},
+    {"nome": "11-treino-painel", "url": "/treino/", "rotulo": "Treino · painel da semana"},
+    {"nome": "12-treino-ficha", "url_fn": ficha_de_hoje, "rotulo": "Treino · ficha de hoje"},
+    {"nome": "13-treino-execucao", "url": "/treino/agora/", "rotulo": "Treino · execução"},
+    {"nome": "14-progresso", "url": "/historico/", "rotulo": "Progresso"},
+    {"nome": "15-entrada", "url": "/conta/entrar/", "rotulo": "Entrada", "anonimo": True},
 ]
 
 
@@ -184,6 +215,25 @@ def abrir_details(html, texto_do_summary):
     return html + injecao, 1
 
 
+def resposta_da_tela(tela, usuario):
+    """GET da tela como a semente precisa dela: logada, ou anônima se pedido.
+
+    Devolve (resposta, url_final). `url_fn` recebe a pessoa e pode devolver
+    `None` — aí a resposta é `None` e quem chama pula a tela.
+    """
+    url = tela["url_fn"](usuario) if "url_fn" in tela else tela["url"]
+    if url is None:
+        return None, None
+    cliente = Client()
+    if not tela.get("anonimo"):
+        # `force_login` entra sem senha: este script não precisa saber a
+        # senha de ninguém, e nada é gravado no banco.
+        cliente.force_login(usuario)
+    resposta = cliente.get(url, follow=True)
+    url_final = resposta.redirect_chain[-1][0] if resposta.redirect_chain else url
+    return resposta, url_final
+
+
 def exportar():
     Usuario = get_user_model()
     try:
@@ -194,18 +244,14 @@ def exportar():
             "Rode os seeds ou troque EMAIL_DEMO no topo deste arquivo.".format(EMAIL_DEMO)
         )
 
-    cliente = Client()
-    # `force_login` entra sem senha: este script não precisa saber a senha de
-    # ninguém, e nada é gravado no banco.
-    cliente.force_login(usuario)
-
     os.makedirs(SAIDA, exist_ok=True)
     resultados = []
 
     for tela in TELAS:
-        resposta = cliente.get(tela["url"], follow=True)
-        destino_final = resposta.redirect_chain[-1][0] if resposta.redirect_chain else tela["url"]
-
+        resposta, destino_final = resposta_da_tela(tela, usuario)
+        if resposta is None:
+            resultados.append((tela["nome"], "PULADA (sem URL para esta pessoa)", "", 0))
+            continue
         if resposta.status_code != 200:
             resultados.append((tela["nome"], "ERRO {}".format(resposta.status_code), destino_final, 0))
             continue
@@ -235,7 +281,7 @@ def exportar():
             nome, "{:.0f} KB".format(tamanho / 1024) if tamanho else "—",
             situacao, w=largura))
         if destino not in ("/", "") and not destino.endswith(
-                next((t["url"] for t in TELAS if t["nome"] == nome), "")):
+                next((t.get("url", "") for t in TELAS if t["nome"] == nome), "")):
             print("  {:<{w}}  {:>6}  redirecionou para {}".format("", "", destino, w=largura))
 
 
