@@ -206,6 +206,10 @@ class OZipRealTests(SimpleTestCase):
         self.assertEqual(classes["telas/_ds/nutriplan-design-system-abc/tokens/colors.css"], "interno")
         self.assertEqual(classes["nutriplan-telas.zip"], "interno")
         self.assertEqual(classes["design-system/uploads/app.css"], "interno")
+        # O terceiro zip (as três direções, canvas `.dc.html`) traz o runtime
+        # do canvas ao lado dos arquivos: é o irmão do `_ds_bundle.js`.
+        self.assertEqual(m.classificar("direcoes/support.js"), "interno")
+        self.assertEqual(m.classificar("direcoes/Direcao1-a.dc.html"), "referencia")
 
     def test_um_arquivo_estranho_continua_incerto(self):
         """Controle positivo: abrir a pasta conhecida em qualquer nível não

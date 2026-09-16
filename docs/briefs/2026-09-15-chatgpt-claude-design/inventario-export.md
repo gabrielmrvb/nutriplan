@@ -1,12 +1,12 @@
 # Inventário do export do Claude Design
 
-Gerado por `scripts/inventariar_export.py` em 16/09/2026 18:33 a partir de `artifacts/claude-design/export`. **192** arquivos, 9,7 MB.
+Gerado por `scripts/inventariar_export.py` em 16/09/2026 19:41 a partir de `artifacts/claude-design/export`. **217** arquivos, 12,4 MB.
 
 | classe | arquivos |
 |---|---:|
 | tokens | 43 |
-| referencia | 96 |
-| interno | 53 |
+| referencia | 103 |
+| interno | 71 |
 | incerto | 0 |
 
 | caminho | bytes | sha256 (8) | classe |
@@ -177,6 +177,31 @@ Gerado por `scripts/inventariar_export.py` em 16/09/2026 18:33 a partir de `arti
 | `design-system/uploads/treino-ficha-escuro.png` | 89413 | `958b3347` | interno |
 | `design-system/uploads/treino-painel-claro.png` | 78894 | `b50220f1` | interno |
 | `design-system/uploads/treino-painel-escuro.png` | 70964 | `77692b06` | interno |
+| `direcoes.zip` | 1226652 | `b3f7a9c6` | interno |
+| `direcoes/.thumbnail` | 13042 | `93da182a` | interno |
+| `direcoes/Direcao1-a.dc.html` | 36804 | `2c936440` | referencia |
+| `direcoes/Direcao1-b.dc.html` | 48153 | `fd7b8b9f` | referencia |
+| `direcoes/Direcao2-a.dc.html` | 35106 | `625d3e58` | referencia |
+| `direcoes/Direcao2-b.dc.html` | 46424 | `31cb2adc` | referencia |
+| `direcoes/Direcao3-a.dc.html` | 39610 | `88e301e0` | referencia |
+| `direcoes/Direcao3-b.dc.html` | 52592 | `c133e834` | referencia |
+| `direcoes/marca-192.png` | 26663 | `2ea7883f` | referencia |
+| `direcoes/support.js` | 69150 | `8fe7df74` | interno |
+| `direcoes/uploads/entrada-claro.png` | 111729 | `0d8c17b2` | interno |
+| `direcoes/uploads/entrada-escuro.png` | 96788 | `f984b57c` | interno |
+| `direcoes/uploads/hoje-claro.png` | 94531 | `6e9bbd19` | interno |
+| `direcoes/uploads/hoje-escuro.png` | 79362 | `7472f4e4` | interno |
+| `direcoes/uploads/icon-192.png` | 26663 | `2ea7883f` | interno |
+| `direcoes/uploads/icones.svg` | 10935 | `7b06abb6` | interno |
+| `direcoes/uploads/progresso-claro.png` | 86268 | `7617d0a7` | interno |
+| `direcoes/uploads/progresso-escuro.png` | 74456 | `f2878a14` | interno |
+| `direcoes/uploads/roteiro-tres-direcoes.md` | 6337 | `afdb6bbc` | interno |
+| `direcoes/uploads/treino-execucao-claro.png` | 112005 | `cecef2c8` | interno |
+| `direcoes/uploads/treino-execucao-escuro.png` | 99205 | `b4273562` | interno |
+| `direcoes/uploads/treino-ficha-claro.png` | 99715 | `09464c01` | interno |
+| `direcoes/uploads/treino-ficha-escuro.png` | 89413 | `6a11af4d` | interno |
+| `direcoes/uploads/treino-painel-claro.png` | 78894 | `9dc37c5b` | interno |
+| `direcoes/uploads/treino-painel-escuro.png` | 70964 | `2b3c9b8f` | interno |
 | `nutriplan-design-system.zip` | 3337071 | `df59022f` | interno |
 | `nutriplan-telas.zip` | 123695 | `d5e73ed2` | interno |
 | `telas/.thumbnail` | 12144 | `78eb47a1` | interno |

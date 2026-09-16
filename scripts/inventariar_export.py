@@ -44,7 +44,9 @@ CLASSES = ("tokens", "referencia", "interno", "incerto")
 PASTAS_INTERNAS = ("design-system-export", "_ds", "uploads", ".thumbnail")
 PASTAS_DE_TOKENS = ("tokens", "guidelines", "reference")
 PASTAS_DE_REFERENCIA = ("components", "ui_kits", "templates", "assets", "export")
-NOMES_INTERNOS = (".thumbnail", "thumbnail.html")
+# `support.js` é o runtime do canvas (`.dc.html`) do Claude Design — o
+# irmão do `_ds_bundle.js`: abre o arquivo no navegador, não é design.
+NOMES_INTERNOS = (".thumbnail", "thumbnail.html", "support.js")
 EXTENSOES_INTERNAS = (".zip",)
 NOMES_DE_TOKENS = ("readme.md", "skill.md", "styles.css", "design.md")
 
