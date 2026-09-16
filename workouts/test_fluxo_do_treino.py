@@ -357,6 +357,42 @@ class AFichaEAPreparacaoTests(BaseDoFluxo):
         self.assertIn("ficha-item__papel", self.html)
         self.assertIn(">Principal<", self.html)
 
+    def test_o_selo_principal_e_um_por_grupo_anunciado_em_cada_opcao(self):
+        """O PRIMEIRO composto de cada grupo anunciado, por opção — e só ele
+        (17/09/2026). Com 63 ativos "Peito e tríceps" tem quatro pressões de
+        peito por opção; marcando todo composto, "Principal" aparecia em
+        cinco de sete linhas e deixava de dizer por onde começar."""
+        from workouts import services
+
+        esperados = 0
+        for opcao in self.sessao.opcoes:
+            itens = self.sessao.da_opcao(opcao)
+            anunciados = set(self.sessao.main_groups)
+            grupos_com_composto = {
+                i.exercise.muscle_group for i in itens
+                if i.exercise.is_compound and i.exercise.muscle_group in anunciados
+            }
+            esperados += len(grupos_com_composto)
+            services.marcar_quem_abre_o_grupo(itens, self.sessao.main_groups)
+            marcados = [i for i in itens if i.abre_o_grupo]
+            # Um por grupo anunciado, e é o PRIMEIRO composto do grupo.
+            self.assertEqual(len(marcados), len(grupos_com_composto))
+            for grupo in grupos_com_composto:
+                primeiro = next(i for i in itens if i.exercise.is_compound and i.exercise.muscle_group == grupo)
+                self.assertTrue(primeiro.abre_o_grupo, primeiro.exercise.name)
+            # Composto que NÃO abre o grupo fica sem selo, mesmo sendo composto.
+            for i in itens:
+                if i.exercise.is_compound and i not in marcados:
+                    self.assertFalse(i.abre_o_grupo, i.exercise.name)
+        self.assertGreater(esperados, 0)
+        self.assertEqual(self.html.count(">Principal<"), esperados)
+        compostos_na_tela = sum(
+            1 for opcao in self.sessao.opcoes for i in self.sessao.da_opcao(opcao) if i.exercise.is_compound
+        )
+        # Controle positivo: há mais compostos que selos, senão o teste não
+        # distingue "primeiro composto" de "todo composto".
+        self.assertGreater(compostos_na_tela, esperados)
+
 
 class AEscolhaDoExercicioEEstritaTests(BaseDoFluxo):
     """Pedido inválido REJEITA. Nunca "abre outro".

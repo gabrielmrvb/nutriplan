@@ -531,6 +531,8 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             for item in itens:
                 item.series_rapida = rapida_series.get(item.exercise_id)
                 item.fora_da_rapida = item.exercise_id not in rapida_series
+            # O selo "Principal": o primeiro composto de cada grupo anunciado.
+            services.marcar_quem_abre_o_grupo(itens, sessao.main_groups)
             equipamentos = sorted({
                 item.exercise.get_equipment_display()
                 for item in itens if getattr(item.exercise, "equipment", "")

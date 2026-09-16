@@ -657,7 +657,10 @@ exercício no app.**
 O painel mostra o treino de hoje e um cartão por sessão, e cada cartão é um
 link. Ele NÃO lista exercício: "Começar treino" abre a ficha. A ficha é uma
 lista numerada — nome, séries × repetições, músculo e o marcador do movimento
-principal —, e cada linha é uma porta para a execução. A execução mostra UM
+principal —, e cada linha é uma porta para a execução. O selo "Principal" é o
+PRIMEIRO composto de cada grupo anunciado da opção
+(`services.marcar_quem_abre_o_grupo`, 17/09/2026), não todo composto: com
+quatro pressões de peito por opção ele aparecia em cinco de sete linhas. A execução mostra UM
 exercício: o vídeo dele, a carga, as repetições, o descanso, o desfazer e a
 carga da última vez.
 

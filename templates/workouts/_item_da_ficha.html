@@ -53,10 +53,14 @@
           <span class="num">{{ item.sets }}</span>&nbsp;×&nbsp;<span class="num">{{ item.rep_range }}</span>
         {% endif %}
         <span class="ficha-item__musculo">{{ item.exercise.get_muscle_group_display }}</span>
-        {% if item.exercise.is_compound %}
+        {% if item.abre_o_grupo %}
           {% comment %}
             O marcador do movimento principal é DISCRETO de propósito: ele
             orienta quem não sabe por onde começar e não compete com o nome.
+            Desde 17/09/2026 é o PRIMEIRO composto de cada grupo anunciado da
+            opção (`services.marcar_quem_abre_o_grupo`), e não todo composto:
+            com quatro pressões de peito na mesma opção, "Principal" em cinco
+            de sete linhas não orientava mais ninguém.
           {% endcomment %}
           <span class="ficha-item__papel">Principal</span>
         {% endif %}

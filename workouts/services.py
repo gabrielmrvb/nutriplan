@@ -398,6 +398,30 @@ ISOLADOR, ACESSORIO, PRINCIPAL = 0, 1, 2
 SERIES_DE_PRINCIPAL = 4
 
 
+def marcar_quem_abre_o_grupo(itens, main_groups) -> None:
+    """Escreve `abre_o_grupo` em cada item: o PRIMEIRO composto de cada grupo
+    anunciado, na ordem da ficha — e só ele.
+
+    É o selo "Principal" da ficha (17/09/2026, pedido do dono): até então o
+    selo marcava todo `is_compound`, e com quatro pressões de peito por
+    opção "Principal" aparecia em cinco de sete linhas — não orientava mais
+    ninguém por onde começar. Não é `prioridades_da_sessao`: aquela régua é
+    do APARO (o composto de maior dose), esta é da LEITURA (o que abre o
+    grupo). Complementar não anunciado não recebe selo, mesmo composto.
+    """
+    anunciados = set(main_groups or ())
+    ja_abriu = set()
+    for item in itens:
+        grupo = item.exercise.muscle_group
+        item.abre_o_grupo = (
+            item.exercise.is_compound
+            and grupo not in ja_abriu
+            and (not anunciados or grupo in anunciados)
+        )
+        if item.abre_o_grupo:
+            ja_abriu.add(grupo)
+
+
 def prioridades_da_sessao(itens) -> list:
     """Quem cede primeiro quando falta tempo ou estoura o volume semanal.
 
