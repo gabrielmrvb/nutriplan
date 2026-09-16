@@ -1137,7 +1137,7 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
                 return self._de_volta_ao_foco(request, dia)
 
         try:
-            services.append_set(
+            log, criada = services.append_set(
                 request.user, exercise, peso, reps=reps, op_id=op_id, day=dia
             )
         except ValueError:
@@ -1157,11 +1157,22 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
             # quando a série aconteceu. Só no ramo que gravou — desfazer não
             # cria conquista.
             #
-            # E só QUANDO HÁ RECORDE: o catálogo inteiro custa 43 consultas
-            # (medido), e a fila reenvia séries em rajada. A única regra que
-            # depende do dia é o recorde; as outras esperam a próxima visita
-            # a /conquistas/, como sempre esperaram. Uma consulta decide.
-            if services.supera_recorde(request.user, exercise, peso, dia=dia):
+            # E só na PRIMEIRA SÉRIE DO DIA ou QUANDO HÁ RECORDE: o catálogo
+            # inteiro custa 43 consultas (medido), e a fila reenvia séries em
+            # rajada. A primeira série é o momento em que um dia de treino
+            # passa a existir — `dias_treinados`, a ofensiva, a semana
+            # completa e os treinos-N mudam AÍ, e só aí —; até 16/09/2026 só
+            # o recorde avaliava, e "Primeiro treino" nunca nascia na hora,
+            # porque estreia não é recorde (avaliação B5). Reenvio da fila
+            # (`criada=False`) não é dia novo. Uma consulta decide cada um.
+            primeira_do_dia = criada and not (
+                ExerciseLog.objects.filter(user=request.user, date=dia)
+                .exclude(pk=log.pk)
+                .exists()
+            )
+            if primeira_do_dia or services.supera_recorde(
+                request.user, exercise, peso, dia=dia
+            ):
                 novas = conquistas.avaliar(request.user, hoje=dia)
                 conquistas.anunciar(request, novas)
             # Fechou a última série: a tela seguinte já é outro exercício, e

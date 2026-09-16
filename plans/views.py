@@ -751,7 +751,9 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
         # que entra em "próxima" é delicada ("só o que dá para medir sem
         # inventar", que é o que impede a parede de medalhas cinzentas), e duas
         # cópias dela divergiriam na primeira mudança.
-        total_conquistas, recente, proxima = conquistas.resumo(self.request.user)
+        total_conquistas, recente, proxima = conquistas.resumo(
+            self.request.user, request=self.request
+        )
 
         context.update(
             {

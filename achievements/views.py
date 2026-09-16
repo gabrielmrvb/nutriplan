@@ -8,6 +8,7 @@ se visita de vez em quando desfaria essa melhora em troca de pouco.
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.views import View
 from django.views.generic import TemplateView
 
@@ -49,7 +50,13 @@ class ConquistasView(OnboardingRequiredMixin, TemplateView):
         #
         # `avaliar` é idempotente — `get_or_create` mais a constraint de
         # unicidade —, então abrir a tela dez vezes não cria dez conquistas.
-        services.avaliar(user)
+        #
+        # E o que nasce AQUI é anunciado AQUI: até 16/09/2026 a página
+        # desbloqueava em silêncio, e a pessoa via a medalha na lista sem
+        # nunca ter visto "Conquista desbloqueada" (avaliação B5). O aviso
+        # sai do processador de contexto, que lê a sessão nesta mesma
+        # renderização.
+        services.anunciar(self.request, services.avaliar(user))
 
         ganhas = list(UserAchievement.objects.filter(user=user))
         por_slug = {}
@@ -130,7 +137,27 @@ class MarcarVistasView(AcaoDeTela, LoginRequiredMixin, View):
         "conquistas": "achievements:list",
         "hoje": "plans:today",
         "treino": "workouts:routine",
+        # As telas em que o aviso passou a NASCER em 16/09/2026 (B5/B35): a
+        # primeira série do dia e o Progresso. "Continuar" no meio do treino
+        # jogava a pessoa na Home.
+        "execucao": "workouts:now",
+        "progresso": "plans:history",
     }
+
+    def _destino(self, pedido) -> str:
+        """O NOME da lista — ou o CAMINHO exato de um destino da lista.
+
+        O parcial `_conquista.html` escreve `request.path` em `proximo`, e a
+        lista só conhecia nomes: todo caminho caía no padrão, a Home. A lista
+        continua fechada — um caminho só vale se for o `reverse()` de um
+        destino dela; "https://…", "//…" e qualquer outra rota caem na Home.
+        """
+        if pedido in self.DESTINOS:
+            return self.DESTINOS[pedido]
+        for nome in self.DESTINOS.values():
+            if pedido == reverse(nome):
+                return nome
+        return "plans:today"
 
     def post(self, request, *args, **kwargs):
         try:
@@ -142,5 +169,4 @@ class MarcarVistasView(AcaoDeTela, LoginRequiredMixin, View):
 
         if request.headers.get("X-Requested-With") == "fetch":
             return JsonResponse({"ok": True})
-        return redirect(self.DESTINOS.get(request.POST.get("proximo"),
-                                          "plans:today"))
+        return redirect(self._destino(request.POST.get("proximo", "")))

@@ -106,8 +106,12 @@ class ORecordeTests(TestCase):
     def test_serie_sem_recorde_nao_paga_o_catalogo_inteiro(self):
         """`avaliar` custa 43 consultas (medido em 13/09/2026) e a fila reenvia
         séries em rajada. Sem recorde, o POST fica no custo de sempre; a
-        régua é o número medido ANTES da avaliação entrar."""
-        self._log(10, 1, "65")
+        régua é o número medido ANTES da avaliação entrar.
+
+        Desde 16/09/2026 a PRIMEIRA série do dia também avalia (B5: estreia
+        não é recorde, e "Primeiro treino" nunca nascia na hora), então a
+        série medida aqui é a SEGUNDA do dia — a que a rajada da fila repete."""
+        self._log(10, 1, "65"); self._log(0, 1, "60")
         corpo = {
             "exercise_id": self.item.exercise_id, "weight_kg": "60", "reps": "8",
             "op_id": "op-comum", "dia": self.hoje.isoformat(),
@@ -159,4 +163,8 @@ CONSULTAS_DA_EXECUCAO = 22
 #: dia (uma consulta) para filtrar a linha da OPÇÃO — a prescrição de "4/4"
 #: era a da opção 1 mesmo quando a pessoa fazia a 2. A contagem continua em
 #: subconsulta. Constante: 19 com 3 e com 30 registros.
-CONSULTAS_DO_POST_SEM_RECORDE = 19
+#: 20 em 16/09/2026: mais UMA, "é a primeira série do dia?" (`EXISTS` em
+#: `ExerciseLog` do dia, excluindo a recém-gravada) — a primeira série avalia
+#: o catálogo inteiro (B5, estreia não é recorde), e a segunda em diante paga
+#: só essa pergunta. Constante: 20 com 3 e com 30 registros de histórico.
+CONSULTAS_DO_POST_SEM_RECORDE = 20

@@ -949,19 +949,21 @@ class ProfileSummaryView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         profile = Profile.objects.filter(user=self.request.user).first()
         plano, plano_vencido = self._plano_em_vigor(profile)
-        # Uma contagem só, lida por dois consumidores: o cartão da divisão e a
-        # explicação dela.
-        dias_de_treino = self.request.user.training_days.count()
+        # UMA leitura dos dias de treino, para quatro consumidores: o cartão
+        # (existe algum?), a linha "Seg · Qua · Sex", o cartão da divisão e a
+        # explicação dela. Eram `count()` + `all()` + `order_by()` — três
+        # consultas para a mesma lista de até sete linhas.
+        dias_de_treino_lista = list(self.request.user.training_days.order_by("weekday"))
+        dias_de_treino = len(dias_de_treino_lista)
         context.update(
             {
                 "profile": profile,
-                "training_days": self.request.user.training_days.all(),
+                "training_days": dias_de_treino_lista,
                 # "Seg · Qua · Sex": o mesmo vocabulário curto do resumo da
                 # etapa 3, lido de `DIA_CURTO` (o do formulário). O nome inteiro
                 # partia em "Quinta-/feira" a 390 px (avaliação de 16/09, B33).
                 "dias_de_treino_curtos": " · ".join(
-                    DIA_CURTO[Weekday(d.weekday)]
-                    for d in self.request.user.training_days.order_by("weekday")
+                    DIA_CURTO[Weekday(d.weekday)] for d in dias_de_treino_lista
                 ),
                 "weight_entries": self.request.user.weight_entries.all()[:10],
                 # O plano ATIVO, para o perfil mostrar as metas em vigor ao

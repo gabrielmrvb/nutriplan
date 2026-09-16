@@ -1085,12 +1085,27 @@ não roda no navegador; foi assim que a marcação da lista "funcionou" sem salv
 nada. E o ouvinte de mudança é delegado no `document`: pendurá-lo no
 `[data-lista-compras]` não pega as caixas, que não são filhas dele.
 
-**`achievements.resumo` não chama `avaliar`.** O Progresso mostra um resumo das
-conquistas, e avaliar as regras ali levou a tela de 15 para 50 consultas, com
-crescimento por histórico — 36 contra 54 medidas. `ConquistasView` já
-documentava a mesma decisão. O teto do orçamento subiu de 15 para 26 COM a
-medição escrita, e a guarda de N+1 continua estrita: teto só se mexe depois de
-provar que o custo é constante.
+**`achievements.resumo` não chama `avaliar` — ele desbloqueia SÓ a regra que
+chegou a 100 %.** O Progresso mostra um resumo das conquistas, e avaliar as
+regras ali levou a tela de 15 para 50 consultas, com crescimento por
+histórico — 36 contra 54 medidas. `ConquistasView` já documentava a mesma
+decisão. O teto do orçamento subiu de 15 para 26 COM a medição escrita, e a
+guarda de N+1 continua estrita: teto só se mexe depois de provar que o custo
+é constante. A consequência que essa decisão tinha apareceu em produção em
+16/09/2026 (avaliação, B35): "Desbloqueadas 0" com a barra "Primeiro treino
+1/1" cheia na mesma caixa. Hoje `resumo` grava a regra a 100 % com os dados
+que já reuniu (`_gravar`, duas consultas, uma vez) e anuncia na mesma tela;
+a visita seguinte custa o mesmo que a de quem não tem nada a 100 %.
+
+**A conquista é avaliada na PRIMEIRA SÉRIE DO DIA e no recorde, e anunciada
+onde nasce.** Até 16/09/2026 o POST da série só avaliava quando
+`supera_recorde` dizia sim — e estreia não é recorde, então "Primeiro
+treino" nunca nascia na hora (B5): dez das onze regras dependem de um dia
+de treino passar a existir, e ele passa a existir na primeira série. A
+segunda em diante paga UMA consulta ("é a primeira?") e nada mais
+(`workouts/test_recorde_na_hora`, 20); reenvio da fila (`criada=False`) não
+avalia. E `ConquistasView` anuncia o que desbloqueia — antes a medalha
+aparecia na lista sem "Conquista desbloqueada" ter sido vista uma vez.
 
 **A SECRET_KEY não é gerada pela plataforma.** `generateValue: true` do Render
 entrega 256 bits em base64 — 44 caracteres —, e o Django exige 50. Isso deixou

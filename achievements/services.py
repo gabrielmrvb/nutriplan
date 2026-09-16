@@ -129,23 +129,34 @@ def avaliar(user, hoje=None) -> list:
     dados = reunir(user, hoje)
     novas = []
     for regra in CATALOGO:
-        for chave, contexto in regra.detectar(dados):
-            try:
-                with transaction.atomic():
-                    conquista, criada = UserAchievement.objects.get_or_create(
-                        user=user,
-                        slug=regra.slug,
-                        chave=chave,
-                        defaults={"contexto": contexto},
-                    )
-            except IntegrityError:
-                continue
-            if criada:
-                novas.append(conquista)
+        novas.extend(_gravar(user, regra, dados))
     return novas
 
 
-def resumo(user, hoje=None):
+def _gravar(user, regra, dados) -> list:
+    """Roda UMA regra sobre dados já reunidos e grava o que for novo.
+
+    É o corpo do laço de `avaliar`, separado para `resumo` poder desbloquear
+    só a regra que chegou a 100 % sem pagar o catálogo inteiro.
+    """
+    novas = []
+    for chave, contexto in regra.detectar(dados):
+        try:
+            with transaction.atomic():
+                conquista, criada = UserAchievement.objects.get_or_create(
+                    user=user,
+                    slug=regra.slug,
+                    chave=chave,
+                    defaults={"contexto": contexto},
+                )
+        except IntegrityError:
+            continue
+        if criada:
+            novas.append(conquista)
+    return novas
+
+
+def resumo(user, hoje=None, request=None):
     """O que o bloco compacto do Progresso precisa saber.
 
     Devolve `(quantas, mais_recente, proxima)`:
@@ -174,18 +185,45 @@ def resumo(user, hoje=None):
     conquistas, que a pessoa abre de vez em quando; o Progresso LÊ o que já
     está gravado.
 
-    A consequência honesta: uma conquista fechada há minutos aparece no
-    Progresso depois que a pessoa abrir a página de conquistas. Melhor que uma
-    tela de histórico que fica lenta com o histórico.
+    A consequência que essa decisão tinha, vista em produção em 16/09/2026
+    (avaliação, B35): "Desbloqueadas 0" com a barra "Primeiro treino 1/1"
+    CHEIA na mesma caixa. A função pintava 100 % de uma conquista que não
+    existia — e "aparece depois que a pessoa abrir a página de conquistas"
+    é exatamente o que ninguém que está olhando para a barra cheia faz.
+
+    O QUE ELA FAZ EM VEZ DE `avaliar`: desbloqueia SÓ a regra que chegou a
+    100 %, com os `dados` que já reuniu para medir o progresso. Custa duas
+    consultas (o `get_or_create` de `_gravar`) UMA vez — na visita em que a
+    condição fechou — e zero nas seguintes, porque a regra sai de
+    `candidatas` assim que está em `conquistados`. O custo constante do
+    Progresso continua sendo o de sempre (`plans.test_stress`); há teste
+    comparando a visita seguinte com a de quem não tem nada a 100 %
+    (`test_na_hora`). Com `request`, o que nasce é anunciado na mesma tela.
     """
     from .models import UserAchievement
     from .regras import CATALOGO
 
     ganhas = list(UserAchievement.objects.filter(user=user))
     conquistados = {c.slug for c in ganhas}
-    mais_recente = max(ganhas, key=lambda c: c.pk) if ganhas else None
 
-    candidatas = a_caminho(reunir(user, hoje=hoje), conquistados)
+    dados = reunir(user, hoje=hoje)
+    candidatas = a_caminho(dados, conquistados)
+    novas = []
+    while candidatas and candidatas[0]["pct"] >= 100:
+        regra = candidatas[0]["regra"]
+        nascidas = _gravar(user, regra, dados)
+        if not nascidas:
+            # `progresso` diz 100 % e `detectar` discorda (ou outro pedido
+            # gravou antes): não insiste — e não pinta de novo em laço.
+            break
+        novas.extend(nascidas)
+        ganhas.extend(nascidas)
+        conquistados.add(regra.slug)
+        candidatas = a_caminho(dados, conquistados)
+    if request is not None and novas:
+        anunciar(request, novas)
+
+    mais_recente = max(ganhas, key=lambda c: c.pk) if ganhas else None
     return len(ganhas), mais_recente, (candidatas[0] if candidatas else None)
 
 
