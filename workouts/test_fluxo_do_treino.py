@@ -461,9 +461,11 @@ class AEscolhaDoExercicioEEstritaTests(BaseDoFluxo):
         # A OUTRA PESSOA TREINA OUTRA LETRA HOJE, e é isso que garante um
         # exercício exclusivo dela. Com as duas em `A2` — o que acontecia às
         # quintas — as fichas eram idênticas e o teste pulava: o IDOR ficava
-        # sem guarda no dia em que as duas coincidiam.
+        # sem guarda no dia em que as duas coincidiam. E "outra letra" é
+        # RELATIVA à minha: fixar "C" repetia o defeito às quartas, quando a
+        # minha sessão de hoje também é C (visto em 16/09/2026).
         alheia = pessoa("outra@exemplo.com")
-        sessao_alheia = tornar_hoje(alheia, "C")
+        sessao_alheia = tornar_hoje(alheia, "C" if self.sessao.label != "C" else "A")
         alheios = [
             i.exercise_id
             for i in sessao_alheia.exercises.all()
