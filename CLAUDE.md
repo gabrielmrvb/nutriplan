@@ -1464,6 +1464,38 @@ calendário. E `/saude/` passou a devolver `commit` (`RENDER_GIT_COMMIT`,
 sete caracteres): a prova de deploy deixou de depender de a mudança ter
 superfície visível.
 
+## O que existe no Render (inventário de 16/09/2026, sem valores)
+
+Um workspace ("My Workspace"), região **Oregon**, e a chave de API
+`nutriplan-claude-code` fora do repositório (`RENDER_API_KEY` no ambiente da
+máquina e `~/.nutriplan-secrets/render_api_key`). `scripts/render_api.py`
+fala com a API sem imprimir valor nenhum: `inspect` (serviços e NOMES das
+variáveis), `env`, `cron`, `deploy`, `trigger`, `runs`, `logs`, `status`.
+
+- **Web service `nutriplan`** (`srv-da6f5kou01pc73fsfkqg`): plano **free**,
+  deploy automático de `main`, build em `scripts/build.sh`, healthcheck
+  `/saude/`. Variáveis, por nome: `DATABASE_URL` (Neon — o banco do Render
+  é só rollback), `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`,
+  `DJANGO_EMAIL_BACKEND`, `DEFAULT_FROM_EMAIL`, `EMAIL_HOST`, `EMAIL_PORT`,
+  `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` (Brevo, 2525),
+  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PYTHON_VERSION`,
+  `WEB_CONCURRENCY` e, desde 16/09/2026, `VAPID_PUBLIC_KEY`,
+  `VAPID_PRIVATE_KEY`, `VAPID_ADMIN_EMAIL` (par em
+  `~/.nutriplan-secrets/vapid/`; a pública começa com `BPpbVTBznicK`). Com
+  elas o cartão "Lembretes" aparece e a assinatura push é gravada — provado
+  em produção com conta descartável e Chrome real: `/push/inscrever/` 200,
+  FCM 201, notificação exibida.
+- **Cron `nutriplan-lembretes`: AINDA NÃO EXISTE.** A criação pela API
+  respondeu `402 Payment information is required` — a conta não tem cartão.
+  Custo quando existir: plano `starter`, rateado por segundo de execução,
+  **mínimo de US$ 1/mês por cron** (76 rodadas/dia de poucos segundos ficam
+  no mínimo). Especificação, a mesma do bloco-espelho do `render.yaml`:
+  `*/15 8-23,0-2 * * *` (UTC = 05h–23h59 em Brasília), `python manage.py
+  send_meal_reminders`, `pip install -r requirements.txt`, ambiente = cópia
+  do web + VAPID. Para ligar: cartão em `dashboard.render.com/billing`, depois
+  `scripts/render_api.py cron`, `trigger` e `logs`. **Sem o cron, ninguém
+  recebe lembrete** — a assinatura fica gravada esperando.
+
 ## Backup e restauração
 
 Procedimento completo, incluindo o que fazer se produção desaparecer, em
