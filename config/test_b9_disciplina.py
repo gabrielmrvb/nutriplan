@@ -444,3 +444,79 @@ class OPrePushTestaOShaQueSobeTests(SimpleTestCase):
         linhas = [l for l in hook.splitlines() if "manage.py test" in l and not l.strip().startswith("#")]
         self.assertEqual(len(linhas), 1, linhas)
         self.assertIn("$WT", linhas[0])
+
+
+class OPrePushTestaSoOQueABranchTocaTests(SimpleTestCase):
+    """O push local paga só pelo que tocou (decisão do dono, 16/09/2026); a
+    suíte COMPLETA é do CI, no PR (17/09).
+
+    45 minutos por push de backup de uma branch é o preço que faz alguém
+    empurrar com `--no-verify` — e trava que se pula não é trava. O que
+    entra além do atalho fixo é decidido por `scripts/hooks/escopo_do_push.py`:
+    a vitrine (`gestao`) e as catracas (`config`) sempre, mais o app de cada
+    arquivo que o push mudou desde `origin/main`. Sem base para comparar, o
+    hook fica no atalho fixo — o gate é o CI de qualquer jeito.
+    """
+
+    def _escopo(self):
+        import importlib.util
+        from pathlib import Path
+
+        caminho = Path(__file__).resolve().parent.parent / "scripts" / "hooks" / "escopo_do_push.py"
+        spec = importlib.util.spec_from_file_location("escopo_do_push", caminho)
+        modulo = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(modulo)
+        return modulo
+
+    def _hook(self):
+        from pathlib import Path
+
+        return (Path(__file__).resolve().parent.parent / "scripts" / "hooks" / "pre-push").read_text(
+            encoding="utf-8"
+        )
+
+    def test_branch_paga_pelo_que_tocou(self):
+        m = self._escopo()
+        caminhos = [
+            "static/css/app.css",
+            "templates/workouts/agora.html",
+            "accounts/forms.py",
+            "docs/superpowers/plans/x.md",
+        ]
+        self.assertEqual(m.escopo(caminhos), ["accounts", "config", "gestao", "workouts"])
+
+    def test_branch_que_so_mexe_em_css_roda_o_minimo(self):
+        m = self._escopo()
+        self.assertEqual(m.escopo(["static/css/app.css"]), ["config", "gestao"])
+
+    def test_js_e_shell_caem_no_push(self):
+        m = self._escopo()
+        self.assertEqual(m.escopo(["static/js/pwa.js"]), ["config", "gestao", "push"])
+        self.assertEqual(m.escopo(["templates/base.html"]), ["config", "gestao", "push"])
+        self.assertEqual(m.escopo(["templates/pwa/sw.js"]), ["config", "gestao", "push"])
+
+    def test_o_leitor_de_caminho_reconhece_app_e_template_de_app(self):
+        m = self._escopo()
+        self.assertEqual(m.app_do_caminho("plans/tests.py"), "plans")
+        self.assertEqual(m.app_do_caminho("templates/plans/today.html"), "plans")
+        self.assertEqual(m.app_do_caminho(r"templates\accounts\login.html"), "accounts")
+        self.assertIsNone(m.app_do_caminho("README.md"))
+        self.assertIsNone(m.app_do_caminho("scripts/qa/nav.py"))
+
+    def test_o_hook_soma_o_escopo_ao_atalho_e_fica_no_atalho_sem_base(self):
+        """A linha de teste é UMA (a classe acima cobra) e leva `$ALVOS`; o
+        escopo entra SOMADO ao atalho fixo, dentro do ramo que não é a
+        suíte completa, e só quando há `origin/main` para comparar."""
+        hook = self._hook()
+        self.assertIn("escopo_do_push.py", hook)
+        self.assertIn("git merge-base", hook)
+        self.assertIn("refs/remotes/origin/main", hook)
+        linhas = [l for l in hook.splitlines() if "manage.py test" in l and not l.strip().startswith("#")]
+        self.assertEqual(len(linhas), 1)
+        self.assertIn("$ALVOS", linhas[0])
+        self.assertRegex(hook, r'ALVOS="\$ALVOS \$\(.*escopo_do_push\.py')
+        # A soma acontece DEPOIS do atalho fixo e ANTES do worktree ser criado
+        # (medido no código, sem o cabeçalho de comentário, que cita o script).
+        codigo = "\n".join(l for l in hook.splitlines() if not l.lstrip().startswith("#"))
+        self.assertLess(codigo.index("plans.test_stress\""), codigo.index("escopo_do_push.py"))
+        self.assertLess(codigo.index("escopo_do_push.py"), codigo.index("git worktree add"))
