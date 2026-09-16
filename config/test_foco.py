@@ -44,6 +44,15 @@ class FocoUnicoTests(TestCase):
         azuis = [sel.strip() for sel, corpo in regras if "--agua" in corpo]
         self.assertEqual(azuis, [], f"foco com cor de pilar: {azuis}")
 
+    def test_o_leitor_enxerga_um_foco_azul(self):
+        """Controle positivo da DETECÇÃO, não só do regex: um CSS sintético com
+        foco em `--agua` tem de ser flagrado. Sem isto, só a sabotagem manual
+        provava que o teste de cima morde."""
+        self.css = ".x:focus-visible { outline: 2px solid var(--agua) } .y:focus { color: var(--text) }"
+        regras = self._regras_de_foco()
+        azuis = [sel.strip() for sel, corpo in regras if "--agua" in corpo]
+        self.assertEqual(azuis, [".x:focus-visible"])
+
     def test_o_glow_e_um_anel_sem_difusao(self):
         """O `--glow` era duas sombras: um anel de 18% mais uma difusão de 26 px.
         Somado à borda que já vira `--brand` no `:focus`, o anel de 1 px cheio
@@ -80,4 +89,22 @@ class FocoUnicoTests(TestCase):
         do `AuthenticationForm` (`username`/`password`), não os do allauth."""
         resposta = self.client.post("/conta/entrar/", {"username": "nao-e-email", "password": ""})
         self.assertEqual(resposta.status_code, 200)
-        self.assertIn('aria-invalid="true"', resposta.content.decode())
+        # Na MESMA tag, classe e atributo: a regra CSS precisa da coincidência,
+        # e `assertIn` solto passaria com a string dentro de um <script>.
+        self.assertRegex(
+            resposta.content.decode(),
+            r'<input[^>]*class="field-input"[^>]*aria-invalid="true"',
+        )
+
+    def test_o_que_o_campo_aponta_existe(self):
+        """O Django escreve `aria-describedby="id_x_helptext id_x_error"` no
+        widget; `partials/field.html` renderiza ajuda e erros por conta própria
+        e, até 16/09/2026, sem os ids — o leitor de tela recebia a referência e
+        não achava o alvo. Toda referência tem de ter alvo na página."""
+        resposta = self.client.post("/conta/entrar/", {"username": "nao-e-email", "password": ""})
+        html = resposta.content.decode()
+        referencias = [i for grupo in re.findall(r'aria-describedby="([^"]+)"', html) for i in grupo.split()]
+        self.assertTrue(referencias, "a página de erro não tem aria-describedby: o controle positivo sumiu")
+        ids = set(re.findall(r'\sid="([^"]+)"', html))
+        orfas = [r for r in referencias if r not in ids]
+        self.assertEqual(orfas, [], f"aria-describedby sem alvo: {orfas}")
