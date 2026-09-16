@@ -80,8 +80,8 @@
   `config/test_sprite.py` conta `<symbol id="icone-chama"` por rota: exatamente
   um. Medido em 16/09/2026: a ficha e a execução do treino crescem 2 939 bytes cada.
 
-  E ele NÃO entra no shell offline, pelo mesmo `{% if not shell_offline %}` do
-  mapa e do `data-usuario`: aquela tela é pré-cacheada no cache de estáticos,
+  E ele NÃO entra no shell offline, pela mesma condição `shell_offline` que
+  segura o `data-usuario` e as mensagens: aquela tela é pré-cacheada no cache de estáticos,
   que sobrevive ao logout, e o sprite é peso que ela não usa.
 
   (O `<defs>` do gradiente da marca antiga que morava aqui saiu com ela; a

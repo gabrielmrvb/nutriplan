@@ -17,14 +17,17 @@ class _Aninhamento(HTMLParser):
         super().__init__()
         self.pilha = []  # True quando o elemento aberto é um .card
         self.aninhados = []
+        self.total = 0  # todo `.card` visto — o controle de que a medida mede algo
 
     def handle_starttag(self, tag, attrs):
         if tag in self.VAZIOS:
             return
         classes = dict(attrs).get("class", "").split()
         eh_card = "card" in classes
-        if eh_card and any(self.pilha):
-            self.aninhados.append(" ".join(classes))
+        if eh_card:
+            self.total += 1
+            if any(self.pilha):
+                self.aninhados.append(" ".join(classes))
         self.pilha.append(eh_card)
 
     def handle_endtag(self, tag):
@@ -37,6 +40,12 @@ def cartoes_aninhados(html):
     p = _Aninhamento()
     p.feed(html)
     return p.aninhados
+
+
+def total_de_cartoes(html):
+    p = _Aninhamento()
+    p.feed(html)
+    return p.total
 
 
 class CartaoDentroDeCartaoTests(TestCase):
@@ -65,12 +74,17 @@ class CartaoDentroDeCartaoTests(TestCase):
         self.assertEqual(cartoes_aninhados('<div class="card a"></div><div class="card b"></div>'), [])
 
     def test_nenhuma_rota_renderiza_cartao_dentro_de_cartao(self):
-        achados = {}
+        achados, cartoes = {}, 0
         for rota in self.ROTAS:
             resposta = self.client.get(rota, follow=True)
             self.assertEqual(resposta.status_code, 200, rota)
-            aninhados = cartoes_aninhados(resposta.content.decode())
+            html = resposta.content.decode()
+            cartoes += total_de_cartoes(html)
+            aninhados = cartoes_aninhados(html)
             if aninhados:
                 achados[rota] = aninhados
+        # Controle positivo: renomear `.card` (a discussão da T3.3) não pode
+        # deixar a catraca verde medindo nada. Medido em 16/09/2026: 32.
+        self.assertGreaterEqual(cartoes, 20, "quase nenhum .card renderizou: o leitor está cego")
         total = sum(len(v) for v in achados.values())
         self.assertLessEqual(total, self.TETO_ANINHADOS, f"cartões aninhados: {achados}")

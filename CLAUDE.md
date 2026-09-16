@@ -1395,8 +1395,10 @@ pinta a borda de `--danger`, e `partials/field.html` escreve os ids
 apontava sem alvo. `config/test_foco.py`.
 
 **O sprite entra em toda página, uma vez, pela base — e não no shell
-offline.** A frase "só é incluído no onboarding" da seção anterior era
-verdade até 16/09/2026. Hoje `base.html` inclui `partials/icones.html`
+offline.** A frase "só é incluído no onboarding" do bullet **não tem
+ícone** das "Três ausências no mapa" (seção "Decisões") era verdade até
+16/09/2026 — e a decisão dali continua de pé por outro motivo: `/areas/`
+segue sem `<use>` porque o mapa é lista de nomes, não de desenhos. Hoje `base.html` inclui `partials/icones.html`
 dentro do mesmo `{% if not shell_offline %}` do `data-usuario`; onboarding e
 vitrine deixaram de incluir por conta própria. Medido: ficha +2 939 bytes
 (sprite 2 946 B brutos, 849 B gzip, 13 símbolos) — abaixo do teto de +4 KB do

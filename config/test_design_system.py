@@ -733,10 +733,14 @@ def botoes_sem_variante(texto):
     """
     culpados = []
     # Lógica de template dentro do atributo (`{% if %}btn--primary{% endif %}`)
-    # sai antes de tokenizar: o que sobra é o que TODO ramo renderiza.
+    # sai antes de tokenizar: o que sobra é o literal comum aos ramos — um
+    # `{% if %}` sem `else` que escondesse a única variante passaria, e os
+    # dois casos reais têm `else`.
     limpo = re.sub(r"{%.*?%}", " ", texto)
-    for m in re.finditer(r'class="btn(?:\s+[^"]*)?"', limpo):
-        classes = m.group(0)[len('class="'):-1].split()
+    for m in re.finditer(r"class=([\"'])(.*?)\1", limpo):
+        classes = m.group(2).split()
+        if "btn" not in classes:
+            continue
         if not any(c in VARIANTES_DE_BOTAO for c in classes):
             culpados.append(m.group(0))
     return culpados

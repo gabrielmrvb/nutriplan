@@ -181,6 +181,9 @@ class KeyframeSemConsumidorTests(SimpleTestCase):
         self.assertEqual(keyframes_orfaos(sem_comentarios("@keyframes x { } /* animation: x; */")), ["x"])
 
     def test_todo_keyframe_tem_quem_o_anime(self):
+        # Piso: um regex que não casasse `@keyframes` daria zero órfãos por
+        # não achar nada. Hoje são 18 declarados.
+        self.assertGreaterEqual(len(re.findall(r"@keyframes\s+[\w-]+", CSS_LIMPO)), 10)
         orfaos = keyframes_orfaos(CSS_LIMPO)
         self.assertLessEqual(len(orfaos), self.TETO, f"keyframes sem consumidor: {orfaos}")
 

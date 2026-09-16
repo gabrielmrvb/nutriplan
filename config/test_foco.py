@@ -91,10 +91,9 @@ class FocoUnicoTests(TestCase):
         self.assertEqual(resposta.status_code, 200)
         # Na MESMA tag, classe e atributo: a regra CSS precisa da coincidência,
         # e `assertIn` solto passaria com a string dentro de um <script>.
-        self.assertRegex(
-            resposta.content.decode(),
-            r'<input[^>]*class="field-input"[^>]*aria-invalid="true"',
-        )
+        tags = re.findall(r"<input [^>]*>", resposta.content.decode())
+        com_os_dois = [t for t in tags if 'class="field-input"' in t and 'aria-invalid="true"' in t]
+        self.assertTrue(com_os_dois, "nenhum <input class=\"field-input\"> com aria-invalid na mesma tag")
 
     def test_o_que_o_campo_aponta_existe(self):
         """O Django escreve `aria-describedby="id_x_helptext id_x_error"` no

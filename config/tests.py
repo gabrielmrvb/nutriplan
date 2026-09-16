@@ -807,8 +807,10 @@ class VisualRefinementTests(TestCase):
         # escreva de novo é um segundo idioma para o mesmo estado.
         anel = re.compile(r"0 0 0 1px (?:var\(--(?:ferro-)?brand\)|color-mix\(in srgb, var\(--(?:ferro-)?brand\))")
         definicao = re.compile(r"\s*(--[\w-]+):")
-        tokens = {definicao.match(l).group(1) for l in self.css.splitlines() if anel.search(l) and definicao.match(l)}
-        mao = [l.strip() for l in self.css.splitlines() if anel.search(l) and not definicao.match(l)]
+        # Sem comentários: este arquivo cita a receita do anel em prosa.
+        linhas = re.sub(r"/\*.*?\*/", "", self.css, flags=re.S).splitlines()
+        tokens = {definicao.match(l).group(1) for l in linhas if anel.search(l) and definicao.match(l)}
+        mao = [l.strip() for l in linhas if anel.search(l) and not definicao.match(l)]
         self.assertEqual(tokens, {"--halo", "--glow", "--ferro-glow"}, "o anel de marca só nasce nestes tokens")
         self.assertEqual(mao, [], "anel de marca escrito à mão fora do token")
 
