@@ -162,8 +162,9 @@ tem **um ponto preenchido** (círculo r=2,5) na cor do pilar via
 sem segundo arquivo, e é o mesmo motivo do "N com folha" do logo. Tamanhos:
 20 na tabbar (hoje 21,6 — mantém), 24 em eyebrow e stat, 32 em estado vazio.
 Emoji sai de Conquistas (troféu, halter, medalha entram no sprite). Chevron
-único (▾ de texto sai). O mapa de áreas continua SEM ícone (decisão do
-CLAUDE.md fica); a tela Áreas ganha.
+único (▾ de texto sai). O mapa de áreas em `<details>` foi aposentado
+(UX-01) — não há mais o que ficar sem ícone; a tela Áreas (`/areas/`)
+ganha.
 
 ## 8. Cartões
 

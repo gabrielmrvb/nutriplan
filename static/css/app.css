@@ -193,10 +193,16 @@
      separar WIDGET de cartão: o painel do dia, a ofensiva e a água são as
      três peças que a pessoa lê de relance, e quina mais aberta é o que faz
      uma peça ler como painel em vez de caixa de conteúdo. */
-  --radius-xl: 28px;
-  --radius-lg: 22px;
-  --radius: 18px;
-  --radius-sm: 14px;
+  /* DIREÇÃO C §5 (16/09/2026, D12 da avaliação): 24 / 16 / 12 / 8. Eram
+     28 / 22 / 18 / 14 desde a V3 ("abaixo de 16 a quina volta a parecer
+     web"); a direção decidiu o contrário — controle (botão, campo) não é
+     caixa e fica em 12, cartão de lista em 16, prato em 24, filho de caixa
+     em 8 — e o DESIGN.md é o contrato que o export do Claude Design lê.
+     Raios idênticos nos dois regimes. */
+  --radius-xl: 24px;
+  --radius-lg: 16px;
+  --radius: 12px;
+  --radius-sm: 8px;
   --pill: 999px;
 
   /* O véu atrás de qualquer overlay. Existia escrito por extenso em dois

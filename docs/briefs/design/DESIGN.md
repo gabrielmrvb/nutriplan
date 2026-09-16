@@ -10,8 +10,11 @@ teste em `config/tests.py`). Se algo faltar, pergunte; não invente.
   treino, corrida, hidratação e progresso — cinco pilares no mesmo nível.
   "Hoje" é o orquestrador do dia, não um pilar; Perfil é utilitário.
 - **Navegação:** barra inferior de QUATRO itens (Alimentação · Treino ·
-  Progresso · Áreas) — medida a 320 px; cinco não cabem. Um mapa de áreas
-  na barra de cima lista os cinco pilares. **A navegação não muda.**
+  Progresso · Áreas) — medida a 320 px; cinco não cabem. O quarto item leva
+  à tela Áreas (`/areas/`), o hub dos cinco pilares com um fato de cada.
+  O mapa de áreas em `<details>` na barra de cima foi APOSENTADO (UX-01);
+  no desktop a barra de cima vira navegação com os mesmos quatro links.
+  **A navegação não muda.**
 - **Tom:** direto, adulto, sem promessa. Número grande é o protagonista da
   tela (calorias, série, litros, peso). Nada de texto motivacional genérico.
 - **Marca:** verde-floresta + branco + verde-folha, cores próprias que NÃO
@@ -80,8 +83,16 @@ Foco é `--brand` em todo controle. Nenhum gradiente com o violeta.
 
 ## Espaço, raio, sombra, camadas, movimento
 
-- Grade de 4 px; espaçamentos `--espaco-1…8` (4 … 32 px).
-- Raios: `--radius-xl` 28 · `--radius-lg` 22 · `--radius` 18 · `--radius-sm` 14 · `--pill` 999.
+- Raios (direção C §5, no CSS desde 16/09/2026): `--radius-xl` 24 (prato,
+  hero) · `--radius-lg` 16 (cartão de lista, choice-card) · `--radius` 12
+  (botão, campo, tile) · `--radius-sm` 8 (nota, chip retangular, filho de
+  caixa) · `--pill` 999. Caixa dentro de caixa: `max(R_pai − padding_pai, 8)`.
+- Espaçamento: a direção C §4 é a grade INTEIRA de 4 px — `--espaco-1…8` =
+  4 · 8 · 12 · 16 · 20 · 24 · 32 · 40. **O CSS de hoje ainda não a
+  implementa**: tem sete degraus fracionários (4 · 5,6 · 8 · 11,2 · 14,4 ·
+  16 · 24) e 244 valores crus; o remap move pixel em toda tela e é lote
+  próprio, com captura antes/depois (plano mestre, onda 3). Ao desenhar,
+  use a grade da direção; ao ler o app, saiba que ele ainda está na antiga.
 - Sombras: `--shadow-rest` e `--shadow-lift` (uma de repouso, uma de
   elevação); `--edge` é o fio interno de luz. Nada além disso.
 - Camadas (z-index), de baixo para cima: conteúdo → barra de cima →
@@ -109,7 +120,8 @@ escala de toque, `.96`) · `chip` / `chip-row` · `pill` (`--brand`, `--mute`,
 caixas viram cartões) · `choice_cards` (rádio como cartão com ícone) ·
 `marca` e `marca_de_entrada` · `_conquista` (aviso ancorado embaixo, não
 modal) · anel de progresso (calorias, água, treino) · `tabbar` (quatro itens)
-· `app-bar` com mapa de áreas (`<details>`).
+· `app-bar` (marca à esquerda; no desktop, os quatro links da navegação —
+sem mapa em `<details>`, que foi aposentado).
 
 ## O que este app não faz
 

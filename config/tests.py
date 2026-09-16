@@ -1284,23 +1284,25 @@ class DesignSystemTests(TestCase):
         self.assertNotIn("--fio", self.escuro)
         self.assertIn("--fio: rgba(", self.css)
 
-    def test_every_card_radius_lands_between_sixteen_and_twenty_pixels(self):
-        """A escala tem quatro degraus e três deles são de CARTÃO. Um quinto
-        degrau nasce quando alguém escreve `border-radius: 8px` direto na
-        regra, e aí a tela tem duas linguagens de quina."""
-        # A FAIXA SUBIU COM A V3, e continua sendo uma faixa e não um valor
-        # solto: o que este teste impede é o quinto degrau nascer de um
-        # `border-radius: 8px` escrito à mão dentro de uma regra qualquer.
-        # 18 para cartão pequeno e 22 para cartão principal são os degraus que
-        # a linguagem nova nomeia; abaixo de 16 a quina volta a parecer web.
-        for token in ("--radius", "--radius-lg"):
+    def test_the_four_radii_are_the_ones_from_direction_c(self):
+        """A escala tem quatro degraus, e os quatro são os da direção C §5:
+        prato 24, cartão 16, controle 12, filho de caixa 8 (`--pill` fica).
+
+        Este teste já foi uma FAIXA (16 a 24 px para `--radius` e
+        `--radius-lg`), escrita na V3 quando "abaixo de 16 a quina volta a
+        parecer web". A direção C (16/09/2026, D12) decidiu o contrário —
+        botão e campo não são caixa e ficam em 12 —, e o DESIGN.md é o
+        contrato que o export do Claude Design lê: doc, CSS e semente dizem
+        o mesmo número. O que este teste continua impedindo é o quinto
+        degrau nascer de um `border-radius: 8px` escrito à mão (o teste
+        abaixo) ou de um token que deriva sozinho da direção."""
+        esperado = {"--radius-xl": 24, "--radius-lg": 16, "--radius": 12, "--radius-sm": 8}
+        for token, px in esperado.items():
             # `_tokens` só guarda valores hexadecimais — é um leitor de PALETA.
             achado = re.search(rf"^\s*{token}:\s*(\d+)px;", self.css, re.M)
             self.assertIsNotNone(achado, f"{token} não é mais um valor em px")
-            px = int(achado.group(1))
             with self.subTest(token=token):
-                self.assertGreaterEqual(px, 16)
-                self.assertLessEqual(px, 24)
+                self.assertEqual(int(achado.group(1)), px)
 
     def test_no_rule_hardcodes_a_radius_outside_the_scale(self):
         soltos = set(re.findall(r"border-radius:\s*(\d+)px", self.css))
