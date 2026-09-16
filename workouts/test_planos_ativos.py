@@ -139,6 +139,38 @@ class PlanoAntigoTests(TestCase):
             self.assertFalse(services.aviso_de_regenerar(user, plan=plan))
         self.assertEqual(len(ctx.captured_queries), 0, [q["sql"][:80] for q in ctx.captured_queries])
 
+    def test_a_conferencia_que_bate_carimba_a_impressao_digital_de_hoje(self):
+        """Ficha nascida de outro catálogo, prescrição IGUAL à de hoje (o
+        caso de todo deploy que só reescreve prosa do TREINO.md): a
+        primeira visita paga a conferência exata e grava a impressão de
+        hoje no plano; a segunda responde com zero consultas. Sem o
+        carimbo eram onze consultas por visita, para sempre."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        user = _pessoa("carimbo@exemplo.com")
+        plan = services.create_routine(user)
+        TrainingPlan.objects.filter(pk=plan.pk).update(catalogo="catalogo-de-ontem")
+        plan.catalogo = "catalogo-de-ontem"
+
+        self.assertFalse(services.aviso_de_regenerar(user, plan=plan))
+        plan.refresh_from_db()
+        self.assertEqual(plan.catalogo, services.versao_do_catalogo())
+        with CaptureQueriesContext(connection) as ctx:
+            self.assertFalse(services.aviso_de_regenerar(user, plan=plan))
+        self.assertEqual(len(ctx.captured_queries), 0)
+
+    def test_a_prescricao_diferente_nao_recebe_o_carimbo(self):
+        """Controle: com a prescrição divergente o aviso aparece e o plano
+        continua dizendo de que catálogo nasceu — carimbar aqui apagaria o
+        aviso na visita seguinte sem ninguém decidir nada."""
+        user = _pessoa("sem-carimbo@exemplo.com")
+        plan = services.create_routine(user)
+        _mudar_a_prescricao(plan)
+        self.assertTrue(services.aviso_de_regenerar(user, plan=plan))
+        plan.refresh_from_db()
+        self.assertEqual(plan.catalogo, "catalogo-de-ontem")
+
     def test_plano_invalido_continua_sendo_remontado(self):
         """Exercício aposentado na ficha é o caso de sempre: remonta."""
         user = _pessoa("invalido@exemplo.com")

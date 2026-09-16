@@ -2320,7 +2320,20 @@ def rotina_desatualizada(plan, user) -> bool:
         return False
     if rotina_invalida(plan, user):
         return False
-    return not _prescricao_bate(plan, user)
+    if not _prescricao_bate(plan, user):
+        return True
+    # A conferência exata disse "igual": o plano recebe a impressão digital
+    # de HOJE, para a próxima visita responder com zero consultas. Sem isso,
+    # todo deploy que toca o TREINO.md (a doutrina entra na impressão)
+    # cobrava as onze consultas de toda ficha antiga em TODA visita à Home,
+    # até a pessoa regenerar — e ela não tinha por que regenerar, porque
+    # nada mudou. Continua retrato das entradas: a ficha É a que o catálogo
+    # de hoje produziria; só o nome do catálogo se atualiza, uma vez.
+    hoje = versao_do_catalogo()
+    if plan.catalogo != hoje:
+        TrainingPlan.objects.filter(pk=plan.pk).update(catalogo=hoje)
+        plan.catalogo = hoje
+    return False
 
 
 def routine_is_current(plan, user) -> bool:

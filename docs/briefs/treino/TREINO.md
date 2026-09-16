@@ -241,6 +241,23 @@ semana dá exatamente isso. É o preço escrito da decisão de não baixar a
 sessão; fica dentro do MRV de Israetel para peito a ≥ 2×, e é a única
 linha em que a média do ciclo passa da faixa-alvo.
 
+**Tolerância da média (decisão do dono, 17/09/2026): peito 25,0 no Padrão
+está ACEITO, e o golden não baixa.** O teste da média
+(`workouts/test_rotacao.py`, `OVolumeMedioEmTresSemanasTests`) cobra, para
+o grupo grande a 2× no perfil do teste dourado (intermediário, 5 dias,
+`abc2`, Padrão), o ALVO de 24 com tolerância de ± 2 — **26 é o teto da
+média** —, e lê os dois números da tabela abaixo. A razão: ficha real de
+academia faz 26–28 séries de peito por semana, e uma série a mais na média
+de 3 semanas é ruído do ciclo (5 sessões em 3 semanas dão frações de 1/3),
+não excesso. O Completo (26,7 de peito e costas) fica FORA da tolerância de
+propósito: é a ficha inteira que a pessoa pediu ao escolher 90 minutos, e
+está medido na tabela acima — cobrado pelo teste que impede a tabela de
+envelhecer, não pelo teste da tolerância.
+
+| medida | alvo | tolerancia |
+|---|---|---|
+| media_3_semanas_grande_2x | 24 | 2 |
+
 A referência "10 a 20 séries por grupo por semana" é a de Schoenfeld,
 Ogborn & Krieger (2017), a de Helms e a de Baz-Valle (12–20), e descreve o
 grupo treinado UMA vez — de onde vem a linha `1`. A faixa SOBE com a

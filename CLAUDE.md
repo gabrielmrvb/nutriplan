@@ -246,9 +246,13 @@ no navegador. O plano virou retrato também das ENTRADAS (`catalogo`,
 hoje a Home responde "nada mudou" com ZERO consultas — a conferência exata
 (represcrever a semana, onze consultas) só roda para ficha nascida de outro
 catálogo ou de antes da migration `0023`, que ficou com os três em branco.
-Em branco é desconhecido, e desconhecido não invalida nada. O demo é
-fixture de que o seed é dono: `seed_demo` regenera sozinho quando a
-prescrição mudou.
+Em branco é desconhecido, e desconhecido não invalida nada. E quando a
+conferência exata diz "igual", o plano recebe a impressão digital de HOJE
+(uma escrita, uma vez): sem isso todo deploy que reescreve prosa do
+`TREINO.md` — a doutrina entra na impressão — cobrava as onze consultas de
+toda ficha antiga em toda visita à Home, para sempre. Prescrição divergente
+NÃO carimba: o aviso continua até a pessoa decidir. O demo é fixture de que
+o seed é dono: `seed_demo` regenera sozinho quando a prescrição mudou.
 
 **O CICLO DA DIVISÃO RODA CONTÍNUO, e a letra de hoje sai da POSIÇÃO, não
 do dia da semana (17/09/2026).** Em 5 dias com ABC o ciclo fixo A B C A B
@@ -256,7 +260,10 @@ recomeçava toda segunda, peito e costas caíam 2× e "Pernas e ombros" 1× —
 quadríceps em 7 diretas por semana, para sempre. O desequilíbrio era do
 calendário. Hoje a semana seguinte continua de onde a anterior parou (C A B
 C A, depois B C A B C; em 3 semanas cada letra cai 5 vezes), e a média do
-ciclo está medida no `TREINO.md`. Como funciona: `TrainingPlan.
+ciclo está medida no `TREINO.md` — peito 25,0 no Padrão contra o alvo de
+24, ACEITO pelo dono em 17/09 com tolerância de ± 2 (26 é o teto da média;
+ficha real de academia faz 26–28), lida do documento pelo teste. O golden
+não baixa. Como funciona: `TrainingPlan.
 inicio_do_ciclo` é a posição zero (o primeiro dia de treino da semana em que
 o plano nasce — a primeira semana é a de sempre, a rotação começa na
 segunda); as linhas de `sessions` continuam UMA POR DIA DA SEMANA, com a

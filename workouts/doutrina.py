@@ -96,6 +96,12 @@ def carregar():
             "teto": _faixa(linha["teto_efetivo"])[0],
         }
     descansos = {linha["tipo"]: _faixa(linha["descanso_s"])[0] for linha in tabelas[("tipo", "descanso_s")]}
+    # A tolerância da MÉDIA do ciclo (decisão do dono, 17/09/2026): alvo e
+    # margem para o grupo grande a 2× no perfil do teste dourado.
+    medias = {
+        linha["medida"]: (_faixa(linha["alvo"])[0], _faixa(linha["tolerancia"])[0])
+        for linha in tabelas[("medida", "alvo", "tolerancia")]
+    }
     # O mapa (split, letra) -> tipo de dia vem da tabela "Tipos de dia": a
     # coluna `modelos` lista `abc2 A–C`, `abcde A`, `abcde B`... "Pernas e
     # ombros" é dois grupos (quadríceps e posterior dividem a cota do
@@ -110,7 +116,7 @@ def carregar():
     faltam = [(n, t) for n in NIVEIS for t in TIPOS_DE_DIA if (n, t) not in por_sessao]
     if faltam:
         raise ValueError("TREINO.md sem linha para %s" % faltam)
-    return {"sessao": por_sessao, "semana": por_semana, "descanso": descansos, "modelos": modelos}
+    return {"sessao": por_sessao, "semana": por_semana, "descanso": descansos, "modelos": modelos, "media": medias}
 
 
 def nivel_ou_padrao(nivel) -> str:
@@ -154,6 +160,12 @@ def teto_semanal(nivel, ocorrencias) -> int:
     """O teto de séries EFETIVAS (direta 1, secundária 0,5) que o motor
     apara, para um grupo que cai `ocorrencias` vezes na semana."""
     return carregar()["semana"][(nivel_ou_padrao(nivel), _ocorrencias(ocorrencias))]["teto"]
+
+
+def tolerancia_da_media() -> tuple:
+    """(alvo, tolerância) da média de 3 semanas do grupo grande a 2× —
+    24 ± 2, o teto da média é 26 (TREINO.md, "Tolerância da média")."""
+    return carregar()["media"]["media_3_semanas_grande_2x"]
 
 
 def descanso(composto) -> int:

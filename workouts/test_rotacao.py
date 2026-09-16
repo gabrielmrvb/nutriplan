@@ -314,28 +314,33 @@ class OVolumeMedioEmTresSemanasTests(TestCase):
                 total[grupo] += max(opcoes.values())
         return {grupo: Decimal(v) / semanas for grupo, v in total.items()}
 
-    def test_a_media_do_ciclo_fica_na_faixa_e_o_excesso_de_peito_esta_escrito(self):
+    def test_a_media_do_ciclo_fica_na_faixa_e_o_peito_fica_na_tolerancia(self):
         """Pernas e ombro entram nos 10–20 (eram 6–9 com o ciclo fixo); tudo
-        cabe no topo de 2× do TREINO.md, menos peito e costas, que passam por
-        1 a 3 séries — o preço, ESCRITO no documento, de não baixar a sessão
-        do teste dourado."""
+        cabe no topo de 2× do TREINO.md, e peito e costas — a sessão de 4
+        exercícios do teste dourado a 5/3 por semana — ficam no ALVO ± a
+        TOLERÂNCIA que o documento escreve (24 ± 2: 26 é o teto da média).
+        Decisão do dono de 17/09/2026: peito 25,0 aceito, golden intocado;
+        ficha real de academia faz 26–28, e uma série na média de 3 semanas
+        é ruído. Os dois números saem do TREINO.md — a prosa e o teste não
+        podem divergir."""
         relogio = _congelar(SEGUNDA)
         self.addCleanup(relogio.stop)
         user = _pessoa("media@exemplo.com")
         plan = services.create_routine(user)
         media = self.media_por_grupo(plan, SEGUNDA)
         piso_1x = doutrina.faixa_semanal_direta("intermediario", 1)[0]
-        topo_2x = doutrina.faixa_semanal_direta("intermediario", 2)[1]
+        piso_2x, topo_2x = doutrina.faixa_semanal_direta("intermediario", 2)
+        alvo, tolerancia = doutrina.tolerancia_da_media()
+        # O alvo da média É o topo da faixa de 2×: um número, dois lugares.
+        self.assertEqual(alvo, topo_2x)
         for grupo in ("quads", "hamstrings", "shoulders", "biceps", "triceps"):
             with self.subTest(grupo=grupo, media=media[grupo]):
                 self.assertGreaterEqual(media[grupo], piso_1x)
                 self.assertLessEqual(media[grupo], topo_2x)
         for grupo in ("chest", "back"):
             with self.subTest(grupo=grupo, media=media[grupo]):
-                # Abaixo do que o ciclo fixo dava (30 e 26 toda semana) e no
-                # máximo 3 acima do topo — a sessão de 4 exercícios a 5/3.
-                self.assertLess(media[grupo], Decimal(30))
-                self.assertLessEqual(media[grupo], topo_2x + 3)
+                self.assertGreaterEqual(media[grupo], piso_2x)
+                self.assertLessEqual(media[grupo], alvo + tolerancia)
 
     def test_a_tabela_medida_do_documento_nao_envelhece(self):
         """A linha "intermediário 5d abc2, Padrão" do TREINO.md é a medição de
