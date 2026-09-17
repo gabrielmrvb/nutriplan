@@ -90,10 +90,18 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
 
+      # O de DESENVOLVIMENTO, que puxa o de produção (`-r requirements.txt`):
+      # a suíte é a de desenvolvimento, e `config/test_requisitos_dev.py`
+      # cobra que tudo que esse arquivo declara esteja instalado onde ela
+      # roda — o PR #4 caiu em `pillow` e `websocket-client` quando só o de
+      # produção era instalado aqui. O build do Render continua só com
+      # `requirements.txt` (`scripts/build.sh`).
       - name: Instalar dependências
-        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+        run: python -m pip install --upgrade pip && pip install -r requirements-dev.txt
 
       # O mesmo comando do pre-push, sobre o merge do PR (ou o push em main).
       - name: Suíte completa
