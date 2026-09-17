@@ -11,6 +11,7 @@ exercício no catálogo amanhã não reescreve a ficha que alguém está seguind
 hoje — e quando a rotina precisa mudar (mudou a frequência de treino), nasce
 uma rotina nova e a antiga é aposentada, exatamente como o NutritionPlan.
 """
+from datetime import timedelta
 from decimal import Decimal
 from urllib.parse import quote_plus, urlparse
 
@@ -1316,6 +1317,21 @@ class Corrida(models.Model):
 
     criada_em = models.DateTimeField(auto_now_add=True)
 
+    class Origem(models.TextChoices):
+        GPS = "gps", "GPS"
+        MANUAL = "manual", "à mão"
+
+    class Sensacao(models.TextChoices):
+        LEVE = "leve", "leve"
+        NORMAL = "normal", "normal"
+        PESADA = "pesada", "pesada"
+
+    #: De onde veio o número. O GPS traz parciais e traço; o registro à mão traz
+    #: só distância e tempo — e por isso só ele se edita (BENCHMARK-2026-09, d).
+    origem = models.CharField(max_length=8, choices=Origem.choices, default=Origem.GPS)
+    #: Como foi. Vazio para o GPS (a tela do GPS não pergunta — ainda).
+    sensacao = models.CharField(max_length=8, choices=Sensacao.choices, blank=True, default="")
+
     class Meta:
         verbose_name = "corrida"
         verbose_name_plural = "corridas"
@@ -1411,3 +1427,105 @@ class TracoDaCorrida(models.Model):
 
     def __str__(self):
         return f"{len(self.pontos)} pontos"
+
+
+class PlanoDeCorrida(models.Model):
+    """O plano de 5K ou 10K que a pessoa escolheu seguir.
+
+    NÃO GUARDA O CONTEÚDO DA SEMANA — só plano, nível e a data de início.
+    O que cada semana pede (`workouts/doutrina_corrida.py::sessoes`) vem de
+    `docs/briefs/corrida/CORRIDA.md`, lido toda vez: é a mesma decisão de
+    `TrainingPlan` não guardar as tabelas do `TREINO.md`, uma linha a mais
+    dela — aqui nem cabe "plano é retrato", porque a doutrina de corrida não
+    tem entrada nenhuma da pessoa para mudar (peso, nível de atividade...): o
+    plano é só "5K iniciante, começou no dia X", e a semana atual é aritmética
+    sobre essa data.
+
+    UM ATIVO POR PESSOA, como `TrainingPlan` — a constraint parcial é a mesma
+    forma, e `PlanoDeCorridaView` desativa o antigo antes de criar o novo,
+    dentro da mesma transação, pela mesma razão de `services.create_routine`:
+    o índice único parcial não deixa os dois ativos coexistirem nem por um
+    instante.
+    """
+
+    class Plano(models.TextChoices):
+        CINCO_K = "5k", "5K"
+        DEZ_K = "10k", "10K"
+
+    class Nivel(models.TextChoices):
+        INICIANTE = "iniciante", "iniciante"
+        INTERMEDIARIO = "intermediario", "intermediário"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="planos_de_corrida",
+        verbose_name="usuário",
+    )
+    plano = models.CharField("plano", max_length=3, choices=Plano.choices)
+    nivel = models.CharField("nível", max_length=14, choices=Nivel.choices)
+    comecou_em = models.DateField("começou em")
+    ativo = models.BooleanField("ativo", default=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    #: As oito semanas do plano — mesmo número em CORRIDA.md, mas fixo aqui
+    #: também: `semana_atual` não pode ler o documento (círculo: modelo
+    #: importando `doutrina_corrida`, que é módulo puro por decisão, no mesmo
+    #: espírito do que `workouts/doutrina.py` diz sobre `accounts.models`) e
+    #: as quatro combinações do documento têm todas oito semanas hoje.
+    SEMANAS = 8
+
+    class Meta:
+        verbose_name = "plano de corrida"
+        verbose_name_plural = "planos de corrida"
+        ordering = ["-criado_em"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=models.Q(ativo=True),
+                name="um_plano_de_corrida_ativo",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.get_plano_display()} {self.nivel} ({self.comecou_em})"
+
+    def semana_atual(self, hoje):
+        """1 a 8, ou `None` depois da 8ª — o plano está concluído.
+
+        Dia 0 (o dia em que começou) é semana 1; dia 7 é semana 2; dia 56
+        (a 9ª semana de calendário) já passou da 8ª e devolve `None`. Uma
+        data ANTES de `comecou_em` também devolve `None` — não deveria
+        acontecer (a view sempre grava `comecou_em=hoje`), mas um plano
+        futuro não é semana negativa.
+        """
+        dias = (hoje - self.comecou_em).days
+        if dias < 0:
+            return None
+        semana = dias // 7 + 1
+        return semana if semana <= self.SEMANAS else None
+
+    def _inicio_da_semana_atual(self, hoje):
+        semana = self.semana_atual(hoje)
+        if semana is None:
+            return None
+        return self.comecou_em + timedelta(days=(semana - 1) * 7)
+
+    def sessoes_feitas(self, hoje) -> int:
+        """Quantas corridas (GPS ou à mão) a pessoa já fez na semana atual.
+
+        Não filtra por distância nem por origem — a sessão do plano é
+        "correu" ou "não correu", e uma corrida à mão conta tanto quanto uma
+        do GPS: o plano não sabe (nem precisa saber) qual das três sessões da
+        semana aquela corrida cumpriu, só QUANTAS já aconteceram, e a tela
+        marca as `k` primeiras como feitas — a mesma lógica do dia de treino,
+        que marca a série pela contagem e não pelo exercício exato.
+        """
+        inicio = self._inicio_da_semana_atual(hoje)
+        if inicio is None:
+            return 0
+        return Corrida.objects.filter(
+            user=self.user,
+            comecou_em__date__gte=inicio,
+            comecou_em__date__lte=hoje,
+        ).count()
