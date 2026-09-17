@@ -61,14 +61,21 @@
   function paleta() {
     /* As alternativas existem para o card não sair preto num contexto onde as
      * variáveis não resolvem — canvas fora do documento, por exemplo. São os
-     * valores ATUAIS do tema escuro, e precisam ser revisados junto dele. */
+     * valores ATUAIS do tema escuro, e precisam ser revisados junto dele.
+     *
+     * CORTE (16/09/2026): os seis são os valores de Ferro da direção —
+     * `--ferro-bg` #10120e, `--ferro-surface` #1a1d17, `--ferro-text` #f6f3ea,
+     * `--ferro-text-mute` #b3ae9c, `--ferro-brand` #c7f24a. `--ferro-fio` é
+     * `rgba(246, 243, 234, .10)`, translúcido; a alternativa fica em hex
+     * (canvas aceita os dois, mas um hex fixo não depende do fundo por trás)
+     * com o tom que essa opacidade produz sobre `--ferro-surface`, #30322c. */
     return {
-      fundo: token("--bg", "#0d0f12"),
-      cartao: token("--surface", "#15181e"),
-      borda: token("--border", "#2a2e39"),
-      marca: token("--brand", "#4ade9b"),
-      texto: token("--text", "#ffffff"),
-      fraco: token("--text-mute", "#8b93a3")
+      fundo: token("--bg", "#10120e"),
+      cartao: token("--surface", "#1a1d17"),
+      borda: token("--fio", "#30322c"),
+      marca: token("--brand", "#c7f24a"),
+      texto: token("--text", "#f6f3ea"),
+      fraco: token("--text-mute", "#b3ae9c")
     };
   }
 

@@ -9,6 +9,8 @@ lista, sem token, sem histórico de peso ou de refeição pessoa por pessoa. Um
 painel de negócio precisa de AGREGADO — e cada uma dessas coisas seria uma
 janela para a vida de alguém que a pergunta de negócio não pede.
 """
+from types import SimpleNamespace
+
 from django.core.paginator import Paginator
 from django.db.models import Exists, Max, OuterRef, Q
 from django.views.generic import TemplateView
@@ -18,7 +20,12 @@ from plans.models import MealLog, NutritionPlan
 from workouts.models import ExerciseLog, TrainingPlan
 
 from .acesso import PainelDeGestaoMixin
+from .forms_vitrine import formulario_com_erro, formulario_limpo
 from .metricas import JANELA_CURTA, User, numeros_do_painel
+
+#: `sistema` é o regime que o aparelho prefere (Papel num sistema claro,
+#: Ferro num escuro — CORTE, 16/09/2026); `ferro` força o Ferro por cima.
+REGIMES = ("sistema", "ferro")
 
 
 class PainelView(PainelDeGestaoMixin, TemplateView):
@@ -172,4 +179,38 @@ class AtividadeView(PainelDeGestaoMixin, TemplateView):
         contexto["janela"] = self.DIAS
         contexto["aba"] = "atividade"
         contexto["sem_tabbar"] = True
+        return contexto
+
+
+class VitrineView(PainelDeGestaoMixin, TemplateView):
+    """Toda parcial real, em todos os estados, nos dois regimes.
+
+    A vitrine é a única página que escreve `modo-foco` por PARÂMETRO
+    (`?regime=ferro`, lista fechada, decidido aqui — nunca por `:has()` nem
+    por JavaScript); a execução do treino a escreve sempre. A classe vai no
+    `<html>` (`body_class` é o nome histórico do contexto). Fora da barra de abas, fora do shell offline, `no-store`
+    como o resto do painel.
+    """
+
+    template_name = "gestao/vitrine.html"
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        regime = self.request.GET.get("regime", "sistema")
+        if regime not in REGIMES:
+            regime = "sistema"
+        contexto.update(
+            aba="vitrine",
+            sem_tabbar=True,
+            regime=regime,
+            body_class="modo-foco" if regime == "ferro" else "",
+            form_limpo=formulario_limpo(),
+            form_com_erro=formulario_com_erro(),
+            google_login_enabled=True,
+            legal_publicado=True,
+            conquistas_novas=[
+                SimpleNamespace(pk=0, emoji="", titulo="Primeira semana completa", frase="Sete dias seguidos com o plano.",
+                                rotulo="Sequência", valor="7", destaque="7 dias", tipo_de_card="sequencia"),
+            ],
+        )
         return contexto

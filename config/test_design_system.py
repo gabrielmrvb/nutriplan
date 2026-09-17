@@ -331,12 +331,43 @@ class NumeroDeMetricaNaoQuebraNoMeioTests(SimpleTestCase):
 
         self.assertIsNotNone(corpo)
         self.assertIn("font-variant-numeric: tabular-nums", corpo)
-        self.assertIn("font-weight: 760", corpo)
+        # 750 desde 16/09/2026: é o peso do número em todo tile (`.tile__value`,
+        # `.balance__value`, `.agua__valor b`); 760 era um degrau só destes dois.
+        self.assertIn("font-weight: 750", corpo)
 
         self.assertIsNone(
             self._regra(".seletor-que-nao-existe-em-lugar-nenhum"),
             "o leitor de regra devolve corpo para seletor inexistente",
         )
+
+
+class NumeroDoTileNaoQuebraNoMeioTests(SimpleTestCase):
+    """O valor do tile é `<strong>`, e `strong` herda `overflow-wrap: anywhere`
+    do seletor global (nome de alimento e de exercício precisam quebrar dentro
+    da palavra). Número não: "12.345" partido em "12.3 / 45" é outro número.
+
+    Medido em 16/09/2026 a 390 px: 3 colunas de 97 px, caixa de 74 px; o maior
+    valor real ("10000" ml, "20000" kg) ocupa 61,6 px. A guarda é sobre a
+    DECLARAÇÃO, como a da corrida: `nowrap` não tem como quebrar, e o estouro
+    — que nenhum valor real produz — é assunto de formatação."""
+
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+
+    def _regra(self, seletor):
+        casou = re.search(r"(?:^|\})\s*" + re.escape(seletor) + r"\s*\{([^}]*)\}", self.css)
+        return casou.group(1) if casou else None
+
+    def test_o_valor_do_tile_nao_quebra(self):
+        corpo = self._regra(".tile__value")
+        self.assertIsNotNone(corpo, "a regra .tile__value sumiu")
+        self.assertIn("white-space: nowrap", corpo)
+        self.assertIn("overflow-wrap: normal", corpo)
+
+    def test_a_regra_lida_e_mesmo_a_do_tile(self):
+        corpo = self._regra(".tile__value")
+        self.assertIsNotNone(corpo)
+        self.assertIn("font-variant-numeric: tabular-nums", corpo)
 
 
 class MetricaNaoDependeDoTemplateParaSerTabularTests(SimpleTestCase):
@@ -613,7 +644,7 @@ class OEspacamentoNaoVoltaParaODentroDoHTMLTests(SimpleTestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn('style="', email)
-        self.assertIn("#0c6b40", email)
+        self.assertIn("#3f5a00", email)  # a oliva do Papel: e-mail é fundo claro
 
     def test_as_intencoes_nomeadas_existem_no_css(self):
         css = sem_comentarios(CSS.read_text(encoding="utf-8"))
@@ -667,3 +698,202 @@ class OEspacamentoNaoVoltaParaODentroDoHTMLTests(SimpleTestCase):
             with self.subTest(classe=classe):
                 bloco = css.split(classe, 1)[1].split("}", 1)[0]
                 self.assertIn("var(--espaco-", bloco)
+
+
+# ---------------------------------------------------------------------------
+# Botões (Onda 3, T3.4 — o que cabe sem trocar a pele dos cartões)
+# ---------------------------------------------------------------------------
+
+RAIZ_TEMPLATES = CSS.parent.parent.parent / "templates"
+PWA_JS = CSS.parent.parent / "js" / "pwa.js"
+#: A marca `data-arquivo` numa tag `<a …>`: precedida de espaço, seguida de
+#: espaço, `>` ou `=` — `data-arquivos` ou uma classe parecida não contam.
+DIZ_QUE_E_ARQUIVO = re.compile(r"\sdata-arquivo(\s|>|=)")
+
+
+#: O que DIZ qual botão é. `btn--block`, `btn--sm` e `btn--hoje` são tamanho e
+#: posição, não variante — um `btn btn--block` continua sendo o botão sem
+#: decisão. `btn--google` é a variante do OAuth, com receita própria.
+VARIANTES_DE_BOTAO = frozenset(
+    {"btn--primary", "btn--ghost", "btn--quiet", "btn--perigo", "btn--google", "btn-link"}
+)
+
+
+def botoes_sem_variante(texto):
+    """As ocorrências de `class="btn …"` em que nenhuma classe diz QUAL botão.
+
+    Variante é uma de `VARIANTES_DE_BOTAO` — tamanho e posição não contam.
+    Devolve o atributo inteiro, como está no HTML, para a mensagem do teste
+    apontar a linha culpada sem que ninguém precise procurar.
+
+    Fatorada para fora do teste de propósito: o controle positivo abaixo
+    alimenta ESTA função com uma string sintética e cobra que ela acuse. Um
+    regex que só roda dentro do laço da varredura fica verde quando a
+    varredura deixa de achar arquivo — e ninguém vê.
+    """
+    culpados = []
+    # Lógica de template dentro do atributo (`{% if %}btn--primary{% endif %}`)
+    # sai antes de tokenizar: o que sobra é o literal comum aos ramos — um
+    # `{% if %}` sem `else` que escondesse a única variante passaria, e os
+    # dois casos reais têm `else`.
+    limpo = re.sub(r"{%.*?%}", " ", texto)
+    for m in re.finditer(r"class=([\"'])(.*?)\1", limpo):
+        classes = m.group(2).split()
+        if "btn" not in classes:
+            continue
+        if not any(c in VARIANTES_DE_BOTAO for c in classes):
+            culpados.append(m.group(0))
+    return culpados
+
+
+class BotaoTemVarianteTests(SimpleTestCase):
+    """`.btn` sozinho é o botão "sem decisão": nem primário, nem tonal, nem
+    texto. DV-B pede que toda ocorrência diga o que é. Havia UMA — a porta da
+    tela de erro 500, que é autocontida e nem carrega o `app.css`; o rótulo
+    ali não pinta nada, e é justamente por isso que ele tem de estar escrito:
+    a régua vale para o HTML, não para o efeito."""
+
+    def test_nenhum_botao_sem_variante(self):
+        culpados = []
+        for arquivo in sorted(RAIZ_TEMPLATES.rglob("*.html")):
+            texto = arquivo.read_text(encoding="utf-8")
+            for atributo in botoes_sem_variante(texto):
+                culpados.append(f"{arquivo.relative_to(RAIZ_TEMPLATES)}: {atributo}")
+        self.assertEqual(culpados, [], "botão sem variante")
+
+    def test_o_controle_positivo_acusa_o_botao_nu(self):
+        """A função enxerga o que a varredura procura — e só isso."""
+        self.assertEqual(botoes_sem_variante('<a class="btn" href="/">'), ['class="btn"'])
+        self.assertEqual(
+            botoes_sem_variante('<a class="btn card__acao" href="/">'),
+            ['class="btn card__acao"'],
+        )
+        self.assertEqual(botoes_sem_variante('<a class="btn btn--primary" href="/">'), [])
+        self.assertEqual(botoes_sem_variante('<a class="btn btn--ghost btn--block">'), [])
+        self.assertEqual(botoes_sem_variante('<a class="btn-link" href="/">'), [])
+        self.assertEqual(botoes_sem_variante('<span class="btn-row">'), [])
+
+    def test_a_varredura_le_a_pasta_de_verdade(self):
+        arquivos = list(RAIZ_TEMPLATES.rglob("*.html"))
+        self.assertGreater(len(arquivos), 30, "a varredura parou de achar template")
+        com_btn = [a for a in arquivos if 'class="btn' in a.read_text(encoding="utf-8")]
+        self.assertGreater(len(com_btn), 10, "a leitura de arquivo parou de enxergar botão")
+
+
+class LinkBotaoAvisaQueEstaIndoTests(SimpleTestCase):
+    """`pwa.js` já escreve `aria-busy` no `<button type=submit>`; o `<a class="btn">`
+    que leva a outra tela ficava mudo entre o toque e a página nova. Mesma
+    receita visual, mesmo nome de estado — a classe é o gancho do CSS, o
+    atributo é o que o leitor de tela anuncia, e a página nova É a
+    confirmação: o estado só cobre o intervalo."""
+
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+        self.js = re.sub(r"/\*.*?\*/", "", PWA_JS.read_text(encoding="utf-8"), flags=re.S)
+
+    def test_o_js_marca_o_link_botao(self):
+        self.assertIn("is-carregando", self.js)
+        self.assertRegex(self.js, r"a\.btn\[href\]|a\.btn")
+        # Um ouvinte delegado no `document`, como o resto do arquivo, e não
+        # um `addEventListener` por link: o painel de Treino tem um por sessão.
+        self.assertRegex(
+            self.js,
+            r'document\.addEventListener\("click", function \(evento\) \{[^}]*?closest\("a\.btn\[href\]"\)',
+            "o clique em a.btn[href] não é delegado no document",
+        )
+        self.assertRegex(self.js, r'classList\.add\("is-carregando"\)')
+        self.assertRegex(self.js, r'setAttribute\("aria-busy", "true"\)')
+
+    def test_o_link_que_baixa_arquivo_diz_que_e_arquivo(self):
+        """`workouts:health_export` responde `Content-Disposition: attachment`:
+        a página NÃO troca, o arquivo salva. Sem a marca no `<a class="btn">`,
+        o anel de `is-carregando` ficaria girando depois de o TCX salvar — foi
+        o primeiro caso que a N5 achou ao testar no navegador.
+
+        A marca é `data-arquivo`, e não `download`: sem treino hoje a view
+        responde 302 com mensagem, e `download` faria o navegador salvar aquele
+        HTML como arquivo (achado da revisão da N5)."""
+        sem_marca, encontrados = [], 0
+        for arquivo in sorted(RAIZ_TEMPLATES.rglob("*.html")):
+            texto = arquivo.read_text(encoding="utf-8")
+            for m in re.finditer(r"<a [^>]*workouts:health_export[^>]*>", texto):
+                encontrados += 1
+                if not DIZ_QUE_E_ARQUIVO.search(m.group(0)):
+                    sem_marca.append(f"{arquivo.relative_to(RAIZ_TEMPLATES)}: {m.group(0)}")
+                self.assertNotRegex(m.group(0), r"\sdownload[\s>=]", "`download` salvaria o HTML do redirect")
+        self.assertEqual(encontrados, 2, "os dois links de exportar: renomear a rota deixaria o teste cego")
+        self.assertEqual(sem_marca, [], "link que baixa arquivo sem `data-arquivo`")
+        # E o JS respeita a marca.
+        self.assertIn('hasAttribute("data-arquivo")', self.js)
+
+    def test_o_leitor_enxerga_o_link_sem_marca(self):
+        """Controle positivo do regex acima: um `<a>` de exportação sem a marca
+        tem de ser flagrado, e `data-arquivos` (outra palavra) não conta."""
+        self.assertIsNone(DIZ_QUE_E_ARQUIVO.search('<a class="btn" href="/treino/exportar/">'))
+        self.assertIsNotNone(DIZ_QUE_E_ARQUIVO.search('<a class="btn" href="/treino/exportar/" data-arquivo>'))
+        self.assertIsNone(DIZ_QUE_E_ARQUIVO.search('<a class="btn" data-arquivos="x" href="x">'))
+
+    def test_o_que_nao_troca_de_pagina_fica_de_fora(self):
+        """`target` abre outra aba, `download` guarda arquivo, `#` fica na
+        tela, `mailto:` abre outro app; clique com modificador abre nova aba
+        e esta fica. Em todos, marcar o link seria prometer uma página que não
+        vem — e o estado nunca seria limpo."""
+        for guarda in ('hasAttribute("target")', 'hasAttribute("download")',
+                       "defaultPrevented", "button !== 0",
+                       "ctrlKey", "metaKey", "shiftKey", "altKey"):
+            with self.subTest(guarda=guarda):
+                self.assertIn(guarda, self.js)
+        self.assertIn("mailto:", self.js)
+        self.assertIn("javascript:", self.js)
+
+    def test_voltar_pelo_historico_limpa_o_link(self):
+        """A página do bfcache volta exatamente como saiu — com o link
+        marcado. Mesmo caminho de volta que o botão de envio já tem."""
+        self.assertRegex(
+            self.js,
+            r'addEventListener\("pageshow", function \(\) \{\s*document\.querySelectorAll\("\.btn\.is-carregando"\)'
+            r'[\s\S]*?classList\.remove\("is-carregando"\)[\s\S]*?removeAttribute\("aria-busy"\)',
+        )
+
+    def test_o_css_tem_a_receita(self):
+        self.assertRegex(self.css, r"\.btn\.is-carregando[^{]*\{")
+
+    def test_a_receita_e_a_mesma_do_aria_busy_e_nao_uma_copia(self):
+        """`.btn.is-carregando` entra como PAR do seletor `[aria-busy]`, nunca
+        como bloco próprio: dois blocos divergiriam na primeira mudança do
+        anel. Conferido nos dois lugares em que a receita existe — o anel e a
+        saída de movimento reduzido, porque o anel gira."""
+        anel = re.search(
+            r"([^{}]*\.btn\.is-carregando::after[^{]*)\{([^}]*)\}", self.css
+        )
+        self.assertIsNotNone(anel, "o anel não tem o par .btn.is-carregando::after")
+        self.assertIn('.btn[aria-busy="true"]::after', anel.group(1))
+        self.assertIn("montagem-gira", anel.group(2))
+
+        reduzido = self.css.split("prefers-reduced-motion")[1:]
+        self.assertTrue(
+            any(
+                re.search(r"\.btn\.is-carregando::after[^{]*\{\s*animation: none", trecho)
+                for trecho in reduzido
+            ),
+            "o anel do link-botão continua girando para quem pediu menos movimento",
+        )
+
+    def test_o_mapa_de_areas_toca_na_mesma_escala(self):
+        """O mapa afundava por regra PRÓPRIA, com o mesmo `.96` escrito de
+        novo. Mesmo valor não é mesma lista: a lista única existe para que a
+        próxima mudança de escala mude tudo de uma vez."""
+        regras = re.findall(
+            r"([^{}]*:active[^{]*)\{([^}]*transform:\s*scale\([^)]*\)[^}]*)\}", self.css
+        )
+        proprias = [sel for sel, _ in regras if sel.strip() == ".mapa__area:active"]
+        self.assertEqual(proprias, [], "o mapa tem regra própria de :active; entra na lista única")
+
+        # E o controle positivo: ele ESTÁ na lista — a que tem `.btn:active`.
+        lista = [
+            {s.strip() for s in sel.split(",")}
+            for sel, _ in regras
+            if ".btn:active" in {s.strip() for s in sel.split(",")}
+        ]
+        self.assertEqual(len(lista), 1, "a lista única de :active deixou de ser única")
+        self.assertIn(".mapa__area:active", lista[0])

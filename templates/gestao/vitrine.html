@@ -1,0 +1,105 @@
+{% extends "gestao/base.html" %}
+{% comment %}
+  A VITRINE: toda parcial real, em todos os estados, nos dois regimes.
+
+  É o "/design-system" do fluxo do Claude Design (spec 15/09/2026, §9) sem
+  uma segunda biblioteca: o que se vê aqui é `partials/` e as classes de
+  `app.css`, as mesmas que o app usa. `gestao/test_vitrine.py` lê a pasta
+  de parciais do disco e cobra que cada uma apareça — a nona parcial nasce
+  dentro da vitrine ou o teste avisa. Sem `style=`, sem `:has()`; o regime
+  vem do servidor (`?regime=ferro` → `:root.modo-foco`, a classe no `<html>`); sem parâmetro a
+  página segue o sistema — Papel num aparelho claro, Ferro num escuro —,
+  e o Papel se fotografa por emulação (`scripts/qa/nav.py tema claro`).
+
+  `partials/marca.html`, `partials/_conquista.html` e `partials/icones.html`
+  NÃO entram aqui: as duas bases (`templates/base.html` e
+  `templates/gestao/base.html`) já os incluem em TODA página — a marca no
+  cabeçalho do painel, o aviso de conquista no rodapé de `base.html`, o sprite
+  logo depois do `<body>` (desde 16/09/2026; esta tela o incluía por conta
+  própria e ficaria com dois `<symbol id>` iguais). Incluir de novo duplicaria
+  o `<div data-conquista>`, a marca e o sprite; `CoberturaDaVitrineTests` soma
+  os três arquivos ao procurar cada parcial, não só este.
+{% endcomment %}
+{% block title %}Vitrine · {{ regime|capfirst }} · NutriPlan{% endblock %}
+{% block content %}
+  <h1>Vitrine · {{ regime|capfirst }}</h1>
+  <p class="hint">A mesma página nos dois regimes:
+    <a href="{% url 'gestao:vitrine' %}">Sistema</a> (Papel num aparelho claro, Ferro num escuro) ·
+    <a href="{% url 'gestao:vitrine' %}?regime=ferro">Ferro</a> (forçado, como na execução)</p>
+
+  <section class="card">
+    <div class="card__head"><h2>Marca</h2></div>
+    {% include "partials/marca_de_entrada.html" %}
+    <div class="chip-row chip-row--conteudo">
+      <span class="chip">Sem restrições</span>
+      <span class="chip chip--brand">Vegetariana</span>
+      <span class="pill pill--brand">Plano ativo</span>
+      <span class="pill pill--mute">Rascunho</span>
+      <span class="pill pill--warm">Pesar hoje</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Botões</h2><span class="card__subtitulo">um primário por tela; aqui é catálogo</span></div>
+    <div class="acoes-empilhadas">
+      <button type="button" class="btn btn--primary">Concluir série</button>
+      <button type="button" class="btn btn--ghost">Cancelar</button>
+      <button type="button" class="btn btn--quiet">Pulei</button>
+      <button type="button" class="btn btn--perigo">Zerar a água de hoje</button>
+      <button type="button" class="btn btn--ghost btn--sm">Editar</button>
+      <button type="button" class="btn btn--primary btn--block">Abrir treino de hoje</button>
+      <button type="button" class="btn btn--primary" disabled>Desabilitado</button>
+    </div>
+    {% include "partials/botao_google.html" %}
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Campos</h2></div>
+    <form method="post" action="{% url 'gestao:vitrine' %}">
+      {% csrf_token %}
+      {% include "partials/field.html" with field=form_limpo.nome %}
+      {% include "partials/field.html" with field=form_limpo.peso %}
+      {% include "partials/field.html" with field=form_limpo.lado %}
+      {% include "partials/field.html" with field=form_limpo.dias %}
+      {% include "partials/choice_cards.html" with field=form_limpo.objetivo colunas=2 %}
+    </form>
+    <h3>Com erro</h3>
+    <form>
+      {% include "partials/field.html" with field=form_com_erro.nome %}
+      {% include "partials/field.html" with field=form_com_erro.email %}
+      {% include "partials/field.html" with field=form_com_erro.objetivo %}
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Números</h2></div>
+    <div class="tiles">
+      <div class="tile"><strong class="tile__value" data-conta>87%</strong><span class="tile__label">Aderência</span><span class="tile__meta">refeições do plano</span></div>
+      <div class="tile"><strong class="tile__value" data-conta>2.140</strong><span class="tile__label">kcal/dia</span><span class="tile__meta">meta: 2.200</span></div>
+      <div class="tile"><strong class="tile__value" data-conta>2,6 L</strong><span class="tile__label">Água</span><span class="tile__meta">média da semana</span></div>
+      {% comment %}
+        O maior valor real que um tile exibe: volume de um dia pesado de treino.
+        Medido a 390 px em 16/09/2026: 5 dígitos ocupam 61,6 px numa caixa de
+        74 px — é o teto prático. 6 dígitos dão 74,0 px, o limite exato, e uma
+        fonte de fallback estoura por 1 px; se um valor real chegar lá, a
+        correção é formatação (abreviar ou a unidade em linha própria), não CSS.
+      {% endcomment %}
+      <div class="tile"><strong class="tile__value" data-conta>20000</strong><span class="tile__label">kg de volume</span><span class="tile__meta">5 dígitos: o teto prático</span></div>
+    </div>
+    <dl class="data-list">
+      <div><dt>Meta</dt><dd>Emagrecer</dd></div>
+      <div><dt>Rotina</dt><dd>Moderadamente ativo</dd></div>
+      <div><dt>Texto comprido que precisa quebrar bonito</dt><dd>Supercalifragilisticexpialidocious — e uma frase longa o bastante para passar da linha e mostrar como o valor se comporta quando não cabe.</dd></div>
+    </dl>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Vazio e dica</h2></div>
+    <div class="empty-state">
+      <p>Nenhum dia de treino cadastrado ainda.</p>
+      <a class="btn btn--ghost btn--sm" href="{% url 'gestao:vitrine' %}">Cadastrar dias de treino</a>
+    </div>
+    <p class="hint">Uma dica curta, abaixo do bloco a que se refere.</p>
+    {% include "partials/links_legais.html" %}
+  </section>
+{% endblock %}

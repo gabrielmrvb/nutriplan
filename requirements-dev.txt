@@ -1,0 +1,15 @@
+# Dependências de DESENVOLVIMENTO e QA — não sobem para produção.
+# Instalação local: .venv/Scripts/python.exe -m pip install -r requirements-dev.txt
+-r requirements.txt
+
+# Capturas de QA: brilho médio das telas nos dois temas e teto de tamanho
+# dos PNGs de referência (docs/briefs/design/referencias/).
+pillow>=12,<13
+
+# scripts/qa/nav.py fala CDP com o Chrome headless por WebSocket.
+websocket-client>=1.8,<2
+
+# T3.2: medir as fontes auto-hospedadas (tamanho, eixos, `tnum`) — só o teste
+# de gate lê as tabelas; o app serve os .woff2 sem tocar neles.
+fonttools>=4.60,<5
+brotli>=1.1,<2

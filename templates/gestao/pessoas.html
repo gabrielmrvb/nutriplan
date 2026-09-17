@@ -21,7 +21,7 @@
           {% if valor == classificacao_atual %}selected{% endif %}>{{ rotulo }}</option>
       {% endfor %}
     </select>
-    <noscript><button type="submit" class="btn btn--sm">Filtrar</button></noscript>
+    <noscript><button type="submit" class="btn btn--ghost btn--sm">Filtrar</button></noscript>
   </form>
 
   <p class="hint">{{ pagina.paginator.count }} conta{{ pagina.paginator.count|pluralize:"s" }}</p>
@@ -77,12 +77,12 @@
   {% if pagina.has_other_pages %}
     <nav class="paginacao" aria-label="Páginas">
       {% if pagina.has_previous %}
-        <a class="btn btn--sm"
+        <a class="btn btn--ghost btn--sm"
            href="?classificacao={{ classificacao_atual }}&pagina={{ pagina.previous_page_number }}">Anterior</a>
       {% endif %}
       <span class="hint">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
       {% if pagina.has_next %}
-        <a class="btn btn--sm"
+        <a class="btn btn--ghost btn--sm"
            href="?classificacao={{ classificacao_atual }}&pagina={{ pagina.next_page_number }}">Próxima</a>
       {% endif %}
     </nav>

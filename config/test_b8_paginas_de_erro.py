@@ -170,12 +170,16 @@ class OQuinhentosNaoPodeDependerDeNadaTests(TestCase):
         # mudou junto, e este teste continuou confirmando o preto antigo com
         # toda a confiança do mundo. É o mesmo defeito que o teste do
         # manifesto, em `push/tests.py`, documenta ter cometido antes.
-        css = (BASE_DIR / "static" / "css" / "app.css").read_text(encoding="utf-8")
-        raiz = css.split(":root {", 1)[1].split(chr(10) + "}", 1)[0]
-        fundo = re.search(r"^\s*--bg:\s*(#[0-9a-f]{6});", raiz, re.M)
-        self.assertIsNotNone(fundo, "--bg não é mais um hexadecimal em :root")
+        from config.tests import REGIME_FERRO, REGIME_PAPEL, _tokens
 
-        self.assertIn(fundo.group(1), corpo)
+        css = (BASE_DIR / "static" / "css" / "app.css").read_text(encoding="utf-8")
+        # CORTE (16/09/2026): o `:root` liga `var(--ferro-bg)`; o leitor de
+        # paleta resolve. A 500 copia os DOIS regimes, e os dois são cobrados.
+        for regime, rotulo in ((REGIME_FERRO, "ferro"), (REGIME_PAPEL, "papel")):
+            fundo = _tokens(css, regime).get("--bg")
+            with self.subTest(regime=rotulo):
+                self.assertIsNotNone(fundo, "--bg não resolve para um hexadecimal")
+                self.assertIn(fundo, corpo)
 
     def test_nenhuma_variavel_ficou_por_resolver(self):
         """O modo de falhar deste projeto é silencioso: variável desconhecida

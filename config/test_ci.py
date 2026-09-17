@@ -94,6 +94,16 @@ class OFluxoDoActionsTests(SimpleTestCase):
         self.assertRegex(fluxo, r"python-version:\s*\"?3\.12")
         self.assertRegex(fluxo, r"cache:\s*\"?pip")
 
+    def test_a_suite_roda_com_as_dependencias_de_desenvolvimento(self):
+        """`config/test_requisitos_dev.py` cobra que tudo em `requirements-dev.txt`
+        esteja instalado onde a suíte roda; o CI instalava só o de produção e
+        o PR #4 caiu em `pillow` e `websocket-client`. O arquivo de
+        desenvolvimento puxa o de produção, então a suíte vê os dois."""
+        fluxo = _sem_comentarios(self._fluxo())
+        self.assertIn("pip install -r requirements-dev.txt", fluxo)
+        self.assertNotRegex(fluxo, r"pip install -r requirements\.txt\b")
+        self.assertIn("requirements-dev.txt", fluxo.split("cache-dependency-path", 1)[1].split("- name", 1)[0])
+
 
 class OHookLocalEAtalhoTests(SimpleTestCase):
     def _hook(self):

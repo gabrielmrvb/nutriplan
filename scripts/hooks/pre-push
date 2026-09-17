@@ -16,6 +16,13 @@
 #   workouts.test_catalogo          o gate por letra
 #   plans.test_stress               os orçamentos de consulta
 #
+# E O QUE A BRANCH TOCOU ENTRA JUNTO (16/09/2026): cada arquivo que o push
+# muda desde `origin/main` soma o app dele ao atalho — `templates/workouts/`
+# soma `workouts`, `static/js/` soma `push`, e a vitrine (`gestao`) entra
+# sempre. É `scripts/hooks/escopo_do_push.py` quem decide, e ele tem teste.
+# Sem `origin/main` local para comparar (clone raso, remoto com outro nome)
+# fica o atalho fixo: o gate é o CI, e não saber o diff não muda isso.
+#
 # `NUTRIPLAN_SUITE_COMPLETA=1 git push ...` roda a suíte inteira aqui, como
 # antes — para quem quer a resposta antes de abrir o PR.
 #
@@ -69,7 +76,12 @@ if [ "${NUTRIPLAN_SUITE_COMPLETA:-0}" = "1" ]; then
   echo "→ suíte completa sobre $(git rev-parse --short "$sha") (worktree descartável)"
 else
   ALVOS="config workouts.test_ficha_de_verdade workouts.test_treino_md workouts.test_catalogo plans.test_stress"
-  echo "→ atalho sobre $(git rev-parse --short "$sha") (worktree descartável); o gate é o CI no PR"
+  base="$(git merge-base "$sha" refs/remotes/origin/main 2>/dev/null || true)"
+  if [ -n "$base" ]; then
+    # shellcheck disable=SC2046
+    ALVOS="$ALVOS $("$PY" "$RAIZ/scripts/hooks/escopo_do_push.py" $(git diff --name-only "$base" "$sha"))"
+  fi
+  echo "→ atalho sobre $(git rev-parse --short "$sha") (worktree descartável): $ALVOS; o gate é o CI no PR"
 fi
 git worktree add --detach "$WT" "$sha" >/dev/null
 [ -f "$RAIZ/.env" ] && cp "$RAIZ/.env" "$WT/.env"
@@ -78,6 +90,7 @@ git worktree add --detach "$WT" "$sha" >/dev/null
 # interrompida faz o Django PERGUNTAR se pode apagá-lo, e um hook não tem
 # terminal para responder. Sem isto ele morre com EOFError e o push é
 # abortado por um motivo que não tem nada a ver com o código.
+# shellcheck disable=SC2086
 ( cd "$WT" && "$PY" manage.py test $ALVOS --verbosity=1 --noinput )
 
 echo "✓ push liberado — o julgamento é o check \"suíte completa\" no PR"
