@@ -821,7 +821,10 @@ class SyncedOperation(models.Model):
 
     #: Depois disso, a chance de um reenvio ainda estar na fila é nula — e a
     #: tabela cresce a cada marcação offline, num banco gratuito com limite de
-    #: tamanho.
+    #: tamanho. TEM DE SER MAIOR QUE 7: a fila aceita item de até 7 dias
+    #: ("O DIA viaja com o evento", CLAUDE.md), e podar um `op_id` que um
+    #: reenvio ainda traria faria a água somar duas vezes. `manage.py
+    #: podar_operacoes` roda no build (T2.4, 17/09/2026).
     VALIDADE_DIAS = 30
 
     user = models.ForeignKey(
@@ -865,7 +868,8 @@ class SyncedOperation(models.Model):
 
     @classmethod
     def podar(cls) -> int:
-        """Remove o que é velho demais para ainda estar numa fila."""
+        """Remove o que é velho demais para ainda estar numa fila — mais de
+        `VALIDADE_DIAS` (30), bem além dos 7 dias que a fila reenvia."""
         corte = timezone.now() - timedelta(days=cls.VALIDADE_DIAS)
         removidas, _ = cls.objects.filter(created_at__lt=corte).delete()
         return removidas
