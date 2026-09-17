@@ -300,29 +300,41 @@ def _contraste(cor, fundo):
     return (a + 0.05) / (b + 0.05)
 
 
+#: Onde cada regime mora no CSS (CORTE, 16/09/2026): o Ferro é a BASE — o
+#: `:root` liga `--x: var(--ferro-x)` — e o Papel é o derivado, ligado pela
+#: preferência clara do sistema. `:root.modo-foco` liga o Ferro de volta.
+REGIME_FERRO = ":root {"
+REGIME_PAPEL = "prefers-color-scheme: light) {" + chr(10) + "  :root {"
+REGIMES = ((REGIME_FERRO, "escuro"), (REGIME_PAPEL, "claro"))
+
+
 def _tokens(css, escopo):
-    """Lê as variáveis de cor de um bloco (`:root`, tema escuro, `body.modo-foco`).
+    """Lê as variáveis de cor de um bloco (`:root`, tema claro, `:root.modo-foco`).
 
     Desde a Mesa & Ferro (15/09/2026) os blocos-gatilho não carregam hex:
     escrevem `--bg: var(--ferro-bg)`, e o valor mora UMA vez no `:root`.
-    Este leitor resolve o `var()` contra o `:root` para que todo teste de
-    contraste continue medindo cor de verdade — sabotar um hex de
-    `--ferro-*` deixa os testes do escuro vermelhos, que é o controle.
+    Desde a CORTE (16/09/2026) o PRÓPRIO `:root` é um gatilho — ele liga o
+    Ferro —, então o leitor resolve o `var()` contra as declarações cruas do
+    bloco em que está (o `:root`) ou contra o `:root` resolvido (os outros
+    dois). Sabotar um hex de `--ferro-*` deixa os testes do escuro vermelhos,
+    que é o controle.
     """
     trecho = css.split(escopo, 1)[1].split("}", 1)[0]
-    raiz = None
-    valores = {}
+    crus = {}
     for linha in trecho.splitlines():
         linha = linha.strip()
         if linha.startswith("--") and ":" in linha:
             nome, valor = linha.split(":", 1)
-            valor = valor.split(";")[0].strip()
-            if valor.startswith("var(--") and valor.endswith(")"):
-                if raiz is None:
-                    raiz = _tokens(css, ":root {") if escopo != ":root {" else {}
-                valor = raiz.get(valor[4:-1], valor)
-            if valor.startswith("#") and len(valor) == 7:
-                valores[nome.strip()] = valor
+            crus[nome.strip()] = valor.split(";")[0].strip()
+    raiz = crus if escopo == ":root {" else None
+    valores = {}
+    for nome, valor in crus.items():
+        if valor.startswith("var(--") and valor.endswith(")"):
+            if raiz is None:
+                raiz = _tokens(css, ":root {")
+            valor = raiz.get(valor[4:-1], valor)
+        if valor.startswith("#") and len(valor) == 7:
+            valores[nome] = valor
     return valores
 
 
@@ -384,19 +396,21 @@ class ContrastTests(TestCase):
                 self.assertGreaterEqual(razao, minimo, f"{cor} sobre {fundo} dá {razao:.2f}:1")
 
     def test_light_theme_measured_pairs(self):
-        self._conferir_pares(":root {", "claro")
+        self._conferir_pares(REGIME_PAPEL, "claro")
 
     def test_dark_theme_measured_pairs(self):
-        self._conferir_pares("prefers-color-scheme: dark) {" + chr(10) + "  :root {", "escuro")
+        self._conferir_pares(REGIME_FERRO, "escuro")
 
     def test_modo_foco_is_the_dark_palette(self):
-        """O segundo gatilho resolve para a MESMA paleta do escuro."""
-        escuro = _tokens(self.css, "prefers-color-scheme: dark) {" + chr(10) + "  :root {")
-        foco = _tokens(self.css, "body.modo-foco {")
-        self.assertEqual(foco, escuro)
+        """O segundo gatilho resolve para a MESMA paleta do escuro — que,
+        desde a CORTE, é a do próprio `:root`."""
+        escuro = _tokens(self.css, REGIME_FERRO)
+        foco = _tokens(self.css, ":root.modo-foco {")
+        self.assertEqual(foco, {k: v for k, v in escuro.items() if k in foco})
+        self.assertEqual(set(foco), {k for k in escuro if not k.startswith(("--ferro-", "--papel-"))})
 
     def test_dark_theme_text_is_readable_on_every_surface(self):
-        self._conferir("prefers-color-scheme: dark) {" + chr(10) + "  :root {", "escuro")
+        self._conferir(REGIME_FERRO, "escuro")
 
     def _conferir_tingidos(self, escopo, rotulo):
         tokens = _tokens(self.css, escopo)
@@ -417,16 +431,14 @@ class ContrastTests(TestCase):
                     )
 
     def test_dark_theme_text_is_readable_on_tinted_backgrounds(self):
-        self._conferir_tingidos("prefers-color-scheme: dark) {" + chr(10) + "  :root {", "escuro")
+        self._conferir_tingidos(REGIME_FERRO, "escuro")
 
     def test_light_theme_text_is_readable_on_tinted_backgrounds(self):
-        self._conferir_tingidos(
-            ":root {", "claro"
-        )
+        self._conferir_tingidos(REGIME_PAPEL, "claro")
 
     def test_light_theme_text_is_readable_on_every_surface(self):
         """O tema claro estava pior que o escuro: 3.33:1 no texto discreto."""
-        self._conferir(":root {", "claro")
+        self._conferir(REGIME_PAPEL, "claro")
 
 
 class TouchTargetTests(TestCase):
@@ -606,10 +618,10 @@ class PillContrastTests(TestCase):
                     )
 
     def test_dark_theme_pills_are_readable(self):
-        self._conferir("prefers-color-scheme: dark) {" + chr(10) + "  :root {", "escuro")
+        self._conferir(REGIME_FERRO, "escuro")
 
     def test_light_theme_pills_are_readable(self):
-        self._conferir(":root {", "claro")
+        self._conferir(REGIME_PAPEL, "claro")
 
 
 class CustomPropertyTests(TestCase):
@@ -811,7 +823,7 @@ class VisualRefinementTests(TestCase):
         linhas = re.sub(r"/\*.*?\*/", "", self.css, flags=re.S).splitlines()
         tokens = {definicao.match(l).group(1) for l in linhas if anel.search(l) and definicao.match(l)}
         mao = [l.strip() for l in linhas if anel.search(l) and not definicao.match(l)]
-        self.assertEqual(tokens, {"--halo", "--glow", "--ferro-glow"}, "o anel de marca só nasce nestes tokens")
+        self.assertEqual(tokens, {"--halo", "--glow"}, "o anel de marca só nasce nestes tokens")
         self.assertEqual(mao, [], "anel de marca escrito à mão fora do token")
 
     def test_the_sunken_blocks_get_their_outline_from_inside(self):
@@ -927,10 +939,7 @@ class VisualRefinementTests(TestCase):
         legível de tecnicamente aprovado.
         """
         MARGEM = 5.0
-        for escopo, rotulo in (
-            ("prefers-color-scheme: dark) {" + chr(10) + "  :root {", "escuro"),
-            (":root {", "claro"),
-        ):
+        for escopo, rotulo in REGIMES:
             tokens = _tokens(self.css, escopo)
             fundos = [
                 (nome, tokens[nome])
@@ -1226,13 +1235,12 @@ class DesignSystemTests(TestCase):
 
     def setUp(self):
         self.css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
-        # O ESCURO MUDOU DE ENDEREÇO em 12/09/2026: o `:root` passou a ser o
-        # tema claro (a identidade decidida nas auditorias) e o escuro mora em
-        # `prefers-color-scheme: dark`. Os valores são os mesmos; a base é
-        # que trocou. Ler `:root` aqui devolveria a paleta clara e o teste
-        # abaixo acusaria uma "troca de identidade" que não aconteceu.
-        self.escuro = _tokens(self.css, "prefers-color-scheme: dark) {" + chr(10) + "  :root {")
-        self.claro = _tokens(self.css, ":root {")
+        # O ESCURO MUDOU DE ENDEREÇO duas vezes: em 12/09/2026 o `:root`
+        # passou a ser o tema claro e o escuro foi para `prefers-color-scheme:
+        # dark`; na CORTE (16/09/2026) o Ferro voltou a ser a base — o `:root`
+        # o liga — e o claro (Papel) mora em `prefers-color-scheme: light`.
+        self.escuro = _tokens(self.css, REGIME_FERRO)
+        self.claro = _tokens(self.css, REGIME_PAPEL)
 
     def test_the_dark_palette_is_the_one_the_design_system_names(self):
         """A paleta do REDESIGN V1: grafite com verde medido, verde vivo.
@@ -1254,20 +1262,24 @@ class DesignSystemTests(TestCase):
         U28 (avaliação de 16/09/2026, publicado em `3a60f8e` sobre a paleta
         antiga): `--surface-2` escuro a 1,05:1 sobre `--surface` apagava o
         botão quieto e a trilha dos anéis; a régua ficou em ≥ 1,2:1
-        (`config/test_superficie_escura.py`). Sobre a `--surface` do Ferro
-        (#161d1a) o #1d2622 da direção dava 1,10 — por isso a segunda
-        superfície é #243029 (1,25), a terceira #2c3a32 (1,15 acima dela,
-        para o hover existir) e `--text-mute` #a0aca6 (5,09 sobre a
-        terceira: a margem de 5,0 de `test_the_quiet_text_clears_the_minimum`).
+        (`config/test_superficie_escura.py`).
+
+        CORTE (16/09/2026): a identidade é a da direção escolhida em
+        `DIRECAO-ESCOLHIDA.md` — papel escuro #10120e, lima #c7f24a, osso
+        #f6f3ea como texto. A direção dava `--surface-2` #22261e e
+        `--surface-3` #2b3025, 1,11 e 1,14 sobre a `--surface` #1a1d17; a
+        régua U28 pede 1,2, então a segunda é #292d25 (1,22) e a terceira
+        #33382d (1,17 acima dela), com `--terra`/`--brasa` ainda AA como
+        texto sobre a terceira (4,59) e o mudo #b3ae9c a 5,42.
         """
-        self.assertEqual(self.escuro["--bg"], "#0e1412")
-        self.assertEqual(self.escuro["--surface"], "#161d1a")
-        self.assertEqual(self.escuro["--surface-2"], "#243029")
-        self.assertEqual(self.escuro["--surface-3"], "#2c3a32")
-        self.assertEqual(self.escuro["--surface-focus"], "#123024")
-        self.assertEqual(self.escuro["--brand"], "#22c98a")
-        self.assertEqual(self.escuro["--text"], "#f4f7f5")
-        self.assertEqual(self.escuro["--text-mute"], "#a0aca6")
+        self.assertEqual(self.escuro["--bg"], "#10120e")
+        self.assertEqual(self.escuro["--surface"], "#1a1d17")
+        self.assertEqual(self.escuro["--surface-2"], "#292d25")
+        self.assertEqual(self.escuro["--surface-3"], "#33382d")
+        self.assertEqual(self.escuro["--surface-focus"], "#232a12")
+        self.assertEqual(self.escuro["--brand"], "#c7f24a")
+        self.assertEqual(self.escuro["--text"], "#f6f3ea")
+        self.assertEqual(self.escuro["--text-mute"], "#b3ae9c")
 
     def test_the_border_is_translucent_so_it_reads_on_every_surface(self):
         """`--fio` deixou de ser hex, e a mudança é de comportamento.
@@ -1282,7 +1294,9 @@ class DesignSystemTests(TestCase):
         positivo, para o teste não passar caso o token suma do arquivo.
         """
         self.assertNotIn("--fio", self.escuro)
-        self.assertIn("--fio: rgba(", self.css)
+        self.assertNotIn("--fio", self.claro)
+        self.assertIn("--ferro-fio: rgba(", self.css)
+        self.assertIn("--papel-fio: rgba(", self.css)
 
     def test_the_four_radii_are_the_ones_from_direction_c(self):
         """A escala tem quatro degraus, e os quatro são os da direção C §5:
@@ -1405,14 +1419,10 @@ class DayColourContrastTests(TestCase):
                 )
 
     def test_dark_theme_day_colours_are_readable(self):
-        self._conferir("prefers-color-scheme: dark) {" + chr(10) + "  :root {", "escuro", "--brand-soft")
+        self._conferir(REGIME_FERRO, "escuro", "--brand-soft")
 
     def test_light_theme_day_colours_are_readable(self):
-        self._conferir(
-            ":root {",
-            "claro",
-            "--brand-soft",
-        )
+        self._conferir(REGIME_PAPEL, "claro", "--brand-soft")
 
     def test_no_colour_token_is_left_without_a_light_theme_value(self):
         """A trava geral, e a razão de este teste existir.
@@ -1422,14 +1432,12 @@ class DayColourContrastTests(TestCase):
         cor errada num fundo da cor errada. Só tom, raio e tempo podem faltar —
         esses não têm tema.
         """
-        def declarados(escopo):
-            trecho = self.css.split(escopo, 1)[1].split(chr(10) + "}", 1)[0]
-            return dict(re.findall(r"^\s*(--[\w-]+):\s*([^;]+);", trecho, re.M))
-
-        escuro = declarados(":root {")
-        claro = declarados(
-            ":root {"
-        )
+        raiz = self.css.split(":root {", 1)[1].split(chr(10) + "}", 1)[0]
+        declarados = dict(re.findall(r"^\s*(--[\w-]+):\s*([^;]+);", raiz, re.M))
+        # CORTE: os dois regimes moram no :root como listas `--ferro-*` e
+        # `--papel-*`; "cor sem versão no claro" é um `--ferro-x` sem `--papel-x`.
+        escuro = {n[len("--ferro-"):]: v for n, v in declarados.items() if n.startswith("--ferro-")}
+        claro = {n[len("--papel-"):]: v for n, v in declarados.items() if n.startswith("--papel-")}
 
         # `_tokens` não serve aqui: ele é um leitor de PALETA e guarda só
         # valores `#rrggbb`. A borda do escuro é hexadecimal e a do claro é

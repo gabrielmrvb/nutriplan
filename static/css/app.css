@@ -24,8 +24,19 @@
    1. Tokens
    ========================================================================== */
 
+/* CORTE (16/09/2026): FERRO É A BASE, e Papel é o derivado.
+   Os valores de cor moram UMA vez, nas duas listas do fim deste bloco —
+   `--ferro-*` (escuro, o padrão) e `--papel-*` (claro, para quem prefere
+   claro no sistema). O `:root` só LIGA o Ferro (`--bg: var(--ferro-bg)`);
+   `@media (prefers-color-scheme: light)` liga o Papel; `:root.modo-foco`,
+   classe que o servidor escreve no <html> na execução do treino, liga o
+   Ferro de volta por cima da preferência. `config/test_ferro.py` prende a estrutura e
+   `config/tests.py` resolve o `var()` antes de medir contraste nos dois
+   regimes. Os comentários abaixo que citam hex da Mesa (linho #f5f3ee,
+   #0c6b40...) contam a história de como cada token chegou até aqui; o
+   valor de hoje está nas listas do fim. */
 :root {
-  color-scheme: light dark;
+  color-scheme: dark light;
 
   /* Grafite em camadas: o fundo é o mais escuro e cada nível de elevação
      clareia um pouco. É o que dá profundidade sem sombra pesada, que no
@@ -46,10 +57,10 @@
      O fundo lê como grafite orgânico, não como verde; o botão continua
      sendo a única coisa verde da tela. A régua é `config/tests.py`, que
      recalcula o contraste dos tokens, inclusive contra os fundos tingidos. */
-  --bg: #f5f3ee;            /* linho */
-  --surface: #ffffff;
-  --surface-2: #efece4;
-  --surface-3: #ebe8de;
+  --bg: var(--ferro-bg);
+  --surface: var(--ferro-surface);
+  --surface-2: var(--ferro-surface-2);
+  --surface-3: var(--ferro-surface-3);
   /* A QUARTA SUPERFÍCIE: a do elemento que manda na tela.
 
      As três acima respondem "que profundidade?". Esta responde outra
@@ -59,7 +70,7 @@
 
      Uma por tela. Duas superfícies de foco é o mesmo que nenhuma, e é assim
      que "destaque" vira "fundo". */
-  --surface-focus: #e3f1e8;
+  --surface-focus: var(--ferro-surface-focus);
   /* O TOPO DO CANVAS.
 
      O gradiente do `body` nasceu com `#0a1210` escrito à mão, e no tema claro
@@ -69,7 +80,7 @@
      eu o reintroduzi.
 
      Agora é um token, e o tema claro declara o dele logo abaixo. */
-  --canvas-topo: #ffffff;
+  --canvas-topo: var(--ferro-canvas-topo);
   /* Cinza fixo, e não mais branco translúcido.
      O translúcido tinha uma vantagem real: acompanhava a camada em que
      pousava, então uma regra servia às quatro superfícies. A troca é
@@ -84,9 +95,9 @@
      mais clara — era o que acontecia com #2a2e39. A borda agora se ajusta ao
      que estiver embaixo, que é o que dá a sensação de camada em vez de
      contorno desenhado. */
-  --fio: rgba(20, 31, 26, .10);
-  --fio-forte: rgba(20, 31, 26, .22);
-  --text: #141f1a;
+  --fio: var(--ferro-fio);
+  --fio-forte: var(--ferro-fio-forte);
+  --text: var(--ferro-text);
   /* Os dois tons discretos subiram junto com as bordas, e pelo mesmo motivo:
      o mínimo da WCAG é piso de legibilidade, não alvo de projeto. `--text-dim`
      estava em 6,47:1 no pior fundo e `--text-mute` em 4,67:1 — passando por
@@ -99,7 +110,7 @@
      sobre --surface, 13,81 / 6,37 / 5,21 no pior caso (--surface-3). A
      distância entre os três degraus continua clara e o pior caso segue acima
      do piso. */
-  --text-dim: #485550;
+  --text-dim: var(--ferro-text-dim);
   /* Medido a cada troca, nunca escolhido a olho. A paleta V3 escureceu e
      esfriou os fundos, e o cinza que a spec sugeria para este degrau
      (#818b98) caía para 4,71:1 sobre --surface-3 — passa, e passa raspando.
@@ -109,22 +120,22 @@
      Vale também sobre --brand-soft, onde uma versão antiga dava 4,36 e nenhum
      teste via, porque o teste dos fundos tingidos só cobre --text e
      --text-dim. */
-  --text-mute: #55625c;
+  --text-mute: var(--ferro-text-mute);
   /* Uma cor por dia de treino. Matizes bem separados (verde, azul, âmbar,
      violeta) para serem distinguíveis inclusive por quem confunde vermelho e
      verde — a distância entre eles é de luminância também, não só de matiz.
      Todas claras o bastante para carregar texto grafite por cima. */
-  --dia-a: #1c6141;
-  --dia-b: #225b77;
-  --dia-c: #734e21;
+  --dia-a: var(--ferro-dia-a);
+  --dia-b: var(--ferro-dia-b);
+  --dia-c: var(--ferro-dia-c);
   /* Meio degrau mais claro que o #c4a6ff original: sobre a própria tinta a
      22% ele dava 4,48:1, dois centésimos abaixo do mínimo AA. Passava porque
      nada media a paleta dos dias — os quatro irmãos ficam entre 4,64 e 5,26,
      então ele era o único fora, e por pouco. */
-  --dia-d: #621fd6;
+  --dia-d: var(--ferro-dia-d);
   /* O quinto dia entrou com o ABCDE. Coral fecha o círculo de matizes sem
      encostar no verde do A nem no âmbar do C. */
-  --dia-e: #8e3a29;
+  --dia-e: var(--ferro-dia-e);
   /* Emerald como acento principal e azul-gelo como secundário.
      Era menta #4ade9b — claro o bastante para brilhar, e por isso mesmo sem
      peso: sobre grafite ele lia como brilho, não como cor de marca. Emerald
@@ -134,9 +145,9 @@
      A V3 subiu meio degrau (#10b981 → #10c98a): sobre o fundo novo ele mede
      9,07:1 contra os 7,57 de antes. Fundo mais escuro devolve contraste, e o
      verde pôde ficar mais vivo sem custar legibilidade. */
-  --brand: #0c6b40;
-  --brand-strong: #08512f;
-  --brand-soft: #dff0e6;
+  --brand: var(--ferro-brand);
+  --brand-strong: var(--ferro-brand-strong);
+  --brand-soft: var(--ferro-brand-soft);
   /* O VERDE FOLHA é o verde do que FOI FEITO — o arco do anel de treino, a
      série registrada, a barra da semana. `--brand` continua sendo o verde
      do que SE FAZ: CTA, link, foco. Dois verdes com papéis diferentes é o
@@ -157,8 +168,8 @@
      3:1 da WCAG 1.4.11 caiu para 0,03 nessa terceira, a mais apertada das
      três. Não é folga para gastar: a próxima paleta que mexer em
      `--surface-3` sem medir de novo pode derrubar este token. */
-  --folha: #3f9718;
-  --on-brand: #ffffff;
+  --folha: var(--ferro-folha);
+  --on-brand: var(--ferro-on-brand);
   /* MESA & FERRO (15/09/2026): quatro cores de PILAR, não de decoração —
      `--agua` é Hidratação (era `--accent`), `--brasa` é Corrida, `--terra`
      é Progresso/peso (era `--warm`) e `--chama` é só a ofensiva, objeto
@@ -179,16 +190,16 @@
      (`--agua`, `--agua`). Medido nessa composição — `--agua-texto` #175877
      sobre a tinta de `--agua` a 12% —, 6,60:1 sobre `--surface` e 5,64:1
      sobre `--surface-2`, os dois acima do mínimo AA de 4,5. */
-  --agua: #1e6e96;
-  --agua-texto: #175877;
-  --brasa: #a63f18;
-  --terra: #8a5109;
-  --terra-soft: #fbf0e0;
-  --chama: #c8620a;
-  --carb: #ad6d16;
-  --fat: #5568a6;
-  --danger: #b3261e;
-  --danger-soft: #fdecea;
+  --agua: var(--ferro-agua);
+  --agua-texto: var(--ferro-agua-texto);
+  --brasa: var(--ferro-brasa);
+  --terra: var(--ferro-terra);
+  --terra-soft: var(--ferro-terra-soft);
+  --chama: var(--ferro-chama);
+  --carb: var(--ferro-carb);
+  --fat: var(--ferro-fat);
+  --danger: var(--ferro-danger);
+  --danger-soft: var(--ferro-danger-soft);
   /* A escala de quina. `--radius-xl` é o degrau novo, e ele existe para
      separar WIDGET de cartão: o painel do dia, a ofensiva e a água são as
      três peças que a pessoa lê de relance, e quina mais aberta é o que faz
@@ -210,7 +221,7 @@
      `rgba(4,8,7,.72)` no drawer. A mesma intenção divergindo em três pontos
      de RGB é como as duas telas acabam com veladuras diferentes numa
      terça-feira. */
-  --veu: rgba(4, 8, 7, .72);
+  --veu: var(--ferro-veu);
   /* A ESCALA DE TEXTO. Ela não existia, e a ausência custou 41 tamanhos
      diferentes em 214 declarações — medido em 05/09/2026.
 
@@ -349,24 +360,28 @@
   /* Um fio de luz na quina de cima, do jeito que superfície elevada responde
      a luz vinda de cima. No escuro a sombra quase não aparece — é este
      `inset` que separa o cartão do fundo. */
-  --edge: inset 0 -1px 0 rgba(16, 32, 22, .04);
+  --edge: 0 0 0 0 transparent;
   /* Contorno por DENTRO, para o bloco afundado que não pode ganhar borda.
      O azulejo, a célula da equação e o chip do dia pousam em --surface-2 sem
      borda nenhuma, e no escuro dois grafites vizinhos viram um só. Uma borda
      de verdade resolveria — e empurraria 2px em cada eixo, mexendo na grade
      que já está certa. `inset` desenha o mesmo fio sem ocupar espaço algum. */
-  --inlay: inset 0 0 0 1px var(--fio), var(--edge);
+  --inlay: inset 0 0 0 1px var(--fio);
 
-  /* Repouso e elevação. A diferença entre as duas é o que comunica que algo
-     está ativo sem mexer em cor nem em tamanho. */
-  --shadow-rest: 0 1px 2px rgba(16, 32, 22, .05), 0 8px 22px -16px rgba(16, 32, 22, .2);
-  --shadow-lift: 0 2px 6px rgba(16, 32, 22, .08), 0 18px 38px -20px rgba(16, 32, 22, .3);
+  /* SEM CARTÃO COM SOMBRA (CORTE, 16/09/2026): hierarquia é por tipografia,
+     cor e FAIXA, não por caixa. Os quatro nomes ficam — `--edge`,
+     `--shadow-rest`, `--shadow-lift`, `--shadow-deep` — porque testes e
+     regras os leem; o valor é a sombra que não desenha nada (e não `none`,
+     que não pode entrar numa lista: `var(--edge), var(--halo)` ficaria
+     inválido e o halo de estado sumiria junto). `--inlay` perdeu o `--edge`
+     pelo mesmo motivo e continua sendo o contorno por dentro. */
+  --shadow-rest: 0 0 0 0 transparent;
+  --shadow-lift: 0 0 0 0 transparent;
   /* O terceiro degrau, para o que flutua ACIMA da página em vez de repousar
      nela: o painel do dia e o convite de instalação. Três camadas de sombra
      porque uma só, no escuro, ou não aparece ou vira mancha — a curta define
      a quina, a média dá o volume, a longa separa do fundo. */
-  --shadow-deep: 0 2px 4px rgba(0, 0, 0, .4), 0 16px 36px -16px rgba(0, 0, 0, .9),
-                 0 40px 80px -52px rgba(0, 0, 0, 1);
+  --shadow-deep: 0 0 0 0 transparent;
 
   /* Curva de saída rápida: arranca e desacelera. É o que faz um toque parecer
      resposta, e não animação. */
@@ -421,120 +436,139 @@
 
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 
-  /* FERRO — o segundo regime de luz, escrito UMA vez.
-     Dois gatilhos ligam estes valores: `prefers-color-scheme: dark` (quem
-     prefere escuro vê o app inteiro em Ferro) e `body.modo-foco` (a
-     execução e a corrida em andamento nascem em Ferro por decisão de
-     produto). Nenhum dos dois repete hex — `config/test_ferro.py` é a
-     trava. Direção C, docs/briefs/design/direcao-c-mesa-e-ferro.md §2;
-     Três valores saem da direção por MEDIÇÃO (16/09/2026):
-     - `--ferro-surface-2` #243029 e não #1d2622: U28 (avaliação de 16/09)
-       cobra ≥ 1,2:1 entre a segunda superfície e a primeira — sobre
-       #161d1a, #1d2622 dava 1,10 (botão quieto sem cara, trilha do anel
-       sumida); #243029 dá 1,25 (`config/test_superficie_escura.py`);
-     - `--ferro-surface-3` #2c3a32 e não #26312b: com a segunda subindo,
-       #26312b ficava a 1,02 dela e o hover deixava de existir; 1,15 agora;
-     - `--ferro-text-mute` #a0aca6 (era #96a29c; a direção dizia #8f9b95):
-       é o menor tom que passa da MARGEM de 5,0 de `config.tests` sobre a
-       surface-3 nova (5,09), e não o piso de 4,5. */
-  --ferro-bg: #0e1412;
-  --ferro-surface: #161d1a;
-  --ferro-surface-2: #243029;
-  --ferro-surface-3: #2c3a32;
-  --ferro-surface-focus: #123024;
-  --ferro-canvas-topo: #0a1210;
-  --ferro-fio: rgba(255, 255, 255, .08);
-  --ferro-fio-forte: rgba(255, 255, 255, .16);
-  --ferro-text: #f4f7f5;
-  --ferro-text-dim: #b6c1bb;
-  --ferro-text-mute: #a0aca6;
-  --ferro-brand: #22c98a;
-  --ferro-brand-strong: #4ddb9f;
-  --ferro-brand-soft: #0f2a20;
-  --ferro-folha: #6fcf4a;
-  --ferro-on-brand: #04140e;
-  --ferro-agua: #5fbdf0;
-  --ferro-agua-texto: #5fbdf0;
-  --ferro-brasa: #ff9a7a;
-  --ferro-terra: #f2b04e;
-  --ferro-terra-soft: #33260f;
-  --ferro-chama: #ffa53a;
-  --ferro-carb: #e6b35d;
-  --ferro-fat: #93a8de;
+  /* FERRO — o regime padrão, escrito UMA vez (CORTE, 16/09/2026).
+     Luz baixa de academia: papel escuro #10120E, lima #C7F24A como única
+     cor de ação, argila para a carga. Valores da tabela do DESIGN.md, com
+     DUAS superfícies ajustadas por MEDIÇÃO: a direção dava `--surface-2`
+     #22261E e `--surface-3` #2B3025, e sobre `--surface` #1A1D17 isso é
+     1,11:1 e 1,14:1 — a régua U28 (`config/test_superficie_escura.py`)
+     cobra ≥ 1,2 entre a segunda e a primeira, porque a 1,1 o botão quieto
+     perde a cara e a trilha do anel some. #292D25 dá 1,22 e #33382D dá
+     1,17 sobre ele; `--terra`/`--brasa` continuam texto AA sobre a
+     terceira (4,59) e o mudo passa da margem de 5,0 (5,42). */
+  --ferro-bg: #10120e;
+  --ferro-surface: #1a1d17;
+  --ferro-surface-2: #292d25;
+  --ferro-surface-3: #33382d;
+  --ferro-surface-focus: #232a12;
+  --ferro-canvas-topo: #080a07;
+  --ferro-fio: rgba(246, 243, 234, .10);
+  --ferro-fio-forte: rgba(246, 243, 234, .22);
+  --ferro-text: #f6f3ea;
+  --ferro-text-dim: #d6d2c4;
+  --ferro-text-mute: #b3ae9c;
+  --ferro-brand: #c7f24a;
+  --ferro-brand-strong: #dbff6e;
+  --ferro-brand-soft: #2a3313;
+  --ferro-folha: #9bd130;
+  --ferro-on-brand: #14180a;
+  --ferro-agua: #7cc7ea;
+  --ferro-agua-texto: #7cc7ea;
+  --ferro-brasa: #e8865e;
+  --ferro-terra: #da9169;
+  --ferro-terra-soft: #3a2a1a;
+  --ferro-chama: #f2b04e;
+  --ferro-carb: #da9169;
+  --ferro-fat: #b3ae9c;
   --ferro-danger: #ff8a80;
-  --ferro-danger-soft: #33191a;
+  --ferro-danger-soft: #3a1e1c;
   --ferro-dia-a: #4ade9b;
-  --ferro-dia-b: #6cc7ff;
+  --ferro-dia-b: #70c9ff;
   --ferro-dia-c: #f6c453;
-  --ferro-dia-d: #cbb0ff;
-  --ferro-dia-e: #ff9d8a;
+  --ferro-dia-d: #cdb2ff;
+  --ferro-dia-e: #ffa998;
   --ferro-veu: rgba(4, 8, 7, .72);
-  --ferro-edge: inset 0 1px 0 rgba(255, 255, 255, .05);
-  --ferro-shadow-rest: 0 1px 2px rgba(0, 0, 0, .38), 0 10px 26px -20px rgba(0, 0, 0, .85);
-  --ferro-shadow-lift: 0 2px 6px rgba(0, 0, 0, .45), 0 20px 44px -22px rgba(0, 0, 0, .95);
-  /* Mesma receita do `--glow` de Mesa: anel de 1 px, sem difusão. */
-  --ferro-glow: 0 0 0 1px var(--ferro-brand);
+  /* PAPEL — o regime claro, DERIVADO do Ferro para quem prefere claro no
+     sistema: osso #F6F3EA no lugar do papel escuro, OLIVA #3F5A00 no lugar
+     da lima (a lima não é texto sobre osso — 1,6:1). Mesmos nomes, mesma
+     estrutura; medido em `artifacts/paleta_corte.py` antes de virar
+     contrato: pior par de texto `--brasa`/`--surface-3` 4,86. */
+  --papel-bg: #f6f3ea;
+  --papel-surface: #eae5d6;
+  --papel-surface-2: #e1dbc8;
+  --papel-surface-3: #dbd6c6;
+  --papel-surface-focus: #eef3d8;
+  --papel-canvas-topo: #fbf9f2;
+  --papel-fio: rgba(20, 24, 10, .12);
+  --papel-fio-forte: rgba(20, 24, 10, .26);
+  --papel-text: #14180a;
+  --papel-text-dim: #3e3f30;
+  --papel-text-mute: #54523f;
+  --papel-brand: #3f5a00;
+  --papel-brand-strong: #2f4400;
+  --papel-brand-soft: #e6efc4;
+  --papel-folha: #4e7a00;
+  --papel-on-brand: #f6f3ea;
+  --papel-agua: #1e6e96;
+  --papel-agua-texto: #175877;
+  --papel-brasa: #983b17;
+  --papel-terra: #7e4320;
+  --papel-terra-soft: #f3e6d6;
+  --papel-chama: #9a5a10;
+  --papel-carb: #7e4320;
+  --papel-fat: #54523f;
+  --papel-danger: #a9241c;
+  --papel-danger-soft: #fdecea;
+  --papel-dia-a: #1c6040;
+  --papel-dia-b: #225a76;
+  --papel-dia-c: #724d21;
+  --papel-dia-d: #601ed2;
+  --papel-dia-e: #8d3929;
+  --papel-veu: rgba(4, 8, 7, .72);
 }
 
-/* TEMA ESCURO PARA QUEM PREFERE, e o claro é a base — invertido em
-   12/09/2026. O NutriPlan nasceu escuro-primeiro e a identidade decidida
-   nas auditorias é a clara: fundo #f4f6f5, verde #0c6b40, folha #43A11B.
-   Os dois conjuntos de valores são os MESMOS de antes; o que mudou é
-   quem é a base e quem é a preferência. `color-scheme: light dark` no
-   `:root` avisa o navegador que os dois existem, e os controles nativos
-   (scrollbar, `<select>`) acompanham. Contraste medido nos dois temas por
-   `config/tests.py`.
-
-   MESA & FERRO (15/09/2026): a base clara passou a ser #f5f3ee (linho), e
-   este bloco parou de escrever hex — ele só LIGA os valores que moram em
-   `--ferro-*`, no fim do `:root`. É o mesmo gatilho de sempre
-   (`prefers-color-scheme: dark`); o que mudou é que agora ele compartilha
-   os valores com `body.modo-foco` em vez de duplicá-los. */
-@media (prefers-color-scheme: dark) {
+/* O PAPEL, para quem prefere claro no sistema. Este bloco não escreve hex:
+   liga os `--papel-*` do `:root`, na MESMA lista que o `:root.modo-foco`
+   liga de volta para `--ferro-*` — `config/test_ferro.py` compara as três
+   listas. `color-scheme: light` faz campo, rolagem e `<select>` nativos
+   acompanharem. */
+@media (prefers-color-scheme: light) {
   :root {
-    color-scheme: dark;
-    --bg: var(--ferro-bg);
-    --surface: var(--ferro-surface);
-    --surface-2: var(--ferro-surface-2);
-    --surface-3: var(--ferro-surface-3);
-    --surface-focus: var(--ferro-surface-focus);
-    --canvas-topo: var(--ferro-canvas-topo);
-    --fio: var(--ferro-fio);
-    --fio-forte: var(--ferro-fio-forte);
-    --text: var(--ferro-text);
-    --text-dim: var(--ferro-text-dim);
-    --text-mute: var(--ferro-text-mute);
-    --brand: var(--ferro-brand);
-    --brand-strong: var(--ferro-brand-strong);
-    --brand-soft: var(--ferro-brand-soft);
-    --folha: var(--ferro-folha);
-    --on-brand: var(--ferro-on-brand);
-    --agua: var(--ferro-agua);
-    --agua-texto: var(--ferro-agua-texto);
-    --brasa: var(--ferro-brasa);
-    --terra: var(--ferro-terra);
-    --terra-soft: var(--ferro-terra-soft);
-    --chama: var(--ferro-chama);
-    --carb: var(--ferro-carb);
-    --fat: var(--ferro-fat);
-    --danger: var(--ferro-danger);
-    --danger-soft: var(--ferro-danger-soft);
-    --dia-a: var(--ferro-dia-a);
-    --dia-b: var(--ferro-dia-b);
-    --dia-c: var(--ferro-dia-c);
-    --dia-d: var(--ferro-dia-d);
-    --dia-e: var(--ferro-dia-e);
-    --veu: var(--ferro-veu);
-    --edge: var(--ferro-edge);
-    --shadow-rest: var(--ferro-shadow-rest);
-    --shadow-lift: var(--ferro-shadow-lift);
-    --glow: var(--ferro-glow);
+    color-scheme: light;
+    --bg: var(--papel-bg);
+    --surface: var(--papel-surface);
+    --surface-2: var(--papel-surface-2);
+    --surface-3: var(--papel-surface-3);
+    --surface-focus: var(--papel-surface-focus);
+    --canvas-topo: var(--papel-canvas-topo);
+    --fio: var(--papel-fio);
+    --fio-forte: var(--papel-fio-forte);
+    --text: var(--papel-text);
+    --text-dim: var(--papel-text-dim);
+    --text-mute: var(--papel-text-mute);
+    --brand: var(--papel-brand);
+    --brand-strong: var(--papel-brand-strong);
+    --brand-soft: var(--papel-brand-soft);
+    --folha: var(--papel-folha);
+    --on-brand: var(--papel-on-brand);
+    --agua: var(--papel-agua);
+    --agua-texto: var(--papel-agua-texto);
+    --brasa: var(--papel-brasa);
+    --terra: var(--papel-terra);
+    --terra-soft: var(--papel-terra-soft);
+    --chama: var(--papel-chama);
+    --carb: var(--papel-carb);
+    --fat: var(--papel-fat);
+    --danger: var(--papel-danger);
+    --danger-soft: var(--papel-danger-soft);
+    --dia-a: var(--papel-dia-a);
+    --dia-b: var(--papel-dia-b);
+    --dia-c: var(--papel-dia-c);
+    --dia-d: var(--papel-dia-d);
+    --dia-e: var(--papel-dia-e);
+    --veu: var(--papel-veu);
   }
 }
 
-/* O SEGUNDO GATILHO do Ferro: a classe que o servidor escreve no <body>.
-   Mesma lista, mesmos `var()` — `config/test_ferro.py` compara os dois. */
-body.modo-foco {
+/* O SEGUNDO GATILHO do Ferro: a classe que o servidor escreve no <html> na
+   execução do treino. Por cima da preferência clara, o Ferro volta — mesma
+   lista, mesmos `var()`. NO <html>, E NÃO NO <body>: `--glass`, `--glow` e
+   `--halo` são receitas de `var(--bg)`/`var(--brand)` declaradas no `:root`,
+   e uma custom property resolve o `var()` onde é DECLARADA — com a classe no
+   <body>, o `:root` calculava as três com a paleta do aparelho e a execução
+   em Ferro saía com a barra de abas clara e o anel de foco oliva (medido em
+   16/09/2026). No <html>, tudo o que mora no `:root` recalcula junto. */
+:root.modo-foco {
   color-scheme: dark;
   --bg: var(--ferro-bg);
   --surface: var(--ferro-surface);
@@ -568,10 +602,6 @@ body.modo-foco {
   --dia-d: var(--ferro-dia-d);
   --dia-e: var(--ferro-dia-e);
   --veu: var(--ferro-veu);
-  --edge: var(--ferro-edge);
-  --shadow-rest: var(--ferro-shadow-rest);
-  --shadow-lift: var(--ferro-shadow-lift);
-  --glow: var(--ferro-glow);
 }
 
 /* ==========================================================================

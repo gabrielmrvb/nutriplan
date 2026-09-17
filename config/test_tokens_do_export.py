@@ -30,7 +30,7 @@ def _modulo():
     return importlib.import_module("scripts.tokens_do_export")
 
 
-def _arvore_documentada(tmp, styles_css, colors_json='{"--novo-do-export": "#123456"}'):
+def _arvore_documentada(tmp, styles_css, colors_json='{"--novo-do-export": "#123456"}', texto="#141f1a"):
     """A estrutura que o Claude Design exporta, com o conteúdo que cada teste pede."""
     raiz = Path(tmp) / "design-system-export"
     arquivos = {
@@ -40,7 +40,7 @@ def _arvore_documentada(tmp, styles_css, colors_json='{"--novo-do-export": "#123
         "_ds_manifest.json": '{"name": "NutriPlan", "version": 1, "colors": {"--bg": "#000000"}}',
         "components/button/index.html": '<style>.btn { background: var(--brand); --btn-x: #ff0000; }</style><button class="btn">Ok</button>',
         "guidelines/typography.md": "# Tipografia\n\nCorpo em `system-ui`, 16px.\n",
-        "readme.md": "# NutriPlan\n\n```css\n--text: #141f1a;\n```\n",
+        "readme.md": "# NutriPlan\n\n```css\n--text: %s;\n```\n" % texto,
         "SKILL.md": "---\nname: nutriplan\n---\nUse `--brand` para o CTA.\n",
         "uploads/hoje-claro.css": ":root { --bg: #000000; }",
         "design-system-export/tokens/colors.json": '{"--bg": "#000000"}',
@@ -93,7 +93,7 @@ class TokensDoExportTests(SimpleTestCase):
         m = self.m
         styles = ":root {\n  --bg: %s;\n  --brand: %s;\n  --ferro-bg: #000000;\n}\n" % (self.spec["--bg"], BRAND_PROPOSTO)
         with tempfile.TemporaryDirectory() as tmp:
-            raiz = _arvore_documentada(tmp, styles)
+            raiz = _arvore_documentada(tmp, styles, texto=self.spec["--text"])
             leitura = m.ler_export(raiz)
             rel = m.relatorio(leitura, self.spec)
             difs = m.comparar(leitura.encontrados, self.spec)
@@ -121,14 +121,14 @@ class TokensDoExportTests(SimpleTestCase):
         o mercado usa; a direção diz `--bg` e `--brand`. O mapeamento é
         aplicado E escrito, para ninguém ter de adivinhar quem casou com quem."""
         m = self.m
-        w3c = json.dumps({"color": {"brand": {"$value": BRAND_PROPOSTO, "$type": "color"}, "surface": {"value": "#FFF"}}})
+        w3c = json.dumps({"color": {"brand": {"$value": BRAND_PROPOSTO, "$type": "color"}, "surface": {"value": self.spec["--surface"].upper()}}})
         with tempfile.TemporaryDirectory() as tmp:
             raiz = _arvore_documentada(tmp, ":root { --color-bg: %s; }" % self.spec["--bg"].upper(), colors_json=w3c)
             rel = m.relatorio(m.ler_export(raiz), self.spec)
         por_token = {linha["token"]: linha for linha in rel["linhas"]}
         self.assertEqual(por_token["--bg"]["estado"], "igual")
         self.assertEqual(por_token["--brand"]["estado"], "diferente")
-        self.assertEqual(por_token["--surface"]["estado"], "igual", "#FFF é #ffffff")
+        self.assertEqual(por_token["--surface"]["estado"], "igual", "maiúsculas normalizam")
         self.assertEqual(sorted(rel["mapeamento"]), [("--color-bg", "--bg"), ("--color-brand", "--brand"), ("--color-surface", "--surface")])
         self.assertEqual(rel["nao_lidos"], [])
 
@@ -242,14 +242,14 @@ class TokensDoExportTests(SimpleTestCase):
             with self.subTest(token=nome):
                 self.assertIn(nome, spec)
         self.assertTrue(spec["--fio"].startswith("rgba("))
-        self.assertFalse([n for n in spec if n.startswith("--ferro-")])
+        self.assertFalse([n for n in spec if n.startswith(("--ferro-", "--papel-"))])
         css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
         for nome, valor in _tokens(css, ":root {").items():
-            if nome.startswith("--ferro-"):
+            if nome.startswith(("--ferro-", "--papel-")):
                 continue
             with self.subTest(token=nome):
                 self.assertEqual(spec.get(nome), valor)
-        self.assertEqual(list(spec)[0], "--bg", "a ordem é a do :root, e o linho abre a paleta")
+        self.assertEqual(list(spec)[0], "--bg", "a ordem é a do :root, e o fundo abre a paleta")
 
     def test_classificacao_e_a_da_triagem_da_task_8(self):
         """Task 8 e Task 11 precisam concordar sobre o que é interno, e a

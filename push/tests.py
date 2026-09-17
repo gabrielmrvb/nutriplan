@@ -147,27 +147,31 @@ class InstallabilityTests(TestCase):
         css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
             encoding="utf-8"
         )
-        raiz = css.split(":root {", 1)[1].split(chr(10) + "}", 1)[0]
-        fundo = re.search(r"^\s*--bg:\s*(#[0-9a-f]{6});", raiz, re.M)
-        self.assertIsNotNone(fundo, "--bg não é mais um hexadecimal em :root")
+        # CORTE (16/09/2026): o `:root` liga `--bg: var(--ferro-bg)`; o leitor
+        # de paleta resolve o `var()` e devolve o hex da base.
+        from config.tests import REGIME_FERRO, _tokens
 
-        self.assertEqual(self.manifest["theme_color"], fundo.group(1))
-        self.assertEqual(self.manifest["background_color"], fundo.group(1))
+        fundo = _tokens(css, REGIME_FERRO).get("--bg")
+        self.assertIsNotNone(fundo, "--bg do :root não resolve para um hexadecimal")
+
+        self.assertEqual(self.manifest["theme_color"], fundo)
+        self.assertEqual(self.manifest["background_color"], fundo)
 
     def test_the_meta_tag_and_the_manifest_agree(self):
         """Duas cópias do mesmo valor é como uma delas fica para trás. A meta
         do HTML e o manifesto saem da MESMA setting."""
         html = self.client.get(reverse("accounts:login")).content.decode()
         # A META DA BASE NÃO TEM `media`: ela vale para quem não expressa
-        # preferência, e é a que tem de bater com o manifesto. A escura, com
-        # `media="(prefers-color-scheme: dark)"`, vem de `PWA_DARK_COLOR`.
+        # preferência, e é a que tem de bater com o manifesto. A clara, com
+        # `media="(prefers-color-scheme: light)"`, vem de `PWA_LIGHT_COLOR`
+        # (CORTE, 16/09/2026: o Ferro é a base e o Papel a preferência).
         self.assertIn(
             f'<meta name="theme-color" content="{self.manifest["theme_color"]}">',
             html,
         )
         self.assertIn(
-            f'content="{settings.PWA_DARK_COLOR}" '
-            'media="(prefers-color-scheme: dark)"',
+            f'content="{settings.PWA_LIGHT_COLOR}" '
+            'media="(prefers-color-scheme: light)"',
             html,
         )
 

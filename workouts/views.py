@@ -1104,6 +1104,13 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         user = self.request.user
         context["nav"] = "workout"
+        # A EXECUÇÃO NASCE EM FERRO SEMPRE (DESIGN.md, "Dois regimes"): a
+        # classe é escrita pelo servidor — nunca por `:has()` nem por JS — e
+        # liga o regime escuro por cima da preferência clara do aparelho.
+        # Luz baixa de academia: é a decisão de produto da direção CORTE, e
+        # até 16/09/2026 estava escrita no contrato sem nenhuma view a
+        # cumprir (só a vitrine escrevia a classe).
+        context["body_class"] = "modo-foco"
 
         if not services.has_training_days(user):
             context["estado"] = services.EstadoDoTreino()

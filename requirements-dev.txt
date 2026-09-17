@@ -8,3 +8,8 @@ pillow>=12,<13
 
 # scripts/qa/nav.py fala CDP com o Chrome headless por WebSocket.
 websocket-client>=1.8,<2
+
+# T3.2: medir as fontes auto-hospedadas (tamanho, eixos, `tnum`) — só o teste
+# de gate lê as tabelas; o app serve os .woff2 sem tocar neles.
+fonttools>=4.60,<5
+brotli>=1.1,<2

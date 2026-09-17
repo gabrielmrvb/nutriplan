@@ -23,7 +23,9 @@ from .acesso import PainelDeGestaoMixin
 from .forms_vitrine import formulario_com_erro, formulario_limpo
 from .metricas import JANELA_CURTA, User, numeros_do_painel
 
-REGIMES = ("mesa", "ferro")
+#: `sistema` é o regime que o aparelho prefere (Papel num sistema claro,
+#: Ferro num escuro — CORTE, 16/09/2026); `ferro` força o Ferro por cima.
+REGIMES = ("sistema", "ferro")
 
 
 class PainelView(PainelDeGestaoMixin, TemplateView):
@@ -183,9 +185,10 @@ class AtividadeView(PainelDeGestaoMixin, TemplateView):
 class VitrineView(PainelDeGestaoMixin, TemplateView):
     """Toda parcial real, em todos os estados, nos dois regimes.
 
-    A vitrine é a única página que escreve `modo-foco` por parâmetro:
-    `?regime=ferro`, lista fechada, decidido aqui — nunca por `:has()` nem
-    por JavaScript. Fora da barra de abas, fora do shell offline, `no-store`
+    A vitrine é a única página que escreve `modo-foco` por PARÂMETRO
+    (`?regime=ferro`, lista fechada, decidido aqui — nunca por `:has()` nem
+    por JavaScript); a execução do treino a escreve sempre. A classe vai no
+    `<html>` (`body_class` é o nome histórico do contexto). Fora da barra de abas, fora do shell offline, `no-store`
     como o resto do painel.
     """
 
@@ -193,9 +196,9 @@ class VitrineView(PainelDeGestaoMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
-        regime = self.request.GET.get("regime", "mesa")
+        regime = self.request.GET.get("regime", "sistema")
         if regime not in REGIMES:
-            regime = "mesa"
+            regime = "sistema"
         contexto.update(
             aba="vitrine",
             sem_tabbar=True,

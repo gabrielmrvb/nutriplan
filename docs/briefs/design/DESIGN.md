@@ -36,13 +36,15 @@ na seção **"Mantido da spec anterior"** — e só ali. O que não está lá, s
 (`#10120E`), lima como única cor de ação. **Papel** (claro) é DERIVADO dele
 para quem prefere claro no sistema (`prefers-color-scheme: light`): osso
 (`#F6F3EA`), oliva no lugar da lima. A execução do treino e a corrida em
-andamento nascem em Ferro SEMPRE — `body.modo-foco`, escrito pelo servidor,
-força o escuro por cima da preferência.
+andamento nascem em Ferro SEMPRE — `modo-foco`, classe que o servidor
+escreve no `<html>` (`:root.modo-foco`), força o escuro por cima da
+preferência. No `<html>`, e não no `<body>`: `--glass`, `--glow` e `--halo`
+são receitas de `var()` do `:root` e resolvem onde são declaradas.
 
 Estrutura no CSS (muda em relação à spec anterior, onde o claro era a
 base): os valores moram UMA vez em `--ferro-*` e `--papel-*` no `:root`; o
 `:root` mapeia `--x: var(--ferro-x)`; `@media (prefers-color-scheme: light)`
-remapeia `--x: var(--papel-x)`; `body.modo-foco` remapeia de volta para
+remapeia `--x: var(--papel-x)`; `:root.modo-foco` remapeia de volta para
 `var(--ferro-x)`. Nenhum hex fora das duas listas — `config/test_ferro.py`
 é a trava.
 
@@ -56,8 +58,8 @@ a coluna "papel na direção" diz como a CORTE chama a mesma coisa.
 | `--bg` | `#10120E` | `#F6F3EA` | `--fundo`: o chão |
 | `--canvas-topo` | `#080A07` | `#FBF9F2` | a luz do topo (gradiente do body) |
 | `--surface` | `#1A1D17` | `#EAE5D6` | `--fundo-2`: a FAIXA de borda a borda que substitui o cartão |
-| `--surface-2` | `#22261E` | `#E1DBC8` | agrupamento dentro da faixa (campo, chip, célula) |
-| `--surface-3` | `#2B3025` | `#DBD6C6` | hover; célula vazia de gráfico |
+| `--surface-2` | `#292D25` | `#E1DBC8` | agrupamento dentro da faixa (campo, chip, célula). A direção dava `#22261E` (1,11:1 sobre `--surface`); a régua U28 pede ≥ 1,2 e o valor é o vizinho que passa (1,22) |
+| `--surface-3` | `#33382D` | `#DBD6C6` | hover; célula vazia de gráfico. Idem: `#2B3025` da direção ficava a 1,14 da segunda; `#33382D` fica a 1,17, com `--terra`/`--brasa` ainda AA sobre ela (4,59) |
 | `--surface-focus` | `#232A12` | `#EEF3D8` | UMA por tela: a refeição da vez, a série da vez (lima a 12 %) |
 | `--fio` | `rgba(246,243,234,.10)` | `rgba(20,24,10,.12)` | `--linha`: a régua de 1 px que separa |
 | `--fio-forte` | `rgba(246,243,234,.22)` | `rgba(20,24,10,.26)` | `--linha-forte`: borda de campo e de botão de contorno |
@@ -69,22 +71,24 @@ a coluna "papel na direção" diz como a CORTE chama a mesma coisa.
 | `--brand-soft` | `#2A3313` | `#E6EFC4` | tinta da ação: chip, botão tonal, trilha cheia |
 | `--on-brand` | `#14180A` | `#F6F3EA` | `--sobre-acento`: texto sobre `--brand` |
 | `--folha` | `#9BD130` | `#4E7A00` | FEITO (série registrada, ✓, arco cheio) — a lima um tom para dentro |
-| `--terra` | `#D98E64` | `#7E4320` | `--argila`: a CARGA (kg) e o pilar Progresso/peso |
+| `--terra` | `#DA9169` | `#7E4320` | `--argila`: a CARGA (kg) e o pilar Progresso/peso. No Ferro, `#D98E64` da direção ficava a 4,44 sobre a própria tinta (12 %) em `--surface-2`; 3 % para o branco resolve |
 | `--brasa` | `#E8865E` | `#983B17` | pilar Corrida |
 | `--agua` / `--agua-texto` | `#7CC7EA` | `#1E6E96` / `#175877` | pilar Hidratação (objeto / texto pequeno) |
 | `--chama` | `#F2B04E` | `#9A5A10` | ofensiva, só objeto gráfico |
-| `--carb` | `#D98E64` | `#7E4320` | macro carboidrato (a argila) |
+| `--carb` | `#DA9169` | `#7E4320` | macro carboidrato (a argila) |
 | `--fat` | `#B3AE9C` | `#54523F` | macro gordura (o mudo) — proteína é `--brand` |
 | `--danger` / `--danger-soft` | `#FF8A80` / `#3A1E1C` | `#A9241C` / `#FDECEA` | erro, ação destrutiva |
 | `--terra-soft` | `#3A2A1A` | `#F3E6D6` | tinta da carga |
-| `--dia-a` … `--dia-e` | `#4ade9b` `#6cc7ff` `#f6c453` `#cbb0ff` `#ff9d8a` | `#1c6141` `#225b77` `#734e21` `#621fd6` `#8e3a29` | cor de sessão no painel de treino (inalterado) |
+| `--dia-a` … `--dia-e` | `#4ade9b` `#70c9ff` `#f6c453` `#cdb2ff` `#ffa998` | `#1c6040` `#225a76` `#724d21` `#601ed2` `#8d3929` | cor de sessão no painel de treino — os de antes, movidos 1–12 % para o vizinho que passa a 4,5 sobre a própria tinta (22 %) nos fundos novos (`DayColourContrastTests`) |
 | `--veu` | `rgba(4,8,7,.72)` | idem | fundo de modal |
 
 Medido antes de virar contrato (`artifacts/paleta_corte.py`): todo texto ×
 todo fundo ≥ 4,5:1 nos dois regimes, `--text-dim`/`--text-mute` ≥ 5,0 nos
 fundos neutros, todo objeto gráfico × superfície ≥ 3:1; piores pares: Ferro
 `--brasa`/`--brand-soft` 5,06, Papel `--brasa`/`--surface-3` 4,86. A
-auditoria de 274 pares roda de novo sobre o CSS real na implementação.
+auditoria de 274 pares rodou sobre o CSS real na implementação (T3.1′,
+16/09/2026): 0 reprovados; raspando só `--brasa` (4,59) e `--terra` (4,72)
+sobre `--surface-3` no Ferro.
 
 **A regra de três** continua: cor de pilar aparece em pelo menos TRÊS
 lugares da área (fio da faixa, arco/coluna, ponto do ícone) e em NENHUM
@@ -141,11 +145,14 @@ mockup, não do contrato).
   11,2 · 14,4 · 16 · 24) e 244 valores crus; o remap move pixel em toda tela
   e é lote próprio com captura antes/depois. Ao desenhar, use a grade da
   direção; ao ler o app, saiba que ele ainda está na antiga.
-- **Sem cartão com sombra.** `--shadow-rest`, `--shadow-lift` e `--edge`
-  valem `none`; os nomes ficam (há teste que os lê) e a semântica muda:
-  hierarquia é por tipografia, cor e FAIXA (`--surface` de borda a borda) —
-  não por caixa. `--inlay` (contorno por dentro) continua para o bloco
-  afundado. `--veu` continua para o modal.
+- **Sem cartão com sombra.** `--shadow-rest`, `--shadow-lift`, `--shadow-deep`
+  e `--edge` não desenham nada; os nomes ficam (há teste e regra que os
+  leem) e a semântica muda: hierarquia é por tipografia, cor e FAIXA
+  (`--surface` de borda a borda) — não por caixa. No CSS o valor é
+  `0 0 0 0 transparent`, e não `none`, porque `none` não entra numa lista
+  de `box-shadow` (`var(--edge), var(--halo)` ficaria inválido e o halo de
+  estado sumiria junto). `--inlay` (contorno por dentro) continua para o
+  bloco afundado. `--veu` continua para o modal.
 - Camadas (z-index), de baixo para cima: conteúdo → barra de cima →
   flutuante → navegação → aviso → bloqueio. Nada cobre a barra de baixo.
 - Movimento com intenção — os `--mov-*` de sempre (toque .1 s, estado
@@ -235,8 +242,10 @@ O que sobrevive, e por quê (Task 11 invertida — o resto saiu):
 - foco na cor da ação com vão; campo inválido fala; um primário e uma
   superfície de foco por tela; estado vazio é convite;
 - os dois gatilhos escritos uma vez (`config/test_ferro.py`) — invertidos:
-  Ferro é a base, Papel o derivado, `body.modo-foco` força Ferro;
-- a vitrine em `/gestao/vitrine/` (agora `?regime=papel` para o claro) e o
+  Ferro é a base, Papel o derivado, `:root.modo-foco` força Ferro;
+- a vitrine em `/gestao/vitrine/` (`?regime=ferro` continua escrevendo
+  `modo-foco` no `<html>`, que agora força o Ferro por cima de um sistema claro; o
+  Papel se fotografa com `scripts/qa/nav.py tema claro`, por emulação) e o
   teste que lê a pasta de parciais;
 - `--agua`, `--brasa`, `--terra`, `--chama` como cores de pilar com a regra
   de três; `--brand` AGIR e `--folha` FEITO;

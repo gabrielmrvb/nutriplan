@@ -56,18 +56,15 @@ class FocoUnicoTests(TestCase):
     def test_o_glow_e_um_anel_sem_difusao(self):
         """O `--glow` era duas sombras: um anel de 18% mais uma difusão de 26 px.
         Somado à borda que já vira `--brand` no `:focus`, o anel de 1 px cheio
-        dá os 2 px do DESIGN.md — e nada se espalha para fora do campo. Os dois
-        gatilhos do Ferro continuam apontando para `--ferro-glow`."""
+        dá os 2 px do DESIGN.md — e nada se espalha para fora do campo. Desde a
+        CORTE (16/09/2026) ele é declarado UMA vez, em `var(--brand)`, e
+        acompanha o regime sozinho: nenhum gatilho o redeclara (`--ferro-glow`
+        saiu junto com a inversão)."""
         declaracoes = [v.strip() for v in re.findall(r"^\s*--glow:\s*([^;]+);", self.css, re.M)]
-        gatilhos = [v for v in declaracoes if v == "var(--ferro-glow)"]
-        raizes = [v for v in declaracoes if v != "var(--ferro-glow)"]
-        self.assertEqual(len(gatilhos), 2, f"os dois gatilhos do Ferro: {declaracoes}")
-        self.assertEqual(len(raizes), 1, f"um `--glow` de Mesa no :root: {declaracoes}")
-        ferro = re.search(r"^\s*--ferro-glow:\s*([^;]+);", self.css, re.M).group(1).strip()
-        for valor in (raizes[0], ferro):
-            with self.subTest(valor=valor):
-                self.assertNotIn(",", valor, "duas sombras = difusão")
-                self.assertRegex(valor, r"^0 0 0 1px var\(--(ferro-)?brand\)$")
+        self.assertEqual(len(declaracoes), 1, f"um `--glow` só, no :root: {declaracoes}")
+        self.assertNotIn("--ferro-glow", self.css)
+        self.assertNotIn(",", declaracoes[0], "duas sombras = difusão")
+        self.assertRegex(declaracoes[0], r"^0 0 0 1px var\(--brand\)$")
 
     def test_o_campo_em_foco_continua_com_o_glow(self):
         """Anchor de `workouts/tests.py`: a string tem de continuar lá."""

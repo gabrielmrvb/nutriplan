@@ -124,3 +124,36 @@ class OFocoTests(TestCase):
         cabecalho = html.split('class="page-head agora__head"', 1)[1].split("</div>", 1)[0]
         self.assertIn('href="%s"' % sessao_url, cabecalho)
         self.assertIn("Ficha", cabecalho)
+
+
+class AExecucaoNasceEmFerroTests(TestCase):
+    """`:root.modo-foco` na execução — escrito pelo SERVIDOR (CORTE, 16/09/2026).
+
+    O contrato dizia desde a Mesa & Ferro que a execução nasce em Ferro por
+    decisão de produto (luz baixa de academia) e que a classe é escrita pelo
+    servidor; nenhuma view a escrevia — só a vitrine, por parâmetro. O
+    gatilho existe no CSS (`config/test_ferro.py`) e é medido em contraste;
+    este teste é quem prova que a tela o USA. O painel e a ficha continuam
+    no regime do aparelho: a classe é da execução, não da área.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.pessoa = create_user(email="ferro@exemplo.com", weekdays=dias_incluindo_hoje(5))
+        services.create_routine(self.pessoa)
+        self.client.force_login(self.pessoa)
+
+    def _body(self, url):
+        html = self.client.get(url).content.decode()
+        return re.search(r"<html[^>]*>", html).group(0)
+
+    def test_a_execucao_escreve_modo_foco_no_body(self):
+        self.assertIn("modo-foco", self._body(reverse("workouts:now")))
+
+    def test_o_painel_e_a_ficha_seguem_o_aparelho(self):
+        self.assertNotIn("modo-foco", self._body(reverse("workouts:routine")))
+        sessao = escolher_opcao_de_hoje(self.pessoa)
+        self.assertNotIn("modo-foco", self._body(reverse("workouts:ficha", args=[sessao.pk])))
