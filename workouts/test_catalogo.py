@@ -69,10 +69,13 @@ class CopyDeTempoTests(SimpleTestCase):
         self.assertEqual(com_a_pergunta, ["templates/workouts/routine.html"])
 
     def test_a_ficha_nao_promete_ate_40_min(self):
+        """A rápida saiu do seletor da ficha (17/09/2026): a faixa calculada
+        (`rapida_minutos`) mora no painel, em "Menos tempo hoje?"."""
         html = (RAIZ / "templates" / "workouts" / "ficha.html").read_text(encoding="utf-8")
         self.assertNotIn("até 40 min", html)
-        self.assertIn("rapida_minutos_min", html)
-        self.assertIn("rapida_minutos_max", html)
+        painel = (RAIZ / "templates" / "workouts" / "routine.html").read_text(encoding="utf-8")
+        self.assertNotIn("até 40 min", painel)
+        self.assertIn("rapida_minutos", painel)
 
 
 class TetoNaHomeTests(TestCase):
@@ -94,38 +97,23 @@ class TetoNaHomeTests(TestCase):
         self.assertIn("até 30 min", self._home_de(DuracaoTreino.RAPIDO))
 
 
-class SeletorDaRapidaTests(TestCase):
-    """O seletor Completo/Rápido diz a faixa CALCULADA das opções."""
+class ARapidaNoPainelTests(TestCase):
+    """A versão rápida saiu do seletor da ficha (17/09/2026) e virou "Menos
+    tempo hoje?" no painel, com os minutos CALCULADOS — não "até 40"."""
 
     @classmethod
     def setUpTestData(cls):
         call_command("seed_catalog", verbosity=0)
         call_command("seed_workouts", verbosity=0)
 
-    def test_a_rapida_mostra_a_faixa_das_opcoes(self):
-        from django.utils import timezone
+    def test_a_ficha_nao_promete_ate_40_min_nem_tem_seletor(self):
+        ficha = (Path(__file__).resolve().parent.parent / "templates" / "workouts" / "ficha.html").read_text(encoding="utf-8")
+        self.assertNotIn("até 40", ficha)
+        self.assertNotIn("?versao=", ficha)
+        painel = (Path(__file__).resolve().parent.parent / "templates" / "workouts" / "routine.html").read_text(encoding="utf-8")
+        self.assertIn("rapida_minutos", painel)
+        self.assertNotIn("até 40", painel)
 
-        user = create_complete_user(
-            email="rapida@exemplo.com", experiencia="intermediario",
-            split_preference="two", split_preference_confirmada=True, duracao_treino=DuracaoTreino.PADRAO,
-        )
-        TrainingDay.objects.filter(user=user).delete()
-        hoje = timezone.localdate().weekday()
-        for d in {hoje, (hoje + 2) % 7, (hoje + 4) % 7}:
-            TrainingDay.objects.create(user=user, weekday=d, duration_min=60)
-        plan = services.create_routine(user)
-        sessao = services.sessao_do_dia(plan, timezone.localdate())
-        self.client.force_login(user)
-        resposta = self.client.get(reverse("workouts:ficha", args=[sessao.pk]))
-        html = resposta.content.decode()
-        self.assertIn("rapida_minutos_min", resposta.context)
-        self.assertIn("rapida_minutos_max", resposta.context)
-        if resposta.context["rapida_muda"]:
-            minimo, maximo = resposta.context["rapida_minutos_min"], resposta.context["rapida_minutos_max"]
-            self.assertLessEqual(minimo, maximo)
-            self.assertLessEqual(maximo, opcoes.TETO_RAPIDO_MIN)
-            self.assertIn("~%d–%d min" % (minimo, maximo) if minimo != maximo else "~%d min" % maximo, html)
-        self.assertNotIn("até 40 min", html)
 
 
 class PadraoDeMovimentoTests(TestCase):

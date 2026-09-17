@@ -96,6 +96,8 @@ class TodaAcaoDevolveUmaTelaTests(TestCase):
         # O aviso "regenerar?" mora na Home (17/09/2026).
         "/treino/regenerar/": "/",
         "/treino/aviso/dispensar/": "/",
+        # "Menos tempo hoje?" mora no painel (17/09/2026).
+        "/treino/hoje/rapida/": "/treino/",
     }
 
     def setUp(self):

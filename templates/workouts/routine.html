@@ -107,11 +107,8 @@
             <div class="hoje__id">
               <span class="session__badge hoje__badge" data-dia="{{ hoje.label }}">{{ hoje.label }}</span>
               <h2 class="hoje__nome">{{ hoje.name }}</h2>
-              {% if hoje.tem_duas_opcoes %}
-                <p class="hoje__opcao">
-                  {% if hoje.escolha %}Opção {{ hoje.escolha.opcao }}{% if hoje.escolha.versao == 'rapido' %} · versão rápida{% endif %}
-                  {% else %}{{ hoje.versoes_texto }} disponíveis · recomendada: opção {{ hoje.recomendada }}{% endif %}
-                </p>
+              {% if hoje.escolha and hoje.escolha.versao == 'rapido' %}
+                <p class="hoje__versao muted">Versão rápida hoje · ~{{ hoje.rapida_minutos }} min</p>
               {% endif %}
             </div>
 
@@ -261,6 +258,26 @@
             <p class="hoje__completo" {% if hoje.proximo %}hidden{% endif %} data-hoje-completo>
               Todas as séries de hoje já estão registradas.
             </p>
+            {% comment %}
+              MENOS TEMPO HOJE? (17/09/2026) A versão rápida saiu do seletor da
+              ficha e virou esta ação discreta: um POST que pina a rápida no
+              registro do dia (a mesma escolha que a primeira série grava) e
+              anota um `EventoDeProduto` por pessoa e dia — o dado que decide
+              em 30 dias se ela fica. Só aparece quando a rápida muda alguma
+              coisa e antes da primeira série; depois de começar, a lista do
+              dia não troca embaixo da pessoa.
+            {% endcomment %}
+            {% if hoje.rapida_muda and not hoje.feitos_hoje %}
+              <form method="post" action="{% url 'workouts:rapida_hoje' %}" class="hoje__rapida">
+                {% csrf_token %}
+                {% if hoje.escolha and hoje.escolha.versao == 'rapido' %}
+                  <input type="hidden" name="completo" value="1">
+                  <button type="submit" class="btn-link">Treino completo hoje (~{{ hoje.minutos }} min)</button>
+                {% else %}
+                  <button type="submit" class="btn-link">Menos tempo hoje? Versão rápida em ~{{ hoje.rapida_minutos }} min</button>
+                {% endif %}
+              </form>
+            {% endif %}
           </section>
 
           {# ------------- 2. Os exercícios de hoje ------------- #}
@@ -514,7 +531,7 @@
           {% for letra in letras %}
             <li>
               <a class="sessao-cartao{% if letra.eh_hoje %} sessao-cartao--hoje{% endif %}"
-                 aria-label="Treino {{ letra.rotulo }}: {{ letra.name }}, {{ letra.dias|join:' e ' }}, {{ letra.exercicios }} exercícios{% if letra.opcoes > 1 %}, {{ letra.versoes_texto|lower }}{% endif %}"
+                 aria-label="Treino {{ letra.rotulo }}: {{ letra.name }}, {{ letra.dias|join:' e ' }}, {{ letra.exercicios }} exercícios"
                  href="{% url 'workouts:ficha' letra.sessao.pk %}">
                 <span class="session__badge" data-dia="{{ letra.label }}">{{ letra.rotulo }}</span>
                 <span class="sessao-cartao__texto">
@@ -525,10 +542,7 @@
                     <span>{{ letra.series }} séries</span>
                     <span>~{{ letra.minutos }} min</span>
                   </span>
-                  {% if letra.opcoes > 1 %}
-                    <span class="sessao-cartao__versoes">{{ letra.versoes_texto }} disponíveis</span>
-                  {% endif %}
-                </span>
+                        </span>
                 {% if letra.eh_hoje %}
                   <span class="sessao-cartao__hoje">hoje</span>
                 {% endif %}
