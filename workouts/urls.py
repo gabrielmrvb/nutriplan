@@ -36,4 +36,9 @@ urlpatterns = [
     # troca de rota, não de código.
     path("corridas/", corrida_views.HistoricoDeCorridasView.as_view(), name="corridas"),
     path("corridas/salvar/", corrida_views.SalvarCorridaView.as_view(), name="salvar_corrida"),
+    path("corridas/nova/", corrida_views.CorridaNovaView.as_view(), name="corrida_nova"),
+    path("corridas/<int:pk>/editar/", corrida_views.CorridaEditarView.as_view(), name="corrida_editar"),
+    path("corridas/<int:pk>/excluir/", corrida_views.CorridaExcluirView.as_view(), name="corrida_excluir"),
+    # Plano de 5K/10K, lido de `docs/briefs/corrida/CORRIDA.md`.
+    path("corridas/plano/", corrida_views.PlanoDeCorridaView.as_view(), name="corrida_plano"),
 ]

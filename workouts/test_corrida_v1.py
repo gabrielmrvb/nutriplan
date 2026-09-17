@@ -350,6 +350,34 @@ class OErroDizOQueAconteceuTests(SimpleTestCase):
         )
 
 
+class ALeituraBoaApagaOAvisoTests(SimpleTestCase):
+    """B29: "Sinal de GPS fraco" ficava na tela para sempre depois de o sinal voltar.
+
+    `receber` só apagava o aviso no ramo da PRIMEIRA âncora — o `dizer("")`
+    que confirma a largada. Uma corrida que já tinha âncora, e recebia uma
+    leitura boa em seguida, nunca mais limpava a mensagem: ela ficava na tela
+    pelo resto do percurso, mesmo com o sinal de volta.
+    """
+
+    def test_toda_leitura_aceita_limpa_a_mensagem(self):
+        corpo = sem_comentarios(corpo_da_funcao("receber"))
+        # `dizer("")` precisa existir FORA do ramo da primeira âncora: contamos
+        # as ocorrências — a versão com bug tinha uma só (na âncora).
+        self.assertGreaterEqual(corpo.count('dizer("")'), 2, corpo)
+
+    def test_a_limpeza_so_acontece_depois_do_filtro_de_precisao(self):
+        corpo = sem_comentarios(corpo_da_funcao("receber"))
+        guarda = "if (!aceitar(leitura)) return;"
+        self.assertIn(guarda, corpo)
+        ramo_aceito = corpo.split(guarda, 1)[1]
+
+        self.assertIn(
+            'dizer("")', ramo_aceito,
+            "a leitura recusada não pode passar por aqui: só a leitura "
+            "aceita chega a limpar o aviso de sinal fraco",
+        )
+
+
 class DuploToqueNaoQuebraACorridaTests(SimpleTestCase):
     """A regra é de ESTADO, não do DOM.
 
