@@ -88,6 +88,15 @@ class OFluxoDoActionsTests(SimpleTestCase):
         fluxo = _sem_comentarios(self._fluxo())
         self.assertRegex(fluxo, r"\n\s+name:\s*\"?%s\"?\s*\n" % re.escape(github.CHECK))
 
+    def test_a_fila_de_merge_dispara_a_suite_no_grupo(self):
+        """A fila cria uma branch temporária por grupo e dispara `merge_group`;
+        sem esse gatilho o check "suíte completa" nunca chega e a fila espera
+        até o tempo esgotar (medido no PR #13: com `strict` e quatro sessões
+        mergeando, a branch ficava "behind" no meio do check duas vezes)."""
+        fluxo = _sem_comentarios(self._fluxo())
+        self.assertRegex(fluxo, r"\n\s+merge_group:")
+        self.assertIn("checks_requested", fluxo)
+
     def test_a_dependencia_tem_cache_e_o_python_e_o_do_projeto(self):
         fluxo = _sem_comentarios(self._fluxo())
         self.assertIn("actions/setup-python", fluxo)
@@ -161,5 +170,30 @@ class OHelperDoGitHubTests(SimpleTestCase):
     def test_os_subcomandos_que_as_sessoes_usam_existem(self):
         from scripts import github
 
-        for nome in ("pr", "status", "esperar", "merge", "proteger", "protecao"):
+        for nome in ("pr", "status", "esperar", "merge", "proteger", "protecao", "enfileirar", "fila", "fila-ativar"):
             self.assertIn(nome, github.COMANDOS, nome)
+
+    def test_a_fila_de_merge_e_o_gate_de_main(self):
+        """O ruleset de `main`: PR obrigatório (sem push direto, admin
+        inclusive — `bypass_actors` vazio), o check "suíte completa" SEM
+        `strict` (a fila é quem atualiza), fila por merge commit em lotes
+        pequenos, sem apagar nem forçar."""
+        from scripts import github
+
+        corpo = github.corpo_da_fila()
+        self.assertEqual(corpo["enforcement"], "active")
+        self.assertEqual(corpo["bypass_actors"], [])
+        self.assertEqual(corpo["conditions"]["ref_name"]["include"], ["refs/heads/main"])
+        regras = {r["type"]: r.get("parameters", {}) for r in corpo["rules"]}
+        self.assertIn("deletion", regras)
+        self.assertIn("non_fast_forward", regras)
+        self.assertEqual(regras["pull_request"]["required_approving_review_count"], 0)
+        self.assertEqual(regras["pull_request"]["allowed_merge_methods"], ["merge"])
+        checks = regras["required_status_checks"]
+        self.assertIs(checks["strict_required_status_checks_policy"], False)
+        self.assertEqual([c["context"] for c in checks["required_status_checks"]], [github.CHECK])
+        fila = regras["merge_queue"]
+        self.assertEqual(fila["merge_method"], "MERGE")
+        self.assertLessEqual(fila["max_entries_to_merge"], 2, "lote pequeno")
+        self.assertLessEqual(fila["max_entries_to_build"], 2)
+        self.assertGreaterEqual(fila["check_response_timeout_minutes"], 45, "a suíte leva até 40 min")
