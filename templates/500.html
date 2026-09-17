@@ -16,15 +16,13 @@
     uma entrada faltando levanta exceção DENTRO do tratador de erro, e aí o
     visitante recebe a página crua do Django. Nada nesta tela pode falhar.
 
-    Os valores abaixo são cópias dos tokens de `app.css` — o CLARO como base
-    e o escuro sob `prefers-color-scheme: dark`, na mesma ordem do app desde
-    12/09/2026 —, e é a única duplicação aceita no projeto: a alternativa é
-    depender do arquivo que pode não carregar. `config/test_b8_paginas_de_erro`
-    lê o `--bg` do `:root` e cobra que ele esteja aqui; foi esse teste que
-    recusou o push quando a base virou clara e esta tela ficou escura.
-
-    MESA & FERRO (15/09/2026): valores atualizados de novo, pelo mesmo
-    motivo — linho no claro, grafite Ferro no escuro.
+    Os valores abaixo são cópias dos tokens de `app.css` — o FERRO como base
+    e o Papel sob `prefers-color-scheme: light`, na mesma ordem do app desde
+    a CORTE (16/09/2026) —, e é a única duplicação aceita no projeto: a
+    alternativa é depender do arquivo que pode não carregar.
+    `config/test_b8_paginas_de_erro` lê o `--bg` dos dois regimes e cobra
+    que os dois estejam aqui; foi esse teste que recusou o push quando a
+    base virou clara (12/09) e esta tela ficou escura.
 
     O comentário é `{% templatetag openblock %} comment {% templatetag closeblock %}`
     e não `<!-- -->` por dois motivos: o do projeto não vai para o navegador,
@@ -35,14 +33,14 @@
   {% endcomment %}
   <style>
     :root {
-      color-scheme: light dark;
-      --bg: #f5f3ee; --surface: #ffffff; --linha: rgba(20,31,26,.10);
-      --text: #141f1a; --dim: #485550; --brand: #0c6b40; --on-brand: #ffffff;
+      color-scheme: dark light;
+      --bg: #10120e; --surface: #1a1d17; --linha: rgba(246,243,234,.10);
+      --text: #f6f3ea; --dim: #d6d2c4; --brand: #c7f24a; --on-brand: #14180a;
     }
-    @media (prefers-color-scheme: dark) {
+    @media (prefers-color-scheme: light) {
       :root {
-        --bg: #0e1412; --surface: #161d1a; --linha: rgba(255,255,255,.08);
-        --text: #f4f7f5; --dim: #b6c1bb; --brand: #22c98a; --on-brand: #04140e;
+        --bg: #f6f3ea; --surface: #eae5d6; --linha: rgba(20,24,10,.12);
+        --text: #14180a; --dim: #3e3f30; --brand: #3f5a00; --on-brand: #f6f3ea;
       }
     }
     /* `border-box` e o padding entram na conta do `min-height`. Sem isso,

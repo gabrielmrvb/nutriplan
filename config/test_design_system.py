@@ -644,7 +644,7 @@ class OEspacamentoNaoVoltaParaODentroDoHTMLTests(SimpleTestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn('style="', email)
-        self.assertIn("#0c6b40", email)
+        self.assertIn("#3f5a00", email)  # a oliva do Papel: e-mail é fundo claro
 
     def test_as_intencoes_nomeadas_existem_no_css(self):
         css = sem_comentarios(CSS.read_text(encoding="utf-8"))

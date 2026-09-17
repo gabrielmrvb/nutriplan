@@ -20,7 +20,7 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
-from config.tests import _contraste, _tokens
+from config.tests import REGIME_PAPEL, _contraste, _tokens
 
 CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 MINIMO = 4.5
@@ -58,7 +58,10 @@ def alpha_na_borda(css):
 class ORodapeDaEntradaLeSobreAVinhetaTests(SimpleTestCase):
     def setUp(self):
         self.css = CSS.read_text(encoding="utf-8")
-        self.tokens = _tokens(self.css, ":root {")
+        # CORTE (16/09/2026): o Ferro é a base e o preto da vinheta só AJUDA
+        # o texto claro; o regime em que a vinheta pode derrubar o rodapé é
+        # o Papel — texto escuro sobre osso escurecido —, e é ele que se mede.
+        self.tokens = _tokens(self.css, REGIME_PAPEL)
 
     def test_o_texto_do_rodape_le_no_ponto_mais_escuro_da_tela(self):
         alpha = alpha_na_borda(self.css)

@@ -31,21 +31,21 @@ class RegimeDaVitrineTests(BaseDoPainel):
     def setUp(self):
         self.client.force_login(self.operador())
 
-    def test_sem_parametro_e_mesa(self):
+    def test_sem_parametro_segue_o_sistema(self):
         html = self.client.get("/gestao/vitrine/").content.decode()
         self.assertNotIn('class="modo-foco', html)
         self.assertNotIn(' modo-foco"', html)
-        self.assertIn("Vitrine · Mesa", html)
+        self.assertIn("Vitrine · Sistema", html)
 
     def test_regime_ferro_escreve_a_classe_no_body(self):
         html = self.client.get("/gestao/vitrine/?regime=ferro").content.decode()
-        self.assertIn("<body class=\"modo-foco", html)
+        self.assertIn('<html lang="pt-br" class="modo-foco">', html)
         self.assertIn("Vitrine · Ferro", html)
 
-    def test_regime_desconhecido_cai_em_mesa(self):
+    def test_regime_desconhecido_cai_no_sistema(self):
         html = self.client.get("/gestao/vitrine/?regime=roxo").content.decode()
         self.assertNotIn("modo-foco", html.split("<main", 1)[0])
-        self.assertIn("Vitrine · Mesa", html)
+        self.assertIn("Vitrine · Sistema", html)
 
     def test_a_vitrine_esta_fora_da_navegacao_e_do_cache(self):
         resposta = self.client.get("/gestao/vitrine/")

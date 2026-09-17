@@ -31,10 +31,14 @@ sugestão, e sugestão perde para pressa.
 
 ### Regimes (16/09/2026)
 
-Um material, dois regimes de luz: **Mesa** (claro, o `:root`) e **Ferro**
-(escuro). Ferro é escrito UMA vez, em `--ferro-*`, e ligado por dois gatilhos
-que só mapeiam — `@media (prefers-color-scheme: dark)` e `body.modo-foco`,
-classe que o servidor escreve na execução do treino. Foco é `--brand` em todo
+Um material, dois regimes de luz: **Ferro** (escuro, a BASE — direção
+CORTE, `docs/briefs/design/DESIGN.md`) e **Papel** (claro, o derivado). Os
+dois são escritos UMA vez, em `--ferro-*` e `--papel-*` no `:root`, e ligados
+por três gatilhos que só mapeiam: o próprio `:root` liga o Ferro
+(`--bg: var(--ferro-bg)`), `@media (prefers-color-scheme: light)` liga o
+Papel e `body.modo-foco` — classe que o servidor escreve na execução do
+treino — liga o Ferro de volta por cima da preferência. (De 12 a 16/09 a
+base foi a clara, Mesa.) Foco é `--brand` em todo
 controle (`--glow` = anel de 1 px, sem difusão); movimento só por `--mov-*` e
 nenhum `@keyframes` sem consumidor (18 declarados, 0 órfãos); botão sempre com
 variante de uma lista fechada; o sprite de ícones (13 símbolos, traço 2 em

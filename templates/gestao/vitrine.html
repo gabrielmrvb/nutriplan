@@ -7,7 +7,9 @@
   `app.css`, as mesmas que o app usa. `gestao/test_vitrine.py` lê a pasta
   de parciais do disco e cobra que cada uma apareça — a nona parcial nasce
   dentro da vitrine ou o teste avisa. Sem `style=`, sem `:has()`; o regime
-  vem do servidor (`?regime=ferro` → `body.modo-foco`).
+  vem do servidor (`?regime=ferro` → `:root.modo-foco`, a classe no `<html>`); sem parâmetro a
+  página segue o sistema — Papel num aparelho claro, Ferro num escuro —,
+  e o Papel se fotografa por emulação (`scripts/qa/nav.py tema claro`).
 
   `partials/marca.html`, `partials/_conquista.html` e `partials/icones.html`
   NÃO entram aqui: as duas bases (`templates/base.html` e
@@ -22,8 +24,8 @@
 {% block content %}
   <h1>Vitrine · {{ regime|capfirst }}</h1>
   <p class="hint">A mesma página nos dois regimes:
-    <a href="{% url 'gestao:vitrine' %}">Mesa</a> ·
-    <a href="{% url 'gestao:vitrine' %}?regime=ferro">Ferro</a></p>
+    <a href="{% url 'gestao:vitrine' %}">Sistema</a> (Papel num aparelho claro, Ferro num escuro) ·
+    <a href="{% url 'gestao:vitrine' %}?regime=ferro">Ferro</a> (forçado, como na execução)</p>
 
   <section class="card">
     <div class="card__head"><h2>Marca</h2></div>

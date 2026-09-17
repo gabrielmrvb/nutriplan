@@ -175,18 +175,24 @@ def extrair(raiz):
 
 
 def _spec(css=None):
-    """A direção C: as cores Mesa do `:root` do app.css, na ordem do arquivo.
+    """A spec: as cores do regime BASE do `:root` do app.css, na ordem do arquivo.
 
-    `--ferro-*` mora no mesmo bloco e fica de fora — é o outro regime, e o
-    export que trouxer Ferro é lido com o mesmo filtro (`relatorio`). Os
-    comentários saem antes da leitura porque falam de cor em hex.
+    `--ferro-*` e `--papel-*` moram no mesmo bloco e ficam de fora — são as
+    listas de valores, não a paleta ligada; o export que os trouxer é lido
+    com o mesmo filtro (`relatorio`). Os comentários saem antes da leitura
+    porque falam de cor em hex.
     """
     css = CSS.read_text(encoding="utf-8") if css is None else css
     bloco = re.sub(r"/\*.*?\*/", "", css, flags=re.S).split(":root {", 1)[1].split("}", 1)[0]
+    crus = {nome: valor.strip() for nome, valor in DECL.findall(bloco)}
     spec = {}
-    for nome, valor in DECL.findall(bloco):
-        valor = valor.strip()
-        if e_cor(valor) and not nome.startswith("--ferro-"):
+    for nome, valor in crus.items():
+        # CORTE (16/09/2026): o `:root` liga `--bg: var(--ferro-bg)`; a spec é
+        # o regime BASE (Ferro), resolvido aqui. As duas listas de valores
+        # (`--ferro-*`, `--papel-*`) ficam de fora pelo nome, como antes.
+        if valor.startswith("var(--") and valor.endswith(")"):
+            valor = crus.get(valor[4:-1], valor)
+        if e_cor(valor) and not nome.startswith(("--ferro-", "--papel-")):
             spec[nome] = valor
     return spec
 
@@ -203,7 +209,7 @@ def relatorio(leitura, spec):
     por_spec, novos, ignorados = {}, {}, []
     for nome in sorted(leitura.encontrados):
         chave = normalizar_nome(nome)
-        if chave.startswith("ferro-"):
+        if chave.startswith(("ferro-", "papel-")):
             ignorados.append(nome)
             continue
         alvo = indice.get(chave)

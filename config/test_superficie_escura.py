@@ -11,11 +11,12 @@ que faltava era o de componente (WCAG 1.4.11).
 
 Três correções, cada uma com a sua guarda aqui:
 
-1. `--surface-2` e `--surface-3` do escuro sobem — e, no Ferro (a paleta
-   da direção C, escrita uma vez em `--ferro-*`), sobem de novo: sobre
-   `--surface` #161d1a o #1d2622 do DESIGN.md dava 1,10:1, e a régua deste
-   arquivo é 1,2. Hoje #243029 e #2c3a32, mantendo a ordem das camadas e o
-   texto legível sobre elas (`config.tests.ContrastTests` cobra 4,5:1 e a
+1. `--surface-2` e `--surface-3` do escuro sobem — e, a cada paleta, sobem
+   de novo pela mesma régua: no Ferro da direção C, sobre `--surface`
+   #161d1a o #1d2622 dava 1,10:1 (ficou #243029); na CORTE (16/09/2026),
+   sobre #1a1d17 o #22261e da direção dava 1,11 e ficou #292d25 (1,22),
+   com a terceira em #33382d — mantendo a ordem das camadas e o texto
+   legível sobre elas (`config.tests.ContrastTests` cobra 4,5:1 e a
    margem de 5,0 para `--text-mute`);
 2. `.btn--quiet` ganha borda, como `.btn--ghost` já tem: a affordance do botão
    não pode depender de um preenchimento que o tema escuro apaga;
@@ -28,7 +29,7 @@ import re
 
 from django.test import SimpleTestCase
 
-from config.tests import _contraste, _luminancia, _tokens
+from config.tests import REGIME_FERRO, _contraste, _luminancia, _tokens
 from config.test_design_system import CSS, sem_comentarios
 
 
@@ -40,7 +41,8 @@ def _regra(css, seletor):
 class SuperficiesDoEscuroTests(SimpleTestCase):
     def setUp(self):
         self.css = CSS.read_text(encoding="utf-8")
-        self.escuro = _tokens(self.css, "prefers-color-scheme: dark) {" + chr(10) + "  :root {")
+        # CORTE (16/09/2026): o escuro é a base — o próprio `:root`.
+        self.escuro = _tokens(self.css, REGIME_FERRO)
 
     def test_a_segunda_superficie_se_distingue_da_primeira(self):
         razao = _contraste(self.escuro["--surface-2"], self.escuro["--surface"])

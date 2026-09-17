@@ -24,5 +24,5 @@ def push(request):
         # não guardar uma segunda cópia do valor. Duas cópias é como uma delas
         # fica para trás — e ficou, por uma troca de paleta inteira.
         "PWA_THEME_COLOR": settings.PWA_THEME_COLOR,
-        "PWA_DARK_COLOR": settings.PWA_DARK_COLOR,
+        "PWA_LIGHT_COLOR": settings.PWA_LIGHT_COLOR,
     }

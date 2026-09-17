@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Contraste WCAG de todo par texto/fundo e gráfico/fundo da direção C, medido
-no CSS REAL (não na spec), Mesa e Ferro.
+no CSS REAL (não na spec), Ferro e Papel.
 
     .venv/Scripts/python.exe scripts/qa/auditar_contraste.py > scratchpad/shots-design/contraste.md
 
@@ -34,12 +34,12 @@ import django  # noqa: E402
 django.setup()
 from config.tests import _contraste, _luminancia, _tokens  # noqa: E402
 
-#: Os dois regimes de luz e o texto que abre cada bloco no `app.css`. O do
-#: Ferro é o mesmo que `ContrastTests` usa — o bloco `@media
-#: (prefers-color-scheme: dark)`; `body.modo-foco` resolve para a MESMA
-#: paleta e `test_modo_foco_is_the_dark_palette` é quem prova, então medir
-#: um basta.
-TEMAS = (("Mesa", ":root {"), ("Ferro", "prefers-color-scheme: dark) {" + chr(10) + "  :root {"))
+#: Os dois regimes de luz e o texto que abre cada bloco no `app.css`
+#: (CORTE, 16/09/2026): o Ferro é a base — o próprio `:root`, que liga
+#: `var(--ferro-*)` — e o Papel mora em `@media (prefers-color-scheme:
+#: light)`; `:root.modo-foco` resolve para a MESMA paleta do Ferro e
+#: `test_modo_foco_is_the_dark_palette` é quem prova, então medir um basta.
+TEMAS = (("Ferro", ":root {"), ("Papel", "prefers-color-scheme: light) {" + chr(10) + "  :root {"))
 
 #: Texto pequeno (AA, 1.4.3): 4,5:1. `--brand-strong` entrou porque o CSS o
 #: pinta como TEXTO — `a:hover`, `.hoje__etiqueta` sobre `--surface-focus`,
@@ -98,7 +98,7 @@ def propor(cor, fundos_e_minimos):
     """O vizinho mais próximo de `cor` que passa em TODOS os pares dados.
 
     Afasta a cor do fundo em luminância — clareia a que já é mais clara que
-    o fundo (Ferro), escurece a que é mais escura (Mesa) —, misturando com
+    o fundo (Ferro), escurece a que é mais escura (Papel) —, misturando com
     branco ou preto em passos de 2%. Misturar com preto ou branco em sRGB
     não gira o matiz: o token continua sendo o mesmo verde, o mesmo âmbar.
     Devolve (hex, percentual) ou None quando nem 100% resolve.
@@ -152,7 +152,7 @@ def ausentes(css):
 
 def relatorio(css):
     saida = []
-    saida.append("# Contraste WCAG dos tokens da direção C, no CSS real")
+    saida.append("# Contraste WCAG dos tokens, no CSS real (Ferro e Papel)")
     saida.append("")
     saida.append("Sanidade da régua (`config.tests._contraste`):")
     saida.extend(sanidade())
@@ -162,7 +162,7 @@ def relatorio(css):
         saida.append("Tokens pedidos que o `:root` não declara como hex (não medidos): " + ", ".join(f"`{t}`" for t in faltando))
     tokens_ferro = _tokens(css, TEMAS[1][1])
     saida.append("")
-    saida.append(f"Âncora do Ferro: `{TEMAS[1][1]!r}` — resolve `--bg` para `{tokens_ferro.get('--bg')}`, `--text` para `{tokens_ferro.get('--text')}`.")
+    saida.append(f"Âncora do Papel: `{TEMAS[1][1]!r}` — resolve `--bg` para `{tokens_ferro.get('--bg')}`, `--text` para `{tokens_ferro.get('--text')}`.")
 
     medidas = auditar(css)
     reprovados = [m for m in medidas if m[5] < m[6]]

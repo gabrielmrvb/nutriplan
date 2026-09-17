@@ -56,17 +56,18 @@ class ASuperficieDeFocoTemDonoTests(SimpleTestCase):
         valores = re.findall(r"--surface-focus:\s*([^;]+);", self.css)
 
         # MESA & FERRO (15/09/2026): o escuro ganhou um SEGUNDO gatilho
-        # (`body.modo-foco`), que liga o MESMO `var(--ferro-surface-focus)`
+        # (`:root.modo-foco`), que liga o MESMO `var(--ferro-surface-focus)`
         # do `@media` — são o mesmo regime de luz, e a repetição é de
         # propósito (`config/test_ferro.py` é quem prova que os dois
-        # concordam). Hoje são três ocorrências no arquivo: claro, escuro,
-        # modo-foco — e o que este teste continua garantindo é que o CLARO
-        # não é um dos dois escuros.
+        # concordam). CORTE (16/09/2026): a ordem no arquivo passou a ser
+        # :root (Ferro, a base), `prefers-color-scheme: light` (Papel) e
+        # modo-foco (Ferro de novo) — e o que este teste continua garantindo
+        # é que o CLARO não é um dos dois escuros.
         self.assertEqual(
             len(valores), 3,
-            f"esperava claro + escuro + modo-foco, achei {valores}",
+            f"esperava escuro + claro + modo-foco, achei {valores}",
         )
-        claro, escuro, foco = (v.strip() for v in valores)
+        escuro, claro, foco = (v.strip() for v in valores)
         self.assertNotEqual(
             claro, escuro,
             "os dois temas receberam a MESMA cor de foco — um dos dois está "

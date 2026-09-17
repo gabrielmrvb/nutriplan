@@ -1465,6 +1465,35 @@ desenhos novos e o cartão de compartilhar desenha o emoji), a fonte própria
 (T3.2 — download externo e decisão do dono). Cartão dentro de cartão foi
 MEDIDO e é zero em sete rotas (`config/test_cartoes.py`, catraca em 0).
 
+**CORTE: o Ferro é a BASE e o Papel o derivado (T3.1′, 16/09/2026).** A
+direção escolhida em `docs/briefs/design/DIRECAO-ESCOLHIDA.md` (veto do dono
+pendente) inverteu quem é a base: os valores moram UMA vez em `--ferro-*` e
+`--papel-*` no `:root`; o próprio `:root` liga o Ferro (`--bg:
+var(--ferro-bg)`), `@media (prefers-color-scheme: light)` liga o Papel e
+`:root.modo-foco` liga o Ferro de volta. A classe `modo-foco` vai no
+`<html>`, e NÃO no `<body>`: `--glass`, `--glow` e `--halo` são receitas
+de `var(--bg)`/`var(--brand)` declaradas no `:root`, e uma custom property
+resolve o `var()` onde é declarada — com a classe no `<body>` a execução em
+Ferro saía com a barra de abas clara e o anel de foco oliva (visto na
+captura). E a execução (`ModoTreinoView`) passou a ESCREVER a classe: o
+contrato dizia isso desde a Mesa & Ferro e nenhuma view cumpria — só a
+vitrine, por parâmetro (`workouts/test_foco_na_execucao.py`). `config/
+tests.py` lê os dois regimes por `REGIME_FERRO`/`REGIME_PAPEL` e o leitor
+`_tokens` resolve o `var()` do próprio `:root`; `config/test_tema_claro.py`
+virou a trava de "o Ferro é a base". Paleta da tabela do DESIGN.md com
+quatro ajustes MEDIDOS: `--ferro-surface-2` #292d25 e `--surface-3`
+#33382d (a direção dava 1,11 e 1,14 sobre a superfície; a régua U28 pede
+1,2), `--ferro-terra` #da9169 (a argila da direção ficava a 4,44 sobre a
+própria tinta em `--surface-2`) e os cinco `--dia-*` movidos 1–12 % para
+passar a 4,5 sobre a própria tinta nos fundos novos. 274 pares no CSS real,
+zero reprovados; raspando só `--brasa` (4,59) e `--terra` (4,72) sobre
+`--surface-3` no Ferro. `--corte`/`--corte-g`/`--corte-p` e
+`--mov-recompensa` NASCEM com o consumidor, nos PRs dos componentes e da
+execução (`test_no_css_variable_is_declared_and_never_used` recusou os
+quatro órfãos no pre-commit); `--shadow-*`/`--edge` valem `0 0 0 0 transparent` — não `none`, que não entra em lista de
+`box-shadow` e derrubaria o `--halo`. Manifesto e `theme-color` seguem a
+base (`PWA_THEME_COLOR` #10120e; `PWA_LIGHT_COLOR` na meta com `media`).
+
 ## Testes
 
 Nome descreve o comportamento, não o método. Docstring diz **por que** aquilo
