@@ -16,6 +16,7 @@ Uso (sempre com o python do .venv):
   nav.py <sessao> cookie <nome> <valor> [dominio]
   nav.py <sessao> permissao <notifications|geolocation> <granted|denied|prompt> [origem]
   nav.py <sessao> offline on|off
+  nav.py <sessao> tema claro|escuro         -> emula prefers-color-scheme (vale até `close`)
   nav.py <sessao> url | title | text [max] | links | clicaveis
   nav.py <sessao> close
 
@@ -84,9 +85,19 @@ class Sessao:
             paginas = [novo]
         self.ws = websocket.create_connection(paginas[0]["webSocketDebuggerUrl"], timeout=60, suppress_origin=True)
         self._id = 0
+        # `Page.enable`/`Runtime.enable` vêm ANTES dos overrides de Emulation,
+        # de propósito: medido que `Emulation.setEmulatedMedia` chamado antes
+        # de habilitar o domínio Page aplica o `prefers-color-scheme` para
+        # `matchMedia` e para `:root`, mas NÃO invalida o `background-color`
+        # de elementos que só referenciam a custom property (ex.: `body`) —
+        # ele fica preso no valor claro mesmo depois de recarregar a página,
+        # em conexões novas. Habilitar Page primeiro resolveu nas duas pontas
+        # (mesma conexão e conexões separadas, como o `tema` reaplicado em
+        # `__init__` sempre é).
+        self.cmd("Page.enable"); self.cmd("Runtime.enable")
         self._viewport()
         self._offline()
-        self.cmd("Page.enable"); self.cmd("Runtime.enable")
+        self._tema()
 
     def _viewport(self):
         cfg = BASE / ("viewport-" + self.nome + ".json")
@@ -126,6 +137,18 @@ class Sessao:
     def open(self, url):
         self.cmd("Page.navigate", url=url)
         self.esperar_carga()
+        # Reaplica o tema DEPOIS da página carregar, não só no __init__ (que
+        # já aplica antes de navegar). Medido: mesmo repetindo a aplicação
+        # aqui, uma conexão POSTERIOR que só reconecta para LER (sem navegar
+        # de novo) ainda pode reportar `getComputedStyle(...).backgroundColor`
+        # preso no valor de antes da emulação — quirk específico deste build
+        # de Chrome (153.0.8010.36) em `background-color: var(--x)`, isolado
+        # e documentado no relatório da tarefa. A PINTURA real (o que
+        # `screenshot` captura) sai correta; é só a LEITURA via `Runtime.
+        # evaluate`, numa conexão nova, que pode mentir. Reaplicar aqui é
+        # defensivo e não tem custo (nenhum reload) — não é a cura, mas não
+        # piora nada.
+        self._tema()
         return {"title": self.eval("document.title"), "url": self.eval("location.href")}
 
     def centro(self, seletor):
@@ -167,6 +190,50 @@ class Sessao:
         (BASE / ("viewport-" + self.nome + ".json")).write_text(json.dumps([int(w), int(h)]))
         self.cmd("Emulation.setDeviceMetricsOverride", width=int(w), height=int(h), deviceScaleFactor=1, mobile=True)
         return {"viewport": [int(w), int(h)]}
+
+    def tema(self, qual):
+        """Emula `prefers-color-scheme` sem mexer no Windows.
+
+        É o que a T3.0 do plano mestre precisava e nunca teve: o escuro nunca
+        foi capturado nesta campanha.
+
+        A emulação é DA SESSÃO CDP e morre quando a conexão fecha — e cada
+        comando deste arquivo é um PROCESSO Python novo, com uma conexão
+        WebSocket nova, fechada no `finally` de `main()`. Sem persistir a
+        escolha, `tema escuro` seguido de `screenshot` (dois comandos, duas
+        conexões) capturava a tela CLARA em silêncio — mesmo defeito que
+        `viewport`/`offline` já tiveram e já resolvem: o estado fica num
+        arquivo e é reaplicado em todo `Sessao.__init__`, via `_tema()`.
+        """
+        if qual not in ("claro", "escuro"):
+            raise SystemExit("tema: claro|escuro")
+        (BASE / ("tema-" + self.nome + ".json")).write_text(json.dumps(qual))
+        self._tema()
+        valor = "dark" if qual == "escuro" else "light"
+        return {"tema": qual, "prefers-color-scheme": valor}
+
+    def _tema(self):
+        cfg = BASE / ("tema-" + self.nome + ".json")
+        if not cfg.exists():
+            return
+        qual = json.loads(cfg.read_text())
+        valor = "dark" if qual == "escuro" else "light"
+        self.cmd("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": valor}])
+        # A emulação vale na hora; o RECÁLCULO não. Esta conexão é nova — a
+        # anterior morreu e levou o tema junto, e a página voltou ao claro —,
+        # e o Chrome só refaz o estilo numa tarefa posterior: medido em
+        # 16/09/2026, `getComputedStyle(body).color` ainda era o de Mesa
+        # logo depois do `setEmulatedMedia` e virava Ferro 34 ms depois; uma
+        # captura nesse intervalo saía com texto claro sobre fundo escuro
+        # (`/treino/` e `/` a 390 e 1280). Dois `requestAnimationFrame` NÃO
+        # bastaram. Aqui espera-se a cor do `body` MUDAR (o tema trocou) ou
+        # 300 ms (não trocou) antes de qualquer comando.
+        self.eval(
+            "new Promise(r => { const c0 = getComputedStyle(document.body).color;"
+            " const t0 = performance.now(); const t = setInterval(() => {"
+            " const c = getComputedStyle(document.body).color;"
+            " if (c !== c0 || performance.now() - t0 > 300) { clearInterval(t); r(c); } }, 15); })"
+        )
 
     def screenshot(self, arquivo, full=False):
         params = {"format": "png"}
@@ -247,6 +314,7 @@ def main():
         elif cmd == "cookie": out = s.cookie(args[0], args[1], *(args[2:3]))
         elif cmd == "permissao": out = s.permissao(args[0], args[1], *(args[2:3]))
         elif cmd == "offline": out = s.offline(args[0])
+        elif cmd == "tema": out = s.tema(args[0])
         elif cmd == "url": out = s.eval("location.href")
         elif cmd == "title": out = s.eval("document.title")
         elif cmd == "text": out = s.text(*(args[:1]))

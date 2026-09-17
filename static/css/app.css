@@ -46,10 +46,10 @@
      O fundo lê como grafite orgânico, não como verde; o botão continua
      sendo a única coisa verde da tela. A régua é `config/tests.py`, que
      recalcula o contraste dos tokens, inclusive contra os fundos tingidos. */
-  --bg: #f4f6f5;
+  --bg: #f5f3ee;            /* linho */
   --surface: #ffffff;
-  --surface-2: #eef2f0;
-  --surface-3: #e4eae7;
+  --surface-2: #efece4;
+  --surface-3: #ebe8de;
   /* A QUARTA SUPERFÍCIE: a do elemento que manda na tela.
 
      As três acima respondem "que profundidade?". Esta responde outra
@@ -59,7 +59,7 @@
 
      Uma por tela. Duas superfícies de foco é o mesmo que nenhuma, e é assim
      que "destaque" vira "fundo". */
-  --surface-focus: #e6f4ec;
+  --surface-focus: #e3f1e8;
   /* O TOPO DO CANVAS.
 
      O gradiente do `body` nasceu com `#0a1210` escrito à mão, e no tema claro
@@ -84,16 +84,22 @@
      mais clara — era o que acontecia com #2a2e39. A borda agora se ajusta ao
      que estiver embaixo, que é o que dá a sensação de camada em vez de
      contorno desenhado. */
-  --border: rgba(16, 32, 22, .115);
-  --border-strong: rgba(16, 32, 22, .21);
-  --text: #101715;
+  --fio: rgba(20, 31, 26, .10);
+  --fio-forte: rgba(20, 31, 26, .22);
+  --text: #141f1a;
   /* Os dois tons discretos subiram junto com as bordas, e pelo mesmo motivo:
      o mínimo da WCAG é piso de legibilidade, não alvo de projeto. `--text-dim`
      estava em 6,47:1 no pior fundo e `--text-mute` em 4,67:1 — passando por
      centésimos. Em OLED, com brilho baixo, "passa raspando" se lê como texto
      apagado. Agora são 7,50 e 5,62 no mesmo pior caso, e a distância entre os
-     três degraus (13,15 / 7,50 / 5,62) continua clara. */
-  --text-dim: #4b5b55;
+     três degraus (13,15 / 7,50 / 5,62) continua clara.
+
+     MESA & FERRO (15/09/2026): --text #141f1a, --text-dim #485550,
+     --text-mute #55625c — 15,26 / 7,04 / 5,76 sobre --bg, 16,93 / 7,80 / 6,39
+     sobre --surface, 13,81 / 6,37 / 5,21 no pior caso (--surface-3). A
+     distância entre os três degraus continua clara e o pior caso segue acima
+     do piso. */
+  --text-dim: #485550;
   /* Medido a cada troca, nunca escolhido a olho. A paleta V3 escureceu e
      esfriou os fundos, e o cinza que a spec sugeria para este degrau
      (#818b98) caía para 4,71:1 sobre --surface-3 — passa, e passa raspando.
@@ -103,7 +109,7 @@
      Vale também sobre --brand-soft, onde uma versão antiga dava 4,36 e nenhum
      teste via, porque o teste dos fundos tingidos só cobre --text e
      --text-dim. */
-  --text-mute: #53625d;
+  --text-mute: #55625c;
   /* Uma cor por dia de treino. Matizes bem separados (verde, azul, âmbar,
      violeta) para serem distinguíveis inclusive por quem confunde vermelho e
      verde — a distância entre eles é de luminância também, não só de matiz.
@@ -130,7 +136,7 @@
      verde pôde ficar mais vivo sem custar legibilidade. */
   --brand: #0c6b40;
   --brand-strong: #08512f;
-  --brand-soft: #e2f3ea;
+  --brand-soft: #dff0e6;
   /* O VERDE FOLHA é o verde do que FOI FEITO — o arco do anel de treino, a
      série registrada, a barra da semana. `--brand` continua sendo o verde
      do que SE FAZ: CTA, link, foco. Dois verdes com papéis diferentes é o
@@ -142,24 +148,61 @@
      passa em todas as superfícies claras (3,29 / 3,72 / 3,42). Ele NÃO é cor
      de texto pequeno: 3,7:1 sobre branco não chega aos 4,5 de AA, e é por
      isso que o "Principal" da ficha e o "3/4" concluído continuam em
-     `--brand`. `config/test_tema_claro.py` mede as duas coisas. */
+     `--brand`. `config/test_tema_claro.py` mede as duas coisas.
+
+     MESA & FERRO (15/09/2026): as três superfícies claras mudaram de valor,
+     e o mesmo `--folha` mede 3,15:1 contra `--surface-2` (a trilha do anel,
+     o caso que `ContrastTests.PARES_MEDIDOS` prova), 3,72:1 contra
+     `--surface` e 3,03:1 contra `--surface-3` — a margem sobre o piso de
+     3:1 da WCAG 1.4.11 caiu para 0,03 nessa terceira, a mais apertada das
+     três. Não é folga para gastar: a próxima paleta que mexer em
+     `--surface-3` sem medir de novo pode derrubar este token. */
   --folha: #3f9718;
   --on-brand: #ffffff;
-  --accent: #196288;
-  --warm: #8a5109;
-  --warm-soft: #fbf0e0;
-  --carb: #c98a2b;
-  --fat: #6b83b0;
+  /* MESA & FERRO (15/09/2026): quatro cores de PILAR, não de decoração —
+     `--agua` é Hidratação (era `--accent`), `--brasa` é Corrida, `--terra`
+     é Progresso/peso (era `--warm`) e `--chama` é só a ofensiva, objeto
+     gráfico e nunca texto pequeno. `--agua-texto` existe porque `--agua`
+     cheio falha como texto pequeno — a mesma razão de `--brand`/`--folha`
+     terem papéis diferentes. Direção C,
+     docs/briefs/design/direcao-c-mesa-e-ferro.md §2: lá estão a regra de
+     três (fio do prato, arco do gráfico, ponto do ícone) e os contrastes
+     medidos; `ContrastTests.PARES_MEDIDOS` é quem prova aqui.
+
+     `--agua` é #1e6e96, o valor da direção — medido como objeto gráfico
+     (WCAG 1.4.11, ≥3:1) contra `--surface-2`, o fundo mais escuro em que ele
+     pousa como arco/ícone: 4,77:1. Ele NÃO precisa passar como texto pequeno
+     sobre a própria tinta, porque o CSS nunca pinta texto com `--agua`
+     cheio — `.exercise__tag--rest` pinta com `--agua-texto`. É por isso que
+     `PillContrastTests.PARES` nomeia o token de TEXTO e o de TINTA
+     separadamente: o par da água é (`--agua-texto`, `--agua`), nunca
+     (`--agua`, `--agua`). Medido nessa composição — `--agua-texto` #175877
+     sobre a tinta de `--agua` a 12% —, 6,60:1 sobre `--surface` e 5,64:1
+     sobre `--surface-2`, os dois acima do mínimo AA de 4,5. */
+  --agua: #1e6e96;
+  --agua-texto: #175877;
+  --brasa: #a63f18;
+  --terra: #8a5109;
+  --terra-soft: #fbf0e0;
+  --chama: #c8620a;
+  --carb: #ad6d16;
+  --fat: #5568a6;
   --danger: #b3261e;
   --danger-soft: #fdecea;
   /* A escala de quina. `--radius-xl` é o degrau novo, e ele existe para
      separar WIDGET de cartão: o painel do dia, a ofensiva e a água são as
      três peças que a pessoa lê de relance, e quina mais aberta é o que faz
      uma peça ler como painel em vez de caixa de conteúdo. */
-  --radius-xl: 28px;
-  --radius-lg: 22px;
-  --radius: 18px;
-  --radius-sm: 14px;
+  /* DIREÇÃO C §5 (16/09/2026, D12 da avaliação): 24 / 16 / 12 / 8. Eram
+     28 / 22 / 18 / 14 desde a V3 ("abaixo de 16 a quina volta a parecer
+     web"); a direção decidiu o contrário — controle (botão, campo) não é
+     caixa e fica em 12, cartão de lista em 16, prato em 24, filho de caixa
+     em 8 — e o DESIGN.md é o contrato que o export do Claude Design lê.
+     Raios idênticos nos dois regimes. */
+  --radius-xl: 24px;
+  --radius-lg: 16px;
+  --radius: 12px;
+  --radius-sm: 8px;
   --pill: 999px;
 
   /* O véu atrás de qualquer overlay. Existia escrito por extenso em dois
@@ -276,11 +319,6 @@
      escrito o degrau por simetria, e simetria não é evidência: um token que
      ninguém usa é decoração, e há teste aqui que recusa exatamente isso. */
 
-  /* O gradiente da marca, que estava escrito por extenso em três lugares —
-     o selo da barra, o logo do entrar e o distintivo da sessão. Três cópias
-     do mesmo ângulo é como um deles acaba com 135deg numa terça-feira. */
-  --grad-brand: linear-gradient(140deg, var(--brand), var(--accent));
-
   /* O vidro da moldura flutuante.
      A barra de cima e a de baixo já eram translúcidas com desfoque, cada uma
      com a própria receita (76% e 80%, blur 18 e 20). São a MESMA superfície:
@@ -289,7 +327,13 @@
   --glass: color-mix(in srgb, var(--bg) 78%, transparent);
   --glass-blur: saturate(170%) blur(20px);
 
-  --glow: 0 0 0 1px rgba(15, 122, 74, .18), 0 10px 26px -16px rgba(15, 122, 74, .3);
+  /* MESA & FERRO (16/09/2026): o brilho difuso virou anel de 1 px na cor da
+     ação — somado à borda de 1 px do `:focus`, são os 2 px do DESIGN.md
+     ("foco é `--brand` em todo controle"). Antes eram DUAS sombras, um anel
+     a 18% mais uma difusão de 26 px, e nada de foco deve se espalhar para
+     fora do campo. O nome fica porque `workouts/tests.py` lê `var(--glow)`
+     no foco do campo e proíbe token órfão. */
+  --glow: 0 0 0 1px var(--brand);
   /* O halo de ESTADO, irmão mais discreto do `--glow` de foco.
      Marca o que está ativo agora — a aba aberta, a refeição feita, o botão
      sob o dedo — e nada mais. Nasce de `var(--brand)` em vez de um rgba fixo,
@@ -311,7 +355,7 @@
      borda nenhuma, e no escuro dois grafites vizinhos viram um só. Uma borda
      de verdade resolveria — e empurraria 2px em cada eixo, mexendo na grade
      que já está certa. `inset` desenha o mesmo fio sem ocupar espaço algum. */
-  --inlay: inset 0 0 0 1px var(--border), var(--edge);
+  --inlay: inset 0 0 0 1px var(--fio), var(--edge);
 
   /* Repouso e elevação. A diferença entre as duas é o que comunica que algo
      está ativo sem mexer em cor nem em tamanho. */
@@ -377,6 +421,59 @@
 
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 
+  /* FERRO — o segundo regime de luz, escrito UMA vez.
+     Dois gatilhos ligam estes valores: `prefers-color-scheme: dark` (quem
+     prefere escuro vê o app inteiro em Ferro) e `body.modo-foco` (a
+     execução e a corrida em andamento nascem em Ferro por decisão de
+     produto). Nenhum dos dois repete hex — `config/test_ferro.py` é a
+     trava. Direção C, docs/briefs/design/direcao-c-mesa-e-ferro.md §2;
+     Três valores saem da direção por MEDIÇÃO (16/09/2026):
+     - `--ferro-surface-2` #243029 e não #1d2622: U28 (avaliação de 16/09)
+       cobra ≥ 1,2:1 entre a segunda superfície e a primeira — sobre
+       #161d1a, #1d2622 dava 1,10 (botão quieto sem cara, trilha do anel
+       sumida); #243029 dá 1,25 (`config/test_superficie_escura.py`);
+     - `--ferro-surface-3` #2c3a32 e não #26312b: com a segunda subindo,
+       #26312b ficava a 1,02 dela e o hover deixava de existir; 1,15 agora;
+     - `--ferro-text-mute` #a0aca6 (era #96a29c; a direção dizia #8f9b95):
+       é o menor tom que passa da MARGEM de 5,0 de `config.tests` sobre a
+       surface-3 nova (5,09), e não o piso de 4,5. */
+  --ferro-bg: #0e1412;
+  --ferro-surface: #161d1a;
+  --ferro-surface-2: #243029;
+  --ferro-surface-3: #2c3a32;
+  --ferro-surface-focus: #123024;
+  --ferro-canvas-topo: #0a1210;
+  --ferro-fio: rgba(255, 255, 255, .08);
+  --ferro-fio-forte: rgba(255, 255, 255, .16);
+  --ferro-text: #f4f7f5;
+  --ferro-text-dim: #b6c1bb;
+  --ferro-text-mute: #a0aca6;
+  --ferro-brand: #22c98a;
+  --ferro-brand-strong: #4ddb9f;
+  --ferro-brand-soft: #0f2a20;
+  --ferro-folha: #6fcf4a;
+  --ferro-on-brand: #04140e;
+  --ferro-agua: #5fbdf0;
+  --ferro-agua-texto: #5fbdf0;
+  --ferro-brasa: #ff9a7a;
+  --ferro-terra: #f2b04e;
+  --ferro-terra-soft: #33260f;
+  --ferro-chama: #ffa53a;
+  --ferro-carb: #e6b35d;
+  --ferro-fat: #93a8de;
+  --ferro-danger: #ff8a80;
+  --ferro-danger-soft: #33191a;
+  --ferro-dia-a: #4ade9b;
+  --ferro-dia-b: #6cc7ff;
+  --ferro-dia-c: #f6c453;
+  --ferro-dia-d: #cbb0ff;
+  --ferro-dia-e: #ff9d8a;
+  --ferro-veu: rgba(4, 8, 7, .72);
+  --ferro-edge: inset 0 1px 0 rgba(255, 255, 255, .05);
+  --ferro-shadow-rest: 0 1px 2px rgba(0, 0, 0, .38), 0 10px 26px -20px rgba(0, 0, 0, .85);
+  --ferro-shadow-lift: 0 2px 6px rgba(0, 0, 0, .45), 0 20px 44px -22px rgba(0, 0, 0, .95);
+  /* Mesma receita do `--glow` de Mesa: anel de 1 px, sem difusão. */
+  --ferro-glow: 0 0 0 1px var(--ferro-brand);
 }
 
 /* TEMA ESCURO PARA QUEM PREFERE, e o claro é a base — invertido em
@@ -386,50 +483,95 @@
    quem é a base e quem é a preferência. `color-scheme: light dark` no
    `:root` avisa o navegador que os dois existem, e os controles nativos
    (scrollbar, `<select>`) acompanham. Contraste medido nos dois temas por
-   `config/tests.py`. */
+   `config/tests.py`.
+
+   MESA & FERRO (15/09/2026): a base clara passou a ser #f5f3ee (linho), e
+   este bloco parou de escrever hex — ele só LIGA os valores que moram em
+   `--ferro-*`, no fim do `:root`. É o mesmo gatilho de sempre
+   (`prefers-color-scheme: dark`); o que mudou é que agora ele compartilha
+   os valores com `body.modo-foco` em vez de duplicá-los. */
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --bg: #070c0b;
-    --surface: #0d1413;
-    /* #1d2622 é o `--surface-2` do Ferro no DESIGN.md. Os anteriores (#121a18
-       e #18211e) davam 1,05:1 sobre a superfície: botão quieto sem cara de
-       botão, anel sem trilha, barras dos sete dias invisíveis — medido no
-       pixel em 16/09/2026 (avaliação, U28). O `--surface-3` do brief (#26312b)
-       deixava `--text-mute` em 4,91:1 sobre ele, abaixo da margem de 5,0 que
-       `config.tests` cobra; #223029 mantém a ordem das camadas e dá 5,02. */
-    --surface-2: #1d2622;
-    --surface-3: #223029;
-    --surface-focus: #10201a;
-    --canvas-topo: #0a1210;
-    --border: rgba(150, 165, 180, .16);
-    --border-strong: rgba(150, 165, 180, .30);
-    --text: #f7f9fa;
-    --text-dim: #b7bec8;
-    --text-mute: #939daa;
-    --dia-a: #4ade9b;
-    --dia-b: #6cc7ff;
-    --dia-c: #f6c453;
-    --dia-d: #cbb0ff;
-    --dia-e: #ff9d8a;
-    --brand: #10c98a;
-    --brand-strong: #34d399;
-    --brand-soft: #0c2a22;
-    --on-brand: #04140e;
-    --accent: #6cc7ff;
-    --warm: #f59e0b;
-    --warm-soft: #33260f;
-    --carb: #e0b25f;
-    --fat: #8fa8d8;
-    --danger: #ff8a80;
-    --danger-soft: #33191a;
-    --veu: rgba(4, 8, 7, .72);
-    --glow: 0 0 0 1px rgba(16, 185, 129, .3), 0 10px 30px -14px rgba(16, 185, 129, .45);
-    --edge: inset 0 1px 0 rgba(255, 255, 255, .05);
-    --shadow-rest: 0 1px 2px rgba(0, 0, 0, .38), 0 10px 26px -20px rgba(0, 0, 0, .85);
-    --shadow-lift: 0 2px 6px rgba(0, 0, 0, .45), 0 20px 44px -22px rgba(0, 0, 0, .95);
-    --folha: #6fcf4a;
+    --bg: var(--ferro-bg);
+    --surface: var(--ferro-surface);
+    --surface-2: var(--ferro-surface-2);
+    --surface-3: var(--ferro-surface-3);
+    --surface-focus: var(--ferro-surface-focus);
+    --canvas-topo: var(--ferro-canvas-topo);
+    --fio: var(--ferro-fio);
+    --fio-forte: var(--ferro-fio-forte);
+    --text: var(--ferro-text);
+    --text-dim: var(--ferro-text-dim);
+    --text-mute: var(--ferro-text-mute);
+    --brand: var(--ferro-brand);
+    --brand-strong: var(--ferro-brand-strong);
+    --brand-soft: var(--ferro-brand-soft);
+    --folha: var(--ferro-folha);
+    --on-brand: var(--ferro-on-brand);
+    --agua: var(--ferro-agua);
+    --agua-texto: var(--ferro-agua-texto);
+    --brasa: var(--ferro-brasa);
+    --terra: var(--ferro-terra);
+    --terra-soft: var(--ferro-terra-soft);
+    --chama: var(--ferro-chama);
+    --carb: var(--ferro-carb);
+    --fat: var(--ferro-fat);
+    --danger: var(--ferro-danger);
+    --danger-soft: var(--ferro-danger-soft);
+    --dia-a: var(--ferro-dia-a);
+    --dia-b: var(--ferro-dia-b);
+    --dia-c: var(--ferro-dia-c);
+    --dia-d: var(--ferro-dia-d);
+    --dia-e: var(--ferro-dia-e);
+    --veu: var(--ferro-veu);
+    --edge: var(--ferro-edge);
+    --shadow-rest: var(--ferro-shadow-rest);
+    --shadow-lift: var(--ferro-shadow-lift);
+    --glow: var(--ferro-glow);
   }
+}
+
+/* O SEGUNDO GATILHO do Ferro: a classe que o servidor escreve no <body>.
+   Mesma lista, mesmos `var()` — `config/test_ferro.py` compara os dois. */
+body.modo-foco {
+  color-scheme: dark;
+  --bg: var(--ferro-bg);
+  --surface: var(--ferro-surface);
+  --surface-2: var(--ferro-surface-2);
+  --surface-3: var(--ferro-surface-3);
+  --surface-focus: var(--ferro-surface-focus);
+  --canvas-topo: var(--ferro-canvas-topo);
+  --fio: var(--ferro-fio);
+  --fio-forte: var(--ferro-fio-forte);
+  --text: var(--ferro-text);
+  --text-dim: var(--ferro-text-dim);
+  --text-mute: var(--ferro-text-mute);
+  --brand: var(--ferro-brand);
+  --brand-strong: var(--ferro-brand-strong);
+  --brand-soft: var(--ferro-brand-soft);
+  --folha: var(--ferro-folha);
+  --on-brand: var(--ferro-on-brand);
+  --agua: var(--ferro-agua);
+  --agua-texto: var(--ferro-agua-texto);
+  --brasa: var(--ferro-brasa);
+  --terra: var(--ferro-terra);
+  --terra-soft: var(--ferro-terra-soft);
+  --chama: var(--ferro-chama);
+  --carb: var(--ferro-carb);
+  --fat: var(--ferro-fat);
+  --danger: var(--ferro-danger);
+  --danger-soft: var(--ferro-danger-soft);
+  --dia-a: var(--ferro-dia-a);
+  --dia-b: var(--ferro-dia-b);
+  --dia-c: var(--ferro-dia-c);
+  --dia-d: var(--ferro-dia-d);
+  --dia-e: var(--ferro-dia-e);
+  --veu: var(--ferro-veu);
+  --edge: var(--ferro-edge);
+  --shadow-rest: var(--ferro-shadow-rest);
+  --shadow-lift: var(--ferro-shadow-lift);
+  --glow: var(--ferro-glow);
 }
 
 /* ==========================================================================
@@ -703,7 +845,7 @@ body:not(.tem-tabbar) .container {
   background: var(--glass);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--border);
+  border: 1px solid var(--fio);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lift);
 }
@@ -885,7 +1027,7 @@ h3 {
 /* O cartão em que a pessoa está mexendo sobe um pouco. Só sombra e borda:
    mudar cor de fundo aqui faria a tela piscar a cada foco. */
 .card:focus-within {
-  border-color: var(--border-strong);
+  border-color: var(--fio-forte);
   box-shadow: var(--edge), var(--shadow-lift);
 }
 
@@ -958,7 +1100,7 @@ h3 {
     radial-gradient(115% 80% at 12% -12%,
                     color-mix(in srgb, var(--brand) 13%, transparent), transparent 58%),
     radial-gradient(85% 65% at 104% 108%,
-                    color-mix(in srgb, var(--accent) 8%, transparent), transparent 60%);
+                    color-mix(in srgb, var(--agua) 8%, transparent), transparent 60%);
   pointer-events: none;
 }
 
@@ -967,31 +1109,26 @@ h3 {
    fundo: ele não vai para trás sozinho. */
 .today-hero > * { position: relative; }
 
-/* O anel varre de zero até o valor ao abrir a tela.
+/* `--pct` é o valor do anel, e é uma propriedade personalizada TIPADA.
  *
- * `--pct` é uma propriedade personalizada comum, e propriedade comum NÃO é
- * animável: o navegador não sabe que aquilo é um número, então trata como
- * texto e troca de um valor para o outro sem passar pelo meio. Era por isso
- * que o anel aparecia pronto enquanto as barras enchiam.
+ * Propriedade comum NÃO é animável: o navegador não sabe que aquilo é um
+ * número, então trata como texto e troca de um valor para o outro sem passar
+ * pelo meio. `@property` é o que declara o tipo; com ele o navegador
+ * interpola, e o `conic-gradient` acompanha — sem JavaScript e sem SVG. É o
+ * que vai permitir animar o anel do valor ANTERIOR ao atual quando houver
+ * evento para confirmar.
  *
- * `@property` é o que declara o tipo. Com ele o navegador interpola, e o
- * `conic-gradient` acompanha — sem uma linha de JavaScript e sem um SVG.
- *
- * Onde `@property` não existe, o bloco inteiro é ignorado e o anel volta a
- * aparecer pronto. É a degradação certa: nada quebra, só não anima. */
+ * Onde `@property` não existe, o bloco inteiro é ignorado e o anel aparece
+ * pronto — que hoje é o comportamento em todo navegador. */
 @property --pct {
   syntax: "<number>";
   inherits: false;
   initial-value: 0;
 }
 
-@keyframes varrer {
-  from { --pct: 0; }
-}
-
 .ring {
   --pct: 0;
-  animation: varrer calc(var(--mov-sucesso) * 1.8) var(--ease) both;
+  /* varreu até 16/09/2026; o anel nasce pronto — movimento que confirma ação volta com `--recem` na onda 4 */
   position: relative;
   display: grid;
   place-items: center;
@@ -1007,9 +1144,9 @@ h3 {
      `calc(var(--pct) * 3.6deg)` porque conic trabalha em grau e o servidor
      manda porcentagem: 100% × 3.6 = 360°, a volta inteira. */
   background: conic-gradient(from 0deg,
-                             var(--accent),
+                             var(--agua),
                              var(--brand) calc(var(--pct) * 3.6deg),
-                             var(--border) 0);
+                             var(--fio) 0);
 }
 
 .ring::after {
@@ -1049,9 +1186,9 @@ h3 {
   width: 11.2rem;
   height: 11.2rem;
   background: conic-gradient(from 0deg,
-                             var(--accent),
-                             var(--accent) calc(var(--pct) * 3.6deg),
-                             var(--border) 0);
+                             var(--agua),
+                             var(--agua) calc(var(--pct) * 3.6deg),
+                             var(--fio) 0);
 }
 
 .ring--agua::after { inset: .82rem; }
@@ -1081,7 +1218,7 @@ h3 {
   background: conic-gradient(from 0deg,
                              var(--folha),
                              var(--folha) calc(var(--pct) * 3.6deg),
-                             var(--border) 0);
+                             var(--fio) 0);
 }
 
 .ring--treino::after { inset: .52rem; }
@@ -1283,7 +1420,7 @@ h3 {
    classe órfã pegou. Com o modificador só no bloco, a direção é declarada uma
    vez e a linha e o número não têm como discordar. */
 .curva--desce .curva__delta { color: var(--brand); }
-.curva--sobe .curva__delta { color: var(--warm); }
+.curva--sobe .curva__delta { color: var(--terra); }
 .curva--igual .curva__delta { color: var(--text-mute); }
 
 .curva__periodo {
@@ -1295,7 +1432,7 @@ h3 {
 .curva__grafico { display: block; width: 100%; height: 4.6rem; overflow: visible; }
 
 .curva--desce .curva__grafico { color: var(--brand); }
-.curva--sobe .curva__grafico { color: var(--warm); }
+.curva--sobe .curva__grafico { color: var(--terra); }
 .curva--igual .curva__grafico { color: var(--text-mute); }
 
 .curva__linha {
@@ -1344,7 +1481,7 @@ h3 {
   display: grid;
   gap: var(--espaco-3);
   padding-top: .95rem;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--fio);
 }
 
 /* A barra do painel é mais alta que a da coluna: ali ela acompanha uma lista
@@ -1428,7 +1565,7 @@ h3 {
   display: block;
   margin: var(--espaco-4) 0 0;
   padding: 0 0 0 var(--espaco-4);
-  border-left: 2px solid var(--border-strong);
+  border-left: 2px solid var(--fio-forte);
   font-size: var(--texto-sm);
   font-weight: 650;
   line-height: 1.45;
@@ -1458,8 +1595,8 @@ h3 {
 .today-hero__balance.balance--piso,
 .today-hero__balance.balance--surplus {
   background: none;
-  border-left-color: var(--warm);
-  color: var(--warm);
+  border-left-color: var(--terra);
+  color: var(--terra);
 }
 
 /* O CONVITE NÃO TEM LADO, e por isso não tem cor.
@@ -1497,7 +1634,7 @@ h3 {
 
 .chip {
   padding: .34rem .72rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--fio);
   background: var(--surface-2);
   color: var(--text-dim);
   font-size: .76rem;
@@ -1533,7 +1670,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   text-align: center;
 }
 
-.tiles > .tile + .tile { border-left: 1px solid var(--border); }
+.tiles > .tile + .tile { border-left: 1px solid var(--fio); }
 
 .tile__value {
   display: block;
@@ -1541,6 +1678,13 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   font-weight: 750;
   font-variant-numeric: tabular-nums;
   letter-spacing: -.03em;
+  /* Número não quebra no meio. `strong` herda `overflow-wrap: anywhere` do
+     seletor global — certo para nome de alimento, errado para "12.345". A 390
+     px a caixa tem 74 px e o maior valor real ocupa 61,6 px (medido em
+     16/09/2026); se um dia um valor real passar de 5 dígitos, a correção é
+     formatação, não CSS. */
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 .tile__label { display: block; color: var(--text-dim); font-size: .78rem; }
@@ -1562,7 +1706,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .balance--deficit { background: var(--brand-soft); border-color: transparent; }
 .balance--piso,
-.balance--surplus { background: var(--warm-soft); border-color: transparent; }
+.balance--surplus { background: var(--terra-soft); border-color: transparent; }
 
 .balance__value {
   flex: none;
@@ -1574,7 +1718,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .balance--deficit .balance__value { color: var(--brand); }
 .balance--piso .balance__value,
-.balance--surplus .balance__value { color: var(--warm); }
+.balance--surplus .balance__value { color: var(--terra); }
 
 .balance__body { flex: 1; min-width: 0; }
 .balance__label { display: block; font-size: .85rem; font-weight: 680; }
@@ -1776,7 +1920,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   width: 2px;
   height: var(--gap);
   border-radius: var(--pill);
-  background: var(--border-strong);
+  background: var(--fio-forte);
 }
 
 .meal--done + .meal::before {
@@ -1894,7 +2038,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 }
 
 .option[open] { border-color: var(--brand); box-shadow: var(--halo); }
-.option:hover { border-color: var(--border-strong); }
+.option:hover { border-color: var(--fio-forte); }
 
 .option__summary {
   display: flex;
@@ -1941,7 +2085,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .option__kcal { color: var(--text-dim); font-size: .82rem; font-weight: 750; }
 
-.option__body { padding: .8rem .85rem; border-top: 1px solid var(--border); }
+.option__body { padding: .8rem .85rem; border-top: 1px solid var(--fio); }
 .option__items { margin: 0 0 var(--espaco-4); padding: 0; list-style: none; font-size: .85rem; color: var(--text-dim); }
 
 .option__items li {
@@ -1950,7 +2094,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   align-items: baseline;
   gap: .75rem;
   padding: .32rem 0;
-  border-bottom: 1px dashed var(--border);
+  border-bottom: 1px dashed var(--fio);
 }
 
 /* `min-width: 0` porque "Filé de peito de frango grelhado" é um nome real do
@@ -2049,7 +2193,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .btn--primary:active,
 .btn--primary:focus-visible { box-shadow: var(--halo); }
 
-.btn--ghost { background: var(--surface-2); color: var(--text-dim); border-color: var(--border-strong); }
+.btn--ghost { background: var(--surface-2); color: var(--text-dim); border-color: var(--fio-forte); }
 .btn--ghost:hover { color: var(--text); border-color: var(--text-mute); }
 
 .btn--quiet {
@@ -2057,7 +2201,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   padding: .45rem .85rem;
   /* Borda como o ghost: a cara de botão não pode depender do preenchimento,
      que o tema escuro apaga (1,05:1 medido — avaliação de 16/09/2026, U28). */
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--fio-forte);
   background: var(--surface-2);
   color: var(--text-dim);
   font-size: .82rem;
@@ -2105,6 +2249,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .conquista__continuar:active,
 .conquista-item__share:active,
 .ficha-item__link:active,
+.mapa__area:active,
 .meal__abrir:active,
 .modulo:active,
 .sessao-cartao:active,
@@ -2273,7 +2418,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   padding: var(--espaco-4) var(--espaco-4);
   color: var(--text);
   background: var(--surface-2);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--fio-forte);
   border-radius: var(--radius);
   font-family: inherit;
   font-size: var(--texto-base);
@@ -2298,6 +2443,18 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   letter-spacing: -.01em;
 }
 
+/* O campo com erro FALA onde está o erro. O Django 5.2 escreve
+   `aria-invalid="true"` no widget inválido; até 16/09/2026 nenhuma regra lia
+   isso, e a borda do campo errado era igual à do campo certo. */
+.field-input[aria-invalid="true"] { border-color: var(--danger); }
+/* Inválido E em foco: borda e anel na cor do erro (decisão do dono,
+   16/09/2026). Sem esta regra o `:focus` de cima pintava o anel de `--brand`
+   sobre a borda `--danger`, e o campo errado com o cursor dentro — o e-mail
+   do login tem `autofocus` — falava duas cores ao mesmo tempo. `--brand` só
+   volta quando o erro some. `[aria-invalid]:focus` vence `.field-input:focus`
+   por especificidade, não por ordem. */
+.field-input[aria-invalid="true"]:focus { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
+
 .field__errors {
   margin: .45rem 0 0;
   padding: .6rem .75rem;
@@ -2316,7 +2473,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   gap: var(--espaco-4);
   min-height: 3.1rem;
   padding: .75rem .85rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--fio);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   font-size: .92rem;
@@ -2324,7 +2481,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 
-.choice-list label:hover { border-color: var(--border-strong); }
+.choice-list label:hover { border-color: var(--fio-forte); }
 .choice-list input { width: 1.2rem; height: 1.2rem; flex: none; accent-color: var(--brand); }
 
 /* Este `:has()` é só realce: onde ele não existe, o próprio radio marcado
@@ -2407,7 +2564,13 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .choice-list--dias input:checked ~ .segmented__texto { color: var(--on-brand); }
 .choice-list--dias label:hover .segmented__fundo { background: var(--surface-3); }
 .choice-list--dias label:hover input:checked ~ .segmented__fundo { background: var(--brand-strong); }
-.choice-list--dias input:focus-visible ~ .segmented__fundo { box-shadow: 0 0 0 2px var(--accent); }
+/* Foco é `--brand`; `--agua` é cor de pilar. E é ANEL COM VÃO (decisão do
+   dono, 16/09/2026): a opção MARCADA já tem o fundo em `--brand`, e um anel
+   colado só engordava a pílula — em rádio, a seta move foco e marcação
+   juntos, então esse era o caso mais comum de teclado. `outline-offset: 2px`
+   abre um vão que mostra a superfície, e o anel se vê nos dois estados;
+   `outline` acompanha o raio. */
+.choice-list--dias input:focus-visible ~ .segmented__fundo { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--espaco-4); }
 
@@ -2447,7 +2610,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 /* A variante de ATENÇÃO usa o fundo morno, e não o vermelho de erro: nada
    está quebrado — o número apenas envelheceu e há um botão logo abaixo que o
    atualiza. Vermelho aqui assustaria por uma conta desatualizada. */
-.callout--atencao { background: var(--warm-soft); }
+.callout--atencao { background: var(--terra-soft); }
 
 .empty-state { padding: 2.25rem var(--espaco-6); color: var(--text-dim); font-size: var(--texto-md); text-align: center; }
 /* O estado vazio virou caixa quando ganhou botão. O `text-align` do bloco já
@@ -2467,7 +2630,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   justify-content: space-between;
   gap: var(--espaco-1) var(--espaco-6);
   padding: .75rem 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--fio);
   font-size: var(--texto-md);
 }
 
@@ -2518,7 +2681,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .data-list--recorte {
   margin-top: var(--espaco-5);
   padding-top: var(--espaco-5);
-  border-top: 1px dashed var(--border);
+  border-top: 1px dashed var(--fio);
 }
 
 .data-list--recorte > div:first-child { padding-top: 0; }
@@ -2533,7 +2696,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   align-items: center;
   gap: var(--espaco-4);
   padding: .65rem 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--fio);
   font-size: .85rem;
 }
 
@@ -2550,7 +2713,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   text-transform: uppercase;
 }
 
-.history-row__bar { height: .45rem; overflow: hidden; border-radius: var(--pill); background: var(--border); }
+.history-row__bar { height: .45rem; overflow: hidden; border-radius: var(--pill); background: var(--fio); }
 .history-row__fill { display: block; height: 100%; background: var(--brand); }
 .history-row__facts { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .history-row__kcal { font-weight: 720; }
@@ -2623,7 +2786,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .programa__ressalva {
   margin: var(--espaco-4) 0 0;
   padding: 0 0 0 var(--espaco-4);
-  border-left: 2px solid var(--warm);
+  border-left: 2px solid var(--terra);
   color: var(--text-dim);
   font-size: var(--texto-sm);
   line-height: 1.5;
@@ -2637,7 +2800,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   gap: var(--espaco-5);
   min-height: 3.5rem;
   padding: var(--espaco-4);
-  border: 1px solid var(--border);
+  border: 1px solid var(--fio);
   border-radius: var(--radius);
   background: var(--surface-2);
   color: inherit;
@@ -2646,7 +2809,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
      uma própria aqui a sobrescrevia e o cartão afundava sem transição. */
 }
 
-.sessao-cartao:hover { border-color: var(--border-strong); }
+.sessao-cartao:hover { border-color: var(--fio-forte); }
 
 /* O dia de hoje se distingue por BORDA e por TEXTO, nunca só por cor: quem não
    distingue o verde recebe a mesma informação pela etiqueta "hoje" ao lado. */
@@ -2671,7 +2834,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   height: 2.6rem;
   flex: none;
   border-radius: var(--radius);
-  background: var(--grad-brand);
+  background: var(--brand);
   color: var(--on-brand);
   font-size: var(--texto-lg);
   font-weight: 800;
@@ -2945,7 +3108,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    linha. */
 .exercise__tag {
   padding: .24rem .6rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--fio-forte);
   border-radius: var(--pill);
   background: color-mix(in srgb, var(--text-mute) 10%, transparent);
   color: var(--text-dim);
@@ -2961,9 +3124,12 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 }
 
 .exercise__tag--rest {
-  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
+  border-color: color-mix(in srgb, var(--agua) 24%, transparent);
+  background: color-mix(in srgb, var(--agua) 12%, transparent);
+  /* MESA & FERRO (15/09/2026): `--agua-texto`, não `--agua` cheio — este é
+     texto pequeno (`--texto-xs`, herdado de `.exercise__tag`), e é
+     exatamente o caso para o qual `--agua-texto` existe. */
+  color: var(--agua-texto);
 }
 
 /* NA TELA DE EXECUÇÃO as duas etiquetas deixam de ser pílulas.
@@ -3155,7 +3321,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   width: 3.25rem;
   min-height: 2.75rem;
   padding: 0;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--fio-forte);
   border-radius: var(--radius-sm);
   background: var(--surface-3);
   color: var(--text-dim);
@@ -3191,7 +3357,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   min-width: 0;
   min-height: 2.75rem;
   padding: .4rem .6rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--fio-forte);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
@@ -3209,27 +3375,13 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    controles de 44px não cabem em 390 menos o padding, e o campo de carga
    ficava com 21 pixels. */
 
-/* A confirmação ao gravar: um pulso curto com brilho, e some.
- *
- * O brilho era `box-shadow` animado, e sombra animada é repintura a cada
- * quadro — justamente enquanto o aparelho está ocupado gravando a série e
- * disparando o cronômetro. Agora ele é um pseudoelemento que ESCALA e
- * desvanece: as duas propriedades que o compositor resolve sozinho, sem
- * repintar nada.
- *
- * `pointer-events: none` porque ele cresce para fora do botão, e um anel
- * invisível por cima do alvo seria um toque perdido no meio de uma série. */
-
-@keyframes serie-ok {
-  0%, 100% { transform: scale(1); }
-  30% { transform: scale(1.07); }
-}
-
-@keyframes serie-anel {
-  0% { transform: scale(.92); opacity: 0; }
-  30% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(1.12); opacity: 0; }
-}
+/* A confirmação ao gravar a série — o botão que pulsa (`serie-ok`) e o anel
+   que cresce e desvanece (`serie-anel`) — foi escrita aqui em 09/2026 e nunca
+   ganhou a classe que a dispara: ela depende de `workouts/views.py` escrever
+   `serie--recem` no redirect (T4.2 / onda 6). Os dois keyframes saíram em
+   16/09/2026 e nascem de novo NO MESMO COMMIT que o consumidor. O que fica de
+   lição: escala e opacidade, nunca `box-shadow` animado — sombra animada é
+   repintura a cada quadro, justamente enquanto o aparelho grava a série. */
 
 /* O cronômetro precisa ser visível na academia ao meio-dia: fundo em
    cinza-médio, moldura clara, ícone na cor cheia. */
@@ -3246,7 +3398,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   align-items: center;
   gap: .75rem;
   padding: var(--espaco-4) 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--fio);
 }
 
 .shopping__item:last-child { border-bottom: 0; }
@@ -3326,7 +3478,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   padding: 0;
   /* Borda mais forte que a do cartão: o modal está sobre o backdrop escuro,
      onde a borda de 6,5% simplesmente desaparece. */
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--fio-forte);
   border-radius: var(--radius-lg);
   background: var(--surface);
   color: var(--text);
@@ -3454,17 +3606,17 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   gap: .55rem;
   margin: 0 0 var(--espaco-5);
   padding: var(--espaco-4) var(--espaco-5);
-  border: 1px solid color-mix(in srgb, var(--warm) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--terra) 22%, transparent);
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--warm) 10%, transparent);
-  color: var(--warm);
+  background: color-mix(in srgb, var(--terra) 10%, transparent);
+  color: var(--terra);
   font-size: .82rem;
   line-height: 1.5;
 }
 
 .pulou__icone { display: grid; place-items: center; flex: none; }
 .pulou__icone svg { width: 1.1rem; height: 1.1rem; }
-.pulou b { color: var(--warm); font-weight: 750; }
+.pulou b { color: var(--terra); font-weight: 750; }
 
 /* Pílula de estado, reaproveitável.
    Fundo em baixa opacidade da própria cor + texto na cor cheia funciona nos
@@ -3482,9 +3634,9 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 .pill svg { width: .85rem; height: .85rem; flex: none; }
 
 .pill--warm {
-  background: color-mix(in srgb, var(--warm) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--warm) 22%, transparent);
-  color: var(--warm);
+  background: color-mix(in srgb, var(--terra) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--terra) 22%, transparent);
+  color: var(--terra);
 }
 
 .pill--brand {
@@ -3495,7 +3647,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 
 .pill--mute {
   background: color-mix(in srgb, var(--text-mute) 12%, transparent);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--fio-forte);
   color: var(--text-dim);
 }
 
@@ -3604,16 +3756,16 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 
 .pesagem__delta { justify-self: end; text-align: right; color: var(--text-mute); font-size: var(--texto-sm); }
 .pesagem__delta--desce { color: var(--brand); }
-.pesagem__delta--sobe { color: var(--warm); }
+.pesagem__delta--sobe { color: var(--terra); }
 
 /* O aviso de estagnação. Só aparece depois de três semanas paradas — duas
    acontecem por acaso o tempo todo. */
 .recalibrar {
   margin: var(--espaco-5) 0;
   padding: var(--espaco-5);
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--agua) 45%, var(--fio));
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  background: color-mix(in srgb, var(--agua) 9%, transparent);
 }
 
 .recalibrar__titulo { display: block; font-size: .92rem; }
@@ -3771,23 +3923,16 @@ html { scrollbar-gutter: stable; }
    borda de uma demonstração pode cortar justamente o pé ou a mão que mostram
    a posição. */
 
-/* Enquanto a primeira foto não chega. Sem isto a caixa fica vazia e parece
-   que quebrou. */
+/* A faixa deslizante de esqueleto (`@keyframes esqueleto`, um `translateX`
+   de -45% a 45%) saiu em 16/09/2026: era a animação da foto do exercício que
+   ainda não chegou, e a caixa que a usaria mora na execução do treino
+   (`workouts/`, T4.2 / onda 6). Nasce de novo junto com o elemento que a
+   dispara. A lição fica: `translateX`, e não `background-position` — deslocar
+   o fundo repinta a caixa inteira a cada quadro, em laço. */
 
-/* `translateX` e não `background-position`.
- *
- * Deslocar o fundo repinta a caixa inteira a cada quadro, e este brilho roda
- * em laço enquanto a foto não chega — é a animação mais longa do app, e a
- * única que ainda cobrava repintura contínua. Transladar a faixa é trabalho de
- * compositor: a textura é desenhada uma vez e só muda de lugar. */
-@keyframes esqueleto {
-  from { transform: translateX(-45%); }
-  to { transform: translateX(45%); }
-}
-
-/* Pulso, para o esqueleto que não é faixa deslizante — um bloco parado que só
-   respira. Entre 1 e 0,55 de opacidade: abaixo disso ele pisca, e piscar cansa
-   numa tela que a pessoa encara entre séries. */
+/* Pulso, para o esqueleto: um bloco parado que só respira. Entre 1 e 0,55 de
+   opacidade: abaixo disso ele pisca, e piscar cansa numa tela que a pessoa
+   encara entre séries. */
 @keyframes pulso {
   0%, 100% { opacity: 1; }
   50% { opacity: .55; }
@@ -3906,13 +4051,13 @@ html { scrollbar-gutter: stable; }
 .choice-card__frame {
   position: absolute;
   inset: 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--fio);
   border-radius: inherit;
   pointer-events: none;
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 
-.choice-card:hover .choice-card__frame { border-color: var(--border-strong); }
+.choice-card:hover .choice-card__frame { border-color: var(--fio-forte); }
 
 .choice-card__icon {
   display: grid;
@@ -4054,10 +4199,11 @@ html { scrollbar-gutter: stable; }
 }
 
 /* Foco visível para quem navega por teclado: o anel vai na moldura, que é
-   exatamente o contorno do cartão. */
+   exatamente o contorno do cartão. Foco é `--brand`; `--agua` é cor de
+   pilar. */
 .choice-card__input:focus-visible ~ .choice-card__frame {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4171,7 +4317,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   flex: none;
   width: 2.6rem;
   height: 2.6rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--fio);
   border-radius: var(--radius-sm);
 }
 
@@ -4239,22 +4385,26 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 
 /* Fica acima de tudo na tela do dia porque é o que puxa a pessoa de volta num
    dia ruim — meta calórica não puxa ninguém, sequência puxa. */
+/* MESA & FERRO (15/09/2026): a ofensiva usa `--chama`, não `--terra` — a
+   direção C reserva `--chama` para ela nomeadamente ("ofensiva, só objeto
+   gráfico"), e `--terra` é o Progresso/peso. Eram o mesmo hex sob o nome
+   antigo (`--warm`); a Mesa & Ferro separa os dois papéis. */
 .ofensiva {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: .85rem;
   padding: var(--espaco-6) 1.05rem;
-  border: 1px solid color-mix(in srgb, var(--warm) 26%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chama) 26%, transparent);
   border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--warm) 9%, transparent);
+  background: color-mix(in srgb, var(--chama) 9%, transparent);
   box-shadow: var(--edge), var(--shadow-rest);
 }
 
 /* Em risco, a moldura esfria para cinza: âmbar em cima de âmbar não destaca
    nada, e o que precisa saltar é justamente o dia que ainda não fechou. */
 .ofensiva--risco {
-  border-color: var(--border-strong);
+  border-color: var(--fio-forte);
   background: var(--surface-2);
 }
 
@@ -4265,7 +4415,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   height: 2.8rem;
   flex: none;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--warm) 16%, transparent);
+  background: color-mix(in srgb, var(--chama) 16%, transparent);
   color: var(--text-mute);
 }
 
@@ -4276,7 +4426,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
    decorativo simula vivacidade; reserve para indicador preso a dado que muda
    de verdade". Uma sequência muda uma vez por dia. O esqueleto de
    carregamento mantém o pulso dele, porque ali há mesmo algo acontecendo. */
-.ofensiva__chama.is-viva { color: var(--warm); }
+.ofensiva__chama.is-viva { color: var(--chama); }
 
 @media (prefers-reduced-motion: reduce) {
   .ofensiva__chama.is-viva { animation: none; }
@@ -4360,7 +4510,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   width: 100%;
   min-height: 2.75rem;
   padding: var(--espaco-3) .75rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--fio-forte);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text);
@@ -4411,7 +4561,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
    quando abre: renderizada ao lado de "0 / 3000 ml", ela empurrava o número
    para duas linhas (UX P1-04, medido a 320 e 390). O número nunca quebra. */
 .agua__topo { display: flex; flex-wrap: wrap; align-items: center; gap: var(--espaco-3); }
-.agua__icone { display: grid; place-items: center; flex: none; color: var(--accent); }
+.agua__icone { display: grid; place-items: center; flex: none; color: var(--agua); }
 .agua__icone svg { width: 1.15rem; height: 1.15rem; }
 .agua__valor { flex: 1; min-width: 0; color: var(--text-dim); font-size: .84rem; white-space: nowrap; }
 .agua__valor b { color: var(--text); font-weight: 750; }
@@ -4436,7 +4586,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   font-weight: 600;
 }
 
-.progress__fill--agua { background: var(--accent); }
+.progress__fill--agua { background: var(--agua); }
 
 .agua__botoes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--espaco-3); }
 
@@ -4449,7 +4599,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   width: 100%;
   min-height: 3rem;
   padding: .4rem .3rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--fio-forte);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
@@ -4463,7 +4613,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 }
 
 .agua__botao span { color: var(--text-mute); font-size: var(--texto-xs); font-weight: 550; }
-.agua__botao:hover { border-color: var(--accent); background: var(--surface-3); }
+.agua__botao:hover { border-color: var(--agua); background: var(--surface-3); }
 .agua__botao:active { transform: scale(.96); }
 
 /* Valor que o app sugeriu, e não o que a pessoa digitou.
@@ -4471,7 +4621,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
    sem olhar, ele vira histórico falso — e o histórico é o que sustenta a
    comparação "evoluí?". Some no primeiro toque de edição. */
 [data-autopreenchido] {
-  color: var(--accent);
+  color: var(--agua);
   font-style: italic;
 }
 
@@ -4533,14 +4683,11 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 
 /* --------------------------------------------------------- série feita */
 
-/* Últimos dez segundos do descanso.
-   Pulso preso a dado que muda de verdade — o critério do catálogo Impeccable,
-   e o oposto exato da chama da ofensiva, que pulsava para sempre e saiu. */
-
-@keyframes descanso-acabando {
-  0%, 100% { opacity: 1; }
-  50% { opacity: .72; }
-}
+/* Últimos dez segundos do descanso (`@keyframes descanso-acabando`, opacidade
+   1 → .72 → 1) saíram em 16/09/2026: o cronômetro que os dispararia mora na
+   execução do treino (`workouts/`, T4.2 / onda 6) e nunca ganhou a classe.
+   Nasce de novo com o consumidor. O critério continua: pulso preso a dado que
+   muda de verdade — o oposto da chama da ofensiva, que pulsava para sempre. */
 
 
 /* ------------------------------------------------------- metas batidas */
@@ -4564,11 +4711,11 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   align-items: center;
   gap: var(--espaco-3);
   padding: .6rem .8rem;
-  border: 1px solid color-mix(in srgb, var(--warm) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--terra) 30%, transparent);
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--warm) 14%, var(--surface));
+  background: color-mix(in srgb, var(--terra) 14%, var(--surface));
   box-shadow: var(--edge), var(--shadow-lift);
-  color: var(--warm);
+  color: var(--terra);
   font-size: .82rem;
   font-weight: 650;
   line-height: 1.4;
@@ -4577,12 +4724,12 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 /* A faixa em ERRO: o enfileiramento falhou e o toque se perdeu. Mesma
    peça, contorno mais forte e o ícone de sincronia trocado por cor — não é
    perigo (o dado não foi destruído), é uma ação a refazer, e por isso é
-   `--warm` e não `--danger`. */
+   `--terra` e não `--danger`. */
 .fila--erro {
-  border-color: color-mix(in srgb, var(--warm) 70%, transparent);
-  background: color-mix(in srgb, var(--warm) 22%, var(--surface));
+  border-color: color-mix(in srgb, var(--terra) 70%, transparent);
+  background: color-mix(in srgb, var(--terra) 22%, var(--surface));
 }
-.fila--erro .fila__icone { color: var(--warm); }
+.fila--erro .fila__icone { color: var(--terra); }
 
 .fila[hidden] { display: none; }
 .fila__icone { display: grid; place-items: center; flex: none; }
@@ -4855,8 +5002,12 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   gap: 0;
-  padding: var(--espaco-1);
-  border: 1px solid var(--border);
+  /* 6 px, e não o degrau de 4: o foco da opção marcada é anel de 2 px com
+     vão de 2 px (`outline-offset`), e com 4 de padding o anel encostava na
+     borda do contêiner (decisão do dono, 16/09/2026). `calc` sobre o token
+     em vez de `6px` cru: a catraca de espaçamento não sobe. */
+  padding: calc(var(--espaco-1) * 1.5);
+  border: 1px solid var(--fio);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
 }
@@ -4913,8 +5064,12 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .segmented input:checked ~ .segmented__fundo:hover,
 .segmented label:hover input:checked ~ .segmented__fundo { background: var(--brand-strong); }
 
+/* Foco é `--brand`; `--agua` é cor de pilar. Anel COM VÃO, pelo mesmo motivo
+   do chip de dia (decisão do dono, 16/09/2026): a opção marcada é `--brand`
+   cheio, e sem o vão o foco sumia dentro dela. */
 .segmented input:focus-visible ~ .segmented__fundo {
-  box-shadow: 0 0 0 2px var(--accent);
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 
 /* A unidade encostada à direita, dentro do campo.
@@ -4953,10 +5108,10 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .app-bar__demo {
   margin-left: .4rem;
   padding: .1rem .38rem;
-  border: 1px solid color-mix(in srgb, var(--warm) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--terra) 30%, transparent);
   border-radius: var(--pill);
-  background: color-mix(in srgb, var(--warm) 12%, transparent);
-  color: var(--warm);
+  background: color-mix(in srgb, var(--terra) 12%, transparent);
+  color: var(--terra);
   font-size: var(--texto-xs);
   font-weight: 750;
   letter-spacing: .04em;
@@ -4999,7 +5154,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .demo-pessoa__aviso {
   margin: 0;
   padding-top: .8rem;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--fio);
   color: var(--text-mute);
   font-size: var(--texto-sm);
   line-height: 1.5;
@@ -5087,7 +5242,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   gap: var(--espaco-2);
   margin: 0 0 var(--espaco-6);
   padding: var(--espaco-1) 0 var(--espaco-1) var(--espaco-5);
-  border-left: 2px solid color-mix(in srgb, var(--warm) 55%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--terra) 55%, transparent);
   color: var(--text-mute);
   font-size: var(--texto-sm);
   line-height: 1.45;
@@ -5095,7 +5250,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 
 /* O link herda o alvo de 44px do `.btn-link`, e só a cor muda — o aviso é
    âmbar, e um link verde no meio dele leria como outra coisa. */
-.demo-aviso a { color: var(--warm); font-weight: 700; }
+.demo-aviso a { color: var(--terra); font-weight: 700; }
 .demo-aviso a:hover { color: var(--text); }
 
 /* O botão que já recebeu o toque e espera o servidor.
@@ -5581,7 +5736,8 @@ body.montando { overflow: hidden; }
 
 .campo-senha__olho svg { width: 1.2rem; height: 1.2rem; }
 .campo-senha__olho:hover { color: var(--text); background: var(--surface-3); }
-.campo-senha__olho:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Foco é `--brand`; `--agua` é cor de pilar. */
+.campo-senha__olho:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* O corte só existe enquanto a senha está OCULTA: o ícone mostra o que vai
    acontecer ao tocar, e não o estado em que está. Olho riscado com senha
@@ -5943,7 +6099,7 @@ body.montando { overflow: hidden; }
 .separador-ou::after {
   content: "";
   height: 1px;
-  background: var(--border);
+  background: var(--fio);
 }
 
 /* A tela de conectar a conta (o caso 4 da política de vínculo). */
@@ -6248,7 +6404,7 @@ body.montando { overflow: hidden; }
   min-width: 3.4rem;
   min-height: 2.15rem;
   padding: var(--espaco-1) .45rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--fio);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text-mute);
@@ -6287,7 +6443,7 @@ body.montando { overflow: hidden; }
   font-size: var(--texto-sm);
 }
 .series__item--atual {
-  border-color: var(--border-strong);
+  border-color: var(--fio-forte);
   border-style: dashed;
   color: var(--text);
 }
@@ -6406,7 +6562,7 @@ body.montando { overflow: hidden; }
   min-width: 0;
   min-height: 2.75rem;
   padding: .4rem .6rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--fio-forte);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
@@ -6631,7 +6787,7 @@ body.montando { overflow: hidden; }
 .agora-card--pesagem,
 .agora-card--vazio {
   background: var(--surface);
-  border-color: var(--border);
+  border-color: var(--fio);
 }
 
 .agora__rotulo {
@@ -6692,7 +6848,7 @@ body.montando { overflow: hidden; }
      davam 46px onde a escala pede 28 a 40 entre seções. */
   margin: 0;
   padding: var(--espaco-4) 0 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--fio);
   color: var(--text-dim);
   min-width: 0;
 }
@@ -6700,7 +6856,8 @@ body.montando { overflow: hidden; }
   display: block;
   color: var(--text);
   font-size: var(--texto-lg);
-  font-weight: 760;
+  /* 750 é o peso do número em todo tile; 760 era um degrau só dele */
+  font-weight: 750;
   letter-spacing: -.02em;
   line-height: 1.1;
 }
@@ -6739,7 +6896,7 @@ body.montando { overflow: hidden; }
    quatro medidas independentes que a pessoa lê de relance. */
 .resumo-dia > * + * {
   padding-left: var(--espaco-4);
-  border-left: 1px solid var(--border);
+  border-left: 1px solid var(--fio);
 }
 
 /* Com caloria e refeições movidas para o painel do dia, sobraram DUAS
@@ -6858,7 +7015,7 @@ body.montando { overflow: hidden; }
      de treino — uma pílula, um raio. */
   border-radius: var(--pill);
   background: var(--surface-2);
-  border: 1px solid var(--border);
+  border: 1px solid var(--fio);
   color: var(--text-mute);
   font-size: var(--texto-xs);
   font-weight: 700;
@@ -6878,7 +7035,7 @@ body.montando { overflow: hidden; }
   color: var(--brand-strong);
 }
 
-.meal--agora { border-color: var(--border-strong); }
+.meal--agora { border-color: var(--fio-forte); }
 
 /* -- As regras de senha, no cadastro ------------------------------------- */
 
@@ -6917,7 +7074,7 @@ body.montando { overflow: hidden; }
   bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + .6rem);
   z-index: var(--camada-aviso);
   padding: var(--espaco-5) var(--espaco-6);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--fio-forte);
   border-radius: var(--radius);
   background: var(--surface-2);
   box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
@@ -6997,7 +7154,7 @@ body.montando { overflow: hidden; }
   align-items: center;
   min-height: 44px;
   padding: var(--espaco-4) .2rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--fio);
 }
 
 .conquista-item:last-child { border-bottom: 0; }
@@ -7178,7 +7335,7 @@ body.montando { overflow: hidden; }
   min-width: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  border: 1px solid var(--border);
+  border: 1px solid var(--fio);
   border-radius: var(--radius);
 }
 
@@ -7196,7 +7353,7 @@ body.montando { overflow: hidden; }
   padding: .65rem .75rem;
   text-align: left;
   white-space: nowrap;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--fio);
 }
 
 .tabela-gestao thead th {
@@ -7223,7 +7380,7 @@ body.montando { overflow: hidden; }
   min-height: 44px;
   min-width: 44px;
   padding: 0 .75rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--fio);
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--text);
@@ -7250,7 +7407,7 @@ body.montando { overflow: hidden; }
   min-width: 0;
   overflow-x: auto;
   padding: .75rem var(--espaco-6);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--fio);
   background: var(--surface);
   -webkit-overflow-scrolling: touch;
 }
@@ -7314,7 +7471,7 @@ body.montando { overflow: hidden; }
   /* `--border`, e não `--surface-2`: trilha é o que diz que há uma barra
      mesmo quando ela está vazia, e superfície sobre superfície some no
      escuro (avaliação de 16/09/2026, U28). */
-  background: var(--border);
+  background: var(--fio);
 }
 
 .semana__preenche { display: block; height: 100%; background: var(--folha); }
@@ -7352,7 +7509,7 @@ body.montando { overflow: hidden; }
    porque informação transmitida só por cor some para quem não a distingue. */
 .delta { margin-left: .4rem; font-size: .78rem; font-weight: 720; }
 .delta--sobe { color: var(--brand-strong); }
-.delta--desce { color: var(--warm); }
+.delta--desce { color: var(--terra); }
 
 .dias-com-registro {
   display: block;
@@ -7418,7 +7575,8 @@ body.montando { overflow: hidden; }
      terço do cartão. Confere em 320, 375 e 430px. */
   white-space: nowrap;
   font-size: min(var(--texto-2xl), 6.7vw);
-  font-weight: 760;
+  /* 750 é o peso do número em todo tile; 760 era um degrau só dele */
+  font-weight: 750;
   line-height: 1.1;
 }
 
@@ -7442,9 +7600,12 @@ body.montando { overflow: hidden; }
    já vale para os controles do modo treino pela mesma razão. */
 .corrida-acoes .btn { min-height: 48px; }
 
+/* MESA & FERRO (15/09/2026): `--brasa`, não `--terra` — a direção C nomeia
+   `--brasa` para o pilar Corrida, e esta é a única cor de destaque que a
+   tela de corrida escrevia com o token genérico. */
 .corrida-lacuna {
   display: block;
-  color: var(--warm);
+  color: var(--brasa);
   font-family: var(--font);
   font-size: .72rem;
   font-weight: 620;
@@ -7540,7 +7701,7 @@ body.montando { overflow: hidden; }
   min-width: 0;
   min-height: 2.75rem;
   padding: 0 var(--espaco-4);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--fio-forte);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text);
@@ -7548,8 +7709,9 @@ body.montando { overflow: hidden; }
   font-size: var(--texto-md);
 }
 
+/* Foco é `--brand`; `--agua` é cor de pilar — mesmo no campo da água. */
 .agua-livre__campo:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 
@@ -7636,7 +7798,9 @@ body.montando { overflow: hidden; }
 .mapa__seta svg { width: 1.1rem; height: 1.1rem; }
 .mapa__area:hover .mapa__seta { color: var(--brand); }
 .mapa__area:hover { background: var(--surface-2); }
-.mapa__area:active { transform: scale(.96); }
+/* O `:active` mora na lista única da seção 8. Ele já esteve aqui, com o
+   mesmo `.96` escrito de novo — mesmo valor não é mesma lista, e a próxima
+   mudança de escala teria deixado o mapa para trás. */
 .mapa__area.is-active { background: var(--brand-soft); }
 
 .mapa__nome { font-size: var(--texto-base); font-weight: 680; letter-spacing: -.01em; }
@@ -7828,14 +7992,23 @@ body.montando { overflow: hidden; }
    O cartão de sessão do painel era o único tocável sem afundamento; ele
    entrou nas três listas daquela seção (transição, `:active`, saída de
    movimento reduzido), e `config/tests.py` confere que as três são a mesma
-   lista. Nada aqui declara uma segunda escala. */
+   lista. Nada aqui declara uma segunda escala. A área do mapa (`.mapa__area`)
+   foi a última a entrar, em 16/09/2026: afundava por regra própria com o
+   mesmo `.96`, e `config/test_design_system.py` passou a recusar a cópia. */
 
 /* ---- Processamento: o botão já tocado mostra que está trabalhando. ----
    `pwa.js` desliga o botão e marca `aria-busy` no envio; a opacidade de
    `:disabled` já existia (seção 8). O anel diz "esperando o servidor" sem
-   afirmar sucesso, e sai sozinho quando a página seguinte chega. */
+   afirmar sucesso, e sai sozinho quando a página seguinte chega.
+
+   `.btn.is-carregando` é o MESMO estado no `<a class="btn">` que leva a outra
+   tela: `pwa.js` escreve a classe e o `aria-busy` no toque, e a página nova
+   é o que os apaga. Entra como par do seletor, nunca como bloco próprio —
+   dois blocos divergiriam na primeira mudança do anel. */
+.btn.is-carregando,
 .btn[aria-busy="true"],
 .agua__botao[aria-busy="true"] { position: relative; }
+.btn.is-carregando::after,
 .btn[aria-busy="true"]::after,
 .agua__botao[aria-busy="true"]::after {
   content: "";
@@ -7953,6 +8126,7 @@ body.montando { overflow: hidden; }
   .demo__abrir,
   .fim__selo,
   .agua__eco { animation: none; }
+  .btn.is-carregando::after,
   .btn[aria-busy="true"]::after,
   .agua__botao[aria-busy="true"]::after { animation: none; }
   .app-bar, .tabbar, .tabbar__item.is-active, .wizard__avanco,
@@ -7971,14 +8145,14 @@ body.montando { overflow: hidden; }
 @media (min-width: 48rem) {
   .opcoes { grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); align-items: start; }
 }
-.opcao { border: 1px solid var(--border); }
+.opcao { border: 1px solid var(--fio); }
 .opcao--escolhida { border-color: var(--brand); box-shadow: var(--halo); }
-.opcao--recomendada:not(.opcao--escolhida) { border-color: var(--border-strong); }
+.opcao--recomendada:not(.opcao--escolhida) { border-color: var(--fio-forte); }
 .opcao__head { display: flex; align-items: center; justify-content: space-between; gap: var(--espaco-3); }
 .opcao__meta { margin: 0 0 var(--espaco-3); color: var(--text-dim); font-size: var(--texto-sm); }
 .opcao__equipamentos { margin: 0 0 var(--espaco-4); font-size: var(--texto-xs); }
 .opcao__comecar { margin-top: var(--espaco-5); }
-.opcoes__confirmar { border: 1px solid var(--warm); background: var(--warm-soft); }
+.opcoes__confirmar { border: 1px solid var(--terra); background: var(--terra-soft); }
 .opcoes__confirmar h2 { margin-top: 0; }
 
 /* Completo / Rápido: dois links que se comportam como o `.segmented`, e o
@@ -7988,7 +8162,7 @@ body.montando { overflow: hidden; }
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   padding: var(--espaco-1);
-  border: 1px solid var(--border);
+  border: 1px solid var(--fio);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
 }

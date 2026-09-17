@@ -61,6 +61,33 @@ def duracoes_cruas(css):
     return achados
 
 
+#: Catraca dos keyframes sem consumidor. Só desce.
+KEYFRAMES_ORFAOS_TETO = 0
+
+#: O que o shorthand `animation` escreve e que NÃO é nome de keyframe.
+PALAVRAS_DO_SHORTHAND = frozenset(
+    "none infinite both forwards backwards normal reverse alternate alternate-reverse "
+    "running paused ease ease-in ease-out ease-in-out linear step-start step-end steps "
+    "cubic-bezier var calc s ms".split()
+)
+
+
+def keyframes_orfaos(css):
+    """Cada `@keyframes X` que nenhuma `animation`/`animation-name` dispara.
+
+    Lê o CSS SEM comentários — este arquivo cita keyframe em frase de
+    explicação, e `serie-ok` mencionado num comentário não é consumidor."""
+    declarados = set(re.findall(r"@keyframes\s+([\w-]+)", css))
+    usados = set()
+    # `[;}]` fecha a declaração: a última de um bloco pode vir sem `;`, e
+    # `[^;]+` engoliria a regra seguinte — o mesmo cuidado de `duracoes_cruas`.
+    for corpo in re.findall(r"animation(?:-name)?\s*:\s*([^;{}]+)[;}]", css):
+        usados.update(re.findall(r"[a-zA-Z_][\w-]*", corpo))
+    # Palavra do shorthand não é nome de keyframe: `@keyframes both` existiria
+    # órfão e passaria escondido atrás do `both` de qualquer `animation`.
+    return sorted(declarados - (usados - PALAVRAS_DO_SHORTHAND))
+
+
 def _partes_reduzidas(css):
     for m in re.finditer(r"@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{", css):
         i, nivel = m.end(), 1
@@ -125,6 +152,53 @@ class TokensDeMovimentoTests(SimpleTestCase):
 
     def test_o_dur_antigo_e_apelido_do_estado(self):
         self.assertRegex(raiz_css(), r"--dur\s*:\s*var\(--mov-estado\)")
+
+
+class KeyframeSemConsumidorTests(SimpleTestCase):
+    """Keyframe que ninguém anima é linguagem morta: `serie-ok`, `serie-anel`,
+    `esqueleto` e `descanso-acabando` foram escritos para a execução do treino
+    e nunca ganharam a classe que os dispara (ela depende de `workouts/views.py`,
+    fora desta onda). Saem agora; se a onda 6 os quiser, nascem com o
+    consumidor no mesmo commit. `varrer` sai porque o anel nascia varrendo a
+    cada abertura — movimento que não confirma ação nenhuma."""
+
+    TETO = KEYFRAMES_ORFAOS_TETO
+
+    def test_o_leitor_enxerga_um_orfao(self):
+        """Controle positivo do leitor: sem isto, um CSS que declarasse os
+        keyframes de um jeito que a regex não lê deixaria a catraca verde por
+        não achar nada."""
+        self.assertEqual(keyframes_orfaos("@keyframes x { } .a { animation: y 1s; }"), ["x"])
+        self.assertEqual(keyframes_orfaos("@keyframes x { } .a { animation: x 1s; }"), [])
+        # `animation-name` também conta como consumidor.
+        self.assertEqual(keyframes_orfaos("@keyframes x { } .a { animation-name: x; }"), [])
+        # Duas animações na mesma declaração; a última do bloco sem `;`.
+        self.assertEqual(keyframes_orfaos("@keyframes x { } @keyframes y { } .a { animation: x 1s, y 2s }"), [])
+        self.assertEqual(keyframes_orfaos("@keyframes x { } .a { animation: y 1s } .x { color: red; }"), ["x"])
+        # Palavra do shorthand não esconde um keyframe com o mesmo nome.
+        self.assertEqual(keyframes_orfaos("@keyframes both { } .a { animation: y 1s both; }"), ["both"])
+        # O leitor recebe CSS SEM comentários; com comentário, a menção contaria.
+        self.assertEqual(keyframes_orfaos(sem_comentarios("@keyframes x { } /* animation: x; */")), ["x"])
+
+    def test_todo_keyframe_tem_quem_o_anime(self):
+        # Piso: um regex que não casasse `@keyframes` daria zero órfãos por
+        # não achar nada. Hoje são 18 declarados.
+        self.assertGreaterEqual(len(re.findall(r"@keyframes\s+[\w-]+", CSS_LIMPO)), 10)
+        orfaos = keyframes_orfaos(CSS_LIMPO)
+        self.assertLessEqual(len(orfaos), self.TETO, f"keyframes sem consumidor: {orfaos}")
+
+    def test_o_anel_nao_varre_ao_abrir(self):
+        self.assertNotIn("@keyframes varrer", CSS_LIMPO)
+        self.assertNotRegex(CSS_LIMPO, r"animation:[^;]*\bvarrer\b")
+
+    def test_os_anchors_de_movimento_continuam(self):
+        """`encher` ao abrir FICA (é a única recompensa da tela de progresso, e
+        `config/tests.py` diz por quê); `pulso` é o esqueleto, onde há mesmo
+        algo acontecendo. Este teste é o que impede a catraca de "limpar"
+        demais."""
+        self.assertIn("@keyframes encher", CSS_LIMPO)
+        self.assertIn("animation: encher", CSS_LIMPO)
+        self.assertIn("animation: pulso", CSS_LIMPO)
 
 
 class MovimentoReduzidoTests(SimpleTestCase):

@@ -1163,6 +1163,9 @@ Create `static/fonts/DMSans[opsz,wght].woff2` + `LICENSE` (OFL); Modify
 
 #### T3.3 — famílias de cartão e componentes (com `ring.html` e `sparkline.html`)
 
+> **16/09/2026 (noite, N1):** só a MEDIDA — cartão dentro de cartão = 0 em sete rotas (`config/test_cartoes.py`). As famílias esperam três decisões de direção (fio no topo × esquerda; `.card` alias × reescrita; sombra do prato).
+
+
 **Origem:** DESIGN DV-C + DV-K (cético 2 item 7) · **Classe:** B ·
 **Arquivos:** Modify `static/css/app.css` §5 (`.prato` uma por tela, fio de
 pilar 3 px, sem sombra; `.cartao` hairline raio 16 linhas 56/64; `.nota`
@@ -1181,6 +1184,9 @@ colunas 64 px; meta tracejada; hoje na cor do pilar; `aria-label`; lista em
 
 #### T3.4 — botões: seis variantes, uma escala de `:active`
 
+> **16/09/2026 (noite, N5):** parcial — `class="btn"` sem variante = 0 (lista fechada), `.mapa__area` na escala única, `is-carregando` em `<a class="btn">` (`data-arquivo` exclui o TCX). Restou: `--tonal`/`--texto`/`--icone`, alturas 52/48/44, "um primário por template" (inviável por página — ver `fatos-onda-3.md`).
+
+
 **Origem:** DESIGN DV-B + PA-07 + CA-06 · **Classe:** B · **Arquivos:**
 Modify `static/css/app.css` §10 (`.btn` + `--primary` 52 / `--tonal` 48 /
 `--texto` 44 / `--perigo` contorno / `--icone` / `--sm`; uma regra
@@ -1194,6 +1200,9 @@ mantido; `class="btn"` sem variante = 0; um `.btn--primary` por template).
 
 #### T3.5 — inputs: uma receita de campo, um foco
 
+> **16/09/2026 (noite, N2 de `2026-09-16-onda-3-noite.md`):** feito — foco `--brand` nos cinco controles, `--glow` anel de 1 px, `[aria-invalid]` no CSS e ids do `aria-describedby` em `field.html`. Restou: 52/raio 12/`--surface-2` no campo, sufixo de unidade, renome `.segmented--envolve`, checkbox círculo 24.
+
+
 **Origem:** DESIGN DV-I + PA-06 · **Classe:** B · **Arquivos:** Modify
 `static/css/app.css` §11 (52, raio 12, `--surface-2` OU `--fio-forte`
 ≥ .46 — nunca branco + .22, medido 1,58:1; foco = borda 2 px `--brand` em
@@ -1205,6 +1214,9 @@ círculo 24 em alvo 44), `templates/partials/field.html`, `accounts/forms.py`.
   da fronteira ≥ 3:1 medido. Implementar; QA nos formulários a 320. Commit.
 
 #### T3.6 — sprite em `base.html`, com medição e fora do shell offline
+
+> **16/09/2026 (noite, N3):** feito — sprite na base fora do shell, traço 2 em cada `<symbol>`, ficha +2 939 B medidos (< +4 KB). Restou: emoji → glifo nas conquistas (3 desenhos + `card.js`), ponto duotone, chevron único.
+
 
 **Origem:** DESIGN DV-S (cético 1 item 9; conflito 8) · **Classe:** B ·
 **Arquivos:** Modify `templates/partials/icones.html` (~14 glifos, traço 2,
@@ -1224,6 +1236,9 @@ no lugar dos emoji), `static/css/app.css` (chevron único girando 240 ms).
   por `nav`). Commit citando "Três ausências no mapa" e "ficha 8,9 kB".
 
 #### T3.7 — motion: três durações; keyframes órfãos com destino
+
+> **16/09/2026 (noite, N4):** feito — `varrer` e os quatro órfãos saíram, catraca de órfãos em zero, 760 → 750. `encher` ficou.
+
 
 **Origem:** DESIGN DV-M · **Classe:** B · **Arquivos:** Modify
 `static/css/app.css` (`varrer .9s` sai; `encher` ao abrir FICA — teste e

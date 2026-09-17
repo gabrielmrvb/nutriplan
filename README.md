@@ -30,7 +30,7 @@ O app fica em http://localhost:8000 e o admin em http://localhost:8000/admin/.
 > — de propósito fora do OneDrive, que corromperia os arquivos do banco ao sincronizar.
 > Como não é um serviço do Windows, ele precisa ser iniciado a cada reboot pelo script acima.
 
-Do zero, em outra máquina: criar venv, `pip install -r requirements.txt`, copiar
+Do zero, em outra máquina: criar venv, `pip install -r requirements.txt` (e `-r requirements-dev.txt` para QA de navegador e capturas), copiar
 `.env.example` para `.env`, `migrate`, `seed_catalog`, `seed_workouts`, `createsuperuser`.
 
 ### Testes
@@ -38,6 +38,8 @@ Do zero, em outra máquina: criar venv, `pip install -r requirements.txt`, copia
 ```bash
 .venv\Scripts\python.exe manage.py test
 ```
+
+O QA de navegador (`scripts/qa/nav.py`) e as capturas precisam de `requirements-dev.txt`.
 
 ## Deploy
 

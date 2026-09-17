@@ -23,6 +23,9 @@
     lê o `--bg` do `:root` e cobra que ele esteja aqui; foi esse teste que
     recusou o push quando a base virou clara e esta tela ficou escura.
 
+    MESA & FERRO (15/09/2026): valores atualizados de novo, pelo mesmo
+    motivo — linho no claro, grafite Ferro no escuro.
+
     O comentário é `{% templatetag openblock %} comment {% templatetag closeblock %}`
     e não `<!-- -->` por dois motivos: o do projeto não vai para o navegador,
     e ele não analisa tag nenhuma no que está dentro. Um `{% templatetag
@@ -33,13 +36,13 @@
   <style>
     :root {
       color-scheme: light dark;
-      --bg: #f4f6f5; --surface: #ffffff; --linha: rgba(16,32,22,.115);
-      --text: #101715; --dim: #4b5b55; --brand: #0c6b40; --on-brand: #ffffff;
+      --bg: #f5f3ee; --surface: #ffffff; --linha: rgba(20,31,26,.10);
+      --text: #141f1a; --dim: #485550; --brand: #0c6b40; --on-brand: #ffffff;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #070c0b; --surface: #10161a; --linha: rgba(150,165,180,.16);
-        --text: #f7f9fa; --dim: #b7bec8; --brand: #10c98a; --on-brand: #070c0b;
+        --bg: #0e1412; --surface: #161d1a; --linha: rgba(255,255,255,.08);
+        --text: #f4f7f5; --dim: #b6c1bb; --brand: #22c98a; --on-brand: #04140e;
       }
     }
     /* `border-box` e o padding entram na conta do `min-height`. Sem isso,
@@ -74,7 +77,13 @@
       O erro foi do nosso lado, não seu. Nada que você registrou foi perdido —
       tente de novo em alguns instantes.
     </p>
-    <a class="btn" href="/">Tentar de novo</a>
+    {% comment %}
+      `btn--primary` não pinta nada aqui — o CSS acima só conhece `a.btn`, e
+      é assim de propósito (esta tela não carrega o `app.css`). O rótulo está
+      escrito porque a régua de `config/test_design_system` vale para o HTML:
+      todo `.btn` diz qual botão é, e a porta da tela de erro é a primária.
+    {% endcomment %}
+    <a class="btn btn--primary" href="/">Tentar de novo</a>
   </div>
 </body>
 </html>

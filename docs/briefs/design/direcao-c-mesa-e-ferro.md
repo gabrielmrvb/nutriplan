@@ -43,7 +43,7 @@ verdes com papéis diferentes"), levada ao nível do canvas.
 | `--surface-focus` | `#e3f1e8` | `#123024` | UMA por tela |
 | `--text` | `#141f1a` | `#f4f7f5` | |
 | `--text-dim` | `#485550` | `#b6c1bb` | |
-| `--text-mute` | `#55625c` | `#8f9b95` | |
+| `--text-mute` | `#55625c` | `#8f9b95` | ajustado depois — ver nota abaixo |
 | `--brand` | `#0c6b40` | `#22c98a` | AGIR: CTA, link, aba ativa, foco |
 | `--brand-strong` | `#08512f` | `#4ddb9f` | só :active/hover |
 | `--brand-soft` | `#dff0e6` | `#0f2a20` | botão tonal, chip |
@@ -69,6 +69,14 @@ surface-3, pior caso); `--brand` como texto 6,58 sobre branco, 5,56 sobre
 surface-2 e 6,28 como texto sobre branco; `--terra` 6,44 como texto.
 Ferro: todos os pilares entre 6,4 e 9,1 sobre qualquer superfície;
 `--text-mute` 4,68 sobre surface-3 (pior caso, acima de 4,5).
+
+**Ajustes medidos depois da direção (16/09/2026), e o contrato é o DESIGN.md:**
+`--text-mute` Ferro `#8f9b95` → `#a0aca6` (4,68 no pior fundo; a margem da
+suíte é 5,0); `--surface-2` Ferro `#1d2622` → `#243029` e `--surface-3`
+`#26312b` → `#2c3a32` (U28: a segunda superfície precisa de ≥ 1,2:1 sobre a
+primeira, e sobre `#161d1a` o valor daqui dava 1,10; a terceira sobe junto
+para o hover continuar existindo). Trilha de anel e de barra é `--fio`, não
+`--surface-2` — superfície sobre superfície some no escuro.
 
 **A regra de três.** Cor de pilar aparece em pelo menos TRÊS lugares da área
 (fio do prato, arco/coluna do gráfico, ponto do ícone) e em NENHUM botão.
@@ -154,8 +162,9 @@ tem **um ponto preenchido** (círculo r=2,5) na cor do pilar via
 sem segundo arquivo, e é o mesmo motivo do "N com folha" do logo. Tamanhos:
 20 na tabbar (hoje 21,6 — mantém), 24 em eyebrow e stat, 32 em estado vazio.
 Emoji sai de Conquistas (troféu, halter, medalha entram no sprite). Chevron
-único (▾ de texto sai). O mapa de áreas continua SEM ícone (decisão do
-CLAUDE.md fica); a tela Áreas ganha.
+único (▾ de texto sai). O mapa de áreas em `<details>` foi aposentado
+(UX-01) — não há mais o que ficar sem ícone; a tela Áreas (`/areas/`)
+ganha.
 
 ## 8. Cartões
 
