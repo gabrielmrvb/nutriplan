@@ -258,9 +258,13 @@ class RecordeTests(BaseDeConquistas):
     def test_a_carga_nao_e_persistida_no_contexto(self):
         """Decisão de privacidade, e é o que permite o card sair sem número.
 
-        A chave é `exercício:data`, e não `exercício:carga`, exatamente para o
-        peso levantado não precisar existir aqui — o contexto pode acabar
-        dentro de uma imagem que a pessoa manda para um grupo.
+        A chave é `exercício:data`, e não `exercício:carga` — por isso a
+        checagem é só no CONTEXTO, e não na chave: a chave carrega o PK do
+        exercício, um inteiro de sequência do banco, que pode conter "97" ou
+        "60" por pura coincidência de quantas linhas já foram semeadas nesta
+        suíte (rodar este arquivo ao lado de outro que também semeia
+        exercícios desloca o PK — não é o peso vazando). O que a decisão de
+        privacidade promete é sobre `contexto`, o campo que vira imagem.
         """
         user = self.pessoa()
         exercicio = Exercise.objects.filter(is_active=True).first()
@@ -270,10 +274,59 @@ class RecordeTests(BaseDeConquistas):
         services.avaliar(user, hoje=SEGUNDA + timedelta(days=1))
 
         conquista = UserAchievement.objects.get(user=user, slug="novo-recorde")
-        guardado = "%s %s" % (conquista.chave, conquista.contexto)
+        guardado = str(conquista.contexto)
         self.assertNotIn("97", guardado)
         self.assertNotIn("60", guardado)
         self.assertEqual(set(conquista.contexto), {"exercicio"})
+
+    def test_a_chave_e_exercicio_e_data_nada_mais(self):
+        """Pino do formato que a decisão de privacidade acima depende: a
+        `chave` das duas regras de RECORDE (`_recorde` e `_melhor_serie`,
+        achievements/regras.py) é `"%d:%s" % (exercicio_id, data.isoformat())`
+        — nunca carga, nunca reps, nunca o produto. É esse formato fixo que
+        deixa `test_a_carga_nao_e_persistida_no_contexto` checar só o
+        `contexto`: se um dia a chave também carregasse o peso, checar
+        apenas o contexto pararia de provar a privacidade.
+
+        Sabotagem: colar o produto reps×carga na chave de `_melhor_serie`
+        (por exemplo para "diferenciar" ocorrências) faz a asserção da
+        melhor-série ficar vermelha.
+        """
+        user = self.pessoa()
+        exercicio = Exercise.objects.filter(is_active=True).first()
+        dia = SEGUNDA + timedelta(days=1)
+        self.treinar(user, SEGUNDA, exercicio, carga="60")   # 60 kg × 10 = 600
+        self.treinar(user, dia, exercicio, carga="65")       # 65 kg × 10 = 650: carga E melhor série
+
+        services.avaliar(user, hoje=dia)
+
+        esperado = "%d:%s" % (exercicio.pk, dia.isoformat())
+        recorde = UserAchievement.objects.get(user=user, slug="novo-recorde")
+        melhor_serie = UserAchievement.objects.get(user=user, slug="melhor-serie")
+        self.assertEqual(recorde.chave, esperado)
+        self.assertEqual(melhor_serie.chave, esperado)
+
+    def test_a_tela_conta_as_duas_especies_de_recorde(self):
+        """`/conquistas/` tinha UMA figura "recordes" (achievements/views.py,
+        ~l. 99), mas o filtro contava só o slug `novo-recorde` — quem só
+        tinha `melhor-serie` (a SEGUNDA espécie da mesma família RECORDE,
+        `achievements/regras.py`) via "0 recordes" com uma conquista de
+        recorde listada logo abaixo, dizendo o oposto.
+
+        Sabotagem: reverter para `len(por_slug.get("novo-recorde", []))`
+        deixa este teste vermelho sem mexer em nenhum outro da classe —
+        nenhum deles pede só `melhor-serie`."""
+        user = self.pessoa()
+        self.client.force_login(user)
+        UserAchievement.objects.create(user=user, slug="melhor-serie", chave="1:2026-08-31")
+
+        html = self.client.get(reverse("achievements:list")).content.decode()
+
+        self.assertRegex(
+            html,
+            r'<span class="conquistas__numero num">1</span>\s*'
+            r'<span class="conquistas__rotulo">recorde</span>',
+        )
 
 
 class UnicidadeTests(BaseDeConquistas):

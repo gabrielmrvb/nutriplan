@@ -33,7 +33,10 @@ from django.templatetags.static import static
 #: (visto no navegador local, com o servidor já entregando o novo). O teste
 #: que nasceu disso achou o `card.js` na mesma situação. Todo arquivo que
 #: passar por `asset()` tem de estar aqui; `push/tests.py` confere.
-VERSIONED = ("css/app.css", "js/pwa.js", "js/fila.js", "js/corrida.js", "js/card.js")
+VERSIONED = (
+    "css/app.css", "js/pwa.js", "js/fila.js", "js/corrida.js", "js/card.js",
+    "js/conquista.js",
+)
 
 #: {caminho: (assinatura do stat, hash do conteúdo)}
 _cache = {}
