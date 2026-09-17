@@ -228,12 +228,33 @@ class OMedidorDeProgressaoTests(TestCase):
         self.assertEqual(escritas, [])
         self.assertEqual((ExerciseLog.objects.count(), list(ExerciseLog.objects.order_by("pk").values_list("pk", "weight_kg", "reps")[:50])), antes)
         texto = saida.getvalue()
-        for chave in ("aberturas", "manter", "retomar", "paradas exatas em rep_max", "sem pausa", "intervalo"):
+        for chave in ("aberturas", "manter", "retomar", "paradas exatas em rep_max", "sem pausa", "intervalo", "versão rápida"):
             self.assertIn(chave, texto, texto)
+
+    def test_conta_os_usos_da_versao_rapida_dos_ultimos_trinta_dias(self):
+        """O dado que decide a rápida em 30 dias (ficha única, 17/09/2026):
+        um uso por pessoa e dia; o de 31 dias atrás fica de fora."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from plans.tests import create_complete_user
+        from workouts.models import EventoDeProduto
+
+        hoje = timezone.localdate()
+        outra = create_complete_user(email="medir-rapida@exemplo.com")
+        EventoDeProduto.objects.create(user=self.pessoa, nome=EventoDeProduto.VERSAO_RAPIDA, date=hoje)
+        EventoDeProduto.objects.create(user=self.pessoa, nome=EventoDeProduto.VERSAO_RAPIDA, date=hoje - timedelta(days=2))
+        EventoDeProduto.objects.create(user=outra, nome=EventoDeProduto.VERSAO_RAPIDA, date=hoje - timedelta(days=29))
+        EventoDeProduto.objects.create(user=outra, nome=EventoDeProduto.VERSAO_RAPIDA, date=hoje - timedelta(days=31))
+        saida = io.StringIO()
+        call_command("medir_progressao", stdout=saida)
+        self.assertIn("versão rápida: 3 uso(s) em 2 pessoa(s) nos últimos 30 dias", saida.getvalue())
 
     def test_o_custo_nao_cresce_por_exercicio(self):
         """Duas consultas fixas (planos e registros) — não uma por exercício
         nem por pessoa: é um instrumento para rodar sobre produção inteira."""
         with CaptureQueriesContext(connection) as ctx:
             call_command("medir_progressao", stdout=io.StringIO())
-        self.assertLessEqual(len(ctx.captured_queries), 4, [q["sql"][:60] for q in ctx.captured_queries])
+        # 4 -> 6 (17/09/2026): as duas agregações da versão rápida (usos e pessoas), fixas.
+        self.assertLessEqual(len(ctx.captured_queries), 6, [q["sql"][:60] for q in ctx.captured_queries])
