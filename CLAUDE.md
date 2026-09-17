@@ -35,8 +35,9 @@ uma linha de razão, e segue. Vetos vêm depois, no relatório; nunca antes.
 
 **Padrões já decididos — não perguntar de novo:** superpowers em toda missão
 · TDD + sabotagem 100 % vermelha + revisão adversarial + suíte · o gate é o
-CI, fluxo branch → PR → FILA DE MERGE (`scripts/github.py enfileirar`;
-ruleset sem bypass, merge commit, lotes de dois)
+CI, fluxo branch → PR → FILA (`scripts/github.py enfileirar`: a fila
+local desta máquina, porque a do GitHub só existe em organização; merge
+commit; `strict` intacto)
 · deploy provado por `/saude/` + smoke + QA em produção com conta descartável
 pelo signup público, conta apagada pela tela, demo intacto · `scripts/qa/
 nav.py` (CDP) para navegador, inclusive sites de terceiros na sessão logada do
@@ -1631,21 +1632,30 @@ consegue conferir se ele rodou. Desde então:
   hook, `manage.py test --verbosity=1 --noinput` — em todo PR para `main`
   e em todo push que chegue lá, com Postgres 16 de serviço (a versão de
   produção), sem segredo nenhum, teto de 40 minutos e o log como artefato;
-- `main` tem um RULESET (Settings → Rules, `scripts/github.py
-  fila-ativar`): PR obrigatório para todo mundo (sem `bypass_actors` —
-  o dono inclusive), o check **"suíte completa"** obrigatório, FILA DE
-  MERGE por merge commit em lotes de no máximo dois, sem force push, sem
-  apagar. A proteção clássica de 16/09 (com `strict`) saiu: com quatro
-  sessões mergeando, `strict` deixava um PR verde "behind" no meio do
-  check, duas vezes no mesmo PR — a fila é quem serializa e atualiza;
-- o fluxo é **branch → PR → check verde → `enfileirar` → a fila mergeia →
-  `/saude/`**. A fila cria uma branch temporária por grupo e dispara
-  `merge_group` — o fluxo do Actions escuta esse evento, senão o check
-  nunca chega e a fila espera até o tempo esgotar. Sem `gh` nesta
-  máquina, o helper é `scripts/github.py` (`pr`, `status`, `esperar`,
-  `enfileirar [--esperar]`, `fila`, `fechar`, `protecao`; `merge` só serve
-  sem a fila e a fila o recusa), com o token do Git Credential Manager —
-  nunca impresso, nunca em argumento;
+- `main` tem branch protection pela API: o check **"suíte completa"** verde
+  é obrigatório, a branch tem de estar atualizada (`strict`), vale para
+  admin (`enforce_admins`), sem force push, sem apagar. Push direto é
+  recusado — para todo mundo, o dono inclusive;
+- **A FILA DE MERGE DO GITHUB NÃO EXISTE EM REPOSITÓRIO DE CONTA PESSOAL
+  (17/09/2026)** — a API devolve 422 "Invalid rule 'merge_queue'" e o
+  formulário de Settings → Rules não oferece "Require merge queue";
+  conferido nos dois. Com `strict` e quatro sessões mergeando, um PR
+  verde ficava "behind" no meio do check (duas vezes no #13). A resposta
+  é a FILA LOCAL: `scripts/github.py enfileirar <n>` põe uma senha em
+  `C:\Users\biel-\nutriplan-fila\` (fora de qualquer worktree, uma por PR,
+  em ordem de chegada), e a sessão da vez faz o laço que o `strict` pede —
+  merge de `main` na branch → push → check verde → merge — enquanto as
+  outras esperam. Serializa as sessões DESTA máquina, que era de onde
+  vinha a corrida. Posse abandonada (90 min) é liberada sozinha. O ruleset
+  com a fila do GitHub (`corpo_da_fila`, `fila-ativar`) e o gatilho
+  `merge_group` no fluxo ficam PRONTOS para o dia em que o repositório
+  morar numa organização — decisão do dono, não desta sessão;
+- o fluxo é **branch → PR → `enfileirar` (espera a vez, atualiza, espera o
+  check, mergeia) → `/saude/`**. Sem `gh` nesta máquina, o helper é
+  `scripts/github.py` (`pr`, `status`, `esperar`, `enfileirar`, `fila`,
+  `fechar`, `protecao`; `merge` à mão só fora da fila, e é o que cria a
+  corrida), com o token do Git Credential Manager — nunca impresso, nunca
+  em argumento;
 - o `pre-push` local virou ATALHO: no worktree descartável do SHA que sobe,
   `config` + teste dourado + doutrina + gate por letra + orçamentos, em
   poucos minutos; `NUTRIPLAN_SUITE_COMPLETA=1` roda tudo localmente como
@@ -1722,10 +1732,14 @@ Actions —, e isso implica três coisas escritas:**
 
 - **cold start só se o ping falhar por mais de 15 minutos.** O free do
   Render dorme após 15 min sem tráfego e acorda em 37–60 s (medido na
-  avaliação de 16/09). Com o ping de 5 em 5 min, o serviço só dorme se
-  DUAS rodadas seguidas do Actions faltarem — o relógio do Actions atrasa
-  (5–15 min em hora cheia), então um cold start ocasional continua possível
-  e não é defeito do app;
+  avaliação de 16/09). **O `schedule` do GitHub NÃO segura isso sozinho**
+  — medido em 17/09: o cron `*/5` rodou UMA vez em oito horas, o serviço
+  dormiu e `/saude/` levou 38 s depois de 30 min parado. Por isso o relógio
+  de verdade é o LAÇO dentro da rodada (`lembretes.yml`: um job de ~5h45
+  batendo a cada 5 min e disparando a próxima rodada com o `GITHUB_TOKEN`
+  ao acabar); o `schedule` é só o gatilho de reserva que religa a corrente.
+  Um cold start ocasional continua possível (runner indisponível, corrente
+  quebrada até o `schedule` religar) e não é defeito do app;
 - **o Neon dorme entre refeições, de propósito.** Uma consulta a cada 5 min
   o manteria acordado o dia inteiro (182 CU-h contra 100 de cota). Por isso
   a tarefa, depois de rodar, calcula a próxima refeição de quem tem
@@ -1736,8 +1750,10 @@ Actions —, e isso implica três coisas escritas:**
 - **dependência da política do free.** Render pode mudar o tempo de sono,
   as horas gratuitas (750 h/mês por workspace hoje) ou bloquear o ping;
   GitHub pode desligar o `schedule` de repositório sem atividade por 60
-  dias (ele avisa por e-mail) e atrasa o cron sob carga; o Neon pode
-  reduzir a cota. Nada disso quebra o app — só os lembretes e o cold start.
+  dias (ele avisa por e-mail), atrasa ou pula o cron sob carga, e a corrente
+  de rodadas de ~6 h (repositório público, minutos ilimitados) é uso que a
+  política de Actions pode um dia questionar; o Neon pode reduzir a cota.
+  Nada disso quebra o app — só os lembretes e o cold start.
 
 **O que mudaria se um dia virar pago:** instância `starter` no Render
 (~US$ 7/mês) elimina o sono e o ping; o cron do Render (≥ US$ 1/mês,
