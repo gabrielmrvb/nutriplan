@@ -400,6 +400,16 @@ def calculate(inputs: PlanInputs) -> PlanResult:
         # é por isso que a trava tem de estar aqui e não na tela que oferece o
         # corte.
         piso = max(_round(bmr), Decimal(ABSOLUTE_MIN_KCAL[inputs.sex]))
+        # O TETO É SIMÉTRICO AO PISO, e existe pelo mesmo motivo do outro
+        # lado: "Prefiro me mexer mais" virou "Cortar 150" para quem ganha
+        # massa, e o pedido de "aumentar" também acumula sem limite —
+        # `kcal_adjustment` soma AJUSTE_KCAL a cada resposta, sem teto embutido
+        # nele mesmo. `SAFE_MAX_KCAL` é o mesmo teto que `target_kcal` aplica
+        # para Emagrecer e Manter; aqui ele vale para qualquer objetivo,
+        # porque quem pediu o aumento manual está pedindo mais do que o
+        # cálculo já deu — a mesma suspeita de conta otimista que justifica o
+        # teto no caminho automático.
+        teto = Decimal(SAFE_MAX_KCAL)
         if pedido < piso:
             # A trava vence o pedido manual. Comer abaixo da taxa metabólica
             # basal não acelera nada: derruba o treino e come músculo.
@@ -407,6 +417,12 @@ def calculate(inputs: PlanInputs) -> PlanResult:
             adjust_note = (
                 "O ajuste que você pediu levaria a meta abaixo do seu gasto de "
                 "repouso, então ela parou no mínimo seguro."
+            )
+        elif pedido > teto:
+            target = teto
+            adjust_note = (
+                f"O ajuste que você pediu levaria a meta acima de {SAFE_MAX_KCAL} "
+                "kcal, então ela parou no teto de segurança."
             )
         else:
             target = pedido

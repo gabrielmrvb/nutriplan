@@ -19,6 +19,8 @@ from decimal import Decimal
 
 from django.utils import timezone
 
+from accounts.models import Goal
+
 #: Quanto a média precisa mudar, em quilos, para ser considerada movimento.
 #:
 #: Cento e cinquenta gramas por semana é menos que o erro de uma balança
@@ -94,7 +96,14 @@ class Tendencia:
     variacao_semanal: object
     #: Quantas semanas seguidas sem movimento relevante.
     semanas_paradas: int
-    #: O app deve sugerir recalibragem?
+    #: O que a estagnação pede, por objetivo: "cortar" (CUT), "aumentar"
+    #: (BULK) ou `None` — MAINTAIN e RECOMP não têm ajuste a sugerir, porque
+    #: a média parada É a meta dos dois. Sugerir corte para quem quer GANHAR
+    #: massa (ou o contrário) seria o app remando contra o objetivo de quem
+    #: pediu.
+    sugestao: object
+    #: O app deve sugerir recalibragem? Mantido para quem já lê este campo —
+    #: é sempre `bool(sugestao)`.
     sugerir_recalibragem: bool
     #: Quantas pesagens faltam para a leitura ser confiável.
     faltam_registros: int
@@ -164,6 +173,17 @@ def respondeu_ha_pouco(user, agora=None) -> bool:
     return (agora or timezone.now()) - quando < ESPERA_APOS_RECALIBRAR
 
 
+#: O que a estagnação sugere para cada objetivo. CUT quer perder, então
+#: sugere cortar; BULK quer ganhar, então sugere aumentar. MAINTAIN e RECOMP
+#: ficam de fora do dicionário de propósito — `.get` devolve `None` para os
+#: dois, e para qualquer objetivo vazio ou desconhecido, sem precisar
+#: enumerá-los aqui também.
+_SUGESTAO_POR_OBJETIVO = {
+    Goal.CUT: "cortar",
+    Goal.BULK: "aumentar",
+}
+
+
 def analisar(user) -> Tendencia:
     """Lê o histórico de peso e devolve o que ele está dizendo."""
     entries = list(user.weight_entries.all())
@@ -177,6 +197,7 @@ def analisar(user) -> Tendencia:
             semanas=semanas,
             variacao_semanal=None,
             semanas_paradas=0,
+            sugestao=None,
             sugerir_recalibragem=False,
             faltam_registros=max(0, 2 - registros),
         )
@@ -190,15 +211,18 @@ def analisar(user) -> Tendencia:
             break
         paradas += 1
 
+    # A média parada continua sendo relatada; o que espera duas semanas é o
+    # CONVITE a mexer na dieta outra vez — não o fato de ela estar parada.
+    pede_decisao = paradas >= SEMANAS_PARA_RECALIBRAR and not respondeu_ha_pouco(user)
+    goal = getattr(getattr(user, "profile", None), "goal", None)
+    sugestao = _SUGESTAO_POR_OBJETIVO.get(goal) if pede_decisao else None
+
     return Tendencia(
         semanas=semanas,
         variacao_semanal=variacao,
         semanas_paradas=paradas,
-        # A média parada continua sendo relatada; o que espera duas semanas é
-        # o convite a mexer na dieta outra vez.
-        sugerir_recalibragem=(
-            paradas >= SEMANAS_PARA_RECALIBRAR and not respondeu_ha_pouco(user)
-        ),
+        sugestao=sugestao,
+        sugerir_recalibragem=bool(sugestao),
         faltam_registros=0,
     )
 

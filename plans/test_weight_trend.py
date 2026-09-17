@@ -14,7 +14,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts.models import WeightEntry
+from accounts.models import Goal, WeightEntry
 
 from . import weight_trend
 from .tests import CatalogFixture, create_complete_user
@@ -202,6 +202,92 @@ class RecalibragemTests(TestCase):
 
         self.assertGreaterEqual(com_corte.target_kcal, sem_corte.bmr_kcal)
         self.assertIn("mínimo seguro", com_corte.notes)
+
+    def test_the_raise_never_pushes_the_target_above_the_safety_ceiling(self):
+        """O teto é simétrico ao piso: o pedido manual também não fura o
+        limite de segurança, do outro lado."""
+        from decimal import Decimal as D
+
+        from accounts.models import ActivityLevel, Goal, Sex
+
+        from .calculations import PlanInputs, SAFE_MAX_KCAL, calculate
+
+        base = dict(
+            sex=Sex.MALE,
+            weight_kg=D("70"),
+            height_cm=175,
+            age_years=25,
+            activity_level=ActivityLevel.SEDENTARY,
+            goal=Goal.BULK,
+            session_minutes=(),
+        )
+        com_aumento = calculate(PlanInputs(**base, kcal_adjustment=5000))
+
+        self.assertLessEqual(com_aumento.target_kcal, SAFE_MAX_KCAL)
+        self.assertIn("teto de segurança", com_aumento.notes)
+
+    def test_quem_ganha_massa_ouve_aumentar_nao_cortar(self):
+        """Sugerir corte para quem quer GANHAR massa e empacou seria o app
+        remando contra o objetivo da própria pessoa."""
+        self.user.profile.goal = Goal.BULK
+        self.user.profile.save()
+        self.user.weight_entries.all().delete()
+        for semana in range(4):
+            registrar_semana(self.user, semana, [100, 100, 100])
+
+        self.assertEqual(weight_trend.analisar(self.user).sugestao, "aumentar")
+
+    def test_quem_corta_ouve_cortar(self):
+        """CONTROLE: o padrão (CUT) continua pedindo corte, não os dois."""
+        self.user.weight_entries.all().delete()
+        for semana in range(4):
+            registrar_semana(self.user, semana, [100, 100, 100])
+
+        self.assertEqual(weight_trend.analisar(self.user).sugestao, "cortar")
+
+    def test_quem_mantem_nao_ouve_nada(self):
+        """Estabilidade É a meta de quem mantém — não há o que sugerir."""
+        self.user.profile.goal = Goal.MAINTAIN
+        self.user.profile.save()
+        self.user.weight_entries.all().delete()
+        for semana in range(4):
+            registrar_semana(self.user, semana, [100, 100, 100])
+
+        t = weight_trend.analisar(self.user)
+        self.assertIsNone(t.sugestao)
+        self.assertFalse(t.sugerir_recalibragem)
+
+    def test_quem_recompoe_tambem_nao_ouve_nada(self):
+        """RECOMP também não tem corte nem aumento sugerido: o déficit
+        pequeno já é a prescrição inteira do objetivo."""
+        self.user.profile.goal = Goal.RECOMP
+        self.user.profile.save()
+        self.user.weight_entries.all().delete()
+        for semana in range(4):
+            registrar_semana(self.user, semana, [100, 100, 100])
+
+        self.assertIsNone(weight_trend.analisar(self.user).sugestao)
+
+    def test_the_view_accepts_aumentar_and_raises_the_target(self):
+        antes = self.user.profile.kcal_adjustment
+
+        self.client.post(reverse("plans:recalibrate"), {"acao": "aumentar"})
+
+        self.user.profile.refresh_from_db()
+        self.assertEqual(
+            self.user.profile.kcal_adjustment, antes + weight_trend.AJUSTE_KCAL
+        )
+        self.assertIsNotNone(self.user.profile.recalibrated_at)
+
+    def test_the_view_ignores_an_unknown_acao(self):
+        """Uma ação inventada não pode aplicar ajuste nenhum — nem cortar,
+        nem aumentar. `acao` vem de um POST, e o servidor não confia nele."""
+        antes = self.user.profile.kcal_adjustment
+
+        self.client.post(reverse("plans:recalibrate"), {"acao": "girar_polegares"})
+
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.kcal_adjustment, antes)
 
 
 class ConvitePesagemTests(TestCase):
