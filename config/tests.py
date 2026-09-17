@@ -1298,25 +1298,37 @@ class DesignSystemTests(TestCase):
         self.assertIn("--ferro-fio: rgba(", self.css)
         self.assertIn("--papel-fio: rgba(", self.css)
 
-    def test_the_four_radii_are_the_ones_from_direction_c(self):
-        """A escala tem quatro degraus, e os quatro são os da direção C §5:
-        prato 24, cartão 16, controle 12, filho de caixa 8 (`--pill` fica).
+    def test_the_corners_are_the_leaf_of_the_brand(self):
+        """A quina é a folha (CORTE, 16/09/2026): três tokens de QUATRO valores
+        — ponta em cima à esquerda e embaixo à direita, curva nas outras
+        duas — mais `--pill`, que fica só para ponto, barra e selo.
 
-        Este teste já foi uma FAIXA (16 a 24 px para `--radius` e
-        `--radius-lg`), escrita na V3 quando "abaixo de 16 a quina volta a
-        parecer web". A direção C (16/09/2026, D12) decidiu o contrário —
-        botão e campo não são caixa e ficam em 12 —, e o DESIGN.md é o
-        contrato que o export do Claude Design lê: doc, CSS e semente dizem
-        o mesmo número. O que este teste continua impedindo é o quinto
-        degrau nascer de um `border-radius: 8px` escrito à mão (o teste
-        abaixo) ou de um token que deriva sozinho da direção."""
-        esperado = {"--radius-xl": 24, "--radius-lg": 16, "--radius": 12, "--radius-sm": 8}
-        for token, px in esperado.items():
-            # `_tokens` só guarda valores hexadecimais — é um leitor de PALETA.
-            achado = re.search(rf"^\s*{token}:\s*(\d+)px;", self.css, re.M)
-            self.assertIsNotNone(achado, f"{token} não é mais um valor em px")
+        Este teste já foi uma FAIXA (16 a 24 px, V3), depois a escala
+        24/16/12/8 da direção C (D12). A direção escolhida substituiu a
+        escala pelo recorte, e o DESIGN.md é o contrato: doc e CSS dizem os
+        mesmos quatro números. O que continua impedido é um quinto degrau
+        nascer de um `border-radius: 8px` escrito à mão (o teste abaixo) ou
+        de uma escala `--radius-*` voltando ao lado do recorte."""
+        esperado = {"--corte-g": "0 40px 0 40px", "--corte": "0 20px 0 20px", "--corte-p": "0 12px 0 12px", "--pill": "999px"}
+        for token, valor in esperado.items():
+            achado = re.search(rf"^\s*{token}:\s*([^;]+);", self.css, re.M)
             with self.subTest(token=token):
-                self.assertEqual(int(achado.group(1)), px)
+                self.assertIsNotNone(achado, f"{token} sumiu do :root")
+                self.assertEqual(achado.group(1).strip(), valor)
+        self.assertNotIn("--radius", re.sub(r"/\*.*?\*/", "", self.css, flags=re.S), "a escala antiga voltou")
+
+    def test_nothing_clickable_is_a_pill(self):
+        """`--pill` só em ponto, barra, trilha e selo: botão, chip, aba e link
+        levam o recorte. A lista é fechada e cada item é uma forma, não um
+        alvo — um `.btn` ou `.chip` que voltar à pílula cai aqui."""
+        css = re.sub(r"/\*.*?\*/", "", self.css, flags=re.S)
+        com_pill = []
+        for m in re.finditer(r"([^{}]+)\{([^{}]*)\}", css):
+            if "border-radius: var(--pill)" in m.group(2):
+                com_pill.append(m.group(1).strip().replace(chr(10), " "))
+        clicaveis = [s for s in com_pill if re.search(r"\.(btn|chip|tabbar__item|app-bar__link|segmented|field|ficha-item__fazer)(?![\w-])", s)]
+        self.assertEqual(clicaveis, [], f"clicável em pílula: {clicaveis}")
+        self.assertGreaterEqual(len(com_pill), 8, "o controle positivo: as barras e os selos continuam pílula")
 
     def test_no_rule_hardcodes_a_radius_outside_the_scale(self):
         soltos = set(re.findall(r"border-radius:\s*(\d+)px", self.css))
@@ -1814,7 +1826,7 @@ class MarcaTests(TestCase):
             t.split("}", 1)[0] for t in self.css.split(chr(10) + ".marca {")[1:]
         )
         self.assertIn("border-radius", marca)
-        self.assertIn("var(--radius", marca)
+        self.assertIn("var(--corte", marca)
 
     # -- onde ela aparece --------------------------------------------------
 

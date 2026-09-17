@@ -1114,6 +1114,14 @@
       var de = numeroDe(antes), ate = numeroDe(total.textContent.trim());
       if (de && ate && de.valor !== ate.valor) {
         contar(total, de.valor, ate.valor, tempo("--mov-sucesso", 500), ate.formatar);
+        /* BATER META (CORTE): a esquina superior se desdobra e o número
+           cresce uma vez — só no toque que CRUZA a meta, nunca nos seguintes. */
+        var meta = parseFloat((total.closest("[data-agua-meta]") || {}).getAttribute
+          ? total.closest("[data-agua-meta]").getAttribute("data-agua-meta") : "");
+        if (meta && de.valor < meta && ate.valor >= meta) {
+          var dono = total.closest(".agua-card") || total.closest(".ring--agua");
+          if (dono) dono.classList.add("is-meta");
+        }
         var barra = document.querySelector("[data-agua-barra]");
         if (barra && barraAntes && !reduzido() && barra.animate) {
           /* A barra já tem `encher` (0 → largura) no CSS; as duas juntas
@@ -1131,7 +1139,12 @@
     Array.prototype.forEach.call(document.querySelectorAll("[data-conta]"), function (el) {
       var n = numeroDe(el.textContent);
       if (!n || !n.valor) return;
-      contar(el, n.valor * .6, n.valor, tempo("--mov-sucesso", 500), n.formatar);
+      /* `data-conta="zero"` é a recompensa: a carga total conta do ZERO, e
+         só depois de a folha ter subido (`--mov-recompensa`). */
+      var doZero = el.getAttribute("data-conta") === "zero";
+      var comecar = function () { contar(el, doZero ? 0 : n.valor * .6, n.valor, tempo("--mov-sucesso", 500), n.formatar); };
+      if (doZero && !reduzido()) { el.textContent = n.formatar(0); setTimeout(comecar, tempo("--mov-recompensa", 450)); }
+      else comecar();
     });
 
     /* Listas escalonadas: cada filho recebe o índice, e o CSS o transforma
