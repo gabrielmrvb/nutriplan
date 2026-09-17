@@ -24,6 +24,32 @@
    1. Tokens
    ========================================================================== */
 
+/* AS DUAS FONTES (CORTE, T3.2 — 16/09/2026). Auto-hospedadas em
+   `static/fonts/` (woff2, subconjunto latin, OFL — ver o README de lá),
+   70 580 bytes no total contra o gate de 260 KB do DESIGN.md
+   (`config/test_fontes.py`). Sem `<link>` para o Google: a rede que o app
+   pede é a própria. `font-display: swap` porque o texto tem de aparecer no
+   primeiro quadro, com a reserva do sistema, e trocar quando a fonte chegar
+   — e o service worker pré-cacheia as duas, então a troca só acontece na
+   primeira visita. Os pesos são variáveis: um arquivo por família, e os
+   quatro pesos do contrato (400 · 500 · 600 · 700) saem dele. */
+@font-face {
+  font-family: "Bodoni Moda";
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("../fonts/bodoni-moda-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Karla";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("../fonts/karla-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* CORTE (16/09/2026): FERRO É A BASE, e Papel é o derivado.
    Os valores de cor moram UMA vez, nas duas listas do fim deste bloco —
    `--ferro-*` (escuro, o padrão) e `--papel-*` (claro, para quem prefere
@@ -434,7 +460,14 @@
      medido, 60px a 16px de fonte. */
   --appbar-h: 3.75rem;
 
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  /* Karla é o TEXTO — corpo, rótulo, legenda, lista e TODO número pequeno,
+     com `tabular-nums`. Bodoni Moda é a DISPLAY — só para o que é herói
+     (título de tela, nome da refeição/exercício, o número grande), nunca
+     abaixo de 20 px: didone tem fio fino que some em tela de baixa
+     densidade. A reserva de cada uma é a família mais próxima que o
+     aparelho tem, para o `swap` não pular de largura. */
+  --font: "Karla", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-display: "Bodoni Moda", "Bodoni 72", Didot, Georgia, "Times New Roman", serif;
 
   /* FERRO — o regime padrão, escrito UMA vez (CORTE, 16/09/2026).
      Luz baixa de academia: papel escuro #10120E, lima #C7F24A como única
@@ -693,6 +726,10 @@ h1, h2, h3, p, li, dt, dd, span, strong, b, a, button, label {
   word-break: normal;
 }
 
+/* Negrito é UM peso, e é o teto. `<b>`/`<strong>` valem `bolder`, que sobre
+   um pai a 600 ou 700 dá 900 — e a Karla vai até 800, então o navegador
+   sintetizava o resto (visto no "2100 kcal" do resumo, T3.2). */
+b, strong { font-weight: 700; }
 a { color: var(--brand); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 a:hover { color: var(--brand-strong); }
 
@@ -813,7 +850,7 @@ button { font-family: inherit; color: inherit; }
   background: none;
   color: var(--text-dim);
   font-size: .875rem;
-  font-weight: 550;
+  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
 }
@@ -827,7 +864,7 @@ button { font-family: inherit; color: inherit; }
 .app-bar__link.is-active {
   background: var(--brand-soft);
   color: var(--brand);
-  font-weight: 650;
+  font-weight: 600;
   box-shadow: var(--halo);
 }
 
@@ -892,7 +929,7 @@ body:not(.tem-tabbar) .container {
   border-radius: var(--radius-sm);
   color: var(--text-mute);
   font-size: var(--texto-xs);
-  font-weight: 650;
+  font-weight: 600;
   text-decoration: none;
 }
 
@@ -952,21 +989,26 @@ h1, h2, h3 { margin: 0; letter-spacing: -.03em; line-height: 1.18; }
    diferença entre título de TELA e título de SEÇÃO precisa ser visível sem
    comparar; daí o salto de tamanho e o aperto de entreletras, que é o que
    segura um texto grande sem ele parecer esticado. */
+/* O título de tela é o primeiro herói: Bodoni a 28 px (o contrato diz que o
+   título nunca passa de 28), peso 600, sem o tracking negativo do
+   sans-serif — didone respira no próprio desenho. Era 40 px/800 em
+   system-ui. */
 h1 {
-  font-size: 2.5rem;
-  font-weight: 800;
-  letter-spacing: -.035em;
-  line-height: 1.06;
+  font-family: var(--font-display);
+  font-size: var(--texto-2xl);
+  font-weight: 600;
+  letter-spacing: -.01em;
+  line-height: 1.1;
 }
 h2 {
   font-size: 1.3rem;
-  font-weight: 720;
+  font-weight: 700;
   letter-spacing: -.015em;
   line-height: 1.25;
 }
 h3 {
   font-size: 1.08rem;
-  font-weight: 680;
+  font-weight: 700;
   letter-spacing: -.008em;
 }
 
@@ -1087,7 +1129,7 @@ h3 {
   padding: 0 .3rem;
   margin: -.5rem -.3rem;
   font-size: var(--texto-sm);
-  font-weight: 650;
+  font-weight: 600;
   text-decoration: none;
 }
 
@@ -1192,9 +1234,10 @@ h3 {
 .ring__inner { position: relative; z-index: var(--camada-conteudo); line-height: 1.1; text-align: center; }
 
 .ring__value {
+  font-family: var(--font-display);
   display: block;
   font-size: var(--texto-3xl);
-  font-weight: 780;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -.045em;
 }
@@ -1295,7 +1338,7 @@ h3 {
   margin: 0;
   color: var(--text-mute);
   font-size: var(--texto-xs);
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: .14em;
   text-transform: uppercase;
 }
@@ -1336,15 +1379,16 @@ h3 {
 .modulo__nome {
   color: var(--text-mute);
   font-size: var(--texto-xs);
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: .12em;
   text-transform: uppercase;
 }
 
 .modulo__valor {
+  font-family: var(--font-display);
   margin-top: auto;
   font-size: var(--texto-2xl);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -.03em;
   line-height: 1.05;
 }
@@ -1416,8 +1460,9 @@ h3 {
 }
 
 .curva__valor {
+  font-family: var(--font-display);
   font-size: var(--texto-display);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -.04em;
   line-height: 1;
 }
@@ -1544,7 +1589,7 @@ h3 {
 /* Só a inicial. "Proteína" inteira em três colunas de 100px quebra a palavra;
    P, C e G já são como se lê macro em qualquer app. Quem usa leitor de tela
    recebe o nome inteiro pelo `.vis-oculto` ao lado. */
-.hero-macros__nome { flex: none; color: var(--text-dim); font-weight: 680; }
+.hero-macros__nome { flex: none; color: var(--text-dim); font-weight: 700; }
 
 .hero-macros__valor {
   font-variant-numeric: tabular-nums;
@@ -1562,7 +1607,7 @@ h3 {
  * correspondência entre a faixa e a legenda. */
 .hero-macros__item--chave { font-size: .84rem; }
 .hero-macros__item--chave .hero-macros__nome { color: var(--text); }
-.hero-macros__item--chave .hero-macros__valor { font-size: 1.12rem; font-weight: 780; }
+.hero-macros__item--chave .hero-macros__valor { font-size: 1.12rem; font-weight: 700; }
 
 /* Sem `overflow: hidden` nem reticências: o `letter-spacing` negativo de `.num`
    encurta o avanço da última cifra e a tinta dela passa da caixa — "/140"
@@ -1577,7 +1622,7 @@ h3 {
   white-space: nowrap;
 }
 .today-hero__left { margin: 0; font-size: 1.05rem; line-height: 1.3; }
-.today-hero__left b { font-weight: 750; }
+.today-hero__left b { font-weight: 700; }
 .today-hero__meta { margin: .2rem 0 0; color: var(--text-mute); font-size: var(--texto-sm); }
 
  /* O SALDO DEIXA DE SER PÍLULA.
@@ -1597,7 +1642,7 @@ h3 {
   padding: 0 0 0 var(--espaco-4);
   border-left: 2px solid var(--fio-forte);
   font-size: var(--texto-sm);
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.45;
 }
 
@@ -1668,7 +1713,7 @@ h3 {
   background: var(--surface-2);
   color: var(--text-dim);
   font-size: .76rem;
-  font-weight: 650;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-decoration: none;
 }
@@ -1703,9 +1748,10 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .tiles > .tile + .tile { border-left: 1px solid var(--fio); }
 
 .tile__value {
+  font-family: var(--font-display);
   display: block;
   font-size: var(--texto-xl);
-  font-weight: 750;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -.03em;
   /* Número não quebra no meio. `strong` herda `overflow-wrap: anywhere` do
@@ -1739,9 +1785,10 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .balance--surplus { background: var(--terra-soft); border-color: transparent; }
 
 .balance__value {
+  font-family: var(--font-display);
   flex: none;
   font-size: var(--texto-2xl);
-  font-weight: 750;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -.04em;
 }
@@ -1751,7 +1798,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .balance--surplus .balance__value { color: var(--terra); }
 
 .balance__body { flex: 1; min-width: 0; }
-.balance__label { display: block; font-size: .85rem; font-weight: 680; }
+.balance__label { display: block; font-size: .85rem; font-weight: 700; }
 .balance__meta { display: block; margin-top: .15rem; color: var(--text-dim); font-size: .78rem; }
 
 .equation { display: flex; align-items: stretch; gap: var(--espaco-2); margin-top: var(--espaco-5); }
@@ -1771,7 +1818,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .equation__value {
   display: block;
   font-size: var(--texto-base);
-  font-weight: 750;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1851,7 +1898,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   font-size: .85rem;
 }
 
-.macro-line__name { flex: 1; min-width: 0; font-weight: 620; }
+.macro-line__name { flex: 1; min-width: 0; font-weight: 600; }
 .macro-line__value {
   flex: none;
   font-variant-numeric: tabular-nums;
@@ -1990,7 +2037,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   background: var(--surface-2);
   color: var(--text-dim);
   font-size: .82rem;
-  font-weight: 750;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2006,7 +2053,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 }
 
 .meal__title { flex: 1; min-width: 0; }
-.meal__name { display: block; font-weight: 680; font-size: var(--texto-base); }
+.meal__name { display: block; font-weight: 700; font-size: var(--texto-base); }
 
 .meal__target {
   display: block;
@@ -2096,11 +2143,11 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
      quando a lista passa de nove. */
   font-variant-numeric: tabular-nums;
   font-size: var(--texto-sm);
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .option[open] .option__label { background: var(--brand); color: var(--on-brand); }
-.option__name { flex: 1; min-width: 0; font-size: .92rem; font-weight: 620; }
+.option__name { flex: 1; min-width: 0; font-size: .92rem; font-weight: 600; }
 
 .option__facts {
   display: flex;
@@ -2113,7 +2160,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   white-space: nowrap;
 }
 
-.option__kcal { color: var(--text-dim); font-size: .82rem; font-weight: 750; }
+.option__kcal { color: var(--text-dim); font-size: .82rem; font-weight: 700; }
 
 .option__body { padding: .8rem .85rem; border-top: 1px solid var(--fio); }
 .option__items { margin: 0 0 var(--espaco-4); padding: 0; list-style: none; font-size: .85rem; color: var(--text-dim); }
@@ -2133,7 +2180,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .option__ingrediente { min-width: 0; }
 
 .option__items li:last-child { border-bottom: 0; }
-.option__items b { flex: none; color: var(--text); font-variant-numeric: tabular-nums; font-weight: 720; }
+.option__items b { flex: none; color: var(--text); font-variant-numeric: tabular-nums; font-weight: 700; }
 
 .option__how { margin: 0 0 .8rem; color: var(--text-mute); font-size: var(--texto-sm); line-height: 1.5; }
 
@@ -2148,7 +2195,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   font-size: .88rem;
 }
 
-.meal__result-name { flex: 1; min-width: 0; font-weight: 620; }
+.meal__result-name { flex: 1; min-width: 0; font-weight: 600; }
 .status--done { color: var(--brand); }
 .status--skipped, .status--off_plan { color: var(--text-dim); }
 
@@ -2173,7 +2220,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   border: 1px solid transparent;
   border-radius: var(--radius);
   font-size: var(--texto-md);
-  font-weight: 680;
+  font-weight: 700;
   text-decoration: none;
   cursor: pointer;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
@@ -2235,7 +2282,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   background: var(--surface-2);
   color: var(--text-dim);
   font-size: .82rem;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .btn--quiet:hover { background: var(--surface-3); color: var(--text); }
@@ -2428,7 +2475,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    ========================================================================== */
 
 .field { margin-bottom: 1.15rem; }
-.field__label { display: block; margin-bottom: var(--espaco-2); font-size: var(--texto-md); font-weight: 680; }
+.field__label { display: block; margin-bottom: var(--espaco-2); font-size: var(--texto-md); font-weight: 700; }
 
 .field__help {
   display: block;
@@ -2521,7 +2568,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .choice-list label:has(input:checked) {
   border-color: var(--brand);
   background: var(--brand-soft);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .choice-list--inline { grid-template-columns: 1fr 1fr; }
@@ -2565,7 +2612,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   font-size: .82rem;
   /* Sempre 650, marcado ou não: deixar o peso mudar na seleção faria o chip
      crescer e a linha inteira reposicionar debaixo do dedo. */
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .choice-list--dias input {
@@ -2691,7 +2738,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   margin: 0 0 0 auto;
   flex: 0 1 auto;
   min-width: 0;
-  font-weight: 720;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -2731,13 +2778,13 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 }
 
 .history-row:last-of-type { border-bottom: 0; }
-.history-row__date { min-width: 0; color: var(--text-dim); font-variant-numeric: tabular-nums; font-weight: 620; }
+.history-row__date { min-width: 0; color: var(--text-dim); font-variant-numeric: tabular-nums; font-weight: 600; }
 
 .history-row__today {
   display: block;
   color: var(--brand);
   font-size: var(--texto-xs);
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1.4;
   letter-spacing: .06em;
   text-transform: uppercase;
@@ -2746,7 +2793,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .history-row__bar { height: .45rem; overflow: hidden; border-radius: var(--pill); background: var(--fio); }
 .history-row__fill { display: block; height: 100%; background: var(--brand); }
 .history-row__facts { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.history-row__kcal { font-weight: 720; }
+.history-row__kcal { font-weight: 700; }
 .history-row__meals { display: block; color: var(--text-mute); font-size: .72rem; }
 
 /* ==========================================================================
@@ -2780,12 +2827,12 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .day-chip__name {
   color: var(--text-mute);
   font-size: var(--texto-xs);
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: .06em;
   text-transform: uppercase;
 }
 
-.day-chip__label { font-size: var(--texto-lg); font-weight: 780; line-height: 1.15; color: var(--text-mute); }
+.day-chip__label { font-size: var(--texto-lg); font-weight: 700; line-height: 1.15; color: var(--text-mute); }
 .day-chip--training .day-chip__label { color: var(--brand); }
 
 /* Sobre fundo tingido, o texto discreto precisa subir um degrau.
@@ -2846,7 +2893,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .sessao-cartao--hoje { border-color: var(--brand); background: var(--brand-soft); }
 
 .sessao-cartao__texto { flex: 1; min-width: 0; }
-.sessao-cartao__nome { display: block; font-size: var(--texto-sm); font-weight: 680; }
+.sessao-cartao__nome { display: block; font-size: var(--texto-sm); font-weight: 700; }
 
 .sessao-cartao__hoje {
   flex: none;
@@ -2867,7 +2914,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   background: var(--brand);
   color: var(--on-brand);
   font-size: var(--texto-lg);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 /* Cor por dia de treino.
@@ -3047,10 +3094,10 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   text-align: center;
   font-size: var(--texto-sm);
   color: var(--text-dim);
-  font-weight: 680;
+  font-weight: 700;
 }
 
-.ficha-item__nome { font-weight: 680; line-height: 1.25; }
+.ficha-item__nome { font-weight: 700; line-height: 1.25; }
 .ficha-item__dados {
   display: flex;
   flex-wrap: wrap;
@@ -3063,7 +3110,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    de destaque, para orientar sem competir com o nome. */
 .ficha-item__papel {
   font-size: var(--texto-xs);
-  font-weight: 680;
+  font-weight: 700;
   padding: 1px var(--espaco-2);
   border-radius: var(--radius-sm);
   background: var(--surface-3);
@@ -3073,7 +3120,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .ficha-item__estado {
   flex: none;
   font-size: var(--texto-sm);
-  font-weight: 680;
+  font-weight: 700;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
@@ -3143,7 +3190,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   background: color-mix(in srgb, var(--text-mute) 10%, transparent);
   color: var(--text-dim);
   font-size: var(--texto-xs);
-  font-weight: 650;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -3481,7 +3528,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   flex: none;
   margin-left: auto;
   font-size: .88rem;
-  font-weight: 750;
+  font-weight: 700;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -3594,7 +3641,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   margin: 0;
   color: var(--text-mute);
   font-size: .78rem;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 /* O passo do wizard é a tela mais apertada do app: até sete cartões de
@@ -3646,7 +3693,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 
 .pulou__icone { display: grid; place-items: center; flex: none; }
 .pulou__icone svg { width: 1.1rem; height: 1.1rem; }
-.pulou b { color: var(--terra); font-weight: 750; }
+.pulou b { color: var(--terra); font-weight: 700; }
 
 /* Pílula de estado, reaproveitável.
    Fundo em baixa opacidade da própria cor + texto na cor cheia funciona nos
@@ -3774,7 +3821,8 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   font-size: var(--texto-xs);
 }
 .pesagem__media {
-  font-weight: 780;
+  font-family: var(--font-display);
+  font-weight: 700;
   font-size: var(--texto-xl);
   letter-spacing: -.025em;
   color: var(--text);
@@ -4469,12 +4517,12 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   align-items: baseline;
   gap: .3rem;
   font-size: 1.5rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -.03em;
   line-height: 1.1;
 }
 
-.ofensiva__unidade { color: var(--text-mute); font-size: var(--texto-sm); font-weight: 650; }
+.ofensiva__unidade { color: var(--text-mute); font-size: var(--texto-sm); font-weight: 600; }
 .ofensiva__texto { color: var(--text-dim); font-size: var(--texto-sm); line-height: 1.45; }
 .ofensiva__recorde { flex: none; }
 
@@ -4512,12 +4560,12 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .pesar__topo::-webkit-details-marker { display: none; }
 .pesar__topo:hover { background: var(--surface-2); }
 
-.pesar__nome { min-width: 0; color: var(--text); font-size: .95rem; font-weight: 650; }
+.pesar__nome { min-width: 0; color: var(--text); font-size: .95rem; font-weight: 600; }
 
 /* "Registrar" tem cara de ação porque é o rótulo do que a sanfona abre. O
    alvo do dedo é a faixa inteira, e não este texto. Aberta, ela para de
    convidar: o campo já está à vista. */
-.pesar__acao { flex: none; color: var(--brand); font-size: .875rem; font-weight: 650; }
+.pesar__acao { flex: none; color: var(--brand); font-size: .875rem; font-weight: 600; }
 .pesar[open] .pesar__acao { color: var(--text-mute); }
 
 .pesar__corpo { padding: 0 1.05rem var(--espaco-6); }
@@ -4594,7 +4642,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .agua__icone { display: grid; place-items: center; flex: none; color: var(--agua); }
 .agua__icone svg { width: 1.15rem; height: 1.15rem; }
 .agua__valor { flex: 1; min-width: 0; color: var(--text-dim); font-size: .84rem; white-space: nowrap; }
-.agua__valor b { color: var(--text); font-weight: 750; }
+.agua__valor b { color: var(--text); font-weight: 700; }
 .agua__zerar { flex: none; }
 .agua__zerar[open] { flex: 1 0 100%; display: flex; align-items: center; gap: var(--espaco-3); }
 /* Sem a metade horizontal da margem negativa do `.btn-link`: dois links com
@@ -4642,7 +4690,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
               transform var(--mov-toque) var(--ease);
 }
 
-.agua__botao span { color: var(--text-mute); font-size: var(--texto-xs); font-weight: 550; }
+.agua__botao span { color: var(--text-mute); font-size: var(--texto-xs); font-weight: 500; }
 .agua__botao:hover { border-color: var(--agua); background: var(--surface-3); }
 .agua__botao:active { transform: scale(.96); }
 
@@ -4747,7 +4795,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   box-shadow: var(--edge), var(--shadow-lift);
   color: var(--terra);
   font-size: .82rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.4;
 }
 
@@ -4807,8 +4855,6 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   .app-bar__nav .app-bar__link { display: inline-flex; }
   .app-bar__so-desktop { display: block; }
   .app-bar { padding-inline: 1.9rem; }
-
-  h1 { font-size: 1.9rem; }
 }
 
 @media (max-width: 22rem) {
@@ -4863,7 +4909,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   background: var(--surface-2);
   color: var(--text-dim);
   font-size: .82rem;
-  font-weight: 650;
+  font-weight: 600;
   cursor: pointer;
   list-style: none;
   transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
@@ -4912,7 +4958,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .fora__rotulo {
   color: var(--text-dim);
   font-size: .78rem;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .fora__ajuda {
@@ -5056,7 +5102,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   background: none;
   color: var(--text-dim);
   font-size: .92rem;
-  font-weight: 650;
+  font-weight: 600;
   text-align: center;
   cursor: pointer;
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
@@ -5121,7 +5167,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   transform: translateY(-50%);
   color: var(--text-mute);
   font-size: .88rem;
-  font-weight: 650;
+  font-weight: 600;
   pointer-events: none;
 }
 
@@ -5143,7 +5189,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   background: color-mix(in srgb, var(--terra) 12%, transparent);
   color: var(--terra);
   font-size: var(--texto-xs);
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: .04em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -5169,7 +5215,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .demo-pessoa__dados dt {
   color: var(--text-mute);
   font-size: .74rem;
-  font-weight: 650;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .03em;
 }
@@ -5451,7 +5497,7 @@ body.montando { overflow: hidden; }
   min-height: 3rem;
   color: var(--text);
   font-size: var(--texto-base);
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.45;
 }
 
@@ -5496,7 +5542,7 @@ body.montando { overflow: hidden; }
 .metas dt {
   color: var(--text-mute);
   font-size: .74rem;
-  font-weight: 650;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .03em;
 }
@@ -5508,9 +5554,9 @@ body.montando { overflow: hidden; }
   font-weight: 700;
 }
 
-.metas__principal { font-size: 1.35rem; font-weight: 780; }
+.metas__principal { font-size: 1.35rem; font-weight: 700; }
 /* A unidade não cresce junto: "2765" é o dado e "kcal" é o rótulo dele. */
-.metas__principal span { font-size: var(--texto-sm); font-weight: 650; color: var(--text-mute); }
+.metas__principal span { font-size: var(--texto-sm); font-weight: 600; color: var(--text-mute); }
 
 .metas__nota {
   margin: 0 0 var(--espaco-5);
@@ -5630,9 +5676,10 @@ body.montando { overflow: hidden; }
   box-shadow: 0 12px 40px -14px color-mix(in srgb, var(--brand) 60%, transparent);
 }
 .entrada__wordmark {
+  font-family: var(--font-display);
   margin: 0;
   font-size: var(--texto-2xl);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -.03em;
   line-height: 1;
 }
@@ -5669,7 +5716,7 @@ body.montando { overflow: hidden; }
   .entrada__wordmark { font-size: var(--texto-xl); }
   .entrada__tagline { font-size: var(--texto-sm); }
   .auth .card { padding: var(--espaco-6) var(--espaco-5); }
-  .auth h1 { font-size: var(--texto-xl); }
+  .auth h1 { font-size: var(--texto-2xl); }
 }
 
  /* A ENTRADA PERDE O CARTÃO.
@@ -5818,7 +5865,7 @@ body.montando { overflow: hidden; }
   margin: 0;
   color: var(--brand-strong);
   font-size: .72rem;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: .12em;
   text-transform: uppercase;
 }
@@ -5862,8 +5909,9 @@ body.montando { overflow: hidden; }
 .hoje__nome {
   margin: 0;
   min-width: 0;
+  font-family: var(--font-display);
   font-size: 1.42rem;
-  font-weight: 780;
+  font-weight: 600;
   line-height: 1.14;
   letter-spacing: -.015em;
 }
@@ -5967,7 +6015,7 @@ body.montando { overflow: hidden; }
 .hoje__contagem-texto { min-width: 0; }
 .hoje__contagem b {
   color: var(--text);
-  font-weight: 750;
+  font-weight: 700;
 }
 
 /* O botão principal ocupa a largura toda e carrega duas linhas: o verbo e, em
@@ -5991,7 +6039,7 @@ body.montando { overflow: hidden; }
   background: color-mix(in srgb, var(--brand) 12%, transparent);
   color: var(--brand);
   font-size: .86rem;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 /* O próximo treino sai de `weekday`, que a pessoa escolheu no cadastro. Não é
@@ -6096,7 +6144,7 @@ body.montando { overflow: hidden; }
 
 .btn--google {
   gap: .6rem;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 /* O "G" da marca do Google, no tamanho do texto ao lado.
@@ -6136,7 +6184,7 @@ body.montando { overflow: hidden; }
 .vinculo__email {
   margin: -.35rem 0 1.15rem;
   color: var(--text);
-  font-weight: 650;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 .vinculo__explica {
@@ -6217,14 +6265,15 @@ body.montando { overflow: hidden; }
 /* O EXERCÍCIO é o título da tela, e agora tem o peso disso. Ele era um `h2`
    dentro do painel, do tamanho de um título de seção, competindo com o nome
    da sessão logo acima. */
-.agora__nome { font-size: var(--texto-2xl); font-weight: 800; }
+.agora__nome { font-family: var(--font-display); font-weight: 600; }
 
 .agora { padding-top: .75rem; }
 
 .agora__topo { margin-bottom: .55rem; min-width: 0; }
 
 /* O nome é o maior elemento da tela. É a resposta à pergunta que trouxe a
-   pessoa aqui, e nada compete com ele. */
+   pessoa aqui, e nada compete com ele. É herói, então é Bodoni (a família e
+   o peso estão na regra de cima): 22,7 px, acima do piso de 20 da display. */
 .agora__nome {
   margin: 0 0 .4rem;
   font-size: 1.42rem;
@@ -6711,7 +6760,7 @@ body.montando { overflow: hidden; }
      Declarar aqui não muda pixel — o `.num` do template já entregava
      exatamente esta fonte — e tira a tipografia da mão de quem edita HTML. */
   font-size: 1.5rem;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
@@ -6823,7 +6872,7 @@ body.montando { overflow: hidden; }
 .agora__rotulo {
   margin: 0 0 var(--espaco-1);
   font-size: .72rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: .1em;
   text-transform: uppercase;
   color: var(--brand);
@@ -6838,7 +6887,11 @@ body.montando { overflow: hidden; }
 
 .agora__titulo {
   margin: 0 0 .3rem;
-  font-size: 1.35rem;
+  /* O nome da refeição da vez é herói: Bodoni a 22,7 px (o mesmo 1.42rem do
+     nome do exercício), 600. */
+  font-family: var(--font-display);
+  font-size: 1.42rem;
+  font-weight: 600;
   line-height: 1.15;
   letter-spacing: -.01em;
   min-width: 0;
@@ -6887,7 +6940,7 @@ body.montando { overflow: hidden; }
   color: var(--text);
   font-size: var(--texto-lg);
   /* 750 é o peso do número em todo tile; 760 era um degrau só dele */
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: -.02em;
   line-height: 1.1;
 }
@@ -6989,7 +7042,7 @@ body.montando { overflow: hidden; }
   padding: 0 .4rem;
   margin: 0 -.4rem;
   font-size: var(--texto-sm);
-  font-weight: 650;
+  font-weight: 600;
   text-decoration: none;
 }
 .explicacao__head:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
@@ -7171,7 +7224,7 @@ body.montando { overflow: hidden; }
      fica; o que muda é a família deixar de DEPENDER dele. */
   display: block;
   font-size: 1.5rem;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -7391,7 +7444,7 @@ body.montando { overflow: hidden; }
   top: 0;
   background: var(--surface-2);
   color: var(--text-dim);
-  font-weight: 620;
+  font-weight: 600;
   font-size: .78rem;
 }
 
@@ -7452,7 +7505,7 @@ body.montando { overflow: hidden; }
   border-radius: var(--pill);
   color: var(--text-dim);
   font-size: var(--texto-md);
-  font-weight: 620;
+  font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
 }
@@ -7527,7 +7580,7 @@ body.montando { overflow: hidden; }
      o trilho igual nos dois. */
   min-width: 4.4rem;
   font-variant-numeric: tabular-nums;
-  font-weight: 720;
+  font-weight: 700;
   font-size: var(--texto-sm);
   text-align: right;
 }
@@ -7537,7 +7590,7 @@ body.montando { overflow: hidden; }
 /* O delta da carga: sobe é a cor da marca, desce é o tom de alerta do app.
    Cor NÃO é o único sinal — o sinal de `+` e o de `-` vêm no próprio número,
    porque informação transmitida só por cor some para quem não a distingue. */
-.delta { margin-left: .4rem; font-size: .78rem; font-weight: 720; }
+.delta { margin-left: .4rem; font-size: .78rem; font-weight: 700; }
 .delta--sobe { color: var(--brand-strong); }
 .delta--desce { color: var(--terra); }
 
@@ -7584,6 +7637,7 @@ body.montando { overflow: hidden; }
 .corrida-numero { min-width: 0; text-align: center; }
 
 .corrida-numero__valor {
+  font-family: var(--font-display);
   display: block;
   /* Sem largura fixa por dígito, o cronômetro empurra a distância de lado a
      cada segundo — e um número que dança é ilegível em movimento. */
@@ -7606,7 +7660,7 @@ body.montando { overflow: hidden; }
   white-space: nowrap;
   font-size: min(var(--texto-2xl), 6.7vw);
   /* 750 é o peso do número em todo tile; 760 era um degrau só dele */
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1.1;
 }
 
@@ -7638,7 +7692,7 @@ body.montando { overflow: hidden; }
   color: var(--brasa);
   font-family: var(--font);
   font-size: .72rem;
-  font-weight: 620;
+  font-weight: 600;
 }
 
 .corrida-detalhe {
@@ -7702,7 +7756,7 @@ body.montando { overflow: hidden; }
    `MetricaNaoDependeDoTemplateParaSerMonoTests` cobre este seletor. */
 .gole__valor {
   font-variant-numeric: tabular-nums;
-  font-weight: 720;
+  font-weight: 700;
   font-size: var(--texto-sm);
 }
 
@@ -7833,7 +7887,7 @@ body.montando { overflow: hidden; }
    mudança de escala teria deixado o mapa para trás. */
 .mapa__area.is-active { background: var(--brand-soft); }
 
-.mapa__nome { font-size: var(--texto-base); font-weight: 680; letter-spacing: -.01em; }
+.mapa__nome { font-size: var(--texto-base); font-weight: 700; letter-spacing: -.01em; }
 .mapa__apoio {
   color: var(--text-mute);
   font-size: var(--texto-xs);
@@ -8207,7 +8261,7 @@ body.montando { overflow: hidden; }
   border-radius: calc(var(--radius-sm) - 3px);
   color: var(--text-dim);
   font-size: var(--texto-sm);
-  font-weight: 650;
+  font-weight: 600;
   text-align: center;
   text-decoration: none;
   transition: background var(--mov-estado) var(--ease), color var(--mov-estado) var(--ease);
@@ -8219,7 +8273,7 @@ body.montando { overflow: hidden; }
 .ficha-item--fora .ficha-item__nome { color: var(--text-mute); text-decoration: line-through; }
 .ficha-item__fora { color: var(--text-mute); font-size: var(--texto-xs); font-weight: 600; }
 
-.sessao-cartao__versoes { display: block; margin-top: var(--espaco-1); color: var(--brand); font-size: var(--texto-xs); font-weight: 650; }
+.sessao-cartao__versoes { display: block; margin-top: var(--espaco-1); color: var(--brand); font-size: var(--texto-xs); font-weight: 600; }
 .hoje__opcao { flex-basis: 100%; margin: 0; color: var(--text-dim); font-size: var(--texto-sm); }
 .agora__removidos { margin: var(--espaco-4) 0 0; font-size: var(--texto-sm); }
 

@@ -116,19 +116,24 @@ mockup, não do contrato).
 
 ## Tipografia — duas fontes, com regra de uso
 
-- **Display: Bodoni Moda** (variável; `opsz` 6–96, `wght` 400–900, itálica).
-  Só para o que é HERÓI: títulos de tela, o nome da refeição/exercício, o
-  número grande (kcal, kg, séries, minutos, %). **Nunca abaixo de 20 px** —
-  didone tem fio fino que some em tela de baixa densidade, e não tem
-  numeral tabular. O número grande usa `opsz` alto e `wght` 500–700.
+- **Display: Bodoni Moda** (variável; `opsz` 6–96, `wght` 400–900; a
+  itálica ficou de fora — o mockup a usava a 13–19 px em subtítulos, abaixo
+  do piso da display, e esses textos são Karla). Só para o que é HERÓI:
+  títulos de tela, o nome da refeição/exercício, o número grande (kcal, kg,
+  séries, minutos, %). **Nunca abaixo de 20 px** — didone tem fio fino que
+  some em tela de baixa densidade. O número grande usa `opsz` alto (o
+  navegador escolhe pelo tamanho) e `wght` 600–700; medido com fontTools, a
+  Bodoni Moda TEM `tnum` — a coluna de números alinha nela também.
 - **Texto: Karla** (400, 500, 600, 700). Corpo, rótulo, legenda, lista, e
   TODO número pequeno — com `font-variant-numeric: tabular-nums` e vírgula
   decimal ("62,50", "2.100 kcal"). Colunas de série/carga alinham em Karla,
   não em Bodoni.
 - Arquivos: auto-hospedados em `static/fonts/` (woff2, subconjunto latin,
   `font-display: swap`), com gate de tamanho no teste: **≤ 260 KB no total**
-  (T3.2 do plano mestre). Sem `<link>` para o Google em produção; o `<link>`
-  do mockup é só do mockup.
+  (T3.2 do plano mestre; medido em 16/09/2026: 70 580 bytes, os dois
+  arquivos do Google Fonts para o latin, `config/test_fontes.py`). Sem
+  `<link>` para o Google em produção; o `<link>` do mockup é só do mockup.
+  O service worker pré-cacheia as duas.
 - Escala (rem, piso 11 px): xs .7 (11,2) · sm .8 · md .9 · base 1 · lg 1.15 ·
   xl 1.4 · 2xl 1.75 · 3xl 2.15 · display 3.1 (49,6) · herói 4.5 (72). O
   título nunca passa de 28; o herói é o MAIOR objeto de toda tela que mede.
@@ -136,7 +141,9 @@ mockup, não do contrato).
   Karla 600 a 11–12 px. O piso de 11 px vale para eles também (o mockup
   desceu a 10; a implementação sobe).
 - Pesos: quatro (400 · 500 · 600 · 700) em Karla; os degraus sintéticos
-  (620/650/680/720/750/780) saem com a fonte própria.
+  (550/620/650/680/720/750/780/800) saíram com a fonte própria (T3.2):
+  550 → 500, 620/650 → 600, o resto → 700. O título de tela é Bodoni 600 a
+  28 px (era 40 px/800 em system-ui); o número herói é Bodoni 700.
 
 ## Espaço, sombra, camadas, movimento
 
