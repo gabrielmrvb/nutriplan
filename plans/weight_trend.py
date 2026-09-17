@@ -214,7 +214,13 @@ def analisar(user) -> Tendencia:
     # A média parada continua sendo relatada; o que espera duas semanas é o
     # CONVITE a mexer na dieta outra vez — não o fato de ela estar parada.
     pede_decisao = paradas >= SEMANAS_PARA_RECALIBRAR and not respondeu_ha_pouco(user)
-    goal = getattr(getattr(user, "profile", None), "goal", None)
+    # O objetivo só é lido quando há decisão a sugerir: `user.profile` é uma
+    # consulta quando o perfil ainda não está em cache neste objeto, e lê-lo
+    # sempre custava UMA consulta a mais no Progresso (`plans:history` 27 →
+    # 28 em `plans/test_stress.py`) para quem não tinha semana parada nenhuma.
+    # Quando há decisão, `respondeu_ha_pouco` acabou de carregar o perfil, e
+    # este `getattr` sai do cache.
+    goal = getattr(getattr(user, "profile", None), "goal", None) if pede_decisao else None
     sugestao = _SUGESTAO_POR_OBJETIVO.get(goal) if pede_decisao else None
 
     return Tendencia(

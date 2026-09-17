@@ -151,7 +151,10 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # tinha em mãos, então esse caminho continua custando zero.
         # 43 -> 44: o prefetch de `food.portions` (medida caseira, Fase 3)
         # custa UMA consulta constante a mais — ver o bloco acima sobre por que
-        # neste fixture ela não vira N. Medido na onda final da Fase 3.
+        # neste fixture ela não vira N. MEDIDO na onda final da Fase 3
+        # (17/09/2026), com o teto em 0 para o teste imprimir o número: 44
+        # exatas, já com a invalidação por `items_changed_at` dentro da mesma
+        # consulta de `template__is_active` em `plan_is_current` (zero a mais).
         "plans:today": 44,
         "workouts:routine": 25,
         # 15 -> 26: o Progresso passou a mostrar o bloco de Conquistas, e ele
@@ -171,6 +174,11 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # 26 -> 27: a mesma consulta de corrida que entrou em `streaks.calcular`
         # chega aqui de carona, por `conquistas.resumo` — é a MESMA função da
         # Home, não uma segunda.
+        #
+        # FICA em 27 depois da Fase 3: `weight_trend.analisar` passou a ler
+        # `user.profile.goal` para escolher entre "cortar" e "aumentar", e lia
+        # SEMPRE — a mescla media 28. A leitura virou condicional (só quando há
+        # decisão a sugerir, e aí `respondeu_ha_pouco` já carregou o perfil).
         "plans:history": 27,
         # 15 -> 19: o Perfil passou a CONFERIR se o plano gravado ainda vale.
         #
