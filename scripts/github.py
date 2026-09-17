@@ -223,12 +223,35 @@ def cmd_status(args):
     }, ensure_ascii=False))
 
 
+def _esperar_head(repo, numero, sha, minutos=5):
+    """Espera a API do GitHub REFLETIR o push: `pr.head.sha == sha`.
+
+    Consistência eventual, vista em 17/09/2026 (#24, sessão design): quatro
+    minutos depois do push a API ainda devolvia o head ANTIGO — já verde —,
+    `esperar` aceitou aquele veredito e o merge saiu com o check do head
+    novo ainda `in_progress`. O gate "check verde no head que mergeia" só
+    vale se o head lido é o que subiu. exit 2 se não bater a tempo."""
+    fim = time.time() + minutos * 60
+    while True:
+        atual = _pr(repo, numero)["head"]["sha"]
+        if atual == sha:
+            return atual
+        print(time.strftime("%H:%M:%S"), "a API ainda mostra %s; esperado %s" % (atual[:7], sha[:7]), flush=True)
+        if time.time() > fim:
+            raise SystemExit(2)
+        time.sleep(15)
+
+
 def cmd_esperar(args):
-    """Espera o check terminar. exit 0 verde, 1 vermelho/cancelado, 2 tempo."""
+    """Espera o check terminar. exit 0 verde, 1 vermelho/cancelado, 2 tempo.
+    `--sha X`: só o check DESSE head conta (o que acabou de subir)."""
     numero = int(args[0])
     minutos = int(args[args.index("--minutos") + 1]) if "--minutos" in args else 45
     repo = _repo()
-    sha = _pr(repo, numero)["head"]["sha"]
+    if "--sha" in args:
+        sha = _esperar_head(repo, numero, args[args.index("--sha") + 1])
+    else:
+        sha = _pr(repo, numero)["head"]["sha"]
     fim = time.time() + minutos * 60
     while time.time() < fim:
         status, conclusao = _check(repo, sha)
@@ -371,8 +394,11 @@ def cmd_enfileirar(args):
                 codigo, saida = _git("push", "origin", "HEAD:" + branch)
                 if codigo != 0:
                     raise SystemExit("PR #%d: push recusado: %s" % (numero, saida[-400:]))
+            # O check que conta é o do HEAD LOCAL — o que subiu —, e não o do
+            # head que a API devolver primeiro (consistência eventual, #24).
+            _, head_local = _git("rev-parse", "HEAD")
             try:
-                cmd_esperar([str(numero), "--minutos", "55"])
+                cmd_esperar([str(numero), "--minutos", "55", "--sha", head_local.strip()])
             except SystemExit as erro:
                 if erro.code == 0:
                     pass
@@ -381,6 +407,8 @@ def cmd_enfileirar(args):
                 else:
                     raise SystemExit("PR #%d: o check não terminou em 55 min" % numero)
             pr = _pr(repo, numero)
+            if pr["head"]["sha"] != head_local.strip():
+                raise SystemExit("PR #%d: o head mudou embaixo (%s ≠ %s) — enfileire de novo" % (numero, pr["head"]["sha"][:7], head_local[:7]))
             codigo, resposta = _api("PUT", "/repos/%s/pulls/%d/merge" % (repo, numero), {
                 "merge_method": METODO_DE_MERGE, "sha": pr["head"]["sha"],
                 "commit_title": "Merge PR #%d: %s" % (numero, pr["title"]),

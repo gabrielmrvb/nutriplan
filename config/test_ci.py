@@ -167,6 +167,27 @@ class OHelperDoGitHubTests(SimpleTestCase):
 
         self.assertEqual(github.METODO_DE_MERGE, "merge")
 
+    def test_o_check_que_conta_e_o_do_head_que_subiu(self):
+        """#24 (17/09/2026): quatro minutos depois do push a API ainda
+        devolvia o head antigo, já verde, e o merge saiu com o check do
+        head novo `in_progress`. `_esperar_head` espera a API refletir o
+        SHA local; `enfileirar` passa esse SHA a `esperar` e recusa mergear
+        se o head mudar embaixo."""
+        from unittest import mock
+
+        from scripts import github
+
+        respostas = iter([{"head": {"sha": "velho"}}, {"head": {"sha": "velho"}}, {"head": {"sha": "novo"}}])
+        with mock.patch.object(github, "_pr", side_effect=lambda repo, numero: next(respostas)),                 mock.patch.object(github.time, "sleep"):
+            self.assertEqual(github._esperar_head("dono/repo", 1, "novo"), "novo")
+        with mock.patch.object(github, "_pr", return_value={"head": {"sha": "velho"}}),                 mock.patch.object(github.time, "sleep"),                 mock.patch.object(github.time, "time", side_effect=[0, 0, 10_000, 10_000]):
+            with self.assertRaises(SystemExit) as saida:
+                github._esperar_head("dono/repo", 1, "novo", minutos=1)
+            self.assertEqual(saida.exception.code, 2)
+        fonte = HELPER.read_text(encoding="utf-8")
+        self.assertIn('"--sha", head_local.strip()', fonte)
+        self.assertIn("o head mudou embaixo", fonte)
+
     def test_um_ticket_de_processo_morto_nao_e_vez_na_fila(self):
         """Depois do reboot de 17/09/2026 dois tickets de processos mortos
         ficaram na frente da fila, ninguém de posse, e `minha_vez` era falso
