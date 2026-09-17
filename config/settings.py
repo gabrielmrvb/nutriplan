@@ -507,16 +507,16 @@ PWA_SHORT_NAME = "NutriPlan"
 # #0d0f12 e estas duas ficaram no verde-preto antigo.
 #
 # Há teste comparando as duas com o token do CSS.
-# A BASE É O FERRO desde 16/09/2026 (direção CORTE): `--bg` do `:root` é
-# #10120e, e é ele que o manifesto declara — o sistema operacional não troca
+# A BASE É O FERRO desde 16/09/2026 (CORTE; NERVURA em 17/09): `--bg` do `:root` é
+# #0b140f, e é ele que o manifesto declara — o sistema operacional não troca
 # a tela de abertura do app instalado conforme o tema do aparelho, então a
 # cor única é a da base. (De 12/09 a 16/09 a base foi a clara: #f5f3ee.)
-PWA_THEME_COLOR = "#10120e"
-PWA_BACKGROUND_COLOR = "#10120e"
+PWA_THEME_COLOR = "#0b140f"
+PWA_BACKGROUND_COLOR = "#0b140f"
 
 # O `--bg` do Papel, o regime claro. Só o `<meta media="(prefers-color-scheme:
 # light)">` usa: quem prefere claro recebe a moldura clara no navegador.
-PWA_LIGHT_COLOR = "#f6f3ea"
+PWA_LIGHT_COLOR = "#f4f6f2"
 
 
 # ==========================================================================

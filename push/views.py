@@ -172,8 +172,8 @@ class ServiceWorkerView(TemplateView):
                     # para ele), então a URL é imutável sem `?v=`. Pré-cacheadas
                     # para o `font-display: swap` só trocar de fonte na
                     # primeira visita, nunca a cada abertura sem rede.
-                    static("fonts/bodoni-moda-latin.woff2"),
-                    static("fonts/karla-latin.woff2"),
+                    static("fonts/big-shoulders-display-latin.woff2"),
+                    static("fonts/archivo-latin.woff2"),
                 ],
             }
         )
