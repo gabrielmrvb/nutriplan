@@ -48,7 +48,7 @@
 ## PR 2 — `treino/equipamento`: a pergunta, o mapa, o filtro, o dourado por perfil
 
 ### Task 5: `Equipamento` no perfil e no plano
-**Files:** Modify `accounts/models.py` (enum `Equipamento`, `Profile.equipamento`), `accounts/migrations/0035_equipamento.py`, `accounts/forms.py` (`TrainingForm`: campo, initial, save), `templates/accounts/onboarding/step.html`, `templates/accounts/profile.html`, `accounts/views.py` (`resumo_das_escolhas`), `workouts/models.py` (`TrainingPlan.equipamento`), `workouts/migrations/0026_equipamento_no_plano.py`, `workouts/services.py` (`equipamento_de`, `create_routine`, `rotina_invalida`). Tests: `accounts/tests.py`, `workouts/test_planos_ativos.py`, `workouts/test_equipamento.py` (novo).
+**Files:** Modify `accounts/models.py` (enum `Equipamento`, `Profile.equipamento`), `accounts/migrations/0035_equipamento.py`, `accounts/forms.py` (`TrainingForm`: campo, initial, save), `templates/accounts/onboarding/step.html`, `templates/accounts/profile.html`, `accounts/views.py` (`resumo_das_escolhas`), `workouts/models.py` (`TrainingPlan.equipamento`), `workouts/migrations/0028_equipamento_no_plano.py`, `workouts/services.py` (`equipamento_de`, `create_routine`, `rotina_invalida`). Tests: `accounts/tests.py`, `workouts/test_planos_ativos.py`, `workouts/test_equipamento.py` (novo).
 - [ ] Testes que falham: default "completa" em conta nova e antiga (migration); formulário grava; mudar no perfil torna a rotina inválida e remonta; conta existente não remonta (plano "completa" == perfil "completa"); Perfil mostra "Equipamento".
 - [ ] Implementar. Reescrever `OProdutoNaoPrometeAmbienteTests` (`test_capacidade_de_ambiente.py` 500–567) e `OCatalogoAindaNaoSustentaEquipamentoTests` (`test_experiencia.py` 449–509) para o contrato novo.
 

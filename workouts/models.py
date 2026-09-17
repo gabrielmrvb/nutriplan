@@ -62,12 +62,13 @@ class Equipment(models.TextChoices):
     `disputa_equipamento` sobreviveram à remoção como código morto por três
     campanhas, e saíram em 10/09/2026.
 
-    HOJE O CAMPO É DADO DE CATÁLOGO SEM CONSUMIDOR NO MOTOR, e isso é
-    deliberado: `workouts/test_capacidade_de_ambiente.py` mede que o catálogo
-    ainda não sustenta nenhum recorte de ambiente além do conjunto completo —
-    um filtro por equipamento abriria buraco nos modelos curados. O campo fica
-    porque é verdadeiro e porque é o insumo daquela medição; o que não existe é
-    a promessa de personalização em cima dele.
+    DESDE 17/09/2026 O MOTOR LÊ ESTE CAMPO: `services.substituir_por_equipamento`
+    troca, antes de prescrever, o item do modelo cujo equipamento está fora do
+    perfil da pessoa (`accounts.models.Equipamento`, mapa no `TREINO.md`) por
+    um exercício ativo do mesmo `padrao` e grupo dentro do perfil. Por
+    substituição, e não por filtro: um filtro abriria buraco nos modelos
+    curados — `workouts/test_capacidade_de_ambiente.py` mediu isso em
+    10/09/2026 e mede hoje o que cada perfil ainda perde.
     """
 
     BARBELL = "barbell", "barra"
@@ -979,6 +980,13 @@ class TrainingPlan(models.Model):
     catalogo = models.CharField("catálogo de origem", max_length=64, blank=True, default="")
     nivel = models.CharField("nível de origem", max_length=20, blank=True, default="")
     duracao = models.CharField("faixa de duração de origem", max_length=10, blank=True, default="")
+    #: O perfil de equipamento com que a ficha nasceu (`accounts.models.
+    #: Equipamento`, 17/09/2026). Default "completa" e NÃO vazio, ao contrário
+    #: de nível e faixa: toda ficha anterior à pergunta foi montada com o
+    #: catálogo inteiro, então "completa" é a verdade dela — e igual ao
+    #: default do perfil, nada é remontado pela pergunta nova. Mudou no
+    #: perfil, a ficha ficou inválida e remonta.
+    equipamento = models.CharField("equipamento de origem", max_length=15, default="completa")
     #: O CICLO RODA CONTÍNUO (17/09/2026): a posição zero é o primeiro dia de
     #: treino do plano, e a letra de qualquer data é a da posição dela na
     #: sequência de dias de treino — A B C A B, depois C A B C A, depois

@@ -98,5 +98,11 @@
   "Remada alta na polia": "Upright_Cable_Row",
 
   "Rosca de punho com halteres": "Palms-Up_Dumbbell_Wrist_Curl_Over_A_Bench",
-  "Rosca de punho invertida com halteres": "Palms-Down_Dumbbell_Wrist_Curl_Over_A_Bench"
+  "Rosca de punho invertida com halteres": "Palms-Down_Dumbbell_Wrist_Curl_Over_A_Bench",
+
+  "Supino declinado com halteres": "Decline_Dumbbell_Bench_Press",
+  "Crucifixo inclinado com halteres": "Incline_Dumbbell_Flyes",
+  "Flexão de braço com pés elevados": "Push-Ups_With_Feet_Elevated",
+  "Flexão de braço fechada (diamante)": "Push-Ups_-_Close_Triceps_Position",
+  "Tríceps coice com halter": "Tricep_Dumbbell_Kickback"
 }

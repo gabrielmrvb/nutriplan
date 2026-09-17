@@ -328,7 +328,9 @@ class CatalogoDimensionadoTests(TestCase):
     por padrão composto do grupo no modelo.
     """
 
-    NOVOS = 28
+    #: 28 de 17/09/2026 (duas opções cheias) + 5 de peito e tríceps sem
+    #: barra, para o perfil de equipamento (17/09, mesma tarde).
+    NOVOS = 33
 
     @classmethod
     def setUpTestData(cls):
@@ -366,8 +368,8 @@ class CatalogoDimensionadoTests(TestCase):
                 self.assertIn("não assistido", linha["curadoria"]["video_por"])
                 self.assertTrue(exercicio.tem_anatomia)
 
-    def test_os_ativos_sao_sessenta_e_tres(self):
-        """35 de sempre + os 28 de 17/09/2026; a aposentada continua inativa."""
+    def test_os_ativos_sao_sessenta_e_oito(self):
+        """35 de sempre + os 33 de 17/09/2026; a aposentada continua inativa."""
         from workouts.models import Exercise
 
         self.assertEqual(Exercise.objects.filter(is_active=True).count(), 35 + self.NOVOS)
