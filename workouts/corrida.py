@@ -10,7 +10,7 @@ não é limitação de esforço, é ausência de API. Com a tela bloqueada as le
 param, e o que este módulo garante é que a lacuna vire LACUNA e não uma linha
 reta inventada entre dois pontos distantes.
 """
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from math import asin, cos, radians, sin, sqrt
 
 #: Raio médio da Terra em metros. Haversine sobre esfera erra menos de 0,5% em
@@ -187,7 +187,13 @@ FATOR_KCAL_POR_KG_KM = Decimal("0.9")
 
 
 def gasto_kcal(distancia_m, peso_kg) -> int:
-    """Quanto uma corrida gastou, em kcal inteiras. Sem peso, zero — nunca um chute."""
+    """Quanto uma corrida gastou, em kcal inteiras. Sem peso, zero — nunca um chute.
+
+    Arredonda meio para cima (`plans/tracking.py` declara essa a ÚNICA regra do
+    app) — não o padrão bancário de `Decimal.to_integral_value()`, que arredonda
+    meio para o par mais próximo e divergiria da mesma conta feita alhures.
+    """
     if not distancia_m or peso_kg is None:
         return 0
-    return int((FATOR_KCAL_POR_KG_KM * Decimal(peso_kg) * Decimal(distancia_m) / 1000).to_integral_value())
+    bruto = FATOR_KCAL_POR_KG_KM * Decimal(peso_kg) * Decimal(distancia_m) / 1000
+    return int(bruto.quantize(Decimal("1"), rounding=ROUND_HALF_UP))

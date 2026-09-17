@@ -26,6 +26,23 @@ class OGastoTests(TestCase):
         self.assertEqual(gasto_kcal(0, Decimal("80")), 0)
         self.assertEqual(gasto_kcal(5000, None), 0)
 
+    def test_o_meio_sobe_como_no_resto_do_app_e_nao_para_o_par(self):
+        """346,5 é onde `to_integral_value()` (o padrão de `Decimal`) e a
+        regra do app discordam de verdade — e é por isso que o caso é este e
+        não 337,5.
+
+        `plans/tracking.py` declara HALF_UP "a ÚNICA regra de arredondamento
+        do app": meio sobe, sempre. `Decimal.to_integral_value()` sem
+        argumento é o padrão bancário, HALF_EVEN: meio vai para o PAR mais
+        próximo. As duas regras só DIVERGEM quando o inteiro de cima é ímpar —
+        347 aqui. Um peso de 75 kg dá 337,5, e nesse caso as duas regras
+        concordam por acaso (338 já é par); só expõe a diferença um caso cujo
+        arredondamento-para-cima caia em ímpar, como este.
+        """
+        # 0,9 × 77 × 5 = 346,5 — HALF_UP sobe para 347; HALF_EVEN desceria
+        # para 346, porque 346 é o par mais próximo.
+        self.assertEqual(gasto_kcal(5000, Decimal("77")), 347)
+
     def test_o_saldo_do_dia_soma_a_corrida_e_a_home_diz(self):
         pessoa = create_user(email="gasto@exemplo.com")
         self.client.force_login(pessoa)
