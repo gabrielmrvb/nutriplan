@@ -125,3 +125,14 @@ class ATelaDoExercicioTests(TestCase):
         from django.conf import settings
         css = (settings.BASE_DIR / "static/css/app.css").read_text(encoding="utf-8")
         self.assertRegex(css, r"\.curva--carga \.curva__grafico\s*\{[^}]*color:\s*var\(--")
+
+    def test_a_figure_nao_herda_a_margem_padrao_do_navegador(self):
+        """`<figure>` é o primeiro elemento com esse nome no app, e o
+        navegador aplica `margin: 1em 40px` por padrão quando ninguém zera —
+        dentro do card isso comia 80px de largura e o SVG (`width: 100%`)
+        desenhava 230px num card de 390px, achatando a curva de carga. A
+        régua é a mesma classe `.curva--carga` que já dá a cor: sem ela
+        reaparecer aqui com `margin`, o navegador reimpõe o padrão."""
+        from django.conf import settings
+        css = (settings.BASE_DIR / "static/css/app.css").read_text(encoding="utf-8")
+        self.assertRegex(css, r"\.curva--carga\s*\{[^}]*margin")

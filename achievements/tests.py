@@ -306,6 +306,28 @@ class RecordeTests(BaseDeConquistas):
         self.assertEqual(recorde.chave, esperado)
         self.assertEqual(melhor_serie.chave, esperado)
 
+    def test_a_tela_conta_as_duas_especies_de_recorde(self):
+        """`/conquistas/` tinha UMA figura "recordes" (achievements/views.py,
+        ~l. 99), mas o filtro contava só o slug `novo-recorde` — quem só
+        tinha `melhor-serie` (a SEGUNDA espécie da mesma família RECORDE,
+        `achievements/regras.py`) via "0 recordes" com uma conquista de
+        recorde listada logo abaixo, dizendo o oposto.
+
+        Sabotagem: reverter para `len(por_slug.get("novo-recorde", []))`
+        deixa este teste vermelho sem mexer em nenhum outro da classe —
+        nenhum deles pede só `melhor-serie`."""
+        user = self.pessoa()
+        self.client.force_login(user)
+        UserAchievement.objects.create(user=user, slug="melhor-serie", chave="1:2026-08-31")
+
+        html = self.client.get(reverse("achievements:list")).content.decode()
+
+        self.assertRegex(
+            html,
+            r'<span class="conquistas__numero num">1</span>\s*'
+            r'<span class="conquistas__rotulo">recorde</span>',
+        )
+
 
 class UnicidadeTests(BaseDeConquistas):
     def test_a_trava_esta_no_banco_e_nao_so_no_codigo(self):

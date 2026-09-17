@@ -464,9 +464,18 @@
      instalação. Entram como TOKEN, e não crus na declaração, para não somar
      à dívida de `config/test_design_system.py::ACatracaDoSistemaVisualTests`
      (só desce). Medido no navegador, não a olho: o pior caso de texto em
-     320–480px de largura soma até 18,52rem até o topo da caixa. Acima de
-     40rem ela flutua fora da coluna central (`--max: 30rem`) na maioria das
-     telas, como o convite — daí o segundo valor, bem menor. */
+     320–480px de largura soma até 18,52rem até o topo da caixa.
+
+     O segundo valor, bem menor, só é seguro quando a caixa PARA de cobrir a
+     coluna central — e não a partir de qualquer largura em que ela mude de
+     forma. A partir de `min-width: 30rem` (seção 40) ela vira
+     `right: 1rem; width: 22rem`: 23rem reservados do lado direito. A coluna
+     central (`--max: 30rem`) fica centralizada, então a margem de CADA lado
+     é `(viewport − 30rem) / 2`, e ela só alcança os 23rem da caixa quando
+     `viewport ≥ 30 + 2×23 = 76rem`. Trocar antes disso (era `min-width:
+     40rem` — a mesma largura em que a caixa MUDA de forma, não em que ela
+     LIBERA a coluna) deixava o CTA do rodapé coberto em tablets, do fim do
+     N1 até a revisão final de 16/09/2026 achar o cálculo. */
   --conquista-reserva: 19rem;
   --conquista-reserva-larga: 7rem;
 
@@ -1524,6 +1533,15 @@ h3 {
    "desceu" para julgar — é sempre progresso quando existe — então uma cor
    só, a de marca, em vez dos três modificadores de direção do peso. */
 .curva--carga .curva__grafico { color: var(--brand); }
+
+/* `<figure>` é o primeiro elemento com esse nome no app, e o navegador
+   aplica `margin: 1em 40px` a ele quando ninguém zera. `.curva` já dava
+   `margin-bottom` (regra de classe, vence a de elemento), mas topo, esquerda
+   e direita continuavam do padrão do navegador — 40px de cada lado comiam
+   80px de largura, e o SVG (`width: 100%`) desenhava 230px num card de
+   390px, achatando a curva de carga. Zera os quatro lados e reaplica só o
+   espaçamento de baixo. */
+.curva--carga { margin: 0 0 var(--espaco-6); }
 
 .curva__ponto {
   fill: currentColor;
@@ -6513,6 +6531,11 @@ body.montando { overflow: hidden; }
    corpo, para ler como referência e não como registro. 4,6:1 sobre o
    fundo do cartão — medido em `config.tests`. */
 .series__antes { font-size: var(--texto-sm); font-weight: 500; white-space: nowrap; color: var(--text-mute); }
+/* 1.2(b): o número foi emprestado da ÚLTIMA série de uma sessão mais curta
+   que a ficha de hoje — não é a mesma posição. Rótulo VISÍVEL, e não só
+   leitor de tela como a etiqueta padrão (`.vis-oculto`), porque sem ele a
+   pastilha lê como se o número fosse mesmo desta série. */
+.series__antes-rotulo { font-size: var(--texto-xs); font-weight: 700; color: var(--text-mute); }
 /* A série que superou a maior carga já registrada: a palavra, em caixa
    alta pequena, dentro da pastilha feita. Texto e não só cor. */
 .series__recorde {
@@ -7240,7 +7263,10 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   .conquista { left: auto; right: 1rem; width: 22rem; }
 }
 
-@media (min-width: 40rem) {
+@media (min-width: 76rem) {
+  /* 76rem = 30 (coluna) + 2×23 (o que a caixa reserva do lado direito a
+     partir de 30rem) — a régua está no token acima. Abaixo desta largura a
+     caixa ainda cobre a coluna central, e a reserva CHEIA continua valendo. */
   body.tem-conquista .container { padding-bottom: var(--conquista-reserva-larga); }
 }
 

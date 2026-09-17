@@ -73,7 +73,8 @@
         {% comment %}
           Só carga máxima — a mesma régua de `progresso.py`. Sem exercício
           sem carga (nada para desenhar) e sem menos de duas sessões
-          (`workouts.curva` devolve None e a chave nem existe no contexto).
+          (`workouts.curva` devolve None, e `curva_carga` é None no
+          contexto — o `{% if %}` de cima é quem cala o bloco).
         {% endcomment %}
         <figure class="curva curva--carga">
           <svg class="curva__grafico" viewBox="0 0 {{ curva_carga.largura }} {{ curva_carga.altura }}"

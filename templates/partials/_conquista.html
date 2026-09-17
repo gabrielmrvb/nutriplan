@@ -24,9 +24,12 @@
   em cima do "Continuar" daqui. `body.tem-conquista` (em `base.html`) empurra
   o `.container` para baixo, do mesmo jeito que `body.tem-convite` já fazia
   pelo convite de instalação — ver `app.css`, seção 40. E este parcial só é
-  incluído atrás de um "if request.resolver_match" em `base.html`: a página
-  de erro não tem `resolver_match`, e não pode ganhar um aviso que ninguém
-  vai fechar.
+  incluído atrás de um "if request.resolver_match and not pagina_de_erro" em
+  `base.html`: `pagina_de_erro` vem de `config/erros.py`
+  (`handler404`/`handler403`) porque `resolver_match` sozinho não bastava —
+  um `Http404` levantado DENTRO de uma view já resolvida também o deixa
+  preenchido — e a página de erro não pode ganhar um aviso que ninguém vai
+  fechar.
 
   A fila, o Esc (que fecha pelo mesmo POST de "Continuar", por `fetch`) e o
   som opcional moram em `static/js/conquista.js` — não mais inline aqui.

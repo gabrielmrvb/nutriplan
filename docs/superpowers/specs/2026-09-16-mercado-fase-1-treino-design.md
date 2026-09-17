@@ -25,26 +25,44 @@ contradiz decisão escrita, esta spec segue a decisão e marca "recomendo rever"
 
 ## 1.1 Recorde celebrado na hora
 
-**Duas espécies de recorde**, por exercício, sempre contra dias ANTERIORES:
+**Duas espécies de recorde**, por exercício, sempre contra dias ANTERIORES,
+e CADA UMA é a própria regra/conquista — não uma frase condicional dentro de
+uma conquista só (emendado 16/09/2026, fix wave: a primeira redação deste
+parágrafo previa uma `novo-recorde` só, com a frase mudando de espécie; o que
+foi construído são duas `Regra` distintas, `novo-recorde` e `melhor-serie`,
+ambas na família `Familia.RECORDE`):
 
-| espécie | definição | onde já existe |
-|---|---|---|
-| carga | `weight_kg` > máximo de todos os registros anteriores | `supera_recorde` |
-| reps×carga | `weight_kg × reps` da série > maior produto de uma única série anterior | **novo** |
+| espécie | definição | regra/conquista | onde já existe |
+|---|---|---|---|
+| carga | `weight_kg` > máximo de todos os registros anteriores | `novo-recorde` | `supera_recorde` |
+| reps×carga ("melhor série") | `weight_kg × reps` da série > maior produto de uma única série anterior | `melhor-serie` | `supera_recorde` |
 
 Regra: primeiro treino do exercício não é recorde (sem registro anterior →
-`False`, já é assim). Exercício `sem_carga` (prancha em segundos): sem recorde.
+conjunto vazio, já é assim). Exercício `sem_carga` (prancha em segundos): sem
+recorde de nenhuma espécie. **Carga E melhor série no mesmo toque são DUAS
+conquistas** — uma de cada regra —, anunciadas na MESMA fila (o `.conquista`
+já é fila, não pilha, desde a decisão original desta seção).
 
-**Detecção**: `services.supera_recorde` passa a devolver o conjunto de espécies
-superadas (`{"carga"}`, `{"reps_x_carga"}`, ambos, ou vazio) numa consulta só
-(`Max("weight_kg")` e o maior `weight_kg*reps` via `ExpressionWrapper`). A view
-continua chamando `avaliar` quando o conjunto não é vazio. `load_history`
-ganha `recorde_volume_anterior` (maior produto anterior) no mesmo laço; a
-linha da série ganha `recorde_volume: bool`.
+**Detecção**: `services.supera_recorde` devolve o conjunto de espécies
+superadas (`{"carga"}`, `{"melhor_serie"}`, ambos, ou vazio) numa consulta só
+(`Max("weight_kg")` e o maior `weight_kg*reps` via `ExpressionWrapper`,
+filtrando séries sem reps antes de comparar — uma série só com peso não pode
+inflar o produto máximo). A view continua chamando `avaliar` quando o
+conjunto não é vazio. `load_history` ganha `melhor_serie_anterior` (maior
+produto anterior) e `melhor_serie_peso`/`melhor_serie_reps` (o registro por
+trás do produto, para o FATO da tela) no mesmo laço; a linha da série ganha
+`melhor_serie: bool` ao lado de `recorde: bool`.
 
-**Anúncio**: a conquista `novo-recorde` continua uma por exercício por dia; a
-frase dela passa a dizer a espécie ("Agachamento livre: 65 kg, sua maior carga"
-/ "Agachamento livre: 60 kg × 12, seu melhor volume numa série").
+**Anúncio, e o contrato de privacidade**: `novo-recorde` e `melhor-serie` têm
+cada uma seu próprio título e frase, e NENHUMA das duas carrega número — é o
+mesmo contrato que `_recorde` já tinha (a chave é `exercício:data`, nunca
+`exercício:carga`, para a carga não precisar ser persistida nem vazar para
+dentro de um card que a pessoa manda para um grupo). A frase diz só o
+exercício: "Novo recorde: Agachamento livre." / "Melhor série: Agachamento
+livre." Os NÚMEROS ("65 kg", "60 kg × 12") aparecem só na TELA DE EXECUÇÃO
+(`agora.html`), nunca na conquista: na pastilha da série concluída
+(`series__recorde`, texto "recorde" / "melhor série") e no fato acima do
+campo ("Recorde: 65 kg" / "Melhor série: 60 kg × 10").
 
 **Frame de recompensa**: entrada animada do `.conquista` e pulso do emoji,
 CSS puro na seção 47 (Movimento), com tokens (`--mov-sucesso`, `--ease`) —
@@ -60,13 +78,32 @@ sessão (política de autoplay). Sem arquivo de áudio.
 
 **N1 (bug achado no DELTA)**: o overlay fixo cobre o CTA do rodapé de toda
 página até "Continuar". Correção: `body.tem-conquista` recebe
-`padding-bottom` igual à altura do aviso (mesmo mecanismo de `body.tem-convite`),
-o aviso fecha também por **Esc** e por **toque fora** (mesmo POST de
-`marcar_vistas` via `fetch`, `X-Requested-With: fetch`), e a fila de conquistas
-NÃO aparece em página de erro: o `include` do parcial em `base.html` fica atrás
-de `{% if request.resolver_match %}` — o 404 não tem `resolver_match`, e o 500
-renderiza sem `request`. Teste: `elementFromPoint` não é possível no Django test; o
-teste garante a classe no `body` e a regra de CSS, e o QA de produção repete
+`padding-bottom` igual à altura do aviso (mesmo mecanismo de
+`body.tem-convite`), e o aviso fecha por **Esc** (mesmo POST de
+`marcar_vistas` via `fetch`, `X-Requested-With: fetch`) e pelo botão
+**Continuar** — SEM toque fora (emendado 16/09/2026, fix wave: a primeira
+redação deste parágrafo previa fechar também por toque fora; o parcial
+(`partials/_conquista.html`) tem doutrina própria contra isso — "Deliberadamente
+NÃO interrompe: aparece ancorado embaixo, não escurece a tela e não rouba o
+foco", `role="status"` e não `dialog` — e um fechamento por toque fora
+contradiria essa doutrina).
+
+A fila de conquistas NÃO aparece em página de erro, e o mecanismo NÃO é
+`request.resolver_match` sozinho (emendado 16/09/2026, fix wave: a primeira
+redação estava errada — um `Http404` levantado DENTRO de uma view já
+resolvida, ex. `get_object_or_404` em `/treino/exercicio/999999/`, também
+deixa `resolver_match` preenchido; só a URL que não resolve fica com ele em
+`None`). O mecanismo real: `config/urls.py` declara `handler404`/`handler403`
+(`config/erros.py`), reimplementados a partir do contrato de
+`django.views.defaults.page_not_found`/`permission_denied` com
+`pagina_de_erro=True` a mais no contexto; `base.html` calha o `{% include %}`
+do parcial e a classe `tem-conquista` do `body` atrás de `not
+pagina_de_erro` (mantendo `request.resolver_match` na condição também,
+inofensivo). O 500 continua fora deste mecanismo — `server_error` renderiza
+sem `request` e sem estender `base.html` (regra própria, `config/test_b8_paginas_de_erro.py`).
+Teste: `elementFromPoint` não é possível no Django test; o teste garante a
+classe no `body`, a regra de CSS, e as duas telas de erro (404 de URL que
+não resolve e 404 levantado dentro de uma view), e o QA de produção repete
 a captura `d23`.
 
 ## 1.2 Pré-preenchimento por série
@@ -88,48 +125,61 @@ vez" em vez de "—".
 
 ## 1.3 Gráfico por exercício
 
-`historico_do_exercicio` passa a 12 sessões (`DATAS_DO_HISTORICO = 12`) e
-cada sessão ganha `volume` = Σ(carga × reps) das séries com carga e reps.
+**Emendado 16/09/2026 (fix wave), a partir de uma ruling na ledger
+(`.superpowers/sdd/2026-09-16-mercado-fase-1-treino/progress.md`): o par no
+`/historico/` (um gráfico por exercício, ao lado dos 6 de
+`progressao_de_carga`) fica ADIADO para uma onda futura.** A tela do
+exercício já é a superfície primária de "como estou indo neste movimento", e
+duplicar a mesma curva no histórico é YAGNI nesta fase — custo se a ruling
+estiver errada: o benchmark (b) fica só na tela do exercício, não no
+histórico agregado. O que segue descreve só o que FOI construído.
 
-Dois gráficos SVG inline, um em cima do outro, na tela do exercício
-(`exercicio.html`, acima da lista "Como fui") e no histórico da pessoa
-(`/historico/`, bloco Treino, um par por exercício com ≥2 sessões, no máximo
-os 6 de `progressao_de_carga`):
+`historico_do_exercicio` passa a 12 sessões (`DATAS_DO_HISTORICO = 12`). UM
+gráfico SVG inline na tela do exercício (`exercicio.html`, acima da lista
+"Como fui"):
 
 - **Carga máxima por sessão** — polyline, mesmo produtor de `_curva_de_peso`
   generalizado para `workouts/curva.py: curva(valores, largura=300, altura=64)`
   (escala pelo período, piso 0,4, `None` com <2 pontos). Última sessão marcada
   com um círculo.
-- **Volume por sessão** — mesma curva, cor `--warm`.
 
 Cores só por token (`stroke: currentColor` + classe). `role="img"` com
 `aria-label` que diz o resumo ("Carga máxima: 60 kg há 12 sessões, 65 kg na
-última"). Exercício `sem_carga`: sem gráficos (a lista continua). Sem
+última"). Exercício `sem_carga`: sem gráfico (a lista continua). Sem
 biblioteca. Orçamento de consultas: `test_exercicio_leitura.test_o_custo_e_fixo`
-continua valendo — o volume sai do mesmo laço.
+continua valendo — a curva é montada em Python a partir do `historico` que a
+view já buscava, sem consulta a mais.
 
-**Divergência registrada:** `workouts/progresso.py` recusa VOLUME TOTAL do
-mês por escrito ("métrica sem ação"). Volume por sessão de UM exercício é o
-segundo eixo da dupla progressão (reps sobem antes da carga) e responde
-"fiz mais trabalho neste exercício?". A decisão sobre o total continua
-intocada. **Recomendo rever** se o dono considerar que a mesma razão vale
-aqui.
+**Volume por sessão NÃO foi construído** (emendado 16/09/2026: a primeira
+redação previa um segundo gráfico, "Volume por sessão", cor `--warm`, lado a
+lado com a carga máxima). `workouts/progresso.py` recusa VOLUME TOTAL do mês
+por escrito ("métrica sem ação"), e `historico_do_exercicio` já documenta a
+mesma régua ("sem e1RM nem volume — a tela não inventa métrica"). A tensão
+que a primeira redação registrou como **"recomendo rever"** — volume por
+sessão de UM exercício seria o segundo eixo da dupla progressão, e
+responderia "fiz mais trabalho neste exercício?" — foi resolvida a favor da
+decisão já escrita, pela doutrina de Autonomia do `CLAUDE.md` (spec vence
+proposta externa quando o benchmark contradiz decisão escrita). Sem ruling
+nova que reabra a divergência, o volume continua fora.
 
 ## Testes (TDD, sabotagem em cada guarda)
 
-- `workouts/test_recorde_de_volume.py`: reps×carga supera / não supera /
-  estreia / `sem_carga`; carga E volume no mesmo toque = uma conquista; frase
-  diz a espécie; orçamento de consultas do POST não sobe (estender
-  `test_recorde_na_hora.CONSULTAS_*`).
+- `workouts/test_recorde_de_volume.py`: reps×carga (melhor série) supera /
+  não supera / estreia / `sem_carga`; **carga E melhor série no mesmo toque
+  = DUAS conquistas** (emendado 16/09/2026: a primeira redação previa uma
+  conquista só) — `test_carga_e_melhor_serie_no_mesmo_toque_sao_duas_conquistas`;
+  cada regra usa o próprio título na frase; orçamento de consultas do POST
+  não sobe (estende `test_recorde_na_hora.CONSULTAS_*`).
 - `achievements/test_frame_de_recompensa.py`: variante `--recorde`, `body.tem-conquista`,
   Esc/POST por fetch, nada em 404, interruptor de som lido do template.
 - `config/test_movimento.py`: as novas animações usam tokens e entram na
   lista de reduced-motion (o teste existente cobra).
 - `workouts/test_prefill_por_serie.py`: pina as ordens de carga e reps; pastilha
   "última vez".
-- `workouts/test_grafico_do_exercicio.py`: 12 sessões, volume por sessão,
-  `curva()` (escala, piso, <2 pontos), SVG presente com carga e ausente em
-  `sem_carga`, `aria-label`, cores por classe.
+- `workouts/test_grafico_do_exercicio.py`: 12 sessões, `curva()` (escala,
+  piso, <2 pontos), SVG de carga máxima presente com carga e ausente em
+  `sem_carga`, `aria-label`, cores por classe. SÓ carga máxima — sem "volume
+  por sessão" (emendado 16/09/2026: ver §1.3).
 - Teste dourado `test_ficha_de_verdade.py`: intocado.
 
 ## Fora da Fase 1

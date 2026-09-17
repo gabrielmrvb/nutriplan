@@ -12,6 +12,7 @@ Estreia não é recorde (não há série anterior para superar); exercício sem
 carga não tem melhor série; carga E melhor série no mesmo toque são DUAS
 conquistas (uma de cada regra), anunciadas na mesma fila.
 """
+import re
 from datetime import timedelta
 from decimal import Decimal
 
@@ -126,11 +127,27 @@ class AMelhorSerieTests(TestCase):
         self.assertTrue({"novo-recorde", "melhor-serie"} <= slugs, slugs)
 
     def test_a_tela_diz_melhor_serie_na_pastilha_e_no_fato(self):
+        """`assertIn("melhor série", html.lower())` passava por acidente: o
+        título do AVISO de conquista ("Melhor série: <exercício>.") e o FATO
+        abaixo do campo ("Melhor série: 60 kg × 10") também carregam a
+        mesma frase — apagar o `<span class="series__recorde">melhor
+        série</span>` de dentro da pastilha (`agora.html`) continuava verde
+        (revisão final de 16/09/2026, achado F4). Âncora na PASTILHA — o
+        `<li class="series__item…">` da série concluída — e o FATO checado
+        pela própria marca, e não pela mesma substring solta."""
         self._log(7, 1, 60, 10)
         self._concluir(60, 12)
         html = self.client.get(reverse("workouts:now") + "?exercicio=%d" % self.item.exercise.pk).content.decode()
-        self.assertIn("melhor série", html.lower())
-        self.assertIn("60 kg × 10", html)  # o fato: a melhor série anterior
+
+        itens = re.findall(r'<li class="series__item[^"]*">(.*?)</li>', html, re.S)
+        self.assertIn('class="series__recorde"', itens[0])
+        self.assertIn("melhor série", itens[0])
+
+        self.assertRegex(
+            html,
+            r'<span class="agora__recorde">\s*Melhor série:\s*'
+            r'<b class="num">60 kg × 10</b>',
+        )
 
     def test_o_post_sem_recorde_nao_custa_mais(self):
         # Desde 16/09/2026 a PRIMEIRA série do dia também avalia o catálogo
@@ -144,10 +161,17 @@ class AMelhorSerieTests(TestCase):
         self.assertLessEqual(len(consultas), CONSULTAS_DO_POST_SEM_RECORDE, consultas.captured_queries)
 
     def test_a_frase_da_conquista_nao_carrega_numero(self):
+        """O nome do exercício entra na frase ("Melhor série: <nome>.") e
+        pode ter dígito de verdade (ex. um exercício "Cadeira flexora 90°"
+        do catálogo) sem que isso seja o contrato quebrando — o que a
+        privacidade proíbe é PESO/REPS, não o nome. Tira o nome antes de
+        contar dígito, ou este teste reprovaria por coincidência de catálogo,
+        não pela regra que ele existe para provar."""
         self._log(7, 1, 60, 10)
         self._concluir(60, 12)
         conquista = Conquista.objects.get(user=self.pessoa, slug="melhor-serie")
-        texto = conquista.titulo + conquista.frase
+        nome = self.item.exercise.name
+        texto = (conquista.titulo + conquista.frase).replace(nome, "")
         self.assertFalse(any(c.isdigit() for c in texto), texto)
 
     def test_a_frase_usa_o_titulo_de_cada_regra(self):

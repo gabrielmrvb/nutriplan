@@ -60,7 +60,11 @@
         });
     };
     document.addEventListener("keydown", function (evento) {
-      if (evento.key === "Escape") fechar();
+      // Com o drawer de vídeo aberto, o Esc é DELE primeiro: fechar os dois
+      // de uma vez tiraria o vídeo da tela ao mesmo tempo em que o aviso
+      // muda o layout por baixo. `dialog[open]` é o mesmo sinal que
+      // `pwa.js` já usa para calar o convite de instalação.
+      if (evento.key === "Escape" && !document.querySelector("dialog[open]")) fechar();
     });
 
     var querSom = false;

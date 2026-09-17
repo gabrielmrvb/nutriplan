@@ -303,8 +303,19 @@
                   {% endif %}
                 {% elif linha.antes_peso != None %}
                   <span class="series__antes num">
-                    <span class="vis-oculto">última vez: </span>{% if atual.measure == 'seconds' %}{{ linha.antes_reps|default:"—" }}s{% elif atual.exercise.sem_carga %}×{{ linha.antes_reps|default:"—" }}{% else %}{{ linha.antes_peso|floatformat:'-2' }}{% if linha.antes_reps %}×{{ linha.antes_reps }}{% endif %}{% endif %}
+                    {% if not linha.antes_e_ultima %}<span class="vis-oculto">última vez: </span>{% endif %}{% if atual.measure == 'seconds' %}{{ linha.antes_reps|default:"—" }}s{% elif atual.exercise.sem_carga %}×{{ linha.antes_reps|default:"—" }}{% else %}{{ linha.antes_peso|floatformat:'-2' }}{% if linha.antes_reps %}×{{ linha.antes_reps }}{% endif %}{% endif %}
                   </span>
+                  {% if linha.antes_e_ultima %}
+                    {% comment %}
+                      1.2(b): a última sessão teve MENOS séries que a ficha
+                      de hoje, e este número é emprestado da ÚLTIMA série
+                      registrada dela — não da mesma posição. O rótulo é
+                      VISÍVEL (não `vis-oculto` como a etiqueta de cima) de
+                      propósito: sem ele a pastilha lia como se este fosse o
+                      número de verdade daquela série.
+                    {% endcomment %}
+                    <span class="series__antes-rotulo">última vez</span>
+                  {% endif %}
                 {% else %}
                   <span class="series__carga num">—</span>
                 {% endif %}

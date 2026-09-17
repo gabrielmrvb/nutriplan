@@ -167,7 +167,8 @@ class ALeituraDoExercicioTests(TestCase):
 
 #: Consultas da leitura, medidas em 13/09/2026 ao nascer (sessão, usuário,
 #: perfil, plano, exercício, sessões da semana com itens, contagem de hoje,
-#: e o histórico limitado a oito datas).
+#: e o histórico limitado a doze datas — DATAS_DO_HISTORICO, subiu de oito
+#: em 16/09/2026 com o gráfico por exercício).
 #: Teto: só sobe com medição escrita.
 #: 9 em 15/09/2026: mais UMA, a escolha do dia (`escolha_do_dia`) — "Fazer
 #: este exercício" só existe se ele está na OPÇÃO do dia, senão o link daria
