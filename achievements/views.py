@@ -16,7 +16,7 @@ from accounts.views import OnboardingRequiredMixin
 
 from . import services
 from .models import UserAchievement
-from .regras import CATALOGO, POR_SLUG
+from .regras import CATALOGO, POR_SLUG, Familia
 from config.acoes import AcaoDeTela
 
 
@@ -96,7 +96,18 @@ class ConquistasView(OnboardingRequiredMixin, TemplateView):
                 "total": len(ganhas),
                 "ofensiva": dados.ofensiva,
                 "dias_treinados": dados.dias_treinados,
-                "recordes": len(por_slug.get("novo-recorde", [])),
+                # As DUAS espécies da família RECORDE contam aqui — não só
+                # `novo-recorde`. Filtrar pela família no catálogo (e não por
+                # uma lista de slugs escrita à mão) é o que mantém a régua
+                # certa sozinha se uma terceira espécie nascer: quem só tinha
+                # `melhor-serie` via "0 recordes" com uma conquista de
+                # recorde listada logo abaixo dizendo o oposto (achado F5 da
+                # revisão final de 16/09/2026).
+                "recordes": sum(
+                    len(por_slug.get(regra.slug, []))
+                    for regra in CATALOGO
+                    if regra.familia == Familia.RECORDE
+                ),
             }
         )
         return contexto

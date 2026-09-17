@@ -23,7 +23,16 @@ import hashlib
 from pathlib import Path
 
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Max, OuterRef, Subquery
+from django.db.models import (
+    Count,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    Max,
+    OuterRef,
+    Q,
+    Subquery,
+)
 from django.utils import timezone
 
 from accounts.models import (
@@ -2629,6 +2638,9 @@ def load_history(user, exercises, day=None) -> dict:
           "melhor_hoje": Decimal|None,         # série mais pesada de hoje
           "melhor_anterior": Decimal|None,
           "recorde_anterior": Decimal|None,    # a maior carga em QUALQUER data anterior
+          "melhor_serie_anterior": Decimal|None,  # maior reps×carga de UMA série anterior
+          "melhor_serie_peso": Decimal|None,      # a carga dessa série
+          "melhor_serie_reps": int|None,          # as reps dessa série
           "delta": Decimal|None,               # subiu ou não subiu
           "data_anterior": date|None,
           "sessoes": [(date, {série: log})],   # as últimas datas ANTERIORES, da mais
@@ -2644,6 +2656,11 @@ def load_history(user, exercises, day=None) -> dict:
     carga já registrada, não 1RM nem volume — lido do mesmo laço, para a
     execução dizer "recorde: 65 kg" e marcar a série que o supera sem uma
     consulta a mais.
+
+    `melhor_serie_anterior` é a SEGUNDA espécie, o contrato de
+    `achievements.regras._melhor_serie` — o maior reps×carga de UMA série,
+    não soma de volume — do mesmo laço, pela mesma razão: a execução diz
+    "melhor série: 60 kg × 12" e marca a série de hoje que a supera.
 
     A comparação é entre as séries MAIS PESADAS de cada dia, e não série a série:
     a ordem em que a pessoa anota varia (às vezes a pesada é a primeira, às vezes
@@ -2678,6 +2695,18 @@ def load_history(user, exercises, day=None) -> dict:
         recorde_anterior = max(
             (l.weight_kg for l in anteriores if l.weight_kg is not None), default=None
         )
+        # A série (não só o produto) porque a tela mostra "60 kg × 12", e
+        # guardar só o número perderia a carga e as reps que o compõem.
+        melhor_registro = max(
+            (l for l in anteriores if l.weight_kg is not None and l.reps is not None),
+            key=lambda l: l.weight_kg * l.reps,
+            default=None,
+        )
+        melhor_serie_anterior = (
+            melhor_registro.weight_kg * melhor_registro.reps
+            if melhor_registro
+            else None
+        )
         # As últimas datas, agrupadas — `anteriores` já vem por `-date`.
         sessoes = []
         for log in anteriores:
@@ -2692,6 +2721,9 @@ def load_history(user, exercises, day=None) -> dict:
             "melhor_hoje": melhor_hoje,
             "melhor_anterior": melhor_anterior,
             "recorde_anterior": recorde_anterior,
+            "melhor_serie_anterior": melhor_serie_anterior,
+            "melhor_serie_peso": melhor_registro.weight_kg if melhor_registro else None,
+            "melhor_serie_reps": melhor_registro.reps if melhor_registro else None,
             "data_anterior": data_anterior,
             "delta": (melhor_hoje - melhor_anterior)
             if (melhor_hoje is not None and melhor_anterior is not None)
@@ -2885,6 +2917,7 @@ def linhas_de_serie(item, load) -> list:
     hoje = (load or {}).get("hoje") or {}
     anterior = (load or {}).get("anterior") or {}
     recorde = (load or {}).get("recorde_anterior")
+    melhor = (load or {}).get("melhor_serie_anterior")
     linhas = []
     for numero in range(1, item.sets + 1):
         registro = hoje.get(numero)
@@ -2902,6 +2935,14 @@ def linhas_de_serie(item, load) -> list:
                 "recorde": bool(
                     registro is not None and recorde is not None
                     and registro.weight_kg is not None and registro.weight_kg > recorde
+                ),
+                # Segunda espécie, ao lado de "recorde": o maior reps×carga
+                # de UMA série (achievements.regras._melhor_serie) — não é
+                # a mesma pergunta que "recorde" (que só olha a carga).
+                "melhor_serie": bool(
+                    registro is not None and melhor is not None
+                    and registro.weight_kg is not None and registro.reps is not None
+                    and registro.weight_kg * registro.reps > melhor
                 ),
             }
         )
@@ -2999,9 +3040,9 @@ def _sugestao_de_reps(item, serie):
     return registro.reps if registro is not None else None
 
 
-#: Quantas datas o histórico da leitura mostra. Oito é o que cabe numa tela
+#: Quantas datas o histórico da leitura mostra. Doze é o que cabe numa tela
 #: sem virar relatório; o Progresso é quem responde "estou evoluindo?".
-DATAS_DO_HISTORICO = 8
+DATAS_DO_HISTORICO = 12
 
 
 def historico_do_exercicio(user, exercise, datas=DATAS_DO_HISTORICO) -> list:
@@ -3125,23 +3166,49 @@ def serie_pendente(user, exercise_id, dia=None) -> bool:
     return feitas < prescritas
 
 
-def supera_recorde(user, exercise, weight_kg, dia=None) -> bool:
-    """Esta carga é maior que TODAS as anteriores a `dia` neste exercício?
+def supera_recorde(user, exercise, weight_kg, reps=None, dia=None) -> set:
+    """Que recordes esta série supera: `{"carga"}`, `{"melhor_serie"}`, os dois, ou nada.
+
+    Duas espécies, o mesmo contrato de `achievements.regras._recorde`: só
+    SUPERAR conta, contra dias ANTERIORES a `dia`; estreia é o conjunto vazio.
+    "carga" é a maior carga já registrada; "melhor_serie" é o maior produto
+    reps×carga de UMA série — 60 kg × 12 supera 60 kg × 10 sem mexer na carga,
+    que é o segundo eixo da dupla progressão e o que Hevy e Strong celebram
+    (BENCHMARK-2026-09, padrão a).
 
     É a pergunta barata que decide se vale rodar `achievements.avaliar` na
-    hora: o catálogo inteiro custa 43 consultas (medido em 13/09/2026), e
-    a única regra que depende do DIA é o recorde — as outras têm chave sem
-    data e podem esperar a próxima visita a /conquistas/. Uma consulta aqui
-    contra 43 em toda série; quando o recorde acontece, o catálogo roda.
+    hora: o catálogo inteiro custa 43 consultas (medido em 13/09/2026), e as
+    únicas regras que dependem do DIA são estas duas — as outras têm chave
+    sem data e podem esperar a próxima visita a /conquistas/. Uma consulta
+    aqui contra 43 em toda série; quando um recorde acontece, o catálogo roda.
 
-    Estreia não é recorde: sem carga anterior a resposta é `False`
-    (`achievements.regras._recorde`).
+    Uma consulta com duas agregações, porque isto roda em TODA série
+    concluída (`ConcluirSerieView`) e o orçamento do POST é medido.
     """
     dia = dia or timezone.localdate()
-    maior = ExerciseLog.objects.filter(
+    anteriores = ExerciseLog.objects.filter(
         user=user, exercise=exercise, date__lt=dia, weight_kg__isnull=False
-    ).aggregate(maior=Max("weight_kg"))["maior"]
-    return maior is not None and weight_kg > maior
+    )
+    agregado = anteriores.aggregate(
+        maior=Max("weight_kg"),
+        melhor=Max(
+            ExpressionWrapper(
+                F("weight_kg") * F("reps"),
+                output_field=DecimalField(max_digits=10, decimal_places=2),
+            ),
+            filter=Q(reps__isnull=False),
+        ),
+    )
+    especies = set()
+    if agregado["maior"] is not None and weight_kg > agregado["maior"]:
+        especies.add("carga")
+    if (
+        reps is not None
+        and agregado["melhor"] is not None
+        and weight_kg * reps > agregado["melhor"]
+    ):
+        especies.add("melhor_serie")
+    return especies
 
 
 class ExercicioForaDaSessao(LookupError):

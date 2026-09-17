@@ -11,7 +11,7 @@ from django.views.generic.base import RedirectView
 
 from push import views as push_views
 
-from . import legal
+from . import erros, legal
 from .health import HealthView, VivoView
 
 # As rotas do allauth entram PELA METADE, e a metade que fica de fora é a
@@ -156,3 +156,10 @@ urlpatterns = [
     path("areas/", accounts_views.AreasView.as_view(), name="areas"),
     path("", include("plans.urls")),
 ]
+
+# `config/erros.py` — a única mudança em relação aos handlers padrão do
+# Django é `pagina_de_erro=True` no contexto de `404.html`/`403.html`, para
+# `base.html` saber (sem depender só de `resolver_match`) que é uma tela de
+# erro e não desenhar o aviso de conquista por cima dela.
+handler404 = erros.handler404
+handler403 = erros.handler403
