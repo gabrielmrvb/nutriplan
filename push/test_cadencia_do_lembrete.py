@@ -31,6 +31,15 @@ RAIZ = Path(settings.BASE_DIR)
 FLUXO = RAIZ / ".github" / "workflows" / "lembretes.yml"
 
 
+def _executavel(caminho):
+    """O YAML sem as linhas de comentário. O comentário deste fluxo CITA o
+    que saiu ("nada de `actions: write`", "batia em `/saude/vivo/`"), e uma
+    asserção crua casaria com a prosa em vez do que o job executa — é a
+    armadilha que o CLAUDE.md manda evitar ancorando fora do comentário."""
+    texto = caminho.read_text(encoding="utf-8")
+    return "\n".join(l for l in texto.splitlines() if not l.lstrip().startswith("#"))
+
+
 def _janela(now):
     return services.janela_do_lembrete(now)
 
@@ -65,35 +74,43 @@ class ACadenciaCobreTodoMinutoTests(SimpleTestCase):
 
 class OAgendadorEATelaDizemOMesmoTests(SimpleTestCase):
     def test_o_fluxo_do_actions_agenda_a_mesma_cadencia(self):
-        yaml = FLUXO.read_text(encoding="utf-8")
+        yaml = _executavel(FLUXO)
         crons = re.findall(r'cron:\s*"([^"]+)"', yaml)
         self.assertEqual(len(crons), 1, crons)
         self.assertTrue(crons[0].startswith("*/%d " % services.CRON_INTERVALO_MINUTOS), crons[0])
         # E ele chama a rota certa, com o token vindo dos segredos — nunca do repositório.
         self.assertIn("/tarefas/lembretes/", yaml)
         self.assertIn("secrets.NUTRIPLAN_TAREFAS_TOKEN", yaml)
-        self.assertIn("/saude/vivo/", yaml)
-        self.assertNotIn("/saude/\"", yaml.replace("/saude/vivo/", ""))
 
-    def test_o_relogio_de_verdade_e_o_laco_dentro_da_rodada(self):
-        """MEDIDO em 17/09/2026: o `schedule` de `*/5` do GitHub rodou UMA vez
-        em oito horas (a primeira às 03:10, 7h55 depois de o fluxo entrar em
-        `main`), e nos 70 minutos seguintes nenhuma outra. Com isso o serviço
-        dormiu e `/saude/` levou 38 s depois de 30 min sem tráfego. O
-        `schedule` é só o gatilho de reserva; quem marca os 5 minutos é um
-        LAÇO dentro da rodada, que dura quase o teto de 6 h de um job e, ao
-        acabar, dispara a próxima rodada (`workflow_dispatch` com o
-        `GITHUB_TOKEN`, que é a exceção documentada à regra "evento do
-        token não cria rodada")."""
-        yaml = FLUXO.read_text(encoding="utf-8")
-        self.assertIn("sleep %d" % (services.CRON_INTERVALO_MINUTOS * 60), yaml)
+    def test_o_fluxo_dispara_lembrete_e_nao_mantem_acordado(self):
+        """Desde 17/09/2026 (tarde) o `schedule` de `*/5` É o relógio dos
+        lembretes, e MANTER ACORDADO saiu deste fluxo: quem faz isso é o
+        UptimeRobot (monitor externo em `/saude/vivo/` a cada 5 min, gratuito
+        e confiável). Este fluxo só DISPARA lembrete — `POST
+        /tarefas/lembretes/` — e não bate mais em `/saude/vivo/`, para a
+        responsabilidade ser de um dono só (CLAUDE.md, "O que existe no
+        Render"). O `schedule` do GitHub atrasa e às vezes pula (MEDIDO: 1
+        rodada em 8 h em 17/09); o preço é lembrete atrasado, aceito pelo
+        dono — não mais cold start, que o UptimeRobot resolve."""
+        yaml = _executavel(FLUXO)
+        self.assertNotIn("/saude/vivo/", yaml)
+        self.assertNotIn("/saude/", yaml)
+
+    def test_o_fluxo_nao_tem_laco_nem_auto_dispatch(self):
+        """A CORRENTE saiu (17/09/2026, tarde). O laço de ~5h45 que se
+        re-disparava existia só para segurar o cold start que o `schedule`
+        instável deixava passar; com o UptimeRobot batendo em `/saude/vivo/`
+        de 5 em 5 min, o serviço não dorme e a corrente perdeu a razão. Sem
+        laço (`sleep 300`), sem job de horas (timeout pequeno), sem
+        `workflow_dispatch` automático (`actions: write` e o `dispatches`
+        saíram). O que resta é uma rodada curta por disparo do `schedule`."""
+        yaml = _executavel(FLUXO)
+        self.assertNotIn("sleep %d" % (services.CRON_INTERVALO_MINUTOS * 60), yaml)
+        self.assertNotIn("actions: write", yaml)
+        self.assertNotIn("/actions/workflows/lembretes.yml/dispatches", yaml)
         casou = re.search(r"timeout-minutes:\s*(\d+)", yaml)
         self.assertIsNotNone(casou)
-        self.assertGreaterEqual(int(casou.group(1)), 300)
-        self.assertLessEqual(int(casou.group(1)), 360)
-        self.assertIn("actions: write", yaml)
-        self.assertIn("/actions/workflows/lembretes.yml/dispatches", yaml)
-        self.assertIn("cancel-in-progress: false", yaml)
+        self.assertLessEqual(int(casou.group(1)), 10)
 
     def test_o_render_yaml_nao_agenda_nada(self):
         """Nada pago: o cron do Render saiu do arquivo, inclusive como espelho."""

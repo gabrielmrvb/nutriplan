@@ -1743,30 +1743,50 @@ variáveis), `env`, `cron`, `deploy`, `trigger`, `runs`, `logs`, `status`.
   FCM 201, notificação exibida.
 - **Lembretes SEM cron e SEM nada pago (decisão do dono, 16/09/2026).** A
   criação do cron pela API respondeu `402 Payment information is required`
-  (custaria no mínimo US$ 1/mês), e a instância web continua `free`. O
-  relógio é o **GitHub Actions**: `.github/workflows/lembretes.yml` roda de
-  5 em 5 minutos, bate em `/saude/vivo/` (sem banco) para o serviço não
-  dormir e em `POST /tarefas/lembretes/` com `NUTRIPLAN_TAREFAS_TOKEN` no
-  `Authorization` (variável do web service + segredo do repositório; o
-  mesmo valor, em `~/.nutriplan-secrets/tarefas_token`; gravado por
-  `scripts/github.py segredo` e pela API do Render). A rota é
+  (custaria no mínimo US$ 1/mês), e a instância web continua `free`. Quem
+  DISPARA lembrete é o **GitHub Actions** (`.github/workflows/lembretes.yml`,
+  `schedule` `*/5`): uma rodada CURTA por disparo, `POST /tarefas/lembretes/`
+  com `NUTRIPLAN_TAREFAS_TOKEN` no `Authorization` (variável do web service +
+  segredo do repositório; o mesmo valor, em `~/.nutriplan-secrets/tarefas_token`;
+  gravado por `scripts/github.py segredo` e pela API do Render). A rota é
   `push.views.TarefaLembretesView` → `push/tarefas.py`: token em tempo
   constante (503 sem a variável, 403 com token errado), só POST, sem
   sessão, idempotente pela constraint do `NotificationLog`.
 
-**A infraestrutura é 100 % gratuita — Render free + Neon free + GitHub
-Actions —, e isso implica três coisas escritas:**
+- **Quem MANTÉM ACORDADO é o UptimeRobot (17/09/2026), não o Actions.** Um
+  monitor HTTP(s) gratuito — conta `bielpointblank@gmail.com`, monitor
+  "NutriPlan vivo" (`dashboard.uptimerobot.com/monitors/804021213`) — bate em
+  `GET /saude/vivo/` a cada 5 minutos (o mínimo do plano free) e alerta por
+  e-mail se cair. `/saude/vivo/` NÃO consulta o banco, de propósito: um
+  monitor em `/saude/` acordaria o Neon o tempo todo e a cota de 100 CU-h
+  estouraria no meio do mês (ver "Monitor externo bate em `/saude/vivo/`").
+  Antes disso o "manter acordado" era um LAÇO de ~5h45 dentro da rodada do
+  Actions que se re-disparava sozinho (`GITHUB_TOKEN`, `actions: write`) — a
+  "corrente"; com o UptimeRobot ela perdeu a razão e saiu (o fluxo voltou a
+  ser uma rodada por disparo do `schedule`). A chave do UptimeRobot, se um
+  dia a API for usada, mora só no ambiente da máquina (`API Settings` no
+  painel), nunca no repositório.
 
-- **cold start só se o ping falhar por mais de 15 minutos.** O free do
-  Render dorme após 15 min sem tráfego e acorda em 37–60 s (medido na
-  avaliação de 16/09). **O `schedule` do GitHub NÃO segura isso sozinho**
-  — medido em 17/09: o cron `*/5` rodou UMA vez em oito horas, o serviço
-  dormiu e `/saude/` levou 38 s depois de 30 min parado. Por isso o relógio
-  de verdade é o LAÇO dentro da rodada (`lembretes.yml`: um job de ~5h45
-  batendo a cada 5 min e disparando a próxima rodada com o `GITHUB_TOKEN`
-  ao acabar); o `schedule` é só o gatilho de reserva que religa a corrente.
-  Um cold start ocasional continua possível (runner indisponível, corrente
-  quebrada até o `schedule` religar) e não é defeito do app;
+**A infraestrutura é 100 % gratuita — Render free + Neon free + GitHub
+Actions + UptimeRobot free —, e isso implica três coisas escritas:**
+
+- **duas responsabilidades, dois donos.** MANTER ACORDADO é do UptimeRobot
+  (5 em 5 min em `/saude/vivo/`, confiável); DISPARAR LEMBRETE é do `schedule`
+  do Actions (5 em 5 min em `/tarefas/lembretes/`). Separar foi decisão de
+  17/09: o `schedule` do GitHub ATRASA e às vezes PULA — MEDIDO naquele dia,
+  o `*/5` rodou UMA vez em oito horas —, então ele NÃO serve para segurar
+  cold start (que precisa de pontualidade), mas serve para lembrete (a janela
+  de `push/services.py` tolera atraso, e a constraint do banco impede
+  duplicar). O preço aceito pelo dono é **lembrete pode atrasar** quando o
+  GitHub atrasa; o que NÃO acontece mais é cold start, porque o UptimeRobot
+  não depende do humor do `schedule`. **Se o UptimeRobot cair** (o e-mail
+  avisa): o serviço volta a dormir após 15 min e o primeiro acesso paga
+  37–60 s — reative o monitor no painel, ou o próprio `POST` do lembrete
+  acaba acordando o web na próxima vez que o `schedule` rodar. **Se o
+  `schedule` do Actions parar** (repositório sem atividade por 60 dias — o
+  GitHub avisa por e-mail — ou pane do agendador): os lembretes param sem
+  derrubar mais nada; `workflow_dispatch` na aba Actions dispara uma rodada à
+  mão, e um commit qualquer religa o `schedule`;
 - **o Neon dorme entre refeições, de propósito.** Uma consulta a cada 5 min
   o manteria acordado o dia inteiro (182 CU-h contra 100 de cota). Por isso
   a tarefa, depois de rodar, calcula a próxima refeição de quem tem
@@ -1776,17 +1796,18 @@ Actions —, e isso implica três coisas escritas:**
   restart. O ping de manter acordado NUNCA usa `/saude/`;
 - **dependência da política do free.** Render pode mudar o tempo de sono,
   as horas gratuitas (750 h/mês por workspace hoje) ou bloquear o ping;
-  GitHub pode desligar o `schedule` de repositório sem atividade por 60
-  dias (ele avisa por e-mail), atrasa ou pula o cron sob carga, e a corrente
-  de rodadas de ~6 h (repositório público, minutos ilimitados) é uso que a
-  política de Actions pode um dia questionar; o Neon pode reduzir a cota.
-  Nada disso quebra o app — só os lembretes e o cold start.
+  UptimeRobot pode mudar o mínimo de 5 min do plano free ou o número de
+  monitores; GitHub pode desligar o `schedule` de repositório sem atividade
+  por 60 dias (ele avisa por e-mail) e atrasa ou pula o cron sob carga; o
+  Neon pode reduzir a cota. Nada disso quebra o app — só os lembretes e o
+  cold start, e cada um tem o seu dono para reativar.
 
 **O que mudaria se um dia virar pago:** instância `starter` no Render
-(~US$ 7/mês) elimina o sono e o ping; o cron do Render (≥ US$ 1/mês,
-`scripts/render_api.py cron`, bloco de exemplo no histórico do `render.yaml`
-até 16/09) substituiria o Actions com relógio exato — e a janela de 15 min
-poderia voltar a 10; o Neon pago tira o teto de CU-h e a pausa de
+(~US$ 7/mês) elimina o sono, e aí o UptimeRobot vira só alerta de queda; o
+cron do Render (≥ US$ 1/mês, `scripts/render_api.py cron`, bloco de exemplo
+no histórico do `render.yaml` até 16/09) substituiria o `schedule` do Actions
+com relógio exato — e a janela de 15 min poderia voltar a 10, e o lembrete
+deixaria de atrasar; o Neon pago tira o teto de CU-h e a pausa de
 `push/tarefas.py` viraria só economia. Nenhuma dessas trocas exige código
 novo além de apagar o que existe para contornar o gratuito.
 
