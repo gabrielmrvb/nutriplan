@@ -828,8 +828,9 @@ class RecalibrateView(AcaoDeTela, OnboardingRequiredMixin, View):
     objetivo: quem quer GANHAR massa e empacou destrava somando calorias, não
     cortando — `weight_trend.analisar` só oferece este botão para quem tem
     `goal == BULK`, mas a view não reencena essa checagem: `acao` é só um dos
-    dois nomes que ela sabe aplicar, e qualquer outro valor (inclusive
-    inventado) cai no mesmo ramo de "recusar" que já existia.
+    três nomes que ela sabe aplicar ("cortar", "aumentar", "dispensar"); um
+    valor que não é nenhum dos três não vira "dispensar" por acidente — não
+    grava nada e só devolve para a tela.
     """
 
     def post(self, request, *args, **kwargs):
@@ -864,7 +865,7 @@ class RecalibrateView(AcaoDeTela, OnboardingRequiredMixin, View):
                 f"Somamos {weight_trend.AJUSTE_KCAL} kcal à sua meta. "
                 "Dê duas semanas antes de julgar o resultado.",
             )
-        else:
+        elif acao == "dispensar":
             profile.recalibrated_at = timezone.now()
             profile.save(update_fields=["recalibrated_at"])
             messages.info(
@@ -872,6 +873,8 @@ class RecalibrateView(AcaoDeTela, OnboardingRequiredMixin, View):
                 "Combinado. Tente somar uns 20 minutos de caminhada por dia — "
                 "perguntamos de novo daqui a algumas semanas.",
             )
+        # `acao` desconhecida (nem "cortar", "aumentar" nem "dispensar") não
+        # grava nada: um POST inventado não pode aplicar a recusa por engano.
 
         return redirect(reverse("plans:history"))
 

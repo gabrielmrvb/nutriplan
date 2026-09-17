@@ -410,6 +410,18 @@ def calculate(inputs: PlanInputs) -> PlanResult:
         # cálculo já deu — a mesma suspeita de conta otimista que justifica o
         # teto no caminho automático.
         teto = Decimal(SAFE_MAX_KCAL)
+        # PESO EXTREMO desliga o teto aqui do mesmo jeito que desliga em
+        # `target_kcal` — mesma constante, `EXTREME_WEIGHT_KG`, mesmo motivo:
+        # acima de 120 kg gastar mais de 2.800 kcal é esperado, não sinal de
+        # conta otimista.
+        #
+        # Sem esta exceção o teto pode ficar MENOR que o piso: a TMB sozinha
+        # de 200 kg passa de 3.100 kcal, acima do teto de 2.800. Achado em
+        # revisão: homem de 200 kg / 200 cm / 20 anos, GANHANDO massa, pedia
+        # "Somar 150 kcal" e o `elif` abaixo cortava a meta para 2.800 — mais
+        # de 1.000 kcal ABAIXO da própria TMB, exatamente o que a trava de
+        # piso, três linhas acima, existe para impedir.
+        pesado = Decimal(inputs.weight_kg) > EXTREME_WEIGHT_KG
         if pedido < piso:
             # A trava vence o pedido manual. Comer abaixo da taxa metabólica
             # basal não acelera nada: derruba o treino e come músculo.
@@ -418,7 +430,7 @@ def calculate(inputs: PlanInputs) -> PlanResult:
                 "O ajuste que você pediu levaria a meta abaixo do seu gasto de "
                 "repouso, então ela parou no mínimo seguro."
             )
-        elif pedido > teto:
+        elif pedido > teto and not pesado:
             target = teto
             adjust_note = (
                 f"O ajuste que você pediu levaria a meta acima de {SAFE_MAX_KCAL} "
@@ -426,6 +438,12 @@ def calculate(inputs: PlanInputs) -> PlanResult:
             )
         else:
             target = pedido
+            if pesado and pedido > teto:
+                adjust_note = (
+                    f"Sua meta passou de {SAFE_MAX_KCAL} kcal porque o seu peso "
+                    "realmente sustenta um gasto alto, então o teto de segurança "
+                    "não se aplicou."
+                )
     protein_g, carb_g, fat_g, macro_note = macros(target, inputs.weight_kg, inputs.goal)
 
     return PlanResult(

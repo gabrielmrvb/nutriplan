@@ -226,6 +226,43 @@ class RecalibragemTests(TestCase):
         self.assertLessEqual(com_aumento.target_kcal, SAFE_MAX_KCAL)
         self.assertIn("teto de segurança", com_aumento.notes)
 
+    def test_o_teto_manual_nao_corta_abaixo_da_tmb_em_peso_extremo(self):
+        """Achado em revisão adversarial, lendo `plans/calculations.py`.
+
+        Homem de 200 kg, 200 cm, 20 anos: a TMB sozinha já passa de 3.100
+        kcal, acima do teto de segurança de 2.800. Antes da correção, o
+        `elif pedido > teto` do ajuste manual não conhecia essa exceção — a
+        mesma que `target_kcal` já aplica acima de 120 kg — e cortava a meta
+        de quem está GANHANDO massa e só pediu "Somar 150 kcal" para 2.800,
+        mais de 1.000 kcal ABAIXO da própria taxa de repouso. Era o exato
+        problema que o piso, três linhas acima no código, existe para
+        impedir.
+        """
+        from decimal import Decimal as D
+
+        from accounts.models import ActivityLevel, Goal, Sex
+
+        from .calculations import PlanInputs, calculate
+
+        base = dict(
+            sex=Sex.MALE,
+            weight_kg=D("200"),
+            height_cm=200,
+            age_years=20,
+            activity_level=ActivityLevel.SEDENTARY,
+            goal=Goal.BULK,
+            session_minutes=(),
+        )
+        sem_ajuste = calculate(PlanInputs(**base))
+        com_ajuste = calculate(PlanInputs(**base, kcal_adjustment=150))
+
+        self.assertGreaterEqual(com_ajuste.target_kcal, sem_ajuste.bmr_kcal)
+        # O aumento pedido precisa aparecer em cima do que `target_kcal` já
+        # tinha dado — não só "não cair abaixo da TMB", que um teto travado
+        # exatamente no piso também cumpriria sem deixar o pedido surtir
+        # efeito nenhum.
+        self.assertEqual(com_ajuste.target_kcal, sem_ajuste.target_kcal + 150)
+
     def test_quem_ganha_massa_ouve_aumentar_nao_cortar(self):
         """Sugerir corte para quem quer GANHAR massa e empacou seria o app
         remando contra o objetivo da própria pessoa."""
@@ -281,13 +318,18 @@ class RecalibragemTests(TestCase):
 
     def test_the_view_ignores_an_unknown_acao(self):
         """Uma ação inventada não pode aplicar ajuste nenhum — nem cortar,
-        nem aumentar. `acao` vem de um POST, e o servidor não confia nele."""
+        nem aumentar, nem dispensar. `acao` vem de um POST, e o servidor não
+        confia nele: uma versão anterior tratava qualquer valor desconhecido
+        como "dispensar" e gravava `recalibrated_at` mesmo assim, o que
+        silenciaria o aviso de recalibragem sem a pessoa ter respondido nada."""
         antes = self.user.profile.kcal_adjustment
+        antes_recalibrado = self.user.profile.recalibrated_at
 
         self.client.post(reverse("plans:recalibrate"), {"acao": "girar_polegares"})
 
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.kcal_adjustment, antes)
+        self.assertEqual(self.user.profile.recalibrated_at, antes_recalibrado)
 
 
 class ConvitePesagemTests(TestCase):
