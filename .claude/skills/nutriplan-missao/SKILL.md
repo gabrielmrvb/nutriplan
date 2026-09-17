@@ -216,6 +216,29 @@ banco de teste próprio (`scratchpad/settings_missao.py` é o modelo:
 **O código de saída importa.** `manage.py test | tail` devolve o status do
 `tail`, não da suíte — já enganou aqui. Capture o exit code direto.
 
+### Processo de fundo e notificação: só por `scripts/fundo.py`
+
+**Nenhum processo de fundo abre janela.** As ferramentas Bash e PowerShell
+têm teto de 10 minutos por comando, então vigia, watcher, servidor e suíte
+longa viram processo desanexado — e é aí que a janela nasce: um processo sem
+console que lança um programa de console recebe um console novo, e no Windows
+11 console novo é uma janela do Windows Terminal na tela do dono. Aconteceu em
+16/09/2026, doze vezes por hora, por uma tarefa agendada em PowerShell.
+
+Por isso tudo isso nasce em um lugar só:
+
+```bash
+python scripts/fundo.py rodar --log arquivo.log -- comando args...   # sem janela, sobrevive à ferramenta
+python scripts/fundo.py notificar "Missão fechada. Relatório no chat."  # tan-tan-tan-TAAAN + aviso, sem console
+```
+
+Não escreva um `.ps1` que apita, não chame `powershell -c`, `cmd /c` nem
+`start`, e não confie em `-WindowStyle Hidden` na linha de comando do
+PowerShell — ele lê a flag depois que o console já existe.
+`config/test_janela_de_fundo.py` varre `scripts/`, `artifacts/`,
+`.superpowers/` e as skills e fica vermelho com qualquer uma dessas chamadas
+fora do `fundo.py`.
+
 ---
 
 ## 4. Browser QA
