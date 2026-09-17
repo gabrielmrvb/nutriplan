@@ -9,12 +9,14 @@ não confiar no que ele testa. A segunda prova que o modelo e a tela obedecem:
 `PlanoDeCorrida.semana_atual`, `sessoes_feitas`, e o cartão da semana em
 `/treino/corridas/`.
 """
+import contextlib
 import re
 import tempfile
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from pathlib import Path
 
+from django.apps import apps as django_apps
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -37,6 +39,30 @@ def _linhas_da_tabela(texto, cabecalho):
         [c.strip() for c in linha.strip().strip("|").split("|")]
         for linha in bloco.group(1).strip().splitlines()
     ]
+
+
+@contextlib.contextmanager
+def _documento_sem_uma_linha(linha_removida):
+    """Troca `doutrina_corrida.DOCUMENTO` por uma cópia do CORRIDA.md real
+    sem `linha_removida` enquanto o bloco `with` roda, e restaura o
+    documento verdadeiro (e o cache de `carregar()`) ao sair — a mesma
+    sabotagem usada para testar `carregar()` direto e, agora, o `ready()`
+    do app config."""
+    texto = DOC.read_text(encoding="utf-8")
+    assert linha_removida in texto, "a linha esperada mudou — atualize a sabotagem"
+    texto_incompleto = texto.replace(linha_removida, "", 1)
+
+    original = doutrina_corrida.DOCUMENTO
+    doutrina_corrida.carregar.cache_clear()
+    try:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir) / "CORRIDA.md"
+            tmp.write_text(texto_incompleto, encoding="utf-8")
+            doutrina_corrida.DOCUMENTO = tmp
+            yield
+    finally:
+        doutrina_corrida.DOCUMENTO = original
+        doutrina_corrida.carregar.cache_clear()
 
 
 class OLeitorDevolveOQueEstaEscritoTests(SimpleTestCase):
@@ -90,6 +116,23 @@ class OLeitorDevolveOQueEstaEscritoTests(SimpleTestCase):
         self.assertIn("Couch to 5K", self.texto)
         self.assertIn("Higdon", self.texto)
 
+    def test_a_secao_sessoes_tem_uma_unica_tabela(self):
+        """Regressão do Round 1 (task-3-report.md, "Decisões que valem
+        registrar"): a primeira versão do documento tinha QUATRO tabelas —
+        uma por combinação plano/nível — com o MESMO cabeçalho, e
+        `workouts/doutrina_md.py::tabelas` indexa por tupla de cabeçalho, então
+        cada tabela nova sobrescrevia a anterior no dicionário e só as 24
+        linhas da última combinação sobreviviam (achado rodando
+        `doutrina_corrida.planos()` na mão, antes deste teste existir). Foram
+        fundidas numa tabela única; isto tranca que a seção não volta a se
+        partir em várias."""
+        secao = self.texto.split("## Sessões", 1)[1].split("## Gasto", 1)[0]
+        cabecalhos = [
+            linha for linha in secao.splitlines()
+            if linha.strip().startswith("| plano | nivel | semana | sessao |")
+        ]
+        self.assertEqual(len(cabecalhos), 1)
+
 
 class QuandoUmaLinhaFaltaTests(SimpleTestCase):
     """`carregar()` valida na leitura, como `workouts/doutrina.py::carregar`
@@ -97,28 +140,38 @@ class QuandoUmaLinhaFaltaTests(SimpleTestCase):
     incompleta descoberta por quem estiver correndo — o boot (ou o primeiro
     acesso à tela) reprova com `ValueError`."""
 
-    def test_uma_sessao_faltando_derruba_o_carregar_com_valueerror(self):
-        texto = DOC.read_text(encoding="utf-8")
-        linha_removida = "| 5k | iniciante | 1 | 1 | 8 × (1 min corrida + 1,5 min caminhada) | 25 |\n"
-        self.assertIn(linha_removida, texto, "a linha esperada mudou — atualize a sabotagem")
-        texto_incompleto = texto.replace(linha_removida, "", 1)
-        self.assertNotIn(linha_removida, texto_incompleto)
+    LINHA_REMOVIDA = "| 5k | iniciante | 1 | 1 | 8 × (1 min corrida + 1,5 min caminhada) | 25 |\n"
 
-        original = doutrina_corrida.DOCUMENTO
-        doutrina_corrida.carregar.cache_clear()
-        try:
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                tmp = Path(tmp_dir) / "CORRIDA.md"
-                tmp.write_text(texto_incompleto, encoding="utf-8")
-                doutrina_corrida.DOCUMENTO = tmp
-                with self.assertRaises(ValueError):
-                    doutrina_corrida.carregar()
-        finally:
-            doutrina_corrida.DOCUMENTO = original
-            doutrina_corrida.carregar.cache_clear()
+    def test_uma_sessao_faltando_derruba_o_carregar_com_valueerror(self):
+        with _documento_sem_uma_linha(self.LINHA_REMOVIDA):
+            with self.assertRaises(ValueError):
+                doutrina_corrida.carregar()
 
         # O documento de verdade volta a carregar normalmente depois.
         self.assertEqual(len(doutrina_corrida.planos()), 4)
+
+
+class OReadyDoAppConfigTests(SimpleTestCase):
+    """`WorkoutsConfig.ready()` (`workouts/apps.py`) chama
+    `doutrina_corrida.carregar()` no boot do Django — a mesma validação eager
+    que `accounts.models.TETO_POR_EXPERIENCIA` já fazia para o TREINO.md
+    (`accounts/models.py`, construído na importação do módulo). Sem isso, um
+    CORRIDA.md quebrado passava batido pelo `manage.py check --deploy` do
+    `scripts/build.sh` — "build que passa prova que a migração rodou" (raiz,
+    CLAUDE.md) não provava nada sobre a doutrina de corrida — e só reprovava
+    quando alguém abrisse `/treino/corridas/` em produção (task-3-report.md,
+    "Preocupações", Round 1)."""
+
+    LINHA_REMOVIDA = "| 5k | iniciante | 1 | 1 | 8 × (1 min corrida + 1,5 min caminhada) | 25 |\n"
+
+    def test_documento_quebrado_derruba_o_ready_com_valueerror(self):
+        with _documento_sem_uma_linha(self.LINHA_REMOVIDA):
+            with self.assertRaises(ValueError):
+                django_apps.get_app_config("workouts").ready()
+
+    def test_documento_de_verdade_nao_derruba_o_ready(self):
+        # Não deve levantar — é o boot normal, com o CORRIDA.md como está.
+        django_apps.get_app_config("workouts").ready()
 
 
 class OSemanaAtualTests(SimpleTestCase):
