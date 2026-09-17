@@ -21,7 +21,7 @@ from datetime import timedelta
 from django.db.models import Count, Sum
 from django.utils import timezone
 
-from workouts.models import ExerciseLog, TrainingPlan
+from workouts.models import Corrida, ExerciseLog, TrainingPlan
 
 from . import tracking
 from .models import HydrationLog, MealLog, MealStatus
@@ -135,6 +135,14 @@ def calcular(user, hoje=None, meta_agua_ml=None) -> Ofensiva:
             "date", flat=True
         )
     )
+    # Correu conta: a régua da ofensiva é "moveu-se", não "fez a letra". Uma
+    # consulta, no mesmo ponto que decide a musculação (BENCHMARK-2026-09, d).
+    treinou |= {
+        timezone.localtime(c).date()
+        for c in Corrida.objects.filter(
+            user=user, comecou_em__date__gte=inicio
+        ).values_list("comecou_em", flat=True)
+    }
 
     # ---------------------------------------------------------- dieta
     #

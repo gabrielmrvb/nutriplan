@@ -14,6 +14,8 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
+from .doutrina_md import faixa as _faixa, tabelas as _tabelas
+
 DOCUMENTO = Path(__file__).resolve().parent.parent / "docs" / "briefs" / "treino" / "TREINO.md"
 
 NIVEIS = ("iniciante", "intermediario", "avancado")
@@ -34,39 +36,6 @@ TIPOS_DE_DIA = (UM_GRUPO, DOIS_GRUPOS, TRES_GRUPOS, INFERIOR, SUPERIOR, FULL)
 #: grande e um pequeno é "dois grupos". Bíceps e tríceps juntos ("Braços")
 #: contam como dois grupos — dois pequenos que enchem uma sessão.
 GRANDES = frozenset({"chest", "back", "quads", "hamstrings", "shoulders"})
-
-_FAIXA = re.compile(r"^\s*(\d+)\s*(?:[–\-]\s*(\d+))?\s*$")
-
-
-def _faixa(texto):
-    m = _FAIXA.match(texto)
-    if not m:
-        raise ValueError("célula sem número no TREINO.md: %r" % texto)
-    minimo = int(m.group(1))
-    maximo = int(m.group(2)) if m.group(2) else minimo
-    return (minimo, maximo)
-
-
-def _tabelas(texto):
-    """Toda tabela markdown do documento, indexada pela tupla do cabeçalho."""
-    tabelas = {}
-    linhas = texto.splitlines()
-    i = 0
-    while i < len(linhas):
-        linha = linhas[i].strip()
-        if linha.startswith("|") and i + 1 < len(linhas) and re.match(r"^\|[\s\-:|]+\|$", linhas[i + 1].strip()):
-            cabecalho = tuple(c.strip() for c in linha.strip("|").split("|"))
-            corpo = []
-            i += 2
-            while i < len(linhas) and linhas[i].strip().startswith("|"):
-                celulas = [c.strip() for c in linhas[i].strip().strip("|").split("|")]
-                corpo.append(dict(zip(cabecalho, celulas)))
-                i += 1
-            tabelas[cabecalho] = corpo
-            continue
-        i += 1
-    return tabelas
-
 
 #: ESTE ARQUIVO É CÓDIGO. `accounts.models.TETO_POR_EXPERIENCIA` lê a tabela
 #: B na importação do módulo, então um `TREINO.md` movido ou com célula sem

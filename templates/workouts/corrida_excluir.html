@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load corrida %}
+
+{% block title %}Excluir corrida · NutriPlan{% endblock %}
+
+{% block content %}
+  <h1>Excluir esta corrida?</h1>
+
+  <section class="card">
+    <p class="lead">
+      Esta ação apaga <strong>permanentemente</strong> o registro abaixo. Não há
+      como desfazer.
+    </p>
+
+    <dl class="data-list">
+      <div>
+        <dt>{{ corrida.comecou_em|date:"d/m/Y" }}</dt>
+        <dd>{{ corrida.distancia_m|km }} km · {{ corrida.duracao_s|relogio }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="card">
+    <form method="post">
+      {% csrf_token %}
+      <div class="stack">
+        <button type="submit" class="btn btn--perigo btn--block">Excluir corrida</button>
+        <a class="btn btn--ghost btn--block" href="{% url 'workouts:corridas' %}">Cancelar</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

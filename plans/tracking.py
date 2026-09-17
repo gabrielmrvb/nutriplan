@@ -10,6 +10,9 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.db.models import Count, Max, Q, Sum
 from django.utils import timezone
 
+from workouts.corrida import gasto_kcal
+from workouts.models import Corrida
+
 from .models import (HydrationLog, MealLog, MealSlot, MealStatus,
                      NutritionPlan)
 
@@ -150,12 +153,17 @@ def logs_by_slot(user, day) -> dict:
     }
 
 
-def day_summary(user, plan, day) -> dict:
+def day_summary(user, plan, day, *, peso_kg=None) -> dict:
     """Quanto já foi comido no dia contra o que o plano manda.
 
     Só refeições marcadas como feitas somam. Pendente não é zero por acaso: o
     dia ainda está acontecendo, e contar refeição futura como falha
     transformaria a tela num sermão às oito da manhã.
+
+    `peso_kg` é opcional e existe só por causa da tela Hoje: ela já tem o peso
+    em mãos (o congelado no plano) e não precisa pagar outra consulta para o
+    perfil só para gastar a corrida do dia. Quem chama de fora da view (o
+    console, os testes) não passa nada e cai no perfil, como sempre foi.
     """
     # Só o plano ativo entra na conta. Registro preso a um plano aposentado
     # não aparece na tela, e o que não aparece não pode somar no total.
@@ -180,7 +188,7 @@ def day_summary(user, plan, day) -> dict:
     )
     total_slots = plan.slots.count()
 
-    return {
+    resumo = {
         "consumed_kcal": consumed,
         "target_kcal": plan.target_kcal,
         "remaining_kcal": plan.target_kcal - consumed,
@@ -201,6 +209,32 @@ def day_summary(user, plan, day) -> dict:
         "fora_do_plano": counts["fora_do_plano"],
         "puladas": counts["puladas"],
     }
+
+    # A corrida entra POR CIMA do plano, não dentro dele: `calculations.py`
+    # rejeita MET para a meta calórica (o fator de atividade já cobre o dia a
+    # dia). Gasto adicional, visível e líquido do repouso
+    # (`workouts.corrida.gasto_kcal`) — nunca dentro de `consumed_kcal`, que
+    # continua sendo só o que foi comido.
+    #
+    # O fallback busca o perfil só quando ninguém trouxe o peso: seguro porque
+    # só se chega a um `NutritionPlan` com o onboarding completo — plano
+    # implica perfil, e a tela Hoje (que chama isto a cada carregamento) já
+    # tem o peso congelado do plano em mãos e passa `peso_kg` para não pagar
+    # esta consulta de novo.
+    peso = peso_kg if peso_kg is not None else user.profile.current_weight
+    # Uma coluna, não a linha inteira: só `distancia_m` entra na conta, e pedir
+    # os outros dezoito campos da corrida para descartá-los em seguida é
+    # transferência que a tela paga por nada.
+    gasto = sum(
+        gasto_kcal(distancia_m, peso)
+        for distancia_m in Corrida.objects.filter(
+            user=user, comecou_em__date=day
+        ).values_list("distancia_m", flat=True)
+    )
+    resumo["gasto_corrida_kcal"] = gasto
+    resumo["remaining_kcal"] += gasto
+
+    return resumo
 
 
 def previstas_por_plano(plan_ids) -> dict:
