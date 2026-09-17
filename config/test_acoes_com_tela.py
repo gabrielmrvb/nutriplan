@@ -70,6 +70,10 @@ class TodaAcaoDevolveUmaTelaTests(TestCase):
             "B7 — o service worker só cacheia GET, e a exportação carrega "
             "dado de saúde."
         ),
+        "/tarefas/lembretes/": (
+            "Tarefa chamada pelo GitHub Actions com token, servidor a servidor; "
+            "nunca é destino de navegação, e o GET responde 405 de propósito."
+        ),
         "/treino/corridas/salvar/": (
             "API de JSON chamada por `fetch`, nunca destino de navegação: o "
             "cliente trata a resposta, e não o navegador."
