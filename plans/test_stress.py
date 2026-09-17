@@ -138,7 +138,10 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         #
         # Desbloquear continua sendo da página de conquistas; o Progresso lê o
         # que já está gravado.
-        "plans:history": 26,
+        # 26 -> 27: o convite de nível (T2.4) é UMA consulta agregada sobre
+        # `ExerciseLog` com o nível no WHERE (junção com o perfil) — constante,
+        # para qualquer nível, e não por linha.
+        "plans:history": 27,
         # 15 -> 19: o Perfil passou a CONFERIR se o plano gravado ainda vale.
         #
         # Ele mostrava o número velho chamando-o de "suas metas de hoje" — 2.520

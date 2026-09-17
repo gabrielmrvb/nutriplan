@@ -16,6 +16,7 @@ Uso (sempre com o python do .venv):
   nav.py <sessao> cookie <nome> <valor> [dominio]
   nav.py <sessao> permissao <notifications|geolocation> <granted|denied|prompt> [origem]
   nav.py <sessao> offline on|off
+  nav.py <sessao> rede 3g|4g|off              -> rede lenta emulada (L08-medicao)
   nav.py <sessao> tema claro|escuro         -> emula prefers-color-scheme (vale até `close`)
   nav.py <sessao> url | title | text [max] | links | clicaveis
   nav.py <sessao> close
@@ -263,11 +264,32 @@ class Sessao:
         self._offline()
         return {"offline": ligado == "on"}
 
+    #: Perfis de rede lenta, os do DevTools do Chrome: latência em ms e
+    #: vazão em bytes/s. É como se mede o custo real de um POST→302→GET
+    #: (L08-medicao) — no Wi-Fi da mesa tudo parece instantâneo.
+    REDES = {
+        "3g": {"latency": 400, "downloadThroughput": 400 * 1024 // 8, "uploadThroughput": 400 * 1024 // 8},
+        "4g": {"latency": 150, "downloadThroughput": 4 * 1024 * 1024 // 8, "uploadThroughput": 3 * 1024 * 1024 // 8},
+    }
+
+    def rede(self, perfil):
+        """Rede lenta emulada (`3g`, `4g`) ou de volta ao normal (`off`).
+        Mesmo mecanismo do `offline`: estado em arquivo, reaplicado em todo
+        comando, porque a emulação morre com a conexão CDP."""
+        if perfil not in self.REDES and perfil != "off":
+            raise SystemExit("rede: use 3g, 4g ou off")
+        (BASE / ("rede-" + self.nome + ".json")).write_text(json.dumps(perfil))
+        self._offline()
+        return {"rede": perfil}
+
     def _offline(self):
         cfg = BASE / ("offline-" + self.nome + ".json")
         ligado = cfg.exists() and json.loads(cfg.read_text())
+        rede = BASE / ("rede-" + self.nome + ".json")
+        perfil = json.loads(rede.read_text()) if rede.exists() else "off"
+        condicoes = self.REDES.get(perfil, {"latency": 0, "downloadThroughput": -1, "uploadThroughput": -1})
         self.cmd("Network.enable")
-        self.cmd("Network.emulateNetworkConditions", offline=bool(ligado), latency=0, downloadThroughput=-1, uploadThroughput=-1)
+        self.cmd("Network.emulateNetworkConditions", offline=bool(ligado), **condicoes)
 
     def cookie(self, nome, valor, dominio="127.0.0.1"):
         self.cmd("Network.setCookie", name=nome, value=valor, domain=dominio, path="/", httpOnly=True)
@@ -314,6 +336,7 @@ def main():
         elif cmd == "cookie": out = s.cookie(args[0], args[1], *(args[2:3]))
         elif cmd == "permissao": out = s.permissao(args[0], args[1], *(args[2:3]))
         elif cmd == "offline": out = s.offline(args[0])
+        elif cmd == "rede": out = s.rede(args[0])
         elif cmd == "tema": out = s.tema(args[0])
         elif cmd == "url": out = s.eval("location.href")
         elif cmd == "title": out = s.eval("document.title")

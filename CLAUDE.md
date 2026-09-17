@@ -1155,6 +1155,45 @@ recalibrar era "estagnado > 30 %" e está longe. Os dias (21, 28, 27, 56) e
 o "+1" são calibração [HIPOTÉTICA] do brief de 13/09, e é o
 `medir_progressao` (T2.4) que vai revê-los com dado de produção.
 
+**O INSTRUMENTO (T2.4, 17/09/2026): medir e limpar sem mudar o que a
+pessoa vê.** Quatro peças, e a natureza comum é essa:
+
+- `manage.py medir_progressao [--dias 365]` é SÓ LEITURA — duas consultas
+  fixas (as linhas de prescrição ativas e os registros da janela), nunca
+  uma por pessoa — e conta, por abertura de exercício, o estado que a
+  adaptação daria, a distribuição de `reps − rep_max` na última série do
+  dia, a fração que PAROU EXATAMENTE em `rep_max` (a faixa lida como teto),
+  os "retomar" sem pausa (a pessoa treinou outros exercícios no intervalo)
+  e o intervalo em semanas. `workouts/test_instrumento.py` cobra que
+  nenhuma consulta começa por UPDATE/INSERT/DELETE e que o custo não
+  cresce por exercício;
+- `RecordLoadView` (a rota da ficha, fora da fila) avalia conquista só na
+  PRIMEIRA série do dia ou no RECORDE — a guarda que `ConcluirSerieView`
+  já tinha. A rota antiga pagava o catálogo inteiro em toda carga anotada;
+  abaixo do recorde, no meio do treino, nenhuma regra muda de resposta;
+- o Progresso CONVIDA quem se declarou iniciante (ou não respondeu) a
+  atualizar o nível depois de 180 dias e 24 datas com série
+  (`progresso.convidar_a_atualizar_experiencia`): o app não infere nível —
+  "uso não é intenção declarada" — mas depois de meio ano a pergunta cabe,
+  porque o teto por grupo do iniciante é o menor (TREINO.md, B). UMA
+  consulta para qualquer nível — o nível entra no `WHERE` pela junção com
+  o perfil, porque `user.profile` não está em cache nessa tela e lê-lo à
+  parte custava a segunda (medido: 28 contra o teto de 26; o teto foi para
+  27 com a razão escrita);
+- `manage.py podar_operacoes` roda no build, por último, e apaga
+  `SyncedOperation` com mais de `VALIDADE_DIAS` (30). O método `podar`
+  existia desde a fila offline e ninguém o chamava. Trinta é MAIOR que os
+  7 dias que a fila reenvia — a poda nunca alcança um `op_id` que um
+  reenvio ainda traria, senão a água somaria duas vezes; há teste.
+
+E a medição L08, feita no navegador com rede lenta emulada (`nav.py rede
+3g`: 400 ms de latência, 400 kbps): "Concluir série" é um POST→302→GET
+de 31 KB que custa 180–330 ms de `load` no Wi-Fi e ~550 ms no 3G lento
+(redirect ~460 ms) — e o iframe do vídeo que a pessoa abriu MORRE com a
+recarga (1 → 0): a cada série, tocar "ver vídeo" de novo. É o insumo da
+fatia E "fetch sem recarga", que continua fora até alguém decidir com
+esse número.
+
 **Duração tem UMA conta, e ela é `workouts.models.segundos_da_sessao`.**
 Existiam duas cópias, uma sobre linhas gravadas e outra sobre tuplas, com um
 teste prendendo as duas; prender duas cópias é pior que ter uma.

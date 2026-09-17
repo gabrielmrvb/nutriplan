@@ -918,7 +918,7 @@ reps−rep_max, paradas exatas em rep_max, retomar sem pausa, gaps),
 e ≥ 24 datas, só iniciante/`""`); Tests: `workouts/test_medir_progressao.py`
 (novo), `accounts/tests.py`, `workouts/test_recorde_na_hora.py`.
 
-- [ ] **Teste que falha:** `medir_progressao` sobre `PopulatedAccountMixin`:
+- [x] **Teste que falha:** `medir_progressao` sobre `PopulatedAccountMixin`:
   `assertNumQueries` só SELECT (capturar e afirmar que nenhuma começa por
   UPDATE/INSERT/DELETE), `ExerciseLog.count()` igual antes/depois;
   `SyncedOperation.VALIDADE_DIAS (30) > 7` com a razão na docstring (a poda
@@ -926,10 +926,18 @@ e ≥ 24 datas, só iniciante/`""`); Tests: `workouts/test_medir_progressao.py`
   apaga só o vencido; `RecordLoadView` abaixo do recorde não chama `avaliar`
   (teto 16); convite com 200 dias/30 datas sim, 100 dias não, intermediário
   nunca — dentro do teto 26.
-- [ ] Implementar → verde. **Sabotagem:** `>= 180` → `>= 0` → vermelho;
+- [x] Implementar → verde. **Sabotagem:** `>= 180` → `>= 0` → vermelho;
   `VALIDADE_DIAS = 5` → vermelho. **Medição L08** com agent-browser em 3G
   emulado: POST→302→GET e destruição do iframe, número no commit (é o
   insumo de "fetch sem recarga", E). Commit.
+  *Feito em 17/09/2026 (`workouts/test_instrumento.py`, 15 testes; quatro
+  sabotagens vermelhas — convite a 0 dias, validade 5, guarda removida,
+  UPDATE dentro do medidor). Ajustes medidos: o teto do POST sem recorde
+  ficou em 24 (a rota da ficha grava e relê mais que a da execução); o
+  convite custa UMA consulta com o nível no WHERE, e o Progresso foi de
+  26 para 27. L08 com `nav.py rede 3g` (o agent-browser está bloqueado
+  pelo Controle de Aplicativo): POST→302→GET de 31 KB, load 180–330 ms no
+  Wi-Fi e ~550 ms no 3G lento; o iframe aberto morre com a recarga.*
 
 #### T2.5 — a ficha concorda com o motor: "Principal" só no principal, notas visíveis, frase dos dias
 
