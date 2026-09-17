@@ -101,6 +101,9 @@ class CoberturaDaVitrineTests(BaseDoPainel):
     def test_estados_do_campo(self):
         html = self.client.get("/gestao/vitrine/").content.decode()
         self.assertIn("Campo desabilitado.", html)
+        # O campo de texto é o do sistema, não o `<input>` nu (17/09/2026).
+        self.assertRegex(html, r'<input[^>]*name="nome"[^>]*class="field-input"')
+        self.assertRegex(html, r'<input[^>]*name="email"[^>]*class="field-input"')
         self.assertIn("Informe um endereço de email válido", html)
         self.assertIn("Este campo é obrigatório", html)
 

@@ -59,16 +59,18 @@
       da ficha. Caloria não aparece de jeito nenhum — o app não mede.
     {% endcomment %}
     <div class="page-head">
-      <h1>Treino concluído</h1>
+      <h1>{{ estado.sessao.name }} fechado</h1>
     </div>
     {% comment %}
-      A FOLHA DE RECOMPENSA (CORTE, T3.6 — 16/09/2026): o placar nasce
-      DENTRO da folha-lima, que sobe do canto inferior direito em
-      `--mov-recompensa` (`folha-sobe`); a carga total conta do zero em
-      `--mov-sucesso` (`data-conta="zero"`, pwa.js); os números pequenos
-      entram em cascata de 80 ms (`data-escalonado` + `--mov-cascata`); os
-      botões chegam parados. Total 1,0 s, e depois a tela fica quieta até o
-      toque. Com `prefers-reduced-motion` o quadro final aparece pronto.
+      O PLACAR (NERVURA, 17/09/2026): a tela inteira vira placar — o título
+      é a sessão fechada ("PERNAS COMPLETO FECHADO", como "TREINO B FECHADO"
+      no mockup; o `<title>` continua "Treino concluído"), a nervura risca
+      da base à ponta em `--mov-nervura` (`nervura-risca`), a carga total
+      conta do zero em `--brand` (`data-conta="zero"`, pwa.js), os números
+      entram em cascata de 80 ms (`data-escalonado` + `--mov-cascata`), a
+      ponta de folha pousa no canto e os botões aparecem no fim, sem
+      animação. Total 1,0 s, e depois a tela fica quieta até o toque. Com
+      `prefers-reduced-motion` o quadro final aparece pronto.
 
       O número é a recompensa — carga total de hoje, peso × repetições
       série a série, e "vs. última", a mesma conta sobre a última vez de
@@ -76,7 +78,7 @@
       caloria: o app não mede nenhum dos dois.
     {% endcomment %}
     <section class="card fim recompensa">
-      <p class="recompensa__rotulo">{{ estado.sessao.name }} · fechado</p>
+      <p class="recompensa__rotulo">Treino concluído · {{ estado.total_exercicios }} {% if estado.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}</p>
       <p class="recompensa__carga">
         <span class="recompensa__numero num" data-conta="zero">{{ estado.placar.carga_total|floatformat:"0" }}</span>
         <span class="recompensa__unidade">kg levantados</span>

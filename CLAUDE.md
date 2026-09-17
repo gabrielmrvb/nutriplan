@@ -1720,6 +1720,34 @@ alta .06em. `config/test_nervura.py` prende tudo isso; a regra
 .today-hero,` para achar a régua do
 fio de pilar.
 
+**As telas da execução e do placar (NERVURA 3/3, 17/09/2026).** Os dois
+heróis da execução são display em caixa alta: o nome do exercício
+(`.agora__nome`, já da 1/3) e "SÉRIE 2 DE 4" (`.series__titulo`, `--texto-xl`
+800 com o número em `--texto-3xl` 900); o campo de carga (`.registro__carga`)
+virou só um sublinhado de `--traco` em `--terra`, com o número em display
+900 a `--texto-2xl` e centrado — o foco troca o sublinhado por `--brand`
+(`box-shadow: 0 var(--traco) 0`), sem anel em volta, porque a caixa não
+existe mais. A régua "a display nunca desce de 20 px" tem um caminho que o
+teste das REGRAS não vê: HERANÇA — `.series__faixa` ("6-10 reps", 12,8 px)
+mora dentro do herói e saiu na captura em Big Shoulders; `config/test_fontes`
+cobra que o filho pequeno declare `var(--font)` de volta. O placar deixou de
+ser a folha-lima cheia: `.recompensa` é transparente, sem borda, texto em
+`--text`, e a recompensa é a NERVURA que risca — um `::before` só, 14 px de
+altura, `clip-path` que desenha a régua de `--traco` E a ponta de folha no
+fim, `rotate(var(--nervura)) scaleX(0 → 1)` em `--mov-nervura` (`nervura-
+risca`); o número herói (`--texto-heroi`, 72 px, 900, `--brand`) conta do
+zero em `--mov-nervura` (`pwa.js` lê o token) e reserva `min-width: 4ch`
+porque a Big Shoulders é proporcional e a contagem sacudia a linha; os
+pequenos entram em cascata DEPOIS da nervura (`--mov-cascata` × i +
+`--mov-nervura`) e os botões chegam parados a 1 s (`aparece`, `steps(1)`).
+O `h1` do placar é o nome da sessão + "fechado" (o mockup tinha um
+"TREINO FECHADO" genérico; o nome da sessão é o que a pessoa acabou de
+fazer). Com `prefers-reduced-motion` a lista é `.recompensa::before` e
+`.recompensa .btn` — não `.recompensa`, que já não se move.
+Os tempos foram medidos ao vivo por `getAnimations()` no CDP (nervura
+600 ms, cascata +600/+680, botões +1000); `nav.py` re-emula a cada comando, então captura
+estática de movimento é sempre com `movimento reduzido`.
+
 ## Testes
 
 Nome descreve o comportamento, não o método. Docstring diz **por que** aquilo
