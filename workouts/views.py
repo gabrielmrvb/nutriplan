@@ -20,6 +20,7 @@ from accounts.models import (
 from accounts.views import OnboardingRequiredMixin
 from achievements import services as conquistas
 
+from . import curva as _curva
 from . import health_export, services
 from .models import (
     Exercise,
@@ -1041,10 +1042,19 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
             item_de_hoje.feitas = ExerciseLog.objects.filter(
                 user=user, exercise=exercicio, date=timezone.localdate()
             ).count()
+        historico = services.historico_do_exercicio(user, exercicio)
         context.update({
             "nav": "workout",
             "exercicio": exercicio,
-            "historico": services.historico_do_exercicio(user, exercicio),
+            "historico": historico,
+            # `historico` vem do mais RECENTE ao mais antigo (é assim que a
+            # lista "Como fui" quer ler); a curva precisa do sentido contrário
+            # — `reversed()`, não uma segunda consulta. Exercício sem carga não
+            # tem o que desenhar.
+            "curva_carga": (
+                _curva.curva([s["carga"] for s in reversed(historico)])
+                if not exercicio.sem_carga else None
+            ),
             "prescricao": itens[0],
             "dias": [
                 "%s (%s)" % (i.session.weekday_display, i.session.rotulo)

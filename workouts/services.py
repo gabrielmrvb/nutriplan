@@ -3040,9 +3040,9 @@ def _sugestao_de_reps(item, serie):
     return registro.reps if registro is not None else None
 
 
-#: Quantas datas o histórico da leitura mostra. Oito é o que cabe numa tela
+#: Quantas datas o histórico da leitura mostra. Doze é o que cabe numa tela
 #: sem virar relatório; o Progresso é quem responde "estou evoluindo?".
-DATAS_DO_HISTORICO = 8
+DATAS_DO_HISTORICO = 12
 
 
 def historico_do_exercicio(user, exercise, datas=DATAS_DO_HISTORICO) -> list:

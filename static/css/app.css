@@ -1520,6 +1520,15 @@ h3 {
 .curva--sobe .curva__grafico { color: var(--terra); }
 .curva--igual .curva__grafico { color: var(--text-mute); }
 
+/* A curva de carga do exercício (`workouts.curva`) não tem "subiu" ou
+   "desceu" para julgar — é sempre progresso quando existe — então uma cor
+   só, a de marca, em vez dos três modificadores de direção do peso. */
+.curva--carga .curva__grafico { color: var(--brand); }
+
+.curva__ponto {
+  fill: currentColor;
+}
+
 .curva__linha {
   fill: none;
   /* A LINHA E O NÚMERO TÊM DE CONCORDAR.
