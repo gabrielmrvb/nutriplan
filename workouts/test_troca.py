@@ -182,6 +182,29 @@ class AAplicacaoDaTrocaTests(_ComFicha):
         self.assertContains(leitura, 'name="desfazer" value="1"')
         self.assertContains(leitura, "← Ficha")
 
+    def test_a_leitura_diz_no_lugar_de_mesmo_quando_o_substituto_e_linha_crua_da_outra_opcao(self):
+        """Ensaio da prova em produção (17/09): trocar uma pressão de peito
+        da opção 2 por uma que já é linha CRUA da opção 1 da mesma letra —
+        a leitura pegava a linha crua (que vem antes) e perdia o "No lugar
+        de". Sabotagem medida: olhar só a primeira linha por sessão deixa
+        este teste vermelho."""
+        outra = next(k for k in self.hoje.opcoes if k != self.opcao)
+        de_hoje = {i.exercise_id for i in self.itens}
+        original = next(
+            i.exercise for i in self.hoje.da_opcao(outra)
+            if i.exercise.padrao == self.supino.padrao and i.exercise.muscle_group == self.supino.muscle_group
+            and i.exercise_id not in de_hoje
+        )
+        substituto = next(
+            i.exercise for i in self.itens
+            if i.exercise.padrao == original.padrao and i.exercise.muscle_group == original.muscle_group
+            and i.exercise_id not in {x.exercise_id for x in self.hoje.da_opcao(outra)}
+        )
+        services.registrar_troca(self.user, original, substituto)
+        leitura = self.client.get(reverse("workouts:exercicio", args=[substituto.pk]))
+        self.assertContains(leitura, "No lugar de %s" % original.name)
+        self.assertContains(leitura, 'name="original" value="%d"' % original.pk)
+
     def test_a_troca_nao_remonta_nem_marca_a_ficha_como_ajustada(self):
         gravadas = list(SessionExercise.objects.filter(session__plan=self.plan).order_by("pk").values_list("exercise_id", "sets"))
         self._trocar()

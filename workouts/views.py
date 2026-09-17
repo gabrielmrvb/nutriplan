@@ -1083,7 +1083,18 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
         # "OUTRAS FORMAS": as alternativas do mesmo padrão no equipamento da
         # pessoa, fora do que já está nas sessões em que ele cai; e, se este
         # exercício está no lugar de outro, o original com o histórico dele.
-        original = next((i.original for i in itens if getattr(i, "original", None) is not None), None)
+        # Varre TODAS as linhas, e não só a primeira por sessão: o substituto
+        # pode ser também uma linha crua da outra opção da mesma letra (a
+        # flexão da opção 1 posta no lugar do supino da opção 2), e a linha
+        # crua vinha primeiro — a leitura perdia o "No lugar de" (ensaio da
+        # prova em produção, 17/09).
+        original = next(
+            (
+                i.original for sessao in sessoes for i in sessao.exercises.all()
+                if i.exercise_id == exercicio.pk and getattr(i, "original", None) is not None
+            ),
+            None,
+        )
         # Fora do que já está na MESMA LISTA (sessão + opção): duplicata só é
         # problema dentro do mesmo treino; a outra opção é outro dia. É a
         # mesma régua de `contar_outras_formas` na ficha — a linha anuncia
