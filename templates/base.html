@@ -92,7 +92,30 @@
   offline é pré-cacheada uma vez e servida a qualquer pessoa que pegue o
   aparelho depois — gravar identidade nela seria entregar a conta anterior.
 {% endcomment %}
-<body class="{% if user.is_authenticated and not sem_tabbar and not shell_offline %}tem-tabbar{% endif %}"
+{% comment %}
+  `tem-conquista` empurra o `.container`, do mesmo jeito que `tem-convite`
+  já empurra pelo convite de instalação (`app.css`, seção 25/40). N1 de
+  16/09/2026: o aviso é `position: fixed` e cobria o CTA do rodapé de toda
+  página — em `/conta/excluir/`, "Excluir minha conta" caía embaixo do
+  "Continuar" do aviso. `conquistas_novas` já é o context processor que o
+  `{% include %}` de baixo consome; aqui ele só decide a classe.
+
+  E `pagina_de_erro` entra TAMBÉM aqui, não só no `{% include %}`. O
+  processador de contexto olha só a sessão — não sabe se a página é de erro
+  —, então sem esta segunda checagem uma tela de erro abria com
+  `tem-conquista` no `body` (o `padding-bottom` reservado para um aviso que
+  nunca renderiza) mesmo com o `{% include %}` corretamente calado.
+
+  `pagina_de_erro=True` vem de `config/erros.py` (`handler404`/`handler403`),
+  não de `request.resolver_match`: um `Http404` levantado DENTRO de uma view
+  (`get_object_or_404` em `/treino/exercicio/999999/`, por exemplo) roda
+  DEPOIS da resolução da URL, com `resolver_match` já preenchido — checar só
+  ele deixava passar esse caso (achado da revisão final de 16/09/2026, item
+  F3). `resolver_match` continua na condição, inofensivo: nas duas telas de
+  erro que passam por `config/erros.py` ele também está preenchido (exceto no
+  404 de URL que não resolve, onde ele já cobria sozinho).
+{% endcomment %}
+<body class="{% if user.is_authenticated and not sem_tabbar and not shell_offline %}tem-tabbar{% endif %}{% if conquistas_novas and request.resolver_match and not pagina_de_erro %} tem-conquista{% endif %}"
       data-autenticado="{% if user.is_authenticated and not shell_offline %}1{% else %}0{% endif %}"
       {% if shell_offline %}data-shell-offline="1"{% endif %}
       {% comment %}
@@ -450,8 +473,25 @@
       treino e conquista, e não há nem um nem outro sem sessão.
     {% endcomment %}
     <script src="{{ card_js_url }}" defer></script>
+    {% comment %}
+      A fila do aviso de conquista, o Esc e o som opcional (mais o
+      interruptor de /conquistas/). Carrega sempre, como `card_js_url` — o
+      próprio arquivo devolve cedo quando não há `[data-conquista]` nem
+      `[data-som-conquista]` na página; ver `static/js/conquista.js`.
+    {% endcomment %}
+    <script src="{{ conquista_js_url }}" defer></script>
   {% endif %}
 
-  {% include "partials/_conquista.html" %}
+  {% comment %}
+    Só em tela de verdade: `pagina_de_erro` (context de `config/erros.py`,
+    N1 de 16/09/2026) é quem garante isso — não `resolver_match` sozinho.
+    `resolver_match` cobre a URL que não resolve (fica `None` desde
+    `HttpRequest.__init__`, só ganha valor quando `resolve()` acha rota), mas
+    um `Http404` levantado DENTRO de uma view já resolvida (ex.:
+    `get_object_or_404` em `/treino/exercicio/999999/`) tem `resolver_match`
+    preenchido mesmo assim — e o aviso não pode nascer sem ninguém para
+    fechá-lo em nenhuma das duas telas de erro.
+  {% endcomment %}
+  {% if request.resolver_match and not pagina_de_erro %}{% include "partials/_conquista.html" %}{% endif %}
 </body>
 </html>

@@ -65,10 +65,34 @@
     {% comment %}
       O registro cru das últimas sessões — data, carga e as reps de cada
       série — e nada calculado por cima: e1RM e volume ficaram fora por
-      decisão de `progresso.py`. Oito datas, uma consulta. Vazio, a frase
+      decisão de `progresso.py`. Doze datas, uma consulta. Vazio, a frase
       diz que ainda não há série, sem tabela em branco.
     {% endcomment %}
     {% if historico %}
+      {% if curva_carga %}
+        {% comment %}
+          Só carga máxima — a mesma régua de `progresso.py`. Sem exercício
+          sem carga (nada para desenhar) e sem menos de duas sessões
+          (`workouts.curva` devolve None, e `curva_carga` é None no
+          contexto — o `{% if %}` de cima é quem cala o bloco).
+        {% endcomment %}
+        <figure class="curva curva--carga">
+          <svg class="curva__grafico" viewBox="0 0 {{ curva_carga.largura }} {{ curva_carga.altura }}"
+               preserveAspectRatio="none" role="img"
+               aria-label="Carga máxima por sessão: de {{ curva_carga.primeiro|floatformat:'-2' }} kg há {{ historico|length }} sessões a {{ curva_carga.final|floatformat:'-2' }} kg na última">
+            <polyline class="curva__linha" points="{{ curva_carga.pontos }}"/>
+            {% comment %}
+              `stringformat:"g"` e não interpolação direta: o app é pt-BR e
+              `{{ }}` sozinho localiza o float (300,0 em vez de 300.0) — SVG
+              não lê vírgula decimal num atributo numérico. `pontos` escapa
+              disso por já chegar pronto como string (`"%g,%g" % c`); aqui o
+              par é dois valores soltos.
+            {% endcomment %}
+            <circle class="curva__ponto" cx="{{ curva_carga.ultimo.0|stringformat:'g' }}" cy="{{ curva_carga.ultimo.1|stringformat:'g' }}" r="3"/>
+          </svg>
+          <figcaption class="hint">Carga máxima por sessão — últimas {{ historico|length }}.</figcaption>
+        </figure>
+      {% endif %}
       <dl class="data-list historico">
         {% for sessao in historico %}
           <div>
