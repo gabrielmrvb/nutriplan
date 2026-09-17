@@ -12,8 +12,10 @@ import re
 import uuid
 from datetime import timedelta
 from decimal import Decimal
+from pathlib import Path
 
-from django.test import TestCase
+from django.conf import settings
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -23,6 +25,17 @@ from workouts.tests import create_user
 
 def _campos(html):
     return dict(re.findall(r'name="([a-z_]+)"[^>]*?value="([^"]*)"', html))
+
+
+def _regra_css(css, seletor):
+    """Corpo da regra CSS `seletor`, sem comentários — mesma âncora de
+    `plans/test_agua_zerar_nao_empurra.py` e `config/tests.py::_regras`: exige
+    a chave de abertura logo após o seletor, então não casa por acidente com
+    um comentário que só cita o seletor."""
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    m = re.search(r"(?:^|\})\s*" + re.escape(seletor) + r"\s*\{([^}]*)\}", css)
+    assert m, "regra não encontrada: " + seletor
+    return m.group(1)
 
 
 class ORegistroManualTests(TestCase):
@@ -63,7 +76,11 @@ class ORegistroManualTests(TestCase):
     def test_recusa_data_futura_tetos_e_velocidade_impossivel(self):
         amanha = (self.hoje + timedelta(days=1)).isoformat()
         for extra in ({"data": amanha}, {"distancia_km": "0,01"}, {"distancia_km": "301"},
-                      {"tempo": "13:00:00"}, {"distancia_km": "10", "tempo": "10:00"}):
+                      {"tempo": "13:00:00"}, {"distancia_km": "10", "tempo": "10:00"},
+                      # o relógio nunca marca 99 segundos nem 60 minutos — o
+                      # regex aceitava as duas antes de _TEMPO prender
+                      # minutos e segundos a [0-5]?\d / [0-5]\d.
+                      {"tempo": "5:99"}, {"tempo": "1:60:00"}):
             r = self._post(**extra)
             self.assertEqual(r.status_code, 200, extra)
             self.assertContains(r, 'aria-invalid="true"')
@@ -110,3 +127,28 @@ class EdicaoEExclusaoTests(TestCase):
             self.assertIn("Cancelar", html)
             self.assertEqual(self.client.post(url).status_code, 302)
         self.assertEqual(Corrida.objects.filter(user=self.pessoa).count(), 0)
+
+
+class OsBotoesDeAcaoNaoSeSobrepoemTests(SimpleTestCase):
+    """MOB-11 de novo, agora em `.corrida__acoes`: editar/excluir são dois
+    `.btn-link` lado a lado, e o `.btn-link` carrega `margin: -.75rem -.35rem`
+    para o alvo de 44px não empurrar o layout. Com `gap: .2rem` o vão real
+    era .2 - .35 - .35 = -.5rem — as duas caixas de 44px se sobrepunham em
+    ~8px, o mesmo formato de falha já corrigido em `.agua__zerar` (MOB-11) e
+    `.agora__desfazer`.
+
+    Sabotagem que precisa ficar vermelha: tirar o `margin-inline: 0` de
+    `.corrida__acoes .btn-link`.
+    """
+
+    def setUp(self):
+        self.css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(encoding="utf-8")
+
+    def test_os_links_nao_avancam_um_sobre_o_outro(self):
+        self.assertRegex(self.css, r"\.corrida__acoes\s+\.btn-link\s*\{[^}]*margin-inline:\s*0")
+
+    def test_o_vao_entre_os_dois_fica_com_pelo_menos_8px(self):
+        """Sem a margem negativa, o vão real é o próprio `gap` — por isso ele
+        precisa valer >= 8px (--espaco-3), e não os .2rem (3,2px) de antes."""
+        acoes = _regra_css(self.css, ".corrida__acoes")
+        self.assertRegex(acoes, r"gap:\s*var\(--espaco-3\)")

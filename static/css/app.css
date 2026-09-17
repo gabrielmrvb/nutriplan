@@ -7871,12 +7871,19 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 
 /* Editar/excluir ficam junto do valor, à direita — mesma coluna que já
    existe na `.data-list`. `.btn-link` já garante 44px; aqui só o
-   espaçamento entre os dois quando ambos aparecem. */
+   espaçamento entre os dois quando ambos aparecem.
+
+   MOB-11 outra vez: com `gap: .2rem` e a margem horizontal negativa do
+   `.btn-link` (-.35rem de cada lado), o vão real era .2 - .35 - .35 =
+   -.5rem — as duas caixas de 44px se sobrepunham em ~8px. Mesma correção de
+   `.agua__zerar` e `.agora__desfazer`: tira a metade horizontal da margem e
+   sobe o `gap` para --espaco-3 (8px) para o vão real não ficar negativo. */
 .corrida__acoes {
   display: flex;
   justify-content: flex-end;
-  gap: .2rem;
+  gap: var(--espaco-3);
 }
+.corrida__acoes .btn-link { margin-inline: 0; }
 
 /* .72rem e nao .68rem: o piso de texto de interface deste projeto e 11px, e
    .68rem da 10,88px. O teste mede, e mediu — a regra existe porque letra

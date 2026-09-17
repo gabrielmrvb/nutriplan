@@ -10,7 +10,10 @@ from django.utils import timezone
 from .corrida_views import DISTANCIA_MAXIMA_M, DISTANCIA_MINIMA_M, DURACAO_MAXIMA_S, VELOCIDADE_MAXIMA_MS
 from .models import Corrida
 
-_TEMPO = re.compile(r"^(?:(\d{1,2}):)?(\d{1,2}):(\d{2})$")
+#: Minutos e segundos presos a [0-5]?\d / [0-5]\d — sem isso "5:99" e
+#: "1:60:00" casavam (o relógio nunca marca 99 segundos) e só a conta de
+#: `clean_tempo` os pegava por acaso, se caísse acima do teto de duração.
+_TEMPO = re.compile(r"^(?:(\d{1,2}):)?([0-5]?\d):([0-5]\d)$")
 
 
 class CorridaManualForm(forms.Form):
