@@ -2155,7 +2155,7 @@ class OnboardingV21Tests(TestCase):
         """
         html = self.client.get(step_url(2)).content.decode()
 
-        self.assertIn("choice-list--dias", html)
+        self.assertIn("segmented--envolve", html)
         self.assertIn(">Qua<", html)
         self.assertIn('aria-label="Quarta-feira"', html)
         # E o nome completo continua sendo o do model, para o resto do app.

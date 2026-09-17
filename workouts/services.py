@@ -2741,6 +2741,57 @@ def load_history(user, exercises, day=None) -> dict:
 
 
 @dataclass
+class Placar:
+    """O placar do treino fechado — o que entra na folha de recompensa.
+
+    Tudo é CONTAGEM sobre o que `load_history` já carregou para a tela;
+    nenhuma consulta a mais. `carga_total` é a tonelagem de hoje (peso ×
+    repetições, série a série); `carga_anterior` é a mesma conta sobre a
+    última vez que CADA exercício foi feito — é o "vs. última" da tela, e
+    fica `None` quando nenhum exercício tem passado; `recordes` conta os
+    exercícios cuja série mais pesada de hoje passou a maior carga de
+    qualquer data anterior (a régua de `achievements.regras._recorde`).
+    Exercício sem carga (peso do corpo) soma zero, não some.
+    """
+
+    carga_total: Decimal = Decimal("0")
+    carga_anterior: object = None
+    recordes: int = 0
+
+    @property
+    def delta_pct(self):
+        """Variação percentual contra a última vez, inteira; `None` sem base."""
+        if not self.carga_anterior:
+            return None
+        return int(round((self.carga_total - self.carga_anterior) * 100 / self.carga_anterior))
+
+
+def _tonelagem(logs):
+    return sum(((log.weight_kg or 0) * (log.reps or 0) for log in logs), Decimal("0"))
+
+
+def placar_do_treino(itens) -> Placar:
+    """Placar a partir dos itens da sessão com `load` (o dicionário de
+    `load_history`) já preenchido — o mesmo objeto que a execução usa."""
+    placar = Placar()
+    anterior = Decimal("0")
+    tem_anterior = False
+    for item in itens:
+        load = getattr(item, "load", None) or {}
+        placar.carga_total += _tonelagem((load.get("hoje") or {}).values())
+        de_antes = (load.get("anterior") or {}).values()
+        if de_antes:
+            tem_anterior = True
+            anterior += _tonelagem(de_antes)
+        melhor_hoje = load.get("melhor_hoje")
+        recorde = load.get("recorde_anterior")
+        if melhor_hoje is not None and recorde is not None and melhor_hoje > recorde:
+            placar.recordes += 1
+    placar.carga_anterior = anterior if tem_anterior else None
+    return placar
+
+
+@dataclass
 class EstadoDoTreino:
     """Onde a pessoa está no treino de hoje.
 
@@ -2784,6 +2835,8 @@ class EstadoDoTreino:
     descanso_total: int = 0
     descanso_restante: int = 0
     minutos_entre_registros: int = 0
+    #: O placar da folha de recompensa; só faz sentido com `concluido`.
+    placar: object = None
     #: A opção da letra que está sendo feita hoje, e de onde ela veio.
     opcao: int = 1
     opcoes: list = field(default_factory=list)
@@ -3455,6 +3508,10 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
         # Arredondar para baixo de 1 vira zero, e zero não vai para a tela:
         # "0 min entre o primeiro e o último registro" é ruído, não informação.
         estado.minutos_entre_registros = int(round(minutos))
+    # O placar da recompensa (CORTE, T3.6): só quando a ficha inteira está
+    # coberta — e sem consulta nova, porque `item.load` já tem tudo.
+    if estado.concluido:
+        estado.placar = placar_do_treino(itens)
     if ultimo is not None:
         prescricao = next(
             (item for item in itens if item.exercise_id == ultimo.exercise_id), None
