@@ -21,6 +21,9 @@ Uso (sempre com o python do .venv, na raiz do repositório):
   scripts/github.py fechar <número>                       fecha SEM merge
   scripts/github.py proteger                              liga/atualiza a proteção
   scripts/github.py protecao                              mostra a proteção
+  scripts/github.py segredo <NOME> <arquivo>              grava um segredo de Actions
+                                                          (valor lido do arquivo; nunca
+                                                          por argumento nem impresso)
 """
 import json
 import subprocess
@@ -39,7 +42,7 @@ CHECK = "suíte completa"
 #: existindo em `main`, e o merge commit é o que `/saude/` mostra.
 METODO_DE_MERGE = "merge"
 
-COMANDOS = ("pr", "status", "esperar", "merge", "fechar", "proteger", "protecao")
+COMANDOS = ("pr", "status", "esperar", "merge", "fechar", "proteger", "protecao", "segredo")
 
 
 def corpo_da_protecao() -> dict:
@@ -205,6 +208,41 @@ def cmd_protecao(args):
         "deletions": (p.get("allow_deletions") or {}).get("enabled"),
         "reviews": bool(p.get("required_pull_request_reviews")),
     }, ensure_ascii=False))
+
+
+def cmd_segredo(args):
+    """`segredo NOME arquivo`: grava (ou troca) um segredo de Actions do repositório.
+
+    O GitHub exige o valor cifrado com a chave pública do repositório
+    (sealed box, libsodium) — é a única dependência fora da biblioteca padrão
+    deste arquivo, e só deste comando: `pip install pynacl` no .venv, fora do
+    `requirements.txt` (produção não precisa). O valor vem de um ARQUIVO fora
+    do repositório e não passa por argumento nem por stdout.
+    """
+    if len(args) != 2:
+        raise SystemExit("uso: segredo <NOME> <arquivo-com-o-valor>")
+    nome, caminho = args
+    from base64 import b64decode, b64encode
+    from pathlib import Path
+
+    try:
+        from nacl import encoding, public
+    except ImportError:
+        raise SystemExit("pip install pynacl (só para este comando)")
+    valor = Path(caminho).read_text(encoding="utf-8").strip()
+    if not valor:
+        raise SystemExit("arquivo vazio")
+    repo = _repo()
+    st, chave = _api("GET", "/repos/%s/actions/secrets/public-key" % repo)
+    if st != 200:
+        raise SystemExit("chave pública: %s %s" % (st, chave))
+    caixa = public.SealedBox(public.PublicKey(chave["key"].encode(), encoding.Base64Encoder()))
+    cifrado = b64encode(caixa.encrypt(valor.encode("utf-8"))).decode()
+    st, resp = _api("PUT", "/repos/%s/actions/secrets/%s" % (repo, nome),
+                    {"encrypted_value": cifrado, "key_id": chave["key_id"]})
+    if st not in (201, 204):
+        raise SystemExit("segredo: %s %s" % (st, resp))
+    print("segredo %s %s (tamanho %d)" % (nome, "criado" if st == 201 else "atualizado", len(valor)))
 
 
 def main(argv):

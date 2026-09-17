@@ -123,6 +123,9 @@ urlpatterns = [
     # Liveness, sem banco: responde se o PROCESSO esta de pe. Ver
     # `config/health.py` para por que as duas perguntas sao separadas.
     path("saude/vivo/", VivoView.as_view(), name="liveness"),
+    # O agendador de fora (GitHub Actions) chama isto de 5 em 5 minutos com
+    # token; ver `push.tarefas`.
+    path("tarefas/lembretes/", push_views.TarefaLembretesView.as_view(), name="tarefas_lembretes"),
 
     # Páginas legais. Públicas de propósito: quem está decidindo se cria conta
     # é justamente quem precisa ler o que fazemos com os dados dele, e exigir

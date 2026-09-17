@@ -484,6 +484,10 @@ SILENCED_SYSTEM_CHECKS = ["security.W021"]
 VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", default="")
 VAPID_PRIVATE_KEY = env("VAPID_PRIVATE_KEY", default="")
 VAPID_ADMIN_EMAIL = env("VAPID_ADMIN_EMAIL", default="")
+# O token que o agendador de fora (GitHub Actions) manda em
+# `POST /tarefas/lembretes/`. Vazio = a tarefa não existe (503). Mora no
+# painel do Render e nos segredos do GitHub; nunca no repositório.
+NUTRIPLAN_TAREFAS_TOKEN = env("NUTRIPLAN_TAREFAS_TOKEN", default="")
 
 #: Nome curto e completo do PWA, usados no manifest.
 PWA_NAME = "NutriPlan"
