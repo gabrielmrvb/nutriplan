@@ -144,3 +144,56 @@ class OCafeNaoEscalaAcimaDeUmEMeioTests(TestCase):
             if not (Decimal("0.7") <= fator <= Decimal("1.5")):
                 fora.append((template.name, fator))
         self.assertEqual(fora, [])
+
+
+class OCafeParecePratoDeVerdadeTests(TestCase):
+    """A régua de "parece comida" — [0,7; 1,5] no fator não bastava.
+
+    Revisão do Fix round 1 (relatório da Task 2, 17/09/2026): 15 dos 16 cafés
+    recalibrados para caber em [0,7; 1,5] entregavam, a 715 kcal, porção que
+    não é mais um prato — "Cuscuz com ovo" virava 450 g de cuscuz cozido,
+    "Tapioca com ovo" virava 180 g de goma (3 tapiocas), "Mingau de aveia com
+    leite e mel" virava 400 ml de leite + 90 g de aveia. O fator da receita
+    inteira ficava dentro da faixa porque o desvio se escondia num só
+    ingrediente. Esta régua olha a quantidade ENTREGUE
+    (`item.scaled_quantity(fator)`) de cada alimento-base contra um teto de
+    "ainda parece comida" — por ingrediente, não por receita — e por isso pega
+    o que a régua de fator sozinha deixa passar.
+
+    Os tetos são amassados fino (cozido/hidratado) ou líquidos, o que estica
+    a quantidade "razoável" numa refeição — os números abaixo refletem isso,
+    não uma porção de prato seco.
+    """
+
+    TETO_G = {
+        "Cuscuz de milho cozido": Decimal("250"),
+        "Goma de tapioca hidratada": Decimal("120"),
+        "Aveia em flocos": Decimal("90"),
+        "Leite integral": Decimal("350"),
+        "Leite desnatado": Decimal("350"),
+        "Ovo de galinha cozido": Decimal("200"),  # 4 unidades de 50 g
+        "Pão francês": Decimal("150"),  # 3 unidades de 50 g
+        "Pão de forma integral": Decimal("75"),  # 3 fatias de 25 g
+    }
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def test_a_quantidade_entregue_respeita_o_teto_por_alimento(self):
+        alvo = 715  # 25 % de 2.859 — o mesmo perfil da avaliação
+        fora = []
+        templates = (
+            MealTemplate.objects.filter(category=MealCategory.BREAKFAST, is_active=True)
+            .prefetch_related("items__food")
+        )
+        for template in templates:
+            fator = scale_for(template, alvo)
+            for item in template.items.all():
+                teto = self.TETO_G.get(item.food.name)
+                if teto is None:
+                    continue
+                entregue = item.scaled_quantity(fator)
+                if entregue > teto:
+                    fora.append((template.name, item.food.name, entregue, teto))
+        self.assertEqual(fora, [])
