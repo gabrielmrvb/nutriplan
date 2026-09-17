@@ -63,19 +63,19 @@
      * variáveis não resolvem — canvas fora do documento, por exemplo. São os
      * valores ATUAIS do tema escuro, e precisam ser revisados junto dele.
      *
-     * CORTE (16/09/2026): os seis são os valores de Ferro da direção —
-     * `--ferro-bg` #10120e, `--ferro-surface` #1a1d17, `--ferro-text` #f6f3ea,
-     * `--ferro-text-mute` #b3ae9c, `--ferro-brand` #c7f24a. `--ferro-fio` é
-     * `rgba(246, 243, 234, .10)`, translúcido; a alternativa fica em hex
+     * NERVURA (17/09/2026): os seis são os valores de Ferro da direção —
+     * `--ferro-bg` #0b140f, `--ferro-surface` #121e17, `--ferro-text` #f2f6f2,
+     * `--ferro-text-mute` #a9bbae, `--ferro-brand` #43df7a. `--ferro-fio` é
+     * `rgba(169, 187, 174, .14)`, translúcido; a alternativa fica em hex
      * (canvas aceita os dois, mas um hex fixo não depende do fundo por trás)
-     * com o tom que essa opacidade produz sobre `--ferro-surface`, #30322c. */
+     * com o tom que essa opacidade produz sobre `--ferro-surface`, #27342c. */
     return {
-      fundo: token("--bg", "#10120e"),
-      cartao: token("--surface", "#1a1d17"),
-      borda: token("--fio", "#30322c"),
-      marca: token("--brand", "#c7f24a"),
-      texto: token("--text", "#f6f3ea"),
-      fraco: token("--text-mute", "#b3ae9c")
+      fundo: token("--bg", "#0b140f"),
+      cartao: token("--surface", "#121e17"),
+      borda: token("--fio", "#27342c"),
+      marca: token("--brand", "#43df7a"),
+      texto: token("--text", "#f2f6f2"),
+      fraco: token("--text-mute", "#a9bbae")
     };
   }
 

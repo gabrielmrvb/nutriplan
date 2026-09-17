@@ -48,11 +48,11 @@ class OFerroEABaseTests(TestCase):
         self.assertIn("--brand: var(--ferro-brand);", root)
         self.assertIn("--folha: var(--ferro-folha);", root)
         self.assertIn("color-scheme: dark light;", root)
-        # E o Ferro é o da direção: papel escuro, lima, osso.
+        # E o Ferro é o da direção (NERVURA): a academia à noite, verde-neon, tinta clara.
         ferro = _tokens(self.cru, REGIME_FERRO)
-        self.assertEqual(ferro["--bg"], "#10120e")
-        self.assertEqual(ferro["--brand"], "#c7f24a")
-        self.assertEqual(ferro["--text"], "#f6f3ea")
+        self.assertEqual(ferro["--bg"], "#0b140f")
+        self.assertEqual(ferro["--brand"], "#43df7a")
+        self.assertEqual(ferro["--text"], "#f2f6f2")
 
     def test_o_papel_mora_na_preferencia_clara_e_o_escuro_nao_e_mais_excecao(self):
         self.assertIn("@media (prefers-color-scheme: light)", self.css)
@@ -63,9 +63,9 @@ class OFerroEABaseTests(TestCase):
         self.assertIn("--brand: var(--papel-brand);", claro)
         self.assertIn("--folha:", claro)
         papel = _tokens(self.cru, REGIME_PAPEL)
-        self.assertEqual(papel["--bg"], "#f6f3ea")
-        self.assertEqual(papel["--brand"], "#3f5a00", "no claro a ação é OLIVA — a lima não é texto sobre osso")
-        self.assertEqual(papel["--text"], "#14180a")
+        self.assertEqual(papel["--bg"], "#f4f6f2")
+        self.assertEqual(papel["--brand"], "#106632", "no claro a ação é verde-floresta — o neon não é texto sobre claro")
+        self.assertEqual(papel["--text"], "#0b140f")
 
     def test_a_moldura_do_navegador_acompanha_a_base(self):
         """`theme-color` e manifesto pintam a barra de status e a tela de
