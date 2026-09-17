@@ -110,14 +110,29 @@ class AOrdemDoPrefillTests(TestCase):
         self.assertGreater(Decimal(carga.replace(",", ".")), Decimal("60"))
         self.assertEqual(Decimal(carga.replace(",", ".")), esperado)
 
-    def test_a_serie_de_hoje_vence_a_sugestao_da_adaptacao(self):
-        # Mesmo com a faixa fechada (sugestão de subida disponível), uma
-        # série já anotada hoje é quem manda no campo da próxima série — o
-        # degrau "hoje" continua na frente da sugestão (revisão de
-        # 16/09/2026, achado 1).
+    def test_com_serie_de_hoje_a_sugestao_some_e_hoje_manda(self):
+        # A faixa fechou — sem a série de hoje, `ajuste` devolveria SUBIR — e
+        # ainda assim o campo abre com o número de hoje. Não é só a ORDEM
+        # dos degraus que resolve isso: a guarda de topo de `ajuste`
+        # (`workouts/adaptacao.py`, "if (...).get('hoje'): return None`)
+        # desliga a sugestão inteira quando há série anotada hoje, e
+        # `estado.atual.progressao` fica `None` — não existe sugestão para
+        # perder de nenhuma corrida. `_sugestao_de_carga` documenta a
+        # decisão por extenso: "Hoje continua mandando — `ajuste` devolve
+        # `None` com série anotada hoje" (revisão de 16/09/2026, achado 1 /
+        # rodada 2 — o teste anterior pinava a ORDEM com uma sugestão que já
+        # não existia no momento do assert).
         for serie in range(1, self.item.sets + 1):
             self._log(3, serie, 60, self.item.rep_max)
         self._log(0, 1, 61, 9)  # hoje, série 1: não seguiu a sugestão de subir
+
+        estado = services.estado_do_treino(self.pessoa, escolhido=self.item.exercise_id)
+        atual = estado.atual
+
+        self.assertIsNone(atual.progressao)  # o discriminador: a guarda apagou a sugestão
+        self.assertEqual(atual.sugestao_carga, Decimal("61"))
+        self.assertEqual(atual.sugestao_reps, 9)
+        # E a tela mostra o mesmo par — o campo é o retrato do que o serviço decidiu.
         self.assertEqual(self._campos(), ("61", "9"))
 
     def test_a_pastilha_pendente_mostra_a_mesma_serie_da_ultima_sessao(self):
