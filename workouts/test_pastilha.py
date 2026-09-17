@@ -25,7 +25,7 @@ from django.utils import timezone
 
 from workouts import services
 from workouts.models import ExerciseLog, Measure
-from workouts.tests import create_user, dias_incluindo_hoje, sem_scripts
+from workouts.tests import create_user, dias_incluindo_hoje, escolher_opcao_de_hoje, sem_scripts
 
 
 class APastilhaTests(TestCase):
@@ -39,8 +39,14 @@ class APastilhaTests(TestCase):
         self.client.force_login(self.pessoa)
         self.hoje = timezone.localdate()
         plano = services.get_active_routine(self.pessoa)
-        sessao = next(s for s in plano.sessions.all() if s.weekday == self.hoje.weekday())
-        itens = list(sessao.exercises.select_related("exercise"))
+        # Pela LETRA do ciclo (`sessao_do_dia`), não pela linha de hoje: com a
+        # rotação as duas divergem e o item medido não era o da execução. E
+        # só a OPÇÃO que a execução abre (a 1, gravada aqui): `exercises.all()`
+        # mistura as duas opções, e o peso do corpo podia cair na outra —
+        # que a execução responde com 404.
+        sessao = services.sessao_do_dia(plano, self.hoje)
+        escolher_opcao_de_hoje(self.pessoa)
+        itens = list(sessao.da_opcao(1))
         self.item = next(
             i for i in itens
             if i.exercise.equipment != "bodyweight" and i.measure == Measure.REPS and i.sets >= 3
