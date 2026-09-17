@@ -148,6 +148,30 @@ class OCafeNaoEscalaAcimaDeUmEMeioTests(TestCase):
                 fora.append((template.name, fator))
         self.assertEqual(fora, [])
 
+    def test_nenhum_cafe_fica_preso_no_piso_numa_dieta_de_1400_kcal(self):
+        """A régua do outro extremo: 350 kcal de café (25 % de 1.400).
+
+        A Task 2 re-centrou as 16 bases em ≈715 kcal (fator ≈1,0 no perfil de
+        referência) em vez dos 480–540 kcal escaláveis da spec. Medido na
+        revisão final (17/09/2026): numa dieta de 1.400 kcal, 12 dos 16 cafés
+        batiam em `MIN_SCALE` (0,5×) e entregavam 391–466 kcal em vez de 350 —
+        e `meal_planner.generate` não compensa entre horários, então o dia
+        inteiro estourava para quem come pouco. A 1.200 kcal (café 300) eram
+        14 de 16. Antes da branch isso não acontecia.
+
+        Preso no piso é `scale_for == MIN_SCALE`: o fator que o alvo pedia era
+        menor e foi cortado. A régua exige que o fator a 350 fique ACIMA do
+        piso — a receita ainda tem margem para encolher.
+        """
+        alvo = 350
+        presos = []
+        for template in MealTemplate.objects.filter(category=MealCategory.BREAKFAST, is_active=True):
+            fator = scale_for(template, alvo)
+            if fator <= meal_planner.MIN_SCALE:
+                entregue = template.compute_macros(fator)["kcal"]
+                presos.append((template.name, fator, round(entregue)))
+        self.assertEqual(presos, [])
+
 
 class OCafeParecePratoDeVerdadeTests(TestCase):
     """A régua de "parece comida" — [0,7; 1,5] no fator não bastava.

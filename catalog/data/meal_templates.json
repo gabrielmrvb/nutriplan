@@ -13,7 +13,7 @@
     "items": [
       [
         "Cuscuz de milho cozido",
-        180,
+        140,
         true
       ],
       [
@@ -23,7 +23,7 @@
       ],
       [
         "Amendoim torrado",
-        60,
+        50,
         true
       ]
     ],
@@ -39,16 +39,16 @@
       "sem-gluten"
     ],
     "prep_minutes": 15,
-    "instructions": "Hidrate a proteína de soja, refogue com cebola, tomate e um fio a mais de óleo e sirva sobre o cuscuz.",
+    "instructions": "Hidrate a proteína de soja, refogue com a cebola, o tomate e o óleo e sirva sobre o cuscuz.",
     "items": [
       [
         "Cuscuz de milho cozido",
-        240,
+        170,
         true
       ],
       [
         "Proteína de soja texturizada (seca)",
-        75,
+        55,
         true
       ],
       [
@@ -63,7 +63,7 @@
       ],
       [
         "Óleo de soja",
-        20,
+        15,
         true
       ]
     ],
@@ -79,22 +79,22 @@
       "rapida"
     ],
     "prep_minutes": 10,
-    "instructions": "Hidrate o cuscuz, leve à cuscuzeira e sirva com o ovo cozido, o tomate e um fio de azeite.",
+    "instructions": "Hidrate o cuscuz, leve à cuscuzeira e sirva com o ovo cozido e o tomate, regados com o azeite.",
     "items": [
       [
         "Cuscuz de milho cozido",
-        190,
+        175,
         true
       ],
       [
         "Azeite de oliva extra virgem",
-        25,
+        20,
         true
       ],
       [
         "Ovo de galinha cozido",
-        150,
-        false
+        100,
+        true
       ],
       [
         "Tomate",
@@ -118,12 +118,12 @@
     "items": [
       [
         "Aveia em flocos",
-        85,
+        60,
         true
       ],
       [
         "Pasta de amendoim integral",
-        38,
+        25,
         true
       ],
       [
@@ -133,7 +133,7 @@
       ],
       [
         "Amendoim torrado",
-        14,
+        10,
         true
       ]
     ],
@@ -147,16 +147,16 @@
       "rapida"
     ],
     "prep_minutes": 8,
-    "instructions": "Cozinhe a aveia com o leite até engrossar, misture a pasta de amendoim e finalize com o mel.",
+    "instructions": "Cozinhe a aveia com o leite até engrossar, misture a pasta de amendoim e a banana amassada e finalize com o mel.",
     "items": [
       [
         "Aveia em flocos",
-        68,
+        50,
         true
       ],
       [
         "Leite desnatado",
-        340,
+        240,
         true
       ],
       [
@@ -171,7 +171,7 @@
       ],
       [
         "Pasta de amendoim integral",
-        38,
+        25,
         true
       ]
     ],
@@ -217,17 +217,17 @@
     "items": [
       [
         "Pão de forma integral",
-        65,
+        45,
         true
       ],
       [
         "Queijo prato",
-        55,
+        35,
         true
       ],
       [
         "Leite integral",
-        330,
+        200,
         true
       ],
       [
@@ -238,7 +238,7 @@
       [
         "Ovo de galinha cozido",
         100,
-        false
+        true
       ]
     ],
     "category": "breakfast",
@@ -251,21 +251,21 @@
       "rapida"
     ],
     "prep_minutes": 5,
-    "instructions": "Passe o requeijão no pão, acrescente uma fatia de queijo e sirva com o café com leite.",
+    "instructions": "Passe o requeijão no pão, acrescente o queijo e sirva com o café com leite.",
     "items": [
       [
         "Pão de forma integral",
-        50,
+        45,
         true
       ],
       [
         "Requeijão cremoso",
-        60,
+        50,
         true
       ],
       [
         "Leite integral",
-        250,
+        220,
         true
       ],
       [
@@ -275,7 +275,7 @@
       ],
       [
         "Queijo prato",
-        40,
+        35,
         true
       ]
     ],
@@ -289,21 +289,21 @@
       "rapida"
     ],
     "prep_minutes": 8,
-    "instructions": "Frite o ovo, monte no pão com o queijo e volte à frigideira até derreter.",
+    "instructions": "Pique o ovo cozido, monte no pão com o queijo e leve à frigideira até o queijo derreter.",
     "items": [
       [
         "Pão francês",
-        110,
+        80,
         true
       ],
       [
         "Ovo de galinha cozido",
-        150,
-        false
+        100,
+        true
       ],
       [
         "Queijo muçarela",
-        50,
+        40,
         true
       ]
     ],
@@ -318,21 +318,21 @@
       "rapida"
     ],
     "prep_minutes": 10,
-    "instructions": "Refogue o frango desfiado com um fio de azeite e o tomate, firme a goma na frigideira e recheie.",
+    "instructions": "Refogue o frango desfiado com o azeite e o tomate, firme a goma na frigideira e recheie.",
     "items": [
       [
         "Peito de frango grelhado",
-        125,
+        105,
         true
       ],
       [
         "Goma de tapioca hidratada",
-        95,
+        80,
         true
       ],
       [
         "Azeite de oliva extra virgem",
-        22,
+        15,
         true
       ],
       [
@@ -353,22 +353,22 @@
       "rapida"
     ],
     "prep_minutes": 8,
-    "instructions": "Espalhe a goma na frigideira quente untada com um fio de azeite até firmar e recheie com o ovo cozido picado.",
+    "instructions": "Espalhe a goma na frigideira quente até firmar, recheie com o ovo cozido picado e regue com o azeite.",
     "items": [
       [
         "Goma de tapioca hidratada",
-        95,
+        85,
         true
       ],
       [
         "Azeite de oliva extra virgem",
-        25,
+        20,
         true
       ],
       [
         "Ovo de galinha cozido",
-        150,
-        false
+        100,
+        true
       ]
     ],
     "category": "breakfast",
@@ -386,22 +386,22 @@
     "items": [
       [
         "Goma de tapioca hidratada",
-        115,
+        80,
         true
       ],
       [
         "Ovo de galinha cozido",
-        150,
-        false
+        100,
+        true
       ],
       [
         "Queijo muçarela",
-        58,
+        40,
         true
       ],
       [
         "Manteiga",
-        6,
+        5,
         true
       ]
     ],
@@ -422,12 +422,12 @@
     "items": [
       [
         "Goma de tapioca hidratada",
-        90,
+        65,
         true
       ],
       [
         "Pasta de amendoim integral",
-        38,
+        25,
         true
       ],
       [
@@ -437,7 +437,7 @@
       ],
       [
         "Amendoim torrado",
-        34,
+        25,
         true
       ]
     ],
@@ -455,7 +455,7 @@
     "items": [
       [
         "Leite integral",
-        346,
+        240,
         true
       ],
       [
@@ -465,7 +465,7 @@
       ],
       [
         "Aveia em flocos",
-        88,
+        60,
         true
       ],
       [
@@ -521,7 +521,7 @@
     "items": [
       [
         "Leite integral",
-        345,
+        245,
         true
       ],
       [
@@ -531,12 +531,12 @@
       ],
       [
         "Aveia em flocos",
-        52,
+        40,
         true
       ],
       [
         "Pasta de amendoim integral",
-        38,
+        25,
         true
       ]
     ],
