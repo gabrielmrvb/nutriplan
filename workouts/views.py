@@ -522,6 +522,21 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             .first()
         )
 
+        hoje_data = timezone.localdate()
+        linhas = list(sessao.plan.sessions.prefetch_related("exercises__exercise"))
+        # COM A ROTAÇÃO, A LINHA DA LETRA VESTE O DIA DE HOJE ANTES DO
+        # HISTÓRICO (17/09/2026). `anexar_historico` só aplica o balde "hoje"
+        # à sessão cujo `weekday` é o de hoje — e a linha da letra guarda o
+        # dia da PRIMEIRA semana: numa quinta em que a letra A (linha de
+        # segunda) cai de novo, a ficha de hoje abria sem nenhuma série de
+        # hoje ("0/4" depois de registrar uma), enquanto a execução, que passa
+        # por `sessao_do_dia`, mostrava a série. Passou despercebido porque os
+        # testes rodaram em dias em que letra e linha coincidiam. A mesma
+        # cópia vestida que a execução usa resolve os dois lados de uma vez.
+        if services.ciclo_roda(sessao.plan) and services.letra_do_dia(sessao.plan, hoje_data, linhas) == sessao.label:
+            vestida = services.sessao_do_dia(sessao.plan, hoje_data, linhas)
+            if vestida is not None and vestida.pk == sessao.pk:
+                sessao = vestida
         # A MESMA preparação da tela principal, pela mesma função. Uma segunda
         # cópia divergiria, e a que fica errada é a que ninguém está olhando.
         anexar_historico(user, [sessao])
@@ -529,8 +544,6 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         # e uma sessão sozinha não sabe disso. Buscar as irmãs custa UMA
         # consulta e é o que faz o título da ficha concordar com o cartão que
         # levou até ela.
-        hoje_data = timezone.localdate()
-        linhas = list(sessao.plan.sessions.prefetch_related("exercises"))
         irmas = services.sessoes_da_semana(sessao.plan, hoje_data, linhas)
         nomear_ocorrencias(irmas)
         sessao.rotulo = next(
