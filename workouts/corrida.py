@@ -10,6 +10,7 @@ não é limitação de esforço, é ausência de API. Com a tela bloqueada as le
 param, e o que este módulo garante é que a lacuna vire LACUNA e não uma linha
 reta inventada entre dois pontos distantes.
 """
+from decimal import Decimal
 from math import asin, cos, radians, sin, sqrt
 
 #: Raio médio da Terra em metros. Haversine sobre esfera erra menos de 0,5% em
@@ -176,3 +177,17 @@ def parciais(pontos, cada_m=1000) -> list:
         saida.append({"km": numero, "segundos": instante - anterior_t})
         anterior_t = instante
     return saida
+
+
+#: kcal por quilo por quilômetro, LÍQUIDO do repouso. Correr custa ≈1 kcal/kg/km
+#: bruto (ACSM, equação metabólica da corrida); tirar o que o corpo gastaria
+#: parado dá ≈0,9. Entra por cima do plano, que já cobre o dia a dia pelo fator
+#: de atividade (`plans/calculations.py` rejeita MET para o plano, de propósito).
+FATOR_KCAL_POR_KG_KM = Decimal("0.9")
+
+
+def gasto_kcal(distancia_m, peso_kg) -> int:
+    """Quanto uma corrida gastou, em kcal inteiras. Sem peso, zero — nunca um chute."""
+    if not distancia_m or peso_kg is None:
+        return 0
+    return int((FATOR_KCAL_POR_KG_KM * Decimal(peso_kg) * Decimal(distancia_m) / 1000).to_integral_value())
