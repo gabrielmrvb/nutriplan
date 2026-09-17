@@ -400,16 +400,21 @@ def calculate(inputs: PlanInputs) -> PlanResult:
         # é por isso que a trava tem de estar aqui e não na tela que oferece o
         # corte.
         piso = max(_round(bmr), Decimal(ABSOLUTE_MIN_KCAL[inputs.sex]))
-        # O TETO É SIMÉTRICO AO PISO, e existe pelo mesmo motivo do outro
-        # lado: "Prefiro me mexer mais" virou "Cortar 150" para quem ganha
-        # massa, e o pedido de "aumentar" também acumula sem limite —
-        # `kcal_adjustment` soma AJUSTE_KCAL a cada resposta, sem teto embutido
-        # nele mesmo. `SAFE_MAX_KCAL` é o mesmo teto que `target_kcal` aplica
-        # para Emagrecer e Manter; aqui ele vale para qualquer objetivo,
-        # porque quem pediu o aumento manual está pedindo mais do que o
-        # cálculo já deu — a mesma suspeita de conta otimista que justifica o
-        # teto no caminho automático.
-        teto = Decimal(SAFE_MAX_KCAL)
+        # O TETO ESPELHA `target_kcal`: `SAFE_MAX_KCAL` só para quem EMAGRECE
+        # ou MANTÉM, e só abaixo do peso extremo. O caminho automático nunca
+        # limitou BULK nem RECOMP ("superávit alto é gordura ganha, não risco
+        # de segurança"), e o manual limitava qualquer objetivo — o perfil de
+        # referência da avaliação (BULK, meta automática 2.859) pedia "Somar
+        # 150", esperava 3.009 e recebia 2.800: CINQUENTA E NOVE kcal a menos
+        # do que tinha antes de pedir mais, com a mensagem "parou no teto de
+        # segurança". Achado na revisão final da Fase 3 (17/09/2026).
+        #
+        # O que limita o acúmulo de "Somar 150" para quem ganha massa é a
+        # CADÊNCIA, não um número: `weight_trend.analisar` só oferece o botão
+        # depois de três semanas de peso estável, e `respondeu_ha_pouco`
+        # segura o próximo pedido por duas. Quem ganha massa e empaca ganha
+        # 150 kcal a cada três semanas, no mínimo — e o Progresso mostra.
+        #
         # PESO EXTREMO desliga o teto aqui do mesmo jeito que desliga em
         # `target_kcal` — mesma constante, `EXTREME_WEIGHT_KG`, mesmo motivo:
         # acima de 120 kg gastar mais de 2.800 kcal é esperado, não sinal de
@@ -417,11 +422,13 @@ def calculate(inputs: PlanInputs) -> PlanResult:
         #
         # Sem esta exceção o teto pode ficar MENOR que o piso: a TMB sozinha
         # de 200 kg passa de 3.100 kcal, acima do teto de 2.800. Achado em
-        # revisão: homem de 200 kg / 200 cm / 20 anos, GANHANDO massa, pedia
-        # "Somar 150 kcal" e o `elif` abaixo cortava a meta para 2.800 — mais
-        # de 1.000 kcal ABAIXO da própria TMB, exatamente o que a trava de
-        # piso, três linhas acima, existe para impedir.
+        # revisão: homem de 200 kg / 200 cm / 20 anos pedia "Somar 150 kcal"
+        # e o `elif` abaixo cortava a meta para 2.800 — mais de 1.000 kcal
+        # ABAIXO da própria TMB, exatamente o que a trava de piso, três
+        # linhas acima, existe para impedir.
+        teto = Decimal(SAFE_MAX_KCAL)
         pesado = Decimal(inputs.weight_kg) > EXTREME_WEIGHT_KG
+        com_teto = inputs.goal in (Goal.CUT, Goal.MAINTAIN)
         if pedido < piso:
             # A trava vence o pedido manual. Comer abaixo da taxa metabólica
             # basal não acelera nada: derruba o treino e come músculo.
@@ -430,7 +437,7 @@ def calculate(inputs: PlanInputs) -> PlanResult:
                 "O ajuste que você pediu levaria a meta abaixo do seu gasto de "
                 "repouso, então ela parou no mínimo seguro."
             )
-        elif pedido > teto and not pesado:
+        elif com_teto and pedido > teto and not pesado:
             target = teto
             adjust_note = (
                 f"O ajuste que você pediu levaria a meta acima de {SAFE_MAX_KCAL} "
@@ -438,7 +445,9 @@ def calculate(inputs: PlanInputs) -> PlanResult:
             )
         else:
             target = pedido
-            if pesado and pedido > teto:
+            if com_teto and pesado and pedido > teto:
+                # Só quando o teto TERIA se aplicado: para BULK/RECOMP não há
+                # teto a explicar, e "passou de 2.800" seria aviso de nada.
                 adjust_note = (
                     f"Sua meta passou de {SAFE_MAX_KCAL} kcal porque o seu peso "
                     "realmente sustenta um gasto alto, então o teto de segurança "

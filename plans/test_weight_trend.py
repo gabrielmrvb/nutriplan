@@ -205,7 +205,13 @@ class RecalibragemTests(TestCase):
 
     def test_the_raise_never_pushes_the_target_above_the_safety_ceiling(self):
         """O teto é simétrico ao piso: o pedido manual também não fura o
-        limite de segurança, do outro lado."""
+        limite de segurança, do outro lado — para quem EMAGRECE ou MANTÉM,
+        que é para quem `target_kcal` aplica o teto automático.
+
+        Homem de 105 kg, 180 cm, 30 anos, rotina ativa, 4 treinos, cortando:
+        meta automática 2 707. "Somar 150" pediria 2 857, e o teto segura
+        em 2 800 com o aviso.
+        """
         from decimal import Decimal as D
 
         from accounts.models import ActivityLevel, Goal, Sex
@@ -214,17 +220,84 @@ class RecalibragemTests(TestCase):
 
         base = dict(
             sex=Sex.MALE,
-            weight_kg=D("70"),
-            height_cm=175,
-            age_years=25,
-            activity_level=ActivityLevel.SEDENTARY,
-            goal=Goal.BULK,
-            session_minutes=(),
+            weight_kg=D("105"),
+            height_cm=180,
+            age_years=30,
+            activity_level=ActivityLevel.ACTIVE,
+            goal=Goal.CUT,
+            session_minutes=(60,) * 4,
         )
-        com_aumento = calculate(PlanInputs(**base, kcal_adjustment=5000))
+        sem_ajuste = calculate(PlanInputs(**base))
+        com_aumento = calculate(PlanInputs(**base, kcal_adjustment=150))
 
-        self.assertLessEqual(com_aumento.target_kcal, SAFE_MAX_KCAL)
+        # Controle: a meta automática está abaixo do teto e o pedido passa
+        # dele — senão o teste passaria sem o teto ter feito nada.
+        self.assertEqual(sem_ajuste.target_kcal, 2707)
+        self.assertGreater(sem_ajuste.target_kcal + 150, SAFE_MAX_KCAL)
+
+        self.assertEqual(com_aumento.target_kcal, SAFE_MAX_KCAL)
         self.assertIn("teto de segurança", com_aumento.notes)
+
+    def test_o_teto_manual_nao_corta_quem_ganha_massa(self):
+        """Achado da revisão final da Fase 3 (17/09/2026), CRÍTICO.
+
+        `target_kcal` só aplica o teto de 2 800 a CUT e MAINTAIN — "superávit
+        alto é gordura ganha, não risco de segurança" (`SafetyCapTests`). O
+        teto do ajuste MANUAL valia para qualquer objetivo, e o perfil de
+        referência da avaliação (BULK, meta automática 2 859) pedia "Somar
+        150", esperava 3 009 e recebia 2 800 — CINQUENTA E NOVE kcal a MENOS
+        do que tinha antes de pedir mais, com a mensagem "parou no teto de
+        segurança". O teto manual passa a ESPELHAR `target_kcal`: BULK e
+        RECOMP não têm teto manual, como não têm teto automático.
+        """
+        from decimal import Decimal as D
+
+        from accounts.models import ActivityLevel, Goal, Sex
+
+        from .calculations import PlanInputs, calculate
+
+        referencia = dict(
+            sex=Sex.MALE,
+            weight_kg=D("82.5"),
+            height_cm=178,
+            age_years=30,
+            activity_level=ActivityLevel.LIGHT,
+            goal=Goal.BULK,
+            session_minutes=(60,) * 5,
+        )
+        sem_ajuste = calculate(PlanInputs(**referencia))
+        com_aumento = calculate(PlanInputs(**referencia, kcal_adjustment=150))
+
+        self.assertEqual(sem_ajuste.target_kcal, 2859)
+        self.assertEqual(com_aumento.target_kcal, 3009)
+        self.assertEqual(com_aumento.notes, "")
+
+    def test_recomp_acima_do_teto_tambem_nao_recebe_aviso(self):
+        """RECOMP fica do lado de BULK: sem teto automático, sem teto manual,
+        e sem o aviso de "passou de 2 800" — esse aviso só faz sentido quando
+        o teto TERIA se aplicado (CUT/MAINTAIN acima de 120 kg)."""
+        from decimal import Decimal as D
+
+        from accounts.models import ActivityLevel, Goal, Sex
+
+        from .calculations import PlanInputs, calculate
+
+        base = dict(
+            sex=Sex.MALE,
+            weight_kg=D("95"),
+            height_cm=185,
+            age_years=25,
+            activity_level=ActivityLevel.ACTIVE,
+            goal=Goal.RECOMP,
+            session_minutes=(60,) * 5,
+        )
+        sem_ajuste = calculate(PlanInputs(**base))
+        com_aumento = calculate(PlanInputs(**base, kcal_adjustment=150))
+
+        self.assertGreater(com_aumento.target_kcal, 2800)
+        self.assertEqual(com_aumento.target_kcal, sem_ajuste.target_kcal + 150)
+        self.assertNotIn("2800", com_aumento.notes)
+        self.assertNotIn("teto", com_aumento.notes)
 
     def test_o_teto_manual_nao_corta_abaixo_da_tmb_em_peso_extremo(self):
         """Achado em revisão adversarial, lendo `plans/calculations.py`.
