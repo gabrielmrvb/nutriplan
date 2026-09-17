@@ -75,6 +75,26 @@ class OAgendadorEATelaDizemOMesmoTests(SimpleTestCase):
         self.assertIn("/saude/vivo/", yaml)
         self.assertNotIn("/saude/\"", yaml.replace("/saude/vivo/", ""))
 
+    def test_o_relogio_de_verdade_e_o_laco_dentro_da_rodada(self):
+        """MEDIDO em 17/09/2026: o `schedule` de `*/5` do GitHub rodou UMA vez
+        em oito horas (a primeira às 03:10, 7h55 depois de o fluxo entrar em
+        `main`), e nos 70 minutos seguintes nenhuma outra. Com isso o serviço
+        dormiu e `/saude/` levou 38 s depois de 30 min sem tráfego. O
+        `schedule` é só o gatilho de reserva; quem marca os 5 minutos é um
+        LAÇO dentro da rodada, que dura quase o teto de 6 h de um job e, ao
+        acabar, dispara a próxima rodada (`workflow_dispatch` com o
+        `GITHUB_TOKEN`, que é a exceção documentada à regra "evento do
+        token não cria rodada")."""
+        yaml = FLUXO.read_text(encoding="utf-8")
+        self.assertIn("sleep %d" % (services.CRON_INTERVALO_MINUTOS * 60), yaml)
+        casou = re.search(r"timeout-minutes:\s*(\d+)", yaml)
+        self.assertIsNotNone(casou)
+        self.assertGreaterEqual(int(casou.group(1)), 300)
+        self.assertLessEqual(int(casou.group(1)), 360)
+        self.assertIn("actions: write", yaml)
+        self.assertIn("/actions/workflows/lembretes.yml/dispatches", yaml)
+        self.assertIn("cancel-in-progress: false", yaml)
+
     def test_o_render_yaml_nao_agenda_nada(self):
         """Nada pago: o cron do Render saiu do arquivo, inclusive como espelho."""
         yaml = (RAIZ / "render.yaml").read_text(encoding="utf-8")

@@ -1722,10 +1722,14 @@ Actions —, e isso implica três coisas escritas:**
 
 - **cold start só se o ping falhar por mais de 15 minutos.** O free do
   Render dorme após 15 min sem tráfego e acorda em 37–60 s (medido na
-  avaliação de 16/09). Com o ping de 5 em 5 min, o serviço só dorme se
-  DUAS rodadas seguidas do Actions faltarem — o relógio do Actions atrasa
-  (5–15 min em hora cheia), então um cold start ocasional continua possível
-  e não é defeito do app;
+  avaliação de 16/09). **O `schedule` do GitHub NÃO segura isso sozinho**
+  — medido em 17/09: o cron `*/5` rodou UMA vez em oito horas, o serviço
+  dormiu e `/saude/` levou 38 s depois de 30 min parado. Por isso o relógio
+  de verdade é o LAÇO dentro da rodada (`lembretes.yml`: um job de ~5h45
+  batendo a cada 5 min e disparando a próxima rodada com o `GITHUB_TOKEN`
+  ao acabar); o `schedule` é só o gatilho de reserva que religa a corrente.
+  Um cold start ocasional continua possível (runner indisponível, corrente
+  quebrada até o `schedule` religar) e não é defeito do app;
 - **o Neon dorme entre refeições, de propósito.** Uma consulta a cada 5 min
   o manteria acordado o dia inteiro (182 CU-h contra 100 de cota). Por isso
   a tarefa, depois de rodar, calcula a próxima refeição de quem tem
@@ -1736,8 +1740,10 @@ Actions —, e isso implica três coisas escritas:**
 - **dependência da política do free.** Render pode mudar o tempo de sono,
   as horas gratuitas (750 h/mês por workspace hoje) ou bloquear o ping;
   GitHub pode desligar o `schedule` de repositório sem atividade por 60
-  dias (ele avisa por e-mail) e atrasa o cron sob carga; o Neon pode
-  reduzir a cota. Nada disso quebra o app — só os lembretes e o cold start.
+  dias (ele avisa por e-mail), atrasa ou pula o cron sob carga, e a corrente
+  de rodadas de ~6 h (repositório público, minutos ilimitados) é uso que a
+  política de Actions pode um dia questionar; o Neon pode reduzir a cota.
+  Nada disso quebra o app — só os lembretes e o cold start.
 
 **O que mudaria se um dia virar pago:** instância `starter` no Render
 (~US$ 7/mês) elimina o sono e o ping; o cron do Render (≥ US$ 1/mês,
