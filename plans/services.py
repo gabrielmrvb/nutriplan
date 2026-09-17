@@ -5,6 +5,7 @@ entradas, desativar o plano anterior e criar o novo. O `NutritionPlan` é
 tratado como imutável — mudou alguma entrada, nasce um plano novo e o antigo
 fica no histórico com a meta que valia naquela época.
 """
+import dataclasses
 from decimal import Decimal
 
 from django.db import transaction
@@ -179,15 +180,28 @@ def plan_is_current(plan, inputs) -> bool:
     """O plano ativo ainda corresponde aos dados de hoje?
 
     Comparamos entradas E saídas. As entradas pegam mudança de peso, objetivo
-    ou rotina; as saídas pegam o que não vira campo do plano — trocar a duração
-    do treino mantém `training_days_per_week` igual, mas move o TDEE.
+    ou rotina; as saídas pegam o que não vira campo do plano — hoje,
+    `kcal_adjustment` ("Cortar/Somar 150 kcal" grava no perfil, não no plano).
+    A duração do treino (`session_minutes`) também não é campo do plano, mas o
+    motor só conta os dias; se um dia ela pesar no TDEE, cai neste mesmo
+    caminho sem mexer aqui.
 
     PESO É A EXCEÇÃO, e o motivo é "plano é retrato": nada dentro de um plano
     ativo é editado — a tolerância só decide se nasce um retrato novo. Se toda
     entrada MENOS o peso bate, e o peso de hoje está a até
-    `TOLERANCIA_DE_PESO_KG` do peso gravado no plano, o plano continua atual —
-    as SAÍDAS não entram nessa comparação, porque a única coisa que as moveria
-    é o próprio peso, e 1,5 kg de diferença é ruído de balança, não progresso.
+    `TOLERANCIA_DE_PESO_KG` do peso gravado no plano, as SAÍDAS são comparadas
+    contra o cálculo feito COM O PESO DO RETRATO — o peso é a única entrada
+    que a tolerância perdoa, então ele é neutralizado antes de comparar, e o
+    que sobra é tudo o que move a meta sem passar por ele. Pesar +1,0 kg
+    continua não regenerando (saídas iguais no peso gravado; 1,5 kg de
+    diferença é ruído de balança, não progresso); "Cortar 150 kcal"
+    (`kcal_adjustment`) regenera, porque não é campo do plano e move a meta.
+
+    A primeira versão do ramo devolvia `True` sem olhar saída nenhuma
+    (revisão final da Fase 3, 17/09/2026): "Cortar 150" gravava o ajuste no
+    perfil, `sync_active_plan` achava o plano velho "atual", e a meta não
+    mudava — com a mensagem "Cortamos 150 kcal da sua meta" na tela.
+
     Fora da faixa, ou com qualquer outra entrada diferente, roda o caminho de
     sempre: recalcular e comparar entradas e saídas contra o resultado de hoje.
     """
@@ -211,7 +225,13 @@ def plan_is_current(plan, inputs) -> bool:
     if outras_entradas_batem:
         variacao_de_peso = abs(Decimal(plan.weight_kg) - Decimal(inputs.weight_kg))
         if variacao_de_peso <= TOLERANCIA_DE_PESO_KG:
-            return True
+            no_peso_do_retrato = calculate(
+                dataclasses.replace(inputs, weight_kg=plan.weight_kg)
+            )
+            return all(
+                getattr(plan, field) == getattr(no_peso_do_retrato, field)
+                for field in _OUTPUT_FIELDS
+            )
 
     result = calculate(inputs)
     same_inputs = all(

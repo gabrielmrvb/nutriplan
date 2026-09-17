@@ -6,6 +6,7 @@ reescolhia A/B. O plano continua um RETRATO — nada nele é editado; a
 tolerância só decide se nasce um novo. 1,5 kg movem a TMB em ~15 kcal,
 menos que o degrau de 10 g do cardápio.
 """
+import dataclasses
 import re
 from decimal import Decimal
 
@@ -13,7 +14,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts.models import WeightEntry
+from accounts.models import Goal, WeightEntry
 from plans import services
 from plans.tests import CatalogFixture, create_complete_user
 
@@ -73,3 +74,68 @@ class APesagemToleranteTests(CatalogFixture):
         self.client.post(reverse("plans:recalculate"))
 
         self.assertNotEqual(services.get_active_plan(self.user).pk, self.plano.pk)
+
+
+class ATolerenciaNaoEngoleOAjusteManualTests(CatalogFixture):
+    """A tolerância de peso não pode esconder o que move a meta SEM passar pelo peso.
+
+    Achado crítico da revisão final da Fase 3 (17/09/2026): o ramo da
+    tolerância devolvia `True` sempre que as seis entradas não-peso batiam e
+    |Δpeso| ≤ 1,5 kg — inclusive Δ = 0 — SEM comparar saída nenhuma.
+    `kcal_adjustment` vive em `PlanInputs` mas não é campo do plano, então
+    "Cortar 150 kcal" gravava o ajuste no perfil,
+    chamava `sync_active_plan`, e o plano antigo continuava "atual": a meta
+    não mudava, e a mensagem "Cortamos 150 kcal da sua meta" mentia.
+
+    O ramo passa a comparar as SAÍDAS contra o cálculo feito com o peso do
+    RETRATO: pesar +1,0 kg continua não regenerando (saídas iguais no peso
+    gravado), e qualquer coisa que mova a meta sem passar pelo peso regenera.
+    """
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.client.force_login(self.user)
+
+    def test_cortar_150_gera_plano_novo_com_a_meta_150_abaixo(self):
+        antigo = services.create_plan(self.user)
+
+        self.client.post(reverse("plans:recalibrate"), {"acao": "cortar"})
+
+        novo = services.get_active_plan(self.user)
+        self.assertNotEqual(novo.pk, antigo.pk)
+        self.assertEqual(novo.target_kcal, antigo.target_kcal - 150)
+
+    def test_somar_150_gera_plano_novo_com_a_meta_150_acima(self):
+        # BULK: é para quem ganha massa que `weight_trend` oferece "aumentar",
+        # e é o objetivo sem teto manual (revisão final, item 2).
+        self.user.profile.goal = Goal.BULK
+        self.user.profile.save(update_fields=["goal"])
+        antigo = services.create_plan(self.user)
+
+        self.client.post(reverse("plans:recalibrate"), {"acao": "aumentar"})
+
+        novo = services.get_active_plan(self.user)
+        self.assertNotEqual(novo.pk, antigo.pk)
+        self.assertEqual(novo.target_kcal, antigo.target_kcal + 150)
+
+    def test_ajuste_manual_diferente_com_peso_igual_nao_e_atual(self):
+        plano = services.create_plan(self.user)
+        inputs = services.build_inputs(self.user)
+        # Controle positivo: com as MESMAS entradas o plano é atual — senão o
+        # `False` abaixo poderia vir de qualquer outra diferença.
+        self.assertTrue(services.plan_is_current(plano, inputs))
+
+        ajustado = dataclasses.replace(inputs, kcal_adjustment=-150)
+
+        self.assertFalse(services.plan_is_current(plano, ajustado))
+
+    def test_um_quilo_a_mais_com_o_mesmo_ajuste_continua_atual(self):
+        """CONTROLE: a comparação de saídas é feita no peso do RETRATO, então
+        o peso dentro da faixa continua não regenerando — o ajuste manual é o
+        que muda, não a tolerância."""
+        plano = services.create_plan(self.user)
+        inputs = services.build_inputs(self.user)
+
+        um_quilo = dataclasses.replace(inputs, weight_kg=inputs.weight_kg + 1)
+
+        self.assertTrue(services.plan_is_current(plano, um_quilo))
