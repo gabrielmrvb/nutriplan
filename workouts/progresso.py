@@ -19,7 +19,7 @@ lado, sem virar uma porcentagem que finge medir compromisso.
 """
 from datetime import timedelta
 
-from django.db.models import Max
+from django.db.models import Count, Max, Min
 from django.utils import timezone
 
 from .models import ExerciseLog
@@ -35,6 +35,33 @@ EXERCICIOS_NA_TELA = 6
 def _inicio_da_semana(dia):
     """Segunda-feira. A semana do app começa na segunda, como no resto dele."""
     return dia - timedelta(days=dia.weekday())
+
+
+#: O convite a atualizar o nível: quem se declarou iniciante (ou não
+#: respondeu) e treina há pelo menos este tanto de dias, com pelo menos
+#: este tanto de datas com série. O app não INFERE nível — "uso não é
+#: intenção declarada" — mas depois de meio ano e duas dúzias de treinos a
+#: pergunta cabe: o teto por grupo do iniciante é o menor (TREINO.md, B).
+#: 180 e 24 são calibração do brief de 13/09 (`AD-convite-atualizar-experiencia`).
+DIAS_PARA_O_CONVITE = 180
+DATAS_PARA_O_CONVITE = 24
+NIVEIS_CONVIDADOS = ("iniciante", "")
+
+
+def convidar_a_atualizar_experiencia(user, hoje=None) -> bool:
+    """A pessoa se declarou iniciante (ou não respondeu) e já treina há
+    `DIAS_PARA_O_CONVITE` dias com `DATAS_PARA_O_CONVITE` datas? UMA
+    consulta agregada para qualquer nível: o nível entra no `WHERE` pela
+    junção com o perfil, em vez de `user.profile` — que no Progresso não
+    está em cache e custava uma segunda consulta (medido: 28 contra o teto
+    de 26). Quem não pode ser convidado recebe `primeiro=None`."""
+    hoje = hoje or timezone.localdate()
+    conta = ExerciseLog.objects.filter(
+        user=user, user__profile__experiencia__in=NIVEIS_CONVIDADOS
+    ).aggregate(primeiro=Min("date"), datas=Count("date", distinct=True))
+    if conta["primeiro"] is None:
+        return False
+    return (hoje - conta["primeiro"]).days >= DIAS_PARA_O_CONVITE and conta["datas"] >= DATAS_PARA_O_CONVITE
 
 
 def dias_treinados(user, hoje=None, semanas=SEMANAS) -> list:

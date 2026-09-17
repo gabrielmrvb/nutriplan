@@ -779,14 +779,22 @@ class RecordLoadView(AcaoDeTela, OnboardingRequiredMixin, View):
             )
 
         # As conquistas sao avaliadas AQUI, depois de o `ExerciseLog` estar
-        # gravado, e so aqui.
-        #
-        # Nao no painel, nao em refeicao, nao em agua: as conquistas da V1 sao
-        # todas de treino, e pendurar a avaliacao em toda escrita do app
-        # cobraria consultas o dia inteiro por um evento que acontece algumas
-        # vezes por semana. Este e o unico ponto do fluxo em que um dia de
-        # treino passa a existir.
-        novas = conquistas.avaliar(request.user)
+        # gravado — e SÓ QUANDO HÁ MOTIVO (T2.4, 17/09/2026): na primeira
+        # série do dia (um dia de treino passa a existir) ou quando a carga
+        # supera o recorde — a mesma guarda de `ConcluirSerieView`. O
+        # catálogo inteiro custa dezenas de consultas, e esta rota pagava em
+        # toda carga anotada; abaixo do recorde, no meio do treino, nenhuma
+        # regra muda de resposta.
+        hoje = timezone.localdate()
+        primeira_do_dia = not (
+            ExerciseLog.objects.filter(user=request.user, date=hoje)
+            .exclude(exercise=exercise, set_number=serie)
+            .exists()
+        )
+        if primeira_do_dia or services.supera_recorde(request.user, exercise, peso, dia=hoje):
+            novas = conquistas.avaliar(request.user)
+        else:
+            novas = []
         ids_novos = conquistas.anunciar(request, novas)
 
         # Quem chegou por busca recebe JSON e a página não recarrega: no meio
