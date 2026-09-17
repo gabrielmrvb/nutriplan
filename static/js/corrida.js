@@ -172,6 +172,9 @@
      * proxima leitura e comparada com o ultimo ponto bom, e passa. */
     if (!aceitar(leitura)) return;
 
+    // B29: o sinal voltou — o aviso de GPS fraco sai.
+    dizer("");
+
     estado.distancia += distanciaM(estado.ancora, leitura);
 
     /* A parcial do quilometro cheio, interpolada entre as duas leituras.
