@@ -36,7 +36,7 @@
 - [ ] Sabotagem: template com "Opção {{ … }}" de volta → vermelho.
 
 ### Task 3: versão rápida no painel + evento de uso
-**Files:** Create `workouts/migrations/0025_evento_de_produto.py`; Modify `workouts/models.py` (`EventoDeProduto`), `workouts/views.py` (`VersaoRapidaHojeView`), `workouts/urls.py` (`hoje/rapida/`), `templates/workouts/routine.html` (cartão de hoje), `workouts/management/commands/medir_progressao.py` (usos em 30 dias), `config/test_acoes_com_tela.py` (DESTINO). Test: `workouts/test_ficha_unica.py`.
+**Files:** Create `workouts/migrations/0027_evento_de_produto.py`; Modify `workouts/models.py` (`EventoDeProduto`), `workouts/views.py` (`VersaoRapidaHojeView`), `workouts/urls.py` (`hoje/rapida/`), `templates/workouts/routine.html` (cartão de hoje), `workouts/management/commands/medir_progressao.py` (usos em 30 dias), `config/test_acoes_com_tela.py` (DESTINO). Test: `workouts/test_ficha_unica.py`.
 - [ ] Testes que falham: POST `hoje/rapida/` grava `EscolhaDeTreino.versao=rapido` na sessão de hoje e um `EventoDeProduto` (único por dia — segundo POST não duplica); POST com `completo=1` volta; GET → redirect painel; a ficha não tem mais `?versao=`; o painel mostra "Menos tempo hoje?" só em dia de treino sem série; `medir_progressao` imprime "versão rápida".
 - [ ] Sabotagem: evento não gravado → vermelho; unique retirado → vermelho.
 

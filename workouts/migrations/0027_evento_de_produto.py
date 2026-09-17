@@ -13,7 +13,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('workouts', '0024_rotacao_continua_do_ciclo'),
+        ('workouts', '0026_planodecorrida'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
