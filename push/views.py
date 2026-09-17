@@ -15,8 +15,10 @@ from django.templatetags.static import static
 from .assets import asset, version
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_control
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView, View
 
+from . import tarefas
 from .models import PushSubscription
 from .services import push_is_configured
 
@@ -222,6 +224,28 @@ class SubscribeView(View):
             },
         )
         return JsonResponse({"ok": True, "created": created}, status=201 if created else 200)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class TarefaLembretesView(View):
+    """`POST /tarefas/lembretes/` — o agendador de fora (GitHub Actions) bate
+    aqui de 5 em 5 minutos; a regra está em `push.tarefas`.
+
+    Sem sessão e sem CSRF: é servidor falando com servidor, e o portão é o
+    token em `Authorization: Bearer …` comparado em tempo constante. Só
+    POST — o GET responde 405 e a rota está em `FORA` de
+    `config/test_acoes_com_tela.py` com o motivo: não é destino de
+    navegação de ninguém.
+    """
+
+    http_method_names = ["post"]
+
+    def post(self, request, *args, **kwargs):
+        if not tarefas.configurada():
+            return JsonResponse({"error": "tarefa não configurada"}, status=503)
+        if not tarefas.token_confere(request.headers.get("Authorization")):
+            return JsonResponse({"error": "não autorizado"}, status=403)
+        return JsonResponse(tarefas.rodar())
 
 
 @method_decorator(login_required, name="post")
