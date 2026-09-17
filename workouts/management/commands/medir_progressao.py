@@ -17,7 +17,10 @@ números serem revistos com dado:
 - RETOMAR SEM PAUSA: quantas retomadas são de exercício abandonado com a
   pessoa treinando OUTROS exercícios no intervalo — não é volta de férias,
   é troca de ficha, e a frase "N dias sem este exercício" cabe menos;
-- INTERVALO entre sessões do mesmo exercício, em semanas.
+- INTERVALO entre sessões do mesmo exercício, em semanas;
+- VERSÃO RÁPIDA: usos (pessoa × dia) e pessoas nos últimos 30 dias do
+  "Menos tempo hoje?" (`EventoDeProduto`, ficha única de 17/09) — o dado
+  que decide, em 30 dias, se a rápida fica.
 
 Duas consultas fixas — as linhas de prescrição ativas e os registros —,
 nunca uma por pessoa ou por exercício: é para rodar sobre produção
@@ -138,6 +141,12 @@ class Command(BaseCommand):
         self.stdout.write("intervalo desde a última sessão do exercício (semanas; 8 = 8+):")
         for semanas in sorted(intervalos):
             self.stdout.write("  %d: %d" % (semanas, intervalos[semanas]))
+        # Duas consultas agregadas (contagem e pessoas distintas), fixas.
+        from workouts.models import EventoDeProduto
+        from workouts.services import usos_recentes
+
+        usos, pessoas = usos_recentes(EventoDeProduto.VERSAO_RAPIDA, dias=30)
+        self.stdout.write("versão rápida: %d uso(s) em %d pessoa(s) nos últimos 30 dias" % (usos, pessoas))
 
 
 class _Registro:
