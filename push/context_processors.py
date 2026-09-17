@@ -20,6 +20,7 @@ def push(request):
         "fila_js_url": asset("js/fila.js"),
         "card_js_url": asset("js/card.js"),
         "corrida_js_url": asset("js/corrida.js"),
+        "conquista_js_url": asset("js/conquista.js"),
         # As cores da moldura do navegador, para o `<meta name="theme-color">`
         # não guardar uma segunda cópia do valor. Duas cópias é como uma delas
         # fica para trás — e ficou, por uma troca de paleta inteira.

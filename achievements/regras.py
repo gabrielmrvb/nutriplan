@@ -70,6 +70,9 @@ class Dados:
     #: Exercícios que ganharam recorde HOJE: (id, nome). A carga não entra —
     #: ver `_recorde`.
     recordes_hoje: tuple = ()
+    #: Exercícios cuja MELHOR SÉRIE (reps×carga) foi superada HOJE: (id, nome).
+    #: Mesmo contrato de `recordes_hoje`: o número não entra.
+    melhores_series_hoje: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -174,6 +177,19 @@ def _recorde(dados):
     ]
 
 
+def _melhor_serie(dados):
+    """Melhor série num exercício: o maior reps×carga de UMA série.
+
+    Segunda espécie de recorde, ao lado de `_recorde`, que continua sendo só
+    a maior carga (o contrato dele não muda). Mesma chave `exercício:data`,
+    pelos mesmos dois motivos: nada persistido, nada que vaze num card.
+    """
+    return [
+        ("%d:%s" % (exercicio_id, dados.hoje.isoformat()), {"exercicio": nome})
+        for exercicio_id, nome in dados.melhores_series_hoje
+    ]
+
+
 # ------------------------------------------------------------------ catálogo
 
 _TREINOS = ((5, "5 treinos"), (10, "10 treinos"), (25, "25 treinos"),
@@ -240,6 +256,15 @@ CATALOGO += [
         emoji="\U0001f3cb",
         familia=Familia.RECORDE,
         detectar=_recorde,
+        repetivel=True,
+    ),
+    Regra(
+        slug="melhor-serie",
+        titulo="Melhor série",
+        frase="Você fez sua melhor série num exercício: mais repetições com mais carga.",
+        emoji="\U0001f4aa",
+        familia=Familia.RECORDE,
+        detectar=_melhor_serie,
         repetivel=True,
     ),
 ]

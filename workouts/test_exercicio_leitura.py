@@ -122,16 +122,16 @@ class ALeituraDoExercicioTests(TestCase):
         ):
             self.assertNotIn("?exercicio=", html_outro)
 
-    def test_o_historico_do_exercicio_aparece_por_sessao_e_para_em_oito(self):
-        """"Como fui neste exercício?" — as últimas oito datas, uma linha cada:
-        data, carga e as reps de cada série. A nona fica de fora: UMA consulta,
-        limitada, e a tela não vira relatório."""
+    def test_o_historico_do_exercicio_aparece_por_sessao_e_para_em_doze(self):
+        """"Como fui neste exercício?" — as últimas doze datas, uma linha cada:
+        data, carga e as reps de cada série. A décima terceira fica de fora:
+        UMA consulta, limitada, e a tela não vira relatório."""
         from datetime import timedelta
         from decimal import Decimal
 
         from workouts.models import ExerciseLog
 
-        for dias_atras in range(1, 10):
+        for dias_atras in range(1, 14):
             for serie, reps in ((1, 10), (2, 10), (3, 9)):
                 ExerciseLog.objects.create(
                     user=self.pessoa, exercise=self.item_outro.exercise,
@@ -140,12 +140,12 @@ class ALeituraDoExercicioTests(TestCase):
                 )
         html = self._html(self.item_outro)
         bloco = html.split('class="data-list historico"', 1)[1].split("</dl>", 1)[0]
-        self.assertEqual(bloco.count("<dt class=\"num\">"), 8)
+        self.assertEqual(bloco.count("<dt class=\"num\">"), 12)
         self.assertIn("60 × 10, 10, 9", " ".join(bloco.split()))
         ontem = (timezone.localdate() - timedelta(days=1)).strftime("%d/%m")
-        nona = (timezone.localdate() - timedelta(days=9)).strftime("%d/%m")
+        decima_terceira = (timezone.localdate() - timedelta(days=13)).strftime("%d/%m")
         self.assertIn(ontem, bloco)
-        self.assertNotIn(nona, bloco)
+        self.assertNotIn(decima_terceira, bloco)
 
     def test_sem_historico_a_leitura_diz_isso_sem_tabela_vazia(self):
         html = self._html(self.item_outro)
@@ -167,7 +167,8 @@ class ALeituraDoExercicioTests(TestCase):
 
 #: Consultas da leitura, medidas em 13/09/2026 ao nascer (sessão, usuário,
 #: perfil, plano, exercício, sessões da semana com itens, contagem de hoje,
-#: e o histórico limitado a oito datas).
+#: e o histórico limitado a doze datas — DATAS_DO_HISTORICO, subiu de oito
+#: em 16/09/2026 com o gráfico por exercício).
 #: Teto: só sobe com medição escrita.
 #: 9 em 15/09/2026: mais UMA, a escolha do dia (`escolha_do_dia`) — "Fazer
 #: este exercício" só existe se ele está na OPÇÃO do dia, senão o link daria

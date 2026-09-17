@@ -325,6 +325,10 @@
                     {# A palavra, e não só a cor: a série que SUPEROU a maior carga já registrada. #}
                     <span class="series__recorde">recorde</span>
                   {% endif %}
+                  {% if linha.melhor_serie %}
+                    {# Segunda espécie, mesma pastilha: a série que SUPEROU o maior reps×carga já registrado. #}
+                    <span class="series__recorde">melhor série</span>
+                  {% endif %}
                 {% elif linha.antes_peso != None %}
                   <span class="series__antes num">
                     <span class="vis-oculto">última vez: </span>{% if atual.measure == 'seconds' %}{{ linha.antes_reps|default:"—" }}s{% elif atual.exercise.sem_carga %}×{{ linha.antes_reps|default:"—" }}{% else %}{{ linha.antes_peso|floatformat:'-2' }}{% if linha.antes_reps %}×{{ linha.antes_reps }}{% endif %}{% endif %}
@@ -565,6 +569,16 @@
           {% if atual.load.recorde_anterior %}
           <span class="agora__recorde">
             Recorde: <b class="num">{{ atual.load.recorde_anterior|floatformat:'-2' }} kg</b>
+          </span>
+          {% endif %}
+          {% comment %}
+            SEGUNDA espécie, ao lado do recorde de carga: a melhor série
+            (reps×carga) já registrada — o mesmo contrato de
+            `achievements.regras._melhor_serie`, sem número persistido.
+          {% endcomment %}
+          {% if atual.load.melhor_serie_anterior %}
+          <span class="agora__recorde">
+            Melhor série: <b class="num">{{ atual.load.melhor_serie_peso|floatformat:'-2' }} kg × {{ atual.load.melhor_serie_reps }}</b>
           </span>
           {% endif %}
           {% comment %}

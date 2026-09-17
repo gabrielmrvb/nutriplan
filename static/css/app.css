@@ -470,6 +470,25 @@
      ver o `body` sem `overflow-x`). Toda âncora precisa pousar ABAIXO dela:
      medido, 60px a 16px de fonte. */
   --appbar-h: 3.75rem;
+  /* Quanto o `.container` precisa de `padding-bottom` a mais quando o aviso
+     de conquista está no ar (seção 40) — o mesmo mecanismo do convite de
+     instalação. Entram como TOKEN, e não crus na declaração, para não somar
+     à dívida de `config/test_design_system.py::ACatracaDoSistemaVisualTests`
+     (só desce). Medido no navegador, não a olho: o pior caso de texto em
+     320–480px de largura soma até 18,52rem até o topo da caixa.
+
+     O segundo valor, bem menor, só é seguro quando a caixa PARA de cobrir a
+     coluna central — e não a partir de qualquer largura em que ela mude de
+     forma. A partir de `min-width: 30rem` (seção 40) ela vira
+     `right: 1rem; width: 22rem`: 23rem reservados do lado direito. A coluna
+     central (`--max: 30rem`) fica centralizada, então a margem de CADA lado
+     é `(viewport − 30rem) / 2`, e ela só alcança os 23rem da caixa quando
+     `viewport ≥ 30 + 2×23 = 76rem`. Trocar antes disso (era `min-width:
+     40rem` — a mesma largura em que a caixa MUDA de forma, não em que ela
+     LIBERA a coluna) deixava o CTA do rodapé coberto em tablets, do fim do
+     N1 até a revisão final de 16/09/2026 achar o cálculo. */
+  --conquista-reserva: 19rem;
+  --conquista-reserva-larga: 7rem;
 
   /* Karla é o TEXTO — corpo, rótulo, legenda, lista e TODO número pequeno,
      com `tabular-nums`. Bodoni Moda é a DISPLAY — só para o que é herói
@@ -1533,6 +1552,24 @@ h3 {
 .curva--desce .curva__grafico { color: var(--brand); }
 .curva--sobe .curva__grafico { color: var(--terra); }
 .curva--igual .curva__grafico { color: var(--text-mute); }
+
+/* A curva de carga do exercício (`workouts.curva`) não tem "subiu" ou
+   "desceu" para julgar — é sempre progresso quando existe — então uma cor
+   só, a de marca, em vez dos três modificadores de direção do peso. */
+.curva--carga .curva__grafico { color: var(--brand); }
+
+/* `<figure>` é o primeiro elemento com esse nome no app, e o navegador
+   aplica `margin: 1em 40px` a ele quando ninguém zera. `.curva` já dava
+   `margin-bottom` (regra de classe, vence a de elemento), mas topo, esquerda
+   e direita continuavam do padrão do navegador — 40px de cada lado comiam
+   80px de largura, e o SVG (`width: 100%`) desenhava 230px num card de
+   390px, achatando a curva de carga. Zera os quatro lados e reaplica só o
+   espaçamento de baixo. */
+.curva--carga { margin: 0 0 var(--espaco-6); }
+
+.curva__ponto {
+  fill: currentColor;
+}
 
 .curva__linha {
   fill: none;
@@ -7242,6 +7279,19 @@ body.montando { overflow: hidden; }
   box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
 }
 
+/* O recorde ganha o mesmo fundo tingido da conclusão de refeição e da
+   célula de resultado (`--brand-soft`) — já medido contra `--text` e
+   `--text-dim` nos dois temas em `ContrastTests.TINGIDOS`, então a variante
+   não precisa da própria régua de contraste. */
+.conquista--recorde { background: var(--brand-soft); }
+
+/* N1 (16/09/2026): o aviso é fixo e ficava por cima do CTA do rodapé —
+   "Excluir minha conta", em /conta/excluir/. Como o convite de instalação
+   (seção 25), ele EMPURRA o conteúdo, em vez de flutuar por cima. Os dois
+   valores são o token `--conquista-reserva{,-larga}` da seção 1 — como
+   chegou a 19rem/7rem está documentado lá. */
+body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
+
 /* Cada conquista da fila ocupa a mesma caixa. O grid mora AQUI e nao no
    contorno porque so um slide fica visivel por vez. */
 .conquista__slide {
@@ -7287,6 +7337,13 @@ body.montando { overflow: hidden; }
   .conquista { left: auto; right: 1rem; width: 22rem; }
 }
 
+@media (min-width: 76rem) {
+  /* 76rem = 30 (coluna) + 2×23 (o que a caixa reserva do lado direito a
+     partir de 30rem) — a régua está no token acima. Abaixo desta largura a
+     caixa ainda cobre a coluna central, e a reserva CHEIA continua valendo. */
+  body.tem-conquista .container { padding-bottom: var(--conquista-reserva-larga); }
+}
+
 /* ------------------------------------------------------- a tela */
 
 .conquistas { display: grid; gap: var(--gap); }
@@ -7308,6 +7365,24 @@ body.montando { overflow: hidden; }
 }
 
 .conquistas__rotulo { color: var(--text-mute); font-size: .72rem; }
+
+/* O interruptor do som opcional. Desligado por padrão — o `checked` inicial
+   é lido do `localStorage` pelo `conquista.js`, nunca escrito pelo servidor
+   — e o rótulo inteiro é o alvo, como em `.shopping__check`. */
+.conquistas__som {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-4);
+  min-height: 2.75rem;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.conquistas__som input[type="checkbox"] {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  flex: none;
+  accent-color: var(--brand);
+}
 
 .conquista-item {
   display: grid;
@@ -8289,6 +8364,23 @@ body.montando { overflow: hidden; }
 /* A barra herda o índice da linha (`--i` está na linha, não na barra). */
 .history-row__fill { animation-delay: calc(var(--i, 0) * var(--mov-degrau) + var(--mov-tela)); }
 
+/* ---- O frame de recompensa: o aviso de conquista sobe e assenta; o emoji
+   dá um pulso logo depois. BENCHMARK-2026-09 (a). ---- */
+@keyframes conquista-chega {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes conquista-emoji {
+  0% { transform: scale(.8); }
+  60% { transform: scale(1.15); }
+  100% { transform: none; }
+}
+.conquista { animation: conquista-chega var(--mov-sucesso) var(--ease) both; }
+.conquista__emoji {
+  animation: conquista-emoji var(--mov-sucesso) var(--ease) both;
+  animation-delay: var(--mov-tela);
+}
+
 /* ---- Menos movimento: nada entra atrasado, nada morfa, nada afunda. ---- */
 @media (prefers-reduced-motion: reduce) {
   [data-escalonado] > *,
@@ -8307,7 +8399,9 @@ body.montando { overflow: hidden; }
   .demo--aberta > video,
   .demo--aberta > img,
   .demo__abrir,
-  .agua__eco { animation: none; }
+  .agua__eco,
+  .conquista,
+  .conquista__emoji { animation: none; }
   .btn.is-carregando::after,
   .btn[aria-busy="true"]::after,
   .agua__botao[aria-busy="true"]::after { animation: none; }
