@@ -2390,3 +2390,28 @@ completo na seção "Design / Onda 3" do `CLAUDE.md`.
   própria com captura antes/depois (decisão do dono de 16/09).
 - **Veto do dono** sobre a direção e sobre os quatro ajustes medidos da
   paleta (escada U28, argila, `--dia-*`) — pelo `DIRECAO-ESCOLHIDA.md`.
+
+## Infra / gate (17/09/2026)
+
+### ✅ O gate saiu da máquina, e a fila de merge serializa `main`
+
+- Um push chegou ao GitHub em 16/09 (`80234fb`) sem passar pelo reflog de
+  nenhuma das três sessões desta máquina; a suíte inteira sobre o SHA deu
+  3259 OK a posteriori. Desde então o gate é o Actions (`suite.yml`, a
+  suíte completa em 22–28 min) e `main` só recebe PR.
+- A proteção clássica com `strict` durou um dia: com quatro sessões
+  mergeando, um PR verde ficava "behind" no meio do check (duas vezes no
+  #13). Entrou o ruleset com FILA DE MERGE (merge commit, lotes de dois) e
+  `scripts/github.py enfileirar`; o fluxo do Actions escuta `merge_group`.
+- O `pre-push` virou atalho: 417 testes em 4 min sozinho, 6–25 min quando
+  três suítes de sessões diferentes disputam a máquina — o número que
+  justifica cada sessão ter o seu `test_nutriplan_<sessão>`.
+
+### ⏳ "Fetch sem recarga" na execução (fatia E) — agora com número
+
+Medido em 17/09 com `nav.py rede 3g` (400 ms / 400 kbps): "Concluir série"
+é um POST→302→GET de ~31 KB — `load` de 180–330 ms no Wi-Fi e ~550 ms no
+3G lento — e o iframe do vídeo que a pessoa abriu MORRE com a recarga: a
+cada série, "ver vídeo" de novo. Continua E até alguém decidir com esse
+número; o que a decisão custa está em `docs/briefs/2026-09-13-treino-v2.md`
+(L08).
