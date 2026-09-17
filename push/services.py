@@ -21,23 +21,26 @@ from .models import NotificationLog, PushSubscription
 
 logger = logging.getLogger(__name__)
 
-#: De quantos em quantos minutos o agendador roda — o cron do Render
-#: (`render.yaml`, `*/15`; `push/test_cadencia_do_lembrete` confere que os
-#: dois dizem o mesmo). Quinze, e não cinco, por causa do banco: cada rodada
-#: acorda o Neon, que dorme após 5 min parado, e de 5 em 5 ele nunca dormiria
-#: — a cota gratuita (100 CU-h/mês) acabaria por volta do dia 16 (`CLAUDE.md`,
-#: "Monitor externo"). A 15 e só nas horas de refeição (05h–03h BRT) o banco
-#: fica acordado ~um terço do dia.
-CRON_INTERVALO_MINUTOS = 15
-#: Até quanto antes do horário da refeição o lembrete sai. Com a cadência de
-#: 15 e a janela de 15, o aviso cai de 5 a 20 minutos antes — nunca depois
-#: (propriedade varrida minuto a minuto no teste).
+#: De quantos em quantos minutos o agendador chama a tarefa — o GitHub
+#: Actions (`.github/workflows/lembretes.yml`, `*/5`;
+#: `push/test_cadencia_do_lembrete` confere que os dois dizem o mesmo). O
+#: relógio do Actions ATRASA em hora cheia — 5 a 15 minutos é comum —, e é
+#: por isso que a janela abaixo é maior que a cadência. Quem deixa o Neon
+#: dormir apesar da cadência curta é `push.tarefas` (a pausa até a próxima
+#: refeição), não o intervalo.
+CRON_INTERVALO_MINUTOS = 5
+#: Até quanto antes do horário da refeição o lembrete sai. Com a janela de
+#: 15, o aviso cai de 5 a 20 minutos antes — nunca depois (propriedade
+#: varrida minuto a minuto no teste, inclusive com o agendador 10 min
+#: atrasado).
 REMINDER_LEAD_MINUTES = 20
-#: Tolerância do job: a janela tem de ser ≥ o intervalo do agendador, senão
-#: `(T, T+10]` e `(T+15, T+25]` deixam `(T+10, T+15]` sem aviso. Igual ao
-#: intervalo, e não maior: sobreposição não faz mal (a constraint no banco
-#: não deixa duplicar), mas também não acrescenta nada.
+#: Tolerância do job: a janela tem de ser ≥ o intervalo do agendador MAIS o
+#: atraso que ele costuma ter, senão uma refeição cai no buraco entre duas
+#: rodadas. Sobreposição não faz mal — a constraint no banco não deixa
+#: duplicar.
 REMINDER_WINDOW_MINUTES = 15
+#: Quanto atraso do agendador a janela tolera sem perder refeição.
+ATRASO_TOLERADO_MINUTOS = REMINDER_WINDOW_MINUTES - CRON_INTERVALO_MINUTOS
 
 #: Códigos que o serviço de push devolve quando a assinatura morreu (app
 #: desinstalado, permissão revogada). Nesses casos ela é desativada.
@@ -134,6 +137,26 @@ def due_slots(now=None):
         .filter(window)
         .select_related("plan", "plan__user")
     )
+
+
+def proxima_refeicao_com_assinatura(now=None):
+    """O próximo horário de refeição, entre os planos ativos de quem tem
+    assinatura push ativa — como `datetime`, hoje ou amanhã. `None` sem
+    assinante. É o que `push.tarefas` usa para dormir entre refeições."""
+    now = now or timezone.localtime()
+    horarios = sorted(set(
+        MealSlot.objects.filter(
+            plan__is_active=True,
+            plan__user__push_subscriptions__is_active=True,
+        ).values_list("time", flat=True)
+    ))
+    if not horarios:
+        return None
+    agora = now.time()
+    for h in horarios:
+        if h > agora:
+            return datetime.combine(now.date(), h, tzinfo=now.tzinfo)
+    return datetime.combine(now.date() + timedelta(days=1), horarios[0], tzinfo=now.tzinfo)
 
 
 def send_meal_reminders(now=None) -> dict:

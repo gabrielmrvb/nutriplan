@@ -1485,16 +1485,48 @@ variáveis), `env`, `cron`, `deploy`, `trigger`, `runs`, `logs`, `status`.
   elas o cartão "Lembretes" aparece e a assinatura push é gravada — provado
   em produção com conta descartável e Chrome real: `/push/inscrever/` 200,
   FCM 201, notificação exibida.
-- **Cron `nutriplan-lembretes`: AINDA NÃO EXISTE.** A criação pela API
-  respondeu `402 Payment information is required` — a conta não tem cartão.
-  Custo quando existir: plano `starter`, rateado por segundo de execução,
-  **mínimo de US$ 1/mês por cron** (76 rodadas/dia de poucos segundos ficam
-  no mínimo). Especificação, a mesma do bloco-espelho do `render.yaml`:
-  `*/15 8-23,0-2 * * *` (UTC = 05h–23h59 em Brasília), `python manage.py
-  send_meal_reminders`, `pip install -r requirements.txt`, ambiente = cópia
-  do web + VAPID. Para ligar: cartão em `dashboard.render.com/billing`, depois
-  `scripts/render_api.py cron`, `trigger` e `logs`. **Sem o cron, ninguém
-  recebe lembrete** — a assinatura fica gravada esperando.
+- **Lembretes SEM cron e SEM nada pago (decisão do dono, 16/09/2026).** A
+  criação do cron pela API respondeu `402 Payment information is required`
+  (custaria no mínimo US$ 1/mês), e a instância web continua `free`. O
+  relógio é o **GitHub Actions**: `.github/workflows/lembretes.yml` roda de
+  5 em 5 minutos, bate em `/saude/vivo/` (sem banco) para o serviço não
+  dormir e em `POST /tarefas/lembretes/` com `NUTRIPLAN_TAREFAS_TOKEN` no
+  `Authorization` (variável do web service + segredo do repositório; o
+  mesmo valor, em `~/.nutriplan-secrets/tarefas_token`; gravado por
+  `scripts/github.py segredo` e pela API do Render). A rota é
+  `push.views.TarefaLembretesView` → `push/tarefas.py`: token em tempo
+  constante (503 sem a variável, 403 com token errado), só POST, sem
+  sessão, idempotente pela constraint do `NotificationLog`.
+
+**A infraestrutura é 100 % gratuita — Render free + Neon free + GitHub
+Actions —, e isso implica três coisas escritas:**
+
+- **cold start só se o ping falhar por mais de 15 minutos.** O free do
+  Render dorme após 15 min sem tráfego e acorda em 37–60 s (medido na
+  avaliação de 16/09). Com o ping de 5 em 5 min, o serviço só dorme se
+  DUAS rodadas seguidas do Actions faltarem — o relógio do Actions atrasa
+  (5–15 min em hora cheia), então um cold start ocasional continua possível
+  e não é defeito do app;
+- **o Neon dorme entre refeições, de propósito.** Uma consulta a cada 5 min
+  o manteria acordado o dia inteiro (182 CU-h contra 100 de cota). Por isso
+  a tarefa, depois de rodar, calcula a próxima refeição de quem tem
+  assinatura e responde `{"pausada": true}` sem banco até 20 min antes dela
+  (ou até 30 min, o que vier primeiro — assinatura nova entra na conta em no
+  máximo meia hora). A pausa é por processo (dois workers) e some no
+  restart. O ping de manter acordado NUNCA usa `/saude/`;
+- **dependência da política do free.** Render pode mudar o tempo de sono,
+  as horas gratuitas (750 h/mês por workspace hoje) ou bloquear o ping;
+  GitHub pode desligar o `schedule` de repositório sem atividade por 60
+  dias (ele avisa por e-mail) e atrasa o cron sob carga; o Neon pode
+  reduzir a cota. Nada disso quebra o app — só os lembretes e o cold start.
+
+**O que mudaria se um dia virar pago:** instância `starter` no Render
+(~US$ 7/mês) elimina o sono e o ping; o cron do Render (≥ US$ 1/mês,
+`scripts/render_api.py cron`, bloco de exemplo no histórico do `render.yaml`
+até 16/09) substituiria o Actions com relógio exato — e a janela de 15 min
+poderia voltar a 10; o Neon pago tira o teto de CU-h e a pausa de
+`push/tarefas.py` viraria só economia. Nenhuma dessas trocas exige código
+novo além de apagar o que existe para contornar o gratuito.
 
 ## Backup e restauração
 

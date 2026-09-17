@@ -2,18 +2,21 @@
 """O lembrete acompanha a cadência do agendador — e chega ANTES da refeição.
 
 Até 16/09/2026 `send_meal_reminders` estava escrito para rodar de 5 em 5
-minutos (janela de 10, antecedência de 10): cada rodada olhava `(agora,
-agora+10]`, e o aviso saía de 0 a 10 minutos antes. O cron do Render que
-liga os lembretes (B7 da avaliação) roda de 15 em 15 — de 5 em 5 manteria o
-banco do Neon acordado o dia inteiro e a cota gratuita (100 CU-h) acabaria
-no meio do mês (`CLAUDE.md`, "Monitor externo"). Com a janela de 10 e a
-cadência de 15, uma refeição em cada três ficaria SEM aviso: as janelas
-`(T, T+10]` e `(T+15, T+25]` deixam `(T+10, T+15]` descoberto.
+minutos com janela de 10: cada rodada olhava `(agora, agora+10]`, e o aviso
+saía de 0 a 10 minutos antes — inclusive "0 minutos antes", que não é
+lembrete. Desde então quem chama a tarefa é o GitHub Actions
+(`.github/workflows/lembretes.yml`, `*/5`), e o relógio do Actions ATRASA:
+em hora cheia, 5 a 15 minutos de atraso são comuns. Com janela igual ao
+intervalo, um atraso de 10 minutos deixa refeição sem aviso.
 
-A propriedade que este módulo guarda: para QUALQUER minuto do dia e QUALQUER
-fase do agendador, exatamente uma rodada vê a refeição, e ela acontece de 5 a
-`REMINDER_LEAD_MINUTES` minutos antes — nunca depois. E o que o código diz é
-o que o `render.yaml` agenda e o que a tela promete.
+Propriedades que este módulo guarda, minuto a minuto:
+
+- toda rodada que vê uma refeição a vê de 5 a `REMINDER_LEAD_MINUTES`
+  minutos antes — nunca depois (é a forma da janela);
+- com o agendador na cadência nominal OU atrasado até
+  `ATRASO_TOLERADO_MINUTOS`, NENHUMA refeição fica sem rodada que a veja —
+  sobreposição é permitida (a constraint do banco não deixa duplicar);
+- o que o código diz é o que o fluxo agenda e o que a tela promete.
 """
 import re
 from datetime import datetime, timedelta
@@ -25,10 +28,10 @@ from django.test import SimpleTestCase
 from push import services
 
 RAIZ = Path(settings.BASE_DIR)
+FLUXO = RAIZ / ".github" / "workflows" / "lembretes.yml"
 
 
 def _janela(now):
-    """`(start, target)` como `due_slots` calcula — a mesma função, exposta."""
     return services.janela_do_lembrete(now)
 
 
@@ -40,37 +43,42 @@ def _ve(janela, minuto):
 
 
 class ACadenciaCobreTodoMinutoTests(SimpleTestCase):
-    def test_a_janela_nao_e_menor_que_o_intervalo_do_agendador(self):
-        self.assertGreaterEqual(
-            services.REMINDER_WINDOW_MINUTES, services.CRON_INTERVALO_MINUTOS
-        )
+    def test_a_janela_tolera_o_atraso_do_agendador(self):
+        self.assertGreaterEqual(services.REMINDER_WINDOW_MINUTES, services.CRON_INTERVALO_MINUTOS)
+        self.assertGreaterEqual(services.ATRASO_TOLERADO_MINUTOS, 10)
 
-    def test_toda_refeicao_e_vista_uma_vez_e_de_5_a_20_minutos_antes(self):
+    def test_nenhuma_refeicao_fica_sem_aviso_mesmo_com_o_agendador_atrasado(self):
         base = datetime(2026, 9, 16, 0, 0)
-        intervalo = services.CRON_INTERVALO_MINUTOS
-        for fase in range(intervalo):
-            rodadas = [base + timedelta(minutes=m) for m in range(fase, 24 * 60, intervalo)]
-            for m in range(24 * 60):
-                refeicao = (base + timedelta(minutes=m)).time()
-                viram = [t for t in rodadas if _ve(_janela(t), refeicao)]
-                # O dia é circular: a rodada das 23:45 vê a refeição de 00:00
-                # (janela cruza a meia-noite), e a antecedência é medida
-                # módulo 24 h.
-                self.assertEqual(len(viram), 1, (fase, m, viram))
-                antecedencia = (m - (viram[0] - base).total_seconds() / 60) % (24 * 60)
-                self.assertGreaterEqual(antecedencia, 5, (fase, m))
-                self.assertLessEqual(antecedencia, services.REMINDER_LEAD_MINUTES, (fase, m))
+        pior = services.CRON_INTERVALO_MINUTOS + services.ATRASO_TOLERADO_MINUTOS
+        for passo in range(services.CRON_INTERVALO_MINUTOS, pior + 1, 5):
+            for fase in range(passo):
+                rodadas = [base + timedelta(minutes=m) for m in range(fase, 24 * 60, passo)]
+                for m in range(24 * 60):
+                    refeicao = (base + timedelta(minutes=m)).time()
+                    viram = [t for t in rodadas if _ve(_janela(t), refeicao)]
+                    self.assertGreaterEqual(len(viram), 1, (passo, fase, m))
+                    for t in viram:
+                        antecedencia = (m - (t - base).total_seconds() / 60) % (24 * 60)
+                        self.assertGreaterEqual(antecedencia, 5, (passo, fase, m))
+                        self.assertLessEqual(antecedencia, services.REMINDER_LEAD_MINUTES, (passo, fase, m))
 
 
 class OAgendadorEATelaDizemOMesmoTests(SimpleTestCase):
-    def test_o_render_yaml_agenda_a_mesma_cadencia(self):
+    def test_o_fluxo_do_actions_agenda_a_mesma_cadencia(self):
+        yaml = FLUXO.read_text(encoding="utf-8")
+        crons = re.findall(r'cron:\s*"([^"]+)"', yaml)
+        self.assertEqual(len(crons), 1, crons)
+        self.assertTrue(crons[0].startswith("*/%d " % services.CRON_INTERVALO_MINUTOS), crons[0])
+        # E ele chama a rota certa, com o token vindo dos segredos — nunca do repositório.
+        self.assertIn("/tarefas/lembretes/", yaml)
+        self.assertIn("secrets.NUTRIPLAN_TAREFAS_TOKEN", yaml)
+        self.assertIn("/saude/vivo/", yaml)
+        self.assertNotIn("/saude/\"", yaml.replace("/saude/vivo/", ""))
+
+    def test_o_render_yaml_nao_agenda_nada(self):
+        """Nada pago: o cron do Render saiu do arquivo, inclusive como espelho."""
         yaml = (RAIZ / "render.yaml").read_text(encoding="utf-8")
-        casou = re.search(r'schedule:\s*"([^"]+)"', yaml)
-        self.assertIsNotNone(casou, "o bloco do cron sumiu do render.yaml")
-        self.assertTrue(
-            casou.group(1).startswith("*/%d " % services.CRON_INTERVALO_MINUTOS),
-            casou.group(1),
-        )
+        self.assertNotIn("type: cron", yaml)
 
     def test_a_tela_promete_a_antecedencia_que_o_codigo_entrega(self):
         promessa = "até %d minutos antes" % services.REMINDER_LEAD_MINUTES
