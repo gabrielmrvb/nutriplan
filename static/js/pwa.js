@@ -1139,11 +1139,12 @@
     Array.prototype.forEach.call(document.querySelectorAll("[data-conta]"), function (el) {
       var n = numeroDe(el.textContent);
       if (!n || !n.valor) return;
-      /* `data-conta="zero"` é a recompensa: a carga total conta do ZERO, e
-         só depois de a folha ter subido (`--mov-recompensa`). */
+      /* `data-conta="zero"` é o placar: a carga total conta do ZERO em
+         `--mov-nervura`, com a mesma curva da régua, e só depois de a
+         nervura ter riscado (NERVURA, 17/09/2026). */
       var doZero = el.getAttribute("data-conta") === "zero";
-      var comecar = function () { contar(el, doZero ? 0 : n.valor * .6, n.valor, tempo("--mov-sucesso", 500), n.formatar); };
-      if (doZero && !reduzido()) { el.textContent = n.formatar(0); setTimeout(comecar, tempo("--mov-recompensa", 450)); }
+      var comecar = function () { contar(el, doZero ? 0 : n.valor * .6, n.valor, tempo(doZero ? "--mov-nervura" : "--mov-sucesso", doZero ? 600 : 500), n.formatar); };
+      if (doZero && !reduzido()) { el.textContent = n.formatar(0); setTimeout(comecar, tempo("--mov-nervura", 600)); }
       else comecar();
     });
 

@@ -146,14 +146,18 @@ class OMovimentoDaRecompensaTests(SimpleTestCase):
         self.assertIn("--mov-cascata: .08s;", raiz)
         self.assertNotIn("--corte-aberto", raiz)
         regra = re.search(r"\.recompensa\s*\{([^}]*)\}", self.css).group(1)
-        self.assertIn("var(--mov-nervura)", regra)
         self.assertIn("border-radius: var(--quina-g)", regra)
+        # A nervura que risca o placar é o ::before (NERVURA 3/3), e é ela
+        # que leva o tempo; o bloco em si não se move.
+        nervura = re.search(r"\.recompensa::before\s*\{([^}]*)\}", self.css).group(1)
+        self.assertRegex(nervura, r"animation:\s*nervura-risca var\(--mov-nervura\)")
+        self.assertIn("@keyframes nervura-risca", self.css)
 
     def test_menos_movimento_desliga_a_folha_o_numero_e_os_botoes(self):
         # Há mais de um bloco de menos-movimento no arquivo; o que importa é
         # que ALGUM deles desligue cada seletor.
         reduzido = "".join(self.css.split("@media (prefers-reduced-motion: reduce)")[1:])
-        for sel in (".recompensa", ".recompensa .btn", ".meal.is-recem::after", ".agua-card.is-meta::after"):
+        for sel in (".recompensa::before", ".recompensa .btn", ".meal.is-recem::after", ".agua-card.is-meta::after"):
             with self.subTest(seletor=sel):
                 self.assertIn(sel, reduzido)
 
