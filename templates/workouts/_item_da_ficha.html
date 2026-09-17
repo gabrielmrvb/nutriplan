@@ -53,6 +53,15 @@
           <span class="num">{{ item.sets }}</span>&nbsp;×&nbsp;<span class="num">{{ item.rep_range }}</span>
         {% endif %}
         <span class="ficha-item__musculo">{{ item.exercise.get_muscle_group_display }}</span>
+        {% if item.outras_formas %}
+          {% comment %}
+            "outras formas" só quando a porta leva a alguma (a leitura lista
+            as alternativas do mesmo padrão no equipamento da pessoa). É
+            texto dentro do MESMO link do nome — não uma terceira porta na
+            linha; a 320px a linha já tem duas.
+          {% endcomment %}
+          <span class="ficha-item__formas">outras formas</span>
+        {% endif %}
         {% if item.abre_o_grupo %}
           {% comment %}
             O marcador do movimento principal é DISCRETO de propósito: ele

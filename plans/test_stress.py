@@ -132,6 +132,11 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # A consulta ao perfil que apareceu junto FOI removida, e não contou
         # para a subida: `day_summary` recebe `peso_kg` do plano que a Home já
         # tinha em mãos, então esse caminho continua custando zero.
+        #
+        # 17/09/2026 ("outras formas"): as trocas da pessoa custam UMA consulta
+        # constante em `estado_do_treino` e no painel (`aplicar_trocas`). A
+        # Home mede 43 (no teto: a ficha única tirou a recomendação por letra
+        # no mesmo dia); o painel mede 20, abaixo dos 25 pelo mesmo motivo.
         "plans:today": 43,
         "workouts:routine": 25,
         # 15 -> 26: o Progresso passou a mostrar o bloco de Conquistas, e ele
@@ -178,7 +183,13 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
     #:
     #: 15 e não 10: medido em 10 no banco de desenvolvimento e mantido com
     #: folga para o app crescer, do mesmo jeito que os outros tetos.
-    TETO_DA_FICHA = 15
+    #:
+    #: 15 -> 17 (17/09/2026, "outras formas"): DUAS consultas constantes a
+    #: mais — as trocas da pessoa (`aplicar_trocas`, uma consulta para a
+    #: ficha inteira) e a contagem de alternativas por linha
+    #: (`contar_outras_formas`, uma consulta para o catálogo permitido) —,
+    #: nenhuma por exercício; medido em 16 no pior caso com o histórico cheio.
+    TETO_DA_FICHA = 17
 
     def test_a_ficha_tem_teto_proprio_e_nao_cresce_com_os_exercicios(self):
         """A tela nova é a que mais convida a um laço com consulta dentro.

@@ -756,9 +756,40 @@ ao contrário — o perfil TEM a pergunta, o formulário a FAZ, o motor LÊ
 campo nasceu para o assistente de troca ("a máquina está ocupada"), que
 entrou em `7819b30` e saiu em `d86d9c7`; `DISPUTADOS` e `disputa_equipamento`
 sobreviveram à remoção como código morto por três campanhas e saíram em
-10/09/2026. A substituição de hoje é por PERFIL e antes de prescrever; a
-troca por exercício na ficha ("outras formas") é a PR seguinte da missão de
-17/09.
+10/09/2026. A substituição por PERFIL acontece antes de prescrever; a
+troca por EXERCÍCIO é a de baixo.
+
+**"OUTRAS FORMAS" É A INTERAÇÃO PRINCIPAL DA FICHA (17/09/2026, noite).** A
+pessoa não escolhe mais entre opção 1 e 2; escolhe COMO fazer cada
+movimento. `TrocaDeExercicio(user, original, substituto)` (migration
+`workouts.0029`) é customização POR EXERCÍCIO — vale em toda letra, toda
+semana e toda opção em que o original apareça — e NÃO toca em
+`SessionExercise` nem em `customized_at`: a ficha continua retrato, a
+rotação continua, `rotina_invalida`/`_prescricao_bate` não a enxergam. A
+aplicação é EM MEMÓRIA (`services.aplicar_trocas`, uma consulta por tela,
+logo depois de carregar as linhas do plano — painel, ficha, execução e
+leitura passam pelo mesmo ponto): o item passa a apontar para o substituto
+com a MESMA dose, então trocar não altera séries nem volume (diferença 0).
+`ExerciseLog` grava no exercício FEITO; a linha do original responde pelo
+substituto na prescrição de hoje por JOIN (`_linha_do_exercicio`), na
+consulta que já existia — o orçamento do POST da série continua 20. As
+alternativas (`alternativas_de`) são do mesmo `padrao` e grupo, dentro do
+equipamento do perfil, FORA DA MESMA LISTA (sessão + opção — duplicata só
+é problema no mesmo treino; a outra opção é outro dia), o equipamento mais
+próximo primeiro; a ficha só anuncia "outras formas" onde a leitura lista
+alguma (`contar_outras_formas`, a mesma régua — o QA achou a linha
+anunciando e a leitura vazia quando as réguas divergiam). A lista mora na
+LEITURA do exercício, com foto (o primeiro quadro da free-exercise-db) e
+"Trocar"; a leitura do substituto diz "No lugar de X", mostra o histórico
+de X e tem "Voltar ao original". `POST /treino/trocar/` é estado absoluto
+(trocar de novo atualiza, `desfazer=1` apaga, sem `op_id`), volta para a
+leitura com a mesma volta (`?de=`), e recusa original fora da ficha ou
+substituto que não é forma do movimento no equipamento. A leitura passou a
+TER formulários, e a régua "ver não é executar" virou POR DESTINO: todo
+`<form>` do `<main>` aponta para a troca, nunca para a série. Custos
+medidos: leitura 9 → 11 (trocas + alternativas; o perfil vem do
+`dispatch` e as linhas vêm sem o exercício), ficha 15 → 17 (trocas +
+contagem), Home 43 (no teto), painel 20.
 
 **A área de Treino são TRÊS telas, e cada uma responde UMA pergunta.**
 

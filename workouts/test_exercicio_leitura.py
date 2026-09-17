@@ -61,11 +61,21 @@ class ALeituraDoExercicioTests(TestCase):
         self.assertIn("%d × %s" % (self.item_outro.sets, self.item_outro.rep_range), html)
 
     def test_ver_nao_e_executar(self):
-        """A régua da ficha, aplicada aqui: nada que se use DURANTE a série."""
+        """A régua da ficha, aplicada aqui: nada que se use DURANTE a série.
+
+        Desde 17/09/2026 a leitura TEM formulários — "Trocar" e "Voltar ao
+        original" de "outras formas" —, e eles não são execução: postam em
+        `workouts:trocar`, nunca na série. A régua passa a ser POR DESTINO:
+        todo `<form>` do `<main>` aponta para a troca, e nada de carga,
+        passo ou descanso entra na página."""
+        import re
+
         html = self._html(self.item_outro)
-        # `<form` medido dentro do <main>: a barra de cima tem o "Sair".
+        # Medido dentro do <main>: a barra de cima tem o "Sair".
         principal = html.split("<main", 1)[1].split("</main>", 1)[0]
-        self.assertNotIn("<form", principal)
+        destinos = set(re.findall(r'<form[^>]*action="([^"]+)"', principal))
+        self.assertLessEqual(destinos, {reverse("workouts:trocar")}, destinos)
+        self.assertNotIn(reverse("workouts:record_set"), principal)
         self.assertNotIn('name="weight_kg"', html)
         self.assertNotIn("data-passo", html)
         self.assertNotIn("data-descanso", html)
@@ -174,4 +184,10 @@ class ALeituraDoExercicioTests(TestCase):
 #: este exercício" só existe se ele está na OPÇÃO do dia, senão o link daria
 #: 404 na execução. (`opcao_recomendada` só é consultada sem escolha gravada,
 #: e o teste grava a escolha antes.) Constante com o histórico.
-CONSULTAS_DA_LEITURA = 9
+#: 11 em 17/09/2026 ("outras formas"): mais DUAS — as trocas da pessoa
+#: (`aplicar_trocas`) e as alternativas do mesmo padrão (`alternativas_de`).
+#: A consulta do perfil (equipamento) não entra: vem do `dispatch`; e as
+#: linhas da semana passaram a vir SEM o exercício (`prefetch("exercises")`),
+#: que a leitura não lia — `aplicar_trocas` busca o exercício só das linhas
+#: trocadas. Constante com o histórico.
+CONSULTAS_DA_LEITURA = 11

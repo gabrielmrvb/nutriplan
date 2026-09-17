@@ -6902,7 +6902,8 @@ body.montando { overflow: hidden; }
 .demo__fechar,
 .descanso__pular,
 .ficha-item__fazer,
-.ficha-item__ver {
+.ficha-item__ver,
+.forma__trocar {
   transition: transform var(--mov-toque) var(--ease);
 }
 .agora__concluir:active,
@@ -6914,7 +6915,8 @@ body.montando { overflow: hidden; }
 .demo__fechar:active,
 .descanso__pular:active,
 .ficha-item__fazer:active,
-.ficha-item__ver:active { transform: scale(.96); }
+.ficha-item__ver:active,
+.forma__trocar:active { transform: scale(.96); }
 
 @media (prefers-reduced-motion: reduce) {
   /* Sem transição também, e não só sem afundar: quem pediu menos movimento
@@ -6928,7 +6930,8 @@ body.montando { overflow: hidden; }
   .demo__fechar,
   .descanso__pular,
   .ficha-item__fazer,
-  .ficha-item__ver { transition: none; }
+  .ficha-item__ver,
+  .forma__trocar { transition: none; }
 
   .agora__concluir:active,
   .agora__lista:active,
@@ -6939,7 +6942,8 @@ body.montando { overflow: hidden; }
   .demo__fechar:active,
   .descanso__pular:active,
   .ficha-item__fazer:active,
-  .ficha-item__ver:active { transform: none; }
+  .ficha-item__ver:active,
+  .forma__trocar:active { transform: none; }
 }
 
 /* ==========================================================================
@@ -8476,6 +8480,37 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .hoje__versao { flex-basis: 100%; margin: 0; color: var(--text-dim); font-size: var(--texto-sm); }
 .hoje__rapida { margin-top: var(--espaco-3); }
 .agora__removidos { margin: var(--espaco-4) 0 0; font-size: var(--texto-sm); }
+
+/* "Outras formas" (17/09/2026): a troca por exercício mora na leitura. A
+   lista é uma coluna de linhas foto + nome + botão; a foto é o primeiro
+   quadro da free-exercise-db, contida, sem esticar. Na ficha, "outras
+   formas" é só um anúncio discreto dentro do link do nome. */
+.ficha-item__formas { color: var(--brand); font-size: var(--texto-xs); font-weight: 700; }
+.formas__lista { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--espaco-2); }
+.forma {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-3);
+  min-width: 0;
+  padding: var(--espaco-2);
+  border-radius: var(--quina);
+  background: var(--surface-2);
+}
+.forma__foto {
+  flex: none;
+  width: 6rem;
+  height: 4.5rem;
+  object-fit: cover;
+  border-radius: var(--quina-p);
+  background: var(--surface-3);
+}
+.forma__foto--vazia { display: block; }
+.forma__texto { flex: 1 1 auto; min-width: 0; display: grid; gap: var(--espaco-1); }
+.forma__nome { font-weight: 700; line-height: 1.25; }
+.forma__equipamento { color: var(--text-dim); font-size: var(--texto-sm); }
+.forma form { flex: none; }
+.forma__trocar { min-height: 44px; min-width: 44px; }
+.troca__desfazer { margin-top: var(--espaco-3); }
 
 /* ==========================================================================
    49. Aviso de regenerar — "Seu treino pode ficar mais completo" (17/09/2026)
