@@ -279,6 +279,33 @@ class RecordeTests(BaseDeConquistas):
         self.assertNotIn("60", guardado)
         self.assertEqual(set(conquista.contexto), {"exercicio"})
 
+    def test_a_chave_e_exercicio_e_data_nada_mais(self):
+        """Pino do formato que a decisão de privacidade acima depende: a
+        `chave` das duas regras de RECORDE (`_recorde` e `_melhor_serie`,
+        achievements/regras.py) é `"%d:%s" % (exercicio_id, data.isoformat())`
+        — nunca carga, nunca reps, nunca o produto. É esse formato fixo que
+        deixa `test_a_carga_nao_e_persistida_no_contexto` checar só o
+        `contexto`: se um dia a chave também carregasse o peso, checar
+        apenas o contexto pararia de provar a privacidade.
+
+        Sabotagem: colar o produto reps×carga na chave de `_melhor_serie`
+        (por exemplo para "diferenciar" ocorrências) faz a asserção da
+        melhor-série ficar vermelha.
+        """
+        user = self.pessoa()
+        exercicio = Exercise.objects.filter(is_active=True).first()
+        dia = SEGUNDA + timedelta(days=1)
+        self.treinar(user, SEGUNDA, exercicio, carga="60")   # 60 kg × 10 = 600
+        self.treinar(user, dia, exercicio, carga="65")       # 65 kg × 10 = 650: carga E melhor série
+
+        services.avaliar(user, hoje=dia)
+
+        esperado = "%d:%s" % (exercicio.pk, dia.isoformat())
+        recorde = UserAchievement.objects.get(user=user, slug="novo-recorde")
+        melhor_serie = UserAchievement.objects.get(user=user, slug="melhor-serie")
+        self.assertEqual(recorde.chave, esperado)
+        self.assertEqual(melhor_serie.chave, esperado)
+
 
 class UnicidadeTests(BaseDeConquistas):
     def test_a_trava_esta_no_banco_e_nao_so_no_codigo(self):

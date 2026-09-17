@@ -149,3 +149,21 @@ class AMelhorSerieTests(TestCase):
         conquista = Conquista.objects.get(user=self.pessoa, slug="melhor-serie")
         texto = conquista.titulo + conquista.frase
         self.assertFalse(any(c.isdigit() for c in texto), texto)
+
+    def test_a_frase_usa_o_titulo_de_cada_regra(self):
+        """`UserAchievement.frase` (achievements/models.py) usa
+        `self.regra.titulo` como prefixo, e não mais o texto fixo "Novo
+        recorde: " — com duas regras de RECORDE, um prefixo fixo mentiria na
+        segunda. Carga E melhor série no mesmo toque produzem as duas
+        conquistas; cada uma tem que carregar o título da SUA regra.
+
+        Sabotagem: reverter o prefixo para "Novo recorde: " fixo (em vez de
+        `self.regra.titulo`) faz a asserção da melhor-série ficar vermelha,
+        enquanto a do novo-recorde continuaria passando por coincidência."""
+        self._log(7, 1, 60, 10)
+        self._concluir(65, 10)  # carga E melhor série no mesmo toque
+        nome = self.item.exercise.name
+        melhor_serie = Conquista.objects.get(user=self.pessoa, slug="melhor-serie")
+        novo_recorde = Conquista.objects.get(user=self.pessoa, slug="novo-recorde")
+        self.assertEqual(melhor_serie.frase, "Melhor série: %s." % nome)
+        self.assertEqual(novo_recorde.frase, "Novo recorde: %s." % nome)
