@@ -6531,11 +6531,6 @@ body.montando { overflow: hidden; }
    corpo, para ler como referência e não como registro. 4,6:1 sobre o
    fundo do cartão — medido em `config.tests`. */
 .series__antes { font-size: var(--texto-sm); font-weight: 500; white-space: nowrap; color: var(--text-mute); }
-/* 1.2(b): o número foi emprestado da ÚLTIMA série de uma sessão mais curta
-   que a ficha de hoje — não é a mesma posição. Rótulo VISÍVEL, e não só
-   leitor de tela como a etiqueta padrão (`.vis-oculto`), porque sem ele a
-   pastilha lê como se o número fosse mesmo desta série. */
-.series__antes-rotulo { font-size: var(--texto-xs); font-weight: 700; color: var(--text-mute); }
 /* A série que superou a maior carga já registrada: a palavra, em caixa
    alta pequena, dentro da pastilha feita. Texto e não só cor. */
 .series__recorde {

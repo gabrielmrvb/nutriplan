@@ -118,10 +118,11 @@ literal do Hevy (sem motor de progressão).
 
 O que muda: (a) `_sugestao_de_reps` passa a seguir a MESMA ordem da carga
 (hoje > piso quando `REPS_NO_PISO` > `anterior[série].reps`) — hoje já é
-assim; fica um teste que pina as duas ordens lado a lado; (b) quando a
-pastilha pendente não tem `anterior[série]` (a última sessão teve menos
-séries), ela mostra a última série da última sessão com o rótulo "última
-vez" em vez de "—".
+assim; fica um teste que pina as duas ordens lado a lado; (b) REVERTIDO em
+17/09: a pastilha de uma série que nunca existiu (última sessão com menos
+séries) continua "—". `test_pastilha.py` já decide isso, pelo mesmo
+princípio de `_sugestao_de_carga` ("nunca um chute"). Recomendo rever só se
+o dono quiser o comportamento literal do Hevy.
 
 ## 1.3 Gráfico por exercício
 

@@ -2922,19 +2922,6 @@ def linhas_de_serie(item, load) -> list:
     for numero in range(1, item.sets + 1):
         registro = hoje.get(numero)
         passado = anterior.get(numero)
-        # 1.2(b): a última sessão teve MENOS séries que a ficha de hoje (a
-        # pessoa aumentou o número de séries, por exemplo) — sem isto a
-        # pastilha extra caía direto no "—" do template, como se não
-        # houvesse histórico nenhum, quando na verdade existe: é só de OUTRA
-        # série. A ÚLTIMA registrada (`max(anterior)`, não a mais pesada) é
-        # o número mais parecido com o que viria a seguir; `antes_e_ultima`
-        # avisa o template para marcar visivelmente que o número foi
-        # emprestado de outra pastilha, e não repetir "série N" como se
-        # fosse a mesma posição.
-        antes_e_ultima = False
-        if passado is None and anterior:
-            passado = anterior[max(anterior)]
-            antes_e_ultima = True
         linhas.append(
             {
                 "number": numero,
@@ -2942,7 +2929,6 @@ def linhas_de_serie(item, load) -> list:
                 "reps": registro.reps if registro else None,
                 "antes_peso": passado.weight_kg if passado else None,
                 "antes_reps": passado.reps if passado else None,
-                "antes_e_ultima": antes_e_ultima,
                 # Só SUPERAR conta — a estreia num exercício é, tecnicamente,
                 # a maior carga dele, e chamar isso de recorde seria confete
                 # de estreia (`achievements.regras._recorde`).

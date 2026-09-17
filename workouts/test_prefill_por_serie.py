@@ -144,35 +144,3 @@ class AOrdemDoPrefillTests(TestCase):
         self.assertIn("55", itens[1])       # pastilha da série 2: a série 2 da última vez
         self.assertNotIn("55", itens[0])    # não a de outra série
         self.assertNotIn("60", itens[1])
-
-    def test_a_pastilha_sem_serie_correspondente_mostra_a_ultima_registrada_com_rotulo(self):
-        """1.2(b): a última sessão teve SÓ 2 séries, mas a ficha de hoje (o
-        `setUp` já filtra `i.sets >= 3`) pede 3 ou mais. Sem o fallback, a
-        pastilha 3 caía no `else` de `agora.html` e mostrava "—", como se não
-        houvesse histórico nenhum — quando na verdade existe: é só de OUTRA
-        série. `anterior[max(anterior)]` (`workouts/services.py`,
-        `linhas_de_serie`) traz a ÚLTIMA série registrada (55×8, a série 2),
-        e o rótulo VISÍVEL "última vez" avisa que o número não é da mesma
-        posição — sem ele a pastilha 3 lia como se 55×8 fosse a série 3 de
-        verdade da última vez, e não uma pedida emprestada da 2.
-
-        A pastilha 2 (série 2, casamento DIRETO com `anterior[2]`) mostra o
-        MESMO número por coincidência — a última sessão só teve duas séries
-        — mas sem o rótulo visível: ela não é um empréstimo.
-
-        Sabotagem: reverter `linhas_de_serie` para `passado =
-        anterior.get(numero)` sozinho (sem o fallback) faz a pastilha 3
-        voltar a "—" — vermelho."""
-        self._log(7, 1, 60, 10)
-        self._log(7, 2, 55, 8)
-        html = self.client.get(reverse("workouts:now") + "?exercicio=%d" % self.item.exercise.pk).content.decode()
-        itens = self._pastilhas(html)
-
-        self.assertIn("55", itens[2])
-        self.assertIn("8", itens[2])
-        self.assertIn('class="series__antes-rotulo"', itens[2])
-        self.assertIn("última vez", itens[2])
-        self.assertNotIn("—", itens[2])
-
-        self.assertIn("55", itens[1])
-        self.assertNotIn('class="series__antes-rotulo"', itens[1])
