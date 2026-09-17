@@ -6,6 +6,15 @@
  * arquivo ganhou o resto (Esc e som) — um `<script>` por responsabilidade é
  * uma pilha maior de scripts pequenos, e não um arquivo maior.
  *
+ * A VARIANTE de recorde (`conquista--recorde`) nascia fixada na família do
+ * slide 0 — o servidor decide isso sem JS, porque o primeiro slide não
+ * precisa esperar nenhum clique. Mas quem tem "Primeiro treino" na frente de
+ * dois recordes na mesma fila via os slides de recorde SEM o frame: nada
+ * reavaliava a classe ao trocar de slide. Por isso "Próxima" também lê
+ * `data-familia` do slide que acabou de ficar visível e liga/desliga a
+ * variante — o dado já vinha no HTML (um atributo por slide, e não só no
+ * container), só faltava alguém ler.
+ *
  * ESC. O mesmo POST de "Continuar", por `fetch`, e o aviso some sem
  * recarregar. Não tira o foco de ninguém: o aviso nunca o tomou (é
  * `role="status"`, não `dialog`), e Esc aqui só oferece a MESMA saída que o
@@ -39,7 +48,13 @@
       for (var i = 0; i < slides.length; i++) {
         if (!slides[i].hidden) {
           slides[i].hidden = true;
-          if (slides[i + 1]) slides[i + 1].hidden = false;
+          if (slides[i + 1]) {
+            slides[i + 1].hidden = false;
+            caixa.classList.toggle(
+              "conquista--recorde",
+              slides[i + 1].dataset.familia === "recorde"
+            );
+          }
           return;
         }
       }

@@ -163,6 +163,66 @@ class OAvisoNaoCobreNadaTests(TestCase):
         self.assertIn("conquista--recorde", html)
         self.assertRegex(_ler(CSS), r"\.conquista--recorde\s*\{[^}]*--brand-soft")
 
+    def test_a_variante_de_recorde_segue_o_slide_visivel_e_nao_so_o_primeiro(self):
+        """A classe do container vinha só de `conquistas_novas.0.familia`.
+
+        Caso real: quem tem sessão semeada de propósito bate o primeiro
+        treino do NutriPlan e, na mesma sessão, um recorde — a fila chega
+        como ["primeiro-treino", "novo-recorde"], NESSA ordem (a família
+        recorde teve `unlocked_at` maior). Como "primeiro-treino" ocupa o
+        slide 0, o container nascia sem `conquista--recorde` e NUNCA
+        ganhava a variante ao avançar para o slide do recorde — o frame de
+        recompensa sumia exatamente na conquista que mais precisa dele.
+
+        A correção move a família para dentro de CADA slide
+        (`data-familia`), para o JS acender a variante quando "Próxima"
+        troca o slide visível. Este teste prova só o lado do servidor: o
+        HTML carrega o dado que falta; `conquista.js` faz a troca — ver
+        abaixo.
+        """
+        primeiro = UserAchievement.objects.create(
+            user=self.pessoa,
+            slug="primeiro-treino",
+            unlocked_at=timezone.now() - timezone.timedelta(seconds=1),
+        )
+        recorde = UserAchievement.objects.create(
+            user=self.pessoa, slug="novo-recorde", unlocked_at=timezone.now()
+        )
+        sessao = self.client.session
+        sessao[CHAVE] = [primeiro.pk, recorde.pk]
+        sessao.save()
+
+        html = self.client.get(reverse("plans:today")).content.decode()
+
+        # O container nasce SEM a variante: o slide 0 é "primeiro-treino".
+        self.assertRegex(html, r'<div class="conquista"\s')
+        self.assertNotIn("conquista--recorde", html)
+
+        slides = re.findall(r'<div class="conquista__slide"[^>]*>', html)
+        self.assertEqual(len(slides), 2, "esperava um slide por conquista da fila")
+        self.assertIn('data-familia="treino"', slides[0])
+        self.assertNotIn("hidden", slides[0])
+        self.assertIn('data-familia="recorde"', slides[1])
+        self.assertIn("hidden", slides[1])
+
+        # O JS precisa saber ler `data-familia` do slide recém-revelado e
+        # ligar/desligar `conquista--recorde` no container — sem isso o HTML
+        # acima carrega o dado certo para ninguém usar.
+        #
+        # Armadilha do próprio CLAUDE.md deste repositório: o seletor do JS e
+        # o marcador do HTML são a mesma string, e um `assertIn` ingênuo acha
+        # "conquista--recorde" e "data-familia" dentro do COMENTÁRIO que
+        # explica a correção (linhas acima deste mesmo arquivo) mesmo com o
+        # toggle apagado. `dataset.familia` (sem hífen, forma que só existe em
+        # código, nunca em prosa) e o formato exato da chamada
+        # (`classList.toggle("conquista--recorde", ...)`) são o que distingue
+        # o código de verdade do texto que só FALA sobre ele.
+        js = _ler(JS)
+        self.assertIn("dataset.familia", js)
+        self.assertRegex(
+            js, r'classList\.(?:toggle|add|remove)\(\s*["\']conquista--recorde["\']'
+        )
+
     def test_a_entrada_e_animada_por_token_e_desligada_em_reduced_motion(self):
         css = _ler(CSS)
         self.assertRegex(css, r"@keyframes conquista-chega")

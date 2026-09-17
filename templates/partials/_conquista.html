@@ -39,6 +39,7 @@
        data-conquista role="status" aria-live="polite">
     {% for conquista in conquistas_novas %}
       <div class="conquista__slide" data-conquista-slide
+           data-familia="{{ conquista.familia }}"
            {% if not forloop.first %}hidden{% endif %}>
         <span class="conquista__emoji" aria-hidden="true">{{ conquista.emoji }}</span>
 
