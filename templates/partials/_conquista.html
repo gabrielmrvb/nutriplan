@@ -18,9 +18,22 @@
 
   A classe vem do servidor, e não de `:has()`: `:has()` é proibido para
   estrutura neste projeto desde que derrubou a navegação uma vez.
+
+  N1 (16/09/2026): o aviso é `position: fixed` e cobria o CTA do rodapé de
+  toda página — em `/conta/excluir/`, o clique em "Excluir minha conta" caía
+  em cima do "Continuar" daqui. `body.tem-conquista` (em `base.html`) empurra
+  o `.container` para baixo, do mesmo jeito que `body.tem-convite` já fazia
+  pelo convite de instalação — ver `app.css`, seção 40. E este parcial só é
+  incluído atrás de um "if request.resolver_match" em `base.html`: a página
+  de erro não tem `resolver_match`, e não pode ganhar um aviso que ninguém
+  vai fechar.
+
+  A fila, o Esc (que fecha pelo mesmo POST de "Continuar", por `fetch`) e o
+  som opcional moram em `static/js/conquista.js` — não mais inline aqui.
 {% endcomment %}
 {% if conquistas_novas %}
-  <div class="conquista" data-conquista role="status" aria-live="polite">
+  <div class="conquista{% if conquistas_novas.0.familia == 'recorde' %} conquista--recorde{% endif %}"
+       data-conquista role="status" aria-live="polite">
     {% for conquista in conquistas_novas %}
       <div class="conquista__slide" data-conquista-slide
            {% if not forloop.first %}hidden{% endif %}>
@@ -69,30 +82,4 @@
       </div>
     {% endfor %}
   </div>
-
-  <script>
-    /* A fila. Sem isto o "Próxima" ainda funciona — envia o formulário e fecha
-     * tudo —, e com isto ele avança um passo de cada vez. */
-    (function () {
-      var caixa = document.querySelector("[data-conquista]");
-      if (!caixa) return;
-
-      var slides = caixa.querySelectorAll("[data-conquista-slide]");
-      if (slides.length < 2) return;
-
-      caixa.addEventListener("click", function (evento) {
-        var botao = evento.target.closest("[data-conquista-proxima]");
-        if (!botao) return;
-        evento.preventDefault();
-
-        for (var i = 0; i < slides.length; i++) {
-          if (!slides[i].hidden) {
-            slides[i].hidden = true;
-            if (slides[i + 1]) slides[i + 1].hidden = false;
-            return;
-          }
-        }
-      });
-    })();
-  </script>
 {% endif %}

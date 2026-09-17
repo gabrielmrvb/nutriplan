@@ -459,6 +459,16 @@
      ver o `body` sem `overflow-x`). Toda âncora precisa pousar ABAIXO dela:
      medido, 60px a 16px de fonte. */
   --appbar-h: 3.75rem;
+  /* Quanto o `.container` precisa de `padding-bottom` a mais quando o aviso
+     de conquista está no ar (seção 40) — o mesmo mecanismo do convite de
+     instalação. Entram como TOKEN, e não crus na declaração, para não somar
+     à dívida de `config/test_design_system.py::ACatracaDoSistemaVisualTests`
+     (só desce). Medido no navegador, não a olho: o pior caso de texto em
+     320–480px de largura soma até 18,52rem até o topo da caixa. Acima de
+     40rem ela flutua fora da coluna central (`--max: 30rem`) na maioria das
+     telas, como o convite — daí o segundo valor, bem menor. */
+  --conquista-reserva: 19rem;
+  --conquista-reserva-larga: 7rem;
 
   /* Karla é o TEXTO — corpo, rótulo, legenda, lista e TODO número pequeno,
      com `tabular-nums`. Bodoni Moda é a DISPLAY — só para o que é herói
@@ -7163,6 +7173,19 @@ body.montando { overflow: hidden; }
   box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
 }
 
+/* O recorde ganha o mesmo fundo tingido da conclusão de refeição e da
+   célula de resultado (`--brand-soft`) — já medido contra `--text` e
+   `--text-dim` nos dois temas em `ContrastTests.TINGIDOS`, então a variante
+   não precisa da própria régua de contraste. */
+.conquista--recorde { background: var(--brand-soft); }
+
+/* N1 (16/09/2026): o aviso é fixo e ficava por cima do CTA do rodapé —
+   "Excluir minha conta", em /conta/excluir/. Como o convite de instalação
+   (seção 25), ele EMPURRA o conteúdo, em vez de flutuar por cima. Os dois
+   valores são o token `--conquista-reserva{,-larga}` da seção 1 — como
+   chegou a 19rem/7rem está documentado lá. */
+body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
+
 /* Cada conquista da fila ocupa a mesma caixa. O grid mora AQUI e nao no
    contorno porque so um slide fica visivel por vez. */
 .conquista__slide {
@@ -7208,6 +7231,10 @@ body.montando { overflow: hidden; }
   .conquista { left: auto; right: 1rem; width: 22rem; }
 }
 
+@media (min-width: 40rem) {
+  body.tem-conquista .container { padding-bottom: var(--conquista-reserva-larga); }
+}
+
 /* ------------------------------------------------------- a tela */
 
 .conquistas { display: grid; gap: var(--gap); }
@@ -7229,6 +7256,24 @@ body.montando { overflow: hidden; }
 }
 
 .conquistas__rotulo { color: var(--text-mute); font-size: .72rem; }
+
+/* O interruptor do som opcional. Desligado por padrão — o `checked` inicial
+   é lido do `localStorage` pelo `conquista.js`, nunca escrito pelo servidor
+   — e o rótulo inteiro é o alvo, como em `.shopping__check`. */
+.conquistas__som {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-4);
+  min-height: 2.75rem;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.conquistas__som input[type="checkbox"] {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  flex: none;
+  accent-color: var(--brand);
+}
 
 .conquista-item {
   display: grid;
@@ -8195,6 +8240,23 @@ body.montando { overflow: hidden; }
 /* A barra herda o índice da linha (`--i` está na linha, não na barra). */
 .history-row__fill { animation-delay: calc(var(--i, 0) * var(--mov-degrau) + var(--mov-tela)); }
 
+/* ---- O frame de recompensa: o aviso de conquista sobe e assenta; o emoji
+   dá um pulso logo depois. BENCHMARK-2026-09 (a). ---- */
+@keyframes conquista-chega {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes conquista-emoji {
+  0% { transform: scale(.8); }
+  60% { transform: scale(1.15); }
+  100% { transform: none; }
+}
+.conquista { animation: conquista-chega var(--mov-sucesso) var(--ease) both; }
+.conquista__emoji {
+  animation: conquista-emoji var(--mov-sucesso) var(--ease) both;
+  animation-delay: var(--mov-tela);
+}
+
 /* ---- Menos movimento: nada entra atrasado, nada morfa, nada afunda. ---- */
 @media (prefers-reduced-motion: reduce) {
   [data-escalonado] > *,
@@ -8209,7 +8271,9 @@ body.montando { overflow: hidden; }
   .demo--aberta > img,
   .demo__abrir,
   .fim__selo,
-  .agua__eco { animation: none; }
+  .agua__eco,
+  .conquista,
+  .conquista__emoji { animation: none; }
   .btn.is-carregando::after,
   .btn[aria-busy="true"]::after,
   .agua__botao[aria-busy="true"]::after { animation: none; }

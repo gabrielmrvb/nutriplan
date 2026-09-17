@@ -31,6 +31,18 @@
         <span class="conquistas__rotulo">recorde{{ recordes|pluralize }}</span>
       </div>
     </div>
+
+    {% comment %}
+      Desligado por padrão, e a decisão é do NAVEGADOR — não deste HTML. O
+      `checked` inicial e a gravação da escolha ficam em `conquista.js`, que
+      lê e escreve `localStorage["nutriplan.som-conquista"]`; nenhum atributo
+      aqui liga o som, de propósito — quem marcar isso é a pessoa, uma vez,
+      no aparelho dela.
+    {% endcomment %}
+    <label class="conquistas__som">
+      <input type="checkbox" data-som-conquista>
+      Tocar um som ao desbloquear
+    </label>
   </section>
 
   {% if conquistadas %}
