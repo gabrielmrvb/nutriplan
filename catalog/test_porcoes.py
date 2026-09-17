@@ -46,6 +46,25 @@ class AMedidaCaseiraTests(TestCase):
         # 3,25 porções → 3,5 (ROUND_HALF_UP no meio-degrau), não 3
         self.assertEqual(medida_caseira(Decimal("48.75"), self._porcao(15))[0], "3,5")
 
+    def test_meia_porcao_sai_como_glifo_e_no_singular(self):
+        """QA local da Fase 3 (17/09/2026) viu "0,5 xícaras", "0,5 unidades
+        médias", "0,5 colheres de sopa" na Home. Meia porção é "½" + rótulo
+        SINGULAR: "½ xícara (100 ml)". O glifo evita a concordância de gênero
+        de "meio/meia" — que o catálogo não sabe — e o singular é o que se
+        diz em português para uma fração de UMA unidade."""
+        self.assertEqual(medida_caseira(Decimal("8"), self._porcao(15)), ("½", "colher de sopa"))
+        xicara = FoodPortion(grams=Decimal("200"), singular="xícara", plural="xícaras")
+        self.assertEqual(medida_caseira(Decimal("100"), xicara), ("½", "xícara"))
+        unidade = FoodPortion(grams=Decimal("120"), singular="unidade média", plural="unidades médias")
+        self.assertEqual(medida_caseira(Decimal("60"), unidade), ("½", "unidade média"))
+
+    def test_um_e_meio_continua_com_virgula_e_no_plural(self):
+        """CONTROLE: só o meio exato vira glifo. 1,5 e acima seguem "1,5
+        xícaras" — número com vírgula e rótulo no plural."""
+        xicara = FoodPortion(grams=Decimal("200"), singular="xícara", plural="xícaras")
+        self.assertEqual(medida_caseira(Decimal("300"), xicara), ("1,5", "xícaras"))
+        self.assertEqual(medida_caseira(Decimal("500"), xicara), ("2,5", "xícaras"))
+
     def test_multiplo_de_dez_nao_vira_notacao_cientifica(self):
         # Decimal.normalize() derruba zero à direita trocando para notação
         # científica quando isso encurta a representação: Decimal("10.0")

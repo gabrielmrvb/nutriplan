@@ -40,5 +40,11 @@ def medida_caseira(quantidade_g, porcao):
     if razao < MEIO:
         return None
     n = (razao / MEIO).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * MEIO
+    if n == MEIO:
+        # "½ xícara", não "0,5 xícaras" (QA local da Fase 3, 17/09/2026). O
+        # glifo evita a concordância de gênero de "meio/meia", que o catálogo
+        # não sabe; o singular é o que se diz para uma fração de UMA unidade.
+        # Só o meio exato: 1,5 e acima seguem com vírgula e no plural.
+        return "½", porcao.singular
     rotulo = porcao.singular if n == 1 else porcao.plural
     return _formatar(n), rotulo
