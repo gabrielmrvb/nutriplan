@@ -132,9 +132,18 @@ def due_slots(now=None):
         # A janela cruzou a meia-noite: vira "depois de start OU até target".
         window = Q(time__gt=start) | Q(time__lte=target)
 
+    # SÓ QUEM TEM ASSINATURA ATIVA (16/09/2026). Antes a rodada percorria toda
+    # refeição de todo plano ativo e gravava um `NotificationLog` de FALHA
+    # ("nenhum dispositivo recebeu") por refeição por dia para quem nunca
+    # ativou lembrete — visto na prova de produção como `falhas: 3` numa
+    # rodada com um único assinante. Quem não assinou não é falha: não entra.
     return (
-        MealSlot.objects.filter(plan__is_active=True)
+        MealSlot.objects.filter(
+            plan__is_active=True,
+            plan__user__push_subscriptions__is_active=True,
+        )
         .filter(window)
+        .distinct()
         .select_related("plan", "plan__user")
     )
 
