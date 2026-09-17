@@ -1406,6 +1406,19 @@ dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
   no `render.yaml` de propósito: ele é o rollback. Se o plano gratuito do Neon
   tem prazo próprio, ninguém verificou — é uma olhada no painel dele.
   Ver **Backup e restauração** e [`docs/infra-recuperacao.md`](docs/infra-recuperacao.md).
+- **Nenhum processo de fundo abre janela, e todo processo de fundo nasce em
+  `scripts/fundo.py`.** No Windows 11 o Windows Terminal hospeda todo console
+  novo — e um processo sem console (os do Claude Code, o Agendador) que lança
+  `powershell`, `cmd /c` ou `start` cria um console novo, que é uma janela na
+  tela do dono. Foi assim em 16/09/2026: a tarefa `NutriPlan lembretes` abria
+  um PowerShell vazio a cada 5 minutos, e `-WindowStyle Hidden` não evitava,
+  porque o PowerShell lê a flag depois que o console dele já existe.
+  `fundo.py rodar` lança com `CREATE_NO_WINDOW` (console que nunca aparece e
+  os netos herdam — não `DETACHED_PROCESS`, que dá console nenhum e faz o
+  primeiro neto de console abrir janela); `fundo.py notificar` toca por
+  `winsound` e avisa por `pythonw`. `config/test_janela_de_fundo.py` varre
+  `scripts/`, `artifacts/`, `.superpowers/` e as skills e fica vermelho com
+  qualquer chamada dessas fora do `fundo.py`.
 ## Deploy
 
 **O GATE É O CI, E NINGUÉM EMPURRA EM `main` (17/09/2026).** Um push chegou
