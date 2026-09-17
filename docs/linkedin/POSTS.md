@@ -1,13 +1,13 @@
 # LinkedIn — série de cinco posts sobre o NutriPlan
 
-Cinco posts em inglês, um por semana, sobre COMO o NutriPlan é construído com
+Cinco posts em português, um por semana, sobre COMO o NutriPlan é construído com
 agentes de IA — e não sobre "fiz um app". Cada um abre com um gancho, tem entre
 900 e 1.300 caracteres, leva uma imagem PNG gerada a partir do design system
 real (tokens do `app.css`, Bodoni Moda + Karla auto-hospedadas, capturas de
 tela do commit de produção) e fecha com uma linha que conecta ao trabalho de
 AI training / LLM evaluation sem pedir emprego.
 
-**Todo número foi medido em 17/09/2026** sobre `origin/main` = `56a43df`
+**Idioma: português** (decisão do dono em 17/09; a primeira versão era em inglês, e a linha final que conecta a AI training / LLM evaluation continua). **Todo número foi medido em 17/09/2026** sobre `origin/main` = `56a43df`
 (o commit que `/saude/` devolve em produção). A tabela de proveniência está
 no fim. Nenhuma métrica é estimada.
 
@@ -27,27 +27,27 @@ externo no texto; é a prática, não regra escrita.
 Hoje, ficha, execução — e quatro números).
 
 ```
-I built a full diet + training app in 24 days. Here it is in numbers.
+Construí um app completo de dieta e treino em 24 dias. Aqui está ele em números.
 
-NutriPlan generates a diet and a workout program from one profile — food, training, running, water and progress in one PWA, in Portuguese, offline-first. It is live, and the code is public (link in the first comment).
+O NutriPlan gera a dieta e o programa de treino a partir de um perfil só — alimentação, treino, corrida, hidratação e progresso num único PWA, offline-first. Está no ar, e o código é público (link no primeiro comentário).
 
-The numbers, all measured this morning, none estimated:
+Os números, todos medidos hoje de manhã, nenhum estimado:
 
-• 3,475 automated tests, run on every pull request — 22 to 29 minutes on CI
-• 64,575 lines of tests for 31,000 lines of application code
-• 63 exercises, each with a curated demonstration video
-• 470 commits · 15 PRs merged in the last 12 hours
-• 0 CSS frameworks: one stylesheet, 221 design tokens, contrast measured by tests
-• 100% free infrastructure: Render + Neon + GitHub Actions
+• 3.475 testes automatizados, em todo pull request — 22 a 29 minutos no CI
+• 64.575 linhas de teste para 31.000 linhas de código de aplicação
+• 63 exercícios, cada um com vídeo de demonstração curado
+• 470 commits · 15 PRs mergeados nas últimas 12 horas
+• 0 frameworks de CSS: um arquivo, 221 tokens de design, contraste medido por teste
+• infraestrutura 100% gratuita: Render + Neon + GitHub Actions
 
-Built with Claude Code — four sessions running in parallel by the end. The tool is not the story. The method is, and that is what the next four posts are about: how the agents coordinated on one branch, why "all tests passed" is not evidence, the day the workout sheet was half a real workout, and choosing a design system by score instead of taste.
+Feito com Claude Code — quatro sessões em paralelo no fim. A ferramenta não é a história. O método é, e é dele que os próximos quatro posts falam: como os agentes se coordenaram numa branch só, por que "todos os testes passaram" não é evidência, o dia em que a ficha de treino era metade de um treino de verdade, e a escolha de um design system por nota, não por gosto.
 
-If you evaluate LLM output for a living, this is what a rigorous agentic workflow looks like from the inside.
+Se você avalia saída de LLM profissionalmente, é assim que um fluxo agêntico rigoroso se parece por dentro.
 ```
 
 **Primeiro comentário:**
 ```
-Code: https://github.com/gabrielmrvb/nutriplan · Live: https://nutriplan-xxfn.onrender.com (there is a /demo/ with fictional data — no account needed)
+Código: https://github.com/gabrielmrvb/nutriplan · No ar: https://nutriplan-xxfn.onrender.com (tem um /demo/ com dados fictícios — não precisa de conta)
 ```
 
 ---
@@ -58,17 +58,17 @@ Code: https://github.com/gabrielmrvb/nutriplan · Live: https://nutriplan-xxfn.o
 PR + CI → fila → deploy; números do dia).
 
 ```
-Four AI agents pushed to the same repo for 14 hours. Zero direct pushes to main, zero broken merges. Here is the setup.
+Quatro agentes de IA empurraram código para o mesmo repositório por 14 horas. Zero push direto na main, zero merge quebrado. O arranjo foi este.
 
-1. A shared ledger. One plain-text file outside git, one line per notice: time · session · file · what I'm about to do. Read before editing, written before committing. 58 notices in 14 hours. Merge conflicts get resolved by whoever rebases — no negotiation.
+1. Um ledger compartilhado. Um arquivo de texto fora do git, uma linha por aviso: hora · sessão · arquivo · o que vou fazer. Lido antes de editar, escrito antes de commitar. 58 avisos em 14 horas. Conflito de merge é de quem faz o rebase — sem negociação.
 
-2. A gate that nobody can skip. Main is protected for everyone, admins included. Every PR runs the full suite — 3,475 tests on Postgres 16, 22–29 minutes. 20 PRs, 63 CI runs: 48 green, 7 red, 8 cancelled.
+2. Um gate que ninguém pula. A main é protegida para todo mundo, admin incluído. Todo PR roda a suíte inteira — 3.475 testes em Postgres 16, 22 a 29 minutos. 20 PRs, 63 rodadas de CI: 48 verdes, 7 vermelhas, 8 canceladas.
 
-3. A merge queue, one PR at a time. GitHub's queue is not available on personal accounts (the API answers 422), so a script takes its place: merge main in, push, wait for green, merge — next.
+3. Uma fila de merge, um PR por vez. A fila do GitHub não existe em conta pessoal (a API responde 422), então um script faz o papel: traz a main, empurra, espera o verde, mergeia — próximo.
 
-What actually broke was never the code. It was coordination: a PR went "behind" four times while others merged (the queue fixed that), and a red run at 03:00 UTC turned out to be fixtures crossing midnight.
+O que quebrou de verdade nunca foi o código. Foi coordenação: um PR ficou atrás da main quatro vezes enquanto os outros mergeavam (a fila resolveu), e uma rodada vermelha às 3h UTC eram fixtures cruzando a meia-noite.
 
-I keep coming back to this when I evaluate models: the interesting failures are rarely the answer itself. They are in what the system assumed about everyone else.
+É nisso que penso quando avalio modelos: as falhas interessantes raramente estão na resposta em si. Estão no que o sistema assumiu sobre todo o resto.
 ```
 
 ---
@@ -79,24 +79,24 @@ I keep coming back to this when I evaluate models: the interesting failures are 
 números da suíte e três formas reais de um teste verde mentir).
 
 ```
-I don't trust "all tests passed". Ten times in this codebase, a green test was lying.
+Eu não confio em "todos os testes passaram". Dez vezes neste código, um teste verde estava mentindo.
 
-So every guard that matters goes through the same loop:
+Por isso toda guarda que importa passa pelo mesmo laço:
 
-1. Red first — the test fails before any implementation exists.
-2. Green — the smallest change that makes it pass.
-3. Sabotage — break the guard on purpose. The test MUST go red. If it stays green, the test is wrong, not the code. The sabotage never enters the commit.
-4. Adversarial review — a second agent, one that did not write the code, hunts for weak assertions and passes-by-accident.
+1. Vermelho primeiro — o teste falha antes de existir implementação.
+2. Verde — a menor mudança que o faz passar.
+3. Sabotagem — quebrar a guarda de propósito. O teste TEM de ficar vermelho. Se continua verde, o teste está errado, não o código. A sabotagem nunca entra no commit.
+4. Revisão adversarial — um segundo agente, que não escreveu o código, caça asserção fraca e teste que passa por acidente.
 
-Three ways a green test lied to me, all real:
+Três jeitos reais de um teste verde ter mentido para mim:
 
-• assertNotIn("data-x", html) passed because the marker also lives inside the <script> tag. Anchor on the visible text, never the selector.
-• client.post(url, {...}) proves the view, not the screen. Rename a field in the template and it stays green. Submit the rendered form instead.
-• Eight threads with no Barrier never actually race. The retry test passed with the retry deleted — 5 of 8 writes were being lost and nothing was red.
+• assertNotIn("data-x", html) passava porque o marcador também mora dentro do <script>. Ancore no texto visível, nunca no seletor.
+• client.post(url, {...}) prova a view, não a tela. Renomeie um campo no template e continua verde. Envie o formulário renderizado.
+• Oito threads sem Barrier nunca disputam de verdade. O teste do retry passou com o retry apagado — 5 de 8 gravações se perdiam e nada ficava vermelho.
 
-Today: 64,575 lines of tests for 31,000 lines of app code, 3,475 tests, every PR.
+Hoje: 64.575 linhas de teste para 31.000 de aplicação, 3.475 testes, em todo PR.
 
-Evaluating an LLM's answer is the same discipline. The question is never "does it look right" — it is "what would have to be broken for this to still look right?"
+Avaliar a resposta de um LLM é a mesma disciplina. A pergunta nunca é "parece certo?" — é "o que precisaria estar quebrado para isto continuar parecendo certo?"
 ```
 
 ---
@@ -107,21 +107,21 @@ Evaluating an LLM's answer is the same discipline. The question is never "does i
 que consertou, o benchmark de mercado).
 
 ```
-On Sept 16 at 06:30 my app handed an intermediate lifter a chest day with 4 exercises and 13 sets. A coach would hand 7 exercises and 21 to 28 sets.
+Em 16 de setembro, às 6h30, meu app entregou a um intermediário um dia de peito com 4 exercícios e 13 séries. Um treinador entregaria 7 exercícios e 21 a 28 séries.
 
-Nobody reported it. An evaluation session found it: an agent playing a demanding new user, on a disposable account, in production, grading each area 0–10 with evidence. Training: 5.
+Ninguém reportou. Uma sessão de avaliação achou: um agente no papel de usuário novo e exigente, conta descartável, em produção, nota de 0 a 10 por área, com evidência. Treino: 5.
 
-Then it traced the cause instead of guessing: the catalog had 4 chest and 3 triceps exercises; two equivalent options per session needed 6 and 6; and a weekly volume cap kicked in before the clock did. No duration setting changed anything.
+Depois ela rastreou a causa em vez de chutar: o catálogo tinha 4 exercícios de peito e 3 de tríceps; duas opções equivalentes por sessão pediam 6 e 6; e um teto semanal de volume batia antes do relógio. Nenhum ajuste de duração mudava nada.
 
-The fix was not a tweak:
-• a written doctrine, TREINO.md — sets per exercise, per session, per week, by level and day type, papers cited (Schoenfeld, Helms, Israetel);
-• tests that read that document and fail the engine against it, plus a golden test that never loosens;
-• the catalog: 36 → 63 active exercises, each with a curated video;
-• a market benchmark of 8 apps — five patterns where 5+ converge became spec items; where one contradicted the doctrine, the doctrine won, in writing.
+O conserto não foi remendo:
+• uma doutrina escrita, o TREINO.md — séries por exercício, por sessão, por semana, por nível e tipo de dia, fontes citadas (Schoenfeld, Helms, Israetel);
+• testes que leem o documento e reprovam o motor contra ele, mais um teste dourado que nunca afrouxa;
+• o catálogo: de 36 para 63 exercícios ativos, cada um com vídeo curado;
+• um benchmark de 8 apps — cinco padrões em que 5+ convergem viraram itens de spec; onde um contradizia a doutrina, a doutrina venceu, por escrito.
 
-Measured in production the next day: 7 exercises, 25 sets, ~59 minutes.
+Medido em produção no dia seguinte: 7 exercícios, 25 séries, ~59 minutos.
 
-The score was not the point. The trace was. A grade is only useful when it comes with the reason — in fitness apps and in model evaluation alike.
+A nota não era o ponto. O rastro era. Nota só serve quando vem com a razão — em app de treino e em avaliação de modelo.
 ```
 
 ---
@@ -132,23 +132,23 @@ The score was not the point. The trace was. A grade is only useful when it comes
 a nota de cada uma, e os quatro números do sistema que entrou).
 
 ```
-Three design directions were generated for my app. I picked one with a scoresheet written before I saw any of them.
+Três direções de design foram geradas para o meu app. Escolhi uma com critérios escritos antes de ver qualquer uma delas.
 
-The brief went to Claude Design and came back as three complete directions — NERVURA, CORTE, VENAÇÃO — same seven screens, dark and light, each with its own type and palette.
+O brief foi para o Claude Design e voltou como três direções completas — NERVURA, CORTE, VENAÇÃO — as mesmas sete telas, escuro e claro, cada uma com tipografia e paleta próprias.
 
-Six criteria, 0 to 5 each, in a fixed order: identity in one second (cover the name — is it still this app?), the number as hero at 390 px, the workout screen and its reward frame, dark-first with AA contrast, cost on top of the existing CSS, risk of ageing badly.
+Seis critérios, de 0 a 5, em ordem fixa: identidade em um segundo (tampe o nome — ainda é este app?), número como herói a 390 px, tela de treino e frame de recompensa, escuro como base com contraste AA, custo sobre o CSS que já existe, risco de envelhecer mal.
 
-Scores: 23 · 25 · 17. CORTE won on the two criteria that are structure — identity and cost — not on the ones that are taste. It lost "number as hero", and that is written down too.
+Notas: 23 · 25 · 17. CORTE venceu nos dois critérios que são estrutura — identidade e custo — não nos que são gosto. Perdeu em "número como herói", e isso também está escrito.
 
-Then it became a contract, not a mockup:
-• tokens written once — dark is the base, light is derived
-• two self-hosted fonts, Bodoni Moda + Karla, 70,580 bytes of a 260 KB budget
-• 274 contrast pairs measured in the real CSS, 0 failing
-• the leaf-shaped cut on every button, field, chip and card — with a test listing what may not be a pill
+Depois virou contrato:
+• tokens escritos uma vez — o escuro é a base, o claro é derivado
+• duas fontes auto-hospedadas, Bodoni Moda + Karla, 70.580 bytes num orçamento de 260 KB
+• 274 pares de contraste medidos no CSS real, 0 reprovados
+• o recorte em folha em todo botão, campo, chip e cartão — e um teste diz o que não pode ser pílula
 
-Each one is enforced by a test, so the spec cannot drift quietly.
+Cada item é cobrado por teste: a spec não deriva em silêncio.
 
-Choosing between generated options is rubric work. Writing the rubric before seeing the options is what makes the choice defensible — and reversible.
+Escolher entre opções geradas é trabalho de rubrica. Escrever a rubrica antes de ver as opções é o que torna a escolha defensável — e reversível.
 ```
 
 ---
