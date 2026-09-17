@@ -380,8 +380,16 @@ def nomear_ocorrencias(sessions) -> None:
             sessao.vezes_texto = "uma"
 
 
-def anexar_historico(user, sessions) -> None:
+def anexar_historico(user, sessions, e_de_hoje=None) -> None:
     """Pendura carga, linhas de série e contagem de hoje em cada item.
+
+    `e_de_hoje(session)` diz qual sessão recebe o balde "hoje". Sem ele vale
+    o dia da semana — certo para o painel, que desenha as cópias da semana
+    já VESTIDAS com o dia (`sessoes_da_semana`). A ficha passa o seu, porque
+    ela carrega a LINHA da letra: com a rotação contínua, a letra de hoje
+    pode morar na linha de outro dia da semana (quinta-feira 17/09/2026:
+    a letra A de hoje era a linha de segunda), e por dia da semana a ficha
+    de hoje aparecia sem o andamento de hoje.
 
     UMA consulta para todas as sessões recebidas — `load_history` resolve o
     lote —, e é por isso que esta função recebe uma LISTA e não uma sessão:
@@ -406,12 +414,14 @@ def anexar_historico(user, sessions) -> None:
     ]
     historico = services.load_history(user, exercicios)
     hoje_na_semana = timezone.localdate().weekday()
+    if e_de_hoje is None:
+        e_de_hoje = lambda s: s.weekday == hoje_na_semana  # noqa: E731
 
     # A de hoje POR ÚLTIMO: com a rotação, a letra que cai duas vezes na
     # semana é a MESMA linha vestindo dois dias, e os itens são os mesmos
     # objetos — a ocorrência que não é hoje apagaria o "hoje" da que é.
-    for session in sorted(sessions, key=lambda s: s.weekday == hoje_na_semana):
-        do_dia = session.weekday == hoje_na_semana
+    for session in sorted(sessions, key=e_de_hoje):
+        do_dia = e_de_hoje(session)
         for item in session.exercises.all():
             carga = historico.get(item.exercise_id)
             if carga is not None and not do_dia:
@@ -522,9 +532,6 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             .first()
         )
 
-        # A MESMA preparação da tela principal, pela mesma função. Uma segunda
-        # cópia divergiria, e a que fica errada é a que ninguém está olhando.
-        anexar_historico(user, [sessao])
         # A NOMEAÇÃO PRECISA DA SEMANA INTEIRA: "A1" só existe porque há um A2,
         # e uma sessão sozinha não sabe disso. Buscar as irmãs custa UMA
         # consulta e é o que faz o título da ficha concordar com o cartão que
@@ -532,6 +539,15 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         hoje_data = timezone.localdate()
         linhas = list(sessao.plan.sessions.prefetch_related("exercises"))
         irmas = services.sessoes_da_semana(sessao.plan, hoje_data, linhas)
+        # "É hoje" é a SESSÃO DE HOJE do app (`sessao_do_dia`: a letra da
+        # posição no ciclo), nunca o dia da semana da linha — a linha da
+        # letra de hoje pode ser a de outro dia da semana. Decidido ANTES do
+        # histórico, porque é isso que diz se a ficha recebe o balde "hoje".
+        de_hoje = services.sessao_do_dia(sessao.plan, hoje_data, linhas)
+        sessao.eh_hoje = de_hoje is not None and de_hoje.pk == sessao.pk
+        # A MESMA preparação da tela principal, pela mesma função. Uma segunda
+        # cópia divergiria, e a que fica errada é a que ninguém está olhando.
+        anexar_historico(user, [sessao], e_de_hoje=lambda s: sessao.eh_hoje)
         nomear_ocorrencias(irmas)
         sessao.rotulo = next(
             (s.rotulo for s in irmas if s.pk == sessao.pk), sessao.label
@@ -543,10 +559,9 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             (s.vezes_texto for s in irmas if s.pk == sessao.pk), "uma"
         )
         if services.ciclo_roda(sessao.plan):
-            # Com a rotação, "é hoje" é a LETRA de hoje — o dia da semana da
-            # linha é o da primeira semana —, e o cabeçalho diz em que dias
-            # desta semana a letra cai.
-            sessao.eh_hoje = services.letra_do_dia(sessao.plan, hoje_data, linhas) == sessao.label
+            # Com a rotação, "é hoje" é a LETRA de hoje (já decidido acima
+            # por `sessao_do_dia`) — o dia da semana da linha é o da primeira
+            # semana —, e o cabeçalho diz em que dias desta semana a letra cai.
             sessao.aberta = True
             sessao.dias_texto = " · ".join(
                 s.weekday_display for s in irmas if s.label == sessao.label

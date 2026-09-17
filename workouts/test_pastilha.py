@@ -25,7 +25,7 @@ from django.utils import timezone
 
 from workouts import services
 from workouts.models import ExerciseLog, Measure
-from workouts.tests import create_user, dias_incluindo_hoje, sem_scripts
+from workouts.tests import create_user, dias_incluindo_hoje, escolher_opcao_de_hoje, sem_scripts
 
 
 class APastilhaTests(TestCase):
@@ -39,8 +39,13 @@ class APastilhaTests(TestCase):
         self.client.force_login(self.pessoa)
         self.hoje = timezone.localdate()
         plano = services.get_active_routine(self.pessoa)
-        sessao = next(s for s in plano.sessions.all() if s.weekday == self.hoje.weekday())
-        itens = list(sessao.exercises.select_related("exercise"))
+        # A sessão de HOJE como o app a resolve (`sessao_do_dia`, pela posição
+        # no ciclo) — por `weekday` a linha era de outra letra às quintas.
+        sessao = services.sessao_do_dia(plano, self.hoje)
+        # A execução abre a opção ESCOLHIDA (a 1): os itens vêm dela, e não
+        # de "todas as opções" — um item que só está na 2 responde 404.
+        escolher_opcao_de_hoje(self.pessoa)
+        itens = list(sessao.da_opcao(1))
         self.item = next(
             i for i in itens
             if i.exercise.equipment != "bodyweight" and i.measure == Measure.REPS and i.sets >= 3

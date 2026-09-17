@@ -255,6 +255,38 @@ class OPainelEAFichaMostramALetraDaPosicaoTests(TestCase):
         self.assertGreaterEqual(hoje.feitos_hoje, 1, "a série de hoje conta na letra de hoje")
 
 
+    def test_a_ficha_da_letra_de_hoje_mostra_o_andamento_de_hoje_mesmo_na_linha_de_outro_dia(self):
+        """Quinta-feira 17/09/2026, na segunda semana: a letra de hoje é C e a
+        LINHA de C é a de quarta. A ficha de C (aberta por esse `pk`) tem de
+        mostrar a série de hoje — por dia da semana da linha ela aparecia
+        sem andamento, e `test_fluxo_do_treino` ficou vermelho na quinta
+        (avistado pelo CI). E a ficha de quinta da primeira semana (linha A,
+        que hoje NÃO é a letra do dia) não pode mostrar a série de hoje."""
+        self._na_segunda_semana()
+        estado = services.estado_do_treino(self.user)
+        item = estado.itens[0]
+        hoje = SEGUNDA + timedelta(days=7)
+        ExerciseLog.objects.create(
+            user=self.user, exercise=item.exercise, date=hoje,
+            set_number=1, weight_kg=Decimal("40"), reps=10,
+        )
+        linhas = list(self.plan.sessions.all())
+        de_hoje = services.sessao_do_dia(self.plan, hoje, linhas)
+        self.assertEqual(de_hoje.label, "C")
+        linha_de_hoje = next(s for s in linhas if s.pk == de_hoje.pk)
+        self.assertNotEqual(linha_de_hoje.weekday, hoje.weekday(), "o caso que importa: a linha é de outro dia")
+
+        ficha = self.client.get(reverse("workouts:ficha", args=[de_hoje.pk]))
+        self.assertTrue(ficha.context["sessao"].eh_hoje)
+        self.assertContains(ficha, "1/%d" % item.sets)
+
+        outra = next(s for s in linhas if s.weekday == hoje.weekday())
+        self.assertNotEqual(outra.pk, de_hoje.pk)
+        ficha_da_outra = self.client.get(reverse("workouts:ficha", args=[outra.pk]))
+        self.assertFalse(ficha_da_outra.context["sessao"].eh_hoje)
+        self.assertNotContains(ficha_da_outra, "1/%d" % item.sets)
+
+
 class OPlanoAntigoContinuaPresoAoDiaDaSemanaTests(TestCase):
     @classmethod
     def setUpTestData(cls):
