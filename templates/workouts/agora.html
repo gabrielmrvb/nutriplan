@@ -109,11 +109,14 @@
         </p>
       {% endif %}
       {% comment %}
-        O primário leva ao resumo — a ficha desta sessão, que é o treino
-        completo (um rótulo, um destino); o contorno devolve à Home.
+        O primário leva à ficha desta sessão, que é o treino completo — e o
+        rótulo é o MESMO do rodapé da execução, porque o destino é o mesmo
+        (`workouts/test_verbos_do_treino.py`: um verbo, um destino). O mockup
+        da CORTE dizia "Ver resumo do treino"; a doutrina do repositório
+        vence a palavra do mockup. O contorno devolve à Home.
       {% endcomment %}
       <a class="btn btn--primary btn--block" href="{% url 'workouts:ficha' estado.sessao.pk %}">
-        Ver resumo do treino
+        Ver o treino completo
       </a>
       <a class="btn btn--ghost btn--block" href="{% url 'plans:today' %}">
         Voltar para Hoje

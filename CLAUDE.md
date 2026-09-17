@@ -1543,8 +1543,9 @@ de hoje em Bodoni — peso × repetições, série a série, `services.Placar`,
 CONTAGEM sobre o `item.load` que a tela já tinha, zero consulta nova —,
 "vs. a última vez" (a mesma conta sobre a última vez de cada exercício;
 some sem passado), o recorde (a série mais pesada de hoje acima de
-qualquer data, a régua de `achievements`), séries e minutos; "Ver resumo do
-treino" primário (a ficha da sessão) e "Voltar para Hoje" contorno. O
+qualquer data, a régua de `achievements`), séries e minutos; "Ver o treino
+completo" primário (a ficha da sessão — o mockup dizia "Ver resumo do
+treino", e um verbo por destino venceu) e "Voltar para Hoje" contorno. O
 movimento: `folha-sobe` em `--mov-recompensa` (.45 s) a partir do canto
 inferior direito, o número conta do ZERO em `--mov-sucesso` depois de a
 folha subir (`data-conta="zero"`, `pwa.js`), os números pequenos em

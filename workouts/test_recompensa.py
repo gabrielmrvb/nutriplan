@@ -8,7 +8,8 @@ bateram a carga mais alta de qualquer data anterior —, sem consulta nova.
 A tela do treino fechado nasce dentro da folha-lima: o número conta do
 zero (`data-conta="zero"`), os números pequenos entram em cascata
 (`data-escalonado` + `--mov-cascata`), os dois botões do contrato estão lá
-("Ver resumo do treino" primário, "Voltar para Hoje" contorno) e o
+("Ver o treino completo" primário — o verbo do repositório para a ficha —,
+"Voltar para Hoje" contorno) e o
 `prefers-reduced-motion` desliga a folha, o número e os botões.
 """
 import re
@@ -103,7 +104,7 @@ class ATelaDoTreinoFechadoTests(TestCase):
         self.assertIn(">%d<" % esperado, folha.replace(" ", "").replace("\n", ""))
         self.assertIn("kg levantados", folha)
         self.assertIn('data-escalonado', folha)
-        self.assertIn("Ver resumo do treino", folha)
+        self.assertIn("Ver o treino completo", folha)
         self.assertIn("Voltar para Hoje", folha)
         self.assertIn(reverse("plans:today"), folha)
         self.assertNotIn("kcal", folha)
