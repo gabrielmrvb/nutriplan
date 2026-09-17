@@ -28,6 +28,14 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # A FILA DE MERGE (17/09/2026): o GitHub cria uma branch temporária por
+  # grupo (`gh-readonly-queue/main/...`) e dispara `merge_group`; o check
+  # "suíte completa" tem de rodar LÁ, senão a fila espera por um check que
+  # nunca chega. Com `strict` e quatro sessões mergeando, um PR verde
+  # ficava "behind" no meio do check (aconteceu duas vezes no #13) — a fila
+  # é quem serializa e atualiza, e o `strict` saiu.
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read

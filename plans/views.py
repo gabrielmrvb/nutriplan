@@ -337,7 +337,12 @@ class TodayView(PlanRequiredMixin, TemplateView):
         # três horas antes da meia-noite dele.
         rodizio.projetar(slots, self.request.user.pk, today)
 
-        summary = tracking.day_summary(self.request.user, self.plan, today)
+        # `weight_kg` sai do plano ATIVO, já em mãos aqui — não do perfil: é o
+        # peso congelado que gerou a meta de hoje, e passá-lo poupa a tela de
+        # uma consulta extra ao perfil dentro de `day_summary`.
+        summary = tracking.day_summary(
+            self.request.user, self.plan, today, peso_kg=self.plan.weight_kg
+        )
         menu = menu_totals(slots)
 
         recusa = recusa_pendente(self.request, "hoje")

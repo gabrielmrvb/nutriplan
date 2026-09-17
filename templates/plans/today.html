@@ -119,6 +119,9 @@ coluna da direita), não entre ela e o almoço.
               <b>meta atingida</b>
             {% endif %}
           </p>
+          {% if summary.gasto_corrida_kcal %}
+            <span class="hint">+<b class="num">{{ summary.gasto_corrida_kcal }}</b> kcal da corrida de hoje</span>
+          {% endif %}
           <p class="today-hero__meta num">
             {{ summary.no_plano }}/{{ summary.previstas }} refeições{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}
           </p>

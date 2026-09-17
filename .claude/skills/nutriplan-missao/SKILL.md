@@ -167,14 +167,19 @@ roda. É o que a lista abaixo resolve:
 testes dirigidos → sabotagem → browser QA → suíte completa (local, opcional)
 → manage.py check → makemigrations --check → git diff --check
 → commit → fetch → push da BRANCH (hook = atalho) → PR → check "suíte completa"
-→ merge pela API → deploy → /saude/ → smoke
+→ `enfileirar` (a fila de merge mergeia) → deploy → /saude/ → smoke
 ```
 
 **Desde 17/09/2026 o gate é o CI e ninguém empurra em `main`** (branch
-protection: check verde, branch atualizada, vale para admin). O PR se abre,
-espera e faz merge com `scripts/github.py` (`pr <branch> "<título>"`,
-`esperar <n>`, `merge <n>`); quem abre é quem faz o merge quando o check
-fica verde. O `pre-push` virou atalho (`config`, dourado, doutrina, gate
+protection: PR obrigatório para todo mundo, check verde, `strict`). O PR
+se abre e ENTRA NA FILA LOCAL com `scripts/github.py` (`pr <branch>
+"<título>"` e depois `enfileirar <n>`, na árvore em que a branch está em
+HEAD); ninguém chama `merge` à mão — é o que cria a corrida do `strict`.
+A fila é desta máquina (`C:\Users\biel-\nutriplan-fila\`, uma senha por
+PR, ordem de chegada): a sessão da vez atualiza a branch com `main`,
+espera o check e mergeia; as outras esperam — ~30 min por PR. A fila do
+GitHub não existe em conta pessoal; o ruleset e o `merge_group` ficam
+prontos para o dia da organização. O `pre-push` virou atalho (`config`, dourado, doutrina, gate
 por letra, orçamentos) e `NUTRIPLAN_SUITE_COMPLETA=1` roda tudo localmente
 antes de abrir o PR, para quem quer a resposta antes dos 40 minutos de
 runner.
@@ -399,8 +404,8 @@ nas quatro condições; o que ficava de fora dela — "decisão arquitetural",
 
 **Padrões já decididos — não perguntar de novo:** superpowers em toda
 missão · TDD + sabotagem 100 % vermelha + revisão adversarial + suíte · o
-gate é o CI, fluxo branch → PR → merge pela API (`enforce_admins: true`,
-merge commit) · deploy provado por `/saude/` + smoke + QA em produção com
+gate é o CI, fluxo branch → PR → FILA (`scripts/github.py enfileirar`: a
+fila local desta máquina; merge commit; `strict` intacto) · deploy provado por `/saude/` + smoke + QA em produção com
 conta descartável pelo signup público, conta apagada pela tela, demo
 intacto · `scripts/qa/nav.py` (CDP) para navegador, inclusive sites de
 terceiros na sessão logada do dono (Render, GitHub, claude.ai) · mídia de

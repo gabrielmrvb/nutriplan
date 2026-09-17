@@ -60,8 +60,58 @@
       <button type="button" class="btn btn--ghost" hidden data-corrida-pausar>Pausar</button>
       <button type="button" class="btn btn--ghost" hidden data-corrida-retomar>Retomar</button>
       <button type="button" class="btn btn--ghost" hidden data-corrida-encerrar>Encerrar</button>
+      {% comment %}
+        I1 (avaliação de mercado, 17/09/2026): este link morava FORA da
+        `section.corrida-agora`, sozinho entre dois `.card` — quebrava a
+        cadeia de espaçamento `.card + .card` (que dá o vão entre cartões
+        vizinhos) porque um `<a>` solto não é `.card` nem entra na regra.
+        Três blocos quase colados era o sintoma. Aqui dentro ele é o último
+        filho de `.corrida-acoes`, que já dá `gap` e os 48px dos outros
+        botões da ação — sem CSS novo.
+      {% endcomment %}
+      <a class="btn btn--ghost btn--block" href="{% url 'workouts:corrida_nova' %}">Registrar corrida à mão</a>
     </div>
   </section>
+
+  {% comment %}
+    O CARTÃO DO PLANO. `plano` e `semana` vêm de
+    `HistoricoDeCorridasView.get_context_data` — `semana` é `None` tanto para
+    "sem plano" quanto para "plano das oito semanas já passou", e as duas
+    situações têm texto próprio: um convida a escolher, o outro convida a
+    trocar. As três sessões da semana vêm em `sessoes`, já com `feita`
+    calculado — o template só desenha o ✓, não decide o que está feito.
+  {% endcomment %}
+  {% if plano and semana %}
+    <section class="card corrida-plano">
+      <div class="card__head">
+        <h2>Semana {{ semana }} de {{ plano.SEMANAS }} · Plano {{ plano.get_plano_display }} {{ plano.get_nivel_display }}</h2>
+      </div>
+      <ol class="corrida-plano__sessoes">
+        {% for sessao in sessoes %}
+          <li class="corrida-plano__sessao{% if sessao.feita %} corrida-plano__sessao--feita{% endif %}">
+            <span class="corrida-plano__descricao">
+              {% if sessao.feita %}<span class="corrida-plano__marca">✓</span> {% endif %}{{ sessao.descricao }}
+            </span>
+            <span class="corrida-plano__minutos">{{ sessao.minutos }} min</span>
+          </li>
+        {% endfor %}
+      </ol>
+      <a class="btn-link" href="{% url 'workouts:corrida_plano' %}">trocar ou encerrar</a>
+    </section>
+  {% elif plano %}
+    <section class="card corrida-plano">
+      <div class="card__head">
+        <h2>Plano {{ plano.get_plano_display }} {{ plano.get_nivel_display }} concluído</h2>
+      </div>
+      <p class="corrida-plano__vazio">Você terminou as {{ plano.SEMANAS }} semanas. Quer começar outro?</p>
+      <a class="btn-link" href="{% url 'workouts:corrida_plano' %}">trocar ou encerrar</a>
+    </section>
+  {% else %}
+    <section class="card corrida-plano">
+      <p class="corrida-plano__vazio">Quer um plano? 5K ou 10K em 8 semanas.</p>
+      <a class="btn btn--ghost btn--block" href="{% url 'workouts:corrida_plano' %}">Ver planos</a>
+    </section>
+  {% endif %}
 
   <section class="card">
     <div class="card__head"><h2>Suas corridas</h2></div>
@@ -73,6 +123,12 @@
               {{ corrida.comecou_em|date:"d/m/Y" }}
               {% if corrida.teve_lacuna %}
                 <span class="corrida-lacuna">com trecho não registrado</span>
+              {% endif %}
+              {% if corrida.origem == "manual" %}
+                <span class="corrida__origem">à mão</span>
+              {% endif %}
+              {% if corrida.sensacao %}
+                <span class="corrida__sensacao">{{ corrida.get_sensacao_display }}</span>
               {% endif %}
             </dt>
             {% comment %}
@@ -89,6 +145,18 @@
                 {{ corrida.duracao_s|relogio }} em movimento ·
                 {{ corrida|pace }} min/km
               </span>
+              {% comment %}
+                Editar só existe para a corrida à mão — o traço do GPS
+                contradiria os números (ver `Corrida.origem`). Excluir vale
+                para as duas. `.btn-link` já dá o alvo de 44px; é o mesmo
+                componente do resto do app.
+              {% endcomment %}
+              <span class="corrida__acoes">
+                {% if corrida.origem == "manual" %}
+                  <a class="btn-link" href="{% url 'workouts:corrida_editar' corrida.pk %}">editar</a>
+                {% endif %}
+                <a class="btn-link" href="{% url 'workouts:corrida_excluir' corrida.pk %}">excluir</a>
+              </span>
             </dd>
           </div>
         {% endfor %}
@@ -101,7 +169,7 @@
       {% endif %}
     {% else %}
       <p class="empty-state">
-        Nenhuma corrida ainda. A primeira aparece aqui assim que você encerrar.
+        Nenhuma corrida ainda. Comece pelo GPS ou registre uma à mão.
       </p>
     {% endif %}
   </section>
