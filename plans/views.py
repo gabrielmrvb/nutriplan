@@ -320,7 +320,9 @@ class TodayView(PlanRequiredMixin, TemplateView):
         logs = tracking.logs_by_slot(self.request.user, today)
 
         slots = list(
-            self.plan.slots.prefetch_related("options__template__items__food")
+            self.plan.slots.prefetch_related(
+                "options__template__items__food__portions"
+            )
         )
         for slot in slots:
             # O log vira atributo do slot para o template não precisar de um

@@ -119,11 +119,28 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
     #: dia de descanso já fazia. Nenhuma cresce com o histórico:
     #: `test_o_custo_da_tela_nao_cresce_com_os_registros` mede isso.
     #:
+    #: 41 → 42: a medida caseira (`ingredient_list` lendo `food.portions`)
+    #: entrou na cadeia do prefetch — `options__template__items__food__portions`
+    #: — e isso é UMA consulta constante a mais para a tela inteira. Medido em
+    #: 17/09/2026.
+    #:
+    #: Este teto NÃO pega a regressão de tirar o `__portions` do prefetch:
+    #: neste fixture toda refeição de HOJE já está marcada (`_povoar` grava
+    #: `MealLog` também para `i=0`), e `today.html` só chama
+    #: `option.ingredient_list` quando a refeição ainda não foi marcada
+    #: (`{% if slot.log %}` esconde a lista de opções nesse caso) — o laço que
+    #: leria `food.portions` por item nunca roda aqui, e o teto sobe e desce 1
+    #: sozinho com a presença do prefetch, não N. Quem prova a ausência de
+    #: N+1 de verdade é
+    #: `plans.test_cardapio_cozinhavel.AHomeMostraMedidaCaseiraTests.test_a_lista_de_ingredientes_nao_multiplica_consulta_por_item`,
+    #: numa fixture onde a lista de opções aparece (nada marcado ainda): 34
+    #: consultas com o prefetch, 50 sem ele.
+    #:
     #: O painel FICA em 25: `resumo_da_sessao` refazia a sessão, a escolha e
     #: o descanso que o painel já tinha carregado (27 no pior dia); passou
     #: a recebê-los e fecha em 24.
     TETOS = {
-        "plans:today": 41,
+        "plans:today": 42,
         "workouts:routine": 25,
         # 15 -> 26: o Progresso passou a mostrar o bloco de Conquistas, e ele
         # custa NOVE consultas constantes — medido, com `reunir` respondendo por

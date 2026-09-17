@@ -99,6 +99,8 @@ class Command(BaseCommand):
                     defaults={
                         "grams": Decimal(str(portion["grams"])),
                         "is_default": portion.get("default", False),
+                        "singular": portion.get("singular", ""),
+                        "plural": portion.get("plural", ""),
                     },
                 )
             foods[row["name"]] = food

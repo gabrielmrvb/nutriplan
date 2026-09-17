@@ -197,6 +197,15 @@ class FoodPortion(models.Model):
         decimal_places=2,
         validators=[MinValueValidator(Decimal("0.01"))],
     )
+    # `label` carrega o número ("1 colher de sopa") e nunca foi lido fora do
+    # seed — a Home mostrava "Aveia 116 g" em vez de "7,5 colheres de sopa"
+    # (avaliação de 16/09, B15). `singular`/`plural` são o texto SEM o
+    # número, para `plans.porcoes.medida_caseira` compor "7,5 colheres de
+    # sopa". Escritos à mão porque pt-BR não deriva "colher → colheres" por
+    # regra nenhuma; `blank=True` porque a migração é aditiva sobre dado que
+    # já existia.
+    singular = models.CharField("medida (singular)", max_length=60, blank=True, default="")
+    plural = models.CharField("medida (plural)", max_length=60, blank=True, default="")
     is_default = models.BooleanField("medida padrão", default=False)
 
     class Meta:
