@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """O cardápio da Home diz a medida caseira, e a grama fica entre parênteses."""
 import re
+from datetime import timedelta
 from decimal import Decimal
 
 from django.core.management import call_command
@@ -8,15 +9,16 @@ from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import ActivityLevel, Goal, Sex
 from catalog.models import FoodPortion, MealCategory, MealTemplate
 
-from . import meal_planner
+from . import meal_planner, services
 from .calculations import PlanInputs, calculate
 from .meal_planner import scale_for
 from .models import MealOption
-from .tests import CatalogFixture, create_complete_user
+from .tests import CatalogFixture, create_complete_user, make_template
 
 
 class AHomeMostraMedidaCaseiraTests(CatalogFixture, TestCase):
@@ -353,3 +355,82 @@ class OCatalogoRespeitaAsTagsTests(TestCase):
                 if self._e_carne_ou_peixe(item.food.name):
                     fora.append((template.name, item.food.name))
         self.assertEqual(fora, [])
+
+
+class AReceitaRecalibradaInvalidaOPlanoTests(CatalogFixture, TestCase):
+    """Plano cujo cardápio aponta para receita com ingredientes alterados DEPOIS
+    dele não é atual — e só ele.
+
+    É a segunda metade do achado da revisão final da Fase 3 (17/09/2026): o
+    seed passou a reconciliar os ingredientes com o JSON e a carimbar
+    `MealTemplate.items_changed_at`. Sem esta leitura, um `MealOption` com
+    `scale_factor` de 2,5× calculado sobre a base ANTIGA multiplicaria a base
+    NOVA — "aveia 116 g" de volta, agora por outro caminho — e ninguém
+    perceberia, porque `plan_is_current` só olhava `template__is_active`.
+
+    A verificação mora na MESMA consulta que já existia para a receita
+    aposentada (`Q(...) | Q(...)`): o orçamento de `plans:today`
+    (`plans/test_stress.py`) não sobe por isto.
+    """
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.plano = services.create_plan(self.user)
+        self.inputs = services.build_inputs(self.user)
+
+    def _receita_do_plano(self):
+        usadas = MealOption.objects.filter(slot__plan=self.plano).values_list("template_id", flat=True)
+        receita = MealTemplate.objects.filter(pk__in=usadas).first()
+        self.assertIsNotNone(receita, "controle: o plano precisa usar alguma receita")
+        return receita
+
+    def _receita_fora_do_plano(self):
+        # A fixture tem dez receitas e o plano usa todas (quatro por horário):
+        # a receita "de fora" nasce DEPOIS do plano, e é por isso que nenhuma
+        # opção aponta para ela.
+        receita = make_template(
+            "Aveia com castanha (fora do plano)", MealCategory.BREAKFAST,
+            [(self.oats, 50, True), (self.nuts, 20, True)],
+        )
+        self.assertFalse(MealOption.objects.filter(slot__plan=self.plano, template=receita).exists())
+        return receita
+
+    def test_receita_do_plano_carimbada_depois_dele_derruba_o_plano(self):
+        self.assertTrue(services.plan_is_current(self.plano, self.inputs), "controle")
+        receita = self._receita_do_plano()
+
+        item = receita.items.first()
+        item.quantity_g += Decimal("50")
+        item.save(update_fields=["quantity_g"])
+        receita.items_changed_at = timezone.now()
+        receita.save(update_fields=["items_changed_at"])
+
+        self.assertFalse(services.plan_is_current(self.plano, self.inputs))
+
+    def test_receita_fora_do_plano_carimbada_nao_mexe_no_plano(self):
+        receita = self._receita_fora_do_plano()
+
+        receita.items_changed_at = timezone.now()
+        receita.save(update_fields=["items_changed_at"])
+
+        self.assertTrue(services.plan_is_current(self.plano, self.inputs))
+
+    def test_carimbo_anterior_ao_plano_nao_derruba_o_plano(self):
+        """O plano nasceu DEPOIS da mudança: as opções já foram escaladas
+        sobre a base nova. Invalidar aqui seria regenerar para sempre."""
+        receita = self._receita_do_plano()
+        receita.items_changed_at = self.plano.created_at - timedelta(minutes=1)
+        receita.save(update_fields=["items_changed_at"])
+
+        self.assertTrue(services.plan_is_current(self.plano, self.inputs))
+
+    def test_a_invalidacao_nao_custa_consulta_a_mais(self):
+        """Uma consulta para as duas condições — aposentada OU carimbada."""
+        with CaptureQueriesContext(connection) as ctx:
+            services.plan_is_current(self.plano, self.inputs)
+        sobre_opcoes = [
+            q["sql"] for q in ctx.captured_queries if "plans_mealoption" in q["sql"]
+        ]
+        self.assertEqual(len(sobre_opcoes), 1, sobre_opcoes)
+        self.assertIn("items_changed_at", sobre_opcoes[0])
+        self.assertIn("is_active", sobre_opcoes[0])

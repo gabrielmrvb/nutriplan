@@ -9,6 +9,7 @@ import dataclasses
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from accounts.models import Profile
@@ -211,10 +212,24 @@ def plan_is_current(plan, inputs) -> bool:
         # Plano criado antes da etapa 4 (ou por um erro na geração): os números
         # podem estar certos, mas sem cardápio ele não serve para nada.
         return False
-    if MealOption.objects.filter(slot__plan=plan, template__is_active=False).exists():
+    if (
+        MealOption.objects.filter(slot__plan=plan)
+        .filter(
+            Q(template__is_active=False)
+            | Q(template__items_changed_at__gt=plan.created_at)
+        )
+        .exists()
+    ):
         # O cardápio aponta para receita aposentada — normalmente porque o
         # catálogo mudou. Os números seguem certos, mas mandar a pessoa comprar
         # o que saiu do catálogo não serve; o plano é refeito na próxima visita.
+        #
+        # Ou para receita cujos INGREDIENTES o seed recriou depois de o plano
+        # nascer (`MealTemplate.items_changed_at`): o `scale_factor` da opção
+        # foi calculado sobre a base velha, e aplicá-lo à base nova entrega
+        # outra comida — 2,5× sobre uma base que dobrou é o dobro do prato.
+        # As duas condições moram na MESMA consulta de propósito: o orçamento
+        # de `plans:today` (`plans/test_stress.py`) não sobe por isto.
         return False
 
     outras_entradas_batem = all(
