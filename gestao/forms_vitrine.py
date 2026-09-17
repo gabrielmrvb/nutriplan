@@ -15,6 +15,15 @@ class FormularioDaVitrine(forms.Form):
     dias = forms.MultipleChoiceField(label="Dias de treino", choices=DIAS, widget=forms.CheckboxSelectMultiple, required=False)
     lado = forms.ChoiceField(label="Unidade", choices=[("kg", "kg"), ("lb", "lb")], widget=forms.RadioSelect)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # O `.field-input` que os formulários de verdade aplicam (`accounts.forms`):
+        # sem ele a vitrine fotografava o `<input>` nu do navegador — 177 × 22 px,
+        # visto na captura de 17/09/2026 — e não o campo do sistema.
+        for campo in self.fields.values():
+            if not isinstance(campo.widget, (forms.RadioSelect, forms.CheckboxSelectMultiple)):
+                campo.widget.attrs.setdefault("class", "field-input")
+
 
 def formulario_limpo():
     return FormularioDaVitrine(initial={"nome": "Joana", "objetivo": Goal.CUT, "lado": "kg"})
