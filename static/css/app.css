@@ -226,20 +226,25 @@
   --fat: var(--ferro-fat);
   --danger: var(--ferro-danger);
   --danger-soft: var(--ferro-danger-soft);
-  /* A escala de quina. `--radius-xl` é o degrau novo, e ele existe para
-     separar WIDGET de cartão: o painel do dia, a ofensiva e a água são as
-     três peças que a pessoa lê de relance, e quina mais aberta é o que faz
-     uma peça ler como painel em vez de caixa de conteúdo. */
-  /* DIREÇÃO C §5 (16/09/2026, D12 da avaliação): 24 / 16 / 12 / 8. Eram
-     28 / 22 / 18 / 14 desde a V3 ("abaixo de 16 a quina volta a parecer
-     web"); a direção decidiu o contrário — controle (botão, campo) não é
-     caixa e fica em 12, cartão de lista em 16, prato em 24, filho de caixa
-     em 8 — e o DESIGN.md é o contrato que o export do Claude Design lê.
-     Raios idênticos nos dois regimes. */
-  --radius-xl: 24px;
-  --radius-lg: 16px;
-  --radius: 12px;
-  --radius-sm: 8px;
+  /* O RECORTE (CORTE, 16/09/2026): a silhueta da folha da marca — ponta em
+     cima à esquerda e embaixo à direita, curva nas outras duas — como
+     FORMATO de tudo. Substitui a escala 24/16/12/8 da direção C (que
+     substituíra 28/22/18/14 da V3): um token de quatro valores, na ordem
+     sup-esq · sup-dir · inf-dir · inf-esq, e `border-radius: var(--corte)`
+     desenha a folha inteira. `--corte-g` é o prato/hero (o AGORA, o resumo
+     do dia, a barra de abas, a folha da recompensa); `--corte` é botão,
+     campo, faixa de lista, mídia, linha de exercício; `--corte-p` é chip,
+     célula, selo de opção, filho de caixa. `--pill` fica SÓ para o que é
+     ponto, barra ou selo circular — nada clicável é pílula. Idênticos nos
+     dois regimes; `calc()` não entra num token de quatro valores, então o
+     raio "de dentro" do segmented é `--corte-p` direto. */
+  --corte-g: 0 40px 0 40px;
+  --corte: 0 20px 0 20px;
+  --corte-p: 0 12px 0 12px;
+  /* A folha ABERTA: o estado transitório de `corte-abre` (registrar
+     refeição) — as duas pontas viram curva por um instante e voltam. Só
+     existe dentro do keyframe. */
+  --corte-aberto: 20px;
   --pill: 999px;
 
   /* O véu atrás de qualquer overlay. Existia escrito por extenso em dois
@@ -435,6 +440,12 @@
   --mov-tela: .2s;
   --mov-modal: .28s;
   --mov-sucesso: .5s;
+  /* Os tempos da RECOMPENSA (CORTE, T3.6): a folha que sobe na última
+     série e a esquina que se desdobra ao bater meta; e a cascata de 80 ms
+     entre os números do placar (o degrau de lista é 35 ms — a recompensa
+     é o único lugar em que a tela pede para ser vista). */
+  --mov-recompensa: .45s;
+  --mov-cascata: .08s;
   --mov-passo: 6px;
   --mov-passo-longo: 12px;
   /* O degrau entre um item e o seguinte numa lista que entra escalonada. */
@@ -759,7 +770,7 @@ button { font-family: inherit; color: inherit; }
 :where(button, a, input, select, textarea, summary):focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -846,10 +857,10 @@ button { font-family: inherit; color: inherit; }
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   object-fit: contain;
 }
-.auth__logo .marca { border-radius: var(--radius); }
+.auth__logo .marca { border-radius: var(--corte); }
 
 .app-bar__nav { display: flex; align-items: center; gap: .3rem; }
 .app-bar__nav .app-bar__link { display: none; }
@@ -865,7 +876,7 @@ button { font-family: inherit; color: inherit; }
   min-height: 2.75rem;
   padding: .45rem .75rem;
   border: 0;
-  border-radius: var(--pill);
+  border-radius: var(--corte-p);
   background: none;
   color: var(--text-dim);
   font-size: .875rem;
@@ -932,7 +943,7 @@ body:not(.tem-tabbar) .container {
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
   border: 1px solid var(--fio);
-  border-radius: var(--radius-xl);
+  border-radius: var(--corte-g);
   box-shadow: var(--shadow-lift);
 }
 
@@ -945,7 +956,9 @@ body:not(.tem-tabbar) .container {
   gap: .18rem;
   min-height: 3.4rem;
   padding: var(--espaco-2) .2rem;
-  border-radius: var(--radius-sm);
+  /* A aba ativa é uma FOLHA cheia de `--brand` (CORTE): o recorte médio, não
+     o pequeno, para a folha ser legível a 44 px de altura. */
+  border-radius: var(--corte);
   color: var(--text-mute);
   font-size: var(--texto-xs);
   font-weight: 600;
@@ -1091,7 +1104,12 @@ h3 {
    5. Cartões
    ========================================================================== */
 
- /* O CARTÃO PERDE A BORDA E VIRA PAINEL.
+ /* CORTE (16/09/2026): O CARTÃO VIRA FAIXA. Sem sombra (os tokens
+   `--edge`/`--shadow-*` não desenham nada desde T3.1′), a superfície é o
+   que separa, e a quina é a folha: `--corte` na faixa de lista, `--corte-g`
+   no prato. O parágrafo abaixo é a história de como ele perdeu a borda.
+
+   O CARTÃO PERDE A BORDA E VIRA PAINEL.
 
    Esta é a mudança que mais muda a cara do app, e a razão é aritmética: uma
    tela do NutriPlan empilha de cinco a nove cartões, então a borda de 1px
@@ -1110,10 +1128,13 @@ h3 {
   padding: var(--pad);
   background: var(--surface);
   border: 1px solid transparent;
-  border-radius: var(--radius-xl);
+  border-radius: var(--corte);
   box-shadow: var(--edge), var(--shadow-rest);
   transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
+/* O PRATO: a peça que a pessoa lê de relance — o AGORA da Home — leva o
+   recorte grande. É uma por tela. */
+.card.agora-card { border-radius: var(--corte-g); }
 
 /* O cartão em que a pessoa está mexendo sobe um pouco. Só sombra e borda:
    mudar cor de fundo aqui faria a tela piscar a cada foco. */
@@ -1179,7 +1200,7 @@ h3 {
   align-items: center;
   gap: 1.15rem;
   overflow: hidden;
-  border-radius: var(--radius-xl);
+  border-radius: var(--corte-g);
   box-shadow: var(--edge), var(--shadow-deep);
 }
 
@@ -1387,7 +1408,7 @@ h3 {
   min-width: 0;
   padding: var(--espaco-5);
   border: 1px solid transparent;
-  border-radius: var(--radius-lg);
+  border-radius: var(--corte);
   background: var(--surface);
   box-shadow: var(--edge), var(--shadow-rest);
   color: var(--text);
@@ -1488,9 +1509,12 @@ h3 {
 
 .curva__unidade {
   margin-left: var(--espaco-2);
+  /* A unidade colada ao herói é Karla (o contrato: "unidade colada em Karla");
+     dentro do `<strong>` em Bodoni ela herdaria a display abaixo dos 20 px. */
+  font-family: var(--font);
   color: var(--text-mute);
-  font-size: var(--texto-lg);
-  font-weight: 700;
+  font-size: var(--texto-sm);
+  font-weight: 600;
   letter-spacing: 0;
 }
 
@@ -1741,8 +1765,10 @@ h3 {
      conveniência é exatamente o que esta campanha se proibiu. Casamento
      exato ou nada; o resto é outra unidade, com prova visual. */
   gap: .3rem;
-  border-radius: var(--pill);
 }
+/* O selo é pílula; o chip, que se toca, é folha pequena (CORTE). */
+.pill { border-radius: var(--pill); }
+.chip { border-radius: var(--corte-p); }
 
 .chip {
   padding: .34rem .72rem;
@@ -1812,7 +1838,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   align-items: center;
   gap: var(--espaco-5);
   padding: var(--espaco-6);
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   border: 1px solid transparent;
   background: var(--surface-2);
 }
@@ -1844,7 +1870,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   flex: 1;
   min-width: 0;
   padding: .65rem var(--espaco-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-2);
   box-shadow: var(--inlay);
   text-align: center;
@@ -2009,7 +2035,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   padding: var(--pad);
   background: var(--surface);
   border: 1px solid transparent;
-  border-radius: var(--radius-lg);
+  border-radius: var(--corte);
   box-shadow: var(--edge), var(--shadow-rest);
   transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
@@ -2070,7 +2096,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   min-width: 3.5rem;
   flex: none;
   padding: .4rem .55rem;
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-2);
   color: var(--text-dim);
   font-size: .82rem;
@@ -2112,7 +2138,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   align-items: center;
   justify-content: center;
   min-height: 2.75rem;
-  border-radius: var(--pill);
+  border-radius: var(--corte-p);
   color: var(--brand);
   font-weight: 600;
   cursor: pointer;
@@ -2145,7 +2171,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .option {
   border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: var(--surface-2);
   overflow: hidden;
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
@@ -2226,7 +2252,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   align-items: center;
   gap: .6rem;
   padding: .75rem .85rem;
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: var(--surface-2);
   box-shadow: var(--inlay);
   font-size: .88rem;
@@ -2255,7 +2281,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   min-height: 3.25rem;
   padding: var(--espaco-4) 1.15rem;
   border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   font-size: var(--texto-md);
   font-weight: 700;
   text-decoration: none;
@@ -2533,7 +2559,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   color: var(--text);
   background: var(--surface-2);
   border: 1px solid var(--fio-forte);
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   font-family: inherit;
   font-size: var(--texto-base);
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
@@ -2573,7 +2599,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   margin: .45rem 0 0;
   padding: .6rem .75rem;
   list-style: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--danger-soft);
   color: var(--danger);
   font-size: .82rem;
@@ -2588,7 +2614,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   min-height: 3.1rem;
   padding: .75rem .85rem;
   border: 1px solid var(--fio);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-2);
   font-size: .92rem;
   cursor: pointer;
@@ -2625,8 +2651,12 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
  *
  * O input não é escondido, é recortado: continua no fluxo de foco, recebe Tab,
  * alterna com espaço e é anunciado com o nome completo do dia pelo `aria-label`
- * que `DiasDaSemanaWidget` escreve. */
-.choice-list--dias {
+ * que `DiasDaSemanaWidget` escreve.
+ *
+ * Chamava-se `.choice-list--dias` até a CORTE (T3.5, 16/09/2026): o nome
+ * dizia de onde veio (a lista de caixas), não o que é — um segmented que
+ * ENVOLVE, quebrando em linhas, em vez de dividir uma largura fixa. */
+.segmented--envolve {
   display: flex;
   flex-wrap: wrap;
   gap: .4rem;
@@ -2637,22 +2667,22 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    úteis, e quatro por linha com 6.4px de vão exigem no máximo 63px de base.
    4.2rem (67px) cabia só três e virava uma terceira linha; 3.8rem (61px) fecha
    4+3 tanto a 360 quanto a 390. */
-.choice-list--dias li { flex: 1 1 3.8rem; min-width: 0; }
+.segmented--envolve li { flex: 1 1 3.8rem; min-width: 0; }
 
-.choice-list--dias label {
+.segmented--envolve label {
   position: relative;
   justify-content: center;
   gap: 0;
   min-height: 2.75rem;
   padding: var(--espaco-3) var(--espaco-2);
-  border-radius: var(--pill);
+  border-radius: var(--corte-p);
   font-size: .82rem;
   /* Sempre 650, marcado ou não: deixar o peso mudar na seleção faria o chip
      crescer e a linha inteira reposicionar debaixo do dedo. */
   font-weight: 600;
 }
 
-.choice-list--dias input {
+.segmented--envolve input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -2664,7 +2694,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   white-space: nowrap;
 }
 
-.choice-list--dias .segmented__fundo {
+.segmented--envolve .segmented__fundo {
   position: absolute;
   inset: 0;
   border-radius: inherit;
@@ -2672,19 +2702,19 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
-.choice-list--dias .segmented__texto { position: relative; }
+.segmented--envolve .segmented__texto { position: relative; }
 
-.choice-list--dias input:checked ~ .segmented__fundo { background: var(--brand); }
-.choice-list--dias input:checked ~ .segmented__texto { color: var(--on-brand); }
-.choice-list--dias label:hover .segmented__fundo { background: var(--surface-3); }
-.choice-list--dias label:hover input:checked ~ .segmented__fundo { background: var(--brand-strong); }
+.segmented--envolve input:checked ~ .segmented__fundo { background: var(--brand); }
+.segmented--envolve input:checked ~ .segmented__texto { color: var(--on-brand); }
+.segmented--envolve label:hover .segmented__fundo { background: var(--surface-3); }
+.segmented--envolve label:hover input:checked ~ .segmented__fundo { background: var(--brand-strong); }
 /* Foco é `--brand`; `--agua` é cor de pilar. E é ANEL COM VÃO (decisão do
    dono, 16/09/2026): a opção MARCADA já tem o fundo em `--brand`, e um anel
    colado só engordava a pílula — em rádio, a seta move foco e marcação
    juntos, então esse era o caso mais comum de teclado. `outline-offset: 2px`
    abre um vão que mostra a superfície, e o anel se vê nos dois estados;
    `outline` acompanha o raio. */
-.choice-list--dias input:focus-visible ~ .segmented__fundo { outline: 2px solid var(--brand); outline-offset: 2px; }
+.segmented--envolve input:focus-visible ~ .segmented__fundo { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--espaco-4); }
 
@@ -2696,7 +2726,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .flash li {
   padding: .8rem var(--espaco-5);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--brand-soft);
   color: var(--text);
   font-size: .88rem;
@@ -2715,7 +2745,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .callout {
   margin: var(--espaco-5) 0 0;
   padding: .85rem .95rem;
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--brand-soft);
   font-size: .85rem;
   line-height: 1.55;
@@ -2853,7 +2883,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   gap: .15rem;
   min-width: 0;
   padding: .6rem .2rem .65rem;
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-2);
   box-shadow: var(--inlay);
   text-align: center;
@@ -2915,7 +2945,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   min-height: 3.5rem;
   padding: var(--espaco-4);
   border: 1px solid var(--fio);
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: var(--surface-2);
   color: inherit;
   text-decoration: none;
@@ -2947,7 +2977,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   width: 2.6rem;
   height: 2.6rem;
   flex: none;
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: var(--brand);
   color: var(--on-brand);
   font-size: var(--texto-lg);
@@ -3064,7 +3094,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
      15/09/2026, 61-68 % tocável. Com o padding dentro de `ver` e `fazer`,
      a linha inteira é porta (UX CA-03). */
   padding: 0;
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: var(--surface);
   color: inherit;
   text-decoration: none;
@@ -3097,7 +3127,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   row-gap: 2px;
   color: inherit;
   text-decoration: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
 }
 .ficha-item__ver .ficha-item__ordem { grid-area: ordem; }
 .ficha-item__ver .ficha-item__nome { grid-area: nome; }
@@ -3115,7 +3145,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   /* O respiro da moldura mora aqui (ver `.ficha-item__link`): a pastilha
      ocupa a altura inteira da linha e leva a borda direita consigo. */
   padding: 0 var(--espaco-4) 0 var(--espaco-3);
-  border-radius: var(--pill);
+  border-radius: var(--corte-p);
   text-decoration: none;
   color: var(--brand);
 }
@@ -3149,7 +3179,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   font-size: var(--texto-xs);
   font-weight: 700;
   padding: 1px var(--espaco-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-3);
   color: var(--text-dim);
 }
@@ -3410,7 +3440,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   margin-top: .6rem;
   padding: var(--espaco-4) .75rem;
   border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: var(--surface-2);
   box-shadow: var(--edge);
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
@@ -3436,7 +3466,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   min-height: 2.75rem;
   padding: 0;
   border: 1px solid var(--fio-forte);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-3);
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
@@ -3472,7 +3502,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   min-height: 2.75rem;
   padding: .4rem .6rem;
   border: 1px solid var(--fio-forte);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -3593,7 +3623,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   /* Borda mais forte que a do cartão: o modal está sobre o backdrop escuro,
      onde a borda de 6,5% simplesmente desaparece. */
   border: 1px solid var(--fio-forte);
-  border-radius: var(--radius-lg);
+  border-radius: var(--corte);
   background: var(--surface);
   color: var(--text);
   box-shadow: var(--edge), var(--shadow-lift);
@@ -3660,7 +3690,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .wizard__avanco {
   display: block;
   height: 100%;
-  border-radius: var(--pill);
+  border-radius: var(--corte-p);
   background: var(--brand);
   transition: width var(--mov-expansao) var(--ease);
 }
@@ -3721,7 +3751,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   margin: 0 0 var(--espaco-5);
   padding: var(--espaco-4) var(--espaco-5);
   border: 1px solid color-mix(in srgb, var(--terra) 22%, transparent);
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: color-mix(in srgb, var(--terra) 10%, transparent);
   color: var(--terra);
   font-size: .82rem;
@@ -3779,7 +3809,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   margin: 0 0 var(--espaco-6);
   padding: var(--espaco-4) .85rem;
   border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: var(--surface-2);
   color: var(--text-dim);
   font-size: .85rem;
@@ -3824,7 +3854,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   align-items: baseline;
   gap: var(--espaco-1) var(--espaco-4);
   padding: var(--espaco-4);
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: var(--surface-2);
 }
 .pesagens > .pesagem .pesagem__media { grid-column: 1; grid-row: 1; }
@@ -3879,7 +3909,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   margin: var(--espaco-5) 0;
   padding: var(--espaco-5);
   border: 1px solid color-mix(in srgb, var(--agua) 45%, var(--fio));
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: color-mix(in srgb, var(--agua) 9%, transparent);
 }
 
@@ -4054,7 +4084,7 @@ html { scrollbar-gutter: stable; }
 }
 
 .esqueleto {
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-2);
   animation: pulso calc(var(--mov-sucesso) * 3.2) var(--ease) infinite;
 }
@@ -4134,7 +4164,7 @@ html { scrollbar-gutter: stable; }
      "Continuar". Botão que exige rolar é botão que metade das pessoas não
      encontra. */
   padding: .8rem;
-  border-radius: var(--radius-lg);
+  border-radius: var(--corte);
   background: var(--surface-2);
   /* A quina arredondada corta o que vazar: sem isto, um rótulo de catálogo
      mais longo do que o previsto escapa por baixo da borda desenhada e o
@@ -4180,7 +4210,7 @@ html { scrollbar-gutter: stable; }
   flex: none;
   width: 2.5rem;
   height: 2.5rem;
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-3);
   color: var(--text-dim);
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
@@ -4280,7 +4310,9 @@ html { scrollbar-gutter: stable; }
   place-items: center;
   width: 1.2rem;
   height: 1.2rem;
-  border-radius: 50%;
+  /* O visto do cartão marcado é uma folha pequena, não um círculo (CORTE,
+     T3.5: "rádios e caixas viram folhas"). */
+  border-radius: var(--corte-p);
   background: var(--brand);
   color: var(--on-brand);
   opacity: 0;
@@ -4371,7 +4403,7 @@ html { scrollbar-gutter: stable; }
   padding: .85rem;
   background: var(--surface);
   border: 1px solid transparent;
-  border-radius: var(--radius-lg);
+  border-radius: var(--corte);
   /* Havia uma segunda declaração de `box-shadow` acima desta, com um preto
      cru, e ela nunca pintou: a linha de baixo a sobrescrevia. Era o único
      bloco do arquivo com propriedade repetida, e sobreviveu porque o
@@ -4433,7 +4465,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   width: 2.6rem;
   height: 2.6rem;
   border: 1px solid var(--fio);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
 }
 
 /* `min-width: 0` porque sem isso o texto empurra o resto para fora do cartão
@@ -4511,7 +4543,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   gap: .85rem;
   padding: var(--espaco-6) 1.05rem;
   border: 1px solid color-mix(in srgb, var(--chama) 26%, transparent);
-  border-radius: var(--radius-xl);
+  border-radius: var(--corte-g);
   background: color-mix(in srgb, var(--chama) 9%, transparent);
   box-shadow: var(--edge), var(--shadow-rest);
 }
@@ -4578,7 +4610,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .pesar {
   overflow: hidden;
   border: 1px solid transparent;
-  border-radius: var(--radius-xl);
+  border-radius: var(--corte-g);
   background: var(--surface);
   box-shadow: var(--edge), var(--shadow-rest);
 }
@@ -4626,7 +4658,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   min-height: 2.75rem;
   padding: var(--espaco-3) .75rem;
   border: 1px solid var(--fio-forte);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-2);
   color: var(--text);
   font-family: inherit;
@@ -4643,7 +4675,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   min-width: 5.5rem;
   padding: 0 var(--espaco-6);
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--brand);
   color: var(--on-brand);
   font-family: inherit;
@@ -4667,7 +4699,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   margin-bottom: var(--gap);
   padding: var(--espaco-6) 1.05rem;
   border: 1px solid transparent;
-  border-radius: var(--radius-xl);
+  border-radius: var(--corte-g);
   background: var(--surface);
   box-shadow: var(--edge), var(--shadow-rest);
 }
@@ -4715,7 +4747,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   min-height: 3rem;
   padding: .4rem .3rem;
   border: 1px solid var(--fio-forte);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -4827,7 +4859,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   gap: var(--espaco-3);
   padding: .6rem .8rem;
   border: 1px solid color-mix(in srgb, var(--terra) 30%, transparent);
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: color-mix(in srgb, var(--terra) 14%, var(--surface));
   box-shadow: var(--edge), var(--shadow-lift);
   color: var(--terra);
@@ -4922,7 +4954,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .fora {
   margin-top: .6rem;
   border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: var(--surface-2);
 }
 
@@ -4942,7 +4974,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   justify-content: center;
   min-height: 2.75rem;
   padding: .45rem .85rem;
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-2);
   color: var(--text-dim);
   font-size: .82rem;
@@ -5030,7 +5062,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .choice-card__exemplo {
   margin-top: var(--espaco-1);
   padding: .28rem var(--espaco-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-3);
   color: var(--text-mute);
   font-size: .72rem;
@@ -5121,7 +5153,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
      em vez de `6px` cru: a catraca de espaçamento não sobe. */
   padding: calc(var(--espaco-1) * 1.5);
   border: 1px solid var(--fio);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-2);
 }
 
@@ -5135,7 +5167,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   min-height: 2.75rem;
   padding: var(--espaco-3) .6rem;
   border: 0;
-  border-radius: calc(var(--radius-sm) - 3px);
+  border-radius: var(--corte-p);
   background: none;
   color: var(--text-dim);
   font-size: .92rem;
@@ -5295,7 +5327,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   min-height: 2.75rem;
   padding: .85rem var(--espaco-6);
   border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: var(--surface);
   color: inherit;
   text-decoration: none;
@@ -5707,7 +5739,7 @@ body.montando { overflow: hidden; }
 .entrada__logo .marca {
   width: 100%;
   height: 100%;
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   /* O mesmo halo difuso do fundo, agora ancorado na própria marca: é o que
      faz o ícone assentar sobre o escuro em vez de flutuar recortado. */
   box-shadow: 0 12px 40px -14px color-mix(in srgb, var(--brand) 60%, transparent);
@@ -5842,7 +5874,7 @@ body.montando { overflow: hidden; }
   height: 2.75rem;
   padding: 0;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: none;
   color: var(--text-mute);
   cursor: pointer;
@@ -5891,7 +5923,7 @@ body.montando { overflow: hidden; }
   display: flex;
   flex-direction: column;
   gap: .85rem;
-  border-radius: var(--radius-xl);
+  border-radius: var(--corte-g);
   background: var(--surface-focus);
   border-color: color-mix(in srgb, var(--brand) 28%, transparent);
 }
@@ -5927,7 +5959,7 @@ body.montando { overflow: hidden; }
 .hoje__badge {
   width: 3.15rem;
   height: 3.15rem;
-  border-radius: var(--radius-lg);
+  border-radius: var(--corte);
   font-size: 1.45rem;
 }
 
@@ -6072,7 +6104,7 @@ body.montando { overflow: hidden; }
   margin: 0;
   padding: .75rem var(--espaco-5);
   border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent);
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: color-mix(in srgb, var(--brand) 12%, transparent);
   color: var(--brand);
   font-size: .86rem;
@@ -6086,7 +6118,7 @@ body.montando { overflow: hidden; }
   gap: var(--espaco-2);
   margin: 0;
   padding: .8rem var(--espaco-5);
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: var(--surface-3);
 }
 .hoje__proximo-rotulo {
@@ -6105,7 +6137,7 @@ body.montando { overflow: hidden; }
 .hoje__proximo-corpo .session__badge {
   width: 2rem;
   height: 2rem;
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   font-size: var(--texto-md);
 }
 .hoje__proximo-nome {
@@ -6358,7 +6390,7 @@ body.montando { overflow: hidden; }
   align-items: stretch;
   gap: var(--espaco-4);
   margin-bottom: var(--espaco-3);
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   overflow: hidden;
   background: var(--surface-2);
 }
@@ -6446,7 +6478,7 @@ body.montando { overflow: hidden; }
   min-width: 2.75rem;
   padding: 0 var(--espaco-4);
   border: 0;
-  border-radius: var(--pill);
+  border-radius: var(--corte-p);
   background: rgba(0, 0, 0, .62);
   color: #fff;
   font: inherit;
@@ -6521,7 +6553,7 @@ body.montando { overflow: hidden; }
   min-height: 2.15rem;
   padding: var(--espaco-1) .45rem;
   border: 1px solid var(--fio);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-2);
   color: var(--text-mute);
 }
@@ -6575,7 +6607,7 @@ body.montando { overflow: hidden; }
   margin-bottom: var(--espaco-4);
   padding: .55rem .75rem;
   border: 1px solid var(--brand);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--brand-soft);
   min-width: 0;
 }
@@ -6679,7 +6711,7 @@ body.montando { overflow: hidden; }
   min-height: 2.75rem;
   padding: .4rem .6rem;
   border: 1px solid var(--fio-forte);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface);
   color: var(--text);
   font-size: var(--texto-base);
@@ -6749,24 +6781,71 @@ body.montando { overflow: hidden; }
    exercício de hoje tem registro. Não é um botão que alguém apertou. */
 .fim { text-align: center; }
 
-.fim__selo {
-  display: grid;
-  place-items: center;
-  width: 3.6rem;
-  height: 3.6rem;
-  margin: .2rem auto var(--espaco-4);
-  border-radius: 50%;
-  background: var(--brand-soft);
-  color: var(--brand-strong);
+/* A FOLHA DE RECOMPENSA (CORTE, T3.6). O cartão vira a folha-lima —
+   `--brand` cheio, texto `--on-brand`, o recorte grande — e o placar nasce
+   DENTRO dela: nada é cortado pela máscara (o mockup cortava o "4.960").
+   `overflow: hidden` só para o recorte valer nos filhos; o conteúdo cabe. */
+.recompensa {
+  position: relative;
+  padding: var(--espaco-7) var(--pad);
+  background: var(--brand);
+  color: var(--on-brand);
+  border-radius: var(--corte-g);
+  transform-origin: 100% 100%;
+  animation: folha-sobe var(--mov-recompensa) var(--ease) both;
 }
-.fim__selo > svg { width: 1.9rem; height: 1.9rem; }
-
-.fim__nome {
-  margin: 0 0 var(--espaco-5);
-  font-size: var(--texto-lg);
-  font-weight: 700;
+.recompensa__rotulo {
+  margin: 0 0 var(--espaco-3);
+  font-size: var(--texto-xs);
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.recompensa__carga {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--espaco-1);
+  margin: 0 0 var(--espaco-6);
   min-width: 0;
 }
+/* O número herói: Bodoni no maior degrau, tabular, e ele é a recompensa. */
+.recompensa__numero {
+  font-family: var(--font-display);
+  font-size: var(--texto-display);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.recompensa__unidade {
+  font-size: var(--texto-sm);
+  font-weight: 600;
+}
+/* Dentro da folha os números pequenos pousam num vidro escuro sobre a lima,
+   não em `--surface-2` (que é a superfície da página, não da folha). */
+.recompensa .fim__numeros > li {
+  background: color-mix(in srgb, var(--on-brand) 10%, transparent);
+  animation-delay: calc(var(--i, 0) * var(--mov-cascata) + var(--mov-recompensa));
+}
+.recompensa .fim__valor { font-family: var(--font-display); font-size: var(--texto-xl); }
+.recompensa .fim__rotulo { color: inherit; opacity: .78; }
+.recompensa__recorde {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--espaco-3);
+  margin: 0 0 var(--espaco-6);
+  font-size: var(--texto-sm);
+  font-weight: 600;
+}
+/* Os botões dentro da folha: o primário inverte (osso cheio, texto da
+   lima) e o contorno usa o próprio texto — os dois AA sobre a lima. */
+.recompensa .btn--primary { background: var(--on-brand); color: var(--brand); box-shadow: none; }
+.recompensa .btn--ghost, .recompensa .btn--quiet { color: var(--on-brand); border-color: color-mix(in srgb, var(--on-brand) 40%, transparent); background: transparent; }
+.recompensa .btn + .btn { margin-top: var(--espaco-3); }
+/* Os botões chegam parados: entram depois de tudo, sem deslocamento. */
+.recompensa .btn { animation: entra-suave var(--mov-estado) var(--ease) both; animation-delay: calc(var(--mov-recompensa) + var(--mov-sucesso)); }
 
 .fim__numeros {
   display: flex;
@@ -6784,7 +6863,7 @@ body.montando { overflow: hidden; }
   min-width: 0;
   padding: .6rem var(--espaco-3);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-2);
 }
 .fim__valor {
@@ -7195,7 +7274,7 @@ body.montando { overflow: hidden; }
   z-index: var(--camada-aviso);
   padding: var(--espaco-5) var(--espaco-6);
   border: 1px solid var(--fio-forte);
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: var(--surface-2);
   box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
 }
@@ -7398,7 +7477,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    simplesmente terminou. */
 .legal__pendencia {
   padding: var(--espaco-4) .85rem;
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   border-left: 3px solid var(--danger);
   background: var(--surface-2);
   color: var(--text-mute);
@@ -7494,7 +7573,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   border: 1px solid var(--fio);
-  border-radius: var(--radius);
+  border-radius: var(--corte);
 }
 
 .tabela-gestao {
@@ -7539,7 +7618,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   min-width: 44px;
   padding: 0 .75rem;
   border: 1px solid var(--fio);
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -7577,7 +7656,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   min-height: 44px;
   min-width: 44px;
   padding: 0 var(--espaco-6);
-  border-radius: var(--pill);
+  border-radius: var(--corte-p);
   color: var(--text-dim);
   font-size: var(--texto-md);
   font-weight: 600;
@@ -7814,7 +7893,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   gap: var(--espaco-4);
   min-width: 0;
   padding: var(--espaco-2) var(--espaco-4);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-2);
 }
 
@@ -7861,7 +7940,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   min-height: 2.75rem;
   padding: 0 var(--espaco-4);
   border: 1px solid var(--fio-forte);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-2);
   color: var(--text);
   font-variant-numeric: tabular-nums;
@@ -7940,7 +8019,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   gap: var(--espaco-4);
   min-height: 3.25rem;
   padding: var(--espaco-4);
-  border-radius: var(--radius);
+  border-radius: var(--corte);
   color: var(--text);
   text-decoration: none;
   min-width: 0;
@@ -8250,12 +8329,27 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .demo--aberta > video,
 .demo--aberta > img,
 .demo__abrir { animation: entra-suave var(--mov-expansao) var(--ease) both; }
-@keyframes selo-chega {
-  from { opacity: 0; transform: scale(.6); }
-  70% { transform: scale(1.06); }
+/* ---- Recompensa: a folha sobe do canto inferior direito e ocupa a tela. ---- */
+@keyframes folha-sobe {
+  from { opacity: 0; transform: scale(.2); }
+  60% { opacity: 1; }
 }
-.fim__selo { animation: selo-chega var(--mov-sucesso) var(--ease) both; }
-.fim__selo > svg { animation: entra-suave var(--mov-sucesso) var(--ease) both; animation-delay: calc(var(--mov-sucesso) * .4); }
+/* ---- Registrar refeição: o corte "abre" — as duas pontas viram curva por
+   um instante e voltam (a folha respira uma vez). ---- */
+@keyframes corte-abre {
+  50% { border-radius: var(--corte-aberto); }
+}
+.meal.is-recem { animation: corte-abre calc(var(--mov-estado) * 2) var(--ease) both; }
+/* ---- Bater meta (água): a esquina superior se desdobra e o número cresce
+   UMA vez. ---- */
+@keyframes corte-desdobra {
+  40% { border-radius: var(--corte-aberto) var(--corte-aberto) 0 var(--corte-aberto); }
+}
+@keyframes numero-cresce {
+  40% { transform: scale(1.12); }
+}
+.agua-card.is-meta { animation: corte-desdobra var(--mov-recompensa) var(--ease) both; }
+.agua-card.is-meta [data-agua-total], .ring--agua.is-meta .ring__value { display: inline-block; animation: numero-cresce var(--mov-recompensa) var(--ease) both; }
 
 /* ---- Progresso: as barras crescem da esquerda, escalonadas. ---- */
 @keyframes barra-cresce {
@@ -8291,16 +8385,20 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 @media (prefers-reduced-motion: reduce) {
   [data-escalonado] > *,
   .history-row__fill,
-  .semana__preenche,
-  .fim__selo > svg { animation: none; animation-delay: 0s; opacity: 1; transform: none; }
+  .semana__preenche { animation: none; animation-delay: 0s; opacity: 1; transform: none; }
   .descanso,
   .aguardando-rede:not([hidden]),
   .meal.is-recem .meal__result-name,
+  .meal.is-recem,
+  .agua-card.is-meta,
+  .agua-card.is-meta [data-agua-total],
+  .ring--agua.is-meta .ring__value,
+  .recompensa,
+  .recompensa .btn,
   .demo--aberta > iframe,
   .demo--aberta > video,
   .demo--aberta > img,
   .demo__abrir,
-  .fim__selo,
   .agua__eco,
   .conquista,
   .conquista__emoji { animation: none; }
@@ -8341,7 +8439,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   grid-auto-columns: 1fr;
   padding: var(--espaco-1);
   border: 1px solid var(--fio);
-  border-radius: var(--radius-sm);
+  border-radius: var(--corte-p);
   background: var(--surface-2);
 }
 .versoes__opcao {
@@ -8352,7 +8450,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   gap: var(--espaco-1);
   min-height: 2.75rem;
   padding: var(--espaco-3) var(--espaco-4);
-  border-radius: calc(var(--radius-sm) - 3px);
+  border-radius: var(--corte-p);
   color: var(--text-dim);
   font-size: var(--texto-sm);
   font-weight: 600;

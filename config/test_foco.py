@@ -112,7 +112,7 @@ class FocoUnicoTests(TestCase):
         só engordava a pílula: em rádio a seta move foco e marcação juntos, e
         o foco sumia exatamente no caso mais comum de teclado."""
         for seletor in (
-            r"\.choice-list--dias input:focus-visible ~ \.segmented__fundo",
+            r"\.segmented--envolve input:focus-visible ~ \.segmented__fundo",
             r"\.segmented input:focus-visible ~ \.segmented__fundo",
         ):
             with self.subTest(seletor=seletor):

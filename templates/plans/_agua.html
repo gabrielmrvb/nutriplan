@@ -18,7 +18,7 @@
           <p class="agua__selo"><span class="pill pill--brand">sua área</span></p>
         {% endif %}
         {# `data-agua`: a raiz que `pwa.js` reconhece no toque offline — a mesma da tela de Hidratação. #}
-        <div class="agua" data-agua>
+        <div class="agua" data-agua data-agua-meta="{{ hidratacao_ml }}">
           <div class="agua__topo">
             <span class="agua__icone" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"

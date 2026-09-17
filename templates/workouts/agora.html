@@ -61,19 +61,27 @@
     <div class="page-head">
       <h1>Treino concluído</h1>
     </div>
-    <section class="card fim">
-      <div class="fim__selo" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
-             stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 12.5l5.2 5.2L20 7"/>
-        </svg>
-      </div>
-      <p class="fim__nome">{{ estado.sessao.name }}</p>
-      <ul class="fim__numeros">
-        <li>
-          <span class="fim__valor num">{{ estado.total_exercicios }}</span>
-          <span class="fim__rotulo">{% if estado.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}</span>
-        </li>
+    {% comment %}
+      A FOLHA DE RECOMPENSA (CORTE, T3.6 — 16/09/2026): o placar nasce
+      DENTRO da folha-lima, que sobe do canto inferior direito em
+      `--mov-recompensa` (`folha-sobe`); a carga total conta do zero em
+      `--mov-sucesso` (`data-conta="zero"`, pwa.js); os números pequenos
+      entram em cascata de 80 ms (`data-escalonado` + `--mov-cascata`); os
+      botões chegam parados. Total 1,0 s, e depois a tela fica quieta até o
+      toque. Com `prefers-reduced-motion` o quadro final aparece pronto.
+
+      O número é a recompensa — carga total de hoje, peso × repetições
+      série a série, e "vs. última", a mesma conta sobre a última vez de
+      cada exercício (`services.Placar`). Nada aqui é estimativa nem
+      caloria: o app não mede nenhum dos dois.
+    {% endcomment %}
+    <section class="card fim recompensa">
+      <p class="recompensa__rotulo">{{ estado.sessao.name }} · fechado</p>
+      <p class="recompensa__carga">
+        <span class="recompensa__numero num" data-conta="zero">{{ estado.placar.carga_total|floatformat:"0" }}</span>
+        <span class="recompensa__unidade">kg levantados</span>
+      </p>
+      <ul class="fim__numeros" data-escalonado>
         <li>
           <span class="fim__valor num">{{ estado.series_feitas }}</span>
           <span class="fim__rotulo">{% if estado.series_feitas == 1 %}série registrada{% else %}séries registradas{% endif %}</span>
@@ -84,14 +92,34 @@
             <span class="fim__rotulo">min entre o primeiro e o último registro</span>
           </li>
         {% endif %}
+        <li>
+          {% if estado.placar.delta_pct is not None %}
+            <span class="fim__valor num">{% if estado.placar.delta_pct >= 0 %}+{% endif %}{{ estado.placar.delta_pct }}%</span>
+            <span class="fim__rotulo">vs. a última vez</span>
+          {% else %}
+            <span class="fim__valor num">{{ estado.total_exercicios }}</span>
+            <span class="fim__rotulo">{% if estado.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}</span>
+          {% endif %}
+        </li>
       </ul>
+      {% if estado.placar.recordes %}
+        <p class="recompensa__recorde">
+          <span class="pill pill--brand">recorde</span>
+          {% if estado.placar.recordes == 1 %}carga mais alta de sempre em 1 exercício{% else %}carga mais alta de sempre em {{ estado.placar.recordes }} exercícios{% endif %}
+        </p>
+      {% endif %}
       {% comment %}
-        O mesmo rótulo do rodapé da execução, e o MESMO destino: a ficha
-        desta sessão, que é o treino completo. Apontava para o painel da
-        semana — um rótulo, dois lugares.
+        O primário leva à ficha desta sessão, que é o treino completo — e o
+        rótulo é o MESMO do rodapé da execução, porque o destino é o mesmo
+        (`workouts/test_verbos_do_treino.py`: um verbo, um destino). O mockup
+        da CORTE dizia "Ver resumo do treino"; a doutrina do repositório
+        vence a palavra do mockup. O contorno devolve à Home.
       {% endcomment %}
       <a class="btn btn--primary btn--block" href="{% url 'workouts:ficha' estado.sessao.pk %}">
         Ver o treino completo
+      </a>
+      <a class="btn btn--ghost btn--block" href="{% url 'plans:today' %}">
+        Voltar para Hoje
       </a>
       {% comment %}
         `data-arquivo`: a resposta é um arquivo (Content-Disposition:
@@ -101,7 +129,7 @@
         hoje a view responde 302 com mensagem, e `download` faria o navegador
         salvar aquele HTML como arquivo.
       {% endcomment %}
-      <a class="btn btn--ghost btn--block" href="{% url 'workouts:health_export' %}" data-arquivo>
+      <a class="btn btn--quiet btn--block" href="{% url 'workouts:health_export' %}" data-arquivo>
         Exportar para o app de saúde
       </a>
 
