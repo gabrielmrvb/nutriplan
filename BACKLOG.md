@@ -2419,6 +2419,30 @@ série abre o placar dentro da folha-lima (`services.Placar`, `folha-sobe`,
 conta do zero, cascata de 80 ms); `corte-abre` e `corte-desdobra`. Registro
 completo na seção "Design / Onda 3" do `CLAUDE.md`.
 
+### ✅ VETO do dono: a direção principal é a NERVURA · ANDAIME — 1/3 a 3/3 (17/09/2026)
+
+O dono escolheu por gosto, sobre as capturas (`DIRECAO-ESCOLHIDA.md`; a
+pontuação de 16/09 que dava a CORTE ficou como histórico), e a NERVURA
+substituiu a CORTE em três PRs empilhados pelo CI e pela fila local, cada
+um com deploy provado por `/saude/` e QA em produção nos dois regimes no
+`/demo/` (14 telas por deploy, demo intacto): **#22 tokens e tipografia**
+(`b71250a`) — paleta da academia à noite (#0b140f / #43df7a / #e8a33d;
+Papel #f4f6f2 / #106632), U28 nas superfícies, 274 pares verdes, Big
+Shoulders Display + Archivo auto-hospedadas (70 364 B; a display SEM
+`tnum`, coluna de números em Archivo), `--quina-*: 0`, `nervura-acende`;
+**#24 componentes** (`4ec657a`) — `--traco: 2px`, primário inclinado por
+`::before` + `clip-path`, a nervura atrás do prato e acima do título, ponta
+de folha na barra, aba ativa sem preenchimento; **#25 telas** (`6206d8d`)
+— execução com dois heróis em caixa alta e a carga como sublinhado, o
+placar como nervura que risca com ponta de folha e o número de 72 px que
+conta do zero, nervura limitada onde riscava texto pequeno, as sete
+referências em `referencias/claude-design/` viram capturas da NERVURA
+implementada, semente do Claude Design com a nota e as fontes. Comparativo
+CORTE × NERVURA (27 pares, `medir.js`) fora do git em
+`scratchpad/shots-design/`. Registro completo em "Design / Onda 3" do
+`CLAUDE.md` (VETO, 2/3, 3/3). O que a CORTE deixou (abaixo) continua
+valendo, trocando Bodoni por Big Shoulders onde ela é citada.
+
 ### ⏳ O que a onda 3 deixou, com o consumidor a nascer
 
 - **Emoji → glifo nas conquistas**: as cinco regras têm emoji (troféu,
