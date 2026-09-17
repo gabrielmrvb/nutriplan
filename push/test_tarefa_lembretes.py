@@ -171,3 +171,38 @@ class ATarefaDeixaONeonDormirTests(CatalogFixture):
             corpo = self._post().json()
         self.assertEqual(corpo["enviadas"], 0)
         self.assertEqual(tarefas.pausa_ate() - agora, timedelta(minutes=30))
+
+
+@override_settings(**COM_TOKEN)
+class SoQuemTemAssinaturaEntraNaRodadaTests(CatalogFixture):
+    """Vista na prova de produção de 16/09/2026: a rodada disse `falhas: 3`
+    — três refeições de contas SEM assinatura, cada uma ganhando um
+    `NotificationLog` de falha por dia. Quem nunca ativou lembrete não é
+    falha: não entra na rodada, não gera linha, não gera consulta de envio."""
+
+    def setUp(self):
+        tarefas.esquecer_pausa()
+        self.sem = create_complete_user("sem.assinatura@exemplo.com")
+        self.plano_sem = services.create_plan(self.sem)
+        self.com = create_complete_user("com.assinatura@exemplo.com")
+        self.plano_com = services.create_plan(self.com)
+        make_subscription(self.com, endpoint="https://push.exemplo.com/com")
+
+    @patch("push.services.webpush")
+    def test_quem_nao_tem_assinatura_nao_gera_registro_de_falha(self, webpush):
+        slot_sem = self.plano_sem.slots.get(order=0)
+        slot_com = self.plano_com.slots.get(order=0)
+        self.assertEqual(slot_sem.time, slot_com.time)  # mesma rotina, mesma janela
+        resultado = push_services.send_meal_reminders(_agora_do_aviso(slot_com))
+        self.assertEqual((resultado["sent"], resultado["failed"]), (1, 0))
+        self.assertFalse(NotificationLog.objects.filter(user=self.sem).exists())
+        self.assertTrue(NotificationLog.objects.filter(user=self.com, success=True).exists())
+
+    @patch("push.services.webpush")
+    def test_assinatura_desativada_conta_como_sem_assinatura(self, webpush):
+        from push.models import PushSubscription
+        PushSubscription.objects.filter(user=self.com).update(is_active=False)
+        slot_com = self.plano_com.slots.get(order=0)
+        resultado = push_services.send_meal_reminders(_agora_do_aviso(slot_com))
+        self.assertEqual((resultado["sent"], resultado["failed"], resultado["skipped"]), (0, 0, 0))
+        self.assertFalse(NotificationLog.objects.exists())
