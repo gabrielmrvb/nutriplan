@@ -8511,3 +8511,66 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .aviso-regenerar__acoes { display: flex; flex-wrap: wrap; gap: var(--espaco-2); margin-top: var(--espaco-3); }
 .aviso-regenerar__acoes form { flex: 1 1 10rem; min-width: 0; }
 .aviso-regenerar__acoes .btn { width: 100%; }
+
+/* ==========================================================================
+   50. Corrida — plano de 5K/10K (17/09/2026)
+   O cartão vive acima do histórico em `corridas.html`: "Semana N de 8" e as
+   três sessões da semana, a feita marcada com ✓ — mesmo prefixo que
+   `today.html` já usa para a refeição concluída. `min-width: 0` em toda
+   linha: descrição de sessão é texto livre e "nada rola na horizontal" vale
+   aqui como em qualquer lista do app. ========================================================================== */
+
+.corrida-plano__sessoes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.corrida-plano__sessao {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--espaco-3);
+  min-width: 0;
+  padding: .6rem 0;
+  border-bottom: 1px solid var(--fio);
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+}
+.corrida-plano__sessao:first-child { padding-top: 0; }
+.corrida-plano__sessao:last-child { border-bottom: 0; padding-bottom: 0; }
+
+/* A sessão feita fica com o peso do texto normal — o resto lê como pendente,
+   sem precisar de uma segunda cor além do texto mudo. */
+.corrida-plano__sessao--feita { color: var(--text); }
+
+.corrida-plano__descricao { flex: 1 1 auto; min-width: 0; }
+
+.corrida-plano__marca {
+  flex: none;
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.corrida-plano__minutos {
+  flex: none;
+  color: var(--text-mute);
+  font-size: var(--texto-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.corrida-plano__vazio { margin: 0 0 var(--espaco-4); color: var(--text-dim); }
+
+/* A lista de opções em `corrida_plano.html`: um cartão por combinação, o
+   `<form>` sem margem para não abrir um vão a mais dentro do cartão, e o
+   `.btn` já garante os 44px de alvo por herança da seção 10. */
+.corrida-plano-opcoes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+}
+
+.corrida-plano-opcao__titulo { margin: 0 0 var(--espaco-1); font-size: var(--texto-md); }
+.corrida-plano-opcao__hint { margin: 0 0 var(--espaco-3); color: var(--text-dim); font-size: var(--texto-sm); }
+.corrida-plano-opcao form { margin: 0; }
+.corrida-plano-opcao .btn { width: 100%; }

@@ -25,7 +25,8 @@ from django.views.generic import ListView
 
 from accounts.views import OnboardingRequiredMixin
 
-from .models import Corrida
+from . import doutrina_corrida
+from .models import Corrida, PlanoDeCorrida
 from .templatetags.corrida import relogio as _relogio
 
 #: Uma corrida de doze horas é erro de quem esqueceu de encerrar, não um
@@ -58,6 +59,20 @@ class HistoricoDeCorridasView(LoginRequiredMixin, ListView):
         # disso é interrupção, não convite. Ver `data-sem-convite` no
         # `base.html`.
         contexto["sem_convite"] = True
+
+        # O CARTÃO DO PLANO. `plano` é o ativo ou `None` — o template decide
+        # entre o convite ("Quer um plano?") e o cartão da semana sozinho,
+        # sem `if/elif` duplicado aqui.
+        hoje = timezone.localdate()
+        plano = PlanoDeCorrida.objects.filter(user=self.request.user, ativo=True).first()
+        contexto["plano"] = plano
+        contexto["semana"] = plano.semana_atual(hoje) if plano else None
+        sessoes = []
+        if plano is not None and contexto["semana"] is not None:
+            feitas = plano.sessoes_feitas(hoje)
+            for linha in doutrina_corrida.sessoes(plano.plano, plano.nivel, contexto["semana"]):
+                sessoes.append({**linha, "feita": linha["sessao"] <= feitas})
+        contexto["sessoes"] = sessoes
         return contexto
 
 
@@ -256,4 +271,61 @@ class CorridaExcluirView(OnboardingRequiredMixin, View):
     def post(self, request, pk):
         get_object_or_404(Corrida, pk=pk, user=request.user).delete()
         messages.success(request, "Corrida excluída.")
+        return redirect("workouts:corridas")
+
+
+class PlanoDeCorridaView(OnboardingRequiredMixin, View):
+    """Escolhe, troca ou encerra o plano de corrida ativo.
+
+    GET lista as quatro combinações de `doutrina_corrida.planos()` — a
+    doutrina é a fonte, a view não inventa opção. POST com `plano`+`nivel`
+    desativa o ativo (se houver) e cria um novo começando hoje; POST com
+    `encerrar=1` só desativa. As duas escritas ficam na mesma transação que
+    `services.create_routine` usa para `TrainingPlan`: o índice único
+    parcial não aceita dois ativos, nem por um instante entre o UPDATE e o
+    INSERT.
+    """
+
+    template_name = "workouts/corrida_plano.html"
+
+    def get(self, request):
+        # `plano_display`/`nivel_display` vêm das MESMAS `choices` do modelo
+        # (`PlanoDeCorrida.Plano`, `.Nivel`) — "10K" e "intermediário" com o
+        # acento, sem reescrever o rótulo aqui e correr o risco de os dois
+        # divergirem um dia.
+        opcoes = [
+            {
+                "plano": plano,
+                "nivel": nivel,
+                "plano_display": PlanoDeCorrida.Plano(plano).label,
+                "nivel_display": PlanoDeCorrida.Nivel(nivel).label,
+                **dados,
+            }
+            for (plano, nivel), dados in doutrina_corrida.planos().items()
+        ]
+        ativo = PlanoDeCorrida.objects.filter(user=request.user, ativo=True).first()
+        return render(request, self.template_name, {"opcoes": opcoes, "ativo": ativo, "nav": "running"})
+
+    def post(self, request):
+        if request.POST.get("encerrar"):
+            PlanoDeCorrida.objects.filter(user=request.user, ativo=True).update(ativo=False)
+            messages.success(request, "Plano de corrida encerrado.")
+            return redirect("workouts:corridas")
+
+        plano = request.POST.get("plano", "")
+        nivel = request.POST.get("nivel", "")
+        if (plano, nivel) not in doutrina_corrida.planos():
+            messages.error(request, "Escolha um dos planos da lista.")
+            return redirect("workouts:corrida_plano")
+
+        with transaction.atomic():
+            PlanoDeCorrida.objects.filter(user=request.user, ativo=True).update(ativo=False)
+            PlanoDeCorrida.objects.create(
+                user=request.user,
+                plano=plano,
+                nivel=nivel,
+                comecou_em=timezone.localdate(),
+                ativo=True,
+            )
+        messages.success(request, "Plano de corrida iniciado.")
         return redirect("workouts:corridas")

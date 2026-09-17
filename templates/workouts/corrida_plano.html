@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Plano de corrida · NutriPlan{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Plano de corrida</h1>
+  </div>
+
+  {% if ativo %}
+    <section class="card">
+      <div class="card__head"><h2>Seu plano agora</h2></div>
+      <p>
+        {{ ativo.get_plano_display }} {{ ativo.get_nivel_display }}, começou em
+        {{ ativo.comecou_em|date:"d/m/Y" }}.
+      </p>
+      <form method="post" action="{% url 'workouts:corrida_plano' %}">
+        {% csrf_token %}
+        <input type="hidden" name="encerrar" value="1">
+        <button type="submit" class="btn btn--ghost btn--block">Encerrar este plano</button>
+      </form>
+    </section>
+  {% endif %}
+
+  <section class="card">
+    <div class="card__head"><h2>Escolher um plano</h2></div>
+    {% comment %}
+      Cada combinação de plano e nível vira um cartão com um `<form>` só
+      dela — plano e nível vão escondidos, e o botão já é o envio. Sem rádio
+      nem `<select>`: quatro botões cabem numa tela, e escolher já é
+      confirmar (como "Registrar corrida" e o resto do app).
+    {% endcomment %}
+    <div class="corrida-plano-opcoes">
+      {% for opcao in opcoes %}
+        <div class="card corrida-plano-opcao">
+          <h3 class="corrida-plano-opcao__titulo">{{ opcao.plano_display }} {{ opcao.nivel_display }}</h3>
+          <p class="corrida-plano-opcao__hint">
+            {{ opcao.semanas }} semanas · {{ opcao.sessoes_por_semana }} sessões por semana
+          </p>
+          <form method="post" action="{% url 'workouts:corrida_plano' %}">
+            {% csrf_token %}
+            <input type="hidden" name="plano" value="{{ opcao.plano }}">
+            <input type="hidden" name="nivel" value="{{ opcao.nivel }}">
+            <button type="submit" class="btn btn--primary">
+              {% if ativo %}Trocar para este{% else %}Começar hoje{% endif %}
+            </button>
+          </form>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

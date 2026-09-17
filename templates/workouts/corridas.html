@@ -65,6 +65,46 @@
 
   <a class="btn btn--ghost btn--block" href="{% url 'workouts:corrida_nova' %}">Registrar corrida à mão</a>
 
+  {% comment %}
+    O CARTÃO DO PLANO. `plano` e `semana` vêm de
+    `HistoricoDeCorridasView.get_context_data` — `semana` é `None` tanto para
+    "sem plano" quanto para "plano das oito semanas já passou", e as duas
+    situações têm texto próprio: um convida a escolher, o outro convida a
+    trocar. As três sessões da semana vêm em `sessoes`, já com `feita`
+    calculado — o template só desenha o ✓, não decide o que está feito.
+  {% endcomment %}
+  {% if plano and semana %}
+    <section class="card corrida-plano">
+      <div class="card__head">
+        <h2>Semana {{ semana }} de {{ plano.SEMANAS }} · Plano {{ plano.get_plano_display }} {{ plano.get_nivel_display }}</h2>
+      </div>
+      <ol class="corrida-plano__sessoes">
+        {% for sessao in sessoes %}
+          <li class="corrida-plano__sessao{% if sessao.feita %} corrida-plano__sessao--feita{% endif %}">
+            <span class="corrida-plano__descricao">
+              {% if sessao.feita %}<span class="corrida-plano__marca">✓</span> {% endif %}{{ sessao.descricao }}
+            </span>
+            <span class="corrida-plano__minutos">{{ sessao.minutos }} min</span>
+          </li>
+        {% endfor %}
+      </ol>
+      <a class="btn-link" href="{% url 'workouts:corrida_plano' %}">trocar ou encerrar</a>
+    </section>
+  {% elif plano %}
+    <section class="card corrida-plano">
+      <div class="card__head">
+        <h2>Plano {{ plano.get_plano_display }} {{ plano.get_nivel_display }} concluído</h2>
+      </div>
+      <p class="corrida-plano__vazio">Você terminou as {{ plano.SEMANAS }} semanas. Quer começar outro?</p>
+      <a class="btn-link" href="{% url 'workouts:corrida_plano' %}">trocar ou encerrar</a>
+    </section>
+  {% else %}
+    <section class="card corrida-plano">
+      <p class="corrida-plano__vazio">Quer um plano? 5K ou 10K em 8 semanas.</p>
+      <a class="btn btn--ghost btn--block" href="{% url 'workouts:corrida_plano' %}">Ver planos</a>
+    </section>
+  {% endif %}
+
   <section class="card">
     <div class="card__head"><h2>Suas corridas</h2></div>
     {% if corridas %}
