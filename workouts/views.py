@@ -23,6 +23,8 @@ from achievements import services as conquistas
 from . import curva as _curva
 from . import health_export, services
 from .models import (
+    EventoDeProduto,
+    VersaoDoTreino,
     Exercise,
     ExerciseLog,
     MuscleGroup,
@@ -139,7 +141,7 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
         # inteiro, em sanfona, embaixo.
         hoje = next((s for s in sessions if s.eh_hoje), None)
         if hoje is not None:
-            preparar_dia(user, hoje)
+            preparar_dia(user, hoje, linhas)
             progresso_do_dia(hoje)
 
         context.update(
@@ -253,17 +255,33 @@ def progresso_do_dia(session) -> None:
         item.eh_o_proximo = item is session.proximo
 
 
-def preparar_dia(user, sessao) -> None:
-    """A sessão de hoje ganha a opção do dia: escolhida, senão recomendada."""
+def preparar_dia(user, sessao, linhas=None) -> None:
+    """A sessão de hoje ganha a opção do dia — a pinada pela primeira série,
+    senão a variação do ciclo (ficha única por letra, 17/09/2026) — e a
+    conta da versão rápida para o painel oferecer "Menos tempo hoje?"."""
+    from . import opcoes as motor_de_opcoes
+
     escolha = services.escolha_do_dia(user)
     if escolha is not None and escolha.session_id != sessao.pk:
         escolha = None
     sessao.escolha = escolha
-    sessao.recomendada = services.opcao_recomendada(user, sessao)
-    sessao.opcao_do_dia = escolha.opcao if escolha else sessao.recomendada
+    dia = getattr(sessao, "data", None) or timezone.localdate()
+    sessao.opcao_do_dia = services.opcao_do_dia(user, sessao, dia, linhas, escolha=escolha)
     sessao.versao_do_dia = escolha.versao if escolha else "completo"
     sessao.itens_do_dia = sessao.da_opcao(sessao.opcao_do_dia)
-    sessao.versoes_texto = VERSOES_TEXTO.get(len(sessao.opcoes), "%d versões" % len(sessao.opcoes))
+    # A rápida só é oferecida quando muda alguma coisa: um treino que já
+    # cabe em 40 minutos não tem versão rápida, e oferecer o mesmo treino
+    # com outro nome seria uma escolha falsa.
+    itens = sessao.itens_do_dia
+    graus = services.prioridades_da_sessao(itens)
+    ficam, removidos = motor_de_opcoes.versao_rapida(
+        [(item, item.sets, grau) for item, grau in zip(itens, graus)], sessao.main_groups
+    )
+    sessao.minutos = sessao.minutos_da_opcao(sessao.opcao_do_dia)
+    sessao.rapida_muda = bool(removidos) or sum(s for _, s in ficam) != sum(i.sets for i in itens)
+    sessao.rapida_minutos = round(
+        services.segundos_da_sessao([(s, i.rest_seconds, i.exercise.is_compound) for i, s in ficam]) / 60
+    )
 
 
 def agrupar_por_letra(sessions) -> list:
@@ -308,15 +326,12 @@ def _cartao_da_letra(rotulo, sessoes) -> dict:
         "exercicios": len(referencia.da_opcao(opcao)),
         "series": referencia.series_da_opcao(opcao),
         "minutos": referencia.minutos_da_opcao(opcao),
-        "opcoes": len(referencia.opcoes),
-        "versoes_texto": VERSOES_TEXTO.get(len(referencia.opcoes), "%d versões" % len(referencia.opcoes)),
         "ordem": min(s.order for s in sessoes),
     }
 
 
 #: "Duas versões disponíveis" — e "Três" quando a letra cai três vezes na
 #: semana (uma opção por ocorrência, mínimo duas). Só no cartão.
-VERSOES_TEXTO = {2: "Duas versões", 3: "Três versões", 4: "Quatro versões"}
 
 
 def nomear_ocorrencias(sessions) -> None:
@@ -569,7 +584,7 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             marcar_ficha_aberta([sessao])
             sessao.dias_texto = sessao.weekday_display
         if sessao.eh_hoje:
-            preparar_dia(user, sessao)
+            preparar_dia(user, sessao, linhas)
             progresso_do_dia(sessao)
 
         context.update({
@@ -577,141 +592,107 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             "sessao": sessao,
             "plan": sessao.plan,
         })
-        context.update(self.contexto_das_opcoes(user, sessao))
+        context.update(self.contexto_da_ficha(user, sessao, linhas, irmas, hoje_data))
         return context
 
-    def contexto_das_opcoes(self, user, sessao) -> dict:
-        """As opções da letra, cada uma com principais, complementares, séries,
-        minutos e a versão rápida — para comparar antes de começar.
+    @staticmethod
+    def _data_da_ficha(sessao, irmas, hoje_data):
+        """A data que a ficha de OUTRO dia representa: a próxima ocorrência
+        da letra nesta semana (as cópias vestidas de `sessoes_da_semana`
+        trazem `.data`); passada a última, a última. Plano preso ao dia da
+        semana: o próprio dia da linha nesta semana."""
+        segunda = hoje_data - timedelta(days=hoje_data.weekday())
+        datas = sorted(
+            getattr(s, "data", None) or (segunda + timedelta(days=s.weekday))
+            for s in irmas if s.pk == sessao.pk
+        )
+        if not datas:
+            return segunda + timedelta(days=sessao.weekday)
+        return next((d for d in datas if d >= hoje_data), datas[-1])
 
-        `?versao=rapido` mostra o que a rápida mantém e o que tira; `?trocar=N`
-        é a confirmação de troca depois da primeira série (a view de escolha
-        manda para cá em vez de trocar por conta própria).
-        """
+    def contexto_da_ficha(self, user, sessao, linhas, irmas, hoje_data) -> dict:
+        """UMA lista: a variação da letra para a DATA da ficha (ficha única
+        por letra, 17/09/2026). Hoje: a opção pinada pela primeira série,
+        senão a do ciclo (`preparar_dia` já decidiu). Outro dia: a variação
+        da PRÓXIMA ocorrência da letra nesta semana — a linha crua não tem
+        data, e usar "hoje" dava a uma ficha de sexta a variação de quarta
+        (revisão adversarial de 17/09). O número da opção não sai daqui para
+        a tela. Na versão rápida (pinada no painel), a lista marca o que
+        fica de fora e quantas séries cada exercício mantém."""
         from . import opcoes as motor_de_opcoes
 
         eh_hoje = getattr(sessao, "eh_hoje", False)
         escolha = getattr(sessao, "escolha", None) if eh_hoje else None
-        # Fora do dia NÃO há recomendação: `preparar_dia` só roda para a sessão
-        # de hoje, e o `else sessao.opcoes[0]` que ficava aqui dava o selo
-        # "Recomendada hoje" à opção 1 de qualquer ficha aberta em outro dia —
-        # por ser a primeira, não por ser recomendada (avaliação de
-        # 16/09/2026, B8: ficha A numa quarta, com "hoje" sendo C).
-        recomendada = getattr(sessao, "recomendada", sessao.opcoes[0]) if eh_hoje else None
-        versao = self.request.GET.get("versao") or (escolha.versao if escolha else "completo")
-        if versao not in ("completo", "rapido"):
-            versao = "completo"
-        trocar = self.request.GET.get("trocar")
-        try:
-            trocar = int(trocar) if trocar else None
-        except ValueError:
-            trocar = None
-        opcoes = []
-        for numero in sessao.opcoes:
-            itens = sessao.da_opcao(numero)
-            graus = services.prioridades_da_sessao(itens)
-            ficam, removidos = motor_de_opcoes.versao_rapida(
-                [(item, item.sets, grau) for item, grau in zip(itens, graus)],
-                sessao.main_groups,
-            )
-            rapida_series = {item.exercise_id: series for item, series in ficam}
-            for item in itens:
-                item.series_rapida = rapida_series.get(item.exercise_id)
-                item.fora_da_rapida = item.exercise_id not in rapida_series
-            # O selo "Principal": o primeiro composto de cada grupo anunciado.
-            services.marcar_quem_abre_o_grupo(itens, sessao.main_groups)
-            equipamentos = sorted({
-                item.exercise.get_equipment_display()
-                for item in itens if getattr(item.exercise, "equipment", "")
-            })
-            opcoes.append({
-                "numero": numero,
-                # A porta para executar: a escolhida — ou, sem escolha ainda,
-                # a recomendada (é a que a execução abre).
-                "executavel": eh_hoje and (
-                    (escolha.opcao == numero) if escolha is not None else (numero == recomendada)
-                ),
-                "itens": itens,
-                "principais": sessao.principais_da_opcao(numero),
-                "complementares": sessao.complementares_da_opcao(numero),
-                "series": sum(item.sets for item in itens),
-                "minutos": sessao.minutos_da_opcao(numero),
-                "rapida_series": sum(series for _, series in ficam),
-                "rapida_minutos": round(
-                    services.segundos_da_sessao(
-                        [(series, item.rest_seconds, item.exercise.is_compound) for item, series in ficam]
-                    ) / 60
-                ),
-                "removidos": removidos,
-                "equipamentos": equipamentos,
-                "recomendada": numero == recomendada and sessao.tem_duas_opcoes,
-                "escolhida": escolha is not None and escolha.opcao == numero,
-            })
-        series_hoje = services.series_registradas_hoje(user, sessao) if eh_hoje else 0
-        # A rápida só é oferecida quando muda alguma coisa: uma opção que já
-        # cabe em 40 minutos não tem versão rápida, e oferecer o mesmo treino
-        # com outro nome seria uma escolha falsa.
-        rapida_muda = any(op["rapida_series"] != op["series"] or op["removidos"] for op in opcoes)
-        rapidas = [op["rapida_minutos"] for op in opcoes] or [0]
+        if eh_hoje:
+            numero = sessao.opcao_do_dia
+        else:
+            numero = services.variacao_do_dia(sessao.plan, self._data_da_ficha(sessao, irmas, hoje_data), sessao, linhas)
+        versao = escolha.versao if escolha else "completo"
+        itens = sessao.da_opcao(numero)
+        graus = services.prioridades_da_sessao(itens)
+        ficam, removidos = motor_de_opcoes.versao_rapida(
+            [(item, item.sets, grau) for item, grau in zip(itens, graus)],
+            sessao.main_groups,
+        )
+        rapida_series = {item.exercise_id: series for item, series in ficam}
+        for item in itens:
+            item.series_rapida = rapida_series.get(item.exercise_id)
+            item.fora_da_rapida = item.exercise_id not in rapida_series
+        # O selo "Principal": o primeiro composto de cada grupo anunciado.
+        services.marcar_quem_abre_o_grupo(itens, sessao.main_groups)
+        equipamentos = sorted({
+            item.exercise.get_equipment_display()
+            for item in itens if getattr(item.exercise, "equipment", "")
+        })
+        ficha = {
+            "executavel": eh_hoje,
+            "itens": itens,
+            "principais": sessao.principais_da_opcao(numero),
+            "complementares": sessao.complementares_da_opcao(numero),
+            "series": sum(item.sets for item in itens),
+            "minutos": sessao.minutos_da_opcao(numero),
+            "rapida_series": sum(series for _, series in ficam),
+            "rapida_minutos": round(
+                services.segundos_da_sessao(
+                    [(series, item.rest_seconds, item.exercise.is_compound) for item, series in ficam]
+                ) / 60
+            ),
+            "removidos": removidos,
+            "equipamentos": equipamentos,
+        }
         return {
-            "rapida_muda": rapida_muda,
-            # A faixa CALCULADA das opções, e não "até 40": é o que a rápida
-            # entrega a esta pessoa.
-            "rapida_minutos_min": min(rapidas),
-            "rapida_minutos_max": max(rapidas),
-            "versoes_texto": VERSOES_TEXTO.get(len(sessao.opcoes), "%d versões" % len(sessao.opcoes)),
-            "opcoes": opcoes,
+            "ficha": ficha,
             "escolha": escolha,
             "versao": versao,
             "rapida": versao == "rapido",
-            "pode_escolher": eh_hoje,
-            "series_hoje": series_hoje,
-            "trocar": trocar if trocar in sessao.opcoes else None,
         }
 
 
-class EscolherOpcaoView(OnboardingRequiredMixin, View):
-    """POST: "Começar esta opção" — grava a opção (e a versão) de hoje.
+class VersaoRapidaHojeView(AcaoDeTela, OnboardingRequiredMixin, View):
+    """"Menos tempo hoje?" — pina a versão rápida no registro do dia (a mesma
+    escolha que a primeira série grava; `completo=1` desfaz) e anota UM
+    `EventoDeProduto` por pessoa e dia. A ação é só POST; o GET volta ao
+    painel (`config/acoes.py`)."""
 
-    Só a sessão de HOJE aceita: a ficha de outro dia não executa. Trocar de
-    opção DEPOIS da primeira série não acontece em silêncio: sem `confirmar`,
-    a pessoa volta à ficha com a pergunta explícita, e nada é apagado em
-    nenhum caminho — `ExerciseLog` é por exercício e data. Trocar só a
-    versão (completo ↔ rápido) nunca pede confirmação.
-    """
+    tela_da_acao = "workouts:routine"
 
     def post(self, request, *args, **kwargs):
-        sessao = get_object_or_404(
-            TrainingSession.objects.select_related("plan").prefetch_related("exercises__exercise"),
-            pk=kwargs["sessao_id"], plan__user=request.user, plan__is_active=True,
+        dia = timezone.localdate()
+        plan = services.get_active_routine(request.user)
+        sessao = services.sessao_do_dia(plan, dia)
+        if sessao is None:
+            messages.info(request, "Hoje não é dia de treino.")
+            return redirect("workouts:routine")
+        escolha = services.escolha_do_dia(request.user, dia)
+        opcao = services.opcao_do_dia(request.user, sessao, dia, escolha=escolha)
+        if request.POST.get("completo"):
+            services.registrar_escolha(request.user, sessao, opcao, versao=VersaoDoTreino.COMPLETO, dia=dia)
+            return redirect("workouts:routine")
+        services.registrar_escolha(request.user, sessao, opcao, versao=VersaoDoTreino.RAPIDO, dia=dia)
+        EventoDeProduto.objects.get_or_create(
+            user=request.user, nome=EventoDeProduto.VERSAO_RAPIDA, date=dia
         )
-        de_hoje = services.sessao_do_dia(sessao.plan, timezone.localdate())
-        if de_hoje is None or de_hoje.pk != sessao.pk:
-            raise Http404("a ficha de outro dia não executa")
-        try:
-            opcao = int(request.POST.get("opcao") or "1")
-        except ValueError:
-            raise Http404("opção ilegível")
-        if opcao not in sessao.opcoes:
-            raise Http404("opção não existe nesta letra")
-        versao = request.POST.get("versao") or "completo"
-        if versao not in ("completo", "rapido"):
-            versao = "completo"
-        atual = services.escolha_do_dia(request.user)
-        if atual is not None and atual.session_id == sessao.pk and atual.opcao != opcao:
-            feitas = services.series_registradas_hoje(request.user, sessao)
-            if feitas and request.POST.get("confirmar") != "1":
-                return redirect(
-                    "%s?trocar=%d&versao=%s" % (reverse("workouts:ficha", args=[sessao.pk]), opcao, versao)
-                )
-            if feitas:
-                messages.info(
-                    request,
-                    "Opção %d escolhida. As %d séries que você já registrou hoje continuam no histórico."
-                    % (opcao, feitas),
-                )
-        services.registrar_escolha(request.user, sessao, opcao, versao=versao)
-        return redirect("workouts:now")
+        return redirect("workouts:routine")
 
 
 class RecordLoadView(AcaoDeTela, OnboardingRequiredMixin, View):
@@ -1034,11 +1015,7 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
         item_de_hoje = None
         sessao_de_hoje = next((s for s in sessoes if s.weekday == hoje), None)
         if sessao_de_hoje is not None:
-            escolha = services.escolha_do_dia(user)
-            opcao = (
-                escolha.opcao if escolha is not None and escolha.session_id == sessao_de_hoje.pk
-                else services.opcao_recomendada(user, sessao_de_hoje)
-            )
+            opcao = services.opcao_do_dia(user, sessao_de_hoje, timezone.localdate(), sessoes)
             item_de_hoje = next(
                 (i for i in sessao_de_hoje.da_opcao(opcao) if i.exercise_id == exercicio.pk), None
             )
@@ -1196,13 +1173,6 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
         except services.ExercicioForaDaSessao:
             raise Http404("exercício não é do treino de hoje")
         estado = context["estado"]
-        if estado.precisa_escolher:
-            # Duas versões e nenhuma escolhida ainda: a execução abre a
-            # RECOMENDADA e diz isso, com a porta para trocar na ficha. Não
-            # redireciona: a Home, o demo e um link antigo chegam aqui
-            # direto, e uma tela que expulsa é pior que uma que explica. A
-            # primeira série grava a escolha (`_garantir_escolha`).
-            context["escolher_na_ficha"] = reverse("workouts:ficha", args=[estado.sessao.pk])
         # `?extra=1` reabre o formulário num exercício já concluído — a série
         # a mais, que `append_set` sempre aceitou (até 20). LISTA FECHADA,
         # como `?exercicio=`: valor desconhecido é 404, e não "ignora e abre

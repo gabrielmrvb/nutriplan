@@ -120,7 +120,13 @@ def resumo_da_sessao(user, dia=None, sessao=None, escolha=NAO_INFORMADA) -> Resu
             from .services import escolha_do_dia
 
             escolha = escolha_do_dia(user, dia)
-        opcao = escolha.opcao if escolha and escolha.session_id == sessao.pk else 1
+        # A opção do dia (ficha única): a pinada, senão a variação do ciclo —
+        # o painel já a calculou em `preparar_dia` (`opcao_do_dia`).
+        opcao = getattr(sessao, "opcao_do_dia", None)
+        if opcao is None:
+            from .services import opcao_do_dia
+
+            opcao = opcao_do_dia(user, sessao, dia, escolha=escolha)
         # Em Python sobre o prefetch, e não `.filter(opcao=...)`: o filtro
         # abre consulta nova mesmo com `exercises` já carregado.
         linhas = list(sessao.exercises.all())
