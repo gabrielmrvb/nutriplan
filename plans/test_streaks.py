@@ -7,7 +7,7 @@ transforma o app numa fonte de culpa e a pessoa desinstala.
 
 Quase todo teste aqui é sobre o que a ofensiva NÃO deve cobrar.
 """
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.core.management import call_command
@@ -220,6 +220,30 @@ class StreakRuleTests(TestCase):
 
         self.assertEqual(ofensiva.dias, 1)
         self.assertGreaterEqual(ofensiva.recorde, 5)
+
+    def test_a_corrida_cumpre_o_dia_previsto(self):
+        """Dia de musculação em que a pessoa só correu: moveu-se, a ofensiva segue."""
+        from workouts.models import Corrida
+
+        dia = self.hoje  # segunda-feira: dia de treino previsto (0, 2, 4)
+        inicio = timezone.make_aware(datetime.combine(dia, time(7, 0)))
+        Corrida.objects.create(
+            user=self.user,
+            op_id="c1",
+            origem="manual",
+            comecou_em=inicio,
+            terminou_em=inicio + timedelta(minutes=30),
+            distancia_m=5000,
+            duracao_s=1800,
+        )
+        self._comer(dia)
+        self._beber(dia)
+        # Nenhum ExerciseLog registrado, de propósito.
+
+        ofensiva = self._calcular()
+
+        self.assertTrue(ofensiva.hoje_completo)
+        self.assertNotIn("treino", ofensiva.falta_hoje)
 
 
 class HydrationTests(TestCase):
