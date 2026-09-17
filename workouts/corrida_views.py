@@ -11,15 +11,22 @@ seria transportar o traçado inteiro por rede e por log de acesso para obter um
 número que o aparelho já tem. O que sobe é o resultado.
 """
 import json
+import uuid
 
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views import View
 from django.views.generic import ListView
 
+from accounts.views import OnboardingRequiredMixin
+
 from .models import Corrida
+from .templatetags.corrida import relogio as _relogio
 
 #: Uma corrida de doze horas é erro de quem esqueceu de encerrar, não um
 #: ultramaratonista — e mesmo que fosse, o registro dela não é confiável numa
@@ -185,3 +192,68 @@ class SalvarCorridaView(LoginRequiredMixin, View):
         if len(parciais) > PARCIAIS_MAXIMAS:
             return "parciais demais"
         return None
+
+
+class CorridaNovaView(OnboardingRequiredMixin, View):
+    """GET: formulário com `op_id` escondido; POST: cria. Duplo toque = uma corrida."""
+    template_name = "workouts/corrida_form.html"
+
+    def get(self, request):
+        from .forms_corrida import CorridaManualForm
+        form = CorridaManualForm(initial={"data": timezone.localdate()})
+        return render(request, self.template_name, {"form": form, "op_id": uuid.uuid4().hex, "titulo": "Registrar corrida", "nav": "running"})
+
+    def post(self, request):
+        from .forms_corrida import CorridaManualForm
+        form = CorridaManualForm(request.POST)
+        op_id = (request.POST.get("op_id") or "")[:64]
+        if not form.is_valid() or not op_id:
+            return render(request, self.template_name, {"form": form, "op_id": op_id or uuid.uuid4().hex, "titulo": "Registrar corrida", "nav": "running"}, status=200)
+        corrida = form.preencher(Corrida(user=request.user, op_id=op_id))
+        try:
+            with transaction.atomic():
+                corrida.save()
+        except IntegrityError:
+            pass  # o mesmo op_id já entrou — é o duplo toque
+        messages.success(request, "Corrida registrada.")
+        return redirect("workouts:corridas")
+
+
+class CorridaEditarView(OnboardingRequiredMixin, View):
+    """Só a corrida à mão se edita: o traço do GPS contradiria os números."""
+    template_name = "workouts/corrida_form.html"
+
+    def _corrida(self, request, pk):
+        return get_object_or_404(Corrida, pk=pk, user=request.user, origem=Corrida.Origem.MANUAL)
+
+    def get(self, request, pk):
+        from .forms_corrida import CorridaManualForm
+        c = self._corrida(request, pk)
+        form = CorridaManualForm(initial={"distancia_km": ("%.2f" % (c.distancia_m / 1000)).replace(".", ","), "tempo": _relogio(c.duracao_s), "data": timezone.localdate(c.comecou_em), "sensacao": c.sensacao})
+        return render(request, self.template_name, {"form": form, "titulo": "Editar corrida", "corrida": c, "nav": "running"})
+
+    def post(self, request, pk):
+        from .forms_corrida import CorridaManualForm
+        c = self._corrida(request, pk)
+        form = CorridaManualForm(request.POST)
+        if not form.is_valid():
+            return render(request, self.template_name, {"form": form, "titulo": "Editar corrida", "corrida": c, "nav": "running"})
+        form.preencher(c).save()
+        messages.success(request, "Corrida atualizada.")
+        return redirect("workouts:corridas")
+
+
+class CorridaExcluirView(OnboardingRequiredMixin, View):
+    """Exclusão em duas etapas, como `ExcluirContaView`: GET confirma, POST apaga.
+
+    Vale para GPS e para manual — a edição é que é exclusiva da corrida à mão.
+    """
+
+    def get(self, request, pk):
+        c = get_object_or_404(Corrida, pk=pk, user=request.user)
+        return render(request, "workouts/corrida_excluir.html", {"corrida": c, "nav": "running"})
+
+    def post(self, request, pk):
+        get_object_or_404(Corrida, pk=pk, user=request.user).delete()
+        messages.success(request, "Corrida excluída.")
+        return redirect("workouts:corridas")

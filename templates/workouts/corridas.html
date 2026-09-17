@@ -63,6 +63,8 @@
     </div>
   </section>
 
+  <a class="btn btn--ghost btn--block" href="{% url 'workouts:corrida_nova' %}">Registrar corrida à mão</a>
+
   <section class="card">
     <div class="card__head"><h2>Suas corridas</h2></div>
     {% if corridas %}
@@ -73,6 +75,12 @@
               {{ corrida.comecou_em|date:"d/m/Y" }}
               {% if corrida.teve_lacuna %}
                 <span class="corrida-lacuna">com trecho não registrado</span>
+              {% endif %}
+              {% if corrida.origem == "manual" %}
+                <span class="corrida__origem">à mão</span>
+              {% endif %}
+              {% if corrida.sensacao %}
+                <span class="corrida__sensacao">{{ corrida.get_sensacao_display }}</span>
               {% endif %}
             </dt>
             {% comment %}
@@ -89,6 +97,18 @@
                 {{ corrida.duracao_s|relogio }} em movimento ·
                 {{ corrida|pace }} min/km
               </span>
+              {% comment %}
+                Editar só existe para a corrida à mão — o traço do GPS
+                contradiria os números (ver `Corrida.origem`). Excluir vale
+                para as duas. `.btn-link` já dá o alvo de 44px; é o mesmo
+                componente do resto do app.
+              {% endcomment %}
+              <span class="corrida__acoes">
+                {% if corrida.origem == "manual" %}
+                  <a class="btn-link" href="{% url 'workouts:corrida_editar' corrida.pk %}">editar</a>
+                {% endif %}
+                <a class="btn-link" href="{% url 'workouts:corrida_excluir' corrida.pk %}">excluir</a>
+              </span>
             </dd>
           </div>
         {% endfor %}
@@ -101,7 +121,7 @@
       {% endif %}
     {% else %}
       <p class="empty-state">
-        Nenhuma corrida ainda. A primeira aparece aqui assim que você encerrar.
+        Nenhuma corrida ainda. Comece pelo GPS ou registre uma à mão.
       </p>
     {% endif %}
   </section>

@@ -1316,6 +1316,21 @@ class Corrida(models.Model):
 
     criada_em = models.DateTimeField(auto_now_add=True)
 
+    class Origem(models.TextChoices):
+        GPS = "gps", "GPS"
+        MANUAL = "manual", "à mão"
+
+    class Sensacao(models.TextChoices):
+        LEVE = "leve", "leve"
+        NORMAL = "normal", "normal"
+        PESADA = "pesada", "pesada"
+
+    #: De onde veio o número. O GPS traz parciais e traço; o registro à mão traz
+    #: só distância e tempo — e por isso só ele se edita (BENCHMARK-2026-09, d).
+    origem = models.CharField(max_length=8, choices=Origem.choices, default=Origem.GPS)
+    #: Como foi. Vazio para o GPS (a tela do GPS não pergunta — ainda).
+    sensacao = models.CharField(max_length=8, choices=Sensacao.choices, blank=True, default="")
+
     class Meta:
         verbose_name = "corrida"
         verbose_name_plural = "corridas"

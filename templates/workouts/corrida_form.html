@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }} · NutriPlan{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>{{ titulo }}</h1>
+  </div>
+
+  <section class="card">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if op_id %}<input type="hidden" name="op_id" value="{{ op_id }}">{% endif %}
+      {% if form.non_field_errors %}
+        <ul class="field__errors">
+          {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+      {% include "partials/field.html" with field=form.distancia_km %}
+      {% include "partials/field.html" with field=form.tempo %}
+      {% include "partials/field.html" with field=form.data %}
+      {% include "partials/field.html" with field=form.sensacao %}
+      <div class="stack">
+        <button type="submit" class="btn btn--primary btn--block">Salvar corrida</button>
+        <a class="btn btn--ghost btn--block" href="{% url 'workouts:corridas' %}">Cancelar</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

@@ -7857,6 +7857,27 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   font-weight: 500;
 }
 
+/* "à mão" e a sensação: mesmo tamanho e peso de `.corrida-lacuna`, mas sem a
+   cor de alerta — não são aviso, são informação sobre a origem do número. */
+.corrida__origem,
+.corrida__sensacao {
+  display: inline-block;
+  margin-left: .4rem;
+  color: var(--text-mute);
+  font-family: var(--font);
+  font-size: .72rem;
+  font-weight: 600;
+}
+
+/* Editar/excluir ficam junto do valor, à direita — mesma coluna que já
+   existe na `.data-list`. `.btn-link` já garante 44px; aqui só o
+   espaçamento entre os dois quando ambos aparecem. */
+.corrida__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: .2rem;
+}
+
 /* .72rem e nao .68rem: o piso de texto de interface deste projeto e 11px, e
    .68rem da 10,88px. O teste mede, e mediu — a regra existe porque letra
    menor que isso some numa tela ao sol, e a tela de progresso e aberta na
