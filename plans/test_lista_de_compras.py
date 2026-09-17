@@ -83,8 +83,16 @@ class AConversaoParaFormaDeCompraTests(SimpleTestCase):
         self.assertEqual(texto, "1 lata")
 
     def test_quem_se_vende_por_PESO_continua_em_peso(self):
-        """A conversão é a exceção, não a regra."""
-        texto, aproximado = compra.converter("Tomate", Decimal("850"), "g")
+        """A conversão é a exceção, não a regra.
+
+        "Tomate" costumava ser o exemplo aqui — até a tarefa 3 da missão de
+        mercado dar a ele forma de compra por unidade (`POR_UNIDADE`), porque
+        é assim que se compra tomate. O nome abaixo é inventado de propósito
+        (mesmo padrão de `test_lista_nome_e_quantidade.py`, que já usa
+        "Batata-doce"): precisa ser um alimento que NÃO está em tabela
+        nenhuma, e todo alimento real de receita ativa agora está em alguma.
+        """
+        texto, aproximado = compra.converter("Farinha de trigo", Decimal("850"), "g")
 
         self.assertEqual(texto, "850 g")
         self.assertFalse(aproximado)

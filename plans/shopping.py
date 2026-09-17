@@ -203,7 +203,7 @@ def shopping_list(plan, label=None, inicio=None) -> list:
         # esta função continua fazendo é a lista; o que se compra é outra
         # pergunta.
         texto, aproximado = compra.converter(
-            food.name, arredondado, food.base_unit
+            food.name, arredondado, food.base_unit, food=food
         )
         por_corredor.setdefault(food.aisle, []).append(
             {
