@@ -60,6 +60,77 @@
 
       </section>
 
+  {% if original %}
+    {% comment %}
+      NO LUGAR DE OUTRO ("outras formas", 17/09/2026). Este exercício está
+      na ficha porque a pessoa o pôs no lugar de `original`: a dose é a do
+      original (a troca não mexe em série, faixa nem descanso), o histórico
+      do original continua aqui embaixo — trocar não apaga o que foi feito —
+      e "voltar ao original" é um POST idempotente (`desfazer=1`).
+    {% endcomment %}
+    <section class="card troca">
+      <div class="card__head"><h2>No lugar de {{ original.name }}</h2></div>
+      <p class="hint">Você trocou {{ original.name }} por este. Séries e descanso continuam os mesmos; o que você registrou em {{ original.name }} fica guardado.</p>
+      {% if historico_do_original %}
+        <dl class="data-list historico">
+          {% for sessao in historico_do_original|slice:":4" %}
+            <div>
+              <dt class="num">{{ sessao.data|date:"d/m" }}</dt>
+              <dd class="num">{% if not original.sem_carga %}{{ sessao.carga|floatformat:'-2' }} × {% endif %}{{ sessao.reps|join:", " }}</dd>
+            </div>
+          {% endfor %}
+        </dl>
+      {% endif %}
+      <form method="post" action="{% url 'workouts:trocar' %}" class="troca__desfazer">
+        {% csrf_token %}
+        <input type="hidden" name="original" value="{{ original.pk }}">
+        <input type="hidden" name="desfazer" value="1">
+        {% if volta_query %}<input type="hidden" name="de" value="{{ request.GET.de }}"><input type="hidden" name="sessao" value="{{ request.GET.sessao }}">{% endif %}
+        <button type="submit" class="btn btn--ghost btn--block">Voltar ao original</button>
+      </form>
+    </section>
+  {% endif %}
+  {% comment %}
+    OUTRAS FORMAS — a interação principal da ficha desde 17/09/2026. A pessoa
+    não escolhe mais entre opção 1 e 2; escolhe COMO fazer cada movimento:
+    as alternativas do mesmo padrão (`Exercise.padrao`) e grupo, dentro do
+    que ela tem para treinar (`Profile.equipamento`), fora do que já está na
+    sessão — com a foto (os dois quadros da free-exercise-db, o primeiro) e
+    o nome. "Trocar" é um POST de estado absoluto: fica na ficha da pessoa,
+    em toda letra e semana em que o exercício cai, até ela desfazer. A lista
+    mora AQUI, na leitura, e não na ficha: a ficha continua lista, não
+    painel (`_item_da_ficha.html` só anuncia "outras formas").
+  {% endcomment %}
+  <section class="card formas" id="outras-formas">
+    <div class="card__head"><h2>Outras formas</h2></div>
+    {% if alternativas %}
+      <ul class="formas__lista">
+        {% for alt in alternativas %}
+          <li class="forma">
+            {% if alt.has_frames %}
+              <img class="forma__foto" src="{{ alt.frames.0 }}" alt="" loading="lazy" width="96" height="72">
+            {% else %}
+              <span class="forma__foto forma__foto--vazia" aria-hidden="true"></span>
+            {% endif %}
+            <div class="forma__texto">
+              <span class="forma__nome">{{ alt.name }}</span>
+              <span class="forma__equipamento">{{ alt.get_equipment_display }}</span>
+            </div>
+            <form method="post" action="{% url 'workouts:trocar' %}">
+              {% csrf_token %}
+              <input type="hidden" name="original" value="{{ original_da_troca.pk }}">
+              <input type="hidden" name="substituto" value="{{ alt.pk }}">
+              {% if volta_query %}<input type="hidden" name="de" value="{{ request.GET.de }}"><input type="hidden" name="sessao" value="{{ request.GET.sessao }}">{% endif %}
+              <button type="submit" class="btn btn--ghost forma__trocar" aria-label="Trocar por {{ alt.name }}">Trocar</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="hint">Mesmo movimento, com o que você tem para treinar. A troca fica na sua ficha até você desfazer; séries e descanso não mudam.</p>
+    {% else %}
+      <p class="hint">Sem outra forma deste movimento no seu equipamento. Mudar o equipamento no Perfil abre mais opções.</p>
+    {% endif %}
+  </section>
   <section class="card">
     <div class="card__head"><h2>Como fui</h2></div>
     {% comment %}

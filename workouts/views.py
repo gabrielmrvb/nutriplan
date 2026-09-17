@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
+from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -21,7 +22,7 @@ from accounts.views import OnboardingRequiredMixin
 from achievements import services as conquistas
 
 from . import curva as _curva
-from . import health_export, services
+from . import doutrina, health_export, services
 from .models import (
     EventoDeProduto,
     VersaoDoTreino,
@@ -116,6 +117,9 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
         linhas = list(
             plan.sessions.prefetch_related("exercises__exercise")
         )
+        # "Outras formas": as trocas da pessoa vestem as linhas antes de
+        # qualquer contagem — a série feita no substituto conta no painel.
+        services.aplicar_trocas(user, linhas)
         # A SEMANA VISTA PELA POSIÇÃO NO CICLO (17/09/2026): com a rotação
         # contínua a letra de cada dia muda de semana para semana, e o que o
         # painel desenha é a semana de HOJE — cada dia de treino vestindo a
@@ -540,6 +544,9 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
 
         hoje_data = timezone.localdate()
         linhas = list(sessao.plan.sessions.prefetch_related("exercises__exercise"))
+        # A sessão pedida e as linhas são objetos distintos (duas consultas):
+        # as trocas vestem os dois, para a lista e a contagem concordarem.
+        services.aplicar_trocas(user, [sessao, *linhas])
         # COM A ROTAÇÃO, A LINHA DA LETRA VESTE O DIA DE HOJE ANTES DO
         # HISTÓRICO (17/09/2026). `anexar_historico` só aplica o balde "hoje"
         # à sessão cujo `weekday` é o de hoje — e a linha da letra guarda o
@@ -640,6 +647,10 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             item.fora_da_rapida = item.exercise_id not in rapida_series
         # O selo "Principal": o primeiro composto de cada grupo anunciado.
         services.marcar_quem_abre_o_grupo(itens, sessao.main_groups)
+        # "outras formas" na linha, só quando a porta leva a alguma (uma consulta).
+        services.contar_outras_formas(
+            user, itens, permitidos=doutrina.equipamentos_de(self.perfil_do_dispatch.equipamento),
+        )
         equipamentos = sorted({
             item.exercise.get_equipment_display()
             for item in itens if getattr(item.exercise, "equipment", "")
@@ -666,6 +677,41 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             "versao": versao,
             "rapida": versao == "rapido",
         }
+
+
+class TrocarExercicioView(AcaoDeTela, OnboardingRequiredMixin, View):
+    """"Outras formas": troca `original` por `substituto` na ficha da pessoa
+    (`services.registrar_troca`), ou desfaz (`desfazer=1`). Estado
+    absoluto, sem `op_id`: repetir o pedido não muda nada. Volta para a
+    leitura do exercício que ficou na ficha, com a mesma volta (`?de=`)."""
+
+    tela_da_acao = "workouts:routine"
+
+    def post(self, request, *args, **kwargs):
+        try:
+            original = Exercise.objects.get(pk=int(request.POST.get("original") or ""), is_active=True)
+        except (TypeError, ValueError, Exercise.DoesNotExist):
+            raise Http404("exercício ilegível")
+        de = request.POST.get("de") if request.POST.get("de") in ExercicioView.ORIGENS else None
+        sessao = request.POST.get("sessao") if (request.POST.get("sessao") or "").isdigit() else None
+        query = ""
+        if de:
+            query = "?de=%s" % de + ("&sessao=%s" % sessao if de == "ficha" and sessao else "")
+        if request.POST.get("desfazer"):
+            if services.desfazer_troca(request.user, original):
+                messages.success(request, "De volta ao original: %s." % original.name)
+            return redirect(reverse("workouts:exercicio", args=[original.pk]) + query)
+        try:
+            substituto = Exercise.objects.get(pk=int(request.POST.get("substituto") or ""), is_active=True)
+        except (TypeError, ValueError, Exercise.DoesNotExist):
+            raise Http404("exercício ilegível")
+        try:
+            services.registrar_troca(request.user, original, substituto)
+        except services.TrocaInvalida as erro:
+            messages.error(request, str(erro))
+            return redirect(reverse("workouts:exercicio", args=[original.pk]) + query)
+        messages.success(request, "Trocado: %s no lugar de %s. Séries e descanso continuam os mesmos." % (substituto.name, original.name))
+        return redirect(reverse("workouts:exercicio", args=[substituto.pk]) + query)
 
 
 class VersaoRapidaHojeView(AcaoDeTela, OnboardingRequiredMixin, View):
@@ -983,18 +1029,24 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
         plano = services.get_active_routine(user)
         if plano is None:
             raise Http404("sem ficha")
+        # O exercício da ficha — ou o SUBSTITUTO que a pessoa pôs no lugar de
+        # um deles ("outras formas"): a linha da ficha aponta para ele.
         exercicio = get_object_or_404(
             Exercise.objects.filter(
-                sessions__session__plan=plano, is_active=True
+                Q(sessions__session__plan=plano)
+                | Q(trocas_como_substituto__user=user, trocas_como_substituto__original__sessions__session__plan=plano),
+                is_active=True,
             ).distinct(),
             pk=kwargs["exercise_id"],
         )
         # As ocorrências na semana, com a letra que a ficha mostra (A1/A2) —
         # a semana de HOJE pela posição no ciclo, na ordem dos dias.
+        # `exercises` sem `__exercise`: a leitura só precisa dos ids das
+        # linhas; `aplicar_trocas` busca o exercício só das linhas trocadas.
+        linhas = list(plano.sessions.prefetch_related("exercises"))
+        services.aplicar_trocas(user, linhas)
         sessoes = sorted(
-            services.sessoes_da_semana(
-                plano, timezone.localdate(), list(plano.sessions.prefetch_related("exercises"))
-            ),
+            services.sessoes_da_semana(plano, timezone.localdate(), linhas),
             key=lambda s: s.weekday,
         )
         nomear_ocorrencias(sessoes)
@@ -1028,10 +1080,47 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
                 user=user, exercise=exercicio, date=timezone.localdate()
             ).count()
         historico = services.historico_do_exercicio(user, exercicio)
+        # "OUTRAS FORMAS": as alternativas do mesmo padrão no equipamento da
+        # pessoa, fora do que já está nas sessões em que ele cai; e, se este
+        # exercício está no lugar de outro, o original com o histórico dele.
+        # Varre TODAS as linhas, e não só a primeira por sessão: o substituto
+        # pode ser também uma linha crua da outra opção da mesma letra (a
+        # flexão da opção 1 posta no lugar do supino da opção 2), e a linha
+        # crua vinha primeiro — a leitura perdia o "No lugar de" (ensaio da
+        # prova em produção, 17/09).
+        original = next(
+            (
+                i.original for sessao in sessoes for i in sessao.exercises.all()
+                if i.exercise_id == exercicio.pk and getattr(i, "original", None) is not None
+            ),
+            None,
+        )
+        # Fora do que já está na MESMA LISTA (sessão + opção): duplicata só é
+        # problema dentro do mesmo treino; a outra opção é outro dia. É a
+        # mesma régua de `contar_outras_formas` na ficha — a linha anuncia
+        # "outras formas" e a leitura lista as mesmas (achado do QA de 17/09).
+        listas = {
+            (i.session_id, i.opcao)
+            for sessao in sessoes for i in sessao.exercises.all() if i.exercise_id == exercicio.pk
+        }
+        na_sessao = {
+            i.exercise_id
+            for sessao in sessoes for i in sessao.exercises.all() if (i.session_id, i.opcao) in listas
+        }
         context.update({
             "nav": "workout",
             "exercicio": exercicio,
             "historico": historico,
+            "original": original,
+            "historico_do_original": services.historico_do_exercicio(user, original) if original is not None else [],
+            # O perfil do `dispatch` poupa a consulta do perfil.
+            "alternativas": services.alternativas_de(
+                user, exercicio, na_sessao, permitidos=doutrina.equipamentos_de(self.perfil_do_dispatch.equipamento),
+            ),
+            # O `original` do formulário: quem já está no lugar de outro
+            # troca DE NOVO a partir do original (estado absoluto).
+            "original_da_troca": original if original is not None else exercicio,
+            "volta_query": self._volta_query(),
             # `historico` vem do mais RECENTE ao mais antigo (é assim que a
             # lista "Como fui" quer ler); a curva precisa do sentido contrário
             # — `reversed()`, não uma segunda consulta. Exercício sem carga não
@@ -1052,6 +1141,19 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
 
     #: De onde a pessoa pode ter vindo. LISTA FECHADA, como `?exercicio=`.
     ORIGENS = ("ficha", "agora", "painel")
+
+    def _volta_query(self) -> str:
+        """`?de=...&sessao=...` para o formulário de troca devolver a pessoa
+        à MESMA leitura com a mesma volta — só valores que `_de_onde_veio`
+        já aceitou; nada é montado a partir do pedido cru."""
+        de = self.request.GET.get("de")
+        if de not in self.ORIGENS:
+            return ""
+        partes = ["de=%s" % de]
+        sessao = self.request.GET.get("sessao")
+        if de == "ficha" and sessao and sessao.isdigit():
+            partes.append("sessao=%s" % sessao)
+        return "?" + "&".join(partes)
 
     def _de_onde_veio(self, exercicio, itens):
         """A volta certa: para a ficha de onde veio, para a execução, ou o painel.

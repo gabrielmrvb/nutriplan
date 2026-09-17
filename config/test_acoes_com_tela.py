@@ -98,6 +98,7 @@ class TodaAcaoDevolveUmaTelaTests(TestCase):
         "/treino/aviso/dispensar/": "/",
         # "Menos tempo hoje?" mora no painel (17/09/2026).
         "/treino/hoje/rapida/": "/treino/",
+    "/treino/trocar/": "/treino/",
     }
 
     def setUp(self):

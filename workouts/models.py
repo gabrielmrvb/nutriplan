@@ -1190,6 +1190,46 @@ class EventoDeProduto(models.Model):
         return "%s · %s" % (self.nome, self.date)
 
 
+class TrocaDeExercicio(models.Model):
+    """"Outras formas" (17/09/2026): a pessoa trocou UM exercício da ficha
+    por outro do mesmo padrão e grupo, dentro do que ela tem para treinar.
+
+    É customização POR EXERCÍCIO — vale em toda letra, toda semana e toda
+    opção em que `original` apareça —, e NÃO toca em `SessionExercise` nem
+    em `customized_at`: a ficha continua retrato, a rotação continua, e
+    `rotina_invalida`/`_prescricao_bate` não enxergam a troca. A aplicação é
+    em memória (`services.aplicar_trocas`): o item passa a apontar para o
+    substituto com a MESMA dose (séries, faixa, descanso), então trocar não
+    altera séries nem volume da sessão. `ExerciseLog` grava no exercício
+    FEITO (o substituto); a leitura mostra "no lugar de <original>" com o
+    histórico do original ao lado. Estado absoluto, uma por (pessoa,
+    original): trocar de novo atualiza, desfazer apaga.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="trocas_de_exercicio",
+        verbose_name="usuário",
+    )
+    original = models.ForeignKey(
+        Exercise, on_delete=models.CASCADE, related_name="trocas_como_original", verbose_name="original",
+    )
+    substituto = models.ForeignKey(
+        Exercise, on_delete=models.CASCADE, related_name="trocas_como_substituto", verbose_name="substituto",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "troca de exercício"
+        verbose_name_plural = "trocas de exercício"
+        constraints = [
+            models.UniqueConstraint(fields=("user", "original"), name="uma_troca_por_exercicio_e_pessoa"),
+            models.CheckConstraint(condition=~models.Q(original=models.F("substituto")), name="troca_muda_de_exercicio"),
+        ]
+
+    def __str__(self):
+        return "%s → %s" % (self.original_id, self.substituto_id)
+
+
 class EscolhaDeTreino(models.Model):
     """Qual opção (e qual versão) a pessoa fez num dia.
 
