@@ -4,6 +4,7 @@ Configuracao do projeto NutriPlan.
 Toda configuracao sensivel ou que muda entre ambientes vem do arquivo .env
 (veja .env.example). Nada de senha hardcoded aqui.
 """
+import mimetypes
 from pathlib import Path
 
 from config import observabilidade
@@ -377,6 +378,11 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+# O Windows não registra `.woff2` no mapa de tipos, e o servidor de
+# desenvolvimento do Django lê esse mapa: as duas fontes (T3.2) saíam como
+# `application/octet-stream` em local. Em produção o whitenoise tem o mapa
+# próprio e serve `font/woff2`; esta linha só iguala o local à produção.
+mimetypes.add_type("font/woff2", ".woff2")
 STATIC_ROOT = BASE_DIR / "staticfiles"
 def staticfiles_backend(debug: bool) -> str:
     """Qual storage de estáticos usar.

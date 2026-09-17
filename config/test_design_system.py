@@ -80,7 +80,9 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: (`.ficha-item`) nasceu inteira na escala de tokens.
 #: 119 em 15/09/2026: `.anatomia__botao { font-size: .84rem }` saiu com o
 #: segundo player da execução (um player por página; músculos como texto).
-TETO_FONT_SIZE_CRU = 119
+#: 117 em 16/09/2026 (T3.2, a fonte própria): o `h1` passou a `--texto-2xl`
+#: (era `2.5rem`, e `1.9rem` no desktop — o título nunca passa de 28).
+TETO_FONT_SIZE_CRU = 117
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
@@ -331,9 +333,10 @@ class NumeroDeMetricaNaoQuebraNoMeioTests(SimpleTestCase):
 
         self.assertIsNotNone(corpo)
         self.assertIn("font-variant-numeric: tabular-nums", corpo)
-        # 750 desde 16/09/2026: é o peso do número em todo tile (`.tile__value`,
-        # `.balance__value`, `.agua__valor b`); 760 era um degrau só destes dois.
-        self.assertIn("font-weight: 750", corpo)
+        # 700 desde a CORTE (T3.2, 16/09/2026): o peso do número herói em Bodoni,
+        # em todo tile. Foi 760 (um degrau só destes dois) e 750 (o de todo
+        # tile) até a fonte própria reduzir o arquivo a quatro pesos.
+        self.assertIn("font-weight: 700", corpo)
 
         self.assertIsNone(
             self._regra(".seletor-que-nao-existe-em-lugar-nenhum"),

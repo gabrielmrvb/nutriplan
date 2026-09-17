@@ -166,6 +166,14 @@ class ServiceWorkerView(TemplateView):
                     asset("js/fila.js"),
                     static("icons/icon-192.png"),
                     static("icons/icon-512.png"),
+                    # As duas fontes (CORTE, T3.2): entram pelo `static()` como
+                    # os ícones — em produção o manifesto de estáticos já põe o
+                    # hash no NOME do arquivo (e reescreve o `url()` do CSS
+                    # para ele), então a URL é imutável sem `?v=`. Pré-cacheadas
+                    # para o `font-display: swap` só trocar de fonte na
+                    # primeira visita, nunca a cada abertura sem rede.
+                    static("fonts/bodoni-moda-latin.woff2"),
+                    static("fonts/karla-latin.woff2"),
                 ],
             }
         )
