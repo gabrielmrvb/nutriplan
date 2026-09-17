@@ -32,7 +32,7 @@ GATE = 260 * 1024
 #: Tamanhos que valem como herói para a display (≥ 20 px). `1.42rem` é o
 #: nome da refeição/do exercício (22,7 px) e `1.6rem` o número do anel na
 #: tela de 22rem (25,6 px) — valores crus que já existiam.
-TAMANHOS_DE_HEROI = ("var(--texto-xl)", "var(--texto-2xl)", "var(--texto-3xl)", "var(--texto-display)", "1.42rem", "1.6rem", "min(var(--texto-2xl)")
+TAMANHOS_DE_HEROI = ("var(--texto-xl)", "var(--texto-2xl)", "var(--texto-3xl)", "var(--texto-heroi)", "var(--texto-display)", "1.42rem", "1.6rem", "min(var(--texto-2xl)")
 
 
 def _regras(css):
@@ -109,7 +109,7 @@ class OFontFaceTests(SimpleTestCase):
     def test_os_titulos_e_os_nomes_sao_display_em_caixa_alta(self):
         """A Big Shoulders é feita para caixa alta: título e nome vão em
         `uppercase` e 800; o número herói em 900."""
-        for sel in ("h1", ".hoje__nome", ".agora__titulo", ".agora__nome"):
+        for sel in ("h1", ".hoje__nome", ".agora__titulo", ".agora__nome", ".series__titulo"):
             with self.subTest(seletor=sel):
                 regras = [corpo for s, corpo in _regras(self.css) if s == sel]
                 self.assertTrue(any("var(--font-display)" in c for c in regras), f"{sel} não é display")
@@ -127,6 +127,17 @@ class OFontFaceTests(SimpleTestCase):
         self.assertTrue(regras)
         self.assertTrue(all("var(--font-display)" not in c for c in regras), ".pesagem__media voltou para a display")
         self.assertTrue(any("var(--font)" in c for c in regras))
+
+    def test_o_filho_pequeno_do_heroi_volta_para_a_fonte_de_texto(self):
+        """Herdar é o caminho que a régua das regras não vê: `.series__faixa`
+        ("6-10 reps", 12,8 px) mora DENTRO do "SÉRIE 2 DE 4" e herdava a
+        Big Shoulders — visto na captura da execução em 17/09/2026. Todo
+        filho pequeno de um herói declara a fonte de texto de volta."""
+        for sel in (".series__faixa",):
+            with self.subTest(seletor=sel):
+                regras = [corpo for s, corpo in _regras(self.css) if s == sel]
+                self.assertTrue(regras, f"{sel} sem regra")
+                self.assertTrue(any(re.search(r"font-family:\s*var\(--font\)", c) for c in regras), f"{sel} herda a display")
 
     def test_so_os_pesos_do_contrato(self):
         # Um valor só, seguido de `;`: o `100 900` do @font-face é faixa, não peso.
