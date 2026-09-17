@@ -1167,7 +1167,11 @@ h3 {
    sob a barra de cima) — no mockup da ficha a diagonal vem do rótulo para
    o alto do título, sem cruzar as letras. Sem `overflow: hidden`, que
    cortaria o anel de foco dos links de dentro. Decoração:
-   `pointer-events: none`, e nada depende dela para ser lido. */
+   `pointer-events: none`, e nada depende dela para ser lido. No prato ela
+   fica na FAIXA de respiro sob os macros: a 58 % da largura ela subia 55 px
+   e riscava "P 0/152" (captura de 17/09) — passar atrás de um número de
+   72 px é assinatura, passar atrás de um rótulo de 13 px é ruído. Com no
+   máximo 120 px (× sen 14° ≈ 29 px) ela cabe nos 32 px de respiro. */
 .page-head h1,
 .today-hero { position: relative; isolation: isolate; }
 .page-head h1::after,
@@ -1185,8 +1189,13 @@ h3 {
   pointer-events: none;
   opacity: .9;
 }
-.page-head h1::after { bottom: 100%; width: 32%; }
-.today-hero::after { width: 58%; bottom: var(--espaco-3); }
+.page-head h1::after { bottom: 100%; width: min(32%, 100px); }
+/* O título que tem o link de volta em cima ("← Treino", ficha e exercício)
+   abre o respiro que a nervura sobe: 100 px × sen 14° = 24 px, e o link
+   fica acima da régua em vez de riscado por ela (captura de 17/09). Sem o
+   teto de 100 px, a 1280 os 32 % subiam 34 px — e o link, a 390, 27. */
+.page-head > .btn-link + h1 { margin-top: var(--espaco-7); }
+.today-hero::after { width: min(30%, 120px); bottom: 0; }
 
 /* O cartão em que a pessoa está mexendo sobe um pouco. Só sombra e borda:
    mudar cor de fundo aqui faria a tela piscar a cada foco. */

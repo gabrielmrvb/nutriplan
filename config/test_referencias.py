@@ -1,17 +1,22 @@
 # -*- coding: utf-8 -*-
 """Imagem no repositório tem teto: as 14 MB de shots de 14/09 ficaram fora,
-e estas sete só entram porque cabem (≤ 250 KB cada, spec §8). São os mockups
-do Claude Design a 390 px, página inteira, no tema padrão (Ferro) — a
-referência visual da direção CORTE (`DIRECAO-ESCOLHIDA.md`), não a tela do
-app — e não trazem dado de conta real: nasceram de prompt, não de captura.
-As seis da direção C (Mesa & Ferro fiel) saíram em 16/09/2026 junto com ela."""
+e estas sete só entram porque cabem (≤ 250 KB cada, spec §8). Desde o veto
+de 17/09/2026 (NERVURA · ANDAIME) são CAPTURAS da NERVURA implementada — o
+app local com o demo (`joao@demo.local`) e um usuário de QA descartável para
+a execução e o placar —, a 390 px no tema padrão (Ferro), quantizadas a 96
+cores e cortadas a 1600 px de altura: a referência visual do sistema
+principal para o Claude Design (`scripts/montar_semente.py`) é o próprio
+app, porque a direção 1 do Claude Design só desenhou três telas
+(`referencias/direcoes/d1-*`). Sem dado de conta real. Até 17/09 eram os
+sete mockups da CORTE, nascidos de prompt; as seis da direção C (Mesa &
+Ferro fiel) saíram em 16/09/2026 junto com ela."""
 from pathlib import Path
 
 from django.conf import settings
 from django.test import SimpleTestCase
 
 PASTA = Path(settings.BASE_DIR) / "docs" / "briefs" / "design" / "referencias" / "claude-design"
-ESPERADAS = ("entrar-ferro", "hoje-ferro", "dieta-ferro", "ficha-ferro", "execucao-ferro", "progresso-ferro", "recompensa-ferro")
+ESPERADAS = ("entrar-ferro", "hoje-ferro", "hidratacao-ferro", "ficha-ferro", "execucao-ferro", "progresso-ferro", "recompensa-ferro")
 TETO = 250 * 1024
 
 

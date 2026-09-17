@@ -160,7 +160,17 @@ segue tendência porque é do logo.
 - o CTA inclinado é `clip-path` num pseudo-elemento, não no botão: o anel
   de foco e a área de toque continuam sendo o retângulo inteiro de 48 px;
 - as pontas dos triângulos e as réguas diagonais são decoração
-  (`aria-hidden`), nunca o único sinal de estado.
+  (`aria-hidden`), nunca o único sinal de estado;
+- a nervura passa ATRÁS de número de 72 px (o placar, como o 1.240 do
+  mockup) e nunca atrás de texto pequeno: no prato de Hoje ela fica na
+  faixa de respiro sob os macros (no máximo 120 px de largura, 29 px de
+  subida) — a 58 % ela riscava "P 0/152", visto na captura de 17/09 —, e no
+  título de tela ela sobe do canto superior esquerdo para o respiro acima,
+  com teto de 100 px (24 px de subida) e o título que tem "← voltar" em
+  cima abre esse respiro (`--espaco-7`) para o link não ser riscado;
+- a faixa de repetições dentro de "SÉRIE 2 DE 4" (12,8 px) volta para a
+  Archivo: herança é o caminho por onde a display desceria de 20 px sem
+  nenhuma regra dizer isso.
 
 ## O que a implementação teria de corrigir do mockup da CORTE (histórico)
 
