@@ -2,13 +2,18 @@
 """O cardápio da Home diz a medida caseira, e a grama fica entre parênteses."""
 from decimal import Decimal
 
+from django.core.management import call_command
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
-from catalog.models import FoodPortion, MealTemplate
+from accounts.models import ActivityLevel, Goal, Sex
+from catalog.models import FoodPortion, MealCategory, MealTemplate
 
+from . import meal_planner
+from .calculations import PlanInputs, calculate
+from .meal_planner import scale_for
 from .models import MealOption
 from .tests import CatalogFixture, create_complete_user
 
@@ -79,3 +84,63 @@ class AHomeMostraMedidaCaseiraTests(CatalogFixture, TestCase):
             "plans:today fez %d consultas (teto 40) — provável consulta "
             "dentro do laço de ingredient_list" % len(ctx.captured_queries),
         )
+
+
+# Homem, 82,5 kg, 1,78 m, 30 anos, rotina leve, 5 treinos, ganhando peso — o
+# perfil de maior meta calórica que a avaliação da missão usa (BULK puxa o
+# alvo do dia para cima, e é aí que a fome do café da manhã aperta mais).
+PERFIL_DE_AVALIACAO = PlanInputs(
+    sex=Sex.MALE,
+    weight_kg=Decimal("82.5"),
+    height_cm=178,
+    age_years=30,
+    activity_level=ActivityLevel.LIGHT,
+    goal=Goal.BULK,
+    session_minutes=(60, 60, 60, 60, 60),
+)
+
+
+class OCafeNaoEscalaAcimaDeUmEMeioTests(TestCase):
+    """"Aveia 116 g · Leite 462 ml" era a receita-base de 50 g/200 ml escalada 2,31×.
+
+    A base dos 15 cafés listados abaixo era pequena demais para o slot de 25 %
+    de uma dieta de 2.859 kcal (715 kcal — o perfil de maior meta que a
+    avaliação usa): `scale_for` batia no teto `MAX_SCALE` (2,5×) e virava
+    "aveia 116 g" — uma quantidade que não parece mais receita nenhuma. Subir
+    a base mantém a proporção e deixa o fator perto de 1: a receita continua
+    parecendo receita, e `MAX_SCALE` segue existindo para quem pede uma dieta
+    de verdade grande (3.500 kcal), não para tapar buraco de receita pequena.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def test_o_alvo_de_715_kcal_e_25_por_cento_da_meta_de_referencia(self):
+        # Documenta de onde vem o 715: não é um número solto no teste, é 25 %
+        # da meta calculada para o perfil de referência da avaliação.
+        resultado = calculate(PERFIL_DE_AVALIACAO)
+        self.assertEqual(resultado.target_kcal, 2859)
+        cafe = next(
+            blueprint for blueprint in meal_planner.DAY_BLUEPRINT
+            if blueprint.category == MealCategory.BREAKFAST
+        )
+        self.assertEqual(cafe.share, Decimal("0.25"))
+
+    def test_o_catalogo_semeado_tem_os_dezesseis_cafes_esperados(self):
+        # Guarda de verdade: sem isso, o teste abaixo passaria sozinho se
+        # alguém apagasse receita em vez de recalibrar — "zero café fora da
+        # faixa" também é verdade para "zero café cadastrado".
+        self.assertEqual(
+            MealTemplate.objects.filter(category=MealCategory.BREAKFAST, is_active=True).count(),
+            16,
+        )
+
+    def test_todo_cafe_fica_entre_0_7_e_1_5_no_perfil_de_referencia(self):
+        alvo = 715  # 25 % de 2.859 — o perfil da avaliação
+        fora = []
+        for template in MealTemplate.objects.filter(category=MealCategory.BREAKFAST, is_active=True):
+            fator = scale_for(template, alvo)
+            if not (Decimal("0.7") <= fator <= Decimal("1.5")):
+                fora.append((template.name, fator))
+        self.assertEqual(fora, [])

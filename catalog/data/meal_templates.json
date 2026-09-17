@@ -13,7 +13,7 @@
     "items": [
       [
         "Cuscuz de milho cozido",
-        150,
+        270,
         true
       ],
       [
@@ -23,7 +23,7 @@
       ],
       [
         "Amendoim torrado",
-        20,
+        30,
         true
       ]
     ],
@@ -43,12 +43,12 @@
     "items": [
       [
         "Cuscuz de milho cozido",
-        150,
+        300,
         true
       ],
       [
         "Proteína de soja texturizada (seca)",
-        25,
+        50,
         true
       ],
       [
@@ -83,7 +83,7 @@
     "items": [
       [
         "Cuscuz de milho cozido",
-        150,
+        450,
         true
       ],
       [
@@ -113,7 +113,7 @@
     "items": [
       [
         "Aveia em flocos",
-        60,
+        105,
         true
       ],
       [
@@ -141,12 +141,12 @@
     "items": [
       [
         "Aveia em flocos",
-        50,
+        90,
         true
       ],
       [
         "Leite desnatado",
-        200,
+        400,
         true
       ],
       [
@@ -179,7 +179,7 @@
       ],
       [
         "Pão francês",
-        50,
+        150,
         true
       ],
       [
@@ -202,17 +202,17 @@
     "items": [
       [
         "Pão de forma integral",
-        50,
+        75,
         true
       ],
       [
         "Queijo prato",
-        40,
+        60,
         true
       ],
       [
         "Leite integral",
-        150,
+        200,
         true
       ],
       [
@@ -235,17 +235,17 @@
     "items": [
       [
         "Pão de forma integral",
-        50,
+        75,
         true
       ],
       [
         "Requeijão cremoso",
-        30,
+        60,
         true
       ],
       [
         "Leite integral",
-        150,
+        250,
         true
       ],
       [
@@ -268,7 +268,7 @@
     "items": [
       [
         "Pão francês",
-        50,
+        100,
         true
       ],
       [
@@ -278,7 +278,7 @@
       ],
       [
         "Queijo muçarela",
-        30,
+        60,
         true
       ]
     ],
@@ -297,12 +297,12 @@
     "items": [
       [
         "Goma de tapioca hidratada",
-        60,
+        120,
         true
       ],
       [
         "Peito de frango grelhado",
-        80,
+        150,
         true
       ]
     ],
@@ -322,7 +322,7 @@
     "items": [
       [
         "Goma de tapioca hidratada",
-        60,
+        180,
         true
       ],
       [
@@ -346,7 +346,7 @@
     "items": [
       [
         "Goma de tapioca hidratada",
-        60,
+        150,
         true
       ],
       [
@@ -356,7 +356,7 @@
       ],
       [
         "Queijo muçarela",
-        30,
+        60,
         true
       ]
     ],
@@ -377,12 +377,12 @@
     "items": [
       [
         "Goma de tapioca hidratada",
-        60,
+        120,
         true
       ],
       [
         "Pasta de amendoim integral",
-        25,
+        40,
         true
       ],
       [
@@ -405,7 +405,7 @@
     "items": [
       [
         "Leite integral",
-        250,
+        450,
         true
       ],
       [
@@ -415,7 +415,7 @@
       ],
       [
         "Aveia em flocos",
-        30,
+        60,
         true
       ]
     ],
@@ -466,7 +466,7 @@
     "items": [
       [
         "Leite integral",
-        250,
+        450,
         true
       ],
       [
@@ -476,7 +476,7 @@
       ],
       [
         "Aveia em flocos",
-        30,
+        60,
         true
       ]
     ],
