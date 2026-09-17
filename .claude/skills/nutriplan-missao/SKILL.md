@@ -170,14 +170,16 @@ testes dirigidos → sabotagem → browser QA → suíte completa (local, opcion
 → `enfileirar` (a fila de merge mergeia) → deploy → /saude/ → smoke
 ```
 
-**Desde 17/09/2026 o gate é o CI e ninguém empurra em `main`** (ruleset:
-PR obrigatório para todo mundo, check verde, FILA DE MERGE por merge
-commit em lotes de dois). O PR se abre, espera e ENTRA NA FILA com
-`scripts/github.py` (`pr <branch> "<título>"`, `esperar <n>`,
-`enfileirar <n> --esperar`); ninguém chama `merge` — a fila recusa. Com
-mais de um PR verde, a fila os mergeia em ordem, cada um sobre o anterior,
-com a suíte rodando no grupo (`merge_group`); a branch não precisa estar
-atualizada à mão. O `pre-push` virou atalho (`config`, dourado, doutrina, gate
+**Desde 17/09/2026 o gate é o CI e ninguém empurra em `main`** (branch
+protection: PR obrigatório para todo mundo, check verde, `strict`). O PR
+se abre e ENTRA NA FILA LOCAL com `scripts/github.py` (`pr <branch>
+"<título>"` e depois `enfileirar <n>`, na árvore em que a branch está em
+HEAD); ninguém chama `merge` à mão — é o que cria a corrida do `strict`.
+A fila é desta máquina (`C:\Users\biel-\nutriplan-fila\`, uma senha por
+PR, ordem de chegada): a sessão da vez atualiza a branch com `main`,
+espera o check e mergeia; as outras esperam — ~30 min por PR. A fila do
+GitHub não existe em conta pessoal; o ruleset e o `merge_group` ficam
+prontos para o dia da organização. O `pre-push` virou atalho (`config`, dourado, doutrina, gate
 por letra, orçamentos) e `NUTRIPLAN_SUITE_COMPLETA=1` roda tudo localmente
 antes de abrir o PR, para quem quer a resposta antes dos 40 minutos de
 runner.
@@ -402,8 +404,8 @@ nas quatro condições; o que ficava de fora dela — "decisão arquitetural",
 
 **Padrões já decididos — não perguntar de novo:** superpowers em toda
 missão · TDD + sabotagem 100 % vermelha + revisão adversarial + suíte · o
-gate é o CI, fluxo branch → PR → FILA DE MERGE (`scripts/github.py
-enfileirar`; ruleset sem bypass, merge commit, lotes de dois) · deploy provado por `/saude/` + smoke + QA em produção com
+gate é o CI, fluxo branch → PR → FILA (`scripts/github.py enfileirar`: a
+fila local desta máquina; merge commit; `strict` intacto) · deploy provado por `/saude/` + smoke + QA em produção com
 conta descartável pelo signup público, conta apagada pela tela, demo
 intacto · `scripts/qa/nav.py` (CDP) para navegador, inclusive sites de
 terceiros na sessão logada do dono (Render, GitHub, claude.ai) · mídia de
