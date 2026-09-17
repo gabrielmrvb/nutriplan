@@ -21,13 +21,13 @@ O QUE ESTE MÓDULO NÃO FAZ: fingir precisão. Fator de cozimento varia com a
 repolho varia de pé para pé. Toda conversão aproximada é MARCADA, e a tela diz
 isso em uma linha — em vez de imprimir um número exato que ninguém mediu.
 
-**Mínimo de venda (avaliação de 16/09/2026, B16).** As três tabelas acima —
-cru, unidade, embalagem — não bastavam: 33 dos 50 alimentos de receita ativa
+**Mínimo de venda (avaliação de 16/09/2026, B16).** As tabelas de cru,
+encolhimento, unidade e embalagem não bastavam: 33 dos 50 alimentos de receita ativa
 saíam soltos em grama ou mililitro ("Repolho 40 g", "Azeite 20 ml", "Café
 coado 300 ml", "Couve refogada 250 g"). Nenhum se compra assim — o mercado tem
 um piso (a garrafa de azeite não vem em 20 ml) que a conta do cardápio não
 conhece. `MINIMO_DE_COMPRA` é esse piso, e `plans/test_lista_compravel.py` é a
-régua: todo alimento de receita ativa precisa terminar em ALGUMA das quatro
+régua: todo alimento de receita ativa precisa terminar em ALGUMA das cinco
 tabelas, e quem entrar sem forma de compra fica vermelho ali antes de chegar à
 tela de alguém.
 """
@@ -121,6 +121,9 @@ POR_UNIDADE = {
     # alimento, e o rótulo da lista (`shopping__name`) já mostra esse nome ao
     # lado — repeti-lo na quantidade é o MESMO bug que UX P1-03 mediu para
     # "Arroz branco cozido" (`test_lista_nome_e_quantidade.py`).
+    # 120 g aqui, 110 g na porção do catálogo ("1 unidade média"): quando
+    # `converter` recebe o `food`, a porção VENCE (ver `_porcao_padrao`), e é
+    # assim que a lista de compras a lê. Este 120 só responde sem `food`.
     "Tomate": (Decimal("120"), "unidade", "unidades"),
     "Cenoura crua": (Decimal("70"), "unidade", "unidades"),
     # Frios fatiados: a porção do catálogo JÁ é a fatia de servir, e é também
@@ -139,7 +142,10 @@ POR_UNIDADE = {
 EMBALAGEM = {
     "Atum em água (drenado)": (Decimal("120"), "lata", "latas"),
     "Atum em óleo (drenado)": (Decimal("120"), "lata", "latas"),
-    "Sardinha em óleo (drenada)": (Decimal("125"), "lata", "latas"),
+    # 84 g é o peso DRENADO — o mesmo da `FoodPortion` "1 lata drenada" e o
+    # que o nome do alimento diz. Era 125 (a lata cheia, com o óleo): a Home
+    # mostrava "2 latas drenadas (168 g)" e a lista comprava um terço a menos.
+    "Sardinha em óleo (drenada)": (Decimal("84"), "lata", "latas"),
     "Milho verde em conserva": (Decimal("170"), "lata", "latas"),
     "Pão de forma integral": (Decimal("500"), "pacote", "pacotes"),
     "Pão de forma": (Decimal("500"), "pacote", "pacotes"),
@@ -234,7 +240,7 @@ def converter(nome: str, quantidade: Decimal, unidade: str, food=None):
     sozinha, e é assim que os testes puros (`SimpleTestCase`, sem banco)
     continuam funcionando.
 
-    Alimento fora das quatro tabelas sai como entrou: quem se vende por peso
+    Alimento fora das cinco tabelas sai como entrou: quem se vende por peso
     continua em g ou kg, e é a maioria. A conversão é a exceção, não a regra.
     """
     from .shopping import humanize, round_up

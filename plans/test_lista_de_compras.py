@@ -63,12 +63,20 @@ class AConversaoParaFormaDeCompraTests(SimpleTestCase):
 
     def test_conserva_conta_pelo_conteudo_DRENADO(self):
         """A lista pede sardinha drenada, e é isso que a lata entrega. Comparar
-        com o peso bruto mandaria comprar lata a menos."""
+        com o peso bruto mandaria comprar lata a menos.
+
+        A lata de sardinha era 125 g aqui enquanto a `FoodPortion` dizia
+        "1 lata drenada" = 84 g — e o nome do alimento é "(drenada)". A Home
+        mostrava "2 latas drenadas (168 g)" e a lista mandava comprar um
+        terço a menos (450 g → "4 latas" = 500 g de peso bruto, 336 g
+        drenados). Revisão final da Fase 3: 125 → 84, peso DRENADO, igual à
+        porção. 450 g drenados são 5,36 latas — seis.
+        """
         texto, _ = compra.converter(
             "Sardinha em óleo (drenada)", Decimal("450"), "g"
         )
 
-        self.assertEqual(texto, "4 latas")
+        self.assertEqual(texto, "6 latas")
 
     def test_arredonda_a_embalagem_para_CIMA(self):
         """Faltar no meio da semana custa mais que sobrar."""
