@@ -229,7 +229,32 @@ class CorridaNovaView(OnboardingRequiredMixin, View):
             with transaction.atomic():
                 corrida.save()
         except IntegrityError:
-            pass  # o mesmo op_id já entrou — é o duplo toque
+            # I3 (avaliação de mercado, 17/09/2026): o `op_id` volta ESCONDIDO
+            # no formulário, e o bfcache do navegador restaura a página (com
+            # ele) quando a pessoa aperta Voltar — nada impede um SEGUNDO
+            # envio, com dados DIFERENTES, sob o mesmo `op_id` (a pessoa volta,
+            # corrige o campo e manda de novo sem notar que o identificador é
+            # o de antes). Tratar todo `IntegrityError` como duplo toque
+            # apagava esse segundo envio em silêncio — sucesso na tela, dado
+            # perdido no banco.
+            #
+            # A distinção: MESMOS três números (distância, duração, início) é
+            # o duplo toque de verdade — a MESMA corrida reenviada — e segue
+            # respondendo sucesso, como sempre. Números DIFERENTES sob o
+            # mesmo `op_id` é a colisão, e volta para o formulário com erro em
+            # vez de fingir que gravou.
+            existente = Corrida.objects.get(user=request.user, op_id=op_id)
+            mesma_corrida = (
+                existente.distancia_m == corrida.distancia_m
+                and existente.duracao_s == corrida.duracao_s
+                and existente.comecou_em == corrida.comecou_em
+            )
+            if not mesma_corrida:
+                form.add_error(
+                    None,
+                    "Esse envio já foi usado por outra corrida — recarregue a página e registre de novo.",
+                )
+                return render(request, self.template_name, {"form": form, "op_id": op_id, "titulo": "Registrar corrida", "nav": "running"}, status=200)
         messages.success(request, "Corrida registrada.")
         return redirect("workouts:corridas")
 

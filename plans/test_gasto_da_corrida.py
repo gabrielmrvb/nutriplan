@@ -71,8 +71,16 @@ class OGastoTests(TestCase):
         )
         self.assertEqual(depois["remaining_kcal"], antes + depois["gasto_corrida_kcal"])
 
+        # Âncora no NÚMERO calculado, não só na frase: "da corrida de hoje"
+        # sozinho passaria mesmo se o valor mostrado estivesse errado ou
+        # zerado — templates/plans/today.html escreve
+        # `+<b class="num">{{ summary.gasto_corrida_kcal }}</b> kcal da
+        # corrida de hoje`.
         html = self.client.get(reverse("plans:today")).content.decode()
-        self.assertIn("da corrida de hoje", html)
+        self.assertIn(
+            '+<b class="num">%d</b> kcal da corrida de hoje' % depois["gasto_corrida_kcal"],
+            html,
+        )
 
     def test_sem_corrida_a_home_nao_fala_em_corrida(self):
         pessoa = create_user(email="semcorrida@exemplo.com")

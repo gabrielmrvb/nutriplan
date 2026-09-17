@@ -27,11 +27,41 @@ class CorridaManualForm(forms.Form):
     data = forms.DateField(label="Dia", widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
     sensacao = forms.ChoiceField(label="Como foi?", choices=[("", "prefiro não dizer")] + list(Corrida.Sensacao.choices), required=False, widget=forms.RadioSelect)
 
+    def __init__(self, *args, **kwargs):
+        """C1 (avaliação de mercado, 17/09/2026): este é um `forms.Form` cru —
+        não veio de `CamposDoNutriPlanMixin` (`accounts/forms.py`), que é
+        quem normalmente escreve `field-input` nos widgets. `partials/field.html`
+        documenta o contrato ("os demais campos usam o widget padrão, que já
+        vem com a classe .field-input aplicada PELO FORM"): sem o
+        `setdefault`, os três campos de texto nasciam sem a moldura de 52px
+        do resto do app — abaixo dos 44px de altura E largura que a régua de
+        toque exige nas duas dimensões.
+
+        NÃO reaproveita o mixin direto porque ele veste TODO campo, inclusive
+        `sensacao` (`RadioSelect`): `.field-input` carrega `min-height:
+        3.25rem`, que clampa por cima do `height: 1.2rem` que `.choice-list
+        input` dá ao próprio rádio — o círculo de marcação incharia para o
+        tamanho de um campo de texto. Só os três campos de texto/data levam
+        a classe.
+        """
+        super().__init__(*args, **kwargs)
+        for nome in ("distancia_km", "tempo", "data"):
+            self.fields[nome].widget.attrs.setdefault("class", "field-input")
+
     def clean_distancia_km(self):
         bruto = self.cleaned_data["distancia_km"].strip().replace(".", ",")
         try:
             km = Decimal(bruto.replace(",", "."))
         except InvalidOperation:
+            raise forms.ValidationError("Use números, como 5,2.")
+        # I2 (avaliação de mercado, 17/09/2026): `Decimal("nan")` e
+        # `Decimal("inf")` são conversões VÁLIDAS — não levantam
+        # `InvalidOperation` — e só explodiam na conta seguinte:
+        # `int(Decimal("nan") * 1000)` levanta `decimal.InvalidOperation` (nan)
+        # ou `OverflowError` (inf/-inf), sem handler por perto. 500 para quem
+        # colou "nan" ou usou um teclado numérico de aparelho estranho, em vez
+        # do erro de validação comum que os outros campos tortos recebem.
+        if not km.is_finite():
             raise forms.ValidationError("Use números, como 5,2.")
         metros = int(km * 1000)
         if metros < DISTANCIA_MINIMA_M:

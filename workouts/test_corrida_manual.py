@@ -87,11 +87,17 @@ class ORegistroManualTests(TestCase):
         self.assertEqual(Corrida.objects.count(), 0)
 
     def test_a_lista_mostra_a_mao_a_sensacao_e_os_links(self):
+        """Âncora em `class="corrida__origem">à mão` e não em "à mão" solto:
+        a string aparece QUATRO vezes na tela (o link "Registrar corrida à
+        mão", este marcador, a nota de que só corrida à mão se edita, e o
+        estado vazio) — `assertIn("à mão", html)` passava mesmo se o `<span>`
+        do marcador nunca tivesse existido, porque as outras três ocorrências
+        bastavam sozinhas (a armadilha do nutriplan-qa)."""
         self._post()
         html = self.client.get(reverse("workouts:corridas")).content.decode()
         c = Corrida.objects.get()
-        self.assertIn("à mão", html)
-        self.assertIn("normal", html.lower())
+        self.assertIn('class="corrida__origem">à mão', html)
+        self.assertIn('class="corrida__sensacao">normal', html)
         self.assertIn(reverse("workouts:corrida_editar", args=[c.pk]), html)
         self.assertIn(reverse("workouts:corrida_excluir", args=[c.pk]), html)
 
@@ -152,3 +158,146 @@ class OsBotoesDeAcaoNaoSeSobrepoemTests(SimpleTestCase):
         precisa valer >= 8px (--espaco-3), e não os .2rem (3,2px) de antes."""
         acoes = _regra_css(self.css, ".corrida__acoes")
         self.assertRegex(acoes, r"gap:\s*var\(--espaco-3\)")
+
+
+def _tag_do_input(html, nome):
+    """A tag `<input ...>` inteira que carrega `name="nome"`, para conferir
+    atributo sem depender da ORDEM em que o Django os escreve — `class` pode
+    vir antes ou depois de `name` conforme o widget."""
+    m = re.search(r'<input\b[^>]*\bname="%s"[^>]*>' % re.escape(nome), html)
+    assert m, "não achei <input name=\"%s\"> no HTML" % nome
+    return m.group(0)
+
+
+class C1OsCamposDeTextoTemAClasseDoSistemaVisualTests(TestCase):
+    """C1 (avaliação de mercado, 17/09/2026): `CorridaManualForm` é um
+    `forms.Form` cru, e `partials/field.html` documenta que a classe
+    `field-input` vem do FORM, não do template — é `CamposDoNutriPlanMixin`
+    (`accounts/forms.py`) quem faz isso pelos formulários de senha. O de
+    corrida nasceu sem ela: os três campos de texto ficavam sem a moldura de
+    52px, abaixo da régua de toque de 44px que o CLAUDE.md exige medida nas
+    duas dimensões.
+
+    `sensacao` fica de fora de propósito: é `RadioSelect`, e `.field-input`
+    carrega `min-height: 3.25rem` — clampado por cima do `height: 1.2rem` que
+    `.choice-list input` dá ao próprio rádio, incharia o círculo de marcação
+    para o tamanho de um campo de texto.
+    """
+
+    def setUp(self):
+        self.pessoa = create_user(email="estilo-corrida@exemplo.com")
+        self.client.force_login(self.pessoa)
+
+    def test_distancia_tempo_e_data_levam_field_input(self):
+        html = self.client.get(reverse("workouts:corrida_nova")).content.decode()
+        for nome in ("distancia_km", "tempo", "data"):
+            with self.subTest(campo=nome):
+                self.assertRegex(_tag_do_input(html, nome), r'class="field-input"')
+
+    def test_a_sensacao_continua_radio_sem_field_input(self):
+        """CONTROLE: greenwashing seria aplicar a classe em TODO widget —
+        inclusive no rádio, onde ela quebraria o tamanho do círculo. Este
+        teste falha se alguém trocar o `setdefault` seletivo por
+        `CamposDoNutriPlanMixin` (que veste todo campo, sem distinção)."""
+        html = self.client.get(reverse("workouts:corrida_nova")).content.decode()
+        for tag in re.findall(r'<input\b[^>]*\bname="sensacao"[^>]*>', html):
+            self.assertNotIn("field-input", tag)
+
+
+class I2DistanciaNaoFinitaNaoDerrubaOFormularioTests(TestCase):
+    """I2 (avaliação de mercado, 17/09/2026): `clean_distancia_km` fazia
+    `int(km * 1000)` FORA do `try/except InvalidOperation` — `Decimal("nan")`
+    e `Decimal("inf")` são conversões VÁLIDAS (não levantam
+    `InvalidOperation`), então passavam pelo `try` e só explodiam na conta
+    seguinte: `int(Decimal("nan") * 1000)` levanta `decimal.InvalidOperation`
+    sem handler por perto — 500 para quem digitou "nan" ou colou algo torto
+    de um teclado numérico de aparelho estranho, em vez do erro de validação
+    de sempre.
+    """
+
+    def setUp(self):
+        self.pessoa = create_user(email="naofinito@exemplo.com")
+        self.client.force_login(self.pessoa)
+        self.hoje = timezone.localdate()
+
+    def _post(self, distancia_km):
+        return self.client.post(
+            reverse("workouts:corrida_nova"),
+            {"distancia_km": distancia_km, "tempo": "28:10", "data": self.hoje.isoformat(),
+             "sensacao": "", "op_id": uuid.uuid4().hex},
+        )
+
+    def test_nan_inf_e_menos_inf_viram_erro_de_validacao_e_nao_500(self):
+        for bruto in ("nan", "inf", "-inf"):
+            with self.subTest(distancia_km=bruto):
+                r = self._post(bruto)
+                self.assertEqual(r.status_code, 200)
+                self.assertContains(r, 'aria-invalid="true"')
+        self.assertEqual(Corrida.objects.count(), 0)
+
+
+class I3ReenvioComOpIdReusadoNaoApagaAPrimeiraTests(TestCase):
+    """I3 (avaliação de mercado, 17/09/2026): o `post` engolia TODO
+    `IntegrityError` como se fosse sempre o duplo toque do bfcache — mas o
+    `op_id` volta escondido no formulário quando o navegador restaura a
+    página pelo botão Voltar (bfcache), e nada impede um SEGUNDO envio, com
+    dados DIFERENTES, sob o mesmo `op_id` (a pessoa volta, edita o campo à
+    mão e manda de novo sem notar que o `op_id` é o de antes). O código
+    antigo respondia "Corrida registrada." e a corrida nova sumia em
+    silêncio — a fila offline errou de causa, mas o sintoma (perda silenciosa
+    de dado) é o mesmo que ela existe para evitar.
+    """
+
+    def setUp(self):
+        self.pessoa = create_user(email="reenvio@exemplo.com")
+        self.client.force_login(self.pessoa)
+        self.hoje = timezone.localdate()
+        self.op_id = uuid.uuid4().hex
+
+    def _post(self, distancia_km, tempo="28:10"):
+        return self.client.post(
+            reverse("workouts:corrida_nova"),
+            {"distancia_km": distancia_km, "tempo": tempo, "data": self.hoje.isoformat(),
+             "sensacao": "normal", "op_id": self.op_id},
+        )
+
+    def test_o_duplo_toque_de_verdade_ainda_responde_sucesso(self):
+        """O comportamento que já existia continua: MESMOS dados, mesmo
+        `op_id` — é o duplo toque, e responde como sucesso."""
+        self._post("5,2")
+        r = self._post("5,2")
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(Corrida.objects.filter(user=self.pessoa).count(), 1)
+        self.assertEqual(Corrida.objects.get().distancia_m, 5200)
+
+    def test_op_id_reusado_com_dados_diferentes_nao_e_engolido(self):
+        self._post("5,2")
+        r = self._post("8")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "já foi usado por outra corrida")
+        self.assertEqual(Corrida.objects.filter(user=self.pessoa).count(), 1)
+        self.assertEqual(Corrida.objects.get().distancia_m, 5200)
+
+
+class I1OLinkDeRegistroManualFicaDentroDoCorridaAgoraTests(TestCase):
+    """I1 (avaliação de mercado, 17/09/2026): o link "Registrar corrida à
+    mão" morava FORA de `section.corrida-agora`, sozinho entre dois `.card`
+    — três blocos quase colados na tela, porque um `<a>` solto não entra na
+    cadeia de espaçamento `.card + .card` (que só vale entre `.card`
+    vizinhos). Ele virou o último filho de `.corrida-acoes`, que já dá `gap`
+    e os 48px dos outros botões daquela ação — sem CSS novo.
+
+    A âncora do teste é a PRÓPRIA seção: da abertura de
+    `class="card corrida-agora"` até o `</section>` que a fecha — se o link
+    saísse de novo para fora, o trecho capturado pararia antes dele.
+    """
+
+    def setUp(self):
+        self.pessoa = create_user(email="link-corrida@exemplo.com")
+        self.client.force_login(self.pessoa)
+
+    def test_o_link_fica_dentro_da_secao_corrida_agora(self):
+        html = self.client.get(reverse("workouts:corridas")).content.decode()
+        m = re.search(r'class="card corrida-agora".*?</section>', html, re.S)
+        self.assertIsNotNone(m, "seção .corrida-agora não encontrada")
+        self.assertIn(reverse("workouts:corrida_nova"), m.group(0))

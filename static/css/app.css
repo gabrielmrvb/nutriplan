@@ -7862,10 +7862,10 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .corrida__origem,
 .corrida__sensacao {
   display: inline-block;
-  margin-left: .4rem;
+  margin-left: var(--espaco-2);
   color: var(--text-mute);
   font-family: var(--font);
-  font-size: .72rem;
+  font-size: var(--texto-xs);
   font-weight: 600;
 }
 
@@ -8532,7 +8532,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   justify-content: space-between;
   gap: var(--espaco-3);
   min-width: 0;
-  padding: .6rem 0;
+  padding: var(--espaco-4) 0;
   border-bottom: 1px solid var(--fio);
   color: var(--text-dim);
   font-size: var(--texto-sm);

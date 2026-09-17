@@ -272,6 +272,43 @@ class OCartaoDoPlanoNaTelaTests(TestCase):
             self.assertIn(rotulo, html)
 
 
+class OCartaoDoPlanoMostraASessaoFeitaTests(TestCase):
+    """Item 6 (avaliação de mercado, 17/09/2026): o cartão marca a sessão
+    feita com `corrida-plano__sessao--feita`, e é `sessoes_feitas` (o
+    modelo) quem decide quantas — o template só desenha o ✓.
+
+    `OCartaoDoPlanoNaTelaTests.test_mostra_semana_1_de_8_e_as_tres_sessoes`
+    já conta `corrida-plano__sessao` (a classe BASE, presente nas duas
+    variantes, feita ou não) — este teste cobre o que aquele não cobre: a
+    classe `--feita` some quando não há corrida, e aparece exatamente uma
+    vez quando há uma no dia.
+    """
+
+    def setUp(self):
+        self.pessoa = create_user(email="plano-feita@exemplo.com")
+        self.client.force_login(self.pessoa)
+        PlanoDeCorrida.objects.create(
+            user=self.pessoa, plano="5k", nivel="iniciante",
+            comecou_em=timezone.localdate(), ativo=True,
+        )
+
+    def test_uma_corrida_hoje_marca_exatamente_uma_sessao_como_feita(self):
+        momento = timezone.make_aware(datetime.combine(timezone.localdate(), time(12, 0)))
+        Corrida.objects.create(
+            user=self.pessoa, op_id="feita-hoje", origem=Corrida.Origem.MANUAL,
+            comecou_em=momento, terminou_em=momento + timedelta(minutes=20),
+            distancia_m=3000, duracao_s=1200,
+        )
+        html = self.client.get(reverse("workouts:corridas")).content.decode()
+        self.assertEqual(html.count("corrida-plano__sessao--feita"), 1)
+
+    def test_sem_corrida_nenhuma_sessao_esta_feita(self):
+        """CONTROLE: sem ele, um `feita` sempre `True` passaria no teste
+        acima e nunca seria pego."""
+        html = self.client.get(reverse("workouts:corridas")).content.decode()
+        self.assertEqual(html.count("corrida-plano__sessao--feita"), 0)
+
+
 class EscolherTrocarEEncerrarOPlanoTests(TestCase):
     def setUp(self):
         self.pessoa = create_user(email="plano-escolha@exemplo.com")

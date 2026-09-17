@@ -60,10 +60,18 @@
       <button type="button" class="btn btn--ghost" hidden data-corrida-pausar>Pausar</button>
       <button type="button" class="btn btn--ghost" hidden data-corrida-retomar>Retomar</button>
       <button type="button" class="btn btn--ghost" hidden data-corrida-encerrar>Encerrar</button>
+      {% comment %}
+        I1 (avaliação de mercado, 17/09/2026): este link morava FORA da
+        `section.corrida-agora`, sozinho entre dois `.card` — quebrava a
+        cadeia de espaçamento `.card + .card` (que dá o vão entre cartões
+        vizinhos) porque um `<a>` solto não é `.card` nem entra na regra.
+        Três blocos quase colados era o sintoma. Aqui dentro ele é o último
+        filho de `.corrida-acoes`, que já dá `gap` e os 48px dos outros
+        botões da ação — sem CSS novo.
+      {% endcomment %}
+      <a class="btn btn--ghost btn--block" href="{% url 'workouts:corrida_nova' %}">Registrar corrida à mão</a>
     </div>
   </section>
-
-  <a class="btn btn--ghost btn--block" href="{% url 'workouts:corrida_nova' %}">Registrar corrida à mão</a>
 
   {% comment %}
     O CARTÃO DO PLANO. `plano` e `semana` vêm de
