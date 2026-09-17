@@ -135,6 +135,11 @@ MOVIMENTO_ESPERADO = {
     "Rosca de punho invertida com halteres": ["rosca inversa", "rosca punho", "pronada",
                                    "reverse", "antebraco", "invertida",
                                    "inverso"],
+    "Supino declinado com halteres": ["supino declinado", "declinado", "decline"],
+    "Crucifixo inclinado com halteres": ["crucifixo inclinado", "incline fly", "crucifixo"],
+    "Flexão de braço com pés elevados": ["pes elevados", "pes no banco", "feet elevated", "flexao"],
+    "Flexão de braço fechada (diamante)": ["diamante", "flexao fechada", "diamond", "close grip push", "flexao de braco fechada"],
+    "Tríceps coice com halter": ["coice", "kickback", "triceps coice"],
 }
 
 

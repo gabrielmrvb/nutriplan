@@ -327,7 +327,60 @@ agachamento com barra. A troca é em TRÊS lugares, e os três de propósito —
 servir o vídeo de outro. Depois disso, tirar `"Agachamento livre"` de
 `VIDEO_SEM_CARGA_CONHECIDO`.
 
-### ⛔ Personalização de treino por LOCAL e EQUIPAMENTO — bloqueada pelo catálogo
+### ✅ Equipamento no perfil (17/09/2026, tarde) — e o que ainda falta ao catálogo por perfil
+
+Publicado na missão "ficha única" (PR `treino/equipamento`):
+`Profile.equipamento` com quatro respostas (completa · básica · casa com
+halteres · só peso do corpo), mapa no `TREINO.md`, motor obedecendo por
+SUBSTITUIÇÃO (`services.substituir_por_equipamento`: mesmo `padrao`, mesmo
+grupo, mesma dose; sem substituto, sai), `TrainingPlan.equipamento` como
+retrato, dourado por perfil em `workouts/test_ficha_de_verdade.py`. Cinco
+exercícios de peito e tríceps sem barra entraram com mídia curada e FORA de
+todo modelo, como substitutos: supino declinado com halteres, crucifixo
+inclinado com halteres, flexão de braço com pés elevados, flexão de braço
+fechada (diamante), tríceps coice com halter. Mosaico de veto:
+`scratchpad/shots-ficha/mosaico-equipamento.html` da sessão; veto =
+`manage.py desativar_exercicio "<nome>"`.
+
+**Medido em 17/09 (intermediário, Padrão, letra do dourado e as demais):**
+
+| perfil | dourado (A) | resto da semana (5d abc2) | capacidade (folga) |
+|---|---|---|---|
+| completa | ✅ idêntica à de antes | idêntica | SUPORTADO |
+| básica | ✅ 7 ex, 25 séries, 59 min | B e C como completa (barra → polia/halteres) | SUPORTADO |
+| casa com halteres | ✅ 7 ex, 25 séries, 59 min | B 6 ex/22 séries/48 min (2 opções); C 9 ex/25/59 (1 opção); em ABC, "Pernas e ombros" fica com 4 ex/15 séries/36 min | PARCIAL |
+| só peso do corpo | ⛔ `expectedFailure`: 3–4 ex (1–2 peito), 10–15 séries, 30–42 min | B = barra fixa supinada só; C = prancha + abdominal | NAO_SUPORTADO |
+
+**O que falta, por perfil — candidatos na free-exercise-db (foto NÃO
+conferida ainda; entram pelo mesmo processo dos cinco: foto vista, vídeo por
+título do oEmbed, anatomia herdada ou própria, `curadoria` escrita):**
+
+- **casa com halteres** (fechar pernas em ABC e dar folga a B): agachamento
+  búlgaro com halteres (`Split_Squat_with_Dumbbells`, quads/agachamento),
+  afundo caminhando (`Bodyweight_Walking_Lunge`), agachamento com halteres
+  (`Dumbbell_Squat`), elevação pélvica unilateral (`Single_Leg_Glute_Bridge`,
+  posterior/extensão de quadril), flexão nórdica (`Natural_Glute_Ham_Raise`,
+  posterior/flexão de joelho — hoje NENHUM `flexao_de_joelho` sem máquina),
+  panturrilha sentado com halter (`Dumbbell_Seated_One-Leg_Calf_Raise`),
+  remada alta com halteres (`Standing_Dumbbell_Upright_Row`, trapézio),
+  remada invertida (`Inverted_Row`, costas/remada horizontal), pullover com
+  halter (`Bent-Arm_Dumbbell_Pullover`), desenvolvimento Arnold
+  (`Arnold_Dumbbell_Press`);
+- **só peso do corpo** (B tem UM exercício, C dois): agachamento livre sem
+  carga (`Bodyweight_Squat`), afundo (`Bodyweight_Walking_Lunge`), agachamento
+  búlgaro sem carga (`Split_Squats`), elevação pélvica unilateral
+  (`Single_Leg_Glute_Bridge`), flexão nórdica (`Natural_Glute_Ham_Raise`),
+  remada invertida (`Inverted_Row`), barra fixa pronada (`Pullups` já é
+  chave de "Barra fixa assistida" — precisa de exercício próprio sem
+  máquina), flexão pike / parada de mão (`Handstand_Push-Ups`, ombro),
+  panturrilha em pé sem carga (sem par claro na base: `Calf_Raise_On_A_Dumbbell`
+  com halter), bíceps sem carga (só a barra fixa supinada: é limite físico,
+  não de catálogo — dizer isso na ficha).
+
+O texto abaixo é o HISTÓRICO de 09–17/09 (manhã), mantido porque a medição
+de por que filtro não basta continua valendo.
+
+### (histórico) Personalização de treino por LOCAL e EQUIPAMENTO — bloqueada pelo catálogo até 17/09/2026
 Medido em 09/09/2026, durante a revisão da área Treino. A missão pedia três
 ambientes — academia completa, casa com halteres, peso corporal — e os dois
 últimos **não existem** no catálogo de hoje.

@@ -47,6 +47,8 @@ from . import adaptacao
 from .models import (
     SEGUNDOS_ENTRE_EXERCICIOS,
     SEGUNDOS_POR_SERIE,
+    Equipment,
+    Exercise,
     ExerciseLog,
     Measure,
     MuscleGroup,
@@ -1022,6 +1024,105 @@ def duracao_de(user) -> str:
     return getattr(perfil, "duracao_treino", None) or ""
 
 
+def equipamento_de(user) -> str:
+    """O perfil de equipamento (`accounts.models.Equipamento`), ou "completa"
+    — o padrão do campo e a verdade de quem monta ficha sem perfil."""
+    from . import doutrina
+
+    perfil = getattr(user, "profile", None)
+    return getattr(perfil, "equipamento", None) or doutrina.COMPLETA
+
+
+def permitidos_de(user) -> frozenset:
+    """O que o perfil de equipamento da pessoa pode usar (chaves de
+    `Exercise.equipment`), pelo mapa do `TREINO.md`."""
+    from . import doutrina
+
+    return doutrina.equipamentos_de(equipamento_de(user))
+
+
+#: O equipamento mais PRÓXIMO do item trocado vem primeiro (17/09/2026): o
+#: supino reto com barra vira supino com halteres antes de virar flexão, e
+#: a máquina vira polia antes de virar halter. Dentro do mesmo degrau, o
+#: nome desempata — a escolha precisa ser determinística, porque a
+#: conferência refaz a conta do gerador.
+PROXIMIDADE_DE_EQUIPAMENTO = {
+    Equipment.BARBELL: (Equipment.DUMBBELL, Equipment.MACHINE, Equipment.CABLE, Equipment.BODYWEIGHT),
+    Equipment.DUMBBELL: (Equipment.BARBELL, Equipment.MACHINE, Equipment.CABLE, Equipment.BODYWEIGHT),
+    Equipment.MACHINE: (Equipment.CABLE, Equipment.DUMBBELL, Equipment.BARBELL, Equipment.BODYWEIGHT),
+    Equipment.CABLE: (Equipment.MACHINE, Equipment.DUMBBELL, Equipment.BARBELL, Equipment.BODYWEIGHT),
+    Equipment.BODYWEIGHT: (Equipment.DUMBBELL, Equipment.CABLE, Equipment.MACHINE, Equipment.BARBELL),
+}
+
+
+def _distancia_de_equipamento(de, para) -> int:
+    ordem = PROXIMIDADE_DE_EQUIPAMENTO.get(de, ())
+    return ordem.index(para) if para in ordem else len(ordem)
+
+
+def catalogo_permitido(permitidos):
+    """Os exercícios ativos que o perfil pode usar, em ordem determinística —
+    UMA consulta, compartilhada por todos os modelos de uma prescrição. `None`
+    quando o perfil é o catálogo inteiro (nada a substituir, nada a consultar)."""
+    if permitidos is None or frozenset(Equipment.values) <= frozenset(permitidos):
+        return None
+    return list(Exercise.objects.filter(is_active=True, equipment__in=list(permitidos)).order_by("name", "id"))
+
+
+def substituir_por_equipamento(itens, permitidos, catalogo=None) -> list:
+    """Os itens de um modelo com o que está FORA do perfil de equipamento
+    trocado por exercício ativo do MESMO `padrao` e do mesmo grupo, dentro do
+    perfil, que ainda não esteja no modelo — com a dose do item trocado
+    (séries, repetições, descanso, ordem). Sem substituto, o item SAI.
+
+    Substituição, e não filtro (17/09/2026): a prescrição copia modelos
+    curados de `splits.json`, e tirar sem repor abria buraco no modelo —
+    medido em 10/09, oito modelos perdiam grupo em "casa com halteres" e
+    `abcde-C` ficava vazio. Trocar pelo mesmo padrão é o que mantém a
+    régua de `equivalentes` (mesmos padrões compostos nos grupos anunciados)
+    satisfazível com o catálogo restrito.
+
+    `permitidos=None` ou o conjunto inteiro devolve os itens como estão, sem
+    consulta: o perfil "completa" custa zero. Com perfil restrito e ao menos
+    um item fora, UMA consulta ao catálogo (ou o `catalogo` já carregado).
+    Entre candidatos, o equipamento mais PRÓXIMO do trocado vence
+    (`PROXIMIDADE_DE_EQUIPAMENTO`) e o nome desempata — determinístico,
+    porque a conferência (`_prescricao_confere`) refaz esta conta.
+    """
+    itens = list(itens)
+    if permitidos is None or frozenset(Equipment.values) <= frozenset(permitidos):
+        return itens
+    if all(item.exercise.equipment in permitidos for item in itens):
+        return itens
+    if catalogo is None:
+        catalogo = catalogo_permitido(permitidos)
+    usados = {item.exercise_id for item in itens}
+    resultado = []
+    for item in itens:
+        if item.exercise.equipment in permitidos:
+            resultado.append(item)
+            continue
+        candidatos = [
+            e for e in catalogo
+            if e.padrao == item.exercise.padrao
+            and e.muscle_group == item.exercise.muscle_group
+            and e.id not in usados
+        ]
+        substituto = min(
+            candidatos,
+            key=lambda e: (_distancia_de_equipamento(item.exercise.equipment, e.equipment), e.name, e.id),
+            default=None,
+        )
+        if substituto is None:
+            continue
+        usados.add(substituto.id)
+        copia = copy.copy(item)
+        copia.pk = None
+        copia.exercise = substituto
+        resultado.append(copia)
+    return resultado
+
+
 #: O que decide a prescrição SEM a pessoa: o catálogo de exercícios, os
 #: modelos e a doutrina. Mudou um deles, mudou o que o gerador produziria.
 _ARQUIVOS_DO_CATALOGO = (
@@ -1427,7 +1528,7 @@ def _nivel_do_teto(teto_semanal, sessoes):
 
 
 def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
-                      teto_semanal=None, nivel=_NAO_INFORMADO) -> dict:
+                      teto_semanal=None, nivel=_NAO_INFORMADO, permitidos=None) -> dict:
     """O que cada OPÇÃO de cada sessão manda fazer:
     `{(sessão.pk, opção, exercício): (séries, item)}`.
 
@@ -1453,11 +1554,25 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
     5. as opções são equilibradas e conferidas (`equivalentes`); se ainda
        assim não forem, a letra fica com a opção 1.
 
+    `permitidos` (17/09/2026) é o que o perfil de equipamento pode usar
+    (`permitidos_de`): o item do modelo fora dele é trocado pelo mesmo
+    padrão dentro dele ANTES de tudo (`substituir_por_equipamento`) — a
+    cadeia inteira roda sobre a ficha que a pessoa consegue fazer. `None` é
+    o catálogo inteiro, o perfil "completa".
+
     Determinística, e chamada pelo gerador E pela conferência.
     """
     from . import opcoes as motor_de_opcoes
 
     ocorrencias = ocorrencias_das_letras(sessoes)
+    catalogo = None
+    if permitidos is not None and not frozenset(Equipment.values) <= frozenset(permitidos):
+        if any(
+            item.exercise.equipment not in permitidos
+            for label in ocorrencias if modelos.get(label) is not None
+            for item in modelos[label].items.all() if item.exercise.is_active
+        ):
+            catalogo = catalogo_permitido(permitidos)
     if teto is _NAO_INFORMADO:
         teto = teto_completo_de(sessoes[0].plan.user) if sessoes else None
     # `None` é SEM RELÓGIO — a referência que `aviso_de_tempo` compara e que
@@ -1477,7 +1592,10 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
         modelo = modelos.get(label)
         if modelo is None:
             return None
-        itens_de[label] = [item for item in modelo.items.all() if item.exercise.is_active]
+        itens_de[label] = substituir_por_equipamento(
+            [item for item in modelo.items.all() if item.exercise.is_active],
+            permitidos, catalogo,
+        )
         principais_de[label] = list(getattr(modelo, "main_groups", None) or ())
         # A FAIXA É DO TIPO DE DIA E DO NÍVEL (TREINO.md, tabela A): "Peito e
         # tríceps" do intermediário quer 21–28 séries diretas; "Peito" de
@@ -1614,7 +1732,7 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
 
 
 def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO,
-                      teto_semanal=None, nivel=_NAO_INFORMADO) -> dict:
+                      teto_semanal=None, nivel=_NAO_INFORMADO, permitidos=None) -> dict:
     """A OPÇÃO 1 de cada sessão: `{(sessão.pk, exercício): (séries, item)}`.
 
     Desde 15/09/2026 quem prescreve é `prescrever_opcoes`; esta é a projeção
@@ -1653,7 +1771,9 @@ def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO,
     continua não podendo multiplicar o volume — mas quem paga isso agora é o
     isolador, na etapa 2, e não o exercício principal.
     """
-    completa = prescrever_opcoes(sessoes, modelos, teto=teto, teto_semanal=teto_semanal, nivel=nivel)
+    completa = prescrever_opcoes(
+        sessoes, modelos, teto=teto, teto_semanal=teto_semanal, nivel=nivel, permitidos=permitidos,
+    )
     if completa is None:
         return None
     return {
@@ -2152,6 +2272,7 @@ def create_routine(user) -> TrainingPlan:
         catalogo=versao_do_catalogo(),
         nivel=nivel_de(user),
         duracao=duracao_de(user),
+        equipamento=equipamento_de(user),
         # A posição zero do ciclo: o primeiro dia de treino desta semana.
         inicio_do_ciclo=inicio_do_ciclo_de(
             timezone.localdate(), [day.weekday for day in training_days]
@@ -2163,9 +2284,11 @@ def create_routine(user) -> TrainingPlan:
 
     by_label = {template.label: template for template in templates}
     teto_semanal = teto_semanal_de(user)
+    permitidos = permitidos_de(user)
     completa = prescrever_opcoes(
         sessions, by_label,
         teto=teto_completo_de(user), teto_semanal=teto_semanal, nivel=nivel_de(user),
+        permitidos=permitidos,
     )
     prescricao = {
         (sessao_pk, exercicio_id): valor
@@ -2187,7 +2310,10 @@ def create_routine(user) -> TrainingPlan:
     # `None` faria a nota dizer "para caber no tempo que você informou" a
     # quem não informou.
     sem_relogio = (
-        prescrever_semana(sessions, by_label, teto=None, teto_semanal=teto_semanal, nivel=nivel_de(user))
+        prescrever_semana(
+            sessions, by_label, teto=None, teto_semanal=teto_semanal, nivel=nivel_de(user),
+            permitidos=permitidos,
+        )
         if teto_de_minutos(user) is not None else prescricao
     )
     plan.notes = " ".join(
@@ -2252,6 +2378,7 @@ def _prescricao_confere(sessoes, modelos, itens, user) -> bool:
     prescricao = prescrever_opcoes(
         sessoes, modelos,
         teto=teto_completo_de(user), teto_semanal=teto_semanal_de(user), nivel=nivel_de(user),
+        permitidos=permitidos_de(user),
     )
     if prescricao is None:
         return False
@@ -2290,6 +2417,10 @@ def rotina_invalida(plan, user) -> bool:
     if plan.nivel and plan.nivel != nivel_de(user):
         return True
     if plan.duracao and plan.duracao != duracao_de(user):
+        return True
+    # O equipamento nunca fica em branco (default "completa" nos dois
+    # lados): mudou no perfil, remonta.
+    if plan.equipamento != equipamento_de(user):
         return True
     if plan.split != split_for(user.training_days.count(), _preferencia_de(user)):
         return True
@@ -2373,10 +2504,18 @@ def _prescricao_bate(plan, user) -> bool:
     # comparação de horários lá embaixo.
     modelos = {t.label: t for t in templates_for(plan.split)}
     sessoes = sorted(plan.sessions.all(), key=lambda s: s.order)
+    # Os itens que o motor VÊ: com o perfil de equipamento aplicado (17/09/
+    # 2026). Sem isso o afundo que substituiu o agachamento — com a dose do
+    # agachamento — reprovava aqui, e toda ficha de perfil restrito nascida
+    # de outro catálogo ficava "desatualizada" para sempre.
+    permitidos = permitidos_de(user)
+    catalogo = catalogo_permitido(permitidos)
     prescrito = {
         (i.exercise_id, i.rep_min, i.rep_max, i.rest_seconds)
         for template in modelos.values()
-        for i in template.items.all()
+        for i in substituir_por_equipamento(
+            [i for i in template.items.all() if i.exercise.is_active], permitidos, catalogo,
+        )
     }
     itens = list(
         # Uma consulta, e não uma por sessão: esta função roda na entrada de

@@ -1252,5 +1252,131 @@
       "anatomia_de": "herdada de 'Rosca inversa com barra' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Rosca Invertida na Ba",
       "data": "2026-09-17"
     }
+  },
+  {
+    "name": "Supino declinado com halteres",
+    "muscle_group": "chest",
+    "compound": true,
+    "cue": "Banco declinado, halteres na linha do peito inferior; desça até a altura do peito e suba fechando um pouco os cotovelos, sem bater os halteres.",
+    "equipment": "dumbbell",
+    "padrao": "pressao_de_peito",
+    "joints": [
+      "shoulder",
+      "elbow"
+    ],
+    "secundarios": [
+      "triceps",
+      "shoulders"
+    ],
+    "active": true,
+    "video": "https://www.youtube.com/watch?v=ZsotBDAbjyA",
+    "video_titulo": "SUPINO DECLINADO COM HALTERES (Dumbbell Press Declinado)",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Supino reto com halteres' (ativo, mesmo padrão e grupo)",
+      "data": "2026-09-17",
+      "motivo": "peito/tríceps sem barra para o perfil de equipamento (básica, casa): substituto dos itens de barra do modelo, fora de todo modelo"
+    }
+  },
+  {
+    "name": "Crucifixo inclinado com halteres",
+    "muscle_group": "chest",
+    "compound": false,
+    "cue": "Banco a 30–45°, cotovelos levemente flexionados e fixos; abra até sentir o peito alongar e feche como se abraçasse um tronco.",
+    "equipment": "dumbbell",
+    "padrao": "crucifixo",
+    "joints": [
+      "shoulder"
+    ],
+    "secundarios": [
+      "shoulders"
+    ],
+    "active": true,
+    "video": "https://www.youtube.com/watch?v=pfyYN8QwM54",
+    "video_titulo": "Como Fazer CRUCIFIXO INCLINADO COM HALTERES | Passo a Passo na Academia",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "própria — série 'Músculos Trabalhados': Peito - Crucifixo Inclinado com Halteres [Meu Treino Perfeito]",
+      "data": "2026-09-17",
+      "motivo": "peito/tríceps sem barra para o perfil de equipamento (básica, casa): substituto dos itens de barra do modelo, fora de todo modelo"
+    }
+  },
+  {
+    "name": "Flexão de braço com pés elevados",
+    "muscle_group": "chest",
+    "compound": true,
+    "cue": "Pés num banco, mãos na largura dos ombros, corpo reto do calcanhar à cabeça; desça o peito até quase o chão e empurre sem deixar o quadril cair.",
+    "equipment": "bodyweight",
+    "padrao": "pressao_de_peito",
+    "joints": [
+      "shoulder",
+      "elbow"
+    ],
+    "secundarios": [
+      "triceps",
+      "shoulders",
+      "core"
+    ],
+    "active": true,
+    "video": "https://www.youtube.com/watch?v=iGSnlotnLDQ",
+    "video_titulo": "Flexão de braços com pés elevados | Otto",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Flexão de braço' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Flexão de Braços",
+      "data": "2026-09-17",
+      "motivo": "peito/tríceps sem barra para o perfil de equipamento (básica, casa): substituto dos itens de barra do modelo, fora de todo modelo"
+    }
+  },
+  {
+    "name": "Flexão de braço fechada (diamante)",
+    "muscle_group": "triceps",
+    "compound": true,
+    "cue": "Mãos juntas sob o peito formando um diamante, cotovelos rentes ao corpo; desça controlando e empurre até estender os braços.",
+    "equipment": "bodyweight",
+    "padrao": "pressao_fechada",
+    "joints": [
+      "shoulder",
+      "elbow"
+    ],
+    "secundarios": [
+      "chest",
+      "shoulders",
+      "core"
+    ],
+    "active": true,
+    "video": "https://www.youtube.com/watch?v=sFsQJ5AH-zk",
+    "video_titulo": "FLEXÃO DIAMANTE- FLEXÃO DE BRAÇO FECHADA - EXERCÍCIO DE TRÍCEPS",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "própria — série 'Músculos Trabalhados': Flexão de Braços Diamante [Meu Treino Perfeito]",
+      "data": "2026-09-17",
+      "motivo": "peito/tríceps sem barra para o perfil de equipamento (básica, casa): substituto dos itens de barra do modelo, fora de todo modelo"
+    }
+  },
+  {
+    "name": "Tríceps coice com halter",
+    "muscle_group": "triceps",
+    "compound": false,
+    "cue": "Tronco inclinado, braço colado ao corpo e cotovelo parado na altura das costas; estenda só o antebraço e volte devagar, sem balançar o ombro.",
+    "equipment": "dumbbell",
+    "padrao": "extensao_de_cotovelo",
+    "joints": [
+      "elbow"
+    ],
+    "secundarios": [],
+    "active": true,
+    "video": "https://www.youtube.com/watch?v=yewCya6hr34",
+    "video_titulo": "TRÍCEPS COICE COM HALTER - Como executar, passo-a-passo e erros comuns",
+    "curadoria": {
+      "fotos": "ok",
+      "video_por": "título (oEmbed) — quadro não assistido",
+      "anatomia_de": "herdada de 'Tríceps francês com halter' (ativo, mesmo padrão e grupo)",
+      "data": "2026-09-17",
+      "motivo": "peito/tríceps sem barra para o perfil de equipamento (básica, casa): substituto dos itens de barra do modelo, fora de todo modelo"
+    }
   }
 ]
