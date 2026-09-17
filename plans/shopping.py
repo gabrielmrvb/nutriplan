@@ -164,7 +164,9 @@ def weekly_quantities(plan, label=None, inicio=None) -> dict:
     outra.
     """
     slots = list(
-        plan.slots.prefetch_related("options__template__items__food").order_by("order")
+        plan.slots.prefetch_related(
+            "options__template__items__food__portions"
+        ).order_by("order")
     )
 
     totais = {}

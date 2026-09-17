@@ -168,6 +168,22 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # protege — nenhuma consulta dentro de laço — continua de pé; o que
         # mudou foi o piso fixo.
         "accounts:profile": 19,
+        # A tarefa 3 da missão de mercado deu forma de compra a boa parte do
+        # catálogo (`plans/compra.py`), e `_porcao_padrao` passou a ler
+        # `FoodPortion` por alimento de `POR_UNIDADE` — o formato clássico de
+        # N+1 que este arquivo existe para pegar. Este fixture (`CatalogFixture`,
+        # cinco alimentos sintéticos: Frango/Arroz/Aveia/Iogurte/Castanha) NÃO
+        # exercita aquele laço — nenhum dos cinco está em `POR_UNIDADE` nem em
+        # `MINIMO_DE_COMPRA`, então todos caem no ramo de peso solto, que não
+        # chama `_porcao_padrao`. É o mesmo tipo de teto cego que o comentário
+        # de `plans:today`, acima, já documenta para `ingredient_list`: a prova
+        # de verdade do N+1 mora em
+        # `plans.test_lista_compravel.ONMaisUmDaLeituraDePorcaoTests`, com o
+        # catálogo REAL do seed. Este teto fica aqui por completude — pega
+        # consulta dentro de laço em QUALQUER outro ponto da tela (a leitura da
+        # marcação, os itens avulsos) — e não porque prove a ausência do N+1
+        # específico da tarefa 3. Medido em 17/09/2026: 20 consultas.
+        "plans:shopping": 20,
     }
 
     #: Quantas linhas o teste enche antes de medir. Um teto sozinho não prova

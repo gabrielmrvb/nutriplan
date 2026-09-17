@@ -203,10 +203,21 @@ def _porcao_padrao(food):
     e as tabelas estáticas deste módulo continuam valendo sozinhas (é o que
     mantém `converter` chamável sem banco, como os testes de
     `SimpleTestCase` sempre fizeram).
+
+    `food.portions.all()`, NUNCA `.filter(is_default=True)`: o `.filter()`
+    monta uma queryset nova, e uma queryset nova ignora o cache de
+    `prefetch_related` — é o `N+1` que `shopping.weekly_quantities` pagava
+    antes de prefetchar `__food__portions`, um SELECT por alimento único de
+    `POR_UNIDADE` a cada `shopping_list`. `.all()` é o único caminho que lê o
+    cache; a ordenação do model (`-is_default, grams`) já traz a porção
+    padrão primeiro quando existe alguma.
     """
     if food is None:
         return None
-    return food.portions.filter(is_default=True).first()
+    for portion in food.portions.all():
+        if portion.is_default:
+            return portion
+    return None
 
 
 def converter(nome: str, quantidade: Decimal, unidade: str, food=None):

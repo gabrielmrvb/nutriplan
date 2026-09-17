@@ -19,10 +19,14 @@ import re
 from decimal import Decimal
 
 from django.core.management import call_command
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
+from django.urls import reverse
 
 from catalog.models import Food, MealTemplateItem
-from plans import compra
+from plans import compra, services, shopping
+from plans.tests import create_complete_user
 
 #: "40 g" ou "20 ml" sozinhos — nada de estado, unidade ou embalagem em volta.
 #: Um `humanize()` puro produz exatamente isto para quem não tem tabela.
@@ -160,3 +164,87 @@ class ARéguaDaCompraTests(TestCase):
                 self.assertIn(unidade_base, ("g", "ml", "unidade"))
                 self.assertTrue(singular, "sem rótulo no singular")
                 self.assertTrue(plural, "sem rótulo no plural")
+
+    def test_todo_fator_de_encolhimento_sai_aproximado(self):
+        """A mesma varredura que `test_todo_minimo_sai_aproximado` já faz
+        para `MINIMO_DE_COMPRA`, agora para `FATOR_DE_ENCOLHIMENTO` — a
+        tabela irmã de `FATOR_CRU` que o achado de design deste relatório
+        criou. `test_toda_conversao_sai_MARCADA_como_aproximada`, em
+        `test_lista_de_compras.py`, varre `FATOR_CRU`/`POR_UNIDADE`/
+        `EMBALAGEM`; as duas tabelas que nasceram na tarefa 3
+        (`MINIMO_DE_COMPRA` e esta) precisam da mesma prova — sem ela, um
+        alimento que entrasse na tabela sem marcar `aproximado=True` passaria
+        sem teto nenhum enxergar.
+        """
+        for nome in compra.FATOR_DE_ENCOLHIMENTO:
+            with self.subTest(alimento=nome):
+                _texto, aproximado = compra.converter(nome, Decimal("500"), "g")
+                self.assertTrue(aproximado)
+
+    def test_nenhum_alimento_esta_nas_duas_tabelas_de_cru(self):
+        """`FATOR_CRU` divide, `FATOR_DE_ENCOLHIMENTO` multiplica — e
+        `converter()` decide qual delas usar com `if nome in FATOR_CRU: ...
+        elif nome in FATOR_DE_ENCOLHIMENTO: ...` (ordem de `if`/`elif`, não
+        duas checagens independentes). Um alimento presente nas DUAS tabelas
+        sempre cairia no primeiro ramo (`FATOR_CRU`) e a fórmula da segunda
+        nunca rodaria — silenciosamente errado pro alimento que perde água,
+        não incha. Este teste é o que impede a próxima pessoa de resolver
+        "carne também precisa desse fator" copiando a entrada para a tabela
+        errada.
+        """
+        repetidos = set(compra.FATOR_CRU) & set(compra.FATOR_DE_ENCOLHIMENTO)
+        self.assertEqual(
+            repetidos,
+            set(),
+            "alimento nas duas tabelas de cru — o if/elif de converter() "
+            "vai ignorar uma delas em silêncio: %s" % repetidos,
+        )
+
+
+class ONMaisUmDaLeituraDePorcaoTests(TestCase):
+    """`_porcao_padrao` lia `food.portions.filter(is_default=True).first()`
+    por alimento — uma consulta NOVA a cada chamada, mesmo com
+    `weekly_quantities` já tendo prefetchado `options__template__items__food`.
+    `.filter()` monta queryset nova e ignora o cache de `prefetch_related`;
+    só `.all()` lê o que já veio junto. Cada alimento único de `POR_UNIDADE`
+    presente na lista da semana (tomate, cenoura, ovo, banana, maçã, laranja,
+    pão francês, presunto, três queijos…) pagava uma ida a mais ao banco a
+    cada carregamento — o mesmo formato de N+1 que
+    `plans.test_cardapio_cozinhavel.AHomeMostraMedidaCaseiraTests
+    .test_a_lista_de_ingredientes_nao_multiplica_consulta_por_item` já mede
+    para `ingredient_list`.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.plan = services.create_plan(self.user)
+        self.client.force_login(self.user)
+
+    #: Medido em 17/09/2026 com o catálogo real (`seed_catalog`): 19
+    #: consultas com `__food__portions` no prefetch de `weekly_quantities` e
+    #: `_porcao_padrao` lendo `food.portions.all()`; 27 com a sabotagem
+    #: (tirar `__portions` da string do `prefetch_related` em
+    #: `plans/shopping.py`, deixando `_porcao_padrao` cair de volta numa
+    #: consulta por alimento). O teto fica no meio do caminho: longe o
+    #: bastante de 19 para não pegar ruído de outra consulta pontual, perto o
+    #: bastante de 27 para pegar a regressão de verdade (remover o prefetch,
+    #: ou trocar `_porcao_padrao` de volta para `.filter()`).
+    TETO = 23
+
+    def test_a_lista_de_compras_nao_multiplica_consulta_por_alimento_de_unidade(self):
+        url = reverse("plans:shopping")
+        self.client.get(url)  # aquece o que é cacheado por processo
+        with CaptureQueriesContext(connection) as ctx:
+            resposta = self.client.get(url)
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertLessEqual(
+            len(ctx.captured_queries),
+            self.TETO,
+            "plans:shopping fez %d consultas (teto %d) — provável consulta "
+            "dentro do laço de _porcao_padrao" % (len(ctx.captured_queries), self.TETO),
+        )
