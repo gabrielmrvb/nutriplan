@@ -167,14 +167,17 @@ roda. É o que a lista abaixo resolve:
 testes dirigidos → sabotagem → browser QA → suíte completa (local, opcional)
 → manage.py check → makemigrations --check → git diff --check
 → commit → fetch → push da BRANCH (hook = atalho) → PR → check "suíte completa"
-→ merge pela API → deploy → /saude/ → smoke
+→ `enfileirar` (a fila de merge mergeia) → deploy → /saude/ → smoke
 ```
 
-**Desde 17/09/2026 o gate é o CI e ninguém empurra em `main`** (branch
-protection: check verde, branch atualizada, vale para admin). O PR se abre,
-espera e faz merge com `scripts/github.py` (`pr <branch> "<título>"`,
-`esperar <n>`, `merge <n>`); quem abre é quem faz o merge quando o check
-fica verde. O `pre-push` virou atalho (`config`, dourado, doutrina, gate
+**Desde 17/09/2026 o gate é o CI e ninguém empurra em `main`** (ruleset:
+PR obrigatório para todo mundo, check verde, FILA DE MERGE por merge
+commit em lotes de dois). O PR se abre, espera e ENTRA NA FILA com
+`scripts/github.py` (`pr <branch> "<título>"`, `esperar <n>`,
+`enfileirar <n> --esperar`); ninguém chama `merge` — a fila recusa. Com
+mais de um PR verde, a fila os mergeia em ordem, cada um sobre o anterior,
+com a suíte rodando no grupo (`merge_group`); a branch não precisa estar
+atualizada à mão. O `pre-push` virou atalho (`config`, dourado, doutrina, gate
 por letra, orçamentos) e `NUTRIPLAN_SUITE_COMPLETA=1` roda tudo localmente
 antes de abrir o PR, para quem quer a resposta antes dos 40 minutos de
 runner.
@@ -399,8 +402,8 @@ nas quatro condições; o que ficava de fora dela — "decisão arquitetural",
 
 **Padrões já decididos — não perguntar de novo:** superpowers em toda
 missão · TDD + sabotagem 100 % vermelha + revisão adversarial + suíte · o
-gate é o CI, fluxo branch → PR → merge pela API (`enforce_admins: true`,
-merge commit) · deploy provado por `/saude/` + smoke + QA em produção com
+gate é o CI, fluxo branch → PR → FILA DE MERGE (`scripts/github.py
+enfileirar`; ruleset sem bypass, merge commit, lotes de dois) · deploy provado por `/saude/` + smoke + QA em produção com
 conta descartável pelo signup público, conta apagada pela tela, demo
 intacto · `scripts/qa/nav.py` (CDP) para navegador, inclusive sites de
 terceiros na sessão logada do dono (Render, GitHub, claude.ai) · mídia de
