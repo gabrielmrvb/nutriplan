@@ -50,7 +50,7 @@ pelo form.
       porque foi lá que o padrão nasceu; o que ele é de fato é a moldura que
       permite mostrar seleção sem `:has()`.
     {% endcomment %}
-    <ul class="choice-list{% if field.name == 'sex' %} segmented{% elif field.name == 'weekdays' %} choice-list--dias{% endif %}"
+    <ul class="choice-list{% if field.name == 'sex' %} segmented{% elif field.name == 'weekdays' %} segmented--envolve{% endif %}"
         role="group" aria-labelledby="{{ field.auto_id }}_label"{% if field.help_text or field.errors %} aria-describedby="{% if field.help_text %}{{ field.auto_id }}_helptext{% endif %}{% if field.help_text and field.errors %} {% endif %}{% if field.errors %}{{ field.auto_id }}_error{% endif %}"{% endif %}>
       {% for subwidget in field %}
         <li>

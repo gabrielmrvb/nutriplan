@@ -51,6 +51,23 @@ class ComandoTemaTests(SimpleTestCase):
         self.assertIn("self._tema()", init_source,
                       "self._tema() não é chamado dentro de __init__ — a wiring foi quebrada")
 
+    def test_o_movimento_e_emulado_junto_com_o_tema(self):
+        """O Chrome headless desta máquina responde `prefers-reduced-motion:
+        reduce` por padrão — toda captura de movimento saía com o quadro
+        final pronto (T3.6, 16/09/2026). `movimento normal|reduzido` persiste
+        como o tema, e as DUAS features vão na mesma chamada de
+        `setEmulatedMedia`: ela escreve a lista inteira, e uma sozinha
+        apagaria a outra."""
+        fonte = NAV.read_text(encoding="utf-8")
+        self.assertIn("nav.py <sessao> movimento normal|reduzido", fonte)
+        self.assertIn('elif cmd == "movimento": out = s.movimento(args[0])', fonte)
+        self.assertIn('"movimento-" + self.nome + ".json"', fonte)
+        inicio = fonte.index("def _tema(self):")
+        corpo = fonte[inicio:fonte.index("def ", inicio + 10)]
+        self.assertIn('"prefers-reduced-motion"', corpo)
+        self.assertIn('"prefers-color-scheme"', corpo)
+        self.assertEqual(corpo.count("Emulation.setEmulatedMedia"), 1, "uma chamada, as duas features")
+
     def test_o_tema_espera_o_recalculo_antes_de_qualquer_comando(self):
         """Reaplicar a emulação não basta: o Chrome só refaz o estilo numa
         tarefa posterior. Medido em 16/09/2026 — `getComputedStyle(body).color`

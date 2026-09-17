@@ -2349,3 +2349,44 @@ Mesa e todos objeto gráfico: `--folha` sobre `--surface-3` (3,03), sobre
 token pinta; hoje não tem o que propor. Quem mexer em `--surface-3` ou em
 `--surface-2` roda o script antes — a folga da folha é a que o comentário do
 token em `app.css` diz não ser folga para gastar.
+
+### ✅ Onda 3 com o contrato CORTE — T3.1′ a T3.6 (16–17/09/2026)
+
+Direção escolhida por critério (`docs/briefs/design/DIRECAO-ESCOLHIDA.md`,
+veto do dono pendente), contrato reescrito (`DESIGN.md`) e implementado em
+quatro PRs pelo CI (#4 fundação, #6 tokens, #8 fontes, #9 componentes +
+execução; #10 é o fix de calendário/rotação que a quinta expôs), deploy
+provado por `/saude/` em cada um (b79d4b8, c5428b4, 3f54eb5, 6947afe) e QA em
+produção nos dois regimes (14 telas por deploy, demo intacto):
+o Ferro é a base e o Papel o derivado (`:root.modo-foco`, a classe no
+`<html>`); a execução escreve a classe; Bodoni Moda + Karla auto-hospedadas
+(70 KB, display só em herói, quatro pesos); a quina é a folha
+(`--corte-g`/`--corte`/`--corte-p`, nada clicável é pílula); a última
+série abre o placar dentro da folha-lima (`services.Placar`, `folha-sobe`,
+conta do zero, cascata de 80 ms); `corte-abre` e `corte-desdobra`. Registro
+completo na seção "Design / Onda 3" do `CLAUDE.md`.
+
+### ⏳ O que a onda 3 deixou, com o consumidor a nascer
+
+- **Emoji → glifo nas conquistas**: as cinco regras têm emoji (troféu,
+  braço, chama, calendário, halterofilista — `achievements/regras.py`) e o
+  contrato põe "ícone-emoji na interface" no que o app NÃO faz. Pede
+  desenhos novos no sprite (traço 2, grade 24, um `<symbol>` por regra que
+  não tenha glifo), `templates/achievements/list.html`,
+  `templates/partials/_conquista.html` e o `card.js`, que desenha o emoji
+  no canvas de compartilhar.
+- **Corrida em andamento em Ferro**: o contrato diz que ela nasce em Ferro
+  como a execução; a tela da corrida (`workouts:corridas`) não tem estado
+  "em andamento" no servidor — é o `corrida.js` quem sabe. Decidir se a
+  classe vai pela view (sempre) ou pelo JS (quando corre).
+- **"Ver resumo do treino"**: o mockup dizia isso no primário da recompensa;
+  ficou "Ver o treino completo" (um verbo por destino). Se o dono quiser o
+  verbo do mockup, é renomear os DOIS lugares e a ficha.
+- **Unidade dentro do tile** (`.tile__value` "2,6 L", "87%"): a unidade vai
+  em Bodoni junto com o número; o contrato pede Karla colada. Pede markup
+  (a unidade num `<span>`), não CSS.
+- **Espaçamento em grade de 4** (`--espaco-1…7` = 4·8·12·16·24·32·48): o
+  contrato diz o alvo; o CSS roda os sete degraus fracionários. Onda
+  própria com captura antes/depois (decisão do dono de 16/09).
+- **Veto do dono** sobre a direção e sobre os quatro ajustes medidos da
+  paleta (escada U28, argila, `--dia-*`) — pelo `DIRECAO-ESCOLHIDA.md`.

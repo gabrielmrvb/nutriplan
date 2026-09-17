@@ -111,7 +111,9 @@ TETO_FONT_SIZE_CRU = 117
 #: entre três alvos tocados de pé (MOB-13), e virou `var(--espaco-3)`.
 #: 244 em 15/09/2026: `.anatomia { margin-bottom: .8rem }` e
 #: `.anatomia__botao { gap: .45rem }` saíram com o segundo player.
-TETO_ESPACO_CRU = 244
+#: 243 em 16/09/2026 (T3.6): o selo do treino concluído (`.fim__selo`, com
+#: `margin: .2rem auto ...`) saiu com a folha de recompensa.
+TETO_ESPACO_CRU = 243
 
 
 def sem_comentarios(texto):

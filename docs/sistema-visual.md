@@ -16,7 +16,7 @@ O sistema não é uniforme, e fingir que é seria o começo do problema:
 
 | eixo | tokens | travado por teste? | valores crus |
 |---|---|---|---|
-| **quina** | 5 | sim — `config/tests.py:614` | **0** |
+| **quina** | 4 (`--corte-g`/`--corte`/`--corte-p`, de quatro valores — a folha —, e `--pill` só para ponto, barra e selo; CORTE, 16/09/2026) | sim — identidade dos quatro e "nada clicável é pílula" em `config/tests.py` | **0** |
 | **cor** | 48 → ≈65 em 16/09/2026 (o `:root` inteiro tem 123 tokens; 36 são `--ferro-*`, dos quais 4 são sombra/anel) | sim — órfão, não-declarado, `config/test_ferro.py` e contraste medido em 274 pares | 8 |
 | **espaço** | 7 + `--gap`/`--pad` | catraca | 291 |
 | **texto** | 8 | catraca | 144 |

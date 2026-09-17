@@ -1131,6 +1131,9 @@ toda edição de teste de valor travado leva a razão escrita.
 
 #### T3.1 — tokens: Mesa no `:root`, Ferro no escuro e em `body.modo-foco`
 
+> **17/09/2026 (CORTE, PR #6):** feito INVERTIDO — o Ferro é a base no `:root`, o Papel o derivado em `prefers-color-scheme: light`, `:root.modo-foco` (classe no `<html>`) força o Ferro; a execução escreve a classe. Valores da tabela do `DESIGN.md` com quatro ajustes medidos; 274 pares, 0 reprovados. `docs/superpowers/plans/2026-09-16-onda-3-corte.md`.
+
+
 **Origem:** DESIGN DV-T1 + correções dos juízes (conflito 8) · **Classe:**
 C→B (após C-DIR) · **Arquivos:** Modify `static/css/app.css` §1 (bloco
 Mesa em `:root`; bloco Ferro em `@media (prefers-color-scheme: dark)`
@@ -1156,6 +1159,9 @@ densidade e sombra), `config/settings` (`PWA_THEME_COLOR`).
 
 #### T3.2 — fonte própria, condicionada a medir
 
+> **17/09/2026 (CORTE, PR #8):** feito — Bodoni Moda (display, só em herói ≥ 20 px) + Karla (texto), 70 580 B (gate 260 KB), `tnum` nas duas medido com fontTools, quatro pesos, SW pré-cacheia. Não é a DM Sans deste item: a direção escolhida trocou a fonte.
+
+
 **Origem:** DESIGN DV-T2 · **Classe:** C→B (após C-DIR) · **Arquivos:**
 Create `static/fonts/DMSans[opsz,wght].woff2` + `LICENSE` (OFL); Modify
 `static/css/app.css` §1 (`@font-face`, `font-display: swap`,
@@ -1170,6 +1176,9 @@ Create `static/fonts/DMSans[opsz,wght].woff2` + `LICENSE` (OFL); Modify
   Commit.
 
 #### T3.3 — famílias de cartão e componentes (com `ring.html` e `sparkline.html`)
+
+> **17/09/2026 (CORTE, PR #9):** a quina é a folha (`--corte-g`/`--corte`/`--corte-p`) e o cartão é faixa sem sombra; famílias `.prato/.cartao/.nota` e `sparkline.html` NÃO nasceram — a direção resolveu a hierarquia por tipografia e superfície, não por família de caixa.
+
 
 > **16/09/2026 (noite, N1):** só a MEDIDA — cartão dentro de cartão = 0 em sete rotas (`config/test_cartoes.py`). As famílias esperam três decisões de direção (fio no topo × esquerda; `.card` alias × reescrita; sombra do prato).
 
@@ -1192,6 +1201,9 @@ colunas 64 px; meta tracejada; hoje na cor do pilar; `aria-label`; lista em
 
 #### T3.4 — botões: seis variantes, uma escala de `:active`
 
+> **17/09/2026 (CORTE, PR #9):** `.btn` com `--corte`, primário lima cheia; nada clicável é pílula (teste). As variantes `--tonal`/`--texto`/`--icone` não entraram: o contrato CORTE fecha a lista em primary/ghost/quiet/perigo/sm/block.
+
+
 > **16/09/2026 (noite, N5):** parcial — `class="btn"` sem variante = 0 (lista fechada), `.mapa__area` na escala única, `is-carregando` em `<a class="btn">` (`data-arquivo` exclui o TCX). Restou: `--tonal`/`--texto`/`--icone`, alturas 52/48/44, "um primário por template" (inviável por página — ver `fatos-onda-3.md`).
 
 
@@ -1208,6 +1220,9 @@ mantido; `class="btn"` sem variante = 0; um `.btn--primary` por template).
 
 #### T3.5 — inputs: uma receita de campo, um foco
 
+> **17/09/2026 (CORTE, PR #9):** campo e visto de escolha em folha; `.choice-list--dias → .segmented--envolve`. Sufixo de unidade e checkbox círculo 24 ficaram (backlog "Design / Onda 3").
+
+
 > **16/09/2026 (noite, N2 de `2026-09-16-onda-3-noite.md`):** feito — foco `--brand` nos cinco controles, `--glow` anel de 1 px, `[aria-invalid]` no CSS e ids do `aria-describedby` em `field.html`. Restou: 52/raio 12/`--surface-2` no campo, sufixo de unidade, renome `.segmented--envolve`, checkbox círculo 24.
 
 
@@ -1222,6 +1237,9 @@ círculo 24 em alvo 44), `templates/partials/field.html`, `accounts/forms.py`.
   da fronteira ≥ 3:1 medido. Implementar; QA nos formulários a 320. Commit.
 
 #### T3.6 — sprite em `base.html`, com medição e fora do shell offline
+
+> **17/09/2026 (CORTE, PR #9):** a folha de recompensa na última série (`services.Placar`, `folha-sobe`, conta do zero, cascata 80 ms), `corte-abre` e `corte-desdobra`. Emoji → glifo nas conquistas continua pendente (backlog).
+
 
 > **16/09/2026 (noite, N3):** feito — sprite na base fora do shell, traço 2 em cada `<symbol>`, ficha +2 939 B medidos (< +4 KB). Restou: emoji → glifo nas conquistas (3 desenhos + `card.js`), ponto duotone, chevron único.
 
@@ -1244,6 +1262,9 @@ no lugar dos emoji), `static/css/app.css` (chevron único girando 240 ms).
   por `nav`). Commit citando "Três ausências no mapa" e "ficha 8,9 kB".
 
 #### T3.7 — motion: três durações; keyframes órfãos com destino
+
+> **17/09/2026 (CORTE):** `--mov-recompensa` (.45 s) e `--mov-cascata` (80 ms) entraram COM consumidor; `prefers-reduced-motion` desliga os três momentos novos; `nav.py movimento normal|reduzido` para fotografar movimento (o headless respondia `reduce`).
+
 
 > **16/09/2026 (noite, N4):** feito — `varrer` e os quatro órfãos saíram, catraca de órfãos em zero, 760 → 750. `encher` ficou.
 

@@ -212,8 +212,10 @@ em `--folha`) · `tabbar` (quatro itens; a ativa é folha cheia de `--brand`) ·
 Entrar · Hoje · Dieta (refeição aberta com opções A e B) · Ficha com duas
 opções · Execução (UM exercício; Ferro sempre) · Progresso · **Frame de
 recompensa** (a última série do treino — o placar dentro da folha: total de
-carga, séries, minutos, vs. última, o recorde; "Ver resumo do treino"
-primário, "Voltar para Hoje" contorno). Referência visual: os mockups da
+carga, séries, minutos, vs. última, o recorde; "Ver o treino completo"
+primário — o mockup dizia "Ver resumo do treino", mas o repositório tem um
+verbo por destino e a ficha já se chama assim —, "Voltar para Hoje"
+contorno). Referência visual: os mockups da
 direção em `artifacts/claude-design/export/direcoes/Direcao2-{a,b}.dc.html`
 e as capturas em [`referencias/direcoes/`](referencias/direcoes/).
 

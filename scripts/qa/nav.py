@@ -18,6 +18,7 @@ Uso (sempre com o python do .venv):
   nav.py <sessao> offline on|off
   nav.py <sessao> rede 3g|4g|off              -> rede lenta emulada (L08-medicao)
   nav.py <sessao> tema claro|escuro         -> emula prefers-color-scheme (vale até `close`)
+  nav.py <sessao> movimento normal|reduzido -> emula prefers-reduced-motion (idem)
   nav.py <sessao> url | title | text [max] | links | clicaveis
   nav.py <sessao> close
 
@@ -213,13 +214,34 @@ class Sessao:
         valor = "dark" if qual == "escuro" else "light"
         return {"tema": qual, "prefers-color-scheme": valor}
 
+    def movimento(self, qual):
+        """Emula `prefers-reduced-motion`.
+
+        O Chrome headless desta máquina responde `reduce` por padrão — toda
+        captura de movimento saía com o quadro final pronto e ninguém via a
+        folha subir (T3.6, 16/09/2026). `normal` é `no-preference`. Persiste
+        como o tema, e pelo mesmo motivo: cada comando é uma conexão nova.
+        """
+        if qual not in ("normal", "reduzido"):
+            raise SystemExit("movimento: normal|reduzido")
+        (BASE / ("movimento-" + self.nome + ".json")).write_text(json.dumps(qual))
+        self._tema()
+        return {"movimento": qual, "prefers-reduced-motion": "reduce" if qual == "reduzido" else "no-preference"}
+
     def _tema(self):
         cfg = BASE / ("tema-" + self.nome + ".json")
-        if not cfg.exists():
+        mov = BASE / ("movimento-" + self.nome + ".json")
+        if not cfg.exists() and not mov.exists():
             return
-        qual = json.loads(cfg.read_text())
-        valor = "dark" if qual == "escuro" else "light"
-        self.cmd("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": valor}])
+        # `setEmulatedMedia` escreve a LISTA inteira de features: as duas vão
+        # juntas, senão o `movimento` apagaria o tema (e vice-versa).
+        features = []
+        if cfg.exists():
+            qual = json.loads(cfg.read_text())
+            features.append({"name": "prefers-color-scheme", "value": "dark" if qual == "escuro" else "light"})
+        if mov.exists():
+            features.append({"name": "prefers-reduced-motion", "value": "reduce" if json.loads(mov.read_text()) == "reduzido" else "no-preference"})
+        self.cmd("Emulation.setEmulatedMedia", features=features)
         # A emulação vale na hora; o RECÁLCULO não. Esta conexão é nova — a
         # anterior morreu e levou o tema junto, e a página voltou ao claro —,
         # e o Chrome só refaz o estilo numa tarefa posterior: medido em
@@ -338,6 +360,7 @@ def main():
         elif cmd == "offline": out = s.offline(args[0])
         elif cmd == "rede": out = s.rede(args[0])
         elif cmd == "tema": out = s.tema(args[0])
+        elif cmd == "movimento": out = s.movimento(args[0])
         elif cmd == "url": out = s.eval("location.href")
         elif cmd == "title": out = s.eval("document.title")
         elif cmd == "text": out = s.text(*(args[:1]))

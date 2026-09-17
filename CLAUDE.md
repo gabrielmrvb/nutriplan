@@ -1556,6 +1556,53 @@ sintéticos (550/620/650/680/720/750/780/800) foram mapeados (550 → 500,
 saía sintetizado. Catraca de `font-size` cru desceu 119 → 117 (o `h1` do
 desktop perdeu o `1.9rem`).
 
+**A quina é a folha, e nada clicável é pílula (T3.3 + T3.4, 16/09/2026).**
+Três tokens de QUATRO valores substituem a escala 24/16/12/8: `--corte-g:
+0 40px 0 40px` (o prato — `.card.agora-card`, o painel de hoje do treino,
+a ofensiva, a água, a barra de abas), `--corte: 0 20px 0 20px` (cartão de
+lista, botão, campo, mídia, modal, `.meal`, a aba ativa) e `--corte-p: 0
+12px 0 12px` (chip, célula, selo de opção, filho de caixa). Ordem sup-esq
+· sup-dir · inf-dir · inf-esq: ponta em cima à esquerda e embaixo à
+direita, como a folha do logo. A migração foi de TOKEN, não de regra —
+`var(--radius-xl)` → `var(--corte-g)` etc., 82 declarações —, e o único
+lugar que precisou de decisão foi o raio "de dentro" do segmented
+(`calc(var(--radius-sm) - 3px)`): `calc()` não entra num token de quatro
+valores, então é `--corte-p` direto. `--pill` ficou em 14 usos, todos
+barra, trilha, ponto ou selo; sete clicáveis saíram dela (`.chip`, os
+links da barra de cima, "Fazer" da ficha, o avanço do wizard, o fechar do
+demo, as abas da gestão, o rótulo dos dias) e `config/tests.py` prende as
+duas coisas — a identidade dos quatro tokens e a lista de clicáveis que
+não podem ser pílula. O cartão continua sem sombra e sem borda: a
+superfície é o que separa, e é por isso que o contrato o chama de FAIXA.
+
+**A folha de recompensa, e os três momentos que se movem (T3.5 + T3.6,
+16/09/2026).** A última série do treino abre o placar DENTRO da folha-lima
+(`.recompensa`: `--brand` cheio, `--on-brand`, `--corte-g`): a carga total
+de hoje em Bodoni — peso × repetições, série a série, `services.Placar`,
+CONTAGEM sobre o `item.load` que a tela já tinha, zero consulta nova —,
+"vs. a última vez" (a mesma conta sobre a última vez de cada exercício;
+some sem passado), o recorde (a série mais pesada de hoje acima de
+qualquer data, a régua de `achievements`), séries e minutos; "Ver o treino
+completo" primário (a ficha da sessão — o mockup dizia "Ver resumo do
+treino", e um verbo por destino venceu) e "Voltar para Hoje" contorno. O
+movimento: `folha-sobe` em `--mov-recompensa` (.45 s) a partir do canto
+inferior direito, o número conta do ZERO em `--mov-sucesso` depois de a
+folha subir (`data-conta="zero"`, `pwa.js`), os números pequenos em
+cascata de `--mov-cascata` (80 ms), os botões chegam parados a .95 s; com
+`prefers-reduced-motion` o quadro final aparece pronto
+(`workouts/test_recompensa.py`). Os outros dois momentos: `corte-abre` na
+refeição recém-marcada (`.meal.is-recem` — as duas pontas viram curva por
+um instante, `--corte-aberto`) e `corte-desdobra` ao CRUZAR a meta de água
+(`.agua-card.is-meta`, só no toque que cruza — `pwa.js` compara o valor de
+antes com o de agora contra `data-agua-meta`). O Chrome headless desta
+máquina responde `prefers-reduced-motion: reduce` por padrão — `scripts/qa/
+nav.py movimento normal|reduzido` emula os dois, junto com o tema, na
+mesma chamada. `.choice-list--dias` virou `.segmented--envolve` e o visto
+do cartão de escolha virou folha pequena. O que a onda 3 ainda NÃO fez:
+emoji → glifo nas conquistas (três desenhos e o `card.js` desenha o
+emoji) e a corrida em andamento em Ferro — os dois ficam para a próxima
+onda, com o consumidor.
+
 ## Testes
 
 Nome descreve o comportamento, não o método. Docstring diz **por que** aquilo
