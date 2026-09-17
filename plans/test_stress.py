@@ -156,7 +156,12 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # 26 -> 27: a mesma consulta de corrida que entrou em `streaks.calcular`
         # chega aqui de carona, por `conquistas.resumo` — é a MESMA função da
         # Home, não uma segunda.
-        "plans:history": 27,
+        #
+        # 27 -> 28: o convite de nível (T2.4) é UMA consulta agregada sobre
+        # `ExerciseLog` com o nível no WHERE (junção com o perfil) — constante,
+        # para qualquer nível, e não por linha. As duas subidas nasceram em
+        # branches paralelas no mesmo dia (17/09/2026) e se somam.
+        "plans:history": 28,
         # 15 -> 19: o Perfil passou a CONFERIR se o plano gravado ainda vale.
         #
         # Ele mostrava o número velho chamando-o de "suas metas de hoje" — 2.520
