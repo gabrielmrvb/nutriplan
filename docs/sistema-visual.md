@@ -38,7 +38,9 @@ por três gatilhos que só mapeiam: o próprio `:root` liga o Ferro
 (`--bg: var(--ferro-bg)`), `@media (prefers-color-scheme: light)` liga o
 Papel e `body.modo-foco` — classe que o servidor escreve na execução do
 treino — liga o Ferro de volta por cima da preferência. (De 12 a 16/09 a
-base foi a clara, Mesa.) Foco é `--brand` em todo
+base foi a clara, Mesa.) Duas fontes próprias desde T3.2: Bodoni Moda
+(display, só em herói ≥ 20 px) e Karla (texto, `tabular-nums`), quatro
+pesos, 70 KB em `static/fonts/`. Foco é `--brand` em todo
 controle (`--glow` = anel de 1 px, sem difusão); movimento só por `--mov-*` e
 nenhum `@keyframes` sem consumidor (18 declarados, 0 órfãos); botão sempre com
 variante de uma lista fechada; o sprite de ícones (13 símbolos, traço 2 em

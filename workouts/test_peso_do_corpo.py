@@ -39,12 +39,14 @@ class PesoDoCorpoTests(TestCase):
         plano = services.get_active_routine(self.pessoa)
         # Ficha ajustada não é remontada: sem isto `sync_active_routine`
         # compara com o catálogo, vê o item a mais e refaz a semana. E vem
-        # ANTES de resolver a sessão de hoje: ficha ajustada fica presa ao
-        # dia da semana (`ciclo_roda` desliga), então a linha que os itens
-        # de teste recebem tem de ser a que a execução vai ler.
+        # ANTES de resolver a sessão: ajustada, a ficha deixa de rodar
+        # (`ciclo_roda`) e a sessão de hoje volta a ser a linha do dia da
+        # semana — gravar a escolha na linha da LETRA e depois ajustar deixava
+        # a execução abrindo outra sessão (quinta, letra A na linha de
+        # segunda), e o item de teste não estava nela: 404.
         plano.customized_at = timezone.now()
         plano.save(update_fields=["customized_at"])
-        self.sessao = services.sessao_do_dia(plano, self.hoje)  # como o app resolve, nunca por weekday
+        self.sessao = services.sessao_do_dia(plano, self.hoje)
         # A execução abre a opção ESCOLHIDA de hoje (15/09/2026): a 1, e os
         # itens de teste entram NELA (`opcao=1`, o padrão do modelo).
         escolher_opcao_de_hoje(self.pessoa)

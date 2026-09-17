@@ -39,10 +39,12 @@ class APastilhaTests(TestCase):
         self.client.force_login(self.pessoa)
         self.hoje = timezone.localdate()
         plano = services.get_active_routine(self.pessoa)
-        sessao = services.sessao_do_dia(plano, self.hoje)  # como o app resolve, nunca por weekday
-        # A execução abre a opção ESCOLHIDA (a 1, gravada aqui): os itens de
-        # teste vêm DELA — um item que só existe na opção 2 dava 404 na
-        # execução em dias em que a recomendada era a outra.
+        # Pela LETRA do ciclo (`sessao_do_dia`), não pela linha de hoje: com a
+        # rotação as duas divergem e o item medido não era o da execução. E
+        # só a OPÇÃO que a execução abre (a 1, gravada aqui): `exercises.all()`
+        # mistura as duas opções, e o peso do corpo podia cair na outra —
+        # que a execução responde com 404.
+        sessao = services.sessao_do_dia(plano, self.hoje)
         escolher_opcao_de_hoje(self.pessoa)
         itens = list(sessao.da_opcao(1))
         self.item = next(

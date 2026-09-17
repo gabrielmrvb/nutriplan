@@ -410,17 +410,8 @@ def anexar_historico(user, sessions) -> None:
     # A de hoje POR ÚLTIMO: com a rotação, a letra que cai duas vezes na
     # semana é a MESMA linha vestindo dois dias, e os itens são os mesmos
     # objetos — a ocorrência que não é hoje apagaria o "hoje" da que é.
-    # "É hoje?" é `eh_hoje` quando quem chamou já decidiu (a ficha, com a
-    # rotação: a linha da letra guarda o `weekday` da PRIMEIRA semana, e na
-    # quinta a linha de A é a de segunda); só sem a marca vale o dia da
-    # semana da linha. Sem isto a ficha de hoje zerava o balde "hoje" e a
-    # série registrada sumia do "1/4" do item (CI vermelho em 17/09/2026).
-    def do_dia_de(session):
-        marcado = getattr(session, "eh_hoje", None)
-        return marcado if marcado is not None else session.weekday == hoje_na_semana
-
-    for session in sorted(sessions, key=do_dia_de):
-        do_dia = do_dia_de(session)
+    for session in sorted(sessions, key=lambda s: s.weekday == hoje_na_semana):
+        do_dia = session.weekday == hoje_na_semana
         for item in session.exercises.all():
             carga = historico.get(item.exercise_id)
             if carga is not None and not do_dia:
@@ -531,20 +522,28 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             .first()
         )
 
+        hoje_data = timezone.localdate()
+        linhas = list(sessao.plan.sessions.prefetch_related("exercises__exercise"))
+        # COM A ROTAÇÃO, A LINHA DA LETRA VESTE O DIA DE HOJE ANTES DO
+        # HISTÓRICO (17/09/2026). `anexar_historico` só aplica o balde "hoje"
+        # à sessão cujo `weekday` é o de hoje — e a linha da letra guarda o
+        # dia da PRIMEIRA semana: numa quinta em que a letra A (linha de
+        # segunda) cai de novo, a ficha de hoje abria sem nenhuma série de
+        # hoje ("0/4" depois de registrar uma), enquanto a execução, que passa
+        # por `sessao_do_dia`, mostrava a série. Passou despercebido porque os
+        # testes rodaram em dias em que letra e linha coincidiam. A mesma
+        # cópia vestida que a execução usa resolve os dois lados de uma vez.
+        if services.ciclo_roda(sessao.plan) and services.letra_do_dia(sessao.plan, hoje_data, linhas) == sessao.label:
+            vestida = services.sessao_do_dia(sessao.plan, hoje_data, linhas)
+            if vestida is not None and vestida.pk == sessao.pk:
+                sessao = vestida
+        # A MESMA preparação da tela principal, pela mesma função. Uma segunda
+        # cópia divergiria, e a que fica errada é a que ninguém está olhando.
+        anexar_historico(user, [sessao])
         # A NOMEAÇÃO PRECISA DA SEMANA INTEIRA: "A1" só existe porque há um A2,
         # e uma sessão sozinha não sabe disso. Buscar as irmãs custa UMA
         # consulta e é o que faz o título da ficha concordar com o cartão que
         # levou até ela.
-        hoje_data = timezone.localdate()
-        linhas = list(sessao.plan.sessions.prefetch_related("exercises"))
-        # "É hoje?" ANTES do histórico: com a rotação a resposta é a LETRA de
-        # hoje, e `anexar_historico` precisa dela para não zerar o balde
-        # "hoje" da linha que nasceu noutro dia da semana.
-        if services.ciclo_roda(sessao.plan):
-            sessao.eh_hoje = services.letra_do_dia(sessao.plan, hoje_data, linhas) == sessao.label
-        # A MESMA preparação da tela principal, pela mesma função. Uma segunda
-        # cópia divergiria, e a que fica errada é a que ninguém está olhando.
-        anexar_historico(user, [sessao])
         irmas = services.sessoes_da_semana(sessao.plan, hoje_data, linhas)
         nomear_ocorrencias(irmas)
         sessao.rotulo = next(

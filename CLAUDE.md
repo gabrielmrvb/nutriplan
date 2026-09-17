@@ -1494,6 +1494,29 @@ quatro órfãos no pre-commit); `--shadow-*`/`--edge` valem `0 0 0 0 transparent
 `box-shadow` e derrubaria o `--halo`. Manifesto e `theme-color` seguem a
 base (`PWA_THEME_COLOR` #10120e; `PWA_LIGHT_COLOR` na meta com `media`).
 
+**Duas fontes próprias, e a display só em herói (T3.2, 16/09/2026).**
+Bodoni Moda (display; `wght` 400–900, `opsz` 6–96) e Karla (texto; `wght`
+400–800), os dois `.woff2` do Google Fonts para o subconjunto latin,
+auto-hospedados em `static/fonts/` com a OFL ao lado: **70 580 bytes** no
+total contra o gate de 260 KB (`config/test_fontes.py`), `font-display:
+swap`, pré-cacheados pelo service worker, `font/woff2` registrado no
+`mimetypes` para o servidor local (o Windows não o conhece). A itálica da
+Bodoni ficou de fora: o mockup a usava a 13–19 px, abaixo do piso de 20 da
+display — sem consumidor, sem arquivo. Medido com fontTools, as duas têm
+`tnum`; a nota de `DIRECAO-ESCOLHIDA.md` ("didone não tem numeral
+tabular") valia para o mockup e foi corrigida. A display aparece em DEZ
+regras e só nelas — `h1` (28 px, 600; era 40/800), `.hoje__nome`,
+`.agora__titulo` e `.agora__nome` (os nomes, 22,7 px), `.ring__value`,
+`.curva__valor`, `.modulo__valor`, `.balance__value`, `.tile__value`,
+`.pesagem__media`, `.entrada__wordmark`, `.corrida-numero__valor` — e o
+teste cobra que toda regra com `var(--font-display)` tenha tamanho de
+herói. Os pesos são QUATRO (400 · 500 · 600 · 700): os oito degraus
+sintéticos (550/620/650/680/720/750/780/800) foram mapeados (550 → 500,
+620/650 → 600, o resto → 700), e `b, strong { font-weight: 700 }` porque
+`bolder` de 600 é 900 e a Karla para em 800 — o "2100 kcal" do resumo
+saía sintetizado. Catraca de `font-size` cru desceu 119 → 117 (o `h1` do
+desktop perdeu o `1.9rem`).
+
 ## Testes
 
 Nome descreve o comportamento, não o método. Docstring diz **por que** aquilo

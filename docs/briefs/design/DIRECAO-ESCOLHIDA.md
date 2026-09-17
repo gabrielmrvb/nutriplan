@@ -53,9 +53,11 @@ vê; poderia ser um app de finanças ou um terminal.
 **2 · Número herói.** NERVURA (5): "1.240" em 76–104 px condensado ocupa a
 largura sem quebrar, "42,5 kg" em laranja (`--carga`) é o maior objeto da
 execução, macros com número + régua; hierarquia por tamanho e cor. CORTE
-(3): "1.240" e "42,5 kg" em Bodoni são bonitos e grandes, mas didone não tem
-numerais tabulares por padrão e os fios finos somem em tela de baixa
-densidade abaixo de ~20 px — a lista "4 × 8–10" em serifa alinha mal em
+(3): "1.240" e "42,5 kg" em Bodoni são bonitos e grandes, mas os fios
+finos somem em tela de baixa densidade abaixo de ~20 px (a frase original
+dizia também "didone não tem numeral tabular"; medido com fontTools em
+T3.2, a Bodoni Moda TEM `tnum` — a nota valia para o mockup, que não o
+pedia) — a lista "4 × 8–10" em serifa alinha mal em
 coluna; Karla fica com os números pequenos (regra no DESIGN.md: Bodoni só
 ≥ 20 px, Karla `tabular-nums` no resto). VENAÇÃO (4): mono é tabular por
 natureza e "1.240" é grande; mas 36 rótulos a 9–10 px (abaixo do piso de
