@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """O cardápio da Home diz a medida caseira, e a grama fica entre parênteses."""
+import re
 from decimal import Decimal
 
 from django.core.management import call_command
@@ -257,4 +258,98 @@ class OCafeParecePratoDeVerdadeTests(TestCase):
                 kcal_item = item.macros_for(fator)["kcal"]
                 if kcal_item > total_kcal * Decimal("0.6"):
                     fora.append((template.name, item.food.name, kcal_item, total_kcal))
+        self.assertEqual(fora, [])
+
+
+class OCatalogoRespeitaAsTagsTests(TestCase):
+    """A etiqueta promete uma restrição; cada ingrediente da receita tem que cumprir.
+
+    Achado do Fix round 3 (relatório da Task 2, 17/09/2026): "Cuscuz com ovo"
+    e "Tapioca com ovo" estavam marcadas `sem-lactose` e carregavam Queijo
+    minas frescal — uma violação que já vinha do catálogo original da Task 2
+    (o achado do Fix round 1 já citava "queijo minas" nas duas, mas ninguém
+    tirou o alimento, só redistribuiu a caloria em volta dele) e sobreviveu a
+    dois rounds de correção porque nenhum teste olhava a etiqueta contra o
+    ingrediente de verdade — os testes de fator e de teto acima só somam
+    calorias, não leem restrição alimentar. O Fix round 2 ainda agravou o
+    caso ao acrescentar Manteiga às duas receitas para fechar a conta
+    calórica que sobrou depois do teto por padrão de nome.
+
+    Esta régua roda sobre TODA receita ativa, em QUALQUER horário — não só
+    café da manhã — porque a etiqueta é a mesma promessa em qualquer
+    refeição, e a violação já tinha aparecido fora do café antes.
+    """
+
+    #: Substring (comparação em minúsculo, com fronteira de palavra) que
+    #: identifica um alimento como lácteo. "Leite de coco" e "leite de soja"
+    #: são a exceção deliberada — nenhum dos dois está no catálogo semeado
+    #: hoje, mas a lista existe para quando um entrar e não virar falso
+    #: positivo de "sem-lactose" (leite de coco/soja não tem lactose).
+    LACTEOS = ("leite", "queijo", "manteiga", "requeijão", "iogurte", "creme de leite", "whey")
+    LACTEOS_EXCECOES = ("leite de coco", "leite de soja")
+
+    #: Origem animal que quebra "vegana" além do lácteo: ovo, carne, peixe e mel.
+    ANIMAIS_ALEM_DO_LACTEO = ("ovo", "frango", "carne", "peixe", "atum", "sardinha", "camarão", "mel")
+
+    #: "vegetariana" permite ovo e lácteo — só carne e peixe quebram a tag.
+    CARNES_E_PEIXES = ("frango", "carne", "peixe", "atum", "sardinha", "camarão")
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+
+    @staticmethod
+    def _bate(padrao, nome_minusculo):
+        # Fronteira de palavra: "mel" não pode casar com "melancia", nem
+        # "carne" com um composto qualquer que a tenha como substring solta.
+        return re.search(r"\b" + re.escape(padrao) + r"\b", nome_minusculo) is not None
+
+    def _e_lacteo(self, nome_alimento):
+        nome = nome_alimento.lower()
+        if any(excecao in nome for excecao in self.LACTEOS_EXCECOES):
+            return False
+        return any(self._bate(padrao, nome) for padrao in self.LACTEOS)
+
+    def _e_origem_animal_vegana(self, nome_alimento):
+        return self._e_lacteo(nome_alimento) or any(
+            self._bate(padrao, nome_alimento.lower()) for padrao in self.ANIMAIS_ALEM_DO_LACTEO
+        )
+
+    def _e_carne_ou_peixe(self, nome_alimento):
+        return any(self._bate(padrao, nome_alimento.lower()) for padrao in self.CARNES_E_PEIXES)
+
+    def test_sem_lactose_nao_leva_derivado_de_leite(self):
+        fora = []
+        templates = (
+            MealTemplate.objects.filter(is_active=True, tags__slug="sem-lactose")
+            .prefetch_related("items__food")
+        )
+        for template in templates:
+            for item in template.items.all():
+                if self._e_lacteo(item.food.name):
+                    fora.append((template.name, item.food.name))
+        self.assertEqual(fora, [])
+
+    def test_vegana_nao_leva_nenhum_ingrediente_de_origem_animal(self):
+        fora = []
+        templates = (
+            MealTemplate.objects.filter(is_active=True, tags__slug="vegana")
+            .prefetch_related("items__food")
+        )
+        for template in templates:
+            for item in template.items.all():
+                if self._e_origem_animal_vegana(item.food.name):
+                    fora.append((template.name, item.food.name))
+        self.assertEqual(fora, [])
+
+    def test_vegetariana_nao_leva_carne_nem_peixe(self):
+        fora = []
+        templates = (
+            MealTemplate.objects.filter(is_active=True, tags__slug="vegetariana")
+            .prefetch_related("items__food")
+        )
+        for template in templates:
+            for item in template.items.all():
+                if self._e_carne_ou_peixe(item.food.name):
+                    fora.append((template.name, item.food.name))
         self.assertEqual(fora, [])

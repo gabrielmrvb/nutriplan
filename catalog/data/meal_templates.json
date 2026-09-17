@@ -79,11 +79,16 @@
       "rapida"
     ],
     "prep_minutes": 10,
-    "instructions": "Hidrate o cuscuz, leve à cuscuzeira e sirva com o ovo cozido, o queijo minas e um pouco de manteiga.",
+    "instructions": "Hidrate o cuscuz, leve à cuscuzeira e sirva com o ovo cozido, o tomate e um fio de azeite.",
     "items": [
       [
         "Cuscuz de milho cozido",
-        176,
+        190,
+        true
+      ],
+      [
+        "Azeite de oliva extra virgem",
+        25,
         true
       ],
       [
@@ -92,19 +97,9 @@
         false
       ],
       [
-        "Óleo de soja",
-        5,
+        "Tomate",
+        60,
         false
-      ],
-      [
-        "Queijo minas frescal",
-        55,
-        true
-      ],
-      [
-        "Manteiga",
-        11,
-        true
       ]
     ],
     "category": "breakfast",
@@ -323,21 +318,26 @@
       "rapida"
     ],
     "prep_minutes": 10,
-    "instructions": "Firme a goma na frigideira e recheie com o frango desfiado e o ovo cozido picado.",
+    "instructions": "Refogue o frango desfiado com um fio de azeite e o tomate, firme a goma na frigideira e recheie.",
     "items": [
       [
-        "Goma de tapioca hidratada",
-        107,
-        true
-      ],
-      [
         "Peito de frango grelhado",
-        145,
+        125,
         true
       ],
       [
-        "Ovo de galinha cozido",
-        150,
+        "Goma de tapioca hidratada",
+        95,
+        true
+      ],
+      [
+        "Azeite de oliva extra virgem",
+        22,
+        true
+      ],
+      [
+        "Tomate",
+        60,
         false
       ]
     ],
@@ -353,27 +353,22 @@
       "rapida"
     ],
     "prep_minutes": 8,
-    "instructions": "Espalhe a goma na frigideira quente untada com manteiga até firmar e recheie com o ovo cozido picado e o queijo minas.",
+    "instructions": "Espalhe a goma na frigideira quente untada com um fio de azeite até firmar e recheie com o ovo cozido picado.",
     "items": [
       [
         "Goma de tapioca hidratada",
-        112,
+        95,
+        true
+      ],
+      [
+        "Azeite de oliva extra virgem",
+        25,
         true
       ],
       [
         "Ovo de galinha cozido",
         150,
         false
-      ],
-      [
-        "Queijo minas frescal",
-        55,
-        true
-      ],
-      [
-        "Manteiga",
-        11,
-        true
       ]
     ],
     "category": "breakfast",
