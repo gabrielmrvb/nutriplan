@@ -37,7 +37,14 @@ class PesoDoCorpoTests(TestCase):
         self.client.force_login(self.pessoa)
         self.hoje = timezone.localdate()
         plano = services.get_active_routine(self.pessoa)
-        self.sessao = next(s for s in plano.sessions.all() if s.weekday == self.hoje.weekday())
+        # Ficha ajustada não é remontada: sem isto `sync_active_routine`
+        # compara com o catálogo, vê o item a mais e refaz a semana. E vem
+        # ANTES de resolver a sessão de hoje: ficha ajustada fica presa ao
+        # dia da semana (`ciclo_roda` desliga), então a linha que os itens
+        # de teste recebem tem de ser a que a execução vai ler.
+        plano.customized_at = timezone.now()
+        plano.save(update_fields=["customized_at"])
+        self.sessao = services.sessao_do_dia(plano, self.hoje)  # como o app resolve, nunca por weekday
         # A execução abre a opção ESCOLHIDA de hoje (15/09/2026): a 1, e os
         # itens de teste entram NELA (`opcao=1`, o padrão do modelo).
         escolher_opcao_de_hoje(self.pessoa)
@@ -45,10 +52,6 @@ class PesoDoCorpoTests(TestCase):
         # ficha de hoje como itens de teste, com a dose do catálogo.
         self.flexao = self._garantir("Flexão de braço", Measure.REPS, 10, 15)
         self.prancha = self._garantir("Prancha abdominal", Measure.SECONDS, 30, 45)
-        # Ficha ajustada não é remontada: sem isto `sync_active_routine`
-        # compara com o catálogo, vê o item a mais e refaz a semana.
-        plano.customized_at = timezone.now()
-        plano.save(update_fields=["customized_at"])
         self.supino = next(
             i for i in self.sessao.da_opcao(1)
             if i.exercise.equipment != "bodyweight" and i.measure == Measure.REPS
