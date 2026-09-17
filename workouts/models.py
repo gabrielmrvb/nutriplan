@@ -16,6 +16,7 @@ from decimal import Decimal
 from urllib.parse import quote_plus, urlparse
 
 from django.conf import settings
+from django.utils import timezone
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -61,12 +62,13 @@ class Equipment(models.TextChoices):
     `disputa_equipamento` sobreviveram à remoção como código morto por três
     campanhas, e saíram em 10/09/2026.
 
-    HOJE O CAMPO É DADO DE CATÁLOGO SEM CONSUMIDOR NO MOTOR, e isso é
-    deliberado: `workouts/test_capacidade_de_ambiente.py` mede que o catálogo
-    ainda não sustenta nenhum recorte de ambiente além do conjunto completo —
-    um filtro por equipamento abriria buraco nos modelos curados. O campo fica
-    porque é verdadeiro e porque é o insumo daquela medição; o que não existe é
-    a promessa de personalização em cima dele.
+    DESDE 17/09/2026 O MOTOR LÊ ESTE CAMPO: `services.substituir_por_equipamento`
+    troca, antes de prescrever, o item do modelo cujo equipamento está fora do
+    perfil da pessoa (`accounts.models.Equipamento`, mapa no `TREINO.md`) por
+    um exercício ativo do mesmo `padrao` e grupo dentro do perfil. Por
+    substituição, e não por filtro: um filtro abriria buraco nos modelos
+    curados — `workouts/test_capacidade_de_ambiente.py` mediu isso em
+    10/09/2026 e mede hoje o que cada perfil ainda perde.
     """
 
     BARBELL = "barbell", "barra"
@@ -978,6 +980,13 @@ class TrainingPlan(models.Model):
     catalogo = models.CharField("catálogo de origem", max_length=64, blank=True, default="")
     nivel = models.CharField("nível de origem", max_length=20, blank=True, default="")
     duracao = models.CharField("faixa de duração de origem", max_length=10, blank=True, default="")
+    #: O perfil de equipamento com que a ficha nasceu (`accounts.models.
+    #: Equipamento`, 17/09/2026). Default "completa" e NÃO vazio, ao contrário
+    #: de nível e faixa: toda ficha anterior à pergunta foi montada com o
+    #: catálogo inteiro, então "completa" é a verdade dela — e igual ao
+    #: default do perfil, nada é remontado pela pergunta nova. Mudou no
+    #: perfil, a ficha ficou inválida e remonta.
+    equipamento = models.CharField("equipamento de origem", max_length=15, default="completa")
     #: O CICLO RODA CONTÍNUO (17/09/2026): a posição zero é o primeiro dia de
     #: treino do plano, e a letra de qualquer data é a da posição dela na
     #: sequência de dias de treino — A B C A B, depois C A B C A, depois
@@ -1152,6 +1161,73 @@ class SessionExercise(PrescriptionFields):
 class VersaoDoTreino(models.TextChoices):
     COMPLETO = "completo", "Treino completo"
     RAPIDO = "rapido", "Versão rápida"
+
+
+class EventoDeProduto(models.Model):
+    """Um uso de uma feature que está EM AVALIAÇÃO — o dado que decide se
+    ela fica (17/09/2026). Um por pessoa, nome e dia: é contagem de adoção,
+    não telemetria de toque. Hoje só `versao_rapida` ("Menos tempo hoje?"
+    no painel), a decidir em 30 dias; `medir_progressao` conta."""
+
+    VERSAO_RAPIDA = "versao_rapida"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="eventos_de_produto",
+        verbose_name="usuário",
+    )
+    nome = models.CharField("evento", max_length=40)
+    date = models.DateField("dia", default=timezone.localdate)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "evento de produto"
+        verbose_name_plural = "eventos de produto"
+        constraints = [
+            models.UniqueConstraint(fields=("user", "nome", "date"), name="um_evento_por_pessoa_e_dia"),
+        ]
+
+    def __str__(self):
+        return "%s · %s" % (self.nome, self.date)
+
+
+class TrocaDeExercicio(models.Model):
+    """"Outras formas" (17/09/2026): a pessoa trocou UM exercício da ficha
+    por outro do mesmo padrão e grupo, dentro do que ela tem para treinar.
+
+    É customização POR EXERCÍCIO — vale em toda letra, toda semana e toda
+    opção em que `original` apareça —, e NÃO toca em `SessionExercise` nem
+    em `customized_at`: a ficha continua retrato, a rotação continua, e
+    `rotina_invalida`/`_prescricao_bate` não enxergam a troca. A aplicação é
+    em memória (`services.aplicar_trocas`): o item passa a apontar para o
+    substituto com a MESMA dose (séries, faixa, descanso), então trocar não
+    altera séries nem volume da sessão. `ExerciseLog` grava no exercício
+    FEITO (o substituto); a leitura mostra "no lugar de <original>" com o
+    histórico do original ao lado. Estado absoluto, uma por (pessoa,
+    original): trocar de novo atualiza, desfazer apaga.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="trocas_de_exercicio",
+        verbose_name="usuário",
+    )
+    original = models.ForeignKey(
+        Exercise, on_delete=models.CASCADE, related_name="trocas_como_original", verbose_name="original",
+    )
+    substituto = models.ForeignKey(
+        Exercise, on_delete=models.CASCADE, related_name="trocas_como_substituto", verbose_name="substituto",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "troca de exercício"
+        verbose_name_plural = "trocas de exercício"
+        constraints = [
+            models.UniqueConstraint(fields=("user", "original"), name="uma_troca_por_exercicio_e_pessoa"),
+            models.CheckConstraint(condition=~models.Q(original=models.F("substituto")), name="troca_muda_de_exercicio"),
+        ]
+
+    def __str__(self):
+        return "%s → %s" % (self.original_id, self.substituto_id)
 
 
 class EscolhaDeTreino(models.Model):

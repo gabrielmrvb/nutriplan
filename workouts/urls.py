@@ -12,6 +12,8 @@ urlpatterns = [
     path("agora/", views.ModoTreinoView.as_view(), name="now"),
     path("regenerar/", views.RegenerarTreinoView.as_view(), name="regenerar"),
     path("duracao/", views.DuracaoDoTreinoView.as_view(), name="duracao"),
+    path("hoje/rapida/", views.VersaoRapidaHojeView.as_view(), name="rapida_hoje"),
+    path("trocar/", views.TrocarExercicioView.as_view(), name="trocar"),
     path("aviso/dispensar/", views.DispensarAvisoView.as_view(), name="dispensar_aviso"),
     # A FICHA DE UMA SESSÃO É UMA PÁGINA, e não uma sanfona da tela principal.
     #
@@ -20,7 +22,6 @@ urlpatterns = [
     # todos fora da área visível. O detalhe continua inteiro; ele mudou de
     # página, e agora só é montado por quem pede.
     path("ficha/<int:sessao_id>/", views.FichaDaSessaoView.as_view(), name="ficha"),
-    path("ficha/<int:sessao_id>/escolher/", views.EscolherOpcaoView.as_view(), name="escolher"),
     # A leitura de um exercício, em qualquer dia: demonstração, dica, músculos.
     # GET puro — não colide com `ROTAS` de `fila.js`, que são só POST.
     path("exercicio/<int:exercise_id>/", views.ExercicioView.as_view(), name="exercicio"),

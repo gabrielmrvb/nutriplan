@@ -320,6 +320,37 @@ A ordem tem três regras, e as três são de prescrição, não de estética:
 - **num grupo GRANDE, isoladores são no máximo metade dos exercícios dele**:
   3 → 1 isolador, 4 → 2, 5 → 2. O pequeno pode ser todo isolador.
 
+## Mapa de equipamento — o que cada perfil tem à mão
+
+Quatro respostas no perfil (`accounts.models.Equipamento`, pergunta na
+etapa 2 do onboarding e no Perfil, 17/09/2026), e o motor FILTRA o catálogo
+antes de prescrever (`services.prescrever_opcoes(..., permitidos=)`). A
+chave é o `Exercise.equipment` do catálogo; a coluna lista o que o perfil
+PODE usar.
+
+| perfil | equipamentos |
+|---|---|
+| completa | barbell, dumbbell, machine, cable, bodyweight |
+| basica | dumbbell, machine, cable, bodyweight |
+| casa_halteres | dumbbell, bodyweight |
+| peso_corporal | bodyweight |
+
+Como o filtro obedece, e por que ele não é um `filter()`: a prescrição não
+SELECIONA exercícios — copia MODELOS curados de `splits.json` —, então tirar
+o que o perfil não tem abriria buraco no modelo (medido em 10/09/2026: oito
+modelos perdiam grupo em casa com halteres). O item fora do perfil é
+SUBSTITUÍDO por exercício ativo do MESMO PADRÃO (`Exercise.padrao`) e do
+mesmo grupo dentro do perfil que ainda não esteja no modelo, com a mesma
+dose — supino reto com barra vira supino com halteres, mesmas quatro
+séries; agachamento livre vira goblet. Sem substituto, o item sai, e a
+cadeia de sempre (opções, preenchimento, teto, tempo) roda sobre o que
+sobrou. `completa` não filtra nada e é a ficha de sempre: o teste dourado
+e o gate por letra valem nela e em `basica`; `casa_halteres` e
+`peso_corporal` são MEDIDOS e o que falta ao catálogo está listado no
+`BACKLOG.md`. Perfil que muda torna a ficha inválida e remonta, como nível
+e faixa de duração (`TrainingPlan.equipamento` é retrato); quem já tinha
+conta ficou em `completa` sem remontar.
+
 ## Como o motor obedece
 
 Leitura, não decisão — o que decide está acima. `workouts/doutrina.py` lê as

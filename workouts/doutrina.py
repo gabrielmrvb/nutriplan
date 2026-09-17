@@ -37,6 +37,16 @@ TIPOS_DE_DIA = (UM_GRUPO, DOIS_GRUPOS, TRES_GRUPOS, INFERIOR, SUPERIOR, FULL)
 #: contam como dois grupos — dois pequenos que enchem uma sessão.
 GRANDES = frozenset({"chest", "back", "quads", "hamstrings", "shoulders"})
 
+#: Os quatro perfis de equipamento do mapa, nas chaves EXATAS do documento e
+#: de `accounts.models.Equipamento`. `completa` é o de quem não respondeu e
+#: o de toda conta anterior a 17/09/2026.
+COMPLETA = "completa"
+BASICA = "basica"
+CASA_HALTERES = "casa_halteres"
+PESO_CORPORAL = "peso_corporal"
+PERFIS_DE_EQUIPAMENTO = (COMPLETA, BASICA, CASA_HALTERES, PESO_CORPORAL)
+
+
 #: ESTE ARQUIVO É CÓDIGO. `accounts.models.TETO_POR_EXPERIENCIA` lê a tabela
 #: B na importação do módulo, então um `TREINO.md` movido ou com célula sem
 #: número derruba o Django inteiro no boot — de propósito: a ficha de todo
@@ -82,10 +92,21 @@ def carregar():
             split, inicio, fim = trecho
             for letra in "ABCDE"[ord(inicio) - 65: ord(fim or inicio) - 65 + 1]:
                 modelos[(split, letra)] = tipo
+    # O mapa de equipamento (17/09/2026): perfil -> o que ele pode usar, nas
+    # chaves de `Exercise.equipment`. `completa` lista tudo e não filtra.
+    equipamento = {
+        linha["perfil"]: frozenset(e.strip() for e in linha["equipamentos"].split(","))
+        for linha in tabelas[("perfil", "equipamentos")]
+    }
     faltam = [(n, t) for n in NIVEIS for t in TIPOS_DE_DIA if (n, t) not in por_sessao]
     if faltam:
         raise ValueError("TREINO.md sem linha para %s" % faltam)
-    return {"sessao": por_sessao, "semana": por_semana, "descanso": descansos, "modelos": modelos, "media": medias}
+    if set(equipamento) != set(PERFIS_DE_EQUIPAMENTO):
+        raise ValueError("TREINO.md: mapa de equipamento com perfis %s" % sorted(equipamento))
+    return {
+        "sessao": por_sessao, "semana": por_semana, "descanso": descansos,
+        "modelos": modelos, "media": medias, "equipamento": equipamento,
+    }
 
 
 def nivel_ou_padrao(nivel) -> str:
@@ -135,6 +156,13 @@ def tolerancia_da_media() -> tuple:
     """(alvo, tolerância) da média de 3 semanas do grupo grande a 2× —
     24 ± 2, o teto da média é 26 (TREINO.md, "Tolerância da média")."""
     return carregar()["media"]["media_3_semanas_grande_2x"]
+
+
+def equipamentos_de(perfil) -> frozenset:
+    """O que o perfil de equipamento pode usar (chaves de `Exercise.
+    equipment`). Perfil desconhecido ou vazio é `completa`: tudo."""
+    mapa = carregar()["equipamento"]
+    return mapa[perfil if perfil in mapa else COMPLETA]
 
 
 def descanso(composto) -> int:

@@ -3617,16 +3617,17 @@ class CuradoriaDosVideosTests(TestCase):
         """
         ativos = Exercise.objects.filter(is_active=True)
 
-        # 63 ativos: os 35 de sempre e os 28 de 16/09/2026, ATIVADOS em
-        # 17/09 com a curadoria escrita em cada linha (`test_catalogo`).
-        self.assertEqual(ativos.count(), 63)
+        # 68 ativos: os 35 de sempre, os 28 de 16/09/2026 ATIVADOS em 17/09
+        # com a curadoria escrita em cada linha (`test_catalogo`), e os 5 de
+        # peito e tríceps sem barra da tarde de 17/09 (perfil de equipamento).
+        self.assertEqual(ativos.count(), 68)
         self.assertEqual(ativos.filter(video_url="").count(), 0)
-        # 64 linhas no catálogo semeado: 63 ativas e a aposentada, que
+        # 69 linhas no catálogo semeado: 68 ativas e a aposentada, que
         # continua existindo. A linha
         # LEGADA `Remada curvada` (sem "com barra") não entra nesta conta —
         # ela não está no `exercises.json` e só existe em bancos que vêm de
         # uma versão anterior, aposentada pela `0017`.
-        self.assertEqual(Exercise.objects.count(), 64, "o catálogo perdeu linha")
+        self.assertEqual(Exercise.objects.count(), 69, "o catálogo perdeu linha")
 
     def test_execucao_e_anatomia_nunca_apontam_para_o_mesmo_lugar(self):
         """A colisão que a curadoria desfez, travada para não voltar.
@@ -5643,8 +5644,9 @@ class OTituloDoTreinoDeHojeNaoDivideLarguraTests(SimpleTestCase):
     """`.hoje__opcao` virou o terceiro filho do flex `.hoje__id` em 7d222a6 e
     passou a dividir a largura com o título: a 390px "Costas e bíceps" cabia
     em 79px e quebrava em três linhas ao lado de "Duas versões disponíveis"
-    (visto em produção, 17/09/2026). O flex quebra linha e a opção ocupa a
-    linha inteira embaixo — a identidade volta a ser a linha mais longa."""
+    (visto em produção, 17/09/2026). O flex quebra linha e a linha da versão
+    (`.hoje__versao` desde a ficha única) ocupa a linha inteira embaixo — a
+    identidade volta a ser a linha mais longa."""
 
     def test_o_flex_quebra_linha_e_a_opcao_desce(self):
         from pathlib import Path
@@ -5653,6 +5655,6 @@ class OTituloDoTreinoDeHojeNaoDivideLarguraTests(SimpleTestCase):
         bloco = css[css.index(".hoje__id {"):]
         bloco = bloco[:bloco.index("}")]
         self.assertIn("flex-wrap: wrap", bloco)
-        opcao = css[css.index(".hoje__opcao {"):]
+        opcao = css[css.index(".hoje__versao {"):]
         opcao = opcao[:opcao.index("}")]
         self.assertIn("flex-basis: 100%", opcao)
