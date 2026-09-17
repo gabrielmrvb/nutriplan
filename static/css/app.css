@@ -239,6 +239,21 @@
   --quina-g: 0;
   --quina: 0;
   --quina-p: 0;
+  /* O ANDAIME (NERVURA): a régua tem UMA espessura — borda de botão de
+     contorno e de chip, régua sob o rótulo de seção, régua da carga, a
+     nervura. */
+  --traco: 2px;
+  /* A NERVURA: a diagonal da folha. Um elemento de `height: var(--traco)`
+     em `--brand`, rodado por este ângulo a partir de onde nasce. Decoração
+     (`aria-hidden`), nunca o único sinal de estado. */
+  --nervura: -14deg;
+  /* O CTA INCLINADO: a base do botão primário sobe para a direita. Vai no
+     pseudo-elemento de fundo, não no botão — o retângulo de 48 px continua
+     sendo a área de toque e é ele que recebe o anel de foco. */
+  --inclinado: polygon(0 0, 100% 0, 100% 74%, 0 100%);
+  /* A PONTA DE FOLHA: o triângulo que marca onde a barra de progresso
+     chegou e que pousa no canto do placar. */
+  --ponta: polygon(0 100%, 100% 0, 100% 100%);
 
   /* O véu atrás de qualquer overlay. Existia escrito por extenso em dois
      lugares e com DOIS pretos diferentes — `rgba(0,0,0,.72)` no modal e
@@ -984,10 +999,13 @@ body:not(.tem-tabbar) .container {
    barra é justamente onde a resposta "onde eu estou?" precisa vir sem
    comparação. Marca cheia com texto escuro resolve de relance, e é a mesma
    peça do botão primário, o que amarra navegação e ação no mesmo vocabulário. */
+/* NERVURA: a aba da vez é ícone e rótulo em `--brand`, sem preenchimento —
+   a régua de `--traco` em cima é o que a marca. Foi pílula cheia da marca
+   (V2) e folha cheia (CORTE). */
 .tabbar__item.is-active {
-  color: var(--on-brand);
-  background: var(--brand);
-  box-shadow: none;
+  color: var(--brand);
+  background: transparent;
+  box-shadow: inset 0 var(--traco) 0 var(--brand);
 }
 .tabbar__item.is-active svg { stroke-width: 2.4; }
 
@@ -1128,13 +1146,46 @@ h3 {
   padding: var(--pad);
   background: var(--surface);
   border: 1px solid transparent;
+  /* NERVURA: a seção abre com uma régua de `--traco` em `--fio` — é o
+     andaime que separa, no lugar da sombra (que não desenha nada). */
+  border-top: var(--traco) solid var(--fio);
   border-radius: var(--quina);
   box-shadow: var(--edge), var(--shadow-rest);
   transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 /* O PRATO: a peça que a pessoa lê de relance — o AGORA da Home — leva o
    recorte grande. É uma por tela. */
-.card.agora-card { border-radius: var(--quina-g); }
+.card.agora-card { border-radius: var(--quina-g); border-top-color: var(--brand); }
+
+/* A NERVURA no prato e no título de tela: a régua diagonal em `--brand`,
+   nascendo no canto inferior esquerdo e subindo a −14° — ATRÁS do texto
+   (`z-index: -1` dentro de um `isolation: isolate`), como no mockup a
+   diagonal passa atrás do 1.240. No título ela nasce no CANTO SUPERIOR
+   esquerdo do `h1` e sobe por 32 % da largura para o espaço vazio acima
+   (32 % × tan 14° ≈ 8 % da largura: a 390 px, 28 px, dentro do respiro
+   sob a barra de cima) — no mockup da ficha a diagonal vem do rótulo para
+   o alto do título, sem cruzar as letras. Sem `overflow: hidden`, que
+   cortaria o anel de foco dos links de dentro. Decoração:
+   `pointer-events: none`, e nada depende dela para ser lido. */
+.page-head h1,
+.today-hero { position: relative; isolation: isolate; }
+.page-head h1::after,
+.today-hero::after {
+  content: "";
+  position: absolute;
+  z-index: var(--camada-fundo);
+  left: 0;
+  bottom: 0;
+  width: 45%;
+  height: var(--traco);
+  background: var(--brand);
+  transform-origin: left center;
+  transform: rotate(var(--nervura));
+  pointer-events: none;
+  opacity: .9;
+}
+.page-head h1::after { bottom: 100%; width: 32%; }
+.today-hero::after { width: 58%; bottom: var(--espaco-3); }
 
 /* O cartão em que a pessoa está mexendo sobe um pouco. Só sombra e borda:
    mudar cor de fundo aqui faria a tela piscar a cada foco. */
@@ -1378,8 +1429,9 @@ h3 {
   margin: 0;
   color: var(--text-mute);
   font-size: var(--texto-xs);
-  font-weight: 700;
-  letter-spacing: .14em;
+  font-weight: 600;
+  /* NERVURA: o rótulo de seção é caixa alta a .16em (era .14em). */
+  letter-spacing: .16em;
   text-transform: uppercase;
 }
 
@@ -1772,11 +1824,15 @@ h3 {
 
 .chip {
   padding: .34rem .72rem;
-  border: 1px solid var(--fio);
-  background: var(--surface-2);
+  /* NERVURA: o chip é uma caixa de contorno de 2 px, caixa alta espaçada,
+     sem preenchimento; o escolhido é que enche de `--brand`. */
+  border: var(--traco) solid var(--fio-forte);
+  background: transparent;
   color: var(--text-dim);
   font-size: .76rem;
   font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
   font-variant-numeric: tabular-nums;
   text-decoration: none;
 }
@@ -1975,11 +2031,15 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .macro-dot--fat { background: var(--fat); }
 
 .progress {
+  position: relative;
   height: .4rem;
-  overflow: hidden;
+  /* `overflow: visible` (era hidden): a ponta de folha pousa ABAIXO da
+     barra, no fim do preenchido. A largura do preenchido nunca passa de
+     100 % — é `min()` no servidor. */
+  overflow: visible;
   border-radius: var(--quina-p);
   background: var(--surface-2);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .28);
+  box-shadow: none;
 }
 
 /* A barra cresce em meio segundo em vez de já aparecer no lugar novo.
@@ -2003,10 +2063,24 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    variante, e a variante vence por vir depois. */
 .progress__fill {
   display: block;
+  position: relative;
   height: 100%;
   border-radius: var(--quina-p);
   background: var(--brand);
   transition: width var(--mov-sucesso) var(--ease);
+}
+/* A PONTA DE FOLHA (NERVURA): o triângulo de 10 × 8 px na cor da barra,
+   pousado logo abaixo do fim do preenchido — é a assinatura da direção que
+   sobra quando se tampa o nome. */
+.progress__fill::after {
+  content: "";
+  position: absolute;
+  right: -5px;
+  top: 100%;
+  width: 10px;
+  height: 8px;
+  background: inherit;
+  clip-path: var(--ponta);
 }
 
 /* A barra enche do zero ao abrir a tela.
@@ -2280,7 +2354,9 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
      lerem como peças do mesmo formulário. */
   min-height: 3.25rem;
   padding: var(--espaco-4) 1.15rem;
-  border: 1px solid transparent;
+  /* O traço de 2 px em todos, transparente no primário: contorno e quieto
+     pintam a mesma borda, e os três têm a mesma altura empilhados. */
+  border: var(--traco) solid transparent;
   border-radius: var(--quina);
   font-size: var(--texto-md);
   font-weight: 700;
@@ -2318,12 +2394,39 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    num fundo escuro é o visual 'legal' padrão de UI gerada por IA". Estava
    certo — o brilho permanente no botão primário não indicava nada, só
    brilhava. O brilho de foco continua, porque ali ele É a informação. */
+/* O PRIMÁRIO É INCLINADO (NERVURA): o preenchimento mora num pseudo-elemento
+   com `clip-path: var(--inclinado)`, e o botão em si continua um retângulo
+   de 52 px — é ele que recebe o toque e o anel de foco; um `clip-path` no
+   próprio botão cortaria os dois. `isolation: isolate` cria o contexto em
+   que o `z-index: -1` do fundo fica atrás do texto sem sair de trás do
+   botão. O texto é a display em caixa alta, como "ENTRAR" e "VER RESUMO
+   DO TREINO" no mockup. O halo de hover/foco fica (decisão do dono de
+   16/09): é sinal de estado, não desenho — e o anel traça o retângulo,
+   inclusive onde o preenchimento foi cortado; é o preço de ter o toque
+   inteiro. */
 .btn--primary {
-  background: var(--brand);
+  position: relative;
+  isolation: isolate;
+  background: transparent;
   color: var(--on-brand);
+  font-family: var(--font-display);
+  font-size: var(--texto-xl);
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.btn--primary::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: var(--camada-fundo);
+  background: var(--brand);
+  clip-path: var(--inclinado);
+  transition: background var(--mov-estado) var(--ease);
 }
 
-.btn--primary:hover { background: var(--brand-strong); color: var(--on-brand); }
+.btn--primary:hover { color: var(--on-brand); }
+.btn--primary:hover::before { background: var(--brand-strong); }
 
 /* O halo do botão primário mora aqui, e não na regra de repouso.
    Em repouso ele não indicaria nada — é a regra `dark-glow` citada acima. Sob
@@ -2333,7 +2436,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .btn--primary:active,
 .btn--primary:focus-visible { box-shadow: var(--halo); }
 
-.btn--ghost { background: var(--surface-2); color: var(--text-dim); border-color: var(--fio-forte); }
+.btn--ghost { background: transparent; color: var(--text); border: var(--traco) solid var(--fio-forte); }
 .btn--ghost:hover { color: var(--text); border-color: var(--text-mute); }
 
 .btn--quiet {
@@ -2341,8 +2444,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   padding: .45rem .85rem;
   /* Borda como o ghost: a cara de botão não pode depender do preenchimento,
      que o tema escuro apaga (1,05:1 medido — avaliação de 16/09/2026, U28). */
-  border: 1px solid var(--fio-forte);
-  background: var(--surface-2);
+  border: var(--traco) solid var(--fio-forte);
+  background: transparent;
   color: var(--text-dim);
   font-size: .82rem;
   font-weight: 600;
@@ -2350,6 +2453,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .btn--quiet:hover { background: var(--surface-3); color: var(--text); }
 .btn--sm { min-height: 2.75rem; padding: var(--espaco-3) var(--espaco-5); font-size: .84rem; }
+/* O primário pequeno (44 px) fica no texto: a display nunca abaixo de 20 px. */
+.btn--primary.btn--sm { font-family: var(--font); font-size: var(--texto-md); letter-spacing: .04em; }
 .btn--block { width: 100%; }
 
 /* Resposta ao toque.
@@ -2558,7 +2663,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   padding: var(--espaco-4) var(--espaco-4);
   color: var(--text);
   background: var(--surface-2);
-  border: 1px solid var(--fio-forte);
+  border: var(--traco) solid var(--fio-forte);
   border-radius: var(--quina);
   font-family: inherit;
   font-size: var(--texto-base);

@@ -1593,6 +1593,34 @@ diagonal (`--nervura`), o traço de 2 px (`--traco`), o CTA inclinado
 (`--inclinado`) e a ponta de folha (`--ponta`) nascem com o consumidor,
 no PR dos componentes.
 
+**O andaime nos componentes (NERVURA 2/3, 17/09/2026).** `--traco: 2px`
+é a borda de contorno, quieto, campo e chip (e transparente no primário,
+para os três botões terem a mesma altura empilhados); o primário é
+INCLINADO por `clip-path: var(--inclinado)` num `::before` de fundo — o
+botão em si continua retângulo, porque `clip-path` no botão cortaria o
+anel de foco e a área de toque (`isolation: isolate` + `z-index:
+var(--camada-fundo)` põem o fundo atrás do texto sem sair de trás do
+botão); o texto do primário é a display em caixa alta a `--texto-xl`, e
+o primário pequeno (`btn--sm`, 44 px) volta ao texto porque a display
+nunca desce de 20 px; o halo de hover/foco FICA (decisão do dono de
+16/09) — o anel traça o retângulo inteiro, inclusive onde o preenchimento
+foi cortado, e é o preço de ter o toque inteiro. A nervura
+(`--nervura: -14deg`) é `::after` decorativo atrás do texto (`z-index:
+var(--camada-fundo)`): no prato (`.today-hero`) nasce no canto inferior
+esquerdo, e no título (`.page-head h1`) nasce no canto SUPERIOR esquerdo e
+sobe para o respiro acima — a primeira versão nascia na base do `h1` e
+cruzava as letras, e nem "atrás" salva legibilidade de um título
+riscado. A ponta de folha (`--ponta`) é o `::after` do preenchido da
+barra de progresso, na cor da própria barra (`background: inherit`), com
+`overflow: visible` na trilha. A aba ativa é `--brand` sem preenchimento,
+com a régua de `--traco` em cima. O chip é caixa de contorno em caixa
+alta .06em. `config/test_nervura.py` prende tudo isso; a regra
+`.page-head h1,
+.today-hero` está nessa ORDEM porque `GymReadyTests`
+âncora na primeira ocorrência de `
+.today-hero,` para achar a régua do
+fio de pilar.
+
 ## Testes
 
 Nome descreve o comportamento, não o método. Docstring diz **por que** aquilo
