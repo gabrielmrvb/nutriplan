@@ -150,6 +150,11 @@
               {% endcomment %}
               <dd>{% if profile.experiencia %}{{ profile.get_experiencia_display }}{% else %}não informada{% endif %}</dd>
             </div>
+            <div>
+              <dt>Equipamento</dt>
+              {# Sempre tem valor: "completa" é o padrão e a verdade de quem já tinha ficha. #}
+              <dd>{{ profile.get_equipamento_display }}</dd>
+            </div>
             {% comment %}
               UMA LINHA COM OS DIAS, e não uma linha por dia.
 

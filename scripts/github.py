@@ -265,13 +265,43 @@ def _git(*args):
     return p.returncode, (p.stdout + p.stderr).strip()
 
 
+def _vivo(pid) -> bool:
+    """O processo do ticket ainda existe? Ticket de processo morto — reboot,
+    sessão encerrada — não é vez na fila: era o que travava todo mundo
+    depois do reinício de 17/09/2026 (dois tickets órfãos na frente, ninguém
+    de posse, e `minha_vez` falso para sempre)."""
+    if pid == os.getpid():
+        return True
+    if os.name == "nt":
+        import ctypes
+
+        k32 = ctypes.windll.kernel32
+        alca = k32.OpenProcess(0x1000, False, int(pid))  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not alca:
+            return False
+        codigo = ctypes.c_ulong()
+        ok = k32.GetExitCodeProcess(alca, ctypes.byref(codigo))
+        k32.CloseHandle(alca)
+        return bool(ok) and codigo.value == 259  # STILL_ACTIVE
+    try:
+        os.kill(int(pid), 0)
+    except OSError:
+        return False
+    return True
+
+
 def _tickets():
-    """Os PRs esperando, na ordem de chegada: [(momento, número, pid)]."""
+    """Os PRs esperando, na ordem de chegada: [(momento, número, pid)] — só
+    os de processo VIVO; o ticket órfão é apagado ao ser visto."""
     FILA.mkdir(parents=True, exist_ok=True)
     fila = []
     for arquivo in FILA.glob("pr-*.ticket"):
         try:
             momento, numero, pid = arquivo.read_text(encoding="utf-8").split()
+            if not _vivo(int(pid)):
+                print(time.strftime("%H:%M:%S"), "ticket órfão (processo %s morto): %s" % (pid, arquivo.name), flush=True)
+                arquivo.unlink(missing_ok=True)
+                continue
             fila.append((float(momento), int(numero), int(pid), arquivo))
         except (ValueError, OSError):
             continue

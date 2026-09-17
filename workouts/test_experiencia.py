@@ -446,16 +446,15 @@ class AExperienciaAtravessaOFormularioTests(TestCase):
         self.assertIn(Experiencia.AVANCADO, marcados[0])
 
 
-class OCatalogoAindaNaoSustentaEquipamentoTests(TestCase):
-    """A MEDIÇÃO QUE EXPLICA O QUE FICOU DE FORA — e que avisa quando mudar.
+class OCatalogoPorEquipamentoTests(TestCase):
+    """A MEDIÇÃO DE COBERTURA por equipamento — o que cada perfil do mapa
+    do `TREINO.md` ainda deixa sem exercício.
 
-    A missão pede personalização por local/equipamento: academia completa, casa
-    com halteres, peso corporal. O catálogo não comporta as duas últimas, e o
-    número está aqui em vez de na minha palavra.
-
-    Este teste é uma CATRACA ao contrário: ele falha no dia em que o catálogo
-    crescer o bastante, e aí a personalização por equipamento passa a ser
-    implementável sem entregar ficha sem grupo.
+    A personalização por equipamento existe desde 17/09/2026
+    (`accounts.models.Equipamento`, `services.substituir_por_equipamento`);
+    o que este arquivo mede é a COBERTURA de cada perfil, e "peso do corpo"
+    continua sem grupos inteiros — o motor entrega a ficha que o catálogo
+    permite, e o que falta está listado no `BACKLOG.md`.
 
     A MATRIZ COMPLETA — 11 grupos x 5 equipamentos, com a contagem célula a
     célula — está no `BACKLOG.md`, em "Personalização de treino por LOCAL e
@@ -496,13 +495,13 @@ class OCatalogoAindaNaoSustentaEquipamentoTests(TestCase):
         self.assertEqual(faltam, set())
 
     def test_peso_corporal_ainda_deixa_grupos_sem_exercicio(self):
+        """Medido em 17/09/2026: sem aparelho nenhum, quadríceps, posterior,
+        ombro, bíceps e panturrilha ficam sem exercício ativo. É o que o
+        `BACKLOG.md` lista para o catálogo; o motor entrega o que há."""
         faltam = self._cobertura([Equipment.BODYWEIGHT])
 
-        self.assertTrue(
-            faltam,
-            "o catálogo passou a cobrir peso corporal — a personalização por "
-            "equipamento virou implementável",
-        )
+        self.assertTrue(faltam, "o catálogo passou a cobrir peso corporal — atualize o BACKLOG e este teste")
+        self.assertEqual(faltam, {"quads", "hamstrings", "shoulders", "biceps", "calves"})
 
     def test_a_academia_completa_cobre_tudo(self):
         """Controle positivo: sem ele os dois testes acima passariam mesmo com

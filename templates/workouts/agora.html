@@ -165,19 +165,9 @@
         (`.agora__lista`) só aparece depois de rolar a tela inteira.
       {% endcomment %}
       <div class="agora__linha-do-topo">
-        <p class="sobretitulo agora__sessao-rotulo">Treino {{ estado.sessao.label }} · {{ estado.sessao.name }}{% if estado.tem_duas_opcoes %} · Opção {{ estado.opcao }}{% endif %}{% if estado.rapida %} · rápida{% endif %}</p>
+        <p class="sobretitulo agora__sessao-rotulo">Treino {{ estado.sessao.label }} · {{ estado.sessao.name }}{% if estado.rapida %} · rápida{% endif %}</p>
         <a class="btn-link agora__voltar" href="{% url 'workouts:ficha' estado.sessao.pk %}">← Ficha</a>
       </div>
-      {% if escolher_na_ficha %}
-        {% comment %}
-          Sem escolha gravada: esta é a opção RECOMENDADA, e a porta para
-          trocar é a ficha. Em linha PRÓPRIA, depois da linha do topo: como
-          terceiro item do flex ela espremia o sobretítulo em quatro linhas
-          de caixa alta (avaliação de 16/09/2026, B28). No DOM, e não por
-          `order`, para a ordem de foco seguir a visual.
-        {% endcomment %}
-        <p class="agora__opcao-aviso muted">Opção {{ estado.opcao }}, a recomendada de hoje — <a href="{{ escolher_na_ficha }}">trocar de opção na ficha</a>.</p>
-      {% endif %}
       <p class="agora__passo num">
         {% comment %}
           A POSIÇÃO É A DO EXERCÍCIO EM FOCO, e ela deixou de ser derivada dos

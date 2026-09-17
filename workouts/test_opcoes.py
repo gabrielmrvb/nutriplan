@@ -448,62 +448,6 @@ class EscolhaDoDiaTests(Catalogo):
         self.sessao = services.sessao_do_dia(self.plan, timezone.localdate())
         self.client.force_login(self.user)
 
-    def test_sem_escolha_a_execucao_abre_a_recomendada_e_diz_isso(self):
-        """A Home, o demo e um link antigo chegam à execução direto: ela
-        abre a opção recomendada, avisa, e a porta para trocar é a ficha."""
-        resposta = self.client.get(reverse("workouts:now"))
-        self.assertEqual(resposta.status_code, 200)
-        html = resposta.content.decode()
-        self.assertIn("a recomendada de hoje", html)
-        self.assertIn(reverse("workouts:ficha", args=[self.sessao.pk]), html)
-        self.assertEqual(resposta.context["estado"].opcao, services.opcao_recomendada(self.user, self.sessao))
-        # A ficha, sem escolha, já tem as portas "Fazer" na recomendada.
-        ficha = self.client.get(reverse("workouts:ficha", args=[self.sessao.pk])).content.decode()
-        self.assertIn('class="ficha-item__estado ficha-item__fazer', ficha)
-
-    def test_a_ficha_de_outro_dia_nao_recomenda_nada(self):
-        """"Recomendada hoje" só na ficha DE HOJE. Fora do dia a recomendação
-        não é calculada — `preparar_dia` só roda para a sessão de hoje —, e a
-        opção 1 ganhava o selo por ser a primeira (avaliação de 16/09/2026,
-        B8: ficha A aberta numa quarta, com "hoje" sendo C). Sem cálculo não
-        há recomendação, e a pill some junto com o realce."""
-        outra = self.plan.sessions.exclude(pk=self.sessao.pk).filter(label__in=[
-            s.label for s in self.plan.sessions.all() if s.tem_duas_opcoes
-        ]).exclude(label=self.sessao.label).first()
-        self.assertIsNotNone(outra, "o plano precisa de outra letra com duas opções")
-        html = self.client.get(reverse("workouts:ficha", args=[outra.pk])).content.decode()
-        self.assertIn("Opção 1", html)
-        self.assertIn("Opção 2", html)
-        self.assertNotIn("Recomendada hoje", html)
-        self.assertNotIn("opcao--recomendada", html)
-        # Controle positivo: na ficha de hoje o selo continua.
-        hoje = self.client.get(reverse("workouts:ficha", args=[self.sessao.pk])).content.decode()
-        self.assertIn("Recomendada hoje", hoje)
-
-    def test_a_ficha_mostra_as_duas_e_recomenda_a_menos_usada(self):
-        html = self.client.get(reverse("workouts:ficha", args=[self.sessao.pk])).content.decode()
-        self.assertIn("Opção 1", html)
-        self.assertIn("Opção 2", html)
-        self.assertIn("Recomendada hoje", html)
-        self.assertNotIn("Treino %s1" % self.sessao.label, html)
-        # Ontem a pessoa fez a opção 1 desta letra: hoje a 2 é a recomendada.
-        irma = self.plan.sessions.filter(label=self.sessao.label).exclude(pk=self.sessao.pk).first() or self.sessao
-        EscolhaDeTreino.objects.create(
-            user=self.user, date=timezone.localdate() - timedelta(days=3), session=irma, opcao=1
-        )
-        self.assertEqual(services.opcao_recomendada(self.user, self.sessao), 2)
-
-    def test_comecar_esta_opcao_grava_a_escolha_e_abre_a_execucao(self):
-        resposta = self.client.post(
-            reverse("workouts:escolher", args=[self.sessao.pk]), {"opcao": 2, "versao": "completo"}
-        )
-        self.assertRedirects(resposta, reverse("workouts:now"))
-        escolha = EscolhaDeTreino.objects.get(user=self.user, date=timezone.localdate())
-        self.assertEqual((escolha.opcao, escolha.versao), (2, "completo"))
-        estado = services.estado_do_treino(self.user)
-        self.assertEqual(estado.opcao, 2)
-        self.assertEqual({i.exercise_id for i in estado.itens}, {i.exercise_id for i in self.sessao.da_opcao(2)})
-
     def test_a_primeira_serie_grava_a_escolha_e_a_repeticao_e_livre(self):
         estado = services.estado_do_treino(self.user, opcao=1)
         item = estado.itens[0]
@@ -519,19 +463,33 @@ class EscolhaDoDiaTests(Catalogo):
             services.registrar_escolha(self.user, outra, 1, dia=amanha)
             self.assertEqual(EscolhaDeTreino.objects.get(user=self.user, date=amanha).opcao, 1)
 
-    def test_trocar_depois_da_primeira_serie_pede_confirmacao_e_nao_apaga(self):
-        services.registrar_escolha(self.user, self.sessao, 1)
-        item = self.sessao.da_opcao(1)[0]
-        ExerciseLog.objects.create(user=self.user, exercise=item.exercise, date=timezone.localdate(), set_number=1, weight_kg=40)
-        resposta = self.client.post(reverse("workouts:escolher", args=[self.sessao.pk]), {"opcao": 2})
-        self.assertRedirects(resposta, reverse("workouts:ficha", args=[self.sessao.pk]) + "?trocar=2&versao=completo")
-        self.assertEqual(EscolhaDeTreino.objects.get(user=self.user).opcao, 1, "sem confirmação, nada muda")
-        html = self.client.get(reverse("workouts:ficha", args=[self.sessao.pk]) + "?trocar=2").content.decode()
-        self.assertIn("Trocar para a opção 2?", html)
-        resposta = self.client.post(reverse("workouts:escolher", args=[self.sessao.pk]), {"opcao": 2, "confirmar": "1"})
-        self.assertRedirects(resposta, reverse("workouts:now"))
-        self.assertEqual(EscolhaDeTreino.objects.get(user=self.user).opcao, 2)
-        self.assertEqual(ExerciseLog.objects.filter(user=self.user).count(), 1, "trocar não apaga registro")
+    def test_a_ficha_de_hoje_e_uma_lista_e_a_execucao_abre_a_mesma(self):
+        """Ficha única (17/09/2026): a ficha de hoje desenha a variação do
+        dia, sem "Opção", sem selo, sem botão de escolher; a execução abre
+        exatamente essa lista — e um exercício que só está na outra versão
+        não é executável hoje (`AEscolhaDoExercicioEEstritaTests`)."""
+        from workouts.tests import sem_scripts
+
+        opcao = services.opcao_do_dia(self.user, self.sessao, timezone.localdate())
+        html = sem_scripts(self.client.get(reverse("workouts:ficha", args=[self.sessao.pk])).content.decode())
+        self.assertNotIn("Opção 1", html)
+        self.assertNotIn("Opção 2", html)
+        self.assertNotIn("Recomendada hoje", html)
+        self.assertNotIn("Começar esta opção", html)
+        for item in self.sessao.da_opcao(opcao):
+            self.assertIn(item.exercise.name, html)
+        outra = next(k for k in self.sessao.opcoes if k != opcao)
+        so_na_outra = [i for i in self.sessao.da_opcao(outra) if i.exercise_id not in {j.exercise_id for j in self.sessao.da_opcao(opcao)}]
+        self.assertTrue(so_na_outra, "as duas versões precisam diferir para o teste medir")
+        self.assertNotIn(so_na_outra[0].exercise.name, html)
+        estado = services.estado_do_treino(self.user)
+        self.assertEqual(estado.opcao, opcao)
+
+    def test_o_painel_tem_um_cartao_por_letra_sem_falar_de_versoes(self):
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+        self.assertEqual(html.count('<a class="sessao-cartao'), 3)
+        self.assertNotIn("versões disponíveis", html)
+        self.assertNotIn(">A1<", html)
 
     def test_a_versao_rapida_na_execucao_nomeia_o_que_ficou_de_fora(self):
         services.registrar_escolha(self.user, self.sessao, 1, versao="rapido")
@@ -540,24 +498,11 @@ class EscolhaDoDiaTests(Catalogo):
         completa = self.sessao.da_opcao(1)
         self.assertLessEqual(sum(i.sets for i in estado.itens), sum(i.sets for i in completa))
         html = self.client.get(reverse("workouts:now")).content.decode()
-        self.assertIn("Opção 1", html)
         if estado.removidos:
             self.assertIn("Fora da versão rápida", html)
         # Nada foi gravado: a ficha continua com as séries completas.
         self.assertEqual(sum(i.sets for i in self.sessao.da_opcao(1)), sum(i.sets for i in completa))
 
-    def test_a_ficha_de_outro_dia_nao_aceita_escolha(self):
-        outra = self.plan.sessions.exclude(label=self.sessao.label).first()
-        self.assertEqual(
-            self.client.post(reverse("workouts:escolher", args=[outra.pk]), {"opcao": 1}).status_code, 404
-        )
-
-    def test_o_painel_tem_um_cartao_por_letra_e_diz_duas_versoes(self):
-        html = self.client.get(reverse("workouts:routine")).content.decode()
-        self.assertEqual(html.count('<a class="sessao-cartao'), 3)
-        self.assertIn("Duas versões disponíveis", html)
-        self.assertNotIn(">A1<", html)
-        self.assertNotIn(">B2<", html)
 
 
 class PlanoAntigoTests(Catalogo):

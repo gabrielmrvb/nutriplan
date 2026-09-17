@@ -91,6 +91,11 @@ git worktree add --detach "$WT" "$sha" >/dev/null
 # terminal para responder. Sem isto ele morre com EOFError e o push é
 # abortado por um motivo que não tem nada a ver com o código.
 # shellcheck disable=SC2086
+inicio=$(date +%s)
 ( cd "$WT" && "$PY" manage.py test $ALVOS --verbosity=1 --noinput )
+# O tempo, dito: sozinho o atalho leva ~4 min; com três suítes de sessões
+# diferentes disputando a máquina, 6–25 (medido em 17/09/2026). Quem vê o
+# número sabe se é o hook ou a máquina.
+echo "→ atalho levou $(( $(date +%s) - inicio )) s"
 
 echo "✓ push liberado — o julgamento é o check \"suíte completa\" no PR"

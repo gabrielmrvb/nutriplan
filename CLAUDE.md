@@ -665,15 +665,44 @@ TRÊS dorsais com quatro no catálogo; `Barra fixa assistida` entrou em
 10/09/2026, com a mesma dose que já abre `abcd B` e `abcde B`.
 `Remada curvada com barra` continua aposentada e não volta por essa porta.
 
-**Personalização por LOCAL e EQUIPAMENTO está bloqueada pelo CATÁLOGO, não por
-escopo — e a medição de 10/09/2026 diz exatamente quanto falta.**
+**O EQUIPAMENTO ESTÁ NO PERFIL DESDE 17/09/2026 (tarde), E O MOTOR OBEDECE
+POR SUBSTITUIÇÃO — nunca por filtro.** `Profile.equipamento`
+(`accounts.models.Equipamento`: completa · básica · casa com halteres · só
+peso do corpo; pergunta na etapa 2 do onboarding e no Perfil), o mapa de
+cada resposta para `Exercise.equipment` no `TREINO.md` ("Mapa de
+equipamento", lido por `doutrina.equipamentos_de`), e
+`services.substituir_por_equipamento` ANTES de `prescrever_opcoes`: o item
+do modelo fora do perfil é trocado por exercício ativo do MESMO `padrao` e
+grupo dentro do perfil que ainda não esteja no modelo, com a dose do item
+trocado; sem substituto, sai. `TrainingPlan.equipamento` é retrato; mudar
+no perfil torna a ficha inválida e remonta, como nível e faixa. **O default é
+"completa" nos dois lados e NÃO é vazio**, ao contrário de `experiencia`:
+toda ficha anterior à pergunta nasceu do catálogo inteiro, então "completa"
+é a verdade dela, e ninguém foi remontado pela pergunta nova. "Completa"
+custa zero consultas (o filtro nem roda); perfil restrito custa UMA consulta
+ao catálogo por prescrição — e a conferência (`_prescricao_bate` +
+`_prescricao_confere`) refaz a conta COM o perfil, inclusive na
+pré-conferência de reps e descanso, senão o afundo que substituiu o
+agachamento reprovava e a Home oferecia "regenerar" para sempre a quem
+treina em casa.
 
-O erro de leitura a evitar é achar que basta filtrar. A prescrição não SELECIONA
-exercícios: `prescrever_semana` copia MODELOS curados de `splits.json`, com os
-nomes escritos. Filtrar por equipamento não troca de exercício — abre BURACO no
-modelo. Medido nos 15 modelos: em "casa + halteres" oito perdem grupo sem
-substituto e `abcde-C` termina com ZERO exercícios; em "peso corporal" são treze
-modelos e sete zerados.
+Por que substituição e não filtro — a medição de 10/09/2026, que continua
+valendo: a prescrição não SELECIONA exercícios, `prescrever_semana` copia
+MODELOS curados de `splits.json`, com os nomes escritos; filtrar por
+equipamento não troca de exercício — abre BURACO no modelo (em "casa +
+halteres" oito modelos perdiam grupo sem substituto e `abcde-C` terminava
+com ZERO exercícios). E os modelos já listam quase todas as alternativas: em
+"básica" o `abc2 A` perdia os três itens de barra SEM repor, porque todas as
+pressões de peito sem barra já estavam nele — a letra fechava em 6
+exercícios e 50–52 min, dourado vermelho. Os **cinco de peito e tríceps sem
+barra** (supino declinado com halteres, crucifixo inclinado com halteres,
+flexão com pés elevados, flexão fechada, tríceps coice) entraram FORA de
+todo modelo, de propósito, para serem exatamente esse substituto: a ficha
+de "completa" ficou idêntica (ninguém recebeu "regenerar?") e básica E casa
+com halteres fecham o dourado da letra A (7 exercícios, 25 séries, 59 min
+no `abc2`). "Só peso do corpo" continua `expectedFailure` nomeado no
+dourado: B tem um exercício e C dois, e a lista do que falta está no
+`BACKLOG.md`.
 
 **Varridos os 31 recortes possíveis de equipamento, UM era viável em 10/09: o
 conjunto completo** — ou seja, nenhuma restrição, que é o comportamento de
@@ -715,21 +744,52 @@ catálogo virou contrato: aposentar um dos dois exercícios de panturrilha derru
 o veredito da própria academia, porque o grupo fica com opção única — e a suíte
 diz qual capacidade se perdeu.
 
-E NÃO EXISTE CAMPO DE AMBIENTE NO PERFIL, de propósito. Guardar a preferência
-antes de o motor poder obedecê-la é criar preferência que não vira nada — o
-mesmo defeito de veracidade que `prioridade == ""` evita do outro lado.
-`workouts/test_capacidade_de_ambiente.py` guarda as duas metades: o veredito
-congelado de cada ambiente, que fica VERMELHO quando o catálogo passar a
-sustentar, e a proibição de a tela oferecer a escolha enquanto isso não
-acontece.
+O campo de ambiente NÃO existiu no perfil até o motor poder obedecê-lo, de
+propósito: guardar preferência que não vira nada é o mesmo defeito de
+veracidade que `prioridade == ""` evita do outro lado. Quando o motor passou
+a obedecer (17/09, tarde), `workouts/test_capacidade_de_ambiente.py` virou
+ao contrário — o perfil TEM a pergunta, o formulário a FAZ, o motor LÊ
+`equipment` — e os ambientes medidos passaram a ser os QUATRO PERFIS do mapa
+(completa e básica SUPORTADO; casa PARCIAL; peso do corpo NAO_SUPORTADO).
 
-**`Equipment` é dado de catálogo sem consumidor no motor**, e isso está dito no
-próprio modelo. O campo nasceu para o assistente de troca ("a máquina está
-ocupada"), que entrou em `7819b30` e saiu em `d86d9c7`; `DISPUTADOS` e
-`disputa_equipamento` sobreviveram à remoção como código morto por três
-campanhas e saíram em 10/09/2026, junto com dois helpers de teste que chamavam
-um módulo `assistant` inexistente. **Não há sistema de substituição de
-exercício no app.**
+**`Equipment` tem UM consumidor no motor: `substituir_por_equipamento`.** O
+campo nasceu para o assistente de troca ("a máquina está ocupada"), que
+entrou em `7819b30` e saiu em `d86d9c7`; `DISPUTADOS` e `disputa_equipamento`
+sobreviveram à remoção como código morto por três campanhas e saíram em
+10/09/2026. A substituição por PERFIL acontece antes de prescrever; a
+troca por EXERCÍCIO é a de baixo.
+
+**"OUTRAS FORMAS" É A INTERAÇÃO PRINCIPAL DA FICHA (17/09/2026, noite).** A
+pessoa não escolhe mais entre opção 1 e 2; escolhe COMO fazer cada
+movimento. `TrocaDeExercicio(user, original, substituto)` (migration
+`workouts.0029`) é customização POR EXERCÍCIO — vale em toda letra, toda
+semana e toda opção em que o original apareça — e NÃO toca em
+`SessionExercise` nem em `customized_at`: a ficha continua retrato, a
+rotação continua, `rotina_invalida`/`_prescricao_bate` não a enxergam. A
+aplicação é EM MEMÓRIA (`services.aplicar_trocas`, uma consulta por tela,
+logo depois de carregar as linhas do plano — painel, ficha, execução e
+leitura passam pelo mesmo ponto): o item passa a apontar para o substituto
+com a MESMA dose, então trocar não altera séries nem volume (diferença 0).
+`ExerciseLog` grava no exercício FEITO; a linha do original responde pelo
+substituto na prescrição de hoje por JOIN (`_linha_do_exercicio`), na
+consulta que já existia — o orçamento do POST da série continua 20. As
+alternativas (`alternativas_de`) são do mesmo `padrao` e grupo, dentro do
+equipamento do perfil, FORA DA MESMA LISTA (sessão + opção — duplicata só
+é problema no mesmo treino; a outra opção é outro dia), o equipamento mais
+próximo primeiro; a ficha só anuncia "outras formas" onde a leitura lista
+alguma (`contar_outras_formas`, a mesma régua — o QA achou a linha
+anunciando e a leitura vazia quando as réguas divergiam). A lista mora na
+LEITURA do exercício, com foto (o primeiro quadro da free-exercise-db) e
+"Trocar"; a leitura do substituto diz "No lugar de X", mostra o histórico
+de X e tem "Voltar ao original". `POST /treino/trocar/` é estado absoluto
+(trocar de novo atualiza, `desfazer=1` apaga, sem `op_id`), volta para a
+leitura com a mesma volta (`?de=`), e recusa original fora da ficha ou
+substituto que não é forma do movimento no equipamento. A leitura passou a
+TER formulários, e a régua "ver não é executar" virou POR DESTINO: todo
+`<form>` do `<main>` aponta para a troca, nunca para a série. Custos
+medidos: leitura 9 → 11 (trocas + alternativas; o perfil vem do
+`dispatch` e as linhas vêm sem o exercício), ficha 15 → 17 (trocas +
+contagem), Home 43 (no teto), painel 20.
 
 **A área de Treino são TRÊS telas, e cada uma responde UMA pergunta.**
 
@@ -1156,6 +1216,45 @@ deixa intervalos de 3+ semanas em 22 % das aberturas; o gatilho de
 recalibrar era "estagnado > 30 %" e está longe. Os dias (21, 28, 27, 56) e
 o "+1" são calibração [HIPOTÉTICA] do brief de 13/09, e é o
 `medir_progressao` (T2.4) que vai revê-los com dado de produção.
+
+**O INSTRUMENTO (T2.4, 17/09/2026): medir e limpar sem mudar o que a
+pessoa vê.** Quatro peças, e a natureza comum é essa:
+
+- `manage.py medir_progressao [--dias 365]` é SÓ LEITURA — duas consultas
+  fixas (as linhas de prescrição ativas e os registros da janela), nunca
+  uma por pessoa — e conta, por abertura de exercício, o estado que a
+  adaptação daria, a distribuição de `reps − rep_max` na última série do
+  dia, a fração que PAROU EXATAMENTE em `rep_max` (a faixa lida como teto),
+  os "retomar" sem pausa (a pessoa treinou outros exercícios no intervalo)
+  e o intervalo em semanas. `workouts/test_instrumento.py` cobra que
+  nenhuma consulta começa por UPDATE/INSERT/DELETE e que o custo não
+  cresce por exercício;
+- `RecordLoadView` (a rota da ficha, fora da fila) avalia conquista só na
+  PRIMEIRA série do dia ou no RECORDE — a guarda que `ConcluirSerieView`
+  já tinha. A rota antiga pagava o catálogo inteiro em toda carga anotada;
+  abaixo do recorde, no meio do treino, nenhuma regra muda de resposta;
+- o Progresso CONVIDA quem se declarou iniciante (ou não respondeu) a
+  atualizar o nível depois de 180 dias e 24 datas com série
+  (`progresso.convidar_a_atualizar_experiencia`): o app não infere nível —
+  "uso não é intenção declarada" — mas depois de meio ano a pergunta cabe,
+  porque o teto por grupo do iniciante é o menor (TREINO.md, B). UMA
+  consulta para qualquer nível — o nível entra no `WHERE` pela junção com
+  o perfil, porque `user.profile` não está em cache nessa tela e lê-lo à
+  parte custava a segunda (medido: 28 contra o teto de 26; o teto foi para
+  27 com a razão escrita);
+- `manage.py podar_operacoes` roda no build, por último, e apaga
+  `SyncedOperation` com mais de `VALIDADE_DIAS` (30). O método `podar`
+  existia desde a fila offline e ninguém o chamava. Trinta é MAIOR que os
+  7 dias que a fila reenvia — a poda nunca alcança um `op_id` que um
+  reenvio ainda traria, senão a água somaria duas vezes; há teste.
+
+E a medição L08, feita no navegador com rede lenta emulada (`nav.py rede
+3g`: 400 ms de latência, 400 kbps): "Concluir série" é um POST→302→GET
+de 31 KB que custa 180–330 ms de `load` no Wi-Fi e ~550 ms no 3G lento
+(redirect ~460 ms) — e o iframe do vídeo que a pessoa abriu MORRE com a
+recarga (1 → 0): a cada série, tocar "ver vídeo" de novo. É o insumo da
+fatia E "fetch sem recarga", que continua fora até alguém decidir com
+esse número.
 
 **Duração tem UMA conta, e ela é `workouts.models.segundos_da_sessao`.**
 Existiam duas cópias, uma sobre linhas gravadas e outra sobre tuplas, com um
@@ -1799,30 +1898,50 @@ variáveis), `env`, `cron`, `deploy`, `trigger`, `runs`, `logs`, `status`.
   FCM 201, notificação exibida.
 - **Lembretes SEM cron e SEM nada pago (decisão do dono, 16/09/2026).** A
   criação do cron pela API respondeu `402 Payment information is required`
-  (custaria no mínimo US$ 1/mês), e a instância web continua `free`. O
-  relógio é o **GitHub Actions**: `.github/workflows/lembretes.yml` roda de
-  5 em 5 minutos, bate em `/saude/vivo/` (sem banco) para o serviço não
-  dormir e em `POST /tarefas/lembretes/` com `NUTRIPLAN_TAREFAS_TOKEN` no
-  `Authorization` (variável do web service + segredo do repositório; o
-  mesmo valor, em `~/.nutriplan-secrets/tarefas_token`; gravado por
-  `scripts/github.py segredo` e pela API do Render). A rota é
+  (custaria no mínimo US$ 1/mês), e a instância web continua `free`. Quem
+  DISPARA lembrete é o **GitHub Actions** (`.github/workflows/lembretes.yml`,
+  `schedule` `*/5`): uma rodada CURTA por disparo, `POST /tarefas/lembretes/`
+  com `NUTRIPLAN_TAREFAS_TOKEN` no `Authorization` (variável do web service +
+  segredo do repositório; o mesmo valor, em `~/.nutriplan-secrets/tarefas_token`;
+  gravado por `scripts/github.py segredo` e pela API do Render). A rota é
   `push.views.TarefaLembretesView` → `push/tarefas.py`: token em tempo
   constante (503 sem a variável, 403 com token errado), só POST, sem
   sessão, idempotente pela constraint do `NotificationLog`.
 
-**A infraestrutura é 100 % gratuita — Render free + Neon free + GitHub
-Actions —, e isso implica três coisas escritas:**
+- **Quem MANTÉM ACORDADO é o UptimeRobot (17/09/2026), não o Actions.** Um
+  monitor HTTP(s) gratuito — conta `bielpointblank@gmail.com`, monitor
+  "NutriPlan vivo" (`dashboard.uptimerobot.com/monitors/804021213`) — bate em
+  `GET /saude/vivo/` a cada 5 minutos (o mínimo do plano free) e alerta por
+  e-mail se cair. `/saude/vivo/` NÃO consulta o banco, de propósito: um
+  monitor em `/saude/` acordaria o Neon o tempo todo e a cota de 100 CU-h
+  estouraria no meio do mês (ver "Monitor externo bate em `/saude/vivo/`").
+  Antes disso o "manter acordado" era um LAÇO de ~5h45 dentro da rodada do
+  Actions que se re-disparava sozinho (`GITHUB_TOKEN`, `actions: write`) — a
+  "corrente"; com o UptimeRobot ela perdeu a razão e saiu (o fluxo voltou a
+  ser uma rodada por disparo do `schedule`). A chave do UptimeRobot, se um
+  dia a API for usada, mora só no ambiente da máquina (`API Settings` no
+  painel), nunca no repositório.
 
-- **cold start só se o ping falhar por mais de 15 minutos.** O free do
-  Render dorme após 15 min sem tráfego e acorda em 37–60 s (medido na
-  avaliação de 16/09). **O `schedule` do GitHub NÃO segura isso sozinho**
-  — medido em 17/09: o cron `*/5` rodou UMA vez em oito horas, o serviço
-  dormiu e `/saude/` levou 38 s depois de 30 min parado. Por isso o relógio
-  de verdade é o LAÇO dentro da rodada (`lembretes.yml`: um job de ~5h45
-  batendo a cada 5 min e disparando a próxima rodada com o `GITHUB_TOKEN`
-  ao acabar); o `schedule` é só o gatilho de reserva que religa a corrente.
-  Um cold start ocasional continua possível (runner indisponível, corrente
-  quebrada até o `schedule` religar) e não é defeito do app;
+**A infraestrutura é 100 % gratuita — Render free + Neon free + GitHub
+Actions + UptimeRobot free —, e isso implica três coisas escritas:**
+
+- **duas responsabilidades, dois donos.** MANTER ACORDADO é do UptimeRobot
+  (5 em 5 min em `/saude/vivo/`, confiável); DISPARAR LEMBRETE é do `schedule`
+  do Actions (5 em 5 min em `/tarefas/lembretes/`). Separar foi decisão de
+  17/09: o `schedule` do GitHub ATRASA e às vezes PULA — MEDIDO naquele dia,
+  o `*/5` rodou UMA vez em oito horas —, então ele NÃO serve para segurar
+  cold start (que precisa de pontualidade), mas serve para lembrete (a janela
+  de `push/services.py` tolera atraso, e a constraint do banco impede
+  duplicar). O preço aceito pelo dono é **lembrete pode atrasar** quando o
+  GitHub atrasa; o que NÃO acontece mais é cold start, porque o UptimeRobot
+  não depende do humor do `schedule`. **Se o UptimeRobot cair** (o e-mail
+  avisa): o serviço volta a dormir após 15 min e o primeiro acesso paga
+  37–60 s — reative o monitor no painel, ou o próprio `POST` do lembrete
+  acaba acordando o web na próxima vez que o `schedule` rodar. **Se o
+  `schedule` do Actions parar** (repositório sem atividade por 60 dias — o
+  GitHub avisa por e-mail — ou pane do agendador): os lembretes param sem
+  derrubar mais nada; `workflow_dispatch` na aba Actions dispara uma rodada à
+  mão, e um commit qualquer religa o `schedule`;
 - **o Neon dorme entre refeições, de propósito.** Uma consulta a cada 5 min
   o manteria acordado o dia inteiro (182 CU-h contra 100 de cota). Por isso
   a tarefa, depois de rodar, calcula a próxima refeição de quem tem
@@ -1832,17 +1951,18 @@ Actions —, e isso implica três coisas escritas:**
   restart. O ping de manter acordado NUNCA usa `/saude/`;
 - **dependência da política do free.** Render pode mudar o tempo de sono,
   as horas gratuitas (750 h/mês por workspace hoje) ou bloquear o ping;
-  GitHub pode desligar o `schedule` de repositório sem atividade por 60
-  dias (ele avisa por e-mail), atrasa ou pula o cron sob carga, e a corrente
-  de rodadas de ~6 h (repositório público, minutos ilimitados) é uso que a
-  política de Actions pode um dia questionar; o Neon pode reduzir a cota.
-  Nada disso quebra o app — só os lembretes e o cold start.
+  UptimeRobot pode mudar o mínimo de 5 min do plano free ou o número de
+  monitores; GitHub pode desligar o `schedule` de repositório sem atividade
+  por 60 dias (ele avisa por e-mail) e atrasa ou pula o cron sob carga; o
+  Neon pode reduzir a cota. Nada disso quebra o app — só os lembretes e o
+  cold start, e cada um tem o seu dono para reativar.
 
 **O que mudaria se um dia virar pago:** instância `starter` no Render
-(~US$ 7/mês) elimina o sono e o ping; o cron do Render (≥ US$ 1/mês,
-`scripts/render_api.py cron`, bloco de exemplo no histórico do `render.yaml`
-até 16/09) substituiria o Actions com relógio exato — e a janela de 15 min
-poderia voltar a 10; o Neon pago tira o teto de CU-h e a pausa de
+(~US$ 7/mês) elimina o sono, e aí o UptimeRobot vira só alerta de queda; o
+cron do Render (≥ US$ 1/mês, `scripts/render_api.py cron`, bloco de exemplo
+no histórico do `render.yaml` até 16/09) substituiria o `schedule` do Actions
+com relógio exato — e a janela de 15 min poderia voltar a 10, e o lembrete
+deixaria de atrasar; o Neon pago tira o teto de CU-h e a pausa de
 `push/tarefas.py` viraria só economia. Nenhuma dessas trocas exige código
 novo além de apagar o que existe para contornar o gratuito.
 

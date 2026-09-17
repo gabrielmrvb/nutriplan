@@ -841,6 +841,7 @@ def resumo_das_escolhas(user, profile) -> list:
     ]
     if profile.experiencia:
         itens.append(("Experiência", profile.get_experiencia_display()))
+    itens.append(("Equipamento", profile.get_equipamento_display()))
     if profile.split_preference_confirmada:
         itens.append(("Divisão", profile.get_split_preference_display()))
     return itens
