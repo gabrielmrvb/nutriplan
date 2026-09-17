@@ -47,6 +47,8 @@ from . import adaptacao
 from .models import (
     SEGUNDOS_ENTRE_EXERCICIOS,
     SEGUNDOS_POR_SERIE,
+    Equipment,
+    Exercise,
     ExerciseLog,
     Measure,
     MuscleGroup,
@@ -59,6 +61,7 @@ from .models import (
     instrucao_de_esforco,
     segundos_da_sessao,
     EscolhaDeTreino,
+    TrocaDeExercicio,
     VersaoDoTreino,
 )
 
@@ -1022,6 +1025,217 @@ def duracao_de(user) -> str:
     return getattr(perfil, "duracao_treino", None) or ""
 
 
+def equipamento_de(user) -> str:
+    """O perfil de equipamento (`accounts.models.Equipamento`), ou "completa"
+    — o padrão do campo e a verdade de quem monta ficha sem perfil."""
+    from . import doutrina
+
+    perfil = getattr(user, "profile", None)
+    return getattr(perfil, "equipamento", None) or doutrina.COMPLETA
+
+
+def permitidos_de(user) -> frozenset:
+    """O que o perfil de equipamento da pessoa pode usar (chaves de
+    `Exercise.equipment`), pelo mapa do `TREINO.md`."""
+    from . import doutrina
+
+    return doutrina.equipamentos_de(equipamento_de(user))
+
+
+#: O equipamento mais PRÓXIMO do item trocado vem primeiro (17/09/2026): o
+#: supino reto com barra vira supino com halteres antes de virar flexão, e
+#: a máquina vira polia antes de virar halter. Dentro do mesmo degrau, o
+#: nome desempata — a escolha precisa ser determinística, porque a
+#: conferência refaz a conta do gerador.
+PROXIMIDADE_DE_EQUIPAMENTO = {
+    Equipment.BARBELL: (Equipment.DUMBBELL, Equipment.MACHINE, Equipment.CABLE, Equipment.BODYWEIGHT),
+    Equipment.DUMBBELL: (Equipment.BARBELL, Equipment.MACHINE, Equipment.CABLE, Equipment.BODYWEIGHT),
+    Equipment.MACHINE: (Equipment.CABLE, Equipment.DUMBBELL, Equipment.BARBELL, Equipment.BODYWEIGHT),
+    Equipment.CABLE: (Equipment.MACHINE, Equipment.DUMBBELL, Equipment.BARBELL, Equipment.BODYWEIGHT),
+    Equipment.BODYWEIGHT: (Equipment.DUMBBELL, Equipment.CABLE, Equipment.MACHINE, Equipment.BARBELL),
+}
+
+
+def _distancia_de_equipamento(de, para) -> int:
+    ordem = PROXIMIDADE_DE_EQUIPAMENTO.get(de, ())
+    return ordem.index(para) if para in ordem else len(ordem)
+
+
+def trocas_de(user) -> dict:
+    """{id do original: Exercise substituto} — as trocas da pessoa, UMA consulta."""
+    return {
+        troca.original_id: troca.substituto
+        for troca in TrocaDeExercicio.objects.filter(user=user).select_related("substituto")
+    }
+
+
+def aplicar_trocas(user, sessoes, trocas=None) -> dict:
+    """Veste as linhas com as trocas da pessoa, EM MEMÓRIA (17/09/2026):
+    o item cujo exercício foi trocado passa a apontar para o substituto —
+    `item.exercise` (e `exercise_id`) — e guarda o de origem em
+    `item.original`; séries, faixa, descanso e ordem não mudam. Nada é
+    gravado: a ficha continua retrato, e a conferência do catálogo
+    (`_prescricao_bate`) lê as linhas cruas. Chamada UMA vez por tela,
+    logo depois de carregar as linhas do plano — o painel, a ficha, a
+    execução e a leitura passam pelo mesmo caminho, então contagem de
+    séries, "Principal" e histórico enxergam o exercício FEITO.
+
+    Devolve o mapa (para quem precisa saber se houve troca) e custa a
+    consulta de `trocas_de` quando não a recebe pronta."""
+    if trocas is None:
+        trocas = trocas_de(user)
+    if trocas:
+        for sessao in sessoes:
+            for item in sessao.exercises.all():
+                substituto = trocas.get(item.exercise_id)
+                if substituto is not None and getattr(item, "original", None) is None:
+                    item.original = item.exercise
+                    item.exercise = substituto
+    return trocas
+
+
+def _linha_do_exercicio(user, sessao_pk, opcao, exercise_id):
+    """As linhas da opção do dia que RESPONDEM por `exercise_id`: a linha
+    dele, ou a linha do original que a pessoa trocou por ele
+    (`TrocaDeExercicio`), na MESMA consulta — o orçamento do POST da série
+    é de 20, e uma consulta a mais pelas trocas o estourava."""
+    return SessionExercise.objects.filter(session_id=sessao_pk, opcao=opcao).filter(
+        Q(exercise_id=exercise_id)
+        | Q(exercise__trocas_como_original__user=user, exercise__trocas_como_original__substituto_id=exercise_id)
+    )
+
+
+def alternativas_de(user, exercicio, fora=(), permitidos=None) -> list:
+    """"Outras formas": os exercícios ATIVOS do mesmo `padrao` e grupo,
+    dentro do que o perfil tem para treinar (`permitidos_de`), fora do
+    próprio e dos que já estão na sessão (`fora`, ids). O equipamento mais
+    próximo do atual vem primeiro (`PROXIMIDADE_DE_EQUIPAMENTO`), o nome
+    desempata. Uma consulta (`permitidos` já calculado poupa a do perfil)."""
+    if permitidos is None:
+        permitidos = permitidos_de(user)
+    excluidos = {exercicio.pk, *fora}
+    candidatos = Exercise.objects.filter(
+        is_active=True, padrao=exercicio.padrao, muscle_group=exercicio.muscle_group,
+        equipment__in=list(permitidos),
+    ).exclude(pk__in=excluidos)
+    return sorted(candidatos, key=lambda e: (_distancia_de_equipamento(exercicio.equipment, e.equipment), e.name, e.id))
+
+
+def contar_outras_formas(user, itens, permitidos=None) -> None:
+    """Escreve `item.outras_formas` (quantas alternativas o exercício tem
+    no equipamento da pessoa, fora dos que já estão nesta lista) em cada
+    item — UMA consulta para a ficha inteira, para a linha só anunciar
+    "outras formas" quando a porta leva a alguma."""
+    if permitidos is None:
+        permitidos = permitidos_de(user)
+    na_lista = {item.exercise_id for item in itens}
+    por_padrao = {}
+    for pk, padrao, grupo in Exercise.objects.filter(
+        is_active=True, equipment__in=list(permitidos),
+    ).values_list("pk", "padrao", "muscle_group"):
+        por_padrao.setdefault((padrao, grupo), set()).add(pk)
+    for item in itens:
+        exercicio = item.exercise
+        candidatos = por_padrao.get((exercicio.padrao, exercicio.muscle_group), set())
+        item.outras_formas = len(candidatos - na_lista - {exercicio.pk})
+
+
+class TrocaInvalida(ValueError):
+    """O POST pediu uma troca que a ficha não comporta."""
+
+
+def registrar_troca(user, original, substituto):
+    """Cria ou ATUALIZA a troca (estado absoluto): `original` tem de estar
+    na ficha ativa da pessoa, `substituto` tem de ser uma das alternativas
+    dele (mesmo padrão e grupo, dentro do equipamento, fora da sessão).
+    Não toca em `SessionExercise` nem em `customized_at`."""
+    plan = get_active_routine(user)
+    if plan is None or not SessionExercise.objects.filter(session__plan=plan, exercise=original).exists():
+        raise TrocaInvalida("o exercício não está na sua ficha")
+    # Fora do que já está na MESMA LISTA (sessão + opção) em que o original
+    # cai — a régua da ficha e da leitura.
+    listas = SessionExercise.objects.filter(session__plan=plan, exercise=original).values_list("session_id", "opcao")
+    filtro = Q()
+    for sessao_id, opcao in listas:
+        filtro |= Q(session_id=sessao_id, opcao=opcao)
+    na_sessao = set(SessionExercise.objects.filter(filtro).values_list("exercise_id", flat=True))
+    if substituto.pk not in {e.pk for e in alternativas_de(user, original, na_sessao)}:
+        raise TrocaInvalida("esse exercício não é uma forma deste movimento no seu equipamento")
+    troca, _ = TrocaDeExercicio.objects.update_or_create(
+        user=user, original=original, defaults={"substituto": substituto},
+    )
+    return troca
+
+
+def desfazer_troca(user, original) -> bool:
+    """Volta ao original; idempotente (desfazer o que não existe é nada)."""
+    apagadas, _ = TrocaDeExercicio.objects.filter(user=user, original=original).delete()
+    return bool(apagadas)
+
+
+def catalogo_permitido(permitidos):
+    """Os exercícios ativos que o perfil pode usar, em ordem determinística —
+    UMA consulta, compartilhada por todos os modelos de uma prescrição. `None`
+    quando o perfil é o catálogo inteiro (nada a substituir, nada a consultar)."""
+    if permitidos is None or frozenset(Equipment.values) <= frozenset(permitidos):
+        return None
+    return list(Exercise.objects.filter(is_active=True, equipment__in=list(permitidos)).order_by("name", "id"))
+
+
+def substituir_por_equipamento(itens, permitidos, catalogo=None) -> list:
+    """Os itens de um modelo com o que está FORA do perfil de equipamento
+    trocado por exercício ativo do MESMO `padrao` e do mesmo grupo, dentro do
+    perfil, que ainda não esteja no modelo — com a dose do item trocado
+    (séries, repetições, descanso, ordem). Sem substituto, o item SAI.
+
+    Substituição, e não filtro (17/09/2026): a prescrição copia modelos
+    curados de `splits.json`, e tirar sem repor abria buraco no modelo —
+    medido em 10/09, oito modelos perdiam grupo em "casa com halteres" e
+    `abcde-C` ficava vazio. Trocar pelo mesmo padrão é o que mantém a
+    régua de `equivalentes` (mesmos padrões compostos nos grupos anunciados)
+    satisfazível com o catálogo restrito.
+
+    `permitidos=None` ou o conjunto inteiro devolve os itens como estão, sem
+    consulta: o perfil "completa" custa zero. Com perfil restrito e ao menos
+    um item fora, UMA consulta ao catálogo (ou o `catalogo` já carregado).
+    Entre candidatos, o equipamento mais PRÓXIMO do trocado vence
+    (`PROXIMIDADE_DE_EQUIPAMENTO`) e o nome desempata — determinístico,
+    porque a conferência (`_prescricao_confere`) refaz esta conta.
+    """
+    itens = list(itens)
+    if permitidos is None or frozenset(Equipment.values) <= frozenset(permitidos):
+        return itens
+    if all(item.exercise.equipment in permitidos for item in itens):
+        return itens
+    if catalogo is None:
+        catalogo = catalogo_permitido(permitidos)
+    usados = {item.exercise_id for item in itens}
+    resultado = []
+    for item in itens:
+        if item.exercise.equipment in permitidos:
+            resultado.append(item)
+            continue
+        candidatos = [
+            e for e in catalogo
+            if e.padrao == item.exercise.padrao
+            and e.muscle_group == item.exercise.muscle_group
+            and e.id not in usados
+        ]
+        substituto = min(
+            candidatos,
+            key=lambda e: (_distancia_de_equipamento(item.exercise.equipment, e.equipment), e.name, e.id),
+            default=None,
+        )
+        if substituto is None:
+            continue
+        usados.add(substituto.id)
+        copia = copy.copy(item)
+        copia.pk = None
+        copia.exercise = substituto
+        resultado.append(copia)
+    return resultado
+
+
 #: O que decide a prescrição SEM a pessoa: o catálogo de exercícios, os
 #: modelos e a doutrina. Mudou um deles, mudou o que o gerador produziria.
 _ARQUIVOS_DO_CATALOGO = (
@@ -1427,7 +1641,7 @@ def _nivel_do_teto(teto_semanal, sessoes):
 
 
 def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
-                      teto_semanal=None, nivel=_NAO_INFORMADO) -> dict:
+                      teto_semanal=None, nivel=_NAO_INFORMADO, permitidos=None) -> dict:
     """O que cada OPÇÃO de cada sessão manda fazer:
     `{(sessão.pk, opção, exercício): (séries, item)}`.
 
@@ -1453,11 +1667,25 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
     5. as opções são equilibradas e conferidas (`equivalentes`); se ainda
        assim não forem, a letra fica com a opção 1.
 
+    `permitidos` (17/09/2026) é o que o perfil de equipamento pode usar
+    (`permitidos_de`): o item do modelo fora dele é trocado pelo mesmo
+    padrão dentro dele ANTES de tudo (`substituir_por_equipamento`) — a
+    cadeia inteira roda sobre a ficha que a pessoa consegue fazer. `None` é
+    o catálogo inteiro, o perfil "completa".
+
     Determinística, e chamada pelo gerador E pela conferência.
     """
     from . import opcoes as motor_de_opcoes
 
     ocorrencias = ocorrencias_das_letras(sessoes)
+    catalogo = None
+    if permitidos is not None and not frozenset(Equipment.values) <= frozenset(permitidos):
+        if any(
+            item.exercise.equipment not in permitidos
+            for label in ocorrencias if modelos.get(label) is not None
+            for item in modelos[label].items.all() if item.exercise.is_active
+        ):
+            catalogo = catalogo_permitido(permitidos)
     if teto is _NAO_INFORMADO:
         teto = teto_completo_de(sessoes[0].plan.user) if sessoes else None
     # `None` é SEM RELÓGIO — a referência que `aviso_de_tempo` compara e que
@@ -1477,7 +1705,10 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
         modelo = modelos.get(label)
         if modelo is None:
             return None
-        itens_de[label] = [item for item in modelo.items.all() if item.exercise.is_active]
+        itens_de[label] = substituir_por_equipamento(
+            [item for item in modelo.items.all() if item.exercise.is_active],
+            permitidos, catalogo,
+        )
         principais_de[label] = list(getattr(modelo, "main_groups", None) or ())
         # A FAIXA É DO TIPO DE DIA E DO NÍVEL (TREINO.md, tabela A): "Peito e
         # tríceps" do intermediário quer 21–28 séries diretas; "Peito" de
@@ -1614,7 +1845,7 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
 
 
 def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO,
-                      teto_semanal=None, nivel=_NAO_INFORMADO) -> dict:
+                      teto_semanal=None, nivel=_NAO_INFORMADO, permitidos=None) -> dict:
     """A OPÇÃO 1 de cada sessão: `{(sessão.pk, exercício): (séries, item)}`.
 
     Desde 15/09/2026 quem prescreve é `prescrever_opcoes`; esta é a projeção
@@ -1653,7 +1884,9 @@ def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO,
     continua não podendo multiplicar o volume — mas quem paga isso agora é o
     isolador, na etapa 2, e não o exercício principal.
     """
-    completa = prescrever_opcoes(sessoes, modelos, teto=teto, teto_semanal=teto_semanal, nivel=nivel)
+    completa = prescrever_opcoes(
+        sessoes, modelos, teto=teto, teto_semanal=teto_semanal, nivel=nivel, permitidos=permitidos,
+    )
     if completa is None:
         return None
     return {
@@ -2152,6 +2385,7 @@ def create_routine(user) -> TrainingPlan:
         catalogo=versao_do_catalogo(),
         nivel=nivel_de(user),
         duracao=duracao_de(user),
+        equipamento=equipamento_de(user),
         # A posição zero do ciclo: o primeiro dia de treino desta semana.
         inicio_do_ciclo=inicio_do_ciclo_de(
             timezone.localdate(), [day.weekday for day in training_days]
@@ -2163,9 +2397,11 @@ def create_routine(user) -> TrainingPlan:
 
     by_label = {template.label: template for template in templates}
     teto_semanal = teto_semanal_de(user)
+    permitidos = permitidos_de(user)
     completa = prescrever_opcoes(
         sessions, by_label,
         teto=teto_completo_de(user), teto_semanal=teto_semanal, nivel=nivel_de(user),
+        permitidos=permitidos,
     )
     prescricao = {
         (sessao_pk, exercicio_id): valor
@@ -2187,7 +2423,10 @@ def create_routine(user) -> TrainingPlan:
     # `None` faria a nota dizer "para caber no tempo que você informou" a
     # quem não informou.
     sem_relogio = (
-        prescrever_semana(sessions, by_label, teto=None, teto_semanal=teto_semanal, nivel=nivel_de(user))
+        prescrever_semana(
+            sessions, by_label, teto=None, teto_semanal=teto_semanal, nivel=nivel_de(user),
+            permitidos=permitidos,
+        )
         if teto_de_minutos(user) is not None else prescricao
     )
     plan.notes = " ".join(
@@ -2252,6 +2491,7 @@ def _prescricao_confere(sessoes, modelos, itens, user) -> bool:
     prescricao = prescrever_opcoes(
         sessoes, modelos,
         teto=teto_completo_de(user), teto_semanal=teto_semanal_de(user), nivel=nivel_de(user),
+        permitidos=permitidos_de(user),
     )
     if prescricao is None:
         return False
@@ -2290,6 +2530,10 @@ def rotina_invalida(plan, user) -> bool:
     if plan.nivel and plan.nivel != nivel_de(user):
         return True
     if plan.duracao and plan.duracao != duracao_de(user):
+        return True
+    # O equipamento nunca fica em branco (default "completa" nos dois
+    # lados): mudou no perfil, remonta.
+    if plan.equipamento != equipamento_de(user):
         return True
     if plan.split != split_for(user.training_days.count(), _preferencia_de(user)):
         return True
@@ -2373,10 +2617,18 @@ def _prescricao_bate(plan, user) -> bool:
     # comparação de horários lá embaixo.
     modelos = {t.label: t for t in templates_for(plan.split)}
     sessoes = sorted(plan.sessions.all(), key=lambda s: s.order)
+    # Os itens que o motor VÊ: com o perfil de equipamento aplicado (17/09/
+    # 2026). Sem isso o afundo que substituiu o agachamento — com a dose do
+    # agachamento — reprovava aqui, e toda ficha de perfil restrito nascida
+    # de outro catálogo ficava "desatualizada" para sempre.
+    permitidos = permitidos_de(user)
+    catalogo = catalogo_permitido(permitidos)
     prescrito = {
         (i.exercise_id, i.rep_min, i.rep_max, i.rest_seconds)
         for template in modelos.values()
-        for i in template.items.all()
+        for i in substituir_por_equipamento(
+            [i for i in template.items.all() if i.exercise.is_active], permitidos, catalogo,
+        )
     }
     itens = list(
         # Uma consulta, e não uma por sessão: esta função roda na entrada de
@@ -2837,23 +3089,19 @@ class EstadoDoTreino:
     minutos_entre_registros: int = 0
     #: O placar da folha de recompensa; só faz sentido com `concluido`.
     placar: object = None
-    #: A opção da letra que está sendo feita hoje, e de onde ela veio.
+    #: A opção da letra que está sendo feita hoje: a pinada pela primeira
+    #: série (`escolha`), senão a variação do ciclo (`variacao_do_dia`).
+    #: É contabilidade interna — a tela nunca imprime o número.
     opcao: int = 1
     opcoes: list = field(default_factory=list)
     versao: str = "completo"
     escolha: object = None
-    recomendada: int = 1
     #: Os exercícios que a versão rápida deixou de fora, nomeados na tela.
     removidos: list = field(default_factory=list)
 
     @property
     def tem_duas_opcoes(self) -> bool:
         return len(self.opcoes) > 1
-
-    @property
-    def precisa_escolher(self) -> bool:
-        """Duas opções e nenhuma escolha gravada hoje: a ficha pergunta."""
-        return self.tem_duas_opcoes and self.escolha is None and not self.comecou
 
     @property
     def rapida(self) -> bool:
@@ -2882,29 +3130,60 @@ def escolha_do_dia(user, dia=None):
     )
 
 
-def opcao_recomendada(user, sessao) -> int:
-    """A opção menos usada recentemente NESTA letra — nunca uma obrigação.
+def usos_recentes(nome: str, dias: int = 30) -> tuple[int, int]:
+    """(usos, pessoas) de um `EventoDeProduto` nos últimos `dias` — hoje
+    inclusive, então `dias=30` cobre 30 dias corridos. Uso é pessoa × dia
+    (a constraint do modelo já colapsa o toque repetido); pessoa é distinta.
+    É a conta que `medir_progressao` imprime para decidir a versão rápida."""
+    from .models import EventoDeProduto
 
-    Com duas opções, é a que não foi a última: quem fez a 1 na segunda vê a 2
-    recomendada na quinta. Sem histórico, a 1. A pessoa pode ignorar e repetir
-    a preferida — a recomendação é um selo, e o motor já garantiu que repetir
-    cabe no teto semanal.
+    desde = timezone.localdate() - timedelta(days=dias - 1)
+    eventos = EventoDeProduto.objects.filter(nome=nome, date__gte=desde)
+    return eventos.count(), eventos.values("user_id").distinct().count()
+
+
+def variacao_do_dia(plan, dia, sessao, sessoes=None) -> int:
+    """A opção da letra em `dia` — decidida pelo CICLO, não pela pessoa
+    (ficha única por letra, 17/09/2026).
+
+    Com a rotação contínua, `p` é a posição do dia no ciclo e `n` o número
+    de letras: a letra cai a cada `n` posições, então `p // n` é quantas
+    vezes ela já caiu desde a posição zero — a primeira ocorrência faz a
+    opção 1, a segunda a 2, a terceira a 1 de novo. No plano preso ao dia
+    da semana (antigo ou ajustado à mão) a ocorrência é a linha da letra
+    dentro da semana, em ordem, mais as semanas desde a criação do plano.
+    Com uma opção só, é ela.
     """
     opcoes = sessao.opcoes
     if len(opcoes) < 2:
         return opcoes[0]
-    # A última data em que cada opção foi feita, numa consulta; a que nunca
-    # foi (ou foi há mais tempo) é a recomendada — com três opções, a 3
-    # entra na vez dela.
-    ultimas = dict(
-        EscolhaDeTreino.objects.filter(
-            user=user, session__plan_id=sessao.plan_id, session__label=sessao.label
-        )
-        .values_list("opcao")
-        .annotate(ultima=Max("date"))
-        .values_list("opcao", "ultima")
-    )
-    return min(opcoes, key=lambda k: (ultimas.get(k) is not None, ultimas.get(k), k))
+    sessoes = list(sessoes if sessoes is not None else plan.sessions.all())
+    if ciclo_roda(plan):
+        dias = dias_de_treino_de(sessoes)
+        letras = letras_do_ciclo(sessoes)
+        ocorrencia = posicao_no_ciclo(plan.inicio_do_ciclo, dia, dias) // len(letras)
+    else:
+        da_letra = sorted((s for s in sessoes if s.label == sessao.label), key=lambda s: s.order)
+        indice = next((k for k, s in enumerate(da_letra) if s.weekday == dia.weekday()), 0)
+        criado = timezone.localtime(plan.created_at).date()
+        semanas = (dia - timedelta(days=dia.weekday())) - (criado - timedelta(days=criado.weekday()))
+        ocorrencia = max(0, semanas.days // 7) * len(da_letra) + indice
+    return opcoes[ocorrencia % len(opcoes)]
+
+
+def opcao_do_dia(user, sessao, dia=None, sessoes=None, escolha=_NAO_INFORMADO) -> int:
+    """A opção que vale HOJE para esta sessão: a gravada pela primeira
+    série (o dia fica pinado — a ficha não muda no meio do treino), senão
+    a variação do ciclo. `escolha` já carregada evita a consulta."""
+    dia = dia or timezone.localdate()
+    if escolha is _NAO_INFORMADO:
+        escolha = escolha_do_dia(user, dia)
+    # Sem conferir `in sessao.opcoes`: `registrar_escolha` já gravou uma
+    # opção válida, e a conferência custaria a consulta dos itens quando a
+    # sessão veio de `escolha.session` (medido no POST da série: 21 > 20).
+    if escolha is not None and escolha.session_id == sessao.pk:
+        return escolha.opcao
+    return variacao_do_dia(sessao.plan, dia, sessao, sessoes)
 
 
 def registrar_escolha(user, sessao, opcao, versao=VersaoDoTreino.COMPLETO, dia=None):
@@ -3141,10 +3420,12 @@ def prescricao_de_hoje(user, exercise_id, dia=None):
     sessao = escolha.session if escolha is not None else sessao_do_dia(get_active_routine(user), dia)
     if sessao is None:
         return None
-    linhas = SessionExercise.objects.filter(session_id=sessao.pk)
-    if escolha is not None:
-        linhas = linhas.filter(opcao=escolha.opcao)
-    item = linhas.filter(exercise_id=exercise_id).first()
+    # A opção do dia: a pinada, senão a variação do ciclo (ficha única).
+    opcao = opcao_do_dia(user, sessao, dia, escolha=escolha)
+    linhas = SessionExercise.objects.filter(session_id=sessao.pk, opcao=opcao)
+    # A linha que responde pelo exercício: a dele, ou a do original que a
+    # pessoa trocou por ele ("outras formas") — mesma dose.
+    item = _linha_do_exercicio(user, sessao.pk, opcao, exercise_id).first()
     if item is None:
         return None
     if escolha is not None and escolha.versao == VersaoDoTreino.RAPIDO:
@@ -3156,7 +3437,7 @@ def prescricao_de_hoje(user, exercise_id, dia=None):
             sessao.main_groups if sessao else (),
         )
         reduzidas = {i.exercise_id: series for i, series in ficam}
-        return reduzidas.get(exercise_id, 0)
+        return reduzidas.get(item.exercise_id, 0)
     return item.sets
 
 
@@ -3179,9 +3460,11 @@ def series_de_hoje(user, exercise, dia=None) -> tuple:
         prescritas = prescricao_de_hoje(user, exercise.pk, dia)
         feitas = ExerciseLog.objects.filter(user=user, exercise=exercise, date=dia).count()
         return feitas, prescritas or 0
+    # A contagem é do exercício FEITO (o pedido), e não do da linha: com
+    # "outras formas" a linha é a do original e a série está no substituto.
     contagem = (
-        ExerciseLog.objects.filter(user=user, exercise=OuterRef("exercise"), date=dia)
-        .order_by().values("exercise").annotate(n=Count("pk")).values("n")[:1]
+        ExerciseLog.objects.filter(user=user, exercise_id=exercise.pk, date=dia)
+        .order_by().values("user").annotate(n=Count("pk")).values("n")[:1]
     )
     # A sessão de hoje é a da LETRA de hoje: a escolha gravada já a traz;
     # sem escolha, `sessao_do_dia` a acha (plano + linhas, duas consultas
@@ -3189,9 +3472,7 @@ def series_de_hoje(user, exercise, dia=None) -> tuple:
     sessao = escolha.session if escolha is not None else sessao_do_dia(get_active_routine(user), dia)
     if sessao is None:
         return ExerciseLog.objects.filter(user=user, exercise=exercise, date=dia).count(), 0
-    linhas = SessionExercise.objects.filter(session_id=sessao.pk, exercise=exercise)
-    if escolha is not None:
-        linhas = linhas.filter(opcao=escolha.opcao)
+    linhas = _linha_do_exercicio(user, sessao.pk, opcao_do_dia(user, sessao, dia, escolha=escolha), exercise.pk)
     item = linhas.annotate(feitas=Subquery(contagem)).values_list("sets", "feitas").first()
     if item is None:
         return ExerciseLog.objects.filter(user=user, exercise=exercise, date=dia).count(), 0
@@ -3325,9 +3606,11 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
     # A sessão de HOJE é a da LETRA de hoje (rotação contínua), vestindo o
     # dia da semana: uma consulta com todas as linhas da semana, que é o que
     # `sessao_do_dia` precisa para achar a posição.
-    sessao = sessao_do_dia(
-        plan, dia, list(plan.sessions.prefetch_related("exercises__exercise"))
-    )
+    linhas = list(plan.sessions.prefetch_related("exercises__exercise"))
+    # "Outras formas": a troca da pessoa veste as linhas ANTES de tudo, então
+    # a execução, a contagem e o histórico são do exercício feito.
+    aplicar_trocas(user, linhas)
+    sessao = sessao_do_dia(plan, dia, linhas)
     if sessao is None:
         if escolhido is not None:
             raise ExercicioForaDaSessao(escolhido)
@@ -3344,9 +3627,8 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
         escolha = None
     estado.escolha = escolha
     estado.opcoes = sessao.opcoes
-    estado.recomendada = opcao_recomendada(user, sessao)
     if opcao is None:
-        opcao = escolha.opcao if escolha is not None else estado.recomendada
+        opcao = opcao_do_dia(user, sessao, dia, linhas, escolha=escolha)
     if opcao not in estado.opcoes:
         opcao = estado.opcoes[0]
     if versao is None:

@@ -332,22 +332,19 @@ class AFichaEAPreparacaoTests(BaseDoFluxo):
         html = self.client.get(
             reverse("workouts:ficha", args=[sessao.pk])
         ).content.decode()
-        # POR OPÇÃO: a ficha desenha cada versão da letra como uma lista
-        # própria, numerada do 1, e dentro de cada uma o complementar continua
-        # a numeração dos principais.
-        esperados = []
-        for opcao in sessao.opcoes:
-            principais = sessao.principais_da_opcao(opcao)
-            complementares = sessao.complementares_da_opcao(opcao)
-            self.assertTrue(
-                complementares,
-                "o dia de pernas deixou de trazer complementar na opção %d" % opcao,
-            )
-            esperados += list(range(1, len(principais) + len(complementares) + 1))
-            # E o `<ol>` dos complementares COMEÇA onde o dos principais
-            # parou: sem o `start`, o navegador recomeçaria do 1 e o oitavo
-            # exercício do dia se apresentaria como primeiro de outra coisa.
-            self.assertIn('start="%d"' % (len(principais) + 1), html)
+        # UMA LISTA (ficha única, 17/09/2026): a da variação do dia, numerada
+        # do 1, e o complementar continua a numeração dos principais.
+        from workouts import services
+
+        opcao = services.opcao_do_dia(self.user, sessao, timezone.localdate())
+        principais = sessao.principais_da_opcao(opcao)
+        complementares = sessao.complementares_da_opcao(opcao)
+        self.assertTrue(complementares, "o dia de pernas deixou de trazer complementar na opção %d" % opcao)
+        esperados = list(range(1, len(principais) + len(complementares) + 1))
+        # E o `<ol>` dos complementares COMEÇA onde o dos principais
+        # parou: sem o `start`, o navegador recomeçaria do 1 e o oitavo
+        # exercício do dia se apresentaria como primeiro de outra coisa.
+        self.assertIn('start="%d"' % (len(principais) + 1), html)
 
         vistos = [
             int(t.split("</span>")[0])
@@ -358,8 +355,12 @@ class AFichaEAPreparacaoTests(BaseDoFluxo):
         self.assertEqual(vistos, esperados)
 
     def test_a_linha_diz_nome_series_reps_e_musculo(self):
-        """O que a ficha precisa apresentar, sem abrir nada."""
-        for item in self.sessao.exercises.select_related("exercise"):
+        """O que a ficha precisa apresentar, sem abrir nada — para os itens
+        da variação do dia (a outra versão da letra não está na tela)."""
+        from workouts import services
+
+        opcao = services.opcao_do_dia(self.user, self.sessao, timezone.localdate())
+        for item in self.sessao.da_opcao(opcao):
             with self.subTest(exercicio=item.exercise.name):
                 self.assertIn(item.exercise.name, self.html)
                 self.assertIn(item.rep_range, self.html)
@@ -389,7 +390,8 @@ class AFichaEAPreparacaoTests(BaseDoFluxo):
         from workouts import services
 
         esperados = 0
-        for opcao in self.sessao.opcoes:
+        opcao_do_dia = services.opcao_do_dia(self.user, self.sessao, timezone.localdate())
+        for opcao in [opcao_do_dia]:
             itens = self.sessao.da_opcao(opcao)
             anunciados = set(self.sessao.main_groups)
             grupos_com_composto = {
@@ -410,9 +412,7 @@ class AFichaEAPreparacaoTests(BaseDoFluxo):
                     self.assertFalse(i.abre_o_grupo, i.exercise.name)
         self.assertGreater(esperados, 0)
         self.assertEqual(self.html.count(">Principal<"), esperados)
-        compostos_na_tela = sum(
-            1 for opcao in self.sessao.opcoes for i in self.sessao.da_opcao(opcao) if i.exercise.is_compound
-        )
+        compostos_na_tela = sum(1 for i in self.sessao.da_opcao(opcao_do_dia) if i.exercise.is_compound)
         # Controle positivo: há mais compostos que selos, senão o teste não
         # distingue "primeiro composto" de "todo composto".
         self.assertGreater(compostos_na_tela, esperados)

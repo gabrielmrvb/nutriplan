@@ -665,15 +665,44 @@ TRÊS dorsais com quatro no catálogo; `Barra fixa assistida` entrou em
 10/09/2026, com a mesma dose que já abre `abcd B` e `abcde B`.
 `Remada curvada com barra` continua aposentada e não volta por essa porta.
 
-**Personalização por LOCAL e EQUIPAMENTO está bloqueada pelo CATÁLOGO, não por
-escopo — e a medição de 10/09/2026 diz exatamente quanto falta.**
+**O EQUIPAMENTO ESTÁ NO PERFIL DESDE 17/09/2026 (tarde), E O MOTOR OBEDECE
+POR SUBSTITUIÇÃO — nunca por filtro.** `Profile.equipamento`
+(`accounts.models.Equipamento`: completa · básica · casa com halteres · só
+peso do corpo; pergunta na etapa 2 do onboarding e no Perfil), o mapa de
+cada resposta para `Exercise.equipment` no `TREINO.md` ("Mapa de
+equipamento", lido por `doutrina.equipamentos_de`), e
+`services.substituir_por_equipamento` ANTES de `prescrever_opcoes`: o item
+do modelo fora do perfil é trocado por exercício ativo do MESMO `padrao` e
+grupo dentro do perfil que ainda não esteja no modelo, com a dose do item
+trocado; sem substituto, sai. `TrainingPlan.equipamento` é retrato; mudar
+no perfil torna a ficha inválida e remonta, como nível e faixa. **O default é
+"completa" nos dois lados e NÃO é vazio**, ao contrário de `experiencia`:
+toda ficha anterior à pergunta nasceu do catálogo inteiro, então "completa"
+é a verdade dela, e ninguém foi remontado pela pergunta nova. "Completa"
+custa zero consultas (o filtro nem roda); perfil restrito custa UMA consulta
+ao catálogo por prescrição — e a conferência (`_prescricao_bate` +
+`_prescricao_confere`) refaz a conta COM o perfil, inclusive na
+pré-conferência de reps e descanso, senão o afundo que substituiu o
+agachamento reprovava e a Home oferecia "regenerar" para sempre a quem
+treina em casa.
 
-O erro de leitura a evitar é achar que basta filtrar. A prescrição não SELECIONA
-exercícios: `prescrever_semana` copia MODELOS curados de `splits.json`, com os
-nomes escritos. Filtrar por equipamento não troca de exercício — abre BURACO no
-modelo. Medido nos 15 modelos: em "casa + halteres" oito perdem grupo sem
-substituto e `abcde-C` termina com ZERO exercícios; em "peso corporal" são treze
-modelos e sete zerados.
+Por que substituição e não filtro — a medição de 10/09/2026, que continua
+valendo: a prescrição não SELECIONA exercícios, `prescrever_semana` copia
+MODELOS curados de `splits.json`, com os nomes escritos; filtrar por
+equipamento não troca de exercício — abre BURACO no modelo (em "casa +
+halteres" oito modelos perdiam grupo sem substituto e `abcde-C` terminava
+com ZERO exercícios). E os modelos já listam quase todas as alternativas: em
+"básica" o `abc2 A` perdia os três itens de barra SEM repor, porque todas as
+pressões de peito sem barra já estavam nele — a letra fechava em 6
+exercícios e 50–52 min, dourado vermelho. Os **cinco de peito e tríceps sem
+barra** (supino declinado com halteres, crucifixo inclinado com halteres,
+flexão com pés elevados, flexão fechada, tríceps coice) entraram FORA de
+todo modelo, de propósito, para serem exatamente esse substituto: a ficha
+de "completa" ficou idêntica (ninguém recebeu "regenerar?") e básica E casa
+com halteres fecham o dourado da letra A (7 exercícios, 25 séries, 59 min
+no `abc2`). "Só peso do corpo" continua `expectedFailure` nomeado no
+dourado: B tem um exercício e C dois, e a lista do que falta está no
+`BACKLOG.md`.
 
 **Varridos os 31 recortes possíveis de equipamento, UM era viável em 10/09: o
 conjunto completo** — ou seja, nenhuma restrição, que é o comportamento de
@@ -715,21 +744,52 @@ catálogo virou contrato: aposentar um dos dois exercícios de panturrilha derru
 o veredito da própria academia, porque o grupo fica com opção única — e a suíte
 diz qual capacidade se perdeu.
 
-E NÃO EXISTE CAMPO DE AMBIENTE NO PERFIL, de propósito. Guardar a preferência
-antes de o motor poder obedecê-la é criar preferência que não vira nada — o
-mesmo defeito de veracidade que `prioridade == ""` evita do outro lado.
-`workouts/test_capacidade_de_ambiente.py` guarda as duas metades: o veredito
-congelado de cada ambiente, que fica VERMELHO quando o catálogo passar a
-sustentar, e a proibição de a tela oferecer a escolha enquanto isso não
-acontece.
+O campo de ambiente NÃO existiu no perfil até o motor poder obedecê-lo, de
+propósito: guardar preferência que não vira nada é o mesmo defeito de
+veracidade que `prioridade == ""` evita do outro lado. Quando o motor passou
+a obedecer (17/09, tarde), `workouts/test_capacidade_de_ambiente.py` virou
+ao contrário — o perfil TEM a pergunta, o formulário a FAZ, o motor LÊ
+`equipment` — e os ambientes medidos passaram a ser os QUATRO PERFIS do mapa
+(completa e básica SUPORTADO; casa PARCIAL; peso do corpo NAO_SUPORTADO).
 
-**`Equipment` é dado de catálogo sem consumidor no motor**, e isso está dito no
-próprio modelo. O campo nasceu para o assistente de troca ("a máquina está
-ocupada"), que entrou em `7819b30` e saiu em `d86d9c7`; `DISPUTADOS` e
-`disputa_equipamento` sobreviveram à remoção como código morto por três
-campanhas e saíram em 10/09/2026, junto com dois helpers de teste que chamavam
-um módulo `assistant` inexistente. **Não há sistema de substituição de
-exercício no app.**
+**`Equipment` tem UM consumidor no motor: `substituir_por_equipamento`.** O
+campo nasceu para o assistente de troca ("a máquina está ocupada"), que
+entrou em `7819b30` e saiu em `d86d9c7`; `DISPUTADOS` e `disputa_equipamento`
+sobreviveram à remoção como código morto por três campanhas e saíram em
+10/09/2026. A substituição por PERFIL acontece antes de prescrever; a
+troca por EXERCÍCIO é a de baixo.
+
+**"OUTRAS FORMAS" É A INTERAÇÃO PRINCIPAL DA FICHA (17/09/2026, noite).** A
+pessoa não escolhe mais entre opção 1 e 2; escolhe COMO fazer cada
+movimento. `TrocaDeExercicio(user, original, substituto)` (migration
+`workouts.0029`) é customização POR EXERCÍCIO — vale em toda letra, toda
+semana e toda opção em que o original apareça — e NÃO toca em
+`SessionExercise` nem em `customized_at`: a ficha continua retrato, a
+rotação continua, `rotina_invalida`/`_prescricao_bate` não a enxergam. A
+aplicação é EM MEMÓRIA (`services.aplicar_trocas`, uma consulta por tela,
+logo depois de carregar as linhas do plano — painel, ficha, execução e
+leitura passam pelo mesmo ponto): o item passa a apontar para o substituto
+com a MESMA dose, então trocar não altera séries nem volume (diferença 0).
+`ExerciseLog` grava no exercício FEITO; a linha do original responde pelo
+substituto na prescrição de hoje por JOIN (`_linha_do_exercicio`), na
+consulta que já existia — o orçamento do POST da série continua 20. As
+alternativas (`alternativas_de`) são do mesmo `padrao` e grupo, dentro do
+equipamento do perfil, FORA DA MESMA LISTA (sessão + opção — duplicata só
+é problema no mesmo treino; a outra opção é outro dia), o equipamento mais
+próximo primeiro; a ficha só anuncia "outras formas" onde a leitura lista
+alguma (`contar_outras_formas`, a mesma régua — o QA achou a linha
+anunciando e a leitura vazia quando as réguas divergiam). A lista mora na
+LEITURA do exercício, com foto (o primeiro quadro da free-exercise-db) e
+"Trocar"; a leitura do substituto diz "No lugar de X", mostra o histórico
+de X e tem "Voltar ao original". `POST /treino/trocar/` é estado absoluto
+(trocar de novo atualiza, `desfazer=1` apaga, sem `op_id`), volta para a
+leitura com a mesma volta (`?de=`), e recusa original fora da ficha ou
+substituto que não é forma do movimento no equipamento. A leitura passou a
+TER formulários, e a régua "ver não é executar" virou POR DESTINO: todo
+`<form>` do `<main>` aponta para a troca, nunca para a série. Custos
+medidos: leitura 9 → 11 (trocas + alternativas; o perfil vem do
+`dispatch` e as linhas vêm sem o exercício), ficha 15 → 17 (trocas +
+contagem), Home 43 (no teto), painel 20.
 
 **A área de Treino são TRÊS telas, e cada uma responde UMA pergunta.**
 
@@ -1156,6 +1216,45 @@ deixa intervalos de 3+ semanas em 22 % das aberturas; o gatilho de
 recalibrar era "estagnado > 30 %" e está longe. Os dias (21, 28, 27, 56) e
 o "+1" são calibração [HIPOTÉTICA] do brief de 13/09, e é o
 `medir_progressao` (T2.4) que vai revê-los com dado de produção.
+
+**O INSTRUMENTO (T2.4, 17/09/2026): medir e limpar sem mudar o que a
+pessoa vê.** Quatro peças, e a natureza comum é essa:
+
+- `manage.py medir_progressao [--dias 365]` é SÓ LEITURA — duas consultas
+  fixas (as linhas de prescrição ativas e os registros da janela), nunca
+  uma por pessoa — e conta, por abertura de exercício, o estado que a
+  adaptação daria, a distribuição de `reps − rep_max` na última série do
+  dia, a fração que PAROU EXATAMENTE em `rep_max` (a faixa lida como teto),
+  os "retomar" sem pausa (a pessoa treinou outros exercícios no intervalo)
+  e o intervalo em semanas. `workouts/test_instrumento.py` cobra que
+  nenhuma consulta começa por UPDATE/INSERT/DELETE e que o custo não
+  cresce por exercício;
+- `RecordLoadView` (a rota da ficha, fora da fila) avalia conquista só na
+  PRIMEIRA série do dia ou no RECORDE — a guarda que `ConcluirSerieView`
+  já tinha. A rota antiga pagava o catálogo inteiro em toda carga anotada;
+  abaixo do recorde, no meio do treino, nenhuma regra muda de resposta;
+- o Progresso CONVIDA quem se declarou iniciante (ou não respondeu) a
+  atualizar o nível depois de 180 dias e 24 datas com série
+  (`progresso.convidar_a_atualizar_experiencia`): o app não infere nível —
+  "uso não é intenção declarada" — mas depois de meio ano a pergunta cabe,
+  porque o teto por grupo do iniciante é o menor (TREINO.md, B). UMA
+  consulta para qualquer nível — o nível entra no `WHERE` pela junção com
+  o perfil, porque `user.profile` não está em cache nessa tela e lê-lo à
+  parte custava a segunda (medido: 28 contra o teto de 26; o teto foi para
+  27 com a razão escrita);
+- `manage.py podar_operacoes` roda no build, por último, e apaga
+  `SyncedOperation` com mais de `VALIDADE_DIAS` (30). O método `podar`
+  existia desde a fila offline e ninguém o chamava. Trinta é MAIOR que os
+  7 dias que a fila reenvia — a poda nunca alcança um `op_id` que um
+  reenvio ainda traria, senão a água somaria duas vezes; há teste.
+
+E a medição L08, feita no navegador com rede lenta emulada (`nav.py rede
+3g`: 400 ms de latência, 400 kbps): "Concluir série" é um POST→302→GET
+de 31 KB que custa 180–330 ms de `load` no Wi-Fi e ~550 ms no 3G lento
+(redirect ~460 ms) — e o iframe do vídeo que a pessoa abriu MORRE com a
+recarga (1 → 0): a cada série, tocar "ver vídeo" de novo. É o insumo da
+fatia E "fetch sem recarga", que continua fora até alguém decidir com
+esse número.
 
 **Duração tem UMA conta, e ela é `workouts.models.segundos_da_sessao`.**
 Existiam duas cópias, uma sobre linhas gravadas e outra sobre tuplas, com um

@@ -131,8 +131,19 @@ CURADOS_POR_TITULO = {
     "Tríceps francês com halter": "mfXokM_VnMY",
 }
 
+#: OS 5 DE PEITO E TRÍCEPS SEM BARRA (17/09/2026, tarde) — substitutos dos
+#: itens de barra dos modelos para o perfil de equipamento (básica, casa);
+#: mesmo processo dos 28: foto conferida, vídeo por título do oEmbed.
+CURADOS_PARA_O_EQUIPAMENTO = {
+    "Supino declinado com halteres": "ZsotBDAbjyA",
+    "Crucifixo inclinado com halteres": "pfyYN8QwM54",
+    "Flexão de braço com pés elevados": "iGSnlotnLDQ",
+    "Flexão de braço fechada (diamante)": "sFsQJ5AH-zk",
+    "Tríceps coice com halter": "yewCya6hr34",
+}
+
 #: Tudo que está ativo tem vídeo travado numa das duas tabelas.
-TRAVADOS = {**OFICIAIS, **CURADOS_POR_TITULO}
+TRAVADOS = {**OFICIAIS, **CURADOS_POR_TITULO, **CURADOS_PARA_O_EQUIPAMENTO}
 
 
 class OsTrintaESeisVideosOficiaisTests(TestCase):
@@ -173,7 +184,10 @@ class OsTrintaESeisVideosOficiaisTests(TestCase):
         )
         self.assertEqual(ativos, set(TRAVADOS) - self.APOSENTADOS)
         self.assertEqual(set(OFICIAIS) & set(CURADOS_POR_TITULO), set(), "as duas tabelas não se sobrepõem")
+        self.assertEqual(set(OFICIAIS) & set(CURADOS_PARA_O_EQUIPAMENTO), set())
+        self.assertEqual(set(CURADOS_POR_TITULO) & set(CURADOS_PARA_O_EQUIPAMENTO), set())
         self.assertEqual(len(CURADOS_POR_TITULO), 28)
+        self.assertEqual(len(CURADOS_PARA_O_EQUIPAMENTO), 5)
 
     def test_o_aposentado_continua_no_catalogo_com_o_video(self):
         """Controle do teste acima, e a razão de aposentar em vez de apagar.

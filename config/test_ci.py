@@ -167,6 +167,30 @@ class OHelperDoGitHubTests(SimpleTestCase):
 
         self.assertEqual(github.METODO_DE_MERGE, "merge")
 
+    def test_um_ticket_de_processo_morto_nao_e_vez_na_fila(self):
+        """Depois do reboot de 17/09/2026 dois tickets de processos mortos
+        ficaram na frente da fila, ninguém de posse, e `minha_vez` era falso
+        para todo mundo, para sempre. Ticket órfão é apagado ao ser visto;
+        o do processo vivo (este) continua."""
+        import os
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+
+        from scripts import github
+
+        with tempfile.TemporaryDirectory() as pasta:
+            fila = Path(pasta)
+            (fila / "pr-1.ticket").write_text("1.0 1 %d" % os.getpid(), encoding="utf-8")
+            (fila / "pr-2.ticket").write_text("0.5 2 4194304", encoding="utf-8")  # pid que não existe
+            with mock.patch.object(github, "FILA", fila):
+                tickets = github._tickets()
+            self.assertEqual([n for _, n, _, _ in tickets], [1])
+            self.assertFalse((fila / "pr-2.ticket").exists(), "o ticket órfão tinha de ser apagado")
+            self.assertTrue((fila / "pr-1.ticket").exists())
+        self.assertTrue(github._vivo(os.getpid()))
+        self.assertFalse(github._vivo(4194304))
+
     def test_os_subcomandos_que_as_sessoes_usam_existem(self):
         from scripts import github
 

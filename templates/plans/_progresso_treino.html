@@ -53,6 +53,23 @@ razão entre as duas fingiria medir compromisso.
     </div>
   {% endif %}
 
+  {% if convite_de_nivel %}
+    {% comment %}
+      O CONVITE, não a inferência (T2.4): meio ano e duas dúzias de treinos
+      depois, quem se declarou iniciante provavelmente não é mais — mas é a
+      pessoa quem diz. A troca passa pelo Perfil, pela porta de sempre; o
+      teto semanal por grupo sobe com o nível (TREINO.md, tabela B).
+    {% endcomment %}
+    <div class="card convite-nivel">
+      <p>
+        Você treina há mais de seis meses com o nível "iniciante". Se as
+        cargas já subiram e a técnica está firme, vale atualizar o nível: a
+        ficha ganha mais séries por grupo.
+      </p>
+      <a class="btn btn--ghost" href="{% url 'accounts:profile' %}">Atualizar meu nível no Perfil</a>
+    </div>
+  {% endif %}
+
   {% if cargas %}
     <div class="card__head card__head--interno"><h3>Carga por exercício</h3></div>
     <dl class="data-list">

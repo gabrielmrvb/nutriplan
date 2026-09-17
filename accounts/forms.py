@@ -26,6 +26,7 @@ from .models import (
     MINUTOS_POR_DURACAO,
     ActivityLevel,
     DuracaoTreino,
+    Equipamento,
     Experiencia,
     Goal,
     MealStyle,
@@ -481,10 +482,8 @@ class TrainingForm(forms.Form):
         help_text="Se não treina ainda, pode deixar em branco e ajustar depois.",
     )
     experiencia = forms.ChoiceField(
-        # A ÚNICA dimensão de personalização de treino que o catálogo sustenta.
-        # Local e equipamento ficaram de fora por medição, e não por escopo:
-        # "casa com halteres" deixa posterior de coxa, panturrilha e antebraço
-        # com zero exercícios, e "peso corporal" esvazia oito dos onze grupos.
+        # Uma das DUAS dimensões de personalização do treino; a outra é o
+        # equipamento, logo abaixo (17/09/2026).
         label="Há quanto tempo você treina?",
         help_text="Ajusta o volume semanal de cada grupo muscular.",
         choices=Experiencia.choices,
@@ -492,6 +491,17 @@ class TrainingForm(forms.Form):
         # "Intermediário" já marcado faz quem passa batido declarar um nível
         # que não escolheu. Sem resposta o motor usa 20, que é o que o app já
         # praticava — a ficha não muda, e a tela não inventa a frase.
+        required=False,
+        widget=forms.RadioSelect,
+    )
+    equipamento = forms.ChoiceField(
+        # COM `initial` — ao contrário da experiência: "completa" é a verdade
+        # de quem já tinha ficha e o padrão de quem nasce agora (ver
+        # `Equipamento`), então abrir com ele marcado não declara nada que a
+        # pessoa não tenha. O motor filtra o catálogo pelo mapa do TREINO.md.
+        label="O que você tem para treinar?",
+        help_text="A ficha usa só o que está à mão; mudar aqui remonta a ficha.",
+        choices=Equipamento.choices,
         required=False,
         widget=forms.RadioSelect,
     )
@@ -534,6 +544,7 @@ class TrainingForm(forms.Form):
             # A faixa NÃO tem mais campo aqui — ela saiu da tela em
             # 10/09/2026 e continua vindo do perfil dentro de `save`.
             self.fields["experiencia"].initial = perfil.experiencia
+            self.fields["equipamento"].initial = perfil.equipamento
 
     def perfil(self):
         return getattr(self.user, "profile", None) if self.user else None
@@ -617,9 +628,12 @@ class TrainingForm(forms.Form):
             # pode gravar uma declaração. E quem já respondeu não é apagado —
             # o campo abre com o valor do perfil, então o envio o traz de volta.
             perfil.experiencia = self.cleaned_data.get("experiencia") or ""
+            # Em branco NÃO apaga: um envio sem o campo (cliente antigo, tela
+            # que não o desenha) mantém o que a pessoa tinha.
+            perfil.equipamento = self.cleaned_data.get("equipamento") or perfil.equipamento
             perfil.save(update_fields=[
                 "wake_time", "sleep_time", "duracao_treino", "experiencia",
-                "updated_at",
+                "equipamento", "updated_at",
             ])
 
         return self.user.training_days.all()

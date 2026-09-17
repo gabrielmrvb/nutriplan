@@ -217,12 +217,12 @@ class SplitPreference(models.TextChoices):
 class Experiencia(models.TextChoices):
     """Há quanto tempo a pessoa treina — e quanto volume isso comporta.
 
-    É a única dimensão de personalização de treino que o CATÁLOGO sustenta hoje,
-    e isso foi medido antes de escolher. Local e equipamento não entram: dos
-    onze grupos musculares, "casa com halteres" deixa posterior de coxa,
-    panturrilha e antebraço com ZERO exercícios, e "peso corporal" esvazia oito
-    dos onze. Um filtro por equipamento entregaria ficha sem grupo inteiro —
-    exatamente o que as travas de `aparar_volume_semanal` existem para impedir.
+    Foi a única dimensão de personalização de treino até 17/09/2026; desde
+    então `Equipamento` é a segunda — e entrou por SUBSTITUIÇÃO no motor, não
+    por filtro: um filtro por equipamento entregaria ficha sem grupo inteiro
+    (medido em 10/09: "casa com halteres" deixava posterior de coxa,
+    panturrilha e antebraço com zero exercícios), exatamente o que as travas
+    de `aparar_volume_semanal` existem para impedir.
 
     O que a experiência move é o TETO SEMANAL POR GRUPO, e só ele. Não mexe em
     quais exercícios entram: rebaixar o agachamento por ser "complexo demais
@@ -270,6 +270,33 @@ TETO_POR_EXPERIENCIA = {
     Experiencia.INTERMEDIARIO: doutrina.teto_semanal("intermediario", 1),
     Experiencia.AVANCADO: doutrina.teto_semanal("avancado", 1),
 }
+
+
+class Equipamento(models.TextChoices):
+    """O que a pessoa tem à mão para treinar — a segunda dimensão de
+    personalização do treino, desde 17/09/2026 (a primeira é `Experiencia`).
+
+    Quatro respostas, e o mapa de cada uma para o `Exercise.equipment` do
+    catálogo mora no `TREINO.md` ("Mapa de equipamento"), lido por
+    `workouts.doutrina.equipamentos_de`. O motor FILTRA o catálogo antes de
+    prescrever, substituindo o item fora do perfil por exercício do mesmo
+    padrão e grupo — e não removendo: até 17/09 a personalização por
+    equipamento ficou bloqueada porque um filtro ingênuo abria buraco nos
+    modelos curados (`workouts/test_capacidade_de_ambiente.py`).
+
+    O PADRÃO É `COMPLETA`, e isso é deliberado — é o oposto de `experiencia
+    == ""`. Aqui não há "ainda não respondeu" a preservar: toda ficha
+    montada antes desta pergunta existir foi montada com o catálogo inteiro,
+    então "completa" é a VERDADE de toda conta antiga, e `TrainingPlan.
+    equipamento` nasce com o mesmo valor para nenhuma ficha ser remontada
+    pela pergunta nova. Quem mudar a resposta no Perfil tem a ficha remontada
+    (`rotina_invalida`), como quem muda o nível ou a faixa de duração.
+    """
+
+    COMPLETA = "completa", "Academia completa — barra, halteres, máquinas e polias"
+    BASICA = "basica", "Academia básica — halteres, máquinas e polias, sem barra livre"
+    CASA_HALTERES = "casa_halteres", "Em casa, com halteres"
+    PESO_CORPORAL = "peso_corporal", "Só o peso do corpo"
 
 
 class DuracaoTreino(models.TextChoices):
@@ -537,6 +564,16 @@ class Profile(models.Model):
         blank=True,
         default="",
     )
+    #: O que a pessoa tem para treinar (`Equipamento`). Default "completa"
+    #: com razão escrita no enum: é a verdade de toda conta anterior à
+    #: pergunta. Coluna nova com default constante: mudança de catálogo no
+    #: PostgreSQL 11+, sem reescrever linha.
+    equipamento = models.CharField(
+        "equipamento disponível",
+        max_length=15,
+        choices=Equipamento.choices,
+        default=Equipamento.COMPLETA,
+    )
     #: Grátis ou Pro. Quem decide o que cada um alcança é `accounts/gates.py`,
     #: e SÓ ele; este campo é o dado, não a regra. Ninguém no app escreve
     #: aqui — até existir cobrança, é o admin quem promove alguém a Pro, e
@@ -784,7 +821,10 @@ class SyncedOperation(models.Model):
 
     #: Depois disso, a chance de um reenvio ainda estar na fila é nula — e a
     #: tabela cresce a cada marcação offline, num banco gratuito com limite de
-    #: tamanho.
+    #: tamanho. TEM DE SER MAIOR QUE 7: a fila aceita item de até 7 dias
+    #: ("O DIA viaja com o evento", CLAUDE.md), e podar um `op_id` que um
+    #: reenvio ainda traria faria a água somar duas vezes. `manage.py
+    #: podar_operacoes` roda no build (T2.4, 17/09/2026).
     VALIDADE_DIAS = 30
 
     user = models.ForeignKey(
@@ -828,7 +868,8 @@ class SyncedOperation(models.Model):
 
     @classmethod
     def podar(cls) -> int:
-        """Remove o que é velho demais para ainda estar numa fila."""
+        """Remove o que é velho demais para ainda estar numa fila — mais de
+        `VALIDADE_DIAS` (30), bem além dos 7 dias que a fila reenvia."""
         corte = timezone.now() - timedelta(days=cls.VALIDADE_DIAS)
         removidas, _ = cls.objects.filter(created_at__lt=corte).delete()
         return removidas
