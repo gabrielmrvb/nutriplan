@@ -123,7 +123,16 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
     #: o descanso que o painel já tinha carregado (27 no pior dia); passou
     #: a recebê-los e fecha em 24.
     TETOS = {
-        "plans:today": 41,
+        # 41 -> 43: a corrida entra na ofensiva (`streaks.calcular`, +1,
+        # medido no mesmo ponto que já decidia a musculação) e no saldo do dia
+        # (`day_summary`, +1, uma coluna só — `values_list("distancia_m")`).
+        # Cada uma UMA vez, nenhuma dentro de laço; nenhuma cresce com o
+        # histórico, porque nenhuma das duas olha para trás de hoje.
+        #
+        # A consulta ao perfil que apareceu junto FOI removida, e não contou
+        # para a subida: `day_summary` recebe `peso_kg` do plano que a Home já
+        # tinha em mãos, então esse caminho continua custando zero.
+        "plans:today": 43,
         "workouts:routine": 25,
         # 15 -> 26: o Progresso passou a mostrar o bloco de Conquistas, e ele
         # custa NOVE consultas constantes — medido, com `reunir` respondendo por
@@ -138,10 +147,16 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         #
         # Desbloquear continua sendo da página de conquistas; o Progresso lê o
         # que já está gravado.
-        # 26 -> 27: o convite de nível (T2.4) é UMA consulta agregada sobre
+        #
+        # 26 -> 27: a mesma consulta de corrida que entrou em `streaks.calcular`
+        # chega aqui de carona, por `conquistas.resumo` — é a MESMA função da
+        # Home, não uma segunda.
+        #
+        # 27 -> 28: o convite de nível (T2.4) é UMA consulta agregada sobre
         # `ExerciseLog` com o nível no WHERE (junção com o perfil) — constante,
-        # para qualquer nível, e não por linha.
-        "plans:history": 27,
+        # para qualquer nível, e não por linha. As duas subidas nasceram em
+        # branches paralelas no mesmo dia (17/09/2026) e se somam.
+        "plans:history": 28,
         # 15 -> 19: o Perfil passou a CONFERIR se o plano gravado ainda vale.
         #
         # Ele mostrava o número velho chamando-o de "suas metas de hoje" — 2.520

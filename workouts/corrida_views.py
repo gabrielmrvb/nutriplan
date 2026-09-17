@@ -11,15 +11,23 @@ seria transportar o traçado inteiro por rede e por log de acesso para obter um
 número que o aparelho já tem. O que sobe é o resultado.
 """
 import json
+import uuid
 
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views import View
 from django.views.generic import ListView
 
-from .models import Corrida
+from accounts.views import OnboardingRequiredMixin
+
+from . import doutrina_corrida
+from .models import Corrida, PlanoDeCorrida
+from .templatetags.corrida import relogio as _relogio
 
 #: Uma corrida de doze horas é erro de quem esqueceu de encerrar, não um
 #: ultramaratonista — e mesmo que fosse, o registro dela não é confiável numa
@@ -51,6 +59,20 @@ class HistoricoDeCorridasView(LoginRequiredMixin, ListView):
         # disso é interrupção, não convite. Ver `data-sem-convite` no
         # `base.html`.
         contexto["sem_convite"] = True
+
+        # O CARTÃO DO PLANO. `plano` é o ativo ou `None` — o template decide
+        # entre o convite ("Quer um plano?") e o cartão da semana sozinho,
+        # sem `if/elif` duplicado aqui.
+        hoje = timezone.localdate()
+        plano = PlanoDeCorrida.objects.filter(user=self.request.user, ativo=True).first()
+        contexto["plano"] = plano
+        contexto["semana"] = plano.semana_atual(hoje) if plano else None
+        sessoes = []
+        if plano is not None and contexto["semana"] is not None:
+            feitas = plano.sessoes_feitas(hoje)
+            for linha in doutrina_corrida.sessoes(plano.plano, plano.nivel, contexto["semana"]):
+                sessoes.append({**linha, "feita": linha["sessao"] <= feitas})
+        contexto["sessoes"] = sessoes
         return contexto
 
 
@@ -185,3 +207,150 @@ class SalvarCorridaView(LoginRequiredMixin, View):
         if len(parciais) > PARCIAIS_MAXIMAS:
             return "parciais demais"
         return None
+
+
+class CorridaNovaView(OnboardingRequiredMixin, View):
+    """GET: formulário com `op_id` escondido; POST: cria. Duplo toque = uma corrida."""
+    template_name = "workouts/corrida_form.html"
+
+    def get(self, request):
+        from .forms_corrida import CorridaManualForm
+        form = CorridaManualForm(initial={"data": timezone.localdate()})
+        return render(request, self.template_name, {"form": form, "op_id": uuid.uuid4().hex, "titulo": "Registrar corrida", "nav": "running"})
+
+    def post(self, request):
+        from .forms_corrida import CorridaManualForm
+        form = CorridaManualForm(request.POST)
+        op_id = (request.POST.get("op_id") or "")[:64]
+        if not form.is_valid() or not op_id:
+            return render(request, self.template_name, {"form": form, "op_id": op_id or uuid.uuid4().hex, "titulo": "Registrar corrida", "nav": "running"}, status=200)
+        corrida = form.preencher(Corrida(user=request.user, op_id=op_id))
+        try:
+            with transaction.atomic():
+                corrida.save()
+        except IntegrityError:
+            # I3 (avaliação de mercado, 17/09/2026): o `op_id` volta ESCONDIDO
+            # no formulário, e o bfcache do navegador restaura a página (com
+            # ele) quando a pessoa aperta Voltar — nada impede um SEGUNDO
+            # envio, com dados DIFERENTES, sob o mesmo `op_id` (a pessoa volta,
+            # corrige o campo e manda de novo sem notar que o identificador é
+            # o de antes). Tratar todo `IntegrityError` como duplo toque
+            # apagava esse segundo envio em silêncio — sucesso na tela, dado
+            # perdido no banco.
+            #
+            # A distinção: MESMOS três números (distância, duração, início) é
+            # o duplo toque de verdade — a MESMA corrida reenviada — e segue
+            # respondendo sucesso, como sempre. Números DIFERENTES sob o
+            # mesmo `op_id` é a colisão, e volta para o formulário com erro em
+            # vez de fingir que gravou.
+            existente = Corrida.objects.get(user=request.user, op_id=op_id)
+            mesma_corrida = (
+                existente.distancia_m == corrida.distancia_m
+                and existente.duracao_s == corrida.duracao_s
+                and existente.comecou_em == corrida.comecou_em
+            )
+            if not mesma_corrida:
+                form.add_error(
+                    None,
+                    "Esse envio já foi usado por outra corrida — recarregue a página e registre de novo.",
+                )
+                return render(request, self.template_name, {"form": form, "op_id": op_id, "titulo": "Registrar corrida", "nav": "running"}, status=200)
+        messages.success(request, "Corrida registrada.")
+        return redirect("workouts:corridas")
+
+
+class CorridaEditarView(OnboardingRequiredMixin, View):
+    """Só a corrida à mão se edita: o traço do GPS contradiria os números."""
+    template_name = "workouts/corrida_form.html"
+
+    def _corrida(self, request, pk):
+        return get_object_or_404(Corrida, pk=pk, user=request.user, origem=Corrida.Origem.MANUAL)
+
+    def get(self, request, pk):
+        from .forms_corrida import CorridaManualForm
+        c = self._corrida(request, pk)
+        form = CorridaManualForm(initial={"distancia_km": ("%.2f" % (c.distancia_m / 1000)).replace(".", ","), "tempo": _relogio(c.duracao_s), "data": timezone.localdate(c.comecou_em), "sensacao": c.sensacao})
+        return render(request, self.template_name, {"form": form, "titulo": "Editar corrida", "corrida": c, "nav": "running"})
+
+    def post(self, request, pk):
+        from .forms_corrida import CorridaManualForm
+        c = self._corrida(request, pk)
+        form = CorridaManualForm(request.POST)
+        if not form.is_valid():
+            return render(request, self.template_name, {"form": form, "titulo": "Editar corrida", "corrida": c, "nav": "running"})
+        form.preencher(c).save()
+        messages.success(request, "Corrida atualizada.")
+        return redirect("workouts:corridas")
+
+
+class CorridaExcluirView(OnboardingRequiredMixin, View):
+    """Exclusão em duas etapas, como `ExcluirContaView`: GET confirma, POST apaga.
+
+    Vale para GPS e para manual — a edição é que é exclusiva da corrida à mão.
+    """
+
+    def get(self, request, pk):
+        c = get_object_or_404(Corrida, pk=pk, user=request.user)
+        return render(request, "workouts/corrida_excluir.html", {"corrida": c, "nav": "running"})
+
+    def post(self, request, pk):
+        get_object_or_404(Corrida, pk=pk, user=request.user).delete()
+        messages.success(request, "Corrida excluída.")
+        return redirect("workouts:corridas")
+
+
+class PlanoDeCorridaView(OnboardingRequiredMixin, View):
+    """Escolhe, troca ou encerra o plano de corrida ativo.
+
+    GET lista as quatro combinações de `doutrina_corrida.planos()` — a
+    doutrina é a fonte, a view não inventa opção. POST com `plano`+`nivel`
+    desativa o ativo (se houver) e cria um novo começando hoje; POST com
+    `encerrar=1` só desativa. As duas escritas ficam na mesma transação que
+    `services.create_routine` usa para `TrainingPlan`: o índice único
+    parcial não aceita dois ativos, nem por um instante entre o UPDATE e o
+    INSERT.
+    """
+
+    template_name = "workouts/corrida_plano.html"
+
+    def get(self, request):
+        # `plano_display`/`nivel_display` vêm das MESMAS `choices` do modelo
+        # (`PlanoDeCorrida.Plano`, `.Nivel`) — "10K" e "intermediário" com o
+        # acento, sem reescrever o rótulo aqui e correr o risco de os dois
+        # divergirem um dia.
+        opcoes = [
+            {
+                "plano": plano,
+                "nivel": nivel,
+                "plano_display": PlanoDeCorrida.Plano(plano).label,
+                "nivel_display": PlanoDeCorrida.Nivel(nivel).label,
+                **dados,
+            }
+            for (plano, nivel), dados in doutrina_corrida.planos().items()
+        ]
+        ativo = PlanoDeCorrida.objects.filter(user=request.user, ativo=True).first()
+        return render(request, self.template_name, {"opcoes": opcoes, "ativo": ativo, "nav": "running"})
+
+    def post(self, request):
+        if request.POST.get("encerrar"):
+            PlanoDeCorrida.objects.filter(user=request.user, ativo=True).update(ativo=False)
+            messages.success(request, "Plano de corrida encerrado.")
+            return redirect("workouts:corridas")
+
+        plano = request.POST.get("plano", "")
+        nivel = request.POST.get("nivel", "")
+        if (plano, nivel) not in doutrina_corrida.planos():
+            messages.error(request, "Escolha um dos planos da lista.")
+            return redirect("workouts:corrida_plano")
+
+        with transaction.atomic():
+            PlanoDeCorrida.objects.filter(user=request.user, ativo=True).update(ativo=False)
+            PlanoDeCorrida.objects.create(
+                user=request.user,
+                plano=plano,
+                nivel=nivel,
+                comecou_em=timezone.localdate(),
+                ativo=True,
+            )
+        messages.success(request, "Plano de corrida iniciado.")
+        return redirect("workouts:corridas")
