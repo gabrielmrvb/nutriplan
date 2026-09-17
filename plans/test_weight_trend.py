@@ -389,6 +389,39 @@ class RecalibragemTests(TestCase):
         )
         self.assertIsNotNone(self.user.profile.recalibrated_at)
 
+    def test_prefiro_esperar_fala_de_proteina_para_quem_ganha_massa(self):
+        """"Somar uns 20 minutos de caminhada" é conselho de CORTE: gastar mais
+        para quem quer GANHAR massa e empacou é o app remando contra o
+        objetivo da própria pessoa (revisão final da Fase 3, 17/09/2026).
+        Para BULK a mensagem fala do que destrava o ganho — proteína e as
+        refeições do dia sendo batidas."""
+        self.user.profile.goal = Goal.BULK
+        self.user.profile.save(update_fields=["goal"])
+
+        resposta = self.client.post(
+            reverse("plans:recalibrate"), {"acao": "dispensar"}, follow=True
+        )
+
+        self.assertContains(resposta, "meta de proteína")
+        self.assertNotContains(resposta, "caminhada")
+
+    def test_prefiro_esperar_continua_sugerindo_caminhada_para_os_outros_objetivos(self):
+        """CONTROLE por objetivo: CUT, MAINTAIN e RECOMP ficam com a frase de
+        antes — cada um num POST próprio, para o teste de BULK não passar
+        por acidente de fixture."""
+        for goal in (Goal.CUT, Goal.MAINTAIN, Goal.RECOMP):
+            with self.subTest(goal=goal):
+                self.user.profile.goal = goal
+                self.user.profile.recalibrated_at = None
+                self.user.profile.save(update_fields=["goal", "recalibrated_at"])
+
+                resposta = self.client.post(
+                    reverse("plans:recalibrate"), {"acao": "dispensar"}, follow=True
+                )
+
+                self.assertContains(resposta, "20 minutos de caminhada")
+                self.assertNotContains(resposta, "meta de proteína")
+
     def test_the_view_ignores_an_unknown_acao(self):
         """Uma ação inventada não pode aplicar ajuste nenhum — nem cortar,
         nem aumentar, nem dispensar. `acao` vem de um POST, e o servidor não

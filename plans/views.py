@@ -873,11 +873,21 @@ class RecalibrateView(AcaoDeTela, OnboardingRequiredMixin, View):
         elif acao == "dispensar":
             profile.recalibrated_at = timezone.now()
             profile.save(update_fields=["recalibrated_at"])
-            messages.info(
-                request,
-                "Combinado. Tente somar uns 20 minutos de caminhada por dia — "
-                "perguntamos de novo daqui a algumas semanas.",
-            )
+            if profile.goal == Goal.BULK:
+                # Gastar mais é conselho de CORTE. Quem quer GANHAR massa e
+                # empacou destrava comendo o que a meta já pede — proteína e
+                # as refeições do dia — não andando mais.
+                texto = (
+                    "Combinado. Vale conferir se a meta de proteína e as "
+                    "refeições do dia estão sendo batidas — perguntamos de "
+                    "novo daqui a algumas semanas."
+                )
+            else:
+                texto = (
+                    "Combinado. Tente somar uns 20 minutos de caminhada por dia — "
+                    "perguntamos de novo daqui a algumas semanas."
+                )
+            messages.info(request, texto)
         # `acao` desconhecida (nem "cortar", "aumentar" nem "dispensar") não
         # grava nada: um POST inventado não pode aplicar a recusa por engano.
 
