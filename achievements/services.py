@@ -24,7 +24,7 @@ from dataclasses import replace
 from datetime import timedelta
 
 from django.db import IntegrityError, transaction
-from django.db.models import Max, Min
+from django.db.models import DecimalField, ExpressionWrapper, F, Max, Min, Q
 from django.utils import timezone
 
 from accounts.models import TrainingDay
@@ -85,32 +85,60 @@ def reunir(user, hoje=None) -> Dados:
     dados = replace(dados, semanas_completas=tuple(completas))
 
     # ------------------------------------------------------------- recordes
+    #
+    # As duas espécies (`_recorde` e `_melhor_serie`) saem da MESMA consulta
+    # de hoje e da MESMA consulta de anteriores — o produto reps×carga é só
+    # mais uma agregação ao lado de `Max("weight_kg")`, o mesmo truque de
+    # `workouts.services.supera_recorde`. Zero consultas a mais.
+    produto_serie = ExpressionWrapper(
+        F("weight_kg") * F("reps"),
+        output_field=DecimalField(max_digits=10, decimal_places=2),
+    )
     de_hoje = list(
         ExerciseLog.objects.filter(user=user, date=hoje, weight_kg__isnull=False)
         .values("exercise_id", "exercise__name")
-        .annotate(maior=Max("weight_kg"))
+        .annotate(
+            maior=Max("weight_kg"),
+            melhor_serie=Max(produto_serie, filter=Q(reps__isnull=False)),
+        )
     )
     if de_hoje:
-        anteriores = {
-            linha["exercise_id"]: linha["maior"]
-            for linha in ExerciseLog.objects.filter(
+        anteriores_agregados = list(
+            ExerciseLog.objects.filter(
                 user=user,
                 date__lt=hoje,
                 weight_kg__isnull=False,
                 exercise_id__in=[l["exercise_id"] for l in de_hoje],
             )
             .values("exercise_id")
-            .annotate(maior=Max("weight_kg"))
+            .annotate(
+                maior=Max("weight_kg"),
+                melhor_serie=Max(produto_serie, filter=Q(reps__isnull=False)),
+            )
+        )
+        cargas_anteriores = {
+            linha["exercise_id"]: linha["maior"] for linha in anteriores_agregados
+        }
+        series_anteriores = {
+            linha["exercise_id"]: linha["melhor_serie"]
+            for linha in anteriores_agregados
         }
         # `anteriores.get(...)` sem valor significa estreia, e estreia não é
-        # recorde — ver o contrato em `regras._recorde`.
+        # recorde — ver o contrato em `regras._recorde` e `regras._melhor_serie`.
         dados = replace(
             dados,
             recordes_hoje=tuple(
                 (linha["exercise_id"], linha["exercise__name"])
                 for linha in de_hoje
-                if linha["exercise_id"] in anteriores
-                and linha["maior"] > anteriores[linha["exercise_id"]]
+                if linha["exercise_id"] in cargas_anteriores
+                and linha["maior"] > cargas_anteriores[linha["exercise_id"]]
+            ),
+            melhores_series_hoje=tuple(
+                (linha["exercise_id"], linha["exercise__name"])
+                for linha in de_hoje
+                if linha["melhor_serie"] is not None
+                and series_anteriores.get(linha["exercise_id"]) is not None
+                and linha["melhor_serie"] > series_anteriores[linha["exercise_id"]]
             ),
         )
 

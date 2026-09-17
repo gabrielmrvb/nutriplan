@@ -258,9 +258,13 @@ class RecordeTests(BaseDeConquistas):
     def test_a_carga_nao_e_persistida_no_contexto(self):
         """Decisão de privacidade, e é o que permite o card sair sem número.
 
-        A chave é `exercício:data`, e não `exercício:carga`, exatamente para o
-        peso levantado não precisar existir aqui — o contexto pode acabar
-        dentro de uma imagem que a pessoa manda para um grupo.
+        A chave é `exercício:data`, e não `exercício:carga` — por isso a
+        checagem é só no CONTEXTO, e não na chave: a chave carrega o PK do
+        exercício, um inteiro de sequência do banco, que pode conter "97" ou
+        "60" por pura coincidência de quantas linhas já foram semeadas nesta
+        suíte (rodar este arquivo ao lado de outro que também semeia
+        exercícios desloca o PK — não é o peso vazando). O que a decisão de
+        privacidade promete é sobre `contexto`, o campo que vira imagem.
         """
         user = self.pessoa()
         exercicio = Exercise.objects.filter(is_active=True).first()
@@ -270,7 +274,7 @@ class RecordeTests(BaseDeConquistas):
         services.avaliar(user, hoje=SEGUNDA + timedelta(days=1))
 
         conquista = UserAchievement.objects.get(user=user, slug="novo-recorde")
-        guardado = "%s %s" % (conquista.chave, conquista.contexto)
+        guardado = str(conquista.contexto)
         self.assertNotIn("97", guardado)
         self.assertNotIn("60", guardado)
         self.assertEqual(set(conquista.contexto), {"exercicio"})

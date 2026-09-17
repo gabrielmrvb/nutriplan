@@ -1333,7 +1333,7 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
                 .exists()
             )
             if primeira_do_dia or services.supera_recorde(
-                request.user, exercise, peso, dia=dia
+                request.user, exercise, peso, reps=reps, dia=dia
             ):
                 novas = conquistas.avaliar(request.user, hoje=dia)
                 conquistas.anunciar(request, novas)

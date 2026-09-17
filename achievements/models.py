@@ -123,9 +123,14 @@ class UserAchievement(models.Model):
     def frase(self):
         """A frase da regra, com o exercicio quando houver.
 
-        Recorde e a unica que precisa do contexto: "Voce bateu sua maior carga
-        num exercicio" fica bem melhor como "Novo recorde no Supino reto". A
-        CARGA nao entra — ver `regras._recorde`.
+        Duas regras de RECORDE precisam do contexto: "Voce bateu sua maior
+        carga num exercicio" fica bem melhor como "Novo recorde: Supino
+        reto.", e o mesmo vale para "melhor-serie" ("Melhor série: Supino
+        reto."). Por isso o prefixo e o TITULO DA REGRA, e nao um texto fixo
+        — um texto fixo bastava enquanto so existia uma regra com
+        `exercicio` no contexto; com a segunda, "Novo recorde: Supino reto."
+        apareceria tambem na conquista de melhor serie, que e uma mentira. A
+        CARGA nao entra — ver `regras._recorde` e `regras._melhor_serie`.
         """
         if not self.regra:
             return ""
@@ -134,7 +139,7 @@ class UserAchievement(models.Model):
             # Dois pontos, e nao "no": nome de exercicio tem genero e
             # numero variados ("Puxada", "Supino", "Elevacoes"), e
             # qualquer preposicao fixa erra em metade do catalogo.
-            return "Novo recorde: %s." % exercicio
+            return "%s: %s." % (self.regra.titulo, exercicio)
         return self.regra.frase
 
     # ---------------------------------------------- o que o card precisa
