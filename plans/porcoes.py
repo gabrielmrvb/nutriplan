@@ -12,8 +12,14 @@ MEIO = Decimal("0.5")
 
 
 def _formatar(n):
-    texto = ("%s" % n.normalize()).replace(".", ",")
-    return texto[:-2] if texto.endswith(",0") else texto
+    # `Decimal.normalize()` some dígitos à direita, mas também troca para
+    # notação científica quando isso encurta a representação — 150 g numa
+    # colher de 15 g dava n = Decimal("10.0"), e normalize() virava "1E+1":
+    # "1E+1 colheres de sopa (150 g)" na tela. n é sempre múltiplo de 0,5,
+    # então basta decidir entre uma ou uma casa decimal.
+    inteiro = n == n.to_integral_value()
+    texto = str(n.quantize(Decimal("1") if inteiro else Decimal("0.1")))
+    return texto.replace(".", ",")
 
 
 def medida_caseira(quantidade_g, porcao):

@@ -11,7 +11,7 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from catalog.models import FoodPortion
-from plans.porcoes import medida_caseira
+from plans.porcoes import _formatar, medida_caseira
 
 
 class OCatalogoTests(TestCase):
@@ -45,3 +45,27 @@ class AMedidaCaseiraTests(TestCase):
     def test_meio_sobe(self):
         # 3,25 porções → 3,5 (ROUND_HALF_UP no meio-degrau), não 3
         self.assertEqual(medida_caseira(Decimal("48.75"), self._porcao(15))[0], "3,5")
+
+    def test_multiplo_de_dez_nao_vira_notacao_cientifica(self):
+        # Decimal.normalize() derruba zero à direita trocando para notação
+        # científica quando isso encurta a representação: Decimal("10.0")
+        # normaliza para Decimal("1E+1"). 150 g numa colher de 15 g dá
+        # n = 10 porções, e a Home mostrava "1E+1 colheres de sopa (150 g)"
+        # em vez de "10 colheres de sopa (150 g)".
+        self.assertEqual(medida_caseira(Decimal("150"), self._porcao(15)), ("10", "colheres de sopa"))
+
+
+class AFormatarTests(TestCase):
+    def test_formata_cada_degrau_sem_notacao_cientifica(self):
+        casos = {
+            "10": "10",
+            "20": "20",
+            "100": "100",
+            "12.5": "12,5",
+            "0.5": "0,5",
+        }
+        for valor, esperado in casos.items():
+            with self.subTest(valor=valor):
+                texto = _formatar(Decimal(valor))
+                self.assertEqual(texto, esperado)
+                self.assertNotIn("E", texto)

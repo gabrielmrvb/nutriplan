@@ -36,7 +36,7 @@ class AHomeMostraMedidaCaseiraTests(CatalogFixture, TestCase):
         html = self.client.get(reverse("plans:today")).content.decode()
         # Um ingrediente com porção: "<b>7,5 colheres de sopa (116 g)</b>" — o número
         # exato depende do cardápio; a FORMA é o que se prova.
-        self.assertRegex(html, r'class="option__ingrediente">[^<]+</span>\s*<b>[0-9]+(,[05])? [a-zç ]+ \([0-9]+ (g|ml)\)</b>')
+        self.assertRegex(html, r'class="option__ingrediente">[^<]+</span>\s*<b>[0-9]+(,5)? [a-zç ]+ \([0-9]+ (g|ml)\)</b>')
 
     def test_alimento_sem_porcao_continua_em_grama(self):
         # Frango e arroz não têm porção nenhuma na fixture: a lista tem de
