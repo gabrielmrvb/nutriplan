@@ -18,7 +18,7 @@
 
     Os valores abaixo são cópias dos tokens de `app.css` — o FERRO como base
     e o Papel sob `prefers-color-scheme: light`, na mesma ordem do app desde
-    a CORTE (16/09/2026) —, e é a única duplicação aceita no projeto: a
+    a CORTE (16/09/2026; valores da NERVURA desde 17/09) —, e é a única duplicação aceita no projeto: a
     alternativa é depender do arquivo que pode não carregar.
     `config/test_b8_paginas_de_erro` lê o `--bg` dos dois regimes e cobra
     que os dois estejam aqui; foi esse teste que recusou o push quando a
@@ -34,13 +34,13 @@
   <style>
     :root {
       color-scheme: dark light;
-      --bg: #10120e; --surface: #1a1d17; --linha: rgba(246,243,234,.10);
-      --text: #f6f3ea; --dim: #d6d2c4; --brand: #c7f24a; --on-brand: #14180a;
+      --bg: #0b140f; --surface: #121e17; --linha: rgba(169,187,174,.14);
+      --text: #f2f6f2; --dim: #c9d6cc; --brand: #43df7a; --on-brand: #06240f;
     }
     @media (prefers-color-scheme: light) {
       :root {
-        --bg: #f6f3ea; --surface: #eae5d6; --linha: rgba(20,24,10,.12);
-        --text: #14180a; --dim: #3e3f30; --brand: #3f5a00; --on-brand: #f6f3ea;
+        --bg: #f4f6f2; --surface: #e7ebe3; --linha: rgba(11,20,15,.14);
+        --text: #0b140f; --dim: #2e3f34; --brand: #106632; --on-brand: #ffffff;
       }
     }
     /* `border-box` e o padding entram na conta do `min-height`. Sem isso,

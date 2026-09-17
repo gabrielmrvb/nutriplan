@@ -1566,6 +1566,33 @@ emoji → glifo nas conquistas (três desenhos e o `card.js` desenha o
 emoji) e a corrida em andamento em Ferro — os dois ficam para a próxima
 onda, com o consumidor.
 
+**VETO: a direção principal é a NERVURA · ANDAIME (17/09/2026).** O dono
+escolheu por gosto, sobre as capturas, e a pontuação de 16/09 (CORTE 25 ×
+NERVURA 23) ficou como histórico em `DIRECAO-ESCOLHIDA.md`; o `DESIGN.md`
+foi reescrito a partir do `Direcao1-a`, e do `1-b` entrou só o que pontua
+em identidade e em execução/recompensa, item a item (tabela naquele
+arquivo). O que mudou de VALOR, sem mexer em estrutura (PR dos tokens):
+a paleta — chão #0b140f, `--surface` #121e17, verde-neon #43df7a, laranja
+#e8a33d para a carga; no claro, verde-floresta #106632 — com a segunda e a
+terceira superfícies vindas da régua U28 (a direção só tem dois degraus)
+e quatro valores do claro escurecidos 1–5 % pelo vizinho que passa
+(`artifacts/paleta_nervura.py`; 274 pares, zero reprovados; pior par
+`--danger`/`--surface-3` 4,65 no Ferro); as fontes — Big Shoulders
+Display (display, caixa alta 800 nos títulos e nomes, 900 nos números) e
+Archivo (texto), 70 364 bytes; **a Big Shoulders NÃO tem `tnum`** (dígitos
+proporcionais, medido com fontTools), então a display fica para o número
+SOLTO e toda coluna de números — a lista de pesagens — é Archivo tabular
+(`config/test_fontes.py` prende as duas regras); a quina — ZERO
+`border-radius` em 390 declarações do mockup — virou três SLOTS com o
+mesmo valor (`--quina-g`/`--quina`/`--quina-p: 0`), `--pill` saiu e todo
+`border-radius` do arquivo é slot, `50%` (o anel) ou `inherit`; o
+movimento — `--mov-nervura: .6s` e `nervura-acende` (a régua que risca da
+esquerda para a direita) no lugar de `corte-abre`/`corte-desdobra`, como
+`::after` da refeição registrada e do bloco da meta batida. A régua
+diagonal (`--nervura`), o traço de 2 px (`--traco`), o CTA inclinado
+(`--inclinado`) e a ponta de folha (`--ponta`) nascem com o consumidor,
+no PR dos componentes.
+
 ## Testes
 
 Nome descreve o comportamento, não o método. Docstring diz **por que** aquilo
