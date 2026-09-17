@@ -5941,7 +5941,7 @@ body.montando { overflow: hidden; }
 
 .hoje__id {
   display: flex;
-  /* `wrap`, porque `.hoje__opcao` ("Duas versões disponíveis · recomendada:
+  /* `wrap`, porque `.hoje__versao` ("Versão rápida hoje ·
      opção 1") virou o TERCEIRO filho deste flex em 7d222a6 e passou a dividir
      a largura com o título: a 390px "Costas e bíceps" cabia em 79px e
      quebrava em três linhas, ao lado da opção. A opção desce para a linha
@@ -6313,7 +6313,6 @@ body.montando { overflow: hidden; }
 /* A frase da opção recomendada, em linha PRÓPRIA abaixo da linha do topo.
    Como terceiro item do flex ela espremia o sobretítulo em quatro linhas de
    caixa alta a 390px (avaliação de 16/09/2026, B28). */
-.agora__opcao-aviso { margin: 0 0 var(--espaco-2); font-size: var(--texto-sm); }
 
 /* O título da execução leva à leitura do exercício: mesma cor, sublinhado
    fino, para ser porta sem virar botão. */
@@ -8459,61 +8458,24 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    que a rápida deixa de fora diz isso em texto. Tudo com os tokens de
    sempre; o movimento é o da seção 47 (`data-escalonado`, toque, sanfona).
    ========================================================================== */
-.opcoes { display: grid; gap: var(--espaco-6); }
-@media (min-width: 48rem) {
-  .opcoes { grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); align-items: start; }
-}
+/* A FICHA É UMA (17/09/2026): o cartão da lista do dia. `.opcao` sobrou
+   como nome do cartão; a escolha entre versões saiu — a variação é do
+   ciclo (`services.variacao_do_dia`) e a rápida é "Menos tempo hoje?" no
+   painel. */
 .opcao { border: 1px solid var(--fio); }
-.opcao--escolhida { border-color: var(--brand); box-shadow: var(--halo); }
-.opcao--recomendada:not(.opcao--escolhida) { border-color: var(--fio-forte); }
 .opcao__head { display: flex; align-items: center; justify-content: space-between; gap: var(--espaco-3); }
 .opcao__meta { margin: 0 0 var(--espaco-3); color: var(--text-dim); font-size: var(--texto-sm); }
 .opcao__equipamentos { margin: 0 0 var(--espaco-4); font-size: var(--texto-xs); }
-.opcao__comecar { margin-top: var(--espaco-5); }
-.opcoes__confirmar { border: 1px solid var(--terra); background: var(--terra-soft); }
-.opcoes__confirmar h2 { margin-top: 0; }
-
-/* Completo / Rápido: dois links que se comportam como o `.segmented`, e o
-   ativo é escrito pelo servidor (`is-active` + `aria-current`). */
-.versoes {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  padding: var(--espaco-1);
-  border: 1px solid var(--fio);
-  border-radius: var(--quina-p);
-  background: var(--surface-2);
-}
-.versoes__opcao {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--espaco-1);
-  min-height: 2.75rem;
-  padding: var(--espaco-3) var(--espaco-4);
-  border-radius: var(--quina-p);
-  color: var(--text-dim);
-  font-size: var(--texto-sm);
-  font-weight: 600;
-  text-align: center;
-  text-decoration: none;
-  transition: background var(--mov-estado) var(--ease), color var(--mov-estado) var(--ease);
-}
-.versoes__opcao .num { font-size: var(--texto-xs); font-weight: 600; }
-.versoes__opcao.is-active { background: var(--surface); color: var(--brand); box-shadow: var(--shadow-rest); }
 
 /* A linha que a rápida deixa de fora: apagada e dita. */
 .ficha-item--fora .ficha-item__nome { color: var(--text-mute); text-decoration: line-through; }
 .ficha-item__fora { color: var(--text-mute); font-size: var(--texto-xs); font-weight: 600; }
 
-.sessao-cartao__versoes { display: block; margin-top: var(--espaco-1); color: var(--brand); font-size: var(--texto-xs); font-weight: 600; }
-.hoje__opcao { flex-basis: 100%; margin: 0; color: var(--text-dim); font-size: var(--texto-sm); }
+/* A versão do dia no cartão de hoje, em linha própria: como terceiro filho
+   do flex `.hoje__id` ela dividia a largura com o título (17/09/2026). */
+.hoje__versao { flex-basis: 100%; margin: 0; color: var(--text-dim); font-size: var(--texto-sm); }
+.hoje__rapida { margin-top: var(--espaco-3); }
 .agora__removidos { margin: var(--espaco-4) 0 0; font-size: var(--texto-sm); }
-
-@media (prefers-reduced-motion: reduce) {
-  .versoes__opcao { transition: none; }
-}
 
 /* ==========================================================================
    49. Aviso de regenerar — "Seu treino pode ficar mais completo" (17/09/2026)

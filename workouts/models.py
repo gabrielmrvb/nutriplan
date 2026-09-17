@@ -16,6 +16,7 @@ from decimal import Decimal
 from urllib.parse import quote_plus, urlparse
 
 from django.conf import settings
+from django.utils import timezone
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -1152,6 +1153,33 @@ class SessionExercise(PrescriptionFields):
 class VersaoDoTreino(models.TextChoices):
     COMPLETO = "completo", "Treino completo"
     RAPIDO = "rapido", "Versão rápida"
+
+
+class EventoDeProduto(models.Model):
+    """Um uso de uma feature que está EM AVALIAÇÃO — o dado que decide se
+    ela fica (17/09/2026). Um por pessoa, nome e dia: é contagem de adoção,
+    não telemetria de toque. Hoje só `versao_rapida` ("Menos tempo hoje?"
+    no painel), a decidir em 30 dias; `medir_progressao` conta."""
+
+    VERSAO_RAPIDA = "versao_rapida"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="eventos_de_produto",
+        verbose_name="usuário",
+    )
+    nome = models.CharField("evento", max_length=40)
+    date = models.DateField("dia", default=timezone.localdate)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "evento de produto"
+        verbose_name_plural = "eventos de produto"
+        constraints = [
+            models.UniqueConstraint(fields=("user", "nome", "date"), name="um_evento_por_pessoa_e_dia"),
+        ]
+
+    def __str__(self):
+        return "%s · %s" % (self.nome, self.date)
 
 
 class EscolhaDeTreino(models.Model):

@@ -2837,23 +2837,19 @@ class EstadoDoTreino:
     minutos_entre_registros: int = 0
     #: O placar da folha de recompensa; só faz sentido com `concluido`.
     placar: object = None
-    #: A opção da letra que está sendo feita hoje, e de onde ela veio.
+    #: A opção da letra que está sendo feita hoje: a pinada pela primeira
+    #: série (`escolha`), senão a variação do ciclo (`variacao_do_dia`).
+    #: É contabilidade interna — a tela nunca imprime o número.
     opcao: int = 1
     opcoes: list = field(default_factory=list)
     versao: str = "completo"
     escolha: object = None
-    recomendada: int = 1
     #: Os exercícios que a versão rápida deixou de fora, nomeados na tela.
     removidos: list = field(default_factory=list)
 
     @property
     def tem_duas_opcoes(self) -> bool:
         return len(self.opcoes) > 1
-
-    @property
-    def precisa_escolher(self) -> bool:
-        """Duas opções e nenhuma escolha gravada hoje: a ficha pergunta."""
-        return self.tem_duas_opcoes and self.escolha is None and not self.comecou
 
     @property
     def rapida(self) -> bool:
@@ -2882,29 +2878,60 @@ def escolha_do_dia(user, dia=None):
     )
 
 
-def opcao_recomendada(user, sessao) -> int:
-    """A opção menos usada recentemente NESTA letra — nunca uma obrigação.
+def usos_recentes(nome: str, dias: int = 30) -> tuple[int, int]:
+    """(usos, pessoas) de um `EventoDeProduto` nos últimos `dias` — hoje
+    inclusive, então `dias=30` cobre 30 dias corridos. Uso é pessoa × dia
+    (a constraint do modelo já colapsa o toque repetido); pessoa é distinta.
+    É a conta que `medir_progressao` imprime para decidir a versão rápida."""
+    from .models import EventoDeProduto
 
-    Com duas opções, é a que não foi a última: quem fez a 1 na segunda vê a 2
-    recomendada na quinta. Sem histórico, a 1. A pessoa pode ignorar e repetir
-    a preferida — a recomendação é um selo, e o motor já garantiu que repetir
-    cabe no teto semanal.
+    desde = timezone.localdate() - timedelta(days=dias - 1)
+    eventos = EventoDeProduto.objects.filter(nome=nome, date__gte=desde)
+    return eventos.count(), eventos.values("user_id").distinct().count()
+
+
+def variacao_do_dia(plan, dia, sessao, sessoes=None) -> int:
+    """A opção da letra em `dia` — decidida pelo CICLO, não pela pessoa
+    (ficha única por letra, 17/09/2026).
+
+    Com a rotação contínua, `p` é a posição do dia no ciclo e `n` o número
+    de letras: a letra cai a cada `n` posições, então `p // n` é quantas
+    vezes ela já caiu desde a posição zero — a primeira ocorrência faz a
+    opção 1, a segunda a 2, a terceira a 1 de novo. No plano preso ao dia
+    da semana (antigo ou ajustado à mão) a ocorrência é a linha da letra
+    dentro da semana, em ordem, mais as semanas desde a criação do plano.
+    Com uma opção só, é ela.
     """
     opcoes = sessao.opcoes
     if len(opcoes) < 2:
         return opcoes[0]
-    # A última data em que cada opção foi feita, numa consulta; a que nunca
-    # foi (ou foi há mais tempo) é a recomendada — com três opções, a 3
-    # entra na vez dela.
-    ultimas = dict(
-        EscolhaDeTreino.objects.filter(
-            user=user, session__plan_id=sessao.plan_id, session__label=sessao.label
-        )
-        .values_list("opcao")
-        .annotate(ultima=Max("date"))
-        .values_list("opcao", "ultima")
-    )
-    return min(opcoes, key=lambda k: (ultimas.get(k) is not None, ultimas.get(k), k))
+    sessoes = list(sessoes if sessoes is not None else plan.sessions.all())
+    if ciclo_roda(plan):
+        dias = dias_de_treino_de(sessoes)
+        letras = letras_do_ciclo(sessoes)
+        ocorrencia = posicao_no_ciclo(plan.inicio_do_ciclo, dia, dias) // len(letras)
+    else:
+        da_letra = sorted((s for s in sessoes if s.label == sessao.label), key=lambda s: s.order)
+        indice = next((k for k, s in enumerate(da_letra) if s.weekday == dia.weekday()), 0)
+        criado = timezone.localtime(plan.created_at).date()
+        semanas = (dia - timedelta(days=dia.weekday())) - (criado - timedelta(days=criado.weekday()))
+        ocorrencia = max(0, semanas.days // 7) * len(da_letra) + indice
+    return opcoes[ocorrencia % len(opcoes)]
+
+
+def opcao_do_dia(user, sessao, dia=None, sessoes=None, escolha=_NAO_INFORMADO) -> int:
+    """A opção que vale HOJE para esta sessão: a gravada pela primeira
+    série (o dia fica pinado — a ficha não muda no meio do treino), senão
+    a variação do ciclo. `escolha` já carregada evita a consulta."""
+    dia = dia or timezone.localdate()
+    if escolha is _NAO_INFORMADO:
+        escolha = escolha_do_dia(user, dia)
+    # Sem conferir `in sessao.opcoes`: `registrar_escolha` já gravou uma
+    # opção válida, e a conferência custaria a consulta dos itens quando a
+    # sessão veio de `escolha.session` (medido no POST da série: 21 > 20).
+    if escolha is not None and escolha.session_id == sessao.pk:
+        return escolha.opcao
+    return variacao_do_dia(sessao.plan, dia, sessao, sessoes)
 
 
 def registrar_escolha(user, sessao, opcao, versao=VersaoDoTreino.COMPLETO, dia=None):
@@ -3141,9 +3168,8 @@ def prescricao_de_hoje(user, exercise_id, dia=None):
     sessao = escolha.session if escolha is not None else sessao_do_dia(get_active_routine(user), dia)
     if sessao is None:
         return None
-    linhas = SessionExercise.objects.filter(session_id=sessao.pk)
-    if escolha is not None:
-        linhas = linhas.filter(opcao=escolha.opcao)
+    # A opção do dia: a pinada, senão a variação do ciclo (ficha única).
+    linhas = SessionExercise.objects.filter(session_id=sessao.pk, opcao=opcao_do_dia(user, sessao, dia, escolha=escolha))
     item = linhas.filter(exercise_id=exercise_id).first()
     if item is None:
         return None
@@ -3189,9 +3215,9 @@ def series_de_hoje(user, exercise, dia=None) -> tuple:
     sessao = escolha.session if escolha is not None else sessao_do_dia(get_active_routine(user), dia)
     if sessao is None:
         return ExerciseLog.objects.filter(user=user, exercise=exercise, date=dia).count(), 0
-    linhas = SessionExercise.objects.filter(session_id=sessao.pk, exercise=exercise)
-    if escolha is not None:
-        linhas = linhas.filter(opcao=escolha.opcao)
+    linhas = SessionExercise.objects.filter(
+        session_id=sessao.pk, exercise=exercise, opcao=opcao_do_dia(user, sessao, dia, escolha=escolha)
+    )
     item = linhas.annotate(feitas=Subquery(contagem)).values_list("sets", "feitas").first()
     if item is None:
         return ExerciseLog.objects.filter(user=user, exercise=exercise, date=dia).count(), 0
@@ -3325,9 +3351,8 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
     # A sessão de HOJE é a da LETRA de hoje (rotação contínua), vestindo o
     # dia da semana: uma consulta com todas as linhas da semana, que é o que
     # `sessao_do_dia` precisa para achar a posição.
-    sessao = sessao_do_dia(
-        plan, dia, list(plan.sessions.prefetch_related("exercises__exercise"))
-    )
+    linhas = list(plan.sessions.prefetch_related("exercises__exercise"))
+    sessao = sessao_do_dia(plan, dia, linhas)
     if sessao is None:
         if escolhido is not None:
             raise ExercicioForaDaSessao(escolhido)
@@ -3344,9 +3369,8 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
         escolha = None
     estado.escolha = escolha
     estado.opcoes = sessao.opcoes
-    estado.recomendada = opcao_recomendada(user, sessao)
     if opcao is None:
-        opcao = escolha.opcao if escolha is not None else estado.recomendada
+        opcao = opcao_do_dia(user, sessao, dia, linhas, escolha=escolha)
     if opcao not in estado.opcoes:
         opcao = estado.opcoes[0]
     if versao is None:

@@ -5643,8 +5643,9 @@ class OTituloDoTreinoDeHojeNaoDivideLarguraTests(SimpleTestCase):
     """`.hoje__opcao` virou o terceiro filho do flex `.hoje__id` em 7d222a6 e
     passou a dividir a largura com o título: a 390px "Costas e bíceps" cabia
     em 79px e quebrava em três linhas ao lado de "Duas versões disponíveis"
-    (visto em produção, 17/09/2026). O flex quebra linha e a opção ocupa a
-    linha inteira embaixo — a identidade volta a ser a linha mais longa."""
+    (visto em produção, 17/09/2026). O flex quebra linha e a linha da versão
+    (`.hoje__versao` desde a ficha única) ocupa a linha inteira embaixo — a
+    identidade volta a ser a linha mais longa."""
 
     def test_o_flex_quebra_linha_e_a_opcao_desce(self):
         from pathlib import Path
@@ -5653,6 +5654,6 @@ class OTituloDoTreinoDeHojeNaoDivideLarguraTests(SimpleTestCase):
         bloco = css[css.index(".hoje__id {"):]
         bloco = bloco[:bloco.index("}")]
         self.assertIn("flex-wrap: wrap", bloco)
-        opcao = css[css.index(".hoje__opcao {"):]
+        opcao = css[css.index(".hoje__versao {"):]
         opcao = opcao[:opcao.index("}")]
         self.assertIn("flex-basis: 100%", opcao)

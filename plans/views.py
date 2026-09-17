@@ -793,6 +793,9 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
                 "tem_treino": any(s["dias"] for s in semanas_de_treino),
                 "dias_combinados": self.request.user.training_days.count(),
                 "cargas": progresso.progressao_de_carga(self.request.user),
+                # Iniciante há meio ano e duas dúzias de treinos: convite a
+                # atualizar o nível (uma consulta; zero para os outros níveis).
+                "convite_de_nivel": progresso.convidar_a_atualizar_experiencia(self.request.user),
                 "agua_semanas": semanas_de_agua,
                 # A pergunta é "existe algum registro?", e não "a lista tem
                 # itens": a lista SEMPRE tem oito semanas, inclusive as

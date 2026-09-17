@@ -223,21 +223,24 @@ class OPainelEAFichaMostramALetraDaPosicaoTests(TestCase):
         resposta = self.client.get(reverse("workouts:ficha", args=[linha_a.pk]))
         self.assertFalse(resposta.context["sessao"].eh_hoje)
 
-    def test_a_execucao_abre_a_letra_de_hoje_e_a_escolha_segue_a_letra(self):
+    def test_a_execucao_abre_a_letra_de_hoje_e_a_primeira_serie_pina_a_variacao(self):
+        """Na segunda semana a segunda é C: a execução abre C, na variação
+        do ciclo (segunda ocorrência de C → opção 2), e a primeira série
+        grava a escolha na LINHA de C — não na linha de segunda."""
         self._na_segunda_semana()
+        linhas = list(self.plan.sessions.all())
+        linha_c = next(s for s in linhas if s.label == "C")
         estado = services.estado_do_treino(self.user)
         self.assertEqual(estado.sessao.label, "C")
-        linha_c = self.plan.sessions.filter(label="C").order_by("order").first()
-        # Escolher a opção 2 de hoje grava a escolha na SESSÃO-letra.
-        resposta = self.client.post(reverse("workouts:escolher", args=[linha_c.pk]), {"opcao": "2"})
-        self.assertEqual(resposta.status_code, 302)
-        escolha = EscolhaDeTreino.objects.get(user=self.user, date=SEGUNDA + timedelta(days=7))
-        self.assertEqual(escolha.session_id, linha_c.pk)
-        self.assertEqual(escolha.opcao, 2)
-        # A ficha de A não executa hoje (é dia de C).
-        linha_a = self.plan.sessions.filter(label="A").order_by("order").first()
-        resposta = self.client.post(reverse("workouts:escolher", args=[linha_a.pk]), {"opcao": "1"})
-        self.assertEqual(resposta.status_code, 404)
+        self.assertEqual(estado.opcao, services.variacao_do_dia(self.plan, SEGUNDA + timedelta(days=7), estado.sessao, linhas))
+        item = estado.itens[0]
+        self.client.post(reverse("workouts:record_set"), {
+            "exercise_id": item.exercise_id, "weight_kg": "40", "reps": "8", "op_id": "op-c",
+            "dia": (SEGUNDA + timedelta(days=7)).isoformat(),
+            "sessao": estado.sessao.pk, "opcao": estado.opcao, "versao": estado.versao,
+        })
+        escolha = EscolhaDeTreino.objects.get(user=self.user)
+        self.assertEqual((escolha.session_id, escolha.opcao), (linha_c.pk, estado.opcao))
 
     def test_a_serie_gravada_hoje_conta_na_ficha_da_letra_de_hoje(self):
         self._na_segunda_semana()

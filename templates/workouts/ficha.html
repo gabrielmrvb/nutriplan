@@ -30,21 +30,21 @@
     <a class="btn-link" href="{% url 'workouts:routine' %}">← Treino</a>
     <h1>Treino {{ sessao.rotulo }}: {{ sessao.name }}</h1>
     {% comment %}
-      UMA LETRA, ATÉ DUAS VERSÕES (15/09/2026). A ficha deixou de ser "a
-      sessão de segunda": é o Treino A, com as opções lado a lado, e a pessoa
-      escolhe qual faz no dia. As duas são completas e equivalentes por
-      construção (`workouts/opcoes.py`); a recomendada é a menos usada
-      recentemente — um selo, nunca uma obrigação.
+      UMA LETRA, UMA FICHA (17/09/2026). O motor monta duas versões
+      equivalentes da letra (`workouts/opcoes.py`) e as alterna sozinho entre
+      as ocorrências — semana 1 uma, semana 2 outra, seguindo a rotação
+      contínua (`services.variacao_do_dia`). A pessoa não escolhe: a ficha
+      que ela abre é A ficha de hoje, e o número da variação não aparece em
+      lugar nenhum. A interação que sobrou é por exercício ("outras formas").
     {% endcomment %}
     <p class="lead">
       <span>{{ sessao.dias_texto }}</span>
       <span>·</span>
-      <span class="num">{{ opcoes.0.itens|length }} exercícios</span>
+      <span class="num">{{ ficha.itens|length }} exercícios</span>
       <span>·</span>
-      <span class="num">{{ opcoes.0.series }} séries</span>
+      <span class="num">{{ ficha.series }} séries</span>
       <span>·</span>
-      <span class="num">~{{ opcoes.0.minutos }} min</span>
-      {% if sessao.tem_duas_opcoes %}<span>·</span> <span>{{ versoes_texto }} disponíveis</span>{% endif %}
+      <span class="num">~{{ ficha.minutos }} min</span>
     </p>
   </div>
 
@@ -54,33 +54,12 @@
         <p class="session__focus">{{ sessao.focus }}</p>
       {% endif %}
 
-      {% if trocar %}
-        {% comment %}
-          TROCAR DEPOIS DA PRIMEIRA SÉRIE PEDE CONFIRMAÇÃO, e nada é apagado:
-          `ExerciseLog` é por exercício e data. A pergunta é explícita porque
-          trocar em silêncio faria a execução abrir outro treino no meio do
-          que a pessoa estava fazendo.
-        {% endcomment %}
-        <section class="card opcoes__confirmar" role="region" aria-live="polite" aria-labelledby="trocar-titulo">
-          <h2 id="trocar-titulo">Trocar para a opção {{ trocar }}?</h2>
-          <p>Você já registrou <b class="num">{{ series_hoje }}</b> {% if series_hoje == 1 %}série{% else %}séries{% endif %} hoje na opção {{ escolha.opcao }}. Elas continuam no histórico; só a lista de exercícios de hoje muda.</p>
-          <form method="post" action="{% url 'workouts:escolher' sessao.pk %}" class="form-actions">
-            {% csrf_token %}
-            <input type="hidden" name="opcao" value="{{ trocar }}">
-            <input type="hidden" name="versao" value="{{ versao }}">
-            <input type="hidden" name="confirmar" value="1">
-            <a class="btn btn--ghost" href="{% url 'workouts:ficha' sessao.pk %}">Manter a opção {{ escolha.opcao }}</a>
-            <button type="submit" class="btn btn--primary">Trocar e manter o registro</button>
-          </form>
-        </section>
-      {% endif %}
-
       {% if sessao.eh_hoje %}
         <p class="ficha__progresso" role="status" aria-live="polite">
           <b class="num">{{ sessao.feitos_hoje }}</b> de
           <span class="num">{{ sessao.total_exercicios }}</span>
           {% if sessao.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}
-          com série registrada hoje{% if sessao.tem_duas_opcoes %} · opção {{ sessao.opcao_do_dia }}{% if not escolha %} (recomendada){% endif %}{% endif %}{% if escolha and escolha.versao == 'rapido' %} · versão rápida{% endif %}
+          com série registrada hoje{% if escolha and escolha.versao == 'rapido' %} · versão rápida{% endif %}
         </p>
         {% if sessao.proximo %}
           <a class="btn btn--primary btn--block"
@@ -90,71 +69,38 @@
         {% endif %}
       {% endif %}
 
-      {% if pode_escolher and rapida_muda %}
-        {% comment %}
-          COMPLETO OU RÁPIDO é uma escolha da área de Treino, e não do
-          cadastro: a versão rápida é a opção escolhida passando pelo corte de
-          tempo (`escolher_para_o_tempo`, ~40 min) — os principais ficam, o
-          acessório de menor prioridade sai primeiro, e a linha diz o que
-          ficou de fora. Não é uma terceira ficha.
-        {% endcomment %}
-        <nav class="versoes" aria-label="Versão do treino">
-          <a class="versoes__opcao{% if versao == 'completo' %} is-active{% endif %}"
-             href="?versao=completo{% if trocar %}&amp;trocar={{ trocar }}{% endif %}"
-             {% if versao == 'completo' %}aria-current="true"{% endif %}>Treino completo <span class="num">~{{ opcoes.0.minutos }} min</span></a>
-          <a class="versoes__opcao{% if versao == 'rapido' %} is-active{% endif %}"
-             href="?versao=rapido{% if trocar %}&amp;trocar={{ trocar }}{% endif %}"
-             {% if versao == 'rapido' %}aria-current="true"{% endif %}>Versão rápida <span class="num">~{% if rapida_minutos_min != rapida_minutos_max %}{{ rapida_minutos_min }}–{% endif %}{{ rapida_minutos_max }} min</span></a>
-        </nav>
-      {% endif %}
-
-      <div class="opcoes" data-escalonado>
-        {% for op in opcoes %}
-          <section class="card opcao{% if op.escolhida %} opcao--escolhida{% endif %}{% if op.recomendada %} opcao--recomendada{% endif %}" id="opcao-{{ op.numero }}">
-            <div class="card__head opcao__head">
-              <h2>{% if sessao.tem_duas_opcoes %}Opção {{ op.numero }}{% else %}A ficha{% endif %}</h2>
-              {% if op.escolhida %}<span class="pill pill--brand">Escolhida hoje</span>
-              {% elif op.recomendada %}<span class="pill pill--brand">Recomendada hoje</span>{% endif %}
-            </div>
-            <p class="opcao__meta num">
-              {% if versao == 'rapido' %}
-                {{ op.rapida_series }} séries · ~{{ op.rapida_minutos }} min
-                <span class="muted">(completo: {{ op.series }} séries · ~{{ op.minutos }} min)</span>
-              {% else %}
-                {{ op.itens|length }} exercícios · {{ op.series }} séries · ~{{ op.minutos }} min
-              {% endif %}
-            </p>
-            {% if op.equipamentos %}
-              <p class="opcao__equipamentos muted">{{ op.equipamentos|join:" · " }}</p>
-            {% endif %}
-            <ol class="ficha-lista" data-escalonado>
-              {% for item in op.principais %}
-                {% include "workouts/_item_da_ficha.html" with item=item ordem=forloop.counter hoje=op.executavel rapida=rapida %}
+      <section class="card opcao" id="ficha">
+        <div class="card__head opcao__head">
+          <h2>A ficha</h2>
+          {% if rapida %}<span class="pill pill--brand">Versão rápida hoje</span>{% endif %}
+        </div>
+        <p class="opcao__meta num">
+          {% if rapida %}
+            {{ ficha.rapida_series }} séries · ~{{ ficha.rapida_minutos }} min
+            <span class="muted">(completo: {{ ficha.series }} séries · ~{{ ficha.minutos }} min)</span>
+          {% else %}
+            {{ ficha.itens|length }} exercícios · {{ ficha.series }} séries · ~{{ ficha.minutos }} min
+          {% endif %}
+        </p>
+        {% if ficha.equipamentos %}
+          <p class="opcao__equipamentos muted">{{ ficha.equipamentos|join:" · " }}</p>
+        {% endif %}
+        <ol class="ficha-lista" data-escalonado>
+          {% for item in ficha.principais %}
+            {% include "workouts/_item_da_ficha.html" with item=item ordem=forloop.counter hoje=ficha.executavel rapida=rapida %}
+          {% endfor %}
+        </ol>
+        {% if ficha.complementares %}
+          <div class="ficha__complementares">
+            <h3 class="ficha__complementares-titulo">Complementares desta sessão</h3>
+            <ol class="ficha-lista" data-escalonado start="{{ ficha.principais|length|add:1 }}">
+              {% for item in ficha.complementares %}
+                {% include "workouts/_item_da_ficha.html" with item=item ordem=ficha.principais|length|add:forloop.counter hoje=ficha.executavel rapida=rapida %}
               {% endfor %}
             </ol>
-            {% if op.complementares %}
-              <div class="ficha__complementares">
-                <h3 class="ficha__complementares-titulo">Complementares desta sessão</h3>
-                <ol class="ficha-lista" data-escalonado start="{{ op.principais|length|add:1 }}">
-                  {% for item in op.complementares %}
-                    {% include "workouts/_item_da_ficha.html" with item=item ordem=op.principais|length|add:forloop.counter hoje=op.executavel rapida=rapida %}
-                  {% endfor %}
-                </ol>
-              </div>
-            {% endif %}
-            {% if pode_escolher %}
-              <form method="post" action="{% url 'workouts:escolher' sessao.pk %}" class="opcao__comecar">
-                {% csrf_token %}
-                <input type="hidden" name="opcao" value="{{ op.numero }}">
-                <input type="hidden" name="versao" value="{{ versao }}">
-                <button type="submit" class="btn {% if op.escolhida or op.recomendada or not sessao.tem_duas_opcoes %}btn--primary{% else %}btn--ghost{% endif %} btn--block">
-                  {% if op.escolhida %}Continuar esta opção{% else %}Começar esta opção{% endif %}
-                </button>
-              </form>
-            {% endif %}
-          </section>
-        {% endfor %}
-      </div>
+          </div>
+        {% endif %}
+      </section>
     </div>
   </div>
 
