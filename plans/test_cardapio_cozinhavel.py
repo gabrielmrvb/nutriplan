@@ -163,6 +163,16 @@ class OCafeParecePratoDeVerdadeTests(TestCase):
     Os tetos são amassados fino (cozido/hidratado) ou líquidos, o que estica
     a quantidade "razoável" numa refeição — os números abaixo refletem isso,
     não uma porção de prato seco.
+
+    Revisão do Fix round 2 (mesmo relatório): a redistribuição do round 1
+    corrigiu os alimentos que JÁ estavam no teto acima, mas destravou outros —
+    "Tapioca com frango desfiado" passou a entregar 266,7 g de frango,
+    "Cuscuz com carne de soja" 130 g de proteína de soja texturizada, e
+    "Cuscuz com ovo"/"Tapioca com ovo" 111–116 g de queijo. Nenhum desses
+    alimentos tinha teto. `TETO_G_POR_PADRAO` fecha a lacuna por PADRÃO de
+    nome (frango, queijo, proteína de soja, pasta de amendoim, iogurte) em vez
+    de listar cada corte/marca — sobrevive a um alimento novo do mesmo tipo
+    entrar no catálogo depois.
     """
 
     TETO_G = {
@@ -176,9 +186,32 @@ class OCafeParecePratoDeVerdadeTests(TestCase):
         "Pão de forma integral": Decimal("75"),  # 3 fatias de 25 g
     }
 
+    #: Teto por PADRÃO no nome (minúsculo, comparação por substring) — para
+    #: famílias de alimento em vez de um item cadastrado por vez. "queijo" não
+    #: casa com "requeijão" (a palavra não aparece como substring), de
+    #: propósito: requeijão é colher, não fatia, e nunca esteve na faixa
+    #: problemática.
+    TETO_G_POR_PADRAO = (
+        ("frango", Decimal("150")),
+        ("queijo", Decimal("60")),  # 3 fatias de ~20 g
+        ("proteína de soja", Decimal("80")),
+        ("pasta de amendoim", Decimal("40")),  # 2 colheres de sopa
+        ("iogurte", Decimal("340")),  # 2 potes
+    )
+
     @classmethod
     def setUpTestData(cls):
         call_command("seed_catalog", verbosity=0)
+
+    def _teto_para(self, nome_alimento):
+        teto = self.TETO_G.get(nome_alimento)
+        if teto is not None:
+            return teto
+        nome = nome_alimento.lower()
+        for padrao, teto_padrao in self.TETO_G_POR_PADRAO:
+            if padrao in nome:
+                return teto_padrao
+        return None
 
     def test_a_quantidade_entregue_respeita_o_teto_por_alimento(self):
         alvo = 715  # 25 % de 2.859 — o mesmo perfil da avaliação
@@ -190,10 +223,38 @@ class OCafeParecePratoDeVerdadeTests(TestCase):
         for template in templates:
             fator = scale_for(template, alvo)
             for item in template.items.all():
-                teto = self.TETO_G.get(item.food.name)
+                teto = self._teto_para(item.food.name)
                 if teto is None:
                     continue
                 entregue = item.scaled_quantity(fator)
                 if entregue > teto:
                     fora.append((template.name, item.food.name, entregue, teto))
+        self.assertEqual(fora, [])
+
+    def test_nenhum_ingrediente_sozinho_passa_de_60_por_cento_da_caloria(self):
+        """A caloria não pode se esconder inteira num só item da receita.
+
+        "Tapioca com frango desfiado" passava no teto de grama por alimento
+        (round 1) e ainda assim entregava 61,6 % da caloria da receita só no
+        frango — tecnicamente dentro de cada teto individual, mas a receita
+        virava "frango com um acompanhamento simbólico de goma", não um prato
+        equilibrado. Esta régua é por PORCENTAGEM DA RECEITA, não por grama, e
+        por isso pega o desequilíbrio mesmo quando nenhum teto de grama
+        isolado é ultrapassado.
+        """
+        alvo = 715
+        fora = []
+        templates = (
+            MealTemplate.objects.filter(category=MealCategory.BREAKFAST, is_active=True)
+            .prefetch_related("items__food")
+        )
+        for template in templates:
+            fator = scale_for(template, alvo)
+            total_kcal = template.compute_macros(fator)["kcal"]
+            if total_kcal <= 0:
+                continue
+            for item in template.items.all():
+                kcal_item = item.macros_for(fator)["kcal"]
+                if kcal_item > total_kcal * Decimal("0.6"):
+                    fora.append((template.name, item.food.name, kcal_item, total_kcal))
         self.assertEqual(fora, [])
