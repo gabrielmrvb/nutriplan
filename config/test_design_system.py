@@ -335,10 +335,9 @@ class NumeroDeMetricaNaoQuebraNoMeioTests(SimpleTestCase):
 
         self.assertIsNotNone(corpo)
         self.assertIn("font-variant-numeric: tabular-nums", corpo)
-        # 700 desde a CORTE (T3.2, 16/09/2026): o peso do número herói em Bodoni,
-        # em todo tile. Foi 760 (um degrau só destes dois) e 750 (o de todo
-        # tile) até a fonte própria reduzir o arquivo a quatro pesos.
-        self.assertIn("font-weight: 700", corpo)
+        # 900 desde a NERVURA (17/09/2026): o peso do número herói na Big
+        # Shoulders. Foi 760, 750 (todo tile) e 700 (Bodoni, na CORTE).
+        self.assertIn("font-weight: 900", corpo)
 
         self.assertIsNone(
             self._regra(".seletor-que-nao-existe-em-lugar-nenhum"),
@@ -649,7 +648,7 @@ class OEspacamentoNaoVoltaParaODentroDoHTMLTests(SimpleTestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn('style="', email)
-        self.assertIn("#3f5a00", email)  # a oliva do Papel: e-mail é fundo claro
+        self.assertIn("#106632", email)  # o verde-floresta do Papel: e-mail é fundo claro
 
     def test_as_intencoes_nomeadas_existem_no_css(self):
         css = sem_comentarios(CSS.read_text(encoding="utf-8"))

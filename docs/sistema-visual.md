@@ -16,7 +16,7 @@ O sistema não é uniforme, e fingir que é seria o começo do problema:
 
 | eixo | tokens | travado por teste? | valores crus |
 |---|---|---|---|
-| **quina** | 4 (`--corte-g`/`--corte`/`--corte-p`, de quatro valores — a folha —, e `--pill` só para ponto, barra e selo; CORTE, 16/09/2026) | sim — identidade dos quatro e "nada clicável é pílula" em `config/tests.py` | **0** |
+| **quina** | 3 slots com o mesmo valor, zero (`--quina-g`/`--quina`/`--quina-p`; NERVURA, 17/09/2026 — a folha da CORTE durou um dia); `--pill` saiu | sim — identidade dos três e "nada é pílula" em `config/tests.py` | **0** |
 | **cor** | 48 → ≈65 em 16/09/2026 (o `:root` inteiro tem 123 tokens; 36 são `--ferro-*`, dos quais 4 são sombra/anel) | sim — órfão, não-declarado, `config/test_ferro.py` e contraste medido em 274 pares | 8 |
 | **espaço** | 7 + `--gap`/`--pad` | catraca | 291 |
 | **texto** | 8 | catraca | 144 |
@@ -32,15 +32,17 @@ sugestão, e sugestão perde para pressa.
 ### Regimes (16/09/2026)
 
 Um material, dois regimes de luz: **Ferro** (escuro, a BASE — direção
-CORTE, `docs/briefs/design/DESIGN.md`) e **Papel** (claro, o derivado). Os
+NERVURA desde 17/09/2026, `docs/briefs/design/DESIGN.md`; foi a CORTE por
+um dia) e **Papel** (claro, o derivado). Os
 dois são escritos UMA vez, em `--ferro-*` e `--papel-*` no `:root`, e ligados
 por três gatilhos que só mapeiam: o próprio `:root` liga o Ferro
 (`--bg: var(--ferro-bg)`), `@media (prefers-color-scheme: light)` liga o
 Papel e `body.modo-foco` — classe que o servidor escreve na execução do
 treino — liga o Ferro de volta por cima da preferência. (De 12 a 16/09 a
-base foi a clara, Mesa.) Duas fontes próprias desde T3.2: Bodoni Moda
-(display, só em herói ≥ 20 px) e Karla (texto, `tabular-nums`), quatro
-pesos, 70 KB em `static/fonts/`. Foco é `--brand` em todo
+base foi a clara, Mesa.) Duas fontes próprias desde T3.2 (trocadas em 17/09): Big Shoulders
+Display (display, caixa alta, só em herói ≥ 20 px, sem `tnum` — número
+solto, nunca coluna) e Archivo (texto, `tabular-nums`), 70 KB em
+`static/fonts/`. Foco é `--brand` em todo
 controle (`--glow` = anel de 1 px, sem difusão); movimento só por `--mov-*` e
 nenhum `@keyframes` sem consumidor (18 declarados, 0 órfãos); botão sempre com
 variante de uma lista fechada; o sprite de ícones (13 símbolos, traço 2 em
