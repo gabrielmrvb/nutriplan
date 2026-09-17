@@ -154,7 +154,7 @@ class OCafeNaoEscalaAcimaDeUmEMeioTests(TestCase):
         A Task 2 re-centrou as 16 bases em ≈715 kcal (fator ≈1,0 no perfil de
         referência) em vez dos 480–540 kcal escaláveis da spec. Medido na
         revisão final (17/09/2026): numa dieta de 1.400 kcal, 12 dos 16 cafés
-        batiam em `MIN_SCALE` (0,5×) e entregavam 391–466 kcal em vez de 350 —
+        batiam em `MIN_SCALE` (0,5×) e entregavam 357–466 kcal em vez de 350 —
         e `meal_planner.generate` não compensa entre horários, então o dia
         inteiro estourava para quem come pouco. A 1.200 kcal (café 300) eram
         14 de 16. Antes da branch isso não acontecia.

@@ -2018,13 +2018,21 @@ class IngredientListTests(TestCase):
 
     def test_the_quantity_keeps_its_own_column(self):
         """Nome à esquerda, gramatura à direita: os números alinham numa
-        coluna que se lê de relance. Sem `flex: none` no `<b>`, um nome longo
-        empurra a quantidade e a coluna deixa de existir."""
+        coluna que se lê de relance.
+
+        A coluna é o ALINHAMENTO À DIREITA, não a rigidez: o `<b>` chegou a
+        ser `flex: none`, e com a medida caseira ("2,5 colheres de servir
+        (150 g)", ~210 px a 390 px de tela) a quantidade rígida deixava ~110 px
+        para "Carne moída (patinho) refogada" — o nome ia para três linhas.
+        Agora a quantidade pode encolher e quebrar (`flex: 0 1 auto`), e a
+        segunda linha dela continua alinhada pela direita, junto do número."""
         css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
             encoding="utf-8"
         )
         regra = css.split("\n.option__items b {", 1)[1].split("}", 1)[0]
-        self.assertIn("flex: none", regra)
+        self.assertNotIn("flex: none", regra)
+        self.assertIn("flex: 0 1 auto", regra)
+        self.assertIn("text-align: right", regra)
         self.assertIn("tabular-nums", regra)
 
     def test_a_long_food_name_cannot_push_the_page_sideways(self):

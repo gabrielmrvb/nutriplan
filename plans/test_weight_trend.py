@@ -336,6 +336,37 @@ class RecalibragemTests(TestCase):
         # efeito nenhum.
         self.assertEqual(com_ajuste.target_kcal, sem_ajuste.target_kcal + 150)
 
+    def test_quem_emagrece_acima_de_120_kg_e_avisado_que_o_teto_nao_se_aplicou(self):
+        """O único ramo do bloco que ficou sem teste na onda final.
+
+        Emagrecer acima de 120 kg é o caso em que o teto de 2.800 TERIA se
+        aplicado e a exceção de peso extremo o desligou: o ajuste manual
+        vale inteiro E a pessoa lê por quê ("o seu peso realmente sustenta um
+        gasto alto"). Para quem ganha massa esse aviso não existe — não há
+        teto a explicar — e o teste vizinho de RECOMP garante isso."""
+        from decimal import Decimal as D
+
+        from accounts.models import ActivityLevel, Goal, Sex
+
+        from .calculations import PlanInputs, calculate
+
+        base = dict(
+            sex=Sex.MALE,
+            weight_kg=D("200"),
+            height_cm=200,
+            age_years=20,
+            activity_level=ActivityLevel.SEDENTARY,
+            goal=Goal.CUT,
+            session_minutes=(),
+        )
+        sem_ajuste = calculate(PlanInputs(**base))
+        com_ajuste = calculate(PlanInputs(**base, kcal_adjustment=150))
+
+        self.assertGreater(sem_ajuste.target_kcal, 2800)
+        self.assertEqual(com_ajuste.target_kcal, sem_ajuste.target_kcal + 150)
+        self.assertIn("não se aplicou", com_ajuste.notes)
+        self.assertNotIn("parou no teto", com_ajuste.notes)
+
     def test_quem_ganha_massa_ouve_aumentar_nao_cortar(self):
         """Sugerir corte para quem quer GANHAR massa e empacou seria o app
         remando contra o objetivo da própria pessoa."""
