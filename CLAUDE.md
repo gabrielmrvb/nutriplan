@@ -1769,10 +1769,10 @@ exatamente na base da caixa (folga 0, medido), com 40 sobram 8.
 (`--danger`, `--brasa` sobre `--surface-3`) não ocorrem em tela real:
 medido, `--danger` só aparece sobre `--surface` (6,76 Ferro / 5,49 Papel)
 e sobre a tinta de erro (6,17 / 5,8); `--brasa` só como texto da corrida.
-E o `agent-browser` continua BLOQUEADO pelo Smart App Control do Windows
-(binário `NotSigned`; a 0.38.1 também; evento CodeIntegrity 3077 — não é
-quarentena do Defender, é política, e ligar/desligar é do dono): o QA de
-navegador é `scripts/qa/nav.py` sobre o mesmo Chrome 153.
+E o `agent-browser` continua BLOQUEADO pelo Smart App Control do Windows —
+a regra única está em "Limites reais deste ambiente": binário sem
+assinatura bloqueado → Python puro; o QA de navegador é `scripts/qa/nav.py`
+sobre o mesmo Chrome 153.
 
 ## Testes
 
@@ -1816,6 +1816,23 @@ dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
   no `render.yaml` de propósito: ele é o rollback. Se o plano gratuito do Neon
   tem prazo próprio, ninguém verificou — é uma olhada no painel dele.
   Ver **Backup e restauração** e [`docs/infra-recuperacao.md`](docs/infra-recuperacao.md).
+- **O SMART APP CONTROL DESTA MÁQUINA ESTÁ LIGADO E BLOQUEIA BINÁRIO SEM
+  ASSINATURA — a regra é UMA (18/09/2026): `.pyd`/`.exe` não assinado
+  bloqueado → Python puro, nunca remendo no teste.** O sintoma é sempre o
+  mesmo: "Uma política de Controle de Aplicativo bloqueou este arquivo"
+  (evento CodeIntegrity 3077, `VerifiedAndReputablePolicyState = 1`); não é
+  quarentena do Defender e reinstalar não resolve — ligar e desligar a
+  política é do dono, e desligar é irreversível sem reinstalar o Windows.
+  Duas consequências já pagas: o `agent-browser` (0.37.1 e 0.38.1,
+  `NotSigned`) não roda e o QA de navegador é `scripts/qa/nav.py` sobre o
+  MESMO Chrome 153 que ele baixou; e a extensão `bezierTools.pyd` do
+  fontTools foi APAGADA do `.venv` compartilhado — o fontTools roda em
+  Python puro, e os três testes das tabelas das fontes rodam de verdade.
+  Se um `.pyd` novo aparecer bloqueado (`pip install` que recompila): apague
+  o `.pyd` da biblioteca, não escreva `skip` no teste. O único `skip`
+  permitido é o de `config/test_fontes.py`, restrito a `win32` com a
+  mensagem apontando para esta regra; no CI (Linux) a extensão que não
+  carrega é FALHA.
 - **Nenhum processo de fundo abre janela, e todo processo de fundo nasce em
   `scripts/fundo.py`.** No Windows 11 o Windows Terminal hospeda todo console
   novo — e um processo sem console (os do Claude Code, o Agendador) que lança

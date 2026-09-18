@@ -11,6 +11,8 @@ A rota `workouts:exercicio` é GET puro, do PLANO ATIVO da própria pessoa
 (IDOR fechado como a ficha), e não "de hoje". Ver não é executar: zero
 formulário, zero campo de carga, zero cronômetro — a régua da ficha.
 """
+import re
+
 from django.core.management import call_command
 from django.db import connection
 from django.test import TestCase
@@ -98,13 +100,22 @@ class ALeituraDoExercicioTests(TestCase):
         self.assertEqual(self.client.get(reverse("workouts:exercicio", args=[999999])).status_code, 404)
 
     def test_a_ficha_de_OUTRO_dia_leva_a_leitura_e_nao_a_execucao(self):
+        """A ficha de outro dia mostra a variação da PRÓXIMA ocorrência da
+        letra (`contexto_da_ficha`, 17/09/2026), e qual opção é essa depende
+        do CALENDÁRIO — a versão anterior deste teste cobrava a opção 1 e
+        ficou vermelha na sexta 18/09 (em `main`, sem mudança de código). O
+        que não depende do dia é o contrato: toda porta é leitura, com a
+        volta para ESTA ficha (T1.14), e nenhuma é execução."""
         ficha = sem_scripts(self.client.get(
             reverse("workouts:ficha", args=[self.de_outro_dia.pk])
         ).content.decode())
-        # `?de=ficha&sessao=`: a leitura volta para ESTA ficha (T1.14).
-        self.assertIn('href="%s?de=ficha&amp;' % self._url(self.item_outro), ficha)
+        portas = re.findall(r'href="(/treino/exercicio/\d+/)\?de=ficha&amp;sessao=%d"' % self.de_outro_dia.pk, ficha)
+        self.assertTrue(portas, "a ficha de outro dia não tem porta de leitura")
+        da_sessao = {self._url(item) for n in (1, 2) for item in self.de_outro_dia.da_opcao(n)}
+        self.assertTrue(set(portas) <= da_sessao, "porta para exercício que não é desta sessão")
         self.assertNotIn("?exercicio=", ficha)
-        self.assertIn('aria-label="Ver %s"' % self.item_outro.exercise.name, ficha)
+        nomes = {item.exercise.name for n in (1, 2) for item in self.de_outro_dia.da_opcao(n)}
+        self.assertTrue(any('aria-label="Ver %s"' % nome in ficha for nome in nomes))
 
     def test_a_ficha_de_hoje_tem_as_duas_portas(self):
         ficha = sem_scripts(self.client.get(
