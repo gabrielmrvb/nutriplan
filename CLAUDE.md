@@ -1761,6 +1761,40 @@ porque `data-x` também está dentro do `<script>`. Ancore na classe
 Contraste é medido, não julgado: `config.tests` recalcula a razão WCAG a partir
 dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
 
+**A SUÍTE VIVE NUMA QUARTA-FEIRA CONGELADA, E A NOTURNA VIVE NO DIA REAL
+(18/09/2026).** `RunnerUnico.setup_test_environment` liga `config/relogio.py`:
+`timezone.now()` devolve a HORA real de agora com a DATA local trocada por
+`DATA_DA_SUITE` — quarta 16/09/2026, o "pior estado" que `plans/test_stress`
+já congelava à mão. Só a data, e só `timezone.now`: o app deriva "hoje" de
+`localdate()`/`localtime()`, nunca de `date.today()`, e a hora continua real
+e monotônica (`created_at` ordena; `Barrier` e timeouts são de verdade). O
+`default=timezone.now` de campo guardou o OBJETO da função na definição da
+classe e é trocado à mão — com o cache `_get_default` esquecido, senão a
+troca não muda linha nenhuma. Dois incidentes pediram isto: o push de
+terça 15/09 que passou e reprovava `plans.test_stress` na quarta, e
+`test_a_ficha_de_OUTRO_dia` caindo ao fatiar a suíte noutro dia (18/09) —
+a ficha de outro dia mostra a variação da PRÓXIMA ocorrência, que depende
+do calendário, e o teste assumia a opção 1. Teste que precisa de outro dia
+usa `relogio.congelado_em(dia)` (ou o `mock.patch` de `localdate` que já
+usava); teste que precisa do dia de verdade usa `relogio.relogio_real()`;
+**teste nunca chama `date.today()`** — com a data congelada ele diverge de
+`localdate()` e passa a medir a máquina (achievements, test_movimento e
+plans.tests faziam isso e foram convertidos). `NUTRIPLAN_DATA_REAL=1`
+desliga o congelamento; `NUTRIPLAN_DATA_DA_SUITE=AAAA-MM-DD` escolhe a
+data — é assim que se reproduz o que a noturna achou, ou se varre a
+semana atrás de teste que depende do dia. A dependência de calendário que
+o congelamento esconde tem dono: `.github/workflows/noturna.yml` roda a
+suíte completa toda madrugada (04:20 UTC) com a data real, o log DIZ
+"Relógio: DATA REAL" (o fluxo faz `grep`), e uma issue "Suíte noturna
+vermelha com a data real" abre ou ganha comentário ao cair e FECHA sozinha
+na primeira verde; `simular_falha` no `workflow_dispatch` é o controle
+positivo do alerta. O gate (`suite.yml`) NÃO liga o relógio real, e
+`config/test_relogio.py` prende as duas metades. O que o gate mede é um
+dia só, de propósito: os testes de paridade da ficha de outro dia
+(`workouts/test_ficha_unica.py`) escrevem a data dos DOIS ramos — bloco
+ímpar → opção 2, bloco par → opção 1 — e cada ramo fica vermelho sozinho
+quando `variacao_do_dia` ignora a paridade.
+
 ## Limites reais deste ambiente
 
 - **Node 24 e npm 11 estão instalados desde 12/09/2026** (WinGet), e com eles

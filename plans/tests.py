@@ -4733,7 +4733,7 @@ class MacrosRestantesTests(TestCase):
 
         proteina = next(
             m for m in macro_rows(
-                self.plan, tracking.day_summary(self.user, self.plan, date.today())
+                self.plan, tracking.day_summary(self.user, self.plan, timezone.localdate())
             ) if m["slug"] == "protein"
         )
         self.assertGreater(proteina["eaten"], 0, "o cenário precisa ter consumo")

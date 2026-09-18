@@ -1,0 +1,180 @@
+# A SUÍTE NOTURNA: a suíte completa com a DATA REAL, e um alerta que fica.
+#
+# O gate (`suite.yml`, em todo PR e em todo push em `main`) roda com a data
+# CONGELADA — quarta-feira 16/09/2026, `config/relogio.py` — para que o
+# mesmo commit dê o mesmo resultado numa terça e numa quarta. O incidente
+# está lá: o push de 15/09 passou e o mesmo `main` reprovava no dia seguinte,
+# porque um teste media o calendário em vez do código. Congelar tira o dia
+# do gate; este fluxo devolve o dia a alguém — toda madrugada, a suíte
+# inteira com `NUTRIPLAN_DATA_REAL=1`, o relógio de verdade, e o log DIZ
+# qual relógio valeu ("Relógio: DATA REAL"), senão a prova é só a variável.
+#
+# O ALERTA é uma issue, não só o e-mail do Actions: o e-mail vai para quem
+# editou o fluxo por último e some na caixa; a issue "Suíte noturna vermelha
+# com a data real" fica aberta na aba do repositório, ganha um comentário a
+# cada madrugada vermelha e FECHA sozinha na primeira verde — assim o
+# histórico de "quebrou dia X, voltou dia Y" mora num lugar só. Por isso
+# `issues: write`; nada além disso (o token não toca em código).
+#
+# `simular_falha` é o CONTROLE POSITIVO do alerta (CLAUDE.md, "smoke com
+# controle positivo"): um `workflow_dispatch` com ele marcado não roda a
+# suíte — falha de propósito, e a issue tem de abrir; o dispatch seguinte,
+# verde, tem de fechá-la. Foi assim que o alerta foi provado antes de a
+# primeira madrugada de verdade precisar dele.
+#
+# Sem segredo nenhum, mesmo Postgres 16 e mesmas variáveis fictícias de
+# `suite.yml`. O cron é 04:20 UTC (01:20 em Brasília), longe do horário em
+# que alguém está mergeando — e o `schedule` do GitHub atrasa e às vezes
+# pula (medido em 17/09/2026); para a noturna isso é aceitável, e o
+# `workflow_dispatch` existe para rodar à mão quando importar.
+name: Suíte noturna (data real)
+
+on:
+  schedule:
+    - cron: "20 4 * * *"
+  workflow_dispatch:
+    inputs:
+      simular_falha:
+        description: "Controle positivo do alerta: não roda a suíte, só falha — a issue tem de abrir (e fechar no dispatch seguinte)."
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: noturna
+  cancel-in-progress: false
+
+jobs:
+  suite:
+    name: "suíte completa, data real"
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nutriplan
+          POSTGRES_PASSWORD: nutriplan
+          POSTGRES_DB: nutriplan
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nutriplan"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      # O relógio real: é a ÚNICA diferença para o gate (ver `suite.yml`).
+      NUTRIPLAN_DATA_REAL: "1"
+      DATABASE_URL: postgres://nutriplan:nutriplan@localhost:5432/nutriplan
+      DJANGO_SECRET_KEY: "ci-somente-nao-e-segredo-0123456789abcdefghijklmnopqrstuvwxyz"
+      DJANGO_DEBUG: "true"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,testserver"
+      GOOGLE_CLIENT_ID: "ci-somente.apps.googleusercontent.com"
+      GOOGLE_CLIENT_SECRET: "ci-somente-nao-e-segredo"
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: "Controle positivo do alerta (falha de propósito)"
+        if: ${{ inputs.simular_falha == true }}
+        run: |
+          echo "simular_falha: este run falha de propósito para provar que a issue abre."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Instalar dependências
+        run: python -m pip install --upgrade pip && pip install -r requirements-dev.txt
+
+      # O mesmo comando do gate e do pre-push; o `grep` no fim é a prova de
+      # que ESTE run mediu o relógio real — sem ela, uma variável renomeada
+      # deixaria a noturna verde medindo a data congelada, para sempre.
+      - name: "Suíte completa com a data real"
+        shell: bash
+        run: |
+          set -o pipefail
+          python manage.py test --verbosity=1 --noinput 2>&1 | tee noturna.log
+          grep -q "Relógio: DATA REAL" noturna.log
+
+      - name: Guardar o log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: noturna-log-${{ github.run_id }}
+          path: noturna.log
+          retention-days: 14
+          if-no-files-found: ignore
+
+  alerta:
+    name: "abrir ou fechar o alerta"
+    needs: [suite]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          RESULTADO: ${{ needs.suite.result }}
+        with:
+          script: |
+            const titulo = "Suíte noturna vermelha com a data real";
+            const rotulo = "suite-noturna";
+            const resultado = process.env.RESULTADO;
+            // Cancelado ou pulado não é vermelho nem verde: não abre nem fecha nada.
+            if (resultado !== "failure" && resultado !== "success") {
+              core.info(`suíte: ${resultado} — nada a fazer`);
+              return;
+            }
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const hoje = new Date().toISOString().slice(0, 10);
+            try {
+              await github.rest.issues.getLabel({ ...context.repo, name: rotulo });
+            } catch (erro) {
+              if (erro.status !== 404) throw erro;
+              await github.rest.issues.createLabel({ ...context.repo, name: rotulo, color: "b60205",
+                description: "A suíte completa com a data real ficou vermelha" });
+            }
+            const { data: abertas } = await github.rest.issues.listForRepo({
+              ...context.repo, state: "open", labels: rotulo, per_page: 100 });
+            const existente = abertas.find((i) => i.title === titulo);
+            if (resultado === "failure") {
+              const corpo = [
+                `A suíte completa rodou com \`NUTRIPLAN_DATA_REAL=1\` em ${hoje} e ficou vermelha: ${run}`,
+                "",
+                "O gate (PR e push em `main`) roda com a data CONGELADA (quarta 16/09/2026) e não vê isto:",
+                "o que caiu aqui depende do CALENDÁRIO ou da hora. Reproduzir localmente:",
+                "`NUTRIPLAN_DATA_REAL=1 manage.py test <módulo>` (hoje) ou",
+                `\`NUTRIPLAN_DATA_DA_SUITE=${hoje} manage.py test <módulo>\` (este dia, em qualquer dia).`,
+                "Ver `config/relogio.py`. Esta issue fecha sozinha na primeira noturna verde.",
+              ].join("\n");
+              if (existente) {
+                await github.rest.issues.createComment({ ...context.repo, issue_number: existente.number, body: corpo });
+                core.info(`comentado em #${existente.number}`);
+              } else {
+                const { data: nova } = await github.rest.issues.create({
+                  ...context.repo, title: titulo, body: corpo, labels: [rotulo] });
+                core.info(`aberta #${nova.number}`);
+              }
+            } else if (existente) {
+              await github.rest.issues.createComment({
+                ...context.repo, issue_number: existente.number, body: `Verde de novo em ${hoje}: ${run}` });
+              await github.rest.issues.update({
+                ...context.repo, issue_number: existente.number, state: "closed", state_reason: "completed" });
+              core.info(`fechada #${existente.number}`);
+            } else {
+              core.info("verde, e nenhum alerta aberto");
+            }

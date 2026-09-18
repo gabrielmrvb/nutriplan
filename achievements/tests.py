@@ -14,6 +14,7 @@ from decimal import Decimal
 from django.core.management import call_command
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from django.utils import timezone
 from django.urls import reverse
 
 from accounts.models import TrainingDay
@@ -579,7 +580,7 @@ class RetroatividadeTests(BaseDeConquistas):
 
     def test_historico_anterior_desbloqueia_ao_abrir_a_tela(self):
         user = self.pessoa()
-        self.treinar(user, date.today())
+        self.treinar(user, timezone.localdate())
 
         # Ninguém passou pelo POST de carga: é o cenário de quem já usava o app
         # antes de as conquistas existirem.
@@ -599,7 +600,7 @@ class RetroatividadeTests(BaseDeConquistas):
         """
         user = self.pessoa()
         for n in range(3):
-            self.treinar(user, date.today() - timedelta(days=n))
+            self.treinar(user, timezone.localdate() - timedelta(days=n))
 
         self.client.force_login(user)
         resposta = self.client.get(reverse("achievements:list"), secure=True)
@@ -614,7 +615,7 @@ class RetroatividadeTests(BaseDeConquistas):
     def test_abrir_a_tela_varias_vezes_nao_duplica(self):
         """`avaliar` é idempotente, e a tela agora o chama a cada visita."""
         user = self.pessoa()
-        self.treinar(user, date.today())
+        self.treinar(user, timezone.localdate())
         self.client.force_login(user)
 
         for _ in range(3):
@@ -668,7 +669,7 @@ class ConcordanciaTests(BaseDeConquistas):
     def test_a_tela_concorda_com_um(self):
         """Uma conquista, um dia de treino, um recorde — tudo no singular."""
         user = self.pessoa()
-        self.treinar(user, date.today())
+        self.treinar(user, timezone.localdate())
         self.client.force_login(user)
 
         html = self.client.get(reverse("achievements:list"), secure=True).content.decode()

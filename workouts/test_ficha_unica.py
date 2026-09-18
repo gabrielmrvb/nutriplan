@@ -20,8 +20,8 @@ A versão rápida saiu do seletor da ficha e virou ação discreta no painel
 ("Menos tempo hoje?"), com `EventoDeProduto` por uso — o dado que decide em
 30 dias se ela fica.
 """
+import re
 from datetime import date, timedelta
-from unittest import mock
 
 from django.core.management import call_command
 from django.test import TestCase
@@ -29,6 +29,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
 from accounts.models import DuracaoTreino, TrainingDay
+from config import relogio
 from plans.tests import create_complete_user
 from workouts import services
 from workouts.models import EscolhaDeTreino, EventoDeProduto, ExerciseLog, TrainingPlan, VersaoDoTreino
@@ -38,9 +39,13 @@ SEGUNDA = date(2026, 9, 14)
 
 
 def _congelar(dia):
-    patcher = mock.patch("django.utils.timezone.localdate", return_value=dia)
-    patcher.start()
-    return patcher
+    """Hoje é `dia` — a DATA e o RELÓGIO (`config/relogio.py`), não só
+    `localdate`. Congelar só `localdate` deixava `created_at` do plano
+    nascer no dia da suíte: `test_com_a_letra_uma_vez_por_semana` ficava
+    vermelho com a suíte numa segunda 21/09 (o plano nascia na semana
+    SEGUINTE à de `SEGUNDA` e as semanas saíam [1, 1, 2]) — medido em
+    18/09/2026 com `NUTRIPLAN_DATA_DA_SUITE=2026-09-21`."""
+    return relogio.Relogio(dia).ligar()
 
 
 def _pessoa(email, dias=5):
@@ -65,7 +70,7 @@ class AVariacaoEDoCicloTests(TestCase):
 
     def setUp(self):
         self.relogio = _congelar(SEGUNDA)
-        self.addCleanup(self.relogio.stop)
+        self.addCleanup(self.relogio.desligar)
         self.user = _pessoa("variacao@exemplo.com")
         self.plan = services.create_routine(self.user)
         self.linhas = list(self.plan.sessions.prefetch_related("exercises__exercise"))
@@ -98,9 +103,9 @@ class AVariacaoEDoCicloTests(TestCase):
 
     def test_a_execucao_abre_a_variacao_do_dia_e_a_primeira_serie_a_grava(self):
         quinta = SEGUNDA + timedelta(days=3)
-        self.relogio.stop()
+        self.relogio.desligar()
         self.relogio = _congelar(quinta)
-        self.addCleanup(self.relogio.stop)
+        self.addCleanup(self.relogio.desligar)
         estado = services.estado_do_treino(self.user, dia=quinta)
         self.assertEqual(estado.sessao.label, "A")
         self.assertEqual(estado.opcao, 2)
@@ -169,7 +174,7 @@ class ATelaNaoFalaDeOpcaoTests(TestCase):
 
     def setUp(self):
         self.relogio = _congelar(SEGUNDA + timedelta(days=3))  # quinta: A, segunda ocorrência
-        self.addCleanup(self.relogio.stop)
+        self.addCleanup(self.relogio.desligar)
         self.user = _pessoa("tela-unica@exemplo.com")
         from plans import services as plan_services
 
@@ -215,9 +220,9 @@ class ATelaNaoFalaDeOpcaoTests(TestCase):
         a pessoa a abria (revisão adversarial de 17/09). Sabotagem medida:
         com `hoje_data` no lugar da data da ficha este teste fica vermelho;
         quinta × sexta (posições 3 e 4) caem no MESMO bloco e não medem."""
-        self.relogio.stop()
+        self.relogio.desligar()
         self.relogio = _congelar(SEGUNDA + timedelta(days=2))
-        self.addCleanup(self.relogio.stop)
+        self.addCleanup(self.relogio.desligar)
         quinta = SEGUNDA + timedelta(days=3)
         a, html, resposta = self._ficha_de(quinta)
         self.assertEqual(a.label, "A")
@@ -234,9 +239,9 @@ class ATelaNaoFalaDeOpcaoTests(TestCase):
         representa terça 22/09 (posição 6, bloco 2 → opção 1) — e não a
         variação de hoje. É a rotação contínua chegando à ficha de outro
         dia: a letra de segunda deixou de ser A, e a de A mudou de versão."""
-        self.relogio.stop()
+        self.relogio.desligar()
         self.relogio = _congelar(SEGUNDA + timedelta(days=7))
-        self.addCleanup(self.relogio.stop)
+        self.addCleanup(self.relogio.desligar)
         terca = SEGUNDA + timedelta(days=8)
         a, html, resposta = self._ficha_de(terca)
         self.assertEqual(a.label, "A")
@@ -246,6 +251,48 @@ class ATelaNaoFalaDeOpcaoTests(TestCase):
         so_na_1, so_na_2 = self._so_na(a, 1), self._so_na(a, 2)
         self.assertIn(so_na_1[0].exercise.name, html)
         self.assertNotIn(so_na_2[0].exercise.name, html)
+
+    # ---- os LINKS da ficha de outro dia, por paridade do bloco ----------
+    #
+    # `test_a_ficha_de_OUTRO_dia_leva_a_leitura_e_nao_a_execucao`
+    # (`test_exercicio_leitura.py`) assumia que a ficha de outro dia mostra a
+    # opção 1 e caiu ao rodar noutro dia (fatiamento do PR #33, 18/09/2026);
+    # a asserção de lá virou tolerante — "todo link é de leitura e da
+    # sessão". O que ela deixou de medir está AQUI, com a data escrita: em
+    # cada ramo da paridade, os links de leitura são EXATAMENTE os
+    # exercícios da variação que a próxima ocorrência vai usar. Sabotagem
+    # medida: `variacao_do_dia` devolvendo sempre 1 derruba o ramo ímpar;
+    # sempre 2 derruba o ramo par — cada ramo fica vermelho sozinho.
+
+    @staticmethod
+    def _links_de_leitura(html):
+        return {int(pk) for pk in re.findall(r"/treino/exercicio/(\d+)/\?de=ficha&amp;", html)}
+
+    def _os_links_sao_da_opcao(self, hoje, dia_da_ficha, opcao):
+        self.relogio.desligar()
+        self.relogio = _congelar(hoje)
+        self.addCleanup(self.relogio.desligar)
+        a, html, resposta = self._ficha_de(dia_da_ficha)
+        self.assertEqual(a.label, "A")
+        self.assertFalse(resposta.context["sessao"].eh_hoje)
+        self.assertEqual(services.variacao_do_dia(self.plan, dia_da_ficha, a, self.linhas), opcao)
+        outra = next(k for k in a.opcoes if k != opcao)
+        so_na_outra = {i.exercise_id for i in self._so_na(a, outra)}
+        self.assertTrue(so_na_outra, "as duas versões precisam diferir para o teste medir")
+        lidos = self._links_de_leitura(html)
+        self.assertEqual(lidos, {i.exercise_id for i in a.da_opcao(opcao)})
+        self.assertFalse(lidos & so_na_outra, "nenhum link é de exercício exclusivo da outra versão")
+        self.assertNotIn("?exercicio=", html, "a ficha de outro dia não executa")
+
+    def test_no_bloco_impar_os_links_de_leitura_sao_da_opcao_2(self):
+        """Quarta 16/09 (posição 2, bloco 0): a ficha de A é quinta 17/09,
+        posição 3, bloco 1 → opção 2."""
+        self._os_links_sao_da_opcao(SEGUNDA + timedelta(days=2), SEGUNDA + timedelta(days=3), 2)
+
+    def test_no_bloco_par_os_links_de_leitura_sao_da_opcao_1(self):
+        """Segunda 21/09 (posição 5, bloco 1): a ficha de A é terça 22/09,
+        posição 6, bloco 2 → opção 1."""
+        self._os_links_sao_da_opcao(SEGUNDA + timedelta(days=7), SEGUNDA + timedelta(days=8), 1)
 
     def test_a_execucao_nao_imprime_opcao_nem_convida_a_trocar(self):
         html = sem_scripts(self.client.get(reverse("workouts:now")).content.decode())
@@ -273,7 +320,7 @@ class AVersaoRapidaNoPainelTests(TestCase):
 
     def setUp(self):
         self.relogio = _congelar(SEGUNDA)
-        self.addCleanup(self.relogio.stop)
+        self.addCleanup(self.relogio.desligar)
         self.user = _pessoa("rapida@exemplo.com")
         from plans import services as plan_services
 
