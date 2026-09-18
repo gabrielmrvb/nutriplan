@@ -215,6 +215,19 @@ class OHelperDoGitHubTests(SimpleTestCase):
         self.assertIn("--sha", texto)
         self.assertIn("_esperar_head", texto)
 
+    def test_a_fila_roda_num_worktree_proprio_e_nao_trava_a_sessao(self):
+        """`enfileirar` faz merge/push/merge num WORKTREE descartável, não na
+        árvore da sessão — assim a sessão segue trabalhando enquanto a fila
+        anda (18/09/2026). Não exige mais a branch em HEAD, e o push do
+        worktree pula o atalho local (`--no-verify`): o gate é o check do CI
+        que a fila espera sobre o mesmo SHA."""
+        texto = _sem_comentarios(self._texto())
+        self.assertIn("worktree", texto)
+        self.assertIn('"worktree", "add", "--detach"', texto)
+        self.assertIn("worktree", texto.split("remove", 1)[0])  # tem remove no finally
+        self.assertNotIn("rode na árvore com ela em HEAD", texto)
+        self.assertIn("--no-verify", texto)
+
     def test_a_protecao_e_a_fila_apontam_para_o_check_do_gate(self):
         """Proteção clássica e ruleset (os dois hoje inertes — o repositório é
         privado e a API recusa ambos com 403; ficam prontos para o dia em que

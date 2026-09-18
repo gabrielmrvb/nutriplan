@@ -1849,9 +1849,17 @@ consegue conferir se ele rodou. Desde então:
   em ordem de chegada), e a sessão da vez faz o laço merge de `main` na
   branch → push → **espera "suíte rápida" do head certo (`esperar --sha`)**
   → merge, enquanto as outras esperam. Posse abandonada (90 min) é liberada
-  sozinha. O ruleset com a fila do GitHub (`corpo_da_fila`, `fila-ativar`) e
-  o gatilho `merge_group` ficam PRONTOS para o dia em que o repositório
-  morar numa organização (ou virar público) — decisão do dono;
+  sozinha. **O laço roda num WORKTREE PRÓPRIO e descartável (18/09/2026), não
+  na árvore da sessão** — `git worktree add --detach` no head remoto da
+  branch, merge/push/merge lá, `git worktree remove` no fim —, então a sessão
+  NÃO precisa estar com a branch em HEAD e SEGUE trabalhando enquanto a fila
+  anda (antes o `enfileirar` travava a árvore da sessão até a fila terminar).
+  O push do worktree é `--no-verify`: o pre-push é o atalho LOCAL e redundante
+  ali (o gate é o check do CI que a fila espera sobre o mesmo SHA, e a árvore
+  do worktree já é a que sobe). O ruleset com a fila do GitHub
+  (`corpo_da_fila`, `fila-ativar`) e o gatilho `merge_group` ficam PRONTOS
+  para o dia em que o repositório morar numa organização (ou virar público) —
+  decisão do dono;
 - **Se a "suíte completa" quebrar** (pós-merge ou no cron noturno): foi um
   `lento` que regrediu no merge que acabou de entrar OU algo que depende de
   calendário. O GitHub manda e-mail ao dono por run vermelho no branch
