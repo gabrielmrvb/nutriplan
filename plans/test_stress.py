@@ -17,7 +17,7 @@ from unittest import mock
 
 from django.core.management import call_command
 from django.db import connection
-from django.test import TestCase
+from django.test import TestCase, tag
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
@@ -97,6 +97,7 @@ class PopulatedAccountMixin:
         )
 
 
+@tag("lento")  # perf/estatística sobre um ano semeado; roda pós-merge e no cron (e no pre-push local)
 class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
     """Um teto por tela. Estourar não é lentidão — é laço com consulta dentro."""
 
@@ -283,6 +284,7 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
                 )
 
 
+@tag("lento")  # perf/estatística sobre um ano semeado; roda pós-merge e no cron (e no pre-push local)
 class MuscleVolumeRegressionTests(PopulatedAccountMixin, TestCase):
     """A regressão específica que a medição encontrou.
 
@@ -316,6 +318,7 @@ class MuscleVolumeRegressionTests(PopulatedAccountMixin, TestCase):
         self.assertEqual(len(semana), 7)
 
 
+@tag("lento")  # perf/estatística sobre um ano semeado; roda pós-merge e no cron (e no pre-push local)
 class HeavyComputationTests(PopulatedAccountMixin, TestCase):
     """Os cálculos que percorrem a série inteira em Python."""
 
@@ -344,6 +347,7 @@ class HeavyComputationTests(PopulatedAccountMixin, TestCase):
         self.assertLessEqual(len(linhas), tracking.HISTORY_DAYS)
 
 
+@tag("lento")  # perf/estatística sobre um ano semeado; roda pós-merge e no cron (e no pre-push local)
 class StressSeedTests(TestCase):
     """O próprio gerador de carga."""
 
