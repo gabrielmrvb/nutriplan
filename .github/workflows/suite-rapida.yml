@@ -1,31 +1,30 @@
-# O GATE DE MERGE: a suíte SEM os testes `lento`, em paralelo, em < 10 min.
+# O GATE DE MERGE: a suíte FATIADA (sem os `lento`), em < 10 min.
 #
-# Até 18/09/2026 o único check obrigatório era "suíte completa" — a suíte
-# inteira, serial, ~31 min de execução (medido nos últimos 10 runs: instalar
-# ~10 s com cache, o resto é o `manage.py test`). Com a fila local
-# empilhando PRs, cada um esperando ~32 min de runner, o gargalo era o
-# tempo do check. E o repositório é PRIVADO: minuto de Actions é metered
-# (~2000/mês no free), então PR de 32 min também é custo, não só espera.
+# A suíte inteira serial executava em ~31 min (medido: instalar ~10 s com
+# cache, o resto é o `manage.py test`), e a fila local empilhava PRs de ~32
+# min cada. O repositório é PRIVADO — minuto de Actions é metered.
 #
-# Este fluxo é o gate rápido: `--parallel auto` (um processo por vCPU do
-# runner; o `RunnerUnico` já conta os clones `test_nutriplan_N`) e
-# `--exclude-tag lento` (os testes pesados de estatística/estresse, que
-# `suite.yml` roda depois do merge e à noite — ver lá o que é `lento` e por
-# quê). O nome do job é o check que `scripts/github.py` (CHECK) espera antes
-# de mergear; renomear um sem o outro deixa todo PR esperando um check que
-# nunca vem (há teste em `config/test_ci.py`).
+# NÃO usamos `--parallel` do Django: ele roda cada processo com um clone do
+# banco, mas a suíte tem teste que assume ORDEM de PK, e no CH (PR #33,
+# Linux) UM teste caiu e o runner morreu com `cannot pickle 'traceback'`,
+# escondendo a falha. Fatiamos: `ci/shard.py i N` reparte os módulos em N
+# fatias equilibradas, cada job roda a sua SERIAL (idêntico ao verde de
+# sempre) e os jobs correm juntos. O ganho de tempo vem do paralelismo ENTRE
+# jobs, não dentro. Uma fatia nova de teste não fica órfã: `ci/shard.py`
+# descobre todo módulo versionado, e `config/test_ci.py` cobra a cobertura.
 #
-# Sem segredo: Postgres de serviço, SECRET_KEY fictícia com os 50 caracteres
-# de `accounts.E005`, `permissions: contents: read`. Postgres 16 = a maior
-# de produção (Neon). `pipefail` porque `test | tee` devolveria o status do
-# `tee` — verde com a suíte vermelha.
+# `--exclude-tag lento` tira os testes pesados de estatística/estresse do
+# caminho de todo PR — eles rodam em `suite.yml` (pós-merge e à noite).
+#
+# O check que BARRA O MERGE é o job `gate` ("suíte rápida"): ele só fica
+# verde se TODAS as fatias ficarem. É o nome que `scripts/github.py` (CHECK)
+# espera. Sem segredo: Postgres 16 (produção), SECRET_KEY fictícia (50
+# caracteres de `accounts.E005`), `contents: read`.
 name: Suíte rápida
 
 on:
   pull_request:
     branches: [main]
-  # A fila do GitHub, para o dia em que o repositório morar numa organização
-  # (hoje é privado e a API recusa merge_group/branch protection); inócuo até lá.
   merge_group:
     types: [checks_requested]
 
@@ -37,10 +36,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  suite:
-    name: "suíte rápida"
+  fatia:
+    name: "fatia ${{ matrix.i }}"
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        i: [0, 1, 2, 3, 4]
 
     services:
       postgres:
@@ -81,18 +84,31 @@ jobs:
       - name: Instalar dependências
         run: python -m pip install --upgrade pip && pip install -r requirements-dev.txt
 
-      - name: "suíte rápida (paralela, sem os lentos)"
+      - name: "fatia ${{ matrix.i }} de 5 (serial, sem os lentos)"
         shell: bash
         run: |
           set -o pipefail
           echo "vCPUs do runner: $(nproc)"
-          python manage.py test --parallel auto --exclude-tag lento \
-            --verbosity=1 --noinput 2>&1 | tee suite-rapida.log
+          LABELS=$(python ci/shard.py ${{ matrix.i }} 5)
+          echo "módulos desta fatia:"; echo "$LABELS" | tr ' ' '\n'
+          python manage.py test $LABELS --exclude-tag lento --durations 15 \
+            --verbosity=1 --noinput 2>&1 | tee suite-rapida-${{ matrix.i }}.log
 
       - name: Guardar o log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: suite-rapida-log-${{ github.sha }}
-          path: suite-rapida.log
+          name: suite-rapida-${{ matrix.i }}-${{ github.sha }}
+          path: suite-rapida-${{ matrix.i }}.log
           retention-days: 14
+
+  gate:
+    name: "suíte rápida"
+    needs: [fatia]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: "verde só se todas as fatias passaram"
+        run: |
+          echo "resultado das fatias: ${{ needs.fatia.result }}"
+          [ "${{ needs.fatia.result }}" = "success" ]

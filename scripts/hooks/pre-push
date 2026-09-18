@@ -5,7 +5,7 @@
 # suíte inteira (30–40 minutos) e era o único gate; um push chegou ao
 # GitHub naquele dia sem passar pelo reflog de nenhuma sessão, e um gate que
 # só existe numa máquina não é gate — ninguém consegue conferir se rodou.
-# Hoje o gate é o CI: `suite-rapida.yml` (`--parallel --exclude-tag lento`,
+# Hoje o gate é o CI: `suite-rapida.yml` (fatiada, `--exclude-tag lento`,
 # < 10 min) barra todo PR — é o check que a fila local espera —, e
 # `suite.yml` roda a suíte inteira depois do merge e à noite (18/09/2026).
 # Este hook virou o atalho que pega regressão cara em poucos minutos, antes
@@ -99,4 +99,4 @@ inicio=$(date +%s)
 # número sabe se é o hook ou a máquina.
 echo "→ atalho levou $(( $(date +%s) - inicio )) s"
 
-echo "✓ push liberado — o julgamento é o check \"suíte completa\" no PR"
+echo "✓ push liberado — o julgamento é o check \"suíte rápida\" no PR"

@@ -46,7 +46,7 @@ API = "https://api.github.com"
 
 #: O nome do job que BARRA O MERGE — o "context" que `esperar`/`enfileirar`
 #: aguardam ficar verde. Desde 18/09/2026 é a SUÍTE RÁPIDA
-#: (`.github/workflows/suite-rapida.yml`, `--parallel --exclude-tag lento`,
+#: (`.github/workflows/suite-rapida.yml`, fatiada por `ci/shard.py`, `--exclude-tag lento`,
 #: < 10 min), e não mais a completa (~31 min, que passou a rodar depois do
 #: merge e à noite em `suite.yml`). `config/test_ci.py` confere que este
 #: texto bate com o nome do job do fluxo rápido — renomear um sem o outro

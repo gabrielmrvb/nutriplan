@@ -59,18 +59,54 @@ class OGateRapidoTests(SimpleTestCase):
     def test_roda_em_pull_request_para_main(self):
         self.assertRegex(self._fluxo(), r"pull_request:\s*\n\s+branches:\s*\[?\s*-?\s*\"?main")
 
-    def test_e_paralela_e_exclui_os_lentos(self):
-        """O ganho: `--parallel auto` divide a suíte pelos vCPUs do runner, e
-        `--exclude-tag lento` tira os testes pesados do caminho de todo PR.
-        Sem UM dos dois o gate volta a ser lento."""
+    def test_e_fatiada_e_exclui_os_lentos(self):
+        """O ganho vem de FATIAR (`ci/shard.py`), cada fatia serial e os jobs
+        em paralelo — não de `--parallel` do Django, que morre com `cannot
+        pickle 'traceback'` quando um teste de ordem-de-PK cai (medido no PR
+        #33). E `--exclude-tag lento` tira os pesados do caminho de todo PR."""
         fluxo = FLUXO_RAPIDA.read_text(encoding="utf-8")
         self.assertIn("manage.py test", fluxo)
-        self.assertIn("--parallel", fluxo)
+        self.assertIn("ci/shard.py", fluxo)
         self.assertIn("--exclude-tag lento", fluxo)
         self.assertIn("--verbosity=1 --noinput", fluxo)
         self.assertIn("pipefail", fluxo)
+        # O comentário EXPLICA por que não usamos `--parallel`; o que importa é
+        # que o COMANDO não o traga.
+        self.assertNotIn("--parallel", _sem_comentarios(fluxo))
 
-    def test_o_teto_e_curto(self):
+    def test_o_gate_fica_verde_so_com_todas_as_fatias(self):
+        """O job `gate` (o check que o helper espera) depende das fatias e só
+        passa se todas passarem — senão uma fatia vermelha entraria em `main`
+        pela porta do check verde."""
+        fluxo = self._fluxo()
+        self.assertRegex(fluxo, r"needs:\s*\[?\s*fatia")
+        self.assertIn("needs.fatia.result", fluxo)
+
+    def test_a_particao_cobre_todo_modulo_sem_orfao(self):
+        """Fatiar por lista escrita à mão esqueceria um arquivo novo — e um
+        módulo em NENHUMA fatia nunca roda no gate (buraco de cobertura). A
+        partição de `ci/shard.py` cobre TODO módulo descoberto, sem repetir."""
+        import re as _re
+
+        from ci import shard
+
+        fluxo = FLUXO_RAPIDA.read_text(encoding="utf-8")
+        m = _re.search(r"ci/shard\.py \$\{\{ matrix\.i \}\} (\d+)", fluxo)
+        self.assertIsNotNone(m, "o comando tem de chamar ci/shard.py com o total de fatias")
+        n = int(m.group(1))
+        matriz = _re.search(r"matrix:\s*\n\s*i:\s*\[([0-9,\s]+)\]", fluxo)
+        self.assertIsNotNone(matriz)
+        indices = [int(x) for x in matriz.group(1).split(",")]
+        self.assertEqual(sorted(indices), list(range(n)), "a matriz tem de ter uma entrada por fatia")
+
+        todos = shard.modulos()
+        self.assertIn("config.test_ci", todos)
+        fatias = shard.particionar(n)
+        uniao = sorted(x for f in fatias for x in f)
+        self.assertEqual(uniao, todos, "toda fatia coberta, sem órfão")
+        self.assertEqual(len(uniao), len(set(uniao)), "sem módulo em duas fatias")
+
+    def test_o_teto_da_fatia_e_curto(self):
         m = re.search(r"timeout-minutes:\s*(\d+)", self._fluxo())
         self.assertIsNotNone(m)
         self.assertLessEqual(int(m.group(1)), 20)
@@ -106,17 +142,20 @@ class ASuiteCompletaTests(SimpleTestCase):
         self.assertRegex(fluxo, r"schedule:\s*\n\s+-\s*cron:")
         self.assertIn("workflow_dispatch:", fluxo)
 
-    def test_roda_a_suite_inteira_em_paralelo_sem_excluir_nada(self):
+    def test_roda_a_suite_inteira_fatiada_sem_excluir_nada(self):
         """A completa NÃO exclui `lento` — é onde os pesados rodam. E é
-        paralela também, senão o pós-merge levaria os ~31 min de antes."""
+        fatiada como a rápida (cada fatia serial), senão o pós-merge levaria
+        os ~31 min de antes."""
         fluxo = FLUXO_COMPLETA.read_text(encoding="utf-8")
         self.assertIn("manage.py test", fluxo)
-        self.assertIn("--parallel", fluxo)
+        self.assertIn("ci/shard.py", fluxo)
         self.assertIn("--verbosity=1 --noinput", fluxo)
         self.assertIn("pipefail", fluxo)
-        # O `--exclude-tag` do comentário (que explica a rápida) não conta: o
-        # que importa é que o COMANDO da completa não o traga.
-        self.assertNotIn("--exclude-tag", _sem_comentarios(fluxo))
+        # Os `--parallel`/`--exclude-tag` do comentário (que explicam a
+        # escolha) não contam: o que importa é o COMANDO da completa.
+        sem = _sem_comentarios(fluxo)
+        self.assertNotIn("--parallel", sem)
+        self.assertNotIn("--exclude-tag", sem)
 
     def test_teto_de_quarenta_minutos_e_log_sempre(self):
         fluxo = self._fluxo()
@@ -125,7 +164,7 @@ class ASuiteCompletaTests(SimpleTestCase):
         self.assertLessEqual(int(m.group(1)), 40)
         self.assertIn("actions/upload-artifact", fluxo)
         self.assertIn("if: always()", fluxo)
-        self.assertIn("suite.log", fluxo)
+        self.assertIn(".log", fluxo)
 
     def test_sem_segredo_e_contents_read(self):
         fluxo = self._fluxo()

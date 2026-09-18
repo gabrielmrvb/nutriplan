@@ -1814,18 +1814,24 @@ consegue conferir se ele rodou. Desde então:
   serial, executava em ~31 min (medido nos últimos 10 runs: instalar ~10 s
   com cache, o resto é o `manage.py test`), e com a fila local cada PR
   esperava ~32 min de runner. `suite-rapida.yml` (check **"suíte rápida"**)
-  é o GATE: `manage.py test --parallel auto --exclude-tag lento` — um
-  processo por vCPU do runner (o `RunnerUnico` conta os clones
-  `test_nutriplan_N`) e sem os testes pesados de estatística/estresse
-  (`@tag("lento")`). Roda em todo PR, teto 20 min, alvo < 10. `suite.yml`
-  (check **"suíte completa"**) roda TUDO, inclusive `lento`, DEPOIS do merge
-  (`push: main`), à noite (`schedule` 06:00 UTC) e à mão
-  (`workflow_dispatch`) — também paralela, e não barra PR. Os dois: Postgres
-  16 de serviço (a versão de produção), sem segredo, `contents: read`, log
-  como artefato. **`@tag("lento")` é só para teste pesado que NÃO é o único
-  guarda de algo crítico** (concorrência, dourado, idempotência, segurança
-  ficam no rápido mesmo quando custam) — cada um movido está justificado no
-  relatório da mudança;
+  é o GATE: a suíte FATIADA em 5 por `ci/shard.py` (um job por fatia, cada
+  um SERIAL, os jobs em paralelo), `--exclude-tag lento`. **Não** usamos
+  `--parallel` do Django: ele roda cada processo com um clone do banco, mas
+  a suíte tem teste que assume ORDEM de PK, e no CI (PR #33, Linux) UM caiu
+  e o runner morreu com `cannot pickle 'traceback'`, escondendo a falha —
+  fatiar mantém cada fatia idêntica ao verde serial de sempre. `ci/shard.py`
+  descobre TODO módulo versionado e reparte equilibrado (peso por linhas, e
+  peso extra para quem semeia um ano); `config/test_ci.py` cobra que a
+  partição não deixa módulo órfão (um módulo em nenhuma fatia nunca rodaria
+  no gate). O check é o job `gate` ("suíte rápida"), verde só se TODAS as
+  fatias passam. Roda em todo PR, alvo < 10 min. `suite.yml` (check
+  **"suíte completa"**) roda as MESMAS fatias com TUDO, inclusive `lento`,
+  DEPOIS do merge (`push: main`), à noite (`schedule` 06:00 UTC) e à mão
+  (`workflow_dispatch`) — não barra PR. Os dois: Postgres 16 (produção), sem
+  segredo, `contents: read`, cada fatia sobe seu log e `--durations 15`.
+  **`@tag("lento")` é só para teste pesado que NÃO é o único guarda de algo
+  crítico** (concorrência, dourado, idempotência, segurança ficam no rápido
+  mesmo quando custam) — cada um movido está justificado no relatório;
 - **NÃO HÁ GATE NO SERVIDOR: o repositório é PRIVADO** e a API do GitHub
   devolve **403 "Upgrade to GitHub Pro or make this repository public"**
   para branch protection E para rulesets (conferido em 18/09/2026 — a
