@@ -440,6 +440,23 @@ class ContrastTests(TestCase):
         """O tema claro estava pior que o escuro: 3.33:1 no texto discreto."""
         self._conferir(REGIME_PAPEL, "claro")
 
+    def test_a_barra_da_semana_contrasta_com_a_trilha(self):
+        """A barra do Progresso é `--folha` sobre a TRILHA, que é `--fio` — uma
+        tinta translúcida pousada na superfície do cartão. A auditoria mede
+        gráfico × superfície e passava (3,29 sobre `--surface-3`); MEDIDO na
+        tela real em 18/09/2026, o Papel dava 2,97:1 sobre a trilha composta
+        (rgb 200,205,197). O par que o olho vê é este, e a régua é 3:1."""
+        for escopo, rotulo in REGIMES:
+            tokens = _tokens(self.css, escopo)
+            prefixo = "--ferro-" if rotulo == "escuro" else "--papel-"
+            fio = re.search(r"%sfio:\s*rgba\((\d+),\s*(\d+),\s*(\d+),\s*(\.?\d*\.?\d+)\)" % prefixo, self.css)
+            self.assertIsNotNone(fio, "o fio é rgba() sobre a superfície")
+            tinta = "#%02x%02x%02x" % tuple(int(fio.group(i)) for i in (1, 2, 3))
+            trilha = _sobre(tinta, float(fio.group(4)), tokens["--surface"])
+            with self.subTest(tema=rotulo, trilha=trilha):
+                razao = _contraste(tokens["--folha"], trilha)
+                self.assertGreaterEqual(razao, 3.0, f"--folha sobre a trilha ({trilha}) dá {razao:.2f}:1")
+
 
 class TouchTargetTests(TestCase):
     """44x44 é o mínimo em que o dedo acerta.

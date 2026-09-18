@@ -77,7 +77,7 @@ direção define dez cores; as outras são DERIVADAS e medidas
 | `--brand-strong` | `#6AEB97` | `#0C5427` | só `:active`/hover |
 | `--brand-soft` | `#0F2E1B` | `#D6EEDD` | tinta da ação: chip, botão tonal, trilha cheia |
 | `--on-brand` | `#06240F` | `#FFFFFF` | `--sobre-acento`: texto sobre `--brand` |
-| `--folha` | `#33C96A` | `#1D833F` | FEITO (série registrada, ✓, arco cheio) — o neon um tom para dentro; derivado, a direção tem um verde só |
+| `--folha` | `#33C96A` | `#1B7C3B` | FEITO (série registrada, ✓, arco cheio) — o neon um tom para dentro; derivado, a direção tem um verde só; no Papel o valor é o que dá 3:1 sobre a TRILHA da barra (`--fio` composto), medido na tela em 18/09/2026 |
 | `--terra` | `#E8A33D` | `#814C10` | `--carga`: a CARGA (kg) e o pilar Progresso/peso (o `#8A5510` do claro escureceu 5 %) |
 | `--brasa` | `#FF8E6E` | `#9E3E1A` | pilar Corrida (derivado) |
 | `--agua` / `--agua-texto` | `#7CC7EA` | `#1E6E96` / `#175877` | pilar Hidratação (objeto / texto pequeno; derivado) |
