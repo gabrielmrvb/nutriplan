@@ -39,7 +39,13 @@ CI, fluxo branch → PR → FILA (`scripts/github.py enfileirar`: a fila
 local desta máquina, porque a do GitHub só existe em organização; merge
 commit; `strict` intacto)
 · deploy provado por `/saude/` + smoke + QA em produção com conta descartável
-pelo signup público, conta apagada pela tela, demo intacto · `scripts/qa/
+pelo signup público, conta apagada pela tela, demo intacto — **a conta de QA
+descartável é do AGENTE (decisão do dono, 18/09/2026): a sessão cria pelo
+signup público, com e-mail claramente de QA (`qa-<sessão>-<data>@nutriplan.invalid`),
+senha só para aquela conta, nunca no relatório; obrigação de APAGAR pela
+tela ao terminar e provar que sumiu (login recusado). Nunca a conta pessoal
+do dono. Sessão cujo ambiente proíba criar conta ou digitar senha diz isso
+no relatório e prova o que der pelo `/demo/`** · `scripts/qa/
 nav.py` (CDP) para navegador, inclusive sites de terceiros na sessão logada do
 dono (Render, GitHub, claude.ai) · mídia de exercício ativa com curadoria e
 mosaico para veto posterior · plano ativo antigo nunca remonta sozinho · o
@@ -1756,6 +1762,26 @@ Os tempos foram medidos ao vivo por `getAnimations()` no CDP (nervura
 600 ms, cascata +600/+680, botões +1000); `nav.py` re-emula a cada comando, então captura
 estática de movimento é sempre com `movimento reduzido`.
 
+**Dois achados do QA em produção (18/09/2026), os dois MEDIDOS na tela e
+não na tabela.** (1) A barra da semana do Progresso é `--folha` sobre a
+TRILHA — `--fio`, uma tinta translúcida composta na superfície —, e esse
+par não está na auditoria (que mede gráfico × superfície): no Papel dava
+2,97:1; `--papel-folha` foi de #1d833f para #1b7c3b (3,26 sobre a trilha,
+3,6 sobre `--surface-3`), e `config/tests.py` passou a compor o fio e
+medir o par. (2) A nervura do título sobe ~24 px acima do `h1`; no
+`/demo/` a faixa "Ambiente de demonstração … Saiba mais" tinha 16 px de
+margem e a ponta entrava 16 px na caixa do link (encostava no sublinhado).
+A faixa passou a 40 px (`--espaco-7` + `--espaco-6`): com 32 a ponta caía
+exatamente na base da caixa (folga 0, medido), com 40 sobram 8.
+`config/test_nervura.py` prende a margem. Os pares que raspam na auditoria
+(`--danger`, `--brasa` sobre `--surface-3`) não ocorrem em tela real:
+medido, `--danger` só aparece sobre `--surface` (6,76 Ferro / 5,49 Papel)
+e sobre a tinta de erro (6,17 / 5,8); `--brasa` só como texto da corrida.
+E o `agent-browser` continua BLOQUEADO pelo Smart App Control do Windows —
+a regra única está em "Limites reais deste ambiente": binário sem
+assinatura bloqueado → Python puro; o QA de navegador é `scripts/qa/nav.py`
+sobre o mesmo Chrome 153.
+
 ## Testes
 
 Nome descreve o comportamento, não o método. Docstring diz **por que** aquilo
@@ -1814,6 +1840,23 @@ dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
   no `render.yaml` de propósito: ele é o rollback. Se o plano gratuito do Neon
   tem prazo próprio, ninguém verificou — é uma olhada no painel dele.
   Ver **Backup e restauração** e [`docs/infra-recuperacao.md`](docs/infra-recuperacao.md).
+- **O SMART APP CONTROL DESTA MÁQUINA ESTÁ LIGADO E BLOQUEIA BINÁRIO SEM
+  ASSINATURA — a regra é UMA (18/09/2026): `.pyd`/`.exe` não assinado
+  bloqueado → Python puro, nunca remendo no teste.** O sintoma é sempre o
+  mesmo: "Uma política de Controle de Aplicativo bloqueou este arquivo"
+  (evento CodeIntegrity 3077, `VerifiedAndReputablePolicyState = 1`); não é
+  quarentena do Defender e reinstalar não resolve — ligar e desligar a
+  política é do dono, e desligar é irreversível sem reinstalar o Windows.
+  Duas consequências já pagas: o `agent-browser` (0.37.1 e 0.38.1,
+  `NotSigned`) não roda e o QA de navegador é `scripts/qa/nav.py` sobre o
+  MESMO Chrome 153 que ele baixou; e a extensão `bezierTools.pyd` do
+  fontTools foi APAGADA do `.venv` compartilhado — o fontTools roda em
+  Python puro, e os três testes das tabelas das fontes rodam de verdade.
+  Se um `.pyd` novo aparecer bloqueado (`pip install` que recompila): apague
+  o `.pyd` da biblioteca, não escreva `skip` no teste. O único `skip`
+  permitido é o de `config/test_fontes.py`, restrito a `win32` com a
+  mensagem apontando para esta regra; no CI (Linux) a extensão que não
+  carrega é FALHA.
 - **Nenhum processo de fundo abre janela, e todo processo de fundo nasce em
   `scripts/fundo.py`.** No Windows 11 o Windows Terminal hospeda todo console
   novo — e um processo sem console (os do Claude Code, o Agendador) que lança
@@ -1956,15 +1999,27 @@ variáveis), `env`, `cron`, `deploy`, `trigger`, `runs`, `logs`, `status`.
   FCM 201, notificação exibida.
 - **Lembretes SEM cron e SEM nada pago (decisão do dono, 16/09/2026).** A
   criação do cron pela API respondeu `402 Payment information is required`
-  (custaria no mínimo US$ 1/mês), e a instância web continua `free`. Quem
-  DISPARA lembrete é o **GitHub Actions** (`.github/workflows/lembretes.yml`,
-  `schedule` `*/5`): uma rodada CURTA por disparo, `POST /tarefas/lembretes/`
-  com `NUTRIPLAN_TAREFAS_TOKEN` no `Authorization` (variável do web service +
-  segredo do repositório; o mesmo valor, em `~/.nutriplan-secrets/tarefas_token`;
-  gravado por `scripts/github.py segredo` e pela API do Render). A rota é
-  `push.views.TarefaLembretesView` → `push/tarefas.py`: token em tempo
-  constante (503 sem a variável, 403 com token errado), só POST, sem
-  sessão, idempotente pela constraint do `NotificationLog`.
+  (custaria no mínimo US$ 1/mês), e a instância web continua `free`.
+- **Quem DISPARA lembrete com PONTUALIDADE é o UptimeRobot (18/09/2026), e o
+  `schedule` do Actions é FALLBACK.** O `schedule` do GitHub atrasa e PULA —
+  MEDIDO em 18/09: ~9 rodadas em 31 h (intervalos de 2 a 5,5 h), então o
+  lembrete saía a cada ~4,4 h em vez de 5 min. O primário passou a ser um
+  segundo monitor do UptimeRobot em `GET /tarefas/lembretes/externo/<token>/`
+  (a cada 5 min, pontual). O UptimeRobot free só manda GET/HEAD e SEM
+  cabeçalho, então o token vai na URL (`NUTRIPLAN_DISPARO_TOKEN`, SEPARADO do
+  Bearer do POST): `config/observabilidade.py` o redige do log do Django, mas
+  ele APARECE no log de ACESSO do Render — por isso é de baixo dano (só
+  dispara lembretes vencidos, idempotente, com limite de taxa de
+  `INTERVALO_MINIMO_EXTERNO`). A rota é `push.views.DisparoExternoView` (GET,
+  503 sem a variável, 403 com token errado; loga user-agent e origem, nunca o
+  token). O `schedule` continua no `POST /tarefas/lembretes/`
+  (`TarefaLembretesView`, Bearer `NUTRIPLAN_TAREFAS_TOKEN`) como FALLBACK: o
+  `push/tarefas.py` SE ABSTÉM (`rodar(externo=False)`) quando um disparo
+  externo cuidou há menos de `RESERVA_DO_FALLBACK` (4 min) — assim o pontual
+  manda e o `schedule` só assume se o UptimeRobot cair. A memória do último
+  externo é por PROCESSO (dois workers) e some no restart; errar dá no
+  máximo uma rodada redundante, que a constraint do `NotificationLog` torna
+  inofensiva.
 
 - **Quem MANTÉM ACORDADO é o UptimeRobot (17/09/2026), não o Actions.** Um
   monitor HTTP(s) gratuito — conta `bielpointblank@gmail.com`, monitor
@@ -1983,23 +2038,20 @@ variáveis), `env`, `cron`, `deploy`, `trigger`, `runs`, `logs`, `status`.
 **A infraestrutura é 100 % gratuita — Render free + Neon free + GitHub
 Actions + UptimeRobot free —, e isso implica três coisas escritas:**
 
-- **duas responsabilidades, dois donos.** MANTER ACORDADO é do UptimeRobot
-  (5 em 5 min em `/saude/vivo/`, confiável); DISPARAR LEMBRETE é do `schedule`
-  do Actions (5 em 5 min em `/tarefas/lembretes/`). Separar foi decisão de
-  17/09: o `schedule` do GitHub ATRASA e às vezes PULA — MEDIDO naquele dia,
-  o `*/5` rodou UMA vez em oito horas —, então ele NÃO serve para segurar
-  cold start (que precisa de pontualidade), mas serve para lembrete (a janela
-  de `push/services.py` tolera atraso, e a constraint do banco impede
-  duplicar). O preço aceito pelo dono é **lembrete pode atrasar** quando o
-  GitHub atrasa; o que NÃO acontece mais é cold start, porque o UptimeRobot
-  não depende do humor do `schedule`. **Se o UptimeRobot cair** (o e-mail
-  avisa): o serviço volta a dormir após 15 min e o primeiro acesso paga
-  37–60 s — reative o monitor no painel, ou o próprio `POST` do lembrete
-  acaba acordando o web na próxima vez que o `schedule` rodar. **Se o
-  `schedule` do Actions parar** (repositório sem atividade por 60 dias — o
-  GitHub avisa por e-mail — ou pane do agendador): os lembretes param sem
-  derrubar mais nada; `workflow_dispatch` na aba Actions dispara uma rodada à
-  mão, e um commit qualquer religa o `schedule`;
+- **três responsabilidades, e o UptimeRobot cuida de duas (18/09/2026).**
+  MANTER ACORDADO é do UptimeRobot em `/saude/vivo/` (monitor "NutriPlan
+  vivo"); DISPARAR LEMBRETE, com pontualidade, é do UptimeRobot em
+  `/tarefas/lembretes/externo/<token>/` (um segundo monitor); e o `schedule`
+  do Actions em `POST /tarefas/lembretes/` é o FALLBACK. Os dois monitores
+  batem de 5 em 5 min (o mínimo do free) e alertam por e-mail. Por que o
+  UptimeRobot e não o `schedule` para disparar: o `schedule` do GitHub ATRASA
+  e PULA (MEDIDO em 17 e 18/09), e lembrete precisa de pontualidade. **Se um
+  dos monitores cair** (o e-mail avisa): reative no painel; enquanto isso, o
+  `schedule` (fallback) assume os lembretes quando não vê disparo externo há
+  > 4 min, e o `POST` do lembrete acaba acordando o web. **Se o `schedule` do
+  Actions parar** (repositório sem atividade por 60 dias, ou pane): os
+  lembretes param só se o UptimeRobot TAMBÉM estiver fora; `workflow_dispatch`
+  na aba Actions dispara à mão, e um commit religa o `schedule`;
 - **o Neon dorme entre refeições, de propósito.** Uma consulta a cada 5 min
   o manteria acordado o dia inteiro (182 CU-h contra 100 de cota). Por isso
   a tarefa, depois de rodar, calcula a próxima refeição de quem tem

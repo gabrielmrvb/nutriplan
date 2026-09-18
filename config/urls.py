@@ -126,6 +126,9 @@ urlpatterns = [
     # O agendador de fora (GitHub Actions) chama isto de 5 em 5 minutos com
     # token; ver `push.tarefas`.
     path("tarefas/lembretes/", push_views.TarefaLembretesView.as_view(), name="tarefas_lembretes"),
+    # O disparo PONTUAL (UptimeRobot, GET com token na URL); o POST acima é o
+    # fallback do `schedule`. Token redigido em `config/observabilidade.py`.
+    path("tarefas/lembretes/externo/<str:token>/", push_views.DisparoExternoView.as_view(), name="disparo_externo"),
 
     # Páginas legais. Públicas de propósito: quem está decidindo se cria conta
     # é justamente quem precisa ler o que fazemos com os dados dele, e exigir

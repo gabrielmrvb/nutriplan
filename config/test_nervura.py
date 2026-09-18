@@ -113,6 +113,20 @@ class AAbaAPontaEANervuraTests(SimpleTestCase):
         trilha = _regra(self.css, ".progress")
         self.assertIn("overflow: visible", trilha, "com hidden a ponta some")
 
+    def test_a_faixa_do_demo_abre_espaco_para_a_nervura_do_titulo(self):
+        """A nervura do título sobe 100 px × sen 14° ≈ 24 px acima do `h1`
+        (`.page-head h1::after`, `bottom: 100%`, `min(32%, 100px)`). No
+        `/demo/` a faixa "Ambiente de demonstração … Saiba mais" fica logo
+        acima do título com 16 px de margem, e a ponta da régua encostava
+        no sublinhado de "Saiba mais" (visto em produção, 17/09/2026). A
+        faixa é página PÚBLICA, não decoração: a margem tem de passar da
+        subida da nervura com folga: MEDIDO no navegador em 18/09/2026, com
+        32 px a ponta cai exatamente na base da caixa do link (folga 0);
+        com 40 px (24 + 16) sobram 8 px."""
+        faixa = _regra(self.css, ".demo-aviso")
+        self.assertIsNotNone(faixa)
+        self.assertRegex(faixa, r"margin:\s*0 0 calc\(var\(--espaco-7\) \+ var\(--espaco-6\)\)")
+
     def test_a_nervura_e_decoracao_atras_do_texto(self):
         corpo = _regra(self.css, ".page-head h1::after,\n.today-hero::after")
         self.assertIsNotNone(corpo, "a nervura sumiu do prato e do título")
