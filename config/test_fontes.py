@@ -170,7 +170,16 @@ class AsTabelasDasFontesTests(SimpleTestCase):
     display só serve ao número solto (`test_coluna_de_numeros_e_texto_tabular`)."""
 
     def _fonte(self, nome):
-        return TTFont(str(FONTES / nome))
+        try:
+            return TTFont(str(FONTES / nome))
+        except ImportError as erro:
+            # O fontTools importa a extensão compilada `bezierTools` na
+            # primeira leitura; no Windows com o Smart App Control ligado a
+            # DLL não assinada é bloqueada ("Uma política de Controle de
+            # Aplicativo bloqueou este arquivo", 18/09/2026). É ambiente, não
+            # fonte: aqui vira "pulado com o motivo"; o CI (Linux) continua
+            # medindo as tabelas.
+            raise unittest.SkipTest("fontTools instalado mas a extensão nativa não carrega: %s" % erro)
 
     def test_eixos_e_tnum(self):
         for nome, tnum in (("big-shoulders-display-latin.woff2", False), ("archivo-latin.woff2", True)):
