@@ -1975,15 +1975,27 @@ variáveis), `env`, `cron`, `deploy`, `trigger`, `runs`, `logs`, `status`.
   FCM 201, notificação exibida.
 - **Lembretes SEM cron e SEM nada pago (decisão do dono, 16/09/2026).** A
   criação do cron pela API respondeu `402 Payment information is required`
-  (custaria no mínimo US$ 1/mês), e a instância web continua `free`. Quem
-  DISPARA lembrete é o **GitHub Actions** (`.github/workflows/lembretes.yml`,
-  `schedule` `*/5`): uma rodada CURTA por disparo, `POST /tarefas/lembretes/`
-  com `NUTRIPLAN_TAREFAS_TOKEN` no `Authorization` (variável do web service +
-  segredo do repositório; o mesmo valor, em `~/.nutriplan-secrets/tarefas_token`;
-  gravado por `scripts/github.py segredo` e pela API do Render). A rota é
-  `push.views.TarefaLembretesView` → `push/tarefas.py`: token em tempo
-  constante (503 sem a variável, 403 com token errado), só POST, sem
-  sessão, idempotente pela constraint do `NotificationLog`.
+  (custaria no mínimo US$ 1/mês), e a instância web continua `free`.
+- **Quem DISPARA lembrete com PONTUALIDADE é o UptimeRobot (18/09/2026), e o
+  `schedule` do Actions é FALLBACK.** O `schedule` do GitHub atrasa e PULA —
+  MEDIDO em 18/09: ~9 rodadas em 31 h (intervalos de 2 a 5,5 h), então o
+  lembrete saía a cada ~4,4 h em vez de 5 min. O primário passou a ser um
+  segundo monitor do UptimeRobot em `GET /tarefas/lembretes/externo/<token>/`
+  (a cada 5 min, pontual). O UptimeRobot free só manda GET/HEAD e SEM
+  cabeçalho, então o token vai na URL (`NUTRIPLAN_DISPARO_TOKEN`, SEPARADO do
+  Bearer do POST): `config/observabilidade.py` o redige do log do Django, mas
+  ele APARECE no log de ACESSO do Render — por isso é de baixo dano (só
+  dispara lembretes vencidos, idempotente, com limite de taxa de
+  `INTERVALO_MINIMO_EXTERNO`). A rota é `push.views.DisparoExternoView` (GET,
+  503 sem a variável, 403 com token errado; loga user-agent e origem, nunca o
+  token). O `schedule` continua no `POST /tarefas/lembretes/`
+  (`TarefaLembretesView`, Bearer `NUTRIPLAN_TAREFAS_TOKEN`) como FALLBACK: o
+  `push/tarefas.py` SE ABSTÉM (`rodar(externo=False)`) quando um disparo
+  externo cuidou há menos de `RESERVA_DO_FALLBACK` (4 min) — assim o pontual
+  manda e o `schedule` só assume se o UptimeRobot cair. A memória do último
+  externo é por PROCESSO (dois workers) e some no restart; errar dá no
+  máximo uma rodada redundante, que a constraint do `NotificationLog` torna
+  inofensiva.
 
 - **Quem MANTÉM ACORDADO é o UptimeRobot (17/09/2026), não o Actions.** Um
   monitor HTTP(s) gratuito — conta `bielpointblank@gmail.com`, monitor
@@ -2002,23 +2014,20 @@ variáveis), `env`, `cron`, `deploy`, `trigger`, `runs`, `logs`, `status`.
 **A infraestrutura é 100 % gratuita — Render free + Neon free + GitHub
 Actions + UptimeRobot free —, e isso implica três coisas escritas:**
 
-- **duas responsabilidades, dois donos.** MANTER ACORDADO é do UptimeRobot
-  (5 em 5 min em `/saude/vivo/`, confiável); DISPARAR LEMBRETE é do `schedule`
-  do Actions (5 em 5 min em `/tarefas/lembretes/`). Separar foi decisão de
-  17/09: o `schedule` do GitHub ATRASA e às vezes PULA — MEDIDO naquele dia,
-  o `*/5` rodou UMA vez em oito horas —, então ele NÃO serve para segurar
-  cold start (que precisa de pontualidade), mas serve para lembrete (a janela
-  de `push/services.py` tolera atraso, e a constraint do banco impede
-  duplicar). O preço aceito pelo dono é **lembrete pode atrasar** quando o
-  GitHub atrasa; o que NÃO acontece mais é cold start, porque o UptimeRobot
-  não depende do humor do `schedule`. **Se o UptimeRobot cair** (o e-mail
-  avisa): o serviço volta a dormir após 15 min e o primeiro acesso paga
-  37–60 s — reative o monitor no painel, ou o próprio `POST` do lembrete
-  acaba acordando o web na próxima vez que o `schedule` rodar. **Se o
-  `schedule` do Actions parar** (repositório sem atividade por 60 dias — o
-  GitHub avisa por e-mail — ou pane do agendador): os lembretes param sem
-  derrubar mais nada; `workflow_dispatch` na aba Actions dispara uma rodada à
-  mão, e um commit qualquer religa o `schedule`;
+- **três responsabilidades, e o UptimeRobot cuida de duas (18/09/2026).**
+  MANTER ACORDADO é do UptimeRobot em `/saude/vivo/` (monitor "NutriPlan
+  vivo"); DISPARAR LEMBRETE, com pontualidade, é do UptimeRobot em
+  `/tarefas/lembretes/externo/<token>/` (um segundo monitor); e o `schedule`
+  do Actions em `POST /tarefas/lembretes/` é o FALLBACK. Os dois monitores
+  batem de 5 em 5 min (o mínimo do free) e alertam por e-mail. Por que o
+  UptimeRobot e não o `schedule` para disparar: o `schedule` do GitHub ATRASA
+  e PULA (MEDIDO em 17 e 18/09), e lembrete precisa de pontualidade. **Se um
+  dos monitores cair** (o e-mail avisa): reative no painel; enquanto isso, o
+  `schedule` (fallback) assume os lembretes quando não vê disparo externo há
+  > 4 min, e o `POST` do lembrete acaba acordando o web. **Se o `schedule` do
+  Actions parar** (repositório sem atividade por 60 dias, ou pane): os
+  lembretes param só se o UptimeRobot TAMBÉM estiver fora; `workflow_dispatch`
+  na aba Actions dispara à mão, e um commit religa o `schedule`;
 - **o Neon dorme entre refeições, de propósito.** Uma consulta a cada 5 min
   o manteria acordado o dia inteiro (182 CU-h contra 100 de cota). Por isso
   a tarefa, depois de rodar, calcula a próxima refeição de quem tem
