@@ -575,7 +575,7 @@
   --papel-brand: #106632;
   --papel-brand-strong: #0c5427;
   --papel-brand-soft: #d6eedd;
-  --papel-folha: #1d833f;
+  --papel-folha: #1b7c3b;    /* 3,26:1 sobre a TRILHA (fio composto na superfície); #1d833f dava 2,97, medido na tela (18/09/2026) */
   --papel-on-brand: #ffffff;
   --papel-agua: #1e6e96;
   --papel-agua-texto: #175877;
@@ -5507,7 +5507,11 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--espaco-2);
-  margin: 0 0 var(--espaco-6);
+  /* A nervura do título (`.page-head h1::after`) sobe ~24 px acima do `h1`;
+     com 16 px a ponta encostava no sublinhado de "Saiba mais" (produção,
+     17/09/2026). MEDIDO em 18/09: com 32 px a ponta cai exatamente na
+     base da caixa do link (folga 0); 40 px deixam 8 px. */
+  margin: 0 0 calc(var(--espaco-7) + var(--espaco-6));
   padding: var(--espaco-1) 0 var(--espaco-1) var(--espaco-5);
   border-left: 2px solid color-mix(in srgb, var(--terra) 55%, transparent);
   color: var(--text-mute);
