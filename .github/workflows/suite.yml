@@ -1,47 +1,49 @@
-# O GATE DE VERDADE: a suíte inteira, no GitHub, sobre o que vai para `main`.
+# A SUÍTE COMPLETA: tudo, inclusive os testes `lento`, DEPOIS do merge e à
+# noite. Não é mais o gate de PR — quem barra o merge é "suíte rápida"
+# (`suite-rapida.yml`), que roda o mesmo comando sem `--exclude-tag lento`.
 #
-# Até 17/09/2026 o gate era o `pre-push` da máquina do Gabriel — e um push
-# chegou ao GitHub naquele dia sem passar pelo reflog de nenhuma sessão. Um
-# gate que só existe numa máquina não é gate: ninguém consegue conferir se
-# ele rodou. Este fluxo roda o MESMO comando do hook (`manage.py test
-# --verbosity=1 --noinput`, o de `scripts/hooks/pre-push` em modo completo)
-# em todo PR para `main` e em todo push que chegar lá, e a branch protection
-# exige o check verde e a branch atualizada antes de qualquer merge — de
-# qualquer pessoa, admin inclusive. O hook local virou atalho.
+# Por que separar (18/09/2026): a suíte inteira serial levava ~31 min de
+# execução, e com a fila local cada PR esperava ~32 min de runner. O
+# repositório é PRIVADO, então minuto de Actions é metered (~2000/mês no
+# free): PR de 32 min é espera E custo. O gate virou a suíte rápida em
+# paralelo; os testes pesados (estatística/estresse sobre um ano semeado —
+# `@tag("lento")`) saem do caminho de todo PR e rodam aqui:
 #
-# Sem segredo nenhum: a suíte usa um Postgres de serviço e uma SECRET_KEY
-# fictícia (com os 50 caracteres que `accounts.E005` exige). `permissions:
-# contents: read` — o token do fluxo não escreve nada, como em `backup.yml`.
+#   * DEPOIS do merge (`push: [main]`): o commit que entrou em produção é
+#     provado inteiro. Se um `lento` quebrar, foi este merge — reverta ou
+#     conserte, e o GitHub manda e-mail ao dono por run vermelho no branch
+#     padrão (é o alerta, sem segredo de webhook);
+#   * à NOITE (`schedule`, 06:00 UTC = 03:00 BRT): pega quebra que dependa
+#     de calendário/relógio antes do primeiro PR do dia;
+#   * à mão (`workflow_dispatch`).
 #
-# O banco é `postgres:16` porque produção roda 16.x no Neon (CLAUDE.md, "O
-# banco saiu do Render"): o que o teste prova tem de ser o que produção
-# executa. O `pg_restore` dos testes de backup vem do cliente 16 do runner —
-# um cliente mais velho que o servidor se recusa a restaurar.
+# TRANSIÇÃO (sai num PR seguinte): enquanto sessões antigas ainda esperam o
+# check "suíte completa", este fluxo continua rodando em `pull_request` e
+# `merge_group` — assim nenhum `enfileirar` do helper velho fica órfão. O PR
+# que tira esses dois gatilhos é o que enfim deixa o completo só no
+# pós-merge e à noite.
 #
-# `pipefail` não é enfeite: `manage.py test | tee` devolveria o status do
-# `tee`, e o job ficaria verde com a suíte vermelha — o mesmo engano que o
-# CLAUDE.md registra para `| tail`.
+# Sem segredo: Postgres 16 de serviço (a maior de produção, Neon),
+# SECRET_KEY fictícia (50 caracteres de `accounts.E005`), `contents: read`.
+# `pipefail` porque `test | tee` devolveria o status do `tee`.
 name: Suíte completa
 
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
-  # A FILA DE MERGE (17/09/2026): o GitHub cria uma branch temporária por
-  # grupo (`gh-readonly-queue/main/...`) e dispara `merge_group`; o check
-  # "suíte completa" tem de rodar LÁ, senão a fila espera por um check que
-  # nunca chega. Com `strict` e quatro sessões mergeando, um PR verde
-  # ficava "behind" no meio do check (aconteceu duas vezes no #13) — a fila
-  # é quem serializa e atualiza, e o `strict` saiu.
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+  # TRANSIÇÃO (ver cabeçalho): sai quando as sessões antigas migrarem para o
+  # check "suíte rápida".
+  pull_request:
+    branches: [main]
   merge_group:
     types: [checks_requested]
 
 permissions:
   contents: read
 
-# Um push novo no mesmo PR cancela o run anterior: testar um commit que já
-# foi substituído é gastar 40 minutos para nada.
 concurrency:
   group: suite-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -70,22 +72,8 @@ jobs:
     env:
       DATABASE_URL: postgres://nutriplan:nutriplan@localhost:5432/nutriplan
       DJANGO_SECRET_KEY: "ci-somente-nao-e-segredo-0123456789abcdefghijklmnopqrstuvwxyz"
-      # `True`, como no `.env` que o pre-push copia para o worktree: com DEBUG
-      # desligado o `STORAGES` escolhe o manifesto do WhiteNoise, e a URLconf
-      # resolve `static("icons/favicon.ico")` em tempo de import — sem
-      # `collectstatic` a suíte morre antes do primeiro teste ("Missing
-      # staticfiles manifest entry", visto no primeiro run deste fluxo). O
-      # Django força DEBUG=False durante os testes de qualquer jeito; o que
-      # esta variável decide é o backend de estáticos, e a suíte local roda
-      # com o mesmo. Produção é `check --deploy` no build do Render.
       DJANGO_DEBUG: "true"
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,testserver"
-      # Placeholders, NÃO segredos: `GOOGLE_LOGIN_ENABLED` é `bool(id and
-      # secret)` em tempo de import, e três testes cobram o botão "Continuar
-      # com Google" e o `next` do formulário dele — nenhum teste fala com o
-      # Google (CLAUDE.md: "nenhum teste decodifica um id_token real"). Sem
-      # os dois o CI reprovava 3 de 3272 (segundo run do PR #1); o pre-push
-      # nunca viu isso porque copia o `.env`, que tem os reais.
       GOOGLE_CLIENT_ID: "ci-somente.apps.googleusercontent.com"
       GOOGLE_CLIENT_SECRET: "ci-somente-nao-e-segredo"
       PYTHONDONTWRITEBYTECODE: "1"
@@ -102,21 +90,15 @@ jobs:
             requirements.txt
             requirements-dev.txt
 
-      # O de DESENVOLVIMENTO, que puxa o de produção (`-r requirements.txt`):
-      # a suíte é a de desenvolvimento, e `config/test_requisitos_dev.py`
-      # cobra que tudo que esse arquivo declara esteja instalado onde ela
-      # roda — o PR #4 caiu em `pillow` e `websocket-client` quando só o de
-      # produção era instalado aqui. O build do Render continua só com
-      # `requirements.txt` (`scripts/build.sh`).
       - name: Instalar dependências
         run: python -m pip install --upgrade pip && pip install -r requirements-dev.txt
 
-      # O mesmo comando do pre-push, sobre o merge do PR (ou o push em main).
-      - name: Suíte completa
+      - name: "suíte completa (paralela, tudo)"
         shell: bash
         run: |
           set -o pipefail
-          python manage.py test --verbosity=1 --noinput 2>&1 | tee suite.log
+          echo "vCPUs do runner: $(nproc)"
+          python manage.py test --parallel auto --verbosity=1 --noinput 2>&1 | tee suite.log
 
       - name: Guardar o log
         if: always()

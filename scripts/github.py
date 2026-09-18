@@ -44,9 +44,14 @@ from pathlib import Path
 
 API = "https://api.github.com"
 
-#: O nome do job em `.github/workflows/suite.yml` — é o "context" que a
-#: proteção exige, por TEXTO. `config/test_ci.py` confere que os dois batem.
-CHECK = "suíte completa"
+#: O nome do job que BARRA O MERGE — o "context" que `esperar`/`enfileirar`
+#: aguardam ficar verde. Desde 18/09/2026 é a SUÍTE RÁPIDA
+#: (`.github/workflows/suite-rapida.yml`, `--parallel --exclude-tag lento`,
+#: < 10 min), e não mais a completa (~31 min, que passou a rodar depois do
+#: merge e à noite em `suite.yml`). `config/test_ci.py` confere que este
+#: texto bate com o nome do job do fluxo rápido — renomear um sem o outro
+#: deixa todo PR esperando um check que nunca vem.
+CHECK = "suíte rápida"
 
 #: Merge commit, e não squash nem rebase: os SHAs testados no PR continuam
 #: existindo em `main`, e o merge commit é o que `/saude/` mostra.
@@ -74,7 +79,7 @@ POSSE_MAXIMA_MIN = 90
 def corpo_da_fila() -> dict:
     """O ruleset de `main` (Settings → Rules), que substitui a proteção
     clássica desde 17/09/2026: PR obrigatório para todo mundo (`bypass_actors`
-    vazio — admin inclusive), o check "suíte completa" SEM `strict` (com
+    vazio — admin inclusive), o check "suíte rápida" SEM `strict` (com
     quatro sessões mergeando, `strict` deixava o PR verde "behind" no meio do
     check; agora é a FILA que atualiza e serializa), fila por merge commit em
     lotes de no máximo dois, sem apagar nem forçar a branch."""
