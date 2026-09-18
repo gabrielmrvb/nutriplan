@@ -389,6 +389,12 @@ class AFichaEAPreparacaoTests(BaseDoFluxo):
         cinco de sete linhas e deixava de dizer por onde começar."""
         from workouts import services
 
+        # A letra é ESCOLHIDA, não a do calendário: o controle positivo do
+        # fim (mais compostos que selos) vale para "Peito e tríceps", com
+        # quatro pressões de peito por opção; a letra que caía num sábado
+        # fechava 3 = 3 e o teste não distinguia nada.
+        self.sessao = tornar_hoje(self.user, "A")
+        self.html = self.client.get(reverse("workouts:ficha", args=[self.sessao.pk])).content.decode()
         esperados = 0
         opcao_do_dia = services.opcao_do_dia(self.user, self.sessao, timezone.localdate())
         for opcao in [opcao_do_dia]:

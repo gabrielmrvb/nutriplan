@@ -1819,7 +1819,17 @@ positivo do alerta. O gate (`suite.yml`) NÃO liga o relógio real, e
 dia só, de propósito: os testes de paridade da ficha de outro dia
 (`workouts/test_ficha_unica.py`) escrevem a data dos DOIS ramos — bloco
 ímpar → opção 2, bloco par → opção 1 — e cada ramo fica vermelho sozinho
-quando `variacao_do_dia` ignora a paridade.
+quando `variacao_do_dia` ignora a paridade. E a semana foi VARRIDA antes
+de a noturna existir (`NUTRIPLAN_DATA_DA_SUITE` em quarta, segunda, sábado
+e domingo): oito testes de `workouts` assumiam que "a sessão de hoje" é a
+linha cujo `weekday` é hoje — verdade só nas primeiras posições da semana;
+com cinco dias a partir de um sábado a posição 3 é A de novo, e o app
+linka a ficha da linha de SEGUNDA. Teste que precisa da sessão de hoje
+chama `services.sessao_do_dia(plano, localdate())`, e "outro dia" é outra
+LETRA; teste que precisa de uma letra específica usa `tornar_hoje`; a
+opção de hoje é `opcao_do_dia`, nunca `da_opcao(1)` fixo. O cron que o #33
+tinha posto em `suite.yml` saiu: rodaria congelado e não pegaria dia
+nenhum — a noite é da `noturna.yml`.
 
 ## Limites reais deste ambiente
 

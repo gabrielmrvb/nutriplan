@@ -10,9 +10,15 @@
 #   * DEPOIS do merge (`push: main`): prova inteiro o commit que entrou em
 #     produção. Se um `lento` quebrar, foi este merge — reverta ou conserte;
 #     o GitHub manda e-mail ao dono por run vermelho no branch padrão;
-#   * à NOITE (`schedule`, 06:00 UTC): pega quebra que dependa de calendário
-#     antes do primeiro PR do dia;
 #   * à mão (`workflow_dispatch`).
+#
+# A NOITE NÃO É DESTE FLUXO. A suíte roda com a DATA CONGELADA (quarta
+# 16/09/2026, `config/relogio.py`) — aqui, na rápida e no pre-push —, então
+# um cron aqui mediria a mesma quarta de sempre e não pegaria quebra de
+# calendário nenhuma. Quem vê o dia é `noturna.yml`: a suíte completa toda
+# madrugada com `NUTRIPLAN_DATA_REAL=1` e uma issue de alerta que abre ao
+# cair e fecha ao passar. Este fluxo NÃO liga o relógio real, de propósito
+# (`config/test_relogio.py`, "o gate continua congelado").
 #
 # TRANSIÇÃO (sai num PR seguinte): enquanto sessões antigas ainda esperam o
 # check "suíte completa", este fluxo roda também em `pull_request`/
@@ -24,8 +30,6 @@ name: Suíte completa
 on:
   push:
     branches: [main]
-  schedule:
-    - cron: "0 6 * * *"
   workflow_dispatch:
   pull_request:
     branches: [main]

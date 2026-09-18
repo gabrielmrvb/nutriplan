@@ -46,10 +46,16 @@ class ALeituraDoExercicioTests(TestCase):
         services.create_routine(self.pessoa)
         self.client.force_login(self.pessoa)
         plano = services.get_active_routine(self.pessoa)
-        hoje = timezone.localdate().weekday()
         sessoes = list(plano.sessions.order_by("weekday"))
-        self.de_hoje = next(s for s in sessoes if s.weekday == hoje)
-        self.de_outro_dia = next(s for s in sessoes if s.weekday != hoje)
+        # A sessão de hoje como o APP a resolve — a linha da LETRA da posição
+        # no ciclo —, e "outro dia" é outra LETRA. A linha cujo `weekday` é
+        # hoje só coincide com ela nas primeiras posições da semana: num
+        # domingo 20/09 com quatro dias a partir de hoje (posição 3, A de
+        # novo) a linha de domingo não é a ficha de hoje, e a "de outro dia"
+        # pelo weekday era a de segunda — a própria letra de hoje. Medido
+        # vermelho no domingo antes destas linhas.
+        self.de_hoje = services.sessao_do_dia(plano, timezone.localdate(), sessoes)
+        self.de_outro_dia = next(s for s in sessoes if s.label != self.de_hoje.label)
         # "Fazer" e a execução são da opção ESCOLHIDA de hoje (15/09/2026).
         escolher_opcao_de_hoje(self.pessoa)
         self.item_hoje = self.de_hoje.da_opcao(1)[0]

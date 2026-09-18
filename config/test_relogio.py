@@ -216,7 +216,7 @@ class ANoturnaTests(SimpleTestCase):
     def test_o_gate_continua_congelado(self):
         """A outra metade do contrato: `suite.yml` NÃO liga o relógio real.
         O gate mede sempre a mesma quarta; só a noturna vê o dia."""
-        self.assertNotIn(relogio.VARIAVEL_DATA_REAL, GATE.read_text(encoding="utf-8"))
+        self.assertNotIn(relogio.VARIAVEL_DATA_REAL, _sem_comentarios(GATE.read_text(encoding="utf-8")))
 
 
 class OTesteNaoLeAMaquinaTests(SimpleTestCase):
