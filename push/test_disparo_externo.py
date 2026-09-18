@@ -38,6 +38,8 @@ class OPortaoDoDisparoExternoTests(TestCase):
     def setUp(self):
         tarefas.esquecer_pausa()
         tarefas.esquecer_externo()
+        self.addCleanup(tarefas.esquecer_externo)
+        self.addCleanup(tarefas.esquecer_pausa)
         self.url = reverse("disparo_externo", args=[TOKEN])
 
     def test_token_certo_roda_e_e_200(self):
@@ -78,6 +80,8 @@ class OLimiteDeTaxaTests(TestCase):
     def setUp(self):
         tarefas.esquecer_pausa()
         tarefas.esquecer_externo()
+        self.addCleanup(tarefas.esquecer_externo)
+        self.addCleanup(tarefas.esquecer_pausa)
 
     def test_dois_disparos_colados_o_segundo_e_limitado(self):
         agora = timezone.localtime().replace(hour=12, minute=0, second=0, microsecond=0)
@@ -105,6 +109,8 @@ class OFallbackSeAbstemTests(TestCase):
     def setUp(self):
         tarefas.esquecer_pausa()
         tarefas.esquecer_externo()
+        self.addCleanup(tarefas.esquecer_externo)
+        self.addCleanup(tarefas.esquecer_pausa)
 
     def test_o_fallback_se_abstem_quando_o_externo_cuidou_ha_pouco(self):
         agora = timezone.localtime().replace(hour=12, minute=0, second=0, microsecond=0)
@@ -129,6 +135,12 @@ class OFallbackSeAbstemTests(TestCase):
 
 
 class OTokenNaoVazaNoLogTests(TestCase):
+    def setUp(self):
+        tarefas.esquecer_pausa()
+        tarefas.esquecer_externo()
+        self.addCleanup(tarefas.esquecer_externo)
+        self.addCleanup(tarefas.esquecer_pausa)
+
     def test_o_token_do_caminho_e_redigido(self):
         caminho = "/tarefas/lembretes/externo/%s/" % TOKEN
         redigido = observabilidade.redigir("Internal Server Error: " + caminho)
