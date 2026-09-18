@@ -152,7 +152,7 @@ class OTokenNaoVazaNoLogTests(TestCase):
         tarefas.esquecer_pausa()
         with patch("push.tarefas.send_meal_reminders", return_value={"sent": 0, "skipped": 0, "failed": 0}):
             with patch("push.tarefas.push_is_configured", return_value=True):
-                with self.assertLogs("push.views", level="INFO") as capturado:
+                with self.assertLogs("nutriplan.push", level="INFO") as capturado:
                     self.client.get(
                         reverse("disparo_externo", args=[TOKEN]),
                         HTTP_USER_AGENT="UptimeRobot/2.0",
@@ -161,3 +161,53 @@ class OTokenNaoVazaNoLogTests(TestCase):
         self.assertIn("disparo externo", linha)
         self.assertIn("UptimeRobot", linha)
         self.assertNotIn(TOKEN, linha)
+
+
+class OLogDeAuditoriaEmiteEmProducaoTests(TestCase):
+    """`assertLogs` FORÇA o nível do logger — e por isso ESCONDE o bug que este
+    teste pega. Em produção o `root` é WARNING e só o namespace `nutriplan`
+    está em INFO (`config/observabilidade.py`); um `logger.info` num logger
+    fora desse namespace (ex.: `push.views`) NÃO emite, e a auditoria de "quem
+    disparou" ficaria muda em produção — vista viva no log do Render, ausente.
+    Este teste aplica a config REAL de produção e captura no handler do
+    namespace configurado, sem forçar nível nenhum."""
+
+    def setUp(self):
+        tarefas.esquecer_pausa()
+        tarefas.esquecer_externo()
+        self.addCleanup(tarefas.esquecer_externo)
+        self.addCleanup(tarefas.esquecer_pausa)
+
+    @override_settings(**COM_TOKEN)
+    def test_a_auditoria_emite_sob_a_config_real_de_producao(self):
+        import logging
+        import logging.config
+
+        from django.conf import settings
+
+        from config.observabilidade import configuracao
+
+        capturado = []
+
+        class Captura(logging.Handler):
+            def emit(self, record):
+                capturado.append(record.getMessage())
+
+        logging.config.dictConfig(configuracao(debug=False))
+        alvo = logging.getLogger("nutriplan")
+        h = Captura()
+        alvo.addHandler(h)
+        try:
+            with patch("push.tarefas.send_meal_reminders", return_value={"sent": 0, "skipped": 0, "failed": 0}):
+                with patch("push.tarefas.push_is_configured", return_value=True):
+                    self.client.get(
+                        reverse("disparo_externo", args=[TOKEN]),
+                        HTTP_USER_AGENT="UptimeRobot/2.0",
+                    )
+        finally:
+            alvo.removeHandler(h)
+            logging.config.dictConfig(settings.LOGGING)
+        self.assertTrue(
+            any("disparo externo" in m for m in capturado),
+            "a auditoria não emitiu sob a config real (root=WARNING, só 'nutriplan' em INFO)",
+        )

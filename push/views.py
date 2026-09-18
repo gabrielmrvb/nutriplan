@@ -23,7 +23,11 @@ from . import tarefas
 from .models import PushSubscription
 from .services import push_is_configured
 
-logger = logging.getLogger(__name__)
+# Sob o namespace `nutriplan`, e não `push.views`: em produção o root é WARNING
+# e só `nutriplan` está em INFO (`config/observabilidade.py`), então um
+# `logger.info` fora desse namespace fica MUDO — a auditoria "quem disparou" o
+# lembrete precisa emitir de verdade. `config/observabilidade` redige o handler.
+logger = logging.getLogger("nutriplan.push")
 
 
 class ManifestView(View):
