@@ -40,10 +40,13 @@ class ALinhaDeHojeSubstituiOCartaoTests(TestCase):
         services.create_routine(self.pessoa)
         self.client.force_login(self.pessoa)
         self.plano = services.get_active_routine(self.pessoa)
-        hoje = timezone.localdate().weekday()
-        self.sessao = next(
-            s for s in self.plano.sessions.all() if s.weekday == hoje
-        )
+        # A sessão de hoje como o APP a resolve — a linha da LETRA da
+        # posição no ciclo, vestindo hoje —, e não a linha cujo `weekday` é
+        # hoje: as duas coincidem nas primeiras posições da semana e divergem
+        # quando a letra repete (sábado 19/09 com cinco dias a partir de
+        # hoje é a posição 3, A de novo, e o painel linka a ficha da linha
+        # de segunda). Medido vermelho no sábado antes desta linha.
+        self.sessao = services.sessao_do_dia(self.plano, timezone.localdate())
         # "Fazer" e a execução são da opção ESCOLHIDA de hoje (15/09/2026).
         escolher_opcao_de_hoje(self.pessoa)
 
@@ -357,13 +360,17 @@ class AFichaCompletaContinuaExistindoTests(TestCase):
         por_letra = {}
         for sessao in plano.sessions.all():
             por_letra.setdefault(sessao.label, []).append(sessao)
-        hoje = timezone.localdate().weekday()
+        # A sessão de hoje é a da LETRA da posição (`sessao_do_dia`), não a
+        # linha cujo `weekday` é hoje: quando a letra repete na semana (sábado
+        # 19/09 com cinco dias a partir de hoje é a posição 3, A de novo), a
+        # ficha linkada é a da linha de segunda, e a linha de sábado não tem
+        # ficha própria. Medido vermelho no sábado com a linha do weekday.
+        de_hoje = services.sessao_do_dia(plano, timezone.localdate())
         for letra, sessoes in por_letra.items():
             with self.subTest(sessao=letra):
                 self.assertTrue(
                     any(reverse("workouts:ficha", args=[s.pk]) in html for s in sessoes),
                     "a letra %s não é alcançável pela tela principal" % letra,
                 )
-                de_hoje = next((s for s in sessoes if s.weekday == hoje), None)
-                if de_hoje is not None:
+                if de_hoje is not None and de_hoje.label == letra:
                     self.assertIn(reverse("workouts:ficha", args=[de_hoje.pk]), html)

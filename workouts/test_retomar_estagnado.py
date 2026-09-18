@@ -362,11 +362,16 @@ class AAdaptacaoNaoMexeNaFichaTests(TestCase):
 
     def test_a_serie_de_ontem_nao_muda_a_prescricao_de_hoje(self):
         """Ontem perdido — ou feito — não compensa nem desconta hoje."""
+        # A opção de hoje é a VARIAÇÃO do ciclo (sem escolha gravada): num
+        # bloco ímpar — sábado 19/09 com cinco dias a partir de hoje, posição
+        # 3 — é a 2, e ler sempre a 1 fazia `prescricao_de_hoje` responder
+        # None para um exercício que só está na 1. Medido vermelho no sábado.
         sessao = services.sessao_do_dia(self.plano, self.hoje, self.linhas)
-        sem_ontem = [(i.exercise_id, i.sets, i.rep_min, i.rep_max) for i in sessao.da_opcao(1)]
+        opcao = services.opcao_do_dia(self.pessoa, sessao, self.hoje)
+        sem_ontem = [(i.exercise_id, i.sets, i.rep_min, i.rep_max) for i in sessao.da_opcao(opcao)]
         self._treinar(self.hoje - timedelta(days=1), 50)
         sessao = services.sessao_do_dia(services.get_active_routine(self.pessoa), self.hoje)
-        com_ontem = [(i.exercise_id, i.sets, i.rep_min, i.rep_max) for i in sessao.da_opcao(1)]
+        com_ontem = [(i.exercise_id, i.sets, i.rep_min, i.rep_max) for i in sessao.da_opcao(opcao)]
         self.assertEqual(com_ontem, sem_ontem)
         self.assertEqual(
             services.prescricao_de_hoje(self.pessoa, sem_ontem[0][0]),

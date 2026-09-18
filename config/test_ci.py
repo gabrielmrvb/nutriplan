@@ -17,7 +17,7 @@ São DOIS fluxos:
     em todo PR. É o check que `scripts/github.py` (CHECK) espera antes de
     mergear;
   * `suite.yml` → check "suíte completa": TUDO, inclusive `lento`, DEPOIS do
-    merge (`push: main`), à noite (`schedule`) e à mão (`workflow_dispatch`).
+    merge (`push: main`) e à mão (`workflow_dispatch`); a noite é de `noturna.yml`.
     Não barra PR.
 
 Estes testes são TEXTUAIS, como os de `backup.yml`: não rodam o Actions,
@@ -133,13 +133,15 @@ class ASuiteCompletaTests(SimpleTestCase):
     def test_o_job_e_a_suite_completa(self):
         self.assertRegex(self._fluxo(), r"\n\s+name:\s*\"?suíte completa\"?\s*\n")
 
-    def test_roda_depois_do_merge_a_noite_e_a_mao(self):
-        """Pós-merge prova o commit que entrou; o cron noturno pega quebra
-        que dependa de calendário antes do primeiro PR do dia; o dispatch é
-        o gatilho manual."""
+    def test_roda_depois_do_merge_e_a_mao_e_a_noite_e_de_outro_fluxo(self):
+        """Pós-merge prova o commit que entrou; o dispatch é o gatilho
+        manual. O cron NÃO fica aqui: a suíte roda com a data congelada
+        (`config/relogio.py`), e um cron congelado mediria a mesma quarta
+        de sempre — quem pega quebra de calendário é `noturna.yml`, com a
+        data real e a issue de alerta (`config/test_relogio.py`)."""
         fluxo = self._fluxo()
         self.assertRegex(fluxo, r"push:\s*\n\s+branches:\s*\[?\s*-?\s*\"?main")
-        self.assertRegex(fluxo, r"schedule:\s*\n\s+-\s*cron:")
+        self.assertNotIn("schedule:", fluxo)
         self.assertIn("workflow_dispatch:", fluxo)
 
     def test_roda_a_suite_inteira_fatiada_sem_excluir_nada(self):
