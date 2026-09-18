@@ -17,6 +17,7 @@ alinhar, e uma fonte sem ele passaria em todo teste visual e desalinharia
 em produção.
 """
 import re
+import sys
 import unittest
 from pathlib import Path
 
@@ -170,7 +171,18 @@ class AsTabelasDasFontesTests(SimpleTestCase):
     display só serve ao número solto (`test_coluna_de_numeros_e_texto_tabular`)."""
 
     def _fonte(self, nome):
-        return TTFont(str(FONTES / nome))
+        try:
+            return TTFont(str(FONTES / nome))
+        except ImportError as erro:
+            # A extensão compilada do fontTools (`bezierTools.pyd`, sem
+            # assinatura) é bloqueada pelo Smart App Control do Windows; a
+            # regra da máquina (CLAUDE.md, "Limites reais deste ambiente") é
+            # apagar o `.pyd` — o fontTools roda em Python puro. Só no
+            # Windows isto vira "pulado com o motivo"; no CI (Linux) não há
+            # política nenhuma, e a extensão que não carrega é FALHA.
+            if sys.platform == "win32" and "DLL load failed" in str(erro):
+                raise unittest.SkipTest("Smart App Control bloqueou a extensão do fontTools — apague o .pyd (CLAUDE.md): %s" % erro)
+            raise
 
     def test_eixos_e_tnum(self):
         for nome, tnum in (("big-shoulders-display-latin.woff2", False), ("archivo-latin.woff2", True)):

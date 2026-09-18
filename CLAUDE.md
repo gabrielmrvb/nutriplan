@@ -39,7 +39,13 @@ CI, fluxo branch → PR → FILA (`scripts/github.py enfileirar`: a fila
 local desta máquina, porque a do GitHub só existe em organização; merge
 commit; `strict` intacto)
 · deploy provado por `/saude/` + smoke + QA em produção com conta descartável
-pelo signup público, conta apagada pela tela, demo intacto · `scripts/qa/
+pelo signup público, conta apagada pela tela, demo intacto — **a conta de QA
+descartável é do AGENTE (decisão do dono, 18/09/2026): a sessão cria pelo
+signup público, com e-mail claramente de QA (`qa-<sessão>-<data>@nutriplan.invalid`),
+senha só para aquela conta, nunca no relatório; obrigação de APAGAR pela
+tela ao terminar e provar que sumiu (login recusado). Nunca a conta pessoal
+do dono. Sessão cujo ambiente proíba criar conta ou digitar senha diz isso
+no relatório e prova o que der pelo `/demo/`** · `scripts/qa/
 nav.py` (CDP) para navegador, inclusive sites de terceiros na sessão logada do
 dono (Render, GitHub, claude.ai) · mídia de exercício ativa com curadoria e
 mosaico para veto posterior · plano ativo antigo nunca remonta sozinho · o
@@ -702,7 +708,15 @@ de "completa" ficou idêntica (ninguém recebeu "regenerar?") e básica E casa
 com halteres fecham o dourado da letra A (7 exercícios, 25 séries, 59 min
 no `abc2`). "Só peso do corpo" continua `expectedFailure` nomeado no
 dourado: B tem um exercício e C dois, e a lista do que falta está no
-`BACKLOG.md`.
+`BACKLOG.md`. **E nesse perfil a versão rápida NÃO aparece — por regra,
+não por falta (decisão de 18/09/2026, opção "manter ausente")**: "Menos
+tempo hoje?" só existe onde a rápida CORTA alguma coisa (`hoje.rapida_muda`
+em `preparar_dia`), e a letra A de só peso do corpo tem 3 exercícios em ~30
+minutos — cabe inteira nos 40 da rápida. Gerar uma "rápida com menos
+séries" ali seria o mesmo treino com outro nome, o defeito de veracidade
+que o app recusa desde a faixa de duração. Provado em produção com conta
+descartável (18/09, casa com halteres oferece; peso do corpo não) e
+guardado em `workouts/test_rapida_por_perfil.py`, com controle positivo.
 
 **Varridos os 31 recortes possíveis de equipamento, UM era viável em 10/09: o
 conjunto completo** — ou seja, nenhuma restrição, que é o comportamento de
@@ -1748,6 +1762,26 @@ Os tempos foram medidos ao vivo por `getAnimations()` no CDP (nervura
 600 ms, cascata +600/+680, botões +1000); `nav.py` re-emula a cada comando, então captura
 estática de movimento é sempre com `movimento reduzido`.
 
+**Dois achados do QA em produção (18/09/2026), os dois MEDIDOS na tela e
+não na tabela.** (1) A barra da semana do Progresso é `--folha` sobre a
+TRILHA — `--fio`, uma tinta translúcida composta na superfície —, e esse
+par não está na auditoria (que mede gráfico × superfície): no Papel dava
+2,97:1; `--papel-folha` foi de #1d833f para #1b7c3b (3,26 sobre a trilha,
+3,6 sobre `--surface-3`), e `config/tests.py` passou a compor o fio e
+medir o par. (2) A nervura do título sobe ~24 px acima do `h1`; no
+`/demo/` a faixa "Ambiente de demonstração … Saiba mais" tinha 16 px de
+margem e a ponta entrava 16 px na caixa do link (encostava no sublinhado).
+A faixa passou a 40 px (`--espaco-7` + `--espaco-6`): com 32 a ponta caía
+exatamente na base da caixa (folga 0, medido), com 40 sobram 8.
+`config/test_nervura.py` prende a margem. Os pares que raspam na auditoria
+(`--danger`, `--brasa` sobre `--surface-3`) não ocorrem em tela real:
+medido, `--danger` só aparece sobre `--surface` (6,76 Ferro / 5,49 Papel)
+e sobre a tinta de erro (6,17 / 5,8); `--brasa` só como texto da corrida.
+E o `agent-browser` continua BLOQUEADO pelo Smart App Control do Windows —
+a regra única está em "Limites reais deste ambiente": binário sem
+assinatura bloqueado → Python puro; o QA de navegador é `scripts/qa/nav.py`
+sobre o mesmo Chrome 153.
+
 ## Testes
 
 Nome descreve o comportamento, não o método. Docstring diz **por que** aquilo
@@ -1763,14 +1797,30 @@ dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
 
 ## Limites reais deste ambiente
 
-- **Node 24 e npm 11 estão instalados desde 12/09/2026** (WinGet), e com eles
-  o `agent-browser` 0.37.1 da Vercel, com Chrome 153 próprio em
-  `~/.agent-browser/browsers`. É a ferramenta de QA de navegador: sessão
-  própria (`AGENT_BROWSER_SESSION`), saída sempre para arquivo e `stdin`
-  fechado — o daemon herda o stdout, e um pipe espera um EOF que nunca vem.
-  Lighthouse e Playwright continuam de fora por decisão, não por falta de
-  Node: o `agent-browser` cobre o que eles cobririam aqui. O Capacitor da
-  Corrida continua bloqueado por Android Studio/Xcode, não por Node.
+- **QA DE NAVEGADOR NESTA MÁQUINA É `scripts/qa/nav.py` (CDP), E O
+  `agent-browser` NÃO RODA — decisão do dono, 18/09/2026.** O Smart App
+  Control do Windows 11 (Controle de Aplicativo) bloqueia binário sem
+  assinatura: o `agent-browser` 0.37.1/0.38.1 morre no `spawn` (evento
+  CodeIntegrity 3077, medido em 17 e 18/09) e isso não vai mudar agora.
+  Nenhuma sessão tenta o `agent-browser` nem gasta tempo diagnosticando:
+  `nav.py <sessão> open|eval|click|type|screenshot|viewport|cookie|tema|
+  movimento|rede` fala CDP com o MESMO Chrome 153 (`~/.agent-browser/
+  browsers`), inclusive em sites de terceiros na sessão logada do dono.
+  Sessão nova a cada execução de QA (o perfil guarda cookies), saída sempre
+  em arquivo, tema e movimento emulados por sessão. Node 24/npm 11 (WinGet)
+  continuam instalados; Lighthouse e Playwright seguem de fora por decisão.
+- **O mesmo bloqueio vale para `.pyd` sem assinatura no `.venv`.** O
+  fontTools 4.65 vem com seis extensões compiladas (`bezierTools`, `cu2qu`,
+  `qu2cu`, `momentsPen`, `iup`, `lexer`) e `config/test_fontes.py` errava
+  com "Uma política de Controle de Aplicativo bloqueou este arquivo" — três
+  ERROR em todo hook local, e o CI (Linux) verde. Os seis `.pyd` foram
+  afastados para `*.pyd.bloqueado-sac` (18/09): o fontTools cai no Python
+  puro, mesmo resultado. `pip install --force-reinstall fonttools` os traz de
+  volta — e o erro junto (com eles no lugar e bloqueados,
+  `config/test_fontes.py` vira `SkipTest` com o motivo, PR #34: o hook não
+  cai, mas as tabelas das fontes só são medidas no CI). Pacote novo com
+  `.pyd` reprovando no hook: é isto, não o código; afastar o `.pyd` é a
+  resposta, `--no-verify` não é.
 - **PWA não escreve no Apple Saúde nem no Health Connect** — não existe API web.
   `workouts/health_export.py` gera TCX para importar.
 - **Background Sync não existe no Safari do iPhone.** O evento `online` é o
@@ -1790,6 +1840,23 @@ dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
   no `render.yaml` de propósito: ele é o rollback. Se o plano gratuito do Neon
   tem prazo próprio, ninguém verificou — é uma olhada no painel dele.
   Ver **Backup e restauração** e [`docs/infra-recuperacao.md`](docs/infra-recuperacao.md).
+- **O SMART APP CONTROL DESTA MÁQUINA ESTÁ LIGADO E BLOQUEIA BINÁRIO SEM
+  ASSINATURA — a regra é UMA (18/09/2026): `.pyd`/`.exe` não assinado
+  bloqueado → Python puro, nunca remendo no teste.** O sintoma é sempre o
+  mesmo: "Uma política de Controle de Aplicativo bloqueou este arquivo"
+  (evento CodeIntegrity 3077, `VerifiedAndReputablePolicyState = 1`); não é
+  quarentena do Defender e reinstalar não resolve — ligar e desligar a
+  política é do dono, e desligar é irreversível sem reinstalar o Windows.
+  Duas consequências já pagas: o `agent-browser` (0.37.1 e 0.38.1,
+  `NotSigned`) não roda e o QA de navegador é `scripts/qa/nav.py` sobre o
+  MESMO Chrome 153 que ele baixou; e a extensão `bezierTools.pyd` do
+  fontTools foi APAGADA do `.venv` compartilhado — o fontTools roda em
+  Python puro, e os três testes das tabelas das fontes rodam de verdade.
+  Se um `.pyd` novo aparecer bloqueado (`pip install` que recompila): apague
+  o `.pyd` da biblioteca, não escreva `skip` no teste. O único `skip`
+  permitido é o de `config/test_fontes.py`, restrito a `win32` com a
+  mensagem apontando para esta regra; no CI (Linux) a extensão que não
+  carrega é FALHA.
 - **Nenhum processo de fundo abre janela, e todo processo de fundo nasce em
   `scripts/fundo.py`.** No Windows 11 o Windows Terminal hospeda todo console
   novo — e um processo sem console (os do Claude Code, o Agendador) que lança
