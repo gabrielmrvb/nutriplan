@@ -109,17 +109,30 @@ class ALeituraDoExercicioTests(TestCase):
         self.assertEqual(self.client.get(reverse("workouts:exercicio", args=[fora.pk])).status_code, 404)
         self.assertEqual(self.client.get(reverse("workouts:exercicio", args=[999999])).status_code, 404)
 
-    def test_a_ficha_de_outro_dia_leva_a_leitura_e_nao_a_execucao(self):
-        """Fora do dia a linha é LEITURA, nunca execução — a parte da régua
-        que independe de qual opção o ciclo escolhe. Qual opção aparece (e a
-        prova por paridade de bloco) está em `AFichaDeOutroDiaSegueOCicloTests`,
-        com a data congelada."""
+    def test_a_ficha_de_OUTRO_dia_leva_a_leitura_e_nao_a_execucao(self):
+        """A linha de outro dia é porta para a LEITURA, nunca para a execução.
+
+        O exercício conferido é o que a ficha DESENHA — desde a ficha única
+        (17/09/2026) a ficha de outro dia mostra a variação da próxima
+        ocorrência da letra, que pode ser a opção 2; afirmar o primeiro item
+        da opção 1 passava só nos dias do calendário em que as duas
+        coincidiam (vermelho na sexta 18/09/2026, no `main`)."""
+        import re
+
+        from workouts.models import Exercise
+
         ficha = sem_scripts(self.client.get(
             reverse("workouts:ficha", args=[self.de_outro_dia.pk])
         ).content.decode())
-        self.assertIn('href="', ficha)
+        # `?de=ficha&sessao=`: a leitura volta para ESTA ficha (T1.14).
+        portas = re.findall(r'class="ficha-item__ver"\s+href="([^"]+)"', ficha)
+        self.assertTrue(portas, "a ficha de outro dia não tem linha nenhuma")
+        primeira = portas[0]
+        self.assertTrue(primeira.startswith("/treino/exercicio/"), primeira)
+        self.assertIn("?de=ficha&amp;sessao=%d" % self.de_outro_dia.pk, primeira)
+        exercicio = Exercise.objects.get(pk=int(re.search(r"exercicio/(\d+)/", primeira).group(1)))
+        self.assertIn('aria-label="Ver %s"' % exercicio.name, ficha)
         self.assertNotIn("?exercicio=", ficha)
-        self.assertIn('aria-label="Ver ', ficha)
 
     def test_a_ficha_de_hoje_tem_as_duas_portas(self):
         ficha = sem_scripts(self.client.get(
@@ -308,3 +321,53 @@ class AFichaDeOutroDiaSegueOCicloTests(TestCase):
             self.assertEqual(self._opcao_da_ficha(hoje), opcao, "mesmo dia, mesma opção")
             vistas.setdefault(opcao, hoje)
         self.assertEqual(set(vistas), {1, 2}, "a ficha mostra a opção 1 em uns dias e a 2 em outros")
+class OsDiasDaLeituraSaoOsDaSemanaTests(TestCase):
+    """"Quando" lista CADA dia da semana em que a letra cai — e não o mesmo
+    dia duas vezes.
+
+    Achado na prova em produção de 18/09/2026 (casa com halteres / peso do
+    corpo): a leitura de um exercício da letra A dizia "Quinta-feira (A),
+    Quinta-feira (A)". As cópias vestidas de `sessoes_da_semana`
+    (`copy.copy`) compartilham as MESMAS linhas pré-carregadas, e a view
+    gravava `item.session = sessao` na linha compartilhada: a última
+    ocorrência vencia e a segunda-feira sumia da lista.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        from datetime import date
+        from unittest import mock
+
+        from accounts.models import DuracaoTreino, TrainingDay
+        from plans.tests import create_complete_user
+
+        # Quinta 17/09/2026: em abc2 de segunda a sexta a letra A cai na
+        # segunda (posição 0) e na quinta (posição 3).
+        self.relogio = mock.patch("django.utils.timezone.localdate", return_value=date(2026, 9, 17))
+        self.relogio.start()
+        self.addCleanup(self.relogio.stop)
+        self.pessoa = create_complete_user(
+            email="dias-da-leitura@exemplo.com", experiencia="intermediario",
+            split_preference="two", split_preference_confirmada=True, duracao_treino=DuracaoTreino.PADRAO,
+        )
+        TrainingDay.objects.filter(user=self.pessoa).delete()
+        for d in range(5):
+            TrainingDay.objects.create(user=self.pessoa, weekday=d, duration_min=60)
+        self.plano = services.create_routine(self.pessoa)
+        self.client.force_login(self.pessoa)
+
+    def test_a_letra_que_cai_duas_vezes_lista_os_dois_dias(self):
+        linhas = list(self.plano.sessions.prefetch_related("exercises__exercise"))
+        a = next(s for s in linhas if s.label == "A")
+        item = a.da_opcao(1)[0]
+        resposta = self.client.get(reverse("workouts:exercicio", args=[item.exercise_id]))
+        self.assertEqual(resposta.status_code, 200)
+        dias = resposta.context["dias"]
+        self.assertEqual(dias, ["Segunda-feira (A)", "Quinta-feira (A)"])
+        self.assertEqual(len(dias), len(set(dias)), "o mesmo dia listado duas vezes")
+        html = sem_scripts(resposta.content.decode())
+        self.assertIn("Segunda-feira (A), Quinta-feira (A)", html)

@@ -1,5 +1,6 @@
 """A aba de treino: a rotina da semana, a ficha de cada dia e a carga."""
 import uuid
+import copy
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -1058,8 +1059,17 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
                 ):
                     # Uma linha por sessão: o exercício pode estar nas duas
                     # opções da letra, e "Segunda (A), Segunda (A)" é ruído.
-                    item.session = sessao
-                    itens.append(item)
+                    #
+                    # CÓPIA RASA, e não a linha em si (18/09/2026): as
+                    # ocorrências da letra na semana são cópias vestidas da
+                    # MESMA linha (`sessoes_da_semana`), que compartilham as
+                    # linhas pré-carregadas. Gravar `session` na linha
+                    # compartilhada fazia a última ocorrência vencer — a
+                    # leitura dizia "Quinta-feira (A), Quinta-feira (A)" e
+                    # a segunda sumia (achado na prova em produção).
+                    ocorrencia = copy.copy(item)
+                    ocorrencia.session = sessao
+                    itens.append(ocorrencia)
         hoje = timezone.localdate().weekday()
         # "Fazer este exercício" só existe se ele está na OPÇÃO do dia — a
         # execução só abre a opção escolhida (ou a recomendada), e um link
