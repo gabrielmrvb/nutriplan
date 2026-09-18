@@ -1853,28 +1853,62 @@ ao GitHub naquele dia sem passar pelo reflog de nenhuma sessão desta
 máquina; um gate que só existe numa máquina não é gate, porque ninguém
 consegue conferir se ele rodou. Desde então:
 
-- `.github/workflows/suite.yml` roda a suíte COMPLETA — o mesmo comando do
-  hook, `manage.py test --verbosity=1 --noinput` — em todo PR para `main`
-  e em todo push que chegue lá, com Postgres 16 de serviço (a versão de
-  produção), sem segredo nenhum, teto de 40 minutos e o log como artefato;
-- `main` tem branch protection pela API: o check **"suíte completa"** verde
-  é obrigatório, a branch tem de estar atualizada (`strict`), vale para
-  admin (`enforce_admins`), sem force push, sem apagar. Push direto é
-  recusado — para todo mundo, o dono inclusive;
+- **DOIS fluxos desde 18/09/2026, e o gate é o RÁPIDO.** A suíte inteira,
+  serial, executava em ~31 min (medido nos últimos 10 runs: instalar ~10 s
+  com cache, o resto é o `manage.py test`), e com a fila local cada PR
+  esperava ~32 min de runner. `suite-rapida.yml` (check **"suíte rápida"**)
+  é o GATE: a suíte FATIADA em 5 por `ci/shard.py` (um job por fatia, cada
+  um SERIAL, os jobs em paralelo), `--exclude-tag lento`. **Não** usamos
+  `--parallel` do Django: ele roda cada processo com um clone do banco, mas
+  a suíte tem teste que assume ORDEM de PK, e no CI (PR #33, Linux) UM caiu
+  e o runner morreu com `cannot pickle 'traceback'`, escondendo a falha —
+  fatiar mantém cada fatia idêntica ao verde serial de sempre. `ci/shard.py`
+  descobre TODO módulo versionado e reparte equilibrado (peso por linhas, e
+  peso extra para quem semeia um ano); `config/test_ci.py` cobra que a
+  partição não deixa módulo órfão (um módulo em nenhuma fatia nunca rodaria
+  no gate). O check é o job `gate` ("suíte rápida"), verde só se TODAS as
+  fatias passam. Roda em todo PR, alvo < 10 min. `suite.yml` (check
+  **"suíte completa"**) roda as MESMAS fatias com TUDO, inclusive `lento`,
+  DEPOIS do merge (`push: main`), à noite (`schedule` 06:00 UTC) e à mão
+  (`workflow_dispatch`) — não barra PR. Os dois: Postgres 16 (produção), sem
+  segredo, `contents: read`, cada fatia sobe seu log e `--durations 15`.
+  **`@tag("lento")` é só para teste pesado que NÃO é o único guarda de algo
+  crítico** (concorrência, dourado, idempotência, segurança ficam no rápido
+  mesmo quando custam) — cada um movido está justificado no relatório;
+- **NÃO HÁ GATE NO SERVIDOR: o repositório é PRIVADO** e a API do GitHub
+  devolve **403 "Upgrade to GitHub Pro or make this repository public"**
+  para branch protection E para rulesets (conferido em 18/09/2026 — a
+  afirmação antiga de "branch protection pela API, strict, enforce_admins"
+  estava errada, e o "repositório público, minutos ilimitados" idem). O
+  único gate é COOPERATIVO: `scripts/github.py enfileirar`/`esperar` esperam
+  o check `CHECK` (= "suíte rápida") ficar verde antes de mergear pela API.
+  Ninguém deve chamar `merge` à mão. E porque é privado, **minuto de Actions
+  é metered** (~2000/mês no free): PR de 32 min era espera E custo — mais uma
+  razão para o gate rápido, e para a completa não rodar em todo PR;
 - **A FILA DE MERGE DO GITHUB NÃO EXISTE EM REPOSITÓRIO DE CONTA PESSOAL
-  (17/09/2026)** — a API devolve 422 "Invalid rule 'merge_queue'" e o
-  formulário de Settings → Rules não oferece "Require merge queue";
-  conferido nos dois. Com `strict` e quatro sessões mergeando, um PR
-  verde ficava "behind" no meio do check (duas vezes no #13). A resposta
-  é a FILA LOCAL: `scripts/github.py enfileirar <n>` põe uma senha em
+  (17/09/2026)** — a API devolve 422/403. A resposta é a FILA LOCAL:
+  `scripts/github.py enfileirar <n>` põe uma senha em
   `C:\Users\biel-\nutriplan-fila\` (fora de qualquer worktree, uma por PR,
-  em ordem de chegada), e a sessão da vez faz o laço que o `strict` pede —
-  merge de `main` na branch → push → check verde → merge — enquanto as
-  outras esperam. Serializa as sessões DESTA máquina, que era de onde
-  vinha a corrida. Posse abandonada (90 min) é liberada sozinha. O ruleset
-  com a fila do GitHub (`corpo_da_fila`, `fila-ativar`) e o gatilho
-  `merge_group` no fluxo ficam PRONTOS para o dia em que o repositório
-  morar numa organização — decisão do dono, não desta sessão;
+  em ordem de chegada), e a sessão da vez faz o laço merge de `main` na
+  branch → push → **espera "suíte rápida" do head certo (`esperar --sha`)**
+  → merge, enquanto as outras esperam. Posse abandonada (90 min) é liberada
+  sozinha. **O laço roda num WORKTREE PRÓPRIO e descartável (18/09/2026), não
+  na árvore da sessão** — `git worktree add --detach` no head remoto da
+  branch, merge/push/merge lá, `git worktree remove` no fim —, então a sessão
+  NÃO precisa estar com a branch em HEAD e SEGUE trabalhando enquanto a fila
+  anda (antes o `enfileirar` travava a árvore da sessão até a fila terminar).
+  O push do worktree é `--no-verify`: o pre-push é o atalho LOCAL e redundante
+  ali (o gate é o check do CI que a fila espera sobre o mesmo SHA, e a árvore
+  do worktree já é a que sobe). O ruleset com a fila do GitHub
+  (`corpo_da_fila`, `fila-ativar`) e o gatilho `merge_group` ficam PRONTOS
+  para o dia em que o repositório morar numa organização (ou virar público) —
+  decisão do dono;
+- **Se a "suíte completa" quebrar** (pós-merge ou no cron noturno): foi um
+  `lento` que regrediu no merge que acabou de entrar OU algo que depende de
+  calendário. O GitHub manda e-mail ao dono por run vermelho no branch
+  padrão (é o alerta, sem segredo de webhook). Conserte ou reverta o merge
+  culpado; o gate rápido não pega `lento`, então a correção também passa
+  rápido. Rodar a completa à mão: `workflow_dispatch` na aba Actions;
 - o fluxo é **branch → PR → `enfileirar` (espera a vez, atualiza, espera o
   check, mergeia) → `/saude/`**. Sem `gh` nesta máquina, o helper é
   `scripts/github.py` (`pr`, `status`, `esperar`, `enfileirar`, `fila`,
@@ -1884,8 +1918,8 @@ consegue conferir se ele rodou. Desde então:
 - o `pre-push` local virou ATALHO: no worktree descartável do SHA que sobe,
   `config` + teste dourado + doutrina + gate por letra + orçamentos, em
   poucos minutos; `NUTRIPLAN_SUITE_COMPLETA=1` roda tudo localmente como
-  antes. `config/test_ci.py` prende o contrato dos três (fluxo, hook,
-  helper).
+  antes. `config/test_ci.py` prende o contrato dos dois fluxos, do hook e do
+  helper.
 
 O merge em `main` dispara o Render. `scripts/build.sh` roda collectstatic →
 `check --deploy` → migrate → os três seeds, com `errexit`: build que passa
