@@ -98,13 +98,32 @@ class ALeituraDoExercicioTests(TestCase):
         self.assertEqual(self.client.get(reverse("workouts:exercicio", args=[999999])).status_code, 404)
 
     def test_a_ficha_de_OUTRO_dia_leva_a_leitura_e_nao_a_execucao(self):
+        import re
+
         ficha = sem_scripts(self.client.get(
             reverse("workouts:ficha", args=[self.de_outro_dia.pk])
         ).content.decode())
-        # `?de=ficha&sessao=`: a leitura volta para ESTA ficha (T1.14).
-        self.assertIn('href="%s?de=ficha&amp;' % self._url(self.item_outro), ficha)
+        # A ficha de outro dia renderiza a VARIAÇÃO da próxima ocorrência da
+        # letra (`variacao_do_dia`), e QUAL opção é a recomendada depende da
+        # ordem de PK — então checar um item fixo (`item_outro`, sempre da
+        # opção 1) quebrava ao FATIAR/reordenar a suíte sem que o
+        # comportamento mudasse (achado no PR #33). O contrato de verdade é
+        # de ordem: todo link de exercício da ficha leva à LEITURA
+        # (`?de=ficha`), nenhum à execução (`?exercicio=`), e todos são
+        # exercícios DESTA sessão.
+        lidos = re.findall(r"/treino/exercicio/(\d+)/\?de=ficha&amp;", ficha)
+        self.assertTrue(lidos, "a ficha de outro dia lista exercícios com link de leitura")
         self.assertNotIn("?exercicio=", ficha)
-        self.assertIn('aria-label="Ver %s"' % self.item_outro.exercise.name, ficha)
+        da_sessao = {
+            item.exercise_id
+            for op in self.de_outro_dia.opcoes
+            for item in self.de_outro_dia.da_opcao(op)
+        }
+        self.assertTrue(
+            all(int(pk) in da_sessao for pk in lidos),
+            "todo link de leitura é de um exercício desta sessão",
+        )
+        self.assertIn('aria-label="Ver ', ficha)
 
     def test_a_ficha_de_hoje_tem_as_duas_portas(self):
         ficha = sem_scripts(self.client.get(
