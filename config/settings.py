@@ -495,6 +495,13 @@ VAPID_ADMIN_EMAIL = env("VAPID_ADMIN_EMAIL", default="")
 # painel do Render e nos segredos do GitHub; nunca no repositório.
 NUTRIPLAN_TAREFAS_TOKEN = env("NUTRIPLAN_TAREFAS_TOKEN", default="")
 
+# Token do disparo PONTUAL `GET /tarefas/lembretes/externo/<token>/` (o
+# UptimeRobot bate aqui a cada 5 min). SEPARADO do de cima de propósito: ele
+# viaja na URL (monitor free não manda cabeçalho), aparece no log de acesso do
+# Render, e de baixo dano — só dispara lembretes vencidos, idempotente e com
+# limite de taxa. Vazio = o disparo externo não existe (503). Só no Render.
+NUTRIPLAN_DISPARO_TOKEN = env("NUTRIPLAN_DISPARO_TOKEN", default="")
+
 #: Nome curto e completo do PWA, usados no manifest.
 PWA_NAME = "NutriPlan"
 PWA_SHORT_NAME = "NutriPlan"

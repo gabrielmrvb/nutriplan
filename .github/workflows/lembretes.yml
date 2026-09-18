@@ -1,12 +1,15 @@
-# Os lembretes de refeição — só disparar, sem nada pago.
+# Os lembretes de refeição — o FALLBACK, sem nada pago.
 #
-# O app não tem agendador próprio, e cron no Render é serviço pago (mínimo
-# US$ 1/mês; a conta sem cartão devolve 402 — decisão do dono em 16/09/2026:
-# nada pago). Este fluxo é o relógio dos lembretes: a cada disparo do
-# `schedule` bate UMA vez em `POST /tarefas/lembretes/` com um token (o app
-# dispara o que venceu — `push/tarefas.py`). Rodar duas vezes no mesmo
-# minuto é seguro: quem decide se alguém já foi avisado é a constraint do
-# banco, não este relógio.
+# Desde 18/09/2026 quem DISPARA os lembretes com pontualidade é o UptimeRobot
+# (`GET /tarefas/lembretes/externo/<token>/`, a cada 5 min): o `schedule` do
+# GitHub atrasa e PULA (MEDIDO: ~9 rodadas em 31 h), então lembrete saía a
+# cada ~4,4 h em vez de 5 min. Este fluxo continua existindo como FALLBACK:
+# a cada disparo do `schedule` bate UMA vez em `POST /tarefas/lembretes/` com
+# um token — e o app (`push/tarefas.py`) SE ABSTÉM se um disparo externo
+# pontual cuidou dos lembretes há menos de 4 min. Assim o pontual manda, e o
+# `schedule` só assume se o UptimeRobot cair. Rodar duas vezes no mesmo
+# minuto é seguro de qualquer jeito: quem decide se alguém já foi avisado é a
+# constraint do banco.
 #
 # MANTER ACORDADO NÃO É DESTE FLUXO. Antes (17/09/2026, manhã) o job era um
 # LAÇO de ~5h45 que também batia em `/saude/vivo/` de 5 em 5 min e se
