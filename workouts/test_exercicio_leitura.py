@@ -103,12 +103,13 @@ class ALeituraDoExercicioTests(TestCase):
         ficha = sem_scripts(self.client.get(
             reverse("workouts:ficha", args=[self.de_outro_dia.pk])
         ).content.decode())
-        # A ficha de outro dia renderiza a VARIAÇÃO da próxima ocorrência da
-        # letra (`variacao_do_dia`), e QUAL opção é a recomendada depende da
-        # ordem de PK — então checar um item fixo (`item_outro`, sempre da
-        # opção 1) quebrava ao FATIAR/reordenar a suíte sem que o
-        # comportamento mudasse (achado no PR #33). O contrato de verdade é
-        # de ordem: todo link de exercício da ficha leva à LEITURA
+        # A ficha de outro dia mostra a VARIAÇÃO da próxima ocorrência da
+        # letra (`variacao_do_dia`: bloco par da posição no ciclo = opção 1,
+        # ímpar = opção 2), que depende do CALENDÁRIO — e este teste não
+        # congela a data. Checar um item fixo (`item_outro`, sempre da opção
+        # 1) passava numa quinta e caía numa sexta, sem o comportamento mudar
+        # (achado no PR #33 ao rodar a fatia noutro dia). O contrato de
+        # verdade é de ordem: todo link de exercício da ficha leva à LEITURA
         # (`?de=ficha`), nenhum à execução (`?exercicio=`), e todos são
         # exercícios DESTA sessão.
         lidos = re.findall(r"/treino/exercicio/(\d+)/\?de=ficha&amp;", ficha)
