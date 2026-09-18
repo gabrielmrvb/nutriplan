@@ -702,7 +702,15 @@ de "completa" ficou idêntica (ninguém recebeu "regenerar?") e básica E casa
 com halteres fecham o dourado da letra A (7 exercícios, 25 séries, 59 min
 no `abc2`). "Só peso do corpo" continua `expectedFailure` nomeado no
 dourado: B tem um exercício e C dois, e a lista do que falta está no
-`BACKLOG.md`.
+`BACKLOG.md`. **E nesse perfil a versão rápida NÃO aparece — por regra,
+não por falta (decisão de 18/09/2026, opção "manter ausente")**: "Menos
+tempo hoje?" só existe onde a rápida CORTA alguma coisa (`hoje.rapida_muda`
+em `preparar_dia`), e a letra A de só peso do corpo tem 3 exercícios em ~30
+minutos — cabe inteira nos 40 da rápida. Gerar uma "rápida com menos
+séries" ali seria o mesmo treino com outro nome, o defeito de veracidade
+que o app recusa desde a faixa de duração. Provado em produção com conta
+descartável (18/09, casa com halteres oferece; peso do corpo não) e
+guardado em `workouts/test_rapida_por_perfil.py`, com controle positivo.
 
 **Varridos os 31 recortes possíveis de equipamento, UM era viável em 10/09: o
 conjunto completo** — ou seja, nenhuma restrição, que é o comportamento de
@@ -1763,14 +1771,30 @@ dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
 
 ## Limites reais deste ambiente
 
-- **Node 24 e npm 11 estão instalados desde 12/09/2026** (WinGet), e com eles
-  o `agent-browser` 0.37.1 da Vercel, com Chrome 153 próprio em
-  `~/.agent-browser/browsers`. É a ferramenta de QA de navegador: sessão
-  própria (`AGENT_BROWSER_SESSION`), saída sempre para arquivo e `stdin`
-  fechado — o daemon herda o stdout, e um pipe espera um EOF que nunca vem.
-  Lighthouse e Playwright continuam de fora por decisão, não por falta de
-  Node: o `agent-browser` cobre o que eles cobririam aqui. O Capacitor da
-  Corrida continua bloqueado por Android Studio/Xcode, não por Node.
+- **QA DE NAVEGADOR NESTA MÁQUINA É `scripts/qa/nav.py` (CDP), E O
+  `agent-browser` NÃO RODA — decisão do dono, 18/09/2026.** O Smart App
+  Control do Windows 11 (Controle de Aplicativo) bloqueia binário sem
+  assinatura: o `agent-browser` 0.37.1/0.38.1 morre no `spawn` (evento
+  CodeIntegrity 3077, medido em 17 e 18/09) e isso não vai mudar agora.
+  Nenhuma sessão tenta o `agent-browser` nem gasta tempo diagnosticando:
+  `nav.py <sessão> open|eval|click|type|screenshot|viewport|cookie|tema|
+  movimento|rede` fala CDP com o MESMO Chrome 153 (`~/.agent-browser/
+  browsers`), inclusive em sites de terceiros na sessão logada do dono.
+  Sessão nova a cada execução de QA (o perfil guarda cookies), saída sempre
+  em arquivo, tema e movimento emulados por sessão. Node 24/npm 11 (WinGet)
+  continuam instalados; Lighthouse e Playwright seguem de fora por decisão.
+- **O mesmo bloqueio vale para `.pyd` sem assinatura no `.venv`.** O
+  fontTools 4.65 vem com seis extensões compiladas (`bezierTools`, `cu2qu`,
+  `qu2cu`, `momentsPen`, `iup`, `lexer`) e `config/test_fontes.py` errava
+  com "Uma política de Controle de Aplicativo bloqueou este arquivo" — três
+  ERROR em todo hook local, e o CI (Linux) verde. Os seis `.pyd` foram
+  afastados para `*.pyd.bloqueado-sac` (18/09): o fontTools cai no Python
+  puro, mesmo resultado. `pip install --force-reinstall fonttools` os traz de
+  volta — e o erro junto (com eles no lugar e bloqueados,
+  `config/test_fontes.py` vira `SkipTest` com o motivo, PR #34: o hook não
+  cai, mas as tabelas das fontes só são medidas no CI). Pacote novo com
+  `.pyd` reprovando no hook: é isto, não o código; afastar o `.pyd` é a
+  resposta, `--no-verify` não é.
 - **PWA não escreve no Apple Saúde nem no Health Connect** — não existe API web.
   `workouts/health_export.py` gera TCX para importar.
 - **Background Sync não existe no Safari do iPhone.** O evento `online` é o
