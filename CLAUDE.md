@@ -39,7 +39,13 @@ CI, fluxo branch → PR → FILA (`scripts/github.py enfileirar`: a fila
 local desta máquina, porque a do GitHub só existe em organização; merge
 commit; `strict` intacto)
 · deploy provado por `/saude/` + smoke + QA em produção com conta descartável
-pelo signup público, conta apagada pela tela, demo intacto · `scripts/qa/
+pelo signup público, conta apagada pela tela, demo intacto — **a conta de QA
+descartável é do AGENTE (decisão do dono, 18/09/2026): a sessão cria pelo
+signup público, com e-mail claramente de QA (`qa-<sessão>-<data>@nutriplan.invalid`),
+senha só para aquela conta, nunca no relatório; obrigação de APAGAR pela
+tela ao terminar e provar que sumiu (login recusado). Nunca a conta pessoal
+do dono. Sessão cujo ambiente proíba criar conta ou digitar senha diz isso
+no relatório e prova o que der pelo `/demo/`** · `scripts/qa/
 nav.py` (CDP) para navegador, inclusive sites de terceiros na sessão logada do
 dono (Render, GitHub, claude.ai) · mídia de exercício ativa com curadoria e
 mosaico para veto posterior · plano ativo antigo nunca remonta sozinho · o
@@ -1748,6 +1754,26 @@ Os tempos foram medidos ao vivo por `getAnimations()` no CDP (nervura
 600 ms, cascata +600/+680, botões +1000); `nav.py` re-emula a cada comando, então captura
 estática de movimento é sempre com `movimento reduzido`.
 
+**Dois achados do QA em produção (18/09/2026), os dois MEDIDOS na tela e
+não na tabela.** (1) A barra da semana do Progresso é `--folha` sobre a
+TRILHA — `--fio`, uma tinta translúcida composta na superfície —, e esse
+par não está na auditoria (que mede gráfico × superfície): no Papel dava
+2,97:1; `--papel-folha` foi de #1d833f para #1b7c3b (3,26 sobre a trilha,
+3,6 sobre `--surface-3`), e `config/tests.py` passou a compor o fio e
+medir o par. (2) A nervura do título sobe ~24 px acima do `h1`; no
+`/demo/` a faixa "Ambiente de demonstração … Saiba mais" tinha 16 px de
+margem e a ponta entrava 16 px na caixa do link (encostava no sublinhado).
+A faixa passou a 40 px (`--espaco-7` + `--espaco-6`): com 32 a ponta caía
+exatamente na base da caixa (folga 0, medido), com 40 sobram 8.
+`config/test_nervura.py` prende a margem. Os pares que raspam na auditoria
+(`--danger`, `--brasa` sobre `--surface-3`) não ocorrem em tela real:
+medido, `--danger` só aparece sobre `--surface` (6,76 Ferro / 5,49 Papel)
+e sobre a tinta de erro (6,17 / 5,8); `--brasa` só como texto da corrida.
+E o `agent-browser` continua BLOQUEADO pelo Smart App Control do Windows —
+a regra única está em "Limites reais deste ambiente": binário sem
+assinatura bloqueado → Python puro; o QA de navegador é `scripts/qa/nav.py`
+sobre o mesmo Chrome 153.
+
 ## Testes
 
 Nome descreve o comportamento, não o método. Docstring diz **por que** aquilo
@@ -1824,6 +1850,23 @@ quando `variacao_do_dia` ignora a paridade.
   no `render.yaml` de propósito: ele é o rollback. Se o plano gratuito do Neon
   tem prazo próprio, ninguém verificou — é uma olhada no painel dele.
   Ver **Backup e restauração** e [`docs/infra-recuperacao.md`](docs/infra-recuperacao.md).
+- **O SMART APP CONTROL DESTA MÁQUINA ESTÁ LIGADO E BLOQUEIA BINÁRIO SEM
+  ASSINATURA — a regra é UMA (18/09/2026): `.pyd`/`.exe` não assinado
+  bloqueado → Python puro, nunca remendo no teste.** O sintoma é sempre o
+  mesmo: "Uma política de Controle de Aplicativo bloqueou este arquivo"
+  (evento CodeIntegrity 3077, `VerifiedAndReputablePolicyState = 1`); não é
+  quarentena do Defender e reinstalar não resolve — ligar e desligar a
+  política é do dono, e desligar é irreversível sem reinstalar o Windows.
+  Duas consequências já pagas: o `agent-browser` (0.37.1 e 0.38.1,
+  `NotSigned`) não roda e o QA de navegador é `scripts/qa/nav.py` sobre o
+  MESMO Chrome 153 que ele baixou; e a extensão `bezierTools.pyd` do
+  fontTools foi APAGADA do `.venv` compartilhado — o fontTools roda em
+  Python puro, e os três testes das tabelas das fontes rodam de verdade.
+  Se um `.pyd` novo aparecer bloqueado (`pip install` que recompila): apague
+  o `.pyd` da biblioteca, não escreva `skip` no teste. O único `skip`
+  permitido é o de `config/test_fontes.py`, restrito a `win32` com a
+  mensagem apontando para esta regra; no CI (Linux) a extensão que não
+  carrega é FALHA.
 - **Nenhum processo de fundo abre janela, e todo processo de fundo nasce em
   `scripts/fundo.py`.** No Windows 11 o Windows Terminal hospeda todo console
   novo — e um processo sem console (os do Claude Code, o Agendador) que lança
@@ -1844,28 +1887,62 @@ ao GitHub naquele dia sem passar pelo reflog de nenhuma sessão desta
 máquina; um gate que só existe numa máquina não é gate, porque ninguém
 consegue conferir se ele rodou. Desde então:
 
-- `.github/workflows/suite.yml` roda a suíte COMPLETA — o mesmo comando do
-  hook, `manage.py test --verbosity=1 --noinput` — em todo PR para `main`
-  e em todo push que chegue lá, com Postgres 16 de serviço (a versão de
-  produção), sem segredo nenhum, teto de 40 minutos e o log como artefato;
-- `main` tem branch protection pela API: o check **"suíte completa"** verde
-  é obrigatório, a branch tem de estar atualizada (`strict`), vale para
-  admin (`enforce_admins`), sem force push, sem apagar. Push direto é
-  recusado — para todo mundo, o dono inclusive;
+- **DOIS fluxos desde 18/09/2026, e o gate é o RÁPIDO.** A suíte inteira,
+  serial, executava em ~31 min (medido nos últimos 10 runs: instalar ~10 s
+  com cache, o resto é o `manage.py test`), e com a fila local cada PR
+  esperava ~32 min de runner. `suite-rapida.yml` (check **"suíte rápida"**)
+  é o GATE: a suíte FATIADA em 5 por `ci/shard.py` (um job por fatia, cada
+  um SERIAL, os jobs em paralelo), `--exclude-tag lento`. **Não** usamos
+  `--parallel` do Django: ele roda cada processo com um clone do banco, mas
+  a suíte tem teste que assume ORDEM de PK, e no CI (PR #33, Linux) UM caiu
+  e o runner morreu com `cannot pickle 'traceback'`, escondendo a falha —
+  fatiar mantém cada fatia idêntica ao verde serial de sempre. `ci/shard.py`
+  descobre TODO módulo versionado e reparte equilibrado (peso por linhas, e
+  peso extra para quem semeia um ano); `config/test_ci.py` cobra que a
+  partição não deixa módulo órfão (um módulo em nenhuma fatia nunca rodaria
+  no gate). O check é o job `gate` ("suíte rápida"), verde só se TODAS as
+  fatias passam. Roda em todo PR, alvo < 10 min. `suite.yml` (check
+  **"suíte completa"**) roda as MESMAS fatias com TUDO, inclusive `lento`,
+  DEPOIS do merge (`push: main`), à noite (`schedule` 06:00 UTC) e à mão
+  (`workflow_dispatch`) — não barra PR. Os dois: Postgres 16 (produção), sem
+  segredo, `contents: read`, cada fatia sobe seu log e `--durations 15`.
+  **`@tag("lento")` é só para teste pesado que NÃO é o único guarda de algo
+  crítico** (concorrência, dourado, idempotência, segurança ficam no rápido
+  mesmo quando custam) — cada um movido está justificado no relatório;
+- **NÃO HÁ GATE NO SERVIDOR: o repositório é PRIVADO** e a API do GitHub
+  devolve **403 "Upgrade to GitHub Pro or make this repository public"**
+  para branch protection E para rulesets (conferido em 18/09/2026 — a
+  afirmação antiga de "branch protection pela API, strict, enforce_admins"
+  estava errada, e o "repositório público, minutos ilimitados" idem). O
+  único gate é COOPERATIVO: `scripts/github.py enfileirar`/`esperar` esperam
+  o check `CHECK` (= "suíte rápida") ficar verde antes de mergear pela API.
+  Ninguém deve chamar `merge` à mão. E porque é privado, **minuto de Actions
+  é metered** (~2000/mês no free): PR de 32 min era espera E custo — mais uma
+  razão para o gate rápido, e para a completa não rodar em todo PR;
 - **A FILA DE MERGE DO GITHUB NÃO EXISTE EM REPOSITÓRIO DE CONTA PESSOAL
-  (17/09/2026)** — a API devolve 422 "Invalid rule 'merge_queue'" e o
-  formulário de Settings → Rules não oferece "Require merge queue";
-  conferido nos dois. Com `strict` e quatro sessões mergeando, um PR
-  verde ficava "behind" no meio do check (duas vezes no #13). A resposta
-  é a FILA LOCAL: `scripts/github.py enfileirar <n>` põe uma senha em
+  (17/09/2026)** — a API devolve 422/403. A resposta é a FILA LOCAL:
+  `scripts/github.py enfileirar <n>` põe uma senha em
   `C:\Users\biel-\nutriplan-fila\` (fora de qualquer worktree, uma por PR,
-  em ordem de chegada), e a sessão da vez faz o laço que o `strict` pede —
-  merge de `main` na branch → push → check verde → merge — enquanto as
-  outras esperam. Serializa as sessões DESTA máquina, que era de onde
-  vinha a corrida. Posse abandonada (90 min) é liberada sozinha. O ruleset
-  com a fila do GitHub (`corpo_da_fila`, `fila-ativar`) e o gatilho
-  `merge_group` no fluxo ficam PRONTOS para o dia em que o repositório
-  morar numa organização — decisão do dono, não desta sessão;
+  em ordem de chegada), e a sessão da vez faz o laço merge de `main` na
+  branch → push → **espera "suíte rápida" do head certo (`esperar --sha`)**
+  → merge, enquanto as outras esperam. Posse abandonada (90 min) é liberada
+  sozinha. **O laço roda num WORKTREE PRÓPRIO e descartável (18/09/2026), não
+  na árvore da sessão** — `git worktree add --detach` no head remoto da
+  branch, merge/push/merge lá, `git worktree remove` no fim —, então a sessão
+  NÃO precisa estar com a branch em HEAD e SEGUE trabalhando enquanto a fila
+  anda (antes o `enfileirar` travava a árvore da sessão até a fila terminar).
+  O push do worktree é `--no-verify`: o pre-push é o atalho LOCAL e redundante
+  ali (o gate é o check do CI que a fila espera sobre o mesmo SHA, e a árvore
+  do worktree já é a que sobe). O ruleset com a fila do GitHub
+  (`corpo_da_fila`, `fila-ativar`) e o gatilho `merge_group` ficam PRONTOS
+  para o dia em que o repositório morar numa organização (ou virar público) —
+  decisão do dono;
+- **Se a "suíte completa" quebrar** (pós-merge ou no cron noturno): foi um
+  `lento` que regrediu no merge que acabou de entrar OU algo que depende de
+  calendário. O GitHub manda e-mail ao dono por run vermelho no branch
+  padrão (é o alerta, sem segredo de webhook). Conserte ou reverta o merge
+  culpado; o gate rápido não pega `lento`, então a correção também passa
+  rápido. Rodar a completa à mão: `workflow_dispatch` na aba Actions;
 - o fluxo é **branch → PR → `enfileirar` (espera a vez, atualiza, espera o
   check, mergeia) → `/saude/`**. Sem `gh` nesta máquina, o helper é
   `scripts/github.py` (`pr`, `status`, `esperar`, `enfileirar`, `fila`,
@@ -1875,8 +1952,8 @@ consegue conferir se ele rodou. Desde então:
 - o `pre-push` local virou ATALHO: no worktree descartável do SHA que sobe,
   `config` + teste dourado + doutrina + gate por letra + orçamentos, em
   poucos minutos; `NUTRIPLAN_SUITE_COMPLETA=1` roda tudo localmente como
-  antes. `config/test_ci.py` prende o contrato dos três (fluxo, hook,
-  helper).
+  antes. `config/test_ci.py` prende o contrato dos dois fluxos, do hook e do
+  helper.
 
 O merge em `main` dispara o Render. `scripts/build.sh` roda collectstatic →
 `check --deploy` → migrate → os três seeds, com `errexit`: build que passa
@@ -1932,15 +2009,27 @@ variáveis), `env`, `cron`, `deploy`, `trigger`, `runs`, `logs`, `status`.
   FCM 201, notificação exibida.
 - **Lembretes SEM cron e SEM nada pago (decisão do dono, 16/09/2026).** A
   criação do cron pela API respondeu `402 Payment information is required`
-  (custaria no mínimo US$ 1/mês), e a instância web continua `free`. Quem
-  DISPARA lembrete é o **GitHub Actions** (`.github/workflows/lembretes.yml`,
-  `schedule` `*/5`): uma rodada CURTA por disparo, `POST /tarefas/lembretes/`
-  com `NUTRIPLAN_TAREFAS_TOKEN` no `Authorization` (variável do web service +
-  segredo do repositório; o mesmo valor, em `~/.nutriplan-secrets/tarefas_token`;
-  gravado por `scripts/github.py segredo` e pela API do Render). A rota é
-  `push.views.TarefaLembretesView` → `push/tarefas.py`: token em tempo
-  constante (503 sem a variável, 403 com token errado), só POST, sem
-  sessão, idempotente pela constraint do `NotificationLog`.
+  (custaria no mínimo US$ 1/mês), e a instância web continua `free`.
+- **Quem DISPARA lembrete com PONTUALIDADE é o UptimeRobot (18/09/2026), e o
+  `schedule` do Actions é FALLBACK.** O `schedule` do GitHub atrasa e PULA —
+  MEDIDO em 18/09: ~9 rodadas em 31 h (intervalos de 2 a 5,5 h), então o
+  lembrete saía a cada ~4,4 h em vez de 5 min. O primário passou a ser um
+  segundo monitor do UptimeRobot em `GET /tarefas/lembretes/externo/<token>/`
+  (a cada 5 min, pontual). O UptimeRobot free só manda GET/HEAD e SEM
+  cabeçalho, então o token vai na URL (`NUTRIPLAN_DISPARO_TOKEN`, SEPARADO do
+  Bearer do POST): `config/observabilidade.py` o redige do log do Django, mas
+  ele APARECE no log de ACESSO do Render — por isso é de baixo dano (só
+  dispara lembretes vencidos, idempotente, com limite de taxa de
+  `INTERVALO_MINIMO_EXTERNO`). A rota é `push.views.DisparoExternoView` (GET,
+  503 sem a variável, 403 com token errado; loga user-agent e origem, nunca o
+  token). O `schedule` continua no `POST /tarefas/lembretes/`
+  (`TarefaLembretesView`, Bearer `NUTRIPLAN_TAREFAS_TOKEN`) como FALLBACK: o
+  `push/tarefas.py` SE ABSTÉM (`rodar(externo=False)`) quando um disparo
+  externo cuidou há menos de `RESERVA_DO_FALLBACK` (4 min) — assim o pontual
+  manda e o `schedule` só assume se o UptimeRobot cair. A memória do último
+  externo é por PROCESSO (dois workers) e some no restart; errar dá no
+  máximo uma rodada redundante, que a constraint do `NotificationLog` torna
+  inofensiva.
 
 - **Quem MANTÉM ACORDADO é o UptimeRobot (17/09/2026), não o Actions.** Um
   monitor HTTP(s) gratuito — conta `bielpointblank@gmail.com`, monitor
@@ -1959,23 +2048,20 @@ variáveis), `env`, `cron`, `deploy`, `trigger`, `runs`, `logs`, `status`.
 **A infraestrutura é 100 % gratuita — Render free + Neon free + GitHub
 Actions + UptimeRobot free —, e isso implica três coisas escritas:**
 
-- **duas responsabilidades, dois donos.** MANTER ACORDADO é do UptimeRobot
-  (5 em 5 min em `/saude/vivo/`, confiável); DISPARAR LEMBRETE é do `schedule`
-  do Actions (5 em 5 min em `/tarefas/lembretes/`). Separar foi decisão de
-  17/09: o `schedule` do GitHub ATRASA e às vezes PULA — MEDIDO naquele dia,
-  o `*/5` rodou UMA vez em oito horas —, então ele NÃO serve para segurar
-  cold start (que precisa de pontualidade), mas serve para lembrete (a janela
-  de `push/services.py` tolera atraso, e a constraint do banco impede
-  duplicar). O preço aceito pelo dono é **lembrete pode atrasar** quando o
-  GitHub atrasa; o que NÃO acontece mais é cold start, porque o UptimeRobot
-  não depende do humor do `schedule`. **Se o UptimeRobot cair** (o e-mail
-  avisa): o serviço volta a dormir após 15 min e o primeiro acesso paga
-  37–60 s — reative o monitor no painel, ou o próprio `POST` do lembrete
-  acaba acordando o web na próxima vez que o `schedule` rodar. **Se o
-  `schedule` do Actions parar** (repositório sem atividade por 60 dias — o
-  GitHub avisa por e-mail — ou pane do agendador): os lembretes param sem
-  derrubar mais nada; `workflow_dispatch` na aba Actions dispara uma rodada à
-  mão, e um commit qualquer religa o `schedule`;
+- **três responsabilidades, e o UptimeRobot cuida de duas (18/09/2026).**
+  MANTER ACORDADO é do UptimeRobot em `/saude/vivo/` (monitor "NutriPlan
+  vivo"); DISPARAR LEMBRETE, com pontualidade, é do UptimeRobot em
+  `/tarefas/lembretes/externo/<token>/` (um segundo monitor); e o `schedule`
+  do Actions em `POST /tarefas/lembretes/` é o FALLBACK. Os dois monitores
+  batem de 5 em 5 min (o mínimo do free) e alertam por e-mail. Por que o
+  UptimeRobot e não o `schedule` para disparar: o `schedule` do GitHub ATRASA
+  e PULA (MEDIDO em 17 e 18/09), e lembrete precisa de pontualidade. **Se um
+  dos monitores cair** (o e-mail avisa): reative no painel; enquanto isso, o
+  `schedule` (fallback) assume os lembretes quando não vê disparo externo há
+  > 4 min, e o `POST` do lembrete acaba acordando o web. **Se o `schedule` do
+  Actions parar** (repositório sem atividade por 60 dias, ou pane): os
+  lembretes param só se o UptimeRobot TAMBÉM estiver fora; `workflow_dispatch`
+  na aba Actions dispara à mão, e um commit religa o `schedule`;
 - **o Neon dorme entre refeições, de propósito.** Uma consulta a cada 5 min
   o manteria acordado o dia inteiro (182 CU-h contra 100 de cota). Por isso
   a tarefa, depois de rodar, calcula a próxima refeição de quem tem

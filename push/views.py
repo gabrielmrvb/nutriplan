@@ -6,6 +6,7 @@ estático, por dois motivos: o SW precisa vir da RAIZ do site (um arquivo em
 cor do tema, nome do app, versão do cache.
 """
 import json
+import logging
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -21,6 +22,8 @@ from django.views.generic import TemplateView, View
 from . import tarefas
 from .models import PushSubscription
 from .services import push_is_configured
+
+logger = logging.getLogger(__name__)
 
 
 class ManifestView(View):
@@ -254,6 +257,38 @@ class TarefaLembretesView(View):
         if not tarefas.token_confere(request.headers.get("Authorization")):
             return JsonResponse({"error": "não autorizado"}, status=403)
         return JsonResponse(tarefas.rodar())
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class DisparoExternoView(View):
+    """`GET /tarefas/lembretes/externo/<token>/` — o disparo PONTUAL, para um
+    monitor externo (UptimeRobot) que bate a cada 5 minutos e é confiável, ao
+    contrário do `schedule` do GitHub (MEDIDO em 18/09/2026: ~9 rodadas em
+    31 h). O UptimeRobot free só manda GET/HEAD e NÃO manda cabeçalho, então o
+    token vem na URL (`config/observabilidade.py` o redige do log do Django; no
+    log de ACESSO do Render ele aparece, e por isso é um token separado, de
+    baixo dano — só dispara lembretes vencidos, idempotente e com limite de
+    taxa).
+
+    GET puro, sem sessão. O `schedule` do Actions continua no `POST
+    /tarefas/lembretes/` como FALLBACK: `push.tarefas.rodar` se abstém no
+    fallback quando este disparo pontual cuidou há < 4 min.
+    """
+
+    http_method_names = ["get"]
+
+    def get(self, request, token, *args, **kwargs):
+        if not tarefas.disparo_configurado():
+            return JsonResponse({"error": "disparo não configurado"}, status=503)
+        if not tarefas.token_de_disparo_confere(token):
+            return JsonResponse({"error": "não autorizado"}, status=403)
+        # Auditoria: QUEM disparou (nunca o token) — user-agent e origem.
+        logger.info(
+            "disparo externo de lembretes: ua=%r origem=%s",
+            (request.META.get("HTTP_USER_AGENT") or "?")[:120],
+            request.META.get("REMOTE_ADDR", "?"),
+        )
+        return JsonResponse(tarefas.rodar(externo=True))
 
 
 @method_decorator(login_required, name="post")

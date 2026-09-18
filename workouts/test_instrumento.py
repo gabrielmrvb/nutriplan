@@ -33,7 +33,7 @@ from pathlib import Path
 
 from django.core.management import call_command
 from django.db import connection
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, tag
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
@@ -202,6 +202,7 @@ class OConviteDeNivelTests(TestCase):
         self.assertEqual(progresso.DATAS_PARA_O_CONVITE, 24)
 
 
+@tag("lento")  # medição read-only sobre 365 dias semeados; não é guarda de correção
 class OMedidorDeProgressaoTests(TestCase):
     """`medir_progressao` lê tudo e não escreve nada."""
 

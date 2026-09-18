@@ -5,10 +5,11 @@
 # suíte inteira (30–40 minutos) e era o único gate; um push chegou ao
 # GitHub naquele dia sem passar pelo reflog de nenhuma sessão, e um gate que
 # só existe numa máquina não é gate — ninguém consegue conferir se rodou.
-# Hoje `.github/workflows/suite.yml` roda a suíte completa em todo PR para
-# `main` e a branch protection exige o check verde: é lá que o push é
-# julgado. Este hook virou o atalho que pega regressão cara em poucos
-# minutos, antes de gastar 40 minutos de runner:
+# Hoje o gate é o CI: `suite-rapida.yml` (fatiada, `--exclude-tag lento`,
+# < 10 min) barra todo PR — é o check que a fila local espera —, e
+# `suite.yml` roda a suíte inteira depois do merge e à noite (18/09/2026).
+# Este hook virou o atalho que pega regressão cara em poucos minutos, antes
+# de gastar runner (privado, metered):
 #
 #   config                          régua de design, nomenclatura, disciplina
 #   workouts.test_ficha_de_verdade  o teste dourado do dono
@@ -98,4 +99,4 @@ inicio=$(date +%s)
 # número sabe se é o hook ou a máquina.
 echo "→ atalho levou $(( $(date +%s) - inicio )) s"
 
-echo "✓ push liberado — o julgamento é o check \"suíte completa\" no PR"
+echo "✓ push liberado — o julgamento é o check \"suíte rápida\" no PR"
