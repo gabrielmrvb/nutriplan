@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""PROTÓTIPO (auditoria 20/09/2026, upgrade 5): a senha custa 3 s no login.
+"""A senha custava 3 s no login (auditoria de 20/09/2026, upgrade 5).
 
 Medido em produção naquele dia: login CERTO 3,0–3,2 s de TTFB, senha errada
 4,4–5,6 s (dois backends, dois hashes), cadastro 3,7 s. A causa é o padrão do
@@ -8,10 +8,11 @@ Django 5.2 — PBKDF2-SHA256 com 1 000 000 iterações — na CPU do Render free
 
 Duas saídas, nesta ordem de preferência:
 
-1. **Argon2id**, o que o Django recomenda: ≈ 0,05 s e resistente a GPU. Pede
-   `argon2-cffi` (extensão nativa: instala no Render; nesta máquina o Smart
-   App Control pode bloquear o `.pyd`, e por isso `settings.py` só o lista
-   quando o `import argon2` funciona — o teste local nunca depende dele).
+1. **Argon2id**, o que o Django recomenda: ≈ 0,05–0,15 s e resistente a
+   GPU. `argon2-cffi` está em `requirements.txt`; `settings.py` só o lista
+   quando o `import argon2` funciona (extensão nativa — numa máquina com o
+   Smart App Control ligado o `.pyd` não carrega, e a suíte não pode depender
+   dele), senão cai no item 2.
 2. **PBKDF2 com 600 000 iterações** — o mínimo que a OWASP recomenda para
    SHA-256 (2023) e 40 % mais barato que 1 000 000. Mesmo `algorithm`, então
    toda senha gravada continua conferindo, e o Django a regrava no próximo

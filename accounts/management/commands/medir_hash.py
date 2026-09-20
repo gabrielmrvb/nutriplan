@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """`manage.py medir_hash` — quanto custa UMA senha em cada hasher configurado,
-nesta máquina. Só leitura; não toca no banco. PROTÓTIPO (auditoria 20/09/2026)."""
+nesta máquina. Só leitura; não toca no banco. Nasceu na auditoria de 20/09/2026."""
 import time
 
 from django.contrib.auth.hashers import get_hashers

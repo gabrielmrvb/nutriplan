@@ -1357,6 +1357,19 @@ segunda em diante paga UMA consulta ("é a primeira?") e nada mais
 avalia. E `ConquistasView` anuncia o que desbloqueia — antes a medalha
 aparecia na lista sem "Conquista desbloqueada" ter sido vista uma vez.
 
+**A SENHA É ARGON2, e o PBKDF2 fica de reserva (20/09/2026).** A auditoria
+mediu em produção: login certo 3,0–3,2 s de TTFB, senha errada 4,4–5,6 s
+(dois backends, dois hashes), cadastro 3,7 s — o PBKDF2-SHA256 de 1 000 000
+iterações, padrão do Django 5.2, custa 0,6 s nesta máquina e ≈ 3 s na CPU
+do Render free. `config/hashers.py`: `argon2-cffi` em `requirements.txt` e o
+Argon2 do Django na frente de `PASSWORD_HASHERS` quando `import argon2`
+funciona (extensão nativa — a suíte não depende dele: sem ele, cai no
+`PBKDF2SHA256Rapido`, 600 000 iterações, o piso da OWASP). Toda senha
+gravada continua conferindo (mesmo `algorithm` do PBKDF2) e é regravada no
+hasher preferido no próximo login — sem migration, sem pedir nada.
+`manage.py medir_hash` mede cada hasher nesta máquina; `config/test_hashers.py`
+prende a ordem, a conferência da senha antiga e a regravação.
+
 **A SECRET_KEY não é gerada pela plataforma.** `generateValue: true` do Render
 entrega 256 bits em base64 — 44 caracteres —, e o Django exige 50. Isso deixou
 `security.W009` aceso em produção desde o primeiro deploy sem travar nada,

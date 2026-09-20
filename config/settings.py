@@ -191,8 +191,9 @@ TEST_RUNNER = "config.runner.RunnerUnico"
 # migration e um dos poucos caminhos realmente dolorosos no Django.
 AUTH_USER_MODEL = "accounts.User"
 
-# PROTÓTIPO (20/09/2026): ver `config/hashers.py` — Argon2 quando dá, senão
-# PBKDF2 a 600 000 (o Django 5.2 vem com 1 000 000, que custa 3 s no Render).
+# A senha custava 3 s no Render (auditoria de 20/09/2026): ver
+# `config/hashers.py` — Argon2 quando importa, senão PBKDF2 a 600 000 (o
+# Django 5.2 vem com 1 000 000).
 from config.hashers import argon2_disponivel  # noqa: E402
 
 PASSWORD_HASHERS = (
