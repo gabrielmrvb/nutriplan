@@ -1631,6 +1631,49 @@ class HealthExportTests(TestCase):
         # Cinco séries de 40s são 3,3 minutos; com descanso, muito mais.
         self.assertGreater(resumo.minutos, 4)
 
+    def test_the_duration_of_a_finished_session_is_the_fichas_estimate(self):
+        """A auditoria de 20/09/2026 viu, no painel, "42 minutos estimado" ao
+        lado do cartão da MESMA sessão dizendo "~59 min": o resumo tinha uma
+        SEGUNDA fórmula (série × 40 s + descanso médio + 45 s por troca), e o
+        CLAUDE.md diz que `segundos_da_sessao` é a conta ÚNICA. Fechar a ficha
+        inteira tem de dar o número que a ficha prometia."""
+        user = create_user(email="fechou@exemplo.com", weekdays=dias_incluindo_hoje())
+        plan = services.create_routine(user)
+        sessao = services.sessao_do_dia(plan, self.hoje)
+        linhas = sessao.da_opcao(1)
+        for linha in linhas:
+            for numero in range(1, linha.sets + 1):
+                ExerciseLog.objects.create(
+                    user=user, exercise=linha.exercise, date=self.hoje,
+                    set_number=numero, weight_kg=Decimal("20"), reps=10,
+                )
+
+        sessao.opcao_do_dia = 1  # a opção que o painel já calculou em `preparar_dia`
+        resumo = health_export.resumo_da_sessao(user, sessao=sessao, escolha=None)
+
+        self.assertEqual(resumo.series, sum(l.sets for l in linhas))
+        self.assertEqual(resumo.minutos, sessao.minutos_da_opcao(1))
+
+    def test_a_half_done_session_lasts_less_than_the_whole_one(self):
+        """A mesma conta, sobre o que foi FEITO: metade das séries, menos
+        minutos — e nunca zero, porque houve treino."""
+        user = create_user(email="metade@exemplo.com", weekdays=dias_incluindo_hoje())
+        plan = services.create_routine(user)
+        sessao = services.sessao_do_dia(plan, self.hoje)
+        linhas = sessao.da_opcao(1)
+        for linha in linhas[: max(1, len(linhas) // 2)]:
+            for numero in range(1, linha.sets + 1):
+                ExerciseLog.objects.create(
+                    user=user, exercise=linha.exercise, date=self.hoje,
+                    set_number=numero, weight_kg=Decimal("20"), reps=10,
+                )
+
+        sessao.opcao_do_dia = 1  # a opção que o painel já calculou em `preparar_dia`
+        resumo = health_export.resumo_da_sessao(user, sessao=sessao, escolha=None)
+
+        self.assertGreater(resumo.minutos, 0)
+        self.assertLess(resumo.minutos, sessao.minutos_da_opcao(1))
+
     def test_the_calorie_estimate_errs_low_on_purpose(self):
         """MET 3,5 e não 6,0. A fórmula trata a hora inteira como esforço
         contínuo, quando metade dela é descanso — é a mesma decisão já tomada
