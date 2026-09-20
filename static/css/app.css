@@ -8474,6 +8474,12 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    por vez, e `config/test_movimento.py` conta. */
 .app-bar { view-transition-name: barra-topo; }
 .tabbar { view-transition-name: barra-abas; }
+/* Teclado aberto recolhe a barra de abas e o convite (decisão do dono,
+   20/09/2026; o gancho está em `pwa.js`, "TECLADO ABERTO"); o container
+   devolve o respiro que reservava para a barra. */
+.teclado-aberto .tabbar { transform: translateY(125%); transition: transform var(--mov-estado) var(--ease); }
+.teclado-aberto .install { display: none; }
+.teclado-aberto .container { padding-bottom: var(--espaco-6); }
 .tabbar__item.is-active { view-transition-name: aba-ativa; }
 
 /* ---- Onboarding: a trilha morfa (um terço → dois terços → inteira) e a
