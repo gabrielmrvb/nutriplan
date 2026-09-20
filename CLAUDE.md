@@ -85,6 +85,11 @@ O PostgreSQL é portátil (`C:\Users\biel-\pgsql`, cluster em
 | `supplements` | catálogo e checklist |
 | `push` | service worker, manifesto, notificações |
 
+(A `api` — token, eu, corridas — e o cliente `mobile/` saíram em 20/09/2026
+por decisão do dono: a Fase 1 da Corrida mobile ficou sem cliente que o
+ambiente consiga construir. `TracoDaCorrida` fica: a importação de GPX/TCX
+usa. O contrato antigo está no histórico do git, em `docs/api-v1.md`.)
+
 ## Decisões que já foram tomadas — não refaça sem motivo
 
 **Sem framework de CSS.** Um arquivo, `static/css/app.css`, lido de ponta a

@@ -5,6 +5,7 @@ from allauth.socialaccount.models import SocialAccount
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.db import transaction
+from django.forms.utils import ErrorDict
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.views import LogoutView, LoginView
@@ -281,7 +282,13 @@ class AppLoginView(TelaDeEntradaMixin, LoginView):
         email = (request.POST.get("username") or "").strip()
         if not entrada.pode_tentar(email=email, ip=entrada.ip_do_pedido(request)):
             formulario = self.get_form()
-            formulario.is_valid()
+            # SEM `is_valid()`: ele chamaria `authenticate`, que confere a
+            # senha (PBKDF2 de 1 000 000 iterações — os 3–5 s medidos no
+            # login em 20/09/2026) e, com a senha errada, punha a mensagem
+            # DUAS vezes na tela — um oráculo do teto. O formulário fica
+            # ligado aos dados (o e-mail volta no campo) e recebe só o erro.
+            formulario._errors = ErrorDict()
+            formulario.cleaned_data = {}
             formulario.add_error(None, formulario.error_messages["invalid_login"] % {
                 "username": formulario.username_field.verbose_name
             })
