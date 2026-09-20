@@ -2881,8 +2881,11 @@ def append_set(user, exercise, weight_kg, reps=None, op_id="", day=None):
 
 def ultima_vez_do_movimento(user, exercicio):
     """A última série registrada em OUTRO exercício do mesmo `padrao` — a
-    referência de quem nunca fez este, mas já fez o movimento (PROTÓTIPO
-    20/09/2026). `None` sem histórico do padrão. Uma consulta."""
+    referência de quem nunca fez este, mas já fez o movimento (auditoria de
+    20/09/2026: as duas opções da letra não repetem exercício, e a "última
+    carga" ficava muda por duas semanas). A mais recente; no mesmo dia, a
+    mais pesada. `None` sem histórico do padrão. Uma consulta, e só quando o
+    exercício em foco não tem histórico próprio (a view decide)."""
     log = (
         ExerciseLog.objects.filter(user=user, exercise__padrao=exercicio.padrao)
         .exclude(exercise=exercicio)

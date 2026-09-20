@@ -1311,8 +1311,9 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
         # série e outra —, e um cartão fixo cobrindo o rodapé atrapalha a
         # tarefa. Ver `data-sem-convite` no `base.html`.
         context["sem_convite"] = True
-        # PROTÓTIPO (auditoria 20/09/2026, upgrade 4): as duas opções da
-        # letra têm exercícios DIFERENTES, então um exercício só repete de
+        # A REFERÊNCIA DO MOVIMENTO (auditoria de 20/09/2026, upgrade 4,
+        # aprovado pelo dono): as duas opções da letra têm exercícios
+        # DIFERENTES, então um exercício só repete de
         # duas em duas semanas — e a "última carga", o SUBIR e o recorde
         # ficam mudos por 14 dias. Quando ESTE exercício não tem histórico,
         # a tela conta o que a pessoa fez no mesmo MOVIMENTO (mesmo
@@ -1322,8 +1323,12 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
         # máquina não pesam igual.
         atual = getattr(estado, "atual", None)
         context["movimento_anterior"] = None
-        if atual is not None and not getattr(atual.load, "melhor_anterior", None) and not atual.exercise.sem_carga:
-            context["movimento_anterior"] = services.ultima_vez_do_movimento(user, atual.exercise)
+        if atual is not None and not atual.exercise.sem_carga:
+            # `item.load` é o dicionário de `load_history`: sem `melhor_anterior`
+            # não há "última carga" própria, e é aí que a referência entra.
+            historico = getattr(atual, "load", None) or {}
+            if not historico.get("melhor_anterior"):
+                context["movimento_anterior"] = services.ultima_vez_do_movimento(user, atual.exercise)
         return context
 
 
