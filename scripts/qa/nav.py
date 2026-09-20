@@ -38,13 +38,15 @@ from pathlib import Path
 import websocket  # websocket-client
 
 #: Os Chromes que este arquivo tenta, NESTA ordem, e por que há uma lista:
-#: em 20/09/2026 o Smart App Control do Windows passou a bloquear também o
+#: na manhã de 20/09/2026 o Smart App Control do Windows bloqueou também o
 #: `chrome.exe` que o agent-browser baixou (`WinError 4551` no `spawn`), e o
 #: QA de navegador morreu inteiro — com o Google Chrome instalado (assinado,
 #: mesmo motor, 153.0.8010.48) subindo headless com CDP normalmente ao lado.
-#: O bloqueio é um `OSError` no `Popen`, não um arquivo que falta: por isso
-#: `_abrir_chrome` cai para o próximo candidato no erro, e não só quando o
-#: caminho não existe. `NAV_CHROME` no ambiente vai na frente de todos.
+#: O dono desligou o SAC às 15:10 daquele dia (ledger; CLAUDE.md pelo #41),
+#: mas a lista fica: o bloqueio é um `OSError` no `Popen`, não um arquivo
+#: que falta, e `_abrir_chrome` cai para o próximo candidato no erro — o QA
+#: não pode morrer de novo por uma política que liga e desliga.
+#: `NAV_CHROME` no ambiente vai na frente de todos.
 CANDIDATOS = [
     Path.home() / ".agent-browser" / "browsers" / "chrome-153.0.8010.36" / "chrome.exe",
     Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Google" / "Chrome" / "Application" / "chrome.exe",
