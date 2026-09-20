@@ -2879,6 +2879,28 @@ def append_set(user, exercise, weight_kg, reps=None, op_id="", day=None):
     raise ultimo_erro
 
 
+def ultima_vez_do_movimento(user, exercicio):
+    """A última série registrada em OUTRO exercício do mesmo `padrao` — a
+    referência de quem nunca fez este, mas já fez o movimento (PROTÓTIPO
+    20/09/2026). `None` sem histórico do padrão. Uma consulta."""
+    log = (
+        ExerciseLog.objects.filter(user=user, exercise__padrao=exercicio.padrao)
+        .exclude(exercise=exercicio)
+        .select_related("exercise")
+        .order_by("-date", "-weight_kg", "-set_number")
+        .first()
+    )
+    if log is None:
+        return None
+    return {
+        "exercicio": log.exercise,
+        "padrao": exercicio.get_padrao_display(),
+        "data": log.date,
+        "peso": log.weight_kg,
+        "reps": log.reps,
+    }
+
+
 def load_history(user, exercises, day=None) -> dict:
     """Cargas de hoje e a comparação com o último treino, por exercício.
 
