@@ -50,6 +50,10 @@ HIDRATACAO_MINIMA_PCT = 90
 #: precisa de um teto.
 DIAS_NO_HISTORICO = 400
 
+#: PROTÓTIPO: `tres` (hoje), `agua-60`, `dois-de-tres`, `agua-nao-quebra`.
+import os  # noqa: E402
+REGRA_DO_DIA = os.environ.get("NUTRIPLAN_REGRA_OFENSIVA", "tres")
+
 
 @dataclass
 class Dia:
@@ -61,9 +65,22 @@ class Dia:
     agua: bool
     #: Havia treino previsto? Muda a leitura de `treino=True`.
     treino_previsto: bool
+    #: Água a 60 % da meta (só a regra `agua-60` lê).
+    agua_60: bool = False
 
     @property
     def completo(self) -> bool:
+        # PROTÓTIPO (auditoria 20/09/2026, Fase 3, "ofensiva alcançável"): a
+        # regra do dia é escolhida por `REGRA_DO_DIA` para a simulação
+        # comparar. A semana simulada da parte A (4 refeições de 5, 1,5 L de
+        # 3 L, treino feito) terminava com "0 dias" pela água a 90 %.
+        # Não mergeia sem decisão do dono.
+        if REGRA_DO_DIA == "agua-60":
+            return self.treino and self.dieta and self.agua_60
+        if REGRA_DO_DIA == "dois-de-tres":
+            return (self.treino + self.dieta + self.agua) >= 2
+        if REGRA_DO_DIA == "agua-nao-quebra":
+            return self.treino and self.dieta
         return self.treino and self.dieta and self.agua
 
     @property
@@ -205,7 +222,13 @@ def calcular(user, hoje=None, meta_agua_ml=None) -> Ofensiva:
 
     # ----------------------------------------------------------- água
     agua_ok = set()
+    agua_60 = set()
     if meta_agua_ml:
+        agua_60 = {
+            linha["date"]
+            for linha in HydrationLog.objects.filter(user=user, date__gte=inicio).values("date").annotate(total=Sum("ml"))
+            if (linha["total"] or 0) >= meta_agua_ml * 60 / 100
+        }
         alvo = meta_agua_ml * HIDRATACAO_MINIMA_PCT / 100
         agua_ok = {
             linha["date"]
@@ -225,6 +248,7 @@ def calcular(user, hoje=None, meta_agua_ml=None) -> Ofensiva:
             dieta=(data in dieta_ok) if _tem_plano(user) else True,
             agua=(data in agua_ok) if meta_agua_ml else True,
             treino_previsto=previsto,
+            agua_60=(data in agua_60) if meta_agua_ml else True,
         )
 
     dia_de_hoje = avaliar(hoje)
