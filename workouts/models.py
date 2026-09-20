@@ -1396,6 +1396,10 @@ class Corrida(models.Model):
     class Origem(models.TextChoices):
         GPS = "gps", "GPS"
         MANUAL = "manual", "à mão"
+        #: Importada de um GPX/TCX (Garmin, Strava, Apple Saúde). Como o GPS,
+        #: NÃO se edita: o percurso do arquivo contradiria números trocados à
+        #: mão. Ver `workouts/importar_corrida.py`.
+        ARQUIVO = "arquivo", "de arquivo"
 
     class Sensacao(models.TextChoices):
         LEVE = "leve", "leve"
