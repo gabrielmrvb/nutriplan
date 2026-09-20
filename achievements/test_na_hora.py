@@ -135,7 +135,13 @@ class APaginaDeConquistasAvisaTests(_ComTreinoDeHoje):
         self._log(3)
         html = self.client.get(reverse("achievements:list")).content.decode()
         self.assertIn("Conquista desbloqueada", html)
-        self.assertIn(CHAVE, self.client.session)
+        # Anunciar é dar por visto (20/09/2026): a chave da sessão sai na
+        # própria renderização e a conquista fica marcada — o aviso não segue
+        # a pessoa página a página.
+        self.assertNotIn(CHAVE, self.client.session)
+        self.assertFalse(
+            UserAchievement.objects.filter(user=self.pessoa, seen_at__isnull=True).exists()
+        )
 
 
 class OResumoNaoPintaCemPorCentoDeUmaConquistaTrancadaTests(_ComTreinoDeHoje):
