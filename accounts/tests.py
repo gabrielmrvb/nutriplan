@@ -495,6 +495,26 @@ class PlanBuildingScreenTests(TestCase):
         self.assertIn("r.redirected", script)
         self.assertIn("form.submit()", script)
 
+    def test_o_erro_da_etapa_e_levado_para_a_vista(self):
+        """A3 (avaliação de UX, 20/09/2026): na etapa 3 a mensagem de erro
+        nasce ABAIXO da dobra — depois do resumo, do estilo de cardápio e das
+        restrições — e o envio por fetch recarrega a página no TOPO (scrollY 0).
+        Medido: o erro fica em y≈1375 numa dobra de 812. A pessoa clica "Criar
+        meu plano" no rodapé, a página volta ao topo, e o motivo do 'não
+        avançou' fica invisível. Ao recarregar COM erro, a página leva o
+        primeiro erro para a vista e o foco; SEM erro, não injeta rolagem
+        nenhuma."""
+        com_erro = self.client.post(
+            step_url(3), {**STEP5, "interesses": [], "prioridade": ""}
+        )
+        self.assertEqual(com_erro.status_code, 200)
+        self.assertTrue(com_erro.context["tem_erros"])
+        self.assertIn("scrollIntoView", com_erro.content.decode())
+
+        sem_erro = self.client.get(step_url(3))
+        self.assertFalse(sem_erro.context["tem_erros"])
+        self.assertNotIn("scrollIntoView", sem_erro.content.decode())
+
 
 class WizardProgressBarTests(TestCase):
     """A trilha de progresso, que agora anda em vez de saltar."""
@@ -770,6 +790,15 @@ class AuthScreenTests(TestCase):
         # para a irmã é o link do rodapé do cartão.
         self.assertEqual(self.login.count(reverse("accounts:signup")), 1)
         self.assertEqual(self.cadastro.count(reverse("accounts:login")), 1)
+
+    def test_a_entrada_oferece_a_demonstracao(self):
+        """A1 (avaliação de UX, 20/09/2026): a `/demo/` é uma vitrine forte —
+        explica o produto e deixa explorar as telas reais com dado fictício, sem
+        exigir cadastro — mas a tela de login (a entrada fria de todo
+        desconhecido) NÃO a linkava, e a raiz anônima cai no login. Um
+        recém-chegado via um formulário e nunca descobria a demonstração. A
+        entrada agora oferece o demo, para "ver antes de criar conta"."""
+        self.assertIn('href="/demo/"', self.login)
 
     def test_the_card_is_centred_and_made_of_glass(self):
         # TODOS os blocos de `.auth`, e não o primeiro: há um one-liner antigo

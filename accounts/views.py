@@ -712,6 +712,11 @@ class EtapaCompostaView(OnboardingStepMixin, TemplateView):
         # `form` é o primeiro, para o template e os testes que leem
         # `context["form"]` continuarem valendo.
         context["form"] = forms[self.nomes_dos_forms[0]]
+        # A3 (avaliação de UX, 20/09/2026): na etapa composta o erro nasce no
+        # campo — na etapa 3, abaixo da dobra — e o envio recarrega no topo,
+        # deixando o motivo do "não avançou" invisível. Este sinal liga, no
+        # template, o script que leva o primeiro erro para a vista e o foco.
+        context["tem_erros"] = any(f.errors for f in forms.values())
         return context
 
     def salvar(self, forms):

@@ -79,6 +79,19 @@
     <p class="muted center form__nota">
       Ainda não tem conta? <a class="btn-link" href="{% url 'accounts:signup' %}">Criar agora</a>
     </p>
+
+    {% comment %}
+      A1 (avaliação de UX, 20/09/2026). A `/demo/` é uma vitrine forte — o app de
+      verdade sobre um usuário fictício, sem cadastro — mas a entrada fria de
+      todo desconhecido é esta tela, e ela não a linkava (a raiz anônima também
+      cai aqui). O demo ficava invisível para quem chega da loja ou de um link.
+      Discreto de propósito: quem já tem conta entra; quem está avaliando o
+      produto tem por onde "ver antes de criar conta". O caminho é o literal
+      `/demo/` porque o modo demo é montado por middleware, não por `{% url %}`.
+    {% endcomment %}
+    <p class="muted center form__nota">
+      Quer ver antes? <a class="btn-link" href="/demo/">Explorar a demonstração</a>
+    </p>
   </div>
   {% include "partials/links_legais.html" %}
 
