@@ -493,16 +493,22 @@
           {% if ciclo_continuo %}
             {% comment %}
               LEGENDA DO CICLO CONTÍNUO (avaliação de UX, 20/09/2026). A tira
-              acima é a rotação da SEMANA CORRENTE, e ela GIRA: em 5 dias com ABC
-              a semana que vem começa onde esta parou, então a mesma letra cai em
-              dias diferentes de uma semana para a outra. Sem esta frase a pessoa
-              lê a tira como fixa e estranha o "próximo treino" da semana
-              seguinte cair noutra letra (tira SEG=A × próximo=C). Só quando o
-              ciclo roda — plano antigo/ajustado fica preso ao dia da semana.
+              acima é a rotação da SEMANA DE TREINO, e ela GIRA: em 5 dias com
+              ABC a semana que vem começa onde esta parou, então a mesma letra
+              cai em dias diferentes de uma semana para a outra. Sem esta frase
+              a pessoa lê a tira como fixa e estranha o "próximo treino" cair
+              noutra letra (tira SEG=A × próximo=C). Só quando o ciclo roda —
+              plano antigo/ajustado fica preso ao dia da semana.
+
+              NÃO diz "semana de hoje": `sessoes_da_semana` mostra a semana que
+              VEM depois do último treino da semana (fix/semana-do-painel, para
+              casar com o "próximo treino"), então "a sua semana de treino" é o
+              que vale nos dois casos — a de hoje, ou a próxima quando a de hoje
+              já acabou.
             {% endcomment %}
             <p class="hint week-strip__ciclo">
               O ciclo gira: a cada semana as letras avançam, então a mesma letra
-              cai em dias diferentes. Esta tira é a semana de hoje.
+              cai em dias diferentes. A tira mostra a sua semana de treino.
             </p>
           {% endif %}
         </section>

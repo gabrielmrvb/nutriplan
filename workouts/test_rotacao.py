@@ -212,6 +212,12 @@ class OPainelEAFichaMostramALetraDaPosicaoTests(TestCase):
         html = resposta.content.decode()
         self.assertIn("week-strip__ciclo", html)
         self.assertIn("ciclo gira", html)
+        # Coordenação com fix/semana-do-painel (20/09/2026): depois do último
+        # treino da semana a tira mostra a semana que VEM, então a legenda NÃO
+        # pode afirmar "semana de hoje" — fala da "semana de treino", que vale
+        # nos dois casos.
+        self.assertIn("sua semana de treino", html)
+        self.assertNotIn("semana de hoje", html)
 
     def test_plano_preso_ao_dia_da_semana_nao_diz_que_gira(self):
         """Plano de antes da rotação fica preso ao dia da semana — dizer "gira"
