@@ -282,6 +282,11 @@
      */
     function horaRuim() {
       if (document.body.hasAttribute("data-sem-convite")) return true;
+      /* PROTÓTIPO (auditoria 20/09/2026, Fase 3, "um flutuante por vez"):
+       * a parte A mediu três camadas fixas empilhadas no rodapé — convite,
+       * toast de conquista e barra de abas. O toast é a notícia; o convite
+       * espera a próxima tela. */
+      if (document.querySelector(".conquista")) return true;
       return !!document.querySelector("dialog[open]");
     }
 
@@ -1221,4 +1226,26 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", perguntar);
   else perguntar();
+})();
+
+/* PROTÓTIPO (auditoria 20/09/2026, Fase 3, "teclado esconde a barra"): com o
+ * teclado aberto sobram ~450 px a 390, e a barra de abas fixa ocupa 68 deles
+ * (medido na parte A em Progresso, Lista e Corrida). Enquanto um campo de
+ * texto tem o foco, o corpo ganha `teclado-aberto` e o CSS recolhe a barra —
+ * e o convite de instalação, que não tem o que fazer sobre um teclado. Só
+ * campos que abrem teclado: botão, rádio, caixa e `range` não contam. */
+(function () {
+  var ABRE_TECLADO = /^(text|search|email|url|tel|number|password|date|time)$/;
+  function abreTeclado(el) {
+    if (!el) return false;
+    if (el.tagName === "TEXTAREA") return true;
+    if (el.tagName === "INPUT") return ABRE_TECLADO.test((el.getAttribute("type") || "text").toLowerCase());
+    return el.isContentEditable === true;
+  }
+  document.addEventListener("focusin", function (e) {
+    if (abreTeclado(e.target)) document.body.classList.add("teclado-aberto");
+  });
+  document.addEventListener("focusout", function (e) {
+    if (abreTeclado(e.target)) document.body.classList.remove("teclado-aberto");
+  });
 })();
