@@ -1841,20 +1841,26 @@ nenhum — a noite é da `noturna.yml`.
 
 ## Limites reais deste ambiente
 
-- **QA DE NAVEGADOR NESTA MÁQUINA É `scripts/qa/nav.py` (CDP) OU o
-  `agent-browser` — os dois rodam desde 20/09/2026.** De 14 a 20/09 o Smart
-  App Control do Windows 11 (Controle de Aplicativo) bloqueava binário sem
-  assinatura e o `agent-browser` 0.37.1/0.38.1 morria no `spawn` (evento
-  CodeIntegrity 3077, medido em 17 e 18/09); o dono DESLIGOU a política em
-  20/09 (ver o bullet do SAC, abaixo) e o `agent-browser` 0.38.1 voltou a
-  abrir, ler e fotografar (provado em `/saude/vivo/`). `nav.py <sessão>
-  open|eval|click|type|screenshot|viewport|cookie|tema|movimento|rede` segue
-  sendo a ferramenta com emulação por sessão (tema, movimento, rede) e fala
-  CDP com o MESMO Chrome 153 (`~/.agent-browser/browsers`), inclusive em
-  sites de terceiros na sessão logada do dono. Sessão nova a cada execução
-  de QA (o perfil guarda cookies), saída sempre em arquivo. Node 24/npm 11
-  (WinGet) continuam instalados; Lighthouse e Playwright seguem de fora por
-  decisão.
+- **O `agent-browser` É O PADRÃO DE QA DE NAVEGADOR DE NOVO (20/09/2026),
+  e `scripts/qa/nav.py` (CDP) é o FALLBACK.** Histórico em uma linha: de
+  14 a 20/09 o Smart App Control bloqueava o binário (`spawn`, evento
+  CodeIntegrity 3077) e o `nav.py` foi a única ferramenta; o dono desligou a
+  política em 20/09 e o `agent-browser` 0.38.1 voltou — provado em produção
+  no mesmo dia: `open` do `/demo/`, `snapshot -i`, `click` num cartão
+  (chegou em `/demo/treino/`), `screenshot` a 390 px, `vitals`. O que ele
+  dá e o `nav.py` não: `snapshot` com refs para o agente, `a11y` (axe-core),
+  `vitals`, `network requests`, `batch`, `set media dark|light`, `set
+  offline`, `find role|text|label`. Regras que continuam: sessão própria
+  (`AGENT_BROWSER_SESSION`, nova a cada execução de QA — o perfil guarda
+  cookies), saída sempre para arquivo e `stdin` fechado (o daemon herda o
+  stdout e um pipe espera um EOF que nunca vem), `set viewport` e `set
+  media` antes do `open`. O `nav.py <sessão> open|eval|click|type|
+  screenshot|viewport|cookie|tema|movimento|rede` fica para o que o
+  `agent-browser` não faz — `rede 3g` (latência/banda emuladas para o
+  L08), `permissao`, `movimento reduzido` — e para sites de terceiros na
+  sessão logada do dono; fala CDP com o MESMO Chrome 153
+  (`~/.agent-browser/browsers`). Node 24/npm 11 (WinGet) continuam
+  instalados; Lighthouse e Playwright seguem de fora por decisão.
 - **O mesmo bloqueio valia para `.pyd` sem assinatura no `.venv` — e
   acabou junto com o SAC.** O fontTools 4.65 vem com seis extensões
   compiladas (`bezierTools`, `cu2qu`, `qu2cu`, `momentsPen`, `iup`,
@@ -1903,9 +1909,11 @@ nenhum — a noite é da `noturna.yml`.
   importam. A mudança de configuração de segurança foi do dono, na tela de
   Segurança do Windows — a sessão não a faz nem com autorização; ela só
   verifica depois. Se o sintoma voltar a aparecer, não é o SAC: olhe a
-  quarentena do Defender. O `skip` de `config/test_fontes.py` (`win32`)
-  continua no teste como guarda, hoje sem gatilho; no CI (Linux) a extensão
-  que não carrega é FALHA.
+  quarentena do Defender. **A regra "sem remendo no teste" continua valendo
+  sem o SAC**: binário que não carrega se resolve na biblioteca (afastar ou
+  reinstalar o `.pyd`), nunca com `skip` escrito para a máquina passar. O
+  `skip` de `config/test_fontes.py` (`win32`) continua no teste como guarda,
+  hoje sem gatilho; no CI (Linux) a extensão que não carrega é FALHA.
 - **Nenhum processo de fundo abre janela, e todo processo de fundo nasce em
   `scripts/fundo.py`.** No Windows 11 o Windows Terminal hospeda todo console
   novo — e um processo sem console (os do Claude Code, o Agendador) que lança
