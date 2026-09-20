@@ -564,9 +564,17 @@ coluna da direita), não entre ela e o almoço.
                 vez. Nada saiu — mudou de plano. `<details>` porque funciona
                 sem script, entra no Tab e anuncia estado.
               {% endcomment %}
-              {% if slot.marcador == '' %}
+              {% comment %}
+                PROTÓTIPO (auditoria 20/09/2026, Fase 3, "Home compacta"): só
+                a refeição da VEZ nasce aberta; as vencidas ("pendente")
+                ficam em uma linha como as futuras, com o convite a registrar
+                no summary. Medido na parte A: primeiro uso às 15h dava uma
+                Home de 3 757 px com quatro refeições abertas × quatro botões.
+                Não mergeia sem decisão do dono.
+              {% endcomment %}
+              {% if slot.marcador != 'agora' %}
               <details class="meal__futuro">
-                <summary class="meal__abrir">Ver opções</summary>
+                <summary class="meal__abrir">{% if slot.marcador == 'pendente' %}Não registrada · registrar{% else %}Ver opções{% endif %}</summary>
               {% endif %}
               <div class="meal__options">
                 {% comment %}
@@ -752,7 +760,7 @@ coluna da direita), não entre ela e o almoço.
                   </div>
                 </form>
               </details>
-              {% if slot.marcador == '' %}
+              {% if slot.marcador != 'agora' %}
               </details>
               {% endif %}
             {% endif %}
