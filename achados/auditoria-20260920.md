@@ -47,7 +47,6 @@ Formato: `rota · passo · o que aconteceu · o que devia · captura · gravidad
 - `/treino/` · domingo/sábado (depois do último dia de treino da semana) · a faixa SEG–DOM e os cartões dizem "A · Segunda-feira", enquanto o cartão "Próximo treino" diz "C · amanhã" — a rotação já mudou a letra de segunda e a tela mostra a semana que ACABOU · a semana desenhada tem de ser a mesma do "próximo treino" · `treino-painel-papel-390.png` (produção, domingo) e `2026-09-26-treino-ferro-390.png` / `2026-09-28-treino-ferro-390.png` (local: sábado diz "A segunda", segunda mostra C) · atrapalha · BUG `[EXECUTADA]`
 - `/treino/` · "Treino de hoje" depois de fechar a sessão · "**42** minutos estimado" ao lado do cartão da MESMA sessão dizendo "**~59** min" (7 exercícios, 25 séries) · um número só (`workouts.models.segundos_da_sessao` é "a conta única", CLAUDE.md) · `2026-09-21-treino-ferro-390.png` · atrapalha · BUG `[EXECUTADA local]`. Causa `[LIDA NO CÓDIGO]`: `workouts/health_export.py::_duracao_estimada` é uma SEGUNDA fórmula (série × 45 s + descanso médio).
 - `/treino/agora/` (e toda página) · dia seguinte ao primeiro treino · o aviso "🏆 CONQUISTA DESBLOQUEADA — Primeiro treino" volta em TODA página enquanto "Continuar" não é tocado (fica na sessão) e, na execução, **cobre o campo Reps e o botão CONCLUIR SÉRIE** (toast em y=576, CTA em 645–699 num viewport de 844) · avisar uma vez onde nasce e sair sozinho; nunca por cima da ação principal · `2026-09-22-execucao-toast-ferro-390.png` · atrapalha · UX REAL `[EXECUTADA local; em produção não reproduzível hoje — domingo sem treino]`
-- `/conta/onboarding/3/` · "Criar meu plano" · 3,1 s até a Home (monta os dois planos), sem indicador além do `aria-busy` do botão · feedback de progresso ("montando seu cardápio…") · — · atrapalha · UX REAL `[EXECUTADA em produção]`
 
 ### feio
 
@@ -75,6 +74,7 @@ Formato: `rota · passo · o que aconteceu · o que devia · captura · gravidad
 - `/conta/cadastro/` "sem erro ao enviar vazio": `required` nativo segura o envio; e no servidor os quatro "Este campo é obrigatório." aparecem.
 - `/treino/ficha/<id>/` "sem porta para a execução": domingo — a ficha de OUTRO dia não executa, por regra.
 - `/lista-de-compras/` TTFB 2,8 s: uma vez; três medições seguintes 0,40–0,45 s (o Neon acordando ou o primeiro cálculo).
+- `/conta/onboarding/3/` "Criar meu plano 3 s mudo": o roteiro mediu o tempo (3,1 s) sem olhar a tela — o template tem a sobreposição `.montagem` com três frases ("Calculando sua taxa metabólica basal…", "Ajustando a divisão de macronutrientes…", "Estruturando a sua divisão de treino…") e um anel, ligada no submit `[LIDA NO CÓDIGO]`. Não é achado.
 
 ## Medições
 
