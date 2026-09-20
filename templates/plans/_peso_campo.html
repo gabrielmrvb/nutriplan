@@ -40,7 +40,7 @@
     <input class="pesagem__valor num" type="text" name="weight_kg"
            inputmode="decimal" maxlength="6" autocomplete="off"
            placeholder="82,5"
-           value="{% if houve_recusa %}{{ peso_recusado }}{% elif peso_atual %}{{ peso_atual|floatformat:'-2' }}{% endif %}">
+           value="{% if houve_recusa %}{{ peso_recusado }}{% elif peso_atual %}{{ peso_atual|floatformat:1 }}{% endif %}">
   </label>
   <button type="submit" class="pesagem__salvar">Salvar</button>
 </form>

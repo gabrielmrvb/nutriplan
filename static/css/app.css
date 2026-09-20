@@ -2370,6 +2370,12 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   border-radius: var(--quina);
   font-size: var(--texto-md);
   font-weight: 700;
+  /* Rótulo de botão quebra ENTRE palavras, nunca dentro: a regra global
+     `overflow-wrap: anywhere` (nome de alimento e de exercício) alcança
+     `button`, e em 20/09/2026 o primário do painel saiu "COMPARTILHA / R O
+     QUE JÁ FIZ" numa coluna de 195 px a 1280. Quem não cabe muda de
+     layout, não de palavra. */
+  overflow-wrap: normal;
   text-decoration: none;
   cursor: pointer;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
@@ -4900,6 +4906,11 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 
 .resumo__acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--espaco-3); }
 .resumo__acoes .btn { width: 100%; }
+/* O primário ("Compartilhar o que já fiz", em display a 20 px) ocupa a linha
+   inteira também no grid de duas colunas: a 390 já era assim, e a 1280 a
+   coluna de 195 px partia a palavra (auditoria de 20/09/2026). Os dois
+   discretos dividem a linha de baixo. */
+.resumo__acoes .btn--primary { grid-column: 1 / -1; }
 
 .resumo__nota { margin: 0; color: var(--text-mute); font-size: .74rem; line-height: 1.55; }
 
