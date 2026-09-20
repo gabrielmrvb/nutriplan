@@ -1848,8 +1848,17 @@ nenhum — a noite é da `noturna.yml`.
   CodeIntegrity 3077, medido em 17 e 18/09) e isso não vai mudar agora.
   Nenhuma sessão tenta o `agent-browser` nem gasta tempo diagnosticando:
   `nav.py <sessão> open|eval|click|type|screenshot|viewport|cookie|tema|
-  movimento|rede` fala CDP com o MESMO Chrome 153 (`~/.agent-browser/
-  browsers`), inclusive em sites de terceiros na sessão logada do dono.
+  movimento|rede` fala CDP com um Chrome 153 headless, inclusive em sites
+  de terceiros na sessão logada do dono. **Desde 20/09/2026 o Chrome do
+  agent-browser (`~/.agent-browser/browsers`) TAMBÉM está bloqueado**
+  (`WinError 4551` no `spawn`, depois do reboot daquele dia): `nav.py` tem
+  uma lista de candidatos (`CANDIDATOS`: o do agent-browser, o Google
+  Chrome instalado em `Program Files` — assinado, mesmo motor —, o Edge;
+  `NAV_CHROME` no ambiente vai na frente) e cai para o próximo quando o
+  `Popen` levanta `OSError`, que é como o bloqueio se manifesta — não é
+  arquivo faltando. `config/test_nav.py` prende a lista e a queda. Para QA
+  longo, importe `Sessao` de `nav.py` em processo em vez de um subprocesso
+  por comando (a auditoria de 20/09 fez 381 medições assim).
   Sessão nova a cada execução de QA (o perfil guarda cookies), saída sempre
   em arquivo, tema e movimento emulados por sessão. Node 24/npm 11 (WinGet)
   continuam instalados; Lighthouse e Playwright seguem de fora por decisão.
@@ -1864,7 +1873,16 @@ nenhum — a noite é da `noturna.yml`.
   `config/test_fontes.py` vira `SkipTest` com o motivo, PR #34: o hook não
   cai, mas as tabelas das fontes só são medidas no CI). Pacote novo com
   `.pyd` reprovando no hook: é isto, não o código; afastar o `.pyd` é a
-  resposta, `--no-verify` não é.
+  resposta, `--no-verify` não é. **Em 20/09/2026 caiu o `psycopg-binary`**
+  (`pq.cp312-win_amd64.pyd` bloqueado → "Error loading psycopg2 or psycopg
+  module", `manage.py` morto), e o `libpq.dll` do pg18 junto — o do
+  PostgreSQL portátil (`C:\Users\biel-\pgsql\bin`, 16.9) carrega. A saída
+  está no `.venv`, não no sistema: `site-packages/zz_nutriplan_libpq.pth`
+  põe `pgsql\bin` no `PATH` do interpretador, e o psycopg cai sozinho na
+  implementação `python` (binary → `ImportError` → python), com o mesmo
+  resultado e sem `PSYCOPG_IMPL` em lugar nenhum. Se o `.pth` sumir
+  (`.venv` recriado), o sintoma é exatamente esse erro no primeiro
+  `manage.py`.
 - **PWA não escreve no Apple Saúde nem no Health Connect** — não existe API web.
   `workouts/health_export.py` gera TCX para importar.
 - **Background Sync não existe no Safari do iPhone.** O evento `online` é o
