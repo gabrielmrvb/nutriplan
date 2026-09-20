@@ -6,9 +6,13 @@ zero: quatro contas descartáveis criadas pelo signup público
 (`qa-audit-…`, `qa-medir-…`, `qa-lat-…` e a local `qa-semana-…`), cada uma
 apagada pela tela ao fim com login recusado provado; demo intacto; nunca a
 conta do dono. Navegador: `scripts/qa/nav.py` em processo (Chrome 153
-instalado — o do agent-browser está bloqueado pelo Smart App Control desde
-20/09), 390 e 1280 px, Ferro e Papel, teclado emulado (viewport 390 × 450),
-3G emulado. Capturas citadas em `achados/capturas-20260920/`; o conjunto
+instalado — o do agent-browser estava bloqueado pelo Smart App Control na
+manhã de 20/09; o dono desligou o SAC às 15:10, depois de a auditoria
+começar), 390 e 1280 px, Ferro e Papel, teclado emulado (viewport 390 × 450),
+3G emulado. A sessão "infra" (parte B, e5d582f4) rodou em paralelo a Fase 0,
+PWA de ponta a ponta, TTI, axe e uma Fase 3 própria —
+`achados/auditoria-20260920-b.md` e `achados/fase3-20260920.md` na branch
+`audit/producao-20260920-b`; as sobreposições estão no relatório. Capturas citadas em `achados/capturas-20260920/`; o conjunto
 completo (≈ 300 PNG) fica no scratchpad da sessão.
 
 Vocabulário: evidência `[EXECUTADA]` (roteiro rodou e mediu) ·
