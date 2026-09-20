@@ -342,7 +342,7 @@
         <a class="btn-link" href="{% url 'workouts:now' %}?exercicio={{ atual.exercise.pk }}&amp;extra=1">Registrar uma série a mais</a>
       </p>
       {% else %}
-      <form class="registro registro--agora" method="post"
+      <form class="registro registro--agora" method="post" data-sem-recarga
             action="{% url 'workouts:record_set' %}">
         {% csrf_token %}
         <input type="hidden" name="exercise_id" value="{{ atual.exercise.pk }}">
@@ -464,7 +464,7 @@
         que não ter botão.
       {% endcomment %}
       {% if estado.ultimo_log %}
-        <form method="post" action="{% url 'workouts:record_set' %}" class="agora__desfazer">
+        <form method="post" action="{% url 'workouts:record_set' %}" class="agora__desfazer" data-sem-recarga>
           {% csrf_token %}
           <input type="hidden" name="exercise_id" value="{{ estado.ultimo_log.exercise_id }}">
           <input type="hidden" name="acao" value="desfazer">
@@ -839,7 +839,11 @@
     document.addEventListener("submit", function (evento) {
       var form = evento.target;
       if (!(form instanceof HTMLFormElement)) return;
-      if (!form.matches("form.registro--agora, form.agora__desfazer")) return;
+      /* Pelo atributo, e não pela classe: `workouts/test_b3_treino` lê o HTML
+         cru e cobra que a classe do formulário de desfazer não apareça sem
+         série hoje — e a classe escrita num <script> é a mesma string
+         (CLAUDE.md, "Testes"). */
+      if (!form.hasAttribute("data-sem-recarga")) return;
       if (!navigator.onLine || evento.defaultPrevented) return;
       evento.preventDefault();
       var botao = evento.submitter;
@@ -859,7 +863,7 @@
         var novoMain = doc.querySelector("main");
         var main = document.querySelector("main");
         if (!novoMain || !main) throw new Error("sem main");
-        var novoForm = novoMain.querySelector("form.registro--agora");
+        var novoForm = novoMain.querySelector("form[data-sem-recarga]");
         var idDepois = novoForm ? (novoForm.querySelector("[name=exercise_id]") || {}).value : null;
         var video = document.querySelector("[data-demo] iframe");
         main.replaceChildren.apply(main, Array.prototype.slice.call(novoMain.childNodes));
