@@ -1,19 +1,12 @@
-"""Exportação do treino para o app Saúde do iPhone e o Health Connect.
+"""O resumo da sessão de hoje: séries, minutos ativos e gasto estimado.
 
-**O limite, primeiro.** Uma PWA não escreve no HealthKit. Não existe API web
-para isso: o HealthKit é framework nativo do iOS e o Safari não o expõe a
-página nenhuma. O Health Connect do Android tem a mesma característica — API
-nativa, sem porta web. Qualquer coisa que prometesse "sincronizar com o Apple
-Saúde" direto do navegador estaria mentindo.
-
-O que dá para fazer, e é o que está aqui, é a camada que um invólucro nativo
-consumiria e que já serve sozinha: o cálculo dos números (minutos ativos e
-gasto estimado) e a saída num formato que os aplicativos de importação leem.
-
-TCX porque é o formato que todo importador aceita — HealthFit, Health Auto
-Export, Strava, Garmin. A pessoa exporta e abre no app de importação; o
-invólucro nativo, quando existir, chama `resumo_da_sessao()` e passa direto ao
-HealthKit sem tocar em arquivo.
+Até 20/09/2026 este módulo também gerava o TCX de `/treino/exportar/saude.tcx`
+— a ponte para o Apple Saúde e o Health Connect, que nenhuma PWA escreve
+direto. A exportação SAIU por decisão do dono (auditoria de 20/09: nenhum
+uso, e a segunda fórmula de duração morava aqui). O que fica é o que o
+painel de treino lê para dizer "N séries · M minutos": `resumo_da_sessao`.
+O nome do arquivo fica até o PR da duração (`fix/duracao-do-resumo`, parte
+A da auditoria) entrar; renomeá-lo antes seria conflito sem ganho.
 
 **Sobre o gasto calórico.** MET 3,5, que é o valor do compêndio de Ainsworth
 para musculação de esforço leve a moderado — e não os 6,0 de "vigoroso". A
@@ -25,7 +18,6 @@ errar para cima faz ela não emagrecer e concluir que o app não funciona.
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta, timezone as tz
 from decimal import Decimal
-from xml.sax.saxutils import escape
 
 from django.utils import timezone
 
@@ -162,43 +154,3 @@ def resumo_da_sessao(user, dia=None, sessao=None, escolha=NAO_INFORMADA) -> Resu
         inicio=inicio,
         fim=inicio + timedelta(minutes=minutos),
     )
-
-
-def tcx(resumo: ResumoDaSessao, titulo="Treino de força") -> str:
-    """O treino em TCX, que é o que os importadores de saúde leem.
-
-    Sport="Other" porque o TCX só conhece Running, Biking e Other — musculação
-    cai no terceiro, e é assim que o HealthFit e o Health Auto Export a
-    convertem para "Traditional Strength Training" no HealthKit.
-    """
-    if not resumo.tem_dados:
-        raise ValueError("Nenhuma série registrada nesse dia.")
-
-    # `datetime.timezone.utc`, e não `django.utils.timezone.utc`: o segundo
-    # deixou de existir no Django 5.
-    inicio = resumo.inicio.astimezone(tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    return f"""<?xml version="1.0" encoding="UTF-8"?>
-<TrainingCenterDatabase
-    xsi:schemaLocation="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd"
-    xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Activities>
-    <Activity Sport="Other">
-      <Id>{inicio}</Id>
-      <Lap StartTime="{inicio}">
-        <TotalTimeSeconds>{resumo.minutos * 60}</TotalTimeSeconds>
-        <DistanceMeters>0</DistanceMeters>
-        <Calories>{resumo.kcal}</Calories>
-        <Intensity>Active</Intensity>
-        <TriggerMethod>Manual</TriggerMethod>
-      </Lap>
-      <Notes>{escape(titulo)} — {resumo.series} séries, {resumo.exercicios} exercícios, {resumo.volume_kg} kg de volume total. Exportado do NutriPlan.</Notes>
-      <Creator xsi:type="Device_t">
-        <Name>NutriPlan</Name>
-        <UnitId>0</UnitId>
-        <ProductID>0</ProductID>
-      </Creator>
-    </Activity>
-  </Activities>
-</TrainingCenterDatabase>
-"""

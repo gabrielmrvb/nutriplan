@@ -808,27 +808,16 @@ class LinkBotaoAvisaQueEstaIndoTests(SimpleTestCase):
         self.assertRegex(self.js, r'classList\.add\("is-carregando"\)')
         self.assertRegex(self.js, r'setAttribute\("aria-busy", "true"\)')
 
-    def test_o_link_que_baixa_arquivo_diz_que_e_arquivo(self):
-        """`workouts:health_export` responde `Content-Disposition: attachment`:
-        a página NÃO troca, o arquivo salva. Sem a marca no `<a class="btn">`,
-        o anel de `is-carregando` ficaria girando depois de o TCX salvar — foi
-        o primeiro caso que a N5 achou ao testar no navegador.
-
-        A marca é `data-arquivo`, e não `download`: sem treino hoje a view
-        responde 302 com mensagem, e `download` faria o navegador salvar aquele
-        HTML como arquivo (achado da revisão da N5)."""
-        sem_marca, encontrados = [], 0
-        for arquivo in sorted(RAIZ_TEMPLATES.rglob("*.html")):
-            texto = arquivo.read_text(encoding="utf-8")
-            for m in re.finditer(r"<a [^>]*workouts:health_export[^>]*>", texto):
-                encontrados += 1
-                if not DIZ_QUE_E_ARQUIVO.search(m.group(0)):
-                    sem_marca.append(f"{arquivo.relative_to(RAIZ_TEMPLATES)}: {m.group(0)}")
-                self.assertNotRegex(m.group(0), r"\sdownload[\s>=]", "`download` salvaria o HTML do redirect")
-        self.assertEqual(encontrados, 2, "os dois links de exportar: renomear a rota deixaria o teste cego")
-        self.assertEqual(sem_marca, [], "link que baixa arquivo sem `data-arquivo`")
-        # E o JS respeita a marca.
+    def test_o_js_respeita_a_marca_de_arquivo(self):
+        """`data-arquivo` é a marca de um `<a class="btn">` cuja resposta é um
+        arquivo (`Content-Disposition: attachment`): a página não troca, e o
+        anel de `is-carregando` ficaria girando. Os dois links que a usavam
+        (exportar TCX) saíram em 20/09/2026; o mecanismo fica em `pwa.js` para
+        o próximo link de arquivo nascer marcado — e `DIZ_QUE_E_ARQUIVO` é a
+        régua que o teste de baixo mantém afiada."""
         self.assertIn('hasAttribute("data-arquivo")', self.js)
+        for arquivo in sorted(RAIZ_TEMPLATES.rglob("*.html")):
+            self.assertNotIn("workouts:health_export", arquivo.read_text(encoding="utf-8"), arquivo.name)
 
     def test_o_leitor_enxerga_o_link_sem_marca(self):
         """Controle positivo do regex acima: um `<a>` de exportação sem a marca
