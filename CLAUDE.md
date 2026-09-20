@@ -1937,8 +1937,10 @@ consegue conferir se ele rodou. Desde então:
   no gate). O check é o job `gate` ("suíte rápida"), verde só se TODAS as
   fatias passam. Roda em todo PR, alvo < 10 min. `suite.yml` (check
   **"suíte completa"**) roda as MESMAS fatias com TUDO, inclusive `lento`,
-  DEPOIS do merge (`push: main`), à noite (`schedule` 06:00 UTC) e à mão
-  (`workflow_dispatch`) — não barra PR. Os dois: Postgres 16 (produção), sem
+  DEPOIS do merge (`push: main`) e à mão (`workflow_dispatch`) — não barra
+  PR; a NOITE é de `noturna.yml` (a suíte com a DATA REAL e a issue de
+  alerta; ver "Testes"), porque a suíte roda congelada e um cron aqui
+  mediria a mesma quarta de sempre. Os dois: Postgres 16 (produção), sem
   segredo, `contents: read`, cada fatia sobe seu log e `--durations 15`.
   **`@tag("lento")` é só para teste pesado que NÃO é o único guarda de algo
   crítico** (concorrência, dourado, idempotência, segurança ficam no rápido
@@ -1971,12 +1973,14 @@ consegue conferir se ele rodou. Desde então:
   (`corpo_da_fila`, `fila-ativar`) e o gatilho `merge_group` ficam PRONTOS
   para o dia em que o repositório morar numa organização (ou virar público) —
   decisão do dono;
-- **Se a "suíte completa" quebrar** (pós-merge ou no cron noturno): foi um
-  `lento` que regrediu no merge que acabou de entrar OU algo que depende de
-  calendário. O GitHub manda e-mail ao dono por run vermelho no branch
-  padrão (é o alerta, sem segredo de webhook). Conserte ou reverta o merge
-  culpado; o gate rápido não pega `lento`, então a correção também passa
-  rápido. Rodar a completa à mão: `workflow_dispatch` na aba Actions;
+- **Se a "suíte completa" quebrar** (pós-merge): foi um `lento` que
+  regrediu no merge que acabou de entrar. O GitHub manda e-mail ao dono por
+  run vermelho no branch padrão (é o alerta, sem segredo de webhook).
+  Conserte ou reverta o merge culpado; o gate rápido não pega `lento`, então
+  a correção também passa rápido. Rodar a completa à mão: `workflow_dispatch`
+  na aba Actions. **Se a "Suíte noturna (data real)" quebrar**: é
+  calendário ou hora — a issue "Suíte noturna vermelha com a data real" diz
+  o dia e como reproduzir (`NUTRIPLAN_DATA_DA_SUITE=<dia>`);
 - o fluxo é **branch → PR → `enfileirar` (espera a vez, atualiza, espera o
   check, mergeia) → `/saude/`**. Sem `gh` nesta máquina, o helper é
   `scripts/github.py` (`pr`, `status`, `esperar`, `enfileirar`, `fila`,
