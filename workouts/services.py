@@ -420,14 +420,24 @@ def sessao_do_dia(plan, dia, sessoes=None):
 
 
 def sessoes_da_semana(plan, hoje, sessoes=None) -> list:
-    """As sessões da semana de `hoje` (segunda a domingo), uma por dia de
-    treino, na ordem dos dias: as próprias linhas no plano antigo, e no
-    plano com rotação a letra de cada dia vestindo o dia (`_no_dia`) — é a
-    lista que o painel, a ficha e a leitura do exercício desenham."""
+    """As sessões da semana que INTERESSA em `hoje` (segunda a domingo), uma
+    por dia de treino, na ordem dos dias: as próprias linhas no plano antigo,
+    e no plano com rotação a letra de cada dia vestindo o dia (`_no_dia`) — é
+    a lista que o painel, a ficha e a leitura do exercício desenham.
+
+    A semana que interessa é a de hoje enquanto ela ainda tem dia de treino
+    de hoje em diante; passado o último (sábado e domingo em quem treina de
+    segunda a sexta), é a semana que VEM. Auditoria em produção de 20/09/2026,
+    um domingo: o cartão "Próximo treino" dizia "C · amanhã" (a letra da
+    rotação, certa) e a faixa e os cartões logo abaixo diziam "A ·
+    Segunda-feira" — a semana que acabou, com a letra velha. Duas verdades na
+    mesma tela sobre a mesma segunda-feira."""
     sessoes = list(sessoes if sessoes is not None else plan.sessions.all())
     if not ciclo_roda(plan):
         return sorted(sessoes, key=lambda s: s.order)
     segunda = hoje - timedelta(days=hoje.weekday())
+    if sessoes and all(molde.weekday < hoje.weekday() for molde in sessoes):
+        segunda += timedelta(days=7)
     semana = []
     for molde in sorted(sessoes, key=lambda s: s.order):
         dia = segunda + timedelta(days=molde.weekday)
