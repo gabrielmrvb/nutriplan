@@ -490,6 +490,21 @@
               </li>
             {% endfor %}
           </ol>
+          {% if ciclo_continuo %}
+            {% comment %}
+              LEGENDA DO CICLO CONTÍNUO (avaliação de UX, 20/09/2026). A tira
+              acima é a rotação da SEMANA CORRENTE, e ela GIRA: em 5 dias com ABC
+              a semana que vem começa onde esta parou, então a mesma letra cai em
+              dias diferentes de uma semana para a outra. Sem esta frase a pessoa
+              lê a tira como fixa e estranha o "próximo treino" da semana
+              seguinte cair noutra letra (tira SEG=A × próximo=C). Só quando o
+              ciclo roda — plano antigo/ajustado fica preso ao dia da semana.
+            {% endcomment %}
+            <p class="hint week-strip__ciclo">
+              O ciclo gira: a cada semana as letras avançam, então a mesma letra
+              cai em dias diferentes. Esta tira é a semana de hoje.
+            </p>
+          {% endif %}
         </section>
 
         {# ------------- 4. As sessões da semana ------------- #}

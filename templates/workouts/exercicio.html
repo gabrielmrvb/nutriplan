@@ -50,7 +50,14 @@
       </div>
       <div>
         <dt>Quando</dt>
-        <dd>{{ dias|join:", " }}</dd>
+        <dd>{{ dias|join:", " }}{% if ciclo_continuo %}
+          {% comment %}
+            Os dias são os DESTA semana (rotação). Sem dizer que o ciclo gira, o
+            "Quando" é lido como fixo, e a pessoa que chega pela ficha da semana
+            que vem estranha a letra cair noutro dia (avaliação de UX,
+            20/09/2026). A frase mora aqui, colada ao dado que ela qualifica.
+          {% endcomment %}
+          <span class="hint">nesta semana — o ciclo gira, então muda a cada semana</span>{% endif %}</dd>
       </div>
       <div>
         <dt>Papel</dt>

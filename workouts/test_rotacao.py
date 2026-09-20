@@ -201,6 +201,39 @@ class OPainelEAFichaMostramALetraDaPosicaoTests(TestCase):
         semana = [d["session"].label if d["session"] else None for d in resposta.context["week"]]
         self.assertEqual(semana, ["A", "B", "C", "A", "B", None, None])
 
+    def test_o_painel_diz_que_o_ciclo_gira(self):
+        """Avaliação de UX (20/09/2026): a tira mostra a rotação da semana
+        corrente (os testes acima provam), MAS sem dizer que ela GIRA a pessoa a
+        lê como fixa e estranha o "próximo treino" da semana seguinte cair
+        noutra letra (tira SEG=A × próximo=C). A legenda entra quando o ciclo
+        roda."""
+        resposta = self.client.get(reverse("workouts:routine"))
+        self.assertTrue(resposta.context["ciclo_continuo"])
+        html = resposta.content.decode()
+        self.assertIn("week-strip__ciclo", html)
+        self.assertIn("ciclo gira", html)
+
+    def test_plano_preso_ao_dia_da_semana_nao_diz_que_gira(self):
+        """Plano de antes da rotação fica preso ao dia da semana — dizer "gira"
+        ali seria mentira, então a legenda não aparece."""
+        TrainingPlan.objects.filter(pk=self.plan.pk).update(inicio_do_ciclo=None)
+        resposta = self.client.get(reverse("workouts:routine"))
+        self.assertFalse(resposta.context["ciclo_continuo"])
+        self.assertNotIn("week-strip__ciclo", resposta.content.decode())
+
+    def test_a_leitura_do_exercicio_avisa_que_o_ciclo_gira(self):
+        """O "Quando" da leitura lista os dias DESTA semana; com o ciclo
+        girando, sem o aviso ele é lido como fixo, e quem chega pela ficha da
+        semana que vem estranha a letra cair noutro dia (avaliação de UX)."""
+        sessao = self.plan.sessions.first()
+        ex = sessao.exercises.first().exercise
+        resposta = self.client.get(
+            reverse("workouts:exercicio", args=[ex.pk]) + "?de=ficha&sessao=%d" % sessao.pk
+        )
+        self.assertEqual(resposta.status_code, 200)
+        self.assertTrue(resposta.context["ciclo_continuo"])
+        self.assertIn("o ciclo gira", resposta.content.decode())
+
     def test_o_proximo_treino_atravessa_a_semana_com_a_letra_certa(self):
         """Sexta da primeira semana: o próximo é segunda — e é C, não A."""
         self.relogio.stop()
