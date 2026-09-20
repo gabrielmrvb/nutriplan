@@ -342,7 +342,7 @@
         <a class="btn-link" href="{% url 'workouts:now' %}?exercicio={{ atual.exercise.pk }}&amp;extra=1">Registrar uma série a mais</a>
       </p>
       {% else %}
-      <form class="registro registro--agora" method="post"
+      <form class="registro registro--agora" method="post" data-sem-recarga
             action="{% url 'workouts:record_set' %}">
         {% csrf_token %}
         <input type="hidden" name="exercise_id" value="{{ atual.exercise.pk }}">
@@ -464,7 +464,7 @@
         que não ter botão.
       {% endcomment %}
       {% if estado.ultimo_log %}
-        <form method="post" action="{% url 'workouts:record_set' %}" class="agora__desfazer">
+        <form method="post" action="{% url 'workouts:record_set' %}" class="agora__desfazer" data-sem-recarga>
           {% csrf_token %}
           <input type="hidden" name="exercise_id" value="{{ estado.ultimo_log.exercise_id }}">
           <input type="hidden" name="acao" value="desfazer">
@@ -816,6 +816,104 @@
       segurar();
     })();
 
+  })();
+  </script>
+  <script>
+  /* "CONCLUIR SÉRIE" SEM RECARREGAR A PÁGINA (decisão do dono, 20/09/2026;
+     nasceu no protótipo `proto/execucao-sem-recarga` da sessão auditoria).
+     "Concluir série" e "desfazer" com REDE deixam de recarregar a página.
+     O POST vai por fetch, segue o 302 e recebe o MESMO HTML que o servidor
+     já renderiza; só o <main> (e o título, a URL, o aviso de conquista) é
+     trocado — o vídeo aberto continua aberto quando o exercício é o mesmo,
+     e o descanso recomeça do número que o servidor mandou. Sem rede nada
+     muda: `fila.js` continua sendo o dono (ele só age offline, e este
+     ouvinte só age online). Qualquer erro cai na recarga de sempre.
+     Medido em L08: o POST→302→GET custava 180–330 ms de `load` no Wi-Fi e
+     ~550 ms no 3G, e matava o iframe do vídeo a cada série. */
+  (function () {
+    "use strict";
+    if (!window.fetch || !window.DOMParser || !("replaceChildren" in Element.prototype)) return;
+    /* Este script mora dentro do <main> e é recriado a cada troca: o ouvinte
+       é registrado UMA vez por página. */
+    if (window.__agoraSemRecarga) return;
+    window.__agoraSemRecarga = true;
+    document.addEventListener("submit", function (evento) {
+      var form = evento.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      /* Pelo atributo, e não pela classe: `workouts/test_b3_treino` lê o HTML
+         cru e cobra que a classe do formulário de desfazer não apareça sem
+         série hoje — e a classe escrita num <script> é a mesma string
+         (CLAUDE.md, "Testes"). */
+      if (!form.hasAttribute("data-sem-recarga")) return;
+      /* Marcado pelo `catch` abaixo: é o reenvio "de sempre" — este ouvinte
+         sai da frente e o navegador (ou a fila offline, em `fila.js`) segue. */
+      if (form.hasAttribute("data-recarga-de-sempre")) return;
+      if (!navigator.onLine || evento.defaultPrevented) return;
+      evento.preventDefault();
+      var botao = evento.submitter;
+      var dados = new FormData(form);
+      if (botao && botao.name) dados.append(botao.name, botao.value);
+      if (botao) { botao.setAttribute("aria-busy", "true"); botao.disabled = true; }
+      var idAntes = (form.querySelector("[name=exercise_id]") || {}).value;
+      var inicio = performance.now();
+      fetch(form.action, {
+        method: "POST", body: dados, credentials: "same-origin", redirect: "follow",
+        headers: { "X-Requested-With": "fetch", "Accept": "text/html" },
+      }).then(function (resposta) {
+        if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+        return resposta.text().then(function (html) { return { html: html, url: resposta.url }; });
+      }).then(function (r) {
+        var doc = new DOMParser().parseFromString(r.html, "text/html");
+        var novoMain = doc.querySelector("main");
+        var main = document.querySelector("main");
+        if (!novoMain || !main) throw new Error("sem main");
+        var novoForm = novoMain.querySelector("form[data-sem-recarga]");
+        var idDepois = novoForm ? (novoForm.querySelector("[name=exercise_id]") || {}).value : null;
+        var video = document.querySelector("[data-demo] iframe");
+        main.replaceChildren.apply(main, Array.prototype.slice.call(novoMain.childNodes));
+        /* O vídeo aberto sobrevive quando o exercício é o mesmo: o iframe
+           antigo entra no lugar do botão "ver vídeo" do HTML novo. */
+        if (video && idDepois && idDepois === idAntes) {
+          var demo = main.querySelector("[data-demo]");
+          var abrir = demo && demo.querySelector("[data-demo-abrir]");
+          if (abrir) { abrir.replaceWith(video); demo.setAttribute("data-demo-aberto", "1"); }
+        }
+        /* Os scripts do <main> (degraus de carga, descanso, vídeo) não rodam
+           num innerHTML; recriados, rodam — sobre os nós novos. */
+        main.querySelectorAll("script").forEach(function (velho) {
+          var novo = document.createElement("script");
+          novo.textContent = velho.textContent;
+          velho.replaceWith(novo);
+        });
+        /* Aviso de conquista e mensagens vivem fora do <main>. */
+        ["[data-conquista]", ".flash"].forEach(function (seletor) {
+          var novo = doc.querySelector(seletor), velho = document.querySelector(seletor);
+          if (novo && velho) velho.replaceWith(document.importNode(novo, true));
+          else if (novo && !velho) main.parentNode.insertBefore(document.importNode(novo, true), main.nextSibling);
+          else if (!novo && velho && seletor === ".flash") velho.remove();
+        });
+        document.body.className = doc.body.className;
+        document.title = doc.title;
+        if (r.url) history.replaceState(null, "", r.url);
+        window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+        /* O foco vai para o "Concluir série" da série nova: quem registra
+           pelo teclado (ou pelo leitor de tela) continua de onde estava, e a
+           troca de <main> é anunciada pelo botão que ganhou o foco. */
+        var proximo = main.querySelector(".registro--agora button[type=submit]");
+        if (proximo) proximo.focus({ preventScroll: true });
+        document.dispatchEvent(new CustomEvent("nutriplan:pagina-trocada", { detail: { ms: Math.round(performance.now() - inicio), videoManteve: !!(video && idDepois === idAntes) } }));
+      }).catch(function () {
+        /* Qualquer tropeço: a recarga de sempre, sem perder a série (o
+           servidor já gravou ou vai gravar de novo com o mesmo op_id).
+           `requestSubmit`, e não `submit()`: ele DISPARA o evento `submit`,
+           então a fila offline de `fila.js` continua vendo o formulário se a
+           rede tiver caído no meio — `submit()` navegaria calado para uma
+           página de erro. A marca faz este ouvinte sair da frente. */
+        if (botao) { botao.removeAttribute("aria-busy"); botao.disabled = false; }
+        form.setAttribute("data-recarga-de-sempre", "1");
+        if (form.requestSubmit) form.requestSubmit(botao || undefined); else form.submit();
+      });
+    });
   })();
   </script>
   {% include "workouts/_demonstracao_js.html" %}

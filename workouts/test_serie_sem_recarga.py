@@ -1,0 +1,97 @@
+# -*- coding: utf-8 -*-
+""""Concluir série" sem recarregar a página (decisão do dono, 20/09/2026).
+
+Medido em L08 (CLAUDE.md): cada série era POST→302→GET de 31 KB, 180–330 ms
+de `load` no Wi-Fi e ~550 ms no 3G lento — e o iframe do vídeo que a pessoa
+abriu MORRIA com a recarga (1 → 0): a cada série, tocar "ver vídeo" de novo.
+A auditoria de 20/09 pôs isso como o upgrade de maior impacto da execução.
+
+Como funciona (nasceu no `proto/execucao-sem-recarga` da sessão auditoria):
+o `submit` dos dois formulários marcados com `data-sem-recarga` (concluir
+série e desfazer) vai por `fetch`, segue o 302 e recebe o MESMO HTML que o
+servidor já renderiza; só o `<main>`, o título, a URL, a classe do `<body>`
+e o aviso de conquista são trocados; o iframe aberto entra no lugar do botão
+"ver vídeo" quando o exercício é o mesmo; os scripts do `<main>` são
+recriados e rodam sobre os nós novos. Sem rede, `fila.js` continua dono.
+Qualquer tropeço cai na recarga de sempre por `requestSubmit`, que dispara o
+evento `submit` — e a fila offline continua enxergando o formulário.
+
+O servidor NÃO mudou: o que se prova aqui é a estrutura servida e que a
+rota continua respondendo 302 a um `fetch` (que o segue). O comportamento
+— uma entrada de navegação antes e depois, iframe mantido, "SÉRIE 1 DE 4"
+→ "2 DE 4" → desfazer → "1 DE 4" — foi provado no navegador (agent-browser)
+e está no PR.
+"""
+from decimal import Decimal
+
+from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
+
+from workouts import services
+from workouts.models import ExerciseLog
+from workouts.tests import create_user, dias_incluindo_hoje, escolher_opcao_de_hoje
+
+
+def _sem_comentarios(texto):
+    import re
+
+    return re.sub(r"/\*.*?\*/", "", texto, flags=re.S)
+
+
+class OsFormulariosDaExecucaoVaoSemRecargaTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from django.core.management import call_command
+
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.pessoa = create_user(email="serie@exemplo.com", weekdays=dias_incluindo_hoje(5))
+        services.create_routine(self.pessoa)
+        escolher_opcao_de_hoje(self.pessoa)
+        self.client.force_login(self.pessoa)
+
+    def _tela(self):
+        resposta = self.client.get(reverse("workouts:now"))
+        self.assertEqual(resposta.status_code, 200)
+        return resposta.content.decode()
+
+    def test_o_formulario_de_concluir_serie_esta_marcado(self):
+        html = self._tela()
+        self.assertRegex(html, r'<form class="registro registro--agora" method="post" data-sem-recarga')
+
+    def test_o_desfazer_tambem_depois_da_primeira_serie(self):
+        html = self._tela()
+        atual = html.split('name="exercise_id" value="')[1].split('"')[0]
+        ExerciseLog.objects.create(user=self.pessoa, exercise_id=int(atual), date=timezone.localdate(),
+                                   set_number=1, weight_kg=Decimal("40"), reps=10)
+        html = self._tela()
+        self.assertRegex(html, r'<form method="post" action="[^"]+" class="agora__desfazer" data-sem-recarga>')
+
+    def test_o_script_troca_o_main_e_cai_na_recarga_de_sempre_pelo_evento(self):
+        js = _sem_comentarios(self._tela())
+        self.assertIn('form.hasAttribute("data-sem-recarga")', js)
+        self.assertIn("navigator.onLine", js, "sem rede, fila.js continua dono")
+        self.assertIn("main.replaceChildren", js)
+        self.assertIn('history.replaceState(null, "", r.url)', js)
+        self.assertIn('form.setAttribute("data-recarga-de-sempre", "1")', js)
+        self.assertIn("form.requestSubmit(", js, "o reenvio dispara o evento submit para a fila offline ver")
+        self.assertIn('form.hasAttribute("data-recarga-de-sempre")', js)
+        self.assertIn('".registro--agora button[type=submit]"', js, "o foco vai para o Concluir da série nova")
+
+    def test_o_video_aberto_sobrevive_quando_o_exercicio_e_o_mesmo(self):
+        js = _sem_comentarios(self._tela())
+        self.assertIn('document.querySelector("[data-demo] iframe")', js)
+        self.assertIn("idDepois === idAntes", js)
+
+    def test_a_rota_continua_respondendo_302_a_um_fetch(self):
+        """O servidor não mudou: o fetch segue o 302 e recebe a página."""
+        html = self._tela()
+        exercicio = html.split('name="exercise_id" value="')[1].split('"')[0]
+        op_id = html.split('name="op_id" value="')[1].split('"')[0]
+        resposta = self.client.post(reverse("workouts:record_set"),
+                                    {"exercise_id": exercicio, "op_id": op_id, "weight_kg": "40", "reps": "10"},
+                                    HTTP_X_REQUESTED_WITH="fetch")
+        self.assertEqual(resposta.status_code, 302)
+        self.assertEqual(ExerciseLog.objects.filter(user=self.pessoa).count(), 1)
