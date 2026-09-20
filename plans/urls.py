@@ -5,7 +5,10 @@ from . import views
 app_name = "plans"
 
 urlpatterns = [
-    path("", views.TodayView.as_view(), name="today"),
+    # A raiz decide pelo visitante (RaizView): anônimo vê a landing, quem tem
+    # sessão vê o painel do dia. O nome `today` fica na raiz para todo
+    # `reverse` continuar apontando para `/`.
+    path("", views.RaizView.as_view(), name="today"),
     path("historico/", views.HistoryView.as_view(), name="history"),
     path("refeicao/<int:slot_id>/marcar/", views.MarkMealView.as_view(), name="mark_meal"),
     path("refeicao/<int:slot_id>/desfazer/", views.ClearMealView.as_view(), name="clear_meal"),
