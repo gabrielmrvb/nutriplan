@@ -334,6 +334,20 @@ A propriedade que governa isso agora tem teste próprio em `plans/test_streaks.p
 **omitir nunca pode produzir resultado melhor que registrar**. Ela vale por
 construção, porque qualquer denominador independente da marcação a satisfaz.
 
+**O DIA FECHA COM DOIS DOS TRÊS PILARES, E O TREINO É OBRIGATÓRIO NO DIA
+PREVISTO (decisão do dono, 20/09/2026).** Até então a régua era treino E
+dieta (≥ 80 %) E água (≥ 90 % de 35 ml/kg) no mesmo dia, e a auditoria de
+20/09 simulou uma semana de uso real — 4 refeições de 5, 1,5 L de uma meta
+de 3 L, treino feito — que terminava com "0 dias — Comece hoje": a água
+dominava. Hoje `Dia.completo` é `treino and (dieta or agua)`; no dia sem
+treino previsto descansar continua sendo o plano (`treino=True`), então o
+dia de descanso fecha com um dos dois outros. A pendência diz o que FECHA o
+dia ("treino", "dieta ou água"), nunca a lista de tudo que faltou.
+`manage.py simular_ofensiva` reproduz a semana auditada sob as duas regras
+(0 → 5 dias) e há teste sobre a saída dele — rode antes e depois de mexer
+na régua. `OmitirNaoPodeCompensarTests` passou a medir a dieta SEM água,
+senão a água fecharia o dia e o teste deixaria de medir o que diz medir.
+
 **Dois lados abrem o mesmo IndexedDB, e eles têm que concordar.**
 `static/js/fila.js` e `templates/pwa/sw.js` abrem `nutriplan-fila`. O service
 worker abria sem `onupgradeneeded`; quando ele chegava primeiro — num evento
