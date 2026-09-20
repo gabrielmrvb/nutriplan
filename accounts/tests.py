@@ -6399,13 +6399,11 @@ class MatrizDeCapabilityTests(TestCase):
         ("/admin/workouts/trainingplan/", 200, 200, "a ficha existe?"),
         ("/admin/workouts/trainingplan/add/", 403, 403, "ficha nasce do gerador"),
         ("/admin/workouts/exercise/add/", 200, 403, "catálogo de exercício"),
-        ("/admin/supplements/supplementlog/", 403, 403, "sem caso operacional"),
         ("/admin/achievements/userachievement/", 200, 403, "conquista da pessoa"),
         ("/admin/catalog/dietarytag/", 200, 403, "restrições do catálogo"),
         ("/admin/catalog/mealtemplate/", 200, 403, "receitas"),
         ("/admin/workouts/exercise/", 200, 403, "catálogo de exercício"),
         ("/admin/workouts/workouttemplate/", 200, 403, "modelos de treino"),
-        ("/admin/supplements/supplement/", 200, 403, "catálogo de suplemento"),
         # Registradas e que NINGUÉM alcança: `PAPEIS` não concede `view` para
         # nenhuma das duas. Ficam na matriz de propósito — o valor da tabela é
         # justamente registrar que a superfície existe e está fechada, em vez
