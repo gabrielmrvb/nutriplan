@@ -55,15 +55,19 @@ class TresEtapasReaisTests(TestCase):
             with self.subTest(n=n):
                 self.assertEqual(self.client.get(etapa(n)).status_code, 404)
 
-    def test_a_etapa_2_avisa_que_peso_do_corpo_e_ficha_reduzida(self):
-        """Decisão da avaliação de UX (20/09/2026): "Só o peso do corpo" monta
-        hoje ficha reduzida (B com 1 exercício), e o onboarding não pode fingir
-        paridade — a pessoa que escolhe honestamente "em casa, sem nada" tem de
-        saber, e saber que dá para trocar depois. Some quando o catálogo cobrir."""
+    def test_a_etapa_2_avisa_o_que_muda_no_peso_do_corpo(self):
+        """Decisão 1 da avaliação de UX (20/09/2026): desde o catálogo de peso
+        do corpo a ficha desse perfil é CHEIA e comparável às outras — o aviso
+        deixou de dizer "ficha mais curta" (era verdade só até o catálogo
+        cobrir) e passou a dizer o que de fato muda: peito, ombro e bíceps
+        ficam mais leves, por limite físico do próprio corpo, e dá para trocar
+        o equipamento depois. O onboarding continua não fingindo paridade
+        total, mas sem alarmar quem escolhe "em casa, sem nada"."""
         self.client.post(etapa(1), ETAPA1)  # o onboarding só libera a etapa 2 depois da 1
         html = self.client.get(etapa(2)).content.decode()
         self.assertIn("field__nota-equipamento", html)
         self.assertIn("<strong>Só o peso do corpo</strong>", html)
+        self.assertIn("mais leves", html)
 
     def test_a_etapa_1_diz_1_de_3_e_continuar(self):
         html = self.client.get(etapa(1)).content.decode()
