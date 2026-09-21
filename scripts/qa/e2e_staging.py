@@ -34,6 +34,7 @@ import tempfile
 import time
 import urllib.request
 from datetime import date
+from json import dumps as json_dumps
 from pathlib import Path
 
 PASSOS = (
@@ -153,8 +154,28 @@ class E2E:
         self.capturas.mkdir(parents=True, exist_ok=True)
         self.ab("screenshot", str(self.capturas / ("%02d-%s.png" % (len(self.feitos) + 1, nome))))
 
-    def enviar(self):
-        self.ab("click", "main form:not([action]) button[type=submit], main form[action=''] button[type=submit]")
+    FORM = "main form:not([action]), main form[action='']"
+
+    def enviar(self, fica=False):
+        """Clica no botão de enviar do formulário principal e confere que a
+        página SAIU dele. No runner (terceiro run do Actions) o clique deixou o
+        formulário parado com os valores intactos e sem erro na tela; quando
+        isso acontece, o diagnóstico vai para o arquivo de erro e o envio é
+        repetido por `requestSubmit()` — que ainda passa pela validação do
+        navegador, então um formulário inválido continua parado e é achado."""
+        self.ab("click", self.FORM.replace(", ", " button[type=submit], ") + " button[type=submit]")
+        if fica:  # o login recusado FICA na mesma tela, e é isso que se quer
+            return
+        antes = self.ab.eval("location.pathname").strip()
+        try:
+            self.ab.esperar_js("location.pathname !== %s" % json_dumps(antes), segundos=12, rotulo="sair de " + antes)
+        except RuntimeError:
+            self.diagnostico_do_formulario = self.ab.eval(
+                "(function(){var f=document.querySelector(%s);if(!f)return 'sem form';var ruins=[].slice.call(f.elements)"
+                ".filter(function(e){return e.willValidate&&!e.checkValidity()}).map(function(e){return e.name+': '+e.validationMessage});"
+                "return JSON.stringify({valido:f.checkValidity(),ruins:ruins,action:f.getAttribute('action'),method:f.method,"
+                "botao:(f.querySelector('button[type=submit]')||{}).outerHTML})})()" % json_dumps(self.FORM))
+            self.ab.eval("document.querySelector(%s).requestSubmit()" % json_dumps(self.FORM))
 
     # ----------------------------------------------------------- passos
     def cadastro(self):
@@ -197,10 +218,13 @@ class E2E:
         self.ab.marcar("input[name=prioridade][value=treino]")
         self.captura("onboarding-3")
         self.enviar()  # "Criar meu plano": monta os dois planos e navega para a Home
-        self.ab.esperar_url(self.base + "/", ms=180000)
+        # `wait --url <raiz>` casa por PREFIXO e voltava na hora, ainda na etapa 3
+        # (MEDIDO no segundo run do Actions); a raiz é conferida pelo pathname,
+        # com o tempo que montar os dois planos leva num staging frio.
+        self.ab.esperar_js("location.pathname === '/'", segundos=180, rotulo="a Home depois de criar o plano")
 
     def home(self):
-        self.ab.esperar_js("[document.querySelector('.agua'), document.querySelector('.meal')].every(function(e){return e!==null})", rotulo="Home com água e refeições")
+        self.ab.esperar_js("[document.querySelector('.agua'), document.querySelector('.meal')].every(function(e){return e!==null})", segundos=90, rotulo="Home com água e refeições")
         # O convite de instalação (PWA) cobre o rodapé da tela nova; "Agora não"
         # o dispensa — é o que uma pessoa faz, e as capturas ficam limpas.
         self.ab.eval("(function(){var b=[].slice.call(document.querySelectorAll('button')).filter(function(x){return /Agora n/.test(x.textContent)})[0];if(b){b.click();return true}return false})()")
@@ -272,7 +296,7 @@ class E2E:
         self.ab("open", self.base + "/conta/entrar/")
         self.ab("fill", "input[name=login], input[name=username], input[name=email]", self.email)
         self.ab("fill", "input[name=password]", self.senha)
-        self.enviar()
+        self.enviar(fica=True)
         self.ab("wait", "1500")
         url = self.ab("get", "url")
         if "/conta/entrar/" not in url:
@@ -307,7 +331,9 @@ class E2E:
         try:
             self.capturas.mkdir(parents=True, exist_ok=True)
             self.ab("screenshot", str(self.capturas / ("erro-%s.png" % passo)))
-            (self.capturas / ("erro-%s.txt" % passo)).write_text(self.ab("snapshot", "-i"), encoding="utf-8")
+            diagnostico = getattr(self, "diagnostico_do_formulario", "")
+            (self.capturas / ("erro-%s.txt" % passo)).write_text(
+                "url: %s\nformulario: %s\n\n%s" % (self.ab("get", "url"), diagnostico, self.ab("snapshot")), encoding="utf-8")
         except Exception as erro:
             print("(sem captura do erro: %s)" % str(erro)[:200])
 
