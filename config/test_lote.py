@@ -49,10 +49,6 @@ class Cenario:
         if metodo == "POST":
             self.posts.append((caminho, corpo))
             return 201, {"id": "dep-novo"}
-        if "/deploys?limit=1" in caminho:
-            from datetime import datetime, timedelta, timezone
-            quando = datetime.now(timezone.utc) - timedelta(minutes=self.idade)
-            return 200, [{"deploy": {"id": "dep-1", "status": "live", "createdAt": quando.isoformat().replace("+00:00", "Z")}}]
         return 200, {}
 
     def saude(self, base, tempo=90):
@@ -72,6 +68,7 @@ class Cenario:
         with mock.patch.object(promover, "_api", self.api), mock.patch.object(promover, "saude", self.saude), \
                 mock.patch.object(promover, "smoke", self.smoke), mock.patch.object(promover, "e2e", self.e2e), \
                 mock.patch.object(promover, "_ponta_de_main", lambda: self.main), \
+                mock.patch.object(promover, "minutos_desde_a_ultima_promocao", lambda: self.idade), \
                 mock.patch.object(promover, "esta_em_main", lambda sha: True), \
                 mock.patch.object(promover, "esperar_commit", lambda base, curto, minutos, rotulo: self.saude(base) if self.saude(base)["commit"] == curto else None), \
                 mock.patch.object(promover.time, "sleep", lambda s: None), redirect_stdout(saida):
