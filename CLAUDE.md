@@ -2090,8 +2090,9 @@ consegue conferir se ele rodou. Desde então:
   calendário ou hora — a issue "Suíte noturna vermelha com a data real" diz
   o dia e como reproduzir (`NUTRIPLAN_DATA_DA_SUITE=<dia>`);
 - o fluxo é **branch → PR → `enfileirar` (espera a vez, atualiza, espera o
-  check, mergeia) → `/saude/`**. Sem `gh` nesta máquina, o helper é
-  `scripts/github.py` (`pr`, `status`, `esperar`, `enfileirar`, `fila`,
+  check, mergeia, PROVA NO STAGING) → `promover` → `/saude/` de produção**.
+  Sem `gh` nesta máquina, o helper é `scripts/github.py` (`pr`, `status`,
+  `esperar`, `enfileirar [--promover]`, `promover <sha> [--esperar]`, `fila`,
   `fechar`, `protecao`; `merge` à mão só fora da fila, e é o que cria a
   corrida), com o token do Git Credential Manager — nunca impresso, nunca
   em argumento;
@@ -2101,9 +2102,49 @@ consegue conferir se ele rodou. Desde então:
   antes. `config/test_ci.py` prende o contrato dos dois fluxos, do hook e do
   helper.
 
-O merge em `main` dispara o Render. `scripts/build.sh` roda collectstatic →
-`check --deploy` → migrate → os três seeds, com `errexit`: build que passa
-prova que a migração rodou. Confira em `/saude/`.
+**STAGING ANTES, PROMOÇÃO DEPOIS (21/09/2026).** Há DOIS serviços web no
+Render, os dois `free`, o mesmo repositório e o mesmo `scripts/build.sh`:
+
+| serviço | URL | banco | recebe |
+|---|---|---|---|
+| `nutriplan-staging` | https://nutriplan-staging.onrender.com | branch `staging` do MESMO projeto Neon (criada *schema only*: zero dado de gente real; o build semeia catálogo e demo) | **todo merge em `main`, sozinho** (`autoDeploy: true`) |
+| `nutriplan` (produção) | https://nutriplan-xxfn.onrender.com | branch `production` do Neon | **só o que alguém PROMOVE** (`autoDeploy: false`) |
+
+O merge em `main` dispara o Render — **do staging**. Produção não muda um
+byte até a promoção: `scripts/promover.py <sha> --esperar` (ou
+`scripts/github.py promover <sha> --esperar`, ou o botão "Promover para
+produção" na aba Actions — `.github/workflows/promover.yml`,
+`workflow_dispatch`, com `RENDER_API_KEY` nos segredos do repositório). Os
+três caminhos são o MESMO código: exigem que o SHA esteja em `origin/main`
+E que o staging já responda esse commit em `/saude/`, pedem `POST
+/v1/services/<produção>/deploys {"commitId": <sha>}` ao Render e esperam
+`/saude/` de produção dizer o commit. `enfileirar` termina PROVANDO o
+staging (`_provar_staging`: até 12 min esperando `/saude/` do staging
+responder o SHA do merge) e só promove com `--promover`; sem a flag ele
+imprime o comando e para — o QA em staging (conta descartável, dois temas)
+acontece ENTRE o merge e a promoção. Provado em 21/09: o PR entrou em
+`main`, o staging respondeu o commit, produção continuou no anterior até o
+`promover`. O staging se anuncia por `NUTRIPLAN_AMBIENTE=staging`
+(`config/ambiente.py`: `X-Robots-Tag: noindex, nofollow` em toda resposta,
+`<meta name="robots">`, a faixa "STAGING" em toda tela e `"ambiente"` no
+`/saude/`) — em produção a variável não existe e nada disso acontece. A
+chave, os tokens e o `DATABASE_URL` do staging são PRÓPRIOS (gerados na
+criação, `~/.nutriplan-secrets/staging_env.json` e `staging_database_url`);
+SMTP, Google e VAPID são os de produção (só conta de QA recebe e-mail do
+staging; o login com Google NÃO funciona no staging até o domínio entrar
+no console do Google — decisão do dono). O staging foi criado pela API
+(`artifacts/criar_staging.py`, valores nunca impressos) e está declarado no
+`render.yaml`, que é a verdade do painel; a branch do Neon nasceu
+*schema only* e por isso veio SEM `django_migrations` — o primeiro build
+caiu em "relation already exists" e o schema foi zerado uma vez
+(`drop schema public cascade`) antes de o `migrate` construir tudo.
+`config/test_staging.py` prende o contrato inteiro. Worktree de sessão com
+o helper ANTIGO (sem `_provar_staging`) mergeia e NÃO vê produção mudar:
+`git merge origin/main` antes de enfileirar, sempre.
+
+`scripts/build.sh` roda collectstatic → `check --deploy` → migrate → os três
+seeds, com `errexit`: build que passa prova que a migração rodou. Confira em
+`/saude/` — e olhe o `"ambiente"`: `"staging"` ou `""` (produção).
 
 O `check --deploy` vem **depois** do collectstatic e é um portão, não um aviso:
 ele importa a URLconf, que resolve `static()` para o favicon em tempo de import,
