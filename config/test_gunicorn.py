@@ -23,8 +23,8 @@ class OGunicornAtendeComThreadsTests(SimpleTestCase):
         for comando in comandos:
             with self.subTest(comando=comando):
                 self.assertIn("--worker-class gthread", comando)
-                self.assertIn("--threads ${WEB_THREADS:-4}", comando)
+                self.assertIn("--threads ${WEB_THREADS:-2}", comando)
                 self.assertIn("--workers ${WEB_CONCURRENCY:-2}", comando, "dois workers continuam sendo o teto de memória do free")
 
     def test_a_variavel_esta_declarada_nos_dois_servicos(self):
-        self.assertEqual(len(re.findall(r"- key: WEB_THREADS\s*\n\s*value: \"4\"", RENDER)), 2)
+        self.assertEqual(len(re.findall(r"- key: WEB_THREADS\s*\n\s*value: \"2\"", RENDER)), 2, "2, medido: 4 piora o /demo/hoje já a 5 usuários")

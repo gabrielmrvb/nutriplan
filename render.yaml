@@ -40,7 +40,7 @@ services:
     # main, aparece no staging, produção não muda" passou a ser verdade.
     autoDeploy: false
     buildCommand: "./scripts/build.sh"
-    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers ${WEB_CONCURRENCY:-2} --worker-class gthread --threads ${WEB_THREADS:-4} --log-file -"
+    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers ${WEB_CONCURRENCY:-2} --worker-class gthread --threads ${WEB_THREADS:-2} --log-file -"
     # Bate em /saude/vivo/, que NÃO consulta o banco.
     #
     # Era /saude/, e o argumento estava certo enquanto durou: aquele endpoint
@@ -149,14 +149,16 @@ services:
       # e o processo é morto por falta de memória no primeiro pico.
       - key: WEB_CONCURRENCY
         value: "2"
-      # THREADS POR WORKER (decisão do dono, 21/09/2026): o k6 mediu o free
-      # com dois workers SÍNCRONOS em 5 usuários simultâneos de teto (p95 @10
-      # de 1,5–3,7 s, 16 % de erro a 25) — cada pedido que espera o Neon
-      # segurava um worker inteiro. `gthread` deixa um worker atender
-      # `WEB_THREADS` pedidos enquanto os outros esperam I/O; o número foi
-      # medido no staging (ver CLAUDE.md, "Deploy"). Sem a variável, 4.
+      # THREADS POR WORKER (decisão do dono, 21/09/2026), MEDIDO no staging
+      # com o k6 (degraus 5/10/25/50, 60 s cada): sync → teto 5, p95 @10 de
+      # 0,4–3,7 s, 16 % de erro a 25; gthread 2 → teto 5, p95 @10 de 0,7–4,9 s
+      # (o /demo/hoje piora um pouco, o resto oscila), 20 % a 25; gthread 4 →
+      # rotas leves melhores, mas o /demo/hoje a 6,2 s e acima de 2 s já a 5
+      # (teto ABAIXO de 5), 17 % a 25. Thread não é CPU, e o free tem 0,1
+      # CPU: fica 2, e a diferença cabe no ruído de CPU compartilhada. O
+      # lever de verdade é o plano (CLAUDE.md, "Deploy": a condição do Starter).
       - key: WEB_THREADS
-        value: "4"
+        value: "2"
 
       - key: PYTHON_VERSION
         value: "3.12.10"
@@ -211,7 +213,7 @@ services:
     branch: main
     autoDeploy: true
     buildCommand: "./scripts/build.sh"
-    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers ${WEB_CONCURRENCY:-2} --worker-class gthread --threads ${WEB_THREADS:-4} --log-file -"
+    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers ${WEB_CONCURRENCY:-2} --worker-class gthread --threads ${WEB_THREADS:-2} --log-file -"
     healthCheckPath: /saude/vivo/
     envVars:
       - key: NUTRIPLAN_AMBIENTE
@@ -229,7 +231,7 @@ services:
       - key: WEB_CONCURRENCY
         value: "2"
       - key: WEB_THREADS
-        value: "4"
+        value: "2"
       - key: PYTHON_VERSION
         value: "3.12.10"
       - key: DJANGO_EMAIL_BACKEND
