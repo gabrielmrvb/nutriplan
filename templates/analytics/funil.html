@@ -1,0 +1,30 @@
+{% extends "analytics/base.html" %}
+{% block title %}Funil · Analytics{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Funil</h1>
+    <nav class="chip-row chip-row--conteudo" aria-label="Funil">
+      {% for f in prontos %}
+        <a class="chip {% if f == funil_nome %}chip--brand{% endif %}" href="?funil={{ f }}&dias={{ dias }}">{{ f }}</a>
+      {% endfor %}
+    </nav>
+  </div>
+
+  <section class="card">
+    <div class="card__head"><h2>Conversão por etapa</h2></div>
+    {% if etapas %}
+      <dl class="data-list">
+        {% for e in etapas %}
+          <div>
+            <dt>{{ forloop.counter }}. {{ e.evento }}</dt>
+            <dd>{{ e.pessoas }} pessoas · {{ e.pct }}%{% if e.mediana_min %} <span class="hint">· ~{{ e.mediana_min }} min da etapa anterior</span>{% endif %}</dd>
+          </div>
+        {% endfor %}
+      </dl>
+      <p class="hint">Ordem no tempo: só conta quem fez a etapa DEPOIS da anterior. Últimos {{ dias }} dias.</p>
+    {% else %}
+      <p class="empty-state">Sem dados para este funil no período.</p>
+    {% endif %}
+  </section>
+{% endblock %}
