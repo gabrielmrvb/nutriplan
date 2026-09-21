@@ -137,7 +137,7 @@ class ProductionBehaviourTests(TestCase):
 
         self.assertEqual(
             staticfiles_backend(debug=False),
-            "whitenoise.storage.CompressedManifestStaticFilesStorage",
+            "config.estaticos.ArmazenamentoDeEstaticos",
         )
         self.assertEqual(
             staticfiles_backend(debug=True),
@@ -491,10 +491,11 @@ class TouchTargetTests(TestCase):
         (".btn--quiet {", "min-height: 2.75rem"),
         (".app-bar__quiet {", "min-height: 2.75rem"),
         (".card__head a {", "min-height: 2.75rem"),
-        # O gêmeo do de cima, num `<summary>`. "Editar" de "Dados do cálculo"
-        # media 40x25: `.card__head a` cobre os "Editar" do perfil, e este não
-        # é `.card__head`, então não tinha regra nenhuma.
-        (".explicacao__head a {", "min-height: 2.75rem"),
+        # `.explicacao__head a` SAIU DA RÉGUA em 20/09/2026 porque saiu do
+        # produto: o "Editar" de "Dados do cálculo" morava dentro do
+        # `<summary>` (axe `nested-interactive`) e virou um `.btn--quiet`
+        # depois dos dados, que já está medido acima. Medir alvo de link que
+        # ninguém renderiza é teste ornamental.
         (".shopping__check {", "min-height: 2.75rem"),
         # O registro único, no lugar das quatro linhas de série que saíram.
         # `.registro__salvar` e `.registro__timer` SAÍRAM DA RÉGUA porque

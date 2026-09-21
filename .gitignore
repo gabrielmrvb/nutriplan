@@ -53,3 +53,18 @@ lostplanet/
 *.dump.gpg
 *.sql.gz
 SHA256SUMS
+
+# Settings de QA/scratch por SESSÃO — cada sessão roda a suíte num banco de
+# teste próprio (`TEST["NAME"] = "test_nutriplan_<sessão>"`) e larga esses
+# arquivos na raiz por conveniência. Não fazem parte do produto e não podem
+# entrar num `git add -A` — o repositório é público.
+/scratchpad_settings*.py
+/settings_a.py
+/settings_missao.py
+/settings_probe.py
+
+# Espelho local das skills para ferramentas de agente (`AGENTS.md` e `.agents/`):
+# tooling de desenvolvimento, redundante com `.claude/` e `CLAUDE.md`, não é
+# produto — fora do repositório público.
+/.agents/
+/AGENTS.md
