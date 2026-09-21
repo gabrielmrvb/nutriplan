@@ -89,7 +89,12 @@ O PostgreSQL é portátil (`C:\Users\biel-\pgsql`, cluster em
 
 **Sem framework de CSS.** Um arquivo, `static/css/app.css`, lido de ponta a
 ponta, com seções numeradas. Tokens no topo. Nada de Tailwind, nada de build
-step.
+step. **A cópia SERVIDA perde os comentários no `collectstatic`** (decisão
+do dono, 20/09/2026; `config/estaticos.py`, `config/test_estaticos.py`): a
+auditoria mediu 340 067 bytes na folha, 60 % de comentário, 106 KB gzip na
+primeira visita — e 23 KB sem eles; a cobertura por CDP mostrou que 87 % dos
+bytes de regra são usados, então o peso não era CSS morto. A fonte é o que
+se edita e continua comentada; o hash no nome é o do conteúdo servido.
 
 **`:has()` é proibido** para CSS estrutural. Já derrubou a navegação uma vez: o
 navegador descarta a regra inteira quando não suporta, e o convite de instalação
@@ -344,6 +349,20 @@ app: três refeições feitas mais duas marcadas como "comi outra coisa" davam
 A propriedade que governa isso agora tem teste próprio em `plans/test_streaks.py`:
 **omitir nunca pode produzir resultado melhor que registrar**. Ela vale por
 construção, porque qualquer denominador independente da marcação a satisfaz.
+
+**O DIA FECHA COM DOIS DOS TRÊS PILARES, E O TREINO É OBRIGATÓRIO NO DIA
+PREVISTO (decisão do dono, 20/09/2026).** Até então a régua era treino E
+dieta (≥ 80 %) E água (≥ 90 % de 35 ml/kg) no mesmo dia, e a auditoria de
+20/09 simulou uma semana de uso real — 4 refeições de 5, 1,5 L de uma meta
+de 3 L, treino feito — que terminava com "0 dias — Comece hoje": a água
+dominava. Hoje `Dia.completo` é `treino and (dieta or agua)`; no dia sem
+treino previsto descansar continua sendo o plano (`treino=True`), então o
+dia de descanso fecha com um dos dois outros. A pendência diz o que FECHA o
+dia ("treino", "dieta ou água"), nunca a lista de tudo que faltou.
+`manage.py simular_ofensiva` reproduz a semana auditada sob as duas regras
+(0 → 5 dias) e há teste sobre a saída dele — rode antes e depois de mexer
+na régua. `OmitirNaoPodeCompensarTests` passou a medir a dieta SEM água,
+senão a água fecharia o dia e o teste deixaria de medir o que diz medir.
 
 **Dois lados abrem o mesmo IndexedDB, e eles têm que concordar.**
 `static/js/fila.js` e `templates/pwa/sw.js` abrem `nutriplan-fila`. O service
@@ -763,6 +782,38 @@ registrada em `curadoria` no `exercises.json` —, junto com outros 24; o veto
 é `manage.py desativar_exercicio <nome>` (reversível com `--reativar`), e
 ele desativa no JSON e no banco. O que falta para os cinco restantes é
 curadoria de MÍDIA, não decidir o que cadastrar.
+
+**O CONTRATO DE MÍDIA VALE PARA QUEM TEM APARELHO — o peso do corpo pode ser
+ativo sem vídeo (decisão 1 da avaliação de UX, 20/09/2026).** O dono decidiu
+que o catálogo de peso do corpo NÃO depende de mídia: "sem vídeo fica sem
+vídeo". A régua acima passou a valer só para exercício COM aparelho — todo
+`equipment != bodyweight` ativo continua exigindo vídeo curado, e todo vídeo
+que EXISTIR (inclusive nos de peso do corpo que já têm um) continua com o
+contrato inteiro (embed, unicidade, anatomia, foto no mapa). O peso do corpo
+sem vídeo entra com nome, músculos, dica e progressão; a tela cai
+graciosamente no "Sem demonstração cadastrada" (`_demonstracao.html`, que já
+tinha o ramo). Os guardas mudaram de `filter(is_active=True)` para
+`.exclude(equipment="bodyweight")` (o vídeo é obrigatório) ou
+`.exclude(video_url="")` (o vídeo presente é validado); há teste único da
+conjunção em `test_capacidade_de_ambiente`.
+
+**34 EXERCÍCIOS DE PESO DO CORPO, COM PROGRESSÃO (20/09/2026).** Cobrem os
+grupos que faltavam — quadríceps, posterior, glúteo (na cadeia posterior,
+`hamstrings`; o app NÃO tem grupo `glutes`), panturrilha, ombro, costas,
+bíceps — e adensam peito/tríceps/core, para a ficha desse perfil ter volume
+COMPARÁVEL às outras (medido: ~94% do volume semanal da completa; letra A com
+2 opções de 5 ex/52 min, B 8 ex/58 min, C 8 ex/58-59 min ×2). O motor preenche
+por SUBSTITUIÇÃO (`padrao`+grupo), então `splits.json` não mudou. A LETRA A
+continua `@expectedFailure` no dourado por um motivo FÍSICO: o modelo de
+academia enche o peito com crucifixo (abertura), e não há crucifixo sem carga
+— sobram as pressões, ~3 por opção, não 4. O dourado não afrouxa; a
+comparabilidade é provada à parte (`test_volume_peso_do_corpo`). A PROGRESSÃO
+é o campo `Exercise.progressao` (`{"movimento","nivel"}`, 1 = mais fácil): a
+leitura mostra a escada do movimento (`services.escada_de`) do fácil ao
+difícil, com "você está aqui"; vazio para quem usa aparelho (a progressão dele
+é a carga). Os vereditos de ambiente melhoraram: peso do corpo
+NAO_SUPORTADO → PARCIAL (bíceps/antebraço/trapézio sem folga é limite físico),
+casa com halteres PARCIAL → SUPORTADO.
 
 **COBERTURA NÃO É QUALIDADE**, e a régua cobra as duas. Como efeito colateral, o
 catálogo virou contrato: aposentar um dos dois exercícios de panturrilha derruba
@@ -1788,10 +1839,10 @@ exatamente na base da caixa (folga 0, medido), com 40 sobram 8.
 (`--danger`, `--brasa` sobre `--surface-3`) não ocorrem em tela real:
 medido, `--danger` só aparece sobre `--surface` (6,76 Ferro / 5,49 Papel)
 e sobre a tinta de erro (6,17 / 5,8); `--brasa` só como texto da corrida.
-E o `agent-browser` continua BLOQUEADO pelo Smart App Control do Windows —
-a regra única está em "Limites reais deste ambiente": binário sem
-assinatura bloqueado → Python puro; o QA de navegador é `scripts/qa/nav.py`
-sobre o mesmo Chrome 153.
+O `agent-browser` estava BLOQUEADO pelo Smart App Control do Windows quando
+isto foi feito (o QA foi por `scripts/qa/nav.py` sobre o mesmo Chrome 153);
+desde 20/09/2026 o SAC está desligado e os dois rodam — ver "Limites reais
+deste ambiente".
 
 ## Testes
 
@@ -1852,30 +1903,40 @@ nenhum — a noite é da `noturna.yml`.
 
 ## Limites reais deste ambiente
 
-- **QA DE NAVEGADOR NESTA MÁQUINA É `scripts/qa/nav.py` (CDP), E O
-  `agent-browser` NÃO RODA — decisão do dono, 18/09/2026.** O Smart App
-  Control do Windows 11 (Controle de Aplicativo) bloqueia binário sem
-  assinatura: o `agent-browser` 0.37.1/0.38.1 morre no `spawn` (evento
-  CodeIntegrity 3077, medido em 17 e 18/09) e isso não vai mudar agora.
-  Nenhuma sessão tenta o `agent-browser` nem gasta tempo diagnosticando:
-  `nav.py <sessão> open|eval|click|type|screenshot|viewport|cookie|tema|
-  movimento|rede` fala CDP com o MESMO Chrome 153 (`~/.agent-browser/
-  browsers`), inclusive em sites de terceiros na sessão logada do dono.
-  Sessão nova a cada execução de QA (o perfil guarda cookies), saída sempre
-  em arquivo, tema e movimento emulados por sessão. Node 24/npm 11 (WinGet)
-  continuam instalados; Lighthouse e Playwright seguem de fora por decisão.
-- **O mesmo bloqueio vale para `.pyd` sem assinatura no `.venv`.** O
-  fontTools 4.65 vem com seis extensões compiladas (`bezierTools`, `cu2qu`,
-  `qu2cu`, `momentsPen`, `iup`, `lexer`) e `config/test_fontes.py` errava
-  com "Uma política de Controle de Aplicativo bloqueou este arquivo" — três
-  ERROR em todo hook local, e o CI (Linux) verde. Os seis `.pyd` foram
-  afastados para `*.pyd.bloqueado-sac` (18/09): o fontTools cai no Python
-  puro, mesmo resultado. `pip install --force-reinstall fonttools` os traz de
-  volta — e o erro junto (com eles no lugar e bloqueados,
-  `config/test_fontes.py` vira `SkipTest` com o motivo, PR #34: o hook não
-  cai, mas as tabelas das fontes só são medidas no CI). Pacote novo com
-  `.pyd` reprovando no hook: é isto, não o código; afastar o `.pyd` é a
-  resposta, `--no-verify` não é.
+- **O `agent-browser` É O PADRÃO DE QA DE NAVEGADOR DE NOVO (20/09/2026),
+  e `scripts/qa/nav.py` (CDP) é o FALLBACK.** Histórico em uma linha: de
+  14 a 20/09 o Smart App Control bloqueava o binário (`spawn`, evento
+  CodeIntegrity 3077) e o `nav.py` foi a única ferramenta; o dono desligou a
+  política em 20/09 e o `agent-browser` 0.38.1 voltou — provado em produção
+  no mesmo dia: `open` do `/demo/`, `snapshot -i`, `click` num cartão
+  (chegou em `/demo/treino/`), `screenshot` a 390 px, `vitals`. O que ele
+  dá e o `nav.py` não: `snapshot` com refs para o agente, `a11y` (axe-core),
+  `vitals`, `network requests`, `batch`, `set media dark|light`, `set
+  offline`, `find role|text|label`. Regras que continuam: sessão própria
+  (`AGENT_BROWSER_SESSION`, nova a cada execução de QA — o perfil guarda
+  cookies), saída sempre para arquivo e `stdin` fechado (o daemon herda o
+  stdout e um pipe espera um EOF que nunca vem), `set viewport` e `set
+  media` antes do `open`. O `nav.py <sessão> open|eval|click|type|
+  screenshot|viewport|cookie|tema|movimento|rede` fica para o que o
+  `agent-browser` não faz — `rede 3g` (latência/banda emuladas para o
+  L08), `permissao`, `movimento reduzido` — e para sites de terceiros na
+  sessão logada do dono; fala CDP com o MESMO Chrome 153
+  (`~/.agent-browser/browsers`). Node 24/npm 11 (WinGet) continuam
+  instalados; Lighthouse e Playwright seguem de fora por decisão.
+- **O mesmo bloqueio valia para `.pyd` sem assinatura no `.venv` — e
+  acabou junto com o SAC.** O fontTools 4.65 vem com seis extensões
+  compiladas (`bezierTools`, `cu2qu`, `qu2cu`, `momentsPen`, `iup`,
+  `lexer`) e `config/test_fontes.py` errava com "Uma política de Controle
+  de Aplicativo bloqueou este arquivo" — três ERROR em todo hook local, e o
+  CI (Linux) verde. Os seis `.pyd` foram afastados para
+  `*.pyd.bloqueado-sac` em 18/09 (o fontTools caía no Python puro, mesmo
+  resultado) e DEVOLVIDOS em 20/09, com o SAC desligado: importam como
+  extensão e os 13 testes de `config/test_fontes.py` passam no Windows. O
+  `SkipTest` de `win32` (PR #34) fica no teste como guarda — só dispara se a
+  extensão não carregar, e hoje ela carrega. O psycopg também: a
+  implementação `binary` (`pq.cp312-win_amd64.pyd`) foi bloqueada na manhã
+  de 20/09 e voltou à tarde; o `zz_nutriplan_libpq.pth` que a sessão de
+  auditoria pôs no `.venv` para o `libpq` 16 fica, porque é inofensivo.
 - **PWA não escreve no Apple Saúde nem no Health Connect** — não existe API web.
   `workouts/health_export.py` gera TCX para importar.
 - **Background Sync não existe no Safari do iPhone.** O evento `online` é o
@@ -1895,23 +1956,26 @@ nenhum — a noite é da `noturna.yml`.
   no `render.yaml` de propósito: ele é o rollback. Se o plano gratuito do Neon
   tem prazo próprio, ninguém verificou — é uma olhada no painel dele.
   Ver **Backup e restauração** e [`docs/infra-recuperacao.md`](docs/infra-recuperacao.md).
-- **O SMART APP CONTROL DESTA MÁQUINA ESTÁ LIGADO E BLOQUEIA BINÁRIO SEM
-  ASSINATURA — a regra é UMA (18/09/2026): `.pyd`/`.exe` não assinado
-  bloqueado → Python puro, nunca remendo no teste.** O sintoma é sempre o
-  mesmo: "Uma política de Controle de Aplicativo bloqueou este arquivo"
-  (evento CodeIntegrity 3077, `VerifiedAndReputablePolicyState = 1`); não é
-  quarentena do Defender e reinstalar não resolve — ligar e desligar a
-  política é do dono, e desligar é irreversível sem reinstalar o Windows.
-  Duas consequências já pagas: o `agent-browser` (0.37.1 e 0.38.1,
-  `NotSigned`) não roda e o QA de navegador é `scripts/qa/nav.py` sobre o
-  MESMO Chrome 153 que ele baixou; e a extensão `bezierTools.pyd` do
-  fontTools foi APAGADA do `.venv` compartilhado — o fontTools roda em
-  Python puro, e os três testes das tabelas das fontes rodam de verdade.
-  Se um `.pyd` novo aparecer bloqueado (`pip install` que recompila): apague
-  o `.pyd` da biblioteca, não escreva `skip` no teste. O único `skip`
-  permitido é o de `config/test_fontes.py`, restrito a `win32` com a
-  mensagem apontando para esta regra; no CI (Linux) a extensão que não
-  carrega é FALHA.
+- **O SMART APP CONTROL DESTA MÁQUINA FOI DESLIGADO PELO DONO EM
+  20/09/2026, e é irreversível** (`VerifiedAndReputablePolicyState = 0`;
+  religar exige reinstalar o Windows). De 14 a 20/09 ele bloqueava binário
+  sem assinatura com "Uma política de Controle de Aplicativo bloqueou este
+  arquivo" (evento CodeIntegrity 3077), e a regra do período — `.pyd`/`.exe`
+  não assinado bloqueado → Python puro, nunca remendo no teste — pagou três
+  contas: o `agent-browser` (`NotSigned`) não rodava e o QA era `nav.py`
+  sobre o Chrome 153 que ele baixou; os `.pyd` do fontTools foram afastados
+  do `.venv` compartilhado; e o `psycopg` binário caiu na manhã de 20/09
+  (`.pth` do `libpq` 16 como contorno). Tudo isso voltou a carregar no
+  mesmo dia, verificado: `agent-browser` abre/lê/fotografa, `nav.py` sobe o
+  Chrome 153, `psycopg.pq.__impl__ == "binary"`, os seis `.pyd` do fontTools
+  importam. A mudança de configuração de segurança foi do dono, na tela de
+  Segurança do Windows — a sessão não a faz nem com autorização; ela só
+  verifica depois. Se o sintoma voltar a aparecer, não é o SAC: olhe a
+  quarentena do Defender. **A regra "sem remendo no teste" continua valendo
+  sem o SAC**: binário que não carrega se resolve na biblioteca (afastar ou
+  reinstalar o `.pyd`), nunca com `skip` escrito para a máquina passar. O
+  `skip` de `config/test_fontes.py` (`win32`) continua no teste como guarda,
+  hoje sem gatilho; no CI (Linux) a extensão que não carrega é FALHA.
 - **Nenhum processo de fundo abre janela, e todo processo de fundo nasce em
   `scripts/fundo.py`.** No Windows 11 o Windows Terminal hospeda todo console
   novo — e um processo sem console (os do Claude Code, o Agendador) que lança

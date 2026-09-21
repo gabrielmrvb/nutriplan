@@ -153,19 +153,21 @@ class StreakRuleTests(TestCase):
 
         self.assertEqual(self._calcular().dias, 1)
 
-    def test_below_eighty_percent_breaks_it(self):
+    def test_below_eighty_percent_with_no_water_breaks_it(self):
+        """Desde 20/09/2026 dieta e água compensam uma à outra; abaixo de 80 %
+        SEM a água o dia não fecha."""
         ontem = self.hoje - timedelta(days=1)
         self._comer(ontem, feitas=3, puladas=2)  # 60%
-        self._beber(ontem)
+        self._beber(ontem, ml=int(self.meta_agua * 0.5))
 
         self.assertEqual(self._calcular().dias, 0)
 
     def test_a_single_marked_meal_does_not_pass_as_a_perfect_day(self):
         """Sem piso, uma refeição marcada daria 100% e passaria — premiando
-        quem esqueceu de usar o app em vez de quem seguiu o plano."""
+        quem esqueceu de usar o app em vez de quem seguiu o plano. (Sem a
+        água também, senão é ela que fecha o dia — regra de 20/09/2026.)"""
         ontem = self.hoje - timedelta(days=1)
         self._comer(ontem, feitas=1)
-        self._beber(ontem)
 
         self.assertEqual(self._calcular().dias, 0)
 
@@ -179,23 +181,98 @@ class StreakRuleTests(TestCase):
 
         self.assertEqual(self._calcular().dias, 1)
 
-    def test_half_the_water_breaks_it(self):
+    def test_half_the_water_with_no_meals_breaks_it(self):
         ontem = self.hoje - timedelta(days=1)
-        self._comer(ontem)
         self._beber(ontem, ml=int(self.meta_agua * 0.5))
 
         self.assertEqual(self._calcular().dias, 0)
+
+    # ------------------------------ dois de três (decisão do dono, 20/09/2026)
+    #
+    # A semana simulada da auditoria de 20/09 (4 refeições de 5, 1,5 L de 3 L,
+    # treino feito) fechava com "0 dias": a régua pedia dieta E água E treino
+    # no mesmo dia, e a água — 90 % de uma meta de 35 ml/kg — dominava. Hoje o
+    # dia fecha com DOIS dos três pilares, e o treino é obrigatório no dia em
+    # que está previsto: treino é o que tem hora; dieta e água compensam uma
+    # à outra. Descansar continua sendo o plano no dia sem treino previsto.
+    def test_half_the_water_does_not_break_a_day_with_the_meals_done(self):
+        """Água é o pilar que mais falha; sozinha ela não quebra o dia."""
+        ontem = self.hoje - timedelta(days=1)  # domingo: sem treino previsto
+        self._comer(ontem)
+        self._beber(ontem, ml=int(self.meta_agua * 0.5))
+
+        self.assertEqual(self._calcular().dias, 1)
+
+    def test_below_eighty_percent_does_not_break_a_day_with_the_water_done(self):
+        ontem = self.hoje - timedelta(days=1)
+        self._comer(ontem, feitas=3, puladas=2)  # 60%
+        self._beber(ontem)
+
+        self.assertEqual(self._calcular().dias, 1)
+
+    def test_on_a_training_day_the_training_is_mandatory(self):
+        """Dieta e água feitas, treino previsto e não feito: o dia não fecha.
+        O treino tem hora marcada; comida e água não substituem a sessão."""
+        segunda = self.hoje  # dia de treino (0, 2, 4)
+        self._comer(segunda)
+        self._beber(segunda)
+
+        ofensiva = self._calcular()
+
+        self.assertFalse(ofensiva.hoje_completo)
+        self.assertEqual(ofensiva.falta_hoje, ["treino"])
+
+    def test_on_a_training_day_the_training_alone_is_not_enough(self):
+        segunda = self.hoje
+        self._treinar(segunda)
+
+        ofensiva = self._calcular()
+
+        self.assertFalse(ofensiva.hoje_completo)
+        self.assertEqual(ofensiva.falta_hoje, ["dieta ou água"])
+
+    def test_the_pending_list_says_diet_or_water_and_never_both(self):
+        """A pendência diz o que FECHA o dia. "dieta" e "água" separadas
+        cobrariam as duas, que é a regra antiga."""
+        terca = date(2026, 8, 25)
+        self.hoje = terca
+
+        ofensiva = self._calcular()
+
+        self.assertEqual(ofensiva.falta_hoje, ["dieta ou água"])
+        self.assertIn("dieta ou água", ofensiva.mensagem)
+
+    def test_the_audited_week_closes_five_days(self):
+        """A semana da auditoria de 20/09/2026, dia a dia: seg 2/5 + 1 L +
+        treino; ter 3/5 + 0,5 L; qua a dom 4/5 + 1,5 L, treino na qua e na
+        sex. Regra antiga: 0 dias no domingo. Regra nova: 5 (qua → dom)."""
+        segunda = date(2026, 8, 24)
+        self.meta_agua = 3000
+        semana = [(2, 1000, True), (3, 500, True), (4, 1500, True), (4, 1500, False),
+                  (4, 1500, True), (4, 1500, False), (4, 1500, False)]
+        for i, (feitas, ml, treinou) in enumerate(semana):
+            dia = segunda + timedelta(days=i)
+            self._comer(dia, feitas=feitas, puladas=5 - feitas)
+            self._beber(dia, ml=ml)
+            if treinou:
+                self._treinar(dia)
+        self.hoje = segunda + timedelta(days=6)
+
+        ofensiva = self._calcular()
+
+        self.assertEqual(ofensiva.dias, 5)
+        self.assertTrue(ofensiva.hoje_completo)
 
     # ---------------------------------------------------- o que a tela diz
     def test_the_message_says_what_is_missing_today(self):
         for i in range(1, 3):
             self._dia_completo(self.hoje - timedelta(days=i))
-        self._comer(self.hoje)  # falta água (e treino, que é segunda)
+        self._comer(self.hoje)  # segunda: falta o treino (a dieta já fecha o lado da comida)
 
         ofensiva = self._calcular()
 
-        self.assertIn("água", ofensiva.mensagem)
-        self.assertIn("água", ofensiva.falta_hoje)
+        self.assertIn("treino", ofensiva.mensagem)
+        self.assertEqual(ofensiva.falta_hoje, ["treino"])
 
     def test_the_message_never_scolds(self):
         for texto in (
@@ -374,12 +451,14 @@ class OmitirNaoPodeCompensarTests(TestCase):
             )
 
     def _aderiu(self, **marcacao):
-        """A dieta do dia foi considerada cumprida?"""
+        """A dieta do dia foi considerada cumprida?
+
+        SEM água de propósito: desde 20/09/2026 dieta e água compensam uma à
+        outra, e com a água na meta o dia fecharia por ela — o helper deixaria
+        de medir a dieta. Sem água (e com o treino do dia previsto feito), o
+        dia fecha se, e só se, a dieta fechou."""
         ontem = self.hoje - timedelta(days=1)
         self._marcar(ontem, **marcacao)
-        HydrationLog.objects.update_or_create(
-            user=self.user, date=ontem, defaults={"ml": self.meta_agua}
-        )
         if ontem.weekday() in (0, 2, 4):
             ExerciseLog.objects.update_or_create(
                 user=self.user,
@@ -517,3 +596,29 @@ class OHistoricoUSAOMESMODenominadorDaOfensivaTests(TestCase):
         total = tracking.adherence(linhas)
 
         self.assertEqual(total["adherence_pct"], linhas[0]["adherence_pct"])
+
+
+class SimularOfensivaTests(TestCase):
+    """`manage.py simular_ofensiva` é a prova pedida em 20/09/2026: a semana
+    auditada sob a regra antiga (0 dias) e a de hoje (5 dias), lado a lado."""
+
+    @classmethod
+    def setUpTestData(cls):
+        CatalogFixture.setUpTestData()
+        call_command("seed_workouts", verbosity=0)
+
+    def test_a_semana_auditada_da_zero_na_regra_antiga_e_cinco_na_de_hoje(self):
+        from io import StringIO
+
+        saida = StringIO()
+        call_command("simular_ofensiva", stdout=saida)
+        texto = saida.getvalue()
+        self.assertIn("regra antiga (treino E dieta E água):   0 0 0 0 0 0 0  → dia 7: 0 dias", texto)
+        self.assertIn("regra de hoje (treino previsto + dieta ou água): 0 0 1 2 3 4 5  → dia 7: 5 dias", texto)
+
+    def test_a_simulacao_nao_deixa_pessoa_no_banco(self):
+        from django.contrib.auth import get_user_model
+        from io import StringIO
+
+        call_command("simular_ofensiva", stdout=StringIO())
+        self.assertFalse(get_user_model().objects.filter(email="simulacao-ofensiva@exemplo.invalid").exists())

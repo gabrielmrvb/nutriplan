@@ -1055,7 +1055,6 @@ coluna da direita), não entre ela e o almoço.
       <details class="card explicacao">
         <summary class="explicacao__head">
           <h2>Dados do cálculo</h2>
-          <a href="{% url 'accounts:profile' %}">Editar</a>
           <span class="explicacao__dica" aria-hidden="true">abrir</span>
         </summary>
         <dl class="data-list">
@@ -1083,6 +1082,13 @@ coluna da direita), não entre ela e o almoço.
           </div>
           <div><dt>Calculado em</dt><dd>{{ plan.created_at|date:"d/m/Y" }}</dd></div>
         </dl>
+        {% comment %}
+          "Editar" morava DENTRO do `<summary>` até 20/09/2026 — um link dentro
+          do controle que abre a seção: dois alvos num toque, e o teclado não
+          chega ao segundo (axe `nested-interactive`, serious). Aqui, depois
+          dos dados, ele é a saída natural de quem acabou de lê-los.
+        {% endcomment %}
+        <a class="btn btn--quiet btn--block" href="{% url 'accounts:profile' %}">Editar meus dados</a>
 
         <form method="post" action="{% url 'plans:recalculate' %}">
           {% csrf_token %}
