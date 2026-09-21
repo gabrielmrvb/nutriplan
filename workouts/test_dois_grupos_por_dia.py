@@ -46,7 +46,7 @@ from accounts.models import (
 )
 
 from . import services
-from .models import MuscleGroup, Split
+from .models import MuscleGroup, Split, familia_de_opcoes
 from .test_reparticao_semanal import perfil, sessoes_por_letra
 
 #: A semana que cada frequência tem de produzir. É o pedido, letra por letra.
@@ -143,12 +143,10 @@ class OsComplementaresTemCasaTests(TestCase):
         self.assertIn(MuscleGroup.FOREARMS, grupos)
 
     def test_panturrilha_gluteo_e_core_moram_no_dia_de_pernas(self):
-        """Glúteo não é um grupo próprio no catálogo — é `hamstrings`.
-
-        `Elevação pélvica` é o exercício de glúteo, e ele está classificado em
-        "posterior de coxa e glúteo". Por isso o glúteo entra pelo mesmo grupo
-        que o posterior, e o posterior já era perna: os dois ficam em C sem
-        precisar de dia próprio.
+        """Glúteo é grupo próprio desde 21/09/2026 (`MuscleGroup.GLUTES`), e
+        continua morando no dia de pernas, anunciado ao lado do posterior:
+        `Elevação pélvica` é o exercício de glúteo do modelo, e a cadeia
+        posterior fica em C sem precisar de dia próprio.
         """
         grupos = self._grupos_do_modelo("C")
         nomes = {item.exercise.name for item in self.modelos["C"].items.all()}
@@ -156,6 +154,8 @@ class OsComplementaresTemCasaTests(TestCase):
         self.assertIn(MuscleGroup.CALVES, grupos)
         self.assertIn(MuscleGroup.CORE, grupos)
         self.assertIn(MuscleGroup.HAMSTRINGS, grupos)
+        self.assertIn(MuscleGroup.GLUTES, grupos)
+        self.assertIn(MuscleGroup.GLUTES, self.modelos["C"].main_groups)
         self.assertIn("Elevação pélvica", nomes)
 
     def test_complementar_nao_entra_no_titulo(self):
@@ -170,8 +170,10 @@ class OsComplementaresTemCasaTests(TestCase):
                 anunciados = set(self.modelos[letra].main_groups)
 
                 self.assertEqual(anunciados & COMPLEMENTARES, set())
+                # Três grupos "de nome" — glúteo (21/09/2026) é anunciado ao
+                # lado do posterior e conta com ele: "pernas" é um nome só.
                 self.assertLessEqual(
-                    len(anunciados), 3,
+                    len({familia_de_opcoes(g) for g in anunciados}), 3,
                     "%s anuncia %s" % (letra, sorted(anunciados)),
                 )
 

@@ -37,10 +37,10 @@ a do teste, e o mapa para os modelos de `splits.json` está fechado:
 |---|---|---|
 | `um_grupo` | um grupo grande anunciado: Peito; Costas; Ombros (trapézio entra como complementar) | `abcde A`, `abcde B`, `abcde D` |
 | `dois_grupos` | um grande e um pequeno: peito/tríceps, costas/bíceps, pernas/ombros; em Braços bíceps e tríceps são os dois pequenos (3 cada — o catálogo tem seis de cada) | `abc2 A–C`, `abcd A–C`, `abcde E` |
-| `tres_grupos` | um grande e dois pequenos: peito/tríceps/ombro; costas/bíceps + antebraço e trapézio dividindo a terceira cota; quadríceps e posterior dividindo o grande + panturrilha | `abc A–C`, `abcde C` |
-| `inferior` | quadríceps (grande) e posterior (pequeno); panturrilha e core complementares | `ab B` |
+| `tres_grupos` | um grande e dois pequenos: peito/tríceps/ombro; costas/bíceps + antebraço e trapézio dividindo a terceira cota; quadríceps, posterior e glúteo dividindo o grande + panturrilha | `abc A–C`, `abcde C` |
+| `inferior` | quadríceps (grande) e posterior + glúteo (pequeno); panturrilha e core complementares | `ab B` |
 | `superior` | peito e costas (grandes); ombros, bíceps e tríceps (pequenos) | `ab A` |
-| `full` | corpo inteiro num dia: quadríceps, peito, costas e posterior (grandes); ombros, bíceps e tríceps (pequenos) | `full A` |
+| `full` | corpo inteiro num dia: quadríceps, peito, costas e posterior + glúteo (grandes); ombros, bíceps e tríceps (pequenos) | `full A` |
 
 Em "Pernas e ombros" quadríceps e posterior dividem a cota do grande. Em
 "Costas, bíceps, antebraço e trapézio" antebraço e trapézio dividem a cota do
@@ -222,13 +222,30 @@ remontado; a Home pergunta), como manda a política da Fase 5.
 Medido em 17/09/2026, média semanal de séries DIRETAS por grupo sobre 3
 semanas, no pior caso por dia (a opção mais pesada no grupo):
 
-| perfil | peito | costas | tríceps | bíceps | ombro | quadríceps | posterior | panturrilha | trapézio | antebraço | core |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| intermediário 5d abc2, Padrão | **25,0** | 21,7 | 16,7 | 11,7 | 15,0 | 11,7 | 10,0 | 5,0 | 5,0 | 3,3 | 5,0 |
-| intermediário 5d abc2, Completo | **26,7** | **26,7** | 18,3 | 16,7 | 15,0 | 13,3 | 13,3 | 6,7 | 5,0 | 5,0 | 5,0 |
-| intermediário 4d ABC, Padrão | 17,3 | 18,7 | 8,0 | 6,7 | 8,0 | 10,7 | 10,7 | 10,7 | 4,0 | 4,0 | 4,0 |
-| intermediário 3d ABC, Padrão | 13,0 | 14,0 | 6,0 | 5,0 | 6,0 | 8,0 | 8,0 | 8,0 | 3,0 | 3,0 | 3,0 |
-| avançado 5d abc2, Completo | **26,7** | **26,7** | 18,3 | 20,0 | 18,3 | 13,3 | 13,3 | 6,7 | 5,0 | 5,0 | 5,0 |
+| perfil | peito | costas | tríceps | bíceps | ombro | quadríceps | posterior | glúteo | panturrilha | trapézio | antebraço | core |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| intermediário 5d abc2, Padrão | **25,0** | 21,7 | 16,7 | 11,7 | 15,0 | 11,7 | 10,0 | 5,0 | 5,0 | 5,0 | 3,3 | 5,0 |
+| intermediário 5d abc2, Completo | **26,7** | **26,7** | 18,3 | 16,7 | 15,0 | 13,3 | 13,3 | 5,0 | 6,7 | 5,0 | 5,0 | 5,0 |
+| intermediário 4d ABC, Padrão | 17,3 | 18,7 | 8,0 | 6,7 | 8,0 | 10,7 | 10,7 | 4,0 | 10,7 | 4,0 | 4,0 | 4,0 |
+| intermediário 3d ABC, Padrão | 13,0 | 14,0 | 6,0 | 5,0 | 6,0 | 8,0 | 8,0 | 3,0 | 8,0 | 3,0 | 3,0 | 3,0 |
+| avançado 5d abc2, Completo | **26,7** | **26,7** | 18,3 | 20,0 | 18,3 | 13,3 | 13,3 | 5,0 | 6,7 | 5,0 | 5,0 | 5,0 |
+
+A coluna **glúteo** entrou em 21/09/2026, quando o glúteo virou grupo
+próprio (`MuscleGroup.GLUTES`): a elevação pélvica e as pontes de glúteo
+saíram de "posterior de coxa e glúteo" — e NENHUMA outra coluna se moveu,
+porque a média é o pior caso por opção e a versão da letra que levava a
+elevação pélvica nunca era a mais pesada em posterior. O glúteo direto é
+UM exercício por letra de perna (3,0–5,0 na semana) e o resto do estímulo
+vem como secundário de agachamento, leg press, afundo e stiff — escrito no
+catálogo desde a mesma data. Para as OPÇÕES, para o RELÓGIO e para o
+principal da sessão, posterior e glúteo são UMA família
+(`workouts.models.FAMILIA_DE_OPCOES`): stiff e elevação pélvica são o
+mesmo padrão composto, um em cada versão da letra, e é isso que mantém
+toda ficha de "academia completa" idêntica à de antes (medido em 540
+perfis, `scripts/qa/retrato_das_fichas.py`); nos perfis restritos só muda
+QUAL variante de extensão de quadril substitui a de barra — o stiff troca
+por stiff e a elevação pélvica por elevação pélvica, e a família só
+responde quando o grupo esgotou.
 
 O que a tabela diz, sem enfeite: pernas e ombro entraram na faixa de 10–20
 (era 6–9 com o ciclo fixo); tríceps, bíceps e ombro, que só têm 2–3

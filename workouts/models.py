@@ -26,7 +26,14 @@ class MuscleGroup(models.TextChoices):
     CHEST = "chest", "Peito"
     BACK = "back", "Costas"
     QUADS = "quads", "Quadríceps"
-    HAMSTRINGS = "hamstrings", "Posterior de coxa e glúteo"
+    HAMSTRINGS = "hamstrings", "Posterior de coxa"
+    # Glúteo saiu de dentro de "posterior" em 21/09/2026, pelo mesmo motivo
+    # que trapézio e antebraço saíram de costas e bíceps: separado, o volume
+    # dele passa a ser contável, e a elevação pélvica deixa de ser "mais um
+    # posterior" na conta do teto — é o maior músculo do corpo, com quatro
+    # exercícios diretos no catálogo. O `value` fica em inglês como os
+    # outros; o rótulo é o que a tela diz.
+    GLUTES = "glutes", "Glúteo"
     CALVES = "calves", "Panturrilha"
     SHOULDERS = "shoulders", "Ombros"
     BICEPS = "biceps", "Bíceps"
@@ -38,6 +45,29 @@ class MuscleGroup(models.TextChoices):
     # costas e a ficha dizia que a pessoa fazia mais puxe do que fazia.
     TRAPS = "traps", "Trapézio"
     FOREARMS = "forearms", "Antebraço"
+
+
+#: A FAMÍLIA de um grupo para as OPÇÕES e para o RELÓGIO (21/09/2026).
+#: Glúteo e posterior de coxa são grupos distintos no catálogo desde então
+#: — cada um com o seu volume, o seu teto semanal, as suas "outras formas" e
+#: a sua coluna na tabela do `TREINO.md` —, mas para repartir uma letra em
+#: duas versões e para cortar a sessão no tempo eles são a mesma cadeia:
+#: stiff e elevação pélvica são o mesmo padrão composto (extensão de
+#: quadril), o rodízio sempre deu um a cada opção e o "grupo mais cheio" do
+#: relógio sempre contou os dois juntos. Sem a família, cada um vira o único
+#: composto do próprio grupo, é compartilhado, e as duas opções carregam os
+#: dois: medido em 21/09, a letra C do abc2 em Padrão não fechava em 60
+#: minutos e caía para UMA opção de 6 exercícios e 20 séries (era 9/25 e
+#: 9/27); só no relógio, o "Inferior" de dois dias em Rápido perdia a
+#: segunda opção. A família vale em `workouts/opcoes.py` (repartir,
+#: equivalência, equilibrar) e em `services.escolher_para_o_tempo` — e para
+#: mais nada: teto de aparo, órfãos, alternativas e título são por grupo de
+#: verdade.
+FAMILIA_DE_OPCOES = {"glutes": "hamstrings"}
+
+
+def familia_de_opcoes(grupo):
+    return FAMILIA_DE_OPCOES.get(grupo, grupo)
 
 
 class Measure(models.TextChoices):

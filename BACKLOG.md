@@ -163,7 +163,8 @@ pede TRÊS e entrega `Split.ABC2`, com os nomes simples que a pessoa espera:
 A-B-C-A-B, A-B-C-A-B-C, A-B-C-A-B-C-A.
 
 Os complementares foram para dentro de B (trapézio, antebraço) e de C
-(panturrilha, glúteo, core; o posterior já era perna), e `repartir_ocorrencia`
+(panturrilha, core; o posterior já era perna, e o glúteo — grupo próprio
+desde 21/09/2026 — é anunciado ao lado dele), e `repartir_ocorrencia`
 os distribui entre as passagens.
 
 **A objeção das "sessões de onze exercícios" foi medida e é falsa.** `abc2 B`
@@ -499,8 +500,8 @@ nada é inventado:
 
 | movimento | origem no catálogo | grupo |
 |---|---|---|
-| Stiff com halteres | Stiff com barra | posterior/glúteo |
-| Elevação pélvica com halteres | Elevação pélvica | posterior/glúteo |
+| Stiff com halteres | Stiff com barra | posterior |
+| Elevação pélvica com halteres | Elevação pélvica | glúteo (grupo próprio desde 21/09/2026) |
 | Panturrilha em pé com halteres | Panturrilha em pé | panturrilha |
 | Panturrilha sentado com halteres | Panturrilha sentado | panturrilha |
 | Rosca de punho com halteres | Rosca de punho com barra | antebraço |

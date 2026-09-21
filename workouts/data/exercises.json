@@ -14,7 +14,8 @@
     ],
     "secundarios": [
       "hamstrings",
-      "core"
+      "core",
+      "glutes"
     ],
     "video_titulo": "Agachamento Livre Peso Corporal | Bodyweight Free Squat"
   },
@@ -31,7 +32,8 @@
       "hip"
     ],
     "secundarios": [
-      "hamstrings"
+      "hamstrings",
+      "glutes"
     ],
     "video_titulo": "LEG PRESS 45º (EXECUÇÃO CORRETA)"
   },
@@ -62,7 +64,8 @@
     ],
     "secundarios": [
       "hamstrings",
-      "core"
+      "core",
+      "glutes"
     ],
     "video_titulo": "Afundo com Halteres"
   },
@@ -80,7 +83,8 @@
     ],
     "secundarios": [
       "back",
-      "core"
+      "core",
+      "glutes"
     ],
     "video_titulo": "4  Stiff barra"
   },
@@ -99,7 +103,7 @@
   },
   {
     "name": "Elevação pélvica",
-    "muscle_group": "hamstrings",
+    "muscle_group": "glutes",
     "compound": true,
     "cue": "Suba até o corpo ficar em linha reta e aperte o glúteo no topo.",
     "video": "https://www.youtube.com/shorts/cOvGedlKlD4",
@@ -907,7 +911,8 @@
       "hip"
     ],
     "secundarios": [
-      "hamstrings"
+      "hamstrings",
+      "glutes"
     ],
     "active": true,
     "video": "https://www.youtube.com/shorts/Kbh-1n8CHTs",
@@ -932,7 +937,8 @@
     ],
     "secundarios": [
       "hamstrings",
-      "core"
+      "core",
+      "glutes"
     ],
     "active": true,
     "video": "https://www.youtube.com/shorts/nu0gvBN5bjM",
@@ -957,7 +963,8 @@
     ],
     "secundarios": [
       "back",
-      "core"
+      "core",
+      "glutes"
     ],
     "active": true,
     "video": "https://www.youtube.com/shorts/hTSsiQaS9pU",
@@ -982,7 +989,8 @@
     ],
     "secundarios": [
       "back",
-      "core"
+      "core",
+      "glutes"
     ],
     "active": true,
     "video": "https://www.youtube.com/shorts/B0t7Vpvjr34",
@@ -1606,7 +1614,9 @@
       "knee",
       "hip"
     ],
-    "secundarios": [],
+    "secundarios": [
+      "glutes"
+    ],
     "progressao": {
       "movimento": "agachamento_livre",
       "nivel": 1
@@ -1624,7 +1634,8 @@
       "hip"
     ],
     "secundarios": [
-      "core"
+      "core",
+      "glutes"
     ],
     "progressao": {
       "movimento": "agachamento_livre",
@@ -1644,7 +1655,8 @@
     ],
     "secundarios": [
       "hamstrings",
-      "core"
+      "core",
+      "glutes"
     ],
     "progressao": {
       "movimento": "agachamento_livre",
@@ -1664,7 +1676,8 @@
     ],
     "secundarios": [
       "hamstrings",
-      "core"
+      "core",
+      "glutes"
     ],
     "progressao": {
       "movimento": "agachamento_livre",
@@ -1684,7 +1697,8 @@
     ],
     "secundarios": [
       "hamstrings",
-      "core"
+      "core",
+      "glutes"
     ],
     "progressao": {
       "movimento": "agachamento_livre",
@@ -1719,7 +1733,8 @@
       "knee"
     ],
     "secundarios": [
-      "core"
+      "core",
+      "glutes"
     ],
     "progressao": {
       "movimento": "stiff_bodyweight",
@@ -1759,7 +1774,7 @@
   },
   {
     "name": "Ponte de glúteo",
-    "muscle_group": "hamstrings",
+    "muscle_group": "glutes",
     "compound": true,
     "cue": "Deitado, pés no chão perto do quadril; suba o quadril apertando os glúteos e segure um instante no topo.",
     "equipment": "bodyweight",
@@ -1777,7 +1792,7 @@
   },
   {
     "name": "Ponte de glúteo unilateral",
-    "muscle_group": "hamstrings",
+    "muscle_group": "glutes",
     "compound": true,
     "cue": "Uma perna estendida; suba o quadril empurrando pelo calcanhar da perna apoiada.",
     "equipment": "bodyweight",
@@ -1795,7 +1810,7 @@
   },
   {
     "name": "Elevação pélvica no banco",
-    "muscle_group": "hamstrings",
+    "muscle_group": "glutes",
     "compound": true,
     "cue": "Ombros apoiados num banco, pés no chão; suba o quadril até o tronco ficar reto e desça controlado.",
     "equipment": "bodyweight",

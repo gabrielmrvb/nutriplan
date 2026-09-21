@@ -803,7 +803,7 @@ conjunção em `test_capacidade_de_ambiente`.
 
 **34 EXERCÍCIOS DE PESO DO CORPO, COM PROGRESSÃO (20/09/2026).** Cobrem os
 grupos que faltavam — quadríceps, posterior, glúteo (na cadeia posterior,
-`hamstrings`; o app NÃO tem grupo `glutes`), panturrilha, ombro, costas,
+`hamstrings` até 21/09/2026; desde então `glutes`, ver abaixo), panturrilha, ombro, costas,
 bíceps — e adensam peito/tríceps/core, para a ficha desse perfil ter volume
 COMPARÁVEL às outras (medido: ~94% do volume semanal da completa; letra A com
 2 opções de 5 ex/52 min, B 8 ex/58 min, C 8 ex/58-59 min ×2). O motor preenche
@@ -1505,6 +1505,50 @@ Open Graph a partir do pedido (`scheme` + host + path, nunca domínio escrito
 ficar fora do índice, nunca o contrário. Antes disto (medido em produção
 em 21/09): a mesma description em toda página, zero `canonical`/OG, e
 `/demo/treino/` indexável com a ficha do Carlos como se fosse o produto.
+
+**O GLÚTEO É GRUPO PRÓPRIO DESDE 21/09/2026 (`MuscleGroup.GLUTES`), E
+NENHUMA FICHA MUDOU POR ISSO.** A elevação pélvica, a elevação pélvica no
+banco e as duas pontes de glúteo saíram de "posterior de coxa e glúteo"
+(migration `workouts.0032`, POR NOME, reversível; o `seed_workouts` grava o
+mesmo), o rótulo do posterior virou "Posterior de coxa", e todo
+agachamento e toda extensão de quadril de quadríceps/posterior levam
+`glutes` nos secundários — é de onde vem o estímulo além do único
+exercício direto por letra. O glúteo é ANUNCIADO (`principais`) nas sete
+letras que têm um exercício dele, ao lado do posterior: complementar
+cederia primeiro no tempo curto, e a elevação pélvica sempre foi protegida
+como posterior. O título continua "Pernas": `_nomes_dos_grupos` colapsa
+quadríceps, posterior e glúteo quando os dois primeiros estão; sozinho com
+o posterior ("Complementares" do ABCD) ele é nomeado.
+
+O que custou medição — e é a decisão desta seção: **para as OPÇÕES, para
+o RELÓGIO e para o PRINCIPAL da sessão, posterior e glúteo são UMA
+família** (`workouts.models.FAMILIA_DE_OPCOES`, `familia_de_opcoes`). Stiff
+e elevação pélvica são o mesmo padrão composto (extensão de quadril), e o
+rodízio sempre deu um a cada versão da letra. Com os dois grupos separados
+em toda parte, cada um virava o único composto do próprio grupo, era
+compartilhado, e as duas opções carregavam os dois: a letra C do `abc2` em
+Padrão não fechava em 60 minutos e caía para UMA opção de 6 exercícios e
+20 séries (era 9/25 e 9/27); só no relógio, o "Inferior" de dois dias em
+Rápido perdia a segunda opção (três principais de três séries são os 30
+minutos inteiros); e sem a família na substituição por equipamento, "só o
+peso do corpo" perdia dois dos três stiffs do "Inferior" (o catálogo tem
+UM stiff sem carga) — a família só responde ali quando o grupo esgotou: o
+stiff troca por stiff e a elevação pélvica por elevação pélvica enquanto
+houver. A família NÃO vale para o teto de aparo, para os órfãos, para
+"outras formas", para o volume da semana nem para a tabela do `TREINO.md`
+— aí o grupo é o de verdade, e é para isso que ele existe.
+
+Medido em 540 perfis (nível × dias × preferência × faixa × equipamento,
+`scripts/qa/retrato_das_fichas.py`, antes/depois): "academia completa"
+IDÊNTICA em 135 de 135; nos perfis restritos 198 de 1 269 sessões mudam
+só QUAL variante de extensão de quadril substitui a de barra, com o mesmo
+número de exercícios e a mesma dose; nenhuma letra perdeu opção; a tabela
+de médias do `TREINO.md` ganhou a coluna glúteo (5,0 no Padrão) e nenhuma
+outra se moveu. Ficha nascida antes do grupo continua com as mesmas linhas
+e não é julgada desatualizada (`workouts/test_gluteo.py`) — o
+`SessionExercise` aponta para o exercício pela chave, e o grupo não entra
+em `_prescricao_bate`. Quem tem perfil restrito e ficha da variante
+antiga vê o aviso "regenerar?" uma vez, e decide.
 
 ## Design: o que já existe, e o que não inventar de novo
 
