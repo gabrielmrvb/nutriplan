@@ -42,7 +42,7 @@ Dois achados fora dos briefs entraram na onda: o treino SEM HORÁRIO nunca
 chegava ao cartão AGORA, e `overflow-x: hidden` no `body` impedia todo
 `sticky` de grudar. **C-ONB (onboarding em três etapas) foi executada em
 15/09/2026, antes da onda 2**: `/conta/onboarding/1/`–`/3/`, "Etapa N de 3",
-"Criar meu plano" montando cardápio e ficha, `0032` para quem estava no
+"Criar meu plano" (hoje "Calcular minha estimativa") montando cardápio e ficha, `0032` para quem estava no
 meio — T4.8 da onda 4 deixa de existir. Próximo: onda 2 (TREINO HONESTO). As
 ondas 3-6 esperam a 2 e a 2b; a 3 (fundação de design) depende só da decisão
 já tomada.

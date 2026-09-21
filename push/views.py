@@ -46,7 +46,7 @@ class ManifestView(View):
                 "id": "/",
                 "name": settings.PWA_NAME,
                 "short_name": settings.PWA_SHORT_NAME,
-                "description": "Sua dieta calculada, o cardápio do dia, o treino da semana.",
+                "description": "Estimativa de calorias, cardápio de exemplo e o treino da semana.",
                 "start_url": "/",
                 "scope": "/",
                 "display": "standalone",

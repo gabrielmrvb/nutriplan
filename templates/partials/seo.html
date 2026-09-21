@@ -20,7 +20,7 @@
   `canonical` e `og:url` saem do pedido (`scheme` + host + path), e não de um
   domínio escrito à mão: em produção o host é o do Render, no demo o path
   já traz `/demo/`, e nos testes é `testserver`.
-{% endcomment %}<meta name="description" content="{% if descricao %}{{ descricao }}{% else %}Sua dieta calculada, o cardápio do dia e o treino da semana.{% endif %}">
+{% endcomment %}<meta name="description" content="{% if descricao %}{{ descricao }}{% else %}Estimativa de calorias, cardápio de exemplo e o treino da semana.{% endif %}">
 {% if publica %}
   <link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
   <meta property="og:type" content="website">

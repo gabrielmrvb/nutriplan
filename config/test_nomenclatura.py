@@ -350,18 +350,24 @@ class ANomenclaturaNaoProibePalavraTests(TestCase):
     """O contrapeso, e ele é deliberado.
 
     Um teste que varresse o HTML atrás de "dieta" transformaria a padronização
-    numa proibição de vocabulário: o app fala de dieta o tempo todo — "sua
-    dieta calculada", "recalcula a dieta", "não é prescrição". Estas palavras
-    continuam livres onde são palavras.
+    numa proibição de vocabulário: o app fala de dieta o tempo todo —
+    "recalcula a dieta", "a razão mais comum de uma dieta não funcionar",
+    "não é prescrição". Estas palavras continuam livres onde são palavras.
+
+    O que NÃO é palavra livre é PROMESSA: desde 21/09/2026 a descrição
+    pública do app diz "estimativa de calorias" em vez de "sua dieta
+    calculada", por decisão do dono sobre a pesquisa legal (a oferta de
+    "planos alimentares" por leigo é o que o CFN lê como exercício ilegal).
+    Isso é `config/test_linguagem.py`; aqui fica o contrapeso — o texto
+    educativo continua inteiro.
     """
 
-    def test_a_descricao_do_app_continua_podendo_dizer_dieta(self):
-        # A description saiu do `base.html` para `partials/seo.html` em
-        # 21/09/2026 (bloco `seo`); a frase genérica é a mesma, e continua
-        # dizendo "dieta" — a régua protege NOME de área, não palavra.
-        conteudo = (RAIZ / "templates" / "partials" / "seo.html").read_text(encoding="utf-8")
+    def test_o_texto_educativo_da_home_continua_dizendo_dieta(self):
+        # A régua protege NOME de área e PROMESSA pública, não a palavra: a
+        # explicação da meta continua falando de "uma dieta não funcionar".
+        conteudo = (RAIZ / "templates" / "plans" / "today.html").read_text(encoding="utf-8")
 
-        self.assertIn("Sua dieta calculada", conteudo)
+        self.assertIn("razão mais comum de uma dieta não funcionar", conteudo)
 
     def test_o_texto_educativo_da_hidratacao_continua_inteiro(self):
         conteudo = (

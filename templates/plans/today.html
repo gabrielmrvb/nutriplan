@@ -807,6 +807,18 @@ coluna da direita), não entre ela e o almoço.
           A e B fecham a mesma caloria. O que muda são os macros — se a proteína
           é o que importa hoje, o número está no card de cada opção.
         </p>
+        {% comment %}
+          O AVISO JUNTO DO CARDÁPIO (decisão do dono, 21/09/2026). Uma linha,
+          sempre visível, no fim da seção que É a alimentação: o cardápio é
+          exemplo calculado por fórmula, e o app não substitui nutricionista
+          nem médico — a mesma frase do cadastro e da última etapa
+          (`config/test_linguagem.py`). Fica aqui, e não num banner no topo,
+          porque banner permanente ninguém lê e a Home já paga o AGORA.
+        {% endcomment %}
+        <p class="hint">
+          Cardápio de exemplo, calculado por fórmula a partir dos seus dados.
+          O NutriPlan não substitui nutricionista nem médico.
+        </p>
       </section>
 
       {# ---------------- Hidratação ---------------- #}
@@ -1098,7 +1110,7 @@ coluna da direita), não entre ela e o almoço.
         </form>
         <p class="hint">
           Mudou peso, objetivo ou rotina? A meta se atualiza sozinha — este botão é só
-          para forçar um plano novo com os dados de hoje.
+          para forçar uma estimativa nova com os dados de hoje.
         </p>
       </details>
 

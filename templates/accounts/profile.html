@@ -60,7 +60,7 @@
 
           <p class="metas__nota">
             A meta se refaz sozinha quando você muda peso, objetivo, rotina ou
-            treinos. O botão abaixo força um plano novo com os dados de hoje —
+            treinos. O botão abaixo força uma estimativa nova com os dados de hoje —
             útil depois de férias ou de uma troca de fase.
           </p>
         {% else %}
@@ -70,7 +70,7 @@
             pessoa numa tela que mostra o problema e não oferece a saída.
           {% endcomment %}
           <p class="empty-state nota-do-botao">
-            Você ainda não tem um plano ativo.
+            Você ainda não tem uma estimativa ativa.
           </p>
         {% endif %}
 
@@ -87,7 +87,7 @@
           que você já comeu continua registrado no plano em que foi comido.
         {% endcomment %}
         <p class="metas__rodape">
-          Planos antigos não são apagados — o que você já registrou continua no
+          Estimativas antigas não são apagadas — o que você já registrou continua no
           histórico.
         </p>
       </section>
@@ -557,7 +557,7 @@
   <section class="card">
     <div class="card__head"><h2>Excluir conta</h2></div>
     <p class="muted">
-      Apaga permanentemente seu plano, seu histórico e seus registros. Não há
+      Apaga permanentemente sua estimativa, sua ficha, seu histórico e seus registros. Não há
       como desfazer.
     </p>
     <a class="btn-link" href="{% url 'accounts:excluir_conta' %}">Excluir minha conta</a>

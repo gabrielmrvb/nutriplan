@@ -7,7 +7,7 @@ no STAGING, com o `agent-browser` — o mesmo Chromium headless do QA local.
 O que ele faz, na ordem (`PASSOS` é a lista que o teste lê):
 
     cadastro → onboarding 1 (sobre você) → 2 (objetivo e rotina) → 3 (personalização,
-    "Criar meu plano") → água (+250 ml) → refeição registrada → treino com UMA série
+    "Calcular minha estimativa") → água (+250 ml) → refeição registrada → treino com UMA série
     concluída → tema claro (as mesmas telas em `prefers-color-scheme: light`) →
     movimento reduzido (com `prefers-reduced-motion` emulado, `getAnimations()`
     não vê nada acima de 50 ms) → excluir a conta pela tela → login recusado
@@ -232,11 +232,11 @@ class E2E:
         self.ab.marcar("input[name=interesses][value=hidratacao]")
         self.ab.marcar("input[name=prioridade][value=treino]")
         self.captura("onboarding-3")
-        self.enviar()  # "Criar meu plano": monta os dois planos e navega para a Home
+        self.enviar()  # "Calcular minha estimativa": monta os dois planos e navega para a Home
         # `wait --url <raiz>` casa por PREFIXO e voltava na hora, ainda na etapa 3
         # (MEDIDO no segundo run do Actions); a raiz é conferida pelo pathname,
         # com o tempo que montar os dois planos leva num staging frio.
-        self.ab.esperar_js("location.pathname === '/'", segundos=180, rotulo="a Home depois de criar o plano")
+        self.ab.esperar_js("location.pathname === '/'", segundos=180, rotulo="a Home depois de calcular a estimativa")
 
     def home(self):
         self.ab.esperar_js("[document.querySelector('.agua'), document.querySelector('.meal')].every(function(e){return e!==null})", segundos=90, rotulo="Home com água e refeições")
