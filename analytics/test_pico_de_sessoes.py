@@ -6,7 +6,7 @@ eventos da mesma sessão contam um; duas sessões em minutos diferentes da
 mesma janela contam duas; a janela seguinte recomeça. Uma consulta, e o
 texto diz quantos dias bateram o teto.
 """
-from datetime import timedelta
+from datetime import datetime, timedelta
 from io import StringIO
 
 from django.core.management import call_command
@@ -15,6 +15,8 @@ from django.test.utils import CaptureQueriesContext
 from django.db import connection
 from django.utils import timezone
 
+from config import relogio
+
 from analytics.management.commands.pico_de_sessoes import picos
 from analytics.models import Event
 
@@ -22,12 +24,16 @@ from analytics.models import Event
 class OPicoDeSessoesTests(TestCase):
     def setUp(self):
         # `picos` conta por JANELAS ABSOLUTAS do relógio (16:00, 16:05, …), e
-        # não a partir do primeiro evento — então `base` tem de nascer no
-        # início de uma janela. Com `agora` no minuto real, o teste passava só
-        # quando o minuto era múltiplo de 5 e caía nos outros quatro (MEDIDO
-        # no CI do PR #96, 21/09/2026: "2 != 3", s3 num balde vizinho).
-        agora = timezone.now().replace(second=0, microsecond=0)
-        self.agora = agora.replace(minute=agora.minute - agora.minute % 5)
+        # não a partir do primeiro evento — então o instante é EXATO, e não
+        # "agora": com `timezone.now()` no minuto real o teste passava só
+        # quando o minuto era múltiplo de 5 (MEDIDO no CI do PR #96,
+        # 21/09/2026: "2 != 3", s3 num balde vizinho). `congelado_em(datetime)`
+        # para o relógio da suíte no instante, e o comando (que lê `now()`)
+        # vê o mesmo instante que o teste.
+        self.relogio = relogio.congelado_em(datetime(2026, 9, 16, 16, 0))
+        self.relogio.__enter__()
+        self.addCleanup(self.relogio.__exit__, None, None, None)
+        self.agora = timezone.now()
         base = self.agora - timedelta(hours=2)
         # janela A (minutos 0–4): sessões s1 (3 eventos), s2, s3 → 3 distintas
         for i in range(3):
