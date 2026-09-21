@@ -169,7 +169,7 @@
     em staging nunca passa por produção. Só existe quando o painel diz
     `NUTRIPLAN_AMBIENTE=staging` — em produção o bloco não renderiza.
   {% endcomment %}
-  <p class="faixa-ambiente" role="status">STAGING · {{ NUTRIPLAN_AMBIENTE }} — não é produção</p>
+  <p class="faixa-ambiente" role="status">STAGING — não é produção</p>
   {% endif %}
   {% if not shell_offline %}{% include "partials/icones.html" %}{% endif %}
   {% block header %}
