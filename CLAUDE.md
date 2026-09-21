@@ -74,6 +74,33 @@ O PostgreSQL é portátil (`C:\Users\biel-\pgsql`, cluster em
 `C:\Users\biel-\pgdata\nutriplan`) e **não sobe sozinho depois de reiniciar** —
 `pg_ctl start` antes de qualquer coisa.
 
+**PODA SEMANAL DE WORKTREES E BANCOS DE TESTE (toda segunda, 21/09/2026).**
+Cada sessão nasce num worktree e cada suíte interrompida deixa um
+`test_nutriplan_*`; medido em 21/09, 46 worktrees registrados e 18 bancos
+órfãos. A poda é `scripts/worktrees.py`, dry-run por padrão:
+
+```bash
+.venv/Scripts/python.exe scripts/worktrees.py --podar              # relatório: o que sairia, nada apagado
+.venv/Scripts/python.exe scripts/worktrees.py --podar --executar   # apaga, prune, e diz antes/depois em GB
+```
+
+**Sai** o worktree cuja branch está MERGEADA em `origin/main`, ou que NÃO
+EXISTE mais no origin, ou que está DESTACADO (os descartáveis do pre-push
+e da fila) — sempre com a árvore LIMPA. **Fica** o checkout principal, o
+worktree de onde o script roda, o trancado (`git worktree lock`), o com
+mudança não commitada e todo worktree citado no ledger nas últimas 12 h
+(`--ledger-horas`): sessão ativa é quem escreveu no ledger hoje. **Sai** o
+banco `test_nutriplan_*` com ZERO conexões em `pg_stat_activity` (suíte
+viva está conectada); o `nutriplan` de desenvolvimento não entra. E a
+guarda que a primeira execução quase não teve: quase todo worktree tem
+`.venv` como JUNÇÃO para o venv compartilhado do checkout principal —
+`os.walk` contava 0,18 GB por worktree de 0,02 e um `rmtree` ingênuo
+apagaria o venv de todo mundo. O script desliga toda junção/symlink
+(`desligar_links`, só a entrada) ANTES de `git worktree remove --force`, e
+`config/test_worktrees.py` prova com junção real que o alvo fica. O
+relatório mede o disco livre antes e depois — o número honesto, não a soma
+dos tamanhos.
+
 ## Apps
 
 | app | o que guarda |
