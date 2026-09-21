@@ -1,0 +1,89 @@
+# O E2E NOTURNO (21/09/2026): toda madrugada, uma pessoa de mentira faz o
+# caminho inteiro no STAGING — cadastro, as três etapas do onboarding, "Criar
+# meu plano", água, refeição registrada, uma série concluída no treino, as
+# mesmas telas em tema claro, e a exclusão da própria conta pela tela, provada
+# por um login recusado. É `scripts/qa/e2e_staging.py` dirigindo o
+# `agent-browser` (Chromium headless), o mesmo do QA local.
+#
+# Nunca em produção: o script só aceita um `/saude/` que diga
+# `"ambiente": "staging"`. A conta é descartável (`qa-e2e-<run>-<data>@
+# nutriplan.invalid`, senha gerada no job e nunca impressa) e é apagada no
+# fim mesmo quando um passo falha. As capturas (390×844, escuro e claro) vão
+# para o artefato `capturas-e2e` em todo run; falhou, a issue "E2E noturno
+# falhou" abre (ou ganha um comentário), além do e-mail do GitHub por run
+# vermelho no branch padrão.
+name: E2E noturno
+
+on:
+  schedule:
+    - cron: "30 7 * * *"   # 04:30 em Brasília, depois da suíte completa (06:00 UTC)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: e2e-noturno
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: "cadastro → treino → refeição → água → exclusão (staging)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      E2E_BASE: https://nutriplan-staging.onrender.com
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: agent-browser (Chromium headless)
+        run: |
+          npm install -g agent-browser@0.38.1
+          agent-browser install --with-deps
+          agent-browser --version
+
+      - name: Acordar o staging (free dorme após 15 min)
+        run: |
+          for i in $(seq 1 12); do
+            codigo="$(curl -s -o /dev/null -w '%{http_code}' --max-time 90 "$E2E_BASE/saude/vivo/" || echo 000)"
+            [ "$codigo" = "200" ] && break
+            echo "tentativa $i: $codigo"; sleep 10
+          done
+          curl -sS --max-time 90 "$E2E_BASE/saude/"
+
+      - name: Rodar o E2E
+        run: python scripts/qa/e2e_staging.py --capturas capturas
+
+      - name: Capturas (escuro e claro)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-e2e
+          path: capturas/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Alertar por issue quando falhar
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create e2e --description "E2E noturno no staging" --color B60205 --force >/dev/null 2>&1 || true
+          existente="$(gh issue list --label e2e --state open --json number --jq '.[0].number')"
+          corpo="O E2E noturno falhou no staging: $RUN_URL — as capturas (inclusive erro-<passo>.png e o snapshot) estão no artefato capturas-e2e do run."
+          if [ -n "$existente" ]; then
+            gh issue comment "$existente" --body "Falhou de novo: $RUN_URL"
+          else
+            gh issue create --title "E2E noturno falhou ($(date -u +%Y-%m-%d))" --label e2e --body "$corpo"
+          fi
