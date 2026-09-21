@@ -50,14 +50,25 @@ pelo form.
       porque foi lá que o padrão nasceu; o que ele é de fato é a moldura que
       permite mostrar seleção sem `:has()`.
     {% endcomment %}
-    <ul class="choice-list{% if field.name == 'sex' %} segmented{% elif field.name == 'weekdays' %} segmented--envolve{% endif %}"
-        role="group" aria-labelledby="{{ field.auto_id }}_label"{% if field.help_text or field.errors %} aria-describedby="{% if field.help_text %}{{ field.auto_id }}_helptext{% endif %}{% if field.help_text and field.errors %} {% endif %}{% if field.errors %}{{ field.auto_id }}_error{% endif %}"{% endif %}>
+    {% comment %}
+      O grupo (rótulo, ajuda, erro) mora num `<div role="group">` que ENVOLVE
+      a lista, e a `<ul>` fica sem `role`. Até 20/09/2026 o `role="group"`
+      estava na própria `<ul>`, e um `role` troca a semântica: a lista deixa
+      de ser lista e cada `<li>` vira órfão para a árvore de acessibilidade —
+      o axe-core acusou `listitem` (serious) em 24 nós da etapa 2 do
+      onboarding, 17 da etapa 3, 2 da etapa 1 e 4 da corrida manual. O
+      leitor de tela perdia "item 1 de 4"; agora tem o grupo E a lista.
+      `config/test_axe_serio.py` guarda os dois.
+    {% endcomment %}
+    <div role="group" aria-labelledby="{{ field.auto_id }}_label"{% if field.help_text or field.errors %} aria-describedby="{% if field.help_text %}{{ field.auto_id }}_helptext{% endif %}{% if field.help_text and field.errors %} {% endif %}{% if field.errors %}{{ field.auto_id }}_error{% endif %}"{% endif %}>
+    <ul class="choice-list{% if field.name == 'sex' %} segmented{% elif field.name == 'weekdays' %} segmented--envolve{% endif %}">
       {% for subwidget in field %}
         <li>
           <label>{{ subwidget.tag }}<span class="segmented__fundo" aria-hidden="true"></span><span class="segmented__texto">{{ subwidget.choice_label }}</span></label>
         </li>
       {% endfor %}
     </ul>
+    </div>
   {% else %}
     <label class="field__label" for="{{ field.id_for_label }}">{{ field.label }}</label>
     {% if field.help_text %}<div class="field__help" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</div>{% endif %}

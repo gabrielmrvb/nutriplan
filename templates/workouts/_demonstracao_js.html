@@ -9,10 +9,18 @@
 
     /* Fotos alternadas, quando a demonstração são dois quadros. É função
        porque o poster é remontado ao fechar o player, e um relógio antigo
-       apontaria para uma imagem que já saiu do documento. */
+       apontaria para uma imagem que já saiu do documento.
+
+       O relógio fica em `window.__quadrosRelogio`, e não só nesta closure:
+       na execução este script mora no <main> e é recriado quando "Concluir
+       série" troca o <main> sem recarregar — medido em 20/09/2026, cada
+       série deixava mais um relógio vivo alternando uma foto que já tinha
+       saído do documento (26 ao fim de um treino). A troca limpa o relógio
+       antes de tirar os nós, e o script novo limpa o que encontrar. */
     var relogio = null;
     function alternar(foto) {
       if (relogio) { clearInterval(relogio); relogio = null; }
+      if (window.__quadrosRelogio) { clearInterval(window.__quadrosRelogio); window.__quadrosRelogio = null; }
       if (!foto) return;
       var urls = (foto.dataset.quadros || "").split("|").filter(Boolean);
       if (urls.length > 1) {
@@ -22,6 +30,7 @@
           i = (i + 1) % urls.length;
           foto.src = urls[i];
         }, 900);
+        window.__quadrosRelogio = relogio;
       }
     }
     alternar(document.querySelector("[data-quadros]"));

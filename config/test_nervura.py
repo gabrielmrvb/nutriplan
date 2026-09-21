@@ -94,6 +94,29 @@ class OBotaoPrimarioEInclinadoTests(SimpleTestCase):
         self.assertIn("border: var(--traco) solid transparent", base, "os três botões têm a mesma altura empilhados")
 
 
+class OBotaoNaoParteAPalavraTests(SimpleTestCase):
+    """Auditoria em produção de 20/09/2026, painel do treino a 1280 px: o
+    primário "COMPARTILHAR O QUE JÁ FIZ" saía "COMPARTILHA / R O QUE JÁ FIZ"
+    — a regra global `overflow-wrap: anywhere` (para nome de alimento e de
+    exercício não estourar a tela) vale para `button`, e no grid de duas
+    colunas de `.resumo__acoes` a palavra em display a 20 px não cabia. Um
+    botão nunca parte uma palavra: o rótulo quebra entre palavras, e o
+    primário daquele grid ocupa a linha inteira, como já ocupa a 390."""
+
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+
+    def test_o_botao_quebra_entre_palavras_e_nunca_dentro_delas(self):
+        btn = _regra(self.css, ".btn", contendo="inline-flex")
+        self.assertIsNotNone(btn)
+        self.assertIn("overflow-wrap: normal", btn)
+
+    def test_o_primario_do_resumo_ocupa_a_linha_inteira_do_grid(self):
+        regra = _regra(self.css, ".resumo__acoes .btn--primary")
+        self.assertIsNotNone(regra, ".resumo__acoes .btn--primary precisa de regra própria")
+        self.assertIn("grid-column: 1 / -1", regra)
+
+
 class AAbaAPontaEANervuraTests(SimpleTestCase):
     def setUp(self):
         self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))

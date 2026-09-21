@@ -26,9 +26,13 @@ from .models import ExerciseLog, TrainingSession
 #: MET da musculação de esforço leve a moderado (Ainsworth 2011, código 02054).
 MET_MUSCULACAO = Decimal("3.5")
 
-#: Segundos por série, para estimar a duração de uma sessão a partir do que foi
-#: registrado. É a mesma constante que a ficha usa para prever o tempo.
-from .models import SEGUNDOS_ENTRE_EXERCICIOS, SEGUNDOS_POR_SERIE  # noqa: E402
+#: A duração vem da MESMA conta da ficha (`segundos_da_sessao`, "a única
+#: conta de duração do projeto"): série a série, com aquecimento, descanso e
+#: troca. Até 20/09/2026 este módulo tinha uma segunda fórmula (série × 40 s
+#: + descanso médio + 45 s por troca), e o painel mostrava "42 minutos
+#: estimado" ao lado do cartão da mesma sessão dizendo "~59 min" — visto na
+#: auditoria em produção daquele dia.
+from .models import segundos_da_sessao  # noqa: E402
 
 
 @dataclass
@@ -55,17 +59,29 @@ class ResumoDaSessao:
 NAO_INFORMADA = object()
 
 
-def _duracao_estimada(series: int, exercicios: int, descanso_medio: int) -> int:
-    """Quanto tempo aquele volume levou, em segundos.
+def _duracao_estimada(logs, linhas, descanso_padrao: int) -> int:
+    """Quanto tempo o que foi FEITO levou, em segundos — pela conta única.
 
     Estimativa e não medição: o app não cronometra a sessão inteira, só as
-    séries anotadas. Contar o descanso entre séries é o que aproxima do tempo
-    real — sem ele, um treino de uma hora exportaria como dezoito minutos.
+    séries anotadas. Cada exercício com série vira um item `(séries feitas,
+    descanso, é composto)` na ordem da ficha (os que a ficha não lista vão
+    ao fim, na ordem em que apareceram), e `segundos_da_sessao` faz o resto —
+    com aquecimento, descanso e troca. Fechar a ficha inteira dá, por
+    construção, o mesmo número que o cartão da sessão promete.
     """
-    segundos = series * SEGUNDOS_POR_SERIE
-    segundos += max(series - exercicios, 0) * descanso_medio
-    segundos += max(exercicios - 1, 0) * SEGUNDOS_ENTRE_EXERCICIOS
-    return segundos
+    descanso_por_exercicio = {linha.exercise_id: linha.rest_seconds for linha in linhas}
+    ordem = {linha.exercise_id: posicao for posicao, linha in enumerate(linhas)}
+    feitas = {}
+    for log in logs:
+        item = feitas.setdefault(log.exercise_id, [0, log.exercise])
+        item[0] += 1
+    itens = []
+    for exercise_id, (series, exercicio) in sorted(
+        feitas.items(), key=lambda par: ordem.get(par[0], len(ordem) + par[1][0])
+    ):
+        descanso = descanso_por_exercicio.get(exercise_id, descanso_padrao)
+        itens.append((series, descanso, exercicio.is_compound))
+    return segundos_da_sessao(itens)
 
 
 def resumo_da_sessao(user, dia=None, sessao=None, escolha=NAO_INFORMADA) -> ResumoDaSessao:
@@ -98,8 +114,9 @@ def resumo_da_sessao(user, dia=None, sessao=None, escolha=NAO_INFORMADA) -> Resu
         (log.weight_kg or Decimal("0")) * (log.reps or 0) for log in logs
     )
 
-    # O descanso médio vem da ficha ativa do dia, quando existe; sem ela, 90
-    # segundos, que é a mediana das prescrições do catálogo.
+    # O descanso de cada exercício vem da ficha ativa do dia, quando existe;
+    # para exercício fora dela (ou sem ficha), 90 segundos, que é a mediana
+    # das prescrições do catálogo.
     if sessao is None:
         from .services import get_active_routine, sessao_do_dia
 
@@ -121,14 +138,14 @@ def resumo_da_sessao(user, dia=None, sessao=None, escolha=NAO_INFORMADA) -> Resu
             opcao = opcao_do_dia(user, sessao, dia, escolha=escolha)
         # Em Python sobre o prefetch, e não `.filter(opcao=...)`: o filtro
         # abre consulta nova mesmo com `exercises` já carregado.
-        linhas = list(sessao.exercises.all())
-        prescritos = [i.rest_seconds for i in linhas if i.opcao == opcao] or [
-            i.rest_seconds for i in linhas
-        ]
-        if prescritos:
-            descanso = round(sum(prescritos) / len(prescritos))
+        todas = list(sessao.exercises.all())
+        linhas = [i for i in todas if i.opcao == opcao] or todas
+        if linhas:
+            descanso = round(sum(i.rest_seconds for i in linhas) / len(linhas))
+    else:
+        linhas = []
 
-    segundos = _duracao_estimada(len(logs), len(exercicios), descanso)
+    segundos = _duracao_estimada(logs, linhas, descanso)
     minutos = max(1, round(segundos / 60))
 
     peso = getattr(getattr(user, "profile", None), "current_weight", None)

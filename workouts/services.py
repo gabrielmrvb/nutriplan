@@ -420,14 +420,24 @@ def sessao_do_dia(plan, dia, sessoes=None):
 
 
 def sessoes_da_semana(plan, hoje, sessoes=None) -> list:
-    """As sessões da semana de `hoje` (segunda a domingo), uma por dia de
-    treino, na ordem dos dias: as próprias linhas no plano antigo, e no
-    plano com rotação a letra de cada dia vestindo o dia (`_no_dia`) — é a
-    lista que o painel, a ficha e a leitura do exercício desenham."""
+    """As sessões da semana que INTERESSA em `hoje` (segunda a domingo), uma
+    por dia de treino, na ordem dos dias: as próprias linhas no plano antigo,
+    e no plano com rotação a letra de cada dia vestindo o dia (`_no_dia`) — é
+    a lista que o painel, a ficha e a leitura do exercício desenham.
+
+    A semana que interessa é a de hoje enquanto ela ainda tem dia de treino
+    de hoje em diante; passado o último (sábado e domingo em quem treina de
+    segunda a sexta), é a semana que VEM. Auditoria em produção de 20/09/2026,
+    um domingo: o cartão "Próximo treino" dizia "C · amanhã" (a letra da
+    rotação, certa) e a faixa e os cartões logo abaixo diziam "A ·
+    Segunda-feira" — a semana que acabou, com a letra velha. Duas verdades na
+    mesma tela sobre a mesma segunda-feira."""
     sessoes = list(sessoes if sessoes is not None else plan.sessions.all())
     if not ciclo_roda(plan):
         return sorted(sessoes, key=lambda s: s.order)
     segunda = hoje - timedelta(days=hoje.weekday())
+    if sessoes and all(molde.weekday < hoje.weekday() for molde in sessoes):
+        segunda += timedelta(days=7)
     semana = []
     for molde in sorted(sessoes, key=lambda s: s.order):
         dia = segunda + timedelta(days=molde.weekday)
@@ -1119,6 +1129,40 @@ def alternativas_de(user, exercicio, fora=(), permitidos=None) -> list:
         equipment__in=list(permitidos),
     ).exclude(pk__in=excluidos)
     return sorted(candidatos, key=lambda e: (_distancia_de_equipamento(exercicio.equipment, e.equipment), e.name, e.id))
+
+
+def escada_de(exercicio) -> list:
+    """A ESCADA DE PROGRESSÃO do movimento (decisão 1 da avaliação de UX,
+    20/09/2026): os exercícios ATIVOS do mesmo `progressao["movimento"]`, do
+    mais fácil ao mais difícil (por `nivel`), cada um com `atual` (é o que a
+    pessoa está vendo) e `relativo` ("mais_facil"/"aqui"/"mais_dificil"). É o
+    que deixa quem faz peso do corpo trocar por uma versão que consegue fazer,
+    ou subir quando a atual ficar fácil.
+
+    Vazio quando o exercício não pertence a uma escada — a maioria dos que
+    usam aparelho, onde a progressão é a carga, e as escadas de um degrau só.
+    Uma consulta."""
+    movimento = (exercicio.progressao or {}).get("movimento")
+    if not movimento:
+        return []
+    degraus = sorted(
+        Exercise.objects.filter(is_active=True, progressao__movimento=movimento),
+        key=lambda e: ((e.progressao or {}).get("nivel", 0), e.name),
+    )
+    if len(degraus) < 2:
+        return []
+    nivel_atual = (exercicio.progressao or {}).get("nivel", 0)
+    escada = []
+    for e in degraus:
+        nivel = (e.progressao or {}).get("nivel", 0)
+        if e.pk == exercicio.pk:
+            relativo = "aqui"
+        elif nivel < nivel_atual:
+            relativo = "mais_facil"
+        else:
+            relativo = "mais_dificil"
+        escada.append({"exercicio": e, "atual": e.pk == exercicio.pk, "relativo": relativo})
+    return escada
 
 
 def contar_outras_formas(user, itens, permitidos=None) -> None:
@@ -2877,6 +2921,31 @@ def append_set(user, exercise, weight_kg, reps=None, op_id="", day=None):
             continue
 
     raise ultimo_erro
+
+
+def ultima_vez_do_movimento(user, exercicio):
+    """A última série registrada em OUTRO exercício do mesmo `padrao` — a
+    referência de quem nunca fez este, mas já fez o movimento (auditoria de
+    20/09/2026: as duas opções da letra não repetem exercício, e a "última
+    carga" ficava muda por duas semanas). A mais recente; no mesmo dia, a
+    mais pesada. `None` sem histórico do padrão. Uma consulta, e só quando o
+    exercício em foco não tem histórico próprio (a view decide)."""
+    log = (
+        ExerciseLog.objects.filter(user=user, exercise__padrao=exercicio.padrao)
+        .exclude(exercise=exercicio)
+        .select_related("exercise")
+        .order_by("-date", "-weight_kg", "-set_number")
+        .first()
+    )
+    if log is None:
+        return None
+    return {
+        "exercicio": log.exercise,
+        "padrao": exercicio.get_padrao_display(),
+        "data": log.date,
+        "peso": log.weight_kg,
+        "reps": log.reps,
+    }
 
 
 def load_history(user, exercises, day=None) -> dict:

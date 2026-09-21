@@ -348,8 +348,8 @@ fechada (diamante), tríceps coice com halter. Mosaico de veto:
 |---|---|---|---|
 | completa | ✅ idêntica à de antes | idêntica | SUPORTADO |
 | básica | ✅ 7 ex, 25 séries, 59 min | B e C como completa (barra → polia/halteres) | SUPORTADO |
-| casa com halteres | ✅ 7 ex, 25 séries, 59 min | B 6 ex/22 séries/48 min (2 opções); C 9 ex/25/59 (1 opção); em ABC, "Pernas e ombros" fica com 4 ex/15 séries/36 min | PARCIAL |
-| só peso do corpo | ⛔ `expectedFailure`: 3–4 ex (1–2 peito), 10–15 séries, 30–42 min | B = barra fixa supinada só; C = prancha + abdominal | NAO_SUPORTADO |
+| casa com halteres | ✅ 7 ex, 25 séries, 59 min | B e C cheias; **SUPORTADO desde 20/09/2026** (os 34 de peso do corpo deram folga a panturrilha, posterior e trapézio) | SUPORTADO |
+| só peso do corpo | ⚠️ `expectedFailure` só na letra A (5 ex/3 peito/19 séries/52 min, 2 opções — falta o crucifixo, que não existe sem carga) | **B 8 ex/23 séries/58 min; C 8 ex/25–26/58–59 (2 opções)**; volume semanal ~94% do da completa | PARCIAL |
 
 **O que falta, por perfil — candidatos na free-exercise-db (foto NÃO
 conferida ainda; entram pelo mesmo processo dos cinco: foto vista, vídeo por
@@ -366,16 +366,16 @@ título do oEmbed, anatomia herdada ou própria, `curadoria` escrita):**
   remada invertida (`Inverted_Row`, costas/remada horizontal), pullover com
   halter (`Bent-Arm_Dumbbell_Pullover`), desenvolvimento Arnold
   (`Arnold_Dumbbell_Press`);
-- **só peso do corpo** (B tem UM exercício, C dois): agachamento livre sem
-  carga (`Bodyweight_Squat`), afundo (`Bodyweight_Walking_Lunge`), agachamento
-  búlgaro sem carga (`Split_Squats`), elevação pélvica unilateral
-  (`Single_Leg_Glute_Bridge`), flexão nórdica (`Natural_Glute_Ham_Raise`),
-  remada invertida (`Inverted_Row`), barra fixa pronada (`Pullups` já é
-  chave de "Barra fixa assistida" — precisa de exercício próprio sem
-  máquina), flexão pike / parada de mão (`Handstand_Push-Ups`, ombro),
-  panturrilha em pé sem carga (sem par claro na base: `Calf_Raise_On_A_Dumbbell`
-  com halter), bíceps sem carga (só a barra fixa supinada: é limite físico,
-  não de catálogo — dizer isso na ficha).
+- **só peso do corpo** — ✅ FEITO em 20/09/2026 (decisão 1 da avaliação de
+  UX): 34 exercícios de peso do corpo entraram ATIVOS, SEM mídia obrigatória
+  ("sem vídeo fica sem vídeo"), cobrindo quadríceps, posterior, glúteo (na
+  cadeia posterior), panturrilha, ombro, costas e adensando peito/tríceps/core
+  — com progressão fácil→difícil por movimento (campo `progressao`). A ficha
+  ficou comparável (ver a tabela acima). O que NÃO fecha e é limite FÍSICO,
+  não de catálogo: o crucifixo da letra A (não há abertura de peito sem carga)
+  e a folga de bíceps/antebraço/trapézio (uma opção só). O contrato de mídia
+  foi relaxado de forma principiada: só o peso do corpo pode ser ativo sem
+  vídeo; todo exercício com aparelho continua exigindo vídeo curado.
 
 O texto abaixo é o HISTÓRICO de 09–17/09 (manhã), mantido porque a medição
 de por que filtro não basta continua valendo.
@@ -589,7 +589,12 @@ falta de dado, é decisão de produto que ninguém tomou — "não posso agachar
 precisaria de uma tabela de substituição por padrão de movimento, e escolher
 sozinho o que troca por quê é prescrição, não configuração.
 
-### ⛔ Fundação mobile da Corrida — SERVIDOR PRONTO, CLIENTE BLOQUEADO
+### ⛔ Fundação mobile da Corrida — SERVIDOR PRONTO, CLIENTE BLOQUEADO → RETIRADA EM 20/09/2026
+
+> Decisão do dono na Fase 3 da auditoria de 20/09: a API v1, o `TokenDeApp`
+> e a pasta `mobile/` saíram do repositório (PR "tirar/api-v1"). O que segue
+> é o registro de como estava.
+
 Campanha de 04/09/2026. O lado servidor da Corrida mobile está construído,
 testado e no ar; o cliente nativo **não pode ser criado nesta máquina**.
 

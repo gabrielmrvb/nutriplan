@@ -295,11 +295,40 @@ class ARefeicaoFuturaFicaEmSegundoPlanoTests(TestCase):
             self.assertIn("Ver opções", corpo)
 
     def test_a_refeicao_da_vez_continua_aberta(self):
-        """Controle positivo: o `<details>` é só das futuras. A de agora (ou a
-        pendente) mostra as opções sem toque nenhum."""
-        abertas = [corpo for cls, corpo in self._artigos()
-                   if "meal--agora" in cls or 'class="meal__marca">Pendente' in corpo]
-        self.assertTrue(abertas, "precisa de uma refeição de agora ou pendente")
+        """Controle positivo: o `<details>` é de todas MENOS a da vez. A de
+        agora mostra as opções sem toque nenhum."""
+        abertas = [corpo for cls, corpo in self._artigos() if "meal--agora" in cls]
+        self.assertTrue(abertas, "precisa de uma refeição de agora")
         for corpo in abertas:
             self.assertNotIn("meal__futuro", corpo)
             self.assertIn("option-par__acao", corpo)
+
+    def test_a_vencida_fica_em_uma_linha_com_o_convite_a_registrar(self):
+        """Home compacta (decisão do dono, 20/09/2026). Até então a VENCIDA
+        também nascia aberta, por ser "ação em aberto": medido na auditoria,
+        um primeiro uso às 15 h dava uma Home de 3 757 px com quatro
+        refeições abertas × quatro botões cada; um fixture às 18 h, 3 530 px.
+        Só a refeição da vez fica aberta; a vencida vira uma linha com o
+        convite a registrar, e as opções continuam ali, atrás do toque."""
+        vencidas = [corpo for cls, corpo in self._artigos() if 'class="meal__marca">Pendente' in corpo]
+        self.assertTrue(vencidas, "meio-dia e meia: o café da manhã já venceu")
+        for corpo in vencidas:
+            self.assertIn('<details class="meal__futuro">', corpo)
+            self.assertNotIn('<details class="meal__futuro" open', corpo)
+            self.assertIn("Não registrada · registrar", corpo)
+            self.assertNotIn("Ver opções", corpo)
+            self.assertIn("option-par__acao", corpo)
+
+    def test_fora_da_vez_toda_acao_nasce_atras_do_toque(self):
+        """A conta que a auditoria mediu: quantas ações nascem visíveis. Em
+        toda refeição que não é a da vez, o `<details class="meal__futuro">`
+        abre ANTES da primeira ação — nenhum botão de registrar fora dele.
+        (Os `<details>` são aninhados — `.option` mora dentro —, então a
+        régua é a ORDEM, não um recorte por regex.)"""
+        medidas = 0
+        for cls, corpo in self._artigos():
+            if "meal--agora" in cls or "option-par__acao" not in corpo:
+                continue
+            medidas += 1
+            self.assertLess(corpo.index('<details class="meal__futuro">'), corpo.index("option-par__acao"), corpo[:200])
+        self.assertGreaterEqual(medidas, 2, "meio-dia e meia: uma vencida e pelo menos uma futura")
