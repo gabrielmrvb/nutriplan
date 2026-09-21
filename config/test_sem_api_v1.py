@@ -38,8 +38,17 @@ class AApiSaiuTests(TestCase):
         nomes = {m.__name__ for m in apps.get_app_config("accounts").get_models()}
         self.assertNotIn("TokenDeApp", nomes)
         loader = MigrationLoader(connection)
-        ultima = max(k for k in loader.disk_migrations if k[0] == "accounts")
-        apagados = [op.name for op in loader.disk_migrations[ultima].operations if op.__class__.__name__ == "DeleteModel"]
+        # Varre TODAS as migrações de accounts, não só a última: qualquer
+        # migração posterior (um campo novo no Profile, por exemplo) tornaria
+        # "a última" outra que não a que apagou o TokenDeApp, e o teste
+        # passaria a mentir "o token voltou" quando ninguém o trouxe de volta.
+        apagados = [
+            op.name
+            for chave in loader.disk_migrations
+            if chave[0] == "accounts"
+            for op in loader.disk_migrations[chave].operations
+            if op.__class__.__name__ == "DeleteModel"
+        ]
         self.assertIn("TokenDeApp", apagados)
 
     def test_o_cliente_e_o_contrato_sairam_do_repositorio(self):
