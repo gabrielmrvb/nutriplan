@@ -108,7 +108,14 @@ class APrimeiraSerieDoDiaAvaliaTests(_ComTreinoDeHoje):
         self.client.force_login(outra)
         with CaptureQueriesContext(connection) as primeira:
             self._serie("op-3")
-        self.assertGreater(len(primeira), len(segunda) + 20)
+        # "Pagar o catálogo" deixou de ser caro em 20/09/2026 (`avaliar` grava
+        # em lote: três consultas fixas em vez de uma por detecção), então a
+        # régua não é mais "20 consultas a mais": é o catálogo ter sido LIDO
+        # e GRAVADO — a tabela de conquistas aparece na primeira série e não
+        # aparece na segunda.
+        toca_conquistas = lambda ctx: [q["sql"] for q in ctx.captured_queries if "achievements_userachievement" in q["sql"]]  # noqa: E731
+        self.assertTrue(toca_conquistas(primeira), "a primeira série do dia avalia o catálogo")
+        self.assertFalse(toca_conquistas(segunda), "a segunda série do dia não reavalia")
 
     def test_o_reenvio_da_fila_da_primeira_serie_nao_reavalia(self):
         """`criada=False` é reenvio reconhecido: não há dia novo para avaliar."""
@@ -135,7 +142,13 @@ class APaginaDeConquistasAvisaTests(_ComTreinoDeHoje):
         self._log(3)
         html = self.client.get(reverse("achievements:list")).content.decode()
         self.assertIn("Conquista desbloqueada", html)
-        self.assertIn(CHAVE, self.client.session)
+        # Anunciar é dar por visto (20/09/2026): a chave da sessão sai na
+        # própria renderização e a conquista fica marcada — o aviso não segue
+        # a pessoa página a página.
+        self.assertNotIn(CHAVE, self.client.session)
+        self.assertFalse(
+            UserAchievement.objects.filter(user=self.pessoa, seen_at__isnull=True).exists()
+        )
 
 
 class OResumoNaoPintaCemPorCentoDeUmaConquistaTrancadaTests(_ComTreinoDeHoje):

@@ -87,12 +87,20 @@ class DemoNavegacaoTests(TestCase):
 
     def test_the_real_app_is_untouched_and_still_asks_for_a_login(self):
         """A trava mais importante do middleware: fora de `/demo/`, nada muda.
-        Se o prefixo vazasse, o app inteiro ficaria público."""
-        for pagina in ("/", "/treino/", "/conta/perfil/"):
+        Se o prefixo vazasse, o app inteiro ficaria público. A raiz `/` é a
+        exceção DELIBERADA (decisão 2 da avaliação, 20/09/2026): virou a landing
+        pública — mas a landing, e não o demo vazando nem o app autenticado."""
+        for pagina in ("/treino/", "/conta/perfil/"):
             with self.subTest(pagina=pagina):
                 resposta = self.client.get(pagina)
                 self.assertEqual(resposta.status_code, 302)
                 self.assertIn("entrar", resposta["Location"])
+        # A raiz anônima é a landing pública — sem selo "demo" e sem dado da
+        # persona: o prefixo do demo não vazou para fora dele.
+        raiz = self.client.get("/")
+        self.assertEqual(raiz.status_code, 200)
+        self.assertTemplateUsed(raiz, "plans/landing.html")
+        self.assertNotContains(raiz, "app-bar__demo")
 
 
 class DemoSomenteLeituraTests(TestCase):
