@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "achievements",
     "gestao",
     "analytics",
+    "avisos",
     # Login com Google — o allauth como MOTOR, não como interface.
     #
     # `allauth.account` entra porque `allauth.socialaccount` depende dele: é
@@ -86,6 +87,8 @@ MIDDLEWARE = [
     # coisa poder falhar, senao o 500 que acontece dentro de outro middleware
     # sai sem marca — e e justamente esse que da trabalho para reconstruir.
     "config.observabilidade.MarcaDePedidoMiddleware",
+    # Staging se anuncia (X-Robots-Tag) — em produção é transparente.
+    "config.ambiente.AmbienteMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     # Comprime o HTML que o Django gera. O WhiteNoise comprime os ESTÁTICOS e
@@ -148,6 +151,7 @@ TEMPLATES = [
                 "accounts.context_processors.google_login",
                 "accounts.context_processors.legal",
                 "accounts.context_processors.freemium",
+                "config.ambiente.contexto",
                 "achievements.context_processors.conquistas_pendentes",
             ],
         },
@@ -205,7 +209,7 @@ AUTH_USER_MODEL = "accounts.User"
 from config.hashers import argon2_disponivel  # noqa: E402
 
 PASSWORD_HASHERS = (
-    ["django.contrib.auth.hashers.Argon2PasswordHasher"] if argon2_disponivel() else []
+    ["config.hashers.Argon2Moderado"] if argon2_disponivel() else []
 ) + [
     "config.hashers.PBKDF2SHA256Rapido",
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",
@@ -520,12 +524,21 @@ VAPID_ADMIN_EMAIL = env("VAPID_ADMIN_EMAIL", default="")
 # painel do Render e nos segredos do GitHub; nunca no repositório.
 NUTRIPLAN_TAREFAS_TOKEN = env("NUTRIPLAN_TAREFAS_TOKEN", default="")
 
+#: A raiz pública do app para os links dos e-mails que saem SEM request (os
+#: jobs de `avisos.jobs`). O e-mail de senha continua lendo o domínio do
+#: request; estes não têm request. Em produção é o domínio do Render.
+NUTRIPLAN_URL_BASE = env("NUTRIPLAN_URL_BASE", default="https://nutriplan-xxfn.onrender.com")
+
 # Token do disparo PONTUAL `GET /tarefas/lembretes/externo/<token>/` (o
 # UptimeRobot bate aqui a cada 5 min). SEPARADO do de cima de propósito: ele
 # viaja na URL (monitor free não manda cabeçalho), aparece no log de acesso do
 # Render, e de baixo dano — só dispara lembretes vencidos, idempotente e com
 # limite de taxa. Vazio = o disparo externo não existe (503). Só no Render.
 NUTRIPLAN_DISPARO_TOKEN = env("NUTRIPLAN_DISPARO_TOKEN", default="")
+
+# Qual instância é esta: vazio em produção, "staging" no serviço
+# `nutriplan-staging` (21/09/2026). Ver `config/ambiente.py`.
+NUTRIPLAN_AMBIENTE = env("NUTRIPLAN_AMBIENTE", default="")
 
 #: Nome curto e completo do PWA, usados no manifest.
 PWA_NAME = "NutriPlan"

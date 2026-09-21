@@ -14,7 +14,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts.models import WeightEntry
+from accounts.models import Goal, WeightEntry
 
 from . import weight_trend
 from .tests import CatalogFixture, create_complete_user
@@ -202,6 +202,271 @@ class RecalibragemTests(TestCase):
 
         self.assertGreaterEqual(com_corte.target_kcal, sem_corte.bmr_kcal)
         self.assertIn("mínimo seguro", com_corte.notes)
+
+    def test_the_raise_never_pushes_the_target_above_the_safety_ceiling(self):
+        """O teto é simétrico ao piso: o pedido manual também não fura o
+        limite de segurança, do outro lado — para quem EMAGRECE ou MANTÉM,
+        que é para quem `target_kcal` aplica o teto automático.
+
+        Homem de 105 kg, 180 cm, 30 anos, rotina ativa, 4 treinos, cortando:
+        meta automática 2 707. "Somar 150" pediria 2 857, e o teto segura
+        em 2 800 com o aviso.
+        """
+        from decimal import Decimal as D
+
+        from accounts.models import ActivityLevel, Goal, Sex
+
+        from .calculations import PlanInputs, SAFE_MAX_KCAL, calculate
+
+        base = dict(
+            sex=Sex.MALE,
+            weight_kg=D("105"),
+            height_cm=180,
+            age_years=30,
+            activity_level=ActivityLevel.ACTIVE,
+            goal=Goal.CUT,
+            session_minutes=(60,) * 4,
+        )
+        sem_ajuste = calculate(PlanInputs(**base))
+        com_aumento = calculate(PlanInputs(**base, kcal_adjustment=150))
+
+        # Controle: a meta automática está abaixo do teto e o pedido passa
+        # dele — senão o teste passaria sem o teto ter feito nada.
+        self.assertEqual(sem_ajuste.target_kcal, 2707)
+        self.assertGreater(sem_ajuste.target_kcal + 150, SAFE_MAX_KCAL)
+
+        self.assertEqual(com_aumento.target_kcal, SAFE_MAX_KCAL)
+        self.assertIn("teto de segurança", com_aumento.notes)
+
+    def test_o_teto_manual_nao_corta_quem_ganha_massa(self):
+        """Achado da revisão final da Fase 3 (17/09/2026), CRÍTICO.
+
+        `target_kcal` só aplica o teto de 2 800 a CUT e MAINTAIN — "superávit
+        alto é gordura ganha, não risco de segurança" (`SafetyCapTests`). O
+        teto do ajuste MANUAL valia para qualquer objetivo, e o perfil de
+        referência da avaliação (BULK, meta automática 2 859) pedia "Somar
+        150", esperava 3 009 e recebia 2 800 — CINQUENTA E NOVE kcal a MENOS
+        do que tinha antes de pedir mais, com a mensagem "parou no teto de
+        segurança". O teto manual passa a ESPELHAR `target_kcal`: BULK e
+        RECOMP não têm teto manual, como não têm teto automático.
+        """
+        from decimal import Decimal as D
+
+        from accounts.models import ActivityLevel, Goal, Sex
+
+        from .calculations import PlanInputs, calculate
+
+        referencia = dict(
+            sex=Sex.MALE,
+            weight_kg=D("82.5"),
+            height_cm=178,
+            age_years=30,
+            activity_level=ActivityLevel.LIGHT,
+            goal=Goal.BULK,
+            session_minutes=(60,) * 5,
+        )
+        sem_ajuste = calculate(PlanInputs(**referencia))
+        com_aumento = calculate(PlanInputs(**referencia, kcal_adjustment=150))
+
+        self.assertEqual(sem_ajuste.target_kcal, 2859)
+        self.assertEqual(com_aumento.target_kcal, 3009)
+        self.assertEqual(com_aumento.notes, "")
+
+    def test_recomp_acima_do_teto_tambem_nao_recebe_aviso(self):
+        """RECOMP fica do lado de BULK: sem teto automático, sem teto manual,
+        e sem o aviso de "passou de 2 800" — esse aviso só faz sentido quando
+        o teto TERIA se aplicado (CUT/MAINTAIN acima de 120 kg)."""
+        from decimal import Decimal as D
+
+        from accounts.models import ActivityLevel, Goal, Sex
+
+        from .calculations import PlanInputs, calculate
+
+        base = dict(
+            sex=Sex.MALE,
+            weight_kg=D("95"),
+            height_cm=185,
+            age_years=25,
+            activity_level=ActivityLevel.ACTIVE,
+            goal=Goal.RECOMP,
+            session_minutes=(60,) * 5,
+        )
+        sem_ajuste = calculate(PlanInputs(**base))
+        com_aumento = calculate(PlanInputs(**base, kcal_adjustment=150))
+
+        self.assertGreater(com_aumento.target_kcal, 2800)
+        self.assertEqual(com_aumento.target_kcal, sem_ajuste.target_kcal + 150)
+        self.assertNotIn("2800", com_aumento.notes)
+        self.assertNotIn("teto", com_aumento.notes)
+
+    def test_o_teto_manual_nao_corta_abaixo_da_tmb_em_peso_extremo(self):
+        """Achado em revisão adversarial, lendo `plans/calculations.py`.
+
+        Homem de 200 kg, 200 cm, 20 anos: a TMB sozinha já passa de 3.100
+        kcal, acima do teto de segurança de 2.800. Antes da correção, o
+        `elif pedido > teto` do ajuste manual não conhecia essa exceção — a
+        mesma que `target_kcal` já aplica acima de 120 kg — e cortava a meta
+        de quem está GANHANDO massa e só pediu "Somar 150 kcal" para 2.800,
+        mais de 1.000 kcal ABAIXO da própria taxa de repouso. Era o exato
+        problema que o piso, três linhas acima no código, existe para
+        impedir.
+        """
+        from decimal import Decimal as D
+
+        from accounts.models import ActivityLevel, Goal, Sex
+
+        from .calculations import PlanInputs, calculate
+
+        base = dict(
+            sex=Sex.MALE,
+            weight_kg=D("200"),
+            height_cm=200,
+            age_years=20,
+            activity_level=ActivityLevel.SEDENTARY,
+            goal=Goal.BULK,
+            session_minutes=(),
+        )
+        sem_ajuste = calculate(PlanInputs(**base))
+        com_ajuste = calculate(PlanInputs(**base, kcal_adjustment=150))
+
+        self.assertGreaterEqual(com_ajuste.target_kcal, sem_ajuste.bmr_kcal)
+        # O aumento pedido precisa aparecer em cima do que `target_kcal` já
+        # tinha dado — não só "não cair abaixo da TMB", que um teto travado
+        # exatamente no piso também cumpriria sem deixar o pedido surtir
+        # efeito nenhum.
+        self.assertEqual(com_ajuste.target_kcal, sem_ajuste.target_kcal + 150)
+
+    def test_quem_emagrece_acima_de_120_kg_e_avisado_que_o_teto_nao_se_aplicou(self):
+        """O único ramo do bloco que ficou sem teste na onda final.
+
+        Emagrecer acima de 120 kg é o caso em que o teto de 2.800 TERIA se
+        aplicado e a exceção de peso extremo o desligou: o ajuste manual
+        vale inteiro E a pessoa lê por quê ("o seu peso realmente sustenta um
+        gasto alto"). Para quem ganha massa esse aviso não existe — não há
+        teto a explicar — e o teste vizinho de RECOMP garante isso."""
+        from decimal import Decimal as D
+
+        from accounts.models import ActivityLevel, Goal, Sex
+
+        from .calculations import PlanInputs, calculate
+
+        base = dict(
+            sex=Sex.MALE,
+            weight_kg=D("200"),
+            height_cm=200,
+            age_years=20,
+            activity_level=ActivityLevel.SEDENTARY,
+            goal=Goal.CUT,
+            session_minutes=(),
+        )
+        sem_ajuste = calculate(PlanInputs(**base))
+        com_ajuste = calculate(PlanInputs(**base, kcal_adjustment=150))
+
+        self.assertGreater(sem_ajuste.target_kcal, 2800)
+        self.assertEqual(com_ajuste.target_kcal, sem_ajuste.target_kcal + 150)
+        self.assertIn("não se aplicou", com_ajuste.notes)
+        self.assertNotIn("parou no teto", com_ajuste.notes)
+
+    def test_quem_ganha_massa_ouve_aumentar_nao_cortar(self):
+        """Sugerir corte para quem quer GANHAR massa e empacou seria o app
+        remando contra o objetivo da própria pessoa."""
+        self.user.profile.goal = Goal.BULK
+        self.user.profile.save()
+        self.user.weight_entries.all().delete()
+        for semana in range(4):
+            registrar_semana(self.user, semana, [100, 100, 100])
+
+        self.assertEqual(weight_trend.analisar(self.user).sugestao, "aumentar")
+
+    def test_quem_corta_ouve_cortar(self):
+        """CONTROLE: o padrão (CUT) continua pedindo corte, não os dois."""
+        self.user.weight_entries.all().delete()
+        for semana in range(4):
+            registrar_semana(self.user, semana, [100, 100, 100])
+
+        self.assertEqual(weight_trend.analisar(self.user).sugestao, "cortar")
+
+    def test_quem_mantem_nao_ouve_nada(self):
+        """Estabilidade É a meta de quem mantém — não há o que sugerir."""
+        self.user.profile.goal = Goal.MAINTAIN
+        self.user.profile.save()
+        self.user.weight_entries.all().delete()
+        for semana in range(4):
+            registrar_semana(self.user, semana, [100, 100, 100])
+
+        t = weight_trend.analisar(self.user)
+        self.assertIsNone(t.sugestao)
+        self.assertFalse(t.sugerir_recalibragem)
+
+    def test_quem_recompoe_tambem_nao_ouve_nada(self):
+        """RECOMP também não tem corte nem aumento sugerido: o déficit
+        pequeno já é a prescrição inteira do objetivo."""
+        self.user.profile.goal = Goal.RECOMP
+        self.user.profile.save()
+        self.user.weight_entries.all().delete()
+        for semana in range(4):
+            registrar_semana(self.user, semana, [100, 100, 100])
+
+        self.assertIsNone(weight_trend.analisar(self.user).sugestao)
+
+    def test_the_view_accepts_aumentar_and_raises_the_target(self):
+        antes = self.user.profile.kcal_adjustment
+
+        self.client.post(reverse("plans:recalibrate"), {"acao": "aumentar"})
+
+        self.user.profile.refresh_from_db()
+        self.assertEqual(
+            self.user.profile.kcal_adjustment, antes + weight_trend.AJUSTE_KCAL
+        )
+        self.assertIsNotNone(self.user.profile.recalibrated_at)
+
+    def test_prefiro_esperar_fala_de_proteina_para_quem_ganha_massa(self):
+        """"Somar uns 20 minutos de caminhada" é conselho de CORTE: gastar mais
+        para quem quer GANHAR massa e empacou é o app remando contra o
+        objetivo da própria pessoa (revisão final da Fase 3, 17/09/2026).
+        Para BULK a mensagem fala do que destrava o ganho — proteína e as
+        refeições do dia sendo batidas."""
+        self.user.profile.goal = Goal.BULK
+        self.user.profile.save(update_fields=["goal"])
+
+        resposta = self.client.post(
+            reverse("plans:recalibrate"), {"acao": "dispensar"}, follow=True
+        )
+
+        self.assertContains(resposta, "meta de proteína")
+        self.assertNotContains(resposta, "caminhada")
+
+    def test_prefiro_esperar_continua_sugerindo_caminhada_para_os_outros_objetivos(self):
+        """CONTROLE por objetivo: CUT, MAINTAIN e RECOMP ficam com a frase de
+        antes — cada um num POST próprio, para o teste de BULK não passar
+        por acidente de fixture."""
+        for goal in (Goal.CUT, Goal.MAINTAIN, Goal.RECOMP):
+            with self.subTest(goal=goal):
+                self.user.profile.goal = goal
+                self.user.profile.recalibrated_at = None
+                self.user.profile.save(update_fields=["goal", "recalibrated_at"])
+
+                resposta = self.client.post(
+                    reverse("plans:recalibrate"), {"acao": "dispensar"}, follow=True
+                )
+
+                self.assertContains(resposta, "20 minutos de caminhada")
+                self.assertNotContains(resposta, "meta de proteína")
+
+    def test_the_view_ignores_an_unknown_acao(self):
+        """Uma ação inventada não pode aplicar ajuste nenhum — nem cortar,
+        nem aumentar, nem dispensar. `acao` vem de um POST, e o servidor não
+        confia nele: uma versão anterior tratava qualquer valor desconhecido
+        como "dispensar" e gravava `recalibrated_at` mesmo assim, o que
+        silenciaria o aviso de recalibragem sem a pessoa ter respondido nada."""
+        antes = self.user.profile.kcal_adjustment
+        antes_recalibrado = self.user.profile.recalibrated_at
+
+        self.client.post(reverse("plans:recalibrate"), {"acao": "girar_polegares"})
+
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.kcal_adjustment, antes)
+        self.assertEqual(self.user.profile.recalibrated_at, antes_recalibrado)
 
 
 class ConvitePesagemTests(TestCase):

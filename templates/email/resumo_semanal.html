@@ -1,0 +1,26 @@
+{% with titulo="Sua semana" rotulo=periodo %}{% include "email/_topo.html" %}{% endwith %}
+          <p style="margin:0 0 16px">Olá{% if nome %}, {{ nome }}{% endif %}.</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
+            <tr>
+              <td style="width:50%;padding:12px 8px 12px 0;border-top:2px solid #1e3326;vertical-align:top">
+                <p style="margin:0;color:#f2f6f2;font-size:40px;line-height:1;font-weight:900;font-family:'Big Shoulders Display','Arial Narrow',Impact,Arial,sans-serif">{{ treinos }}</p>
+                <p style="margin:4px 0 0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#a9bbae;font-weight:600">treino{{ treinos|pluralize }}</p>
+              </td>
+              <td style="width:50%;padding:12px 0 12px 8px;border-top:2px solid #1e3326;vertical-align:top">
+                <p style="margin:0;color:#f2f6f2;font-size:40px;line-height:1;font-weight:900;font-family:'Big Shoulders Display','Arial Narrow',Impact,Arial,sans-serif">{{ series }}</p>
+                <p style="margin:4px 0 0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#a9bbae;font-weight:600">série{{ series|pluralize }} registrada{{ series|pluralize }}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="width:50%;padding:12px 8px 12px 0;border-top:1px solid #1e3326;vertical-align:top">
+                <p style="margin:0;color:#e8a33d;font-size:40px;line-height:1;font-weight:900;font-family:'Big Shoulders Display','Arial Narrow',Impact,Arial,sans-serif">{% if peso %}{{ peso_fmt }}<span style="font-size:14px;color:#a9bbae;font-weight:600;font-family:Archivo,Arial,sans-serif"> kg</span>{% else %}—{% endif %}</p>
+                <p style="margin:4px 0 0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#a9bbae;font-weight:600">{% if peso_delta_fmt %}{{ peso_delta_fmt }} kg na semana{% elif peso %}peso{% else %}sem pesagem{% endif %}</p>
+              </td>
+              <td style="width:50%;padding:12px 0 12px 8px;border-top:1px solid #1e3326;vertical-align:top">
+                <p style="margin:0;color:#f2f6f2;font-size:40px;line-height:1;font-weight:900;font-family:'Big Shoulders Display','Arial Narrow',Impact,Arial,sans-serif">{{ agua_fmt }}<span style="font-size:14px;color:#a9bbae;font-weight:600;font-family:Archivo,Arial,sans-serif"> ml</span></p>
+                <p style="margin:4px 0 0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#a9bbae;font-weight:600">água · {{ agua_media_fmt }} ml por dia</p>
+              </td>
+            </tr>
+          </table>
+          {% with href=url_base|add:"/historico/" texto="Ver o progresso" %}{% include "email/_botao.html" %}{% endwith %}
+{% with nota_rodape="O resumo sai toda segunda-feira." o_que="o resumo da semana" %}{% include "email/_rodape.html" %}{% endwith %}

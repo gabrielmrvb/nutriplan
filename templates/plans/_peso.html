@@ -103,35 +103,65 @@
             </p>
           {% endif %}
 
-          {% if tendencia.sugerir_recalibragem %}
+          {% if tendencia.sugestao %}
             {% comment %}
               Só aparece depois de três semanas paradas. Duas acontecem por
               acaso o tempo todo, e mexer na dieta a cada oscilação é como
               ajustar o volante a cada buraco da estrada.
+
+              A FRASE E O BOTÃO SEGUEM `sugestao`, não um texto único para
+              todo mundo. Cortar 150 kcal para quem quer GANHAR massa (ou o
+              inverso) seria o app remando contra o objetivo que a pessoa
+              escolheu — por isso MAINTAIN e RECOMP não caem aqui: `sugestao`
+              vem `None` dos dois, e o bloco inteiro fica de fora.
             {% endcomment %}
             <div class="recalibrar">
               <strong class="recalibrar__titulo">Sua média estabilizou</strong>
-              <p class="recalibrar__texto">
-                São {{ tendencia.semanas_paradas }} semanas sem mudança relevante na
-                média. Dá para destravar cortando 150 kcal da dieta ou aumentando o
-                gasto do dia — e cortar não é obrigatoriamente melhor.
-              </p>
-              <div class="recalibrar__acoes">
-                <form method="post" action="{% url 'plans:recalibrate' %}">
-                  {% csrf_token %}
-                  <input type="hidden" name="acao" value="cortar">
-                  <button type="submit" class="btn btn--primary btn--sm">
-                    Cortar 150 kcal
-                  </button>
-                </form>
-                <form method="post" action="{% url 'plans:recalibrate' %}">
-                  {% csrf_token %}
-                  <input type="hidden" name="acao" value="dispensar">
-                  <button type="submit" class="btn btn--ghost btn--sm">
-                    Prefiro me mexer mais
-                  </button>
-                </form>
-              </div>
+              {% if tendencia.sugestao == "cortar" %}
+                <p class="recalibrar__texto">
+                  São {{ tendencia.semanas_paradas }} semanas sem mudança relevante na
+                  média — para perder, dá para destravar cortando 150 kcal da dieta ou
+                  aumentando o gasto do dia.
+                </p>
+                <div class="recalibrar__acoes">
+                  <form method="post" action="{% url 'plans:recalibrate' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="cortar">
+                    <button type="submit" class="btn btn--primary btn--sm">
+                      Cortar 150 kcal
+                    </button>
+                  </form>
+                  <form method="post" action="{% url 'plans:recalibrate' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="dispensar">
+                    <button type="submit" class="btn btn--ghost btn--sm">
+                      Prefiro me mexer mais
+                    </button>
+                  </form>
+                </div>
+              {% elif tendencia.sugestao == "aumentar" %}
+                <p class="recalibrar__texto">
+                  São {{ tendencia.semanas_paradas }} semanas sem mudança relevante na
+                  média — para ganhar massa, dá para destravar somando 150 kcal na
+                  dieta.
+                </p>
+                <div class="recalibrar__acoes">
+                  <form method="post" action="{% url 'plans:recalibrate' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="aumentar">
+                    <button type="submit" class="btn btn--primary btn--sm">
+                      Somar 150 kcal
+                    </button>
+                  </form>
+                  <form method="post" action="{% url 'plans:recalibrate' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="dispensar">
+                    <button type="submit" class="btn btn--ghost btn--sm">
+                      Prefiro esperar
+                    </button>
+                  </form>
+                </div>
+              {% endif %}
             </div>
           {% endif %}
 

@@ -2,6 +2,26 @@
 {% load static %}
 
 {% block title %}NutriPlan — dieta e treino num app só{% endblock %}
+{% block seo %}
+  {% include "partials/seo.html" with publica=True titulo="NutriPlan — dieta e treino num app só" descricao="Dieta calculada para o seu objetivo, cardápio do dia, ficha de treino que roda sozinha, água e progresso — num app que funciona sem rede. Grátis." %}
+  {% comment %}
+    Dados estruturados (schema.org/SoftwareApplication) para o buscador
+    entender que isto é um app, gratuito, na web. É um bloco de DADOS, não
+    de código: o navegador não o executa e a CSP sem `unsafe-inline` não o
+    bloqueia. `config/test_seo.py` faz o parse e confere os campos.
+  {% endcomment %}
+  <script type="application/ld+json">
+  {"@context": "https://schema.org",
+   "@type": "SoftwareApplication",
+   "name": "NutriPlan",
+   "url": "{{ request.scheme }}://{{ request.get_host }}/",
+   "applicationCategory": "HealthApplication",
+   "operatingSystem": "Web",
+   "inLanguage": "pt-BR",
+   "description": "Dieta calculada para o seu objetivo, cardápio do dia, ficha de treino que roda sozinha, água e progresso — num app que funciona sem rede.",
+   "offers": {"@type": "Offer", "price": "0", "priceCurrency": "BRL"}}
+  </script>
+{% endblock %}
 {% block container_class %}auth{% endblock %}
 
 {% block content %}

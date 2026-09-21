@@ -19,8 +19,28 @@ Duas saídas, nesta ordem de preferência:
    login (`must_update`), sem migration e sem pedir nada a ninguém.
 
 Nenhum dos dois muda a força da senha exigida (validadores continuam).
+
+E os PARÂMETROS do Argon2 são desta máquina de produção, não os do Django
+(21/09/2026). Provado em produção em 887520f com os padrões (m=100 MiB,
+t=2, p=8): login certo 2,0–2,6 s, dos quais ~1,7 s são o hash — um GET da
+mesma tela custa 0,30 s. O CPU do Render free não tem os 8 fios que o p=8
+pede nem banda de memória para 100 MiB por login. `Argon2Moderado` fica em
+m=32 MiB, t=2, p=1 — acima do mínimo que a OWASP aceita (m=19 MiB, t=2,
+p=1), decisão do dono. Os parâmetros viajam no próprio hash, então toda
+senha gravada com os padrões continua conferindo e é regravada no login
+seguinte (`must_update` compara parâmetros).
 """
-from django.contrib.auth.hashers import PBKDF2PasswordHasher
+from django.contrib.auth.hashers import Argon2PasswordHasher, PBKDF2PasswordHasher
+
+
+class Argon2Moderado(Argon2PasswordHasher):
+    """Argon2id com m=32 MiB, t=2, p=1 — o custo que o Render free paga em
+    tempo razoável. Mesmo `algorithm` ("argon2") do hasher do Django: é ele
+    que identifica todo hash `argon2$…` e decide a regravação."""
+
+    memory_cost = 32 * 1024  # KiB
+    time_cost = 2
+    parallelism = 1
 
 
 class PBKDF2SHA256Rapido(PBKDF2PasswordHasher):

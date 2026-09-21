@@ -11,7 +11,7 @@ from django.views.generic.base import RedirectView
 
 from push import views as push_views
 
-from . import erros, legal
+from . import erros, legal, seo
 from .health import HealthView, VivoView
 
 # As rotas do allauth entram PELA METADE, e a metade que fica de fora é a
@@ -130,6 +130,10 @@ urlpatterns = [
     # `TemplateView` direto e sem app novo: são duas páginas de texto, sem
     # model, sem formulário e sem estado. Um app inteiro para isso seria
     # estrutura sem conteúdo.
+    # O que um buscador vê (`config/seo.py`): as rotas públicas no sitemap e
+    # o que não rastrear. `robots.txt` NÃO lista o admin.
+    path("robots.txt", seo.robots, name="robots"),
+    path("sitemap.xml", seo.sitemap, name="sitemap"),
     path("privacidade/", legal.Privacidade.as_view(), name="privacidade"),
     path("termos/", legal.Termos.as_view(), name="termos"),
     # O modo demo NÃO tem entrada aqui. Ele monta a aplicação inteira sob
@@ -144,6 +148,7 @@ urlpatterns = [
     # Google Cloud, e ele é derivado desta linha, não escolhido.
     path("conta/", include(ROTAS_SOCIAIS)),
     path("push/", include("push.urls")),
+    path("avisos/", include("avisos.urls")),
     path("treino/", include("workouts.urls")),
     path("conquistas/", include("achievements.urls")),
     # Ingestão de analytics de produto — endpoint de lote chamado por

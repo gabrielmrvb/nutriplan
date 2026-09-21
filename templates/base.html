@@ -13,6 +13,7 @@
   {# O Ferro é a base: a meta SEM media vale para quem não expressa preferência. #}
   <meta name="theme-color" content="{{ PWA_THEME_COLOR }}">
   <meta name="theme-color" content="{{ PWA_LIGHT_COLOR }}" media="(prefers-color-scheme: light)">
+  {% if NUTRIPLAN_AMBIENTE == "staging" %}<meta name="robots" content="noindex">{% endif %}
   <title>{% block title %}NutriPlan{% endblock %}</title>
   <link rel="stylesheet" href="{{ app_css_url }}">
   <link rel="manifest" href="{% url 'manifest' %}">
@@ -42,7 +43,14 @@
   {% endcomment %}
   <link rel="icon" sizes="any" href="{% static 'icons/favicon.ico' %}">
   <link rel="icon" type="image/png" sizes="192x192" href="{% static 'icons/icon-192.png' %}">
-  <meta name="description" content="Sua dieta calculada, o cardápio do dia e o treino da semana.">
+  {% comment %}
+    O que um buscador lê: por PADRÃO a página é instância (tela do app,
+    tela interna do demo, shell offline) e leva `noindex`; só quem declara
+    o bloco `seo` com `publica=True` entra no índice, com descrição própria,
+    `canonical` e Open Graph — e é `config.seo.ROTAS_PUBLICAS` que fecha a
+    lista e alimenta o sitemap (`config/test_seo.py`).
+  {% endcomment %}
+  {% block seo %}{% include "partials/seo.html" %}{% endblock %}
   {% comment %}
     iOS ignora o manifest: quem manda no app instalado são estas metas.
     `black-translucent` faz o conteúdo passar por baixo da barra de status, que
@@ -155,6 +163,14 @@
         conta — sair da conta preserva a fila, excluir não tem volta.
       {% endcomment %}
       data-conta-excluida="{{ conta_excluida|default:'' }}">
+  {% if NUTRIPLAN_AMBIENTE == "staging" %}
+  {% comment %}
+    A FAIXA DE STAGING (21/09/2026): quem olha sabe onde está, e captura de QA
+    em staging nunca passa por produção. Só existe quando o painel diz
+    `NUTRIPLAN_AMBIENTE=staging` — em produção o bloco não renderiza.
+  {% endcomment %}
+  <p class="faixa-ambiente" role="status">STAGING · {{ NUTRIPLAN_AMBIENTE }} — não é produção</p>
+  {% endif %}
   {% if not shell_offline %}{% include "partials/icones.html" %}{% endif %}
   {% block header %}
     <header class="app-bar">

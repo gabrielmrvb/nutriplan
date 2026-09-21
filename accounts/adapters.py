@@ -53,6 +53,7 @@ from django.contrib import messages
 from django.shortcuts import redirect
 
 from .models import User
+from avisos.services import boas_vindas
 
 #: Onde o caso 4 guarda a tentativa até a senha ser conferida.
 #:
@@ -207,6 +208,14 @@ class NutriPlanSocialAccountAdapter(DefaultSocialAccountAdapter):
         # CASO 4 — a conta tem senha. Guarda a IDENTIDADE e pede a senha.
         request.session[SESSAO_VINCULO] = pendencia(sociallogin, existente)
         raise ImmediateHttpResponse(redirect("accounts:conectar_google"))
+
+    def save_user(self, request, sociallogin, form=None):
+        """Conta NOVA pelo Google: o boas-vindas sai daqui (o cadastro por
+        senha manda o dele em `SignupView`). `save_user` só roda na criação —
+        o vínculo a uma conta existente (casos 3 e 4) não passa por aqui."""
+        user = super().save_user(request, sociallogin, form)
+        boas_vindas(user)
+        return user
 
     def populate_user(self, request, sociallogin, data):
         """O nome vem do Google; o e-mail vem normalizado.

@@ -120,6 +120,23 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
     #: dia de descanso já fazia. Nenhuma cresce com o histórico:
     #: `test_o_custo_da_tela_nao_cresce_com_os_registros` mede isso.
     #:
+    #: 41 → 42: a medida caseira (`ingredient_list` lendo `food.portions`)
+    #: entrou na cadeia do prefetch — `options__template__items__food__portions`
+    #: — e isso é UMA consulta constante a mais para a tela inteira. Medido em
+    #: 17/09/2026.
+    #:
+    #: Este teto NÃO pega a regressão de tirar o `__portions` do prefetch:
+    #: neste fixture toda refeição de HOJE já está marcada (`_povoar` grava
+    #: `MealLog` também para `i=0`), e `today.html` só chama
+    #: `option.ingredient_list` quando a refeição ainda não foi marcada
+    #: (`{% if slot.log %}` esconde a lista de opções nesse caso) — o laço que
+    #: leria `food.portions` por item nunca roda aqui, e o teto sobe e desce 1
+    #: sozinho com a presença do prefetch, não N. Quem prova a ausência de
+    #: N+1 de verdade é
+    #: `plans.test_cardapio_cozinhavel.AHomeMostraMedidaCaseiraTests.test_a_lista_de_ingredientes_nao_multiplica_consulta_por_item`,
+    #: numa fixture onde a lista de opções aparece (nada marcado ainda): 34
+    #: consultas com o prefetch, 50 sem ele.
+    #:
     #: O painel FICA em 25: `resumo_da_sessao` refazia a sessão, a escolha e
     #: o descanso que o painel já tinha carregado (27 no pior dia); passou
     #: a recebê-los e fecha em 24.
@@ -138,7 +155,15 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # constante em `estado_do_treino` e no painel (`aplicar_trocas`). A
         # Home mede 43 (no teto: a ficha única tirou a recomendação por letra
         # no mesmo dia); o painel mede 20, abaixo dos 25 pelo mesmo motivo.
-        "plans:today": 43,
+        #
+        # 43 -> 44: o prefetch de `food.portions` (medida caseira, Fase 3)
+        # custa UMA consulta constante a mais — ver o bloco acima sobre por que
+        # neste fixture ela não vira N. As duas subidas nasceram em branches
+        # paralelas e se somam na mescla de 21/09/2026: MEDIDO 44 (o teto
+        # em 0 faz o teste imprimir o número), já com a invalidação por
+        # `items_changed_at` dentro da mesma consulta de `template__is_active`
+        # em `plan_is_current` (zero a mais).
+        "plans:today": 44,
         "workouts:routine": 25,
         # 15 -> 26: o Progresso passou a mostrar o bloco de Conquistas, e ele
         # custa NOVE consultas constantes — medido, com `reunir` respondendo por
@@ -160,8 +185,10 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         #
         # 27 -> 28: o convite de nível (T2.4) é UMA consulta agregada sobre
         # `ExerciseLog` com o nível no WHERE (junção com o perfil) — constante,
-        # para qualquer nível, e não por linha. As duas subidas nasceram em
-        # branches paralelas no mesmo dia (17/09/2026) e se somam.
+        # para qualquer nível, e não por linha. A Fase 3 da dieta NÃO soma:
+        # `weight_trend.analisar` lê `user.profile.goal` só quando há decisão
+        # a sugerir, e aí `respondeu_ha_pouco` já carregou o perfil (a versão
+        # que lia sempre media +1). Mescla de 21/09/2026: MEDIDO 28.
         "plans:history": 28,
         # 15 -> 19: o Perfil passou a CONFERIR se o plano gravado ainda vale.
         #
@@ -175,6 +202,22 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # protege — nenhuma consulta dentro de laço — continua de pé; o que
         # mudou foi o piso fixo.
         "accounts:profile": 19,
+        # A tarefa 3 da missão de mercado deu forma de compra a boa parte do
+        # catálogo (`plans/compra.py`), e `_porcao_padrao` passou a ler
+        # `FoodPortion` por alimento de `POR_UNIDADE` — o formato clássico de
+        # N+1 que este arquivo existe para pegar. Este fixture (`CatalogFixture`,
+        # cinco alimentos sintéticos: Frango/Arroz/Aveia/Iogurte/Castanha) NÃO
+        # exercita aquele laço — nenhum dos cinco está em `POR_UNIDADE` nem em
+        # `MINIMO_DE_COMPRA`, então todos caem no ramo de peso solto, que não
+        # chama `_porcao_padrao`. É o mesmo tipo de teto cego que o comentário
+        # de `plans:today`, acima, já documenta para `ingredient_list`: a prova
+        # de verdade do N+1 mora em
+        # `plans.test_lista_compravel.ONMaisUmDaLeituraDePorcaoTests`, com o
+        # catálogo REAL do seed. Este teto fica aqui por completude — pega
+        # consulta dentro de laço em QUALQUER outro ponto da tela (a leitura da
+        # marcação, os itens avulsos) — e não porque prove a ausência do N+1
+        # específico da tarefa 3. Medido em 17/09/2026: 20 consultas.
+        "plans:shopping": 20,
     }
 
     #: Quantas linhas o teste enche antes de medir. Um teto sozinho não prova

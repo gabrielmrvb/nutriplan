@@ -1,0 +1,16 @@
+{% autoescape off %}Olá{% if nome %}, {{ nome }}{% endif %}.
+
+Sua semana de {{ segunda|date:"d/m" }} a {{ domingo|date:"d/m" }}:
+
+- Treinos: {{ treinos }}
+- Séries registradas: {{ series }}
+- Peso: {% if peso %}{{ peso_fmt }} kg{% if peso_delta_fmt %} ({{ peso_delta_fmt }} kg na semana){% endif %}{% else %}sem pesagem{% endif %}
+- Água: {{ agua_fmt }} ml na semana ({{ agua_media_fmt }} ml por dia)
+
+Ver o progresso: {{ url_base }}/historico/
+
+Não quero mais receber o resumo da semana: {{ descadastro }}
+Escolha o que recebe em Perfil › Avisos: {{ preferencias }}
+
+— NutriPlan
+{% endautoescape %}

@@ -234,3 +234,83 @@ class SubstitutionFidelityTests(TestCase):
         call_command("seed_catalog", verbosity=0)
 
         self.assertEqual(Food.objects.count(), antes)
+
+
+class OSeedReconciliaOsIngredientesTests(TestCase):
+    """O seed compara os ingredientes com o JSON e recria só o que difere.
+
+    Achado da revisão final da Fase 3 (17/09/2026): `_seed_templates` só
+    recriava os itens `if created or reset`, e `scripts/build.sh` roda
+    `seed_catalog` SEM `--reset-templates`. Os 16 cafés recalibrados nesta
+    fase chegariam à produção só no texto — `instructions` passa pelo
+    `update_or_create` — enquanto as quantidades ficavam as de antes. E o
+    caminho "então roda o reset" tinha o outro problema: os
+    `MealOption.scale_factor` ativos (até 2,5×) multiplicariam as bases
+    NOVAS sem que `plan_is_current` percebesse, porque nada carimbava a
+    mudança.
+
+    Agora o seed monta o "desejado" a partir do JSON, lê o "atual" do banco
+    e só apaga/recria quando os dois diferem — carimbando
+    `MealTemplate.items_changed_at`, que `plan_is_current` lê. Rodar o seed
+    de novo com o mesmo JSON não toca em nada: nem carimbo, nem pk novo.
+    """
+
+    def _retrato(self):
+        return {
+            t.name: (t.items_changed_at, tuple(t.items.order_by("order").values_list("pk", flat=True)))
+            for t in MealTemplate.objects.all()
+        }
+
+    def test_rodar_duas_vezes_nao_recria_nem_carimba_nada(self):
+        call_command("seed_catalog", verbosity=0)
+        antes = self._retrato()
+        self.assertTrue(antes, "controle: o seed precisa ter criado receitas")
+
+        call_command("seed_catalog", verbosity=0)
+
+        self.assertEqual(self._retrato(), antes)
+
+    def test_quantidade_alterada_no_banco_volta_ao_json_e_carimba(self):
+        call_command("seed_catalog", verbosity=0)
+        template = MealTemplate.objects.filter(is_active=True).first()
+        item = template.items.order_by("order").first()
+        do_json = item.quantity_g
+        item.quantity_g = do_json + Decimal("37")
+        item.save(update_fields=["quantity_g"])
+        self.assertIsNone(template.items_changed_at, "controle: sem carimbo antes")
+
+        call_command("seed_catalog", verbosity=0)
+
+        template.refresh_from_db()
+        de_volta = template.items.order_by("order").first()
+        self.assertEqual(de_volta.quantity_g, do_json)
+        self.assertIsNotNone(template.items_changed_at)
+
+    def test_receita_intacta_nao_e_carimbada_quando_outra_muda(self):
+        """O carimbo é por receita, não por seed: só a que mudou invalida
+        plano — senão um deploy com um café alterado reembaralhava todo
+        cardápio de todo mundo."""
+        call_command("seed_catalog", verbosity=0)
+        mudada, intacta = MealTemplate.objects.filter(is_active=True).order_by("name")[:2]
+        item = mudada.items.first()
+        item.quantity_g += Decimal("5")
+        item.save(update_fields=["quantity_g"])
+
+        call_command("seed_catalog", verbosity=0)
+
+        mudada.refresh_from_db()
+        intacta.refresh_from_db()
+        self.assertIsNotNone(mudada.items_changed_at)
+        self.assertIsNone(intacta.items_changed_at)
+
+    def test_reset_continua_existindo_como_forca(self):
+        call_command("seed_catalog", verbosity=0)
+        antes = self._retrato()
+
+        call_command("seed_catalog", "--reset-templates", verbosity=0)
+
+        depois = self._retrato()
+        for nome, (carimbo, pks) in depois.items():
+            with self.subTest(receita=nome):
+                self.assertIsNotNone(carimbo)
+                self.assertNotEqual(pks, antes[nome][1])
