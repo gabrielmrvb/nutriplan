@@ -1,4 +1,4 @@
-# A SUÍTE COMPLETA: tudo, inclusive os `lento`, DEPOIS do merge e à noite.
+# A SUÍTE COMPLETA: tudo, inclusive os `lento`, DEPOIS do merge e à mão.
 # Não é mais o gate de PR — quem barra o merge é "suíte rápida"
 # (`suite-rapida.yml`), que roda as mesmas fatias sem os testes `lento`.
 #
