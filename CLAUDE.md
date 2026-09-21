@@ -89,7 +89,12 @@ O PostgreSQL é portátil (`C:\Users\biel-\pgsql`, cluster em
 
 **Sem framework de CSS.** Um arquivo, `static/css/app.css`, lido de ponta a
 ponta, com seções numeradas. Tokens no topo. Nada de Tailwind, nada de build
-step.
+step. **A cópia SERVIDA perde os comentários no `collectstatic`** (decisão
+do dono, 20/09/2026; `config/estaticos.py`, `config/test_estaticos.py`): a
+auditoria mediu 340 067 bytes na folha, 60 % de comentário, 106 KB gzip na
+primeira visita — e 23 KB sem eles; a cobertura por CDP mostrou que 87 % dos
+bytes de regra são usados, então o peso não era CSS morto. A fonte é o que
+se edita e continua comentada; o hash no nome é o do conteúdo servido.
 
 **`:has()` é proibido** para CSS estrutural. Já derrubou a navegação uma vez: o
 navegador descarta a regra inteira quando não suporta, e o convite de instalação
