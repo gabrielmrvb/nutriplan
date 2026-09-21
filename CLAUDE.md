@@ -82,7 +82,6 @@ O PostgreSQL é portátil (`C:\Users\biel-\pgsql`, cluster em
 | `catalog` | alimentos e receitas (TACO/IBGE/USDA) |
 | `plans` | motor nutricional, cardápio, hidratação, ofensiva, voz |
 | `workouts` | ficha, cargas, catálogo de exercícios, exportação de saúde |
-| `supplements` | só a migration que apagou as tabelas (20/09/2026); a pasta sai depois do deploy |
 | `push` | service worker, manifesto, notificações |
 
 (A `api` — token, eu, corridas — e o cliente `mobile/` saíram em 20/09/2026
@@ -2057,8 +2056,10 @@ consegue conferir se ele rodou. Desde então:
   no gate). O check é o job `gate` ("suíte rápida"), verde só se TODAS as
   fatias passam. Roda em todo PR, alvo < 10 min. `suite.yml` (check
   **"suíte completa"**) roda as MESMAS fatias com TUDO, inclusive `lento`,
-  DEPOIS do merge (`push: main`), à noite (`schedule` 06:00 UTC) e à mão
-  (`workflow_dispatch`) — não barra PR. Os dois: Postgres 16 (produção), sem
+  DEPOIS do merge (`push: main`) e à mão (`workflow_dispatch`) — não barra
+  PR; a NOITE é de `noturna.yml` (a suíte com a DATA REAL e a issue de
+  alerta; ver "Testes"), porque a suíte roda congelada e um cron aqui
+  mediria a mesma quarta de sempre. Os dois: Postgres 16 (produção), sem
   segredo, `contents: read`, cada fatia sobe seu log e `--durations 15`.
   **`@tag("lento")` é só para teste pesado que NÃO é o único guarda de algo
   crítico** (concorrência, dourado, idempotência, segurança ficam no rápido
@@ -2091,12 +2092,14 @@ consegue conferir se ele rodou. Desde então:
   (`corpo_da_fila`, `fila-ativar`) e o gatilho `merge_group` ficam PRONTOS
   para o dia em que o repositório morar numa organização (ou virar público) —
   decisão do dono;
-- **Se a "suíte completa" quebrar** (pós-merge ou no cron noturno): foi um
-  `lento` que regrediu no merge que acabou de entrar OU algo que depende de
-  calendário. O GitHub manda e-mail ao dono por run vermelho no branch
-  padrão (é o alerta, sem segredo de webhook). Conserte ou reverta o merge
-  culpado; o gate rápido não pega `lento`, então a correção também passa
-  rápido. Rodar a completa à mão: `workflow_dispatch` na aba Actions;
+- **Se a "suíte completa" quebrar** (pós-merge): foi um `lento` que
+  regrediu no merge que acabou de entrar. O GitHub manda e-mail ao dono por
+  run vermelho no branch padrão (é o alerta, sem segredo de webhook).
+  Conserte ou reverta o merge culpado; o gate rápido não pega `lento`, então
+  a correção também passa rápido. Rodar a completa à mão: `workflow_dispatch`
+  na aba Actions. **Se a "Suíte noturna (data real)" quebrar**: é
+  calendário ou hora — a issue "Suíte noturna vermelha com a data real" diz
+  o dia e como reproduzir (`NUTRIPLAN_DATA_DA_SUITE=<dia>`);
 - o fluxo é **branch → PR → `enfileirar` (espera a vez, atualiza, espera o
   check, mergeia) → `/saude/`**. Sem `gh` nesta máquina, o helper é
   `scripts/github.py` (`pr`, `status`, `esperar`, `enfileirar`, `fila`,
@@ -2145,8 +2148,15 @@ superfície visível.
 Um workspace ("My Workspace"), região **Oregon**, e a chave de API
 `nutriplan-claude-code` fora do repositório (`RENDER_API_KEY` no ambiente da
 máquina e `~/.nutriplan-secrets/render_api_key`). `scripts/render_api.py`
-fala com a API sem imprimir valor nenhum: `inspect` (serviços e NOMES das
-variáveis), `env`, `cron`, `deploy`, `trigger`, `runs`, `logs`, `status`.
+fala com a API sem imprimir valor nenhum, e **o verbo diz se lê ou dispara
+(21/09/2026)**: leitura é `inspect` (serviços e NOMES das variáveis),
+`status`, `runs`, `logs [srv] [n]` (o web por padrão); escrita e disparo
+são `env`, `cron` e `disparar-deploy` / `disparar-cron`. `deploy` e
+`trigger` não existem mais — alguém procurava o log de build, chamou
+`deploy` e o Render construiu o mesmo commit de novo (sem dano). Um verbo
+de leitura roda com `_req` recusando qualquer método que não seja GET, por
+construção; `config/test_render_api.py` roda cada verbo de leitura contra
+uma rede falsa e prova que nada além de GET chega nela.
 
 - **Web service `nutriplan`** (`srv-da6f5kou01pc73fsfkqg`): plano **free**,
   deploy automático de `main`, build em `scripts/build.sh`, healthcheck
