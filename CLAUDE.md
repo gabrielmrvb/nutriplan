@@ -2723,3 +2723,26 @@ cliente de e-mail não lê CSS nem `transform` — a nervura é uma régua reta 
 régua de `style=` de `config/test_design_system.py`, como o `email_senha`.
 Os links dos jobs saem de `NUTRIPLAN_URL_BASE` (não há request). O envio
 nunca derruba quem chamou: falha de SMTP vira `sucesso=False` no log.
+
+**PROVADO NO STAGING COM CAIXA PÚBLICA (21/09/2026, tarde) — e duas coisas
+que a prova achou.** Conta de QA criada pelo ORM no banco do staging (zero
+dado real; sem senha, `set_unusable_password`; e-mail numa caixa pública
+`@maildrop.cc`, legível sem conta), `POST /tarefas/lembretes/` com o token
+do staging: os dois e-mails do relógio CHEGARAM pelo Brevo — "6 dias sem
+treino" e "Sua semana: 1 treino, 6 séries" — com parte HTML e texto,
+`List-Unsubscribe` + One-Click, e o link do rodapé desligou só a
+preferência dele sem login (chave errada → 404); Perfil › Avisos gravou;
+o placar gerou o PNG 1080×1350 sem peso/nome/e-mail; a conta foi apagada
+pela tela (`EXCLUIR`, o caminho de quem não tem senha) e a sessão morreu.
+O que a prova achou: (1) o job escrevia para `carlos.demo@nutriplan.invalid`
+— o demo tem ficha ativa e onboarding feito, e `.invalid` nunca entrega —,
+então `_candidatos` exclui `TLD_QUE_NAO_ENTREGA` (é também a convenção da
+conta de QA); (2) o staging montava os links com a raiz de PRODUÇÃO
+(`NUTRIPLAN_URL_BASE` só existia no default), e o descadastro apontava para
+uma chave que só existe no banco do staging — `render.yaml` passou a
+declará-la no bloco do staging. O que a prova NÃO cobre: o boas-vindas sai
+só pelo signup, e a sessão não cria conta por formulário nem digita senha;
+o remetente aparece como `…@12016072.brevosend.com` porque o domínio de
+`DEFAULT_FROM_EMAIL` não está autenticado no Brevo — é configuração da
+conta do dono, não código.
+
