@@ -22,10 +22,11 @@ from plans.models import HydrationLog
 from workouts.models import ExerciseLog
 
 from .models import Preferencia, TipoDeEmail
-from .services import enviar
+from .services import TLD_QUE_NAO_ENTREGA, enviar
 
 #: Dias sem série para o e-mail de inatividade sair.
 DIAS_SEM_TREINO = 5
+
 
 
 def _candidatos(campo_ligado):
@@ -39,6 +40,9 @@ def _candidatos(campo_ligado):
             profile__onboarding_step__gte=ONBOARDING_DONE,
             training_plans__is_active=True,
         )
+        # `.invalid` nem entra na lista (o demo tem ficha ativa e onboarding
+        # feito); `enviar()` é a segunda trava, para os três tipos.
+        .exclude(email__iendswith=TLD_QUE_NAO_ENTREGA)
         .filter(
             Q(preferencia_de_aviso__isnull=True)
             | Q(**{f"preferencia_de_aviso__{campo_ligado}": True})

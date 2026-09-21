@@ -102,6 +102,17 @@ class EnvioTests(TestCase):
         self.assertEqual(resultado, "pulado")
         self.assertEqual(len(mail.outbox), 1)
 
+    def test_endereco_invalid_nao_recebe_boas_vindas_nem_ganha_linha(self):
+        """O E2E noturno cadastra `qa-e2e-…@nutriplan.invalid` e o boas-vindas
+        saía: 19 soft bounces num dia no Brevo (21/09/2026). `enviar()` é a
+        porta única, então o "pulado" vale para os três tipos."""
+        self.user.email = "qa-e2e-lote@nutriplan.invalid"
+        self.user.save()
+
+        self.assertEqual(services.boas_vindas(self.user), "pulado")
+        self.assertEqual(mail.outbox, [])
+        self.assertFalse(EmailEnviado.objects.filter(user=self.user).exists())
+
     def test_falha_de_smtp_fica_no_log_e_nao_estoura(self):
         with patch("avisos.services.EmailMultiAlternatives.send", side_effect=OSError("smtp caiu")):
             resultado = services.boas_vindas(self.user)
@@ -170,6 +181,21 @@ class InatividadeTests(TestCase):
 
         self.assertEqual(resumo["enviados"], 1)
         self.assertEqual(len(mail.outbox), 2)
+
+    def test_endereco_invalid_nunca_recebe_nem_inatividade_nem_resumo(self):
+        """`.invalid` é domínio reservado (RFC 2606): o Carlos do demo e a conta
+        de QA moram lá. Medido no staging em 21/09/2026: o resumo da semana
+        SAIU para o Carlos — bounce no Brevo toda segunda. O job não escreve
+        para quem não existe, e a régua é a TERMINAÇÃO do e-mail, não o nome."""
+        demo = create_complete_user(email="carlos.demo@nutriplan.invalid")
+        _plano(demo)
+        User.objects.filter(pk__in=(demo.pk, self.user.pk)).update(date_joined=_agora(2026, 9, 10))
+
+        inatividade = jobs.rodar_inatividade(_agora(2026, 9, 21, 8, 5))
+        resumo = jobs.rodar_resumo_semanal(_agora(2026, 9, 21, 8, 5))
+
+        self.assertEqual((inatividade["enviados"], resumo["enviados"]), (1, 1), "só a conta de verdade")
+        self.assertEqual({m.to[0] for m in mail.outbox}, {self.user.email})
 
     def test_quem_nunca_treinou_conta_do_cadastro(self):
         User.objects.filter(pk=self.user.pk).update(date_joined=_agora(2026, 9, 14))
