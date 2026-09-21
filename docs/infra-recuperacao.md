@@ -162,7 +162,16 @@ Nesta ordem.
 - Duas pastas com nomes quase iguais (`backups-nutriplan` e `nutriplan-backups`)
   convidam ao engano no pior momento. Vale unificar.
 
-## Mover o banco para o Neon São Paulo — procedimento, NÃO executado
+## Mover o banco para o Neon São Paulo — DECIDIDO: NÃO (21/09/2026)
+
+**Decisão do dono, no mesmo dia em que o procedimento foi escrito: o banco e
+o app ficam nos EUA.** A conta abaixo ("por que NÃO executar antes de
+medir") é o motivo — o web não sai de Oregon e cada consulta pagaria a
+viagem —, e a LGPD é atendida pelo caminho do consentimento: a caixa de
+transferência internacional no cadastro (art. 33, VIII, com o país de
+destino nomeado) e a seção "Onde seus dados ficam" da Política de
+Privacidade. O procedimento fica registrado para o dia em que o web também
+puder morar no Brasil; não é uma ordem pendente.
 
 Escrito em 21/09/2026 a pedido do dono, depois da pesquisa legal (LGPD:
 hospedar dado de saúde nos EUA é transferência internacional sem decisão de

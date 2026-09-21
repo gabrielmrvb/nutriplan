@@ -13,12 +13,15 @@ numa terça e cai numa quarta não está medindo o código; está medindo o dia.
 Duas coisas, e as duas têm dono:
 
 * **o gate é determinístico.** `RunnerUnico.setup_test_environment` liga
-  este relógio: `django.utils.timezone.now()` devolve a HORA real de agora
-  com a DATA local trocada por `DATA_DA_SUITE` — quarta-feira 16/09/2026,
-  o "pior estado" que `plans/test_stress.py` já congelava à mão (dia de
-  treino, com série registrada). Só a data: a hora continua real e
-  monotônica, então `created_at` continua ordenando e nada que dependa de
-  "agora > antes" muda. E só `timezone.now`: o app deriva "hoje" de
+  este relógio: `django.utils.timezone.now()` devolve `DATA_DA_SUITE` —
+  quarta-feira 16/09/2026, o "pior estado" que `plans/test_stress.py` já
+  congelava à mão (dia de treino, com série registrada) — às
+  `HORA_DA_SUITE` (12:00 locais) mais o tempo decorrido desde que o runner
+  ligou o relógio. A hora era a real até 21/09/2026, e a doutrina do dono
+  passou a ser "nunca ler o relógio real": o minuto da máquina derrubou o
+  gate (`analytics.test_pico_de_sessoes`, 1 verde em 5). O decorrido
+  continua monotônico, então `created_at` continua ordenando e nada que
+  dependa de "agora > antes" muda. E só `timezone.now`: o app deriva "hoje" de
   `localdate()`/`localtime()` — nunca de `date.today()` (`plans/shopping.py`
   explica por quê) —, e os dois leem `now()` do módulo, na hora da chamada.
   O que NÃO lê é o `default=timezone.now` de campo de modelo, que guardou o
@@ -35,7 +38,7 @@ teste que depende do dia.
 """
 import os
 from contextlib import contextmanager
-from datetime import date, timezone as fuso_utc
+from datetime import date, datetime, time, timezone as fuso_utc
 
 from django.apps import apps
 from django.utils import timezone
@@ -48,6 +51,15 @@ VARIAVEL_DATA = "NUTRIPLAN_DATA_DA_SUITE"
 #: o pior estado medido em `plans/test_stress.py`. Mudar a data é mudar o
 #: que o gate mede; a noturna é quem cobre os outros dias.
 DATA_DA_SUITE = date(2026, 9, 16)
+#: A HORA da suíte (21/09/2026): `timezone.now()` devolve a data congelada ÀS
+#: 12:00 locais mais o tempo decorrido desde que o runner ligou o relógio.
+#: Meio-dia porque nenhuma janela do app cruza ali (as refeições vão de 7h a
+#: 22h, a hidratação mede "atrás do esperado para a hora"), e o decorrido
+#: porque `created_at` precisa continuar ordenando. O que sai é o MINUTO da
+#: máquina: `analytics.test_pico_de_sessoes` passava 1 vez em 5 porque a base
+#: da janela nascia no minuto real; um teste que precisa de um instante exato
+#: pede `congelado_em(datetime(...))`.
+HORA_DA_SUITE = time(12, 0)
 
 #: Para o log, em pt-BR e sem depender do locale da máquina: `strftime("%A")`
 #: diz "Wednesday" no Actions e "quarta-feira" num Windows em português.
@@ -66,16 +78,29 @@ def data_congelada():
     return date.fromisoformat(escrita) if escrita else DATA_DA_SUITE
 
 
-def agora_congelado(dia, agora_real=None):
-    """`timezone.now()` com a data LOCAL trocada por `dia` e a hora real.
+def agora_congelado(dia, decorrido=None, inicio=None, agora_real=None):
+    """`timezone.now()` da suíte: `dia` às `HORA_DA_SUITE` no fuso do projeto,
+    mais o tempo `decorrido` desde `inicio` (o instante em que o relógio foi
+    ligado). Sem `inicio`, o decorrido é zero — o instante exato.
 
-    Troca-se a data no fuso do projeto (`TIME_ZONE`), não em UTC: das 21h à
-    meia-noite de Brasília o UTC já está no dia seguinte, e trocar lá faria
-    `localdate()` devolver a véspera de `dia` nessas três horas.
+    Monta-se no fuso do projeto (`TIME_ZONE`), não em UTC: das 21h à
+    meia-noite de Brasília o UTC já está no dia seguinte, e montar lá faria
+    `localdate()` devolver a véspera de `dia`.
     """
-    local = timezone.localtime(agora_real or _agora_real())
-    local = local.replace(year=dia.year, month=dia.month, day=dia.day)
-    return local.astimezone(fuso_utc.utc)
+    if decorrido is None:
+        decorrido = ((agora_real or _agora_real()) - inicio) if inicio else timezone.timedelta(0)
+    fuso = timezone.get_current_timezone()
+    local = datetime.combine(dia, HORA_DA_SUITE).replace(tzinfo=fuso)
+    return (local + decorrido).astimezone(fuso_utc.utc)
+
+
+def instante_congelado(instante):
+    """`timezone.now()` parado num instante EXATO — para teste que conta por
+    janela, minuto ou hora e não pode depender de quando roda. Sem fuso, o
+    instante é lido no fuso do projeto."""
+    if timezone.is_naive(instante):
+        instante = instante.replace(tzinfo=timezone.get_current_timezone())
+    return instante.astimezone(fuso_utc.utc)
 
 
 def _trocar_default(campo, funcao):
@@ -94,19 +119,25 @@ class Relogio:
     """
 
     def __init__(self, dia):
+        # `dia` é uma data (o dia às 12:00 + decorrido), um datetime (o
+        # instante exato, parado) ou None (o relógio real).
         self.dia = dia
         self._anterior = None
         self._defaults = []
         self._ligado = False
+        self._inicio = None
 
     def agora(self):
         if self.dia is None:
             return _agora_real()
-        return agora_congelado(self.dia)
+        if isinstance(self.dia, datetime):
+            return instante_congelado(self.dia)
+        return agora_congelado(self.dia, inicio=self._inicio)
 
     def ligar(self):
         if self._ligado:
             return self
+        self._inicio = _agora_real()
         self._anterior = timezone.now
         timezone.now = self.agora
         # `default=timezone.now` guardou o OBJETO original na definição da
@@ -136,8 +167,10 @@ class Relogio:
 def congelado_em(dia):
     """Um trecho de teste noutra data — por cima do relógio da suíte.
 
-    `dia=None` é o relógio real, com o congelamento suspenso: é o que um
-    teste usa quando precisa do dia de hoje de verdade (ver `relogio_real`).
+    `dia` como `date` é aquele dia às 12:00 (mais o decorrido no trecho);
+    como `datetime` é o instante EXATO, parado — o que um teste que conta por
+    janela de minutos usa. `dia=None` é o relógio real, com o congelamento
+    suspenso (ver `relogio_real`).
     """
     relogio = Relogio(dia).ligar()
     try:

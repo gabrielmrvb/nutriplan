@@ -351,6 +351,21 @@ privado (`pesquisa/`, um arquivo datado por levantamento). O primeiro
 morador é `pesquisa/pesquisa-loja-e-legal-20260921.md`; a branch local
 `docs/pesquisa-loja-e-legal` deste repositório foi apagada sem push.
 
+**O BANCO NÃO VAI PARA SÃO PAULO: banco e app ficam nos EUA, e a
+transferência internacional é declarada e consentida (decisão do dono,
+21/09/2026).** A pesquisa achou a região `aws-sa-east-1` do Neon e escreveu
+o procedimento (`docs/infra-recuperacao.md`), e a conta decidiu contra: o
+web fica em Oregon (o Render não tem região no Brasil), a produção do Neon
+está em `us-west-2` no mesmo data center, e a Home fazia até 41 consultas
+em série — a 105 ms de piso físico Oregon–São Paulo seriam 4,3 s de rede por
+tela para reduzir, sem eliminar, o que cruza a fronteira. O que cobre a LGPD
+é a segunda caixa do cadastro (art. 33, VIII: consentimento específico e
+destacado para a transferência, com o país de destino nomeado) e a seção
+"Onde seus dados ficam" da Política, que já diz Oregon, Neon e Render; a
+Res. 19/2024 da ANPD ainda não tem cláusula-padrão aprovada e só a UE tem
+adequação (Res. 32/2026). Revisita-se se um dia o web também puder morar no
+Brasil — nunca só o banco.
+
 **Plano é retrato, não referência.** `NutritionPlan` e `TrainingPlan` guardam os
 números do dia em que foram criados. Mudou a entrada, nasce plano novo — os
 antigos ficam. Nunca edite os números de um plano ativo: `plan_is_current()`
@@ -2132,13 +2147,37 @@ porque `data-x` também está dentro do `<script>`. Ancore na classe
 Contraste é medido, não julgado: `config.tests` recalcula a razão WCAG a partir
 dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
 
-**A SUÍTE VIVE NUMA QUARTA-FEIRA CONGELADA, E A NOTURNA VIVE NO DIA REAL
-(18/09/2026).** `RunnerUnico.setup_test_environment` liga `config/relogio.py`:
-`timezone.now()` devolve a HORA real de agora com a DATA local trocada por
-`DATA_DA_SUITE` — quarta 16/09/2026, o "pior estado" que `plans/test_stress`
-já congelava à mão. Só a data, e só `timezone.now`: o app deriva "hoje" de
-`localdate()`/`localtime()`, nunca de `date.today()`, e a hora continua real
-e monotônica (`created_at` ordena; `Barrier` e timeouts são de verdade). O
+**DOUTRINA DO RELÓGIO (decisão do dono, 21/09/2026): UM TESTE NUNCA LÊ O
+RELÓGIO NEM O CALENDÁRIO REAL — CONGELA SEMPRE.** A suíte congela a DATA
+(quarta 16/09/2026) E A HORA (12:00 locais + o decorrido desde que o runner
+ligou o relógio, `HORA_DA_SUITE` em `config/relogio.py`); a hora era real até
+21/09, e o minuto da máquina derrubou o gate do PR #96 duas vezes com main
+verde por sorte — `analytics/test_pico_de_sessoes.py` contava sessões por
+janelas absolutas de 5 min a partir de `timezone.now()` e passava 1 vez em 5.
+As regras: (1) `date.today()`, `datetime.now()`, `datetime.utcnow()` e
+`time.time()` são PROIBIDOS em teste — `config/test_relogio.py` varre a
+árvore (`OTesteNaoLeAMaquinaTests`) e a única exceção nomeada é o
+`datetime.now()` do gerador de token de senha; `time.monotonic()`/
+`perf_counter()` medem duração e podem; (2) `timezone.now()`/`localdate()`
+num teste já vêm congelados — são os únicos "agora" permitidos; (3) teste
+que conta por janela, minuto ou hora não usa nem esse "agora": pede
+`relogio.congelado_em(datetime(2026, 9, 16, 16, 0))` e recebe um instante
+EXATO, parado, o mesmo que o código sob teste lê (é o que o pico de sessões
+faz); (4) expectativa nunca nasce de "agora ± N horas" que possa cruzar a
+meia-noite, nem de `if` sobre a hora corrente — com a hora fixa às 12:00
+isso deixou de variar, mas continua sendo o desenho errado; (5) a
+`noturna.yml` é o ÚNICO lugar com o relógio real (`NUTRIPLAN_DATA_REAL=1`),
+e é ela que vê deriva de calendário.
+
+**A SUÍTE VIVE NUMA QUARTA-FEIRA CONGELADA, ÀS 12:00, E A NOTURNA VIVE NO
+DIA REAL (18/09/2026; hora congelada desde 21/09).**
+`RunnerUnico.setup_test_environment` liga `config/relogio.py`:
+`timezone.now()` devolve a DATA local `DATA_DA_SUITE` — quarta 16/09/2026,
+o "pior estado" que `plans/test_stress` já congelava à mão — às
+`HORA_DA_SUITE` (12:00) mais o decorrido. Só `timezone.now`: o app deriva
+"hoje" de `localdate()`/`localtime()`, nunca de `date.today()`, e o
+decorrido continua monotônico (`created_at` ordena; `Barrier` e timeouts
+são de verdade, porque medem por `time.monotonic`). O
 `default=timezone.now` de campo guardou o OBJETO da função na definição da
 classe e é trocado à mão — com o cache `_get_default` esquecido, senão a
 troca não muda linha nenhuma. Dois incidentes pediram isto: o push de
