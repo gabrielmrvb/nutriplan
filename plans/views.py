@@ -300,6 +300,51 @@ def relogio():
     return timezone.localtime()
 
 
+class LandingView(TemplateView):
+    """A porta de entrada para quem ainda não tem conta (decisão 2, 20/09/2026).
+
+    Uma frase do que o produto é, três provas do app e três saídas: a
+    demonstração pública (o produto de verdade, sempre atual — a prova que
+    nunca envelhece), criar conta, e — discreto — entrar. O login saiu da raiz:
+    chega-se a ele por um link daqui, não por um redirect na cara de quem só
+    queria saber o que o app faz.
+
+    Sem barra de abas nem convite de instalação: quem não entrou não tem para
+    onde navegar, e a barra prometeria destinos que exigem login. É a mesma
+    razão de `tela_de_entrada` no login.
+    """
+
+    template_name = "plans/landing.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["sem_tabbar"] = True
+        context["sem_convite"] = True
+        context["tela_de_entrada"] = True
+        return context
+
+
+class RaizView(View):
+    """A raiz decide pelo visitante: anônimo vê a landing, quem tem sessão vê o app.
+
+    Fica com o nome `plans:today` — a raiz canônica — para que todo
+    `reverse("plans:today")` continue apontando para `/`, o pós-login continue
+    caindo no painel do dia e o mapa/onboarding não mudem de endereço. O ramo
+    autenticado delega para `TodayView`, que mantém as próprias guardas
+    (onboarding e plano).
+
+    O DEMO NÃO CAI NA LANDING: sob o prefixo `/demo/` o middleware troca
+    `request.user` pela persona (autenticada), então `/demo/hoje/` cai no ramo
+    do app; e `/demo/` (a capa) é servida direto pelo middleware, sem passar
+    por aqui. Há teste para os dois.
+    """
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return TodayView.as_view()(request, *args, **kwargs)
+        return LandingView.as_view()(request, *args, **kwargs)
+
+
 class TodayView(PlanRequiredMixin, TemplateView):
     template_name = "plans/today.html"
 
