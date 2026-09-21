@@ -1,0 +1,157 @@
+# -*- coding: utf-8 -*-
+"""O E2E noturno no staging (21/09/2026): o fluxo do Actions e o roteiro.
+
+Sem navegador aqui — o `agent-browser` é trocado por um fake que grava os
+comandos. O que se prende:
+
+* o roteiro tem os passos da missão, na ordem: cadastro → onboarding (3) →
+  água → refeição → série → tema claro → excluir → login recusado;
+* a conta é descartável (`qa-e2e-<run>-<data>@nutriplan.invalid`), a senha é
+  gerada e NUNCA impressa, e o roteiro só aceita um alvo que se anuncie
+  como staging;
+* falhou um passo, a conta é apagada mesmo assim e o processo sai com 1;
+* os dois temas passam pelo `set media`, e há captura por passo;
+* o fluxo roda toda noite e pelo botão, contra o staging e só ele, anexa as
+  capturas sempre (`if: always()`) e abre issue quando falha.
+"""
+import io
+import re
+from contextlib import redirect_stdout
+from datetime import date
+from pathlib import Path
+from unittest import mock
+
+from django.test import SimpleTestCase
+
+from scripts.qa import e2e_staging as e2e
+
+RAIZ = Path(__file__).resolve().parents[1]
+FLUXO = (RAIZ / ".github" / "workflows" / "e2e-noturno.yml").read_text(encoding="utf-8")
+ROTEIRO = (RAIZ / "scripts" / "qa" / "e2e_staging.py").read_text(encoding="utf-8")
+
+
+def sem_comentarios(texto):
+    return "\n".join(l for l in texto.splitlines() if not l.lstrip().startswith("#"))
+
+
+class NavegadorFalso(e2e.Navegador):
+    """Grava cada comando; responde o que o roteiro espera para seguir."""
+
+    def __init__(self, falhar_em=None):
+        super().__init__("teste", executar=self._fake)
+        self.comandos = []
+        self.falhar_em = falhar_em
+
+    def _fake(self, comando, timeout):
+        args = comando[3:]
+        self.comandos.append(args)
+        if self.falhar_em and self.falhar_em in " ".join(args):
+            raise RuntimeError("falha simulada em " + self.falhar_em)
+        if args[0] == "eval":
+            return "true"
+        if args[0] == "get" and args[1] == "url":
+            return "https://staging.exemplo/conta/entrar/"
+        if args[0] == "snapshot":
+            return "- tela"
+        return ""
+
+
+class ORoteiroTests(SimpleTestCase):
+    def _rodar(self, falhar_em=None):
+        ab = NavegadorFalso(falhar_em)
+        capturas = Path(mock.MagicMock().__str__()) if False else Path(RAIZ / "artifacts" / "_capturas_teste")
+        cenario = e2e.E2E("https://staging.exemplo", capturas, "run1", ab=ab)
+        saida = io.StringIO()
+        with mock.patch.object(Path, "mkdir"), redirect_stdout(saida):
+            codigo = cenario.rodar()
+        return cenario, ab, saida.getvalue(), codigo
+
+    def test_os_passos_da_missao_na_ordem(self):
+        self.assertEqual(e2e.PASSOS, ("cadastro", "onboarding-1", "onboarding-2", "onboarding-3", "home",
+                                      "agua", "refeicao", "serie", "tema-claro", "excluir", "login-recusado"))
+        for passo in e2e.PASSOS:
+            self.assertTrue(callable(getattr(e2e.E2E, passo.replace("-", "_"))), passo)
+
+    def test_roda_tudo_e_a_senha_nunca_sai_no_stdout(self):
+        cenario, ab, saida, codigo = self._rodar()
+        self.assertEqual(codigo, 0)
+        self.assertEqual(cenario.feitos, list(e2e.PASSOS))
+        self.assertNotIn(cenario.senha, saida)
+        self.assertIn(cenario.email, saida, "o e-mail da conta de QA é dito, para o relatório")
+        self.assertEqual(ab.comandos[-1], ["close"])
+
+    def test_a_conta_e_descartavel_e_a_senha_e_forte(self):
+        self.assertEqual(e2e.email_de_qa("77", date(2026, 9, 21)), "qa-e2e-77-20260921@nutriplan.invalid")
+        senha = e2e.senha_de_qa()
+        self.assertGreaterEqual(len(senha), 16)
+        self.assertNotEqual(senha, e2e.senha_de_qa())
+
+    def test_os_dois_temas_e_uma_captura_por_passo(self):
+        cenario, ab, saida, codigo = self._rodar()
+        medias = [c for c in ab.comandos if c[:2] == ["set", "media"]]
+        self.assertEqual([c[2] for c in medias], ["dark", "light"])
+        capturas = [c[1] for c in ab.comandos if c[0] == "screenshot"]
+        self.assertGreaterEqual(len(capturas), len(e2e.PASSOS))
+        self.assertTrue(any("claro-home" in c for c in capturas))
+        self.assertTrue(any("login-recusado" in c for c in capturas))
+
+    def test_falhou_no_meio_apaga_a_conta_mesmo_assim_e_sai_com_1(self):
+        cenario, ab, saida, codigo = self._rodar(falhar_em=".agora__concluir")
+        self.assertEqual(codigo, 1)
+        self.assertEqual(cenario.feitos[-1], "refeicao")
+        self.assertIn("FALHOU serie", saida)
+        aberturas = [c[1] for c in ab.comandos if c[0] == "open"]
+        self.assertIn("https://staging.exemplo/conta/excluir/", aberturas, "a exclusão roda mesmo depois da falha")
+        self.assertIn("conta de QA apagada depois da falha", saida)
+        self.assertTrue(any(c[0] == "screenshot" and "erro-serie" in c[1] for c in ab.comandos))
+
+    def test_conta_apagada_que_ainda_entra_e_falha(self):
+        ab = NavegadorFalso()
+        ab._fake = lambda comando, timeout: ("https://staging.exemplo/" if comando[3:5] == ["get", "url"] else ("true" if comando[3] == "eval" else ""))
+        ab.executar = ab._fake
+        cenario = e2e.E2E("https://staging.exemplo", RAIZ / "artifacts" / "_capturas_teste", "run2", ab=ab)
+        with mock.patch.object(Path, "mkdir"):
+            with self.assertRaisesMessage(RuntimeError, "ainda entra"):
+                cenario.login_recusado()
+
+    def test_so_roda_contra_staging(self):
+        with mock.patch.object(e2e, "ambiente_de", lambda base: ""):
+            with self.assertRaisesMessage(SystemExit, "só cria conta em staging"):
+                e2e.main(["--base", "https://nutriplan-xxfn.onrender.com"])
+        self.assertNotIn("nutriplan-xxfn", ROTEIRO, "o endereço de produção não aparece no roteiro")
+
+    def test_o_agent_browser_recebe_a_sessao_em_todo_comando(self):
+        gravados = []
+        ab = e2e.Navegador("sessao-x", executar=lambda comando, timeout: gravados.append(comando) or "")
+        ab("click", "@e1")
+        self.assertEqual(gravados[0], ["agent-browser", "--session", "sessao-x", "click", "@e1"])
+
+
+class OFluxoNoturnoTests(SimpleTestCase):
+    def test_toda_noite_e_pelo_botao(self):
+        corpo = sem_comentarios(FLUXO)
+        self.assertRegex(corpo, r'cron:\s*"30 7 \* \* \*"')
+        self.assertIn("workflow_dispatch:", corpo)
+
+    def test_contra_o_staging_e_so_ele(self):
+        corpo = sem_comentarios(FLUXO)
+        self.assertIn("E2E_BASE: https://nutriplan-staging.onrender.com", corpo)
+        self.assertNotIn("nutriplan-xxfn", corpo)
+
+    def test_usa_o_agent_browser_e_o_roteiro(self):
+        corpo = sem_comentarios(FLUXO)
+        self.assertRegex(corpo, r"npm install -g agent-browser@\d+\.\d+\.\d+")
+        self.assertIn("agent-browser install --with-deps", corpo)
+        self.assertIn("python scripts/qa/e2e_staging.py --capturas capturas", corpo)
+
+    def test_as_capturas_sobem_sempre_e_a_falha_abre_issue(self):
+        corpo = sem_comentarios(FLUXO)
+        artefato = corpo.index("upload-artifact")
+        self.assertIn("if: always()", corpo[artefato - 200:artefato])
+        self.assertIn("path: capturas/", corpo)
+        self.assertIn("if: failure()", corpo)
+        self.assertRegex(corpo, r"issues:\s*write")
+        self.assertIn("gh issue create", corpo)
+
+    def test_acorda_o_staging_antes(self):
+        self.assertIn("/saude/vivo/", sem_comentarios(FLUXO))
