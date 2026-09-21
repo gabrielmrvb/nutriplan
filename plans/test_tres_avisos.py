@@ -50,16 +50,17 @@ class SessaoVencidaTests(TestCase):
     "entre para continuar".
     """
 
-    def test_get_anonimo_na_raiz_nao_acusa_sessao_vencida(self):
-        """`next=/` é o ícone do PWA e a raiz digitada: nunca a frase."""
+    def test_get_anonimo_na_raiz_ve_a_landing_sem_acusar_sessao_vencida(self):
+        """A raiz anônima virou a landing (decisão 2 da avaliação, 20/09/2026):
+        ela não redireciona mais para o login, então não há como acusar
+        "sessão venceu" a quem só abriu a raiz — o defeito de B1 saiu pela raiz
+        junto com o redirect. A régua da frase para um GET protegido de verdade
+        continua no teste de `/treino/` abaixo."""
         resposta = self.client.get("/")
-        self.assertEqual(resposta.status_code, 302)
-        self.assertNotIn("envio=", resposta["Location"])
-
-        html = self.client.get(resposta["Location"]).content.decode()
+        self.assertEqual(resposta.status_code, 200)
+        html = resposta.content.decode()
         self.assertNotIn("Sua sessão venceu", html)
         self.assertNotIn("não foi salvo", html)
-        self.assertIn("Entre para continuar", html)
 
     def test_get_anonimo_em_rota_protegida_diz_so_entre_para_continuar(self):
         resposta = self.client.get("/treino/")
@@ -151,4 +152,4 @@ class PesoEcoadoTests(TestCase):
             user=self.user, date=timezone.localdate(), defaults={"weight_kg": Decimal("82.5")}
         )
         html = self.client.get(reverse("plans:history")).content.decode()
-        self.assertIn('value="82,50"', html)
+        self.assertIn('value="82,5"', html)  # uma casa, como todo peso na tela (20/09/2026)

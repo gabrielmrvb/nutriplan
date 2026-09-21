@@ -27,7 +27,6 @@ from django.utils import timezone
 
 from accounts.models import CAMPO_DO_PILAR, ONBOARDING_DONE, Profile
 from plans.models import HydrationLog, MealLog, NutritionPlan
-from supplements.models import SupplementLog
 from workouts.models import ExerciseLog, TrainingPlan
 
 User = get_user_model()
@@ -54,16 +53,13 @@ def _acoes_voluntarias(desde=None):
             HydrationLog.objects.filter(user=OuterRef("pk"), ml__gt=0, **filtros)
         ),
         "serie": Exists(ExerciseLog.objects.filter(user=OuterRef("pk"), **filtros)),
-        "suplemento": Exists(
-            SupplementLog.objects.filter(user=OuterRef("pk"), **filtros)
-        ),
     }
 
 
-#: A condição "fez ALGUMA das quatro". Separada porque é usada duas vezes, com
+#: A condição "fez ALGUMA das três" (suplemento saiu em 20/09/2026). Separada porque é usada duas vezes, com
 #: janelas diferentes, e repetir a expressão convidaria as duas a divergirem.
 FEZ_ALGUMA = (
-    Q(refeicao=True) | Q(agua=True) | Q(serie=True) | Q(suplemento=True)
+    Q(refeicao=True) | Q(agua=True) | Q(serie=True)
 )
 
 
