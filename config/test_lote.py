@@ -108,7 +108,7 @@ class ARegraDoLoteTests(SimpleTestCase):
         with mock.patch.object(promover, "promover", return_value=0) as promocao:
             codigo, saida = c.rodar()
         self.assertEqual(codigo, 0)
-        promocao.assert_called_once_with("abc1234def", esperar=True, minutos=15)
+        promocao.assert_called_once_with("abc1234def", esperar=True, minutos=15, forcar_janela=True)
         self.assertEqual(c.e2e_rodou, 1)
         self.assertIn("LOTE PROVADO", saida)
 
@@ -163,6 +163,36 @@ class ARegraDoLoteTests(SimpleTestCase):
     def test_o_smoke_cobre_as_rotas_publicas_e_o_readiness(self):
         for rota in ("/", "/conta/entrar/", "/saude/", "/demo/"):
             self.assertIn(rota, promover.ROTAS_DO_SMOKE)
+
+
+class APromocaoAMaoRespeitaAJanelaTests(SimpleTestCase):
+    """Uma sessão promoveu o próprio SHA 10 min depois do lote (20:17Z, 21/09):
+    a janela vale para `promover.py <sha>` também. `--forcar-janela` é a
+    porta do hotfix e do rollback."""
+
+    def _promover(self, idade, **kw):
+        posts = []
+        with mock.patch.object(promover, "esta_em_main", lambda sha: True), \
+                mock.patch.object(promover, "minutos_desde_a_ultima_promocao", lambda: idade), \
+                mock.patch.object(promover, "saude", lambda base, tempo=90: {"commit": "abc1234", "ambiente": "staging"}), \
+                mock.patch.object(promover, "_api", lambda m, c, corpo=None: (posts.append((m, c)), (201, {"id": "dep"}))[1]), \
+                redirect_stdout(io.StringIO()):
+            codigo = promover.promover("abc1234def", **kw)
+        return codigo, posts
+
+    def test_dentro_da_janela_e_recusada(self):
+        with self.assertRaisesMessage(SystemExit, "janela de 60"):
+            self._promover(idade=10)
+
+    def test_fora_da_janela_ou_forcada_promove(self):
+        codigo, posts = self._promover(idade=61)
+        self.assertEqual([c for _, c in posts], ["/services/%s/deploys" % promover.SERVICO_PRODUCAO])
+        codigo, posts = self._promover(idade=10, forcar_janela=True)
+        self.assertEqual(len(posts), 1)
+
+    def test_o_botao_tem_a_porta_do_hotfix(self):
+        self.assertIn("forcar_janela:", BOTAO)
+        self.assertIn("--forcar-janela", BOTAO)
 
 
 class QuemRodaARegraTests(SimpleTestCase):

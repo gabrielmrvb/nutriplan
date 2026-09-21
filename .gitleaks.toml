@@ -1,0 +1,49 @@
+# gitleaks — o que NUNCA pode entrar num commit deste repositório (21/09/2026).
+#
+# O pre-commit roda `gitleaks git --staged --config .gitleaks.toml` quando o
+# binário existe (WinGet `Gitleaks.Gitleaks`, ou apt/brew) e, sem ele,
+# `scripts/segredos.py --staged`, que lê ESTE arquivo e aplica as regras
+# próprias em Python puro — a trava nunca depende de ter instalado a
+# ferramenta. `config/test_segredos.py` prova as duas, cada uma barrando um
+# arquivo do cofre num repositório de teste.
+#
+# As regras do gitleaks (150+, chaves de AWS, Google, GitHub, Stripe…) ficam
+# ligadas; as daqui são as do NutriPlan: os NOMES do cofre
+# `~/.nutriplan-secrets` (barrados pelo caminho, seja qual for o conteúdo) e
+# as FORMAS dos segredos que este projeto usa.
+
+title = "NutriPlan"
+
+[extend]
+useDefault = true
+
+# O cofre, pelo NOME: `render_api_key`, `staging_env.json`, `tarefas_token`…
+# em qualquer pasta. Só `path`, sem `regex`: o arquivo é barrado por existir.
+[[rules]]
+id = "nutriplan-cofre"
+description = "Arquivo do cofre ~/.nutriplan-secrets dentro do commit"
+path = '''(?i)(^|[\\/])(\.nutriplan-secrets([\\/].*)?|render_api_key|backup_database_url|staging_database_url(_[^\\/]*)?|staging_env\.json|tarefas_token|disparo_token|vapid-nutriplan-[^\\/]*\.env)$'''
+
+# A chave da API do Render: `rnd_` + 32 caracteres.
+[[rules]]
+id = "nutriplan-render-api-key"
+description = "Chave da API do Render"
+regex = '''\brnd_[A-Za-z0-9]{32}\b'''
+
+# URL de banco do Neon COM senha (produção, staging, o leitor do drill).
+[[rules]]
+id = "nutriplan-neon-url"
+description = "URL do Neon com senha"
+regex = '''postgres(?:ql)?://[^\s'"@]+:[^\s'"@]+@[^\s'"]*neon\.tech[^\s'"]*'''
+
+# Chave SMTP da Brevo.
+[[rules]]
+id = "nutriplan-brevo-smtp"
+description = "Chave SMTP da Brevo"
+regex = '''\bxsmtpsib-[a-f0-9]{64}-[A-Za-z0-9]{16}\b'''
+
+[allowlist]
+description = "Onde o teste ESCREVE uma forma de segredo de propósito"
+paths = [
+  '''config/test_segredos\.py$''',
+]

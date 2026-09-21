@@ -3,7 +3,7 @@
 produção desde 21/09/2026 (`autoDeploy: false` em `render.yaml`).
 
     .venv/Scripts/python.exe scripts/promover.py --lote [--forcar-janela] [--sem-e2e]   # A REGRA (21/09/2026)
-    .venv/Scripts/python.exe scripts/promover.py <sha> [--esperar] [--minutos 15]        # a exceção, à mão
+    .venv/Scripts/python.exe scripts/promover.py <sha> [--esperar] [--forcar-janela]     # a exceção, à mão (respeita a janela)
     .venv/Scripts/python.exe scripts/promover.py --staging <sha>   # o commit já está no staging?
 
 A REGRA DA PROMOÇÃO (decisão do dono, 21/09/2026): produção só muda no fim de
@@ -115,10 +115,18 @@ def esperar_commit(base, curto, minutos, rotulo):
     return None
 
 
-def promover(sha, esperar=False, minutos=15, sem_staging=False):
+def promover(sha, esperar=False, minutos=15, sem_staging=False, forcar_janela=False):
     curto = sha[:7]
     if not esta_em_main(sha):
         raise SystemExit("%s não está em origin/main — promover só o que passou pelo gate." % curto)
+    # A janela vale para a promoção À MÃO também (21/09/2026, tarde): uma
+    # sessão promoveu o próprio SHA 10 min depois do lote. Fora da janela, só
+    # com `--forcar-janela` — e o `deploy --voltar` do runbook passa por aqui
+    # com a flag, porque incidente não espera relógio.
+    idade = None if forcar_janela else minutos_desde_a_ultima_promocao()
+    if idade is not None and idade < JANELA_MIN:
+        raise SystemExit("última promoção há %d min (janela de %d): produção só muda no fim de um lote — "
+                         "espere o --lote, ou --forcar-janela se for hotfix/rollback." % (idade, JANELA_MIN))
     if not sem_staging:
         dados = saude(STAGING)
         vivo = (dados or {}).get("commit", "")
@@ -217,7 +225,7 @@ def promover_lote(forcar_janela=False, sem_e2e=False, minutos_staging=12):
     else:
         print("E2E verde no staging.", flush=True)
     print("LOTE PROVADO: promovendo %s (produção estava em %s)." % (curto, prod or "?"), flush=True)
-    return promover(sha, esperar=True, minutos=15)
+    return promover(sha, esperar=True, minutos=15, forcar_janela=True)  # a janela já foi conferida aqui
 
 
 def main(argv):
@@ -232,7 +240,8 @@ def main(argv):
         raise SystemExit(0 if len(argv) > 1 and vivo == argv[1][:7] else 1)
     sha = argv[0]
     minutos = int(argv[argv.index("--minutos") + 1]) if "--minutos" in argv else 15
-    return promover(sha, esperar="--esperar" in argv, minutos=minutos, sem_staging="--sem-staging" in argv)
+    return promover(sha, esperar="--esperar" in argv, minutos=minutos, sem_staging="--sem-staging" in argv,
+                    forcar_janela="--forcar-janela" in argv)
 
 
 if __name__ == "__main__":
