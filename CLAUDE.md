@@ -1394,11 +1394,16 @@ segunda passou. Quem for encolher tela neste app, a pergunta é essa —
 
 **A lista de compras pede o que se COMPRA.** O cardápio calcula em grama de
 alimento pronto, e ninguém compra arroz cozido nem meio ovo.
-`plans/compra.py` tem três tabelas chaveadas por `Food.name` — `FATOR_CRU` (cozido→cru),
-`POR_UNIDADE` (ovo, banana, pão) e `EMBALAGEM` (lata, pacote, litro) — e toda
-conversão sai marcada com `~`, porque ela É aproximada. Dúzia só quando divide
-exato. E `to_integral_value()` devolve `Decimal`, que imprime
-`5.0E+2 g de macarrão`: a humanização passa por `int()`.
+`plans/compra.py` tem cinco tabelas chaveadas por `Food.name` — `FATOR_CRU`
+(cozido→cru), `POR_UNIDADE` (ovo, banana, pão) e `EMBALAGEM` (lata, pacote,
+litro), como antes, mais `MINIMO_DE_COMPRA` (o piso que o mercado vende —
+a garrafa de azeite não vem em 20 ml — arredondado sempre para CIMA) e
+`FATOR_DE_ENCOLHIMENTO` (o mesmo cozido→cru de `FATOR_CRU`, só que na
+direção oposta, para carne/frango/peixe/verdura refogada, que PERDE água em
+vez de inchar). Toda conversão sai marcada com `~`, porque ela É
+aproximada. Dúzia só quando divide exato. E `to_integral_value()` devolve
+`Decimal`, que imprime `5.0E+2 g de macarrão`: a humanização passa por
+`int()`.
 
 **A marcação da lista é ESTADO ABSOLUTO, e a chave é o alimento.** O pedido diz
 `marcado=1` ou `marcado=0`, nunca "alterne" — assim ele é idempotente por

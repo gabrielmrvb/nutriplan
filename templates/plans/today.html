@@ -640,7 +640,7 @@ coluna da direita), não entre ela e o almoço.
                           {% endcomment %}
                           <li>
                             <span class="option__ingrediente">{{ item.food.name }}</span>
-                            <b>{{ item.quantity|floatformat:0 }} {{ item.unit }}</b>
+                            <b>{% if item.caseira %}{{ item.caseira.0 }} {{ item.caseira.1 }} ({{ item.quantity|floatformat:0 }} {{ item.unit }}){% else %}{{ item.quantity|floatformat:0 }} {{ item.unit }}{% endif %}</b>
                           </li>
                         {% endfor %}
                       </ul>
