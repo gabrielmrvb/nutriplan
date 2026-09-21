@@ -216,6 +216,12 @@ services:
     envVars:
       - key: NUTRIPLAN_AMBIENTE
         value: staging
+      # Os e-mails que saem SEM request (`avisos.jobs`) montam os links com
+      # esta raiz; sem ela o staging mandava links para PRODUÇÃO — o
+      # descadastro apontava para uma chave que só existe no banco do
+      # staging (medido com conta de QA em 21/09/2026).
+      - key: NUTRIPLAN_URL_BASE
+        value: https://nutriplan-staging.onrender.com
       - key: DJANGO_ALLOWED_HOSTS
         value: nutriplan-staging.onrender.com
       - key: DJANGO_DEBUG
