@@ -363,7 +363,7 @@ class ACapacidadeDeAmbienteEMedidaTests(TestCase):
 #: continuam esperando mídia curada — e continuam a especificação: grupo,
 #: `compound` e secundários vêm da origem, não são inventados.
 CINCO_QUE_FALTAM = (
-    ("Elevação pélvica com halteres", "Elevação pélvica", MuscleGroup.HAMSTRINGS),
+    ("Elevação pélvica com halteres", "Elevação pélvica", MuscleGroup.GLUTES),
     ("Panturrilha sentado com halteres", "Panturrilha sentado", MuscleGroup.CALVES),
     ("Rosca inversa com halteres", "Rosca inversa com barra", MuscleGroup.FOREARMS),
     ("Tríceps testa com halteres", "Tríceps testa com barra", MuscleGroup.TRICEPS),

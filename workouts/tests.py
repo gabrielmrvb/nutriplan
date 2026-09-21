@@ -44,6 +44,7 @@ from .models import (
     SessionExercise,
     Measure,
     MuscleGroup,
+    familia_de_opcoes,
     Split,
     TrainingPlan,
     TrainingSession,
@@ -5454,7 +5455,10 @@ class OrcamentoDeTempoTests(TestCase):
         # do dia de perna. E ele não some calado: `aviso_de_tempo` o nomeia.
         anunciados = set()
         for template in services.templates_for(plan.split):
-            anunciados |= set(template.main_groups)
+            anunciados |= {familia_de_opcoes(g) for g in template.main_groups}
+        # Por FAMÍLIA: a semana tem a cadeia posterior se tem stiff OU
+        # elevação pélvica (21/09/2026).
+        grupos_presentes = {familia_de_opcoes(g) for g in grupos_presentes}
 
         self.assertEqual(
             anunciados - grupos_presentes, set(),

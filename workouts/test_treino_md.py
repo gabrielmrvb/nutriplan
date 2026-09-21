@@ -122,9 +122,11 @@ def _cotas(main_groups, tipo):
     posterior dividem a cota do grande; em `tres_grupos` antebraço e trapézio
     dividem a cota do segundo pequeno; em "Braços" o tríceps faz de grande."""
     anunciados = list(main_groups)
-    pernas = [g for g in anunciados if g in ("quads", "hamstrings")]
-    if len(pernas) == 2:
-        # Quadríceps e posterior dividem a cota do grande, em qualquer tipo.
+    pernas = [g for g in anunciados if g in ("quads", "hamstrings", "glutes")]
+    if "quads" in pernas and "hamstrings" in pernas:
+        # Quadríceps, posterior e glúteo dividem a cota do grande, em
+        # qualquer tipo (o glúteo desde 21/09/2026: um exercício anunciado
+        # que a elevação pélvica já ocupava como "posterior").
         grandes = [tuple(pernas)]
         pequenos = [(g,) for g in anunciados if g not in pernas]
         return grandes, pequenos
@@ -133,12 +135,16 @@ def _cotas(main_groups, tipo):
         # "Braços": bíceps e tríceps são os dois pequenos (TREINO.md).
         return [], [(g,) for g in anunciados]
     grande = grandes_soltos[0]
-    pequenos = [(g,) for g in anunciados if g != grande and g not in ("forearms", "traps")]
+    # Posterior e glúteo dividem a cota do grande quando o quadríceps não
+    # está ("Complementares" do ABCD): a elevação pélvica sempre foi contada
+    # ali como posterior.
+    cota_do_grande = (grande, "glutes") if grande == "hamstrings" and "glutes" in anunciados else (grande,)
+    pequenos = [(g,) for g in anunciados if g not in cota_do_grande and g not in ("forearms", "traps")]
     if "forearms" in anunciados and "traps" in anunciados:
         pequenos.append(("forearms", "traps"))
     elif "forearms" in anunciados or "traps" in anunciados:
         pequenos.append(tuple(g for g in ("forearms", "traps") if g in anunciados))
-    return [(grande,)], pequenos
+    return [cota_do_grande], pequenos
 
 
 class OGeradorObedeceAoDocumentoTests(TestCase):

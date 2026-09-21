@@ -111,3 +111,38 @@ toque; a sessão analytics também os toca).
 - "O que mudou" lê um `CHANGELOG.md` novo, para gente, e não o `BACKLOG.md`.
 - Placar → PNG no NAVEGADOR (canvas com as fontes já carregadas), não no
   servidor: zero dependência nova, funciona offline, nada de dado no servidor.
+
+## Decisões que tomei sozinha — segunda leva (21/09, manhã)
+
+- `/ajuda/` e `/ajuda/o-que-mudou/` entram em `ROTAS_PUBLICAS` (sitemap,
+  canonical, OG); `/ajuda/reportar/` fica `noindex`. A FAQ é por onde
+  alguém ACHA o app.
+- "Reportar um problema" manda para `NUTRIPLAN_SUPORTE_EMAIL`, que cai em
+  `VAPID_ADMIN_EMAIL` quando vazio — um dono, uma variável a menos.
+- O limite de abuso do formulário reusa a tabela de `accounts.limites`
+  (`PedidoDeRecuperacao`, tipos `ajd-ip`/`ajd-glob`) em vez de cache: o
+  cache é por worker e some no deploy.
+- O link "Ajuda" do rodapé das telas de entrada NÃO depende de
+  `LEGAL_PUBLICADO`.
+- Glúteo: `MuscleGroup.GLUTES` separado, e `FAMILIA_DE_OPCOES =
+  {glutes: hamstrings}` para as OPÇÕES, o RELÓGIO, o PRINCIPAL, o TÍTULO e
+  o fallback da substituição por equipamento — e para mais nada. Cada
+  passo foi medido em 540 perfis; sem a família a letra C do abc2 caía
+  para uma opção de 20 séries.
+- Glúteo NÃO entrou como secundário das pontes/elevação pélvica (o
+  inverso: hamstrings como secundário do glúteo): somaria 2 efetivas de
+  posterior por letra e mudaria o aparo — a régua era "nenhuma ficha
+  muda".
+- A elevação pélvica e as pontes ficam com o `padrao` `extensao_de_quadril`
+  (o mesmo do stiff): "outras formas" filtra por grupo E padrão, então a
+  elevação pélvica só oferece elevação pélvica/pontes.
+- O título reescrito chama a cadeia de "posterior" (como sempre), nunca
+  "glúteo": é UM título para as duas versões da letra. Foco e aviso do que
+  não coube nomeiam o grupo de verdade.
+- O retrato de 540 perfis virou `scripts/qa/retrato_das_fichas.py`
+  (roda no banco de teste do Django), para a próxima mudança de motor.
+- Lighthouse rodou com o Chrome 153 do agent-browser (`CHROME_PATH`) via
+  `npx lighthouse --only-categories=seo`, sem instalar nada global.
+- A linha do placar no `CHANGELOG.md` entrou pelo PR do glúteo, porque o
+  PR do placar (#76) nasceu antes de o arquivo existir e o #80 (que criou
+  o arquivo) não podia afirmar uma mudança que ainda não estava em main.

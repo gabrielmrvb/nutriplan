@@ -88,6 +88,7 @@ NOTA_FORA_DO_PLANO = {"off_plan": "Jantei fora, comi um prato feito"}
 CARGA_BASE = {
     MuscleGroup.QUADS: 80,
     MuscleGroup.HAMSTRINGS: 60,
+    MuscleGroup.GLUTES: 60,
     MuscleGroup.BACK: 55,
     MuscleGroup.CHEST: 52,
     MuscleGroup.CALVES: 45,

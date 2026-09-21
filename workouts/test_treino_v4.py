@@ -324,8 +324,8 @@ class OCatalogoSemeadoEValidoTests(TestCase):
             "Puxada frente na polia": ("back", {"biceps", "forearms"}),
             "Rosca direta com barra": ("biceps", {"forearms"}),
             "Tríceps na polia com corda": ("triceps", set()),
-            "Agachamento livre": ("quads", {"hamstrings", "core"}),
-            "Stiff com barra": ("hamstrings", {"back", "core"}),
+            "Agachamento livre": ("quads", {"hamstrings", "glutes", "core"}),
+            "Stiff com barra": ("hamstrings", {"back", "glutes", "core"}),
             "Panturrilha em pé": ("calves", set()),
         }
         for nome, (principal, auxiliares) in esperado.items():

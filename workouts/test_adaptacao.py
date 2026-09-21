@@ -74,7 +74,7 @@ class OModuloEPuroTests(SimpleTestCase):
         self.assertEqual(adaptacao.REPS, Measure.REPS)
         self.assertEqual(
             adaptacao.GRUPOS_INFERIORES,
-            frozenset({MuscleGroup.QUADS, MuscleGroup.HAMSTRINGS, MuscleGroup.CALVES}),
+            frozenset({MuscleGroup.QUADS, MuscleGroup.HAMSTRINGS, MuscleGroup.GLUTES, MuscleGroup.CALVES}),
         )
         self.assertIs(services.GRUPOS_INFERIORES, adaptacao.GRUPOS_INFERIORES)
         self.assertIs(services.Progressao, adaptacao.Progressao)

@@ -28,7 +28,7 @@ from django.utils import timezone
 from accounts.models import DuracaoTreino, Profile, SplitPreference, TrainingDay, User
 from plans.tests import create_complete_user
 from workouts import opcoes, services
-from workouts.models import EscolhaDeTreino, ExerciseLog, SessionExercise, TrainingPlan
+from workouts.models import EscolhaDeTreino, ExerciseLog, SessionExercise, TrainingPlan, familia_de_opcoes
 
 PERFIS = {
     "iniciante_3d_2g": ("iniciante", SplitPreference.DOIS, [0, 2, 4]),
@@ -98,7 +98,10 @@ class CincoPerfisTests(Catalogo):
 
     def test_cada_letra_com_catalogo_tem_duas_opcoes_equivalentes(self):
         """Onde há catálogo, duas opções: mesmos grupos anunciados, ≤ 1 série
-        por grupo de diferença, ≤ 5 min, metade dos exercícios próprios."""
+        por grupo de diferença, ≤ 5 min, metade dos exercícios próprios. O
+        grupo é a FAMÍLIA (`models.FAMILIA_DE_OPCOES`): posterior e glúteo
+        são uma cadeia entre as duas versões — o stiff numa, a elevação
+        pélvica na outra (21/09/2026)."""
         for nome in PERFIS:
             plan = services.create_routine(pessoa(nome))
             for label, sessao in por_letra(plan).items():
@@ -106,9 +109,9 @@ class CincoPerfisTests(Catalogo):
                     continue
                 with self.subTest(perfil=nome, letra=label):
                     op1, op2 = sessao.da_opcao(1), sessao.da_opcao(2)
-                    anunciados = set(sessao.main_groups)
+                    anunciados = {familia_de_opcoes(g) for g in sessao.main_groups}
                     for op in (op1, op2):
-                        self.assertTrue(anunciados <= {i.exercise.muscle_group for i in op},
+                        self.assertTrue(anunciados <= {familia_de_opcoes(i.exercise.muscle_group) for i in op},
                                         "um grupo anunciado ficou órfão")
                     direto = [opcoes._volume_direto([(i, i.sets, 0) for i in op]) for op in (op1, op2)]
                     for grupo in set(direto[0]) | set(direto[1]):

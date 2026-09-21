@@ -62,7 +62,7 @@ from enum import StrEnum
 #: `Measure.REPS` e os três grupos que sobem de 5 em 5, escritos aqui para o
 #: módulo não importar os modelos; `test_adaptacao` confere que batem.
 REPS = "reps"
-GRUPOS_INFERIORES = frozenset({"quads", "hamstrings", "calves"})
+GRUPOS_INFERIORES = frozenset({"quads", "hamstrings", "glutes", "calves"})
 
 #: A menor anilha: todo degrau e todo arredondamento saem dela.
 DEGRAU_MINIMO = Decimal("2.5")

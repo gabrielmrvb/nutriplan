@@ -60,7 +60,7 @@ from accounts.models import (
 )
 
 from . import services
-from .models import MuscleGroup
+from .models import MuscleGroup, familia_de_opcoes
 from .services import PISO_COMPOSTO
 
 User = get_user_model()
@@ -219,7 +219,9 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
                         for itens in opcoes:
                             por_grupo = defaultdict(int)
                             for item in itens:
-                                por_grupo[item.exercise.muscle_group] += item.sets
+                                # Por FAMÍLIA: entre as duas versões, posterior
+                                # e glúteo são a mesma cadeia (21/09/2026).
+                                por_grupo[familia_de_opcoes(item.exercise.muscle_group)] += item.sets
                             series.append(por_grupo)
                         grupos = set().union(*(v.keys() for v in series))
                         for grupo in grupos:
@@ -229,9 +231,9 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
                                 "%s: as opções levam %s séries de %s"
                                 % (letra, valores, grupo),
                             )
-                        anunciados = set(sessao.main_groups or ())
+                        anunciados = {familia_de_opcoes(g) for g in (sessao.main_groups or ())}
                         for numero, itens in enumerate(opcoes, start=1):
-                            presentes = {i.exercise.muscle_group for i in itens}
+                            presentes = {familia_de_opcoes(i.exercise.muscle_group) for i in itens}
                             self.assertEqual(
                                 anunciados - presentes, set(),
                                 "%s opção %d não treina %s, que o título promete"
@@ -606,7 +608,10 @@ class ORelogioNaoApagaMusculoAnunciadoTests(TestCase):
                         t.label: t for t in services.templates_for(plano.split)
                     }
                     for sessao in plano.sessions.all():
-                      prometidos = set(modelos[sessao.label].main_groups)
+                      # Por FAMÍLIA (`models.FAMILIA_DE_OPCOES`): o stiff numa
+                      # versão e a elevação pélvica na outra são a mesma
+                      # cadeia posterior anunciada (21/09/2026).
+                      prometidos = {familia_de_opcoes(g) for g in modelos[sessao.label].main_groups}
                       self.assertTrue(
                           prometidos,
                           "%s %s não declara `main_groups`"
@@ -619,7 +624,7 @@ class ORelogioNaoApagaMusculoAnunciadoTests(TestCase):
                       for opcao in sessao.opcoes:
                         linhas = sessao.da_opcao(opcao)
                         entregues = {
-                            item.exercise.muscle_group for item in linhas
+                            familia_de_opcoes(item.exercise.muscle_group) for item in linhas
                         }
                         # TODO GRUPO DO MODELO, EM TODA PASSAGEM — menos onde
                         # a aritmética proíbe, e aí a regra é OUTRA.
@@ -704,20 +709,24 @@ class ORelogioNaoApagaMusculoAnunciadoTests(TestCase):
                         # projeção de `prescrever_semana`), e vale para as duas
                         # versões: a outra opção não pode ficar sem um grupo
                         # que o nome afirma.
+                        # Por FAMÍLIA, como o título (`titulo_honesto`): a
+                        # cadeia posterior é uma só nas duas versões, e o
+                        # nome dela é "posterior" (21/09/2026).
                         por_opcao = {
-                            k: {item.exercise.muscle_group for item in sessao.da_opcao(k)}
+                            k: {familia_de_opcoes(item.exercise.muscle_group) for item in sessao.da_opcao(k)}
                             for k in sessao.opcoes
                         }
+                        anunciados = {familia_de_opcoes(g) for g in modelo.main_groups}
                         entregues = por_opcao[sessao.opcoes[0]]
                         for k, grupos in por_opcao.items():
-                            for grupo in set(modelo.main_groups) - grupos:
+                            for grupo in anunciados - grupos:
                                 self.assertNotIn(
                                     services.NOME_CURTO_DO_GRUPO[grupo],
                                     sessao.name.lower(),
                                     "%r nomeia %s, que a opção %d não tem"
                                     % (sessao.name, grupo, k),
                                 )
-                        faltam = set(modelo.main_groups) - entregues
+                        faltam = anunciados - entregues
                         if not faltam:
                             self.assertEqual(sessao.name, modelo.name)
                             continue

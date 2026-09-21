@@ -6,9 +6,11 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-21
 
+- **Glúteo é grupo próprio.** A elevação pélvica e as pontes de glúteo deixam de contar como "posterior": o glúteo aparece com o próprio nome na leitura do exercício e nas "outras formas", e a sua ficha continua a mesma.
 - **Avisos por e-mail.** Boas-vindas ao criar a conta, um aviso quando você passa 5 dias sem registrar treino e o resumo da semana toda segunda-feira (treinos, séries, peso e água). Você escolhe quais recebe e a que horas em **Perfil › Avisos**, e todo e-mail tem link para parar de receber.
 - **Lembrete de refeição respeita a preferência.** Em Perfil › Avisos dá para desligar só o push de refeição, sem desinscrever o aparelho.
 - **Ajuda.** Perguntas frequentes escritas a partir do que o app faz, "Reportar um problema" com a tela e a versão já preenchidas, e esta lista.
+- **Compartilhar o placar.** Ao fechar o treino, "Compartilhar" gera uma imagem com a sessão, as séries, o volume e o tempo — sem peso corporal — para enviar ou salvar.
 
 ## 2026-09-20
 

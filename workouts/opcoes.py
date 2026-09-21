@@ -34,7 +34,7 @@ from collections import OrderedDict
 from decimal import Decimal
 
 from . import doutrina
-from .models import PADROES_COMPOSTOS, segundos_da_sessao
+from .models import PADROES_COMPOSTOS, familia_de_opcoes, segundos_da_sessao
 
 #: Quantas séries DIRETAS uma sessão quer ter, POR NÍVEL E POR TIPO DE DIA —
 #: desde 17/09/2026 lidas do `docs/briefs/treino/TREINO.md` (`doutrina`).
@@ -101,7 +101,7 @@ FRACAO_MINIMA_DISTINTA = Decimal("0.5")
 def _por_grupo(itens) -> "OrderedDict":
     grupos = OrderedDict()
     for item in itens:
-        grupos.setdefault(item.exercise.muscle_group, []).append(item)
+        grupos.setdefault(familia_de_opcoes(item.exercise.muscle_group), []).append(item)
     return grupos
 
 
@@ -164,7 +164,7 @@ def montar_opcoes(itens, n=2, principais=()) -> list:
     """
     opcoes = [[] for _ in range(n)]
     compartilhados = set()
-    anunciados = set(principais or ())
+    anunciados = {familia_de_opcoes(g) for g in (principais or ())}
     for j, (grupo, lista) in enumerate(_por_grupo(itens).items()):
         if len(lista) < n:
             for k in range(n):
@@ -545,7 +545,8 @@ def _volume_direto(linhas) -> dict:
     flexão de braço — três secundários — desequilibrar ombro e core."""
     volume = {}
     for item, series, _ in linhas:
-        volume[item.exercise.muscle_group] = volume.get(item.exercise.muscle_group, 0) + series
+        grupo = familia_de_opcoes(item.exercise.muscle_group)
+        volume[grupo] = volume.get(grupo, 0) + series
     return volume
 
 
@@ -554,7 +555,7 @@ def _padroes_compostos(linhas, grupo) -> frozenset:
     return frozenset(
         getattr(item.exercise, "padrao", "")
         for item, _, _ in linhas
-        if item.exercise.muscle_group == grupo
+        if familia_de_opcoes(item.exercise.muscle_group) == grupo
         and getattr(item.exercise, "padrao", "") in PADROES_COMPOSTOS
     )
 
@@ -563,7 +564,7 @@ def equivalentes(opcoes, principais) -> bool:
     """As opções da letra são intercambiáveis pelas seis réguas?"""
     if len(opcoes) < 2:
         return True
-    anunciados = set(principais or ())
+    anunciados = {familia_de_opcoes(g) for g in (principais or ())}
     # OS MESMOS PADRÕES COMPOSTOS em cada grupo anunciado. Três supinos
     # contra três crucifixos passavam nas réguas de volume e de minutos; a
     # semana sem remada horizontal também. Isolador pode diferir.
@@ -581,7 +582,7 @@ def equivalentes(opcoes, principais) -> bool:
     if max(minutos) - min(minutos) > TOLERANCIA_DE_MINUTOS:
         return False
     for op in opcoes:
-        presentes = {item.exercise.muscle_group for item, _, _ in op}
+        presentes = {familia_de_opcoes(item.exercise.muscle_group) for item, _, _ in op}
         if not anunciados <= presentes:
             return False
     return True
@@ -639,7 +640,7 @@ def equilibrar(opcoes, principais, teto_min, dar=True, teto_series=TETO_SERIES_C
         limite = max(teto_series, sum(s for _, s, _ in opcoes[pesada]))
         recebem = [
             i for i, (item, series, grau) in enumerate(op)
-            if (grupo_alvo is None or item.exercise.muscle_group == grupo_alvo)
+            if (grupo_alvo is None or familia_de_opcoes(item.exercise.muscle_group) == grupo_alvo)
             and _pode_receber(op, i, teto_min, limite)
         ]
         recebem.sort(key=lambda i: (-op[i][2], op[i][1], i))
@@ -652,7 +653,7 @@ def equilibrar(opcoes, principais, teto_min, dar=True, teto_series=TETO_SERIES_C
         op = opcoes[pesada]
         cedem = [
             i for i, (item, series, grau) in enumerate(op)
-            if grau < 2 and (grupo_alvo is None or item.exercise.muscle_group == grupo_alvo)
+            if grau < 2 and (grupo_alvo is None or familia_de_opcoes(item.exercise.muscle_group) == grupo_alvo)
             and series > (3 if grau >= 1 else 2)
         ]
         if not cedem:
