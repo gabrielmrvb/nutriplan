@@ -1514,6 +1514,19 @@ e-mail, não cem. O envio roda numa thread; sem destinatário, só uma linha
 WARNING. `config/test_logs_json.py` prende as três coisas, inclusive que um
 500 de verdade chega ao handler CONFIGURADO. O UptimeRobot continua sendo o
 alerta de "caiu"; este é o de "está de pé e errando".
+
+**i18n PREPARADA, SEM TRADUZIR (21/09/2026).** O app é pt-BR e continua
+sendo — `LANGUAGE_CODE = "pt-br"`, `LANGUAGES` só com ele, sem
+`LocaleMiddleware` (nenhuma tela negocia língua por cabeçalho). O que
+mudou: `LOCALE_PATHS` aponta para `locale/`, o catálogo
+`locale/pt_BR/LC_MESSAGES/django.po` existe com `msgstr ""` em toda frase (o
+Django mostra o msgid, que já é o texto certo; não rode `compilemessages`),
+e **template NOVO carrega `{% load i18n %}` e marca texto visível com
+`{% translate %}`** — a régua é `TEMPLATES_NOVOS` em `config/test_i18n.py`,
+que cresce com cada template criado a partir de hoje e cobra a frase no
+catálogo. Marcar mil frases antigas de uma vez não é o objetivo; marcar as
+novas custa nada agora e evita a varredura no dia da segunda língua. A
+primeira frase marcada é a faixa do staging em `base.html`.
 **O BUSCADOR VÊ SETE ROTAS, E O RESTO É `noindex` POR PADRÃO (21/09/2026).**
 `config/seo.py` fecha a lista (`ROTAS_PUBLICAS`: landing, capa e "sobre" do
 demo, privacidade, termos, criar conta, entrar) e é dela que `/sitemap.xml`
@@ -1602,6 +1615,22 @@ linguagem nasce de um valor solto. Quatro decisões medidas:
   antes do servidor — a página nova É a confirmação. Enfileirado sem rede,
   a memória é apagada: um almoço marcado no metrô não pode "celebrar"
   horas depois.
+
+**A RÉGUA SISTEMÁTICA DO MOVIMENTO REDUZIDO (21/09/2026).**
+`config/test_movimento.py` prende os três caminhos que animam por JS e o
+bloco universal; `config/test_movimento_reduzido.py` é a régua que
+continua valendo na PRÓXIMA animação: todo seletor com `animation-delay`
+fora dos blocos reduzidos tem o atraso zerado (ou `animation: none`) num
+bloco reduzido — `.01ms` de duração não zera o atraso, e um cartão com
+`fill: both` fica invisível esperando (achado da régua: os números do
+placar, `.recompensa .fim__numeros > li`, esperavam a nervura que não ia
+riscar); toda chamada a `.animate(`, `requestAnimationFrame(` ou rolagem
+`smooth`, em `static/js/*.js` e nos `<script>` dos templates, tem
+`reduzido()`/`prefers-reduced-motion` nas 45 linhas acima (as duas
+sanfonas ganharam o gate dentro da própria função — antes só o toque era
+filtrado); nenhum `<animate>` SMIL e nenhum `autoplay` escrito no HTML (o
+vídeo do exercício nasce no toque). E o E2E noturno emula
+`prefers-reduced-motion` e exige `getAnimations()` sem nada acima de 50 ms.
 
 **Antes de criar componente novo, procure.** `templates/partials/` tem oito
 parciais; `card`, `btn`, `chip`, `pill`, `tile`, `data-list`, `empty-state` e
@@ -2205,9 +2234,11 @@ o helper ANTIGO (sem `_provar_staging`) mergeia e NÃO vê produção mudar:
 mesmo do QA local — fazendo o caminho de uma pessoa: cadastro → as três
 etapas do onboarding → "Criar meu plano" → +250 ml de água → refeição
 registrada → uma série concluída no treino → as mesmas telas em tema claro
-(`set media light`) → exclusão da conta pela tela → login recusado (a
-prova de que sumiu). Onze passos, uma captura por passo (390×844, escuro e
-claro) no artefato `capturas-e2e` de todo run; falhou, `erro-<passo>.png`
+(`set media light`) → movimento reduzido (`prefers-reduced-motion` emulado:
+`getAnimations()` não pode ver nada acima de 50 ms na Home nem na execução)
+→ exclusão da conta pela tela → login recusado (a prova de que sumiu). Doze
+passos, uma captura por passo (390×844, escuro e claro) no artefato
+`capturas-e2e` de todo run; falhou, `erro-<passo>.png`
 + o snapshot em texto, a conta é apagada mesmo assim (`finally`) e a issue
 "E2E noturno falhou" abre. A conta é `qa-e2e-<run>-<data>@nutriplan.invalid`
 com senha gerada no job e nunca impressa, e o roteiro só aceita um `/saude/`

@@ -403,6 +403,15 @@ LANGUAGE_CODE = "pt-br"
 TIME_ZONE = "America/Sao_Paulo"
 USE_I18N = True
 USE_TZ = True
+#: i18n SEM traduzir (21/09/2026): o app é pt-BR e continua sendo; o que muda
+#: é que template NOVO marca texto visível com `{% translate %}` e o catálogo
+#: `locale/pt_BR/LC_MESSAGES/django.po` lista as frases (msgstr vazio — o
+#: Django mostra o msgid). Só `pt-br` em LANGUAGES: sem LocaleMiddleware,
+#: sem negociação por Accept-Language, nenhuma tela muda. O dia em que uma
+#: segunda língua entrar é um `.po` a mais e o middleware — não uma
+#: varredura de mil templates.
+LANGUAGES = [("pt-br", "Português (Brasil)")]
+LOCALE_PATHS = [BASE_DIR / "locale"]
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]

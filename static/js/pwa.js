@@ -937,6 +937,9 @@
   }
 
   function abrirSanfona(details, summary) {
+    /* O toque já foi filtrado por `reduzido()`; o gate aqui é a segunda
+       trava, para quem chamar a função por outro caminho. */
+    if (reduzido()) { details.open = true; return; }
     var de = details.offsetHeight;
     details.dataset.animando = "1";
     details.style.overflow = "clip";
@@ -953,6 +956,7 @@
   }
 
   function fecharSanfona(details, summary) {
+    if (reduzido()) { details.open = false; return; }
     var de = details.offsetHeight;
     /* A altura fechada é MEDIDA fechando e reabrindo antes de qualquer
        pintura — assim o CSS de `[open]` (a margem do `summary`, por

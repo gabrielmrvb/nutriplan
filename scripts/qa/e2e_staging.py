@@ -9,7 +9,8 @@ O que ele faz, na ordem (`PASSOS` é a lista que o teste lê):
     cadastro → onboarding 1 (sobre você) → 2 (objetivo e rotina) → 3 (personalização,
     "Criar meu plano") → água (+250 ml) → refeição registrada → treino com UMA série
     concluída → tema claro (as mesmas telas em `prefers-color-scheme: light`) →
-    excluir a conta pela tela → login recusado (a prova de que sumiu)
+    movimento reduzido (com `prefers-reduced-motion` emulado, `getAnimations()`
+    não vê nada acima de 50 ms) → excluir a conta pela tela → login recusado
 
 Cada passo tira uma captura (`NN-passo.png`, mobile 390×844); o tema escuro é
 o padrão do app (Ferro) e o claro é emulado com `set media light`. A conta é
@@ -37,7 +38,7 @@ from pathlib import Path
 
 PASSOS = (
     "cadastro", "onboarding-1", "onboarding-2", "onboarding-3", "home",
-    "agua", "refeicao", "serie", "tema-claro", "excluir", "login-recusado",
+    "agua", "refeicao", "serie", "tema-claro", "movimento-reduzido", "excluir", "login-recusado",
 )
 DOMINIO_DE_QA = "nutriplan.invalid"
 VIEWPORT = (390, 844)
@@ -240,6 +241,20 @@ class E2E:
             self.ab("open", self.base + rota)
             self.ab("wait", "500")
             self.captura("claro-" + nome)
+
+    def movimento_reduzido(self):
+        """Com `prefers-reduced-motion: reduce` emulado, nenhuma animação de
+        verdade roda: `document.getAnimations()` só vê durações de ~0 ms."""
+        self.ab("set", "media", "light", "reduced-motion")
+        self.ab.esperar_js("matchMedia('(prefers-reduced-motion: reduce)').matches", rotulo="emulação de movimento reduzido")
+        for rota, nome in (("/", "home"), ("/treino/agora/", "agora")):
+            self.ab("open", self.base + rota)
+            self.ab("wait", "800")
+            lentas = self.ab.eval("document.getAnimations().filter(function(a){return a.effect.getTiming().duration>50}).length").strip()
+            if lentas != "0":
+                raise RuntimeError("%s: %s animações com mais de 50 ms sob prefers-reduced-motion" % (rota, lentas))
+            self.captura("reduzido-" + nome)
+        self.ab("set", "media", "dark")
 
     def excluir(self):
         self.ab("open", self.base + "/conta/excluir/")
