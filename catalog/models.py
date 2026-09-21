@@ -197,6 +197,15 @@ class FoodPortion(models.Model):
         decimal_places=2,
         validators=[MinValueValidator(Decimal("0.01"))],
     )
+    # `label` carrega o número ("1 colher de sopa") e nunca foi lido fora do
+    # seed — a Home mostrava "Aveia 116 g" em vez de "7,5 colheres de sopa"
+    # (avaliação de 16/09, B15). `singular`/`plural` são o texto SEM o
+    # número, para `plans.porcoes.medida_caseira` compor "7,5 colheres de
+    # sopa". Escritos à mão porque pt-BR não deriva "colher → colheres" por
+    # regra nenhuma; `blank=True` porque a migração é aditiva sobre dado que
+    # já existia.
+    singular = models.CharField("medida (singular)", max_length=60, blank=True, default="")
+    plural = models.CharField("medida (plural)", max_length=60, blank=True, default="")
     is_default = models.BooleanField("medida padrão", default=False)
 
     class Meta:
@@ -250,6 +259,17 @@ class MealTemplate(models.Model):
     )
     instructions = models.TextField("modo de preparo", blank=True)
     is_active = models.BooleanField("ativa", default=True)
+    #: Quando o seed recriou os ingredientes desta receita pela última vez.
+    #:
+    #: `MealOption.scale_factor` foi calculado sobre a base que existia no dia
+    #: em que o plano nasceu; se a base muda (cafés recalibrados, 17/09/2026),
+    #: o fator antigo sobre a base nova entrega outra comida. `plan_is_current`
+    #: compara este carimbo com `NutritionPlan.created_at` e refaz o plano na
+    #: próxima visita — só o plano que aponta para a receita que mudou.
+    #: `NULL` é "nunca mudou desde que nasceu".
+    items_changed_at = models.DateTimeField(
+        "ingredientes alterados em", null=True, blank=True
+    )
 
     kcal_cache = models.DecimalField("calorias", **MACRO_FIELD)
     protein_g_cache = models.DecimalField("proteína (g)", **MACRO_FIELD)

@@ -8,6 +8,8 @@ from django.utils import timezone
 from accounts.models import ActivityLevel, Goal, Sex
 from catalog.models import MACRO_FIELD, MealCategory, MealTemplate
 
+from .porcoes import medida_caseira
+
 
 class NutritionPlan(models.Model):
     """Snapshot imutável do cálculo de dieta feito num dado momento.
@@ -190,14 +192,23 @@ class MealOption(models.Model):
         """Ingredientes com as quantidades já escaladas, para exibir na tela.
 
         Usa `.all()` de propósito: assim a chamada aproveita o
-        prefetch_related("options__template__items__food") da view em vez de
-        disparar uma consulta por opção exibida.
+        prefetch_related("options__template__items__food__portions") da view
+        em vez de disparar uma consulta por opção exibida — vale também para
+        `.portions.all()`, que por isso precisa estar no mesmo prefetch.
+
+        "caseira" é a medida caseira da quantidade escalada ("7,5 colheres de
+        sopa" em vez de "Aveia 116 g" — avaliação de 16/09, B15), ou `None`
+        quando o alimento não tem porção cadastrada.
         """
         return [
             {
                 "food": item.food,
                 "quantity": item.scaled_quantity(self.scale_factor),
                 "unit": item.food.base_unit,
+                "caseira": medida_caseira(
+                    item.scaled_quantity(self.scale_factor),
+                    next((p for p in item.food.portions.all() if p.is_default), None),
+                ),
             }
             for item in self.template.items.all()
         ]
