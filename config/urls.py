@@ -152,6 +152,7 @@ urlpatterns = [
     path("conta/", include(ROTAS_SOCIAIS)),
     path("push/", include("push.urls")),
     path("avisos/", include("avisos.urls")),
+    path("ajuda/", include("ajuda.urls")),
     path("treino/", include("workouts.urls")),
     path("conquistas/", include("achievements.urls")),
     # Ingestão de analytics de produto — endpoint de lote chamado por

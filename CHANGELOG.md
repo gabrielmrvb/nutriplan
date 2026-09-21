@@ -1,0 +1,34 @@
+# O que mudou no NutriPlan
+
+Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
+Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
+no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
+
+## 2026-09-21
+
+- **Avisos por e-mail.** Boas-vindas ao criar a conta, um aviso quando você passa 5 dias sem registrar treino e o resumo da semana toda segunda-feira (treinos, séries, peso e água). Você escolhe quais recebe e a que horas em **Perfil › Avisos**, e todo e-mail tem link para parar de receber.
+- **Lembrete de refeição respeita a preferência.** Em Perfil › Avisos dá para desligar só o push de refeição, sem desinscrever o aparelho.
+- **Ajuda.** Perguntas frequentes escritas a partir do que o app faz, "Reportar um problema" com a tela e a versão já preenchidas, e esta lista.
+
+## 2026-09-20
+
+- **Página inicial para quem não tem conta.** A raiz mostra o que o app é, com a demonstração pública; entrar continua a um toque.
+- **Treino só com o peso do corpo.** Quem escolhe "só o peso do corpo" recebe uma ficha completa: 34 exercícios novos, com progressão.
+- **Home mais curta.** As refeições fora da vez ficam fechadas e abrem num toque; a refeição da vez continua aberta.
+- **Teclado sem esconder botão.** Com o teclado aberto, a barra de baixo sai do caminho.
+- **Ofensiva mais justa.** A sequência passa a contar 2 de 3 do dia (refeições, treino, água) e diz o que faltou.
+- **Login mais rápido.** A senha continua tão segura, e o entrar deixou de pagar quase dois segundos.
+
+## 2026-09-17
+
+- **Ficha de academia de verdade.** 63 exercícios ativos com demonstração conferida; "Peito e tríceps" com 7 exercícios e 24–26 séries no Padrão.
+- **A semana continua de onde parou.** O ciclo A·B·C não recomeça toda segunda: peito, costas e pernas passam a cair o mesmo número de vezes.
+- **Carga que se adapta.** O app sugere subir, manter ou retomar a carga pelo que você registrou — e nunca baixa o número sozinho. Na última série do composto, "1 a 2 sobrando, mesmo passando de 10".
+- **Uma ficha por letra, e "outras formas".** Você escolhe COMO fazer cada movimento (a máquina ocupada tem substituto do mesmo padrão) e o equipamento que tem no perfil.
+- **Direção visual NERVURA.** Preto esverdeado de academia, verde-neon só para agir, laranja só para a carga, a régua diagonal e a ponta de folha.
+
+## 2026-09-16
+
+- **Lembrete de refeição no aparelho.** Ative em Perfil › Lembretes: 20 minutos antes de cada refeição do seu plano.
+- **Conquista na hora.** A primeira série do dia já avalia as conquistas e avisa na mesma tela.
+- **Onboarding em três etapas.** Sobre você · Seu objetivo e rotina · Sua personalização.
