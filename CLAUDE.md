@@ -2249,6 +2249,28 @@ caiu em "relation already exists" e o schema foi zerado uma vez
 o helper ANTIGO (sem `_provar_staging`) mergeia e NÃO vê produção mudar:
 `git merge origin/main` antes de enfileirar, sempre.
 
+**O STAGING TEM UM E2E NOTURNO DE ROBÔ (21/09/2026).**
+`.github/workflows/e2e-noturno.yml` (04:30 de Brasília, e pelo botão) roda
+`scripts/qa/e2e_staging.py` com o `agent-browser` — Chromium headless, o
+mesmo do QA local — fazendo o caminho de uma pessoa: cadastro → as três
+etapas do onboarding → "Criar meu plano" → +250 ml de água → refeição
+registrada → uma série concluída no treino → as mesmas telas em tema claro
+(`set media light`) → exclusão da conta pela tela → login recusado (a
+prova de que sumiu). Onze passos, uma captura por passo (390×844, escuro e
+claro) no artefato `capturas-e2e` de todo run; falhou, `erro-<passo>.png`
++ o snapshot em texto, a conta é apagada mesmo assim (`finally`) e a issue
+"E2E noturno falhou" abre. A conta é `qa-e2e-<run>-<data>@nutriplan.invalid`
+com senha gerada no job e nunca impressa, e o roteiro só aceita um `/saude/`
+que diga `"ambiente": "staging"` — produção não recebe conta de robô.
+Ensaiado na máquina em 21/09: 11 de 11 em ~60 s. Quatro coisas que custaram
+tentativa: `fill` não preenche `<input type=date>` (entra pelo DOM, conferido);
+no Windows o `agent-browser.cmd` passa o `eval` pelo cmd.exe, que come `||`
+(o roteiro chama o `.exe` direto e os `eval` evitam `||`/`&&`); o daemon do
+agent-browser herda os descritores (saída em ARQUIVO, `stdin` fechado, nunca
+pipe); e o CTA da ficha nova não navegou atrás do convite de instalação (o
+roteiro dispensa o convite na Home e, se um clique não navega, abre o `href`).
+`config/test_e2e_noturno.py` prende o roteiro com um navegador falso.
+
 `scripts/build.sh` roda collectstatic → `check --deploy` → migrate → os três
 seeds, com `errexit`: build que passa prova que a migração rodou. Confira em
 `/saude/` — e olhe o `"ambiente"`: `"staging"` ou `""` (produção).
