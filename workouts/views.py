@@ -986,34 +986,6 @@ def _descanso_de(user, exercise) -> int:
     return item or 60
 
 
-class HealthExportView(OnboardingRequiredMixin, View):
-    """O treino do dia em TCX, para importar no app Saúde.
-
-    Uma PWA não escreve no HealthKit — não existe API web para isso, e o
-    Health Connect do Android é igual. O caminho honesto é o arquivo.
-    """
-
-    def get(self, request, *args, **kwargs):
-        resumo = health_export.resumo_da_sessao(request.user)
-        if not resumo.tem_dados:
-            messages.error(request, "Nenhuma série registrada hoje para exportar.")
-            return redirect("workouts:routine")
-
-        conteudo = health_export.tcx(resumo)
-        resposta = HttpResponse(conteudo, content_type="application/vnd.garmin.tcx+xml")
-        resposta["Content-Disposition"] = (
-            f'attachment; filename="nutriplan-{resumo.data:%Y-%m-%d}.tcx"'
-        )
-        # `no-store` PELO MESMO MOTIVO da exportação de dados.
-        #
-        # Este arquivo carrega o treino do dia, e o clique num link é
-        # `mode: "navigate"` — o service worker o trata pela estratégia de
-        # navegação, e `podeGuardar` só recusa quem manda `no-store`. Sem este
-        # cabeçalho o TCX entrava em `CACHE_PAGINAS` como se fosse uma tela.
-        resposta["Cache-Control"] = "no-store"
-        return resposta
-
-
 class ExercicioView(OnboardingRequiredMixin, TemplateView):
     """A leitura de UM exercício: como é o movimento, e onde ele cai na semana.
 

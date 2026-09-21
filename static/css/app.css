@@ -4914,7 +4914,6 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
    discretos dividem a linha de baixo. */
 .resumo__acoes .btn--primary { grid-column: 1 / -1; }
 
-.resumo__nota { margin: 0; color: var(--text-mute); font-size: .74rem; line-height: 1.55; }
 
 @media (max-width: 26rem) {
   .resumo__acoes { grid-template-columns: 1fr; }

@@ -1637,7 +1637,7 @@ está indo: `pwa.js` marca `is-carregando` + `aria-busy` no clique (mesma
 receita visual do `[aria-busy]` do `<button>`), e o `pageshow` limpa ao
 voltar pelo bfcache. Fica de fora quem não troca de página: `target`,
 `download`, `#`, `mailto:`, `tel:`, `sms:`, `javascript:`, clique com
-modificador — e **`data-arquivo`**, a marca dos dois links que exportam o TCX:
+modificador — e **`data-arquivo`**, a marca dos dois links que exportavam o TCX (saíram em 20/09/2026; a marca fica para o próximo link de arquivo):
 a resposta é `attachment` e a página não troca, mas a view pode responder 302
 com mensagem quando não há treino, e `download` faria o navegador SALVAR
 aquele HTML. Sem a guarda de `#`, o CTA da Home (`acao.url = "#slot-N"`)
@@ -1969,7 +1969,9 @@ nenhum — a noite é da `noturna.yml`.
   de 20/09 e voltou à tarde; o `zz_nutriplan_libpq.pth` que a sessão de
   auditoria pôs no `.venv` para o `libpq` 16 fica, porque é inofensivo.
 - **PWA não escreve no Apple Saúde nem no Health Connect** — não existe API web.
-  `workouts/health_export.py` gera TCX para importar.
+  A ponte era um TCX em `/treino/exportar/saude.tcx`; saiu em 20/09/2026 por
+  decisão do dono (sem uso, e a segunda fórmula de duração morava lá).
+  `workouts/health_export.py` ficou só com `resumo_da_sessao`, que o painel lê.
 - **Background Sync não existe no Safari do iPhone.** O evento `online` é o
   mecanismo principal; o sync em segundo plano é bônus.
 - **O serviço web gratuito do Render bloqueia saída SMTP nas portas 25, 465 e

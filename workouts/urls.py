@@ -31,7 +31,6 @@ urlpatterns = [
         views.RecordLoadView.as_view(),
         name="record_load",
     ),
-    path("exportar/saude.tcx", views.HealthExportView.as_view(), name="health_export"),
     # Corrida. As telas vivem sob `treino/` porque é a mesma aba do app — a
     # visão aprovada tem Corrida como destino próprio, e movê-la para lá é
     # troca de rota, não de código.
