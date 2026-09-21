@@ -1,11 +1,11 @@
-# Promover um commit de `main` para PRODUÇÃO — o único caminho de deploy de
-# produção desde 21/09/2026. Todo merge em `main` sobe sozinho no STAGING
-# (`nutriplan-staging`); produção tem `autoDeploy: false` (render.yaml) e só
-# muda quando alguém aperta este botão (aba Actions → "Promover para
-# produção" → Run workflow) ou roda `scripts/promover.py <sha> --esperar`
-# na máquina. Os dois fazem a MESMA coisa: exigem que o SHA esteja em `main`
-# e que o staging já o tenha provado em `/saude/`, pedem o deploy pela API
-# do Render com `commitId` e esperam produção responder o commit.
+# Promover UM commit de `main` para PRODUÇÃO à mão — a EXCEÇÃO. A regra é o
+# lote (`promover-lote.yml`, de meia em meia hora, e a fila no fim de cada
+# merge): produção muda no fim de um lote provado, no máximo uma vez por
+# hora. Este botão existe para o runbook — voltar a um commit anterior,
+# ou subir um hotfix nomeado — e faz o mesmo que `scripts/promover.py <sha>
+# --esperar`: exige o SHA em `main` e o staging provando-o em `/saude/`,
+# pede o deploy pela API do Render com `commitId` e espera produção
+# responder o commit. Ele NÃO roda o E2E: quem aperta assume a prova.
 #
 # Segredo: `RENDER_API_KEY` (segredo do repositório, gravado por
 # `scripts/github.py segredo RENDER_API_KEY <arquivo>`). Nunca impresso.
@@ -57,6 +57,7 @@ jobs:
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
         run: |
+          set -o pipefail   # senão o código de saída é o do tee
           extra=""
           if [ "${{ github.event.inputs.sem_staging }}" = "true" ]; then extra="--sem-staging"; fi
           python scripts/promover.py "${{ steps.sha.outputs.sha }}" --esperar --minutos 15 $extra | tee promocao.log

@@ -2323,9 +2323,31 @@ o helper ANTIGO (sem `_provar_staging`) mergeia e NÃO vê produção mudar:
 `git merge origin/main` antes de enfileirar, sempre. **A promoção é de um
 SHA de `main`, e leva tudo que está antes dele** — por construção, não por
 combinação: tudo em `main` passou pelo gate e pelo deploy automático do
-staging. Cada sessão promove o SEU SHA final quando termina o QA em staging;
-o que vier antes vai junto, e o que não pode ir para produção não pode
-estar em `main` (pergunta da sessão de analytics, 21/09/2026).
+staging; o que não pode ir para produção não pode estar em `main`
+(pergunta da sessão de analytics, 21/09/2026).
+
+**A REGRA DA PROMOÇÃO (decisão do dono, 21/09/2026, tarde): produção só
+muda no fim de um LOTE PROVADO, e no máximo uma vez por hora.** Ninguém
+mais promove "o seu SHA"; o lote é a ponta de `main`. `scripts/promover.py
+--lote` (= `scripts/github.py promover-lote`) é a regra inteira, e roda em
+dois lugares: no fim de TODO merge da fila (`enfileirar`, depois de provar
+o staging) e no cron `promover-lote.yml`, de meia em meia hora — para o
+merge que caiu numa janela fechada não depender do merge seguinte. Na
+ordem: o staging tem de responder a ponta de `main` (senão "NÃO PROVADO",
+nada sobe); produção já lá, nada a fazer; a última promoção — o deploy
+mais novo de produção, pela API do Render, qualquer gatilho — tem de ter
+mais de 60 min, senão o lote é **ADIADO** e produção não muda (é assim que
+dois merges seguidos viram UMA promoção); então a prova — smoke nas rotas
+públicas do staging e o **E2E de gente** (`scripts/qa/e2e_staging.py`, os
+12 passos) —, e reprovou, nada sobe e o código de saída é 1; só então a
+promoção de sempre. `--forcar-janela` (o `--promover` do `enfileirar`)
+ignora o relógio para um hotfix e NUNCA a prova; `--sem-e2e` existe para
+runner sem navegador e fica dito no log. O botão "Promover para produção"
+(`promover.yml`) virou a EXCEÇÃO nomeada: promove um SHA à mão, sem E2E —
+é o que o runbook usa para voltar. Provado em 21/09: dois merges seguidos
+(#… e #…) com a janela fechada saíram "LOTE ADIADO", produção ficou onde
+estava, e o `--lote` seguinte subiu os dois numa promoção só.
+`config/test_lote.py` prende cada cenário com a API, o smoke e o E2E falsos.
 
 **O STAGING TEM UM E2E NOTURNO DE ROBÔ (21/09/2026).**
 `.github/workflows/e2e-noturno.yml` (04:30 de Brasília, e pelo botão) roda
