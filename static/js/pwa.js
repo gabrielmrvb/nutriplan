@@ -1138,10 +1138,22 @@
       }
     }
 
-    /* Números que contam até o valor (Progresso). Começam em 60 % do valor,
-       não em zero: o número já é legível no primeiro quadro, e o movimento
-       diz "chegou" em vez de fazer a pessoa esperar para ler. */
-    Array.prototype.forEach.call(document.querySelectorAll("[data-conta]"), function (el) {
+    animarNumeros(document);
+  }
+
+  /* Números que contam até o valor (Progresso) e listas escalonadas. Fora
+     de `aoCarregar` porque a execução do treino TROCA o <main> por fetch
+     ("Concluir série" sem recarga, 20/09/2026): o placar da última série
+     chega num <main> que o DOMContentLoaded nunca viu, e sem esta chamada
+     o número não contava do zero nem a cascata recebia `--i` — a
+     coreografia da NERVURA sumia exatamente no momento que existe para
+     recompensar. `raiz` é o documento no carregamento e o <main> novo na
+     troca; os nós velhos já saíram, então nada conta duas vezes. */
+  function animarNumeros(raiz) {
+    /* Começam em 60 % do valor, não em zero: o número já é legível no
+       primeiro quadro, e o movimento diz "chegou" em vez de fazer a pessoa
+       esperar para ler. */
+    Array.prototype.forEach.call(raiz.querySelectorAll("[data-conta]"), function (el) {
       var n = numeroDe(el.textContent);
       if (!n || !n.valor) return;
       /* `data-conta="zero"` é o placar: a carga total conta do ZERO em
@@ -1156,7 +1168,7 @@
     /* Listas escalonadas: cada filho recebe o índice, e o CSS o transforma
        em atraso. O teto de 8 é para a nona linha não chegar meio segundo
        depois — dali em diante tudo entra junto com a oitava. */
-    Array.prototype.forEach.call(document.querySelectorAll("[data-escalonado]"), function (lista) {
+    Array.prototype.forEach.call(raiz.querySelectorAll("[data-escalonado]"), function (lista) {
       Array.prototype.forEach.call(lista.children, function (filho, i) {
         filho.style.setProperty("--i", Math.min(i, 8));
       });
@@ -1164,6 +1176,9 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", aoCarregar);
   else aoCarregar();
+  document.addEventListener("nutriplan:pagina-trocada", function (evento) {
+    animarNumeros((evento.detail && evento.detail.raiz) || document.querySelector("main") || document);
+  });
 })();
 
 /* PÁGINA DO CACHE — a faixa que diz "isto pode estar desatualizado".
