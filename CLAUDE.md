@@ -1485,6 +1485,22 @@ parâmetro de OAuth, chave de SMTP e URL de banco. `django.db.backends` fica em
 WARNING até em DEBUG: consulta com parâmetro carrega e-mail e peso. Toda linha
 leva o identificador do pedido, que também volta no cabeçalho `X-Request-ID` —
 sem ele, "deu erro" e "fulano reclamou" nunca se encontram.
+**O BUSCADOR VÊ SETE ROTAS, E O RESTO É `noindex` POR PADRÃO (21/09/2026).**
+`config/seo.py` fecha a lista (`ROTAS_PUBLICAS`: landing, capa e "sobre" do
+demo, privacidade, termos, criar conta, entrar) e é dela que `/sitemap.xml`
+sai; `/robots.txt` diz o que não rastrear (gestão, sondas, tarefas, offline)
+e NÃO lista o admin — a rota vai deixar de ser óbvia, e um `Disallow` a
+anunciaria. A meta description saiu solta do `base.html` e virou o bloco
+`seo`, que inclui `partials/seo.html` UMA vez no `<head>`: sem argumento a
+página é instância (tela do app, tela interna do demo, shell offline) e leva
+`noindex`; a rota pública declara `publica=True`, `titulo` (igual ao bloco
+`title` — há teste) e `descricao` própria (≤ 160), e ganha `canonical` e
+Open Graph a partir do pedido (`scheme` + host + path, nunca domínio escrito
+à mão). Rota pública nova entra na lista E declara o bloco; esquecer é
+ficar fora do índice, nunca o contrário. Antes disto (medido em produção
+em 21/09): a mesma description em toda página, zero `canonical`/OG, e
+`/demo/treino/` indexável com a ficha do Carlos como se fosse o produto.
+
 ## Design: o que já existe, e o que não inventar de novo
 
 **O sistema visual já existe, é enforcado por teste, e a primeira coisa a fazer
