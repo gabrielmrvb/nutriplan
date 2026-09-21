@@ -281,8 +281,11 @@ class AsAlternativasTests(_ComFicha):
         html = self._ficha()
         self.assertIn("outras formas", html)
         # Um movimento sem outra forma no equipamento não anuncia a porta.
-        prancha = Exercise.objects.get(name="Prancha abdominal")
-        itens = [type("I", (), {"exercise": prancha, "exercise_id": prancha.pk})()]
+        # "Abdominal supra no solo" é o único (padrao, grupo) com um exercício
+        # ativo só no catálogo — a prancha deixou de servir de exemplo em
+        # 20/09/2026, quando a prancha lateral entrou (decisão 1 da avaliação).
+        sozinho = Exercise.objects.get(name="Abdominal supra no solo")
+        itens = [type("I", (), {"exercise": sozinho, "exercise_id": sozinho.pk})()]
         services.contar_outras_formas(self.user, itens)
         self.assertEqual(itens[0].outras_formas, 0)
 

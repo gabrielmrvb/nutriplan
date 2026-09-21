@@ -106,3 +106,77 @@ coisas com o mesmo nome.
   pedido de tile carrega a região da rota no `Referer` e no próprio endereço.
 - Métrica fisiológica inventada — VO2máx estimado, "carga de treino",
   calorias de corrida por fórmula genérica. O app não tem frequência cardíaca.
+
+## Importação de arquivo (decisão 4 da avaliação de UX, 20/09/2026)
+
+A avaliação pediu: manter o registro à mão como caminho, **investigar
+importação (arquivo GPX/TCX primeiro, depois Strava API) e implementar a de
+arquivo**. Não investir em GPS ao vivo.
+
+### O que foi implementado: GPX e TCX de arquivo
+
+`workouts/importar_corrida.py` (puro) lê o `<trkpt>` do GPX e o `<Trackpoint>`
+do TCX, devolve as leituras `{"lat","lon","t"}` que `workouts.corrida.percurso`
+já consome, e a distância sai do MESMO motor que trata o GPS ao vivo — uma
+leitura ruim é recusada aqui igual à da rua. `ImportarCorridaView`
+(`/treino/corridas/importar/`) aplica os mesmos tetos do GPS e grava com
+`origem="arquivo"`. Decisões tomadas, com a razão:
+
+- **Parsing no servidor, e não no navegador.** O GPS ao vivo calcula no
+  navegador de propósito (as leituras são o dado mais sensível). Mas o arquivo
+  a pessoa ESCOLHEU subir; parsear XML no servidor é o caminho natural do
+  upload, e não muda a superfície de privacidade — o arquivo já chega ao
+  servidor.
+- **`t` do arquivo, `duracao_s` = tempo decorrido (último − primeiro ponto).**
+  Distinguir "tempo em movimento" de pausa é heurística específica de cada
+  aparelho; inventar a nossa divergiria em silêncio do que o Strava/Garmin já
+  mostrou à pessoa. Importado usa o tempo que o arquivo registra, e a régua de
+  velocidade impossível continua valendo por cima.
+- **O traçado NÃO é guardado.** Só distância, tempo, início/fim e parciais.
+  Guardar as coordenadas do arquivo é a coleta que `Corrida` recusou por anos
+  ("onde a pessoa mora"); dar mapa à corrida importada é outra fatia, com o
+  corte das pontas da rota junto — não antes dele.
+- **Idempotência pelo CONTEÚDO.** `op_id = "arq-" + sha256(arquivo)[:60]`:
+  reimportar o mesmo arquivo cai no `UniqueConstraint(user, op_id)` e não
+  duplica. Por pessoa, então duas pessoas podem importar o mesmo percurso.
+- **Importada não se edita**, como o GPS: o percurso do arquivo contradiria
+  números trocados à mão. `origem="arquivo"` (`workouts.0030`).
+- **Segurança do XML sem dependência nova.** Não há `defusedxml` aqui. GPX/TCX
+  nunca declaram DTD, então qualquer arquivo com `<!DOCTYPE`/`<!ENTITY` é
+  recusado antes do parser — mata XXE e billion-laughs de uma vez. Teto de
+  5 MB antes de ler.
+
+### O que NÃO foi implementado: Strava API — e por quê
+
+Investigada, não construída, e a razão é de credencial e de dono, não técnica:
+
+- A Strava API é **OAuth 2.0**: o app precisa estar **registrado** no painel de
+  desenvolvedor da Strava, o que gera um `client_id` e um `client_secret` —
+  uma **credencial que não existe neste ambiente** (cai na condição de parada
+  "precisa de credencial que não existe"). Registrar exige uma conta de
+  desenvolvedor Strava, ou seja, **conta em serviço novo** — o que esta missão
+  não faz.
+- O fluxo seria: botão "Conectar Strava" → redirect para o `authorize` da
+  Strava com escopo `activity:read` → callback grava o `refresh_token` da
+  pessoa → `GET /api/v3/athlete/activities` lista as corridas → para cada uma,
+  `GET /activities/{id}` traz distância, `moving_time`, `elapsed_time` e as
+  splits. Os `streams` (latlng) dariam o traçado — que, pela decisão acima,
+  continuaríamos NÃO guardando.
+- **Limites do plano gratuito da Strava** (à data): ~100 req/15 min e
+  1.000 req/dia por app, e as condições de uso da marca ("Powered by Strava",
+  proibição de comparar atletas fora da plataforma, etc.). Nada disso
+  impede — mas tudo isso é decisão do dono, junto com a credencial.
+- **Custo/benefício:** a importação de arquivo já cobre Strava (exporta GPX),
+  Garmin, Coros, Apple Saúde e Polar sem OAuth, sem credencial e sem depender
+  da política de um terceiro. A API só acrescenta a comodidade de não baixar o
+  arquivo — a um custo de credencial, conta nova e manutenção de OAuth.
+
+**Recomendação:** manter a importação de arquivo como o caminho, e só abrir a
+Strava API se o dono registrar o app (credencial) e aceitar os termos —
+decisão dele, não da sessão.
+
+### GPS ao vivo em segundo plano: continua fora
+
+Sem mudança. A PWA não tem geolocalização com a tela bloqueada (ausência de
+API, não de esforço), e a decisão da avaliação foi explícita: não investir
+nisso. As medições de aparelho da seção anterior seguem pendentes.

@@ -113,7 +113,10 @@ TETO_FONT_SIZE_CRU = 116
 #: `.anatomia__botao { gap: .45rem }` saíram com o segundo player.
 #: 243 em 16/09/2026 (T3.6): o selo do treino concluído (`.fim__selo`, com
 #: `margin: .2rem auto ...`) saiu com a folha de recompensa.
-TETO_ESPACO_CRU = 243
+#: 241 em 20/09/2026: `.explicacao__head a` (`padding: 0 .4rem; margin: 0
+#: -.4rem`) saiu com o "Editar" de dentro do `<summary>` (axe
+#: `nested-interactive`); o link virou `.btn--quiet`, que já está na escala.
+TETO_ESPACO_CRU = 241
 
 
 def sem_comentarios(texto):
