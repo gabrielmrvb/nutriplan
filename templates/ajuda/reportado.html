@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% comment %}
+  A mesma tela para o relato que saiu, para o pote de mel e para quem
+  estourou o limite: não dizer qual foi é o que impede um bot de aprender.
+{% endcomment %}
+
+{% block title %}Relato enviado · NutriPlan{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Recebemos</h1>
+    <p class="lead">Obrigada por contar. Se deixou o e-mail, a resposta vai chegar nele.</p>
+  </div>
+
+  <div class="stack">
+    <a class="btn btn--primary btn--block" href="{% url 'ajuda:index' %}">Voltar para a ajuda</a>
+    {% if user.is_authenticated %}<a class="btn btn--ghost btn--block" href="{% url 'plans:today' %}">Ir para Hoje</a>{% endif %}
+  </div>
+{% endblock %}

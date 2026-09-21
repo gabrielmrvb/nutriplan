@@ -1,0 +1,35 @@
+{% extends "analytics/base.html" %}
+{% block title %}Usuário · Analytics{% endblock %}
+
+{% block content %}
+  <div class="page-head"><h1>Linha do tempo</h1></div>
+
+  <section class="card">
+    <form method="get" class="stack">
+      <label class="field">
+        <span class="field__label">Id do usuário (número) ou id anônimo</span>
+        <input class="field-input" name="id" value="{{ chave }}" placeholder="42 ou 3f9a…" inputmode="text">
+      </label>
+      <button class="btn btn--primary" type="submit">Buscar</button>
+    </form>
+    <p class="hint">Busca por id, nunca por e-mail — o painel não guarda PII.</p>
+  </section>
+
+  {% if eventos is not None %}
+    <section class="card">
+      <div class="card__head"><h2>{{ eventos|length }} evento{{ eventos|length|pluralize }}</h2></div>
+      {% if eventos %}
+        <dl class="data-list">
+          {% for e in eventos %}
+            <div>
+              <dt>{{ e.ts|date:"d/m H:i" }}</dt>
+              <dd>{{ e.name }}{% if e.props %} <span class="hint">{{ e.props }}</span>{% endif %}{% if e.route %} <span class="hint">· {{ e.route }}</span>{% endif %}</dd>
+            </div>
+          {% endfor %}
+        </dl>
+      {% else %}
+        <p class="empty-state">Nenhum evento para esse id.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+{% endblock %}

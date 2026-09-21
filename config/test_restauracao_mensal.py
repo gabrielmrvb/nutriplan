@@ -49,6 +49,9 @@ class OFluxoMensalTests(SimpleTestCase):
         self.assertIsNotNone(versao)
         self.assertGreaterEqual(int(versao.group(1)), 17, "pg_dump 18 escreve SET transaction_timeout, que só existe a partir do 17")
         self.assertIn("postgresql-client-18", FLUXO)
+        # MEDIDO no primeiro run (21/09/2026): o wrapper /usr/bin/pg_dump do
+        # runner ficou no 16 depois do apt; o 18 entra no PATH pelo caminho real.
+        self.assertIn('echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"', sem_comentarios(FLUXO))
 
     def test_os_tres_passos_na_ordem_e_com_as_guardas(self):
         corpo = sem_comentarios(FLUXO)

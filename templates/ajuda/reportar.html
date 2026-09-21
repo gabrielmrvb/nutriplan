@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% comment %}
+  "Reportar um problema" chega PREENCHIDO: a rota de onde a pessoa veio, a
+  versão do app e o aparelho já vêm no formulário — ela lê, corrige se quiser
+  e escreve só o que aconteceu. A versão é somente leitura porque é a do
+  servidor, não um dado dela. O `site` é o pote de mel: fica fora da tela e
+  tem de chegar vazio.
+{% endcomment %}
+
+{% block title %}Reportar um problema · NutriPlan{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Reportar um problema</h1>
+    <p class="lead">Conte o que aconteceu. A tela, a versão e o aparelho já vão preenchidos.</p>
+  </div>
+
+  <section class="card">
+  <form method="post" action="{% url 'ajuda:reportar' %}" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <ul class="field__errors" role="alert">{% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    {% endif %}
+
+    {% include "partials/field.html" with field=form.descricao %}
+    {% include "partials/field.html" with field=form.rota %}
+    {% include "partials/field.html" with field=form.versao %}
+    {% include "partials/field.html" with field=form.dispositivo %}
+    {% include "partials/field.html" with field=form.email %}
+    {{ form.site }}
+
+    <p class="form__nota">Vai por e-mail para quem cuida do app. Se você deixou o seu e-mail, a resposta chega nele.</p>
+
+    <div class="stack">
+      <button type="submit" class="btn btn--primary btn--block">Enviar relato</button>
+      <a class="btn btn--ghost btn--block" href="{% url 'ajuda:index' %}">Voltar para a ajuda</a>
+    </div>
+  </form>
+  </section>
+{% endblock %}

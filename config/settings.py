@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "demo",
     "achievements",
     "gestao",
+    "ajuda",
     "analytics",
     "avisos",
     # Login com Google — o allauth como MOTOR, não como interface.
@@ -538,6 +539,11 @@ NUTRIPLAN_TAREFAS_TOKEN = env("NUTRIPLAN_TAREFAS_TOKEN", default="")
 #: jobs de `avisos.jobs`). O e-mail de senha continua lendo o domínio do
 #: request; estes não têm request. Em produção é o domínio do Render.
 NUTRIPLAN_URL_BASE = env("NUTRIPLAN_URL_BASE", default="https://nutriplan-xxfn.onrender.com")
+
+#: Para onde vai "Reportar um problema" (`/ajuda/reportar/`). Sem valor
+#: próprio, cai no e-mail de administração do push — é o mesmo dono; um
+#: segundo endereço seria uma segunda variável para esquecer no painel.
+NUTRIPLAN_SUPORTE_EMAIL = env("NUTRIPLAN_SUPORTE_EMAIL", default="") or VAPID_ADMIN_EMAIL
 
 # Token do disparo PONTUAL `GET /tarefas/lembretes/externo/<token>/` (o
 # UptimeRobot bate aqui a cada 5 min). SEPARADO do de cima de propósito: ele

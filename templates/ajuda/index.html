@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% comment %}
+  A FAQ do NutriPlan, escrita a partir do que o app FAZ — cada resposta
+  aponta uma tela ou uma regra que existe no código, e a fonte de cada uma
+  está no `CLAUDE.md`. Regra do texto: nenhuma promessa que o app não cumpra;
+  quando o app não faz, a resposta diz que não faz (o app não mede caloria
+  gasta no treino, não escreve no Apple Saúde, não substitui nutricionista).
+
+  É `<details class="fora">` — a sanfona que a Home já usa — porque o leitor
+  de tela e o teclado vêm de graça, e a animação é a do `pwa.js`.
+{% endcomment %}
+
+{% block title %}Ajuda · NutriPlan{% endblock %}
+{% block seo %}{% include "partials/seo.html" with publica=True titulo="Ajuda · NutriPlan" descricao="Perguntas frequentes do NutriPlan: como o plano e a ficha são calculados, água, peso, ofensiva, avisos, offline e privacidade. E onde reportar um problema." %}{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Ajuda</h1>
+    <p class="lead">O que o NutriPlan faz, como usar cada parte, e para onde escrever quando algo não funciona.</p>
+  </div>
+
+  <nav class="modulos modulos--ferramentas" aria-label="Suporte">
+    <a class="modulo modulo--raso" href="{% url 'ajuda:reportar' %}">
+      <span class="modulo__nome">Reportar um problema</span>
+      <span class="modulo__apoio">A tela e a versão já vão preenchidas.</span>
+    </a>
+    <a class="modulo modulo--raso" href="{% url 'ajuda:mudancas' %}">
+      <span class="modulo__nome">O que mudou</span>
+      <span class="modulo__apoio">{% if ultima_mudanca %}Última mudança em {{ ultima_mudanca|date:"d/m" }}.{% else %}As mudanças, por dia.{% endif %}</span>
+    </a>
+  </nav>
+
+  <section class="card">
+    <div class="card__head"><h2>O plano e o cardápio</h2></div>
+
+    <details class="fora">
+      <summary class="fora__abrir">Como o app calcula as minhas calorias?</summary>
+      <div class="fora__corpo"><p>Pela fórmula de Mifflin-St Jeor, com o seu sexo, idade, altura, peso, nível de atividade e objetivo. O resultado é a meta do dia e os macros (proteína, carboidrato, gordura). É uma estimativa calculada, não uma prescrição: para uma dieta clínica, procure uma nutricionista.</p></div>
+    </details>
+    <details class="fora">
+      <summary class="fora__abrir">O que são as opções A e B de cada refeição?</summary>
+      <div class="fora__corpo"><p>Duas refeições equivalentes para o mesmo horário e as mesmas metas. Você registra a que comeu; <strong>Pulei</strong> marca que não comeu, e <strong>Comi outra coisa</strong> deixa você dizer o que foi. Registrar com honestidade não penaliza: a ofensiva mede aderência ao plano, e omitir nunca dá resultado melhor que registrar.</p></div>
+    </details>
+    <details class="fora">
+      <summary class="fora__abrir">Mudei o peso ou o objetivo. O plano muda sozinho?</summary>
+      <div class="fora__corpo"><p>Não — o plano é um retrato do dia em que foi feito. Quando a entrada muda, o app oferece recalcular em <strong>Perfil › Suas metas de hoje</strong>, e nasce um plano novo; o anterior fica no histórico.</p></div>
+    </details>
+    <details class="fora">
+      <summary class="fora__abrir">Para que serve a lista de compras?</summary>
+      <div class="fora__corpo"><p>Ela converte o cardápio da semana em coisas que se compram: gramas de alimento cru, unidades (ovo, banana, pão) e embalagens (lata, pacote, litro). Toda conversão aproximada vem marcada com <code>~</code>. Marcar um item é estado da sua lista: sobrevive a recarga e à fila offline.</p></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>O treino</h2></div>
+
+    <details class="fora">
+      <summary class="fora__abrir">Como a ficha é montada?</summary>
+      <div class="fora__corpo"><p>Pelos dias que você marcou, pelo tempo por sessão (Rápido até 30, Padrão até 60, Completo até 90 minutos), pelo seu nível e pelo equipamento do perfil (completa, básica, casa com halteres ou só o peso do corpo). A divisão vem da frequência: quem treina 5 dias recebe A·B·C que continua de onde parou na semana seguinte — não recomeça toda segunda.</p></div>
+    </details>
+    <details class="fora">
+      <summary class="fora__abrir">Posso trocar um exercício?</summary>
+      <div class="fora__corpo"><p>Sim: abra a leitura do exercício na ficha e toque em <strong>outras formas</strong> — são exercícios do mesmo movimento, no seu equipamento. A troca vale em toda semana em que ele aparecer e não muda séries nem volume. <strong>Voltar ao original</strong> desfaz.</p></div>
+    </details>
+    <details class="fora">
+      <summary class="fora__abrir">O app sugere a carga?</summary>
+      <div class="fora__corpo"><p>Ele lê o que você registrou. Fechou a faixa de repetições na mesma carga, sugere subir; três treinos seguidos sem ganhar repetição, diz que estagnou e mantém; 21 dias sem fazer o exercício, pede para retomar na mesma carga. Nunca baixa o número sozinho. Na última série do composto, a instrução é parar com 1 a 2 repetições sobrando, mesmo passando da faixa.</p></div>
+    </details>
+    <details class="fora">
+      <summary class="fora__abrir">"Seu treino pode ficar mais completo — regenerar?" O que é isso?</summary>
+      <div class="fora__corpo"><p>O catálogo de exercícios cresceu depois que a sua ficha foi montada. A ficha não muda sozinha no meio da semana: você decide. <strong>Regenerar</strong> monta a ficha nova com o catálogo de hoje; <strong>Agora não</strong> guarda a resposta e não pergunta de novo.</p></div>
+    </details>
+    <details class="fora">
+      <summary class="fora__abrir">O que o placar do fim do treino mostra?</summary>
+      <div class="fora__corpo"><p>A carga total de hoje (peso × repetições, série a série), a comparação com a última vez de cada exercício, o recorde quando houve, séries e minutos. Nada de caloria gasta: o app não mede isso e não inventa. <strong>Compartilhar</strong> gera uma imagem do placar sem o seu peso corporal.</p></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Água, peso e progresso</h2></div>
+
+    <details class="fora">
+      <summary class="fora__abrir">Como funciona a meta de água?</summary>
+      <div class="fora__corpo"><p>A meta é calculada pelo seu peso. Registre em toques de 250 ml (ou um valor livre); <strong>desfazer</strong> tira o último toque e <strong>zerar</strong> apaga o dia. O aviso na Home aparece quando você está atrás do esperado para a hora — dentro da janela das suas refeições, não num horário fixo.</p></div>
+    </details>
+    <details class="fora">
+      <summary class="fora__abrir">Com que frequência devo me pesar?</summary>
+      <div class="fora__corpo"><p>Uma vez por semana basta, sempre no mesmo horário. O Progresso mostra a curva e a média; quando falta uma pesagem, a Home convida. O app não infere peso de nada — só do que você registra.</p></div>
+    </details>
+    <details class="fora">
+      <summary class="fora__abrir">O que conta para a ofensiva?</summary>
+      <div class="fora__corpo"><p>Aderência ao plano: refeições registradas, treino do dia feito e água na meta. Dois de três fecham o dia; o app diz o que faltou. O denominador vem do plano, não do que você marcou — por isso registrar "comi outra coisa" nunca é pior que não registrar.</p></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Conta, avisos e privacidade</h2></div>
+
+    <details class="fora">
+      <summary class="fora__abrir">Que e-mails e avisos o app manda?</summary>
+      <div class="fora__corpo"><p>Um e-mail de boas-vindas no cadastro, um aviso quando você passa 5 dias sem registrar treino, o resumo da semana toda segunda-feira e, no aparelho, o lembrete 20 minutos antes de cada refeição. Você escolhe quais recebe e a que horas em <strong>Perfil › Avisos</strong>; todo e-mail tem um link para parar de receber. O e-mail de senha só sai quando você pede.</p></div>
+    </details>
+    <details class="fora">
+      <summary class="fora__abrir">Funciona sem internet?</summary>
+      <div class="fora__corpo"><p>As telas já abertas continuam funcionando, e o que você registra (água, refeição, série) entra numa fila e é enviado na ordem dos toques quando a rede volta. Instale o app pela tela inicial do celular para ter isso sempre à mão.</p></div>
+    </details>
+    <details class="fora">
+      <summary class="fora__abrir">O app escreve no Apple Saúde ou no Health Connect?</summary>
+      <div class="fora__corpo"><p>Não. Não existe API web para isso, e o app não finge que existe. Seus dados são seus: <strong>Perfil › Exportar meus dados</strong> entrega tudo em JSON.</p></div>
+    </details>
+    <details class="fora">
+      <summary class="fora__abrir">Como apago a minha conta?</summary>
+      <div class="fora__corpo"><p><strong>Perfil › Excluir minha conta</strong>. A tela diz o que vai ser apagado, pede a senha (ou uma palavra, se você entra pelo Google) e apaga na hora, sem cópia. O que o app guarda sobre você está escrito na <a href="{% url 'privacidade' %}">política de privacidade</a>, campo a campo.</p></div>
+    </details>
+  </section>
+
+  <p class="muted">Versão em uso: <code>{{ versao }}</code>. Se a resposta não está aqui, <a href="{% url 'ajuda:reportar' %}">escreva o que aconteceu</a>.</p>
+{% endblock %}

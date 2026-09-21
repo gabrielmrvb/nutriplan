@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """O que um buscador vê do NutriPlan — e SÓ o que deve ver.
 
-Sete rotas são públicas de verdade: a landing, a capa e o "sobre" do demo, a
-política e os termos, criar conta e entrar. Todo o resto é instância — a
+Nove rotas são públicas de verdade: a landing, a capa e o "sobre" do demo, a
+política e os termos, criar conta e entrar, e — desde 21/09/2026 — a ajuda
+(perguntas frequentes) e "o que mudou", que são o texto que diz o que o
+produto faz e é por onde alguém o ACHA. Todo o resto é instância — a
 tela do app exige sessão, a tela interna do demo mostra o Carlos, o shell
 offline é o que o service worker serve sem rede. Indexar instância é o erro
 que este módulo fecha: antes dele, `/demo/treino/` podia entrar no índice
@@ -20,7 +22,7 @@ Duas peças:
   Ele NÃO lista o admin: a rota vai deixar de ser óbvia (segurança,
   21/09/2026), e um `Disallow` a anunciaria para quem procura.
 
-Sem `django.contrib.sitemaps` de propósito: são sete URLs estáticas, e a
+Sem `django.contrib.sitemaps` de propósito: são nove URLs estáticas, e a
 biblioteca traria `sites` e uma configuração a mais para gerar o mesmo XML.
 """
 from django.http import HttpResponse
@@ -39,6 +41,8 @@ ROTAS_PUBLICAS = (
     "/termos/",
     "/conta/cadastro/",
     "/conta/entrar/",
+    "/ajuda/",
+    "/ajuda/o-que-mudou/",
 )
 
 #: Onde o rastreador não tem o que fazer: painel de gestão, sondas, tarefas
