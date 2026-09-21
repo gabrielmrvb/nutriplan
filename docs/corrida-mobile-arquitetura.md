@@ -1,3 +1,8 @@
+> **Histórico (20/09/2026):** a API v1 e o cliente `mobile/` que este documento
+> descreve SAÍRAM do repositório por decisão do dono — nenhuma máquina do
+> projeto constrói o cliente nativo. O texto fica como registro da arquitetura
+> medida; o contrato está no histórico do git (`docs/api-v1.md`).
+
 # A Corrida como app nativo — a fronteira, e por que ela fica onde fica
 
 Este documento responde uma pergunta só: **como um cliente mobile nativo coexiste

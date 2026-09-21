@@ -16,6 +16,7 @@ que só mexe em `static/css/` roda o atalho e a vitrine. 45 minutos por push
 de backup é o preço que faz alguém empurrar com `--no-verify`, e trava que
 se pula não é trava.
 """
+import os
 import sys
 
 #: O que roda em TODO push, independentemente do diff: as catracas do
@@ -23,7 +24,7 @@ import sys
 SEMPRE = ("config", "gestao")
 
 #: Apps Django com testes, na ordem em que aparecem em `INSTALLED_APPS`.
-APPS = ("accounts", "achievements", "api", "catalog", "demo", "gestao", "plans", "push", "workouts")
+APPS = ("accounts", "achievements", "catalog", "demo", "gestao", "plans", "push", "workouts")
 
 #: Caminhos fora dos apps que têm dono de teste conhecido.
 FORA_DOS_APPS = {
@@ -41,9 +42,14 @@ def app_do_caminho(caminho):
         if caminho == prefixo or caminho.startswith(prefixo + "/"):
             return app
     partes = caminho.split("/")
-    if partes[0] in APPS:
+    # Só app que EXISTE na árvore testada: tirar uma app inteira põe os
+    # arquivos dela no diff, e `manage.py test <app>` sem a pasta derruba o
+    # hook com ImportError — recusando justamente o push que a apaga (a
+    # `api`, 20/09/2026). O hook roda este script de dentro da RAIZ — a árvore
+    # de onde o push sai, que é a que tem a app apagada.
+    if partes[0] in APPS and os.path.isdir(partes[0]):
         return partes[0]
-    if partes[0] == "templates" and len(partes) > 1 and partes[1] in APPS:
+    if partes[0] == "templates" and len(partes) > 1 and partes[1] in APPS and os.path.isdir(partes[1]):
         return partes[1]
     return None
 

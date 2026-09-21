@@ -589,7 +589,12 @@ falta de dado, é decisão de produto que ninguém tomou — "não posso agachar
 precisaria de uma tabela de substituição por padrão de movimento, e escolher
 sozinho o que troca por quê é prescrição, não configuração.
 
-### ⛔ Fundação mobile da Corrida — SERVIDOR PRONTO, CLIENTE BLOQUEADO
+### ⛔ Fundação mobile da Corrida — SERVIDOR PRONTO, CLIENTE BLOQUEADO → RETIRADA EM 20/09/2026
+
+> Decisão do dono na Fase 3 da auditoria de 20/09: a API v1, o `TokenDeApp`
+> e a pasta `mobile/` saíram do repositório (PR "tirar/api-v1"). O que segue
+> é o registro de como estava.
+
 Campanha de 04/09/2026. O lado servidor da Corrida mobile está construído,
 testado e no ar; o cliente nativo **não pode ser criado nesta máquina**.
 
