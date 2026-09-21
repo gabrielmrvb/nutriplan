@@ -82,7 +82,9 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: segundo player da execução (um player por página; músculos como texto).
 #: 117 em 16/09/2026 (T3.2, a fonte própria): o `h1` passou a `--texto-2xl`
 #: (era `2.5rem`, e `1.9rem` no desktop — o título nunca passa de 28).
-TETO_FONT_SIZE_CRU = 116
+#: 115 em 20/09/2026: `.resumo__nota { font-size: .74rem }` saiu com a nota
+#: "a exportação gera um arquivo TCX" — a exportação saiu do produto.
+TETO_FONT_SIZE_CRU = 115
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
