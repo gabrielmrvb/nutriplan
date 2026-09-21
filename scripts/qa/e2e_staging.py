@@ -102,8 +102,12 @@ class Navegador:
         return self("eval", js, timeout=timeout)
 
     def marcar(self, seletor):
-        """`check`, com o plano B do rádio escondido (a divisão só aparece com N dias)."""
+        """`check`, com o plano B do rádio escondido (a divisão só aparece com N dias).
+
+        `wait` antes: no runner (MEDIDO no primeiro run do Actions) o `check`
+        chegava com a tela ainda carregando e o plano B achava `null`."""
         try:
+            self("wait", seletor, "--timeout", "30000")
             self("check", seletor)
         except RuntimeError:
             self.eval("(function(){var e=document.querySelector(%s);e.checked=true;e.dispatchEvent(new Event('change',{bubbles:true}));return e.checked})()" % json.dumps(seletor))
@@ -112,6 +116,7 @@ class Navegador:
         """`fill`, conferido — o `<input type=date>` não aceita `fill` (MEDIDO:
         ficou "dd/mm/aaaa"); quando o valor não pegou, entra pelo DOM."""
         try:
+            self("wait", seletor, "--timeout", "30000")
             self("fill", seletor, valor)
         except RuntimeError:
             pass
