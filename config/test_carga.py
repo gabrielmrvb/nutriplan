@@ -47,6 +47,9 @@ class OFluxoDeCargaTests(SimpleTestCase):
     def test_limiar_estourado_e_resultado_e_nao_falha_do_job(self):
         corpo = sem_comentarios(FLUXO)
         self.assertIn('[ "$codigo" -ne 99 ]', corpo)
+        # MEDIDO no primeiro run: com `bash -e`, `k6 ...; codigo=$?` morria no 99
+        # antes de ler o código — relatório pronto, job vermelho.
+        self.assertIn('k6 run scripts/carga/staging.js || codigo=$?', corpo)
         self.assertIn("test -s relatorio.md", corpo)
 
     def test_o_relatorio_vai_para_o_resumo_e_para_o_artefato_sempre(self):
