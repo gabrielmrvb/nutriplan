@@ -518,10 +518,16 @@ class TodayViewTests(TestCase):
         self.user = create_complete_user()
         self.client.force_login(self.user)
 
-    def test_anonymous_is_sent_to_login(self):
+    def test_anonymous_sees_the_landing_not_a_login_redirect(self):
+        """A raiz anônima virou a landing (decisão 2 da avaliação, 20/09/2026):
+        "login sai da raiz". Quem não tem sessão deixou de ser jogado no login
+        e passa a ver a página que diz o que o app é, com porta para a
+        demonstração e para criar conta. O app (TodayView) fica para quem já
+        entrou — as guardas de plano e onboarding valem só nesse ramo."""
         self.client.logout()
         response = self.client.get(self.url)
-        self.assertIn(reverse("accounts:login"), response["Location"])
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "plans/landing.html")
 
     def test_incomplete_onboarding_is_sent_back_to_the_wizard(self):
         Profile.objects.filter(user=self.user).update(onboarding_step=3)
