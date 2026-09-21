@@ -2342,7 +2342,12 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .option__ingrediente { min-width: 0; }
 
 .option__items li:last-child { border-bottom: 0; }
-.option__items b { flex: none; color: var(--text); font-variant-numeric: tabular-nums; font-weight: 700; }
+/* `flex: 0 1 auto`, e não `flex: none`: com "2,5 colheres de servir (150 g)"
+   (~210 px a 390 px de tela) a quantidade rígida deixava ~110 px para "Carne
+   moída (patinho) refogada" — o nome quebrava em três linhas enquanto a
+   quantidade ficava inteira numa. Agora a quantidade também pode encolher e
+   quebrar; alinhada à direita, a segunda linha dela fica junto do número. */
+.option__items b { flex: 0 1 auto; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; font-weight: 700; }
 
 .option__how { margin: 0 0 .8rem; color: var(--text-mute); font-size: var(--texto-sm); line-height: 1.5; }
 

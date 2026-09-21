@@ -11,7 +11,9 @@
       {
         "label": "1/2 unidade",
         "grams": 100,
-        "default": true
+        "default": true,
+        "singular": "meia unidade",
+        "plural": "meias unidades"
       }
     ],
     "active": true,
@@ -29,7 +31,9 @@
       {
         "label": "1 fatia",
         "grams": 80,
-        "default": true
+        "default": true,
+        "singular": "fatia",
+        "plural": "fatias"
       }
     ],
     "active": false,
@@ -59,7 +63,9 @@
       {
         "label": "1 colher de sopa",
         "grams": 15,
-        "default": true
+        "default": true,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       }
     ],
     "active": false,
@@ -78,7 +84,9 @@
       {
         "label": "1 bife médio",
         "grams": 130,
-        "default": true
+        "default": true,
+        "singular": "bife médio",
+        "plural": "bifes médios"
       }
     ],
     "active": false,
@@ -97,7 +105,9 @@
       {
         "label": "1 prato de sobremesa",
         "grams": 40,
-        "default": true
+        "default": true,
+        "singular": "prato de sobremesa",
+        "plural": "pratos de sobremesa"
       }
     ],
     "active": true,
@@ -115,7 +125,9 @@
       {
         "label": "1 punhado",
         "grams": 30,
-        "default": true
+        "default": true,
+        "singular": "punhado",
+        "plural": "punhados"
       }
     ],
     "active": true,
@@ -132,12 +144,16 @@
     "portions": [
       {
         "label": "1 unidade",
-        "grams": 1.2
+        "grams": 1.2,
+        "singular": "unidade",
+        "plural": "unidades"
       },
       {
         "label": "1 punhado",
         "grams": 30,
-        "default": true
+        "default": true,
+        "singular": "punhado",
+        "plural": "punhados"
       }
     ],
     "active": false,
@@ -156,11 +172,15 @@
       {
         "label": "1 escumadeira",
         "grams": 100,
-        "default": true
+        "default": true,
+        "singular": "escumadeira",
+        "plural": "escumadeiras"
       },
       {
         "label": "1 colher de sopa cheia",
-        "grams": 25
+        "grams": 25,
+        "singular": "colher de sopa cheia",
+        "plural": "colheres de sopa cheias"
       }
     ],
     "active": true,
@@ -178,7 +198,9 @@
       {
         "label": "1 escumadeira",
         "grams": 100,
-        "default": true
+        "default": true,
+        "singular": "escumadeira",
+        "plural": "escumadeiras"
       }
     ],
     "active": true,
@@ -196,7 +218,9 @@
       {
         "label": "1 lata drenada",
         "grams": 120,
-        "default": true
+        "default": true,
+        "singular": "lata drenada",
+        "plural": "latas drenadas"
       }
     ],
     "active": true,
@@ -215,7 +239,9 @@
       {
         "label": "1 colher de sopa",
         "grams": 15,
-        "default": true
+        "default": true,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       }
     ],
     "active": true,
@@ -234,11 +260,15 @@
       {
         "label": "1 colher de sopa",
         "grams": 13,
-        "default": true
+        "default": true,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       },
       {
         "label": "1 fio",
-        "grams": 5
+        "grams": 5,
+        "singular": "fio",
+        "plural": "fios"
       }
     ],
     "active": true,
@@ -268,7 +298,9 @@
       {
         "label": "1 colher de chá",
         "grams": 5,
-        "default": true
+        "default": true,
+        "singular": "colher de chá",
+        "plural": "colheres de chá"
       }
     ],
     "active": false,
@@ -287,7 +319,9 @@
       {
         "label": "1 unidade média",
         "grams": 70,
-        "default": true
+        "default": true,
+        "singular": "unidade média",
+        "plural": "unidades médias"
       }
     ],
     "active": true,
@@ -305,7 +339,9 @@
       {
         "label": "1 unidade média",
         "grams": 150,
-        "default": true
+        "default": true,
+        "singular": "unidade média",
+        "plural": "unidades médias"
       }
     ],
     "active": true,
@@ -323,7 +359,9 @@
       {
         "label": "1 unidade média",
         "grams": 150,
-        "default": true
+        "default": true,
+        "singular": "unidade média",
+        "plural": "unidades médias"
       }
     ],
     "active": true,
@@ -353,7 +391,9 @@
       {
         "label": "1 xícara",
         "grams": 90,
-        "default": true
+        "default": true,
+        "singular": "xícara",
+        "plural": "xícaras"
       }
     ],
     "active": true,
@@ -371,7 +411,9 @@
       {
         "label": "1 colher de sopa",
         "grams": 10,
-        "default": true
+        "default": true,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       }
     ],
     "active": false,
@@ -391,7 +433,9 @@
       {
         "label": "1 xícara",
         "grams": 150,
-        "default": true
+        "default": true,
+        "singular": "xícara",
+        "plural": "xícaras"
       }
     ],
     "active": true,
@@ -421,7 +465,9 @@
       {
         "label": "1 colher de servir",
         "grams": 60,
-        "default": true
+        "default": true,
+        "singular": "colher de servir",
+        "plural": "colheres de servir"
       }
     ],
     "active": true,
@@ -439,7 +485,9 @@
       {
         "label": "1 punhado",
         "grams": 30,
-        "default": true
+        "default": true,
+        "singular": "punhado",
+        "plural": "punhados"
       }
     ],
     "active": false,
@@ -458,7 +506,9 @@
       {
         "label": "1 unidade",
         "grams": 5,
-        "default": true
+        "default": true,
+        "singular": "unidade",
+        "plural": "unidades"
       }
     ],
     "active": false,
@@ -488,7 +538,9 @@
       {
         "label": "1 unidade média",
         "grams": 70,
-        "default": true
+        "default": true,
+        "singular": "unidade média",
+        "plural": "unidades médias"
       }
     ],
     "active": true,
@@ -506,7 +558,9 @@
       {
         "label": "1 colher de sopa",
         "grams": 12,
-        "default": true
+        "default": true,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       }
     ],
     "active": false,
@@ -525,7 +579,9 @@
       {
         "label": "1 quadradinho",
         "grams": 6,
-        "default": true
+        "default": true,
+        "singular": "quadradinho",
+        "plural": "quadradinhos"
       }
     ],
     "active": false,
@@ -555,7 +611,9 @@
       {
         "label": "1 clara",
         "grams": 33,
-        "default": true
+        "default": true,
+        "singular": "clara",
+        "plural": "claras"
       }
     ],
     "active": true,
@@ -584,7 +642,9 @@
       {
         "label": "1 coxa",
         "grams": 90,
-        "default": true
+        "default": true,
+        "singular": "coxa",
+        "plural": "coxas"
       }
     ],
     "active": true,
@@ -636,7 +696,9 @@
       {
         "label": "1 colher de sopa",
         "grams": 15,
-        "default": true
+        "default": true,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       }
     ],
     "active": true,
@@ -654,7 +716,9 @@
       {
         "label": "1 concha",
         "grams": 80,
-        "default": true
+        "default": true,
+        "singular": "concha",
+        "plural": "conchas"
       }
     ],
     "active": true,
@@ -672,7 +736,9 @@
       {
         "label": "1 concha",
         "grams": 80,
-        "default": true
+        "default": true,
+        "singular": "concha",
+        "plural": "conchas"
       }
     ],
     "active": true,
@@ -690,7 +756,9 @@
       {
         "label": "1 filé",
         "grams": 120,
-        "default": true
+        "default": true,
+        "singular": "filé",
+        "plural": "filés"
       }
     ],
     "active": true,
@@ -709,7 +777,9 @@
       {
         "label": "1 tapioca média",
         "grams": 60,
-        "default": true
+        "default": true,
+        "singular": "tapioca média",
+        "plural": "tapiocas médias"
       }
     ],
     "active": true,
@@ -728,7 +798,9 @@
       {
         "label": "1 colher de sopa",
         "grams": 15,
-        "default": true
+        "default": true,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       }
     ],
     "active": false,
@@ -747,7 +819,9 @@
       {
         "label": "1 concha",
         "grams": 90,
-        "default": true
+        "default": true,
+        "singular": "concha",
+        "plural": "conchas"
       }
     ],
     "active": true,
@@ -776,7 +850,9 @@
       {
         "label": "1 pote",
         "grams": 130,
-        "default": true
+        "default": true,
+        "singular": "pote",
+        "plural": "potes"
       }
     ],
     "active": false,
@@ -795,7 +871,9 @@
       {
         "label": "1 pote",
         "grams": 170,
-        "default": true
+        "default": true,
+        "singular": "pote",
+        "plural": "potes"
       }
     ],
     "active": true,
@@ -814,7 +892,9 @@
       {
         "label": "1 garrafa",
         "grams": 250,
-        "default": true
+        "default": true,
+        "singular": "garrafa",
+        "plural": "garrafas"
       }
     ],
     "active": false,
@@ -833,7 +913,9 @@
       {
         "label": "1 unidade",
         "grams": 80,
-        "default": true
+        "default": true,
+        "singular": "unidade",
+        "plural": "unidades"
       }
     ],
     "active": false,
@@ -852,7 +934,9 @@
       {
         "label": "1 unidade média",
         "grams": 180,
-        "default": true
+        "default": true,
+        "singular": "unidade média",
+        "plural": "unidades médias"
       }
     ],
     "active": true,
@@ -871,7 +955,9 @@
       {
         "label": "1 copo",
         "grams": 200,
-        "default": true
+        "default": true,
+        "singular": "copo",
+        "plural": "copos"
       }
     ],
     "active": true,
@@ -890,7 +976,9 @@
       {
         "label": "1 copo",
         "grams": 200,
-        "default": true
+        "default": true,
+        "singular": "copo",
+        "plural": "copos"
       }
     ],
     "active": true,
@@ -908,7 +996,9 @@
       {
         "label": "1 concha",
         "grams": 90,
-        "default": true
+        "default": true,
+        "singular": "concha",
+        "plural": "conchas"
       }
     ],
     "active": true,
@@ -926,7 +1016,9 @@
       {
         "label": "1 colher de sopa",
         "grams": 10,
-        "default": true
+        "default": true,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       }
     ],
     "active": false,
@@ -945,7 +1037,9 @@
       {
         "label": "1 fatia média",
         "grams": 80,
-        "default": true
+        "default": true,
+        "singular": "fatia média",
+        "plural": "fatias médias"
       }
     ],
     "active": false,
@@ -964,7 +1058,9 @@
       {
         "label": "1 pegador",
         "grams": 110,
-        "default": true
+        "default": true,
+        "singular": "pegador",
+        "plural": "pegadores"
       }
     ],
     "active": true,
@@ -982,7 +1078,9 @@
       {
         "label": "1/2 unidade",
         "grams": 170,
-        "default": true
+        "default": true,
+        "singular": "meia unidade",
+        "plural": "meias unidades"
       }
     ],
     "active": true,
@@ -1035,7 +1133,9 @@
       {
         "label": "1 colher de chá",
         "grams": 5,
-        "default": true
+        "default": true,
+        "singular": "colher de chá",
+        "plural": "colheres de chá"
       }
     ],
     "active": true,
@@ -1053,11 +1153,15 @@
       {
         "label": "1 colher de chá",
         "grams": 5,
-        "default": true
+        "default": true,
+        "singular": "colher de chá",
+        "plural": "colheres de chá"
       },
       {
         "label": "1 colher de sopa",
-        "grams": 15
+        "grams": 15,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       }
     ],
     "active": true,
@@ -1075,7 +1179,9 @@
       {
         "label": "1 unidade média",
         "grams": 130,
-        "default": true
+        "default": true,
+        "singular": "unidade média",
+        "plural": "unidades médias"
       }
     ],
     "active": true,
@@ -1093,7 +1199,9 @@
       {
         "label": "1 colher de sopa",
         "grams": 20,
-        "default": true
+        "default": true,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       }
     ],
     "active": true,
@@ -1111,7 +1219,9 @@
       {
         "label": "1 fatia",
         "grams": 200,
-        "default": true
+        "default": true,
+        "singular": "fatia",
+        "plural": "fatias"
       }
     ],
     "active": false,
@@ -1140,12 +1250,16 @@
     "portions": [
       {
         "label": "1 unidade",
-        "grams": 12
+        "grams": 12,
+        "singular": "unidade",
+        "plural": "unidades"
       },
       {
         "label": "1 xícara",
         "grams": 150,
-        "default": true
+        "default": true,
+        "singular": "xícara",
+        "plural": "xícaras"
       }
     ],
     "active": false,
@@ -1164,7 +1278,9 @@
       {
         "label": "1 unidade",
         "grams": 4,
-        "default": true
+        "default": true,
+        "singular": "unidade",
+        "plural": "unidades"
       }
     ],
     "active": false,
@@ -1183,7 +1299,9 @@
       {
         "label": "1 ovo médio",
         "grams": 50,
-        "default": true
+        "default": true,
+        "singular": "ovo médio",
+        "plural": "ovos médios"
       }
     ],
     "active": true,
@@ -1201,7 +1319,9 @@
       {
         "label": "1 colher de sopa",
         "grams": 20,
-        "default": true
+        "default": true,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       }
     ],
     "active": true,
@@ -1219,7 +1339,9 @@
       {
         "label": "1 bife médio",
         "grams": 120,
-        "default": true
+        "default": true,
+        "singular": "bife médio",
+        "plural": "bifes médios"
       }
     ],
     "active": true,
@@ -1238,7 +1360,9 @@
       {
         "label": "1 filé médio",
         "grams": 120,
-        "default": true
+        "default": true,
+        "singular": "filé médio",
+        "plural": "filés médios"
       }
     ],
     "active": true,
@@ -1256,7 +1380,9 @@
       {
         "label": "1 fatia",
         "grams": 15,
-        "default": true
+        "default": true,
+        "singular": "fatia",
+        "plural": "fatias"
       }
     ],
     "active": false,
@@ -1286,7 +1412,9 @@
       {
         "label": "1 unidade média",
         "grams": 130,
-        "default": true
+        "default": true,
+        "singular": "unidade média",
+        "plural": "unidades médias"
       }
     ],
     "active": false,
@@ -1317,7 +1445,9 @@
       {
         "label": "1 fatia",
         "grams": 15,
-        "default": true
+        "default": true,
+        "singular": "fatia",
+        "plural": "fatias"
       }
     ],
     "active": true,
@@ -1347,7 +1477,9 @@
       {
         "label": "1 fatia",
         "grams": 25,
-        "default": true
+        "default": true,
+        "singular": "fatia",
+        "plural": "fatias"
       }
     ],
     "active": true,
@@ -1365,7 +1497,9 @@
       {
         "label": "1 unidade",
         "grams": 50,
-        "default": true
+        "default": true,
+        "singular": "unidade",
+        "plural": "unidades"
       }
     ],
     "active": true,
@@ -1383,7 +1517,9 @@
       {
         "label": "1 unidade",
         "grams": 60,
-        "default": true
+        "default": true,
+        "singular": "unidade",
+        "plural": "unidades"
       }
     ],
     "active": false,
@@ -1402,7 +1538,9 @@
       {
         "label": "1 colher de sopa",
         "grams": 30,
-        "default": true
+        "default": true,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       }
     ],
     "active": false,
@@ -1421,7 +1559,9 @@
       {
         "label": "1 fatia",
         "grams": 30,
-        "default": true
+        "default": true,
+        "singular": "fatia",
+        "plural": "fatias"
       }
     ],
     "active": true,
@@ -1439,7 +1579,9 @@
       {
         "label": "1 fatia",
         "grams": 20,
-        "default": true
+        "default": true,
+        "singular": "fatia",
+        "plural": "fatias"
       }
     ],
     "active": true,
@@ -1457,7 +1599,9 @@
       {
         "label": "1 fatia",
         "grams": 20,
-        "default": true
+        "default": true,
+        "singular": "fatia",
+        "plural": "fatias"
       }
     ],
     "active": true,
@@ -1498,7 +1642,9 @@
       {
         "label": "1 colher de sopa",
         "grams": 20,
-        "default": true
+        "default": true,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       }
     ],
     "active": true,
@@ -1516,7 +1662,9 @@
       {
         "label": "1 colher de sopa",
         "grams": 20,
-        "default": true
+        "default": true,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       }
     ],
     "active": false,
@@ -1535,7 +1683,9 @@
       {
         "label": "1 fatia",
         "grams": 40,
-        "default": true
+        "default": true,
+        "singular": "fatia",
+        "plural": "fatias"
       }
     ],
     "active": false,
@@ -1554,7 +1704,9 @@
       {
         "label": "1 posta",
         "grams": 130,
-        "default": true
+        "default": true,
+        "singular": "posta",
+        "plural": "postas"
       }
     ],
     "active": false,
@@ -1573,7 +1725,9 @@
       {
         "label": "1 lata drenada",
         "grams": 84,
-        "default": true
+        "default": true,
+        "singular": "lata drenada",
+        "plural": "latas drenadas"
       }
     ],
     "active": true,
@@ -1593,7 +1747,9 @@
       {
         "label": "1 copo",
         "grams": 200,
-        "default": true
+        "default": true,
+        "singular": "copo",
+        "plural": "copos"
       }
     ],
     "active": true,
@@ -1623,7 +1779,9 @@
       {
         "label": "1 unidade média",
         "grams": 110,
-        "default": true
+        "default": true,
+        "singular": "unidade média",
+        "plural": "unidades médias"
       }
     ],
     "active": true,
@@ -1664,7 +1822,9 @@
       {
         "label": "1 scoop",
         "grams": 30,
-        "default": true
+        "default": true,
+        "singular": "scoop",
+        "plural": "scoops"
       }
     ],
     "active": false,
@@ -1683,7 +1843,9 @@
       {
         "label": "1 scoop",
         "grams": 30,
-        "default": true
+        "default": true,
+        "singular": "scoop",
+        "plural": "scoops"
       }
     ],
     "active": false,
@@ -1703,7 +1865,9 @@
       {
         "label": "1 copo",
         "grams": 200,
-        "default": true
+        "default": true,
+        "singular": "copo",
+        "plural": "copos"
       }
     ],
     "active": false,
@@ -1723,7 +1887,9 @@
       {
         "label": "1 colher de sopa",
         "grams": 13,
-        "default": true
+        "default": true,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       }
     ],
     "active": false,
@@ -1743,11 +1909,15 @@
       {
         "label": "1 colher de sopa",
         "grams": 13,
-        "default": true
+        "default": true,
+        "singular": "colher de sopa",
+        "plural": "colheres de sopa"
       },
       {
         "label": "1 fio",
-        "grams": 5
+        "grams": 5,
+        "singular": "fio",
+        "plural": "fios"
       }
     ],
     "active": true,
