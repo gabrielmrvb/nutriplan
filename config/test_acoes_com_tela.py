@@ -80,6 +80,11 @@ class TodaAcaoDevolveUmaTelaTests(TestCase):
         ),
         "/push/inscrever/": "chamada por `fetch` do próprio app, nunca navegada.",
         "/push/cancelar/": "chamada por `fetch` do próprio app, nunca navegada.",
+        "/analytics/e/": (
+            "Ingestão de analytics: só sendBeacon/fetch em segundo plano, "
+            "nunca destino de navegação nem de `next` de login. O GET responde "
+            "405 de propósito — não há tela para uma máquina."
+        ),
     }
 
     #: O que o GET de cada ação deve devolver.

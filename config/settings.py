@@ -57,11 +57,11 @@ INSTALLED_APPS = [
     "catalog",
     "plans",
     "workouts",
-    "supplements",
     "push",
     "demo",
     "achievements",
     "gestao",
+    "analytics",
     # Login com Google — o allauth como MOTOR, não como interface.
     #
     # `allauth.account` entra porque `allauth.socialaccount` depende dele: é
@@ -86,6 +86,8 @@ MIDDLEWARE = [
     # coisa poder falhar, senao o 500 que acontece dentro de outro middleware
     # sai sem marca — e e justamente esse que da trabalho para reconstruir.
     "config.observabilidade.MarcaDePedidoMiddleware",
+    # Staging se anuncia (X-Robots-Tag) — em produção é transparente.
+    "config.ambiente.AmbienteMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     # Comprime o HTML que o Django gera. O WhiteNoise comprime os ESTÁTICOS e
@@ -148,6 +150,7 @@ TEMPLATES = [
                 "accounts.context_processors.google_login",
                 "accounts.context_processors.legal",
                 "accounts.context_processors.freemium",
+                "config.ambiente.contexto",
                 "achievements.context_processors.conquistas_pendentes",
             ],
         },
@@ -183,6 +186,14 @@ DATABASES = {
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("DJANGO_CONN_MAX_AGE", default=60)
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 
+# Quantos dias o evento BRUTO de analytics vive antes da poda. 90 é o padrão do
+# produto; é env para poder apertar SEM deploy de código quando a base crescer.
+# Medido em 21/09/2026: 393 bytes/evento com índices. 90 dias cabe no Neon free
+# (0,5 GB) até ~1000 MAU / ~300-400 DAU; acima disso, baixe este número — o
+# painel lê AGREGADO para períodos longos, então encurtar o bruto não apaga a
+# série histórica, só o detalhe recente.
+ANALYTICS_RETENCAO_DIAS = env.int("ANALYTICS_RETENCAO_DIAS", default=90)
+
 # Um runner de cada vez. A regra e do contrato do B9 e existia so escrita — e
 # regra escrita falha justamente na hora em que alguem esta com pressa.
 # `config/runner.py` registra os dois modos de falha que ela ja teve aqui.
@@ -197,7 +208,7 @@ AUTH_USER_MODEL = "accounts.User"
 from config.hashers import argon2_disponivel  # noqa: E402
 
 PASSWORD_HASHERS = (
-    ["django.contrib.auth.hashers.Argon2PasswordHasher"] if argon2_disponivel() else []
+    ["config.hashers.Argon2Moderado"] if argon2_disponivel() else []
 ) + [
     "config.hashers.PBKDF2SHA256Rapido",
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",
@@ -518,6 +529,10 @@ NUTRIPLAN_TAREFAS_TOKEN = env("NUTRIPLAN_TAREFAS_TOKEN", default="")
 # Render, e de baixo dano — só dispara lembretes vencidos, idempotente e com
 # limite de taxa. Vazio = o disparo externo não existe (503). Só no Render.
 NUTRIPLAN_DISPARO_TOKEN = env("NUTRIPLAN_DISPARO_TOKEN", default="")
+
+# Qual instância é esta: vazio em produção, "staging" no serviço
+# `nutriplan-staging` (21/09/2026). Ver `config/ambiente.py`.
+NUTRIPLAN_AMBIENTE = env("NUTRIPLAN_AMBIENTE", default="")
 
 #: Nome curto e completo do PWA, usados no manifest.
 PWA_NAME = "NutriPlan"

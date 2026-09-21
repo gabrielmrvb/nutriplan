@@ -4,19 +4,32 @@
 Nasceu no B7 da avaliação de 16/09/2026 (lembretes de refeição). Uso:
 
     .venv/Scripts/python.exe scripts/render_api.py inspect
-    .venv/Scripts/python.exe scripts/render_api.py cron      # cria o cron (precisa de cartão na conta)
-    .venv/Scripts/python.exe scripts/render_api.py trigger   # dispara uma rodada agora
-    .venv/Scripts/python.exe scripts/render_api.py logs      # log do cron
+    .venv/Scripts/python.exe scripts/render_api.py status
+    .venv/Scripts/python.exe scripts/render_api.py logs [serviceId] [linhas]
+    .venv/Scripts/python.exe scripts/render_api.py disparar-deploy
 
-Subcomandos:
+Os verbos vivem em DUAS tabelas, e o nome diz de qual: quem só LÊ e quem
+ESCREVE ou DISPARA. Em 21/09/2026 alguém procurava o log de build e chamou
+`deploy`, que era o verbo de redeploy — o Render construiu de novo o mesmo
+commit. Sem dano, mas foi o nome: "deploy" lê como substantivo. Desde então
+o disparo carrega o verbo (`disparar-deploy`, `disparar-cron`), `deploy` e
+`trigger` deixaram de existir (quem os digita recebe o nome novo, e nada
+acontece), e um verbo de leitura roda com `_req` RECUSANDO qualquer método
+que não seja GET — por construção, antes de a rede existir.
+`config/test_render_api.py` prende as três coisas.
+
+Leitura (só GET):
   inspect            owner, serviço web, variáveis (só NOMES), crons existentes
-  env                grava VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_ADMIN_EMAIL no web
-  cron               cria o cron nutriplan-lembretes (copia o ambiente do web + VAPID)
-  deploy             redeploy do web (env var nova precisa de deploy)
-  trigger            dispara uma rodada do cron agora
-  runs               lista as últimas rodadas do cron
-  logs <serviceId>   últimas linhas de log do serviço
   status             estado dos deploys/rodadas
+  runs               lista as últimas rodadas do cron
+  logs [srv] [n]     últimas n linhas de log do serviço (padrão: o web, 80 linhas)
+  log                o mesmo que logs
+
+Escrita e disparo:
+  env                grava VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_ADMIN_EMAIL no web
+  cron               cria o cron nutriplan-lembretes (copia o ambiente do web + VAPID; custa dinheiro)
+  disparar-deploy    redeploy do web (env var nova precisa de deploy)
+  disparar-cron      dispara uma rodada do cron agora
 
 Lê RENDER_API_KEY do ambiente e o par VAPID do arquivo fora do repositório.
 Nunca imprime valor de variável: só nome, tamanho e prefixo público.
@@ -48,7 +61,24 @@ if not KEY:
     sys.exit("RENDER_API_KEY ausente no ambiente — pare e peça ao dono.")
 
 
+#: Ligado enquanto um verbo de LEITURA roda. `_req` consulta antes de a rede
+#: existir: um verbo de leitura que um dia ganhe um PUT ou POST por engano
+#: para aqui, e não no Render.
+MODO = {"somente_leitura": False}
+
+
+class EscritaEmVerboDeLeitura(RuntimeError):
+    """Um verbo da tabela LEITURA tentou um método que não é GET."""
+
+
 def _req(method, path, body=None, params=None):
+    if MODO["somente_leitura"] and method != "GET":
+        raise EscritaEmVerboDeLeitura("%s %s num verbo de leitura — use o verbo de disparo" % (method, path))
+    return _http(method, path, body, params)
+
+
+def _http(method, path, body=None, params=None):
+    """A rede, e só ela. Os testes trocam esta função por um fake."""
     url = API + path + ("?" + urllib.parse.urlencode(params, doseq=True) if params else "")
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method=method, headers={
@@ -204,7 +234,7 @@ def cmd_cron():
     guardar(cronId=s["id"], cronDeployId=resp.get("deployId"))
 
 
-def cmd_deploy():
+def cmd_disparar_deploy():
     w = web()
     st, resp = _req("POST", "/services/%s/deploys" % w["id"], {"clearCache": "do_not_clear"})
     print("POST deploys ->", st, (resp or {}).get("id"), (resp or {}).get("status"))
@@ -225,7 +255,7 @@ def cmd_status():
             print("cron deploy:", d["id"], d["status"], (d.get("commit") or {}).get("id", "")[:7], d.get("createdAt"), d.get("finishedAt"))
 
 
-def cmd_trigger():
+def cmd_disparar_cron():
     c = cron() or sys.exit("sem cron")
     st, resp = _req("POST", "/cron-jobs/%s/runs" % c["id"])
     print("POST runs ->", st, json.dumps(resp, ensure_ascii=False)[:400])
@@ -239,17 +269,44 @@ def cmd_runs():
 
 
 def cmd_logs(service_id=None, linhas=80):
-    sid = service_id or (cron() or {}).get("id") or sys.exit("sem serviço")
-    st, resp = _req("GET", "/logs", params={"ownerId": owner(), "resource": [sid], "limit": linhas, "direction": "backward"})
+    # O padrão é o WEB: o cron não existe (decisão do dono de 16/09/2026,
+    # nada pago), e "sem serviço" era a resposta de `logs` sem argumento.
+    sid = service_id or web()["id"]
+    st, resp = _req("GET", "/logs", params={"ownerId": owner(), "resource": [sid], "limit": int(linhas), "direction": "backward"})
     if st != 200:
         print("GET /logs ->", st, resp); return
     for l in (resp or {}).get("logs", []):
         print(l.get("timestamp", "")[:19], "|", l.get("message", "").rstrip()[:300])
 
 
+def _logs(args):
+    return cmd_logs(args[1] if len(args) > 1 else None, args[2] if len(args) > 2 else 80)
+
+
+#: Verbos que só LEEM. Rodam com `MODO["somente_leitura"]` ligado.
+LEITURA = {"inspect": lambda a: cmd_inspect(), "status": lambda a: cmd_status(), "runs": lambda a: cmd_runs(),
+           "logs": _logs, "log": _logs}
+#: Verbos que ESCREVEM ou DISPARAM. O disparo carrega a palavra no nome.
+ESCRITA = {"env": lambda a: cmd_env(), "cron": lambda a: cmd_cron(),
+           "disparar-deploy": lambda a: cmd_disparar_deploy(), "disparar-cron": lambda a: cmd_disparar_cron()}
+#: Os nomes que saíram, e o que dizer a quem ainda os digita.
+RENOMEADOS = {"deploy": "disparar-deploy", "trigger": "disparar-cron"}
+
+
+def executar(args):
+    verbo = args[0] if args else "inspect"
+    if verbo in RENOMEADOS:
+        sys.exit("'%s' virou '%s' — o nome diz o que ele faz. Nada foi disparado." % (verbo, RENOMEADOS[verbo]))
+    if verbo in LEITURA:
+        MODO["somente_leitura"] = True
+        try:
+            return LEITURA[verbo](args)
+        finally:
+            MODO["somente_leitura"] = False
+    if verbo in ESCRITA:
+        return ESCRITA[verbo](args)
+    sys.exit("verbo desconhecido: %s (leitura: %s; escrita: %s)" % (verbo, ", ".join(sorted(LEITURA)), ", ".join(sorted(ESCRITA))))
+
+
 if __name__ == "__main__":
-    args = sys.argv[1:]
-    cmd = args[0] if args else "inspect"
-    {"inspect": cmd_inspect, "env": cmd_env, "cron": cmd_cron, "deploy": cmd_deploy,
-     "trigger": cmd_trigger, "runs": cmd_runs, "status": cmd_status,
-     "logs": lambda: cmd_logs(args[1] if len(args) > 1 else None)}[cmd]()
+    executar(sys.argv[1:])

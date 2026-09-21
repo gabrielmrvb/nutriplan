@@ -799,6 +799,21 @@ button { font-family: inherit; color: inherit; }
    3. Shell do app
    ========================================================================== */
 
+/* A faixa de STAGING (`NUTRIPLAN_AMBIENTE=staging`, 21/09/2026): uma linha
+   no topo, em `--terra` sobre o chão, para ninguém confundir a instância de
+   teste com a de verdade. Em produção o elemento não existe. */
+.faixa-ambiente {
+  margin: 0;
+  padding: var(--espaco-1) var(--espaco-4);
+  background: var(--terra);
+  color: var(--bg);
+  font-size: var(--texto-sm);
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
 .app-bar {
   position: sticky;
   top: 0;

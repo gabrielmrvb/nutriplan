@@ -21,7 +21,6 @@ Duas marcações, e elas nunca se misturam:
 | `catalog` | `Food`, `FoodPortion`, `MealTemplate`, `MealTemplateItem`, `DietaryTag` |
 | `plans` | `NutritionPlan`, `MealSlot`, `MealOption`, `MealLog`, `HydrationLog` |
 | `workouts` | `Exercise`, `WorkoutTemplate`, `TrainingPlan`, `TrainingSession`, `SessionExercise`, `ExerciseLog` |
-| `supplements` | `Supplement`, `SupplementLog` |
 | `push` | `PushSubscription`, `NotificationLog` |
 | `demo` | Nenhum model — só middleware, views e o comando de seed |
 
@@ -136,8 +135,10 @@ ramos, não só o novo.
 64 caracteres, e usa `get_or_create(user=..., op_id=...)` para devolver se aquilo
 já tinha sido visto. Constraint `UniqueConstraint(("user", "op_id"))`.
 
-**FATO DO CÓDIGO** — exatamente **duas** views consultam `ja_aplicada`:
+**FATO DO CÓDIGO** (04/09/2026) — exatamente **duas** views consultavam `ja_aplicada`:
 `plans/views.py:540` (hidratação) e `supplements/views.py:70` (suplemento).
+A app `supplements` saiu inteira em 21/09/2026 (decisão do dono); a
+hidratação continua, e a carga da série entrou depois (`ConcluirSerieView`).
 
 **FATO DO CÓDIGO** — as outras duas escritas da fila são idempotentes por
 natureza: `plans/tracking.py:44` (`log_meal`) e `workouts/services.py:321`
