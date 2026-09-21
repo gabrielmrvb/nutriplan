@@ -413,8 +413,9 @@ def cmd_enfileirar(args):
                     # `--no-verify`: o pre-push é ATALHO local e redundante
                     # aqui — o gate é o check do CI que a fila ESPERA logo
                     # abaixo, sobre este mesmo SHA, e o worktree já é a árvore
-                    # do que sobe. (E o Smart App Control desta máquina bloqueia
-                    # a DLL do fontTools no atalho.)
+                    # do que sobe. (Até 20/09/2026 havia um segundo motivo: o
+                    # Smart App Control bloqueava a DLL do fontTools no atalho;
+                    # o dono o desligou nesse dia.)
                     codigo, saida = g("push", "--no-verify", "origin", "HEAD:" + branch)
                     if codigo != 0:
                         raise SystemExit("PR #%d: push recusado: %s" % (numero, saida[-400:]))
