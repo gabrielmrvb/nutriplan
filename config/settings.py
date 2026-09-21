@@ -86,6 +86,8 @@ MIDDLEWARE = [
     # coisa poder falhar, senao o 500 que acontece dentro de outro middleware
     # sai sem marca — e e justamente esse que da trabalho para reconstruir.
     "config.observabilidade.MarcaDePedidoMiddleware",
+    # Staging se anuncia (X-Robots-Tag) — em produção é transparente.
+    "config.ambiente.AmbienteMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     # Comprime o HTML que o Django gera. O WhiteNoise comprime os ESTÁTICOS e
@@ -148,6 +150,7 @@ TEMPLATES = [
                 "accounts.context_processors.google_login",
                 "accounts.context_processors.legal",
                 "accounts.context_processors.freemium",
+                "config.ambiente.contexto",
                 "achievements.context_processors.conquistas_pendentes",
             ],
         },
@@ -526,6 +529,10 @@ NUTRIPLAN_TAREFAS_TOKEN = env("NUTRIPLAN_TAREFAS_TOKEN", default="")
 # Render, e de baixo dano — só dispara lembretes vencidos, idempotente e com
 # limite de taxa. Vazio = o disparo externo não existe (503). Só no Render.
 NUTRIPLAN_DISPARO_TOKEN = env("NUTRIPLAN_DISPARO_TOKEN", default="")
+
+# Qual instância é esta: vazio em produção, "staging" no serviço
+# `nutriplan-staging` (21/09/2026). Ver `config/ambiente.py`.
+NUTRIPLAN_AMBIENTE = env("NUTRIPLAN_AMBIENTE", default="")
 
 #: Nome curto e completo do PWA, usados no manifest.
 PWA_NAME = "NutriPlan"

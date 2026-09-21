@@ -19,7 +19,11 @@ Uso (sempre com o python do .venv, na raiz do repositório):
   scripts/github.py esperar <número> [--minutos 45]      exit 0 verde / 1 vermelho
   scripts/github.py merge <número>                        merge commit; imprime o SHA
   scripts/github.py fechar <número>                       fecha SEM merge
-  scripts/github.py enfileirar <número>                   entra na FILA local desta
+  scripts/github.py promover <sha> [--esperar]           promove um commit de main para
+                                                          PRODUÇÃO (o staging tem de
+                                                          tê-lo provado; render.yaml tem
+                                                          autoDeploy: false)
+  scripts/github.py enfileirar <número> [--promover]      entra na FILA local desta
                                                           máquina e mergeia na vez
                                                           (o caminho normal desde 17/09)
   scripts/github.py fila                                  mostra a fila (local e a do
@@ -59,7 +63,7 @@ CHECK = "suíte rápida"
 #: existindo em `main`, e o merge commit é o que `/saude/` mostra.
 METODO_DE_MERGE = "merge"
 
-COMANDOS = ("pr", "status", "esperar", "merge", "fechar", "proteger", "protecao", "segredo", "enfileirar", "fila", "fila-ativar")
+COMANDOS = ("pr", "status", "esperar", "merge", "fechar", "proteger", "protecao", "segredo", "enfileirar", "fila", "fila-ativar", "promover")
 
 #: O nome do ruleset de `main` — é por ele que `fila-ativar` acha o que já existe.
 RULESET = "main: fila de merge"
@@ -440,7 +444,16 @@ def cmd_enfileirar(args):
                     "commit_title": "Merge PR #%d: %s" % (numero, pr["title"]),
                 })
                 if codigo == 200:
-                    print("MERGEADO %s (tentativa %d)" % (resposta.get("sha", "")[:7], tentativa), flush=True)
+                    sha_merge = resposta.get("sha", "")
+                    print("MERGEADO %s (tentativa %d)" % (sha_merge[:7], tentativa), flush=True)
+                    # STAGING ANTES, PROMOÇÃO DEPOIS (21/09/2026): o merge sobe
+                    # sozinho no staging; a sessão prova lá e, só se pediu
+                    # `--promover`, promove o mesmo SHA para produção.
+                    _provar_staging(sha_merge)
+                    if "--promover" in args:
+                        cmd_promover([sha_merge, "--esperar"])
+                    else:
+                        print("produção NÃO mudou: promova com `scripts/github.py promover %s --esperar` depois do QA em staging" % sha_merge[:7], flush=True)
                     return
                 print(time.strftime("%H:%M:%S"), "merge recusado (%s); main andou — tentativa %d" % (resposta.get("message"), tentativa), flush=True)
             raise SystemExit("PR #%d: quatro tentativas e main não parou de andar" % numero)
@@ -451,6 +464,35 @@ def cmd_enfileirar(args):
         ticket.unlink(missing_ok=True)
         if _posse() == numero:
             posse.unlink(missing_ok=True)
+
+
+#: Onde o staging responde — o segundo serviço do Render, deploy automático de
+#: todo merge em `main` (render.yaml, 21/09/2026).
+STAGING = "https://nutriplan-staging.onrender.com"
+
+
+def _provar_staging(sha, minutos=12):
+    """Espera o staging responder o commit em `/saude/` (o deploy do free leva
+    3–6 min). Não levanta: o merge já aconteceu e ninguém desfaz merge por
+    causa de staging lento — imprime o que viu e devolve True/False."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from scripts import promover
+    dados = promover.esperar_commit(promover.STAGING, sha[:7], minutos, "staging")
+    if dados is None:
+        print("STAGING NÃO PROVOU %s em %d min — olhe o deploy do nutriplan-staging no Render antes de promover" % (sha[:7], minutos), flush=True)
+        return False
+    print("STAGING PROVADO: %s (ambiente=%s)" % (dados.get("commit"), dados.get("ambiente")), flush=True)
+    return True
+
+
+def cmd_promover(args):
+    """`promover <sha> [--esperar] [--minutos N] [--sem-staging]` — delega a
+    `scripts/promover.py`, o mesmo código que o botão do Actions roda."""
+    if not args:
+        raise SystemExit("promover: falta o sha")
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from scripts import promover
+    raise SystemExit(promover.main(list(args)))
 
 
 def _entrada_na_fila(repo, numero):
