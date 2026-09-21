@@ -1490,6 +1490,30 @@ parâmetro de OAuth, chave de SMTP e URL de banco. `django.db.backends` fica em
 WARNING até em DEBUG: consulta com parâmetro carrega e-mail e peso. Toda linha
 leva o identificador do pedido, que também volta no cabeçalho `X-Request-ID` —
 sem ele, "deu erro" e "fulano reclamou" nunca se encontram.
+
+**A LINHA É JSON, O ACESSO TEM ROTA E DURAÇÃO, E 5xx DEMAIS VIRA E-MAIL
+(21/09/2026).** Fora de DEBUG cada linha de log é um objeto (`FormatoJSON`:
+`t`, `nivel`, `logger`, `pedido`, `msg`, e `rota`/`metodo`/`status`/`ms`/
+`usuario` quando é acesso, `exc` redigido quando há traceback) — é o que se
+filtra e se conta no log do Render sem regex; `NUTRIPLAN_LOG_JSON` força num
+sentido ou no outro. `nutriplan.acesso` registra UMA linha por pedido com a
+ROTA (`resolver_match.route`, o padrão da URL — não o caminho, que pode
+levar token), a duração e o **usuário anônimo**: `blake2b` do id com a
+`SECRET_KEY` como chave, 12 hex — segue-se o que uma pessoa fez sem que o
+log diga quem é, e sem a chave o hash não volta. O hash só é calculado
+quando a view já resolveu `request.user`: `/saude/vivo/` continua a ZERO
+consultas (teste). Estático não entra; na suíte o logger fica em WARNING
+(`NUTRIPLAN_LOG_ACESSO`, desligado quando `sys.argv` diz `test`) — seriam
+milhares de `GET … -> 200` no stderr de cada fatia. E `AlertaDe5xx` é um
+handler no `django.request`: conta os 5xx numa janela de 5 min e, passado
+`NUTRIPLAN_ALERTA_5XX` (3, **por processo** — dois workers, dois
+contadores), manda UM e-mail para `NUTRIPLAN_ALERTA_EMAIL` (o e-mail
+administrativo, copiado do `VAPID_ADMIN_EMAIL` nos dois serviços) com rota,
+identificador e contagem, e cala por 30 min — um deploy quebrado é um
+e-mail, não cem. O envio roda numa thread; sem destinatário, só uma linha
+WARNING. `config/test_logs_json.py` prende as três coisas, inclusive que um
+500 de verdade chega ao handler CONFIGURADO. O UptimeRobot continua sendo o
+alerta de "caiu"; este é o de "está de pé e errando".
 **O BUSCADOR VÊ SETE ROTAS, E O RESTO É `noindex` POR PADRÃO (21/09/2026).**
 `config/seo.py` fecha a lista (`ROTAS_PUBLICAS`: landing, capa e "sobre" do
 demo, privacidade, termos, criar conta, entrar) e é dela que `/sitemap.xml`
@@ -2551,3 +2575,31 @@ de manutenção, que é o pior momento para descobrir isso.
 
 O destino precisa ser **PostgreSQL 17 ou mais novo**: o `pg_dump` 18 emite
 `SET transaction_timeout`, parâmetro que só existe a partir do 17.
+## Avisos por e-mail (21/09/2026)
+
+**Três e-mails, um app (`avisos/`), e o relógio é o de sempre.** Boas-vindas
+(uma vez por conta, no cadastro por senha E por Google — `avisos.services.
+boas_vindas`, chamado em `SignupView.form_valid` e no `save_user` do adapter
+social; quando a verificação de e-mail existir, é essa chamada que muda de
+lugar), "5 dias sem treino" e o resumo da semana. Os dois últimos NÃO têm cron:
+`avisos.jobs.rodar(now)` pega carona no fim de cada rodada NÃO pausada de
+`push/tarefas.rodar()` (UptimeRobot a cada 5 min; o Neon dorme entre
+rodadas), e saem a partir da `hora_email` da pessoa (padrão 08:00) — em até
+meia hora depois, o preço da pausa. Idempotência pela constraint de
+`EmailEnviado` (pessoa, tipo, referência), com a referência do TAMANHO
+certo: `conta` para o boas-vindas, a data da última série para a inatividade
+(**um e-mail por pausa**, não um por dia — treinar de novo abre outra), a
+semana ISO para o resumo. Só quem tem ficha ativa e onboarding feito entra na
+lista; semana vazia sai mesmo assim (o zero é convite). A preferência
+(`avisos.Preferencia`, `/avisos/`, link no Perfil) tem três perguntas — quais
+e-mails, quais pushes, a que horas — e **a linha que não existe vale LIGADO**;
+`push/services.due_slots` respeita `push_refeicoes` por `exclude` do falso.
+O descadastro é por link com chave própria de 128 bits (`/avisos/sair/<chave>/
+?tipo=`), GET e POST sem login e sem CSRF (RFC 8058, cabeçalhos
+`List-Unsubscribe` + `List-Unsubscribe-Post` em todo e-mail), e só DESLIGA.
+Os templates moram em `templates/email/` (moldura NERVURA inline, em tabela:
+cliente de e-mail não lê CSS nem `transform` — a nervura é uma régua reta de
+2 px e a display cai em Arial Narrow/Impact), e a pasta inteira está fora da
+régua de `style=` de `config/test_design_system.py`, como o `email_senha`.
+Os links dos jobs saem de `NUTRIPLAN_URL_BASE` (não há request). O envio
+nunca derruba quem chamou: falha de SMTP vira `sucesso=False` no log.

@@ -1,0 +1,28 @@
+{% comment %}
+  A moldura dos e-mails do app, no design NERVURA · ANDAIME: Ferro como base
+  (#0B140F chão, #121E17 faixa), verde-neon #43DF7A só para AGIR (o botão) e
+  para a régua, laranja #E8A33D só para a CARGA, texto #F2F6F2 e rótulo
+  #A9BBAE em caixa alta. Tudo inline e em tabela: cliente de e-mail não lê
+  CSS externo (a exceção documentada no CLAUDE.md), não roda `transform` (a
+  nervura vira uma régua reta de 2 px) e não carrega a display auto-hospedada
+  — a pilha condensada cai em Arial Narrow/Impact e, sem ela, na sans do
+  aparelho. Nada de imagem além da marca, que é a única arte aprovada.
+{% endcomment %}<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light"><title>{{ titulo }}</title></head>
+<body style="margin:0;padding:0;background:#0b140f;color:#f2f6f2;font-family:Archivo,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b140f">
+    <tr><td align="center" style="padding:24px 12px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#121e17">
+        <tr><td style="padding:24px 24px 0">
+          <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+            <td style="vertical-align:middle;padding-right:10px"><img src="{{ url_base }}/static/icons/icon-192.png" width="32" height="32" alt="" style="display:block;width:32px;height:32px"></td>
+            <td style="vertical-align:middle;font-size:18px;font-weight:700;letter-spacing:.02em;color:#f2f6f2">Nutri<span style="color:#43df7a">Plan</span></td>
+          </tr></table>
+        </td></tr>
+        <tr><td style="padding:20px 24px 0">
+          <p style="margin:0 0 6px;font-size:11px;line-height:1.3;letter-spacing:.16em;text-transform:uppercase;color:#43df7a;font-weight:600">{{ rotulo }}</p>
+          <p style="margin:0;font-size:30px;line-height:1.05;font-weight:800;text-transform:uppercase;letter-spacing:.01em;color:#f2f6f2;font-family:'Big Shoulders Display','Arial Narrow',Impact,'Helvetica Neue',Arial,sans-serif">{{ titulo }}</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:12px 0 0"><tr><td style="width:64px;height:2px;background:#43df7a;font-size:0;line-height:0">&nbsp;</td></tr></table>
+        </td></tr>
+        <tr><td style="padding:20px 24px 8px;font-size:16px;line-height:1.5;color:#f2f6f2">

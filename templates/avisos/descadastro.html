@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Aviso desligado · NutriPlan{% endblock %}
+
+{% block content %}
+  <h1>Pronto</h1>
+
+  <section class="card">
+    <p class="lead">
+      Você não vai mais receber
+      {% for item in desligados %}{% if not forloop.first %}{% if forloop.last %} nem {% else %}, {% endif %}{% endif %}<strong>{{ item }}</strong>{% endfor %}.
+    </p>
+    <p>
+      Foi sem querer? Entre no app e ligue de novo em <strong>Perfil › Avisos</strong>.
+      O e-mail de senha e o de boas-vindas não passam por aqui: o primeiro só sai
+      quando você pede, e o segundo já saiu.
+    </p>
+    <div class="stack">
+      <a class="btn btn--primary btn--block" href="{% url 'avisos:preferencias' %}">Abrir Perfil › Avisos</a>
+    </div>
+  </section>
+{% endblock %}

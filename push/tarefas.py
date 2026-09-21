@@ -25,6 +25,8 @@ from datetime import datetime, timedelta
 from django.conf import settings
 from django.utils import timezone
 
+from avisos.jobs import rodar as rodar_emails
+
 from .services import (
     REMINDER_LEAD_MINUTES,
     proxima_refeicao_com_assinatura,
@@ -148,6 +150,13 @@ def rodar(now=None, externo=False) -> dict:
     else:
         resultado = send_meal_reminders(now)
 
+    # Os e-mails que o relógio manda (`avisos.jobs`: inatividade e resumo
+    # semanal) pegam carona na MESMA rodada, e só numa rodada que não está
+    # pausada: é o que os deixa sair "a partir da hora escolhida, até meia
+    # hora depois" sem acordar o Neon fora de hora. Idempotentes pela
+    # constraint do `EmailEnviado`, como os lembretes pelo `NotificationLog`.
+    emails = rodar_emails(now)
+
     proxima = proxima_refeicao_com_assinatura(now)
     ate = now + PAUSA_MAXIMA
     if proxima is not None:
@@ -164,4 +173,5 @@ def rodar(now=None, externo=False) -> dict:
         "puladas": resultado["skipped"],
         "falhas": resultado["failed"],
         "proxima_refeicao": proxima.isoformat() if proxima else None,
+        "emails": emails,
     }
