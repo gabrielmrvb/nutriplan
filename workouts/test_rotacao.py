@@ -251,6 +251,38 @@ class OPainelEAFichaMostramALetraDaPosicaoTests(TestCase):
         self.assertEqual(proximo["dias"], 2)
         self.assertEqual(proximo["session"].label, "C")
 
+    def test_depois_do_ultimo_treino_da_semana_o_painel_desenha_a_semana_que_vem(self):
+        """Auditoria em produção de 20/09/2026 (domingo): o cartão "Próximo
+        treino" dizia "C · amanhã" e, logo abaixo, a faixa SEG–DOM e os cartões
+        diziam "A · Segunda-feira" — a semana que ACABOU, com a letra velha.
+        Quando todo dia de treino da semana já passou, a semana que interessa
+        é a que vem: a faixa, os cartões e a ficha ("Quando") têm de dizer o
+        mesmo que o "próximo treino"."""
+        for atraso in (5, 6):  # sábado e domingo da primeira semana
+            self.relogio.stop()
+            self.relogio = _congelar(SEGUNDA + timedelta(days=atraso))
+            self.addCleanup(self.relogio.stop)
+            resposta = self.client.get(reverse("workouts:routine"))
+            semana = [d["session"].label if d["session"] else None for d in resposta.context["week"]]
+            self.assertEqual(semana, ["C", "A", "B", "C", "A", None, None], atraso)
+            letras = {c["label"]: c for c in resposta.context["letras"]}
+            self.assertEqual(letras["C"]["dias"], ["Segunda-feira", "Quinta-feira"], atraso)
+            self.assertEqual(resposta.context["proximo"]["session"].label, "C", atraso)
+            linha_c = self.plan.sessions.filter(label="C").order_by("order").first()
+            ficha = self.client.get(reverse("workouts:ficha", args=[linha_c.pk]))
+            self.assertIn("Segunda-feira · Quinta-feira", ficha.content.decode(), atraso)
+
+    def test_na_sexta_da_primeira_semana_a_semana_ainda_e_esta(self):
+        """O último dia de treino AINDA é hoje: a semana desenhada é esta
+        (a sexta é B, e não a A da semana que vem)."""
+        self.relogio.stop()
+        self.relogio = _congelar(SEGUNDA + timedelta(days=4))  # sexta
+        self.addCleanup(self.relogio.stop)
+        resposta = self.client.get(reverse("workouts:routine"))
+        self.assertEqual(resposta.context["hoje"].label, "B")
+        semana = [d["session"].label if d["session"] else None for d in resposta.context["week"]]
+        self.assertEqual(semana, ["A", "B", "C", "A", "B", None, None])
+
     def test_a_ficha_da_letra_de_hoje_e_hoje_e_diz_os_dias_desta_semana(self):
         self._na_segunda_semana()
         linha_c = self.plan.sessions.filter(label="C").order_by("order").first()
