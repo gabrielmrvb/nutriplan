@@ -146,6 +146,9 @@ urlpatterns = [
     path("push/", include("push.urls")),
     path("treino/", include("workouts.urls")),
     path("conquistas/", include("achievements.urls")),
+    # Ingestão de analytics de produto — endpoint de lote chamado por
+    # sendBeacon. O painel mora sob /gestao/ (é gerência), não aqui.
+    path("analytics/", include("analytics.urls")),
     # UX-01: Áreas é o quarto destino da barra, e por isso mora na RAIZ.
     # `accounts.urls` está sob `/conta/`, e `/conta/areas/` diria que Áreas é
     # uma subseção da conta — que é o contrário do que a barra passa a afirmar.
