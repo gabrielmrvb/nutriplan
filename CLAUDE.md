@@ -2226,7 +2226,12 @@ caiu em "relation already exists" e o schema foi zerado uma vez
 (`drop schema public cascade`) antes de o `migrate` construir tudo.
 `config/test_staging.py` prende o contrato inteiro. Worktree de sessão com
 o helper ANTIGO (sem `_provar_staging`) mergeia e NÃO vê produção mudar:
-`git merge origin/main` antes de enfileirar, sempre.
+`git merge origin/main` antes de enfileirar, sempre. **A promoção é de um
+SHA de `main`, e leva tudo que está antes dele** — por construção, não por
+combinação: tudo em `main` passou pelo gate e pelo deploy automático do
+staging. Cada sessão promove o SEU SHA final quando termina o QA em staging;
+o que vier antes vai junto, e o que não pode ir para produção não pode
+estar em `main` (pergunta da sessão de analytics, 21/09/2026).
 
 **O STAGING TEM UM E2E NOTURNO DE ROBÔ (21/09/2026).**
 `.github/workflows/e2e-noturno.yml` (04:30 de Brasília, e pelo botão) roda
