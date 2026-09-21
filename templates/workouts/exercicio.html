@@ -50,7 +50,17 @@
       </div>
       <div>
         <dt>Quando</dt>
-        <dd>{{ dias|join:", " }}</dd>
+        <dd>{{ dias|join:", " }}{% if ciclo_continuo %}
+          {% comment %}
+            Os dias são os da SEMANA DE TREINO (rotação). Sem dizer que o ciclo
+            gira, o "Quando" é lido como fixo, e a pessoa que chega pela ficha
+            da semana que vem estranha a letra cair noutro dia (avaliação de
+            UX, 20/09/2026). Não diz "nesta semana" porque, depois do último
+            treino da semana, a leitura já é a da semana que vem
+            (fix/semana-do-painel) — a frase fala só da rotação, que é
+            verdadeira em qualquer semana. Mora aqui, colada ao dado.
+          {% endcomment %}
+          <span class="hint">o ciclo gira, então os dias mudam a cada semana</span>{% endif %}</dd>
       </div>
       <div>
         <dt>Papel</dt>
