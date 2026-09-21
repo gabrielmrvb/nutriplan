@@ -111,6 +111,29 @@
     mora AQUI, na leitura, e não na ficha: a ficha continua lista, não
     painel (`_item_da_ficha.html` só anuncia "outras formas").
   {% endcomment %}
+  {% if escada %}
+    {% comment %}
+      A ESCADA DE PROGRESSÃO do movimento (decisão 1 da avaliação de UX,
+      20/09/2026). Peso do corpo não muda a carga; muda a versão do
+      movimento. A lista vai do mais fácil ao mais difícil, com o atual
+      marcado — a pessoa faz a versão que consegue e sobe quando ela fica
+      fácil. Reusa `data-list`, sem componente novo; o degrau atual é dito
+      no texto ("você está aqui"), não por cor (informação só por cor é a
+      armadilha de acessibilidade deste app).
+    {% endcomment %}
+    <section class="card escada">
+      <div class="card__head"><h2>Progressão do movimento</h2></div>
+      <p class="hint">Do mais fácil ao mais difícil. Faça a versão que sai com boa técnica e suba quando ela ficar fácil.</p>
+      <dl class="data-list">
+        {% for degrau in escada %}
+          <div>
+            <dt>{{ degrau.exercicio.name }}</dt>
+            <dd>{% if degrau.atual %}você está aqui{% elif degrau.relativo == 'mais_facil' %}mais fácil{% else %}mais difícil{% endif %}</dd>
+          </div>
+        {% endfor %}
+      </dl>
+    </section>
+  {% endif %}
   <section class="card formas" id="outras-formas">
     <div class="card__head"><h2>Outras formas</h2></div>
     {% if alternativas %}

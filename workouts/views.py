@@ -1135,6 +1135,10 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
             "alternativas": services.alternativas_de(
                 user, exercicio, na_sessao, permitidos=doutrina.equipamentos_de(self.perfil_do_dispatch.equipamento),
             ),
+            # A escada de progressão do movimento (peso do corpo): do mais
+            # fácil ao mais difícil, com o atual marcado. Vazia para quem não
+            # pertence a uma escada.
+            "escada": services.escada_de(exercicio),
             # O `original` do formulário: quem já está no lugar de outro
             # troca DE NOVO a partir do original (estado absoluto).
             "original_da_troca": original if original is not None else exercicio,
