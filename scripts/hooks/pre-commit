@@ -23,6 +23,24 @@ set -o pipefail
 PY=".venv/Scripts/python.exe"
 [ -x "$PY" ] || PY="python"
 
+echo "→ segredos no commit"
+# O cofre `~/.nutriplan-secrets` pelo NOME, a chave do Render, a URL do Neon
+# com senha e a chave da Brevo (`.gitleaks.toml`). Com o gitleaks instalado
+# (WinGet `Gitleaks.Gitleaks`, apt, brew) ele roda com as regras do arquivo
+# MAIS as 150+ padrão; sem ele, `scripts/segredos.py` aplica as do arquivo em
+# Python puro — a trava não depende de ninguém ter instalado nada.
+GITLEAKS="$(command -v gitleaks 2>/dev/null || true)"
+if [ -z "$GITLEAKS" ]; then
+  for CANDIDATO in "$LOCALAPPDATA"/Microsoft/WinGet/Packages/Gitleaks.Gitleaks_*/gitleaks.exe; do
+    [ -x "$CANDIDATO" ] && GITLEAKS="$CANDIDATO" && break
+  done
+fi
+if [ -n "$GITLEAKS" ]; then
+  "$GITLEAKS" git --staged --config .gitleaks.toml --no-banner --redact --verbose --exit-code 1
+else
+  "$PY" scripts/segredos.py --staged
+fi
+
 echo "→ migrações pendentes"
 "$PY" manage.py makemigrations --check --dry-run --no-input >/dev/null
 
