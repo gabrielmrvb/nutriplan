@@ -444,6 +444,13 @@
     {% endcomment %}
     <div class="acoes-empilhadas">
     {% comment %}
+      Avisos (e-mails e pushes) têm tela própria: o que a pessoa recebe e a
+      que horas. Mora aqui, na conta, porque é onde ela procura "o que o app
+      me manda" — e é o mesmo caminho que o rodapé de todo e-mail aponta.
+    {% endcomment %}
+    <a class="btn btn--ghost btn--block" href="{% url 'avisos:preferencias' %}">Avisos por e-mail e no aparelho</a>
+
+    {% comment %}
       Trocar senha só aparece para quem TEM senha. Numa conta que entra pelo
       Google, `has_usable_password` é falso: oferecer o link levaria a um
       formulário pedindo a "senha atual" que nunca existiu, e o erro seria
