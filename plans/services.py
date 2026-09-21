@@ -5,7 +5,11 @@ entradas, desativar o plano anterior e criar o novo. O `NutritionPlan` é
 tratado como imutável — mudou alguma entrada, nasce um plano novo e o antigo
 fica no histórico com a meta que valia naquela época.
 """
+import dataclasses
+from decimal import Decimal
+
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from accounts.models import Profile
@@ -29,6 +33,15 @@ _INPUT_FIELDS = (
     "goal",
     "training_days_per_week",
 )
+#: Quanto o peso pode variar sem que o plano seja considerado desatualizado.
+#:
+#: Avaliação de 16/09 (B17): qualquer peso novo invalidava o plano inteiro e
+#: reescolhia o cardápio A/B do zero — pesar de manhã, com o intestino vazio
+#: ou cheio, virava um cardápio diferente. 1,5 kg movem a TMB em ~15 kcal,
+#: menos que o degrau de 10 g que o próprio cardápio já assume: não é
+#: diferença que o prato precisa acompanhar.
+TOLERANCIA_DE_PESO_KG = Decimal("1.5")
+
 #: Campos que são resultado do cálculo.
 _OUTPUT_FIELDS = (
     "bmr_kcal",
@@ -168,8 +181,30 @@ def plan_is_current(plan, inputs) -> bool:
     """O plano ativo ainda corresponde aos dados de hoje?
 
     Comparamos entradas E saídas. As entradas pegam mudança de peso, objetivo
-    ou rotina; as saídas pegam o que não vira campo do plano — trocar a duração
-    do treino mantém `training_days_per_week` igual, mas move o TDEE.
+    ou rotina; as saídas pegam o que não vira campo do plano — hoje,
+    `kcal_adjustment` ("Cortar/Somar 150 kcal" grava no perfil, não no plano).
+    A duração do treino (`session_minutes`) também não é campo do plano, mas o
+    motor só conta os dias; se um dia ela pesar no TDEE, cai neste mesmo
+    caminho sem mexer aqui.
+
+    PESO É A EXCEÇÃO, e o motivo é "plano é retrato": nada dentro de um plano
+    ativo é editado — a tolerância só decide se nasce um retrato novo. Se toda
+    entrada MENOS o peso bate, e o peso de hoje está a até
+    `TOLERANCIA_DE_PESO_KG` do peso gravado no plano, as SAÍDAS são comparadas
+    contra o cálculo feito COM O PESO DO RETRATO — o peso é a única entrada
+    que a tolerância perdoa, então ele é neutralizado antes de comparar, e o
+    que sobra é tudo o que move a meta sem passar por ele. Pesar +1,0 kg
+    continua não regenerando (saídas iguais no peso gravado; 1,5 kg de
+    diferença é ruído de balança, não progresso); "Cortar 150 kcal"
+    (`kcal_adjustment`) regenera, porque não é campo do plano e move a meta.
+
+    A primeira versão do ramo devolvia `True` sem olhar saída nenhuma
+    (revisão final da Fase 3, 17/09/2026): "Cortar 150" gravava o ajuste no
+    perfil, `sync_active_plan` achava o plano velho "atual", e a meta não
+    mudava — com a mensagem "Cortamos 150 kcal da sua meta" na tela.
+
+    Fora da faixa, ou com qualquer outra entrada diferente, roda o caminho de
+    sempre: recalcular e comparar entradas e saídas contra o resultado de hoje.
     """
     if plan is None:
         return False
@@ -177,11 +212,42 @@ def plan_is_current(plan, inputs) -> bool:
         # Plano criado antes da etapa 4 (ou por um erro na geração): os números
         # podem estar certos, mas sem cardápio ele não serve para nada.
         return False
-    if MealOption.objects.filter(slot__plan=plan, template__is_active=False).exists():
+    if (
+        MealOption.objects.filter(slot__plan=plan)
+        .filter(
+            Q(template__is_active=False)
+            | Q(template__items_changed_at__gt=plan.created_at)
+        )
+        .exists()
+    ):
         # O cardápio aponta para receita aposentada — normalmente porque o
         # catálogo mudou. Os números seguem certos, mas mandar a pessoa comprar
         # o que saiu do catálogo não serve; o plano é refeito na próxima visita.
+        #
+        # Ou para receita cujos INGREDIENTES o seed recriou depois de o plano
+        # nascer (`MealTemplate.items_changed_at`): o `scale_factor` da opção
+        # foi calculado sobre a base velha, e aplicá-lo à base nova entrega
+        # outra comida — 2,5× sobre uma base que dobrou é o dobro do prato.
+        # As duas condições moram na MESMA consulta de propósito: o orçamento
+        # de `plans:today` (`plans/test_stress.py`) não sobe por isto.
         return False
+
+    outras_entradas_batem = all(
+        getattr(plan, field) == getattr(inputs, field)
+        for field in _INPUT_FIELDS
+        if field != "weight_kg"
+    )
+    if outras_entradas_batem:
+        variacao_de_peso = abs(Decimal(plan.weight_kg) - Decimal(inputs.weight_kg))
+        if variacao_de_peso <= TOLERANCIA_DE_PESO_KG:
+            no_peso_do_retrato = calculate(
+                dataclasses.replace(inputs, weight_kg=plan.weight_kg)
+            )
+            return all(
+                getattr(plan, field) == getattr(no_peso_do_retrato, field)
+                for field in _OUTPUT_FIELDS
+            )
+
     result = calculate(inputs)
     same_inputs = all(
         getattr(plan, field) == getattr(inputs, field) for field in _INPUT_FIELDS

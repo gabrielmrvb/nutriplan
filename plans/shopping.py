@@ -164,7 +164,9 @@ def weekly_quantities(plan, label=None, inicio=None) -> dict:
     outra.
     """
     slots = list(
-        plan.slots.prefetch_related("options__template__items__food").order_by("order")
+        plan.slots.prefetch_related(
+            "options__template__items__food__portions"
+        ).order_by("order")
     )
 
     totais = {}
@@ -203,7 +205,7 @@ def shopping_list(plan, label=None, inicio=None) -> list:
         # esta função continua fazendo é a lista; o que se compra é outra
         # pergunta.
         texto, aproximado = compra.converter(
-            food.name, arredondado, food.base_unit
+            food.name, arredondado, food.base_unit, food=food
         )
         por_corredor.setdefault(food.aisle, []).append(
             {

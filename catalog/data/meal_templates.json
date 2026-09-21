@@ -13,7 +13,7 @@
     "items": [
       [
         "Cuscuz de milho cozido",
-        150,
+        140,
         true
       ],
       [
@@ -23,7 +23,7 @@
       ],
       [
         "Amendoim torrado",
-        20,
+        50,
         true
       ]
     ],
@@ -39,16 +39,16 @@
       "sem-gluten"
     ],
     "prep_minutes": 15,
-    "instructions": "Hidrate a proteína de soja, refogue com cebola e tomate e sirva sobre o cuscuz.",
+    "instructions": "Hidrate a proteína de soja, refogue com a cebola, o tomate e o óleo e sirva sobre o cuscuz.",
     "items": [
       [
         "Cuscuz de milho cozido",
-        150,
+        170,
         true
       ],
       [
         "Proteína de soja texturizada (seca)",
-        25,
+        55,
         true
       ],
       [
@@ -63,8 +63,8 @@
       ],
       [
         "Óleo de soja",
-        5,
-        false
+        15,
+        true
       ]
     ],
     "category": "breakfast",
@@ -79,21 +79,26 @@
       "rapida"
     ],
     "prep_minutes": 10,
-    "instructions": "Hidrate o cuscuz, leve à cuscuzeira e sirva com o ovo cozido.",
+    "instructions": "Hidrate o cuscuz, leve à cuscuzeira e sirva com o ovo cozido e o tomate, regados com o azeite.",
     "items": [
       [
         "Cuscuz de milho cozido",
-        150,
+        175,
+        true
+      ],
+      [
+        "Azeite de oliva extra virgem",
+        20,
         true
       ],
       [
         "Ovo de galinha cozido",
         100,
-        false
+        true
       ],
       [
-        "Óleo de soja",
-        5,
+        "Tomate",
+        60,
         false
       ]
     ],
@@ -109,7 +114,7 @@
       "rapida"
     ],
     "prep_minutes": 8,
-    "instructions": "Cozinhe a aveia com água, misture a pasta de amendoim e a banana amassada.",
+    "instructions": "Cozinhe a aveia com água, misture a pasta de amendoim, a banana amassada e finalize com o amendoim torrado picado.",
     "items": [
       [
         "Aveia em flocos",
@@ -118,13 +123,18 @@
       ],
       [
         "Pasta de amendoim integral",
-        20,
+        25,
         true
       ],
       [
         "Banana prata",
         70,
         false
+      ],
+      [
+        "Amendoim torrado",
+        10,
+        true
       ]
     ],
     "category": "breakfast",
@@ -137,7 +147,7 @@
       "rapida"
     ],
     "prep_minutes": 8,
-    "instructions": "Cozinhe a aveia com o leite até engrossar e finalize com o mel.",
+    "instructions": "Cozinhe a aveia com o leite até engrossar, misture a pasta de amendoim e a banana amassada e finalize com o mel.",
     "items": [
       [
         "Aveia em flocos",
@@ -146,7 +156,7 @@
       ],
       [
         "Leite desnatado",
-        200,
+        240,
         true
       ],
       [
@@ -158,6 +168,11 @@
         "Mel",
         10,
         false
+      ],
+      [
+        "Pasta de amendoim integral",
+        25,
+        true
       ]
     ],
     "category": "breakfast",
@@ -174,12 +189,12 @@
     "items": [
       [
         "Ovo de galinha cozido",
-        100,
-        false
+        150,
+        true
       ],
       [
         "Pão francês",
-        50,
+        100,
         true
       ],
       [
@@ -198,27 +213,32 @@
       "rapida"
     ],
     "prep_minutes": 5,
-    "instructions": "Monte o pão com o queijo e sirva com o café com leite.",
+    "instructions": "Monte o pão com o queijo, sirva com o ovo cozido e o café com leite.",
     "items": [
       [
         "Pão de forma integral",
-        50,
+        45,
         true
       ],
       [
         "Queijo prato",
-        40,
+        35,
         true
       ],
       [
         "Leite integral",
-        150,
+        200,
         true
       ],
       [
         "Café coado sem açúcar",
         100,
         false
+      ],
+      [
+        "Ovo de galinha cozido",
+        100,
+        true
       ]
     ],
     "category": "breakfast",
@@ -231,27 +251,32 @@
       "rapida"
     ],
     "prep_minutes": 5,
-    "instructions": "Passe o requeijão no pão e sirva com o café com leite.",
+    "instructions": "Passe o requeijão no pão, acrescente o queijo e sirva com o café com leite.",
     "items": [
       [
         "Pão de forma integral",
-        50,
+        45,
         true
       ],
       [
         "Requeijão cremoso",
-        30,
+        50,
         true
       ],
       [
         "Leite integral",
-        150,
+        220,
         true
       ],
       [
         "Café coado sem açúcar",
         100,
         false
+      ],
+      [
+        "Queijo prato",
+        35,
+        true
       ]
     ],
     "category": "breakfast",
@@ -264,21 +289,21 @@
       "rapida"
     ],
     "prep_minutes": 8,
-    "instructions": "Frite o ovo, monte no pão com o queijo e volte à frigideira até derreter.",
+    "instructions": "Pique o ovo cozido, monte no pão com o queijo e leve à frigideira até o queijo derreter.",
     "items": [
       [
         "Pão francês",
-        50,
+        80,
         true
       ],
       [
         "Ovo de galinha cozido",
         100,
-        false
+        true
       ],
       [
         "Queijo muçarela",
-        30,
+        40,
         true
       ]
     ],
@@ -293,17 +318,27 @@
       "rapida"
     ],
     "prep_minutes": 10,
-    "instructions": "Firme a goma na frigideira e recheie com o frango desfiado.",
+    "instructions": "Refogue o frango desfiado com o azeite e o tomate, firme a goma na frigideira e recheie.",
     "items": [
       [
-        "Goma de tapioca hidratada",
-        60,
+        "Peito de frango grelhado",
+        105,
         true
       ],
       [
-        "Peito de frango grelhado",
+        "Goma de tapioca hidratada",
         80,
         true
+      ],
+      [
+        "Azeite de oliva extra virgem",
+        15,
+        true
+      ],
+      [
+        "Tomate",
+        60,
+        false
       ]
     ],
     "category": "breakfast",
@@ -318,17 +353,22 @@
       "rapida"
     ],
     "prep_minutes": 8,
-    "instructions": "Espalhe a goma na frigideira quente até firmar e recheie com o ovo cozido picado.",
+    "instructions": "Espalhe a goma na frigideira quente até firmar, recheie com o ovo cozido picado e regue com o azeite.",
     "items": [
       [
         "Goma de tapioca hidratada",
-        60,
+        85,
+        true
+      ],
+      [
+        "Azeite de oliva extra virgem",
+        20,
         true
       ],
       [
         "Ovo de galinha cozido",
         100,
-        false
+        true
       ]
     ],
     "category": "breakfast",
@@ -342,21 +382,26 @@
       "rapida"
     ],
     "prep_minutes": 8,
-    "instructions": "Firme a goma na frigideira, recheie com o ovo cozido picado e o queijo e dobre.",
+    "instructions": "Firme a goma untada com manteiga na frigideira, recheie com o ovo cozido picado e o queijo e dobre.",
     "items": [
       [
         "Goma de tapioca hidratada",
-        60,
+        80,
         true
       ],
       [
         "Ovo de galinha cozido",
         100,
-        false
+        true
       ],
       [
         "Queijo muçarela",
-        30,
+        40,
+        true
+      ],
+      [
+        "Manteiga",
+        5,
         true
       ]
     ],
@@ -373,11 +418,11 @@
       "rapida"
     ],
     "prep_minutes": 8,
-    "instructions": "Firme a goma na frigideira e recheie com a pasta e a banana em rodelas.",
+    "instructions": "Firme a goma na frigideira e recheie com a pasta e a banana em rodelas, finalizando com o amendoim torrado picado por cima.",
     "items": [
       [
         "Goma de tapioca hidratada",
-        60,
+        65,
         true
       ],
       [
@@ -389,6 +434,11 @@
         "Banana prata",
         70,
         false
+      ],
+      [
+        "Amendoim torrado",
+        25,
+        true
       ]
     ],
     "category": "breakfast",
@@ -401,22 +451,27 @@
       "rapida"
     ],
     "prep_minutes": 5,
-    "instructions": "Bata o leite com a banana e a aveia no liquidificador.",
+    "instructions": "Bata o leite com a banana e a aveia no liquidificador e adoce com o mel.",
     "items": [
       [
         "Leite integral",
-        250,
+        240,
         true
       ],
       [
         "Banana prata",
-        120,
+        70,
         false
       ],
       [
         "Aveia em flocos",
-        30,
+        60,
         true
+      ],
+      [
+        "Mel",
+        28,
+        false
       ]
     ],
     "category": "breakfast",
@@ -462,11 +517,11 @@
       "rapida"
     ],
     "prep_minutes": 5,
-    "instructions": "Bata o leite com o mamão e a aveia no liquidificador.",
+    "instructions": "Bata o leite com o mamão, a aveia e a pasta de amendoim no liquidificador.",
     "items": [
       [
         "Leite integral",
-        250,
+        245,
         true
       ],
       [
@@ -476,7 +531,12 @@
       ],
       [
         "Aveia em flocos",
-        30,
+        40,
+        true
+      ],
+      [
+        "Pasta de amendoim integral",
+        25,
         true
       ]
     ],
