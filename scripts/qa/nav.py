@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 """nav.py — navegador headless por CDP para QA, UMA sessão por nome.
 
-O `agent-browser` passou a ser bloqueado pelo Controle de Aplicativo do
-Windows em 14/09/2026; o Chrome que ele baixou continua rodando. Este
-arquivo fala CDP direto com um Chrome headless próprio por sessão.
+O `agent-browser` é o padrão de QA de navegador; este arquivo é o FALLBACK
+— fala CDP direto com um Chrome headless próprio por sessão e faz o que ele
+não faz: `rede 3g`, `permissao`, `movimento reduzido`. Histórico: de 14 a
+20/09/2026 o Controle de Aplicativo do Windows bloqueava o `agent-browser` e
+este arquivo foi a única ferramenta; o Smart App Control foi desligado em
+20/09.
 
 Uso (sempre com o python do .venv):
   nav.py <sessao> open <url>                 -> título e URL final
@@ -37,7 +40,25 @@ from pathlib import Path
 
 import websocket  # websocket-client
 
-CHROME = Path.home() / ".agent-browser" / "browsers" / "chrome-153.0.8010.36" / "chrome.exe"
+#: Os Chromes que este arquivo tenta, NESTA ordem, e por que há uma lista:
+#: na manhã de 20/09/2026 o Smart App Control do Windows bloqueou também o
+#: `chrome.exe` que o agent-browser baixou (`WinError 4551` no `spawn`), e o
+#: QA de navegador morreu inteiro — com o Google Chrome instalado (assinado,
+#: mesmo motor, 153.0.8010.48) subindo headless com CDP normalmente ao lado.
+#: O dono desligou o SAC às 15:10 daquele dia (ledger; CLAUDE.md pelo #41),
+#: mas a lista fica: o bloqueio é um `OSError` no `Popen`, não um arquivo
+#: que falta, e `_abrir_chrome` cai para o próximo candidato no erro — o QA
+#: não pode morrer de novo por uma política que liga e desliga.
+#: `NAV_CHROME` no ambiente vai na frente de todos.
+CANDIDATOS = [
+    Path.home() / ".agent-browser" / "browsers" / "chrome-153.0.8010.36" / "chrome.exe",
+    Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Google" / "Chrome" / "Application" / "chrome.exe",
+    Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Google" / "Chrome" / "Application" / "chrome.exe",
+    Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Microsoft" / "Edge" / "Application" / "msedge.exe",
+]
+if os.environ.get("NAV_CHROME"):
+    CANDIDATOS.insert(0, Path(os.environ["NAV_CHROME"]))
+CHROME = CANDIDATOS[0]  # o que subiu por último fica aqui, para quem lê
 BASE = Path(os.environ.get("TEMP", "/tmp")) / "nav-sessoes"
 BASE.mkdir(parents=True, exist_ok=True)
 
@@ -57,21 +78,38 @@ def _vivo(porta):
 
 
 def _abrir_chrome(sessao, porta, largura=390, altura=844):
+    global CHROME
     perfil = BASE / ("perfil-" + sessao)
     perfil.mkdir(parents=True, exist_ok=True)
-    args = [
-        str(CHROME), "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
-        "--remote-debugging-port=%d" % porta, "--remote-allow-origins=*", "--user-data-dir=%s" % perfil,
-        "--window-size=%d,%d" % (largura, altura), "--hide-scrollbars", "--lang=pt-BR",
-        "--disable-background-timer-throttling", "about:blank",
-    ]
-    subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                     creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "DETACHED_PROCESS", 0))
-    for _ in range(60):
-        if _vivo(porta):
-            return
-        time.sleep(0.25)
-    raise SystemExit("Chrome não subiu na porta %d" % porta)
+    tentados = []
+    for candidato in CANDIDATOS:
+        if not candidato.exists():
+            continue
+        args = [
+            str(candidato), "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+            "--remote-debugging-port=%d" % porta, "--remote-allow-origins=*", "--user-data-dir=%s" % perfil,
+            "--window-size=%d,%d" % (largura, altura), "--hide-scrollbars", "--lang=pt-BR",
+            "--disable-background-timer-throttling", "about:blank",
+        ]
+        try:
+            subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "DETACHED_PROCESS", 0))
+        except OSError as erro:
+            # Smart App Control: "Uma política de Controle de Aplicativo
+            # bloqueou este arquivo" (WinError 4551). Próximo da lista.
+            tentados.append("%s (%s)" % (candidato, erro))
+            continue
+        for _ in range(60):
+            if _vivo(porta):
+                CHROME = candidato
+                return
+            time.sleep(0.25)
+        tentados.append("%s (não respondeu na porta %d)" % (candidato, porta))
+    raise SystemExit(
+        "Nenhum Chrome subiu na porta %d. Tentados: %s. Se todos dizem 'bloqueou este arquivo', é o Smart App "
+        "Control — use o Chrome instalado (assinado) ou aponte NAV_CHROME para um que suba."
+        % (porta, "; ".join(tentados) or "nenhum candidato existe")
+    )
 
 
 class Sessao:

@@ -55,6 +55,20 @@ class TresEtapasReaisTests(TestCase):
             with self.subTest(n=n):
                 self.assertEqual(self.client.get(etapa(n)).status_code, 404)
 
+    def test_a_etapa_2_avisa_o_que_muda_no_peso_do_corpo(self):
+        """Decisão 1 da avaliação de UX (20/09/2026): desde o catálogo de peso
+        do corpo a ficha desse perfil é CHEIA e comparável às outras — o aviso
+        deixou de dizer "ficha mais curta" (era verdade só até o catálogo
+        cobrir) e passou a dizer o que de fato muda: peito, ombro e bíceps
+        ficam mais leves, por limite físico do próprio corpo, e dá para trocar
+        o equipamento depois. O onboarding continua não fingindo paridade
+        total, mas sem alarmar quem escolhe "em casa, sem nada"."""
+        self.client.post(etapa(1), ETAPA1)  # o onboarding só libera a etapa 2 depois da 1
+        html = self.client.get(etapa(2)).content.decode()
+        self.assertIn("field__nota-equipamento", html)
+        self.assertIn("<strong>Só o peso do corpo</strong>", html)
+        self.assertIn("mais leves", html)
+
     def test_a_etapa_1_diz_1_de_3_e_continuar(self):
         html = self.client.get(etapa(1)).content.decode()
         self.assertIn("Etapa 1 de 3", html)
@@ -340,3 +354,38 @@ class ErrosJuntoAoCampoTests(TestCase):
         self.assertIn("Este campo é obrigatório", html)
         self.assertIn('value="4"', html)  # o dia de sexta continua marcado
         self.assertIn('checked', html)
+
+
+class OToqueDuploNaoMandaDoisPostsTests(TestCase):
+    """A auditoria de 20/09/2026 viu dois `POST /conta/onboarding/3/` seguidos
+    de um toque duplo em "Criar meu plano": o `submit` disparava o `fetch` a
+    cada toque, e a tela de montagem só cobria o botão no quadro seguinte. O
+    servidor é idempotente (os dois planos saem iguais), mas dois pedidos
+    são o dobro do trabalho e uma corrida à toa. O script agora ignora o
+    segundo `submit` enquanto o primeiro está no ar e desabilita o botão.
+    (Comportamento provado no navegador; aqui a régua é o script servido.)"""
+
+    def setUp(self):
+        from plans.tests import create_complete_user
+
+        self.pessoa = create_complete_user(email="duplo@exemplo.com")
+        self.pessoa.profile.onboarding_step = 3
+        self.pessoa.profile.save()
+        self.client.force_login(self.pessoa)
+
+    def _script(self):
+        from django.urls import reverse
+
+        html = self.client.get(reverse("accounts:onboarding_step", kwargs={"step": 3})).content.decode()
+        return html[html.index("[data-montagem]"):]
+
+    def test_o_segundo_submit_e_ignorado_enquanto_o_primeiro_esta_no_ar(self):
+        script = self._script()
+        self.assertIn("if (enviando) return;", script)
+        self.assertIn("enviando = true;", script)
+        self.assertIn("enviando = false;", script)
+
+    def test_o_botao_fica_ocupado_durante_a_montagem(self):
+        script = self._script()
+        self.assertIn('botao.setAttribute("aria-busy", "true")', script)
+        self.assertIn("botao.disabled = true", script)

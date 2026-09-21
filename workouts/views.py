@@ -161,6 +161,14 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
                 # que não há treino. Com treino hoje, o próximo é ruído.
                 "proximo": proximo_treino(sessions, plan, hoje_data, linhas) if hoje is None else None,
                 "week": week_overview(sessions),
+                # A tira mostra a rotação da SEMANA CORRENTE (as cópias vestidas
+                # de `sessoes_da_semana`), mas sem dizer que ela GIRA a pessoa
+                # lê a tira como fixa e estranha o "próximo treino" da semana que
+                # vem cair noutra letra (achado da avaliação de UX, 20/09/2026:
+                # tira SEG=A × próximo=C). A legenda só entra quando o ciclo roda
+                # — plano antigo/ajustado fica preso ao dia da semana, e ali
+                # dizer "gira" seria mentira.
+                "ciclo_continuo": services.ciclo_roda(plan),
                 # O que a pessoa pediu, o que foi aplicado e por quê — só
                 # quando divergem. Ver `services.divisao_explicada`.
                 #
@@ -1127,6 +1135,10 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
             "alternativas": services.alternativas_de(
                 user, exercicio, na_sessao, permitidos=doutrina.equipamentos_de(self.perfil_do_dispatch.equipamento),
             ),
+            # A escada de progressão do movimento (peso do corpo): do mais
+            # fácil ao mais difícil, com o atual marcado. Vazia para quem não
+            # pertence a uma escada.
+            "escada": services.escada_de(exercicio),
             # O `original` do formulário: quem já está no lugar de outro
             # troca DE NOVO a partir do original (estado absoluto).
             "original_da_troca": original if original is not None else exercicio,
@@ -1144,6 +1156,10 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
                 "%s (%s)" % (i.session.weekday_display, i.session.rotulo)
                 for i in itens
             ],
+            # Os dias acima são os desta semana (rotação); com o ciclo girando, a
+            # letra cai em dias diferentes na semana seguinte, e sem dizer isso o
+            # "Quando" é lido como fixo (avaliação de UX, 20/09/2026).
+            "ciclo_continuo": services.ciclo_roda(plano),
             "item_de_hoje": item_de_hoje,
             "volta": self._de_onde_veio(exercicio, itens),
         })

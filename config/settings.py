@@ -414,7 +414,9 @@ def staticfiles_backend(debug: bool) -> str:
     """
     if debug:
         return "django.contrib.staticfiles.storage.StaticFilesStorage"
-    return "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    # O do whitenoise, com a `app.css` sem comentários antes do hash
+    # (`config/estaticos.py`; decisão do dono, 20/09/2026).
+    return "config.estaticos.ArmazenamentoDeEstaticos"
 
 
 STORAGES = {

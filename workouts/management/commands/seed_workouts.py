@@ -125,6 +125,9 @@ class Command(BaseCommand):
                     # de digitação no arquivo apareça aqui e não na tela.
                     "secondary_muscles": row.get("secundarios", []),
                     "is_active": row.get("active", True),
+                    # A escada de dificuldade do movimento, quando existe
+                    # (peso do corpo). Vazio para quem não pertence a uma.
+                    "progressao": row.get("progressao", {}),
                 },
             )
             exercises[row["name"]] = exercise

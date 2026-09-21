@@ -23,7 +23,6 @@ custo apareceria em toda visita para um ganho que a escrita já entrega.
 from dataclasses import replace
 from datetime import timedelta
 
-from django.db import IntegrityError, transaction
 from django.db.models import DecimalField, ExpressionWrapper, F, Max, Min, Q
 from django.utils import timezone
 
@@ -150,38 +149,75 @@ def avaliar(user, hoje=None) -> list:
 
     Idempotente por construção: a unicidade `(user, slug, chave)` está no
     banco, então repetir a mesma ação não cria linha nova nem em corrida entre
-    dois pedidos. O `IntegrityError` é capturado porque `get_or_create` pode
-    perder a corrida entre o SELECT e o INSERT — e perder essa corrida é o
-    comportamento CORRETO: significa que outro pedido já gravou.
+    dois pedidos — `ignore_conflicts` é o que aceita perder essa corrida, e
+    perder é o comportamento CORRETO: significa que outro pedido já gravou.
+
+    E grava em LOTE. Até 20/09/2026 era um `get_or_create` transacional POR
+    DETECÇÃO, e o recorde detecta um par `(exercício, data)` por exercício:
+    para o Carlos do demo (487 séries) `/conquistas/` fazia 252 consultas,
+    159 repetidas — 75 × (BEGIN + SELECT + COMMIT) — e respondia em 1,1–1,2 s
+    no Render enquanto toda outra tela ficava em 250–350 ms. O custo crescia
+    com o histórico: quanto mais a pessoa treinava, mais lenta ficava a tela
+    que celebra isso. Hoje são três consultas fixas para qualquer quantidade
+    de detecções (`achievements/test_avaliar_em_lote.py`).
     """
     dados = reunir(user, hoje)
-    novas = []
+    detectadas = []
     for regra in CATALOGO:
-        novas.extend(_gravar(user, regra, dados))
-    return novas
+        detectadas.extend((regra, chave, contexto) for chave, contexto in regra.detectar(dados))
+    return _gravar_lote(user, detectadas)
 
 
 def _gravar(user, regra, dados) -> list:
     """Roda UMA regra sobre dados já reunidos e grava o que for novo.
 
-    É o corpo do laço de `avaliar`, separado para `resumo` poder desbloquear
-    só a regra que chegou a 100 % sem pagar o catálogo inteiro.
+    Existe para `resumo` poder desbloquear só a regra que chegou a 100 % sem
+    pagar o catálogo inteiro; é o mesmo lote de `avaliar`, com uma regra só.
     """
-    novas = []
-    for chave, contexto in regra.detectar(dados):
-        try:
-            with transaction.atomic():
-                conquista, criada = UserAchievement.objects.get_or_create(
-                    user=user,
-                    slug=regra.slug,
-                    chave=chave,
-                    defaults={"contexto": contexto},
-                )
-        except IntegrityError:
+    return _gravar_lote(user, [(regra, chave, contexto) for chave, contexto in regra.detectar(dados)])
+
+
+def _gravar_lote(user, detectadas) -> list:
+    """Grava as detecções que ainda não existem, em três consultas fixas.
+
+    1. o que a pessoa JÁ tem, entre os slugs detectados;
+    2. um `INSERT` só, com `ignore_conflicts` para a corrida entre dois
+       pedidos (a constraint decide, como antes);
+    3. releitura do que acabou de nascer — `bulk_create` com
+       `ignore_conflicts` não devolve `pk`, e `anunciar` guarda os ids na
+       sessão.
+
+    Sem detecção nova, as consultas 2 e 3 não acontecem.
+    """
+    if not detectadas:
+        return []
+    slugs = {regra.slug for regra, _, _ in detectadas}
+    existentes = set(
+        UserAchievement.objects.filter(user=user, slug__in=slugs).values_list("slug", "chave")
+    )
+    novas, vistas = [], set()
+    for regra, chave, contexto in detectadas:
+        par = (regra.slug, chave)
+        if par in existentes or par in vistas:
             continue
-        if criada:
-            novas.append(conquista)
-    return novas
+        vistas.add(par)
+        novas.append(UserAchievement(user=user, slug=regra.slug, chave=chave, contexto=contexto))
+    if not novas:
+        return []
+    UserAchievement.objects.bulk_create(novas, ignore_conflicts=True)
+    condicao = Q()
+    for conquista in novas:
+        condicao |= Q(slug=conquista.slug, chave=conquista.chave)
+    nascidas = {
+        (c.slug, c.chave): c
+        for c in UserAchievement.objects.filter(condicao, user=user)
+    }
+    # Na ordem do catálogo, como o laço antigo devolvia. Uma diferença
+    # escrita: se OUTRO pedido gravou o mesmo par entre a leitura e o INSERT
+    # (a corrida que `ignore_conflicts` absorve), os dois pedidos anunciam a
+    # mesma linha — o laço antigo calava o perdedor. A linha continua sendo
+    # uma, e o aviso na sessão é o mesmo id duas vezes.
+    return [nascidas[(c.slug, c.chave)] for c in novas if (c.slug, c.chave) in nascidas]
 
 
 def resumo(user, hoje=None, request=None):
