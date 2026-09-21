@@ -527,6 +527,25 @@
     </section>
   {% endif %}
 
+  <section class="card">
+    <div class="card__head"><h2>Análise de uso</h2></div>
+    <p class="muted">
+      O NutriPlan mede o próprio uso para melhorar — de primeira parte, sem
+      terceiros, sem vender nada e sem guardar quem você é. Você pode desligar a
+      atribuição à sua conta; o uso continua contando só de forma anônima.
+      <a class="btn-link" href="{% url 'privacidade' %}">Como funciona</a>.
+    </p>
+    <form method="post" action="{% url 'accounts:rastreio' %}" class="acao-solta">
+      {% csrf_token %}
+      <label class="form__nota">
+        <input type="checkbox" name="rastrear_uso" value="1"
+               {% if request.user.profile.rastrear_uso %}checked{% endif %}>
+        Permitir a análise de uso
+      </label>
+      <button class="btn btn--ghost" type="submit">Salvar preferência</button>
+    </form>
+  </section>
+
   {% comment %}
     A exclusão mora num cartão SEPARADO e no fim da página, longe de "Sair da
     conta". Os dois botões pareciam a mesma coisa se ficassem juntos, e um

@@ -1271,3 +1271,294 @@
     if (abreTeclado(e.target)) document.body.classList.remove("teclado-aberto");
   });
 })();
+
+/* ==========================================================================
+   COMPARTILHAR O PLACAR (retenção, 21/09/2026)
+
+   O treino fechado vira uma imagem de 1080×1350 — retrato 4:5, o formato
+   que feed e story aceitam sem cortar — desenhada AQUI, no aparelho, em
+   canvas: sem servidor, sem dependência nova. O desenho é o da direção
+   NERVURA: chão `--bg`, a régua diagonal (`--nervura`, −14°) com a ponta
+   de folha na extremidade, o título em caixa alta na display e os números
+   em Archivo; o laranja (`--terra`) é só da carga, como na execução.
+
+   Os CINCO dados vêm dos `data-compartilhar-*` do botão, já formatados
+   pelo servidor em pt-BR. Nada é lido do resto da página nem recalculado —
+   é o que garante que peso corporal, e-mail e nome não entram na imagem
+   (a mesma régua de `card.js`). O compartilhar em si é
+   `NutriPlanCard.compartilhar` (`card.js`, servido em toda página logada e
+   pré-cacheado pelo service worker): Web Share com arquivo quando
+   `navigator.canShare({files})` diz sim, senão `<a download>` criado na
+   hora. Uma segunda cópia aqui seria a que envelhece. O `<a download>`
+   nasce solto do documento, então o guarda do link-botão acima não o vê —
+   e o botão não é marcado como "carregando": a bandeja ou o download é a
+   resposta.
+
+   As cores saem de `getComputedStyle` dos tokens — a fonte da verdade — com
+   os hex de Ferro de reserva; a execução escreve `modo-foco`, então na
+   tela do placar os tokens já resolvem para o Ferro. As fontes são pedidas
+   por `document.fonts.load` antes de desenhar, com teto de 1,5 s: sem rede
+   `fonts.load` pode não voltar, e a imagem sai na fallback em vez de o
+   botão ficar mudo. `prefers-reduced-motion` não entra: é imagem parada.
+
+   Ao terminar, o botão dispara `nutriplan:placar-compartilhado` com o
+   canvas e o nome do arquivo — é o gancho do QA de navegador (o PNG é lido
+   dali por `toDataURL`) e de quem quiser reagir sem reler a imagem.
+   ========================================================================== */
+(function () {
+  "use strict";
+
+  var LARGURA = 1080;
+  var ALTURA = 1350;
+  var MARGEM = 96;
+  /* `--traco` é 2 px na tela; a imagem tem a densidade de uma captura a 3×
+     (1080 para ~360 de largura útil), então a régua leva 6 — em 2 a régua
+     sumiria no feed. A ponta de folha segue a mesma escala (16×14 → 48×42). */
+  var TRACO = 6;
+  var PONTA_LARGURA = 48;
+  var PONTA_ALTURA = 42;
+  var NERVURA_GRAUS = -14;
+  var ESPERA_FONTES_MS = 1500;
+  var DISPLAY = '"Big Shoulders Display", "Arial Narrow", Impact, sans-serif';
+  var TEXTO = 'Archivo, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+  var ARQUIVO = "nutriplan-treino-";
+  var ocupado = false;
+
+  function token(nome, reserva) {
+    var valor = getComputedStyle(document.documentElement).getPropertyValue(nome).trim();
+    return valor || reserva;
+  }
+
+  function paleta() {
+    return {
+      fundo: token("--bg", "#0b140f"),
+      marca: token("--brand", "#43df7a"),
+      carga: token("--terra", "#e8a33d"),
+      texto: token("--text", "#f2f6f2"),
+      fraco: token("--text-mute", "#a9bbae"),
+    };
+  }
+
+  /* Pede as duas faces que a imagem usa. Resolve sempre — com as fontes ou
+     com o teto — e nunca rejeita. */
+  function fontes() {
+    if (!document.fonts || !document.fonts.load) return Promise.resolve();
+    var pedidas = Promise.all([
+      document.fonts.load('900 120px "Big Shoulders Display"'),
+      document.fonts.load("600 40px Archivo"),
+    ]).catch(function () {});
+    var teto = new Promise(function (resolve) { setTimeout(resolve, ESPERA_FONTES_MS); });
+    return Promise.race([pedidas, teto]);
+  }
+
+  /* O ícone do app (o mesmo `<link rel="icon">` de 192 px que toda página
+     leva), para a marca no rodapé. Sem ele — fora do ar, ou a página sem o
+     link — a marca é só o wordmark; o desenho nunca espera mais que o teto. */
+  function icone() {
+    return new Promise(function (resolve) {
+      var link = document.querySelector('link[rel="icon"][sizes="192x192"]');
+      if (!link || !link.href) return resolve(null);
+      var img = new Image();
+      var decidido = false;
+      function fim(ok) {
+        if (decidido) return;
+        decidido = true;
+        resolve(ok ? img : null);
+      }
+      img.onload = function () { fim(true); };
+      img.onerror = function () { fim(false); };
+      setTimeout(function () { fim(false); }, ESPERA_FONTES_MS);
+      img.src = link.href;
+    });
+  }
+
+  /* Quebra por palavra dentro de `largura`: nome de sessão é comprido por
+     natureza ("Costas, bíceps, antebraço e trapézio"). */
+  function linhas(g, texto, largura) {
+    var saida = [];
+    var atual = "";
+    texto.split(" ").forEach(function (palavra) {
+      var tentativa = atual ? atual + " " + palavra : palavra;
+      if (atual && g.measureText(tentativa).width > largura) {
+        saida.push(atual);
+        atual = palavra;
+      } else {
+        atual = tentativa;
+      }
+    });
+    if (atual) saida.push(atual);
+    return saida;
+  }
+
+  function fonte(g, peso, tamanho, familia, espaco) {
+    g.font = peso + " " + tamanho + "px " + familia;
+    if ("letterSpacing" in g) g.letterSpacing = (espaco || 0) + "px";
+  }
+
+  /* A régua que risca: nasce em (x, y), sobe a −14° pela direita e termina
+     na ponta de folha — o mesmo `clip-path` do `.recompensa::before`. */
+  function nervura(g, cor, x, y, comprimento) {
+    g.save();
+    g.translate(x, y);
+    g.rotate(NERVURA_GRAUS * Math.PI / 180);
+    g.fillStyle = cor;
+    g.fillRect(0, -TRACO, comprimento - PONTA_LARGURA, TRACO);
+    g.beginPath();
+    g.moveTo(comprimento - PONTA_LARGURA, -PONTA_ALTURA);
+    g.lineTo(comprimento, 0);
+    g.lineTo(comprimento - PONTA_LARGURA, 0);
+    g.closePath();
+    g.fill();
+    g.restore();
+  }
+
+  function desenhar(dados, imagemDoIcone) {
+    var canvas = document.createElement("canvas");
+    canvas.width = LARGURA;
+    canvas.height = ALTURA;
+    var g = canvas.getContext("2d");
+    var cor = paleta();
+    var util = LARGURA - MARGEM * 2;
+
+    g.fillStyle = cor.fundo;
+    g.fillRect(0, 0, LARGURA, ALTURA);
+    g.textBaseline = "alphabetic";
+    g.textAlign = "left";
+
+    /* TÍTULO — "Treino B · Costas e bíceps": a letra vira sobretítulo na cor
+       da marca, o nome vira o herói em caixa alta. Sem o separador, tudo é
+       o nome. Até duas linhas a 120; a partir da terceira desce para 96. */
+    var partes = dados.sessao.split(" · ");
+    var sobretitulo = partes.length > 1 ? partes.shift() : "";
+    var titulo = partes.join(" · ").toUpperCase();
+    var y = 200;
+    if (sobretitulo) {
+      fonte(g, 800, 52, DISPLAY, 4);
+      g.fillStyle = cor.marca;
+      g.fillText(sobretitulo.toUpperCase(), MARGEM, y);
+    }
+    var corpo = 120;
+    var passo = 116;
+    fonte(g, 900, corpo, DISPLAY, 1);
+    var tituloEmLinhas = linhas(g, titulo, util);
+    if (tituloEmLinhas.length > 2) {
+      corpo = 96;
+      passo = 94;
+      fonte(g, 900, corpo, DISPLAY, 1);
+      tituloEmLinhas = linhas(g, titulo, util).slice(0, 3);
+    }
+    y += corpo + 24;
+    g.fillStyle = cor.texto;
+    tituloEmLinhas.forEach(function (linha, i) {
+      g.fillText(linha, MARGEM, y + i * passo);
+    });
+    var fimDoTitulo = y + (tituloEmLinhas.length - 1) * passo + 20;
+
+    /* RODAPÉ — a marca, discreta: o protagonista é o treino de quem posta. */
+    var icone = 88;
+    var topoDoRodape = ALTURA - MARGEM - icone;
+
+    /* O MIOLO — carga, séries e minutos — centrado entre título e rodapé.
+       Alturas relativas à linha de base da carga: o glifo sobe 150, o
+       rótulo fica a +64, os números pequenos a +254 e os rótulos a +312 e
+       +352. */
+    var alturaDoMiolo = 150 + 352;
+    var livre = (topoDoRodape - 40) - (fimDoTitulo + 40);
+    var baseDaCarga = fimDoTitulo + 40 + Math.max(0, (livre - alturaDoMiolo) / 2) + 150;
+
+    /* A nervura nasce à esquerda, sob a carga, e sobe por trás dela até a
+       ponta — desenhada ANTES dos números, como o `::before` do placar. */
+    nervura(g, cor.marca, 0, baseDaCarga + 34, Math.round(LARGURA * 0.82));
+
+    /* A carga cabe na largura útil: 210 leva até "123.456"; um número maior
+       (ninguém levanta um milhão de kg numa sessão, mas o desenho não é quem
+       decide isso) desce de tamanho até caber, em vez de sair pela borda. */
+    var tamanhoDaCarga = 210;
+    fonte(g, 800, tamanhoDaCarga, TEXTO, -6);
+    while (g.measureText(dados.kg).width > util && tamanhoDaCarga > 96) {
+      tamanhoDaCarga -= 10;
+      fonte(g, 800, tamanhoDaCarga, TEXTO, -6);
+    }
+    g.fillStyle = cor.carga;
+    g.fillText(dados.kg, MARGEM, baseDaCarga);
+    fonte(g, 600, 38, TEXTO, 6);
+    g.fillStyle = cor.fraco;
+    g.fillText("KG LEVANTADOS", MARGEM, baseDaCarga + 64);
+
+    /* Os rótulos dizem o que a tela diz — "min entre o primeiro e o último
+       registro" não é "duração do treino", que ninguém mede —, em duas linhas
+       cada um: numa só o dos minutos estourava a borda direita (medido). */
+    var colunas = [
+      [dados.series, ["SÉRIES", "REGISTRADAS"]],
+      [dados.minutos, ["MIN ENTRE O PRIMEIRO", "E O ÚLTIMO REGISTRO"]],
+    ];
+    colunas.forEach(function (coluna, i) {
+      var x = MARGEM + i * (util / 2 + 24);
+      fonte(g, 700, 110, TEXTO, -3);
+      g.fillStyle = cor.texto;
+      g.fillText(coluna[0], x, baseDaCarga + 254);
+      fonte(g, 600, 30, TEXTO, 4);
+      g.fillStyle = cor.fraco;
+      coluna[1].forEach(function (linha, j) {
+        g.fillText(linha, x, baseDaCarga + 312 + j * 40);
+      });
+    });
+
+    var x = MARGEM;
+    if (imagemDoIcone) {
+      g.drawImage(imagemDoIcone, x, topoDoRodape, icone, icone);
+      x += icone + 24;
+    }
+    fonte(g, 900, 64, DISPLAY, -1);
+    var baseDaMarca = topoDoRodape + icone / 2 + 22;
+    g.fillStyle = cor.texto;
+    g.fillText("Nutri", x, baseDaMarca);
+    g.fillStyle = cor.marca;
+    g.fillText("Plan", x + g.measureText("Nutri").width, baseDaMarca);
+
+    return canvas;
+  }
+
+  document.addEventListener("click", function (evento) {
+    var alvo = evento.target;
+    if (!alvo || typeof alvo.closest !== "function") return;
+    var botao = alvo.closest("[data-compartilhar-placar]");
+    if (!botao || ocupado || !window.NutriPlanCard) return;
+    evento.preventDefault();
+    ocupado = true;
+
+    var dados = {
+      sessao: botao.dataset.compartilharSessao || "",
+      series: botao.dataset.compartilharSeries || "",
+      kg: botao.dataset.compartilharKg || "",
+      minutos: botao.dataset.compartilharMinutos || "—",
+      data: botao.dataset.compartilharData || "",
+    };
+    var nome = ARQUIVO + (dados.data || new Date().toISOString().slice(0, 10)) + ".png";
+
+    function terminar(canvas, resultado) {
+      botao.dispatchEvent(new CustomEvent("nutriplan:placar-compartilhado", {
+        bubbles: true,
+        detail: { canvas: canvas, nome: nome, via: resultado && resultado.via },
+      }));
+    }
+
+    /* `ocupado` cobre só o DESENHO (fontes + ícone + canvas, menos de um
+       segundo): um toque duplo nesse intervalo não desenha duas vezes. Ele
+       solta assim que a entrega é pedida, e não quando ela termina: a
+       bandeja do Web Share pode ficar aberta o tempo que a pessoa quiser —
+       e em navegador sem interface ela nunca fecha —, e um botão travado
+       até lá seria um botão morto. Segundo `share()` com o primeiro aberto
+       é o navegador que recusa (InvalidStateError), e `card.js` traduz em
+       "cancelado". */
+    Promise.all([fontes(), icone()]).then(function (pronto) {
+      var canvas = desenhar(dados, pronto[1]);
+      var entrega = window.NutriPlanCard.compartilhar(canvas, nome, "Treino fechado · NutriPlan");
+      ocupado = false;
+      return entrega.then(
+        function (resultado) { terminar(canvas, resultado); },
+        function () { terminar(canvas, null); }
+      );
+    }).catch(function () { ocupado = false; });
+  });
+})();

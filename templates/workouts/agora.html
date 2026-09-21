@@ -120,6 +120,31 @@
       <a class="btn btn--primary btn--block" href="{% url 'workouts:ficha' estado.sessao.pk %}">
         Ver o treino completo
       </a>
+      {% comment %}
+        COMPARTILHAR O PLACAR (retenção, 21/09/2026): o botão desenha, no
+        navegador, uma imagem 1080×1350 no design NERVURA e a entrega pela
+        bandeja do aparelho (Web Share com arquivo) ou por download — o JS
+        mora em `pwa.js`, seção "COMPARTILHAR O PLACAR", delegado no
+        `document`; o compartilhar em si reusa `card.js`.
+
+        Os CINCO dados da imagem estão AQUI, já formatados em pt-BR, e o JS
+        desenha exatamente o que recebe — ele não lê o resto da página nem
+        recalcula nada. É a mesma régua do cartão do painel e das
+        conquistas: peso corporal, e-mail e nome da pessoa não entram na
+        imagem porque nunca chegam ao script (`workouts/test_compartilhar`).
+        O kg leva ponto de milhar (`0g`) porque aqui ninguém conta do zero;
+        "—" é a ausência de minutos, e não um zero — a tela também não
+        mostra zero. A data é a do último registro, o dia do treino, e vai
+        só no nome do arquivo. `type="button"`: nada é enviado ao servidor.
+      {% endcomment %}
+      <button type="button" class="btn btn--ghost btn--block" data-compartilhar-placar
+              data-compartilhar-sessao="Treino {{ estado.sessao.label }} · {{ estado.sessao.name }}"
+              data-compartilhar-series="{{ estado.series_feitas }}"
+              data-compartilhar-kg="{{ estado.placar.carga_total|floatformat:'0g' }}"
+              data-compartilhar-minutos="{% if estado.minutos_entre_registros %}{{ estado.minutos_entre_registros }}{% else %}—{% endif %}"
+              data-compartilhar-data="{{ estado.ultimo_log.date|date:'Y-m-d' }}">
+        Compartilhar
+      </button>
       <a class="btn btn--ghost btn--block" href="{% url 'plans:today' %}">
         Voltar para Hoje
       </a>
