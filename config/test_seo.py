@@ -95,8 +95,12 @@ class RobotsESitemapTests(TestCase):
                 self.assertEqual(_meta(cabeca, "og:locale", "property"), ["pt_BR"])
                 imagem = _meta(cabeca, "og:image", "property")
                 self.assertEqual(len(imagem), 1)
-                self.assertTrue(imagem[0].startswith("http://testserver/static/icons/icon-512"), imagem)
-                self.assertEqual(_meta(cabeca, "twitter:card"), ["summary"])
+                self.assertTrue(imagem[0].startswith("http://testserver/static/img/og-landing"), imagem)
+                self.assertEqual(_meta(cabeca, "og:image:width", "property"), ["1200"])
+                self.assertEqual(_meta(cabeca, "og:image:height", "property"), ["630"])
+                self.assertEqual(_meta(cabeca, "twitter:card"), ["summary_large_image"])
+                self.assertEqual(_meta(cabeca, "twitter:image"), imagem)
+                self.assertEqual(_meta(cabeca, "twitter:title"), [_titulo(cabeca)])
 
     def test_o_que_nao_e_publico_leva_noindex_e_nao_tem_canonical(self):
         """A tela do app (com sessão), a tela interna do demo (o Carlos) e o
@@ -120,6 +124,38 @@ class RobotsESitemapTests(TestCase):
                 self.assertNotIn('rel="canonical"', cabeca)
                 self.assertNotIn('property="og:', cabeca)
                 self.assertEqual(_meta(cabeca, "description"), [DESCRICAO_PADRAO])
+
+
+class AImagemDoCardEOsDadosEstruturadosTests(TestCase):
+    def test_a_imagem_do_card_tem_o_tamanho_do_open_graph_e_e_leve(self):
+        """1200×630 é o que Facebook, WhatsApp, LinkedIn e Twitter pedem
+        para o card grande; acima de 120 KB o preview demora a aparecer no
+        chat. O CONTEÚDO não é testado: é a landing capturada, e envelhece."""
+        from PIL import Image
+
+        arquivo = RAIZ / "static" / "img" / "og-landing.png"
+        self.assertTrue(arquivo.exists())
+        self.assertLessEqual(arquivo.stat().st_size, 120_000)
+        with Image.open(arquivo) as imagem:
+            self.assertEqual(imagem.size, (1200, 630))
+
+    def test_a_landing_tem_dados_estruturados_de_app_gratuito(self):
+        """`SoftwareApplication` é o que faz o buscador entender "app, na
+        web, de graça" — e o bloco é JSON válido, senão não vale nada."""
+        import json
+
+        html = self.client.get("/").content.decode()
+        blocos = re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, flags=re.S)
+        self.assertEqual(len(blocos), 1)
+        dados = json.loads(blocos[0])
+        self.assertEqual(dados["@type"], "SoftwareApplication")
+        self.assertEqual(dados["name"], "NutriPlan")
+        self.assertEqual(dados["url"], "http://testserver/")
+        self.assertEqual(dados["applicationCategory"], "HealthApplication")
+        self.assertEqual(dados["offers"]["price"], "0")
+        self.assertEqual(dados["inLanguage"], "pt-BR")
+        # Só a landing: a tela do app e o demo não são "o software" para o índice.
+        self.assertNotIn("application/ld+json", self.client.get("/demo/").content.decode())
 
 
 class OBlocoMoraNoHeadTests(TestCase):

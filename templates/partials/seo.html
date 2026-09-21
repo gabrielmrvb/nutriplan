@@ -10,6 +10,13 @@
   Twitter, e o `noindex` sai. A lista das públicas é `config.seo.
   ROTAS_PUBLICAS`, e é ela que o sitemap publica.
 
+  A imagem do card (`static/img/og-landing.png`, 1200×630) é a própria
+  landing em produção, capturada com `scripts/qa/nav.py` no tema escuro
+  e reduzida a PNG de 256 cores (147 → 77 KB, sem diferença visível).
+  Screenshot envelhece quando a tela muda — quem redesenhar a landing
+  recaptura (`config/test_seo.py` cobra o tamanho e o peso, não o
+  conteúdo).
+
   `canonical` e `og:url` saem do pedido (`scheme` + host + path), e não de um
   domínio escrito à mão: em produção o host é o do Render, no demo o path
   já traz `/demo/`, e nos testes é `testserver`.
@@ -22,8 +29,14 @@
   <meta property="og:title" content="{{ titulo }}">
   <meta property="og:description" content="{{ descricao }}">
   <meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
-  <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'icons/icon-512.png' %}">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'img/og-landing.png' %}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="A landing do NutriPlan: pare de adivinhar o que comer e como treinar">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ titulo }}">
+  <meta name="twitter:description" content="{{ descricao }}">
+  <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'img/og-landing.png' %}">
 {% else %}
   <meta name="robots" content="noindex">
 {% endif %}
