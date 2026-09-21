@@ -285,6 +285,18 @@ class Exercise(models.Model):
 
     is_active = models.BooleanField("ativo", default=True)
 
+    #: A PROGRESSÃO do movimento (decisão 1 da avaliação de UX, 20/09/2026):
+    #: `{"movimento": "<slug>", "nivel": <int 1..5>}`, onde 1 é o mais fácil.
+    #: Existe para o catálogo de peso do corpo, onde um mesmo movimento tem
+    #: uma escada de dificuldade (flexão com joelhos → flexão → flexão
+    #: arqueiro), e a leitura ordena as "outras formas" por ela e diz "mais
+    #: fácil"/"mais difícil". Vazio para quem não pertence a uma escada — a
+    #: maioria dos exercícios com aparelho, cuja variação é a carga, não a
+    #: mecânica. NÃO participa da montagem da ficha: o motor escolhe por
+    #: `padrao`+grupo; isto só orienta a pessoa a trocar por uma versão que
+    #: ela consegue fazer.
+    progressao = models.JSONField("progressão do movimento", default=dict, blank=True)
+
     class Meta:
         verbose_name = "exercício"
         verbose_name_plural = "exercícios"

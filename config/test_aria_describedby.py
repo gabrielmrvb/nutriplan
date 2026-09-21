@@ -11,8 +11,9 @@ anunciava "inválido" e não lia qual era o erro nem a ajuda — em todo
 formulário do app.
 
 Rádios e caixas em grupo não recebem o atributo no `<input>` (o Django o põe
-no `<fieldset>` do próprio template dele); aqui o grupo é a `<ul>`, e é ela
-que carrega `role="group"`, o rótulo e a descrição.
+no `<fieldset>` do próprio template dele); aqui o grupo é um `<div
+role="group">` que envolve a `<ul>`, e é ele que carrega o rótulo e a
+descrição (a `<ul>` fica lista: `config/test_axe_serio.py`).
 """
 import re
 
@@ -73,7 +74,10 @@ class ErroEAjudaFicamLigadosAoCampoTests(TestCase):
         self.assertIn("Este campo é obrigatório", html)
         # Os dois parciais de grupo: `field.html` (choice-list) e
         # `choice_cards.html` (choice-cards).
-        grupos = re.findall(r'<ul class="choice-(?:list|cards)[^"]*"[^>]*>', html)
+        # Desde 20/09/2026 o grupo ENVOLVE a lista (`config/test_axe_serio.py`):
+        # a `<ul>` fica sem `role`, e o `<div role="group">` logo antes dela
+        # carrega rótulo e descrição.
+        grupos = re.findall(r'<div role="group"[^>]*>\s*<ul class="choice-(?:list|cards)[^"]*">', html)
         self.assertGreaterEqual(len(grupos), 4)
         for grupo in grupos:
             self.assertIn('role="group"', grupo)

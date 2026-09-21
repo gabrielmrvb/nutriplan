@@ -82,6 +82,22 @@
         {% include "partials/choice_cards.html" with field=forms.objetivo.activity_level %}
         {% include "partials/field.html" with field=forms.rotina.experiencia %}
         {% include "partials/field.html" with field=forms.rotina.equipamento %}
+        {% comment %}
+          AVISO DO PESO DO CORPO (decisão 3 da avaliação de UX, 20/09/2026). Só o
+          peso do corpo monta hoje uma ficha reduzida — o catálogo sem
+          equipamento ainda é curto (alguns dias com 1–2 exercícios). Enquanto o
+          catálogo não cobre, a escolha não pode fingir paridade com as outras: a
+          pessoa que escolhe honestamente "em casa, sem nada" tem de saber, e
+          saber que dá para trocar depois. Some quando o catálogo cobrir. Fica
+          junto do campo de equipamento, e vale também no Perfil (que reusa esta
+          etapa para editar).
+        {% endcomment %}
+        <p class="hint field__nota-equipamento">
+          <strong>Só o peso do corpo</strong> monta uma ficha cheia, com
+          progressões do fácil ao difícil por movimento. Peito, ombro e bíceps
+          ficam um pouco mais leves — é o limite do próprio corpo, não do app.
+          Dá para trocar o equipamento depois, no Perfil.
+        </p>
         {% include "partials/field.html" with field=forms.rotina.weekdays %}
         <div class="field">
           <span class="field__label">A janela do seu dia</span>

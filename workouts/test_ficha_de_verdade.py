@@ -173,10 +173,24 @@ class FichaDeVerdadePorEquipamentoTests(ConfereAFicha, TestCase):
         self._intermediario("casa_halteres")
 
     @expectedFailure
-    def test_so_peso_do_corpo_ainda_nao_fecha_a_letra_a(self):
-        """MEDIDO em 17/09/2026: sem aparelho nenhum a letra A tem 2–3
-        exercícios (flexão de braço e mergulhos), uma opção só em ABC, 6–10
-        séries, 20–30 min. Quadríceps, posterior, ombro, bíceps e panturrilha
-        não têm exercício ativo sem aparelho (`test_experiencia`). A lista
-        está no `BACKLOG.md`."""
+    def test_so_peso_do_corpo_nao_bate_o_dourado_da_letra_a_por_falta_de_crucifixo(self):
+        """A letra A é a ÚNICA que o peso do corpo ainda não bate, e o motivo é
+        físico, não de catálogo — por isso o dourado NÃO afrouxa e este caso
+        continua `expectedFailure`.
+
+        MEDIDO em 20/09/2026, depois dos 34 exercícios de peso do corpo
+        (decisão 1 da avaliação de UX): a letra A "Peito e tríceps" saiu com
+        DUAS opções, cada uma com 5 exercícios (3 peito, 2 tríceps), 19 séries
+        e 52 min — muito acima dos 2–3 exercícios / uma opção / 6–10 séries /
+        20–30 min de 17/09, mas ainda 1 exercício, 1 peito, 2 séries e 3 min
+        abaixo do dourado (6 ex / 4 peito / 21 séries / 55 min por opção).
+
+        A causa é o CRUCIFIXO: o modelo de academia enche o peito com
+        pressões E aberturas (crucifixo), e o peso do corpo não tem abertura —
+        não dá para fazer crucifixo sem carga. Sobram as pressões (`flexao`),
+        e cinco flexões distintas dividem em ~3 por opção, não 4. Fechar isso
+        exigiria trocar o modelo curado (piorando a academia) ou um crucifixo
+        sem carga (não existe). As OUTRAS letras (B e C) já batem o volume —
+        ver `test_peso_do_corpo_tem_volume_comparavel`. O dourado espera 4
+        peito por opção; bate ou pede catálogo/motor, nunca afrouxa."""
         self._intermediario("peso_corporal")
