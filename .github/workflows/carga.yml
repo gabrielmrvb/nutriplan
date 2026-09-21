@@ -1,0 +1,86 @@
+# TESTE DE CARGA (21/09/2026): só pelo botão, só contra o STAGING. O k6 sobe
+# degraus de usuários simultâneos (10 → 25 → 50 → 75 → 100 por padrão, 60 s
+# cada) percorrendo as rotas públicas e o `/demo/` — o app inteiro, sem
+# login, só GET — e o relatório traz o p95 por rota em cada degrau e o TETO
+# encontrado (`scripts/carga/staging.js`). Vai para o resumo do run e para o
+# artefato `carga`.
+#
+# Nunca em produção: o roteiro exige `"ambiente": "staging"` no `/saude/` e o
+# endereço de produção não aparece aqui nem no roteiro. O staging é free
+# (dois workers do gunicorn, Neon que hiberna): o teto que sai daqui é o da
+# infraestrutura gratuita, e é isso que se quer saber.
+name: Carga no staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      degraus:
+        description: "Usuários simultâneos por degrau, separados por vírgula"
+        required: false
+        default: "10,25,50,75,100"
+      duracao:
+        description: "Duração de cada degrau (ex.: 60s, 2m)"
+        required: false
+        default: "60s"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: carga-staging
+  cancel-in-progress: false
+
+jobs:
+  carga:
+    name: "k6 contra o staging"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CARGA_BASE: https://nutriplan-staging.onrender.com
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: grafana/setup-k6-action@v1
+
+      - name: Acordar o staging (free dorme após 15 min)
+        run: |
+          for i in $(seq 1 12); do
+            codigo="$(curl -s -o /dev/null -w '%{http_code}' --max-time 90 "$CARGA_BASE/saude/vivo/" || echo 000)"
+            [ "$codigo" = "200" ] && break
+            echo "tentativa $i: $codigo"; sleep 10
+          done
+          curl -sS --max-time 120 "$CARGA_BASE/saude/"
+
+      - name: Rodar a carga
+        env:
+          CARGA_DEGRAUS: ${{ github.event.inputs.degraus }}
+          CARGA_DURACAO: ${{ github.event.inputs.duracao }}
+        run: |
+          # Limiar estourado é RESULTADO (é assim que o teto aparece), não falha
+          # do job: o k6 sai com 99 nesse caso e o run continua verde com o
+          # relatório. Qualquer outro código (roteiro quebrado, staging fora,
+          # a guarda do ambiente) derruba o job.
+          # `|| codigo=$?` e não `; codigo=$?`: o passo roda com `bash -e`, e um
+          # k6 que sai com 99 encerraria o script antes de o código ser lido
+          # (MEDIDO no primeiro run: relatório pronto, job vermelho).
+          codigo=0
+          k6 run scripts/carga/staging.js || codigo=$?
+          if [ "$codigo" -ne 0 ] && [ "$codigo" -ne 99 ]; then exit "$codigo"; fi
+          test -s relatorio.md
+
+      - name: Relatório no resumo do run
+        if: always()
+        run: |
+          if [ -f relatorio.md ]; then cat relatorio.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Artefato com o relatório e o resumo bruto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: carga
+          path: |
+            relatorio.md
+            resumo.json
+          if-no-files-found: warn
+          retention-days: 30

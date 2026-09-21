@@ -444,6 +444,13 @@
     {% endcomment %}
     <div class="acoes-empilhadas">
     {% comment %}
+      Avisos (e-mails e pushes) têm tela própria: o que a pessoa recebe e a
+      que horas. Mora aqui, na conta, porque é onde ela procura "o que o app
+      me manda" — e é o mesmo caminho que o rodapé de todo e-mail aponta.
+    {% endcomment %}
+    <a class="btn btn--ghost btn--block" href="{% url 'avisos:preferencias' %}">Avisos por e-mail e no aparelho</a>
+
+    {% comment %}
       Trocar senha só aparece para quem TEM senha. Numa conta que entra pelo
       Google, `has_usable_password` é falso: oferecer o link levaria a um
       formulário pedindo a "senha atual" que nunca existiu, e o erro seria
@@ -481,6 +488,8 @@
     </p>
     </div>
 
+    <a class="btn btn--ghost btn--block" href="{% url 'ajuda:index' %}">Ajuda e reportar um problema</a>
+
     <form method="post" action="{% url 'accounts:logout' %}"
           onsubmit="return confirm('Sair da sua conta neste aparelho?');">
       {% csrf_token %}
@@ -517,6 +526,25 @@
       </a>
     </section>
   {% endif %}
+
+  <section class="card">
+    <div class="card__head"><h2>Análise de uso</h2></div>
+    <p class="muted">
+      O NutriPlan mede o próprio uso para melhorar — de primeira parte, sem
+      terceiros, sem vender nada e sem guardar quem você é. Você pode desligar a
+      atribuição à sua conta; o uso continua contando só de forma anônima.
+      <a class="btn-link" href="{% url 'privacidade' %}">Como funciona</a>.
+    </p>
+    <form method="post" action="{% url 'accounts:rastreio' %}" class="acao-solta">
+      {% csrf_token %}
+      <label class="form__nota">
+        <input type="checkbox" name="rastrear_uso" value="1"
+               {% if request.user.profile.rastrear_uso %}checked{% endif %}>
+        Permitir a análise de uso
+      </label>
+      <button class="btn btn--ghost" type="submit">Salvar preferência</button>
+    </form>
+  </section>
 
   {% comment %}
     A exclusão mora num cartão SEPARADO e no fim da página, longe de "Sair da

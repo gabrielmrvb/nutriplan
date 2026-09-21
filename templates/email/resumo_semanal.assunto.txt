@@ -1,0 +1,1 @@
+Sua semana no NutriPlan: {{ treinos }} treino{{ treinos|pluralize }}, {{ series }} série{{ series|pluralize }}

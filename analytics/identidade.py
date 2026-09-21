@@ -39,3 +39,16 @@ def _costura_no_login(sender, request, user, **kwargs):
     if request is None:
         return
     alias(request.COOKIES.get(COOKIE_ANON, ""), user)
+    # O login é um bom lugar para pagar a leitura do opt-out UMA vez e guardá-lo
+    # na sessão — depois `pode_identificar` o lê de graça, na rota da série
+    # inclusive. Sem perfil ainda (onboarding), o padrão é rastrear.
+    # Um login de verdade sempre tem sessão; um sinal disparado à mão (teste,
+    # shell) pode não ter, e o opt-out não vale o suficiente para exigir uma.
+    if hasattr(request, "session"):
+        from .privacidade import marcar_sessao
+
+        try:
+            rastrear = user.profile.rastrear_uso
+        except Exception:
+            rastrear = True
+        marcar_sessao(request, rastrear)

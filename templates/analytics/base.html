@@ -1,0 +1,24 @@
+{% extends "gestao/base.html" %}
+{% comment %}
+  A moldura das cinco telas de analytics. Herda a casca da gestão (mesma
+  permissão, mesma navegação de topo) e acrescenta a sub-navegação das seções.
+{% endcomment %}
+{% block subnav %}
+  <nav class="gestao-abas gestao-abas--sub" aria-label="Seções de analytics">
+    <a class="gestao-abas__item {% if sub == 'geral' %}is-active{% endif %}"
+       href="{% url 'analytics_painel:geral' %}"
+       {% if sub == 'geral' %}aria-current="page"{% endif %}>Visão geral</a>
+    <a class="gestao-abas__item {% if sub == 'explorar' %}is-active{% endif %}"
+       href="{% url 'analytics_painel:explorar' %}"
+       {% if sub == 'explorar' %}aria-current="page"{% endif %}>Explorar</a>
+    <a class="gestao-abas__item {% if sub == 'funil' %}is-active{% endif %}"
+       href="{% url 'analytics_painel:funil' %}"
+       {% if sub == 'funil' %}aria-current="page"{% endif %}>Funil</a>
+    <a class="gestao-abas__item {% if sub == 'retencao' %}is-active{% endif %}"
+       href="{% url 'analytics_painel:retencao' %}"
+       {% if sub == 'retencao' %}aria-current="page"{% endif %}>Retenção</a>
+    <a class="gestao-abas__item {% if sub == 'usuario' %}is-active{% endif %}"
+       href="{% url 'analytics_painel:usuario' %}"
+       {% if sub == 'usuario' %}aria-current="page"{% endif %}>Usuário</a>
+  </nav>
+{% endblock %}

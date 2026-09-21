@@ -13,22 +13,28 @@ Enquanto o campo do perfil não existe, só o DNT vale — e já vale.
 """
 
 
+#: O opt-out do perfil vive na SESSÃO, não numa consulta: a rota da série é a
+#: mais quente do app e não pode pagar um SELECT por evento. O flag é escrito no
+#: login (`analytics/identidade`) e quando o perfil é salvo (`PrivacidadeView`).
+CHAVE_SEM_RASTREIO = "np_sem_rastreio"
+
+
 def pode_identificar(request):
+    # Duas recusas, as duas SEM CONSULTA: o cabeçalho DNT e o opt-out do perfil
+    # lido da sessão. Nenhuma toca o banco — é o que mantém o POST da série no
+    # orçamento.
     if request.META.get("HTTP_DNT") == "1":
         return False
-    user = getattr(request, "user", None)
-    perfil = _perfil(user)
-    if perfil is not None and getattr(perfil, "rastrear_uso", True) is False:
+    if request.session.get(CHAVE_SEM_RASTREIO):
         return False
     return True
 
 
-def _perfil(user):
-    """O perfil pode não existir ainda (durante o onboarding). O acesso reverso
-    a um OneToOne ausente LEVANTA (não devolve None), então isolamos aqui."""
-    if user is None:
-        return None
-    try:
-        return user.profile
-    except Exception:
-        return None
+def marcar_sessao(request, rastrear_uso):
+    """Escreve na sessão se a pessoa NÃO quer ser rastreada. Chamado no login e
+    quando o opt-out do perfil muda — os dois pontos em que dá para pagar a
+    leitura do perfil sem ser numa rota quente."""
+    if rastrear_uso:
+        request.session.pop(CHAVE_SEM_RASTREIO, None)
+    else:
+        request.session[CHAVE_SEM_RASTREIO] = True

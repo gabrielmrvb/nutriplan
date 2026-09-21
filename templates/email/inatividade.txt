@@ -1,0 +1,13 @@
+{% autoescape off %}Olá{% if nome %}, {{ nome }}{% endif %}.
+
+{% if nunca %}Faz {{ dias }} dias que a sua conta existe e nenhuma série foi registrada.{% else %}A última série que você registrou foi em {{ ultima|date:"d/m" }} — {{ dias }} dias atrás.{% endif %}
+A ficha de hoje continua montada, na área Treino, começando pelo primeiro
+exercício. Uma série registrada já muda o dia.
+
+Abrir a área Treino: {{ url_base }}/treino/
+
+Não quero mais receber este aviso: {{ descadastro }}
+Escolha o que recebe em Perfil › Avisos: {{ preferencias }}
+
+— NutriPlan
+{% endautoescape %}

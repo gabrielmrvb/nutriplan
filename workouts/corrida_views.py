@@ -27,6 +27,7 @@ from accounts.views import OnboardingRequiredMixin
 
 from . import doutrina_corrida
 from .importar_corrida import ArquivoDeCorridaInvalido, corrida_de_arquivo
+from analytics import servidor as analytics
 from .models import Corrida, PlanoDeCorrida
 from .templatetags.corrida import relogio as _relogio
 
@@ -231,9 +232,11 @@ class CorridaNovaView(OnboardingRequiredMixin, View):
         if not form.is_valid() or not op_id:
             return render(request, self.template_name, {"form": form, "op_id": op_id or uuid.uuid4().hex, "titulo": "Registrar corrida", "nav": "running"}, status=200)
         corrida = form.preencher(Corrida(user=request.user, op_id=op_id))
+        nova = False
         try:
             with transaction.atomic():
                 corrida.save()
+            nova = True  # chegou aqui = gravação NOVA; reenvio cai no except
         except IntegrityError:
             # I3 (avaliação de mercado, 17/09/2026): o `op_id` volta ESCONDIDO
             # no formulário, e o bfcache do navegador restaura a página (com
@@ -261,6 +264,9 @@ class CorridaNovaView(OnboardingRequiredMixin, View):
                     "Esse envio já foi usado por outra corrida — recarregue a página e registre de novo.",
                 )
                 return render(request, self.template_name, {"form": form, "op_id": op_id, "titulo": "Registrar corrida", "nav": "running"}, status=200)
+        if nova:
+            # FORA do atomic: analytics não derruba a gravação da corrida.
+            analytics.evento(request, "corrida.registrada", {"origem": "manual"})
         messages.success(request, "Corrida registrada.")
         return redirect("workouts:corridas")
 
@@ -328,6 +334,7 @@ class ImportarCorridaView(OnboardingRequiredMixin, View):
             messages.info(request, "Essa corrida já tinha sido importada.")
             return redirect("workouts:corridas")
 
+        analytics.evento(request, "corrida.registrada", {"origem": "arquivo"})
         messages.success(request, "Corrida importada.")
         return redirect("workouts:corridas")
 

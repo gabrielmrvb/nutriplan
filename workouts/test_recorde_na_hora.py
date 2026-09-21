@@ -167,4 +167,10 @@ CONSULTAS_DA_EXECUCAO = 22
 #: `ExerciseLog` do dia, excluindo a recém-gravada) — a primeira série avalia
 #: o catálogo inteiro (B5, estreia não é recorde), e a segunda em diante paga
 #: só essa pergunta. Constante: 20 com 3 e com 30 registros de histórico.
-CONSULTAS_DO_POST_SEM_RECORDE = 20
+#: 21 em 21/09/2026: mais UMA, o INSERT de `treino.serie_concluida` no
+#: analytics (`servidor.evento`). A série é o evento MAIS provável de acontecer
+#: offline (academia), e a fila drena por ESTA view — emitir no servidor pega o
+#: online e o offline pelo mesmo ponto. É UM INSERT constante (não N+1); o
+#: opt-out é sem consulta (só DNT aqui, sessão no bloco 4), e na rede lenta da
+#: academia o round-trip domina, não a consulta. Constante: 21 com 3 e 30.
+CONSULTAS_DO_POST_SEM_RECORDE = 21

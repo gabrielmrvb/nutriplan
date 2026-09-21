@@ -91,6 +91,9 @@ urlpatterns = [
     # O painel de negócio, com chave própria. Vem antes do admin por
     # coerência com o resto do bloco, e não por precedência: os prefixos não
     # colidem.
+    # O painel de analytics é gerência (mesma permissão), mas mora num
+    # namespace próprio, plano — por isso ANTES de `gestao/` e não aninhado.
+    path("gestao/analytics/", include("analytics.painel_urls")),
     path("gestao/", include("gestao.urls")),
     path("admin/login/", admin_entrada.entrada_do_admin),
     path("admin/", admin.site.urls),
@@ -148,6 +151,8 @@ urlpatterns = [
     # Google Cloud, e ele é derivado desta linha, não escolhido.
     path("conta/", include(ROTAS_SOCIAIS)),
     path("push/", include("push.urls")),
+    path("avisos/", include("avisos.urls")),
+    path("ajuda/", include("ajuda.urls")),
     path("treino/", include("workouts.urls")),
     path("conquistas/", include("achievements.urls")),
     # Ingestão de analytics de produto — endpoint de lote chamado por

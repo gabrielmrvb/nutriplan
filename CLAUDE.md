@@ -1490,6 +1490,43 @@ parâmetro de OAuth, chave de SMTP e URL de banco. `django.db.backends` fica em
 WARNING até em DEBUG: consulta com parâmetro carrega e-mail e peso. Toda linha
 leva o identificador do pedido, que também volta no cabeçalho `X-Request-ID` —
 sem ele, "deu erro" e "fulano reclamou" nunca se encontram.
+
+**A LINHA É JSON, O ACESSO TEM ROTA E DURAÇÃO, E 5xx DEMAIS VIRA E-MAIL
+(21/09/2026).** Fora de DEBUG cada linha de log é um objeto (`FormatoJSON`:
+`t`, `nivel`, `logger`, `pedido`, `msg`, e `rota`/`metodo`/`status`/`ms`/
+`usuario` quando é acesso, `exc` redigido quando há traceback) — é o que se
+filtra e se conta no log do Render sem regex; `NUTRIPLAN_LOG_JSON` força num
+sentido ou no outro. `nutriplan.acesso` registra UMA linha por pedido com a
+ROTA (`resolver_match.route`, o padrão da URL — não o caminho, que pode
+levar token), a duração e o **usuário anônimo**: `blake2b` do id com a
+`SECRET_KEY` como chave, 12 hex — segue-se o que uma pessoa fez sem que o
+log diga quem é, e sem a chave o hash não volta. O hash só é calculado
+quando a view já resolveu `request.user`: `/saude/vivo/` continua a ZERO
+consultas (teste). Estático não entra; na suíte o logger fica em WARNING
+(`NUTRIPLAN_LOG_ACESSO`, desligado quando `sys.argv` diz `test`) — seriam
+milhares de `GET … -> 200` no stderr de cada fatia. E `AlertaDe5xx` é um
+handler no `django.request`: conta os 5xx numa janela de 5 min e, passado
+`NUTRIPLAN_ALERTA_5XX` (3, **por processo** — dois workers, dois
+contadores), manda UM e-mail para `NUTRIPLAN_ALERTA_EMAIL` (o e-mail
+administrativo, copiado do `VAPID_ADMIN_EMAIL` nos dois serviços) com rota,
+identificador e contagem, e cala por 30 min — um deploy quebrado é um
+e-mail, não cem. O envio roda numa thread; sem destinatário, só uma linha
+WARNING. `config/test_logs_json.py` prende as três coisas, inclusive que um
+500 de verdade chega ao handler CONFIGURADO. O UptimeRobot continua sendo o
+alerta de "caiu"; este é o de "está de pé e errando".
+
+**i18n PREPARADA, SEM TRADUZIR (21/09/2026).** O app é pt-BR e continua
+sendo — `LANGUAGE_CODE = "pt-br"`, `LANGUAGES` só com ele, sem
+`LocaleMiddleware` (nenhuma tela negocia língua por cabeçalho). O que
+mudou: `LOCALE_PATHS` aponta para `locale/`, o catálogo
+`locale/pt_BR/LC_MESSAGES/django.po` existe com `msgstr ""` em toda frase (o
+Django mostra o msgid, que já é o texto certo; não rode `compilemessages`),
+e **template NOVO carrega `{% load i18n %}` e marca texto visível com
+`{% translate %}`** — a régua é `TEMPLATES_NOVOS` em `config/test_i18n.py`,
+que cresce com cada template criado a partir de hoje e cobra a frase no
+catálogo. Marcar mil frases antigas de uma vez não é o objetivo; marcar as
+novas custa nada agora e evita a varredura no dia da segunda língua. A
+primeira frase marcada é a faixa do staging em `base.html`.
 **O BUSCADOR VÊ SETE ROTAS, E O RESTO É `noindex` POR PADRÃO (21/09/2026).**
 `config/seo.py` fecha a lista (`ROTAS_PUBLICAS`: landing, capa e "sobre" do
 demo, privacidade, termos, criar conta, entrar) e é dela que `/sitemap.xml`
@@ -1505,6 +1542,56 @@ Open Graph a partir do pedido (`scheme` + host + path, nunca domínio escrito
 ficar fora do índice, nunca o contrário. Antes disto (medido em produção
 em 21/09): a mesma description em toda página, zero `canonical`/OG, e
 `/demo/treino/` indexável com a ficha do Carlos como se fosse o produto.
+Desde a ajuda (21/09, tarde) são NOVE: `/ajuda/` e `/ajuda/o-que-mudou/`
+entraram na lista com bloco `seo` próprio — a FAQ é o texto que diz o que
+o produto faz, e é por onde alguém o ACHA; `/ajuda/reportar/` e a
+confirmação continuam `noindex` (formulário não é conteúdo).
+
+## Ajuda (21/09/2026)
+
+**`/ajuda/` são três telas PÚBLICAS, e a FAQ só afirma o que o app faz.**
+Quem não consegue entrar é quem mais precisa de ajuda, então nada ali
+exige sessão (`ajuda/views.py`; a barra de baixo já não aparece para
+anônimo pelo `base.html`). A FAQ (`templates/ajuda/index.html`) é
+`<details class="fora">` — a sanfona da Home, com a animação do `pwa.js` —
+em quatro blocos (plano e cardápio · treino · água, peso e progresso ·
+conta, avisos e privacidade), e cada resposta aponta uma tela ou uma regra
+que existe no código, com a fonte no `CLAUDE.md`. Três respostas dizem
+NÃO de propósito e há teste prendendo as três (caloria gasta, Apple
+Saúde/Health Connect, prescrição): "melhorar" a FAQ prometendo isso é o
+defeito de veracidade que o app evita em todo lugar. A porta é tripla:
+Áreas › Ferramentas, Perfil › Conta e sessão, e o rodapé das telas de
+entrada (`partials/links_legais.html`, FORA do `{% if legal_publicado %}`
+— a ajuda não depende do legal).
+
+**"Reportar um problema" chega PREENCHIDO, e o que a pessoa escreve é só o
+que aconteceu.** Rota (`?de=` ou o `Referer` do MESMO host — de outro host
+é descartado), versão (`RENDER_GIT_COMMIT[:7]`, o mesmo que `/saude/`
+publica; somente leitura) e aparelho (`User-Agent`) vão no formulário; o
+e-mail da conta entra quando há sessão. O relato vira `EmailMessage` para
+`NUTRIPLAN_SUPORTE_EMAIL` (vazio cai em `VAPID_ADMIN_EMAIL` — o mesmo
+dono, uma variável a menos para esquecer no painel) com `Reply-To` da
+pessoa. É público, então tem três guardas e a MESMA resposta para as três
+(um bot não aprende qual o pegou): pote de mel (`site`, `HiddenInput`,
+`tabindex=-1`), limite por IP (5/h) e global (60/h) na tabela de
+`accounts.limites` (`PedidoDeRecuperacao`, tipos `ajd-ip`/`ajd-glob`,
+HMAC do IP — o mesmo motivo de lá: cache é por worker e some no deploy).
+Falha de SMTP responde 503 com mensagem e NÃO conta no limite. O teste do
+envio usa o formulário RENDERIZADO com `enforce_csrf_checks` — um nome de
+campo trocado no template derruba o teste, e não um `post` de dicionário.
+
+**"O que mudou" lê o `CHANGELOG.md`, que é OUTRO documento.** O
+`BACKLOG.md` é o caderno de engenharia e não serve para quem usa;
+`CHANGELOG.md` tem uma seção por dia (`## AAAA-MM-DD`), um item por
+mudança que a pessoa VÊ (`- **Título.** Uma frase.`), sem nome de arquivo
+nem número de PR. `ajuda/mudancas.py` lê pouco de propósito — escapa tudo
+e só conhece `**negrito**` e `` `código` ``; Markdown inteiro seria uma
+dependência para três marcas — e relê quando o mtime muda. Há teste
+cobrando a forma do arquivo real (datas decrescentes, uma seção por dia,
+nenhuma vazia). Toda missão que muda o que a pessoa vê acrescenta a linha
+dela ANTES do merge, na própria branch — e uma linha só entra quando a
+mudança que ela descreve está na mesma branch ou já em `main` (a linha
+do placar saiu deste PR por isso e entra no dele).
 
 **O GLÚTEO É GRUPO PRÓPRIO DESDE 21/09/2026 (`MuscleGroup.GLUTES`), E
 NENHUMA FICHA MUDOU POR ISSO.** A elevação pélvica, a elevação pélvica no
@@ -1622,6 +1709,22 @@ linguagem nasce de um valor solto. Quatro decisões medidas:
   antes do servidor — a página nova É a confirmação. Enfileirado sem rede,
   a memória é apagada: um almoço marcado no metrô não pode "celebrar"
   horas depois.
+
+**A RÉGUA SISTEMÁTICA DO MOVIMENTO REDUZIDO (21/09/2026).**
+`config/test_movimento.py` prende os três caminhos que animam por JS e o
+bloco universal; `config/test_movimento_reduzido.py` é a régua que
+continua valendo na PRÓXIMA animação: todo seletor com `animation-delay`
+fora dos blocos reduzidos tem o atraso zerado (ou `animation: none`) num
+bloco reduzido — `.01ms` de duração não zera o atraso, e um cartão com
+`fill: both` fica invisível esperando (achado da régua: os números do
+placar, `.recompensa .fim__numeros > li`, esperavam a nervura que não ia
+riscar); toda chamada a `.animate(`, `requestAnimationFrame(` ou rolagem
+`smooth`, em `static/js/*.js` e nos `<script>` dos templates, tem
+`reduzido()`/`prefers-reduced-motion` nas 45 linhas acima (as duas
+sanfonas ganharam o gate dentro da própria função — antes só o toque era
+filtrado); nenhum `<animate>` SMIL e nenhum `autoplay` escrito no HTML (o
+vídeo do exercício nasce no toque). E o E2E noturno emula
+`prefers-reduced-motion` e exige `getAnimations()` sem nada acima de 50 ms.
 
 **Antes de criar componente novo, procure.** `templates/partials/` tem oito
 parciais; `card`, `btn`, `chip`, `pill`, `tile`, `data-list`, `empty-state` e
@@ -2129,16 +2232,17 @@ consegue conferir se ele rodou. Desde então:
   **`@tag("lento")` é só para teste pesado que NÃO é o único guarda de algo
   crítico** (concorrência, dourado, idempotência, segurança ficam no rápido
   mesmo quando custam) — cada um movido está justificado no relatório;
-- **NÃO HÁ GATE NO SERVIDOR: o repositório é PRIVADO** e a API do GitHub
-  devolve **403 "Upgrade to GitHub Pro or make this repository public"**
-  para branch protection E para rulesets (conferido em 18/09/2026 — a
-  afirmação antiga de "branch protection pela API, strict, enforce_admins"
-  estava errada, e o "repositório público, minutos ilimitados" idem). O
-  único gate é COOPERATIVO: `scripts/github.py enfileirar`/`esperar` esperam
-  o check `CHECK` (= "suíte rápida") ficar verde antes de mergear pela API.
-  Ninguém deve chamar `merge` à mão. E porque é privado, **minuto de Actions
-  é metered** (~2000/mês no free): PR de 32 min era espera E custo — mais uma
-  razão para o gate rápido, e para a completa não rodar em todo PR;
+- **O GATE ESTÁ NO SERVIDOR DESDE 21/09/2026: o repositório virou PÚBLICO e
+  `main` está protegida** — check "suíte rápida" obrigatório, `strict`,
+  `enforce_admins`, sem force-push (conferido por `scripts/github.py
+  protecao`, que imprime exatamente isso). Entre 18 e 21/09 o repositório era
+  privado, a API devolvia 403 para branch protection e rulesets, e o único
+  gate era o COOPERATIVO — `scripts/github.py enfileirar`/`esperar` esperando
+  o check `CHECK` (= "suíte rápida") antes de mergear pela API. A fila local
+  continua sendo o caminho (ela também prova o staging e promove), e ninguém
+  chama `merge` à mão; a diferença é que hoje o servidor recusa o que ela
+  recusaria. Público também quer dizer **minuto de Actions ilimitado** — o
+  gate rápido continua valendo por tempo de espera, não por custo;
 - **A FILA DE MERGE DO GITHUB NÃO EXISTE EM REPOSITÓRIO DE CONTA PESSOAL
   (17/09/2026)** — a API devolve 422/403. A resposta é a FILA LOCAL:
   `scripts/github.py enfileirar <n>` põe uma senha em
@@ -2216,7 +2320,54 @@ caiu em "relation already exists" e o schema foi zerado uma vez
 (`drop schema public cascade`) antes de o `migrate` construir tudo.
 `config/test_staging.py` prende o contrato inteiro. Worktree de sessão com
 o helper ANTIGO (sem `_provar_staging`) mergeia e NÃO vê produção mudar:
-`git merge origin/main` antes de enfileirar, sempre.
+`git merge origin/main` antes de enfileirar, sempre. **A promoção é de um
+SHA de `main`, e leva tudo que está antes dele** — por construção, não por
+combinação: tudo em `main` passou pelo gate e pelo deploy automático do
+staging. Cada sessão promove o SEU SHA final quando termina o QA em staging;
+o que vier antes vai junto, e o que não pode ir para produção não pode
+estar em `main` (pergunta da sessão de analytics, 21/09/2026).
+
+**O STAGING TEM UM E2E NOTURNO DE ROBÔ (21/09/2026).**
+`.github/workflows/e2e-noturno.yml` (04:30 de Brasília, e pelo botão) roda
+`scripts/qa/e2e_staging.py` com o `agent-browser` — Chromium headless, o
+mesmo do QA local — fazendo o caminho de uma pessoa: cadastro → as três
+etapas do onboarding → "Criar meu plano" → +250 ml de água → refeição
+registrada → uma série concluída no treino → as mesmas telas em tema claro
+(`set media light`) → movimento reduzido (`prefers-reduced-motion` emulado:
+`getAnimations()` não pode ver nada acima de 50 ms na Home nem na execução)
+→ exclusão da conta pela tela → login recusado (a prova de que sumiu). Doze
+passos, uma captura por passo (390×844, escuro e claro) no artefato
+`capturas-e2e` de todo run; falhou, `erro-<passo>.png`
++ o snapshot em texto, a conta é apagada mesmo assim (`finally`) e a issue
+"E2E noturno falhou" abre. A conta é `qa-e2e-<run>-<data>@nutriplan.invalid`
+com senha gerada no job e nunca impressa, e o roteiro só aceita um `/saude/`
+que diga `"ambiente": "staging"` — produção não recebe conta de robô.
+Ensaiado na máquina em 21/09: 11 de 11 em ~60 s. Quatro coisas que custaram
+tentativa: `fill` não preenche `<input type=date>` (entra pelo DOM, conferido);
+no Windows o `agent-browser.cmd` passa o `eval` pelo cmd.exe, que come `||`
+(o roteiro chama o `.exe` direto e os `eval` evitam `||`/`&&`); o daemon do
+agent-browser herda os descritores (saída em ARQUIVO, `stdin` fechado, nunca
+pipe); e o CTA da ficha nova não navegou atrás do convite de instalação (o
+roteiro dispensa o convite na Home e, se um clique não navega, abre o `href`).
+`config/test_e2e_noturno.py` prende o roteiro com um navegador falso.
+
+**O TESTE DE CARGA É MANUAL, SÓ GET, SÓ NO STAGING (21/09/2026).**
+`.github/workflows/carga.yml` (botão; entradas `degraus` = "10,25,50,75,100"
+e `duracao` = "60s") roda `scripts/carga/staging.js` no k6: degraus de
+usuários simultâneos, um depois do outro, cada usuário percorrendo landing,
+`/saude/vivo/`, entrar e o `/demo/` (capa, hoje, treino, histórico — o app
+inteiro com a pessoa fictícia, a Home custando as mesmas 41 consultas), com
+pausa de 0,5–1,5 s entre rotas. Nenhuma conta nasce e nada é escrito. O
+relatório (`relatorio.md`, no resumo do run e no artefato `carga`) traz o
+p95 por rota em cada degrau, a taxa de erro por degrau e o **TETO**: o maior
+degrau em que toda rota ficou com p95 < 2 000 ms e erro < 1 %. Limiar
+estourado é RESULTADO (o k6 sai com 99 e o run fica verde com o relatório);
+qualquer outro código derruba o job. O roteiro exige `"ambiente":
+"staging"` no `/saude/` e o endereço de produção não aparece nele nem no
+fluxo. O staging é free — dois workers síncronos do gunicorn, Neon que
+hiberna —, então o teto medido é o da infraestrutura gratuita, e é isso que
+se quer saber antes de pagar por mais. `config/test_carga.py` prende o
+contrato e confere a sintaxe do roteiro no `node`.
 
 `scripts/build.sh` roda collectstatic → `check --deploy` → migrate → os três
 seeds, com `errexit`: build que passa prova que a migração rodou. Confira em
@@ -2356,6 +2507,122 @@ deixaria de atrasar; o Neon pago tira o teto de CU-h e a pausa de
 `push/tarefas.py` viraria só economia. Nenhuma dessas trocas exige código
 novo além de apagar o que existe para contornar o gratuito.
 
+## Runbook de incidente
+
+Quatro cenários, cada um com o comando exato em `scripts/incidente.py`, e
+cada verbo foi **ensaiado no staging em 21/09/2026** antes de esta seção
+afirmar que funciona (`config/test_runbook.py` prende o script, o texto e a
+correspondência entre os dois). Três regras valem para todo verbo: quem LÊ
+cai em produção por padrão e quem ESCREVE exige `--staging` ou `--producao`
+por extenso; valor de segredo nunca passa por argumento nem por stdout
+(entra por arquivo ou é gerado, e o novo fica em
+`~/.nutriplan-secrets/rotacao/`); e **`PUT` de variável pela API do Render
+NÃO redeploya** — MEDIDO: o token novo respondia 403 até o deploy —, então o
+script pede o redeploy em seguida, do commit LIVE em produção (sem
+`commitId` o Render subiria a ponta de `main`: uma promoção escondida dentro
+de uma rotação) e da ponta de `main` no staging.
+
+Primeiro, sempre:
+
+```bash
+.venv/Scripts/python.exe scripts/incidente.py diagnostico            # produção
+.venv/Scripts/python.exe scripts/incidente.py diagnostico --staging
+```
+
+Ele diz, nesta ordem, o que está de pé: `web` (`/saude/vivo/`, sem banco),
+`banco` (`/saude/`), o último deploy do Render e a idade do último run de
+cada fluxo do Actions. É a ordem em que se descobre onde dói.
+
+**Banco caiu.** Sintoma: `/saude/vivo/` 200 e `/saude/` 503 ("healthcheck
+sem banco" no log) — e o UptimeRobot NÃO avisa, porque bate no `vivo`. Na
+ordem: (1) `https://neonstatus.com` (AWS us-west-2): incidente deles, o app
+volta sozinho; (2) Neon → projeto → Branches → o compute da branch:
+`suspended` que não acorda → *Restart*; (3) dado corrompido ou apagado há
+menos de 6 h: Neon → branch → *Backup & Restore* → *Restore from history*
+→ instante → *Restore*. É **no lugar** e no MESMO endpoint: a branch atual
+vira `<nome>_old_<instante>` (o desfazer) e a restaurada assume a URL —
+ENSAIADO no staging: 0,83 s, e o app continuou respondendo `/saude/` sem
+redeploy nenhum; (4) mais velho que 6 h, ou outra branch/projeto: Neon →
+*New Branch* a partir de um instante, ou `scripts/restaurar.sh` do backup
+próprio num Postgres local e `pg_dump | pg_restore` para a branch nova
+(`docs/infra-recuperacao.md`) — a URL nova vai para um ARQUIVO fora do
+repositório e:
+
+```bash
+.venv/Scripts/python.exe scripts/incidente.py banco --trocar <arquivo-com-a-url> --producao
+```
+
+ENSAIADO no staging com a branch `staging-restaurada` (criada da `staging`
+com dados): `PUT` + redeploy em 1 min 30, `/saude/` ok, e `pg_stat_activity`
+mostrou a conexão do app na branch nova e nenhuma na antiga; a volta é o
+mesmo comando com a URL de sempre. O Postgres do Render que era o rollback
+some por volta de 23/09/2026; depois disso o caminho (4) é o Neon.
+
+**Deploy quebrou.** `deploy` lista os últimos deploys com status e commit.
+`build_failed`/`update_failed`: o deploy anterior continua no ar, nada a
+desfazer — conserte em `main`, o staging prova, promova. Subiu e quebrou
+(`live` com a tela errando):
+
+```bash
+.venv/Scripts/python.exe scripts/incidente.py deploy --voltar <sha-do-último-bom> --producao
+```
+
+Sem a prova do staging (ele está à frente), só para SHA que está em
+`origin/main`, e SEM build quando o Render ainda tem a imagem daquele
+deploy: `POST /services/<id>/rollback {deployId}` — MEDIDO no free: 201,
+`trigger: rollback`, direto a `update_in_progress`. O rollback **não
+devolve variável de ambiente**: ele sobe a imagem antiga com o ambiente de
+AGORA (MEDIDO: um rollback logo depois de trocar `DATABASE_URL` subiu com a
+URL nova). ENSAIADO no staging: `cb75ee3` ← `7cbaa44` → `7cbaa44`, ~1 min
+30 cada, `/saude/` dizendo o commit.
+
+**Segredo vazou.** Um verbo, e a tabela `ONDE_MAIS` do script diz onde mais
+cada segredo mora:
+
+```bash
+.venv/Scripts/python.exe scripts/incidente.py rotacionar NUTRIPLAN_TAREFAS_TOKEN --producao   # gera, grava no Render, regrava o segredo do Actions
+.venv/Scripts/python.exe scripts/incidente.py rotacionar DJANGO_SECRET_KEY --producao         # a antiga vai para DJANGO_SECRET_KEY_FALLBACKS
+.venv/Scripts/python.exe scripts/incidente.py rotacionar --encerrar DJANGO_SECRET_KEY --producao   # 14 dias depois: a antiga deixa de valer
+.venv/Scripts/python.exe scripts/incidente.py rotacionar EMAIL_HOST_PASSWORD --producao --de-arquivo <arquivo>   # o que vem de fora (Brevo, Google, VAPID)
+```
+
+Os três que o app gera (`DJANGO_SECRET_KEY`, `NUTRIPLAN_TAREFAS_TOKEN`,
+`NUTRIPLAN_DISPARO_TOKEN`) nascem no script, 64 caracteres. A chave do
+Django troca COM rede de segurança: a antiga entra em
+`DJANGO_SECRET_KEY_FALLBACKS` ANTES da nova entrar (o Django aceita o que a
+antiga assinou — sessão, CSRF, token de redefinição, `state` do OAuth — e
+assina o novo com a nova; há teste), e a janela é a idade da sessão, 14
+dias, ou 3 h se aceitar deslogar todo mundo. `NUTRIPLAN_DISPARO_TOKEN` novo
+exige trocar a URL do monitor no UptimeRobot à mão. Dois não passam pelo
+verbo: `DATABASE_URL` (Neon → Roles → reset password → `banco --trocar`) e
+`RENDER_API_KEY` (Render → Account Settings → API Keys → o arquivo
+`~/.nutriplan-secrets/render_api_key` e `scripts/github.py segredo
+RENDER_API_KEY <arquivo>`). O token do Git Credential Manager se rotaciona
+no GitHub (Settings → Developer settings) e o GCM pede de novo no próximo
+push. ENSAIADO no staging: token das tarefas — o antigo 403, o novo 200
+depois do redeploy; `DJANGO_SECRET_KEY` com fallback — build passou no
+`check --deploy`, `/saude/` ok; `--encerrar` — `DELETE` da variável e
+redeploy.
+
+**Actions fora.** `actions` diz a idade do último run de cada fluxo e o que
+`githubstatus.com` diz do componente Actions. Actions fora **não derruba
+produção**: ela só muda por promoção, e promover e voltar rodam da máquina.
+O que para, e o que fazer: o gate dos PRs não roda → `main` não recebe
+merge — espere; a proteção de `main` não se desliga para passar hotfix, e
+a resposta a produção quebrada é `deploy --voltar`; lembretes — quem
+dispara é o UptimeRobot (o `schedule` do Actions é só o fallback), e uma
+rodada agora, da máquina, é:
+
+```bash
+.venv/Scripts/python.exe scripts/incidente.py actions
+.venv/Scripts/python.exe scripts/incidente.py lembretes            # POST /tarefas/lembretes/ com o token da máquina
+```
+
+A fila local (`scripts/github.py enfileirar`) fica esperando o check e
+solta a posse sozinha em 90 min; `schedule` parado por 60 dias sem commit,
+um commit qualquer religa. ENSAIADO: `lembretes --staging` → 200 com o JSON
+da rodada.
+
 ## Backup e restauração
 
 Procedimento completo, incluindo o que fazer se produção desaparecer, em
@@ -2390,6 +2657,30 @@ histórico de treino de gente real.
 Um dump que ninguém restaurou é uma esperança, não um backup. Restaurar os 12 MB
 deste banco leva 0,3 s: não há desculpa para pular o drill.
 
+**E o drill é MENSAL e AUTOMÁTICO desde 21/09/2026**
+(`.github/workflows/restaurar-mensal.yml`, dia 1 às 06:00 de Brasília, e pelo
+botão a qualquer hora). Ele despeja produção com `backup.sh`, restaura no
+Postgres 18 do próprio job com `restaurar.sh` (`MANTER_BANCO=1` deixa o banco
+de pé) e confere o restaurado contra a origem com
+`scripts/conferir_restauracao.py`: toda tabela com a mesma contagem — salvo
+1 % ou 5 linhas, o que for maior, porque a origem continua viva e quem
+registra água às 6h do dia 1 não pode disparar alarme —, o mesmo conjunto de
+`django_migrations` e gente dentro. Falhou, abre (ou comenta) a issue
+"Restauração mensal falhou", além do e-mail do GitHub. Três decisões:
+
+- o dump sai pelo role **`nutriplan_leitor`** (Neon, `pg_read_all_data`, sem
+  CREATE; criado em 21/09 por `artifacts/criar_leitor.py`, senha só no
+  arquivo `~/.nutriplan-secrets/backup_database_url` e no segredo
+  `BACKUP_DATABASE_URL` do repositório) — se o segredo vazar, lê-se, não se
+  destrói. Renovar a senha é rodar o mesmo script e `scripts/github.py
+  segredo BACKUP_DATABASE_URL ~/.nutriplan-secrets/backup_database_url`;
+- o dump **nunca vira artefato** do run: o repositório é público e o arquivo
+  tem e-mail, peso e treino de gente real. Ele vive no `$RUNNER_TEMP` e
+  morre com o job; o log só tem nome de tabela e contagem;
+- o cliente é o `postgresql-client-18` do PGDG e o serviço é `postgres:18`,
+  pelo `SET transaction_timeout` de sempre. Ensaiado na máquina em 21/09 com
+  o mesmo role: 55 tabelas, 343 KB, `RESTORE OK` no cluster 18 local.
+
 Para trocar de provedor de banco, `scripts/migrar.sh` faz dump, restore e
 conferência tabela a tabela **num comando só** — o que importa aqui é o tempo
 entre o dump e a troca da `DATABASE_URL`, porque tudo escrito na origem nessa
@@ -2404,3 +2695,31 @@ de manutenção, que é o pior momento para descobrir isso.
 
 O destino precisa ser **PostgreSQL 17 ou mais novo**: o `pg_dump` 18 emite
 `SET transaction_timeout`, parâmetro que só existe a partir do 17.
+## Avisos por e-mail (21/09/2026)
+
+**Três e-mails, um app (`avisos/`), e o relógio é o de sempre.** Boas-vindas
+(uma vez por conta, no cadastro por senha E por Google — `avisos.services.
+boas_vindas`, chamado em `SignupView.form_valid` e no `save_user` do adapter
+social; quando a verificação de e-mail existir, é essa chamada que muda de
+lugar), "5 dias sem treino" e o resumo da semana. Os dois últimos NÃO têm cron:
+`avisos.jobs.rodar(now)` pega carona no fim de cada rodada NÃO pausada de
+`push/tarefas.rodar()` (UptimeRobot a cada 5 min; o Neon dorme entre
+rodadas), e saem a partir da `hora_email` da pessoa (padrão 08:00) — em até
+meia hora depois, o preço da pausa. Idempotência pela constraint de
+`EmailEnviado` (pessoa, tipo, referência), com a referência do TAMANHO
+certo: `conta` para o boas-vindas, a data da última série para a inatividade
+(**um e-mail por pausa**, não um por dia — treinar de novo abre outra), a
+semana ISO para o resumo. Só quem tem ficha ativa e onboarding feito entra na
+lista; semana vazia sai mesmo assim (o zero é convite). A preferência
+(`avisos.Preferencia`, `/avisos/`, link no Perfil) tem três perguntas — quais
+e-mails, quais pushes, a que horas — e **a linha que não existe vale LIGADO**;
+`push/services.due_slots` respeita `push_refeicoes` por `exclude` do falso.
+O descadastro é por link com chave própria de 128 bits (`/avisos/sair/<chave>/
+?tipo=`), GET e POST sem login e sem CSRF (RFC 8058, cabeçalhos
+`List-Unsubscribe` + `List-Unsubscribe-Post` em todo e-mail), e só DESLIGA.
+Os templates moram em `templates/email/` (moldura NERVURA inline, em tabela:
+cliente de e-mail não lê CSS nem `transform` — a nervura é uma régua reta de
+2 px e a display cai em Arial Narrow/Impact), e a pasta inteira está fora da
+régua de `style=` de `config/test_design_system.py`, como o `email_senha`.
+Os links dos jobs saem de `NUTRIPLAN_URL_BASE` (não há request). O envio
+nunca derruba quem chamou: falha de SMTP vira `sucesso=False` no log.
