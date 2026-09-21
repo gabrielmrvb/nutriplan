@@ -1852,7 +1852,13 @@ class ShoppingListTests(TestCase):
 
         _, dados = next(iter(cru.items()))
         diario = dados["quantity"] / shopping.DAYS
-        self.assertEqual(dados["quantity"], diario * shopping.DAYS)
+        # Comparação QUANTIZADA: com a Fase 3 da dieta (21/09/2026) o primeiro
+        # item da semana passou a somar 830 g, e 830 / 7 * 7 em Decimal dá
+        # 830,0000000000000000000000002 — os 28 dígitos do contexto, não a
+        # conta. O que o teste afirma é a multiplicação por sete, não a
+        # representação da dízima.
+        centesimo = Decimal("0.01")
+        self.assertEqual(dados["quantity"].quantize(centesimo), (diario * shopping.DAYS).quantize(centesimo))
         self.assertGreater(dados["quantity"], diario)
 
     def test_the_aisles_come_in_the_order_you_walk_the_market(self):
