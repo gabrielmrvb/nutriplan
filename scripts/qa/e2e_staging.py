@@ -177,6 +177,21 @@ class E2E:
                 "botao:(f.querySelector('button[type=submit]')||{}).outerHTML})})()" % json_dumps(self.FORM))
             self.ab.eval("document.querySelector(%s).requestSubmit()" % json_dumps(self.FORM))
 
+    def acionar(self, seletor, condicao, rotulo, segundos=45):
+        """Clica num botão de ação e espera a condição; se ela não vem em 20 s,
+        clica DE NOVO uma vez. Seguro por construção: água, refeição e série
+        são idempotentes (op_id / update_or_create), e o segundo toque com o
+        mesmo op_id é recusado como repetição pelo servidor. No runner (quarto
+        run do Actions) o primeiro clique no "+250" não submeteu — na máquina,
+        em dez execuções, nunca deixou de submeter."""
+        self.ab("click", seletor)
+        try:
+            self.ab.esperar_js(condicao, segundos=20, rotulo=rotulo)
+        except RuntimeError:
+            print("     (clique repetido em %s)" % seletor, flush=True)
+            self.ab("click", seletor)
+            self.ab.esperar_js(condicao, segundos=segundos, rotulo=rotulo)
+
     # ----------------------------------------------------------- passos
     def cadastro(self):
         self.ab("open", "about:blank")
@@ -231,15 +246,13 @@ class E2E:
         self.captura("home")
 
     def agua(self):
-        self.ab("click", ".agua__botao")
-        self.ab.esperar_js("(function(){var e=document.querySelector('.agua__valor');return e?/250/.test(e.textContent):false})()", rotulo="250 ml registrados")
+        self.acionar(".agua__botao", "(function(){var e=document.querySelector('.agua__valor');return e?/250/.test(e.textContent):false})()", "250 ml registrados")
         self.captura("agua")
 
     def refeicao(self):
         self.ab.eval("(function(){var m=document.querySelector('.meal:not(.meal--done)');m.querySelectorAll('details').forEach(function(d){d.open=true});return !!m})()")
         self.ab("wait", "300")
-        self.ab("click", ".meal:not(.meal--done) form.option-par__acao button[type=submit]")
-        self.ab.esperar_js("document.querySelector('.meal--done') !== null", rotulo="refeição marcada")
+        self.acionar(".meal:not(.meal--done) form.option-par__acao button[type=submit]", "document.querySelector('.meal--done') !== null", "refeição marcada")
         self.captura("refeicao")
 
     def ir(self, seletor, trecho, segundos=45):
@@ -260,8 +273,7 @@ class E2E:
         self.ir("a[href^='/treino/agora/']", "/treino/agora/")
         self.ab.preencher("input[name=weight_kg]", "40")
         self.ab.preencher("input[name=reps]", "10")
-        self.ab("click", ".agora__concluir")
-        self.ab.esperar_js("(function(){var e=document.querySelector('.series__titulo .num');return e?e.textContent.trim()==='2':false})()", rotulo="série 2 na tela")
+        self.acionar(".agora__concluir", "(function(){var e=document.querySelector('.series__titulo .num');return e?e.textContent.trim()==='2':false})()", "série 2 na tela")
         self.captura("serie")
 
     def tema_claro(self):
