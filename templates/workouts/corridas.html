@@ -70,6 +70,7 @@
         botões da ação — sem CSS novo.
       {% endcomment %}
       <a class="btn btn--ghost btn--block" href="{% url 'workouts:corrida_nova' %}">Registrar corrida à mão</a>
+      <a class="btn btn--ghost btn--block" href="{% url 'workouts:corrida_importar' %}">Importar de arquivo (GPX/TCX)</a>
     </div>
   </section>
 
@@ -126,6 +127,8 @@
               {% endif %}
               {% if corrida.origem == "manual" %}
                 <span class="corrida__origem">à mão</span>
+              {% elif corrida.origem == "arquivo" %}
+                <span class="corrida__origem">importada</span>
               {% endif %}
               {% if corrida.sensacao %}
                 <span class="corrida__sensacao">{{ corrida.get_sensacao_display }}</span>

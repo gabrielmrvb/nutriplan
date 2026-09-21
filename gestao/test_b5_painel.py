@@ -232,7 +232,8 @@ class AAtividadeMostraOsDiasZeradosTests(BaseDoPainel):
         vazio = self.hoje - timedelta(days=1)
 
         self.assertIn(vazio, por_data, "o dia sem registro sumiu da tabela")
-        self.assertEqual(por_data[vazio], [0, 0, 0, 0])
+        # três fontes desde 20/09/2026: refeições, água, séries (suplemento saiu)
+        self.assertEqual(por_data[vazio], [0, 0, 0])
         self.assertEqual(por_data[self.hoje][0], 1)
 
     def test_os_dias_vem_do_mais_recente_para_o_mais_antigo(self):

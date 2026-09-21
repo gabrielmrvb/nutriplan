@@ -547,6 +547,15 @@
         e abdominal não recebem anilha; sugerir "manter 0 kg" ali seria
         recomendar um número que não existe naquele movimento.
       {% endcomment %}
+      {% if movimento_anterior %}
+        <p class="agora__anterior">
+          <span class="agora__anterior-fato">
+            Primeira vez neste. Na última {{ movimento_anterior.padrao }}
+            ({{ movimento_anterior.exercicio.name|lower }}, {{ movimento_anterior.data|date:"d/m" }}):
+            <b class="num">{{ movimento_anterior.peso|floatformat:'-2' }} kg{% if movimento_anterior.reps %} × {{ movimento_anterior.reps }}{% endif %}</b>
+          </span>
+        </p>
+      {% endif %}
       {% if atual.load.melhor_anterior and not atual.exercise.sem_carga %}
         <p class="agora__anterior">
           <span class="agora__anterior-fato">

@@ -129,7 +129,6 @@ class AtividadeView(PainelDeGestaoMixin, TemplateView):
         from django.utils import timezone
 
         from plans.models import HydrationLog
-        from supplements.models import SupplementLog
 
         contexto = super().get_context_data(**kwargs)
         hoje = timezone.localdate()
@@ -142,7 +141,6 @@ class AtividadeView(PainelDeGestaoMixin, TemplateView):
             ("refeições", MealLog.objects.filter(date__gte=desde)),
             ("água", HydrationLog.objects.filter(date__gte=desde, ml__gt=0)),
             ("séries", ExerciseLog.objects.filter(date__gte=desde)),
-            ("suplementos", SupplementLog.objects.filter(date__gte=desde)),
         )
 
         por_dia = {}
