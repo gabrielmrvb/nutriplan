@@ -108,7 +108,14 @@ class APrimeiraSerieDoDiaAvaliaTests(_ComTreinoDeHoje):
         self.client.force_login(outra)
         with CaptureQueriesContext(connection) as primeira:
             self._serie("op-3")
-        self.assertGreater(len(primeira), len(segunda) + 20)
+        # "Pagar o catálogo" deixou de ser caro em 20/09/2026 (`avaliar` grava
+        # em lote: três consultas fixas em vez de uma por detecção), então a
+        # régua não é mais "20 consultas a mais": é o catálogo ter sido LIDO
+        # e GRAVADO — a tabela de conquistas aparece na primeira série e não
+        # aparece na segunda.
+        toca_conquistas = lambda ctx: [q["sql"] for q in ctx.captured_queries if "achievements_userachievement" in q["sql"]]  # noqa: E731
+        self.assertTrue(toca_conquistas(primeira), "a primeira série do dia avalia o catálogo")
+        self.assertFalse(toca_conquistas(segunda), "a segunda série do dia não reavalia")
 
     def test_o_reenvio_da_fila_da_primeira_serie_nao_reavalia(self):
         """`criada=False` é reenvio reconhecido: não há dia novo para avaliar."""
