@@ -2489,10 +2489,13 @@ class CartaoDePesoTests(TestCase):
         html = self.client.get(self.url).content.decode()
         campo = html.split('class="pesagem__valor', 1)[1].split(">", 1)[0]
 
-        # "81,30" e não "81,3": duas casas e vírgula decimal é como o app
-        # escreve número em toda tela, e o campo aceita as duas formas de
-        # volta. `floatformat` faz a mesma coisa aqui e na carga da ficha.
-        self.assertIn('value="81,30"', campo)
+        # "81,3" com UMA casa, como todo peso na tela (`floatformat:1` em
+        # "90,0 kg", "89,6 kg", no Perfil e na lista de pesagens): a
+        # auditoria de 20/09/2026 viu o campo dizer "89,20" ao lado do
+        # "89,6 kg" do mesmo cartão. Vírgula decimal, e o campo aceita as
+        # duas formas de volta.
+        self.assertIn('value="81,3"', campo)
+        self.assertNotIn('value="81,30"', campo)
 
     def test_yesterdays_weight_never_prefills_todays_field(self):
         """Só o peso de HOJE preenche. O de ontem no campo faria a pessoa
@@ -2689,7 +2692,7 @@ class PesoRecusadoVoltaParaATelaTests(TestCase):
         )
 
         sem_erro = self._campo(self.client.get(reverse("plans:history")))
-        self.assertIn('value="80"', sem_erro)
+        self.assertIn('value="80,0"', sem_erro)  # uma casa, como todo peso na tela (20/09/2026)
 
         self.client.post(self.rota, {"weight_kg": "", "origem": "metricas"})
         com_erro = self._campo(self.client.get(reverse("plans:history")))

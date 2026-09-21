@@ -152,4 +152,4 @@ class PesoEcoadoTests(TestCase):
             user=self.user, date=timezone.localdate(), defaults={"weight_kg": Decimal("82.5")}
         )
         html = self.client.get(reverse("plans:history")).content.decode()
-        self.assertIn('value="82,50"', html)
+        self.assertIn('value="82,5"', html)  # uma casa, como todo peso na tela (20/09/2026)
