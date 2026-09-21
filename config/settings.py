@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "demo",
     "achievements",
     "gestao",
+    "analytics",
     # Login com Google — o allauth como MOTOR, não como interface.
     #
     # `allauth.account` entra porque `allauth.socialaccount` depende dele: é
@@ -185,6 +186,14 @@ DATABASES = {
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("DJANGO_CONN_MAX_AGE", default=60)
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 
+# Quantos dias o evento BRUTO de analytics vive antes da poda. 90 é o padrão do
+# produto; é env para poder apertar SEM deploy de código quando a base crescer.
+# Medido em 21/09/2026: 393 bytes/evento com índices. 90 dias cabe no Neon free
+# (0,5 GB) até ~1000 MAU / ~300-400 DAU; acima disso, baixe este número — o
+# painel lê AGREGADO para períodos longos, então encurtar o bruto não apaga a
+# série histórica, só o detalhe recente.
+ANALYTICS_RETENCAO_DIAS = env.int("ANALYTICS_RETENCAO_DIAS", default=90)
+
 # Um runner de cada vez. A regra e do contrato do B9 e existia so escrita — e
 # regra escrita falha justamente na hora em que alguem esta com pressa.
 # `config/runner.py` registra os dois modos de falha que ela ja teve aqui.
@@ -199,7 +208,7 @@ AUTH_USER_MODEL = "accounts.User"
 from config.hashers import argon2_disponivel  # noqa: E402
 
 PASSWORD_HASHERS = (
-    ["django.contrib.auth.hashers.Argon2PasswordHasher"] if argon2_disponivel() else []
+    ["config.hashers.Argon2Moderado"] if argon2_disponivel() else []
 ) + [
     "config.hashers.PBKDF2SHA256Rapido",
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",

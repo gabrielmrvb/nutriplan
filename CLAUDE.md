@@ -1449,6 +1449,18 @@ hasher preferido no próximo login — sem migration, sem pedir nada.
 `manage.py medir_hash` mede cada hasher nesta máquina; `config/test_hashers.py`
 prende a ordem, a conferência da senha antiga e a regravação.
 
+**E OS PARÂMETROS DO ARGON2 SÃO DO RENDER FREE, não os do Django
+(21/09/2026).** Provado em produção com os padrões (m=100 MiB, t=2, p=8):
+login certo 2,0–2,6 s — ~1,7 s só de hash, contra 0,30 s de um GET da mesma
+tela; o ganho de 0,8 s medido nesta máquina não se repetiu lá, porque o
+CPU do free não tem os 8 fios do p=8 nem banda para 100 MiB por login.
+`config.hashers.Argon2Moderado` é m=32 MiB, t=2, p=1 (decisão do dono;
+a OWASP aceita a partir de m=19 MiB, t=2, p=1 — 32 é folga, não mínimo),
+e é o primeiro da lista. Mesmo `algorithm` do hasher do Django: todo
+`argon2$…` gravado com os padrões continua conferindo (os parâmetros
+viajam no hash) e é regravado no login seguinte, porque `must_update`
+compara parâmetros. Nesta máquina: 0,057 s contra 0,22 s do padrão.
+
 **A SECRET_KEY não é gerada pela plataforma.** `generateValue: true` do Render
 entrega 256 bits em base64 — 44 caracteres —, e o Django exige 50. Isso deixou
 `security.W009` aceso em produção desde o primeiro deploy sem travar nada,

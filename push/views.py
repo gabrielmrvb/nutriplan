@@ -171,6 +171,10 @@ class ServiceWorkerView(TemplateView):
                     asset("css/app.css"),
                     asset("js/pwa.js"),
                     asset("js/fila.js"),
+                    # Analytics no shell: uma página aberta sem rede (do cache)
+                    # ainda dispara e enfileira eventos; a drenagem espera a
+                    # rede voltar. Sem isto o arquivo faria fetch e falharia.
+                    asset("js/analytics.js"),
                     static("icons/icon-192.png"),
                     static("icons/icon-512.png"),
                     # As duas fontes (CORTE, T3.2): entram pelo `static()` como

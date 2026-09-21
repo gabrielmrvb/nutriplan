@@ -470,6 +470,17 @@
 
   <script>window.NUTRIPLAN_VAPID_KEY = "{{ vapid_public_key }}";</script>
   <script src="{{ app_js_url }}" defer></script>
+  {% if not shell_offline %}
+    {% comment %}
+      Analytics de produto. Carrega para TODO MUNDO — anônimo e logado —, porque
+      "tela vista" é de toda rota, e o funil começa na landing anônima. Fica
+      FORA do shell de offline (aquela tela não é uso do produto), e o próprio
+      arquivo se recusa a rodar em /gestao/ e /admin/. O endpoint e a versão do
+      app (commit do deploy) chegam por este objeto; nada de identidade.
+    {% endcomment %}
+    <script>window.NUTRIPLAN_ANALYTICS = {endpoint: "{% url 'analytics:ingest' %}", app_version: "{{ analytics_commit }}"};</script>
+    <script src="{{ analytics_js_url }}" defer></script>
+  {% endif %}
   {% if user.is_authenticated %}
     {% comment %}
       A fila de escritas offline. Só para quem está autenticado: TODA rota
