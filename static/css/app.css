@@ -8742,3 +8742,18 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .corrida-plano-opcao__hint { margin: 0 0 var(--espaco-3); color: var(--text-dim); font-size: var(--texto-sm); }
 .corrida-plano-opcao form { margin: 0; }
 .corrida-plano-opcao .btn { width: 100%; }
+
+/* A LANDING DA RAIZ ANÔNIMA (decisão 2 da avaliação de UX, 20/09/2026).
+   Quase tudo é componente que já existe (`.page-head`, `.card`, `.btn`,
+   `.lead`, `.pill`, `.hint`). O único acréscimo é constranger a captura à
+   largura do cartão: sem isso a imagem sai no tamanho intrínseco e estoura
+   para os lados — e "nada rola na horizontal". `.landing__hero .stack` só
+   dá o respiro entre a frase e os botões. Zero valor cru: largura em %,
+   altura automática, quina no slot. */
+.landing__prova__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--quina);
+}
+.landing__hero .stack { margin-top: var(--espaco-5); }
