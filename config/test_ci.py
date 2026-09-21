@@ -125,7 +125,8 @@ class OGateRapidoTests(SimpleTestCase):
 
 
 class ASuiteCompletaTests(SimpleTestCase):
-    """`suite.yml`: tudo, depois do merge e à noite — não barra PR."""
+    """`suite.yml`: tudo, depois do merge e à mão — não barra PR. A noite é
+    de `noturna.yml`, com a data real (`config/test_relogio.py`)."""
 
     def _fluxo(self):
         return _sem_comentarios(FLUXO_COMPLETA.read_text(encoding="utf-8"))
