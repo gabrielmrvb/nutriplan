@@ -291,10 +291,10 @@
         componente novo. Fora do shell de offline, que decide sozinho o que
         dizer. Ver `templates/pwa/sw.js` e a avaliação de 16/09/2026, B6.
       {% endcomment %}
-      <ul class="flash" data-aviso-cache hidden role="status" aria-live="polite">
-        <li><span data-aviso-cache-texto></span>
-          <button type="button" class="btn-link" data-aviso-cache-atualizar hidden>Atualizar</button></li>
-      </ul>
+      <div class="flash" data-aviso-cache hidden role="status" aria-live="polite">
+        <p class="flash__item"><span data-aviso-cache-texto></span>
+          <button type="button" class="btn-link" data-aviso-cache-atualizar hidden>Atualizar</button></p>
+      </div>
     {% endif %}
     {% if messages and not shell_offline %}
       <ul class="flash">
