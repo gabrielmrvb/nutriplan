@@ -113,8 +113,10 @@ class IdentificadorDePedido(logging.Filter):
 #: anônimo. Nível INFO; em teste ele fica desligado pelo `configuracao`.
 acesso = logging.getLogger("nutriplan.acesso")
 
-#: Prefixos que não entram no log de acesso: estático é ruído, não uso.
-SEM_ACESSO = ("/static/",)
+#: Prefixos que não entram no log de acesso: estático é ruído, não uso — e a
+#: sonda `/saude/vivo/` também: o Render bate nela a cada ~5 s e o UptimeRobot
+#: a cada 5 min (MEDIDO no staging: 19 das 40 últimas linhas eram a sonda).
+SEM_ACESSO = ("/static/", "/saude/vivo/")
 
 
 def usuario_anonimo(request) -> str:

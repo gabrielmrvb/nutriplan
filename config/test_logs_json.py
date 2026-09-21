@@ -79,7 +79,7 @@ def _ok(request, **kwargs):
 urlpatterns = [
     path("explode/", _explode, name="explode"),
     path("plana/<int:n>/", _ok, name="plana"),
-    path("saude/vivo/", _ok, name="vivo"),
+    path("sonda/", _ok, name="sonda"),
 ]
 
 
@@ -116,7 +116,7 @@ class OLogDeAcessoTests(TestCase):
     def test_o_usuario_nao_custa_consulta_quando_a_view_nao_o_leu(self):
         with self.assertNumQueries(0):
             with self.assertLogs("nutriplan.acesso", "INFO") as capturado:
-                self.client.get("/saude/vivo/")
+                self.client.get("/sonda/")
         self.assertEqual(capturado.records[-1].usuario, "-")
 
 
@@ -127,6 +127,11 @@ class OLogDeAcessoNoAppDeVerdadeTests(TestCase):
     def test_estatico_nao_entra(self):
         with self.assertNoLogs("nutriplan.acesso", "INFO"):
             self.client.get("/static/css/app.css")
+
+    def test_a_sonda_de_vida_nao_entra(self):
+        """O Render bate em /saude/vivo/ a cada ~5 s: seria a maior parte do log."""
+        with self.assertNoLogs("nutriplan.acesso", "INFO"):
+            self.assertEqual(self.client.get("/saude/vivo/").status_code, 200)
 
     def test_a_rota_de_caminho_nao_resolvido_e_redigida(self):
         with self.assertLogs("nutriplan.acesso", "INFO") as capturado:
