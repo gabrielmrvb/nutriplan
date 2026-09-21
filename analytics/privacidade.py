@@ -14,21 +14,12 @@ Enquanto o campo do perfil não existe, só o DNT vale — e já vale.
 
 
 def pode_identificar(request):
+    # DNT é a única recusa que se checa SEM CONSULTA — e é a que a rota mais
+    # quente do app (concluir série) pode pagar. O opt-out do perfil (bloco 4)
+    # entra por um caminho sem consulta (a sessão), justamente para não
+    # acrescentar uma consulta ao POST da série. Ler `user.profile` aqui
+    # custava uma consulta por evento, em toda ação — dead cost enquanto o
+    # campo nem existe.
     if request.META.get("HTTP_DNT") == "1":
         return False
-    user = getattr(request, "user", None)
-    perfil = _perfil(user)
-    if perfil is not None and getattr(perfil, "rastrear_uso", True) is False:
-        return False
     return True
-
-
-def _perfil(user):
-    """O perfil pode não existir ainda (durante o onboarding). O acesso reverso
-    a um OneToOne ausente LEVANTA (não devolve None), então isolamos aqui."""
-    if user is None:
-        return None
-    try:
-        return user.profile
-    except Exception:
-        return None

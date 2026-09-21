@@ -24,6 +24,7 @@ from achievements import services as conquistas
 
 from . import curva as _curva
 from . import doutrina, health_export, services
+from analytics import servidor as analytics
 from .models import (
     EventoDeProduto,
     VersaoDoTreino,
@@ -719,6 +720,8 @@ class TrocarExercicioView(AcaoDeTela, OnboardingRequiredMixin, View):
         except services.TrocaInvalida as erro:
             messages.error(request, str(erro))
             return redirect(reverse("workouts:exercicio", args=[original.pk]) + query)
+        analytics.evento(request, "treino.troca",
+                         {"de": original.name, "para": substituto.name})
         messages.success(request, "Trocado: %s no lugar de %s. Séries e descanso continuam os mesmos." % (substituto.name, original.name))
         return redirect(reverse("workouts:exercicio", args=[substituto.pk]) + query)
 
@@ -1415,6 +1418,14 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
             messages.error(request, "Limite de séries deste exercício hoje.")
         else:
             self._garantir_escolha(request, dia)
+            # Só o que GRAVOU de novo (não o reenvio deduplicado da fila).
+            if criada:
+                analytics.evento(
+                    request,
+                    "treino.serie_concluida",
+                    {"exercicio": exercise.name, "carga": float(peso),
+                     "reps": reps if reps is not None else ""},
+                )
             # As conquistas rodam AQUI, na escrita — é o que a doutrina de
             # `achievements.services` promete e o que esta rota não fazia:
             # só `RecordLoadView`, a rota do cartão que saiu da tela em
@@ -1438,6 +1449,11 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
                 .exclude(pk=log.pk)
                 .exists()
             )
+            if primeira_do_dia:
+                # O dia de treino passa a existir na primeira série; é o sinal
+                # de "começou a treinar". A letra fica de fora para não pagar
+                # uma consulta na rota mais quente do app.
+                analytics.evento(request, "treino.iniciado", {})
             if primeira_do_dia or services.supera_recorde(
                 request.user, exercise, peso, reps=reps, dia=dia
             ):
