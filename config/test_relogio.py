@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""O relógio da suíte: data congelada por padrão, hora real, devolução exata.
+"""O relógio da suíte: data E hora congeladas por padrão (quarta 16/09, 12:00 +
+decorrido), devolução exata.
 
 Cada teste aqui é uma propriedade que, quebrada, faria a suíte medir o dia
 em vez do código — o defeito de `plans.test_stress` na quarta 16/09 e o de
@@ -45,19 +46,31 @@ class ASuiteMedeUmDiaSoTests(SimpleTestCase):
             self.assertEqual(timezone.localdate(), relogio.DATA_DA_SUITE)
             self.assertEqual(relogio.DATA_DA_SUITE.weekday(), 2, "quarta-feira, o pior estado medido")
 
-    def test_a_hora_e_real_e_continua_andando(self):
-        """Só a DATA congela. `created_at` precisa continuar ordenando, e um
+    def test_a_hora_e_a_da_suite_e_continua_andando(self):
+        """A hora NÃO é a da máquina (doutrina de 21/09/2026: nunca ler o
+        relógio real): é `HORA_DA_SUITE` mais o decorrido desde que o runner
+        ligou o relógio. `created_at` precisa continuar ordenando, e um
         teste que espera "agora > antes" precisa continuar verdadeiro."""
+        if os.environ.get(relogio.VARIAVEL_DATA_REAL):
+            self.skipTest("noturna: relógio real")
         antes = timezone.now()
         depois = timezone.now()
         self.assertGreaterEqual(depois, antes)
-        real = timezone.localtime(relogio._agora_real())
         congelada = timezone.localtime(timezone.now())
-        diferenca = abs(
-            (congelada.hour * 3600 + congelada.minute * 60 + congelada.second)
-            - (real.hour * 3600 + real.minute * 60 + real.second)
-        )
-        self.assertLess(diferenca, 5, "a hora do dia é a real, só a data mudou")
+        self.assertEqual(congelada.hour, relogio.HORA_DA_SUITE.hour)
+        # a suíte inteira roda em bem menos de uma hora; o minuto é o decorrido
+        self.assertLess(congelada.minute, 60)
+
+    def test_um_instante_exato_para_no_lugar(self):
+        """`congelado_em(datetime)` é o que um teste de janela usa: dois
+        `now()` seguidos são o MESMO instante, no fuso do projeto."""
+        with relogio.congelado_em(datetime(2026, 9, 16, 14, 7, 30)):
+            a = timezone.now()
+            b = timezone.now()
+            self.assertEqual(a, b)
+            local = timezone.localtime(a)
+            self.assertEqual((local.hour, local.minute, local.second), (14, 7, 30))
+            self.assertEqual(timezone.localdate(), date(2026, 9, 16))
 
     def test_os_defaults_de_data_e_de_data_hora_nascem_no_mesmo_dia(self):
         """`WeightEntry.date` e `UserAchievement.unlocked_at` têm de concordar
@@ -89,17 +102,19 @@ class OTesteQueTrocaDeDiaTests(SimpleTestCase):
             self.assertEqual(_dia_local(CAMPO_DE_DATA_HORA.get_default()), _dia_local(relogio._agora_real()))
         self.assertEqual(timezone.localdate(), dia_da_suite)
 
-    def test_a_troca_da_data_e_no_fuso_do_projeto_e_nao_em_utc(self):
-        """Das 21h à meia-noite de Brasília o UTC já está no dia seguinte.
-        Trocar a data em UTC faria `localdate()` cair na VÉSPERA da data
-        congelada nessas três horas — e a suíte mediria um dia que ninguém
-        escolheu, só à noite."""
-        noite = datetime(2026, 9, 18, 1, 30, tzinfo=fuso_utc.utc)  # 22:30 de quinta 17/09 em Brasília
-        congelado = relogio.agora_congelado(date(2026, 9, 16), agora_real=noite)
+    def test_a_hora_da_suite_e_montada_no_fuso_do_projeto_e_nao_em_utc(self):
+        """12:00 de Brasília são 15:00 UTC. Montar o instante em UTC daria
+        12:00 UTC = 9:00 locais, e a hora da suíte deixaria de ser a que o
+        módulo declara. E o decorrido soma de verdade: uma hora e meia depois
+        de ligar, são 13:30."""
+        inicio = datetime(2026, 9, 21, 20, 0, tzinfo=fuso_utc.utc)
+        congelado = relogio.agora_congelado(date(2026, 9, 16), inicio=inicio, agora_real=inicio)
         local = timezone.localtime(congelado)
         self.assertEqual(local.date(), date(2026, 9, 16))
-        self.assertEqual((local.hour, local.minute), (22, 30))
-        self.assertEqual(congelado.astimezone(fuso_utc.utc).date(), date(2026, 9, 17), "em UTC já é o dia seguinte")
+        self.assertEqual((local.hour, local.minute), (12, 0))
+        self.assertEqual(congelado.astimezone(fuso_utc.utc).hour, 15)
+        depois = relogio.agora_congelado(date(2026, 9, 16), inicio=inicio, agora_real=inicio + timezone.timedelta(minutes=90))
+        self.assertEqual((timezone.localtime(depois).hour, timezone.localtime(depois).minute), (13, 30))
 
 
 class AVariavelDeAmbienteTests(SimpleTestCase):
@@ -232,15 +247,21 @@ class OTesteNaoLeAMaquinaTests(SimpleTestCase):
 
     @staticmethod
     def _chamadas_ao_relogio_da_maquina(texto):
-        """`date.today()`, `datetime.today()` e `datetime.now()` no CÓDIGO —
-        pela árvore, para docstring que cita a chamada não contar."""
+        """`date.today()`, `datetime.today()`, `datetime.now()`, `datetime.
+        utcnow()` e `time.time()` no CÓDIGO — pela árvore, para docstring que
+        cita a chamada não contar. `time.monotonic()`/`perf_counter()` ficam
+        de fora: medem duração, não dizem que horas são."""
         achadas = []
         for no in ast.walk(ast.parse(texto)):
             if not isinstance(no, ast.Call) or not isinstance(no.func, ast.Attribute):
                 continue
             base = no.func.value
-            if isinstance(base, ast.Name) and base.id in ("date", "datetime") and no.func.attr in ("today", "now"):
+            if not isinstance(base, ast.Name):
+                continue
+            if base.id in ("date", "datetime") and no.func.attr in ("today", "now", "utcnow"):
                 achadas.append("%s.%s()" % (base.id, no.func.attr))
+            if base.id == "time" and no.func.attr == "time":
+                achadas.append("time.time()")
         return achadas
 
     def test_nenhum_teste_chama_o_relogio_da_maquina(self):
@@ -252,4 +273,4 @@ class OTesteNaoLeAMaquinaTests(SimpleTestCase):
                 n = chamadas.count(chamada)
                 if n > self.EXCECOES.get(relativo, {}).get(chamada, 0):
                     achados[(relativo, chamada)] = n
-        self.assertEqual(achados, {}, "teste lendo o relógio da máquina; use timezone.localdate()/now()")
+        self.assertEqual(achados, {}, "teste lendo o relógio da máquina; use timezone.now()/localdate() (congelados) ou relogio.congelado_em(datetime)")

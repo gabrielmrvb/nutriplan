@@ -5,7 +5,6 @@ o cliente não é confiável, e o que ele manda passa por `ingest` antes de vira
 linha.
 """
 import json
-import time
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -96,7 +95,7 @@ class IngestaoTests(TestCase):
 
     def test_timestamp_do_futuro_cai_para_agora(self):
         """Relógio adiantado escreveria no futuro, invisível para 'e hoje?'."""
-        futuro = int((time.time() + 60 * 60 * 24 * 30) * 1000)  # 30 dias à frente
+        futuro = int((timezone.now() + timezone.timedelta(days=30)).timestamp() * 1000)  # 30 dias à frente
         self._post(corpo([{"name": "tela.vista", "ts": futuro}]))
         e = Event.objects.get()
         self.assertLess(e.ts, timezone.now() + timezone.timedelta(minutes=1))
