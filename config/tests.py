@@ -137,7 +137,7 @@ class ProductionBehaviourTests(TestCase):
 
         self.assertEqual(
             staticfiles_backend(debug=False),
-            "whitenoise.storage.CompressedManifestStaticFilesStorage",
+            "config.estaticos.ArmazenamentoDeEstaticos",
         )
         self.assertEqual(
             staticfiles_backend(debug=True),
