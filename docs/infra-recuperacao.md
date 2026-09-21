@@ -161,3 +161,85 @@ Nesta ordem.
   Cifrá-los com `guardar.sh` é um comando por arquivo.
 - Duas pastas com nomes quase iguais (`backups-nutriplan` e `nutriplan-backups`)
   convidam ao engano no pior momento. Vale unificar.
+
+## Mover o banco para o Neon São Paulo — procedimento, NÃO executado
+
+Escrito em 21/09/2026 a pedido do dono, depois da pesquisa legal (LGPD:
+hospedar dado de saúde nos EUA é transferência internacional sem decisão de
+adequação — só a União Europeia tem uma, Res. CD/ANPD 32/2026 — e sem
+cláusula-padrão brasileira aprovada). Guardar o dado em repouso no Brasil
+reduz o que cruza a fronteira; **não elimina**, porque o serviço web
+continua em Oregon e processa tudo.
+
+**O que foi conferido na fonte (21/09/2026):**
+
+- O Neon tem a região **AWS South America (São Paulo), `aws-sa-east-1`**
+  (https://neon.com/docs/introduction/regions), "generally available" desde
+  o changelog de 28/02/2025, "to keep your data within Brazil"
+  (https://neon.com/docs/changelog/2025-02-28).
+- A região é escolhida **na criação do projeto** e **não pode ser trocada**:
+  "You cannot change the region for an existing project. If you need your
+  data in a different region, you create a new Neon project in that region
+  and migrate your database there" (mesma página de regiões).
+- O plano **Free** dá 100 projetos, 0,5 GB e 100 CU-h por projeto, com
+  suspensão após 5 min (https://neon.com/docs/introduction/plans), e a
+  documentação **não restringe região por plano** — nenhuma linha de
+  "regiões" na tabela de planos, nenhuma ressalva na página de regiões.
+  **Não vi o menu do console**: a confirmação definitiva é abrir "New
+  project" na conta do dono e ver São Paulo na lista — um clique seu.
+- A produção está hoje em **`us-west-2` (Oregon)**, lido do host da
+  `DATABASE_URL` no Render (só a região; nada mais foi impresso) — a mesma
+  região do serviço web.
+
+**Por que NÃO executar antes de medir — a conta que decide:** o serviço web
+fica em Oregon (o Render não tem região no Brasil:
+https://render.com/docs/regions). Hoje web e banco estão no mesmo data
+center, e cada consulta paga menos de 1 ms de rede. Oregon–São Paulo são
+~10.500 km de grande círculo; a luz na fibra anda ~200 km/ms, então o piso
+FÍSICO da ida e volta é ~105 ms, e rotas reais ficam em 170–200 ms
+(não medido daqui — é o primeiro passo abaixo). A Home faz até **41
+consultas** (`CLAUDE.md`, "O pre-push testa o commit que sobe"), em série:
+41 × 105 ms = **4,3 s só de rede no piso físico**, ~7 s no valor típico —
+contra ~40 ms hoje. Mover só o banco troca uma exposição jurídica parcial
+por um app 100× mais lento em toda tela. A migração só faz sentido junto
+com o serviço web (outro provedor com região no Brasil, fora deste
+documento) ou com um teto de consultas por tela muito menor.
+
+**O procedimento, se a medição disser que cabe** (12 MB; `scripts/migrar.sh`
+faz dump, restore e conferência tabela a tabela num comando):
+
+1. **Medir a latência** que o web pagaria: de um shell no Render (ou de um
+   job no `nutriplan-staging`), `psql -d "<URL de um projeto Neon em SP>"
+   -c '\timing' -c 'select 1'` dez vezes; anote o mediano. Acima de ~20 ms
+   por consulta, pare aqui e registre no BACKLOG.
+2. **Backup antes de tudo**: `scripts/backup.sh` + `guardar.sh`, e o drill de
+   `restaurar.sh` no Postgres local — a regra deste documento.
+3. **Criar o projeto novo** no console do Neon: região São Paulo, Postgres 16
+   (a mesma versão da produção — `pg_dump` 18 funciona nos dois), plano
+   Free, um banco com o mesmo nome. Pegar a connection string **direta**
+   (sem `-pooler`): "Avoid using `pg_dump` over a pooled connection string"
+   (https://neon.com/docs/import/migrate-from-neon).
+4. **Ensaiar no staging primeiro**: apontar a `DATABASE_URL` do
+   `nutriplan-staging` (branch `staging` do projeto atual) para um banco de
+   ensaio em SP, subir, medir a Home com `nav.py` e o E2E
+   (`scripts/qa/e2e_staging.py`). Sem essa medida, não há decisão.
+5. **Janela de manutenção** (poucos minutos; avisar no app ANTES — a LGPD,
+   art. 8º § 6º, manda informar com destaque a mudança do que o art. 9º
+   descreve, e a Política promete aviso de troca de operador):
+   `ORIGEM_URL='<Oregon>' DESTINO_URL='<São Paulo>'
+   scripts/migrar.sh` — as URLs entram por ambiente, nunca por argumento; o
+   script conta linhas de verdade nos dois lados e para se divergir.
+6. **Trocar a `DATABASE_URL`** de produção no painel do Render (ou
+   `scripts/render_api.py env`), nunca no `render.yaml`; reiniciar o
+   serviço; `/saude/` tem de devolver o mesmo `commit` e as contagens do
+   catálogo.
+7. **Atualizar a Política de Privacidade** ("Onde seus dados ficam": Neon em
+   São Paulo, Render em Oregon) e o registro das operações.
+8. **Manter o projeto de Oregon por 7 dias** como rollback (a mesma razão
+   de o banco do Render ter ficado declarado), depois apagar — e conferir
+   que o UptimeRobot e o `podar_operacoes` continuam batendo no lugar certo.
+
+O que este procedimento não cobre: mover o serviço web (Render não tem
+Brasil), a região do `nutriplan-staging` (fica onde estiver o projeto que
+ele usa), e o custo de CU-h — um projeto novo tem cota própria, mas o
+staging, se for para o mesmo projeto, compartilha.
