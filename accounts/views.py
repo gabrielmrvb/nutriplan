@@ -19,6 +19,7 @@ from django.views.generic import CreateView, FormView, TemplateView, UpdateView
 from . import limites
 from .adapters import MAXIMO_DE_TENTATIVAS, SESSAO_TENTATIVAS, SESSAO_VINCULO
 from . import entrada
+from analytics import servidor as analytics
 from .forms import (
     DIA_CURTO,
     BodyDataForm,
@@ -219,6 +220,8 @@ class SignupView(TelaDeEntradaMixin, CreateView):
             self.object,
             backend="django.contrib.auth.backends.ModelBackend",
         )
+        analytics.evento(self.request, "conta.criada")
+        analytics.evento(self.request, "onboarding.iniciado")
         return response
 
     def get_success_url(self):
@@ -305,7 +308,12 @@ class AppLoginView(TelaDeEntradaMixin, LoginView):
             email=(self.request.POST.get("username") or "").strip(),
             ip=entrada.ip_do_pedido(self.request),
         )
-        return super().form_valid(form)
+        resposta = super().form_valid(form)
+        # Só o login por e-mail; o Google entra pelo allauth e não passa aqui —
+        # o alias (identidade) costura os dois, mas o EVENTO conta.login é do
+        # caminho de e-mail (documentado no analytics.md).
+        analytics.evento(self.request, "conta.login")
+        return resposta
 
     def form_invalid(self, form):
         """Errou: conta a falha, e responde igual a sempre."""
@@ -642,6 +650,11 @@ class OnboardingStepMixin(LoginRequiredMixin):
             # Perfil: ela saiu do treino para trocar os dias de treino, e é a
             # ficha — que acabou de ser remontada com eles — que ela quer ver.
             return redirect(self.voltar_para())
+        # A partir daqui é ONBOARDING de verdade (não edição): cada etapa
+        # salva conta no funil, e "Criar meu plano" fecha.
+        analytics.evento(
+            self.request, "onboarding.etapa_concluida", {"etapa": self.step}
+        )
         if proximo >= ONBOARDING_DONE:
             # "Criar meu plano" cria os dois planos AQUI: a ficha (P1-01) e o
             # cardápio. A tela de montagem diz "calculando… ajustando…
@@ -650,6 +663,7 @@ class OnboardingStepMixin(LoginRequiredMixin):
             # ganha ficha; o cardápio não depende de treino.
             self.acertar_ficha()
             self.montar_cardapio()
+            analytics.evento(self.request, "onboarding.concluido")
             messages.success(
                 self.request, "Seu plano está pronto: cardápio e ficha montados."
             )
@@ -1268,6 +1282,11 @@ class WeightLogView(AcaoDeTela, OnboardingRequiredMixin, View):
             date=timezone.localdate(),
             defaults={"weight_kg": form.cleaned_data["weight_kg"]},
         )
+        # FAIXA de 5 kg, nunca o kg exato: peso é dado sensível, e o painel só
+        # precisa saber "em que faixa", não o número da pessoa.
+        peso = form.cleaned_data["weight_kg"]
+        faixa = "%d-%d" % (int(peso // 5 * 5), int(peso // 5 * 5) + 5)
+        analytics.evento(request, "progresso.peso_registrado", {"faixa": faixa})
         request.session.pop(SESSAO_PESO_RECUSADO, None)
         # A tela não prova sozinha que gravou. O campo volta preenchido com o
         # peso de hoje — que é exatamente o número que a pessoa acabou de
@@ -1376,6 +1395,10 @@ class ExcluirContaView(LoginRequiredMixin, FormView):
         # devolve string, e comparar 43 com "43" com `===` dá falso.
         apagada = str(usuario.pk)
 
+        # ANÔNIMO e ANTES do delete: se fosse identificado, o CASCADE que o
+        # próprio delete dispara o apagaria junto. Anônimo, sobrevive como
+        # contagem agregada de exclusões.
+        analytics.evento_anonimo(self.request, "conta.excluida")
         with transaction.atomic():
             usuario.delete()
 

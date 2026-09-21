@@ -37,6 +37,7 @@ from workouts.models import Corrida
 
 from . import calculations, rodizio, services, shopping, streaks, tracking, weight_trend
 from . import agora as agora_mod
+from analytics import servidor as analytics
 from workouts import services as treino_services
 from .calculations import (
     KCAL_PER_G_CARB,
@@ -667,6 +668,13 @@ class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
                 )
 
         tracking.log_meal(request.user, slot, status, option, notes=notes, macros=macros)
+        if status == MealStatus.DONE:
+            analytics.evento(request, "dieta.refeicao_registrada",
+                             {"opcao": option.template.name if option else ""})
+        elif status == MealStatus.SKIPPED:
+            analytics.evento(request, "dieta.pulou")
+        elif status == MealStatus.OFF_PLAN:
+            analytics.evento(request, "dieta.comeu_outra_coisa")
         return redirect(_hoje_em("#slot-%d" % slot.pk))
 
 
@@ -1309,6 +1317,10 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
                     updated_at=timezone.now(),
                 )
                 GoleDeAgua.objects.create(user=request.user, dia=hoje, ml=ml)
+            # FORA da transação: uma falha do analytics não pode poluir o commit
+            # da água nem derrubá-lo. Só o SOMAR chega aqui — zerar e desfazer
+            # são outros ramos.
+            analytics.evento(request, "agua.registrada")
 
         return self._volta(request)
 

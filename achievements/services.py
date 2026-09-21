@@ -333,11 +333,17 @@ def anunciar(request, novas) -> list:
     pagina: ali quem monta o aviso e o JavaScript, com o que vier na resposta.
     """
     from .context_processors import CHAVE
+    from analytics import servidor as analytics
 
     ids = [c.pk for c in novas]
     if ids:
         request.session[CHAVE] = ids
         request.session.modified = True
+        # Ponto central de desbloqueio: todo caminho que ANUNCIA passa por
+        # aqui (série, carga, Progresso). `slug` e não `titulo` — identidade
+        # estável e de baixa cardinalidade para o painel agrupar.
+        for c in novas:
+            analytics.evento(request, "conquista.desbloqueada", {"nome": c.slug})
     return ids
 
 
