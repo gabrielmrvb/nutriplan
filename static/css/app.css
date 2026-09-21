@@ -2838,8 +2838,10 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    ========================================================================== */
 
 .flash { margin: 0 0 var(--espaco-6); padding: 0; list-style: none; }
+.flash__item { margin: 0; }
 
-.flash li {
+.flash li,
+.flash__item {
   padding: .8rem var(--espaco-5);
   border-radius: var(--quina-p);
   background: var(--brand-soft);
@@ -7316,25 +7318,6 @@ body.montando { overflow: hidden; }
 .explicacao__head::-webkit-details-marker { display: none; }
 .explicacao__head h2 { margin: 0; }
 
-/* O "Editar" deste cabeçalho media 40x25. Os "Editar" do perfil passam na
-   régua porque `.card__head a` os cobre; este mora num `<summary>`, que não é
-   `.card__head`, e ficava sem regra nenhuma.
-
-   Mesma solução de lá, e pelo mesmo motivo: o alvo cresce por padding, e a
-   margem negativa devolve o espaço horizontal ao layout — a caixa clicável
-   passa a 44px sem que nada se mexa na tela. Na altura não há margem negativa
-   a pagar: o `<summary>` já tem `min-height` igual. */
-.explicacao__head a {
-  display: inline-flex;
-  align-items: center;
-  flex: none;
-  min-height: 2.75rem;
-  padding: 0 .4rem;
-  margin: 0 -.4rem;
-  font-size: var(--texto-sm);
-  font-weight: 600;
-  text-decoration: none;
-}
 .explicacao__head:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* A dica fica à direita e vira "fechar" com a seção aberta. É texto e não só
@@ -8759,3 +8742,18 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .corrida-plano-opcao__hint { margin: 0 0 var(--espaco-3); color: var(--text-dim); font-size: var(--texto-sm); }
 .corrida-plano-opcao form { margin: 0; }
 .corrida-plano-opcao .btn { width: 100%; }
+
+/* A LANDING DA RAIZ ANÔNIMA (decisão 2 da avaliação de UX, 20/09/2026).
+   Quase tudo é componente que já existe (`.page-head`, `.card`, `.btn`,
+   `.lead`, `.pill`, `.hint`). O único acréscimo é constranger a captura à
+   largura do cartão: sem isso a imagem sai no tamanho intrínseco e estoura
+   para os lados — e "nada rola na horizontal". `.landing__hero .stack` só
+   dá o respiro entre a frase e os botões. Zero valor cru: largura em %,
+   altura automática, quina no slot. */
+.landing__prova__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--quina);
+}
+.landing__hero .stack { margin-top: var(--espaco-5); }

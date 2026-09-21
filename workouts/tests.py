@@ -770,25 +770,35 @@ class SeededVideoTests(TestCase):
     def setUpTestData(cls):
         call_command("seed_workouts", verbosity=0)
 
-    def test_every_exercise_in_the_catalog_has_a_video(self):
+    def test_every_equipment_exercise_has_a_video(self):
+        """Todo exercício ATIVO COM APARELHO tem vídeo — o contrato de
+        demonstração vale inteiro para eles. O peso do corpo pode entrar sem
+        vídeo (decisão 1 da avaliação de UX, 20/09/2026: "sem vídeo fica sem
+        vídeo"): a mecânica é o próprio corpo, a dica técnica basta, e a tela
+        cai graciosamente no "Sem demonstração cadastrada". Todo vídeo que
+        EXISTIR — inclusive nos exercícios de peso do corpo que já têm um —
+        continua validado pelos testes de embed/unicidade/anatomia abaixo,
+        que agora olham `.exclude(video_url="")`."""
         sem_video = list(
-            Exercise.objects.filter(is_active=True, video_url="").values_list(
-                "name", flat=True
-            )
+            Exercise.objects.filter(is_active=True, video_url="")
+            .exclude(equipment="bodyweight")
+            .values_list("name", flat=True)
         )
         self.assertEqual(sem_video, [])
 
     def test_every_seeded_video_is_embeddable(self):
         """URL cadastrada que não vira embed é erro de digitação no seed."""
-        for exercicio in Exercise.objects.filter(is_active=True):
+        for exercicio in Exercise.objects.filter(is_active=True).exclude(video_url=""):
             with self.subTest(exercicio=exercicio.name):
                 self.assertTrue(exercicio.video_embed_url, exercicio.video_url)
 
     def test_no_two_exercises_share_the_same_video(self):
-        """Vídeo repetido é sinal de copiar-e-colar errado no seed."""
+        """Vídeo repetido é sinal de copiar-e-colar errado no seed. Só entre
+        os que TÊM vídeo — o peso do corpo sem vídeo compartilha o `video_id`
+        vazio de propósito, e isso não é colisão."""
         ids = [
             exercicio.video_id
-            for exercicio in Exercise.objects.filter(is_active=True)
+            for exercicio in Exercise.objects.filter(is_active=True).exclude(video_url="")
         ]
         self.assertEqual(len(ids), len(set(ids)))
 
@@ -806,14 +816,17 @@ class WorkoutVideoViewTests(TestCase):
 
 
     def test_the_button_does_not_promise_a_video_that_is_missing(self):
-        """O rótulo diz "vídeo": todo exercício ativo precisa ter um.
+        """O rótulo diz "vídeo": onde o botão de vídeo aparece, o vídeo existe.
 
         Um botão que abre um drawer vazio é pior do que botão nenhum — a
-        pessoa toca, não acontece nada, e passa a desconfiar dos outros.
+        pessoa toca, não acontece nada, e passa a desconfiar dos outros. O
+        peso do corpo sem vídeo (20/09/2026) NÃO mostra o botão de vídeo: a
+        tela dele cai em "Sem demonstração cadastrada" (`_demonstracao.html`).
+        Por isso a garantia é sobre quem TEM vídeo.
         """
         sem_clipe = [
             exercicio.name
-            for exercicio in Exercise.objects.filter(is_active=True)
+            for exercicio in Exercise.objects.filter(is_active=True).exclude(video_url="")
             if not exercicio.video_embed_url
         ]
         self.assertEqual(sem_clipe, [])
@@ -1076,9 +1089,15 @@ class ShortClipTests(TestCase):
 
         self.assertGreaterEqual(len(curtos) / ativos.count(), 0.5)
 
-    def test_no_exercise_is_left_without_a_demonstration(self):
+    def test_no_equipment_exercise_is_left_without_a_demonstration(self):
+        """Todo exercício com aparelho tem um clipe (o `clip_kind` do vídeo).
+        O peso do corpo sem vídeo não tem clipe, e é assim de propósito
+        (decisão 1 da avaliação, 20/09/2026): ele mostra a dica técnica e o
+        atalho para buscar. Vale `.exclude(equipment="bodyweight")`."""
         sem_clipe = [
-            e.name for e in Exercise.objects.filter(is_active=True) if not e.clip_kind
+            e.name
+            for e in Exercise.objects.filter(is_active=True).exclude(equipment="bodyweight")
+            if not e.clip_kind
         ]
         self.assertEqual(sem_clipe, [])
 
@@ -1412,13 +1431,18 @@ class ExerciseFrameTests(TestCase):
             if not nome.startswith("_")
         }
 
-    def test_every_exercise_in_the_catalog_is_in_the_map(self):
-        """Exercício sem mapa fica sem demonstração e ninguém percebe."""
+    def test_every_video_exercise_is_in_the_map(self):
+        """Exercício COM vídeo precisa da foto de pôster no mapa — senão o
+        player entra sem quadro e salta o layout. O peso do corpo sem vídeo
+        não está no mapa e nem precisa (decisão 1 da avaliação, 20/09/2026):
+        a tela dele não tem player. Vale `.exclude(video_url="")`."""
         mapa = self._mapa()
         faltando = [
-            e.name for e in Exercise.objects.filter(is_active=True) if e.name not in mapa
+            e.name
+            for e in Exercise.objects.filter(is_active=True).exclude(video_url="")
+            if e.name not in mapa
         ]
-        self.assertEqual(faltando, [], "exercícios sem correspondência de mídia")
+        self.assertEqual(faltando, [], "exercícios com vídeo sem foto de pôster no mapa")
 
     def test_the_map_has_no_leftovers(self):
         """Nome que saiu do catálogo e ficou no mapa é lixo que confunde."""
@@ -3655,22 +3679,22 @@ class CuradoriaDosVideosTests(TestCase):
 
         A `Remada curvada com barra` foi aposentada por decisão de produto —
         continua existindo, com o vídeo, para o histórico. O que este teste
-        guarda não é o número: é que nenhum exercício ATIVO fique sem vídeo de
-        execução.
+        guarda não é o número: é que nenhum exercício ATIVO COM APARELHO fique
+        sem vídeo de execução. O peso do corpo pode entrar sem vídeo desde
+        20/09/2026 (decisão 1 da avaliação de UX).
         """
         ativos = Exercise.objects.filter(is_active=True)
 
-        # 68 ativos: os 35 de sempre, os 28 de 16/09/2026 ATIVADOS em 17/09
-        # com a curadoria escrita em cada linha (`test_catalogo`), e os 5 de
-        # peito e tríceps sem barra da tarde de 17/09 (perfil de equipamento).
-        self.assertEqual(ativos.count(), 68)
-        self.assertEqual(ativos.filter(video_url="").count(), 0)
+        # 102 ativos: 35 de sempre + 33 de 17/09/2026 + 34 de peso do corpo de
+        # 20/09/2026. A régua de vídeo vale para quem tem APARELHO.
+        self.assertEqual(ativos.count(), 102)
+        self.assertEqual(ativos.exclude(equipment="bodyweight").filter(video_url="").count(), 0)
         # 69 linhas no catálogo semeado: 68 ativas e a aposentada, que
         # continua existindo. A linha
         # LEGADA `Remada curvada` (sem "com barra") não entra nesta conta —
         # ela não está no `exercises.json` e só existe em bancos que vêm de
         # uma versão anterior, aposentada pela `0017`.
-        self.assertEqual(Exercise.objects.count(), 69, "o catálogo perdeu linha")
+        self.assertEqual(Exercise.objects.count(), 103, "o catálogo perdeu linha")
 
     def test_execucao_e_anatomia_nunca_apontam_para_o_mesmo_lugar(self):
         """A colisão que a curadoria desfez, travada para não voltar.
@@ -3689,9 +3713,16 @@ class CuradoriaDosVideosTests(TestCase):
 
         self.assertEqual(colididos, [])
 
-    def test_todo_exercicio_oferece_anatomia_de_verdade(self):
-        """`tem_anatomia` deixou de ser falso para alguém."""
-        sem = [e.name for e in Exercise.objects.filter(is_active=True) if not e.tem_anatomia]
+    def test_todo_exercicio_com_video_oferece_anatomia_de_verdade(self):
+        """Todo exercício COM vídeo oferece anatomia (uma animação diferente
+        do vídeo). O peso do corpo sem vídeo não tem anatomia desenhada, e
+        está certo assim (decisão 1 da avaliação, 20/09/2026): a demonstração
+        dele é a dica técnica. Vale `.exclude(video_url="")`."""
+        sem = [
+            e.name
+            for e in Exercise.objects.filter(is_active=True).exclude(video_url="")
+            if not e.tem_anatomia
+        ]
 
         self.assertEqual(sem, [])
 
@@ -3700,8 +3731,10 @@ class CuradoriaDosVideosTests(TestCase):
 
         `execucao_src` é o que a tela toca primeiro. Se algum dia ele passar a
         preferir a anatomia, a pessoa abre "execução" e vê músculo desenhado.
+        Vale para quem TEM vídeo: o peso do corpo sem vídeo (20/09/2026) não
+        tem `execucao_src`, e a tela dele mostra a dica e o atalho de busca.
         """
-        for e in Exercise.objects.filter(is_active=True):
+        for e in Exercise.objects.filter(is_active=True).exclude(video_url=""):
             with self.subTest(exercicio=e.name):
                 self.assertIn(e.video_id, e.execucao_src)
                 self.assertNotEqual(e.execucao_src, e.anatomia_src)
@@ -3725,8 +3758,9 @@ class CuradoriaDosVideosTests(TestCase):
         self.assertEqual(Exercise.objects.count(), quantidade)
 
     def test_os_enderecos_novos_viram_embed(self):
-        """URL que não vira embed é 36 telas quebradas."""
-        for e in Exercise.objects.filter(is_active=True):
+        """URL que não vira embed é tela quebrada. Só entre os que TÊM vídeo:
+        o peso do corpo sem vídeo (20/09/2026) não tem embed e nem precisa."""
+        for e in Exercise.objects.filter(is_active=True).exclude(video_url=""):
             with self.subTest(exercicio=e.name):
                 self.assertTrue(e.video_embed_url, e.video_url)
 
