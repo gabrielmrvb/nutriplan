@@ -2221,6 +2221,24 @@ pipe); e o CTA da ficha nova não navegou atrás do convite de instalação (o
 roteiro dispensa o convite na Home e, se um clique não navega, abre o `href`).
 `config/test_e2e_noturno.py` prende o roteiro com um navegador falso.
 
+**O TESTE DE CARGA É MANUAL, SÓ GET, SÓ NO STAGING (21/09/2026).**
+`.github/workflows/carga.yml` (botão; entradas `degraus` = "10,25,50,75,100"
+e `duracao` = "60s") roda `scripts/carga/staging.js` no k6: degraus de
+usuários simultâneos, um depois do outro, cada usuário percorrendo landing,
+`/saude/vivo/`, entrar e o `/demo/` (capa, hoje, treino, histórico — o app
+inteiro com a pessoa fictícia, a Home custando as mesmas 41 consultas), com
+pausa de 0,5–1,5 s entre rotas. Nenhuma conta nasce e nada é escrito. O
+relatório (`relatorio.md`, no resumo do run e no artefato `carga`) traz o
+p95 por rota em cada degrau, a taxa de erro por degrau e o **TETO**: o maior
+degrau em que toda rota ficou com p95 < 2 000 ms e erro < 1 %. Limiar
+estourado é RESULTADO (o k6 sai com 99 e o run fica verde com o relatório);
+qualquer outro código derruba o job. O roteiro exige `"ambiente":
+"staging"` no `/saude/` e o endereço de produção não aparece nele nem no
+fluxo. O staging é free — dois workers síncronos do gunicorn, Neon que
+hiberna —, então o teto medido é o da infraestrutura gratuita, e é isso que
+se quer saber antes de pagar por mais. `config/test_carga.py` prende o
+contrato e confere a sintaxe do roteiro no `node`.
+
 `scripts/build.sh` roda collectstatic → `check --deploy` → migrate → os três
 seeds, com `errexit`: build que passa prova que a migração rodou. Confira em
 `/saude/` — e olhe o `"ambiente"`: `"staging"` ou `""` (produção).
