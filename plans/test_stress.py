@@ -163,7 +163,7 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # em 0 faz o teste imprimir o número), já com a invalidação por
         # `items_changed_at` dentro da mesma consulta de `template__is_active`
         # em `plan_is_current` (zero a mais).
-        "plans:today": 44,
+        "plans:today": 17,  # 44 → 17 em 21/09/2026 (uma leitura por tabela; `test_orcamento_da_home`)
         "workouts:routine": 25,
         # 15 -> 26: o Progresso passou a mostrar o bloco de Conquistas, e ele
         # custa NOVE consultas constantes — medido, com `reunir` respondendo por

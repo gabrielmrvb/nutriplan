@@ -9,14 +9,15 @@ import dataclasses
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.utils import timezone
 
 from accounts.models import Profile
+from catalog.models import MealTemplateItem
 
 from . import meal_planner
 from .calculations import PlanInputs, calculate
-from .models import MealLog, MealOption, NutritionPlan
+from .models import MealLog, MealOption, MealSlot, NutritionPlan
 
 
 class IncompleteProfile(Exception):
@@ -54,20 +55,28 @@ _OUTPUT_FIELDS = (
 )
 
 
-def build_inputs(user) -> PlanInputs:
+def build_inputs(user, *, peso_kg=None) -> PlanInputs:
     """Monta o PlanInputs a partir do que está gravado hoje.
 
     Levanta IncompleteProfile em vez de calcular com dado faltando: uma meta
     calórica errada é pior que uma tela dizendo "termine seu cadastro".
+
+    `peso_kg` é o peso mais recente quando quem chama já o leu (a Home lê as
+    últimas pesagens uma vez, para o cálculo e para o convite de pesar); sem
+    ele, `profile.current_weight` consulta como sempre.
     """
-    profile = Profile.objects.filter(user=user).first()
+    profile = _perfil_de(user)
     if profile is None or not profile.onboarding_complete:
         raise IncompleteProfile("Onboarding ainda não foi concluído.")
 
-    weight = profile.current_weight
+    weight = peso_kg if peso_kg is not None else profile.current_weight
     if weight is None:
         raise IncompleteProfile("Nenhum registro de peso encontrado.")
 
+    # `.all()` e não `values_list`: com `training_days` já em cache no
+    # `user` (a Home o pré-carrega uma vez para o cálculo E para o template),
+    # `.all()` devolve a lista em memória e `values_list` abriria outra
+    # consulta — a mesma tabela lida duas vezes na mesma tela.
     return PlanInputs(
         sex=profile.sex,
         weight_kg=weight,
@@ -75,11 +84,21 @@ def build_inputs(user) -> PlanInputs:
         age_years=profile.age,
         activity_level=profile.activity_level,
         goal=profile.goal,
-        session_minutes=tuple(
-            user.training_days.values_list("duration_min", flat=True)
-        ),
+        session_minutes=tuple(dia.duration_min for dia in user.training_days.all()),
         kcal_adjustment=profile.kcal_adjustment,
     )
+
+
+def _perfil_de(user):
+    """O perfil pelo descritor — em cache quando a tela já o leu — ou `None`.
+
+    `Profile.objects.filter(user=user).first()` abria uma consulta nova a cada
+    chamada e não deixava nada em cache; o descritor deixa, e é isso que faz
+    a Home ler o perfil UMA vez (21/09/2026)."""
+    try:
+        return user.profile
+    except Profile.DoesNotExist:
+        return None
 
 
 def get_active_plan(user):
@@ -177,7 +196,7 @@ def carry_today_logs(user, new_plan) -> int:
     return moved
 
 
-def plan_is_current(plan, inputs) -> bool:
+def plan_is_current(plan, inputs, slots=None) -> bool:
     """O plano ativo ainda corresponde aos dados de hoje?
 
     Comparamos entradas E saídas. As entradas pegam mudança de peso, objetivo
@@ -208,11 +227,28 @@ def plan_is_current(plan, inputs) -> bool:
     """
     if plan is None:
         return False
-    if not plan.slots.exists():
+    if slots is not None:
+        # O cardápio já veio carregado (`slots_com_cardapio`): as duas
+        # perguntas abaixo — tem cardápio? alguma receita foi aposentada ou
+        # teve os ingredientes recriados depois do plano? — são respondidas
+        # em memória. A Home lia slots e opções aqui e de novo para desenhar.
+        if not slots:
+            return False
+        if any(
+            not option.template.is_active
+            or (
+                option.template.items_changed_at is not None
+                and option.template.items_changed_at > plan.created_at
+            )
+            for slot in slots
+            for option in slot.options.all()
+        ):
+            return False
+    elif not plan.slots.exists():
         # Plano criado antes da etapa 4 (ou por um erro na geração): os números
         # podem estar certos, mas sem cardápio ele não serve para nada.
         return False
-    if (
+    elif (
         MealOption.objects.filter(slot__plan=plan)
         .filter(
             Q(template__is_active=False)
@@ -270,3 +306,54 @@ def sync_active_plan(user) -> tuple:
     if plan_is_current(plan, inputs):
         return plan, False
     return create_plan(user, inputs), True
+
+
+def _com_cardapio(slots_qs):
+    """Os horários com o cardápio inteiro em memória — opções com o modelo,
+    itens com o alimento, porções — em QUATRO consultas. O
+    `prefetch_related("options__template__items__food__portions")` de antes
+    eram seis: modelo e alimento são chaves diretas e entram por JOIN."""
+    return slots_qs.prefetch_related(
+        Prefetch("options", queryset=MealOption.objects.select_related("template")),
+        Prefetch(
+            "options__template__items",
+            queryset=MealTemplateItem.objects.select_related("food"),
+        ),
+        "options__template__items__food__portions",
+    )
+
+
+def slots_com_cardapio(plan) -> list:
+    return list(_com_cardapio(plan.slots.all()))
+
+
+def plano_ativo_com_cardapio(user) -> tuple:
+    """(plano ativo, slots com cardápio) numa leitura só: os horários trazem
+    o plano por JOIN (`select_related("plan")`), então a consulta ao plano
+    e a aos horários viram uma. Plano ativo SEM horário (criado antes da
+    etapa 4, ou por erro na geração) não aparece por aqui — o caminho
+    lento o encontra, e `plan_is_current` o recusa como sempre."""
+    slots = list(
+        _com_cardapio(
+            MealSlot.objects.filter(plan__user=user, plan__is_active=True).select_related("plan")
+        )
+    )
+    if slots:
+        plan = slots[0].plan
+        for slot in slots:
+            slot.plan = plan  # UMA instância, para `slot.plan is plan` valer em toda linha
+        return plan, slots
+    return get_active_plan(user), []
+
+
+def plano_do_dia(user, *, peso_kg=None) -> tuple:
+    """`sync_active_plan` para a tela que também vai desenhar o cardápio:
+    devolve (plano, slots, mudou) lendo o cardápio UMA vez — a conferência de
+    `plan_is_current` e a tela usam a mesma lista (21/09/2026; antes a Home
+    lia slots e opções para conferir e de novo para desenhar)."""
+    inputs = build_inputs(user, peso_kg=peso_kg)
+    plan, slots = plano_ativo_com_cardapio(user)
+    if plan_is_current(plan, inputs, slots=slots):
+        return plan, slots, False
+    plan = create_plan(user, inputs)
+    return plan, slots_com_cardapio(plan), True

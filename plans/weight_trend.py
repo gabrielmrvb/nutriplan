@@ -233,7 +233,7 @@ def analisar(user) -> Tendencia:
     )
 
 
-def convidar_a_pesar(user, hoje=None) -> bool:
+def convidar_a_pesar(user, hoje=None, *, pesagens=None) -> bool:
     """O painel deve convidar a registrar o peso agora?
 
     Duas condições, e as duas precisam valer: a semana ainda não chegou a
@@ -253,11 +253,17 @@ def convidar_a_pesar(user, hoje=None) -> bool:
     """
     hoje = hoje or timezone.localdate()
     inicio = _inicio_da_semana(hoje)
-    dias = set(
-        user.weight_entries.filter(
-            date__gte=inicio, date__lt=inicio + timedelta(days=7)
-        ).values_list("date", flat=True)
-    )
+    if pesagens is not None:
+        # A Home já leu as últimas pesagens (uma por dia, sete bastam para a
+        # semana inteira) para o cálculo da meta; a pergunta é a mesma sobre
+        # a lista em memória (21/09/2026).
+        dias = {p.date for p in pesagens if inicio <= p.date < inicio + timedelta(days=7)}
+    else:
+        dias = set(
+            user.weight_entries.filter(
+                date__gte=inicio, date__lt=inicio + timedelta(days=7)
+            ).values_list("date", flat=True)
+        )
     return hoje not in dias and len(dias) < PESAGENS_POR_SEMANA
 
 

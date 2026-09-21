@@ -1083,7 +1083,16 @@ class OnboardingRequiredMixin(LoginRequiredMixin):
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
-            profile = Profile.objects.filter(user=request.user).first()
+            # Pelo descritor, e não por `Profile.objects.filter(...)`: o
+            # acesso deixa o perfil em cache em `request.user.profile` (e
+            # `profile.user` apontando para o mesmo objeto), e tudo que a
+            # tela lê depois — `build_inputs`, `estado_do_treino`, o
+            # template — encontra o perfil sem consulta. A Home relia o
+            # perfil QUATRO vezes (21/09/2026; `plans/test_orcamento_da_home`).
+            try:
+                profile = request.user.profile
+            except Profile.DoesNotExist:
+                profile = None
             if profile is None or not profile.onboarding_complete:
                 return redirect("accounts:onboarding")
             self.perfil_do_dispatch = profile
