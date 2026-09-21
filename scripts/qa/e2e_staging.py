@@ -197,10 +197,13 @@ class E2E:
         self.ab.marcar("input[name=prioridade][value=treino]")
         self.captura("onboarding-3")
         self.enviar()  # "Criar meu plano": monta os dois planos e navega para a Home
-        self.ab.esperar_url(self.base + "/", ms=180000)
+        # `wait --url <raiz>` casa por PREFIXO e voltava na hora, ainda na etapa 3
+        # (MEDIDO no segundo run do Actions); a raiz é conferida pelo pathname,
+        # com o tempo que montar os dois planos leva num staging frio.
+        self.ab.esperar_js("location.pathname === '/'", segundos=180, rotulo="a Home depois de criar o plano")
 
     def home(self):
-        self.ab.esperar_js("[document.querySelector('.agua'), document.querySelector('.meal')].every(function(e){return e!==null})", rotulo="Home com água e refeições")
+        self.ab.esperar_js("[document.querySelector('.agua'), document.querySelector('.meal')].every(function(e){return e!==null})", segundos=90, rotulo="Home com água e refeições")
         # O convite de instalação (PWA) cobre o rodapé da tela nova; "Agora não"
         # o dispensa — é o que uma pessoa faz, e as capturas ficam limpas.
         self.ab.eval("(function(){var b=[].slice.call(document.querySelectorAll('button')).filter(function(x){return /Agora n/.test(x.textContent)})[0];if(b){b.click();return true}return false})()")
