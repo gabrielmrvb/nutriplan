@@ -3341,7 +3341,12 @@ class ModoTreinoTests(TestCase):
     # -- conclusão ------------------------------------------------------
 
     def test_a_tela_de_conclusao_conta_e_nao_estima(self):
-        """Caloria não aparece: o app não mede gasto de treino de força."""
+        """Caloria não aparece: o app não mede gasto de treino de força.
+
+        A régua é a TELA — o `<body>` —, não o `<head>`: desde 21/09/2026 a
+        `description` genérica de toda página diz "Estimativa de calorias,
+        cardápio de exemplo…" (a linguagem da alimentação, `config/
+        test_linguagem.py`), e ela não é um número de gasto no placar."""
         user = self._usuario()
         estado = self._estado(user)
         for item in estado.itens:
@@ -3349,7 +3354,7 @@ class ModoTreinoTests(TestCase):
         self.client.force_login(user)
 
         response = self.client.get(self.url)
-        html = sem_scripts(response.content.decode())
+        html = sem_scripts(response.content.decode()).split("</head>", 1)[1]
 
         self.assertContains(response, "Treino concluído")
         self.assertIn("séries registradas", html)
