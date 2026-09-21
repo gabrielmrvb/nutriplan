@@ -12,7 +12,8 @@ from django.urls import reverse
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.db import transaction
-from django.db.models import F, Value
+from django.core.cache import cache
+from django.db.models import Exists, F, OuterRef, Value, prefetch_related_objects
 from django.db.models.functions import Greatest, Least
 from django.utils import timezone
 
@@ -287,6 +288,47 @@ class PlanRequiredMixin(OnboardingRequiredMixin):
         return plan
 
 
+#: Quantas pesagens a Home lê de uma vez: o peso de hoje para o cálculo e as
+#: datas da semana para o convite — uma por dia, sete dias.
+PESAGENS_LIDAS = 7
+
+#: Por quanto tempo o `<datalist>` de alimentos vive em cache, por processo.
+#: O catálogo muda no deploy (`seed_catalog`, que reinicia o processo) ou
+#: por edição no admin; quinze minutos é o preço de um alimento novo demorar
+#: a aparecer na sugestão de "comi outra coisa" — contra uma consulta ao
+#: catálogo inteiro a cada abertura da Home.
+CACHE_DO_CATALOGO_S = 15 * 60
+
+
+def agua_e_desfazer(user, inicio, hoje) -> tuple:
+    """A água por dia desde `inicio` E se há gole de hoje para desfazer, numa
+    consulta: a pergunta do "desfazer" entra como `Exists` na linha de hoje
+    (`HydrationLog` é uma por dia). Existe gole para desfazer NÃO é o mesmo
+    que `bebido > 0`: um dia anterior à tabela de goles tem total e não tem
+    composição, e mostrar "desfazer" ali ofereceria uma ação que só pode
+    falhar."""
+    linhas = (
+        HydrationLog.objects.filter(user=user, date__gte=inicio)
+        .annotate(tem_gole=Exists(GoleDeAgua.objects.filter(user=OuterRef("user"), dia=OuterRef("date"))))
+        .values_list("date", "ml", "tem_gole")
+    )
+    por_dia, desfazer = {}, False
+    for data, ml, tem_gole in linhas:
+        por_dia[data] = ml or 0
+        if data == hoje:
+            desfazer = bool(tem_gole)
+    return por_dia, desfazer
+
+
+def alimentos_do_catalogo() -> list:
+    """Os nomes do catálogo para o `<datalist>` de "comi outra coisa"."""
+    nomes = cache.get("plans.alimentos_do_catalogo")
+    if nomes is None:
+        nomes = list(Food.objects.filter(is_active=True).order_by("name").values_list("name", flat=True))
+        cache.set("plans.alimentos_do_catalogo", nomes, CACHE_DO_CATALOGO_S)
+    return nomes
+
+
 def relogio():
     """A hora local que a tela Hoje usa para decidir o cartão AGORA e os selos.
 
@@ -349,7 +391,23 @@ class RaizView(View):
 class TodayView(PlanRequiredMixin, TemplateView):
     template_name = "plans/today.html"
 
+    def get_plan(self, request):
+        """O plano E o cardápio, lidos uma vez (`services.plano_do_dia`)."""
+        peso = self.pesagens[0].weight_kg if self.pesagens else None
+        plan, self.slots, changed = services.plano_do_dia(request.user, peso_kg=peso)
+        if changed and request.user.plans.count() > 1:
+            messages.info(request, "Seus dados mudaram, então recalculamos sua meta.")
+        return plan
+
     def get(self, request, *args, **kwargs):
+        # Os dias de treino, UMA vez: `build_inputs` (a duração de cada
+        # sessão) e "Dados do cálculo" no template leem a mesma lista, e
+        # sem o pré-carregamento cada um abria a sua consulta.
+        prefetch_related_objects([request.user], "training_days")
+        # As últimas pesagens, UMA vez: o peso mais recente entra no cálculo
+        # (`build_inputs`) e as datas da semana no convite de pesar. Sete
+        # bastam para as duas perguntas — uma pesagem por dia, sete dias.
+        self.pesagens = list(request.user.weight_entries.order_by("-date", "-pk")[:PESAGENS_LIDAS])
         try:
             self.plan = self.get_plan(request)
         except services.IncompleteProfile:
@@ -364,12 +422,7 @@ class TodayView(PlanRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         today = timezone.localdate()
         logs = tracking.logs_by_slot(self.request.user, today)
-
-        slots = list(
-            self.plan.slots.prefetch_related(
-                "options__template__items__food__portions"
-            )
-        )
+        slots = self.slots  # lidos junto com o plano, em `get_plan`
         for slot in slots:
             # O log vira atributo do slot para o template não precisar de um
             # filtro de dicionário — a linguagem de template não indexa por
@@ -386,17 +439,30 @@ class TodayView(PlanRequiredMixin, TemplateView):
         # `weight_kg` sai do plano ATIVO, já em mãos aqui — não do perfil: é o
         # peso congelado que gerou a meta de hoje, e passá-lo poupa a tela de
         # uma consulta extra ao perfil dentro de `day_summary`.
+        # UMA LEITURA POR TABELA (21/09/2026; `plans/test_orcamento_da_home`):
+        # água, corridas e o histórico de treino são lidos aqui, uma vez, no
+        # período que a ofensiva olha, e o cartão de água, o resumo do dia e
+        # a ofensiva recebem a mesma leitura. Antes cada um abria a sua.
+        inicio_da_ofensiva = streaks.inicio_do_historico(today)
+        agua_por_dia, pode_desfazer_agua = agua_e_desfazer(self.request.user, inicio_da_ofensiva, today)
+        corridas = list(
+            Corrida.objects.filter(
+                user=self.request.user, comecou_em__date__gte=inicio_da_ofensiva
+            ).values_list("comecou_em", "distancia_m")
+        )
+        corridas_de_hoje_m = [
+            distancia for comecou, distancia in corridas
+            if timezone.localtime(comecou).date() == today
+        ]
         summary = tracking.day_summary(
-            self.request.user, self.plan, today, peso_kg=self.plan.weight_kg
+            self.request.user, self.plan, today, peso_kg=self.plan.weight_kg,
+            logs=logs, slots=slots, corridas_m=corridas_de_hoje_m,
         )
         menu = menu_totals(slots)
 
         recusa = recusa_pendente(self.request, "hoje")
         meta_agua = weight_trend.hidratacao_ml(self.plan.weight_kg)
-        registro = HydrationLog.objects.filter(
-            user=self.request.user, date=today
-        ).first()
-        bebido = registro.ml if registro else 0
+        bebido = agua_por_dia.get(today, 0)  # a leitura de água de cima
 
         # Existe gole para desfazer? A pergunta é `exists()` e não a contagem:
         # a tela só precisa saber se o botão aparece.
@@ -404,9 +470,6 @@ class TodayView(PlanRequiredMixin, TemplateView):
         # Isto NÃO é o mesmo que `bebido > 0`. Um dia anterior à tabela de goles
         # tem total e não tem composição — mostrar "desfazer" ali ofereceria uma
         # ação que só pode falhar.
-        pode_desfazer_agua = GoleDeAgua.objects.filter(
-            user=self.request.user, dia=today
-        ).exists()
 
         # O estado do treino de hoje é CONSUMIDO do Treino V3, não recalculado.
         #
@@ -434,12 +497,18 @@ class TodayView(PlanRequiredMixin, TemplateView):
         # contexto, porque agora DUAS coisas o leem: o cartão do topo e a faixa
         # de pesagem. Duas chamadas dariam duas respostas na virada do dia, e a
         # tela mostraria um cartão pedindo o peso ao lado de uma faixa fechada.
-        convite_pesagem = weight_trend.convidar_a_pesar(self.request.user, hoje=today)
+        convite_pesagem = weight_trend.convidar_a_pesar(
+            self.request.user, hoje=today, pesagens=self.pesagens
+        )
 
         # A prioridade declarada é MAIS UM SINAL, e entra como argumento em vez
         # de ser lida lá dentro: `proxima_acao` é uma função pura, e é isso que
         # deixa `plans/test_agua_no_agora.py` provar a regra sem banco.
-        prioridade = getattr(self.plan.user.profile, "prioridade", "")
+        # `request.user.profile` — em cache desde o `dispatch` —, e não
+        # `self.plan.user.profile`: `plan.user` é OUTRA instância do usuário,
+        # e cada acesso custava duas consultas (o usuário e o perfil de novo).
+        perfil = self.request.user.profile
+        prioridade = getattr(perfil, "prioridade", "")
 
         # O fato da área promovida, e só dela. Treino já está em
         # `estado_treino` e o convite de pesagem já foi calculado acima — os
@@ -456,11 +525,7 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 .first()
             )
         elif prioridade == Pilar.PROGRESSO:
-            ultimo_peso = (
-                WeightEntry.objects.filter(user=self.request.user)
-                .order_by("-date", "-pk")
-                .first()
-            )
+            ultimo_peso = self.pesagens[0] if self.pesagens else None
 
         # UMA leitura do relógio para o topo e para a lista: os dois têm de
         # concordar, e é este instante que os testes congelam (ver `relogio`).
@@ -477,7 +542,7 @@ class TodayView(PlanRequiredMixin, TemplateView):
             # adversarial pegou: quem marcava a área caía no ramo genérico
             # (35 pp) e recebia o aviso mais tarde que quem não declarou nada.
             interesse_em_agua=getattr(
-                self.plan.user.profile, CAMPO_DO_PILAR[Pilar.HIDRATACAO], False
+                perfil, CAMPO_DO_PILAR[Pilar.HIDRATACAO], False
             ),
             convite_pesagem=convite_pesagem,
         )
@@ -531,7 +596,14 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 ),
                 "agua_completa": bool(meta_agua) and bebido >= meta_agua,
                 "ofensiva": streaks.calcular(
-                    self.request.user, hoje=today, meta_agua_ml=meta_agua
+                    self.request.user, hoje=today, meta_agua_ml=meta_agua,
+                    ja_lido=streaks.JaLido(
+                        previstos={linha.weekday for linha in estado_treino.linhas}
+                        if estado_treino.tem_ficha else set(),
+                        corridas=[comecou for comecou, _ in corridas],
+                        agua_por_dia=agua_por_dia,
+                        tem_plano=True,
+                    ),
                 ),
                 # O convite para se pesar. A regra é do domínio e não da view:
                 # a view pergunta, `weight_trend` responde. Consulta dirigida à
@@ -565,7 +637,7 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 # "comi outra coisa". `range` no contexto porque o template do
                 # Django não sabe contar, e um `{% for %}` sobre uma lista de
                 # três nadas é mais honesto que três blocos copiados.
-                "alimentos": Food.objects.filter(is_active=True).order_by("name"),
+                "alimentos": alimentos_do_catalogo(),
                 "itens_fora": range(tracking.MAX_ITENS_FORA),
                 "nav": "today",
                 "training_days": self.request.user.training_days.all(),
@@ -1099,6 +1171,14 @@ class ShoppingListView(PlanRequiredMixin, TemplateView):
     template_name = "plans/shopping.html"
 
     def get(self, request, *args, **kwargs):
+        # Os dias de treino, UMA vez: `build_inputs` (a duração de cada
+        # sessão) e "Dados do cálculo" no template leem a mesma lista, e
+        # sem o pré-carregamento cada um abria a sua consulta.
+        prefetch_related_objects([request.user], "training_days")
+        # As últimas pesagens, UMA vez: o peso mais recente entra no cálculo
+        # (`build_inputs`) e as datas da semana no convite de pesar. Sete
+        # bastam para as duas perguntas — uma pesagem por dia, sete dias.
+        self.pesagens = list(request.user.weight_entries.order_by("-date", "-pk")[:PESAGENS_LIDAS])
         try:
             self.plan = self.get_plan(request)
         except services.IncompleteProfile:

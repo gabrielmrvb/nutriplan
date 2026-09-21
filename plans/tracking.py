@@ -7,7 +7,7 @@ receita amanhã não pode reescrever o que a pessoa comeu hoje.
 from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
-from django.db.models import Count, Max, Q, Sum
+from django.db.models import Count, Max, OuterRef, Q, Subquery, Sum
 from django.utils import timezone
 
 from workouts.corrida import gasto_kcal
@@ -153,7 +153,7 @@ def logs_by_slot(user, day) -> dict:
     }
 
 
-def day_summary(user, plan, day, *, peso_kg=None) -> dict:
+def day_summary(user, plan, day, *, peso_kg=None, logs=None, slots=None, corridas_m=None) -> dict:
     """Quanto já foi comido no dia contra o que o plano manda.
 
     Só refeições marcadas como feitas somam. Pendente não é zero por acaso: o
@@ -164,13 +164,45 @@ def day_summary(user, plan, day, *, peso_kg=None) -> dict:
     em mãos (o congelado no plano) e não precisa pagar outra consulta para o
     perfil só para gastar a corrida do dia. Quem chama de fora da view (o
     console, os testes) não passa nada e cai no perfil, como sempre foi.
+
+    `logs`, `slots` e `corridas_m` são o mesmo raciocínio, estendido
+    (21/09/2026): a Home já carregou os registros do dia (`logs_by_slot`),
+    os horários do plano e as corridas do dia — somar de novo no banco eram
+    quatro consultas sobre linhas que a tela tinha em mãos. Com os três, as
+    somas e contagens são feitas em memória; sem eles, o banco soma como
+    sempre. Só o plano ativo entra na conta, nos dois caminhos: registro
+    preso a um plano aposentado não aparece na tela, e o que não aparece não
+    pode somar no total — em memória, é o `slot_id` dentro de `slots`.
     """
-    # Só o plano ativo entra na conta. Registro preso a um plano aposentado
-    # não aparece na tela, e o que não aparece não pode somar no total.
-    of_the_plan = MealLog.objects.filter(user=user, date=day, slot__plan=plan)
-    totals = of_the_plan.filter(status__in=STATUS_QUE_SOMAM).aggregate(
-        kcal=Sum("kcal"), protein=Sum("protein_g"), carb=Sum("carb_g"), fat=Sum("fat_g")
-    )
+    if logs is not None and slots is not None:
+        dos_slots = {slot.pk for slot in slots}
+        registros = [log for log in logs.values() if log.slot_id in dos_slots]
+        somam = [log for log in registros if log.status in STATUS_QUE_SOMAM]
+        totals = {
+            "kcal": sum((log.kcal or 0) for log in somam),
+            "protein": sum((log.protein_g or 0) for log in somam),
+            "carb": sum((log.carb_g or 0) for log in somam),
+            "fat": sum((log.fat_g or 0) for log in somam),
+        }
+        counts = {
+            "done": sum(1 for log in registros if log.status == MealStatus.DONE),
+            "marked": sum(1 for log in registros if log.status != MealStatus.PENDING),
+            "fora_do_plano": sum(1 for log in registros if log.status == MealStatus.OFF_PLAN),
+            "puladas": sum(1 for log in registros if log.status == MealStatus.SKIPPED),
+        }
+        total_slots = len(slots)
+    else:
+        of_the_plan = MealLog.objects.filter(user=user, date=day, slot__plan=plan)
+        totals = of_the_plan.filter(status__in=STATUS_QUE_SOMAM).aggregate(
+            kcal=Sum("kcal"), protein=Sum("protein_g"), carb=Sum("carb_g"), fat=Sum("fat_g")
+        )
+        counts = of_the_plan.aggregate(
+            done=Count("pk", filter=Q(status=MealStatus.DONE)),
+            marked=Count("pk", filter=~Q(status=MealStatus.PENDING)),
+            fora_do_plano=Count("pk", filter=Q(status=MealStatus.OFF_PLAN)),
+            puladas=Count("pk", filter=Q(status=MealStatus.SKIPPED)),
+        )
+        total_slots = plan.slots.count()
     consumed = arredondar(totals["kcal"])
     # REGISTRO e ADERÊNCIA são coisas diferentes, e o resumo devolve as duas.
     #
@@ -180,14 +212,6 @@ def day_summary(user, plan, day, *, peso_kg=None) -> dict:
     # respondia aderência e a pessoa lia como registro. "Comi outra coisa"
     # existe justamente para ser registrável sem ser conforme; somar zero nos
     # dois lugares apaga o registro que a pessoa fez questão de deixar.
-    counts = of_the_plan.aggregate(
-        done=Count("pk", filter=Q(status=MealStatus.DONE)),
-        marked=Count("pk", filter=~Q(status=MealStatus.PENDING)),
-        fora_do_plano=Count("pk", filter=Q(status=MealStatus.OFF_PLAN)),
-        puladas=Count("pk", filter=Q(status=MealStatus.SKIPPED)),
-    )
-    total_slots = plan.slots.count()
-
     resumo = {
         "consumed_kcal": consumed,
         "target_kcal": plan.target_kcal,
@@ -225,12 +249,11 @@ def day_summary(user, plan, day, *, peso_kg=None) -> dict:
     # Uma coluna, não a linha inteira: só `distancia_m` entra na conta, e pedir
     # os outros dezoito campos da corrida para descartá-los em seguida é
     # transferência que a tela paga por nada.
-    gasto = sum(
-        gasto_kcal(distancia_m, peso)
-        for distancia_m in Corrida.objects.filter(
-            user=user, comecou_em__date=day
-        ).values_list("distancia_m", flat=True)
-    )
+    if corridas_m is None:
+        corridas_m = Corrida.objects.filter(user=user, comecou_em__date=day).values_list(
+            "distancia_m", flat=True
+        )
+    gasto = sum(gasto_kcal(distancia_m, peso) for distancia_m in corridas_m)
     resumo["gasto_corrida_kcal"] = gasto
     resumo["remaining_kcal"] += gasto
 
@@ -257,6 +280,21 @@ def previstas_por_plano(plan_ids) -> dict:
         .values("plan_id")
         .annotate(quantas=Count("pk"))
     }
+
+
+def previstas_do_plano():
+    """A MESMA conta de `previstas_por_plano` — horários (`MealSlot`) do plano
+    do registro —, como subconsulta para `annotate` em `MealLog`: a ofensiva
+    lê o denominador junto com os registros, em vez de voltar ao banco com
+    a lista de planos vistos (21/09/2026). Duas formas da mesma fonte, e
+    `plans/test_streaks.py` prova que dão o mesmo número."""
+    return Subquery(
+        MealSlot.objects.filter(plan_id=OuterRef("slot__plan_id"))
+        .order_by()
+        .values("plan_id")
+        .annotate(quantas=Count("pk"))
+        .values("quantas")[:1]
+    )
 
 
 def history(user, days=HISTORY_DAYS) -> list:

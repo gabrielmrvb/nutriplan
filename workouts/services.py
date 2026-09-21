@@ -30,6 +30,7 @@ from django.db.models import (
     F,
     Max,
     OuterRef,
+    Prefetch,
     Q,
     Subquery,
 )
@@ -2553,6 +2554,68 @@ def get_active_routine(user):
     return TrainingPlan.objects.filter(user=user, is_active=True).first()
 
 
+def linhas_do_plano(plan) -> list:
+    """As sessões do plano com os itens e o exercício de cada um, em DUAS
+    consultas: `prefetch_related("exercises__exercise")` eram três, e o
+    exercício é chave direta do item — entra por JOIN (21/09/2026)."""
+    return list(
+        plan.sessions.prefetch_related(
+            Prefetch("exercises", queryset=SessionExercise.objects.select_related("exercise"))
+        )
+    )
+
+
+def rotina_ativa_com_linhas(user) -> tuple:
+    """(plano ativo, linhas, trocas) numa consulta SÓ — a Home (21/09/2026).
+
+    Os itens trazem a sessão e o plano por JOIN; as sessões são remontadas
+    em memória, na ordem do plano, com os itens já no cache de `exercises`
+    (o mesmo que `prefetch_related` deixaria, então `opcoes`, `da_opcao` e
+    tudo que lê `session.exercises.all()` continua sem consulta). Plano
+    ativo cujas sessões não têm item nenhum não aparece por aqui, e o
+    caminho de sempre (`get_active_routine` + `linhas_do_plano`) o encontra.
+    """
+    # A troca da pessoa viaja NA MESMA consulta (`substituto_id`, uma
+    # subconsulta por linha): `trocas_de` era mais uma ida ao banco para
+    # todo mundo, e a maioria não trocou nada. Quem trocou paga UMA consulta
+    # pelos exercícios substitutos — só ela.
+    substituto = TrocaDeExercicio.objects.filter(
+        user=user, original_id=OuterRef("exercise_id")
+    ).values("substituto_id")[:1]
+    itens = list(
+        SessionExercise.objects.filter(session__plan__user=user, session__plan__is_active=True)
+        .select_related("session__plan", "exercise")
+        .annotate(substituto_id=Subquery(substituto))
+        .order_by("session__weekday", "session__pk", "opcao", "order", "pk")
+    )
+    if not itens:
+        plan = get_active_routine(user)
+        return plan, (linhas_do_plano(plan) if plan is not None else []), {}
+    plan = itens[0].session.plan
+    ids_substitutos = {item.substituto_id for item in itens if item.substituto_id}
+    substitutos = Exercise.objects.in_bulk(ids_substitutos) if ids_substitutos else {}
+    trocas = {
+        item.exercise_id: substitutos[item.substituto_id]
+        for item in itens
+        if item.substituto_id in substitutos
+    }
+    linhas, por_sessao = [], {}
+    for item in itens:
+        sessao = por_sessao.get(item.session_id)
+        if sessao is None:
+            sessao = item.session
+            sessao.plan = plan
+            por_sessao[item.session_id] = sessao
+            linhas.append(sessao)
+            sessao._prefetched_objects_cache = {"exercises": sessao.exercises.all()}
+            sessao._prefetched_objects_cache["exercises"]._result_cache = []
+            sessao._prefetched_objects_cache["exercises"]._prefetch_done = True
+        item.session = sessao
+        sessao._prefetched_objects_cache["exercises"]._result_cache.append(item)
+    linhas.sort(key=lambda s: (s.weekday, s.pk))
+    return plan, linhas, trocas
+
+
 def _prescricao_confere(sessoes, modelos, itens, user) -> bool:
     """A ficha gravada é a que `prescrever_semana` produziria hoje?
 
@@ -3171,6 +3234,9 @@ class EstadoDoTreino:
     #: A rotina ativa, já carregada — quem precisa dela depois (o aviso de
     #: regenerar na Home) não a busca de novo.
     plan: object = None
+    #: As linhas do plano (uma por dia da semana, com os itens), já lidas —
+    #: para quem precisa dos dias previstos sem reler (a ofensiva da Home).
+    linhas: list = field(default_factory=list)
     itens: list = field(default_factory=list)
     atual: object = None
     proximo: object = None
@@ -3702,7 +3768,8 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
     dia = dia or timezone.localdate()
     estado = EstadoDoTreino()
 
-    plan = get_active_routine(user)
+    # O plano, as sessões, os itens e as trocas numa consulta só (21/09/2026).
+    plan, linhas, trocas = rotina_ativa_com_linhas(user)
     if plan is None:
         # SEM FICHA NÃO HÁ ESCOLHA VÁLIDA. O retorno adiantado pulava a
         # validação: pedir um exercício num dia sem treino devolvia a tela de
@@ -3714,12 +3781,12 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
     estado.plan = plan
 
     # A sessão de HOJE é a da LETRA de hoje (rotação contínua), vestindo o
-    # dia da semana: uma consulta com todas as linhas da semana, que é o que
-    # `sessao_do_dia` precisa para achar a posição.
-    linhas = list(plan.sessions.prefetch_related("exercises__exercise"))
+    # dia da semana: todas as linhas da semana, que é o que `sessao_do_dia`
+    # precisa para achar a posição — já vieram com o plano.
+    estado.linhas = linhas
     # "Outras formas": a troca da pessoa veste as linhas ANTES de tudo, então
     # a execução, a contagem e o histórico são do exercício feito.
-    aplicar_trocas(user, linhas)
+    aplicar_trocas(user, linhas, trocas)
     sessao = sessao_do_dia(plan, dia, linhas)
     if sessao is None:
         if escolhido is not None:

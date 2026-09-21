@@ -1499,6 +1499,39 @@ não roda no navegador; foi assim que a marcação da lista "funcionou" sem salv
 nada. E o ouvinte de mudança é delegado no `document`: pendurá-lo no
 `[data-lista-compras]` não pega as caixas, que não são filhas dele.
 
+**A HOME LÊ CADA TABELA UMA VEZ: 44 → 17 consultas (decisão do dono,
+21/09/2026; pediu < 15, e 17 é o piso medido com esta arquitetura).** Cada
+subsistema abria a sua consulta sobre o que o vizinho já tinha carregado —
+o perfil quatro vezes, o plano de treino duas, as sessões duas, o cardápio
+duas, os registros de refeição quatro. Agora o que a tela precisa de cada
+tabela é lido UMA vez e passado adiante, por parâmetro opcional que
+preserva o caminho antigo para quem chama de fora: `services.plano_do_dia`
+(plano + cardápio em 4 consultas — os horários trazem o plano por JOIN,
+opção→modelo e item→alimento por `select_related`, e `plan_is_current(slots=)`
+confere em memória), `tracking.day_summary(logs=, slots=, corridas_m=)`,
+`streaks.calcular(ja_lido=)` com `JaLido` (dias previstos, corridas, água
+por dia, tem plano) e o denominador por SUBCONSULTA
+(`tracking.previstas_do_plano`, a mesma conta de `previstas_por_plano`),
+`workouts.services.rotina_ativa_com_linhas` (plano + sessões + itens +
+trocas numa consulta, com o cache de `exercises` montado à mão — o mesmo
+que o `prefetch_related` deixaria), `views.agua_e_desfazer` (a água dos 400
+dias e o `Exists` do gole de hoje na mesma consulta; `HydrationLog` é uma
+linha por dia), `weight_trend.convidar_a_pesar(pesagens=)` e o `<datalist>`
+de alimentos em cache de 15 min por processo. `OnboardingRequiredMixin`
+lê o perfil PELO DESCRITOR (`request.user.profile`), o que o deixa em
+cache para a tela inteira — e isso tem uma consequência que a suíte
+achou na hora: **quem GRAVA o perfil por outra instância
+(`Profile.objects.filter(...).first()`) e depois chama o motor lê o cache
+velho**; a escolha da duração remontava a ficha para "padrão". A regra:
+tela sob o mixin usa `self.perfil_do_dispatch`/`request.user.profile` para
+gravar, ou apaga o cache antes de o motor ler (o padrão que a etapa 2 do
+onboarding já usava). `plans/test_orcamento_da_home.py` mede a Home no
+pior estado com o nome de cada consulta e prova, para cada leitura
+compartilhada, que as duas formas dão o mesmo número; `plans/test_stress`
+baixou o teto de `plans:today` de 44 para 17. Descer de 17 é decisão de
+produto — guardar a ofensiva calculada em vez de reler 400 dias (2
+consultas), ou tirar dado da tela —, não de código.
+
 **`achievements.resumo` não chama `avaliar` — ele desbloqueia SÓ a regra que
 chegou a 100 %.** O Progresso mostra um resumo das conquistas, e avaliar as
 regras ali levou a tela de 15 para 50 consultas, com crescimento por

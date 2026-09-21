@@ -16,7 +16,6 @@ from accounts.models import (
     MINUTOS_POR_DURACAO,
     TETO_POR_DURACAO,
     DuracaoTreino,
-    Profile,
     Weekday,
 )
 from accounts.views import OnboardingRequiredMixin
@@ -920,7 +919,12 @@ class DuracaoDoTreinoView(OnboardingRequiredMixin, View):
         faixa = visiveis[pedido]
         teto = TETO_POR_DURACAO[faixa]
 
-        perfil = Profile.objects.filter(user=request.user).first()
+        # O perfil pelo descritor, e não por `Profile.objects.filter(...)`:
+        # o `dispatch` já o deixou em cache em `request.user.profile`, e o
+        # motor (`sync_active_routine` → `teto_de_minutos`) lê ESSE cache.
+        # Gravar por outra instância deixava o cache com a faixa velha e a
+        # ficha remontava para "padrão" (achado da suíte, 21/09/2026).
+        perfil = self.perfil_do_dispatch or getattr(request.user, "profile", None)
         if perfil is None:
             return redirect("workouts:routine")
         if perfil.duracao_treino == faixa:

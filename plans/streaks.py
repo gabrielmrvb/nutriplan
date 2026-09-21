@@ -136,9 +136,29 @@ def _dias_de_treino(user) -> set:
     return set(plano.sessions.values_list("weekday", flat=True))
 
 
-def _ler(user, inicio, meta_agua_ml):
+@dataclass
+class JaLido:
+    """O que a tela já leu e a ofensiva NÃO precisa reler (21/09/2026).
+
+    A Home carregava o plano de treino, as sessões, as corridas, a água e o
+    plano alimentar para desenhar a tela, e `calcular` relia os cinco para a
+    ofensiva — dez consultas para cinco tabelas. Cada campo aqui é opcional:
+    o que vier preenchido é usado; o que vier `None` é lido como sempre.
+    `corridas` são os instantes de início desde `inicio` (o mesmo `inicio`
+    de `calcular`: `DIAS_NO_HISTORICO` atrás de hoje); `agua_por_dia` é
+    `{data: total_ml}` no mesmo período.
+    """
+
+    previstos: set = None
+    corridas: list = None
+    agua_por_dia: dict = None
+    tem_plano: bool = None
+
+
+def _ler(user, inicio, meta_agua_ml, ja_lido=None):
     """Os conjuntos de dias cumpridos por pilar, numa passada só de consultas."""
-    previstos = _dias_de_treino(user)
+    ja_lido = ja_lido or JaLido()
+    previstos = ja_lido.previstos if ja_lido.previstos is not None else _dias_de_treino(user)
 
     # --------------------------------------------------------- treino
     treinou = set(
@@ -148,12 +168,14 @@ def _ler(user, inicio, meta_agua_ml):
     )
     # Correu conta: a régua da ofensiva é "moveu-se", não "fez a letra". Uma
     # consulta, no mesmo ponto que decide a musculação (BENCHMARK-2026-09, d).
-    treinou |= {
-        timezone.localtime(c).date()
-        for c in Corrida.objects.filter(
-            user=user, comecou_em__date__gte=inicio
-        ).values_list("comecou_em", flat=True)
-    }
+    inicios = (
+        ja_lido.corridas
+        if ja_lido.corridas is not None
+        else Corrida.objects.filter(user=user, comecou_em__date__gte=inicio).values_list(
+            "comecou_em", flat=True
+        )
+    )
+    treinou |= {timezone.localtime(c).date() for c in inicios}
 
     # ---------------------------------------------------------- dieta
     #
@@ -186,16 +208,17 @@ def _ler(user, inicio, meta_agua_ml):
     # que é exatamente para isso que ele existe. A ofensiva olha 400 dias para
     # trás: um N+1 aqui é 400 idas ao banco na tela mais visitada do app.
     dieta_ok = set()
+    # O denominador viaja NA MESMA consulta (`tracking.previstas_do_plano`,
+    # a mesma conta de `previstas_por_plano`, como subconsulta): era uma
+    # segunda ida ao banco para contar os horários de cada plano visto.
     registros = list(
-        MealLog.objects.filter(user=user, date__gte=inicio).values(
-            "date", "status", "slot__plan_id"
-        )
+        MealLog.objects.filter(user=user, date__gte=inicio)
+        .values("date", "status", "slot__plan_id")
+        .annotate(previstas=tracking.previstas_do_plano())
     )
-    planos = {r["slot__plan_id"] for r in registros if r["slot__plan_id"]}
-    # A MESMA função que o histórico usa. Duas cópias desta consulta foi
-    # exatamente como as duas telas passaram a discordar sobre a aderência da
-    # mesma pessoa.
-    previstas_por_plano = tracking.previstas_por_plano(planos)
+    # A MESMA conta que o histórico usa (`previstas_por_plano`): duas cópias
+    # desta consulta foi exatamente como as duas telas passaram a discordar
+    # sobre a aderência da mesma pessoa — e a subconsulta é a mesma fonte.
 
     por_dia = {}
     for r in registros:
@@ -203,7 +226,7 @@ def _ler(user, inicio, meta_agua_ml):
         if r["status"] == MealStatus.DONE:
             registro["feitas"] += 1
         if not registro["previstas"]:
-            registro["previstas"] = previstas_por_plano.get(r["slot__plan_id"], 0)
+            registro["previstas"] = r["previstas"] or 0
 
     for data, registro in por_dia.items():
         previstas = registro["previstas"]
@@ -218,14 +241,24 @@ def _ler(user, inicio, meta_agua_ml):
     agua_ok = set()
     if meta_agua_ml:
         alvo = meta_agua_ml * HIDRATACAO_MINIMA_PCT / 100
-        agua_ok = {
-            linha["date"]
-            for linha in HydrationLog.objects.filter(
-                user=user, date__gte=inicio
-            ).values("date").annotate(total=Sum("ml"))
-            if (linha["total"] or 0) >= alvo
-        }
+        agua_por_dia = (
+            ja_lido.agua_por_dia
+            if ja_lido.agua_por_dia is not None
+            else agua_por_dia_desde(user, inicio)
+        )
+        agua_ok = {data for data, total in agua_por_dia.items() if (total or 0) >= alvo}
     return previstos, treinou, dieta_ok, agua_ok
+
+
+def agua_por_dia_desde(user, inicio) -> dict:
+    """`{data: total_ml}` desde `inicio` — a leitura que a ofensiva e o
+    cartão de água da Home compartilham (o total de hoje é `.get(hoje, 0)`).
+    `HydrationLog` é UMA linha por dia (`uma_hidratacao_por_dia`), então não
+    há o que somar: cada linha é o total do dia."""
+    return {
+        data: ml or 0
+        for data, ml in HydrationLog.objects.filter(user=user, date__gte=inicio).values_list("date", "ml")
+    }
 
 
 def _avaliar(user, data, previstos, treinou, dieta_ok, agua_ok, meta_agua_ml) -> Dia:
@@ -248,11 +281,18 @@ def avaliar_dia(user, dia, meta_agua_ml=None) -> Dia:
     return _avaliar(user, dia, *_ler(user, inicio, meta_agua_ml), meta_agua_ml)
 
 
-def calcular(user, hoje=None, meta_agua_ml=None) -> Ofensiva:
+def inicio_do_historico(hoje):
+    """O primeiro dia que a ofensiva olha — para quem lê as tabelas antes."""
+    return hoje - timedelta(days=DIAS_NO_HISTORICO)
+
+
+def calcular(user, hoje=None, meta_agua_ml=None, *, ja_lido=None) -> Ofensiva:
     """Percorre os dias de trás para frente até achar o primeiro furo."""
     hoje = hoje or timezone.localdate()
-    inicio = hoje - timedelta(days=DIAS_NO_HISTORICO)
-    previstos, treinou, dieta_ok, agua_ok = _ler(user, inicio, meta_agua_ml)
+    inicio = inicio_do_historico(hoje)
+    if ja_lido is not None and ja_lido.tem_plano is not None:
+        user._streak_tem_plano = ja_lido.tem_plano
+    previstos, treinou, dieta_ok, agua_ok = _ler(user, inicio, meta_agua_ml, ja_lido)
 
     def avaliar(data) -> Dia:
         return _avaliar(user, data, previstos, treinou, dieta_ok, agua_ok, meta_agua_ml)
