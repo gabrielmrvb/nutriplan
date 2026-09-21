@@ -356,7 +356,10 @@ class ANomenclaturaNaoProibePalavraTests(TestCase):
     """
 
     def test_a_descricao_do_app_continua_podendo_dizer_dieta(self):
-        conteudo = (RAIZ / "templates" / "base.html").read_text(encoding="utf-8")
+        # A description saiu do `base.html` para `partials/seo.html` em
+        # 21/09/2026 (bloco `seo`); a frase genérica é a mesma, e continua
+        # dizendo "dieta" — a régua protege NOME de área, não palavra.
+        conteudo = (RAIZ / "templates" / "partials" / "seo.html").read_text(encoding="utf-8")
 
         self.assertIn("Sua dieta calculada", conteudo)
 

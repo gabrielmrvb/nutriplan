@@ -204,5 +204,12 @@ END \$\$;
 
 echo ""
 echo "RESTORE OK — o backup volta."
-echo "Apagando o banco de teste."
-psql -d "$ALVO" -q -c "DROP DATABASE IF EXISTS $BANCO;"
+# `MANTER_BANCO=1` deixa o banco restaurado de pé para uma conferência a mais
+# — é o que o drill mensal do Actions faz (`scripts/conferir_restauracao.py`
+# compara as contagens com a origem tabela a tabela). O job morre com o banco.
+if [ "${MANTER_BANCO:-}" = "1" ]; then
+  echo "Banco de teste mantido: $BANCO (MANTER_BANCO=1)."
+else
+  echo "Apagando o banco de teste."
+  psql -d "$ALVO" -q -c "DROP DATABASE IF EXISTS $BANCO;"
+fi

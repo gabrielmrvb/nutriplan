@@ -19,6 +19,8 @@ visitante veria navegando. Nada de usuário, nada de dado pessoal.
 import logging
 import os
 
+from django.conf import settings
+
 from django.db import OperationalError, ProgrammingError, connection
 from django.http import JsonResponse
 from django.views import View
@@ -111,5 +113,8 @@ class HealthView(View):
         return JsonResponse({
             "status": "ok",
             "commit": os.environ.get("RENDER_GIT_COMMIT", "")[:7],
+            # QUAL instância respondeu ("staging" ou "", que é produção):
+            # a prova de deploy do fluxo de promoção lê isto.
+            "ambiente": getattr(settings, "NUTRIPLAN_AMBIENTE", "") or "",
             "catalogo": catalogo,
         })

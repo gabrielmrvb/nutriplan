@@ -269,8 +269,10 @@ class HealthTests(TestCase):
         corpo = self.client.get(reverse("health")).json()
 
         # `commit` entrou em 17/09/2026: é o SHA do deploy, dado público
-        # (o repositório é público) e sem nada sobre pessoas.
-        self.assertEqual(set(corpo), {"status", "catalogo", "commit"})
+        # (o repositório é público) e sem nada sobre pessoas. `ambiente`
+        # (21/09/2026) diz QUAL instância respondeu — "staging" ou vazio —
+        # e também não fala de ninguém.
+        self.assertEqual(set(corpo), {"status", "catalogo", "commit", "ambiente"})
         for chave in corpo["catalogo"]:
             with self.subTest(chave=chave):
                 self.assertNotIn("usuario", chave)

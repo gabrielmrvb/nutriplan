@@ -1,0 +1,126 @@
+# O DRILL MENSAL DE RESTAURAÇÃO (21/09/2026). "Um dump que ninguém restaurou é
+# uma esperança, não um backup" — então todo dia 1, e a qualquer hora pelo
+# botão, este job:
+#
+#   1. despeja o banco de PRODUÇÃO com `scripts/backup.sh` (as três provas:
+#      exit code, tamanho, `pg_restore --list`), usando o role SOMENTE
+#      LEITURA `nutriplan_leitor` (segredo `BACKUP_DATABASE_URL`; criado no
+#      Neon em 21/09 com `pg_read_all_data` e sem CREATE — se o segredo vazar,
+#      lê-se, não se destrói);
+#   2. restaura no Postgres 18 DO JOB com `scripts/restaurar.sh` (schema,
+#      contagens, e a varredura de linha órfã em toda chave estrangeira);
+#   3. confere o restaurado contra a origem tabela a tabela com
+#      `scripts/conferir_restauracao.py` (contagens com tolerância pequena,
+#      o mesmo conjunto de migrações, e gente dentro);
+#   4. se qualquer passo falhar, abre (ou comenta) a issue "Restauração
+#      mensal falhou" — além do e-mail que o GitHub manda ao dono por run
+#      vermelho no branch padrão.
+#
+# O dump vive só no `$RUNNER_TEMP` e morre com o job: NUNCA vira artefato —
+# o repositório é público e o arquivo tem e-mail, peso e treino de gente
+# real. O log só mostra nomes de tabela e contagens.
+#
+# Postgres 18 dos dois lados por causa do `SET transaction_timeout` que o
+# `pg_dump` 18 escreve (só existe a partir do 17); o cliente vem do apt do
+# PGDG porque o `ubuntu-latest` traz o 16.
+name: Restauração mensal
+
+on:
+  schedule:
+    - cron: "0 9 1 * *"   # dia 1, 06:00 em Brasília
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: restaurar-mensal
+  cancel-in-progress: false
+
+jobs:
+  restaurar:
+    name: "despejar, restaurar, conferir"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cliente Postgres 18 (PGDG)
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail -sSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-18
+          # O /usr/bin/pg_dump do runner é o wrapper do postgresql-client-common
+          # e continua apontando para o 16 depois do apt (MEDIDO no primeiro
+          # run, 21/09/2026: "server version 18.6; pg_dump version 16.15"). O
+          # binário de verdade mora em /usr/lib/postgresql/18/bin — vai para o
+          # PATH dos passos seguintes, e a versão é conferida aqui, não lá.
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/18/bin/pg_dump --version | grep -q "PostgreSQL) 18" || { echo "pg_dump 18 ausente"; exit 1; }
+          pip install -q "psycopg[binary]"
+
+      - name: 1/3 Despejar produção (role somente leitura)
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          test -n "$DATABASE_URL" || { echo "BACKUP_DATABASE_URL ausente"; exit 1; }
+          bash scripts/backup.sh "$RUNNER_TEMP/backup"
+
+      - name: 2/3 Restaurar no Postgres do job
+        env:
+          MANTER_BANCO: "1"
+        run: |
+          arquivo="$(ls "$RUNNER_TEMP"/backup/*.dump)"
+          bash scripts/restaurar.sh "$arquivo" "postgres://postgres:postgres@localhost:5432/postgres"
+
+      - name: 3/3 Conferir contra a origem, tabela a tabela
+        env:
+          ORIGEM_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          DESTINO_URL: "postgres://postgres:postgres@localhost:5432/nutriplan_drill"
+        run: |
+          # pipefail: sem ele o código de saída seria o do `tee`, e a conferência
+          # reprovada passaria verde (a armadilha do `manage.py test | tail`).
+          set -o pipefail
+          python scripts/conferir_restauracao.py | tee conferencia.log
+          {
+            echo "## Restauração mensal"
+            echo '```'
+            cat conferencia.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Alertar por issue quando falhar
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create restauracao --description "drill mensal de restauração" --color B60205 --force >/dev/null 2>&1 || true
+          existente="$(gh issue list --label restauracao --state open --json number --jq '.[0].number')"
+          corpo="O drill de restauração do backup falhou: $RUN_URL — veja qual passo (despejar, restaurar, conferir) e o runbook em CLAUDE.md, \"Backup e restauração\"."
+          if [ -n "$existente" ]; then
+            gh issue comment "$existente" --body "Falhou de novo: $RUN_URL"
+          else
+            gh issue create --title "Restauração mensal falhou ($(date -u +%Y-%m-%d))" --label restauracao --body "$corpo"
+          fi

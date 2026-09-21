@@ -1,0 +1,63 @@
+# Promover um commit de `main` para PRODUÇÃO — o único caminho de deploy de
+# produção desde 21/09/2026. Todo merge em `main` sobe sozinho no STAGING
+# (`nutriplan-staging`); produção tem `autoDeploy: false` (render.yaml) e só
+# muda quando alguém aperta este botão (aba Actions → "Promover para
+# produção" → Run workflow) ou roda `scripts/promover.py <sha> --esperar`
+# na máquina. Os dois fazem a MESMA coisa: exigem que o SHA esteja em `main`
+# e que o staging já o tenha provado em `/saude/`, pedem o deploy pela API
+# do Render com `commitId` e esperam produção responder o commit.
+#
+# Segredo: `RENDER_API_KEY` (segredo do repositório, gravado por
+# `scripts/github.py segredo RENDER_API_KEY <arquivo>`). Nunca impresso.
+name: Promover para produção
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "SHA completo (ou curto) do commit de main a promover; vazio = a ponta de main"
+        required: false
+        default: ""
+      sem_staging:
+        description: "Pular a prova do staging (só se o staging estiver fora do ar — diga por quê no resumo do run)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promover-producao
+  cancel-in-progress: false
+
+jobs:
+  promover:
+    name: promover
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Resolver o SHA
+        id: sha
+        run: |
+          sha="${{ github.event.inputs.sha }}"
+          if [ -z "$sha" ]; then sha="$(git rev-parse origin/main)"; fi
+          sha="$(git rev-parse "$sha")"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "promovendo $sha" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Promover e provar
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          extra=""
+          if [ "${{ github.event.inputs.sem_staging }}" = "true" ]; then extra="--sem-staging"; fi
+          python scripts/promover.py "${{ steps.sha.outputs.sha }}" --esperar --minutos 15 $extra | tee promocao.log
+          tail -3 promocao.log >> "$GITHUB_STEP_SUMMARY"

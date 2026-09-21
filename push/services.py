@@ -132,6 +132,9 @@ def due_slots(now=None):
         # A janela cruzou a meia-noite: vira "depois de start OU até target".
         window = Q(time__gt=start) | Q(time__lte=target)
 
+    # E SÓ QUEM NÃO DESLIGOU O LEMBRETE (21/09/2026): `avisos.Preferencia.
+    # push_refeicoes` — a linha ausente vale ligado, por isso é `exclude` do
+    # falso e não `filter` do verdadeiro.
     # SÓ QUEM TEM ASSINATURA ATIVA (16/09/2026). Antes a rodada percorria toda
     # refeição de todo plano ativo e gravava um `NotificationLog` de FALHA
     # ("nenhum dispositivo recebeu") por refeição por dia para quem nunca
@@ -142,6 +145,7 @@ def due_slots(now=None):
             plan__is_active=True,
             plan__user__push_subscriptions__is_active=True,
         )
+        .exclude(plan__user__preferencia_de_aviso__push_refeicoes=False)
         .filter(window)
         .distinct()
         .select_related("plan", "plan__user")
@@ -157,7 +161,8 @@ def proxima_refeicao_com_assinatura(now=None):
         MealSlot.objects.filter(
             plan__is_active=True,
             plan__user__push_subscriptions__is_active=True,
-        ).values_list("time", flat=True)
+        ).exclude(plan__user__preferencia_de_aviso__push_refeicoes=False)
+        .values_list("time", flat=True)
     ))
     if not horarios:
         return None

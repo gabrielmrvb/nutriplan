@@ -31,6 +31,14 @@ services:
     plan: free
     region: oregon
     branch: main
+    # PRODUÇÃO NÃO DEPLOYA SOZINHA (21/09/2026). Todo merge em `main` sobe no
+    # `nutriplan-staging` (abaixo); produção só muda por PROMOÇÃO explícita de
+    # um SHA que o staging já provou: `.github/workflows/promover.yml` (botão
+    # na aba Actions) ou `scripts/promover.py <sha> --esperar` — os dois batem
+    # em `POST /v1/services/<id>/deploys {"commitId": <sha>}` na API do Render
+    # e esperam `/saude/` responder o commit. Foi assim que "um PR entra em
+    # main, aparece no staging, produção não muda" passou a ser verdade.
+    autoDeploy: false
     buildCommand: "./scripts/build.sh"
     startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers ${WEB_CONCURRENCY:-2} --log-file -"
     # Bate em /saude/vivo/, que NÃO consulta o banco.
@@ -153,6 +161,11 @@ services:
         sync: false
       - key: VAPID_ADMIN_EMAIL
         sync: false
+      # Para onde vai o e-mail "n erros 5xx em 5 min" (config/observabilidade.py,
+      # AlertaDe5xx). Vazio = só uma linha WARNING no log. Copiado do
+      # VAPID_ADMIN_EMAIL pela API em 21/09/2026.
+      - key: NUTRIPLAN_ALERTA_EMAIL
+        sync: false
       # O token que o GitHub Actions manda em `POST /tarefas/lembretes/`.
       - key: NUTRIPLAN_TAREFAS_TOKEN
         sync: false
@@ -170,3 +183,73 @@ services:
   #       sync: false
   #     - key: VAPID_ADMIN_EMAIL
   #       sync: false
+
+  # O STAGING (21/09/2026): o mesmo app, o mesmo build, deploy AUTOMÁTICO de
+  # todo merge em `main`, banco na branch `staging` do MESMO projeto Neon
+  # (criada "schema only": zero dado de gente real; o build semeia catálogo e
+  # demo). Free de ponta a ponta: o serviço dorme após 15 min sem tráfego e a
+  # branch do Neon consome a mesma cota de 100 CU-h do projeto. Foi criado
+  # pela API (`artifacts/criar_staging.py`, sem valores impressos) e está
+  # declarado aqui para o arquivo continuar sendo a verdade do painel.
+  # `NUTRIPLAN_AMBIENTE=staging` é o que o marca: `X-Robots-Tag: noindex`,
+  # a faixa em toda tela e `"ambiente": "staging"` no `/saude/`
+  # (`config/ambiente.py`). O e-mail é o MESMO SMTP de produção: só conta
+  # descartável de QA recebe e-mail do staging, e `check --deploy` exige SMTP.
+  - type: web
+    name: nutriplan-staging
+    runtime: python
+    plan: free
+    region: oregon
+    branch: main
+    autoDeploy: true
+    buildCommand: "./scripts/build.sh"
+    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers ${WEB_CONCURRENCY:-2} --log-file -"
+    healthCheckPath: /saude/vivo/
+    envVars:
+      - key: NUTRIPLAN_AMBIENTE
+        value: staging
+      - key: DJANGO_ALLOWED_HOSTS
+        value: nutriplan-staging.onrender.com
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: WEB_CONCURRENCY
+        value: "2"
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - key: DJANGO_EMAIL_BACKEND
+        value: django.core.mail.backends.smtp.EmailBackend
+      - key: EMAIL_PORT
+        value: "2525"
+      - key: EMAIL_USE_TLS
+        value: "True"
+      # Próprias do staging, geradas na criação e guardadas fora do repositório
+      # (`~/.nutriplan-secrets/staging_env.json`): chave, tokens e o banco.
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: NUTRIPLAN_TAREFAS_TOKEN
+        sync: false
+      - key: NUTRIPLAN_DISPARO_TOKEN
+        sync: false
+      # Copiadas de produção (SMTP, Google, VAPID): mesmos valores, painel.
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_ADMIN_EMAIL
+        sync: false
+      - key: NUTRIPLAN_ALERTA_EMAIL
+        sync: false
