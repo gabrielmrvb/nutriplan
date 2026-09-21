@@ -61,7 +61,11 @@ jobs:
           # do job: o k6 sai com 99 nesse caso e o run continua verde com o
           # relatório. Qualquer outro código (roteiro quebrado, staging fora,
           # a guarda do ambiente) derruba o job.
-          k6 run scripts/carga/staging.js; codigo=$?
+          # `|| codigo=$?` e não `; codigo=$?`: o passo roda com `bash -e`, e um
+          # k6 que sai com 99 encerraria o script antes de o código ser lido
+          # (MEDIDO no primeiro run: relatório pronto, job vermelho).
+          codigo=0
+          k6 run scripts/carga/staging.js || codigo=$?
           if [ "$codigo" -ne 0 ] && [ "$codigo" -ne 99 ]; then exit "$codigo"; fi
           test -s relatorio.md
 

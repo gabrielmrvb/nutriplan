@@ -8640,6 +8640,10 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   .agua__eco,
   .conquista,
   .conquista__emoji { animation: none; }
+  /* Os números pequenos do placar entram em cascata com `both`: sem zerar o
+     ATRASO eles ficariam invisíveis por mais de meio segundo esperando a
+     nervura que não vai riscar (achado da régua sistemática, 21/09/2026). */
+  .recompensa .fim__numeros > li { animation: none; animation-delay: 0s; opacity: 1; transform: none; }
   .btn.is-carregando::after,
   .btn[aria-busy="true"]::after,
   .agua__botao[aria-busy="true"]::after { animation: none; }

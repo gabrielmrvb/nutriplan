@@ -1,0 +1,69 @@
+# -*- coding: utf-8 -*-
+"""i18n preparada, sem traduzir (21/09/2026).
+
+O app é pt-BR e continua sendo. O que este arquivo prende é o TERRENO: o
+catálogo existe e o Django o encontra; toda frase marcada nos templates
+novos está listada nele com `msgstr` vazio (o Django mostra o msgid, que já
+é o texto certo); e nenhuma tela mudou de língua — não há LocaleMiddleware
+nem negociação por cabeçalho. Marcar é barato agora e caro depois: a régua
+`TEMPLATES_NOVOS` cresce com cada template criado a partir de hoje.
+"""
+import re
+from pathlib import Path
+
+from django.conf import settings
+from django.test import SimpleTestCase
+from django.utils import translation
+
+RAIZ = Path(__file__).resolve().parents[1]
+CATALOGO = RAIZ / "locale" / "pt_BR" / "LC_MESSAGES" / "django.po"
+#: Templates criados (ou frases novas em templates velhos) a partir de
+#: 21/09/2026: cada um carrega `{% load i18n %}` e marca o texto visível.
+#: `templates/base.html` entra pela FRASE nova (a faixa do staging), não pelo
+#: arquivo inteiro — marcar mil frases antigas de uma vez não é o objetivo.
+TEMPLATES_NOVOS = {
+    "templates/base.html": ["STAGING — não é produção"],
+}
+
+
+def msgids_do_catalogo():
+    texto = CATALOGO.read_text(encoding="utf-8")
+    return re.findall(r'^msgid "((?:[^"\\]|\\.)+)"\s*$', texto, re.M)
+
+
+class OTerrenoDaI18nTests(SimpleTestCase):
+    def test_o_app_e_pt_br_e_so_pt_br(self):
+        self.assertEqual(settings.LANGUAGE_CODE, "pt-br")
+        self.assertTrue(settings.USE_I18N)
+        self.assertEqual([codigo for codigo, _ in settings.LANGUAGES], ["pt-br"])
+        self.assertNotIn("django.middleware.locale.LocaleMiddleware", settings.MIDDLEWARE, "sem negociação: nenhuma tela muda de língua")
+
+    def test_o_catalogo_existe_onde_o_django_procura(self):
+        self.assertEqual([Path(p) for p in settings.LOCALE_PATHS], [RAIZ / "locale"])
+        self.assertTrue(CATALOGO.exists(), CATALOGO)
+        texto = CATALOGO.read_text(encoding="utf-8")
+        self.assertIn('"Language: pt_BR\\n"', texto)
+        self.assertIn('"Content-Type: text/plain; charset=UTF-8\\n"', texto)
+
+    def test_toda_frase_marcada_nos_templates_novos_esta_no_catalogo_sem_traducao(self):
+        texto = CATALOGO.read_text(encoding="utf-8")
+        listadas = msgids_do_catalogo()
+        for caminho, frases in TEMPLATES_NOVOS.items():
+            template = (RAIZ / caminho).read_text(encoding="utf-8")
+            self.assertRegex(template, r"\{% load [^%]*\bi18n\b", caminho)
+            for frase in frases:
+                with self.subTest(template=caminho, frase=frase):
+                    self.assertIn('{%% translate "%s" %%}' % frase, template, "a frase nova entra marcada")
+                    self.assertIn(frase, listadas, "e listada no catálogo")
+                    trecho = texto[texto.index('msgid "%s"' % frase):]
+                    self.assertRegex(trecho, r'^msgid "[^\n]*"\nmsgstr ""\s*$', "sem tradução: msgstr vazio")
+
+    def test_o_catalogo_nao_tem_traducao_nenhuma(self):
+        texto = CATALOGO.read_text(encoding="utf-8")
+        corpo = texto[texto.index('msgid ""') + 8:]
+        for m in re.finditer(r'^msgstr "((?:[^"\\]|\\.)*)"', corpo, re.M):
+            self.assertEqual(m.group(1), "", "traduzir é decisão de produto — ainda não")
+
+    def test_a_frase_marcada_renderiza_o_proprio_texto(self):
+        with translation.override("pt-br"):
+            self.assertEqual(translation.gettext("STAGING — não é produção"), "STAGING — não é produção")

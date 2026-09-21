@@ -1,0 +1,24 @@
+# NutriPlan — catálogo pt-BR, SEM tradução (21/09/2026).
+#
+# O app é escrito em pt-BR; este arquivo existe para o dia em que uma segunda
+# língua entrar. Toda frase marcada com `{% translate %}` nos templates novos
+# aparece aqui com `msgstr ""`: vazio quer dizer "mostre o msgid", que já é o
+# texto certo. Não traduza nada aqui sem decisão de produto; e não rode
+# `compilemessages` — sem `.mo`, o Django usa o msgid, que é o que se quer.
+msgid ""
+msgstr ""
+"Project-Id-Version: NutriPlan\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-09-21 12:00-0300\n"
+"PO-Revision-Date: 2026-09-21 12:00-0300\n"
+"Last-Translator: \n"
+"Language-Team: pt_BR\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: templates/base.html
+msgid "STAGING — não é produção"
+msgstr ""

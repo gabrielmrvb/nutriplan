@@ -48,7 +48,7 @@ class NavegadorFalso(e2e.Navegador):
         if self.falhar_em and self.falhar_em in " ".join(args):
             raise RuntimeError("falha simulada em " + self.falhar_em)
         if args[0] == "eval":
-            return "true"
+            return "0" if "getAnimations" in args[1] else "true"
         if args[0] == "get" and args[1] == "url":
             return "https://staging.exemplo/conta/entrar/"
         if args[0] == "snapshot":
@@ -68,7 +68,7 @@ class ORoteiroTests(SimpleTestCase):
 
     def test_os_passos_da_missao_na_ordem(self):
         self.assertEqual(e2e.PASSOS, ("cadastro", "onboarding-1", "onboarding-2", "onboarding-3", "home",
-                                      "agua", "refeicao", "serie", "tema-claro", "excluir", "login-recusado"))
+                                      "agua", "refeicao", "serie", "tema-claro", "movimento-reduzido", "excluir", "login-recusado"))
         for passo in e2e.PASSOS:
             self.assertTrue(callable(getattr(e2e.E2E, passo.replace("-", "_"))), passo)
 
@@ -88,8 +88,9 @@ class ORoteiroTests(SimpleTestCase):
 
     def test_os_dois_temas_e_uma_captura_por_passo(self):
         cenario, ab, saida, codigo = self._rodar()
-        medias = [c for c in ab.comandos if c[:2] == ["set", "media"]]
-        self.assertEqual([c[2] for c in medias], ["dark", "light"])
+        medias = [c[2:] for c in ab.comandos if c[:2] == ["set", "media"]]
+        self.assertEqual(medias, [["dark"], ["light"], ["light", "reduced-motion"], ["dark"]])
+        self.assertTrue(any("reduzido-home" in c[1] for c in ab.comandos if c[0] == "screenshot"))
         capturas = [c[1] for c in ab.comandos if c[0] == "screenshot"]
         self.assertGreaterEqual(len(capturas), len(e2e.PASSOS))
         self.assertTrue(any("claro-home" in c for c in capturas))

@@ -1,4 +1,4 @@
-{% load navegacao static %}<!doctype html>
+{% load navegacao static i18n %}<!doctype html>
 <html lang="pt-br"{% if body_class %} class="{{ body_class }}"{% endif %}>
 <head>
   <meta charset="utf-8">
@@ -169,7 +169,7 @@
     em staging nunca passa por produção. Só existe quando o painel diz
     `NUTRIPLAN_AMBIENTE=staging` — em produção o bloco não renderiza.
   {% endcomment %}
-  <p class="faixa-ambiente" role="status">STAGING — não é produção</p>
+  <p class="faixa-ambiente" role="status">{% translate "STAGING — não é produção" %}</p>
   {% endif %}
   {% if not shell_offline %}{% include "partials/icones.html" %}{% endif %}
   {% block header %}
