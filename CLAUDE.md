@@ -82,7 +82,7 @@ O PostgreSQL é portátil (`C:\Users\biel-\pgsql`, cluster em
 | `catalog` | alimentos e receitas (TACO/IBGE/USDA) |
 | `plans` | motor nutricional, cardápio, hidratação, ofensiva, voz |
 | `workouts` | ficha, cargas, catálogo de exercícios, exportação de saúde |
-| `supplements` | catálogo e checklist |
+| `supplements` | só a migration que apagou as tabelas (20/09/2026); a pasta sai depois do deploy |
 | `push` | service worker, manifesto, notificações |
 
 (A `api` — token, eu, corridas — e o cliente `mobile/` saíram em 20/09/2026
@@ -203,6 +203,17 @@ estejam no topo, mas porque a tela nunca falou deles. Os três ganham
 `plans/_area_promovida.html`, um cartão com um fato real do dia e a porta para a
 área. Treino sai de `estado_do_treino`, que a Home já calcula; Corrida e
 Progresso custam UMA consulta cada, e só para quem declarou aquela área.
+
+**SÓ A REFEIÇÃO DA VEZ NASCE ABERTA NA HOME (decisão do dono, 20/09/2026).**
+Desde 12/09 a futura ficava atrás de "Ver opções"; a VENCIDA continuava
+aberta por ser "ação em aberto", e a auditoria de 20/09 mediu o preço: um
+primeiro uso às 15 h dava 3 757 px com quatro refeições abertas × quatro
+botões, e um fixture às 18 h, 3 530 px — a tela mais aberta do app rolando
+por formulários que ninguém ia usar naquele momento. Hoje `slot.marcador
+!= "agora"` vai para o mesmo `<details class="meal__futuro">`, e a vencida
+diz "Não registrada · registrar" no `summary`. Medido no protótipo: 3 530 →
+2 875 px com duas vencidas. `plans/test_opcoes_tocaveis.py` cobra a ordem —
+fora da vez, o `<details>` abre antes da primeira ação.
 
 **Quem não declarou nada vê a Home de antes da campanha** — sem selo, sem cartão
 de área, na ordem canônica. E ela não infere área de histórico, peso, treino,
@@ -343,6 +354,20 @@ app: três refeições feitas mais duas marcadas como "comi outra coisa" davam
 A propriedade que governa isso agora tem teste próprio em `plans/test_streaks.py`:
 **omitir nunca pode produzir resultado melhor que registrar**. Ela vale por
 construção, porque qualquer denominador independente da marcação a satisfaz.
+
+**O DIA FECHA COM DOIS DOS TRÊS PILARES, E O TREINO É OBRIGATÓRIO NO DIA
+PREVISTO (decisão do dono, 20/09/2026).** Até então a régua era treino E
+dieta (≥ 80 %) E água (≥ 90 % de 35 ml/kg) no mesmo dia, e a auditoria de
+20/09 simulou uma semana de uso real — 4 refeições de 5, 1,5 L de uma meta
+de 3 L, treino feito — que terminava com "0 dias — Comece hoje": a água
+dominava. Hoje `Dia.completo` é `treino and (dieta or agua)`; no dia sem
+treino previsto descansar continua sendo o plano (`treino=True`), então o
+dia de descanso fecha com um dos dois outros. A pendência diz o que FECHA o
+dia ("treino", "dieta ou água"), nunca a lista de tudo que faltou.
+`manage.py simular_ofensiva` reproduz a semana auditada sob as duas regras
+(0 → 5 dias) e há teste sobre a saída dele — rode antes e depois de mexer
+na régua. `OmitirNaoPodeCompensarTests` passou a medir a dieta SEM água,
+senão a água fecharia o dia e o teste deixaria de medir o que diz medir.
 
 **Dois lados abrem o mesmo IndexedDB, e eles têm que concordar.**
 `static/js/fila.js` e `templates/pwa/sw.js` abrem `nutriplan-fila`. O service
@@ -762,6 +787,38 @@ registrada em `curadoria` no `exercises.json` —, junto com outros 24; o veto
 é `manage.py desativar_exercicio <nome>` (reversível com `--reativar`), e
 ele desativa no JSON e no banco. O que falta para os cinco restantes é
 curadoria de MÍDIA, não decidir o que cadastrar.
+
+**O CONTRATO DE MÍDIA VALE PARA QUEM TEM APARELHO — o peso do corpo pode ser
+ativo sem vídeo (decisão 1 da avaliação de UX, 20/09/2026).** O dono decidiu
+que o catálogo de peso do corpo NÃO depende de mídia: "sem vídeo fica sem
+vídeo". A régua acima passou a valer só para exercício COM aparelho — todo
+`equipment != bodyweight` ativo continua exigindo vídeo curado, e todo vídeo
+que EXISTIR (inclusive nos de peso do corpo que já têm um) continua com o
+contrato inteiro (embed, unicidade, anatomia, foto no mapa). O peso do corpo
+sem vídeo entra com nome, músculos, dica e progressão; a tela cai
+graciosamente no "Sem demonstração cadastrada" (`_demonstracao.html`, que já
+tinha o ramo). Os guardas mudaram de `filter(is_active=True)` para
+`.exclude(equipment="bodyweight")` (o vídeo é obrigatório) ou
+`.exclude(video_url="")` (o vídeo presente é validado); há teste único da
+conjunção em `test_capacidade_de_ambiente`.
+
+**34 EXERCÍCIOS DE PESO DO CORPO, COM PROGRESSÃO (20/09/2026).** Cobrem os
+grupos que faltavam — quadríceps, posterior, glúteo (na cadeia posterior,
+`hamstrings`; o app NÃO tem grupo `glutes`), panturrilha, ombro, costas,
+bíceps — e adensam peito/tríceps/core, para a ficha desse perfil ter volume
+COMPARÁVEL às outras (medido: ~94% do volume semanal da completa; letra A com
+2 opções de 5 ex/52 min, B 8 ex/58 min, C 8 ex/58-59 min ×2). O motor preenche
+por SUBSTITUIÇÃO (`padrao`+grupo), então `splits.json` não mudou. A LETRA A
+continua `@expectedFailure` no dourado por um motivo FÍSICO: o modelo de
+academia enche o peito com crucifixo (abertura), e não há crucifixo sem carga
+— sobram as pressões, ~3 por opção, não 4. O dourado não afrouxa; a
+comparabilidade é provada à parte (`test_volume_peso_do_corpo`). A PROGRESSÃO
+é o campo `Exercise.progressao` (`{"movimento","nivel"}`, 1 = mais fácil): a
+leitura mostra a escada do movimento (`services.escada_de`) do fácil ao
+difícil, com "você está aqui"; vazio para quem usa aparelho (a progressão dele
+é a carga). Os vereditos de ambiente melhoraram: peso do corpo
+NAO_SUPORTADO → PARCIAL (bíceps/antebraço/trapézio sem folga é limite físico),
+casa com halteres PARCIAL → SUPORTADO.
 
 **COBERTURA NÃO É QUALIDADE**, e a régua cobra as duas. Como efeito colateral, o
 catálogo virou contrato: aposentar um dos dois exercícios de panturrilha derruba
@@ -1366,6 +1423,19 @@ segunda em diante paga UMA consulta ("é a primeira?") e nada mais
 (`workouts/test_recorde_na_hora`, 20); reenvio da fila (`criada=False`) não
 avalia. E `ConquistasView` anuncia o que desbloqueia — antes a medalha
 aparecia na lista sem "Conquista desbloqueada" ter sido vista uma vez.
+
+**A SENHA É ARGON2, e o PBKDF2 fica de reserva (20/09/2026).** A auditoria
+mediu em produção: login certo 3,0–3,2 s de TTFB, senha errada 4,4–5,6 s
+(dois backends, dois hashes), cadastro 3,7 s — o PBKDF2-SHA256 de 1 000 000
+iterações, padrão do Django 5.2, custa 0,6 s nesta máquina e ≈ 3 s na CPU
+do Render free. `config/hashers.py`: `argon2-cffi` em `requirements.txt` e o
+Argon2 do Django na frente de `PASSWORD_HASHERS` quando `import argon2`
+funciona (extensão nativa — a suíte não depende dele: sem ele, cai no
+`PBKDF2SHA256Rapido`, 600 000 iterações, o piso da OWASP). Toda senha
+gravada continua conferindo (mesmo `algorithm` do PBKDF2) e é regravada no
+hasher preferido no próximo login — sem migration, sem pedir nada.
+`manage.py medir_hash` mede cada hasher nesta máquina; `config/test_hashers.py`
+prende a ordem, a conferência da senha antiga e a regravação.
 
 **A SECRET_KEY não é gerada pela plataforma.** `generateValue: true` do Render
 entrega 256 bits em base64 — 44 caracteres —, e o Django exige 50. Isso deixou

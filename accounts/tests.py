@@ -313,9 +313,19 @@ class ValidationTests(TestCase):
 
 
 class AccessControlTests(TestCase):
-    def test_dashboard_requires_login(self):
+    def test_anonymous_root_shows_the_landing_not_a_dashboard(self):
+        """A raiz anônima é a landing pública, não o painel de ninguém (decisão
+        2, "login sai da raiz", 20/09/2026).
+
+        Antes, quem chegava sem sessão levava um redirect para o login — a
+        primeira tela era uma senha para um app que a pessoa ainda não sabia se
+        queria. Hoje `RaizView` responde a landing com 200; quem TEM sessão cai
+        em `TodayView`, que segue guardada (test_dashboard_requires_completed_
+        onboarding). A propriedade de acesso que importa continua de pé: anônimo
+        nunca vê dado de painel, porque a raiz devolve a página de valor."""
         response = self.client.get(reverse("plans:today"))
-        self.assertIn(reverse("accounts:login"), response.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Ver a demonstração")
 
     def test_dashboard_requires_completed_onboarding(self):
         user = User.objects.create_user(email="c@d.com", password="senha-bem-forte-123")
@@ -6399,13 +6409,11 @@ class MatrizDeCapabilityTests(TestCase):
         ("/admin/workouts/trainingplan/", 200, 200, "a ficha existe?"),
         ("/admin/workouts/trainingplan/add/", 403, 403, "ficha nasce do gerador"),
         ("/admin/workouts/exercise/add/", 200, 403, "catálogo de exercício"),
-        ("/admin/supplements/supplementlog/", 403, 403, "sem caso operacional"),
         ("/admin/achievements/userachievement/", 200, 403, "conquista da pessoa"),
         ("/admin/catalog/dietarytag/", 200, 403, "restrições do catálogo"),
         ("/admin/catalog/mealtemplate/", 200, 403, "receitas"),
         ("/admin/workouts/exercise/", 200, 403, "catálogo de exercício"),
         ("/admin/workouts/workouttemplate/", 200, 403, "modelos de treino"),
-        ("/admin/supplements/supplement/", 200, 403, "catálogo de suplemento"),
         # Registradas e que NINGUÉM alcança: `PAPEIS` não concede `view` para
         # nenhuma das duas. Ficam na matriz de propósito — o valor da tabela é
         # justamente registrar que a superfície existe e está fechada, em vez

@@ -64,17 +64,30 @@ class Dia:
 
     @property
     def completo(self) -> bool:
-        return self.treino and self.dieta and self.agua
+        """DOIS DOS TRÊS pilares fecham o dia, e o treino é obrigatório no
+        dia em que está previsto (decisão do dono, 20/09/2026).
+
+        Até então o dia exigia treino E dieta E água. A auditoria de 20/09
+        simulou uma semana de uso real — 4 refeições de 5, 1,5 L de uma meta
+        de 3 L, treino feito — e a Home dizia "0 dias — Comece hoje" no
+        sétimo dia: a água (90 % de 35 ml/kg) dominava a régua, e a ofensiva
+        que existe para dar vontade de voltar só sabia dizer não. Agora
+        dieta e água compensam uma à outra; o treino não, porque é o pilar
+        que tem hora marcada — e no dia sem treino previsto descansar
+        continua sendo o plano (`treino=True` vem de `avaliar`), então o
+        dia de descanso fecha com um dos dois outros. `manage.py
+        simular_ofensiva` reproduz a semana auditada sob as duas regras.
+        """
+        return self.treino and (self.dieta or self.agua)
 
     @property
     def pendencias(self) -> list:
+        """O que FECHA o dia — não a lista de tudo que não foi feito."""
         faltando = []
         if not self.treino:
             faltando.append("treino")
-        if not self.dieta:
-            faltando.append("dieta")
-        if not self.agua:
-            faltando.append("água")
+        if not (self.dieta or self.agua):
+            faltando.append("dieta ou água")
         return faltando
 
 
@@ -102,7 +115,7 @@ class Ofensiva:
         para dar vontade de voltar, não para cobrar.
         """
         if self.dias == 0:
-            return "Comece hoje: cumpra treino, dieta e água e a contagem começa."
+            return "Comece hoje: treino no dia de treino, mais dieta ou água, e a contagem começa."
         if self.em_risco:
             falta = ", ".join(self.falta_hoje)
             return f"Falta {falta} para manter a sequência hoje."
@@ -123,10 +136,8 @@ def _dias_de_treino(user) -> set:
     return set(plano.sessions.values_list("weekday", flat=True))
 
 
-def calcular(user, hoje=None, meta_agua_ml=None) -> Ofensiva:
-    """Percorre os dias de trás para frente até achar o primeiro furo."""
-    hoje = hoje or timezone.localdate()
-    inicio = hoje - timedelta(days=DIAS_NO_HISTORICO)
+def _ler(user, inicio, meta_agua_ml):
+    """Os conjuntos de dias cumpridos por pilar, numa passada só de consultas."""
     previstos = _dias_de_treino(user)
 
     # --------------------------------------------------------- treino
@@ -214,18 +225,37 @@ def calcular(user, hoje=None, meta_agua_ml=None) -> Ofensiva:
             ).values("date").annotate(total=Sum("ml"))
             if (linha["total"] or 0) >= alvo
         }
+    return previstos, treinou, dieta_ok, agua_ok
+
+
+def _avaliar(user, data, previstos, treinou, dieta_ok, agua_ok, meta_agua_ml) -> Dia:
+    previsto = data.weekday() in previstos
+    return Dia(
+        data=data,
+        # Descansar é o plano nos dias sem treino previsto.
+        treino=(data in treinou) if previsto else True,
+        # Sem plano alimentar não há meta de dieta para cobrar.
+        dieta=(data in dieta_ok) if _tem_plano(user) else True,
+        agua=(data in agua_ok) if meta_agua_ml else True,
+        treino_previsto=previsto,
+    )
+
+
+def avaliar_dia(user, dia, meta_agua_ml=None) -> Dia:
+    """Um dia só, com o que ele cumpriu — para `simular_ofensiva` medir a
+    régua antiga e a nova sobre os MESMOS pilares lidos."""
+    inicio = dia - timedelta(days=DIAS_NO_HISTORICO)
+    return _avaliar(user, dia, *_ler(user, inicio, meta_agua_ml), meta_agua_ml)
+
+
+def calcular(user, hoje=None, meta_agua_ml=None) -> Ofensiva:
+    """Percorre os dias de trás para frente até achar o primeiro furo."""
+    hoje = hoje or timezone.localdate()
+    inicio = hoje - timedelta(days=DIAS_NO_HISTORICO)
+    previstos, treinou, dieta_ok, agua_ok = _ler(user, inicio, meta_agua_ml)
 
     def avaliar(data) -> Dia:
-        previsto = data.weekday() in previstos
-        return Dia(
-            data=data,
-            # Descansar é o plano nos dias sem treino previsto.
-            treino=(data in treinou) if previsto else True,
-            # Sem plano alimentar não há meta de dieta para cobrar.
-            dieta=(data in dieta_ok) if _tem_plano(user) else True,
-            agua=(data in agua_ok) if meta_agua_ml else True,
-            treino_previsto=previsto,
-        )
+        return _avaliar(user, data, previstos, treinou, dieta_ok, agua_ok, meta_agua_ml)
 
     dia_de_hoje = avaliar(hoje)
 

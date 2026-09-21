@@ -252,10 +252,16 @@ class ACapacidadeDeAmbienteEMedidaTests(TestCase):
     ESPERADO = {
         "completa": "SUPORTADO",
         "basica": "SUPORTADO",
-        # PARCIAL desde 17/09/2026 (63 ativos): todo grupo coberto, nenhuma
-        # sessão curta, três grupos sem folga — ver `OQueFaltaParaCasaComHalteresTests`.
-        "casa_halteres": "PARCIAL",
-        "peso_corporal": "NAO_SUPORTADO",
+        # SUPORTADO desde 20/09/2026: os 34 exercícios de peso do corpo
+        # (decisão 1 da avaliação de UX) deram folga a panturrilha, posterior
+        # e trapézio, que eram os três grupos sem folga que a deixavam PARCIAL.
+        "casa_halteres": "SUPORTADO",
+        # PARCIAL desde 20/09/2026 (era NAO_SUPORTADO): com os 34 de peso do
+        # corpo NENHUM grupo fica sem substituto — a ficha passou a ser
+        # comparável (ver o dourado e `test_peso_do_corpo_tem_volume_comparavel`).
+        # Não é SUPORTADO porque bíceps, antebraço e trapézio ainda ficam sem
+        # folga (dois exercícios): limite físico do peso do corpo, não do catálogo.
+        "peso_corporal": "PARCIAL",
     }
 
     def test_o_veredito_de_hoje_esta_congelado(self):
@@ -287,7 +293,7 @@ class ACapacidadeDeAmbienteEMedidaTests(TestCase):
         (`test_ficha_de_verdade.FichaDeVerdadePorEquipamentoTests`)."""
         aprovados = [n for n in AMBIENTES if self.veredito(n).status == "SUPORTADO"]
 
-        self.assertEqual(aprovados, ["completa", "basica"])
+        self.assertEqual(aprovados, ["completa", "basica", "casa_halteres"])
         self.assertEqual(AMBIENTES["completa"], frozenset(Equipment.values))
 
     def test_o_filtro_ingenuo_esvaziaria_sessoes_inteiras(self):
@@ -310,7 +316,12 @@ class ACapacidadeDeAmbienteEMedidaTests(TestCase):
         Enquanto um grupo inteiro depender de um único equipamento, todo
         recorte que exclua esse equipamento perde o grupo. Eram três em
         10/09/2026 (core, antebraço, panturrilha) e reprovavam 30 dos 31
-        recortes; desde 17/09 sobrou o core, em peso do corpo.
+        recortes; desde 17/09 sobrou o core. Em 20/09/2026 os 34 de peso do
+        corpo (decisão 1) apenas ADENSARAM o core (3→5) — continua sendo o
+        único monopólio, e de PESO DO CORPO, então não tira capacidade de quem
+        treina só com o corpo. O glúteo NÃO virou grupo próprio: o app o modela
+        na cadeia posterior (`hamstrings`, `extensao_de_quadril`), então a
+        ponte de glúteo entrou como posterior, ao lado do stiff com barra.
         """
         monopolios = {}
         for grupo, exercicios in self.por_grupo.items():
@@ -320,7 +331,7 @@ class ACapacidadeDeAmbienteEMedidaTests(TestCase):
 
         self.assertEqual(
             monopolios,
-            {MuscleGroup.CORE: (Equipment.BODYWEIGHT, 3)},
+            {MuscleGroup.CORE: (Equipment.BODYWEIGHT, 5)},
             "o catálogo mudou de forma — releia a matriz antes de ajustar",
         )
 
@@ -385,20 +396,21 @@ class OQueFaltaParaCasaComHalteresTests(TestCase):
     FOLGA (duas opções por grupo usado), e por isso o veredito para em
     PARCIAL enquanto houver grupo sem folga.
 
-    Hoje (17/09/2026, 63 ativos): nenhum grupo sem substituto, nenhuma sessão
-    abaixo do piso, e TRÊS grupos sem folga — panturrilha, posterior e
-    trapézio, cada um com uma opção só em halteres/peso do corpo. Três
-    exercícios com mídia curada (a panturrilha sentado, a elevação pélvica e
-    a remada alta com halteres, de `CINCO_QUE_FALTAM`) fecham a folga; o
-    veredito só vira SUPORTADO com os três, e é este teste que fica vermelho
-    nesse dia — notícia boa, e a hora de implementar o ambiente no motor.
+    FECHOU EM 20/09/2026. Os 34 exercícios de peso do corpo (decisão 1 da
+    avaliação de UX) deram folga a panturrilha, posterior e trapézio — os três
+    grupos que ainda tinham uma opção só —, porque "casa com halteres" também
+    permite peso do corpo. O veredito virou SUPORTADO, e a régua se moveu para
+    junto dele (`test_casa_com_halteres_virou_SUPORTADO`). Os `CINCO_QUE_FALTAM`
+    (dumbbell) deixaram de ser necessários para SUPORTADO — viram variedade
+    extra, não folga que falta.
 
-    E O BLOQUEIO CONTINUA SENDO A MÍDIA. Exercício ativo tem contrato de
-    quatro partes, defendido por nove guardas independentes; os cinco que
-    faltam violam os quatro. Escolher vídeo exige assistir ao candidato, e
-    este ambiente não assiste (`workouts/videos.py`). Os quatro que entraram
-    entraram pela porta certa: foto conferida pelo dono, mosaico de veto,
-    licença registrada (`curadoria` em `exercises.json`).
+    E O CONTRATO DE MÍDIA MUDOU DE FORMA (20/09/2026). Antes: todo ativo
+    precisava de mídia curada, e por isso os cinco candidatos com HALTERES não
+    podiam entrar sem assistir ao vídeo. Isso continua valendo para exercício
+    COM APARELHO. O peso do corpo passou a poder entrar SEM vídeo ("sem vídeo
+    fica sem vídeo"): a mecânica é o próprio corpo, a dica técnica basta, e foi
+    assim que os 34 entraram. É `test_o_contrato_de_midia_vale_para_quem_tem_aparelho`
+    que guarda essa forma nova.
     """
 
     @classmethod
@@ -443,21 +455,25 @@ class OQueFaltaParaCasaComHalteresTests(TestCase):
                 self.assertIn(origem, catalogo, "a origem sumiu do catálogo")
                 self.assertEqual(catalogo[origem].muscle_group, grupo)
 
-    def test_casa_com_halteres_e_PARCIAL_por_tres_grupos_sem_folga(self):
+    def test_casa_com_halteres_virou_SUPORTADO(self):
+        """Fechou em 20/09/2026: os 34 de peso do corpo (decisão 1 da
+        avaliação de UX) deram folga a panturrilha, posterior e trapézio — os
+        três grupos que faltavam —, porque "casa com halteres" também permite
+        peso do corpo. Nenhum grupo sem substituto, nenhuma sessão curta,
+        nenhum grupo sem folga."""
         v = capacidade(AMBIENTES["casa_halteres"], self._modelos(),
                        self._por_grupo(), com_substituicao=True)
 
-        self.assertEqual(v.status, "PARCIAL")
+        self.assertEqual(v.status, "SUPORTADO")
         self.assertEqual(v.sem_substituto, set())
         self.assertEqual(v.sessoes_curtas, [])
-        self.assertEqual(
-            v.sem_folga,
-            {MuscleGroup.CALVES, MuscleGroup.HAMSTRINGS, MuscleGroup.TRAPS},
-            "mudou o que falta — refaça a medição antes de mexer no BACKLOG",
-        )
+        self.assertEqual(v.sem_folga, set(),
+                         "voltou a faltar folga — refaça a medição")
 
     def test_a_conta_do_que_falta_de_verdade(self):
-        """Três exercícios com mídia fecham a folga. Era dez em 10/09/2026.
+        """Zero desde 20/09/2026: todo grupo usado tem pelo menos duas opções
+        em halteres OU peso do corpo. Era três em 17/09 e dez em 10/09 — os 34
+        de peso do corpo fecharam a folga que faltava.
 
         FOLGA é o piso porque abaixo dele `aparar_volume_semanal` não tem o
         que ceder — e é ela que faz o teto por experiência valer.
@@ -475,7 +491,7 @@ class OQueFaltaParaCasaComHalteresTests(TestCase):
             tem = len([e for e in por_grupo[grupo] if e.equipment in permitidos])
             faltam += max(0, 2 - tem)
 
-        self.assertEqual(faltam, 3, "a conta da folga mudou — atualize o BACKLOG.md junto")
+        self.assertEqual(faltam, 0, "voltou a faltar folga — refaça a medição")
 
     def test_com_os_cinco_o_veredito_vira_SUPORTADO(self):
         """O controle positivo da régua: com os cinco cadastrados (três
@@ -486,23 +502,33 @@ class OQueFaltaParaCasaComHalteresTests(TestCase):
 
         self.assertEqual(v.status, "SUPORTADO")
 
-    def test_o_contrato_de_midia_e_o_bloqueio_de_verdade(self):
-        """Enquanto isto valer, exercício novo precisa de mídia curada.
+    def test_o_contrato_de_midia_vale_para_quem_tem_aparelho(self):
+        """O contrato de demonstração, na sua forma de 20/09/2026 (decisão 1
+        da avaliação de UX): exercício COM APARELHO precisa de mídia curada
+        (vídeo, clipe, anatomia e foto no mapa); o PESO DO CORPO pode entrar
+        sem — "sem vídeo fica sem vídeo", a dica técnica basta e a tela cai no
+        "Sem demonstração cadastrada". Todo vídeo que EXISTIR (inclusive nos
+        de peso do corpo que já têm um) continua com o contrato inteiro.
 
-        As quatro asserções são as mesmas que as nove guardas espalhadas pela
-        suíte fazem — repetidas aqui juntas porque é a CONJUNÇÃO delas que
-        explica por que os cinco candidatos não puderam ser cadastrados.
+        As quatro asserções são a conjunção das nove guardas espalhadas pela
+        suíte — repetidas aqui para explicar, num lugar só, por que um
+        candidato COM APARELHO não pode ser cadastrado sem mídia (e por que o
+        de peso do corpo pode).
         """
         ativos = list(Exercise.objects.filter(is_active=True))
+        com_aparelho = [e for e in ativos if e.equipment != "bodyweight"]
+        com_video = [e for e in ativos if e.video_url]
         mapa = json.loads(
             (Path(settings.BASE_DIR) / "workouts" / "data" / "media_map.json")
             .read_text(encoding="utf-8")
         )
 
-        self.assertEqual([e.name for e in ativos if not e.video_url], [])
-        self.assertEqual([e.name for e in ativos if not e.clip_kind], [])
-        self.assertEqual([e.name for e in ativos if not e.animation_url], [])
-        self.assertEqual([e.name for e in ativos if e.name not in mapa], [])
+        # Com aparelho: vídeo obrigatório.
+        self.assertEqual([e.name for e in com_aparelho if not e.video_url], [])
+        # Todo vídeo presente carrega o contrato inteiro.
+        self.assertEqual([e.name for e in com_video if not e.clip_kind], [])
+        self.assertEqual([e.name for e in com_video if not e.animation_url], [])
+        self.assertEqual([e.name for e in com_video if e.name not in mapa], [])
 
 
 class OProdutoPrometeEquipamentoEOMotorObedeceTests(TestCase):

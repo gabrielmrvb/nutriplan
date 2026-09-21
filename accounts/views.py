@@ -1404,7 +1404,6 @@ def resumo_do_que_sera_apagado(user) -> list:
     o que o `_meta` do modelo declara.
     """
     from plans.models import HydrationLog, MealLog, NutritionPlan
-    from supplements.models import SupplementLog
     from workouts.models import ExerciseLog, TrainingPlan
 
     linhas = [
@@ -1414,7 +1413,6 @@ def resumo_do_que_sera_apagado(user) -> list:
         ("Pesagens", WeightEntry.objects.filter(user=user).count()),
         ("Fichas de treino", TrainingPlan.objects.filter(user=user).count()),
         ("Séries registradas", ExerciseLog.objects.filter(user=user).count()),
-        ("Suplementos marcados", SupplementLog.objects.filter(user=user).count()),
     ]
     return [(nome, total) for nome, total in linhas if total]
 

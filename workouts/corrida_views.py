@@ -26,8 +26,14 @@ from django.views.generic import ListView
 from accounts.views import OnboardingRequiredMixin
 
 from . import doutrina_corrida
+from .importar_corrida import ArquivoDeCorridaInvalido, corrida_de_arquivo
 from .models import Corrida, PlanoDeCorrida
 from .templatetags.corrida import relogio as _relogio
+
+#: 5 MB. Um GPX de duas horas a uma leitura por segundo tem ~7.200 pontos e
+#: fica bem abaixo disso; o teto existe para recusar upload absurdo antes de o
+#: parser tocar no arquivo — não para julgar corrida longa.
+TAMANHO_MAXIMO_ARQUIVO = 5 * 1024 * 1024
 
 #: Uma corrida de doze horas é erro de quem esqueceu de encerrar, não um
 #: ultramaratonista — e mesmo que fosse, o registro dela não é confiável numa
@@ -257,6 +263,96 @@ class CorridaNovaView(OnboardingRequiredMixin, View):
                 return render(request, self.template_name, {"form": form, "op_id": op_id, "titulo": "Registrar corrida", "nav": "running"}, status=200)
         messages.success(request, "Corrida registrada.")
         return redirect("workouts:corridas")
+
+
+class ImportarCorridaView(OnboardingRequiredMixin, View):
+    """Importa uma corrida de um arquivo GPX ou TCX.
+
+    O registro à mão continua sendo o caminho; esta é a segunda porta, para
+    quem já corre com relógio ou outro app e exporta o percurso — traz o número
+    pronto em vez de digitar. A view só ORQUESTRA: o parsing é puro
+    (`importar_corrida`), os tetos são os MESMOS do GPS (as constantes deste
+    módulo), e a corrida entra com `origem="arquivo"`, que não se edita pelo
+    mesmo motivo do GPS. O traçado não é guardado — ver a docstring de
+    `importar_corrida`. A Strava API fica de fora (precisa de app registrado e
+    credencial que este ambiente não tem): a investigação está em
+    `docs/running-analise.md`.
+    """
+
+    template_name = "workouts/corrida_importar.html"
+
+    def get(self, request):
+        return render(request, self.template_name, {"nav": "running"})
+
+    def post(self, request):
+        arquivo = request.FILES.get("arquivo")
+        if arquivo is None:
+            return self._erro(request, "Escolha um arquivo .gpx ou .tcx para importar.")
+        # Teto de tamanho ANTES de ler: um upload absurdo não deve virar 5 MB
+        # de string na memória só para ser recusado depois.
+        if arquivo.size > TAMANHO_MAXIMO_ARQUIVO:
+            return self._erro(request, "Arquivo grande demais — o limite é 5 MB.")
+        try:
+            # `utf-8-sig` tira o BOM que alguns aparelhos gravam no começo.
+            conteudo = arquivo.read().decode("utf-8-sig")
+        except UnicodeDecodeError:
+            return self._erro(request, "Não consegui ler o arquivo como texto — ele não parece ser GPX/TCX.")
+
+        try:
+            dados = corrida_de_arquivo(conteudo, arquivo.name)
+        except ArquivoDeCorridaInvalido as erro:
+            return self._erro(request, str(erro))
+
+        problema = self._conferir_negocio(dados)
+        if problema:
+            return self._erro(request, problema)
+
+        try:
+            with transaction.atomic():
+                Corrida.objects.create(
+                    user=request.user,
+                    op_id=dados["op_id"],
+                    comecou_em=dados["comecou_em"],
+                    terminou_em=dados["terminou_em"],
+                    distancia_m=dados["distancia_m"],
+                    duracao_s=dados["duracao_s"],
+                    parciais=dados["parciais"],
+                    origem=Corrida.Origem.ARQUIVO,
+                )
+        except IntegrityError:
+            # Reimportação do MESMO arquivo: o `op_id` é a impressão do
+            # conteúdo, então o `UniqueConstraint(user, op_id)` recusa a
+            # segunda cópia. Não é erro — a corrida já está lá; a pessoa só
+            # arrastou o arquivo de novo. Dizer isso é melhor que "sucesso"
+            # mudo (parece que gravou de novo) ou 500.
+            messages.info(request, "Essa corrida já tinha sido importada.")
+            return redirect("workouts:corridas")
+
+        messages.success(request, "Corrida importada.")
+        return redirect("workouts:corridas")
+
+    def _erro(self, request, mensagem):
+        return render(request, self.template_name, {"nav": "running", "erro": mensagem}, status=200)
+
+    @staticmethod
+    def _conferir_negocio(dados):
+        """Os MESMOS tetos do GPS e do registro à mão — o arquivo não escapa
+        deles. Uma conta de 0 m (aparelho parado) ou de velocidade impossível
+        é recusada com a frase certa, em vez de virar linha morta no
+        histórico. É a régua de `SalvarCorridaView._conferir` aplicada ao que
+        o parser calculou."""
+        distancia, duracao = dados["distancia_m"], dados["duracao_s"]
+        if distancia < DISTANCIA_MINIMA_M:
+            return "O arquivo não tem distância suficiente para virar corrida — o aparelho pode ter ficado parado."
+        if distancia > DISTANCIA_MAXIMA_M:
+            return "Distância acima do que o app registra."
+        if duracao <= 0:
+            return "O arquivo não tem tempo suficiente para virar corrida."
+        if duracao > DURACAO_MAXIMA_S:
+            return "Duração acima do que o app registra."
+        if distancia / duracao > VELOCIDADE_MAXIMA_MS:
+            return "A velocidade do arquivo é impossível para uma corrida — confira se é o arquivo certo."
+        return None
 
 
 class CorridaEditarView(OnboardingRequiredMixin, View):

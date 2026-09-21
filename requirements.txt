@@ -1,4 +1,8 @@
 Django>=5.2,<6.0
+# Argon2id para a senha: o PBKDF2 de 1 000 000 iterações (padrão do Django
+# 5.2) custava 3 s por login na CPU do Render free — medido em produção na
+# auditoria de 20/09/2026. Ver `config/hashers.py`.
+argon2-cffi>=23.1,<26
 psycopg[binary]>=3.2,<4.0
 django-environ>=0.12,<1.0
 

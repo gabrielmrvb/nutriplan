@@ -24,7 +24,7 @@ import sys
 SEMPRE = ("config", "gestao")
 
 #: Apps Django com testes, na ordem em que aparecem em `INSTALLED_APPS`.
-APPS = ("accounts", "achievements", "catalog", "demo", "gestao", "plans", "push", "supplements", "workouts")
+APPS = ("accounts", "achievements", "catalog", "demo", "gestao", "plans", "push", "workouts")
 
 #: Caminhos fora dos apps que têm dono de teste conhecido.
 FORA_DOS_APPS = {
