@@ -494,14 +494,15 @@ class OCatalogoPorEquipamentoTests(TestCase):
 
         self.assertEqual(faltam, set())
 
-    def test_peso_corporal_ainda_deixa_grupos_sem_exercicio(self):
-        """Medido em 17/09/2026: sem aparelho nenhum, quadríceps, posterior,
-        ombro, bíceps e panturrilha ficam sem exercício ativo. É o que o
-        `BACKLOG.md` lista para o catálogo; o motor entrega o que há."""
-        faltam = self._cobertura([Equipment.BODYWEIGHT])
-
-        self.assertTrue(faltam, "o catálogo passou a cobrir peso corporal — atualize o BACKLOG e este teste")
-        self.assertEqual(faltam, {"quads", "hamstrings", "shoulders", "biceps", "calves"})
+    def test_peso_corporal_agora_cobre_todos_os_grupos_dos_modelos(self):
+        """Fechou em 20/09/2026 (decisão 1 da avaliação de UX): com os 34
+        exercícios de peso do corpo, todo grupo que os modelos usam tem pelo
+        menos um exercício sem aparelho. Antes (17/09) faltavam quadríceps,
+        posterior, ombro, bíceps e panturrilha — a lista que o `BACKLOG.md`
+        pedia. O que ainda é limite físico (bíceps, antebraço, trapézio com
+        uma opção só) é FOLGA, não cobertura, e vive em
+        `test_capacidade_de_ambiente`."""
+        self.assertEqual(self._cobertura([Equipment.BODYWEIGHT]), set())
 
     def test_a_academia_completa_cobre_tudo(self):
         """Controle positivo: sem ele os dois testes acima passariam mesmo com

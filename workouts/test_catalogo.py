@@ -332,6 +332,14 @@ class CatalogoDimensionadoTests(TestCase):
     #: barra, para o perfil de equipamento (17/09, mesma tarde).
     NOVOS = 33
 
+    #: 34 de peso do corpo (decisão 1 da avaliação de UX, 20/09/2026): cobrem
+    #: os grupos que faltavam (quadríceps, posterior, glúteo, panturrilha,
+    #: ombro, costas, bíceps) e adensam peito/tríceps/core, para a ficha desse
+    #: perfil ter volume comparável. Entraram SEM mídia obrigatória — só nome,
+    #: músculos, dica e progressão —, então NÃO têm chave `curadoria` e não
+    #: entram na conta de `NOVOS` acima.
+    PESO_DO_CORPO = 34
+
     @classmethod
     def setUpTestData(cls):
         call_command("seed_workouts", verbosity=0)
@@ -368,12 +376,16 @@ class CatalogoDimensionadoTests(TestCase):
                 self.assertIn("não assistido", linha["curadoria"]["video_por"])
                 self.assertTrue(exercicio.tem_anatomia)
 
-    def test_os_ativos_sao_sessenta_e_oito(self):
-        """35 de sempre + os 33 de 17/09/2026; a aposentada continua inativa."""
+    def test_a_contagem_de_ativos(self):
+        """35 de sempre + 33 de 17/09/2026 + 34 de peso do corpo de
+        20/09/2026; a aposentada continua inativa."""
         from workouts.models import Exercise
 
-        self.assertEqual(Exercise.objects.filter(is_active=True).count(), 35 + self.NOVOS)
-        self.assertEqual(Exercise.objects.count(), 36 + self.NOVOS)
+        self.assertEqual(
+            Exercise.objects.filter(is_active=True).count(),
+            35 + self.NOVOS + self.PESO_DO_CORPO,
+        )
+        self.assertEqual(Exercise.objects.count(), 36 + self.NOVOS + self.PESO_DO_CORPO)
         self.assertFalse(Exercise.objects.get(name="Remada curvada com barra").is_active)
 
     def test_o_veto_desativa_nos_dois_lugares_e_e_reversivel(self):

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}NutriPlan — dieta e treino num app só{% endblock %}
+{% block container_class %}auth{% endblock %}
+
+{% block content %}
+  {% comment %}
+    A LANDING DA RAIZ ANÔNIMA (decisão 2 da avaliação de UX, 20/09/2026).
+
+    Quem chega sem conta lê primeiro o que o app é (uma frase), vê três provas
+    do produto e escolhe uma saída: a demonstração pública (o produto de
+    verdade, sempre atual), criar conta, ou — discreto — entrar. O login saiu
+    da raiz: era a primeira tela que um visitante via, uma senha para um app
+    que ele ainda não sabia se queria.
+
+    As três provas são CAPTURAS REAIS da demonstração em produção
+    (`static/img/landing/`). Screenshot envelhece quando a tela muda — o
+    mesmo risco que o demo evita por NÃO ser uma cópia —, então a prova que
+    não envelhece é o próprio demo, e é para ele que os dois CTAs mandam. As
+    capturas são o aperitivo; o demo é a prova.
+  {% endcomment %}
+  <div class="page-head landing__hero">
+    <span class="pill pill--brand">Dieta e treino</span>
+    <h1>Pare de adivinhar o que comer e como treinar</h1>
+    <p class="lead landing__proposta">
+      Sua dieta e seu treino, calculados para o seu corpo e a sua rotina — num app só.
+    </p>
+    <div class="stack">
+      <a class="btn btn--primary btn--block" href="/demo/">Ver a demonstração</a>
+      <a class="btn btn--ghost btn--block" href="{% url 'accounts:signup' %}">Criar meu plano</a>
+    </div>
+    <p class="hint center">
+      Já tem conta? <a class="btn-link" href="{% url 'accounts:login' %}">Entrar</a>
+    </p>
+  </div>
+
+  {% comment %}
+    Cada prova é `card landing__prova` — nessa ORDEM, com `landing__prova`
+    por último, porque o teste conta `landing__prova"` (a aspa logo depois) e
+    `landing__prova card"` não casaria. A imagem é constrangida a 100% da
+    largura do cartão (`landing__prova__img`), senão a captura estoura para os
+    lados — e "nada rola na horizontal".
+  {% endcomment %}
+  <figure class="card landing__prova">
+    <img class="landing__prova__img" src="{% static 'img/landing/prova-dia.png' %}"
+         alt="Tela do dia: refeições, calorias, água e o treino de hoje numa lista só." width="390" height="844" loading="lazy">
+    <figcaption>
+      <strong>O dia inteiro numa tela.</strong>
+      Refeições, calorias, água e o treino de hoje — o que fazer agora fica no topo.
+    </figcaption>
+  </figure>
+
+  <figure class="card landing__prova">
+    <img class="landing__prova__img" src="{% static 'img/landing/prova-treino.png' %}"
+         alt="Ficha de treino: exercícios do dia com séries, repetições e o principal marcado." width="390" height="844" loading="lazy">
+    <figcaption>
+      <strong>A ficha montada para você.</strong>
+      Exercícios, séries e cargas calculados pelos seus dias e pelo seu equipamento.
+    </figcaption>
+  </figure>
+
+  <figure class="card landing__prova">
+    <img class="landing__prova__img" src="{% static 'img/landing/prova-progresso.png' %}"
+         alt="Progresso: peso ao longo das semanas e a evolução das cargas do treino." width="390" height="844" loading="lazy">
+    <figcaption>
+      <strong>Seu progresso, medido.</strong>
+      Peso, cargas e a sequência de dias em dia — o que mudou fica à vista.
+    </figcaption>
+  </figure>
+
+  <div class="card center">
+    <h2>Veja funcionando antes de criar conta</h2>
+    <p class="lead">A demonstração é o app de verdade, sobre um usuário fictício. Sem cadastro.</p>
+    <a class="btn btn--primary btn--block" href="/demo/">Abrir a demonstração</a>
+  </div>
+{% endblock %}
