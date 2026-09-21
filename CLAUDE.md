@@ -2307,6 +2307,122 @@ deixaria de atrasar; o Neon pago tira o teto de CU-h e a pausa de
 `push/tarefas.py` viraria só economia. Nenhuma dessas trocas exige código
 novo além de apagar o que existe para contornar o gratuito.
 
+## Runbook de incidente
+
+Quatro cenários, cada um com o comando exato em `scripts/incidente.py`, e
+cada verbo foi **ensaiado no staging em 21/09/2026** antes de esta seção
+afirmar que funciona (`config/test_runbook.py` prende o script, o texto e a
+correspondência entre os dois). Três regras valem para todo verbo: quem LÊ
+cai em produção por padrão e quem ESCREVE exige `--staging` ou `--producao`
+por extenso; valor de segredo nunca passa por argumento nem por stdout
+(entra por arquivo ou é gerado, e o novo fica em
+`~/.nutriplan-secrets/rotacao/`); e **`PUT` de variável pela API do Render
+NÃO redeploya** — MEDIDO: o token novo respondia 403 até o deploy —, então o
+script pede o redeploy em seguida, do commit LIVE em produção (sem
+`commitId` o Render subiria a ponta de `main`: uma promoção escondida dentro
+de uma rotação) e da ponta de `main` no staging.
+
+Primeiro, sempre:
+
+```bash
+.venv/Scripts/python.exe scripts/incidente.py diagnostico            # produção
+.venv/Scripts/python.exe scripts/incidente.py diagnostico --staging
+```
+
+Ele diz, nesta ordem, o que está de pé: `web` (`/saude/vivo/`, sem banco),
+`banco` (`/saude/`), o último deploy do Render e a idade do último run de
+cada fluxo do Actions. É a ordem em que se descobre onde dói.
+
+**Banco caiu.** Sintoma: `/saude/vivo/` 200 e `/saude/` 503 ("healthcheck
+sem banco" no log) — e o UptimeRobot NÃO avisa, porque bate no `vivo`. Na
+ordem: (1) `https://neonstatus.com` (AWS us-west-2): incidente deles, o app
+volta sozinho; (2) Neon → projeto → Branches → o compute da branch:
+`suspended` que não acorda → *Restart*; (3) dado corrompido ou apagado há
+menos de 6 h: Neon → branch → *Backup & Restore* → *Restore from history*
+→ instante → *Restore*. É **no lugar** e no MESMO endpoint: a branch atual
+vira `<nome>_old_<instante>` (o desfazer) e a restaurada assume a URL —
+ENSAIADO no staging: 0,83 s, e o app continuou respondendo `/saude/` sem
+redeploy nenhum; (4) mais velho que 6 h, ou outra branch/projeto: Neon →
+*New Branch* a partir de um instante, ou `scripts/restaurar.sh` do backup
+próprio num Postgres local e `pg_dump | pg_restore` para a branch nova
+(`docs/infra-recuperacao.md`) — a URL nova vai para um ARQUIVO fora do
+repositório e:
+
+```bash
+.venv/Scripts/python.exe scripts/incidente.py banco --trocar <arquivo-com-a-url> --producao
+```
+
+ENSAIADO no staging com a branch `staging-restaurada` (criada da `staging`
+com dados): `PUT` + redeploy em 1 min 30, `/saude/` ok, e `pg_stat_activity`
+mostrou a conexão do app na branch nova e nenhuma na antiga; a volta é o
+mesmo comando com a URL de sempre. O Postgres do Render que era o rollback
+some por volta de 23/09/2026; depois disso o caminho (4) é o Neon.
+
+**Deploy quebrou.** `deploy` lista os últimos deploys com status e commit.
+`build_failed`/`update_failed`: o deploy anterior continua no ar, nada a
+desfazer — conserte em `main`, o staging prova, promova. Subiu e quebrou
+(`live` com a tela errando):
+
+```bash
+.venv/Scripts/python.exe scripts/incidente.py deploy --voltar <sha-do-último-bom> --producao
+```
+
+Sem a prova do staging (ele está à frente), só para SHA que está em
+`origin/main`, e SEM build quando o Render ainda tem a imagem daquele
+deploy: `POST /services/<id>/rollback {deployId}` — MEDIDO no free: 201,
+`trigger: rollback`, direto a `update_in_progress`. O rollback **não
+devolve variável de ambiente**: ele sobe a imagem antiga com o ambiente de
+AGORA (MEDIDO: um rollback logo depois de trocar `DATABASE_URL` subiu com a
+URL nova). ENSAIADO no staging: `cb75ee3` ← `7cbaa44` → `7cbaa44`, ~1 min
+30 cada, `/saude/` dizendo o commit.
+
+**Segredo vazou.** Um verbo, e a tabela `ONDE_MAIS` do script diz onde mais
+cada segredo mora:
+
+```bash
+.venv/Scripts/python.exe scripts/incidente.py rotacionar NUTRIPLAN_TAREFAS_TOKEN --producao   # gera, grava no Render, regrava o segredo do Actions
+.venv/Scripts/python.exe scripts/incidente.py rotacionar DJANGO_SECRET_KEY --producao         # a antiga vai para DJANGO_SECRET_KEY_FALLBACKS
+.venv/Scripts/python.exe scripts/incidente.py rotacionar --encerrar DJANGO_SECRET_KEY --producao   # 14 dias depois: a antiga deixa de valer
+.venv/Scripts/python.exe scripts/incidente.py rotacionar EMAIL_HOST_PASSWORD --producao --de-arquivo <arquivo>   # o que vem de fora (Brevo, Google, VAPID)
+```
+
+Os três que o app gera (`DJANGO_SECRET_KEY`, `NUTRIPLAN_TAREFAS_TOKEN`,
+`NUTRIPLAN_DISPARO_TOKEN`) nascem no script, 64 caracteres. A chave do
+Django troca COM rede de segurança: a antiga entra em
+`DJANGO_SECRET_KEY_FALLBACKS` ANTES da nova entrar (o Django aceita o que a
+antiga assinou — sessão, CSRF, token de redefinição, `state` do OAuth — e
+assina o novo com a nova; há teste), e a janela é a idade da sessão, 14
+dias, ou 3 h se aceitar deslogar todo mundo. `NUTRIPLAN_DISPARO_TOKEN` novo
+exige trocar a URL do monitor no UptimeRobot à mão. Dois não passam pelo
+verbo: `DATABASE_URL` (Neon → Roles → reset password → `banco --trocar`) e
+`RENDER_API_KEY` (Render → Account Settings → API Keys → o arquivo
+`~/.nutriplan-secrets/render_api_key` e `scripts/github.py segredo
+RENDER_API_KEY <arquivo>`). O token do Git Credential Manager se rotaciona
+no GitHub (Settings → Developer settings) e o GCM pede de novo no próximo
+push. ENSAIADO no staging: token das tarefas — o antigo 403, o novo 200
+depois do redeploy; `DJANGO_SECRET_KEY` com fallback — build passou no
+`check --deploy`, `/saude/` ok; `--encerrar` — `DELETE` da variável e
+redeploy.
+
+**Actions fora.** `actions` diz a idade do último run de cada fluxo e o que
+`githubstatus.com` diz do componente Actions. Actions fora **não derruba
+produção**: ela só muda por promoção, e promover e voltar rodam da máquina.
+O que para, e o que fazer: o gate dos PRs não roda → `main` não recebe
+merge — espere; a proteção de `main` não se desliga para passar hotfix, e
+a resposta a produção quebrada é `deploy --voltar`; lembretes — quem
+dispara é o UptimeRobot (o `schedule` do Actions é só o fallback), e uma
+rodada agora, da máquina, é:
+
+```bash
+.venv/Scripts/python.exe scripts/incidente.py actions
+.venv/Scripts/python.exe scripts/incidente.py lembretes            # POST /tarefas/lembretes/ com o token da máquina
+```
+
+A fila local (`scripts/github.py enfileirar`) fica esperando o check e
+solta a posse sozinha em 90 min; `schedule` parado por 60 dias sem commit,
+um commit qualquer religa. ENSAIADO: `lembretes --staging` → 200 com o JSON
+da rodada.
+
 ## Backup e restauração
 
 Procedimento completo, incluindo o que fazer se produção desaparecer, em
