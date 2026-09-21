@@ -2085,16 +2085,17 @@ consegue conferir se ele rodou. Desde então:
   **`@tag("lento")` é só para teste pesado que NÃO é o único guarda de algo
   crítico** (concorrência, dourado, idempotência, segurança ficam no rápido
   mesmo quando custam) — cada um movido está justificado no relatório;
-- **NÃO HÁ GATE NO SERVIDOR: o repositório é PRIVADO** e a API do GitHub
-  devolve **403 "Upgrade to GitHub Pro or make this repository public"**
-  para branch protection E para rulesets (conferido em 18/09/2026 — a
-  afirmação antiga de "branch protection pela API, strict, enforce_admins"
-  estava errada, e o "repositório público, minutos ilimitados" idem). O
-  único gate é COOPERATIVO: `scripts/github.py enfileirar`/`esperar` esperam
-  o check `CHECK` (= "suíte rápida") ficar verde antes de mergear pela API.
-  Ninguém deve chamar `merge` à mão. E porque é privado, **minuto de Actions
-  é metered** (~2000/mês no free): PR de 32 min era espera E custo — mais uma
-  razão para o gate rápido, e para a completa não rodar em todo PR;
+- **O GATE ESTÁ NO SERVIDOR DESDE 21/09/2026: o repositório virou PÚBLICO e
+  `main` está protegida** — check "suíte rápida" obrigatório, `strict`,
+  `enforce_admins`, sem force-push (conferido por `scripts/github.py
+  protecao`, que imprime exatamente isso). Entre 18 e 21/09 o repositório era
+  privado, a API devolvia 403 para branch protection e rulesets, e o único
+  gate era o COOPERATIVO — `scripts/github.py enfileirar`/`esperar` esperando
+  o check `CHECK` (= "suíte rápida") antes de mergear pela API. A fila local
+  continua sendo o caminho (ela também prova o staging e promove), e ninguém
+  chama `merge` à mão; a diferença é que hoje o servidor recusa o que ela
+  recusaria. Público também quer dizer **minuto de Actions ilimitado** — o
+  gate rápido continua valendo por tempo de espera, não por custo;
 - **A FILA DE MERGE DO GITHUB NÃO EXISTE EM REPOSITÓRIO DE CONTA PESSOAL
   (17/09/2026)** — a API devolve 422/403. A resposta é a FILA LOCAL:
   `scripts/github.py enfileirar <n>` põe uma senha em
@@ -2461,6 +2462,30 @@ histórico de treino de gente real.
 
 Um dump que ninguém restaurou é uma esperança, não um backup. Restaurar os 12 MB
 deste banco leva 0,3 s: não há desculpa para pular o drill.
+
+**E o drill é MENSAL e AUTOMÁTICO desde 21/09/2026**
+(`.github/workflows/restaurar-mensal.yml`, dia 1 às 06:00 de Brasília, e pelo
+botão a qualquer hora). Ele despeja produção com `backup.sh`, restaura no
+Postgres 18 do próprio job com `restaurar.sh` (`MANTER_BANCO=1` deixa o banco
+de pé) e confere o restaurado contra a origem com
+`scripts/conferir_restauracao.py`: toda tabela com a mesma contagem — salvo
+1 % ou 5 linhas, o que for maior, porque a origem continua viva e quem
+registra água às 6h do dia 1 não pode disparar alarme —, o mesmo conjunto de
+`django_migrations` e gente dentro. Falhou, abre (ou comenta) a issue
+"Restauração mensal falhou", além do e-mail do GitHub. Três decisões:
+
+- o dump sai pelo role **`nutriplan_leitor`** (Neon, `pg_read_all_data`, sem
+  CREATE; criado em 21/09 por `artifacts/criar_leitor.py`, senha só no
+  arquivo `~/.nutriplan-secrets/backup_database_url` e no segredo
+  `BACKUP_DATABASE_URL` do repositório) — se o segredo vazar, lê-se, não se
+  destrói. Renovar a senha é rodar o mesmo script e `scripts/github.py
+  segredo BACKUP_DATABASE_URL ~/.nutriplan-secrets/backup_database_url`;
+- o dump **nunca vira artefato** do run: o repositório é público e o arquivo
+  tem e-mail, peso e treino de gente real. Ele vive no `$RUNNER_TEMP` e
+  morre com o job; o log só tem nome de tabela e contagem;
+- o cliente é o `postgresql-client-18` do PGDG e o serviço é `postgres:18`,
+  pelo `SET transaction_timeout` de sempre. Ensaiado na máquina em 21/09 com
+  o mesmo role: 55 tabelas, 343 KB, `RESTORE OK` no cluster 18 local.
 
 Para trocar de provedor de banco, `scripts/migrar.sh` faz dump, restore e
 conferência tabela a tabela **num comando só** — o que importa aqui é o tempo
