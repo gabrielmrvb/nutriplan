@@ -191,6 +191,21 @@ TEST_RUNNER = "config.runner.RunnerUnico"
 # migration e um dos poucos caminhos realmente dolorosos no Django.
 AUTH_USER_MODEL = "accounts.User"
 
+# A senha custava 3 s no Render (auditoria de 20/09/2026): ver
+# `config/hashers.py` — Argon2 quando importa, senão PBKDF2 a 600 000 (o
+# Django 5.2 vem com 1 000 000).
+from config.hashers import argon2_disponivel  # noqa: E402
+
+PASSWORD_HASHERS = (
+    ["django.contrib.auth.hashers.Argon2PasswordHasher"] if argon2_disponivel() else []
+) + [
+    "config.hashers.PBKDF2SHA256Rapido",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
+]
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
