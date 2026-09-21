@@ -92,13 +92,6 @@ urlpatterns = [
     # coerência com o resto do bloco, e não por precedência: os prefixos não
     # colidem.
     path("gestao/", include("gestao.urls")),
-    # A API do cliente que não é navegador. Rota NOVA, ao lado do web — as
-    # views atuais continuam servindo template, e `workouts:salvar_corrida`
-    # continua existindo porque a PWA em produção posta nela.
-    #
-    # Ela não olha sessão: autentica só por `Authorization: Bearer`, e o
-    # porquê disso decidir a segurança inteira está em `api/auth.py`.
-    path("api/v1/", include("api.urls")),
     path("admin/login/", admin_entrada.entrada_do_admin),
     path("admin/", admin.site.urls),
     # O service worker precisa vir da raiz: um arquivo servido de /static/ só
@@ -126,6 +119,9 @@ urlpatterns = [
     # O agendador de fora (GitHub Actions) chama isto de 5 em 5 minutos com
     # token; ver `push.tarefas`.
     path("tarefas/lembretes/", push_views.TarefaLembretesView.as_view(), name="tarefas_lembretes"),
+    # O disparo PONTUAL (UptimeRobot, GET com token na URL); o POST acima é o
+    # fallback do `schedule`. Token redigido em `config/observabilidade.py`.
+    path("tarefas/lembretes/externo/<str:token>/", push_views.DisparoExternoView.as_view(), name="disparo_externo"),
 
     # Páginas legais. Públicas de propósito: quem está decidindo se cria conta
     # é justamente quem precisa ler o que fazemos com os dados dele, e exigir

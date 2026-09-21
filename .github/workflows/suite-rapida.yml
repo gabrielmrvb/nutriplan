@@ -1,0 +1,114 @@
+# O GATE DE MERGE: a suíte FATIADA (sem os `lento`), em < 10 min.
+#
+# A suíte inteira serial executava em ~31 min (medido: instalar ~10 s com
+# cache, o resto é o `manage.py test`), e a fila local empilhava PRs de ~32
+# min cada. O repositório é PRIVADO — minuto de Actions é metered.
+#
+# NÃO usamos `--parallel` do Django: ele roda cada processo com um clone do
+# banco, mas a suíte tem teste que assume ORDEM de PK, e no CH (PR #33,
+# Linux) UM teste caiu e o runner morreu com `cannot pickle 'traceback'`,
+# escondendo a falha. Fatiamos: `ci/shard.py i N` reparte os módulos em N
+# fatias equilibradas, cada job roda a sua SERIAL (idêntico ao verde de
+# sempre) e os jobs correm juntos. O ganho de tempo vem do paralelismo ENTRE
+# jobs, não dentro. Uma fatia nova de teste não fica órfã: `ci/shard.py`
+# descobre todo módulo versionado, e `config/test_ci.py` cobra a cobertura.
+#
+# `--exclude-tag lento` tira os testes pesados de estatística/estresse do
+# caminho de todo PR — eles rodam em `suite.yml` (pós-merge e à noite).
+#
+# O check que BARRA O MERGE é o job `gate` ("suíte rápida"): ele só fica
+# verde se TODAS as fatias ficarem. É o nome que `scripts/github.py` (CHECK)
+# espera. Sem segredo: Postgres 16 (produção), SECRET_KEY fictícia (50
+# caracteres de `accounts.E005`), `contents: read`.
+name: Suíte rápida
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rapida-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fatia:
+    name: "fatia ${{ matrix.i }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        i: [0, 1, 2, 3, 4]
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nutriplan
+          POSTGRES_PASSWORD: nutriplan
+          POSTGRES_DB: nutriplan
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nutriplan"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgres://nutriplan:nutriplan@localhost:5432/nutriplan
+      DJANGO_SECRET_KEY: "ci-somente-nao-e-segredo-0123456789abcdefghijklmnopqrstuvwxyz"
+      DJANGO_DEBUG: "true"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,testserver"
+      GOOGLE_CLIENT_ID: "ci-somente.apps.googleusercontent.com"
+      GOOGLE_CLIENT_SECRET: "ci-somente-nao-e-segredo"
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Instalar dependências
+        run: python -m pip install --upgrade pip && pip install -r requirements-dev.txt
+
+      - name: "fatia ${{ matrix.i }} de 5 (serial, sem os lentos)"
+        shell: bash
+        run: |
+          set -o pipefail
+          echo "vCPUs do runner: $(nproc)"
+          LABELS=$(python ci/shard.py ${{ matrix.i }} 5)
+          echo "módulos desta fatia:"; echo "$LABELS" | tr ' ' '\n'
+          python manage.py test $LABELS --exclude-tag lento --durations 15 \
+            --verbosity=1 --noinput 2>&1 | tee suite-rapida-${{ matrix.i }}.log
+
+      - name: Guardar o log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: suite-rapida-${{ matrix.i }}-${{ github.sha }}
+          path: suite-rapida-${{ matrix.i }}.log
+          retention-days: 14
+
+  gate:
+    name: "suíte rápida"
+    needs: [fatia]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: "verde só se todas as fatias passaram"
+        run: |
+          echo "resultado das fatias: ${{ needs.fatia.result }}"
+          [ "${{ needs.fatia.result }}" = "success" ]

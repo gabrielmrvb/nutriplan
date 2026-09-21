@@ -137,7 +137,7 @@ class ProductionBehaviourTests(TestCase):
 
         self.assertEqual(
             staticfiles_backend(debug=False),
-            "whitenoise.storage.CompressedManifestStaticFilesStorage",
+            "config.estaticos.ArmazenamentoDeEstaticos",
         )
         self.assertEqual(
             staticfiles_backend(debug=True),
@@ -440,6 +440,23 @@ class ContrastTests(TestCase):
         """O tema claro estava pior que o escuro: 3.33:1 no texto discreto."""
         self._conferir(REGIME_PAPEL, "claro")
 
+    def test_a_barra_da_semana_contrasta_com_a_trilha(self):
+        """A barra do Progresso é `--folha` sobre a TRILHA, que é `--fio` — uma
+        tinta translúcida pousada na superfície do cartão. A auditoria mede
+        gráfico × superfície e passava (3,29 sobre `--surface-3`); MEDIDO na
+        tela real em 18/09/2026, o Papel dava 2,97:1 sobre a trilha composta
+        (rgb 200,205,197). O par que o olho vê é este, e a régua é 3:1."""
+        for escopo, rotulo in REGIMES:
+            tokens = _tokens(self.css, escopo)
+            prefixo = "--ferro-" if rotulo == "escuro" else "--papel-"
+            fio = re.search(r"%sfio:\s*rgba\((\d+),\s*(\d+),\s*(\d+),\s*(\.?\d*\.?\d+)\)" % prefixo, self.css)
+            self.assertIsNotNone(fio, "o fio é rgba() sobre a superfície")
+            tinta = "#%02x%02x%02x" % tuple(int(fio.group(i)) for i in (1, 2, 3))
+            trilha = _sobre(tinta, float(fio.group(4)), tokens["--surface"])
+            with self.subTest(tema=rotulo, trilha=trilha):
+                razao = _contraste(tokens["--folha"], trilha)
+                self.assertGreaterEqual(razao, 3.0, f"--folha sobre a trilha ({trilha}) dá {razao:.2f}:1")
+
 
 class TouchTargetTests(TestCase):
     """44x44 é o mínimo em que o dedo acerta.
@@ -474,10 +491,11 @@ class TouchTargetTests(TestCase):
         (".btn--quiet {", "min-height: 2.75rem"),
         (".app-bar__quiet {", "min-height: 2.75rem"),
         (".card__head a {", "min-height: 2.75rem"),
-        # O gêmeo do de cima, num `<summary>`. "Editar" de "Dados do cálculo"
-        # media 40x25: `.card__head a` cobre os "Editar" do perfil, e este não
-        # é `.card__head`, então não tinha regra nenhuma.
-        (".explicacao__head a {", "min-height: 2.75rem"),
+        # `.explicacao__head a` SAIU DA RÉGUA em 20/09/2026 porque saiu do
+        # produto: o "Editar" de "Dados do cálculo" morava dentro do
+        # `<summary>` (axe `nested-interactive`) e virou um `.btn--quiet`
+        # depois dos dados, que já está medido acima. Medir alvo de link que
+        # ninguém renderiza é teste ornamental.
         (".shopping__check {", "min-height: 2.75rem"),
         # O registro único, no lugar das quatro linhas de série que saíram.
         # `.registro__salvar` e `.registro__timer` SAÍRAM DA RÉGUA porque
@@ -1264,22 +1282,23 @@ class DesignSystemTests(TestCase):
         botão quieto e a trilha dos anéis; a régua ficou em ≥ 1,2:1
         (`config/test_superficie_escura.py`).
 
-        CORTE (16/09/2026): a identidade é a da direção escolhida em
-        `DIRECAO-ESCOLHIDA.md` — papel escuro #10120e, lima #c7f24a, osso
-        #f6f3ea como texto. A direção dava `--surface-2` #22261e e
-        `--surface-3` #2b3025, 1,11 e 1,14 sobre a `--surface` #1a1d17; a
-        régua U28 pede 1,2, então a segunda é #292d25 (1,22) e a terceira
-        #33382d (1,17 acima dela), com `--terra`/`--brasa` ainda AA como
-        texto sobre a terceira (4,59) e o mudo #b3ae9c a 5,42.
+        CORTE (16/09/2026) durou um dia: papel escuro #10120e, lima #c7f24a.
+
+        NERVURA (17/09/2026, veto do dono em `DIRECAO-ESCOLHIDA.md`): a
+        academia à noite — chão #0b140f, `--surface` #121e17, verde-neon
+        #43df7a, tinta #f2f6f2, mudo #a9bbae. A direção não tem terceiro
+        degrau de superfície: `--surface-2` #202f25 e `--surface-3` #283c30
+        vêm da régua U28 (1,22 e 1,19), medidos em
+        `artifacts/paleta_nervura.py`.
         """
-        self.assertEqual(self.escuro["--bg"], "#10120e")
-        self.assertEqual(self.escuro["--surface"], "#1a1d17")
-        self.assertEqual(self.escuro["--surface-2"], "#292d25")
-        self.assertEqual(self.escuro["--surface-3"], "#33382d")
-        self.assertEqual(self.escuro["--surface-focus"], "#232a12")
-        self.assertEqual(self.escuro["--brand"], "#c7f24a")
-        self.assertEqual(self.escuro["--text"], "#f6f3ea")
-        self.assertEqual(self.escuro["--text-mute"], "#b3ae9c")
+        self.assertEqual(self.escuro["--bg"], "#0b140f")
+        self.assertEqual(self.escuro["--surface"], "#121e17")
+        self.assertEqual(self.escuro["--surface-2"], "#202f25")
+        self.assertEqual(self.escuro["--surface-3"], "#283c30")
+        self.assertEqual(self.escuro["--surface-focus"], "#123120")
+        self.assertEqual(self.escuro["--brand"], "#43df7a")
+        self.assertEqual(self.escuro["--text"], "#f2f6f2")
+        self.assertEqual(self.escuro["--text-mute"], "#a9bbae")
 
     def test_the_border_is_translucent_so_it_reads_on_every_surface(self):
         """`--fio` deixou de ser hex, e a mudança é de comportamento.
@@ -1298,37 +1317,36 @@ class DesignSystemTests(TestCase):
         self.assertIn("--ferro-fio: rgba(", self.css)
         self.assertIn("--papel-fio: rgba(", self.css)
 
-    def test_the_corners_are_the_leaf_of_the_brand(self):
-        """A quina é a folha (CORTE, 16/09/2026): três tokens de QUATRO valores
-        — ponta em cima à esquerda e embaixo à direita, curva nas outras
-        duas — mais `--pill`, que fica só para ponto, barra e selo.
+    def test_the_corners_are_straight(self):
+        """A quina é reta (NERVURA, 17/09/2026): os três degraus — prato /
+        cartão-botão-campo / chip-célula — são SLOTS com o mesmo valor, zero,
+        e `--pill` não existe mais (barra, trilha, ponto e selo são
+        quadrados também).
 
-        Este teste já foi uma FAIXA (16 a 24 px, V3), depois a escala
-        24/16/12/8 da direção C (D12). A direção escolhida substituiu a
-        escala pelo recorte, e o DESIGN.md é o contrato: doc e CSS dizem os
-        mesmos quatro números. O que continua impedido é um quinto degrau
-        nascer de um `border-radius: 8px` escrito à mão (o teste abaixo) ou
-        de uma escala `--radius-*` voltando ao lado do recorte."""
-        esperado = {"--corte-g": "0 40px 0 40px", "--corte": "0 20px 0 20px", "--corte-p": "0 12px 0 12px", "--pill": "999px"}
-        for token, valor in esperado.items():
+        Este teste já foi uma FAIXA (16 a 24 px, V3), a escala 24/16/12/8
+        da direção C (D12) e o recorte da folha da CORTE (`0 20px 0 20px`).
+        O DESIGN.md é o contrato: doc e CSS dizem o mesmo. O que continua
+        impedido é um degrau nascer de um `border-radius: 8px` escrito à
+        mão (o teste abaixo) ou de uma escala `--radius-*`/`--corte-*`
+        voltando ao lado da quina reta."""
+        for token in ("--quina-g", "--quina", "--quina-p"):
             achado = re.search(rf"^\s*{token}:\s*([^;]+);", self.css, re.M)
             with self.subTest(token=token):
                 self.assertIsNotNone(achado, f"{token} sumiu do :root")
-                self.assertEqual(achado.group(1).strip(), valor)
-        self.assertNotIn("--radius", re.sub(r"/\*.*?\*/", "", self.css, flags=re.S), "a escala antiga voltou")
-
-    def test_nothing_clickable_is_a_pill(self):
-        """`--pill` só em ponto, barra, trilha e selo: botão, chip, aba e link
-        levam o recorte. A lista é fechada e cada item é uma forma, não um
-        alvo — um `.btn` ou `.chip` que voltar à pílula cai aqui."""
+                self.assertEqual(achado.group(1).strip(), "0")
         css = re.sub(r"/\*.*?\*/", "", self.css, flags=re.S)
-        com_pill = []
-        for m in re.finditer(r"([^{}]+)\{([^{}]*)\}", css):
-            if "border-radius: var(--pill)" in m.group(2):
-                com_pill.append(m.group(1).strip().replace(chr(10), " "))
-        clicaveis = [s for s in com_pill if re.search(r"\.(btn|chip|tabbar__item|app-bar__link|segmented|field|ficha-item__fazer)(?![\w-])", s)]
-        self.assertEqual(clicaveis, [], f"clicável em pílula: {clicaveis}")
-        self.assertGreaterEqual(len(com_pill), 8, "o controle positivo: as barras e os selos continuam pílula")
+        for antigo in ("--radius", "--corte", "--pill"):
+            self.assertNotIn(antigo, css, f"a escala antiga voltou: {antigo}")
+
+    def test_nothing_is_a_pill(self):
+        """Nada é pílula, e nenhum raio é escrito fora dos três slots: todo
+        `border-radius` do arquivo é `var(--quina*)`, `50%` (o círculo do
+        anel, a única curva) ou `inherit`."""
+        css = re.sub(r"/\*.*?\*/", "", self.css, flags=re.S)
+        valores = {v.strip() for v in re.findall(r"border-radius:\s*([^;]+);", css)}
+        fora = sorted(v for v in valores if v not in ("var(--quina-g)", "var(--quina)", "var(--quina-p)", "50%", "inherit"))
+        self.assertEqual(fora, [], f"raio fora dos slots: {fora}")
+        self.assertIn("50%", valores, "o controle positivo: o anel continua círculo")
 
     def test_no_rule_hardcodes_a_radius_outside_the_scale(self):
         soltos = set(re.findall(r"border-radius:\s*(\d+)px", self.css))
@@ -1826,7 +1844,7 @@ class MarcaTests(TestCase):
             t.split("}", 1)[0] for t in self.css.split(chr(10) + ".marca {")[1:]
         )
         self.assertIn("border-radius", marca)
-        self.assertIn("var(--corte", marca)
+        self.assertIn("var(--quina", marca)
 
     # -- onde ela aparece --------------------------------------------------
 

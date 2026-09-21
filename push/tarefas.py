@@ -35,7 +35,22 @@ from .services import (
 #: Quanto tempo, no máximo, a tarefa fica sem olhar o banco.
 PAUSA_MAXIMA = timedelta(minutes=30)
 
+#: O fallback (o `schedule` do Actions, POST) se ABSTÉM quando um disparo
+#: EXTERNO pontual (o UptimeRobot, GET) cuidou dos lembretes há menos disto.
+#: Como o UptimeRobot bate a cada 5 min, 4 min deixa o fallback dormir quando
+#: o pontual está de pé, e assumir quando ele para.
+RESERVA_DO_FALLBACK = timedelta(minutes=4)
+
+#: Limite de taxa do disparo externo: dois GETs quase colados (um abuso, ou
+#: um retry do monitor) não acordam o Neon duas vezes.
+INTERVALO_MINIMO_EXTERNO = timedelta(seconds=30)
+
 _pausa_ate = None
+#: O instante do último disparo EXTERNO (pontual). É por processo (dois
+#: workers, dois valores) e some no restart, como a pausa — persistir seria
+#: uma consulta, e o pior caso de errar é uma rodada redundante, que a
+#: idempotência do `NotificationLog` torna inofensiva.
+_ultimo_externo = None
 
 
 def esquecer_pausa():
@@ -44,8 +59,39 @@ def esquecer_pausa():
     _pausa_ate = None
 
 
+def esquecer_externo():
+    """Zera a memória do último disparo externo (testes e restart)."""
+    global _ultimo_externo
+    _ultimo_externo = None
+
+
 def pausa_ate():
     return _pausa_ate
+
+
+def token_de_disparo_confere(token) -> bool:
+    """`<token>` da URL do disparo externo contra `NUTRIPLAN_DISPARO_TOKEN`.
+
+    Comparação em tempo constante; sem a variável o disparo externo não
+    existe (o chamador recebe 503, não 403). É um token SEPARADO do
+    `NUTRIPLAN_TAREFAS_TOKEN` do POST de propósito: ele viaja na URL (o
+    UptimeRobot free não manda cabeçalho) e por isso aparece no log de acesso
+    do Render — vazá-lo só deixa alguém DISPARAR lembretes já vencidos
+    (idempotente, com limite de taxa), nunca ler dado nem usar o Bearer do
+    POST.
+    """
+    esperado = getattr(settings, "NUTRIPLAN_DISPARO_TOKEN", "") or ""
+    if not esperado:
+        return False
+    return hmac.compare_digest((token or "").strip(), esperado)
+
+
+def disparo_configurado() -> bool:
+    return bool(getattr(settings, "NUTRIPLAN_DISPARO_TOKEN", "") or "")
+
+
+def ultimo_externo():
+    return _ultimo_externo
 
 
 def token_confere(cabecalho) -> bool:
@@ -67,10 +113,28 @@ def configurada() -> bool:
     return bool(getattr(settings, "NUTRIPLAN_TAREFAS_TOKEN", "") or "")
 
 
-def rodar(now=None) -> dict:
-    """Dispara o que venceu e decide até quando dormir. Devolve o resumo."""
-    global _pausa_ate
+def rodar(now=None, externo=False) -> dict:
+    """Dispara o que venceu e decide até quando dormir. Devolve o resumo.
+
+    `externo=True` é o disparo PONTUAL (UptimeRobot, no GET com token na URL);
+    `externo=False` é o FALLBACK (o `schedule` do Actions, no POST com
+    Bearer), que se ABSTÉM quando um externo cuidou dos lembretes há menos de
+    `RESERVA_DO_FALLBACK`. Assim o pontual manda, e o fallback só assume
+    quando ele para — sem trabalho redundante (que seria inofensivo, mas
+    acordaria o Neon à toa).
+    """
+    global _pausa_ate, _ultimo_externo
     now = now or timezone.localtime()
+    if externo:
+        anterior = _ultimo_externo
+        _ultimo_externo = now
+        if anterior is not None and now - anterior < INTERVALO_MINIMO_EXTERNO:
+            return {"limitada": True, "agora": now.isoformat(),
+                    "enviadas": 0, "puladas": 0, "falhas": 0}
+    elif _ultimo_externo is not None and now - _ultimo_externo < RESERVA_DO_FALLBACK:
+        return {"fallback_dispensado": True, "agora": now.isoformat(),
+                "ultimo_externo": _ultimo_externo.isoformat(),
+                "enviadas": 0, "puladas": 0, "falhas": 0}
     if _pausa_ate is not None and now < _pausa_ate:
         return {
             "pausada": True,

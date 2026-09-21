@@ -201,6 +201,45 @@ class OPainelEAFichaMostramALetraDaPosicaoTests(TestCase):
         semana = [d["session"].label if d["session"] else None for d in resposta.context["week"]]
         self.assertEqual(semana, ["A", "B", "C", "A", "B", None, None])
 
+    def test_o_painel_diz_que_o_ciclo_gira(self):
+        """Avaliação de UX (20/09/2026): a tira mostra a rotação da semana
+        corrente (os testes acima provam), MAS sem dizer que ela GIRA a pessoa a
+        lê como fixa e estranha o "próximo treino" da semana seguinte cair
+        noutra letra (tira SEG=A × próximo=C). A legenda entra quando o ciclo
+        roda."""
+        resposta = self.client.get(reverse("workouts:routine"))
+        self.assertTrue(resposta.context["ciclo_continuo"])
+        html = resposta.content.decode()
+        self.assertIn("week-strip__ciclo", html)
+        self.assertIn("ciclo gira", html)
+        # Coordenação com fix/semana-do-painel (20/09/2026): depois do último
+        # treino da semana a tira mostra a semana que VEM, então a legenda NÃO
+        # pode afirmar "semana de hoje" — fala da "semana de treino", que vale
+        # nos dois casos.
+        self.assertIn("sua semana de treino", html)
+        self.assertNotIn("semana de hoje", html)
+
+    def test_plano_preso_ao_dia_da_semana_nao_diz_que_gira(self):
+        """Plano de antes da rotação fica preso ao dia da semana — dizer "gira"
+        ali seria mentira, então a legenda não aparece."""
+        TrainingPlan.objects.filter(pk=self.plan.pk).update(inicio_do_ciclo=None)
+        resposta = self.client.get(reverse("workouts:routine"))
+        self.assertFalse(resposta.context["ciclo_continuo"])
+        self.assertNotIn("week-strip__ciclo", resposta.content.decode())
+
+    def test_a_leitura_do_exercicio_avisa_que_o_ciclo_gira(self):
+        """O "Quando" da leitura lista os dias DESTA semana; com o ciclo
+        girando, sem o aviso ele é lido como fixo, e quem chega pela ficha da
+        semana que vem estranha a letra cair noutro dia (avaliação de UX)."""
+        sessao = self.plan.sessions.first()
+        ex = sessao.exercises.first().exercise
+        resposta = self.client.get(
+            reverse("workouts:exercicio", args=[ex.pk]) + "?de=ficha&sessao=%d" % sessao.pk
+        )
+        self.assertEqual(resposta.status_code, 200)
+        self.assertTrue(resposta.context["ciclo_continuo"])
+        self.assertIn("o ciclo gira", resposta.content.decode())
+
     def test_o_proximo_treino_atravessa_a_semana_com_a_letra_certa(self):
         """Sexta da primeira semana: o próximo é segunda — e é C, não A."""
         self.relogio.stop()
@@ -211,6 +250,38 @@ class OPainelEAFichaMostramALetraDaPosicaoTests(TestCase):
         proximo = resposta.context["proximo"]
         self.assertEqual(proximo["dias"], 2)
         self.assertEqual(proximo["session"].label, "C")
+
+    def test_depois_do_ultimo_treino_da_semana_o_painel_desenha_a_semana_que_vem(self):
+        """Auditoria em produção de 20/09/2026 (domingo): o cartão "Próximo
+        treino" dizia "C · amanhã" e, logo abaixo, a faixa SEG–DOM e os cartões
+        diziam "A · Segunda-feira" — a semana que ACABOU, com a letra velha.
+        Quando todo dia de treino da semana já passou, a semana que interessa
+        é a que vem: a faixa, os cartões e a ficha ("Quando") têm de dizer o
+        mesmo que o "próximo treino"."""
+        for atraso in (5, 6):  # sábado e domingo da primeira semana
+            self.relogio.stop()
+            self.relogio = _congelar(SEGUNDA + timedelta(days=atraso))
+            self.addCleanup(self.relogio.stop)
+            resposta = self.client.get(reverse("workouts:routine"))
+            semana = [d["session"].label if d["session"] else None for d in resposta.context["week"]]
+            self.assertEqual(semana, ["C", "A", "B", "C", "A", None, None], atraso)
+            letras = {c["label"]: c for c in resposta.context["letras"]}
+            self.assertEqual(letras["C"]["dias"], ["Segunda-feira", "Quinta-feira"], atraso)
+            self.assertEqual(resposta.context["proximo"]["session"].label, "C", atraso)
+            linha_c = self.plan.sessions.filter(label="C").order_by("order").first()
+            ficha = self.client.get(reverse("workouts:ficha", args=[linha_c.pk]))
+            self.assertIn("Segunda-feira · Quinta-feira", ficha.content.decode(), atraso)
+
+    def test_na_sexta_da_primeira_semana_a_semana_ainda_e_esta(self):
+        """O último dia de treino AINDA é hoje: a semana desenhada é esta
+        (a sexta é B, e não a A da semana que vem)."""
+        self.relogio.stop()
+        self.relogio = _congelar(SEGUNDA + timedelta(days=4))  # sexta
+        self.addCleanup(self.relogio.stop)
+        resposta = self.client.get(reverse("workouts:routine"))
+        self.assertEqual(resposta.context["hoje"].label, "B")
+        semana = [d["session"].label if d["session"] else None for d in resposta.context["week"]]
+        self.assertEqual(semana, ["A", "B", "C", "A", "B", None, None])
 
     def test_a_ficha_da_letra_de_hoje_e_hoje_e_diz_os_dias_desta_semana(self):
         self._na_segunda_semana()
@@ -223,21 +294,24 @@ class OPainelEAFichaMostramALetraDaPosicaoTests(TestCase):
         resposta = self.client.get(reverse("workouts:ficha", args=[linha_a.pk]))
         self.assertFalse(resposta.context["sessao"].eh_hoje)
 
-    def test_a_execucao_abre_a_letra_de_hoje_e_a_escolha_segue_a_letra(self):
+    def test_a_execucao_abre_a_letra_de_hoje_e_a_primeira_serie_pina_a_variacao(self):
+        """Na segunda semana a segunda é C: a execução abre C, na variação
+        do ciclo (segunda ocorrência de C → opção 2), e a primeira série
+        grava a escolha na LINHA de C — não na linha de segunda."""
         self._na_segunda_semana()
+        linhas = list(self.plan.sessions.all())
+        linha_c = next(s for s in linhas if s.label == "C")
         estado = services.estado_do_treino(self.user)
         self.assertEqual(estado.sessao.label, "C")
-        linha_c = self.plan.sessions.filter(label="C").order_by("order").first()
-        # Escolher a opção 2 de hoje grava a escolha na SESSÃO-letra.
-        resposta = self.client.post(reverse("workouts:escolher", args=[linha_c.pk]), {"opcao": "2"})
-        self.assertEqual(resposta.status_code, 302)
-        escolha = EscolhaDeTreino.objects.get(user=self.user, date=SEGUNDA + timedelta(days=7))
-        self.assertEqual(escolha.session_id, linha_c.pk)
-        self.assertEqual(escolha.opcao, 2)
-        # A ficha de A não executa hoje (é dia de C).
-        linha_a = self.plan.sessions.filter(label="A").order_by("order").first()
-        resposta = self.client.post(reverse("workouts:escolher", args=[linha_a.pk]), {"opcao": "1"})
-        self.assertEqual(resposta.status_code, 404)
+        self.assertEqual(estado.opcao, services.variacao_do_dia(self.plan, SEGUNDA + timedelta(days=7), estado.sessao, linhas))
+        item = estado.itens[0]
+        self.client.post(reverse("workouts:record_set"), {
+            "exercise_id": item.exercise_id, "weight_kg": "40", "reps": "8", "op_id": "op-c",
+            "dia": (SEGUNDA + timedelta(days=7)).isoformat(),
+            "sessao": estado.sessao.pk, "opcao": estado.opcao, "versao": estado.versao,
+        })
+        escolha = EscolhaDeTreino.objects.get(user=self.user)
+        self.assertEqual((escolha.session_id, escolha.opcao), (linha_c.pk, estado.opcao))
 
     def test_a_serie_gravada_hoje_conta_na_ficha_da_letra_de_hoje(self):
         self._na_segunda_semana()

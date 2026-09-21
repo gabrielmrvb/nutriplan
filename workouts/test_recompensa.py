@@ -129,25 +129,35 @@ class OMovimentoDaRecompensaTests(SimpleTestCase):
         self.js = JS.read_text(encoding="utf-8")
 
     def test_os_tres_momentos_tem_keyframe_e_consumidor(self):
-        for nome, consumidor in (("folha-sobe", ".recompensa"), ("corte-abre", ".meal.is-recem"), ("corte-desdobra", ".agua-card.is-meta")):
-            with self.subTest(keyframe=nome):
+        """NERVURA (17/09/2026): a régua que ACENDE é o mesmo gesto nos três
+        momentos — a linha da refeição registrada, o bloco da meta batida e
+        o placar; o número cresce uma vez ao bater meta."""
+        for nome, consumidor in (("nervura-acende", ".meal.is-recem::after"), ("nervura-acende", ".agua-card.is-meta::after"),
+                                 ("numero-cresce", ".agua-card.is-meta [data-agua-total]")):
+            with self.subTest(keyframe=nome, consumidor=consumidor):
                 self.assertIn("@keyframes %s" % nome, self.css)
-                self.assertRegex(self.css, re.escape(consumidor) + r"\s*\{[^}]*animation:\s*" + re.escape(nome))
+                self.assertRegex(self.css, re.escape(consumidor) + r"[^{]*\{[^}]*animation:\s*" + re.escape(nome))
+        self.assertNotIn("@keyframes corte-abre", self.css)
+        self.assertNotIn("@keyframes corte-desdobra", self.css)
 
     def test_os_tempos_sao_tokens(self):
         raiz = self.css.split(":root {", 1)[1].split("\n}", 1)[0]
-        self.assertIn("--mov-recompensa: .45s;", raiz)
+        self.assertIn("--mov-nervura: .6s;", raiz)
         self.assertIn("--mov-cascata: .08s;", raiz)
-        self.assertIn("--corte-aberto: 20px;", raiz)
+        self.assertNotIn("--corte-aberto", raiz)
         regra = re.search(r"\.recompensa\s*\{([^}]*)\}", self.css).group(1)
-        self.assertIn("var(--mov-recompensa)", regra)
-        self.assertIn("border-radius: var(--corte-g)", regra)
+        self.assertIn("border-radius: var(--quina-g)", regra)
+        # A nervura que risca o placar é o ::before (NERVURA 3/3), e é ela
+        # que leva o tempo; o bloco em si não se move.
+        nervura = re.search(r"\.recompensa::before\s*\{([^}]*)\}", self.css).group(1)
+        self.assertRegex(nervura, r"animation:\s*nervura-risca var\(--mov-nervura\)")
+        self.assertIn("@keyframes nervura-risca", self.css)
 
     def test_menos_movimento_desliga_a_folha_o_numero_e_os_botoes(self):
         # Há mais de um bloco de menos-movimento no arquivo; o que importa é
         # que ALGUM deles desligue cada seletor.
         reduzido = "".join(self.css.split("@media (prefers-reduced-motion: reduce)")[1:])
-        for sel in (".recompensa", ".recompensa .btn", ".meal.is-recem", ".agua-card.is-meta"):
+        for sel in (".recompensa::before", ".recompensa .btn", ".meal.is-recem::after", ".agua-card.is-meta::after"):
             with self.subTest(seletor=sel):
                 self.assertIn(sel, reduzido)
 

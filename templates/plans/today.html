@@ -556,17 +556,22 @@ coluna da direita), não entre ela e o almoço.
               </div>
             {% else %}
               {% comment %}
-                REFEIÇÃO FUTURA FICA EM SEGUNDO PLANO (§7). A de agora e as
-                pendentes mostram as opções abertas porque são a ação da vez;
-                a das 20h45 às 14h30 mostra hora, nome e alvo, e guarda as
-                opções atrás de "Ver opções". Medido: cinco refeições abertas
-                eram ~2.100px de formulários para um dia em que só uma é a
-                vez. Nada saiu — mudou de plano. `<details>` porque funciona
-                sem script, entra no Tab e anuncia estado.
+                SÓ A REFEIÇÃO DA VEZ NASCE ABERTA (§7 + decisão do dono,
+                20/09/2026). A de agora mostra as opções porque é a ação da
+                vez; a das 20h45 às 14h30 mostra hora, nome e alvo, e guarda
+                as opções atrás de "Ver opções". Medido em 12/09: cinco
+                refeições abertas eram ~2.100px de formulários para um dia
+                em que só uma é a vez. Até 20/09 a VENCIDA também nascia
+                aberta, por ser "ação em aberto" — e a auditoria mediu um
+                primeiro uso às 15h com 3 757px e quatro refeições abertas
+                de quatro botões cada. Agora ela vira uma linha com o
+                convite a registrar; as opções continuam ali, atrás do toque.
+                Nada saiu — mudou de plano. `<details>` porque funciona sem
+                script, entra no Tab e anuncia estado.
               {% endcomment %}
-              {% if slot.marcador == '' %}
+              {% if slot.marcador != 'agora' %}
               <details class="meal__futuro">
-                <summary class="meal__abrir">Ver opções</summary>
+                <summary class="meal__abrir">{% if slot.marcador == 'pendente' %}Não registrada · registrar{% else %}Ver opções{% endif %}</summary>
               {% endif %}
               <div class="meal__options">
                 {% comment %}
@@ -752,7 +757,7 @@ coluna da direita), não entre ela e o almoço.
                   </div>
                 </form>
               </details>
-              {% if slot.marcador == '' %}
+              {% if slot.marcador != 'agora' %}
               </details>
               {% endif %}
             {% endif %}
@@ -1050,7 +1055,6 @@ coluna da direita), não entre ela e o almoço.
       <details class="card explicacao">
         <summary class="explicacao__head">
           <h2>Dados do cálculo</h2>
-          <a href="{% url 'accounts:profile' %}">Editar</a>
           <span class="explicacao__dica" aria-hidden="true">abrir</span>
         </summary>
         <dl class="data-list">
@@ -1078,6 +1082,13 @@ coluna da direita), não entre ela e o almoço.
           </div>
           <div><dt>Calculado em</dt><dd>{{ plan.created_at|date:"d/m/Y" }}</dd></div>
         </dl>
+        {% comment %}
+          "Editar" morava DENTRO do `<summary>` até 20/09/2026 — um link dentro
+          do controle que abre a seção: dois alvos num toque, e o teclado não
+          chega ao segundo (axe `nested-interactive`, serious). Aqui, depois
+          dos dados, ele é a saída natural de quem acabou de lê-los.
+        {% endcomment %}
+        <a class="btn btn--quiet btn--block" href="{% url 'accounts:profile' %}">Editar meus dados</a>
 
         <form method="post" action="{% url 'plans:recalculate' %}">
           {% csrf_token %}

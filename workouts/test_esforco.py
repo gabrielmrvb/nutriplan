@@ -228,6 +228,14 @@ class AInstrucaoApareceNaExecucaoTests(TestCase):
             experiencia=Experiencia.INTERMEDIARIO,
             birth_date=date(hoje.year - IDADE_CAUTELOSA, hoje.month, min(hoje.day, 28)),
         )
+        # O nível mudou: a ficha remonta na visita e a escolha do dia, que
+        # apontava para a sessão antiga, deixa de valer — a execução cairia na
+        # VARIAÇÃO do ciclo (opção 2 num bloco ímpar: sábado 19/09, posição
+        # 3) e o isolador da opção 1 responderia 404. Remonta e pina a 1 de
+        # novo, como a pessoa faria ao abrir a ficha.
+        self.pessoa = type(self.pessoa).objects.get(pk=self.pessoa.pk)
+        services.sync_active_routine(self.pessoa)
+        escolher_opcao_de_hoje(self.pessoa)
         isolador = next(
             i for i in self._sessao_de_hoje().da_opcao(1)
             if not i.exercise.is_compound and i.measure == Measure.REPS

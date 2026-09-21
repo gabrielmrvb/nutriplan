@@ -327,7 +327,60 @@ agachamento com barra. A troca é em TRÊS lugares, e os três de propósito —
 servir o vídeo de outro. Depois disso, tirar `"Agachamento livre"` de
 `VIDEO_SEM_CARGA_CONHECIDO`.
 
-### ⛔ Personalização de treino por LOCAL e EQUIPAMENTO — bloqueada pelo catálogo
+### ✅ Equipamento no perfil (17/09/2026, tarde) — e o que ainda falta ao catálogo por perfil
+
+Publicado na missão "ficha única" (PR `treino/equipamento`):
+`Profile.equipamento` com quatro respostas (completa · básica · casa com
+halteres · só peso do corpo), mapa no `TREINO.md`, motor obedecendo por
+SUBSTITUIÇÃO (`services.substituir_por_equipamento`: mesmo `padrao`, mesmo
+grupo, mesma dose; sem substituto, sai), `TrainingPlan.equipamento` como
+retrato, dourado por perfil em `workouts/test_ficha_de_verdade.py`. Cinco
+exercícios de peito e tríceps sem barra entraram com mídia curada e FORA de
+todo modelo, como substitutos: supino declinado com halteres, crucifixo
+inclinado com halteres, flexão de braço com pés elevados, flexão de braço
+fechada (diamante), tríceps coice com halter. Mosaico de veto:
+`scratchpad/shots-ficha/mosaico-equipamento.html` da sessão; veto =
+`manage.py desativar_exercicio "<nome>"`.
+
+**Medido em 17/09 (intermediário, Padrão, letra do dourado e as demais):**
+
+| perfil | dourado (A) | resto da semana (5d abc2) | capacidade (folga) |
+|---|---|---|---|
+| completa | ✅ idêntica à de antes | idêntica | SUPORTADO |
+| básica | ✅ 7 ex, 25 séries, 59 min | B e C como completa (barra → polia/halteres) | SUPORTADO |
+| casa com halteres | ✅ 7 ex, 25 séries, 59 min | B e C cheias; **SUPORTADO desde 20/09/2026** (os 34 de peso do corpo deram folga a panturrilha, posterior e trapézio) | SUPORTADO |
+| só peso do corpo | ⚠️ `expectedFailure` só na letra A (5 ex/3 peito/19 séries/52 min, 2 opções — falta o crucifixo, que não existe sem carga) | **B 8 ex/23 séries/58 min; C 8 ex/25–26/58–59 (2 opções)**; volume semanal ~94% do da completa | PARCIAL |
+
+**O que falta, por perfil — candidatos na free-exercise-db (foto NÃO
+conferida ainda; entram pelo mesmo processo dos cinco: foto vista, vídeo por
+título do oEmbed, anatomia herdada ou própria, `curadoria` escrita):**
+
+- **casa com halteres** (fechar pernas em ABC e dar folga a B): agachamento
+  búlgaro com halteres (`Split_Squat_with_Dumbbells`, quads/agachamento),
+  afundo caminhando (`Bodyweight_Walking_Lunge`), agachamento com halteres
+  (`Dumbbell_Squat`), elevação pélvica unilateral (`Single_Leg_Glute_Bridge`,
+  posterior/extensão de quadril), flexão nórdica (`Natural_Glute_Ham_Raise`,
+  posterior/flexão de joelho — hoje NENHUM `flexao_de_joelho` sem máquina),
+  panturrilha sentado com halter (`Dumbbell_Seated_One-Leg_Calf_Raise`),
+  remada alta com halteres (`Standing_Dumbbell_Upright_Row`, trapézio),
+  remada invertida (`Inverted_Row`, costas/remada horizontal), pullover com
+  halter (`Bent-Arm_Dumbbell_Pullover`), desenvolvimento Arnold
+  (`Arnold_Dumbbell_Press`);
+- **só peso do corpo** — ✅ FEITO em 20/09/2026 (decisão 1 da avaliação de
+  UX): 34 exercícios de peso do corpo entraram ATIVOS, SEM mídia obrigatória
+  ("sem vídeo fica sem vídeo"), cobrindo quadríceps, posterior, glúteo (na
+  cadeia posterior), panturrilha, ombro, costas e adensando peito/tríceps/core
+  — com progressão fácil→difícil por movimento (campo `progressao`). A ficha
+  ficou comparável (ver a tabela acima). O que NÃO fecha e é limite FÍSICO,
+  não de catálogo: o crucifixo da letra A (não há abertura de peito sem carga)
+  e a folga de bíceps/antebraço/trapézio (uma opção só). O contrato de mídia
+  foi relaxado de forma principiada: só o peso do corpo pode ser ativo sem
+  vídeo; todo exercício com aparelho continua exigindo vídeo curado.
+
+O texto abaixo é o HISTÓRICO de 09–17/09 (manhã), mantido porque a medição
+de por que filtro não basta continua valendo.
+
+### (histórico) Personalização de treino por LOCAL e EQUIPAMENTO — bloqueada pelo catálogo até 17/09/2026
 Medido em 09/09/2026, durante a revisão da área Treino. A missão pedia três
 ambientes — academia completa, casa com halteres, peso corporal — e os dois
 últimos **não existem** no catálogo de hoje.
@@ -536,7 +589,12 @@ falta de dado, é decisão de produto que ninguém tomou — "não posso agachar
 precisaria de uma tabela de substituição por padrão de movimento, e escolher
 sozinho o que troca por quê é prescrição, não configuração.
 
-### ⛔ Fundação mobile da Corrida — SERVIDOR PRONTO, CLIENTE BLOQUEADO
+### ⛔ Fundação mobile da Corrida — SERVIDOR PRONTO, CLIENTE BLOQUEADO → RETIRADA EM 20/09/2026
+
+> Decisão do dono na Fase 3 da auditoria de 20/09: a API v1, o `TokenDeApp`
+> e a pasta `mobile/` saíram do repositório (PR "tirar/api-v1"). O que segue
+> é o registro de como estava.
+
 Campanha de 04/09/2026. O lado servidor da Corrida mobile está construído,
 testado e no ar; o cliente nativo **não pode ser criado nesta máquina**.
 
@@ -2365,6 +2423,30 @@ o Ferro é a base e o Papel o derivado (`:root.modo-foco`, a classe no
 série abre o placar dentro da folha-lima (`services.Placar`, `folha-sobe`,
 conta do zero, cascata de 80 ms); `corte-abre` e `corte-desdobra`. Registro
 completo na seção "Design / Onda 3" do `CLAUDE.md`.
+
+### ✅ VETO do dono: a direção principal é a NERVURA · ANDAIME — 1/3 a 3/3 (17/09/2026)
+
+O dono escolheu por gosto, sobre as capturas (`DIRECAO-ESCOLHIDA.md`; a
+pontuação de 16/09 que dava a CORTE ficou como histórico), e a NERVURA
+substituiu a CORTE em três PRs empilhados pelo CI e pela fila local, cada
+um com deploy provado por `/saude/` e QA em produção nos dois regimes no
+`/demo/` (14 telas por deploy, demo intacto): **#22 tokens e tipografia**
+(`b71250a`) — paleta da academia à noite (#0b140f / #43df7a / #e8a33d;
+Papel #f4f6f2 / #106632), U28 nas superfícies, 274 pares verdes, Big
+Shoulders Display + Archivo auto-hospedadas (70 364 B; a display SEM
+`tnum`, coluna de números em Archivo), `--quina-*: 0`, `nervura-acende`;
+**#24 componentes** (`4ec657a`) — `--traco: 2px`, primário inclinado por
+`::before` + `clip-path`, a nervura atrás do prato e acima do título, ponta
+de folha na barra, aba ativa sem preenchimento; **#25 telas** (`6206d8d`)
+— execução com dois heróis em caixa alta e a carga como sublinhado, o
+placar como nervura que risca com ponta de folha e o número de 72 px que
+conta do zero, nervura limitada onde riscava texto pequeno, as sete
+referências em `referencias/claude-design/` viram capturas da NERVURA
+implementada, semente do Claude Design com a nota e as fontes. Comparativo
+CORTE × NERVURA (27 pares, `medir.js`) fora do git em
+`scratchpad/shots-design/`. Registro completo em "Design / Onda 3" do
+`CLAUDE.md` (VETO, 2/3, 3/3). O que a CORTE deixou (abaixo) continua
+valendo, trocando Bodoni por Big Shoulders onde ela é citada.
 
 ### ⏳ O que a onda 3 deixou, com o consumidor a nascer
 

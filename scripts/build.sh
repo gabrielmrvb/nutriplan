@@ -50,3 +50,8 @@ python manage.py seed_workouts
 # porque ele MONTA um plano e uma ficha com o motor de verdade, e o motor
 # precisa do catálogo de alimento e de exercício já no banco.
 python manage.py seed_demo
+# A poda das operações sincronizadas (T2.4): a tabela cresce a cada marcação
+# offline e nunca era podada. Depois dos seeds e por último: só apaga o que
+# tem mais de `SyncedOperation.VALIDADE_DIAS` (30) — a fila reenvia item de
+# até 7 dias, e a poda nunca pode alcançar um `op_id` que ainda volta.
+python manage.py podar_operacoes

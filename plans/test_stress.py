@@ -17,7 +17,7 @@ from unittest import mock
 
 from django.core.management import call_command
 from django.db import connection
-from django.test import TestCase
+from django.test import TestCase, tag
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
@@ -97,6 +97,7 @@ class PopulatedAccountMixin:
         )
 
 
+@tag("lento")  # perf/estatística sobre um ano semeado; roda pós-merge e no cron (e no pre-push local)
 class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
     """Um teto por tela. Estourar não é lentidão — é laço com consulta dentro."""
 
@@ -149,12 +150,19 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # A consulta ao perfil que apareceu junto FOI removida, e não contou
         # para a subida: `day_summary` recebe `peso_kg` do plano que a Home já
         # tinha em mãos, então esse caminho continua custando zero.
+        #
+        # 17/09/2026 ("outras formas"): as trocas da pessoa custam UMA consulta
+        # constante em `estado_do_treino` e no painel (`aplicar_trocas`). A
+        # Home mede 43 (no teto: a ficha única tirou a recomendação por letra
+        # no mesmo dia); o painel mede 20, abaixo dos 25 pelo mesmo motivo.
+        #
         # 43 -> 44: o prefetch de `food.portions` (medida caseira, Fase 3)
         # custa UMA consulta constante a mais — ver o bloco acima sobre por que
-        # neste fixture ela não vira N. MEDIDO na onda final da Fase 3
-        # (17/09/2026), com o teto em 0 para o teste imprimir o número: 44
-        # exatas, já com a invalidação por `items_changed_at` dentro da mesma
-        # consulta de `template__is_active` em `plan_is_current` (zero a mais).
+        # neste fixture ela não vira N. As duas subidas nasceram em branches
+        # paralelas e se somam na mescla de 21/09/2026: MEDIDO 44 (o teto
+        # em 0 faz o teste imprimir o número), já com a invalidação por
+        # `items_changed_at` dentro da mesma consulta de `template__is_active`
+        # em `plan_is_current` (zero a mais).
         "plans:today": 44,
         "workouts:routine": 25,
         # 15 -> 26: o Progresso passou a mostrar o bloco de Conquistas, e ele
@@ -175,11 +183,13 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # chega aqui de carona, por `conquistas.resumo` — é a MESMA função da
         # Home, não uma segunda.
         #
-        # FICA em 27 depois da Fase 3: `weight_trend.analisar` passou a ler
-        # `user.profile.goal` para escolher entre "cortar" e "aumentar", e lia
-        # SEMPRE — a mescla media 28. A leitura virou condicional (só quando há
-        # decisão a sugerir, e aí `respondeu_ha_pouco` já carregou o perfil).
-        "plans:history": 27,
+        # 27 -> 28: o convite de nível (T2.4) é UMA consulta agregada sobre
+        # `ExerciseLog` com o nível no WHERE (junção com o perfil) — constante,
+        # para qualquer nível, e não por linha. A Fase 3 da dieta NÃO soma:
+        # `weight_trend.analisar` lê `user.profile.goal` só quando há decisão
+        # a sugerir, e aí `respondeu_ha_pouco` já carregou o perfil (a versão
+        # que lia sempre media +1). Mescla de 21/09/2026: MEDIDO 28.
+        "plans:history": 28,
         # 15 -> 19: o Perfil passou a CONFERIR se o plano gravado ainda vale.
         #
         # Ele mostrava o número velho chamando-o de "suas metas de hoje" — 2.520
@@ -222,7 +232,13 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
     #:
     #: 15 e não 10: medido em 10 no banco de desenvolvimento e mantido com
     #: folga para o app crescer, do mesmo jeito que os outros tetos.
-    TETO_DA_FICHA = 15
+    #:
+    #: 15 -> 17 (17/09/2026, "outras formas"): DUAS consultas constantes a
+    #: mais — as trocas da pessoa (`aplicar_trocas`, uma consulta para a
+    #: ficha inteira) e a contagem de alternativas por linha
+    #: (`contar_outras_formas`, uma consulta para o catálogo permitido) —,
+    #: nenhuma por exercício; medido em 16 no pior caso com o histórico cheio.
+    TETO_DA_FICHA = 17
 
     def test_a_ficha_tem_teto_proprio_e_nao_cresce_com_os_exercicios(self):
         """A tela nova é a que mais convida a um laço com consulta dentro.
@@ -311,6 +327,7 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
                 )
 
 
+@tag("lento")  # perf/estatística sobre um ano semeado; roda pós-merge e no cron (e no pre-push local)
 class MuscleVolumeRegressionTests(PopulatedAccountMixin, TestCase):
     """A regressão específica que a medição encontrou.
 
@@ -344,6 +361,7 @@ class MuscleVolumeRegressionTests(PopulatedAccountMixin, TestCase):
         self.assertEqual(len(semana), 7)
 
 
+@tag("lento")  # perf/estatística sobre um ano semeado; roda pós-merge e no cron (e no pre-push local)
 class HeavyComputationTests(PopulatedAccountMixin, TestCase):
     """Os cálculos que percorrem a série inteira em Python."""
 
@@ -372,6 +390,7 @@ class HeavyComputationTests(PopulatedAccountMixin, TestCase):
         self.assertLessEqual(len(linhas), tracking.HISTORY_DAYS)
 
 
+@tag("lento")  # perf/estatística sobre um ano semeado; roda pós-merge e no cron (e no pre-push local)
 class StressSeedTests(TestCase):
     """O próprio gerador de carga."""
 

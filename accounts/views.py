@@ -5,6 +5,7 @@ from allauth.socialaccount.models import SocialAccount
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.db import transaction
+from django.forms.utils import ErrorDict
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.views import LogoutView, LoginView
@@ -281,7 +282,13 @@ class AppLoginView(TelaDeEntradaMixin, LoginView):
         email = (request.POST.get("username") or "").strip()
         if not entrada.pode_tentar(email=email, ip=entrada.ip_do_pedido(request)):
             formulario = self.get_form()
-            formulario.is_valid()
+            # SEM `is_valid()`: ele chamaria `authenticate`, que confere a
+            # senha (PBKDF2 de 1 000 000 iterações — os 3–5 s medidos no
+            # login em 20/09/2026) e, com a senha errada, punha a mensagem
+            # DUAS vezes na tela — um oráculo do teto. O formulário fica
+            # ligado aos dados (o e-mail volta no campo) e recebe só o erro.
+            formulario._errors = ErrorDict()
+            formulario.cleaned_data = {}
             formulario.add_error(None, formulario.error_messages["invalid_login"] % {
                 "username": formulario.username_field.verbose_name
             })
@@ -841,6 +848,7 @@ def resumo_das_escolhas(user, profile) -> list:
     ]
     if profile.experiencia:
         itens.append(("Experiência", profile.get_experiencia_display()))
+    itens.append(("Equipamento", profile.get_equipamento_display()))
     if profile.split_preference_confirmada:
         itens.append(("Divisão", profile.get_split_preference_display()))
     return itens
@@ -1396,7 +1404,6 @@ def resumo_do_que_sera_apagado(user) -> list:
     o que o `_meta` do modelo declara.
     """
     from plans.models import HydrationLog, MealLog, NutritionPlan
-    from supplements.models import SupplementLog
     from workouts.models import ExerciseLog, TrainingPlan
 
     linhas = [
@@ -1406,7 +1413,6 @@ def resumo_do_que_sera_apagado(user) -> list:
         ("Pesagens", WeightEntry.objects.filter(user=user).count()),
         ("Fichas de treino", TrainingPlan.objects.filter(user=user).count()),
         ("Séries registradas", ExerciseLog.objects.filter(user=user).count()),
-        ("Suplementos marcados", SupplementLog.objects.filter(user=user).count()),
     ]
     return [(nome, total) for nome, total in linhas if total]
 

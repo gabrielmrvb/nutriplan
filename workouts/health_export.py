@@ -1,19 +1,12 @@
-"""Exportação do treino para o app Saúde do iPhone e o Health Connect.
+"""O resumo da sessão de hoje: séries, minutos ativos e gasto estimado.
 
-**O limite, primeiro.** Uma PWA não escreve no HealthKit. Não existe API web
-para isso: o HealthKit é framework nativo do iOS e o Safari não o expõe a
-página nenhuma. O Health Connect do Android tem a mesma característica — API
-nativa, sem porta web. Qualquer coisa que prometesse "sincronizar com o Apple
-Saúde" direto do navegador estaria mentindo.
-
-O que dá para fazer, e é o que está aqui, é a camada que um invólucro nativo
-consumiria e que já serve sozinha: o cálculo dos números (minutos ativos e
-gasto estimado) e a saída num formato que os aplicativos de importação leem.
-
-TCX porque é o formato que todo importador aceita — HealthFit, Health Auto
-Export, Strava, Garmin. A pessoa exporta e abre no app de importação; o
-invólucro nativo, quando existir, chama `resumo_da_sessao()` e passa direto ao
-HealthKit sem tocar em arquivo.
+Até 20/09/2026 este módulo também gerava o TCX de `/treino/exportar/saude.tcx`
+— a ponte para o Apple Saúde e o Health Connect, que nenhuma PWA escreve
+direto. A exportação SAIU por decisão do dono (auditoria de 20/09: nenhum
+uso, e a segunda fórmula de duração morava aqui). O que fica é o que o
+painel de treino lê para dizer "N séries · M minutos": `resumo_da_sessao`.
+O nome do arquivo fica até o PR da duração (`fix/duracao-do-resumo`, parte
+A da auditoria) entrar; renomeá-lo antes seria conflito sem ganho.
 
 **Sobre o gasto calórico.** MET 3,5, que é o valor do compêndio de Ainsworth
 para musculação de esforço leve a moderado — e não os 6,0 de "vigoroso". A
@@ -25,7 +18,6 @@ errar para cima faz ela não emagrecer e concluir que o app não funciona.
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta, timezone as tz
 from decimal import Decimal
-from xml.sax.saxutils import escape
 
 from django.utils import timezone
 
@@ -34,9 +26,13 @@ from .models import ExerciseLog, TrainingSession
 #: MET da musculação de esforço leve a moderado (Ainsworth 2011, código 02054).
 MET_MUSCULACAO = Decimal("3.5")
 
-#: Segundos por série, para estimar a duração de uma sessão a partir do que foi
-#: registrado. É a mesma constante que a ficha usa para prever o tempo.
-from .models import SEGUNDOS_ENTRE_EXERCICIOS, SEGUNDOS_POR_SERIE  # noqa: E402
+#: A duração vem da MESMA conta da ficha (`segundos_da_sessao`, "a única
+#: conta de duração do projeto"): série a série, com aquecimento, descanso e
+#: troca. Até 20/09/2026 este módulo tinha uma segunda fórmula (série × 40 s
+#: + descanso médio + 45 s por troca), e o painel mostrava "42 minutos
+#: estimado" ao lado do cartão da mesma sessão dizendo "~59 min" — visto na
+#: auditoria em produção daquele dia.
+from .models import segundos_da_sessao  # noqa: E402
 
 
 @dataclass
@@ -63,17 +59,29 @@ class ResumoDaSessao:
 NAO_INFORMADA = object()
 
 
-def _duracao_estimada(series: int, exercicios: int, descanso_medio: int) -> int:
-    """Quanto tempo aquele volume levou, em segundos.
+def _duracao_estimada(logs, linhas, descanso_padrao: int) -> int:
+    """Quanto tempo o que foi FEITO levou, em segundos — pela conta única.
 
     Estimativa e não medição: o app não cronometra a sessão inteira, só as
-    séries anotadas. Contar o descanso entre séries é o que aproxima do tempo
-    real — sem ele, um treino de uma hora exportaria como dezoito minutos.
+    séries anotadas. Cada exercício com série vira um item `(séries feitas,
+    descanso, é composto)` na ordem da ficha (os que a ficha não lista vão
+    ao fim, na ordem em que apareceram), e `segundos_da_sessao` faz o resto —
+    com aquecimento, descanso e troca. Fechar a ficha inteira dá, por
+    construção, o mesmo número que o cartão da sessão promete.
     """
-    segundos = series * SEGUNDOS_POR_SERIE
-    segundos += max(series - exercicios, 0) * descanso_medio
-    segundos += max(exercicios - 1, 0) * SEGUNDOS_ENTRE_EXERCICIOS
-    return segundos
+    descanso_por_exercicio = {linha.exercise_id: linha.rest_seconds for linha in linhas}
+    ordem = {linha.exercise_id: posicao for posicao, linha in enumerate(linhas)}
+    feitas = {}
+    for log in logs:
+        item = feitas.setdefault(log.exercise_id, [0, log.exercise])
+        item[0] += 1
+    itens = []
+    for exercise_id, (series, exercicio) in sorted(
+        feitas.items(), key=lambda par: ordem.get(par[0], len(ordem) + par[1][0])
+    ):
+        descanso = descanso_por_exercicio.get(exercise_id, descanso_padrao)
+        itens.append((series, descanso, exercicio.is_compound))
+    return segundos_da_sessao(itens)
 
 
 def resumo_da_sessao(user, dia=None, sessao=None, escolha=NAO_INFORMADA) -> ResumoDaSessao:
@@ -106,8 +114,9 @@ def resumo_da_sessao(user, dia=None, sessao=None, escolha=NAO_INFORMADA) -> Resu
         (log.weight_kg or Decimal("0")) * (log.reps or 0) for log in logs
     )
 
-    # O descanso médio vem da ficha ativa do dia, quando existe; sem ela, 90
-    # segundos, que é a mediana das prescrições do catálogo.
+    # O descanso de cada exercício vem da ficha ativa do dia, quando existe;
+    # para exercício fora dela (ou sem ficha), 90 segundos, que é a mediana
+    # das prescrições do catálogo.
     if sessao is None:
         from .services import get_active_routine, sessao_do_dia
 
@@ -120,17 +129,23 @@ def resumo_da_sessao(user, dia=None, sessao=None, escolha=NAO_INFORMADA) -> Resu
             from .services import escolha_do_dia
 
             escolha = escolha_do_dia(user, dia)
-        opcao = escolha.opcao if escolha and escolha.session_id == sessao.pk else 1
+        # A opção do dia (ficha única): a pinada, senão a variação do ciclo —
+        # o painel já a calculou em `preparar_dia` (`opcao_do_dia`).
+        opcao = getattr(sessao, "opcao_do_dia", None)
+        if opcao is None:
+            from .services import opcao_do_dia
+
+            opcao = opcao_do_dia(user, sessao, dia, escolha=escolha)
         # Em Python sobre o prefetch, e não `.filter(opcao=...)`: o filtro
         # abre consulta nova mesmo com `exercises` já carregado.
-        linhas = list(sessao.exercises.all())
-        prescritos = [i.rest_seconds for i in linhas if i.opcao == opcao] or [
-            i.rest_seconds for i in linhas
-        ]
-        if prescritos:
-            descanso = round(sum(prescritos) / len(prescritos))
+        todas = list(sessao.exercises.all())
+        linhas = [i for i in todas if i.opcao == opcao] or todas
+        if linhas:
+            descanso = round(sum(i.rest_seconds for i in linhas) / len(linhas))
+    else:
+        linhas = []
 
-    segundos = _duracao_estimada(len(logs), len(exercicios), descanso)
+    segundos = _duracao_estimada(logs, linhas, descanso)
     minutos = max(1, round(segundos / 60))
 
     peso = getattr(getattr(user, "profile", None), "current_weight", None)
@@ -156,43 +171,3 @@ def resumo_da_sessao(user, dia=None, sessao=None, escolha=NAO_INFORMADA) -> Resu
         inicio=inicio,
         fim=inicio + timedelta(minutes=minutos),
     )
-
-
-def tcx(resumo: ResumoDaSessao, titulo="Treino de força") -> str:
-    """O treino em TCX, que é o que os importadores de saúde leem.
-
-    Sport="Other" porque o TCX só conhece Running, Biking e Other — musculação
-    cai no terceiro, e é assim que o HealthFit e o Health Auto Export a
-    convertem para "Traditional Strength Training" no HealthKit.
-    """
-    if not resumo.tem_dados:
-        raise ValueError("Nenhuma série registrada nesse dia.")
-
-    # `datetime.timezone.utc`, e não `django.utils.timezone.utc`: o segundo
-    # deixou de existir no Django 5.
-    inicio = resumo.inicio.astimezone(tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    return f"""<?xml version="1.0" encoding="UTF-8"?>
-<TrainingCenterDatabase
-    xsi:schemaLocation="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd"
-    xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Activities>
-    <Activity Sport="Other">
-      <Id>{inicio}</Id>
-      <Lap StartTime="{inicio}">
-        <TotalTimeSeconds>{resumo.minutos * 60}</TotalTimeSeconds>
-        <DistanceMeters>0</DistanceMeters>
-        <Calories>{resumo.kcal}</Calories>
-        <Intensity>Active</Intensity>
-        <TriggerMethod>Manual</TriggerMethod>
-      </Lap>
-      <Notes>{escape(titulo)} — {resumo.series} séries, {resumo.exercicios} exercícios, {resumo.volume_kg} kg de volume total. Exportado do NutriPlan.</Notes>
-      <Creator xsi:type="Device_t">
-        <Name>NutriPlan</Name>
-        <UnitId>0</UnitId>
-        <ProductID>0</ProductID>
-      </Creator>
-    </Activity>
-  </Activities>
-</TrainingCenterDatabase>
-"""

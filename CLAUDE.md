@@ -39,7 +39,13 @@ CI, fluxo branch → PR → FILA (`scripts/github.py enfileirar`: a fila
 local desta máquina, porque a do GitHub só existe em organização; merge
 commit; `strict` intacto)
 · deploy provado por `/saude/` + smoke + QA em produção com conta descartável
-pelo signup público, conta apagada pela tela, demo intacto · `scripts/qa/
+pelo signup público, conta apagada pela tela, demo intacto — **a conta de QA
+descartável é do AGENTE (decisão do dono, 18/09/2026): a sessão cria pelo
+signup público, com e-mail claramente de QA (`qa-<sessão>-<data>@nutriplan.invalid`),
+senha só para aquela conta, nunca no relatório; obrigação de APAGAR pela
+tela ao terminar e provar que sumiu (login recusado). Nunca a conta pessoal
+do dono. Sessão cujo ambiente proíba criar conta ou digitar senha diz isso
+no relatório e prova o que der pelo `/demo/`** · `scripts/qa/
 nav.py` (CDP) para navegador, inclusive sites de terceiros na sessão logada do
 dono (Render, GitHub, claude.ai) · mídia de exercício ativa com curadoria e
 mosaico para veto posterior · plano ativo antigo nunca remonta sozinho · o
@@ -76,14 +82,24 @@ O PostgreSQL é portátil (`C:\Users\biel-\pgsql`, cluster em
 | `catalog` | alimentos e receitas (TACO/IBGE/USDA) |
 | `plans` | motor nutricional, cardápio, hidratação, ofensiva, voz |
 | `workouts` | ficha, cargas, catálogo de exercícios, exportação de saúde |
-| `supplements` | catálogo e checklist |
+| `supplements` | só a migration que apagou as tabelas (20/09/2026); a pasta sai depois do deploy |
 | `push` | service worker, manifesto, notificações |
+
+(A `api` — token, eu, corridas — e o cliente `mobile/` saíram em 20/09/2026
+por decisão do dono: a Fase 1 da Corrida mobile ficou sem cliente que o
+ambiente consiga construir. `TracoDaCorrida` fica: a importação de GPX/TCX
+usa. O contrato antigo está no histórico do git, em `docs/api-v1.md`.)
 
 ## Decisões que já foram tomadas — não refaça sem motivo
 
 **Sem framework de CSS.** Um arquivo, `static/css/app.css`, lido de ponta a
 ponta, com seções numeradas. Tokens no topo. Nada de Tailwind, nada de build
-step.
+step. **A cópia SERVIDA perde os comentários no `collectstatic`** (decisão
+do dono, 20/09/2026; `config/estaticos.py`, `config/test_estaticos.py`): a
+auditoria mediu 340 067 bytes na folha, 60 % de comentário, 106 KB gzip na
+primeira visita — e 23 KB sem eles; a cobertura por CDP mostrou que 87 % dos
+bytes de regra são usados, então o peso não era CSS morto. A fonte é o que
+se edita e continua comentada; o hash no nome é o do conteúdo servido.
 
 **`:has()` é proibido** para CSS estrutural. Já derrubou a navegação uma vez: o
 navegador descarta a regra inteira quando não suporta, e o convite de instalação
@@ -187,6 +203,17 @@ estejam no topo, mas porque a tela nunca falou deles. Os três ganham
 `plans/_area_promovida.html`, um cartão com um fato real do dia e a porta para a
 área. Treino sai de `estado_do_treino`, que a Home já calcula; Corrida e
 Progresso custam UMA consulta cada, e só para quem declarou aquela área.
+
+**SÓ A REFEIÇÃO DA VEZ NASCE ABERTA NA HOME (decisão do dono, 20/09/2026).**
+Desde 12/09 a futura ficava atrás de "Ver opções"; a VENCIDA continuava
+aberta por ser "ação em aberto", e a auditoria de 20/09 mediu o preço: um
+primeiro uso às 15 h dava 3 757 px com quatro refeições abertas × quatro
+botões, e um fixture às 18 h, 3 530 px — a tela mais aberta do app rolando
+por formulários que ninguém ia usar naquele momento. Hoje `slot.marcador
+!= "agora"` vai para o mesmo `<details class="meal__futuro">`, e a vencida
+diz "Não registrada · registrar" no `summary`. Medido no protótipo: 3 530 →
+2 875 px com duas vencidas. `plans/test_opcoes_tocaveis.py` cobra a ordem —
+fora da vez, o `<details>` abre antes da primeira ação.
 
 **Quem não declarou nada vê a Home de antes da campanha** — sem selo, sem cartão
 de área, na ordem canônica. E ela não infere área de histórico, peso, treino,
@@ -327,6 +354,20 @@ app: três refeições feitas mais duas marcadas como "comi outra coisa" davam
 A propriedade que governa isso agora tem teste próprio em `plans/test_streaks.py`:
 **omitir nunca pode produzir resultado melhor que registrar**. Ela vale por
 construção, porque qualquer denominador independente da marcação a satisfaz.
+
+**O DIA FECHA COM DOIS DOS TRÊS PILARES, E O TREINO É OBRIGATÓRIO NO DIA
+PREVISTO (decisão do dono, 20/09/2026).** Até então a régua era treino E
+dieta (≥ 80 %) E água (≥ 90 % de 35 ml/kg) no mesmo dia, e a auditoria de
+20/09 simulou uma semana de uso real — 4 refeições de 5, 1,5 L de uma meta
+de 3 L, treino feito — que terminava com "0 dias — Comece hoje": a água
+dominava. Hoje `Dia.completo` é `treino and (dieta or agua)`; no dia sem
+treino previsto descansar continua sendo o plano (`treino=True`), então o
+dia de descanso fecha com um dos dois outros. A pendência diz o que FECHA o
+dia ("treino", "dieta ou água"), nunca a lista de tudo que faltou.
+`manage.py simular_ofensiva` reproduz a semana auditada sob as duas regras
+(0 → 5 dias) e há teste sobre a saída dele — rode antes e depois de mexer
+na régua. `OmitirNaoPodeCompensarTests` passou a medir a dieta SEM água,
+senão a água fecharia o dia e o teste deixaria de medir o que diz medir.
 
 **Dois lados abrem o mesmo IndexedDB, e eles têm que concordar.**
 `static/js/fila.js` e `templates/pwa/sw.js` abrem `nutriplan-fila`. O service
@@ -665,15 +706,52 @@ TRÊS dorsais com quatro no catálogo; `Barra fixa assistida` entrou em
 10/09/2026, com a mesma dose que já abre `abcd B` e `abcde B`.
 `Remada curvada com barra` continua aposentada e não volta por essa porta.
 
-**Personalização por LOCAL e EQUIPAMENTO está bloqueada pelo CATÁLOGO, não por
-escopo — e a medição de 10/09/2026 diz exatamente quanto falta.**
+**O EQUIPAMENTO ESTÁ NO PERFIL DESDE 17/09/2026 (tarde), E O MOTOR OBEDECE
+POR SUBSTITUIÇÃO — nunca por filtro.** `Profile.equipamento`
+(`accounts.models.Equipamento`: completa · básica · casa com halteres · só
+peso do corpo; pergunta na etapa 2 do onboarding e no Perfil), o mapa de
+cada resposta para `Exercise.equipment` no `TREINO.md` ("Mapa de
+equipamento", lido por `doutrina.equipamentos_de`), e
+`services.substituir_por_equipamento` ANTES de `prescrever_opcoes`: o item
+do modelo fora do perfil é trocado por exercício ativo do MESMO `padrao` e
+grupo dentro do perfil que ainda não esteja no modelo, com a dose do item
+trocado; sem substituto, sai. `TrainingPlan.equipamento` é retrato; mudar
+no perfil torna a ficha inválida e remonta, como nível e faixa. **O default é
+"completa" nos dois lados e NÃO é vazio**, ao contrário de `experiencia`:
+toda ficha anterior à pergunta nasceu do catálogo inteiro, então "completa"
+é a verdade dela, e ninguém foi remontado pela pergunta nova. "Completa"
+custa zero consultas (o filtro nem roda); perfil restrito custa UMA consulta
+ao catálogo por prescrição — e a conferência (`_prescricao_bate` +
+`_prescricao_confere`) refaz a conta COM o perfil, inclusive na
+pré-conferência de reps e descanso, senão o afundo que substituiu o
+agachamento reprovava e a Home oferecia "regenerar" para sempre a quem
+treina em casa.
 
-O erro de leitura a evitar é achar que basta filtrar. A prescrição não SELECIONA
-exercícios: `prescrever_semana` copia MODELOS curados de `splits.json`, com os
-nomes escritos. Filtrar por equipamento não troca de exercício — abre BURACO no
-modelo. Medido nos 15 modelos: em "casa + halteres" oito perdem grupo sem
-substituto e `abcde-C` termina com ZERO exercícios; em "peso corporal" são treze
-modelos e sete zerados.
+Por que substituição e não filtro — a medição de 10/09/2026, que continua
+valendo: a prescrição não SELECIONA exercícios, `prescrever_semana` copia
+MODELOS curados de `splits.json`, com os nomes escritos; filtrar por
+equipamento não troca de exercício — abre BURACO no modelo (em "casa +
+halteres" oito modelos perdiam grupo sem substituto e `abcde-C` terminava
+com ZERO exercícios). E os modelos já listam quase todas as alternativas: em
+"básica" o `abc2 A` perdia os três itens de barra SEM repor, porque todas as
+pressões de peito sem barra já estavam nele — a letra fechava em 6
+exercícios e 50–52 min, dourado vermelho. Os **cinco de peito e tríceps sem
+barra** (supino declinado com halteres, crucifixo inclinado com halteres,
+flexão com pés elevados, flexão fechada, tríceps coice) entraram FORA de
+todo modelo, de propósito, para serem exatamente esse substituto: a ficha
+de "completa" ficou idêntica (ninguém recebeu "regenerar?") e básica E casa
+com halteres fecham o dourado da letra A (7 exercícios, 25 séries, 59 min
+no `abc2`). "Só peso do corpo" continua `expectedFailure` nomeado no
+dourado: B tem um exercício e C dois, e a lista do que falta está no
+`BACKLOG.md`. **E nesse perfil a versão rápida NÃO aparece — por regra,
+não por falta (decisão de 18/09/2026, opção "manter ausente")**: "Menos
+tempo hoje?" só existe onde a rápida CORTA alguma coisa (`hoje.rapida_muda`
+em `preparar_dia`), e a letra A de só peso do corpo tem 3 exercícios em ~30
+minutos — cabe inteira nos 40 da rápida. Gerar uma "rápida com menos
+séries" ali seria o mesmo treino com outro nome, o defeito de veracidade
+que o app recusa desde a faixa de duração. Provado em produção com conta
+descartável (18/09, casa com halteres oferece; peso do corpo não) e
+guardado em `workouts/test_rapida_por_perfil.py`, com controle positivo.
 
 **Varridos os 31 recortes possíveis de equipamento, UM era viável em 10/09: o
 conjunto completo** — ou seja, nenhuma restrição, que é o comportamento de
@@ -710,26 +788,89 @@ registrada em `curadoria` no `exercises.json` —, junto com outros 24; o veto
 ele desativa no JSON e no banco. O que falta para os cinco restantes é
 curadoria de MÍDIA, não decidir o que cadastrar.
 
+**O CONTRATO DE MÍDIA VALE PARA QUEM TEM APARELHO — o peso do corpo pode ser
+ativo sem vídeo (decisão 1 da avaliação de UX, 20/09/2026).** O dono decidiu
+que o catálogo de peso do corpo NÃO depende de mídia: "sem vídeo fica sem
+vídeo". A régua acima passou a valer só para exercício COM aparelho — todo
+`equipment != bodyweight` ativo continua exigindo vídeo curado, e todo vídeo
+que EXISTIR (inclusive nos de peso do corpo que já têm um) continua com o
+contrato inteiro (embed, unicidade, anatomia, foto no mapa). O peso do corpo
+sem vídeo entra com nome, músculos, dica e progressão; a tela cai
+graciosamente no "Sem demonstração cadastrada" (`_demonstracao.html`, que já
+tinha o ramo). Os guardas mudaram de `filter(is_active=True)` para
+`.exclude(equipment="bodyweight")` (o vídeo é obrigatório) ou
+`.exclude(video_url="")` (o vídeo presente é validado); há teste único da
+conjunção em `test_capacidade_de_ambiente`.
+
+**34 EXERCÍCIOS DE PESO DO CORPO, COM PROGRESSÃO (20/09/2026).** Cobrem os
+grupos que faltavam — quadríceps, posterior, glúteo (na cadeia posterior,
+`hamstrings`; o app NÃO tem grupo `glutes`), panturrilha, ombro, costas,
+bíceps — e adensam peito/tríceps/core, para a ficha desse perfil ter volume
+COMPARÁVEL às outras (medido: ~94% do volume semanal da completa; letra A com
+2 opções de 5 ex/52 min, B 8 ex/58 min, C 8 ex/58-59 min ×2). O motor preenche
+por SUBSTITUIÇÃO (`padrao`+grupo), então `splits.json` não mudou. A LETRA A
+continua `@expectedFailure` no dourado por um motivo FÍSICO: o modelo de
+academia enche o peito com crucifixo (abertura), e não há crucifixo sem carga
+— sobram as pressões, ~3 por opção, não 4. O dourado não afrouxa; a
+comparabilidade é provada à parte (`test_volume_peso_do_corpo`). A PROGRESSÃO
+é o campo `Exercise.progressao` (`{"movimento","nivel"}`, 1 = mais fácil): a
+leitura mostra a escada do movimento (`services.escada_de`) do fácil ao
+difícil, com "você está aqui"; vazio para quem usa aparelho (a progressão dele
+é a carga). Os vereditos de ambiente melhoraram: peso do corpo
+NAO_SUPORTADO → PARCIAL (bíceps/antebraço/trapézio sem folga é limite físico),
+casa com halteres PARCIAL → SUPORTADO.
+
 **COBERTURA NÃO É QUALIDADE**, e a régua cobra as duas. Como efeito colateral, o
 catálogo virou contrato: aposentar um dos dois exercícios de panturrilha derruba
 o veredito da própria academia, porque o grupo fica com opção única — e a suíte
 diz qual capacidade se perdeu.
 
-E NÃO EXISTE CAMPO DE AMBIENTE NO PERFIL, de propósito. Guardar a preferência
-antes de o motor poder obedecê-la é criar preferência que não vira nada — o
-mesmo defeito de veracidade que `prioridade == ""` evita do outro lado.
-`workouts/test_capacidade_de_ambiente.py` guarda as duas metades: o veredito
-congelado de cada ambiente, que fica VERMELHO quando o catálogo passar a
-sustentar, e a proibição de a tela oferecer a escolha enquanto isso não
-acontece.
+O campo de ambiente NÃO existiu no perfil até o motor poder obedecê-lo, de
+propósito: guardar preferência que não vira nada é o mesmo defeito de
+veracidade que `prioridade == ""` evita do outro lado. Quando o motor passou
+a obedecer (17/09, tarde), `workouts/test_capacidade_de_ambiente.py` virou
+ao contrário — o perfil TEM a pergunta, o formulário a FAZ, o motor LÊ
+`equipment` — e os ambientes medidos passaram a ser os QUATRO PERFIS do mapa
+(completa e básica SUPORTADO; casa PARCIAL; peso do corpo NAO_SUPORTADO).
 
-**`Equipment` é dado de catálogo sem consumidor no motor**, e isso está dito no
-próprio modelo. O campo nasceu para o assistente de troca ("a máquina está
-ocupada"), que entrou em `7819b30` e saiu em `d86d9c7`; `DISPUTADOS` e
-`disputa_equipamento` sobreviveram à remoção como código morto por três
-campanhas e saíram em 10/09/2026, junto com dois helpers de teste que chamavam
-um módulo `assistant` inexistente. **Não há sistema de substituição de
-exercício no app.**
+**`Equipment` tem UM consumidor no motor: `substituir_por_equipamento`.** O
+campo nasceu para o assistente de troca ("a máquina está ocupada"), que
+entrou em `7819b30` e saiu em `d86d9c7`; `DISPUTADOS` e `disputa_equipamento`
+sobreviveram à remoção como código morto por três campanhas e saíram em
+10/09/2026. A substituição por PERFIL acontece antes de prescrever; a
+troca por EXERCÍCIO é a de baixo.
+
+**"OUTRAS FORMAS" É A INTERAÇÃO PRINCIPAL DA FICHA (17/09/2026, noite).** A
+pessoa não escolhe mais entre opção 1 e 2; escolhe COMO fazer cada
+movimento. `TrocaDeExercicio(user, original, substituto)` (migration
+`workouts.0029`) é customização POR EXERCÍCIO — vale em toda letra, toda
+semana e toda opção em que o original apareça — e NÃO toca em
+`SessionExercise` nem em `customized_at`: a ficha continua retrato, a
+rotação continua, `rotina_invalida`/`_prescricao_bate` não a enxergam. A
+aplicação é EM MEMÓRIA (`services.aplicar_trocas`, uma consulta por tela,
+logo depois de carregar as linhas do plano — painel, ficha, execução e
+leitura passam pelo mesmo ponto): o item passa a apontar para o substituto
+com a MESMA dose, então trocar não altera séries nem volume (diferença 0).
+`ExerciseLog` grava no exercício FEITO; a linha do original responde pelo
+substituto na prescrição de hoje por JOIN (`_linha_do_exercicio`), na
+consulta que já existia — o orçamento do POST da série continua 20. As
+alternativas (`alternativas_de`) são do mesmo `padrao` e grupo, dentro do
+equipamento do perfil, FORA DA MESMA LISTA (sessão + opção — duplicata só
+é problema no mesmo treino; a outra opção é outro dia), o equipamento mais
+próximo primeiro; a ficha só anuncia "outras formas" onde a leitura lista
+alguma (`contar_outras_formas`, a mesma régua — o QA achou a linha
+anunciando e a leitura vazia quando as réguas divergiam). A lista mora na
+LEITURA do exercício, com foto (o primeiro quadro da free-exercise-db) e
+"Trocar"; a leitura do substituto diz "No lugar de X", mostra o histórico
+de X e tem "Voltar ao original". `POST /treino/trocar/` é estado absoluto
+(trocar de novo atualiza, `desfazer=1` apaga, sem `op_id`), volta para a
+leitura com a mesma volta (`?de=`), e recusa original fora da ficha ou
+substituto que não é forma do movimento no equipamento. A leitura passou a
+TER formulários, e a régua "ver não é executar" virou POR DESTINO: todo
+`<form>` do `<main>` aponta para a troca, nunca para a série. Custos
+medidos: leitura 9 → 11 (trocas + alternativas; o perfil vem do
+`dispatch` e as linhas vêm sem o exercício), ficha 15 → 17 (trocas +
+contagem), Home 43 (no teto), painel 20.
 
 **A área de Treino são TRÊS telas, e cada uma responde UMA pergunta.**
 
@@ -1118,6 +1259,19 @@ sobrando, mesmo passando de 10." tem 44 caracteres — o teto do teste — e
 quebrava em duas linhas a 320 e 360; a de 37 cabe. A tela não mudou:
 `agora.html` já lia `atual.esforco`.
 
+**A REFERÊNCIA DO MOVIMENTO (20/09/2026).** As duas opções de uma letra
+não repetem exercício (medido no banco da semana simulada da auditoria:
+zero em comum entre a segunda e a quinta da mesma letra A), então um
+exercício só volta de duas em duas semanas — e "última carga", SUBIR e
+recorde ficam mudos por 14 dias. Quando o exercício em foco não tem
+histórico próprio, a execução diz o que a pessoa fez no mesmo `padrao`:
+"Primeira vez neste. Na última pressão de peito (supino reto com barra,
+21/09): 20 kg × 10" (`services.ultima_vez_do_movimento` — a mais recente,
+no mesmo dia a mais pesada; UMA consulta, só nesse caso). É DICA, não
+número no campo: barra e máquina não pesam igual, e a adaptação continua
+sendo por exercício. `workouts/test_referencia_do_movimento.py` prende os
+três casos e o custo.
+
 **RETOMAR E ESTAGNADO FALAM; NUNCA BAIXAM NÚMERO (T2.3, 17/09/2026).** Dois
 estados a mais em `workouts/adaptacao.py`, na mesma leitura pura, com
 precedência fixa — hoje manda > sem anilha > sem referência completa nas 4
@@ -1156,6 +1310,45 @@ deixa intervalos de 3+ semanas em 22 % das aberturas; o gatilho de
 recalibrar era "estagnado > 30 %" e está longe. Os dias (21, 28, 27, 56) e
 o "+1" são calibração [HIPOTÉTICA] do brief de 13/09, e é o
 `medir_progressao` (T2.4) que vai revê-los com dado de produção.
+
+**O INSTRUMENTO (T2.4, 17/09/2026): medir e limpar sem mudar o que a
+pessoa vê.** Quatro peças, e a natureza comum é essa:
+
+- `manage.py medir_progressao [--dias 365]` é SÓ LEITURA — duas consultas
+  fixas (as linhas de prescrição ativas e os registros da janela), nunca
+  uma por pessoa — e conta, por abertura de exercício, o estado que a
+  adaptação daria, a distribuição de `reps − rep_max` na última série do
+  dia, a fração que PAROU EXATAMENTE em `rep_max` (a faixa lida como teto),
+  os "retomar" sem pausa (a pessoa treinou outros exercícios no intervalo)
+  e o intervalo em semanas. `workouts/test_instrumento.py` cobra que
+  nenhuma consulta começa por UPDATE/INSERT/DELETE e que o custo não
+  cresce por exercício;
+- `RecordLoadView` (a rota da ficha, fora da fila) avalia conquista só na
+  PRIMEIRA série do dia ou no RECORDE — a guarda que `ConcluirSerieView`
+  já tinha. A rota antiga pagava o catálogo inteiro em toda carga anotada;
+  abaixo do recorde, no meio do treino, nenhuma regra muda de resposta;
+- o Progresso CONVIDA quem se declarou iniciante (ou não respondeu) a
+  atualizar o nível depois de 180 dias e 24 datas com série
+  (`progresso.convidar_a_atualizar_experiencia`): o app não infere nível —
+  "uso não é intenção declarada" — mas depois de meio ano a pergunta cabe,
+  porque o teto por grupo do iniciante é o menor (TREINO.md, B). UMA
+  consulta para qualquer nível — o nível entra no `WHERE` pela junção com
+  o perfil, porque `user.profile` não está em cache nessa tela e lê-lo à
+  parte custava a segunda (medido: 28 contra o teto de 26; o teto foi para
+  27 com a razão escrita);
+- `manage.py podar_operacoes` roda no build, por último, e apaga
+  `SyncedOperation` com mais de `VALIDADE_DIAS` (30). O método `podar`
+  existia desde a fila offline e ninguém o chamava. Trinta é MAIOR que os
+  7 dias que a fila reenvia — a poda nunca alcança um `op_id` que um
+  reenvio ainda traria, senão a água somaria duas vezes; há teste.
+
+E a medição L08, feita no navegador com rede lenta emulada (`nav.py rede
+3g`: 400 ms de latência, 400 kbps): "Concluir série" é um POST→302→GET
+de 31 KB que custa 180–330 ms de `load` no Wi-Fi e ~550 ms no 3G lento
+(redirect ~460 ms) — e o iframe do vídeo que a pessoa abriu MORRE com a
+recarga (1 → 0): a cada série, tocar "ver vídeo" de novo. É o insumo da
+fatia E "fetch sem recarga", que continua fora até alguém decidir com
+esse número.
 
 **Duração tem UMA conta, e ela é `workouts.models.segundos_da_sessao`.**
 Existiam duas cópias, uma sobre linhas gravadas e outra sobre tuplas, com um
@@ -1248,6 +1441,19 @@ segunda em diante paga UMA consulta ("é a primeira?") e nada mais
 (`workouts/test_recorde_na_hora`, 20); reenvio da fila (`criada=False`) não
 avalia. E `ConquistasView` anuncia o que desbloqueia — antes a medalha
 aparecia na lista sem "Conquista desbloqueada" ter sido vista uma vez.
+
+**A SENHA É ARGON2, e o PBKDF2 fica de reserva (20/09/2026).** A auditoria
+mediu em produção: login certo 3,0–3,2 s de TTFB, senha errada 4,4–5,6 s
+(dois backends, dois hashes), cadastro 3,7 s — o PBKDF2-SHA256 de 1 000 000
+iterações, padrão do Django 5.2, custa 0,6 s nesta máquina e ≈ 3 s na CPU
+do Render free. `config/hashers.py`: `argon2-cffi` em `requirements.txt` e o
+Argon2 do Django na frente de `PASSWORD_HASHERS` quando `import argon2`
+funciona (extensão nativa — a suíte não depende dele: sem ele, cai no
+`PBKDF2SHA256Rapido`, 600 000 iterações, o piso da OWASP). Toda senha
+gravada continua conferindo (mesmo `algorithm` do PBKDF2) e é regravada no
+hasher preferido no próximo login — sem migration, sem pedir nada.
+`manage.py medir_hash` mede cada hasher nesta máquina; `config/test_hashers.py`
+prende a ordem, a conferência da senha antiga e a regravação.
 
 **A SECRET_KEY não é gerada pela plataforma.** `generateValue: true` do Render
 entrega 256 bits em base64 — 44 caracteres —, e o Django exige 50. Isso deixou
@@ -1436,7 +1642,7 @@ está indo: `pwa.js` marca `is-carregando` + `aria-busy` no clique (mesma
 receita visual do `[aria-busy]` do `<button>`), e o `pageshow` limpa ao
 voltar pelo bfcache. Fica de fora quem não troca de página: `target`,
 `download`, `#`, `mailto:`, `tel:`, `sms:`, `javascript:`, clique com
-modificador — e **`data-arquivo`**, a marca dos dois links que exportam o TCX:
+modificador — e **`data-arquivo`**, a marca dos dois links que exportavam o TCX (saíram em 20/09/2026; a marca fica para o próximo link de arquivo):
 a resposta é `attachment` e a página não troca, mas a view pode responder 302
 com mensagem quando não há treino, e `download` faria o navegador SALVAR
 aquele HTML. Sem a guarda de `#`, o CTA da Home (`acao.url = "#slot-N"`)
@@ -1571,6 +1777,109 @@ emoji → glifo nas conquistas (três desenhos e o `card.js` desenha o
 emoji) e a corrida em andamento em Ferro — os dois ficam para a próxima
 onda, com o consumidor.
 
+**VETO: a direção principal é a NERVURA · ANDAIME (17/09/2026).** O dono
+escolheu por gosto, sobre as capturas, e a pontuação de 16/09 (CORTE 25 ×
+NERVURA 23) ficou como histórico em `DIRECAO-ESCOLHIDA.md`; o `DESIGN.md`
+foi reescrito a partir do `Direcao1-a`, e do `1-b` entrou só o que pontua
+em identidade e em execução/recompensa, item a item (tabela naquele
+arquivo). O que mudou de VALOR, sem mexer em estrutura (PR dos tokens):
+a paleta — chão #0b140f, `--surface` #121e17, verde-neon #43df7a, laranja
+#e8a33d para a carga; no claro, verde-floresta #106632 — com a segunda e a
+terceira superfícies vindas da régua U28 (a direção só tem dois degraus)
+e quatro valores do claro escurecidos 1–5 % pelo vizinho que passa
+(`artifacts/paleta_nervura.py`; 274 pares, zero reprovados; pior par
+`--danger`/`--surface-3` 4,65 no Ferro); as fontes — Big Shoulders
+Display (display, caixa alta 800 nos títulos e nomes, 900 nos números) e
+Archivo (texto), 70 364 bytes; **a Big Shoulders NÃO tem `tnum`** (dígitos
+proporcionais, medido com fontTools), então a display fica para o número
+SOLTO e toda coluna de números — a lista de pesagens — é Archivo tabular
+(`config/test_fontes.py` prende as duas regras); a quina — ZERO
+`border-radius` em 390 declarações do mockup — virou três SLOTS com o
+mesmo valor (`--quina-g`/`--quina`/`--quina-p: 0`), `--pill` saiu e todo
+`border-radius` do arquivo é slot, `50%` (o anel) ou `inherit`; o
+movimento — `--mov-nervura: .6s` e `nervura-acende` (a régua que risca da
+esquerda para a direita) no lugar de `corte-abre`/`corte-desdobra`, como
+`::after` da refeição registrada e do bloco da meta batida. A régua
+diagonal (`--nervura`), o traço de 2 px (`--traco`), o CTA inclinado
+(`--inclinado`) e a ponta de folha (`--ponta`) nascem com o consumidor,
+no PR dos componentes.
+
+**O andaime nos componentes (NERVURA 2/3, 17/09/2026).** `--traco: 2px`
+é a borda de contorno, quieto, campo e chip (e transparente no primário,
+para os três botões terem a mesma altura empilhados); o primário é
+INCLINADO por `clip-path: var(--inclinado)` num `::before` de fundo — o
+botão em si continua retângulo, porque `clip-path` no botão cortaria o
+anel de foco e a área de toque (`isolation: isolate` + `z-index:
+var(--camada-fundo)` põem o fundo atrás do texto sem sair de trás do
+botão); o texto do primário é a display em caixa alta a `--texto-xl`, e
+o primário pequeno (`btn--sm`, 44 px) volta ao texto porque a display
+nunca desce de 20 px; o halo de hover/foco FICA (decisão do dono de
+16/09) — o anel traça o retângulo inteiro, inclusive onde o preenchimento
+foi cortado, e é o preço de ter o toque inteiro. A nervura
+(`--nervura: -14deg`) é `::after` decorativo atrás do texto (`z-index:
+var(--camada-fundo)`): no prato (`.today-hero`) nasce no canto inferior
+esquerdo, e no título (`.page-head h1`) nasce no canto SUPERIOR esquerdo e
+sobe para o respiro acima — a primeira versão nascia na base do `h1` e
+cruzava as letras, e nem "atrás" salva legibilidade de um título
+riscado. A ponta de folha (`--ponta`) é o `::after` do preenchido da
+barra de progresso, na cor da própria barra (`background: inherit`), com
+`overflow: visible` na trilha. A aba ativa é `--brand` sem preenchimento,
+com a régua de `--traco` em cima. O chip é caixa de contorno em caixa
+alta .06em. `config/test_nervura.py` prende tudo isso; a regra
+`.page-head h1,
+.today-hero` está nessa ORDEM porque `GymReadyTests`
+âncora na primeira ocorrência de `
+.today-hero,` para achar a régua do
+fio de pilar.
+
+**As telas da execução e do placar (NERVURA 3/3, 17/09/2026).** Os dois
+heróis da execução são display em caixa alta: o nome do exercício
+(`.agora__nome`, já da 1/3) e "SÉRIE 2 DE 4" (`.series__titulo`, `--texto-xl`
+800 com o número em `--texto-3xl` 900); o campo de carga (`.registro__carga`)
+virou só um sublinhado de `--traco` em `--terra`, com o número em display
+900 a `--texto-2xl` e centrado — o foco troca o sublinhado por `--brand`
+(`box-shadow: 0 var(--traco) 0`), sem anel em volta, porque a caixa não
+existe mais. A régua "a display nunca desce de 20 px" tem um caminho que o
+teste das REGRAS não vê: HERANÇA — `.series__faixa` ("6-10 reps", 12,8 px)
+mora dentro do herói e saiu na captura em Big Shoulders; `config/test_fontes`
+cobra que o filho pequeno declare `var(--font)` de volta. O placar deixou de
+ser a folha-lima cheia: `.recompensa` é transparente, sem borda, texto em
+`--text`, e a recompensa é a NERVURA que risca — um `::before` só, 14 px de
+altura, `clip-path` que desenha a régua de `--traco` E a ponta de folha no
+fim, `rotate(var(--nervura)) scaleX(0 → 1)` em `--mov-nervura` (`nervura-
+risca`); o número herói (`--texto-heroi`, 72 px, 900, `--brand`) conta do
+zero em `--mov-nervura` (`pwa.js` lê o token) e reserva `min-width: 4ch`
+porque a Big Shoulders é proporcional e a contagem sacudia a linha; os
+pequenos entram em cascata DEPOIS da nervura (`--mov-cascata` × i +
+`--mov-nervura`) e os botões chegam parados a 1 s (`aparece`, `steps(1)`).
+O `h1` do placar é o nome da sessão + "fechado" (o mockup tinha um
+"TREINO FECHADO" genérico; o nome da sessão é o que a pessoa acabou de
+fazer). Com `prefers-reduced-motion` a lista é `.recompensa::before` e
+`.recompensa .btn` — não `.recompensa`, que já não se move.
+Os tempos foram medidos ao vivo por `getAnimations()` no CDP (nervura
+600 ms, cascata +600/+680, botões +1000); `nav.py` re-emula a cada comando, então captura
+estática de movimento é sempre com `movimento reduzido`.
+
+**Dois achados do QA em produção (18/09/2026), os dois MEDIDOS na tela e
+não na tabela.** (1) A barra da semana do Progresso é `--folha` sobre a
+TRILHA — `--fio`, uma tinta translúcida composta na superfície —, e esse
+par não está na auditoria (que mede gráfico × superfície): no Papel dava
+2,97:1; `--papel-folha` foi de #1d833f para #1b7c3b (3,26 sobre a trilha,
+3,6 sobre `--surface-3`), e `config/tests.py` passou a compor o fio e
+medir o par. (2) A nervura do título sobe ~24 px acima do `h1`; no
+`/demo/` a faixa "Ambiente de demonstração … Saiba mais" tinha 16 px de
+margem e a ponta entrava 16 px na caixa do link (encostava no sublinhado).
+A faixa passou a 40 px (`--espaco-7` + `--espaco-6`): com 32 a ponta caía
+exatamente na base da caixa (folga 0, medido), com 40 sobram 8.
+`config/test_nervura.py` prende a margem. Os pares que raspam na auditoria
+(`--danger`, `--brasa` sobre `--surface-3`) não ocorrem em tela real:
+medido, `--danger` só aparece sobre `--surface` (6,76 Ferro / 5,49 Papel)
+e sobre a tinta de erro (6,17 / 5,8); `--brasa` só como texto da corrida.
+O `agent-browser` estava BLOQUEADO pelo Smart App Control do Windows quando
+isto foi feito (o QA foi por `scripts/qa/nav.py` sobre o mesmo Chrome 153);
+desde 20/09/2026 o SAC está desligado e os dois rodam — ver "Limites reais
+deste ambiente".
+
 ## Testes
 
 Nome descreve o comportamento, não o método. Docstring diz **por que** aquilo
@@ -1584,18 +1893,90 @@ porque `data-x` também está dentro do `<script>`. Ancore na classe
 Contraste é medido, não julgado: `config.tests` recalcula a razão WCAG a partir
 dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
 
+**A SUÍTE VIVE NUMA QUARTA-FEIRA CONGELADA, E A NOTURNA VIVE NO DIA REAL
+(18/09/2026).** `RunnerUnico.setup_test_environment` liga `config/relogio.py`:
+`timezone.now()` devolve a HORA real de agora com a DATA local trocada por
+`DATA_DA_SUITE` — quarta 16/09/2026, o "pior estado" que `plans/test_stress`
+já congelava à mão. Só a data, e só `timezone.now`: o app deriva "hoje" de
+`localdate()`/`localtime()`, nunca de `date.today()`, e a hora continua real
+e monotônica (`created_at` ordena; `Barrier` e timeouts são de verdade). O
+`default=timezone.now` de campo guardou o OBJETO da função na definição da
+classe e é trocado à mão — com o cache `_get_default` esquecido, senão a
+troca não muda linha nenhuma. Dois incidentes pediram isto: o push de
+terça 15/09 que passou e reprovava `plans.test_stress` na quarta, e
+`test_a_ficha_de_OUTRO_dia` caindo ao fatiar a suíte noutro dia (18/09) —
+a ficha de outro dia mostra a variação da PRÓXIMA ocorrência, que depende
+do calendário, e o teste assumia a opção 1. Teste que precisa de outro dia
+usa `relogio.congelado_em(dia)` (ou o `mock.patch` de `localdate` que já
+usava); teste que precisa do dia de verdade usa `relogio.relogio_real()`;
+**teste nunca chama `date.today()`** — com a data congelada ele diverge de
+`localdate()` e passa a medir a máquina (achievements, test_movimento e
+plans.tests faziam isso e foram convertidos). `NUTRIPLAN_DATA_REAL=1`
+desliga o congelamento; `NUTRIPLAN_DATA_DA_SUITE=AAAA-MM-DD` escolhe a
+data — é assim que se reproduz o que a noturna achou, ou se varre a
+semana atrás de teste que depende do dia. A dependência de calendário que
+o congelamento esconde tem dono: `.github/workflows/noturna.yml` roda a
+suíte completa toda madrugada (04:20 UTC) com a data real, o log DIZ
+"Relógio: DATA REAL" (o fluxo faz `grep`), e uma issue "Suíte noturna
+vermelha com a data real" abre ou ganha comentário ao cair e FECHA sozinha
+na primeira verde; `simular_falha` no `workflow_dispatch` é o controle
+positivo do alerta. O gate (`suite.yml`) NÃO liga o relógio real, e
+`config/test_relogio.py` prende as duas metades. O que o gate mede é um
+dia só, de propósito: os testes de paridade da ficha de outro dia
+(`workouts/test_ficha_unica.py`) escrevem a data dos DOIS ramos — bloco
+ímpar → opção 2, bloco par → opção 1 — e cada ramo fica vermelho sozinho
+quando `variacao_do_dia` ignora a paridade. E a semana foi VARRIDA antes
+de a noturna existir (`NUTRIPLAN_DATA_DA_SUITE` em quarta, segunda, sábado
+e domingo): oito testes de `workouts` assumiam que "a sessão de hoje" é a
+linha cujo `weekday` é hoje — verdade só nas primeiras posições da semana;
+com cinco dias a partir de um sábado a posição 3 é A de novo, e o app
+linka a ficha da linha de SEGUNDA. Teste que precisa da sessão de hoje
+chama `services.sessao_do_dia(plano, localdate())`, e "outro dia" é outra
+LETRA; teste que precisa de uma letra específica usa `tornar_hoje`; a
+opção de hoje é `opcao_do_dia`, nunca `da_opcao(1)` fixo. O cron que o #33
+tinha posto em `suite.yml` saiu: rodaria congelado e não pegaria dia
+nenhum — a noite é da `noturna.yml`.
+
 ## Limites reais deste ambiente
 
-- **Node 24 e npm 11 estão instalados desde 12/09/2026** (WinGet), e com eles
-  o `agent-browser` 0.37.1 da Vercel, com Chrome 153 próprio em
-  `~/.agent-browser/browsers`. É a ferramenta de QA de navegador: sessão
-  própria (`AGENT_BROWSER_SESSION`), saída sempre para arquivo e `stdin`
-  fechado — o daemon herda o stdout, e um pipe espera um EOF que nunca vem.
-  Lighthouse e Playwright continuam de fora por decisão, não por falta de
-  Node: o `agent-browser` cobre o que eles cobririam aqui. O Capacitor da
-  Corrida continua bloqueado por Android Studio/Xcode, não por Node.
+- **O `agent-browser` É O PADRÃO DE QA DE NAVEGADOR DE NOVO (20/09/2026),
+  e `scripts/qa/nav.py` (CDP) é o FALLBACK.** Histórico em uma linha: de
+  14 a 20/09 o Smart App Control bloqueava o binário (`spawn`, evento
+  CodeIntegrity 3077) e o `nav.py` foi a única ferramenta; o dono desligou a
+  política em 20/09 e o `agent-browser` 0.38.1 voltou — provado em produção
+  no mesmo dia: `open` do `/demo/`, `snapshot -i`, `click` num cartão
+  (chegou em `/demo/treino/`), `screenshot` a 390 px, `vitals`. O que ele
+  dá e o `nav.py` não: `snapshot` com refs para o agente, `a11y` (axe-core),
+  `vitals`, `network requests`, `batch`, `set media dark|light`, `set
+  offline`, `find role|text|label`. Regras que continuam: sessão própria
+  (`AGENT_BROWSER_SESSION`, nova a cada execução de QA — o perfil guarda
+  cookies), saída sempre para arquivo e `stdin` fechado (o daemon herda o
+  stdout e um pipe espera um EOF que nunca vem), `set viewport` e `set
+  media` antes do `open`. O `nav.py <sessão> open|eval|click|type|
+  screenshot|viewport|cookie|tema|movimento|rede` fica para o que o
+  `agent-browser` não faz — `rede 3g` (latência/banda emuladas para o
+  L08), `permissao`, `movimento reduzido` — e para sites de terceiros na
+  sessão logada do dono; fala CDP com o MESMO Chrome 153
+  (`~/.agent-browser/browsers`). Node 24/npm 11 (WinGet) continuam
+  instalados; Lighthouse e Playwright seguem de fora por decisão.
+- **O mesmo bloqueio valia para `.pyd` sem assinatura no `.venv` — e
+  acabou junto com o SAC.** O fontTools 4.65 vem com seis extensões
+  compiladas (`bezierTools`, `cu2qu`, `qu2cu`, `momentsPen`, `iup`,
+  `lexer`) e `config/test_fontes.py` errava com "Uma política de Controle
+  de Aplicativo bloqueou este arquivo" — três ERROR em todo hook local, e o
+  CI (Linux) verde. Os seis `.pyd` foram afastados para
+  `*.pyd.bloqueado-sac` em 18/09 (o fontTools caía no Python puro, mesmo
+  resultado) e DEVOLVIDOS em 20/09, com o SAC desligado: importam como
+  extensão e os 13 testes de `config/test_fontes.py` passam no Windows. O
+  `SkipTest` de `win32` (PR #34) fica no teste como guarda — só dispara se a
+  extensão não carregar, e hoje ela carrega. O psycopg também: a
+  implementação `binary` (`pq.cp312-win_amd64.pyd`) foi bloqueada na manhã
+  de 20/09 e voltou à tarde; o `zz_nutriplan_libpq.pth` que a sessão de
+  auditoria pôs no `.venv` para o `libpq` 16 fica, porque é inofensivo.
 - **PWA não escreve no Apple Saúde nem no Health Connect** — não existe API web.
-  `workouts/health_export.py` gera TCX para importar.
+  A ponte era um TCX em `/treino/exportar/saude.tcx`; saiu em 20/09/2026 por
+  decisão do dono (sem uso, e a segunda fórmula de duração morava lá).
+  `workouts/health_export.py` ficou só com `resumo_da_sessao`, que o painel lê.
 - **Background Sync não existe no Safari do iPhone.** O evento `online` é o
   mecanismo principal; o sync em segundo plano é bônus.
 - **O serviço web gratuito do Render bloqueia saída SMTP nas portas 25, 465 e
@@ -1613,6 +1994,26 @@ dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
   no `render.yaml` de propósito: ele é o rollback. Se o plano gratuito do Neon
   tem prazo próprio, ninguém verificou — é uma olhada no painel dele.
   Ver **Backup e restauração** e [`docs/infra-recuperacao.md`](docs/infra-recuperacao.md).
+- **O SMART APP CONTROL DESTA MÁQUINA FOI DESLIGADO PELO DONO EM
+  20/09/2026, e é irreversível** (`VerifiedAndReputablePolicyState = 0`;
+  religar exige reinstalar o Windows). De 14 a 20/09 ele bloqueava binário
+  sem assinatura com "Uma política de Controle de Aplicativo bloqueou este
+  arquivo" (evento CodeIntegrity 3077), e a regra do período — `.pyd`/`.exe`
+  não assinado bloqueado → Python puro, nunca remendo no teste — pagou três
+  contas: o `agent-browser` (`NotSigned`) não rodava e o QA era `nav.py`
+  sobre o Chrome 153 que ele baixou; os `.pyd` do fontTools foram afastados
+  do `.venv` compartilhado; e o `psycopg` binário caiu na manhã de 20/09
+  (`.pth` do `libpq` 16 como contorno). Tudo isso voltou a carregar no
+  mesmo dia, verificado: `agent-browser` abre/lê/fotografa, `nav.py` sobe o
+  Chrome 153, `psycopg.pq.__impl__ == "binary"`, os seis `.pyd` do fontTools
+  importam. A mudança de configuração de segurança foi do dono, na tela de
+  Segurança do Windows — a sessão não a faz nem com autorização; ela só
+  verifica depois. Se o sintoma voltar a aparecer, não é o SAC: olhe a
+  quarentena do Defender. **A regra "sem remendo no teste" continua valendo
+  sem o SAC**: binário que não carrega se resolve na biblioteca (afastar ou
+  reinstalar o `.pyd`), nunca com `skip` escrito para a máquina passar. O
+  `skip` de `config/test_fontes.py` (`win32`) continua no teste como guarda,
+  hoje sem gatilho; no CI (Linux) a extensão que não carrega é FALHA.
 - **Nenhum processo de fundo abre janela, e todo processo de fundo nasce em
   `scripts/fundo.py`.** No Windows 11 o Windows Terminal hospeda todo console
   novo — e um processo sem console (os do Claude Code, o Agendador) que lança
@@ -1633,28 +2034,66 @@ ao GitHub naquele dia sem passar pelo reflog de nenhuma sessão desta
 máquina; um gate que só existe numa máquina não é gate, porque ninguém
 consegue conferir se ele rodou. Desde então:
 
-- `.github/workflows/suite.yml` roda a suíte COMPLETA — o mesmo comando do
-  hook, `manage.py test --verbosity=1 --noinput` — em todo PR para `main`
-  e em todo push que chegue lá, com Postgres 16 de serviço (a versão de
-  produção), sem segredo nenhum, teto de 40 minutos e o log como artefato;
-- `main` tem branch protection pela API: o check **"suíte completa"** verde
-  é obrigatório, a branch tem de estar atualizada (`strict`), vale para
-  admin (`enforce_admins`), sem force push, sem apagar. Push direto é
-  recusado — para todo mundo, o dono inclusive;
+- **DOIS fluxos desde 18/09/2026, e o gate é o RÁPIDO.** A suíte inteira,
+  serial, executava em ~31 min (medido nos últimos 10 runs: instalar ~10 s
+  com cache, o resto é o `manage.py test`), e com a fila local cada PR
+  esperava ~32 min de runner. `suite-rapida.yml` (check **"suíte rápida"**)
+  é o GATE: a suíte FATIADA em 5 por `ci/shard.py` (um job por fatia, cada
+  um SERIAL, os jobs em paralelo), `--exclude-tag lento`. **Não** usamos
+  `--parallel` do Django: ele roda cada processo com um clone do banco, mas
+  a suíte tem teste que assume ORDEM de PK, e no CI (PR #33, Linux) UM caiu
+  e o runner morreu com `cannot pickle 'traceback'`, escondendo a falha —
+  fatiar mantém cada fatia idêntica ao verde serial de sempre. `ci/shard.py`
+  descobre TODO módulo versionado e reparte equilibrado (peso por linhas, e
+  peso extra para quem semeia um ano); `config/test_ci.py` cobra que a
+  partição não deixa módulo órfão (um módulo em nenhuma fatia nunca rodaria
+  no gate). O check é o job `gate` ("suíte rápida"), verde só se TODAS as
+  fatias passam. Roda em todo PR, alvo < 10 min. `suite.yml` (check
+  **"suíte completa"**) roda as MESMAS fatias com TUDO, inclusive `lento`,
+  DEPOIS do merge (`push: main`) e à mão (`workflow_dispatch`) — não barra
+  PR; a NOITE é de `noturna.yml` (a suíte com a DATA REAL e a issue de
+  alerta; ver "Testes"), porque a suíte roda congelada e um cron aqui
+  mediria a mesma quarta de sempre. Os dois: Postgres 16 (produção), sem
+  segredo, `contents: read`, cada fatia sobe seu log e `--durations 15`.
+  **`@tag("lento")` é só para teste pesado que NÃO é o único guarda de algo
+  crítico** (concorrência, dourado, idempotência, segurança ficam no rápido
+  mesmo quando custam) — cada um movido está justificado no relatório;
+- **NÃO HÁ GATE NO SERVIDOR: o repositório é PRIVADO** e a API do GitHub
+  devolve **403 "Upgrade to GitHub Pro or make this repository public"**
+  para branch protection E para rulesets (conferido em 18/09/2026 — a
+  afirmação antiga de "branch protection pela API, strict, enforce_admins"
+  estava errada, e o "repositório público, minutos ilimitados" idem). O
+  único gate é COOPERATIVO: `scripts/github.py enfileirar`/`esperar` esperam
+  o check `CHECK` (= "suíte rápida") ficar verde antes de mergear pela API.
+  Ninguém deve chamar `merge` à mão. E porque é privado, **minuto de Actions
+  é metered** (~2000/mês no free): PR de 32 min era espera E custo — mais uma
+  razão para o gate rápido, e para a completa não rodar em todo PR;
 - **A FILA DE MERGE DO GITHUB NÃO EXISTE EM REPOSITÓRIO DE CONTA PESSOAL
-  (17/09/2026)** — a API devolve 422 "Invalid rule 'merge_queue'" e o
-  formulário de Settings → Rules não oferece "Require merge queue";
-  conferido nos dois. Com `strict` e quatro sessões mergeando, um PR
-  verde ficava "behind" no meio do check (duas vezes no #13). A resposta
-  é a FILA LOCAL: `scripts/github.py enfileirar <n>` põe uma senha em
+  (17/09/2026)** — a API devolve 422/403. A resposta é a FILA LOCAL:
+  `scripts/github.py enfileirar <n>` põe uma senha em
   `C:\Users\biel-\nutriplan-fila\` (fora de qualquer worktree, uma por PR,
-  em ordem de chegada), e a sessão da vez faz o laço que o `strict` pede —
-  merge de `main` na branch → push → check verde → merge — enquanto as
-  outras esperam. Serializa as sessões DESTA máquina, que era de onde
-  vinha a corrida. Posse abandonada (90 min) é liberada sozinha. O ruleset
-  com a fila do GitHub (`corpo_da_fila`, `fila-ativar`) e o gatilho
-  `merge_group` no fluxo ficam PRONTOS para o dia em que o repositório
-  morar numa organização — decisão do dono, não desta sessão;
+  em ordem de chegada), e a sessão da vez faz o laço merge de `main` na
+  branch → push → **espera "suíte rápida" do head certo (`esperar --sha`)**
+  → merge, enquanto as outras esperam. Posse abandonada (90 min) é liberada
+  sozinha. **O laço roda num WORKTREE PRÓPRIO e descartável (18/09/2026), não
+  na árvore da sessão** — `git worktree add --detach` no head remoto da
+  branch, merge/push/merge lá, `git worktree remove` no fim —, então a sessão
+  NÃO precisa estar com a branch em HEAD e SEGUE trabalhando enquanto a fila
+  anda (antes o `enfileirar` travava a árvore da sessão até a fila terminar).
+  O push do worktree é `--no-verify`: o pre-push é o atalho LOCAL e redundante
+  ali (o gate é o check do CI que a fila espera sobre o mesmo SHA, e a árvore
+  do worktree já é a que sobe). O ruleset com a fila do GitHub
+  (`corpo_da_fila`, `fila-ativar`) e o gatilho `merge_group` ficam PRONTOS
+  para o dia em que o repositório morar numa organização (ou virar público) —
+  decisão do dono;
+- **Se a "suíte completa" quebrar** (pós-merge): foi um `lento` que
+  regrediu no merge que acabou de entrar. O GitHub manda e-mail ao dono por
+  run vermelho no branch padrão (é o alerta, sem segredo de webhook).
+  Conserte ou reverta o merge culpado; o gate rápido não pega `lento`, então
+  a correção também passa rápido. Rodar a completa à mão: `workflow_dispatch`
+  na aba Actions. **Se a "Suíte noturna (data real)" quebrar**: é
+  calendário ou hora — a issue "Suíte noturna vermelha com a data real" diz
+  o dia e como reproduzir (`NUTRIPLAN_DATA_DA_SUITE=<dia>`);
 - o fluxo é **branch → PR → `enfileirar` (espera a vez, atualiza, espera o
   check, mergeia) → `/saude/`**. Sem `gh` nesta máquina, o helper é
   `scripts/github.py` (`pr`, `status`, `esperar`, `enfileirar`, `fila`,
@@ -1664,8 +2103,8 @@ consegue conferir se ele rodou. Desde então:
 - o `pre-push` local virou ATALHO: no worktree descartável do SHA que sobe,
   `config` + teste dourado + doutrina + gate por letra + orçamentos, em
   poucos minutos; `NUTRIPLAN_SUITE_COMPLETA=1` roda tudo localmente como
-  antes. `config/test_ci.py` prende o contrato dos três (fluxo, hook,
-  helper).
+  antes. `config/test_ci.py` prende o contrato dos dois fluxos, do hook e do
+  helper.
 
 O merge em `main` dispara o Render. `scripts/build.sh` roda collectstatic →
 `check --deploy` → migrate → os três seeds, com `errexit`: build que passa
@@ -1721,30 +2160,59 @@ variáveis), `env`, `cron`, `deploy`, `trigger`, `runs`, `logs`, `status`.
   FCM 201, notificação exibida.
 - **Lembretes SEM cron e SEM nada pago (decisão do dono, 16/09/2026).** A
   criação do cron pela API respondeu `402 Payment information is required`
-  (custaria no mínimo US$ 1/mês), e a instância web continua `free`. O
-  relógio é o **GitHub Actions**: `.github/workflows/lembretes.yml` roda de
-  5 em 5 minutos, bate em `/saude/vivo/` (sem banco) para o serviço não
-  dormir e em `POST /tarefas/lembretes/` com `NUTRIPLAN_TAREFAS_TOKEN` no
-  `Authorization` (variável do web service + segredo do repositório; o
-  mesmo valor, em `~/.nutriplan-secrets/tarefas_token`; gravado por
-  `scripts/github.py segredo` e pela API do Render). A rota é
-  `push.views.TarefaLembretesView` → `push/tarefas.py`: token em tempo
-  constante (503 sem a variável, 403 com token errado), só POST, sem
-  sessão, idempotente pela constraint do `NotificationLog`.
+  (custaria no mínimo US$ 1/mês), e a instância web continua `free`.
+- **Quem DISPARA lembrete com PONTUALIDADE é o UptimeRobot (18/09/2026), e o
+  `schedule` do Actions é FALLBACK.** O `schedule` do GitHub atrasa e PULA —
+  MEDIDO em 18/09: ~9 rodadas em 31 h (intervalos de 2 a 5,5 h), então o
+  lembrete saía a cada ~4,4 h em vez de 5 min. O primário passou a ser um
+  segundo monitor do UptimeRobot em `GET /tarefas/lembretes/externo/<token>/`
+  (a cada 5 min, pontual). O UptimeRobot free só manda GET/HEAD e SEM
+  cabeçalho, então o token vai na URL (`NUTRIPLAN_DISPARO_TOKEN`, SEPARADO do
+  Bearer do POST): `config/observabilidade.py` o redige do log do Django, mas
+  ele APARECE no log de ACESSO do Render — por isso é de baixo dano (só
+  dispara lembretes vencidos, idempotente, com limite de taxa de
+  `INTERVALO_MINIMO_EXTERNO`). A rota é `push.views.DisparoExternoView` (GET,
+  503 sem a variável, 403 com token errado; loga user-agent e origem, nunca o
+  token). O `schedule` continua no `POST /tarefas/lembretes/`
+  (`TarefaLembretesView`, Bearer `NUTRIPLAN_TAREFAS_TOKEN`) como FALLBACK: o
+  `push/tarefas.py` SE ABSTÉM (`rodar(externo=False)`) quando um disparo
+  externo cuidou há menos de `RESERVA_DO_FALLBACK` (4 min) — assim o pontual
+  manda e o `schedule` só assume se o UptimeRobot cair. A memória do último
+  externo é por PROCESSO (dois workers) e some no restart; errar dá no
+  máximo uma rodada redundante, que a constraint do `NotificationLog` torna
+  inofensiva.
+
+- **Quem MANTÉM ACORDADO é o UptimeRobot (17/09/2026), não o Actions.** Um
+  monitor HTTP(s) gratuito — conta `bielpointblank@gmail.com`, monitor
+  "NutriPlan vivo" (`dashboard.uptimerobot.com/monitors/804021213`) — bate em
+  `GET /saude/vivo/` a cada 5 minutos (o mínimo do plano free) e alerta por
+  e-mail se cair. `/saude/vivo/` NÃO consulta o banco, de propósito: um
+  monitor em `/saude/` acordaria o Neon o tempo todo e a cota de 100 CU-h
+  estouraria no meio do mês (ver "Monitor externo bate em `/saude/vivo/`").
+  Antes disso o "manter acordado" era um LAÇO de ~5h45 dentro da rodada do
+  Actions que se re-disparava sozinho (`GITHUB_TOKEN`, `actions: write`) — a
+  "corrente"; com o UptimeRobot ela perdeu a razão e saiu (o fluxo voltou a
+  ser uma rodada por disparo do `schedule`). A chave do UptimeRobot, se um
+  dia a API for usada, mora só no ambiente da máquina (`API Settings` no
+  painel), nunca no repositório.
 
 **A infraestrutura é 100 % gratuita — Render free + Neon free + GitHub
-Actions —, e isso implica três coisas escritas:**
+Actions + UptimeRobot free —, e isso implica três coisas escritas:**
 
-- **cold start só se o ping falhar por mais de 15 minutos.** O free do
-  Render dorme após 15 min sem tráfego e acorda em 37–60 s (medido na
-  avaliação de 16/09). **O `schedule` do GitHub NÃO segura isso sozinho**
-  — medido em 17/09: o cron `*/5` rodou UMA vez em oito horas, o serviço
-  dormiu e `/saude/` levou 38 s depois de 30 min parado. Por isso o relógio
-  de verdade é o LAÇO dentro da rodada (`lembretes.yml`: um job de ~5h45
-  batendo a cada 5 min e disparando a próxima rodada com o `GITHUB_TOKEN`
-  ao acabar); o `schedule` é só o gatilho de reserva que religa a corrente.
-  Um cold start ocasional continua possível (runner indisponível, corrente
-  quebrada até o `schedule` religar) e não é defeito do app;
+- **três responsabilidades, e o UptimeRobot cuida de duas (18/09/2026).**
+  MANTER ACORDADO é do UptimeRobot em `/saude/vivo/` (monitor "NutriPlan
+  vivo"); DISPARAR LEMBRETE, com pontualidade, é do UptimeRobot em
+  `/tarefas/lembretes/externo/<token>/` (um segundo monitor); e o `schedule`
+  do Actions em `POST /tarefas/lembretes/` é o FALLBACK. Os dois monitores
+  batem de 5 em 5 min (o mínimo do free) e alertam por e-mail. Por que o
+  UptimeRobot e não o `schedule` para disparar: o `schedule` do GitHub ATRASA
+  e PULA (MEDIDO em 17 e 18/09), e lembrete precisa de pontualidade. **Se um
+  dos monitores cair** (o e-mail avisa): reative no painel; enquanto isso, o
+  `schedule` (fallback) assume os lembretes quando não vê disparo externo há
+  > 4 min, e o `POST` do lembrete acaba acordando o web. **Se o `schedule` do
+  Actions parar** (repositório sem atividade por 60 dias, ou pane): os
+  lembretes param só se o UptimeRobot TAMBÉM estiver fora; `workflow_dispatch`
+  na aba Actions dispara à mão, e um commit religa o `schedule`;
 - **o Neon dorme entre refeições, de propósito.** Uma consulta a cada 5 min
   o manteria acordado o dia inteiro (182 CU-h contra 100 de cota). Por isso
   a tarefa, depois de rodar, calcula a próxima refeição de quem tem
@@ -1754,17 +2222,18 @@ Actions —, e isso implica três coisas escritas:**
   restart. O ping de manter acordado NUNCA usa `/saude/`;
 - **dependência da política do free.** Render pode mudar o tempo de sono,
   as horas gratuitas (750 h/mês por workspace hoje) ou bloquear o ping;
-  GitHub pode desligar o `schedule` de repositório sem atividade por 60
-  dias (ele avisa por e-mail), atrasa ou pula o cron sob carga, e a corrente
-  de rodadas de ~6 h (repositório público, minutos ilimitados) é uso que a
-  política de Actions pode um dia questionar; o Neon pode reduzir a cota.
-  Nada disso quebra o app — só os lembretes e o cold start.
+  UptimeRobot pode mudar o mínimo de 5 min do plano free ou o número de
+  monitores; GitHub pode desligar o `schedule` de repositório sem atividade
+  por 60 dias (ele avisa por e-mail) e atrasa ou pula o cron sob carga; o
+  Neon pode reduzir a cota. Nada disso quebra o app — só os lembretes e o
+  cold start, e cada um tem o seu dono para reativar.
 
 **O que mudaria se um dia virar pago:** instância `starter` no Render
-(~US$ 7/mês) elimina o sono e o ping; o cron do Render (≥ US$ 1/mês,
-`scripts/render_api.py cron`, bloco de exemplo no histórico do `render.yaml`
-até 16/09) substituiria o Actions com relógio exato — e a janela de 15 min
-poderia voltar a 10; o Neon pago tira o teto de CU-h e a pausa de
+(~US$ 7/mês) elimina o sono, e aí o UptimeRobot vira só alerta de queda; o
+cron do Render (≥ US$ 1/mês, `scripts/render_api.py cron`, bloco de exemplo
+no histórico do `render.yaml` até 16/09) substituiria o `schedule` do Actions
+com relógio exato — e a janela de 15 min poderia voltar a 10, e o lembrete
+deixaria de atrasar; o Neon pago tira o teto de CU-h e a pausa de
 `push/tarefas.py` viraria só economia. Nenhuma dessas trocas exige código
 novo além de apagar o que existe para contornar o gratuito.
 

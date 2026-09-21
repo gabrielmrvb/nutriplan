@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 """Duas fontes próprias, com regra de uso e gate de tamanho (CORTE, T3.2).
 
-Bodoni Moda é a DISPLAY e Karla é o TEXTO (`DESIGN.md`, "Tipografia"). O
+Big Shoulders Display é a DISPLAY e Archivo é o TEXTO (`DESIGN.md`,
+"Tipografia" — NERVURA, 17/09/2026; foram Bodoni Moda e Karla na CORTE). O
 que este arquivo prende: os dois `.woff2` existem em `static/fonts/` e
 cabem no gate de 260 KB; o `@font-face` de cada uma tem `font-display:
-swap` e o `unicode-range` do latin; `--font` abre com Karla e
-`--font-display` com Bodoni Moda; a display SÓ aparece em regra cujo
-tamanho é herói (≥ 20 px: `--texto-xl` para cima, ou o `1.42rem` do nome);
-só quatro pesos (400 · 500 · 600 · 700) — os degraus sintéticos
-(620/650/680/720/750/780) saíram com a fonte própria; a licença OFL está ao
+swap` e o `unicode-range` do latin; `--font` abre com Archivo e
+`--font-display` com Big Shoulders Display; a display SÓ aparece em regra
+cujo tamanho é herói (≥ 20 px: `--texto-xl` para cima, ou o `1.42rem` do
+nome), em caixa alta 800 nos títulos e 900 nos números; só os pesos do
+contrato (400 · 500 · 600 · 700 no texto, 800 · 900 na display); a licença OFL está ao
 lado dos arquivos; o service worker pré-cacheia as duas; e, quando o
 fontTools está instalado (`requirements-dev.txt`), as tabelas confirmam
 eixo variável e `tnum` — número tabular é o que faz a coluna de carga
@@ -16,6 +17,7 @@ alinhar, e uma fonte sem ele passaria em todo teste visual e desalinharia
 em produção.
 """
 import re
+import sys
 import unittest
 from pathlib import Path
 
@@ -25,13 +27,13 @@ from django.test import SimpleTestCase
 from config.test_design_system import CSS, sem_comentarios
 
 FONTES = Path(settings.BASE_DIR) / "static" / "fonts"
-ARQUIVOS = ("bodoni-moda-latin.woff2", "karla-latin.woff2")
+ARQUIVOS = ("big-shoulders-display-latin.woff2", "archivo-latin.woff2")
 GATE = 260 * 1024
 
 #: Tamanhos que valem como herói para a display (≥ 20 px). `1.42rem` é o
 #: nome da refeição/do exercício (22,7 px) e `1.6rem` o número do anel na
 #: tela de 22rem (25,6 px) — valores crus que já existiam.
-TAMANHOS_DE_HEROI = ("var(--texto-xl)", "var(--texto-2xl)", "var(--texto-3xl)", "var(--texto-display)", "1.42rem", "1.6rem", "min(var(--texto-2xl)")
+TAMANHOS_DE_HEROI = ("var(--texto-xl)", "var(--texto-2xl)", "var(--texto-3xl)", "var(--texto-heroi)", "var(--texto-display)", "1.42rem", "1.6rem", "min(var(--texto-2xl)")
 
 
 def _regras(css):
@@ -51,12 +53,12 @@ class OsArquivosTests(SimpleTestCase):
         self.assertLessEqual(total, GATE, f"as fontes somam {total} bytes; o gate é {GATE}")
 
     def test_a_licenca_esta_ao_lado(self):
-        for nome in ("OFL-bodoni-moda.txt", "OFL-karla.txt"):
+        for nome in ("OFL-big-shoulders-display.txt", "OFL-archivo.txt"):
             with self.subTest(arquivo=nome):
                 texto = (FONTES / nome).read_text(encoding="utf-8")
                 self.assertIn("SIL Open Font License, Version 1.1", texto)
-        self.assertIn("Bodoni Moda", (FONTES / "OFL-bodoni-moda.txt").read_text(encoding="utf-8"))
-        self.assertIn("Karla", (FONTES / "OFL-karla.txt").read_text(encoding="utf-8"))
+        self.assertIn("Big Shoulders", (FONTES / "OFL-big-shoulders-display.txt").read_text(encoding="utf-8"))
+        self.assertIn("Archivo", (FONTES / "OFL-archivo.txt").read_text(encoding="utf-8"))
 
     def test_nenhum_arquivo_alem_dos_declarados(self):
         """A pasta é fechada: a itálica da Bodoni ficou de fora de propósito
@@ -71,20 +73,20 @@ class OFontFaceTests(SimpleTestCase):
         self.faces = re.findall(r"@font-face\s*\{([^}]*)\}", self.css)
 
     def test_as_duas_familias_com_swap_e_latin(self):
-        self.assertEqual(len(self.faces), 2, "uma @font-face por família — a itálica não entra sem consumidor")
+        self.assertEqual(len(self.faces), 2, "uma @font-face por família — variável, um arquivo por família")
         familias = {re.search(r'font-family:\s*"([^"]+)"', f).group(1) for f in self.faces}
-        self.assertEqual(familias, {"Bodoni Moda", "Karla"})
+        self.assertEqual(familias, {"Big Shoulders Display", "Archivo"})
         for face in self.faces:
             with self.subTest(face=face.strip()[:40]):
                 self.assertIn("font-display: swap", face)
                 self.assertRegex(face, r'src:\s*url\("\.\./fonts/[a-z-]+\.woff2"\)\s*format\("woff2"\)')
                 self.assertIn("unicode-range: U+0000-00FF", face)
-                self.assertRegex(face, r"font-weight:\s*400 [89]00", "peso variável, um arquivo por família")
+                self.assertRegex(face, r"font-weight:\s*100 900", "peso variável, um arquivo por família")
 
     def test_os_tokens_de_familia(self):
         raiz = self.css.split(":root {", 1)[1].split("\n}", 1)[0]
-        self.assertRegex(raiz, r'--font:\s*"Karla",\s*system-ui')
-        self.assertRegex(raiz, r'--font-display:\s*"Bodoni Moda",')
+        self.assertRegex(raiz, r'--font:\s*"Archivo",\s*system-ui')
+        self.assertRegex(raiz, r'--font-display:\s*"Big Shoulders Display",')
         self.assertNotIn("fonts.googleapis.com", self.css)
 
     def test_a_display_so_aparece_em_regra_de_heroi(self):
@@ -105,18 +107,45 @@ class OFontFaceTests(SimpleTestCase):
                 for tamanho in tamanhos[sel]:
                     self.assertTrue(tamanho.startswith(TAMANHOS_DE_HEROI), f"{sel}: {tamanho} é menor que herói")
 
-    def test_os_titulos_e_os_nomes_sao_display(self):
-        for sel in ("h1", ".hoje__nome", ".agora__nome", ".ring__value", ".curva__valor", ".tile__value"):
+    def test_os_titulos_e_os_nomes_sao_display_em_caixa_alta(self):
+        """A Big Shoulders é feita para caixa alta: título e nome vão em
+        `uppercase` e 800; o número herói em 900."""
+        for sel in ("h1", ".hoje__nome", ".agora__titulo", ".agora__nome", ".series__titulo"):
             with self.subTest(seletor=sel):
                 regras = [corpo for s, corpo in _regras(self.css) if s == sel]
                 self.assertTrue(any("var(--font-display)" in c for c in regras), f"{sel} não é display")
+                self.assertTrue(any("text-transform: uppercase" in c for c in regras), f"{sel} não é caixa alta")
+                self.assertTrue(any("font-weight: 800" in c for c in regras), f"{sel} não é 800")
+        for sel in (".ring__value", ".curva__valor", ".tile__value", ".recompensa__numero"):
+            with self.subTest(seletor=sel):
+                regras = [corpo for s, corpo in _regras(self.css) if s == sel]
+                self.assertTrue(any("var(--font-display)" in c and "font-weight: 900" in c for c in regras), f"{sel} não é display 900")
 
-    def test_so_quatro_pesos(self):
-        # Um valor só, seguido de `;`: o `400 900` do @font-face é faixa, não peso.
+    def test_coluna_de_numeros_e_texto_tabular(self):
+        """A Big Shoulders não tem `tnum` (dígitos proporcionais, medido): a
+        lista de pesagens — uma COLUNA de números — fica em Archivo."""
+        regras = [corpo for s, corpo in _regras(self.css) if s == ".pesagem__media"]
+        self.assertTrue(regras)
+        self.assertTrue(all("var(--font-display)" not in c for c in regras), ".pesagem__media voltou para a display")
+        self.assertTrue(any("var(--font)" in c for c in regras))
+
+    def test_o_filho_pequeno_do_heroi_volta_para_a_fonte_de_texto(self):
+        """Herdar é o caminho que a régua das regras não vê: `.series__faixa`
+        ("6-10 reps", 12,8 px) mora DENTRO do "SÉRIE 2 DE 4" e herdava a
+        Big Shoulders — visto na captura da execução em 17/09/2026. Todo
+        filho pequeno de um herói declara a fonte de texto de volta."""
+        for sel in (".series__faixa",):
+            with self.subTest(seletor=sel):
+                regras = [corpo for s, corpo in _regras(self.css) if s == sel]
+                self.assertTrue(regras, f"{sel} sem regra")
+                self.assertTrue(any(re.search(r"font-family:\s*var\(--font\)", c) for c in regras), f"{sel} herda a display")
+
+    def test_so_os_pesos_do_contrato(self):
+        # Um valor só, seguido de `;`: o `100 900` do @font-face é faixa, não peso.
         pesos = sorted({int(p) for p in re.findall(r"font-weight:\s*(\d+)\s*;", self.css)})
-        # 400 é o padrão do navegador e não precisa ser escrito; o que não pode
-        # é um quinto degrau — 650, 750, 800 — voltar.
-        self.assertTrue(pesos and set(pesos) <= {400, 500, 600, 700}, pesos)
+        # Archivo 400/500/600/700, Big Shoulders 800/900 (DESIGN.md, "Tipografia");
+        # 400 é o padrão do navegador e não precisa ser escrito.
+        self.assertTrue(pesos and set(pesos) <= {400, 500, 600, 700, 800, 900}, pesos)
 
 
 class OServiceWorkerPreCacheiaTests(SimpleTestCase):
@@ -137,20 +166,31 @@ except ImportError:  # pragma: no cover — o CI instala só requirements.txt
 
 @unittest.skipIf(TTFont is None, "fontTools não instalado (requirements-dev)")
 class AsTabelasDasFontesTests(SimpleTestCase):
-    """Medido com fontTools, quando ele existe: eixo de peso variável e
-    `tnum` nas duas — a Bodoni tem numeral tabular (a nota de
-    `DIRECAO-ESCOLHIDA.md` falava do mockup, não da fonte)."""
+    """Medido com fontTools, quando ele existe: eixo de peso variável nas
+    duas; `tnum` na Archivo — a Big Shoulders NÃO tem, e é por isso que a
+    display só serve ao número solto (`test_coluna_de_numeros_e_texto_tabular`)."""
 
     def _fonte(self, nome):
-        return TTFont(str(FONTES / nome))
+        try:
+            return TTFont(str(FONTES / nome))
+        except ImportError as erro:
+            # A extensão compilada do fontTools (`bezierTools.pyd`, sem
+            # assinatura) é bloqueada pelo Smart App Control do Windows; a
+            # regra da máquina (CLAUDE.md, "Limites reais deste ambiente") é
+            # apagar o `.pyd` — o fontTools roda em Python puro. Só no
+            # Windows isto vira "pulado com o motivo"; no CI (Linux) não há
+            # política nenhuma, e a extensão que não carrega é FALHA.
+            if sys.platform == "win32" and "DLL load failed" in str(erro):
+                raise unittest.SkipTest("Smart App Control bloqueou a extensão do fontTools — apague o .pyd (CLAUDE.md): %s" % erro)
+            raise
 
     def test_eixos_e_tnum(self):
-        for nome, eixos in (("bodoni-moda-latin.woff2", {"wght", "opsz"}), ("karla-latin.woff2", {"wght"})):
+        for nome, tnum in (("big-shoulders-display-latin.woff2", False), ("archivo-latin.woff2", True)):
             with self.subTest(fonte=nome):
                 fonte = self._fonte(nome)
-                self.assertEqual({a.axisTag for a in fonte["fvar"].axes}, eixos)
+                self.assertEqual({a.axisTag for a in fonte["fvar"].axes}, {"wght"})
                 feats = {fr.FeatureTag for fr in fonte["GSUB"].table.FeatureList.FeatureRecord}
-                self.assertIn("tnum", feats)
+                self.assertEqual("tnum" in feats, tnum, "a regra da coluna existe porque isto é verdade; se mudar, revise a regra")
 
     def test_cobrem_o_portugues(self):
         for nome in ARQUIVOS:

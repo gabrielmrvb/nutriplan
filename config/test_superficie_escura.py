@@ -63,7 +63,8 @@ class BotaoQuietoTemCaraDeBotaoTests(SimpleTestCase):
     def test_o_quiet_tem_borda_como_o_ghost(self):
         corpo = _regra(self.css, ".btn--quiet")
         self.assertIsNotNone(corpo, "a regra .btn--quiet sumiu")
-        self.assertRegex(corpo, r"border:\s*1px solid var\(--fio-forte\)")
+        # 1px até a NERVURA (17/09/2026); desde então o traço de 2 px do andaime.
+        self.assertRegex(corpo, r"border:\s*(1px|var\(--traco\)) solid var\(--fio-forte\)")
 
 
 class TrilhaDeProgressoAparecemTests(SimpleTestCase):

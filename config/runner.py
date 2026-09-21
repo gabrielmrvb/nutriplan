@@ -27,6 +27,8 @@ import re
 from django.db import connections
 from django.test.runner import DiscoverRunner
 
+from config import relogio
+
 #: Escotilha de emergência. Existe porque um guardrail sem saída, num projeto de
 #: uma pessoa, é um jeito de ficar sem poder publicar num sábado à noite. Usar
 #: isto com uma suíte de verdade rodando produz resultado corrompido — é essa a
@@ -108,7 +110,26 @@ def descrever(linhas, nome_de_teste):
 
 
 class RunnerUnico(DiscoverRunner):
-    """O `DiscoverRunner` de sempre, com a verificação antes de criar o banco."""
+    """O `DiscoverRunner` de sempre, com a verificação antes de criar o banco.
+
+    E com o RELÓGIO da suíte (`config/relogio.py`): a data congelada por
+    padrão, a real com `NUTRIPLAN_DATA_REAL=1`. Liga em
+    `setup_test_environment`, antes de qualquer fixture, para o `default`
+    de `DateField` e o `auto_now_add` de toda linha criada nascerem no dia
+    que a suíte mede.
+    """
+
+    _relogio = None
+
+    def setup_test_environment(self, **kwargs):
+        super().setup_test_environment(**kwargs)
+        self._relogio = relogio.ligar_para_a_suite()
+
+    def teardown_test_environment(self, **kwargs):
+        if self._relogio is not None:
+            self._relogio.desligar()
+            self._relogio = None
+        super().teardown_test_environment(**kwargs)
 
     def setup_databases(self, **kwargs):
         if not os.environ.get(IGNORAR):

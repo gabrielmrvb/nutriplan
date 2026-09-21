@@ -43,6 +43,9 @@ CABECALHO = "HTTP_X_REQUEST_ID"
 PADROES = (
     # /conta/senha/nova/<uidb64>/<token>/
     (re.compile(r"(/senha/nova/)[^/\s]+/[^/\s]+"), r"\1[REDIGIDO]"),
+    # /tarefas/lembretes/externo/<token>/ — o disparo pontual leva o token na
+    # URL (o UptimeRobot free não manda cabeçalho); redige do log do Django.
+    (re.compile(r"(/tarefas/lembretes/externo/)[^/\s]+"), r"\1[REDIGIDO]"),
     # ?code=... &state=... &token=...
     (re.compile(r"([?&](?:code|state|token|key|password)=)[^&\s]+", re.I), r"\1[REDIGIDO]"),
     # chaves de SMTP e URLs de banco, caso alguma exceção as carregue

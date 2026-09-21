@@ -59,16 +59,18 @@
       da ficha. Caloria não aparece de jeito nenhum — o app não mede.
     {% endcomment %}
     <div class="page-head">
-      <h1>Treino concluído</h1>
+      <h1>{{ estado.sessao.name }} fechado</h1>
     </div>
     {% comment %}
-      A FOLHA DE RECOMPENSA (CORTE, T3.6 — 16/09/2026): o placar nasce
-      DENTRO da folha-lima, que sobe do canto inferior direito em
-      `--mov-recompensa` (`folha-sobe`); a carga total conta do zero em
-      `--mov-sucesso` (`data-conta="zero"`, pwa.js); os números pequenos
-      entram em cascata de 80 ms (`data-escalonado` + `--mov-cascata`); os
-      botões chegam parados. Total 1,0 s, e depois a tela fica quieta até o
-      toque. Com `prefers-reduced-motion` o quadro final aparece pronto.
+      O PLACAR (NERVURA, 17/09/2026): a tela inteira vira placar — o título
+      é a sessão fechada ("PERNAS COMPLETO FECHADO", como "TREINO B FECHADO"
+      no mockup; o `<title>` continua "Treino concluído"), a nervura risca
+      da base à ponta em `--mov-nervura` (`nervura-risca`), a carga total
+      conta do zero em `--brand` (`data-conta="zero"`, pwa.js), os números
+      entram em cascata de 80 ms (`data-escalonado` + `--mov-cascata`), a
+      ponta de folha pousa no canto e os botões aparecem no fim, sem
+      animação. Total 1,0 s, e depois a tela fica quieta até o toque. Com
+      `prefers-reduced-motion` o quadro final aparece pronto.
 
       O número é a recompensa — carga total de hoje, peso × repetições
       série a série, e "vs. última", a mesma conta sobre a última vez de
@@ -76,7 +78,7 @@
       caloria: o app não mede nenhum dos dois.
     {% endcomment %}
     <section class="card fim recompensa">
-      <p class="recompensa__rotulo">{{ estado.sessao.name }} · fechado</p>
+      <p class="recompensa__rotulo">Treino concluído · {{ estado.total_exercicios }} {% if estado.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}</p>
       <p class="recompensa__carga">
         <span class="recompensa__numero num" data-conta="zero">{{ estado.placar.carga_total|floatformat:"0" }}</span>
         <span class="recompensa__unidade">kg levantados</span>
@@ -121,17 +123,6 @@
       <a class="btn btn--ghost btn--block" href="{% url 'plans:today' %}">
         Voltar para Hoje
       </a>
-      {% comment %}
-        `data-arquivo`: a resposta é um arquivo (Content-Disposition:
-        attachment), a página não troca — e o link-botão só marca
-        `is-carregando` em quem vai navegar (pwa.js). Sem a marca, o anel
-        ficaria girando depois de o TCX salvar. Não é `download`: sem treino
-        hoje a view responde 302 com mensagem, e `download` faria o navegador
-        salvar aquele HTML como arquivo.
-      {% endcomment %}
-      <a class="btn btn--quiet btn--block" href="{% url 'workouts:health_export' %}" data-arquivo>
-        Exportar para o app de saúde
-      </a>
 
     </section>
 
@@ -163,19 +154,9 @@
         (`.agora__lista`) só aparece depois de rolar a tela inteira.
       {% endcomment %}
       <div class="agora__linha-do-topo">
-        <p class="sobretitulo agora__sessao-rotulo">Treino {{ estado.sessao.label }} · {{ estado.sessao.name }}{% if estado.tem_duas_opcoes %} · Opção {{ estado.opcao }}{% endif %}{% if estado.rapida %} · rápida{% endif %}</p>
+        <p class="sobretitulo agora__sessao-rotulo">Treino {{ estado.sessao.label }} · {{ estado.sessao.name }}{% if estado.rapida %} · rápida{% endif %}</p>
         <a class="btn-link agora__voltar" href="{% url 'workouts:ficha' estado.sessao.pk %}">← Ficha</a>
       </div>
-      {% if escolher_na_ficha %}
-        {% comment %}
-          Sem escolha gravada: esta é a opção RECOMENDADA, e a porta para
-          trocar é a ficha. Em linha PRÓPRIA, depois da linha do topo: como
-          terceiro item do flex ela espremia o sobretítulo em quatro linhas
-          de caixa alta (avaliação de 16/09/2026, B28). No DOM, e não por
-          `order`, para a ordem de foco seguir a visual.
-        {% endcomment %}
-        <p class="agora__opcao-aviso muted">Opção {{ estado.opcao }}, a recomendada de hoje — <a href="{{ escolher_na_ficha }}">trocar de opção na ficha</a>.</p>
-      {% endif %}
       <p class="agora__passo num">
         {% comment %}
           A POSIÇÃO É A DO EXERCÍCIO EM FOCO, e ela deixou de ser derivada dos
@@ -350,7 +331,7 @@
         <a class="btn-link" href="{% url 'workouts:now' %}?exercicio={{ atual.exercise.pk }}&amp;extra=1">Registrar uma série a mais</a>
       </p>
       {% else %}
-      <form class="registro registro--agora" method="post"
+      <form class="registro registro--agora" method="post" data-sem-recarga
             action="{% url 'workouts:record_set' %}">
         {% csrf_token %}
         <input type="hidden" name="exercise_id" value="{{ atual.exercise.pk }}">
@@ -472,7 +453,7 @@
         que não ter botão.
       {% endcomment %}
       {% if estado.ultimo_log %}
-        <form method="post" action="{% url 'workouts:record_set' %}" class="agora__desfazer">
+        <form method="post" action="{% url 'workouts:record_set' %}" class="agora__desfazer" data-sem-recarga>
           {% csrf_token %}
           <input type="hidden" name="exercise_id" value="{{ estado.ultimo_log.exercise_id }}">
           <input type="hidden" name="acao" value="desfazer">
@@ -555,6 +536,15 @@
         e abdominal não recebem anilha; sugerir "manter 0 kg" ali seria
         recomendar um número que não existe naquele movimento.
       {% endcomment %}
+      {% if movimento_anterior %}
+        <p class="agora__anterior">
+          <span class="agora__anterior-fato">
+            Primeira vez neste. Na última {{ movimento_anterior.padrao }}
+            ({{ movimento_anterior.exercicio.name|lower }}, {{ movimento_anterior.data|date:"d/m" }}):
+            <b class="num">{{ movimento_anterior.peso|floatformat:'-2' }} kg{% if movimento_anterior.reps %} × {{ movimento_anterior.reps }}{% endif %}</b>
+          </span>
+        </p>
+      {% endif %}
       {% if atual.load.melhor_anterior and not atual.exercise.sem_carga %}
         <p class="agora__anterior">
           <span class="agora__anterior-fato">
@@ -717,10 +707,19 @@
         if (restante > 0) falar("Descanso de " + porExtenso(restante) + ".");
       }, 300);
 
+      /* UM descanso vivo por página. Este script mora no <main> e é recriado
+         quando "Concluir série" troca o <main> sem recarregar (abaixo): sem
+         a limpeza, o interval da série anterior seguia contando sobre nós
+         soltos e, ao chegar a zero, vibrava "pode ir" para um descanso que
+         não existia mais — junto com o novo. O `window.__descansoTique` é
+         onde a troca alcança o interval para pará-lo ANTES de tirar os nós,
+         inclusive quando o <main> novo não tem descanso (o placar). */
+      if (window.__descansoTique) clearInterval(window.__descansoTique);
       var tique = setInterval(function () {
         restante -= 1;
         if (restante <= 0) {
           clearInterval(tique);
+          window.__descansoTique = null;
           area.classList.add("descanso--fim");
           if (relogio) relogio.textContent = "pode ir";
           falar("Descanso terminado, pode ir.");
@@ -743,10 +742,12 @@
             : restante + "s";
         }
       }, 1000);
+      window.__descansoTique = tique;
       var pular = area.querySelector("[data-descanso-pular]");
       if (pular) {
         pular.addEventListener("click", function () {
           clearInterval(tique);
+          window.__descansoTique = null;
           area.hidden = true;
           falar("Descanso pulado.");
         });
@@ -761,11 +762,18 @@
 
        Ele morava em `routine.html`, de quando a tela de Treino desenhava o
        formulario de cada exercicio. Ela parou de desenhar, e o codigo ficou
-       pendurado num `.registro` que aquela pagina nao emite mais. */
-    document.addEventListener("submit", function (evento) {
-      if (!evento.target.closest(".registro")) return;
-      if (navigator.vibrate) navigator.vibrate(35);
-    });
+       pendurado num `.registro` que aquela pagina nao emite mais.
+
+       O ouvinte vai no `document`, e este script e recriado a cada troca de
+       <main> ("Concluir serie" sem recarga): sem a guarda, cada serie
+       registrava mais um ouvinte, e a decima serie pulsava dez vezes. */
+    if (!window.__pulsoDaSerie) {
+      window.__pulsoDaSerie = true;
+      document.addEventListener("submit", function (evento) {
+        if (!evento.target.closest(".registro")) return;
+        if (navigator.vibrate) navigator.vibrate(35);
+      });
+    }
 
     /* A TELA NAO APAGA DURANTE O TREINO, e esta e a tela do treino.
      *
@@ -824,6 +832,159 @@
       segurar();
     })();
 
+  })();
+  </script>
+  <script>
+  /* "CONCLUIR SÉRIE" SEM RECARREGAR A PÁGINA (decisão do dono, 20/09/2026;
+     nasceu no protótipo `proto/execucao-sem-recarga` da sessão auditoria).
+     "Concluir série" e "desfazer" com REDE deixam de recarregar a página.
+     O POST vai por fetch, segue o 302 e recebe o MESMO HTML que o servidor
+     já renderiza; só o <main> (e o título, a URL, o aviso de conquista) é
+     trocado — o vídeo aberto continua aberto quando o exercício é o mesmo,
+     e o descanso recomeça do número que o servidor mandou. Sem rede nada
+     muda: `fila.js` continua sendo o dono (ele só age offline, e este
+     ouvinte só age online). Qualquer erro cai na recarga de sempre.
+     Medido em L08: o POST→302→GET custava 180–330 ms de `load` no Wi-Fi e
+     ~550 ms no 3G, e matava o iframe do vídeo a cada série. */
+  (function () {
+    "use strict";
+    if (!window.fetch || !window.DOMParser || !("replaceChildren" in Element.prototype)) return;
+    /* Este script mora dentro do <main> e é recriado a cada troca: o ouvinte
+       é registrado UMA vez por página. */
+    if (window.__agoraSemRecarga) return;
+    window.__agoraSemRecarga = true;
+    /* Troca os filhos de `pai` pelos de `novoPai` mantendo `vivo` (um
+       descendente de `pai`) no lugar do seu correspondente `novoVivo` (um
+       descendente de `novoPai`) — sem nunca tirar `vivo` do documento. Em
+       cada nível da cadeia de ancestrais só os irmãos são trocados e os
+       atributos do ancestral são atualizados; o nível seguinte desce até
+       chegar ao nó mantido. */
+    function trocarMantendo(pai, novoPai, vivo, novoVivo) {
+      var filhoVivo = vivo, filhoNovo = novoVivo;
+      while (filhoVivo.parentNode !== pai) filhoVivo = filhoVivo.parentNode;
+      while (filhoNovo.parentNode !== novoPai) filhoNovo = filhoNovo.parentNode;
+      var antes = [], depois = [], passou = false;
+      Array.prototype.slice.call(novoPai.childNodes).forEach(function (no) {
+        if (no === filhoNovo) { passou = true; return; }
+        (passou ? depois : antes).push(no);
+      });
+      Array.prototype.slice.call(pai.childNodes).forEach(function (no) {
+        if (no !== filhoVivo) pai.removeChild(no);
+      });
+      antes.forEach(function (no) { pai.insertBefore(no, filhoVivo); });
+      depois.forEach(function (no) { pai.appendChild(no); });
+      if (filhoVivo === vivo) return;
+      Array.prototype.slice.call(filhoVivo.attributes).forEach(function (a) {
+        if (!filhoNovo.hasAttribute(a.name)) filhoVivo.removeAttribute(a.name);
+      });
+      Array.prototype.slice.call(filhoNovo.attributes).forEach(function (a) {
+        filhoVivo.setAttribute(a.name, a.value);
+      });
+      trocarMantendo(filhoVivo, filhoNovo, vivo, novoVivo);
+    }
+    document.addEventListener("submit", function (evento) {
+      var form = evento.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      /* Pelo atributo, e não pela classe: `workouts/test_b3_treino` lê o HTML
+         cru e cobra que a classe do formulário de desfazer não apareça sem
+         série hoje — e a classe escrita num <script> é a mesma string
+         (CLAUDE.md, "Testes"). */
+      if (!form.hasAttribute("data-sem-recarga")) return;
+      /* Marcado pelo `catch` abaixo: é o reenvio "de sempre" — este ouvinte
+         sai da frente e o navegador (ou a fila offline, em `fila.js`) segue.
+         A marca vale para ESTE envio: se a fila capturar o reenvio e a
+         página ficar, o toque seguinte volta a passar por aqui. */
+      if (form.hasAttribute("data-recarga-de-sempre")) { form.removeAttribute("data-recarga-de-sempre"); return; }
+      if (!navigator.onLine || evento.defaultPrevented) return;
+      evento.preventDefault();
+      var botao = evento.submitter;
+      var dados = new FormData(form);
+      if (botao && botao.name) dados.append(botao.name, botao.value);
+      if (botao) { botao.setAttribute("aria-busy", "true"); botao.disabled = true; }
+      var idAntes = (form.querySelector("[name=exercise_id]") || {}).value;
+      var inicio = performance.now();
+      fetch(form.action, {
+        method: "POST", body: dados, credentials: "same-origin", redirect: "follow",
+        headers: { "X-Requested-With": "fetch", "Accept": "text/html" },
+      }).then(function (resposta) {
+        if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+        return resposta.text().then(function (html) { return { html: html, url: resposta.url }; });
+      }).then(function (r) {
+        var doc = new DOMParser().parseFromString(r.html, "text/html");
+        var novoMain = doc.querySelector("main");
+        var main = document.querySelector("main");
+        if (!novoMain || !main) throw new Error("sem main");
+        var novoForm = novoMain.querySelector("form[data-sem-recarga]");
+        var idDepois = novoForm ? (novoForm.querySelector("[name=exercise_id]") || {}).value : null;
+        /* O descanso da série anterior para ANTES de os nós saírem — e aqui,
+           não só no script novo do descanso: o <main> do placar não tem
+           descanso nenhum para limpar o velho, e o velho vibraria "pode ir"
+           no meio da recompensa. */
+        if (window.__descansoTique) { clearInterval(window.__descansoTique); window.__descansoTique = null; }
+        /* O relógio das fotos alternadas (`_demonstracao_js.html`) para pelo
+           mesmo motivo: medido, um relógio vivo a mais por série. */
+        if (window.__quadrosRelogio) { clearInterval(window.__quadrosRelogio); window.__quadrosRelogio = null; }
+        /* O VÍDEO ABERTO NUNCA SAI DO DOCUMENTO. Um iframe removido do
+           documento perde o browsing context, e reinserido navega de novo
+           para o `src` — "mover" o iframe para o HTML novo era recarregar o
+           vídeo, e o script recriado não achava mais o botão "ver vídeo"
+           para ligar o "fechar". Com o exercício igual, a troca CONTORNA o
+           [data-demo] vivo: só os irmãos, em cada nível até o <main>, são
+           trocados; o iframe, o "fechar" e as closures do script antigo que
+           os governam continuam exatamente onde estavam. */
+        var demoVivo = main.querySelector("[data-demo]");
+        var videoVivo = demoVivo && demoVivo.querySelector("iframe, video");
+        var demoNovo = novoMain.querySelector("[data-demo]");
+        var manteve = !!(videoVivo && demoNovo && idDepois && idDepois === idAntes);
+        if (manteve) trocarMantendo(main, novoMain, demoVivo, demoNovo);
+        else main.replaceChildren.apply(main, Array.prototype.slice.call(novoMain.childNodes));
+        /* Os scripts do <main> (degraus de carga, descanso, vídeo) não rodam
+           num innerHTML; recriados, rodam — sobre os nós novos. */
+        main.querySelectorAll("script").forEach(function (velho) {
+          var novo = document.createElement("script");
+          novo.textContent = velho.textContent;
+          velho.replaceWith(novo);
+        });
+        /* Aviso de conquista e mensagens vivem fora do <main>. */
+        ["[data-conquista]", ".flash"].forEach(function (seletor) {
+          var novo = doc.querySelector(seletor), velho = document.querySelector(seletor);
+          if (novo && velho) velho.replaceWith(document.importNode(novo, true));
+          else if (novo && !velho) main.parentNode.insertBefore(document.importNode(novo, true), main.nextSibling);
+          else if (!novo && velho && seletor === ".flash") velho.remove();
+        });
+        /* A classe do <body> NÃO é copiada inteira: a troca é sempre agora
+           → agora, e `pwa.js` escreve classe em tempo de execução
+           (`tem-convite`) que o HTML do servidor não tem. UMA classe é
+           sincronizada: `tem-conquista`, que o servidor escreve quando a
+           série desbloqueou uma conquista — é o `padding-bottom` que impede
+           o toast de cobrir o CONCLUIR SÉRIE (achado da auditoria); sem
+           ela, a conquista que nasce NA série chegava com o toast por cima
+           do rodapé. `conquista.js` a tira quando o toast fecha. */
+        document.body.classList.toggle("tem-conquista", doc.body.classList.contains("tem-conquista"));
+        document.title = doc.title;
+        if (r.url) history.replaceState(null, "", r.url);
+        window.scrollTo({ top: 0, behavior: "instant" });
+        /* O foco vai para o "Concluir série" da série nova: quem registra
+           pelo teclado (ou pelo leitor de tela) continua de onde estava, e a
+           troca de <main> é anunciada pelo botão que ganhou o foco. Depois
+           da última série não há botão: o título do placar recebe o foco,
+           senão ele cai no <body> e o leitor de tela fica mudo. */
+        var proximo = main.querySelector(".registro--agora button[type=submit]");
+        if (!proximo) { proximo = main.querySelector("h1"); if (proximo) proximo.setAttribute("tabindex", "-1"); }
+        if (proximo) proximo.focus({ preventScroll: true });
+        document.dispatchEvent(new CustomEvent("nutriplan:pagina-trocada", { detail: { raiz: main, ms: Math.round(performance.now() - inicio), videoManteve: manteve } }));
+      }).catch(function () {
+        /* Qualquer tropeço: a recarga de sempre, sem perder a série (o
+           servidor já gravou ou vai gravar de novo com o mesmo op_id).
+           `requestSubmit`, e não `submit()`: ele DISPARA o evento `submit`,
+           então a fila offline de `fila.js` continua vendo o formulário se a
+           rede tiver caído no meio — `submit()` navegaria calado para uma
+           página de erro. A marca faz este ouvinte sair da frente. */
+        if (botao) { botao.removeAttribute("aria-busy"); botao.disabled = false; }
+        form.setAttribute("data-recarga-de-sempre", "1");
+        if (form.requestSubmit) form.requestSubmit(botao || undefined); else form.submit();
+      });
+    });
   })();
   </script>
   {% include "workouts/_demonstracao_js.html" %}

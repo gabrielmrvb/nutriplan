@@ -82,7 +82,9 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: segundo player da execução (um player por página; músculos como texto).
 #: 117 em 16/09/2026 (T3.2, a fonte própria): o `h1` passou a `--texto-2xl`
 #: (era `2.5rem`, e `1.9rem` no desktop — o título nunca passa de 28).
-TETO_FONT_SIZE_CRU = 117
+#: 115 em 20/09/2026: `.resumo__nota { font-size: .74rem }` saiu com a nota
+#: "a exportação gera um arquivo TCX" — a exportação saiu do produto.
+TETO_FONT_SIZE_CRU = 115
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
@@ -113,7 +115,10 @@ TETO_FONT_SIZE_CRU = 117
 #: `.anatomia__botao { gap: .45rem }` saíram com o segundo player.
 #: 243 em 16/09/2026 (T3.6): o selo do treino concluído (`.fim__selo`, com
 #: `margin: .2rem auto ...`) saiu com a folha de recompensa.
-TETO_ESPACO_CRU = 243
+#: 241 em 20/09/2026: `.explicacao__head a` (`padding: 0 .4rem; margin: 0
+#: -.4rem`) saiu com o "Editar" de dentro do `<summary>` (axe
+#: `nested-interactive`); o link virou `.btn--quiet`, que já está na escala.
+TETO_ESPACO_CRU = 241
 
 
 def sem_comentarios(texto):
@@ -335,10 +340,9 @@ class NumeroDeMetricaNaoQuebraNoMeioTests(SimpleTestCase):
 
         self.assertIsNotNone(corpo)
         self.assertIn("font-variant-numeric: tabular-nums", corpo)
-        # 700 desde a CORTE (T3.2, 16/09/2026): o peso do número herói em Bodoni,
-        # em todo tile. Foi 760 (um degrau só destes dois) e 750 (o de todo
-        # tile) até a fonte própria reduzir o arquivo a quatro pesos.
-        self.assertIn("font-weight: 700", corpo)
+        # 900 desde a NERVURA (17/09/2026): o peso do número herói na Big
+        # Shoulders. Foi 760, 750 (todo tile) e 700 (Bodoni, na CORTE).
+        self.assertIn("font-weight: 900", corpo)
 
         self.assertIsNone(
             self._regra(".seletor-que-nao-existe-em-lugar-nenhum"),
@@ -649,7 +653,7 @@ class OEspacamentoNaoVoltaParaODentroDoHTMLTests(SimpleTestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn('style="', email)
-        self.assertIn("#3f5a00", email)  # a oliva do Papel: e-mail é fundo claro
+        self.assertIn("#106632", email)  # o verde-floresta do Papel: e-mail é fundo claro
 
     def test_as_intencoes_nomeadas_existem_no_css(self):
         css = sem_comentarios(CSS.read_text(encoding="utf-8"))
@@ -809,27 +813,16 @@ class LinkBotaoAvisaQueEstaIndoTests(SimpleTestCase):
         self.assertRegex(self.js, r'classList\.add\("is-carregando"\)')
         self.assertRegex(self.js, r'setAttribute\("aria-busy", "true"\)')
 
-    def test_o_link_que_baixa_arquivo_diz_que_e_arquivo(self):
-        """`workouts:health_export` responde `Content-Disposition: attachment`:
-        a página NÃO troca, o arquivo salva. Sem a marca no `<a class="btn">`,
-        o anel de `is-carregando` ficaria girando depois de o TCX salvar — foi
-        o primeiro caso que a N5 achou ao testar no navegador.
-
-        A marca é `data-arquivo`, e não `download`: sem treino hoje a view
-        responde 302 com mensagem, e `download` faria o navegador salvar aquele
-        HTML como arquivo (achado da revisão da N5)."""
-        sem_marca, encontrados = [], 0
-        for arquivo in sorted(RAIZ_TEMPLATES.rglob("*.html")):
-            texto = arquivo.read_text(encoding="utf-8")
-            for m in re.finditer(r"<a [^>]*workouts:health_export[^>]*>", texto):
-                encontrados += 1
-                if not DIZ_QUE_E_ARQUIVO.search(m.group(0)):
-                    sem_marca.append(f"{arquivo.relative_to(RAIZ_TEMPLATES)}: {m.group(0)}")
-                self.assertNotRegex(m.group(0), r"\sdownload[\s>=]", "`download` salvaria o HTML do redirect")
-        self.assertEqual(encontrados, 2, "os dois links de exportar: renomear a rota deixaria o teste cego")
-        self.assertEqual(sem_marca, [], "link que baixa arquivo sem `data-arquivo`")
-        # E o JS respeita a marca.
+    def test_o_js_respeita_a_marca_de_arquivo(self):
+        """`data-arquivo` é a marca de um `<a class="btn">` cuja resposta é um
+        arquivo (`Content-Disposition: attachment`): a página não troca, e o
+        anel de `is-carregando` ficaria girando. Os dois links que a usavam
+        (exportar TCX) saíram em 20/09/2026; o mecanismo fica em `pwa.js` para
+        o próximo link de arquivo nascer marcado — e `DIZ_QUE_E_ARQUIVO` é a
+        régua que o teste de baixo mantém afiada."""
         self.assertIn('hasAttribute("data-arquivo")', self.js)
+        for arquivo in sorted(RAIZ_TEMPLATES.rglob("*.html")):
+            self.assertNotIn("workouts:health_export", arquivo.read_text(encoding="utf-8"), arquivo.name)
 
     def test_o_leitor_enxerga_o_link_sem_marca(self):
         """Controle positivo do regex acima: um `<a>` de exportação sem a marca

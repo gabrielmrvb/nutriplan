@@ -14,6 +14,7 @@ from decimal import Decimal
 from django.core.management import call_command
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from django.utils import timezone
 from django.urls import reverse
 
 from accounts.models import TrainingDay
@@ -487,6 +488,51 @@ class AvisoTests(BaseDeConquistas):
 
         self.assertNotIn('class="conquista"', html)
 
+    def test_o_aviso_e_dado_por_visto_na_tela_em_que_aparece(self):
+        """Auditoria de 20/09/2026 (semana simulada): quem não toca em
+        "Continuar" carrega o aviso de "Primeiro treino" por DIAS, em toda
+        página — e na execução ele cobre o campo Reps e o CONCLUIR SÉRIE
+        (toast em y=576, botão em 645–699 a 844 px). Um aviso ancorado que
+        nunca expira vira obstáculo. Regra: anunciado onde nasce, e ali mesmo
+        marcado como visto; a tela seguinte já não o traz."""
+        user = self.pessoa(weekdays=(0, 2, 4))
+        self.client.force_login(user)
+        exercicio = Exercise.objects.filter(is_active=True).first()
+        self.client.post(
+            reverse("workouts:record_load", args=[exercicio.pk]),
+            {"weight_kg": "60", "set_number": 1, "reps": 10},
+        )
+
+        primeira = self.client.get(reverse("workouts:routine")).content.decode()
+        segunda = self.client.get(reverse("plans:today")).content.decode()
+
+        self.assertIn('class="conquista"', primeira)
+        self.assertNotIn('class="conquista"', segunda)
+        self.assertFalse(
+            UserAchievement.objects.filter(user=user, seen_at__isnull=True).exists(),
+            "anunciar é marcar como vista — senão a tela de Conquistas reabre a sobreposição",
+        )
+
+    def test_continuar_na_tela_do_anuncio_continua_fechando(self):
+        """Dar por visto na renderização não tira o botão de ninguém: o
+        "Continuar" (e o Esc, pelo mesmo POST) segue fechando na hora, sem
+        erro, mesmo que o servidor já tenha marcado."""
+        user = self.pessoa(weekdays=(0, 2, 4))
+        self.client.force_login(user)
+        exercicio = Exercise.objects.filter(is_active=True).first()
+        self.client.post(
+            reverse("workouts:record_load", args=[exercicio.pk]),
+            {"weight_kg": "60", "set_number": 1, "reps": 10},
+        )
+        self.client.get(reverse("workouts:routine"))
+        ids = list(UserAchievement.objects.filter(user=user).values_list("pk", flat=True))
+
+        resposta = self.client.post(reverse("achievements:marcar_vistas"), {"id": ids})
+
+        self.assertIn(resposta.status_code, (200, 204, 302))
+        html = self.client.get(reverse("plans:today")).content.decode()
+        self.assertNotIn('class="conquista"', html)
+
     def test_sem_nada_pendente_o_aviso_nao_custa_consulta(self):
         """O processador de contexto roda em TODO request autenticado. Ele só
         toca no banco quando a sessão diz que há algo — senão seria um imposto
@@ -579,7 +625,7 @@ class RetroatividadeTests(BaseDeConquistas):
 
     def test_historico_anterior_desbloqueia_ao_abrir_a_tela(self):
         user = self.pessoa()
-        self.treinar(user, date.today())
+        self.treinar(user, timezone.localdate())
 
         # Ninguém passou pelo POST de carga: é o cenário de quem já usava o app
         # antes de as conquistas existirem.
@@ -599,7 +645,7 @@ class RetroatividadeTests(BaseDeConquistas):
         """
         user = self.pessoa()
         for n in range(3):
-            self.treinar(user, date.today() - timedelta(days=n))
+            self.treinar(user, timezone.localdate() - timedelta(days=n))
 
         self.client.force_login(user)
         resposta = self.client.get(reverse("achievements:list"), secure=True)
@@ -614,7 +660,7 @@ class RetroatividadeTests(BaseDeConquistas):
     def test_abrir_a_tela_varias_vezes_nao_duplica(self):
         """`avaliar` é idempotente, e a tela agora o chama a cada visita."""
         user = self.pessoa()
-        self.treinar(user, date.today())
+        self.treinar(user, timezone.localdate())
         self.client.force_login(user)
 
         for _ in range(3):
@@ -668,7 +714,7 @@ class ConcordanciaTests(BaseDeConquistas):
     def test_a_tela_concorda_com_um(self):
         """Uma conquista, um dia de treino, um recorde — tudo no singular."""
         user = self.pessoa()
-        self.treinar(user, date.today())
+        self.treinar(user, timezone.localdate())
         self.client.force_login(user)
 
         html = self.client.get(reverse("achievements:list"), secure=True).content.decode()

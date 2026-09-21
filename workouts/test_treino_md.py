@@ -79,6 +79,21 @@ class OLeitorDevolveOQueEstaEscritoTests(SimpleTestCase):
         self.assertEqual(doutrina.faixa_de_series("", doutrina.DOIS_GRUPOS), doutrina.faixa_de_series("intermediario", doutrina.DOIS_GRUPOS))
         self.assertEqual(doutrina.teto_semanal(None, 1), doutrina.teto_semanal("intermediario", 1))
 
+    def test_mapa_de_equipamento(self):
+        """O mapa dos quatro perfis está escrito no documento, nas chaves de
+        `Exercise.equipment`, e é o que `doutrina.equipamentos_de` devolve."""
+        from workouts.models import Equipment
+
+        linhas = _linhas_da_tabela(self.texto, "| perfil | equipamentos |")
+        mapa = {perfil: {e.strip() for e in equipamentos.split(",")} for perfil, equipamentos in linhas}
+        self.assertEqual(set(mapa), set(doutrina.PERFIS_DE_EQUIPAMENTO))
+        for perfil, equipamentos in mapa.items():
+            with self.subTest(perfil=perfil):
+                self.assertTrue(equipamentos <= set(Equipment.values), equipamentos)
+                self.assertEqual(doutrina.equipamentos_de(perfil), frozenset(equipamentos))
+        self.assertEqual(mapa["completa"], set(Equipment.values))
+        self.assertEqual(mapa["peso_corporal"], {"bodyweight"})
+
     def test_o_documento_cita_as_fontes(self):
         for fonte in ("Schoenfeld", "Israetel", "Helms"):
             self.assertIn(fonte, self.texto)

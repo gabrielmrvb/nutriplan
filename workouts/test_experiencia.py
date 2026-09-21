@@ -446,16 +446,15 @@ class AExperienciaAtravessaOFormularioTests(TestCase):
         self.assertIn(Experiencia.AVANCADO, marcados[0])
 
 
-class OCatalogoAindaNaoSustentaEquipamentoTests(TestCase):
-    """A MEDIÇÃO QUE EXPLICA O QUE FICOU DE FORA — e que avisa quando mudar.
+class OCatalogoPorEquipamentoTests(TestCase):
+    """A MEDIÇÃO DE COBERTURA por equipamento — o que cada perfil do mapa
+    do `TREINO.md` ainda deixa sem exercício.
 
-    A missão pede personalização por local/equipamento: academia completa, casa
-    com halteres, peso corporal. O catálogo não comporta as duas últimas, e o
-    número está aqui em vez de na minha palavra.
-
-    Este teste é uma CATRACA ao contrário: ele falha no dia em que o catálogo
-    crescer o bastante, e aí a personalização por equipamento passa a ser
-    implementável sem entregar ficha sem grupo.
+    A personalização por equipamento existe desde 17/09/2026
+    (`accounts.models.Equipamento`, `services.substituir_por_equipamento`);
+    o que este arquivo mede é a COBERTURA de cada perfil, e "peso do corpo"
+    continua sem grupos inteiros — o motor entrega a ficha que o catálogo
+    permite, e o que falta está listado no `BACKLOG.md`.
 
     A MATRIZ COMPLETA — 11 grupos x 5 equipamentos, com a contagem célula a
     célula — está no `BACKLOG.md`, em "Personalização de treino por LOCAL e
@@ -495,14 +494,15 @@ class OCatalogoAindaNaoSustentaEquipamentoTests(TestCase):
 
         self.assertEqual(faltam, set())
 
-    def test_peso_corporal_ainda_deixa_grupos_sem_exercicio(self):
-        faltam = self._cobertura([Equipment.BODYWEIGHT])
-
-        self.assertTrue(
-            faltam,
-            "o catálogo passou a cobrir peso corporal — a personalização por "
-            "equipamento virou implementável",
-        )
+    def test_peso_corporal_agora_cobre_todos_os_grupos_dos_modelos(self):
+        """Fechou em 20/09/2026 (decisão 1 da avaliação de UX): com os 34
+        exercícios de peso do corpo, todo grupo que os modelos usam tem pelo
+        menos um exercício sem aparelho. Antes (17/09) faltavam quadríceps,
+        posterior, ombro, bíceps e panturrilha — a lista que o `BACKLOG.md`
+        pedia. O que ainda é limite físico (bíceps, antebraço, trapézio com
+        uma opção só) é FOLGA, não cobertura, e vive em
+        `test_capacidade_de_ambiente`."""
+        self.assertEqual(self._cobertura([Equipment.BODYWEIGHT]), set())
 
     def test_a_academia_completa_cobre_tudo(self):
         """Controle positivo: sem ele os dois testes acima passariam mesmo com

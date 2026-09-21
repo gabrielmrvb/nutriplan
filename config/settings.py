@@ -191,6 +191,21 @@ TEST_RUNNER = "config.runner.RunnerUnico"
 # migration e um dos poucos caminhos realmente dolorosos no Django.
 AUTH_USER_MODEL = "accounts.User"
 
+# A senha custava 3 s no Render (auditoria de 20/09/2026): ver
+# `config/hashers.py` — Argon2 quando importa, senão PBKDF2 a 600 000 (o
+# Django 5.2 vem com 1 000 000).
+from config.hashers import argon2_disponivel  # noqa: E402
+
+PASSWORD_HASHERS = (
+    ["django.contrib.auth.hashers.Argon2PasswordHasher"] if argon2_disponivel() else []
+) + [
+    "config.hashers.PBKDF2SHA256Rapido",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
+]
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -399,7 +414,9 @@ def staticfiles_backend(debug: bool) -> str:
     """
     if debug:
         return "django.contrib.staticfiles.storage.StaticFilesStorage"
-    return "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    # O do whitenoise, com a `app.css` sem comentários antes do hash
+    # (`config/estaticos.py`; decisão do dono, 20/09/2026).
+    return "config.estaticos.ArmazenamentoDeEstaticos"
 
 
 STORAGES = {
@@ -495,6 +512,13 @@ VAPID_ADMIN_EMAIL = env("VAPID_ADMIN_EMAIL", default="")
 # painel do Render e nos segredos do GitHub; nunca no repositório.
 NUTRIPLAN_TAREFAS_TOKEN = env("NUTRIPLAN_TAREFAS_TOKEN", default="")
 
+# Token do disparo PONTUAL `GET /tarefas/lembretes/externo/<token>/` (o
+# UptimeRobot bate aqui a cada 5 min). SEPARADO do de cima de propósito: ele
+# viaja na URL (monitor free não manda cabeçalho), aparece no log de acesso do
+# Render, e de baixo dano — só dispara lembretes vencidos, idempotente e com
+# limite de taxa. Vazio = o disparo externo não existe (503). Só no Render.
+NUTRIPLAN_DISPARO_TOKEN = env("NUTRIPLAN_DISPARO_TOKEN", default="")
+
 #: Nome curto e completo do PWA, usados no manifest.
 PWA_NAME = "NutriPlan"
 PWA_SHORT_NAME = "NutriPlan"
@@ -507,16 +531,16 @@ PWA_SHORT_NAME = "NutriPlan"
 # #0d0f12 e estas duas ficaram no verde-preto antigo.
 #
 # Há teste comparando as duas com o token do CSS.
-# A BASE É O FERRO desde 16/09/2026 (direção CORTE): `--bg` do `:root` é
-# #10120e, e é ele que o manifesto declara — o sistema operacional não troca
+# A BASE É O FERRO desde 16/09/2026 (CORTE; NERVURA em 17/09): `--bg` do `:root` é
+# #0b140f, e é ele que o manifesto declara — o sistema operacional não troca
 # a tela de abertura do app instalado conforme o tema do aparelho, então a
 # cor única é a da base. (De 12/09 a 16/09 a base foi a clara: #f5f3ee.)
-PWA_THEME_COLOR = "#10120e"
-PWA_BACKGROUND_COLOR = "#10120e"
+PWA_THEME_COLOR = "#0b140f"
+PWA_BACKGROUND_COLOR = "#0b140f"
 
 # O `--bg` do Papel, o regime claro. Só o `<meta media="(prefers-color-scheme:
 # light)">` usa: quem prefere claro recebe a moldura clara no navegador.
-PWA_LIGHT_COLOR = "#f6f3ea"
+PWA_LIGHT_COLOR = "#f4f6f2"
 
 
 # ==========================================================================

@@ -24,9 +24,9 @@
    1. Tokens
    ========================================================================== */
 
-/* AS DUAS FONTES (CORTE, T3.2 — 16/09/2026). Auto-hospedadas em
-   `static/fonts/` (woff2, subconjunto latin, OFL — ver o README de lá),
-   70 580 bytes no total contra o gate de 260 KB do DESIGN.md
+/* AS DUAS FONTES (NERVURA, 17/09/2026; a receita é a da CORTE de 16/09).
+   Auto-hospedadas em `static/fonts/` (woff2, subconjunto latin, OFL — ver o
+   README de lá), 70 364 bytes no total contra o gate de 260 KB do DESIGN.md
    (`config/test_fontes.py`). Sem `<link>` para o Google: a rede que o app
    pede é a própria. `font-display: swap` porque o texto tem de aparecer no
    primeiro quadro, com a reserva do sistema, e trocar quando a fonte chegar
@@ -34,23 +34,24 @@
    primeira visita. Os pesos são variáveis: um arquivo por família, e os
    quatro pesos do contrato (400 · 500 · 600 · 700) saem dele. */
 @font-face {
-  font-family: "Bodoni Moda";
+  font-family: "Big Shoulders Display";
   font-style: normal;
-  font-weight: 400 900;
+  font-weight: 100 900;
   font-display: swap;
-  src: url("../fonts/bodoni-moda-latin.woff2") format("woff2");
+  src: url("../fonts/big-shoulders-display-latin.woff2") format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: "Karla";
+  font-family: "Archivo";
   font-style: normal;
-  font-weight: 400 800;
+  font-weight: 100 900;
   font-display: swap;
-  src: url("../fonts/karla-latin.woff2") format("woff2");
+  src: url("../fonts/archivo-latin.woff2") format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* CORTE (16/09/2026): FERRO É A BASE, e Papel é o derivado.
+/* NERVURA (17/09/2026; a estrutura é a da CORTE de 16/09): FERRO É A BASE,
+   e Papel é o derivado.
    Os valores de cor moram UMA vez, nas duas listas do fim deste bloco —
    `--ferro-*` (escuro, o padrão) e `--papel-*` (claro, para quem prefere
    claro no sistema). O `:root` só LIGA o Ferro (`--bg: var(--ferro-bg)`);
@@ -226,26 +227,33 @@
   --fat: var(--ferro-fat);
   --danger: var(--ferro-danger);
   --danger-soft: var(--ferro-danger-soft);
-  /* O RECORTE (CORTE, 16/09/2026): a silhueta da folha da marca — ponta em
-     cima à esquerda e embaixo à direita, curva nas outras duas — como
-     FORMATO de tudo. Substitui a escala 24/16/12/8 da direção C (que
-     substituíra 28/22/18/14 da V3): um token de quatro valores, na ordem
-     sup-esq · sup-dir · inf-dir · inf-esq, e `border-radius: var(--corte)`
-     desenha a folha inteira. `--corte-g` é o prato/hero (o AGORA, o resumo
-     do dia, a barra de abas, a folha da recompensa); `--corte` é botão,
-     campo, faixa de lista, mídia, linha de exercício; `--corte-p` é chip,
-     célula, selo de opção, filho de caixa. `--pill` fica SÓ para o que é
-     ponto, barra ou selo circular — nada clicável é pílula. Idênticos nos
-     dois regimes; `calc()` não entra num token de quatro valores, então o
-     raio "de dentro" do segmented é `--corte-p` direto. */
-  --corte-g: 0 40px 0 40px;
-  --corte: 0 20px 0 20px;
-  --corte-p: 0 12px 0 12px;
-  /* A folha ABERTA: o estado transitório de `corte-abre` (registrar
-     refeição) — as duas pontas viram curva por um instante e voltam. Só
-     existe dentro do keyframe. */
-  --corte-aberto: 20px;
-  --pill: 999px;
+  /* A QUINA RETA (NERVURA, 17/09/2026): a direção não tem raio — zero
+     `border-radius` em 390 declarações do mockup; a régua é de 2 px e o que
+     é curvo é só o círculo do anel. Os três degraus ficam como SLOTS com o
+     mesmo valor (prato / cartão-botão-campo / chip-célula): uma direção
+     futura pode devolver raio a um degrau sem mexer em regra nenhuma —
+     foi assim que 28/22/18/14 virou 24/16/12/8 (direção C) e depois o
+     recorte da folha (CORTE, `0 20px 0 20px`). `--pill` saiu: barra,
+     trilha, ponto e selo são quadrados também. `config/tests.py` prende a
+     identidade dos três e que nada é pílula. */
+  --quina-g: 0;
+  --quina: 0;
+  --quina-p: 0;
+  /* O ANDAIME (NERVURA): a régua tem UMA espessura — borda de botão de
+     contorno e de chip, régua sob o rótulo de seção, régua da carga, a
+     nervura. */
+  --traco: 2px;
+  /* A NERVURA: a diagonal da folha. Um elemento de `height: var(--traco)`
+     em `--brand`, rodado por este ângulo a partir de onde nasce. Decoração
+     (`aria-hidden`), nunca o único sinal de estado. */
+  --nervura: -14deg;
+  /* O CTA INCLINADO: a base do botão primário sobe para a direita. Vai no
+     pseudo-elemento de fundo, não no botão — o retângulo de 48 px continua
+     sendo a área de toque e é ele que recebe o anel de foco. */
+  --inclinado: polygon(0 0, 100% 0, 100% 74%, 0 100%);
+  /* A PONTA DE FOLHA: o triângulo que marca onde a barra de progresso
+     chegou e que pousa no canto do placar. */
+  --ponta: polygon(0 100%, 100% 0, 100% 100%);
 
   /* O véu atrás de qualquer overlay. Existia escrito por extenso em dois
      lugares e com DOIS pretos diferentes — `rgba(0,0,0,.72)` no modal e
@@ -283,6 +291,7 @@
      principal do bloco, com o rótulo orbitando em 11px. É o degrau que separa
      "tela que informa" de "tela que mede". */
   --texto-display: 3.1rem; /* 49,6px — a métrica que manda no bloco */
+  --texto-heroi: 4.5rem;   /* 72px — o placar do treino fechado (NERVURA) */
 
   /* A ESCALA DE ESPAÇO. `--gap` e `--pad` já existiam e eram usados em 18 de
      470 declarações — 4%. Os outros 96% escrevem o valor à mão, em 49 valores
@@ -440,11 +449,11 @@
   --mov-tela: .2s;
   --mov-modal: .28s;
   --mov-sucesso: .5s;
-  /* Os tempos da RECOMPENSA (CORTE, T3.6): a folha que sobe na última
-     série e a esquina que se desdobra ao bater meta; e a cascata de 80 ms
+  /* Os tempos da NERVURA: a régua que risca (`nervura-acende`, .6 s — a
+     refeição registrada, a meta batida, o placar) e a cascata de 80 ms
      entre os números do placar (o degrau de lista é 35 ms — a recompensa
      é o único lugar em que a tela pede para ser vista). */
-  --mov-recompensa: .45s;
+  --mov-nervura: .6s;
   --mov-cascata: .08s;
   --mov-passo: 6px;
   --mov-passo-longo: 12px;
@@ -490,51 +499,55 @@
   --conquista-reserva: 19rem;
   --conquista-reserva-larga: 7rem;
 
-  /* Karla é o TEXTO — corpo, rótulo, legenda, lista e TODO número pequeno,
-     com `tabular-nums`. Bodoni Moda é a DISPLAY — só para o que é herói
-     (título de tela, nome da refeição/exercício, o número grande), nunca
-     abaixo de 20 px: didone tem fio fino que some em tela de baixa
-     densidade. A reserva de cada uma é a família mais próxima que o
-     aparelho tem, para o `swap` não pular de largura. */
-  --font: "Karla", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  --font-display: "Bodoni Moda", "Bodoni 72", Didot, Georgia, "Times New Roman", serif;
+  /* Archivo é o TEXTO — corpo, rótulo, legenda, lista e TODO número pequeno,
+     com `tabular-nums` (ela tem `tnum`). Big Shoulders Display é a DISPLAY —
+     condensada, feita para caixa alta — só para o que é herói (título de
+     tela, nome da refeição/exercício, o número grande), nunca abaixo de
+     20 px. Medido com fontTools: a Big Shoulders NÃO tem `tnum` e os dígitos
+     são proporcionais ("1" 316/2000, "0" 596), então ela fica para o número
+     SOLTO; toda coluna de números é Archivo (`.pesagem__media`). A reserva
+     de cada uma é a família mais próxima que o aparelho tem. */
+  --font: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-display: "Big Shoulders Display", "Arial Narrow", "Helvetica Neue", Impact, sans-serif;
 
-  /* FERRO — o regime padrão, escrito UMA vez (CORTE, 16/09/2026).
-     Luz baixa de academia: papel escuro #10120E, lima #C7F24A como única
-     cor de ação, argila para a carga. Valores da tabela do DESIGN.md, com
-     DUAS superfícies ajustadas por MEDIÇÃO: a direção dava `--surface-2`
-     #22261E e `--surface-3` #2B3025, e sobre `--surface` #1A1D17 isso é
-     1,11:1 e 1,14:1 — a régua U28 (`config/test_superficie_escura.py`)
-     cobra ≥ 1,2 entre a segunda e a primeira, porque a 1,1 o botão quieto
-     perde a cara e a trilha do anel some. #292D25 dá 1,22 e #33382D dá
-     1,17 sobre ele; `--terra`/`--brasa` continuam texto AA sobre a
-     terceira (4,59) e o mudo passa da margem de 5,0 (5,42). */
-  --ferro-bg: #10120e;
-  --ferro-surface: #1a1d17;
-  --ferro-surface-2: #292d25;
-  --ferro-surface-3: #33382d;
-  --ferro-surface-focus: #232a12;
-  --ferro-canvas-topo: #080a07;
-  --ferro-fio: rgba(246, 243, 234, .10);
-  --ferro-fio-forte: rgba(246, 243, 234, .22);
-  --ferro-text: #f6f3ea;
-  --ferro-text-dim: #d6d2c4;
-  --ferro-text-mute: #b3ae9c;
-  --ferro-brand: #c7f24a;
-  --ferro-brand-strong: #dbff6e;
-  --ferro-brand-soft: #2a3313;
-  --ferro-folha: #9bd130;
-  --ferro-on-brand: #14180a;
+  /* FERRO — o regime padrão, escrito UMA vez (NERVURA, 17/09/2026).
+     A academia à noite: palco #050907, chão #0B140F, verde-neon #43DF7A
+     como única cor de ação, laranja #E8A33D só para a carga. A direção
+     define dez cores; as outras (folha, água, brasa, chama, danger, dias,
+     tintas) são derivadas e MEDIDAS em `artifacts/paleta_nervura.py`. A
+     direção não tem terceiro degrau de superfície: `--surface-2` #202F25
+     e `--surface-3` #283C30 vêm da régua U28 (`config/test_superficie_
+     escura.py`, ≥ 1,2:1 entre a segunda e a primeira — 1,22 e 1,19),
+     porque a 1,1 o botão quieto perde a cara e a trilha do anel some. O
+     `--fio` é rgba porque translúcido se ajusta ao que estiver embaixo:
+     sobre `--bg` ele dá o #1E3326 da direção. Pior par de texto: `--danger`
+     sobre `--surface-3`, 4,65. */
+  --ferro-bg: #0b140f;
+  --ferro-surface: #121e17;
+  --ferro-surface-2: #202f25;
+  --ferro-surface-3: #283c30;
+  --ferro-surface-focus: #123120;
+  --ferro-canvas-topo: #050907;
+  --ferro-fio: rgba(169, 187, 174, .14);
+  --ferro-fio-forte: rgba(169, 187, 174, .30);
+  --ferro-text: #f2f6f2;
+  --ferro-text-dim: #c9d6cc;
+  --ferro-text-mute: #a9bbae;
+  --ferro-brand: #43df7a;
+  --ferro-brand-strong: #6aeb97;
+  --ferro-brand-soft: #0f2e1b;
+  --ferro-folha: #33c96a;
+  --ferro-on-brand: #06240f;
   --ferro-agua: #7cc7ea;
   --ferro-agua-texto: #7cc7ea;
-  --ferro-brasa: #e8865e;
-  --ferro-terra: #da9169;
-  --ferro-terra-soft: #3a2a1a;
+  --ferro-brasa: #ff8e6e;
+  --ferro-terra: #e8a33d;
+  --ferro-terra-soft: #3a2a10;
   --ferro-chama: #f2b04e;
-  --ferro-carb: #da9169;
-  --ferro-fat: #b3ae9c;
-  --ferro-danger: #ff8a80;
-  --ferro-danger-soft: #3a1e1c;
+  --ferro-carb: #e8a33d;
+  --ferro-fat: #a9bbae;
+  --ferro-danger: #ff7a70;
+  --ferro-danger-soft: #3a1a18;
   --ferro-dia-a: #4ade9b;
   --ferro-dia-b: #70c9ff;
   --ferro-dia-c: #f6c453;
@@ -542,41 +555,43 @@
   --ferro-dia-e: #ffa998;
   --ferro-veu: rgba(4, 8, 7, .72);
   /* PAPEL — o regime claro, DERIVADO do Ferro para quem prefere claro no
-     sistema: osso #F6F3EA no lugar do papel escuro, OLIVA #3F5A00 no lugar
-     da lima (a lima não é texto sobre osso — 1,6:1). Mesmos nomes, mesma
-     estrutura; medido em `artifacts/paleta_corte.py` antes de virar
-     contrato: pior par de texto `--brasa`/`--surface-3` 4,86. */
-  --papel-bg: #f6f3ea;
-  --papel-surface: #eae5d6;
-  --papel-surface-2: #e1dbc8;
-  --papel-surface-3: #dbd6c6;
-  --papel-surface-focus: #eef3d8;
-  --papel-canvas-topo: #fbf9f2;
-  --papel-fio: rgba(20, 24, 10, .12);
-  --papel-fio-forte: rgba(20, 24, 10, .26);
-  --papel-text: #14180a;
-  --papel-text-dim: #3e3f30;
-  --papel-text-mute: #54523f;
-  --papel-brand: #3f5a00;
-  --papel-brand-strong: #2f4400;
-  --papel-brand-soft: #e6efc4;
-  --papel-folha: #4e7a00;
-  --papel-on-brand: #f6f3ea;
+     sistema: chão #F4F6F2, verde-floresta no lugar do neon (o neon não é
+     texto sobre claro). Quatro valores da direção moveram pelo vizinho
+     que passa, 1–5 % para o preto: `--brand` #106632 (a direção dava
+     #106B32: 4,28 sobre a própria tinta a 12 % em `--surface-2`), `--terra`
+     #814C10, `--brasa` #9E3E1A e `--danger` #B1261E (4,5 sobre a terceira
+     superfície). Pior par de texto: `--danger`/`--surface-3`, 4,55. */
+  --papel-bg: #f4f6f2;
+  --papel-surface: #e7ebe3;
+  --papel-surface-2: #dce2da;
+  --papel-surface-3: #d0d8ce;
+  --papel-surface-focus: #ddefe2;
+  --papel-canvas-topo: #e7ebe3;
+  --papel-fio: rgba(11, 20, 15, .14);
+  --papel-fio-forte: rgba(11, 20, 15, .30);
+  --papel-text: #0b140f;
+  --papel-text-dim: #2e3f34;
+  --papel-text-mute: #46584b;
+  --papel-brand: #106632;
+  --papel-brand-strong: #0c5427;
+  --papel-brand-soft: #d6eedd;
+  --papel-folha: #1b7c3b;    /* 3,26:1 sobre a TRILHA (fio composto na superfície); #1d833f dava 2,97, medido na tela (18/09/2026) */
+  --papel-on-brand: #ffffff;
   --papel-agua: #1e6e96;
   --papel-agua-texto: #175877;
-  --papel-brasa: #983b17;
-  --papel-terra: #7e4320;
-  --papel-terra-soft: #f3e6d6;
-  --papel-chama: #9a5a10;
-  --papel-carb: #7e4320;
-  --papel-fat: #54523f;
-  --papel-danger: #a9241c;
+  --papel-brasa: #9e3e1a;
+  --papel-terra: #814c10;
+  --papel-terra-soft: #f3e6d0;
+  --papel-chama: #9a6210;
+  --papel-carb: #814c10;
+  --papel-fat: #46584b;
+  --papel-danger: #b1261e;
   --papel-danger-soft: #fdecea;
-  --papel-dia-a: #1c6040;
-  --papel-dia-b: #225a76;
-  --papel-dia-c: #724d21;
-  --papel-dia-d: #601ed2;
-  --papel-dia-e: #8d3929;
+  --papel-dia-a: #1c5e3e;
+  --papel-dia-b: #225874;
+  --papel-dia-c: #704b21;
+  --papel-dia-d: #5f1ed0;
+  --papel-dia-e: #8b3729;
   --papel-veu: rgba(4, 8, 7, .72);
 }
 
@@ -770,7 +785,7 @@ button { font-family: inherit; color: inherit; }
 :where(button, a, input, select, textarea, summary):focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -857,10 +872,10 @@ button { font-family: inherit; color: inherit; }
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   object-fit: contain;
 }
-.auth__logo .marca { border-radius: var(--corte); }
+.auth__logo .marca { border-radius: var(--quina); }
 
 .app-bar__nav { display: flex; align-items: center; gap: .3rem; }
 .app-bar__nav .app-bar__link { display: none; }
@@ -876,7 +891,7 @@ button { font-family: inherit; color: inherit; }
   min-height: 2.75rem;
   padding: .45rem .75rem;
   border: 0;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: none;
   color: var(--text-dim);
   font-size: .875rem;
@@ -943,7 +958,7 @@ body:not(.tem-tabbar) .container {
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
   border: 1px solid var(--fio);
-  border-radius: var(--corte-g);
+  border-radius: var(--quina-g);
   box-shadow: var(--shadow-lift);
 }
 
@@ -958,7 +973,7 @@ body:not(.tem-tabbar) .container {
   padding: var(--espaco-2) .2rem;
   /* A aba ativa é uma FOLHA cheia de `--brand` (CORTE): o recorte médio, não
      o pequeno, para a folha ser legível a 44 px de altura. */
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   color: var(--text-mute);
   font-size: var(--texto-xs);
   font-weight: 600;
@@ -985,10 +1000,13 @@ body:not(.tem-tabbar) .container {
    barra é justamente onde a resposta "onde eu estou?" precisa vir sem
    comparação. Marca cheia com texto escuro resolve de relance, e é a mesma
    peça do botão primário, o que amarra navegação e ação no mesmo vocabulário. */
+/* NERVURA: a aba da vez é ícone e rótulo em `--brand`, sem preenchimento —
+   a régua de `--traco` em cima é o que a marca. Foi pílula cheia da marca
+   (V2) e folha cheia (CORTE). */
 .tabbar__item.is-active {
-  color: var(--on-brand);
-  background: var(--brand);
-  box-shadow: none;
+  color: var(--brand);
+  background: transparent;
+  box-shadow: inset 0 var(--traco) 0 var(--brand);
 }
 .tabbar__item.is-active svg { stroke-width: 2.4; }
 
@@ -1021,16 +1039,17 @@ h1, h2, h3 { margin: 0; letter-spacing: -.03em; line-height: 1.18; }
    diferença entre título de TELA e título de SEÇÃO precisa ser visível sem
    comparar; daí o salto de tamanho e o aperto de entreletras, que é o que
    segura um texto grande sem ele parecer esticado. */
-/* O título de tela é o primeiro herói: Bodoni a 28 px (o contrato diz que o
-   título nunca passa de 28), peso 600, sem o tracking negativo do
-   sans-serif — didone respira no próprio desenho. Era 40 px/800 em
-   system-ui. */
+/* O título de tela é o primeiro herói: Big Shoulders a 28 px (o contrato diz
+   que o título nunca passa de 28), 800, CAIXA ALTA — a condensada faz 28 px
+   parecer 22 de largura, e é por isso que "LANCHE DA MANHÃ" cabe numa linha
+   a 390. Foi 40 px/800 em system-ui e 28/600 em Bodoni (CORTE). */
 h1 {
   font-family: var(--font-display);
   font-size: var(--texto-2xl);
-  font-weight: 600;
-  letter-spacing: -.01em;
-  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: .01em;
+  line-height: .95;
+  text-transform: uppercase;
 }
 h2 {
   font-size: 1.3rem;
@@ -1128,13 +1147,55 @@ h3 {
   padding: var(--pad);
   background: var(--surface);
   border: 1px solid transparent;
-  border-radius: var(--corte);
+  /* NERVURA: a seção abre com uma régua de `--traco` em `--fio` — é o
+     andaime que separa, no lugar da sombra (que não desenha nada). */
+  border-top: var(--traco) solid var(--fio);
+  border-radius: var(--quina);
   box-shadow: var(--edge), var(--shadow-rest);
   transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 /* O PRATO: a peça que a pessoa lê de relance — o AGORA da Home — leva o
    recorte grande. É uma por tela. */
-.card.agora-card { border-radius: var(--corte-g); }
+.card.agora-card { border-radius: var(--quina-g); border-top-color: var(--brand); }
+
+/* A NERVURA no prato e no título de tela: a régua diagonal em `--brand`,
+   nascendo no canto inferior esquerdo e subindo a −14° — ATRÁS do texto
+   (`z-index: -1` dentro de um `isolation: isolate`), como no mockup a
+   diagonal passa atrás do 1.240. No título ela nasce no CANTO SUPERIOR
+   esquerdo do `h1` e sobe por 32 % da largura para o espaço vazio acima
+   (32 % × tan 14° ≈ 8 % da largura: a 390 px, 28 px, dentro do respiro
+   sob a barra de cima) — no mockup da ficha a diagonal vem do rótulo para
+   o alto do título, sem cruzar as letras. Sem `overflow: hidden`, que
+   cortaria o anel de foco dos links de dentro. Decoração:
+   `pointer-events: none`, e nada depende dela para ser lido. No prato ela
+   fica na FAIXA de respiro sob os macros: a 58 % da largura ela subia 55 px
+   e riscava "P 0/152" (captura de 17/09) — passar atrás de um número de
+   72 px é assinatura, passar atrás de um rótulo de 13 px é ruído. Com no
+   máximo 120 px (× sen 14° ≈ 29 px) ela cabe nos 32 px de respiro. */
+.page-head h1,
+.today-hero { position: relative; isolation: isolate; }
+.page-head h1::after,
+.today-hero::after {
+  content: "";
+  position: absolute;
+  z-index: var(--camada-fundo);
+  left: 0;
+  bottom: 0;
+  width: 45%;
+  height: var(--traco);
+  background: var(--brand);
+  transform-origin: left center;
+  transform: rotate(var(--nervura));
+  pointer-events: none;
+  opacity: .9;
+}
+.page-head h1::after { bottom: 100%; width: min(32%, 100px); }
+/* O título que tem o link de volta em cima ("← Treino", ficha e exercício)
+   abre o respiro que a nervura sobe: 100 px × sen 14° = 24 px, e o link
+   fica acima da régua em vez de riscado por ela (captura de 17/09). Sem o
+   teto de 100 px, a 1280 os 32 % subiam 34 px — e o link, a 390, 27. */
+.page-head > .btn-link + h1 { margin-top: var(--espaco-7); }
+.today-hero::after { width: min(30%, 120px); bottom: 0; }
 
 /* O cartão em que a pessoa está mexendo sobe um pouco. Só sombra e borda:
    mudar cor de fundo aqui faria a tela piscar a cada foco. */
@@ -1200,7 +1261,7 @@ h3 {
   align-items: center;
   gap: 1.15rem;
   overflow: hidden;
-  border-radius: var(--corte-g);
+  border-radius: var(--quina-g);
   box-shadow: var(--edge), var(--shadow-deep);
 }
 
@@ -1277,7 +1338,7 @@ h3 {
   font-family: var(--font-display);
   display: block;
   font-size: var(--texto-3xl);
-  font-weight: 700;
+  font-weight: 900;
   font-variant-numeric: tabular-nums;
   letter-spacing: -.045em;
 }
@@ -1378,8 +1439,9 @@ h3 {
   margin: 0;
   color: var(--text-mute);
   font-size: var(--texto-xs);
-  font-weight: 700;
-  letter-spacing: .14em;
+  font-weight: 600;
+  /* NERVURA: o rótulo de seção é caixa alta a .16em (era .14em). */
+  letter-spacing: .16em;
   text-transform: uppercase;
 }
 
@@ -1408,7 +1470,7 @@ h3 {
   min-width: 0;
   padding: var(--espaco-5);
   border: 1px solid transparent;
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--surface);
   box-shadow: var(--edge), var(--shadow-rest);
   color: var(--text);
@@ -1428,7 +1490,7 @@ h3 {
   font-family: var(--font-display);
   margin-top: auto;
   font-size: var(--texto-2xl);
-  font-weight: 700;
+  font-weight: 900;
   letter-spacing: -.03em;
   line-height: 1.05;
 }
@@ -1502,7 +1564,7 @@ h3 {
 .curva__valor {
   font-family: var(--font-display);
   font-size: var(--texto-display);
-  font-weight: 700;
+  font-weight: 900;
   letter-spacing: -.04em;
   line-height: 1;
 }
@@ -1767,16 +1829,20 @@ h3 {
   gap: .3rem;
 }
 /* O selo é pílula; o chip, que se toca, é folha pequena (CORTE). */
-.pill { border-radius: var(--pill); }
-.chip { border-radius: var(--corte-p); }
+.pill { border-radius: var(--quina-p); }
+.chip { border-radius: var(--quina-p); }
 
 .chip {
   padding: .34rem .72rem;
-  border: 1px solid var(--fio);
-  background: var(--surface-2);
+  /* NERVURA: o chip é uma caixa de contorno de 2 px, caixa alta espaçada,
+     sem preenchimento; o escolhido é que enche de `--brand`. */
+  border: var(--traco) solid var(--fio-forte);
+  background: transparent;
   color: var(--text-dim);
   font-size: .76rem;
   font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
   font-variant-numeric: tabular-nums;
   text-decoration: none;
 }
@@ -1814,7 +1880,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   font-family: var(--font-display);
   display: block;
   font-size: var(--texto-xl);
-  font-weight: 700;
+  font-weight: 900;
   font-variant-numeric: tabular-nums;
   letter-spacing: -.03em;
   /* Número não quebra no meio. `strong` herda `overflow-wrap: anywhere` do
@@ -1838,7 +1904,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   align-items: center;
   gap: var(--espaco-5);
   padding: var(--espaco-6);
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   border: 1px solid transparent;
   background: var(--surface-2);
 }
@@ -1851,7 +1917,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   font-family: var(--font-display);
   flex: none;
   font-size: var(--texto-2xl);
-  font-weight: 700;
+  font-weight: 900;
   font-variant-numeric: tabular-nums;
   letter-spacing: -.04em;
 }
@@ -1870,7 +1936,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   flex: 1;
   min-width: 0;
   padding: .65rem var(--espaco-2);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-2);
   box-shadow: var(--inlay);
   text-align: center;
@@ -1898,7 +1964,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   height: .5rem;
   margin-bottom: var(--espaco-6);
   overflow: hidden;
-  border-radius: var(--pill);
+  border-radius: var(--quina-p);
   background: var(--surface-2);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, .28);
 }
@@ -1975,11 +2041,15 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .macro-dot--fat { background: var(--fat); }
 
 .progress {
+  position: relative;
   height: .4rem;
-  overflow: hidden;
-  border-radius: var(--pill);
+  /* `overflow: visible` (era hidden): a ponta de folha pousa ABAIXO da
+     barra, no fim do preenchido. A largura do preenchido nunca passa de
+     100 % — é `min()` no servidor. */
+  overflow: visible;
+  border-radius: var(--quina-p);
   background: var(--surface-2);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .28);
+  box-shadow: none;
 }
 
 /* A barra cresce em meio segundo em vez de já aparecer no lugar novo.
@@ -2003,10 +2073,24 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    variante, e a variante vence por vir depois. */
 .progress__fill {
   display: block;
+  position: relative;
   height: 100%;
-  border-radius: var(--pill);
+  border-radius: var(--quina-p);
   background: var(--brand);
   transition: width var(--mov-sucesso) var(--ease);
+}
+/* A PONTA DE FOLHA (NERVURA): o triângulo de 10 × 8 px na cor da barra,
+   pousado logo abaixo do fim do preenchido — é a assinatura da direção que
+   sobra quando se tampa o nome. */
+.progress__fill::after {
+  content: "";
+  position: absolute;
+  right: -5px;
+  top: 100%;
+  width: 10px;
+  height: 8px;
+  background: inherit;
+  clip-path: var(--ponta);
 }
 
 /* A barra enche do zero ao abrir a tela.
@@ -2035,7 +2119,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   padding: var(--pad);
   background: var(--surface);
   border: 1px solid transparent;
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   box-shadow: var(--edge), var(--shadow-rest);
   transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
@@ -2059,7 +2143,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   top: calc(-1 * var(--gap));
   width: 2px;
   height: var(--gap);
-  border-radius: var(--pill);
+  border-radius: var(--quina-p);
   background: var(--fio-forte);
 }
 
@@ -2096,7 +2180,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   min-width: 3.5rem;
   flex: none;
   padding: .4rem .55rem;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-2);
   color: var(--text-dim);
   font-size: .82rem;
@@ -2138,7 +2222,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   align-items: center;
   justify-content: center;
   min-height: 2.75rem;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   color: var(--brand);
   font-weight: 600;
   cursor: pointer;
@@ -2171,7 +2255,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .option {
   border: 1px solid transparent;
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--surface-2);
   overflow: hidden;
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
@@ -2257,7 +2341,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   align-items: center;
   gap: .6rem;
   padding: .75rem .85rem;
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--surface-2);
   box-shadow: var(--inlay);
   font-size: .88rem;
@@ -2285,10 +2369,18 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
      lerem como peças do mesmo formulário. */
   min-height: 3.25rem;
   padding: var(--espaco-4) 1.15rem;
-  border: 1px solid transparent;
-  border-radius: var(--corte);
+  /* O traço de 2 px em todos, transparente no primário: contorno e quieto
+     pintam a mesma borda, e os três têm a mesma altura empilhados. */
+  border: var(--traco) solid transparent;
+  border-radius: var(--quina);
   font-size: var(--texto-md);
   font-weight: 700;
+  /* Rótulo de botão quebra ENTRE palavras, nunca dentro: a regra global
+     `overflow-wrap: anywhere` (nome de alimento e de exercício) alcança
+     `button`, e em 20/09/2026 o primário do painel saiu "COMPARTILHA / R O
+     QUE JÁ FIZ" numa coluna de 195 px a 1280. Quem não cabe muda de
+     layout, não de palavra. */
+  overflow-wrap: normal;
   text-decoration: none;
   cursor: pointer;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
@@ -2323,12 +2415,39 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    num fundo escuro é o visual 'legal' padrão de UI gerada por IA". Estava
    certo — o brilho permanente no botão primário não indicava nada, só
    brilhava. O brilho de foco continua, porque ali ele É a informação. */
+/* O PRIMÁRIO É INCLINADO (NERVURA): o preenchimento mora num pseudo-elemento
+   com `clip-path: var(--inclinado)`, e o botão em si continua um retângulo
+   de 52 px — é ele que recebe o toque e o anel de foco; um `clip-path` no
+   próprio botão cortaria os dois. `isolation: isolate` cria o contexto em
+   que o `z-index: -1` do fundo fica atrás do texto sem sair de trás do
+   botão. O texto é a display em caixa alta, como "ENTRAR" e "VER RESUMO
+   DO TREINO" no mockup. O halo de hover/foco fica (decisão do dono de
+   16/09): é sinal de estado, não desenho — e o anel traça o retângulo,
+   inclusive onde o preenchimento foi cortado; é o preço de ter o toque
+   inteiro. */
 .btn--primary {
-  background: var(--brand);
+  position: relative;
+  isolation: isolate;
+  background: transparent;
   color: var(--on-brand);
+  font-family: var(--font-display);
+  font-size: var(--texto-xl);
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.btn--primary::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: var(--camada-fundo);
+  background: var(--brand);
+  clip-path: var(--inclinado);
+  transition: background var(--mov-estado) var(--ease);
 }
 
-.btn--primary:hover { background: var(--brand-strong); color: var(--on-brand); }
+.btn--primary:hover { color: var(--on-brand); }
+.btn--primary:hover::before { background: var(--brand-strong); }
 
 /* O halo do botão primário mora aqui, e não na regra de repouso.
    Em repouso ele não indicaria nada — é a regra `dark-glow` citada acima. Sob
@@ -2338,7 +2457,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .btn--primary:active,
 .btn--primary:focus-visible { box-shadow: var(--halo); }
 
-.btn--ghost { background: var(--surface-2); color: var(--text-dim); border-color: var(--fio-forte); }
+.btn--ghost { background: transparent; color: var(--text); border: var(--traco) solid var(--fio-forte); }
 .btn--ghost:hover { color: var(--text); border-color: var(--text-mute); }
 
 .btn--quiet {
@@ -2346,8 +2465,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   padding: .45rem .85rem;
   /* Borda como o ghost: a cara de botão não pode depender do preenchimento,
      que o tema escuro apaga (1,05:1 medido — avaliação de 16/09/2026, U28). */
-  border: 1px solid var(--fio-forte);
-  background: var(--surface-2);
+  border: var(--traco) solid var(--fio-forte);
+  background: transparent;
   color: var(--text-dim);
   font-size: .82rem;
   font-weight: 600;
@@ -2355,6 +2474,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .btn--quiet:hover { background: var(--surface-3); color: var(--text); }
 .btn--sm { min-height: 2.75rem; padding: var(--espaco-3) var(--espaco-5); font-size: .84rem; }
+/* O primário pequeno (44 px) fica no texto: a display nunca abaixo de 20 px. */
+.btn--primary.btn--sm { font-family: var(--font); font-size: var(--texto-md); letter-spacing: .04em; }
 .btn--block { width: 100%; }
 
 /* Resposta ao toque.
@@ -2563,8 +2684,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   padding: var(--espaco-4) var(--espaco-4);
   color: var(--text);
   background: var(--surface-2);
-  border: 1px solid var(--fio-forte);
-  border-radius: var(--corte);
+  border: var(--traco) solid var(--fio-forte);
+  border-radius: var(--quina);
   font-family: inherit;
   font-size: var(--texto-base);
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
@@ -2604,7 +2725,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   margin: .45rem 0 0;
   padding: .6rem .75rem;
   list-style: none;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--danger-soft);
   color: var(--danger);
   font-size: .82rem;
@@ -2619,7 +2740,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   min-height: 3.1rem;
   padding: .75rem .85rem;
   border: 1px solid var(--fio);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-2);
   font-size: .92rem;
   cursor: pointer;
@@ -2680,7 +2801,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   gap: 0;
   min-height: 2.75rem;
   padding: var(--espaco-3) var(--espaco-2);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   font-size: .82rem;
   /* Sempre 650, marcado ou não: deixar o peso mudar na seleção faria o chip
      crescer e a linha inteira reposicionar debaixo do dedo. */
@@ -2728,10 +2849,12 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    ========================================================================== */
 
 .flash { margin: 0 0 var(--espaco-6); padding: 0; list-style: none; }
+.flash__item { margin: 0; }
 
-.flash li {
+.flash li,
+.flash__item {
   padding: .8rem var(--espaco-5);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--brand-soft);
   color: var(--text);
   font-size: .88rem;
@@ -2750,7 +2873,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .callout {
   margin: var(--espaco-5) 0 0;
   padding: .85rem .95rem;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--brand-soft);
   font-size: .85rem;
   line-height: 1.55;
@@ -2862,7 +2985,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   text-transform: uppercase;
 }
 
-.history-row__bar { height: .45rem; overflow: hidden; border-radius: var(--pill); background: var(--fio); }
+.history-row__bar { height: .45rem; overflow: hidden; border-radius: var(--quina-p); background: var(--fio); }
 .history-row__fill { display: block; height: 100%; background: var(--brand); }
 .history-row__facts { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .history-row__kcal { font-weight: 700; }
@@ -2888,7 +3011,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   gap: .15rem;
   min-width: 0;
   padding: .6rem .2rem .65rem;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-2);
   box-shadow: var(--inlay);
   text-align: center;
@@ -2950,7 +3073,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   min-height: 3.5rem;
   padding: var(--espaco-4);
   border: 1px solid var(--fio);
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--surface-2);
   color: inherit;
   text-decoration: none;
@@ -2982,7 +3105,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   width: 2.6rem;
   height: 2.6rem;
   flex: none;
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--brand);
   color: var(--on-brand);
   font-size: var(--texto-lg);
@@ -3099,7 +3222,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
      15/09/2026, 61-68 % tocável. Com o padding dentro de `ver` e `fazer`,
      a linha inteira é porta (UX CA-03). */
   padding: 0;
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--surface);
   color: inherit;
   text-decoration: none;
@@ -3132,7 +3255,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   row-gap: 2px;
   color: inherit;
   text-decoration: none;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
 }
 .ficha-item__ver .ficha-item__ordem { grid-area: ordem; }
 .ficha-item__ver .ficha-item__nome { grid-area: nome; }
@@ -3150,7 +3273,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   /* O respiro da moldura mora aqui (ver `.ficha-item__link`): a pastilha
      ocupa a altura inteira da linha e leva a borda direita consigo. */
   padding: 0 var(--espaco-4) 0 var(--espaco-3);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   text-decoration: none;
   color: var(--brand);
 }
@@ -3184,7 +3307,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   font-size: var(--texto-xs);
   font-weight: 700;
   padding: 1px var(--espaco-2);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-3);
   color: var(--text-dim);
 }
@@ -3258,7 +3381,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .exercise__tag {
   padding: .24rem .6rem;
   border: 1px solid var(--fio-forte);
-  border-radius: var(--pill);
+  border-radius: var(--quina-p);
   background: color-mix(in srgb, var(--text-mute) 10%, transparent);
   color: var(--text-dim);
   font-size: var(--texto-xs);
@@ -3445,7 +3568,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   margin-top: .6rem;
   padding: var(--espaco-4) .75rem;
   border: 1px solid transparent;
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--surface-2);
   box-shadow: var(--edge);
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
@@ -3471,7 +3594,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   min-height: 2.75rem;
   padding: 0;
   border: 1px solid var(--fio-forte);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-3);
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
@@ -3501,22 +3624,29 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   letter-spacing: .04em;
 }
 
+/* NERVURA: a carga é o número mais quente da tela — display 900 em
+   `--terra`, centrado, com a régua de `--traco` embaixo que vira `--brand` no
+   foco. Continua sendo um campo: o retângulo inteiro é o alvo. */
 .registro__carga {
   width: 100%;
   min-width: 0;
   min-height: 2.75rem;
-  padding: .4rem .6rem;
-  border: 1px solid var(--fio-forte);
-  border-radius: var(--corte-p);
-  background: var(--surface);
-  color: var(--text);
+  padding: .2rem .6rem;
+  border: 0;
+  border-bottom: var(--traco) solid var(--terra);
+  border-radius: var(--quina-p);
+  background: transparent;
+  color: var(--terra);
   font: inherit;
-  font-size: .95rem;
+  font-family: var(--font-display);
+  font-size: var(--texto-2xl);
+  font-weight: 900;
+  text-align: center;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-.registro__carga:focus { outline: none; border-color: var(--brand); box-shadow: var(--glow); }
+.registro__carga:focus { outline: none; border-color: var(--brand); box-shadow: 0 var(--traco) 0 var(--brand); }
 .registro__carga::placeholder { color: var(--text-mute); font-weight: 500; }
 
 /* O botão de salvar é também o contador: cada toque grava mais uma série.
@@ -3628,7 +3758,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   /* Borda mais forte que a do cartão: o modal está sobre o backdrop escuro,
      onde a borda de 6,5% simplesmente desaparece. */
   border: 1px solid var(--fio-forte);
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--surface);
   color: var(--text);
   box-shadow: var(--edge), var(--shadow-lift);
@@ -3679,7 +3809,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .wizard__trilha {
   height: .3rem;
   margin-bottom: var(--espaco-3);
-  border-radius: var(--pill);
+  border-radius: var(--quina-p);
   background: var(--surface-3);
   overflow: hidden;
 }
@@ -3695,7 +3825,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .wizard__avanco {
   display: block;
   height: 100%;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--brand);
   transition: width var(--mov-expansao) var(--ease);
 }
@@ -3756,7 +3886,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   margin: 0 0 var(--espaco-5);
   padding: var(--espaco-4) var(--espaco-5);
   border: 1px solid color-mix(in srgb, var(--terra) 22%, transparent);
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: color-mix(in srgb, var(--terra) 10%, transparent);
   color: var(--terra);
   font-size: .82rem;
@@ -3814,7 +3944,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   margin: 0 0 var(--espaco-6);
   padding: var(--espaco-4) .85rem;
   border: 1px solid transparent;
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--surface-2);
   color: var(--text-dim);
   font-size: .85rem;
@@ -3859,7 +3989,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   align-items: baseline;
   gap: var(--espaco-1) var(--espaco-4);
   padding: var(--espaco-4);
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--surface-2);
 }
 .pesagens > .pesagem .pesagem__media { grid-column: 1; grid-row: 1; }
@@ -3893,7 +4023,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   font-size: var(--texto-xs);
 }
 .pesagem__media {
-  font-family: var(--font-display);
+  font-family: var(--font); /* coluna de números: a display não tem tnum */
   font-weight: 700;
   font-size: var(--texto-xl);
   letter-spacing: -.025em;
@@ -3914,7 +4044,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   margin: var(--espaco-5) 0;
   padding: var(--espaco-5);
   border: 1px solid color-mix(in srgb, var(--agua) 45%, var(--fio));
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: color-mix(in srgb, var(--agua) 9%, transparent);
 }
 
@@ -4089,7 +4219,7 @@ html { scrollbar-gutter: stable; }
 }
 
 .esqueleto {
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-2);
   animation: pulso calc(var(--mov-sucesso) * 3.2) var(--ease) infinite;
 }
@@ -4169,7 +4299,7 @@ html { scrollbar-gutter: stable; }
      "Continuar". Botão que exige rolar é botão que metade das pessoas não
      encontra. */
   padding: .8rem;
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--surface-2);
   /* A quina arredondada corta o que vazar: sem isto, um rótulo de catálogo
      mais longo do que o previsto escapa por baixo da borda desenhada e o
@@ -4215,7 +4345,7 @@ html { scrollbar-gutter: stable; }
   flex: none;
   width: 2.5rem;
   height: 2.5rem;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-3);
   color: var(--text-dim);
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
@@ -4295,7 +4425,7 @@ html { scrollbar-gutter: stable; }
   align-self: baseline;
   padding: .16rem .42rem;
   border: 1px solid color-mix(in srgb, var(--brand) 26%, transparent);
-  border-radius: var(--pill);
+  border-radius: var(--quina-p);
   background: color-mix(in srgb, var(--brand) 12%, transparent);
   color: var(--brand);
   /* .7rem = 11,2px. Nasceu em .68 (10,88px) e o teste de legibilidade pegou:
@@ -4317,7 +4447,7 @@ html { scrollbar-gutter: stable; }
   height: 1.2rem;
   /* O visto do cartão marcado é uma folha pequena, não um círculo (CORTE,
      T3.5: "rádios e caixas viram folhas"). */
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--brand);
   color: var(--on-brand);
   opacity: 0;
@@ -4408,7 +4538,7 @@ html { scrollbar-gutter: stable; }
   padding: .85rem;
   background: var(--surface);
   border: 1px solid transparent;
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   /* Havia uma segunda declaração de `box-shadow` acima desta, com um preto
      cru, e ela nunca pintou: a linha de baixo a sobrescrevia. Era o único
      bloco do arquivo com propriedade repetida, e sobreviveu porque o
@@ -4470,7 +4600,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   width: 2.6rem;
   height: 2.6rem;
   border: 1px solid var(--fio);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
 }
 
 /* `min-width: 0` porque sem isso o texto empurra o resto para fora do cartão
@@ -4548,7 +4678,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   gap: .85rem;
   padding: var(--espaco-6) 1.05rem;
   border: 1px solid color-mix(in srgb, var(--chama) 26%, transparent);
-  border-radius: var(--corte-g);
+  border-radius: var(--quina-g);
   background: color-mix(in srgb, var(--chama) 9%, transparent);
   box-shadow: var(--edge), var(--shadow-rest);
 }
@@ -4615,7 +4745,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .pesar {
   overflow: hidden;
   border: 1px solid transparent;
-  border-radius: var(--corte-g);
+  border-radius: var(--quina-g);
   background: var(--surface);
   box-shadow: var(--edge), var(--shadow-rest);
 }
@@ -4663,7 +4793,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   min-height: 2.75rem;
   padding: var(--espaco-3) .75rem;
   border: 1px solid var(--fio-forte);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-2);
   color: var(--text);
   font-family: inherit;
@@ -4680,7 +4810,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   min-width: 5.5rem;
   padding: 0 var(--espaco-6);
   border: 0;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--brand);
   color: var(--on-brand);
   font-family: inherit;
@@ -4704,7 +4834,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   margin-bottom: var(--gap);
   padding: var(--espaco-6) 1.05rem;
   border: 1px solid transparent;
-  border-radius: var(--corte-g);
+  border-radius: var(--quina-g);
   background: var(--surface);
   box-shadow: var(--edge), var(--shadow-rest);
 }
@@ -4752,7 +4882,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   min-height: 3rem;
   padding: .4rem .3rem;
   border: 1px solid var(--fio-forte);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -4783,8 +4913,12 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 
 .resumo__acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--espaco-3); }
 .resumo__acoes .btn { width: 100%; }
+/* O primário ("Compartilhar o que já fiz", em display a 20 px) ocupa a linha
+   inteira também no grid de duas colunas: a 390 já era assim, e a 1280 a
+   coluna de 195 px partia a palavra (auditoria de 20/09/2026). Os dois
+   discretos dividem a linha de baixo. */
+.resumo__acoes .btn--primary { grid-column: 1 / -1; }
 
-.resumo__nota { margin: 0; color: var(--text-mute); font-size: .74rem; line-height: 1.55; }
 
 @media (max-width: 26rem) {
   .resumo__acoes { grid-template-columns: 1fr; }
@@ -4864,7 +4998,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   gap: var(--espaco-3);
   padding: .6rem .8rem;
   border: 1px solid color-mix(in srgb, var(--terra) 30%, transparent);
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: color-mix(in srgb, var(--terra) 14%, var(--surface));
   box-shadow: var(--edge), var(--shadow-lift);
   color: var(--terra);
@@ -4959,7 +5093,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .fora {
   margin-top: .6rem;
   border: 1px solid transparent;
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--surface-2);
 }
 
@@ -4979,7 +5113,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   justify-content: center;
   min-height: 2.75rem;
   padding: .45rem .85rem;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-2);
   color: var(--text-dim);
   font-size: .82rem;
@@ -5067,7 +5201,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .choice-card__exemplo {
   margin-top: var(--espaco-1);
   padding: .28rem var(--espaco-3);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-3);
   color: var(--text-mute);
   font-size: .72rem;
@@ -5158,7 +5292,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
      em vez de `6px` cru: a catraca de espaçamento não sobe. */
   padding: calc(var(--espaco-1) * 1.5);
   border: 1px solid var(--fio);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-2);
 }
 
@@ -5172,7 +5306,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   min-height: 2.75rem;
   padding: var(--espaco-3) .6rem;
   border: 0;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: none;
   color: var(--text-dim);
   font-size: .92rem;
@@ -5259,7 +5393,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   margin-left: .4rem;
   padding: .1rem .38rem;
   border: 1px solid color-mix(in srgb, var(--terra) 30%, transparent);
-  border-radius: var(--pill);
+  border-radius: var(--quina-p);
   background: color-mix(in srgb, var(--terra) 12%, transparent);
   color: var(--terra);
   font-size: var(--texto-xs);
@@ -5332,7 +5466,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   min-height: 2.75rem;
   padding: .85rem var(--espaco-6);
   border: 1px solid transparent;
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--surface);
   color: inherit;
   text-decoration: none;
@@ -5390,7 +5524,11 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--espaco-2);
-  margin: 0 0 var(--espaco-6);
+  /* A nervura do título (`.page-head h1::after`) sobe ~24 px acima do `h1`;
+     com 16 px a ponta encostava no sublinhado de "Saiba mais" (produção,
+     17/09/2026). MEDIDO em 18/09: com 32 px a ponta cai exatamente na
+     base da caixa do link (folga 0); 40 px deixam 8 px. */
+  margin: 0 0 calc(var(--espaco-7) + var(--espaco-6));
   padding: var(--espaco-1) 0 var(--espaco-1) var(--espaco-5);
   border-left: 2px solid color-mix(in srgb, var(--terra) 55%, transparent);
   color: var(--text-mute);
@@ -5744,7 +5882,7 @@ body.montando { overflow: hidden; }
 .entrada__logo .marca {
   width: 100%;
   height: 100%;
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   /* O mesmo halo difuso do fundo, agora ancorado na própria marca: é o que
      faz o ícone assentar sobre o escuro em vez de flutuar recortado. */
   box-shadow: 0 12px 40px -14px color-mix(in srgb, var(--brand) 60%, transparent);
@@ -5753,7 +5891,7 @@ body.montando { overflow: hidden; }
   font-family: var(--font-display);
   margin: 0;
   font-size: var(--texto-2xl);
-  font-weight: 700;
+  font-weight: 900;
   letter-spacing: -.03em;
   line-height: 1;
 }
@@ -5879,7 +6017,7 @@ body.montando { overflow: hidden; }
   height: 2.75rem;
   padding: 0;
   border: 0;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: none;
   color: var(--text-mute);
   cursor: pointer;
@@ -5928,7 +6066,7 @@ body.montando { overflow: hidden; }
   display: flex;
   flex-direction: column;
   gap: .85rem;
-  border-radius: var(--corte-g);
+  border-radius: var(--quina-g);
   background: var(--surface-focus);
   border-color: color-mix(in srgb, var(--brand) 28%, transparent);
 }
@@ -5946,7 +6084,7 @@ body.montando { overflow: hidden; }
 
 .hoje__id {
   display: flex;
-  /* `wrap`, porque `.hoje__opcao` ("Duas versões disponíveis · recomendada:
+  /* `wrap`, porque `.hoje__versao` ("Versão rápida hoje ·
      opção 1") virou o TERCEIRO filho deste flex em 7d222a6 e passou a dividir
      a largura com o título: a 390px "Costas e bíceps" cabia em 79px e
      quebrava em três linhas, ao lado da opção. A opção desce para a linha
@@ -5964,7 +6102,7 @@ body.montando { overflow: hidden; }
 .hoje__badge {
   width: 3.15rem;
   height: 3.15rem;
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   font-size: 1.45rem;
 }
 
@@ -5985,9 +6123,10 @@ body.montando { overflow: hidden; }
   min-width: 0;
   font-family: var(--font-display);
   font-size: 1.42rem;
-  font-weight: 600;
+  font-weight: 800;
   line-height: 1.14;
-  letter-spacing: -.015em;
+  letter-spacing: .01em;
+  text-transform: uppercase;
 }
 
 .hoje__foco {
@@ -6109,7 +6248,7 @@ body.montando { overflow: hidden; }
   margin: 0;
   padding: .75rem var(--espaco-5);
   border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent);
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: color-mix(in srgb, var(--brand) 12%, transparent);
   color: var(--brand);
   font-size: .86rem;
@@ -6123,7 +6262,7 @@ body.montando { overflow: hidden; }
   gap: var(--espaco-2);
   margin: 0;
   padding: .8rem var(--espaco-5);
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--surface-3);
 }
 .hoje__proximo-rotulo {
@@ -6142,7 +6281,7 @@ body.montando { overflow: hidden; }
 .hoje__proximo-corpo .session__badge {
   width: 2rem;
   height: 2rem;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   font-size: var(--texto-md);
 }
 .hoje__proximo-nome {
@@ -6297,7 +6436,7 @@ body.montando { overflow: hidden; }
    raciocínio que tirou a barra de 4px do hero de Treino vale aqui, com uma
    diferença: lá o anel coube porque a tela é de consulta; aqui espaço
    vertical é o recurso escasso, então a barra fica e engorda. */
-.agora__progresso { height: .65rem; border-radius: var(--pill); }
+.agora__progresso { height: .65rem; border-radius: var(--quina-p); }
 
 /* O nome da sessão vira sobretítulo: ele diz de que treino este exercício
    faz parte, e não é o assunto da tela. */
@@ -6317,7 +6456,6 @@ body.montando { overflow: hidden; }
 /* A frase da opção recomendada, em linha PRÓPRIA abaixo da linha do topo.
    Como terceiro item do flex ela espremia o sobretítulo em quatro linhas de
    caixa alta a 390px (avaliação de 16/09/2026, B28). */
-.agora__opcao-aviso { margin: 0 0 var(--espaco-2); font-size: var(--texto-sm); }
 
 /* O título da execução leva à leitura do exercício: mesma cor, sublinhado
    fino, para ser porta sem virar botão. */
@@ -6339,7 +6477,7 @@ body.montando { overflow: hidden; }
 /* O EXERCÍCIO é o título da tela, e agora tem o peso disso. Ele era um `h2`
    dentro do painel, do tamanho de um título de seção, competindo com o nome
    da sessão logo acima. */
-.agora__nome { font-family: var(--font-display); font-weight: 600; }
+.agora__nome { font-family: var(--font-display); font-weight: 800; }
 
 .agora { padding-top: .75rem; }
 
@@ -6355,6 +6493,7 @@ body.montando { overflow: hidden; }
   letter-spacing: -.01em;
   min-width: 0;
   overflow-wrap: anywhere;
+  text-transform: uppercase;
 }
 
 .agora__meta {
@@ -6395,7 +6534,7 @@ body.montando { overflow: hidden; }
   align-items: stretch;
   gap: var(--espaco-4);
   margin-bottom: var(--espaco-3);
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   overflow: hidden;
   background: var(--surface-2);
 }
@@ -6483,7 +6622,7 @@ body.montando { overflow: hidden; }
   min-width: 2.75rem;
   padding: 0 var(--espaco-4);
   border: 0;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: rgba(0, 0, 0, .62);
   color: #fff;
   font: inherit;
@@ -6510,19 +6649,28 @@ body.montando { overflow: hidden; }
 
 .series { margin-bottom: .6rem; }
 
+/* NERVURA: "SÉRIE 2 DE 4" é o segundo herói da execução — display em caixa
+   alta, com o número um degrau acima do resto da linha. */
 .series__titulo {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
   gap: .4rem;
   margin: 0 0 var(--espaco-2);
-  font-size: var(--texto-base);
+  font-family: var(--font-display);
+  font-size: var(--texto-xl);
+  font-weight: 800;
+  letter-spacing: .01em;
+  text-transform: uppercase;
 }
-.series__titulo b { font-size: var(--texto-lg); }
+.series__titulo b { font-size: var(--texto-3xl); font-weight: 900; }
 .series__faixa {
   margin-left: auto;
   color: var(--text-mute);
+  font-family: var(--font);   /* a display só entra de 20 px para cima */
   font-size: var(--texto-sm);
+  font-weight: 600;
+  letter-spacing: .06em;
 }
 
 /* A instrução de esforço da série da vez ("1 a 2 na reserva", "última série:
@@ -6558,7 +6706,7 @@ body.montando { overflow: hidden; }
   min-height: 2.15rem;
   padding: var(--espaco-1) .45rem;
   border: 1px solid var(--fio);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-2);
   color: var(--text-mute);
 }
@@ -6612,7 +6760,7 @@ body.montando { overflow: hidden; }
   margin-bottom: var(--espaco-4);
   padding: .55rem .75rem;
   border: 1px solid var(--brand);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--brand-soft);
   min-width: 0;
 }
@@ -6716,7 +6864,7 @@ body.montando { overflow: hidden; }
   min-height: 2.75rem;
   padding: .4rem .6rem;
   border: 1px solid var(--fio-forte);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface);
   color: var(--text);
   font-size: var(--texto-base);
@@ -6786,71 +6934,104 @@ body.montando { overflow: hidden; }
    exercício de hoje tem registro. Não é um botão que alguém apertou. */
 .fim { text-align: center; }
 
-/* A FOLHA DE RECOMPENSA (CORTE, T3.6). O cartão vira a folha-lima —
-   `--brand` cheio, texto `--on-brand`, o recorte grande — e o placar nasce
-   DENTRO dela: nada é cortado pela máscara (o mockup cortava o "4.960").
-   `overflow: hidden` só para o recorte valer nos filhos; o conteúdo cabe. */
+/* O PLACAR (NERVURA, 17/09/2026). A tela inteira vira placar — nada de
+   caixa, nada de barra: a seção perde o fundo e a borda, a nervura risca
+   da base à ponta em `--mov-nervura` (`nervura-risca`, atrás de tudo), o
+   total conta do zero em `--brand` no degrau herói, os três números entram
+   em cascata de `--mov-cascata` e a ponta de folha pousa no canto quando a
+   régua chega. Os botões só aparecem no fim, sem animação (`steps(1)`).
+   Total 1,0 s; depois a tela fica quieta. Foi a folha-lima da CORTE. */
 .recompensa {
   position: relative;
-  padding: var(--espaco-7) var(--pad);
+  isolation: isolate;
+  padding: var(--espaco-6) 0 0;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  border-radius: var(--quina-g);
+  text-align: left;
+}
+/* A nervura do placar é UM elemento: uma caixa de 14 px rodada por
+   `--nervura`, recortada por `clip-path` numa régua de `--traco` com a
+   ponta de folha na extremidade direita — a ponta viaja com a régua e
+   "pousa" quando ela chega (`nervura-risca` escala do zero a partir da
+   esquerda). Nasce no lado esquerdo, à altura do número herói, e sobe
+   pela direita por trás do "kg levantados", como no mockup. */
+.recompensa::before {
+  content: "";
+  position: absolute;
+  z-index: var(--camada-fundo);
+  left: 0;
+  top: 27%;
+  width: 82%;
+  height: 14px;
   background: var(--brand);
-  color: var(--on-brand);
-  border-radius: var(--corte-g);
-  transform-origin: 100% 100%;
-  animation: folha-sobe var(--mov-recompensa) var(--ease) both;
+  clip-path: polygon(0 calc(100% - var(--traco)), calc(100% - 16px) calc(100% - var(--traco)), calc(100% - 16px) 0, 100% 100%, 0 100%);
+  transform-origin: left bottom;
+  transform: rotate(var(--nervura)) scaleX(1);
+  animation: nervura-risca var(--mov-nervura) var(--ease) both;
+  pointer-events: none;
 }
 .recompensa__rotulo {
   margin: 0 0 var(--espaco-3);
+  color: var(--brand);
   font-size: var(--texto-xs);
   font-weight: 600;
-  letter-spacing: .14em;
+  letter-spacing: .16em;
   text-transform: uppercase;
 }
 .recompensa__carga {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--espaco-1);
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--espaco-3);
   margin: 0 0 var(--espaco-6);
   min-width: 0;
 }
-/* O número herói: Bodoni no maior degrau, tabular, e ele é a recompensa. */
+/* O número herói: a display no degrau herói, em `--brand`, e ele é a
+   recompensa. A Big Shoulders não tem `tnum`: `min-width` em `ch` reserva a
+   largura enquanto o número conta do zero, e nada treme. */
 .recompensa__numero {
+  display: inline-block;
+  min-width: 4ch;
   font-family: var(--font-display);
-  font-size: var(--texto-display);
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -.02em;
+  font-size: var(--texto-heroi);
+  font-weight: 900;
+  line-height: .9;
+  letter-spacing: -.01em;
+  color: var(--brand);
   font-variant-numeric: tabular-nums;
 }
 .recompensa__unidade {
+  color: var(--text-dim);
   font-size: var(--texto-sm);
   font-weight: 600;
 }
-/* Dentro da folha os números pequenos pousam num vidro escuro sobre a lima,
-   não em `--surface-2` (que é a superfície da página, não da folha). */
+/* Os três números: sem azulejo — display 900 com o rótulo em caixa alta
+   embaixo, entrando em cascata depois de a nervura riscar. */
+.recompensa .fim__numeros { justify-content: flex-start; }
 .recompensa .fim__numeros > li {
-  background: color-mix(in srgb, var(--on-brand) 10%, transparent);
-  animation-delay: calc(var(--i, 0) * var(--mov-cascata) + var(--mov-recompensa));
+  background: transparent;
+  border: 0;
+  padding: 0;
+  animation-delay: calc(var(--i, 0) * var(--mov-cascata) + var(--mov-nervura));
 }
-.recompensa .fim__valor { font-family: var(--font-display); font-size: var(--texto-xl); }
-.recompensa .fim__rotulo { color: inherit; opacity: .78; }
+.recompensa .fim__valor { font-family: var(--font-display); font-size: var(--texto-3xl); font-weight: 900; }
+.recompensa .fim__rotulo { color: var(--text-mute); font-size: var(--texto-xs); font-weight: 600; letter-spacing: .16em; text-transform: uppercase; }
 .recompensa__recorde {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: var(--espaco-3);
   margin: 0 0 var(--espaco-6);
+  padding-top: var(--espaco-4);
+  border-top: var(--traco) solid var(--fio);
   font-size: var(--texto-sm);
   font-weight: 600;
 }
-/* Os botões dentro da folha: o primário inverte (osso cheio, texto da
-   lima) e o contorno usa o próprio texto — os dois AA sobre a lima. */
-.recompensa .btn--primary { background: var(--on-brand); color: var(--brand); box-shadow: none; }
-.recompensa .btn--ghost, .recompensa .btn--quiet { color: var(--on-brand); border-color: color-mix(in srgb, var(--on-brand) 40%, transparent); background: transparent; }
 .recompensa .btn + .btn { margin-top: var(--espaco-3); }
-/* Os botões chegam parados: entram depois de tudo, sem deslocamento. */
-.recompensa .btn { animation: entra-suave var(--mov-estado) var(--ease) both; animation-delay: calc(var(--mov-recompensa) + var(--mov-sucesso)); }
+/* Os botões só aparecem no fim, sem animação: `steps(1)` liga a opacidade de
+   uma vez quando a cascata acabou. */
+.recompensa .btn { animation: aparece var(--mov-toque) steps(1, end) both; animation-delay: calc(var(--mov-nervura) + var(--mov-cascata) * 5); }
 
 .fim__numeros {
   display: flex;
@@ -6868,7 +7049,7 @@ body.montando { overflow: hidden; }
   min-width: 0;
   padding: .6rem var(--espaco-3);
   border: 1px solid transparent;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-2);
 }
 .fim__valor {
@@ -6906,7 +7087,8 @@ body.montando { overflow: hidden; }
 .demo__fechar,
 .descanso__pular,
 .ficha-item__fazer,
-.ficha-item__ver {
+.ficha-item__ver,
+.forma__trocar {
   transition: transform var(--mov-toque) var(--ease);
 }
 .agora__concluir:active,
@@ -6918,7 +7100,8 @@ body.montando { overflow: hidden; }
 .demo__fechar:active,
 .descanso__pular:active,
 .ficha-item__fazer:active,
-.ficha-item__ver:active { transform: scale(.96); }
+.ficha-item__ver:active,
+.forma__trocar:active { transform: scale(.96); }
 
 @media (prefers-reduced-motion: reduce) {
   /* Sem transição também, e não só sem afundar: quem pediu menos movimento
@@ -6932,7 +7115,8 @@ body.montando { overflow: hidden; }
   .demo__fechar,
   .descanso__pular,
   .ficha-item__fazer,
-  .ficha-item__ver { transition: none; }
+  .ficha-item__ver,
+  .forma__trocar { transition: none; }
 
   .agora__concluir:active,
   .agora__lista:active,
@@ -6943,7 +7127,8 @@ body.montando { overflow: hidden; }
   .demo__fechar:active,
   .descanso__pular:active,
   .ficha-item__fazer:active,
-  .ficha-item__ver:active { transform: none; }
+  .ficha-item__ver:active,
+  .forma__trocar:active { transform: none; }
 }
 
 /* ==========================================================================
@@ -7012,11 +7197,12 @@ body.montando { overflow: hidden; }
      nome do exercício), 600. */
   font-family: var(--font-display);
   font-size: 1.42rem;
-  font-weight: 600;
+  font-weight: 800;
   line-height: 1.15;
-  letter-spacing: -.01em;
+  letter-spacing: .01em;
   min-width: 0;
   overflow-wrap: anywhere;
+  text-transform: uppercase;
 }
 
 .agora__detalhe {
@@ -7147,25 +7333,6 @@ body.montando { overflow: hidden; }
 .explicacao__head::-webkit-details-marker { display: none; }
 .explicacao__head h2 { margin: 0; }
 
-/* O "Editar" deste cabeçalho media 40x25. Os "Editar" do perfil passam na
-   régua porque `.card__head a` os cobre; este mora num `<summary>`, que não é
-   `.card__head`, e ficava sem regra nenhuma.
-
-   Mesma solução de lá, e pelo mesmo motivo: o alvo cresce por padding, e a
-   margem negativa devolve o espaço horizontal ao layout — a caixa clicável
-   passa a 44px sem que nada se mexa na tela. Na altura não há margem negativa
-   a pagar: o `<summary>` já tem `min-height` igual. */
-.explicacao__head a {
-  display: inline-flex;
-  align-items: center;
-  flex: none;
-  min-height: 2.75rem;
-  padding: 0 .4rem;
-  margin: 0 -.4rem;
-  font-size: var(--texto-sm);
-  font-weight: 600;
-  text-decoration: none;
-}
 .explicacao__head:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* A dica fica à direita e vira "fechar" com a seção aberta. É texto e não só
@@ -7217,7 +7384,7 @@ body.montando { overflow: hidden; }
   /* `--pill` e não `999px`: a escala de raios é um token e o sistema de design
      tem teste proibindo valor cru. Este é o mesmo token das pílulas da ficha
      de treino — uma pílula, um raio. */
-  border-radius: var(--pill);
+  border-radius: var(--quina-p);
   background: var(--surface-2);
   border: 1px solid var(--fio);
   color: var(--text-mute);
@@ -7279,7 +7446,7 @@ body.montando { overflow: hidden; }
   z-index: var(--camada-aviso);
   padding: var(--espaco-5) var(--espaco-6);
   border: 1px solid var(--fio-forte);
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--surface-2);
   box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
 }
@@ -7417,7 +7584,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 
 .progresso__trilho {
   height: 6px;
-  border-radius: var(--pill);
+  border-radius: var(--quina-p);
   background: var(--surface-3);
   overflow: hidden;
 }
@@ -7482,7 +7649,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    simplesmente terminou. */
 .legal__pendencia {
   padding: var(--espaco-4) .85rem;
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   border-left: 3px solid var(--danger);
   background: var(--surface-2);
   color: var(--text-mute);
@@ -7578,7 +7745,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   border: 1px solid var(--fio);
-  border-radius: var(--corte);
+  border-radius: var(--quina);
 }
 
 .tabela-gestao {
@@ -7623,7 +7790,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   min-width: 44px;
   padding: 0 .75rem;
   border: 1px solid var(--fio);
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -7661,7 +7828,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   min-height: 44px;
   min-width: 44px;
   padding: 0 var(--espaco-6);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   color: var(--text-dim);
   font-size: var(--texto-md);
   font-weight: 600;
@@ -7709,7 +7876,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .semana__barra {
   height: .45rem;
   overflow: hidden;
-  border-radius: var(--pill);
+  border-radius: var(--quina-p);
   /* `--border`, e não `--surface-2`: trilha é o que diz que há uma barra
      mesmo quando ela está vazia, e superfície sobre superfície some no
      escuro (avaliação de 16/09/2026, U28). */
@@ -7819,7 +7986,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   white-space: nowrap;
   font-size: min(var(--texto-2xl), 6.7vw);
   /* 750 é o peso do número em todo tile; 760 era um degrau só dele */
-  font-weight: 700;
+  font-weight: 900;
   line-height: 1.1;
 }
 
@@ -7926,7 +8093,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   gap: var(--espaco-4);
   min-width: 0;
   padding: var(--espaco-2) var(--espaco-4);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-2);
 }
 
@@ -7973,7 +8140,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   min-height: 2.75rem;
   padding: 0 var(--espaco-4);
   border: 1px solid var(--fio-forte);
-  border-radius: var(--corte-p);
+  border-radius: var(--quina-p);
   background: var(--surface-2);
   color: var(--text);
   font-variant-numeric: tabular-nums;
@@ -8052,7 +8219,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   gap: var(--espaco-4);
   min-height: 3.25rem;
   padding: var(--espaco-4);
-  border-radius: var(--corte);
+  border-radius: var(--quina);
   color: var(--text);
   text-decoration: none;
   min-width: 0;
@@ -8305,6 +8472,12 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    por vez, e `config/test_movimento.py` conta. */
 .app-bar { view-transition-name: barra-topo; }
 .tabbar { view-transition-name: barra-abas; }
+/* Teclado aberto recolhe a barra de abas e o convite (decisão do dono,
+   20/09/2026; o gancho está em `pwa.js`, "TECLADO ABERTO"); o container
+   devolve o respiro que reservava para a barra. */
+.teclado-aberto .tabbar { transform: translateY(125%); transition: transform var(--mov-estado) var(--ease); }
+.teclado-aberto .install { display: none; }
+.teclado-aberto .container { padding-bottom: var(--espaco-6); }
 .tabbar__item.is-active { view-transition-name: aba-ativa; }
 
 /* ---- Onboarding: a trilha morfa (um terço → dois terços → inteira) e a
@@ -8362,27 +8535,44 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .demo--aberta > video,
 .demo--aberta > img,
 .demo__abrir { animation: entra-suave var(--mov-expansao) var(--ease) both; }
-/* ---- Recompensa: a folha sobe do canto inferior direito e ocupa a tela. ---- */
-@keyframes folha-sobe {
-  from { opacity: 0; transform: scale(.2); }
-  60% { opacity: 1; }
+/* ---- O placar: a nervura risca da base à ponta (o `rotate` fica nos dois
+   quadros porque `transform` não compõe com o repouso), e o que chega no
+   fim aparece de uma vez. ---- */
+@keyframes nervura-risca {
+  from { transform: rotate(var(--nervura)) scaleX(0); }
+  to { transform: rotate(var(--nervura)) scaleX(1); }
 }
-/* ---- Registrar refeição: o corte "abre" — as duas pontas viram curva por
-   um instante e voltam (a folha respira uma vez). ---- */
-@keyframes corte-abre {
-  50% { border-radius: var(--corte-aberto); }
+@keyframes aparece {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
-.meal.is-recem { animation: corte-abre calc(var(--mov-estado) * 2) var(--ease) both; }
-/* ---- Bater meta (água): a esquina superior se desdobra e o número cresce
-   UMA vez. ---- */
-@keyframes corte-desdobra {
-  40% { border-radius: var(--corte-aberto) var(--corte-aberto) 0 var(--corte-aberto); }
+/* ---- A NERVURA ACENDE: a régua risca da esquerda para a direita em
+   `--mov-nervura`. É o mesmo gesto nos três momentos — registrar refeição
+   (a régua da linha), bater meta (a régua do bloco) e o placar do treino
+   fechado. Anima `transform`, não `width`: nada pede layout. ---- */
+@keyframes nervura-acende {
+  from { transform: scaleX(0); }
 }
+.meal.is-recem,
+.agua-card.is-meta { position: relative; }
+.meal.is-recem::after,
+.agua-card.is-meta::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--brand);
+  transform-origin: left center;
+  animation: nervura-acende var(--mov-nervura) var(--ease) both;
+  pointer-events: none;
+}
+/* ---- Bater meta (água): a régua risca e o número cresce UMA vez. ---- */
 @keyframes numero-cresce {
   40% { transform: scale(1.12); }
 }
-.agua-card.is-meta { animation: corte-desdobra var(--mov-recompensa) var(--ease) both; }
-.agua-card.is-meta [data-agua-total], .ring--agua.is-meta .ring__value { display: inline-block; animation: numero-cresce var(--mov-recompensa) var(--ease) both; }
+.agua-card.is-meta [data-agua-total], .ring--agua.is-meta .ring__value { display: inline-block; animation: numero-cresce var(--mov-nervura) var(--ease) both; }
 
 /* ---- Progresso: as barras crescem da esquerda, escalonadas. ---- */
 @keyframes barra-cresce {
@@ -8422,11 +8612,11 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   .descanso,
   .aguardando-rede:not([hidden]),
   .meal.is-recem .meal__result-name,
-  .meal.is-recem,
-  .agua-card.is-meta,
+  .meal.is-recem::after,
+  .agua-card.is-meta::after,
   .agua-card.is-meta [data-agua-total],
   .ring--agua.is-meta .ring__value,
-  .recompensa,
+  .recompensa::before,
   .recompensa .btn,
   .demo--aberta > iframe,
   .demo--aberta > video,
@@ -8450,61 +8640,55 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    que a rápida deixa de fora diz isso em texto. Tudo com os tokens de
    sempre; o movimento é o da seção 47 (`data-escalonado`, toque, sanfona).
    ========================================================================== */
-.opcoes { display: grid; gap: var(--espaco-6); }
-@media (min-width: 48rem) {
-  .opcoes { grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); align-items: start; }
-}
+/* A FICHA É UMA (17/09/2026): o cartão da lista do dia. `.opcao` sobrou
+   como nome do cartão; a escolha entre versões saiu — a variação é do
+   ciclo (`services.variacao_do_dia`) e a rápida é "Menos tempo hoje?" no
+   painel. */
 .opcao { border: 1px solid var(--fio); }
-.opcao--escolhida { border-color: var(--brand); box-shadow: var(--halo); }
-.opcao--recomendada:not(.opcao--escolhida) { border-color: var(--fio-forte); }
 .opcao__head { display: flex; align-items: center; justify-content: space-between; gap: var(--espaco-3); }
 .opcao__meta { margin: 0 0 var(--espaco-3); color: var(--text-dim); font-size: var(--texto-sm); }
 .opcao__equipamentos { margin: 0 0 var(--espaco-4); font-size: var(--texto-xs); }
-.opcao__comecar { margin-top: var(--espaco-5); }
-.opcoes__confirmar { border: 1px solid var(--terra); background: var(--terra-soft); }
-.opcoes__confirmar h2 { margin-top: 0; }
-
-/* Completo / Rápido: dois links que se comportam como o `.segmented`, e o
-   ativo é escrito pelo servidor (`is-active` + `aria-current`). */
-.versoes {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  padding: var(--espaco-1);
-  border: 1px solid var(--fio);
-  border-radius: var(--corte-p);
-  background: var(--surface-2);
-}
-.versoes__opcao {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--espaco-1);
-  min-height: 2.75rem;
-  padding: var(--espaco-3) var(--espaco-4);
-  border-radius: var(--corte-p);
-  color: var(--text-dim);
-  font-size: var(--texto-sm);
-  font-weight: 600;
-  text-align: center;
-  text-decoration: none;
-  transition: background var(--mov-estado) var(--ease), color var(--mov-estado) var(--ease);
-}
-.versoes__opcao .num { font-size: var(--texto-xs); font-weight: 600; }
-.versoes__opcao.is-active { background: var(--surface); color: var(--brand); box-shadow: var(--shadow-rest); }
 
 /* A linha que a rápida deixa de fora: apagada e dita. */
 .ficha-item--fora .ficha-item__nome { color: var(--text-mute); text-decoration: line-through; }
 .ficha-item__fora { color: var(--text-mute); font-size: var(--texto-xs); font-weight: 600; }
 
-.sessao-cartao__versoes { display: block; margin-top: var(--espaco-1); color: var(--brand); font-size: var(--texto-xs); font-weight: 600; }
-.hoje__opcao { flex-basis: 100%; margin: 0; color: var(--text-dim); font-size: var(--texto-sm); }
+/* A versão do dia no cartão de hoje, em linha própria: como terceiro filho
+   do flex `.hoje__id` ela dividia a largura com o título (17/09/2026). */
+.hoje__versao { flex-basis: 100%; margin: 0; color: var(--text-dim); font-size: var(--texto-sm); }
+.hoje__rapida { margin-top: var(--espaco-3); }
 .agora__removidos { margin: var(--espaco-4) 0 0; font-size: var(--texto-sm); }
 
-@media (prefers-reduced-motion: reduce) {
-  .versoes__opcao { transition: none; }
+/* "Outras formas" (17/09/2026): a troca por exercício mora na leitura. A
+   lista é uma coluna de linhas foto + nome + botão; a foto é o primeiro
+   quadro da free-exercise-db, contida, sem esticar. Na ficha, "outras
+   formas" é só um anúncio discreto dentro do link do nome. */
+.ficha-item__formas { color: var(--brand); font-size: var(--texto-xs); font-weight: 700; }
+.formas__lista { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--espaco-2); }
+.forma {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-3);
+  min-width: 0;
+  padding: var(--espaco-2);
+  border-radius: var(--quina);
+  background: var(--surface-2);
 }
+.forma__foto {
+  flex: none;
+  width: 6rem;
+  height: 4.5rem;
+  object-fit: cover;
+  border-radius: var(--quina-p);
+  background: var(--surface-3);
+}
+.forma__foto--vazia { display: block; }
+.forma__texto { flex: 1 1 auto; min-width: 0; display: grid; gap: var(--espaco-1); }
+.forma__nome { font-weight: 700; line-height: 1.25; }
+.forma__equipamento { color: var(--text-dim); font-size: var(--texto-sm); }
+.forma form { flex: none; }
+.forma__trocar { min-height: 44px; min-width: 44px; }
+.troca__desfazer { margin-top: var(--espaco-3); }
 
 /* ==========================================================================
    49. Aviso de regenerar — "Seu treino pode ficar mais completo" (17/09/2026)
@@ -8579,3 +8763,18 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .corrida-plano-opcao__hint { margin: 0 0 var(--espaco-3); color: var(--text-dim); font-size: var(--texto-sm); }
 .corrida-plano-opcao form { margin: 0; }
 .corrida-plano-opcao .btn { width: 100%; }
+
+/* A LANDING DA RAIZ ANÔNIMA (decisão 2 da avaliação de UX, 20/09/2026).
+   Quase tudo é componente que já existe (`.page-head`, `.card`, `.btn`,
+   `.lead`, `.pill`, `.hint`). O único acréscimo é constranger a captura à
+   largura do cartão: sem isso a imagem sai no tamanho intrínseco e estoura
+   para os lados — e "nada rola na horizontal". `.landing__hero .stack` só
+   dá o respiro entre a frase e os botões. Zero valor cru: largura em %,
+   altura automática, quina no slot. */
+.landing__prova__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--quina);
+}
+.landing__hero .stack { margin-top: var(--espaco-5); }

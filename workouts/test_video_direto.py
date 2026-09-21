@@ -131,8 +131,19 @@ CURADOS_POR_TITULO = {
     "Tríceps francês com halter": "mfXokM_VnMY",
 }
 
+#: OS 5 DE PEITO E TRÍCEPS SEM BARRA (17/09/2026, tarde) — substitutos dos
+#: itens de barra dos modelos para o perfil de equipamento (básica, casa);
+#: mesmo processo dos 28: foto conferida, vídeo por título do oEmbed.
+CURADOS_PARA_O_EQUIPAMENTO = {
+    "Supino declinado com halteres": "ZsotBDAbjyA",
+    "Crucifixo inclinado com halteres": "pfyYN8QwM54",
+    "Flexão de braço com pés elevados": "iGSnlotnLDQ",
+    "Flexão de braço fechada (diamante)": "sFsQJ5AH-zk",
+    "Tríceps coice com halter": "yewCya6hr34",
+}
+
 #: Tudo que está ativo tem vídeo travado numa das duas tabelas.
-TRAVADOS = {**OFICIAIS, **CURADOS_POR_TITULO}
+TRAVADOS = {**OFICIAIS, **CURADOS_POR_TITULO, **CURADOS_PARA_O_EQUIPAMENTO}
 
 
 class OsTrintaESeisVideosOficiaisTests(TestCase):
@@ -168,12 +179,20 @@ class OsTrintaESeisVideosOficiaisTests(TestCase):
         continua no catálogo, com o vídeo, para o histórico de quem treinou com
         ela poder ser lido.
         """
+        # Só os que TÊM vídeo: desde 20/09/2026 (decisão 1 da avaliação de UX)
+        # os exercícios de peso do corpo podem ser ativos sem vídeo, e por isso
+        # não estão em TRAVADOS. A tabela de ids curada vale para quem tem vídeo.
         ativos = set(
-            Exercise.objects.filter(is_active=True).values_list("name", flat=True)
+            Exercise.objects.filter(is_active=True)
+            .exclude(video_url="")
+            .values_list("name", flat=True)
         )
         self.assertEqual(ativos, set(TRAVADOS) - self.APOSENTADOS)
         self.assertEqual(set(OFICIAIS) & set(CURADOS_POR_TITULO), set(), "as duas tabelas não se sobrepõem")
+        self.assertEqual(set(OFICIAIS) & set(CURADOS_PARA_O_EQUIPAMENTO), set())
+        self.assertEqual(set(CURADOS_POR_TITULO) & set(CURADOS_PARA_O_EQUIPAMENTO), set())
         self.assertEqual(len(CURADOS_POR_TITULO), 28)
+        self.assertEqual(len(CURADOS_PARA_O_EQUIPAMENTO), 5)
 
     def test_o_aposentado_continua_no_catalogo_com_o_video(self):
         """Controle do teste acima, e a razão de aposentar em vez de apagar.
@@ -205,14 +224,14 @@ class OsTrintaESeisVideosOficiaisTests(TestCase):
     def test_nenhum_video_e_usado_por_dois_exercicios(self):
         """Repetir um ID é o sintoma mais provável de erro de digitação na
         curadoria — e ele não aparece comparando um exercício de cada vez."""
-        ids = [e.video_id for e in Exercise.objects.filter(is_active=True)]
+        ids = [e.video_id for e in Exercise.objects.filter(is_active=True).exclude(video_url="")]
         self.assertEqual(len(ids), len(set(ids)), "há ID repetido no catálogo")
 
     def test_o_embed_de_todos_e_montavel_e_sem_cookie(self):
         """`clip_kind` vazio faz a tela cair no plano B. Com os 36 curados,
         nenhum pode cair — e o embed é `youtube-nocookie`, que é o que impede
         o YouTube de plantar cookie de rastreio em quem só abriu a ficha."""
-        for exercicio in Exercise.objects.filter(is_active=True).order_by("name"):
+        for exercicio in Exercise.objects.filter(is_active=True).exclude(video_url="").order_by("name"):
             with self.subTest(exercicio=exercicio.name):
                 self.assertEqual(exercicio.clip_kind, "youtube")
                 self.assertIn(
@@ -358,9 +377,14 @@ class AIdentidadeDoVideoTests(TestCase):
     def test_a_tabela_de_movimentos_cobre_o_catalogo_inteiro(self):
         """`titulo_confere` devolve True para exercício que não está na tabela
         — é o que impede um exercício novo de derrubar o build. O preço é que
-        a ausência silencia o guarda, então a ausência é o que se testa aqui."""
+        a ausência silencia o guarda, então a ausência é o que se testa aqui.
+
+        Só quem TEM vídeo: a tabela confere TÍTULO de vídeo, e o peso do corpo
+        sem vídeo (20/09/2026) não tem título para conferir — está fora dela
+        por construção."""
         self.assertEqual(
-            {x["name"] for x in self.catalogo}, set(MOVIMENTO_ESPERADO)
+            {x["name"] for x in self.catalogo if x.get("video")},
+            set(MOVIMENTO_ESPERADO),
         )
 
     def test_dois_exercicios_nunca_dividem_o_mesmo_video(self):

@@ -67,14 +67,12 @@ class OCabecalhoDaExecucaoTests(TestCase):
     def _html(self):
         return sem_scripts(self.client.get(reverse("workouts:now")).content.decode())
 
-    def test_a_frase_da_opcao_recomendada_nao_divide_a_linha_com_o_titulo(self):
+    def test_o_cabecalho_nao_fala_de_opcao(self):
+        """Ficha única (17/09/2026): o sobretítulo é "Treino C · Pernas e
+        ombros", sem "· Opção N", e não há aviso de opção recomendada."""
         html = self._html()
-        self.assertIn("agora__opcao-aviso", html, "o fixture não abriu a recomendada")
-        linha = _bloco(html, '<div class="agora__linha-do-topo">', "</div>")
-        self.assertNotIn("agora__opcao-aviso", linha)
-        self.assertIn("agora__voltar", linha)
-        # E vem DEPOIS da linha, na ordem de leitura e de foco.
-        self.assertGreater(html.index("agora__opcao-aviso"), html.index("agora__voltar"))
+        self.assertNotIn("Opção", html.split("agora__sessao-rotulo", 1)[1].split("</p>", 1)[0])
+        self.assertNotIn("agora__opcao-aviso", html)
 
     def test_as_pastilhas_ficam_dentro_do_bloco_preso(self):
         html = self._html()
@@ -125,10 +123,10 @@ class OBlocoPresoTests(SimpleTestCase):
         self.assertEqual(len(medias), 1)
         self.assertGreater(medias[0].start(), geral.start())
 
-    def test_a_frase_da_opcao_tem_regra_propria(self):
-        corpo = _regra(self.css, ".agora__opcao-aviso")
-        self.assertIsNotNone(corpo, "a frase da opção continua sem CSS")
-        self.assertRegex(corpo, r"margin:")
+    def test_a_frase_da_opcao_saiu_com_o_css_dela(self):
+        """Ficha única (17/09/2026): a frase "Opção N, a recomendada de hoje"
+        não existe mais — nem a regra órfã dela no CSS."""
+        self.assertIsNone(_regra(self.css, ".agora__opcao-aviso"))
 
 
 class OFocoVoltaAoRegistroTests(SimpleTestCase):

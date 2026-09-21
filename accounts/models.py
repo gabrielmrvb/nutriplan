@@ -70,43 +70,14 @@ class User(AbstractUser):
         return self.get_full_name() or self.email
 
     def save(self, *args, **kwargs):
-        """Trocar a senha derruba os tokens de app vivos.
+        """Só o `save()` de sempre.
 
-        `TokenDeApp` documenta, no próprio docstring, que "quem perde o
-        telefone precisa que 'sair de todos os aparelhos' funcione AGORA". Não
-        funcionava por caminho nenhum: não há endpoint para isso, e trocar a
-        senha — que é o que qualquer pessoa faz ao desconfiar de invasão — não
-        tocava nos tokens. Medido: token emitido, senha trocada, `GET
-        /api/v1/eu/` com o token antigo respondendo **200**. Ele continuaria
-        valendo pelos 90 dias de `TEMPO_DE_VIDA`, e a pessoa não tinha como
-        revogá-lo.
-
-        Sessão de navegador não entra aqui, e não precisa: o Django já
-        invalida sessão na troca de senha pelo hash em `AbstractBaseUser`. O
-        que ficava de fora era exatamente o token, que é a credencial de quem
-        NÃO é navegador.
-
-        A consulta extra só acontece quando `password` pode ter mudado.
-        `update_fields=["last_login"]` — o `save()` de todo login — não paga
-        nada, e é o caminho mais quente que existe aqui.
+        Até 20/09/2026 trocar a senha também revogava os tokens da API v1
+        (`TokenDeApp`). A API saiu com o cliente que ela servia; sessão de
+        navegador continua invalidada na troca de senha pelo hash em
+        `AbstractBaseUser`, que é o que a PWA usa.
         """
-        campos = kwargs.get("update_fields")
-        trocou = False
-        if self.pk and (campos is None or "password" in campos):
-            anterior = (
-                type(self)
-                .objects.filter(pk=self.pk)
-                .values_list("password", flat=True)
-                .first()
-            )
-            trocou = anterior is not None and anterior != self.password
-
         super().save(*args, **kwargs)
-
-        if trocou:
-            self.tokens_de_app.filter(revogado_em__isnull=True).update(
-                revogado_em=timezone.now()
-            )
 
 
 class Sex(models.TextChoices):
@@ -217,12 +188,12 @@ class SplitPreference(models.TextChoices):
 class Experiencia(models.TextChoices):
     """Há quanto tempo a pessoa treina — e quanto volume isso comporta.
 
-    É a única dimensão de personalização de treino que o CATÁLOGO sustenta hoje,
-    e isso foi medido antes de escolher. Local e equipamento não entram: dos
-    onze grupos musculares, "casa com halteres" deixa posterior de coxa,
-    panturrilha e antebraço com ZERO exercícios, e "peso corporal" esvazia oito
-    dos onze. Um filtro por equipamento entregaria ficha sem grupo inteiro —
-    exatamente o que as travas de `aparar_volume_semanal` existem para impedir.
+    Foi a única dimensão de personalização de treino até 17/09/2026; desde
+    então `Equipamento` é a segunda — e entrou por SUBSTITUIÇÃO no motor, não
+    por filtro: um filtro por equipamento entregaria ficha sem grupo inteiro
+    (medido em 10/09: "casa com halteres" deixava posterior de coxa,
+    panturrilha e antebraço com zero exercícios), exatamente o que as travas
+    de `aparar_volume_semanal` existem para impedir.
 
     O que a experiência move é o TETO SEMANAL POR GRUPO, e só ele. Não mexe em
     quais exercícios entram: rebaixar o agachamento por ser "complexo demais
@@ -270,6 +241,33 @@ TETO_POR_EXPERIENCIA = {
     Experiencia.INTERMEDIARIO: doutrina.teto_semanal("intermediario", 1),
     Experiencia.AVANCADO: doutrina.teto_semanal("avancado", 1),
 }
+
+
+class Equipamento(models.TextChoices):
+    """O que a pessoa tem à mão para treinar — a segunda dimensão de
+    personalização do treino, desde 17/09/2026 (a primeira é `Experiencia`).
+
+    Quatro respostas, e o mapa de cada uma para o `Exercise.equipment` do
+    catálogo mora no `TREINO.md` ("Mapa de equipamento"), lido por
+    `workouts.doutrina.equipamentos_de`. O motor FILTRA o catálogo antes de
+    prescrever, substituindo o item fora do perfil por exercício do mesmo
+    padrão e grupo — e não removendo: até 17/09 a personalização por
+    equipamento ficou bloqueada porque um filtro ingênuo abria buraco nos
+    modelos curados (`workouts/test_capacidade_de_ambiente.py`).
+
+    O PADRÃO É `COMPLETA`, e isso é deliberado — é o oposto de `experiencia
+    == ""`. Aqui não há "ainda não respondeu" a preservar: toda ficha
+    montada antes desta pergunta existir foi montada com o catálogo inteiro,
+    então "completa" é a VERDADE de toda conta antiga, e `TrainingPlan.
+    equipamento` nasce com o mesmo valor para nenhuma ficha ser remontada
+    pela pergunta nova. Quem mudar a resposta no Perfil tem a ficha remontada
+    (`rotina_invalida`), como quem muda o nível ou a faixa de duração.
+    """
+
+    COMPLETA = "completa", "Academia completa — barra, halteres, máquinas e polias"
+    BASICA = "basica", "Academia básica — halteres, máquinas e polias, sem barra livre"
+    CASA_HALTERES = "casa_halteres", "Em casa, com halteres"
+    PESO_CORPORAL = "peso_corporal", "Só o peso do corpo"
 
 
 class DuracaoTreino(models.TextChoices):
@@ -537,6 +535,16 @@ class Profile(models.Model):
         blank=True,
         default="",
     )
+    #: O que a pessoa tem para treinar (`Equipamento`). Default "completa"
+    #: com razão escrita no enum: é a verdade de toda conta anterior à
+    #: pergunta. Coluna nova com default constante: mudança de catálogo no
+    #: PostgreSQL 11+, sem reescrever linha.
+    equipamento = models.CharField(
+        "equipamento disponível",
+        max_length=15,
+        choices=Equipamento.choices,
+        default=Equipamento.COMPLETA,
+    )
     #: Grátis ou Pro. Quem decide o que cada um alcança é `accounts/gates.py`,
     #: e SÓ ele; este campo é o dado, não a regra. Ninguém no app escreve
     #: aqui — até existir cobrança, é o admin quem promove alguém a Pro, e
@@ -784,7 +792,10 @@ class SyncedOperation(models.Model):
 
     #: Depois disso, a chance de um reenvio ainda estar na fila é nula — e a
     #: tabela cresce a cada marcação offline, num banco gratuito com limite de
-    #: tamanho.
+    #: tamanho. TEM DE SER MAIOR QUE 7: a fila aceita item de até 7 dias
+    #: ("O DIA viaja com o evento", CLAUDE.md), e podar um `op_id` que um
+    #: reenvio ainda traria faria a água somar duas vezes. `manage.py
+    #: podar_operacoes` roda no build (T2.4, 17/09/2026).
     VALIDADE_DIAS = 30
 
     user = models.ForeignKey(
@@ -828,7 +839,8 @@ class SyncedOperation(models.Model):
 
     @classmethod
     def podar(cls) -> int:
-        """Remove o que é velho demais para ainda estar numa fila."""
+        """Remove o que é velho demais para ainda estar numa fila — mais de
+        `VALIDADE_DIAS` (30), bem além dos 7 dias que a fila reenvia."""
         corte = timezone.now() - timedelta(days=cls.VALIDADE_DIAS)
         removidas, _ = cls.objects.filter(created_at__lt=corte).delete()
         return removidas
@@ -1074,112 +1086,6 @@ class RegistroAdministrativo(models.Model):
     def __str__(self):
         quem = self.ator_id and str(self.ator) or "sistema"
         return f"{quem} · {self.get_acao_display()} · {self.alvo_email}"
-
-
-class TokenDeApp(models.Model):
-    """A credencial de um cliente que NÃO é navegador.
-
-    O web continua com sessão e cookie, e nada aqui toca nisso. Isto existe
-    porque um app não tem cookie jar confiável, e porque `SameSite=Lax` — que o
-    projeto usa — foi feito justamente para o navegador.
-
-    POR QUE NÃO O TOKEN DO DRF
-    ==========================
-
-    O `authtoken` do Django REST Framework guarda o valor EM CLARO e não tem
-    validade. Um vazamento do banco entregaria sessões vivas, e não haveria
-    como fazê-las vencer. Aqui o banco guarda só o `sha256`: quem lê a tabela
-    não consegue se autenticar com o que leu.
-
-    O digest é `sha256` sem sal e sem custo, e isso é decisão. `token_urlsafe`
-    sorteia 256 bits de entropia — não há dicionário para atacar, e um KDF caro
-    transformaria cada requisição autenticada numa conta de CPU. Sal e custo
-    protegem SENHA, que é curta e escolhida por gente; não é o caso aqui.
-
-    REVOGAÇÃO E VALIDADE
-    ====================
-
-    Revogar é uma linha no banco, e vale na requisição seguinte — a diferença
-    para JWT, que continua valendo até vencer a menos que alguém mantenha uma
-    lista de bloqueio. Para um app de treino, quem perde o telefone precisa que
-    "sair de todos os aparelhos" funcione AGORA.
-    """
-
-    #: 90 dias. Um app de dieta e treino é aberto todo dia; obrigar login
-    #: mensal seria atrito sem ganho. `ultimo_uso_em` é o que permitirá, se um
-    #: dia fizer falta, expirar por inatividade em vez de por idade.
-    TEMPO_DE_VIDA = timedelta(days=90)
-
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="tokens_de_app",
-        verbose_name="dono",
-    )
-    #: `sha256` do token, nunca o token.
-    digest = models.CharField("digest", max_length=64, unique=True)
-    criado_em = models.DateTimeField("criado em", auto_now_add=True)
-    expira_em = models.DateTimeField("expira em")
-    revogado_em = models.DateTimeField("revogado em", null=True, blank=True)
-    ultimo_uso_em = models.DateTimeField("último uso em", null=True, blank=True)
-
-    class Meta:
-        verbose_name = "token de app"
-        verbose_name_plural = "tokens de app"
-        ordering = ["-criado_em"]
-        indexes = [models.Index(fields=["user", "-criado_em"])]
-
-    def __str__(self):
-        return f"{self.user} · até {self.expira_em:%d/%m/%Y}"
-
-    @staticmethod
-    def _digest(cru: str) -> str:
-        import hashlib
-
-        return hashlib.sha256(cru.encode("utf-8")).hexdigest()
-
-    @classmethod
-    def emitir(cls, user):
-        """Devolve `(registro, token_em_claro)`.
-
-        O valor em claro existe só neste retorno: ele vai para o cliente e não
-        volta a existir em lugar nenhum do servidor.
-        """
-        import secrets
-
-        cru = secrets.token_urlsafe(32)
-        registro = cls.objects.create(
-            user=user,
-            digest=cls._digest(cru),
-            expira_em=timezone.now() + cls.TEMPO_DE_VIDA,
-        )
-        return registro, cru
-
-    @classmethod
-    def autenticar(cls, cru: str):
-        """A pessoa dona de um token vivo, ou `None`.
-
-        Marca `ultimo_uso_em` com `update()` e não com `save()`: gravar o
-        modelo inteiro a cada requisição autenticada sobrescreveria campos que
-        outra requisição acabou de mudar.
-        """
-        if not cru:
-            return None
-        agora = timezone.now()
-        registro = (
-            cls.objects.select_related("user")
-            .filter(digest=cls._digest(cru), revogado_em__isnull=True, expira_em__gt=agora)
-            .first()
-        )
-        if registro is None:
-            return None
-        cls.objects.filter(pk=registro.pk).update(ultimo_uso_em=agora)
-        return registro.user
-
-    def revogar(self):
-        if self.revogado_em is None:
-            self.revogado_em = timezone.now()
-            self.save(update_fields=["revogado_em"])
 
 
 class TentativaDeEntrada(models.Model):

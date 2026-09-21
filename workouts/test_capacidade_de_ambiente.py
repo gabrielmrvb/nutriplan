@@ -4,7 +4,7 @@ A PERGUNTA. O produto deveria deixar a pessoa dizer onde treina — academia
 completa, casa com halteres, peso corporal — e a ficha mudar de verdade. Este
 arquivo responde se dá, e a resposta de hoje é NÃO, com número — e o número
 mudou em 17/09/2026, quando 28 exercícios com foto conferida entraram ativos
-(63 ativos): "casa + halteres" passou de NAO_SUPORTADO a PARCIAL. Continua
+(63 ativos): "casa_halteres" passou de NAO_SUPORTADO a PARCIAL. Continua
 sem consumidor no motor; o que este arquivo diz é o que o catálogo SUSTENTA.
 
 POR QUE NÃO É "É SÓ FILTRAR". A prescrição não SELECIONA exercícios do
@@ -19,14 +19,14 @@ exercício — ele abre um BURACO no modelo. Medido nos 15 modelos ativos:
 
 É exatamente a ficha incompleta que a regra central proíbe: integridade da
 prescrição vem antes da promessa de ambiente. (Os números acima são os de
-10/09/2026, com 35 ativos; com os 63 de 17/09 "casa + halteres" não perde
+10/09/2026, com 35 ativos; com os 63 de 17/09 "casa_halteres" não perde
 grupo sem substituto e nenhuma sessão fica abaixo do piso — o que falta é
 FOLGA, ver o fim deste texto.)
 
 A VARREDURA COMPLETA, e ela é o que impede este arquivo de ser opinião. Cinco
 equipamentos dão 31 recortes possíveis. Medidos todos, contra a régua da
 `capacidade` abaixo: **um único é viável, e é o conjunto completo** — ou seja,
-"academia completa", que é o comportamento de hoje. Nenhum recorte não trivial
+"completa", que é o comportamento de hoje. Nenhum recorte não trivial
 passa.
 
 A CAUSA ERA ESTRUTURAL, e eram três monopólios de equipamento no catálogo:
@@ -88,21 +88,21 @@ from django.conf import settings
 from django.core.management import call_command
 from django.test import TestCase
 
+from workouts import doutrina
 from workouts.models import Equipment, Exercise, MuscleGroup, WorkoutTemplate
 
 #: O que cada ambiente PERMITE, dito por extenso.
 #:
 #: "Casa + halteres" NÃO assume barra, máquina nem polia — assumir seria
-#: transformar a promessa em outra promessa. E "peso corporal" é o recorte
+#: transformar a promessa em outra promessa. E "peso_corporal" é o recorte
 #: estrito: nada de banco, cadeira ou elástico. `Mergulho no banco` está no
 #: catálogo como `bodyweight` e precisa de um banco; enquanto o modelo não
 #: souber dizer "banco", o recorte estrito é o único que não mente.
-AMBIENTES = {
-    "academia completa": frozenset(Equipment.values),
-    "casa + halteres": frozenset({Equipment.DUMBBELL, Equipment.BODYWEIGHT}),
-    "casa + barra": frozenset({Equipment.BARBELL, Equipment.BODYWEIGHT}),
-    "peso corporal": frozenset({Equipment.BODYWEIGHT}),
-}
+#: Os QUATRO PERFIS do perfil (`accounts.models.Equipamento`), lidos do mapa
+#: do `TREINO.md` — desde 17/09/2026 o produto pergunta, e o motor obedece
+#: por substituição (`services.substituir_por_equipamento`). "casa + barra"
+#: saiu: não é resposta que o perfil ofereça.
+AMBIENTES = {perfil: doutrina.equipamentos_de(perfil) for perfil in doutrina.PERFIS_DE_EQUIPAMENTO}
 
 #: Uma sessão com menos que isto não é uma sessão — é uma lista.
 #:
@@ -250,12 +250,18 @@ class ACapacidadeDeAmbienteEMedidaTests(TestCase):
     #: O VEREDITO DE HOJE, congelado. Catraca ao contrário: quando o catálogo
     #: crescer, este teste fica vermelho e diz qual ambiente virou possível.
     ESPERADO = {
-        "academia completa": "SUPORTADO",
-        # PARCIAL desde 17/09/2026 (63 ativos): todo grupo coberto, nenhuma
-        # sessão curta, três grupos sem folga — ver `OQueFaltaParaCasaComHalteresTests`.
-        "casa + halteres": "PARCIAL",
-        "casa + barra": "NAO_SUPORTADO",
-        "peso corporal": "NAO_SUPORTADO",
+        "completa": "SUPORTADO",
+        "basica": "SUPORTADO",
+        # SUPORTADO desde 20/09/2026: os 34 exercícios de peso do corpo
+        # (decisão 1 da avaliação de UX) deram folga a panturrilha, posterior
+        # e trapézio, que eram os três grupos sem folga que a deixavam PARCIAL.
+        "casa_halteres": "SUPORTADO",
+        # PARCIAL desde 20/09/2026 (era NAO_SUPORTADO): com os 34 de peso do
+        # corpo NENHUM grupo fica sem substituto — a ficha passou a ser
+        # comparável (ver o dourado e `test_peso_do_corpo_tem_volume_comparavel`).
+        # Não é SUPORTADO porque bíceps, antebraço e trapézio ainda ficam sem
+        # folga (dois exercícios): limite físico do peso do corpo, não do catálogo.
+        "peso_corporal": "PARCIAL",
     }
 
     def test_o_veredito_de_hoje_esta_congelado(self):
@@ -279,28 +285,30 @@ class ACapacidadeDeAmbienteEMedidaTests(TestCase):
                        sorted(v.sem_folga) or "nenhum"),
                 )
 
-    def test_so_a_academia_completa_passa_e_ela_e_o_estado_atual(self):
-        """"Academia completa" ser SUPORTADO não é conquista: ela permite TUDO,
-        então não restringe nada. É o comportamento de hoje, e serve de controle
-        positivo — se nem ela passasse, a régua estaria quebrada."""
+    def test_completa_e_basica_passam_e_completa_e_o_controle_positivo(self):
+        """"Completa" ser SUPORTADO não é conquista: ela permite TUDO, então
+        não restringe nada — serve de controle positivo (se nem ela passasse,
+        a régua estaria quebrada). "Básica" (sem barra livre) passa por esta
+        régua de folga; o que ela ainda perde é medido pelo teste dourado
+        (`test_ficha_de_verdade.FichaDeVerdadePorEquipamentoTests`)."""
         aprovados = [n for n in AMBIENTES if self.veredito(n).status == "SUPORTADO"]
 
-        self.assertEqual(aprovados, ["academia completa"])
-        self.assertEqual(AMBIENTES["academia completa"], frozenset(Equipment.values))
+        self.assertEqual(aprovados, ["completa", "basica", "casa_halteres"])
+        self.assertEqual(AMBIENTES["completa"], frozenset(Equipment.values))
 
     def test_o_filtro_ingenuo_esvaziaria_sessoes_inteiras(self):
         """O cenário que a regra central proíbe, medido em vez de afirmado.
 
-        Em 10/09/2026 "casa + halteres" também zerava uma sessão
+        Em 10/09/2026 "casa_halteres" também zerava uma sessão
         (`abcde-C`); com os 63 ativos a pior sessão dela fica no piso, e é
-        "peso corporal" que continua esvaziando."""
+        "peso_corporal" que continua esvaziando."""
         vazias = {}
-        for nome in ("casa + halteres", "peso corporal"):
+        for nome in ("casa_halteres", "peso_corporal"):
             v = self.veredito(nome)
             vazias[nome] = v.pior
 
-        self.assertGreaterEqual(vazias["casa + halteres"][1], PISO_DE_EXERCICIOS, vazias)
-        self.assertEqual(vazias["peso corporal"][1], 0, vazias)
+        self.assertGreaterEqual(vazias["casa_halteres"][1], PISO_DE_EXERCICIOS, vazias)
+        self.assertEqual(vazias["peso_corporal"][1], 0, vazias)
 
     def test_os_tres_monopolios_de_equipamento(self):
         """A CAUSA, e não o sintoma.
@@ -308,7 +316,12 @@ class ACapacidadeDeAmbienteEMedidaTests(TestCase):
         Enquanto um grupo inteiro depender de um único equipamento, todo
         recorte que exclua esse equipamento perde o grupo. Eram três em
         10/09/2026 (core, antebraço, panturrilha) e reprovavam 30 dos 31
-        recortes; desde 17/09 sobrou o core, em peso do corpo.
+        recortes; desde 17/09 sobrou o core. Em 20/09/2026 os 34 de peso do
+        corpo (decisão 1) apenas ADENSARAM o core (3→5) — continua sendo o
+        único monopólio, e de PESO DO CORPO, então não tira capacidade de quem
+        treina só com o corpo. O glúteo NÃO virou grupo próprio: o app o modela
+        na cadeia posterior (`hamstrings`, `extensao_de_quadril`), então a
+        ponte de glúteo entrou como posterior, ao lado do stiff com barra.
         """
         monopolios = {}
         for grupo, exercicios in self.por_grupo.items():
@@ -318,7 +331,7 @@ class ACapacidadeDeAmbienteEMedidaTests(TestCase):
 
         self.assertEqual(
             monopolios,
-            {MuscleGroup.CORE: (Equipment.BODYWEIGHT, 3)},
+            {MuscleGroup.CORE: (Equipment.BODYWEIGHT, 5)},
             "o catálogo mudou de forma — releia a matriz antes de ajustar",
         )
 
@@ -369,6 +382,12 @@ QUATRO_QUE_ENTRARAM = (
 class OQueFaltaParaCasaComHalteresTests(TestCase):
     """O QUE FALTA PARA CASA + HALTERES, MEDIDO COM O CATÁLOGO DE HOJE.
 
+    Desde 17/09/2026 (tarde) o motor OBEDECE ao perfil "casa com halteres"
+    por substituição (`services.substituir_por_equipamento`), e a letra A do
+    dourado fecha nele; o que esta classe continua medindo é a FOLGA da
+    semana inteira — os grupos com uma opção só —, que é a lista do
+    `BACKLOG.md`.
+
     A ARMADILHA QUE ESTE ARQUIVO EXISTE PARA DESARMAR continua a mesma:
     COBERTURA não é QUALIDADE. Em 10/09/2026 a medição disse que três
     exercícios "resolviam" casa + halteres, e era verdade só para cobertura —
@@ -377,20 +396,21 @@ class OQueFaltaParaCasaComHalteresTests(TestCase):
     FOLGA (duas opções por grupo usado), e por isso o veredito para em
     PARCIAL enquanto houver grupo sem folga.
 
-    Hoje (17/09/2026, 63 ativos): nenhum grupo sem substituto, nenhuma sessão
-    abaixo do piso, e TRÊS grupos sem folga — panturrilha, posterior e
-    trapézio, cada um com uma opção só em halteres/peso do corpo. Três
-    exercícios com mídia curada (a panturrilha sentado, a elevação pélvica e
-    a remada alta com halteres, de `CINCO_QUE_FALTAM`) fecham a folga; o
-    veredito só vira SUPORTADO com os três, e é este teste que fica vermelho
-    nesse dia — notícia boa, e a hora de implementar o ambiente no motor.
+    FECHOU EM 20/09/2026. Os 34 exercícios de peso do corpo (decisão 1 da
+    avaliação de UX) deram folga a panturrilha, posterior e trapézio — os três
+    grupos que ainda tinham uma opção só —, porque "casa com halteres" também
+    permite peso do corpo. O veredito virou SUPORTADO, e a régua se moveu para
+    junto dele (`test_casa_com_halteres_virou_SUPORTADO`). Os `CINCO_QUE_FALTAM`
+    (dumbbell) deixaram de ser necessários para SUPORTADO — viram variedade
+    extra, não folga que falta.
 
-    E O BLOQUEIO CONTINUA SENDO A MÍDIA. Exercício ativo tem contrato de
-    quatro partes, defendido por nove guardas independentes; os cinco que
-    faltam violam os quatro. Escolher vídeo exige assistir ao candidato, e
-    este ambiente não assiste (`workouts/videos.py`). Os quatro que entraram
-    entraram pela porta certa: foto conferida pelo dono, mosaico de veto,
-    licença registrada (`curadoria` em `exercises.json`).
+    E O CONTRATO DE MÍDIA MUDOU DE FORMA (20/09/2026). Antes: todo ativo
+    precisava de mídia curada, e por isso os cinco candidatos com HALTERES não
+    podiam entrar sem assistir ao vídeo. Isso continua valendo para exercício
+    COM APARELHO. O peso do corpo passou a poder entrar SEM vídeo ("sem vídeo
+    fica sem vídeo"): a mecânica é o próprio corpo, a dica técnica basta, e foi
+    assim que os 34 entraram. É `test_o_contrato_de_midia_vale_para_quem_tem_aparelho`
+    que guarda essa forma nova.
     """
 
     @classmethod
@@ -435,27 +455,31 @@ class OQueFaltaParaCasaComHalteresTests(TestCase):
                 self.assertIn(origem, catalogo, "a origem sumiu do catálogo")
                 self.assertEqual(catalogo[origem].muscle_group, grupo)
 
-    def test_casa_com_halteres_e_PARCIAL_por_tres_grupos_sem_folga(self):
-        v = capacidade(AMBIENTES["casa + halteres"], self._modelos(),
+    def test_casa_com_halteres_virou_SUPORTADO(self):
+        """Fechou em 20/09/2026: os 34 de peso do corpo (decisão 1 da
+        avaliação de UX) deram folga a panturrilha, posterior e trapézio — os
+        três grupos que faltavam —, porque "casa com halteres" também permite
+        peso do corpo. Nenhum grupo sem substituto, nenhuma sessão curta,
+        nenhum grupo sem folga."""
+        v = capacidade(AMBIENTES["casa_halteres"], self._modelos(),
                        self._por_grupo(), com_substituicao=True)
 
-        self.assertEqual(v.status, "PARCIAL")
+        self.assertEqual(v.status, "SUPORTADO")
         self.assertEqual(v.sem_substituto, set())
         self.assertEqual(v.sessoes_curtas, [])
-        self.assertEqual(
-            v.sem_folga,
-            {MuscleGroup.CALVES, MuscleGroup.HAMSTRINGS, MuscleGroup.TRAPS},
-            "mudou o que falta — refaça a medição antes de mexer no BACKLOG",
-        )
+        self.assertEqual(v.sem_folga, set(),
+                         "voltou a faltar folga — refaça a medição")
 
     def test_a_conta_do_que_falta_de_verdade(self):
-        """Três exercícios com mídia fecham a folga. Era dez em 10/09/2026.
+        """Zero desde 20/09/2026: todo grupo usado tem pelo menos duas opções
+        em halteres OU peso do corpo. Era três em 17/09 e dez em 10/09 — os 34
+        de peso do corpo fecharam a folga que faltava.
 
         FOLGA é o piso porque abaixo dele `aparar_volume_semanal` não tem o
         que ceder — e é ela que faz o teto por experiência valer.
         """
         por_grupo = self._por_grupo()
-        permitidos = AMBIENTES["casa + halteres"]
+        permitidos = AMBIENTES["casa_halteres"]
         usados = {
             item.exercise.muscle_group
             for modelo in WorkoutTemplate.objects.filter(is_active=True)
@@ -467,101 +491,80 @@ class OQueFaltaParaCasaComHalteresTests(TestCase):
             tem = len([e for e in por_grupo[grupo] if e.equipment in permitidos])
             faltam += max(0, 2 - tem)
 
-        self.assertEqual(faltam, 3, "a conta da folga mudou — atualize o BACKLOG.md junto")
+        self.assertEqual(faltam, 0, "voltou a faltar folga — refaça a medição")
 
     def test_com_os_cinco_o_veredito_vira_SUPORTADO(self):
         """O controle positivo da régua: com os cinco cadastrados (três
         deles bastam), casa + halteres passa. É o dia de implementar o
         ambiente no motor — e de mover esta régua para junto dele."""
-        v = capacidade(AMBIENTES["casa + halteres"], self._modelos(),
+        v = capacidade(AMBIENTES["casa_halteres"], self._modelos(),
                        self._por_grupo(com_os_cinco=True), com_substituicao=True)
 
         self.assertEqual(v.status, "SUPORTADO")
 
-    def test_o_contrato_de_midia_e_o_bloqueio_de_verdade(self):
-        """Enquanto isto valer, exercício novo precisa de mídia curada.
+    def test_o_contrato_de_midia_vale_para_quem_tem_aparelho(self):
+        """O contrato de demonstração, na sua forma de 20/09/2026 (decisão 1
+        da avaliação de UX): exercício COM APARELHO precisa de mídia curada
+        (vídeo, clipe, anatomia e foto no mapa); o PESO DO CORPO pode entrar
+        sem — "sem vídeo fica sem vídeo", a dica técnica basta e a tela cai no
+        "Sem demonstração cadastrada". Todo vídeo que EXISTIR (inclusive nos
+        de peso do corpo que já têm um) continua com o contrato inteiro.
 
-        As quatro asserções são as mesmas que as nove guardas espalhadas pela
-        suíte fazem — repetidas aqui juntas porque é a CONJUNÇÃO delas que
-        explica por que os cinco candidatos não puderam ser cadastrados.
+        As quatro asserções são a conjunção das nove guardas espalhadas pela
+        suíte — repetidas aqui para explicar, num lugar só, por que um
+        candidato COM APARELHO não pode ser cadastrado sem mídia (e por que o
+        de peso do corpo pode).
         """
         ativos = list(Exercise.objects.filter(is_active=True))
+        com_aparelho = [e for e in ativos if e.equipment != "bodyweight"]
+        com_video = [e for e in ativos if e.video_url]
         mapa = json.loads(
             (Path(settings.BASE_DIR) / "workouts" / "data" / "media_map.json")
             .read_text(encoding="utf-8")
         )
 
-        self.assertEqual([e.name for e in ativos if not e.video_url], [])
-        self.assertEqual([e.name for e in ativos if not e.clip_kind], [])
-        self.assertEqual([e.name for e in ativos if not e.animation_url], [])
-        self.assertEqual([e.name for e in ativos if e.name not in mapa], [])
+        # Com aparelho: vídeo obrigatório.
+        self.assertEqual([e.name for e in com_aparelho if not e.video_url], [])
+        # Todo vídeo presente carrega o contrato inteiro.
+        self.assertEqual([e.name for e in com_video if not e.clip_kind], [])
+        self.assertEqual([e.name for e in com_video if not e.animation_url], [])
+        self.assertEqual([e.name for e in com_video if e.name not in mapa], [])
 
 
-class OProdutoNaoPrometeAmbienteTests(TestCase):
-    """A outra metade do Caso C: enquanto não sustenta, não pode oferecer.
+class OProdutoPrometeEquipamentoEOMotorObedeceTests(TestCase):
+    """A outra metade, invertida em 17/09/2026: o perfil TEM a pergunta, o
+    formulário a FAZ, e o motor LÊ `equipment`.
 
-    Não há campo de ambiente no `Profile`, não há pergunta no onboarding e o
-    motor não lê `equipment`. Isso não é acidente feliz — é o estado que estes
-    testes existem para manter, porque acrescentar a pergunta antes do catálogo
-    criaria preferência guardada e não consumida, que é mentira com banco de
-    dados por trás.
+    Até 17/09 estes testes cobravam o contrário — sem campo no `Profile`, sem
+    pergunta no onboarding, `equipment` sem leitor em `services.py` —, porque
+    guardar preferência que o motor não obedece é mentira com banco de dados
+    por trás. O motor passou a obedecer por SUBSTITUIÇÃO (mesmo padrão e
+    grupo, `services.substituir_por_equipamento`), e a promessa que o perfil
+    faz é exatamente a que a ficha cumpre: `workouts/test_equipamento.py`.
     """
 
-    #: Como uma pergunta de ambiente se pareceria num formulário.
-    SINAIS = ("ambiente", "equipamento", "onde_treina", "local_de_treino",
-              "equipment", "academia")
+    def test_o_perfil_guarda_o_equipamento_com_o_padrao_completa(self):
+        from accounts.models import Equipamento, Profile
 
-    def test_o_perfil_nao_guarda_ambiente(self):
-        from accounts.models import Profile
+        campo = Profile._meta.get_field("equipamento")
+        self.assertEqual(campo.default, Equipamento.COMPLETA)
+        self.assertEqual({c for c, _ in campo.choices}, set(doutrina.PERFIS_DE_EQUIPAMENTO))
 
-        campos = {
-            f.attname for f in Profile._meta.get_fields() if hasattr(f, "attname")
-        }
-
-        for sinal in self.SINAIS:
-            with self.subTest(sinal=sinal):
-                self.assertEqual(
-                    [c for c in campos if sinal in c], [],
-                    "apareceu campo de ambiente no Profile — se o motor ainda "
-                    "não lê equipamento, isso é preferência que não vira nada",
-                )
-
-    def test_o_passo_de_treino_nao_pergunta_ambiente(self):
+    def test_o_passo_de_treino_pergunta_o_equipamento(self):
         from accounts.forms import TrainingForm
 
-        campos = set(TrainingForm.base_fields)
+        self.assertIn("equipamento", TrainingForm.base_fields)
+        self.assertIn("experiencia", TrainingForm.base_fields)
 
-        for sinal in self.SINAIS:
-            with self.subTest(sinal=sinal):
-                self.assertEqual([c for c in campos if sinal in c], [])
-
-    def test_o_controle_positivo_do_varredor(self):
-        """Uma varredura que não casasse com nada passaria para sempre."""
-        from accounts.forms import TrainingForm
-
-        campos = set(TrainingForm.base_fields)
-
-        # `experiencia` e `weekdays`, e não `duracao_treino`: a duração saiu do
-        # formulário em 10/09/2026 — a pergunta virou decisão do produto, com
-        # padrão de 45 a 60 minutos. O controle positivo precisa apontar para
-        # campos que EXISTEM, senão ele para de provar que a varredura enxerga.
-        self.assertIn("experiencia", campos)
-        self.assertIn("weekdays", campos)
-        self.assertTrue(
-            [c for c in campos | {"ambiente_de_treino"} if "ambiente" in c]
-        )
-
-    def test_o_motor_nao_le_equipamento(self):
-        """Se um dia ler, é aqui que o teste avisa para revisar este arquivo
-        inteiro — inclusive o veredito congelado logo acima."""
+    def test_o_motor_le_equipamento(self):
+        """O leitor existe e é o único ponto de entrada: quem quiser saber o
+        que o perfil pode usar passa por `permitidos_de` / `doutrina`."""
         from pathlib import Path
 
-        fonte = (
-            Path(__file__).resolve().parent / "services.py"
-        ).read_text(encoding="utf-8")
+        fonte = (Path(__file__).resolve().parent / "services.py").read_text(encoding="utf-8")
         sem_prosa = "\n".join(
-            linha for linha in fonte.splitlines()
-            if not linha.lstrip().startswith("#")
+            linha for linha in fonte.splitlines() if not linha.lstrip().startswith("#")
         )
-
-        self.assertNotIn("equipment", sem_prosa)
+        self.assertIn("def substituir_por_equipamento(", sem_prosa)
+        self.assertIn("item.exercise.equipment", sem_prosa)
+        self.assertIn("permitidos=permitidos_de(user)", sem_prosa)

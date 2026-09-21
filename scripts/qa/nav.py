@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 """nav.py — navegador headless por CDP para QA, UMA sessão por nome.
 
-O `agent-browser` passou a ser bloqueado pelo Controle de Aplicativo do
-Windows em 14/09/2026; o Chrome que ele baixou continua rodando. Este
-arquivo fala CDP direto com um Chrome headless próprio por sessão.
+O `agent-browser` é o padrão de QA de navegador; este arquivo é o FALLBACK
+— fala CDP direto com um Chrome headless próprio por sessão e faz o que ele
+não faz: `rede 3g`, `permissao`, `movimento reduzido`. Histórico: de 14 a
+20/09/2026 o Controle de Aplicativo do Windows bloqueava o `agent-browser` e
+este arquivo foi a única ferramenta; o Smart App Control foi desligado em
+20/09.
 
 Uso (sempre com o python do .venv):
   nav.py <sessao> open <url>                 -> título e URL final
@@ -16,6 +19,7 @@ Uso (sempre com o python do .venv):
   nav.py <sessao> cookie <nome> <valor> [dominio]
   nav.py <sessao> permissao <notifications|geolocation> <granted|denied|prompt> [origem]
   nav.py <sessao> offline on|off
+  nav.py <sessao> rede 3g|4g|off              -> rede lenta emulada (L08-medicao)
   nav.py <sessao> tema claro|escuro         -> emula prefers-color-scheme (vale até `close`)
   nav.py <sessao> movimento normal|reduzido -> emula prefers-reduced-motion (idem)
   nav.py <sessao> url | title | text [max] | links | clicaveis
@@ -36,7 +40,25 @@ from pathlib import Path
 
 import websocket  # websocket-client
 
-CHROME = Path.home() / ".agent-browser" / "browsers" / "chrome-153.0.8010.36" / "chrome.exe"
+#: Os Chromes que este arquivo tenta, NESTA ordem, e por que há uma lista:
+#: na manhã de 20/09/2026 o Smart App Control do Windows bloqueou também o
+#: `chrome.exe` que o agent-browser baixou (`WinError 4551` no `spawn`), e o
+#: QA de navegador morreu inteiro — com o Google Chrome instalado (assinado,
+#: mesmo motor, 153.0.8010.48) subindo headless com CDP normalmente ao lado.
+#: O dono desligou o SAC às 15:10 daquele dia (ledger; CLAUDE.md pelo #41),
+#: mas a lista fica: o bloqueio é um `OSError` no `Popen`, não um arquivo
+#: que falta, e `_abrir_chrome` cai para o próximo candidato no erro — o QA
+#: não pode morrer de novo por uma política que liga e desliga.
+#: `NAV_CHROME` no ambiente vai na frente de todos.
+CANDIDATOS = [
+    Path.home() / ".agent-browser" / "browsers" / "chrome-153.0.8010.36" / "chrome.exe",
+    Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Google" / "Chrome" / "Application" / "chrome.exe",
+    Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Google" / "Chrome" / "Application" / "chrome.exe",
+    Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Microsoft" / "Edge" / "Application" / "msedge.exe",
+]
+if os.environ.get("NAV_CHROME"):
+    CANDIDATOS.insert(0, Path(os.environ["NAV_CHROME"]))
+CHROME = CANDIDATOS[0]  # o que subiu por último fica aqui, para quem lê
 BASE = Path(os.environ.get("TEMP", "/tmp")) / "nav-sessoes"
 BASE.mkdir(parents=True, exist_ok=True)
 
@@ -56,21 +78,38 @@ def _vivo(porta):
 
 
 def _abrir_chrome(sessao, porta, largura=390, altura=844):
+    global CHROME
     perfil = BASE / ("perfil-" + sessao)
     perfil.mkdir(parents=True, exist_ok=True)
-    args = [
-        str(CHROME), "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
-        "--remote-debugging-port=%d" % porta, "--remote-allow-origins=*", "--user-data-dir=%s" % perfil,
-        "--window-size=%d,%d" % (largura, altura), "--hide-scrollbars", "--lang=pt-BR",
-        "--disable-background-timer-throttling", "about:blank",
-    ]
-    subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                     creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "DETACHED_PROCESS", 0))
-    for _ in range(60):
-        if _vivo(porta):
-            return
-        time.sleep(0.25)
-    raise SystemExit("Chrome não subiu na porta %d" % porta)
+    tentados = []
+    for candidato in CANDIDATOS:
+        if not candidato.exists():
+            continue
+        args = [
+            str(candidato), "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+            "--remote-debugging-port=%d" % porta, "--remote-allow-origins=*", "--user-data-dir=%s" % perfil,
+            "--window-size=%d,%d" % (largura, altura), "--hide-scrollbars", "--lang=pt-BR",
+            "--disable-background-timer-throttling", "about:blank",
+        ]
+        try:
+            subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "DETACHED_PROCESS", 0))
+        except OSError as erro:
+            # Smart App Control: "Uma política de Controle de Aplicativo
+            # bloqueou este arquivo" (WinError 4551). Próximo da lista.
+            tentados.append("%s (%s)" % (candidato, erro))
+            continue
+        for _ in range(60):
+            if _vivo(porta):
+                CHROME = candidato
+                return
+            time.sleep(0.25)
+        tentados.append("%s (não respondeu na porta %d)" % (candidato, porta))
+    raise SystemExit(
+        "Nenhum Chrome subiu na porta %d. Tentados: %s. Se todos dizem 'bloqueou este arquivo', é o Smart App "
+        "Control — use o Chrome instalado (assinado) ou aponte NAV_CHROME para um que suba."
+        % (porta, "; ".join(tentados) or "nenhum candidato existe")
+    )
 
 
 class Sessao:
@@ -285,11 +324,32 @@ class Sessao:
         self._offline()
         return {"offline": ligado == "on"}
 
+    #: Perfis de rede lenta, os do DevTools do Chrome: latência em ms e
+    #: vazão em bytes/s. É como se mede o custo real de um POST→302→GET
+    #: (L08-medicao) — no Wi-Fi da mesa tudo parece instantâneo.
+    REDES = {
+        "3g": {"latency": 400, "downloadThroughput": 400 * 1024 // 8, "uploadThroughput": 400 * 1024 // 8},
+        "4g": {"latency": 150, "downloadThroughput": 4 * 1024 * 1024 // 8, "uploadThroughput": 3 * 1024 * 1024 // 8},
+    }
+
+    def rede(self, perfil):
+        """Rede lenta emulada (`3g`, `4g`) ou de volta ao normal (`off`).
+        Mesmo mecanismo do `offline`: estado em arquivo, reaplicado em todo
+        comando, porque a emulação morre com a conexão CDP."""
+        if perfil not in self.REDES and perfil != "off":
+            raise SystemExit("rede: use 3g, 4g ou off")
+        (BASE / ("rede-" + self.nome + ".json")).write_text(json.dumps(perfil))
+        self._offline()
+        return {"rede": perfil}
+
     def _offline(self):
         cfg = BASE / ("offline-" + self.nome + ".json")
         ligado = cfg.exists() and json.loads(cfg.read_text())
+        rede = BASE / ("rede-" + self.nome + ".json")
+        perfil = json.loads(rede.read_text()) if rede.exists() else "off"
+        condicoes = self.REDES.get(perfil, {"latency": 0, "downloadThroughput": -1, "uploadThroughput": -1})
         self.cmd("Network.enable")
-        self.cmd("Network.emulateNetworkConditions", offline=bool(ligado), latency=0, downloadThroughput=-1, uploadThroughput=-1)
+        self.cmd("Network.emulateNetworkConditions", offline=bool(ligado), **condicoes)
 
     def cookie(self, nome, valor, dominio="127.0.0.1"):
         self.cmd("Network.setCookie", name=nome, value=valor, domain=dominio, path="/", httpOnly=True)
@@ -336,6 +396,7 @@ def main():
         elif cmd == "cookie": out = s.cookie(args[0], args[1], *(args[2:3]))
         elif cmd == "permissao": out = s.permissao(args[0], args[1], *(args[2:3]))
         elif cmd == "offline": out = s.offline(args[0])
+        elif cmd == "rede": out = s.rede(args[0])
         elif cmd == "tema": out = s.tema(args[0])
         elif cmd == "movimento": out = s.movimento(args[0])
         elif cmd == "url": out = s.eval("location.href")

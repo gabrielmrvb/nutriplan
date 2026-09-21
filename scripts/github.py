@@ -35,8 +35,10 @@ Uso (sempre com o python do .venv, na raiz do repositório):
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -44,9 +46,14 @@ from pathlib import Path
 
 API = "https://api.github.com"
 
-#: O nome do job em `.github/workflows/suite.yml` — é o "context" que a
-#: proteção exige, por TEXTO. `config/test_ci.py` confere que os dois batem.
-CHECK = "suíte completa"
+#: O nome do job que BARRA O MERGE — o "context" que `esperar`/`enfileirar`
+#: aguardam ficar verde. Desde 18/09/2026 é a SUÍTE RÁPIDA
+#: (`.github/workflows/suite-rapida.yml`, fatiada por `ci/shard.py`, `--exclude-tag lento`,
+#: < 10 min), e não mais a completa (~31 min, que passou a rodar depois do
+#: merge e à noite em `suite.yml`). `config/test_ci.py` confere que este
+#: texto bate com o nome do job do fluxo rápido — renomear um sem o outro
+#: deixa todo PR esperando um check que nunca vem.
+CHECK = "suíte rápida"
 
 #: Merge commit, e não squash nem rebase: os SHAs testados no PR continuam
 #: existindo em `main`, e o merge commit é o que `/saude/` mostra.
@@ -74,7 +81,7 @@ POSSE_MAXIMA_MIN = 90
 def corpo_da_fila() -> dict:
     """O ruleset de `main` (Settings → Rules), que substitui a proteção
     clássica desde 17/09/2026: PR obrigatório para todo mundo (`bypass_actors`
-    vazio — admin inclusive), o check "suíte completa" SEM `strict` (com
+    vazio — admin inclusive), o check "suíte rápida" SEM `strict` (com
     quatro sessões mergeando, `strict` deixava o PR verde "behind" no meio do
     check; agora é a FILA que atualiza e serializa), fila por merge commit em
     lotes de no máximo dois, sem apagar nem forçar a branch."""
@@ -223,12 +230,35 @@ def cmd_status(args):
     }, ensure_ascii=False))
 
 
+def _esperar_head(repo, numero, sha, minutos=5):
+    """Espera a API do GitHub REFLETIR o push: `pr.head.sha == sha`.
+
+    Consistência eventual, vista em 17/09/2026 (#24, sessão design): quatro
+    minutos depois do push a API ainda devolvia o head ANTIGO — já verde —,
+    `esperar` aceitou aquele veredito e o merge saiu com o check do head
+    novo ainda `in_progress`. O gate "check verde no head que mergeia" só
+    vale se o head lido é o que subiu. exit 2 se não bater a tempo."""
+    fim = time.time() + minutos * 60
+    while True:
+        atual = _pr(repo, numero)["head"]["sha"]
+        if atual == sha:
+            return atual
+        print(time.strftime("%H:%M:%S"), "a API ainda mostra %s; esperado %s" % (atual[:7], sha[:7]), flush=True)
+        if time.time() > fim:
+            raise SystemExit(2)
+        time.sleep(15)
+
+
 def cmd_esperar(args):
-    """Espera o check terminar. exit 0 verde, 1 vermelho/cancelado, 2 tempo."""
+    """Espera o check terminar. exit 0 verde, 1 vermelho/cancelado, 2 tempo.
+    `--sha X`: só o check DESSE head conta (o que acabou de subir)."""
     numero = int(args[0])
     minutos = int(args[args.index("--minutos") + 1]) if "--minutos" in args else 45
     repo = _repo()
-    sha = _pr(repo, numero)["head"]["sha"]
+    if "--sha" in args:
+        sha = _esperar_head(repo, numero, args[args.index("--sha") + 1])
+    else:
+        sha = _pr(repo, numero)["head"]["sha"]
     fim = time.time() + minutos * 60
     while time.time() < fim:
         status, conclusao = _check(repo, sha)
@@ -265,13 +295,43 @@ def _git(*args):
     return p.returncode, (p.stdout + p.stderr).strip()
 
 
+def _vivo(pid) -> bool:
+    """O processo do ticket ainda existe? Ticket de processo morto — reboot,
+    sessão encerrada — não é vez na fila: era o que travava todo mundo
+    depois do reinício de 17/09/2026 (dois tickets órfãos na frente, ninguém
+    de posse, e `minha_vez` falso para sempre)."""
+    if pid == os.getpid():
+        return True
+    if os.name == "nt":
+        import ctypes
+
+        k32 = ctypes.windll.kernel32
+        alca = k32.OpenProcess(0x1000, False, int(pid))  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not alca:
+            return False
+        codigo = ctypes.c_ulong()
+        ok = k32.GetExitCodeProcess(alca, ctypes.byref(codigo))
+        k32.CloseHandle(alca)
+        return bool(ok) and codigo.value == 259  # STILL_ACTIVE
+    try:
+        os.kill(int(pid), 0)
+    except OSError:
+        return False
+    return True
+
+
 def _tickets():
-    """Os PRs esperando, na ordem de chegada: [(momento, número, pid)]."""
+    """Os PRs esperando, na ordem de chegada: [(momento, número, pid)] — só
+    os de processo VIVO; o ticket órfão é apagado ao ser visto."""
     FILA.mkdir(parents=True, exist_ok=True)
     fila = []
     for arquivo in FILA.glob("pr-*.ticket"):
         try:
             momento, numero, pid = arquivo.read_text(encoding="utf-8").split()
+            if not _vivo(int(pid)):
+                print(time.strftime("%H:%M:%S"), "ticket órfão (processo %s morto): %s" % (pid, arquivo.name), flush=True)
+                arquivo.unlink(missing_ok=True)
+                continue
             fila.append((float(momento), int(numero), int(pid), arquivo))
         except (ValueError, OSError):
             continue
@@ -324,42 +384,69 @@ def cmd_enfileirar(args):
                 raise SystemExit(2)
             time.sleep(30)
         print(time.strftime("%H:%M:%S"), "PR #%d: minha vez" % numero, flush=True)
-        # 2) o laço do `strict`: main na branch, push, check, merge.
-        codigo, atual = _git("rev-parse", "--abbrev-ref", "HEAD")
-        if atual != branch:
-            raise SystemExit("PR #%d é da branch %s; rode na árvore com ela em HEAD (está em %s)" % (numero, branch, atual))
-        for tentativa in range(1, 5):
-            _git("fetch", "-q", "origin")
-            codigo, _ = _git("merge-base", "--is-ancestor", "origin/main", "HEAD")
+        # 2) o laço do `strict`, num WORKTREE PRÓPRIO e descartável — a árvore
+        # da SESSÃO fica livre e ela segue trabalhando enquanto a fila anda.
+        # Antes o `enfileirar` exigia a branch em HEAD e fazia merge/push na
+        # árvore da sessão, que ficava travada até a fila terminar.
+        _git("fetch", "-q", "origin")
+        wt = tempfile.mkdtemp(prefix="nutriplan-fila-")
+
+        def g(*a):
+            return _git("-C", wt, *a)
+
+        try:
+            # Destacado no head REMOTO da branch: a sessão nem precisa estar
+            # nela (`--detach` evita o conflito de "branch já usada por outro
+            # worktree").
+            codigo, saida = _git("worktree", "add", "--detach", wt, "origin/" + branch)
             if codigo != 0:
-                # `main` andou: entra na branch (merge commit) e sobe — o
-                # pre-push roda o atalho; o check do PR roda de novo.
-                codigo, saida = _git("merge", "--no-edit", "origin/main")
+                raise SystemExit("PR #%d: não criei o worktree da fila: %s" % (numero, saida[-300:]))
+            for tentativa in range(1, 5):
+                g("fetch", "-q", "origin")
+                codigo, _ = g("merge-base", "--is-ancestor", "origin/main", "HEAD")
                 if codigo != 0:
-                    _git("merge", "--abort")
-                    raise SystemExit("PR #%d: conflito com main — resolva na branch e enfileire de novo" % numero)
-                codigo, saida = _git("push", "origin", "HEAD:" + branch)
-                if codigo != 0:
-                    raise SystemExit("PR #%d: push recusado: %s" % (numero, saida[-400:]))
-            try:
-                cmd_esperar([str(numero), "--minutos", "55"])
-            except SystemExit as erro:
-                if erro.code == 0:
-                    pass
-                elif erro.code == 1:
-                    raise SystemExit("PR #%d: check vermelho — corrija e enfileire de novo" % numero)
-                else:
-                    raise SystemExit("PR #%d: o check não terminou em 55 min" % numero)
-            pr = _pr(repo, numero)
-            codigo, resposta = _api("PUT", "/repos/%s/pulls/%d/merge" % (repo, numero), {
-                "merge_method": METODO_DE_MERGE, "sha": pr["head"]["sha"],
-                "commit_title": "Merge PR #%d: %s" % (numero, pr["title"]),
-            })
-            if codigo == 200:
-                print("MERGEADO %s (tentativa %d)" % (resposta.get("sha", "")[:7], tentativa), flush=True)
-                return
-            print(time.strftime("%H:%M:%S"), "merge recusado (%s); main andou — tentativa %d" % (resposta.get("message"), tentativa), flush=True)
-        raise SystemExit("PR #%d: quatro tentativas e main não parou de andar" % numero)
+                    # `main` andou: entra na branch (merge commit) e sobe.
+                    codigo, saida = g("merge", "--no-edit", "origin/main")
+                    if codigo != 0:
+                        g("merge", "--abort")
+                        raise SystemExit("PR #%d: conflito com main — resolva na branch e enfileire de novo" % numero)
+                    # `--no-verify`: o pre-push é ATALHO local e redundante
+                    # aqui — o gate é o check do CI que a fila ESPERA logo
+                    # abaixo, sobre este mesmo SHA, e o worktree já é a árvore
+                    # do que sobe. (Até 20/09/2026 havia um segundo motivo: o
+                    # Smart App Control bloqueava a DLL do fontTools no atalho;
+                    # o dono o desligou nesse dia.)
+                    codigo, saida = g("push", "--no-verify", "origin", "HEAD:" + branch)
+                    if codigo != 0:
+                        raise SystemExit("PR #%d: push recusado: %s" % (numero, saida[-400:]))
+                # O check que conta é o do HEAD que subiu (consistência
+                # eventual da API, #24).
+                _, head_local = g("rev-parse", "HEAD")
+                head_local = head_local.strip()
+                try:
+                    cmd_esperar([str(numero), "--minutos", "55", "--sha", head_local])
+                except SystemExit as erro:
+                    if erro.code == 0:
+                        pass
+                    elif erro.code == 1:
+                        raise SystemExit("PR #%d: check vermelho — corrija e enfileire de novo" % numero)
+                    else:
+                        raise SystemExit("PR #%d: o check não terminou em 55 min" % numero)
+                pr = _pr(repo, numero)
+                if pr["head"]["sha"] != head_local:
+                    raise SystemExit("PR #%d: o head mudou embaixo (%s ≠ %s) — enfileire de novo" % (numero, pr["head"]["sha"][:7], head_local[:7]))
+                codigo, resposta = _api("PUT", "/repos/%s/pulls/%d/merge" % (repo, numero), {
+                    "merge_method": METODO_DE_MERGE, "sha": pr["head"]["sha"],
+                    "commit_title": "Merge PR #%d: %s" % (numero, pr["title"]),
+                })
+                if codigo == 200:
+                    print("MERGEADO %s (tentativa %d)" % (resposta.get("sha", "")[:7], tentativa), flush=True)
+                    return
+                print(time.strftime("%H:%M:%S"), "merge recusado (%s); main andou — tentativa %d" % (resposta.get("message"), tentativa), flush=True)
+            raise SystemExit("PR #%d: quatro tentativas e main não parou de andar" % numero)
+        finally:
+            _git("worktree", "remove", "--force", wt)
+            shutil.rmtree(wt, ignore_errors=True)
     finally:
         ticket.unlink(missing_ok=True)
         if _posse() == numero:

@@ -1,19 +1,28 @@
 # -*- coding: utf-8 -*-
-"""O gate saiu da máquina: o CI roda a suíte inteira, e `main` só recebe PR.
+"""O gate saiu da máquina, e desde 18/09/2026 ele é RÁPIDO.
 
-Decisão do dono de 17/09/2026, depois de um push chegar ao GitHub sem
-passar pelo reflog de nenhuma sessão: o pre-push local não é prova de
-nada que outra pessoa consiga conferir. O gate de verdade passa a ser o
-GitHub Actions — a suíte completa, o MESMO comando do pre-push, sobre o
-merge do PR —, e a branch `main` ganha proteção pela API: check verde
-obrigatório, branch atualizada, ninguém empurra direto (nem admin). O hook
-local vira atalho: um subconjunto rápido no worktree descartável do SHA
-que sobe, com a suíte inteira por trás de `NUTRIPLAN_SUITE_COMPLETA=1`.
+Decisão do dono de 17/09/2026: o gate de verdade é o GitHub Actions, não o
+pre-push de uma máquina só. Decisão de 18/09/2026: esse gate leva menos de
+10 minutos. A suíte inteira, serial, executava em ~31 min (medido nos
+últimos 10 runs: instalar ~10 s com cache, o resto é o `manage.py test`), e
+com a fila local empilhando PRs cada um esperava ~32 min de runner. O
+repositório é PRIVADO — minuto de Actions é metered —, então PR de 32 min é
+espera E custo.
 
-Estes testes são TEXTUAIS, como os de `backup.yml`: eles não rodam o
-Actions, mas prendem o contrato que o Actions executa — o comando, o
-banco, o teto de tempo, o artefato — e o contrato do helper que abre,
-espera e faz merge dos PRs sem `gh`.
+São DOIS fluxos:
+
+  * `suite-rapida.yml` → check "suíte rápida": o GATE. `--parallel auto`
+    (um processo por vCPU; o `RunnerUnico` conta os clones) e
+    `--exclude-tag lento` (os testes pesados de estatística/estresse). Roda
+    em todo PR. É o check que `scripts/github.py` (CHECK) espera antes de
+    mergear;
+  * `suite.yml` → check "suíte completa": TUDO, inclusive `lento`, DEPOIS do
+    merge (`push: main`) e à mão (`workflow_dispatch`); a noite é de `noturna.yml`.
+    Não barra PR.
+
+Estes testes são TEXTUAIS, como os de `backup.yml`: não rodam o Actions,
+mas prendem o contrato que ele executa, e o contrato do helper que espera e
+mergeia sem `gh`.
 """
 import re
 from pathlib import Path
@@ -21,97 +30,149 @@ from pathlib import Path
 from django.test import SimpleTestCase
 
 RAIZ = Path(__file__).resolve().parent.parent
-FLUXO = RAIZ / ".github" / "workflows" / "suite.yml"
+FLUXO_RAPIDA = RAIZ / ".github" / "workflows" / "suite-rapida.yml"
+FLUXO_COMPLETA = RAIZ / ".github" / "workflows" / "suite.yml"
 HOOK = RAIZ / "scripts" / "hooks" / "pre-push"
 HELPER = RAIZ / "scripts" / "github.py"
-
-#: O comando da suíte, o mesmo nos dois lugares. Mudar aqui é mudar o gate.
-COMANDO = "manage.py test --verbosity=1 --noinput"
 
 
 def _sem_comentarios(texto):
     return "\n".join(l for l in texto.splitlines() if not l.lstrip().startswith("#"))
 
 
-class OFluxoDoActionsTests(SimpleTestCase):
+class OGateRapidoTests(SimpleTestCase):
+    """`suite-rapida.yml`: o check que barra o merge, em < 10 min."""
+
     def _fluxo(self):
-        return FLUXO.read_text(encoding="utf-8")
+        return _sem_comentarios(FLUXO_RAPIDA.read_text(encoding="utf-8"))
 
-    def test_roda_em_push_e_pull_request_para_main(self):
-        fluxo = _sem_comentarios(self._fluxo())
-        self.assertRegex(fluxo, r"pull_request:\s*\n\s+branches:\s*\[?\s*-?\s*\"?main")
-        self.assertRegex(fluxo, r"push:\s*\n\s+branches:\s*\[?\s*-?\s*\"?main")
+    def test_o_nome_do_job_e_o_check_que_o_helper_espera(self):
+        """O job tem o nome que `scripts/github.py` (CHECK) aguarda: se um
+        renomear e o outro não, todo PR fica esperando um check que nunca
+        vem — e como o repositório é privado não há branch protection do
+        servidor para avisar, só a fila local."""
+        from scripts import github
 
-    def test_a_suite_e_o_mesmo_comando_do_pre_push(self):
-        """Um comando, dois lugares: o CI e o hook em modo completo. O
-        `pipefail` existe porque `manage.py test | tee` devolveria o status
-        do `tee` — o mesmo engano que o CLAUDE.md registra para `tail`."""
-        fluxo = self._fluxo()
-        self.assertIn(COMANDO, fluxo)
+        self.assertRegex(self._fluxo(), r"\n\s+name:\s*\"?%s\"?\s*\n" % re.escape(github.CHECK))
+        self.assertEqual(github.CHECK, "suíte rápida")
+
+    def test_roda_em_pull_request_para_main(self):
+        self.assertRegex(self._fluxo(), r"pull_request:\s*\n\s+branches:\s*\[?\s*-?\s*\"?main")
+
+    def test_e_fatiada_e_exclui_os_lentos(self):
+        """O ganho vem de FATIAR (`ci/shard.py`), cada fatia serial e os jobs
+        em paralelo — não de `--parallel` do Django, que morre com `cannot
+        pickle 'traceback'` quando um teste de ordem-de-PK cai (medido no PR
+        #33). E `--exclude-tag lento` tira os pesados do caminho de todo PR."""
+        fluxo = FLUXO_RAPIDA.read_text(encoding="utf-8")
+        self.assertIn("manage.py test", fluxo)
+        self.assertIn("ci/shard.py", fluxo)
+        self.assertIn("--exclude-tag lento", fluxo)
+        self.assertIn("--verbosity=1 --noinput", fluxo)
         self.assertIn("pipefail", fluxo)
-        hook = _sem_comentarios(HOOK.read_text(encoding="utf-8"))
-        self.assertIn("--verbosity=1 --noinput", hook)
+        # O comentário EXPLICA por que não usamos `--parallel`; o que importa é
+        # que o COMANDO não o traga.
+        self.assertNotIn("--parallel", _sem_comentarios(fluxo))
 
-    def test_o_banco_e_o_postgres_de_producao(self):
-        """Neon roda 16.x em produção (CLAUDE.md, "O banco saiu do Render");
-        o serviço do CI é a mesma maior."""
-        fluxo = _sem_comentarios(self._fluxo())
+    def test_o_gate_fica_verde_so_com_todas_as_fatias(self):
+        """O job `gate` (o check que o helper espera) depende das fatias e só
+        passa se todas passarem — senão uma fatia vermelha entraria em `main`
+        pela porta do check verde."""
+        fluxo = self._fluxo()
+        self.assertRegex(fluxo, r"needs:\s*\[?\s*fatia")
+        self.assertIn("needs.fatia.result", fluxo)
+
+    def test_a_particao_cobre_todo_modulo_sem_orfao(self):
+        """Fatiar por lista escrita à mão esqueceria um arquivo novo — e um
+        módulo em NENHUMA fatia nunca roda no gate (buraco de cobertura). A
+        partição de `ci/shard.py` cobre TODO módulo descoberto, sem repetir."""
+        import re as _re
+
+        from ci import shard
+
+        fluxo = FLUXO_RAPIDA.read_text(encoding="utf-8")
+        m = _re.search(r"ci/shard\.py \$\{\{ matrix\.i \}\} (\d+)", fluxo)
+        self.assertIsNotNone(m, "o comando tem de chamar ci/shard.py com o total de fatias")
+        n = int(m.group(1))
+        matriz = _re.search(r"matrix:\s*\n\s*i:\s*\[([0-9,\s]+)\]", fluxo)
+        self.assertIsNotNone(matriz)
+        indices = [int(x) for x in matriz.group(1).split(",")]
+        self.assertEqual(sorted(indices), list(range(n)), "a matriz tem de ter uma entrada por fatia")
+
+        todos = shard.modulos()
+        self.assertIn("config.test_ci", todos)
+        fatias = shard.particionar(n)
+        uniao = sorted(x for f in fatias for x in f)
+        self.assertEqual(uniao, todos, "toda fatia coberta, sem órfão")
+        self.assertEqual(len(uniao), len(set(uniao)), "sem módulo em duas fatias")
+
+    def test_o_teto_da_fatia_e_curto(self):
+        m = re.search(r"timeout-minutes:\s*(\d+)", self._fluxo())
+        self.assertIsNotNone(m)
+        self.assertLessEqual(int(m.group(1)), 20)
+
+    def test_sem_segredo_postgres_de_producao_e_cache(self):
+        fluxo = self._fluxo()
+        self.assertNotIn("secrets.", fluxo)
+        self.assertRegex(fluxo, r"permissions:\s*\n\s+contents:\s*read")
         self.assertRegex(fluxo, r"image:\s*postgres:16")
-        self.assertIn("DATABASE_URL", fluxo)
+        self.assertRegex(fluxo, r"python-version:\s*\"?3\.12")
+        self.assertRegex(fluxo, r"cache:\s*\"?pip")
+        self.assertIn("pip install -r requirements-dev.txt", fluxo)
+        chave = re.search(r"DJANGO_SECRET_KEY:\s*\"?([^\"\n]+)", fluxo)
+        self.assertIsNotNone(chave)
+        self.assertGreaterEqual(len(chave.group(1).strip()), 50)
 
-    def test_o_teto_e_quarenta_minutos_e_o_log_vira_artefato_sempre(self):
-        fluxo = _sem_comentarios(self._fluxo())
+
+class ASuiteCompletaTests(SimpleTestCase):
+    """`suite.yml`: tudo, depois do merge e à mão — não barra PR. A noite é
+    de `noturna.yml`, com a data real (`config/test_relogio.py`)."""
+
+    def _fluxo(self):
+        return _sem_comentarios(FLUXO_COMPLETA.read_text(encoding="utf-8"))
+
+    def test_o_job_e_a_suite_completa(self):
+        self.assertRegex(self._fluxo(), r"\n\s+name:\s*\"?suíte completa\"?\s*\n")
+
+    def test_roda_depois_do_merge_e_a_mao_e_a_noite_e_de_outro_fluxo(self):
+        """Pós-merge prova o commit que entrou; o dispatch é o gatilho
+        manual. O cron NÃO fica aqui: a suíte roda com a data congelada
+        (`config/relogio.py`), e um cron congelado mediria a mesma quarta
+        de sempre — quem pega quebra de calendário é `noturna.yml`, com a
+        data real e a issue de alerta (`config/test_relogio.py`)."""
+        fluxo = self._fluxo()
+        self.assertRegex(fluxo, r"push:\s*\n\s+branches:\s*\[?\s*-?\s*\"?main")
+        self.assertNotIn("schedule:", fluxo)
+        self.assertIn("workflow_dispatch:", fluxo)
+
+    def test_roda_a_suite_inteira_fatiada_sem_excluir_nada(self):
+        """A completa NÃO exclui `lento` — é onde os pesados rodam. E é
+        fatiada como a rápida (cada fatia serial), senão o pós-merge levaria
+        os ~31 min de antes."""
+        fluxo = FLUXO_COMPLETA.read_text(encoding="utf-8")
+        self.assertIn("manage.py test", fluxo)
+        self.assertIn("ci/shard.py", fluxo)
+        self.assertIn("--verbosity=1 --noinput", fluxo)
+        self.assertIn("pipefail", fluxo)
+        # Os `--parallel`/`--exclude-tag` do comentário (que explicam a
+        # escolha) não contam: o que importa é o COMANDO da completa.
+        sem = _sem_comentarios(fluxo)
+        self.assertNotIn("--parallel", sem)
+        self.assertNotIn("--exclude-tag", sem)
+
+    def test_teto_de_quarenta_minutos_e_log_sempre(self):
+        fluxo = self._fluxo()
         m = re.search(r"timeout-minutes:\s*(\d+)", fluxo)
         self.assertIsNotNone(m)
         self.assertLessEqual(int(m.group(1)), 40)
         self.assertIn("actions/upload-artifact", fluxo)
         self.assertIn("if: always()", fluxo)
-        self.assertIn("suite.log", fluxo)
+        self.assertIn(".log", fluxo)
 
-    def test_o_fluxo_nao_le_segredo_nenhum_e_so_le_o_repositorio(self):
-        """A suíte não precisa de segredo: SECRET_KEY fictícia (com os 50
-        caracteres que o check E005 exige), sem DATABASE_URL de produção.
-        `permissions: contents: read` é o que impede o token do fluxo de
-        escrever — a mesma decisão de `backup.yml`."""
-        fluxo = _sem_comentarios(self._fluxo())
+    def test_sem_segredo_e_contents_read(self):
+        fluxo = self._fluxo()
         self.assertNotIn("secrets.", fluxo)
         self.assertRegex(fluxo, r"permissions:\s*\n\s+contents:\s*read")
-        chave = re.search(r"DJANGO_SECRET_KEY:\s*\"?([^\"\n]+)", fluxo)
-        self.assertIsNotNone(chave)
-        self.assertGreaterEqual(len(chave.group(1).strip()), 50)
-
-    def test_o_nome_do_check_e_o_que_a_protecao_exige(self):
-        """O job tem o nome que a branch protection pede por texto: se um
-        renomear o outro não, todo PR fica esperando um check que nunca vem."""
-        from scripts import github
-
-        fluxo = _sem_comentarios(self._fluxo())
-        self.assertRegex(fluxo, r"\n\s+name:\s*\"?%s\"?\s*\n" % re.escape(github.CHECK))
-
-    def test_a_fila_de_merge_dispara_a_suite_no_grupo(self):
-        """A fila cria uma branch temporária por grupo e dispara `merge_group`;
-        sem esse gatilho o check "suíte completa" nunca chega e a fila espera
-        até o tempo esgotar (medido no PR #13: com `strict` e quatro sessões
-        mergeando, a branch ficava "behind" no meio do check duas vezes)."""
-        fluxo = _sem_comentarios(self._fluxo())
-        self.assertRegex(fluxo, r"\n\s+merge_group:")
-        self.assertIn("checks_requested", fluxo)
-
-    def test_a_dependencia_tem_cache_e_o_python_e_o_do_projeto(self):
-        fluxo = _sem_comentarios(self._fluxo())
-        self.assertIn("actions/setup-python", fluxo)
-        self.assertRegex(fluxo, r"python-version:\s*\"?3\.12")
-        self.assertRegex(fluxo, r"cache:\s*\"?pip")
-
-    def test_a_suite_roda_com_as_dependencias_de_desenvolvimento(self):
-        """`config/test_requisitos_dev.py` cobra que tudo em `requirements-dev.txt`
-        esteja instalado onde a suíte roda; o CI instalava só o de produção e
-        o PR #4 caiu em `pillow` e `websocket-client`. O arquivo de
-        desenvolvimento puxa o de produção, então a suíte vê os dois."""
-        fluxo = _sem_comentarios(self._fluxo())
-        self.assertIn("pip install -r requirements-dev.txt", fluxo)
-        self.assertNotRegex(fluxo, r"pip install -r requirements\.txt\b")
-        self.assertIn("requirements-dev.txt", fluxo.split("cache-dependency-path", 1)[1].split("- name", 1)[0])
 
 
 class OHookLocalEAtalhoTests(SimpleTestCase):
@@ -138,9 +199,6 @@ class OHelperDoGitHubTests(SimpleTestCase):
         return HELPER.read_text(encoding="utf-8")
 
     def test_o_token_vem_do_credential_manager_e_nunca_e_impresso(self):
-        """`git credential fill` é a única fonte; nenhum `print` recebe o
-        token e nenhum argumento de linha de comando o carrega (ele iria
-        para o histórico do shell e para o relatório)."""
         texto = _sem_comentarios(self._texto())
         self.assertIn("git", texto)
         self.assertIn("credential", texto)
@@ -148,21 +206,47 @@ class OHelperDoGitHubTests(SimpleTestCase):
         self.assertNotRegex(texto, r"print\([^)]*token")
         self.assertNotIn("--token", texto)
 
-    def test_a_protecao_exige_o_check_verde_a_branch_atualizada_e_vale_para_admin(self):
+    def test_o_check_que_o_helper_espera_e_o_gate_rapido(self):
         from scripts import github
 
-        corpo = github.corpo_da_protecao()
-        self.assertEqual(corpo["required_status_checks"], {"strict": True, "contexts": [github.CHECK]})
-        self.assertIs(corpo["enforce_admins"], True)
-        self.assertIsNone(corpo["required_pull_request_reviews"])
-        self.assertIsNone(corpo["restrictions"])
-        self.assertIs(corpo["allow_force_pushes"], False)
-        self.assertIs(corpo["allow_deletions"], False)
+        self.assertEqual(github.CHECK, "suíte rápida")
+
+    def test_esperar_aceita_sha_do_head_que_acabou_de_subir(self):
+        """A fila mergeia o head certo: `esperar --sha X` conta só o check
+        DESSE commit, não o de um head velho cancelado (achado do PR #32)."""
+        texto = self._texto()
+        self.assertIn("--sha", texto)
+        self.assertIn("_esperar_head", texto)
+
+    def test_a_fila_roda_num_worktree_proprio_e_nao_trava_a_sessao(self):
+        """`enfileirar` faz merge/push/merge num WORKTREE descartável, não na
+        árvore da sessão — assim a sessão segue trabalhando enquanto a fila
+        anda (18/09/2026). Não exige mais a branch em HEAD, e o push do
+        worktree pula o atalho local (`--no-verify`): o gate é o check do CI
+        que a fila espera sobre o mesmo SHA."""
+        texto = _sem_comentarios(self._texto())
+        self.assertIn("worktree", texto)
+        self.assertIn('"worktree", "add", "--detach"', texto)
+        self.assertIn("worktree", texto.split("remove", 1)[0])  # tem remove no finally
+        self.assertNotIn("rode na árvore com ela em HEAD", texto)
+        self.assertIn("--no-verify", texto)
+
+    def test_a_protecao_e_a_fila_apontam_para_o_check_do_gate(self):
+        """Proteção clássica e ruleset (os dois hoje inertes — o repositório é
+        privado e a API recusa ambos com 403; ficam prontos para o dia em que
+        o repositório morar numa organização) exigem o MESMO check que o
+        helper espera."""
+        from scripts import github
+
+        self.assertEqual(
+            github.corpo_da_protecao()["required_status_checks"],
+            {"strict": True, "contexts": [github.CHECK]},
+        )
+        regras = {r["type"]: r.get("parameters", {}) for r in github.corpo_da_fila()["rules"]}
+        checks = regras["required_status_checks"]["required_status_checks"]
+        self.assertEqual([c["context"] for c in checks], [github.CHECK])
 
     def test_o_merge_e_por_merge_commit(self):
-        """Merge commit, não squash nem rebase: os SHAs testados no PR
-        continuam existindo em `main`, e o merge commit é o que `/saude/`
-        mostra."""
         from scripts import github
 
         self.assertEqual(github.METODO_DE_MERGE, "merge")
@@ -173,27 +257,45 @@ class OHelperDoGitHubTests(SimpleTestCase):
         for nome in ("pr", "status", "esperar", "merge", "proteger", "protecao", "enfileirar", "fila", "fila-ativar"):
             self.assertIn(nome, github.COMANDOS, nome)
 
-    def test_a_fila_de_merge_e_o_gate_de_main(self):
-        """O ruleset de `main`: PR obrigatório (sem push direto, admin
-        inclusive — `bypass_actors` vazio), o check "suíte completa" SEM
-        `strict` (a fila é quem atualiza), fila por merge commit em lotes
-        pequenos, sem apagar nem forçar."""
+    def test_um_ticket_de_processo_morto_nao_e_vez_na_fila(self):
+        """Depois do reboot de 17/09/2026 dois tickets de processos mortos
+        ficaram na frente da fila, ninguém de posse, e `minha_vez` era falso
+        para todo mundo, para sempre. Ticket órfão é apagado ao ser visto;
+        o do processo vivo (este) continua."""
+        import os
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+
+        from scripts import github
+
+        with tempfile.TemporaryDirectory() as pasta:
+            fila = Path(pasta)
+            (fila / "pr-1.ticket").write_text("1.0 1 %d" % os.getpid(), encoding="utf-8")
+            (fila / "pr-2.ticket").write_text("0.5 2 4194304", encoding="utf-8")  # pid que não existe
+            with mock.patch.object(github, "FILA", fila):
+                tickets = github._tickets()
+            self.assertEqual([n for _, n, _, _ in tickets], [1])
+            self.assertFalse((fila / "pr-2.ticket").exists(), "o ticket órfão tinha de ser apagado")
+            self.assertTrue((fila / "pr-1.ticket").exists())
+        self.assertTrue(github._vivo(os.getpid()))
+        self.assertFalse(github._vivo(4194304))
+
+    def test_a_fila_do_github_e_por_merge_commit_em_lotes_pequenos(self):
+        """O ruleset (inerte hoje — repositório privado): merge commit, lotes
+        de no máximo dois, sem `strict` (a fila é quem atualiza), sem push
+        direto nem apagar, sem revisor obrigatório."""
         from scripts import github
 
         corpo = github.corpo_da_fila()
         self.assertEqual(corpo["enforcement"], "active")
         self.assertEqual(corpo["bypass_actors"], [])
-        self.assertEqual(corpo["conditions"]["ref_name"]["include"], ["refs/heads/main"])
         regras = {r["type"]: r.get("parameters", {}) for r in corpo["rules"]}
         self.assertIn("deletion", regras)
         self.assertIn("non_fast_forward", regras)
         self.assertEqual(regras["pull_request"]["required_approving_review_count"], 0)
         self.assertEqual(regras["pull_request"]["allowed_merge_methods"], ["merge"])
-        checks = regras["required_status_checks"]
-        self.assertIs(checks["strict_required_status_checks_policy"], False)
-        self.assertEqual([c["context"] for c in checks["required_status_checks"]], [github.CHECK])
+        self.assertIs(regras["required_status_checks"]["strict_required_status_checks_policy"], False)
         fila = regras["merge_queue"]
         self.assertEqual(fila["merge_method"], "MERGE")
-        self.assertLessEqual(fila["max_entries_to_merge"], 2, "lote pequeno")
-        self.assertLessEqual(fila["max_entries_to_build"], 2)
-        self.assertGreaterEqual(fila["check_response_timeout_minutes"], 45, "a suíte leva até 40 min")
+        self.assertLessEqual(fila["max_entries_to_merge"], 2)

@@ -15,7 +15,7 @@ descarta a transição inteira, em silêncio); e o vídeo continua sendo um
 player só.
 """
 import re
-from datetime import date, datetime, time
+from datetime import datetime, time
 from pathlib import Path
 from unittest import mock
 
@@ -381,13 +381,13 @@ class NomeDeViewTransitionUnicoTests(TestCase):
         from plans.tests import create_complete_user
         self.user = create_complete_user(email="movimento@exemplo.com")
         TrainingDay.objects.update_or_create(
-            user=self.user, weekday=date.today().weekday(), defaults={"duration_min": 45}
+            user=self.user, weekday=timezone.localdate().weekday(), defaults={"duration_min": 45}
         )
         from workouts.services import acertar_rotina, registrar_escolha
         plano, _ = acertar_rotina(self.user)
         # Desde 15/09/2026 a letra pode ter duas opções e a execução pede a
         # escolha na ficha; o teste escolhe a 1 para abrir a execução direto.
-        sessao = plano.sessions.get(weekday=date.today().weekday())
+        sessao = plano.sessions.get(weekday=timezone.localdate().weekday())
         registrar_escolha(self.user, sessao, 1)
         self.client.force_login(self.user)
 

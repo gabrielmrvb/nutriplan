@@ -1,36 +1,35 @@
-# Os lembretes de refeição e o "manter acordado", sem nada pago.
+# Os lembretes de refeição — o FALLBACK, sem nada pago.
 #
-# O app não tem agendador próprio, e cron no Render é serviço pago (mínimo
-# US$ 1/mês; a conta sem cartão devolve 402 — decisão do dono em 16/09/2026:
-# nada pago). Este fluxo é o relógio: a cada 5 minutos bate em
-# `GET /saude/vivo/` (o serviço não dorme) e em `POST /tarefas/lembretes/`
-# com um token (o app dispara o que venceu — `push/tarefas.py`). Rodar duas
-# vezes no mesmo minuto é seguro: quem decide se alguém já foi avisado é a
-# constraint do banco, não este relógio.
+# Desde 18/09/2026 quem DISPARA os lembretes com pontualidade é o UptimeRobot
+# (`GET /tarefas/lembretes/externo/<token>/`, a cada 5 min): o `schedule` do
+# GitHub atrasa e PULA (MEDIDO: ~9 rodadas em 31 h), então lembrete saía a
+# cada ~4,4 h em vez de 5 min. Este fluxo continua existindo como FALLBACK:
+# a cada disparo do `schedule` bate UMA vez em `POST /tarefas/lembretes/` com
+# um token — e o app (`push/tarefas.py`) SE ABSTÉM se um disparo externo
+# pontual cuidou dos lembretes há menos de 4 min. Assim o pontual manda, e o
+# `schedule` só assume se o UptimeRobot cair. Rodar duas vezes no mesmo
+# minuto é seguro de qualquer jeito: quem decide se alguém já foi avisado é a
+# constraint do banco.
 #
-# O `schedule` DO GITHUB NÃO É O RELÓGIO — é só o gatilho de reserva. MEDIDO
-# em 17/09/2026: o cron `*/5` rodou UMA vez em oito horas (a primeira 7h55
-# depois de o fluxo entrar em `main`; nos 70 minutos seguintes, nenhuma), o
-# serviço dormiu e `/saude/` levou 38 s depois de 30 min sem tráfego. A
-# documentação avisa que o `schedule` atrasa em hora cheia; na prática ele
-# pula. Quem marca os 5 minutos é o LAÇO dentro da rodada: o job dura quase
-# o teto de 6 h de um job hospedado e, ao acabar, dispara a próxima rodada
-# por `workflow_dispatch` com o `GITHUB_TOKEN` — a exceção documentada à
-# regra "evento criado pelo token não cria rodada nova". Se a corrente
-# quebrar (rodada cancelada, runner indisponível), o `schedule` a religa na
-# próxima vez que o GitHub resolver rodá-lo. `concurrency` garante uma
-# rodada de cada vez, sem cancelar a que está no ar.
+# MANTER ACORDADO NÃO É DESTE FLUXO. Antes (17/09/2026, manhã) o job era um
+# LAÇO de ~5h45 que também batia em `/saude/vivo/` de 5 em 5 min e se
+# re-disparava com o `GITHUB_TOKEN` — só para segurar o cold start que o
+# `schedule` instável deixava passar. Desde 17/09 (tarde) quem mantém o
+# serviço acordado é o UptimeRobot (monitor externo gratuito em
+# `/saude/vivo/`, a cada 5 min, confiável). Sem o cold start para segurar, a
+# corrente perdeu a razão e saiu: nada de laço, nada de `workflow_dispatch`
+# automático, nada de `actions: write`. Uma rodada curta por disparo.
+# Ver CLAUDE.md, "O que existe no Render".
 #
-# MANTER ACORDADO bate em `/saude/vivo/`, que NÃO consulta o banco, de
-# propósito: `/saude/` acordaria o Neon a cada 5 minutos e a cota gratuita
-# de 100 CU-h acabaria no meio do mês (CLAUDE.md, "Monitor externo"). Se o
-# serviço estiver acordando, o passo não falha: o cold start é o que ele
-# existe para evitar, não um erro.
+# O `schedule` DO GITHUB ATRASA E ÀS VEZES PULA. MEDIDO em 17/09/2026: o
+# cron `*/5` rodou UMA vez em oito horas. O preço, aceito pelo dono, é
+# lembrete atrasado — não mais cold start. Se a pontualidade do lembrete
+# passar a importar, a saída registrada é o cron do Render (pago) ou um
+# segundo disparador externo; ver CLAUDE.md.
 #
 # SEGREDO. `NUTRIPLAN_TAREFAS_TOKEN` mora nos segredos deste repositório e
 # na variável do Render; nunca no repositório. `curl` não imprime cabeçalho
-# e o Actions mascara o valor de qualquer jeito. `actions: write` existe só
-# para o `dispatches` do fim; `contents: read`.
+# e o Actions mascara o valor de qualquer jeito. Só `contents: read`.
 name: Lembretes
 
 on:
@@ -40,57 +39,25 @@ on:
 
 permissions:
   contents: read
-  actions: write
-
-# Uma rodada de cada vez; a seguinte espera, não cancela — cancelar a rodada
-# que está no laço é abrir um buraco de até 6 h no relógio.
-concurrency:
-  group: lembretes
-  cancel-in-progress: false
 
 jobs:
-  relogio:
-    name: "relógio: acordar + lembretes de 5 em 5 min"
+  lembretes:
+    name: "disparar lembretes vencidos"
     runs-on: ubuntu-latest
-    # 5h50 de laço + folga; o teto de um job hospedado é 6 h.
-    timeout-minutes: 355
+    timeout-minutes: 5
 
     steps:
-      - name: "laço de 5 em 5 min (≈ 5h45)"
+      - name: "POST /tarefas/lembretes/"
         env:
           TOKEN: ${{ secrets.NUTRIPLAN_TAREFAS_TOKEN }}
         run: |
           set -o pipefail
-          fim=$(( SECONDS + 5*3600 + 45*60 ))
-          rodada=0; falhas_seguidas=0
-          while [ "$SECONDS" -lt "$fim" ]; do
-            rodada=$((rodada + 1))
-            vivo=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 60 \
-              https://nutriplan-xxfn.onrender.com/saude/vivo/ || echo "000")
-            codigo=$(curl -sS -o resposta.json -w "%{http_code}" --max-time 60 \
-              -X POST -H "Authorization: Bearer $TOKEN" \
-              https://nutriplan-xxfn.onrender.com/tarefas/lembretes/ || echo "000")
-            echo "$(date -u +%H:%M:%SZ) rodada $rodada · vivo: http $vivo · lembretes: http $codigo · $(cat resposta.json 2>/dev/null | head -c 300)"
-            if [ "$codigo" = "200" ]; then
-              falhas_seguidas=0
-            else
-              falhas_seguidas=$((falhas_seguidas + 1))
-              echo "::warning::lembretes respondeu $codigo ($falhas_seguidas seguidas)"
-              # Três seguidas é o app fora do ar ou o token errado: falha a
-              # rodada para aparecer em vermelho, e a próxima recomeça.
-              if [ "$falhas_seguidas" -ge 3 ]; then exit 1; fi
-            fi
-            sleep 300
-          done
-
-      - name: "próxima rodada (a corrente não depende do schedule)"
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          codigo=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 60 \
-            -X POST -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${{ github.repository }}/actions/workflows/lembretes.yml/dispatches \
-            -d '{"ref":"main"}')
-          echo "dispatch da próxima rodada: http $codigo"
+          # --max-time 90 tolera o Neon acordando (o web fica de pé pelo
+          # UptimeRobot; o POST é o que acorda o banco, quando é hora).
+          codigo=$(curl -sS -o resposta.json -w "%{http_code}" --max-time 90 \
+            -X POST -H "Authorization: Bearer $TOKEN" \
+            https://nutriplan-xxfn.onrender.com/tarefas/lembretes/ || echo "000")
+          echo "lembretes: http $codigo · $(cat resposta.json 2>/dev/null | head -c 300)"
+          # A rodada falha (vermelho) se não veio 200 — token errado ou app
+          # fora do ar. A próxima rodada do schedule recomeça do zero.
+          [ "$codigo" = "200" ]

@@ -282,6 +282,11 @@
      */
     function horaRuim() {
       if (document.body.hasAttribute("data-sem-convite")) return true;
+      /* UM FLUTUANTE POR VEZ (decisão do dono, 20/09/2026): a auditoria
+       * mediu três camadas fixas empilhadas no rodapé — convite, toast de
+       * conquista e barra de abas. O toast é a notícia; o convite espera a
+       * próxima tela. */
+      if (document.querySelector(".conquista")) return true;
       return !!document.querySelector("dialog[open]");
     }
 
@@ -1133,24 +1138,37 @@
       }
     }
 
-    /* Números que contam até o valor (Progresso). Começam em 60 % do valor,
-       não em zero: o número já é legível no primeiro quadro, e o movimento
-       diz "chegou" em vez de fazer a pessoa esperar para ler. */
-    Array.prototype.forEach.call(document.querySelectorAll("[data-conta]"), function (el) {
+    animarNumeros(document);
+  }
+
+  /* Números que contam até o valor (Progresso) e listas escalonadas. Fora
+     de `aoCarregar` porque a execução do treino TROCA o <main> por fetch
+     ("Concluir série" sem recarga, 20/09/2026): o placar da última série
+     chega num <main> que o DOMContentLoaded nunca viu, e sem esta chamada
+     o número não contava do zero nem a cascata recebia `--i` — a
+     coreografia da NERVURA sumia exatamente no momento que existe para
+     recompensar. `raiz` é o documento no carregamento e o <main> novo na
+     troca; os nós velhos já saíram, então nada conta duas vezes. */
+  function animarNumeros(raiz) {
+    /* Começam em 60 % do valor, não em zero: o número já é legível no
+       primeiro quadro, e o movimento diz "chegou" em vez de fazer a pessoa
+       esperar para ler. */
+    Array.prototype.forEach.call(raiz.querySelectorAll("[data-conta]"), function (el) {
       var n = numeroDe(el.textContent);
       if (!n || !n.valor) return;
-      /* `data-conta="zero"` é a recompensa: a carga total conta do ZERO, e
-         só depois de a folha ter subido (`--mov-recompensa`). */
+      /* `data-conta="zero"` é o placar: a carga total conta do ZERO em
+         `--mov-nervura`, com a mesma curva da régua, e só depois de a
+         nervura ter riscado (NERVURA, 17/09/2026). */
       var doZero = el.getAttribute("data-conta") === "zero";
-      var comecar = function () { contar(el, doZero ? 0 : n.valor * .6, n.valor, tempo("--mov-sucesso", 500), n.formatar); };
-      if (doZero && !reduzido()) { el.textContent = n.formatar(0); setTimeout(comecar, tempo("--mov-recompensa", 450)); }
+      var comecar = function () { contar(el, doZero ? 0 : n.valor * .6, n.valor, tempo(doZero ? "--mov-nervura" : "--mov-sucesso", doZero ? 600 : 500), n.formatar); };
+      if (doZero && !reduzido()) { el.textContent = n.formatar(0); setTimeout(comecar, tempo("--mov-nervura", 600)); }
       else comecar();
     });
 
     /* Listas escalonadas: cada filho recebe o índice, e o CSS o transforma
        em atraso. O teto de 8 é para a nona linha não chegar meio segundo
        depois — dali em diante tudo entra junto com a oitava. */
-    Array.prototype.forEach.call(document.querySelectorAll("[data-escalonado]"), function (lista) {
+    Array.prototype.forEach.call(raiz.querySelectorAll("[data-escalonado]"), function (lista) {
       Array.prototype.forEach.call(lista.children, function (filho, i) {
         filho.style.setProperty("--i", Math.min(i, 8));
       });
@@ -1158,6 +1176,9 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", aoCarregar);
   else aoCarregar();
+  document.addEventListener("nutriplan:pagina-trocada", function (evento) {
+    animarNumeros((evento.detail && evento.detail.raiz) || document.querySelector("main") || document);
+  });
 })();
 
 /* PÁGINA DO CACHE — a faixa que diz "isto pode estar desatualizado".
@@ -1220,4 +1241,29 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", perguntar);
   else perguntar();
+})();
+
+/* TECLADO ABERTO RECOLHE A BARRA (decisão do dono, 20/09/2026): com o
+ * teclado aberto sobram ~450 px a 390, e a barra de abas fixa ocupava 68
+ * deles (medido na auditoria em Progresso, Lista e Corrida manual). Enquanto
+ * um campo de texto tem o foco, o corpo ganha `teclado-aberto` e o CSS
+ * recolhe a barra — e o convite de instalação, que não tem o que fazer sobre
+ * um teclado. Só campos que abrem teclado: botão, rádio, caixa e `range` não
+ * contam, senão a barra sumiria ao tocar num rádio do onboarding.
+ * `config/test_teclado_e_flutuantes.py` prende a estrutura; o comportamento
+ * foi provado no navegador (agent-browser, 390 × 450). */
+(function () {
+  var ABRE_TECLADO = /^(text|search|email|url|tel|number|password|date|time)$/;
+  function abreTeclado(el) {
+    if (!el) return false;
+    if (el.tagName === "TEXTAREA") return true;
+    if (el.tagName === "INPUT") return ABRE_TECLADO.test((el.getAttribute("type") || "text").toLowerCase());
+    return el.isContentEditable === true;
+  }
+  document.addEventListener("focusin", function (e) {
+    if (abreTeclado(e.target)) document.body.classList.add("teclado-aberto");
+  });
+  document.addEventListener("focusout", function (e) {
+    if (abreTeclado(e.target)) document.body.classList.remove("teclado-aberto");
+  });
 })();
