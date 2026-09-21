@@ -5,6 +5,7 @@ Toda configuracao sensivel ou que muda entre ambientes vem do arquivo .env
 (veja .env.example). Nada de senha hardcoded aqui.
 """
 import mimetypes
+import sys
 from pathlib import Path
 
 from config import observabilidade
@@ -565,4 +566,15 @@ PWA_LIGHT_COLOR = "#f4f6f2"
 # Ver `config/observabilidade.py` para o desenho e para o que NAO se registra.
 # Em resumo: identificador por pedido, 5xx com traceback, e redacao do token de
 # redefinicao — que viaja na URL e apareceria no log de acesso num 500.
-LOGGING = observabilidade.configuracao(DEBUG)
+#: Linha em JSON fora de DEBUG (`NUTRIPLAN_LOG_JSON` força); o log de acesso
+#: fica desligado na suíte — `manage.py test` — porque seriam milhares de
+#: linhas de `GET ... -> 200` no stderr de cada fatia do CI.
+NUTRIPLAN_LOG_JSON = env.bool("NUTRIPLAN_LOG_JSON", default=not DEBUG)
+NUTRIPLAN_LOG_ACESSO = env.bool("NUTRIPLAN_LOG_ACESSO", default=sys.argv[1:2] != ["test"])
+#: Para onde vai o e-mail "n erros 5xx em 5 min", e a partir de quantos POR
+#: PROCESSO (dois workers no Render). Vazio: só uma linha WARNING no log.
+NUTRIPLAN_ALERTA_EMAIL = env("NUTRIPLAN_ALERTA_EMAIL", default="")
+NUTRIPLAN_ALERTA_5XX = env.int("NUTRIPLAN_ALERTA_5XX", default=3)
+LOGGING = observabilidade.configuracao(
+    DEBUG, json_=NUTRIPLAN_LOG_JSON, acesso_ligado=NUTRIPLAN_LOG_ACESSO, limite_5xx=NUTRIPLAN_ALERTA_5XX,
+)

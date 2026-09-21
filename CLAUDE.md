@@ -1490,6 +1490,30 @@ parâmetro de OAuth, chave de SMTP e URL de banco. `django.db.backends` fica em
 WARNING até em DEBUG: consulta com parâmetro carrega e-mail e peso. Toda linha
 leva o identificador do pedido, que também volta no cabeçalho `X-Request-ID` —
 sem ele, "deu erro" e "fulano reclamou" nunca se encontram.
+
+**A LINHA É JSON, O ACESSO TEM ROTA E DURAÇÃO, E 5xx DEMAIS VIRA E-MAIL
+(21/09/2026).** Fora de DEBUG cada linha de log é um objeto (`FormatoJSON`:
+`t`, `nivel`, `logger`, `pedido`, `msg`, e `rota`/`metodo`/`status`/`ms`/
+`usuario` quando é acesso, `exc` redigido quando há traceback) — é o que se
+filtra e se conta no log do Render sem regex; `NUTRIPLAN_LOG_JSON` força num
+sentido ou no outro. `nutriplan.acesso` registra UMA linha por pedido com a
+ROTA (`resolver_match.route`, o padrão da URL — não o caminho, que pode
+levar token), a duração e o **usuário anônimo**: `blake2b` do id com a
+`SECRET_KEY` como chave, 12 hex — segue-se o que uma pessoa fez sem que o
+log diga quem é, e sem a chave o hash não volta. O hash só é calculado
+quando a view já resolveu `request.user`: `/saude/vivo/` continua a ZERO
+consultas (teste). Estático não entra; na suíte o logger fica em WARNING
+(`NUTRIPLAN_LOG_ACESSO`, desligado quando `sys.argv` diz `test`) — seriam
+milhares de `GET … -> 200` no stderr de cada fatia. E `AlertaDe5xx` é um
+handler no `django.request`: conta os 5xx numa janela de 5 min e, passado
+`NUTRIPLAN_ALERTA_5XX` (3, **por processo** — dois workers, dois
+contadores), manda UM e-mail para `NUTRIPLAN_ALERTA_EMAIL` (o e-mail
+administrativo, copiado do `VAPID_ADMIN_EMAIL` nos dois serviços) com rota,
+identificador e contagem, e cala por 30 min — um deploy quebrado é um
+e-mail, não cem. O envio roda numa thread; sem destinatário, só uma linha
+WARNING. `config/test_logs_json.py` prende as três coisas, inclusive que um
+500 de verdade chega ao handler CONFIGURADO. O UptimeRobot continua sendo o
+alerta de "caiu"; este é o de "está de pé e errando".
 **O BUSCADOR VÊ SETE ROTAS, E O RESTO É `noindex` POR PADRÃO (21/09/2026).**
 `config/seo.py` fecha a lista (`ROTAS_PUBLICAS`: landing, capa e "sobre" do
 demo, privacidade, termos, criar conta, entrar) e é dela que `/sitemap.xml`
