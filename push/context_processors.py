@@ -7,6 +7,8 @@ As URLs versionadas de CSS e JS entram aqui porque o `base.html` é o único
 lugar que as usa, e passá-las por todas as views daria trabalho para repetir
 a mesma linha em cada uma.
 """
+import os
+
 from django.conf import settings
 
 from .assets import asset
@@ -21,6 +23,10 @@ def push(request):
         "card_js_url": asset("js/card.js"),
         "corrida_js_url": asset("js/corrida.js"),
         "conquista_js_url": asset("js/conquista.js"),
+        "analytics_js_url": asset("js/analytics.js"),
+        # A versão do app no cliente é o commit do deploy que renderizou a
+        # página — assim o evento sabe de que versão do produto ele nasceu.
+        "analytics_commit": os.environ.get("RENDER_GIT_COMMIT", "")[:7],
         # As cores da moldura do navegador, para o `<meta name="theme-color">`
         # não guardar uma segunda cópia do valor. Duas cópias é como uma delas
         # fica para trás — e ficou, por uma troca de paleta inteira.
