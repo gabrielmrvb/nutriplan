@@ -633,6 +633,15 @@ class Profile(models.Model):
     onboarding_step = models.PositiveSmallIntegerField("passo do onboarding", default=2)
     onboarding_completed_at = models.DateTimeField(null=True, blank=True)
 
+    #: Rastrear o USO para melhorar o produto (analytics de primeira parte).
+    #: `True` por padrão — a base legal é o interesse legítimo (LGPD art. 7º IX,
+    #: art. 10), sem terceiros e sem PII. Desmarcar NÃO desliga o evento: ele
+    #: continua contando no agregado ANÔNIMO; o que para é a atribuição à
+    #: pessoa. A régua está em `analytics/privacidade.py`, e ela lê isto pela
+    #: SESSÃO (sem consulta), não pelo perfil — a rota da série não pode pagar
+    #: uma consulta por evento.
+    rastrear_uso = models.BooleanField("permitir análise de uso", default=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
