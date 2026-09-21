@@ -2344,10 +2344,53 @@ promoção de sempre. `--forcar-janela` (o `--promover` do `enfileirar`)
 ignora o relógio para um hotfix e NUNCA a prova; `--sem-e2e` existe para
 runner sem navegador e fica dito no log. O botão "Promover para produção"
 (`promover.yml`) virou a EXCEÇÃO nomeada: promove um SHA à mão, sem E2E —
-é o que o runbook usa para voltar. Provado em 21/09: dois merges seguidos
-(#… e #…) com a janela fechada saíram "LOTE ADIADO", produção ficou onde
-estava, e o `--lote` seguinte subiu os dois numa promoção só.
-`config/test_lote.py` prende cada cenário com a API, o smoke e o E2E falsos.
+é o que o runbook usa para voltar — e desde a tarde de 21/09 **a promoção
+à mão também respeita a janela** (`promover.py <sha>` recusa dentro dos
+60 min; `--forcar-janela` é a porta do hotfix; o `deploy --voltar` do
+runbook não passa por ela, porque incidente não espera relógio). Provado em
+21/09: o próprio PR da regra (#93) subiu ao mergear (janela aberta, smoke +
+E2E verdes, `7121727`); os dois merges seguintes com a janela fechada (#98,
+o gitleaks, e o PR das threads/Starter) saíram "LOTE ADIADO", produção
+ficou onde estava, e o `--lote` seguinte subiu os dois numa promoção só. `config/test_lote.py` prende cada cenário
+com a API, o smoke e o E2E falsos.
+
+**O BLUEPRINT DO RENDER NÃO SINCRONIZA SOZINHO (21/09/2026, tarde).**
+MEDIDO: um merge que mudava só o `render.yaml` (o `startCommand`) fez um
+deploy de PRODUÇÃO com trigger `blueprint_sync`, mesmo com `autoDeploy:
+false` — o Blueprint aplica a definição nova e reinicia o serviço, e isso
+é deploy fora do lote. O auto-sync foi desligado pela API
+(`artifacts/blueprint_autosync.py off`; `status: paused`). Consequência
+escrita: **mudança no `render.yaml` só chega ao painel por um Sync manual**
+(Render → Blueprints → nutriplan → *Manual Sync*), que reinicia os dois
+serviços — faça-o junto de um lote, e nunca sem olhar o diff que o painel
+mostra. Variável de ambiente continua indo pela API (`scripts/incidente.py
+rotacionar`, `artifacts/web_threads_env.py`), e o arquivo continua sendo a
+verdade do que o painel DEVE ter.
+
+**THREADS NO GUNICORN, MEDIDO — E A CONDIÇÃO DO PLANO STARTER (decisão do
+dono, 21/09/2026).** O free do Render é 0,1 CPU e 512 MB, dois workers. O
+k6 (`carga.yml`, degraus 5/10/25/50) mediu no staging: **sync** → teto 5
+usuários simultâneos (p95 < 2 s, zero erro), p95 @10 de 0,4 s (`vivo`) a
+3,7 s (`/demo/hoje`), 16 % de erro a 25; **gthread com 2 threads** → teto
+5, p95 @10 de 0,7 a 4,9 s (o `/demo/hoje` piora 3,7 → 4,9 s; o resto
+oscila), 20 % de erro a 25; **gthread com 4** → as rotas leves melhoram a
+10 (`vivo` 0,2 s, `entrar` 0,8 s, capa 1,1 s) mas o `/demo/hoje` vai a
+6,2 s e passa de 2 s já a 5 usuários (teto ABAIXO de 5), 17 % a 25. Thread
+não é CPU: com 0,1 CPU, cada thread a mais é contenção nas telas pesadas,
+e a diferença entre as três configurações cabe no ruído de uma CPU
+compartilhada. Ficou `--worker-class gthread
+--threads ${WEB_THREADS:-2}` nos dois serviços (`WEB_THREADS=2` no painel,
+pela API) — ganha nas rotas leves sem perder no pior caso, e o
+`config/test_gunicorn.py` prende o comando. **O lever de verdade é o
+plano.** A condição para o Starter (US$ 7/mês: 0,5 CPU, 512 MB, sem sono),
+que é decisão do dono e gasta dinheiro: `manage.py pico_de_sessoes
+--dias 7` (uma consulta no analytics: sessões DISTINTAS na mesma janela de
+5 min, o pico de cada dia) mostrando **≥ 5 sessões — o teto medido — em
+dois dias da mesma semana**, ou o e-mail de 5xx disparando por carga (sem
+deploy no meio). Enquanto o pico ficar em 1–4, o free basta e o que se
+otimiza é consulta, não plano. Rode o comando com o role leitor
+(`DATABASE_URL=$(cat ~/.nutriplan-secrets/backup_database_url)`) para não
+tocar em nada.
 
 **O STAGING TEM UM E2E NOTURNO DE ROBÔ (21/09/2026).**
 `.github/workflows/e2e-noturno.yml` (04:30 de Brasília, e pelo botão) roda

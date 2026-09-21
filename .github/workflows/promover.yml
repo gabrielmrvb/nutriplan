@@ -22,6 +22,10 @@ on:
         description: "Pular a prova do staging (só se o staging estiver fora do ar — diga por quê no resumo do run)"
         type: boolean
         default: false
+      forcar_janela:
+        description: "Ignorar a janela de 1 h (hotfix/rollback). Fora disso produção só muda pelo lote."
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -60,5 +64,6 @@ jobs:
           set -o pipefail   # senão o código de saída é o do tee
           extra=""
           if [ "${{ github.event.inputs.sem_staging }}" = "true" ]; then extra="--sem-staging"; fi
+          if [ "${{ github.event.inputs.forcar_janela }}" = "true" ]; then extra="$extra --forcar-janela"; fi
           python scripts/promover.py "${{ steps.sha.outputs.sha }}" --esperar --minutos 15 $extra | tee promocao.log
           tail -3 promocao.log >> "$GITHUB_STEP_SUMMARY"
