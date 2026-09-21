@@ -423,15 +423,17 @@ class CatalogoDimensionadoTests(TestCase):
     def test_todo_padrao_composto_anunciado_tem_dois_exercicios_no_modelo(self):
         """A condição estrutural para duas opções depois da ativação: em cada
         letra, cada padrão composto de um grupo anunciado tem pelo menos dois
-        exercícios no modelo (contando os inativos)."""
-        from workouts.models import PADROES_COMPOSTOS, WorkoutTemplate
+        exercícios no modelo (contando os inativos). O grupo é a FAMÍLIA:
+        posterior e glúteo dividem a extensão de quadril (stiff e elevação
+        pélvica) entre as duas versões da letra."""
+        from workouts.models import PADROES_COMPOSTOS, WorkoutTemplate, familia_de_opcoes
 
         for modelo in WorkoutTemplate.objects.filter(is_active=True):
             itens = list(modelo.items.select_related("exercise"))
-            for grupo in modelo.main_groups or []:
+            for grupo in {familia_de_opcoes(g) for g in (modelo.main_groups or [])}:
                 por_padrao = {}
                 for item in itens:
-                    if item.exercise.muscle_group == grupo and item.exercise.padrao in PADROES_COMPOSTOS:
+                    if familia_de_opcoes(item.exercise.muscle_group) == grupo and item.exercise.padrao in PADROES_COMPOSTOS:
                         por_padrao[item.exercise.padrao] = por_padrao.get(item.exercise.padrao, 0) + 1
                 for padrao, n in por_padrao.items():
                     with self.subTest(modelo="%s %s" % (modelo.split, modelo.label), grupo=grupo, padrao=padrao):
@@ -529,9 +531,15 @@ class VolumeSemanalPorPropriedadeTests(TestCase):
         return services.create_routine(user)
 
     def _direto(self, itens):
+        """Por FAMÍLIA (`models.FAMILIA_DE_OPCOES`): entre as duas versões
+        da letra, posterior e glúteo são uma cadeia só — o stiff numa, a
+        elevação pélvica na outra (21/09/2026)."""
+        from workouts.models import familia_de_opcoes
+
         volume = {}
         for item in itens:
-            volume[item.exercise.muscle_group] = volume.get(item.exercise.muscle_group, 0) + item.sets
+            grupo = familia_de_opcoes(item.exercise.muscle_group)
+            volume[grupo] = volume.get(grupo, 0) + item.sets
         return volume
 
     def test_a_escolha_da_opcao_move_o_volume_direto_em_no_maximo_uma_serie_por_grupo(self):
@@ -543,8 +551,10 @@ class VolumeSemanalPorPropriedadeTests(TestCase):
                     projecao, pesada, leve = {}, {}, {}
                     com_opcoes = 0
                     for sessao in sessoes:
+                        from workouts.models import familia_de_opcoes
+
                         volumes = [self._direto(sessao.da_opcao(k)) for k in sessao.opcoes]
-                        anunciados = set(sessao.main_groups or [])
+                        anunciados = {familia_de_opcoes(g) for g in (sessao.main_groups or [])}
                         grupos = set().union(*(v.keys() for v in volumes))
                         if len(volumes) > 1:
                             com_opcoes += 1

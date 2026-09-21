@@ -431,7 +431,7 @@ class OVolumeMedioEmTresSemanasTests(TestCase):
         texto = (Path(__file__).resolve().parent.parent / "docs" / "briefs" / "treino" / "TREINO.md").read_text(encoding="utf-8")
         linha = re.search(r"\| intermediário 5d abc2, Padrão \|(.*)\|", texto).group(1)
         valores = [Decimal(c.strip().strip("*").replace(",", ".")) for c in linha.split("|")]
-        colunas = ("chest", "back", "triceps", "biceps", "shoulders", "quads", "hamstrings", "calves", "traps", "forearms", "core")
+        colunas = ("chest", "back", "triceps", "biceps", "shoulders", "quads", "hamstrings", "glutes", "calves", "traps", "forearms", "core")
         for grupo, escrito in zip(colunas, valores):
             with self.subTest(grupo=grupo):
                 self.assertAlmostEqual(media[grupo], escrito, delta=Decimal("0.06"))

@@ -52,6 +52,7 @@ from .models import (
     ExerciseLog,
     Measure,
     MuscleGroup,
+    familia_de_opcoes,
     SessionExercise,
     Split,
     TrainingPlan,
@@ -617,11 +618,19 @@ def prioridades_da_sessao(itens) -> list:
     # Quem é o principal: o de MAIOR dose no grupo, desempate pela ordem da
     # ficha. Assim o supino reto continua principal mesmo se alguém reordenar o
     # dia, e um grupo cujo primeiro composto seja leve não promove o leve.
+    #
+    # E o grupo aqui é a FAMÍLIA (`models.FAMILIA_DE_OPCOES`): a cadeia
+    # posterior tem UM principal por sessão — stiff ou elevação pélvica —,
+    # como sempre teve. Com glúteo e posterior contando separados, a versão
+    # da letra que ficava com a elevação pélvica ganhava um segundo principal
+    # (o bom dia), e em Rápido três principais de três séries são os 30
+    # minutos inteiros: o "Inferior" de dois dias perdia a segunda opção
+    # (medido em 21/09/2026).
     melhor_do_grupo = {}
     for posicao, item in enumerate(itens):
         if not item.exercise.is_compound:
             continue
-        grupo = item.exercise.muscle_group
+        grupo = familia_de_opcoes(item.exercise.muscle_group)
         atual = melhor_do_grupo.get(grupo)
         if atual is None or item.sets > itens[atual].sets:
             melhor_do_grupo[grupo] = posicao
@@ -630,7 +639,7 @@ def prioridades_da_sessao(itens) -> list:
     for posicao, item in enumerate(itens):
         if not item.exercise.is_compound:
             graus.append(ISOLADOR)
-        elif melhor_do_grupo.get(item.exercise.muscle_group) == posicao:
+        elif melhor_do_grupo.get(familia_de_opcoes(item.exercise.muscle_group)) == posicao:
             graus.append(PRINCIPAL)
         else:
             graus.append(ACESSORIO)
@@ -822,7 +831,10 @@ def escolher_para_o_tempo(itens, minutos_disponiveis, principais=None) -> list:
     # redução abaixo.
     series = {i: itens[i][1] for i in range(len(itens))}
 
-    anunciados = set(principais or ())
+    # A FAMÍLIA (`models.FAMILIA_DE_OPCOES`): glúteo conta como posterior
+    # aqui — no "grupo mais cheio" e no anunciado — e só aqui e nas opções.
+    itens = [(familia_de_opcoes(grupo), *resto) for grupo, *resto in itens]
+    anunciados = {familia_de_opcoes(g) for g in (principais or ())}
 
     def _e_complementar(grupo):
         return bool(anunciados) and grupo not in anunciados
@@ -1265,6 +1277,18 @@ def substituir_por_equipamento(itens, permitidos, catalogo=None) -> list:
             and e.muscle_group == item.exercise.muscle_group
             and e.id not in usados
         ]
+        if not candidatos:
+            # Sem substituto no grupo, a FAMÍLIA (`models.FAMILIA_DE_OPCOES`)
+            # responde: um terceiro stiff sem barra vira ponte de glúteo, que
+            # é o mesmo padrão (extensão de quadril) — como era antes de
+            # 21/09/2026, quando os dois eram um grupo só. O grupo certo vem
+            # PRIMEIRO: o stiff troca por stiff enquanto houver.
+            candidatos = [
+                e for e in catalogo
+                if e.padrao == item.exercise.padrao
+                and familia_de_opcoes(e.muscle_group) == familia_de_opcoes(item.exercise.muscle_group)
+                and e.id not in usados
+            ]
         substituto = min(
             candidatos,
             key=lambda e: (_distancia_de_equipamento(item.exercise.equipment, e.equipment), e.name, e.id),
@@ -2057,8 +2081,8 @@ def _prescrever_por_ocorrencia(sessoes, modelos, teto=_NAO_INFORMADO,
 
 
 #: Como o TÍTULO chama cada grupo. Curto de propósito: `MuscleGroup.label`
-#: existe para o admin e diz "Posterior de coxa e glúteo", que é preciso e não
-#: cabe num nome de sessão.
+#: existe para o admin e diz "Posterior de coxa", que é preciso e não cabe
+#: num nome de sessão.
 NOME_CURTO_DO_GRUPO = {
     MuscleGroup.CHEST: "peito",
     MuscleGroup.BACK: "costas",
@@ -2071,6 +2095,7 @@ NOME_CURTO_DO_GRUPO = {
     MuscleGroup.CORE: "abdômen",
     MuscleGroup.TRAPS: "trapézio",
     MuscleGroup.FOREARMS: "antebraço",
+    MuscleGroup.GLUTES: "glúteo",
 }
 
 
@@ -2084,17 +2109,24 @@ def _lista_em_portugues(palavras) -> str:
     return "%s e %s" % (", ".join(palavras[:-1]), palavras[-1])
 
 
-def _nomes_dos_grupos(grupos) -> list:
+def _nomes_dos_grupos(grupos, por_familia=False) -> list:
     """Os nomes curtos, com quadríceps e posterior colapsados em "pernas".
 
     Quem treina os dois no mesmo dia treinou PERNA, e "quadríceps e posterior e
     ombros" é a frase de quem está lendo um banco de dados em voz alta. O
     colapso acontece na posição do primeiro dos dois, para a ordem do título
-    continuar sendo a ordem da ficha.
+    continuar sendo a ordem da ficha. O glúteo (21/09/2026) entra no colapso
+    junto com os dois, e sozinho é "glúteo".
+
+    `por_familia` é do TÍTULO (`titulo_honesto`): ali o glúteo vira
+    "posterior", como o título sempre disse — é UM título para as duas
+    versões da letra, e a versão com o stiff e a com a elevação pélvica têm
+    a mesma cadeia. O aviso do que não coube e o foco NÃO passam por aí:
+    "posterior não coube" com o stiff na ficha seria mentira.
     """
-    grupos = list(grupos)
-    perna = {MuscleGroup.QUADS, MuscleGroup.HAMSTRINGS}
-    colapsa = perna <= set(grupos)
+    grupos = [familia_de_opcoes(grupo) if por_familia else grupo for grupo in grupos]
+    perna = {MuscleGroup.QUADS, MuscleGroup.HAMSTRINGS, MuscleGroup.GLUTES}
+    colapsa = {MuscleGroup.QUADS, MuscleGroup.HAMSTRINGS} <= set(grupos)
     nomes = []
     for grupo in grupos:
         if colapsa and grupo in perna:
@@ -2102,7 +2134,7 @@ def _nomes_dos_grupos(grupos) -> list:
                 nomes.append("pernas")
             continue
         nome = NOME_CURTO_DO_GRUPO.get(grupo)
-        if nome:
+        if nome and nome not in nomes:
             nomes.append(nome)
     return nomes
 
@@ -2174,11 +2206,20 @@ def titulo_honesto(nome_do_modelo, principais, presentes) -> str:
     Não olha os COMPLEMENTARES de propósito: o título não os prometeu, então a
     ausência deles não o torna mentira e a presença não muda o nome. Quem fala
     deles é a seção "Complementares desta sessão", na ficha.
+
+    E o grupo aqui é a FAMÍLIA (`models.FAMILIA_DE_OPCOES`), pelo mesmo
+    motivo das opções: o título é UM por sessão e vale para as duas versões
+    da letra, e a versão com o stiff e a versão com a elevação pélvica têm
+    a mesma cadeia posterior — o título a nomeia como "posterior", que é o
+    que dizia antes de o glúteo virar grupo (21/09/2026). Sem isto, com
+    trinta minutos a letra virava "Quadríceps e glúteo" com a outra versão
+    sem glúteo nenhum.
     """
     anunciados = list(principais or ())
     if not anunciados:
         return nome_do_modelo
-    sobreviventes = [grupo for grupo in anunciados if grupo in set(presentes)]
+    familias_presentes = {familia_de_opcoes(grupo) for grupo in presentes}
+    sobreviventes = [grupo for grupo in anunciados if familia_de_opcoes(grupo) in familias_presentes]
     if len(sobreviventes) == len(anunciados):
         return nome_do_modelo
     if not sobreviventes:
@@ -2187,7 +2228,7 @@ def titulo_honesto(nome_do_modelo, principais, presentes) -> str:
         # o nome não pode virar string vazia numa coluna que a tela imprime.
         return "Treino do dia"
     montado = _frase_que_cabe(
-        _nomes_dos_grupos(sobreviventes),
+        _nomes_dos_grupos(sobreviventes, por_familia=True),
         _limite_de("name"),
         molde=lambda texto: texto.capitalize(),
     )

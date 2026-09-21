@@ -10,6 +10,7 @@
       "chest",
       "back",
       "hamstrings",
+      "glutes",
       "shoulders",
       "biceps",
       "triceps"
@@ -280,7 +281,8 @@
     "order": 1,
     "principais": [
       "quads",
-      "hamstrings"
+      "hamstrings",
+      "glutes"
     ],
     "items": [
       [
@@ -653,6 +655,7 @@
     "principais": [
       "quads",
       "hamstrings",
+      "glutes",
       "calves"
     ],
     "items": [
@@ -988,6 +991,7 @@
     "principais": [
       "quads",
       "hamstrings",
+      "glutes",
       "shoulders"
     ],
     "items": [
@@ -1099,6 +1103,7 @@
     "order": 3,
     "principais": [
       "hamstrings",
+      "glutes",
       "traps",
       "calves",
       "forearms",
@@ -1372,6 +1377,7 @@
     "principais": [
       "quads",
       "hamstrings",
+      "glutes",
       "calves"
     ],
     "items": [
@@ -1957,6 +1963,7 @@
     "principais": [
       "quads",
       "hamstrings",
+      "glutes",
       "shoulders"
     ],
     "items": [
