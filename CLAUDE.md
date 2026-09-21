@@ -82,7 +82,6 @@ O PostgreSQL é portátil (`C:\Users\biel-\pgsql`, cluster em
 | `catalog` | alimentos e receitas (TACO/IBGE/USDA) |
 | `plans` | motor nutricional, cardápio, hidratação, ofensiva, voz |
 | `workouts` | ficha, cargas, catálogo de exercícios, exportação de saúde |
-| `supplements` | só a migration que apagou as tabelas (20/09/2026); a pasta sai depois do deploy |
 | `push` | service worker, manifesto, notificações |
 
 (A `api` — token, eu, corridas — e o cliente `mobile/` saíram em 20/09/2026
@@ -2153,8 +2152,15 @@ superfície visível.
 Um workspace ("My Workspace"), região **Oregon**, e a chave de API
 `nutriplan-claude-code` fora do repositório (`RENDER_API_KEY` no ambiente da
 máquina e `~/.nutriplan-secrets/render_api_key`). `scripts/render_api.py`
-fala com a API sem imprimir valor nenhum: `inspect` (serviços e NOMES das
-variáveis), `env`, `cron`, `deploy`, `trigger`, `runs`, `logs`, `status`.
+fala com a API sem imprimir valor nenhum, e **o verbo diz se lê ou dispara
+(21/09/2026)**: leitura é `inspect` (serviços e NOMES das variáveis),
+`status`, `runs`, `logs [srv] [n]` (o web por padrão); escrita e disparo
+são `env`, `cron` e `disparar-deploy` / `disparar-cron`. `deploy` e
+`trigger` não existem mais — alguém procurava o log de build, chamou
+`deploy` e o Render construiu o mesmo commit de novo (sem dano). Um verbo
+de leitura roda com `_req` recusando qualquer método que não seja GET, por
+construção; `config/test_render_api.py` roda cada verbo de leitura contra
+uma rede falsa e prova que nada além de GET chega nela.
 
 - **Web service `nutriplan`** (`srv-da6f5kou01pc73fsfkqg`): plano **free**,
   deploy automático de `main`, build em `scripts/build.sh`, healthcheck
