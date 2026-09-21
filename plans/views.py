@@ -365,7 +365,9 @@ class TodayView(PlanRequiredMixin, TemplateView):
         logs = tracking.logs_by_slot(self.request.user, today)
 
         slots = list(
-            self.plan.slots.prefetch_related("options__template__items__food")
+            self.plan.slots.prefetch_related(
+                "options__template__items__food__portions"
+            )
         )
         for slot in slots:
             # O log vira atributo do slot para o template não precisar de um
@@ -874,6 +876,14 @@ class RecalibrateView(AcaoDeTela, OnboardingRequiredMixin, View):
     A tela deixou de oferecer, e esta guarda fecha a outra porta: uma aba
     aberta antes da resposta continua com o formulário válido, e sem ela o
     corte seria aplicado de novo por quem só voltou numa aba velha.
+
+    "aumentar" existe pelo mesmo motivo que "cortar", do outro lado do
+    objetivo: quem quer GANHAR massa e empacou destrava somando calorias, não
+    cortando — `weight_trend.analisar` só oferece este botão para quem tem
+    `goal == BULK`, mas a view não reencena essa checagem: `acao` é só um dos
+    três nomes que ela sabe aplicar ("cortar", "aumentar", "dispensar"); um
+    valor que não é nenhum dos três não vira "dispensar" por acidente — não
+    grava nada e só devolve para a tela.
     """
 
     def post(self, request, *args, **kwargs):
@@ -898,14 +908,36 @@ class RecalibrateView(AcaoDeTela, OnboardingRequiredMixin, View):
                 f"Cortamos {weight_trend.AJUSTE_KCAL} kcal da sua meta. "
                 "Dê duas semanas antes de julgar o resultado.",
             )
-        else:
+        elif acao == "aumentar":
+            profile.kcal_adjustment += weight_trend.AJUSTE_KCAL
+            profile.recalibrated_at = timezone.now()
+            profile.save(update_fields=["kcal_adjustment", "recalibrated_at"])
+            services.sync_active_plan(request.user)
+            messages.success(
+                request,
+                f"Somamos {weight_trend.AJUSTE_KCAL} kcal à sua meta. "
+                "Dê duas semanas antes de julgar o resultado.",
+            )
+        elif acao == "dispensar":
             profile.recalibrated_at = timezone.now()
             profile.save(update_fields=["recalibrated_at"])
-            messages.info(
-                request,
-                "Combinado. Tente somar uns 20 minutos de caminhada por dia — "
-                "perguntamos de novo daqui a algumas semanas.",
-            )
+            if profile.goal == Goal.BULK:
+                # Gastar mais é conselho de CORTE. Quem quer GANHAR massa e
+                # empacou destrava comendo o que a meta já pede — proteína e
+                # as refeições do dia — não andando mais.
+                texto = (
+                    "Combinado. Vale conferir se a meta de proteína e as "
+                    "refeições do dia estão sendo batidas — perguntamos de "
+                    "novo daqui a algumas semanas."
+                )
+            else:
+                texto = (
+                    "Combinado. Tente somar uns 20 minutos de caminhada por dia — "
+                    "perguntamos de novo daqui a algumas semanas."
+                )
+            messages.info(request, texto)
+        # `acao` desconhecida (nem "cortar", "aumentar" nem "dispensar") não
+        # grava nada: um POST inventado não pode aplicar a recusa por engano.
 
         return redirect(reverse("plans:history"))
 

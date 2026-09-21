@@ -1852,7 +1852,13 @@ class ShoppingListTests(TestCase):
 
         _, dados = next(iter(cru.items()))
         diario = dados["quantity"] / shopping.DAYS
-        self.assertEqual(dados["quantity"], diario * shopping.DAYS)
+        # Comparação QUANTIZADA: com a Fase 3 da dieta (21/09/2026) o primeiro
+        # item da semana passou a somar 830 g, e 830 / 7 * 7 em Decimal dá
+        # 830,0000000000000000000000002 — os 28 dígitos do contexto, não a
+        # conta. O que o teste afirma é a multiplicação por sete, não a
+        # representação da dízima.
+        centesimo = Decimal("0.01")
+        self.assertEqual(dados["quantity"].quantize(centesimo), (diario * shopping.DAYS).quantize(centesimo))
         self.assertGreater(dados["quantity"], diario)
 
     def test_the_aisles_come_in_the_order_you_walk_the_market(self):
@@ -2024,13 +2030,21 @@ class IngredientListTests(TestCase):
 
     def test_the_quantity_keeps_its_own_column(self):
         """Nome à esquerda, gramatura à direita: os números alinham numa
-        coluna que se lê de relance. Sem `flex: none` no `<b>`, um nome longo
-        empurra a quantidade e a coluna deixa de existir."""
+        coluna que se lê de relance.
+
+        A coluna é o ALINHAMENTO À DIREITA, não a rigidez: o `<b>` chegou a
+        ser `flex: none`, e com a medida caseira ("2,5 colheres de servir
+        (150 g)", ~210 px a 390 px de tela) a quantidade rígida deixava ~110 px
+        para "Carne moída (patinho) refogada" — o nome ia para três linhas.
+        Agora a quantidade pode encolher e quebrar (`flex: 0 1 auto`), e a
+        segunda linha dela continua alinhada pela direita, junto do número."""
         css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
             encoding="utf-8"
         )
         regra = css.split("\n.option__items b {", 1)[1].split("}", 1)[0]
-        self.assertIn("flex: none", regra)
+        self.assertNotIn("flex: none", regra)
+        self.assertIn("flex: 0 1 auto", regra)
+        self.assertIn("text-align: right", regra)
         self.assertIn("tabular-nums", regra)
 
     def test_a_long_food_name_cannot_push_the_page_sideways(self):

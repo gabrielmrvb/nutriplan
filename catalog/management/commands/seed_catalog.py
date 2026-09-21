@@ -4,6 +4,17 @@ Idempotente: pode rodar quantas vezes quiser sem duplicar nada.
 
     python manage.py seed_catalog
     python manage.py seed_catalog --reset-templates
+
+Os ingredientes de cada receita são RECONCILIADOS com o JSON a cada execução:
+o comando monta a lista desejada, lê a que está no banco e só apaga/recria
+quando as duas diferem — e aí carimba `MealTemplate.items_changed_at`, que
+`plans.services.plan_is_current` usa para refazer os planos que apontam para
+a receita alterada. Rodar de novo com o mesmo JSON não toca em nada.
+
+Antes (até 17/09/2026) os itens só eram recriados na criação da receita ou com
+`--reset-templates`, e `scripts/build.sh` roda sem a flag: uma recalibração de
+quantidades chegava à produção só no texto do preparo. A flag continua
+existindo como FORÇA — recria tudo, mesmo o que já bate com o JSON.
 """
 import json
 from decimal import Decimal
@@ -11,6 +22,7 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 
 from catalog.models import (
     DietaryTag,
@@ -35,7 +47,10 @@ class Command(BaseCommand):
         parser.add_argument(
             "--reset-templates",
             action="store_true",
-            help="Recria os ingredientes das receitas a partir do JSON.",
+            help=(
+                "Força a recriação dos ingredientes de TODAS as receitas a partir "
+                "do JSON (sem a flag, só as que diferem dele são recriadas)."
+            ),
         )
 
 
@@ -99,6 +114,8 @@ class Command(BaseCommand):
                     defaults={
                         "grams": Decimal(str(portion["grams"])),
                         "is_default": portion.get("default", False),
+                        "singular": portion.get("singular", ""),
+                        "plural": portion.get("plural", ""),
                     },
                 )
             foods[row["name"]] = food
@@ -122,6 +139,7 @@ class Command(BaseCommand):
 
     def _seed_templates(self, foods, tags, reset=False):
         count = 0
+        recriadas = 0
         no_json = set()
         for row in _load("meal_templates.json"):
             no_json.add(row["name"])
@@ -137,16 +155,31 @@ class Command(BaseCommand):
             )
             template.tags.set([tags[slug] for slug in row.get("tags", []) if slug in tags])
 
-            if created or reset:
+            desejado = [
+                (foods[food_name].pk, Decimal(str(quantity)), scalable, order)
+                for order, (food_name, quantity, scalable) in enumerate(row["items"])
+            ]
+            atual = list(
+                template.items.order_by("order").values_list(
+                    "food_id", "quantity_g", "scalable", "order"
+                )
+            )
+            if created or reset or atual != desejado:
                 template.items.all().delete()
-                for order, (food_name, quantity, scalable) in enumerate(row["items"]):
+                for food_pk, quantity, scalable, order in desejado:
                     MealTemplateItem.objects.create(
                         template=template,
-                        food=foods[food_name],
-                        quantity_g=Decimal(str(quantity)),
+                        food_id=food_pk,
+                        quantity_g=quantity,
                         scalable=scalable,
                         order=order,
                     )
+                if not created:
+                    # Receita que já existia mudou de ingredientes: os planos
+                    # que apontam para ela foram escalados sobre a base velha.
+                    template.items_changed_at = timezone.now()
+                    template.save(update_fields=["items_changed_at"])
+                    recriadas += 1
             template.refresh_macros()
             count += 1
 
@@ -158,4 +191,7 @@ class Command(BaseCommand):
             .filter(is_active=True)
             .update(is_active=False)
         )
-        self._log(f"  {count} receitas ({aposentadas} aposentadas)")
+        self._log(
+            f"  {count} receitas ({recriadas} com ingredientes recriados, "
+            f"{aposentadas} aposentadas)"
+        )
