@@ -205,7 +205,7 @@ AUTH_USER_MODEL = "accounts.User"
 from config.hashers import argon2_disponivel  # noqa: E402
 
 PASSWORD_HASHERS = (
-    ["django.contrib.auth.hashers.Argon2PasswordHasher"] if argon2_disponivel() else []
+    ["config.hashers.Argon2Moderado"] if argon2_disponivel() else []
 ) + [
     "config.hashers.PBKDF2SHA256Rapido",
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",
