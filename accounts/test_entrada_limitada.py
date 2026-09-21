@@ -1,14 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Tentar senha em série para de sair de graça — no web e na API.
+"""Tentar senha em série para de sair de graça.
 
 O QUE ESTAVA ABERTO
 ===================
 
-Medido antes: `AppLoginView` não tinha gancho de falha nenhum, e
-`POST /api/v1/token/` também não. Os limites que existiam em
+Medido antes: `AppLoginView` não tinha gancho de falha nenhum (e a API v1,
+que existiu até 20/09/2026, também não). Os limites que existiam em
 `accounts/limites.py` protegem a RECUPERAÇÃO DE SENHA — cota de e-mail —, não
-autenticação. Não havia axes nem defender. Uma porta de força bruta em duas
-superfícies.
+autenticação. Não havia axes nem defender. Uma porta de força bruta aberta.
+
+Desde 20/09/2026 a API v1 saiu e a única superfície é o formulário de
+entrar: sucesso é 302; recusa — senha errada, conta inexistente ou limite
+— é a mesma tela de 200 sem sessão. `_recusa()` extrai o que se compara.
 
 POR QUE NO BANCO, E NÃO EM CACHE
 ================================
@@ -31,6 +34,7 @@ o próprio projeto já fixou na recuperação: "devolver 429, ou qualquer texto
 diferente, transformaria o limite num oráculo".
 """
 import json
+import re
 
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -57,13 +61,14 @@ class Base(TestCase):
             REMOTE_ADDR=ip,
         )
 
-    def api(self, email, senha, ip="203.0.113.10"):
-        return self.client.post(
-            reverse("api:token"),
-            json.dumps({"email": email, "senha": senha}),
-            content_type="application/json",
-            REMOTE_ADDR=ip,
-        )
+    def _recusa(self, resposta):
+        """O que a tela de entrar diz numa recusa, sem o token de CSRF (que
+        muda a cada resposta e tornaria dois HTML iguais diferentes)."""
+        html = resposta.content.decode()
+        html = re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"', "", html)
+        # o e-mail digitado volta no campo; a comparação é sobre o RESTO
+        html = re.sub(r'(name="username"[^>]*?)value="[^"]*"', r"", html)
+        return resposta.status_code, resposta.wsgi_request.user.is_authenticated, html
 
 
 class OUsoNormalNaoEAtrapalhadoTests(Base):
@@ -98,16 +103,6 @@ class OUsoNormalNaoEAtrapalhadoTests(Base):
 class ASequenciaAbusivaEBarradaTests(Base):
     """O caso que a proteção existe para cortar."""
 
-    def test_a_api_para_de_aceitar_depois_do_limite(self):
-        for _ in range(entrada.LIMITE_POR_ORIGEM_E_EMAIL):
-            self.api(self.pessoa.email, ERRADA)
-
-        # A senha CERTA, e ainda assim recusada: é isso que faz o limite valer.
-        resposta = self.api(self.pessoa.email, SENHA)
-
-        self.assertEqual(resposta.status_code, 401)
-        self.assertNotIn("token", json.loads(resposta.content.decode()))
-
     def test_o_web_para_de_aceitar_depois_do_limite(self):
         for _ in range(entrada.LIMITE_POR_ORIGEM_E_EMAIL):
             self.web(self.pessoa.email, ERRADA)
@@ -121,9 +116,12 @@ class ASequenciaAbusivaEBarradaTests(Base):
         """O limite por par não cortaria quem espalha as tentativas por contas
         diferentes. O limite por ORIGEM corta."""
         for i in range(entrada.LIMITE_POR_ORIGEM):
-            self.api("alvo%d@exemplo.com" % i, ERRADA)
+            self.web("alvo%d@exemplo.com" % i, ERRADA)
 
-        self.assertEqual(self.api(self.pessoa.email, SENHA).status_code, 401)
+        # A senha CERTA, e ainda assim recusada: é isso que faz o limite valer.
+        resposta = self.web(self.pessoa.email, SENHA)
+        self.assertEqual(resposta.status_code, 200)
+        self.assertFalse(resposta.wsgi_request.user.is_authenticated)
 
 
 class NinguemTrancaAContaDeOutraPessoaTests(Base):
@@ -136,34 +134,58 @@ class NinguemTrancaAContaDeOutraPessoaTests(Base):
 
     def test_a_dona_entra_do_aparelho_dela_mesmo_sob_ataque(self):
         for _ in range(entrada.LIMITE_POR_ORIGEM_E_EMAIL * 3):
-            self.api(self.pessoa.email, ERRADA, ip="198.51.100.7")
+            self.web(self.pessoa.email, ERRADA, ip="198.51.100.7")
 
-        de_casa = self.api(self.pessoa.email, SENHA, ip="203.0.113.10")
+        de_casa = self.web(self.pessoa.email, SENHA, ip="203.0.113.10")
 
-        self.assertEqual(de_casa.status_code, 200)
-        self.assertIn("token", json.loads(de_casa.content.decode()))
+        self.assertEqual(de_casa.status_code, 302)
+        self.assertTrue(de_casa.wsgi_request.user.is_authenticated)
 
 
 class ARecusaNaoVirouOraculoTests(Base):
     """Limitado ou não, existente ou não: a mesma resposta."""
 
     def test_conta_inexistente_e_senha_errada_continuam_iguais(self):
-        a = self.api(self.pessoa.email, ERRADA)
-        b = self.api("ninguem@exemplo.com", ERRADA)
+        a = self._recusa(self.web(self.pessoa.email, ERRADA))
+        b = self._recusa(self.web("ninguem@exemplo.com", ERRADA))
 
-        self.assertEqual(a.status_code, b.status_code)
-        self.assertEqual(a.content, b.content)
+        self.assertEqual(a, b)
 
     def test_limitado_responde_igual_a_senha_errada(self):
         """Um status diferente diria ao atacante que ele achou o teto — e, se o
         teto fosse por e-mail, diria que a conta existe."""
-        antes = self.api(self.pessoa.email, ERRADA)
+        antes = self._recusa(self.web(self.pessoa.email, ERRADA))
         for _ in range(entrada.LIMITE_POR_ORIGEM_E_EMAIL):
-            self.api(self.pessoa.email, ERRADA)
-        depois = self.api(self.pessoa.email, ERRADA)
+            self.web(self.pessoa.email, ERRADA)
+        depois = self._recusa(self.web(self.pessoa.email, ERRADA))
 
-        self.assertEqual(antes.status_code, depois.status_code)
-        self.assertEqual(antes.content, depois.content)
+        self.assertEqual(antes, depois)
+
+
+class OLimiteNaoConfereASenhaTests(Base):
+    """O docstring de `AppLoginView.post` promete que, no teto, "nem chega a
+    conferir a senha". Até 20/09/2026 conferia: `formulario.is_valid()`
+    chamava `authenticate` (PBKDF2 de 1 000 000 iterações — os 3–5 s que a
+    auditoria mediu no login) e, com a senha errada, a mensagem entrava DUAS
+    vezes na tela — um oráculo do teto que só apareceu quando o teste do
+    oráculo passou a medir o web (a API v1 saiu)."""
+
+    def test_no_teto_o_hash_da_senha_nao_e_calculado(self):
+        from unittest import mock
+
+        for _ in range(entrada.LIMITE_POR_ORIGEM_E_EMAIL):
+            self.web(self.pessoa.email, ERRADA)
+        with mock.patch("django.contrib.auth.forms.authenticate") as autenticar:
+            resposta = self.web(self.pessoa.email, SENHA)
+        autenticar.assert_not_called()
+        self.assertEqual(resposta.status_code, 200)
+        self.assertFalse(resposta.wsgi_request.user.is_authenticated)
+
+    def test_a_mensagem_aparece_uma_vez_so(self):
+        for _ in range(entrada.LIMITE_POR_ORIGEM_E_EMAIL):
+            self.web(self.pessoa.email, ERRADA)
+        html = self.web(self.pessoa.email, ERRADA).content.decode()
+        self.assertEqual(html.count("E-mail ou senha incorretos"), 1)
 
 
 class AJanelaExpiraTests(Base):
@@ -171,8 +193,8 @@ class AJanelaExpiraTests(Base):
 
     def test_depois_da_janela_a_pessoa_entra_de_novo(self):
         for _ in range(entrada.LIMITE_POR_ORIGEM_E_EMAIL):
-            self.api(self.pessoa.email, ERRADA)
-        self.assertEqual(self.api(self.pessoa.email, SENHA).status_code, 401)
+            self.web(self.pessoa.email, ERRADA)
+        self.assertFalse(self.web(self.pessoa.email, SENHA).wsgi_request.user.is_authenticated)
 
         # As tentativas envelhecem para fora da janela.
         velho = timezone.now() - timezone.timedelta(
@@ -180,21 +202,21 @@ class AJanelaExpiraTests(Base):
         )
         TentativaDeEntrada.objects.update(criado_em=velho)
 
-        self.assertEqual(self.api(self.pessoa.email, SENHA).status_code, 200)
+        self.assertEqual(self.web(self.pessoa.email, SENHA).status_code, 302)
 
 
 class OQueFicaGuardadoTests(Base):
     """A tabela conta, e não vira lista de quem usa o app."""
 
     def test_o_email_nao_e_guardado_em_claro(self):
-        self.api(self.pessoa.email, ERRADA)
+        self.web(self.pessoa.email, ERRADA)
 
         guardado = json.dumps(list(TentativaDeEntrada.objects.values()), default=str)
 
         self.assertNotIn(self.pessoa.email, guardado)
 
     def test_o_ip_nao_e_guardado_em_claro(self):
-        self.api(self.pessoa.email, ERRADA, ip="198.51.100.7")
+        self.web(self.pessoa.email, ERRADA, ip="198.51.100.7")
 
         guardado = json.dumps(list(TentativaDeEntrada.objects.values()), default=str)
 
@@ -209,20 +231,19 @@ class OQueFicaGuardadoTests(Base):
         """
         for _ in range(entrada.LIMITE_POR_ORIGEM_E_EMAIL):
             self.client.post(
-                reverse("api:token"),
-                json.dumps({"email": self.pessoa.email, "senha": ERRADA}),
-                content_type="application/json",
+                reverse("accounts:login"),
+                {"username": self.pessoa.email, "password": ERRADA},
                 REMOTE_ADDR="203.0.113.10",
                 HTTP_X_FORWARDED_FOR="1.2.3.4",
             )
 
         # Mesmo trocando o cabeçalho, a origem real continua sendo a mesma.
         driblando = self.client.post(
-            reverse("api:token"),
-            json.dumps({"email": self.pessoa.email, "senha": SENHA}),
-            content_type="application/json",
+            reverse("accounts:login"),
+            {"username": self.pessoa.email, "password": SENHA},
             REMOTE_ADDR="203.0.113.10",
             HTTP_X_FORWARDED_FOR="9.9.9.9",
         )
 
-        self.assertEqual(driblando.status_code, 401)
+        self.assertEqual(driblando.status_code, 200)
+        self.assertFalse(driblando.wsgi_request.user.is_authenticated)

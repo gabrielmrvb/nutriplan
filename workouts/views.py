@@ -161,6 +161,14 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
                 # que não há treino. Com treino hoje, o próximo é ruído.
                 "proximo": proximo_treino(sessions, plan, hoje_data, linhas) if hoje is None else None,
                 "week": week_overview(sessions),
+                # A tira mostra a rotação da SEMANA CORRENTE (as cópias vestidas
+                # de `sessoes_da_semana`), mas sem dizer que ela GIRA a pessoa
+                # lê a tira como fixa e estranha o "próximo treino" da semana que
+                # vem cair noutra letra (achado da avaliação de UX, 20/09/2026:
+                # tira SEG=A × próximo=C). A legenda só entra quando o ciclo roda
+                # — plano antigo/ajustado fica preso ao dia da semana, e ali
+                # dizer "gira" seria mentira.
+                "ciclo_continuo": services.ciclo_roda(plan),
                 # O que a pessoa pediu, o que foi aplicado e por quê — só
                 # quando divergem. Ver `services.divisao_explicada`.
                 #
@@ -978,34 +986,6 @@ def _descanso_de(user, exercise) -> int:
     return item or 60
 
 
-class HealthExportView(OnboardingRequiredMixin, View):
-    """O treino do dia em TCX, para importar no app Saúde.
-
-    Uma PWA não escreve no HealthKit — não existe API web para isso, e o
-    Health Connect do Android é igual. O caminho honesto é o arquivo.
-    """
-
-    def get(self, request, *args, **kwargs):
-        resumo = health_export.resumo_da_sessao(request.user)
-        if not resumo.tem_dados:
-            messages.error(request, "Nenhuma série registrada hoje para exportar.")
-            return redirect("workouts:routine")
-
-        conteudo = health_export.tcx(resumo)
-        resposta = HttpResponse(conteudo, content_type="application/vnd.garmin.tcx+xml")
-        resposta["Content-Disposition"] = (
-            f'attachment; filename="nutriplan-{resumo.data:%Y-%m-%d}.tcx"'
-        )
-        # `no-store` PELO MESMO MOTIVO da exportação de dados.
-        #
-        # Este arquivo carrega o treino do dia, e o clique num link é
-        # `mode: "navigate"` — o service worker o trata pela estratégia de
-        # navegação, e `podeGuardar` só recusa quem manda `no-store`. Sem este
-        # cabeçalho o TCX entrava em `CACHE_PAGINAS` como se fosse uma tela.
-        resposta["Cache-Control"] = "no-store"
-        return resposta
-
-
 class ExercicioView(OnboardingRequiredMixin, TemplateView):
     """A leitura de UM exercício: como é o movimento, e onde ele cai na semana.
 
@@ -1127,6 +1107,10 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
             "alternativas": services.alternativas_de(
                 user, exercicio, na_sessao, permitidos=doutrina.equipamentos_de(self.perfil_do_dispatch.equipamento),
             ),
+            # A escada de progressão do movimento (peso do corpo): do mais
+            # fácil ao mais difícil, com o atual marcado. Vazia para quem não
+            # pertence a uma escada.
+            "escada": services.escada_de(exercicio),
             # O `original` do formulário: quem já está no lugar de outro
             # troca DE NOVO a partir do original (estado absoluto).
             "original_da_troca": original if original is not None else exercicio,
@@ -1144,6 +1128,10 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
                 "%s (%s)" % (i.session.weekday_display, i.session.rotulo)
                 for i in itens
             ],
+            # Os dias acima são os desta semana (rotação); com o ciclo girando, a
+            # letra cai em dias diferentes na semana seguinte, e sem dizer isso o
+            # "Quando" é lido como fixo (avaliação de UX, 20/09/2026).
+            "ciclo_continuo": services.ciclo_roda(plano),
             "item_de_hoje": item_de_hoje,
             "volta": self._de_onde_veio(exercicio, itens),
         })
@@ -1311,6 +1299,24 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
         # série e outra —, e um cartão fixo cobrindo o rodapé atrapalha a
         # tarefa. Ver `data-sem-convite` no `base.html`.
         context["sem_convite"] = True
+        # A REFERÊNCIA DO MOVIMENTO (auditoria de 20/09/2026, upgrade 4,
+        # aprovado pelo dono): as duas opções da letra têm exercícios
+        # DIFERENTES, então um exercício só repete de
+        # duas em duas semanas — e a "última carga", o SUBIR e o recorde
+        # ficam mudos por 14 dias. Quando ESTE exercício não tem histórico,
+        # a tela conta o que a pessoa fez no mesmo MOVIMENTO (mesmo
+        # `padrao`): "Na última pressão de peito (supino reto com barra,
+        # 21/09) você usou 20 kg × 10". UMA consulta, só neste caso, só para
+        # o exercício em foco; é dica, não sugestão de número — a barra e a
+        # máquina não pesam igual.
+        atual = getattr(estado, "atual", None)
+        context["movimento_anterior"] = None
+        if atual is not None and not atual.exercise.sem_carga:
+            # `item.load` é o dicionário de `load_history`: sem `melhor_anterior`
+            # não há "última carga" própria, e é aí que a referência entra.
+            historico = getattr(atual, "load", None) or {}
+            if not historico.get("melhor_anterior"):
+                context["movimento_anterior"] = services.ultima_vez_do_movimento(user, atual.exercise)
         return context
 
 

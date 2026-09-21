@@ -5,7 +5,7 @@ O QUE ESTAVA ABERTO
 ===================
 
 Medido antes de escrever qualquer coisa: `AppLoginView` não tinha gancho de
-falha, `POST /api/v1/token/` também não, e não havia axes nem defender. Os
+falha (nem a API v1, que existiu até 20/09/2026), e não havia axes nem defender. Os
 limites de `accounts/limites.py` protegem a RECUPERAÇÃO DE SENHA — a cota de
 e-mail de um provedor —, não autenticação.
 

@@ -2370,6 +2370,12 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   border-radius: var(--quina);
   font-size: var(--texto-md);
   font-weight: 700;
+  /* Rótulo de botão quebra ENTRE palavras, nunca dentro: a regra global
+     `overflow-wrap: anywhere` (nome de alimento e de exercício) alcança
+     `button`, e em 20/09/2026 o primário do painel saiu "COMPARTILHA / R O
+     QUE JÁ FIZ" numa coluna de 195 px a 1280. Quem não cabe muda de
+     layout, não de palavra. */
+  overflow-wrap: normal;
   text-decoration: none;
   cursor: pointer;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
@@ -2838,8 +2844,10 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    ========================================================================== */
 
 .flash { margin: 0 0 var(--espaco-6); padding: 0; list-style: none; }
+.flash__item { margin: 0; }
 
-.flash li {
+.flash li,
+.flash__item {
   padding: .8rem var(--espaco-5);
   border-radius: var(--quina-p);
   background: var(--brand-soft);
@@ -4900,8 +4908,12 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 
 .resumo__acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--espaco-3); }
 .resumo__acoes .btn { width: 100%; }
+/* O primário ("Compartilhar o que já fiz", em display a 20 px) ocupa a linha
+   inteira também no grid de duas colunas: a 390 já era assim, e a 1280 a
+   coluna de 195 px partia a palavra (auditoria de 20/09/2026). Os dois
+   discretos dividem a linha de baixo. */
+.resumo__acoes .btn--primary { grid-column: 1 / -1; }
 
-.resumo__nota { margin: 0; color: var(--text-mute); font-size: .74rem; line-height: 1.55; }
 
 @media (max-width: 26rem) {
   .resumo__acoes { grid-template-columns: 1fr; }
@@ -7316,25 +7328,6 @@ body.montando { overflow: hidden; }
 .explicacao__head::-webkit-details-marker { display: none; }
 .explicacao__head h2 { margin: 0; }
 
-/* O "Editar" deste cabeçalho media 40x25. Os "Editar" do perfil passam na
-   régua porque `.card__head a` os cobre; este mora num `<summary>`, que não é
-   `.card__head`, e ficava sem regra nenhuma.
-
-   Mesma solução de lá, e pelo mesmo motivo: o alvo cresce por padding, e a
-   margem negativa devolve o espaço horizontal ao layout — a caixa clicável
-   passa a 44px sem que nada se mexa na tela. Na altura não há margem negativa
-   a pagar: o `<summary>` já tem `min-height` igual. */
-.explicacao__head a {
-  display: inline-flex;
-  align-items: center;
-  flex: none;
-  min-height: 2.75rem;
-  padding: 0 .4rem;
-  margin: 0 -.4rem;
-  font-size: var(--texto-sm);
-  font-weight: 600;
-  text-decoration: none;
-}
 .explicacao__head:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* A dica fica à direita e vira "fechar" com a seção aberta. É texto e não só
@@ -8474,6 +8467,12 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    por vez, e `config/test_movimento.py` conta. */
 .app-bar { view-transition-name: barra-topo; }
 .tabbar { view-transition-name: barra-abas; }
+/* Teclado aberto recolhe a barra de abas e o convite (decisão do dono,
+   20/09/2026; o gancho está em `pwa.js`, "TECLADO ABERTO"); o container
+   devolve o respiro que reservava para a barra. */
+.teclado-aberto .tabbar { transform: translateY(125%); transition: transform var(--mov-estado) var(--ease); }
+.teclado-aberto .install { display: none; }
+.teclado-aberto .container { padding-bottom: var(--espaco-6); }
 .tabbar__item.is-active { view-transition-name: aba-ativa; }
 
 /* ---- Onboarding: a trilha morfa (um terço → dois terços → inteira) e a
@@ -8759,3 +8758,18 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .corrida-plano-opcao__hint { margin: 0 0 var(--espaco-3); color: var(--text-dim); font-size: var(--texto-sm); }
 .corrida-plano-opcao form { margin: 0; }
 .corrida-plano-opcao .btn { width: 100%; }
+
+/* A LANDING DA RAIZ ANÔNIMA (decisão 2 da avaliação de UX, 20/09/2026).
+   Quase tudo é componente que já existe (`.page-head`, `.card`, `.btn`,
+   `.lead`, `.pill`, `.hint`). O único acréscimo é constranger a captura à
+   largura do cartão: sem isso a imagem sai no tamanho intrínseco e estoura
+   para os lados — e "nada rola na horizontal". `.landing__hero .stack` só
+   dá o respiro entre a frase e os botões. Zero valor cru: largura em %,
+   altura automática, quina no slot. */
+.landing__prova__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--quina);
+}
+.landing__hero .stack { margin-top: var(--espaco-5); }

@@ -31,13 +31,13 @@ urlpatterns = [
         views.RecordLoadView.as_view(),
         name="record_load",
     ),
-    path("exportar/saude.tcx", views.HealthExportView.as_view(), name="health_export"),
     # Corrida. As telas vivem sob `treino/` porque é a mesma aba do app — a
     # visão aprovada tem Corrida como destino próprio, e movê-la para lá é
     # troca de rota, não de código.
     path("corridas/", corrida_views.HistoricoDeCorridasView.as_view(), name="corridas"),
     path("corridas/salvar/", corrida_views.SalvarCorridaView.as_view(), name="salvar_corrida"),
     path("corridas/nova/", corrida_views.CorridaNovaView.as_view(), name="corrida_nova"),
+    path("corridas/importar/", corrida_views.ImportarCorridaView.as_view(), name="corrida_importar"),
     path("corridas/<int:pk>/editar/", corrida_views.CorridaEditarView.as_view(), name="corrida_editar"),
     path("corridas/<int:pk>/excluir/", corrida_views.CorridaExcluirView.as_view(), name="corrida_excluir"),
     # Plano de 5K/10K, lido de `docs/briefs/corrida/CORRIDA.md`.

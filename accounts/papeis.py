@@ -65,7 +65,6 @@ PAPEIS = {
         ("catalog", "dietarytag"): ESCRITA,
         ("workouts", "exercise"): ESCRITA,
         ("workouts", "workouttemplate"): ESCRITA,
-        ("supplements", "supplement"): ESCRITA,
         # Planos e registros: LEITURA. São retrato do que a pessoa fez, e
         # editá-los pelo painel reescreveria o histórico dela.
         ("plans", "nutritionplan"): LEITURA,

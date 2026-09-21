@@ -489,6 +489,15 @@ class OPrePushTestaSoOQueABranchTocaTests(SimpleTestCase):
         m = self._escopo()
         self.assertEqual(m.escopo(["static/css/app.css"]), ["config", "gestao"])
 
+    def test_app_apagada_no_diff_nao_vira_rotulo(self):
+        """Tirar uma app inteira (a `api`, 20/09/2026) põe os arquivos dela no
+        diff — e `manage.py test api` numa árvore sem `api/` derruba o hook
+        com ImportError, recusando o push que apaga a app. O rótulo só vale
+        para app que EXISTE na árvore testada."""
+        m = self._escopo()
+        self.assertEqual(m.escopo(["api/views.py", "api/tests.py", "mobile/www/app.js"]), ["config", "gestao"])
+        self.assertIsNone(m.app_do_caminho("api/views.py"))
+
     def test_js_e_shell_caem_no_push(self):
         m = self._escopo()
         self.assertEqual(m.escopo(["static/js/pwa.js"]), ["config", "gestao", "push"])

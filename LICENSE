@@ -1,0 +1,56 @@
+NutriPlan — Licença Proprietária / Proprietary License
+Copyright (c) 2026 Gabriel (github.com/gabrielmrvb). Todos os direitos reservados. All rights reserved.
+
+================================================================================
+PORTUGUÊS
+================================================================================
+
+Este repositório e todo o seu conteúdo — código-fonte, textos, dados de
+catálogo, documentação, imagens e demais arquivos (o "Software") — são obra
+autoral protegida por direito de autor e são propriedade exclusiva do titular
+do copyright acima.
+
+O código é disponibilizado publicamente APENAS para leitura, avaliação e
+transparência. Tornar o repositório visível NÃO o torna software livre nem de
+código aberto, e NÃO concede licença alguma de uso.
+
+Sem autorização PRÉVIA e POR ESCRITO do titular do copyright, a você NÃO é
+permitido:
+
+  - usar o Software, no todo ou em parte, para qualquer finalidade, inclusive
+    executá-lo em produção;
+  - copiar, reproduzir ou hospedar o Software;
+  - modificar, adaptar, traduzir ou criar obras derivadas;
+  - distribuir, sublicenciar, vender, alugar ou disponibilizar o Software a
+    terceiros;
+  - usar o Software, ou qualquer parte dele, para fins comerciais;
+  - remover ou alterar avisos de copyright ou esta licença.
+
+São permitidos apenas os atos que a lei de direito de autor autoriza
+independentemente de licença — em especial, ler o código e citá-lo de forma
+breve para fins de estudo, crítica ou notícia, com atribuição.
+
+Marcas, nome do produto ("NutriPlan") e identidade visual são do titular e não
+são licenciados por este documento.
+
+O SOFTWARE É FORNECIDO "COMO ESTÁ", SEM GARANTIA DE QUALQUER TIPO. O TITULAR NÃO
+SE RESPONSABILIZA POR QUAISQUER DANOS DECORRENTES DO USO OU DA IMPOSSIBILIDADE
+DE USO DO SOFTWARE. NADA AQUI CONSTITUI ACONSELHAMENTO NUTRICIONAL OU MÉDICO.
+
+Para solicitar autorização de uso: abra uma issue no repositório ou contate o
+titular pelo perfil do GitHub acima.
+
+================================================================================
+ENGLISH (summary — the Portuguese text above governs)
+================================================================================
+
+All rights reserved. This Software is proprietary. Public visibility of this
+repository does NOT make it open source and grants NO license. Without the
+copyright holder's PRIOR WRITTEN permission you may not use (including running
+in production), copy, modify, create derivative works from, distribute,
+sublicense, sell, or make any commercial use of the Software. Only acts that
+copyright law permits without a license (such as reading the code and quoting it
+briefly, with attribution, for study, criticism, or news) are allowed. THE
+SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. This is not
+nutritional or medical advice. To request permission, open an issue or contact
+the holder via the GitHub profile above.
