@@ -11,14 +11,14 @@ from django.conf import settings
 from django.contrib.auth.hashers import check_password, get_hasher, identify_hasher, make_password
 from django.test import SimpleTestCase
 
-from config.hashers import PBKDF2SHA256Rapido, argon2_disponivel
+from config.hashers import Argon2Moderado, PBKDF2SHA256Rapido, argon2_disponivel
 
 
 class OHashDaSenhaTests(SimpleTestCase):
     def test_o_primeiro_hasher_e_argon2_quando_da_e_o_pbkdf2_rapido_quando_nao(self):
         primeiro = settings.PASSWORD_HASHERS[0]
         if argon2_disponivel():
-            self.assertTrue(primeiro.endswith("Argon2PasswordHasher"))
+            self.assertEqual(primeiro, "config.hashers.Argon2Moderado")
         else:
             self.assertEqual(primeiro, "config.hashers.PBKDF2SHA256Rapido")
 
@@ -55,3 +55,36 @@ class OHashDaSenhaTests(SimpleTestCase):
     def test_seiscentas_mil_iteracoes_e_o_piso_da_owasp(self):
         self.assertGreaterEqual(PBKDF2SHA256Rapido.iterations, 600_000)
         self.assertLess(PBKDF2SHA256Rapido.iterations, 1_000_000)
+
+
+class OArgon2ModeradoTests(SimpleTestCase):
+    """m=32 MiB, t=2, p=1 (decisão do dono, 21/09/2026). Medido em produção com
+    os parâmetros padrão do Django (m=100 MiB, p=8): o login custava 2,0–2,6 s
+    no CPU do Render free — o Argon2 sozinho ~1,7 s, contra 0,30 s de um GET
+    da mesma tela. A OWASP aceita a partir de m=19 MiB, t=2, p=1; 32 MiB é
+    folga sobre o mínimo, não o mínimo."""
+
+    def test_os_parametros_sao_os_da_decisao_e_nao_descem_do_piso_da_owasp(self):
+        self.assertEqual((Argon2Moderado.memory_cost, Argon2Moderado.time_cost, Argon2Moderado.parallelism), (32 * 1024, 2, 1))
+        self.assertGreaterEqual(Argon2Moderado.memory_cost, 19 * 1024)
+        self.assertGreaterEqual(Argon2Moderado.time_cost, 2)
+
+    def test_a_senha_gravada_com_os_parametros_padrao_confere_e_e_regravada(self):
+        """Quem entrou entre 20 e 21/09 tem o hash com m=100 MiB/p=8: continua
+        entrando (os parâmetros viajam no próprio hash) e o Django regrava
+        com os novos no login seguinte — `must_update` compara parâmetros."""
+        if not argon2_disponivel():
+            self.skipTest("argon2-cffi não importa neste ambiente")
+        from django.contrib.auth.hashers import Argon2PasswordHasher
+
+        padrao = Argon2PasswordHasher()
+        moderado = Argon2Moderado()
+        antigo = padrao.encode("segredo-forte-123", padrao.salt())
+        self.assertIn("m=102400,t=2,p=8", antigo)
+        self.assertTrue(check_password("segredo-forte-123", antigo))
+        self.assertTrue(moderado.must_update(antigo))
+        novo = moderado.encode("segredo-forte-123", moderado.salt())
+        self.assertIn("m=32768,t=2,p=1", novo)
+        self.assertFalse(moderado.must_update(novo))
+        self.assertTrue(check_password("segredo-forte-123", novo))
+        self.assertIn("m=32768,t=2,p=1", make_password("segredo-forte-123"))

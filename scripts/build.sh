@@ -55,3 +55,12 @@ python manage.py seed_demo
 # tem mais de `SyncedOperation.VALIDADE_DIAS` (30) — a fila reenvia item de
 # até 7 dias, e a poda nunca pode alcançar um `op_id` que ainda volta.
 python manage.py podar_operacoes
+
+# Analytics de produto: rola os dias recentes em agregados e poda o bruto
+# vencido. AGREGAR antes de PODAR, para o dia que vai ser apagado já ter virado
+# agregado. `--dias 2` reprocessa ontem (fechado) e hoje (parcial, atualizado no
+# próximo deploy); é idempotente. O agendamento "diário" de verdade é o deploy —
+# e enquanto o bruto vive 90 dias, o painel lê bruto para o recente de qualquer
+# jeito, então um dia sem deploy não deixa buraco visível.
+python manage.py agregar_analytics --dias 2
+python manage.py podar_analytics

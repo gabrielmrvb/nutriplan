@@ -1,0 +1,42 @@
+{% load static %}{% comment %}
+  O que um buscador lê desta página — incluída UMA vez no <head> do
+  `base.html`, pelo bloco `seo`.
+
+  Sem argumento (o padrão da base) a página é INSTÂNCIA — tela do app, tela
+  interna do demo, shell offline — e leva `noindex` com a descrição genérica.
+  Uma rota pública declara o bloco com `publica=True`, `titulo` (o mesmo do
+  bloco `title`; há teste cobrando que os dois batem) e `descricao` (própria,
+  até 160 caracteres): aí entram `canonical`, Open Graph e o card do
+  Twitter, e o `noindex` sai. A lista das públicas é `config.seo.
+  ROTAS_PUBLICAS`, e é ela que o sitemap publica.
+
+  A imagem do card (`static/img/og-landing.png`, 1200×630) é a própria
+  landing em produção, capturada com `scripts/qa/nav.py` no tema escuro
+  e reduzida a PNG de 256 cores (147 → 77 KB, sem diferença visível).
+  Screenshot envelhece quando a tela muda — quem redesenhar a landing
+  recaptura (`config/test_seo.py` cobra o tamanho e o peso, não o
+  conteúdo).
+
+  `canonical` e `og:url` saem do pedido (`scheme` + host + path), e não de um
+  domínio escrito à mão: em produção o host é o do Render, no demo o path
+  já traz `/demo/`, e nos testes é `testserver`.
+{% endcomment %}<meta name="description" content="{% if descricao %}{{ descricao }}{% else %}Sua dieta calculada, o cardápio do dia e o treino da semana.{% endif %}">
+{% if publica %}
+  <link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="NutriPlan">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:title" content="{{ titulo }}">
+  <meta property="og:description" content="{{ descricao }}">
+  <meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'img/og-landing.png' %}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="A landing do NutriPlan: pare de adivinhar o que comer e como treinar">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ titulo }}">
+  <meta name="twitter:description" content="{{ descricao }}">
+  <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'img/og-landing.png' %}">
+{% else %}
+  <meta name="robots" content="noindex">
+{% endif %}

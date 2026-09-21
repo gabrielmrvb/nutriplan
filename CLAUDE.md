@@ -82,7 +82,6 @@ O PostgreSQL é portátil (`C:\Users\biel-\pgsql`, cluster em
 | `catalog` | alimentos e receitas (TACO/IBGE/USDA) |
 | `plans` | motor nutricional, cardápio, hidratação, ofensiva, voz |
 | `workouts` | ficha, cargas, catálogo de exercícios, exportação de saúde |
-| `supplements` | só a migration que apagou as tabelas (20/09/2026); a pasta sai depois do deploy |
 | `push` | service worker, manifesto, notificações |
 
 (A `api` — token, eu, corridas — e o cliente `mobile/` saíram em 20/09/2026
@@ -1450,6 +1449,18 @@ hasher preferido no próximo login — sem migration, sem pedir nada.
 `manage.py medir_hash` mede cada hasher nesta máquina; `config/test_hashers.py`
 prende a ordem, a conferência da senha antiga e a regravação.
 
+**E OS PARÂMETROS DO ARGON2 SÃO DO RENDER FREE, não os do Django
+(21/09/2026).** Provado em produção com os padrões (m=100 MiB, t=2, p=8):
+login certo 2,0–2,6 s — ~1,7 s só de hash, contra 0,30 s de um GET da mesma
+tela; o ganho de 0,8 s medido nesta máquina não se repetiu lá, porque o
+CPU do free não tem os 8 fios do p=8 nem banda para 100 MiB por login.
+`config.hashers.Argon2Moderado` é m=32 MiB, t=2, p=1 (decisão do dono;
+a OWASP aceita a partir de m=19 MiB, t=2, p=1 — 32 é folga, não mínimo),
+e é o primeiro da lista. Mesmo `algorithm` do hasher do Django: todo
+`argon2$…` gravado com os padrões continua conferindo (os parâmetros
+viajam no hash) e é regravado no login seguinte, porque `must_update`
+compara parâmetros. Nesta máquina: 0,057 s contra 0,22 s do padrão.
+
 **A SECRET_KEY não é gerada pela plataforma.** `generateValue: true` do Render
 entrega 256 bits em base64 — 44 caracteres —, e o Django exige 50. Isso deixou
 `security.W009` aceso em produção desde o primeiro deploy sem travar nada,
@@ -1474,6 +1485,22 @@ parâmetro de OAuth, chave de SMTP e URL de banco. `django.db.backends` fica em
 WARNING até em DEBUG: consulta com parâmetro carrega e-mail e peso. Toda linha
 leva o identificador do pedido, que também volta no cabeçalho `X-Request-ID` —
 sem ele, "deu erro" e "fulano reclamou" nunca se encontram.
+**O BUSCADOR VÊ SETE ROTAS, E O RESTO É `noindex` POR PADRÃO (21/09/2026).**
+`config/seo.py` fecha a lista (`ROTAS_PUBLICAS`: landing, capa e "sobre" do
+demo, privacidade, termos, criar conta, entrar) e é dela que `/sitemap.xml`
+sai; `/robots.txt` diz o que não rastrear (gestão, sondas, tarefas, offline)
+e NÃO lista o admin — a rota vai deixar de ser óbvia, e um `Disallow` a
+anunciaria. A meta description saiu solta do `base.html` e virou o bloco
+`seo`, que inclui `partials/seo.html` UMA vez no `<head>`: sem argumento a
+página é instância (tela do app, tela interna do demo, shell offline) e leva
+`noindex`; a rota pública declara `publica=True`, `titulo` (igual ao bloco
+`title` — há teste) e `descricao` própria (≤ 160), e ganha `canonical` e
+Open Graph a partir do pedido (`scheme` + host + path, nunca domínio escrito
+à mão). Rota pública nova entra na lista E declara o bloco; esquecer é
+ficar fora do índice, nunca o contrário. Antes disto (medido em produção
+em 21/09): a mesma description em toda página, zero `canonical`/OG, e
+`/demo/treino/` indexável com a ficha do Carlos como se fosse o produto.
+
 ## Design: o que já existe, e o que não inventar de novo
 
 **O sistema visual já existe, é enforcado por teste, e a primeira coisa a fazer
@@ -2090,8 +2117,9 @@ consegue conferir se ele rodou. Desde então:
   calendário ou hora — a issue "Suíte noturna vermelha com a data real" diz
   o dia e como reproduzir (`NUTRIPLAN_DATA_DA_SUITE=<dia>`);
 - o fluxo é **branch → PR → `enfileirar` (espera a vez, atualiza, espera o
-  check, mergeia) → `/saude/`**. Sem `gh` nesta máquina, o helper é
-  `scripts/github.py` (`pr`, `status`, `esperar`, `enfileirar`, `fila`,
+  check, mergeia, PROVA NO STAGING) → `promover` → `/saude/` de produção**.
+  Sem `gh` nesta máquina, o helper é `scripts/github.py` (`pr`, `status`,
+  `esperar`, `enfileirar [--promover]`, `promover <sha> [--esperar]`, `fila`,
   `fechar`, `protecao`; `merge` à mão só fora da fila, e é o que cria a
   corrida), com o token do Git Credential Manager — nunca impresso, nunca
   em argumento;
@@ -2101,9 +2129,49 @@ consegue conferir se ele rodou. Desde então:
   antes. `config/test_ci.py` prende o contrato dos dois fluxos, do hook e do
   helper.
 
-O merge em `main` dispara o Render. `scripts/build.sh` roda collectstatic →
-`check --deploy` → migrate → os três seeds, com `errexit`: build que passa
-prova que a migração rodou. Confira em `/saude/`.
+**STAGING ANTES, PROMOÇÃO DEPOIS (21/09/2026).** Há DOIS serviços web no
+Render, os dois `free`, o mesmo repositório e o mesmo `scripts/build.sh`:
+
+| serviço | URL | banco | recebe |
+|---|---|---|---|
+| `nutriplan-staging` | https://nutriplan-staging.onrender.com | branch `staging` do MESMO projeto Neon (criada *schema only*: zero dado de gente real; o build semeia catálogo e demo) | **todo merge em `main`, sozinho** (`autoDeploy: true`) |
+| `nutriplan` (produção) | https://nutriplan-xxfn.onrender.com | branch `production` do Neon | **só o que alguém PROMOVE** (`autoDeploy: false`) |
+
+O merge em `main` dispara o Render — **do staging**. Produção não muda um
+byte até a promoção: `scripts/promover.py <sha> --esperar` (ou
+`scripts/github.py promover <sha> --esperar`, ou o botão "Promover para
+produção" na aba Actions — `.github/workflows/promover.yml`,
+`workflow_dispatch`, com `RENDER_API_KEY` nos segredos do repositório). Os
+três caminhos são o MESMO código: exigem que o SHA esteja em `origin/main`
+E que o staging já responda esse commit em `/saude/`, pedem `POST
+/v1/services/<produção>/deploys {"commitId": <sha>}` ao Render e esperam
+`/saude/` de produção dizer o commit. `enfileirar` termina PROVANDO o
+staging (`_provar_staging`: até 12 min esperando `/saude/` do staging
+responder o SHA do merge) e só promove com `--promover`; sem a flag ele
+imprime o comando e para — o QA em staging (conta descartável, dois temas)
+acontece ENTRE o merge e a promoção. Provado em 21/09: o PR entrou em
+`main`, o staging respondeu o commit, produção continuou no anterior até o
+`promover`. O staging se anuncia por `NUTRIPLAN_AMBIENTE=staging`
+(`config/ambiente.py`: `X-Robots-Tag: noindex, nofollow` em toda resposta,
+`<meta name="robots">`, a faixa "STAGING" em toda tela e `"ambiente"` no
+`/saude/`) — em produção a variável não existe e nada disso acontece. A
+chave, os tokens e o `DATABASE_URL` do staging são PRÓPRIOS (gerados na
+criação, `~/.nutriplan-secrets/staging_env.json` e `staging_database_url`);
+SMTP, Google e VAPID são os de produção (só conta de QA recebe e-mail do
+staging; o login com Google NÃO funciona no staging até o domínio entrar
+no console do Google — decisão do dono). O staging foi criado pela API
+(`artifacts/criar_staging.py`, valores nunca impressos) e está declarado no
+`render.yaml`, que é a verdade do painel; a branch do Neon nasceu
+*schema only* e por isso veio SEM `django_migrations` — o primeiro build
+caiu em "relation already exists" e o schema foi zerado uma vez
+(`drop schema public cascade`) antes de o `migrate` construir tudo.
+`config/test_staging.py` prende o contrato inteiro. Worktree de sessão com
+o helper ANTIGO (sem `_provar_staging`) mergeia e NÃO vê produção mudar:
+`git merge origin/main` antes de enfileirar, sempre.
+
+`scripts/build.sh` roda collectstatic → `check --deploy` → migrate → os três
+seeds, com `errexit`: build que passa prova que a migração rodou. Confira em
+`/saude/` — e olhe o `"ambiente"`: `"staging"` ou `""` (produção).
 
 O `check --deploy` vem **depois** do collectstatic e é um portão, não um aviso:
 ele importa a URLconf, que resolve `static()` para o favicon em tempo de import,
@@ -2137,8 +2205,15 @@ superfície visível.
 Um workspace ("My Workspace"), região **Oregon**, e a chave de API
 `nutriplan-claude-code` fora do repositório (`RENDER_API_KEY` no ambiente da
 máquina e `~/.nutriplan-secrets/render_api_key`). `scripts/render_api.py`
-fala com a API sem imprimir valor nenhum: `inspect` (serviços e NOMES das
-variáveis), `env`, `cron`, `deploy`, `trigger`, `runs`, `logs`, `status`.
+fala com a API sem imprimir valor nenhum, e **o verbo diz se lê ou dispara
+(21/09/2026)**: leitura é `inspect` (serviços e NOMES das variáveis),
+`status`, `runs`, `logs [srv] [n]` (o web por padrão); escrita e disparo
+são `env`, `cron` e `disparar-deploy` / `disparar-cron`. `deploy` e
+`trigger` não existem mais — alguém procurava o log de build, chamou
+`deploy` e o Render construiu o mesmo commit de novo (sem dano). Um verbo
+de leitura roda com `_req` recusando qualquer método que não seja GET, por
+construção; `config/test_render_api.py` roda cada verbo de leitura contra
+uma rede falsa e prova que nada além de GET chega nela.
 
 - **Web service `nutriplan`** (`srv-da6f5kou01pc73fsfkqg`): plano **free**,
   deploy automático de `main`, build em `scripts/build.sh`, healthcheck

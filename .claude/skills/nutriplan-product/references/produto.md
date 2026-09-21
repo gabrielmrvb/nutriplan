@@ -41,7 +41,6 @@ Vinte templates. Estas são as telas que a pessoa vê:
 | Ficha de treino | `workouts/routine.html` | A semana, as sessões, séries, cargas e o cronômetro de descanso. |
 | Histórico | `plans/history.html` | Aderência, média calórica e curva de peso. |
 | Lista de compras | `plans/shopping.html` | O que comprar para a semana, agrupado por corredor. |
-| Suplementos | `supplements/list.html` | Checklist do dia e o que cada um faz, com nível de evidência. |
 | Perfil | `accounts/profile.html` | Os dados que alimentam o cálculo, e a porta para reeditar cada passo. |
 | Onboarding | `accounts/onboarding/step.html` | Wizard de **5 passos**, uma rota só despachando para cada. |
 | Entrar / Criar conta | `accounts/login.html`, `accounts/signup.html` | |
@@ -77,7 +76,6 @@ frequência.
 /treino/exercicio/<id>/carga/                       workouts:record_load
 /treino/exportar/saude.tcx                          workouts:health_export
 
-/suplementos/                                       supplements:list
 /push/inscrever/  /push/cancelar/
 /sw.js  /manifest.webmanifest  /offline/  /saude/  /admin/
 /demo/  (o app inteiro, público e somente leitura)
@@ -93,7 +91,6 @@ frequência.
 | `catalog` | `Food`, `FoodPortion`, `MealTemplate`, `MealTemplateItem`, `DietaryTag` |
 | `plans` | `NutritionPlan`, `MealSlot`, `MealOption`, `MealLog`, `HydrationLog` |
 | `workouts` | `Exercise`, `WorkoutTemplate`, `WorkoutTemplateItem`, `TrainingPlan`, `TrainingSession`, `SessionExercise`, `ExerciseLog` |
-| `supplements` | `Supplement`, `SupplementLog` |
 | `push` | `PushSubscription`, `NotificationLog` |
 
 O que o `Profile` guarda e alimenta o cálculo: sexo, nascimento, altura, nível
