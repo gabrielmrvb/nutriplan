@@ -22,17 +22,11 @@ from plans.models import HydrationLog
 from workouts.models import ExerciseLog
 
 from .models import Preferencia, TipoDeEmail
-from .services import enviar
+from .services import TLD_QUE_NAO_ENTREGA, enviar
 
 #: Dias sem série para o e-mail de inatividade sair.
 DIAS_SEM_TREINO = 5
 
-#: Domínio RESERVADO (RFC 2606): nunca entrega. É o e-mail do demo
-#: (`carlos.demo@nutriplan.invalid`) e a convenção da conta de QA
-#: (`qa-<sessão>-<data>@nutriplan.invalid`). Medido no staging em 21/09/2026:
-#: o resumo da semana SAIU para o Carlos — uma tentativa por semana que só
-#: vira bounce no Brevo. O job não escreve para quem não existe.
-TLD_QUE_NAO_ENTREGA = ".invalid"
 
 
 def _candidatos(campo_ligado):
@@ -46,6 +40,8 @@ def _candidatos(campo_ligado):
             profile__onboarding_step__gte=ONBOARDING_DONE,
             training_plans__is_active=True,
         )
+        # `.invalid` nem entra na lista (o demo tem ficha ativa e onboarding
+        # feito); `enviar()` é a segunda trava, para os três tipos.
         .exclude(email__iendswith=TLD_QUE_NAO_ENTREGA)
         .filter(
             Q(preferencia_de_aviso__isnull=True)

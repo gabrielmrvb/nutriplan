@@ -22,6 +22,13 @@ from .models import EmailEnviado, Preferencia, TipoDeEmail
 
 logger = logging.getLogger("nutriplan.avisos")
 
+#: Domínio RESERVADO (RFC 2606): nunca entrega. É o e-mail do demo
+#: (`carlos.demo@nutriplan.invalid`), da conta do E2E noturno e a convenção
+#: da conta de QA. Medido no Brevo em 21/09/2026: 19 soft bounces num dia,
+#: todos `.invalid` — o resumo do Carlos e o boas-vindas do E2E. Nada sai
+#: para quem não existe: `enviar()` responde "pulado" sem gravar linha.
+TLD_QUE_NAO_ENTREGA = ".invalid"
+
 
 def url_base():
     """A raiz pública do app, sem barra no fim. Vem de `NUTRIPLAN_URL_BASE`:
@@ -38,7 +45,10 @@ def _nome(user):
 
 
 def enviar(user, tipo, referencia, contexto, descadastro_de="tudo"):
-    """Devolve `"enviado"`, `"pulado"` (já saiu) ou `"falhou"`."""
+    """Devolve `"enviado"`, `"pulado"` (já saiu, ou endereço que não
+    entrega) ou `"falhou"`."""
+    if (user.email or "").lower().endswith(TLD_QUE_NAO_ENTREGA):
+        return "pulado"
     try:
         with transaction.atomic():
             registro = EmailEnviado.objects.create(user=user, tipo=tipo, referencia=referencia)
