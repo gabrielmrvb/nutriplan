@@ -223,7 +223,11 @@
       "shoulders",
       "core"
     ],
-    "video_titulo": "Flexão de braço | Peito | DICAS DE TREINOS - HARD FITNESS"
+    "video_titulo": "Flexão de braço | Peito | DICAS DE TREINOS - HARD FITNESS",
+    "progressao": {
+      "movimento": "flexao",
+      "nivel": 3
+    }
   },
   {
     "name": "Puxada frente na polia",
@@ -472,7 +476,11 @@
       "chest",
       "shoulders"
     ],
-    "video_titulo": "Tríceps mergulho bco"
+    "video_titulo": "Tríceps mergulho bco",
+    "progressao": {
+      "movimento": "mergulho",
+      "nivel": 2
+    }
   },
   {
     "name": "Prancha abdominal",
@@ -488,7 +496,11 @@
     "secundarios": [
       "shoulders"
     ],
-    "video_titulo": "PRANCHA ABDOMINAL (EXECUÇÃO CORRETA)"
+    "video_titulo": "PRANCHA ABDOMINAL (EXECUÇÃO CORRETA)",
+    "progressao": {
+      "movimento": "prancha",
+      "nivel": 2
+    }
   },
   {
     "name": "Abdominal supra no solo",
@@ -515,7 +527,11 @@
       "lower_back",
       "hip"
     ],
-    "video_titulo": "Abdominal Infra Elevação de pernas"
+    "video_titulo": "Abdominal Infra Elevação de pernas",
+    "progressao": {
+      "movimento": "elevacao_de_pernas",
+      "nivel": 2
+    }
   },
   {
     "name": "Encolhimento com halteres",
@@ -725,6 +741,10 @@
       "video_por": "título (oEmbed) — quadro não assistido",
       "anatomia_de": "herdada de 'Puxada frente na polia' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Puxada Frente na Polia",
       "data": "2026-09-17"
+    },
+    "progressao": {
+      "movimento": "barra_fixa",
+      "nivel": 4
     }
   },
   {
@@ -1137,6 +1157,10 @@
       "video_por": "título (oEmbed) — quadro não assistido",
       "anatomia_de": "herdada de 'Mergulho no banco' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Tríceps no Banco - Músculos",
       "data": "2026-09-17"
+    },
+    "progressao": {
+      "movimento": "mergulho",
+      "nivel": 4
     }
   },
   {
@@ -1328,6 +1352,10 @@
       "anatomia_de": "herdada de 'Flexão de braço' (ativo, mesmo padrão e grupo) — série 'Músculos Trabalhados': Flexão de Braços",
       "data": "2026-09-17",
       "motivo": "peito/tríceps sem barra para o perfil de equipamento (básica, casa): substituto dos itens de barra do modelo, fora de todo modelo"
+    },
+    "progressao": {
+      "movimento": "flexao",
+      "nivel": 4
     }
   },
   {
@@ -1355,6 +1383,10 @@
       "anatomia_de": "própria — série 'Músculos Trabalhados': Flexão de Braços Diamante [Meu Treino Perfeito]",
       "data": "2026-09-17",
       "motivo": "peito/tríceps sem barra para o perfil de equipamento (básica, casa): substituto dos itens de barra do modelo, fora de todo modelo"
+    },
+    "progressao": {
+      "movimento": "flexao_fechada",
+      "nivel": 3
     }
   },
   {
@@ -1377,6 +1409,647 @@
       "anatomia_de": "herdada de 'Tríceps francês com halter' (ativo, mesmo padrão e grupo)",
       "data": "2026-09-17",
       "motivo": "peito/tríceps sem barra para o perfil de equipamento (básica, casa): substituto dos itens de barra do modelo, fora de todo modelo"
+    }
+  },
+  {
+    "name": "Flexão de braço com joelhos apoiados",
+    "muscle_group": "chest",
+    "compound": true,
+    "cue": "Joelhos no chão, corpo reto do joelho à cabeça; desça o peito até quase tocar e empurre.",
+    "equipment": "bodyweight",
+    "padrao": "pressao_de_peito",
+    "joints": [
+      "shoulder",
+      "elbow",
+      "wrist"
+    ],
+    "secundarios": [
+      "triceps",
+      "shoulders"
+    ],
+    "progressao": {
+      "movimento": "flexao",
+      "nivel": 1
+    }
+  },
+  {
+    "name": "Flexão de braço inclinada",
+    "muscle_group": "chest",
+    "compound": true,
+    "cue": "Mãos numa bancada ou parede; quanto mais alto o apoio, mais leve. Corpo reto.",
+    "equipment": "bodyweight",
+    "padrao": "pressao_de_peito",
+    "joints": [
+      "shoulder",
+      "elbow",
+      "wrist"
+    ],
+    "secundarios": [
+      "triceps",
+      "shoulders"
+    ],
+    "progressao": {
+      "movimento": "flexao",
+      "nivel": 2
+    }
+  },
+  {
+    "name": "Flexão de braço arqueiro",
+    "muscle_group": "chest",
+    "compound": true,
+    "cue": "Mãos bem abertas; jogue o peso para um braço enquanto o outro estende. Alterne os lados.",
+    "equipment": "bodyweight",
+    "padrao": "pressao_de_peito",
+    "joints": [
+      "shoulder",
+      "elbow",
+      "wrist"
+    ],
+    "secundarios": [
+      "triceps",
+      "shoulders",
+      "core"
+    ],
+    "progressao": {
+      "movimento": "flexao",
+      "nivel": 5
+    }
+  },
+  {
+    "name": "Flexão fechada com joelhos apoiados",
+    "muscle_group": "triceps",
+    "compound": true,
+    "cue": "Cotovelos rentes ao corpo, mãos sob os ombros, joelhos no chão; empurre com o tríceps.",
+    "equipment": "bodyweight",
+    "padrao": "pressao_fechada",
+    "joints": [
+      "elbow",
+      "shoulder",
+      "wrist"
+    ],
+    "secundarios": [
+      "chest",
+      "shoulders"
+    ],
+    "progressao": {
+      "movimento": "flexao_fechada",
+      "nivel": 1
+    }
+  },
+  {
+    "name": "Remada invertida",
+    "muscle_group": "back",
+    "compound": true,
+    "cue": "Barra ou mesa firme na altura do quadril; corpo reto, puxe o peito até a barra. Pés mais à frente deixa mais leve.",
+    "equipment": "bodyweight",
+    "padrao": "remada_horizontal",
+    "joints": [
+      "shoulder",
+      "elbow"
+    ],
+    "secundarios": [
+      "biceps",
+      "forearms"
+    ],
+    "progressao": {
+      "movimento": "remada_invertida",
+      "nivel": 2
+    }
+  },
+  {
+    "name": "Remada invertida com pés elevados",
+    "muscle_group": "back",
+    "compound": true,
+    "cue": "Pés numa cadeira, corpo na horizontal; puxe o peito à barra apertando as escápulas.",
+    "equipment": "bodyweight",
+    "padrao": "remada_horizontal",
+    "joints": [
+      "shoulder",
+      "elbow"
+    ],
+    "secundarios": [
+      "biceps",
+      "forearms",
+      "core"
+    ],
+    "progressao": {
+      "movimento": "remada_invertida",
+      "nivel": 4
+    }
+  },
+  {
+    "name": "Barra fixa negativa",
+    "muscle_group": "back",
+    "compound": true,
+    "cue": "Suba com um apoio (banco) até o queixo passar a barra e desça o mais devagar que conseguir.",
+    "equipment": "bodyweight",
+    "padrao": "puxada_vertical",
+    "joints": [
+      "shoulder",
+      "elbow"
+    ],
+    "secundarios": [
+      "biceps",
+      "forearms"
+    ],
+    "progressao": {
+      "movimento": "barra_fixa",
+      "nivel": 3
+    }
+  },
+  {
+    "name": "Barra fixa pronada",
+    "muscle_group": "back",
+    "compound": true,
+    "cue": "Pegada mais larga que os ombros, palmas para frente; suba o queixo acima da barra sem balançar.",
+    "equipment": "bodyweight",
+    "padrao": "puxada_vertical",
+    "joints": [
+      "shoulder",
+      "elbow"
+    ],
+    "secundarios": [
+      "biceps",
+      "forearms"
+    ],
+    "progressao": {
+      "movimento": "barra_fixa",
+      "nivel": 5
+    }
+  },
+  {
+    "name": "Rosca invertida na barra baixa",
+    "muscle_group": "biceps",
+    "cue": "Barra na altura do quadril, pegada supinada e fechada; puxe levando o peito à barra dobrando só os cotovelos.",
+    "equipment": "bodyweight",
+    "padrao": "rosca",
+    "joints": [
+      "elbow"
+    ],
+    "secundarios": [
+      "back",
+      "forearms"
+    ],
+    "progressao": {
+      "movimento": "rosca_bodyweight",
+      "nivel": 3
+    }
+  },
+  {
+    "name": "Agachamento na cadeira",
+    "muscle_group": "quads",
+    "compound": true,
+    "cue": "Sente e levante de uma cadeira sem usar as mãos, controlando a descida.",
+    "equipment": "bodyweight",
+    "padrao": "agachamento",
+    "joints": [
+      "knee",
+      "hip"
+    ],
+    "secundarios": [],
+    "progressao": {
+      "movimento": "agachamento_livre",
+      "nivel": 1
+    }
+  },
+  {
+    "name": "Agachamento com peso do corpo",
+    "muscle_group": "quads",
+    "compound": true,
+    "cue": "Pés na largura dos ombros; desça até a coxa passar da paralela com o peito erguido e o joelho na direção do pé.",
+    "equipment": "bodyweight",
+    "padrao": "agachamento",
+    "joints": [
+      "knee",
+      "hip"
+    ],
+    "secundarios": [
+      "core"
+    ],
+    "progressao": {
+      "movimento": "agachamento_livre",
+      "nivel": 2
+    }
+  },
+  {
+    "name": "Afundo no lugar",
+    "muscle_group": "quads",
+    "compound": true,
+    "cue": "Um pé à frente, desça o joelho de trás até quase tocar o chão; suba pela perna da frente.",
+    "equipment": "bodyweight",
+    "padrao": "agachamento",
+    "joints": [
+      "knee",
+      "hip"
+    ],
+    "secundarios": [
+      "hamstrings",
+      "core"
+    ],
+    "progressao": {
+      "movimento": "agachamento_livre",
+      "nivel": 3
+    }
+  },
+  {
+    "name": "Agachamento búlgaro sem peso",
+    "muscle_group": "quads",
+    "compound": true,
+    "cue": "Peito do pé de trás numa cadeira; desça na perna da frente até a coxa ficar paralela.",
+    "equipment": "bodyweight",
+    "padrao": "agachamento",
+    "joints": [
+      "knee",
+      "hip"
+    ],
+    "secundarios": [
+      "hamstrings",
+      "core"
+    ],
+    "progressao": {
+      "movimento": "agachamento_livre",
+      "nivel": 4
+    }
+  },
+  {
+    "name": "Agachamento pistola",
+    "muscle_group": "quads",
+    "compound": true,
+    "cue": "Numa perna só, a outra estendida à frente; desça controlado e suba. Segure num apoio se precisar.",
+    "equipment": "bodyweight",
+    "padrao": "agachamento",
+    "joints": [
+      "knee",
+      "hip"
+    ],
+    "secundarios": [
+      "hamstrings",
+      "core"
+    ],
+    "progressao": {
+      "movimento": "agachamento_livre",
+      "nivel": 5
+    }
+  },
+  {
+    "name": "Cadeira na parede",
+    "muscle_group": "quads",
+    "cue": "Costas na parede, coxas paralelas ao chão como numa cadeira invisível; segure a posição.",
+    "equipment": "bodyweight",
+    "padrao": "extensao_de_joelho",
+    "joints": [
+      "knee",
+      "hip"
+    ],
+    "secundarios": [],
+    "progressao": {
+      "movimento": "cadeira_na_parede",
+      "nivel": 2
+    }
+  },
+  {
+    "name": "Stiff unilateral com peso do corpo",
+    "muscle_group": "hamstrings",
+    "compound": true,
+    "cue": "Numa perna, incline o tronco à frente com as costas retas enquanto a outra perna vai para trás; sinta o posterior.",
+    "equipment": "bodyweight",
+    "padrao": "extensao_de_quadril",
+    "joints": [
+      "hip",
+      "knee"
+    ],
+    "secundarios": [
+      "core"
+    ],
+    "progressao": {
+      "movimento": "stiff_bodyweight",
+      "nivel": 2
+    }
+  },
+  {
+    "name": "Deslizamento de calcanhar",
+    "muscle_group": "hamstrings",
+    "cue": "Deitado, calcanhares numa toalha no piso liso; faça a ponte e deslize os pés para longe e de volta.",
+    "equipment": "bodyweight",
+    "padrao": "flexao_de_joelho",
+    "joints": [
+      "knee",
+      "hip"
+    ],
+    "secundarios": [],
+    "progressao": {
+      "movimento": "curl_deitado",
+      "nivel": 3
+    }
+  },
+  {
+    "name": "Curl nórdico assistido",
+    "muscle_group": "hamstrings",
+    "cue": "Joelhos apoiados e tornozelos presos; desça o corpo reto o mais devagar que conseguir e volte.",
+    "equipment": "bodyweight",
+    "padrao": "flexao_de_joelho",
+    "joints": [
+      "knee"
+    ],
+    "secundarios": [],
+    "progressao": {
+      "movimento": "curl_deitado",
+      "nivel": 5
+    }
+  },
+  {
+    "name": "Ponte de glúteo",
+    "muscle_group": "hamstrings",
+    "compound": true,
+    "cue": "Deitado, pés no chão perto do quadril; suba o quadril apertando os glúteos e segure um instante no topo.",
+    "equipment": "bodyweight",
+    "padrao": "extensao_de_quadril",
+    "joints": [
+      "hip"
+    ],
+    "secundarios": [
+      "core"
+    ],
+    "progressao": {
+      "movimento": "ponte_de_gluteo",
+      "nivel": 2
+    }
+  },
+  {
+    "name": "Ponte de glúteo unilateral",
+    "muscle_group": "hamstrings",
+    "compound": true,
+    "cue": "Uma perna estendida; suba o quadril empurrando pelo calcanhar da perna apoiada.",
+    "equipment": "bodyweight",
+    "padrao": "extensao_de_quadril",
+    "joints": [
+      "hip"
+    ],
+    "secundarios": [
+      "core"
+    ],
+    "progressao": {
+      "movimento": "ponte_de_gluteo",
+      "nivel": 3
+    }
+  },
+  {
+    "name": "Elevação pélvica no banco",
+    "muscle_group": "hamstrings",
+    "compound": true,
+    "cue": "Ombros apoiados num banco, pés no chão; suba o quadril até o tronco ficar reto e desça controlado.",
+    "equipment": "bodyweight",
+    "padrao": "extensao_de_quadril",
+    "joints": [
+      "hip"
+    ],
+    "secundarios": [
+      "core"
+    ],
+    "progressao": {
+      "movimento": "ponte_de_gluteo",
+      "nivel": 4
+    }
+  },
+  {
+    "name": "Panturrilha em pé no solo",
+    "muscle_group": "calves",
+    "cue": "Na ponta dos pés, suba o mais alto que puder e desça devagar até o calcanhar quase tocar o chão.",
+    "equipment": "bodyweight",
+    "padrao": "flexao_plantar",
+    "joints": [
+      "ankle"
+    ],
+    "secundarios": [],
+    "progressao": {
+      "movimento": "panturrilha",
+      "nivel": 2
+    }
+  },
+  {
+    "name": "Panturrilha unilateral no solo",
+    "muscle_group": "calves",
+    "cue": "Numa perna só, segure num apoio para o equilíbrio; amplitude total.",
+    "equipment": "bodyweight",
+    "padrao": "flexao_plantar",
+    "joints": [
+      "ankle"
+    ],
+    "secundarios": [],
+    "progressao": {
+      "movimento": "panturrilha",
+      "nivel": 4
+    }
+  },
+  {
+    "name": "Flexão pique",
+    "muscle_group": "shoulders",
+    "compound": true,
+    "cue": "Quadril bem alto formando um V invertido; desça a cabeça em direção ao chão entre as mãos e empurre.",
+    "equipment": "bodyweight",
+    "padrao": "pressao_vertical",
+    "joints": [
+      "shoulder",
+      "elbow",
+      "wrist"
+    ],
+    "secundarios": [
+      "triceps",
+      "core"
+    ],
+    "progressao": {
+      "movimento": "flexao_pique",
+      "nivel": 3
+    }
+  },
+  {
+    "name": "Flexão pique com pés elevados",
+    "muscle_group": "shoulders",
+    "compound": true,
+    "cue": "Pés numa cadeira, quadril acima da cabeça; mais peso vai para os ombros.",
+    "equipment": "bodyweight",
+    "padrao": "pressao_vertical",
+    "joints": [
+      "shoulder",
+      "elbow",
+      "wrist"
+    ],
+    "secundarios": [
+      "triceps",
+      "core"
+    ],
+    "progressao": {
+      "movimento": "flexao_pique",
+      "nivel": 4
+    }
+  },
+  {
+    "name": "Flexão parada de mão na parede",
+    "muscle_group": "shoulders",
+    "compound": true,
+    "cue": "De cabeça para baixo apoiado na parede; desça a cabeça em direção ao chão e empurre de volta.",
+    "equipment": "bodyweight",
+    "padrao": "pressao_vertical",
+    "joints": [
+      "shoulder",
+      "elbow",
+      "wrist"
+    ],
+    "secundarios": [
+      "triceps",
+      "core"
+    ],
+    "progressao": {
+      "movimento": "flexao_pique",
+      "nivel": 5
+    }
+  },
+  {
+    "name": "Anjo invertido no solo",
+    "muscle_group": "shoulders",
+    "cue": "Deitado de bruços, braços deslizam do quadril à cabeça rentes ao chão, apertando as escápulas.",
+    "equipment": "bodyweight",
+    "padrao": "deltoide_posterior",
+    "joints": [
+      "shoulder"
+    ],
+    "secundarios": [
+      "traps"
+    ],
+    "progressao": {
+      "movimento": "anjo_invertido",
+      "nivel": 2
+    }
+  },
+  {
+    "name": "Encolhimento na barra fixa",
+    "muscle_group": "traps",
+    "cue": "Pendurado na barra com os braços retos, eleve o corpo só encolhendo e baixando as escápulas.",
+    "equipment": "bodyweight",
+    "padrao": "elevacao_escapular",
+    "joints": [
+      "shoulder"
+    ],
+    "secundarios": [
+      "forearms"
+    ],
+    "progressao": {
+      "movimento": "encolhimento_bodyweight",
+      "nivel": 3
+    }
+  },
+  {
+    "name": "Suspensão na barra",
+    "muscle_group": "forearms",
+    "cue": "Pendure-se na barra e segure o máximo de tempo que aguentar, ombros ativos; fortalece a pegada.",
+    "equipment": "bodyweight",
+    "padrao": "flexao_de_punho",
+    "joints": [
+      "wrist",
+      "elbow"
+    ],
+    "secundarios": [],
+    "progressao": {
+      "movimento": "suspensao",
+      "nivel": 2
+    }
+  },
+  {
+    "name": "Prancha lateral",
+    "muscle_group": "core",
+    "cue": "De lado, apoiado no antebraço e na lateral do pé; corpo reto, quadril elevado; segure sem cair.",
+    "equipment": "bodyweight",
+    "padrao": "anti_extensao",
+    "joints": [
+      "shoulder",
+      "hip"
+    ],
+    "secundarios": [
+      "shoulders"
+    ],
+    "progressao": {
+      "movimento": "prancha",
+      "nivel": 3
+    }
+  },
+  {
+    "name": "Elevação de joelhos na barra",
+    "muscle_group": "core",
+    "cue": "Pendurado na barra, eleve os joelhos até o peito sem balançar e desça controlado.",
+    "equipment": "bodyweight",
+    "padrao": "flexao_de_quadril",
+    "joints": [
+      "hip"
+    ],
+    "secundarios": [],
+    "progressao": {
+      "movimento": "elevacao_de_pernas",
+      "nivel": 4
+    }
+  },
+  {
+    "name": "Flexão de braço aberta",
+    "muscle_group": "chest",
+    "compound": true,
+    "cue": "Mãos bem mais largas que os ombros; desça o peito entre as mãos abrindo bem, sem deixar o quadril cair.",
+    "equipment": "bodyweight",
+    "padrao": "pressao_de_peito",
+    "joints": [
+      "shoulder",
+      "elbow",
+      "wrist"
+    ],
+    "secundarios": [
+      "triceps",
+      "shoulders"
+    ],
+    "progressao": {
+      "movimento": "flexao",
+      "nivel": 3
+    }
+  },
+  {
+    "name": "Flexão hindu",
+    "muscle_group": "chest",
+    "compound": true,
+    "cue": "Do V invertido, mergulhe o peito rente ao chão e suba deslizando até o peito estufar; volte pelo caminho.",
+    "equipment": "bodyweight",
+    "padrao": "pressao_de_peito",
+    "joints": [
+      "shoulder",
+      "elbow",
+      "wrist"
+    ],
+    "secundarios": [
+      "shoulders",
+      "triceps",
+      "core"
+    ],
+    "progressao": {
+      "movimento": "flexao",
+      "nivel": 4
+    }
+  },
+  {
+    "name": "Flexão pseudo-planche",
+    "muscle_group": "chest",
+    "compound": true,
+    "cue": "Mãos na altura da cintura com os dedos para trás, ombros à frente das mãos; desça e empurre.",
+    "equipment": "bodyweight",
+    "padrao": "pressao_de_peito",
+    "joints": [
+      "shoulder",
+      "elbow",
+      "wrist"
+    ],
+    "secundarios": [
+      "shoulders",
+      "triceps",
+      "core"
+    ],
+    "progressao": {
+      "movimento": "flexao",
+      "nivel": 5
     }
   }
 ]
