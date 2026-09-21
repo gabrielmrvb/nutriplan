@@ -2465,6 +2465,30 @@ calendário. E `/saude/` passou a devolver `commit` (`RENDER_GIT_COMMIT`,
 sete caracteres): a prova de deploy deixou de depender de a mudança ter
 superfície visível.
 
+**SEGREDO NÃO ENTRA EM COMMIT: o cofre mora fora de todo repositório e o
+pre-commit barra o NOME (21/09/2026).** O cofre é `~/.nutriplan-secrets`
+(`C:\Users\biel-\.nutriplan-secrets`): conferido em 21/09 que nenhum
+worktree o contém e que nem `C:\Users\biel-` é repositório (`git rev-parse`
+falha lá). Duas travas por cima: o ignore GLOBAL da máquina
+(`~/.config/git/ignore`, apontado por `core.excludesFile`) lista
+`.nutriplan-secrets/` e cada nome do cofre — `render_api_key`,
+`backup_database_url`, `staging_database_url*`, `staging_env.json`,
+`tarefas_token`, `disparo_token`, `vapid-nutriplan-*.env` —, e `git
+check-ignore -v` de dentro de um repositório mostra a regra que pega; e o
+pre-commit roda **gitleaks** (`gitleaks git --staged --config
+.gitleaks.toml`, binário do WinGet `Gitleaks.Gitleaks` ou do PATH) com as
+150+ regras padrão MAIS as quatro do NutriPlan em `.gitleaks.toml`: o cofre
+pelo CAMINHO (barrado por existir, seja qual for o conteúdo), a chave
+`rnd_…` do Render, a URL do Neon com senha e a chave SMTP da Brevo. Sem o
+gitleaks instalado, `scripts/segredos.py --staged` lê o MESMO arquivo e
+aplica as quatro regras em Python puro — a trava não depende de ninguém ter
+instalado nada. `config/test_segredos.py` prova os dois num repositório de
+teste com `render_api_key` no índice (o gitleaks é `skip` nomeado quando
+ausente; o Python nunca), e o hook foi provado de verdade: `git add -f
+scripts/render_api_key` + `git commit` → "leaks found: 1", HEAD parado. O
+único lugar onde uma forma de segredo pode ser ESCRITA é o próprio teste
+(`[allowlist]`).
+
 ## O que existe no Render (inventário de 16/09/2026, sem valores)
 
 Um workspace ("My Workspace"), região **Oregon**, e a chave de API
