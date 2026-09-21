@@ -1254,6 +1254,19 @@ sobrando, mesmo passando de 10." tem 44 caracteres — o teto do teste — e
 quebrava em duas linhas a 320 e 360; a de 37 cabe. A tela não mudou:
 `agora.html` já lia `atual.esforco`.
 
+**A REFERÊNCIA DO MOVIMENTO (20/09/2026).** As duas opções de uma letra
+não repetem exercício (medido no banco da semana simulada da auditoria:
+zero em comum entre a segunda e a quinta da mesma letra A), então um
+exercício só volta de duas em duas semanas — e "última carga", SUBIR e
+recorde ficam mudos por 14 dias. Quando o exercício em foco não tem
+histórico próprio, a execução diz o que a pessoa fez no mesmo `padrao`:
+"Primeira vez neste. Na última pressão de peito (supino reto com barra,
+21/09): 20 kg × 10" (`services.ultima_vez_do_movimento` — a mais recente,
+no mesmo dia a mais pesada; UMA consulta, só nesse caso). É DICA, não
+número no campo: barra e máquina não pesam igual, e a adaptação continua
+sendo por exercício. `workouts/test_referencia_do_movimento.py` prende os
+três casos e o custo.
+
 **RETOMAR E ESTAGNADO FALAM; NUNCA BAIXAM NÚMERO (T2.3, 17/09/2026).** Dois
 estados a mais em `workouts/adaptacao.py`, na mesma leitura pura, com
 precedência fixa — hoje manda > sem anilha > sem referência completa nas 4
