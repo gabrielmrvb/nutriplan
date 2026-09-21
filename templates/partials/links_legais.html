@@ -9,10 +9,16 @@
   Discretos de propósito — quem procura encontra, e quem está criando conta não
   tem a atenção desviada do formulário.
 {% endcomment %}
-{% if legal_publicado %}
-  <p class="links-legais">
+{% comment %}
+  "Ajuda" é pública e não depende do legal: quem não consegue entrar precisa
+  dela mais do que ninguém (21/09/2026).
+{% endcomment %}
+<p class="links-legais">
+  {% if legal_publicado %}
     <a href="{% url 'privacidade' %}">Política de Privacidade</a>
     <span aria-hidden="true">·</span>
     <a href="{% url 'termos' %}">Termos de Uso</a>
-  </p>
-{% endif %}
+    <span aria-hidden="true">·</span>
+  {% endif %}
+  <a href="{% url 'ajuda:index' %}">Ajuda</a>
+</p>
