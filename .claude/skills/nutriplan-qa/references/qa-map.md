@@ -50,7 +50,6 @@ flag.
 | `accounts/tests.py` | 55 | Usuário, perfil, onboarding |
 | `demo/tests.py` | 53 | Modo demo inteiro |
 | `plans/test_streaks.py` | 25 | Ofensiva |
-| `supplements/tests.py` | 25 | Catálogo e checklist |
 | `accounts/test_sync.py` | 15 | Fila offline no servidor |
 | `push/test_offline.py` | 15 | Service worker e privacidade |
 | `plans/test_stress.py` | 11 | Interface sob um ano de dados |
@@ -271,7 +270,7 @@ Servir a página: `preview_start` com o nome do `.claude/launch.json`
 
 ```
 pip install → collectstatic → migrate → seed_catalog → seed_workouts
-→ seed_supplements → seed_demo
+→ seed_demo → podar_operacoes   (suplementos saíram em 20–21/09/2026)
 ```
 
 Build que passa prova que a migração rodou. Confirmação em `/saude/`.
