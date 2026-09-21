@@ -16,9 +16,10 @@ Dois níveis, e a diferença é a razão de existirem dois modelos:
 `anon_id` é um sorteio de primeira parte (cookie), não identidade. A régua está
 em `analytics/catalogo.py` e é cobrada por teste — ver `analytics.taxonomia`.
 
-**Exclusão de conta apaga o rastro bruto da pessoa** (`identidade.py`): as
-linhas de `Event` com aquele usuário somem; os agregados, que já não guardam
-usuário nenhum, ficam. É a LGPD resolvida sem perder a série histórica.
+**Exclusão de conta apaga o rastro bruto da pessoa**: o `user` é `CASCADE`,
+então apagar a conta apaga as linhas de `Event` identificadas dela; os
+agregados, que já não guardam usuário nenhum, ficam. É a LGPD resolvida sem
+perder a série histórica.
 """
 from django.conf import settings
 from django.db import models
@@ -31,14 +32,18 @@ class Event(models.Model):
     name = models.CharField("evento", max_length=64)
     props = models.JSONField("propriedades", default=dict, blank=True)
 
-    #: Nula por dois motivos que se somam: o evento pode ser anônimo (antes do
-    #: login), e a exclusão de conta corta o vínculo. `SET_NULL` guarda o
-    #: primeiro; o segundo é a poda de `identidade.esquecer`.
+    #: Nula porque o evento pode ser ANÔNIMO (antes do login) — aí só o
+    #: `anon_id` o liga aos irmãos. Quando a pessoa se identifica, o `alias`
+    #: preenche isto. `CASCADE` (a doutrina do repositório, cobrada por
+    #: `test_toda_relacao_com_user_e_cascade`) resolve a exclusão: apagar a
+    #: conta apaga os eventos IDENTIFICADOS dela — o rastro bruto some (LGPD).
+    #: O anônimo (user NULL) e o AGREGADO (sem usuário) ficam, e a série
+    #: histórica sobrevive sem PII.
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
         blank=True,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         related_name="eventos_analytics",
     )
     #: Cookie de primeira parte, sorteado no servidor. Liga os toques de um
