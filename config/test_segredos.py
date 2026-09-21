@@ -41,18 +41,27 @@ def gitleaks():
     return None
 
 
+def sem_git_no_ambiente():
+    """Dentro de um hook o git exporta GIT_DIR/GIT_INDEX_FILE/GIT_WORK_TREE, e
+    todo `git -C <pasta>` passaria a operar no índice do HOOK — foi assim que
+    o pre-push viu os arquivos de três repositórios de teste num só (21/09).
+    O mesmo motivo do `env -u` em `scripts/backup.sh`."""
+    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
+
 def repo_de_teste(nome, conteudo):
     """Um repositório novo com UM arquivo no índice."""
     pasta = Path(tempfile.mkdtemp(prefix="nutriplan-segredos-"))
-    subprocess.run(["git", "init", "-q", str(pasta)], check=True)
-    subprocess.run(["git", "-C", str(pasta), "config", "user.email", "t@t"], check=True)
-    subprocess.run(["git", "-C", str(pasta), "config", "user.name", "t"], check=True)
+    env = sem_git_no_ambiente()
+    subprocess.run(["git", "init", "-q", str(pasta)], check=True, env=env)
+    subprocess.run(["git", "-C", str(pasta), "config", "user.email", "t@t"], check=True, env=env)
+    subprocess.run(["git", "-C", str(pasta), "config", "user.name", "t"], check=True, env=env)
     arquivo = pasta / nome
     arquivo.parent.mkdir(parents=True, exist_ok=True)
     arquivo.write_text(conteudo, encoding="utf-8")
     # `-f`: o ignore GLOBAL desta máquina já recusa esses nomes; o que se prova
     # aqui é a trava de dentro do repositório, que vale em qualquer máquina.
-    subprocess.run(["git", "-C", str(pasta), "add", "-f", nome], check=True)
+    subprocess.run(["git", "-C", str(pasta), "add", "-f", nome], check=True, env=env)
     return pasta
 
 
@@ -92,7 +101,7 @@ class OScannerEmPythonTests(SimpleTestCase):
     def _rodar(self, pasta):
         r = subprocess.run([str(RAIZ / ".venv" / "Scripts" / "python.exe") if (RAIZ / ".venv" / "Scripts" / "python.exe").exists() else "python",
                             str(RAIZ / "scripts" / "segredos.py"), "--staged", "--repo", str(pasta), "--config", str(CONFIG)],
-                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", env=sem_git_no_ambiente())
         return r.returncode, r.stdout
 
     def test_barra_o_arquivo_do_cofre_pelo_nome_e_aceita_um_arquivo_comum(self):
@@ -122,7 +131,7 @@ class OGitleaksTests(SimpleTestCase):
 
     def _rodar(self, pasta):
         r = subprocess.run([self.binario, "git", "--staged", "--config", str(CONFIG), "--no-banner", "--redact", "--verbose", "--exit-code", "1"],
-                           cwd=str(pasta), capture_output=True, text=True, encoding="utf-8", errors="replace")
+                           cwd=str(pasta), capture_output=True, text=True, encoding="utf-8", errors="replace", env=sem_git_no_ambiente())
         return r.returncode, r.stdout + r.stderr
 
     def test_o_gitleaks_barra_o_arquivo_do_cofre_pelo_nome(self):
