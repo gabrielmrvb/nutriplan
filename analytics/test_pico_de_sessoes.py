@@ -21,7 +21,13 @@ from analytics.models import Event
 
 class OPicoDeSessoesTests(TestCase):
     def setUp(self):
-        self.agora = timezone.now().replace(second=0, microsecond=0)
+        # `picos` conta por JANELAS ABSOLUTAS do relógio (16:00, 16:05, …), e
+        # não a partir do primeiro evento — então `base` tem de nascer no
+        # início de uma janela. Com `agora` no minuto real, o teste passava só
+        # quando o minuto era múltiplo de 5 e caía nos outros quatro (MEDIDO
+        # no CI do PR #96, 21/09/2026: "2 != 3", s3 num balde vizinho).
+        agora = timezone.now().replace(second=0, microsecond=0)
+        self.agora = agora.replace(minute=agora.minute - agora.minute % 5)
         base = self.agora - timedelta(hours=2)
         # janela A (minutos 0–4): sessões s1 (3 eventos), s2, s3 → 3 distintas
         for i in range(3):
