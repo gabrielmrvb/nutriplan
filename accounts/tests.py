@@ -313,9 +313,19 @@ class ValidationTests(TestCase):
 
 
 class AccessControlTests(TestCase):
-    def test_dashboard_requires_login(self):
+    def test_anonymous_root_shows_the_landing_not_a_dashboard(self):
+        """A raiz anônima é a landing pública, não o painel de ninguém (decisão
+        2, "login sai da raiz", 20/09/2026).
+
+        Antes, quem chegava sem sessão levava um redirect para o login — a
+        primeira tela era uma senha para um app que a pessoa ainda não sabia se
+        queria. Hoje `RaizView` responde a landing com 200; quem TEM sessão cai
+        em `TodayView`, que segue guardada (test_dashboard_requires_completed_
+        onboarding). A propriedade de acesso que importa continua de pé: anônimo
+        nunca vê dado de painel, porque a raiz devolve a página de valor."""
         response = self.client.get(reverse("plans:today"))
-        self.assertIn(reverse("accounts:login"), response.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Ver a demonstração")
 
     def test_dashboard_requires_completed_onboarding(self):
         user = User.objects.create_user(email="c@d.com", password="senha-bem-forte-123")

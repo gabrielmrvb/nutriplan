@@ -179,8 +179,13 @@ class OsTrintaESeisVideosOficiaisTests(TestCase):
         continua no catálogo, com o vídeo, para o histórico de quem treinou com
         ela poder ser lido.
         """
+        # Só os que TÊM vídeo: desde 20/09/2026 (decisão 1 da avaliação de UX)
+        # os exercícios de peso do corpo podem ser ativos sem vídeo, e por isso
+        # não estão em TRAVADOS. A tabela de ids curada vale para quem tem vídeo.
         ativos = set(
-            Exercise.objects.filter(is_active=True).values_list("name", flat=True)
+            Exercise.objects.filter(is_active=True)
+            .exclude(video_url="")
+            .values_list("name", flat=True)
         )
         self.assertEqual(ativos, set(TRAVADOS) - self.APOSENTADOS)
         self.assertEqual(set(OFICIAIS) & set(CURADOS_POR_TITULO), set(), "as duas tabelas não se sobrepõem")
@@ -219,14 +224,14 @@ class OsTrintaESeisVideosOficiaisTests(TestCase):
     def test_nenhum_video_e_usado_por_dois_exercicios(self):
         """Repetir um ID é o sintoma mais provável de erro de digitação na
         curadoria — e ele não aparece comparando um exercício de cada vez."""
-        ids = [e.video_id for e in Exercise.objects.filter(is_active=True)]
+        ids = [e.video_id for e in Exercise.objects.filter(is_active=True).exclude(video_url="")]
         self.assertEqual(len(ids), len(set(ids)), "há ID repetido no catálogo")
 
     def test_o_embed_de_todos_e_montavel_e_sem_cookie(self):
         """`clip_kind` vazio faz a tela cair no plano B. Com os 36 curados,
         nenhum pode cair — e o embed é `youtube-nocookie`, que é o que impede
         o YouTube de plantar cookie de rastreio em quem só abriu a ficha."""
-        for exercicio in Exercise.objects.filter(is_active=True).order_by("name"):
+        for exercicio in Exercise.objects.filter(is_active=True).exclude(video_url="").order_by("name"):
             with self.subTest(exercicio=exercicio.name):
                 self.assertEqual(exercicio.clip_kind, "youtube")
                 self.assertIn(
@@ -372,9 +377,14 @@ class AIdentidadeDoVideoTests(TestCase):
     def test_a_tabela_de_movimentos_cobre_o_catalogo_inteiro(self):
         """`titulo_confere` devolve True para exercício que não está na tabela
         — é o que impede um exercício novo de derrubar o build. O preço é que
-        a ausência silencia o guarda, então a ausência é o que se testa aqui."""
+        a ausência silencia o guarda, então a ausência é o que se testa aqui.
+
+        Só quem TEM vídeo: a tabela confere TÍTULO de vídeo, e o peso do corpo
+        sem vídeo (20/09/2026) não tem título para conferir — está fora dela
+        por construção."""
         self.assertEqual(
-            {x["name"] for x in self.catalogo}, set(MOVIMENTO_ESPERADO)
+            {x["name"] for x in self.catalogo if x.get("video")},
+            set(MOVIMENTO_ESPERADO),
         )
 
     def test_dois_exercicios_nunca_dividem_o_mesmo_video(self):
