@@ -48,6 +48,7 @@ from .models import (
 )
 from .templatetags import navegacao
 from config.acoes import AcaoDeTela
+from avisos.services import boas_vindas
 
 #: Onde o peso recusado espera até a próxima tela.
 #:
@@ -219,6 +220,11 @@ class SignupView(TelaDeEntradaMixin, CreateView):
             self.object,
             backend="django.contrib.auth.backends.ModelBackend",
         )
+        # O boas-vindas sai AQUI, no cadastro, enquanto não existe verificação
+        # de e-mail; quando ela entrar, é esta linha que muda de lugar (para
+        # depois da confirmação). Nunca derruba o cadastro: `avisos.services`
+        # engole a falha de SMTP e a deixa no log.
+        boas_vindas(self.object)
         return response
 
     def get_success_url(self):

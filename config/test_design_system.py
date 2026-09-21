@@ -597,7 +597,11 @@ class OEspacamentoNaoVoltaParaODentroDoHTMLTests(SimpleTestCase):
     def templates_do_app(self):
         for caminho in sorted(self.RAIZ_TEMPLATES.rglob("*.html")):
             relativo = str(caminho).replace("\\", "/")
-            if "email" in caminho.name or "/admin/" in relativo:
+            # A pasta `templates/email/` (os avisos: boas-vindas, inatividade,
+            # resumo semanal e a moldura deles) é e-mail tanto quanto o
+            # `email_senha.html`: o nome do arquivo não carrega mais a palavra
+            # porque a pasta já a carrega.
+            if "email" in caminho.name or "/email/" in relativo or "/admin/" in relativo:
                 continue
             yield caminho
 

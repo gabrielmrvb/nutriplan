@@ -1,0 +1,6 @@
+{% with rotulo="Sua ficha continua aqui" %}{% with titulo=dias|stringformat:"s"|add:" dias sem treino" %}{% include "email/_topo.html" %}{% endwith %}{% endwith %}
+          <p style="margin:0 0 16px">Olá{% if nome %}, {{ nome }}{% endif %}.</p>
+          <p style="margin:0 0 16px">{% if nunca %}Faz <strong>{{ dias }} dias</strong> que a sua conta existe e nenhuma série foi registrada.{% else %}A última série que você registrou foi em <strong>{{ ultima|date:"d/m" }}</strong> — {{ dias }} dias atrás.{% endif %}</p>
+          <p style="margin:0 0 4px">A ficha de hoje continua montada, começando pelo primeiro exercício. Uma série registrada já muda o dia.</p>
+          {% with href=url_base|add:"/treino/" texto="Abrir a área Treino" %}{% include "email/_botao.html" %}{% endwith %}
+{% with nota_rodape="Este aviso sai uma vez por pausa." o_que="este aviso" %}{% include "email/_rodape.html" %}{% endwith %}
