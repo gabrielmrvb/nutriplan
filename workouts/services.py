@@ -1131,6 +1131,40 @@ def alternativas_de(user, exercicio, fora=(), permitidos=None) -> list:
     return sorted(candidatos, key=lambda e: (_distancia_de_equipamento(exercicio.equipment, e.equipment), e.name, e.id))
 
 
+def escada_de(exercicio) -> list:
+    """A ESCADA DE PROGRESSÃO do movimento (decisão 1 da avaliação de UX,
+    20/09/2026): os exercícios ATIVOS do mesmo `progressao["movimento"]`, do
+    mais fácil ao mais difícil (por `nivel`), cada um com `atual` (é o que a
+    pessoa está vendo) e `relativo` ("mais_facil"/"aqui"/"mais_dificil"). É o
+    que deixa quem faz peso do corpo trocar por uma versão que consegue fazer,
+    ou subir quando a atual ficar fácil.
+
+    Vazio quando o exercício não pertence a uma escada — a maioria dos que
+    usam aparelho, onde a progressão é a carga, e as escadas de um degrau só.
+    Uma consulta."""
+    movimento = (exercicio.progressao or {}).get("movimento")
+    if not movimento:
+        return []
+    degraus = sorted(
+        Exercise.objects.filter(is_active=True, progressao__movimento=movimento),
+        key=lambda e: ((e.progressao or {}).get("nivel", 0), e.name),
+    )
+    if len(degraus) < 2:
+        return []
+    nivel_atual = (exercicio.progressao or {}).get("nivel", 0)
+    escada = []
+    for e in degraus:
+        nivel = (e.progressao or {}).get("nivel", 0)
+        if e.pk == exercicio.pk:
+            relativo = "aqui"
+        elif nivel < nivel_atual:
+            relativo = "mais_facil"
+        else:
+            relativo = "mais_dificil"
+        escada.append({"exercicio": e, "atual": e.pk == exercicio.pk, "relativo": relativo})
+    return escada
+
+
 def contar_outras_formas(user, itens, permitidos=None) -> None:
     """Escreve `item.outras_formas` (quantas alternativas o exercício tem
     no equipamento da pessoa, fora dos que já estão nesta lista) em cada

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Importar corrida · NutriPlan{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <a class="btn-link" href="{% url 'workouts:corridas' %}">Corridas</a>
+    <h1>Importar corrida</h1>
+    <p class="lead">
+      Já correu com relógio ou outro app? Traga o arquivo .gpx ou .tcx da corrida
+      — o NutriPlan lê a distância, o tempo e as parciais do seu percurso.
+    </p>
+  </div>
+
+  <section class="card">
+    {% comment %}
+      O erro vem como texto simples (`erro`), não como formulário: o único
+      campo é o arquivo, e o servidor precisa parsear para saber se ele serve.
+      A frase é a da view (`ImportarCorridaView`), que já traduz cada recusa
+      do parser e dos tetos do GPS.
+    {% endcomment %}
+    {% if erro %}
+      <ul class="field__errors"><li>{{ erro }}</li></ul>
+    {% endif %}
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="field">
+        <label class="field__label" for="arquivo">Arquivo da corrida</label>
+        <div class="field__help">GPX ou TCX — de Garmin, Strava, Apple Saúde, Coros e afins.</div>
+        <input class="field-input" type="file" name="arquivo" id="arquivo" accept=".gpx,.tcx,application/gpx+xml,application/vnd.garmin.tcx+xml" required>
+      </div>
+      <div class="stack">
+        <button type="submit" class="btn btn--primary btn--block">Importar</button>
+        <a class="btn btn--ghost btn--block" href="{% url 'workouts:corridas' %}">Cancelar</a>
+      </div>
+    </form>
+  </section>
+
+  <section class="card">
+    <p class="hint">
+      O traçado (o mapa do percurso) não é guardado — só a distância, o tempo e
+      as parciais entram no seu histórico. Corrida importada não se edita, como a
+      do GPS: se algum número ficou errado, é só reimportar o arquivo certo.
+    </p>
+  </section>
+{% endblock %}
