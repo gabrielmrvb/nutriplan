@@ -1,0 +1,59 @@
+{% extends "analytics/base.html" %}
+{% block title %}Explorar · Analytics{% endblock %}
+
+{% block content %}
+  <div class="page-head"><h1>Explorar</h1></div>
+
+  <section class="card">
+    <form method="get" class="stack">
+      <label class="field">
+        <span class="field__label">Evento</span>
+        <select class="field-input" name="evento">
+          <option value="">— escolha —</option>
+          {% for c in catalogo %}
+            <option value="{{ c }}" {% if c == nome %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Agrupar por propriedade (opcional)</span>
+        <input class="field-input" name="agrupar" value="{{ agrupar|default:'' }}" placeholder="opcao, origem, letra…">
+      </label>
+      <label class="field">
+        <span class="field__label">Período (dias)</span>
+        <select class="field-input" name="dias">
+          {% for p in periodos %}<option value="{{ p }}" {% if p == dias %}selected{% endif %}>{{ p }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Filtrar por tema</span>
+        <input class="field-input" name="f_tema" value="{{ filtros.tema|default:'' }}" placeholder="ferro / papel">
+      </label>
+      <label class="field">
+        <span class="field__label">Filtrar por equipamento</span>
+        <input class="field-input" name="f_equipamento" value="{{ filtros.equipamento|default:'' }}">
+      </label>
+      <button class="btn btn--primary" type="submit">Consultar</button>
+    </form>
+  </section>
+
+  {% if nome %}
+    <section class="card">
+      <div class="card__head">
+        <h2>{{ nome }}{% if agrupar %} por {{ agrupar }}{% endif %}</h2>
+      </div>
+      {% if linhas %}
+        <dl class="data-list">
+          {% for l in linhas %}
+            <div><dt>{% if agrupar %}{{ l.valor|default:"(vazio)" }}{% else %}{{ l.dia }}{% endif %}</dt><dd>{{ l.n }} <span class="hint">· {{ l.pessoas }} pessoas</span></dd></div>
+          {% endfor %}
+        </dl>
+        <p class="acao-solta">
+          <a class="btn btn--ghost" href="?evento={{ nome }}&dias={{ dias }}{% if agrupar %}&agrupar={{ agrupar }}{% endif %}&formato=csv" data-arquivo>Baixar CSV</a>
+        </p>
+      {% else %}
+        <p class="empty-state">Nenhum evento com esses filtros no período.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+{% endblock %}

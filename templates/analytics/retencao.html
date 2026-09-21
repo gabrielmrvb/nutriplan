@@ -1,0 +1,36 @@
+{% extends "analytics/base.html" %}
+{% block title %}Retenção · Analytics{% endblock %}
+
+{% block content %}
+  <div class="page-head"><h1>Retenção</h1></div>
+
+  <section class="card">
+    <div class="card__head"><h2>Coorte por semana de cadastro</h2></div>
+    {% if linhas %}
+      <div class="tabela-rolagem">
+        <table class="coorte">
+          <thead>
+            <tr>
+              <th>Cadastro</th><th>Contas</th>
+              {% for s in semanas %}<th>S{{ s }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for l in linhas %}
+              <tr>
+                <td>{{ l.semana|date:"d/m" }}</td>
+                <td class="num">{{ l.base }}</td>
+                {% for c in l.celulas %}
+                  <td class="num">{% if c.pct %}{{ c.pct }}%{% else %}—{% endif %}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="hint">Cada linha é quem criou conta naquela semana; as colunas Sk mostram quantos por cento voltaram k semanas depois.</p>
+    {% else %}
+      <p class="empty-state">Ainda não há cadastros suficientes para uma coorte.</p>
+    {% endif %}
+  </section>
+{% endblock %}

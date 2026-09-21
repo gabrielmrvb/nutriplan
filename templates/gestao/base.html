@@ -42,5 +42,8 @@ app sairiam do caminho de qualquer jeito, e a barra de baixo é `sem_tabbar`.
     <a class="gestao-abas__item {% if aba == 'atividade' %}is-active{% endif %}"
        href="{% url 'gestao:atividade' %}"
        {% if aba == 'atividade' %}aria-current="page"{% endif %}>Atividade</a>
-  </nav>
+    <a class="gestao-abas__item {% if aba == 'analytics' %}is-active{% endif %}"
+       href="{% url 'analytics_painel:geral' %}"
+       {% if aba == 'analytics' %}aria-current="page"{% endif %}>Analytics</a>
+  </nav>{% block subnav %}{% endblock %}
 {% endblock %}
