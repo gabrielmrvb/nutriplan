@@ -209,3 +209,28 @@ class ATrocaDoMainNaoDeixaNadaVivoParaTrasTests(TestCase):
         pulso = js.split("navigator.vibrate(35)")[0]
         self.assertIn("if (!window.__pulsoDaSerie)", pulso[-700:],
                       "o script mora no <main> e é recriado a cada troca: sem a guarda, um pulso por série acumulada")
+
+
+class AConquistaQueNasceNaSerieReservaOEspacoTests(TestCase):
+    """`body.tem-conquista` é o `padding-bottom` que impede o toast de
+    conquista de cobrir o rodapé da tela (a auditoria mediu o toast em cima
+    do CONCLUIR SÉRIE). A revisão de 510561d tirou a cópia inteira de
+    `body.className` — certa, porque ela apagava `tem-convite` — mas a série
+    que desbloqueia uma conquista chega com o toast e SEM a classe: o
+    servidor a escreve no <body>, e o <body> não é trocado. A troca sincroniza
+    só essa classe, a partir do documento novo."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.core.management import call_command
+
+        call_command("seed_workouts", verbosity=0)
+
+    def test_a_troca_sincroniza_tem_conquista_com_o_documento_novo(self):
+        pessoa = create_user(email="conquista-na-serie@exemplo.com", weekdays=dias_incluindo_hoje(5))
+        services.create_routine(pessoa)
+        escolher_opcao_de_hoje(pessoa)
+        self.client.force_login(pessoa)
+        js = _sem_comentarios(self.client.get(reverse("workouts:now")).content.decode())
+        self.assertIn('classList.toggle("tem-conquista", doc.body.classList.contains("tem-conquista"))', js)
+        self.assertNotIn("document.body.className = doc.body.className", js)

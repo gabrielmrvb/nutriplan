@@ -954,9 +954,15 @@
           else if (novo && !velho) main.parentNode.insertBefore(document.importNode(novo, true), main.nextSibling);
           else if (!novo && velho && seletor === ".flash") velho.remove();
         });
-        /* A classe do <body> NÃO é copiada: a troca é sempre agora → agora,
-           e `pwa.js` escreve classe em tempo de execução (`tem-convite`)
-           que o HTML do servidor não tem. */
+        /* A classe do <body> NÃO é copiada inteira: a troca é sempre agora
+           → agora, e `pwa.js` escreve classe em tempo de execução
+           (`tem-convite`) que o HTML do servidor não tem. UMA classe é
+           sincronizada: `tem-conquista`, que o servidor escreve quando a
+           série desbloqueou uma conquista — é o `padding-bottom` que impede
+           o toast de cobrir o CONCLUIR SÉRIE (achado da auditoria); sem
+           ela, a conquista que nasce NA série chegava com o toast por cima
+           do rodapé. `conquista.js` a tira quando o toast fecha. */
+        document.body.classList.toggle("tem-conquista", doc.body.classList.contains("tem-conquista"));
         document.title = doc.title;
         if (r.url) history.replaceState(null, "", r.url);
         window.scrollTo({ top: 0, behavior: "instant" });
