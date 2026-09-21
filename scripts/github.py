@@ -19,13 +19,16 @@ Uso (sempre com o python do .venv, na raiz do repositório):
   scripts/github.py esperar <número> [--minutos 45]      exit 0 verde / 1 vermelho
   scripts/github.py merge <número>                        merge commit; imprime o SHA
   scripts/github.py fechar <número>                       fecha SEM merge
-  scripts/github.py promover <sha> [--esperar]           promove um commit de main para
-                                                          PRODUÇÃO (o staging tem de
-                                                          tê-lo provado; render.yaml tem
-                                                          autoDeploy: false)
+  scripts/github.py promover-lote [--forcar-janela]      A REGRA (21/09): promove a ponta
+                                                          de main se o staging provou,
+                                                          a última promoção tem > 1 h,
+                                                          e smoke + E2E passam
+  scripts/github.py promover <sha> [--esperar]           a exceção: promove UM commit
+                                                          à mão (o runbook usa)
   scripts/github.py enfileirar <número> [--promover]      entra na FILA local desta
-                                                          máquina e mergeia na vez
-                                                          (o caminho normal desde 17/09)
+                                                          máquina, mergeia na vez e
+                                                          tenta o lote no fim
+                                                          (--promover = ignora a janela)
   scripts/github.py fila                                  mostra a fila (local e a do
                                                           GitHub, se existir)
   scripts/github.py fila-ativar                           cria o ruleset com a fila do
@@ -63,7 +66,7 @@ CHECK = "suíte rápida"
 #: existindo em `main`, e o merge commit é o que `/saude/` mostra.
 METODO_DE_MERGE = "merge"
 
-COMANDOS = ("pr", "status", "esperar", "merge", "fechar", "proteger", "protecao", "segredo", "enfileirar", "fila", "fila-ativar", "promover")
+COMANDOS = ("pr", "status", "esperar", "merge", "fechar", "proteger", "protecao", "segredo", "enfileirar", "fila", "fila-ativar", "promover", "promover-lote")
 
 #: O nome do ruleset de `main` — é por ele que `fila-ativar` acha o que já existe.
 RULESET = "main: fila de merge"
@@ -447,13 +450,15 @@ def cmd_enfileirar(args):
                     sha_merge = resposta.get("sha", "")
                     print("MERGEADO %s (tentativa %d)" % (sha_merge[:7], tentativa), flush=True)
                     # STAGING ANTES, PROMOÇÃO DEPOIS (21/09/2026): o merge sobe
-                    # sozinho no staging; a sessão prova lá e, só se pediu
-                    # `--promover`, promove o mesmo SHA para produção.
+                    # sozinho no staging e a fila prova lá.
                     _provar_staging(sha_merge)
-                    if "--promover" in args:
-                        cmd_promover([sha_merge, "--esperar"])
-                    else:
-                        print("produção NÃO mudou: promova com `scripts/github.py promover %s --esperar` depois do QA em staging" % sha_merge[:7], flush=True)
+                    # A REGRA DA PROMOÇÃO (21/09/2026): o fim de todo merge tenta
+                    # promover o LOTE — a ponta de main, se o staging a provou,
+                    # se a última promoção tem mais de uma hora, e se smoke e E2E
+                    # passam. Fora disso produção não muda e o lote espera o
+                    # próximo merge ou o cron (`promover-lote.yml`).
+                    # `--promover` virou "ignore a janela" (hotfix); a prova fica.
+                    _promover_lote(forcar_janela="--promover" in args)
                     return
                 print(time.strftime("%H:%M:%S"), "merge recusado (%s); main andou — tentativa %d" % (resposta.get("message"), tentativa), flush=True)
             raise SystemExit("PR #%d: quatro tentativas e main não parou de andar" % numero)
@@ -483,6 +488,22 @@ def _provar_staging(sha, minutos=12):
         return False
     print("STAGING PROVADO: %s (ambiente=%s)" % (dados.get("commit"), dados.get("ambiente")), flush=True)
     return True
+
+
+def _promover_lote(forcar_janela=False):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from scripts import promover
+    codigo = promover.promover_lote(forcar_janela=forcar_janela)
+    if codigo:
+        print("lote não subiu (código %s) — produção não mudou" % codigo, flush=True)
+    return codigo
+
+
+def cmd_promover_lote(args):
+    """`promover-lote [--forcar-janela] [--sem-e2e]` — a regra, à mão."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from scripts import promover
+    raise SystemExit(promover.promover_lote(forcar_janela="--forcar-janela" in args, sem_e2e="--sem-e2e" in args))
 
 
 def cmd_promover(args):

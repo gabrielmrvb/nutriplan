@@ -1,0 +1,75 @@
+# A REGRA DA PROMOÇÃO (decisão do dono, 21/09/2026): produção só muda no fim
+# de um LOTE PROVADO, e no máximo uma vez por hora. O lote é a ponta de `main`
+# que o staging já recebeu; a prova é o smoke nas rotas públicas do staging e
+# o E2E de gente (`scripts/qa/e2e_staging.py`, 12 passos com o agent-browser).
+#
+# Quem roda a regra: a fila local, no fim de cada merge (`scripts/github.py
+# enfileirar` → `promover.promover_lote`), e ESTE fluxo, de meia em meia hora
+# — para o merge que caiu numa janela fechada não ficar esperando o merge
+# seguinte. Os dois são o mesmo `scripts/promover.py --lote`: se a última
+# promoção tem menos de 60 min, o lote é ADIADO e produção não muda; dois
+# merges seguidos viram UMA promoção. O `schedule` do GitHub atrasa e pula
+# (medido em 17–18/09); aqui isso só atrasa o lote, nunca o quebra.
+#
+# `--forcar-janela` (hotfix) ignora o relógio e NUNCA a prova. Segredo:
+# `RENDER_API_KEY`, nos segredos do repositório.
+name: Promover o lote
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      forcar_janela:
+        description: "Ignorar a janela de 1 h (hotfix). A prova (smoke + E2E) continua."
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promover-producao
+  cancel-in-progress: false
+
+jobs:
+  lote:
+    name: lote
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: agent-browser (o E2E é parte da prova)
+        run: |
+          npm install -g agent-browser@0.38.1
+          agent-browser install --with-deps
+
+      - name: Promover o lote, se estiver provado e na janela
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          set -o pipefail   # senão o código de saída é o do tee
+          extra=""
+          if [ "${{ github.event.inputs.forcar_janela }}" = "true" ]; then extra="--forcar-janela"; fi
+          python scripts/promover.py --lote $extra | tee lote.log
+          tail -5 lote.log >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Capturas do E2E do lote
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-lote
+          path: ${{ runner.temp }}/capturas-lote/
+          if-no-files-found: ignore
+          retention-days: 7

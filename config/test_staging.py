@@ -106,9 +106,11 @@ class APromocaoEManualTests(SimpleTestCase):
         self.assertIn("def _provar_staging", self.helper)
         enfileirar = self.helper.split("def cmd_enfileirar", 1)[1].split("\ndef ", 1)[0]
         self.assertIn("_provar_staging(", enfileirar)
-        self.assertIn('"--promover" in args', enfileirar)
-        # Sem a flag, o helper NÃO chama a promoção.
-        self.assertRegex(enfileirar, r'if "--promover" in args:\s*\n\s+cmd_promover')
+        # Desde a REGRA DA PROMOÇÃO (21/09/2026) o merge não promove um SHA
+        # direto: tenta o LOTE (config/test_lote.py), e `--promover` só
+        # ignora a janela de uma hora — a prova fica.
+        self.assertIn('_promover_lote(forcar_janela="--promover" in args)', enfileirar)
+        self.assertNotIn("cmd_promover([sha_merge", enfileirar)
 
 
 class ACONFIGURACAODOSTAGINGEDOCUMENTADATests(SimpleTestCase):
