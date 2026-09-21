@@ -417,7 +417,7 @@ class WizardChromeTests(TestCase):
 
 
 class PlanBuildingScreenTests(TestCase):
-    """A tela que cobre o vão entre "Criar meu plano" e o painel pronto.
+    """A tela que cobre o vão entre "Calcular minha estimativa" e o painel pronto.
 
     A última etapa é a 3 desde 15/09/2026 (era o passo 6) — a tela de
     montagem acompanhou sozinha, porque ela é derivada de
@@ -425,7 +425,7 @@ class PlanBuildingScreenTests(TestCase):
 
     O número que a justificava: o POST do último passo levava 9 milissegundos,
     porque quem montava o plano era a PRIMEIRA abertura do painel. Hoje os
-    dois planos nascem NO POST de "Criar meu plano" (`acertar_ficha` e
+    dois planos nascem NO POST de "Calcular minha estimativa" (`acertar_ficha` e
     `montar_cardapio`), e a tela cobre exatamente esse trabalho — 196ms no
     banco local e bem mais no Render, com Postgres remoto.
     """
@@ -551,7 +551,7 @@ class ProfileActionsTests(TestCase):
         self.client.force_login(self.user)
         self.client.post(step_url(1), STEP1)
         self.client.post(step_url(2), ETAPA2)
-        # "Criar meu plano" monta o cardápio no próprio POST desde 15/09/2026
+        # "Calcular minha estimativa" monta o cardápio no próprio POST desde 15/09/2026
         # (antes ele nascia na primeira abertura do painel). O perfil abre com
         # plano; o estado SEM plano é real e tem teste próprio logo abaixo.
         self.client.post(step_url(3), ETAPA3)
@@ -609,7 +609,7 @@ class ProfileActionsTests(TestCase):
         self.user.plans.update(is_active=False)
         html = self.client.get(self.url).content.decode()
         self.assertIn("Calcular minhas metas", html)
-        self.assertIn("ainda não tem um plano ativo", html)
+        self.assertIn("ainda não tem uma estimativa ativa", html)
 
     def test_the_restrictions_link_points_at_the_step_they_actually_live_in(self):
         """Elas eram o passo 4 até a preferência de divisão entrar na frente.

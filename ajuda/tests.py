@@ -52,7 +52,7 @@ class TelasAbremSemLoginTests(TestCase):
     def test_a_faq_e_uma_sanfona_com_as_quatro_areas_e_aponta_para_as_outras_duas_telas(self):
         html = self.client.get(reverse("ajuda:index")).content.decode()
         self.assertGreaterEqual(html.count('<details class="fora">'), 12)
-        for titulo in ("O plano e o cardápio", "O treino", "Água, peso e progresso", "Conta, avisos e privacidade"):
+        for titulo in ("A estimativa e o cardápio", "O treino", "Água, peso e progresso", "Conta, avisos e privacidade"):
             self.assertIn("<h2>%s</h2>" % titulo, html)
         self.assertIn('href="%s"' % reverse("ajuda:reportar"), html)
         self.assertIn('href="%s"' % reverse("ajuda:mudancas"), html)

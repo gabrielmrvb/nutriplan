@@ -30,7 +30,7 @@ from django.urls import reverse
 from django.utils.html import escape
 
 #: A frase genérica do `base.html`, que vale para o que não é público.
-DESCRICAO_PADRAO = "Sua dieta calculada, o cardápio do dia e o treino da semana."
+DESCRICAO_PADRAO = "Estimativa de calorias, cardápio de exemplo e o treino da semana."
 
 #: As rotas que um buscador pode indexar — o sitemap inteiro.
 ROTAS_PUBLICAS = (

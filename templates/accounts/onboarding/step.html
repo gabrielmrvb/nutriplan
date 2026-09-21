@@ -122,7 +122,7 @@
       {% elif step == 3 %}
         {% comment %}
           ETAPA 3 — SUA PERSONALIZAÇÃO. O resumo vem PRIMEIRO: é a pessoa
-          conferindo o que respondeu antes de "Criar meu plano" — e a porta
+          conferindo o que respondeu antes de "Calcular minha estimativa" — e a porta
           de corrigir é o "Voltar", que não apaga nada. Depois, o que ainda
           falta para montar os planos: estilo do cardápio, restrições, áreas
           e prioridade. As formas são diferentes de propósito — cartão para
@@ -150,6 +150,24 @@
         {% endfor %}
       {% endif %}
 
+      {% if is_last_step and not is_editing %}
+        {% comment %}
+          O AVISO ANTES DO BOTÃO (decisão do dono, 21/09/2026). O que nasce
+          do toque seguinte é uma ESTIMATIVA — fórmulas públicas sobre o que a
+          pessoa digitou —, e a palavra tem de estar aqui, e não só nos
+          Termos: prescrição dietética é atividade privativa do nutricionista
+          (Lei 8.234/1991), e o app diz que não é isso ANTES de entregar o
+          número. A frase é a mesma do cadastro e do cardápio
+          (`config/test_linguagem.py`).
+        {% endcomment %}
+        <p class="form__nota">
+          O que vem a seguir é uma <strong>estimativa</strong>: fórmulas
+          públicas aplicadas ao que você informou, e um cardápio de exemplo.
+          O NutriPlan não substitui nutricionista nem médico — se você tem
+          alguma condição de saúde, converse com um antes de seguir.
+        </p>
+      {% endif %}
+
       <div class="form-actions">
         {% comment %}
           Na EDIÇÃO, "Voltar" sai do passo; no wizard, anda um passo atrás.
@@ -166,7 +184,7 @@
         {% elif previous_url %}
           <a class="btn btn--ghost" href="{{ previous_url }}" data-direcao="volta">Voltar</a>
         {% endif %}
-        <button type="submit" class="btn btn--primary">{% if is_editing %}Salvar{% elif is_last_step %}Criar meu plano{% else %}Continuar{% endif %}</button>
+        <button type="submit" class="btn btn--primary">{% if is_editing %}Salvar{% elif is_last_step %}Calcular minha estimativa{% else %}Continuar{% endif %}</button>
       </div>
     </form>
   </div>
@@ -229,7 +247,7 @@
         var PISO_MS = 700;
 
         /* Um envio de cada vez. A auditoria de 20/09/2026 viu dois POST
-         * seguidos de um toque duplo em "Criar meu plano": o `submit`
+         * seguidos de um toque duplo em "Calcular minha estimativa": o `submit`
          * disparava o fetch a cada toque, e a tela de montagem só cobria o
          * botão no quadro seguinte. O servidor é idempotente (os dois planos
          * saem iguais), mas dois pedidos são o dobro do trabalho e uma
@@ -269,7 +287,7 @@
               setTimeout(function () {
                 clearInterval(relogio);
                 /* Concluiu: o servidor devolve o destino no corpo (JSON) em
-                 * vez de redirecionar, para a mensagem "seu plano está
+                 * vez de redirecionar, para a mensagem "sua estimativa está
                  * pronto" não ser consumida pelo próprio fetch. */
                 var tipo = (r.headers.get("Content-Type") || "");
                 if (r.ok && tipo.indexOf("application/json") === 0) {

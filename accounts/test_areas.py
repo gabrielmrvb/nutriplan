@@ -414,7 +414,7 @@ class AreasEUmHubENaoUmMenuTests(BaseDeAreas):
 
     def test_o_perfil_e_o_modulo_largo_e_diz_a_meta(self):
         self.pessoa()
-        # O plano alimentar nasce em "Criar meu plano" (15/09/2026; antes,
+        # O cardápio nasce em "Calcular minha estimativa" (15/09/2026; antes,
         # na primeira visita a Hoje). Sem plano ativo o módulo mostra só o
         # objetivo — o outro ramo, coberto abaixo.
         html = self.areas()

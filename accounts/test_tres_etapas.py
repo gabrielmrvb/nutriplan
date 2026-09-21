@@ -3,7 +3,7 @@
 Decisão C-ONB (14/09/2026) e ordem do dono (15/09/2026): a produção ainda
 mostrava "Passo 1/6 · 16%" em `/conta/onboarding/1/`, seis rotas e CTA
 "Salvar". Aqui: três rotas (1, 2, 3), "Etapa N de 3", CTAs "Continuar" /
-"Continuar" / "Criar meu plano", voltar sem perder dado, atualizar sem
+"Continuar" / "Calcular minha estimativa", voltar sem perder dado, atualizar sem
 corromper, e a conclusão montando cardápio E ficha.
 """
 import re
@@ -99,13 +99,13 @@ class TresEtapasReaisTests(TestCase):
         # Pular para a 3 antes da 2 devolve para a 2.
         self.assertRedirects(self.client.get(etapa(3)), etapa(2))
 
-    def test_criar_meu_plano_conclui_e_monta_cardapio_e_ficha(self):
+    def test_calcular_minha_estimativa_conclui_e_monta_cardapio_e_ficha(self):
         hoje = timezone.localdate().weekday()
         self.client.post(etapa(1), ETAPA1)
         self.client.post(etapa(2), {**ETAPA2, "weekdays": [str(hoje), str((hoje + 2) % 7), str((hoje + 4) % 7)]})
         html = self.client.get(etapa(3)).content.decode()
         self.assertIn("Etapa 3 de 3", html)
-        self.assertIn("Criar meu plano", html)
+        self.assertIn("Calcular minha estimativa", html)
         resposta = self.client.post(etapa(3), ETAPA3)
         self.assertRedirects(resposta, reverse("plans:today"))
         perfil = Profile.objects.get(user=self.user)
@@ -114,7 +114,7 @@ class TresEtapasReaisTests(TestCase):
         self.assertEqual(TrainingPlan.objects.filter(user=self.user, is_active=True).count(), 1)
 
     def test_concluir_duas_vezes_nao_duplica_planos(self):
-        """Concluir é idempotente: o duplo toque em "Criar meu plano" (ou o
+        """Concluir é idempotente: o duplo toque em "Calcular minha estimativa" (ou o
         reenvio da tela de montagem) não cria um segundo cardápio nem uma
         segunda ficha.
 
@@ -197,14 +197,14 @@ class QuemJaConcluiuTests(TestCase):
     def test_editar_uma_etapa_salva_e_volta_ao_perfil(self):
         html = self.client.get(etapa(2)).content.decode()
         self.assertIn(">Salvar<", html.replace("\n", "").replace("  ", ""))
-        self.assertNotIn("Criar meu plano", html)
+        self.assertNotIn("Calcular minha estimativa", html)
         resposta = self.client.post(etapa(2), {**ETAPA2, "goal": "bulk"})
         self.assertRedirects(resposta, reverse("accounts:profile"))
         self.assertEqual(Profile.objects.get(user=self.user).goal, "bulk")
         self.assertEqual(Profile.objects.get(user=self.user).onboarding_step, ONBOARDING_DONE)
 
     def test_editar_a_personalizacao_nao_mostra_o_resumo_do_cadastro(self):
-        """O resumo é a conferência antes de "Criar meu plano"; quem veio do
+        """O resumo é a conferência antes de "Calcular minha estimativa"; quem veio do
         Perfil trocar o cardápio não tem esse botão nem edita altura ali."""
         html = self.client.get(etapa(3)).content.decode()
         self.assertNotIn('class="data-list resumo-etapas"', html)
@@ -330,7 +330,7 @@ class CriarMeuPlanoPelaMontagemTests(TestCase):
         self.assertEqual(resposta.status_code, 200)
         self.assertEqual(resposta.json(), {"destino": reverse("plans:today")})
         home = self.client.get(reverse("plans:today"))
-        self.assertContains(home, "Seu plano está pronto")
+        self.assertContains(home, "Sua estimativa está pronta")
 
 
 class ErrosJuntoAoCampoTests(TestCase):
@@ -358,7 +358,7 @@ class ErrosJuntoAoCampoTests(TestCase):
 
 class OToqueDuploNaoMandaDoisPostsTests(TestCase):
     """A auditoria de 20/09/2026 viu dois `POST /conta/onboarding/3/` seguidos
-    de um toque duplo em "Criar meu plano": o `submit` disparava o `fetch` a
+    de um toque duplo em "Calcular minha estimativa": o `submit` disparava o `fetch` a
     cada toque, e a tela de montagem só cobria o botão no quadro seguinte. O
     servidor é idempotente (os dois planos saem iguais), mas dois pedidos
     são o dobro do trabalho e uma corrida à toa. O script agora ignora o

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}Criar conta · NutriPlan{% endblock %}
-{% block seo %}{% include "partials/seo.html" with publica=True titulo="Criar conta · NutriPlan" descricao="Crie sua conta no NutriPlan em um minuto: e-mail e senha ou Google, três etapas de cadastro e o plano de dieta e treino pronto." %}{% endblock %}
+{% block seo %}{% include "partials/seo.html" with publica=True titulo="Criar conta · NutriPlan" descricao="Crie sua conta em um minuto: e-mail e senha ou Google, três etapas de cadastro, e a estimativa de calorias, o cardápio de exemplo e o treino montados para você." %}{% endblock %}
 {% block container_class %}auth auth--entrada{% endblock %}
 
 {% block header %}{% endblock %}
@@ -12,7 +12,7 @@
   <div class="card entrada__cartao">
     <h1 class="center">Criar conta</h1>
     <p class="lead center">
-      Leva menos de um minuto. Os dados da dieta vêm no passo seguinte.
+      Leva menos de um minuto. Os dados do cálculo vêm no passo seguinte.
     </p>
 
     {% include "partials/botao_google.html" %}
@@ -27,6 +27,18 @@
       {% for field in form %}
         {% include "partials/field.html" with field=field %}
       {% endfor %}
+      {% comment %}
+        O AVISO NO CADASTRO (decisão do dono, 21/09/2026): antes de existir
+        conta, a pessoa lê que o que o app entrega é uma estimativa e um
+        cardápio de exemplo — não prescrição, que é atividade privativa do
+        nutricionista (Lei 8.234/1991). Uma frase, a mesma da última etapa e
+        do cardápio; `config/test_linguagem.py` cobra as três.
+      {% endcomment %}
+      <p class="form__nota form__nota--perto">
+        O NutriPlan calcula uma <strong>estimativa</strong> com fórmulas
+        públicas e monta um cardápio de exemplo. Ele não substitui
+        nutricionista nem médico.
+      </p>
       <button type="submit" class="btn btn--primary btn--block">Criar conta</button>
     </form>
 

@@ -54,7 +54,7 @@ class FichaNasceNoConcluirTests(TestCase):
 
     def concluir(self, etapa2):
         # Três etapas fixas desde 15/09/2026: a rotina (com a divisão, quando
-        # os dias pedem) é a 2, e "Criar meu plano" é o POST da 3.
+        # os dias pedem) é a 2, e "Calcular minha estimativa" é o POST da 3.
         resposta = self.client.post(step_url(2), etapa2)
         self.assertRedirects(resposta, step_url(3))
         return self.client.post(step_url(3), ETAPA3_TREINO)

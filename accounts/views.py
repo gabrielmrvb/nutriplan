@@ -617,7 +617,7 @@ class OnboardingStepMixin(LoginRequiredMixin):
             logger.warning("ficha não montada ao salvar os dias: %s", erro)
 
     def montar_cardapio(self):
-        """O plano alimentar nasce em "Criar meu plano", e não na primeira Home.
+        """O cardápio nasce em "Calcular minha estimativa", e não na primeira Home.
 
         `sync_active_plan` é idempotente — devolve o plano vigente quando os
         dados não mudaram —, então concluir duas vezes não duplica nada. O
@@ -657,12 +657,12 @@ class OnboardingStepMixin(LoginRequiredMixin):
             # ficha — que acabou de ser remontada com eles — que ela quer ver.
             return redirect(self.voltar_para())
         # A partir daqui é ONBOARDING de verdade (não edição): cada etapa
-        # salva conta no funil, e "Criar meu plano" fecha.
+        # salva conta no funil, e "Calcular minha estimativa" fecha.
         analytics.evento(
             self.request, "onboarding.etapa_concluida", {"etapa": self.step}
         )
         if proximo >= ONBOARDING_DONE:
-            # "Criar meu plano" cria os dois planos AQUI: a ficha (P1-01) e o
+            # "Calcular minha estimativa" cria os dois planos AQUI: a ficha (P1-01) e o
             # cardápio. A tela de montagem diz "calculando… ajustando…
             # estruturando…" enquanto isto roda, e com os dois montados aqui
             # ela deixa de ser promessa. Quem terminou sem dia nenhum não
@@ -671,7 +671,7 @@ class OnboardingStepMixin(LoginRequiredMixin):
             self.montar_cardapio()
             analytics.evento(self.request, "onboarding.concluido")
             messages.success(
-                self.request, "Seu plano está pronto: cardápio e ficha montados."
+                self.request, "Sua estimativa está pronta: cardápio de exemplo e ficha montados."
             )
             destino = reverse("plans:today")
             if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -829,7 +829,7 @@ class PersonalizacaoView(EtapaCompostaView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Só no cadastro: o resumo é a conferência antes de "Criar meu plano".
+        # Só no cadastro: o resumo é a conferência antes de "Calcular minha estimativa".
         # Quem veio do Perfil trocar o cardápio não tem esse botão, e um
         # `<dl>` de altura e dias que não se editam ali seria ruído.
         if not context.get("is_editing"):
@@ -852,7 +852,7 @@ MINIMO_DE_DIAS_PARA_DIVISAO = next(
 def resumo_das_escolhas(user, profile) -> list:
     """As escolhas das etapas 1 e 2, em pares (rótulo, valor), para a etapa 3.
 
-    Só leitura: é a pessoa conferindo antes de "Criar meu plano". Dias sem
+    Só leitura: é a pessoa conferindo antes de "Calcular minha estimativa". Dias sem
     treino é uma resposta, e aparece como tal.
     """
     if profile is None:
@@ -1468,7 +1468,7 @@ def resumo_do_que_sera_apagado(user) -> list:
     from workouts.models import ExerciseLog, TrainingPlan
 
     linhas = [
-        ("Planos alimentares", NutritionPlan.objects.filter(user=user).count()),
+        ("Estimativas (cardápios)", NutritionPlan.objects.filter(user=user).count()),
         ("Refeições registradas", MealLog.objects.filter(user=user).count()),
         ("Registros de água", HydrationLog.objects.filter(user=user).count()),
         ("Pesagens", WeightEntry.objects.filter(user=user).count()),

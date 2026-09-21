@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}NutriPlan — dieta e treino num app só{% endblock %}
+{% block title %}NutriPlan — alimentação e treino num app só{% endblock %}
 {% block seo %}
-  {% include "partials/seo.html" with publica=True titulo="NutriPlan — dieta e treino num app só" descricao="Dieta calculada para o seu objetivo, cardápio do dia, ficha de treino que roda sozinha, água e progresso — num app que funciona sem rede. Grátis." %}
+  {% include "partials/seo.html" with publica=True titulo="NutriPlan — alimentação e treino num app só" descricao="Estimativa de calorias para o seu objetivo, cardápio de exemplo, ficha de treino que roda sozinha, água e progresso — num app que funciona sem rede. Grátis." %}
   {% comment %}
     Dados estruturados (schema.org/SoftwareApplication) para o buscador
     entender que isto é um app, gratuito, na web. É um bloco de DADOS, não
@@ -18,7 +18,7 @@
    "applicationCategory": "HealthApplication",
    "operatingSystem": "Web",
    "inLanguage": "pt-BR",
-   "description": "Dieta calculada para o seu objetivo, cardápio do dia, ficha de treino que roda sozinha, água e progresso — num app que funciona sem rede.",
+   "description": "Estimativa de calorias para o seu objetivo, cardápio de exemplo, ficha de treino que roda sozinha, água e progresso — num app que funciona sem rede.",
    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "BRL"}}
   </script>
 {% endblock %}
@@ -41,14 +41,15 @@
     capturas são o aperitivo; o demo é a prova.
   {% endcomment %}
   <div class="page-head landing__hero">
-    <span class="pill pill--brand">Dieta e treino</span>
+    <span class="pill pill--brand">Alimentação e treino</span>
     <h1>Pare de adivinhar o que comer e como treinar</h1>
     <p class="lead landing__proposta">
-      Sua dieta e seu treino, calculados para o seu corpo e a sua rotina — num app só.
+      Uma estimativa de calorias, um cardápio de exemplo e um treino montado para o
+      seu corpo e a sua rotina — num app só.
     </p>
     <div class="stack">
       <a class="btn btn--primary btn--block" href="/demo/">Ver a demonstração</a>
-      <a class="btn btn--ghost btn--block" href="{% url 'accounts:signup' %}">Criar meu plano</a>
+      <a class="btn btn--ghost btn--block" href="{% url 'accounts:signup' %}">Criar minha conta</a>
     </div>
     <p class="hint center">
       Já tem conta? <a class="btn-link" href="{% url 'accounts:login' %}">Entrar</a>

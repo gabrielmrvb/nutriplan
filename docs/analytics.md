@@ -64,7 +64,7 @@ igual ao online.
 | `conta.excluida` | — | `ExcluirContaView` (anônimo, antes do delete) |
 | `onboarding.iniciado` | — | `SignupView.form_valid` |
 | `onboarding.etapa_concluida` | `etapa` | `OnboardingStepMixin.finish_step` |
-| `onboarding.concluido` | — | idem, no "Criar meu plano" |
+| `onboarding.concluido` | — | idem, no "Calcular minha estimativa" (era "Criar meu plano" até 21/09/2026) |
 | `dieta.refeicao_registrada` | `opcao` | `MarkMealView` (status DONE) |
 | `dieta.pulou` | — | `MarkMealView` (SKIPPED) |
 | `dieta.comeu_outra_coisa` | — | `MarkMealView` (OFF_PLAN) |

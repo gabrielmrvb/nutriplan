@@ -280,11 +280,49 @@ relê o perfil. A divisão é PROGRESSIVA: aparece a partir de
 `preferencia_muda_a_divisao`, a mesma do antigo passo 4), e sem JavaScript o
 servidor reabre a tela com o bloco visível e o erro no campo.
 
-**"Criar meu plano" monta os DOIS planos e devolve JSON quando é XHR.** A
-tela de montagem envia o último POST por `fetch` e SEGUE o redirect — o que
-consumia a mensagem "Seu plano está pronto" antes de a Home ser aberta pelo
-navegador. Com `X-Requested-With` o servidor responde `{"destino": url}` e o
-JavaScript navega; sem JavaScript continua sendo o 302 de sempre.
+**"Calcular minha estimativa" (era "Criar meu plano" até 21/09/2026) monta
+os DOIS planos e devolve JSON quando é XHR.** A tela de montagem envia o
+último POST por `fetch` e SEGUE o redirect — o que consumia a mensagem "Sua
+estimativa está pronta" antes de a Home ser aberta pelo navegador. Com
+`X-Requested-With` o servidor responde `{"destino": url}` e o JavaScript
+navega; sem JavaScript continua sendo o 302 de sempre.
+
+**A ALIMENTAÇÃO É "ESTIMATIVA" E "CARDÁPIO DE EXEMPLO", NUNCA "PLANO"; A
+LANDING NÃO PROMETE "DIETA" (decisão do dono, 21/09/2026).** A pesquisa
+legal (em `gabrielmrvb/nutriplan-docs`, privado) achou o que a lei diz:
+prescrição dietética é atividade privativa do nutricionista (Lei
+8.234/1991), a Res. CFN 600/2018 define "plano alimentar", e a página do
+CFN de 30/01/2026 lê a "oferta de planos alimentares por leigos no ambiente
+digital" como contravenção (art. 47 da LCP). O NutriPlan não prescreve —
+aplica fórmula pública e monta cardápio de exemplo —, e o texto passou a
+dizer isso com as palavras certas: o CTA da etapa 3 é "Calcular minha
+estimativa", a mensagem é "Sua estimativa está pronta", a Home fala em
+"estimativa nova", o Perfil em "estimativa ativa", a Ajuda em "A estimativa
+e o cardápio", a gestão em "cardápio montado", o 404 em "o que você
+registrou"; a landing diz "alimentação e treino" e "estimativa de calorias,
+cardápio de exemplo" (título, lead, description, JSON-LD), e a
+`DESCRICAO_PADRAO`/manifesto idem. E o aviso "não substitui nutricionista
+nem médico" está em TRÊS lugares com a mesma frase — o formulário de criar
+conta, a etapa 3 acima do botão e o fim da seção do cardápio na Home — e os
+Termos citam a lei. `config/test_linguagem.py` mede o TEXTO VISÍVEL do
+`<main>` (sem script, estilo, comentário e tag): nenhuma tela da
+alimentação com a palavra "plano", nenhuma promessa de "dieta" na landing e
+nas descrições. O que NÃO mudou, de propósito: "plano"/"ficha" para o
+TREINO e "Plano" da corrida (não há conselho privativo em jogo), `Pilar.
+label` ("Alimentação"), os nomes de campo e modelo (`NutritionPlan`,
+`target_kcal`), e a palavra "dieta" em texto educativo ("a razão mais
+comum de uma dieta não funcionar") — a régua protege promessa pública, não
+vocabulário (`config/test_nomenclatura.py`, o contrapeso).
+
+**ESTRATÉGIA E PESQUISA DE NEGÓCIO MORAM EM `gabrielmrvb/nutriplan-docs`
+(privado), NÃO AQUI (decisão do dono, 21/09/2026).** Este repositório é
+público desde 21/09/2026 e descreve o PRODUTO e a OPERAÇÃO — arquitetura,
+runbook, doutrina do treino, design system, achados de auditoria. O que
+descreve o NEGÓCIO — pesquisa de mercado e de concorrentes, leitura
+jurídica, decisões de preço, canal e posicionamento — vai para o repositório
+privado (`pesquisa/`, um arquivo datado por levantamento). O primeiro
+morador é `pesquisa/pesquisa-loja-e-legal-20260921.md`; a branch local
+`docs/pesquisa-loja-e-legal` deste repositório foi apagada sem push.
 
 **Plano é retrato, não referência.** `NutritionPlan` e `TrainingPlan` guardam os
 números do dia em que foram criados. Mudou a entrada, nasce plano novo — os
@@ -2396,7 +2434,7 @@ tocar em nada.
 `.github/workflows/e2e-noturno.yml` (04:30 de Brasília, e pelo botão) roda
 `scripts/qa/e2e_staging.py` com o `agent-browser` — Chromium headless, o
 mesmo do QA local — fazendo o caminho de uma pessoa: cadastro → as três
-etapas do onboarding → "Criar meu plano" → +250 ml de água → refeição
+etapas do onboarding → "Calcular minha estimativa" → +250 ml de água → refeição
 registrada → uma série concluída no treino → as mesmas telas em tema claro
 (`set media light`) → movimento reduzido (`prefers-reduced-motion` emulado:
 `getAnimations()` não pode ver nada acima de 50 ms na Home nem na execução)
