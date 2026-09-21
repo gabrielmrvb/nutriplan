@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% comment %}
+  "O que mudou" lê o `CHANGELOG.md` (`ajuda/mudancas.py`): uma seção por
+  dia, um item por mudança que a pessoa vê. Os itens chegam já escapados —
+  só `<strong>` e `<code>` sobrevivem —, por isso o `safe`.
+{% endcomment %}
+
+{% block title %}O que mudou · NutriPlan{% endblock %}
+{% block seo %}{% include "partials/seo.html" with publica=True titulo="O que mudou · NutriPlan" descricao="As mudanças do NutriPlan que aparecem para quem usa, dia a dia: plano, treino, água, progresso, avisos e o app instalado." %}{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>O que mudou</h1>
+    <p class="lead">As mudanças que aparecem para você, por dia. O mais recente primeiro.</p>
+  </div>
+
+  {% for secao in secoes %}
+    <section class="card mudancas">
+      <div class="card__head"><h2><time datetime="{{ secao.data|date:'Y-m-d' }}">{{ secao.data|date:"d/m/Y" }}</time></h2></div>
+      <ul class="mudancas__lista">
+        {% for item in secao.itens %}<li>{{ item|safe }}</li>{% endfor %}
+      </ul>
+    </section>
+  {% empty %}
+    <div class="empty-state"><p>Ainda não há mudanças registradas.</p></div>
+  {% endfor %}
+
+  <p class="muted"><a href="{% url 'ajuda:index' %}">Voltar para a ajuda</a></p>
+{% endblock %}

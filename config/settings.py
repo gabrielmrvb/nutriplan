@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "demo",
     "achievements",
     "gestao",
+    "ajuda",
     "analytics",
     # Login com Google — o allauth como MOTOR, não como interface.
     #
@@ -522,6 +523,11 @@ VAPID_ADMIN_EMAIL = env("VAPID_ADMIN_EMAIL", default="")
 # `POST /tarefas/lembretes/`. Vazio = a tarefa não existe (503). Mora no
 # painel do Render e nos segredos do GitHub; nunca no repositório.
 NUTRIPLAN_TAREFAS_TOKEN = env("NUTRIPLAN_TAREFAS_TOKEN", default="")
+
+#: Para onde vai "Reportar um problema" (`/ajuda/reportar/`). Sem valor
+#: próprio, cai no e-mail de administração do push — é o mesmo dono; um
+#: segundo endereço seria uma segunda variável para esquecer no painel.
+NUTRIPLAN_SUPORTE_EMAIL = env("NUTRIPLAN_SUPORTE_EMAIL", default="") or VAPID_ADMIN_EMAIL
 
 # Token do disparo PONTUAL `GET /tarefas/lembretes/externo/<token>/` (o
 # UptimeRobot bate aqui a cada 5 min). SEPARADO do de cima de propósito: ele

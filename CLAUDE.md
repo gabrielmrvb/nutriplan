@@ -1500,6 +1500,56 @@ Open Graph a partir do pedido (`scheme` + host + path, nunca domínio escrito
 ficar fora do índice, nunca o contrário. Antes disto (medido em produção
 em 21/09): a mesma description em toda página, zero `canonical`/OG, e
 `/demo/treino/` indexável com a ficha do Carlos como se fosse o produto.
+Desde a ajuda (21/09, tarde) são NOVE: `/ajuda/` e `/ajuda/o-que-mudou/`
+entraram na lista com bloco `seo` próprio — a FAQ é o texto que diz o que
+o produto faz, e é por onde alguém o ACHA; `/ajuda/reportar/` e a
+confirmação continuam `noindex` (formulário não é conteúdo).
+
+## Ajuda (21/09/2026)
+
+**`/ajuda/` são três telas PÚBLICAS, e a FAQ só afirma o que o app faz.**
+Quem não consegue entrar é quem mais precisa de ajuda, então nada ali
+exige sessão (`ajuda/views.py`; a barra de baixo já não aparece para
+anônimo pelo `base.html`). A FAQ (`templates/ajuda/index.html`) é
+`<details class="fora">` — a sanfona da Home, com a animação do `pwa.js` —
+em quatro blocos (plano e cardápio · treino · água, peso e progresso ·
+conta, avisos e privacidade), e cada resposta aponta uma tela ou uma regra
+que existe no código, com a fonte no `CLAUDE.md`. Três respostas dizem
+NÃO de propósito e há teste prendendo as três (caloria gasta, Apple
+Saúde/Health Connect, prescrição): "melhorar" a FAQ prometendo isso é o
+defeito de veracidade que o app evita em todo lugar. A porta é tripla:
+Áreas › Ferramentas, Perfil › Conta e sessão, e o rodapé das telas de
+entrada (`partials/links_legais.html`, FORA do `{% if legal_publicado %}`
+— a ajuda não depende do legal).
+
+**"Reportar um problema" chega PREENCHIDO, e o que a pessoa escreve é só o
+que aconteceu.** Rota (`?de=` ou o `Referer` do MESMO host — de outro host
+é descartado), versão (`RENDER_GIT_COMMIT[:7]`, o mesmo que `/saude/`
+publica; somente leitura) e aparelho (`User-Agent`) vão no formulário; o
+e-mail da conta entra quando há sessão. O relato vira `EmailMessage` para
+`NUTRIPLAN_SUPORTE_EMAIL` (vazio cai em `VAPID_ADMIN_EMAIL` — o mesmo
+dono, uma variável a menos para esquecer no painel) com `Reply-To` da
+pessoa. É público, então tem três guardas e a MESMA resposta para as três
+(um bot não aprende qual o pegou): pote de mel (`site`, `HiddenInput`,
+`tabindex=-1`), limite por IP (5/h) e global (60/h) na tabela de
+`accounts.limites` (`PedidoDeRecuperacao`, tipos `ajd-ip`/`ajd-glob`,
+HMAC do IP — o mesmo motivo de lá: cache é por worker e some no deploy).
+Falha de SMTP responde 503 com mensagem e NÃO conta no limite. O teste do
+envio usa o formulário RENDERIZADO com `enforce_csrf_checks` — um nome de
+campo trocado no template derruba o teste, e não um `post` de dicionário.
+
+**"O que mudou" lê o `CHANGELOG.md`, que é OUTRO documento.** O
+`BACKLOG.md` é o caderno de engenharia e não serve para quem usa;
+`CHANGELOG.md` tem uma seção por dia (`## AAAA-MM-DD`), um item por
+mudança que a pessoa VÊ (`- **Título.** Uma frase.`), sem nome de arquivo
+nem número de PR. `ajuda/mudancas.py` lê pouco de propósito — escapa tudo
+e só conhece `**negrito**` e `` `código` ``; Markdown inteiro seria uma
+dependência para três marcas — e relê quando o mtime muda. Há teste
+cobrando a forma do arquivo real (datas decrescentes, uma seção por dia,
+nenhuma vazia). Toda missão que muda o que a pessoa vê acrescenta a linha
+dela ANTES do merge, na própria branch — e uma linha só entra quando a
+mudança que ela descreve está na mesma branch ou já em `main` (a linha
+do placar saiu deste PR por isso e entra no dele).
 
 ## Design: o que já existe, e o que não inventar de novo
 
