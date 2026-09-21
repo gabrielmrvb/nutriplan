@@ -935,6 +935,38 @@ class OnboardingEntryView(LoginRequiredMixin, TemplateView):
         return redirect("accounts:onboarding_step", step=passo_alvo(profile, passos))
 
 
+class RastreioAnalyticsView(AcaoDeTela, LoginRequiredMixin, View):
+    """Liga ou desliga a análise de uso do app.
+
+    Desligar NÃO apaga evento: o uso continua contando no agregado ANÔNIMO — o
+    que para é a atribuição à pessoa. O flag vai para a SESSÃO no mesmo instante
+    (`marcar_sessao`), para a régua da rota da série o ler sem consulta. Ver
+    `analytics/privacidade.py`.
+    """
+
+    tela_da_acao = "accounts:profile"
+
+    def post(self, request, *args, **kwargs):
+        from analytics.privacidade import marcar_sessao
+
+        rastrear = request.POST.get("rastrear_uso") == "1"
+        perfil = request.user.profile
+        if perfil.rastrear_uso != rastrear:
+            perfil.rastrear_uso = rastrear
+            perfil.save(update_fields=["rastrear_uso"])
+        marcar_sessao(request, rastrear)
+        messages.success(
+            request,
+            "Pronto. %s"
+            % (
+                "Você permite a análise de uso."
+                if rastrear
+                else "Seu uso conta só de forma anônima agora."
+            ),
+        )
+        return redirect(self.tela_da_acao)
+
+
 class ProfileSummaryView(LoginRequiredMixin, TemplateView):
     """Resumo do perfil com atalho para reeditar qualquer passo."""
 
