@@ -758,6 +758,38 @@ registrada em `curadoria` no `exercises.json` —, junto com outros 24; o veto
 ele desativa no JSON e no banco. O que falta para os cinco restantes é
 curadoria de MÍDIA, não decidir o que cadastrar.
 
+**O CONTRATO DE MÍDIA VALE PARA QUEM TEM APARELHO — o peso do corpo pode ser
+ativo sem vídeo (decisão 1 da avaliação de UX, 20/09/2026).** O dono decidiu
+que o catálogo de peso do corpo NÃO depende de mídia: "sem vídeo fica sem
+vídeo". A régua acima passou a valer só para exercício COM aparelho — todo
+`equipment != bodyweight` ativo continua exigindo vídeo curado, e todo vídeo
+que EXISTIR (inclusive nos de peso do corpo que já têm um) continua com o
+contrato inteiro (embed, unicidade, anatomia, foto no mapa). O peso do corpo
+sem vídeo entra com nome, músculos, dica e progressão; a tela cai
+graciosamente no "Sem demonstração cadastrada" (`_demonstracao.html`, que já
+tinha o ramo). Os guardas mudaram de `filter(is_active=True)` para
+`.exclude(equipment="bodyweight")` (o vídeo é obrigatório) ou
+`.exclude(video_url="")` (o vídeo presente é validado); há teste único da
+conjunção em `test_capacidade_de_ambiente`.
+
+**34 EXERCÍCIOS DE PESO DO CORPO, COM PROGRESSÃO (20/09/2026).** Cobrem os
+grupos que faltavam — quadríceps, posterior, glúteo (na cadeia posterior,
+`hamstrings`; o app NÃO tem grupo `glutes`), panturrilha, ombro, costas,
+bíceps — e adensam peito/tríceps/core, para a ficha desse perfil ter volume
+COMPARÁVEL às outras (medido: ~94% do volume semanal da completa; letra A com
+2 opções de 5 ex/52 min, B 8 ex/58 min, C 8 ex/58-59 min ×2). O motor preenche
+por SUBSTITUIÇÃO (`padrao`+grupo), então `splits.json` não mudou. A LETRA A
+continua `@expectedFailure` no dourado por um motivo FÍSICO: o modelo de
+academia enche o peito com crucifixo (abertura), e não há crucifixo sem carga
+— sobram as pressões, ~3 por opção, não 4. O dourado não afrouxa; a
+comparabilidade é provada à parte (`test_volume_peso_do_corpo`). A PROGRESSÃO
+é o campo `Exercise.progressao` (`{"movimento","nivel"}`, 1 = mais fácil): a
+leitura mostra a escada do movimento (`services.escada_de`) do fácil ao
+difícil, com "você está aqui"; vazio para quem usa aparelho (a progressão dele
+é a carga). Os vereditos de ambiente melhoraram: peso do corpo
+NAO_SUPORTADO → PARCIAL (bíceps/antebraço/trapézio sem folga é limite físico),
+casa com halteres PARCIAL → SUPORTADO.
+
 **COBERTURA NÃO É QUALIDADE**, e a régua cobra as duas. Como efeito colateral, o
 catálogo virou contrato: aposentar um dos dois exercícios de panturrilha derruba
 o veredito da própria academia, porque o grupo fica com opção única — e a suíte
