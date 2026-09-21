@@ -2280,3 +2280,31 @@ de manutenção, que é o pior momento para descobrir isso.
 
 O destino precisa ser **PostgreSQL 17 ou mais novo**: o `pg_dump` 18 emite
 `SET transaction_timeout`, parâmetro que só existe a partir do 17.
+## Avisos por e-mail (21/09/2026)
+
+**Três e-mails, um app (`avisos/`), e o relógio é o de sempre.** Boas-vindas
+(uma vez por conta, no cadastro por senha E por Google — `avisos.services.
+boas_vindas`, chamado em `SignupView.form_valid` e no `save_user` do adapter
+social; quando a verificação de e-mail existir, é essa chamada que muda de
+lugar), "5 dias sem treino" e o resumo da semana. Os dois últimos NÃO têm cron:
+`avisos.jobs.rodar(now)` pega carona no fim de cada rodada NÃO pausada de
+`push/tarefas.rodar()` (UptimeRobot a cada 5 min; o Neon dorme entre
+rodadas), e saem a partir da `hora_email` da pessoa (padrão 08:00) — em até
+meia hora depois, o preço da pausa. Idempotência pela constraint de
+`EmailEnviado` (pessoa, tipo, referência), com a referência do TAMANHO
+certo: `conta` para o boas-vindas, a data da última série para a inatividade
+(**um e-mail por pausa**, não um por dia — treinar de novo abre outra), a
+semana ISO para o resumo. Só quem tem ficha ativa e onboarding feito entra na
+lista; semana vazia sai mesmo assim (o zero é convite). A preferência
+(`avisos.Preferencia`, `/avisos/`, link no Perfil) tem três perguntas — quais
+e-mails, quais pushes, a que horas — e **a linha que não existe vale LIGADO**;
+`push/services.due_slots` respeita `push_refeicoes` por `exclude` do falso.
+O descadastro é por link com chave própria de 128 bits (`/avisos/sair/<chave>/
+?tipo=`), GET e POST sem login e sem CSRF (RFC 8058, cabeçalhos
+`List-Unsubscribe` + `List-Unsubscribe-Post` em todo e-mail), e só DESLIGA.
+Os templates moram em `templates/email/` (moldura NERVURA inline, em tabela:
+cliente de e-mail não lê CSS nem `transform` — a nervura é uma régua reta de
+2 px e a display cai em Arial Narrow/Impact), e a pasta inteira está fora da
+régua de `style=` de `config/test_design_system.py`, como o `email_senha`.
+Os links dos jobs saem de `NUTRIPLAN_URL_BASE` (não há request). O envio
+nunca derruba quem chamou: falha de SMTP vira `sucesso=False` no log.

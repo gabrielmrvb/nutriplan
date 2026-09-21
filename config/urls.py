@@ -144,6 +144,7 @@ urlpatterns = [
     # Google Cloud, e ele é derivado desta linha, não escolhido.
     path("conta/", include(ROTAS_SOCIAIS)),
     path("push/", include("push.urls")),
+    path("avisos/", include("avisos.urls")),
     path("treino/", include("workouts.urls")),
     path("conquistas/", include("achievements.urls")),
     # UX-01: Áreas é o quarto destino da barra, e por isso mora na RAIZ.

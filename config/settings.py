@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "demo",
     "achievements",
     "gestao",
+    "avisos",
     # Login com Google — o allauth como MOTOR, não como interface.
     #
     # `allauth.account` entra porque `allauth.socialaccount` depende dele: é
@@ -511,6 +512,11 @@ VAPID_ADMIN_EMAIL = env("VAPID_ADMIN_EMAIL", default="")
 # `POST /tarefas/lembretes/`. Vazio = a tarefa não existe (503). Mora no
 # painel do Render e nos segredos do GitHub; nunca no repositório.
 NUTRIPLAN_TAREFAS_TOKEN = env("NUTRIPLAN_TAREFAS_TOKEN", default="")
+
+#: A raiz pública do app para os links dos e-mails que saem SEM request (os
+#: jobs de `avisos.jobs`). O e-mail de senha continua lendo o domínio do
+#: request; estes não têm request. Em produção é o domínio do Render.
+NUTRIPLAN_URL_BASE = env("NUTRIPLAN_URL_BASE", default="https://nutriplan-xxfn.onrender.com")
 
 # Token do disparo PONTUAL `GET /tarefas/lembretes/externo/<token>/` (o
 # UptimeRobot bate aqui a cada 5 min). SEPARADO do de cima de propósito: ele
