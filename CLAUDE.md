@@ -199,6 +199,17 @@ estejam no topo, mas porque a tela nunca falou deles. Os três ganham
 área. Treino sai de `estado_do_treino`, que a Home já calcula; Corrida e
 Progresso custam UMA consulta cada, e só para quem declarou aquela área.
 
+**SÓ A REFEIÇÃO DA VEZ NASCE ABERTA NA HOME (decisão do dono, 20/09/2026).**
+Desde 12/09 a futura ficava atrás de "Ver opções"; a VENCIDA continuava
+aberta por ser "ação em aberto", e a auditoria de 20/09 mediu o preço: um
+primeiro uso às 15 h dava 3 757 px com quatro refeições abertas × quatro
+botões, e um fixture às 18 h, 3 530 px — a tela mais aberta do app rolando
+por formulários que ninguém ia usar naquele momento. Hoje `slot.marcador
+!= "agora"` vai para o mesmo `<details class="meal__futuro">`, e a vencida
+diz "Não registrada · registrar" no `summary`. Medido no protótipo: 3 530 →
+2 875 px com duas vencidas. `plans/test_opcoes_tocaveis.py` cobra a ordem —
+fora da vez, o `<details>` abre antes da primeira ação.
+
 **Quem não declarou nada vê a Home de antes da campanha** — sem selo, sem cartão
 de área, na ordem canônica. E ela não infere área de histórico, peso, treino,
 água ou frequência: há teste com uma pessoa de histórico cheio provando que ela
