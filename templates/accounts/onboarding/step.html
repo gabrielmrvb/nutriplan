@@ -228,8 +228,22 @@
          * 700ms é o menor tempo em que uma frase é lida. */
         var PISO_MS = 700;
 
+        /* Um envio de cada vez. A auditoria de 20/09/2026 viu dois POST
+         * seguidos de um toque duplo em "Criar meu plano": o `submit`
+         * disparava o fetch a cada toque, e a tela de montagem só cobria o
+         * botão no quadro seguinte. O servidor é idempotente (os dois planos
+         * saem iguais), mas dois pedidos são o dobro do trabalho e uma
+         * corrida à toa. O segundo `submit` é ignorado enquanto o primeiro
+         * está no ar, e o botão fica ocupado — o mesmo `aria-busy` que o
+         * `<button>` de todo formulário já usa. */
+        var enviando = false;
+        var botao = form.querySelector('button[type="submit"]');
+
         form.addEventListener("submit", function (evento) {
           evento.preventDefault();
+          if (enviando) return;
+          enviando = true;
+          if (botao) { botao.disabled = true; botao.setAttribute("aria-busy", "true"); }
 
           caixa.hidden = false;
           caixa.removeAttribute("aria-hidden");
@@ -286,6 +300,8 @@
         });
 
         function esconder() {
+          enviando = false;
+          if (botao) { botao.disabled = false; botao.removeAttribute("aria-busy"); }
           caixa.hidden = true;
           caixa.setAttribute("aria-hidden", "true");
           document.body.classList.remove("montando");
