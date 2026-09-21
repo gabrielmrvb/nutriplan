@@ -1529,6 +1529,56 @@ Open Graph a partir do pedido (`scheme` + host + path, nunca domínio escrito
 ficar fora do índice, nunca o contrário. Antes disto (medido em produção
 em 21/09): a mesma description em toda página, zero `canonical`/OG, e
 `/demo/treino/` indexável com a ficha do Carlos como se fosse o produto.
+Desde a ajuda (21/09, tarde) são NOVE: `/ajuda/` e `/ajuda/o-que-mudou/`
+entraram na lista com bloco `seo` próprio — a FAQ é o texto que diz o que
+o produto faz, e é por onde alguém o ACHA; `/ajuda/reportar/` e a
+confirmação continuam `noindex` (formulário não é conteúdo).
+
+## Ajuda (21/09/2026)
+
+**`/ajuda/` são três telas PÚBLICAS, e a FAQ só afirma o que o app faz.**
+Quem não consegue entrar é quem mais precisa de ajuda, então nada ali
+exige sessão (`ajuda/views.py`; a barra de baixo já não aparece para
+anônimo pelo `base.html`). A FAQ (`templates/ajuda/index.html`) é
+`<details class="fora">` — a sanfona da Home, com a animação do `pwa.js` —
+em quatro blocos (plano e cardápio · treino · água, peso e progresso ·
+conta, avisos e privacidade), e cada resposta aponta uma tela ou uma regra
+que existe no código, com a fonte no `CLAUDE.md`. Três respostas dizem
+NÃO de propósito e há teste prendendo as três (caloria gasta, Apple
+Saúde/Health Connect, prescrição): "melhorar" a FAQ prometendo isso é o
+defeito de veracidade que o app evita em todo lugar. A porta é tripla:
+Áreas › Ferramentas, Perfil › Conta e sessão, e o rodapé das telas de
+entrada (`partials/links_legais.html`, FORA do `{% if legal_publicado %}`
+— a ajuda não depende do legal).
+
+**"Reportar um problema" chega PREENCHIDO, e o que a pessoa escreve é só o
+que aconteceu.** Rota (`?de=` ou o `Referer` do MESMO host — de outro host
+é descartado), versão (`RENDER_GIT_COMMIT[:7]`, o mesmo que `/saude/`
+publica; somente leitura) e aparelho (`User-Agent`) vão no formulário; o
+e-mail da conta entra quando há sessão. O relato vira `EmailMessage` para
+`NUTRIPLAN_SUPORTE_EMAIL` (vazio cai em `VAPID_ADMIN_EMAIL` — o mesmo
+dono, uma variável a menos para esquecer no painel) com `Reply-To` da
+pessoa. É público, então tem três guardas e a MESMA resposta para as três
+(um bot não aprende qual o pegou): pote de mel (`site`, `HiddenInput`,
+`tabindex=-1`), limite por IP (5/h) e global (60/h) na tabela de
+`accounts.limites` (`PedidoDeRecuperacao`, tipos `ajd-ip`/`ajd-glob`,
+HMAC do IP — o mesmo motivo de lá: cache é por worker e some no deploy).
+Falha de SMTP responde 503 com mensagem e NÃO conta no limite. O teste do
+envio usa o formulário RENDERIZADO com `enforce_csrf_checks` — um nome de
+campo trocado no template derruba o teste, e não um `post` de dicionário.
+
+**"O que mudou" lê o `CHANGELOG.md`, que é OUTRO documento.** O
+`BACKLOG.md` é o caderno de engenharia e não serve para quem usa;
+`CHANGELOG.md` tem uma seção por dia (`## AAAA-MM-DD`), um item por
+mudança que a pessoa VÊ (`- **Título.** Uma frase.`), sem nome de arquivo
+nem número de PR. `ajuda/mudancas.py` lê pouco de propósito — escapa tudo
+e só conhece `**negrito**` e `` `código` ``; Markdown inteiro seria uma
+dependência para três marcas — e relê quando o mtime muda. Há teste
+cobrando a forma do arquivo real (datas decrescentes, uma seção por dia,
+nenhuma vazia). Toda missão que muda o que a pessoa vê acrescenta a linha
+dela ANTES do merge, na própria branch — e uma linha só entra quando a
+mudança que ela descreve está na mesma branch ou já em `main` (a linha
+do placar saiu deste PR por isso e entra no dele).
 
 ## Design: o que já existe, e o que não inventar de novo
 
@@ -2198,6 +2248,46 @@ caiu em "relation already exists" e o schema foi zerado uma vez
 `config/test_staging.py` prende o contrato inteiro. Worktree de sessão com
 o helper ANTIGO (sem `_provar_staging`) mergeia e NÃO vê produção mudar:
 `git merge origin/main` antes de enfileirar, sempre.
+
+**O STAGING TEM UM E2E NOTURNO DE ROBÔ (21/09/2026).**
+`.github/workflows/e2e-noturno.yml` (04:30 de Brasília, e pelo botão) roda
+`scripts/qa/e2e_staging.py` com o `agent-browser` — Chromium headless, o
+mesmo do QA local — fazendo o caminho de uma pessoa: cadastro → as três
+etapas do onboarding → "Criar meu plano" → +250 ml de água → refeição
+registrada → uma série concluída no treino → as mesmas telas em tema claro
+(`set media light`) → exclusão da conta pela tela → login recusado (a
+prova de que sumiu). Onze passos, uma captura por passo (390×844, escuro e
+claro) no artefato `capturas-e2e` de todo run; falhou, `erro-<passo>.png`
++ o snapshot em texto, a conta é apagada mesmo assim (`finally`) e a issue
+"E2E noturno falhou" abre. A conta é `qa-e2e-<run>-<data>@nutriplan.invalid`
+com senha gerada no job e nunca impressa, e o roteiro só aceita um `/saude/`
+que diga `"ambiente": "staging"` — produção não recebe conta de robô.
+Ensaiado na máquina em 21/09: 11 de 11 em ~60 s. Quatro coisas que custaram
+tentativa: `fill` não preenche `<input type=date>` (entra pelo DOM, conferido);
+no Windows o `agent-browser.cmd` passa o `eval` pelo cmd.exe, que come `||`
+(o roteiro chama o `.exe` direto e os `eval` evitam `||`/`&&`); o daemon do
+agent-browser herda os descritores (saída em ARQUIVO, `stdin` fechado, nunca
+pipe); e o CTA da ficha nova não navegou atrás do convite de instalação (o
+roteiro dispensa o convite na Home e, se um clique não navega, abre o `href`).
+`config/test_e2e_noturno.py` prende o roteiro com um navegador falso.
+
+**O TESTE DE CARGA É MANUAL, SÓ GET, SÓ NO STAGING (21/09/2026).**
+`.github/workflows/carga.yml` (botão; entradas `degraus` = "10,25,50,75,100"
+e `duracao` = "60s") roda `scripts/carga/staging.js` no k6: degraus de
+usuários simultâneos, um depois do outro, cada usuário percorrendo landing,
+`/saude/vivo/`, entrar e o `/demo/` (capa, hoje, treino, histórico — o app
+inteiro com a pessoa fictícia, a Home custando as mesmas 41 consultas), com
+pausa de 0,5–1,5 s entre rotas. Nenhuma conta nasce e nada é escrito. O
+relatório (`relatorio.md`, no resumo do run e no artefato `carga`) traz o
+p95 por rota em cada degrau, a taxa de erro por degrau e o **TETO**: o maior
+degrau em que toda rota ficou com p95 < 2 000 ms e erro < 1 %. Limiar
+estourado é RESULTADO (o k6 sai com 99 e o run fica verde com o relatório);
+qualquer outro código derruba o job. O roteiro exige `"ambiente":
+"staging"` no `/saude/` e o endereço de produção não aparece nele nem no
+fluxo. O staging é free — dois workers síncronos do gunicorn, Neon que
+hiberna —, então o teto medido é o da infraestrutura gratuita, e é isso que
+se quer saber antes de pagar por mais. `config/test_carga.py` prende o
+contrato e confere a sintaxe do roteiro no `node`.
 
 `scripts/build.sh` roda collectstatic → `check --deploy` → migrate → os três
 seeds, com `errexit`: build que passa prova que a migração rodou. Confira em
