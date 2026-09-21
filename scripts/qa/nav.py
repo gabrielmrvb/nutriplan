@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 """nav.py — navegador headless por CDP para QA, UMA sessão por nome.
 
-O `agent-browser` passou a ser bloqueado pelo Controle de Aplicativo do
-Windows em 14/09/2026; o Chrome que ele baixou continua rodando. Este
-arquivo fala CDP direto com um Chrome headless próprio por sessão.
+O `agent-browser` é o padrão de QA de navegador; este arquivo é o FALLBACK
+— fala CDP direto com um Chrome headless próprio por sessão e faz o que ele
+não faz: `rede 3g`, `permissao`, `movimento reduzido`. Histórico: de 14 a
+20/09/2026 o Controle de Aplicativo do Windows bloqueava o `agent-browser` e
+este arquivo foi a única ferramenta; o Smart App Control foi desligado em
+20/09.
 
 Uso (sempre com o python do .venv):
   nav.py <sessao> open <url>                 -> título e URL final
