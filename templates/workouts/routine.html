@@ -700,15 +700,16 @@
             <span class="tile__label">kg de volume</span>
             <span class="tile__meta">séries × reps × carga</span>
           </div>
+          {# Os rótulos concordam com o número: "1 séries · 1 exercícios" foi visto em produção (21/09/2026). #}
           <div class="tile">
             <strong class="tile__value num">{{ resumo_hoje.minutos }}</strong>
-            <span class="tile__label">minutos</span>
+            <span class="tile__label">minuto{{ resumo_hoje.minutos|pluralize }}</span>
             <span class="tile__meta">estimado</span>
           </div>
           <div class="tile">
             <strong class="tile__value num">{{ resumo_hoje.series }}</strong>
-            <span class="tile__label">séries</span>
-            <span class="tile__meta">{{ resumo_hoje.exercicios }} exercícios</span>
+            <span class="tile__label">série{{ resumo_hoje.series|pluralize }}</span>
+            <span class="tile__meta">{{ resumo_hoje.exercicios }} exercício{{ resumo_hoje.exercicios|pluralize }}</span>
           </div>
         </div>
 
