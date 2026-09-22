@@ -607,6 +607,15 @@ nonce da própria página, porque `gestao/base.html` não carrega `pwa.js`.
 Atributo de evento sob CSP não dá erro visível: o botão fica lá e não faz
 nada.
 
+E uma consequência que a suíte achou e que volta a morder quem escrever
+o próximo teste de segurança: **o nonce muda a cada resposta, e há quatro
+testes que comparam duas respostas BYTE A BYTE** para provar que a recusa
+não é oráculo (bloqueado, senha errada e conta inexistente respondem a
+mesma coisa). Eles ficaram vermelhos sem que nada de segurança tivesse
+mudado. `accounts.tests.sem_o_que_muda_por_resposta` normaliza o token de
+CSRF e o nonce — e só eles; todo o resto do HTML continua comparado byte a
+byte.
+
 **A casca nativa NÃO recebe a política**, e a razão é medida: o Capacitor
 injeta a própria ponte no WebView e nenhuma política que este servidor
 escreva conhece o nonce dela. Isso não abre buraco real — a marca

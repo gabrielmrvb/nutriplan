@@ -66,6 +66,8 @@ class Base(TestCase):
         muda a cada resposta e tornaria dois HTML iguais diferentes)."""
         html = resposta.content.decode()
         html = re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"', "", html)
+        # E o `nonce` da CSP, que também é sorteado por resposta (22/09/2026).
+        html = re.sub(r'nonce="[^"]+"', "", html)
         # o e-mail digitado volta no campo; a comparação é sobre o RESTO
         html = re.sub(r'(name="username"[^>]*?)value="[^"]*"', r"", html)
         return resposta.status_code, resposta.wsgi_request.user.is_authenticated, html
