@@ -1,0 +1,28 @@
+{
+  "name": "nutriplan-nativo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A casca nativa do NutriPlan (Capacitor): iOS e Android carregam o PWA de produção num WebView, com push, saúde e login nativos por cima.",
+  "scripts": {
+    "sync": "cap sync",
+    "sync:android": "cap sync android",
+    "sync:ios": "cap sync ios",
+    "assets": "capacitor-assets generate --iconBackgroundColor \"#072518\" --iconBackgroundColorDark \"#072518\" --splashBackgroundColor \"#0b140f\" --splashBackgroundColorDark \"#0b140f\"",
+    "android:debug": "cd android && gradlew.bat assembleDebug",
+    "android:release": "cd android && gradlew.bat bundleRelease",
+    "doctor": "cap doctor"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.2",
+    "typescript": "^7.0.2"
+  }
+}
