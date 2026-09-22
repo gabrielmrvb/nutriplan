@@ -137,7 +137,8 @@ class EnvioTests(TestCase):
 
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
-                   NUTRIPLAN_URL_BASE="https://app.exemplo")
+                   NUTRIPLAN_URL_BASE="https://app.exemplo",
+                   NUTRIPLAN_AVISOS_INATIVIDADE_DESDE="2026-09-01")
 class InatividadeTests(TestCase):
     def setUp(self):
         self.user = create_complete_user()
@@ -413,7 +414,8 @@ class PushRespeitaAPreferenciaTests(TestCase):
 
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
-                   NUTRIPLAN_URL_BASE="https://app.exemplo")
+                   NUTRIPLAN_URL_BASE="https://app.exemplo",
+                   NUTRIPLAN_AVISOS_INATIVIDADE_DESDE="2026-09-01")
 class RegraDeEnvioTests(TestCase):
     """Quem recebe: endereço em que o Brevo não desistiu, e — nos e-mails do
     relógio — caixa provada. Medido em 21/09/2026: 46,6 % de hard bounce
@@ -573,3 +575,85 @@ class SincronizacaoComOBrevoTests(TestCase):
         with override_settings(BREVO_API_KEY=""):
             call_command("sincronizar_brevo", stdout=saida)
         self.assertIn("BREVO_API_KEY ausente", saida.getvalue())
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+                   NUTRIPLAN_URL_BASE="https://app.exemplo")
+class PrimeiraRodadaTests(TestCase):
+    """A primeira rodada em produção (21/09/2026, 13:35) escreveu de uma vez
+    para toda conta dormente com ficha ativa — "27 dias sem treino" para quem
+    nunca mais abriu o app. Duas guardas: a pausa tem de ter COMEÇADO depois
+    de o aviso existir, e uma rodada não manda mais que `TETO_POR_RODADA`."""
+
+    def setUp(self):
+        self.exercicio = _exercicio()
+
+    def _dormente(self, i, ultima):
+        user = create_complete_user(email="dormente-%d@exemplo.com" % i)
+        _plano(user)
+        EmailAberto.objects.create(email=user.email)
+        _serie(user, ultima, self.exercicio)
+        return user
+
+    @override_settings(NUTRIPLAN_AVISOS_INATIVIDADE_DESDE="2026-09-21")
+    def test_dez_contas_dormentes_de_antes_da_ativacao_nao_recebem_nada(self):
+        for i in range(10):
+            self._dormente(i, date(2026, 8, 20 + i))
+        recente = self._dormente(99, date(2026, 9, 22))
+
+        resumo = jobs.rodar_inatividade(_agora(2026, 9, 28, 8, 5))
+
+        self.assertEqual(resumo["enviados"], 1, "só a pausa que começou depois do aviso existir")
+        self.assertEqual([m.to[0] for m in mail.outbox], [recente.email])
+
+    @override_settings(NUTRIPLAN_AVISOS_INATIVIDADE_DESDE="2026-09-21")
+    def test_quem_nunca_treinou_conta_do_cadastro_e_a_regra_e_a_mesma(self):
+        antigo = create_complete_user(email="antigo@exemplo.com")
+        _plano(antigo)
+        EmailAberto.objects.create(email=antigo.email)
+        User.objects.filter(pk=antigo.pk).update(date_joined=_agora(2026, 9, 10))
+
+        resumo = jobs.rodar_inatividade(_agora(2026, 9, 28, 8, 5))
+
+        self.assertEqual(resumo["enviados"], 0)
+
+    def test_o_padrao_e_o_dia_em_que_o_aviso_entrou_em_producao(self):
+        """21/09/2026, o deploy do #74: quem parou antes disso não recebe. É
+        o valor de produção, e por isso mora no `settings`, não no teste."""
+        from django.conf import settings
+
+        self.assertEqual(settings.NUTRIPLAN_AVISOS_INATIVIDADE_DESDE, "2026-09-21")
+        self.assertEqual(jobs.inatividade_desde(), date(2026, 9, 21))
+
+    @override_settings(NUTRIPLAN_AVISOS_INATIVIDADE_DESDE="")
+    def test_data_vazia_ou_ilegivel_vale_hoje_e_nunca_tudo(self):
+        self._dormente(1, date(2026, 9, 10))
+
+        self.assertEqual(jobs.inatividade_desde(), timezone.localdate())
+        self.assertEqual(jobs.rodar_inatividade(_agora(2026, 9, 28, 8, 5))["enviados"], 0)
+
+    @override_settings(NUTRIPLAN_AVISOS_INATIVIDADE_DESDE="2026-09-01")
+    def test_uma_rodada_manda_no_maximo_o_teto_e_a_seguinte_continua(self):
+        n = jobs.TETO_POR_RODADA + 5
+        for i in range(n):
+            self._dormente(i, date(2026, 9, 15))
+
+        primeira = jobs.rodar_inatividade(_agora(2026, 9, 21, 8, 5))
+        segunda = jobs.rodar_inatividade(_agora(2026, 9, 21, 8, 10))
+
+        self.assertEqual((primeira["enviados"], primeira["adiados"]), (jobs.TETO_POR_RODADA, 5))
+        self.assertEqual((segunda["enviados"], segunda["adiados"]), (5, 0))
+        self.assertEqual(len(mail.outbox), n, "ninguém fica sem: só espera a rodada seguinte")
+
+    def test_o_resumo_semanal_tem_o_mesmo_teto(self):
+        n = jobs.TETO_POR_RODADA + 3
+        for i in range(n):
+            user = create_complete_user(email="semana-%d@exemplo.com" % i)
+            _plano(user)
+            EmailAberto.objects.create(email=user.email)
+
+        primeira = jobs.rodar_resumo_semanal(_agora(2026, 9, 21, 8, 5))
+        segunda = jobs.rodar_resumo_semanal(_agora(2026, 9, 21, 8, 10))
+
+        self.assertEqual((primeira["enviados"], primeira["adiados"]), (jobs.TETO_POR_RODADA, 3))
+        self.assertEqual((segunda["enviados"], segunda["adiados"]), (3, 0))
