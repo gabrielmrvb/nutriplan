@@ -143,6 +143,9 @@ MIDDLEWARE = [
     # caminho de OAuth sob `/demo/` antes que este veja o pedido.
     "allauth.account.middleware.AccountMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # O ÚLTIMO, de propósito: a fase de resposta dele roda primeiro, com o
+    # `request.user` que o `AuthenticationMiddleware` já pôs no pedido.
+    "config.cache_privado.CachePrivadoMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
