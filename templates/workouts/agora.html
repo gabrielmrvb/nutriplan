@@ -880,7 +880,7 @@
        recarga, que recria os scripts daqui. Em `pwa.js` ele é registrado uma
        vez e reencontra o bloco por MutationObserver; o contrato com a troca
        continua sendo `window.__descansoTique`, que ela limpa ANTES de tirar
-       os nós (abaixo). Um `<script>` a menos nesta página também é um
+       os nós (abaixo). Um script inline a menos nesta página também é um
        `nonce` a menos no dia do Content-Security-Policy. */
 
 
@@ -1017,7 +1017,7 @@
       if (!(form instanceof HTMLFormElement)) return;
       /* Pelo atributo, e não pela classe: `workouts/test_b3_treino` lê o HTML
          cru e cobra que a classe do formulário de desfazer não apareça sem
-         série hoje — e a classe escrita num <script nonce="{{ csp_nonce }}"> é a mesma string
+         série hoje — e a classe escrita num script inline é a mesma string
          (CLAUDE.md, "Testes"). */
       if (!form.hasAttribute("data-sem-recarga")) return;
       /* Marcado pelo `catch` abaixo: é o reenvio "de sempre" — este ouvinte
