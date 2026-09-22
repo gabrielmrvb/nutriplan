@@ -3400,6 +3400,14 @@ class EstadoDoTreino:
     escolha: object = None
     #: Os exercícios que a versão rápida deixou de fora, nomeados na tela.
     removidos: list = field(default_factory=list)
+    #: Os exercícios da ficha sem NENHUMA série hoje — o que o placar do
+    #: treino parcial nomeia. Em memória, sobre os itens já carregados.
+    pulados: list = field(default_factory=list)
+    #: A pessoa tocou "Encerrar treino" hoje (`EscolhaDeTreino.encerrado_em`).
+    #: Separa o placar de quem FECHOU a ficha inteira do de quem decidiu que
+    #: acabou — a tela diz coisas diferentes, e "retomar" só existe no
+    #: segundo caso.
+    encerrado: bool = False
 
     @property
     def tem_duas_opcoes(self) -> bool:
@@ -3420,6 +3428,17 @@ class EstadoDoTreino:
     @property
     def comecou(self) -> bool:
         return self.series_feitas > 0
+
+    @property
+    def descanso_relogio(self) -> str:
+        """O descanso em `m:ss`, UM formato só (22/09/2026).
+
+        A tela mostrava "79s" e virava "1:13" no meio da contagem — dois
+        formatos para o mesmo número, e a pessoa relê para entender. O
+        JavaScript escreve o mesmo formato a cada segundo; este aqui é o
+        primeiro quadro, o que o servidor manda pronto."""
+        minutos, segundos = divmod(max(0, int(self.descanso_restante)), 60)
+        return "%d:%02d" % (minutos, segundos)
 
 
 def escolha_do_dia(user, dia=None):
@@ -3504,6 +3523,38 @@ def registrar_escolha(user, sessao, opcao, versao=VersaoDoTreino.COMPLETO, dia=N
         escolha.opcao = opcao
         escolha.versao = versao
         escolha.save(update_fields=["session", "opcao", "versao"])
+    return escolha
+
+
+def encerrar_treino(user, sessao, dia=None):
+    """A pessoa disse que acabou: o dia fecha e o placar abre (22/09/2026).
+
+    Até aqui "concluído" era só a ficha inteira coberta, e quem parava no
+    sexto de nove exercícios não tinha como fechar — a tela ficava em
+    "Exercício 6/9" para sempre e o resumo do que foi feito nunca aparecia.
+    O fecho é um carimbo na escolha do dia (uma linha por pessoa por dia,
+    que já existe); nada é apagado, e retomar é tirar o carimbo.
+    """
+    dia = dia or timezone.localdate()
+    escolha = escolha_do_dia(user, dia)
+    if escolha is None:
+        escolha = registrar_escolha(user, sessao, opcao_do_dia(user, sessao, dia), dia=dia)
+    escolha.encerrado_em = timezone.now()
+    escolha.save(update_fields=["encerrado_em"])
+    return escolha
+
+
+def retomar_treino(user, dia=None):
+    """Encerrou sem querer: o carimbo sai e o treino continua de onde parou.
+
+    Sem isto, um toque errado no "Encerrar" trancaria a pessoa no placar até
+    o dia virar — e o app não apaga nada para "desfazer"."""
+    dia = dia or timezone.localdate()
+    escolha = escolha_do_dia(user, dia)
+    if escolha is None or escolha.encerrado_em is None:
+        return None
+    escolha.encerrado_em = None
+    escolha.save(update_fields=["encerrado_em"])
     return escolha
 
 
@@ -4036,8 +4087,16 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
     # `concluido` continua olhando a FICHA, não o item em foco: escolher um
     # exercício já feito não pode fazer a tela dizer que o treino acabou, nem o
     # contrário.
-    estado.concluido = bool(itens) and not any(
-        not item.concluido for item in itens
+    #
+    # E DESDE 22/09/2026 ele também é verdade quando a pessoa DISSE que
+    # acabou (`EscolhaDeTreino.encerrado_em`): quem para no sexto de nove
+    # exercícios terminou o treino dela, e a tela precisa saber fechar. O
+    # placar sabe a diferença — ele conta séries feitas CONTRA prescritas e
+    # nomeia o que ficou de fora.
+    estado.encerrado = escolha is not None and escolha.encerrado_em is not None
+    estado.pulados = [item for item in itens if not item.feitas]
+    estado.concluido = bool(itens) and (
+        estado.encerrado or not any(not item.concluido for item in itens)
     )
 
     # Quanto falta de descanso — contado do relógio, não de um cronômetro que

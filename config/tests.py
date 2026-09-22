@@ -525,7 +525,13 @@ class TouchTargetTests(TestCase):
         # repositório em 10/09/2026 sem `{% include %}` nenhum; o descanso da
         # execução tem um "pular", e é ele que a pessoa toca de pé entre
         # séries, com a mão suada — o mesmo minuto, o mesmo risco.
-        (".descanso__pular {", "min-height: 2.75rem"),
+        # Desde 22/09/2026 são TRÊS botões na mesma barra ("+30 s", "pular",
+        # "som"), e a régua mede os três pelo seletor em que eles moram —
+        # junto com `min-width`, porque "som" tem três letras e a régua deste
+        # repositório mede altura E largura desde o alvo de 26px de largura
+        # que passou despercebido.
+        (".descanso__mais,", "min-height: 2.75rem"),
+        (".descanso__mais,", "min-width: 2.75rem"),
         # O link de volta das telas legais. Media 102x22 na privacidade e
         # 157x22 nos termos: e o paragrafo inteiro, entao a excecao de alvo
         # inline da WCAG nao o cobre — ela vale para link no meio de frase.

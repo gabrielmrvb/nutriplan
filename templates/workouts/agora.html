@@ -20,7 +20,7 @@
   a pessoa estava treinando na tela que diz que o treino acabou e na que diz
   que hoje é descanso.
 {% endcomment %}
-{% block title %}{% if not estado.tem_treino %}Modo treino{% elif estado.concluido %}Treino concluído{% else %}Treinando{% endif %} · NutriPlan{% endblock %}
+{% block title %}{% if not estado.tem_treino %}Modo treino{% elif estado.concluido %}{% if estado.series_feitas < estado.total_series %}Treino encerrado{% else %}Treino concluído{% endif %}{% else %}Treinando{% endif %} · NutriPlan{% endblock %}
 
 {% block content %}
   {% if not estado.tem_treino %}
@@ -78,7 +78,21 @@
       caloria: o app não mede nenhum dos dois.
     {% endcomment %}
     <section class="card fim recompensa">
-      <p class="recompensa__rotulo">Treino concluído · {{ estado.total_exercicios }} {% if estado.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}</p>
+      {% comment %}
+        DOIS FECHOS, DUAS FRASES (22/09/2026). "Treino concluído" é a ficha
+        inteira coberta; quem tocou "Encerrar treino" com séries de fora fez
+        um treino PARCIAL, e chamar isso de concluído seria o app afirmando
+        o que não aconteceu — o mesmo defeito de veracidade que a ficha
+        evita desde a faixa de duração.
+      {% endcomment %}
+      <p class="recompensa__rotulo">
+        {% if estado.series_feitas < estado.total_series %}
+          Treino parcial · <span class="num">{{ estado.series_feitas }}</span> de
+          <span class="num">{{ estado.total_series }}</span> séries
+        {% else %}
+          Treino concluído · {{ estado.total_exercicios }} {% if estado.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}
+        {% endif %}
+      </p>
       <p class="recompensa__carga">
         {# O herói: kg quando houve carga; repetições no treino de peso do corpo (22/09/2026). #}
         <span class="recompensa__numero num" data-conta="zero">{{ estado.placar.heroi.0|floatformat:"0g" }}</span>
@@ -105,6 +119,17 @@
           {% endif %}
         </li>
       </ul>
+      {% comment %}
+        O QUE FICOU DE FORA, nomeado (22/09/2026). Um placar que só soma o
+        que foi feito deixa a pessoa sem saber o que pular custou — e a
+        lista é curta por construção: são os exercícios da ficha sem
+        nenhuma série hoje.
+      {% endcomment %}
+      {% if estado.pulados %}
+        <p class="recompensa__pulados">
+          Sem registro hoje: {% for item in estado.pulados %}{{ item.exercise.name }}{% if not forloop.last %} · {% endif %}{% endfor %}
+        </p>
+      {% endif %}
       {% if estado.placar.recordes %}
         <p class="recompensa__recorde">
           <span class="pill pill--brand">recorde</span>
@@ -151,7 +176,18 @@
       <a class="btn btn--ghost btn--block" href="{% url 'plans:today' %}">
         Voltar para Hoje
       </a>
-
+      {% comment %}
+        RETOMAR só existe para quem ENCERROU: com a ficha inteira coberta não
+        há o que retomar, e oferecer o botão ali seria convidar a desfazer um
+        treino que acabou. Nada foi apagado — retomar é tirar o carimbo do
+        dia, e as séries continuam onde estavam.
+      {% endcomment %}
+      {% if estado.encerrado %}
+        <form method="post" action="{% url 'workouts:retomar' %}" class="agora__retomar-form">
+          {% csrf_token %}
+          <button type="submit" class="btn-link agora__retomar">Retomar treino</button>
+        </form>
+      {% endif %}
     </section>
 
   {% else %}
@@ -175,6 +211,29 @@
       aqui". Mostrar só a primeira deixa a barra parada por quatro séries
       seguidas.
     {% endcomment %}
+    {% comment %}
+      ENCERRAR PELA METADE PERGUNTA ANTES. A confirmação é uma TELA, não um
+      `confirm()`: ela chega no `?encerrar=confirmar` de `EncerrarTreinoView`
+      e funciona sem JavaScript. "Continuar treinando" é um link de volta
+      para a mesma tela, sem o parâmetro — a saída é a barata.
+    {% endcomment %}
+    {% if encerrar_confirmar %}
+      <section class="card agora__confirmar" role="alertdialog" aria-labelledby="confirmar-encerrar">
+        <h2 id="confirmar-encerrar" class="agora__confirmar-titulo">Registrar como treino parcial?</h2>
+        <p>
+          Você registrou <b class="num">{{ estado.series_feitas }}</b> de
+          <span class="num">{{ estado.total_series }}</span> séries. O que foi
+          registrado continua no seu histórico; o resto fica sem registro hoje.
+        </p>
+        <form method="post" action="{% url 'workouts:encerrar' %}">
+          {% csrf_token %}
+          <input type="hidden" name="confirmado" value="1">
+          <button type="submit" class="btn btn--primary btn--block">Encerrar como treino parcial</button>
+        </form>
+        <a class="btn btn--ghost btn--block" href="{% url 'workouts:now' %}">Continuar treinando</a>
+      </section>
+    {% endif %}
+
     <div class="page-head agora__head">
       {% comment %}
         A volta para a ficha, no topo: quem chega por link compartilhado ou
@@ -203,6 +262,57 @@
         <span class="progress__fill" style="width: {{ estado.pct }}%"></span>
       </div>
     </div>
+
+    {% if estado.descanso_restante %}
+      {% comment %}
+        O descanso é informação, não porteiro: o formulário continua aberto
+        embaixo dele. Quem quiser emendar a série antes do tempo emenda —
+        travar o botão transformaria uma sugestão de fisiologia numa regra do
+        aplicativo.
+
+        O número vem do servidor: `agora - created_at da última série`. Um
+        cronômetro que só existisse no JavaScript zeraria ao trocar de aba,
+        que é justamente quando a pessoa sai do app para ver a hora.
+
+        O bloco NÃO é uma região viva, e o aviso ao lado é.
+
+        Ele já foi `role="status" aria-live="polite"` com o relógio dentro, e
+        o relógio muda de texto a cada segundo: medido no navegador, cinco
+        mutações em 5,2 s dentro da região. Cada mutação faz o leitor de tela
+        reler a região inteira — "Descanso 54s pular", "Descanso 53s pular" —
+        e são oitenta anúncios por descanso, cerca de dois mil num treino de
+        29 séries. Uma fila de fala desse tamanho não informa: ela impede
+        ouvir qualquer outra coisa da tela.
+
+        O relógio continua legível para quem navega até ele; o que sai é o
+        empurrão. Quem anuncia é o parágrafo escondido, e só duas vezes: no
+        começo do descanso e quando ele acaba.
+      {% endcomment %}
+      {% comment %}
+        O CRONÔMETRO É GRANDE, GRUDA NO TOPO E TEM UM FORMATO SÓ
+        (22/09/2026). Era uma faixa fina que dizia "79s" e virava "1:13" no
+        meio da contagem — dois formatos para o mesmo número — e sumia da
+        tela assim que a pessoa rolava para ver a próxima série. Agora ele
+        é `m:ss` do primeiro ao último segundo, fica visível enquanto
+        houver descanso (`position: sticky` logo abaixo da barra do topo),
+        e traz as duas ações que se usa de pé: "+30 s" para quem precisa de
+        mais, "pular" para quem quer emendar. O som é OPCIONAL e lembrado
+        no aparelho (`localStorage`), desligado por padrão: quem treina
+        ouvindo música não quer um bipe; a vibração continua para todos.
+        O JavaScript mora em `static/js/pwa.js` ("DESCANSO").
+      {% endcomment %}
+      <div class="descanso" data-descanso="{{ estado.descanso_restante }}">
+        <span class="descanso__rotulo">Descanso</span>
+        <span class="descanso__relogio num" data-descanso-relogio>{{ estado.descanso_relogio }}</span>
+        <span class="descanso__acoes">
+          <button type="button" class="btn-link descanso__mais" data-descanso-mais>+30 s</button>
+          <button type="button" class="btn-link descanso__pular" data-descanso-pular>pular</button>
+          <button type="button" class="btn-link descanso__som" data-descanso-som
+                  aria-pressed="false" aria-label="Som ao terminar o descanso">som</button>
+        </span>
+      </div>
+      <p class="vis-oculto" role="status" aria-live="polite" data-descanso-aviso></p>
+    {% endif %}
 
     <section class="card agora">
       <header class="agora__topo">
@@ -260,42 +370,6 @@
         {% if not concluido or extra %}<p class="series__esforco">{{ atual.esforco }}</p>{% endif %}
       </div>
 
-      {% if estado.descanso_restante %}
-        {% comment %}
-          O descanso é informação, não porteiro: o formulário continua aberto
-          embaixo dele. Quem quiser emendar a série antes do tempo emenda —
-          travar o botão transformaria uma sugestão de fisiologia numa regra do
-          aplicativo.
-
-          O número vem do servidor: `agora - created_at da última série`. Um
-          cronômetro que só existisse no JavaScript zeraria ao trocar de aba,
-          que é justamente quando a pessoa sai do app para ver a hora.
-
-          O bloco NÃO é uma região viva, e o aviso ao lado é.
-
-          Ele já foi `role="status" aria-live="polite"` com o relógio dentro, e
-          o relógio muda de texto a cada segundo: medido no navegador, cinco
-          mutações em 5,2 s dentro da região. Cada mutação faz o leitor de tela
-          reler a região inteira — "Descanso 54s pular", "Descanso 53s pular" —
-          e são oitenta anúncios por descanso, cerca de dois mil num treino de
-          29 séries. Uma fila de fala desse tamanho não informa: ela impede
-          ouvir qualquer outra coisa da tela.
-
-          O relógio continua legível para quem navega até ele; o que sai é o
-          empurrão. Quem anuncia é o parágrafo escondido, e só duas vezes: no
-          começo do descanso e quando ele acaba.
-        {% endcomment %}
-        <div class="descanso" data-descanso="{{ estado.descanso_restante }}">
-          <span class="descanso__rotulo">Descanso</span>
-          <span class="descanso__relogio num" data-descanso-relogio>
-            {{ estado.descanso_restante }}s
-          </span>
-          <button type="button" class="btn-link descanso__pular" data-descanso-pular>
-            pular
-          </button>
-        </div>
-        <p class="vis-oculto" role="status" aria-live="polite" data-descanso-aviso></p>
-      {% endif %}
       {% comment %}
         O BLOCO PRESO AO RODAPÉ: a fileira de pastilhas, a nota do toque
         offline e o formulário (ou "Tudo registrado"), numa caixa só. Era só
@@ -691,6 +765,17 @@
        href="{% url 'workouts:ficha' estado.sessao.pk %}">
       Ver o treino completo
     </a>
+    {% comment %}
+      O FECHO QUE A TELA NÃO TINHA (22/09/2026). "Concluído" só existia com
+      toda série prescrita registrada: quem parava no sexto de nove
+      exercícios ficava em "Exercício 6/9" para sempre e nunca via o resumo
+      do que fez. Agora ela diz "acabei", e o placar abre. É reversível —
+      "Retomar treino" no placar —, e nada é apagado.
+    {% endcomment %}
+    <form method="post" action="{% url 'workouts:encerrar' %}" class="agora__encerrar-form">
+      {% csrf_token %}
+      <button type="submit" class="btn btn--quiet btn--block agora__encerrar">Encerrar treino</button>
+    </form>
     {% endwith %}
   {% endif %}
   <script>
@@ -710,85 +795,16 @@
       });
     });
 
-    /* Descanso: conta do número que o servidor mandou.
+    /* O DESCANSO MORA EM `static/js/pwa.js` ("DESCANSO", 22/09/2026).
 
-       O servidor manda quanto FALTA, calculado do `created_at` da última
-       série. Recarregar no meio do descanso recomeça a contagem do valor
-       certo, e não do total. */
-    var area = document.querySelector("[data-descanso]");
-    if (area) {
-      var restante = parseInt(area.dataset.descanso, 10) || 0;
-      var relogio = area.querySelector("[data-descanso-relogio]");
-      var aviso = document.querySelector("[data-descanso-aviso]");
+       Ele cresceu — `m:ss`, "+30 s", som opcional, Wake Lock para a tela não
+       apagar no meio — e passou a precisar sobreviver à troca do <main> sem
+       recarga, que recria os scripts daqui. Em `pwa.js` ele é registrado uma
+       vez e reencontra o bloco por MutationObserver; o contrato com a troca
+       continua sendo `window.__descansoTique`, que ela limpa ANTES de tirar
+       os nós (abaixo). Um `<script>` a menos nesta página também é um
+       `nonce` a menos no dia do Content-Security-Policy. */
 
-      /* Só duas falas por descanso, e as duas dizem algo que muda o que fazer:
-         quanto tempo começou a contar, e que ele acabou. O relógio da tela
-         continua com a contagem para quem olha. */
-      function falar(texto) {
-        if (aviso) aviso.textContent = texto;
-      }
-
-      function porExtenso(segundos) {
-        var m = Math.floor(segundos / 60), s = segundos % 60;
-        if (!m) return segundos + " segundos";
-        if (!s) return m + (m === 1 ? " minuto" : " minutos");
-        return m + (m === 1 ? " minuto e " : " minutos e ") + s + " segundos";
-      }
-
-      /* O anúncio sai um instante DEPOIS de a página assentar.
-         Conteúdo que já está no HTML quando o documento carrega não é anunciado
-         — região viva avisa sobre mudança, e no carregamento não houve
-         mudança. Escrever daqui a pouco é o que transforma o texto em fala. */
-      setTimeout(function () {
-        if (restante > 0) falar("Descanso de " + porExtenso(restante) + ".");
-      }, 300);
-
-      /* UM descanso vivo por página. Este script mora no <main> e é recriado
-         quando "Concluir série" troca o <main> sem recarregar (abaixo): sem
-         a limpeza, o interval da série anterior seguia contando sobre nós
-         soltos e, ao chegar a zero, vibrava "pode ir" para um descanso que
-         não existia mais — junto com o novo. O `window.__descansoTique` é
-         onde a troca alcança o interval para pará-lo ANTES de tirar os nós,
-         inclusive quando o <main> novo não tem descanso (o placar). */
-      if (window.__descansoTique) clearInterval(window.__descansoTique);
-      var tique = setInterval(function () {
-        restante -= 1;
-        if (restante <= 0) {
-          clearInterval(tique);
-          window.__descansoTique = null;
-          area.classList.add("descanso--fim");
-          if (relogio) relogio.textContent = "pode ir";
-          falar("Descanso terminado, pode ir.");
-          /* CHAMAR DE LONGE, e por isso o padrao e longo.
-           *
-           * No fim do descanso o aparelho esta no banco, e a pessoa esta de
-           * costas para ele. E o oposto do toque curto de gravar a serie, que
-           * acontece com o telefone na mao. Vibracao longa para confirmacao e
-           * o que faz alguem desligar a vibracao do app inteiro.
-           *
-           * `navigator.vibrate` nao existe no iPhone. O `if` nao e otimizacao:
-           * e a metade dos aparelhos. */
-          if (navigator.vibrate) navigator.vibrate([200, 100, 400]);
-          return;
-        }
-        var m = Math.floor(restante / 60), s = restante % 60;
-        if (relogio) {
-          relogio.textContent = m
-            ? m + ":" + (s < 10 ? "0" : "") + s
-            : restante + "s";
-        }
-      }, 1000);
-      window.__descansoTique = tique;
-      var pular = area.querySelector("[data-descanso-pular]");
-      if (pular) {
-        pular.addEventListener("click", function () {
-          clearInterval(tique);
-          window.__descansoTique = null;
-          area.hidden = true;
-          falar("Descanso pulado.");
-        });
-      }
-    }
 
     /* O pulso que confirma a serie.
 

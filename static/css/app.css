@@ -6770,14 +6770,23 @@ body.montando { overflow: hidden; }
 /* -- Descanso ------------------------------------------------------------- */
 
 /* Informação, não porteiro: o formulário continua aberto embaixo. Travar o
-   botão transformaria uma sugestão de fisiologia numa regra do aplicativo. */
+   botão transformaria uma sugestão de fisiologia numa regra do aplicativo.
+
+   ELE GRUDA (22/09/2026). A faixa fina rolava para fora da tela no momento
+   em que a pessoa olhava as séries — e o descanso é justamente o que ela
+   quer ver enquanto espera. `sticky` logo abaixo da barra do topo, que é a
+   única coisa acima dele; a camada é a de flutuante, abaixo da navegação,
+   porque nada cobre a barra de abas (seção 3). */
 .descanso {
+  position: sticky;
+  top: calc(var(--appbar-h) + .35rem);
+  z-index: var(--camada-flutuante);
   display: flex;
   align-items: center;
   gap: .55rem;
   margin-bottom: var(--espaco-4);
-  padding: .55rem .75rem;
-  border: 1px solid var(--brand);
+  padding: .5rem .75rem;
+  border: var(--traco) solid var(--brand);
   border-radius: var(--quina-p);
   background: var(--brand-soft);
   min-width: 0;
@@ -6789,17 +6798,33 @@ body.montando { overflow: hidden; }
   text-transform: uppercase;
   color: var(--brand-strong);
 }
+/* O NÚMERO É O HERÓI DESTE BLOCO: é para ser lido de longe, com o aparelho
+   no banco. `m:ss` do primeiro ao último segundo — a tela dizia "79s" e
+   virava "1:13" no meio da contagem. */
 .descanso__relogio {
-  font-size: 1.1rem;
+  font-size: var(--texto-2xl);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--text);
+  min-width: 3.4ch;
 }
-.descanso__pular {
+/* As duas ações que se usa de pé, mais o som. Alvo de 44 × 44 nos três: a
+   régua mede altura E largura, e "som" com três letras não a alcançaria. */
+.descanso__acoes {
+  display: flex;
+  align-items: center;
+  gap: .15rem;
   margin-left: auto;
-  min-height: 2.75rem;
-  padding-inline: var(--espaco-3);
 }
+.descanso__mais,
+.descanso__pular,
+.descanso__som {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  padding-inline: var(--espaco-2);
+}
+.descanso__som[aria-pressed="true"] { color: var(--brand); font-weight: 700; }
+.descanso__som[aria-pressed="false"] { color: var(--text-mute); }
 .descanso--fim { border-style: dashed; }
 
 /* -- Registrar a série ---------------------------------------------------- */
@@ -6945,6 +6970,28 @@ body.montando { overflow: hidden; }
 .agora__proximo-link b { color: inherit; }
 
 .agora__lista { margin-bottom: .4rem; }
+
+/* -- Encerrar o treino (22/09/2026) --------------------------------------- */
+
+/* O fecho é a última coisa da tela e a mais discreta das três ações: quem
+   está treinando não pode tocá-lo sem querer entre uma série e outra. */
+.agora__encerrar-form { margin-top: var(--espaco-3); }
+.agora__encerrar { color: var(--text-mute); }
+
+/* A confirmação do treino parcial chega NO TOPO da execução — é a resposta
+   ao toque, e ler "Registrar como treino parcial?" depois de rolar a tela
+   inteira não é confirmação, é surpresa. */
+.agora__confirmar { margin-bottom: var(--espaco-5); border: var(--traco) solid var(--brand); }
+.agora__confirmar-titulo { margin: 0 0 var(--espaco-3); font-size: var(--texto-lg); }
+.agora__retomar-form { margin-top: var(--espaco-4); }
+.agora__retomar { color: var(--text-mute); }
+
+/* O que ficou de fora, no placar do treino parcial. */
+.recompensa__pulados {
+  margin: 0 0 var(--espaco-5);
+  font-size: var(--texto-sm);
+  color: var(--text-mute);
+}
 
 /* -- Treino concluído ----------------------------------------------------- */
 
@@ -7103,7 +7150,9 @@ body.montando { overflow: hidden; }
 .agora__voltar,
 .demo__abrir,
 .demo__fechar,
+.descanso__mais,
 .descanso__pular,
+.descanso__som,
 .ficha-item__fazer,
 .ficha-item__ver,
 .forma__trocar {
@@ -7116,7 +7165,9 @@ body.montando { overflow: hidden; }
 .agora__voltar:active,
 .demo__abrir:active,
 .demo__fechar:active,
+.descanso__mais:active,
 .descanso__pular:active,
+.descanso__som:active,
 .ficha-item__fazer:active,
 .ficha-item__ver:active,
 .forma__trocar:active { transform: scale(.96); }
@@ -7131,7 +7182,9 @@ body.montando { overflow: hidden; }
   .agora__voltar,
     .demo__abrir,
   .demo__fechar,
+  .descanso__mais,
   .descanso__pular,
+  .descanso__som,
   .ficha-item__fazer,
   .ficha-item__ver,
   .forma__trocar { transition: none; }
@@ -7143,7 +7196,9 @@ body.montando { overflow: hidden; }
   .agora__voltar:active,
     .demo__abrir:active,
   .demo__fechar:active,
+  .descanso__mais:active,
   .descanso__pular:active,
+  .descanso__som:active,
   .ficha-item__fazer:active,
   .ficha-item__ver:active,
   .forma__trocar:active { transform: none; }
@@ -8523,7 +8578,12 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    devolve o respiro que reservava para a barra. */
 .teclado-aberto .tabbar { transform: translateY(125%); transition: transform var(--mov-estado) var(--ease); }
 .teclado-aberto .install { display: none; }
-.teclado-aberto .container { padding-bottom: var(--espaco-6); }
+/* SÓ ONDE A BARRA EXISTE (22/09/2026). A regra valia para todo
+   `.container`: na execução do treino, que não tem barra de abas, focar o
+   campo de carga encolhia a página em ~100 px e o botão "Concluir série"
+   escapava do dedo (medido: `scrollHeight` 1026 → 923 no foco). Sem barra
+   não há espaço reservado para devolver. */
+.teclado-aberto.tem-tabbar .container { padding-bottom: var(--espaco-6); }
 .tabbar__item.is-active { view-transition-name: aba-ativa; }
 
 /* ---- Onboarding: a trilha morfa (um terço → dois terços → inteira) e a

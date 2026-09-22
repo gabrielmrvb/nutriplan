@@ -1016,6 +1016,65 @@ class DispensarAvisoView(OnboardingRequiredMixin, View):
         return redirect("plans:today")
 
 
+class EncerrarTreinoView(AcaoDeTela, OnboardingRequiredMixin, View):
+    """"Encerrar treino": a pessoa diz que acabou, e o placar abre.
+
+    O app não tinha fecho. "Concluído" só existia com toda série prescrita
+    registrada — quem parava no sexto de nove exercícios ficava em
+    "Exercício 6/9" para sempre, sem resumo nenhum do que fez, e "Ver o
+    treino completo" não era isso (leva à ficha).
+
+    COM MENOS DA METADE DAS SÉRIES, PERGUNTA ANTES. Encerrar é reversível
+    ("Retomar treino" no placar) e não apaga nada, mas fechar sem querer no
+    meio do terceiro exercício esconderia a ficha do resto do dia — e a
+    confirmação é uma tela, não um `confirm()`: a execução reabre com o
+    bloco de confirmação em cima, que funciona sem JavaScript.
+    """
+
+    tela_da_acao = "workouts:now"
+    #: Abaixo disto o fecho pede confirmação. Metade porque é a régua que a
+    #: pessoa reconhece — "fiz menos da metade do que estava na ficha".
+    FRACAO_QUE_PERGUNTA = 0.5
+
+    def post(self, request, *args, **kwargs):
+        estado = services.estado_do_treino(request.user)
+        if not estado.tem_treino:
+            return redirect("workouts:now")
+        parcial = (
+            estado.total_series
+            and estado.series_feitas < estado.total_series * self.FRACAO_QUE_PERGUNTA
+        )
+        if parcial and request.POST.get("confirmado") != "1":
+            return redirect(reverse("workouts:now") + "?encerrar=confirmar")
+        services.encerrar_treino(request.user, estado.sessao)
+        if estado.series_feitas:
+            messages.success(
+                request,
+                "Treino encerrado · %d de %d séries registradas."
+                % (estado.series_feitas, estado.total_series),
+            )
+        else:
+            # Sem nenhuma série não há o que celebrar, e dizer "treino
+            # encerrado" para um dia em branco seria o app afirmando o que
+            # não aconteceu.
+            messages.info(request, "Treino encerrado sem séries registradas hoje.")
+        return redirect("workouts:now")
+
+
+class RetomarTreinoView(AcaoDeTela, OnboardingRequiredMixin, View):
+    """Encerrou sem querer: o carimbo sai e o treino continua de onde parou.
+
+    Nada foi apagado para ser desfeito — `ExerciseLog` continua intacto —,
+    então retomar é tirar uma data da escolha do dia."""
+
+    tela_da_acao = "workouts:now"
+
+    def post(self, request, *args, **kwargs):
+        if services.retomar_treino(request.user) is not None:
+            messages.info(request, "Treino retomado.")
+        return redirect("workouts:now")
+
+
 def _descanso_de(user, exercise) -> int:
     """O descanso prescrito para este exercício na ficha ativa.
 
@@ -1328,6 +1387,13 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
         extras = self.request.GET.getlist("extra")
         if extras and extras != ["1"]:
             raise Http404("pedido de série extra ilegível")
+        # `?encerrar=confirmar` é a volta de `EncerrarTreinoView` quando o
+        # treino está pela metade: a tela reabre com o bloco de confirmação
+        # em cima. LISTA FECHADA, como `?exercicio=` e `?extra=`.
+        encerrar = self.request.GET.getlist("encerrar")
+        if encerrar and encerrar != ["confirmar"]:
+            raise Http404("pedido de encerramento ilegível")
+        context["encerrar_confirmar"] = bool(encerrar) and not estado.concluido
         context["extra"] = bool(extras)
         # UM IDENTIFICADOR POR RENDERIZAÇÃO, e dois porque são dois
         # formulários — registrar e desfazer não podem compartilhar identidade,
@@ -1347,6 +1413,23 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
         # série e outra —, e um cartão fixo cobrindo o rodapé atrapalha a
         # tarefa. Ver `data-sem-convite` no `base.html`.
         context["sem_convite"] = True
+        # MODO TREINO É MODO FOCO DE VERDADE (22/09/2026). A barra de abas
+        # (Alimentação · Treino · Progresso · Áreas) e o rodapé legal
+        # continuavam na tela entre uma série e outra: quatro destinos para
+        # sair de uma tarefa que se faz de pé, ocupando 5,9rem do único
+        # aparelho que a pessoa tem na mão. As saídas desta tela são as duas
+        # que ela usa — "← Ficha" no topo e "Encerrar treino" no fim.
+        #
+        # E desligar a barra conserta, de graça, o salto de layout do campo
+        # de carga: `.teclado-aberto .container` devolvia o espaço reservado
+        # para a barra ao focar um campo de texto, a página encolhia ~100 px
+        # (MEDIDO: `scrollHeight` 1026 → 923) e o "Concluir série" fugia do
+        # dedo. Sem barra não há espaço a devolver.
+        context["sem_tabbar"] = True
+        # O rodapé legal (Política · Termos) fica nas outras telas — a
+        # LGPD pede acesso FACILITADO, e ele está a um toque daqui, na ficha
+        # e no Perfil. Aqui ele é o terceiro bloco de links num treino.
+        context["sem_rodape_legal"] = True
         # A REFERÊNCIA DO MOVIMENTO (auditoria de 20/09/2026, upgrade 4,
         # aprovado pelo dono): as duas opções da letra têm exercícios
         # DIFERENTES, então um exercício só repete de

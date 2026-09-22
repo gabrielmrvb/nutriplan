@@ -1306,6 +1306,14 @@ class EscolhaDeTreino(models.Model):
     versao = models.CharField(
         "versão", max_length=8, choices=VersaoDoTreino.choices, default=VersaoDoTreino.COMPLETO
     )
+    #: QUANDO A PESSOA DISSE "ACABEI" (22/09/2026). Até aqui o treino só
+    #: "terminava" cobrindo toda série prescrita — quem parava no sexto de
+    #: nove exercício não tinha como fechar, e a tela ficava eternamente em
+    #: "Exercício 6/9" sem nenhum resumo. `None` é "ainda treinando"; o
+    #: placar abre com isto OU com a ficha inteira coberta. Continua sendo
+    #: derivado do que a pessoa fez — ninguém "abre" um treino, e a primeira
+    #: série de amanhã é outro dia, outra linha.
+    encerrado_em = models.DateTimeField("encerrado em", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
