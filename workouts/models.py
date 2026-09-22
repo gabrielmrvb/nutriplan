@@ -1010,6 +1010,13 @@ class TrainingPlan(models.Model):
     #: regenerar?" (17/09/2026). No plano, e não no navegador: um aviso que
     #: volta em cada aparelho é ruído. `None` é "nunca dispensou".
     aviso_dispensado_em = models.DateTimeField("aviso de regenerar dispensado em", null=True, blank=True)
+    #: REMONTAGEM PEDIDA E ADIADA (22/09/2026). "Regenerar" com série anotada
+    #: hoje não troca a ficha debaixo da mão de quem está treinando — o dono
+    #: viu a ficha em uso virar 404 e o cartão do dia virar outra letra com
+    #: 0 %. O pedido fica AQUI, e `sync_active_routine` o cumpre na primeira
+    #: visita de um dia sem série. No plano e não na sessão do navegador
+    #: porque quem pediu de um aparelho espera a ficha nova em todos.
+    regenerar_pedido_em = models.DateTimeField("remontagem pedida em", null=True, blank=True)
     #: RETRATO DAS ENTRADAS (17/09/2026): com que catálogo (a impressão
     #: digital de `exercises.json`, `splits.json` e `TREINO.md` —
     #: `services.versao_do_catalogo`), que nível e que faixa de duração a

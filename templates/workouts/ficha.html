@@ -50,6 +50,27 @@
 
   <div class="split">
     <div class="split__main stack">
+      {% comment %}
+        FICHA DE UM PROGRAMA ANTERIOR (22/09/2026). Ela abre — antes
+        respondia 404 no instante da remontagem, com o treino em curso — e
+        diz o que é: histórico. Sem porta de execução, porque executar
+        pertence ao programa vigente; e com a contagem do que foi anotado
+        hoje nestes exercícios, que é o motivo de alguém voltar aqui.
+      {% endcomment %}
+      {% if historico %}
+        <p class="ficha__historico" role="status">
+          Ficha de um <b>programa anterior</b> ({{ plan.created_at|date:"d/m" }}).
+          {% if series_de_hoje %}
+            <span class="num">{{ series_de_hoje }}</span>
+            {% if series_de_hoje == 1 %}série registrada{% else %}séries registradas{% endif %} hoje
+            {% if series_de_hoje == 1 %}continua{% else %}continuam{% endif %} no seu histórico.
+          {% else %}
+            Nada foi perdido: o que você registrou continua no Progresso.
+          {% endif %}
+          <a class="btn-link" href="{% url 'workouts:routine' %}">Ver o treino de hoje</a>
+        </p>
+      {% endif %}
+
       {% if sessao.focus %}
         <p class="session__focus">{{ sessao.focus }}</p>
       {% endif %}
