@@ -2084,3 +2084,57 @@
     });
   });
 })();
+/* ==========================================================================
+   TOKEN DE CSRF — o do cookie, não o da renderização (22/09/2026)
+   ==========================================================================
+
+   A RAIZ do "a sessão caiu e perdi o que digitei". Não há logout em POST
+   nenhum neste app; o que há é 403 de CSRF, por dois caminhos medidos:
+
+     1. a página veio do cache do service worker — ele serve a cópia guardada
+        quando a rede passa de três segundos — e o campo escondido carrega o
+        token de uma sessão anterior;
+     2. a pessoa entrou de novo (outra aba, ou a sessão tinha vencido) e
+        `login()` chamou `rotate_token()`: o segredo do cookie mudou, e a aba
+        aberta continua com o token velho no HTML.
+
+   Nos dois o COOKIE está certo. A fila offline já fazia exatamente isto
+   (`fila.js`, "o token é trocado pelo do MOMENTO DO ENVIO") e por isso nunca
+   sofreu; quem sofria era o formulário comum — a etapa 2 do cadastro e o
+   registro de corrida, os dois longos, os dois citados pelo dono.
+
+   Não enfraquece nada: o cookie só é legível por JavaScript da PRÓPRIA
+   origem, que é de onde a defesa vem, e o servidor continua recusando token
+   de outro segredo (`config/test_csrf_do_cookie.py` prova os dois lados). É
+   o mesmo que a documentação do Django manda fazer em requisição AJAX.
+
+   Duas vezes, e as duas são necessárias: no carregamento, para a página
+   vinda do cache nascer certa; e no `submit`, em CAPTURA, para a aba que
+   ficou aberta horas enviar com o token de agora. */
+(function () {
+  "use strict";
+
+  function doCookie() {
+    var achado = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+    return achado ? achado[2] : "";
+  }
+
+  function renovar(raiz) {
+    var token = doCookie();
+    /* Sem cookie não há o que renovar, e escrever "" apagaria o token que o
+       servidor mandou — trocar um 403 por outro. */
+    if (!token || !raiz || !raiz.querySelectorAll) return;
+    var campos = raiz.querySelectorAll("input[name=csrfmiddlewaretoken]");
+    for (var i = 0; i < campos.length; i++) {
+      if (campos[i].value !== token) campos[i].value = token;
+    }
+  }
+
+  renovar(document);
+  /* `pagereveal` e o mesmo evento que a re-entrega do toque usa: e quando a
+     pagina da transicao aparece, inclusive vinda do bfcache. */
+  window.addEventListener("pageshow", function () { renovar(document); });
+  document.addEventListener("submit", function (evento) {
+    renovar(evento.target);
+  }, true);
+})();

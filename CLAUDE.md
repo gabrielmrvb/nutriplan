@@ -538,6 +538,45 @@ três coisas que a varredura mudou:
   primeira passagem — sem ela `get_expiry_age()` devolve a idade cheia e a
   data real só existe na linha do banco). `config/test_sessao_renovada.py`.
 
+**AUDITORIA DE SESSÃO, CSRF E CACHE — E A RAIZ DO "A SESSÃO CAIU E PERDI O
+QUE DIGITEI" (22/09/2026).** A queixa do dono foi medida até o fim, numa
+sessão LOGADA do staging (`fetch` same-origin enxerga todo cabeçalho de
+resposta; é o que curl anônimo não alcança). **Não há logout em POST
+nenhum** — `logout()` só na exclusão da conta —, e a sessão deixou de vencer
+no meio do uso no lote 4. O que sobrava era 403 de CSRF, por dois caminhos:
+a página veio do CACHE DO SERVICE WORKER (ele serve a cópia guardada quando
+a rede passa de 3 s) com o token de uma sessão anterior, ou a pessoa entrou
+de novo em outra aba e `login()` chamou `rotate_token()`. Nos dois o COOKIE
+está certo e só o campo escondido do HTML está velho — e `fila.js` já
+trocava o token pelo do MOMENTO DO ENVIO, que é por que a água marcada sem
+rede nunca sofreu. Quem sofria era o formulário COMUM, o longo: a etapa 2 do
+cadastro e o registro de corrida, os dois citados pelo dono. Hoje `pwa.js`
+("TOKEN DE CSRF") reescreve `csrfmiddlewaretoken` com o valor do cookie no
+carregamento, no `pageshow` (bfcache) e no `submit` em CAPTURA. Isso **não**
+enfraquece nada: o cookie só é legível por JavaScript da própria origem, que
+é de onde a defesa vem, e `config/test_csrf_do_cookie.py` prende os dois
+lados — o valor cru do cookie é aceito (se `CSRF_COOKIE_MASKED` for ligado um
+dia, o teste cai antes da produção) e token de outro segredo continua 403.
+Provado no navegador: token trocado por `token-de-outra-sessao-ja-vencido`,
+envio passa, corrida gravada.
+
+**E O ACHADO DE SEGURANÇA DA MESMA MEDIÇÃO: tela logada respondia SEM
+`Cache-Control`.** `/historico/`, `/treino/` e `/conta/perfil/` não mandavam
+diretiva nenhuma, e sem diretiva o navegador guarda por heurística — peso,
+altura, e-mail, objetivo e histórico de treino, o dado de saúde que a etapa 1
+pede autorização para tratar. Num aparelho de casa, sair da conta e apertar
+VOLTAR redesenhava a tela da pessoa anterior a partir do disco.
+`config.cache_privado.CachePrivadoMiddleware` (o ÚLTIMO da lista, para a
+fase de resposta rodar com o `request.user` já posto) escreve `private,
+no-cache, must-revalidate` em toda resposta `text/html` de sessão
+autenticada que não declare a própria diretiva — `never_cache` do login e da
+gestão e o `no-store` da exportação ficam como estão. **E nada de
+`no-store`**, de propósito: o service worker recusa guardar o que vem com
+`no-store` (`podeGuardar`), e é o cache dele que faz a dieta abrir no metrô;
+e o Chrome desliga o bfcache numa página `no-store`, que é o "Voltar ao
+formulário" do 403 devolvendo o digitado. `config/test_cache_privado.py` lê
+a régua do próprio worker para as duas pontas não divergirem em silêncio.
+
 **OS LEGAIS ESTÃO PUBLICADOS, E O CONSENTIMENTO SÃO TRÊS CAIXAS COM PROVA
 (decisão do dono, 21/09/2026).** `LEGAL_RESPONSAVEL` e `LEGAL_CONTATO`
 preenchidos no Render (produção e staging) fazem `settings.LEGAL_PUBLICADO`
