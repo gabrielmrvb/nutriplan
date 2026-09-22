@@ -86,3 +86,48 @@ class EmailEnviado(models.Model):
 
     def __str__(self):
         return f"{self.tipo} {self.referencia} → {self.user_id}"
+
+
+class EmailBloqueado(models.Model):
+    """Endereço em que o Brevo desistiu — hard bounce, denúncia de spam,
+    bloqueio — sincronizado de `GET /v3/smtp/blockedContacts`
+    (`manage.py sincronizar_brevo`). `enviar()` recusa antes de gravar linha.
+
+    Guardar no banco, e não perguntar ao Brevo a cada envio: o job roda de
+    5 em 5 minutos e a lista muda devagar; e o Brevo sozinho já não reenvia
+    para quem deu hard bounce — a tabela é a nossa cópia, para a régua ser
+    NOSSA e testável. Medido em 21/09/2026: 46,6 % de hard bounce num dia
+    (contas de produção com gmail inventado).
+    """
+
+    email = models.EmailField("e-mail", unique=True)
+    motivo = models.CharField("motivo (código do Brevo)", max_length=40, blank=True)
+    bloqueado_em = models.DateTimeField("bloqueado em", null=True, blank=True)
+    sincronizado_em = models.DateTimeField("sincronizado em", auto_now=True)
+
+    class Meta:
+        verbose_name = "e-mail bloqueado"
+        verbose_name_plural = "e-mails bloqueados"
+
+    def __str__(self):
+        return "%s (%s)" % (self.email, self.motivo or "bloqueado")
+
+
+class EmailAberto(models.Model):
+    """Endereço que ABRIU algum e-mail nosso — a prova de caixa viva enquanto
+    a verificação de e-mail do cadastro não existe (sessão de segurança).
+    Sincronizado de `GET /v3/smtp/statistics/events?event=opened`. Quando a
+    verificação entrar, `verificado()` em `services` passa a olhar o campo
+    dela primeiro e esta tabela vira a segunda prova.
+    """
+
+    email = models.EmailField("e-mail", unique=True)
+    primeira_abertura = models.DateTimeField("primeira abertura", null=True, blank=True)
+    sincronizado_em = models.DateTimeField("sincronizado em", auto_now=True)
+
+    class Meta:
+        verbose_name = "e-mail aberto"
+        verbose_name_plural = "e-mails abertos"
+
+    def __str__(self):
+        return self.email
