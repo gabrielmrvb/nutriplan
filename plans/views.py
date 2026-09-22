@@ -545,10 +545,14 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 perfil, CAMPO_DO_PILAR[Pilar.HIDRATACAO], False
             ),
             convite_pesagem=convite_pesagem,
+            # No dia do cadastro, refeição de antes da conta existir não
+            # cobra (achado #7 das personas). Zero consultas: o usuário já
+            # está carregado.
+            desde=timezone.localtime(self.request.user.date_joined),
         )
         # A lista concorda com o topo porque LÊ a decisão dele, em vez de
         # refazer a conta.
-        agora_mod.marcar_refeicoes(slots, acao, agora)
+        agora_mod.marcar_refeicoes(slots, acao, agora, desde=timezone.localtime(self.request.user.date_joined))
         context.update(
             {
                 "plan": self.plan,

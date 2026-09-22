@@ -12,6 +12,10 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **Nada digitado se perde.** Os formulários longos (cadastro, corrida, reportar) guardam um rascunho no aparelho: se a página expirar ou a sessão cair no meio, o que você digitou volta sozinho.
 - **O primeiro toque conta.** Um toque dado enquanto a tela ainda estava entrando era perdido; agora ele é entregue assim que a tela termina de entrar.
 - **"Comi outra coisa" sugere de novo.** A lista de alimentos ao digitar voltou a mostrar os nomes do catálogo.
+- **A ofensiva começa no dia em que a conta nasceu.** Nada de "3 dias" no primeiro dia nem "401 de 3" nas Conquistas; a Home e as Conquistas contam a mesma coisa. Quando a sequência zera, a Home diz o que faltou ontem.
+- **Aderência sem nota de reprovação no primeiro dia.** Hoje só conta as refeições cujo horário já passou ("1/2 até agora"); a porcentagem é dos dias fechados. No dia do cadastro, as refeições de antes de você chegar não contam.
+- **"Ficou para trás".** Uma refeição vencida há mais de uma hora e meia deixa de ser chamada de "agora" — continua sendo a próxima coisa a registrar.
+- **Sua área principal age.** O cartão da área que você escolheu traz o botão do dia: começar o treino de hoje, registrar a corrida, registrar o peso.
 
 ## 2026-09-21
 

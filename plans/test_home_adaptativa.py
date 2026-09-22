@@ -354,3 +354,62 @@ class OCTADoProgressoLevaAAlgumLugarTests(BaseDaHome):
         if 'id="pesar"' in html:
             faixa = html.split('id="pesar"', 1)[1].split(">", 1)[0]
             self.assertNotIn("open", faixa)
+
+
+class OCartaoDaAreaTemAAcaoDoDiaTests(BaseDaHome):
+    """A prioridade tem de MUDAR a Home de verdade (item 4 da missão de UX,
+    22/09/2026): o cartão da área principal trazia um fato e um link de
+    rodapé — e a pessoa lia a tela como "igual à de todo mundo". Hoje ele
+    traz a AÇÃO do dia daquela área, como botão: começar o treino de hoje
+    (com o nome da sessão), registrar a corrida, registrar o peso."""
+
+    def _promovido(self, html):
+        promovido = html.split('class="card area-promovida', 1)[1]
+        return promovido.split("</section>", 1)[0]
+
+    def test_treino_mostra_a_sessao_de_hoje_e_o_botao_de_comecar(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        self.pessoa("acao-treino@exemplo.com", ("treino",), "treino")
+        # conta de ontem: o lanche das 11h é a pendência da vez, e o AGORA é
+        # ele — o cartão da área é quem traz o botão do treino
+        User.objects.filter(email="acao-treino@exemplo.com").update(date_joined=timezone.now() - timedelta(days=1))
+        html = self.home()
+        self.assertIn("agora-card--refeicao", html)
+        promovido = self._promovido(html)
+        # a fixture treina seg/qua/sex e a suíte vive numa quarta: hoje tem treino
+        self.assertIn("btn--primary", promovido)
+        self.assertIn("Começar treino", promovido)
+        self.assertRegex(promovido, r"<span class=\"num\">\d+</span> exercícios")
+
+    def test_quando_o_agora_ja_e_o_treino_o_cartao_nao_repete_o_botao(self):
+        """Dois "COMEÇAR TREINO" na mesma dobra (medido no QA de 22/09/2026):
+        quando o AGORA já é o treino, o cartão da área vira consulta — o
+        fato e a porta da semana, sem o botão que está logo acima."""
+        from datetime import time
+        from plans.models import MealLog, MealStatus
+        from plans import services as plan_services
+        from workouts.models import TrainingSession
+        user = self.pessoa("agora-treino@exemplo.com", ("treino",), "treino")
+        plano = plan_services.get_active_plan(user)
+        for slot in plano.slots.all():
+            MealLog.objects.create(user=user, slot=slot, status=MealStatus.DONE)
+        TrainingSession.objects.filter(plan__user=user).update(start_time=time(11, 0))
+        html = self.home()
+        self.assertIn("agora-card--treino", html)
+        promovido = self._promovido(html)
+        self.assertNotIn("btn--primary", promovido)
+        self.assertIn('href="%s"' % reverse("workouts:routine"), promovido)
+
+    def test_corrida_tem_o_botao_de_registrar(self):
+        self.pessoa("acao-corrida@exemplo.com", ("corrida",), "corrida")
+        promovido = self._promovido(self.home())
+        self.assertIn("btn--primary", promovido)
+        self.assertIn('href="%s"' % reverse("workouts:corrida_nova"), promovido)
+        self.assertIn("Registrar corrida", promovido)
+
+    def test_progresso_tem_o_botao_de_registrar_o_peso(self):
+        self.pessoa("acao-progresso@exemplo.com", ("progresso",), "progresso")
+        promovido = self._promovido(self.home())
+        self.assertIn("btn--primary", promovido)
+        self.assertIn("Registrar peso", promovido)

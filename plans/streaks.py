@@ -100,6 +100,11 @@ class Ofensiva:
     #: O que falta hoje para a sequência continuar.
     falta_hoje: list
     ultimo_dia: object = None
+    #: O que faltou ONTEM quando a sequência está em zero e ontem existia
+    #: (a conta já estava aberta): a Home diz "ontem faltou água" em vez de
+    #: "comece hoje" para quem já vinha usando (achado #11 das personas).
+    #: `None` quando ontem não conta — primeiro dia de uso.
+    falta_ontem: list = None
 
     @property
     def em_risco(self) -> bool:
@@ -115,6 +120,9 @@ class Ofensiva:
         para dar vontade de voltar, não para cobrar.
         """
         if self.dias == 0:
+            if self.falta_ontem:
+                faltou = " e ".join(self.falta_ontem)
+                return f"Ontem faltou {faltou}. Hoje recomeça: treino no dia de treino, mais dieta ou água."
             return "Comece hoje: treino no dia de treino, mais dieta ou água, e a contagem começa."
         if self.em_risco:
             falta = ", ".join(self.falta_hoje)
@@ -286,6 +294,23 @@ def inicio_do_historico(hoje):
     return hoje - timedelta(days=DIAS_NO_HISTORICO)
 
 
+def primeiro_dia_da_conta(user):
+    """O dia em que a conta nasceu, no fuso local — o limite absoluto da
+    ofensiva e do recorde (22/09/2026).
+
+    Antes disso a pessoa não usava o app, e um dia sem treino previsto,
+    sem cardápio e sem meta de água FECHA sozinho (descansar é o plano;
+    sem meta não há o que cobrar). Somado aos 400 dias de histórico, isso
+    dava "401 / 3" nas Conquistas de quem se cadastrou hoje sem dia de
+    treino, e "3 dias de ofensiva" na segunda de manhã para quem treina —
+    os dois de graça, no primeiro dia (achado #4 das personas). Lê o campo
+    do usuário já carregado: zero consultas."""
+    entrou = getattr(user, "date_joined", None)
+    if entrou is None:
+        return None
+    return timezone.localtime(entrou).date()
+
+
 def calcular(user, hoje=None, meta_agua_ml=None, *, ja_lido=None) -> Ofensiva:
     """Percorre os dias de trás para frente até achar o primeiro furo."""
     hoje = hoje or timezone.localdate()
@@ -303,7 +328,7 @@ def calcular(user, hoje=None, meta_agua_ml=None, *, ja_lido=None) -> Ofensiva:
     # começa em ontem — e hoje é o dia em risco.
     sequencia = 0
     cursor = hoje if dia_de_hoje.completo else hoje - timedelta(days=1)
-    limite = hoje - timedelta(days=DIAS_NO_HISTORICO)
+    limite = _limite(user, hoje)
     ultimo = None
     while cursor >= limite:
         dia = avaliar(cursor)
@@ -314,13 +339,19 @@ def calcular(user, hoje=None, meta_agua_ml=None, *, ja_lido=None) -> Ofensiva:
         sequencia += 1
         cursor -= timedelta(days=1)
 
+    ontem = hoje - timedelta(days=1)
+    falta_ontem = None
+    if sequencia == 0 and ontem >= limite:
+        falta_ontem = avaliar(ontem).pendencias
+
     return Ofensiva(
         dias=sequencia,
         recorde=max(sequencia, _recorde(user, hoje, previstos, treinou, dieta_ok,
-                                        agua_ok, meta_agua_ml)),
+                                        agua_ok, meta_agua_ml, limite)),
         hoje_completo=dia_de_hoje.completo,
         falta_hoje=dia_de_hoje.pendencias,
         ultimo_dia=ultimo,
+        falta_ontem=falta_ontem,
     )
 
 
@@ -334,11 +365,21 @@ def _tem_plano(user) -> bool:
     return user._streak_tem_plano
 
 
-def _recorde(user, hoje, previstos, treinou, dieta_ok, agua_ok, meta_agua_ml) -> int:
+def _limite(user, hoje):
+    """Até onde a ofensiva olha para trás: os 400 dias de histórico, nunca
+    antes de a conta existir."""
+    limite = hoje - timedelta(days=DIAS_NO_HISTORICO)
+    entrada = primeiro_dia_da_conta(user)
+    if entrada is not None and entrada > limite:
+        limite = entrada
+    return limite
+
+
+def _recorde(user, hoje, previstos, treinou, dieta_ok, agua_ok, meta_agua_ml, limite=None) -> int:
     """A maior sequência já feita, para a atual ter contra o que se medir."""
     tem_plano = _tem_plano(user)
     melhor = atual = 0
-    cursor = hoje - timedelta(days=DIAS_NO_HISTORICO)
+    cursor = limite if limite is not None else _limite(user, hoje)
     while cursor <= hoje:
         previsto = cursor.weekday() in previstos
         completo = (

@@ -183,7 +183,12 @@ class OResumoNaoPintaCemPorCentoDeUmaConquistaTrancadaTests(_ComTreinoDeHoje):
         services.resumo(self.pessoa)  # desbloqueia
         with CaptureQueriesContext(connection) as depois:
             services.resumo(self.pessoa)
+        # O controle tem a MESMA estrutura (ficha ativa): sem ela a ofensiva
+        # lê uma tabela a menos, e a igualdade de antes vinha de um acidente —
+        # o plano alimentar da pessoa ficava em cache no objeto entre as duas
+        # chamadas (22/09/2026).
         controle = create_user(email="controle@exemplo.com", weekdays=dias_incluindo_hoje(5))
+        treino.create_routine(controle)
         with CaptureQueriesContext(connection) as sem_nada:
             services.resumo(controle)
         self.assertEqual(len(depois), len(sem_nada))

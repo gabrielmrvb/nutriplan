@@ -539,7 +539,11 @@ class OHistoricoUSAOMESMODenominadorDaOfensivaTests(TestCase):
     def setUp(self):
         self.pessoa = create_complete_user("denominador@exemplo.com")
         services.create_plan(self.pessoa)
-        self.hoje = timezone.localdate()
+        # ONTEM, um dia fechado: desde 22/09/2026 o dia de HOJE só cobra as
+        # refeições cujo horário já passou ("até agora"), e o denominador
+        # cheio do plano é o de um dia inteiro — que é o que estes testes
+        # medem (`plans/test_aderencia_primeiros_dias.py` cobre o de hoje).
+        self.hoje = timezone.localdate() - timedelta(days=1)
         self.slots = list(
             MealSlot.objects.filter(plan__user=self.pessoa, plan__is_active=True)
             .order_by("id")

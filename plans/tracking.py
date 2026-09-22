@@ -327,6 +327,17 @@ def history(user, days=HISTORY_DAYS) -> list:
         # sendo devolvido porque a tela mostra "N de M marcadas", que é outra
         # informação — quanto do dia a pessoa registrou.
         total = previstas.get(row["plano"], 0)
+        hoje = row["date"] == today
+        parcial = False
+        if hoje and row["plano"]:
+            # HOJE SÓ COBRA O QUE JÁ PASSOU (22/09/2026): ao meio-dia do
+            # primeiro dia, 1 de 5 lia como "20 %" — nota de reprovação para
+            # um dia que só tinha chegado ao lanche da manhã. O denominador
+            # continua sendo o plano; o recorte é o relógio. Marcar uma
+            # refeição futura não passa de 100 %: o feito entra no piso.
+            ate_agora = previstas_ate_agora(row["plano"], timezone.localtime().time(), _desde(user, today))
+            total = max(min(ate_agora, total), row["done"], 0)
+            parcial = True
         summary.append(
             {
                 "date": row["date"],
@@ -335,24 +346,53 @@ def history(user, days=HISTORY_DAYS) -> list:
                 "marked": marked,
                 "previstas": total,
                 "adherence_pct": int(row["done"] * 100 / total) if total else 0,
-                "is_today": row["date"] == today,
+                "is_today": hoje,
+                "parcial": parcial,
             }
         )
     return summary
 
 
+def previstas_ate_agora(plan_id, agora, desde=None) -> int:
+    """Quantas refeições do plano já deveriam ter acontecido a esta hora —
+    e, no dia do cadastro, só as de depois de a conta existir (`desde`)."""
+    consulta = MealSlot.objects.filter(plan_id=plan_id, time__lte=agora)
+    if desde is not None:
+        consulta = consulta.filter(time__gte=desde)
+    return consulta.count()
+
+
+def _desde(user, hoje):
+    """A hora do cadastro, quando o cadastro foi HOJE; senão `None`."""
+    entrou = getattr(user, "date_joined", None)
+    if entrou is None:
+        return None
+    entrou = timezone.localtime(entrou)
+    return entrou.time() if entrou.date() == hoje else None
+
+
 def adherence(rows) -> dict:
-    """Consolidado do período: média de kcal e aderência das refeições marcadas."""
+    """Consolidado do período: média de kcal e aderência das refeições marcadas.
+
+    A PORCENTAGEM É DOS DIAS FECHADOS (22/09/2026): hoje ainda está
+    acontecendo e entra só como "N de M até agora". No primeiro dia de uso
+    não há dia fechado — `adherence_pct` é `None`, e a tela mostra o
+    progresso de hoje em vez de uma nota.
+    """
     if not rows:
-        return {"days": 0, "avg_kcal": 0, "adherence_pct": 0}
-    done = sum(row["done"] for row in rows)
+        return {"days": 0, "avg_kcal": 0, "adherence_pct": None, "hoje_feitas": 0, "hoje_previstas": 0}
+    fechados = [row for row in rows if not row.get("is_today")]
+    hoje = next((row for row in rows if row.get("is_today")), None)
+    done = sum(row["done"] for row in fechados)
     # MESMO DENOMINADOR do dia a dia. Somar `marked` aqui e `previstas` lá
     # faria o consolidado discordar da própria tabela logo abaixo dele.
-    previstas = sum(row.get("previstas", 0) for row in rows)
+    previstas = sum(row.get("previstas", 0) for row in fechados)
     return {
         "days": len(rows),
         "avg_kcal": arredondar(Decimal(sum(row["kcal"] for row in rows)) / len(rows)),
-        "adherence_pct": int(done * 100 / previstas) if previstas else 0,
+        "adherence_pct": (int(done * 100 / previstas) if previstas else 0) if fechados else None,
+        "hoje_feitas": hoje["done"] if hoje else 0,
+        "hoje_previstas": hoje["previstas"] if hoje else 0,
     }
 
 

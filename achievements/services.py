@@ -27,7 +27,8 @@ from django.db.models import DecimalField, ExpressionWrapper, F, Max, Min, Q
 from django.utils import timezone
 
 from accounts.models import TrainingDay
-from plans import streaks
+from plans import services as plan_services
+from plans import streaks, weight_trend
 from workouts.models import ExerciseLog, TrainingPlan
 
 from .models import UserAchievement
@@ -59,6 +60,14 @@ def reunir(user, hoje=None) -> Dados:
         TrainingDay.objects.filter(user=user).values_list("weekday", flat=True)
     )
 
+    # A MESMA META DE ÁGUA QUE A HOME (22/09/2026): sem ela a água "fechava"
+    # todo dia e as Conquistas diziam "3 dias" enquanto a Home dizia 0. O
+    # plano ativo é lido uma vez aqui e emprestado à ofensiva
+    # (`_streak_tem_plano`), então o custo não muda.
+    plano = plan_services.get_active_plan(user)
+    user._streak_tem_plano = plano is not None
+    meta_agua = weight_trend.hidratacao_ml(plano.weight_kg) if plano else None
+
     dados = Dados(
         hoje=hoje,
         dias_treinados=len(datas),
@@ -66,7 +75,7 @@ def reunir(user, hoje=None) -> Dados:
         # `hoje` viaja junto: sem isso a ofensiva leria o calendário real
         # enquanto o resto do cálculo usa a data recebida, e o teste que
         # controla a data mediria duas coisas diferentes ao mesmo tempo.
-        ofensiva=streaks.calcular(user, hoje=hoje).dias,
+        ofensiva=streaks.calcular(user, hoje=hoje, meta_agua_ml=meta_agua).dias,
         tem_plano=TrainingPlan.objects.filter(user=user, is_active=True).exists(),
     )
 
