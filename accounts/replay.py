@@ -101,6 +101,25 @@ def e_replay(request) -> bool:
         return False
 
 
+def veio_da_tela(request) -> bool:
+    """Este POST é a PESSOA enviando um formulário (navegação), e não um
+    `fetch` da fila?
+
+    O caminho online carimba o mesmo `op_id` que a fila usa, então `e_replay`
+    não separa os dois — e a resposta a uma recusa de CSRF tem de separar:
+    a pessoa precisa da página com "Voltar ao formulário", e a fila precisa
+    do JSON que ela não descarta (achado da Fase 0 da missão Capacitor,
+    22/09/2026: a corrida com token velho virava um JSON cru na tela).
+    Todo navegador atual declara a navegação em `Sec-Fetch-Dest: document`;
+    sem Sec-Fetch, o `Accept` de um envio de formulário começa por
+    `text/html`, e o de `fetch()` é `*/*`.
+    """
+    destino = request.headers.get("Sec-Fetch-Dest", "")
+    if destino:
+        return destino == "document"
+    return "text/html" in (request.headers.get("Accept") or "")
+
+
 def resposta_que_preserva(codigo):
     """A recusa que nem o cliente novo nem o publicado interpretam como fim.
 
@@ -163,7 +182,12 @@ def recusa_de_identidade(request):
     conseguir reenviar — o servidor lembraria de um `op_id` que nunca foi
     aplicado.
     """
-    if not e_replay(request):
+    if not e_replay(request) or veio_da_tela(request):
+        # A NAVEGAÇÃO de um formulário pela pessoa não é drenagem, mesmo
+        # com `op_id` no corpo (o caminho online carimba o mesmo campo). Sem
+        # isto, a sessão vencida com o formulário aberto recebia o JSON de
+        # "preservado" em vez do redirect para entrar (Fase 0 da missão
+        # Capacitor, 22/09/2026; `config/test_403_da_tela_com_op_id.py`).
         return None
 
     if not request.user.is_authenticated:

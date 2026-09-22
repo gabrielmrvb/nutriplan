@@ -23,12 +23,18 @@ que ainda pode ser sincronizado.
 from django.middleware.csrf import CsrfViewMiddleware
 from django.views.csrf import csrf_failure as csrf_failure_padrao
 
-from accounts.replay import CODIGO_CSRF_VELHO, e_replay, resposta_que_preserva
+from accounts.replay import CODIGO_CSRF_VELHO, e_replay, resposta_que_preserva, veio_da_tela
 
 
 def falha_de_csrf(request, reason="", template_name=None):
-    """Recusa por CSRF, com resposta preservável quando é replay offline."""
-    if e_replay(request):
+    """Recusa por CSRF, com resposta preservável quando é replay offline.
+
+    "Replay" aqui é `op_id` no corpo E o pedido não ser a navegação de um
+    formulário: o caminho online carrega o mesmo `op_id`, e a pessoa que
+    enviou a corrida com um token velho via o JSON cru em vez da página
+    (Fase 0 da missão Capacitor, 22/09/2026; `config/test_403_da_tela_com_op_id.py`).
+    """
+    if e_replay(request) and not veio_da_tela(request):
         return resposta_que_preserva(CODIGO_CSRF_VELHO)
     # Qualquer outro POST continua vendo o 403 de sempre.
     if template_name is None:
