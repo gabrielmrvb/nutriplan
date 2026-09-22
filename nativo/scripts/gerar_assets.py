@@ -12,6 +12,11 @@ escreve em `nativo/assets/` o que `@capacitor/assets` pede:
     splash.png           2732×2732, símbolo pequeno sobre o chão do Ferro
     splash-dark.png      idem — a marca não muda de cor com o tema (partials/marca.html)
 
+E o ícone do push do Android (`android/app/src/main/res/drawable-*/ic_stat_nutriplan.png`,
+24 dp em mdpi…xxxhdpi): a silhueta do símbolo em BRANCO sobre transparente —
+a barra de status pinta o ícone com uma cor só, e o ícone do app viraria um
+quadrado branco.
+
 Depois: `npm run assets` gera todos os tamanhos nas duas plataformas.
 
 Roda com o Python do repositório:  ../.venv/Scripts/python.exe scripts/gerar_assets.py
@@ -59,9 +64,24 @@ def compor(lado, fracao, fundo, simbolo, com_fundo=True):
     return tela
 
 
+DENSIDADES = {"mdpi": 24, "hdpi": 36, "xhdpi": 48, "xxhdpi": 72, "xxxhdpi": 96}
+
+
+def icone_do_push(simbolo):
+    """Silhueta: todo pixel opaco do símbolo vira branco, o alfa fica."""
+    branco = Image.new("RGBA", simbolo.size, (255, 255, 255, 0))
+    branco.putalpha(simbolo.getchannel("A"))
+    res = RAIZ / "nativo" / "android" / "app" / "src" / "main" / "res"
+    for densidade, lado in DENSIDADES.items():
+        pasta = res / ("drawable-" + densidade)
+        pasta.mkdir(parents=True, exist_ok=True)
+        compor(lado, 0.9, (0, 0, 0), branco, com_fundo=False).save(pasta / "ic_stat_nutriplan.png")
+
+
 def main():
     SAIDA.mkdir(parents=True, exist_ok=True)
     simbolo = simbolo_recortado()
+    icone_do_push(simbolo)
     compor(1024, 0.62, VERDE_FLORESTA, simbolo).convert("RGB").save(SAIDA / "icon-only.png")
     compor(1024, 0.55, VERDE_FLORESTA, simbolo, com_fundo=False).save(SAIDA / "icon-foreground.png")
     Image.new("RGB", (1024, 1024), VERDE_FLORESTA).save(SAIDA / "icon-background.png")

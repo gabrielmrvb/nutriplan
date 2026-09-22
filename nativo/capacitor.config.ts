@@ -53,6 +53,11 @@ const config: CapacitorConfig = {
     preferredContentMode: "mobile",
   },
   plugins: {
+    FirebaseMessaging: {
+      // No iOS a notificação em primeiro plano aparece como banner com som
+      // (o padrão do plugin é só badge).
+      presentationOptions: ["alert", "badge", "sound"],
+    },
     SplashScreen: {
       launchShowDuration: 0,
       launchAutoHide: true,

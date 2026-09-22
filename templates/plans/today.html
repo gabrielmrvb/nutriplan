@@ -1132,6 +1132,28 @@ coluna da direita), não entre ela e o almoço.
           <p class="hint">Os lembretes precisam de JavaScript ativado.</p>
         </noscript>
       </section>
+
+      {% if app_nativo %}
+        {% comment %}
+          SÓ no app instalado (Fase 2 da missão Capacitor, 22/09/2026): ler o
+          peso e as corridas do Apple Saúde / Health Connect. Não existe no
+          navegador — não há API web para isso, e prometer o que não dá para
+          cumprir é o defeito que este app recusa em todo lugar. Quem lê é o
+          aparelho (`static/js/nativo.js`); o servidor só recebe o que a
+          pessoa mandou importar.
+        {% endcomment %}
+        <section class="card">
+          <div class="card__head"><h2>{% if plataforma_nativa == "ios" %}Apple Saúde{% else %}Health Connect{% endif %}</h2></div>
+          <p class="muted nota-do-botao">
+            Traga as suas corridas e pesagens dos últimos 30 dias. O app só lê o
+            que você autorizar, e nunca sobrescreve um peso que você digitou.
+          </p>
+          <button type="button" class="btn btn--ghost btn--block" data-saude-importar hidden>
+            Importar do aparelho
+          </button>
+          <p class="hint" data-saude-status hidden aria-live="polite"></p>
+        </section>
+      {% endif %}
     </aside>
   </div>
 

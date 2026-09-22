@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- o token brand do Ferro (verde-neon): a cor do ícone do push na barra -->
+    <color name="nutriplan_brand">#43df7a</color>
+</resources>

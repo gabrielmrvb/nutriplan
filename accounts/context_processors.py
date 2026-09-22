@@ -18,6 +18,10 @@ def google_login(request):
         # que fazer no HTML: o fluxo é todo de servidor, e nenhum JavaScript
         # daqui fala com o Google.
         "google_login_enabled": settings.GOOGLE_LOGIN_ENABLED,
+        # Só a casca nativa usa (Sign in with Apple, iOS); a web não tem botão.
+        "apple_login_enabled": settings.APPLE_LOGIN_ENABLED,
+        "google_ios_client_id": settings.GOOGLE_IOS_CLIENT_ID,
+        "google_client_id": settings.GOOGLE_CLIENT_ID,
     }
 
 

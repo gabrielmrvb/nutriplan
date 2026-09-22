@@ -68,3 +68,43 @@ class NotificationLog(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.date:%d/%m} - {'ok' if self.success else 'falhou'}"
+
+
+class DispositivoNativo(models.Model):
+    """Um aparelho com o app INSTALADO (a casca nativa, `nativo/`) — o token
+    do FCM que ele registrou (Fase 2 da missão Capacitor, 22/09/2026).
+
+    O Web Push não existe dentro do app instalado: o WebView do Android não
+    expõe `PushManager`, o WKWebView do iPhone também não. A casca pede o
+    token ao Firebase (`@capacitor-firebase/messaging`; no iOS o FCM
+    encaminha ao APNs com a chave que o dono sobe no Firebase) e o manda
+    para `push:dispositivo_registrar`. É a mesma pessoa e o mesmo lembrete
+    de `PushSubscription`, por outro cano — `services.notify_user` manda
+    para os dois.
+
+    A chave natural é o TOKEN (um por instalação); a pessoa é quem entrou
+    por último naquele aparelho. Token que o FCM declara morto
+    (`UNREGISTERED`) é desativado, nunca apagado — pelo mesmo motivo da
+    assinatura web: o histórico continua legível.
+    """
+
+    class Plataforma(models.TextChoices):
+        ANDROID = "android", "Android"
+        IOS = "ios", "iOS"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="dispositivos_nativos"
+    )
+    token = models.CharField("token do FCM", max_length=512, unique=True)
+    plataforma = models.CharField(max_length=8, choices=Plataforma.choices)
+    ativo = models.BooleanField("ativo", default=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    visto_em = models.DateTimeField("último envio", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "dispositivo nativo"
+        verbose_name_plural = "dispositivos nativos"
+        ordering = ["-criado_em"]
+
+    def __str__(self):
+        return f"{self.user} - {self.get_plataforma_display()}"

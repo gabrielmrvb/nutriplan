@@ -4,4 +4,9 @@
     <string name="title_activity_main">NutriPlan</string>
     <string name="package_name">com.nutriplan.app</string>
     <string name="custom_url_scheme">com.nutriplan.app</string>
+    <!-- Health Connect: a tela de "política de privacidade" da folha de
+         permissões abre esta URL num WebView (PermissionsRationaleActivity
+         do plugin lê `privacy_policy_url`). É a seção de dados de saúde
+         do aparelho da Política do NutriPlan. -->
+    <string name="privacy_policy_url">https://nutriplan-xxfn.onrender.com/privacidade/#saude-do-aparelho</string>
 </resources>

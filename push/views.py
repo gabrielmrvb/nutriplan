@@ -20,7 +20,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView, View
 
 from . import tarefas
-from .models import PushSubscription
+from .models import DispositivoNativo, PushSubscription
 from .services import push_is_configured
 
 # Sob o namespace `nutriplan`, e não `push.views`: em produção o root é WARNING
@@ -243,6 +243,46 @@ class SubscribeView(View):
             },
         )
         return JsonResponse({"ok": True, "created": created}, status=201 if created else 200)
+
+
+@method_decorator(login_required, name="post")
+class RegistrarDispositivoNativoView(View):
+    """`POST /push/nativo/registrar/` — o app instalado (a casca) guarda o
+    token do FCM que o Firebase lhe deu (Fase 2 da missão Capacitor,
+    22/09/2026). A chave é o TOKEN (uma linha por instalação); registrar de
+    novo reativa e passa o aparelho para quem está logado agora — aparelho
+    compartilhado, quem entrou por último recebe."""
+
+    PLATAFORMAS = {p.value for p in DispositivoNativo.Plataforma}
+
+    def post(self, request, *args, **kwargs):
+        try:
+            data = json.loads(request.body or "{}")
+        except ValueError:
+            return JsonResponse({"error": "corpo inválido"}, status=400)
+        token = (data.get("token") or "").strip()
+        plataforma = (data.get("plataforma") or "").strip()
+        if not token or len(token) > 512 or plataforma not in self.PLATAFORMAS:
+            return JsonResponse({"error": "token ou plataforma inválidos"}, status=400)
+        _, created = DispositivoNativo.objects.update_or_create(
+            token=token,
+            defaults={"user": request.user, "plataforma": plataforma, "ativo": True},
+        )
+        return JsonResponse({"ok": True, "created": created}, status=201 if created else 200)
+
+
+@method_decorator(login_required, name="post")
+class RemoverDispositivoNativoView(View):
+    """`POST /push/nativo/remover/` — desativa (nunca apaga) o token deste
+    aparelho para esta pessoa: "Desativar lembretes" na casca."""
+
+    def post(self, request, *args, **kwargs):
+        try:
+            data = json.loads(request.body or "{}")
+        except ValueError:
+            return JsonResponse({"error": "corpo inválido"}, status=400)
+        DispositivoNativo.objects.filter(user=request.user, token=(data.get("token") or "").strip()).update(ativo=False)
+        return JsonResponse({"ok": True})
 
 
 @method_decorator(csrf_exempt, name="dispatch")

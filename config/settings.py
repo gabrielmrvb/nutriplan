@@ -82,6 +82,11 @@ INSTALLED_APPS = [
     "allauth.account",
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
+    # Sign in with Apple (Fase 2 da missão Capacitor, 22/09/2026): a App
+    # Store exige quando há login com Google. Só o transporte NATIVO da casca
+    # o usa (`LoginNativoView` verifica o `id_token` com este provider); o
+    # botão da web não existe. Ligado por `APPLE_CLIENT_ID`.
+    "allauth.socialaccount.providers.apple",
 ]
 
 MIDDLEWARE = [
@@ -338,6 +343,24 @@ LEGAL_PUBLICADO = bool(LEGAL_RESPONSAVEL and LEGAL_CONTATO)
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
 GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="")
 GOOGLE_LOGIN_ENABLED = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+#: O client id do iOS do MESMO projeto do Google Cloud (o Android usa o web
+#: client id acima, com o SHA-1 do app registrado no projeto). Público por
+#: natureza: vai para o JavaScript da casca.
+GOOGLE_IOS_CLIENT_ID = env("GOOGLE_IOS_CLIENT_ID", default="")
+#: Sign in with Apple: o bundle id do app (`com.nutriplan.app`) é a
+#: AUDIÊNCIA do `id_token` que o SDK nativo devolve; vários, separados por
+#: vírgula (o Services ID da web entraria aqui se um dia houver web). Team
+#: id, key id e a chave `.p8` só servem ao fluxo OAuth da web, que a casca
+#: não usa — ficam por completude, vazios por padrão.
+APPLE_CLIENT_ID = env("APPLE_CLIENT_ID", default="")
+APPLE_TEAM_ID = env("APPLE_TEAM_ID", default="")
+APPLE_KEY_ID = env("APPLE_KEY_ID", default="")
+APPLE_PRIVATE_KEY = env("APPLE_PRIVATE_KEY", default="").replace("\\n", "\n")  # o painel guarda a .p8 numa linha
+APPLE_LOGIN_ENABLED = bool(APPLE_CLIENT_ID)
+#: O push do app INSTALADO sai pelo FCM HTTP v1 (`push/fcm.py`), autenticado
+#: com a conta de serviço do projeto Firebase — o JSON inteiro numa variável
+#: do painel. Vazio = push nativo desligado (nada sai, nada quebra).
+FIREBASE_SERVICE_ACCOUNT_JSON = env("FIREBASE_SERVICE_ACCOUNT_JSON", default="")
 
 # A política de vínculo mora em `accounts.adapters`, e é a decisão de produto
 # desta feature. O que fica aqui são os interruptores que a sustentam.
@@ -401,7 +424,16 @@ SOCIALACCOUNT_PROVIDERS = {
         # Exige a assinatura do `id_token`, que é o que transforma "o cliente
         # disse que é fulano" em "o Google assinou que é fulano".
         "OAUTH_PKCE_ENABLED": True,
-    }
+    },
+    "apple": {
+        "APP": {
+            "client_id": APPLE_CLIENT_ID,
+            "secret": APPLE_KEY_ID,
+            "key": APPLE_TEAM_ID,
+            "settings": {"certificate_key": APPLE_PRIVATE_KEY},
+        },
+        "SCOPE": ["email", "name"],
+    },
 }
 
 LANGUAGE_CODE = "pt-br"

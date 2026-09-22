@@ -495,6 +495,16 @@
 
   <script>window.NUTRIPLAN_VAPID_KEY = "{{ vapid_public_key }}";</script>
   <script src="{{ app_js_url }}" defer></script>
+  {% if app_nativo %}
+    {% comment %}
+      O que só existe dentro do app instalado (Fase 2 da missão Capacitor,
+      22/09/2026): login pelo SDK do aparelho, push pelo FCM e a importação
+      do Apple Saúde / Health Connect. Os client ids do Google são públicos
+      por natureza (o segredo é do servidor, no fluxo web).
+    {% endcomment %}
+    <script>window.NUTRIPLAN_LOGIN_NATIVO = {googleWebClientId: "{{ google_client_id }}", googleIosClientId: "{{ google_ios_client_id }}"};</script>
+    <script src="{{ nativo_js_url }}" defer></script>
+  {% endif %}
   {% if not shell_offline %}
     {% comment %}
       Analytics de produto. Carrega para TODO MUNDO — anônimo e logado —, porque

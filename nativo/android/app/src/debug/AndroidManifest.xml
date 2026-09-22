@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  SÓ o build de DEBUG fala HTTP sem TLS, e só para o servidor de
+  desenvolvimento (`NUTRIPLAN_URL=http://10.0.2.2:8765`, a máquina vista de
+  dentro do emulador). O build de release não tem esta permissão: em
+  produção o WebView carrega `https://nutriplan-xxfn.onrender.com` e mais
+  nada. Sem isto o Android bloqueia o carregamento em silêncio e a casca
+  mostra a `erro.html` (visto no emulador, 22/09/2026).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application
+        android:usesCleartextTraffic="true"
+        tools:replace="android:usesCleartextTraffic" />
+</manifest>

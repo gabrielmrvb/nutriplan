@@ -21,3 +21,4 @@ django-allauth[socialaccount]>=65.19,<66.0
 # Producao
 gunicorn>=23.0
 whitenoise>=6.8
+google-auth>=2.30,<3.0

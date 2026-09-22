@@ -6,6 +6,8 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-22
 
+- **O app do celular tem lembretes e lê o aparelho.** No app instalado, os lembretes das refeições chegam como notificação do sistema, e um cartão novo traz as suas corridas e pesagens do Apple Saúde (iPhone) ou do Health Connect (Android) — só o que você autorizar, sem sobrescrever peso que você digitou.
+- **Entrar no app do celular é com um toque.** Continuar com Google (e Continuar com Apple, no iPhone) pelo próprio aparelho, sem abrir o navegador.
 - **Sem rede é "sem rede".** A tela que aparece sem conexão dizia "o servidor está acordando" quando o aparelho achava que estava conectado sem estar; agora ela percebe pela resposta e diz a verdade.
 - **Um envio recusado mostra a página, não um código.** Quem enviava água, série, refeição ou corrida com a sessão renovada em outra aba via um texto técnico cru; agora vê "Este envio não pôde ser confirmado" com "Voltar ao formulário" — e o digitado volta.
 - **Continuar sempre à vista.** Na etapa 2 do cadastro, com um ou dois dias de treino — ou nenhum — o botão de continuar não aparecia. Agora aparece sempre.
