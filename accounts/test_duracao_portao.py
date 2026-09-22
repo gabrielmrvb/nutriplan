@@ -146,6 +146,7 @@ class ODefaultNasceEmPadraoTests(TestCase):
         passo(1, {
             "sex": Sex.MALE, "birth_date": "1995-04-12", "height_cm": "178",
             "weight_kg": "80.0",
+            "termos": "on", "saude": "on", "transferencia": "on",  # a etapa 1 exige os três (21/09/2026)
         })
         # Objetivo e rotina são a MESMA etapa desde 15/09/2026; três dias
         # exigem a divisão, que vai junto. Nenhum dos dois campos medidos

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% comment %}
+  A tela única de consentimento (decisão do dono, 21/09/2026): quem já tinha
+  conta antes das caixas — ou quando a versão dos legais sobe — passa por
+  aqui uma vez, antes de qualquer tela do app. As mesmas caixas da etapa 1
+  (`partials/caixas_de_consentimento.html`), só as que faltam, e volta para
+  o dia. Sem barra de abas: a barra levaria a telas que mandam de volta
+  para cá. "Excluir minha conta" continua aberta — ninguém precisa consentir
+  para ir embora — e está linkada no fim, de propósito.
+{% endcomment %}
+{% block title %}Antes de continuar · NutriPlan{% endblock %}
+{% block container_class %}auth{% endblock %}
+{% block content %}
+  <div class="card">
+    <h1>Antes de continuar</h1>
+    <p class="lead">
+      Os Termos e a Política de Privacidade do NutriPlan foram publicados, e
+      o app passou a pedir sua autorização antes de tratar seus dados.
+      Leva um minuto, e é uma vez só.
+    </p>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "partials/caixas_de_consentimento.html" with caixas=caixas %}
+      <div class="form-actions">
+        <button type="submit" class="btn btn--primary btn--block">Continuar</button>
+      </div>
+    </form>
+    <p class="muted center form__nota">
+      Prefere não autorizar? Você pode
+      <a class="btn-link" href="{% url 'accounts:excluir_conta' %}">apagar sua conta</a>
+      a qualquer momento, e isso apaga tudo junto.
+    </p>
+  </div>
+{% endblock %}

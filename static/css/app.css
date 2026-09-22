@@ -7708,7 +7708,15 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   flex-wrap: wrap;
 }
 
-.links-legais a { color: var(--text-mute); }
+/* Os links legais passaram a fechar TODA tela (21/09/2026), então viram alvo
+   de toque de verdade: 44px de altura, com a largura que o texto der. */
+.links-legais a {
+  color: var(--text-mute);
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--espaco-3);
+}
 
 .conta__exportar-nota {
   margin: -.2rem 0 var(--espaco-5);

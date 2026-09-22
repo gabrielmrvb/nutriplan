@@ -25,7 +25,7 @@
         </ul>
       {% endif %}
       {% for field in form %}
-        {% include "partials/field.html" with field=field %}
+        {% if field.name != "termos" %}{% include "partials/field.html" with field=field %}{% endif %}
       {% endfor %}
       {% comment %}
         O AVISO NO CADASTRO (decisão do dono, 21/09/2026): antes de existir
@@ -39,6 +39,37 @@
         públicas e monta um cardápio de exemplo. Ele não substitui
         nutricionista nem médico.
       </p>
+      {% comment %}
+        O ACEITE dos Termos e da Política (decisão do dono, 21/09/2026): caixa
+        própria e desmarcada, com os links, ANTES de a conta existir. As duas
+        caixas de consentimento (dados de saúde, transferência internacional)
+        ficam na etapa 1, onde o dado de saúde é pedido —
+        `partials/caixas_de_consentimento.html`. O mesmo desenho aqui, à mão,
+        porque este campo é do `SignupForm`.
+      {% endcomment %}
+      <div class="field consentimento">
+        <ul class="choice-list">
+          <li>
+            <label>
+              <input type="checkbox" name="termos" id="{{ form.termos.auto_id }}" value="on"{% if form.termos.value %} checked{% endif %}{% if form.termos.errors %} aria-invalid="true" aria-describedby="{{ form.termos.auto_id }}_error"{% endif %}>
+              <span class="segmented__fundo" aria-hidden="true"></span>
+              <span class="segmented__texto">
+                {{ form.termos.label }}
+                <span class="consentimento__links">
+                  <a href="{% url 'termos' %}" target="_blank" rel="noopener">Termos de Uso</a>
+                  ·
+                  <a href="{% url 'privacidade' %}" target="_blank" rel="noopener">Política de Privacidade</a>
+                </span>
+              </span>
+            </label>
+            {% if form.termos.errors %}
+              <ul class="field__errors" id="{{ form.termos.auto_id }}_error">
+                {% for erro in form.termos.errors %}<li>{{ erro }}</li>{% endfor %}
+              </ul>
+            {% endif %}
+          </li>
+        </ul>
+      </div>
       <button type="submit" class="btn btn--primary btn--block">Criar conta</button>
     </form>
 

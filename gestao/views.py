@@ -11,6 +11,7 @@ janela para a vida de alguém que a pergunta de negócio não pede.
 """
 from types import SimpleNamespace
 
+from accounts.consentimento import ConsentimentoForm
 from django.core.paginator import Paginator
 from django.db.models import Exists, Max, OuterRef, Q
 from django.views.generic import TemplateView
@@ -204,6 +205,8 @@ class VitrineView(PainelDeGestaoMixin, TemplateView):
             body_class="modo-foco" if regime == "ferro" else "",
             form_limpo=formulario_limpo(),
             form_com_erro=formulario_com_erro(),
+            caixas=ConsentimentoForm(),
+            caixas_com_erro=ConsentimentoForm({"termos": "on"}),
             google_login_enabled=True,
             legal_publicado=True,
             conquistas_novas=[

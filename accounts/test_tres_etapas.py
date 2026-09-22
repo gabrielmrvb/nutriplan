@@ -21,7 +21,13 @@ from accounts.models import ONBOARDING_DONE, Profile, TrainingDay, User
 from plans.models import NutritionPlan
 from workouts.models import TrainingPlan
 
-ETAPA1 = {"sex": "M", "birth_date": "1995-04-12", "height_cm": 178, "weight_kg": "82,4"}
+#: A etapa 1 leva os três consentimentos (21/09/2026): Termos, dados de
+#: saúde e transferência internacional — sem eles ela não grava o perfil
+#: (`accounts/test_consentimento.py`). `ETAPA1_SEM_CAIXAS` é o payload cru,
+#: para os testes que provam a recusa.
+CAIXAS_DE_CONSENTIMENTO = {"termos": "on", "saude": "on", "transferencia": "on"}
+ETAPA1_SEM_CAIXAS = {"sex": "M", "birth_date": "1995-04-12", "height_cm": 178, "weight_kg": "82,4"}
+ETAPA1 = {**ETAPA1_SEM_CAIXAS, **CAIXAS_DE_CONSENTIMENTO}
 #: Três dias já pedem a divisão (`preferencia_muda_a_divisao(3)` é True: ABC
 #: e ABC2 divergem a partir daí), então o payload de três dias a inclui.
 ETAPA2 = {

@@ -69,6 +69,14 @@
       {% include "partials/field.html" with field=form_com_erro.email %}
       {% include "partials/field.html" with field=form_com_erro.objetivo %}
     </form>
+    <h3>Consentimento (cadastro, etapa 1)</h3>
+    <form>
+      {% include "partials/caixas_de_consentimento.html" with caixas=caixas %}
+    </form>
+    <h3>Consentimento com erro</h3>
+    <form>
+      {% include "partials/caixas_de_consentimento.html" with caixas=caixas_com_erro %}
+    </form>
   </section>
 
   <section class="card">

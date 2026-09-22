@@ -372,7 +372,7 @@ class TelaDePreferenciasTests(TestCase):
 class CadastroTests(TestCase):
     def test_criar_conta_por_senha_manda_o_boas_vindas(self):
         resposta = self.client.post(reverse("accounts:signup"), {
-            "first_name": "Nova", "email": "nova@exemplo.com", "password1": "senha-bem-forte-123", "password2": "senha-bem-forte-123",
+            "first_name": "Nova", "email": "nova@exemplo.com", "password1": "senha-bem-forte-123", "password2": "senha-bem-forte-123", "termos": "on",
         })
 
         self.assertEqual(resposta.status_code, 302)
@@ -381,7 +381,7 @@ class CadastroTests(TestCase):
     def test_smtp_fora_do_ar_nao_derruba_o_cadastro(self):
         with patch("avisos.services.EmailMultiAlternatives.send", side_effect=OSError("smtp caiu")):
             resposta = self.client.post(reverse("accounts:signup"), {
-                "first_name": "Nova", "email": "nova@exemplo.com", "password1": "senha-bem-forte-123", "password2": "senha-bem-forte-123",
+                "first_name": "Nova", "email": "nova@exemplo.com", "password1": "senha-bem-forte-123", "password2": "senha-bem-forte-123", "termos": "on",
             })
 
         self.assertEqual(resposta.status_code, 302)
