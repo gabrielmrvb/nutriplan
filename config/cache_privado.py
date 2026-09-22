@@ -30,6 +30,8 @@ Quem já declara a própria diretiva não é tocado: `never_cache` no login e na
 gestão, `no-store` na exportação de dados. A regra só preenche o silêncio.
 """
 
+from django.utils.functional import empty
+
 #: A resposta é do dono da sessão, e vale só depois de perguntar ao servidor.
 PRIVADA = "private, no-cache, must-revalidate"
 
@@ -54,7 +56,14 @@ class CachePrivadoMiddleware:
         # aqui (o WhiteNoise responde antes).
         if not resposta.get("Content-Type", "").startswith("text/html"):
             return resposta
+        # `request.user` é um `SimpleLazyObject`: LÊ-LO aqui forçaria a
+        # consulta de sessão em toda resposta, e `/saude/vivo/` promete ZERO
+        # consultas (a suíte reprovou exatamente por isso — o mesmo cuidado
+        # que `config.observabilidade.usuario_anonimo` já documentava). Se a
+        # view não resolveu o usuário, não havia dado de ninguém na tela.
         usuario = getattr(request, "user", None)
-        if usuario is not None and usuario.is_authenticated:
+        if usuario is None or getattr(usuario, "_wrapped", None) is empty:
+            return resposta
+        if usuario.is_authenticated:
             resposta["Cache-Control"] = PRIVADA
         return resposta

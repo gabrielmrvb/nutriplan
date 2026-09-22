@@ -73,6 +73,19 @@ class TelaLogadaNaoFicaNoCacheTests(TestCase):
         self.client.logout()
         self.assertEqual(self.client.get("/").headers.get("Cache-Control", ""), "")
 
+    def test_a_sonda_de_vida_nao_paga_a_consulta_de_sessao(self):
+        """`request.user` é um `SimpleLazyObject`, e LÊ-LO na fase de resposta
+        forçaria a consulta de sessão em TODA resposta do app.
+        `/saude/vivo/` promete zero consultas e é a sonda que bate de 5 em 5
+        minutos — a primeira versão desta regra quebrou a promessa, e a suíte
+        pegou. A guarda é `_wrapped is empty`: usuário que a view não resolveu
+        não teve dado nenhum na tela."""
+        self.client.logout()
+        with self.assertNumQueries(0):
+            resposta = self.client.get("/saude/vivo/")
+        self.assertEqual(resposta.status_code, 200)
+        self.assertNotIn("private", resposta.headers.get("Cache-Control", ""))
+
     def test_o_worker_continua_podendo_guardar_essa_diretiva(self):
         """A régua do worker é literal: ele recusa `no-store` e só isso. Este
         teste lê o arquivo do worker para a regra do servidor e a do cliente
