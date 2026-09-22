@@ -28,17 +28,48 @@ abrir() {
 }
 
 sonda() {  # $1 = nome do arquivo JSON
+  # O socket é o do PROCESSO VIVO do app: `/proc/net/unix` guarda entradas
+  # de processos já mortos, e o primeiro `grep` pegava um socket morto.
   local pid
-  pid="$(adb shell 'cat /proc/net/unix' | grep -o 'webview_devtools_remote_[0-9]*' | head -1 | tr -d '\r')"
-  adb forward tcp:9333 "localabstract:$pid" >/dev/null
+  pid="$(adb shell pidof com.nutriplan.app | tr -d '' | awk '{print $1}')"
+  [ -n "$pid" ] || falhou "o app não está rodando"
+  adb forward --remove-all >/dev/null 2>&1 || true
+  adb forward tcp:9333 "localabstract:webview_devtools_remote_$pid" >/dev/null
   "$PY" "$AQUI/webview_cdp.py" 9333 | tee "$SAIDA/$1.json"
 }
 
 falhou() { echo "PROVA ANDROID FALHOU: $1" >&2; exit 1; }
 
+# Derruba (ou devolve) a rede do emulador. `cmd connectivity airplane-mode`
+# existe do API 33 em diante; em imagem que o recusa, o caminho é o dos
+# rádios (`svc`). Confere pelo `dumpsys connectivity` em vez de confiar no
+# código de saída — foi assim que o primeiro run do Actions morreu mudo.
+rede() {  # $1 = on|off
+  local estado i
+  if [ "$1" = off ]; then
+    adb shell cmd connectivity airplane-mode enable >/dev/null 2>&1 || true
+    adb shell "svc wifi disable; svc data disable" >/dev/null 2>&1 || true
+  else
+    adb shell cmd connectivity airplane-mode disable >/dev/null 2>&1 || true
+    adb shell "svc wifi enable; svc data enable" >/dev/null 2>&1 || true
+  fi
+  for i in $(seq 1 30); do
+    # capturado ANTES de filtrar: `grep -q` num pipe com `pipefail` derruba o
+    # `dumpsys` com SIGPIPE e o laço nunca vê o estado
+    estado="$(adb shell dumpsys connectivity 2>/dev/null | tr -d '
+' | grep -i 'Active default network' || true)"
+    case "$1:$estado" in
+      off:*"network: none"*) return 0 ;;
+      on:*"network: "[0-9]*) return 0 ;;
+    esac
+    sleep 2
+  done
+  [ "$1" = off ] && falhou "a rede do emulador não caiu: $estado"
+  echo "aviso: a rede do emulador não voltou em 60 s ($estado)" >&2
+}
+
 echo "== online"
-adb shell cmd connectivity airplane-mode disable || true
-sleep 3
+rede on
 abrir
 adb exec-out screencap -p > "$SAIDA/android-01-online.png"
 sonda online
@@ -52,8 +83,7 @@ print("online OK: título=%r, service worker controlando" % r["titulo"])
 EOF
 
 echo "== offline (modo avião)"
-adb shell cmd connectivity airplane-mode enable
-sleep 6
+rede off
 abrir
 adb exec-out screencap -p > "$SAIDA/android-02-offline.png"
 sonda offline
@@ -66,9 +96,9 @@ print("offline OK: shell do PWA servido pelo service worker")
 EOF
 
 echo "== tema escuro, online de novo"
-adb shell cmd connectivity airplane-mode disable
+rede on
 adb shell cmd uimode night yes
-sleep 6
+sleep 3
 abrir
 adb exec-out screencap -p > "$SAIDA/android-03-online-escuro.png"
 adb shell cmd uimode night no
