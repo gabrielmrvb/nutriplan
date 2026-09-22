@@ -14,7 +14,7 @@
 
   <form class="filtro-gestao" method="get">
     <label for="classificacao">Classificação</label>
-    <select id="classificacao" name="classificacao" onchange="this.form.submit()">
+    <select id="classificacao" name="classificacao" data-envia-ao-mudar>
       <option value="">Todas</option>
       {% for valor, rotulo in classificacoes %}
         <option value="{{ valor }}"
@@ -87,4 +87,16 @@
       {% endif %}
     </nav>
   {% endif %}
+  {% comment %}
+    O filtro enviava com `onchange="this.form.submit()"`, e atributo de evento
+    inline parou de rodar quando a CSP entrou (22/09/2026) — em silêncio, que
+    é o pior jeito de quebrar. `gestao/base.html` não carrega `pwa.js` (a
+    gestão não é o app), então o ouvinte mora aqui, com o nonce desta resposta.
+  {% endcomment %}
+  <script nonce="{{ csp_nonce }}">
+    (function () {
+      var campo = document.querySelector("[data-envia-ao-mudar]");
+      if (campo) campo.addEventListener("change", function () { campo.form.submit(); });
+    })();
+  </script>
 {% endblock %}

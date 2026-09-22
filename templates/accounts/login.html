@@ -101,7 +101,7 @@
     offline existe para servir. Por isso o gatilho é o login, e não
     "qualquer página anônima".
   {% endcomment %}
-  <script>
+  <script nonce="{{ csp_nonce }}">
     (function () {
       if (!("serviceWorker" in navigator)) return;
       navigator.serviceWorker.ready.then(function (registro) {

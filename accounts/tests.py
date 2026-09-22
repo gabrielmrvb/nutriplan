@@ -115,6 +115,24 @@ ETAPA2_COM_DIVISAO = {**STEP2, **STEP3_COM_DIVISAO, **STEP4}
 ETAPA3 = {**STEP5, **STEP6}
 
 
+
+def sem_o_que_muda_por_resposta(conteudo) -> str:
+    """O HTML sem o que MUDA a cada resposta por construção: o token de CSRF
+    e o `nonce` da Content-Security-Policy.
+
+    As comparações byte a byte deste arquivo existem para provar que a
+    recusa NÃO É ORÁCULO — bloqueado, senha errada e conta inexistente
+    respondem a mesma coisa. Quando a CSP entrou (22/09/2026) o nonce, que é
+    sorteado por resposta, passou a fazer duas respostas idênticas
+    diferirem, e quatro desses testes ficaram vermelhos sem que nada de
+    segurança tivesse mudado. Normalizar os dois é o que mantém a asserção
+    medindo o que ela diz medir — todo o RESTO do HTML continua comparado
+    byte a byte.
+    """
+    texto = conteudo.decode() if isinstance(conteudo, bytes) else conteudo
+    texto = re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"', 'CSRF', texto)
+    return re.sub(r'nonce="[^"]+"', 'NONCE', texto)
+
 class SignupTests(TestCase):
     url = reverse("accounts:signup")
 
@@ -582,7 +600,10 @@ class ProfileActionsTests(TestCase):
     def test_the_logout_asks_before_doing_it(self):
         html = self.client.get(self.url).content.decode()
         formulario = html.split("Sair da conta", 1)[0]
-        self.assertIn("confirm(", formulario.rsplit("<form", 1)[1])
+        # A confirmação era `onsubmit="return confirm(...)"`; com a CSP
+        # (22/09/2026) atributo de evento não roda, e ela virou o marcador
+        # `data-confirmar` com ouvinte delegado em `pwa.js`.
+        self.assertIn("data-confirmar", formulario.rsplit("<form", 1)[1])
 
     def test_the_logout_actually_ends_the_session(self):
         self.client.post(reverse("accounts:logout"))
@@ -3009,7 +3030,7 @@ class RecuperacaoDeSenhaTests(TestCase):
         self.assertEqual(
             [u for u, _ in com.redirect_chain], [u for u, _ in sem.redirect_chain]
         )
-        self.assertEqual(com.content, sem.content)
+        self.assertEqual(sem_o_que_muda_por_resposta(com.content), sem_o_que_muda_por_resposta(sem.content))
 
     def test_a_tela_nao_afirma_que_enviou(self):
         """"Enviamos para você" seria confirmar que a conta existe."""
@@ -3673,7 +3694,7 @@ class LimiteDeRecuperacaoTests(TestCase):
         bloqueada = self._pedir()
 
         self.assertEqual(primeira.status_code, bloqueada.status_code)
-        self.assertEqual(primeira.content, bloqueada.content)
+        self.assertEqual(sem_o_que_muda_por_resposta(primeira.content), sem_o_que_muda_por_resposta(bloqueada.content))
         self.assertEqual(
             [u for u, _ in primeira.redirect_chain],
             [u for u, _ in bloqueada.redirect_chain],
@@ -3686,7 +3707,7 @@ class LimiteDeRecuperacaoTests(TestCase):
         bloqueada = self._pedir()
         inexistente = self._pedir(email="ninguem.aqui@exemplo.com")
 
-        self.assertEqual(bloqueada.content, inexistente.content)
+        self.assertEqual(sem_o_que_muda_por_resposta(bloqueada.content), sem_o_que_muda_por_resposta(inexistente.content))
 
     def test_nunca_devolve_429(self):
         """429 seria um oraculo: bastaria observar quando ele aparece."""
@@ -3977,7 +3998,7 @@ class TetoDiarioTests(TestCase):
         bloqueada = self._pedir()
 
         self.assertEqual(normal.status_code, bloqueada.status_code)
-        self.assertEqual(normal.content, bloqueada.content)
+        self.assertEqual(sem_o_que_muda_por_resposta(normal.content), sem_o_que_muda_por_resposta(bloqueada.content))
 
     def test_pedido_de_ontem_nao_conta_mais(self):
         """Fora da janela de 24h, a linha deixa de influenciar."""

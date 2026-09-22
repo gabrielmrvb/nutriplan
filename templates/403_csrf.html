@@ -54,7 +54,7 @@
       toque em enviar de novo.
     </p>
     <div class="acoes-empilhadas">
-      <button type="button" class="btn btn--primary btn--block" onclick="history.back()">Voltar ao formulário</button>
+      <button type="button" class="btn btn--primary btn--block" data-voltar>Voltar ao formulário</button>
       {% if user.is_authenticated %}
         <a class="btn btn--ghost btn--block" href="{% url 'plans:today' %}">Ir para o dia de hoje</a>
       {% else %}
