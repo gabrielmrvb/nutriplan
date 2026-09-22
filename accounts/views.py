@@ -931,10 +931,15 @@ def resumo_das_escolhas(user, profile) -> list:
     peso = profile.current_weight
     dias = sorted(user.training_days.values_list("weekday", flat=True))
     nomes = ("Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom")
+    from .templatetags.escolhas import titulo_de
+
     itens = [
         ("Altura e peso", "%d cm · %s kg" % (profile.height_cm, formats.number_format(peso, decimal_pos=1)) if peso is not None else "%d cm" % profile.height_cm),
-        ("Objetivo", profile.get_goal_display()),
-        ("Atividade", profile.get_activity_level_display()),
+        # O título do CARTÃO que a pessoa tocou, e não o `label` do model:
+        # "Sedentário / pouco ativo" para quem escolheu "Pouco ativo" era o
+        # resumo contradizendo a tela anterior (achado #13, 22/09/2026).
+        ("Objetivo", titulo_de(profile.goal, profile.get_goal_display())),
+        ("Atividade", titulo_de(profile.activity_level, profile.get_activity_level_display())),
     ]
     # Quem não faz musculação vê a resposta e nada do bloco de academia:
     # listar "Dias de treino: nenhum · Equipamento: academia completa" para

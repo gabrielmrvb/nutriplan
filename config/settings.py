@@ -109,6 +109,9 @@ MIDDLEWARE = [
     # entrada de terceiro junto de segredo.
     "django.middleware.gzip.GZipMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    # Renova a sessão de quem usa (passada a metade dos 14 dias), para
+    # ninguém ser deslogado no meio de um formulário — ver `config/sessao.py`.
+    "config.sessao.RenovarSessaoMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",

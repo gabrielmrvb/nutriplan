@@ -119,27 +119,30 @@ DETALHES = {
     # acoplamentos lógicos — o dia de peito e tríceps que termina com abdominal
     # continua sendo dois grupos. Chamar de três assustaria por causa de três
     # séries no fim do treino.
+    # Em português de quem começa (achado #13 das personas, 22/09/2026):
+    # "Peito+Tríceps | Costas+Bíceps" e "agrupa complementares" eram jargão
+    # de academia na tela de cadastro. O exemplo diz o que cada dia treina.
     "two": (
         "metades",
         "2 grupos por dia",
-        "Pares clássicos, volume equilibrado.",
+        "Cada dia junta dois músculos que se ajudam.",
         True,
-        "Peito+Tríceps | Costas+Bíceps | Pernas+Ombros",
+        "Peito e tríceps · Costas e bíceps · Pernas e ombros",
         "Mais popular",
     ),
     "one": (
         "alvo",
         "1 grupo por dia",
-        "Sessões intensas, um músculo por vez.",
+        "Um músculo por dia, com mais volume nele.",
         False,
-        "Peito | Costas | Pernas | Ombros | Braços",
+        "Peito · Costas · Pernas · Ombros · Braços",
     ),
     "three": (
         "corpo",
         "3 grupos por dia",
-        "Agrupa complementares, em menos dias.",
+        "Mais músculos por dia, menos dias na semana.",
         False,
-        "Peito+Tríceps+Ombro | Costas+Bíceps+Antebraço",
+        "Peito, tríceps e ombro · Costas, bíceps e antebraço",
     ),
     # accounts.models.MealStyle
     "quick": (
@@ -206,3 +209,11 @@ def detalhe(valor):
         "exemplo": dados[4] if len(dados) > 4 else "",
         "selo": dados[5] if len(dados) > 5 else "Recomendado",
     }
+
+
+def titulo_de(valor, padrao=""):
+    """O título do CARTÃO desta opção — o que a pessoa leu e tocou. O resumo
+    da etapa 3 dizia "Sedentário / pouco ativo" (o `label` do model) para
+    quem tinha escolhido o cartão "Pouco ativo" (achado #13, 22/09/2026)."""
+    dados = DETALHES.get(str(valor))
+    return dados[1] if dados else padrao
