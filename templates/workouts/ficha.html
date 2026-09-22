@@ -37,18 +37,40 @@
       que ela abre é A ficha de hoje, e o número da variação não aparece em
       lugar nenhum. A interação que sobrou é por exercício ("outras formas").
     {% endcomment %}
+    {% comment %}
+      UM BLOCO SÓ (22/09/2026). "9 exercícios · 24 séries · ~57 min" aparecia
+      DUAS vezes — aqui e dentro do cartão da ficha —, e a segunda não
+      acrescentava nada. Os equipamentos vieram para cá junto: eles são um
+      checklist mental de quem está saindo de casa ("hoje preciso de barra,
+      polia e halteres"), e isso se lê ANTES da lista.
+    {% endcomment %}
     <p class="lead">
       <span>{{ sessao.dias_texto }}</span>
-      <span>·</span>
+      <span aria-hidden="true">·</span>
       <span class="num">{{ ficha.itens|length }} exercícios</span>
-      <span>·</span>
-      <span class="num">{{ ficha.series }} séries</span>
-      <span>·</span>
-      <span class="num">~{{ ficha.minutos }} min</span>
+      <span aria-hidden="true">·</span>
+      {% if rapida %}
+        <span class="num">{{ ficha.rapida_series }} séries</span>
+        <span aria-hidden="true">·</span>
+        <span class="num">~{{ ficha.rapida_minutos }} min</span>
+        <span class="pill pill--brand">versão rápida</span>
+      {% else %}
+        <span class="num">{{ ficha.series }} séries</span>
+        <span aria-hidden="true">·</span>
+        <span class="num">~{{ ficha.minutos }} min</span>
+      {% endif %}
     </p>
+    {% if ficha.equipamentos %}
+      <p class="ficha__equipamentos">
+        <span class="vis-oculto">Equipamento necessário: </span>
+        {% for equipamento in ficha.equipamentos %}
+          <span class="chip">{{ equipamento|lower }}</span>
+        {% endfor %}
+      </p>
+    {% endif %}
   </div>
 
-  <div class="split">
+  <div class="split ficha-layout">
     <div class="split__main stack">
       {% comment %}
         FICHA DE UM PROGRAMA ANTERIOR (22/09/2026). Ela abre — antes
@@ -75,37 +97,27 @@
         <p class="session__focus">{{ sessao.focus }}</p>
       {% endif %}
 
+      {% comment %}
+        O PROGRESSO É UMA BARRA, e não uma frase (22/09/2026). "0 de 9
+        exercícios com série registrada hoje" era a ÚNICA informação de
+        estado da tela; a barra diz o mesmo de relance e o texto continua
+        embaixo, porque cor e comprimento não são leitura para todo mundo.
+      {% endcomment %}
       {% if sessao.eh_hoje %}
-        <p class="ficha__progresso" role="status" aria-live="polite">
-          <b class="num">{{ sessao.feitos_hoje }}</b> de
-          <span class="num">{{ sessao.total_exercicios }}</span>
-          {% if sessao.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}
-          com série registrada hoje{% if escolha and escolha.versao == 'rapido' %} · versão rápida{% endif %}
-        </p>
-        {% if sessao.proximo %}
-          <a class="btn btn--primary btn--block"
-             href="{% url 'workouts:now' %}?exercicio={{ sessao.proximo.exercise_id }}">
-            {% if sessao.feitos_hoje %}Continuar de onde parou{% else %}Começar pelo primeiro{% endif %}
-          </a>
-        {% endif %}
+        <div class="ficha__estado">
+          <div class="progress ficha__barra">
+            <span class="progress__fill" style="width: {{ sessao.pct_hoje }}%"></span>
+          </div>
+          <p class="ficha__progresso" role="status" aria-live="polite">
+            <b class="num">{{ sessao.feitos_hoje }}</b> de
+            <span class="num">{{ sessao.total_exercicios }}</span>
+            {% if sessao.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}
+            com série registrada hoje{% if escolha and escolha.versao == 'rapido' %} · versão rápida{% endif %}
+          </p>
+        </div>
       {% endif %}
 
       <section class="card opcao" id="ficha">
-        <div class="card__head opcao__head">
-          <h2>A ficha</h2>
-          {% if rapida %}<span class="pill pill--brand">Versão rápida hoje</span>{% endif %}
-        </div>
-        <p class="opcao__meta num">
-          {% if rapida %}
-            {{ ficha.rapida_series }} séries · ~{{ ficha.rapida_minutos }} min
-            <span class="muted">(completo: {{ ficha.series }} séries · ~{{ ficha.minutos }} min)</span>
-          {% else %}
-            {{ ficha.itens|length }} exercícios · {{ ficha.series }} séries · ~{{ ficha.minutos }} min
-          {% endif %}
-        </p>
-        {% if ficha.equipamentos %}
-          <p class="opcao__equipamentos muted">{{ ficha.equipamentos|join:" · " }}</p>
-        {% endif %}
         <ol class="ficha-lista" data-escalonado>
           {% for item in ficha.principais %}
             {% include "workouts/_item_da_ficha.html" with item=item ordem=forloop.counter hoje=ficha.executavel rapida=rapida %}
@@ -122,7 +134,88 @@
           </div>
         {% endif %}
       </section>
+
     </div>
+
+    {% comment %}
+      A COLUNA DA DIREITA (22/09/2026). No desktop a ficha era uma
+      coluna de 360px no meio de um monitor, com o CTA e a explicação
+      abaixo da dobra; agora a lista fica à esquerda e o contexto do
+      treino — por que essa ficha, começar/continuar, encerrar —
+      acompanha grudado à direita. No celular nada muda de ordem: os
+      dois blocos continuam DEPOIS da lista, e o CTA preso ao rodapé.
+
+      O que NÃO entra aqui é um painel de detalhe do exercício
+      selecionado: vídeo, dica e "outras formas" custam uma consulta
+      por exercício (a ficha tem teto de 17, medido em
+      `plans/test_stress`) e já têm página própria, a um toque de
+      distância. Uma cópia pior de uma tela que existe não é ganho.
+    {% endcomment %}
+    <aside class="split__aside ficha__lado">
+      {% comment %}
+        POR QUE ESSA FICHA (22/09/2026). É o diferencial do NutriPlan sobre
+        um caderno: a ficha foi MONTADA, e o app sabe dizer por quê. A
+        explicação existia — atrás de um `<details>` na OUTRA tela
+        ("Detalhes do programa", no painel) —, e ninguém chegava lá. Aqui
+        ela é desta sessão, recolhida, e sai dos itens já carregados: zero
+        consulta. O resto (volume da semana, dias, como executar) continua
+        no painel, linkado no fim.
+      {% endcomment %}
+      <details class="card explicacao ficha__porque">
+        <summary class="explicacao__head">
+          <h2>Por que essa ficha</h2>
+          <span class="explicacao__dica" aria-hidden="true">abrir</span>
+        </summary>
+        <p>
+          Seu programa é <b>{{ plan.get_split_display }}</b> em
+          <span class="num">{{ plan.days_per_week }}</span>
+          {% if plan.days_per_week == 1 %}dia{% else %}dias{% endif %} por semana.
+          Hoje é o treino <b>{{ sessao.rotulo }}</b>{% if sessao.focus %} — {{ sessao.focus }}{% endif %}.
+        </p>
+        {% if ficha.volume_por_grupo %}
+          <h3 class="explicacao__titulo">Séries desta sessão, por músculo</h3>
+          <dl class="data-list">
+            {% for grupo, series in ficha.volume_por_grupo %}
+              <div><dt>{{ grupo }}</dt><dd><span class="num">{{ series }}</span> séries</dd></div>
+            {% endfor %}
+          </dl>
+        {% endif %}
+        <h3 class="explicacao__titulo">A ordem não é aleatória</h3>
+        <p class="hint">
+          Os movimentos compostos vêm primeiro — é neles que a carga é maior e
+          a técnica cansa antes do músculo. O selo <b>Principal</b> marca o que
+          abre cada grupo; os isoladores fecham, quando já não há mais o que
+          proteger. Os "complementares" são o resto do corpo que cabe neste
+          dia sem tirar tempo do que o nome do treino promete.
+        </p>
+        <p class="hint">
+          <a href="{% url 'workouts:routine' %}#detalhes-do-programa">Detalhes do programa</a>
+          — volume da semana, dias de treino e como executar.
+        </p>
+      </details>
+      {% comment %}
+        UM CTA, E O MESMO TEXTO DAS DUAS TELAS (22/09/2026). Começar o treino
+        pedia dois toques com dois nomes diferentes — "Começar treino" no
+        painel e "Começar pelo primeiro" aqui. Agora é "Começar treino" nos
+        dois lugares, e "Continuar treino (2/9)" quando já há série hoje. No
+        celular ele fica preso ao rodapé: a ficha tem até doze cards, e o
+        botão que inicia o treino não pode depender de rolar até o fim.
+      {% endcomment %}
+      {% if sessao.eh_hoje and sessao.proximo %}
+        <div class="ficha__acoes">
+          <a class="btn btn--primary btn--block"
+             href="{% url 'workouts:now' %}?exercicio={{ sessao.proximo.exercise_id }}">
+            {% if sessao.feitos_hoje %}Continuar treino ({{ sessao.feitos_hoje }}/{{ sessao.total_exercicios }}){% else %}Começar treino{% endif %}
+          </a>
+          {% if sessao.feitos_hoje %}
+            <form method="post" action="{% url 'workouts:encerrar' %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn--quiet">Encerrar treino</button>
+            </form>
+          {% endif %}
+        </div>
+      {% endif %}
+    </aside>
   </div>
 
   {% comment %}

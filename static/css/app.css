@@ -3255,39 +3255,73 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   min-width: 0;
   min-height: 3.5rem;
   align-self: stretch;
-  padding: var(--espaco-4) 0 var(--espaco-4) var(--espaco-4);
+  padding: var(--espaco-3);
   display: grid;
-  /* O número da linha mora DENTRO do link (UX CA-03): era a única parte da
-     linha que não abria nada. Duas colunas — número e texto —, e o texto
-     empilha nome e dados como antes. */
-  grid-template-columns: 1.75rem minmax(0, 1fr);
+  /* O CARD (22/09/2026): a foto à esquerda, e três linhas de texto à
+     direita — nome, dose (séries × reps × descanso) e meta (grupo,
+     equipamento, última carga). O número da série vira um selo sobre a
+     foto: ele continua dentro do link (UX CA-03) sem roubar uma coluna
+     inteira do texto, que a 320px é o que falta. */
+  grid-template-columns: 3.5rem minmax(0, 1fr);
   grid-template-areas:
-    "ordem nome"
-    "ordem dados";
+    "foto nome"
+    "foto dados"
+    "foto meta";
   align-content: center;
   align-items: center;
-  column-gap: var(--espaco-4);
-  row-gap: 2px;
+  column-gap: var(--espaco-3);
+  row-gap: var(--espaco-1);
   color: inherit;
   text-decoration: none;
   border-radius: var(--quina-p);
+  position: relative;
 }
-.ficha-item__ver .ficha-item__ordem { grid-area: ordem; }
+.ficha-item__ver .ficha-item__foto { grid-area: foto; }
 .ficha-item__ver .ficha-item__nome { grid-area: nome; }
 .ficha-item__ver .ficha-item__dados { grid-area: dados; }
+.ficha-item__ver .ficha-item__meta { grid-area: meta; }
 .ficha-item__ver:hover .ficha-item__nome { text-decoration: underline; text-underline-offset: .15em; }
 .ficha-item__ver:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* A MINIATURA é a mesma foto do catálogo que a execução usa. `object-fit:
+   cover` porque as fotos da free-exercise-db têm proporções diferentes e
+   uma altura fixa é o que mantém os cards da mesma altura. */
+.ficha-item__foto {
+  width: 3.5rem;
+  height: 2.65rem;
+  object-fit: cover;
+  border-radius: var(--quina-p);
+  background: var(--surface-2);
+}
+.ficha-item__foto--vazia {
+  display: grid;
+  place-items: center;
+  font-size: var(--texto-lg);
+  font-weight: 700;
+  color: var(--text-dim);
+}
+/* O número da série, sobre o canto da foto. */
+.ficha-item__ordem {
+  position: absolute;
+  top: var(--espaco-2);
+  left: var(--espaco-2);
+  min-width: 1.15rem;
+  padding: 0 var(--espaco-1);
+  text-align: center;
+  font-size: var(--texto-xs);
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface-3);
+  border-radius: var(--quina-p);
+}
 
 .ficha-item__fazer {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  align-self: stretch;
-  min-height: 3.5rem;
+  min-height: 2.75rem;
   min-width: 2.75rem;
-  /* O respiro da moldura mora aqui (ver `.ficha-item__link`): a pastilha
-     ocupa a altura inteira da linha e leva a borda direita consigo. */
-  padding: 0 var(--espaco-4) 0 var(--espaco-3);
+  padding: 0 var(--espaco-3);
   border-radius: var(--quina-p);
   text-decoration: none;
   color: var(--brand);
@@ -3295,27 +3329,62 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .ficha-item__fazer:hover { background: var(--surface-2); }
 .ficha-item__fazer:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
-/* O número é âncora de leitura: ele casa com a numeração que continua entre
-   principais e complementares. Largura fixa para os nomes começarem todos na
-   mesma coluna. */
-.ficha-item__ordem {
+/* As ações do card, empilhadas na direita: o estado (que é a porta para a
+   execução) e "trocar". Os dois com 44px de alvo. */
+.ficha-item__acoes {
   flex: none;
-  width: 1.75rem;
-  text-align: center;
-  font-size: var(--texto-sm);
-  color: var(--text-dim);
-  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: var(--espaco-1);
+  padding-right: var(--espaco-2);
 }
+.ficha-item__trocar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--espaco-1);
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0 var(--espaco-2);
+  border-radius: var(--quina-p);
+  font-size: var(--texto-xs);
+  text-decoration: none;
+  color: var(--text-mute);
+}
+.ficha-item__trocar svg { width: 1.05rem; height: 1.05rem; flex: none; }
+.ficha-item__trocar:hover { background: var(--surface-2); color: var(--text); }
+.ficha-item__trocar:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 .ficha-item__nome { font-weight: 700; line-height: 1.25; }
-.ficha-item__dados {
+/* AS DUAS LINHAS DE BAIXO SÃO COMPACTAS DE PROPÓSITO: a 390px sobram ~250px
+   ao lado da foto, e cada quebra a mais estica o card — com doze cards, a
+   ficha vira rolagem. Separador em `::before` para o leitor de tela não ler
+   "ponto" entre cada dado. */
+.ficha-item__dados,
+.ficha-item__meta {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--espaco-1) var(--espaco-3);
-  font-size: var(--texto-sm);
+  gap: 0 var(--espaco-3);
+  font-size: var(--texto-xs);
   color: var(--text-dim);
 }
+/* SEM PONTO SEPARADOR: com `flex-wrap`, o `·` de `::before` cai no COMEÇO
+   da linha seguinte ("· descanso 1:20 min"), que é pior que separador
+   nenhum. Quem separa é o espaço — o mesmo que a linha do músculo e a do
+   descanso já usam na execução. */
+.ficha-item__dados > *,
+.ficha-item__meta > * { white-space: nowrap; }
+/* O equipamento é uma palavra, e não um ícone: os cinco desenhos novos
+   mudariam o sprite fechado em 13 símbolos (`config/test_sprite.py`) e
+   pediriam curadoria; "barra", "polia", "halteres" é inequívoco a 390px e
+   já é o vocabulário do app. */
+.ficha-item__equipamento { color: var(--text-mute); }
+.ficha-item__ultima { color: var(--text); font-variant-numeric: tabular-nums; }
+.ficha-item__ultima--nova { color: var(--text-mute); font-style: italic; }
+
 /* O papel é o marcador DISCRETO do movimento principal: peso e caixa, sem cor
    de destaque, para orientar sem competir com o nome. */
 .ficha-item__papel {
@@ -3329,6 +3398,9 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .ficha-item__estado {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: var(--texto-sm);
   font-weight: 700;
   color: var(--text-dim);
@@ -3336,16 +3408,109 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 }
 .ficha-item__estado--feito { color: var(--brand); }
 .ficha-item__estado--cta { color: var(--brand); }
-/* Concluído muda a linha inteira, e o número ao lado diz o mesmo sem cor. */
+/* Concluído muda o card inteiro, e o número ao lado diz o mesmo sem cor;
+   em andamento é a borda de marca, que é posição e não só tinta. */
 .ficha-item--feito .ficha-item__link {
   background: var(--brand-soft);
   /* O filete de folha na borda esquerda é a marca de "feito" que sobrevive
      a quem não distingue o verde do fundo tingido: é posição, não só cor. */
   box-shadow: inset 3px 0 0 var(--folha);
+  opacity: .82;
 }
 .ficha-item--feito .ficha-item__nome { color: var(--text-dim); }
+.ficha-item--andamento .ficha-item__link {
+  border-color: var(--brand);
+  box-shadow: inset 3px 0 0 var(--brand);
+}
 
 .ficha__progresso { margin: 0; color: var(--text-dim); font-size: var(--texto-sm); }
+
+/* -- A ficha como tela de pré-treino (22/09/2026) -------------------------- */
+
+/* O equipamento no cabeçalho é um checklist de quem está saindo de casa. */
+.ficha__equipamentos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espaco-2);
+  margin: var(--espaco-3) 0 0;
+}
+/* O estado do dia: barra + frase, juntos, acima da lista. */
+.ficha__estado { display: grid; gap: var(--espaco-2); }
+.ficha__barra { height: .5rem; }
+/* A ficha de um programa anterior se apresenta antes de qualquer coisa. */
+.ficha__historico {
+  margin: 0;
+  padding: var(--espaco-3) var(--espaco-4);
+  border: var(--traco) solid var(--linha);
+  border-radius: var(--quina);
+  background: var(--surface-2);
+  font-size: var(--texto-sm);
+  color: var(--text-dim);
+}
+
+/* O CTA preso ao rodapé no celular: a ficha tem até doze cards, e o botão
+   que inicia o treino não pode depender de rolar até o fim. Ele mora na
+   coluna da direita no DOM — no desktop é lá que ele aparece —, e aqui é
+   arrancado para a base da janela. A barra de abas fica ABAIXO dele
+   (`--camada-navegacao` é maior), que é a ordem de sempre: nada cobre a
+   navegação. */
+.ficha__acoes {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  z-index: var(--camada-flutuante);
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-2);
+  padding: var(--espaco-3) var(--pad);
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
+}
+.ficha__acoes .btn--block { margin: 0; }
+/* Sem regra própria para os dois botões: eles são `.btn`, e `.btn` já tem a
+   escala de toque da seção 8. Uma regra por nome pediria a mesma
+   declaração de novo (`config/tests.TouchFeedbackTests` cobra isso de todo
+   clicável com regra). O que é do LAYOUT fica no container. */
+.ficha__acoes > .btn:first-child { flex: 1; }
+.ficha__acoes form { flex: none; }
+.ficha__acoes form .btn { white-space: nowrap; }
+/* O respiro para o CTA fixo não cobrir o último card nem a explicação. */
+.ficha-layout .split__main { padding-bottom: calc(var(--espaco-7) * 3); }
+.split__aside.ficha__lado { padding-bottom: var(--espaco-4); }
+
+@media (min-width: 60rem) {
+  /* A ficha é a ÚNICA tela mais larga que `--max` (30rem): duas colunas em
+     480px dariam 140px para a lista — medido, o card quebrava em dez linhas
+     e a página ia a 10 000px. A classe vem do servidor (`body_class`),
+     porque `:has()` é proibido para CSS estrutural neste projeto. */
+  .tela-ficha { --max: 58rem; }
+
+  /* DUAS COLUNAS, SÓ NESTA TELA (pedido do dono, 22/09/2026). O resto do
+     app continua em uma coluna — a decisão da seção 28 vale e está escrita
+     lá —, mas a ficha é uma LISTA longa ao lado de um contexto curto, e num
+     monitor a coluna de 360px no meio deixava o CTA e a explicação abaixo
+     da dobra. A lista à esquerda, o contexto grudado à direita. */
+  .split.ficha-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 20rem;
+    align-items: start;
+  }
+  .ficha-layout .split__main { padding-bottom: 0; }
+  .ficha-layout .split__aside.ficha__lado {
+    position: sticky;
+    top: calc(var(--appbar-h) + var(--espaco-4));
+    padding-bottom: 0;
+  }
+  /* No desktop o CTA volta para o fluxo, dentro da coluna. */
+  .ficha-layout .ficha__acoes {
+    position: static;
+    padding: 0;
+    background: none;
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 
 /* O bloco de complementares da ficha.
 
@@ -6785,7 +6950,7 @@ body.montando { overflow: hidden; }
   align-items: center;
   gap: .55rem;
   margin-bottom: var(--espaco-4);
-  padding: .5rem .75rem;
+  padding: var(--espaco-3) var(--espaco-4);
   border: var(--traco) solid var(--brand);
   border-radius: var(--quina-p);
   background: var(--brand-soft);
@@ -6813,7 +6978,7 @@ body.montando { overflow: hidden; }
 .descanso__acoes {
   display: flex;
   align-items: center;
-  gap: .15rem;
+  gap: var(--espaco-1);
   margin-left: auto;
 }
 .descanso__mais,
@@ -7149,11 +7314,14 @@ body.montando { overflow: hidden; }
 .agora__proximo-link,
 .agora__voltar,
 .demo__abrir,
+.agora__encerrar,
+.agora__retomar,
 .demo__fechar,
 .descanso__mais,
 .descanso__pular,
 .descanso__som,
 .ficha-item__fazer,
+.ficha-item__trocar,
 .ficha-item__ver,
 .forma__trocar {
   transition: transform var(--mov-toque) var(--ease);
@@ -7164,11 +7332,14 @@ body.montando { overflow: hidden; }
 .agora__proximo-link:active,
 .agora__voltar:active,
 .demo__abrir:active,
+.agora__encerrar:active,
+.agora__retomar:active,
 .demo__fechar:active,
 .descanso__mais:active,
 .descanso__pular:active,
 .descanso__som:active,
 .ficha-item__fazer:active,
+.ficha-item__trocar:active,
 .ficha-item__ver:active,
 .forma__trocar:active { transform: scale(.96); }
 
@@ -7182,10 +7353,13 @@ body.montando { overflow: hidden; }
   .agora__voltar,
     .demo__abrir,
   .demo__fechar,
+  .agora__encerrar,
+  .agora__retomar,
   .descanso__mais,
   .descanso__pular,
   .descanso__som,
   .ficha-item__fazer,
+  .ficha-item__trocar,
   .ficha-item__ver,
   .forma__trocar { transition: none; }
 
@@ -7196,10 +7370,13 @@ body.montando { overflow: hidden; }
   .agora__voltar:active,
     .demo__abrir:active,
   .demo__fechar:active,
+  .agora__encerrar:active,
+  .agora__retomar:active,
   .descanso__mais:active,
   .descanso__pular:active,
   .descanso__som:active,
   .ficha-item__fazer:active,
+  .ficha-item__trocar:active,
   .ficha-item__ver:active,
   .forma__trocar:active { transform: none; }
 }
@@ -8773,7 +8950,6 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    lista é uma coluna de linhas foto + nome + botão; a foto é o primeiro
    quadro da free-exercise-db, contida, sem esticar. Na ficha, "outras
    formas" é só um anúncio discreto dentro do link do nome. */
-.ficha-item__formas { color: var(--brand); font-size: var(--texto-xs); font-weight: 700; }
 .formas__lista { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--espaco-2); }
 .forma {
   display: flex;

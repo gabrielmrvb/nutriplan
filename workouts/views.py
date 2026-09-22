@@ -418,6 +418,24 @@ def nomear_ocorrencias(sessions) -> None:
             sessao.vezes_texto = "uma"
 
 
+def _ultima_vez(carga) -> dict | None:
+    """`{"peso", "reps", "data"}` da série mais pesada do último treino deste
+    exercício, ou `None` (primeira vez). Em memória, sobre o que
+    `load_history` já trouxe — nenhuma consulta."""
+    anterior = (carga or {}).get("anterior") or {}
+    registros = [log for log in anterior.values() if log.weight_kg is not None]
+    if not registros:
+        # Peso do corpo: não há carga, mas há repetições — e "12 reps na
+        # última vez" é a informação que existe para esse exercício.
+        registros = [log for log in anterior.values() if log.reps]
+        if not registros:
+            return None
+        melhor = max(registros, key=lambda log: log.reps)
+        return {"peso": None, "reps": melhor.reps, "data": melhor.date}
+    melhor = max(registros, key=lambda log: log.weight_kg)
+    return {"peso": melhor.weight_kg, "reps": melhor.reps, "data": melhor.date}
+
+
 def anexar_historico(user, sessions) -> None:
     """Pendura carga, linhas de série e contagem de hoje em cada item.
 
@@ -459,6 +477,15 @@ def anexar_historico(user, sessions) -> None:
             # Quantas séries já saíram hoje. É o que o contador mostra e o que
             # o salvamento em bloco reescreve.
             item.feitas = len((item.load or {}).get("hoje") or {})
+            # A ÚLTIMA VEZ, PARA A FICHA DECIDIR A ANILHA (22/09/2026). Era
+            # informação só da execução — "peso da última vez é de quem está
+            # escolhendo a anilha, não de quem lê o treino" —, e a auditoria
+            # do dono mostrou o custo dessa separação: para saber com quanto
+            # começar, a pessoa abria os nove exercícios um a um. Sai do
+            # balde "anterior" que `load_history` já trouxe: ZERO consulta a
+            # mais. A série é a mais PESADA daquele dia, que é a que se
+            # procura (a ordem de anotar varia).
+            item.ultima_vez = _ultima_vez(item.load)
 
 
 def proximo_treino(sessions, plan=None, hoje=None, linhas=None):
@@ -625,6 +652,11 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
 
         context.update({
             "nav": "workout",
+            # DUAS COLUNAS SÓ AQUI (22/09/2026): a classe no <html> é o que
+            # permite a ficha ter outra largura no desktop sem `:has()`, que
+            # é proibido neste projeto para CSS estrutural (ele derrubou a
+            # navegação uma vez). O app continua em uma coluna de 30rem.
+            "body_class": "tela-ficha",
             "sessao": sessao,
             "plan": sessao.plan,
             "historico": historico,
@@ -713,6 +745,13 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             ),
             "removidos": removidos,
             "equipamentos": equipamentos,
+            # "POR QUE ESSA FICHA" (22/09/2026): o diferencial do NutriPlan
+            # sobre um caderno é que ele EXPLICA a ficha, e a explicação
+            # estava atrás de um `<details>` na OUTRA tela ("Detalhes do
+            # programa", no painel) — ninguém chegava lá. O que entra aqui é
+            # só o desta sessão, e sai dos itens já carregados: zero
+            # consulta.
+            "volume_por_grupo": _volume_por_grupo(itens),
         }
         return {
             "ficha": ficha,
@@ -720,6 +759,15 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             "versao": versao,
             "rapida": versao == "rapido",
         }
+
+
+def _volume_por_grupo(itens) -> list:
+    """[(grupo, séries)] desta ficha, do maior para o menor. Em memória."""
+    por_grupo = {}
+    for item in itens:
+        nome = item.exercise.get_muscle_group_display()
+        por_grupo[nome] = por_grupo.get(nome, 0) + item.sets
+    return sorted(por_grupo.items(), key=lambda par: (-par[1], par[0]))
 
 
 class TrocarExercicioView(AcaoDeTela, OnboardingRequiredMixin, View):
