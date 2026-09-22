@@ -77,7 +77,11 @@ def step_url(step):
     return reverse("accounts:onboarding_step", kwargs={"step": step})
 
 
-STEP1 = {"sex": "M", "birth_date": "1995-04-12", "height_cm": 178, "weight_kg": "82.4"}
+STEP1 = {
+    "sex": "M", "birth_date": "1995-04-12", "height_cm": 178, "weight_kg": "82.4",
+    # os três consentimentos que a etapa 1 passou a exigir (21/09/2026)
+    "termos": "on", "saude": "on", "transferencia": "on",
+}
 #: Os SEIS payloads antigos continuam existindo como PEDAÇOS: as etapas de
 #: hoje são compostas dos formulários de ontem, e cada pedaço ainda descreve
 #: uma pergunta (objetivo, rotina, divisão, comida, áreas).
@@ -122,6 +126,7 @@ class SignupTests(TestCase):
                 "email": "Gabriel@Exemplo.com",
                 "password1": "senha-bem-forte-123",
                 "password2": "senha-bem-forte-123",
+                "termos": "on",  # o aceite dos Termos (21/09/2026)
             },
         )
         self.assertRedirects(response, step_url(1))
@@ -138,6 +143,7 @@ class SignupTests(TestCase):
                 "email": "ja@existe.com",
                 "password1": "senha-bem-forte-123",
                 "password2": "senha-bem-forte-123",
+                "termos": "on",  # o aceite dos Termos (21/09/2026)
             },
         )
         self.assertEqual(response.status_code, 200)
@@ -1526,6 +1532,7 @@ class AutenticacaoTradicionalIntactaTests(TestCase):
                 "email": "tradicional@exemplo.com",
                 "password1": "senha-bem-forte-123",
                 "password2": "senha-bem-forte-123",
+                "termos": "on",  # o aceite dos Termos (21/09/2026)
             },
         )
         self.assertRedirects(
@@ -2516,6 +2523,8 @@ class PesoDoOnboardingTests(TestCase):
             "birth_date": "1995-04-12",
             "height_cm": "178",
             "weight_kg": peso,
+            # a etapa 1 de quem ainda não terminou exige os três (21/09/2026)
+            "termos": "on", "saude": "on", "transferencia": "on",
         }
 
     def test_virgula_e_aceita_e_vira_o_numero_certo(self):
@@ -2626,7 +2635,7 @@ class RegrasDeSenhaTests(TestCase):
             with self.subTest(senha=senha):
                 form = SignupForm(data={
                     "first_name": "Teste", "email": "senha%s@exemplo.com" % len(senha),
-                    "password1": senha, "password2": senha,
+                    "password1": senha, "password2": senha, "termos": "on",
                 })
                 self.assertFalse(form.is_valid())
                 self.assertIn("password2", form.errors)
@@ -2634,7 +2643,7 @@ class RegrasDeSenhaTests(TestCase):
     def test_uma_senha_boa_continua_passando(self):
         form = SignupForm(data={
             "first_name": "Teste", "email": "boa@exemplo.com",
-            "password1": "Girassol!2026#", "password2": "Girassol!2026#",
+            "password1": "Girassol!2026#", "password2": "Girassol!2026#", "termos": "on",
         })
 
         self.assertTrue(form.is_valid(), form.errors)
@@ -4326,11 +4335,19 @@ class PaginasLegaisTests(TestCase):
                 html = self.client.get(reverse(nome), secure=True).content.decode()
                 self.assertIn("ainda é um rascunho", html, nome)
 
-    def test_rascunho_nao_e_linkado_do_cadastro_nem_do_login(self):
+    def test_rascunho_nao_e_linkado_do_rodape_do_cadastro_nem_do_login(self):
+        """O rodapé (`links_legais`) some enquanto o texto é rascunho. A caixa
+        do aceite no cadastro (21/09/2026) linka os dois SEMPRE — consentir
+        sem poder ler o que se consente seria pior —, e a página aberta se
+        declara rascunho por conta própria."""
         with override_settings(LEGAL_PUBLICADO=False):
             for tela in ("accounts:signup", "accounts:login"):
                 html = self.client.get(reverse(tela), secure=True).content.decode()
-                self.assertNotIn(reverse("privacidade"), html, tela)
+                rodape = html.split('class="links-legais"', 1)[1].split("</p>", 1)[0]
+                self.assertNotIn(reverse("privacidade"), rodape, tela)
+                self.assertNotIn(reverse("termos"), rodape, tela)
+            login = self.client.get(reverse("accounts:login"), secure=True).content.decode()
+            self.assertNotIn(reverse("privacidade"), login)
 
     def test_publicada_aparece_nas_telas_de_entrada(self):
         with override_settings(

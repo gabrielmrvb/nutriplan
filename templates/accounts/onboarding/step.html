@@ -64,6 +64,14 @@
           <div>{% include "partials/field.html" with field=form.height_cm %}</div>
         </div>
         {% include "partials/field.html" with field=form.weight_kg %}
+        {% comment %}
+          AS CAIXAS DE CONSENTIMENTO (decisão do dono, 21/09/2026), aqui e
+          não no formulário de conta: é nesta etapa que o dado de saúde é
+          pedido, e é por aqui que TODO mundo passa — inclusive quem entrou
+          pelo Google. Só as que faltam (`SobreVoceView.caixas`): nada na
+          edição pelo Perfil, nada em quem voltou para conferir.
+        {% endcomment %}
+        {% include "partials/caixas_de_consentimento.html" with caixas=caixas %}
       {% elif step == 2 %}
         {% comment %}
           ETAPA 2 — SEU OBJETIVO E ROTINA. Três formulários que já existiam

@@ -202,6 +202,7 @@ class E2E:
         self.ab("fill", "input[name=email]", self.email)
         self.ab("fill", "input[name=password1]", self.senha)
         self.ab("fill", "input[name=password2]", self.senha)
+        self.ab.marcar("input[name=termos]")  # o aceite dos Termos e da Política (21/09/2026)
         self.captura("cadastro")
         self.enviar()
         self.ab.esperar_url("**/conta/onboarding/1/")
@@ -211,6 +212,11 @@ class E2E:
         self.ab.preencher("input[name=birth_date]", "1999-01-15")
         self.ab.preencher("input[name=height_cm]", "180")
         self.ab.preencher("input[name=weight_kg]", "82")
+        # As duas caixas de consentimento (dados de saúde, transferência
+        # internacional) moram aqui desde 21/09/2026; a dos Termos só aparece
+        # para quem veio pelo Google — o cadastro por e-mail já a pediu.
+        self.ab.marcar("input[name=saude]")
+        self.ab.marcar("input[name=transferencia]")
         self.captura("onboarding-1")
         self.enviar()
         self.ab.esperar_url("**/conta/onboarding/2/")

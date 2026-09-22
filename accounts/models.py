@@ -633,6 +633,24 @@ class Profile(models.Model):
     onboarding_step = models.PositiveSmallIntegerField("passo do onboarding", default=2)
     onboarding_completed_at = models.DateTimeField(null=True, blank=True)
 
+    #: A VERSÃO dos legais (a data do texto, ISO) para a qual esta pessoa deu
+    #: os três consentimentos — Termos, dados de saúde, transferência
+    #: internacional (`accounts/consentimento.py`). Vazio é "ainda não", e é
+    #: o que manda a conta antiga para `/conta/consentimento/` antes de
+    #: qualquer tela. Mora no perfil, e não só em `Consentimento`, para a
+    #: guarda do `OnboardingRequiredMixin` custar ZERO consultas: o perfil já
+    #: está carregado em toda tela do app (`plans/test_orcamento_da_home`).
+    #: `Consentimento` continua sendo o registro de prova — quem, o quê,
+    #: qual versão, quando (LGPD art. 8º, § 2º).
+    consentimento_versao = models.CharField("versão dos legais consentida", max_length=10, blank=True, default="")
+    #: "Esta conta existia antes de os legais serem publicados e ainda não
+    #: consentiu." A migration `0038` liga isto para TODA conta que existia
+    #: no deploy; `registrar` desliga. Nasce `False` porque a conta nova só
+    #: nasce pelo cadastro, que já pede os consentimentos — e é isso que
+    #: deixa fixtures e seeds (que criam o perfil direto) fora da guarda sem
+    #: fingir que consentiram: `consentimento_versao` deles fica em branco.
+    precisa_consentir = models.BooleanField("precisa consentir", default=False)
+
     #: Rastrear o USO para melhorar o produto (analytics de primeira parte).
     #: `True` por padrão — a base legal é o interesse legítimo (LGPD art. 7º IX,
     #: art. 10), sem terceiros e sem PII. Desmarcar NÃO desliga o evento: ele
@@ -853,6 +871,35 @@ class SyncedOperation(models.Model):
         corte = timezone.now() - timedelta(days=cls.VALIDADE_DIAS)
         removidas, _ = cls.objects.filter(created_at__lt=corte).delete()
         return removidas
+
+
+class Consentimento(models.Model):
+    """Um consentimento dado, com a versão do texto e a hora — o ônus da
+    prova do controlador (LGPD art. 8º, § 2º). Uma linha por (pessoa, tipo,
+    versão): consentir de novo a mesma versão não duplica; uma versão nova
+    dos legais é outra linha, e é assim que se sabe o que a pessoa leu.
+    Nunca é apagado enquanto a conta existe; some com ela (CASCADE), porque
+    a conta apagada é a revogação inteira (art. 8º, § 5º)."""
+
+    class Tipo(models.TextChoices):
+        TERMOS = "termos", "Termos de Uso e Política de Privacidade"
+        SAUDE = "saude", "Dados de saúde"
+        TRANSFERENCIA = "transferencia", "Transferência internacional"
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="consentimentos")
+    tipo = models.CharField("tipo", max_length=16, choices=Tipo.choices)
+    versao = models.CharField("versão dos legais", max_length=10)
+    dado_em = models.DateTimeField("dado em", default=timezone.now)
+
+    class Meta:
+        verbose_name = "consentimento"
+        verbose_name_plural = "consentimentos"
+        constraints = [
+            models.UniqueConstraint(fields=("user", "tipo", "versao"), name="um_consentimento_por_versao"),
+        ]
+
+    def __str__(self):
+        return "%s · %s · %s" % (self.user_id, self.tipo, self.versao)
 
 
 class WeightEntry(models.Model):
