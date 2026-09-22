@@ -577,6 +577,43 @@ e o Chrome desliga o bfcache numa página `no-store`, que é o "Voltar ao
 formulário" do 403 devolvendo o digitado. `config/test_cache_privado.py` lê
 a régua do próprio worker para as duas pontas não divergirem em silêncio.
 
+**E O TERCEIRO ACHADO DA MESMA AUDITORIA: NÃO HAVIA
+`Content-Security-Policy` EM ROTA NENHUMA (22/09/2026).** Nem a landing, nem
+a tela logada, nem o cadastro. CSP não conserta um XSS; ela limita o estrago
+de um que exista, e num app que sabe peso, altura e histórico de treino esse
+limite vale o trabalho. `config/csp.py` é a política MEDIDA do que o app
+carrega — `script-src 'self' 'nonce-…'` **sem `'unsafe-inline'`**, que é o
+que faz a política valer alguma coisa; `style-src` COM `'unsafe-inline'`,
+porque a barra de progresso é `style="width: {{ pct }}%"` calculado pelo
+servidor (a exceção já escrita na seção de Design) e estilo inline não
+executa código; `img-src` com `data:`, `blob:` (o cartão do placar nasce de
+um `canvas.toBlob`) e `https://cdn.jsdelivr.net` (as fotos da
+free-exercise-db); `frame-src` só o `youtube-nocookie`; `form-action 'self'
+https://accounts.google.com`, porque o botão do Google posta para o próprio
+site e o servidor redireciona — sem a origem, o Chrome mata o login em
+silêncio; `object-src 'none'`, `base-uri 'self'` e `frame-ancestors 'none'`.
+O nonce é sorteado por RESPOSTA no middleware (o primeiro depois do
+`SecurityMiddleware`, porque o template precisa dele) e chega aos templates
+por `config.csp.contexto`.
+
+Duas consequências que qualquer mudança futura esbarra, e por isso têm
+teste de VARREDURA em `config/test_csp.py`: **todo `<script>` inline de
+`templates/` carrega `nonce="{{ csp_nonce }}"`** (são 13; sem ele o script
+simplesmente não roda em produção, e ninguém descobre até a tela quebrar) e
+**nenhum atributo `onclick=`/`onsubmit=`/`onchange=` sobrevive** — os quatro
+que existiam (403 de CSRF, Perfil, gestão e a tela offline) viraram marcador
+no HTML com ouvinte delegado em `pwa.js`, e o da gestão num `<script>` com
+nonce da própria página, porque `gestao/base.html` não carrega `pwa.js`.
+Atributo de evento sob CSP não dá erro visível: o botão fica lá e não faz
+nada.
+
+**A casca nativa NÃO recebe a política**, e a razão é medida: o Capacitor
+injeta a própria ponte no WebView e nenhuma política que este servidor
+escreva conhece o nonce dela. Isso não abre buraco real — a marca
+`NutriPlanNativo/` é do User-Agent de QUEM PEDE, e um XSS rodando no
+navegador da vítima não muda o User-Agent dela; o que um atacante consegue
+falsificando a marca é desligar a CSP do próprio navegador, contra si mesmo.
+
 **OS LEGAIS ESTÃO PUBLICADOS, E O CONSENTIMENTO SÃO TRÊS CAIXAS COM PROVA
 (decisão do dono, 21/09/2026).** `LEGAL_RESPONSAVEL` e `LEGAL_CONTATO`
 preenchidos no Render (produção e staging) fazem `settings.LEGAL_PUBLICADO`

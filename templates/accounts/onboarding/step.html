@@ -4,7 +4,7 @@
 {% block container_class %}auth{% endblock %}
 
 {% block content %}
-  <script>
+  <script nonce="{{ csp_nonce }}">
     /* A DIREÇÃO DA TROCA DE TELA, lida antes da primeira pintura. "Voltar" e
        "Continuar" gravam para onde a pessoa foi (pwa.js); aqui a etapa que
        chega lê e escreve no `<html>`, e a view transition entra da direita
@@ -249,7 +249,7 @@
       </div>
     </div>
 
-    <script>
+    <script nonce="{{ csp_nonce }}">
       (function () {
         var caixa = document.querySelector("[data-montagem]");
         var frase = document.querySelector("[data-montagem-frase]");

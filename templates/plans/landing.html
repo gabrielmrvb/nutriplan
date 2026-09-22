@@ -10,7 +10,7 @@
     de código: o navegador não o executa e a CSP sem `unsafe-inline` não o
     bloqueia. `config/test_seo.py` faz o parse e confere os campos.
   {% endcomment %}
-  <script type="application/ld+json">
+  <script nonce="{{ csp_nonce }}" type="application/ld+json">
   {"@context": "https://schema.org",
    "@type": "SoftwareApplication",
    "name": "NutriPlan",

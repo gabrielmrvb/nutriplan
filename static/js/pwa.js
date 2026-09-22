@@ -1833,3 +1833,32 @@
     renovar(evento.target);
   }, true);
 })();
+
+/* ==========================================================================
+   AÇÕES QUE ERAM ATRIBUTO NO HTML (22/09/2026)
+   ==========================================================================
+
+   `onclick=` e `onsubmit=` param de funcionar com a Content-Security-Policy
+   ligada, e param em SILÊNCIO: o botão continua na tela e não faz nada. Os
+   dois que existiam no app — "Voltar ao formulário" do 403 de CSRF e a
+   confirmação de sair da conta, no Perfil — viraram marcador no HTML e
+   ouvinte DELEGADO aqui, que também cobre o que nascer depois.
+
+   `data-confirmar` devolve o mesmo que o `return confirm(...)` devolvia:
+   recusar cancela o envio. */
+(function () {
+  "use strict";
+
+  document.addEventListener("click", function (evento) {
+    var alvo = evento.target.closest && evento.target.closest("[data-voltar]");
+    if (!alvo) return;
+    evento.preventDefault();
+    history.back();
+  });
+
+  document.addEventListener("submit", function (evento) {
+    var form = evento.target;
+    if (!form || !form.hasAttribute || !form.hasAttribute("data-confirmar")) return;
+    if (!window.confirm(form.getAttribute("data-confirmar"))) evento.preventDefault();
+  });
+})();

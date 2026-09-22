@@ -6,6 +6,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-22
 
+- **Uma trava a mais contra código injetado.** O app passou a dizer ao navegador exatamente de onde ele pode carregar script, imagem e vídeo — e a recusar qualquer outra origem. Nada muda na tela; é uma rede de segurança a mais para os seus dados.
 - **Formulário aberto há horas não perde mais o envio.** Enviar depois de a página ficar muito tempo aberta, ou de você ter entrado de novo em outra aba, dava "Este envio não pôde ser confirmado" e obrigava a voltar; agora o envio passa direto.
 - **A sua tela não fica legível para quem pegar o aparelho depois.** As telas com peso, e-mail e histórico deixam de poder ser redesenhadas do disco pelo botão Voltar depois que você sai da conta.
 - **A política explica os dados de saúde do aparelho.** Uma seção nova diz o que o app lê do Apple Saúde e do Health Connect (só peso e corridas, só quando você pede), e o que ele nunca faz: escrever, ler em segundo plano ou compartilhar com alguém.

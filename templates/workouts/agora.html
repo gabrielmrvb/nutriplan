@@ -693,7 +693,7 @@
     </a>
     {% endwith %}
   {% endif %}
-  <script>
+  <script nonce="{{ csp_nonce }}">
   (function () {
     "use strict";
 
@@ -870,7 +870,7 @@
 
   })();
   </script>
-  <script>
+  <script nonce="{{ csp_nonce }}">
   /* "CONCLUIR SÉRIE" SEM RECARREGAR A PÁGINA (decisão do dono, 20/09/2026;
      nasceu no protótipo `proto/execucao-sem-recarga` da sessão auditoria).
      "Concluir série" e "desfazer" com REDE deixam de recarregar a página.
@@ -923,7 +923,7 @@
       if (!(form instanceof HTMLFormElement)) return;
       /* Pelo atributo, e não pela classe: `workouts/test_b3_treino` lê o HTML
          cru e cobra que a classe do formulário de desfazer não apareça sem
-         série hoje — e a classe escrita num <script> é a mesma string
+         série hoje — e a classe escrita num <script nonce="{{ csp_nonce }}"> é a mesma string
          (CLAUDE.md, "Testes"). */
       if (!form.hasAttribute("data-sem-recarga")) return;
       /* Marcado pelo `catch` abaixo: é o reenvio "de sempre" — este ouvinte
