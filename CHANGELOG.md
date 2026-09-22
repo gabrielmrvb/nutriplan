@@ -6,6 +6,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-22
 
+- **O treino em andamento não some mais.** Se o seu programa for remontado no meio do dia — por você, em outra aba, ou porque mudou alguma resposta —, a ficha que você estava usando continua abrindo (como histórico, dizendo quantas séries você registrou hoje) e o pedido de regenerar vale a partir de amanhã. Nenhuma série registrada se perde.
 - **A política explica os dados de saúde do aparelho.** Uma seção nova diz o que o app lê do Apple Saúde e do Health Connect (só peso e corridas, só quando você pede), e o que ele nunca faz: escrever, ler em segundo plano ou compartilhar com alguém.
 - **O app do celular tem lembretes e lê o aparelho.** No app instalado, os lembretes das refeições chegam como notificação do sistema, e um cartão novo traz as suas corridas e pesagens do Apple Saúde (iPhone) ou do Health Connect (Android) — só o que você autorizar, sem sobrescrever peso que você digitou.
 - **Entrar no app do celular é com um toque.** Continuar com Google (e Continuar com Apple, no iPhone) pelo próprio aparelho, sem abrir o navegador.
