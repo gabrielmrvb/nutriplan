@@ -554,12 +554,21 @@
     </p>
     <form method="post" action="{% url 'accounts:rastreio' %}" class="acao-solta">
       {% csrf_token %}
-      <label class="form__nota">
-        <input type="checkbox" name="rastrear_uso" value="1"
-               {% if request.user.profile.rastrear_uso %}checked{% endif %}>
-        Permitir a análise de uso
-      </label>
-      <button class="btn btn--ghost" type="submit">Salvar preferência</button>
+      {% comment %}
+        O mesmo cartão de caixa dos consentimentos e dos avisos (44 px de
+        alvo): a linha solta media 197 × 17 px na varredura de 22/09/2026.
+      {% endcomment %}
+      <ul class="choice-list">
+        <li>
+          <label>
+            <input type="checkbox" name="rastrear_uso" value="1"
+                   {% if request.user.profile.rastrear_uso %}checked{% endif %}>
+            <span class="segmented__fundo" aria-hidden="true"></span>
+            <span class="segmented__texto">Permitir a análise de uso</span>
+          </label>
+        </li>
+      </ul>
+      <button class="btn btn--ghost acao-solta" type="submit">Salvar preferência</button>
     </form>
   </section>
 

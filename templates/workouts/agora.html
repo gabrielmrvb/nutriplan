@@ -80,8 +80,9 @@
     <section class="card fim recompensa">
       <p class="recompensa__rotulo">Treino concluído · {{ estado.total_exercicios }} {% if estado.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}</p>
       <p class="recompensa__carga">
-        <span class="recompensa__numero num" data-conta="zero">{{ estado.placar.carga_total|floatformat:"0" }}</span>
-        <span class="recompensa__unidade">kg levantados</span>
+        {# O herói: kg quando houve carga; repetições no treino de peso do corpo (22/09/2026). #}
+        <span class="recompensa__numero num" data-conta="zero">{{ estado.placar.heroi.0|floatformat:"0g" }}</span>
+        <span class="recompensa__unidade">{{ estado.placar.heroi.1 }}</span>
       </p>
       <ul class="fim__numeros" data-escalonado>
         <li>
@@ -141,6 +142,8 @@
               data-compartilhar-sessao="Treino {{ estado.sessao.label }} · {{ estado.sessao.name }}"
               data-compartilhar-series="{{ estado.series_feitas }}"
               data-compartilhar-kg="{{ estado.placar.carga_total|floatformat:'0g' }}"
+              data-compartilhar-heroi="{{ estado.placar.heroi.0|floatformat:'0g' }}"
+              data-compartilhar-heroi-rotulo="{{ estado.placar.heroi.1|upper }}"
               data-compartilhar-minutos="{% if estado.minutos_entre_registros %}{{ estado.minutos_entre_registros }}{% else %}—{% endif %}"
               data-compartilhar-data="{{ estado.ultimo_log.date|date:'Y-m-d' }}">
         Compartilhar
@@ -459,6 +462,14 @@
         </button>
       </form>
       {% endif %}
+      {% comment %}
+        ONDE A CONQUISTA POUSA NESTA TELA (22/09/2026). O aviso é fixo e
+        ancorado embaixo em toda página; aqui, no meio do treino, ele cobria
+        "Concluir série 2" e o descanso (achado #3 das personas). O
+        `conquista.js` move a caixa para cá — logo abaixo do botão, no
+        fluxo —, e nada fica por cima de nada.
+      {% endcomment %}
+      <div data-conquista-alvo></div>
       </div>
       {% endwith %}
 

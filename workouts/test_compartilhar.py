@@ -118,8 +118,10 @@ class OBotaoDeCompartilharNoPlacarTests(TestCase):
         de peso corporal e o e-mail é o login: nenhum dos dois pode estar
         no markup que o JS lê — nem por atributo, nem por texto."""
         botao = self._botao()
-        atributos = re.findall(r'data-compartilhar-([a-z]+)=', botao)
-        self.assertEqual(sorted(atributos), ["data", "kg", "minutos", "series", "sessao"])
+        atributos = re.findall(r'data-compartilhar-([a-z-]+)=', botao)
+        # `heroi`/`heroi-rotulo` (22/09/2026): o número grande do cartão é o
+        # da tela — kg com carga, repetições no treino de peso do corpo.
+        self.assertEqual(sorted(atributos), ["data", "heroi", "heroi-rotulo", "kg", "minutos", "series", "sessao"])
         for proibido in ("82,4", "82.4", "weight", "peso", "placar@exemplo.com", "@", "kcal"):
             with self.subTest(proibido=proibido):
                 self.assertNotIn(proibido, botao)

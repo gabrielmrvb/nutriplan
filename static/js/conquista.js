@@ -35,8 +35,27 @@
 
   var CHAVE_SOM = "nutriplan.som-conquista";
 
-  var caixa = document.querySelector("[data-conquista]");
-  if (caixa) {
+  /* NA EXECUÇÃO O AVISO ENTRA NO FLUXO (22/09/2026): fixo e ancorado
+   * embaixo, ele cobria "Concluir série 2" no meio do treino (achado #3 das
+   * personas). A tela oferece `[data-conquista-alvo]` logo abaixo do botão;
+   * a caixa vai para lá, vira estática, e o `padding-bottom` de
+   * `tem-conquista` deixa de ser necessário. Roda no carregamento E a cada
+   * "Concluir série" sem recarga (`nutriplan:pagina-trocada`): é nessa
+   * troca que a conquista da primeira série chega, já com a caixa nova. */
+  function pousar() {
+    var caixa = document.querySelector("[data-conquista]");
+    var alvo = document.querySelector("[data-conquista-alvo]");
+    if (!caixa || !alvo || caixa.classList.contains("conquista--em-fluxo")) return caixa;
+    alvo.appendChild(caixa);
+    caixa.classList.add("conquista--em-fluxo");
+    document.body.classList.remove("tem-conquista");
+    return caixa;
+  }
+  document.addEventListener("nutriplan:pagina-trocada", function () { ligar(pousar()); });
+
+  function ligar(caixa) {
+    if (!caixa || caixa.dataset.ligada) return;
+    caixa.dataset.ligada = "1";
     var slides = caixa.querySelectorAll("[data-conquista-slide]");
     var form = caixa.querySelector(".conquista__fechar-form");
 
@@ -114,6 +133,7 @@
       }
     }
   }
+  ligar(pousar());
 
   // ---------------------------------------------- o interruptor de /conquistas/
   //

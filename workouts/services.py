@@ -1305,6 +1305,78 @@ def substituir_por_equipamento(itens, permitidos, catalogo=None) -> list:
     return resultado
 
 
+#: Até que degrau da escada um iniciante recebe de saída. As escadas do
+#: peso do corpo vão de 1 (mais fácil) a 5 (`Exercise.progressao`); 3 é a
+#: versão "padrão" do movimento (flexão de braço, barra fixa negativa,
+#: afundo) — com 2 a letra A da persona ficava em duas opções de dois
+#: exercícios (medido em 22/09/2026); com 3 fica em 3 + 3, sem paralelas,
+#: sem parada de mão, sem arqueiro.
+DEGRAU_DO_INICIANTE = 3
+
+
+def ajustar_degrau_do_iniciante(itens, nivel, permitidos, catalogo=None) -> list:
+    """O iniciante que treina só com o peso do corpo começa pelo degrau mais
+    fácil da escada (22/09/2026).
+
+    Achado #5 das personas: a iniciante de 78 kg, "só o peso do corpo",
+    recebia MERGULHO NAS PARALELAS (degrau 4), flexão parada de mão (5) e
+    barra fixa pronada (5) — a leitura mostrava a escada com "você está
+    aqui", mas a ficha a punha no topo. A doutrina fica: o iniciante faz os
+    MESMOS movimentos; o que muda é o degrau. Só para `iniciante` e só
+    quando o perfil é `peso_corporal` — na academia a progressão é a carga.
+    Cada item com `progressao` acima de `DEGRAU_DO_INICIANTE` é trocado
+    pelo degrau mais baixo do MESMO movimento e grupo que ainda não esteja
+    na lista, com a dose do item trocado — um degrau DENTRO do alcance do
+    iniciante, e não só "um abaixo": o arqueiro (5) não vira hindu (4). Sem
+    degrau livre, o item SAI —
+    quatro flexões numa letra viram duas fáceis, e `preencher_ate_a_faixa`
+    devolve as séries aos exercícios que ficaram —, exceto quando é o
+    último exercício do grupo na lista (um grupo anunciado não pode ficar
+    sem nada; o degrau alto fica, e a leitura mostra o degrau de baixo).
+    Roda no gerador E na conferência, como `substituir_por_equipamento`.
+    """
+    itens = list(itens)
+    if nivel != Experiencia.INICIANTE or permitidos is None:
+        return itens
+    if frozenset(permitidos) != frozenset({Equipment.BODYWEIGHT}):
+        return itens
+    if catalogo is None:
+        catalogo = catalogo_permitido(permitidos)
+    usados = {item.exercise_id for item in itens}
+    resultado = []
+    for item in itens:
+        escada = item.exercise.progressao or {}
+        nivel_do_item = escada.get("nivel") or 0
+        if nivel_do_item <= DEGRAU_DO_INICIANTE:
+            resultado.append(item)
+            continue
+        candidatos = [
+            e for e in catalogo
+            if (e.progressao or {}).get("movimento") == escada.get("movimento")
+            and e.muscle_group == item.exercise.muscle_group
+            and (e.progressao or {}).get("nivel", 99) <= DEGRAU_DO_INICIANTE
+            and e.id not in usados
+        ]
+        mais_facil = min(candidatos, key=lambda e: ((e.progressao or {}).get("nivel", 99), e.name, e.id), default=None)
+        if mais_facil is None:
+            outros_do_grupo = [
+                r for r in resultado if r.exercise.muscle_group == item.exercise.muscle_group
+            ] + [
+                r for r in itens[itens.index(item) + 1:] if r.exercise.muscle_group == item.exercise.muscle_group
+            ]
+            if outros_do_grupo:
+                usados.discard(item.exercise_id)
+                continue
+            resultado.append(item)
+            continue
+        usados.add(mais_facil.id)
+        copia = copy.copy(item)
+        copia.pk = None
+        copia.exercise = mais_facil
+        resultado.append(copia)
+    return resultado
+
+
 #: O que decide a prescrição SEM a pessoa: o catálogo de exercícios, os
 #: modelos e a doutrina. Mudou um deles, mudou o que o gerador produziria.
 _ARQUIVOS_DO_CATALOGO = (
@@ -1774,9 +1846,12 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
         modelo = modelos.get(label)
         if modelo is None:
             return None
-        itens_de[label] = substituir_por_equipamento(
-            [item for item in modelo.items.all() if item.exercise.is_active],
-            permitidos, catalogo,
+        itens_de[label] = ajustar_degrau_do_iniciante(
+            substituir_por_equipamento(
+                [item for item in modelo.items.all() if item.exercise.is_active],
+                permitidos, catalogo,
+            ),
+            nivel, permitidos, catalogo,
         )
         principais_de[label] = list(getattr(modelo, "main_groups", None) or ())
         # A FAIXA É DO TIPO DE DIA E DO NÍVEL (TREINO.md, tabela A): "Peito e
@@ -2771,11 +2846,15 @@ def _prescricao_bate(plan, user) -> bool:
     # de outro catálogo ficava "desatualizada" para sempre.
     permitidos = permitidos_de(user)
     catalogo = catalogo_permitido(permitidos)
+    nivel = nivel_de(user)
     prescrito = {
         (i.exercise_id, i.rep_min, i.rep_max, i.rest_seconds)
         for template in modelos.values()
-        for i in substituir_por_equipamento(
-            [i for i in template.items.all() if i.exercise.is_active], permitidos, catalogo,
+        for i in ajustar_degrau_do_iniciante(
+            substituir_por_equipamento(
+                [i for i in template.items.all() if i.exercise.is_active], permitidos, catalogo,
+            ),
+            nivel, permitidos, catalogo,
         )
     }
     itens = list(
@@ -3182,6 +3261,26 @@ class Placar:
     carga_total: Decimal = Decimal("0")
     carga_anterior: object = None
     recordes: int = 0
+    #: Repetições de hoje, série a série — o herói de quem treina com o
+    #: peso do corpo (22/09/2026): "0 kg levantados" em 72 px depois de um
+    #: treino inteiro era o placar dizendo que nada aconteceu (achado #5).
+    repeticoes: int = 0
+    series: int = 0
+
+    @property
+    def tem_carga(self) -> bool:
+        return self.carga_total > 0
+
+    @property
+    def heroi(self):
+        """`(número, rótulo)` do número grande: o kg quando houve carga, as
+        repetições quando o dia foi todo sem anilha — e as séries quando nem
+        repetição foi anotada (a série gravada sem número existe)."""
+        if self.tem_carga:
+            return (self.carga_total, "kg levantados")
+        if self.repeticoes:
+            return (self.repeticoes, "repetições feitas")
+        return (self.series, "séries feitas")
 
     @property
     def delta_pct(self):
@@ -3203,7 +3302,10 @@ def placar_do_treino(itens) -> Placar:
     tem_anterior = False
     for item in itens:
         load = getattr(item, "load", None) or {}
-        placar.carga_total += _tonelagem((load.get("hoje") or {}).values())
+        de_hoje = (load.get("hoje") or {}).values()
+        placar.carga_total += _tonelagem(de_hoje)
+        placar.repeticoes += sum((log.reps or 0) for log in de_hoje)
+        placar.series += len(de_hoje)
         de_antes = (load.get("anterior") or {}).values()
         if de_antes:
             tem_anterior = True
@@ -3545,7 +3647,13 @@ def _sugestao_de_reps(item, serie):
     if progressao is not None and progressao.estado in adaptacao.REPS_NO_PISO:
         return item.rep_min
     registro = ((item.load or {}).get("anterior") or {}).get(serie)
-    return registro.reps if registro is not None else None
+    if registro is not None:
+        return registro.reps
+    # SEM HISTÓRICO NENHUM, o piso da faixa (22/09/2026): o campo vazio com
+    # o placeholder "6-10" gravava série sem repetição para quem tocava
+    # "Concluir" sem digitar — e o placar do peso do corpo fechava em "0
+    # repetições feitas". O piso é a mesma regra da carga nova.
+    return item.rep_min or None
 
 
 #: Quantas datas o histórico da leitura mostra. Doze é o que cabe numa tela

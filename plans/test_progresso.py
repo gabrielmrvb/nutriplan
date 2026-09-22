@@ -354,8 +354,8 @@ class TelaDeProgressoTests(TestCase):
 
         html = self._html()
 
-        self.assertIn("Ainda não há nada marcado", html)
-        vazio = html.split("Ainda não há nada marcado", 1)[1].split("</div>", 1)[0]
+        self.assertIn("Nenhuma refeição registrada", html)
+        vazio = html.split("Nenhuma refeição registrada", 1)[1].split("</div>", 1)[0]
         self.assertIn(reverse("plans:today"), vazio)
         self.assertIn("btn--ghost", vazio)
         self.assertNotIn("btn--primary", vazio)

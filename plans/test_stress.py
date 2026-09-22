@@ -189,7 +189,11 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # `weight_trend.analisar` lê `user.profile.goal` só quando há decisão
         # a sugerir, e aí `respondeu_ha_pouco` já carregou o perfil (a versão
         # que lia sempre media +1). Mescla de 21/09/2026: MEDIDO 28.
-        "plans:history": 28,
+        # 28 -> 29 (22/09/2026): a corrida entrou no Progresso — UMA consulta
+        # agregada por semana (`progresso.km_corridos`), constante, e não
+        # por linha. Achado #9 das personas: a tela não sabia que a pessoa
+        # corria.
+        "plans:history": 29,
         # 15 -> 19: o Perfil passou a CONFERIR se o plano gravado ainda vale.
         #
         # Ele mostrava o número velho chamando-o de "suas metas de hoje" — 2.520

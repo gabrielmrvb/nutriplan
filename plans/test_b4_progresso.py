@@ -252,7 +252,7 @@ class ATelaNaoParteOsCartoesTests(TestCase):
 
         html = self.client.get(reverse("plans:history")).content.decode()
 
-        self.assertIn("Ainda não há nada marcado", html)
+        self.assertIn("Nenhuma refeição registrada", html)
         self.assertEqual(
             html.count("split__main") + html.count("split__aside"), 1
         )

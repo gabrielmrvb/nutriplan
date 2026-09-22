@@ -71,8 +71,10 @@ class OfensivaComecaNaContaTests(TestCase):
         user = self._nascida_hoje("cru@exemplo.com")
         user.training_days.all().delete()
         ofensiva = streaks.calcular(user, hoje=timezone.localdate())
-        self.assertLessEqual(ofensiva.dias, 1)
-        self.assertLessEqual(ofensiva.recorde, 1)
+        # e um dia sem NADA a cumprir (sem treino previsto, sem cardápio, sem
+        # meta) não fecha — não há o que ter cumprido
+        self.assertEqual(ofensiva.dias, 0)
+        self.assertEqual(ofensiva.recorde, 0)
 
     def test_as_conquistas_usam_a_mesma_meta_de_agua_que_a_home(self):
         """A mesma conta, o mesmo número, nas duas telas — com a água pesando."""

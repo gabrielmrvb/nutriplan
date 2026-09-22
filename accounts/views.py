@@ -629,12 +629,23 @@ class OnboardingStepMixin(LoginRequiredMixin):
         reversa = Profile._meta.get_field("user").remote_field
         if reversa.is_cached(self.request.user):
             reversa.delete_cached_value(self.request.user)
+        from workouts import services as treino
+
         try:
-            acertar_rotina(self.request.user)
+            plano_antes = treino.get_active_routine(self.request.user)
+            if plano_antes is not None and plano_antes.is_customized:
+                return "Alterações salvas. Você ajustou a ficha à mão, então ela não é remontada."
+            if plano_antes is not None and treino.treino_em_andamento(self.request.user)                     and treino.rotina_invalida(plano_antes, self.request.user):
+                return "Alterações salvas. Há série registrada hoje, então a ficha muda amanhã."
+            _, mudou = acertar_rotina(self.request.user)
         except NoTrainingDays as erro:
             # Sem traceback: a mensagem já diz a causa, e o traceback sujava
             # a saída de todo teste de onboarding que roda sem catálogo.
             logger.warning("ficha não montada ao salvar os dias: %s", erro)
+            return "Alterações salvas."
+        if mudou:
+            return "Alterações salvas — a ficha foi remontada com elas."
+        return "Alterações salvas."
 
     def montar_cardapio(self):
         """O cardápio nasce em "Calcular minha estimativa", e não na primeira Home.
@@ -661,17 +672,22 @@ class OnboardingStepMixin(LoginRequiredMixin):
 
         profile.advance_onboarding(self.step, proximo=proximo)
         if was_complete:
+            mensagem = "Alterações salvas."
             if self.step == PASSO_TREINOS:
                 # Os dias ou a divisão mudaram, e a ficha muda com eles AGORA
                 # — não na próxima visita ao Treino. A Home lê o plano ativo
                 # sem montar nada, e é para a Home que "Salvar" pode voltar.
                 # Zero dias desliga o plano (P1-02): a ofensiva e o resumo do
                 # dia param de cobrar um treino que a pessoa tirou da semana.
-                self.acertar_ficha()
+                # E A MENSAGEM DIZ O QUE VALEU (achado #8 das personas,
+                # 22/09/2026): "salvas" com a ficha idêntica — porque há série
+                # registrada hoje, ou porque ela foi ajustada à mão — deixava
+                # a pessoa achando que a troca não pegou.
+                mensagem = self.acertar_ficha()
             # Só na EDIÇÃO. No onboarding, o feedback de ter salvo é a etapa
             # seguinte aparecer — dizer "pronto" três vezes seguidas durante
             # o cadastro seria a mensagem virando ruído.
-            messages.success(self.request, "Alterações salvas.")
+            messages.success(self.request, mensagem)
             # De volta para a tela de onde a pessoa veio, e não sempre para o
             # Perfil: ela saiu do treino para trocar os dias de treino, e é a
             # ficha — que acabou de ser remontada com eles — que ela quer ver.
@@ -1587,7 +1603,7 @@ def resumo_do_que_sera_apagado(user) -> list:
     o que o `_meta` do modelo declara.
     """
     from plans.models import HydrationLog, MealLog, NutritionPlan
-    from workouts.models import ExerciseLog, TrainingPlan
+    from workouts.models import Corrida, ExerciseLog, TrainingPlan
 
     linhas = [
         ("Estimativas (cardápios)", NutritionPlan.objects.filter(user=user).count()),
@@ -1596,6 +1612,8 @@ def resumo_do_que_sera_apagado(user) -> list:
         ("Pesagens", WeightEntry.objects.filter(user=user).count()),
         ("Fichas de treino", TrainingPlan.objects.filter(user=user).count()),
         ("Séries registradas", ExerciseLog.objects.filter(user=user).count()),
+        # A corrida é pilar e some junto (achado #9 das personas, 22/09/2026).
+        ("Corridas", Corrida.objects.filter(user=user).count()),
     ]
     return [(nome, total) for nome, total in linhas if total]
 

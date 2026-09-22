@@ -1469,7 +1469,7 @@ class HistoryViewTests(CatalogFixture):
         response = self.client.get(reverse("plans:history"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Ainda não há nada marcado")
+        self.assertContains(response, "Nenhuma refeição registrada")
 
     def test_history_lists_the_marked_days(self):
         slot = self.plan.slots.get(order=0)

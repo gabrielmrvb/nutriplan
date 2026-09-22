@@ -16,6 +16,11 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **Aderência sem nota de reprovação no primeiro dia.** Hoje só conta as refeições cujo horário já passou ("1/2 até agora"); a porcentagem é dos dias fechados. No dia do cadastro, as refeições de antes de você chegar não contam.
 - **"Ficou para trás".** Uma refeição vencida há mais de uma hora e meia deixa de ser chamada de "agora" — continua sendo a próxima coisa a registrar.
 - **Sua área principal age.** O cartão da área que você escolheu traz o botão do dia: começar o treino de hoje, registrar a corrida, registrar o peso.
+- **O aviso de conquista não cobre o botão.** Na execução, "Conquista desbloqueada" aparece logo abaixo de "Concluir série", e não por cima dele.
+- **Ficha de iniciante com o peso do corpo começa do começo.** Sem paralelas, parada de mão ou flexão arqueiro na primeira semana: cada movimento entra na versão que dá para fazer, e a escada mostra o caminho.
+- **Placar para quem treina sem anilha.** O número grande do fim do treino é o de repetições quando não houve carga — e o kg ganhou ponto de milhar. A primeira série já vem com as repetições no piso da faixa.
+- **Editar treinos diz o que valeu.** "A ficha foi remontada", "há série hoje, então a ficha muda amanhã" ou "ajustada à mão, não é remontada".
+- **Corrida no Progresso e na Ajuda.** Quilômetros por semana para quem corre, "Corridas" na lista do que a exclusão apaga, e uma pergunta na Ajuda para quem só corre.
 
 ## 2026-09-21
 
