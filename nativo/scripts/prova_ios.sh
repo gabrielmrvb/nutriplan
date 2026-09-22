@@ -43,7 +43,21 @@ xcrun simctl boot "$UDID" || true
 xcrun simctl bootstatus "$UDID" -b
 xcrun simctl install "$UDID" "$APP"
 
-falhou() { echo "PROVA IOS FALHOU: $1" >&2; exit 1; }
+# Por que o app morreu — o log do simulador e o relatório de falha, se
+# houver. Sem isto a prova só sabia dizer "não está rodando", e a causa
+# ficava para adivinhação (22/09/2026).
+diagnostico() {
+  echo "--- log do app (últimos 3 min) ---" >&2
+  xcrun simctl spawn "$UDID" log show --last 3m --style compact \
+    --predicate 'processImagePath CONTAINS "App.app" OR senderImagePath CONTAINS "App.app"' 2>/dev/null | tail -40 >&2 || true
+  echo "--- relatórios de falha ---" >&2
+  ls -t ~/Library/Logs/DiagnosticReports/App-*.ips 2>/dev/null | head -1 | while read -r r; do
+    echo "($r)" >&2
+    head -60 "$r" >&2
+  done || true
+}
+
+falhou() { echo "PROVA IOS FALHOU: $1" >&2; diagnostico; exit 1; }
 
 # Abre o app e CONFERE que ele ficou de pé. Sem esta conferência o passo
 # passava com a captura da TELA INICIAL do iPhone: `simctl launch` responde
