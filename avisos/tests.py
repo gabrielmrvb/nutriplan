@@ -27,7 +27,8 @@ from plans.tests import create_complete_user
 from workouts.models import Exercise, ExerciseLog, MuscleGroup, Padrao, Split, TrainingPlan
 
 from . import jobs, services
-from .models import EmailEnviado, Preferencia, TipoDeEmail
+from . import brevo
+from .models import EmailAberto, EmailBloqueado, EmailEnviado, Preferencia, TipoDeEmail
 
 
 def _plano(user):
@@ -142,6 +143,9 @@ class InatividadeTests(TestCase):
         self.user = create_complete_user()
         _plano(self.user)
         self.exercicio = _exercicio()
+        # Os e-mails do relógio só saem para caixa PROVADA (abriu algum
+        # e-mail nosso) — a régua de 21/09/2026.
+        EmailAberto.objects.create(email=self.user.email)
 
     def test_cinco_dias_sem_serie_recebe_um_email(self):
         _serie(self.user, date(2026, 9, 16), self.exercicio)
@@ -189,6 +193,7 @@ class InatividadeTests(TestCase):
         para quem não existe, e a régua é a TERMINAÇÃO do e-mail, não o nome."""
         demo = create_complete_user(email="carlos.demo@nutriplan.invalid")
         _plano(demo)
+        EmailAberto.objects.create(email=demo.email)
         User.objects.filter(pk__in=(demo.pk, self.user.pk)).update(date_joined=_agora(2026, 9, 10))
 
         inatividade = jobs.rodar_inatividade(_agora(2026, 9, 21, 8, 5))
@@ -241,6 +246,7 @@ class ResumoSemanalTests(TestCase):
         self.user = create_complete_user()
         _plano(self.user)
         self.exercicio = _exercicio()
+        EmailAberto.objects.create(email=self.user.email)
         # Semana de 14 a 20/09/2026 (segunda a domingo); o job roda na
         # segunda 21/09.
         _serie(self.user, date(2026, 9, 15), self.exercicio)
@@ -404,3 +410,166 @@ class PushRespeitaAPreferenciaTests(TestCase):
         pref.save()
 
         self.assertEqual(due_slots(agora).count(), 0)
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+                   NUTRIPLAN_URL_BASE="https://app.exemplo")
+class RegraDeEnvioTests(TestCase):
+    """Quem recebe: endereço em que o Brevo não desistiu, e — nos e-mails do
+    relógio — caixa provada. Medido em 21/09/2026: 46,6 % de hard bounce
+    num dia, com gmail inventado no cadastro; é reputação de remetente."""
+
+    def setUp(self):
+        self.user = create_complete_user()
+        _plano(self.user)
+        self.exercicio = _exercicio()
+        _serie(self.user, date(2026, 9, 16), self.exercicio)
+
+    def test_endereco_bloqueado_nao_recebe_nada_nem_o_boas_vindas(self):
+        EmailBloqueado.objects.create(email=self.user.email, motivo="hardBounce")
+
+        self.assertEqual(services.boas_vindas(self.user), "pulado")
+        resumo = jobs.rodar_inatividade(_agora(2026, 9, 21, 8, 5))
+
+        self.assertEqual(resumo["enviados"], 0)
+        self.assertEqual(mail.outbox, [])
+        self.assertFalse(EmailEnviado.objects.filter(user=self.user).exists(), "sem linha: a chave não é queimada")
+
+    def test_o_bloqueio_nao_diferencia_maiusculas(self):
+        EmailBloqueado.objects.create(email=self.user.email.lower(), motivo="hardBounce")
+        self.user.email = self.user.email.upper()
+        self.user.save()
+
+        self.assertEqual(services.boas_vindas(self.user), "pulado")
+
+    def test_caixa_nunca_provada_nao_recebe_os_emails_do_relogio(self):
+        self.assertFalse(EmailAberto.objects.filter(email=self.user.email).exists())
+
+        inatividade = jobs.rodar_inatividade(_agora(2026, 9, 21, 8, 5))
+        semana = jobs.rodar_resumo_semanal(_agora(2026, 9, 21, 8, 5))
+
+        self.assertEqual((inatividade["enviados"], semana["enviados"]), (0, 0))
+        self.assertEqual(mail.outbox, [])
+        self.assertFalse(EmailEnviado.objects.exists(), "pulado sem gravar linha: quando a caixa for provada, o e-mail sai")
+
+    def test_o_boas_vindas_sai_sem_prova_porque_ele_e_a_prova(self):
+        """É o primeiro contato: a abertura DELE é o que vira `EmailAberto`.
+        Exigir prova antes seria nunca mandá-lo."""
+        self.assertEqual(services.boas_vindas(self.user), "enviado")
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_quem_abriu_algum_email_recebe_os_do_relogio(self):
+        EmailAberto.objects.create(email=self.user.email)
+
+        resumo = jobs.rodar_inatividade(_agora(2026, 9, 21, 8, 5))
+
+        self.assertEqual(resumo["enviados"], 1)
+
+    def test_o_campo_de_verificacao_do_cadastro_vale_como_prova_quando_existir(self):
+        """O contrato com a sessão de segurança (ledger, 21/09/2026):
+        `email_verificado_em` no usuário. `verificado()` olha o campo antes
+        da tabela — aqui simulado no objeto, porque o campo ainda não existe."""
+        self.user.email_verificado_em = timezone.now()
+
+        self.assertTrue(services.verificado(self.user))
+        self.assertEqual(services.enviar(self.user, TipoDeEmail.INATIVIDADE, "x", {"dias": 5, "ultima": None, "nunca": True}), "enviado")
+
+
+class SincronizacaoComOBrevoTests(TestCase):
+    """`avisos.brevo` copia bloqueados e abertos por GET — e só GET."""
+
+    PAGINA_BLOQUEADOS = {"contacts": [
+        {"email": "Ainda@gmail.com", "reason": {"code": "hardBounce"}, "blockedAt": "2026-09-21T13:35:00.000+00:00"},
+        {"email": "spam@exemplo.com", "reason": {"code": "contactFlaggedAsSpam"}, "blockedAt": "2026-09-20T10:00:00Z"},
+    ], "count": 2}
+    PAGINA_ABERTOS = {"events": [
+        {"email": "QA@maildrop.cc", "event": "opened", "date": "2026-09-21T16:44:10.000+00:00"},
+        {"email": "qa@maildrop.cc", "event": "opened", "date": "2026-09-21T16:44:00.000+00:00"},
+    ]}
+
+    def _falsa(self, chamadas):
+        def _get(caminho, params):
+            chamadas.append(("GET", caminho, params))
+            return self.PAGINA_BLOQUEADOS if "blockedContacts" in caminho else self.PAGINA_ABERTOS
+        return _get
+
+    @override_settings(BREVO_API_KEY="chave-de-teste")
+    def test_sincroniza_bloqueados_e_a_primeira_abertura_em_minusculas(self):
+        chamadas = []
+        with patch.object(brevo, "_get", self._falsa(chamadas)):
+            resultado = brevo.sincronizar()
+
+        self.assertEqual(resultado["bloqueados_novos"], 2)
+        self.assertEqual(resultado["abertos_novos"], 1)
+        self.assertEqual(EmailBloqueado.objects.get(email="ainda@gmail.com").motivo, "hardBounce")
+        self.assertEqual(EmailAberto.objects.count(), 1, "QA@ e qa@ são a mesma caixa")
+        self.assertEqual(EmailAberto.objects.get(email="qa@maildrop.cc").primeira_abertura.isoformat(), "2026-09-21T16:44:00+00:00")
+        self.assertEqual({c[1] for c in chamadas}, {"/smtp/blockedContacts", "/smtp/statistics/events"})
+
+    def test_sem_chave_nada_roda_e_nada_estoura(self):
+        with override_settings(BREVO_API_KEY=""):
+            self.assertEqual(brevo.sincronizar(), {"pulado": "BREVO_API_KEY ausente"})
+
+    @override_settings(BREVO_API_KEY="chave-de-teste")
+    def test_api_fora_do_ar_fica_no_log_e_nao_derruba_a_rodada(self):
+        import urllib.error
+
+        with patch.object(brevo, "_get", side_effect=urllib.error.URLError("fora")):
+            resultado = brevo.sincronizar()
+
+        self.assertIn("falhou", resultado)
+
+    @override_settings(BREVO_API_KEY="chave-de-teste")
+    def test_a_api_so_recebe_get_e_a_chave_vai_no_cabecalho(self):
+        """Como `scripts/render_api.py`: leitura é leitura por construção."""
+        pedidos = []
+
+        class _Resposta:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return b'{"contacts": [], "events": []}'
+
+        def _urlopen(pedido, timeout=0):
+            pedidos.append(pedido)
+            return _Resposta()
+
+        with patch("avisos.brevo.urllib.request.urlopen", _urlopen):
+            brevo.sincronizar()
+
+        self.assertTrue(pedidos)
+        self.assertEqual({p.get_method() for p in pedidos}, {"GET"})
+        self.assertTrue(all(p.get_header("Api-key") == "chave-de-teste" for p in pedidos))
+        self.assertTrue(all(p.full_url.startswith("https://api.brevo.com/v3/") for p in pedidos))
+
+    @override_settings(BREVO_API_KEY="chave-de-teste")
+    def test_a_rodada_sincroniza_uma_vez_a_cada_doze_horas(self):
+        brevo._ultima["em"] = None
+        chamadas = []
+        with patch.object(brevo, "_get", self._falsa(chamadas)):
+            primeira = brevo.sincronizar_se_vencido(_agora(2026, 9, 21, 8, 0))
+            segunda = brevo.sincronizar_se_vencido(_agora(2026, 9, 21, 9, 0))
+            terceira = brevo.sincronizar_se_vencido(_agora(2026, 9, 21, 21, 0))
+        brevo._ultima["em"] = None
+
+        self.assertIn("bloqueados", primeira)
+        self.assertIn("pulado", segunda)
+        self.assertIn("bloqueados", terceira)
+        self.assertEqual(len(chamadas), 4)
+
+    def test_o_build_sincroniza_e_o_comando_existe(self):
+        from io import StringIO
+        from pathlib import Path
+
+        from django.core.management import call_command
+
+        build = (Path(__file__).resolve().parent.parent / "scripts" / "build.sh").read_text(encoding="utf-8")
+        self.assertIn("python manage.py sincronizar_brevo", build)
+        saida = StringIO()
+        with override_settings(BREVO_API_KEY=""):
+            call_command("sincronizar_brevo", stdout=saida)
+        self.assertIn("BREVO_API_KEY ausente", saida.getvalue())
