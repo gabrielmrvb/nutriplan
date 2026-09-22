@@ -696,7 +696,7 @@ class ADuracaoSaiDaTelaMasNaoDoMotorTests(BaseDoFluxo):
 
         form = TrainingForm(
             data={
-                "weekdays": ["0", "2", "4"],
+                "weekdays": ["0", "2", "4"], "musculacao": "sim",
                 "experiencia": "intermediario",
                 "wake_time": "07:00",
                 "sleep_time": "23:00",
@@ -721,7 +721,7 @@ class ADuracaoSaiDaTelaMasNaoDoMotorTests(BaseDoFluxo):
 
         form = TrainingForm(
             data={
-                "weekdays": ["0", "2", "4"],
+                "weekdays": ["0", "2", "4"], "musculacao": "sim",
                 "experiencia": "intermediario",
                 "wake_time": "07:00",
                 "sleep_time": "23:00",
@@ -750,7 +750,7 @@ class ADuracaoSaiDaTelaMasNaoDoMotorTests(BaseDoFluxo):
 
         form = TrainingForm(
             data={
-                "weekdays": [str(d) for d in range(7)],
+                "weekdays": [str(d) for d in range(7)], "musculacao": "sim",
                 "experiencia": "intermediario",
                 "wake_time": "07:00",
                 "sleep_time": "23:00",

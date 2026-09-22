@@ -28,6 +28,7 @@ from .models import (
     DuracaoTreino,
     Equipamento,
     Experiencia,
+    Musculacao,
     Goal,
     MealStyle,
     Pilar,
@@ -491,6 +492,16 @@ class TrainingForm(forms.Form):
     anterior.
     """
 
+    musculacao = forms.ChoiceField(
+        # A PERGUNTA-PORTA (22/09/2026): com "não", experiência, equipamento,
+        # dias e divisão não são pedidos nem gravados. Obrigatória: é ela que
+        # decide o resto da tela, e "não respondeu" aqui deixaria a pessoa
+        # que só corre no mesmo lugar de antes — inventando dias de academia.
+        label="Você faz musculação?",
+        choices=Musculacao.choices,
+        widget=forms.RadioSelect,
+        error_messages={"required": "Diga se você faz musculação — o resto da tela depende disso."},
+    )
     weekdays = forms.TypedMultipleChoiceField(
         label="Em quais dias você treina?",
         # Rótulo curto, valor idêntico: continua saindo o inteiro de `Weekday`.
@@ -564,6 +575,13 @@ class TrainingForm(forms.Form):
             # 10/09/2026 e continua vindo do perfil dentro de `save`.
             self.fields["experiencia"].initial = perfil.experiencia
             self.fields["equipamento"].initial = perfil.equipamento
+            # Conta anterior à pergunta com dias gravados: o "sim" é
+            # implícito, e a tela abre com ele — quem veio trocar o
+            # equipamento não é obrigado a responder o que já respondeu.
+            if perfil.musculacao:
+                self.fields["musculacao"].initial = perfil.musculacao
+            elif self.user.training_days.exists():
+                self.fields["musculacao"].initial = Musculacao.SIM
 
     def perfil(self):
         return getattr(self.user, "profile", None) if self.user else None
@@ -576,6 +594,11 @@ class TrainingForm(forms.Form):
         válido, não erro.
         """
         cleaned = super().clean()
+        # "Não faço musculação" ZERA o resto do bloco, mesmo que o navegador
+        # sem JavaScript tenha mandado os campos: o servidor é quem decide.
+        if cleaned.get("musculacao") == Musculacao.NAO:
+            cleaned["weekdays"] = []
+            cleaned["experiencia"] = ""
         wake, sleep = cleaned.get("wake_time"), cleaned.get("sleep_time")
         if wake and sleep:
             same_day = wake < sleep
@@ -650,9 +673,10 @@ class TrainingForm(forms.Form):
             # Em branco NÃO apaga: um envio sem o campo (cliente antigo, tela
             # que não o desenha) mantém o que a pessoa tinha.
             perfil.equipamento = self.cleaned_data.get("equipamento") or perfil.equipamento
+            perfil.musculacao = self.cleaned_data.get("musculacao") or perfil.musculacao
             perfil.save(update_fields=[
                 "wake_time", "sleep_time", "duracao_treino", "experiencia",
-                "equipamento", "updated_at",
+                "equipamento", "musculacao", "updated_at",
             ])
 
         return self.user.training_days.all()

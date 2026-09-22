@@ -303,7 +303,7 @@ class APerguntaTests(TestCase):
 
     def test_o_formulario_grava_a_resposta(self):
         aberto = TrainingForm(user=self.user)
-        dados = {"wake_time": "07:00", "sleep_time": "23:00", "weekdays": ["0", "2"], "equipamento": "casa_halteres"}
+        dados = {"wake_time": "07:00", "sleep_time": "23:00", "weekdays": ["0", "2"], "musculacao": "sim", "equipamento": "casa_halteres"}
         enviado = TrainingForm(dados, user=self.user)
         self.assertTrue(enviado.is_valid(), enviado.errors)
         enviado.save()
@@ -314,7 +314,7 @@ class APerguntaTests(TestCase):
     def test_em_branco_nao_apaga_o_que_a_pessoa_tinha(self):
         self.user.profile.equipamento = Equipamento.BASICA
         self.user.profile.save(update_fields=["equipamento"])
-        dados = {"wake_time": "07:00", "sleep_time": "23:00", "weekdays": ["0", "2"]}
+        dados = {"wake_time": "07:00", "sleep_time": "23:00", "weekdays": ["0", "2"], "musculacao": "sim"}
         enviado = TrainingForm(dados, user=self.user)
         self.assertTrue(enviado.is_valid(), enviado.errors)
         enviado.save()

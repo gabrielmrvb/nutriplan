@@ -8,7 +8,7 @@
   </div>
 
   <section class="card">
-    <form method="post" novalidate>
+    <form method="post" novalidate data-rascunho>
       {% csrf_token %}
       {% if op_id %}<input type="hidden" name="op_id" value="{{ op_id }}">{% endif %}
       {% if form.non_field_errors %}

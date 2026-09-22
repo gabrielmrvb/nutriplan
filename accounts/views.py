@@ -1,5 +1,6 @@
 """Cadastro, autenticação e o wizard de onboarding em três etapas."""
 import logging
+from typing import NamedTuple
 
 from allauth.socialaccount.models import SocialAccount
 from django.contrib import messages
@@ -44,6 +45,7 @@ from .models import (
     Consentimento,
     ONBOARDING_DONE,
     ONBOARDING_LAST_STEP,
+    Musculacao,
     Profile,
     User,
     Weekday,
@@ -71,6 +73,16 @@ from avisos.services import boas_vindas
 SESSAO_PESO_RECUSADO = "peso_recusado"
 
 
+class PesoRecusado(NamedTuple):
+    """O que a tela recebe de volta: o que a pessoa digitou E por que foi
+    recusado. A mensagem viaja junto (22/09/2026) porque a faixa no topo
+    dizia "Este campo é obrigatório." sem campo nenhum marcado — item 3 da
+    missão de UX; hoje o campo leva `aria-invalid` e o texto embaixo dele."""
+
+    valor: str
+    mensagem: str
+
+
 def recusa_pendente(request, superficie):
     """O peso recusado que pertence a ESTA tela, ou `None` se não há nenhum.
 
@@ -86,7 +98,7 @@ def recusa_pendente(request, superficie):
     """
     guardado = request.session.get(SESSAO_PESO_RECUSADO)
 
-    if not isinstance(guardado, list) or len(guardado) != 2:
+    if not isinstance(guardado, list) or len(guardado) not in (2, 3):
         # Nada guardado, ou o formato antigo de uma sessão aberta antes desta
         # mudança. Descarta em vez de ignorar: sem superfície para comparar,
         # a chave nunca casaria com ninguém e ficaria presa na sessão.
@@ -97,7 +109,10 @@ def recusa_pendente(request, superficie):
         return None
 
     del request.session[SESSAO_PESO_RECUSADO]
-    return guardado[1]
+    # `[superfície, valor]` é o formato de antes de 22/09/2026, ainda possível
+    # numa sessão aberta antes do deploy: a mensagem genérica cobre.
+    mensagem = guardado[2] if len(guardado) > 2 else "Confira o peso."
+    return PesoRecusado(guardado[1], mensagem)
 
 
 #: Onde os dias de treino são respondidos — a etapa que decide a ficha.
@@ -904,8 +919,16 @@ def resumo_das_escolhas(user, profile) -> list:
         ("Altura e peso", "%d cm · %s kg" % (profile.height_cm, formats.number_format(peso, decimal_pos=1)) if peso is not None else "%d cm" % profile.height_cm),
         ("Objetivo", profile.get_goal_display()),
         ("Atividade", profile.get_activity_level_display()),
-        ("Dias de treino", ", ".join(nomes[d] for d in dias) if dias else "Nenhum por enquanto"),
     ]
+    # Quem não faz musculação vê a resposta e nada do bloco de academia:
+    # listar "Dias de treino: nenhum · Equipamento: academia completa" para
+    # quem só corre era o resumo contradizendo o que a pessoa acabou de dizer.
+    if profile.musculacao == Musculacao.NAO:
+        itens.append(("Musculação", "Não faço"))
+        return itens
+    if profile.musculacao == Musculacao.SIM:
+        itens.append(("Musculação", "Sim"))
+    itens.append(("Dias de treino", ", ".join(nomes[d] for d in dias) if dias else "Nenhum por enquanto"))
     if profile.experiencia:
         itens.append(("Experiência", profile.get_experiencia_display()))
     itens.append(("Equipamento", profile.get_equipamento_display()))
@@ -1375,10 +1398,14 @@ class WeightLogView(AcaoDeTela, OnboardingRequiredMixin, View):
         if not form.is_valid():
             # Apagar o que a pessoa digitou por causa de uma vírgula é
             # punição: ela volta para um campo vazio sem saber o que errou.
-            messages.error(request, form.primeiro_erro)
+            # A faixa diz DE QUE campo é o erro; o campo, marcado e com a
+            # mensagem embaixo, é o que a tela abre e foca (`pwa.js`, "FOCO
+            # NO ERRO").
+            messages.error(request, "Peso: %s" % form.primeiro_erro)
             request.session[SESSAO_PESO_RECUSADO] = [
                 origem,
                 (request.POST.get("weight_kg") or "")[:16],
+                form.primeiro_erro,
             ]
             return redirect(destino)
 

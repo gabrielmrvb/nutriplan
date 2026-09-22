@@ -4798,6 +4798,9 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   gap: var(--espaco-3);
 }
 
+/* O erro embaixo do campo ocupa a linha inteira da grade (22/09/2026). */
+.pesagem__erro { grid-column: 1 / -1; margin-top: 0; }
+
 /* O rótulo do campo é só para leitor de tela (`.vis-oculto`): as duas telas
    já escrevem "Peso" logo acima. O label continua envolvendo o input, então
    o alvo do dedo é o campo inteiro. */

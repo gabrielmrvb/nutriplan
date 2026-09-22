@@ -23,6 +23,7 @@ A resposta não é aceitar GET como ação: seria transformar um efeito colatera
 em algo que um link consegue disparar. A resposta é o GET levar à tela a que a
 ação pertence, que é onde a pessoa queria estar.
 """
+from django.contrib import messages
 from django.shortcuts import redirect
 
 
@@ -52,6 +53,18 @@ class AcaoDeTela:
             request.method == "POST"
             and request.user.is_authenticated
             and not request.session.get("primeira_acao")
+            and not recusou(request)
         ):
             request.session["primeira_acao"] = True
         return resposta
+
+
+def recusou(request) -> bool:
+    """A ação deixou uma mensagem de ERRO na fila: foi recusada, e recusa não
+    é ação de valor — o convite de instalação aparecia por cima do erro que a
+    pessoa estava lendo (22/09/2026). Lê a fila sem consumir."""
+    try:
+        fila = messages.get_messages(request)._queued_messages
+    except Exception:
+        return False
+    return any(m.level >= messages.ERROR for m in fila)

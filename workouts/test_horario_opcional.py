@@ -175,7 +175,7 @@ class OHorarioSalvoNaoESilenciosamenteApagadoTests(TestCase):
                 # A etapa 2 também pede objetivo e atividade: vão os do perfil.
                 "goal": user.profile.goal,
                 "activity_level": user.profile.activity_level,
-                "weekdays": ["1", "3"],
+                "weekdays": ["1", "3"], "musculacao": "sim",
                 "start_time": "",
                 "duracao_treino": "padrao",
                 "wake_time": "07:00",
@@ -220,7 +220,7 @@ class OHorarioSalvoNaoESilenciosamenteApagadoTests(TestCase):
             {
                 "goal": user.profile.goal,
                 "activity_level": user.profile.activity_level,
-                "weekdays": [str(d.weekday) for d in user.training_days.all()],
+                "weekdays": [str(d.weekday) for d in user.training_days.all()], "musculacao": "sim",
                 "start_time": "06:30",
                 "experiencia": "intermediario",
                 "wake_time": "07:00",

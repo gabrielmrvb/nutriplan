@@ -367,8 +367,13 @@ coluna da direita), não entre ela e o almoço.
           e volta pelo redirecionamento, e ela some porque a condição do
           servidor virou falsa. Sem rede, o POST falha e ela continua aqui.
         {% endcomment %}
-        {% if convite_pesagem %}
+        {% if convite_pesagem or houve_recusa %}
           {% comment %}
+            `or houve_recusa`: o erro precisa de um lugar para aparecer. Quem
+            tocou Salvar na faixa e foi recusado volta para cá — e a faixa
+            tem de estar aqui mesmo que o convite de pesar tenha deixado de
+            valer no meio do caminho (22/09/2026).
+
             O `id` é o destino do `#pesar` que o cartão AGORA oferece quando a
             área principal é Progresso. Ele NÃO existia: a faixa tinha só a
             classe, e o botão "Registrar peso" — a ação principal do dia
@@ -771,7 +776,8 @@ coluna da direita), não entre ela e o almoço.
           horários: 900 nós de DOM na tela mais visitada do app.
         {% endcomment %}
         <datalist id="alimentos-do-catalogo">
-          {% for food in alimentos %}<option value="{{ food.name }}"></option>{% endfor %}
+          {# `alimentos` são NOMES (a lista em cache de `alimentos_do_catalogo`), não objetos — `food.name` saía vazio (#102, 21/09/2026). #}
+          {% for nome in alimentos %}<option value="{{ nome }}"></option>{% endfor %}
         </datalist>
 
         {% comment %}

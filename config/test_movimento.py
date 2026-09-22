@@ -336,7 +336,7 @@ class GanchosNosTemplatesTests(SimpleTestCase):
 
     def test_o_onboarding_grava_e_le_a_direcao(self):
         etapa = self.ler("accounts/onboarding/step.html")
-        self.assertIn('<form method="post" novalidate data-direcao="avanca">', etapa)
+        self.assertIn('<form method="post" novalidate data-direcao="avanca" data-rascunho>', etapa)
         self.assertIn('href="{{ previous_url }}" data-direcao="volta"', etapa)
         # Na edição, "Voltar" sai do cadastro: não é uma direção dentro dele.
         self.assertIn('href="{{ voltar_para }}">Voltar</a>', etapa)
