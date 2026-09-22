@@ -3176,11 +3176,14 @@ class ModoTreinoTests(TestCase):
 
     def test_sem_historico_o_campo_de_carga_nasce_vazio(self):
         """Preencher com um valor de fábrica faria a pessoa registrar um peso
-        que ela não levantou com um toque só."""
+        que ela não levantou com um toque só. As REPS são outra história
+        (22/09/2026): vazias, "Concluir" gravava a série sem repetição e o
+        placar do peso do corpo fechava em "0 repetições feitas" — o campo
+        abre no piso da faixa prescrita, a mesma regra da carga nova."""
         estado = self._estado(self._usuario())
 
         self.assertIsNone(estado.atual.sugestao_carga)
-        self.assertIsNone(estado.atual.sugestao_reps)
+        self.assertEqual(estado.atual.sugestao_reps, estado.atual.rep_min)
 
     def test_o_campo_de_carga_aceita_virgula(self):
         """`type=number` descartaria "62,5" e mandaria vazio — o app é pt-BR."""

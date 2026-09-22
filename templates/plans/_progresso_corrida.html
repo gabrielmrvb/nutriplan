@@ -1,0 +1,27 @@
+{% comment %}
+  A corrida no Progresso (22/09/2026). A tela resumia peso, treino e água
+  e não tinha UMA linha sobre corrida — para quem só corre, a tela
+  chamada "Progresso" não sabia o que a pessoa fazia (achado #9 das
+  personas). O mesmo desenho das semanas de treino: oito semanas, os km de
+  cada uma. Só aparece para quem correu nas oito semanas (`tem_corrida`).
+{% endcomment %}
+<section class="card">
+  <div class="card__head">
+    <h2>Corrida</h2>
+    <a class="btn-link" href="{% url 'workouts:corridas' %}">Abrir as corridas</a>
+  </div>
+  <p class="area-promovida__fato">
+    Esta semana: <span class="num">{{ semana_de_corrida.km|floatformat:1 }} km</span>
+    em <span class="num">{{ semana_de_corrida.corridas }}</span> corrida{{ semana_de_corrida.corridas|pluralize }}.
+  </p>
+  <ul class="semanas" data-escalonado aria-label="Quilômetros corridos por semana">
+    {% for semana in semanas_de_corrida reversed %}
+      <li class="semana">
+        <span class="semana__rotulo">{{ semana.inicio|date:"d/m" }}</span>
+        <span class="semana__valor num">{{ semana.km|floatformat:1 }} km</span>
+        <span class="semana__valor num">{{ semana.corridas }} corrida{{ semana.corridas|pluralize }}</span>
+      </li>
+    {% endfor %}
+  </ul>
+  <p class="hint">A soma das corridas registradas e importadas em cada semana.</p>
+</section>

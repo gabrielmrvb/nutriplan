@@ -449,6 +449,61 @@ POR PRIORIDADE (22/09/2026).**
   já é o treino, o cartão vira consulta (sem repetir o botão — dois
   "COMEÇAR TREINO" na mesma dobra, medido). `OCartaoDaAreaTemAAcaoDoDiaTests`.
 
+**MISSÃO UX IRREPREENSÍVEL, LOTE 3 — O TREINO DE QUEM COMEÇA (22/09/2026).**
+
+- **O aviso de conquista entra NO FLUXO da execução**, logo abaixo de
+  "Concluir série" (`[data-conquista-alvo]` em `agora.html`;
+  `conquista.js` move a caixa para lá — `pousar()` — no carregamento e a
+  cada "Concluir série" sem recarga, pelo `nutriplan:pagina-trocada`;
+  `.conquista--em-fluxo` é `position: static`). Fixo e ancorado embaixo,
+  ele cobria "CONCLUIR SÉRIE 2" e o descanso (achado #3 das personas, nas
+  duas que treinaram; `elementFromPoint` no centro do botão devolvia
+  COMPARTILHAR — e o QA desta missão reproduziu: 40 cliques no botão
+  caíam no toast). Nas outras telas continua fixo, com a reserva de
+  `tem-conquista`. `workouts/test_toast_nao_cobre_o_botao.py`.
+- **O iniciante do peso do corpo começa no degrau 3 ou abaixo**
+  (`services.ajustar_degrau_do_iniciante`, `DEGRAU_DO_INICIANTE = 3`;
+  doutrina no `TREINO.md`, "O degrau do iniciante no peso do corpo"): a
+  persona recebia paralelas (4), parada de mão (5) e flexão arqueiro (5).
+  Só `iniciante` + `peso_corporal`; item acima do degrau é trocado pelo
+  degrau mais baixo LIVRE do mesmo movimento e grupo (dentro do alcance,
+  não "um abaixo"), com a dose; sem degrau livre, sai — a não ser que
+  seja o último do grupo — e `preencher_ate_a_faixa` devolve as séries.
+  Roda no gerador e na conferência (`_prescricao_bate`), como a
+  substituição por equipamento: a ficha nova não nasce "desatualizada".
+  Medido no `abc2` de 5 dias: A 3 + 3 em ~28 min, B 5 em ~35, C 8 em ~58.
+  Com 2 como teto a letra A virava duas opções de dois exercícios.
+  `workouts/test_degrau_do_iniciante.py`; dourado e capacidade de ambiente
+  intactos.
+- **O placar do peso do corpo tem herói**: `Placar.repeticoes`/`series` e
+  `Placar.heroi` — kg quando houve carga; repetições quando não; séries
+  quando nem repetição foi anotada. A folha e o cartão de compartilhar
+  (`data-compartilhar-heroi[-rotulo]`; `kg` continua para o dado antigo)
+  leem o mesmo. E o kg da tela leva ponto de milhar (`0g`; "8008" contra
+  "8.008" no cartão era o achado #16). `OPlacarDoPesoDoCorpoTests`.
+- **A primeira série de um exercício sem histórico abre com as reps no
+  PISO da faixa** (`_sugestao_de_reps`): o campo vazio com placeholder
+  "6-10" gravava série sem repetição para quem tocava "Concluir" sem
+  digitar, e o placar fechava em "0 repetições feitas" (medido no QA).
+- **Editar treinos pelo Perfil diz o que valeu** (achado #8):
+  `acertar_ficha` devolve a frase — "a ficha foi remontada com elas", "há
+  série registrada hoje, então a ficha muda amanhã" (`treino_em_andamento`
+  + `rotina_invalida`), "ajustou a ficha à mão, então ela não é
+  remontada" — como a troca de duração já dizia.
+  `accounts/test_edicao_diz_o_que_valeu.py`.
+- **A corrida nas telas que resumem** (achado #9): cartão "Corrida" no
+  Progresso (`workouts.progresso.km_corridos`, oito semanas, UMA consulta
+  agregada — o teto de `plans:history` foi 28 → 29 com a razão escrita) só
+  para quem correu; "Corridas" na lista da exclusão da conta; a FAQ ganhou
+  "Eu só corro (ou nado, ou pedalo). O app serve para mim?"; e a caixa das
+  refeições vazia diz "Nenhuma refeição registrada" — "Ainda não há nada
+  marcado" lia como "nada" para quem tinha 25 séries na véspera (#12).
+- **Dia sem nada a cumprir não fecha** (`Dia.mensuravel`; a mesma régua em
+  `_recorde`): sem rotina de treino (nenhum dia previsto na semana), sem
+  cardápio e sem meta de água não há o que ter cumprido — era o resto do
+  "401 / 3". O descanso ENTRE dias previstos continua sendo o plano
+  (`achievements.tests.OfensivaTests` prende).
+
 **OS LEGAIS ESTÃO PUBLICADOS, E O CONSENTIMENTO SÃO TRÊS CAIXAS COM PROVA
 (decisão do dono, 21/09/2026).** `LEGAL_RESPONSAVEL` e `LEGAL_CONTATO`
 preenchidos no Render (produção e staging) fazem `settings.LEGAL_PUBLICADO`

@@ -22,7 +22,7 @@ from datetime import timedelta
 from django.db.models import Count, Max, Min
 from django.utils import timezone
 
-from .models import ExerciseLog
+from .models import Corrida, ExerciseLog
 
 #: Oito semanas: o mesmo horizonte da tendência de peso. Duas telas do mesmo
 #: app medindo janelas diferentes convidam a comparações que não valem.
@@ -147,3 +147,31 @@ def progressao_de_carga(user, hoje=None, semanas=SEMANAS) -> list:
     ]
     resultado.sort(key=lambda d: (d["ultima_data"], d["delta"]), reverse=True)
     return resultado[:EXERCICIOS_NA_TELA]
+
+
+def km_corridos(user, hoje=None, semanas=SEMANAS) -> list:
+    """Por semana: quantos km a pessoa correu e quantas corridas foram.
+
+    A corrida é um pilar, e o Progresso não tinha uma linha sobre ela
+    (achado #9 das personas, 22/09/2026). UMA consulta, agregada por
+    corrida; a semana é a do início da corrida, no fuso local. Devolve as
+    oito semanas, inclusive as zeradas — buraco na série é informação.
+    """
+    hoje = hoje or timezone.localdate()
+    primeira = _inicio_da_semana(hoje) - timedelta(weeks=semanas - 1)
+    por_semana = {}
+    for comecou, metros in Corrida.objects.filter(
+        user=user, comecou_em__date__gte=primeira
+    ).values_list("comecou_em", "distancia_m"):
+        inicio = _inicio_da_semana(timezone.localtime(comecou).date())
+        semana = por_semana.setdefault(inicio, {"km": 0.0, "corridas": 0})
+        semana["km"] += (metros or 0) / 1000
+        semana["corridas"] += 1
+    return [
+        {
+            "inicio": primeira + timedelta(weeks=n),
+            "km": round(por_semana.get(primeira + timedelta(weeks=n), {}).get("km", 0.0), 1),
+            "corridas": por_semana.get(primeira + timedelta(weeks=n), {}).get("corridas", 0),
+        }
+        for n in range(semanas)
+    ]

@@ -1686,15 +1686,16 @@
        decide isso) desce de tamanho até caber, em vez de sair pela borda. */
     var tamanhoDaCarga = 210;
     fonte(g, 800, tamanhoDaCarga, TEXTO, -6);
-    while (g.measureText(dados.kg).width > util && tamanhoDaCarga > 96) {
+    var heroi = dados.heroi || dados.kg;
+    while (g.measureText(heroi).width > util && tamanhoDaCarga > 96) {
       tamanhoDaCarga -= 10;
       fonte(g, 800, tamanhoDaCarga, TEXTO, -6);
     }
     g.fillStyle = cor.carga;
-    g.fillText(dados.kg, MARGEM, baseDaCarga);
+    g.fillText(heroi, MARGEM, baseDaCarga);
     fonte(g, 600, 38, TEXTO, 6);
     g.fillStyle = cor.fraco;
-    g.fillText("KG LEVANTADOS", MARGEM, baseDaCarga + 64);
+    g.fillText(dados.heroiRotulo || "KG LEVANTADOS", MARGEM, baseDaCarga + 64);
 
     /* Os rótulos dizem o que a tela diz — "min entre o primeiro e o último
        registro" não é "duração do treino", que ninguém mede —, em duas linhas
@@ -1742,6 +1743,10 @@
       sessao: botao.dataset.compartilharSessao || "",
       series: botao.dataset.compartilharSeries || "",
       kg: botao.dataset.compartilharKg || "",
+      /* O herói do cartão é o da tela: kg com carga, repetições sem
+       * (peso do corpo, 22/09/2026). `kg` fica para quem lê o dado antigo. */
+      heroi: botao.dataset.compartilharHeroi || botao.dataset.compartilharKg || "",
+      heroiRotulo: botao.dataset.compartilharHeroiRotulo || "KG LEVANTADOS",
       minutos: botao.dataset.compartilharMinutos || "—",
       data: botao.dataset.compartilharData || "",
     };

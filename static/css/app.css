@@ -7469,6 +7469,14 @@ body.montando { overflow: hidden; }
   box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
 }
 
+/* No FLUXO da execução (`conquista.js` move a caixa para baixo do botão
+   de concluir, 22/09/2026): nada fixo, nada por cima do botão. */
+.conquista--em-fluxo {
+  position: static;
+  margin: var(--espaco-4) 0 0;
+  box-shadow: 0 0 0 0 transparent;
+}
+
 /* O recorde ganha o mesmo fundo tingido da conclusão de refeição e da
    célula de resultado (`--brand-soft`) — já medido contra `--text` e
    `--text-dim` nos dois temas em `ContrastTests.TINGIDOS`, então a variante
@@ -7710,6 +7718,17 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   align-items: center; /* o "·" entre os links subia ao topo dos 44px (visto no staging, tema claro) */
   gap: var(--espaco-3);
   flex-wrap: wrap;
+}
+
+/* Os links dentro da caixa de aceite dos Termos (22/09/2026): texto
+   corrido, mas alvo de 44 px — o preenchimento vertical vai para dentro da
+   margem negativa, então a linha não cresce. Medido na varredura: 150 × 16. */
+.consentimento__links { display: block; margin-top: var(--espaco-1); }
+.consentimento__links a {
+  display: inline-block;
+  padding: var(--espaco-4) 0;
+  margin: calc(-1 * var(--espaco-4)) 0;
+  color: var(--brand);
 }
 
 /* Os links legais passaram a fechar TODA tela (21/09/2026), então viram alvo

@@ -91,6 +91,7 @@
 
         {% include "plans/_peso.html" %}
         {% include "plans/_progresso_treino.html" %}
+        {% if tem_corrida %}{% include "plans/_progresso_corrida.html" %}{% endif %}
         {% include "plans/_progresso_agua.html" %}
         {% include "plans/_progresso_conquistas.html" %}
 
@@ -151,9 +152,15 @@
             o dedo — medido a 390px em 12/09/2026, com os dois à vista.
           {% endcomment %}
           <div class="empty-state">
+            {% comment %}
+              Fala das REFEIÇÕES, e só delas: "Ainda não há nada marcado"
+              lia como "nada" para quem tinha registrado 25 séries na véspera
+              (achado #12 das personas). Treino, corrida, água e peso têm o
+              cartão deles logo abaixo.
+            {% endcomment %}
             <p>
-              Ainda não há nada marcado. Assim que você marcar a primeira
-              refeição do dia, o histórico começa aqui.
+              Nenhuma refeição registrada ainda. Assim que você marcar a
+              primeira, a aderência ao cardápio começa aqui.
             </p>
             <a class="btn btn--ghost" href="{% url 'plans:today' %}">Ir para o dia de hoje</a>
           </div>
@@ -161,6 +168,7 @@
 
         {% include "plans/_peso.html" %}
         {% include "plans/_progresso_treino.html" %}
+        {% if tem_corrida %}{% include "plans/_progresso_corrida.html" %}{% endif %}
         {% include "plans/_progresso_agua.html" %}
         {% include "plans/_progresso_conquistas.html" %}
       </div>

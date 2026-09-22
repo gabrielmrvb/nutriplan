@@ -71,8 +71,12 @@ class AOrdemDoPrefillTests(TestCase):
         import re
         return re.findall(r'<li class="series__item[^"]*">(.*?)</li>', html, re.S)
 
-    def test_sem_historico_o_campo_abre_vazio(self):
-        self.assertEqual(self._campos(), ("", ""))
+    def test_sem_historico_a_carga_abre_vazia_e_as_reps_no_piso(self):
+        # Reps no piso da faixa desde 22/09/2026: vazias, a série era gravada
+        # sem repetição por quem tocava "Concluir" sem digitar.
+        carga, reps = self._campos()
+        self.assertEqual(carga, "")
+        self.assertEqual(reps, str(self.item.rep_min))
 
     def test_na_abertura_a_serie_1_vem_da_mesma_serie_da_ultima_sessao_quando_nao_ha_sugestao(self):
         # Uma série só na última sessão: sem faixa fechada em todas, a

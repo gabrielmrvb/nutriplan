@@ -21,7 +21,7 @@ from django.conf import settings
 from django.core.management import call_command
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
-from django.utils import timezone
+from django.utils import formats, timezone
 
 from workouts import services
 from workouts.tests import create_user, sem_scripts
@@ -101,7 +101,11 @@ class ATelaDoTreinoFechadoTests(TestCase):
         folha = html.split('class="card fim recompensa"', 1)[1].split("</section>", 1)[0]
         esperado = sum(item.sets * 400 for item in self.itens)
         self.assertIn('data-conta="zero"', folha)
-        self.assertIn(">%d<" % esperado, folha.replace(" ", "").replace("\n", ""))
+        # Com ponto de milhar (22/09/2026): "8008" na tela contra "8.008" no
+        # cartão era o achado #16 das personas; o contador do pwa.js
+        # preserva o formato que lê.
+        agrupado = formats.number_format(esperado, decimal_pos=0, force_grouping=True)
+        self.assertIn(">%s<" % agrupado, folha.replace(" ", "").replace("\n", ""))
         self.assertIn("kg levantados", folha)
         self.assertIn('data-escalonado', folha)
         self.assertIn("Ver o treino completo", folha)
@@ -169,3 +173,61 @@ class OMovimentoDaRecompensaTests(SimpleTestCase):
     def test_a_agua_da_home_diz_a_meta_no_markup(self):
         agua = (Path(settings.BASE_DIR) / "templates" / "plans" / "_agua.html").read_text(encoding="utf-8")
         self.assertIn('data-agua-meta="{{ hidratacao_ml }}"', agua)
+
+
+class OPlacarDoPesoDoCorpoTests(SimpleTestCase):
+    """"0 kg levantados" em 72 px para quem fez o treino inteiro com o peso
+    do corpo — e "0 KG LEVANTADOS" em laranja no cartão de compartilhar
+    (achado #5 das personas, 21/09/2026). O placar passa a contar as
+    REPETIÇÕES, e quando não há carga nenhuma no dia elas são o herói."""
+
+    def test_o_placar_conta_as_repeticoes(self):
+        placar = services.placar_do_treino([_item(hoje=[(None, 15), (None, 12)]), _item(hoje=[("30", 10)])])
+        self.assertEqual(placar.repeticoes, 37)
+        self.assertTrue(placar.tem_carga)
+
+    def test_sem_carga_o_heroi_e_a_repeticao(self):
+        placar = services.placar_do_treino([_item(hoje=[(None, 15), (None, 12)])])
+        self.assertFalse(placar.tem_carga)
+        self.assertEqual(placar.heroi, (27, "repetições feitas"))
+
+    def test_com_carga_o_heroi_continua_sendo_o_kg(self):
+        placar = services.placar_do_treino([_item(hoje=[("30", 10)])])
+        self.assertEqual(placar.heroi, (Decimal("300"), "kg levantados"))
+
+    def test_a_folha_e_o_cartao_usam_o_heroi(self):
+        html = (Path(settings.BASE_DIR) / "templates" / "workouts" / "agora.html").read_text(encoding="utf-8")
+        self.assertIn("placar.heroi.0", html)
+        self.assertIn("placar.heroi.1", html)
+        self.assertIn("data-compartilhar-heroi", html)
+        self.assertIn("data-compartilhar-heroi-rotulo", html)
+        js = JS.read_text(encoding="utf-8")
+        self.assertIn("compartilharHeroiRotulo", js)
+        self.assertNotIn('g.fillText("KG LEVANTADOS"', js)
+
+
+class APrimeiraSerieJaVemComAsRepsTests(TestCase):
+    """A primeira série de um exercício sem histórico abria com o campo de
+    repetições VAZIO (só o placeholder "6-10"): quem tocava "Concluir" sem
+    digitar gravava a série sem repetição nenhuma — e o placar do treino de
+    peso do corpo fechava em "0 repetições feitas" (QA de 22/09/2026). O
+    campo abre no PISO da faixa, a mesma regra da carga nova; a pessoa
+    ajusta se fez mais."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def test_sem_historico_o_campo_abre_no_piso_da_faixa(self):
+        pessoa = create_user(email="piso@exemplo.com", weekdays=(timezone.localdate().weekday(),))
+        services.sync_active_routine(pessoa)
+        self.client.force_login(pessoa)
+        estado = services.estado_do_treino(pessoa)
+        primeiro = estado.itens[0]
+        html = sem_scripts(self.client.get(reverse("workouts:now")).content.decode())
+        campo = html.split('name="reps"', 1)[1].split(">", 1)[0]
+        self.assertIn('value="%d"' % primeiro.rep_min, campo)
+
+    def test_sem_repeticao_e_sem_carga_o_heroi_sao_as_series(self):
+        placar = services.placar_do_treino([_item(hoje=[(None, None), (None, 0)])])
+        self.assertEqual(placar.heroi, (2, "séries feitas"))

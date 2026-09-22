@@ -61,6 +61,11 @@ class Dia:
     agua: bool
     #: Havia treino previsto? Muda a leitura de `treino=True`.
     treino_previsto: bool
+    #: Havia ALGO a cumprir — uma rotina de treino (o descanso entre os dias
+    #: previstos é o plano), um cardápio ou uma meta de água? Um dia sem
+    #: nenhum dos três não fecha: não há o que ter cumprido (22/09/2026; era
+    #: o que fazia os dias sem plano e sem meta contarem).
+    mensuravel: bool = True
 
     @property
     def completo(self) -> bool:
@@ -78,7 +83,7 @@ class Dia:
         dia de descanso fecha com um dos dois outros. `manage.py
         simular_ofensiva` reproduz a semana auditada sob as duas regras.
         """
-        return self.treino and (self.dieta or self.agua)
+        return self.mensuravel and self.treino and (self.dieta or self.agua)
 
     @property
     def pendencias(self) -> list:
@@ -279,6 +284,9 @@ def _avaliar(user, data, previstos, treinou, dieta_ok, agua_ok, meta_agua_ml) ->
         dieta=(data in dieta_ok) if _tem_plano(user) else True,
         agua=(data in agua_ok) if meta_agua_ml else True,
         treino_previsto=previsto,
+        # Há uma rotina de treino (qualquer dia previsto na semana — o
+        # descanso entre eles é o plano), um cardápio ou uma meta de água.
+        mensuravel=bool(previstos or _tem_plano(user) or meta_agua_ml),
     )
 
 
@@ -382,8 +390,10 @@ def _recorde(user, hoje, previstos, treinou, dieta_ok, agua_ok, meta_agua_ml, li
     cursor = limite if limite is not None else _limite(user, hoje)
     while cursor <= hoje:
         previsto = cursor.weekday() in previstos
+        # A MESMA régua de `Dia.completo`, inclusive "houve algo a cumprir".
         completo = (
-            ((cursor in treinou) if previsto else True)
+            bool(previstos or tem_plano or meta_agua_ml)
+            and ((cursor in treinou) if previsto else True)
             and ((cursor in dieta_ok) if tem_plano else True)
             and ((cursor in agua_ok) if meta_agua_ml else True)
         )

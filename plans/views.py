@@ -876,6 +876,7 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
         tendencia = weight_trend.analisar(self.request.user)
         semanas_de_agua = tracking.agua_por_semana(self.request.user)
         semanas_de_treino = progresso.dias_treinados(self.request.user)
+        semanas_de_corrida = progresso.km_corridos(self.request.user)
         entries = list(self.request.user.weight_entries.all()[:10])
         hoje = timezone.localdate()
         de_hoje = entries[0] if entries and entries[0].date == hoje else None
@@ -925,6 +926,11 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
                 # treino, e o estado vazio nunca apareceria.
                 "tem_treino": any(s["dias"] for s in semanas_de_treino),
                 "dias_combinados": self.request.user.training_days.count(),
+                # A corrida é pilar: o cartão só aparece para quem correu
+                # (uma consulta agregada; achado #9 das personas, 22/09/2026).
+                "semanas_de_corrida": semanas_de_corrida,
+                "tem_corrida": any(s["corridas"] for s in semanas_de_corrida),
+                "semana_de_corrida": semanas_de_corrida[-1],
                 "cargas": progresso.progressao_de_carga(self.request.user),
                 # Iniciante há meio ano e duas dúzias de treinos: convite a
                 # atualizar o nível (uma consulta; zero para os outros níveis).

@@ -368,6 +368,26 @@ e o gate por letra valem nela e em `basica`; `casa_halteres` e
 e faixa de duração (`TrainingPlan.equipamento` é retrato); quem já tinha
 conta ficou em `completa` sem remontar.
 
+### O degrau do iniciante no peso do corpo
+
+As escadas do peso do corpo (`Exercise.progressao`: movimento e degrau,
+1 = mais fácil, 5 = mais difícil) são a progressão de quem não tem carga
+para subir. O iniciante que escolheu `peso_corporal` começa **no degrau 3
+ou abaixo** — a versão "padrão" do movimento: flexão de braço, barra fixa
+negativa, afundo, mergulho no banco —, e nunca nas paralelas, na parada de
+mão ou na flexão arqueiro (22/09/2026; a iniciante de 78 kg das personas
+recebia os três). O item do modelo acima do degrau 3 é trocado pelo
+degrau mais baixo LIVRE do mesmo movimento e grupo, com a dose do item;
+sem degrau livre, o item sai — a não ser que seja o último do grupo na
+letra — e `preencher_ate_a_faixa` devolve as séries aos que ficaram. É a
+mesma doutrina de sempre — o iniciante faz os MESMOS movimentos, com 2 a 3
+séries —, aplicada à única dimensão que o peso do corpo tem para
+progredir. Intermediário e avançado recebem o degrau do modelo; a
+progressão deles é escolher o degrau de cima em "outras formas". Medido
+no `abc2` de cinco dias: A com 3 + 3 exercícios em ~28 min, B com 5 em ~35,
+C com 8 em ~58 (`services.ajustar_degrau_do_iniciante`,
+`workouts/test_degrau_do_iniciante.py`).
+
 ## Como o motor obedece
 
 Leitura, não decisão — o que decide está acima. `workouts/doutrina.py` lê as
