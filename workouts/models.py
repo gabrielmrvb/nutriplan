@@ -1369,6 +1369,16 @@ class ExerciseLog(models.Model):
         blank=True,
         validators=[MaxValueValidator(100)],
     )
+    #: O QUE ACONTECEU NAQUELA SÉRIE, em uma linha (22/09/2026). "falhei na
+    #: 5ª", "dor no ombro", "pegada aberta". Opcional e curto de propósito:
+    #: é anotação de quem está de pé entre séries, não diário de treino — e
+    #: o que ela responde, meses depois, é "por que a carga caiu aqui?".
+    nota = models.CharField("observação", max_length=120, blank=True, default="")
+    #: A SÉRIE FALHOU: a pessoa não completou a repetição que tentou. É um
+    #: fato dela, e não uma inferência do app — repetição abaixo da faixa
+    #: pode ser série de aquecimento, drop set ou anotação parcial. Com
+    #: falha na referência, a progressão não sugere subir (`adaptacao`).
+    falhou = models.BooleanField("falhou", default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

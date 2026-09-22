@@ -1208,7 +1208,7 @@ def registrar_troca(user, original, substituto):
     Não toca em `SessionExercise` nem em `customized_at`."""
     plan = get_active_routine(user)
     if plan is None or not SessionExercise.objects.filter(session__plan=plan, exercise=original).exists():
-        raise TrocaInvalida("o exercício não está na sua ficha")
+        raise TrocaInvalida("Esse exercício não está na sua ficha.")
     # Fora do que já está na MESMA LISTA (sessão + opção) em que o original
     # cai — a régua da ficha e da leitura.
     listas = SessionExercise.objects.filter(session__plan=plan, exercise=original).values_list("session_id", "opcao")
@@ -1217,7 +1217,7 @@ def registrar_troca(user, original, substituto):
         filtro |= Q(session_id=sessao_id, opcao=opcao)
     na_sessao = set(SessionExercise.objects.filter(filtro).values_list("exercise_id", flat=True))
     if substituto.pk not in {e.pk for e in alternativas_de(user, original, na_sessao)}:
-        raise TrocaInvalida("esse exercício não é uma forma deste movimento no seu equipamento")
+        raise TrocaInvalida("Esse exercício não é uma forma deste movimento no seu equipamento.")
     troca, _ = TrocaDeExercicio.objects.update_or_create(
         user=user, original=original, defaults={"substituto": substituto},
     )
@@ -2870,6 +2870,30 @@ def _prescricao_bate(plan, user) -> bool:
     return _prescricao_confere(sessoes, modelos, itens, user)
 
 
+def ultima_serie_anterior(carga) -> dict | None:
+    """`{"peso", "reps", "data"}` da série mais PESADA do último treino deste
+    exercício, ou `None` (primeira vez).
+
+    Em memória, sobre o balde `anterior` que `load_history` já trouxe: zero
+    consulta. A ficha usa para dizer "42,5 kg × 6" em cada card (era o
+    motivo de abrir os nove exercícios um a um) e a execução, para dizer a
+    mesma coisa logo ACIMA do campo de carga — onde se escolhe a anilha.
+    A mais pesada, e não a última anotada: a ordem de anotar varia.
+    """
+    anterior = (carga or {}).get("anterior") or {}
+    com_carga = [log for log in anterior.values() if log.weight_kg is not None]
+    if not com_carga:
+        # Peso do corpo: não há anilha, mas há repetições — e "12 reps na
+        # última vez" é a informação que existe para esse exercício.
+        com_reps = [log for log in anterior.values() if log.reps]
+        if not com_reps:
+            return None
+        melhor = max(com_reps, key=lambda log: log.reps)
+        return {"peso": None, "reps": melhor.reps, "data": melhor.date}
+    melhor = max(com_carga, key=lambda log: log.weight_kg)
+    return {"peso": melhor.weight_kg, "reps": melhor.reps, "data": melhor.date}
+
+
 def treino_em_andamento(user, day=None) -> bool:
     """Já existe série anotada hoje?
 
@@ -3030,7 +3054,7 @@ def record_load(user, exercise, weight_kg, set_number=1, reps=None, day=None):
     return log
 
 
-def append_set(user, exercise, weight_kg, reps=None, op_id="", day=None):
+def append_set(user, exercise, weight_kg, reps=None, op_id="", day=None, nota="", falhou=False):
     """Acrescenta UMA série ao dia. O número dela é do SERVIDOR.
 
     É a peça que faltava para a carga voltar à fila offline, e a diferença com
@@ -3118,6 +3142,11 @@ def append_set(user, exercise, weight_kg, reps=None, op_id="", day=None):
                     set_number=proxima,
                     weight_kg=Decimal(str(weight_kg)),
                     reps=reps,
+                    # A nota e a falha viajam no MESMO corpo da série, então
+                    # a fila offline as reenvia sem contrato novo; item
+                    # antigo, sem os campos, cai no default.
+                    nota=(nota or "")[:120],
+                    falhou=bool(falhou),
                 )
             return log, True
         except IntegrityError as erro:
@@ -3403,6 +3432,9 @@ class EstadoDoTreino:
     #: Os exercícios da ficha sem NENHUMA série hoje — o que o placar do
     #: treino parcial nomeia. Em memória, sobre os itens já carregados.
     pulados: list = field(default_factory=list)
+    #: Os vizinhos na ordem da ficha, para as setas ‹ › da execução.
+    item_anterior: object = None
+    item_seguinte: object = None
     #: A pessoa tocou "Encerrar treino" hoje (`EscolhaDeTreino.encerrado_em`).
     #: Separa o placar de quem FECHOU a ficha inteira do de quem decidiu que
     #: acabou — a tela diz coisas diferentes, e "retomar" só existe no
@@ -3629,6 +3661,11 @@ def linhas_de_serie(item, load) -> list:
                     and registro.weight_kg is not None and registro.reps is not None
                     and registro.weight_kg * registro.reps > melhor
                 ),
+                # O que a pessoa anotou naquela série (22/09/2026): a
+                # observação e a falha vêm do registro de hoje, e é a tela
+                # que decide mostrar. Sem consulta — já estão no `load`.
+                "nota": getattr(registro, "nota", "") if registro else "",
+                "falhou": bool(getattr(registro, "falhou", False)) if registro else False,
             }
         )
     return linhas
@@ -4038,6 +4075,10 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
         )
         # A progressão vem ANTES das sugestões: as duas a leem.
         item.progressao = proxima_carga(item)
+        # A última vez, para a tela dizer "42,5 kg × 6" ACIMA do campo de
+        # carga — que é onde se escolhe a anilha. Em memória, sobre o que
+        # `load_history` já trouxe.
+        item.ultima_vez = ultima_serie_anterior(item.load)
         item.sugestao_carga = _sugestao_de_carga(item, item.serie_prevista)
         item.sugestao_reps = _sugestao_de_reps(item, item.serie_prevista)
         # A instrução de esforço da série da vez, pelo nível da pessoa. Uma
@@ -4071,6 +4112,14 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
     estado.itens = itens
     estado.atual = atual
     estado.proximo = proximo
+    # NAVEGAR SEM SAIR DA EXECUÇÃO (22/09/2026): os vizinhos na ORDEM da
+    # ficha, e não o "próximo pendente" — as setas são o índice do treino, e
+    # pular o que já foi feito faria a seta esquerda voltar para lugares
+    # diferentes conforme o que já está registrado. Em memória.
+    if atual is not None:
+        posicao = itens.index(atual)
+        estado.item_anterior = itens[posicao - 1] if posicao > 0 else None
+        estado.item_seguinte = itens[posicao + 1] if posicao + 1 < len(itens) else None
     estado.total_exercicios = len(itens)
     estado.posicao_atual = itens.index(atual) + 1 if atual is not None else 0
     estado.exercicios_concluidos = sum(1 for item in itens if item.concluido)

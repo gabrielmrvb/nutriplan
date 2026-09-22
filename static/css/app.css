@@ -7140,6 +7140,102 @@ body.montando { overflow: hidden; }
 
 /* O fecho é a última coisa da tela e a mais discreta das três ações: quem
    está treinando não pode tocá-lo sem querer entre uma série e outra. */
+/* A FOLHA DE TROCA: sobe de baixo, ocupa o que precisa e nada mais. No
+   desktop ela vira um cartão centrado — uma faixa de ponta a ponta num
+   monitor pareceria alerta de sistema (a mesma razão do convite). */
+.folha-troca {
+  width: 100%;
+  max-width: var(--max);
+  margin: auto auto 0;
+  padding: var(--espaco-5) var(--pad) calc(env(safe-area-inset-bottom) + var(--espaco-6));
+  border: none;
+  border-top: var(--traco) solid var(--brand);
+  border-radius: var(--quina-g) var(--quina-g) 0 0;
+  background: var(--surface);
+  color: var(--text);
+}
+.folha-troca::backdrop { background: rgb(0 0 0 / .55); }
+.folha-troca__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espaco-3);
+  margin-bottom: var(--espaco-4);
+}
+.folha-troca__titulo { margin: 0; font-size: var(--texto-lg); }
+.folha-troca__fechar { min-height: 2.75rem; min-width: 2.75rem; white-space: nowrap; }
+.folha-troca__corpo { max-height: 60vh; overflow-y: auto; }
+/* A seção recortada da leitura vem com a moldura de cartão; dentro da folha
+   ela é o conteúdo, e a moldura sobraria. */
+.folha-troca__corpo .card { padding: 0; background: none; }
+.folha-troca__corpo .card__head { display: none; }
+@media (min-width: 60rem) {
+  .folha-troca { margin: auto; border-radius: var(--quina-g); border: var(--traco) solid var(--brand); }
+}
+
+/* A anotação da série: recolhida, porque a tela é de UMA coisa. */
+.registro__nota { margin-bottom: var(--espaco-3); }
+.registro__nota-abrir {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  font-size: var(--texto-sm);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.registro__falha {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-2);
+  min-height: 2.75rem;
+  font-size: var(--texto-sm);
+}
+.registro__nota-campo {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: var(--espaco-2) var(--espaco-3);
+  border: var(--traco) solid var(--linha);
+  border-radius: var(--quina-p);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--texto-sm);
+}
+.registro__nota-campo:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+
+/* A nota de uma série já registrada, na fileira de pastilhas. */
+.series__nota {
+  display: block;
+  margin-top: var(--espaco-2);
+  font-size: var(--texto-xs);
+  color: var(--text-dim);
+}
+.series__item--falhou { border-style: dashed; }
+
+/* As setas de navegar entre exercícios: alvo de 44px, discretas, na mesma
+   linha do "Exercício 2/8" — que é o índice ao qual elas pertencem. */
+.agora__seta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  font-size: var(--texto-lg);
+  text-decoration: none;
+  color: var(--text-dim);
+}
+.agora__seta:hover { color: var(--text); }
+.agora__seta:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* A última vez, logo acima do campo de carga: é o número que se compara
+   com o que está escrito nele. */
+.registro__ultima {
+  margin: 0 0 var(--espaco-2);
+  font-size: var(--texto-xs);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.registro__ultima-data { color: var(--text-mute); }
+
 .agora__encerrar-form { margin-top: var(--espaco-3); }
 .agora__encerrar { color: var(--text-mute); }
 
@@ -7312,6 +7408,7 @@ body.montando { overflow: hidden; }
 .agora__lista,
 .agora__nome-link,
 .agora__proximo-link,
+.agora__seta,
 .agora__voltar,
 .demo__abrir,
 .agora__encerrar,
@@ -7330,6 +7427,7 @@ body.montando { overflow: hidden; }
 .agora__lista:active,
 .agora__nome-link:active,
 .agora__proximo-link:active,
+.agora__seta:active,
 .agora__voltar:active,
 .demo__abrir:active,
 .agora__encerrar:active,
@@ -7350,6 +7448,7 @@ body.montando { overflow: hidden; }
   .agora__lista,
   .agora__nome-link,
   .agora__proximo-link,
+  .agora__seta,
   .agora__voltar,
     .demo__abrir,
   .demo__fechar,
@@ -7367,6 +7466,7 @@ body.montando { overflow: hidden; }
   .agora__lista:active,
   .agora__nome-link:active,
   .agora__proximo-link:active,
+  .agora__seta:active,
   .agora__voltar:active,
     .demo__abrir:active,
   .demo__fechar:active,
@@ -8968,7 +9068,6 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   border-radius: var(--quina-p);
   background: var(--surface-3);
 }
-.forma__foto--vazia { display: block; }
 .forma__texto { flex: 1 1 auto; min-width: 0; display: grid; gap: var(--espaco-1); }
 .forma__nome { font-weight: 700; line-height: 1.25; }
 .forma__equipamento { color: var(--text-dim); font-size: var(--texto-sm); }

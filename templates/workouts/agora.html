@@ -244,7 +244,19 @@
         <p class="sobretitulo agora__sessao-rotulo">Treino {{ estado.sessao.label }} · {{ estado.sessao.name }}{% if estado.rapida %} · rápida{% endif %}</p>
         <a class="btn-link agora__voltar" href="{% url 'workouts:ficha' estado.sessao.pk %}">← Ficha</a>
       </div>
+      {% comment %}
+        AS SETAS ‹ › (22/09/2026): navegar entre os exercícios sem sair da
+        execução. Antes, para ver o próximo movimento era preciso voltar à
+        ficha e entrar de novo. São LINKS (`?exercicio=`), então funcionam
+        sem JavaScript, entram no histórico e podem ser compartilhados — o
+        mesmo contrato do resto da tela. A lista inteira continua a um
+        toque, em "Ver o treino completo".
+      {% endcomment %}
       <p class="agora__passo num">
+        {% if estado.item_anterior %}
+          <a class="agora__seta" href="{% url 'workouts:now' %}?exercicio={{ estado.item_anterior.exercise_id }}"
+             aria-label="Exercício anterior: {{ estado.item_anterior.exercise.name }}" rel="prev">‹</a>
+        {% endif %}
         {% comment %}
           A POSIÇÃO É A DO EXERCÍCIO EM FOCO, e ela deixou de ser derivada dos
           concluídos em 10/09/2026.
@@ -257,6 +269,10 @@
         {% endcomment %}
         Exercício {{ estado.posicao_atual }}/{{ estado.total_exercicios }}
         · {{ estado.series_feitas }}/{{ estado.total_series }} séries
+        {% if estado.item_seguinte %}
+          <a class="agora__seta" href="{% url 'workouts:now' %}?exercicio={{ estado.item_seguinte.exercise_id }}"
+             aria-label="Próximo exercício: {{ estado.item_seguinte.exercise.name }}" rel="next">›</a>
+        {% endif %}
       </p>
       <div class="progress agora__progresso">
         <span class="progress__fill" style="width: {{ estado.pct }}%"></span>
@@ -398,7 +414,7 @@
           {% endcomment %}
           <ol class="series__lista">
             {% for linha in atual.set_rows %}
-              <li class="series__item{% if linha.weight != None %} series__item--feita{% elif linha.number == atual.proxima_serie %} series__item--atual{% endif %}">
+              <li class="series__item{% if linha.weight != None %} series__item--feita{% elif linha.number == atual.proxima_serie %} series__item--atual{% endif %}{% if linha.falhou %} series__item--falhou{% endif %}"{% if linha.falhou %} title="Você marcou esta série como falha."{% endif %}>
                 <span class="series__n num">{{ linha.number }}</span>
                 {% if linha.weight != None %}
                   <span class="series__carga num">
@@ -422,6 +438,21 @@
               </li>
             {% endfor %}
           </ol>
+          {% comment %}
+            O QUE FOI ANOTADO HOJE, abaixo da fileira (22/09/2026): uma
+            linha por série com observação. Elas ficam FORA da pastilha
+            porque a pastilha tem largura fixa — quatro numa linha a 320px
+            — e uma frase ali quebraria a fileira em duas.
+          {% endcomment %}
+          {% for linha in atual.set_rows %}
+            {% if linha.nota %}
+              <span class="series__nota">
+                <b class="num">{{ linha.number }}</b>{% if linha.falhou %} · falhou{% endif %} · {{ linha.nota }}
+              </span>
+            {% elif linha.falhou %}
+              <span class="series__nota"><b class="num">{{ linha.number }}</b> · falhou</span>
+            {% endif %}
+          {% endfor %}
 
       {# O selo do toque offline (ver `pwa.js`): a série entra na pastilha e esta nota aparece. #}
       <p class="aguardando-rede" data-aguardando-rede hidden role="status"></p>
@@ -472,6 +503,26 @@
         {% endcomment %}
         <input type="hidden" name="exercicio" value="{{ atual.exercise.pk }}">
 
+        {% comment %}
+          A ÚLTIMA VEZ, ACIMA DO CAMPO (22/09/2026). O fato existia — mas
+          DEPOIS do formulário, junto do recorde e da razão da progressão —,
+          e quem está escolhendo a anilha lê o que está ao lado do campo. O
+          bloco de baixo continua inteiro (recorde, melhor série, a razão da
+          sugestão); aqui vai só o número que se compara com o que está
+          escrito no campo. Zero consulta: `item.ultima_vez` sai do balde
+          que `load_history` já trouxe.
+        {% endcomment %}
+        {% if atual.ultima_vez %}
+          <p class="registro__ultima">
+            <span class="vis-oculto">Na última vez você fez </span>última:
+            {% if atual.ultima_vez.peso %}
+              <b class="num">{{ atual.ultima_vez.peso|floatformat:'-2' }}&nbsp;kg</b>{% if atual.ultima_vez.reps %}&nbsp;<span aria-hidden="true">×</span>&nbsp;<b class="num">{{ atual.ultima_vez.reps }}</b>{% endif %}
+            {% else %}
+              <b class="num">{{ atual.ultima_vez.reps }}</b>&nbsp;reps
+            {% endif %}
+            <span class="registro__ultima-data">{{ atual.ultima_vez.data|date:"d/m" }}</span>
+          </p>
+        {% endif %}
         <label class="registro__campo">
           <span class="registro__rotulo">Carga</span>
           {% comment %}
@@ -530,6 +581,33 @@
           <span aria-hidden="true">+2,5</span>
         </button>
         {% endif %}
+
+        {% comment %}
+          O QUE ACONTECEU NESTA SÉRIE (22/09/2026). Opcional, recolhido e
+          curto: é anotação de quem está de pé entre séries — "falhei na
+          5ª", "dor no ombro", "pegada aberta" —, e é o que responde, meses
+          depois, "por que a carga caiu aqui?".
+
+          RECOLHIDO porque a tela é de UMA coisa: quem não quer anotar não
+          vê mais um campo entre a carga e o botão. Dentro de um
+          `<details>`, e não atrás de JavaScript, porque o formulário
+          precisa funcionar sem ele — e os dois campos viajam no MESMO
+          corpo da série, então a fila offline os reenvia sem contrato novo.
+
+          A FALHA É UM FATO DA PESSOA, não uma inferência do app: repetição
+          abaixo da faixa pode ser aquecimento, drop set ou anotação
+          parcial. Só quem estava lá sabe que a barra parou no meio.
+        {% endcomment %}
+        <details class="registro__nota">
+          <summary class="registro__nota-abrir">Anotar algo desta série</summary>
+          <label class="registro__falha">
+            <input type="checkbox" name="falhou" value="1">
+            <span>Falhei nesta série</span>
+          </label>
+          <input class="registro__nota-campo" type="text" name="nota" maxlength="120"
+                 placeholder="dor no ombro, pegada aberta…"
+                 aria-label="Observação desta série">
+        </details>
 
         <button type="submit" class="btn btn--primary agora__concluir">
           Concluir série {{ atual.serie_prevista }}

@@ -219,6 +219,30 @@
   </div>
 
   {% comment %}
+    A FOLHA DE TROCA (22/09/2026). "trocar" é um LINK para a leitura do
+    exercício, ancorado nas alternativas — e é assim que ele funciona sem
+    JavaScript, no histórico e ao compartilhar. Com JavaScript, `pwa.js`
+    ("TROCAR NA FICHA") busca aquela mesma página, recorta a seção "Outras
+    formas" e a abre AQUI, sobre a ficha: escolher como fazer um movimento
+    não devia custar sair da lista e voltar.
+
+    `<dialog>` e não `<details>`: aqui o foco PRECISA ficar preso — a folha
+    cobre a lista inteira e tem formulários dentro —, e é o que `showModal`
+    dá de graça, com `inert` no resto da página e Esc para fechar. É a
+    exceção que a doutrina de sobreposição prevê ("<dialog> traz `inert` e
+    foco preso de graça"), e a única do app fora do `.modal`.
+
+    Ela nasce VAZIA: sem alternativa nenhuma para mostrar, nada é buscado.
+  {% endcomment %}
+  <dialog class="folha-troca" data-folha-troca aria-labelledby="folha-troca-titulo">
+    <div class="folha-troca__topo">
+      <h2 class="folha-troca__titulo" id="folha-troca-titulo">Outras formas</h2>
+      <button type="button" class="btn-link folha-troca__fechar" data-folha-fechar>fechar</button>
+    </div>
+    <div class="folha-troca__corpo" data-folha-corpo></div>
+  </dialog>
+
+  {% comment %}
     NEM DRAWER NEM CRONÔMETRO AQUI, e a ausência é o par da lista leve.
 
     Os dois vieram para esta página quando ela desenhava o cartão completo:

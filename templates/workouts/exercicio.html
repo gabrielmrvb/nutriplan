@@ -140,10 +140,16 @@
       <ul class="formas__lista">
         {% for alt in alternativas %}
           <li class="forma">
+            {% comment %}
+              SEM FOTO, SEM SLOT (22/09/2026). O `<span>` vazio desenhava um
+              retângulo cinza de 96px — "Barra fixa negativa" e "Barra fixa
+              pronada" apareciam com um buraco ao lado do nome. Um espaço
+              reservado só vale a pena quando ele vai ser preenchido; aqui
+              ele nunca é, porque o catálogo não tem foto desse exercício.
+              A linha simplesmente começa no nome.
+            {% endcomment %}
             {% if alt.has_frames %}
               <img class="forma__foto" src="{{ alt.frames.0 }}" alt="" loading="lazy" width="96" height="72">
-            {% else %}
-              <span class="forma__foto forma__foto--vazia" aria-hidden="true"></span>
             {% endif %}
             <div class="forma__texto">
               <span class="forma__nome">{{ alt.name }}</span>

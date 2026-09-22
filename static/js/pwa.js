@@ -1977,3 +1977,110 @@
     new MutationObserver(function () { procurar(); }).observe(raiz, { childList: true, subtree: true });
   }
 })();
+
+/* ==========================================================================
+   FOTO DE EXERCÍCIO QUE NÃO CARREGA (22/09/2026)
+
+   As fotos do catálogo vêm de uma CDN (free-exercise-db, domínio público):
+   na academia, com rede ruim ou operadora que bloqueia o domínio, o `<img>`
+   fica um RETÂNGULO VAZIO — foi o que o dono viu como "a miniatura fica em
+   branco". O espaço reservado só vale quando ele vai ser preenchido; aqui
+   não vai, então ele sai e a linha começa no nome.
+
+   `error` não borbulha, por isso o ouvinte é de CAPTURA e no `document`:
+   um só, para a ficha inteira (até doze fotos) e para a execução, inclusive
+   depois da troca do <main> sem recarga.
+   ========================================================================== */
+(function () {
+  "use strict";
+  document.addEventListener("error", function (evento) {
+    var alvo = evento.target;
+    if (!alvo || alvo.tagName !== "IMG") return;
+    if (!alvo.classList.contains("ficha-item__foto") &&
+        !alvo.classList.contains("demo__foto") &&
+        !alvo.classList.contains("forma__foto")) return;
+    alvo.remove();
+  }, true);
+})();
+
+/* ==========================================================================
+   TROCAR NA FICHA (22/09/2026)
+
+   "trocar" é um LINK para a leitura do exercício, ancorado em "Outras
+   formas" — e é assim que ele funciona sem JavaScript, no histórico e ao
+   compartilhar. Daqui ele vira uma FOLHA sobre a ficha: escolher como fazer
+   um movimento não devia custar sair da lista e voltar a ela.
+
+   O que este bloco faz, e só: busca a MESMA página do link, recorta a seção
+   `#outras-formas` e a mostra num `<dialog>` (foco preso e Esc de graça).
+   Qualquer falha — rede, HTML inesperado, navegador sem `showModal` — cai
+   na navegação de sempre; nada aqui é a única porta para nada.
+
+   O "Trocar" de dentro da folha é um POST normal, interceptado para a ficha
+   recarregar no lugar de ir para a leitura: o card precisa mostrar o
+   exercício novo, e é a ficha que a pessoa está olhando.
+   ========================================================================== */
+(function () {
+  "use strict";
+  if (!window.fetch || !window.DOMParser) return;
+  var folha = document.querySelector("[data-folha-troca]");
+  if (!folha || !folha.showModal) return;
+  var corpo = folha.querySelector("[data-folha-corpo]");
+  var titulo = folha.querySelector(".folha-troca__titulo");
+
+  function fechar() {
+    if (folha.open) folha.close();
+  }
+
+  folha.addEventListener("click", function (evento) {
+    /* O clique no backdrop fecha: `<dialog>` não faz isso sozinho, e um
+       painel que só fecha pelo botão é o que faz alguém achar que travou. */
+    if (evento.target === folha) fechar();
+    if (evento.target.closest("[data-folha-fechar]")) fechar();
+  });
+
+  document.addEventListener("click", function (evento) {
+    var link = evento.target.closest && evento.target.closest("[data-trocar]");
+    if (!link) return;
+    if (evento.metaKey || evento.ctrlKey || evento.shiftKey || evento.button !== 0) return;
+    evento.preventDefault();
+    link.setAttribute("aria-busy", "true");
+    fetch(link.href, { credentials: "same-origin", headers: { "X-Requested-With": "fetch" } })
+      .then(function (resposta) {
+        if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+        return resposta.text();
+      })
+      .then(function (html) {
+        var doc = new DOMParser().parseFromString(html, "text/html");
+        var secao = doc.querySelector("#outras-formas");
+        if (!secao) throw new Error("sem seção");
+        corpo.replaceChildren(document.importNode(secao, true));
+        if (titulo && link.dataset.trocarNome) {
+          titulo.textContent = "Outras formas de " + link.dataset.trocarNome.toLowerCase();
+        }
+        folha.showModal();
+      })
+      .catch(function () { location.href = link.href; })
+      .then(function () { link.removeAttribute("aria-busy"); });
+  });
+
+  /* O POST da troca sai daqui e a FICHA recarrega: o card precisa mostrar o
+     exercício novo, e a leitura do exercício (para onde a view redireciona)
+     é outra tela. Sem `fetch`, o formulário já teria seguido o caminho de
+     sempre — este ouvinte só existe dentro da folha. */
+  folha.addEventListener("submit", function (evento) {
+    var form = evento.target;
+    if (!(form instanceof HTMLFormElement) || !navigator.onLine) return;
+    evento.preventDefault();
+    var botao = evento.submitter;
+    if (botao) { botao.setAttribute("aria-busy", "true"); botao.disabled = true; }
+    fetch(form.action, {
+      method: "POST", body: new FormData(form), credentials: "same-origin",
+      redirect: "follow", headers: { "X-Requested-With": "fetch" },
+    }).then(function () {
+      location.reload();
+    }).catch(function () {
+      form.submit();
+    });
+  });
+})();

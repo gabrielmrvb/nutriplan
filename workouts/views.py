@@ -418,24 +418,6 @@ def nomear_ocorrencias(sessions) -> None:
             sessao.vezes_texto = "uma"
 
 
-def _ultima_vez(carga) -> dict | None:
-    """`{"peso", "reps", "data"}` da série mais pesada do último treino deste
-    exercício, ou `None` (primeira vez). Em memória, sobre o que
-    `load_history` já trouxe — nenhuma consulta."""
-    anterior = (carga or {}).get("anterior") or {}
-    registros = [log for log in anterior.values() if log.weight_kg is not None]
-    if not registros:
-        # Peso do corpo: não há carga, mas há repetições — e "12 reps na
-        # última vez" é a informação que existe para esse exercício.
-        registros = [log for log in anterior.values() if log.reps]
-        if not registros:
-            return None
-        melhor = max(registros, key=lambda log: log.reps)
-        return {"peso": None, "reps": melhor.reps, "data": melhor.date}
-    melhor = max(registros, key=lambda log: log.weight_kg)
-    return {"peso": melhor.weight_kg, "reps": melhor.reps, "data": melhor.date}
-
-
 def anexar_historico(user, sessions) -> None:
     """Pendura carga, linhas de série e contagem de hoje em cada item.
 
@@ -485,7 +467,7 @@ def anexar_historico(user, sessions) -> None:
             # balde "anterior" que `load_history` já trouxe: ZERO consulta a
             # mais. A série é a mais PESADA daquele dia, que é a que se
             # procura (a ordem de anotar varia).
-            item.ultima_vez = _ultima_vez(item.load)
+            item.ultima_vez = services.ultima_serie_anterior(item.load)
 
 
 def proximo_treino(sessions, plan=None, hoje=None, linhas=None):
@@ -1030,14 +1012,14 @@ class DuracaoDoTreinoView(OnboardingRequiredMixin, View):
         if plano is not None and plano.is_customized:
             messages.info(
                 request,
-                "Duração gravada: até %d minutos. Você ajustou a ficha à mão, "
+                "Duração salva: até %d minutos. Você ajustou a ficha à mão, "
                 "então ela não é remontada — a duração vale na próxima remontagem." % teto,
             )
             return redirect("workouts:routine")
         if plano is not None and services.treino_em_andamento(request.user):
             messages.info(
                 request,
-                "Duração gravada: até %d minutos. Há série registrada hoje, "
+                "Duração salva: até %d minutos. Há série registrada hoje, "
                 "então a ficha muda amanhã." % teto,
             )
             return redirect("workouts:routine")
@@ -1045,7 +1027,7 @@ class DuracaoDoTreinoView(OnboardingRequiredMixin, View):
         if mudou:
             messages.success(request, "Ficha remontada para até %d minutos por sessão." % teto)
         else:
-            messages.info(request, "Duração gravada: até %d minutos." % teto)
+            messages.info(request, "Duração salva: até %d minutos." % teto)
         return redirect("workouts:routine")
 
 
@@ -1583,9 +1565,16 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
                 messages.error(request, "Repetições fora de 1 a 100 — a série não foi gravada.")
                 return self._de_volta_ao_foco(request, dia)
 
+        # A OBSERVAÇÃO E A FALHA (22/09/2026): campos comuns do mesmo POST,
+        # então a fila offline os reenvia sem contrato novo. A nota é
+        # cortada em 120 (o tamanho da coluna) em vez de recusada: o toque
+        # que registra a série não pode ser perdido por causa do texto.
+        nota = (request.POST.get("nota") or "").strip()[:120]
+        falhou = request.POST.get("falhou") == "1"
         try:
             log, criada = services.append_set(
-                request.user, exercise, peso, reps=reps, op_id=op_id, day=dia
+                request.user, exercise, peso, reps=reps, op_id=op_id, day=dia,
+                nota=nota, falhou=falhou,
             )
         except ValueError:
             # Vinte séries no mesmo exercício num dia. Não é treino, é dedo
