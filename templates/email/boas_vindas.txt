@@ -1,14 +1,15 @@
 {% autoescape off %}Olá{% if nome %}, {{ nome }}{% endif %}.
 
-Sua conta no NutriPlan está pronta. O app é uma coisa só: o seu dia — a
-refeição da vez, a ficha de hoje, a água e o peso — num lugar, sem promessa.
+Sua conta no NutriPlan está pronta. O app é o seu dia inteiro: a refeição
+da vez, a ficha de hoje, a água e o peso, numa tela só.
 
 O que fazer primeiro:
 
-1. Abra a tela Hoje e registre a próxima refeição (opção A ou B).
-2. Na área Treino, abra a ficha de hoje e comece pelo primeiro exercício:
+1. Termine as 3 etapas do cadastro — no fim delas, sua estimativa de
+   calorias e sua ficha de treino aparecem.
+2. Na tela Hoje, registre a próxima refeição (opção A ou B).
+3. Na área Treino, abra a ficha de hoje e comece pelo primeiro exercício:
    cada série que você fecha fica anotada, com a carga.
-3. Registre a água em toques de 250 ml.
 
 Abrir o NutriPlan: {{ url_base }}/
 

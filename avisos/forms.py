@@ -30,7 +30,9 @@ class PreferenciaForm(forms.Form):
     pushes = forms.MultipleChoiceField(
         label="Avisos no aparelho", choices=PUSHES, required=False,
         widget=forms.CheckboxSelectMultiple,
-        help_text="Precisa do aparelho inscrito em Perfil › Lembretes.",
+        # O cartão "Lembretes" mora no fim da tela Hoje — "Perfil › Lembretes"
+        # nunca existiu (achado #18 das personas, 22/09/2026).
+        help_text="Precisa dos lembretes ativados neste aparelho: o cartão Lembretes fica no fim da tela Hoje.",
     )
     hora_email = forms.TimeField(
         label="Hora dos e-mails", initial=time(8, 0),

@@ -195,3 +195,16 @@ class OPwaJsDesenhaECompartilhaTests(SimpleTestCase):
         self.assertNotIn("console.", secao)
         self.assertNotIn("weight", secao)
         self.assertIn('addEventListener("click"', secao)
+
+
+class OCompartilharSoChamaShareQuandoEleExisteTests(SimpleTestCase):
+    """Achado #20 das personas (21/09/2026): navegador com `canShare` e sem
+    `share` — o botão morria com `TypeError` depois de desenhar o cartão. A
+    guarda pergunta pelos DOIS antes de escolher o caminho da bandeja."""
+
+    def test_a_guarda_exige_navigator_share_alem_de_canshare(self):
+        card = _sem_comentarios(CARD_JS.read_text(encoding="utf-8"))
+        inicio = card.index("function podeCompartilharArquivo")
+        guarda = card[inicio:card.index("}", inicio)]
+        self.assertIn("navigator.canShare", guarda)
+        self.assertIn("navigator.share", guarda)

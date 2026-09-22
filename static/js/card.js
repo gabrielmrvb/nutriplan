@@ -274,7 +274,12 @@
    * sozinho. A web não tem essa API. `navigator.share` abre a bandeja do
    * sistema e QUEM ESCOLHE é a pessoa — sempre com um gesto dela. */
   function podeCompartilharArquivo(arquivo) {
-    return !!(navigator.canShare && navigator.canShare({ files: [arquivo] }));
+    /* Os DOIS: já houve navegador com `canShare` e sem `share`, e o botão
+     * morria com TypeError depois de desenhar o cartão (achado #20 das
+     * personas, 21/09/2026). Sem os dois, o caminho é o download. */
+    return !!(
+      navigator.share && navigator.canShare && navigator.canShare({ files: [arquivo] })
+    );
   }
 
   function compartilhar(canvas, nome, titulo) {
