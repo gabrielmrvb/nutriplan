@@ -113,3 +113,31 @@ class OWorkerPedeOShellSemCookieTests(TestCase):
 
         self.assertIn("caches\n      .open(CACHE)", trecho)
         self.assertNotIn("CACHE_PAGINAS", trecho)
+
+
+class OShellNaoConfiaSoNoNavigatorOnLineTests(TestCase):
+    """MEDIDO no emulador (22/09/2026): o WebView do Android em modo avião
+    responde `navigator.onLine === true`, e o shell dizia "O servidor está
+    acordando — você está conectado" para quem estava sem rede nenhuma. O
+    que distingue os dois casos é a VELOCIDADE da recusa: sem rede o `fetch`
+    rejeita na hora (rede inalcançável), e um servidor acordando demora ou
+    responde 5xx. Duas rejeições imediatas seguidas são "sem rede", diga o
+    `onLine` o que disser."""
+
+    def _script(self):
+        html = self.client.get("/offline/").content.decode()
+        inicio = html.index("data-shell-offline")
+        return html[inicio:]
+
+    def test_duas_recusas_imediatas_viram_sem_rede_mesmo_com_onLine_true(self):
+        script = self._script()
+        self.assertIn("REJEICAO_IMEDIATA_MS", script)
+        self.assertIn("rejeicoesImediatas", script)
+        self.assertRegex(script, r"rejeicoesImediatas\s*>=\s*2")
+        self.assertIn("semRede()", script)
+
+    def test_a_recusa_lenta_continua_sendo_servidor_acordando(self):
+        """Controle: o caminho de "acordando" com a sonda de 3 s continua."""
+        script = self._script()
+        self.assertIn("INTERVALO_MS = 3000", script)
+        self.assertIn("O servidor está acordando", script)
