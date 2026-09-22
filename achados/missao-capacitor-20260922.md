@@ -83,7 +83,29 @@ quebrado no emulador).
 | aparelho | online | sem rede |
 |---|---|---|
 | Android (emulador Pixel 7, API 35, WHPX) | título "NutriPlan — alimentação e treino num app só"; `navigator.serviceWorker.controller` **verdadeiro** dentro da casca | modo avião → a tela é o **shell offline do PWA servido pelo worker** (`[data-shell-offline]`), não a `erro.html` |
-| iOS (simulador, runner macOS do Actions) | a landing carrega no WKWebView | a mesma tela offline do PWA (capturas 04 e 05, do run do PR #115) |
+| iOS (simulador, runner macOS do Actions) | a landing carrega no WKWebView — **no run do PR #115, antes dos plugins da Fase 2** | a mesma tela offline do PWA (capturas 04 e 05, do mesmo run) |
+
+> **ACHADO ABERTO (22/09/2026, fim da missão): o app iOS NÃO ESTÁ SUBINDO
+> no simulador desde a Fase 2.** A guarda de liveness que entrou no #120 e
+> foi corrigida no #122 (`ps -p` do host) reprova o app nas três
+> tentativas, e as capturas do run da Fase 3 mostram a TELA INICIAL do
+> iPhone nos dois estados — não o app. As capturas 04 e 05 deste relatório
+> são do run do PR #115, **antes** de a Fase 2 acrescentar os plugins.
+>
+> Hipótese em investigação [LIDA NO CÓDIGO], ainda NÃO confirmada: o
+> `GoogleService-Info.plist` de EXEMPLO. O plugin de mensagens só protege o
+> caso do arquivo AUSENTE (`FirebaseOptions.defaultOptions() != nil`); com
+> um arquivo presente e inválido, `FirebaseApp.configure()` derruba o
+> processo no lançamento. No Android o JSON falso é tolerado (o Firebase
+> inicia e só o `getToken` falha) — por isso a Fase 2 passou lá e não aqui.
+> Outras suspeitas: os entitlements de HealthKit/APNs num build **sem
+> assinatura**.
+>
+> O que já foi feito: a prova do iOS agora DESPEJA o log do simulador e o
+> relatório de falha quando o app não sobe, para o próximo run dizer a
+> causa em vez de deixá-la para adivinhação. **Enquanto isso não fechar, o
+> iOS está provado apenas até "compila e instala".** O Android continua
+> provado ponta a ponta (texto lido do WebView, online e sem rede).
 
 **Honestidade sobre a prova do iOS**: ela é VISUAL — o WKWebView não expõe
 DevTools no simulador, então não há como ler `serviceWorker.controller` de
