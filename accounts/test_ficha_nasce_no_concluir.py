@@ -37,7 +37,7 @@ ETAPA3_TREINO = {**STEP5, "interesses": ["treino"], "prioridade": "treino"}
 def _dias(*weekdays):
     """A etapa 2 com estes dias. A divisão vai junto e só é lida quando os
     dias pedem (três ou mais); com zero dias o servidor a ignora."""
-    return {**ETAPA2, "weekdays": [str(d) for d in weekdays]}
+    return {**ETAPA2, "weekdays": [str(d) for d in weekdays], "musculacao": "sim"}
 
 
 class FichaNasceNoConcluirTests(TestCase):

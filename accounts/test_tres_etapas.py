@@ -32,11 +32,11 @@ ETAPA1 = {**ETAPA1_SEM_CAIXAS, **CAIXAS_DE_CONSENTIMENTO}
 #: e ABC2 divergem a partir daí), então o payload de três dias a inclui.
 ETAPA2 = {
     "goal": "cut", "activity_level": "light", "experiencia": "intermediario",
-    "weekdays": ["0", "2", "4"], "wake_time": "07:00", "sleep_time": "23:30",
+    "weekdays": ["0", "2", "4"], "musculacao": "sim", "wake_time": "07:00", "sleep_time": "23:30",
     "split_preference": "two",
 }
 #: Dois dias: a divisão não muda nada e não é pedida.
-ETAPA2_DOIS_DIAS = {**ETAPA2, "weekdays": ["0", "3"]}
+ETAPA2_DOIS_DIAS = {**ETAPA2, "weekdays": ["0", "3"], "musculacao": "sim"}
 ETAPA2_DOIS_DIAS.pop("split_preference")
 ETAPA3 = {"meal_style": "quick", "interesses": ["treino"], "prioridade": "treino"}
 
@@ -108,7 +108,7 @@ class TresEtapasReaisTests(TestCase):
     def test_calcular_minha_estimativa_conclui_e_monta_cardapio_e_ficha(self):
         hoje = timezone.localdate().weekday()
         self.client.post(etapa(1), ETAPA1)
-        self.client.post(etapa(2), {**ETAPA2, "weekdays": [str(hoje), str((hoje + 2) % 7), str((hoje + 4) % 7)]})
+        self.client.post(etapa(2), {**ETAPA2, "weekdays": [str(hoje), str((hoje + 2) % 7), str((hoje + 4) % 7)], "musculacao": "sim"})
         html = self.client.get(etapa(3)).content.decode()
         self.assertIn("Etapa 3 de 3", html)
         self.assertIn("Calcular minha estimativa", html)
@@ -143,7 +143,7 @@ class TresEtapasReaisTests(TestCase):
 
     def test_zero_dias_conclui_sem_ficha_e_sem_500(self):
         self.client.post(etapa(1), ETAPA1)
-        self.client.post(etapa(2), {**ETAPA2, "weekdays": []})
+        self.client.post(etapa(2), {**ETAPA2, "weekdays": [], "musculacao": "sim"})
         resposta = self.client.post(etapa(3), ETAPA3)
         self.assertRedirects(resposta, reverse("plans:today"))
         self.assertFalse(TrainingPlan.objects.filter(user=self.user).exists())
@@ -243,7 +243,7 @@ class EditarADivisaoRemontaAFichaNaHoraTests(TestCase):
         self.user = User.objects.create_user(email="divisao@exemplo.com", password="senha-bem-forte-123")
         self.client.force_login(self.user)
         self.client.post(etapa(1), ETAPA1)
-        self.client.post(etapa(2), {**ETAPA2, "weekdays": ["0", "1", "3", "4"], "split_preference": "three"})
+        self.client.post(etapa(2), {**ETAPA2, "weekdays": ["0", "1", "3", "4"], "musculacao": "sim", "split_preference": "three"})
         self.client.post(etapa(3), ETAPA3)
 
     def test_trocar_so_a_divisao_remonta_a_ficha_com_a_nova(self):
@@ -252,7 +252,7 @@ class EditarADivisaoRemontaAFichaNaHoraTests(TestCase):
         antes = TrainingPlan.objects.get(user=self.user, is_active=True)
         self.assertEqual(antes.split, split_for(4, "three"))
         resposta = self.client.post(
-            etapa(2), {**ETAPA2, "weekdays": ["0", "1", "3", "4"], "split_preference": "two"}
+            etapa(2), {**ETAPA2, "weekdays": ["0", "1", "3", "4"], "musculacao": "sim", "split_preference": "two"}
         )
         self.assertEqual(resposta.status_code, 302)
         depois = TrainingPlan.objects.get(user=self.user, is_active=True)

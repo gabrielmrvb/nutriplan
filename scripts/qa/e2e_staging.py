@@ -222,7 +222,8 @@ class E2E:
         self.ab.esperar_url("**/conta/onboarding/2/")
 
     def onboarding_2(self):
-        for nome, valor in (("goal", "cut"), ("activity_level", "light"), ("experiencia", "intermediario"), ("equipamento", "completa")):
+        # "Você faz musculação?" veio antes do bloco da academia (22/09/2026).
+        for nome, valor in (("goal", "cut"), ("activity_level", "light"), ("musculacao", "sim"), ("experiencia", "intermediario"), ("equipamento", "completa")):
             self.ab.marcar("input[name=%s][value=%s]" % (nome, valor))
         for dia in range(7):  # todo dia é dia de treino: o E2E roda em qualquer dia da semana
             self.ab.marcar("input[name=weekdays][value='%d']" % dia)

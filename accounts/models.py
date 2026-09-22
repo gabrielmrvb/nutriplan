@@ -185,6 +185,22 @@ class SplitPreference(models.TextChoices):
     TRES = "three", "3 grupos por dia"
 
 
+class Musculacao(models.TextChoices):
+    """A pessoa faz treino de força? A pergunta que a etapa 2 não tinha
+    (22/09/2026): corredores e nadadores eram obrigados a inventar respostas
+    de academia — experiência, equipamento, dias — e a aba Treino cobrava
+    "Cadastrar meus dias de treino" para sempre.
+
+    Em branco é "não perguntado": toda conta anterior à pergunta, e quem
+    respondeu os dias sem a pergunta existir. O formulário lê os dias
+    gravados como "sim" implícito ao reabrir a etapa 2; o motor nunca
+    inferiu nada do branco — uso não é intenção declarada.
+    """
+
+    SIM = "sim", "Sim, faço musculação"
+    NAO = "nao", "Não faço — só corrida, natação ou outro esporte"
+
+
 class Experiencia(models.TextChoices):
     """Há quanto tempo a pessoa treina — e quanto volume isso comporta.
 
@@ -524,6 +540,16 @@ class Profile(models.Model):
         max_length=10,
         choices=DuracaoTreino.choices,
         default=DuracaoTreino.PADRAO,
+    )
+    #: "Você faz musculação?" — ver `Musculacao`. Com "nao" a etapa 2 não
+    #: grava dias, experiência nem divisão, a ficha não nasce e a aba Treino
+    #: para de cobrar dias (22/09/2026).
+    musculacao = models.CharField(
+        "faz musculação",
+        max_length=3,
+        choices=Musculacao.choices,
+        blank=True,
+        default="",
     )
     #: A experiência move o teto semanal por grupo. Vazio é "não respondeu", e
     #: o motor o lê como 20 — o número que o app já praticava. Ver `Experiencia`

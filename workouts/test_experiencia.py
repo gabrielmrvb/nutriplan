@@ -332,7 +332,7 @@ class AExperienciaAtravessaOFormularioTests(TestCase):
                 # Dois dias não pedem a divisão.
                 "goal": user.profile.goal,
                 "activity_level": user.profile.activity_level,
-                "weekdays": ["1", "3"],
+                "weekdays": ["1", "3"], "musculacao": "sim",
                 "start_time": "",
                 "duracao_treino": "padrao",
                 "experiencia": Experiencia.INICIANTE,
@@ -356,7 +356,7 @@ class AExperienciaAtravessaOFormularioTests(TestCase):
             {
                 "goal": user.profile.goal,
                 "activity_level": user.profile.activity_level,
-                "weekdays": ["1"],
+                "weekdays": ["1"], "musculacao": "sim",
                 "start_time": "",
                 "duracao_treino": "padrao",
                 "experiencia": "",

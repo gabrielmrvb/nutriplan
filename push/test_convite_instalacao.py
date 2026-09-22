@@ -226,6 +226,15 @@ class OConviteEsperaAPessoaEntrarEAgirTests(TestCase):
         self.assertFalse(self.marcador(reverse("plans:today")), "depois do gole, o convite pode aparecer")
         self.assertFalse(self.marcador(reverse("workouts:routine")))
 
+    def test_a_acao_recusada_nao_conta(self):
+        """Um peso "8o" recusado não é ação de valor: o convite aparecia por
+        cima do erro que a pessoa estava lendo (QA de 22/09/2026)."""
+        self.client.force_login(pessoa("recusa@exemplo.com"))
+        self.client.post(reverse("accounts:log_weight"), {"weight_kg": "8o", "origem": "metricas"})
+        self.assertFalse(self.client.session.get("primeira_acao"))
+        self.client.post(reverse("accounts:log_weight"), {"weight_kg": "81,5", "origem": "metricas"})
+        self.assertTrue(self.client.session.get("primeira_acao"))
+
     def test_o_onboarding_nao_conta_como_acao(self):
         """O POST da etapa 1 não é ação de valor: é cadastro. Quem termina o
         wizard chega à Home ainda sem convite, e é isso que o achado pedia."""

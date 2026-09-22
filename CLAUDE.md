@@ -341,6 +341,75 @@ label` ("Alimentação"), os nomes de campo e modelo (`NutritionPlan`,
 comum de uma dieta não funcionar") — a régua protege promessa pública, não
 vocabulário (`config/test_nomenclatura.py`, o contrapeso).
 
+**MISSÃO UX IRREPREENSÍVEL, LOTE 1 — CADASTRO E FORMULÁRIOS (22/09/2026).**
+Sete coisas, cada uma MEDIDA no navegador antes de ser tocada
+(`scratchpad/ux/` da sessão 3146901b; servidor local `nutriplan_ux3`):
+
+- **O CONTINUAR da etapa 2 sumia com 0, 1 ou 2 dias de treino** (achado
+  #1 das personas — duas das três desistiam ali). Não era CSS:
+  `partials/choice_cards.html` fechava o `<div role="group">` só dentro de
+  `{% if field.errors %}`; sem erro o grupo ficava aberto e engolia o
+  `form-actions`, que caía dentro de `div.revela[hidden]`. O `</div>`
+  saiu do `if`; `accounts/test_continuar_sempre.py` prova com um parser
+  que sabe que ancestral está `hidden` (`assertIn("Continuar")` passava
+  com o botão morto) e cobra o balanço de `<div>` dos parciais.
+- **"Você faz musculação?"** (`Profile.musculacao`, `Musculacao` sim/nao,
+  em branco = não perguntado; migration `0039`) é a pergunta-porta da
+  etapa 2, ANTES do bloco da academia e DEPOIS da janela do dia (que é das
+  refeições). Com "não": o bloco `[data-so-musculacao]` some (pwa.js) e o
+  servidor zera dias/experiência no `clean` mesmo sem JavaScript; o
+  resumo da etapa 3 diz "Musculação · Não faço" e para; a aba Treino
+  repete a resposta com a corrida e "Mudei de ideia" em vez de "Cadastrar
+  meus dias"; o Perfil idem. Obrigatória (é ela que decide o resto), e
+  conta anterior com dias gravados reabre com "sim" marcado.
+  `accounts/test_musculacao.py`. Copy dos cartões ≤ 45 caracteres
+  (`WizardChromeTests`), uma coluna.
+- **O erro nasce junto do campo, e a tela vai até ele.** Só as ações POST →
+  redirect → flash erravam "isolado": o peso (Home e Progresso). A recusa
+  viaja pela sessão COM a mensagem (`PesoRecusado(valor, mensagem)`,
+  `[origem, valor, mensagem]` — o formato de dois itens ainda é lido), o
+  campo leva `aria-invalid` + `aria-describedby="peso_error"` e a `<ul
+  class="field__errors">` embaixo; a Home desenha a faixa do peso com
+  `houve_recusa` mesmo sem convite de pesar. E `pwa.js` "FOCO NO ERRO"
+  rola até o primeiro `[aria-invalid="true"]` de QUALQUER página e o foca
+  (abre o `<details>` em volta; respeita `autofocus`).
+  `plans/test_erro_junto_do_campo.py`.
+- **O primeiro toque não se perde na transição.** MEDIDO no Chrome 153:
+  durante a view transition entre páginas `elementFromPoint` devolve
+  `<html>` por 280–320 ms depois de o documento começar; o clique vai
+  para o `<html>` e nada acontece — 0 de 5 no experimento
+  (`r7_prova.py`). `pointer-events: none` na árvore de pseudo não muda
+  nada (medido). `pwa.js` "TOQUE DURANTE A TRANSIÇÃO" escuta
+  `pagereveal`, guarda o clique que caiu no `<html>` e o repete no
+  elemento daquele ponto em `viewTransition.finished`: 4 de 5 (o quinto
+  cai antes de a navegação começar). `config/test_toque_durante_transicao.py`
+  prende o bloco e o `--mov-tela: .2s` — a janela morta é a duração.
+- **Nada digitado se perde.** O "derruba a sessão" do dono não tem
+  logout em POST nenhum (`logout()` só na tela de sair); os dois caminhos
+  com essa cara são o 403 de CSRF (token velho de outra aba ou de página
+  servida do cache do worker depois de re-login) e a sessão expirada com o
+  formulário aberto. `templates/403_csrf.html` fala português, diz que o
+  digitado ficou guardado e tem "Voltar ao formulário" (`history.back()`,
+  GET); `pwa.js` "RASCUNHO DO FORMULÁRIO" grava os campos de todo `<form
+  data-rascunho>` (etapas do cadastro, corrida, reportar) no
+  `localStorage` — chave por pessoa e caminho, 24 h, sem senha/token/
+  arquivo/escondido — e os devolve quando o formulário reabre; se
+  reabriu COM erro, o que o servidor devolveu manda. O envio marca
+  `enviado`; a página seguinte, se for outra, apaga. Provado:
+  reload, 403 → voltar, envio certo → rascunho some (`r2_rascunho.py`).
+  `config/test_rascunho_e_403.py`.
+- **`alimentos_do_catalogo()` devolve NOMES**, e o `<datalist>` do "comi
+  outra coisa" lia `food.name` — 62 `value=""` em produção desde o #102.
+  `plans/test_outra_coisa_datalist.py`.
+- **Ação recusada não é a "primeira ação de valor"**: o convite de
+  instalação aparecia por cima do erro do peso. `config/acoes.py` lê a
+  fila de mensagens sem consumir.
+- **O equipamento do cadastro NÃO reverte** (item 1 do dono): não
+  reproduzido no código nem no navegador — "só o peso do corpo" chega ao
+  banco, à etapa 3, ao Perfil, e a edição remonta a ficha. O que existia
+  era o CONTINUAR sumido acima. `accounts/test_equipamento_pela_tela.py`
+  envia o formulário RENDERIZADO e prova a volta; sabotado, fica vermelho.
+
 **OS LEGAIS ESTÃO PUBLICADOS, E O CONSENTIMENTO SÃO TRÊS CAIXAS COM PROVA
 (decisão do dono, 21/09/2026).** `LEGAL_RESPONSAVEL` e `LEGAL_CONTATO`
 preenchidos no Render (produção e staging) fazem `settings.LEGAL_PUBLICADO`

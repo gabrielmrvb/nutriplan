@@ -4,6 +4,15 @@ Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
 Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
 no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
+## 2026-09-22
+
+- **Continuar sempre à vista.** Na etapa 2 do cadastro, com um ou dois dias de treino — ou nenhum — o botão de continuar não aparecia. Agora aparece sempre.
+- **"Você faz musculação?"** Quem só corre, nada ou faz outro esporte responde "não" e não precisa inventar dias, experiência e equipamento de academia; a aba Treino deixa de cobrar os dias e mostra as corridas.
+- **O erro aponta o campo.** Quando um envio é recusado, a tela rola até o campo, marca-o e escreve o motivo embaixo dele — o peso da Home e do Progresso incluídos.
+- **Nada digitado se perde.** Os formulários longos (cadastro, corrida, reportar) guardam um rascunho no aparelho: se a página expirar ou a sessão cair no meio, o que você digitou volta sozinho.
+- **O primeiro toque conta.** Um toque dado enquanto a tela ainda estava entrando era perdido; agora ele é entregue assim que a tela termina de entrar.
+- **"Comi outra coisa" sugere de novo.** A lista de alimentos ao digitar voltou a mostrar os nomes do catálogo.
+
 ## 2026-09-21
 
 - **Glúteo é grupo próprio.** A elevação pélvica e as pontes de glúteo deixam de contar como "posterior": o glúteo aparece com o próprio nome na leitura do exercício e nas "outras formas", e a sua ficha continua a mesma.

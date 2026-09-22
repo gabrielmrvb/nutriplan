@@ -45,7 +45,10 @@ class ExperienciaSobreviveAReedicaoSemDiasTests(TestCase):
     "Experiência: Intermediário", reabri a 2, salvei, a linha sumiu."""
 
     def setUp(self):
-        self.user = create_complete_user(experiencia=Experiencia.AVANCADO)
+        # `musculacao="sim"`: desde 22/09/2026 a etapa 2 pergunta "você faz
+        # musculação?" e a resposta é obrigatória; sem dias gravados não há
+        # "sim" implícito, então quem reabre precisa ter respondido.
+        self.user = create_complete_user(experiencia=Experiencia.AVANCADO, musculacao="sim")
         self.user.training_days.all().delete()
 
     def test_o_formulario_abre_com_a_experiencia_gravada_mesmo_sem_dias(self):

@@ -89,7 +89,7 @@ STEP2 = {"goal": "cut", "activity_level": "light"}
 # A janela do dia entrou no STEP3 na V2.1: os relógios da rotina são todos da
 # mesma pergunta, e a comida ficou só com a comida.
 STEP3 = {
-    "weekdays": ["0", "2", "4"],
+    "weekdays": ["0", "2", "4"], "musculacao": "sim",
     "start_time": "19:00",
     "duration_min": 60,
     "wake_time": "07:00",
@@ -99,7 +99,7 @@ STEP4 = {"split_preference": "three"}
 #: Quatro dias — a divisão muda o plano com folga. Três já bastam para a
 #: pergunta valer (`preferencia_muda_a_divisao(3)` é True desde 10/09/2026);
 #: o fixture de quatro fica para os testes que falam do caso "com folga".
-STEP3_COM_DIVISAO = {**STEP3, "weekdays": ["0", "1", "3", "5"]}
+STEP3_COM_DIVISAO = {**STEP3, "weekdays": ["0", "1", "3", "5"], "musculacao": "sim"}
 STEP5 = {"meal_style": "quick"}
 #: As áreas entraram em 05/09/2026, e são obrigatórias para o onboarding
 #: terminar. Todo teste que CAMINHA o wizard precisa delas — e é por isso que a
@@ -244,7 +244,7 @@ class OnboardingFlowTests(TestCase):
     def test_step_2_removes_weekdays_that_were_unchecked(self):
         self.client.post(step_url(1), STEP1)
         self.client.post(step_url(2), ETAPA2)
-        self.client.post(step_url(2), {**ETAPA2, "weekdays": ["1"]})
+        self.client.post(step_url(2), {**ETAPA2, "weekdays": ["1"], "musculacao": "sim"})
 
         self.assertEqual([d.weekday for d in TrainingDay.objects.filter(user=self.user)], [1])
 
@@ -996,7 +996,9 @@ class PesagemRapidaTests(TestCase):
 
         # `[superfície, valor]`: sem a superfície, o painel consumia um erro
         # nascido em Métricas e a pessoa voltava para um campo vazio.
-        self.assertEqual(self.client.session.get("peso_recusado"), ["metricas", "8o,5"])
+        # Desde 22/09/2026 a MENSAGEM viaja junto — é ela que a tela escreve
+        # embaixo do campo, em vez de uma faixa solta no topo.
+        self.assertEqual(self.client.session.get("peso_recusado"), ["metricas", "8o,5", "Peso inválido — use números, como 82,5."])
 
     def test_a_weight_below_the_range_the_app_calculates_is_refused(self):
         """Vinte quilos é o piso do model. Abaixo disso a fórmula de taxa
@@ -2021,13 +2023,13 @@ class OnboardingV21Tests(TestCase):
     # B -------------------------------------------------------- vários dias
     def test_marcar_a_semana_inteira_grava_os_sete(self):
         self.client.post(
-            step_url(2), {**ETAPA2, "weekdays": ["0", "1", "2", "3", "4", "5", "6"]}
+            step_url(2), {**ETAPA2, "weekdays": ["0", "1", "2", "3", "4", "5", "6"], "musculacao": "sim"}
         )
         self.assertEqual(self.user.training_days.count(), 7)
 
     def test_desmarcar_um_dia_remove_so_ele(self):
-        self.client.post(step_url(2), {**ETAPA2, "weekdays": ["0", "2", "4"]})
-        self.client.post(step_url(2), {**ETAPA2, "weekdays": ["0", "4"]})
+        self.client.post(step_url(2), {**ETAPA2, "weekdays": ["0", "2", "4"], "musculacao": "sim"})
+        self.client.post(step_url(2), {**ETAPA2, "weekdays": ["0", "4"], "musculacao": "sim"})
 
         self.assertEqual(
             sorted(self.user.training_days.values_list("weekday", flat=True)), [0, 4]
@@ -2041,7 +2043,7 @@ class OnboardingV21Tests(TestCase):
         conseguir passar da tela. Inventar um mínimo agora seria mudar a regra
         no meio de uma missão que prometeu não mudar nenhuma.
         """
-        response = self.client.post(step_url(2), {**ETAPA2, "weekdays": []})
+        response = self.client.post(step_url(2), {**ETAPA2, "weekdays": [], "musculacao": "sim"})
 
         # Zero dias também dispensa a divisão: sem treino nenhum, nenhuma das
         # três preferências muda o que o app monta — e a etapa avança sem ela.
@@ -2208,7 +2210,7 @@ class OnboardingV22Tests(TestCase):
         quando os dias pedem — é o que um formulário com JavaScript envia."""
         if com_divisao is None:
             com_divisao = preferencia_muda_a_divisao(quantos)
-        dados = {**ETAPA2, "weekdays": [str(d) for d in range(quantos)]}
+        dados = {**ETAPA2, "weekdays": [str(d) for d in range(quantos)], "musculacao": "sim"}
         if not com_divisao:
             dados.pop("split_preference")
         return dados
@@ -5721,7 +5723,7 @@ class PedirNovaEscolhaDeDivisaoTests(TestCase):
             {
                 "goal": Goal.BULK,
                 "activity_level": ActivityLevel.LIGHT,
-                "weekdays": ["0", "1", "2", "3"],
+                "weekdays": ["0", "1", "2", "3"], "musculacao": "sim",
                 "wake_time": "07:00",
                 "sleep_time": "23:00",
                 "split_preference": SplitPreference.DOIS,
@@ -5861,7 +5863,7 @@ class DiasDeTreinoNaoDependemDoAdminTests(TestCase):
             {
                 "goal": Goal.BULK,
                 "activity_level": ActivityLevel.LIGHT,
-                "weekdays": ["1", "3"],
+                "weekdays": ["1", "3"], "musculacao": "sim",
                 "start_time": "18:30",
                 # A pergunta virou FAIXA, e depois saiu da tela inteira. O
                 # passo mandava `duration_min: 45`; o inteiro deixou de ser

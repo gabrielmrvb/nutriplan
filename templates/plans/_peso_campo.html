@@ -39,8 +39,16 @@
     <span class="vis-oculto">Peso em quilos</span>
     <input class="pesagem__valor num" type="text" name="weight_kg"
            inputmode="decimal" maxlength="6" autocomplete="off"
-           placeholder="82,5"
+           placeholder="82,5"{% if houve_recusa %} aria-invalid="true" aria-describedby="peso_error"{% endif %}
            value="{% if houve_recusa %}{{ peso_recusado }}{% elif peso_atual %}{{ peso_atual|floatformat:1 }}{% endif %}">
   </label>
   <button type="submit" class="pesagem__salvar">Salvar</button>
+  {% comment %}
+    O erro mora AQUI, embaixo do campo, e não só na faixa do topo: a recusa
+    viaja pela sessão com a mensagem (22/09/2026). `pwa.js` ("FOCO NO ERRO")
+    leva a tela até o campo marcado.
+  {% endcomment %}
+  {% if houve_recusa %}
+    <ul class="field__errors pesagem__erro" id="peso_error"><li>{{ peso_erro }}</li></ul>
+  {% endif %}
 </form>

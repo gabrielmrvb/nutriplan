@@ -4079,7 +4079,7 @@ class TreinoEmExecucaoSobreviveAoAjusteTests(TestCase):
             {
                 "goal": perfil.goal,
                 "activity_level": perfil.activity_level,
-                "weekdays": [str(d) for d in weekdays],
+                "weekdays": [str(d) for d in weekdays], "musculacao": "sim",
                 "wake_time": perfil.wake_time.strftime("%H:%M"),
                 "sleep_time": perfil.sleep_time.strftime("%H:%M"),
                 "split_preference": perfil.split_preference,
@@ -4541,7 +4541,7 @@ class PreferenciaNaoConfirmadaTests(TestCase):
         dados = {
             "goal": perfil.goal,
             "activity_level": perfil.activity_level,
-            "weekdays": [str(d) for d in weekdays],
+            "weekdays": [str(d) for d in weekdays], "musculacao": "sim",
             "wake_time": perfil.wake_time.strftime("%H:%M"),
             "sleep_time": perfil.sleep_time.strftime("%H:%M"),
         }

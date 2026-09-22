@@ -11,7 +11,7 @@ o mesmo desenho em vários lugares custaria bytes e desencontraria versões.
 """
 from django import template
 
-from accounts.models import Pilar
+from accounts.models import Musculacao, Pilar
 
 register = template.Library()
 
@@ -64,6 +64,18 @@ DETALHES = {
         "alvo",
         Pilar.PROGRESSO.label,
         "Peso, aderência e o que mudou no tempo.",
+    ),
+    # accounts.models.Musculacao — a pergunta-porta da etapa 2 (22/09/2026).
+    # Apoio em uma linha a 390 px (≤ 45 caracteres, `WizardChromeTests`).
+    Musculacao.SIM.value: (
+        "halter",
+        "Sim, faço musculação",
+        "Na academia ou em casa: a ficha é sua.",
+    ),
+    Musculacao.NAO.value: (
+        "bicicleta",
+        "Não faço",
+        "Só corrida, natação ou outro esporte.",
     ),
     # accounts.models.Goal
     "cut": (

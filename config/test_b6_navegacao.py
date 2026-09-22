@@ -68,7 +68,7 @@ class AEdicaoVoltaParaOndeAPessoaEstavaTests(TestCase):
     ETAPA_2 = {
         "goal": "cut",
         "activity_level": "light",
-        "weekdays": ["0", "2", "4"],
+        "weekdays": ["0", "2", "4"], "musculacao": "sim",
         "wake_time": "07:00",
         "sleep_time": "23:00",
         "split_preference": "three",
@@ -470,7 +470,7 @@ class AOrigemSobreviveAPerguntaDaDivisaoTests(TestCase):
     ETAPA_2 = {
         "goal": "cut",
         "activity_level": "light",
-        "weekdays": ["0", "2", "4", "6"],
+        "weekdays": ["0", "2", "4", "6"], "musculacao": "sim",
         "wake_time": "07:00",
         "sleep_time": "23:00",
     }
@@ -478,7 +478,7 @@ class AOrigemSobreviveAPerguntaDaDivisaoTests(TestCase):
     # vale "three".
     ETAPA_2_COM_DIVISAO = {**ETAPA_2, "split_preference": "three"}
     #: Dois dias: a divisão não muda nada e não é pedida.
-    ETAPA_2_DOIS_DIAS = {**ETAPA_2, "weekdays": ["0", "3"]}
+    ETAPA_2_DOIS_DIAS = {**ETAPA_2, "weekdays": ["0", "3"], "musculacao": "sim"}
 
     def setUp(self):
         self.pessoa = create_complete_user(email="b6divisao@exemplo.com")

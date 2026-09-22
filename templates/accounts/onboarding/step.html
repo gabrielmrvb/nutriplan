@@ -43,7 +43,8 @@
     <h1>{{ step_title }}</h1>
     <p class="lead">{{ step_subtitle }}</p>
 
-    <form method="post" novalidate data-direcao="avanca">
+    {# `data-rascunho`: o que for digitado fica guardado no aparelho até o envio dar certo (pwa.js). #}
+    <form method="post" novalidate data-direcao="avanca" data-rascunho>
       {% csrf_token %}
       {% if form.non_field_errors %}
         <ul class="field__errors">
@@ -88,6 +89,36 @@
         {% endcomment %}
         {% include "partials/choice_cards.html" with field=forms.objetivo.goal colunas=2 %}
         {% include "partials/choice_cards.html" with field=forms.objetivo.activity_level %}
+        {% comment %}
+          A JANELA DO DIA vem ANTES do treino (22/09/2026): ela é das
+          refeições, e vale para quem não faz musculação — que, com "não",
+          termina a tela logo depois dela.
+        {% endcomment %}
+        <div class="field">
+          <span class="field__label">A janela do seu dia</span>
+          <div class="field__help">
+            Os horários das refeições são distribuídos dentro dela.
+          </div>
+          {% if forms.rotina.non_field_errors %}
+            {# A janela curta demais é erro dos DOIS relógios; fica junto deles. #}
+            <ul class="field__errors">
+              {% for error in forms.rotina.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+            </ul>
+          {% endif %}
+          <div class="field-row">
+            <div>{% include "partials/field.html" with field=forms.rotina.wake_time %}</div>
+            <div>{% include "partials/field.html" with field=forms.rotina.sleep_time %}</div>
+          </div>
+        </div>
+        {% comment %}
+          "VOCÊ FAZ MUSCULAÇÃO?" — a pergunta-porta (item 5 da missão de UX,
+          22/09/2026). Corredores e nadadores eram obrigados a inventar
+          experiência, equipamento e dias de academia. Com "não", o bloco
+          `data-so-musculacao` some (pwa.js) e o servidor ignora o que
+          vier nele; sem JavaScript o bloco fica, e o servidor decide igual.
+        {% endcomment %}
+        {% include "partials/choice_cards.html" with field=forms.rotina.musculacao %}
+        <div data-so-musculacao{% if forms.rotina.musculacao.value == "nao" %} hidden{% endif %}>
         {% include "partials/field.html" with field=forms.rotina.experiencia %}
         {% include "partials/field.html" with field=forms.rotina.equipamento %}
         {% comment %}
@@ -107,26 +138,15 @@
           Dá para trocar o equipamento depois, no Perfil.
         </p>
         {% include "partials/field.html" with field=forms.rotina.weekdays %}
-        <div class="field">
-          <span class="field__label">A janela do seu dia</span>
-          <div class="field__help">
-            Os horários das refeições são distribuídos dentro dela.
-          </div>
-          {% if forms.rotina.non_field_errors %}
-            {# A janela curta demais é erro dos DOIS relógios; fica junto deles. #}
-            <ul class="field__errors">
-              {% for error in forms.rotina.non_field_errors %}<li>{{ error }}</li>{% endfor %}
-            </ul>
-          {% endif %}
-          <div class="field-row">
-            <div>{% include "partials/field.html" with field=forms.rotina.wake_time %}</div>
-            <div>{% include "partials/field.html" with field=forms.rotina.sleep_time %}</div>
-          </div>
-        </div>
         <div class="revela" data-revela-divisao data-dias-minimos="{{ dias_para_divisao }}"
              {% if not mostrar_divisao %}hidden{% endif %}>
           {% include "partials/choice_cards.html" with field=forms.divisao.split_preference %}
         </div>
+        </div>
+        <p class="hint" data-sem-musculacao{% if forms.rotina.musculacao.value != "nao" %} hidden{% endif %}>
+          Sem musculação, a área de Treino guarda as suas corridas — e se um
+          dia quiser começar, é um toque no Perfil.
+        </p>
       {% elif step == 3 %}
         {% comment %}
           ETAPA 3 — SUA PERSONALIZAÇÃO. O resumo vem PRIMEIRO: é a pessoa

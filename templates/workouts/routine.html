@@ -36,12 +36,30 @@
       O `<h1>` fica: é o rótulo da tela, e sumir com ele tiraria o marco de
       navegação que leitor de tela usa para saber onde chegou.
     {% endcomment %}
-    {% if not plan %}
+    {% if not plan and not nao_faz_musculacao %}
       <p class="lead">Falta dizer em quais dias você treina.</p>
     {% endif %}
   </div>
 
-  {% if not plan %}
+  {% if not plan and nao_faz_musculacao %}
+    {% comment %}
+      QUEM DISSE QUE NÃO FAZ MUSCULAÇÃO não é cobrado (22/09/2026): a
+      persona que só corre via "Cadastrar meus dias de treino" no dia 1 e no
+      dia 2. A tela repete a resposta, aponta a corrida — que é o que ela
+      tem aqui — e deixa a porta para mudar de ideia.
+    {% endcomment %}
+    <section class="card">
+      <p class="empty-state">
+        Você disse que não faz musculação, então não há ficha aqui. Suas
+        corridas ficam logo abaixo.
+      </p>
+      <a class="btn-link btn-link--rodape"
+         href="{% url 'accounts:onboarding_step' step=2 %}?origem=treino">
+        Mudei de ideia — quero montar uma ficha
+      </a>
+    </section>
+    {% include "workouts/_corrida.html" %}
+  {% elif not plan %}
     <section class="card">
       <p class="empty-state">
         A divisão do treino é montada a partir dos dias que você marcou no cadastro —

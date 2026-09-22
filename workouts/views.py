@@ -16,6 +16,7 @@ from accounts.models import (
     MINUTOS_POR_DURACAO,
     TETO_POR_DURACAO,
     DuracaoTreino,
+    Musculacao,
     Weekday,
 )
 from accounts.views import OnboardingRequiredMixin
@@ -110,8 +111,16 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
 
         if not services.has_training_days(user):
             # Sem dia de treino não existe rotina, e a tela vira um convite para
-            # cadastrar — não um erro.
-            context.update({"nav": "workout", "plan": None})
+            # cadastrar — não um erro. E quem DISSE que não faz musculação
+            # (22/09/2026) não é convidado a cadastrar dias: a tela repete a
+            # resposta e aponta a corrida e o Perfil. O perfil vem do
+            # `dispatch`, sem consulta a mais.
+            perfil = self.perfil_do_dispatch or getattr(user, "profile", None)
+            context.update({
+                "nav": "workout",
+                "plan": None,
+                "nao_faz_musculacao": bool(perfil) and perfil.musculacao == Musculacao.NAO,
+            })
             return context
 
         plan, _ = services.sync_active_routine(user)

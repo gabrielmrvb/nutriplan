@@ -15,7 +15,15 @@
 
   NÃO há formulário nem botão de recarregar, e é decisão. Recarregar faria o
   navegador repetir o POST que acabou de ser recusado, e um formulário aqui
-  convidaria a reenviar o mesmo pedido. Toda saída desta tela é por GET.
+  convidaria a reenviar o mesmo pedido. Toda saída desta tela é por GET —
+  inclusive "Voltar ao formulário", que é `history.back()`: a página de onde
+  o envio saiu foi um GET, e é para ela que se volta.
+
+  E O QUE FOI DIGITADO NÃO SE PERDEU (22/09/2026): os formulários longos
+  guardam um rascunho no aparelho enquanto a pessoa digita (`pwa.js`,
+  "RASCUNHO DO FORMULÁRIO") e o devolvem quando o mesmo formulário reabre
+  vazio. É por isso que o texto diz "ficou guardado" e o botão principal é
+  voltar, não recomeçar.
 
   O caso mais comum não tem nada de errado acontecendo: `login()` chama
   `rotate_token`, então basta a pessoa ter entrado de novo em outra aba para o
@@ -31,22 +39,27 @@
   oferecido.
 {% endcomment %}
 
-{% block title %}A página expirou · NutriPlan{% endblock %}
+{% block title %}O envio não pôde ser confirmado · NutriPlan{% endblock %}
 {% block container_class %}auth{% endblock %}
 
 {% block content %}
   <div class="card center">
-    <span class="auth__logo" aria-hidden="true">N</span>
-    <h1>Esta página ficou aberta tempo demais</h1>
+    <span class="auth__logo">{% include "partials/marca.html" %}</span>
+    <h1>Este envio não pôde ser confirmado</h1>
     <p class="lead">
       Por segurança, o NutriPlan confere se o envio saiu mesmo desta página — e
-      essa conferência vence com o tempo. O que você acabou de enviar não foi
-      salvo. Abra a tela de novo e refaça: leva um instante.
+      essa conferência vence quando a página fica aberta tempo demais ou você
+      entra de novo em outra aba. Nada foi salvo, mas <strong>o que você
+      digitou ficou guardado neste aparelho</strong>: volte ao formulário e
+      toque em enviar de novo.
     </p>
-    {% if user.is_authenticated %}
-      <a class="btn btn--primary btn--block" href="{% url 'plans:today' %}">Ir para o dia de hoje</a>
-    {% else %}
-      <a class="btn btn--primary btn--block" href="{% url 'accounts:login' %}">Entrar no NutriPlan</a>
-    {% endif %}
+    <div class="acoes-empilhadas">
+      <button type="button" class="btn btn--primary btn--block" onclick="history.back()">Voltar ao formulário</button>
+      {% if user.is_authenticated %}
+        <a class="btn btn--ghost btn--block" href="{% url 'plans:today' %}">Ir para o dia de hoje</a>
+      {% else %}
+        <a class="btn btn--ghost btn--block" href="{% url 'accounts:login' %}">Entrar no NutriPlan</a>
+      {% endif %}
+    </div>
   </div>
 {% endblock %}

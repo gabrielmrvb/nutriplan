@@ -631,7 +631,8 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 # diferença para o template, que não consegue distinguir
                 # "sem erro" de "erro com campo em branco" olhando só o texto.
                 "houve_recusa": recusa is not None,
-                "peso_recusado": recusa or "",
+                "peso_recusado": recusa.valor if recusa else "",
+                "peso_erro": recusa.mensagem if recusa else "",
                 "proteina_perdida": proteina_perdida(slots),
                 # O catálogo do `<datalist>` e as linhas em branco do painel
                 # "comi outra coisa". `range` no contexto porque o template do
@@ -908,7 +909,8 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
                 # novo é corrigir, e corrigir começa do valor que está lá.
                 "peso_de_hoje": de_hoje.weight_kg if de_hoje else None,
                 "houve_recusa": recusa is not None,
-                "peso_recusado": recusa or "",
+                "peso_recusado": recusa.valor if recusa else "",
+                "peso_erro": recusa.mensagem if recusa else "",
                 # O treino nesta tela. Cada série sempre esteve no banco, e a
                 # tela chamada "Métricas" não mostrava nenhuma: quem treinava
                 # há dois meses não via nada do próprio treino aqui.

@@ -747,6 +747,25 @@
     acertarDivisao();
   }
 
+  /* ONBOARDING — "você faz musculação?" esconde o bloco da academia
+   * (22/09/2026). Com "não", experiência, equipamento, dias e divisão somem
+   * (`[data-so-musculacao]`) e a nota `[data-sem-musculacao]` aparece; o
+   * servidor ignora o bloco do mesmo jeito, então sem JavaScript nada
+   * quebra — só fica mais comprido. */
+  var soMusculacao = document.querySelector("[data-so-musculacao]");
+  if (soMusculacao) {
+    var respostas = document.querySelectorAll('input[name="musculacao"]');
+    var semMusculacao = document.querySelector("[data-sem-musculacao]");
+    function acertarMusculacao() {
+      var nao = false;
+      respostas.forEach(function (r) { if (r.checked && r.value === "nao") nao = true; });
+      soMusculacao.hidden = nao;
+      if (semMusculacao) semMusculacao.hidden = !nao;
+    }
+    respostas.forEach(function (r) { r.addEventListener("change", acertarMusculacao); });
+    acertarMusculacao();
+  }
+
   /* MAPA DE ÁREAS — só as conveniências.
    *
    * O `<details>` já abre e fecha sozinho no clique, e continua funcionando
@@ -868,6 +887,198 @@
       if (texto) botao.textContent = texto;
     }, 0);
   });
+})();
+
+/* TOQUE DURANTE A TRANSIÇÃO (22/09/2026): o primeiro toque não se perde.
+ *
+ * MEDIDO no Chrome 153: enquanto a view transition entre páginas anima
+ * (`--mov-tela`), `elementFromPoint` devolve `<html>` — o clique é
+ * despachado no documento e nenhum botão o recebe. São 280–320 ms depois
+ * de o documento novo começar, mais num celular lento; é a janela em que
+ * quem já sabe onde vai tocar toca. `pointer-events: none` na árvore de
+ * pseudo-elementos não muda nada (medido). Então o toque que caiu no
+ * `<html>` é GUARDADO e REPETIDO no elemento que está naquele ponto quando
+ * `viewTransition.finished` resolve — a nova tela já está no lugar desde o
+ * primeiro quadro (ela entra com fade e 12 px de deslize), então o ponto é
+ * o que a pessoa viu. Um toque só, o último; sem transição não há
+ * `viewTransition` e nada disto roda. */
+(function () {
+  "use strict";
+  window.addEventListener("pagereveal", function (evento) {
+    var transicao = evento.viewTransition;
+    if (!transicao || !transicao.finished) return;
+    var toque = null;
+    function guardar(ev) {
+      if (ev.target !== document.documentElement && ev.target !== document.body) return;
+      toque = { x: ev.clientX, y: ev.clientY };
+    }
+    document.addEventListener("click", guardar, true);
+    function repetir() {
+      document.removeEventListener("click", guardar, true);
+      if (!toque) return;
+      var alvo = document.elementFromPoint(toque.x, toque.y);
+      if (!alvo || alvo === document.documentElement || alvo === document.body) return;
+      var acionavel = alvo.closest("a, button, summary, label, input, select, textarea, [role=button]") || alvo;
+      acionavel.click();
+    }
+    transicao.finished.then(repetir, repetir);
+  });
+})();
+
+/* RASCUNHO DO FORMULÁRIO (22/09/2026): nada digitado se perde em silêncio.
+ *
+ * Item 2 da missão de UX: "enviar a etapa 2 ou a corrida derruba a sessão
+ * e descarta o que digitei". O POST recusado por CSRF (token velho: outra
+ * aba entrou de novo, ou o worker serviu a página do cache num cold start)
+ * e a sessão que expirou com o formulário aberto (302 para o login) tinham
+ * o mesmo fim — o formulário voltava vazio. Aqui todo `<form data-rascunho>`
+ * grava os campos no `localStorage` enquanto a pessoa digita (chave por
+ * caminho e por pessoa, validade de um dia) e os devolve quando o MESMO
+ * formulário reabre com o campo VAZIO: o que o servidor reabriu preenchido
+ * (erro de validação, edição) manda. O envio marca o rascunho como
+ * `enviado`; a página seguinte, se for OUTRA, apaga — deu certo. Fora:
+ * senha, token, arquivo e campo escondido, por construção. */
+(function () {
+  "use strict";
+  var VALIDADE_MS = 24 * 60 * 60 * 1000;
+  var FORA = { "password": 1, "file": 1, "hidden": 1, "submit": 1, "button": 1 };
+  function chave(form) {
+    var quem = document.body.getAttribute("data-usuario") || "";
+    return "nutriplan:rascunho:" + quem + ":" + (form.getAttribute("data-rascunho") || location.pathname);
+  }
+  function ler(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } }
+  function gravar(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function apagar(k) { try { localStorage.removeItem(k); } catch (e) {} }
+  function campos(form) {
+    return [].filter.call(form.elements, function (el) {
+      if (!el.name || el.name === "csrfmiddlewaretoken") return false;
+      var tipo = (el.type || "").toLowerCase();
+      return !FORA[tipo];
+    });
+  }
+  function colher(form) {
+    var dados = {};
+    campos(form).forEach(function (el) {
+      var tipo = (el.type || "").toLowerCase();
+      if (tipo === "checkbox" || tipo === "radio") {
+        if (!dados[el.name]) dados[el.name] = [];
+        if (el.checked) dados[el.name].push(el.value);
+      } else if (el.tagName === "SELECT" && el.multiple) {
+        dados[el.name] = [].map.call(el.selectedOptions, function (o) { return o.value; });
+      } else {
+        dados[el.name] = el.value;
+      }
+    });
+    return dados;
+  }
+  function vazio(form, nome) {
+    var lista = campos(form).filter(function (el) { return el.name === nome; });
+    return lista.every(function (el) {
+      var tipo = (el.type || "").toLowerCase();
+      if (tipo === "checkbox" || tipo === "radio") return !el.checked;
+      return !el.value;
+    });
+  }
+  /* O servidor reabriu o formulário COM ERRO: os campos trazem o que a
+   * pessoa acabou de enviar, e isso é mais novo que o rascunho. Sem erro é
+   * um GET limpo — valor inicial, padrão ("07:00") ou o que já estava salvo
+   * —, e o rascunho, digitado depois de a pessoa ver esses valores, vence. */
+  function reabertoComErro(form) {
+    return !!form.querySelector('[aria-invalid="true"], .field__errors');
+  }
+  function devolver(form, dados) {
+    var devolvidos = 0;
+    var comErro = reabertoComErro(form);
+    Object.keys(dados).forEach(function (nome) {
+      if (comErro && !vazio(form, nome)) return;
+      var valor = dados[nome];
+      campos(form).filter(function (el) { return el.name === nome; }).forEach(function (el) {
+        var tipo = (el.type || "").toLowerCase();
+        if (tipo === "checkbox" || tipo === "radio") {
+          var marcar = Array.isArray(valor) && valor.indexOf(el.value) > -1;
+          if (marcar !== el.checked) { el.checked = marcar; devolvidos++; }
+        } else if (el.tagName === "SELECT" && el.multiple) {
+          [].forEach.call(el.options, function (o) { o.selected = valor.indexOf(o.value) > -1; });
+          devolvidos++;
+        } else if (valor && el.value !== valor) {
+          el.value = valor; devolvidos++;
+        }
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    });
+    return devolvidos;
+  }
+  function avisar(form) {
+    var nota = document.createElement("p");
+    nota.className = "hint rascunho__nota";
+    nota.setAttribute("role", "status");
+    nota.textContent = "Devolvemos o que você tinha digitado aqui.";
+    form.insertBefore(nota, form.firstChild);
+  }
+  /* A página seguinte a um envio, se for OUTRA, apaga o rascunho enviado. */
+  function limparEnviados() {
+    try {
+      for (var i = localStorage.length - 1; i >= 0; i--) {
+        var k = localStorage.key(i);
+        if (!k || k.indexOf("nutriplan:rascunho:") !== 0) continue;
+        var r = ler(k);
+        if (!r) { apagar(k); continue; }
+        var velho = !r.em || Date.now() - r.em > VALIDADE_MS;
+        var enviadoEOutraPagina = r.enviado && r.caminho !== location.pathname;
+        if (velho || enviadoEOutraPagina) apagar(k);
+      }
+    } catch (e) {}
+  }
+  function ligar(form) {
+    var k = chave(form);
+    var guardado = ler(k);
+    if (guardado && guardado.dados && Date.now() - (guardado.em || 0) <= VALIDADE_MS) {
+      if (devolver(form, guardado.dados) > 0) avisar(form);
+    }
+    var temporizador = null;
+    function salvar() {
+      gravar(k, { em: Date.now(), caminho: location.pathname, dados: colher(form), enviado: false });
+    }
+    form.addEventListener("input", function () { clearTimeout(temporizador); temporizador = setTimeout(salvar, 250); });
+    form.addEventListener("change", function () { clearTimeout(temporizador); temporizador = setTimeout(salvar, 250); });
+    form.addEventListener("submit", function () {
+      clearTimeout(temporizador);
+      gravar(k, { em: Date.now(), caminho: location.pathname, dados: colher(form), enviado: true });
+    });
+  }
+  function iniciar() {
+    limparEnviados();
+    document.querySelectorAll("form[data-rascunho]").forEach(ligar);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar);
+  else iniciar();
+})();
+
+/* FOCO NO ERRO (22/09/2026): a tela vai até o primeiro campo inválido.
+ *
+ * O servidor reabre o formulário no TOPO, e o campo recusado pode estar
+ * duas dobras abaixo — "Este campo é obrigatório." sem campo nenhum à
+ * vista (item 3 da missão de UX; medido no peso da Home e no fim da etapa
+ * 1). Toda página: o primeiro `[aria-invalid="true"]` é rolado para o meio
+ * da tela e recebe o foco. Quem já tem `autofocus` na página manda — o
+ * navegador o focou antes deste script, e dois focos brigando é pior que
+ * nenhum. Foco em campo de texto abre o teclado no celular, e é isso
+ * mesmo: a pessoa vai corrigir o que digitou. Um `<details>` fechado em
+ * volta do campo é aberto antes, senão o foco cai no vazio. Sem `smooth`:
+ * a rolagem é instantânea nos dois regimes de movimento. */
+(function () {
+  "use strict";
+  function focar() {
+    if (document.querySelector("[autofocus]")) return;
+    var campo = document.querySelector('[aria-invalid="true"]');
+    if (!campo) return;
+    var details = campo.closest && campo.closest("details");
+    while (details) { details.open = true; details = details.parentElement && details.parentElement.closest("details"); }
+    campo.scrollIntoView({ block: "center" });
+    try { campo.focus({ preventScroll: true }); } catch (e) { campo.focus(); }
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", focar);
+  else focar();
 })();
 
 /* ==========================================================================

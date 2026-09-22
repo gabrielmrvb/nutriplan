@@ -141,6 +141,11 @@
               "Padrão — até 60 minutos".
             {% endcomment %}
             <div>
+              <dt>Musculação</dt>
+              {# "Não perguntado" é o estado de toda conta anterior à pergunta (22/09/2026). #}
+              <dd>{% if profile.musculacao == "nao" %}Não faço{% elif profile.musculacao == "sim" %}Sim{% else %}não informada{% endif %}</dd>
+            </div>
+            <div>
               <dt>Experiência</dt>
               {% comment %}
                 Vazio é "não respondeu", e a linha diz isso. `get_..._display`
@@ -196,6 +201,18 @@
             link de texto ao lado do título não é o convite de um cartão que
             não tem mais nada dentro.
           {% endcomment %}
+          {% if profile.musculacao == "nao" %}
+            {% comment %}
+              Quem disse que NÃO faz musculação (22/09/2026) não recebe o
+              convite de cadastrar dias: o cartão repete a resposta, e o
+              "Editar" do cabeçalho é a porta para mudar de ideia.
+            {% endcomment %}
+            <dl class="data-list">
+              <div><dt>Musculação</dt><dd>Não faço</dd></div>
+              <div><dt>Acorda</dt><dd>{{ profile.wake_time|time:"H:i" }}</dd></div>
+              <div><dt>Dorme</dt><dd>{{ profile.sleep_time|time:"H:i" }}</dd></div>
+            </dl>
+          {% else %}
           <div class="empty-state">
             <p>Nenhum dia de treino cadastrado ainda.</p>
             <a class="btn btn--ghost btn--sm"
@@ -208,6 +225,7 @@
             <div><dt>Acorda</dt><dd>{{ profile.wake_time|time:"H:i" }}</dd></div>
             <div><dt>Dorme</dt><dd>{{ profile.sleep_time|time:"H:i" }}</dd></div>
           </dl>
+          {% endif %}
         {% endif %}
       </section>
     </div>
