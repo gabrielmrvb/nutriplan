@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NutriPlan</string>
+    <string name="title_activity_main">NutriPlan</string>
+    <string name="package_name">com.nutriplan.app</string>
+    <string name="custom_url_scheme">com.nutriplan.app</string>
+</resources>

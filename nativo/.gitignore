@@ -1,0 +1,23 @@
+node_modules/
+android/local.properties
+android/app/release/
+android/app/build/
+android/build/
+android/.gradle/
+android/.idea/
+android/*.iml
+android/app/google-services.json
+ios/App/App/GoogleService-Info.plist
+ios/App/App/public/
+ios/App/build/
+ios/App/DerivedData/
+ios/App/Pods/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+android/app/src/main/assets/public/
+*.keystore
+*.jks
+# gerados por `cap sync` (o CI e a máquina rodam o sync antes de construir)
+android/app/src/main/assets/
+ios/App/App/capacitor.config.json
+ios/App/App/config.xml
