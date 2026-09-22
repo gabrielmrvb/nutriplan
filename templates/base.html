@@ -493,7 +493,7 @@
   </div>
   {% endif %}
 
-  <script>window.NUTRIPLAN_VAPID_KEY = "{{ vapid_public_key }}";</script>
+  <script nonce="{{ csp_nonce }}">window.NUTRIPLAN_VAPID_KEY = "{{ vapid_public_key }}";</script>
   <script src="{{ app_js_url }}" defer></script>
   {% if app_nativo %}
     {% comment %}
@@ -502,7 +502,7 @@
       do Apple Saúde / Health Connect. Os client ids do Google são públicos
       por natureza (o segredo é do servidor, no fluxo web).
     {% endcomment %}
-    <script>window.NUTRIPLAN_LOGIN_NATIVO = {googleWebClientId: "{{ google_client_id }}", googleIosClientId: "{{ google_ios_client_id }}"};</script>
+    <script nonce="{{ csp_nonce }}">window.NUTRIPLAN_LOGIN_NATIVO = {googleWebClientId: "{{ google_client_id }}", googleIosClientId: "{{ google_ios_client_id }}"};</script>
     <script src="{{ nativo_js_url }}" defer></script>
   {% endif %}
   {% if not shell_offline %}
@@ -513,7 +513,7 @@
       arquivo se recusa a rodar em /gestao/ e /admin/. O endpoint e a versão do
       app (commit do deploy) chegam por este objeto; nada de identidade.
     {% endcomment %}
-    <script>window.NUTRIPLAN_ANALYTICS = {endpoint: "{% url 'analytics:ingest' %}", app_version: "{{ analytics_commit }}"};</script>
+    <script nonce="{{ csp_nonce }}">window.NUTRIPLAN_ANALYTICS = {endpoint: "{% url 'analytics:ingest' %}", app_version: "{{ analytics_commit }}"};</script>
     <script src="{{ analytics_js_url }}" defer></script>
   {% endif %}
   {% if user.is_authenticated %}

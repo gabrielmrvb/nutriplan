@@ -98,6 +98,12 @@ MIDDLEWARE = [
     "config.ambiente.AmbienteMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    # Antes de tudo que renderiza: o nonce precisa existir quando a view
+    # monta o template, e o cabeçalho é escrito na volta. Depois do
+    # WhiteNoise porque a adjacência dele com o middleware de segurança
+    # é invariante com teste (`config.tests`), e estático não precisa
+    # de política — ele nem chega às views.
+    "config.csp.CSPMiddleware",
     # Comprime o HTML que o Django gera. O WhiteNoise comprime os ESTÁTICOS e
     # só eles — a página de treino saía com 622 KB crus, medidos, porque
     # renderiza a semana inteira com um ícone inline em cada linha de série.
@@ -166,6 +172,7 @@ TEMPLATES = [
                 "accounts.context_processors.freemium",
                 "config.ambiente.contexto",
                 "config.nativo.contexto",
+                "config.csp.contexto",
                 "achievements.context_processors.conquistas_pendentes",
             ],
         },

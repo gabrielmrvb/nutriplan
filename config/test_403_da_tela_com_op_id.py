@@ -38,7 +38,10 @@ class OFormularioComOpIdEnviadoPelaTelaTests(TestCase):
         self.assertEqual(resposta.status_code, 403)
         html = resposta.content.decode()
         self.assertIn("não pôde ser confirmado", html)
-        self.assertIn("history.back()", html)
+        # A saída é `history.back()` — mas desde a CSP (22/09/2026) ele mora
+        # no ouvinte de `pwa.js`, e o HTML só traz o marcador: atributo
+        # `onclick=` não roda com a política ligada, e não roda em silêncio.
+        self.assertIn("data-voltar", html)
         self.assertNotIn("replay_offline_csrf_expirado", html)
 
     def test_navegador_sem_sec_fetch_e_reconhecido_pelo_accept(self):

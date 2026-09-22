@@ -37,13 +37,17 @@
       voltar, é só recarregar.
     </p>
     <p class="muted center" data-estado-espera hidden aria-live="polite"></p>
-    <button type="button" class="btn btn--primary btn--block" onclick="location.reload()">
+    <button type="button" class="btn btn--primary btn--block" data-recarregar>
       Tentar de novo
     </button>
   </div>
-  <script>
+  <script nonce="{{ csp_nonce }}">
     (function () {
       var raiz = document.querySelector("[data-shell-offline]");
+      /* `onclick=` no HTML deixou de funcionar quando a CSP entrou (22/09/2026),
+         e deixaria em SILÊNCIO: o botão continuaria na tela sem fazer nada. */
+      var recarregar = document.querySelector("[data-recarregar]");
+      if (recarregar) recarregar.addEventListener("click", function () { location.reload(); });
       var titulo = raiz.querySelector("[data-estado-titulo]");
       var texto = raiz.querySelector("[data-estado-texto]");
       var espera = raiz.querySelector("[data-estado-espera]");
