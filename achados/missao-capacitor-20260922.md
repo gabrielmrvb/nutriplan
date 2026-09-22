@@ -83,7 +83,16 @@ quebrado no emulador).
 | aparelho | online | sem rede |
 |---|---|---|
 | Android (emulador Pixel 7, API 35, WHPX) | título "NutriPlan — alimentação e treino num app só"; `navigator.serviceWorker.controller` **verdadeiro** dentro da casca | modo avião → a tela é o **shell offline do PWA servido pelo worker** (`[data-shell-offline]`), não a `erro.html` |
-| iOS (simulador, runner macOS do Actions) | a landing carrega no WKWebView | a mesma tela offline do PWA (capturas 04 e 05) |
+| iOS (simulador, runner macOS do Actions) | a landing carrega no WKWebView | a mesma tela offline do PWA (capturas 04 e 05, do run do PR #115) |
+
+**Honestidade sobre a prova do iOS**: ela é VISUAL — o WKWebView não expõe
+DevTools no simulador, então não há como ler `serviceWorker.controller` de
+fora como no Android. E num run posterior (o do PR #119) a captura do
+offline saiu com a **tela inicial do iPhone**: o `simctl launch` responde na
+hora, o app podia morrer em seguida, e o passo passava assim mesmo. Isso foi
+corrigido — `prova_ios.sh` agora confere pelo `launchctl list` que o app
+está de pé antes de cada captura, e reprova nomeando o que viu. As capturas
+04 e 05 deste relatório são as do run em que o app ESTAVA na frente.
 
 `nativo/scripts/prova_android.sh` é essa sequência (lê o WebView pelo
 DevTools remoto — texto, não só captura), e `.github/workflows/nativo.yml`
@@ -173,6 +182,10 @@ Health Connect   → cartão presente; isHealthAvailable() {"available":true}
   Firebase (`getToken` recusa com o projeto de exemplo) e, no iPhone, da
   chave APNs. Todo o resto — registro, envio, desativação de token morto —
   está testado com a API falsa e provado no emulador até onde vai sem conta.
+- **O CONTEÚDO da tela do iOS por leitura automática.** O WKWebView não
+  expõe DevTools no simulador; o que o CI garante é que o app sobe, fica de
+  pé e é fotografado nos três estados. O julgamento do que aparece continua
+  sendo de quem olha a captura. **[LIMITAÇÃO]**
 - **HealthKit em aparelho de verdade.** O simulador do iOS não tem dados de
   saúde e o entitlement exige perfil de provisionamento. No Android a
   leitura foi provada com o Health Connect do emulador respondendo
