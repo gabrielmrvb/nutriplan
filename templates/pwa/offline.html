@@ -18,6 +18,13 @@
     —, recarregando sozinha quando ele responde. Sem rede, diz que está sem
     rede e espera o evento `online`.
 
+    E `navigator.onLine` MENTE no WebView da casca nativa (medido no
+    emulador do Android em modo avião, 22/09/2026: `true` sem rede nenhuma,
+    e a tela dizia "você está conectado"). O que distingue os dois casos é a
+    VELOCIDADE da recusa: sem rede o `fetch` rejeita na hora; um servidor
+    acordando demora ou responde 5xx. Duas rejeições imediatas seguidas
+    (`REJEICAO_IMEDIATA_MS`) são "sem rede", diga o `onLine` o que disser.
+
     Sem identidade e sem "Entrar / Criar conta" no cabeçalho: o shell é
     pré-cacheado como anônimo de propósito (`shell_offline`), e os dois botões
     mentiam para quem está logado.
@@ -43,8 +50,10 @@
       var SONDA = "/saude/vivo/";
       var INTERVALO_MS = 3000;
       var DESISTE_MS = 90000;
+      var REJEICAO_IMEDIATA_MS = 1500;
       var inicio = 0;
       var sondando = false;
+      var rejeicoesImediatas = 0;
 
       function semRede() {
         raiz.setAttribute("data-estado", "sem-rede");
@@ -67,12 +76,19 @@
         acordando();
         (function tenta() {
           var passados = Math.round((Date.now() - inicio) / 1000);
+          var comecou = Date.now();
           espera.textContent = "Tentando há " + passados + " s…";
           fetch(SONDA, { cache: "no-store" }).then(function (r) {
             if (r.ok) { location.reload(); return; }
+            rejeicoesImediatas = 0;
             throw new Error("ainda não");
-          }).catch(function () {
+          }).catch(function (erro) {
             if (!navigator.onLine) { sondando = false; semRede(); return; }
+            // Rede inalcançável rejeita na hora e sem resposta (TypeError);
+            // "ainda não" veio de uma resposta e não conta.
+            if (erro instanceof TypeError && Date.now() - comecou < REJEICAO_IMEDIATA_MS) rejeicoesImediatas += 1;
+            else rejeicoesImediatas = 0;
+            if (rejeicoesImediatas >= 2) { sondando = false; rejeicoesImediatas = 0; semRede(); return; }
             if (Date.now() - inicio > DESISTE_MS) {
               sondando = false;
               texto.textContent = "O servidor não respondeu em um minuto e meio. Tente de novo daqui a pouco.";

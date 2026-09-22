@@ -157,6 +157,7 @@ TEMPLATES = [
                 "accounts.context_processors.legal",
                 "accounts.context_processors.freemium",
                 "config.ambiente.contexto",
+                "config.nativo.contexto",
                 "achievements.context_processors.conquistas_pendentes",
             ],
         },

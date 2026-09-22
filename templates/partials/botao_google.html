@@ -18,7 +18,13 @@
   "Criar conta": o Google é uma alternativa, não a ação principal — e o app
   tem uma regra de um destaque por tela travada em `GymReadyTests`.
 {% endcomment %}
-{% if google_login_enabled %}
+{% comment %}
+  Dentro da casca nativa (`app_nativo`) o botão não aparece: o Google recusa
+  OAuth em WebView (`disallowed_useragent`), e um botão que leva a um erro
+  do Google é pior que nenhum. O login nativo com Google/Apple é a Fase 2
+  da missão Capacitor (22/09/2026).
+{% endcomment %}
+{% if google_login_enabled and not app_nativo %}
   <form class="google-entrada" method="post" action="{% url 'google_login' %}">
     {% csrf_token %}
     {% comment %}

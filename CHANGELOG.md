@@ -6,6 +6,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-22
 
+- **Sem rede é "sem rede".** A tela que aparece sem conexão dizia "o servidor está acordando" quando o aparelho achava que estava conectado sem estar; agora ela percebe pela resposta e diz a verdade.
 - **Um envio recusado mostra a página, não um código.** Quem enviava água, série, refeição ou corrida com a sessão renovada em outra aba via um texto técnico cru; agora vê "Este envio não pôde ser confirmado" com "Voltar ao formulário" — e o digitado volta.
 - **Continuar sempre à vista.** Na etapa 2 do cadastro, com um ou dois dias de treino — ou nenhum — o botão de continuar não aparecia. Agora aparece sempre.
 - **"Você faz musculação?"** Quem só corre, nada ou faz outro esporte responde "não" e não precisa inventar dias, experiência e equipamento de academia; a aba Treino deixa de cobrar os dias e mostra as corridas.

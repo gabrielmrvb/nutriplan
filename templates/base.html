@@ -1,5 +1,5 @@
 {% load navegacao static i18n %}<!doctype html>
-<html lang="pt-br"{% if body_class %} class="{{ body_class }}"{% endif %}>
+<html lang="pt-br"{% if body_class %} class="{{ body_class }}"{% endif %}{% if plataforma_nativa %} data-app-nativo="{{ plataforma_nativa }}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -461,6 +461,12 @@
     UMA linha, e a versao anterior deste texto vazou para dentro do HTML de
     TODA pagina do app. Quem pegou foi `ComentarioDeTemplateNaoVazaTests`.
   {% endcomment %}
+  {% if not app_nativo %}
+  {% comment %}
+    Dentro da casca nativa (`config/nativo.py`) o convite não existe: o app
+    JÁ está instalado, e "Instalar" ali seria o mesmo defeito de veracidade
+    que o resto do app recusa (missão Capacitor, 22/09/2026).
+  {% endcomment %}
   <div class="install" data-install hidden role="region" aria-labelledby="install-title">
     <button type="button" class="install__close" data-install-close aria-label="Fechar o convite de instalação">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -485,6 +491,7 @@
       <button type="button" class="btn btn--ghost install__later" data-install-later>Agora não</button>
     </div>
   </div>
+  {% endif %}
 
   <script>window.NUTRIPLAN_VAPID_KEY = "{{ vapid_public_key }}";</script>
   <script src="{{ app_js_url }}" defer></script>
