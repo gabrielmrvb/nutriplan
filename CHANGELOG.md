@@ -6,6 +6,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-22
 
+- **Um envio recusado mostra a página, não um código.** Quem enviava água, série, refeição ou corrida com a sessão renovada em outra aba via um texto técnico cru; agora vê "Este envio não pôde ser confirmado" com "Voltar ao formulário" — e o digitado volta.
 - **Continuar sempre à vista.** Na etapa 2 do cadastro, com um ou dois dias de treino — ou nenhum — o botão de continuar não aparecia. Agora aparece sempre.
 - **"Você faz musculação?"** Quem só corre, nada ou faz outro esporte responde "não" e não precisa inventar dias, experiência e equipamento de academia; a aba Treino deixa de cobrar os dias e mostra as corridas.
 - **O erro aponta o campo.** Quando um envio é recusado, a tela rola até o campo, marca-o e escreve o motivo embaixo dele — o peso da Home e do Progresso incluídos.
