@@ -13,6 +13,10 @@
 
   Cada texto termina em "Sem isso o app não funciona": o tratamento é
   condição do serviço, e a lei manda dizer isso "com destaque" (art. 9º, § 3º).
+
+  A primeira caixa recusada leva `autofocus`: as caixas ficam no fim do
+  formulário e o servidor reabre a tela no topo — medido no staging, quem
+  tocava "Continuar" via o formulário sem erro nenhum à vista.
 {% endcomment %}
 {% if not caixas.vazio %}
   <div class="field consentimento" role="group" aria-labelledby="consentimento_label">
@@ -25,7 +29,7 @@
       {% for campo in caixas %}
         <li>
           <label>
-            <input type="checkbox" name="{{ campo.name }}" id="{{ campo.auto_id }}" value="on"{% if campo.value %} checked{% endif %}{% if campo.errors %} aria-invalid="true" aria-describedby="{{ campo.auto_id }}_error"{% endif %}>
+            <input type="checkbox" name="{{ campo.name }}" id="{{ campo.auto_id }}" value="on"{% if campo.value %} checked{% endif %}{% if campo.errors %} aria-invalid="true" aria-describedby="{{ campo.auto_id }}_error"{% endif %}{% if campo.name == caixas.primeira_com_erro %} autofocus{% endif %}>
             <span class="segmented__fundo" aria-hidden="true"></span>
             <span class="segmented__texto">
               {{ campo.label }}

@@ -7704,6 +7704,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   color: var(--text-mute);
   display: flex;
   justify-content: center;
+  align-items: center; /* o "·" entre os links subia ao topo dos 44px (visto no staging, tema claro) */
   gap: var(--espaco-3);
   flex-wrap: wrap;
 }

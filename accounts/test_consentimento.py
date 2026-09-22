@@ -112,6 +112,25 @@ class ConsentimentoTests(TestCase):
         self.assertFalse(Profile.objects.filter(user=user).exists(), "sem consentimento não se grava dado de saúde")
         self.assertFalse(Consentimento.objects.filter(user=user).exists())
 
+    def test_a_primeira_caixa_com_erro_recebe_o_foco_ao_reabrir(self):
+        """MEDIDO no staging (21/09/2026): a etapa 1 devolvida com erro abre
+        com `scrollY` 0 e o foco no `<body>`, e as caixas — no fim do
+        formulário — ficam abaixo da dobra a 390 px: quem tocou "Continuar"
+        vê o topo do formulário, sem erro nenhum à vista. `autofocus` na
+        PRIMEIRA caixa com erro (e só nela: dois `autofocus` é o primeiro do
+        DOM, o que esconde o defeito) faz o navegador rolar até o erro."""
+        self.pessoa()
+        html = sem_scripts(self.client.post(etapa(1), {**ETAPA1, "termos": "on", "saude": "on"}).content.decode())
+        transferencia = html.split('name="transferencia"', 1)[1].split(">", 1)[0]
+        self.assertIn("autofocus", transferencia)
+        self.assertEqual(html.count("autofocus"), 1)
+        html = sem_scripts(self.client.post(etapa(1), {**ETAPA1, "termos": "on"}).content.decode())
+        saude = html.split('name="saude"', 1)[1].split(">", 1)[0]
+        self.assertIn("autofocus", saude)
+        self.assertEqual(html.count("autofocus"), 1)
+        html = sem_scripts(self.client.get(etapa(1)).content.decode())
+        self.assertNotIn("autofocus", html.split('class="field consentimento"', 1)[1])
+
     def test_a_etapa_1_com_uma_caixa_so_tambem_nao_avanca(self):
         user = self.pessoa()
         resposta = self.client.post(etapa(1), {**ETAPA1, "saude": "on", "termos": "on"})
