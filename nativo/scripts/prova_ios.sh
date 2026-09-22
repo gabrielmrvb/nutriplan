@@ -56,11 +56,15 @@ abrir() {
   [ -n "$pid" ] || falhou "o app não subiu (simctl launch não devolveu pid)"
   sleep "${ESPERA_S:-40}"
   for i in 1 2 3; do
-    if xcrun simctl spawn "$UDID" launchctl list 2>/dev/null | grep -q "com.nutriplan.app"; then
+    # App do simulador é processo do HOST: o pid que o `simctl launch`
+    # devolve se confere com `ps` daqui mesmo. (A primeira versão perguntava
+    # ao `launchctl list` de dentro do simulador e nunca achava: reprovava
+    # um app que estava rodando — MEDIDO no run do #120.)
+    if ps -p "$pid" >/dev/null 2>&1; then
       return 0
     fi
     echo "   app fora do ar, reabrindo ($i)" >&2
-    xcrun simctl launch "$UDID" com.nutriplan.app >/dev/null || true
+    pid="$(xcrun simctl launch "$UDID" com.nutriplan.app | awk -F': ' '{print $2}')"
     sleep 10
   done
   falhou "o app não está rodando depois de abrir — a captura seria da tela inicial"
