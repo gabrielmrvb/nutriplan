@@ -139,5 +139,14 @@ class ConsentimentoForm(forms.Form):
     def vazio(self) -> bool:
         return not self.tipos
 
+    @property
+    def primeira_com_erro(self) -> str:
+        """O nome da primeira caixa recusada — é ela que recebe `autofocus`
+        ao reabrir, para o navegador rolar até o erro (as caixas ficam no fim
+        do formulário, abaixo da dobra). Vazio quando nada foi recusado."""
+        if not self.is_bound:
+            return ""
+        return next((tipo for tipo in self.tipos if self.errors.get(tipo)), "")
+
     def registrar(self, user, perfil=None):
         registrar(user, self.tipos, perfil=perfil)
