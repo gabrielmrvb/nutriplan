@@ -1216,6 +1216,13 @@ class ResponseCompressionTests(TestCase):
             for caminho in RAIZ.rglob("*.py")
             if ".venv" not in caminho.parts
             and "migrations" not in caminho.parts
+            # PASTA DE TRABALHO NÃO É O APP (22/09/2026). `artifacts/` e
+            # `scratchpad/` ficam fora do controle de versão e existem para
+            # scripts de apoio — e um script que cita `.opcao__meta` fazia a
+            # classe parecer usada. MEDIDO: a suíte local passava e o
+            # `pre-push`, que roda no worktree do commit, reprovava três
+            # órfãs que estavam ali havia horas.
+            and not {"artifacts", "scratchpad"} & set(caminho.parts)
             and not caminho.name.startswith(("test_", "tests"))
         )
 

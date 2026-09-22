@@ -9040,9 +9040,6 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    ciclo (`services.variacao_do_dia`) e a rápida é "Menos tempo hoje?" no
    painel. */
 .opcao { border: 1px solid var(--fio); }
-.opcao__head { display: flex; align-items: center; justify-content: space-between; gap: var(--espaco-3); }
-.opcao__meta { margin: 0 0 var(--espaco-3); color: var(--text-dim); font-size: var(--texto-sm); }
-.opcao__equipamentos { margin: 0 0 var(--espaco-4); font-size: var(--texto-xs); }
 
 /* A linha que a rápida deixa de fora: apagada e dita. */
 .ficha-item--fora .ficha-item__nome { color: var(--text-mute); text-decoration: line-through; }
