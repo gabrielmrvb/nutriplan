@@ -540,6 +540,14 @@ NUTRIPLAN_TAREFAS_TOKEN = env("NUTRIPLAN_TAREFAS_TOKEN", default="")
 #: request; estes não têm request. Em produção é o domínio do Render.
 NUTRIPLAN_URL_BASE = env("NUTRIPLAN_URL_BASE", default="https://nutriplan-xxfn.onrender.com")
 
+#: O dia em que o e-mail de inatividade foi LIGADO neste ambiente. Só pausa
+#: começada a partir dele conta: a primeira rodada em produção (21/09/2026,
+#: 13:35) escreveu de uma vez para toda conta dormente com ficha ativa —
+#: "27 dias sem treino" para gente que nunca mais abriu o app e cadastrou
+#: gmail inventado. Quem parou antes de o aviso existir não recebe; quem
+#: parar depois, recebe uma vez por pausa, como antes.
+NUTRIPLAN_AVISOS_INATIVIDADE_DESDE = env("NUTRIPLAN_AVISOS_INATIVIDADE_DESDE", default="2026-09-21")
+
 #: A chave da API v3 do Brevo (SÓ leitura: `avisos.brevo` sincroniza quem
 #: bloqueou e quem abriu). Vazia = sem sincronização, e o app continua
 #: igual. É OUTRA chave, não a SMTP (`EMAIL_HOST_PASSWORD`): mora no painel

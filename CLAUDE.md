@@ -2989,6 +2989,20 @@ entrar no painel, `EmailAberto` fica vazia e os e-mails do relógio não saem
 para ninguém — que é o estado seguro enquanto o cadastro aceita e-mail
 inventado.
 
+**A PRIMEIRA RODADA NUNCA É EM MASSA (21/09/2026, noite).** A de produção
+foi: às 13:35 o job de inatividade escreveu de uma vez para toda conta
+dormente com ficha ativa — "27 dias sem treino" para quem nunca mais abriu
+o app —, e foi daí que veio o dia de 46,6 % de hard bounce. Duas guardas em
+`rodar_inatividade`: a pausa tem de ter COMEÇADO a partir de
+`NUTRIPLAN_AVISOS_INATIVIDADE_DESDE` (o dia em que o aviso foi ligado
+NAQUELE ambiente; produção 21/09/2026; vazia ou ilegível vale HOJE, nunca
+"tudo") — quem parou antes de o aviso existir não é cobrado por um aviso
+que não existia —, e `TETO_POR_RODADA` (20) por tipo por rodada, também no
+resumo semanal: o resto sai nas rodadas seguintes, de 5 em 5 min, e a
+resposta do job diz quantos ficaram (`adiados`). Provado no staging com dez
+contas dormentes de antes da data: zero e-mails; a pausa começada depois
+recebe (`avisos/tests.py`, `PrimeiraRodadaTests`).
+
 declará-la no bloco do staging. O que a prova NÃO cobre: o boas-vindas sai
 só pelo signup, e a sessão não cria conta por formulário nem digita senha;
 o remetente aparece como `…@12016072.brevosend.com` porque o domínio de
