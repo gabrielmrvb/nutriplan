@@ -51,8 +51,14 @@ jobs:
 
       - name: Dependências e sync
         working-directory: nativo
+        env:
+          # Os REAIS vêm do projeto Firebase do dono (segredo do repositório);
+          # sem eles entram os EXEMPLOS e o push não registra token — o app
+          # constrói e abre do mesmo jeito. Ver `nativo/scripts/firebase_config.sh`.
+          FIREBASE_GOOGLE_SERVICES_JSON: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON }}
         run: |
           npm ci --no-audit --no-fund
+          bash scripts/firebase_config.sh
           npx cap sync android
 
       - name: Gradle (debug)
@@ -110,8 +116,14 @@ jobs:
 
       - name: Dependências e sync
         working-directory: nativo
+        env:
+          # O `GoogleService-Info.plist` é arquivo de BUILD do alvo App: sem
+          # ele o `xcodebuild` para em "Build input file cannot be found"
+          # (visto no run de 22/09/2026). O exemplo basta para construir.
+          FIREBASE_GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.FIREBASE_GOOGLE_SERVICE_INFO_PLIST }}
         run: |
           npm ci --no-audit --no-fund
+          bash scripts/firebase_config.sh
           npx cap sync ios
 
       - name: Xcode
