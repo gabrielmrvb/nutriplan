@@ -21,10 +21,29 @@ adb wait-for-device
 adb shell 'while [ "$(getprop sys.boot_completed 2>/dev/null)" != "1" ]; do sleep 2; done'
 adb install -r "$APK"
 
+# Abre o app e CONFERE que ele ficou de pé — `am start` responde na hora e o
+# processo pode morrer em seguida. Sem isto o script sumia sem mensagem
+# (run do #120 no Actions: caiu logo depois de "rede off", entre o `am
+# start` e a captura).
 abrir() {
-  adb shell am force-stop com.nutriplan.app
-  adb shell am start -n com.nutriplan.app/.MainActivity >/dev/null
+  local pid i
+  adb shell am force-stop com.nutriplan.app >/dev/null 2>&1 || true
+  adb shell am start -n com.nutriplan.app/.MainActivity >/dev/null 2>&1 || true
   sleep "${ESPERA_S:-35}"
+  for i in 1 2 3; do
+    pid="$(adb shell pidof com.nutriplan.app 2>/dev/null | tr -d '\r' | awk '{print $1}')"
+    [ -n "$pid" ] && return 0
+    echo "   app fora do ar, reabrindo ($i)" >&2
+    adb shell am start -n com.nutriplan.app/.MainActivity >/dev/null 2>&1 || true
+    sleep 10
+  done
+  falhou "o app não está rodando depois de abrir"
+}
+
+# A captura é EVIDÊNCIA, não portão: um `screencap` que falha no runner não
+# pode derrubar uma prova que já leu o estado da tela pelo DevTools.
+foto() {  # $1 = arquivo
+  adb exec-out screencap -p > "$1" 2>/dev/null || echo "aviso: screencap falhou em $1" >&2
 }
 
 sonda() {  # $1 = nome do arquivo JSON
@@ -77,7 +96,7 @@ rede() {  # $1 = on|off
 echo "== online"
 rede on
 abrir
-adb exec-out screencap -p > "$SAIDA/android-01-online.png"
+foto "$SAIDA/android-01-online.png"
 sonda online
 "$PY" - "$SAIDA/online.json" <<'EOF'
 import json, sys
@@ -91,7 +110,7 @@ EOF
 echo "== offline (modo avião)"
 rede off
 abrir
-adb exec-out screencap -p > "$SAIDA/android-02-offline.png"
+foto "$SAIDA/android-02-offline.png"
 sonda offline
 "$PY" - "$SAIDA/offline.json" <<'EOF'
 import json, sys
@@ -106,6 +125,6 @@ rede on
 adb shell cmd uimode night yes
 sleep 3
 abrir
-adb exec-out screencap -p > "$SAIDA/android-03-online-escuro.png"
+foto "$SAIDA/android-03-online-escuro.png"
 adb shell cmd uimode night no
 echo "PROVA ANDROID OK"
