@@ -490,7 +490,7 @@
        * ainda estava tentando subir, e o `reload()` do sucesso mataria a nova
        * em silencio. */
       el.comecar.hidden = false;
-      dizer("Não consegui salvar. A corrida está guardada neste aparelho.");
+      dizer("Não conseguimos salvar. A corrida está guardada neste aparelho.");
     }).catch(function () {
       estado.enviando = false;
       el.comecar.hidden = false;
