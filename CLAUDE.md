@@ -341,6 +341,47 @@ label` ("Alimentação"), os nomes de campo e modelo (`NutritionPlan`,
 comum de uma dieta não funcionar") — a régua protege promessa pública, não
 vocabulário (`config/test_nomenclatura.py`, o contrapeso).
 
+**OS LEGAIS ESTÃO PUBLICADOS, E O CONSENTIMENTO SÃO TRÊS CAIXAS COM PROVA
+(decisão do dono, 21/09/2026).** `LEGAL_RESPONSAVEL` e `LEGAL_CONTATO`
+preenchidos no Render (produção e staging) fazem `settings.LEGAL_PUBLICADO`
+virar verdadeiro: o rodapé (`partials/links_legais.html`, incluído pela
+`base.html` em toda tela fora do shell offline; "Ajuda" fica mesmo em
+rascunho) passa a linkar `/privacidade/` e `/termos/`, e as páginas deixam
+de se declarar rascunho. O consentimento é TRÊS controles separados,
+desmarcados, e não um (`accounts/consentimento.py`, `partials/
+caixas_de_consentimento.html`): o aceite dos Termos com os dois links (no
+cadastro por e-mail; na etapa 1 para quem veio pelo Google), **dados de
+saúde** (LGPD art. 11, I — o app pede peso e altura na etapa 1, então é
+ALI, antes de gravar, que a pessoa autoriza) e **transferência
+internacional** (art. 33, VIII — o banco é o Neon nos EUA por decisão de
+não migrar; a caixa nomeia o país). Cada texto termina em "Sem isso o app
+não funciona" (art. 9º, § 3º: condição do serviço, dita com destaque). A
+prova é `Consentimento` (user, tipo, versão, `dado_em`; único por versão),
+porque o ônus da prova é do controlador (art. 8º, § 2º), e o perfil guarda
+`consentimento_versao` para a guarda custar zero consultas.
+`VERSAO_DOS_LEGAIS` ("2026-09-21") é a data dos textos: subir a versão faz
+TODO MUNDO consentir de novo, uma vez, em `/conta/consentimento/` — a
+tela única, sem barra de abas, com "apagar sua conta" linkado (ninguém
+precisa consentir para ir embora; `ExcluirContaView` não é guardada). Quem
+JÁ TINHA conta passa por ela também: a migration `0038` liga
+`Profile.precisa_consentir` só para conta com cadastro terminado que não é
+`@nutriplan.invalid`, e `deve_consentir(perfil)` é `precisa_consentir or
+(versão consentida ≠ vigente)` — o perfil de fixture/seed, sem versão e sem
+marca, NÃO é barrado, de propósito: ele nunca passou pelo cadastro, e a
+alternativa era fingir que consentiu ou reescrever todo fixture da suíte. A
+etapa 1 em EDIÇÃO (perfil completo, vindo do Perfil) não pede caixa
+nenhuma: consentir é do cadastro e da tela única, e três classes de
+`accounts.tests` reprovaram quando pedia. `IDADE_MINIMA = 18` no
+`clean_birth_date` (era 14): sem responsável legal e sem base para tratar
+saúde de adolescente, o cadastro recusa e diz. `scripts/qa/e2e_staging.py`
+marca as três caixas; `accounts/test_consentimento.py` prende o fluxo, a
+migration (`TransactionTestCase`) e a política ("Com que base tratamos cada
+dado", transferência sem adequação, ANPD). `LEGAL_CONTATO` é
+`bielpointblank@gmail.com` — o e-mail que já é público neste arquivo, o
+remetente da Brevo e o alerta do UptimeRobot — e o dono troca pelo painel
+quando quiser um dedicado; `claudeglauco@gmail.com` (VAPID) não é contato
+público e não entra.
+
 **ESTRATÉGIA E PESQUISA DE NEGÓCIO MORAM EM `gabrielmrvb/nutriplan-docs`
 (privado), NÃO AQUI (decisão do dono, 21/09/2026).** Este repositório é
 público desde 21/09/2026 e descreve o PRODUTO e a OPERAÇÃO — arquitetura,

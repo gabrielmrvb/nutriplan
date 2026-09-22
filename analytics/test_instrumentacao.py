@@ -73,6 +73,7 @@ class InstrumentacaoDeContaTests(TestCase):
                 "email": "novo@exemplo.com",
                 "password1": "senha-bem-forte-123",
                 "password2": "senha-bem-forte-123",
+                "termos": "on",
             },
         )
         nomes = set(Event.objects.values_list("name", flat=True))

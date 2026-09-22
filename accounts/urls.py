@@ -86,6 +86,7 @@ urlpatterns = [
         ),
         name="password_change_done",
     ),
+    path("consentimento/", views.ConsentimentoView.as_view(), name="consentimento"),
     path("excluir/", views.ExcluirContaView.as_view(), name="excluir_conta"),
     # Portabilidade (LGPD, Art. 18, V). Mora aqui e não numa rota pública
     # porque o que ela devolve é a conta de quem está logado — e o caminho

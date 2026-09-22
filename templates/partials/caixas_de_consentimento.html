@@ -1,0 +1,50 @@
+{% comment %}
+  As caixas de consentimento (decisão do dono, 21/09/2026). Recebe `caixas`
+  (um `ConsentimentoForm` só com as que faltam) e desenha cada uma como um
+  cartão da `choice-list` — o mesmo desenho dos chips de interesse, sem CSS
+  novo — DESMARCADA, com o texto inteiro no rótulo e o erro ao lado.
+
+  Três controles, e não um: dado de saúde (LGPD art. 11, I) e transferência
+  internacional (art. 33, VIII) são consentimentos ESPECÍFICOS e DESTACADOS,
+  "cláusula destacada das demais" (art. 8º, § 1º); o aceite dos Termos é a
+  terceira, e leva os links — a pessoa consegue ler o que está aceitando
+  sem sair da tela (abrem em outra aba de propósito: voltar ao formulário
+  não pode custar o que já foi digitado).
+
+  Cada texto termina em "Sem isso o app não funciona": o tratamento é
+  condição do serviço, e a lei manda dizer isso "com destaque" (art. 9º, § 3º).
+{% endcomment %}
+{% if not caixas.vazio %}
+  <div class="field consentimento" role="group" aria-labelledby="consentimento_label">
+    <span class="field__label" id="consentimento_label">Antes de continuar</span>
+    <div class="field__help">
+      Uma autorização de cada vez. Cada uma fica registrada com a data e a
+      versão do texto, e você retira todas apagando a conta.
+    </div>
+    <ul class="choice-list">
+      {% for campo in caixas %}
+        <li>
+          <label>
+            <input type="checkbox" name="{{ campo.name }}" id="{{ campo.auto_id }}" value="on"{% if campo.value %} checked{% endif %}{% if campo.errors %} aria-invalid="true" aria-describedby="{{ campo.auto_id }}_error"{% endif %}>
+            <span class="segmented__fundo" aria-hidden="true"></span>
+            <span class="segmented__texto">
+              {{ campo.label }}
+              {% if campo.name == "termos" %}
+                <span class="consentimento__links">
+                  <a href="{% url 'termos' %}" target="_blank" rel="noopener">Termos de Uso</a>
+                  ·
+                  <a href="{% url 'privacidade' %}" target="_blank" rel="noopener">Política de Privacidade</a>
+                </span>
+              {% endif %}
+            </span>
+          </label>
+          {% if campo.errors %}
+            <ul class="field__errors" id="{{ campo.auto_id }}_error">
+              {% for erro in campo.errors %}<li>{{ erro }}</li>{% endfor %}
+            </ul>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}

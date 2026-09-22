@@ -320,6 +320,17 @@
       </ul>
     {% endif %}
     {% block content %}{% endblock %}
+    {% if legal_publicado and not shell_offline and not tela_de_entrada %}
+      {% comment %}
+        Os dois links legais no fim de TODA tela (decisão do dono, 21/09/2026;
+        LGPD art. 9º: acesso "facilitado" à Política). Dentro do <main>, no fim
+        do conteúdo, para ficarem acima da barra de abas e não competir com
+        ela; as telas de entrada (login, cadastro) já os têm no próprio
+        cartão. `legal_publicado` continua sendo a chave: enquanto os textos
+        forem rascunho, link nenhum aponta para eles.
+      {% endcomment %}
+      {% include "partials/links_legais.html" %}
+    {% endif %}
   </main>
 
   {% if user.is_authenticated %}

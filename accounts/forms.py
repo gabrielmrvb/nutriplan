@@ -70,6 +70,17 @@ class SignupForm(UserCreationForm):
 
     first_name = forms.CharField(label="Como podemos te chamar?", max_length=150)
     email = forms.EmailField(label="E-mail")
+    #: O ACEITE dos Termos e da Política, no cadastro (decisão do dono,
+    #: 21/09/2026). É uma caixa própria, desmarcada — "cláusula destacada das
+    #: demais" (LGPD art. 8º, § 1º) —, e não substitui as duas caixas de
+    #: consentimento (dados de saúde, transferência internacional), que
+    #: moram na etapa 1, onde o dado de saúde é pedido. Quem entra pelo
+    #: Google não passa por aqui e aceita os Termos na etapa 1.
+    termos = forms.BooleanField(
+        required=True,
+        label="Li e aceito os Termos de Uso e a Política de Privacidade.",
+        error_messages={"required": "Para criar a conta, aceite os Termos de Uso e a Política de Privacidade."},
+    )
 
     class Meta:
         model = User
@@ -231,6 +242,10 @@ class PesoField(forms.DecimalField):
         return super().to_python(value)
 
 
+#: A idade mínima para criar o perfil (decisão do dono, 21/09/2026).
+IDADE_MINIMA = 18
+
+
 class BodyDataForm(OnboardingStepForm):
     """Etapa 1 — sexo, nascimento, altura e peso atual."""
 
@@ -318,10 +333,14 @@ class BodyDataForm(OnboardingStepForm):
         )
         if birth_date > today:
             raise forms.ValidationError("A data de nascimento não pode estar no futuro.")
-        if age < 14:
+        # 18, como os Termos e a Política sempre disseram (o código aceitava
+        # 14 até 21/09/2026): as fórmulas são para adultos, o motor não foi
+        # calibrado para quem está crescendo, e a prescrição dietética para
+        # menor é do nutricionista (Lei 8.234/1991).
+        if age < IDADE_MINIMA:
             raise forms.ValidationError(
-                "O app calcula dietas com fórmulas validadas para adultos. "
-                "Menores de 14 anos precisam de acompanhamento profissional."
+                "O NutriPlan é para maiores de 18 anos: as fórmulas são para "
+                "adultos, e menor de idade precisa de acompanhamento profissional."
             )
         if age > 100:
             raise forms.ValidationError("Confira a data de nascimento.")

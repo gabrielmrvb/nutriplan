@@ -39,7 +39,9 @@ from workouts.services import (
     NoTrainingDays, acertar_rotina, divisao_explicada, preferencia_muda_a_divisao,
 )
 
+from . import consentimento
 from .models import (
+    Consentimento,
     ONBOARDING_DONE,
     ONBOARDING_LAST_STEP,
     Profile,
@@ -210,6 +212,9 @@ class SignupView(TelaDeEntradaMixin, CreateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
+        # O aceite dos Termos vira registro com versão e hora — o ônus da
+        # prova é do controlador (LGPD art. 8º, § 2º).
+        consentimento.registrar(self.object, [Consentimento.Tipo.TERMOS])
         # O backend vai explícito desde que o login com Google entrou.
         #
         # Com mais de um backend em `AUTHENTICATION_BACKENDS`, o `login()` do
@@ -686,7 +691,15 @@ class OnboardingStepMixin(LoginRequiredMixin):
 
 
 class SobreVoceView(OnboardingStepMixin, UpdateView):
-    """Etapa 1 — sexo, nascimento, altura e peso. A única que pode CRIAR o perfil."""
+    """Etapa 1 — sexo, nascimento, altura e peso. A única que pode CRIAR o perfil.
+
+    E a que pede os CONSENTIMENTOS (decisão do dono, 21/09/2026): é aqui que
+    o dado de saúde é pedido, então é aqui — antes de gravá-lo — que a pessoa
+    autoriza o tratamento e a transferência internacional; quem veio pelo
+    Google aceita os Termos aqui também. Só as caixas que ainda faltam
+    (`consentimento.faltam`), e nenhuma na EDIÇÃO pelo Perfil: consentimento
+    dado não se pede de novo — até a versão dos legais subir.
+    """
 
     step = 1
     form_class = BodyDataForm
@@ -698,8 +711,35 @@ class SobreVoceView(OnboardingStepMixin, UpdateView):
             profile = Profile(user=self.request.user)
         return profile
 
-    def form_valid(self, form):
+    def caixas(self, dados=None):
+        """O formulário das caixas que faltam — vazio quando nada falta, e
+        vazio na EDIÇÃO: quem já terminou o cadastro não consente aqui (a
+        conta antiga tem tela própria, `/conta/consentimento/`, pela guarda
+        do `OnboardingRequiredMixin`; a de fixture não consente nunca)."""
+        perfil = self.get_profile()
+        if perfil is not None and perfil.onboarding_complete:
+            return consentimento.ConsentimentoForm(dados, tipos=())
+        faltantes = consentimento.faltam(perfil if perfil is not None else self.request.user)
+        tipos = [tipo for tipo in consentimento.TIPOS if str(tipo) in faltantes]
+        return consentimento.ConsentimentoForm(dados, tipos=tipos)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.setdefault("caixas", self.caixas())
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        form = self.get_form()
+        caixas = self.caixas(request.POST)
+        if form.is_valid() and caixas.is_valid():
+            return self.form_valid(form, caixas)
+        return self.render_to_response(self.get_context_data(form=form, caixas=caixas))
+
+    def form_valid(self, form, caixas=None):
         self.object = form.save()
+        if caixas is not None and not caixas.vazio:
+            caixas.registrar(self.request.user, perfil=self.object)
         return self.finish_step(self.object)
 
 
@@ -972,6 +1012,19 @@ class ProfileSummaryView(LoginRequiredMixin, TemplateView):
 
     template_name = "accounts/profile.html"
 
+    def dispatch(self, request, *args, **kwargs):
+        # A mesma guarda de consentimento do `OnboardingRequiredMixin` (o
+        # Perfil mostra o dado de saúde inteiro), sem herdar o mixin: esta
+        # tela abre também para quem não terminou o cadastro.
+        if request.user.is_authenticated:
+            try:
+                perfil = request.user.profile
+            except Profile.DoesNotExist:
+                perfil = None
+            if perfil is not None and perfil.onboarding_complete and consentimento.deve_consentir(perfil):
+                return redirect("accounts:consentimento")
+        return super().dispatch(request, *args, **kwargs)
+
     def _plano_em_vigor(self, profile):
         """O plano gravado, e se ele ainda vale — sem escrever nada.
 
@@ -1095,6 +1148,11 @@ class OnboardingRequiredMixin(LoginRequiredMixin):
                 profile = None
             if profile is None or not profile.onboarding_complete:
                 return redirect("accounts:onboarding")
+            # Conta de antes dos consentimentos (ou de uma versão anterior dos
+            # legais) passa UMA vez por `/conta/consentimento/` antes de
+            # qualquer tela. Custa zero consultas: a versão está no perfil.
+            if consentimento.deve_consentir(profile):
+                return redirect("accounts:consentimento")
             self.perfil_do_dispatch = profile
         return super().dispatch(request, *args, **kwargs)
 
@@ -1353,6 +1411,34 @@ class WeightLogView(AcaoDeTela, OnboardingRequiredMixin, View):
 
 
 
+
+
+class ConsentimentoView(LoginRequiredMixin, TemplateView):
+    """A tela única de consentimento para quem já tinha conta (ou quando a
+    versão dos legais sobe): as três caixas, ou só as que faltam, e volta
+    para o dia. Não é `OnboardingRequiredMixin` de propósito — o mixin é
+    quem manda para cá, e um mixin que redireciona para si mesmo é um laço.
+    Quem ainda está no cadastro consente na etapa 1, não aqui."""
+
+    template_name = "accounts/consentimento.html"
+
+    def caixas(self, dados=None):
+        faltantes = consentimento.faltam(self.request.user)
+        tipos = [tipo for tipo in consentimento.TIPOS if str(tipo) in faltantes]
+        return consentimento.ConsentimentoForm(dados, tipos=tipos)
+
+    def get(self, request, *args, **kwargs):
+        caixas = self.caixas()
+        if caixas.vazio:
+            return redirect("plans:today")
+        return self.render_to_response(self.get_context_data(caixas=caixas, sem_tabbar=True))
+
+    def post(self, request, *args, **kwargs):
+        caixas = self.caixas(request.POST)
+        if not caixas.is_valid():
+            return self.render_to_response(self.get_context_data(caixas=caixas, sem_tabbar=True))
+        caixas.registrar(request.user)
+        return redirect("plans:today")
 
 
 class ExcluirContaView(LoginRequiredMixin, FormView):

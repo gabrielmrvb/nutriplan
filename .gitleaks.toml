@@ -47,3 +47,11 @@ description = "Onde o teste ESCREVE uma forma de segredo de propósito"
 paths = [
   '''config/test_segredos\.py$''',
 ]
+# A senha de TESTE da suíte, escrita em dez arquivos de `accounts/` e em
+# `avisos/tests.py` desde antes do gitleaks: a regra `generic-api-key` a
+# lê como segredo ("password1": + entropia 3,7), e barrou o commit dos
+# consentimentos (21/09/2026), que só acrescentava `"termos": "on"` na
+# mesma linha. Não é segredo: é a senha que o teste cria e apaga.
+regexes = [
+  '''senha-bem-forte-123''',
+]

@@ -29,7 +29,10 @@ from django.urls import reverse
 
 from accounts.models import ONBOARDING_DONE, Profile, User
 
-STEP1 = {"sex": "M", "birth_date": "1995-04-12", "height_cm": 178, "weight_kg": "82.4"}
+STEP1 = {
+    "sex": "M", "birth_date": "1995-04-12", "height_cm": 178, "weight_kg": "82.4",
+    "termos": "on", "saude": "on", "transferencia": "on",  # a etapa 1 exige os três (21/09/2026)
+}
 STEP2 = {"goal": "cut", "activity_level": "light"}
 STEP3_QUATRO_DIAS = {
     "weekdays": ["0", "1", "3", "5"],
