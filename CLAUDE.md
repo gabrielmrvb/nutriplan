@@ -504,6 +504,40 @@ POR PRIORIDADE (22/09/2026).**
   "401 / 3". O descanso ENTRE dias previstos continua sendo o plano
   (`achievements.tests.OfensivaTests` prende).
 
+**MISSÃO UX IRREPREENSÍVEL, LOTE 4 — A VARREDURA (22/09/2026).** Quinze
+telas logadas e onze anônimas, nos dois temas, a 360/390/430/768/1280,
+com `axe` (agent-browser) a 390 no escuro: **zero violação, zero rolagem
+horizontal, zero texto abaixo de 11 px** (`scratchpad/ux/varredura*.py`
+da sessão). O que a régua de 44 px achou e foi consertado: o opt-in da
+análise de uso no Perfil (197 × 17 → cartão de `choice-list`, como os
+consentimentos e os avisos) e os links da caixa de aceite dos Termos (150 ×
+16 → `padding` vertical com margem negativa, em tokens). O que ela acha e
+fica: `<label>` de campo de texto (o alvo é o campo) e link corrido dentro
+de parágrafo (exceção do WCAG 2.5.8). PWA offline PROVADO ponta a ponta no
+local: worker registrado, `/treino/` e `/` servidos do cache sem rede,
+"+250" vira "1 marcação esperando conexão" e drena para 250 ao voltar. E
+três coisas que a varredura mudou:
+
+- **As provas da landing pesam em WebP** (`<picture>` com PNG de reserva;
+  q90 ≈ 24 KB cada contra ~90 KB): no 3G a landing levava 9,6 s para
+  terminar — os três PNG eram quase tudo. `capturas_landing` gera os dois;
+  `plans/test_landing_webp.py` prende o peso.
+- **A divisão em português de quem começa** (achado #13): "Como dividir os
+  treinos da semana?", cartões com "Peito e tríceps · Costas e bíceps ·
+  Pernas e ombros" em vez de "Peito+Tríceps | Costas+Bíceps", sem "agrupa
+  complementares"; e o resumo da etapa 3 diz o TÍTULO DO CARTÃO que a
+  pessoa tocou (`escolhas.titulo_de`: "Pouco ativo", não "Sedentário /
+  pouco ativo").
+- **A sessão de quem usa não vence no meio do uso**
+  (`config/sessao.py`, `RenovarSessaoMiddleware`, depois do
+  `SessionMiddleware`): os 14 dias contavam do LOGIN, e quem entrava todo
+  dia era deslogado do nada a cada duas semanas — a "queda de sessão" do
+  item 2 com outra cara. `SESSION_SAVE_EVERY_REQUEST` gravaria em toda
+  resposta; aqui a renovação é passada a METADE da vida (uma escrita por
+  semana), e a data mora na própria sessão (`set_expiry(datetime)` na
+  primeira passagem — sem ela `get_expiry_age()` devolve a idade cheia e a
+  data real só existe na linha do banco). `config/test_sessao_renovada.py`.
+
 **OS LEGAIS ESTÃO PUBLICADOS, E O CONSENTIMENTO SÃO TRÊS CAIXAS COM PROVA
 (decisão do dono, 21/09/2026).** `LEGAL_RESPONSAVEL` e `LEGAL_CONTATO`
 preenchidos no Render (produção e staging) fazem `settings.LEGAL_PUBLICADO`

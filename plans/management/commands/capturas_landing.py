@@ -67,7 +67,14 @@ class Command(BaseCommand):
                 url = self._url_do_treino(base) if caminho is None else base + caminho
                 self._nav("open", url)
                 self._nav("screenshot", str(destino / arquivo))
-                self.stdout.write("  %s <- %s" % (arquivo, url))
+                # O WebP ao lado (22/09/2026): ~24 KB contra ~90 KB do PNG; a
+                # landing serve o WebP a quem entende e o PNG a quem não.
+                from PIL import Image
+
+                Image.open(destino / arquivo).save(
+                    (destino / arquivo).with_suffix(".webp"), "WEBP", quality=90, method=6
+                )
+                self.stdout.write("  %s (+ .webp) <- %s" % (arquivo, url))
         finally:
             self._nav("close")
         self.stdout.write(self.style.SUCCESS("Três capturas regeneradas em %s" % destino))

@@ -21,6 +21,9 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **Placar para quem treina sem anilha.** O número grande do fim do treino é o de repetições quando não houve carga — e o kg ganhou ponto de milhar. A primeira série já vem com as repetições no piso da faixa.
 - **Editar treinos diz o que valeu.** "A ficha foi remontada", "há série hoje, então a ficha muda amanhã" ou "ajustada à mão, não é remontada".
 - **Corrida no Progresso e na Ajuda.** Quilômetros por semana para quem corre, "Corridas" na lista do que a exclusão apaga, e uma pergunta na Ajuda para quem só corre.
+- **A sessão não cai no meio do uso.** Quem usa o app continua logado; só quem some por duas semanas precisa entrar de novo.
+- **Página inicial mais leve.** As três imagens da vitrine pesam um quarto do que pesavam — no 3G a diferença é de segundos.
+- **A divisão do treino em português simples.** "Peito e tríceps · Costas e bíceps · Pernas e ombros" no lugar de siglas, e o resumo do cadastro repete o que você escolheu com as mesmas palavras.
 
 ## 2026-09-21
 

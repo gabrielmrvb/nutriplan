@@ -697,13 +697,14 @@ class SplitPreferenceForm(OnboardingStepForm):
         model = Profile
         fields = ("split_preference",)
         widgets = {"split_preference": forms.RadioSelect}
-        labels = {"split_preference": "Quantos grupos musculares por dia?"}
+        labels = {"split_preference": "Como dividir os treinos da semana?"}
         help_texts = {
             "split_preference": (
-                "Contam os grupos principais. Trapézio, antebraço, panturrilha "
-                "e abdômen entram junto sem virar um dia à parte. Se a divisão "
-                "não couber nos seus dias, o app usa a mais próxima que fecha "
-                "na semana."
+                "Cada opção diz o que você treina em cada dia. Na dúvida, fique "
+                "com a mais popular — dá para trocar depois. Trapézio, "
+                "antebraço, panturrilha e abdômen entram junto, sem virar um "
+                "dia à parte; se a divisão não couber nos seus dias, o app usa "
+                "a mais próxima que fecha na semana."
             ),
         }
 

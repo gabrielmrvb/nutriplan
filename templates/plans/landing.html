@@ -62,10 +62,18 @@
     `landing__prova card"` não casaria. A imagem é constrangida a 100% da
     largura do cartão (`landing__prova__img`), senão a captura estoura para os
     lados — e "nada rola na horizontal".
+
+    WEBP COM PNG DE RESERVA (22/09/2026): no 3G a landing levava 9,6 s para
+    terminar de carregar, e os três PNG de ~90 KB eram quase tudo. O WebP a
+    90 pesa ~24 KB. `capturas_landing` gera os dois; `plans/test_landing_webp.py`
+    prende o peso e o `<picture>`.
   {% endcomment %}
   <figure class="card landing__prova">
-    <img class="landing__prova__img" src="{% static 'img/landing/prova-dia.png' %}"
-         alt="Tela do dia: refeições, calorias, água e o treino de hoje numa lista só." width="390" height="844" loading="lazy">
+    <picture>
+      <source type="image/webp" srcset="{% static 'img/landing/prova-dia.webp' %}">
+      <img class="landing__prova__img" src="{% static 'img/landing/prova-dia.png' %}"
+           alt="Tela do dia: refeições, calorias, água e o treino de hoje numa lista só." width="390" height="844" loading="lazy">
+    </picture>
     <figcaption>
       <strong>O dia inteiro numa tela.</strong>
       Refeições, calorias, água e o treino de hoje — o que fazer agora fica no topo.
@@ -73,8 +81,11 @@
   </figure>
 
   <figure class="card landing__prova">
-    <img class="landing__prova__img" src="{% static 'img/landing/prova-treino.png' %}"
-         alt="Ficha de treino: exercícios do dia com séries, repetições e o principal marcado." width="390" height="844" loading="lazy">
+    <picture>
+      <source type="image/webp" srcset="{% static 'img/landing/prova-treino.webp' %}">
+      <img class="landing__prova__img" src="{% static 'img/landing/prova-treino.png' %}"
+           alt="Ficha de treino: exercícios do dia com séries, repetições e o principal marcado." width="390" height="844" loading="lazy">
+    </picture>
     <figcaption>
       <strong>A ficha montada para você.</strong>
       Exercícios, séries e cargas calculados pelos seus dias e pelo seu equipamento.
@@ -82,8 +93,11 @@
   </figure>
 
   <figure class="card landing__prova">
-    <img class="landing__prova__img" src="{% static 'img/landing/prova-progresso.png' %}"
-         alt="Progresso: peso ao longo das semanas e a evolução das cargas do treino." width="390" height="844" loading="lazy">
+    <picture>
+      <source type="image/webp" srcset="{% static 'img/landing/prova-progresso.webp' %}">
+      <img class="landing__prova__img" src="{% static 'img/landing/prova-progresso.png' %}"
+           alt="Progresso: peso ao longo das semanas e a evolução das cargas do treino." width="390" height="844" loading="lazy">
+    </picture>
     <figcaption>
       <strong>Seu progresso, medido.</strong>
       Peso, cargas e a sequência de dias em dia — o que mudou fica à vista.
