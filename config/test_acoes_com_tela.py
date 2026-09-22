@@ -80,6 +80,22 @@ class TodaAcaoDevolveUmaTelaTests(TestCase):
         ),
         "/push/inscrever/": "chamada por `fetch` do próprio app, nunca navegada.",
         "/push/cancelar/": "chamada por `fetch` do próprio app, nunca navegada.",
+        "/conta/entrar/nativo/": (
+            "Login pelo SDK do aparelho (a casca nativa): o `id_token` chega "
+            "por `fetch` de `static/js/nativo.js` e a resposta é seguida por "
+            "ele. Ninguém NAVEGA para esta rota — a tela de entrar é "
+            "`/conta/entrar/`."
+        ),
+        "/conta/peso/aparelho/": (
+            "Importação do Apple Saúde / Health Connect por `fetch`: a tela é "
+            "o cartão da Home que dispara a leitura no aparelho."
+        ),
+        "/treino/corridas/aparelho/": (
+            "Idem — as corridas lidas do aparelho chegam por `fetch`, nunca "
+            "por navegação."
+        ),
+        "/push/nativo/registrar/": "chamada por `fetch` do app instalado, nunca navegada.",
+        "/push/nativo/remover/": "chamada por `fetch` do app instalado, nunca navegada.",
         "/analytics/e/": (
             "Ingestão de analytics: só sendBeacon/fetch em segundo plano, "
             "nunca destino de navegação nem de `next` de login. O GET responde "

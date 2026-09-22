@@ -35,7 +35,7 @@ from django.templatetags.static import static
 #: passar por `asset()` tem de estar aqui; `push/tests.py` confere.
 VERSIONED = (
     "css/app.css", "js/pwa.js", "js/fila.js", "js/corrida.js", "js/card.js",
-    "js/conquista.js", "js/analytics.js",
+    "js/conquista.js", "js/analytics.js", "js/nativo.js",
 )
 
 #: {caminho: (assinatura do stat, hash do conteúdo)}

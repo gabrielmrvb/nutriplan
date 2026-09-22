@@ -77,5 +77,13 @@
 	<false/>
 	<key>UIRequiresFullScreen</key>
 	<false/>
+	<key>NSHealthShareUsageDescription</key>
+	<string>O NutriPlan lê o seu peso no app Saúde para registrar a pesagem no seu Progresso sem você digitar, e os seus treinos de corrida (data, duração e distância) para importá-los como corridas. Só quando você tocar em importar, só o que você autorizar, e nada é enviado a terceiros.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>O NutriPlan não grava nada no app Saúde hoje; a permissão de escrita só é pedida se você ativar a exportação de pesagens em uma versão futura.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

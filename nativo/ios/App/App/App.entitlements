@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Push pelo APNs (via FCM). "development" no debug; o Xcode troca para
+	     "production" no arquivamento com o perfil de distribuição. -->
+	<key>aps-environment</key>
+	<string>development</string>
+	<!-- HealthKit: leitura de peso e treinos. -->
+	<key>com.apple.developer.healthkit</key>
+	<true/>
+	<key>com.apple.developer.healthkit.access</key>
+	<array/>
+	<!-- Sign in with Apple: obrigatório na App Store quando há login com Google. -->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+</dict>
+</plist>

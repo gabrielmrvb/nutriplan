@@ -17,7 +17,8 @@ from pywebpush import WebPushException, webpush
 
 from plans.models import MealSlot, MealStatus
 
-from .models import NotificationLog, PushSubscription
+from . import fcm
+from .models import DispositivoNativo, NotificationLog, PushSubscription
 
 logger = logging.getLogger(__name__)
 
@@ -87,9 +88,12 @@ def send_to_subscription(subscription: PushSubscription, payload: dict) -> bool:
 
 
 def notify_user(user, payload: dict) -> int:
-    """Manda para todos os dispositivos ativos da pessoa. Devolve quantos deram certo."""
+    """Manda para todos os dispositivos ativos da pessoa — Web Push e o app
+    instalado (`DispositivoNativo`, pelo FCM). Devolve quantos deram certo."""
     subscriptions = PushSubscription.objects.filter(user=user, is_active=True)
-    return sum(send_to_subscription(sub, payload) for sub in subscriptions)
+    entregues = sum(send_to_subscription(sub, payload) for sub in subscriptions)
+    dispositivos = DispositivoNativo.objects.filter(user=user, ativo=True)
+    return entregues + sum(fcm.enviar(dispositivo, payload) for dispositivo in dispositivos)
 
 
 def meal_payload(slot) -> dict:
@@ -140,11 +144,11 @@ def due_slots(now=None):
     # ("nenhum dispositivo recebeu") por refeição por dia para quem nunca
     # ativou lembrete — visto na prova de produção como `falhas: 3` numa
     # rodada com um único assinante. Quem não assinou não é falha: não entra.
+    # ... OU dispositivo nativo ativo (o app instalado, Fase 2 da missão
+    # Capacitor, 22/09/2026): a pessoa que só tem a casca também é assinante.
     return (
-        MealSlot.objects.filter(
-            plan__is_active=True,
-            plan__user__push_subscriptions__is_active=True,
-        )
+        MealSlot.objects.filter(plan__is_active=True)
+        .filter(Q(plan__user__push_subscriptions__is_active=True) | Q(plan__user__dispositivos_nativos__ativo=True))
         .exclude(plan__user__preferencia_de_aviso__push_refeicoes=False)
         .filter(window)
         .distinct()
@@ -158,10 +162,9 @@ def proxima_refeicao_com_assinatura(now=None):
     assinante. É o que `push.tarefas` usa para dormir entre refeições."""
     now = now or timezone.localtime()
     horarios = sorted(set(
-        MealSlot.objects.filter(
-            plan__is_active=True,
-            plan__user__push_subscriptions__is_active=True,
-        ).exclude(plan__user__preferencia_de_aviso__push_refeicoes=False)
+        MealSlot.objects.filter(plan__is_active=True)
+        .filter(Q(plan__user__push_subscriptions__is_active=True) | Q(plan__user__dispositivos_nativos__ativo=True))
+        .exclude(plan__user__preferencia_de_aviso__push_refeicoes=False)
         .values_list("time", flat=True)
     ))
     if not horarios:

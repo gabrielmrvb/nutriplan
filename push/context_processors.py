@@ -19,6 +19,9 @@ def push(request):
         "vapid_public_key": settings.VAPID_PUBLIC_KEY,
         "app_css_url": asset("css/app.css"),
         "app_js_url": asset("js/pwa.js"),
+        # Só a casca nativa carrega (login/push/saúde do aparelho); no
+        # navegador o arquivo sai na primeira linha, mas nem é pedido.
+        "nativo_js_url": asset("js/nativo.js"),
         "fila_js_url": asset("js/fila.js"),
         "card_js_url": asset("js/card.js"),
         "corrida_js_url": asset("js/corrida.js"),

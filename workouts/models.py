@@ -1442,6 +1442,9 @@ class Corrida(models.Model):
         #: NÃO se edita: o percurso do arquivo contradiria números trocados à
         #: mão. Ver `workouts/importar_corrida.py`.
         ARQUIVO = "arquivo", "de arquivo"
+        #: Lida do Apple Saúde / Health Connect pelo app instalado (Fase 2 da
+        #: missão Capacitor, 22/09/2026). Como GPS e arquivo, NÃO se edita.
+        APARELHO = "aparelho", "do aparelho"
 
     class Sensacao(models.TextChoices):
         LEVE = "leve", "leve"

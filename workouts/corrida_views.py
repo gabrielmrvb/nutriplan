@@ -457,3 +457,66 @@ class PlanoDeCorridaView(OnboardingRequiredMixin, View):
             )
         messages.success(request, "Plano de corrida iniciado.")
         return redirect("workouts:corridas")
+
+
+class CorridasDoAparelhoView(OnboardingRequiredMixin, View):
+    """`POST /treino/corridas/aparelho/` — as corridas que o app INSTALADO leu
+    do Apple Saúde / Health Connect (Fase 2 da missão Capacitor, 22/09/2026).
+
+    A leitura é do aparelho (`capacitor-health`, em `static/js/nativo.js`); o
+    servidor só recebe o que a pessoa mandou importar e aplica a MESMA régua
+    da corrida de arquivo (`_conferir_negocio`: distância mínima, velocidade
+    impossível). Só treino de corrida vira corrida — a bicicleta fica de fora.
+    Entra com `Origem.APARELHO`, que não se edita (como GPS e arquivo), e o
+    `op_id` é `aparelho:<id do registro>`: importar de novo não duplica.
+    """
+
+    #: O `op_id` tem 64 caracteres; um id maior que isso vira a sua impressão.
+    TAMANHO_DO_OP_ID = 64
+
+    def post(self, request):
+        try:
+            dados = json.loads(request.body or "{}")
+            corridas = dados["corridas"]
+            assert isinstance(corridas, list)
+        except (ValueError, KeyError, AssertionError):
+            return JsonResponse({"error": "corpo inválido"}, status=400)
+
+        importadas = repetidas = recusadas = 0
+        for item in corridas[:200]:
+            try:
+                op_id = self._op_id(str(item["id"]))
+                tipo = str(item.get("tipo", "")).lower()
+                comecou = parse_datetime(str(item["comecou_em"]))
+                terminou = parse_datetime(str(item["terminou_em"]))
+                distancia = int(item["distancia_m"])
+                duracao = int(item["duracao_s"])
+            except (KeyError, TypeError, ValueError):
+                recusadas += 1
+                continue
+            if not tipo.startswith("running") or comecou is None or terminou is None:
+                recusadas += 1
+                continue
+            if ImportarCorridaView._conferir_negocio({"distancia_m": distancia, "duracao_s": duracao}):
+                recusadas += 1
+                continue
+            try:
+                with transaction.atomic():
+                    Corrida.objects.create(
+                        user=request.user, op_id=op_id, comecou_em=comecou, terminou_em=terminou,
+                        distancia_m=distancia, duracao_s=duracao, origem=Corrida.Origem.APARELHO,
+                    )
+            except IntegrityError:
+                repetidas += 1
+                continue
+            importadas += 1
+        return JsonResponse({"importadas": importadas, "repetidas": repetidas, "recusadas": recusadas})
+
+    @classmethod
+    def _op_id(cls, identificador: str) -> str:
+        import hashlib
+
+        op_id = "aparelho:" + identificador
+        if len(op_id) <= cls.TAMANHO_DO_OP_ID:
+            return op_id
+        return "aparelho:" + hashlib.sha256(identificador.encode("utf-8")).hexdigest()[:40]

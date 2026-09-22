@@ -2,7 +2,7 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.views import LogoutView
 from django.urls import path, reverse_lazy
 
-from . import exportacao, views
+from . import exportacao, login_nativo, saude_do_aparelho, views
 from .forms import DefinirSenhaForm, RecuperarSenhaForm, TrocarSenhaForm
 
 app_name = "accounts"
@@ -87,6 +87,11 @@ urlpatterns = [
         name="password_change_done",
     ),
     path("consentimento/", views.ConsentimentoView.as_view(), name="consentimento"),
+    # O login nativo da casca (Google/Apple pelo SDK do aparelho, token
+    # verificado aqui) — `accounts/login_nativo.py`.
+    path("entrar/nativo/", login_nativo.LoginNativoView.as_view(), name="login_nativo"),
+    # As pesagens que o app instalado leu do Apple Saúde / Health Connect.
+    path("peso/aparelho/", saude_do_aparelho.PesoDoAparelhoView.as_view(), name="peso_do_aparelho"),
     path("excluir/", views.ExcluirContaView.as_view(), name="excluir_conta"),
     # Portabilidade (LGPD, Art. 18, V). Mora aqui e não numa rota pública
     # porque o que ela devolve é a conta de quem está logado — e o caminho
