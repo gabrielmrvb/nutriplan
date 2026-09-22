@@ -24,6 +24,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **A sessão não cai no meio do uso.** Quem usa o app continua logado; só quem some por duas semanas precisa entrar de novo.
 - **Página inicial mais leve.** As três imagens da vitrine pesam um quarto do que pesavam — no 3G a diferença é de segundos.
 - **A divisão do treino em português simples.** "Peito e tríceps · Costas e bíceps · Pernas e ombros" no lugar de siglas, e o resumo do cadastro repete o que você escolheu com as mesmas palavras.
+- **O e-mail de boas-vindas começa pelo cadastro.** O passo 1 é terminar as três etapas — a tela Hoje e a ficha vêm depois delas. E a ajuda dos avisos no aparelho diz onde o cartão Lembretes está (no fim da tela Hoje).
 
 ## 2026-09-21
 

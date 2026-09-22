@@ -1,11 +1,17 @@
 {% with titulo="Sua conta está pronta" rotulo="Boas-vindas" %}{% include "email/_topo.html" %}{% endwith %}
           <p style="margin:0 0 16px">Olá{% if nome %}, {{ nome }}{% endif %}.</p>
-          <p style="margin:0 0 16px">O NutriPlan é uma coisa só: o seu dia — a refeição da vez, a ficha de hoje, a água e o peso — num lugar, sem promessa.</p>
+          {% comment %}
+            Este e-mail sai no CADASTRO, antes das três etapas: o passo 1 é
+            o que a pessoa consegue fazer agora (achado #14 das personas,
+            22/09/2026). "Num lugar, sem promessa" era doutrina interna
+            vazando para quem usa.
+          {% endcomment %}
+          <p style="margin:0 0 16px">O NutriPlan é o seu dia inteiro: a refeição da vez, a ficha de hoje, a água e o peso, numa tela só.</p>
           <p style="margin:0 0 8px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#a9bbae;font-weight:600">O que fazer primeiro</p>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:16px;line-height:1.5">
-            <tr><td style="padding:6px 0;border-top:1px solid #1e3326"><span style="color:#43df7a;font-weight:700">1</span>&nbsp;&nbsp;Abra a tela <strong>Hoje</strong> e registre a próxima refeição (opção A ou B).</td></tr>
-            <tr><td style="padding:6px 0;border-top:1px solid #1e3326"><span style="color:#43df7a;font-weight:700">2</span>&nbsp;&nbsp;Na área <strong>Treino</strong>, abra a ficha de hoje e comece pelo primeiro exercício — cada série fica anotada, com a carga.</td></tr>
-            <tr><td style="padding:6px 0;border-top:1px solid #1e3326;border-bottom:1px solid #1e3326"><span style="color:#43df7a;font-weight:700">3</span>&nbsp;&nbsp;Registre a água em toques de 250 ml.</td></tr>
+            <tr><td style="padding:6px 0;border-top:1px solid #1e3326"><span style="color:#43df7a;font-weight:700">1</span>&nbsp;&nbsp;Termine as <strong>3 etapas</strong> do cadastro — no fim delas, sua estimativa de calorias e sua ficha de treino aparecem.</td></tr>
+            <tr><td style="padding:6px 0;border-top:1px solid #1e3326"><span style="color:#43df7a;font-weight:700">2</span>&nbsp;&nbsp;Na tela <strong>Hoje</strong>, registre a próxima refeição (opção A ou B).</td></tr>
+            <tr><td style="padding:6px 0;border-top:1px solid #1e3326;border-bottom:1px solid #1e3326"><span style="color:#43df7a;font-weight:700">3</span>&nbsp;&nbsp;Na área <strong>Treino</strong>, abra a ficha de hoje e comece pelo primeiro exercício — cada série fica anotada, com a carga.</td></tr>
           </table>
           {% with href=url_base|add:"/" texto="Abrir o NutriPlan" %}{% include "email/_botao.html" %}{% endwith %}
 {% with nota_rodape="Este e-mail de boas-vindas sai uma vez." o_que="avisos por e-mail" %}{% include "email/_rodape.html" %}{% endwith %}
