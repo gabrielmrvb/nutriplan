@@ -7150,7 +7150,7 @@ body.montando { overflow: hidden; }
   padding: var(--espaco-5) var(--pad) calc(env(safe-area-inset-bottom) + var(--espaco-6));
   border: none;
   border-top: var(--traco) solid var(--brand);
-  border-radius: var(--quina-g) var(--quina-g) 0 0;
+  border-radius: var(--quina-g);
   background: var(--surface);
   color: var(--text);
 }
@@ -7170,7 +7170,7 @@ body.montando { overflow: hidden; }
 .folha-troca__corpo .card { padding: 0; background: none; }
 .folha-troca__corpo .card__head { display: none; }
 @media (min-width: 60rem) {
-  .folha-troca { margin: auto; border-radius: var(--quina-g); border: var(--traco) solid var(--brand); }
+  .folha-troca { margin: auto; border: var(--traco) solid var(--brand); }
 }
 
 /* A anotação da série: recolhida, porque a tela é de UMA coisa. */
@@ -7415,10 +7415,12 @@ body.montando { overflow: hidden; }
 .agora__retomar,
 .demo__fechar,
 .descanso__mais,
+.folha-troca__fechar,
 .descanso__pular,
 .descanso__som,
 .ficha-item__fazer,
 .ficha-item__trocar,
+.registro__nota-abrir,
 .ficha-item__ver,
 .forma__trocar {
   transition: transform var(--mov-toque) var(--ease);
@@ -7434,10 +7436,12 @@ body.montando { overflow: hidden; }
 .agora__retomar:active,
 .demo__fechar:active,
 .descanso__mais:active,
+.folha-troca__fechar:active,
 .descanso__pular:active,
 .descanso__som:active,
 .ficha-item__fazer:active,
 .ficha-item__trocar:active,
+.registro__nota-abrir:active,
 .ficha-item__ver:active,
 .forma__trocar:active { transform: scale(.96); }
 
@@ -7456,9 +7460,11 @@ body.montando { overflow: hidden; }
   .agora__retomar,
   .descanso__mais,
   .descanso__pular,
+  .folha-troca__fechar,
   .descanso__som,
   .ficha-item__fazer,
   .ficha-item__trocar,
+  .registro__nota-abrir,
   .ficha-item__ver,
   .forma__trocar { transition: none; }
 
@@ -7474,9 +7480,11 @@ body.montando { overflow: hidden; }
   .agora__retomar:active,
   .descanso__mais:active,
   .descanso__pular:active,
+  .folha-troca__fechar:active,
   .descanso__som:active,
   .ficha-item__fazer:active,
   .ficha-item__trocar:active,
+  .registro__nota-abrir:active,
   .ficha-item__ver:active,
   .forma__trocar:active { transform: none; }
 }
