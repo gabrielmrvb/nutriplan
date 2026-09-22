@@ -2901,6 +2901,13 @@ def sync_active_routine(user, day=None) -> tuple:
     isso valer é justamente enquanto ela treina.
     """
     plan = get_active_routine(user)
+    # O PEDIDO ADIADO DE ONTEM É CUMPRIDO HOJE (22/09/2026). "Regenerar" com
+    # série anotada não remonta na hora — grava `regenerar_pedido_em` — e é
+    # aqui que a promessa "sua ficha muda amanhã" vira verdade, na primeira
+    # visita de um dia sem série. Vem antes da conferência porque o pedido é
+    # sobre a PRESCRIÇÃO, que nunca invalida nada sozinha.
+    if plan is not None and plan.regenerar_pedido_em is not None and not treino_em_andamento(user, day):
+        return create_routine(user), True
     # SÓ O INVÁLIDO É REMONTADO (17/09/2026). Prescrição diferente — o
     # catálogo cresceu, a faixa de séries mudou — fica para a pessoa decidir
     # na Home ("regenerar?"); plano é retrato, e ninguém tem a ficha trocada
@@ -2910,6 +2917,23 @@ def sync_active_routine(user, day=None) -> tuple:
     if plan is not None and treino_em_andamento(user, day):
         return plan, False
     return create_routine(user), True
+
+
+def pedir_para_regenerar(user, day=None) -> tuple:
+    """"Regenerar" — na hora, ou amanhã se a pessoa está treinando.
+
+    Devolve `(plano, adiado)`. Com série anotada hoje, o pedido é gravado no
+    plano ATIVO e a ficha fica como está: `create_routine` desliga o plano e
+    monta outro, e quem estava na terceira série via a ficha aberta responder
+    404 e o cartão do dia virar outra letra com 0 % (relato do dono,
+    22/09/2026). Sem série, remonta agora, como sempre foi.
+    """
+    plan = get_active_routine(user)
+    if plan is not None and treino_em_andamento(user, day):
+        plan.regenerar_pedido_em = timezone.now()
+        plan.save(update_fields=["regenerar_pedido_em"])
+        return plan, True
+    return create_routine(user), False
 
 
 def aviso_de_regenerar(user, plan=None) -> bool:

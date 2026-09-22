@@ -546,12 +546,18 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         user = self.request.user
 
+        # A SESSÃO DE UM PROGRAMA ANTERIOR ABRE COMO HISTÓRICO (22/09/2026).
+        # O filtro era `plan__is_active=True`, e a ficha EM USO respondia
+        # "Esta página não existe" no instante em que o programa era
+        # remontado — o dono viu isso com quatro séries anotadas. O
+        # fechamento de IDOR que importa é `plan__user=user`, e ele fica;
+        # o que sai é o `is_active`, que nunca protegeu ninguém.
         sessao = get_object_or_404(
             TrainingSession.objects.select_related("plan"),
             pk=kwargs["sessao_id"],
             plan__user=user,
-            plan__is_active=True,
         )
+        historico = not sessao.plan.is_active
         # `prefetch` aqui e não no `get_object_or_404`: o filtro precisa bater
         # no banco antes de valer a pena trazer os exercícios.
         sessao = (
@@ -608,6 +614,11 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         else:
             marcar_ficha_aberta([sessao])
             sessao.dias_texto = sessao.weekday_display
+        if historico:
+            # Ficha de programa anterior: ela CONTA o que aconteceu, não
+            # oferece o que fazer. "Hoje" pertence ao programa vigente.
+            sessao.eh_hoje = False
+            sessao.aberta = False
         if sessao.eh_hoje:
             preparar_dia(user, sessao, linhas)
             progresso_do_dia(sessao)
@@ -616,9 +627,23 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             "nav": "workout",
             "sessao": sessao,
             "plan": sessao.plan,
+            "historico": historico,
+            "series_de_hoje": self._series_de_hoje(user, sessao) if historico else 0,
         })
         context.update(self.contexto_da_ficha(user, sessao, linhas, irmas, hoje_data))
         return context
+
+    @staticmethod
+    def _series_de_hoje(user, sessao) -> int:
+        """Quantas séries de HOJE foram anotadas nos exercícios desta ficha.
+
+        É o que faz a ficha antiga dizer por que ela ainda importa — "4
+        séries registradas hoje" — em vez de ser uma página morta. UMA
+        consulta, e só no caminho do histórico."""
+        ids = [i.exercise_id for s in [sessao] for i in s.exercises.all()]
+        return ExerciseLog.objects.filter(
+            user=user, exercise_id__in=ids, date=timezone.localdate()
+        ).count()
 
     @staticmethod
     def _data_da_ficha(sessao, irmas, hoje_data):
@@ -892,8 +917,15 @@ class RegenerarTreinoView(OnboardingRequiredMixin, View):
         return redirect("plans:today")
 
     def post(self, request, *args, **kwargs):
-        services.create_routine(request.user)
-        messages.success(request, "Treino regenerado com o catálogo de hoje.")
+        _, adiado = services.pedir_para_regenerar(request.user)
+        if adiado:
+            messages.info(
+                request,
+                "Anotado: você já registrou série hoje, então a ficha nova entra amanhã "
+                "— o treino de hoje continua como está.",
+            )
+        else:
+            messages.success(request, "Treino regenerado com o catálogo de hoje.")
         return redirect("workouts:routine")
 
 
@@ -1430,6 +1462,7 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
             # em silêncio deixaria a pessoa tocando sem entender.
             messages.error(request, "Limite de séries deste exercício hoje.")
         else:
+            self._avisar_se_o_programa_mudou(request)
             self._garantir_escolha(request, dia)
             # Só o que GRAVOU de novo (não o reenvio deduplicado da fila).
             if criada:
@@ -1492,6 +1525,36 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
         # DEPOIS da escrita: a contagem de séries pendentes já inclui esta,
         # e é isso que faz fechar a última devolver sem parâmetro.
         return self._de_volta_ao_foco(request, dia)
+
+    @staticmethod
+    def _avisar_se_o_programa_mudou(request) -> bool:
+        """A tela foi desenhada com um programa que já não é o vigente?
+
+        O formulário carrega o id da sessão em que a pessoa está treinando.
+        Quando aquele plano deixou de ser o ativo — outra aba pediu
+        "regenerar", o perfil mudou em outro aparelho —, a série é gravada
+        do mesmo jeito (`ExerciseLog` é por exercício e data, e descartar o
+        toque seria o pior desfecho) e a tela DIZ o que aconteceu, em vez de
+        a pessoa descobrir sozinha que o próximo exercício é outro.
+
+        UMA consulta, e só quando o formulário traz o campo.
+        """
+        bruto = request.POST.get("sessao") or ""
+        if not bruto.isdigit():
+            return False
+        ativa = (
+            TrainingSession.objects.filter(pk=int(bruto), plan__user=request.user)
+            .values_list("plan__is_active", flat=True)
+            .first()
+        )
+        if ativa is False:
+            messages.warning(
+                request,
+                "Seu programa de treino mudou enquanto você treinava. A série foi "
+                "registrada e continua no seu histórico — a ficha de hoje agora é outra.",
+            )
+            return True
+        return False
 
     def _garantir_escolha(self, request, dia) -> None:
         """A primeira série do dia grava qual opção está sendo feita.
