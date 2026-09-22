@@ -46,6 +46,16 @@ def _pendente(slot) -> bool:
     return log is None or log.status == "pending"
 
 
+#: Quanto tempo depois do horário uma refeição ainda é "agora". Uma hora e
+#: meia é a janela de uma refeição de verdade; passada ela, ficou para trás.
+JANELA_DO_AGORA_MIN = 90
+
+
+def _rotulo_da_vencida(horario, hora) -> str:
+    atraso = (hora.hour * 60 + hora.minute) - (horario.hour * 60 + horario.minute)
+    return "AGORA" if atraso <= JANELA_DO_AGORA_MIN else "FICOU PARA TRÁS"
+
+
 def _acao_de_refeicao(slot, rotulo, atrasada) -> Acao:
     """A refeição vira ação, mas o CTA NÃO marca a refeição.
 
@@ -216,9 +226,18 @@ def atraso_de_hidratacao(*, slots, meta_agua, bebido, agora) -> float:
     return (esperado - real) * 100
 
 
+def _ja_existia(slot, agora, desde) -> bool:
+    """A refeição já era esperada quando a conta existia? No dia do
+    cadastro, o que estava marcado para ANTES da hora do cadastro não é
+    pendência de ninguém (achado #7 das personas, 22/09/2026)."""
+    if desde is None or desde.date() != agora.date():
+        return True
+    return slot.time >= desde.time()
+
+
 def proxima_acao(*, slots, treino, meta_agua, bebido, agora,
                  prioridade="", interesse_em_agua=False,
-                 convite_pesagem=False) -> Acao:
+                 convite_pesagem=False, desde=None) -> Acao:
     """A ação mais útil neste instante.
 
     A ordem não é uma lista de prioridades escrita à mão — são três perguntas,
@@ -249,7 +268,7 @@ def proxima_acao(*, slots, treino, meta_agua, bebido, agora,
 
     vencidos, futuros = [], []
     for slot in slots:
-        if not _pendente(slot):
+        if not _pendente(slot) or not _ja_existia(slot, agora, desde):
             continue
         destino = vencidos if slot.time <= hora else futuros
         destino.append((slot.time, "refeicao", slot))
@@ -263,10 +282,14 @@ def proxima_acao(*, slots, treino, meta_agua, bebido, agora,
     # 2. o que está acontecendo agora: entre os vencidos, o mais recente
     if vencidos:
         vencidos.sort(key=lambda item: item[0])
-        _, tipo, alvo = vencidos[-1]
+        horario, tipo, alvo = vencidos[-1]
         if tipo == "treino":
             return _acao_de_treino(alvo, "AGORA", atrasada=True)
-        return _acao_de_refeicao(alvo, "AGORA", atrasada=True)
+        # "AGORA" só dentro da janela da refeição; passada ela, a refeição
+        # continua sendo a ação (registrar o que aconteceu), mas o rótulo diz
+        # a verdade do relógio: às 18:20 o almoço das 14:30 não é "agora"
+        # (achado #6 das personas, 22/09/2026).
+        return _acao_de_refeicao(alvo, _rotulo_da_vencida(horario, hora), atrasada=True)
 
     # 2-B. água muito atrás do esperado PARA A HORA.
     #
@@ -384,7 +407,7 @@ def proxima_acao(*, slots, treino, meta_agua, bebido, agora,
     return Acao(tipo="vazio")
 
 
-def marcar_refeicoes(slots, acao, agora) -> None:
+def marcar_refeicoes(slots, acao, agora, desde=None) -> None:
     """Escreve `slot.marcador` para a lista concordar com o topo.
 
     O cartão de cima dizia "AGORA · Lanche da manhã" e, na lista, o lanche das
@@ -414,7 +437,7 @@ def marcar_refeicoes(slots, acao, agora) -> None:
     for slot in slots:
         if alvo is not None and slot.pk == alvo.pk:
             slot.marcador = "agora"
-        elif _pendente(slot) and slot.time <= hora:
+        elif _pendente(slot) and slot.time <= hora and _ja_existia(slot, agora, desde):
             slot.marcador = "pendente"
         else:
             # Futura, ou já resolvida — comida, pulada e "comi outra coisa"

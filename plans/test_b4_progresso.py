@@ -263,7 +263,9 @@ class ATelaNaoParteOsCartoesTests(TestCase):
         Vale como teste porque `.split` e coluna unica: aqui a ordem do HTML e
         a ordem da tela em qualquer largura.
         """
-        marcos = ["Aderência", "<h2>Peso", "<h2>Treino", "<h2>Água", "Dia a dia"]
+        # `class="tiles"` e não "Aderência": no primeiro dia a caixa diz
+        # "Refeições · hoje, até agora" (22/09/2026) — o cartão é o mesmo.
+        marcos = ['class="tiles"', "<h2>Peso", "<h2>Treino", "<h2>Água", "Dia a dia"]
         posicoes = [self.html.index(m) for m in marcos]
 
         self.assertEqual(posicoes, sorted(posicoes), marcos)

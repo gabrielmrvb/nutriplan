@@ -424,6 +424,13 @@ def create_complete_user(email="pessoa@exemplo.com", **profile_kwargs):
         TrainingDay.objects.create(
             user=user, weekday=weekday, start_time=time(19, 0), duration_min=60
         )
+    # CONTA ANTIGA, de propósito (22/09/2026): a ofensiva e o recorde não
+    # olham para antes de `date_joined`, e os testes desta base escrevem
+    # histórico em datas bem anteriores à data congelada da suíte. Quem
+    # quer uma conta nascida hoje sobrescreve o campo — é o que
+    # `plans/test_ofensiva_comeca_na_conta.py` faz.
+    user.date_joined = timezone.make_aware(datetime(2020, 1, 1, 12, 0))
+    user.save(update_fields=["date_joined"])
     return user
 
 
@@ -1348,6 +1355,8 @@ class TrackingTests(CatalogFixture):
         tracking.log_meal(self.user, self.plan.slots.get(order=1), MealStatus.SKIPPED)
         tracking.log_meal(self.user, self.plan.slots.get(order=2), MealStatus.OFF_PLAN)
 
+        # Num dia FECHADO (ontem): hoje só cobra o que já passou (22/09/2026).
+        MealLog.objects.filter(user=self.user).update(date=timezone.localdate() - timedelta(days=1))
         totals = tracking.adherence(tracking.history(self.user))
         # 1 de 5 PREVISTAS, e não 1 de 3 marcadas.
         #
@@ -1362,7 +1371,9 @@ class TrackingTests(CatalogFixture):
         self.assertEqual(totals["days"], 1)
 
     def test_adherence_of_an_empty_history_does_not_divide_by_zero(self):
-        self.assertEqual(tracking.adherence([]), {"days": 0, "avg_kcal": 0, "adherence_pct": 0})
+        vazio = tracking.adherence([])
+        self.assertEqual((vazio["days"], vazio["avg_kcal"]), (0, 0))
+        self.assertIsNone(vazio["adherence_pct"])
 
 
 class MarkMealViewTests(CatalogFixture):
@@ -1466,13 +1477,15 @@ class HistoryViewTests(CatalogFixture):
 
         response = self.client.get(reverse("plans:history"))
 
-        self.assertContains(response, "Aderência")
-        # Uma refeição feita de CINCO previstas é 20%, e não 100%.
-        #
-        # "100%" era o que aparecia quando o denominador vinha da marcação: uma
-        # marcada, uma feita, portanto tudo certo. A tela premiava quem
-        # registrava menos.
-        self.assertContains(response, "%d%%" % int(100 / self.plan.slots.count()))
+        # NO PRIMEIRO DIA a caixa mostra o progresso de hoje, "1/N até agora",
+        # e não uma porcentagem (22/09/2026): "20 %" ao meio-dia do primeiro
+        # dia era nota de reprovação para um dia que só tinha chegado ao
+        # lanche da manhã. O denominador continua sendo o plano — recortado
+        # pelo relógio —, e "100 %" (o denominador pela marcação) segue proibido.
+        self.assertContains(response, "até agora")
+        ja_passaram = self.plan.slots.filter(time__lte=timezone.localtime().time()).count()
+        self.assertContains(response, "1/%d" % max(ja_passaram, 1))
+        self.assertNotContains(response, "100%")
 
     def test_history_requires_login(self):
         self.client.logout()
@@ -2980,11 +2993,33 @@ class AcaoAgoraTests(TestCase):
             datetime.combine(timezone.localdate(), time(h, m))
         )
 
-    def _chamar(self, slots, treino=None, meta_agua=2500, bebido=0, hora=(9, 0)):
+    def _chamar(self, slots, treino=None, meta_agua=2500, bebido=0, hora=(9, 0), desde=None):
         return agora.proxima_acao(
             slots=slots, treino=treino, meta_agua=meta_agua, bebido=bebido,
             agora=self._agora(*hora),
+            desde=self._agora(*desde) if desde else None,
         )
+
+    def test_no_dia_do_cadastro_as_refeicoes_de_antes_dele_nao_cobram(self):
+        """Achado #7 das personas: quem criou a conta às 18h via café, lanche
+        e almoço "Pendente · Não registrada" na primeira Home. Refeição de
+        antes de a conta existir não é pendência — nem no topo, nem na lista."""
+        slots = [self._slot(1, "Café da manhã", time(7, 30)),
+                 self._slot(2, "Almoço", time(12, 30)),
+                 self._slot(3, "Lanche", time(16, 0)),
+                 self._slot(4, "Jantar", time(20, 0))]
+
+        # `bebido=2500`: a água em dia, senão o ramo da hidratação por estado
+        # fala antes do "a seguir" — e não é ele que este teste mede.
+        acao = self._chamar(slots, hora=(18, 20), desde=(17, 50), bebido=2500)
+
+        self.assertEqual(acao.rotulo, "A SEGUIR")
+        self.assertEqual(acao.titulo, "Jantar")
+        agora.marcar_refeicoes(slots, acao, self._agora(18, 20), desde=self._agora(17, 50))
+        self.assertEqual([s.marcador for s in slots], ["", "", "", ""])
+        # controle: sem `desde`, o lanche das 16h é a pendência de sempre
+        acao = self._chamar(slots, hora=(18, 20), bebido=2500)
+        self.assertEqual(acao.titulo, "Lanche")
 
     # -- o que está acontecendo agora ----------------------------------
 
@@ -3008,6 +3043,19 @@ class AcaoAgoraTests(TestCase):
         self.assertEqual(acao.rotulo, "AGORA")
         self.assertEqual(acao.titulo, "Café da manhã")
         self.assertTrue(acao.atrasada)
+
+    def test_uma_hora_depois_ainda_e_agora_e_quatro_horas_depois_ficou_para_tras(self):
+        """Achado #6 das personas (21/09/2026): às 18:20, com o lanche das 18h
+        registrado, o topo dizia "AGORA · Almoço · 14:30". A refeição
+        continua sendo a ação — registrar o que já aconteceu —, mas o rótulo
+        não pode fingir que quatro horas atrás é agora."""
+        slots = [self._slot(1, "Almoço", time(14, 30))]
+
+        self.assertEqual(self._chamar(slots, hora=(15, 30)).rotulo, "AGORA")
+        atrasada = self._chamar(slots, hora=(18, 20))
+        self.assertEqual(atrasada.rotulo, "FICOU PARA TRÁS")
+        self.assertEqual(atrasada.titulo, "Almoço")
+        self.assertTrue(atrasada.atrasada)
 
     def test_entre_vencidos_ganha_o_mais_recente_e_nao_o_mais_atrasado(self):
         """Às 20h, com almoço e jantar pendentes, "agora" é o jantar.

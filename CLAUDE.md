@@ -410,6 +410,45 @@ Sete coisas, cada uma MEDIDA no navegador antes de ser tocada
   era o CONTINUAR sumido acima. `accounts/test_equipamento_pela_tela.py`
   envia o formulário RENDERIZADO e prova a volta; sabotado, fica vermelho.
 
+**MISSÃO UX IRREPREENSÍVEL, LOTE 2 — OS NÚMEROS DO PRIMEIRO DIA E A HOME
+POR PRIORIDADE (22/09/2026).**
+
+- **A ofensiva e o recorde não olham para antes de `user.date_joined`**
+  (`streaks.primeiro_dia_da_conta`, `_limite`). Achado #4 das personas:
+  "3 dias de ofensiva" no primeiro dia e "401 / 3" nas Conquistas de quem
+  não tem dia de treino — os 400 dias anteriores ao cadastro fechavam
+  sozinhos (descanso é o plano; sem meta não há o que cobrar). E as
+  Conquistas passam a MESMA meta de água que a Home (`achievements.reunir`
+  lê o plano ativo uma vez e o empresta à ofensiva): duas telas, um
+  número. Consequência nos fixtures: `plans.tests.create_complete_user` e
+  `workouts.tests.create_user` nascem em 2020 — os testes escrevem
+  histórico em agosto; quem quer "nasceu hoje" sobrescreve.
+  `plans/test_ofensiva_comeca_na_conta.py`.
+- **A ofensiva em zero diz o que faltou ONTEM** (`Ofensiva.falta_ontem`,
+  só quando ontem já era da conta): "Ontem faltou dieta ou água. Hoje
+  recomeça" em vez de "Comece hoje" para quem já vinha usando (achado #11).
+- **Aderência: hoje só cobra o que já passou, e o consolidado é dos dias
+  fechados** (item 6). `tracking.history` recorta o denominador de HOJE
+  pelo relógio (`previstas_ate_agora`; o feito entra no piso, então marcar
+  uma refeição futura não passa de 100 %) e marca a linha `parcial` ("1/2
+  até agora"); `tracking.adherence` devolve `adherence_pct=None` sem dia
+  fechado, e o Progresso mostra "1/2 · Refeições · hoje, até agora" em vez
+  de "20 %". No dia do cadastro, as refeições de ANTES da hora do cadastro
+  não entram — nem aqui nem no AGORA/lista (`agora.proxima_acao(desde=)`,
+  `marcar_refeicoes(desde=)`; achado #7: "três refeições Pendente" na
+  primeira Home de quem chegou às 18h). `plans/test_aderencia_primeiros_dias.py`.
+- **"FICOU PARA TRÁS" depois da janela da refeição** (`JANELA_DO_AGORA_MIN
+  = 90`): a refeição vencida mais recente continua sendo a ação (registrar
+  o que aconteceu), mas às 18:20 o almoço das 14:30 não é "AGORA" (achado
+  #6). `AcaoAgoraTests`.
+- **O cartão da área principal traz a AÇÃO do dia, como botão** (item 4 do
+  dono — "a prioridade não muda a tela"): Treino → "Começar treino" para a
+  sessão de hoje (nome, exercícios, séries feitas), ou "Ver a ficha" se
+  concluído; Corrida → "Registrar corrida"; Progresso → "Registrar peso"
+  (`#pesar` quando a faixa está na Home, senão o Progresso). Quando o AGORA
+  já é o treino, o cartão vira consulta (sem repetir o botão — dois
+  "COMEÇAR TREINO" na mesma dobra, medido). `OCartaoDaAreaTemAAcaoDoDiaTests`.
+
 **OS LEGAIS ESTÃO PUBLICADOS, E O CONSENTIMENTO SÃO TRÊS CAIXAS COM PROVA
 (decisão do dono, 21/09/2026).** `LEGAL_RESPONSAVEL` e `LEGAL_CONTATO`
 preenchidos no Render (produção e staging) fazem `settings.LEGAL_PUBLICADO`

@@ -4,7 +4,7 @@ O que interessa cobrir aqui é a regra de treinamento, não o CRUD: a divisão
 escolhida bate com a frequência, o ciclo repete quando a pessoa treina mais
 dias do que a divisão tem letras, e a ficha acompanha quando a rotina muda.
 """
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 import re
 from pathlib import Path
@@ -98,6 +98,11 @@ def create_user(email="atleta@exemplo.com", weekdays=(0, 2, 4), duration=60):
         TrainingDay.objects.create(
             user=user, weekday=weekday, start_time=time(19, 0), duration_min=duration
         )
+    # Conta ANTIGA (22/09/2026): a ofensiva não olha para antes de
+    # `date_joined`, e as conquistas escrevem histórico em agosto. Ver o
+    # mesmo comentário em `plans.tests.create_complete_user`.
+    user.date_joined = timezone.make_aware(datetime(2020, 1, 1, 12, 0))
+    user.save(update_fields=["date_joined"])
     return user
 
 

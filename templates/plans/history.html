@@ -60,10 +60,21 @@
       <div class="split__main stack">
         <section class="card">
           <div class="tiles">
+            {% comment %}
+              A PORCENTAGEM É DOS DIAS FECHADOS; no primeiro dia não há
+              nenhum, e a caixa mostra o progresso de hoje ("1/2 até agora")
+              em vez de "20 %" (item 6 da missão de UX, 22/09/2026).
+            {% endcomment %}
             <div class="tile">
-              <strong class="tile__value" data-conta>{{ totals.adherence_pct }}%</strong>
-              <span class="tile__label">Aderência</span>
-              <span class="tile__meta">refeições do plano</span>
+              {% if totals.adherence_pct is None %}
+                <strong class="tile__value num">{{ totals.hoje_feitas }}/{{ totals.hoje_previstas }}</strong>
+                <span class="tile__label">Refeições</span>
+                <span class="tile__meta">hoje, até agora</span>
+              {% else %}
+                <strong class="tile__value" data-conta>{{ totals.adherence_pct }}%</strong>
+                <span class="tile__label">Aderência</span>
+                <span class="tile__meta">dias anteriores</span>
+              {% endif %}
             </div>
             <div class="tile">
               <strong class="tile__value" data-conta>{{ totals.avg_kcal }}</strong>
@@ -106,7 +117,7 @@
                   mesma pessoa que a ofensiva contava como 60%. Duas telas,
                   duas respostas para a mesma pergunta.
                 {% endcomment %}
-                <span class="history-row__meals">{{ row.done }}/{{ row.previstas }} no plano</span>
+                <span class="history-row__meals">{{ row.done }}/{{ row.previstas }}{% if row.parcial %} até agora{% else %} no plano{% endif %}</span>
               </span>
             </div>
           {% endfor %}
