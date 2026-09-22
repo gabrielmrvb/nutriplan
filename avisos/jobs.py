@@ -22,6 +22,7 @@ from plans.models import HydrationLog
 from workouts.models import ExerciseLog
 
 from .models import Preferencia, TipoDeEmail
+from .brevo import sincronizar_se_vencido
 from .services import TLD_QUE_NAO_ENTREGA, enviar
 
 #: Dias sem série para o e-mail de inatividade sair.
@@ -165,4 +166,11 @@ def rodar_resumo_semanal(now=None):
 
 def rodar(now=None):
     now = now or timezone.localtime()
-    return {"inatividade": rodar_inatividade(now), "resumo_semanal": rodar_resumo_semanal(now)}
+    # A cópia do Brevo (bloqueados e abertos) antes de decidir quem recebe —
+    # a cada 12 h por processo; sem chave, nada muda.
+    brevo = sincronizar_se_vencido(now)
+    return {
+        "brevo": brevo,
+        "inatividade": rodar_inatividade(now),
+        "resumo_semanal": rodar_resumo_semanal(now),
+    }

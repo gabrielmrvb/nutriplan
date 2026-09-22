@@ -18,7 +18,7 @@ from django.db import IntegrityError, transaction
 from django.template.loader import render_to_string
 from django.urls import reverse
 
-from .models import EmailEnviado, Preferencia, TipoDeEmail
+from .models import EmailAberto, EmailBloqueado, EmailEnviado, Preferencia, TipoDeEmail
 
 logger = logging.getLogger("nutriplan.avisos")
 
@@ -44,10 +44,42 @@ def _nome(user):
     return (user.first_name or "").strip()
 
 
-def enviar(user, tipo, referencia, contexto, descadastro_de="tudo"):
-    """Devolve `"enviado"`, `"pulado"` (já saiu, ou endereço que não
-    entrega) ou `"falhou"`."""
-    if (user.email or "").lower().endswith(TLD_QUE_NAO_ENTREGA):
+def bloqueado(email) -> bool:
+    """O Brevo desistiu deste endereço (hard bounce, spam, bloqueio) — cópia
+    local de `sincronizar_brevo`."""
+    return EmailBloqueado.objects.filter(email=(email or "").lower()).exists()
+
+
+def verificado(user) -> bool:
+    """A caixa existe? Primeiro o campo da verificação de cadastro, quando a
+    sessão de segurança o publicar (`email_verificado_em`, no usuário — o
+    nome combinado no ledger em 21/09/2026); enquanto não existe, a prova é
+    ter ABERTO algum e-mail nosso (`EmailAberto`, do Brevo)."""
+    quando = getattr(user, "email_verificado_em", None)
+    if quando:
+        return True
+    return EmailAberto.objects.filter(email=(user.email or "").lower()).exists()
+
+
+def enviar(user, tipo, referencia, contexto, descadastro_de="tudo", exige_verificacao=True):
+    """Devolve `"enviado"`, `"pulado"` ou `"falhou"`.
+
+    "Pulado" sem gravar linha, nesta ordem: endereço que não entrega
+    (`.invalid`), endereço em que o Brevo desistiu (`bloqueado`), e — com
+    `exige_verificacao` — caixa nunca provada (`verificado`). O boas-vindas
+    passa `exige_verificacao=False`: é o PRIMEIRO contato, o e-mail cuja
+    abertura é a prova; exigir prova antes dele seria nunca mandá-lo. Os do
+    relógio (inatividade, resumo) exigem — medido em 21/09/2026: 46,6 % de
+    hard bounce num dia, e é reputação de remetente que se perde.
+    """
+    email = (user.email or "").lower()
+    if email.endswith(TLD_QUE_NAO_ENTREGA):
+        return "pulado"
+    if bloqueado(email):
+        logger.info("e-mail %s para %s pulado: endereço bloqueado no Brevo", tipo, user.pk)
+        return "pulado"
+    if exige_verificacao and not verificado(user):
+        logger.info("e-mail %s para %s pulado: caixa nunca provada", tipo, user.pk)
         return "pulado"
     try:
         with transaction.atomic():
@@ -90,4 +122,4 @@ def boas_vindas(user):
     e-mail existir, é ESTA chamada que muda de lugar — para depois da
     confirmação —, e nada mais.
     """
-    return enviar(user, TipoDeEmail.BOAS_VINDAS, "conta", {})
+    return enviar(user, TipoDeEmail.BOAS_VINDAS, "conta", {}, exige_verificacao=False)

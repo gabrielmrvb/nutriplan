@@ -55,6 +55,7 @@ python manage.py seed_demo
 # tem mais de `SyncedOperation.VALIDADE_DIAS` (30) — a fila reenvia item de
 # até 7 dias, e a poda nunca pode alcançar um `op_id` que ainda volta.
 python manage.py podar_operacoes
+python manage.py sincronizar_brevo
 
 # Analytics de produto: rola os dias recentes em agregados e poda o bruto
 # vencido. AGREGAR antes de PODAR, para o dia que vai ser apagado já ter virado

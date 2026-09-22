@@ -540,6 +540,12 @@ NUTRIPLAN_TAREFAS_TOKEN = env("NUTRIPLAN_TAREFAS_TOKEN", default="")
 #: request; estes não têm request. Em produção é o domínio do Render.
 NUTRIPLAN_URL_BASE = env("NUTRIPLAN_URL_BASE", default="https://nutriplan-xxfn.onrender.com")
 
+#: A chave da API v3 do Brevo (SÓ leitura: `avisos.brevo` sincroniza quem
+#: bloqueou e quem abriu). Vazia = sem sincronização, e o app continua
+#: igual. É OUTRA chave, não a SMTP (`EMAIL_HOST_PASSWORD`): mora no painel
+#: do Render e em `~/.nutriplan-secrets/`, nunca no repositório.
+BREVO_API_KEY = env("BREVO_API_KEY", default="")
+
 #: Para onde vai "Reportar um problema" (`/ajuda/reportar/`). Sem valor
 #: próprio, cai no e-mail de administração do push — é o mesmo dono; um
 #: segundo endereço seria uma segunda variável para esquecer no painel.

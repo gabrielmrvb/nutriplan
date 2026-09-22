@@ -2966,6 +2966,29 @@ então `_candidatos` exclui `TLD_QUE_NAO_ENTREGA` (é também a convenção da
 conta de QA); (2) o staging montava os links com a raiz de PRODUÇÃO
 (`NUTRIPLAN_URL_BASE` só existia no default), e o descadastro apontava para
 uma chave que só existe no banco do staging — `render.yaml` passou a
+**QUEM RECEBE: caixa em que o Brevo não desistiu e — nos e-mails do
+relógio — caixa PROVADA (21/09/2026, noite).** O Brevo mostrou o dia da
+primeira rodada: 58 enviados, 46,6 % de HARD bounce (cadastro com gmail
+inventado) e 32,8 % soft (`.invalid`). Reputação de remetente se perde
+assim, e o Brevo suspende conta por isso. `avisos.brevo` copia por API —
+SÓ GET, por construção, como `render_api.py` — quem bloqueou
+(`GET /v3/smtp/blockedContacts` → `EmailBloqueado`: hard bounce, spam,
+bloqueio) e quem ABRIU algum e-mail nosso (`GET /v3/smtp/statistics/events
+?event=opened` → `EmailAberto`, a primeira abertura); roda no build
+(`manage.py sincronizar_brevo`) e a cada 12 h por processo dentro da rodada
+de e-mails. `enviar()` é a porta única e "pula" SEM gravar linha, nesta
+ordem: `.invalid` → bloqueado → (com `exige_verificacao`) caixa nunca
+provada. O boas-vindas passa `exige_verificacao=False`: é o primeiro
+contato, o e-mail cuja abertura É a prova — exigir prova antes dele seria
+nunca mandá-lo; inatividade e resumo exigem. `verificado()` olha primeiro o
+campo da verificação de cadastro — `email_verificado_em` no usuário, o
+nome combinado com a sessão de segurança pelo ledger, que ainda não
+existe — e depois a tabela. A chave é `BREVO_API_KEY` (API v3, OUTRA que a
+SMTP): sem ela nada sincroniza, e a consequência está escrita: até a chave
+entrar no painel, `EmailAberto` fica vazia e os e-mails do relógio não saem
+para ninguém — que é o estado seguro enquanto o cadastro aceita e-mail
+inventado.
+
 declará-la no bloco do staging. O que a prova NÃO cobre: o boas-vindas sai
 só pelo signup, e a sessão não cria conta por formulário nem digita senha;
 o remetente aparece como `…@12016072.brevosend.com` porque o domínio de
