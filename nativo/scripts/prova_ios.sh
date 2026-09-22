@@ -43,10 +43,27 @@ xcrun simctl boot "$UDID" || true
 xcrun simctl bootstatus "$UDID" -b
 xcrun simctl install "$UDID" "$APP"
 
+falhou() { echo "PROVA IOS FALHOU: $1" >&2; exit 1; }
+
+# Abre o app e CONFERE que ele ficou de pé. Sem esta conferência o passo
+# passava com a captura da TELA INICIAL do iPhone: `simctl launch` responde
+# na hora, o app podia morrer em seguida, e ninguém reclamava (visto no run
+# de 22/09/2026, o offline saiu com o ícone do NutriPlan na home).
 abrir() {
+  local pid i
   xcrun simctl terminate "$UDID" com.nutriplan.app >/dev/null 2>&1 || true
-  xcrun simctl launch "$UDID" com.nutriplan.app >/dev/null
+  pid="$(xcrun simctl launch "$UDID" com.nutriplan.app | awk -F': ' '{print $2}')"
+  [ -n "$pid" ] || falhou "o app não subiu (simctl launch não devolveu pid)"
   sleep "${ESPERA_S:-40}"
+  for i in 1 2 3; do
+    if xcrun simctl spawn "$UDID" launchctl list 2>/dev/null | grep -q "com.nutriplan.app"; then
+      return 0
+    fi
+    echo "   app fora do ar, reabrindo ($i)" >&2
+    xcrun simctl launch "$UDID" com.nutriplan.app >/dev/null || true
+    sleep 10
+  done
+  falhou "o app não está rodando depois de abrir — a captura seria da tela inicial"
 }
 
 echo "== online"
@@ -66,4 +83,4 @@ sleep 5
 abrir
 xcrun simctl io "$UDID" screenshot "$SAIDA/ios-03-online-escuro.png"
 xcrun simctl ui "$UDID" appearance light
-echo "PROVA IOS: capturas em $SAIDA (o julgamento é visual — WKWebView não expõe DevTools no simulador)"
+echo "PROVA IOS OK: capturas em $SAIDA (o app ficou de pé nos três estados; o CONTEÚDO da tela é julgamento visual — o WKWebView não expõe DevTools no simulador)"
