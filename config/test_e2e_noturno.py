@@ -67,8 +67,12 @@ class ORoteiroTests(SimpleTestCase):
         return cenario, ab, saida.getvalue(), codigo
 
     def test_os_passos_da_missao_na_ordem(self):
+        """TREZE passos desde 22/09/2026: `alimentacao` entrou entre a água e
+        a refeição, porque a tela Hoje virou duas — o painel do dia e o
+        cardápio — e marcar refeição deixou de acontecer na raiz."""
         self.assertEqual(e2e.PASSOS, ("cadastro", "onboarding-1", "onboarding-2", "onboarding-3", "home",
-                                      "agua", "refeicao", "serie", "tema-claro", "movimento-reduzido", "excluir", "login-recusado"))
+                                      "agua", "alimentacao", "refeicao", "serie", "tema-claro",
+                                      "movimento-reduzido", "excluir", "login-recusado"))
         for passo in e2e.PASSOS:
             self.assertTrue(callable(getattr(e2e.E2E, passo.replace("-", "_"))), passo)
 
