@@ -1494,19 +1494,27 @@ h3 {
 .modulos {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  /* As linhas têm a altura do mais alto, e é a GRADE quem diz isso — não um
-     `min-height` no cartão, que reservava altura para um conteúdo menor e
-     abria um buraco no meio (P2-4, 22/09/2026). */
-  grid-auto-rows: 1fr;
+  /* SEM `grid-auto-rows: 1fr` (23/09/2026). Ele foi posto aqui junto com a
+     remoção do `min-height`, e trocou um buraco por outro: `1fr` iguala as
+     LINHAS ENTRE SI, então a fileira de baixo ("Perfil" sozinho, "Ajuda"
+     sozinha) herdava a altura da fileira mais alta e abria o mesmo vão que a
+     mudança veio fechar (visto em produção, tela Mais a 1280).
+
+     O padrão da grade já faz o certo: cada linha do tamanho do que ela tem, e
+     os cartões da MESMA linha esticados até a altura dela (`align-items:
+     stretch`, que é o inicial). Onde eu quero linhas iguais entre si — o
+     painel do dia, que é uma grade 2×2 de cartões irmãos — o `1fr` fica, e
+     está na seção 51. */
   gap: var(--espaco-4);
   margin-bottom: var(--espaco-7);
 }
 
 /* SEM `min-height` (22/09/2026). Ela reservava 134px para um conteúdo de
    ~100 e o cartão abria um buraco no meio — medido na tela Mais, nos seis
-   módulos. Altura igual entre vizinhos continua garantida, e por quem tem
-   como garantir: a GRADE, com `grid-auto-rows: 1fr`. Reservar altura num
-   item de grade é pedir duas vezes a mesma coisa e errar uma. */
+   módulos. Altura igual entre VIZINHOS DE LINHA continua garantida, e por
+   quem tem como garantir: a grade, com o `stretch` que já é o padrão dela.
+   Reservar altura num item de grade é pedir duas vezes a mesma coisa e
+   errar uma. */
 .modulo {
   position: relative;
   display: flex;
