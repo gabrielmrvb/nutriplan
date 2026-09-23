@@ -830,8 +830,7 @@ class VisualRefinementTests(TestCase):
         """
         for seletor in (
             ".app-bar__link.is-active",
-            ".meal--done {",
-            ".option[open]",
+            ".meal--resolvida {",
             ".registro--completo",
             ".choice-card__input:checked ~ .choice-card__frame",
         ):

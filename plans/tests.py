@@ -2034,15 +2034,38 @@ class IngredientListTests(TestCase):
         self.client.force_login(self.user)
 
     def test_each_ingredient_shows_which_food_it_is(self):
-        resposta = self.client.get(reverse("plans:alimentacao"))
-        html = resposta.content.decode()
+        """A lista com NOME por ingrediente mora na tela da receita desde
+        23/09/2026 — no card ela virou uma linha só ("2 ovos · 1 pão · 1 col.
+        de manteiga"), que é o resumo que decide a escolha. A propriedade
+        medida aqui é a mesma: nenhuma linha sem nome."""
+        # A tela é quem monta o plano na primeira visita: pedir o plano ANTES
+        # de abri-la devolve `None`.
+        self.client.get(reverse("plans:alimentacao"))
+        plano = NutritionPlan.objects.filter(user=self.user, is_active=True).first()
+        slot = plano.slots.order_by("order").first()
+        opcao = slot.options.order_by("rank").first()
+        html = self.client.get(
+            reverse("plans:receita", args=[slot.pk, opcao.pk])
+        ).content.decode()
 
-        lista = html.split('class="option__items"', 1)[1].split("</ul>", 1)[0]
-        nomes = re.findall(r'class="option__ingrediente">([^<]+)<', lista)
+        lista = html.split('class="data-list receita-folha__itens"', 1)[1].split(
+            "</dl>", 1
+        )[0]
+        nomes = re.findall(r"<dt>([^<]+)</dt>", lista)
 
         self.assertTrue(nomes, "a lista de ingredientes não traz nome nenhum")
         for nome in nomes:
             self.assertTrue(nome.strip(), "linha de ingrediente com nome vazio")
+
+    def test_o_card_resume_os_ingredientes_numa_linha(self):
+        """E o resumo do card também não pode sair vazio: `ingredient_list`
+        devolve `Food`, e o `<datalist>` ao lado já provou uma vez que ler o
+        campo errado produz 62 linhas em branco em produção."""
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
+        linhas = re.findall(r'class="receita__itens">(.*?)</p>', html, re.S)
+        self.assertTrue(linhas, "nenhum card resume os ingredientes")
+        for linha in linhas:
+            self.assertTrue(linha.strip(), "card com a linha de ingredientes vazia")
 
     def test_the_quantity_keeps_its_own_column(self):
         """Nome à esquerda, gramatura à direita: os números alinham numa
@@ -2057,11 +2080,16 @@ class IngredientListTests(TestCase):
         css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
             encoding="utf-8"
         )
-        regra = css.split("\n.option__items b {", 1)[1].split("}", 1)[0]
+        # A lista de ingredientes passou a usar `data-list`, o componente que
+        # este app já tinha para "rótulo à esquerda, número à direita" — e que
+        # nasceu com a MESMA medição por trás (ver a regra `.data-list dd`, e
+        # o comentário dela sobre "Experiên/cia" e "×1,4" partidos ao meio).
+        # Reescrever a receita num seletor próprio seria a segunda língua para
+        # a mesma coisa.
+        regra = css.split("\n.data-list dd {", 1)[1].split("}", 1)[0]
         self.assertNotIn("flex: none", regra)
         self.assertIn("flex: 0 1 auto", regra)
-        self.assertIn("text-align: right", regra)
-        self.assertIn("tabular-nums", regra)
+        self.assertIn("tabular-nums", css.split("\n.num,", 1)[0][-400:] + regra)
 
     def test_a_long_food_name_cannot_push_the_page_sideways(self):
         """"Filé de peito de frango grelhado" é nome real do catálogo. Item de
@@ -2069,7 +2097,8 @@ class IngredientListTests(TestCase):
         css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
             encoding="utf-8"
         )
-        self.assertIn(".option__ingrediente { min-width: 0; }", css)
+        regra = css.split("\n.data-list dt {", 1)[1].split("}", 1)[0]
+        self.assertIn("min-width: 0", regra)
 
 
 class MealStyleTests(TestCase):
@@ -3513,7 +3542,12 @@ class MarcadorDeRefeicaoTests(TestCase):
         html = alvo.read_text(encoding="utf-8")
         bloco = html.split("meal__marca", 1)[0][-700:]
 
-        self.assertIn("slot.marcador", bloco)
+        # A palavra é `slot.estado` desde 23/09/2026 — `plans/agora.py` passou
+        # a escrever o ESTADO (resolvida/agora/pendente/futura) ao lado do
+        # marcador, porque a tela desenha quatro coisas diferentes e não só um
+        # selo. A propriedade é a mesma: a resposta vem do servidor, e o
+        # template não recalcula nada.
+        self.assertIn("slot.estado", bloco)
         for reimplementacao in ("slot.time <", "slot.time >", "now|", "|time_until"):
             self.assertNotIn(reimplementacao, bloco)
 

@@ -4,6 +4,17 @@ Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
 Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
 no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
+## 2026-09-23
+
+- **Uma refeição agora parece uma refeição.** Cada horário mostra as DUAS opções do dia, sempre, como dois cartões de receita: desenho do prato, nome, calorias, os três macros (proteína, carboidrato e gordura), o tempo de preparo e os ingredientes com a quantidade numa linha — "2 unidades de pão francês · 3 ovos médios · 3 fatias de queijo". Antes era o nome, a caloria e um "Ver opções" que abria duas linhas de texto.
+- **O botão diz "Comi esta", e não "Registrar A".** A letra era um nome interno. O verde fica só na sugestão do dia; a outra opção tem o mesmo botão em contorno.
+- **"Pulei" e "Comi outra coisa" saíram da frente.** Eram dois botões do tamanho do registrar, cinco vezes por dia; agora são uma linha discreta no rodapé do cartão. As duas continuam fazendo exatamente o que faziam.
+- **A receita abre inteira, com o modo de preparo em passos.** Toque no cartão: no celular ela sobe numa folha, no computador aparece na coluna da direita, e ela também tem endereço próprio (dá para abrir em outra aba e compartilhar). Tem os ingredientes um por linha com a medida caseira, o preparo numerado, os macros completos, as outras receitas do mesmo horário — e a **porção**: ½, 1 ou 1½, que recalcula as calorias, os macros e as quantidades. O que você registra é o que a tela mostra.
+- **O topo conta o dia, e não o zero.** Antes de registrar qualquer coisa, o anel mostra a sua meta e "o seu dia em 5 refeições · 148 g de proteína", e a barra de macros mostra o alvo. Depois da primeira refeição ele passa a contar o consumido, como sempre fez.
+- **O próximo passo do dia vem com a receita.** O cartão do topo mostra o desenho, o nome e as calorias da opção sugerida, com "Comi esta" ali mesmo.
+- **Só a refeição da vez fica aberta.** As outras são uma linha — hora, nome e a caloria do horário —, e a que venceu diz "Não registrada · registrar". Um toque abre.
+- **O computador usa as duas colunas.** A da direita abre com a receita da refeição da vez e traz a lista de compras da semana resumida; "Entender minhas metas", "Dados do cálculo" e "Lembretes" continuam lá, recolhidos, no fim.
+
 ## 2026-09-22
 
 - **"Hoje" voltou a ser o dia inteiro, e "Alimentação" ganhou tela própria.** A aba dizia Alimentação e abria uma tela chamada Hoje que era o cardápio com um widget de água no fim — 3.170px de rolagem, com o treino e a água escondidos numa linha cinza e o cartão de água a duas telas e meia do topo. Agora a Hoje tem o cartão do AGORA e quatro cartões do mesmo tamanho (Alimentação, Treino, Hidratação e, para quem corre, Corrida), cada um com o número do dia e a porta da área; o cardápio mora em Alimentação, com endereço e aba própria.

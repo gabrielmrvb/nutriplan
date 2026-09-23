@@ -41,6 +41,47 @@
           {{ acao.cta }}
         </button>
       </form>
+    {% elif acao.tipo == 'refeicao' and sugestao %}
+      {% comment %}
+        O HERÓI REGISTRA A REFEIÇÃO DA VEZ (item 8 da auditoria, 23/09/2026),
+        e só na tela de Alimentação — quem passa `sugestao` é ela.
+
+        Na Hoje o cartão continua sendo um PONTEIRO: aquela tela é o
+        orquestrador do dia, e registrar comida a partir dela colocaria a
+        escolha entre duas receitas dentro da tela que existe para não ter
+        escolha nenhuma. Aqui a lista está logo abaixo, a opção sugerida é a
+        mesma que abre o card, e "rolar até a refeição para tocar no botão
+        que já está visível no topo" era o passo que a auditoria apontou.
+
+        A sugestão é a PRIMEIRA opção da projeção — a mesma que o card marca
+        como recomendada. O formulário é idêntico ao do card, inclusive no
+        `data-celebra`, então a fila offline e a celebração funcionam do
+        mesmo jeito; e "Ver refeição" continua existindo ao lado, para quem
+        quer comparar antes de decidir.
+      {% endcomment %}
+      <div class="agora__sugestao">
+        <span class="agora__ilu" aria-hidden="true">
+          <svg viewBox="0 0 48 36" fill="none" stroke="currentColor"
+               stroke-linecap="round" stroke-linejoin="round">
+            <use href="#ilu-{{ sugestao.template.ilustracao|default:'prato' }}"></use>
+          </svg>
+        </span>
+        <span class="agora__receita">
+          <strong class="agora__receita-nome">{{ sugestao.template.name }}</strong>
+          <span class="agora__receita-num num">{{ sugestao.kcal|floatformat:0 }} kcal · {{ sugestao.template.prep_minutes }} min</span>
+        </span>
+      </div>
+      <form method="post" action="{% url 'plans:mark_meal' acao.slot.pk %}"
+            data-celebra="slot-{{ acao.slot.pk }}">
+        {% csrf_token %}
+        <input type="hidden" name="status" value="done">
+        <input type="hidden" name="option" value="{{ sugestao.pk }}">
+        <button type="submit" class="btn btn--primary btn--block agora__cta"
+                aria-label="Registrar {{ sugestao.template.name }} em {{ acao.titulo }}">
+          Comi esta
+        </button>
+      </form>
+      <a class="btn-link agora__ver" href="{{ acao.url }}">Ver as duas opções</a>
     {% else %}
       <a class="btn btn--primary btn--block agora__cta" href="{{ acao.url }}">
         {{ acao.cta }}

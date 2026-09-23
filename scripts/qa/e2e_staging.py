@@ -285,9 +285,9 @@ class E2E:
         self.captura("alimentacao")
 
     def refeicao(self):
-        self.ab.eval("(function(){var m=document.querySelector('.meal:not(.meal--done)');m.querySelectorAll('details').forEach(function(d){d.open=true});return !!m})()")
+        self.ab.eval("(function(){var m=document.querySelector('.meal:not(.meal--resolvida)');m.querySelectorAll('details').forEach(function(d){d.open=true});return !!m})()")
         self.ab("wait", "300")
-        self.acionar(".meal:not(.meal--done) form.option-par__acao button[type=submit]", "document.querySelector('.meal--done') !== null", "refeição marcada")
+        self.acionar(".meal:not(.meal--resolvida) form.receita__acao button[type=submit]", "document.querySelector('.meal--resolvida') !== null", "refeição marcada")
         self.captura("refeicao")
 
     def ir(self, seletor, trecho, segundos=45):

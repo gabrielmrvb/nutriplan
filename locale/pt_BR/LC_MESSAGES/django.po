@@ -22,3 +22,43 @@ msgstr ""
 #: templates/base.html
 msgid "STAGING — não é produção"
 msgstr ""
+
+#: templates/plans/receita.html
+msgid "Voltar ao cardápio"
+msgstr ""
+
+#: templates/plans/_receita.html
+msgid "Porção"
+msgstr ""
+
+#: templates/plans/_receita.html
+msgid "Proteína"
+msgstr ""
+
+#: templates/plans/_receita.html
+msgid "Carboidrato"
+msgstr ""
+
+#: templates/plans/_receita.html
+msgid "Gordura"
+msgstr ""
+
+#: templates/plans/_receita.html
+msgid "O que vai"
+msgstr ""
+
+#: templates/plans/_receita.html
+msgid "Como faz"
+msgstr ""
+
+#: templates/plans/_receita.html
+msgid "Você registrou esta refeição."
+msgstr ""
+
+#: templates/plans/_receita.html
+msgid "Comi esta"
+msgstr ""
+
+#: templates/plans/_receita.html
+msgid "Trocar por outra receita"
+msgstr ""

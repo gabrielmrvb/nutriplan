@@ -11,6 +11,11 @@ urlpatterns = [
     path("", views.RaizView.as_view(), name="today"),
     path("alimentacao/", views.AlimentacaoView.as_view(), name="alimentacao"),
     path("historico/", views.HistoryView.as_view(), name="history"),
+    path(
+        "refeicao/<int:slot_id>/receita/<int:option_id>/",
+        views.ReceitaView.as_view(),
+        name="receita",
+    ),
     path("refeicao/<int:slot_id>/marcar/", views.MarkMealView.as_view(), name="mark_meal"),
     path("refeicao/<int:slot_id>/desfazer/", views.ClearMealView.as_view(), name="clear_meal"),
     path("recalcular/", views.RecalculatePlanView.as_view(), name="recalculate"),

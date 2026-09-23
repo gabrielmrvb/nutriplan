@@ -23,6 +23,12 @@ CATALOGO = RAIZ / "locale" / "pt_BR" / "LC_MESSAGES" / "django.po"
 #: arquivo inteiro — marcar mil frases antigas de uma vez não é o objetivo.
 TEMPLATES_NOVOS = {
     "templates/base.html": ["STAGING — não é produção"],
+    # A receita (23/09/2026): duas telas NOVAS, e por isso o texto visível
+    # delas nasce marcado. A tela que as inclui (`alimentacao.html`) é
+    # antiga e continua fora — marcar mil frases velhas de uma vez não é o
+    # objetivo desta régua, e a lista diz exatamente o que está coberto.
+    "templates/plans/receita.html": ['Voltar ao cardápio'],
+    "templates/plans/_receita.html": ['Porção', 'Proteína', 'Carboidrato', 'Gordura', 'O que vai', 'Como faz', 'Você registrou esta refeição.', 'Comi esta', 'Trocar por outra receita'],
 }
 
 
@@ -56,7 +62,12 @@ class OTerrenoDaI18nTests(SimpleTestCase):
                     self.assertIn('{%% translate "%s" %%}' % frase, template, "a frase nova entra marcada")
                     self.assertIn(frase, listadas, "e listada no catálogo")
                     trecho = texto[texto.index('msgid "%s"' % frase):]
-                    self.assertRegex(trecho, r'^msgid "[^\n]*"\nmsgstr ""\s*$', "sem tradução: msgstr vazio")
+                    # SEM `$`: o `trecho` começa no `msgid` procurado e vai
+                    # até o FIM DO ARQUIVO, então ancorar o fim exigia que
+                    # a frase fosse a última do catálogo — e era, enquanto
+                    # havia uma só. Com dez, nove reprovavam por posição. O
+                    # que a régua mede é o que vem LOGO DEPOIS do msgid.
+                    self.assertRegex(trecho, r'^msgid "[^\n]*"\nmsgstr ""(\n|$)', "sem tradução: msgstr vazio")
 
     def test_o_catalogo_nao_tem_traducao_nenhuma(self):
         texto = CATALOGO.read_text(encoding="utf-8")

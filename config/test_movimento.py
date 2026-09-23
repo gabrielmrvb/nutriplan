@@ -255,8 +255,8 @@ class SanfonaAnimadaTests(SimpleTestCase):
         self.assertNotIn("transition", regra)
 
     def test_a_seta_da_refeicao_gira_em_vez_de_trocar_de_glifo(self):
-        self.assertRegex(CSS_LIMPO, r"\.meal__futuro\[open\] > \.meal__abrir::after\s*\{[^}]*rotate\(180deg\)")
-        self.assertNotRegex(CSS_LIMPO, r"\.meal__futuro\[open\] > \.meal__abrir::after\s*\{[^}]*content:")
+        self.assertRegex(CSS_LIMPO, r"\.meal__futuro\[open\] > \.meal__linha::after\s*\{[^}]*rotate\(180deg\)")
+        self.assertNotRegex(CSS_LIMPO, r"\.meal__futuro\[open\] > \.meal__linha::after\s*\{[^}]*content:")
 
 
 class ToqueEProcessamentoTests(SimpleTestCase):
@@ -452,7 +452,16 @@ class SemJavaScriptTests(TestCase):
             cardapio = self.client.get(reverse("plans:alimentacao")).content.decode()
             html = self.client.get(reverse("plans:today")).content.decode()
         self.assertIn('<details class="meal__futuro">', cardapio)
-        self.assertIn('<summary class="meal__abrir">Ver opções</summary>', cardapio)
+        # O resumo deixou de ser "Ver opções" e virou a LINHA da refeição
+        # (23/09/2026): hora, nome e alvo, que é o cabeçalho dela por dentro
+        # do `<summary>`. O que este teste mede continua sendo o mesmo — que
+        # a sanfona é HTML nativo —, e por isso ele ancora na classe e no
+        # conteúdo, e não numa frase que a cópia muda.
+        self.assertIn('<summary class="meal__linha">', cardapio)
+        self.assertRegex(
+            cardapio,
+            r'<summary class="meal__linha">\s*<span class="meal__time num">\d\d:\d\d</span>',
+        )
         # O eco e a contagem são atributos de dados: sem script, o botão é
         # um `<button type="submit">` e o total é o número servido.
         self.assertRegex(html, r'<button type="submit" class="agua__botao" data-agua-eco="\+250 ml">')

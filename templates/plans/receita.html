@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ receita.opcao.template.name }} · NutriPlan{% endblock %}
+
+{% block content %}
+  {% comment %}
+    A RECEITA (item 4 da auditoria de 23/09/2026).
+
+    O card do cardápio responde "o que eu como agora"; esta tela responde "e
+    como eu faço". Ela é uma TELA e não um bloco de JavaScript porque o modo
+    de preparo é o conteúdo que a pessoa lê com a mão na panela: precisa
+    sobreviver a recarregar, a abrir em outra aba, a compartilhar o endereço
+    e a um script que não carregou.
+
+    O `<h1>` é a REFEIÇÃO e o `<h2>` da seção é a receita, porque esta tela
+    responde "a receita do café da manhã" — e porque a seção VIAJA: ela é
+    recortada para a folha do celular e para o painel do desktop, e nos dois
+    o nome da receita precisa estar DENTRO dela.
+  {% endcomment %}
+  {% include "partials/ilustracoes_de_receita.html" %}
+
+  <div class="page-head">
+    <p class="receita-pagina__volta">
+      <a class="btn-link" href="{% url 'plans:alimentacao' %}#slot-{{ receita.slot.pk }}">{% translate "Voltar ao cardápio" %}</a>
+    </p>
+    <h1>{{ receita.slot.name }}</h1>
+    <p class="lead">{{ receita.slot.time|time:"H:i" }} · alvo {{ receita.slot.target_kcal }} kcal</p>
+  </div>
+
+  {% include "plans/_receita.html" with r=receita %}
+{% endblock %}

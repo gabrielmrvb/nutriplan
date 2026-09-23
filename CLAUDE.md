@@ -241,6 +241,92 @@ diz "Não registrada · registrar" no `summary`. Medido no protótipo: 3 530 →
 2 875 px com duas vencidas. `plans/test_opcoes_tocaveis.py` cobra a ordem —
 fora da vez, o `<details>` abre antes da primeira ação.
 
+**UMA REFEIÇÃO PARECE UMA REFEIÇÃO — O CARD, A RECEITA E A PORÇÃO
+(23/09/2026).** A auditoria daquele dia mediu o cardápio: "horário, nome,
+alvo e um link *Ver opções*; fechado, um retângulo vazio. Aberto, cada opção
+é UMA LINHA seguida de um REGISTRAR A gigante". O que decide uma escolha de
+comida — do que é feita, quanto rende, quanto demora, como se faz — estava no
+banco e fora da tela: os ingredientes com quantidade já existiam (a lista de
+compras é feita deles).
+
+- **O ESTADO DA REFEIÇÃO VEM DO SERVIDOR NUMA PALAVRA.** `plans/agora.py`
+  escreve `slot.estado` ao lado do `marcador`: `resolvida` · `agora` ·
+  `pendente` · `futura`. A tela desenha quatro coisas a partir dela e não
+  recalcula nada (`test_o_template_nao_recalcula_quem_e_a_vez`). **Só a
+  `agora` nasce aberta** — a decisão de 20/09 sobre a Home compacta vale
+  para a vencida também, e esta reforma quase a desfez: com cards de receita
+  no lugar das linhas, abrir `pendente` poria dois cardápios na tela às 15h.
+  Quem segurou foi `test_a_vencida_fica_em_uma_linha_com_o_convite_a_registrar`.
+  Fechada, a refeição é UMA LINHA (hora · nome · alvo, ou "Não registrada ·
+  registrar"): 150 → 86 px, medidos a 390.
+- **A opção é um CARD DE RECEITA**, não uma linha com sanfona: ilustração,
+  nome, caloria, os TRÊS macros, tempo e os ingredientes com a porção numa
+  linha (`MealOption.resumo_dos_itens`, sobre o `prefetch_related` que a tela
+  já fazia — zero consulta nova). A linha ABREVIA a medida ("6,5 col. de
+  sopa"); a receita escreve por extenso. O rótulo A/B **saiu da interface** —
+  é nome interno do rodízio; `OptionLabel` continua no banco e na lista de
+  compras. O CTA é "Comi esta", e só a sugestão do dia é verde.
+- **A RECEITA É UM MARKUP SÓ EM TRÊS LUGARES** (`templates/plans/_receita.html`):
+  a tela `/refeicao/<slot>/receita/<opcao>/`, a folha do celular e o painel
+  da direita no desktop. A folha e o painel são a seção `#receita`
+  RECORTADA da página buscada — a mesma mecânica de "Outras formas" na ficha
+  do treino —, e `pwa.js` escolhe entre os dois perguntando ao LAYOUT se o
+  painel está visível (`offsetParent`), nunca a um breakpoint copiado no
+  JavaScript. Sem JavaScript o link navega e a receita aparece inteira: modo
+  de preparo é o que se lê com a mão na panela, e não pode depender de
+  script. `contexto_da_receita` é a montagem única desse contexto.
+- **A PORÇÃO (½ · 1 · 1½) É CONTA DO SERVIDOR, E A LISTA É FECHADA.** Cada
+  valor é um ENDEREÇO (`?porcao=0.5`), então recarregar preserva a escolha.
+  Ela multiplica kcal, macros e **todas** as quantidades, inclusive o item
+  `scalable=False`: `scale_factor` é o MOTOR ajustando a receita ao alvo
+  (1,37 ovo não existe) e `porcao` é a PESSOA dizendo que comeu meio prato —
+  se o ovo não acompanhasse, o kcal da tela deixaria de ser o kcal do que foi
+  comido. `porcoes.porcao_valida` recusa o que não está na lista porque este
+  número multiplica caloria GRAVADA: um `porcao=99` forjado escreveria um dia
+  de 280 mil kcal. Vai para o histórico em `MealLog.porcao` (migration
+  `plans.0011`, `default=1`, **sem backfill**: todo registro anterior É uma
+  porção inteira — isso é fato, não suposição).
+- **ILUSTRAÇÃO POR FAMÍLIA, NÃO FOTO POR RECEITA.** `MealTemplate.ilustracao`
+  (migration `catalog.0008`, preenchida pelo nome por `catalog/ilustracoes.py`)
+  e onze desenhos próprios em `templates/partials/ilustracoes_de_receita.html`
+  (7,8 kB). 54 fotos exigem curadoria e este ambiente não VÊ foto para
+  conferir — é o mesmo motivo que fez a expansão de exercícios de 10/09
+  voltar atrás. O mosaico de veto é a **vitrine** (`/gestao/vitrine/`), que é
+  também o que satisfaz `CoberturaDaVitrineTests` para essa parcial. O
+  sprite NÃO entra na `base.html`: é conteúdo de duas telas, e a Hoje não tem
+  por que pagar 7,8 kB.
+- **O TOPO CONTA O DIA, E NÃO O ZERO.** Sem marcação, o anel mostra a META e
+  o plano ("o seu dia em 5 refeições · 148 g de proteína") e a legenda dos
+  macros mostra o alvo; da primeira marcação em diante volta o par
+  comido/meta. A palavra está no servidor (`topo.modo`). A frase "Registre
+  suas refeições para acompanhar o saldo do dia" FICA: o que o anel mostra é
+  o cardápio, e o que falta ali é o SALDO.
+- **A COLUNA DA DIREITA TEM CONTEÚDO** (medido: três cartões recolhidos e
+  ~1.500 px vazios a 1280). Ela abre com a receita da refeição da VEZ — a
+  ordem é `agora` → `pendente` → qualquer uma com opção, a mesma do cartão
+  AGORA; sem ela, às 10h o painel falava do café das 7h com o lanche aberto
+  ao lado — traz a lista de compras resumida e deixa as três explicações
+  recolhidas no fim. **Painel e prévia são só do desktop**: no celular seriam
+  a terceira cópia do mesmo conteúdo. A prévia é CACHE DE PROCESSO por
+  (plano, semana), como o `<datalist>` de alimentos: `shopping_list` projeta
+  os sete dias e custa SEIS consultas para mostrar três nomes.
+  `plans:alimentacao` entrou em `TETOS` com **18** (17 sem a coluna, o mesmo
+  piso da Home; a única a mais é `outras`).
+- **O que NÃO se faz aqui:** rolar a tela até a refeição da vez ao abrir (o
+  cartão AGORA no topo já é ela, com o mesmo CTA — rolar 600 px passaria por
+  cima dele e do anel); "trocar por outra receita" PERSISTENTE (é o que a
+  pessoa comeu HOJE; a troca de semanas existe no Treino, onde é a interação
+  principal da ficha); e `.meal--done`, que virou `.meal--resolvida` junto
+  com a saída do bloco `.option*` do CSS (3.491 bytes de markup morto) — a
+  comemoração verde da refeição feita estava apontando para uma classe que
+  ninguém mais emitia.
+- **A meta de "abaixo de 1.500 px com uma refeição aberta" NÃO foi atingida
+  e a aritmética está escrita** (`achados/missao-alimentacao-20260923.md`):
+  2.645–2.799 px medidos, e os itens da própria missão — duas opções sempre
+  visíveis com desenho, macros e ingredientes (802 px), o anel (268) e o
+  cartão AGORA com a receita (271) — somam ~1.400 px sozinhos. Chegar a 1.500
+  exige desfazer um deles, e isso é decisão de produto.
+
 **Quem não declarou nada vê a Home de antes da campanha** — sem selo, sem cartão
 de área, na ordem canônica. E ela não infere área de histórico, peso, treino,
 água ou frequência: há teste com uma pessoa de histórico cheio provando que ela

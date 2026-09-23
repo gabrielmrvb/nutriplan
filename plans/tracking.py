@@ -13,6 +13,7 @@ from django.utils import timezone
 from workouts.corrida import gasto_kcal
 from workouts.models import Corrida
 
+from .porcoes import porcao_valida
 from .models import (HydrationLog, MealLog, MealSlot, MealStatus,
                      NutritionPlan)
 
@@ -89,7 +90,9 @@ def macros_de_itens(itens) -> dict:
     return total
 
 
-def log_meal(user, slot, status, option=None, day=None, notes="", macros=None) -> MealLog:
+def log_meal(
+    user, slot, status, option=None, day=None, notes="", macros=None, porcao=None
+) -> MealLog:
     """Registra o que aconteceu numa refeição.
 
     `update_or_create` porque marcar de novo é corriqueiro: a pessoa clica em
@@ -107,6 +110,11 @@ def log_meal(user, slot, status, option=None, day=None, notes="", macros=None) -
     day = day or timezone.localdate()
     ate_the_plan = status == MealStatus.DONE and option is not None
     fora = macros if (status == MealStatus.OFF_PLAN and macros) else None
+    # A porção só existe para quem comeu a receita: "pulei" não tem metade, e
+    # "comi outra coisa" já vem com os macros do que a pessoa descreveu. Fora
+    # daí o registro fica em 1, que é o que todo registro anterior a 23/09/2026
+    # significa — o campo nasceu com default 1 pela mesma razão.
+    fracao = porcao_valida(porcao) if ate_the_plan else Decimal("1")
 
     defaults = {
         "chosen_option": option if ate_the_plan else None,
@@ -125,12 +133,23 @@ def log_meal(user, slot, status, option=None, day=None, notes="", macros=None) -
         # própria pessoa. Carimbar um rótulo como "Outra refeição" inventaria
         # um nome de receita que não existe — e o status já conta isso.
         "recipe_name": option.template.name if ate_the_plan else "",
-        "kcal": option.kcal if ate_the_plan else (fora or {}).get("kcal", ZERO),
+        # Os macros do plano vezes a fração comida. A conta é AQUI, e não na
+        # tela, porque é daqui que o histórico, a aderência e a ofensiva leem:
+        # a tela mostrando 380 e o banco guardando 765 seria o app discordando
+        # de si mesmo no único número que a pessoa conferiu.
+        "porcao": fracao,
+        "kcal": option.kcal * fracao if ate_the_plan else (fora or {}).get("kcal", ZERO),
         "protein_g": (
-            option.protein_g if ate_the_plan else (fora or {}).get("protein_g", ZERO)
+            option.protein_g * fracao
+            if ate_the_plan
+            else (fora or {}).get("protein_g", ZERO)
         ),
-        "carb_g": option.carb_g if ate_the_plan else (fora or {}).get("carb_g", ZERO),
-        "fat_g": option.fat_g if ate_the_plan else (fora or {}).get("fat_g", ZERO),
+        "carb_g": (
+            option.carb_g * fracao if ate_the_plan else (fora or {}).get("carb_g", ZERO)
+        ),
+        "fat_g": (
+            option.fat_g * fracao if ate_the_plan else (fora or {}).get("fat_g", ZERO)
+        ),
         # O campo existia desde o começo e nunca era escrito. Passou a servir
         # quando a entrada por voz chegou: "comi frango no almoço" não vira
         # macro nenhum — chutar contaminaria o histórico — mas vira a frase

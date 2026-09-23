@@ -2167,3 +2167,88 @@
     if (!window.confirm(form.getAttribute("data-confirmar"))) evento.preventDefault();
   });
 })();
+/* ==========================================================================
+   A FOLHA DA RECEITA (23/09/2026)
+
+   "Ver a receita" é um LINK para `/alimentacao/refeicao/<slot>/receita/<id>/`
+   — e é assim que ele funciona sem JavaScript, no histórico, em aba nova e
+   ao compartilhar o endereço. Daqui ele vira uma FOLHA sobre o cardápio: ler
+   como se faz o almoço não devia custar sair da lista e voltar a ela.
+
+   O que este bloco faz, e só: busca a MESMA página do link, recorta a seção
+   `#receita` e a mostra num `<dialog>` (foco preso e Esc de graça). Os chips
+   de porção e os links de "trocar por outra receita" carregam o mesmo
+   marcador, então trocar de porção dentro da folha é o mesmo caminho: buscar
+   e trocar o miolo, sem navegar.
+
+   Qualquer falha — rede, HTML inesperado, navegador sem `showModal` — cai na
+   navegação de sempre. Nada aqui é a única porta para nada, e o POST de
+   "Comi esta" dentro da folha é um POST normal: ele redireciona para o
+   cardápio com a refeição marcada, que é exatamente onde a pessoa quer estar.
+   ========================================================================== */
+(function () {
+  "use strict";
+  if (!window.fetch || !window.DOMParser) return;
+  var folha = document.querySelector("[data-folha-receita]");
+  var painel = document.querySelector("[data-painel-receita]");
+  if ((!folha || !folha.showModal) && !painel) return;
+  var corpo = folha && folha.querySelector("[data-folha-receita-corpo]");
+  var titulo = folha && folha.querySelector(".folha-receita__titulo");
+
+  /* NO DESKTOP A RECEITA VAI PARA O PAINEL DA DIREITA; no celular, para a
+     folha de baixo. A pergunta é se o painel está VISÍVEL — e quem responde
+     isso é o layout, medido na hora (`offsetParent`), e não uma cópia do
+     breakpoint escrita aqui: um `media query` repetido no JavaScript é a
+     segunda verdade que diverge no dia em que a primeira mudar. */
+  function noPainel() {
+    return !!(painel && painel.offsetParent !== null);
+  }
+
+  function fechar() {
+    if (folha.open) folha.close();
+  }
+
+  if (folha) {
+    folha.addEventListener("click", function (evento) {
+      /* O clique no backdrop fecha: `<dialog>` não faz isso sozinho, e um
+         painel que só fecha pelo botão é o que faz alguém achar que travou. */
+      if (evento.target === folha) fechar();
+      if (evento.target.closest("[data-folha-fechar]")) fechar();
+    });
+  }
+
+  document.addEventListener("click", function (evento) {
+    var link = evento.target.closest && evento.target.closest("[data-receita]");
+    if (!link) return;
+    if (evento.metaKey || evento.ctrlKey || evento.shiftKey || evento.button !== 0) return;
+    if (!noPainel() && !folha) return;
+    evento.preventDefault();
+    link.setAttribute("aria-busy", "true");
+    fetch(link.href, { credentials: "same-origin", headers: { "X-Requested-With": "fetch" } })
+      .then(function (resposta) {
+        if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+        return resposta.text();
+      })
+      .then(function (html) {
+        var doc = new DOMParser().parseFromString(html, "text/html");
+        var secao = doc.querySelector("#receita");
+        if (!secao) throw new Error("sem seção");
+        var nova = document.importNode(secao, true);
+        if (noPainel()) {
+          painel.replaceChildren(nova);
+          painel.scrollTop = 0;
+          return;
+        }
+        corpo.replaceChildren(nova);
+        /* O nome vem do documento buscado, e não de um atributo escrito no
+           link: trocando de receita dentro da folha, o título tem de trocar
+           junto — e quem sabe o nome novo é a página nova. */
+        var nome = secao.querySelector(".receita-folha__nome");
+        if (titulo && nome) titulo.textContent = nome.textContent.trim();
+        if (!folha.open) folha.showModal();
+        corpo.scrollTop = 0;
+      })
+      .catch(function () { location.href = link.href; })
+      .then(function () { link.removeAttribute("aria-busy"); });
+  });
+})();

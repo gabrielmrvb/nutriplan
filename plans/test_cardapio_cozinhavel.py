@@ -17,7 +17,7 @@ from catalog.models import FoodPortion, MealCategory, MealTemplate
 from . import meal_planner, services
 from .calculations import PlanInputs, calculate
 from .meal_planner import scale_for
-from .models import MealOption
+from .models import MealOption, NutritionPlan
 from .tests import CatalogFixture, create_complete_user, make_template
 
 
@@ -39,12 +39,31 @@ class AHomeMostraMedidaCaseiraTests(CatalogFixture, TestCase):
         )
 
     def test_alimento_com_porcao_sai_como_medida_e_grama(self):
+        """A medida caseira agora aparece em DOIS lugares, e este teste mede
+        os dois: a linha do card ("7,5 colheres de sopa de aveia") e a lista
+        da receita ("7,5 colheres de sopa · 116 g"). O número exato depende do
+        cardápio; a FORMA é o que se prova."""
         user = create_complete_user()
         self.client.force_login(user)
         html = self.client.get(reverse("plans:alimentacao")).content.decode()
-        # Um ingrediente com porção: "<b>7,5 colheres de sopa (116 g)</b>" — o número
-        # exato depende do cardápio; a FORMA é o que se prova.
-        self.assertRegex(html, r'class="option__ingrediente">[^<]+</span>\s*<b>[0-9]+(,5)? [a-zç ]+ \([0-9]+ (g|ml)\)</b>')
+        linhas = re.findall(r'class="receita__itens">(.*?)</p>', html, re.S)
+        self.assertTrue(linhas, "nenhum card resume os ingredientes")
+        # O card ABREVIA ("6,5 col. de sopa de aveia"): a linha tem quatro
+        # ingredientes e um celular de 390px, e "colheres" por extenso quatro
+        # vezes empurraria o resto para fora. A receita escreve por extenso —
+        # lá a lista é uma por linha, e é ela que se lê na cozinha.
+        self.assertRegex(" ".join(linhas), r'[0-9]+(,5)? col\. de sopa de')
+
+        plano = NutritionPlan.objects.filter(user=user, is_active=True).first()
+        slot = plano.slots.order_by("order").first()
+        opcao = slot.options.order_by("rank").first()
+        receita = self.client.get(
+            reverse("plans:receita", args=[slot.pk, opcao.pk])
+        ).content.decode()
+        self.assertRegex(
+            receita,
+            r'<dd class="num">[0-9]+(,5)? [a-zç ]+ · [0-9]+ (g|ml)</dd>',
+        )
 
     def test_alimento_sem_porcao_continua_em_grama(self):
         # Frango e arroz não têm porção nenhuma na fixture: a lista tem de

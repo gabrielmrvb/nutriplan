@@ -24,6 +24,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
+from catalog.ilustracoes import familia_de
 from catalog.models import (
     DietaryTag,
     Food,
@@ -149,6 +150,12 @@ class Command(BaseCommand):
                     "category": row["category"],
                     "prep_minutes": row.get("prep_minutes", 10),
                     "instructions": row.get("instructions", ""),
+                    # A família do desenho: o JSON manda quando quer, e o
+                    # padrão vem do NOME. Quem cadastra uma receita nova não
+                    # precisa saber que o sprite existe; quem quer trocar o
+                    # desenho de uma receita escreve `"ilustracao"` no JSON e
+                    # o seed obedece. Ver `catalog/ilustracoes.py`.
+                    "ilustracao": row.get("ilustracao") or familia_de(row["name"]),
                     "everyday": row.get("everyday", True),
                     "is_active": True,
                 },

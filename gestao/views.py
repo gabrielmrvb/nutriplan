@@ -22,6 +22,8 @@ from plans.models import MealLog, NutritionPlan
 from workouts.models import ExerciseLog, TrainingPlan
 
 from .acesso import PainelDeGestaoMixin
+from catalog.ilustracoes import FAMILIAS as FAMILIAS_DE_ILUSTRACAO
+
 from .forms_vitrine import formulario_com_erro, formulario_limpo
 from .metricas import JANELA_CURTA, User, numeros_do_painel
 
@@ -210,6 +212,11 @@ class VitrineView(PainelDeGestaoMixin, TemplateView):
             caixas_com_erro=ConsentimentoForm({"termos": "on"}),
             google_login_enabled=True,
             legal_publicado=True,
+            # AS ONZE FAMÍLIAS DE ILUSTRAÇÃO, para o mosaico de veto. A
+            # lista é a do catálogo (`catalog.ilustracoes.FAMILIAS`), que é
+            # a mesma que o campo do modelo usa como `choices` — assim uma
+            # família nova aparece aqui sem ninguém lembrar de acrescentar.
+            familias_de_ilustracao=FAMILIAS_DE_ILUSTRACAO,
             # AS ABAS, montadas aqui (22/09/2026). `partials/abas.html` é
             # normalmente desenhada pela tag `{% abas %}`, que lê o `nav` da
             # página — e a vitrine não tem `nav`, porque não é uma tela do
