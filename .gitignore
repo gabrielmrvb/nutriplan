@@ -68,3 +68,10 @@ SHA256SUMS
 # produto — fora do repositório público.
 /.agents/
 /AGENTS.md
+
+# As capturas do E2E de staging (`scripts/qa/e2e_staging.py`): elas são a
+# PROVA de uma execução, e prova de execução não é código. Ficam no disco de
+# quem rodou e vão para o relatório; versioná-las encheria o repositório de
+# PNG a cada run e faria um `git add -A` distraído publicar a tela de uma
+# conta de QA (22/09/2026 — aconteceu, e o commit foi desfeito).
+capturas/

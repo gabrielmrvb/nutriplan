@@ -37,9 +37,15 @@ from datetime import date
 from json import dumps as json_dumps
 from pathlib import Path
 
+#: "alimentacao" entrou em 22/09/2026, entre a água e a refeição: a Hoje
+#: virou o orquestrador do dia (o cartão AGORA, o painel de cartões e a
+#: ofensiva) e o cardápio ganhou tela própria. Marcar refeição é um passo da
+#: tela de Alimentação agora, e chegar lá pela ABA é parte do que este E2E
+#: prova — o caminho, não só o efeito.
 PASSOS = (
     "cadastro", "onboarding-1", "onboarding-2", "onboarding-3", "home",
-    "agua", "refeicao", "serie", "tema-claro", "movimento-reduzido", "excluir", "login-recusado",
+    "agua", "alimentacao", "refeicao", "serie", "tema-claro",
+    "movimento-reduzido", "excluir", "login-recusado",
 )
 DOMINIO_DE_QA = "nutriplan.invalid"
 VIEWPORT = (390, 844)
@@ -246,15 +252,37 @@ class E2E:
         self.ab.esperar_js("location.pathname === '/'", segundos=180, rotulo="a Home depois de calcular a estimativa")
 
     def home(self):
-        self.ab.esperar_js("[document.querySelector('.agua'), document.querySelector('.meal')].every(function(e){return e!==null})", segundos=90, rotulo="Home com água e refeições")
+        """A Hoje é o PAINEL DO DIA desde 22/09/2026.
+
+        Ela tinha o cardápio (`.meal`) e o cartão de água; hoje tem o cartão
+        AGORA e a grade de cartões, com a água como uma das células. O
+        cardápio foi para `/alimentacao/`, e é lá que o passo `alimentacao`
+        o cobra.
+        """
+        self.ab.esperar_js("[document.querySelector('.agua'), document.querySelector('.painel__cartao')].every(function(e){return e!==null})", segundos=90, rotulo="Home com o painel do dia e a água")
         # O convite de instalação (PWA) cobre o rodapé da tela nova; "Agora não"
         # o dispensa — é o que uma pessoa faz, e as capturas ficam limpas.
         self.ab.eval("(function(){var b=[].slice.call(document.querySelectorAll('button')).filter(function(x){return /Agora n/.test(x.textContent)})[0];if(b){b.click();return true}return false})()")
         self.captura("home")
 
     def agua(self):
-        self.acionar(".agua__botao", "(function(){var e=document.querySelector('.agua__valor');return e?/250/.test(e.textContent):false})()", "250 ml registrados")
+        # `[data-agua-total]` e não `.agua__valor`: o cabeçalho do cartão
+        # antigo saiu com o redesenho de 22/09/2026 (na célula do painel o
+        # número é `.painel__valor`), e o atributo de dados é o mesmo que o
+        # `pwa.js` e a fila offline já usavam — contrato, não classe.
+        self.acionar(".agua__botao", "(function(){var e=document.querySelector('[data-agua-total]');return e?/250/.test(e.textContent):false})()", "250 ml registrados")
         self.captura("agua")
+
+    def alimentacao(self):
+        """A tela do cardápio, alcançada pela ABA — que é o caminho de quem usa.
+
+        A barra tem cinco itens desde 22/09/2026, e o segundo é Alimentação. A
+        aba e a tela têm de concordar: até aqui ela dizia "Alimentação" e
+        abria uma página chamada "Hoje".
+        """
+        self.ir("a.tabbar__item[href='/alimentacao/']", "/alimentacao/")
+        self.ab.esperar_js("document.querySelector('.meal') !== null", segundos=60, rotulo="o cardápio na tela de Alimentação")
+        self.captura("alimentacao")
 
     def refeicao(self):
         self.ab.eval("(function(){var m=document.querySelector('.meal:not(.meal--done)');m.querySelectorAll('details').forEach(function(d){d.open=true});return !!m})()")
@@ -285,7 +313,10 @@ class E2E:
 
     def tema_claro(self):
         self.ab("set", "media", "light")
-        for rota, nome in (("/", "home"), ("/treino/", "treino"), ("/treino/agora/", "agora")):
+        # A Alimentação entra na varredura do tema claro: ela é uma tela nova
+        # (22/09/2026) e a mais longa do app depois do Progresso.
+        for rota, nome in (("/", "home"), ("/alimentacao/", "alimentacao"),
+                           ("/treino/", "treino"), ("/treino/agora/", "agora")):
             self.ab("open", self.base + rota)
             self.ab("wait", "500")
             self.captura("claro-" + nome)
