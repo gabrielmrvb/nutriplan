@@ -1778,3 +1778,392 @@
     }).catch(function () { ocupado = false; });
   });
 })();
+
+/* ==========================================================================
+   DESCANSO (a execução do treino, 22/09/2026)
+
+   Era uma faixa fina dentro do <main>, com o JavaScript inline na página:
+   contava "79s" e virava "1:13" no meio do próprio descanso, sumia da tela
+   assim que alguém rolava para ver as séries, e não tinha como pedir mais
+   tempo. Aqui ele é um cronômetro de verdade:
+
+   - UM formato, `m:ss`, do primeiro ao último segundo (o servidor manda o
+     primeiro quadro pronto em `estado.descanso_relogio`);
+   - "+30 s" para quem precisa de mais — o alvo fica no `sessionStorage`,
+     então recarregar no meio não devolve o tempo original;
+   - som OPCIONAL ao zerar, lembrado no aparelho e DESLIGADO por padrão
+     (quem treina com música não quer bipe); a vibração continua para todos,
+     longa, porque no fim do descanso o telefone está no banco;
+   - `wakeLock` enquanto o descanso corre, onde existir: a tela apagando no
+     meio é o que faz a pessoa perder a conta;
+   - o número vem do SERVIDOR (`agora - created_at da última série`), então
+     trocar de aba ou recarregar continua caindo no tempo certo.
+
+   Por que aqui e não na página: a troca do <main> sem recarga recria os
+   scripts do <main> a cada série, e este cresceu. Registrado uma vez,
+   reencontra o bloco por MutationObserver. O contrato com a troca continua
+   sendo `window.__descansoTique` — ela o limpa ANTES de tirar os nós, senão
+   o descanso da série anterior vibra "pode ir" por cima do placar.
+   ========================================================================== */
+(function () {
+  "use strict";
+  var CHAVE_SOM = "nutriplan:descanso-som";
+  var CHAVE_ALVO = "nutriplan:descanso-alvo";
+  var PASSO = 30;
+  var bloqueio = null;
+
+  function guardado(armazem, chave) {
+    try { return window[armazem].getItem(chave); } catch (e) { return null; }
+  }
+  function guardar(armazem, chave, valor) {
+    try {
+      if (valor === null) window[armazem].removeItem(chave);
+      else window[armazem].setItem(chave, valor);
+    } catch (e) { /* janela privada, cota cheia: o descanso continua funcionando */ }
+  }
+
+  function mmss(segundos) {
+    var m = Math.floor(segundos / 60), s = segundos % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function porExtenso(segundos) {
+    var m = Math.floor(segundos / 60), s = segundos % 60;
+    if (!m) return segundos + " segundos";
+    if (!s) return m + (m === 1 ? " minuto" : " minutos");
+    return m + (m === 1 ? " minuto e " : " minutos e ") + s + " segundos";
+  }
+
+  /* A TELA NÃO APAGA ENQUANTO O DESCANSO CORRE. Só onde existe (Chrome,
+     Android, Safari 16.4+); o `catch` cobre a aba em segundo plano, que o
+     navegador recusa. Soltar é obrigação: o bloqueio esquecido drena
+     bateria depois do treino. */
+  function segurarTela() {
+    if (!navigator.wakeLock || bloqueio) return;
+    navigator.wakeLock.request("screen").then(function (b) { bloqueio = b; }, function () {});
+  }
+  function soltarTela() {
+    if (!bloqueio) return;
+    try { bloqueio.release(); } catch (e) { /* já solto */ }
+    bloqueio = null;
+  }
+
+  /* O bipe é sintetizado — nenhum arquivo para baixar, nenhuma requisição.
+     Dois tons curtos, e o contexto nasce no toque que ligou o som, então o
+     navegador não o bloqueia. */
+  function bipar() {
+    var Audio = window.AudioContext || window.webkitAudioContext;
+    if (!Audio) return;
+    try {
+      var ctx = new Audio();
+      [0, 0.18].forEach(function (atraso) {
+        var osc = ctx.createOscillator(), ganho = ctx.createGain();
+        osc.frequency.value = 880;
+        ganho.gain.setValueAtTime(0.0001, ctx.currentTime + atraso);
+        ganho.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + atraso + 0.01);
+        ganho.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + atraso + 0.14);
+        osc.connect(ganho); ganho.connect(ctx.destination);
+        osc.start(ctx.currentTime + atraso);
+        osc.stop(ctx.currentTime + atraso + 0.16);
+      });
+      setTimeout(function () { try { ctx.close(); } catch (e) {} }, 800);
+    } catch (e) { /* sem áudio: a vibração e o texto continuam */ }
+  }
+
+  function iniciar(area) {
+    if (!area || area.dataset.descansoVivo === "1") return;
+    area.dataset.descansoVivo = "1";
+    var relogio = area.querySelector("[data-descanso-relogio]");
+    var aviso = document.querySelector("[data-descanso-aviso]");
+    var botaoSom = area.querySelector("[data-descanso-som]");
+    var restante = parseInt(area.dataset.descanso, 10) || 0;
+
+    /* O "+30 s" sobrevive à recarga: o alvo (hora absoluta) fica no
+       `sessionStorage` e só vale enquanto for MAIOR que o que o servidor
+       manda — passada a série, o servidor manda o descanso novo e o alvo
+       velho é descartado sozinho. */
+    var alvo = parseInt(guardado("sessionStorage", CHAVE_ALVO), 10) || 0;
+    var faltam = Math.round((alvo - Date.now()) / 1000);
+    if (alvo && faltam > restante && faltam < 3600) restante = faltam;
+    else guardar("sessionStorage", CHAVE_ALVO, null);
+
+    function falar(texto) { if (aviso) aviso.textContent = texto; }
+    function pintar() { if (relogio) relogio.textContent = mmss(Math.max(0, restante)); }
+
+    function parar() {
+      if (window.__descansoTique) clearInterval(window.__descansoTique);
+      window.__descansoTique = null;
+      soltarTela();
+    }
+
+    if (botaoSom) {
+      var ligado = guardado("localStorage", CHAVE_SOM) === "1";
+      botaoSom.setAttribute("aria-pressed", ligado ? "true" : "false");
+      botaoSom.addEventListener("click", function () {
+        ligado = botaoSom.getAttribute("aria-pressed") !== "true";
+        botaoSom.setAttribute("aria-pressed", ligado ? "true" : "false");
+        guardar("localStorage", CHAVE_SOM, ligado ? "1" : null);
+        if (ligado) bipar();  /* o toque que liga também prova que dá para ouvir */
+      });
+    }
+
+    var mais = area.querySelector("[data-descanso-mais]");
+    if (mais) {
+      mais.addEventListener("click", function () {
+        restante += PASSO;
+        guardar("sessionStorage", CHAVE_ALVO, String(Date.now() + restante * 1000));
+        area.classList.remove("descanso--fim");
+        pintar();
+        falar("Mais " + PASSO + " segundos de descanso.");
+      });
+    }
+
+    var pular = area.querySelector("[data-descanso-pular]");
+    if (pular) {
+      pular.addEventListener("click", function () {
+        parar();
+        guardar("sessionStorage", CHAVE_ALVO, null);
+        area.hidden = true;
+        falar("Descanso pulado.");
+      });
+    }
+
+    /* O anúncio sai um instante DEPOIS de a página assentar: conteúdo que já
+       está no HTML no carregamento não é anunciado — região viva avisa sobre
+       MUDANÇA. Duas falas por descanso, e só duas. */
+    setTimeout(function () { if (restante > 0) falar("Descanso de " + porExtenso(restante) + "."); }, 300);
+
+    pintar();
+    if (restante <= 0) return;
+    segurarTela();
+    if (window.__descansoTique) clearInterval(window.__descansoTique);
+    var tique = setInterval(function () {
+      restante -= 1;
+      if (restante <= 0) {
+        parar();
+        guardar("sessionStorage", CHAVE_ALVO, null);
+        area.classList.add("descanso--fim");
+        if (relogio) relogio.textContent = "pode ir";
+        falar("Descanso terminado, pode ir.");
+        /* CHAMAR DE LONGE, e por isso o padrão é longo: no fim do descanso o
+           aparelho está no banco e a pessoa de costas para ele. É o oposto do
+           toque curto de gravar a série. `navigator.vibrate` não existe no
+           iPhone — o `if` não é otimização, é metade dos aparelhos. */
+        if (navigator.vibrate) navigator.vibrate([200, 100, 400]);
+        if (guardado("localStorage", CHAVE_SOM) === "1") bipar();
+        return;
+      }
+      pintar();
+    }, 1000);
+    window.__descansoTique = tique;
+  }
+
+  function procurar() { iniciar(document.querySelector("[data-descanso]")); }
+
+  /* A tela em segundo plano perde o bloqueio por decisão do navegador; ao
+     voltar, se o descanso ainda corre, ele é pedido de novo. */
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && window.__descansoTique) segurarTela();
+    else if (document.visibilityState !== "visible") soltarTela();
+  });
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", procurar);
+  else procurar();
+  /* A troca do <main> sem recarga põe um bloco NOVO no lugar (ou nenhum, no
+     placar): o observador é o que faz o cronômetro nascer de novo sem um
+     `<script>` na página. */
+  var raiz = document.querySelector("main") || document.body;
+  if (window.MutationObserver && raiz) {
+    new MutationObserver(function () { procurar(); }).observe(raiz, { childList: true, subtree: true });
+  }
+})();
+
+/* ==========================================================================
+   FOTO DE EXERCÍCIO QUE NÃO CARREGA (22/09/2026)
+
+   As fotos do catálogo vêm de uma CDN (free-exercise-db, domínio público):
+   na academia, com rede ruim ou operadora que bloqueia o domínio, o `<img>`
+   fica um RETÂNGULO VAZIO — foi o que o dono viu como "a miniatura fica em
+   branco". O espaço reservado só vale quando ele vai ser preenchido; aqui
+   não vai, então ele sai e a linha começa no nome.
+
+   `error` não borbulha, por isso o ouvinte é de CAPTURA e no `document`:
+   um só, para a ficha inteira (até doze fotos) e para a execução, inclusive
+   depois da troca do <main> sem recarga.
+   ========================================================================== */
+(function () {
+  "use strict";
+  document.addEventListener("error", function (evento) {
+    var alvo = evento.target;
+    if (!alvo || alvo.tagName !== "IMG") return;
+    if (!alvo.classList.contains("ficha-item__foto") &&
+        !alvo.classList.contains("demo__foto") &&
+        !alvo.classList.contains("forma__foto")) return;
+    alvo.remove();
+  }, true);
+})();
+
+/* ==========================================================================
+   TROCAR NA FICHA (22/09/2026)
+
+   "trocar" é um LINK para a leitura do exercício, ancorado em "Outras
+   formas" — e é assim que ele funciona sem JavaScript, no histórico e ao
+   compartilhar. Daqui ele vira uma FOLHA sobre a ficha: escolher como fazer
+   um movimento não devia custar sair da lista e voltar a ela.
+
+   O que este bloco faz, e só: busca a MESMA página do link, recorta a seção
+   `#outras-formas` e a mostra num `<dialog>` (foco preso e Esc de graça).
+   Qualquer falha — rede, HTML inesperado, navegador sem `showModal` — cai
+   na navegação de sempre; nada aqui é a única porta para nada.
+
+   O "Trocar" de dentro da folha é um POST normal, interceptado para a ficha
+   recarregar no lugar de ir para a leitura: o card precisa mostrar o
+   exercício novo, e é a ficha que a pessoa está olhando.
+   ========================================================================== */
+(function () {
+  "use strict";
+  if (!window.fetch || !window.DOMParser) return;
+  var folha = document.querySelector("[data-folha-troca]");
+  if (!folha || !folha.showModal) return;
+  var corpo = folha.querySelector("[data-folha-corpo]");
+  var titulo = folha.querySelector(".folha-troca__titulo");
+
+  function fechar() {
+    if (folha.open) folha.close();
+  }
+
+  folha.addEventListener("click", function (evento) {
+    /* O clique no backdrop fecha: `<dialog>` não faz isso sozinho, e um
+       painel que só fecha pelo botão é o que faz alguém achar que travou. */
+    if (evento.target === folha) fechar();
+    if (evento.target.closest("[data-folha-fechar]")) fechar();
+  });
+
+  document.addEventListener("click", function (evento) {
+    var link = evento.target.closest && evento.target.closest("[data-trocar]");
+    if (!link) return;
+    if (evento.metaKey || evento.ctrlKey || evento.shiftKey || evento.button !== 0) return;
+    evento.preventDefault();
+    link.setAttribute("aria-busy", "true");
+    fetch(link.href, { credentials: "same-origin", headers: { "X-Requested-With": "fetch" } })
+      .then(function (resposta) {
+        if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+        return resposta.text();
+      })
+      .then(function (html) {
+        var doc = new DOMParser().parseFromString(html, "text/html");
+        var secao = doc.querySelector("#outras-formas");
+        if (!secao) throw new Error("sem seção");
+        corpo.replaceChildren(document.importNode(secao, true));
+        if (titulo && link.dataset.trocarNome) {
+          titulo.textContent = "Outras formas de " + link.dataset.trocarNome.toLowerCase();
+        }
+        folha.showModal();
+      })
+      .catch(function () { location.href = link.href; })
+      .then(function () { link.removeAttribute("aria-busy"); });
+  });
+
+  /* O POST da troca sai daqui e a FICHA recarrega: o card precisa mostrar o
+     exercício novo, e a leitura do exercício (para onde a view redireciona)
+     é outra tela. Sem `fetch`, o formulário já teria seguido o caminho de
+     sempre — este ouvinte só existe dentro da folha. */
+  folha.addEventListener("submit", function (evento) {
+    var form = evento.target;
+    if (!(form instanceof HTMLFormElement) || !navigator.onLine) return;
+    evento.preventDefault();
+    var botao = evento.submitter;
+    if (botao) { botao.setAttribute("aria-busy", "true"); botao.disabled = true; }
+    fetch(form.action, {
+      method: "POST", body: new FormData(form), credentials: "same-origin",
+      redirect: "follow", headers: { "X-Requested-With": "fetch" },
+    }).then(function () {
+      location.reload();
+    }).catch(function () {
+      form.submit();
+    });
+  });
+})();
+/* ==========================================================================
+   TOKEN DE CSRF — o do cookie, não o da renderização (22/09/2026)
+   ==========================================================================
+
+   A RAIZ do "a sessão caiu e perdi o que digitei". Não há logout em POST
+   nenhum neste app; o que há é 403 de CSRF, por dois caminhos medidos:
+
+     1. a página veio do cache do service worker — ele serve a cópia guardada
+        quando a rede passa de três segundos — e o campo escondido carrega o
+        token de uma sessão anterior;
+     2. a pessoa entrou de novo (outra aba, ou a sessão tinha vencido) e
+        `login()` chamou `rotate_token()`: o segredo do cookie mudou, e a aba
+        aberta continua com o token velho no HTML.
+
+   Nos dois o COOKIE está certo. A fila offline já fazia exatamente isto
+   (`fila.js`, "o token é trocado pelo do MOMENTO DO ENVIO") e por isso nunca
+   sofreu; quem sofria era o formulário comum — a etapa 2 do cadastro e o
+   registro de corrida, os dois longos, os dois citados pelo dono.
+
+   Não enfraquece nada: o cookie só é legível por JavaScript da PRÓPRIA
+   origem, que é de onde a defesa vem, e o servidor continua recusando token
+   de outro segredo (`config/test_csrf_do_cookie.py` prova os dois lados). É
+   o mesmo que a documentação do Django manda fazer em requisição AJAX.
+
+   Duas vezes, e as duas são necessárias: no carregamento, para a página
+   vinda do cache nascer certa; e no `submit`, em CAPTURA, para a aba que
+   ficou aberta horas enviar com o token de agora. */
+(function () {
+  "use strict";
+
+  function doCookie() {
+    var achado = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+    return achado ? achado[2] : "";
+  }
+
+  function renovar(raiz) {
+    var token = doCookie();
+    /* Sem cookie não há o que renovar, e escrever "" apagaria o token que o
+       servidor mandou — trocar um 403 por outro. */
+    if (!token || !raiz || !raiz.querySelectorAll) return;
+    var campos = raiz.querySelectorAll("input[name=csrfmiddlewaretoken]");
+    for (var i = 0; i < campos.length; i++) {
+      if (campos[i].value !== token) campos[i].value = token;
+    }
+  }
+
+  renovar(document);
+  /* `pagereveal` e o mesmo evento que a re-entrega do toque usa: e quando a
+     pagina da transicao aparece, inclusive vinda do bfcache. */
+  window.addEventListener("pageshow", function () { renovar(document); });
+  document.addEventListener("submit", function (evento) {
+    renovar(evento.target);
+  }, true);
+})();
+
+/* ==========================================================================
+   AÇÕES QUE ERAM ATRIBUTO NO HTML (22/09/2026)
+   ==========================================================================
+
+   `onclick=` e `onsubmit=` param de funcionar com a Content-Security-Policy
+   ligada, e param em SILÊNCIO: o botão continua na tela e não faz nada. Os
+   dois que existiam no app — "Voltar ao formulário" do 403 de CSRF e a
+   confirmação de sair da conta, no Perfil — viraram marcador no HTML e
+   ouvinte DELEGADO aqui, que também cobre o que nascer depois.
+
+   `data-confirmar` devolve o mesmo que o `return confirm(...)` devolvia:
+   recusar cancela o envio. */
+(function () {
+  "use strict";
+
+  document.addEventListener("click", function (evento) {
+    var alvo = evento.target.closest && evento.target.closest("[data-voltar]");
+    if (!alvo) return;
+    evento.preventDefault();
+    history.back();
+  });
+
+  document.addEventListener("submit", function (evento) {
+    var form = evento.target;
+    if (!form || !form.hasAttribute || !form.hasAttribute("data-confirmar")) return;
+    if (!window.confirm(form.getAttribute("data-confirmar"))) evento.preventDefault();
+  });
+})();

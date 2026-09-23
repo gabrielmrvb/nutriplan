@@ -482,7 +482,7 @@
                 O teto é duro: a ficha é remontada para caber nele. Com série
                 registrada hoje, a troca vale a partir de amanhã.
               </p>
-              <button type="submit" class="btn btn--ghost">Aplicar</button>
+              <button type="submit" class="btn btn--ghost">Salvar duração</button>
             </form>
           </details>
           <ol class="week-strip">
@@ -783,7 +783,7 @@
       `GymHardwareTests` mede os três lá, e não aqui.
     {% endcomment %}
 
-    <script>
+    <script nonce="{{ csp_nonce }}">
       /* O card de compartilhamento.
        *
        * O DESENHO mora em `static/js/card.js`, e nao mais aqui. Ele era um

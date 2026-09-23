@@ -145,7 +145,9 @@ class AImagemDoCardEOsDadosEstruturadosTests(TestCase):
         import json
 
         html = self.client.get("/").content.decode()
-        blocos = re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, flags=re.S)
+        # O `nonce` entrou em todo script inline com a CSP; casar a tag inteira
+        # travaria o teste no atributo, e não no conteúdo, que é o que importa.
+        blocos = re.findall(r'<script[^>]*type="application/ld\+json"[^>]*>(.*?)</script>', html, flags=re.S)
         self.assertEqual(len(blocos), 1)
         dados = json.loads(blocos[0])
         self.assertEqual(dados["@type"], "SoftwareApplication")

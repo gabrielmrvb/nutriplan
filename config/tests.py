@@ -525,7 +525,13 @@ class TouchTargetTests(TestCase):
         # repositório em 10/09/2026 sem `{% include %}` nenhum; o descanso da
         # execução tem um "pular", e é ele que a pessoa toca de pé entre
         # séries, com a mão suada — o mesmo minuto, o mesmo risco.
-        (".descanso__pular {", "min-height: 2.75rem"),
+        # Desde 22/09/2026 são TRÊS botões na mesma barra ("+30 s", "pular",
+        # "som"), e a régua mede os três pelo seletor em que eles moram —
+        # junto com `min-width`, porque "som" tem três letras e a régua deste
+        # repositório mede altura E largura desde o alvo de 26px de largura
+        # que passou despercebido.
+        (".descanso__mais,", "min-height: 2.75rem"),
+        (".descanso__mais,", "min-width: 2.75rem"),
         # O link de volta das telas legais. Media 102x22 na privacidade e
         # 157x22 nos termos: e o paragrafo inteiro, entao a excecao de alvo
         # inline da WCAG nao o cobre — ela vale para link no meio de frase.
@@ -1213,6 +1219,13 @@ class ResponseCompressionTests(TestCase):
             for caminho in RAIZ.rglob("*.py")
             if ".venv" not in caminho.parts
             and "migrations" not in caminho.parts
+            # PASTA DE TRABALHO NÃO É O APP (22/09/2026). `artifacts/` e
+            # `scratchpad/` ficam fora do controle de versão e existem para
+            # scripts de apoio — e um script que cita `.opcao__meta` fazia a
+            # classe parecer usada. MEDIDO: a suíte local passava e o
+            # `pre-push`, que roda no worktree do commit, reprovava três
+            # órfãs que estavam ali havia horas.
+            and not {"artifacts", "scratchpad"} & set(caminho.parts)
             and not caminho.name.startswith(("test_", "tests"))
         )
 

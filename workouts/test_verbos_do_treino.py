@@ -151,13 +151,37 @@ class UmVerboUmDestinoNosTemplatesTests(TestCase):
                 achados.append((caminho.relative_to(TEMPLATES).as_posix(), m.group(0)))
         return achados
 
+    #: "COMEÇAR TREINO" PASSOU A VALER NAS DUAS TELAS (pedido do dono,
+    #: 22/09/2026), e o destino é o que cada uma pode oferecer: do painel,
+    #: a FICHA (onde se prepara); da ficha, a EXECUÇÃO (onde se começa de
+    #: verdade). Antes eram dois rótulos para o mesmo ato — "Começar
+    #: treino" no painel e "Começar pelo primeiro" na ficha —, e era isso
+    #: que confundia. A régua continua existindo e continua estrita: o
+    #: rótulo não pode aparecer em NENHUM outro arquivo, nem apontar para
+    #: um terceiro destino.
+    DESTINO_DE_COMECAR = {
+        "workouts/routine.html": "workouts:ficha",
+        # A Home também tem o rótulo, no cartão da área promovida, e o
+        # destino dela é o mesmo do painel: a ficha.
+        "plans/_area_promovida.html": "workouts:ficha",
+        "workouts/ficha.html": "workouts:now",
+    }
+
     def test_comecar_treino_so_com_workouts_ficha(self):
         achados = self._ocorrencias("Começar treino")
         self.assertTrue(achados)  # controle positivo: o rótulo existe
         for arquivo, trecho in achados:
             with self.subTest(arquivo=arquivo):
-                self.assertIn("workouts:ficha", trecho)
-                self.assertNotIn("workouts:now", trecho)
+                esperado = self.DESTINO_DE_COMECAR.get(arquivo)
+                self.assertIsNotNone(esperado, "rótulo em arquivo não previsto: %s" % arquivo)
+                self.assertIn(esperado, trecho)
+                outro = "workouts:now" if esperado == "workouts:ficha" else "workouts:ficha"
+                self.assertNotIn(outro, trecho)
+        # As DUAS telas têm o rótulo: sem isto, apagar o do painel deixaria
+        # o teste verde e o caminho de novo com dois nomes.
+        self.assertEqual(
+            {arquivo for arquivo, _ in achados}, set(self.DESTINO_DE_COMECAR)
+        )
 
     def test_continuar_de_onde_parou_so_com_workouts_now(self):
         achados = self._ocorrencias("Continuar de onde parou")

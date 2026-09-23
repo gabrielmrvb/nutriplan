@@ -84,9 +84,13 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: (era `2.5rem`, e `1.9rem` no desktop — o título nunca passa de 28).
 #: 115 em 20/09/2026: `.resumo__nota { font-size: .74rem }` saiu com a nota
 #: "a exportação gera um arquivo TCX" — a exportação saiu do produto.
-#: 114 desde 22/09/2026: a linha `.resumo-dia` saiu do CSS com o redesenho
-#: da Home, e ela levava um `font-size: .72rem` cru. A catraca só desce.
-TETO_FONT_SIZE_CRU = 114
+#: 22/09/2026, DUAS reduções no mesmo dia e em campanhas diferentes — o
+#: número final é o das duas somadas, e não o de nenhuma delas:
+#: `.descanso__rotulo { font-size: .78rem }` virou degrau quando o cronômetro
+#: cresceu (o relógio é `--texto-2xl` e o rótulo ao lado, `--texto-xs`), e a
+#: linha `.resumo-dia` saiu inteira com o redesenho da Home, levando um
+#: `font-size: .72rem` cru junto. A catraca só desce.
+TETO_FONT_SIZE_CRU = 113
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
@@ -120,7 +124,11 @@ TETO_FONT_SIZE_CRU = 114
 #: 241 em 20/09/2026: `.explicacao__head a` (`padding: 0 .4rem; margin: 0
 #: -.4rem`) saiu com o "Editar" de dentro do `<summary>` (axe
 #: `nested-interactive`); o link virou `.btn--quiet`, que já está na escala.
-TETO_ESPACO_CRU = 241
+#: 238 em 22/09/2026: a ficha virou CARD e a execução ganhou cronômetro e
+#: fecho — tudo nasceu na escala, e três crus antigos do bloco `.ficha-item`
+#: (o `padding: 0` da linha, o `row-gap: 2px` e o `gap` das ações) saíram
+#: junto com a linha de texto que eles vestiam.
+TETO_ESPACO_CRU = 238
 
 
 def sem_comentarios(texto):

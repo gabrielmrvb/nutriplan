@@ -522,7 +522,7 @@
     <a class="btn btn--ghost btn--block" href="{% url 'ajuda:index' %}">Ajuda e reportar um problema</a>
 
     <form method="post" action="{% url 'accounts:logout' %}"
-          onsubmit="return confirm('Sair da sua conta neste aparelho?');">
+          data-confirmar="Sair da sua conta neste aparelho?">
       {% csrf_token %}
       <button type="submit" class="btn btn--perigo btn--block">Sair da conta</button>
     </form>

@@ -42,7 +42,10 @@ class PaginaDe403Tests(TestCase):
         self.assertNotIn("CSRF verification failed", html)
         self.assertIn("não pôde ser confirmado", html)
         self.assertIn("ficou guardado", html)
-        self.assertIn("history.back()", html)
+        # A saída é `history.back()` — mas desde a CSP (22/09/2026) ele mora
+        # no ouvinte de `pwa.js`, e o HTML só traz o marcador: atributo
+        # `onclick=` não roda com a política ligada, e não roda em silêncio.
+        self.assertIn("data-voltar", html)
         self.assertIn(reverse("plans:today"), html)
 
 

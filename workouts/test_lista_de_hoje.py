@@ -249,7 +249,19 @@ class AFichaCompletaContinuaExistindoTests(TestCase):
         self.assertIn("registro__carga", execucao)
         self.assertIn('name="weight_kg"', execucao)
         self.assertIn('name="reps"', execucao)
-        self.assertIn("data-descanso", execucao)
+        # O DESCANSO SÓ EXISTE ENQUANTO CORRE, e é por isso que este teste
+        # anota uma série antes de procurá-lo. Até 22/09/2026 a asserção
+        # passava sem série nenhuma porque `data-descanso` também estava
+        # escrito no `<script>` inline da página (a armadilha do CLAUDE.md:
+        # o seletor do JavaScript e o marcador do HTML são a mesma string).
+        # Com o cronômetro em `pwa.js`, ela mede o que diz medir.
+        from decimal import Decimal
+
+        services.record_load(self.pessoa, item.exercise, Decimal("40"), set_number=1, reps=8)
+        com_descanso = self.client.get(
+            "%s?exercicio=%d" % (reverse("workouts:now"), item.exercise_id)
+        ).content.decode()
+        self.assertIn("data-descanso", com_descanso)
 
     def test_a_tela_principal_nao_pre_monta_os_formularios(self):
         """A outra metade: o paredão não pode voltar.

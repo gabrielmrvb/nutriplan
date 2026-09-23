@@ -538,6 +538,91 @@ três coisas que a varredura mudou:
   primeira passagem — sem ela `get_expiry_age()` devolve a idade cheia e a
   data real só existe na linha do banco). `config/test_sessao_renovada.py`.
 
+**AUDITORIA DE SESSÃO, CSRF E CACHE — E A RAIZ DO "A SESSÃO CAIU E PERDI O
+QUE DIGITEI" (22/09/2026).** A queixa do dono foi medida até o fim, numa
+sessão LOGADA do staging (`fetch` same-origin enxerga todo cabeçalho de
+resposta; é o que curl anônimo não alcança). **Não há logout em POST
+nenhum** — `logout()` só na exclusão da conta —, e a sessão deixou de vencer
+no meio do uso no lote 4. O que sobrava era 403 de CSRF, por dois caminhos:
+a página veio do CACHE DO SERVICE WORKER (ele serve a cópia guardada quando
+a rede passa de 3 s) com o token de uma sessão anterior, ou a pessoa entrou
+de novo em outra aba e `login()` chamou `rotate_token()`. Nos dois o COOKIE
+está certo e só o campo escondido do HTML está velho — e `fila.js` já
+trocava o token pelo do MOMENTO DO ENVIO, que é por que a água marcada sem
+rede nunca sofreu. Quem sofria era o formulário COMUM, o longo: a etapa 2 do
+cadastro e o registro de corrida, os dois citados pelo dono. Hoje `pwa.js`
+("TOKEN DE CSRF") reescreve `csrfmiddlewaretoken` com o valor do cookie no
+carregamento, no `pageshow` (bfcache) e no `submit` em CAPTURA. Isso **não**
+enfraquece nada: o cookie só é legível por JavaScript da própria origem, que
+é de onde a defesa vem, e `config/test_csrf_do_cookie.py` prende os dois
+lados — o valor cru do cookie é aceito (se `CSRF_COOKIE_MASKED` for ligado um
+dia, o teste cai antes da produção) e token de outro segredo continua 403.
+Provado no navegador: token trocado por `token-de-outra-sessao-ja-vencido`,
+envio passa, corrida gravada.
+
+**E O ACHADO DE SEGURANÇA DA MESMA MEDIÇÃO: tela logada respondia SEM
+`Cache-Control`.** `/historico/`, `/treino/` e `/conta/perfil/` não mandavam
+diretiva nenhuma, e sem diretiva o navegador guarda por heurística — peso,
+altura, e-mail, objetivo e histórico de treino, o dado de saúde que a etapa 1
+pede autorização para tratar. Num aparelho de casa, sair da conta e apertar
+VOLTAR redesenhava a tela da pessoa anterior a partir do disco.
+`config.cache_privado.CachePrivadoMiddleware` (o ÚLTIMO da lista, para a
+fase de resposta rodar com o `request.user` já posto) escreve `private,
+no-cache, must-revalidate` em toda resposta `text/html` de sessão
+autenticada que não declare a própria diretiva — `never_cache` do login e da
+gestão e o `no-store` da exportação ficam como estão. **E nada de
+`no-store`**, de propósito: o service worker recusa guardar o que vem com
+`no-store` (`podeGuardar`), e é o cache dele que faz a dieta abrir no metrô;
+e o Chrome desliga o bfcache numa página `no-store`, que é o "Voltar ao
+formulário" do 403 devolvendo o digitado. `config/test_cache_privado.py` lê
+a régua do próprio worker para as duas pontas não divergirem em silêncio.
+
+**E O TERCEIRO ACHADO DA MESMA AUDITORIA: NÃO HAVIA
+`Content-Security-Policy` EM ROTA NENHUMA (22/09/2026).** Nem a landing, nem
+a tela logada, nem o cadastro. CSP não conserta um XSS; ela limita o estrago
+de um que exista, e num app que sabe peso, altura e histórico de treino esse
+limite vale o trabalho. `config/csp.py` é a política MEDIDA do que o app
+carrega — `script-src 'self' 'nonce-…'` **sem `'unsafe-inline'`**, que é o
+que faz a política valer alguma coisa; `style-src` COM `'unsafe-inline'`,
+porque a barra de progresso é `style="width: {{ pct }}%"` calculado pelo
+servidor (a exceção já escrita na seção de Design) e estilo inline não
+executa código; `img-src` com `data:`, `blob:` (o cartão do placar nasce de
+um `canvas.toBlob`) e `https://cdn.jsdelivr.net` (as fotos da
+free-exercise-db); `frame-src` só o `youtube-nocookie`; `form-action 'self'
+https://accounts.google.com`, porque o botão do Google posta para o próprio
+site e o servidor redireciona — sem a origem, o Chrome mata o login em
+silêncio; `object-src 'none'`, `base-uri 'self'` e `frame-ancestors 'none'`.
+O nonce é sorteado por RESPOSTA no middleware (o primeiro depois do
+`SecurityMiddleware`, porque o template precisa dele) e chega aos templates
+por `config.csp.contexto`.
+
+Duas consequências que qualquer mudança futura esbarra, e por isso têm
+teste de VARREDURA em `config/test_csp.py`: **todo `<script>` inline de
+`templates/` carrega `nonce="{{ csp_nonce }}"`** (são 13; sem ele o script
+simplesmente não roda em produção, e ninguém descobre até a tela quebrar) e
+**nenhum atributo `onclick=`/`onsubmit=`/`onchange=` sobrevive** — os quatro
+que existiam (403 de CSRF, Perfil, gestão e a tela offline) viraram marcador
+no HTML com ouvinte delegado em `pwa.js`, e o da gestão num `<script>` com
+nonce da própria página, porque `gestao/base.html` não carrega `pwa.js`.
+Atributo de evento sob CSP não dá erro visível: o botão fica lá e não faz
+nada.
+
+E uma consequência que a suíte achou e que volta a morder quem escrever
+o próximo teste de segurança: **o nonce muda a cada resposta, e há quatro
+testes que comparam duas respostas BYTE A BYTE** para provar que a recusa
+não é oráculo (bloqueado, senha errada e conta inexistente respondem a
+mesma coisa). Eles ficaram vermelhos sem que nada de segurança tivesse
+mudado. `accounts.tests.sem_o_que_muda_por_resposta` normaliza o token de
+CSRF e o nonce — e só eles; todo o resto do HTML continua comparado byte a
+byte.
+
+**A casca nativa NÃO recebe a política**, e a razão é medida: o Capacitor
+injeta a própria ponte no WebView e nenhuma política que este servidor
+escreva conhece o nonce dela. Isso não abre buraco real — a marca
+`NutriPlanNativo/` é do User-Agent de QUEM PEDE, e um XSS rodando no
+navegador da vítima não muda o User-Agent dela; o que um atacante consegue
+falsificando a marca é desligar a CSP do próprio navegador, contra si mesmo.
+
 **OS LEGAIS ESTÃO PUBLICADOS, E O CONSENTIMENTO SÃO TRÊS CAIXAS COM PROVA
 (decisão do dono, 21/09/2026).** `LEGAL_RESPONSAVEL` e `LEGAL_CONTATO`
 preenchidos no Render (produção e staging) fazem `settings.LEGAL_PUBLICADO`

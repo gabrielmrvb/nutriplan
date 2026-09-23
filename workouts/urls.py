@@ -26,6 +26,11 @@ urlpatterns = [
     # GET puro — não colide com `ROTAS` de `fila.js`, que são só POST.
     path("exercicio/<int:exercise_id>/", views.ExercicioView.as_view(), name="exercicio"),
     path("agora/serie/", views.ConcluirSerieView.as_view(), name="record_set"),
+    # "Acabei" — o fecho que a execução não tinha (22/09/2026). POST, porque
+    # carimba o dia; o GET volta para a execução, como as outras ações de
+    # tela (`config/test_acoes_com_tela.py`: nenhuma responde 405 em branco).
+    path("agora/encerrar/", views.EncerrarTreinoView.as_view(), name="encerrar"),
+    path("agora/retomar/", views.RetomarTreinoView.as_view(), name="retomar"),
     path(
         "exercicio/<int:exercise_id>/carga/",
         views.RecordLoadView.as_view(),

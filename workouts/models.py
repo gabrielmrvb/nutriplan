@@ -1010,6 +1010,13 @@ class TrainingPlan(models.Model):
     #: regenerar?" (17/09/2026). No plano, e não no navegador: um aviso que
     #: volta em cada aparelho é ruído. `None` é "nunca dispensou".
     aviso_dispensado_em = models.DateTimeField("aviso de regenerar dispensado em", null=True, blank=True)
+    #: REMONTAGEM PEDIDA E ADIADA (22/09/2026). "Regenerar" com série anotada
+    #: hoje não troca a ficha debaixo da mão de quem está treinando — o dono
+    #: viu a ficha em uso virar 404 e o cartão do dia virar outra letra com
+    #: 0 %. O pedido fica AQUI, e `sync_active_routine` o cumpre na primeira
+    #: visita de um dia sem série. No plano e não na sessão do navegador
+    #: porque quem pediu de um aparelho espera a ficha nova em todos.
+    regenerar_pedido_em = models.DateTimeField("remontagem pedida em", null=True, blank=True)
     #: RETRATO DAS ENTRADAS (17/09/2026): com que catálogo (a impressão
     #: digital de `exercises.json`, `splits.json` e `TREINO.md` —
     #: `services.versao_do_catalogo`), que nível e que faixa de duração a
@@ -1299,6 +1306,14 @@ class EscolhaDeTreino(models.Model):
     versao = models.CharField(
         "versão", max_length=8, choices=VersaoDoTreino.choices, default=VersaoDoTreino.COMPLETO
     )
+    #: QUANDO A PESSOA DISSE "ACABEI" (22/09/2026). Até aqui o treino só
+    #: "terminava" cobrindo toda série prescrita — quem parava no sexto de
+    #: nove exercício não tinha como fechar, e a tela ficava eternamente em
+    #: "Exercício 6/9" sem nenhum resumo. `None` é "ainda treinando"; o
+    #: placar abre com isto OU com a ficha inteira coberta. Continua sendo
+    #: derivado do que a pessoa fez — ninguém "abre" um treino, e a primeira
+    #: série de amanhã é outro dia, outra linha.
+    encerrado_em = models.DateTimeField("encerrado em", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1354,6 +1369,16 @@ class ExerciseLog(models.Model):
         blank=True,
         validators=[MaxValueValidator(100)],
     )
+    #: O QUE ACONTECEU NAQUELA SÉRIE, em uma linha (22/09/2026). "falhei na
+    #: 5ª", "dor no ombro", "pegada aberta". Opcional e curto de propósito:
+    #: é anotação de quem está de pé entre séries, não diário de treino — e
+    #: o que ela responde, meses depois, é "por que a carga caiu aqui?".
+    nota = models.CharField("observação", max_length=120, blank=True, default="")
+    #: A SÉRIE FALHOU: a pessoa não completou a repetição que tentou. É um
+    #: fato dela, e não uma inferência do app — repetição abaixo da faixa
+    #: pode ser série de aquecimento, drop set ou anotação parcial. Com
+    #: falha na referência, a progressão não sugere subir (`adaptacao`).
+    falhou = models.BooleanField("falhou", default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
