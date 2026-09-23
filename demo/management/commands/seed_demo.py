@@ -611,6 +611,20 @@ class Command(BaseCommand):
         """
         hoje = timezone.localdate()
         ExerciseLog.objects.filter(user=user).delete()
+        # AS CONQUISTAS VÃO JUNTO (23/09/2026). Elas nascem do histórico de
+        # carga, e este método REESCREVE o histórico a cada deploy com datas
+        # novas — a chave do recorde é (exercício, dia), então nenhuma linha
+        # velha é reencontrada e todas ficam. Medido em produção: o cartão de
+        # Conquistas do "Mais" dizia **312** para uma pessoa com quatro
+        # semanas de treino; avaliando do zero sobre o mesmo histórico são 30
+        # (13 recordes, 13 melhores séries e as 4 únicas). Número que ninguém
+        # acredita é número que não ajuda — e a conta nem estava errada, o
+        # DADO é que era um empilhamento de fixtures.
+        #
+        # O seed é dono do demo: ele apaga o que ele escreve. As conquistas
+        # voltam sozinhas na primeira visita ao Progresso ou às Conquistas,
+        # porque `avaliar` as deriva deste mesmo histórico.
+        user.conquistas.all().delete()
 
         registros = []
         # Um registro por EXERCICIO, mesmo quando as DUAS opcoes da letra (ou
