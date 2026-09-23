@@ -8,7 +8,7 @@ from django.utils import timezone
 from accounts.models import ActivityLevel, Goal, Sex
 from catalog.models import MACRO_FIELD, MealCategory, MealTemplate
 
-from .porcoes import medida_caseira
+from .porcoes import item_em_uma_linha, medida_caseira
 
 
 class NutritionPlan(models.Model):
@@ -188,7 +188,7 @@ class MealOption(models.Model):
     def __str__(self):
         return f"#{self.rank}: {self.template.name}"
 
-    def ingredient_list(self):
+    def ingredient_list(self, porcao=Decimal("1")):
         """Ingredientes com as quantidades já escaladas, para exibir na tela.
 
         Usa `.all()` de propósito: assim a chamada aproveita o
@@ -199,19 +199,59 @@ class MealOption(models.Model):
         "caseira" é a medida caseira da quantidade escalada ("7,5 colheres de
         sopa" em vez de "Aveia 116 g" — avaliação de 16/09, B15), ou `None`
         quando o alimento não tem porção cadastrada.
+
+        `porcao` é a fração que a pessoa escolheu na receita (½, 1 ou 1½) e
+        multiplica TUDO — inclusive o item marcado como não escalável. Os dois
+        fatores respondem perguntas diferentes: `scale_factor` é do MOTOR
+        ajustando a receita ao alvo calórico, e ali não escalar o ovo está
+        certo (1,37 ovo não existe); `porcao` é a PESSOA dizendo que comeu
+        metade do prato, e meio prato tem meio ovo. Se o ovo não acompanhasse,
+        o kcal da tela deixaria de ser o kcal do que foi comido — e é esse
+        número que vai para o histórico.
         """
+        quantidades = {
+            item.pk: item.scaled_quantity(self.scale_factor) * Decimal(porcao)
+            for item in self.template.items.all()
+        }
         return [
             {
                 "food": item.food,
-                "quantity": item.scaled_quantity(self.scale_factor),
+                "quantity": quantidades[item.pk],
                 "unit": item.food.base_unit,
                 "caseira": medida_caseira(
-                    item.scaled_quantity(self.scale_factor),
+                    quantidades[item.pk],
                     next((p for p in item.food.portions.all() if p.is_default), None),
                 ),
             }
             for item in self.template.items.all()
         ]
+
+    def resumo_dos_itens(self, limite=4):
+        """Os ingredientes numa linha só: "2 ovos · 1 pão francês · 1 col. de
+        manteiga".
+
+        A auditoria de 23/09/2026 disse o que faltava no card: "queijo minas
+        com banana — quanto queijo, quantas bananas?". A resposta já existia
+        no banco (`ingredient_list`, com a medida caseira) e morava DENTRO de
+        um `<details>` fechado: para saber do que a refeição era feita, era
+        preciso abrir a opção, e para abrir era preciso saber que ela abre.
+
+        Aqui a mesma informação sai em UMA linha, que é o que cabe num card
+        de receita sem virar tabela. `limite` corta e o template diz "e mais
+        N": um prato feito tem cinco ou seis itens, e a linha existe para
+        responder "do que é isso?" de relance, não para substituir a receita
+        — quem quer a lista inteira abre a folha da receita.
+        """
+        itens = self.ingredient_list()
+        return {
+            "linha": [
+                item_em_uma_linha(
+                    i["quantity"], i["unit"], i["food"].name, i["caseira"]
+                )
+                for i in itens[:limite]
+            ],
+            "restantes": max(len(itens) - limite, 0),
+        }
 
 
 class HydrationLog(models.Model):
@@ -302,6 +342,21 @@ class MealLog(models.Model):
     #: a este campo, que NÃO foram preenchidos retroativamente. Preencher o
     #: passado com a opção de hoje seria transformar palpite em fato.
     recipe_name = models.CharField(max_length=120, blank=True)
+    #: Quanto da receita foi comido: ½, 1 ou 1½ (`porcoes.PORCOES`).
+    #:
+    #: Os macros abaixo JÁ vêm multiplicados por ele — é o número do que foi
+    #: comido, e é dele que o histórico, a aderência e a ofensiva leem. O
+    #: campo existe para a tela poder DIZER "½ porção" ao lado de 380 kcal:
+    #: sem ele, uma receita de 765 registrada pela metade pareceria erro de
+    #: dado, e a pessoa não teria como conferir a própria conta.
+    #:
+    #: `default=1` e sem backfill: todo registro anterior a 23/09/2026 é uma
+    #: porção inteira, porque não havia outra coisa a escolher. Isso é fato,
+    #: não suposição — é o oposto do `recipe_name` acima, que ficou vazio
+    #: justamente porque preencher o passado ali seria palpite.
+    porcao = models.DecimalField(
+        "porção", max_digits=3, decimal_places=1, default=Decimal("1")
+    )
     kcal = models.DecimalField(**MACRO_FIELD)
     protein_g = models.DecimalField(**MACRO_FIELD)
     carb_g = models.DecimalField(**MACRO_FIELD)

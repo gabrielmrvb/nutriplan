@@ -34,8 +34,18 @@ class APesagemToleranteTests(CatalogFixture):
         )
 
     def _opcoes_de_hoje(self):
-        html = self.client.get(reverse("plans:today")).content.decode()
-        return re.findall(r'class="option__name">([^<]+)<', html)
+        """Os nomes das receitas do dia, lidos da tela que as mostra.
+
+        Duas coisas mudaram debaixo deste helper e as duas o deixavam medir
+        NADA: o cardápio saiu da Hoje para a Alimentação (22/09/2026) e a
+        opção deixou de ser uma linha `.option__name` para virar um card de
+        receita (23/09/2026). Comparar duas listas vazias passa sempre — o
+        `assertTrue` abaixo é o controle positivo que faltava.
+        """
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
+        nomes = re.findall(r'class="receita__nome">([^<]+)<', html)
+        self.assertTrue(nomes, "a tela do cardápio não trouxe receita nenhuma")
+        return nomes
 
     def test_um_quilo_a_mais_mantem_o_plano_e_o_cardapio(self):
         antes = self._opcoes_de_hoje()

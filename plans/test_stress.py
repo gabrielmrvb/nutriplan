@@ -164,6 +164,23 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # `items_changed_at` dentro da mesma consulta de `template__is_active`
         # em `plan_is_current` (zero a mais).
         "plans:today": 17,  # 44 → 17 em 21/09/2026 (uma leitura por tabela; `test_orcamento_da_home`)
+        # A ALIMENTAÇÃO ENTRA NA TABELA em 23/09/2026, com 18.
+        #
+        # Ela nasceu da separação de 22/09 e ficou sem orçamento próprio: o
+        # teto de `plans:today` cobria as duas quando eram a mesma tela. Medido
+        # agora, com o card de refeição novo e a coluna da direita: 17 sem a
+        # coluna (o mesmo da Home, que é o piso desta arquitetura) e 18 com
+        # ela. A ÚNICA consulta a mais é `outras` — as receitas do repertório
+        # daquele horário, que o painel oferece em "trocar por outra receita".
+        #
+        # A prévia da lista de compras custava SEIS (`shopping_list` projeta o
+        # cardápio dos sete dias) e passou a custar ZERO: ela é cache de
+        # processo por (plano, semana), como o `<datalist>` de alimentos —
+        # três nomes e um total não valem seis consultas por abertura.
+        #
+        # E os cards de receita não custam nada: os ingredientes e a medida
+        # caseira saem do `prefetch_related` que a tela já fazia.
+        "plans:alimentacao": 18,
         "workouts:routine": 25,
         # 15 -> 26: o Progresso passou a mostrar o bloco de Conquistas, e ele
         # custa NOVE consultas constantes — medido, com `reunir` respondendo por

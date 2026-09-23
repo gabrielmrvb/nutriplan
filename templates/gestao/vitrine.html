@@ -112,6 +112,42 @@
   </section>
 
   {% comment %}
+    AS ONZE ILUSTRAÇÕES DE RECEITA (23/09/2026) — e por que elas estão aqui.
+
+    O sprite `partials/ilustracoes_de_receita.html` só é incluído na
+    Alimentação e na tela da receita (é conteúdo daquelas telas, não do app
+    inteiro: 7,8 kB que a Hoje não tem por que pagar). Sem uma tela que
+    desenhe as onze juntas, a única forma de conferir um desenho seria
+    esperar a receita daquela família cair no rodízio de alguém.
+
+    Este mosaico é o lugar de VETO, que é o mesmo padrão da mídia de
+    exercício: o dono olha as onze de uma vez, nos dois regimes
+    (`?regime=ferro`), e diz qual não passa. E é ele que satisfaz
+    `CoberturaDaVitrineTests` para esta parcial.
+  {% endcomment %}
+  <section class="card">
+    <div class="card__head"><h2>Ilustrações de receita</h2></div>
+    {% include "partials/ilustracoes_de_receita.html" %}
+    <ul class="vitrine-ilustracoes">
+      {% for familia, rotulo in familias_de_ilustracao %}
+        <li>
+          <span class="receita__ilu" aria-hidden="true">
+            <svg viewBox="0 0 48 36" fill="none" stroke="currentColor"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <use href="#ilu-{{ familia }}"></use>
+            </svg>
+          </span>
+          <span class="vitrine-ilustracoes__nome">{{ rotulo }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="hint">
+      Uma por FAMÍLIA de prato, e não uma por receita: 54 fotos exigiriam
+      curadoria e licença, e este ambiente não vê foto para conferir.
+    </p>
+  </section>
+
+  {% comment %}
     AS DUAS BARRAS (22/09/2026), a partir da mesma lista.
 
     `partials/abas.html` nasceu quando a barra de baixo foi de quatro para

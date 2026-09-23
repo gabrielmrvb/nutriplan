@@ -1,20 +1,27 @@
-"""FASE 2 — a opção A/B para de parecer um bloco de informação.
+"""A opção do cardápio é uma RECEITA, e a ação dela está à vista.
 
-O DEFEITO. Cada opção do cardápio é um `<details>`: a linha visível traz letra,
-nome, calorias, proteína e tempo, e o botão que REGISTRA a refeição mora dentro
-do corpo colapsado. Quem abre a tela vê duas linhas de informação e nenhuma
-ação — para marcar o almoço é preciso primeiro descobrir que a linha abre.
+O DEFEITO ORIGINAL (12/09/2026). Cada opção era um `<details>`: a linha visível
+trazia letra, nome, calorias, proteína e tempo, e o botão que REGISTRA a
+refeição morava dentro do corpo colapsado. Quem abria a tela via duas linhas de
+informação e nenhuma ação — para marcar o almoço era preciso primeiro descobrir
+que a linha abria.
 
-A ação é o motivo da tela existir. Ela não pode estar atrás de uma descoberta.
+A CORREÇÃO daquele dia foi de posição: o formulário saiu de dentro do corpo e
+virou irmão do `<details>`.
 
-A CORREÇÃO é de posição, não de contrato: o formulário sai de dentro do corpo e
-vira irmão do `<details>`, sempre visível, com o rótulo dizendo o que faz e qual
-opção registra. O corpo continua guardando o que é consulta — ingredientes e
-modo de preparo —, que é exatamente o que uma sanfona deve guardar.
+O QUE MUDOU EM 23/09/2026. A auditoria mediu o resultado daquela correção e
+achou o problema seguinte: "aberto, cada opção é UMA LINHA de texto seguida de
+um REGISTRAR A gigante — cinco botões empilhados por refeição". A opção deixou
+de ser uma linha com sanfona e virou um CARD DE RECEITA: ilustração, nome,
+caloria, os três macros, tempo de preparo e os ingredientes com a porção. O
+`<details>` de consulta sumiu junto — o que ele guardava está na tela, e o que
+não cabia (o modo de preparo) virou uma TELA com endereço próprio.
 
-O QUE NÃO MUDA, e cada item aqui tem teste: os campos que o formulário envia
-(`status` e `option`), os números mostrados na linha, e o papel secundário de
-"Pulei" e "Comi outra coisa".
+AS PROPRIEDADES DESTE ARQUIVO NÃO MUDARAM, e é por isso que ele continua
+existindo com os mesmos nomes de teste: a ação não fica atrás de uma
+descoberta, o botão diz o que registra, os números continuam na tela, as ações
+secundárias continuam secundárias, só a primeira opção é primária, e tudo que
+não é a refeição da vez nasce recolhido.
 """
 import re
 from datetime import datetime, time
@@ -29,14 +36,16 @@ from .models import MealLog, MealStatus, NutritionPlan
 from .test_saldo_sem_registro import com_plano
 
 
-def corpo_da_sanfona(html):
-    """Só o que está DENTRO dos corpos colapsados das opções.
+def cards_de_receita(html):
+    """Só o que está DENTRO dos cards de receita.
 
-    A asserção que importa nesta fase é sobre POSIÇÃO — o botão saiu de dentro
-    da sanfona —, e uma busca na página inteira não distingue dentro de fora.
+    A asserção que importa é sobre POSIÇÃO — o que está à vista e o que está
+    atrás de um toque —, e uma busca na página inteira não distingue um do
+    outro.
     """
-    return "\n".join(re.findall(
-        r'<div class="option__body">(.*?)</div>\s*</details>', html, re.S))
+    return "\n".join(
+        re.findall(r'<article class="receita.*?</article>', html, re.S)
+    )
 
 
 class ARegistrarNaoMoraMaisDentroDaSanfonaTests(TestCase):
@@ -51,35 +60,42 @@ class ARegistrarNaoMoraMaisDentroDaSanfonaTests(TestCase):
 
     def test_a_tela_tem_opcoes_para_medir(self):
         """Controle positivo: sem opção na tela, tudo abaixo passaria vazio."""
-        self.assertIn('class="option__summary"', self.html)
+        self.assertIn('<article class="receita', self.html)
 
-    def test_o_botao_de_registrar_esta_fora_do_corpo_colapsado(self):
-        """Fora da sanfona E existindo.
-
-        Só `assertNotIn` passaria por ausência: enquanto o botão se chamasse
-        "Comi esta", "Registrar" não estava dentro do corpo porque não estava
-        em lugar nenhum. As duas asserções juntas é que descrevem a mudança.
-        """
-        self.assertIn("Registrar", self.html)
-        self.assertNotIn("Registrar", corpo_da_sanfona(self.html))
-        self.assertNotIn("Comi esta", corpo_da_sanfona(self.html))
+    def test_o_botao_de_registrar_esta_no_card_da_opcao(self):
+        """A ação e a opção que ela registra são um PAR, e a proximidade é o
+        que diz isso. Antes o botão era irmão do `<details>`; hoje ele mora
+        dentro do card da receita a que pertence."""
+        self.assertIn("Comi esta", self.html)
+        self.assertIn('class="receita__acao"', cards_de_receita(self.html))
 
     def test_o_botao_diz_qual_opcao_registra(self):
-        """"Comi esta" só funciona depois de abrir a opção certa.
+        """"Comi esta" dito por escrito, com o nome da receita e do horário.
 
-        Fora da sanfona existem DOIS botões lado a lado, e "esta" deixa de ter
-        antecedente: a letra é o que distingue um do outro.
+        Eram "Registrar A" e "Registrar B" — e a letra é nome INTERNO: ela
+        existe para o rodízio, que é do servidor. O que distingue os dois
+        botões na tela é o card em que cada um está; o que os distingue para
+        quem usa leitor de tela é o `aria-label`, que nomeia a receita.
         """
-        self.assertIn("Registrar A", self.html)
-        self.assertIn("Registrar B", self.html)
+        rotulos = re.findall(r'aria-label="Registrar ([^"]+)"', self.html)
+        self.assertTrue(rotulos, "nenhum botão nomeia a opção que registra")
+        # A âncora leva os sinais de tag: `Registrar A` casa com
+        # "Registrar Arroz com lentilha e couve em Almoço", que é o
+        # `aria-label` NOVO. Medir a ausência do rótulo velho com um
+        # prefixo do rótulo novo é a armadilha que este repositório
+        # documenta — a asserção passa (ou falha) por outro lugar da tela.
+        self.assertNotIn(">Registrar A<", self.html)
+        self.assertNotIn(">Registrar B<", self.html)
+        for rotulo in rotulos:
+            self.assertIn(" em ", rotulo, rotulo)
 
-    def test_o_corpo_ainda_guarda_a_receita(self):
-        """A sanfona não ficou vazia — ela ficou com o que é consulta."""
-        corpo = corpo_da_sanfona(self.html)
-        self.assertIn("option__items", corpo)
+    def test_o_card_mostra_os_ingredientes(self):
+        """O que a sanfona guardava está na tela: os ingredientes com a
+        porção, numa linha."""
+        self.assertIn("receita__itens", cards_de_receita(self.html))
 
     def test_a_linha_visivel_preserva_os_numeros(self):
-        for marca in ("option__kcal", "option__name", "option__label", "g P"):
+        for marca in ("receita__kcal", "receita__nome", "receita__macros"):
             with self.subTest(marca=marca):
                 self.assertIn(marca, self.html)
 
@@ -87,11 +103,17 @@ class ARegistrarNaoMoraMaisDentroDaSanfonaTests(TestCase):
         self.assertIn("min", self.html)
 
     def test_as_acoes_secundarias_continuam_secundarias(self):
-        """"Pulei" e "Comi outra coisa" não podem virar botão primário."""
+        """"Pulei" e "Comi outra coisa" não podem virar botão primário.
+
+        Desde 23/09/2026 elas são MAIS secundárias que antes: eram dois
+        botões de 48px com o mesmo peso do registrar, e viraram uma linha
+        discreta no rodapé do card (`btn-link`, a mesma língua de "desfazer").
+        """
         self.assertIn("Pulei", self.html)
         self.assertIn("Comi outra coisa", self.html)
-        # `btn--quiet` é a receita de ação secundária deste projeto.
-        self.assertIn('value="skipped" class="btn btn--quiet"', self.html)
+        self.assertIn('class="meal__secundarias"', self.html)
+        self.assertIn('value="skipped" class="btn-link"', self.html)
+        self.assertNotIn('value="skipped" class="btn btn--primary"', self.html)
 
 
 class OContratoDoFormularioNaoMudouTests(TestCase):
@@ -212,9 +234,9 @@ class AOpcaoAEASugestaoEABEAAlternativaTests(TestCase):
     ação principal, "não pintar tudo".
 
     `rodizio` já ordena as opções, e a primeira da projeção É a sugestão do
-    dia — o rótulo "A" vem daí. O botão dela continua primário; o da segunda
-    vira `btn--ghost`: mesma largura, mesmo alvo de 44px, mesma ação, peso
-    diferente. Quem quer B toca em B; quem só quer marcar toca no verde.
+    dia. O botão dela continua primário; o da segunda vira `btn--ghost`:
+    mesma largura, mesmo alvo de 44px, mesma ação, peso diferente. Quem quer
+    a segunda toca nela; quem só quer marcar toca no verde.
     """
 
     @classmethod
@@ -234,12 +256,21 @@ class AOpcaoAEASugestaoEABEAAlternativaTests(TestCase):
         with mock.patch("plans.views.relogio", return_value=meio_dia):
             self.html = self.client.get(reverse("plans:alimentacao")).content.decode("utf-8")
 
+    def _cartao_da_vez(self):
+        """O card da refeição de agora, do começo dele ao começo do próximo.
+
+        Cortar em `</article>` não serve mais: os cards de receita TAMBÉM são
+        `<article>`, e o primeiro fechamento agora é o da primeira receita.
+        """
+        inicio = self.html.index("meal--agora")
+        proximo = self.html.find('<article class="meal', inicio)
+        return self.html[inicio:proximo] if proximo != -1 else self.html[inicio:]
+
     def _acoes(self, bloco):
-        return re.findall(r'<form[^>]*class="option-par__acao"(.*?)</form>', bloco, re.S)
+        return re.findall(r'<form[^>]*class="receita__acao"(.*?)</form>', bloco, re.S)
 
     def test_na_refeicao_atual_so_a_primeira_opcao_e_primaria(self):
-        atual = self.html.split('meal--agora', 1)[1].split("</article>", 1)[0]
-        acoes = self._acoes(atual)
+        acoes = self._acoes(self._cartao_da_vez())
         self.assertGreaterEqual(len(acoes), 2, "a refeição atual precisa de duas opções para medir")
         self.assertIn("btn--primary", acoes[0])
         self.assertNotIn("btn--primary", acoes[1])
@@ -248,19 +279,20 @@ class AOpcaoAEASugestaoEABEAAlternativaTests(TestCase):
     def test_as_duas_continuam_registrando_a_mesma_coisa(self):
         """Peso visual diferente, contrato igual: as duas mandam `status=done`
         e a própria opção."""
-        atual = self.html.split('meal--agora', 1)[1].split("</article>", 1)[0]
-        for acao in self._acoes(atual)[:2]:
+        for acao in self._acoes(self._cartao_da_vez())[:2]:
             self.assertIn('name="status" value="done"', acao)
             self.assertIn('name="option"', acao)
             self.assertIn("btn--block", acao)
 
 
 class ARefeicaoFuturaFicaEmSegundoPlanoTests(TestCase):
-    """§7: a ação da vez aberta; o resto do dia atrás de "Ver opções".
+    """§7: a ação da vez aberta; o resto do dia recolhido.
 
     Medido a 390px em 12/09/2026: cinco refeições sem registro renderizavam
     dez botões de registrar e dez ações secundárias — ~2.100px de formulário
-    para um dia em que só uma refeição é a vez.
+    para um dia em que só uma refeição é a vez. Em 23/09/2026 a conta ficou
+    maior (cada opção virou um card de receita), e por isso a régua ficou
+    mais estrita: o que não é a vez é UMA LINHA.
     """
 
     @classmethod
@@ -282,26 +314,38 @@ class ARefeicaoFuturaFicaEmSegundoPlanoTests(TestCase):
             self.html = self.client.get(reverse("plans:alimentacao")).content.decode("utf-8")
 
     def _artigos(self):
-        return re.findall(r'<article class="meal([^"]*)"(.*?)</article>', self.html, re.S)
+        """Cada card de refeição: (estado, corpo).
+
+        O corte é no COMEÇO do próximo card, e não no primeiro `</article>`:
+        desde 23/09/2026 as opções também são `<article>`, e o fechamento que
+        aparece primeiro é o da primeira receita.
+        """
+        marcas = [
+            (m.group(1), m.start())
+            for m in re.finditer(r'<article class="meal meal--([a-z]+)"', self.html)
+        ]
+        blocos = []
+        for i, (estado, inicio) in enumerate(marcas):
+            fim = marcas[i + 1][1] if i + 1 < len(marcas) else len(self.html)
+            blocos.append((estado, self.html[inicio:fim]))
+        return blocos
 
     def test_a_futura_guarda_as_opcoes_num_details_fechado(self):
-        futuras = [corpo for cls, corpo in self._artigos()
-                   if "meal--agora" not in cls and "meal--done" not in cls
-                   and 'class="meal__marca"' not in corpo and "option-par__acao" in corpo]
+        futuras = [corpo for estado, corpo in self._artigos() if estado == "futura"]
         self.assertTrue(futuras, "precisa de pelo menos uma refeição futura para medir")
         for corpo in futuras:
             self.assertIn('<details class="meal__futuro">', corpo)
             self.assertNotIn('<details class="meal__futuro" open', corpo)
-            self.assertIn("Ver opções", corpo)
+            self.assertIn('<summary class="meal__linha">', corpo)
 
     def test_a_refeicao_da_vez_continua_aberta(self):
         """Controle positivo: o `<details>` é de todas MENOS a da vez. A de
         agora mostra as opções sem toque nenhum."""
-        abertas = [corpo for cls, corpo in self._artigos() if "meal--agora" in cls]
+        abertas = [corpo for estado, corpo in self._artigos() if estado == "agora"]
         self.assertTrue(abertas, "precisa de uma refeição de agora")
         for corpo in abertas:
             self.assertNotIn("meal__futuro", corpo)
-            self.assertIn("option-par__acao", corpo)
+            self.assertIn("receita__acao", corpo)
 
     def test_a_vencida_fica_em_uma_linha_com_o_convite_a_registrar(self):
         """Home compacta (decisão do dono, 20/09/2026). Até então a VENCIDA
@@ -309,26 +353,33 @@ class ARefeicaoFuturaFicaEmSegundoPlanoTests(TestCase):
         um primeiro uso às 15 h dava uma Home de 3 757 px com quatro
         refeições abertas × quatro botões cada; um fixture às 18 h, 3 530 px.
         Só a refeição da vez fica aberta; a vencida vira uma linha com o
-        convite a registrar, e as opções continuam ali, atrás do toque."""
-        vencidas = [corpo for cls, corpo in self._artigos() if 'class="meal__marca">Pendente' in corpo]
+        convite a registrar, e as opções continuam ali, atrás do toque.
+
+        A reforma de 23/09/2026 quase desfez isto — a primeira versão abria
+        `agora` E `pendente`, com o argumento de que as duas são ação em
+        aberto. Com cards de receita no lugar das linhas, isso teria posto
+        DOIS cardápios abertos na tela às 15h. Este teste é o que segurou.
+        """
+        vencidas = [corpo for estado, corpo in self._artigos() if estado == "pendente"]
         self.assertTrue(vencidas, "meio-dia e meia: o café da manhã já venceu")
         for corpo in vencidas:
             self.assertIn('<details class="meal__futuro">', corpo)
             self.assertNotIn('<details class="meal__futuro" open', corpo)
             self.assertIn("Não registrada · registrar", corpo)
-            self.assertNotIn("Ver opções", corpo)
-            self.assertIn("option-par__acao", corpo)
+            self.assertIn("receita__acao", corpo)
 
     def test_fora_da_vez_toda_acao_nasce_atras_do_toque(self):
         """A conta que a auditoria mediu: quantas ações nascem visíveis. Em
         toda refeição que não é a da vez, o `<details class="meal__futuro">`
-        abre ANTES da primeira ação — nenhum botão de registrar fora dele.
-        (Os `<details>` são aninhados — `.option` mora dentro —, então a
-        régua é a ORDEM, não um recorte por regex.)"""
+        abre ANTES da primeira ação — nenhum botão de registrar fora dele."""
         medidas = 0
-        for cls, corpo in self._artigos():
-            if "meal--agora" in cls or "option-par__acao" not in corpo:
+        for estado, corpo in self._artigos():
+            if estado in ("agora", "resolvida") or "receita__acao" not in corpo:
                 continue
             medidas += 1
-            self.assertLess(corpo.index('<details class="meal__futuro">'), corpo.index("option-par__acao"), corpo[:200])
+            self.assertLess(
+                corpo.index('<details class="meal__futuro">'),
+                corpo.index("receita__acao"),
+                corpo[:200],
+            )
         self.assertGreaterEqual(medidas, 2, "meio-dia e meia: uma vencida e pelo menos uma futura")

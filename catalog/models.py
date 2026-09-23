@@ -4,6 +4,8 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from .ilustracoes import FAMILIAS as FAMILIAS_DE_ILUSTRACAO, PADRAO as ILUSTRACAO_PADRAO
+
 #: Precisão usada em todos os campos de macronutriente.
 MACRO_FIELD = dict(max_digits=8, decimal_places=2, default=Decimal("0"))
 
@@ -258,6 +260,19 @@ class MealTemplate(models.Model):
         ),
     )
     instructions = models.TextField("modo de preparo", blank=True)
+    #: A FAMÍLIA de prato, que decide qual ilustração o card desenha.
+    #:
+    #: Dado do catálogo, e não conta feita na hora de renderizar: quem cadastra
+    #: uma receita nova diz a que família ela pertence, e a decisão fica
+    #: gravada. O seed preenche pelo nome quando o JSON não traz a chave (ver
+    #: `catalog/ilustracoes.py`, que também explica por que é ilustração por
+    #: família e não foto por receita).
+    ilustracao = models.CharField(
+        "ilustração",
+        max_length=12,
+        choices=FAMILIAS_DE_ILUSTRACAO,
+        default=ILUSTRACAO_PADRAO,
+    )
     is_active = models.BooleanField("ativa", default=True)
     #: Quando o seed recriou os ingredientes desta receita pela última vez.
     #:

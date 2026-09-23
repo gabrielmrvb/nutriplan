@@ -1,0 +1,131 @@
+{% load i18n %}
+{% comment %}
+  A RECEITA — o MESMO markup em três lugares (23/09/2026).
+
+  Ele é a tela `/refeicao/<slot>/receita/<id>/`, é o miolo da folha no celular
+  e é o painel da direita no desktop. Um markup só, porque três cópias do
+  mesmo conteúdo divergem na primeira receita nova — e porque a folha e o
+  painel são LITERALMENTE esta seção, recortada da página buscada.
+
+  Tudo o que os três mostram está dentro de `#receita`. O que fica fora é a
+  moldura de cada um: o cabeçalho da página, a barra de título da folha, o
+  rótulo do painel.
+
+  O contexto chega num dicionário só (`r`), montado por
+  `plans.views.contexto_da_receita` — assim a tela da receita e a tela do
+  cardápio calculam a mesma coisa do mesmo jeito.
+{% endcomment %}
+<section id="receita" class="card receita-folha">
+  <span class="receita-folha__ilu" aria-hidden="true">
+    <svg viewBox="0 0 48 36" fill="none" stroke="currentColor"
+         stroke-linecap="round" stroke-linejoin="round">
+      <use href="#ilu-{{ r.opcao.template.ilustracao|default:'prato' }}"></use>
+    </svg>
+  </span>
+
+  <h2 class="receita-folha__nome">{{ r.opcao.template.name }}</h2>
+
+  {% comment %}
+    A PORÇÃO é um link por valor, e não um `<select>` com JavaScript: cada
+    porção é um ENDEREÇO (`?porcao=0.5`), então a conta é do servidor, a
+    escolha sobrevive a recarregar e o botão "Comi esta" embaixo já sai com o
+    valor certo. Na folha e no painel, `pwa.js` troca o conteúdo sem navegar.
+
+    A lista é fechada (`porcoes.PORCOES`) do lado do servidor, e não só aqui:
+    este número MULTIPLICA o kcal que vai para o histórico.
+  {% endcomment %}
+  <div class="receita-folha__porcao">
+    <span class="receita-folha__porcao-rotulo">{% translate "Porção" %}</span>
+    <span class="chip-row">
+      {% for p in r.porcoes %}
+        <a class="chip{% if p.atual %} chip--brand{% endif %}" data-receita
+           {% if p.atual %}aria-current="true"{% endif %}
+           href="{% url 'plans:receita' r.slot.pk r.opcao.pk %}?porcao={{ p.valor|stringformat:'.1f' }}">{{ p.escrita }}</a>
+      {% endfor %}
+    </span>
+  </div>
+
+  <p class="receita-folha__numeros">
+    <b class="receita-folha__kcal num">{{ r.kcal|floatformat:0 }}</b>
+    <span class="receita-folha__unidade">kcal</span>
+    <span class="receita-folha__macros num">
+      <span>{% translate "Proteína" %} {{ r.protein_g|floatformat:0 }} g</span>
+      <span>{% translate "Carboidrato" %} {{ r.carb_g|floatformat:0 }} g</span>
+      <span>{% translate "Gordura" %} {{ r.fat_g|floatformat:0 }} g</span>
+    </span>
+    <span class="receita-folha__tempo num">{{ r.opcao.template.prep_minutes }} min</span>
+  </p>
+
+  {% comment %}
+    `data-list` é o componente que já existe para "rótulo à esquerda, número à
+    direita" — e ele é um `<dl>`, que é o que uma lista de ingrediente É: o
+    nome é o termo, a quantidade é a definição. A medida caseira vem primeiro
+    porque é ela que se usa na cozinha; a grama fica ao lado porque é ela que
+    a conta usa.
+  {% endcomment %}
+  <h3 class="receita-folha__titulo">{% translate "O que vai" %}</h3>
+  <dl class="data-list receita-folha__itens">
+    {% for item in r.itens %}
+      <div>
+        <dt>{{ item.food.name }}</dt>
+        <dd class="num">{% if item.caseira %}{{ item.caseira.0 }} {{ item.caseira.1 }} · {% endif %}{{ item.quantity|floatformat:0 }} {{ item.unit }}</dd>
+      </div>
+    {% endfor %}
+  </dl>
+
+  {% if r.passos %}
+    <h3 class="receita-folha__titulo">{% translate "Como faz" %}</h3>
+    <ol class="receita-folha__passos">
+      {% for passo in r.passos %}<li>{{ passo }}</li>{% endfor %}
+    </ol>
+  {% endif %}
+
+  {% if r.log %}
+    {% comment %}
+      Já registrada: o painel vira consulta. Repetir "Comi esta" embaixo de um
+      registro que já existe é oferecer uma ação que só pode dar errado — e
+      desfazer mora no card da refeição, que é de onde a pessoa registrou.
+    {% endcomment %}
+    <p class="receita-folha__feita">{% translate "Você registrou esta refeição." %}</p>
+  {% else %}
+    <form method="post" action="{% url 'plans:mark_meal' r.slot.pk %}"
+          data-celebra="slot-{{ r.slot.pk }}" class="receita-folha__acao">
+      {% csrf_token %}
+      <input type="hidden" name="status" value="done">
+      <input type="hidden" name="option" value="{{ r.opcao.pk }}">
+      <input type="hidden" name="porcao" value="{{ r.porcao|stringformat:'.1f' }}">
+      <button type="submit" class="btn btn--primary btn--block">{% translate "Comi esta" %}</button>
+    </form>
+  {% endif %}
+
+  {% comment %}
+    TROCAR POR OUTRA RECEITA é um LINK para a receita da outra opção — e
+    registrar ali é registrar aquela. Não existe um "troquei" guardado: o que
+    a pessoa está dizendo é o que ela comeu HOJE, e transformar isso numa
+    preferência de semanas seria uma decisão grande tomada com o prato na mão.
+    (A troca persistente existe no Treino, e lá ela é a interação principal da
+    ficha; aqui o rodízio já varia as receitas sozinho.)
+  {% endcomment %}
+  {% if r.outras %}
+    <div class="receita-folha__outras">
+      <h3 class="receita-folha__titulo">{% translate "Trocar por outra receita" %}</h3>
+      <ul class="receita-folha__lista">
+        {% for o in r.outras %}
+          <li>
+            <a class="receita-folha__outra" data-receita
+               href="{% url 'plans:receita' r.slot.pk o.pk %}">
+              <span class="receita-folha__outra-ilu" aria-hidden="true">
+                <svg viewBox="0 0 48 36" fill="none" stroke="currentColor"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <use href="#ilu-{{ o.template.ilustracao|default:'prato' }}"></use>
+                </svg>
+              </span>
+              <span class="receita-folha__outra-nome">{{ o.template.name }}</span>
+              <span class="receita-folha__outra-num num">{{ o.kcal|floatformat:0 }} kcal</span>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+</section>

@@ -443,3 +443,25 @@ def marcar_refeicoes(slots, acao, agora, desde=None) -> None:
             # Futura, ou já resolvida — comida, pulada e "comi outra coisa"
             # não voltam a cobrar nada.
             slot.marcador = ""
+        # O ESTADO DA REFEIÇÃO, numa palavra (23/09/2026).
+        #
+        # O template decidia isto sozinho, com três condições espalhadas
+        # (`slot.log.status == 'done'` na classe do `<article>`, `slot.log`
+        # para escolher o corpo, `slot.marcador` para o selo e para abrir a
+        # sanfona), e a auditoria mediu o resultado: "todas as refeições têm o
+        # mesmo peso visual; a de agora não se destaca das já passadas nem das
+        # futuras". Com o estado numa palavra, a classe, o peso do CTA e quem
+        # nasce aberta saem todos da mesma resposta.
+        #
+        # RESOLVIDA e não "feita": pulada e "comi outra coisa" também estão
+        # resolvidas, e a tela trata as três do mesmo jeito — o resultado no
+        # lugar das opções, com "desfazer". O que as separa é o TEXTO do
+        # resultado, que já existe e não é decisão de layout.
+        if slot.log is not None:
+            slot.estado = "resolvida"
+        elif slot.marcador == "agora":
+            slot.estado = "agora"
+        elif slot.marcador == "pendente":
+            slot.estado = "pendente"
+        else:
+            slot.estado = "futura"

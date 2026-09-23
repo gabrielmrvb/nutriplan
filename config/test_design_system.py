@@ -90,7 +90,12 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: cresceu (o relógio é `--texto-2xl` e o rótulo ao lado, `--texto-xs`), e a
 #: linha `.resumo-dia` saiu inteira com o redesenho da Home, levando um
 #: `font-size: .72rem` cru junto. A catraca só desce.
-TETO_FONT_SIZE_CRU = 113
+#: 109 em 23/09/2026: a opção do cardápio deixou de ser uma sanfona e virou
+#: um card de receita — o bloco `.option*` inteiro saiu do arquivo, e com ele
+#: quatro tamanhos crus (`.92rem` do nome, `.82rem` do kcal e da hora,
+#: `.85rem` da lista de ingredientes). O que substituiu tudo nasceu em
+#: token.
+TETO_FONT_SIZE_CRU = 109
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
@@ -128,7 +133,10 @@ TETO_FONT_SIZE_CRU = 113
 #: fecho — tudo nasceu na escala, e três crus antigos do bloco `.ficha-item`
 #: (o `padding: 0` da linha, o `row-gap: 2px` e o `gap` das ações) saíram
 #: junto com a linha de texto que eles vestiam.
-TETO_ESPACO_CRU = 238
+#: 230 em 23/09/2026: o mesmo bloco `.option*` levou oito espaços crus
+#: (`.8rem .85rem` do corpo e do resumo, `.45rem`, `.35rem .5rem`...). O
+#: card de receita, a folha e o painel são todos escala.
+TETO_ESPACO_CRU = 230
 
 
 def sem_comentarios(texto):

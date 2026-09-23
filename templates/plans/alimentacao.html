@@ -25,6 +25,16 @@
 
 {% block content %}
   {% comment %}
+    O SPRITE DAS ILUSTRAÇÕES entra AQUI, e não no `base.html`.
+
+    Ele só tem consumidor nesta tela — os cards de receita —, e o sprite de
+    ícones do `base.html` já carrega em toda página do app. Somar onze
+    desenhos a todas as telas para servir uma seria o oposto do que um sprite
+    existe para fazer.
+  {% endcomment %}
+  {% include "partials/ilustracoes_de_receita.html" %}
+
+  {% comment %}
     O `<h1>` desta tela é VISÍVEL, ao contrário do da Hoje: aqui ele é o
     cabeçalho de uma área, e quem chega pela aba precisa ver que chegou. Na
     Hoje a primeira dobra é do cartão AGORA e o nome da tela está na aba.
@@ -44,18 +54,45 @@
         cartão nas duas seria a mesma coisa dita duas vezes.
       {% endcomment %}
       {% if acao.tipo == 'refeicao' %}
-        {% include "plans/_agora.html" %}
+        {% comment %}
+          `sugestao` só aqui: é o que liga o "Comi esta" do herói. A Hoje
+          inclui o mesmo parcial sem ela e continua sendo um ponteiro — ver o
+          comentário dentro do arquivo.
+        {% endcomment %}
+        {% include "plans/_agora.html" with sugestao=acao.slot.opcoes_do_dia.0 %}
       {% endif %}
 
       {# ---------------- Painel do dia ---------------- #}
       <section class="card today-hero">
-        <div class="ring" style="--pct: {{ summary.progress_pct }}"
+        {% comment %}
+          O ANEL TEM DOIS MODOS, e quem escolhe é o servidor (`topo.modo`).
+
+          Antes da primeira refeição ele dizia "0 · kcal hoje · de 2.839", com
+          "0/5 refeições" ao lado e "P 0 · C 0 · G 0" embaixo — meia tela de
+          zero, e a única frase útil era a que explicava por que não havia
+          nada. A auditoria de 23/09/2026 chamou isso de "o topo conta o
+          zero".
+
+          No modo PLANO o número grande é a META, porque é a informação que
+          existe naquele instante: "2.839 kcal · o seu dia em 5 refeições". O
+          anel fica vazio de propósito — ele mede o dia, e o dia ainda não
+          começou —, e vazio com a meta no miolo é uma promessa; vazio com um
+          zero no miolo é um placar perdendo.
+        {% endcomment %}
+        <div class="ring{% if topo.modo == 'plano' %} ring--plano{% endif %}"
+             style="--pct: {{ summary.progress_pct }}"
              role="img"
-             aria-label="{{ summary.consumed_kcal }} de {{ summary.target_kcal }} kcal">
+             aria-label="{% if topo.modo == 'plano' %}Meta de {{ summary.target_kcal }} kcal em {{ summary.previstas }} refeições{% else %}{{ summary.consumed_kcal }} de {{ summary.target_kcal }} kcal{% endif %}">
           <span class="ring__inner">
-            <strong class="ring__value">{{ summary.consumed_kcal }}</strong>
-            <span class="ring__unit">kcal hoje</span>
-            <span class="ring__of">de {{ summary.target_kcal }}</span>
+            {% if topo.modo == 'plano' %}
+              <strong class="ring__value">{{ summary.target_kcal }}</strong>
+              <span class="ring__unit">kcal no dia</span>
+              <span class="ring__of">a sua meta</span>
+            {% else %}
+              <strong class="ring__value">{{ summary.consumed_kcal }}</strong>
+              <span class="ring__unit">kcal hoje</span>
+              <span class="ring__of">de {{ summary.target_kcal }}</span>
+            {% endif %}
           </span>
         </div>
 
@@ -67,18 +104,47 @@
         {% endcomment %}
         <div class="today-hero__facts">
           <p class="today-hero__left">
-            {% if summary.remaining_kcal > 0 %}
-              faltam <b class="num">{{ summary.remaining_kcal }} kcal</b>
+            {% if topo.modo == 'plano' %}
+              {% comment %}
+                O PLANO DO DIA, em números que existem antes de a pessoa comer
+                qualquer coisa: quantas refeições e quanta proteína. É o que a
+                auditoria pediu no lugar de "faltam 2.839 kcal" — que é
+                verdade e é a mesma coisa que a meta, dita de trás para
+                frente.
+              {% endcomment %}
+              o seu dia em <b class="num">{{ summary.previstas }} refeições</b>
             {% else %}
-              <b>meta atingida</b>
+              {% if summary.remaining_kcal > 0 %}
+                faltam <b class="num">{{ summary.remaining_kcal }} kcal</b>
+              {% else %}
+                <b>meta atingida</b>
+              {% endif %}
             {% endif %}
           </p>
           {% if summary.gasto_corrida_kcal %}
             <span class="hint">+<b class="num">{{ summary.gasto_corrida_kcal }}</b> kcal da corrida de hoje</span>
           {% endif %}
           <p class="today-hero__meta num">
-            {{ summary.no_plano }}/{{ summary.previstas }} refeições{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}
+            {% if topo.modo == 'plano' %}
+              {{ macros.0.grams }} g de proteína
+            {% else %}
+              {{ summary.no_plano }} de {{ summary.previstas }} refeições{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}
+            {% endif %}
           </p>
+          {% comment %}
+            A RESPOSTA DEPOIS DE REGISTRAR (item 9 da auditoria): até aqui o
+            único retorno de marcar uma refeição era o toast com "desfazer".
+            Esta linha diz se a proteína está acompanhando as calorias do dia
+            — a régua é comparativa e mora em `_proteina_no_rumo`, no
+            servidor. Sem nada registrado ela não existe: não há o que
+            comparar, e uma frase de encorajamento sobre um dia que não
+            começou é ruído.
+          {% endcomment %}
+          {% if topo.proteina %}
+            <p class="today-hero__proteina today-hero__proteina--{{ topo.proteina }}">
+              {% if topo.proteina == 'no_rumo' %}proteína no rumo{% else %}proteína atrás do dia{% endif %}
+            </p>
+          {% endif %}
           {% comment %}
             A meta saiu daqui porque já estava três centímetros acima.
 
@@ -107,6 +173,14 @@
             pessoa sem saber por que o saldo não está lá.
           {% endcomment %}
           {% if not saldo_do_dia_ja_conta %}
+            {% comment %}
+              A reforma de 23/09/2026 chegou a tirar esta frase, com o
+              argumento de que o anel no modo PLANO já mostra a meta e o dia.
+              Ela voltou: o que o anel mostra é o CARDÁPIO, e o que falta aqui
+              é o SALDO — meta menos gasto —, que continua ausente e continua
+              precisando dizer por quê. Tirá-la deixaria o buraco que o
+              comentário acima descreve, e a decisão que o criou foi medida.
+            {% endcomment %}
             <p class="today-hero__balance balance--convite">
               Registre suas refeições para acompanhar o saldo do dia.
             </p>
@@ -190,8 +264,24 @@
                   dos números, sem dizer que aquilo era um rótulo.
                 {% endcomment %}
                 <span class="hero-macros__nome" aria-hidden="true">{{ macro.name|slice:":1" }}</span>
-                <b class="hero-macros__valor num">{{ macro.eaten }}</b>
-                <span class="hero-macros__meta num">/{{ macro.grams }}</span>
+                {% comment %}
+                  NO MODO PLANO A LEGENDA DIZ O ALVO, e não "0 /148".
+
+                  Três zeros com a barra cheia atrás era a tela afirmando duas
+                  coisas ao mesmo tempo: a barra desenha a DIVISÃO do dia (os
+                  três somam 100%) e o número dizia o CONSUMO. Antes da
+                  primeira refeição só a divisão existe, e é ela que a legenda
+                  nomeia — "P 148 g". Da primeira marcação em diante volta o
+                  par comido/meta, que é a leitura de quem já está no meio do
+                  dia.
+                {% endcomment %}
+                {% if topo.modo == 'plano' %}
+                  <b class="hero-macros__valor num">{{ macro.grams }}</b>
+                  <span class="hero-macros__meta num">g</span>
+                {% else %}
+                  <b class="hero-macros__valor num">{{ macro.eaten }}</b>
+                  <span class="hero-macros__meta num">/{{ macro.grams }}</span>
+                {% endif %}
                 <span class="vis-oculto">g de {{ macro.name|lower }}</span>
               </li>
             {% endfor %}
@@ -207,32 +297,29 @@
         texto visível — que muda com a cópia.
       {% endcomment %}
       <section class="refeicoes{% if area_promovida == 'dieta' %} is-prioritario{% endif %}">
-        {% if area_promovida == 'dieta' %}
-          {% comment %}
-            Dieta não é MOVIDA: ela já é a primeira seção de área da Home. O
-            que a promoção faz por ela é dizer que o app entendeu — sem isso,
-            quem escolheu Alimentação veria exatamente a tela de quem não
-            escolheu nada, e a escolha pareceria não ter servido para nada.
-          {% endcomment %}
-          <p class="secao__selo"><span class="pill pill--brand">sua área</span></p>
-        {% endif %}
         {% comment %}
-          A água fica junto dos macros porque é do mesmo tipo de coisa: uma
-          meta diária que a pessoa acompanha. Fora dali vira aviso solto, e
-          aviso solto ninguém lê.
+          O SELO "SUA ÁREA" MORA NO TÍTULO DA SEÇÃO (23/09/2026).
+
+          Ele era um `<p class="secao__selo">` sozinho ACIMA do título — uma
+          pílula flutuando no vazio, sem CSS próprio, a 27px do texto que ela
+          qualifica. O que ele diz é sobre esta seção, e o lugar de dizer isso
+          é o nome dela.
+
+          Dieta não é MOVIDA: ela já é a primeira seção de área da tela. O que
+          a promoção faz por ela é dizer que o app entendeu — sem isso, quem
+          escolheu Alimentação veria exatamente a tela de quem não escolheu
+          nada, e a escolha pareceria não ter servido para nada.
+
+          (Os dois comentários sobre a meta de água que moravam aqui saíram
+          com o bloco que eles explicavam: a água é da tela Hoje desde
+          22/09/2026, e comentário sem código é a próxima pessoa procurando
+          um bloco que não existe.)
         {% endcomment %}
-        {% comment %}
-          A meta de água existia desde sempre e não tinha onde marcar, o que a
-          deixava decorativa: dizer "3,6 L" sem botão não muda comportamento e
-          impedia a ofensiva de contar água. Três botões, do tamanho dos
-          recipientes que existem no mundo.
-        {% endcomment %}
-
-
-
-
         <div class="card__head">
-          <h2>Seu cardápio de hoje</h2>
+          <h2>
+            Seu cardápio de hoje{% if area_promovida == 'dieta' %}
+            <span class="pill pill--brand secao__selo">sua área</span>{% endif %}
+          </h2>
           <a href="{% url 'plans:shopping' %}">
             {% comment %}
               Decorativo: quem lê por leitor de tela já recebe "Lista de
@@ -250,6 +337,26 @@
           </a>
         </div>
 
+        {% comment %}
+          O CARD DE REFEIÇÃO (23/09/2026). A auditoria daquele dia resumiu o
+          que ele era: "horário, nome, alvo e um link Ver opções — fechado, um
+          retângulo vazio". Aberto, cada opção era UMA LINHA de texto seguida
+          de um CTA gigante, cinco botões empilhados por refeição, cinco
+          refeições. E o que decide uma escolha de comida — do que é feito,
+          quanto rende, quanto demora — estava no banco e fora da tela.
+
+          Agora cada refeição mostra as DUAS opções como dois cards de
+          receita, sempre: ilustração, nome, caloria, os três macros, tempo de
+          preparo e os ingredientes com a porção numa linha. A informação que
+          decide a escolha está à vista, e o toque que antes era para
+          DESCOBRIR passou a ser para APROFUNDAR (a folha da receita).
+
+          O ESTADO vem do servidor numa palavra (`slot.estado`, em
+          `plans/agora.py`): `resolvida`, `agora`, `pendente` ou `futura`.
+          Antes o template decidia isso em três condições espalhadas, e o
+          resultado era o que a auditoria mediu: "a de agora não se destaca
+          das já passadas nem das futuras".
+        {% endcomment %}
         {% for slot in slots %}
           {% comment %}
             `slot-<pk>` e nao `refeicao-<pk>`: o segundo ja existe, no painel
@@ -257,15 +364,24 @@
             fora do plano devolve a pessoa. Roubar o id mandaria o cartao do
             topo para o formulario de digitar comida em vez de para as opcoes.
           {% endcomment %}
-          <article class="meal {% if slot.log.status == 'done' %}meal--done{% endif %} {% if slot.marcador == 'agora' %}meal--agora{% endif %}"
-                   id="slot-{{ slot.pk }}">
+          <article class="meal meal--{{ slot.estado }}" id="slot-{{ slot.pk }}">
             {# O selo do toque offline: `pwa.js` mostra quando a fila guarda a marcação sem rede. #}
             <p class="aguardando-rede" data-aguardando-rede hidden role="status"></p>
+            {% comment %}
+              O CABEÇALHO DE DUAS LINHAS É DE QUEM ESTÁ ABERTO. A refeição
+              futura tem o dela DENTRO do `<summary>`, numa linha só — é o
+              item 11 da auditoria ("as outras colapsadas em uma linha cada:
+              10:37 · Lanche da manhã · 314 kcal"). Medido a 390px: com o
+              cabeçalho fora do resumo, cada refeição fechada custava 150px
+              (hora e nome numa linha, alvo na segunda, nome da receita na
+              terceira); com ele dentro, 72.
+            {% endcomment %}
+            {% if slot.estado == 'agora' or slot.log %}
             <header class="meal__head">
-              <span class="meal__time">{{ slot.time|time:"H:i" }}</span>
+              <span class="meal__time num">{{ slot.time|time:"H:i" }}</span>
               <span class="meal__title">
                 <strong class="meal__name">{{ slot.name }}</strong>
-                <span class="meal__target">
+                <span class="meal__target num">
                   alvo {{ slot.target_kcal }} kcal · {{ slot.target_protein_g }} g de proteína
                 </span>
               </span>
@@ -279,12 +395,13 @@
                 O texto é o marcador que `plans/agora.py` escreveu — o template
                 só escolhe a palavra. Nada de recalcular quem é a vez.
               {% endcomment %}
-              {% if slot.marcador == 'agora' %}
+              {% if slot.estado == 'agora' %}
                 <span class="meal__marca meal__marca--agora">Agora</span>
-              {% elif slot.marcador == 'pendente' %}
+              {% elif slot.estado == 'pendente' %}
                 <span class="meal__marca">Pendente</span>
               {% endif %}
             </header>
+            {% endif %}
 
             {% if slot.log %}
               <div class="meal__result">
@@ -318,127 +435,157 @@
               </div>
             {% else %}
               {% comment %}
-                SÓ A REFEIÇÃO DA VEZ NASCE ABERTA (§7 + decisão do dono,
-                20/09/2026). A de agora mostra as opções porque é a ação da
-                vez; a das 20h45 às 14h30 mostra hora, nome e alvo, e guarda
-                as opções atrás de "Ver opções". Medido em 12/09: cinco
-                refeições abertas eram ~2.100px de formulários para um dia
-                em que só uma é a vez. Até 20/09 a VENCIDA também nascia
-                aberta, por ser "ação em aberto" — e a auditoria mediu um
-                primeiro uso às 15h com 3 757px e quatro refeições abertas
-                de quatro botões cada. Agora ela vira uma linha com o
-                convite a registrar; as opções continuam ali, atrás do toque.
-                Nada saiu — mudou de plano. `<details>` porque funciona sem
-                script, entra no Tab e anuncia estado.
+                AS DUAS OPÇÕES SEMPRE VISÍVEIS — e o `<details>` sobreviveu só
+                para a refeição que NÃO é a da vez (item 11 da auditoria: a de
+                agora aberta no topo, as outras em uma linha cada).
+
+                Quem abre é o estado, não o template: `agora` e `pendente`
+                nascem abertas, porque as duas são ação em aberto e a pendente
+                é justamente a que a pessoa esqueceu. Futura nasce recolhida:
+                às 7h da manhã o jantar das 20h45 é consulta, não decisão, e
+                cinco cards de receita abertos eram os 2.100px que a decisão
+                de 20/09 tinha acabado de cortar.
+
+                `<details>` e não script: funciona sem JavaScript, entra na
+                ordem do Tab e anuncia estado. `pwa.js` só anima a abertura.
               {% endcomment %}
-              {% if slot.marcador != 'agora' %}
+              {% if slot.estado != 'agora' %}
               <details class="meal__futuro">
-                <summary class="meal__abrir">{% if slot.marcador == 'pendente' %}Não registrada · registrar{% else %}Ver opções{% endif %}</summary>
+                {% comment %}
+                  A LINHA da refeição fechada: hora, nome e o alvo em kcal.
+                  O nome da RECEITA saiu daqui de propósito — ele mudava a
+                  cada dia (é o rodízio) e fazia a linha quebrar em duas num
+                  celular estreito, enquanto a pergunta de quem está olhando
+                  uma refeição das 20h45 às 7h da manhã é "quando e quanto",
+                  não "qual receita". Abrir responde a segunda.
+                {% endcomment %}
+                <summary class="meal__linha">
+                  <span class="meal__time num">{{ slot.time|time:"H:i" }}</span>
+                  <span class="meal__linha-nome">{{ slot.name }}</span>
+                  {% if slot.estado == 'pendente' %}
+                    <span class="meal__linha-aberta">Não registrada · registrar</span>
+                  {% else %}
+                    <span class="meal__linha-kcal num">{{ slot.target_kcal }} kcal</span>
+                  {% endif %}
+                </summary>
               {% endif %}
-              <div class="meal__options">
+              <div class="meal__opcoes">
                 {% comment %}
                   `opcoes_do_dia`, e não `options.all`: o repertório do horário
                   tem quatro opções e a tela mostra as duas de hoje. Quem
                   escolhe quais é `plans/rodizio.py`, e a view já pendurou a
                   resposta — o template LÊ a projeção, não a refaz.
 
-                  O rótulo também vem de lá: `option.rotulo` é a posição na
-                  projeção ("A" é a primeira de hoje), enquanto `option.rank` é
-                  a identidade persistente que o formulário envia. A pessoa
-                  continua vendo Opção A e Opção B e não precisa saber que
-                  existem quatro por trás.
+                  O RÓTULO A/B SAIU DA TELA. Ele era nome interno: a auditoria
+                  de 23/09 escreveu "o usuário não sabe o que 'A' significa", e
+                  estava certa — a letra existe para o rodízio, e o rodízio é
+                  do servidor. O que sobra na tela é o que diferencia as duas
+                  receitas de verdade: o nome, os macros e o tempo. A primeira
+                  continua sendo a sugestão do dia, e isso é dito pelo PESO do
+                  botão, não por uma letra.
                 {% endcomment %}
                 {% for option in slot.opcoes_do_dia %}
-                  {% comment %}
-                    A AÇÃO SAIU DE DENTRO DA SANFONA.
-
-                    O botão que registra a refeição morava no `option__body`,
-                    que nasce fechado. A tela abria com duas linhas de
-                    informação e nenhuma ação visível: para marcar o almoço era
-                    preciso primeiro descobrir que a linha abre. A ação é o
-                    motivo desta tela existir, e não pode estar atrás de uma
-                    descoberta.
-
-                    O `<details>` continua sendo o `.option` — mesma moldura,
-                    mesmo `[open]`, mesmo comportamento — e o formulário virou
-                    IRMÃO dele dentro de `.option-par`. Não é wrapper com
-                    borda: a moldura acesa depende de `[open]`, e um pai que
-                    quisesse pintá-la precisaria de `:has()`, que este projeto
-                    proíbe desde que derrubou a navegação.
-
-                    O rótulo diz a letra porque agora existem DOIS botões lado
-                    a lado: "Comi esta" tinha antecedente enquanto vivia dentro
-                    de uma opção aberta; fora dela, "esta" não aponta para nada.
-                  {% endcomment %}
-                  <div class="option-par">
-                  <details class="option">
-                    <summary class="option__summary">
-                      <span class="option__label">{{ option.rotulo }}</span>
-                      <span class="option__name">{{ option.template.name }}</span>
-                      <span class="option__facts">
-                        <span class="option__kcal">{{ option.kcal|floatformat:0 }} kcal</span>
-                        <span>{{ option.protein_g|floatformat:0 }} g P · {{ option.template.prep_minutes }} min</span>
-                      </span>
-                    </summary>
-                    <div class="option__body">
-                      <ul class="option__items">
-                        {% for item in option.ingredient_list %}
-                          {% comment %}
-                            O nome do alimento, que tinha sumido da lista.
-
-                            Ele era o RÓTULO do botão de troca — o texto vivia
-                            dentro do `<button class="swap-open">`. Quando a
-                            substituição de alimento saiu, a regex que apagou o
-                            botão levou o miolo junto, e a lista passou a dizer
-                            "98 g", "100 g", "59 g", sem informar de quê. O
-                            teste da remoção conferia a AUSÊNCIA de
-                            `swap-open`; nenhum conferia a PRESENÇA do nome.
-
-                            Nome à esquerda e gramatura à direita, e não
-                            "98 g de Pão francês": o `<b>` já é `flex: none` com
-                            `tabular-nums`, e os números alinham numa coluna que
-                            se lê de relance na cozinha. A preposição no meio
-                            desalinharia justamente essa coluna.
-                          {% endcomment %}
-                          <li>
-                            <span class="option__ingrediente">{{ item.food.name }}</span>
-                            <b>{% if item.caseira %}{{ item.caseira.0 }} {{ item.caseira.1 }} ({{ item.quantity|floatformat:0 }} {{ item.unit }}){% else %}{{ item.quantity|floatformat:0 }} {{ item.unit }}{% endif %}</b>
-                          </li>
-                        {% endfor %}
-                      </ul>
-                      {% if option.template.instructions %}
-                        <p class="option__how">{{ option.template.instructions }}</p>
-                      {% endif %}
-                    </div>
-                  </details>
-
-                  {% comment %}
-                    `aria-label` porque o texto visível é "Registrar A", e "A"
-                    sozinha não diz o que se registra para quem ouve a tela. O
-                    rótulo falado nomeia a receita e o horário; o escrito fica
-                    curto, que é o que cabe em dois botões lado a lado a 320px.
-                  {% endcomment %}
-                  <form method="post" action="{% url 'plans:mark_meal' slot.pk %}" data-celebra="slot-{{ slot.pk }}"
-                        class="option-par__acao">
-                    {% csrf_token %}
-                    <input type="hidden" name="status" value="done">
-                    <input type="hidden" name="option" value="{{ option.pk }}">
+                  <article class="receita{% if forloop.first %} receita--sugerida{% endif %}">
                     {% comment %}
-                      SÓ A PRIMEIRA É VERDE. `rodizio` já ordena as opções e a
-                      primeira da projeção é a sugestão do dia — o rótulo "A"
-                      vem daí. Dois `btn--primary` iguais, um debaixo do outro,
-                      eram um empate, e o verde deixava de dizer "esta": a
-                      missão mestre (§7) pede que ele marque a ação principal,
-                      não pinte tudo. A segunda continua com a mesma largura, o
-                      mesmo alvo e o mesmo contrato; muda o peso.
+                      A ILUSTRAÇÃO POR FAMÍLIA (item 6 da auditoria). Uma foto
+                      por receita exigiria curadoria e licença de 54 imagens,
+                      e este ambiente não vê foto para conferir; uma ilustração
+                      por FAMÍLIA de prato (cuscuz, tapioca, prato feito,
+                      vitamina…) é desenho próprio, sem licença de terceiro,
+                      determinística e de bytes contados — e resolve o que a
+                      auditoria pediu: "sem imagem, o card continua parecendo
+                      texto".
+
+                      `<use>` do sprite de `partials/ilustracoes_de_receita.html`,
+                      incluído uma vez na página: 54 receitas × um desenho
+                      copiado seria o peso que o sprite existe para evitar.
                     {% endcomment %}
-                    <button type="submit"
-                            class="btn {% if forloop.first %}btn--primary{% else %}btn--ghost{% endif %} btn--block"
-                            aria-label="Registrar {{ option.template.name }} em {{ slot.name }}">
-                      Registrar {{ option.rotulo }}
-                    </button>
-                  </form>
-                  </div>
+                    {% comment %}
+                      O BLOCO DE CIMA É UM LINK, e o link é a receita inteira
+                      (item 4 da auditoria: "toque no card da receita abre a
+                      receita"). Um `<a>` só, envolvendo ilustração, nome,
+                      números e ingredientes, e terminando no rótulo que diz
+                      o que ele faz — em vez de um card "clicável" por
+                      JavaScript, que não abre em aba nova, não aparece no
+                      histórico e não existe sem script.
+
+                      O `<form>` do "Comi esta" fica FORA dele: botão dentro
+                      de link é conteúdo interativo aninhado, que o HTML
+                      proíbe e que os navegadores resolvem cada um do seu
+                      jeito. E é por isso que não se usa "stretched link"
+                      aqui — a área esticada cobriria o próprio botão.
+                    {% endcomment %}
+                    <a class="receita__abrir" data-receita
+                       href="{% url 'plans:receita' slot.pk option.pk %}">
+                    <span class="receita__ilu" aria-hidden="true">
+                      <svg viewBox="0 0 48 36" fill="none" stroke="currentColor"
+                           stroke-linecap="round" stroke-linejoin="round">
+                        <use href="#ilu-{{ option.template.ilustracao|default:'prato' }}"></use>
+                      </svg>
+                    </span>
+
+                    {% comment %}
+                      `<h3>` e não `<h4>`: o título da seção é o `<h2>` "Seu
+                      cardápio de hoje", e o nome da refeição é um `<strong>`
+                      (não é título — é o rótulo da linha do tempo). Pular de
+                      h2 para h4 é `heading-order` no axe, e foi a única
+                      violação que a varredura desta reforma achou.
+                    {% endcomment %}
+                    <h3 class="receita__nome">{{ option.template.name }}</h3>
+
+                    {% comment %}
+                      OS TRÊS MACROS, e não só a proteína. A barra P/C/G do
+                      topo prova que carboidrato e gordura são calculados; o
+                      card mostrava um dos três. Quem escolhe entre duas
+                      opções que "fecham a mesma caloria" escolhe exatamente
+                      pelo que muda — e o que muda são os macros.
+                    {% endcomment %}
+                    <p class="receita__numeros">
+                      <b class="receita__kcal num">{{ option.kcal|floatformat:0 }}</b>
+                      <span class="receita__unidade">kcal</span>
+                      <span class="receita__macros num">
+                        <span>P {{ option.protein_g|floatformat:0 }}</span>
+                        <span>C {{ option.carb_g|floatformat:0 }}</span>
+                        <span>G {{ option.fat_g|floatformat:0 }}</span>
+                      </span>
+                      <span class="receita__tempo num">{{ option.template.prep_minutes }} min</span>
+                    </p>
+
+                    {% comment %}
+                      OS INGREDIENTES COM PORÇÃO, numa linha (`resumo_dos_itens`).
+                      "Queijo minas com banana — quanto queijo, quantas
+                      bananas?" era a pergunta da auditoria, e a resposta já
+                      estava no banco, dentro de um `<details>` fechado.
+                    {% endcomment %}
+                    <p class="receita__itens">
+                      {% with resumo=option.resumo_dos_itens %}
+                        {{ resumo.linha|join:" · " }}{% if resumo.restantes %} <span class="receita__mais">e mais {{ resumo.restantes }}</span>{% endif %}
+                      {% endwith %}
+                    </p>
+
+                    <span class="receita__ver">Ver a receita</span>
+                    </a>
+
+                    {% comment %}
+                      UM CTA POR OPÇÃO, e o rótulo aponta para o card em que
+                      ele está: "Comi esta". Era "Registrar A" — o elemento
+                      mais chamativo da página, cinco vezes, dizendo uma letra
+                      interna. Só a primeira é verde: `rodizio` já ordena, e a
+                      primeira da projeção é a sugestão do dia. Dois primários
+                      iguais são um empate, e o verde deixa de dizer "esta".
+                    {% endcomment %}
+                    <form method="post" action="{% url 'plans:mark_meal' slot.pk %}"
+                          data-celebra="slot-{{ slot.pk }}" class="receita__acao">
+                      {% csrf_token %}
+                      <input type="hidden" name="status" value="done">
+                      <input type="hidden" name="option" value="{{ option.pk }}">
+                      <button type="submit"
+                              class="btn {% if forloop.first %}btn--primary{% else %}btn--ghost{% endif %} btn--block"
+                              aria-label="Registrar {{ option.template.name }} em {{ slot.name }}">
+                        Comi esta
+                      </button>
+                    </form>
+                  </article>
                 {% empty %}
                   <p class="empty-state">
                     Nenhuma receita do catálogo serve para este horário.
@@ -446,80 +593,75 @@
                 {% endfor %}
               </div>
 
-              <form method="post" action="{% url 'plans:mark_meal' slot.pk %}" data-celebra="slot-{{ slot.pk }}"
-                    class="meal__actions">
-                {% csrf_token %}
-                <button type="submit" name="status" value="skipped" class="btn btn--quiet">
-                  Pulei
-                </button>
-              </form>
-
               {% comment %}
-                "Comi outra coisa" deixa de ser um botão que grava um buraco.
+                "PULEI" E "COMI OUTRA COISA" SÃO SECUNDÁRIAS, e passam a
+                parecer. Eram dois botões de 48px com o mesmo peso de
+                "Registrar B" — a auditoria contou cinco botões empilhados por
+                refeição. São as duas saídas honestas de quem não comeu o que
+                estava no plano, e continuam a um toque; o que muda é que elas
+                deixam de disputar a atenção com a ação que a tela existe para
+                receber.
 
-                Era um `submit` direto: gravava `off_plan` com macro zerado e
-                sem uma palavra sobre o que foi. O horário saía da lista de
-                pendências e não contava nada — sumia da tela e da conta, que é
-                o pior dos dois mundos.
-
-                Agora abre. `<details>` e não JavaScript: o navegador já sabe
-                expandir, o controle entra na ordem do Tab e anuncia estado
-                para leitor de tela, e a transição vem da mesma regra de
-                `grid-template-rows` que anima a sanfona do exercício. Zero
-                bytes de script para um comportamento que o HTML tem.
-
-                A descrição é obrigatória — `required` no navegador e a mesma
-                regra na view, que é o lado que ninguém desliga. Os alimentos
-                são opcionais: quem só escreve "almocei na casa da minha mãe"
-                registra a frase e recebe macro zero, porque o app não sabe o
-                que foi e chutar contamina o histórico com número inventado.
+                "Comi outra coisa" continua sendo o `<details>` com busca no
+                catálogo — a auditoria pediu para rebaixar o destaque, não
+                para mexer no que ele faz.
               {% endcomment %}
-              <details class="fora" id="refeicao-{{ slot.pk }}">
-                <summary class="fora__abrir">Comi outra coisa</summary>
-
-                <form method="post" action="{% url 'plans:mark_meal' slot.pk %}" data-celebra="slot-{{ slot.pk }}"
-                      class="fora__corpo">
-                  {% comment %}
-                    Um envoltório pelo mesmo motivo da ficha de treino: `0fr`
-                    governa só a primeira linha da grade, e este formulário tem
-                    seis filhos. Sem ele, cinco deles apareceriam de uma vez.
-                  {% endcomment %}
-                  <div class="fora__interno">
+              <div class="meal__secundarias">
+                <form method="post" action="{% url 'plans:mark_meal' slot.pk %}"
+                      data-celebra="slot-{{ slot.pk }}" class="meal__pulei">
                   {% csrf_token %}
-                  <input type="hidden" name="status" value="off_plan">
-
-                  <label class="fora__campo">
-                    <span class="fora__rotulo">O que você comeu?</span>
-                    <input class="field-input" type="text" name="notes" required
-                           maxlength="200" autocomplete="off"
-                           placeholder="Prato feito no restaurante"
-                           aria-label="Descrição do que comeu em {{ slot.name }}">
-                  </label>
-
-                  <p class="fora__ajuda">
-                    Sabe os ingredientes? Some abaixo e o dia recalcula. Sem
-                    isso, fica registrado sem contar caloria.
-                  </p>
-
-                  {% for _ in itens_fora %}
-                    <div class="fora__item">
-                      <input class="field-input" type="text" name="alimento"
-                             list="alimentos-do-catalogo" autocomplete="off"
-                             placeholder="Alimento"
-                             aria-label="Alimento {{ forloop.counter }}">
-                      <input class="field-input num" type="text" name="gramas"
-                             inputmode="decimal" maxlength="5" placeholder="g"
-                             aria-label="Quantidade em gramas do alimento {{ forloop.counter }}">
-                    </div>
-                  {% endfor %}
-
-                  <button type="submit" class="btn btn--primary btn--block">
-                    Registrar
+                  <button type="submit" name="status" value="skipped" class="btn-link">
+                    Pulei
                   </button>
-                  </div>
                 </form>
-              </details>
-              {% if slot.marcador != 'agora' %}
+
+                <details class="fora" id="refeicao-{{ slot.pk }}">
+                  <summary class="fora__abrir">Comi outra coisa</summary>
+
+                  <form method="post" action="{% url 'plans:mark_meal' slot.pk %}" data-celebra="slot-{{ slot.pk }}"
+                        class="fora__corpo">
+                    {% comment %}
+                      Um envoltório pelo mesmo motivo da ficha de treino: `0fr`
+                      governa só a primeira linha da grade, e este formulário tem
+                      seis filhos. Sem ele, cinco deles apareceriam de uma vez.
+                    {% endcomment %}
+                    <div class="fora__interno">
+                    {% csrf_token %}
+                    <input type="hidden" name="status" value="off_plan">
+
+                    <label class="fora__campo">
+                      <span class="fora__rotulo">O que você comeu?</span>
+                      <input class="field-input" type="text" name="notes" required
+                             maxlength="200" autocomplete="off"
+                             placeholder="Prato feito no restaurante"
+                             aria-label="Descrição do que comeu em {{ slot.name }}">
+                    </label>
+
+                    <p class="fora__ajuda">
+                      Sabe os ingredientes? Some abaixo e o dia recalcula. Sem
+                      isso, fica registrado sem contar caloria.
+                    </p>
+
+                    {% for _ in itens_fora %}
+                      <div class="fora__item">
+                        <input class="field-input" type="text" name="alimento"
+                               list="alimentos-do-catalogo" autocomplete="off"
+                               placeholder="Alimento"
+                               aria-label="Alimento {{ forloop.counter }}">
+                        <input class="field-input num" type="text" name="gramas"
+                               inputmode="decimal" maxlength="5" placeholder="g"
+                               aria-label="Quantidade em gramas do alimento {{ forloop.counter }}">
+                      </div>
+                    {% endfor %}
+
+                    <button type="submit" class="btn btn--primary btn--block">
+                      Registrar
+                    </button>
+                    </div>
+                  </form>
+                </details>
+              </div>
+              {% if slot.estado != 'agora' %}
               </details>
               {% endif %}
             {% endif %}
@@ -587,8 +729,55 @@
       {# ---------------- fim da coluna ---------------- #}
     </div>
 
-    {# ------------- Os números: consulta, não ação ------------- #}
+    {# ------------- A direita: a receita, as compras, a consulta ------------- #}
     <aside class="split__aside stack">
+      {% comment %}
+        O PAINEL DA RECEITA (item 10 da auditoria de 23/09/2026).
+
+        Medido a 1280px: a coluna da direita tinha três cartões recolhidos e
+        ~1.500px de nada embaixo, enquanto a esquerda rolava cinco refeições.
+        Ela passa a responder a pergunta que a tela de cardápio provoca — "e
+        como eu faço isso?" —, já aberta na refeição da vez.
+
+        No desktop, "Ver a receita" TROCA este painel em vez de abrir a folha
+        (`pwa.js`); no celular o painel não existe, porque a coluna não
+        existe: lá a mesma seção vira a folha de baixo. Um markup, três
+        lugares.
+
+        Ele fica FORA do `<div>` que o script troca? Não: o `<div>` É o
+        alvo, e o `{% include %}` é o conteúdo inicial dele. Trocar o miolo
+        de um cartão que já tem `.card` por dentro é o que evita cartão
+        dentro de cartão — zero neste app, e com teste.
+      {% endcomment %}
+      {% if receita_do_painel %}
+        <div class="painel-receita" data-painel-receita>
+          {% include "plans/_receita.html" with r=receita_do_painel %}
+        </div>
+      {% endif %}
+
+      {% comment %}
+        A LISTA DE COMPRAS, CONDENSADA. Três itens e o link — a prévia não é
+        a lista, é o lembrete de que ela existe e já está contada. O número
+        de itens é o que a tela inteira mostraria; os três primeiros são os
+        do primeiro corredor, que é a ordem em que se anda no mercado.
+      {% endcomment %}
+      {% if compras.total %}
+        <section class="card compras-previa">
+          <div class="card__head"><h2>Lista de compras</h2></div>
+          <p class="compras-previa__resumo">
+            {{ compras.total }} itens para a semana
+          </p>
+          <ul class="compras-previa__itens">
+            {% for item in compras.primeiros %}
+              <li><span>{{ item.nome }}</span> <span class="num">{{ item.display }}</span></li>
+            {% endfor %}
+          </ul>
+          <a class="btn btn--ghost btn--block" href="{% url 'plans:shopping' %}">
+            Ver a lista{% if compras.restantes %} · mais {{ compras.restantes }}{% endif %}
+          </a>
+        </section>
+      {% endif %}
+
       {% comment %}
         MOSTRAR PRIMEIRO, EXPLICAR QUANDO PEDIREM.
 
@@ -834,8 +1023,17 @@
         </p>
       </details>
 
-      <section class="card">
-        <div class="card__head"><h2>Lembretes</h2></div>
+      {% comment %}
+        RECOLHIDO como os dois de cima: os três blocos da direita são
+        consulta, e desde 23/09/2026 eles vêm DEPOIS da receita e das
+        compras, que são o que a tela de cardápio provoca. Um cartão aberto
+        entre dois recolhidos puxa o olho para o canto errado.
+      {% endcomment %}
+      <details class="card explicacao" id="lembretes">
+        <summary class="explicacao__head">
+          <h2>Lembretes</h2>
+          <span class="explicacao__dica" aria-hidden="true">abrir</span>
+        </summary>
         <p class="muted nota-do-botao" data-push-status>
           Ative para receber um aviso até 20 minutos antes de cada refeição.
         </p>
@@ -845,7 +1043,7 @@
         <noscript>
           <p class="hint">Os lembretes precisam de JavaScript ativado.</p>
         </noscript>
-      </section>
+      </details>
 
       {% if app_nativo %}
         {% comment %}
@@ -870,6 +1068,21 @@
       {% endif %}
     </aside>
   </div>
+
+  {% comment %}
+    A FOLHA DA RECEITA — vazia no HTML, preenchida por `pwa.js` com a seção
+    `#receita` da tela da receita. Sem JavaScript ela nunca abre e o link
+    navega, que é a tela inteira; com JavaScript, ler a receita deixa de
+    custar sair do cardápio e voltar a ele. Mesma mecânica de "Outras
+    formas" na ficha do treino.
+  {% endcomment %}
+  <dialog class="folha-receita" data-folha-receita aria-labelledby="folha-receita-titulo">
+    <div class="folha-receita__topo">
+      <h2 class="folha-receita__titulo" id="folha-receita-titulo">Receita</h2>
+      <button type="button" class="btn-link folha-receita__fechar" data-folha-fechar>fechar</button>
+    </div>
+    <div class="folha-receita__corpo" data-folha-receita-corpo></div>
+  </dialog>
 
 
 

@@ -17,6 +17,7 @@ from django.db.models import Exists, F, OuterRef, Value, prefetch_related_object
 from django.db.models.functions import Greatest, Least
 from django.utils import timezone
 
+from .porcoes import PORCAO_ESCRITA, PORCOES, passos_do_preparo, porcao_valida
 from .weight_trend import TETO_DIARIO_ML
 from django.views import View
 from django.views.generic import TemplateView, View
@@ -49,6 +50,7 @@ from .calculations import (
 from .models import (
     GoleDeAgua,
     HydrationLog,
+    MealLog,
     MealOption,
     MealSlot,
     MealStatus,
@@ -87,6 +89,29 @@ def proteina_perdida(slots) -> dict:
         # proteína. Grama de macro é abstrato; "130 g de frango" é jantar.
         "equivalente_frango_g": int(round(gramas / Decimal("0.31"), -1)),
     }
+
+
+def _proteina_no_rumo(plan, summary):
+    """"no_rumo", "atras" ou None — a proteína acompanha as calorias do dia?
+
+    A auditoria pediu que o topo respondesse depois de registrar ("1 de 5 ·
+    faltam 2.372 kcal · proteína no rumo"). A frase só pode existir se houver
+    uma régua, e a régua aqui é COMPARATIVA: quem já comeu 40% da caloria do
+    dia deveria ter comido perto de 40% da proteína.
+
+    Ela devolve `None` sem nada registrado — não há o que comparar — e sem
+    meta de proteína, que é o caso do plano antigo sem macro. A tolerância de
+    10 pontos existe porque um café da manhã de pão e café fica naturalmente
+    atrás em proteína sem que o dia esteja perdido; abaixo disso a frase
+    viraria alarme em toda manhã.
+    """
+    alvo_p = getattr(plan, "protein_g", 0) or 0
+    alvo_kcal = summary.get("target_kcal") or 0
+    if not summary.get("marked") or not alvo_p or not alvo_kcal:
+        return None
+    fracao_p = Decimal(summary.get("protein_g", 0) or 0) / Decimal(alvo_p)
+    fracao_kcal = Decimal(summary.get("consumed_kcal", 0) or 0) / Decimal(alvo_kcal)
+    return "no_rumo" if fracao_p >= fracao_kcal - Decimal("0.1") else "atras"
 
 
 def macro_rows(plan, summary=None):
@@ -651,6 +676,28 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 # Mandar essa pessoa registrar seria pedir o que ela já fez.
                 # Registro ausente e consumo zero são estados diferentes.
                 "saldo_do_dia_ja_conta": summary["marked"] > 0,
+                # O TOPO CONTA O DIA, E NÃO O ZERO (23/09/2026).
+                #
+                # Antes da primeira refeição o painel dizia "0 de 2.839",
+                # "0/5 refeições" e "P 0 · C 0 · G 0": meia tela de zero, com
+                # a única frase útil ("registre para acompanhar") explicando
+                # por que não havia nada. A auditoria chamou isso de "o topo
+                # conta o zero".
+                #
+                # `modo` é a resposta em uma palavra: com nada registrado o
+                # anel mostra a META e o plano do dia — que é a informação que
+                # existe naquele instante —, e a partir da primeira marcação
+                # ele passa a mostrar o consumido. Não é um estado vazio com
+                # texto de consolo: é outra pergunta, respondida.
+                "topo": {
+                    "modo": "dia" if summary["marked"] else "plano",
+                    # A proteína está acompanhando o dia? A régua é honesta e
+                    # comparativa: a fração de proteína já comida contra a
+                    # fração de CALORIA já comida. Dizer "no rumo" por um
+                    # limiar absoluto (70% às 15h) seria inventar um horário
+                    # que o plano de cada pessoa não tem.
+                    "proteina": _proteina_no_rumo(self.plan, summary),
+                },
                 # O TETO DO TREINO, de todo mundo. `duration_min` continua
                 # gravado porque este app precisa dele para não marcar refeição
                 # no meio do treino, mas ele deixou de ser a resposta da pessoa.
@@ -769,6 +816,101 @@ class AlimentacaoView(TodayView):
     nav = "food"
     mostra_cardapio = True
 
+    #: Quantos itens da lista de compras cabem na prévia da direita.
+    #:
+    #: Três, e não "os primeiros que couberem": a prévia não é a lista, é o
+    #: lembrete de que ela existe. Quem vai ao mercado abre a lista inteira;
+    #: quem está olhando o cardápio só precisa saber que a semana já está
+    #: contada. Mais do que isso e a coluna de consulta vira uma segunda tela.
+    ITENS_NA_PREVIA = 3
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+
+        # O PAINEL DA DIREITA, no desktop, JÁ NASCE COM UMA RECEITA.
+        #
+        # A coluna media 336px de largura por 1.500px de altura vazia embaixo
+        # de três cartões recolhidos — medido a 1280px em 23/09/2026. O que
+        # ela passa a mostrar é a receita da refeição da VEZ: a pergunta que
+        # a pessoa tem na tela de cardápio, respondida sem tocar em nada.
+        #
+        # Zero consulta nova para a opção: ela é uma das que a tela já
+        # carregou (com `template__items__food__portions` no prefetch), e o
+        # registro do dia é o `slot.log` que a tela já leu. `outras` custa
+        # UMA, dentro de `contexto_da_receita`.
+        contexto["receita_do_painel"] = self._receita_do_painel(contexto.get("slots"))
+
+        contexto["compras"] = self._previa_das_compras()
+        return contexto
+
+    #: A ordem em que o painel escolhe a refeição, e ela é a MESMA do cartão
+    #: AGORA: a da vez, depois a vencida, depois qualquer uma.
+    #:
+    #: Medido a 1280px em 23/09/2026: sem a preferência por `agora`, às 10h o
+    #: painel mostrava o café das 7h (vencido) enquanto o card aberto ao lado
+    #: era o lanche das 10h37 — a coluna de consulta respondendo sobre outra
+    #: refeição que não a que está na tela.
+    ORDEM_DO_PAINEL = ("agora", "pendente", "")
+
+    def _receita_do_painel(self, slots):
+        """A receita que a coluna da direita abre, ou `None` sem cardápio.
+
+        O último degrau é "qualquer uma com opção" — dia inteiro resolvido
+        continua tendo a pergunta "como eu faço isso?", e devolver a coluna
+        vazia ali seria voltar ao defeito que o painel veio corrigir.
+        """
+        for estado in self.ORDEM_DO_PAINEL:
+            for slot in slots or ():
+                opcoes = getattr(slot, "opcoes_do_dia", None) or []
+                if not opcoes:
+                    continue
+                if estado and getattr(slot, "estado", "") != estado:
+                    continue
+                return contexto_da_receita(opcoes[0], log=getattr(slot, "log", None))
+        return None
+
+    def _previa_das_compras(self) -> dict:
+        """Três itens e o total, em CACHE de processo — zero consulta na
+        visita seguinte.
+
+        A conta é a mesma da tela da lista (`shopping_list`), porque uma
+        segunda conta aqui compraria uma semana diferente da que a lista
+        mostra. E ela é cara: percorre os sete dias projetando o cardápio de
+        cada um, seis consultas medidas. Pagar isso em toda abertura do
+        cardápio, para mostrar três nomes, seria 6 das 24 consultas da tela
+        gastas num lembrete.
+
+        A chave leva o PLANO e a SEMANA, que são as duas coisas que mudam a
+        resposta: plano novo tem pk novo (plano é retrato, nunca editado), e
+        a virada da semana troca a janela. Os 15 minutos são o mesmo teto do
+        `<datalist>` de alimentos, pela mesma razão — o pior caso é uma
+        prévia com quinze minutos de idade ao lado de um link que abre a
+        lista exata.
+
+        O cache é por PROCESSO (LocMem, dois workers): cada um paga a
+        primeira visita. O que ele não pode é vazar entre pessoas — e não
+        vaza, porque `plan.pk` é de uma conta só.
+        """
+        semana = shopping.dias_da_semana()[0]
+        chave = "plans.previa_de_compras:%s:%s" % (self.plan.pk, semana.isoformat())
+        previa = cache.get(chave)
+        if previa is None:
+            corredores = shopping.shopping_list(self.plan, label=OptionLabel.A)
+            itens = [item for corredor in corredores for item in corredor["items"]]
+            previa = {
+                # Só o que a prévia desenha: nome e a forma de compra. Guardar
+                # o `Food` inteiro poria um objeto do ORM no cache, que é como
+                # se guarda uma linha velha sem perceber.
+                "primeiros": [
+                    {"nome": item["food"].name, "display": item["display"]}
+                    for item in itens[: self.ITENS_NA_PREVIA]
+                ],
+                "total": len(itens),
+                "restantes": max(len(itens) - self.ITENS_NA_PREVIA, 0),
+            }
+            cache.set(chave, previa, CACHE_DO_CATALOGO_S)
+        return previa
+
 
 #: A tela Hoje tem 4 a 5 dobras, e toda escrita dela era um POST/redirect que
 #: devolvia a pessoa ao TOPO. Medido no navegador, em 375x812: o cartão de água
@@ -792,6 +934,94 @@ def _hoje_em(ancora: str) -> str:
     pessoa perder de vista a lista que ela está preenchendo.
     """
     return reverse("plans:alimentacao") + ancora
+
+
+def contexto_da_receita(opcao, porcao=None, log=None):
+    """Tudo o que `plans/_receita.html` desenha, para uma opção e uma porção.
+
+    Existe como função e não como método da view porque ela serve a DOIS
+    lugares: a tela da receita e o painel da direita do cardápio, que no
+    desktop já nasce com a receita da refeição da vez. Duas montagens do
+    mesmo contexto divergiriam na primeira coisa que a receita ganhasse.
+
+    Nenhuma consulta escondida: `ingredient_list` usa `.all()` para aproveitar
+    o `prefetch_related` de quem chamou, e `outras` é UMA consulta — as outras
+    receitas do repertório daquele horário, que é o que "trocar por outra
+    receita" oferece.
+    """
+    porcao = porcao_valida(porcao)
+    return {
+        "opcao": opcao,
+        "slot": opcao.slot,
+        "log": log,
+        "porcao": porcao,
+        "porcoes": [
+            {"valor": v, "escrita": PORCAO_ESCRITA[v], "atual": v == porcao}
+            for v in PORCOES
+        ],
+        "kcal": opcao.kcal * porcao,
+        "protein_g": opcao.protein_g * porcao,
+        "carb_g": opcao.carb_g * porcao,
+        "fat_g": opcao.fat_g * porcao,
+        "itens": opcao.ingredient_list(porcao),
+        "passos": passos_do_preparo(opcao.template.instructions),
+        "outras": [
+            o
+            for o in opcao.slot.options.select_related("template").order_by("rank")
+            if o.pk != opcao.pk
+        ],
+    }
+
+
+class ReceitaView(OnboardingRequiredMixin, TemplateView):
+    """A receita de uma opção: ingredientes, preparo, macros e porção.
+
+    É uma TELA, com URL própria, e não um bloco que só existe dentro de um
+    `<dialog>`. A ordem do projeto é "tela antes de `<details>` antes de
+    `<dialog>`", e aqui ela tem uma razão concreta além da doutrina: o modo de
+    preparo saiu do card na reforma de 23/09/2026, e um modo de preparo que só
+    existe dentro de um script é um modo de preparo que some quando o script
+    falha. `pwa.js` INTERCEPTA o link e abre o mesmo HTML numa folha; sem
+    JavaScript, o link navega e a receita aparece inteira.
+
+    Uma view, um template, uma resposta: a folha busca ESTA página e recorta
+    a seção `#receita` dela, que é o que `pwa.js` já faz com "Outras formas"
+    na ficha do treino. Devolver um fragmento por cabeçalho seria um segundo
+    caminho de renderização para o mesmo conteúdo — e o segundo caminho é o
+    que diverge na primeira receita nova.
+
+    A PORÇÃO chega por `?porcao=` e a conta é do SERVIDOR. Fazê-la no
+    navegador daria o número na hora e faria a tela e o registro discordarem
+    no instante em que a rede caísse — e é o mesmo número que vai para o
+    histórico quando a pessoa toca "Comi esta".
+    """
+
+    template_name = "plans/receita.html"
+    nav = "food"
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        # O filtro por plano ATIVO do próprio usuário é o que fecha o IDOR:
+        # sem ele, um `pk` de outra conta devolveria a receita dela — e com
+        # ela o horário e o alvo calórico daquela pessoa.
+        opcao = get_object_or_404(
+            MealOption.objects.select_related("template", "slot")
+            .prefetch_related("template__items__food__portions"),
+            pk=self.kwargs["option_id"],
+            slot_id=self.kwargs["slot_id"],
+            slot__plan__user=self.request.user,
+            slot__plan__is_active=True,
+        )
+        # O registro de HOJE daquele horário: a tela que oferece "Comi esta"
+        # para uma refeição já registrada oferece uma ação que só pode dar
+        # errado. Uma consulta, e ela responde a pergunta que a pessoa faria.
+        log = MealLog.objects.filter(
+            user=self.request.user, slot=opcao.slot, date=timezone.localdate()
+        ).first()
+        contexto["receita"] = contexto_da_receita(
+            opcao, self.request.GET.get("porcao"), log=log
+        )
+        return contexto
 
 
 class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
@@ -878,7 +1108,19 @@ class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
                     ),
                 )
 
-        tracking.log_meal(request.user, slot, status, option, notes=notes, macros=macros)
+        # A porção vem do formulário da receita ("comi meia"), e o servidor a
+        # valida contra a lista fechada: ela MULTIPLICA o kcal que entra no
+        # histórico, e um `porcao=99` forjado escreveria um dia de 280 mil
+        # calorias. Fora da receita o campo não é emitido, e a falta dele vale 1.
+        tracking.log_meal(
+            request.user,
+            slot,
+            status,
+            option,
+            notes=notes,
+            macros=macros,
+            porcao=request.POST.get("porcao"),
+        )
         if status == MealStatus.DONE:
             analytics.evento(request, "dieta.refeicao_registrada",
                              {"opcao": option.template.name if option else ""})
