@@ -1,0 +1,33 @@
+{% comment %}
+  AS CINCO ABAS, escritas uma vez e renderizadas nas DUAS barras.
+
+  `onde="tabbar"` é a barra de baixo (celular, com ícone e rótulo);
+  `onde="app-bar"` é a de cima (desktop, só rótulo — acima de 60rem a de
+  baixo some e quem navega é ela). A lista vem de
+  `accounts.templatetags.navegacao.ABAS`, o único lugar em que o nome, o
+  destino e o `nav` que acende cada aba são escritos.
+
+  `aria-current="page"` na aba da vez, e não só a classe: `is-active` é
+  pintura, e para quem ouve a tela ela não existe.
+
+  Os ícones vêm do sprite (`partials/icones.html`), incluído uma vez no
+  `base.html`. Cópia de `<path>` por aba era exatamente o que o sprite
+  existe para impedir — e eram dois blocos, um por barra.
+{% endcomment %}
+{% for aba in abas %}
+  {% if onde == "tabbar" %}
+    <a class="tabbar__item {% if aba.ativa %}is-active{% endif %}"
+       {% if aba.ativa %}aria-current="page"{% endif %}
+       href="{{ aba.endereco }}">
+      <svg class="tabbar__icone" aria-hidden="true" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <use href="#{{ aba.icone }}"></use>
+      </svg>
+      {{ aba.rotulo }}
+    </a>
+  {% else %}
+    <a class="app-bar__link {% if aba.ativa %}is-active{% endif %}"
+       {% if aba.ativa %}aria-current="page"{% endif %}
+       href="{{ aba.endereco }}">{{ aba.rotulo }}</a>
+  {% endif %}
+{% endfor %}

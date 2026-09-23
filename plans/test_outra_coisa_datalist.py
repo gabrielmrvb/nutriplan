@@ -29,7 +29,7 @@ class DatalistDoCatalogoTests(TestCase):
     def test_a_home_lista_os_alimentos_do_catalogo_por_nome(self):
         user = create_complete_user(email="datalist@exemplo.com")
         self.client.force_login(user)
-        html = self.client.get(reverse("plans:today")).content.decode()
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
         lista = html.split('<datalist id="alimentos-do-catalogo">', 1)[1].split("</datalist>", 1)[0]
         valores = re.findall(r'<option value="([^"]*)"', lista)
         self.assertGreater(len(valores), 30)

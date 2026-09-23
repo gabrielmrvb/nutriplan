@@ -84,7 +84,9 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: (era `2.5rem`, e `1.9rem` no desktop — o título nunca passa de 28).
 #: 115 em 20/09/2026: `.resumo__nota { font-size: .74rem }` saiu com a nota
 #: "a exportação gera um arquivo TCX" — a exportação saiu do produto.
-TETO_FONT_SIZE_CRU = 115
+#: 114 desde 22/09/2026: a linha `.resumo-dia` saiu do CSS com o redesenho
+#: da Home, e ela levava um `font-size: .72rem` cru. A catraca só desce.
+TETO_FONT_SIZE_CRU = 114
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
@@ -645,7 +647,7 @@ class OEspacamentoNaoVoltaParaODentroDoHTMLTests(SimpleTestCase):
 
     def test_o_estilo_calculado_continua_permitido(self):
         """A barra de progresso não tem outro jeito: a largura é o dado."""
-        hoje = (self.RAIZ_TEMPLATES / "plans" / "today.html").read_text(encoding="utf-8")
+        hoje = (self.RAIZ_TEMPLATES / "plans" / "alimentacao.html").read_text(encoding="utf-8")
 
         self.assertIn("style=\"width: {{", hoje)
 

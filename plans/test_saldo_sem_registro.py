@@ -86,7 +86,7 @@ class OSaldoNaoAfirmaResultadoDeDiaEmBrancoTests(TestCase):
         self.client.force_login(self.pessoa)
 
     def _tela(self):
-        return self.client.get(reverse("plans:today"))
+        return self.client.get(reverse("plans:alimentacao"))
 
     def _registrar(self, status=MealStatus.DONE, kcal=600):
         """Uma refeição registrada HOJE, presa ao plano ativo.
@@ -195,7 +195,7 @@ class OSaldoPreservadoValeParaTodosOsObjetivosTests(TestCase):
             with self.subTest(goal=goal):
                 self._com(goal, f"branco-{goal}@exemplo.com")
 
-                resposta = self.client.get(reverse("plans:today"))
+                resposta = self.client.get(reverse("plans:alimentacao"))
 
                 self.assertContains(resposta, CONVITE)
                 linha = linha_do_saldo(resposta)
@@ -213,7 +213,7 @@ class OSaldoPreservadoValeParaTodosOsObjetivosTests(TestCase):
                     status=MealStatus.DONE, kcal=500, slot_name=slot.name,
                 )
 
-                resposta = self.client.get(reverse("plans:today"))
+                resposta = self.client.get(reverse("plans:alimentacao"))
 
                 self.assertNotContains(resposta, CONVITE)
                 # A linha volta a existir, e diz alguma das quatro coisas que

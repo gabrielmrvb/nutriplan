@@ -436,9 +436,16 @@ class ZerarAAguaPedeConfirmacaoTests(TestCase):
     A confirmação é `<details>` e não `<dialog>` — é a ordem que o CLAUDE.md
     fixa — e funciona sem JavaScript, o que importa porque esta tela é postada
     por formulário puro.
+
+    EM 22/09/2026 AS DUAS MUDARAM DE TELA. O cartão de água virou uma célula
+    do painel da Hoje, com os três passos e mais nada: zerar o dia inteiro a
+    um polegar dos botões que a pessoa toca todo dia, na tela mais aberta do
+    app, era o risco de P1-04 em pior lugar. Hoje as duas moram na tela de
+    Hidratação, ao lado da LISTA de goles que elas mexem — e a regra deste
+    arquivo (uma confirma, a outra não) foi junto, sem afrouxar.
     """
 
-    CAMINHO = Path(settings.BASE_DIR) / "templates" / "plans" / "_agua.html"
+    CAMINHO = Path(settings.BASE_DIR) / "templates" / "plans" / "hydration.html"
 
     def setUp(self):
         self.fonte = re.sub(

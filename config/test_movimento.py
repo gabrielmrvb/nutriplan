@@ -302,7 +302,8 @@ class GanchosNosTemplatesTests(SimpleTestCase):
         return (RAIZ / "templates" / caminho).read_text(encoding="utf-8")
 
     def test_as_tres_formas_de_marcar_a_refeicao_celebram_o_cartao(self):
-        hoje = self.ler("plans/today.html")
+        # O cardápio mora em `alimentacao.html` desde 22/09/2026.
+        hoje = self.ler("plans/alimentacao.html")
         self.assertEqual(hoje.count('data-celebra="slot-{{ slot.pk }}"'), 3)
         self.assertIn('id="slot-{{ slot.pk }}"', hoje)
 
@@ -440,9 +441,14 @@ class SemJavaScriptTests(TestCase):
         # FUTURA, e o `pre-push` de 15/09/2026 às 21h30 não tinha nenhuma.
         manha = timezone.make_aware(datetime.combine(timezone.localdate(), time(7, 0)))
         with mock.patch("plans.views.relogio", return_value=manha):
+            # DUAS telas desde 22/09/2026: a sanfona da refeição mora no
+            # cardápio e os botões de água no painel da Hoje. Sem JavaScript
+            # as duas continuam sendo HTML que o navegador resolve sozinho, e
+            # é isso que este teste mede.
+            cardapio = self.client.get(reverse("plans:alimentacao")).content.decode()
             html = self.client.get(reverse("plans:today")).content.decode()
-        self.assertIn('<details class="meal__futuro">', html)
-        self.assertIn('<summary class="meal__abrir">Ver opções</summary>', html)
+        self.assertIn('<details class="meal__futuro">', cardapio)
+        self.assertIn('<summary class="meal__abrir">Ver opções</summary>', cardapio)
         # O eco e a contagem são atributos de dados: sem script, o botão é
         # um `<button type="submit">` e o total é o número servido.
         self.assertRegex(html, r'<button type="submit" class="agua__botao" data-agua-eco="\+250 ml">')

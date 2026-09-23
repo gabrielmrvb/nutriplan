@@ -388,8 +388,70 @@ class RaizView(View):
         return LandingView.as_view()(request, *args, **kwargs)
 
 
+#: A ordem canônica dos cartões do painel do dia — a mesma de `Pilar`.
+CARTOES_DO_PAINEL = ("dieta", "treino", "hidratacao", "corrida", "progresso")
+
+#: Os dois que só entram para quem DECLAROU a área. Alimentação, Treino e
+#: Hidratação são o dia de qualquer pessoa — todo mundo come, treina (ou
+#: descansa, que é o plano) e bebe água. Corrida e Progresso não: quem não
+#: corre não tem "última corrida", e quem não acompanha peso não tem pesagem.
+#: Um cartão vazio nessas duas seria a grade cobrando espaço para dizer
+#: "nada aqui" — e a auditoria de 22/09/2026 chama isso de cartão com buraco.
+CARTOES_DECLARADOS = ("corrida", "progresso")
+
+
+def cartoes_do_painel(prioridade, *, declarados=()) -> list:
+    """Os cartões do painel: qual, em que ordem, e qual ocupa a linha inteira
+    no celular.
+
+    A promoção da área principal deixou de mover seções de meia tela e virou
+    ORDEM dentro da grade (22/09/2026). O contrato de produto é o mesmo de
+    antes e continua tendo teste: interesse ORGANIZA e nunca restringe —
+    nenhuma área some por não ter sido escolhida, e quem não declarou nada vê
+    a ordem canônica.
+
+    `largo` é layout decidido no servidor, e não no CSS, porque depende de
+    CONTAR os cartões: a grade do celular tem duas colunas, e com um número
+    ÍMPAR deles o último ficaria sozinho ao lado de meia célula vazia — o
+    buraco que a auditoria de 22/09/2026 aponta em outras telas. É o único
+    caso: a grade do celular é 2×2 para quem corre e 2+1 para quem não corre.
+    No desktop são tantas colunas quantos cartões e ninguém é largo — a regra
+    do CSS desliga o caso acima de 60rem.
+
+    A Hidratação já precisou da linha inteira em toda largura: os três passos
+    de 44px não cabiam na célula. Hoje cabem, porque os botões são uma linha
+    que quebra quando três não cabem (medido em 22/09/2026: 65px por botão a
+    390px, 50px a 320px, sempre acima da régua de 44).
+
+    `declarados` são os pilares em que a pessoa marcou interesse. Ele decide
+    SÓ os dois opcionais (`CARTOES_DECLARADOS`) — interesse organiza e não
+    restringe, então não declarar Alimentação não tira o cartão do cardápio.
+    """
+    chaves = [
+        c for c in CARTOES_DO_PAINEL
+        if c not in CARTOES_DECLARADOS or c in declarados
+    ]
+    if prioridade in chaves:
+        chaves.remove(prioridade)
+        chaves.insert(0, prioridade)
+    sozinho = chaves[-1] if len(chaves) % 2 else None
+    return [{"chave": c, "largo": c == sozinho} for c in chaves]
+
+
 class TodayView(PlanRequiredMixin, TemplateView):
+    """A tela HOJE: o orquestrador do dia (o painel de quatro cartões).
+
+    Ela e a `AlimentacaoView` computam o MESMO contexto, e isso é decisão: as
+    duas telas respondem sobre o mesmo dia, e o dia é lido uma vez por
+    pedido. O que separa as duas é o template e dois extras que só a
+    Alimentação usa (o catálogo do `<datalist>` e a proteína perdida), ambos
+    atrás de `mostra_cardapio` — a Home não paga consulta por eles.
+    """
+
     template_name = "plans/today.html"
+    nav = "today"
+    #: A Alimentação liga isto. Ver `get_context_data`.
+    mostra_cardapio = False
 
     def get_plan(self, request):
         """O plano E o cardápio, lidos uma vez (`services.plano_do_dia`)."""
@@ -509,22 +571,36 @@ class TodayView(PlanRequiredMixin, TemplateView):
         # e cada acesso custava duas consultas (o usuário e o perfil de novo).
         perfil = self.request.user.profile
         prioridade = getattr(perfil, "prioridade", "")
+        # AS ÁREAS QUE A PESSOA DECLAROU. São os mesmos campos do onboarding —
+        # nada é inferido de histórico: quem nunca marcou Corrida não recebe o
+        # cartão de corrida, e nenhuma corrida registrada o faz aparecer
+        # sozinho. É a doutrina de "uso não é intenção declarada", do outro
+        # lado da tela.
+        declarados = {
+            pilar for pilar, campo in CAMPO_DO_PILAR.items()
+            if getattr(perfil, campo, False)
+        }
 
-        # O fato da área promovida, e só dela. Treino já está em
+        # O conteúdo dos dois cartões OPCIONAIS, e só deles. Treino já está em
         # `estado_treino` e o convite de pesagem já foi calculado acima — os
         # dois custam zero aqui. Corrida e Progresso custam UMA consulta cada,
         # e só para quem declarou aquela área: a Home é a tela mais aberta do
-        # app, e carregar as três para todo mundo seria cobrar de quem nunca
+        # app, e carregar as duas para todo mundo seria cobrar de quem nunca
         # respondeu a pergunta.
+        #
+        # Em 22/09/2026 a condição deixou de ser "elegeu como área principal"
+        # e passou a ser "declarou interesse": o cartão é do painel, e o
+        # painel mostra as áreas da pessoa — a principal é a primeira delas,
+        # não a única.
         ultima_corrida = None
         ultimo_peso = None
-        if prioridade == Pilar.CORRIDA:
+        if Pilar.CORRIDA in declarados:
             ultima_corrida = (
                 Corrida.objects.filter(user=self.request.user)
                 .order_by("-comecou_em")
                 .first()
             )
-        elif prioridade == Pilar.PROGRESSO:
+        if Pilar.PROGRESSO in declarados:
             ultimo_peso = self.pesagens[0] if self.pesagens else None
 
         # UMA leitura do relógio para o topo e para a lista: os dois têm de
@@ -637,14 +713,40 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 "houve_recusa": recusa is not None,
                 "peso_recusado": recusa.valor if recusa else "",
                 "peso_erro": recusa.mensagem if recusa else "",
-                "proteina_perdida": proteina_perdida(slots),
+                # SÓ a Alimentação mostra o cardápio, e só ela paga por
+                # estes dois: o catálogo do `<datalist>` é uma consulta, e a
+                # proteína perdida uma varredura dos slots.
+                "proteina_perdida": proteina_perdida(slots) if self.mostra_cardapio else None,
                 # O catálogo do `<datalist>` e as linhas em branco do painel
                 # "comi outra coisa". `range` no contexto porque o template do
                 # Django não sabe contar, e um `{% for %}` sobre uma lista de
                 # três nadas é mais honesto que três blocos copiados.
-                "alimentos": alimentos_do_catalogo(),
+                "alimentos": alimentos_do_catalogo() if self.mostra_cardapio else (),
                 "itens_fora": range(tracking.MAX_ITENS_FORA),
-                "nav": "today",
+                "nav": self.nav,
+                # O PAINEL DO DIA: quais cartões, e em que ordem.
+                #
+                # Lista no servidor, e não `{% if %}` espalhados pelo
+                # template: a ordem é decisão de produto (a área principal
+                # primeiro; o resto na ordem canônica de `Pilar`) e precisa de
+                # um lugar só, que o teste consiga ler sem varrer HTML.
+                #
+                # Corrida e Progresso só entram para quem declarou a área;
+                # Alimentação, Treino e Hidratação são o dia de qualquer um.
+                "painel": cartoes_do_painel(prioridade, declarados=declarados),
+                # O selo "sua área" do cartão de água, que é um `{% include %}`
+                # e não enxerga `area_promovida` do contexto pai.
+                "agua_principal": prioridade == Pilar.HIDRATACAO,
+                # O próximo treino, para o cartão dizer "amanhã, B" em vez de
+                # só "Descanso". Zero consulta: as linhas do plano já vieram
+                # em `estado_do_treino`.
+                "proximo_treino": (
+                    treino_services.proximo_treino(
+                        estado_treino.linhas, estado_treino.plan, today, estado_treino.linhas
+                    )
+                    if estado_treino.tem_ficha and not estado_treino.tem_treino
+                    else None
+                ),
                 "training_days": self.request.user.training_days.all(),
                 "slots": slots,
                 "today": today,
@@ -652,6 +754,20 @@ class TodayView(PlanRequiredMixin, TemplateView):
             }
         )
         return context
+
+
+class AlimentacaoView(TodayView):
+    """A tela ALIMENTAÇÃO: o cardápio do dia e de onde vem a meta.
+
+    É a tela que o app chamava de "Hoje" até 22/09/2026, com o mesmo conteúdo
+    e o mesmo contexto. O que mudou é que ela tem endereço e nome próprios: a
+    barra dizia "Alimentação" e levava para uma tela chamada "Hoje" que era a
+    tela de dieta com um widget de água pendurado no fim.
+    """
+
+    template_name = "plans/alimentacao.html"
+    nav = "food"
+    mostra_cardapio = True
 
 
 #: A tela Hoje tem 4 a 5 dobras, e toda escrita dela era um POST/redirect que
@@ -668,7 +784,14 @@ class TodayView(PlanRequiredMixin, TemplateView):
 #: rolaria a tela para longe do texto que explica o que deu errado. Nem para o
 #: recálculo, que refaz o dia inteiro e tem mensagem própria.
 def _hoje_em(ancora: str) -> str:
-    return reverse("plans:today") + ancora
+    """A tela do cardápio, na âncora da refeição que acabou de ser marcada.
+
+    Ela apontava para `plans:today`, que era a tela do cardápio. Com a
+    separação de 22/09/2026 o cardápio mora em `plans:alimentacao`, e é para
+    lá que o POST de refeição tem de voltar — voltar para a Hoje faria a
+    pessoa perder de vista a lista que ela está preenchendo.
+    """
+    return reverse("plans:alimentacao") + ancora
 
 
 class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
@@ -682,13 +805,22 @@ class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
     esse filtro, um id de outra pessoa marcaria refeição na conta errada.
     """
 
+    #: A tela desta ação é a do CARDÁPIO, e não a Hoje: desde 22/09/2026 são
+    #: duas telas, e é da Alimentação que este botão é tocado. O padrão do
+    #: mixin ("errar para a porta de entrada") continua certo para quem não
+    #: declara nada — aqui não é errar, é saber.
+    tela_da_acao = "plans:alimentacao"
+
     def post(self, request, slot_id, *args, **kwargs):
         slot = get_object_or_404(
             MealSlot, pk=slot_id, plan__user=request.user, plan__is_active=True
         )
         status = request.POST.get("status")
         if status not in MealStatus.values:
-            return redirect("plans:today")
+            # De volta ao cardápio, que é de onde o botão veio — a mesma tela
+            # de `tela_da_acao`. Apontava para a Hoje, que até 22/09/2026 era
+            # a mesma página.
+            return redirect(self.tela_da_acao)
 
         option = None
         if status == MealStatus.DONE:
@@ -843,6 +975,12 @@ def _itens_descritos(dados, desconhecidos=None) -> list:
 class ClearMealView(AcaoDeTela, OnboardingRequiredMixin, View):
     """Desfaz a marcação de uma refeição do dia."""
 
+    #: A tela desta ação é a do CARDÁPIO, e não a Hoje: desde 22/09/2026 são
+    #: duas telas, e é da Alimentação que este botão é tocado. O padrão do
+    #: mixin ("errar para a porta de entrada") continua certo para quem não
+    #: declara nada — aqui não é errar, é saber.
+    tela_da_acao = "plans:alimentacao"
+
     def post(self, request, slot_id, *args, **kwargs):
         slot = get_object_or_404(
             MealSlot, pk=slot_id, plan__user=request.user, plan__is_active=True
@@ -978,6 +1116,12 @@ class RecalibrateView(AcaoDeTela, OnboardingRequiredMixin, View):
     grava nada e só devolve para a tela.
     """
 
+    #: A tela desta ação é a do CARDÁPIO, e não a Hoje: desde 22/09/2026 são
+    #: duas telas, e é da Alimentação que este botão é tocado. O padrão do
+    #: mixin ("errar para a porta de entrada") continua certo para quem não
+    #: declara nada — aqui não é errar, é saber.
+    tela_da_acao = "plans:alimentacao"
+
     def post(self, request, *args, **kwargs):
         profile = request.user.profile
         acao = request.POST.get("acao")
@@ -1043,13 +1187,19 @@ class RecalculatePlanView(AcaoDeTela, OnboardingRequiredMixin, View):
     colateral de abrir uma tela.
     """
 
+    #: A tela desta ação é a do CARDÁPIO, e não a Hoje: desde 22/09/2026 são
+    #: duas telas, e é da Alimentação que este botão é tocado. O padrão do
+    #: mixin ("errar para a porta de entrada") continua certo para quem não
+    #: declara nada — aqui não é errar, é saber.
+    tela_da_acao = "plans:alimentacao"
+
     def post(self, request, *args, **kwargs):
         try:
             services.create_plan(request.user)
         except services.IncompleteProfile:
             return redirect("accounts:onboarding")
         messages.success(request, "Meta recalculada com os seus dados de hoje.")
-        return redirect("plans:today")
+        return redirect("plans:alimentacao")
 
 
 class MarcarItemDaListaView(AcaoDeTela, OnboardingRequiredMixin, View):
@@ -1235,10 +1385,13 @@ class ShoppingListView(PlanRequiredMixin, TemplateView):
                         user=self.request.user, semana__range=janela
                     )
                 ),
-                # A lista é uma subtela da dieta: manter a aba Dieta acesa é
-                # melhor que deixar a barra inteira apagada, que dá sensação de
-                # ter saído do app.
-                "nav": "today",
+                # A lista é uma subtela da ALIMENTAÇÃO — é o cardápio da
+                # semana virado compra —, e desde 22/09/2026 existe uma aba
+                # com esse nome para acender. Antes ela acendia a aba que se
+                # chamava "Alimentação" e levava para a Hoje; hoje acende a
+                # aba certa, e a porta continua sendo a mesma: o link no topo
+                # do cardápio e o módulo em "Mais".
+                "nav": "food",
                 "plan": self.plan,
                 "aisles": aisles,
                 "label": label,
@@ -1305,12 +1458,12 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
         if destino:
             return redirect(destino)
 
-        # Sem `de`, a âncora. Ela foi desenhada para quem JÁ ESTAVA no cartão de
-        # água, lá embaixo, e continua certa para quem toca nos botões de lá —
-        # `topo` existe porque o cartão AGORA agora chama pela água várias vezes
-        # ao dia, e ancorar mandaria a pessoa 2.500px para baixo do botão que
-        # ela acabou de tocar.
-        return redirect("plans:today" if erro else _hoje_em("#hidratacao"))
+        # Sem `de`, a âncora — e ela é da tela HOJE, não da Alimentação: em
+        # 22/09/2026 o cartão de água virou uma célula do painel do dia, e a
+        # tela do cardápio deixou de ter `#hidratacao`. Apontar para lá seria
+        # uma âncora que não existe, que o navegador ignora em silêncio (é o
+        # defeito que `plans/test_b2_hoje.py` existe para pegar).
+        return redirect("plans:today" if erro else reverse("plans:today") + "#hidratacao")
 
     @transaction.atomic
     def post(self, request, *args, **kwargs):
@@ -1630,20 +1783,51 @@ def _curva_de_peso(semanas, largura=300, altura=64):
     if len(pontos) < 2:
         return None
 
+    # As datas andam junto com as médias — mesma lista, mesmo filtro: um
+    # `zip` sobre `semanas` cru desalinharia a primeira data de um ponto que
+    # a média `None` tirou da curva.
+    datas = [
+        getattr(s, "inicio", None)
+        for s, m in zip(semanas, medias)
+        if m is not None
+    ]
+
     menor, maior = min(pontos), max(pontos)
     faixa = max(maior - menor, 0.4)
     passo = largura / (len(pontos) - 1)
     coords = []
+    marcas = []
     for i, valor in enumerate(pontos):
         x = i * passo
         # y invertido: em SVG a origem é em cima, e peso maior tem de subir.
         y = altura - ((valor - menor) / faixa) * altura
         coords.append(f"{x:.1f},{y:.1f}")
+        # STRING, e não float: o app é pt-BR com `USE_L10N`, e `{{ marca.x }}`
+        # de um float sai "42,9" — vírgula decimal, que é o certo em texto e
+        # inválido em atributo de SVG. Medido: os oito pontos empilhados na
+        # origem, porque o navegador descarta o `cx` que não entende. É o
+        # mesmo motivo de `pontos` já ser uma string montada aqui.
+        marcas.append({"x": f"{x:.1f}", "y": f"{y:.1f}"})
     return {
         "pontos": " ".join(coords),
+        # Um ponto por semana, para a curva dizer QUANTAS medições ela tem.
+        # Sem eles, três semanas e trinta desenham a mesma linha.
+        "marcas": marcas,
         "largura": largura,
         "altura": altura,
         "primeiro": pontos[0],
         "ultimo": pontos[-1],
         "delta": round(pontos[-1] - pontos[0], 1),
+        # O EIXO (22/09/2026). A escala é a do próprio período — e é
+        # exatamente por isso que ela precisa ser dita: sem os dois números, a
+        # mesma linha serve para 200 g e para 4 kg de variação, e a auditoria
+        # leu a curva como "linha reta". `piso` e `teto` são o que está
+        # desenhado na base e no topo da caixa, não o menor e o maior peso:
+        # com faixa menor que o piso de 0,4 kg os dois deixam de coincidir.
+        "piso": round(menor, 1),
+        "teto": round(menor + faixa, 1),
+        # E o PERÍODO, pelo mesmo motivo: uma curva sem datas não diz se
+        # aquilo levou um mês ou um ano.
+        "de": datas[0],
+        "ate": datas[-1],
     }

@@ -416,7 +416,11 @@ class DemoCadaRotaMostraSuaTelaTests(TestCase):
     TELAS = (
         ("/demo/", "As telas do aplicativo"),
         ("/demo/sobre/", "Sobre esta demonstra"),
-        ("/demo/hoje/", "kcal hoje"),
+        # A Hoje virou o painel do dia em 22/09/2026 e o cardápio ganhou tela
+        # própria. A marca de cada uma é o que só ela tem: o painel de cartões
+        # ali, o cardápio aqui.
+        ("/demo/hoje/", 'class="painel"'),
+        ("/demo/alimentacao/", "Seu cardápio de hoje"),
         # `class="sessao-cartao` com a aspa: sem ela a marca casa também com
         # `sessao-cartao__texto` e `sessao-cartao__nome`, e renomear o cartão
         # passaria verde — medido numa sabotagem.

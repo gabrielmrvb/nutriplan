@@ -41,7 +41,7 @@ class AHomeMostraMedidaCaseiraTests(CatalogFixture, TestCase):
     def test_alimento_com_porcao_sai_como_medida_e_grama(self):
         user = create_complete_user()
         self.client.force_login(user)
-        html = self.client.get(reverse("plans:today")).content.decode()
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
         # Um ingrediente com porção: "<b>7,5 colheres de sopa (116 g)</b>" — o número
         # exato depende do cardápio; a FORMA é o que se prova.
         self.assertRegex(html, r'class="option__ingrediente">[^<]+</span>\s*<b>[0-9]+(,5)? [a-zç ]+ \([0-9]+ (g|ml)\)</b>')
@@ -76,7 +76,7 @@ class AHomeMostraMedidaCaseiraTests(CatalogFixture, TestCase):
         """
         user = create_complete_user()
         self.client.force_login(user)
-        url = reverse("plans:today")
+        url = reverse("plans:alimentacao")
         self.client.get(url)  # aquece o que é cacheado por processo
         with CaptureQueriesContext(connection) as ctx:
             resposta = self.client.get(url)
@@ -84,7 +84,7 @@ class AHomeMostraMedidaCaseiraTests(CatalogFixture, TestCase):
         self.assertLessEqual(
             len(ctx.captured_queries),
             40,
-            "plans:today fez %d consultas (teto 40) — provável consulta "
+            "plans:alimentacao fez %d consultas (teto 40) — provável consulta "
             "dentro do laço de ingredient_list" % len(ctx.captured_queries),
         )
 
@@ -393,7 +393,7 @@ class AReceitaRecalibradaInvalidaOPlanoTests(CatalogFixture, TestCase):
     perceberia, porque `plan_is_current` só olhava `template__is_active`.
 
     A verificação mora na MESMA consulta que já existia para a receita
-    aposentada (`Q(...) | Q(...)`): o orçamento de `plans:today`
+    aposentada (`Q(...) | Q(...)`): o orçamento de `plans:alimentacao`
     (`plans/test_stress.py`) não sobe por isto.
     """
 

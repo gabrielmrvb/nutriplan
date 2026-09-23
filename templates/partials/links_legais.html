@@ -13,12 +13,22 @@
   "Ajuda" é pública e não depende do legal: quem não consegue entrar precisa
   dela mais do que ninguém (21/09/2026).
 {% endcomment %}
+{% comment %}
+  O SEPARADOR É CSS, E NÃO UM ELEMENTO (22/09/2026).
+
+  Os "·" eram `<span>` irmãos dos links, ou seja, itens do mesmo flex com o
+  `gap` de cada lado: 36px só de pontuação. A 390px a linha não cabia, o
+  container quebrava — e quebrava ENTRE um link e o ponto seguinte, deixando
+  um "·" sozinho começando a segunda linha.
+
+  Como `::after` do próprio link, o ponto é parte da caixa dele: ele não pode
+  liderar linha nenhuma, e os 36px voltam para o texto. Medido: com os três
+  links a linha fecha em 316px de 358 úteis.
+{% endcomment %}
 <p class="links-legais">
   {% if legal_publicado %}
     <a href="{% url 'privacidade' %}">Política de Privacidade</a>
-    <span aria-hidden="true">·</span>
     <a href="{% url 'termos' %}">Termos de Uso</a>
-    <span aria-hidden="true">·</span>
   {% endif %}
   <a href="{% url 'ajuda:index' %}">Ajuda</a>
 </p>

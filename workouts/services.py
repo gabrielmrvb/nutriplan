@@ -3398,6 +3398,36 @@ class EstadoDoTreino:
         return self.series_feitas > 0
 
 
+def proximo_treino(sessions, plan=None, hoje=None, linhas=None):
+    """Qual treino vem a seguir, para o dia em que hoje é descanso.
+
+    Sai de `weekday`, que a pessoa escolheu no cadastro — não é previsão. Anda
+    os sete dias seguintes e devolve o primeiro que tem sessão, com quantos
+    dias faltam, para a tela poder dizer "amanhã" em vez de repetir o nome do
+    dia da semana. Com a rotação contínua a letra do próximo dia sai da DATA
+    dele (`sessao_do_dia`): a segunda-feira que vem pode ser C, e não a A
+    desta semana.
+    """
+    if not sessions:
+        return None
+
+    if ciclo_roda(plan):
+        hoje_data = hoje or timezone.localdate()
+        for adiante in range(1, 8):
+            sessao = sessao_do_dia(plan, hoje_data + timedelta(days=adiante), linhas)
+            if sessao is not None:
+                return {"session": sessao, "dias": adiante}
+        return None
+
+    hoje = timezone.localdate().weekday()
+    for adiante in range(1, 8):
+        alvo = (hoje + adiante) % 7
+        sessao = next((s for s in sessions if s.weekday == alvo), None)
+        if sessao is not None:
+            return {"session": sessao, "dias": adiante}
+    return None
+
+
 def escolha_do_dia(user, dia=None):
     """A opção que a pessoa escolheu hoje, ou `None`."""
     dia = dia or timezone.localdate()

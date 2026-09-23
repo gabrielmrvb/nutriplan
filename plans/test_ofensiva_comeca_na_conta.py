@@ -113,6 +113,13 @@ class OfensivaComecaNaContaTests(TestCase):
         self.assertEqual(ofensiva.dias, 0)
         self.assertEqual(ofensiva.falta_ontem, ["dieta ou água"])
         self.assertIn("Ontem faltou dieta ou água", ofensiva.mensagem)
+        # E ela NÃO abre por aí: a frase começa com o convite de hoje. Era
+        # "Ontem faltou X. Hoje recomeça: …", e a auditoria de UX de
+        # 22/09/2026 mediu o efeito — a primeira aparição do treino na Home
+        # era uma bronca num cartão de zero dias.
+        self.assertTrue(
+            ofensiva.mensagem.startswith("Recomeça hoje"), ofensiva.mensagem
+        )
 
     def test_o_dia_da_entrada_conta_e_o_anterior_nao(self):
         user = create_complete_user(email="entrada@exemplo.com")

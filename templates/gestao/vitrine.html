@@ -110,4 +110,28 @@
     <p class="hint">Uma dica curta, abaixo do bloco a que se refere.</p>
     {% include "partials/links_legais.html" %}
   </section>
+
+  {% comment %}
+    AS DUAS BARRAS (22/09/2026), a partir da mesma lista.
+
+    `partials/abas.html` nasceu quando a barra de baixo foi de quatro para
+    cinco itens: o nome, o destino e o `nav` que acende cada aba eram escritos
+    DUAS vezes no `base.html`, uma por barra, e a sexta aba nasceria divergindo
+    de si mesma. Hoje a lista mora em `accounts.templatetags.navegacao.ABAS` e
+    a parcial desenha as duas.
+
+    Aqui ela aparece com `abas` montado à mão, e é de propósito: a vitrine não
+    tem pessoa logada nem `nav`, e a tag de inclusão leria o contexto da
+    página de gestão. Com a lista escrita aqui a fotografia mostra os dois
+    estados que importam — a aba da vez (com `aria-current`) e as outras.
+  {% endcomment %}
+  <section class="card">
+    <div class="card__head"><h2>Navegação</h2></div>
+    <nav class="app-bar__nav">
+      {% include "partials/abas.html" with abas=abas_da_vitrine onde="app-bar" %}
+    </nav>
+    <nav class="tabbar tabbar--vitrine" aria-label="Exemplo da barra de abas">
+      {% include "partials/abas.html" with abas=abas_da_vitrine onde="tabbar" %}
+    </nav>
+  </section>
 {% endblock %}

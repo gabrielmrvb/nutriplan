@@ -125,7 +125,13 @@ class ASBarrasEOMapaFalamAMesmaLinguaTests(BaseDaNomenclatura):
         html = self.client.get(reverse("plans:today")).content.decode()
         abas = self.rotulos(html, "tabbar__item")
 
-        self.assertEqual(abas, ["Alimentação", "Treino", "Progresso", "Áreas"])
+        # CINCO desde 22/09/2026: "Hoje" entrou na frente (a tela inicial
+        # voltou a ser o orquestrador do dia) e "Áreas" virou "Mais", que é o
+        # que há lá dentro — áreas, conquistas, lista de compras, perfil e
+        # ajuda. Os NOMES DE ÁREA continuam sendo os de `Pilar.label`.
+        self.assertEqual(
+            abas, ["Hoje", "Alimentação", "Treino", "Progresso", "Mais"]
+        )
 
     def test_a_barra_de_cima_usa_os_mesmos_nomes_da_de_baixo(self):
         """As duas aparecem na mesma página; divergir aqui é divergir na cara
@@ -179,7 +185,7 @@ class ASBarrasEOMapaFalamAMesmaLinguaTests(BaseDaNomenclatura):
 
         # Controle positivo dos DOIS recortes: um lado vazio faria a
         # interseção ser vazia por acidente, e o teste passaria sem medir.
-        self.assertEqual(len(da_barra), 4, da_barra)
+        self.assertEqual(len(da_barra), 5, da_barra)
         self.assertGreaterEqual(len(de_areas), 3, de_areas)
 
         self.assertEqual(da_barra & de_areas, set())
@@ -331,7 +337,11 @@ class ORenomearNaoMoveNadaTests(TestCase):
         self.assertEqual(
             {p: rota for p, (rota, _nav) in DESTINO_DO_PILAR.items()},
             {
-                Pilar.DIETA: "plans:today",
+                # A tela do cardápio ganhou endereço próprio em 22/09/2026 e
+                # `plans:today` virou o orquestrador do dia. O destino do
+                # pilar Alimentação é o cardápio — mudar o nome da tela não
+                # muda o que a área é.
+                Pilar.DIETA: "plans:alimentacao",
                 Pilar.TREINO: "workouts:routine",
                 Pilar.CORRIDA: "workouts:corridas",
                 Pilar.HIDRATACAO: "plans:hydration",
@@ -342,7 +352,7 @@ class ORenomearNaoMoveNadaTests(TestCase):
     def test_as_chaves_de_nav_continuam_as_mesmas(self):
         self.assertEqual(
             [nav for _rota, nav in DESTINO_DO_PILAR.values()],
-            ["today", "workout", "running", "hydration", "history"],
+            ["food", "workout", "running", "hydration", "history"],
         )
 
 
@@ -362,10 +372,12 @@ class ANomenclaturaNaoProibePalavraTests(TestCase):
     educativo continua inteiro.
     """
 
-    def test_o_texto_educativo_da_home_continua_dizendo_dieta(self):
+    def test_o_texto_educativo_da_alimentacao_continua_dizendo_dieta(self):
         # A régua protege NOME de área e PROMESSA pública, não a palavra: a
         # explicação da meta continua falando de "uma dieta não funcionar".
-        conteudo = (RAIZ / "templates" / "plans" / "today.html").read_text(encoding="utf-8")
+        conteudo = (
+            RAIZ / "templates" / "plans" / "alimentacao.html"
+        ).read_text(encoding="utf-8")
 
         self.assertIn("razão mais comum de uma dieta não funcionar", conteudo)
 

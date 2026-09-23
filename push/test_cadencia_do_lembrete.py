@@ -119,9 +119,13 @@ class OAgendadorEATelaDizemOMesmoTests(SimpleTestCase):
 
     def test_a_tela_promete_a_antecedencia_que_o_codigo_entrega(self):
         promessa = "até %d minutos antes" % services.REMINDER_LEAD_MINUTES
-        hoje = (RAIZ / "templates" / "plans" / "today.html").read_text(encoding="utf-8")
+        # A promessa está no cartão de lembretes, que mora na tela do
+        # cardápio desde 22/09/2026.
+        hoje = (
+            RAIZ / "templates" / "plans" / "alimentacao.html"
+        ).read_text(encoding="utf-8")
         pwa = (RAIZ / "static" / "js" / "pwa.js").read_text(encoding="utf-8")
         self.assertIn(promessa, hoje)
         self.assertIn(promessa, pwa)
-        for texto, nome in ((hoje, "today.html"), (pwa, "pwa.js")):
+        for texto, nome in ((hoje, "alimentacao.html"), (pwa, "pwa.js")):
             self.assertNotIn("10 minutos antes", re.sub(r"/\*.*?\*/", "", texto, flags=re.S), nome)

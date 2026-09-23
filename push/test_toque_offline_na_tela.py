@@ -39,7 +39,10 @@ class OToqueOfflineApareceNaTelaTests(SimpleTestCase):
         self.pwa = sem_comentarios(PWA.read_text(encoding="utf-8"))
 
     def test_as_tres_telas_tem_a_nota_escondida(self):
-        for arquivo in ("plans/_agua.html", "plans/today.html", "workouts/agora.html"):
+        # `plans/alimentacao.html` no lugar de `plans/today.html`: o cardápio
+        # (e a nota de refeição enfileirada) mudou de tela em 22/09/2026. A
+        # água continua em `_agua.html`, que a Hoje inclui.
+        for arquivo in ("plans/_agua.html", "plans/alimentacao.html", "workouts/agora.html"):
             with self.subTest(arquivo=arquivo):
                 html = sem_comentarios((TEMPLATES / arquivo).read_text(encoding="utf-8"))
                 self.assertIn('data-aguardando-rede hidden', html)

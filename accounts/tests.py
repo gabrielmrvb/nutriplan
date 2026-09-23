@@ -665,22 +665,28 @@ class BottomNavigationTests(TestCase):
         self.assertNotIn("logout", barra)
         self.assertNotIn("Sair", barra)
 
-    def test_all_four_destinations_are_reachable_from_it(self):
-        """São quatro desde que Suplementos saiu do produto.
+    def test_all_five_destinations_are_reachable_from_it(self):
+        """São CINCO desde 22/09/2026, e a quinta tem razão escrita.
 
-        Eram cinco, e a quinta era Suplementos — a barra era a ÚNICA porta
-        para aquela tela. Com a tela fora, a barra passa a ter quatro itens
-        mais largos, e isso é melhora: alvo maior no polegar. O que este teste
-        trava é que ninguém invente uma aba nova só para reocupar o espaço.
+        Eram cinco até Suplementos sair do produto, e quatro depois disso. A
+        aba nova é HOJE, e ela não reocupa espaço vago: a tela inicial voltou
+        a ser o orquestrador do dia e o cardápio ganhou endereço próprio, e
+        sem as duas a barra dizia "Alimentação" apontando para uma tela
+        chamada "Hoje". Um nome por tela é o mínimo que uma barra tem de
+        entregar.
+
+        O que este teste trava continua sendo o mesmo: ninguém inventa aba
+        para preencher a linha.
         """
         barra = self.html.split('<nav class="tabbar"', 1)[1].split("</nav>", 1)[0]
         for rota in (
             reverse("plans:today"),
+            reverse("plans:alimentacao"),
             reverse("workouts:routine"),
             reverse("plans:history"),
-            # UX-01: o quarto destino é Áreas. Perfil saiu da barra e passou a
-            # morar dentro dela — a barra responde "para onde eu vou", e conta
-            # não é destino de uso diário.
+            # UX-01: o último destino é Mais (era "Áreas"). Perfil saiu da
+            # barra e passou a morar dentro dele — a barra responde "para onde
+            # eu vou", e conta não é destino de uso diário.
             reverse("areas"),
         ):
             with self.subTest(rota=rota):
@@ -693,14 +699,14 @@ class BottomNavigationTests(TestCase):
 
     def test_every_tab_has_an_icon_above_its_label(self):
         barra = self.html.split('<nav class="tabbar"', 1)[1].split("</nav>", 1)[0]
-        self.assertEqual(barra.count("<svg"), 4)
+        self.assertEqual(barra.count("<svg"), 5)
 
     def test_the_columns_are_equal_so_the_row_never_drifts(self):
         css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
             encoding="utf-8"
         )
         bloco = css.split(chr(10) + ".tabbar {", 1)[1].split("}", 1)[0]
-        self.assertIn("repeat(4, 1fr)", bloco)
+        self.assertIn("repeat(5, 1fr)", bloco)
 
     def test_suplementos_nao_volta_para_a_navegacao(self):
         """Decisão de produto, e não acidente de implementação.
@@ -2687,7 +2693,7 @@ class NavegacaoTests(TestCase):
         self.assertEqual(de_cima, de_baixo)
         # Controle positivo: um recorte vazio faria dois conjuntos vazios
         # passarem como iguais, e o teste morreria em silêncio.
-        self.assertEqual(len(de_baixo), 4, de_baixo)
+        self.assertEqual(len(de_baixo), 5, de_baixo)
 
 
 class FaviconTests(TestCase):

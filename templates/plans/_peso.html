@@ -58,16 +58,56 @@
                   <span class="curva__periodo">no período</span>
                 </span>
               </div>
-              <svg class="curva__grafico"
-                   viewBox="0 0 {{ curva_peso.largura }} {{ curva_peso.altura }}"
-                   preserveAspectRatio="none"
-                   role="img"
-                   aria-label="Média semanal de peso, de {{ curva_peso.primeiro|floatformat:1 }} a {{ curva_peso.ultimo|floatformat:1 }} quilos">
-                <polyline class="curva__linha" points="{{ curva_peso.pontos }}"/>
-              </svg>
+              {% comment %}
+                O EIXO MORA NO HTML, e não dentro do SVG (22/09/2026).
+
+                O gráfico é esticado (`preserveAspectRatio="none"`), então
+                texto lá dentro sairia deformado e fora da escala tipográfica
+                do app. Como irmãos posicionados sobre o quadro, os dois
+                números são texto de verdade: herdam a fonte, o tamanho
+                mínimo de 11px e o `tabular-nums`.
+              {% endcomment %}
+              <div class="curva__quadro">
+                <svg class="curva__grafico"
+                     viewBox="0 0 {{ curva_peso.largura }} {{ curva_peso.altura }}"
+                     preserveAspectRatio="none"
+                     role="img"
+                     aria-label="Média semanal de peso, de {{ curva_peso.primeiro|floatformat:1 }} a {{ curva_peso.ultimo|floatformat:1 }} quilos, entre {{ curva_peso.de|date:'d/m/Y' }} e {{ curva_peso.ate|date:'d/m/Y' }}">
+                  <polyline class="curva__linha" points="{{ curva_peso.pontos }}"/>
+                  {% for marca in curva_peso.marcas %}
+                    <circle class="curva__ponto" cx="{{ marca.x }}" cy="{{ marca.y }}" r="3"/>
+                  {% endfor %}
+                </svg>
+                <span class="curva__eixo curva__eixo--teto num" aria-hidden="true">{{ curva_peso.teto|floatformat:1 }}</span>
+                <span class="curva__eixo curva__eixo--piso num" aria-hidden="true">{{ curva_peso.piso|floatformat:1 }}</span>
+              </div>
+              <p class="curva__periodo-datas num" aria-hidden="true">
+                <span>{{ curva_peso.de|date:"d/m" }}</span>
+                <span>{{ curva_peso.ate|date:"d/m" }}</span>
+              </p>
             </div>
           {% endif %}
           {% if tendencia.tem_dados %}
+            {% comment %}
+              A LISTA NASCE RECOLHIDA, e a curva não (22/09/2026).
+
+              As duas respondem perguntas diferentes, e está escrito aqui em
+              cima: a curva responde "para onde estou indo", que é por que
+              alguém abre esta tela; a lista responde "quanto eu pesava em
+              31/08", que é consulta pontual. Medido a 390px, a lista de doze
+              semanas ocupava ~800px do cartão de 1.094 — quatro quintos da
+              altura para a pergunta que se faz de vez em quando.
+
+              O HISTÓRICO DE PESO EXISTE SÓ AQUI desde hoje (o Perfil tinha
+              uma segunda lista, sem curva e sem delta), então recolher não
+              pode virar esconder: o `<summary>` diz quantas semanas há, e
+              abrir é um toque.
+            {% endcomment %}
+            <details class="explicacao pesagens-recolhiveis">
+              <summary class="explicacao__head">
+                <h3>Semana a semana</h3>
+                <span class="explicacao__dica" aria-hidden="true">abrir</span>
+              </summary>
             <ol class="pesagens">
               {% for semana in tendencia.semanas reversed %}
                 <li class="pesagem">
@@ -86,6 +126,7 @@
                 </li>
               {% endfor %}
             </ol>
+            </details>
           {% endif %}
 
           {% if tendencia.faltam_registros %}

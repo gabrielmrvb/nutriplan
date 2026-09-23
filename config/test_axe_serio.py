@@ -104,11 +104,15 @@ class NenhumLiOrfaoTests(TestCase):
 
 
 class NenhumControleDentroDeSummaryTests(TestCase):
-    def test_a_home_nao_tem_link_dentro_de_summary(self):
-        """"Dados do cálculo" tinha `<a>Editar</a>` no `<summary>`."""
+    def test_a_alimentacao_nao_tem_link_dentro_de_summary(self):
+        """"Dados do cálculo" tinha `<a>Editar</a>` no `<summary>`.
+
+        O bloco mora na tela de Alimentação desde 22/09/2026 — a Hoje virou o
+        orquestrador do dia e não explica mais o cálculo da meta.
+        """
         user = create_complete_user()
         self.client.force_login(user)
-        r = self.client.get(reverse("plans:today"))
+        r = self.client.get(reverse("plans:alimentacao"))
         self.assertEqual(r.status_code, 200)
         html = r.content.decode()
         self.assertIn("Dados do cálculo", html)  # controle positivo: o bloco está na tela

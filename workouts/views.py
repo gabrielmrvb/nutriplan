@@ -461,34 +461,11 @@ def anexar_historico(user, sessions) -> None:
             item.feitas = len((item.load or {}).get("hoje") or {})
 
 
-def proximo_treino(sessions, plan=None, hoje=None, linhas=None):
-    """Qual treino vem a seguir, para o dia em que hoje é descanso.
-
-    Sai de `weekday`, que a pessoa escolheu no cadastro — não é previsão. Anda
-    os sete dias seguintes e devolve o primeiro que tem sessão, com quantos
-    dias faltam, para a tela poder dizer "amanhã" em vez de repetir o nome do
-    dia da semana. Com a rotação contínua a letra do próximo dia sai da DATA
-    dele (`sessao_do_dia`): a segunda-feira que vem pode ser C, e não a A
-    desta semana.
-    """
-    if not sessions:
-        return None
-
-    if services.ciclo_roda(plan):
-        hoje_data = hoje or timezone.localdate()
-        for adiante in range(1, 8):
-            sessao = services.sessao_do_dia(plan, hoje_data + timedelta(days=adiante), linhas)
-            if sessao is not None:
-                return {"session": sessao, "dias": adiante}
-        return None
-
-    hoje = timezone.localdate().weekday()
-    for adiante in range(1, 8):
-        alvo = (hoje + adiante) % 7
-        sessao = next((s for s in sessions if s.weekday == alvo), None)
-        if sessao is not None:
-            return {"session": sessao, "dias": adiante}
-    return None
+#: `proximo_treino` mora em `workouts/services.py` desde 22/09/2026: o cartão
+#: de Treino da Home precisa dele para dizer "Descanso · próximo: amanhã, B", e
+#: uma view de outro app não importa a view deste. O nome fica aqui como alias
+#: para quem já o chamava.
+proximo_treino = services.proximo_treino
 
 
 def marcar_ficha_aberta(sessions) -> None:

@@ -35,17 +35,40 @@ from accounts.models import (
 from plans.models import HydrationLog
 from accounts.tests import ETAPA2, ETAPA3, STEP1, step_url
 
-#: Os marcadores de cada seção da Home, ancorados na CLASSE e não no texto.
+#: Os marcadores de cada bloco da Home, ancorados na CLASSE e não no texto.
 #: Texto visível muda com a cópia; classe é contrato de estrutura. E ancorar no
 #: texto aqui seria pior que o normal: "Hidratação" e "Corrida" aparecem também
 #: no mapa de áreas, em toda página do app.
+#:
+#: A LISTA ENCOLHEU EM 22/09/2026, e não por descuido: as refeições e o painel
+#: de calorias saíram para `plans:alimentacao`, e a água deixou de ser uma
+#: seção de meia tela para virar uma CÉLULA do painel. O que a Hoje tem hoje
+#: são três blocos — o AGORA, o painel do dia e a ofensiva —, e é isso que a
+#: tela orquestradora é.
 SECOES = {
     "agora": 'class="card agora-card',
-    "refeicoes": 'class="refeicoes',
+    "painel": 'class="painel"',
     "agua": 'id="hidratacao"',
     "ofensiva": 'class="ofensiva ',
-    "painel": 'class="card today-hero"',
 }
+
+#: Os cartões que TODA pessoa tem, declare ela o que declarar. Corrida e
+#: Progresso são os dois opcionais (ver `plans.views.CARTOES_DECLARADOS`).
+CARTOES_DE_TODOS = ("Alimentação", "Treino", "Hidratação")
+
+
+def cartoes(html):
+    """Os rótulos dos cartões do painel, na ordem em que a tela os escreve.
+
+    O rótulo vem DEPOIS do `</svg>` do ícone: recortar `painel__rotulo">` até
+    `</h3>` cru traria o SVG inteiro junto, e a comparação passaria a medir
+    desenho.
+    """
+    painel = html.split('class="painel"', 1)[1]
+    return [
+        bloco.split("</svg>", 1)[1].split("</h3>", 1)[0].strip()
+        for bloco in painel.split('class="painel__rotulo">')[1:]
+    ]
 
 
 class BaseDaHome(TestCase):
@@ -89,7 +112,7 @@ class BaseDaHome(TestCase):
 
 
 class NadaSomeDaHomeTests(BaseDaHome):
-    def test_as_secoes_continuam_todas_la_para_cada_um_dos_cinco(self):
+    def test_os_blocos_continuam_todos_la_para_cada_um_dos_cinco(self):
         """A promessa central da campanha, varrida pelos cinco pilares."""
         for pilar in Pilar:
             with self.subTest(pilar=pilar.value):
@@ -102,6 +125,43 @@ class NadaSomeDaHomeTests(BaseDaHome):
                 for nome, onde in posicoes.items():
                     self.assertIsNotNone(onde, "%s sumiu com prioridade %s" % (nome, pilar))
 
+    def test_os_tres_cartoes_do_dia_valem_para_todo_mundo(self):
+        """Interesse ORGANIZA e não restringe, e este é o teste literal disso.
+
+        Alimentação, Treino e Hidratação são o dia de qualquer pessoa — todo
+        mundo come, treina (ou descansa, que é o plano) e bebe água. Nenhum
+        dos três pode sumir por a pessoa ter declarado outra coisa, nem
+        aparecer só para quem declarou.
+        """
+        for pilar in Pilar:
+            with self.subTest(pilar=pilar.value):
+                self.pessoa(
+                    email="tres-%s@exemplo.com" % pilar.value,
+                    interesses=(pilar.value,),
+                    principal=pilar.value,
+                )
+                rotulos = cartoes(self.home())
+                for rotulo in CARTOES_DE_TODOS:
+                    self.assertIn(rotulo, rotulos, pilar.value)
+
+    def test_corrida_e_progresso_entram_com_a_area_declarada(self):
+        """Os dois opcionais, e o CONTROLE POSITIVO do de cima.
+
+        Sem este teste, um painel que sempre mostrasse os cinco cartões
+        passaria em tudo que está acima — e cobraria de quem não corre um
+        cartão "Nenhuma ainda" em meia tela de celular.
+        """
+        self.pessoa("so-dieta@exemplo.com", ("dieta",), "dieta")
+        rotulos = cartoes(self.home())
+        self.assertNotIn("Corrida", rotulos)
+        self.assertNotIn("Progresso", rotulos)
+
+        self.pessoa("corre@exemplo.com", ("dieta", "corrida"), "dieta")
+        self.assertIn("Corrida", cartoes(self.home()))
+
+        self.pessoa("pesa@exemplo.com", ("dieta", "progresso"), "dieta")
+        self.assertIn("Progresso", cartoes(self.home()))
+
     def test_quem_nao_declarou_ve_a_home_de_sempre(self):
         """Sem declaração, sem personalização — e "sem" é literal: nenhum selo,
         nenhum cartão de área, nada."""
@@ -110,31 +170,26 @@ class NadaSomeDaHomeTests(BaseDaHome):
         html = self.home()
 
         self.assertNotIn("sua área", html)
-        self.assertNotIn("area-promovida", html)
         self.assertNotIn("is-prioritario", html)
 
-    def test_a_home_neutra_e_a_mesma_de_antes_da_campanha(self):
-        """Controle mais forte que o de cima: a ORDEM das seções de quem não
-        declarou tem de ser a canônica, e não uma ordem nova que por acaso
-        começa igual.
+    def test_a_home_neutra_e_a_ordem_canonica(self):
+        """Controle mais forte que o de cima: a ORDEM de quem não declarou tem
+        de ser a canônica, e não uma ordem nova que por acaso começa igual.
 
-        A canônica MUDOU no REDESIGN V2, e a mudança é de produto: o painel do
-        dia saiu da última posição para a segunda. Ele vivia depois das cinco
-        refeições e da ofensiva, perto de dois mil pixels abaixo do topo — e é
-        a resposta visual a "como estou hoje?", que é a primeira pergunta de
-        quem abre o app.
-
-        O que este teste guarda não é a lista em si: é que a home de quem NÃO
-        declarou prioridade seja a ordem canônica inteira, sem personalização
-        nenhuma. Essa propriedade não mudou; mudou a ordem que ela protege.
+        A canônica é a de `accounts.models.Pilar`, e é ela que o painel segue
+        quando ninguém escolheu nada. O que este teste guarda não é a lista em
+        si: é que a Home de quem NÃO declarou prioridade não tenha
+        personalização nenhuma.
         """
         self.pessoa("legado2@exemplo.com")
 
-        posicoes = self.posicoes(self.home())
+        html = self.home()
+        posicoes = self.posicoes(html)
 
+        self.assertEqual(list(CARTOES_DE_TODOS), cartoes(html))
         self.assertEqual(
             [n for n, _ in sorted(posicoes.items(), key=lambda par: par[1])],
-            ["agora", "painel", "refeicoes", "agua", "ofensiva"],
+            ["agora", "painel", "agua", "ofensiva"],
         )
 
 
@@ -155,29 +210,54 @@ class AUrgenciaVenceAPreferenciaTests(BaseDaHome):
                     "a prioridade %s passou na frente do AGORA" % pilar,
                 )
 
-    def test_a_area_promovida_nasce_depois_do_agora(self):
+    def test_o_painel_inteiro_nasce_depois_do_agora(self):
+        """Inclusive o cartão da área principal, que é o primeiro do painel.
+
+        O destaque da preferência é a POSIÇÃO DENTRO da grade, e nunca a
+        grade inteira passando na frente do que tem hora marcada.
+        """
         self.pessoa("depois@exemplo.com", ("corrida",), "corrida")
 
         html = self.home()
 
-        self.assertLess(html.index(SECOES["agora"]), html.index("area-promovida"))
+        self.assertLess(html.index(SECOES["agora"]), html.index(SECOES["painel"]))
+        self.assertEqual("Corrida", cartoes(html)[0])
 
 
 class AAreaPrincipalSobeTests(BaseDaHome):
-    def test_hidratacao_sobe_para_cima_das_refeicoes(self):
-        self.pessoa("agua@exemplo.com", ("hidratacao", "dieta"), "hidratacao")
+    """A área principal é o PRIMEIRO CARTÃO do painel — e só isso.
 
-        posicoes = self.posicoes(self.home())
+    Até 22/09/2026 a promoção movia SEÇÕES: a hidratação subia para cima das
+    refeições, e treino, corrida e progresso ganhavam um cartão extra de meia
+    tela. Com a Hoje orquestradora as cinco áreas já estão na mesma grade,
+    com o mesmo peso visual, e promover é reordenar. É menos código e é uma
+    promessa mais honesta: a área preferida aparece antes, não maior.
+    """
 
-        self.assertLess(posicoes["agua"], posicoes["refeicoes"])
+    def test_a_area_principal_e_o_primeiro_cartao(self):
+        """Varrido pelos cinco pilares: o que a pessoa elegeu abre o painel."""
+        rotulo_de = {
+            "dieta": "Alimentação",
+            "treino": "Treino",
+            "hidratacao": "Hidratação",
+            "corrida": "Corrida",
+            "progresso": "Progresso",
+        }
+        for pilar in Pilar:
+            with self.subTest(pilar=pilar.value):
+                self.pessoa(
+                    email="primeiro-%s@exemplo.com" % pilar.value,
+                    interesses=(pilar.value,),
+                    principal=pilar.value,
+                )
+                self.assertEqual(rotulo_de[pilar.value], cartoes(self.home())[0])
 
-    def test_controle_positivo_sem_hidratacao_a_agua_fica_embaixo(self):
-        """Sem ele, uma tela que sempre pusesse a água em cima passaria."""
-        self.pessoa("agua-nao@exemplo.com", ("dieta",), "dieta")
+    def test_controle_positivo_sem_declaracao_a_ordem_e_a_canonica(self):
+        """Sem ele, um painel que sempre começasse por Alimentação passaria no
+        de cima para o pilar `dieta` e ninguém veria."""
+        self.pessoa("canonica@exemplo.com")
 
-        posicoes = self.posicoes(self.home())
-
-        self.assertGreater(posicoes["agua"], posicoes["refeicoes"])
+        self.assertEqual("Alimentação", cartoes(self.home())[0])
 
     def test_o_cartao_de_agua_aparece_UMA_vez(self):
         """O `id` é âncora de link e o cartão tem formulário: emitir duas vezes
@@ -192,12 +272,20 @@ class AAreaPrincipalSobeTests(BaseDaHome):
                 html = self.home()
                 self.assertEqual(html.count('id="hidratacao"'), 1)
 
-    def test_treino_corrida_e_progresso_ganham_o_cartao_da_area(self):
-        """Os três não têm seção própria na Home — o cartão é a porta deles."""
+    def test_cada_cartao_leva_a_porta_da_sua_area(self):
+        """O painel não é um resumo passivo: cada cartão tem a ação do dia.
+
+        Sem isto, a Home voltaria a ser a tela que a auditoria mediu — o
+        treino do dia como um travessão numa linha de 12px, sem porta.
+        """
+        # O prefixo, e não a rota exata: o cartão de Treino num dia de treino
+        # aponta para a FICHA de hoje (`/treino/ficha/<pk>/`), e num dia de
+        # descanso para a semana — as duas são a porta certa, e exigir uma
+        # delas faria o teste depender do dia em que a suíte roda.
         portas = {
             "treino": reverse("workouts:routine"),
             "corrida": reverse("workouts:corridas"),
-            "progresso": reverse("plans:history"),
+            "dieta": reverse("plans:alimentacao"),
         }
         for pilar, porta in portas.items():
             with self.subTest(pilar=pilar):
@@ -207,25 +295,12 @@ class AAreaPrincipalSobeTests(BaseDaHome):
                     principal=pilar,
                 )
                 html = self.home()
-                # Recorta pela ABERTURA da seção, e não pela string
-                # `area-promovida` crua: ela também é o prefixo de
-                # `.area-promovida__fato`, e o recorte ingênuo terminava
-                # ANTES do link. Foi este teste que pegou.
-                promovido = html.split('class="card area-promovida', 1)[1]
-                promovido = promovido.split("</section>", 1)[0]
-                self.assertIn('href="%s"' % porta, promovido)
-
-    def test_dieta_nao_ganha_cartao_porque_ja_esta_em_cima(self):
-        """Promover a dieta seria mover um bloco para onde ele já está. O que
-        ela ganha é o selo — e sem ele quem escolheu Alimentação veria a tela
-        de quem não escolheu nada."""
-        self.pessoa("dieta@exemplo.com", ("dieta",), "dieta")
-
-        html = self.home()
-
-        self.assertNotIn("area-promovida", html)
-        self.assertIn("is-prioritario", html)
-        self.assertIn("sua área", html)
+                # Recorta o PRIMEIRO cartão (o da área principal) e procura a
+                # porta lá dentro: `href` solto passaria pelo mapa de áreas,
+                # que escreve as cinco rotas em toda página do app.
+                primeiro = html.split('class="painel__cartao', 1)[1]
+                primeiro = primeiro.split("</section>", 1)[0]
+                self.assertIn('href="%s' % porta, primeiro)
 
 
 class OSeloApareceUmaVezSoTests(BaseDaHome):
@@ -247,7 +322,9 @@ class OSeloApareceUmaVezSoTests(BaseDaHome):
             __import__("pathlib").Path(__file__).resolve().parent.parent
             / "static" / "css" / "app.css"
         ).read_text(encoding="utf-8")
-        regra = re.search(r"\n\.is-prioritario \{[^}]*\}", css)
+        # A regra mora junto do painel desde 22/09/2026: o cartao promovido
+        # e uma celula da grade, e a marca dele e um fio de dentro.
+        regra = re.search(r"\n\.painel__cartao\.is-prioritario \{[^}]*\}", css)
 
         self.assertIsNotNone(regra, "a regra da promoção sumiu do CSS")
         self.assertNotIn(":has(", regra.group(0))
@@ -266,8 +343,11 @@ class ANenhumaInferenciaTests(BaseDaHome):
 
         html = self.home()
 
-        self.assertNotIn("area-promovida", html)
         self.assertNotIn("is-prioritario", html)
+        self.assertNotIn("sua área", html)
+        # E a ordem continua a canônica: inferir a área mexeria nela sem selo
+        # nenhum, e o teste acima não veria.
+        self.assertEqual(list(CARTOES_DE_TODOS), cartoes(html))
 
 
 class OCTADoProgressoLevaAAlgumLugarTests(BaseDaHome):
@@ -359,57 +439,86 @@ class OCTADoProgressoLevaAAlgumLugarTests(BaseDaHome):
 class OCartaoDaAreaTemAAcaoDoDiaTests(BaseDaHome):
     """A prioridade tem de MUDAR a Home de verdade (item 4 da missão de UX,
     22/09/2026): o cartão da área principal trazia um fato e um link de
-    rodapé — e a pessoa lia a tela como "igual à de todo mundo". Hoje ele
-    traz a AÇÃO do dia daquela área, como botão: começar o treino de hoje
-    (com o nome da sessão), registrar a corrida, registrar o peso."""
+    rodapé — e a pessoa lia a tela como "igual à de todo mundo".
 
-    def _promovido(self, html):
-        promovido = html.split('class="card area-promovida', 1)[1]
-        return promovido.split("</section>", 1)[0]
+    Com o painel, TODO cartão traz o fato do dia e a porta da área, e o da
+    área principal ganha a posição e o selo. Estes testes medem o CONTEÚDO de
+    cada célula: o número que responde a pergunta daquela área, e não um
+    rótulo com um traço.
+    """
 
-    def test_treino_mostra_a_sessao_de_hoje_e_o_botao_de_comecar(self):
-        from datetime import timedelta
-        from django.utils import timezone
+    def _cartao(self, html, rotulo):
+        """O corpo da célula daquela área.
+
+        O rótulo é procurado no `<h3>`, e não no cartão inteiro: os nomes das
+        áreas aparecem no texto de outros cartões (e o mapa de áreas escreve
+        os cinco em toda página do app), e um recorte ingênuo devolveria o
+        cartão errado com aparência de acerto.
+        """
+        for bloco in html.split('class="painel__cartao')[1:]:
+            corpo = bloco.split("</section>", 1)[0]
+            if rotulo in corpo.split("</h3>", 1)[0]:
+                return corpo
+        self.fail("cartão %s não está no painel" % rotulo)
+
+    def test_treino_mostra_a_sessao_de_hoje_e_quantas_series_faltam(self):
         self.pessoa("acao-treino@exemplo.com", ("treino",), "treino")
-        # conta de ontem: o lanche das 11h é a pendência da vez, e o AGORA é
-        # ele — o cartão da área é quem traz o botão do treino
-        User.objects.filter(email="acao-treino@exemplo.com").update(date_joined=timezone.now() - timedelta(days=1))
-        html = self.home()
-        self.assertIn("agora-card--refeicao", html)
-        promovido = self._promovido(html)
+
+        cartao = self._cartao(self.home(), "Treino")
+
         # a fixture treina seg/qua/sex e a suíte vive numa quarta: hoje tem treino
-        self.assertIn("btn--primary", promovido)
-        self.assertIn("Começar treino", promovido)
-        self.assertRegex(promovido, r"<span class=\"num\">\d+</span> exercícios")
+        self.assertRegex(cartao, r"<p class=\"painel__valor num\">\d+")
+        self.assertIn("séries", cartao)
+        self.assertRegex(cartao, r"\d+ exercícios?")
+        self.assertIn('href="%s' % reverse("workouts:routine"), cartao)
 
-    def test_quando_o_agora_ja_e_o_treino_o_cartao_nao_repete_o_botao(self):
-        """Dois "COMEÇAR TREINO" na mesma dobra (medido no QA de 22/09/2026):
-        quando o AGORA já é o treino, o cartão da área vira consulta — o
-        fato e a porta da semana, sem o botão que está logo acima."""
+    def test_no_dia_sem_treino_o_cartao_diz_descanso_e_qual_e_o_proximo(self):
+        """"Descanso" sozinho deixa a pessoa sem saber quando volta — e era
+        assim que a Home falava de treino: um travessão numa linha de 12px."""
         from datetime import time
-        from plans.models import MealLog, MealStatus
-        from plans import services as plan_services
         from workouts.models import TrainingSession
-        user = self.pessoa("agora-treino@exemplo.com", ("treino",), "treino")
-        plano = plan_services.get_active_plan(user)
-        for slot in plano.slots.all():
-            MealLog.objects.create(user=user, slot=slot, status=MealStatus.DONE)
-        TrainingSession.objects.filter(plan__user=user).update(start_time=time(11, 0))
-        html = self.home()
-        self.assertIn("agora-card--treino", html)
-        promovido = self._promovido(html)
-        self.assertNotIn("btn--primary", promovido)
-        self.assertIn('href="%s"' % reverse("workouts:routine"), promovido)
 
-    def test_corrida_tem_o_botao_de_registrar(self):
+        user = self.pessoa("descanso@exemplo.com", ("treino",), "treino")
+        TrainingSession.objects.filter(plan__user=user).delete()
+        user.training_days.all().delete()
+        from accounts.models import TrainingDay
+        # amanhã, e só amanhã: o cartão tem de saber dizer "amanhã, A"
+        TrainingDay.objects.create(
+            user=user,
+            weekday=(timezone.localdate() + timedelta(days=1)).weekday(),
+            start_time=time(19, 0),
+            duration_min=60,
+        )
+        from workouts import services as treino_services
+        treino_services.sync_active_routine(user)
+
+        cartao = self._cartao(self.home(), "Treino")
+
+        self.assertIn("Descanso", cartao)
+        self.assertIn("amanhã", cartao)
+
+    def test_corrida_mostra_a_ultima_e_a_porta(self):
         self.pessoa("acao-corrida@exemplo.com", ("corrida",), "corrida")
-        promovido = self._promovido(self.home())
-        self.assertIn("btn--primary", promovido)
-        self.assertIn('href="%s"' % reverse("workouts:corrida_nova"), promovido)
-        self.assertIn("Registrar corrida", promovido)
 
-    def test_progresso_tem_o_botao_de_registrar_o_peso(self):
-        self.pessoa("acao-progresso@exemplo.com", ("progresso",), "progresso")
-        promovido = self._promovido(self.home())
-        self.assertIn("btn--primary", promovido)
-        self.assertIn("Registrar peso", promovido)
+        cartao = self._cartao(self.home(), "Corrida")
+
+        self.assertIn("Nenhuma ainda", cartao)
+        self.assertIn('href="%s"' % reverse("workouts:corridas"), cartao)
+        self.assertIn("Registrar corrida", cartao)
+
+    def test_progresso_leva_a_faixa_de_pesagem_quando_ela_esta_pedindo(self):
+        """E leva à curva quando não está: oferecer "registrar peso" a quem
+        acabou de se pesar é pedir um número que o app já tem."""
+        user = self.pessoa("acao-progresso@exemplo.com", ("progresso",), "progresso")
+
+        cartao = self._cartao(self.home(), "Progresso")
+        # a etapa 1 do wizard grava o peso de hoje — não há convite
+        self.assertIn('href="%s"' % reverse("plans:history"), cartao)
+        self.assertIn("Ver progresso", cartao)
+
+        WeightEntry.objects.filter(user=user).update(
+            date=timezone.localdate() - timedelta(days=10)
+        )
+        cartao = self._cartao(self.home(), "Progresso")
+        self.assertIn('href="#pesar"', cartao)
+        self.assertIn("Registrar peso", cartao)

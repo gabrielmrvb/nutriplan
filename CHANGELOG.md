@@ -6,6 +6,16 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-22
 
+- **"Hoje" voltou a ser o dia inteiro, e "Alimentação" ganhou tela própria.** A aba dizia Alimentação e abria uma tela chamada Hoje que era o cardápio com um widget de água no fim — 3.170px de rolagem, com o treino e a água escondidos numa linha cinza e o cartão de água a duas telas e meia do topo. Agora a Hoje tem o cartão do AGORA e quatro cartões do mesmo tamanho (Alimentação, Treino, Hidratação e, para quem corre, Corrida), cada um com o número do dia e a porta da área; o cardápio mora em Alimentação, com endereço e aba própria.
+- **A barra de baixo tem cinco itens: Hoje · Alimentação · Treino · Progresso · Mais.** "Áreas" virou "Mais", que é o que há lá dentro — as áreas sem aba, as conquistas, a lista de compras, o perfil e a ajuda.
+- **A área que você escolheu abre o painel.** Ela vem primeiro na grade, com o selo — e não mais como um cartão extra de meia tela. Quem não escolheu nada continua vendo a ordem de sempre.
+- **O desktop deixou de ser um celular no meio da tela.** Hoje, Alimentação, Progresso, Perfil, Mais e a página inicial usam a largura do monitor: o painel em quatro colunas, o Progresso em duas, a página inicial com as três capturas lado a lado.
+- **O Progresso abre em uma tela e meia, não em cinco.** As pesagens semana a semana e o "Dia a dia" nascem recolhidos — o que eles respondem é consulta pontual, e a curva continua à vista.
+- **O gráfico de peso diz de quanto a quanto e de quando a quando.** Ele tinha só a linha; agora tem os dois extremos em quilos, as datas das pontas e um ponto por semana.
+- **O histórico de peso mora só no Progresso.** O Perfil tinha uma segunda lista, sem curva e sem variação.
+- **O perfil está em três grupos.** Metas e dados, como o app trabalha para você, e sua conta.
+- **A sequência nunca abre com o que faltou.** "Ontem faltou dieta ou água. Hoje recomeça…" virou "Recomeça hoje: … Ontem faltou dieta ou água."
+- **A demonstração corre.** O Carlos tem quatro corridas recentes, e o treino dele aparece no dia em que aconteceu — a tela de Treino somava a ficha inteira em "Treino de hoje" num dia de descanso.
 - **A política explica os dados de saúde do aparelho.** Uma seção nova diz o que o app lê do Apple Saúde e do Health Connect (só peso e corridas, só quando você pede), e o que ele nunca faz: escrever, ler em segundo plano ou compartilhar com alguém.
 - **O app do celular tem lembretes e lê o aparelho.** No app instalado, os lembretes das refeições chegam como notificação do sistema, e um cartão novo traz as suas corridas e pesagens do Apple Saúde (iPhone) ou do Health Connect (Android) — só o que você autorizar, sem sobrescrever peso que você digitou.
 - **Entrar no app do celular é com um toque.** Continuar com Google (e Continuar com Apple, no iPhone) pelo próprio aparelho, sem abrir o navegador.

@@ -1,132 +1,100 @@
 {% comment %}
-  O CARTÃO DE ÁGUA — um markup só, dois pontos de chamada, e nunca os dois.
+  O CARTÃO DE ÁGUA — agora uma CÉLULA do painel do dia (22/09/2026).
 
-  Ele sai daqui para o alto da Home quando Hidratação é a área principal da
-  pessoa. Copiar o bloco para o outro lugar quebraria a página de dois jeitos
-  concretos: `id="hidratacao"` viraria âncora ambígua (é destino de link) e a
-  página passaria a ter DOIS formulários de registro com os mesmos nomes.
+  Ele era um cartão inteiro da tela Hoje, a 2,5 telas de rolagem do topo
+  (medido em produção a 390px: a página tinha 3.170px e ele começava perto de
+  y=2.500). O que a pessoa faz ali todo dia — somar um copo — custava rolar a
+  tela inteira, e a água aparecia na primeira dobra como uma linha de texto
+  cinza de 12px. Agora ele é um dos quatro cartões de peso igual da Hoje.
 
-  Por isso `{% include %}` com `{% if %}` nos dois pontos: o markup existe uma
-  vez neste arquivo, e a página emite uma vez.
+  O QUE SAIU DAQUI, e para onde: "zerar" foi para a tela de Hidratação, ao
+  lado da LISTA de goles que ela apaga — ação destrutiva mora junto do dado
+  que destrói, e não na tela inicial, onde o polegar passa o dia. "desfazer"
+  fica: ele conserta o toque errado deste mesmo cartão.
 
-  E por isso NÃO é `order` do flexbox, que moveria o cartão na pintura e
-  deixaria a ordem de leitura e de foco onde estava — WCAG 1.3.2 e 2.4.3. A
-  ordem muda no servidor, e as três concordam.
+  O que NÃO mudou: o contrato da fila offline. `data-agua` é a raiz que o
+  `pwa.js` reconhece no toque sem rede, `data-agua-total` o número que ele
+  soma, `data-agua-barra` a barra que ele move, `data-agua-eco` o texto do eco
+  por botão e `data-agua-meta` o que decide a comemoração ao cruzar a meta. Os
+  três passos (250, 500, 750) são os mesmos; o rótulo é que ficou só com o
+  número, porque a célula tem ~167px a 390px e "garrafinha" não cabe. O nome
+  de cada passo continua para quem ouve a tela, em `vis-oculto`.
 {% endcomment %}
-      <section class="card agua-card{% if promovida %} is-prioritario{% endif %}" id="hidratacao">
-        {% if promovida %}
-          <p class="agua__selo"><span class="pill pill--brand">sua área</span></p>
-        {% endif %}
-        {# `data-agua`: a raiz que `pwa.js` reconhece no toque offline — a mesma da tela de Hidratação. #}
-        <div class="agua" data-agua data-agua-meta="{{ hidratacao_ml }}">
-          <div class="agua__topo">
-            <span class="agua__icone" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 3.5c3 3.6 5.5 6.3 5.5 9.4a5.5 5.5 0 0 1-11 0c0-3.1 2.5-5.8 5.5-9.4Z"/>
-              </svg>
-            </span>
-            <span class="agua__valor num">
-              <b data-agua-total>{{ hidratacao_bebida }}</b> / {{ hidratacao_ml }} ml
-            </span>
-            {% if agua_completa %}
-              {% comment %}
-                A comemoração aparece uma vez e fica parada. Nada que pulse
-                para sempre — foi exatamente o que o catálogo Impeccable
-                apontou na chama da ofensiva.
-              {% endcomment %}
-              <span class="pill pill--brand agua__feito">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
-                     aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>
-                meta batida
-              </span>
-            {% endif %}
-            {% comment %}
-              Desfazer e zerar são intenções DIFERENTES, e por isso são dois
-              botões: um conserta o toque errado, o outro recomeça o dia.
+<section class="painel__cartao agua-card{% if largo %} painel__cartao--largo{% endif %}{% if principal %} is-prioritario{% endif %}" id="hidratacao">
+  {% if principal %}<p class="painel__selo"><span class="pill pill--brand">sua área</span></p>{% endif %}
+  <div class="agua" data-agua data-agua-meta="{{ hidratacao_ml }}">
+    <h3 class="painel__rotulo">
+      <svg class="painel__icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3.5c3 3.6 5.5 6.3 5.5 9.4a5.5 5.5 0 0 1-11 0c0-3.1 2.5-5.8 5.5-9.4Z"/>
+      </svg>
+      Hidratação
+    </h3>
 
-              "desfazer" só aparece quando existe gole para desfazer. Dia
-              anterior à tabela de goles tem total e não tem composição —
-              oferecer ali uma ação que só pode falhar seria pior que não
-              oferecer.
-            {% endcomment %}
-            {% if pode_desfazer_agua %}
-              <form method="post" action="{% url 'plans:log_hydration' %}" class="agua__zerar">
-                {% csrf_token %}
-                <input type="hidden" name="acao" value="desfazer">
-                <button type="submit" class="btn-link">desfazer</button>
-              </form>
-            {% endif %}
-            {% if hidratacao_bebida %}
-              {% comment %}
-                ZERAR PEDE CONFIRMAÇÃO, e "desfazer" ao lado não pede.
+    <p class="painel__valor num">
+      <b data-agua-total>{{ hidratacao_bebida }}</b><span class="painel__de"> / {{ hidratacao_ml }} ml</span>
+    </p>
 
-                As duas eram botões de um toque só, coladas uma na outra, e
-                fazem coisas de tamanhos muito diferentes: "desfazer" tira o
-                último gole, "zerar" apaga o dia inteiro — o total E a lista de
-                goles, sem volta. Um polegar errado entre séries custava o
-                registro do dia.
+    <div class="progress {% if agua_completa %}progress--completo{% endif %}"
+         role="img" aria-label="{{ hidratacao_pct }}% da meta de água">
+      <span class="progress__fill progress__fill--agua" data-agua-barra
+            style="width: {{ hidratacao_pct }}%"></span>
+    </div>
 
-                `<details>` e não `<dialog>`: é a ordem que o CLAUDE.md fixa, e
-                aqui basta. Também funciona sem JavaScript, o que importa
-                porque esta tela é postada por formulário puro e a fila offline
-                reenvia o corpo cru.
-              {% endcomment %}
-              <details class="agua__zerar acao-perigosa">
-                <summary class="btn-link">zerar</summary>
-                <form method="post" action="{% url 'plans:log_hydration' %}">
-                  {% csrf_token %}
-                  <input type="hidden" name="ml" value="0">
-                  <button type="submit" class="btn-link acao-perigosa__confirma">
-                    apagar a água de hoje
-                  </button>
-                </form>
-              </details>
-            {% endif %}
-          </div>
+    {% comment %}
+      O selo do toque offline: escondido até `fila.js` enfileirar um gole sem
+      rede; `pwa.js` soma o número acima e mostra esta nota.
+    {% endcomment %}
+    <p class="aguardando-rede" data-aguardando-rede hidden role="status"></p>
 
-          {% comment %}
-            O selo do toque offline: escondido até `fila.js` enfileirar um
-            gole sem rede; `pwa.js` soma o número acima e mostra esta nota.
-          {% endcomment %}
-          <p class="aguardando-rede" data-aguardando-rede hidden role="status"></p>
-          <div class="progress {% if agua_completa %}progress--completo{% endif %}"
-               role="img"
-               aria-label="{{ hidratacao_pct }}% da meta de água">
-            <span class="progress__fill progress__fill--agua" data-agua-barra
-                  style="width: {{ hidratacao_pct }}%"></span>
-          </div>
+    {% comment %}
+      `de=topo` nos três: sem ele o servidor volta para a âncora `#hidratacao`,
+      que foi desenhada para quem já estava no cartão lá embaixo. Com o cartão
+      na primeira dobra, ancorar rolaria a página para o botão que a pessoa
+      acabou de tocar.
+    {% endcomment %}
+    <div class="agua__botoes">
+      <form method="post" action="{% url 'plans:log_hydration' %}">
+        {% csrf_token %}
+        <input type="hidden" name="ml" value="250">
+        <input type="hidden" name="de" value="topo">
+        <button type="submit" class="agua__botao" data-agua-eco="+250 ml">+250<span class="vis-oculto"> ml, um copo</span></button>
+      </form>
+      <form method="post" action="{% url 'plans:log_hydration' %}">
+        {% csrf_token %}
+        <input type="hidden" name="ml" value="500">
+        <input type="hidden" name="de" value="topo">
+        <button type="submit" class="agua__botao" data-agua-eco="+500 ml">+500<span class="vis-oculto"> ml, uma garrafinha</span></button>
+      </form>
+      <form method="post" action="{% url 'plans:log_hydration' %}">
+        {% csrf_token %}
+        <input type="hidden" name="ml" value="750">
+        <input type="hidden" name="de" value="topo">
+        <button type="submit" class="agua__botao" data-agua-eco="+750 ml">+750<span class="vis-oculto"> ml, uma garrafa</span></button>
+      </form>
+    </div>
 
-          <div class="agua__botoes">
-            <form method="post" action="{% url 'plans:log_hydration' %}">
-              {% csrf_token %}
-              <input type="hidden" name="ml" value="250">
-              <button type="submit" class="agua__botao" data-agua-eco="+250 ml">+250 <span>copo</span></button>
-            </form>
-            <form method="post" action="{% url 'plans:log_hydration' %}">
-              {% csrf_token %}
-              <input type="hidden" name="ml" value="500">
-              <button type="submit" class="agua__botao" data-agua-eco="+500 ml">+500 <span>garrafinha</span></button>
-            </form>
-            <form method="post" action="{% url 'plans:log_hydration' %}">
-              {% csrf_token %}
-              <input type="hidden" name="ml" value="750">
-              <button type="submit" class="agua__botao" data-agua-eco="+750 ml">+750 <span>garrafa</span></button>
-            </form>
-          </div>
+    {% comment %}
+      O rodapé é o MESMO dos outros três cartões — um `btn--quiet btn--sm
+      btn--block` —, e não um link de texto. "Peso visual igual" é a regra de
+      layout desta grade: com um link aqui e botões ali, a ação da Hidratação
+      ficava numa linha mais baixa que as outras três e o cartão parecia de
+      outra família (visto na captura de 22/09/2026, desktop).
 
-          {% comment %}
-            A porta para a tela de hidratação, e ela fica DEPOIS dos botões de
-            propósito: o uso frequente é somar um copo aqui mesmo, e um link
-            acima deles competiria com isso todo dia para servir a uma consulta
-            que acontece de vez em quando.
-
-            Não é aba nova. Hidratação é frequente em toques de dois segundos, e
-            uma aba cobraria ida e volta por copo.
-          {% endcomment %}
-          <a class="btn-link btn-link--rodape" href="{% url 'plans:hydration' %}">
-            Registros de hoje e últimos 7 dias
-          </a>
-        </div>
-      </section>
+      "desfazer" fica ACIMA, na sua própria linha: ele conserta o toque errado
+      que acabou de acontecer neste cartão, e disputar a linha do rodapé com a
+      ação principal desalinharia a grade de novo.
+    {% endcomment %}
+    {% if pode_desfazer_agua %}
+      <form method="post" action="{% url 'plans:log_hydration' %}" class="agua__desfazer">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="desfazer">
+        <input type="hidden" name="de" value="topo">
+        <button type="submit" class="btn-link">desfazer</button>
+      </form>
+    {% endif %}
+    <p class="painel__rodape">
+      <a class="btn btn--quiet btn--sm btn--block" href="{% url 'plans:hydration' %}">Ver hidratação</a>
+    </p>
+  </div>
+</section>

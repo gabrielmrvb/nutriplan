@@ -3,14 +3,35 @@
 
 {% block title %}Meu perfil · NutriPlan{% endblock %}
 
+{% comment %}
+  LARGO NO DESKTOP (22/09/2026): medido a 1280px, 480px de conteúdo e 3.817px
+  de altura. O Perfil já é `.split`, com as metas e os dados à esquerda e os
+  ajustes à direita — faltava a largura para as duas colunas existirem.
+{% endcomment %}
+{% block container_class %}largo{% endblock %}
+
 {% block content %}
   <div class="page-head">
     <h1>Meu perfil</h1>
     <p class="lead">Mudou alguma coisa? Editar qualquer bloco recalcula sua dieta.</p>
   </div>
 
+  {% comment %}
+    TRÊS GRUPOS, com nome (22/09/2026).
+
+    A tela tinha doze cartões em sequência — metas, objetivo, corpo, treinos,
+    prioridade, comida, divisão, conquistas, conta, análise, excluir — e nada
+    dizia que uns respondem "o que eu quero" e outros "quem eu sou aqui
+    dentro". Doze títulos de mesmo peso não são hierarquia; são uma lista.
+
+    Os rótulos são os da GRADE, e não caixas novas: cada grupo é um rótulo de
+    seção (a mesma peça da tela Mais) em cima dos cartões que já existiam. No
+    desktop os dois primeiros são as duas colunas do `.split`; no celular são
+    três blocos na ordem em que se lê.
+  {% endcomment %}
   <div class="split">
     <div class="split__main stack">
+      <h2 class="sobretitulo secao-rotulo">Metas e dados</h2>
       {% comment %}
         As metas em vigor, e o botão que as refaz.
 
@@ -231,6 +252,7 @@
     </div>
 
     <aside class="split__aside stack">
+      <h2 class="sobretitulo secao-rotulo">Como o app trabalha para você</h2>
       {% comment %}
         As áreas do NutriPlan, e o cartão segue o padrão que esta tela já repete
         cinco vezes: um assunto, um "Editar", e o link reabre o passo do wizard
@@ -396,31 +418,22 @@
         </section>
       {% endif %}
 
-      <section class="card">
-        <div class="card__head"><h2>Histórico de peso</h2></div>
-        {% if weight_entries %}
-          <dl class="data-list">
-            {% for entry in weight_entries %}
-              <div>
-                <dt>{{ entry.date|date:"d/m/Y" }}</dt>
-                <dd>{{ entry.weight_kg|floatformat:1 }} kg</dd>
-              </div>
-            {% endfor %}
-          </dl>
-        {% else %}
-          {% comment %}
-            Sem CTA de propósito: este ramo não acontece. A etapa 1 do
-            onboarding grava um WeightEntry no `save()`, sem condição, e o
-            perfil exige onboarding completo — então todo mundo que chega aqui
-            tem pelo menos uma pesagem. `weight_entries` é `.all()[:10]`, sem
-            filtro de data, e nenhum caminho de produção apaga pesagem.
-            Fica como defesa, e não como tela que alguém vê.
-          {% endcomment %}
-          <p class="empty-state">Nenhuma pesagem registrada.</p>
-        {% endif %}
-      </section>
+      {% comment %}
+        O HISTÓRICO DE PESO SAIU DAQUI (22/09/2026), e só daqui.
+
+        Ele existia em DUAS telas: a lista das dez últimas pesagens aqui, e a
+        mesma lista com curva, média semanal e delta no Progresso. Duas telas
+        com o mesmo dado é uma delas ficando para trás — e a que ficava para
+        trás era esta, que não tinha a curva nem o delta.
+
+        Quem procura peso no Perfil encontra o número atual em "Dados
+        corporais", logo acima, e a porta para a série inteira. 532px de
+        altura a 390px voltaram para a tela.
+      {% endcomment %}
     </aside>
   </div>
+
+  <h2 class="sobretitulo secao-rotulo">Sua conta</h2>
 
   {% comment %}
     A porta das conquistas, e ela fica AQUI e não numa aba nova.

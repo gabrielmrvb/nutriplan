@@ -98,11 +98,27 @@ class VerbosDoTreinoTests(BaseDoFluxo):
         self.assertNotIn("Continuar de onde parou", textos)
         self.assertNotIn("Começar treino", textos)
 
-    def test_a_linha_do_resumo_do_dia_abre_o_painel(self):
+    def test_o_cartao_de_treino_da_home_abre_o_treino(self):
+        """A porta do treino na Home era uma coluna da linha `.resumo-dia`, de
+        11px; desde 22/09/2026 é o cartão de Treino do painel do dia, que traz
+        o fato (séries feitas de previstas, ou "Descanso") e o botão.
+
+        O destino é o da SESSÃO de hoje quando há treino — a ficha — e a
+        semana quando não há. As duas começam por `/treino/`, e é isso que
+        este teste cobra: a porta existe e leva ao treino.
+        """
         html = self._home()
-        m = re.search(r'<a class="resumo-dia__treino" href="([^"]*)"', html)
-        self.assertIsNotNone(m)
-        self.assertEqual(m.group(1), reverse("workouts:routine"))
+        cartao = None
+        for bloco in html.split('class="painel__cartao')[1:]:
+            corpo = bloco.split("</section>", 1)[0]
+            if "Treino" in corpo.split("</h3>", 1)[0]:
+                cartao = corpo
+        self.assertIsNotNone(cartao, "o cartão de Treino sumiu do painel")
+        m = re.search(r'<a class="btn[^"]*" href="([^"]*)"', cartao)
+        self.assertIsNotNone(m, cartao)
+        self.assertTrue(
+            m.group(1).startswith(reverse("workouts:routine")), m.group(1)
+        )
 
     def test_na_leitura_o_verbo_e_fazer_este_exercicio(self):
         item = self.sessao.exercises.first()

@@ -519,7 +519,7 @@ class PlanServiceTests(TestCase):
 
 
 class TodayViewTests(TestCase):
-    url = reverse("plans:today")
+    url = reverse("plans:alimentacao")
 
     def setUp(self):
         self.user = create_complete_user()
@@ -532,7 +532,10 @@ class TodayViewTests(TestCase):
         demonstração e para criar conta. O app (TodayView) fica para quem já
         entrou — as guardas de plano e onboarding valem só nesse ramo."""
         self.client.logout()
-        response = self.client.get(self.url)
+        # A RAIZ, e não a tela desta classe: a landing mora em `plans:today`
+        # (que é `path("")`), e a Alimentação é uma tela interna — anônimo ali
+        # continua indo para o login, como em qualquer outra.
+        response = self.client.get(reverse("plans:today"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "plans/landing.html")
 
@@ -578,7 +581,7 @@ class TodayViewTests(TestCase):
     def test_a_get_takes_the_person_to_today(self):
         response = self.client.get(reverse("plans:recalculate"))
 
-        self.assertRedirects(response, reverse("plans:today"))
+        self.assertRedirects(response, reverse("plans:alimentacao"))
 
     def test_the_page_states_the_daily_deficit_in_kcal(self):
         """O número que explica a dieta inteira não pode ficar implícito.
@@ -603,7 +606,7 @@ class TodayViewTests(TestCase):
         """O shell do PWA: dieta, treino, métricas e perfil a um toque."""
         response = self.client.get(self.url)
         for url in (
-            reverse("plans:today"),
+            reverse("plans:alimentacao"),
             reverse("workouts:routine"),
             reverse("plans:history"),
             reverse("accounts:profile"),
@@ -1224,7 +1227,7 @@ class SeededCatalogTests(TestCase):
         user = create_complete_user()
         self.client.force_login(user)
 
-        response = self.client.get(reverse("plans:today"))
+        response = self.client.get(reverse("plans:alimentacao"))
 
         self.assertEqual(response.status_code, 200)
         slot = user.plans.get(is_active=True).slots.first()
@@ -1246,7 +1249,7 @@ class SeededCatalogTests(TestCase):
         """
         self.client.force_login(create_complete_user())
 
-        response = self.client.get(reverse("plans:today"))
+        response = self.client.get(reverse("plans:alimentacao"))
         html = response.content.decode()
 
         link = re.search(
@@ -1397,7 +1400,7 @@ class MarkMealViewTests(CatalogFixture):
         # de marcar. `test_unknown_status_is_ignored` continua exigindo o topo
         # no ramo de ERRO, onde a mensagem é renderizada.
         self.assertRedirects(
-            response, reverse("plans:today") + "#slot-%d" % self.slot.pk
+            response, reverse("plans:alimentacao") + "#slot-%d" % self.slot.pk
         )
         log = MealLog.objects.get(user=self.user, slot=self.slot)
         self.assertEqual(log.chosen_option, self.option)
@@ -1406,7 +1409,7 @@ class MarkMealViewTests(CatalogFixture):
     def test_today_page_shows_what_was_marked(self):
         self.client.post(self.url(), {"status": "done", "option": self.option.pk})
 
-        response = self.client.get(reverse("plans:today"))
+        response = self.client.get(reverse("plans:alimentacao"))
 
         self.assertContains(response, self.option.template.name)
         self.assertContains(response, "desfazer")
@@ -1440,7 +1443,7 @@ class MarkMealViewTests(CatalogFixture):
     def test_unknown_status_is_ignored(self):
         response = self.client.post(self.url(), {"status": "inventado"})
 
-        self.assertRedirects(response, reverse("plans:today"))
+        self.assertRedirects(response, reverse("plans:alimentacao"))
         self.assertFalse(MealLog.objects.filter(user=self.user).exists())
 
     def test_a_get_does_not_mark_the_meal(self):
@@ -1456,7 +1459,7 @@ class MarkMealViewTests(CatalogFixture):
         self.assertFalse(MealLog.objects.filter(user=self.user).exists())
 
     def test_a_get_takes_the_person_back_to_today(self):
-        self.assertRedirects(self.client.get(self.url()), reverse("plans:today"))
+        self.assertRedirects(self.client.get(self.url()), reverse("plans:alimentacao"))
 
 
 class HistoryViewTests(CatalogFixture):
@@ -1966,14 +1969,14 @@ class RefeicaoPuladaTests(TestCase):
         )
 
     def test_nothing_is_said_when_no_meal_was_skipped(self):
-        html = self.client.get(reverse("plans:today")).content.decode()
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
         self.assertNotIn('class="pulou"', html)
 
     def test_skipping_shows_the_protein_gap_in_grams(self):
         slot = self.plan.slots.order_by("order").first()
         self._pular(slot)
 
-        html = self.client.get(reverse("plans:today")).content.decode()
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
 
         self.assertIn('class="pulou"', html)
         self.assertIn(f"{slot.target_protein_g} g", html)
@@ -1984,7 +1987,7 @@ class RefeicaoPuladaTests(TestCase):
         slot = self.plan.slots.order_by("order").first()
         self._pular(slot)
 
-        html = self.client.get(reverse("plans:today")).content.decode()
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
         self.assertIn("de frango a mais no", html)
 
     def test_two_skipped_meals_add_up(self):
@@ -1992,7 +1995,7 @@ class RefeicaoPuladaTests(TestCase):
         for slot in slots:
             self._pular(slot)
 
-        html = self.client.get(reverse("plans:today")).content.decode()
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
         total = sum(s.target_protein_g for s in slots)
 
         self.assertIn(f"{total} g", html)
@@ -2006,7 +2009,7 @@ class RefeicaoPuladaTests(TestCase):
             reverse("plans:mark_meal", args=[slot.pk]), {"status": "off_plan"}
         )
 
-        html = self.client.get(reverse("plans:today")).content.decode()
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
         self.assertNotIn('class="pulou"', html)
 
 
@@ -2031,7 +2034,7 @@ class IngredientListTests(TestCase):
         self.client.force_login(self.user)
 
     def test_each_ingredient_shows_which_food_it_is(self):
-        resposta = self.client.get(reverse("plans:today"))
+        resposta = self.client.get(reverse("plans:alimentacao"))
         html = resposta.content.decode()
 
         lista = html.split('class="option__items"', 1)[1].split("</ul>", 1)[0]
@@ -2198,7 +2201,7 @@ class ComiOutraCoisaTests(TestCase):
     def test_the_field_only_exists_inside_the_expandable_panel(self):
         """Oculto por padrão sem `hidden` e sem script: o campo está dentro de
         um `<details>` fechado, e o navegador não o mostra até alguém abrir."""
-        html = self.client.get(reverse("plans:today")).content.decode()
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
 
         painel = html.split('<details class="fora"', 1)
         self.assertEqual(len(painel), 2, "o painel de fora do plano não existe")
@@ -2323,7 +2326,7 @@ class ComiOutraCoisaTests(TestCase):
     def test_the_catalog_list_is_rendered_once_and_not_per_meal(self):
         """900 nós de DOM na tela mais visitada do app, para uma ação que quase
         nunca acontece — era o custo de um `<select>` por linha."""
-        html = self.client.get(reverse("plans:today")).content.decode()
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
         self.assertEqual(html.count('<datalist id="alimentos-do-catalogo">'), 1)
         self.assertNotIn("<select", html.split('class="fora"', 1)[1])
 
@@ -2864,7 +2867,7 @@ class SnapshotDaReceitaTests(CatalogFixture):
         MealLog.objects.filter(pk=log.pk).update(recipe_name="")
         self.client.force_login(self.user)
 
-        response = self.client.get(reverse("plans:today"))
+        response = self.client.get(reverse("plans:alimentacao"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.option.template.name)
@@ -3253,7 +3256,7 @@ class AcaoAgoraTests(TestCase):
 class HojeV2ViewTests(CatalogFixture):
     """A tela Hoje montada de verdade, com plano e cardápio reais."""
 
-    url = reverse("plans:today")
+    url = reverse("plans:alimentacao")
 
     def setUp(self):
         super().setUp()
@@ -3267,13 +3270,25 @@ class HojeV2ViewTests(CatalogFixture):
 
         self.assertIn("agora__rotulo", topo)
 
-    def test_o_resumo_do_dia_cabe_numa_linha_de_texto(self):
-        response = self.client.get(self.url)
-        html = response.content.decode()
+    def test_o_dia_inteiro_e_respondido_pelo_painel_da_hoje(self):
+        """A linha `.resumo-dia` virou o painel de cartões (22/09/2026).
 
-        self.assertIn("resumo-dia", html)
-        self.assertContains(response, "refeições")
-        self.assertContains(response, "ml")
+        Ela dizia refeições, água e treino em ~40px de altura e texto de 11px,
+        embaixo do cartão AGORA — e era ali que a auditoria encontrava o treino
+        do dia e a água, numa tela de 3.170px em que o cartão de água só
+        aparecia a 2,5 telas de rolagem. O painel responde o mesmo com peso
+        visual igual, e por isso a linha saiu: dizer duas vezes é pior.
+
+        Esta tela (o cardápio) não responde mais pelo dia inteiro — quem faz
+        isso é a Hoje.
+        """
+        html = self.client.get(self.url).content.decode()
+        self.assertNotIn("resumo-dia", html)
+
+        hoje = self.client.get(reverse("plans:today")).content.decode()
+        self.assertEqual(hoje.count('class="painel__cartao'), 3)
+        for rotulo in ("Alimentação", "Treino", "Hidratação"):
+            self.assertIn(rotulo, hoje)
 
     def test_a_acao_usa_o_fuso_local_e_nao_utc(self):
         """O servidor roda em UTC e o horário do slot é o da pessoa.
@@ -3492,7 +3507,9 @@ class MarcadorDeRefeicaoTests(TestCase):
         Se alguém reimplementar a regra no template, existirão duas respostas
         para "quem é a vez" e elas vão divergir na próxima mudança.
         """
-        alvo = Path(settings.BASE_DIR) / "templates" / "plans" / "today.html"
+        # O cardápio mora em `alimentacao.html` desde 22/09/2026 — a Hoje
+        # virou o painel do dia e não desenha mais refeição nenhuma.
+        alvo = Path(settings.BASE_DIR) / "templates" / "plans" / "alimentacao.html"
         html = alvo.read_text(encoding="utf-8")
         bloco = html.split("meal__marca", 1)[0][-700:]
 
@@ -3504,7 +3521,7 @@ class MarcadorDeRefeicaoTests(TestCase):
 class MarcadorNaTelaTests(CatalogFixture):
     """O selo renderizado, com plano e cardápio de verdade."""
 
-    url = reverse("plans:today")
+    url = reverse("plans:alimentacao")
 
     def setUp(self):
         super().setUp()
@@ -4224,7 +4241,7 @@ class FilaOfflineComRodizioTests(CatalogFixture):
         seguinte marcaria outra comida — o índice 1 aponta para outra receita
         depois que o rodízio gira.
         """
-        html = self.client.get(reverse("plans:today")).content.decode()
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
         projetadas = rodizio.opcoes_do_dia(self.slot, self.user.pk)
 
         for opcao in projetadas:
@@ -4521,7 +4538,7 @@ class EquivalenciaHonestaTests(TestCase):
         user = create_complete_user()
         services.sync_active_plan(user)
         self.client.force_login(user)
-        html = self.client.get(reverse("plans:today"), secure=True).content.decode()
+        html = self.client.get(reverse("plans:alimentacao"), secure=True).content.decode()
 
         plan = NutritionPlan.objects.filter(user=user, is_active=True).first()
         maior = 0.0
@@ -4793,7 +4810,7 @@ class MacrosRestantesTests(TestCase):
         tracking.log_meal(self.user, slot, MealStatus.DONE, option=opcao)
 
         self.client.force_login(self.user)
-        html = self.client.get(reverse("plans:today"), secure=True).content.decode()
+        html = self.client.get(reverse("plans:alimentacao"), secure=True).content.decode()
 
         linhas = re.findall(
             r'<span class="macro-line__meta">(.*?)</span>\s*</div>', html, re.S

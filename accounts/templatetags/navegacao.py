@@ -35,12 +35,72 @@ register = template.Library()
 #: Um dicionário completo e não um `.get()` com padrão: pilar sem destino tem
 #: de estourar aqui, na primeira renderização, e não sumir do mapa em silêncio.
 DESTINO_DO_PILAR = {
-    Pilar.DIETA: ("plans:today", "today"),
+    Pilar.DIETA: ("plans:alimentacao", "food"),
     Pilar.TREINO: ("workouts:routine", "workout"),
     Pilar.CORRIDA: ("workouts:corridas", "running"),
     Pilar.HIDRATACAO: ("plans:hydration", "hydration"),
     Pilar.PROGRESSO: ("plans:history", "history"),
 }
+
+
+#: AS CINCO ABAS DA NAVEGAÇÃO PRINCIPAL (22/09/2026), e o único lugar em que
+#: elas são escritas.
+#:
+#: Eram QUATRO, e a primeira era o defeito central que o redesenho veio
+#: corrigir: ela se chamava "Alimentação", tinha ícone de garfo e faca e
+#: apontava para `/`, uma tela chamada "Hoje" que era a tela de dieta. Não
+#: existia tela de Alimentação; existia a dieta fazendo as vezes de inicial.
+#:
+#: Agora são cinco, e a conta de largura foi REFEITA a 320px (a medição
+#: antiga — "cinco colunas deixam 51,8px e Hidratação precisa de 60" — valia
+#: para a barra de um rótulo por linha; o rótulo agora pode quebrar em duas
+#: linhas, que é o que faz "Alimentação" caber).
+#:
+#: `navs` são os valores de `nav` que ACENDEM a aba. Hidratação acende Hoje
+#: (o cartão de água mora lá); Corrida e Perfil acendem Mais (é de lá que se
+#: chega a eles no celular). Acender a aba de onde se chegou é melhor que não
+#: acender nada — e muito melhor que acender a errada, que era o defeito de
+#: antes de `Pilar` existir.
+ABAS = (
+    {
+        "chave": "hoje", "rotulo": "Hoje", "rota": "plans:today", "icone": "icone-sol",
+        "navs": ("today", "hydration"),
+    },
+    {
+        "chave": "alimentacao", "rotulo": "Alimentação", "rota": "plans:alimentacao", "icone": "icone-talher",
+        "navs": ("food",),
+    },
+    {
+        "chave": "treino", "rotulo": "Treino", "rota": "workouts:routine", "icone": "icone-halter",
+        "navs": ("workout",),
+    },
+    {
+        "chave": "progresso", "rotulo": "Progresso", "rota": "plans:history", "icone": "icone-barras",
+        "navs": ("history",),
+    },
+    {
+        "chave": "mais", "rotulo": "Mais", "rota": "areas", "icone": "icone-grade",
+        "navs": ("areas", "profile", "running"),
+    },
+)
+
+
+@register.inclusion_tag("partials/abas.html", takes_context=True)
+def abas(context, onde="tabbar"):
+    """As cinco abas, para as DUAS barras — a de baixo no celular e a de cima
+    no desktop.
+
+    Uma tag e não dois blocos de HTML: as duas barras precisam concordar
+    sempre (acima de 60rem a de baixo some e quem navega é a de cima), e
+    quando eram dois blocos copiados o contrato "renomear as duas juntas"
+    era um comentário pedindo por favor. Agora é a mesma lista.
+    """
+    atual = context.get("nav")
+    itens = []
+    for aba in ABAS:
+        endereco = endereco_da_area(aba["rota"])
+        itens.append({**aba, "endereco": endereco, "ativa": atual in aba["navs"]})
+    return {"abas": itens, "onde": onde}
 
 
 #: O que a barra de baixo já alcança direto. UX-01: Áreas NÃO repete isso.

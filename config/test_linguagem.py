@@ -101,9 +101,12 @@ class OCadastroEADietaAvisamTests(ComCadastroCompleto):
         self.assertIn("Sua estimativa está pronta", texto)
         self.assertNotIn("Seu plano está pronto", texto)
 
-    def test_a_home_avisa_junto_do_cardapio(self):
+    def test_a_tela_do_cardapio_avisa_junto_do_cardapio(self):
+        """O aviso mora onde o cardápio mora, e o cardápio mudou de tela em
+        22/09/2026: a Hoje virou o painel do dia e a Alimentação ganhou
+        endereço próprio."""
         self.pessoa_completa()
-        html = self.client.get(reverse("plans:today")).content.decode()
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
         cardapio = html.split("Seu cardápio de hoje", 1)[1]
         self.assertIn(AVISO, texto_visivel(cardapio))
 

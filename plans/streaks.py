@@ -126,8 +126,18 @@ class Ofensiva:
         """
         if self.dias == 0:
             if self.falta_ontem:
+                # A ORDEM É A DECISÃO (22/09/2026): o convite primeiro, o que
+                # faltou depois. A frase era "Ontem faltou X. Hoje recomeça:
+                # …", e a auditoria de UX a encontrou como o PRIMEIRO lugar em
+                # que o treino aparecia com destaque na Home — como bronca,
+                # num cartão de zero dias. A informação fica (ela é honesta e
+                # útil), mas quem abre o app de manhã lê primeiro o que fazer
+                # hoje, e não o que não fez ontem.
                 faltou = " e ".join(self.falta_ontem)
-                return f"Ontem faltou {faltou}. Hoje recomeça: treino no dia de treino, mais dieta ou água."
+                return (
+                    "Recomeça hoje: treino no dia de treino, mais dieta ou "
+                    f"água. Ontem faltou {faltou}."
+                )
             return "Comece hoje: treino no dia de treino, mais dieta ou água, e a contagem começa."
         if self.em_risco:
             falta = ", ".join(self.falta_hoje)
