@@ -459,6 +459,15 @@ def anexar_historico(user, sessions) -> None:
             # Quantas séries já saíram hoje. É o que o contador mostra e o que
             # o salvamento em bloco reescreve.
             item.feitas = len((item.load or {}).get("hoje") or {})
+            # A ÚLTIMA VEZ, PARA A FICHA DECIDIR A ANILHA (22/09/2026). Era
+            # informação só da execução — "peso da última vez é de quem está
+            # escolhendo a anilha, não de quem lê o treino" —, e a auditoria
+            # do dono mostrou o custo dessa separação: para saber com quanto
+            # começar, a pessoa abria os nove exercícios um a um. Sai do
+            # balde "anterior" que `load_history` já trouxe: ZERO consulta a
+            # mais. A série é a mais PESADA daquele dia, que é a que se
+            # procura (a ordem de anotar varia).
+            item.ultima_vez = services.ultima_serie_anterior(item.load)
 
 
 def proximo_treino(sessions, plan=None, hoje=None, linhas=None):
@@ -625,6 +634,11 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
 
         context.update({
             "nav": "workout",
+            # DUAS COLUNAS SÓ AQUI (22/09/2026): a classe no <html> é o que
+            # permite a ficha ter outra largura no desktop sem `:has()`, que
+            # é proibido neste projeto para CSS estrutural (ele derrubou a
+            # navegação uma vez). O app continua em uma coluna de 30rem.
+            "body_class": "tela-ficha",
             "sessao": sessao,
             "plan": sessao.plan,
             "historico": historico,
@@ -713,6 +727,13 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             ),
             "removidos": removidos,
             "equipamentos": equipamentos,
+            # "POR QUE ESSA FICHA" (22/09/2026): o diferencial do NutriPlan
+            # sobre um caderno é que ele EXPLICA a ficha, e a explicação
+            # estava atrás de um `<details>` na OUTRA tela ("Detalhes do
+            # programa", no painel) — ninguém chegava lá. O que entra aqui é
+            # só o desta sessão, e sai dos itens já carregados: zero
+            # consulta.
+            "volume_por_grupo": _volume_por_grupo(itens),
         }
         return {
             "ficha": ficha,
@@ -720,6 +741,15 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             "versao": versao,
             "rapida": versao == "rapido",
         }
+
+
+def _volume_por_grupo(itens) -> list:
+    """[(grupo, séries)] desta ficha, do maior para o menor. Em memória."""
+    por_grupo = {}
+    for item in itens:
+        nome = item.exercise.get_muscle_group_display()
+        por_grupo[nome] = por_grupo.get(nome, 0) + item.sets
+    return sorted(por_grupo.items(), key=lambda par: (-par[1], par[0]))
 
 
 class TrocarExercicioView(AcaoDeTela, OnboardingRequiredMixin, View):
@@ -982,14 +1012,14 @@ class DuracaoDoTreinoView(OnboardingRequiredMixin, View):
         if plano is not None and plano.is_customized:
             messages.info(
                 request,
-                "Duração gravada: até %d minutos. Você ajustou a ficha à mão, "
+                "Duração salva: até %d minutos. Você ajustou a ficha à mão, "
                 "então ela não é remontada — a duração vale na próxima remontagem." % teto,
             )
             return redirect("workouts:routine")
         if plano is not None and services.treino_em_andamento(request.user):
             messages.info(
                 request,
-                "Duração gravada: até %d minutos. Há série registrada hoje, "
+                "Duração salva: até %d minutos. Há série registrada hoje, "
                 "então a ficha muda amanhã." % teto,
             )
             return redirect("workouts:routine")
@@ -997,7 +1027,7 @@ class DuracaoDoTreinoView(OnboardingRequiredMixin, View):
         if mudou:
             messages.success(request, "Ficha remontada para até %d minutos por sessão." % teto)
         else:
-            messages.info(request, "Duração gravada: até %d minutos." % teto)
+            messages.info(request, "Duração salva: até %d minutos." % teto)
         return redirect("workouts:routine")
 
 
@@ -1014,6 +1044,65 @@ class DispensarAvisoView(OnboardingRequiredMixin, View):
             plan.aviso_dispensado_em = timezone.now()
             plan.save(update_fields=["aviso_dispensado_em"])
         return redirect("plans:today")
+
+
+class EncerrarTreinoView(AcaoDeTela, OnboardingRequiredMixin, View):
+    """"Encerrar treino": a pessoa diz que acabou, e o placar abre.
+
+    O app não tinha fecho. "Concluído" só existia com toda série prescrita
+    registrada — quem parava no sexto de nove exercícios ficava em
+    "Exercício 6/9" para sempre, sem resumo nenhum do que fez, e "Ver o
+    treino completo" não era isso (leva à ficha).
+
+    COM MENOS DA METADE DAS SÉRIES, PERGUNTA ANTES. Encerrar é reversível
+    ("Retomar treino" no placar) e não apaga nada, mas fechar sem querer no
+    meio do terceiro exercício esconderia a ficha do resto do dia — e a
+    confirmação é uma tela, não um `confirm()`: a execução reabre com o
+    bloco de confirmação em cima, que funciona sem JavaScript.
+    """
+
+    tela_da_acao = "workouts:now"
+    #: Abaixo disto o fecho pede confirmação. Metade porque é a régua que a
+    #: pessoa reconhece — "fiz menos da metade do que estava na ficha".
+    FRACAO_QUE_PERGUNTA = 0.5
+
+    def post(self, request, *args, **kwargs):
+        estado = services.estado_do_treino(request.user)
+        if not estado.tem_treino:
+            return redirect("workouts:now")
+        parcial = (
+            estado.total_series
+            and estado.series_feitas < estado.total_series * self.FRACAO_QUE_PERGUNTA
+        )
+        if parcial and request.POST.get("confirmado") != "1":
+            return redirect(reverse("workouts:now") + "?encerrar=confirmar")
+        services.encerrar_treino(request.user, estado.sessao)
+        if estado.series_feitas:
+            messages.success(
+                request,
+                "Treino encerrado · %d de %d séries registradas."
+                % (estado.series_feitas, estado.total_series),
+            )
+        else:
+            # Sem nenhuma série não há o que celebrar, e dizer "treino
+            # encerrado" para um dia em branco seria o app afirmando o que
+            # não aconteceu.
+            messages.info(request, "Treino encerrado sem séries registradas hoje.")
+        return redirect("workouts:now")
+
+
+class RetomarTreinoView(AcaoDeTela, OnboardingRequiredMixin, View):
+    """Encerrou sem querer: o carimbo sai e o treino continua de onde parou.
+
+    Nada foi apagado para ser desfeito — `ExerciseLog` continua intacto —,
+    então retomar é tirar uma data da escolha do dia."""
+
+    tela_da_acao = "workouts:now"
+
+    def post(self, request, *args, **kwargs):
+        if services.retomar_treino(request.user) is not None:
+            messages.info(request, "Treino retomado.")
+        return redirect("workouts:now")
 
 
 def _descanso_de(user, exercise) -> int:
@@ -1328,6 +1417,13 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
         extras = self.request.GET.getlist("extra")
         if extras and extras != ["1"]:
             raise Http404("pedido de série extra ilegível")
+        # `?encerrar=confirmar` é a volta de `EncerrarTreinoView` quando o
+        # treino está pela metade: a tela reabre com o bloco de confirmação
+        # em cima. LISTA FECHADA, como `?exercicio=` e `?extra=`.
+        encerrar = self.request.GET.getlist("encerrar")
+        if encerrar and encerrar != ["confirmar"]:
+            raise Http404("pedido de encerramento ilegível")
+        context["encerrar_confirmar"] = bool(encerrar) and not estado.concluido
         context["extra"] = bool(extras)
         # UM IDENTIFICADOR POR RENDERIZAÇÃO, e dois porque são dois
         # formulários — registrar e desfazer não podem compartilhar identidade,
@@ -1347,6 +1443,23 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
         # série e outra —, e um cartão fixo cobrindo o rodapé atrapalha a
         # tarefa. Ver `data-sem-convite` no `base.html`.
         context["sem_convite"] = True
+        # MODO TREINO É MODO FOCO DE VERDADE (22/09/2026). A barra de abas
+        # (Alimentação · Treino · Progresso · Áreas) e o rodapé legal
+        # continuavam na tela entre uma série e outra: quatro destinos para
+        # sair de uma tarefa que se faz de pé, ocupando 5,9rem do único
+        # aparelho que a pessoa tem na mão. As saídas desta tela são as duas
+        # que ela usa — "← Ficha" no topo e "Encerrar treino" no fim.
+        #
+        # E desligar a barra conserta, de graça, o salto de layout do campo
+        # de carga: `.teclado-aberto .container` devolvia o espaço reservado
+        # para a barra ao focar um campo de texto, a página encolhia ~100 px
+        # (MEDIDO: `scrollHeight` 1026 → 923) e o "Concluir série" fugia do
+        # dedo. Sem barra não há espaço a devolver.
+        context["sem_tabbar"] = True
+        # O rodapé legal (Política · Termos) fica nas outras telas — a
+        # LGPD pede acesso FACILITADO, e ele está a um toque daqui, na ficha
+        # e no Perfil. Aqui ele é o terceiro bloco de links num treino.
+        context["sem_rodape_legal"] = True
         # A REFERÊNCIA DO MOVIMENTO (auditoria de 20/09/2026, upgrade 4,
         # aprovado pelo dono): as duas opções da letra têm exercícios
         # DIFERENTES, então um exercício só repete de
@@ -1452,9 +1565,16 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
                 messages.error(request, "Repetições fora de 1 a 100 — a série não foi gravada.")
                 return self._de_volta_ao_foco(request, dia)
 
+        # A OBSERVAÇÃO E A FALHA (22/09/2026): campos comuns do mesmo POST,
+        # então a fila offline os reenvia sem contrato novo. A nota é
+        # cortada em 120 (o tamanho da coluna) em vez de recusada: o toque
+        # que registra a série não pode ser perdido por causa do texto.
+        nota = (request.POST.get("nota") or "").strip()[:120]
+        falhou = request.POST.get("falhou") == "1"
         try:
             log, criada = services.append_set(
-                request.user, exercise, peso, reps=reps, op_id=op_id, day=dia
+                request.user, exercise, peso, reps=reps, op_id=op_id, day=dia,
+                nota=nota, falhou=falhou,
             )
         except ValueError:
             # Vinte séries no mesmo exercício num dia. Não é treino, é dedo

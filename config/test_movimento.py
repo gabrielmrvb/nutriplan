@@ -411,10 +411,14 @@ class NomeDeViewTransitionUnicoTests(TestCase):
                 with self.subTest(rota=rota, nome=nome):
                     self.assertLessEqual(quantos, 1)
             # Controle positivo: as barras existem e a aba ativa é UMA.
+            # A EXECUÇÃO NÃO TEM BARRA DE ABAS desde 22/09/2026 (modo foco:
+            # quatro portas de saída no meio de uma série), então nela o
+            # controle é o inverso — a barra de cima fica, a de baixo não.
             if "onboarding" not in rota:
                 with self.subTest(rota=rota, controle="barras"):
                     self.assertEqual(sum(1 for t in tags if {"app-bar"} <= t), 1)
-                    self.assertEqual(sum(1 for t in tags if {"tabbar__item", "is-active"} <= t), 1)
+                    esperado = 0 if rota == reverse("workouts:now") else 1
+                    self.assertEqual(sum(1 for t in tags if {"tabbar__item", "is-active"} <= t), esperado)
 
     def test_a_execucao_serve_o_numero_da_serie_uma_vez_e_zero_iframe(self):
         html = self.client.get(reverse("workouts:now")).content.decode()

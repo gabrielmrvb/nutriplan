@@ -302,7 +302,7 @@ class ImportarCorridaView(OnboardingRequiredMixin, View):
             # `utf-8-sig` tira o BOM que alguns aparelhos gravam no começo.
             conteudo = arquivo.read().decode("utf-8-sig")
         except UnicodeDecodeError:
-            return self._erro(request, "Não consegui ler o arquivo como texto — ele não parece ser GPX/TCX.")
+            return self._erro(request, "Não conseguimos ler o arquivo como texto — ele não parece ser GPX/TCX.")
 
         try:
             dados = corrida_de_arquivo(conteudo, arquivo.name)

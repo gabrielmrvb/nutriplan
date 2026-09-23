@@ -1,39 +1,37 @@
 {% comment %}
-  UMA LINHA DA FICHA — nome, números, músculo, e DUAS portas.
+  UM CARD DA FICHA — miniatura, nome, dose, equipamento, última carga, estado.
 
   Recebe:
-    item  — o `SessionExercise`, já com `feitas`/`sets` de `anexar_historico`
+    item  — o `SessionExercise`, já com `feitas`/`sets`/`ultima_vez` de
+            `anexar_historico`
     ordem — a posição na ficha, contínua entre principais e complementares
     hoje  — verdadeiro na ficha do dia E na opção escolhida; só então existe
             execução para abrir (a outra opção se compara, não se executa)
-    rapida — a ficha está mostrando a versão rápida: a linha mostra as séries
+    rapida — a ficha está mostrando a versão rápida: o card mostra as séries
             reduzidas, ou diz que ficou de fora
 
-  A FICHA É TELA DE PREPARAÇÃO, e esta linha é o contrato dela: nome, séries ×
-  repetições, músculo e o papel do movimento. Nada que se use DURANTE a série
-  mora aqui — nem vídeo, nem campo de carga, nem cronômetro, nem histórico
-  detalhado. Isso tudo está na execução, que é a tela de quem já escolheu.
+  DE LINHA DE TEXTO PARA CARD (22/09/2026). A ficha era "número, nome,
+  4 × 6-10 Costas, Fazer": para decidir com quanto começar, a pessoa abria
+  os nove exercícios um a um — e para saber o que já tinha feito, contava de
+  cabeça. O card responde as três perguntas de quem está de pé antes da
+  série: O QUE é o movimento (miniatura + nome + grupo), QUANTO (séries ×
+  reps e o descanso), e COM QUANTO (a última vez). O estado fica na direita,
+  em número — "3/4" lê igual em qualquer daltonismo.
 
-  DUAS PORTAS, desde 13/09/2026. O NOME leva à leitura do exercício
-  (`workouts:exercicio`: demonstração, dica, músculos), em QUALQUER dia — a
-  linha de outro dia era um `<div>` inerte, e fora da sessão de hoje não havia
-  caminho nenhum até o vídeo. "Fazer" leva à execução, e só existe na ficha
-  de hoje: a execução lê e grava `ExerciseLog` de HOJE, e um link para
-  "fazer" a ficha de sexta numa terça prometeria registrar série num treino
-  que não está acontecendo. VER não é EXECUTAR — é por isso que uma porta
-  vale sempre e a outra só hoje. Os dois alvos têm 44px, medidos a 320.
+  O QUE CONTINUA FORA: vídeo, campo de carga, cronômetro e histórico
+  detalhado. A ficha é tela de PREPARAÇÃO; tudo isso mora na execução, e a
+  miniatura aqui é uma foto estática do catálogo (`Exercise.frames`, já
+  carregada com o item) — não um player.
 
-  O MARCADOR DE CARGA NÃO ENTRA AQUI. Peso da última vez é informação de quem
-  está escolhendo a anilha, não de quem está lendo o treino — ele está na
-  execução, ao lado do campo em que se anota.
+  DUAS PORTAS, desde 13/09/2026. O CARD leva à leitura do exercício
+  (`workouts:exercicio`: demonstração, dica, músculos), em QUALQUER dia.
+  "Fazer" leva à execução, e só existe na ficha de hoje: a execução lê e
+  grava `ExerciseLog` de HOJE, e um link para "fazer" a ficha de sexta numa
+  terça prometeria registrar série num treino que não está acontecendo. VER
+  não é EXECUTAR. Os dois alvos têm 44px, medidos a 320.
 {% endcomment %}
-<li class="ficha-item{% if item.feitas >= item.sets %} ficha-item--feito{% endif %}{% if rapida and item.fora_da_rapida %} ficha-item--fora{% endif %}">
+<li class="ficha-item{% if item.feitas >= item.sets %} ficha-item--feito{% elif item.feitas %} ficha-item--andamento{% endif %}{% if rapida and item.fora_da_rapida %} ficha-item--fora{% endif %}">
   <div class="ficha-item__link{% if not hoje %} ficha-item__link--parado{% endif %}">
-    {% comment %}
-      O NÚMERO ESTÁ DENTRO DO LINK (UX CA-03): era a única parte da linha que
-      não abria nada. E o link diz de onde veio (`?de=ficha&sessao=`), para
-      a leitura voltar para ESTA ficha, e não para o painel.
-    {% endcomment %}
     <a class="ficha-item__ver"
        href="{% url 'workouts:exercicio' item.exercise_id %}?de=ficha&amp;sessao={{ item.session_id }}"
        {% comment %}
@@ -41,64 +39,117 @@
          na mesma página; "link, ver" trinta vezes não ajuda a escolher.
        {% endcomment %}
        aria-label="Ver {{ item.exercise.name }}">
+      {% comment %}
+        A MINIATURA É A MESMA FOTO DO CATÁLOGO que a execução usa — o
+        primeiro quadro da free-exercise-db, domínio público —, e ela vem
+        no mesmo prefetch dos itens: zero consulta. `loading="lazy"` porque
+        uma ficha tem até doze; `alt` vazio porque o nome está ao lado, e
+        repetir seria ler duas vezes a mesma coisa no leitor de tela. Sem
+        foto cadastrada, o lugar fica com o número — e não com um retângulo
+        cinza, que é o defeito que a leitura do exercício já tinha.
+      {% endcomment %}
+      {% if item.exercise.frames %}
+        <img class="ficha-item__foto" src="{{ item.exercise.frames.0 }}" alt=""
+             width="64" height="48" loading="lazy" decoding="async">
+      {% else %}
+        <span class="ficha-item__foto ficha-item__foto--vazia num" aria-hidden="true">{{ ordem }}</span>
+      {% endif %}
       <span class="ficha-item__ordem num" aria-hidden="true">{{ ordem }}</span>
       <span class="ficha-item__nome">{{ item.exercise.name }}</span>
       <span class="ficha-item__dados">
         {% if rapida and item.fora_da_rapida %}
-          {# A versão rápida deixou este de fora — dito na linha, e não escondido. #}
+          {# A versão rápida deixou este de fora — dito no card, e não escondido. #}
           <span class="ficha-item__fora">fora da versão rápida</span>
-        {% elif rapida and item.series_rapida %}
-          <span class="num">{{ item.series_rapida }}</span>&nbsp;×&nbsp;<span class="num">{{ item.rep_range }}</span>
         {% else %}
-          <span class="num">{{ item.sets }}</span>&nbsp;×&nbsp;<span class="num">{{ item.rep_range }}</span>
+          {% comment %}
+            A DOSE NUMA LINHA SÓ, a 390px: "4 séries · 8-10 reps · 1:20 min
+            de descanso" quebrava em três linhas e esticava o card. Cada
+            unidade é indivisível (`&nbsp;`), e o que sobra é o que se lê de
+            relance antes da série.
+          {% endcomment %}
+          <span class="ficha-item__dose"><span class="num">{% if rapida and item.series_rapida %}{{ item.series_rapida }}{% else %}{{ item.sets }}{% endif %}</span>&nbsp;×&nbsp;<span class="num">{{ item.rep_range }}</span></span>
+          <span class="ficha-item__descanso">descanso&nbsp;<span class="num">{{ item.rest_display }}</span></span>
         {% endif %}
+        {% if item.abre_o_grupo %}{% comment %}
+          O SELO DO MOVIMENTO PRINCIPAL agora DIZ o que significa (22/09/2026):
+          "Principal" sozinho não explicava nada a quem nunca montou treino.
+          É o primeiro composto de cada grupo anunciado da opção
+          (`services.marcar_quem_abre_o_grupo`), e o `title` diz a razão. No
+          FLUXO, e não sobre o card: absoluto, ele cobria o nome do
+          exercício quando o nome tinha duas linhas.
+        {% endcomment %}<span class="ficha-item__papel"
+              title="Movimento composto que abre o grupo: faça-o com força total, antes dos acessórios.">Principal</span>{% endif %}
+      </span>
+      <span class="ficha-item__meta">
         <span class="ficha-item__musculo">{{ item.exercise.get_muscle_group_display }}</span>
-        {% if item.outras_formas %}
-          {% comment %}
-            "outras formas" só quando a porta leva a alguma (a leitura lista
-            as alternativas do mesmo padrão no equipamento da pessoa). É
-            texto dentro do MESMO link do nome — não uma terceira porta na
-            linha; a 320px a linha já tem duas.
-          {% endcomment %}
-          <span class="ficha-item__formas">outras formas</span>
-        {% endif %}
-        {% if item.abre_o_grupo %}
-          {% comment %}
-            O marcador do movimento principal é DISCRETO de propósito: ele
-            orienta quem não sabe por onde começar e não compete com o nome.
-            Desde 17/09/2026 é o PRIMEIRO composto de cada grupo anunciado da
-            opção (`services.marcar_quem_abre_o_grupo`), e não todo composto:
-            com quatro pressões de peito na mesma opção, "Principal" em cinco
-            de sete linhas não orientava mais ninguém.
-          {% endcomment %}
-          <span class="ficha-item__papel">Principal</span>
+        <span class="ficha-item__equipamento">{{ item.exercise.get_equipment_display|lower }}</span>
+        {% comment %}
+          A ÚLTIMA VEZ, que era só da execução. "última: 40 kg × 6" é o que
+          se lê para escolher a anilha antes de sair do banco; sem ela a
+          pessoa abria exercício por exercício. É a série mais PESADA do
+          último treino deste exercício (a ordem de anotar varia), e "×"
+          leva `aria-hidden` porque o leitor de tela lê a frase inteira.
+        {% endcomment %}
+        {% if item.ultima_vez %}
+          <span class="ficha-item__ultima">
+            <span class="vis-oculto">Última vez: </span>
+            {% if item.ultima_vez.peso %}
+              <span class="num">{{ item.ultima_vez.peso|floatformat:"-2g" }}</span>&nbsp;kg{% if item.ultima_vez.reps %}&nbsp;<span aria-hidden="true">×</span><span class="vis-oculto">por</span>&nbsp;<span class="num">{{ item.ultima_vez.reps }}</span>{% endif %}
+            {% else %}
+              <span class="num">{{ item.ultima_vez.reps }}</span>&nbsp;reps
+            {% endif %}
+          </span>
+        {% else %}
+          <span class="ficha-item__ultima ficha-item__ultima--nova">primeira vez</span>
         {% endif %}
       </span>
     </a>
-    {% comment %}
-      O ESTADO NÃO DEPENDE SÓ DE COR. "3/4" é o mesmo número que a execução
-      mostra, e ele diz sozinho o que aconteceu — daltonismo não muda a
-      leitura. A marca de concluído leva texto junto pelo mesmo motivo. Na
-      ficha de hoje o estado É a porta para executar (continuar, ou conferir
-      a carga do que já fechou).
-    {% endcomment %}
-    {% if not hoje and item.feitas %}
+    <div class="ficha-item__acoes">
       {% comment %}
-        A série feita hoje aparece MESMO na opção que não é a escolhida: quem
-        trocou de opção no meio do treino continua vendo o que registrou —
-        é o histórico, e ele não muda de opção. Só não é porta: executar é
-        da opção escolhida.
+        O ESTADO NÃO DEPENDE SÓ DE COR. "3/4" é o mesmo número que a execução
+        mostra, e ele diz sozinho o que aconteceu — daltonismo não muda a
+        leitura. Na ficha de hoje o estado É a porta para executar
+        (continuar, ou conferir a carga do que já fechou).
       {% endcomment %}
-      <span class="ficha-item__estado{% if item.feitas >= item.sets %} ficha-item__estado--feito{% endif %}">
-        <span class="vis-oculto">Registrado hoje: </span>{{ item.feitas }}/{{ item.sets }}
-      </span>
-    {% endif %}
-    {% if hoje and not item.fora_da_rapida or hoje and not rapida %}
-      <a class="ficha-item__estado ficha-item__fazer{% if item.feitas >= item.sets %} ficha-item__estado--feito{% elif not item.feitas %} ficha-item__estado--cta{% endif %}"
-         href="{% url 'workouts:now' %}?exercicio={{ item.exercise_id }}"
-         aria-label="Fazer {{ item.exercise.name }}">
-        {% if item.feitas >= item.sets %}<span class="vis-oculto">Concluído: </span>{{ item.feitas }}/{{ item.sets }}{% elif item.feitas %}<span class="vis-oculto">Em andamento: </span>{{ item.feitas }}/{{ item.sets }}{% else %}Fazer{% endif %}
-      </a>
-    {% endif %}
+      {% if not hoje and item.feitas %}
+        {% comment %}
+          A série feita hoje aparece MESMO na opção que não é a escolhida: quem
+          trocou de opção no meio do treino continua vendo o que registrou —
+          é o histórico, e ele não muda de opção. Só não é porta: executar é
+          da opção escolhida.
+        {% endcomment %}
+        <span class="ficha-item__estado{% if item.feitas >= item.sets %} ficha-item__estado--feito{% endif %}">
+          <span class="vis-oculto">Registrado hoje: </span>{{ item.feitas }}/{{ item.sets }}
+        </span>
+      {% endif %}
+      {% if hoje and not item.fora_da_rapida or hoje and not rapida %}
+        <a class="ficha-item__estado ficha-item__fazer{% if item.feitas >= item.sets %} ficha-item__estado--feito{% elif not item.feitas %} ficha-item__estado--cta{% endif %}"
+           href="{% url 'workouts:now' %}?exercicio={{ item.exercise_id }}"
+           aria-label="Fazer {{ item.exercise.name }}">
+          {% if item.feitas >= item.sets %}<span class="vis-oculto">Concluído: </span>{{ item.feitas }}/{{ item.sets }}{% elif item.feitas %}<span class="vis-oculto">Em andamento: </span>{{ item.feitas }}/{{ item.sets }}{% else %}Fazer{% endif %}
+        </a>
+      {% endif %}
+      {% if item.outras_formas %}
+        {% comment %}
+          "outras formas" era um RÓTULO EM VERDE dentro do link do nome: com
+          cara de link, sem ser um, e sem dizer o que significava (achado do
+          dono). Virou uma ação com verbo — "trocar" — e porta própria: a
+          leitura do exercício, ancorada na lista de alternativas. Quando há
+          JavaScript, `pwa.js` a abre numa folha sobre a ficha, sem trocar de
+          tela (seção "TROCAR NA FICHA"); sem JavaScript, é o link de sempre.
+        {% endcomment %}
+        <a class="ficha-item__trocar"
+           href="{% url 'workouts:exercicio' item.exercise_id %}?de=ficha&amp;sessao={{ item.session_id }}#outras-formas"
+           data-trocar="{{ item.exercise_id }}"
+           data-trocar-nome="{{ item.exercise.name }}"
+           aria-label="Trocar {{ item.exercise.name }} — {{ item.outras_formas }} outra{{ item.outras_formas|pluralize }} forma{{ item.outras_formas|pluralize }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 8h13l-3-3M20 16H7l3 3"/>
+          </svg>
+          <span class="ficha-item__trocar-texto">trocar</span>
+        </a>
+      {% endif %}
+    </div>
   </div>
 </li>

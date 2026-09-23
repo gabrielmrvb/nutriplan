@@ -24,6 +24,8 @@ e está no PR.
 """
 from decimal import Decimal
 
+from pathlib import Path
+
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -31,6 +33,9 @@ from django.utils import timezone
 from workouts import services
 from workouts.models import ExerciseLog
 from workouts.tests import create_user, dias_incluindo_hoje, escolher_opcao_de_hoje
+
+
+RAIZ = Path(__file__).resolve().parents[1]
 
 
 def _sem_comentarios(texto):
@@ -191,9 +196,14 @@ class ATrocaDoMainNaoDeixaNadaVivoParaTrasTests(TestCase):
 
     def test_o_descanso_velho_para_antes_da_troca(self):
         js = _sem_comentarios(self._tela())
-        self.assertIn("window.__descansoTique = tique", js, "o descanso deixa o interval onde a troca alcança")
+        # O CRONÔMETRO MORA EM `pwa.js` DESDE 22/09/2026; o contrato com a
+        # troca continua sendo o mesmo global, e é ele que este teste mede
+        # nas duas pontas — quem cria o interval (pwa.js) e quem o limpa
+        # antes de tirar os nós (a troca, nesta página).
+        timer = _sem_comentarios((RAIZ / "static" / "js" / "pwa.js").read_text(encoding="utf-8"))
+        self.assertIn("window.__descansoTique = tique", timer, "o descanso deixa o interval onde a troca alcança")
         # Quem está com a tela na mão limpa o anterior ao nascer...
-        self.assertIn("if (window.__descansoTique) clearInterval(window.__descansoTique)", js)
+        self.assertIn("if (window.__descansoTique) clearInterval(window.__descansoTique)", timer)
         # ...e a troca limpa ANTES de tirar os nós — o placar da última
         # série não tem descanso novo para limpar o velho.
         troca = js.split("main.replaceChildren")[0]

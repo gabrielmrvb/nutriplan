@@ -29,6 +29,7 @@ verificam onde a informacao mora, quem fala e o que o botao apaga.
 """
 import re
 from decimal import Decimal
+from pathlib import Path
 
 from django.core.management import call_command
 from django.test import TestCase
@@ -38,6 +39,8 @@ from django.utils import timezone
 from workouts import services
 from workouts.models import ExerciseLog
 from workouts.tests import create_user
+
+RAIZ = Path(__file__).resolve().parents[1]
 
 
 def dentro_de_regiao_viva(html, marcador):
@@ -115,14 +118,17 @@ class ORelogioNaoFalaACadaSegundoTests(TestCase):
         Uma chamada dentro do ramo que apenas decrementa devolveria o defeito
         inteiro sem mudar uma linha do HTML — por isso o teste le o corpo do
         tique, e nao apenas a existencia da funcao.
+
+        O cronometro saiu do `<script>` da pagina para `static/js/pwa.js` em
+        22/09/2026 (ele cresceu: `m:ss`, "+30 s", som opcional, Wake Lock, e
+        precisa sobreviver a troca do <main> sem recarga). A regra e a mesma;
+        o que muda e onde ela mora.
         """
-        self._com_descanso_correndo("fala3@exemplo.com")
+        js = (RAIZ / "static" / "js" / "pwa.js").read_text(encoding="utf-8")
 
-        html = self.client.get(reverse("workouts:now")).content.decode()
-
-        self.assertIn('falar("Descanso de "', html)
-        self.assertIn('falar("Descanso terminado, pode ir.")', html)
-        tique = html[html.index("var tique = setInterval"):]
+        self.assertIn('falar("Descanso de "', js)
+        self.assertIn('falar("Descanso terminado, pode ir.")', js)
+        tique = js[js.index("var tique = setInterval"):]
         tique = tique[: tique.index("}, 1000);")]
         # O ramo que ZERA, e so ele: de `if (restante <= 0) {` ate o `return;`
         # que o fecha. A primeira versao deste teste cortava a partir do
@@ -188,6 +194,14 @@ class ORelogioNaoFalaACadaSegundoTests(TestCase):
         from workouts.tests import escolher_opcao_de_hoje
 
         escolher_opcao_de_hoje(pessoa)
+        # COM UMA SÉRIE ANOTADA: o bloco do descanso só existe enquanto ele
+        # corre. Até 22/09/2026 esta asserção passava sem série nenhuma,
+        # porque `data-descanso-relogio` também estava escrito no `<script>`
+        # inline da página — a armadilha do CLAUDE.md, "o seletor do
+        # JavaScript e o marcador do HTML são a mesma string". Com o
+        # cronômetro em `pwa.js`, o controle passou a medir o que diz medir.
+        item = services.estado_do_treino(pessoa).itens[0]
+        services.record_load(pessoa, item.exercise, Decimal("50"), set_number=1, reps=8)
         self.assertIn(
             "data-descanso-relogio",
             self.client.get(reverse("workouts:now")).content.decode(),
