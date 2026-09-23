@@ -73,19 +73,19 @@ class OGastoTests(TestCase):
 
         # Âncora no NÚMERO calculado, não só na frase: "da corrida de hoje"
         # sozinho passaria mesmo se o valor mostrado estivesse errado ou
-        # zerado — templates/plans/today.html escreve
+        # zerado — templates/plans/alimentacao.html escreve
         # `+<b class="num">{{ summary.gasto_corrida_kcal }}</b> kcal da
-        # corrida de hoje`.
-        html = self.client.get(reverse("plans:today")).content.decode()
+        # corrida de hoje`. A tela do saldo é a do cardápio desde 22/09/2026.
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
         self.assertIn(
             '+<b class="num">%d</b> kcal da corrida de hoje' % depois["gasto_corrida_kcal"],
             html,
         )
 
-    def test_sem_corrida_a_home_nao_fala_em_corrida(self):
+    def test_sem_corrida_a_tela_do_saldo_nao_fala_em_corrida(self):
         pessoa = create_user(email="semcorrida@exemplo.com")
         self.client.force_login(pessoa)
 
-        html = self.client.get(reverse("plans:today")).content.decode()
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
 
         self.assertNotIn("da corrida de hoje", html)

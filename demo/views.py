@@ -24,7 +24,7 @@ AREAS = [
     # da aplicação e reverteria para `/demo/`, que é esta própria capa.
     ("/demo/hoje/", "Hoje",
      "O orquestrador do dia: o que fazer agora, e como o dia está indo."),
-    ("/demo/hoje/", "Alimentação",
+    ("plans:alimentacao", "Alimentação",
      "O cardápio do dia, as refeições marcadas e a meta calórica."),
     ("workouts:routine", "Treino",
      "A ficha da semana, com séries, cargas e o cronômetro de descanso."),

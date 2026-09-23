@@ -19,6 +19,14 @@
 {% endcomment %}
 {% block title %}Progresso · NutriPlan{% endblock %}
 
+{% comment %}
+  LARGO NO DESKTOP (22/09/2026). Medido a 1280px: 480px de conteúdo e 400 de
+  vazio de cada lado, com a página em 4.511px de altura. Esta tela é a mais
+  longa do app e a que mais ganha com duas colunas — e ela já é `.split`, o
+  que faz a mudança ser UMA palavra em vez de um layout novo.
+{% endcomment %}
+{% block container_class %}largo{% endblock %}
+
 {% block content %}
   <div class="page-head">
     <h1>Progresso</h1>
@@ -57,7 +65,7 @@
   {% endcomment %}
   {% if totals.days %}
     <div class="split">
-      <div class="split__main stack">
+      <div class="split__main stack stack--duas-colunas">
         <section class="card">
           <div class="tiles">
             {% comment %}
@@ -95,8 +103,25 @@
         {% include "plans/_progresso_agua.html" %}
         {% include "plans/_progresso_conquistas.html" %}
 
-        <section class="card">
-          <div class="card__head"><h2>Dia a dia</h2></div>
+        {% comment %}
+          "DIA A DIA" NASCE RECOLHIDO (22/09/2026).
+
+          É o registro cru — até catorze linhas, ~1.040px a 390px — e é a
+          única seção desta tela que não responde "como estou evoluindo": ela
+          responde "o que eu comi no dia 12", que é uma consulta pontual.
+          Deixá-la aberta fazia a tela abrir com 4.840px de rolagem, e o preço
+          era pago por toda visita, não só pela que veio conferir um dia.
+
+          `<details>` e não abas: é o padrão do app (`<details>` antes de
+          `<dialog>`, e tela antes dos dois), funciona sem JavaScript, entra
+          na ordem do Tab e anuncia estado — e `pwa.js` anima a abertura,
+          como faz com a refeição futura.
+        {% endcomment %}
+        <details class="card explicacao">
+          <summary class="explicacao__head">
+            <h2>Dia a dia</h2>
+            <span class="explicacao__dica" aria-hidden="true">abrir</span>
+          </summary>
           {# `data-escalonado`: as linhas entram uma atrás da outra (pwa.js numera, o CSS atrasa). #}
           <div class="history-rows" data-escalonado>
           {% for row in rows %}
@@ -129,7 +154,7 @@
             da direita é quantas refeições você comeu conforme o plano, de
             quantas o plano previa para o dia.
           </p>
-        </section>
+        </details>
       </div>
     </div>
   {% else %}
@@ -143,7 +168,7 @@
       tela.
     {% endcomment %}
     <div class="split">
-      <div class="split__main stack">
+      <div class="split__main stack stack--duas-colunas">
         <section class="card">
           {% comment %}
             O botão é `--ghost` como o dos vazios de treino e de água, logo

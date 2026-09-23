@@ -157,7 +157,7 @@ class ATelaMostraOQuePediuParaAPessoaEscreverTests(TestCase):
         tracking.log_meal(self.pessoa, slot, MealStatus.OFF_PLAN,
                           notes="Feijoada do vizinho")
 
-        html = self.client.get(reverse("plans:today")).content.decode()
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
 
         self.assertIn("Feijoada do vizinho", html)
 
@@ -168,6 +168,6 @@ class ATelaMostraOQuePediuParaAPessoaEscreverTests(TestCase):
         slot = plano.slots.first()
         tracking.log_meal(self.pessoa, slot, MealStatus.OFF_PLAN, notes="")
 
-        html = self.client.get(reverse("plans:today")).content.decode()
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
 
         self.assertIn("Comeu outra coisa", html)

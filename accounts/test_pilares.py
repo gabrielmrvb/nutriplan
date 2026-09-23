@@ -232,10 +232,13 @@ class OUsuarioQueJaExistiaNaoGanhaPreferenciaInventadaTests(TestCase):
         seções continuam todas lá. Prioridade vazia não é uma experiência
         degradada — é a experiência de antes."""
         html = self.client.get(reverse("plans:today")).content.decode()
+        cardapio = self.client.get(reverse("plans:alimentacao")).content.decode()
 
         self.assertIn('class="card agora-card', html)
-        self.assertIn('class="card agua-card', html)
-        self.assertIn("Seu cardápio de hoje", html)
+        # A água é uma CÉLULA do painel desde 22/09/2026 (era `card agua-card`,
+        # uma seção de meia tela lá embaixo), e o cardápio mudou de tela.
+        self.assertIn('class="painel__cartao agua-card', html)
+        self.assertIn("Seu cardápio de hoje", cardapio)
 
 
 class NenhumPilarFicaEscondidoTests(TestCase):

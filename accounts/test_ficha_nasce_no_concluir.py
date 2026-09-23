@@ -68,9 +68,12 @@ class FichaNasceNoConcluirTests(TestCase):
         self.assertTrue(TrainingPlan.objects.filter(user=self.user, is_active=True).exists())
         home = self.client.get(reverse("plans:today"))
         self.assertEqual(home.status_code, 200)
-        self.assertNotContains(home, "Hoje não tem treino na sua ficha")
-        self.assertNotContains(home, '<span class="resumo-dia__rotulo">descanso</span>')
-        self.assertContains(home, 'class="resumo-dia__treino"')
+        # O CARTÃO DE TREINO DO PAINEL, e não a linha `.resumo-dia` de 11px
+        # que a Home tinha até 22/09/2026: com treino hoje ele mostra as
+        # séries e o botão; sem, diz "Descanso"; sem ficha, "Sem ficha".
+        self.assertNotContains(home, "Descanso")
+        self.assertNotContains(home, "Sem ficha")
+        self.assertContains(home, "séries</span></p>")
 
     def test_concluir_com_zero_dias_nao_monta_ficha_e_nao_quebra(self):
         resposta = self.concluir(_dias())
@@ -93,15 +96,15 @@ class FichaNasceNoConcluirTests(TestCase):
         self.assertTrue(TrainingPlan.objects.filter(pk=plano.pk).exists())
         self.assertEqual(_dias_de_treino(self.user), set())
         home = self.client.get(reverse("plans:today"))
-        self.assertContains(home, '<span class="resumo-dia__rotulo">descanso</span>')
-        self.assertNotContains(home, "séries de hoje")
+        self.assertContains(home, "Sem ficha")
+        self.assertNotContains(home, "séries</span></p>")
 
     def test_editar_os_dias_remonta_a_ficha_na_hora(self):
         hoje = int(HOJE)
         self.concluir(_dias((hoje + 1) % 7, (hoje + 3) % 7, (hoje + 5) % 7))
         antigo = TrainingPlan.objects.get(user=self.user, is_active=True)
         self.assertNotContains(
-            self.client.get(reverse("plans:today")), 'class="resumo-dia__treino"'
+            self.client.get(reverse("plans:today")), "séries</span></p>"
         )
 
         self.client.post(step_url(2), _dias(hoje, (hoje + 2) % 7, (hoje + 4) % 7))
@@ -109,15 +112,19 @@ class FichaNasceNoConcluirTests(TestCase):
         novo = TrainingPlan.objects.get(user=self.user, is_active=True)
         self.assertNotEqual(novo.pk, antigo.pk)
         self.assertContains(
-            self.client.get(reverse("plans:today")), 'class="resumo-dia__treino"'
+            self.client.get(reverse("plans:today")), "séries</span></p>"
         )
 
     def test_dia_de_descanso_de_verdade_continua_dizendo_que_a_semana_esta_la(self):
         hoje = int(HOJE)
         self.concluir(_dias((hoje + 1) % 7, (hoje + 3) % 7, (hoje + 5) % 7))
+        # "Descanso" mais o PRÓXIMO treino: a frase antiga ("Hoje não tem
+        # treino na sua ficha. A semana inteira está lá.") vivia no cartão de
+        # área promovida, que saiu em 22/09/2026 — e ela não dizia QUANDO o
+        # treino volta, que é a pergunta real de quem lê isso.
         home = self.client.get(reverse("plans:today"))
-        self.assertContains(home, "Hoje não tem treino na sua ficha")
-        self.assertNotContains(home, "Ainda não há ficha montada")
+        self.assertContains(home, "Descanso")
+        self.assertNotContains(home, "Sem ficha")
 
     def test_controle_a_home_continua_sem_poder_de_criar_ficha(self):
         """A Home consome o estado e não monta nada — a decisão de `plans/views.py`.
@@ -132,9 +139,13 @@ class FichaNasceNoConcluirTests(TestCase):
 
         home = self.client.get(reverse("plans:today"))
         self.assertFalse(TrainingPlan.objects.filter(user=self.user, is_active=True).exists())
-        # E a Home não finge descanso: sem plano ativo a frase é outra.
-        self.assertContains(home, "Ainda não há ficha montada")
-        self.assertNotContains(home, "Hoje não tem treino na sua ficha")
+        # E a Home não finge descanso: sem plano ativo o cartão diz "Sem
+        # ficha" e oferece montar, e não "Descanso", que seria afirmar um
+        # plano de descanso que ninguém fez. (As frases longas do cartão de
+        # área promovida saíram em 22/09/2026 com o próprio cartão.)
+        self.assertContains(home, "Sem ficha")
+        self.assertContains(home, "Montar treino")
+        self.assertNotContains(home, "Descanso")
 
         self.client.get(reverse("workouts:routine"))
         self.assertTrue(TrainingPlan.objects.filter(user=self.user, is_active=True).exists())

@@ -231,24 +231,12 @@
             link e deixar a rota aberta é meia correção.
           {% endcomment %}
           {% if not sem_tabbar %}
-          <a class="app-bar__link {% if nav == 'today' %}is-active{% endif %}"
-             {% if nav == 'today' %}aria-current="page"{% endif %}
-             href="{% if request.demo %}/demo/hoje/{% else %}{% url 'plans:today' %}{% endif %}">Alimentação</a>
-          <a class="app-bar__link {% if nav == 'workout' %}is-active{% endif %}"
-             {% if nav == 'workout' %}aria-current="page"{% endif %}
-             href="{% url 'workouts:routine' %}">Treino</a>
-          <a class="app-bar__link {% if nav == 'history' %}is-active{% endif %}"
-             {% if nav == 'history' %}aria-current="page"{% endif %}
-             href="{% url 'plans:history' %}">Progresso</a>
-          {% comment %}
-            A barra de cima acompanha a de baixo, sempre. Renomear ou trocar
-            uma e esquecer a outra faz o app chamar a mesma tela de dois jeitos
-            conforme a largura — acima de 60rem a de baixo some e quem navega é
-            esta.
-          {% endcomment %}
-          <a class="app-bar__link {% if nav == 'areas' or nav == 'profile' or nav == 'running' or nav == 'hydration' %}is-active{% endif %}"
-             {% if nav == 'areas' %}aria-current="page"{% elif nav == 'profile' or nav == 'running' or nav == 'hydration' %}aria-current="true"{% endif %}
-             href="{% url 'areas' %}">Áreas</a>
+            {% comment %}
+              A barra de cima acompanha a de baixo SEMPRE, e desde 22/09/2026
+              isso não depende de ninguém lembrar: as duas renderizam a mesma
+              lista (`partials/abas.html`).
+            {% endcomment %}
+            {% abas "app-bar" %}
           {% endif %}
           {% if request.demo %}
             {% comment %}
@@ -375,66 +363,7 @@
       voltava `null` nas quatro abas, em todas as telas.
     {% endcomment %}
     <nav class="tabbar" aria-label="Navegação principal">
-      <a class="tabbar__item {% if nav == 'today' %}is-active{% endif %}"
-         {% if nav == 'today' %}aria-current="page"{% endif %}
-         href="{% if request.demo %}/demo/hoje/{% else %}{% url 'plans:today' %}{% endif %}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M6 3v8a3 3 0 0 0 6 0V3"/><path d="M9 11v10"/>
-          <path d="M17.5 3c-1.5 2-2 4-2 6.5 0 1.5.8 2.5 2 2.5s2-1 2-2.5c0-2.5-.5-4.5-2-6.5Z"/>
-          <path d="M17.5 12v9"/>
-        </svg>
-        Alimentação
-      </a>
-      <a class="tabbar__item {% if nav == 'workout' %}is-active{% endif %}"
-         {% if nav == 'workout' %}aria-current="page"{% endif %}
-         href="{% url 'workouts:routine' %}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M3 9v6"/><path d="M6 6.5v11"/><path d="M18 6.5v11"/><path d="M21 9v6"/>
-          <path d="M6 12h12"/>
-        </svg>
-        Treino
-      </a>
-      <a class="tabbar__item {% if nav == 'history' %}is-active{% endif %}"
-         {% if nav == 'history' %}aria-current="page"{% endif %}
-         href="{% url 'plans:history' %}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M2 20h20"/>
-        </svg>
-        Progresso
-      </a>
-      {% comment %}
-        UX-01: o quarto item é ÁREAS, e não Perfil.
-
-        A barra tinha quatro destinos e havia um `<details>` chamado "Áreas" no
-        canto superior direito — "uma barra principal mais um segundo menu
-        paralelo", nas palavras de quem usa o app. Agora há um sistema só.
-
-        E ele ACENDE onde antes nada acendia. Corrida e Hidratação declaram
-        `nav` próprio e nenhuma aba reagia, porque acender "Treino" numa tela de
-        corrida seria afirmar que corrida é subfunção de treino — o contrário do
-        que `accounts.models.Pilar` diz. Com Áreas na barra existe uma aba
-        CERTA para acender, e `profile` acende aqui pelo mesmo motivo: o Perfil
-        passou a morar dentro de Áreas.
-
-        Quatro itens continuam sendo quatro: a 320px cada um mede 74px, e um
-        quinto derrubaria os quatro para ~51,8px — abaixo do que "Hidratação"
-        precisa. Trocar um item por outro é seguro; acrescentar não é.
-      {% endcomment %}
-      <a class="tabbar__item {% if nav == 'areas' or nav == 'profile' or nav == 'running' or nav == 'hydration' %}is-active{% endif %}"
-         {% if nav == 'areas' %}aria-current="page"{% elif nav == 'profile' or nav == 'running' or nav == 'hydration' %}aria-current="true"{% endif %}
-         href="{% url 'areas' %}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-          <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-          <rect x="3" y="14" width="7" height="7" rx="1.5"/>
-          <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-        </svg>
-        Áreas
-      </a>
+      {% abas "tabbar" %}
     </nav>
     {% endif %}
   {% endif %}

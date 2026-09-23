@@ -1,9 +1,34 @@
 {% extends "base.html" %}
-{% block title %}Áreas · NutriPlan{% endblock %}
+{% block title %}Mais · NutriPlan{% endblock %}
+
+{% comment %}
+  A TELA "MAIS" (era "Áreas", 22/09/2026).
+
+  O nome mudou porque a coisa mudou. Com cinco abas — Hoje, Alimentação,
+  Treino, Progresso e Mais —, três dos cinco pilares têm aba própria e os
+  outros dois (Corrida e Hidratação) têm cartão na Hoje. O que sobra aqui é
+  o resto: as duas áreas sem aba, para quem ainda não as usa e precisa
+  DESCOBRI-LAS, e as ferramentas. "Áreas" descrevia uma tela que continha as
+  cinco; esta contém o que não coube em lugar nenhum, e é isso que "Mais"
+  diz.
+
+  Corrida e Hidratação continuam listadas aqui de propósito, contra a letra
+  do pedido ("Áreas fica só com Conquistas, Lista de compras, Perfil e
+  Ajuda"): sem elas, quem nunca marcou Corrida não tem cartão na Hoje e não
+  teria NENHUM caminho para descobrir que o app registra corrida. Promover
+  não pode virar esconder.
+{% endcomment %}
+
+{% comment %}
+  LARGO NO DESKTOP (22/09/2026): a grade de módulos tinha 480px de conteúdo a
+  1280 e duas colunas de 230px, com 400px de vazio de cada lado. Com `largo`
+  ela usa a mesma largura das outras telas do app.
+{% endcomment %}
+{% block container_class %}largo{% endblock %}
 
 {% block content %}
   <header class="page-head">
-    <h1>Áreas</h1>
+    <h1>Mais</h1>
     {% comment %}
       A linha existe para responder uma pergunta só, e responde sem link.
 
@@ -33,7 +58,7 @@
     quem não tem mantém a descrição, porque um zero inventado afirmaria que a
     pessoa não corre quando o app apenas não sabe.
   {% endcomment %}
-  <h2 class="sobretitulo secao-rotulo">Suas áreas</h2>
+  <h2 class="sobretitulo secao-rotulo">Áreas sem aba</h2>
   <nav class="modulos" data-escalonado aria-label="Áreas do NutriPlan">
     {% for area in areas %}
       <a class="modulo{% if area.na_secao %} is-active{% endif %}{% if area.principal %} modulo--principal{% endif %}"

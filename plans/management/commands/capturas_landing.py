@@ -4,7 +4,7 @@ de UX, 20/09/2026).
 
 As provas (`static/img/landing/prova-*.png`) são screenshots do DEMO — o
 produto de verdade, sobre um usuário fictício. Este comando as refaz a 390 px
-de largura, no tema Papel (claro), pelo navegador headless de QA
+de largura, no tema FERRO (escuro) desde 22/09/2026, pelo navegador headless de QA
 (`scripts/qa/nav.py`, CDP). Como precisa de um Chrome, ele NÃO roda no build
 gratuito do Render (sem navegador lá): é um comando de gestão, rodado local ou
 em CI antes de recomitar as imagens. O teste
@@ -36,12 +36,22 @@ ALVOS = (
 
 
 class Command(BaseCommand):
-    help = "Regenera as três capturas da landing a partir do demo (390px, tema Papel)."
+    help = "Regenera as três capturas da landing a partir do demo (390px, tema Ferro)."
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--base-url", default="https://nutriplan-xxfn.onrender.com",
             help="Origem do demo (padrão: produção).",
+        )
+        parser.add_argument(
+            "--tema", default="escuro", choices=("escuro", "claro"),
+            help=(
+                "O tema emulado na captura. ESCURO por padrão desde "
+                "22/09/2026: a landing é servida no Ferro (o `:root` do app), "
+                "e as três provas eram capturadas no Papel — três retângulos "
+                "brancos numa página preta, que a auditoria leu como imagem "
+                "de outro produto. A prova tem de parecer o app que ela prova."
+            ),
         )
 
     def _nav(self, *args, ler=False):
@@ -62,7 +72,7 @@ class Command(BaseCommand):
 
         try:
             self._nav("viewport", str(LARGURA), str(ALTURA))
-            self._nav("tema", "claro")   # Papel
+            self._nav("tema", options["tema"])
             for arquivo, caminho in ALVOS:
                 url = self._url_do_treino(base) if caminho is None else base + caminho
                 self._nav("open", url)

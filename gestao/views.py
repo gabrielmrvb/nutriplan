@@ -17,6 +17,7 @@ from django.db.models import Exists, Max, OuterRef, Q
 from django.views.generic import TemplateView
 
 from accounts.models import ClassificacaoDeConta, Pilar, Profile
+from accounts.templatetags.navegacao import ABAS, endereco_da_area
 from plans.models import MealLog, NutritionPlan
 from workouts.models import ExerciseLog, TrainingPlan
 
@@ -209,6 +210,16 @@ class VitrineView(PainelDeGestaoMixin, TemplateView):
             caixas_com_erro=ConsentimentoForm({"termos": "on"}),
             google_login_enabled=True,
             legal_publicado=True,
+            # AS ABAS, montadas aqui (22/09/2026). `partials/abas.html` é
+            # normalmente desenhada pela tag `{% abas %}`, que lê o `nav` da
+            # página — e a vitrine não tem `nav`, porque não é uma tela do
+            # app. Montar a lista à mão é o que faz a fotografia mostrar os
+            # dois estados: a aba da vez e as outras.
+            abas_da_vitrine=[
+                {**aba, "endereco": endereco_da_area(aba["rota"]),
+                 "ativa": aba["chave"] == "hoje"}
+                for aba in ABAS
+            ],
             conquistas_novas=[
                 SimpleNamespace(pk=0, emoji="", titulo="Primeira semana completa", frase="Sete dias seguidos com o plano.",
                                 rotulo="Sequência", valor="7", destaque="7 dias", tipo_de_card="sequencia"),

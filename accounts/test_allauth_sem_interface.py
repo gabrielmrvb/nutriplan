@@ -143,8 +143,10 @@ class AsContasConectadasUsamAcaraDoProdutoTests(TestCase):
         """Sem ela a pessoa entrava num lugar de onde não dava para sair."""
         html = self.client.get(self.URL).content.decode()
 
-        # UX-01: o quarto item é Áreas. Perfil saiu da barra e mora lá dentro.
-        for aba in ("Alimentação", "Treino", "Progresso", "Áreas"):
+        # UX-01: Perfil saiu da barra e mora dentro do último item, que se
+        # chama "Mais" desde 22/09/2026 — e a barra ganhou "Hoje" na frente,
+        # porque a tela inicial voltou a ser o orquestrador do dia.
+        for aba in ("Hoje", "Alimentação", "Treino", "Progresso", "Mais"):
             with self.subTest(aba=aba):
                 self.assertIn(aba, html)
 

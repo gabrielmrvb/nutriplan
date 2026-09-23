@@ -105,11 +105,15 @@ class TodaAcaoDevolveUmaTelaTests(TestCase):
 
     #: O que o GET de cada ação deve devolver.
     DESTINO = {
+        # A água ficou na Hoje (o cartão virou uma célula do painel do dia) e
+        # o cardápio mudou de tela em 22/09/2026: marcar refeição, desfazer,
+        # recalcular e recalibrar pertencem à Alimentação, que é de onde os
+        # botões são tocados.
         "/agua/": "/",
-        "/refeicao/<int:slot_id>/marcar/": "/",
-        "/refeicao/<int:slot_id>/desfazer/": "/",
-        "/recalcular/": "/",
-        "/recalibrar/": "/",
+        "/refeicao/<int:slot_id>/marcar/": "/alimentacao/",
+        "/refeicao/<int:slot_id>/desfazer/": "/alimentacao/",
+        "/recalcular/": "/alimentacao/",
+        "/recalibrar/": "/alimentacao/",
         "/conta/peso/": "/",
         "/treino/agora/serie/": "/treino/agora/",
         "/treino/exercicio/<int:exercise_id>/carga/": "/treino/",

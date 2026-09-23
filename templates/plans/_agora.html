@@ -1,0 +1,56 @@
+{% comment %}
+  O CARTÃO AGORA — a próxima ação do dia, e o único herói do app.
+
+  Ele nasceu na tela Hoje e passou a ser incluído por DUAS telas em
+  22/09/2026: a Hoje (onde ele responde por refeição, treino, água, pesagem e
+  "nada pendente") e a Alimentação (onde ele entra só quando a ação da vez é
+  uma refeição — ali ele é o herói da próxima refeição, e o resto do dia é
+  assunto da Hoje).
+
+  Ele é um PARCIAL e não dois blocos copiados porque as duas telas mostram o
+  mesmo cartão: copiar era garantir que um dia o botão de água fosse
+  corrigido num lugar só. Quem decide o conteúdo continua sendo
+  `plans.agora.proxima_acao`, uma função pura.
+{% endcomment %}
+<section class="card agora-card agora-card--{{ acao.tipo }}">
+  {% if acao.existe %}
+    <p class="agora__rotulo">{{ acao.rotulo }}</p>
+    <h2 class="agora__titulo">{{ acao.titulo }}</h2>
+    <p class="agora__detalhe">
+      {% if acao.horario %}<span class="num">{{ acao.horario|time:"H:i" }}</span> · {% endif %}{{ acao.detalhe }}
+    </p>
+    {% if acao.tipo == 'agua' %}
+      {% comment %}
+        Água é a única ação que o cartão executa direto: não há opção A e
+        B para escolher errado. O `fila.js` já intercepta todo POST para
+        `/agua/` e carimba `op_id` por envio, então este botão entra na
+        fila offline com o mesmo contrato dos outros três.
+
+        `de=topo` porque este botão está no TOPO da tela. A âncora
+        `#hidratacao` foi desenhada para quem já estava no cartão de água,
+        a 2.500px daqui; sem `de`, tocar aqui jogaria a pessoa lá para
+        baixo, longe do cartão que ela acabou de obedecer. A confirmação
+        deste botão é o próprio cartão mudando — depois de beber, o atraso
+        cai e o AGORA passa a apontar outra coisa.
+      {% endcomment %}
+      <form method="post" action="{% url 'plans:log_hydration' %}">
+        {% csrf_token %}
+        <input type="hidden" name="ml" value="500">
+        <input type="hidden" name="de" value="topo">
+        <button type="submit" class="btn btn--primary btn--block agora__cta">
+          {{ acao.cta }}
+        </button>
+      </form>
+    {% else %}
+      <a class="btn btn--primary btn--block agora__cta" href="{{ acao.url }}">
+        {{ acao.cta }}
+      </a>
+    {% endif %}
+  {% else %}
+    <p class="agora__rotulo">HOJE</p>
+    <h2 class="agora__titulo">Nada pendente</h2>
+    <p class="agora__detalhe">
+      Refeições marcadas, treino resolvido e água na meta.
+    </p>
+  {% endif %}
+</section>

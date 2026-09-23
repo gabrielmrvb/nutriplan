@@ -22,7 +22,12 @@
    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "BRL"}}
   </script>
 {% endblock %}
-{% block container_class %}auth{% endblock %}
+{% comment %}
+  `container--landing` ao lado de `auth`: a landing compartilha a coluna
+  estreita das telas de entrada no celular e se solta dela acima de 900px —
+  ela apresenta o produto, e não pede senha. Ver a seção da landing no CSS.
+{% endcomment %}
+{% block container_class %}auth container--landing{% endblock %}
 
 {% block content %}
   {% comment %}
@@ -68,6 +73,7 @@
     90 pesa ~24 KB. `capturas_landing` gera os dois; `plans/test_landing_webp.py`
     prende o peso e o `<picture>`.
   {% endcomment %}
+  <div class="landing__provas">
   <figure class="card landing__prova">
     <picture>
       <source type="image/webp" srcset="{% static 'img/landing/prova-dia.webp' %}">
@@ -103,6 +109,7 @@
       Peso, cargas e a sequência de dias em dia — o que mudou fica à vista.
     </figcaption>
   </figure>
+  </div>
 
   <div class="card center">
     <h2>Veja funcionando antes de criar conta</h2>

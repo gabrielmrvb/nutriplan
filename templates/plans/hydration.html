@@ -175,13 +175,46 @@
             Só aparece quando existe gole: a linha "sem horário" não é um gole,
             e um botão que só pode falhar é pior que botão nenhum.
           {% endcomment %}
-          {% if goles %}
-            <form method="post" action="{% url "plans:log_hydration" %}">
-              {% csrf_token %}
-              <input type="hidden" name="acao" value="desfazer">
-              <input type="hidden" name="de" value="hidratacao">
-              <button type="submit" class="btn-link">desfazer o último</button>
-            </form>
+          {% comment %}
+            ZERAR MUDOU DE TELA EM 22/09/2026, e veio para cá — para junto da
+            LISTA que ele apaga.
+
+            Ele morava no cartão de água da tela Hoje, que virou uma célula de
+            ~162px na primeira dobra: a ação que apaga o dia inteiro ficava a
+            um polegar de distância dos três botões que a pessoa toca todo dia,
+            na tela mais aberta do app. Aqui ela está ao lado dos goles que vai
+            destruir, e quem chegou até esta tela veio olhar o registro.
+
+            A confirmação continua igual — `<details>`, dois toques, e a
+            segunda metade dizendo o que vai acontecer em vez de "confirmar".
+
+            Desfazer e zerar são intenções DIFERENTES: um conserta o toque
+            errado, o outro recomeça o dia. Por isso continuam sendo dois.
+          {% endcomment %}
+          {% if goles or bebido %}
+            <div class="agua__acoes">
+              {% if goles %}
+                <form method="post" action="{% url "plans:log_hydration" %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="acao" value="desfazer">
+                  <input type="hidden" name="de" value="hidratacao">
+                  <button type="submit" class="btn-link">desfazer o último</button>
+                </form>
+              {% endif %}
+              {% if bebido %}
+                <details class="acao-perigosa">
+                  <summary class="btn-link">zerar o dia</summary>
+                  <form method="post" action="{% url "plans:log_hydration" %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="ml" value="0">
+                    <input type="hidden" name="de" value="hidratacao">
+                    <button type="submit" class="btn-link acao-perigosa__confirma">
+                      apagar a água de hoje
+                    </button>
+                  </form>
+                </details>
+              {% endif %}
+            </div>
           {% endif %}
 
           <p class="hint">

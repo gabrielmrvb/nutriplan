@@ -1,4 +1,4 @@
-"""O sprite (13 símbolos, 2,9 kB brutos, ~850 B gzip) passa a viver no `base.html`, uma vez por
+"""O sprite (17 símbolos, ~3,7 kB brutos) passa a viver no `base.html`, uma vez por
 página — o onboarding e a vitrine o incluíam por conta própria e a vitrine
 duplicaria `<symbol id>` na hora em que a base o trouxesse. E ele NÃO entra no
 shell offline: aquela tela é pré-cacheada e servida a quem pegar o aparelho
@@ -72,7 +72,11 @@ class SpriteUmaVezPorPaginaTests(TestCase):
         tinta contra 2 789). Ler a raiz seria ler um atributo inerte."""
         sprite = (Path(settings.BASE_DIR) / "templates" / "partials" / "icones.html").read_text(encoding="utf-8")
         simbolos = re.findall(r"<symbol [^>]*>", sprite)
-        self.assertEqual(len(simbolos), 13, "o sprite tem 13 símbolos")
+        # 17 desde 22/09/2026: os quatro das abas (sol, talher, barras,
+        # grade) entraram no sprite quando a navegação virou cinco itens.
+        # Eles moravam como `<path>` copiado dentro do `base.html`, um jogo
+        # por barra — o sprite existe exatamente para isso não acontecer.
+        self.assertEqual(len(simbolos), 17, "o sprite tem 17 símbolos")
         for tag in simbolos:
             with self.subTest(simbolo=tag):
                 self.assertIn('stroke-width="2"', tag)
@@ -96,4 +100,4 @@ class SpriteUmaVezPorPaginaTests(TestCase):
         que o marcador dos testes acima ainda é um símbolo real do sprite."""
         sprite = (Path(settings.BASE_DIR) / "templates" / "partials" / "icones.html").read_text(encoding="utf-8")
         self.assertIn(MARCADOR, sprite)
-        self.assertGreaterEqual(len(re.findall(r"<symbol id=\"icone-", sprite)), 13)
+        self.assertGreaterEqual(len(re.findall(r"<symbol id=\"icone-", sprite)), 17)

@@ -84,9 +84,12 @@ class TetoNaHomeTests(TestCase):
         call_command("seed_catalog", verbosity=0)
 
     def _home_de(self, faixa):
+        """A tela em que "até N min" é escrito — o bloco "Dados do cálculo",
+        que mora na Alimentação desde 22/09/2026 (a Hoje virou o painel do
+        dia e deixou de explicar o cálculo da meta)."""
         user = create_complete_user(email="teto-%s@exemplo.com" % faixa, duracao_treino=faixa)
         self.client.force_login(user)
-        return self.client.get(reverse("plans:today")).content.decode()
+        return self.client.get(reverse("plans:alimentacao")).content.decode()
 
     def test_quem_e_sem_limite_tambem_le_o_teto(self):
         """"até {{ teto }} min" era só para quem tinha teto; sem limite lia

@@ -47,7 +47,7 @@ class ARegistrarNaoMoraMaisDentroDaSanfonaTests(TestCase):
     def setUp(self):
         self.pessoa = com_plano()
         self.client.force_login(self.pessoa)
-        self.html = self.client.get(reverse("plans:today")).content.decode("utf-8")
+        self.html = self.client.get(reverse("plans:alimentacao")).content.decode("utf-8")
 
     def test_a_tela_tem_opcoes_para_medir(self):
         """Controle positivo: sem opção na tela, tudo abaixo passaria vazio."""
@@ -122,7 +122,7 @@ class OContratoDoFormularioNaoMudouTests(TestCase):
         delas. O que o contrato exige é o par de campos, e que o id enviado
         pertença ao horário — as duas coisas medidas aqui.
         """
-        html = self.client.get(reverse("plans:today")).content.decode("utf-8")
+        html = self.client.get(reverse("plans:alimentacao")).content.decode("utf-8")
 
         self.assertIn('name="status" value="done"', html)
         enviados = {int(pk) for pk in re.findall(
@@ -232,7 +232,7 @@ class AOpcaoAEASugestaoEABEAAlternativaTests(TestCase):
             datetime.combine(timezone.localdate(), time(12, 30))
         )
         with mock.patch("plans.views.relogio", return_value=meio_dia):
-            self.html = self.client.get(reverse("plans:today")).content.decode("utf-8")
+            self.html = self.client.get(reverse("plans:alimentacao")).content.decode("utf-8")
 
     def _acoes(self, bloco):
         return re.findall(r'<form[^>]*class="option-par__acao"(.*?)</form>', bloco, re.S)
@@ -279,7 +279,7 @@ class ARefeicaoFuturaFicaEmSegundoPlanoTests(TestCase):
             datetime.combine(timezone.localdate(), time(12, 30))
         )
         with mock.patch("plans.views.relogio", return_value=meio_dia):
-            self.html = self.client.get(reverse("plans:today")).content.decode("utf-8")
+            self.html = self.client.get(reverse("plans:alimentacao")).content.decode("utf-8")
 
     def _artigos(self):
         return re.findall(r'<article class="meal([^"]*)"(.*?)</article>', self.html, re.S)

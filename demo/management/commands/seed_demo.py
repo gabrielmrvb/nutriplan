@@ -13,7 +13,7 @@ mostra o app que existe.
 O que protege os dados reais não é este comando — é o middleware, que recusa
 qualquer método que escreva antes de chegar na view.
 """
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -28,7 +28,10 @@ from accounts.models import (
     ActivityLevel,
     DuracaoTreino,
     Goal,
+    Experiencia,
     MealStyle,
+    Musculacao,
+    Pilar,
     Profile,
     Sex,
     SplitPreference,
@@ -40,13 +43,31 @@ from plans import rodizio as plan_rodizio
 from plans import services as plan_services
 from plans.models import HydrationLog, MealLog, MealStatus
 from workouts import services as workout_services
-from workouts.models import Equipment, ExerciseLog, MuscleGroup, TrainingPlan
+from workouts.models import (
+    Corrida,
+    Equipment,
+    ExerciseLog,
+    MuscleGroup,
+    TrainingPlan,
+)
 
 IDADE = 28
 PESO_KG = Decimal("78.0")
 ALTURA_CM = 178
 
 DIAS_DE_TREINO = ((0, time(19, 0)), (2, time(19, 0)), (4, time(19, 0)))
+
+#: As corridas do Carlos: (dias atrás, metros, segundos). Ele treina segunda,
+#: quarta e sexta, então elas caem em terça, quinta e sábado — corrida
+#: empilhada no dia de perna contaria uma história que a própria ficha dele
+#: desmente. O ritmo melhora devagar (6'14" → 5'52" por km), que é o que a
+#: tela de Corrida existe para mostrar a quem está avaliando o app.
+CORRIDAS_DO_DEMO = (
+    (2, 5_240, 1_960),
+    (5, 4_810, 1_835),
+    (9, 6_120, 2_330),
+    (13, 4_500, 1_768),
+)
 DURACAO_MIN = 60
 
 SEMANAS_DE_PESO = 12
@@ -250,6 +271,24 @@ class Command(BaseCommand):
                 "sleep_time": time(23, 0),
                 "onboarding_step": ONBOARDING_DONE,
                 "onboarding_completed_at": timezone.now(),
+                # AS ÁREAS QUE ELE DECLAROU (22/09/2026). Sem isto o demo
+                # respondia por uma pessoa que nunca respondeu a pergunta da
+                # etapa 3, e duas coisas ficavam invisíveis para quem está
+                # avaliando o app: o painel da Hoje fechava em três cartões
+                # (Corrida só aparece para quem corre) e a ordem por área
+                # principal — a personalização inteira — não acontecia.
+                #
+                # `prioridade` TEM de pertencer aos interesses: quem garante é
+                # `prioridade_pertence_aos_interesses`, o CheckConstraint do
+                # banco. Treino é a principal dele porque o personagem é de
+                # hipertrofia — é o que o resto do seed conta.
+                "musculacao": Musculacao.SIM,
+                "experiencia": Experiencia.INTERMEDIARIO,
+                "interesse_dieta": True,
+                "interesse_treino": True,
+                "interesse_corrida": True,
+                "interesse_hidratacao": True,
+                "prioridade": Pilar.TREINO,
             },
         )
 
@@ -264,6 +303,25 @@ class Command(BaseCommand):
                 weight_kg=(PESO_KG - GANHO_POR_SEMANA * semana).quantize(
                     Decimal("0.01")
                 ),
+            )
+
+        # QUATRO CORRIDAS na história recente. A tela de Corrida do demo abria
+        # em "Nenhuma corrida ainda": a tela de venda de uma das cinco áreas do
+        # produto, vazia, para quem está decidindo se o app serve. Elas são o
+        # mesmo tipo de dado fictício do peso e do treino daqui de cima.
+        Corrida.objects.filter(user=user).delete()
+        for dias_atras, metros, segundos in CORRIDAS_DO_DEMO:
+            comecou = timezone.make_aware(
+                datetime.combine(hoje - timedelta(days=dias_atras), time(6, 40))
+            )
+            Corrida.objects.create(
+                user=user,
+                op_id="demo-corrida-%d" % dias_atras,
+                comecou_em=comecou,
+                terminou_em=comecou + timedelta(seconds=segundos),
+                distancia_m=metros,
+                duracao_s=segundos,
+                origem=Corrida.Origem.GPS,
             )
 
         TrainingDay.objects.filter(user=user).delete()
@@ -528,6 +586,18 @@ class Command(BaseCommand):
 
         MealLog.objects.bulk_create(registros)
 
+    @staticmethod
+    def _dia_da_sessao(hoje, weekday, semanas_atras):
+        """A última ocorrência daquele dia da semana, N semanas atrás.
+
+        Nunca no futuro: se o dia da sessão ainda não chegou nesta semana, a
+        semana 0 dela é a da semana passada. Um registro com data futura seria
+        invisível para toda tela que pergunta "e hoje?" — é a mesma regra que
+        o servidor aplica ao dia que viaja na fila offline.
+        """
+        atras = (hoje.weekday() - weekday) % 7
+        return hoje - timedelta(days=atras, weeks=semanas_atras)
+
     def _preencher_cargas(self, user, ficha):
         """Cargas plausiveis em TODOS os dias da ficha, e em quatro semanas.
 
@@ -584,12 +654,19 @@ class Command(BaseCommand):
                     if peso <= 0:
                         continue
                     peso = max(_arredondar(peso), CARGA_MINIMA)
+                    # CADA SESSÃO NO DIA DELA (22/09/2026). Antes todas caíam
+                    # em `hoje - N semanas`, e a tela de Treino somava a ficha
+                    # inteira em "Treino de hoje": 44 exercícios, 130 séries e
+                    # 37.585 kg — num dia de descanso. A conta não estava
+                    # errada (`resumo_da_sessao` filtra por `date=hoje`); o
+                    # DADO é que dizia que tudo aconteceu no mesmo dia.
+                    dia = self._dia_da_sessao(hoje, sessao.weekday, semana)
                     for serie in range(1, item.sets + 1):
                         registros.append(
                             ExerciseLog(
                                 user=user,
                                 exercise=item.exercise,
-                                date=hoje - timedelta(weeks=semana),
+                                date=dia,
                                 set_number=serie,
                                 weight_kg=peso.quantize(Decimal("0.01")),
                                 reps=item.rep_min,

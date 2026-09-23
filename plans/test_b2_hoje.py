@@ -2,8 +2,14 @@
 
 A tela Hoje tem de 4 a 5 dobras. Medido no navegador, em 375x812: o cartao de
 agua comeca em y=2491, e cada toque em "+250" era rolar 2500px, tocar e ser
-jogado de volta ao topo — porque toda escrita da tela redirecionava para
-`plans:today` sem ancora. Para fechar tres litros de 250 em 250 sao doze idas.
+jogado de volta ao topo — porque toda escrita da tela redirecionava para ela
+sem ancora. Para fechar tres litros de 250 em 250 sao doze idas.
+
+EM 22/09/2026 A TELA VIROU DUAS, e as ancoras foram junto: o cardapio (e o
+`#slot-<pk>` de cada refeicao) mora em `plans:alimentacao`, e a agua (com o
+`#hidratacao`) virou uma celula do painel de `plans:today`. O que os testes
+daqui medem nao mudou — a escrita volta para onde a pessoa estava — mas o
+"onde" agora sao duas telas.
 
 O mesmo valia para marcar refeicao (cinco por dia, cartoes espalhados ate a
 dobra 2.9) e para desfazer.
@@ -101,12 +107,14 @@ class AsAncorasExistemNaPaginaTests(CatalogFixture):
         self.client.force_login(self.pessoa)
 
     def test_o_cartao_de_agua_tem_a_ancora(self):
+        # A ancora da agua e da tela HOJE desde 22/09/2026 — o cartao virou
+        # uma celula do painel do dia. A do cardapio continua na Alimentacao.
         resposta = self.client.get(reverse("plans:today"))
 
         self.assertContains(resposta, 'id="hidratacao"')
 
     def test_cada_refeicao_tem_a_sua_ancora(self):
-        resposta = self.client.get(reverse("plans:today"))
+        resposta = self.client.get(reverse("plans:alimentacao"))
 
         for slot in self.plano.slots.all():
             with self.subTest(slot=slot.pk):
@@ -121,6 +129,6 @@ class AsAncorasExistemNaPaginaTests(CatalogFixture):
             "/refeicao/%d/marcar/" % self.slot.pk, {"status": MealStatus.SKIPPED}
         )
 
-        resposta = self.client.get(reverse("plans:today"))
+        resposta = self.client.get(reverse("plans:alimentacao"))
 
         self.assertContains(resposta, 'id="slot-%d"' % self.slot.pk)

@@ -1097,10 +1097,13 @@ class SingleUserAppTests(TestCase):
         template precisam concordar — senão a última aba quebra a linha."""
         css = (RAIZ / "static" / "css" / "app.css").read_text(encoding="utf-8")
         bloco = css.split(chr(10) + ".tabbar {", 1)[1].split("}", 1)[0]
-        base = (RAIZ / "templates" / "base.html").read_text(encoding="utf-8")
+        # A lista das abas saiu do `base.html` em 22/09/2026: as duas barras
+        # renderizam a MESMA lista (`accounts.templatetags.navegacao.ABAS`)
+        # pela parcial `partials/abas.html`, e contar `tabbar__item` no
+        # `base.html` passou a dar zero — que é o que este teste pegou.
+        from accounts.templatetags.navegacao import ABAS
 
-        abas = base.split('<nav class="tabbar"', 1)[1].split("</nav>", 1)[0]
-        self.assertIn(f"repeat({abas.count('tabbar__item')}, 1fr)", bloco)
+        self.assertIn(f"repeat({len(ABAS)}, 1fr)", bloco)
 
     def test_the_package_is_gone_from_the_disk(self):
         """Etapa 2 da remoção.
@@ -1681,7 +1684,8 @@ class GymReadyTests(TestCase):
 
         "Um destaque" e a regra: destacar dois de tres nao destaca nada.
         """
-        hoje = (RAIZ / "templates" / "plans" / "today.html").read_text(encoding="utf-8")
+        # O anel e os macros moram na tela de Alimentação desde 22/09/2026.
+        hoje = (RAIZ / "templates" / "plans" / "alimentacao.html").read_text(encoding="utf-8")
         self.assertEqual(hoje.count("hero-macros__item--chave"), 1)
         self.assertIn("macro.slug == 'protein'", hoje)
 

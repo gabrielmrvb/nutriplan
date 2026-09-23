@@ -18,7 +18,10 @@ from django.test import SimpleTestCase
 
 RAIZ = Path(__file__).resolve().parent.parent
 PWA = RAIZ / "static" / "js" / "pwa.js"
-HOJE = RAIZ / "templates" / "plans" / "today.html"
+#: O cartão de lembretes mora na tela do cardápio desde 22/09/2026: ele
+#: lembra de REFEIÇÃO, e o cardápio é onde a refeição mora. A constante
+#: guarda o nome antigo porque é assim que o arquivo inteiro a chama.
+HOJE = RAIZ / "templates" / "plans" / "alimentacao.html"
 
 
 def sem_comentarios(texto):

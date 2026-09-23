@@ -37,17 +37,30 @@ from plans.tests import create_complete_user
 
 User = get_user_model()
 
-#: As quatro abas, na ordem que o contrato fixa.
+#: As CINCO abas, na ordem que o contrato fixa.
 #:
 #: `Progresso`, e não `Métricas`. O documento escreve `Progresso` duas vezes —
 #: na barra de hoje e na barra futura, depois da medição do GPS — e não escreve
 #: `Métricas` uma única vez. A barra nasceu com "Métricas" no primeiro commit e
 #: nunca houve decisão registrada a respeito; o `[manter a estrutura real
-#: atualmente publicada]` do contrato fala de ESTRUTURA — quatro abas, esta
-#: ordem, Corrida sob Treino —, não de nomenclatura.
-#: UX-01: o quarto item passou a ser Áreas. Perfil saiu da barra e mora
-#: dentro dela — a barra responde "onde eu vou", e Perfil é conta.
-ABAS = ("Alimentação", "Treino", "Progresso", "Áreas")
+#: atualmente publicada]` do contrato fala de ESTRUTURA, não de nomenclatura.
+#:
+#: UX-01 pôs Áreas no quarto item (Perfil saiu da barra: a barra responde
+#: "onde eu vou", e Perfil é conta). O REDESENHO DE 22/09/2026 acrescentou a
+#: primeira e renomeou a última:
+#:
+#: - **Hoje** existe porque a tela inicial voltou a ser o orquestrador do dia.
+#:   A aba dizia "Alimentação" e levava para uma tela chamada "Hoje" que era a
+#:   tela de dieta — a barra mentia sobre onde a pessoa estava;
+#: - **Alimentação** ganhou tela própria (`plans:alimentacao`) e ficou com a
+#:   aba que já tinha o nome dela;
+#: - **Mais** é a antiga Áreas. O quarto item passou a guardar o que não é
+#:   pilar do dia (Conquistas, Lista de compras, Perfil, Ajuda) além das áreas,
+#:   e "Áreas" deixou de descrever o que há lá dentro.
+#:
+#: Cinco itens cabem: medido a 320px, "Alimentação" hifeniza e nada mais
+#: quebra; de 360px para cima todos os rótulos ficam numa linha.
+ABAS = ("Hoje", "Alimentação", "Treino", "Progresso", "Mais")
 
 
 class AEdicaoVoltaParaOndeAPessoaEstavaTests(TestCase):
@@ -285,30 +298,30 @@ class AAbaDaVezEAnunciadaTests(TestCase):
     #: (rota, rótulo da aba que deve estar marcada)
     #: Telas que ACENDEM uma aba, e qual.
     #:
-    #: `workouts:corridas` saiu daqui, e a saída é a decisão do produto:
-    #: Corrida é um dos cinco pilares e não subárea de Treino. Acender "Treino"
-    #: ali era a subordinação visível na tela. Ver `SEM_ABA` logo abaixo.
+    #: `workouts:corridas` acende "Mais", e nunca "Treino": Corrida é um dos
+    #: cinco pilares e não subárea de Treino — acender Treino ali era a
+    #: subordinação visível na tela. O negativo tem teste próprio abaixo.
     TELAS = (
-        ("plans:today", "Alimentação"),
+        ("plans:today", "Hoje"),
+        ("plans:alimentacao", "Alimentação"),
         ("workouts:routine", "Treino"),
         ("plans:history", "Progresso"),
-        # UX-01: as duas moram dentro de Áreas agora. Conquistas já declarava
+        # UX-01: as duas moram dentro de Mais. Conquistas já declarava
         # `nav = "profile"` e acendia "Perfil" — uma tela de ofensiva acendendo
         # a aba de conta —, e o destino novo corrige as duas de uma vez.
-        ("accounts:profile", "Áreas"),
-        ("achievements:list", "Áreas"),
+        ("accounts:profile", "Mais"),
+        ("achievements:list", "Mais"),
         ("plans:shopping", "Alimentação"),
-    )
-
-    #: Telas de PILAR que a barra de baixo não carrega diretamente. Elas
-    #: moram dentro de Áreas desde UX-01, e é Áreas que acende — antes disso
-    #: nenhuma acendia, porque acender a errada é pior que não acender nenhuma.
-    #:
-    #: O par de cada uma é a área que o MAPA marca: a orientação não some, ela
-    #: muda de componente.
-    SEM_ABA = (
-        ("workouts:corridas", "Corrida"),
-        ("plans:hydration", "Hidratação"),
+        # AS DUAS QUE NÃO ACENDIAM NADA passaram a acender (22/09/2026), e
+        # cada uma acende o que é verdade: a hidratação é um CARTÃO da tela
+        # Hoje, então a tela cheia dela é a mesma seção; a corrida continua
+        # sem aba própria e mora em Mais, como as outras áreas.
+        #
+        # Antes disso nenhuma acendia, porque acender a errada (a água
+        # acendia "Dieta" e a corrida acendia "Treino" — a subordinação que
+        # `accounts.models.Pilar` diz não existir) é pior que não acender.
+        ("plans:hydration", "Hoje"),
+        ("workouts:corridas", "Mais"),
     )
 
     def setUp(self):
@@ -373,11 +386,11 @@ class AAbaDaVezEAnunciadaTests(TestCase):
         ]
         self.assertEqual(marcadas, ["Treino"])
 
-    def test_as_quatro_abas_estao_na_ordem_publicada(self):
+    def test_as_cinco_abas_estao_na_ordem_publicada(self):
         """A ordem e os rótulos que o contrato fixa, lidos do documento.
 
-        O contrato manda manter a ESTRUTURA publicada — quatro abas, esta
-        ordem, Corrida fora dela — e nomeia a terceira de `Progresso`.
+        O contrato manda manter a ESTRUTURA publicada — esta ordem, Corrida
+        fora dela — e nomeia `Progresso`.
         """
         html = self.client.get(reverse("plans:today")).content.decode()
 
@@ -397,44 +410,56 @@ class AAbaDaVezEAnunciadaTests(TestCase):
             r'<a class="tabbar__item[^"]*"[^>]*?href="([^"]+)"', html, re.S
         )
         self.assertEqual(len(destinos), len(set(destinos)))
-        self.assertEqual(len(destinos), 4)
+        self.assertEqual(len(destinos), 5)
 
     def test_a_corrida_nao_virou_aba(self):
-        """O GPS numa PWA continua sem medição em aparelho, e a barra continua
-        com quatro itens.
+        """O GPS numa PWA continua sem medição em aparelho, e a barra tem CINCO
+        itens sem ser um deles.
 
         UX-01 mudou ONDE fica a porta de primeiro nível da corrida. Ela era o
-        mapa `<details>` na barra de cima, na mesma página; agora é a tela de
-        Áreas, que é o quarto item da barra. A régua não mudou — corrida não é
+        mapa `<details>` na barra de cima, na mesma página; hoje é a tela de
+        Mais, que é o quinto item da barra. A régua não mudou — corrida não é
         aba —, mudou o lugar onde a porta é cobrada.
+
+        A quinta aba de 22/09/2026 é Hoje, e não Corrida: as cinco cabem a
+        360px porque quatro rótulos são curtos. Uma sexta não cabe, e escolher
+        entre "o dia inteiro" e "uma área que parte das pessoas não usa" é a
+        mesma conta que manteve a barra em quatro até aqui.
         """
         html = self.client.get(reverse("plans:today")).content.decode()
         barra = html.split('class="tabbar"', 1)[1].split("</nav>", 1)[0]
 
         self.assertNotIn(reverse("workouts:corridas"), barra)
-        # Controle positivo do recorte: a barra tem destino, e são quatro.
-        self.assertEqual(len(re.findall(r'href="', barra)), 4)
-        # A barra alcança Áreas...
+        # Controle positivo do recorte: a barra tem destino, e são cinco.
+        #
+        # `<a ... href=`, e não `href=` solto: os ícones viraram `<use
+        # href="#icone-…">` do sprite em 22/09/2026, e `href="` cru passou a
+        # contar dez — cinco links e cinco desenhos.
+        self.assertEqual(len(re.findall(r'<a class="tabbar__item[^>]*href="', barra)), 5)
+        # A barra alcança Mais...
         self.assertIn(reverse("areas"), barra)
         # ...e é lá que a porta da corrida mora.
         areas = self.client.get(reverse("areas")).content.decode()
         self.assertIn(reverse("workouts:corridas"), areas)
 
-    def test_a_tela_de_pilar_sem_aba_acende_AREAS(self):
+    def test_nenhuma_tela_de_pilar_acende_a_aba_de_outro_pilar(self):
         """Acender a aba errada é pior que não acender nenhuma — e acender a
         CERTA é melhor que as duas.
 
         A tela de água acendia "Dieta" e a de corridas acendia "Treino": a
         subordinação que `accounts.models.Pilar` diz não existir. A correção
-        anterior tirou a mentira e deixou a barra apagada nessas telas, que era
-        o melhor possível com quatro abas e nenhuma delas correspondendo.
+        de então tirou a mentira e deixou a barra apagada nessas telas, que
+        era o melhor possível com quatro abas e nenhuma correspondendo.
 
-        UX-01 criou a aba correspondente. Corrida e Hidratação moram dentro de
-        Áreas, Áreas é o quarto item da barra, e agora existe uma aba certa
-        para acender. Este teste passou a exigir isso — e continua proibindo
-        que qualquer OUTRA acenda, que é o que ele sempre protegeu.
+        Hoje as duas acendem, e cada uma acende o que é verdade — a água é um
+        cartão da tela Hoje, a corrida mora em Mais. Este teste guarda o que
+        sempre guardou: nenhuma OUTRA aba acesa junto.
         """
-        for rota, _area in self.SEM_ABA:
+        proibidas = {
+            "plans:hydration": ("Alimentação", "Treino", "Progresso", "Mais"),
+            "workouts:corridas": ("Alimentação", "Treino", "Progresso", "Hoje"),
+        }
+        for rota, nao_pode in proibidas.items():
             with self.subTest(rota=rota):
                 html = self.client.get(reverse(rota)).content.decode()
                 barra = html.split('class="tabbar"', 1)[1].split("</nav>", 1)[0]
@@ -444,7 +469,9 @@ class AAbaDaVezEAnunciadaTests(TestCase):
                     if ativo
                 ]
 
-                self.assertEqual(acesas, ["Áreas"], barra)
+                self.assertEqual(len(acesas), 1, barra)
+                for rotulo in nao_pode:
+                    self.assertNotIn(rotulo, acesas)
 
 
 class AOrigemSobreviveAPerguntaDaDivisaoTests(TestCase):

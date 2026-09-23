@@ -838,7 +838,14 @@ button { font-family: inherit; color: inherit; }
 
      Ela continua `sticky` e continua guardando os controles (selo do demo,
      sair, links de desktop) — o que saiu foi o peso, não a função. */
-  background: transparent;
+  /* O FUNDO É OPACO (22/09/2026), e isto é correção de defeito, não gosto.
+     `background: transparent` numa barra `sticky` faz o conteúdo passar POR
+     DENTRO dela ao rolar: medido em produção a 390px, nos dois temas, "Seu
+     cardápio de" atravessava o logotipo e as letras A/B/C da semana
+     apareciam atrás de "NutriPlan". Barra que gruda precisa de fundo — o que
+     ela não precisa é de peso, e por isso o fundo é o da própria página e não
+     há fio embaixo: parada, ela continua invisível; rolando, ela tapa. */
+  background: var(--bg);
   border-bottom: 0;
 }
 
@@ -959,7 +966,11 @@ body:not(.tem-tabbar) .container {
   bottom: 0;
   z-index: var(--camada-navegacao);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* CINCO colunas desde 22/09/2026 (eram quatro). A conta velha — "cinco
+     deixam 51,8px e Hidratação precisa de 60" — media uma barra de UM rótulo
+     por linha; aqui o rótulo quebra em duas linhas quando precisa, e é isso
+     que faz "Alimentação" caber a 320px sem descer de 11px. */
+  grid-template-columns: repeat(5, 1fr);
   gap: var(--espaco-1);
   margin: 0 auto;
   max-width: calc(var(--max) - 1.4rem);
@@ -985,7 +996,17 @@ body:not(.tem-tabbar) .container {
   justify-content: center;
   gap: .18rem;
   min-height: 3.4rem;
-  padding: var(--espaco-2) .2rem;
+  /* "Alimentação" tem 11 caracteres e a aba tem 66px a 390px: com o
+     espaçamento normal ela sobra por ~2px e quebra. `-.02em` fecha a conta
+     sem descer de 11px (o piso de texto de interface), e a hifenização fica
+     como rede para 320px, onde a aba mede 56px e NADA cabe numa linha —
+     duas linhas curtas continuam legíveis, e a barra cresce junto em vez de
+     o texto transbordar. */
+  text-align: center;
+  line-height: 1.05;
+  letter-spacing: -.02em;
+  hyphens: auto;
+  padding: var(--espaco-2) .1rem;
   /* A aba ativa é uma FOLHA cheia de `--brand` (CORTE): o recorte médio, não
      o pequeno, para a folha ser legível a 44 px de altura. */
   border-radius: var(--quina);
@@ -996,8 +1017,8 @@ body:not(.tem-tabbar) .container {
 }
 
 .tabbar__item svg {
-  width: 1.35rem;
-  height: 1.35rem;
+  width: 1.3rem;
+  height: 1.3rem;
   transition: stroke-width var(--dur) var(--ease);
 }
 
@@ -1473,15 +1494,23 @@ h3 {
 .modulos {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* As linhas têm a altura do mais alto, e é a GRADE quem diz isso — não um
+     `min-height` no cartão, que reservava altura para um conteúdo menor e
+     abria um buraco no meio (P2-4, 22/09/2026). */
+  grid-auto-rows: 1fr;
   gap: var(--espaco-4);
   margin-bottom: var(--espaco-7);
 }
 
+/* SEM `min-height` (22/09/2026). Ela reservava 134px para um conteúdo de
+   ~100 e o cartão abria um buraco no meio — medido na tela Mais, nos seis
+   módulos. Altura igual entre vizinhos continua garantida, e por quem tem
+   como garantir: a GRADE, com `grid-auto-rows: 1fr`. Reservar altura num
+   item de grade é pedir duas vezes a mesma coisa e errar uma. */
 .modulo {
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 8.4rem;
   min-width: 0;
   padding: var(--espaco-5);
   border: 1px solid transparent;
@@ -1550,7 +1579,7 @@ h3 {
   margin-top: var(--espaco-3);
 }
 .modulo__apoio--convite { color: var(--brand-strong); font-weight: 600; }
-.modulo--raso { min-height: 6.4rem; padding: var(--espaco-4); }
+.modulo--raso { padding: var(--espaco-4); }
 .modulo--raso .modulo__apoio { font-size: var(--texto-xs); }
 
 /* O rótulo de seção acima de cada grade. */
@@ -1565,7 +1594,16 @@ h3 {
 
    Sem preenchimento sob a linha: área cheia sugere volume acumulado, e peso
    não acumula — é uma posição a cada semana. */
-.curva { margin-bottom: var(--espaco-6); }
+.curva {
+  margin-bottom: var(--espaco-6);
+  /* A FAIXA DO EIXO, medida e não escolhida: "78,0" a 11,2px pede 32px, mais
+     o respiro da escala. Ela não é um degrau de espaçamento — é a LARGURA de
+     uma coluna de texto —, e por isso mora aqui, no bloco que a usa, e não no
+     `:root`: token global é vocabulário do app inteiro, e este número só faz
+     sentido ao lado desta curva. Os dois consumidores (o quadro e a linha de
+     datas) a herdam de `.curva`, que é o pai dos dois. */
+  --curva-eixo: 3.2rem;
+}
 
 .curva__cabeca {
   display: flex;
@@ -1625,6 +1663,35 @@ h3 {
 }
 
 .curva__grafico { display: block; width: 100%; height: 4.6rem; overflow: visible; }
+
+/* O QUADRO DA CURVA: o gráfico, a régua da base e os dois números do eixo.
+   O `padding-right` abre a faixa em que os números moram — sobre o gráfico
+   eles competiriam com a linha, e a linha é o que a tela veio mostrar. */
+.curva__quadro {
+  position: relative;
+  padding-right: var(--curva-eixo);
+  border-bottom: 1px solid var(--fio);
+}
+.curva__eixo {
+  position: absolute;
+  right: 0;
+  font-size: var(--texto-xs);
+  color: var(--text-mute);
+  line-height: 1;
+}
+.curva__eixo--teto { top: 0; }
+.curva__eixo--piso { bottom: 0; }
+/* Um ponto por semana, na cor da própria linha. `vector-effect` não vale
+   para `r`, então o esticão horizontal do SVG o achata de leve — medido,
+   2,9 × 3,4px, que a olho é um ponto redondo. */
+.curva__ponto { fill: currentColor; }
+.curva__periodo-datas {
+  display: flex;
+  justify-content: space-between;
+  margin: var(--espaco-2) var(--curva-eixo) 0 0;
+  font-size: var(--texto-xs);
+  color: var(--text-mute);
+}
 
 .curva--desce .curva__grafico { color: var(--brand); }
 .curva--sobe .curva__grafico { color: var(--terra); }
@@ -1872,7 +1939,14 @@ h3 {
    contagem — inflar um rótulo que ninguém toca só desalinha a linha. */
 a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr)); gap: .55rem; }
+/* 4,5rem (72px) e não 6rem: com o piso em 96px a faixa de TRÊS números do
+   Progresso quebrava em 2+1 a 390px — duas colunas de 142px e o terceiro
+   tile 87px abaixo, sozinho, com metade da linha vazia ao lado (medido em
+   22/09/2026). Uma faixa de números só se lê como faixa quando os números
+   estão na mesma linha. Com 72px cabem três em 293px de cartão a 390 e
+   também a 320; o rótulo é que quebra em duas linhas, e isso é aceitável —
+   ele é apoio, o número é a resposta. */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr)); gap: .55rem; }
 
 /* O TILE deixou de ser um cartão.
 
@@ -5022,20 +5096,22 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   box-shadow: var(--edge), var(--shadow-rest);
 }
 
-/* O cabeçalho QUEBRA LINHA, e a confirmação de zerar ocupa a linha inteira
-   quando abre: renderizada ao lado de "0 / 3000 ml", ela empurrava o número
-   para duas linhas (UX P1-04, medido a 320 e 390). O número nunca quebra. */
-.agua__topo { display: flex; flex-wrap: wrap; align-items: center; gap: var(--espaco-3); }
-.agua__icone { display: grid; place-items: center; flex: none; color: var(--agua); }
-.agua__icone svg { width: 1.15rem; height: 1.15rem; }
-.agua__valor { flex: 1; min-width: 0; color: var(--text-dim); font-size: .84rem; white-space: nowrap; }
-.agua__valor b { color: var(--text); font-weight: 700; }
-.agua__zerar { flex: none; }
-.agua__zerar[open] { flex: 1 0 100%; display: flex; align-items: center; gap: var(--espaco-3); }
-/* Sem a metade horizontal da margem negativa do `.btn-link`: dois links com
+/* DESFAZER E ZERAR, lado a lado, na tela de Hidratação — que é onde os dois
+   passaram a morar em 22/09/2026. `.agua__topo`, `.agua__icone`,
+   `.agua__valor` e `.agua__zerar` saíram com o cabeçalho do cartão antigo:
+   na célula do painel o número é `.painel__valor` e não há linha de topo.
+
+   A confirmação de zerar ocupa a linha inteira quando abre — renderizada ao
+   lado de "desfazer o último", ela empurrava o vizinho para fora (UX P1-04,
+   medido a 320 e 390).
+
+   Sem a metade horizontal da margem negativa do `.btn-link`: dois links com
    8 px de vão se tocavam por 3 px (MOB-11). O alvo continua com 44 px; o
    que muda é que ele não avança sobre o vão. */
-.agua__zerar .btn-link { margin-inline: 0; }
+.agua__acoes { display: flex; flex-wrap: wrap; align-items: center; gap: var(--espaco-3); }
+.agua__acoes > * { flex: none; }
+.agua__acoes > [open] { flex: 1 0 100%; display: flex; align-items: center; gap: var(--espaco-3); }
+.agua__acoes .btn-link { margin-inline: 0; }
 
 /* A CONFIRMAÇÃO DE UMA AÇÃO QUE APAGA.
    O `<summary>` continua parecendo o link discreto que era — quem não quer
@@ -5105,6 +5181,27 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 
 @media (max-width: 26rem) {
   .resumo__acoes { grid-template-columns: 1fr; }
+
+  /* O RÓTULO NÃO QUEBRA DENTRO DO CORTE (22/09/2026).
+
+     "Compartilhar o que já fiz" são 25 caracteres na display, caixa alta, a
+     20px: ~275px com a fonte de reserva contra ~249 de botão a 320px. Ele
+     quebrava em duas linhas — e o primário é INCLINADO (`--inclinado` corta
+     a direita a 74% da altura), então a segunda linha caía fora do
+     preenchimento, sobre o fundo da página.
+
+     O rótulo FICA. As duas frases ("…o que já fiz" e "Compartilhar treino")
+     são o contrato de honestidade do card — `test_compartilhar_honesto` cobra
+     as duas —, e encurtá-lo para caber seria pagar a geometria com a verdade.
+     O que muda é a fonte: a de TEXTO no lugar da display, que é o mesmo
+     caminho documentado do `btn--sm` ("o primário pequeno volta ao texto
+     porque a display nunca desce de 20px"). A 16px o rótulo fecha em ~175px
+     e sobra folga. */
+  .resumo__acoes .btn--primary {
+    font-family: var(--font);
+    font-size: var(--texto-md);
+    letter-spacing: .04em;
+  }
 }
 
 /* ==========================================================================
@@ -5162,7 +5259,9 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 /* ------------------------------------------------------- metas batidas */
 
 .progress--completo .progress__fill { background: var(--brand); }
-.agua__feito{ margin-left: var(--espaco-2); }
+/* `.agua__feito` (o selo "meta batida" ao lado do número) saiu com o cabeçalho
+   do cartão antigo em 22/09/2026: na célula do painel a barra cheia em
+   `--brand` já é o sinal, e um selo ao lado do número não caberia em 162px. */
 
 /* -------------------------------------------------------- fila offline */
 
@@ -5238,9 +5337,55 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 }
 
 @media (min-width: 60rem) {
-  /* A largura NÃO cresce aqui: `--max` continua valendo. O que muda é só o
-     respiro vertical e a navegação, que sai da barra de baixo (dedo) para a
-     de cima (ponteiro). */
+  /* O DESKTOP DEIXOU DE SER O CELULAR CENTRALIZADO (22/09/2026).
+   *
+   * A decisão anterior está logo acima, e era deliberada: "o app é um
+   * aplicativo de celular; a mesma coluna estreita no desktop é a leitura
+   * mais fiel do que ele é". Medido em 1.568px, ela produzia 360px de
+   * conteúdo com ~600px vazios de cada lado em TODA tela — e o veredito de
+   * quem usou no computador foi "parece inacabado". O dono reverteu a
+   * decisão; esta linha é a reversão, e a razão fica escrita nas duas.
+   *
+   * A largura maior NÃO é para todo mundo: só as telas que têm layout de
+   * desktop de verdade pedem `largo` (`{% block container_class %}`), e o
+   * limite é 64rem = 1.024px, dentro da faixa de 960–1100 que o pedido
+   * fixa. Um formulário de 1.024px de largura seria pior que a coluna
+   * estreita, e por isso entrar na lista é decisão de cada tela. */
+  .container.largo { max-width: 64rem; }
+
+  /* `.split` volta a ser duas colunas — a da esquerda é a LEITURA (o
+     cardápio, os registros) e a da direita a consulta (explicações, dados do
+     cálculo). A versão anterior desta regra foi removida porque jogava o
+     conteúdo principal para a direita; aqui o principal é a primeira coluna,
+     e a segunda só recebe o que já era "abrir quando quiser". */
+  .container.largo .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 21rem);
+    align-items: start;
+  }
+  .container.largo .split__aside { position: sticky; top: calc(var(--appbar-h) + var(--espaco-4)); }
+
+  /* DUAS COLUNAS NUM SPLIT SEM ASIDE — o Progresso (22/09/2026).
+
+     Aquela tela é uma pilha de sete cartões independentes (peso, treino,
+     corrida, água, conquistas, dia a dia) e não tem lado de consulta: com
+     `1fr 21rem` ela ganharia uma coluna vazia de 336px. Aqui a própria pilha
+     vira a grade, e os cartões se distribuem em duas colunas de altura
+     própria. Medido a 1280px: 4.422px de rolagem viram 2.680.
+
+     `align-items: start` porque cartão não se estica para acompanhar o
+     vizinho: "Conquistas" tem 188px de conteúdo e esticá-lo até os 1.094 do
+     Peso abriria exatamente o buraco que P2-4 veio fechar. */
+  .container.largo .split__main.stack--duas-colunas {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--espaco-7);
+  }
+  /* A faixa de três números atravessa as duas colunas: ela é o resumo da
+     tela, e meia largura a apertaria de volta para 2+1. */
+  .container.largo .split__main.stack--duas-colunas > :first-child { grid-column: 1 / -1; }
+
   .container { padding: 1.9rem var(--pad) 3rem; }
   .tabbar { display: none; }
   .app-bar__nav .app-bar__link { display: inline-flex; }
@@ -5252,10 +5397,20 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   :root { --pad: .9rem; }
   .ring { width: 6.5rem; height: 6.5rem; }
   .ring__value { font-size: 1.6rem; } .set-row { grid-template-columns: 2.8rem minmax(0, 1fr) auto auto; }
-  /* A 320px cada aba tinha 63px e "Alimentação" precisa de 62 de texto a
-     11,2px — quebrava em "Alimentaç/ão". A fonte não desce (11px é o piso
-     do projeto); o que desce é o ar: a barra encosta mais na borda e cada
-     aba perde o padding lateral. Medido: 63px -> 70px por aba. */
+}
+
+/* O AR DA BARRA DESCE ANTES DE 27rem — e desde 22/09/2026 é 27 e não 22.
+
+   A 320px cada aba tinha 63px e "Alimentação" precisa de 62 de texto a
+   11,2px: quebrava em "Alimenta-ção". A fonte não desce (11px é o piso do
+   projeto); o que desce é o ar — a barra encosta mais na borda e cada aba
+   perde o padding lateral. Medido: 63px -> 70px por aba.
+
+   Com CINCO abas o mesmo aperto começa MUITO antes de 320: a 390px a barra
+   tem 361px úteis, e cinco colunas com os vãos e o padding de sempre dão
+   66,8px por aba — "Alimentação" hifenizava num celular comum. Com o ar
+   reduzido são 70px, e ela cabe inteira de 360 para cima (medido). */
+@media (max-width: 27rem) {
   .tabbar { inset-inline: var(--espaco-3); padding: var(--espaco-2) var(--espaco-1); }
   .tabbar__item { padding-inline: 0; }
 }
@@ -7573,96 +7728,18 @@ body.montando { overflow: hidden; }
 
 .agora__cta { min-height: 2.9rem; }
 
-/* -- O resumo do dia: uma linha, não uma fileira de cartões --------------- */
+/* -- O resumo do dia SAIU: quem responde agora é o painel ---------------- */
 
-/* Refeições, água e treino em ~40px. A versão anterior gastava a primeira
-   dobra inteira com anel, saldo e macros para dizer menos que isto. */
-/* O RESUMO DO DIA É UMA FILEIRA DE MÉTRICAS, e não uma frase.
+/* `.resumo-dia` era a linha de quatro métricas embaixo do cartão AGORA:
+   refeições, água e treino em ~40px de altura, texto de 11px. A auditoria de
+   22/09/2026 mediu o que isso custava — numa tela de 3.170px, o treino do dia
+   e a água estavam nessa linha cinza e o cartão de água ficava a 2,5 telas de
+   rolagem. Quatro cartões de peso igual (seção 51) respondem a mesma coisa
+   com a hierarquia certa, e manter os dois seria dizer duas vezes.
 
-   Como frase, os quatro números tinham o mesmo tamanho e a mesma cor das
-   palavras entre eles — quem abria a tela para saber "quanto já comi" tinha
-   de LER a linha inteira. Em pares valor/rótulo, o olho pega os números
-   primeiro e as palavras só quando precisa.
-
-   Grade e não `flex-wrap`: com quebra livre o quarto item descia sozinho e
-   deixava um buraco à direita, e a largura de cada coluna dançava com o
-   conteúdo. Quatro colunas iguais alinham os valores entre si, que é o que
-   faz uma fileira de métricas ser lida como fileira. */
-.resumo-dia {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--espaco-3);
-  /* Sem margem embaixo: a seção seguinte já traz a dela, e as duas somadas
-     davam 46px onde a escala pede 28 a 40 entre seções. */
-  margin: 0;
-  padding: var(--espaco-4) 0 0;
-  border-top: 1px solid var(--fio);
-  color: var(--text-dim);
-  min-width: 0;
-}
-.resumo-dia__valor {
-  display: block;
-  color: var(--text);
-  font-size: var(--texto-lg);
-  /* 750 é o peso do número em todo tile; 760 era um degrau só dele */
-  font-weight: 700;
-  letter-spacing: -.02em;
-  line-height: 1.1;
-}
-.resumo-dia__rotulo {
-  display: block;
-  color: var(--text-mute);
-  font-size: var(--texto-xs);
-  line-height: 1.25;
-}
-
-/* Os filhos diretos, e não uma classe repetida: o link do treino é um
-   `<a>` e os outros dois são `<span>`. Com a classe em todos, a régua de
-   toque cobraria `:active` de `.resumo-dia__item` — ou seja, faria dois
-   textos estáticos afundarem sob o dedo para satisfazer um teste. */
-.resumo-dia > * {
-  display: block;
-  min-width: 0;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-/* O separador é uma RÉGUA, e não um caractere — e a troca conserta um
-   desalinhamento que estava no ar.
-
-   Antes daqui havia um `::before` com `content: "·"`. Ele nasceu quando esta
-   linha era `flex`, para o ponto não sobrar pendurado no fim de uma linha
-   quebrada; a linha virou `grid` de quatro colunas e o motivo caducou, mas o
-   ponto ficou. O efeito, medido na captura de `/demo/hoje/`: o "·" é inline e
-   `.resumo-dia__valor` é `display: block`, então o ponto tomava uma caixa de
-   linha SÓ DELE acima do número — e as três últimas colunas desciam uma
-   linha inteira em relação à primeira. Quatro números que deveriam ler como
-   uma régua liam como escada.
-
-   A régua de 1px não entra no fluxo, então as quatro colunas voltam a
-   compartilhar a mesma linha de base. E ela é estrutura, não enfeite: separa
-   quatro medidas independentes que a pessoa lê de relance. */
-.resumo-dia > * + * {
-  padding-left: var(--espaco-4);
-  border-left: 1px solid var(--fio);
-}
-
-/* Com caloria e refeições movidas para o painel do dia, sobraram DUAS
-   colunas. Mantê-la em quatro deixaria metade da régua vazia e os dois itens
-   apertados na esquerda — a grade tem de contar o que existe. */
-.resumo-dia--complemento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-
-/* A única coluna que é LINK. Ela mantém o par valor/rótulo das outras três e
-   marca a diferença só no valor, em verde — que é o padrão do resto do app:
-   verde é ação, não decoração. O alvo de 44px vem do padding, sem engordar a
-   linha. */
-.resumo-dia__treino {
-  text-decoration: none;
-  min-height: 2.75rem;
-}
-.resumo-dia__treino .resumo-dia__valor { color: var(--brand); }
-.resumo-dia__treino:hover .resumo-dia__valor { text-decoration: underline; }
-.resumo-dia__treino:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+   As 11 regras dela saíram junto: regra de CSS sem consumidor no template é
+   linguagem morta, e `test_no_rule_targets_a_class_the_templates_never_render`
+   é a catraca que existe para isso. O histórico fica no git. */
 
 /* -- Hidratação, agora depois do cardápio -------------------------------- */
 
@@ -7689,7 +7766,11 @@ body.montando { overflow: hidden; }
   list-style: none;
 }
 .explicacao__head::-webkit-details-marker { display: none; }
-.explicacao__head h2 { margin: 0; }
+/* `h3` junto do `h2`: o mesmo cabeçalho serve a um bloco de tela (a
+   explicação da meta, `h2`) e a uma seção DENTRO de um cartão (a lista de
+   pesagens, `h3`, que não pode roubar o nível do "Peso" acima dela). */
+.explicacao__head h2,
+.explicacao__head h3 { margin: 0; }
 
 .explicacao__head:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
@@ -7709,21 +7790,17 @@ body.montando { overflow: hidden; }
 /* `TouchFeedbackTests` cobra afundar, transitar e ter saída para menos
    movimento de toda classe clicável com regra própria. */
 .agora__cta,
-.resumo-dia__treino,
 .explicacao__head {
   transition: transform var(--mov-toque) var(--ease);
 }
 .agora__cta:active,
-.resumo-dia__treino:active,
 .explicacao__head:active { transform: scale(.96); }
 
 @media (prefers-reduced-motion: reduce) {
   .agora__cta,
-  .resumo-dia__treino,
   .explicacao__head { transition: none; }
 
   .agora__cta:active,
-  .resumo-dia__treino:active,
   .explicacao__head:active { transform: none; }
 }
 
@@ -8079,6 +8156,16 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   align-items: center;
   min-height: 44px;
   padding: 0 var(--espaco-3);
+  /* O rótulo não quebra no meio: com ele quebrado, o `::after` do separador
+     desceria sozinho para a segunda linha do próprio link. */
+  white-space: nowrap;
+}
+/* O separador, como parte da caixa do link que ele segue. Ver o comentário
+   do `partials/links_legais.html`. */
+.links-legais a:not(:last-child)::after {
+  content: "·";
+  margin-left: var(--espaco-3);
+  color: var(--text-mute);
 }
 
 .conta__exportar-nota {
@@ -8635,10 +8722,10 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 }
 
 /* ==========================================================================
-   A ÁREA PROMOVIDA — a Home responde "o que merece destaque para mim agora?"
+   A ÁREA PRINCIPAL — a Home responde "o que merece destaque para mim agora?"
 
-   Ordem, não visibilidade: nenhuma seção é escondida por não ser a área
-   principal. E abaixo do cartão AGORA, sempre — urgência vence preferência.
+   Ordem, não visibilidade: nenhuma área é escondida por não ser a principal.
+   E abaixo do cartão AGORA, sempre — urgência vence preferência.
 
    A marca da promoção é uma borda de acento à esquerda, e não um fundo cheio:
    o fundo tingido é do cartão AGORA, que é urgência, e repeti-lo aqui faria
@@ -8646,18 +8733,14 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 
    A classe é escrita pelo SERVIDOR. Sem `:has()` — a regra do repositório é
    explícita, e o `:has()` estrutural já derrubou a navegação uma vez.
-   ========================================================================== */
-.is-prioritario {
-  border-left: 3px solid color-mix(in srgb, var(--brand) 55%, transparent);
-}
 
-.area-promovida__fato {
-  margin: 0 0 var(--espaco-4);
-  color: var(--text);
-  font-size: var(--texto-md);
-  line-height: 1.45;
-  min-width: 0;
-}
+   `.area-promovida__fato` saiu em 22/09/2026 com o cartão de meia tela que ele
+   preenchia: a promoção virou POSIÇÃO dentro do painel do dia, e o fato de
+   cada área passou a ser o número da própria célula (`.painel__valor`). A
+   REGRA mora junto do painel (seção 51, `.painel__cartao.is-prioritario`) —
+   aqui ficaria uma segunda marca sobre o mesmo elemento: a borda esquerda
+   desta e o fio de dentro daquela, nos dois ao mesmo tempo.
+   ========================================================================== */
 
 /* ==========================================================================
    45. Intenções de espaçamento que se repetiam escritas à mão
@@ -9166,5 +9249,246 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   width: 100%;
   height: auto;
   border-radius: var(--quina);
+  /* O LUGAR DA IMAGEM ENQUANTO ELA NÃO CHEGA (22/09/2026). As três provas
+     são `loading="lazy"` e já declaravam `width`/`height`, então a caixa
+     existia — mas era TRANSPARENTE: no 3G a landing mostrava três buracos
+     de 844px com legenda embaixo. A superfície diz "aqui vem uma imagem";
+     `aspect-ratio` mantém a caixa com a proporção certa mesmo se um dia o
+     atributo sumir. */
+  aspect-ratio: 390 / 844;
+  background: var(--surface-2);
 }
 .landing__hero .stack { margin-top: var(--espaco-5); }
+
+/* ACIMA DE 900px A LANDING DEIXA DE SER UM CELULAR CENTRALIZADO (22/09/2026).
+
+   `.container.auth` é estreito de propósito — formulário de entrada se lê
+   melhor numa coluna —, mas a landing não é formulário: ela é a página que
+   apresenta o produto, e tinha 400px de vazio de cada lado com três capturas
+   de 844px empilhadas.
+
+   O herói vira duas colunas (a proposta à esquerda, as saídas à direita) e as
+   três provas viram uma fileira: as capturas são de CELULAR, então lado a
+   lado elas se leem como o que são — três telas do mesmo app. */
+@media (min-width: 56.25rem) {
+  .container.auth.container--landing { max-width: 64rem; }
+
+  .container--landing .landing__hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+    align-items: center;
+    column-gap: var(--espaco-7);
+    text-align: left;
+  }
+  /* O selo e o título ocupam a coluna da esquerda; as saídas, a direita.
+     As linhas são declaradas uma a uma porque a ordem do DOM é a da leitura
+     (selo, título, proposta, botões, "já tem conta") e a grade precisa
+     reagrupá-la em duas colunas sem mexer nela — a ordem de foco e a de
+     leitura de tela continuam sendo a do HTML (WCAG 1.3.2 e 2.4.3). */
+  .container--landing .landing__hero > .pill {
+    grid-column: 1;
+    grid-row: 1;
+    /* Sem isto o selo é um item de grade e estica pela coluna inteira: uma
+       faixa verde de 460px onde deveria haver uma etiqueta. */
+    justify-self: start;
+  }
+  .container--landing .landing__hero > h1 { grid-column: 1; grid-row: 2; }
+  .container--landing .landing__hero > .landing__proposta { grid-column: 1; grid-row: 3; }
+  .container--landing .landing__hero > .stack {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 0;
+  }
+  .container--landing .landing__hero > .hint { grid-column: 2; grid-row: 3; align-self: start; }
+
+  .container--landing .landing__provas {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--espaco-6);
+  }
+}
+
+/* ==========================================================================
+   51. O PAINEL DO DIA — a Hoje orquestradora (22/09/2026)
+   ==========================================================================
+
+   Quatro cartões de PESO VISUAL IGUAL: Alimentação, Treino, Hidratação e
+   Corrida. Eles substituem uma tela que abria com o cardápio e escondia água
+   e treino numa linha de texto cinza de 12px (medido em produção: 3.170px de
+   altura a 390px, com o cartão de água em y≈2.500).
+
+   "Peso igual" aqui é uma regra de layout, e não uma intenção: mesma
+   superfície, mesma quina, mesma estrutura interna (rótulo · número · linha
+   de detalhe · ação no rodapé) e MESMA ALTURA — `grid-auto-rows: 1fr` e o
+   rodapé empurrado por `margin-top: auto`. Sem isso o cartão de água, que
+   tem barra e três botões, cresceria e viraria "o principal" por acidente de
+   conteúdo.
+
+   2 colunas no celular e 4 no desktop, com um degrau em 3 quando a grade tem
+   três cartões (quem não corre). */
+
+.painel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Linhas de mesma altura: é o que faz "peso igual" ser verdade e não
+     promessa. */
+  grid-auto-rows: 1fr;
+  gap: var(--espaco-4);
+}
+
+.painel__cartao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+  min-width: 0;
+  padding: var(--espaco-5);
+  background: var(--surface);
+  border-radius: var(--quina);
+}
+
+/* A área que a pessoa elegeu: o fio da marca à esquerda, e nada além disso.
+   Ela vem PRIMEIRO na grade (a ordem é decidida no servidor) — o destaque é
+   a posição, não um cartão maior, porque maior quebraria o peso igual que
+   esta seção inteira existe para garantir. */
+.painel__cartao.is-prioritario { box-shadow: inset var(--traco) 0 0 var(--brand); }
+
+.painel__selo { margin: 0; }
+
+.painel__rotulo {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-2);
+  margin: 0;
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: var(--texto-xs);
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.painel__icone { width: 1.05rem; height: 1.05rem; flex: none; }
+
+.painel__valor {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--texto-2xl);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -.02em;
+}
+
+/* O "/ 2500 ml" e o "/24 séries": o denominador é contexto, não manchete. */
+.painel__de {
+  font-family: var(--font);
+  font-size: var(--texto-sm);
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0;
+}
+
+.painel__detalhe {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  line-height: 1.35;
+}
+
+/* O rodapé desce até o fim do cartão: é ele que alinha as quatro ações na
+   mesma linha, em cartões com quantidades diferentes de texto. */
+.painel__rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espaco-3);
+  margin: auto 0 0;
+  padding-top: var(--espaco-2);
+}
+
+.painel__rodape .btn { margin: 0; }
+
+/* O anel compacto da Alimentação: o mesmo `--pct` e o mesmo gradiente do anel
+   grande, com 4,8rem em vez de 8,2 — a única imagem da grade. */
+.ring--mini {
+  width: 4.8rem;
+  height: 4.8rem;
+  margin: var(--espaco-1) 0;
+}
+
+.ring--mini::after { inset: .42rem; }
+
+.ring--mini .ring__value {
+  font-size: var(--texto-lg);
+  letter-spacing: -.03em;
+}
+
+/* Dentro da célula, os três passos de água viram três colunas estreitas: a
+   célula tem ~167px a 390px, e o rótulo ficou só com o número (o nome de cada
+   passo continua para quem ouve a tela). 44px de altura, a régua de sempre. */
+/* `.agua` nasceu como CARTÃO (fundo, borda, sombra e padding próprios) dentro
+   da tela de Alimentação. Na célula do painel ela é só o conteúdo: o cartão é
+   o `.painel__cartao` em volta. Sem zerar isto, sobravam ~95px úteis numa
+   célula de 169 e os três botões saíam com 31px de largura — abaixo da régua
+   de 44 (medido em 22/09/2026). */
+.painel .agua {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  /* `var(--quina)` e não `0`: os três slots de quina valem zero na NERVURA,
+     e escrever o número aqui seria a primeira quina crua do arquivo — o que
+     `test_no_corner_is_written_in_a_raw_value` existe para impedir. */
+  border-radius: var(--quina);
+  background: none;
+  box-shadow: none;
+}
+/* Os três passos em linha, com quebra: três por linha quando cabem três alvos
+   de 44px (desktop), dois mais um quando não cabem (celular). É isso que
+   mantém a grade em 2×2 no celular — a versão anterior dava a linha inteira à
+   Hidratação, e com quatro cartões a Corrida acabava sozinha ao lado de meia
+   célula vazia.
+
+   `flex` e não `grid` de `auto-fit` por causa do TERCEIRO botão: numa grade de
+   duas colunas ele fica com meia linha e um buraco ao lado (medido: 50px de
+   botão e 50px de vazio a 320px); no flex ele cresce e ocupa a linha. */
+.painel .agua__botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espaco-1);
+}
+/* O `<form>` é o item da linha e o `<button>` mora dentro dele: sem esticar
+   os dois, o botão fica do tamanho do texto (medido: 29px de largura, abaixo
+   da régua de 44) e a coluna sobra vazia ao lado. */
+.painel .agua__botoes > form { display: flex; flex: 1 1 2.75rem; }
+.painel .agua__botao {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: var(--espaco-2) 0;
+  font-size: var(--texto-sm);
+}
+
+/* Quem ocupa a linha inteira no celular é decidido no SERVIDOR (ver
+   `cartoes_do_painel`), porque depende de contar os cartões: o último, e só
+   quando eles são em número ímpar. Sem isso ele fica sozinho ao lado de meia
+   célula vazia. */
+.painel__cartao--largo { grid-column: 1 / -1; }
+
+/* A BARRA DE ABAS DA VITRINE é a mesma peça, sem a posição: `.tabbar` é
+   `fixed` no rodapé da janela, e uma barra fixa dentro de uma página de
+   componentes cobriria o resto da fotografia. Aqui ela é um bloco comum, na
+   sua própria linha. */
+.tabbar--vitrine { position: static; inset: auto; max-width: none; }
+
+@media (min-width: 60rem) {
+  /* Quantas colunas: o NÚMERO DE CARTÕES, que o servidor escreve em
+     `--cartoes`. Fixar quatro deixava a quarta coluna vazia para quem não
+     corre — três cartões de 238px e um buraco de 238 à direita. */
+  .painel { grid-template-columns: repeat(var(--cartoes, 4), minmax(0, 1fr)); }
+  /* No desktop ninguém é largo: a célula tem folga de sobra para os três
+     botões, e um cartão dobrado quebraria o peso igual. */
+  .painel__cartao--largo { grid-column: auto; }
+}
