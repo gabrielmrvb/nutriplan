@@ -277,6 +277,44 @@ no fundo. `<dialog>` nativo: foco preso e Esc de graça.
   os cinco cards terminaram com "desfazer".
 - **Orçamento de consultas**: `plans:alimentacao` entrou na tabela de tetos
   com **18** (a Home continua em 17).
+
+---
+
+## Publicado e provado
+
+`main` = **e6194b7**, produção respondendo `{"commit": "e6194b7"}` em
+`/saude/`. A promoção saiu pelo cron do lote às 12:13 — o `--lote` que rodei
+da máquina logo depois viu "última promoção há 0 min" e ADIOU, que é a regra
+de uma promoção por hora funcionando.
+
+**No STAGING, com conta descartável do agente** (criada pelo signup público,
+`qa-e2e-…@nutriplan.invalid`, apagada pela tela ao terminar e login recusado
+depois):
+
+| medida | 390 px | 1280 px |
+|---|---:|---:|
+| altura, cinco refeições fechadas | **1.639 px** | 1.551 px |
+| cards de receita na página | 10 | 10 |
+| painel da direita visível | não | **sim** |
+| alvo abaixo de 44 px | 0 | 0 |
+| rolagem horizontal | não | não |
+
+A folha abriu sem navegar (`location.pathname` continuou `/alimentacao/`), a
+meia porção recalculou para 265 kcal com `porcao=0.5` no formulário, e no
+desktop "Ver a receita" TROCOU o painel — sem folha e sem navegar.
+
+**EM PRODUÇÃO** (o `/demo/`, que é a única conta que se observa sem criar
+gente): 15 rotas públicas em 200; a tela de Alimentação em **1.854 px** a
+390 px (eram 2.143 no mesmo estado, com duas refeições feitas e três
+fechadas) e 1.648 px a 1280; axe-core com **0 violações** na tela do
+cardápio e na tela da receita; e a folha da receita abrindo sobre o cardápio
+com os ingredientes em medida caseira ("2,5 escumadeiras · 237 g", "2,5
+conchas · 190 g") e o preparo em passos.
+
+Comparação honesta das alturas, porque as três medidas são de estados
+diferentes: **2.143 px** (produção antiga, tudo fechado) → **1.854 px**
+(produção nova, mesmo estado) → **~2.700 px** com a refeição da vez ABERTA,
+que é o estado que a missão pediu e que não existia antes.
 - **A fila offline provada no caminho novo**: com `navigator.onLine` em
   falso, o toque em "Comi esta" não navega, vira um item em
   `nutriplan-fila` apontando para `/refeicao/<slot>/marcar/` e o card diz
