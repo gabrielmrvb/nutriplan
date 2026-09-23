@@ -258,7 +258,8 @@ no fundo. `<dialog>` nativo: foco preso e Esc de graça.
 
 ## Provas
 
-- **Suíte completa** — ver o fim deste arquivo.
+- **Suíte completa: 4.389 testes, verde** (uma `expectedFailure` nomeada,
+  a do dourado de peso do corpo, que já era assim).
 - **Sabotagem: 12 de 12 vermelhas.** Quatro passaram VERDE na primeira
   rodada e as quatro viraram conserto: duas eram guarda fraca (o recorte do
   card vazava para o painel da direita, que fala das mesmas receitas) e duas
@@ -276,3 +277,9 @@ no fundo. `<dialog>` nativo: foco preso e Esc de graça.
   os cinco cards terminaram com "desfazer".
 - **Orçamento de consultas**: `plans:alimentacao` entrou na tabela de tetos
   com **18** (a Home continua em 17).
+- **A fila offline provada no caminho novo**: com `navigator.onLine` em
+  falso, o toque em "Comi esta" não navega, vira um item em
+  `nutriplan-fila` apontando para `/refeicao/<slot>/marcar/` e o card diz
+  "Registrada · aguardando rede"; com a rede de volta ele drena e a
+  refeição aparece registrada. A rota e os campos não mudaram — a porção
+  viaja no corpo como qualquer campo.
