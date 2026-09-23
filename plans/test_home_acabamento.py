@@ -209,6 +209,28 @@ class AFaixaDeTresColunasEDaHomeTests(SimpleTestCase):
                     "a faixa de três colunas precisa do escopo da Home",
                 )
 
+    def test_a_faixa_so_entra_com_largura_de_verdade(self):
+        """SEGUNDA REGRESSÃO, mesma causa: a faixa nasceu em `48rem` e a 768px
+        o container tem ~736 — a coluna de ações (11,5rem) mais o medalhão
+        deixavam o texto com quase nada, e o nome saía na vertical DE NOVO,
+        agora na própria Home. O degrau é 60rem, onde o container tem ~928.
+
+        Lê a media query que CONTÉM a regra, e não a regra sozinha: é a media
+        query que decide quando ela vale.
+        """
+        blocos = re.findall(
+            r"@media \(min-width:\s*([0-9.]+)rem\)\s*\{(.*?)\n\}", self.css, re.S
+        )
+        medidas = [
+            float(largura) for largura, corpo in blocos
+            if "grid-auto-flow: column" in corpo and "agora-card" in corpo
+        ]
+
+        self.assertTrue(medidas, "controle positivo: a faixa está numa media query")
+        for medida in medidas:
+            with self.subTest(rem=medida):
+                self.assertGreaterEqual(medida, 60, "a faixa precisa de 60rem")
+
     def test_a_coluna_de_acoes_com_largura_minima_tambem(self):
         """`min-width: 11.5rem` na coluna de ações é o que impede os dois
         botões de saírem com larguras diferentes — e é a mesma armadilha: na

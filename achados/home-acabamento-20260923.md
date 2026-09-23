@@ -70,6 +70,24 @@ CLARO — no escuro a superfície já separava.
 As quatro combinações (1280 e 390 px × escuro e claro) foram capturadas em
 todas as rodadas; as comparações de desktop escuro estão na pasta de provas.
 
+### As duas regressões que a LARGURA pegou
+
+A faixa de três colunas nasceu numa media query — e media query mede a
+JANELA, não o espaço que o cartão tem. Isso quebrou duas vezes, do mesmo
+jeito, e as duas só apareceram porque a varredura de larguras existe:
+
+1. **na tela vizinha** (Alimentação, a 1280 px);
+2. **na própria Home, a 768 px**.
+
+Nos dois casos o bloco de texto foi espremido até **o nome da refeição sair
+escrito na vertical, uma letra por linha**. A correção é dupla — a faixa é
+escopada por `.hoje` E só entra a partir de **60rem**, onde o container tem
+~928 px (a 768 ele tem ~736, e a coluna de ações de 184 px mais o medalhão
+não deixavam nada para o texto). Duas réguas leem o `app.css` e cobram as
+duas coisas, com sabotagem.
+
+Medido depois: 430, 768, 960, 1280 px — todas corretas.
+
 ### A regressão que a tela VIZINHA pegou
 
 O cartão AGORA é um parcial usado por DUAS telas, e a faixa de três colunas
@@ -93,8 +111,10 @@ corrigida). A faixa passou a ser escopada por `.hoje`, e
 | **texto mínimo** | nenhum abaixo de 11 px |
 | **foco pelo teclado** | Tab de verdade (não `.focus()`): anel de 2 px sólido visível |
 | **ações no navegador** | +250 ml: 1.250 → 1.500 e volta para a Home; "Comi esta": registra, a pessoa **fica na Home**, o cartão passa a "2 de 5 registradas" e o herói aponta a próxima refeição |
-| **sabotagem** | **13 de 13 vermelhas**. Duas ficaram VERDES na primeira passada e os dois testes foram corrigidos — ver abaixo |
-| **testes novos** | 35 em `plans/test_home_acabamento.py` |
+| **sabotagem** | **13 de 13 vermelhas** (rodada de novo no fim). Duas ficaram VERDES na primeira passada e os dois testes foram corrigidos — ver abaixo |
+| **testes novos** | 36 em `plans/test_home_acabamento.py` |
+| **suíte completa** | 4.423 testes, 1 `expectedFailure` nomeada. A primeira execução achou UMA falha real — `assertContains(home, "Descanso")` sensível a maiúscula em `accounts` — corrigida |
+| **larguras varridas** | 320, 390, 430, 768, 960 e 1280 px |
 
 ### As duas sabotagens que ficaram verdes
 

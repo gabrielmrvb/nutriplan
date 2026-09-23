@@ -7631,7 +7631,12 @@ body.montando { overflow: hidden; }
    Container query resolveria sem o seletor de tela, e não é o que este
    arquivo usa em lugar nenhum; a regra de escopo é mais simples de ler e não
    depende de `container-type` num ancestral que outra tela pode mudar. */
-@media (min-width: 48rem) {
+/* 60rem e não 48: a faixa precisa de largura, não de "não ser celular".
+   A 768px o container tem ~736px, e a coluna de ações (11,5rem = 184) mais o
+   medalhão deixavam o texto com quase nada — o nome da refeição saía escrito
+   NA VERTICAL de novo, agora na própria Home (medido na captura de tablet).
+   A 960 o container tem ~928 e sobram ~430px para o texto. */
+@media (min-width: 60rem) {
   .hoje .agora-card {
     grid-auto-flow: column;
     grid-template-columns: minmax(0, 1fr);
@@ -9774,6 +9779,12 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
      "SEU RESUMO DE HOJE" logo acima. */
   .painel__valor { font-size: var(--texto-3xl); }
   .painel__corpo--anel { flex-direction: row; align-items: center; }
+}
+
+/* O número ao lado da linha fina pede a grade de seis colunas: a 768px o
+   cartão tem ~350px e "5,0 km · Última corrida · 21/09" quebrava em três
+   linhas espremidas ao lado do gráfico (medido na captura de tablet). */
+@media (min-width: 60rem) {
   .painel__corpo--linha {
     flex-direction: row;
     align-items: center;
