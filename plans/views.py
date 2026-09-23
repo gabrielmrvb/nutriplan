@@ -4,7 +4,7 @@ A rota `today` concentra o uso diário — meta, refeições e marcação — po
 a única tela que a pessoa abre várias vezes por dia. O histórico fica numa
 rota separada, que é consulta ocasional.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
@@ -37,7 +37,7 @@ from catalog.models import Food
 from workouts import progresso
 from workouts.models import Corrida
 
-from . import calculations, rodizio, services, shopping, streaks, tracking, weight_trend
+from . import calculations, rodizio, services, shopping, sparkline, streaks, tracking, weight_trend
 from . import agora as agora_mod
 from analytics import servidor as analytics
 from workouts import services as treino_services
@@ -460,7 +460,83 @@ def cartoes_do_painel(prioridade, *, declarados=()) -> list:
         chaves.remove(prioridade)
         chaves.insert(0, prioridade)
     sozinho = chaves[-1] if len(chaves) % 2 else None
-    return [{"chave": c, "largo": c == sozinho} for c in chaves]
+    larguras = larguras_do_desktop(len(chaves))
+    return [
+        {"chave": c, "largo": c == sozinho, "largura": larguras[i]}
+        for i, c in enumerate(chaves)
+    ]
+
+
+#: Quanto de uma grade de SEIS colunas cada cartão ocupa no desktop.
+#: Seis e não cinco porque 6 divide por 3 e por 2 — é o que permite uma linha
+#: de três cartões iguais e outra de dois iguais na mesma grade, sem coluna
+#: órfã e sem cartão de tamanho aleatório.
+LARGURAS_DO_DESKTOP = {3: "terco", 2: "meio", 1: "tudo"}
+
+
+def larguras_do_desktop(quantos: int) -> list:
+    """A largura de cada cartão no desktop: linhas de TRÊS, e a sobra
+    dividida em partes iguais (23/09/2026).
+
+    O desenho do mockup é 3 + 2: três cartões de um terço em cima, dois de
+    metade embaixo. A regra que o produz — e que continua certa para quem tem
+    três ou quatro cartões — é "encha linhas de três enquanto sobrarem mais de
+    quatro; a última linha divide a largura entre os que restam".
+
+    A versão anterior dava UMA coluna por cartão (`repeat(var(--cartoes), 1fr)`):
+    cinco cartões viravam cinco colunas de 238px, cada um com um anel, uma
+    barra e três botões espremidos — e o `.painel .agua__botoes` existe
+    justamente porque aqueles botões não cabiam. Com a grade de seis, o cartão
+    mais estreito do desktop tem 1/3 da largura, não 1/5.
+
+    Quatro cartões (quem declarou uma das duas áreas opcionais) fecham 2 × 2, e
+    não 3 + 1: um cartão sozinho com o dobro da largura dos vizinhos é o
+    "cartão maior por acidente de contagem" que a regra de peso visual igual
+    existe para impedir.
+    """
+    restantes = quantos
+    larguras = []
+    while restantes:
+        # Mais de quatro: cabe uma linha de três e ainda sobra linha cheia.
+        # Exatamente quatro viram duas linhas de dois — ver a docstring.
+        na_linha = 3 if restantes > 4 else min(restantes, 3)
+        if restantes == 4:
+            na_linha = 2
+        larguras.extend([LARGURAS_DO_DESKTOP[na_linha]] * na_linha)
+        restantes -= na_linha
+    return larguras
+
+
+#: Quantas semanas a linha da corrida mostra. Oito é o que cabe numa caixa de
+#: 100 unidades sem os pontos se encostarem, e é longo o bastante para uma
+#: tendência aparecer sem virar histórico — quem quer o histórico abre a área
+#: de Corrida.
+SEMANAS_NA_LINHA = 8
+
+
+def semanas_com_km(corridas, hoje) -> list:
+    """Os quilômetros de cada uma das últimas `SEMANAS_NA_LINHA` semanas.
+
+    A semana SEM corrida entra como zero, e isso é decisão: pular as semanas
+    vazias desenharia uma linha contínua de quatro corridas espalhadas em dois
+    meses como se fossem quatro semanas seguidas — o gráfico afirmaria uma
+    constância que não houve.
+
+    `corridas` são as tuplas que a ofensiva já leu. A data de cada uma sai de
+    `localtime`, e não de `comecou_em.date()`: uma corrida das 22h de domingo
+    em Brasília é segunda-feira em UTC, e cairia na semana seguinte.
+    """
+    segunda = hoje - timedelta(days=hoje.weekday())
+    inicio = segunda - timedelta(weeks=SEMANAS_NA_LINHA - 1)
+    baldes = [0.0] * SEMANAS_NA_LINHA
+    for comecou, distancia in corridas:
+        data = timezone.localtime(comecou).date()
+        if data < inicio or data > hoje:
+            continue
+        indice = (data - inicio).days // 7
+        if 0 <= indice < SEMANAS_NA_LINHA:
+            baldes[indice] += (distancia or 0) / 1000
+    return baldes
 
 
 class TodayView(PlanRequiredMixin, TemplateView):
@@ -628,6 +704,41 @@ class TodayView(PlanRequiredMixin, TemplateView):
         if Pilar.PROGRESSO in declarados:
             ultimo_peso = self.pesagens[0] if self.pesagens else None
 
+        # AS DUAS LINHAS FINAS DOS CARTÕES — e as duas custam ZERO consulta.
+        #
+        # A quilometragem sai de `corridas`, que a ofensiva já leu (uma
+        # leitura por tabela, 21/09/2026), e as pesagens de `self.pesagens`,
+        # que o cálculo da meta já carregou. Nenhuma das duas abre consulta
+        # nova, e é isso que permite a Home ter gráfico sem pagar por ele.
+        #
+        # Quem decide SE elas existem é `sparkline.desenhar`, com a régua de
+        # três pontos: gráfico não é enfeite, e uma linha de dois pontos é
+        # sempre uma reta — ela desenharia tendência onde não há.
+        corrida_semanas = None
+        corridas_na_janela = 0
+        if Pilar.CORRIDA in declarados:
+            semanas_de_corrida = semanas_com_km(corridas, today)
+            corridas_na_janela = sum(
+                1 for comecou, _ in corridas
+                if timezone.localtime(comecou).date() >= today - timedelta(weeks=SEMANAS_NA_LINHA)
+            )
+            # A RÉGUA DE TRÊS PONTOS CONTA SEMANAS COM CORRIDA, e não os oito
+            # baldes. `semanas_com_km` sempre devolve oito números (a semana
+            # vazia é um zero de verdade, e some-la desenharia quatro corridas
+            # espalhadas em dois meses como quatro semanas seguidas) — então
+            # `desenhar` receberia oito pontos e aceitaria QUALQUER histórico,
+            # inclusive uma corrida só: uma reta no chão com um pico no fim.
+            # Gráfico não é enfeite, e é esta linha que garante isso aqui.
+            if sum(1 for km in semanas_de_corrida if km) >= sparkline.MINIMO_DE_PONTOS:
+                corrida_semanas = sparkline.desenhar(semanas_de_corrida)
+        peso_linha = None
+        if Pilar.PROGRESSO in declarados:
+            # `self.pesagens` vem da mais nova para a mais velha, e a linha do
+            # tempo lê ao contrário.
+            peso_linha = sparkline.desenhar(
+                [p.weight_kg for p in reversed(self.pesagens)]
+            )
+
         # UMA leitura do relógio para o topo e para a lista: os dois têm de
         # concordar, e é este instante que os testes congelam (ver `relogio`).
         agora = relogio()
@@ -650,6 +761,16 @@ class TodayView(PlanRequiredMixin, TemplateView):
             # cobra (achado #7 das personas). Zero consultas: o usuário já
             # está carregado.
             desde=timezone.localtime(self.request.user.date_joined),
+        )
+        ofensiva = streaks.calcular(
+            self.request.user, hoje=today, meta_agua_ml=meta_agua,
+            ja_lido=streaks.JaLido(
+                previstos={linha.weekday for linha in estado_treino.linhas}
+                if estado_treino.tem_ficha else set(),
+                corridas=[comecou for comecou, _ in corridas],
+                agua_por_dia=agua_por_dia,
+                tem_plano=True,
+            ),
         )
         # A lista concorda com o topo porque LÊ a decisão dele, em vez de
         # refazer a conta.
@@ -722,16 +843,29 @@ class TodayView(PlanRequiredMixin, TemplateView):
                     min(100, int(bebido * 100 / meta_agua)) if meta_agua else 0
                 ),
                 "agua_completa": bool(meta_agua) and bebido >= meta_agua,
-                "ofensiva": streaks.calcular(
-                    self.request.user, hoje=today, meta_agua_ml=meta_agua,
-                    ja_lido=streaks.JaLido(
-                        previstos={linha.weekday for linha in estado_treino.linhas}
-                        if estado_treino.tem_ficha else set(),
-                        corridas=[comecou for comecou, _ in corridas],
-                        agua_por_dia=agua_por_dia,
-                        tem_plano=True,
-                    ),
+                "ofensiva": ofensiva,
+                # A MESMA SEMANA nas duas tiras de pontos (23/09/2026): a
+                # faixa da ofensiva pergunta "o dia fechou?" e o cartão de
+                # Treino pergunta "havia treino, e foi feito?" — duas leituras
+                # da mesma lista, calculada uma vez. Duas contas separadas
+                # eram a garantia de que um dia elas discordariam na virada da
+                # meia-noite.
+                "semana": ofensiva.semana,
+                # Quantos dias de treino a ficha tem na semana — o fato que
+                # contextualiza a tira do cartão. Zero consulta: as linhas já
+                # vieram em `estado_do_treino`.
+                "dias_de_treino": (
+                    len({linha.weekday for linha in estado_treino.linhas})
+                    if estado_treino.tem_ficha else 0
                 ),
+                "corrida_semanas": corrida_semanas,
+                # Quantos pontos a linha PRECISA — a tela diz o que falta em
+                # vez de deixar um vazio onde o gráfico ainda não cabe.
+                "minimo_da_linha": sparkline.MINIMO_DE_PONTOS,
+                "corridas_na_janela": corridas_na_janela,
+                "semanas_na_linha": SEMANAS_NA_LINHA,
+                "peso_linha": peso_linha,
+                "pesagens_na_linha": len(self.pesagens),
                 # O convite para se pesar. A regra é do domínio e não da view:
                 # a view pergunta, `weight_trend` responde. Consulta dirigida à
                 # semana — `analisar()` carregaria o histórico inteiro para
@@ -1041,6 +1175,28 @@ class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
     #: declara nada — aqui não é errar, é saber.
     tela_da_acao = "plans:alimentacao"
 
+    #: DE ONDE O TOQUE VEIO (23/09/2026). Desde o acabamento da Home o herói
+    #: dela também registra a refeição da vez, e sem isto o POST devolvia a
+    #: pessoa em `/alimentacao/`: tocar "Comi esta" na primeira dobra da Hoje
+    #: trocava de tela (medido no navegador, com a ação funcionando).
+    #:
+    #: É uma LISTA FECHADA e o pedido manda o NOME da tela, nunca a URL — a
+    #: mesma decisão de `LogHydrationView.DESTINOS`, e pelo mesmo motivo: esta
+    #: view aceita POST de qualquer sessão autenticada, e um `?next=` livre
+    #: seria redirecionamento aberto.
+    DESTINOS = {"hoje": "plans:today"}
+
+    def _volta(self, request, slot):
+        destino = self.DESTINOS.get(request.POST.get("de"))
+        if destino:
+            # Sem âncora: a Hoje não lista refeições desde 22/09/2026, e
+            # `#slot-N` lá seria uma âncora que não existe — o navegador a
+            # ignora em silêncio, que é o defeito que `plans/test_b2_hoje.py`
+            # existe para pegar. A confirmação visual é a celebração que o
+            # `data-celebra` guarda para a página seguinte.
+            return redirect(destino)
+        return redirect(_hoje_em("#slot-%d" % slot.pk))
+
     def post(self, request, slot_id, *args, **kwargs):
         slot = get_object_or_404(
             MealSlot, pk=slot_id, plan__user=request.user, plan__is_active=True
@@ -1128,7 +1284,7 @@ class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
             analytics.evento(request, "dieta.pulou")
         elif status == MealStatus.OFF_PLAN:
             analytics.evento(request, "dieta.comeu_outra_coisa")
-        return redirect(_hoje_em("#slot-%d" % slot.pk))
+        return self._volta(request, slot)
 
 
 #: Teto de gramas por alimento numa refeição fora do plano.

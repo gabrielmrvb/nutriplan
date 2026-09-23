@@ -11,87 +11,130 @@
   mesmo cartão: copiar era garantir que um dia o botão de água fosse
   corrigido num lugar só. Quem decide o conteúdo continua sendo
   `plans.agora.proxima_acao`, uma função pura.
+
+  A FAIXA DE TRÊS COLUNAS (23/09/2026). No desktop ele deixou de ser uma pilha
+  com um botão verde de 970px de largura e virou três colunas: o que é (selo,
+  nome, números), QUE RECEITA é (o medalhão com a ilustração da família e o
+  nome) e o que fazer (as duas ações, com a largura de um botão). No celular
+  as três viram três blocos empilhados, na mesma ordem de leitura.
+
+  O MEDALHÃO É A ILUSTRAÇÃO DA FAMÍLIA, e não uma foto: o catálogo não tem
+  campo de imagem (ver `catalog/ilustracoes.py` — a decisão é de 23/09/2026 e
+  continua valendo), e um retângulo cinza esperando foto seria o buraco que
+  esta tela existe para não ter. As onze famílias desenhadas são o que o app
+  tem de mais próximo de "que comida é essa", e é o mesmo desenho que o card
+  da refeição usa lá embaixo.
 {% endcomment %}
-<section class="card agora-card agora-card--{{ acao.tipo }}">
+<section class="card agora-card agora-card--{{ acao.tipo }}{% if acao.tipo == 'refeicao' and sugestao %} agora-card--receita{% endif %}">
   {% if acao.existe %}
-    <p class="agora__rotulo">{{ acao.rotulo }}</p>
-    <h2 class="agora__titulo">{{ acao.titulo }}</h2>
-    <p class="agora__detalhe">
-      {% if acao.horario %}<span class="num">{{ acao.horario|time:"H:i" }}</span> · {% endif %}{{ acao.detalhe }}
-    </p>
-    {% if acao.tipo == 'agua' %}
+    <div class="agora__texto">
+      <p class="agora__rotulo">
+        <span class="agora__selo">{{ acao.rotulo }}{% if acao.horario %} · <span class="num">{{ acao.horario|time:"H:i" }}</span>{% endif %}</span>
+      </p>
+      <h2 class="agora__titulo">{{ acao.titulo }}</h2>
       {% comment %}
-        Água é a única ação que o cartão executa direto: não há opção A e
-        B para escolher errado. O `fila.js` já intercepta todo POST para
-        `/agua/` e carimba `op_id` por envio, então este botão entra na
-        fila offline com o mesmo contrato dos outros três.
-
-        `de=topo` porque este botão está no TOPO da tela. A âncora
-        `#hidratacao` foi desenhada para quem já estava no cartão de água,
-        a 2.500px daqui; sem `de`, tocar aqui jogaria a pessoa lá para
-        baixo, longe do cartão que ela acabou de obedecer. A confirmação
-        deste botão é o próprio cartão mudando — depois de beber, o atraso
-        cai e o AGORA passa a apontar outra coisa.
+        COM RECEITA, OS NÚMEROS SÃO OS DELA. `acao.detalhe` traz o ALVO do
+        horário (o que o plano reservou); quando há um botão dizendo "Comi
+        esta", o que a pessoa precisa ler é o que ela está prestes a
+        registrar — e as duas contas não são iguais, porque a receita é
+        escalada para caber no alvo, não para bater nele.
       {% endcomment %}
-      <form method="post" action="{% url 'plans:log_hydration' %}">
-        {% csrf_token %}
-        <input type="hidden" name="ml" value="500">
-        <input type="hidden" name="de" value="topo">
-        <button type="submit" class="btn btn--primary btn--block agora__cta">
-          {{ acao.cta }}
-        </button>
-      </form>
-    {% elif acao.tipo == 'refeicao' and sugestao %}
-      {% comment %}
-        O HERÓI REGISTRA A REFEIÇÃO DA VEZ (item 8 da auditoria, 23/09/2026),
-        e só na tela de Alimentação — quem passa `sugestao` é ela.
+      <p class="agora__detalhe">
+        {% if acao.tipo == 'refeicao' and sugestao %}
+          <span class="num">{{ sugestao.kcal|floatformat:0 }} kcal</span> · <span class="num">{{ sugestao.protein_g|floatformat:0 }} g</span> de proteína
+        {% else %}
+          {% if acao.horario %}<span class="num">{{ acao.horario|time:"H:i" }}</span> · {% endif %}{{ acao.detalhe }}
+        {% endif %}
+      </p>
+    </div>
 
-        Na Hoje o cartão continua sendo um PONTEIRO: aquela tela é o
-        orquestrador do dia, e registrar comida a partir dela colocaria a
-        escolha entre duas receitas dentro da tela que existe para não ter
-        escolha nenhuma. Aqui a lista está logo abaixo, a opção sugerida é a
-        mesma que abre o card, e "rolar até a refeição para tocar no botão
-        que já está visível no topo" era o passo que a auditoria apontou.
-
-        A sugestão é a PRIMEIRA opção da projeção — a mesma que o card marca
-        como recomendada. O formulário é idêntico ao do card, inclusive no
-        `data-celebra`, então a fila offline e a celebração funcionam do
-        mesmo jeito; e "Ver refeição" continua existindo ao lado, para quem
-        quer comparar antes de decidir.
-      {% endcomment %}
-      <div class="agora__sugestao">
-        <span class="agora__ilu" aria-hidden="true">
+    {% if acao.tipo == 'refeicao' and sugestao %}
+      <div class="agora__receita">
+        <span class="agora__medalhao" aria-hidden="true">
           <svg viewBox="0 0 48 36" fill="none" stroke="currentColor"
                stroke-linecap="round" stroke-linejoin="round">
             <use href="#ilu-{{ sugestao.template.ilustracao|default:'prato' }}"></use>
           </svg>
         </span>
-        <span class="agora__receita">
+        <span class="agora__receita-nomes">
           <strong class="agora__receita-nome">{{ sugestao.template.name }}</strong>
-          <span class="agora__receita-num num">{{ sugestao.kcal|floatformat:0 }} kcal · {{ sugestao.template.prep_minutes }} min</span>
+          <span class="agora__receita-num num">{{ sugestao.template.prep_minutes }} min de preparo</span>
         </span>
       </div>
-      <form method="post" action="{% url 'plans:mark_meal' acao.slot.pk %}"
-            data-celebra="slot-{{ acao.slot.pk }}">
-        {% csrf_token %}
-        <input type="hidden" name="status" value="done">
-        <input type="hidden" name="option" value="{{ sugestao.pk }}">
-        <button type="submit" class="btn btn--primary btn--block agora__cta"
-                aria-label="Registrar {{ sugestao.template.name }} em {{ acao.titulo }}">
-          Comi esta
-        </button>
-      </form>
-      <a class="btn-link agora__ver" href="{{ acao.url }}">Ver as duas opções</a>
-    {% else %}
-      <a class="btn btn--primary btn--block agora__cta" href="{{ acao.url }}">
-        {{ acao.cta }}
-      </a>
     {% endif %}
+
+    <div class="agora__acoes">
+      {% if acao.tipo == 'agua' %}
+        {% comment %}
+          Água é a única ação que o cartão executa direto: não há opção A e
+          B para escolher errado. O `fila.js` já intercepta todo POST para
+          `/agua/` e carimba `op_id` por envio, então este botão entra na
+          fila offline com o mesmo contrato dos outros três.
+
+          `de=topo` porque este botão está no TOPO da tela. A âncora
+          `#hidratacao` foi desenhada para quem já estava no cartão de água,
+          a 2.500px daqui; sem `de`, tocar aqui jogaria a pessoa lá para
+          baixo, longe do cartão que ela acabou de obedecer. A confirmação
+          deste botão é o próprio cartão mudando — depois de beber, o atraso
+          cai e o AGORA passa a apontar outra coisa.
+        {% endcomment %}
+        <form method="post" action="{% url 'plans:log_hydration' %}">
+          {% csrf_token %}
+          <input type="hidden" name="ml" value="500">
+          <input type="hidden" name="de" value="topo">
+          <button type="submit" class="btn btn--primary btn--block agora__cta">
+            {{ acao.cta }}
+          </button>
+        </form>
+      {% elif acao.tipo == 'refeicao' and sugestao %}
+        {% comment %}
+          O HERÓI REGISTRA A REFEIÇÃO DA VEZ (item 8 da auditoria,
+          23/09/2026) — nas DUAS telas desde o acabamento da Home.
+
+          A sugestão é a PRIMEIRA opção da projeção — a mesma que o card
+          marca como recomendada. O formulário é idêntico ao do card,
+          inclusive no `data-celebra`, então a fila offline e a celebração
+          funcionam do mesmo jeito; e "Ver refeição" continua ao lado, para
+          quem quer comparar antes de decidir.
+
+          UM verbo por ação, e nunca dois para a mesma: aqui é "Comi esta" e
+          "Ver refeição" — o mockup do acabamento trazia "Marcar como
+          concluída" ao lado de "Ver refeição", que é o MESMO registro com
+          outro nome. Duas palavras para a mesma coisa é a dúvida que a
+          pessoa resolve não tocando em nenhuma.
+        {% endcomment %}
+        <form method="post" action="{% url 'plans:mark_meal' acao.slot.pk %}"
+              data-celebra="slot-{{ acao.slot.pk }}">
+          {% csrf_token %}
+          <input type="hidden" name="status" value="done">
+          <input type="hidden" name="option" value="{{ sugestao.pk }}">
+          {% comment %}
+            `de` diz de QUE TELA o toque veio, e `MarkMealView.DESTINOS` é a
+            lista fechada que o traduz. Sem ele o POST volta para
+            `/alimentacao/`, que é de onde este botão sempre foi tocado — e
+            quem registra na primeira dobra da Hoje trocaria de tela sem ter
+            pedido.
+          {% endcomment %}
+          {% if volta %}<input type="hidden" name="de" value="{{ volta }}">{% endif %}
+          <button type="submit" class="btn btn--primary btn--block agora__cta"
+                  aria-label="Registrar {{ sugestao.template.name }} em {{ acao.titulo }}">
+            Comi esta
+          </button>
+        </form>
+        <a class="btn btn--ghost btn--block" href="{{ acao.url }}">Ver refeição</a>
+      {% else %}
+        <a class="btn btn--primary btn--block agora__cta" href="{{ acao.url }}">
+          {{ acao.cta }}
+        </a>
+      {% endif %}
+    </div>
   {% else %}
-    <p class="agora__rotulo">HOJE</p>
-    <h2 class="agora__titulo">Nada pendente</h2>
-    <p class="agora__detalhe">
-      Refeições marcadas, treino resolvido e água na meta.
-    </p>
+    <div class="agora__texto">
+      <p class="agora__rotulo"><span class="agora__selo">HOJE</span></p>
+      <h2 class="agora__titulo">Nada pendente</h2>
+      <p class="agora__detalhe">
+        Refeições marcadas, treino resolvido e água na meta.
+      </p>
+    </div>
   {% endif %}
 </section>

@@ -1,0 +1,30 @@
+{% load i18n %}
+{% comment %}
+  A TIRA DE SETE PONTOS — a mesma semana, duas perguntas (23/09/2026).
+
+  `modo="treino"` desenha "havia treino previsto, e ele foi feito?" (cartão de
+  Treino); sem `modo`, "o dia fechou?" (faixa da ofensiva). As duas leituras
+  saem da MESMA lista — `ofensiva.semana`, sete `DiaDaSemana` calculados uma
+  vez em `plans/streaks.py` sobre o histórico que a sequência já tinha lido.
+  Zero consulta, e nenhuma chance de as duas tiras discordarem na virada da
+  meia-noite.
+
+  A LETRA NÃO É A INFORMAÇÃO. Ela repete (S de segunda e de sábado, Q de
+  quarta e de quinta) e some para quem ouve a tela; quem carrega o significado
+  é o texto oculto, que diz o dia por extenso, a data e o estado por escrito
+  ("terça-feira, 22/09: treino previsto, sem registro").
+
+  E O ESTADO NÃO É SÓ COR: preenchido, anel, vazado e risca são formas
+  diferentes (ver `.tira__ponto` no CSS). Quem não distingue verde de cinza
+  distingue as quatro formas, e o texto oculto fecha a conta para quem não vê
+  nenhuma.
+{% endcomment %}
+<ul class="tira{% if modo == 'treino' %} tira--treino{% endif %}">
+  {% for dia in semana %}
+    <li class="tira__dia is-{% if modo == 'treino' %}{{ dia.estado_do_treino }}{% else %}{{ dia.estado }}{% endif %}{% if dia.hoje %} is-hoje{% endif %}">
+      <span class="tira__ponto" aria-hidden="true"></span>
+      <span class="tira__letra" aria-hidden="true">{{ dia.letra }}</span>
+      <span class="vis-oculto">{% if modo == 'treino' %}{{ dia.legenda_do_treino }}{% else %}{{ dia.legenda }}{% endif %}</span>
+    </li>
+  {% endfor %}
+</ul>

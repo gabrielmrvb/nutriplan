@@ -4803,7 +4803,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
    antigo (`--warm`); a Mesa & Ferro separa os dois papéis. */
 .ofensiva {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: .85rem;
   padding: var(--espaco-6) 1.05rem;
@@ -4859,6 +4859,28 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .ofensiva__unidade { color: var(--text-mute); font-size: var(--texto-sm); font-weight: 600; }
 .ofensiva__texto { color: var(--text-dim); font-size: var(--texto-sm); line-height: 1.45; }
 .ofensiva__recorde { flex: none; }
+
+/* A SEMANA DA FAIXA (23/09/2026): os sete pontos e, abaixo deles, o recorde
+   quando existe. `min-width` porque sem ela os sete pontos se amontoavam num
+   bloco de 110px no canto direito — a tira só é legível quando cada dia tem
+   a largura de uma letra mais o respiro. */
+.ofensiva__semana {
+  display: grid;
+  gap: var(--espaco-2);
+  justify-items: center;
+  /* Celular: a tira ocupa as duas colunas, embaixo do texto. A 390px ela
+     dividia a faixa em três e sobravam ~60px para a frase, que saía quebrada
+     no meio das palavras (captura da rodada 2). */
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 48rem) {
+  .ofensiva { grid-template-columns: auto minmax(0, 1fr) auto; }
+  /* `min-width` porque sem ela os sete pontos se amontoam num bloco de 110px
+     no canto direito — a tira só é legível quando cada dia tem a largura de
+     uma letra mais o respiro. */
+  .ofensiva__semana { grid-column: auto; min-width: 11rem; }
+}
 
 /* ------------------------------------------------------------- pesagem */
 
@@ -7453,7 +7475,6 @@ body.montando { overflow: hidden; }
 .ficha-item__trocar,
 .registro__nota-abrir,
 .ficha-item__ver,
-.agora__ver,
 .folha-receita__fechar,
 .receita-folha__outra,
 .receita__abrir,
@@ -7478,7 +7499,6 @@ body.montando { overflow: hidden; }
 .ficha-item__trocar:active,
 .registro__nota-abrir:active,
 .ficha-item__ver:active,
-.agora__ver:active,
 .folha-receita__fechar:active,
 .receita-folha__outra:active,
 .receita__abrir:active,
@@ -7505,8 +7525,7 @@ body.montando { overflow: hidden; }
   .ficha-item__trocar,
   .registro__nota-abrir,
   .ficha-item__ver,
-  .agora__ver,
-  .folha-receita__fechar,
+    .folha-receita__fechar,
   .receita-folha__outra,
   .receita__abrir,
   .forma__trocar { transition: none; }
@@ -7529,8 +7548,7 @@ body.montando { overflow: hidden; }
   .ficha-item__trocar:active,
   .registro__nota-abrir:active,
   .ficha-item__ver:active,
-  .agora__ver:active,
-  .folha-receita__fechar:active,
+    .folha-receita__fechar:active,
   .receita-folha__outra:active,
   .receita__abrir:active,
   .forma__trocar:active { transform: none; }
@@ -7566,6 +7584,48 @@ body.montando { overflow: hidden; }
   padding-top: .85rem;
   background: var(--surface-focus);
   border-color: color-mix(in srgb, var(--brand) 28%, transparent);
+  /* A FAIXA DE TRÊS COLUNAS (23/09/2026). No celular são três blocos
+     empilhados; a partir de 48rem o fluxo vira COLUNA, com a primeira em
+     `1fr` e as outras do tamanho do conteúdo.
+
+     `grid-auto-flow: column` e não três colunas escritas: o cartão tem UM
+     filho ("nada pendente"), DOIS (água, treino, pesagem) ou TRÊS (refeição
+     com receita), e uma grade fixa deixaria uma coluna vazia nos dois
+     primeiros casos — o buraco que a auditoria de 22/09 aponta. */
+  display: grid;
+  gap: var(--espaco-5);
+  align-items: center;
+}
+
+.agora__texto { min-width: 0; }
+
+/* A coluna das ações tem a largura de um botão, e não a da frase que ele
+   carrega: sem o mínimo, "Comi esta" e "Ver refeição" saíam com larguras
+   diferentes, um embaixo do outro. */
+.agora__acoes { display: grid; gap: var(--espaco-3); min-width: 0; }
+.agora__acoes > form { min-width: 0; }
+.agora__acoes .btn { margin: 0; }
+
+/* O selo "AGORA · 14:30" é uma etiqueta, e não uma linha de texto: ele é a
+   primeira coisa que o olho encontra na tela e precisa ler como marcador de
+   estado. A cor vem do ramo (ver as regras dos tipos, logo abaixo). */
+.agora__selo {
+  display: inline-block;
+  padding: var(--espaco-1) var(--espaco-3);
+  background: var(--brand);
+  color: var(--on-brand);
+  border-radius: var(--quina-p);
+  font-weight: 700;
+}
+
+@media (min-width: 48rem) {
+  .agora-card {
+    grid-auto-flow: column;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-columns: max-content;
+    gap: calc(var(--espaco-7) + var(--espaco-3));
+  }
+  .agora__acoes { min-width: 11.5rem; }
 }
 
 /* Os ramos que NÃO são ação com hora marcada abrem mão do foco.
@@ -7596,6 +7656,13 @@ body.montando { overflow: hidden; }
 .agora-card--pesagem .agora__rotulo,
 .agora-card--vazio .agora__rotulo { color: var(--text-mute); }
 
+.agora-card--agua .agora__selo,
+.agora-card--pesagem .agora__selo,
+.agora-card--vazio .agora__selo {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
 .agora__titulo {
   margin: 0 0 .3rem;
   /* O nome da refeição da vez é herói: Bodoni a 22,7 px (o mesmo 1.42rem do
@@ -7619,6 +7686,13 @@ body.montando { overflow: hidden; }
 }
 
 .agora__cta { min-height: 2.9rem; }
+
+@media (min-width: 48rem) {
+  .agora__titulo { font-size: var(--texto-2xl); }
+}
+@media (min-width: 75rem) {
+  .agora__titulo { font-size: var(--texto-3xl); }
+}
 
 /* -- O resumo do dia SAIU: quem responde agora é o painel ---------------- */
 
@@ -9222,39 +9296,140 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    2 colunas no celular e 4 no desktop, com um degrau em 3 quando a grade tem
    três cartões (quem não corre). */
 
+/* -- O CABEÇALHO DA TELA, e o título da seção --------------------------- */
+
+/* O `<h1>` da Hoje era `vis-oculto`: a tela abria no cartão verde, sem nada
+   acima dele dizendo onde a pessoa está. Ele volta dizendo o DIA, que é o que
+   esta tela sabe e as outras não — e leva o `.page-head`, então herda a
+   nervura que assina todo título de tela deste app. */
+.hoje-head { display: grid; gap: var(--espaco-3); }
+.hoje-head__selo { margin: 0; }
+/* O RESPIRO DA NERVURA, medido: a régua do `.page-head h1` nasce no canto
+   superior esquerdo e sobe `min(32%, 100px) × sen 14° ≈ 24px`. Com os 8px de
+   `gap` ela riscava o selo "Visão geral" (captura da rodada 1). 24 + 8 = 32,
+   e sobram 8 — a mesma folga que a faixa do demo levou em 18/09. */
+.hoje-head__titulo { margin: var(--espaco-7) 0 0; }
+/* O dia da semana na cor da marca: é o pedaço do título que muda todo dia, e
+   o único lugar da tela em que o verde não é uma ação. */
+.hoje-head__destaque { color: var(--brand); }
+.hoje-head__data { margin: 0; color: var(--text-dim); font-size: var(--texto-md); }
+
+/* O título cresce com a tela em DOIS degraus da escala, e não com `clamp()`:
+   a escala existe para que dois títulos do app nunca tenham tamanhos
+   parecidos-mas-diferentes. */
+@media (min-width: 48rem) {
+  .hoje-head__titulo { font-size: var(--texto-3xl); }
+}
+@media (min-width: 75rem) {
+  .hoje-head__titulo { font-size: var(--texto-display); }
+}
+
+/* O título da seção do painel. Ele existe porque a grade precisava de um
+   nome: era um `<h2 class="vis-oculto">` e, na tela, cinco cartões
+   começavam sem aviso logo abaixo do herói. */
+.secao__titulo {
+  margin: 0 0 var(--espaco-5);
+  /* `--texto-xl` e não `--texto-lg`: a display deste app (Big Shoulders) não
+     desce de 20px — abaixo disso a caixa alta condensada fecha os contornos.
+     A régua é `config/test_fontes.py`, e ela reprovou a primeira versão. */
+  font-family: var(--font-display);
+  font-size: var(--texto-xl);
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
 .painel {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  /* Linhas de mesma altura: é o que faz "peso igual" ser verdade e não
-     promessa. */
-  grid-auto-rows: 1fr;
+  /* Cartões da MESMA LINHA com a mesma altura: é o que faz "peso igual" ser
+     verdade e não promessa, e vem do `stretch` que a grade já aplica.
+     `grid-auto-rows: 1fr` — que estava aqui — iguala TODAS as linhas entre
+     si: a linha de baixo herdava a altura da de cima e o cartão de Progresso
+     abria 200px de vazio entre o número e o botão (captura da rodada 2). */
   gap: var(--espaco-4);
 }
 
 .painel__cartao {
   display: flex;
   flex-direction: column;
-  gap: var(--espaco-2);
+  gap: var(--espaco-4);
   min-width: 0;
   padding: var(--espaco-5);
   background: var(--surface);
   border-radius: var(--quina);
+  /* O CONTORNO DE FIO (23/09/2026). O `.card` deste app não tem borda de
+     propósito — "a superfície é o que separa" —, e isso vale no escuro, onde
+     `--surface` está três degraus acima de `--bg`. No PAPEL os dois quase
+     empatam, e os cinco cartões liam como um bloco só (captura da rodada 2,
+     tema claro). 1px de `--fio`, que é a tinta de hairline do app: `--traco`
+     (2px) é o contorno de controle, e um cartão com a mesma borda de um
+     botão convida ao toque. */
+  box-shadow: inset 0 0 0 1px var(--fio);
 }
 
 /* A área que a pessoa elegeu: o fio da marca à esquerda, e nada além disso.
    Ela vem PRIMEIRO na grade (a ordem é decidida no servidor) — o destaque é
    a posição, não um cartão maior, porque maior quebraria o peso igual que
    esta seção inteira existe para garantir. */
-.painel__cartao.is-prioritario { box-shadow: inset var(--traco) 0 0 var(--brand); }
+.painel__cartao.is-prioritario {
+  box-shadow: inset var(--traco) 0 0 var(--brand), inset 0 0 0 1px var(--fio);
+}
 
-.painel__selo { margin: 0; }
+/* O CABEÇALHO DE TODO CARTÃO: marca, nome, um fato — e o selo da área
+   principal à direita.
 
-.painel__rotulo {
+   O fato embaixo do nome é a decisão desta linha. O mockup do acabamento
+   punha ali uma frase de ânimo ("Consistência é tudo", "Mova seu corpo"); o
+   que entrou foi o número que dá contexto ao número grande logo abaixo — "5
+   refeições no plano", "Meta de 3.000 ml", "4 treinos por semana". Mesmo
+   lugar, mesma altura, e uma informação a mais em vez de uma a menos. */
+.painel__topo {
   display: flex;
   align-items: center;
-  gap: var(--espaco-2);
+  gap: var(--espaco-3);
+  min-width: 0;
+  /* O SELO DESCE quando não cabe. A 390px a célula tem ~144px úteis: com
+     "ALIMENTAÇÃO" (85px), a marca (34) e o selo "sua área" (60) na mesma
+     linha, o flex espremia o `h3` até 20px e o `overflow-wrap: anywhere`
+     global escrevia o nome NA VERTICAL, uma letra por linha (captura da
+     rodada 1). */
+  flex-wrap: wrap;
+}
+
+/* A marca é um quadrado de superfície com o ícone da área dentro: ela dá ao
+   cartão um ponto de entrada visual do tamanho de um alvo de toque, sem ser
+   um alvo de toque (o cartão inteiro não é clicável — a ação é o botão do
+   rodapé, e um cartão-link com um botão dentro é `nested-interactive`). */
+.painel__marca {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.1rem;
+  height: 2.1rem;
+  color: var(--brand);
+  background: var(--surface-2);
+  border-radius: var(--quina-p);
+}
+
+/* `flex: 1 1 5rem` e não `auto`: com a base automática o bloco de nomes era
+   o primeiro a quebrar e a marca ficava sozinha numa linha de 34px de altura
+   (captura da rodada 2). Assim quem desce é o selo, que é o item opcional. */
+.painel__nomes { flex: 1 1 5rem; min-width: 0; }
+
+.painel__selo { margin: 0 0 0 auto; flex: none; }
+
+/* `overflow-wrap: normal` contra o `anywhere` que o reset dá a todo `h3`,
+   `p` e `span`: ele existe para texto longo não estourar a caixa, e aqui
+   produzia "registra / das" e "ALIMENTAÇÃO" em coluna. Palavra que não cabe
+   transborda e é vista; palavra picada no meio não é lida. */
+.painel__rotulo,
+.painel__sub,
+.painel__fatos { overflow-wrap: normal; }
+
+.painel__rotulo {
   margin: 0;
-  color: var(--text-dim);
+  color: var(--text);
   font-family: var(--font);
   font-size: var(--texto-xs);
   font-weight: 700;
@@ -9262,7 +9437,59 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   text-transform: uppercase;
 }
 
-.painel__icone { width: 1.05rem; height: 1.05rem; flex: none; }
+/* `--texto-sm` e não `--texto-xs`: o fato do cabeçalho é uma FRASE, não um
+   rótulo, e a Archivo a 11,2px com o espaço entre palavras apertado fazia
+   "em 8 semanas" ler como "em 8semanas" na captura a 1280. O rótulo acima
+   continua no degrau de rótulo. */
+.painel__sub {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  line-height: 1.35;
+}
+
+.painel__icone { width: 1.2rem; height: 1.2rem; flex: none; }
+
+/* O corpo do cartão: tudo entre o cabeçalho e o rodapé, e é ele que cresce
+   para empurrar a ação até o fim (`margin: auto 0 0` no rodapé). */
+.painel__corpo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+  min-width: 0;
+}
+
+/* Alimentação: anel EM CIMA no celular, à esquerda a partir de tablet. A
+   célula de 144px não comporta os dois lado a lado — o anel come 77 e sobram
+   55 para "de 2.444 kcal". */
+.painel__corpo--anel { align-items: flex-start; gap: var(--espaco-4); }
+
+.painel__fatos {
+  display: grid;
+  gap: var(--espaco-1);
+  margin: 0;
+  min-width: 0;
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  line-height: 1.35;
+}
+
+/* Corrida e Progresso: número à esquerda, linha fina à direita — e empilhados
+   enquanto a célula for estreita, porque uma linha de 60px de largura não
+   mostra tendência nenhuma. */
+.painel__corpo--linha { gap: var(--espaco-4); }
+.painel__numeros { display: grid; gap: var(--espaco-1); min-width: 0; }
+
+/* O LUGAR DA LINHA, quando ela ainda não cabe. Com uma pesagem só o cartão
+   ficava com um vão entre o número e o botão (captura do estado "pouco") —
+   e "não deixe espaço vazio ao remover um elemento" vale também para o
+   elemento que ainda não nasceu. A frase diz o que destrava o gráfico. */
+.painel__aguarda {
+  margin: 0;
+  color: var(--text-mute);
+  font-size: var(--texto-sm);
+  line-height: 1.35;
+}
 
 .painel__valor {
   margin: 0;
@@ -9271,6 +9498,18 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   font-weight: 900;
   line-height: 1;
   letter-spacing: -.02em;
+}
+
+/* O valor que é uma PALAVRA ("Dia de descanso", "Sem ficha") não usa a
+   display: ela é a fonte dos números deste app — caixa alta, 900, tracking
+   negativo — e uma frase nela lê como manchete de jornal dentro de um
+   cartão. Mesmo degrau de hierarquia, outra família. */
+.painel__valor--palavra {
+  font-family: var(--font);
+  font-size: var(--texto-lg);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.2;
 }
 
 /* O "/ 2500 ml" e o "/24 séries": o denominador é contexto, não manchete. */
@@ -9301,6 +9540,140 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 }
 
 .painel__rodape .btn { margin: 0; }
+
+/* A seta do rodapé: ela diz que o botão LEVA a algum lugar, e não que ele
+   executa. Os botões que executam nesta tela (os três passos de água, "Comi
+   esta") não têm nenhuma.
+
+   Ela some no celular, e some porque não cabe: a 390px a célula tem 144px e
+   "Ver hidratação →" quebrava em duas linhas dentro do botão (captura da
+   rodada 3). É decoração `aria-hidden`, então quem depende do texto não
+   perde nada — e o rótulo continua dizendo o destino. */
+.painel__seta { display: none; }
+
+@media (min-width: 48rem) {
+  .painel__seta { display: inline; margin-left: var(--espaco-2); }
+}
+
+/* -- A TIRA DE SETE PONTOS ---------------------------------------------- */
+
+/* A semana em sete pontos, nas duas leituras (ver
+   `plans/_pontos_da_semana.html`): "o dia fechou?" na faixa da ofensiva e
+   "havia treino, e foi feito?" no cartão de Treino.
+
+   O ESTADO NÃO É SÓ COR, e são quatro formas distintas:
+
+     preenchido  o dia fechou / o treino foi registrado
+     anel        previsto, ainda não aconteceu
+     risca       passou e não aconteceu
+     ponto       descanso, futuro, ou antes de a conta existir
+
+   Quem não distingue verde de cinza distingue disco de anel e de risca; quem
+   não vê nenhum recebe o texto por extenso, que o parcial escreve em
+   `vis-oculto` ao lado de cada ponto. */
+.tira {
+  display: flex;
+  gap: var(--espaco-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tira__dia {
+  display: grid;
+  justify-items: center;
+  gap: var(--espaco-1);
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.tira__ponto {
+  position: relative;
+  width: .8rem;
+  height: .8rem;
+  border: var(--traco) solid var(--fio);
+  border-radius: 50%;
+}
+
+.tira__letra {
+  color: var(--text-mute);
+  font-size: var(--texto-xs);
+  line-height: 1;
+}
+
+/* Fechado e feito: disco cheio. */
+.tira__dia.is-fechado .tira__ponto,
+.tira__dia.is-feito .tira__ponto {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+/* Previsto: anel na cor da marca, vazio por dentro — ele ainda não aconteceu. */
+.tira__dia.is-previsto .tira__ponto { border-color: var(--brand); }
+
+/* Aberto e faltou: a risca. Ela é um pseudoelemento e não uma cor diferente,
+   porque é justamente este o estado que não pode depender de cor — é o único
+   negativo da tira. */
+.tira__dia.is-aberto .tira__ponto,
+.tira__dia.is-faltou .tira__ponto { border-color: var(--text-mute); }
+.tira__dia.is-aberto .tira__ponto::after,
+.tira__dia.is-faltou .tira__ponto::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: var(--traco);
+  background: var(--text-mute);
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+/* Descanso, futuro e antes da conta: um ponto menor, sem anel — "não havia o
+   que acontecer" não é a mesma coisa que "não aconteceu". */
+.tira__dia.is-descanso .tira__ponto,
+.tira__dia.is-futuro .tira__ponto,
+.tira__dia.is-antes .tira__ponto {
+  transform: scale(.55);
+  background: var(--fio);
+}
+
+/* HOJE: o halo, por cima de qualquer um dos quatro. A pessoa precisa achar o
+   dia de hoje na tira antes de ler o que ele diz. */
+.tira__dia.is-hoje .tira__ponto { box-shadow: 0 0 0 3px var(--brand-soft); }
+.tira__dia.is-hoje .tira__letra { color: var(--brand); font-weight: 700; }
+
+/* -- A LINHA FINA ------------------------------------------------------- */
+
+/* O desenho de `plans/sparkline.py`. `overflow: visible` porque o círculo da
+   ponta tem raio 3 e encosta na borda do `viewBox` quando o último valor é o
+   maior ou o menor da série. */
+.linha-fina {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  color: var(--brand);
+}
+.linha-fina__traco { stroke-width: 2; }
+.linha-fina__ponta { fill: currentColor; stroke: none; }
+/* Cada área com a cor do próprio pilar: é o mesmo vocabulário do mapa e dos
+   cartões, e não uma cor escolhida por gosto. */
+.linha-fina--corrida { color: var(--brasa); }
+.linha-fina--peso { color: var(--folha); }
+
+/* A água: o total à esquerda, a porcentagem à direita, na mesma linha do
+   número grande. A meta saiu daqui e virou o fato do cabeçalho — ela estava
+   escrita duas vezes no mesmo cartão ("1250 / 3000 ml" e a barra logo
+   abaixo). */
+.agua__total { display: flex; align-items: baseline; min-width: 0; }
+.agua__pct {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: var(--texto-sm);
+  font-weight: 700;
+  letter-spacing: 0;
+}
 
 /* O anel compacto da Alimentação: o mesmo `--pct` e o mesmo gradiente do anel
    grande, com 4,8rem em vez de 8,2 — a única imagem da grade. */
@@ -9377,14 +9750,60 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    sua própria linha. */
 .tabbar--vitrine { position: static; inset: auto; max-width: none; }
 
+/* A partir de tablet o cartão ganha ar e o corpo de Corrida/Progresso vira
+   linha: o número à esquerda, a tendência à direita. */
+@media (min-width: 48rem) {
+  .painel__cartao { padding: var(--espaco-7); gap: var(--espaco-6); }
+  .painel__corpo { gap: var(--espaco-4); }
+  /* O número grande do cartão é a manchete dele: a 28px ele empatava com o
+     "SEU RESUMO DE HOJE" logo acima. */
+  .painel__valor { font-size: var(--texto-3xl); }
+  .painel__corpo--anel { flex-direction: row; align-items: center; }
+  .painel__corpo--linha {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--espaco-5);
+  }
+  .painel__corpo--linha .linha-fina { width: 55%; }
+  .painel__corpo--linha .painel__aguarda { width: 45%; text-align: right; }
+}
+
 @media (min-width: 60rem) {
-  /* Quantas colunas: o NÚMERO DE CARTÕES, que o servidor escreve em
-     `--cartoes`. Fixar quatro deixava a quarta coluna vazia para quem não
-     corre — três cartões de 238px e um buraco de 238 à direita. */
-  .painel { grid-template-columns: repeat(var(--cartoes, 4), minmax(0, 1fr)); }
-  /* No desktop ninguém é largo: a célula tem folga de sobra para os três
-     botões, e um cartão dobrado quebraria o peso igual. */
+  .secao__titulo { font-size: var(--texto-2xl); }
+  .ring--mini { width: 6.2rem; height: 6.2rem; }
+  .ring--mini::after { inset: .52rem; }
+  .ring--mini .ring__value { font-size: var(--texto-2xl); }
+
+  /* SEIS COLUNAS, e o servidor diz quantas cada cartão ocupa
+     (`larguras_do_desktop`): linhas de três, e a sobra dividida em partes
+     iguais. A versão anterior dava UMA coluna por cartão — cinco cartões
+     viravam cinco colunas de 238px, com anel, barra e três botões espremidos
+     em cada uma. */
+  .painel {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--espaco-6);
+  }
+  /* Primeiro desliga o largo do CELULAR (ele e a largura do desktop podem
+     estar na mesma classe), e só depois as larguras valem. */
   .painel__cartao--largo { grid-column: auto; }
+  .painel__cartao--terco { grid-column: span 2; }
+  .painel__cartao--meio { grid-column: span 3; }
+  .painel__cartao--tudo { grid-column: span 6; }
+}
+
+/* A HOJE É MAIS LARGA QUE AS OUTRAS TELAS, e só ela (23/09/2026).
+
+   `largo` são 64rem e serve a telas de leitura, com uma coluna de texto. A
+   Hoje é uma grade de cinco cartões e um herói de três colunas: a 64rem o
+   cartão de um terço fica com 305px, e a linha fina de tendência com 168.
+   72rem dá 380 e 210. Mexer no `largo` moveria Alimentação, Treino e
+   Progresso junto — daí a classe própria. */
+@media (min-width: 75rem) {
+  .container.largo.hoje-largo { max-width: 72rem; }
+  /* Com 380px de cartão o anel de 99px lia como ícone ao lado do texto. */
+  .ring--mini { width: 7.2rem; height: 7.2rem; }
+  .ring--mini::after { inset: .6rem; }
 }
 
 /* ==========================================================================
@@ -9624,30 +10043,43 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .today-hero__proteina--no_rumo { color: var(--brand); }
 .today-hero__proteina--atras { color: var(--terra); }
 
-/* -- O herói que registra, na tela de Alimentação ------------------------ */
+/* -- O herói que registra: a COLUNA DA RECEITA (23/09/2026) -------------- */
 
-/* A receita sugerida entre o detalhe e o CTA: ilustração pequena à esquerda,
-   nome e números à direita. A ilustração aqui é um SELO (2,5rem) e não a
-   faixa do card — o herói já tem título, horário e alvo, e uma segunda faixa
-   de desenho empurraria o botão para fora da primeira dobra, que é
-   exatamente o que este cartão existe para evitar. */
-.agora__sugestao {
+/* A receita sugerida deixou de ser uma linha entre o detalhe e o CTA e virou
+   a COLUNA DO MEIO da faixa de três: medalhão redondo com a ilustração da
+   família, nome e tempo de preparo ao lado.
+
+   O medalhão é redondo, e ele é a única forma redonda desta tela — é o que
+   faz o olho ler "isto é a comida" antes de ler o nome. As onze ilustrações
+   de família são o que este app tem no lugar de foto: `catalog/ilustracoes.py`
+   registra a decisão, e o mockup do acabamento pedia uma fotografia que o
+   catálogo não tem campo para guardar. Um retângulo cinza esperando foto
+   seria o buraco que esta tela existe para não ter.
+
+   "Ver as duas opções" (um `.btn-link` solto) virou "Ver refeição", um
+   `btn--ghost` ao lado do primário na coluna de ações: com as duas ações numa
+   coluna própria, o contorno já diz que ela é a secundária, e um link de
+   texto ali ficaria com metade da altura do vizinho. */
+.agora__receita {
   display: flex;
   align-items: center;
   gap: var(--espaco-4);
-  margin: var(--espaco-4) 0;
   min-width: 0;
 }
-.agora__ilu { flex: none; color: var(--brand); }
-.agora__ilu svg { display: block; width: 3.4rem; height: 2.5rem; stroke-width: 1.6; }
-.agora__receita { min-width: 0; }
+.agora__medalhao {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 5.2rem;
+  height: 5.2rem;
+  color: var(--brand);
+  background: var(--surface-2);
+  border-radius: 50%;
+}
+.agora__medalhao svg { display: block; width: 3rem; height: 2.25rem; stroke-width: 1.6; }
+.agora__receita-nomes { display: grid; gap: var(--espaco-1); min-width: 0; }
 .agora__receita-nome { display: block; min-width: 0; overflow-wrap: anywhere; }
 .agora__receita-num { display: block; color: var(--text-dim); font-size: var(--texto-sm); }
-
-/* "Ver as duas opções" é a saída de quem quer comparar antes de decidir, e
-   por isso é link e não botão: dois botões no herói seriam duas ações com o
-   mesmo peso, e a ação do herói é uma só. */
-.agora__ver { display: inline-block; margin-top: var(--espaco-3); }
 
 /* --------------------------------------------------------------------------
    A PORTA DO CARD — o bloco de cima é um link para a receita
