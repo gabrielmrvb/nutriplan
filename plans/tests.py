@@ -26,7 +26,7 @@ from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
-from django.utils import timezone
+from django.utils import formats, timezone
 
 from accounts.models import (
     ONBOARDING_DONE,
@@ -3603,8 +3603,16 @@ class TituloDaTelaHojeTests(CatalogFixture):
     conforme a hora ("Almoço", "Peito e tríceps"). O documento começava no
     nível 2, e quem navega por títulos não tinha como saber onde estava.
 
-    Ele é invisível de propósito: a primeira dobra é exatamente o que o Hoje V2
-    liberou para a ação, e o nome da tela já está escrito na aba ativa.
+    ELE FOI INVISÍVEL ATÉ 23/09/2026, com a razão de que a primeira dobra é da
+    ação e o nome da tela está na aba acesa — e a aba acesa é um rótulo de
+    11px no rodapé. No acabamento da Home ele voltou a ser visível dizendo o
+    que esta tela sabe e as outras não: o DIA. "Seu dia, quarta-feira" é
+    título e data ao mesmo tempo, e a linha abaixo dá o dia do mês.
+
+    O que estes testes prendem é a PROPRIEDADE, não a frase: um `<h1>` só,
+    antes de qualquer `<h2>`, visível, com o dia da semana dentro dele e a
+    data por extenso logo abaixo. Esconder o título de novo, ou trocá-lo por
+    um "Hoje" fixo que não diz o dia, reprova aqui.
     """
 
     url = reverse("plans:today")
@@ -3620,10 +3628,32 @@ class TituloDaTelaHojeTests(CatalogFixture):
     def test_a_tela_tem_exatamente_um_h1(self):
         self.assertEqual(len(re.findall(r"<h1[ >]", self._html())), 1)
 
-    def test_o_h1_nomeia_a_tela(self):
-        achado = re.search(r"<h1[^>]*>(.*?)</h1>", self._html(), re.S)
+    def test_o_h1_nomeia_o_dia(self):
+        """O título diz QUE DIA é, e não só o nome da tela.
 
-        self.assertEqual(achado.group(1).strip(), "Hoje")
+        Ancorado no dia da semana que o servidor calcula, e não numa string
+        escrita à mão: um `<h1>` fixo ("Hoje", "Seu dia") passaria num teste
+        que só procurasse o começo da frase.
+        """
+        achado = re.search(r"<h1[^>]*>(.*?)</h1>", self._html(), re.S)
+        texto = re.sub(r"<[^>]+>", "", achado.group(1)).strip()
+        dia_da_semana = formats.date_format(timezone.localdate(), "l")
+
+        self.assertIn("Seu dia", texto)
+        self.assertIn(dia_da_semana, texto)
+
+    def test_a_data_por_extenso_vem_abaixo_do_titulo(self):
+        """O título diz o dia da semana; a linha de baixo, o dia do mês.
+
+        Sem ela "Seu dia, quarta-feira" é verdade em toda quarta-feira do ano
+        — e esta tela é o retrato de UM dia.
+        """
+        html = self._html()
+        hoje = timezone.localdate()
+        data = formats.date_format(hoje, r"j \d\e F \d\e Y").lower()
+
+        self.assertIn(data, html)
+        self.assertLess(html.index("<h1"), html.index(data))
 
     def test_nenhum_h2_aparece_antes_do_h1(self):
         """Pular de nível é o defeito que o `<h1>` veio corrigir.
@@ -3635,15 +3665,17 @@ class TituloDaTelaHojeTests(CatalogFixture):
 
         self.assertLess(html.index("<h1"), html.index("<h2"))
 
-    def test_o_titulo_nao_ocupa_espaco_na_tela(self):
-        """`.vis-oculto` é o utilitário que o app já usa para isto.
+    def test_o_titulo_e_visivel(self):
+        """O contrário do que este teste cobrava até 23/09/2026.
 
-        Se alguém tirar a classe, o "Hoje" vira uma faixa de texto empurrando a
-        ação para baixo — o oposto do que o Hoje V2 fez.
+        `.vis-oculto` escondia o `<h1>` para a primeira dobra ser toda da
+        ação. A tela passou a ter um cabeçalho de verdade, e um título
+        escondido ali deixaria a página abrindo direto num cartão verde, sem
+        nada dizendo de que dia ela fala.
         """
         achado = re.search(r"<h1[^>]*>", self._html())
 
-        self.assertIn("vis-oculto", achado.group(0))
+        self.assertNotIn("vis-oculto", achado.group(0))
 
 
 class EstadoVazioDaListaDeComprasTests(CatalogFixture):
@@ -5025,7 +5057,10 @@ class RegistroNaoEAderenciaTests(TestCase):
 
         html = self.client.get(reverse("plans:today")).content.decode()
 
-        self.assertIn("1/5 refeições · 1 fora", html)
+        # "1 de 5 registradas" desde 23/09/2026: o cartão passou a ter o
+        # denominador no cabeçalho ("5 refeições no cardápio") e a barra do
+        # "1/5" lia como fração de calorias ao lado do anel.
+        self.assertIn("1 de 5 registradas · 1 fora", html)
 
     def test_num_dia_limpo_a_linha_continua_a_de_sempre(self):
         """A informação a mais não pode virar ruído permanente: a primeira
@@ -5038,5 +5073,5 @@ class RegistroNaoEAderenciaTests(TestCase):
 
         html = self.client.get(reverse("plans:today")).content.decode()
 
-        self.assertIn("1/5 refeições", html)
+        self.assertIn("1 de 5 registradas", html)
         self.assertNotIn(" fora", html)

@@ -60,13 +60,16 @@ CARTOES_DE_TODOS = ("Alimentação", "Treino", "Hidratação")
 def cartoes(html):
     """Os rótulos dos cartões do painel, na ordem em que a tela os escreve.
 
-    O rótulo vem DEPOIS do `</svg>` do ícone: recortar `painel__rotulo">` até
-    `</h3>` cru traria o SVG inteiro junto, e a comparação passaria a medir
-    desenho.
+    O `<h3>` tem só o nome desde 23/09/2026: o ícone saiu de dentro dele e
+    virou irmão (`.painel__marca`), para o cabeçalho do cartão ser marca ·
+    nome · fato · selo. Até ali o recorte precisava pular o `</svg>` de
+    dentro do próprio título, e é o que esta função fazia — com a marca fora,
+    o mesmo `split` passava a pegar o SVG do cartão SEGUINTE e devolvia
+    markup inteiro no lugar do rótulo.
     """
     painel = html.split('class="painel"', 1)[1]
     return [
-        bloco.split("</svg>", 1)[1].split("</h3>", 1)[0].strip()
+        bloco.split("</h3>", 1)[0].strip()
         for bloco in painel.split('class="painel__rotulo">')[1:]
     ]
 
@@ -494,7 +497,9 @@ class OCartaoDaAreaTemAAcaoDoDiaTests(BaseDaHome):
 
         cartao = self._cartao(self.home(), "Treino")
 
-        self.assertIn("Descanso", cartao)
+        # "Dia de descanso" desde 23/09/2026: "Descanso" sozinho, no degrau
+        # de número grande, lia como métrica do dia.
+        self.assertIn("Dia de descanso", cartao)
         self.assertIn("amanhã", cartao)
 
     def test_corrida_mostra_a_ultima_e_a_porta(self):

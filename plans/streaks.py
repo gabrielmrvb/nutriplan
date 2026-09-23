@@ -96,6 +96,100 @@ class Dia:
         return faltando
 
 
+#: As letras de segunda a domingo, na convenção que o app já usa nas telas de
+#: treino. Elas REPETEM (S de segunda e de sábado, Q de quarta e de quinta) e
+#: por isso a letra é decoração: quem ouve a tela recebe `nome`, que é o dia
+#: por extenso com a data.
+LETRAS_DA_SEMANA = ("S", "T", "Q", "Q", "S", "S", "D")
+NOMES_DA_SEMANA = (
+    "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira",
+    "sexta-feira", "sábado", "domingo",
+)
+
+
+@dataclass
+class DiaDaSemana:
+    """Um dos sete dias da semana em que hoje cai, pronto para desenhar.
+
+    A MESMA leitura serve a DUAS tiras de sete pontos — a faixa da ofensiva
+    ("o dia fechou?") e o cartão de Treino ("havia treino, e foi feito?") —, e
+    é por isso que ela mora aqui e não em cada uma: as duas perguntas são
+    sobre os mesmos dias, e responder cada uma no seu canto era a garantia de
+    que um dia elas discordariam na virada da meia-noite.
+
+    Custo: ZERO consulta. `calcular` já leu o histórico inteiro para a
+    sequência e para o recorde; estes sete dias saem da mesma leitura.
+    """
+
+    data: object
+    dia: object
+    letra: str
+    nome: str
+    hoje: bool
+    futuro: bool
+    antes_da_conta: bool
+
+    @property
+    def estado(self) -> str:
+        """Para a faixa da OFENSIVA: o dia fechou?
+
+        Quatro estados, e nenhum deles é só uma cor na tela — a faixa desenha
+        preenchido, anel, vazado e risca (ver `_pontos_da_semana.html`).
+        """
+        if self.antes_da_conta:
+            return "antes"
+        if self.futuro:
+            return "futuro"
+        if self.dia.completo:
+            return "fechado"
+        return "aberto"
+
+    @property
+    def estado_do_treino(self) -> str:
+        """Para o cartão de TREINO: havia treino previsto, e ele foi feito?
+
+        HOJE com treino previsto e nenhuma série ainda é `previsto`, e nunca
+        `faltou`: o dia não acabou, e um app que marca falta às sete da manhã
+        está cobrando por acordar cedo — a mesma regra que a ofensiva aplica
+        ao não deixar hoje quebrar a sequência.
+        """
+        if self.antes_da_conta or not self.dia.treino_previsto:
+            return "descanso"
+        if self.dia.treino:
+            return "feito"
+        if self.futuro or self.hoje:
+            return "previsto"
+        return "faltou"
+
+    @property
+    def legenda(self) -> str:
+        """O dia por extenso e o que ele diz — o texto de quem ouve a tela."""
+        quando = "%s, %s" % (self.nome, self.data.strftime("%d/%m"))
+        return "%s: %s" % (quando, LEGENDA_DO_ESTADO[self.estado])
+
+    @property
+    def legenda_do_treino(self) -> str:
+        quando = "%s, %s" % (self.nome, self.data.strftime("%d/%m"))
+        return "%s: %s" % (quando, LEGENDA_DO_TREINO[self.estado_do_treino])
+
+
+#: O que cada estado QUER DIZER, em palavras. É o que a tela de leitura
+#: anuncia, e é por isso que ele mora ao lado da regra: um ponto verde sem
+#: legenda é uma informação que só existe para quem enxerga.
+LEGENDA_DO_ESTADO = {
+    "fechado": "dia fechado",
+    "aberto": "dia não fechado",
+    "futuro": "ainda não chegou",
+    "antes": "antes do seu cadastro",
+}
+LEGENDA_DO_TREINO = {
+    "feito": "treino registrado",
+    "previsto": "treino previsto",
+    "faltou": "treino previsto, sem registro",
+    "descanso": "dia de descanso",
+}
+
+
 @dataclass
 class Ofensiva:
     dias: int
@@ -110,6 +204,9 @@ class Ofensiva:
     #: "comece hoje" para quem já vinha usando (achado #11 das personas).
     #: `None` quando ontem não conta — primeiro dia de uso.
     falta_ontem: list = None
+    #: Os sete dias da semana em que hoje cai (segunda a domingo), para as
+    #: duas tiras de pontos. Lista de `DiaDaSemana`.
+    semana: list = None
 
     @property
     def em_risco(self) -> bool:
@@ -363,6 +460,7 @@ def calcular(user, hoje=None, meta_agua_ml=None, *, ja_lido=None) -> Ofensiva:
         falta_ontem = avaliar(ontem).pendencias
 
     return Ofensiva(
+        semana=_semana_de(hoje, avaliar, limite),
         dias=sequencia,
         recorde=max(sequencia, _recorde(user, hoje, previstos, treinou, dieta_ok,
                                         agua_ok, meta_agua_ml, limite)),
@@ -371,6 +469,36 @@ def calcular(user, hoje=None, meta_agua_ml=None, *, ja_lido=None) -> Ofensiva:
         ultimo_dia=ultimo,
         falta_ontem=falta_ontem,
     )
+
+
+def _semana_de(hoje, avaliar, limite) -> list:
+    """Os sete dias da semana em que hoje cai, de segunda a domingo.
+
+    Segunda a domingo, e não "os últimos sete dias": a tira responde "como
+    está a MINHA semana", que é a pergunta que alguém faz na quarta olhando
+    para sexta — e uma janela deslizante não tem sexta.
+
+    `avaliar` é o fechamento que `calcular` já montou sobre o histórico lido:
+    sete chamadas, zero consultas. O dia FUTURO também é avaliado, e só o
+    `treino_previsto` dele é lido — é o que permite a tira do treino mostrar
+    o que ainda vem na semana sem afirmar nada sobre o que não aconteceu.
+    """
+    segunda = hoje - timedelta(days=hoje.weekday())
+    dias = []
+    for passo in range(7):
+        data = segunda + timedelta(days=passo)
+        dias.append(
+            DiaDaSemana(
+                data=data,
+                dia=avaliar(data),
+                letra=LETRAS_DA_SEMANA[passo],
+                nome=NOMES_DA_SEMANA[passo],
+                hoje=data == hoje,
+                futuro=data > hoje,
+                antes_da_conta=data < limite,
+            )
+        )
+    return dias
 
 
 def _tem_plano(user) -> bool:

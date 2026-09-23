@@ -20,19 +20,31 @@
   número, porque a célula tem ~167px a 390px e "garrafinha" não cabe. O nome
   de cada passo continua para quem ouve a tela, em `vis-oculto`.
 {% endcomment %}
-<section class="painel__cartao agua-card{% if largo %} painel__cartao--largo{% endif %}{% if principal %} is-prioritario{% endif %}" id="hidratacao">
-  {% if principal %}<p class="painel__selo"><span class="pill pill--brand">sua área</span></p>{% endif %}
+<section class="painel__cartao agua-card painel__cartao--{{ largura }}{% if largo %} painel__cartao--largo{% endif %}{% if principal %} is-prioritario{% endif %}" id="hidratacao">
   <div class="agua" data-agua data-agua-meta="{{ hidratacao_ml }}">
-    <h3 class="painel__rotulo">
-      <svg class="painel__icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 3.5c3 3.6 5.5 6.3 5.5 9.4a5.5 5.5 0 0 1-11 0c0-3.1 2.5-5.8 5.5-9.4Z"/>
-      </svg>
-      Hidratação
-    </h3>
+    {% comment %}
+      O CABEÇALHO É O MESMO DOS OUTROS QUATRO CARTÕES (23/09/2026): marca,
+      nome e um fato de contexto. O fato aqui é a META — e é por isso que ela
+      saiu de dentro do número grande, que dizia "1250 / 3000 ml" e repetia o
+      denominador ao lado da porcentagem.
+    {% endcomment %}
+    <header class="painel__topo">
+      <span class="painel__marca" aria-hidden="true">
+        <svg class="painel__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3.5c3 3.6 5.5 6.3 5.5 9.4a5.5 5.5 0 0 1-11 0c0-3.1 2.5-5.8 5.5-9.4Z"/>
+        </svg>
+      </span>
+      <span class="painel__nomes">
+        <h3 class="painel__rotulo">Hidratação</h3>
+        <p class="painel__sub num">Meta de {{ hidratacao_ml }} ml</p>
+      </span>
+      {% if principal %}<span class="pill pill--brand painel__selo">sua área</span>{% endif %}
+    </header>
 
-    <p class="painel__valor num">
-      <b data-agua-total>{{ hidratacao_bebida }}</b><span class="painel__de"> / {{ hidratacao_ml }} ml</span>
+    <p class="painel__valor num agua__total">
+      <b data-agua-total>{{ hidratacao_bebida }}</b><span class="painel__de"> ml</span>
+      <span class="agua__pct num">{{ hidratacao_pct }}%</span>
     </p>
 
     <div class="progress {% if agua_completa %}progress--completo{% endif %}"
@@ -94,7 +106,7 @@
       </form>
     {% endif %}
     <p class="painel__rodape">
-      <a class="btn btn--quiet btn--sm btn--block" href="{% url 'plans:hydration' %}">Ver hidratação</a>
+      <a class="btn btn--quiet btn--sm btn--block" href="{% url 'plans:hydration' %}">Ver hidratação<span class="painel__seta" aria-hidden="true">→</span></a>
     </p>
   </div>
 </section>

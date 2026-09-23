@@ -1,0 +1,23 @@
+{% load i18n %}
+{% comment %}
+  A LINHA FINA — a tendência de uma série, em quatro elementos (23/09/2026).
+
+  Dois cartões da Home a desenham: os quilômetros por semana e o peso das
+  últimas pesagens. O desenho é o mesmo, e a REGRA também: quem decide se ela
+  existe é `plans/sparkline.py`, com três pontos de mínimo. Abaixo disso o
+  cartão não inclui este parcial — e não desenha uma caixa vazia no lugar,
+  que é o buraco que a auditoria de 22/09 aponta em cartão sem dado.
+
+  Ela NÃO é decoração: cada vértice é uma medida real, e o `aria-label` diz em
+  palavras o que a linha diz em desenho — quem ouve a tela recebe a mesma
+  informação, com os extremos da série.
+
+  `preserveAspectRatio` fica no padrão: esticar o `viewBox` acharia o círculo
+  da ponta numa elipse e afinaria o traço na horizontal.
+{% endcomment %}
+<svg class="linha-fina {{ classe }}" viewBox="0 0 {{ linha.largura }} {{ linha.altura }}"
+     role="img" aria-label="{{ rotulo }}: de {{ linha.minimo|floatformat:1 }} a {{ linha.maximo|floatformat:1 }}"
+     fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+  <polyline class="linha-fina__traco" points="{{ linha.pontos }}"/>
+  <circle class="linha-fina__ponta" cx="{{ linha.fim_x }}" cy="{{ linha.fim_y }}" r="3"/>
+</svg>

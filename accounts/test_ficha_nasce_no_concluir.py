@@ -123,7 +123,9 @@ class FichaNasceNoConcluirTests(TestCase):
         # área promovida, que saiu em 22/09/2026 — e ela não dizia QUANDO o
         # treino volta, que é a pergunta real de quem lê isso.
         home = self.client.get(reverse("plans:today"))
-        self.assertContains(home, "Descanso")
+        # "Dia de descanso" desde 23/09/2026: "Descanso" sozinho, no degrau de
+        # número grande do cartão, lia como métrica do dia.
+        self.assertContains(home, "Dia de descanso")
         self.assertNotContains(home, "Sem ficha")
 
     def test_controle_a_home_continua_sem_poder_de_criar_ficha(self):

@@ -293,8 +293,12 @@ compras é feita deles).
   conferir — é o mesmo motivo que fez a expansão de exercícios de 10/09
   voltar atrás. O mosaico de veto é a **vitrine** (`/gestao/vitrine/`), que é
   também o que satisfaz `CoberturaDaVitrineTests` para essa parcial. O
-  sprite NÃO entra na `base.html`: é conteúdo de duas telas, e a Hoje não tem
-  por que pagar 7,8 kB.
+  sprite NÃO entra na `base.html`: é conteúdo de duas telas. A Hoje passou a
+  incluí-lo em 23/09/2026 — o herói dela desenha a receita da vez —, e
+  **só quando há receita no herói** (`{% if acao.tipo == 'refeicao' and
+  acao.slot.opcoes_do_dia.0 %}`): num dia sem refeição pendente ele não é
+  emitido, e doze desenhos para usar UM seria o oposto do que um sprite
+  existe para fazer.
 - **O TOPO CONTA O DIA, E NÃO O ZERO.** Sem marcação, o anel mostra a META e
   o plano ("o seu dia em 5 refeições · 148 g de proteína") e a legenda dos
   macros mostra o alvo; da primeira marcação em diante volta o par
@@ -326,6 +330,99 @@ compras é feita deles).
   visíveis com desenho, macros e ingredientes (802 px), o anel (268) e o
   cartão AGORA com a receita (271) — somam ~1.400 px sozinhos. Chegar a 1.500
   exige desfazer um deles, e isso é decisão de produto.
+
+**O ACABAMENTO DA HOME (23/09/2026): cabeçalho com o DIA, herói de três
+colunas que REGISTRA, grade de três mais a sobra, e duas leituras que não
+inventam nada.** A campanha saiu de um mockup de referência
+(`achados/mockup-home.png`) e o que entrou dele foi a COMPOSIÇÃO; o que ficou
+de fora está escrito abaixo, item a item.
+
+- **O `<h1>` voltou a ser visível, e ele diz o DIA.** Era `vis-oculto` desde
+  22/09 com a razão de que "a primeira dobra é do cartão AGORA e o nome da
+  tela está na aba acesa" — e a aba acesa é um rótulo de 11 px no rodapé.
+  Hoje é "Seu dia, quarta-feira" com a data por extenso abaixo: título e
+  data na mesma peça, e o que esta tela sabe e as outras não. Ele leva a
+  classe `page-head`, então herda a NERVURA de todo título de tela — e o
+  respiro dela é MEDIDO: 100 px × sen 14° ≈ 24 px, mais os 8 do `gap`, senão
+  a régua risca o selo "Visão geral" (aconteceu na rodada 1).
+- **O HERÓI REGISTRA TAMBÉM NA HOME.** Até aqui `sugestao` era exclusividade
+  da tela de Alimentação e a Home incluía o mesmo parcial sem ela — "o
+  cartão é um PONTEIRO". A razão antiga continua valendo e é por isso que a
+  decisão mudou: o herói oferece UMA opção (a primeira da projeção, a mesma
+  que o card marca como recomendada) e não duas — a ESCOLHA continua morando
+  na Alimentação, a um toque de "Ver refeição". E "Comi esta" devolve para a
+  HOME: `MarkMealView.DESTINOS` é a lista fechada que traduz o `de` do
+  formulário, a mesma mecânica de `LogHydrationView` e pelo mesmo motivo
+  (`?next=` livre é redirecionamento aberto). Sem ela, medido no navegador,
+  registrar na primeira dobra trocava a pessoa de tela.
+- **NENHUMA FRASE DE ÂNIMO.** O mockup punha uma linha de efeito ao lado de
+  cada número ("Consistência é tudo", "Mova seu corpo", "Um dia de cada
+  vez", "DISCIPLINA · HOJE CONSTRÓI UM AMANHÃ MELHOR"). O que entrou naquele
+  lugar foi o FATO que contextualiza o número: "5 refeições no cardápio",
+  "Meta de 3.000 ml", "5 treinos por semana", "4 corridas em 8 semanas",
+  "Últimas 6 pesagens". `test_nenhuma_frase_de_animo_entrou_com_o_acabamento`
+  é a régua, e ela existe para a próxima rodada de polimento não trazê-las
+  de volta. Os "···" do mockup também não entraram: menu sem função é
+  promessa.
+- **A GRADE É DE SEIS COLUNAS, e quem reparte é o servidor**
+  (`plans.views.larguras_do_desktop`): linhas de TRÊS enquanto sobrarem mais
+  de quatro cartões, e a última linha divide a largura entre os que restam —
+  5 viram 3 + 2, 4 viram 2 + 2, 3 viram 3. A versão anterior dava UMA coluna
+  por cartão (`repeat(var(--cartoes), 1fr)`) e cinco cartões viravam cinco
+  colunas de 238 px. `grid-auto-rows: 1fr` SAIU: ele igualava TODAS as
+  linhas entre si, e a de baixo herdava a altura da de cima (200 px de vazio
+  entre o número e o botão do Progresso). O que a doutrina do peso igual
+  pede é igualdade DENTRO da linha, e isso o `stretch` do grid já faz. No
+  celular continua 2 × 2 + 1, com o `largo` do servidor.
+- **GRÁFICO NÃO É ENFEITE: três pontos de dado real, ou nenhum desenho.**
+  `plans/sparkline.py` é puro (`MINIMO_DE_PONTOS = 3`) e alimenta as duas
+  linhas finas — quilômetros por semana e peso —, as duas com ZERO consulta
+  nova: as corridas já vêm da leitura única da ofensiva e as pesagens do
+  cálculo da meta. Para a CORRIDA a régua conta SEMANAS COM CORRIDA e não os
+  baldes: `semanas_com_km` devolve oito números sempre (a semana vazia é um
+  zero de verdade — omiti-la desenharia quatro corridas espalhadas em dois
+  meses como quatro semanas seguidas), então sem essa trava uma corrida só
+  virava uma reta no chão com um pico no fim. E o lugar do gráfico não fica
+  VAZIO quando ele não cabe: a tela diz o que o destrava ("A curva aparece na
+  3ª pesagem").
+- **AS COORDENADAS DO SVG SÃO TEXTO, e isso é um defeito medido.** O app é
+  pt-BR com `USE_L10N`: um `float` no template sai com VÍRGULA, `cx="120,0"`
+  é inválido, e o SVG descarta o atributo em silêncio — o círculo da ponta
+  ia para a origem do `viewBox`, longe da linha (visto na captura da rodada
+  1). O `points` do `<polyline>` nunca teve o problema porque já era uma
+  string montada em Python.
+- **A SEMANA É UMA LEITURA, DESENHADA DUAS VEZES.** `streaks.Ofensiva.semana`
+  são sete `DiaDaSemana` (segunda a domingo, e não "os últimos sete dias":
+  a tira responde "como está a MINHA semana", e uma janela deslizante não tem
+  sexta), calculados dentro de `calcular` sobre o histórico que a sequência já
+  leu — sete chamadas, zero consultas. A faixa da ofensiva pergunta "o dia
+  fechou?" e o cartão de Treino, "havia treino, e foi feito?";
+  `plans/_pontos_da_semana.html` é o mesmo parcial com `modo`. HOJE com
+  treino previsto e nenhuma série é `previsto`, nunca `faltou` — o dia não
+  acabou, a mesma regra que impede hoje de quebrar a sequência. E o ESTADO
+  NÃO É SÓ COR: disco cheio, anel, risca e ponto pequeno são quatro formas,
+  com o dia por extenso e o estado por escrito em `vis-oculto` ao lado.
+- **A Hoje é a única tela com 72rem** (`hoje-largo`, acima de 75rem). O
+  `largo` de 64rem serve a tela de leitura, com uma coluna de texto; a Hoje é
+  uma grade de cinco cartões e um herói de três colunas, e a 64rem o cartão
+  de um terço fica com 305 px. Mexer no `largo` moveria Alimentação, Treino e
+  Progresso de uma vez.
+- **O contorno de fio do cartão do painel**, que o `.card` não tem. "A
+  superfície é o que separa" vale no Ferro, onde `--surface` está três
+  degraus acima de `--bg`; no PAPEL os dois quase empatam e os cinco cartões
+  liam como um bloco só (captura da rodada 2, tema claro). 1 px de `--fio`, e
+  não `--traco` (2 px), que é o contorno de CONTROLE — um cartão com a borda
+  de um botão convida ao toque.
+- **O que do mockup NÃO entrou, e por quê:** a FOTO da receita no herói (o
+  catálogo não tem campo de imagem — `catalog/ilustracoes.py`, decisão de
+  23/09/2026 —, e o que entrou foi o medalhão redondo com a ilustração da
+  família, que é o que o app tem de mais próximo de "que comida é essa"); a
+  QUINA ARREDONDADA dos cartões (a NERVURA tem os três slots de quina em
+  ZERO, é direção publicada em `DESIGN.md`, e mudá-la é decisão do dono);
+  "Marcar como concluída" ao lado de "Ver refeição" (é o MESMO registro com
+  outro nome, e dois verbos para uma ação é a dúvida que a pessoa resolve não
+  tocando em nenhum); e os links legais no rodapé, que na Home logada não
+  existem.
 
 **Quem não declarou nada vê a Home de antes da campanha** — sem selo, sem cartão
 de área, na ordem canônica. E ela não infere área de histórico, peso, treino,

@@ -6,6 +6,12 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-23
 
+- **A tela Hoje tem um título, e ele diz o dia.** "Seu dia, quarta-feira", com a data por extenso logo abaixo. Antes a tela abria direto no cartão verde.
+- **O cartão do topo registra a refeição sem sair da Hoje.** "Comi esta" ao lado de "Ver refeição", com o desenho da receita, as calorias e a proteína do que você vai registrar — e você continua na mesma tela depois de tocar.
+- **A semana aparece em sete pontos, no cartão de Treino e na faixa da ofensiva.** No Treino eles dizem em que dias há treino e quais já foram feitos; na ofensiva, quais dias fecharam. O dia de hoje vem marcado, e cada ponto tem o dia por extenso para quem usa leitor de tela.
+- **Corrida e Progresso ganharam a linha da tendência.** A quilometragem das últimas oito semanas e a curva do peso, dentro do próprio cartão. Ela só aparece com três medidas de verdade: com menos que isso o cartão diz o que falta ("A curva aparece na 3ª pesagem") em vez de desenhar um gráfico que não tem o que mostrar.
+- **Cada cartão do resumo diz do que está falando.** "5 refeições no cardápio", "Meta de 3.000 ml", "5 treinos por semana", "4 corridas em 8 semanas" — o fato que dá contexto ao número grande.
+- **No computador o resumo virou três cartões em cima e dois embaixo**, mais largos e com mais respiro. No celular continua dois a dois.
 - **Uma refeição agora parece uma refeição.** Cada horário mostra as DUAS opções do dia, sempre, como dois cartões de receita: desenho do prato, nome, calorias, os três macros (proteína, carboidrato e gordura), o tempo de preparo e os ingredientes com a quantidade numa linha — "2 unidades de pão francês · 3 ovos médios · 3 fatias de queijo". Antes era o nome, a caloria e um "Ver opções" que abria duas linhas de texto.
 - **O botão diz "Comi esta", e não "Registrar A".** A letra era um nome interno. O verde fica só na sugestão do dia; a outra opção tem o mesmo botão em contorno.
 - **"Pulei" e "Comi outra coisa" saíram da frente.** Eram dois botões do tamanho do registrar, cinco vezes por dia; agora são uma linha discreta no rodapé do cartão. As duas continuam fazendo exatamente o que faziam.

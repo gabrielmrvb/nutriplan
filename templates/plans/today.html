@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% comment %}
-  A TELA HOJE — o ORQUESTRADOR DO DIA (22/09/2026).
+  A TELA HOJE — o ORQUESTRADOR DO DIA (22/09/2026; acabamento em 23/09/2026).
 
   O QUE ELA ERA, medido em produção a 390px: 3.170px de altura, abrindo com o
   hero verde de uma refeição, seguido do anel de calorias e de cinco cartões
@@ -14,15 +14,21 @@
 
   O QUE ELA É AGORA, na ordem em que a pessoa lê:
 
-    1. o cartão AGORA — UMA ação, escolhida por hora do dia e prioridade
-       (`plans.agora.proxima_acao`, função pura);
-    2. o PAINEL DO DIA — quatro cartões de peso visual igual (Alimentação,
-       Treino, Hidratação e Corrida), grade 2×2 no celular e 4 colunas no
-       desktop. Cada um tem rótulo, número grande, uma linha de detalhe e uma
-       ação. Nenhum é "o principal" por desenho: o da área que a pessoa
-       elegeu vem primeiro e leva o selo;
-    3. a OFENSIVA, por último, e nunca abrindo com o que faltou;
-    4. os avisos que pedem decisão (regenerar a ficha, pesagem da semana).
+    1. o CABEÇALHO — o nome do dia e a data por extenso. Ele nasceu em
+       23/09/2026 com o acabamento: o `<h1>` era `vis-oculto` e a tela abria
+       sem nenhuma âncora visual acima do cartão verde;
+    2. o cartão AGORA — UMA ação, escolhida por hora do dia e prioridade
+       (`plans.agora.proxima_acao`, função pura). No desktop ele é uma FAIXA
+       de três colunas: o que é, que receita é, e o que fazer;
+    3. o PAINEL DO DIA — cinco cartões de peso visual igual (Alimentação,
+       Treino, Hidratação e, para quem declarou, Corrida e Progresso), em
+       linhas de três com a sobra dividida (`larguras_do_desktop`). Cada um
+       tem marca, nome, um fato de contexto, o número do dia e uma ação.
+       Nenhum é "o principal" por desenho: o da área que a pessoa elegeu vem
+       primeiro e leva o selo;
+    4. a OFENSIVA, por último, com a semana em sete pontos, e nunca abrindo
+       com o que faltou;
+    5. os avisos que pedem decisão (regenerar a ficha, pesagem da semana).
 
   O que saiu daqui e foi para `/alimentacao/`: o anel de calorias inteiro, os
   cinco cartões de refeição, as explicações do cálculo e os lembretes de
@@ -33,151 +39,253 @@
   onde se decide o que fazer, e cada linha de explicação empurra a decisão
   para baixo da dobra. Quem quiser a conta abre `/alimentacao/`, onde ela
   mora atrás de um `<details>`.
+
+  TODA FRASE DESTA TELA É UM FATO. O acabamento de 23/09 veio de um mockup que
+  trazia, ao lado de cada número, uma linha de ânimo — "Consistência é tudo",
+  "Mova seu corpo", "Um dia de cada vez", "DISCIPLINA · HOJE CONSTRÓI UM
+  AMANHÃ MELHOR". Nenhuma entrou: o lugar onde o mockup põe uma frase de
+  efeito é o lugar onde esta tela põe o fato que contextualiza o número ("5
+  refeições no plano", "4 treinos por semana", "4 corridas em 8 semanas").
 {% endcomment %}
 
 {% block title %}Hoje · NutriPlan{% endblock %}
 
-{% block container_class %}largo{% endblock %}
+{% comment %}
+  `hoje-largo` alarga SÓ esta tela acima de 75rem (ver seção 51 do CSS). O
+  `largo` de 64rem é o padrão das telas de conteúdo, e mexer nele moveria
+  Alimentação, Treino e Progresso de uma vez.
+{% endcomment %}
+{% block container_class %}largo hoje-largo{% endblock %}
 
 {% block content %}
   {% comment %}
-    O `<h1>` continua oculto: a primeira dobra é do cartão AGORA e o nome da
-    tela está na aba acesa. Quem navega por títulos ganha o marco.
+    O CABEÇALHO DA TELA. O `<h1>` era `vis-oculto` desde o redesenho de 22/09,
+    com a razão de que "a primeira dobra é do cartão AGORA e o nome da tela
+    está na aba acesa" — e a aba acesa é um rótulo de 11px no rodapé.
+
+    Ele volta a ser visível dizendo o que a tela sabe: o DIA. "Seu dia,
+    quarta-feira" é o título da página e a data ao mesmo tempo; a linha de
+    baixo completa com o dia do mês. Quem navega por títulos continua ganhando
+    o marco, agora com o mesmo texto que quem enxerga.
   {% endcomment %}
-  <h1 class="vis-oculto">Hoje</h1>
+  <header class="page-head hoje-head">
+    <p class="hoje-head__selo"><span class="pill pill--brand">Visão geral</span></p>
+    <h1 class="hoje-head__titulo">Seu dia, <span class="hoje-head__destaque">{{ today|date:"l" }}</span></h1>
+    {% comment %}
+      `|lower` porque o catálogo pt-BR do Django escreve o mês com maiúscula
+      ("23 de Setembro de 2026") e em português ele é nome comum.
+    {% endcomment %}
+    <p class="hoje-head__data">{{ today|date:"j \d\e F \d\e Y"|lower }}</p>
+  </header>
 
   <div class="stack hoje">
 
-    {% include "plans/_agora.html" %}
+    {% comment %}
+      O HERÓI REGISTRA A REFEIÇÃO DA VEZ TAMBÉM NA HOME (23/09/2026).
+
+      Até aqui `sugestao` era exclusividade da tela de Alimentação, e a Home
+      incluía o mesmo parcial sem ela — o cartão era um PONTEIRO, com a razão
+      escrita de que "registrar comida a partir da Home colocaria a escolha
+      entre duas receitas dentro da tela que existe para não ter escolha
+      nenhuma".
+
+      A escolha continua não estando aqui, e é por isso que a decisão mudou: o
+      herói não oferece duas opções, oferece UMA — a primeira da projeção do
+      dia, a mesma que o card marca como recomendada — e mantém "Ver refeição"
+      ao lado para quem quer comparar. Quem só quer dizer "comi" resolve na
+      primeira dobra; quem quer escolher continua a um toque da tela que tem a
+      escolha.
+    {% endcomment %}
+    {% comment %}
+      O SPRITE DAS ILUSTRAÇÕES entra aqui, e SÓ quando o herói mostra uma
+      receita — ele tem 12 desenhos e a Home usa UM. A tela de Alimentação o
+      inclui incondicionalmente porque ali todos os doze podem aparecer (os
+      cards das cinco refeições); aqui, num dia sem refeição pendente, o
+      `<use>` não existe e o sprite não é emitido.
+    {% endcomment %}
+    {% if acao.tipo == 'refeicao' and acao.slot.opcoes_do_dia.0 %}
+      {% include "partials/ilustracoes_de_receita.html" %}
+    {% endif %}
+    {% include "plans/_agora.html" with sugestao=acao.slot.opcoes_do_dia.0 volta="hoje" %}
 
     {% comment %}
       O PAINEL DO DIA.
 
-      Quatro cartões, um por área que tem número do dia — e Progresso não
-      está entre eles de propósito: ele é a tela de VER, não de fazer, e tem
-      aba própria. Corrida só aparece para quem declarou que corre; sem ela a
-      grade fecha em três, e não fica um buraco.
-
-      A ordem é a canônica (Alimentação · Treino · Hidratação · Corrida), e a
-      área principal da pessoa vem PRIMEIRO — a mesma regra de antes
-      ("interesse organiza, não restringe"), agora dentro de uma grade em vez
-      de mover seções de meia tela. Nenhuma área some por não ter sido
-      escolhida.
+      Cinco cartões, um por área que tem número do dia. A ordem é a canônica
+      (Alimentação · Treino · Hidratação · Corrida · Progresso), e a área
+      principal da pessoa vem PRIMEIRO — a mesma regra de sempre ("interesse
+      organiza, não restringe"). Corrida e Progresso só aparecem para quem
+      declarou as áreas; sem elas a grade fecha em três, e não fica um buraco.
 
       A lista vem do servidor (`painel`, em `plans/views.py`) e não de `{% if %}`
       espalhados: a ordem é decisão de produto e precisa de um lugar só, que
-      o teste consiga ler.
+      o teste consiga ler. `cartao.largura` é a mesma ideia para o DESKTOP —
+      quanto de uma grade de seis colunas cada um ocupa.
     {% endcomment %}
-    <section class="painel" aria-label="Seu dia" style="--cartoes: {{ painel|length }}">
-      <h2 class="vis-oculto">Resumo do dia</h2>
+    <section class="painel-bloco" aria-labelledby="resumo-do-dia">
+      <h2 class="secao__titulo" id="resumo-do-dia">Seu resumo de hoje</h2>
+      <div class="painel">
       {% for cartao in painel %}
         {% if cartao.chave == "dieta" %}
 
-          <section class="painel__cartao{% if cartao.largo %} painel__cartao--largo{% endif %}{% if area_promovida == 'dieta' %} is-prioritario{% endif %}">
-            {% if area_promovida == 'dieta' %}<p class="painel__selo"><span class="pill pill--brand">sua área</span></p>{% endif %}
-            <h3 class="painel__rotulo">
-              <svg class="painel__icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 3v8a3 3 0 0 0 6 0V3"/><path d="M9 11v10"/>
-                <path d="M17.5 3c-1.5 2-2 4-2 6.5 0 1.5.8 2.5 2 2.5s2-1 2-2.5c0-2.5-.5-4.5-2-6.5Z"/>
-                <path d="M17.5 12v9"/>
-              </svg>
-              Alimentação
-            </h3>
+          <section class="painel__cartao painel__cartao--{{ cartao.largura }}{% if cartao.largo %} painel__cartao--largo{% endif %}{% if area_promovida == 'dieta' %} is-prioritario{% endif %}">
+            <header class="painel__topo">
+              <span class="painel__marca" aria-hidden="true">
+                <svg class="painel__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 3v8a3 3 0 0 0 6 0V3"/><path d="M9 11v10"/>
+                  <path d="M17.5 3c-1.5 2-2 4-2 6.5 0 1.5.8 2.5 2 2.5s2-1 2-2.5c0-2.5-.5-4.5-2-6.5Z"/>
+                  <path d="M17.5 12v9"/>
+                </svg>
+              </span>
+              <span class="painel__nomes">
+                <h3 class="painel__rotulo">Alimentação</h3>
+                <p class="painel__sub num">{{ summary.previstas }} refeiç{{ summary.previstas|pluralize:"ão,ões" }} no cardápio</p>
+              </span>
+              {% if area_promovida == 'dieta' %}<span class="pill pill--brand painel__selo">sua área</span>{% endif %}
+            </header>
             {% comment %}
               O anel COMPACTO: o mesmo `--pct` do anel grande da tela de
-              Alimentação, com 76px em vez de 160. Ele é a única imagem da
-              grade porque caloria é o número que a pessoa compara o dia
-              inteiro; o resto dos cartões é número, linha e barra.
+              Alimentação, menor. Ele é a única imagem da grade que não é uma
+              linha, porque caloria é o número que a pessoa compara o dia
+              inteiro; ao lado dele ficam os dois fatos que o anel não diz.
             {% endcomment %}
-            <div class="ring ring--mini" style="--pct: {{ summary.progress_pct }}"
-                 role="img" aria-label="{{ summary.consumed_kcal }} de {{ summary.target_kcal }} kcal">
-              <span class="ring__inner">
-                <strong class="ring__value num">{{ summary.consumed_kcal }}</strong>
-              </span>
+            <div class="painel__corpo painel__corpo--anel">
+              <div class="ring ring--mini" style="--pct: {{ summary.progress_pct }}"
+                   role="img" aria-label="{{ summary.consumed_kcal }} de {{ summary.target_kcal }} kcal">
+                <span class="ring__inner">
+                  <strong class="ring__value num">{{ summary.consumed_kcal }}</strong>
+                  <span class="ring__unit">kcal</span>
+                </span>
+              </div>
+              <p class="painel__fatos">
+                <span class="num">de {{ summary.target_kcal }} kcal</span>
+                <span class="num">{{ summary.no_plano }} de {{ summary.previstas }} registradas{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}</span>
+              </p>
             </div>
-            <p class="painel__detalhe num">
-              de {{ summary.target_kcal }} kcal · {{ summary.no_plano }}/{{ summary.previstas }} refeições{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}
-            </p>
             <p class="painel__rodape">
-              <a class="btn btn--quiet btn--sm btn--block" href="{% url 'plans:alimentacao' %}">Ver cardápio</a>
+              <a class="btn btn--quiet btn--sm btn--block" href="{% url 'plans:alimentacao' %}">Ver cardápio<span class="painel__seta" aria-hidden="true">→</span></a>
             </p>
           </section>
 
         {% elif cartao.chave == "treino" %}
 
-          <section class="painel__cartao{% if cartao.largo %} painel__cartao--largo{% endif %}{% if area_promovida == 'treino' %} is-prioritario{% endif %}">
-            {% if area_promovida == 'treino' %}<p class="painel__selo"><span class="pill pill--brand">sua área</span></p>{% endif %}
-            <h3 class="painel__rotulo">
-              <svg class="painel__icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 9v6"/><path d="M6 6.5v11"/><path d="M18 6.5v11"/><path d="M21 9v6"/><path d="M6 12h12"/>
-              </svg>
-              Treino
-            </h3>
-            {% if treino_hoje.tem_treino %}
+          <section class="painel__cartao painel__cartao--{{ cartao.largura }}{% if cartao.largo %} painel__cartao--largo{% endif %}{% if area_promovida == 'treino' %} is-prioritario{% endif %}">
+            <header class="painel__topo">
+              <span class="painel__marca" aria-hidden="true">
+                <svg class="painel__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 9v6"/><path d="M6 6.5v11"/><path d="M18 6.5v11"/><path d="M21 9v6"/><path d="M6 12h12"/>
+                </svg>
+              </span>
+              <span class="painel__nomes">
+                <h3 class="painel__rotulo">Treino</h3>
+                <p class="painel__sub num">
+                  {% if dias_de_treino %}{{ dias_de_treino }} treino{{ dias_de_treino|pluralize }} por semana{% else %}Nenhuma ficha montada{% endif %}
+                </p>
+              </span>
+              {% if area_promovida == 'treino' %}<span class="pill pill--brand painel__selo">sua área</span>{% endif %}
+            </header>
+            <div class="painel__corpo">
+              {% if treino_hoje.tem_treino %}
+                {% comment %}
+                  O número grande responde "quanto falta": séries feitas de
+                  séries previstas. Antes do redesenho o treino aparecia na
+                  Home como um travessão numa linha de 12px.
+                {% endcomment %}
+                <p class="painel__valor num">{{ treino_hoje.series_feitas }}<span class="painel__de">/{{ treino_hoje.total_series }} séries</span></p>
+                <p class="painel__detalhe">
+                  {{ treino_hoje.sessao.label }} — {{ treino_hoje.sessao.name }} · {{ treino_hoje.total_exercicios }} exercício{{ treino_hoje.total_exercicios|pluralize }}{% if treino_hoje.sessao.estimated_minutes %} · ~{{ treino_hoje.sessao.estimated_minutes }} min{% endif %}
+                </p>
+              {% elif treino_hoje.tem_ficha %}
+                <p class="painel__valor painel__valor--palavra">Dia de descanso</p>
+                <p class="painel__detalhe">
+                  {% if proximo_treino %}
+                    Próximo treino: {% if proximo_treino.dias == 1 %}amanhã{% else %}em {{ proximo_treino.dias }} dias{% endif %} · {{ proximo_treino.session.label }}
+                  {% else %}
+                    Sem próximo treino marcado
+                  {% endif %}
+                </p>
+              {% else %}
+                <p class="painel__valor painel__valor--palavra">Sem ficha</p>
+                <p class="painel__detalhe">A sua ficha ainda não foi montada.</p>
+              {% endif %}
               {% comment %}
-                O número grande responde "quanto falta": séries feitas de
-                séries previstas. Antes do redesenho o treino aparecia na Home
-                como um travessão numa linha de 12px.
+                A SEMANA em sete pontos — só para quem tem ficha: sem ela não
+                há dia previsto, e sete pontos de descanso seriam uma tira
+                afirmando uma rotina que não existe.
               {% endcomment %}
-              <p class="painel__valor num">{{ treino_hoje.series_feitas }}<span class="painel__de">/{{ treino_hoje.total_series }} séries</span></p>
-              <p class="painel__detalhe">
-                {{ treino_hoje.sessao.label }} — {{ treino_hoje.sessao.name }} · {{ treino_hoje.total_exercicios }} exercício{{ treino_hoje.total_exercicios|pluralize }}{% if treino_hoje.sessao.estimated_minutes %} · ~{{ treino_hoje.sessao.estimated_minutes }} min{% endif %}
-              </p>
-              <p class="painel__rodape">
+              {% if treino_hoje.tem_ficha %}
+                {% include "plans/_pontos_da_semana.html" with semana=semana modo="treino" %}
+              {% endif %}
+            </div>
+            <p class="painel__rodape">
+              {% if treino_hoje.tem_treino %}
                 <a class="btn btn--quiet btn--sm btn--block" href="{% url 'workouts:ficha' treino_hoje.sessao.pk %}">
-                  {% if treino_hoje.concluido %}Ver o treino{% elif treino_hoje.comecou %}Continuar{% else %}Começar{% endif %}
+                  {% if treino_hoje.concluido %}Ver o treino{% elif treino_hoje.comecou %}Continuar{% else %}Começar{% endif %}<span class="painel__seta" aria-hidden="true">→</span>
                 </a>
-              </p>
-            {% elif treino_hoje.tem_ficha %}
-              <p class="painel__valor">Descanso</p>
-              <p class="painel__detalhe">
-                {% if proximo_treino %}
-                  Próximo: {% if proximo_treino.dias == 1 %}amanhã{% else %}em {{ proximo_treino.dias }} dias{% endif %}, {{ proximo_treino.session.label }}
-                {% else %}
-                  Sem próximo treino marcado
-                {% endif %}
-              </p>
-              <p class="painel__rodape">
-                <a class="btn btn--quiet btn--sm btn--block" href="{% url 'workouts:routine' %}">Ver a semana</a>
-              </p>
-            {% else %}
-              <p class="painel__valor">Sem ficha</p>
-              <p class="painel__detalhe">A sua ficha ainda não foi montada.</p>
-              <p class="painel__rodape">
-                <a class="btn btn--quiet btn--sm btn--block" href="{% url 'workouts:routine' %}">Montar treino</a>
-              </p>
-            {% endif %}
+              {% elif treino_hoje.tem_ficha %}
+                <a class="btn btn--quiet btn--sm btn--block" href="{% url 'workouts:routine' %}">Ver a semana<span class="painel__seta" aria-hidden="true">→</span></a>
+              {% else %}
+                <a class="btn btn--quiet btn--sm btn--block" href="{% url 'workouts:routine' %}">Montar treino<span class="painel__seta" aria-hidden="true">→</span></a>
+              {% endif %}
+            </p>
           </section>
 
         {% elif cartao.chave == "hidratacao" %}
 
-          {% include "plans/_agua.html" with principal=agua_principal largo=cartao.largo %}
+          {% include "plans/_agua.html" with principal=agua_principal largo=cartao.largo largura=cartao.largura %}
 
         {% elif cartao.chave == "corrida" %}
 
-          <section class="painel__cartao{% if cartao.largo %} painel__cartao--largo{% endif %}{% if area_promovida == 'corrida' %} is-prioritario{% endif %}">
-            {% if area_promovida == 'corrida' %}<p class="painel__selo"><span class="pill pill--brand">sua área</span></p>{% endif %}
-            <h3 class="painel__rotulo">
-              <svg class="painel__icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="13.5" cy="4" r="1.6"/>
-                <path d="M7 21l3-5 3 2 1.5 3"/><path d="M10.5 16l-1-4.5 3.5-2.5 2.5 3 3 1"/>
-                <path d="M9.5 9 6 10.5"/>
-              </svg>
-              Corrida
-            </h3>
-            {% if ultima_corrida %}
-              <p class="painel__valor num">{{ corrida_km|floatformat:1 }}<span class="painel__de"> km</span></p>
-              <p class="painel__detalhe">Última corrida em {{ ultima_corrida.comecou_em|date:"d/m" }}</p>
-            {% else %}
-              <p class="painel__valor">Nenhuma ainda</p>
-              <p class="painel__detalhe">Grave a primeira com o GPS, ou importe um arquivo do relógio.</p>
-            {% endif %}
+          <section class="painel__cartao painel__cartao--{{ cartao.largura }}{% if cartao.largo %} painel__cartao--largo{% endif %}{% if area_promovida == 'corrida' %} is-prioritario{% endif %}">
+            <header class="painel__topo">
+              <span class="painel__marca" aria-hidden="true">
+                <svg class="painel__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="13.5" cy="4" r="1.6"/>
+                  <path d="M7 21l3-5 3 2 1.5 3"/><path d="M10.5 16l-1-4.5 3.5-2.5 2.5 3 3 1"/>
+                  <path d="M9.5 9 6 10.5"/>
+                </svg>
+              </span>
+              <span class="painel__nomes">
+                <h3 class="painel__rotulo">Corrida</h3>
+                <p class="painel__sub num">
+                  {% if ultima_corrida %}{{ corridas_na_janela }} corrida{{ corridas_na_janela|pluralize }} em {{ semanas_na_linha }} semanas{% else %}Nenhuma corrida registrada{% endif %}
+                </p>
+              </span>
+              {% if area_promovida == 'corrida' %}<span class="pill pill--brand painel__selo">sua área</span>{% endif %}
+            </header>
+            <div class="painel__corpo painel__corpo--linha">
+              <div class="painel__numeros">
+                {% if ultima_corrida %}
+                  <p class="painel__valor num">{{ corrida_km|floatformat:1 }}<span class="painel__de"> km</span></p>
+                  <p class="painel__detalhe">Última corrida · {{ ultima_corrida.comecou_em|date:"d/m" }}</p>
+                {% else %}
+                  <p class="painel__valor painel__valor--palavra">Nenhuma ainda</p>
+                  <p class="painel__detalhe">Grave a primeira com o GPS, ou importe um arquivo do relógio.</p>
+                {% endif %}
+              </div>
+              {% comment %}
+                A LINHA DAS SEMANAS só existe com três ou mais semanas de
+                dado (`sparkline.MINIMO_DE_PONTOS`): duas medidas são sempre
+                uma reta, e uma reta afirmaria tendência onde não há.
+              {% endcomment %}
+              {% if corrida_semanas %}
+                {% include "plans/_linha_fina.html" with linha=corrida_semanas classe="linha-fina--corrida" rotulo="Quilômetros por semana nas últimas oito semanas" %}
+              {% elif ultima_corrida %}
+                {% comment %}
+                  TEM CORRIDA, mas ainda não dá linha. O espaço do gráfico não
+                  fica vazio: ele diz o que falta para a linha existir. É a
+                  mesma régua de `sparkline.MINIMO_DE_PONTOS`, escrita na tela
+                  em vez de guardada no código.
+                {% endcomment %}
+                <p class="painel__aguarda">A linha aparece com {{ minimo_da_linha }} semanas em que você correu.</p>
+              {% endif %}
+            </div>
             <p class="painel__rodape">
               <a class="btn btn--quiet btn--sm btn--block" href="{% url 'workouts:corridas' %}">
-                {% if ultima_corrida %}Ver corridas{% else %}Registrar corrida{% endif %}
+                {% if ultima_corrida %}Ver corridas{% else %}Registrar corrida{% endif %}<span class="painel__seta" aria-hidden="true">→</span>
               </a>
             </p>
           </section>
@@ -197,33 +305,50 @@
             Oferecer "registrar peso" a quem acabou de se pesar seria pedir um
             número que o app já tem.
           {% endcomment %}
-          <section class="painel__cartao{% if cartao.largo %} painel__cartao--largo{% endif %}{% if area_promovida == 'progresso' %} is-prioritario{% endif %}">
-            {% if area_promovida == 'progresso' %}<p class="painel__selo"><span class="pill pill--brand">sua área</span></p>{% endif %}
-            <h3 class="painel__rotulo">
-              <svg class="painel__icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 20h18"/><path d="M6 20v-5"/><path d="M11 20V9"/><path d="M16 20v-8"/><path d="M21 20V5"/>
-              </svg>
-              Progresso
-            </h3>
-            {% if ultimo_peso %}
-              <p class="painel__valor num">{{ ultimo_peso.weight_kg|floatformat:1 }}<span class="painel__de"> kg</span></p>
-              <p class="painel__detalhe">Última pesagem em {{ ultimo_peso.date|date:"d/m" }}</p>
-            {% else %}
-              <p class="painel__valor">Sem pesagem</p>
-              <p class="painel__detalhe">O primeiro peso é o que faz a curva existir.</p>
-            {% endif %}
+          <section class="painel__cartao painel__cartao--{{ cartao.largura }}{% if cartao.largo %} painel__cartao--largo{% endif %}{% if area_promovida == 'progresso' %} is-prioritario{% endif %}">
+            <header class="painel__topo">
+              <span class="painel__marca" aria-hidden="true">
+                <svg class="painel__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 20h18"/><path d="M6 20v-5"/><path d="M11 20V9"/><path d="M16 20v-8"/><path d="M21 20V5"/>
+                </svg>
+              </span>
+              <span class="painel__nomes">
+                <h3 class="painel__rotulo">Progresso</h3>
+                <p class="painel__sub num">
+                  {% if ultimo_peso %}Últimas {{ pesagens_na_linha }} pesage{{ pesagens_na_linha|pluralize:"m,ns" }}{% else %}Nenhuma pesagem registrada{% endif %}
+                </p>
+              </span>
+              {% if area_promovida == 'progresso' %}<span class="pill pill--brand painel__selo">sua área</span>{% endif %}
+            </header>
+            <div class="painel__corpo painel__corpo--linha">
+              <div class="painel__numeros">
+                {% if ultimo_peso %}
+                  <p class="painel__valor num">{{ ultimo_peso.weight_kg|floatformat:1 }}<span class="painel__de"> kg</span></p>
+                  <p class="painel__detalhe">Última pesagem · {{ ultimo_peso.date|date:"d/m" }}</p>
+                {% else %}
+                  <p class="painel__valor painel__valor--palavra">Sem pesagem</p>
+                  <p class="painel__detalhe">O primeiro peso é o que faz a curva existir.</p>
+                {% endif %}
+              </div>
+              {% if peso_linha %}
+                {% include "plans/_linha_fina.html" with linha=peso_linha classe="linha-fina--peso" rotulo="Peso das últimas pesagens" %}
+              {% elif ultimo_peso %}
+                <p class="painel__aguarda">A curva aparece na {{ minimo_da_linha }}ª pesagem.</p>
+              {% endif %}
+            </div>
             <p class="painel__rodape">
               {% if convite_pesagem %}
-                <a class="btn btn--quiet btn--sm btn--block" href="#pesar">Registrar peso</a>
+                <a class="btn btn--quiet btn--sm btn--block" href="#pesar">Registrar peso<span class="painel__seta" aria-hidden="true">→</span></a>
               {% else %}
-                <a class="btn btn--quiet btn--sm btn--block" href="{% url 'plans:history' %}">Ver progresso</a>
+                <a class="btn btn--quiet btn--sm btn--block" href="{% url 'plans:history' %}">Ver progresso<span class="painel__seta" aria-hidden="true">→</span></a>
               {% endif %}
             </p>
           </section>
 
         {% endif %}
       {% endfor %}
+      </div>
     </section>
 
     {% comment %}
@@ -233,6 +358,12 @@
       com destaque na Home: como bronca. A regra da sequência não mudou (ela
       continua saindo de `plans.streaks`); o texto de quem está em zero é que
       virou convite com as portas do dia.
+
+      A SEMANA EM SETE PONTOS entrou em 23/09/2026, à direita: ela é a única
+      coisa que a faixa não sabia dizer — "quantos dias DESTA semana eu
+      fechei" — e é a mesma lista que o cartão de Treino desenha com a outra
+      pergunta. Nada de frase de ânimo no lugar dela: o número e a semana são
+      o assunto.
     {% endcomment %}
     <section class="ofensiva {% if ofensiva.em_risco %}ofensiva--risco{% endif %}">
       <span class="ofensiva__chama {% if ofensiva.dias %}is-viva{% endif %}" aria-hidden="true">
@@ -249,9 +380,12 @@
         </span>
         <span class="ofensiva__texto">{{ ofensiva.mensagem }}</span>
       </span>
-      {% if ofensiva.recorde > ofensiva.dias %}
-        <span class="pill pill--mute ofensiva__recorde num">recorde {{ ofensiva.recorde }}</span>
-      {% endif %}
+      <span class="ofensiva__semana">
+        {% include "plans/_pontos_da_semana.html" with semana=semana %}
+        {% if ofensiva.recorde > ofensiva.dias %}
+          <span class="pill pill--mute ofensiva__recorde num">recorde {{ ofensiva.recorde }}</span>
+        {% endif %}
+      </span>
     </section>
 
     {% comment %}

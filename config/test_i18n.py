@@ -29,6 +29,14 @@ TEMPLATES_NOVOS = {
     # objetivo desta régua, e a lista diz exatamente o que está coberto.
     "templates/plans/receita.html": ['Voltar ao cardápio'],
     "templates/plans/_receita.html": ['Porção', 'Proteína', 'Carboidrato', 'Gordura', 'O que vai', 'Como faz', 'Você registrou esta refeição.', 'Comi esta', 'Trocar por outra receita'],
+    # O acabamento da Home (23/09/2026): dois parciais NOVOS, e os dois com
+    # a lista VAZIA porque não têm texto literal nenhum — a tira desenha
+    # pontos e o texto de leitura de tela vem de `plans/streaks.py`; a linha
+    # fina desenha um `<polyline>` e o `aria-label` chega por argumento. A
+    # entrada existe assim mesmo: ela é o contrato de que o `{% load i18n %}`
+    # está lá no dia em que a primeira frase aparecer.
+    "templates/plans/_pontos_da_semana.html": [],
+    "templates/plans/_linha_fina.html": [],
 }
 
 
