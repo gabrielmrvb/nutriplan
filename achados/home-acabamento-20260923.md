@@ -115,6 +115,8 @@ corrigida). A faixa passou a ser escopada por `.hoje`, e
 | **testes novos** | 36 em `plans/test_home_acabamento.py` |
 | **suíte completa** | 4.423 testes, 1 `expectedFailure` nomeada. A primeira execução achou UMA falha real — `assertContains(home, "Descanso")` sensível a maiúscula em `accounts` — corrigida |
 | **larguras varridas** | 320, 390, 430, 768, 960 e 1280 px |
+| **orçamento de consultas** | `plans/test_orcamento_da_home.py` (teto 17) verde — a semana e as duas linhas saem de leituras que a tela já fazia |
+| **catracas de valor cru** | 109 `font-size` e 230 espaçamentos: exatamente os tetos, nenhum subiu |
 
 ### As duas sabotagens que ficaram verdes
 
