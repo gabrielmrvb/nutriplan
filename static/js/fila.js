@@ -656,7 +656,7 @@
     faixa.classList.add("fila--erro");
     faixa.hidden = false;
     var texto = faixa.querySelector("[data-fila-texto]");
-    if (texto) texto.textContent = "Não consegui guardar a marcação. Com conexão, toque de novo.";
+    if (texto) texto.textContent = "Não conseguimos guardar a marcação. Com conexão, toque de novo.";
   });
   document.addEventListener("nutriplan:fila", function () {
     var faixa = document.querySelector("[data-fila]");

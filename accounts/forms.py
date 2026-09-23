@@ -276,7 +276,9 @@ class BodyDataForm(OnboardingStepForm):
             attrs={
                 "inputmode": "decimal",
                 "maxlength": "6",
-                "placeholder": "75,5",
+                # O MESMO exemplo da mensagem de erro deste campo e do outro campo de
+                # peso do app ("82,5"): a pessoa via 75,5 na caixa e 82,5 no erro.
+                "placeholder": "82,5",
                 "sufixo": "kg",
             }
         ),

@@ -120,14 +120,14 @@ class AlimentoNaoReconhecidoTests(TestCase):
         self.assertEqual(resposta.status_code, 302)
         self.assertTrue(MealLog.objects.filter(user=self.user, slot=self.slot, status=MealStatus.OFF_PLAN).exists())
         textos = [str(m) for m in get_messages(resposta.wsgi_request)]
-        self.assertTrue(any("Xuxuzinho da vovó" in m and "Não achei" in m for m in textos), textos)
+        self.assertTrue(any("Xuxuzinho da vovó" in m and "Não encontramos" in m for m in textos), textos)
 
     def test_nome_do_catalogo_nao_avisa(self):
         from catalog.models import Food
         comida = Food.objects.filter(is_active=True).first()
         resposta = self._post([(comida.name, "100")])
         textos = [str(m) for m in get_messages(resposta.wsgi_request)]
-        self.assertFalse(any("Não achei" in m for m in textos), textos)
+        self.assertFalse(any("Não encontramos" in m for m in textos), textos)
 
 
 class PesoEcoadoTests(TestCase):
