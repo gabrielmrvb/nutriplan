@@ -46,6 +46,27 @@
   </header>
 
   {% comment %}
+    A IDENTIDADE ABRE A TELA (23/09/2026). É o "Mais" que todo app tem: a
+    pessoa se reconhece na primeira linha — inicial, nome ou e-mail, objetivo
+    e meta — e essa linha é a porta do Perfil. Antes o Perfil era um cartão
+    de métrica no meio das ferramentas ("2.372 kcal por dia"), e meta não é
+    ferramenta: é quem a pessoa é aqui dentro. A inicial é o avatar mais
+    barato que existe; o custo da linha é zero consulta (tudo já está em
+    `request.user` e no fato do plano que o Perfil já calculava).
+  {% endcomment %}
+  <a class="identidade" href="{% url 'accounts:profile' %}">
+    <span class="identidade__inicial" aria-hidden="true">{{ identidade.inicial }}</span>
+    <span class="identidade__texto">
+      <strong class="identidade__nome">{{ identidade.nome }}</strong>
+      {% if identidade.linha %}<span class="identidade__linha">{{ identidade.linha }}</span>{% endif %}
+    </span>
+    <span class="identidade__acao"><span>Editar perfil</span>
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </span>
+  </a>
+
+  {% comment %}
     ÁREAS DEIXA DE SER LISTA E VIRA GRADE.
 
     Duas listas dentro de dois painéis é a forma de uma tela de ajustes, e era
@@ -58,7 +79,20 @@
     quem não tem mantém a descrição, porque um zero inventado afirmaria que a
     pessoa não corre quando o app apenas não sabe.
   {% endcomment %}
-  <h2 class="sobretitulo secao-rotulo">Áreas sem aba</h2>
+  {% comment %}
+    "Áreas sem aba" (22/09) descrevia a arquitetura — era o que a seção É para
+    quem construiu a barra. Para quem usa, são as áreas dela que não têm aba
+    própria: "Suas áreas". Visto em produção em 23/09/2026.
+  {% endcomment %}
+  {% comment %}
+    DUAS COLUNAS NO DESKTOP (≥60rem): áreas à esquerda, listas à direita. Numa
+    coluna só, a 1280, os dois cartões de área viravam faixas largas com o
+    número num canto e vazio no resto, e as listas rolavam abaixo da dobra.
+    No celular a ordem é a mesma, empilhada.
+  {% endcomment %}
+  <div class="mais">
+  <div class="mais__areas">
+  <h2 class="sobretitulo secao-rotulo">Suas áreas</h2>
   <nav class="modulos" data-escalonado aria-label="Áreas do NutriPlan">
     {% for area in areas %}
       <a class="modulo{% if area.na_secao %} is-active{% endif %}{% if area.principal %} modulo--principal{% endif %}"
@@ -85,6 +119,15 @@
           <span class="modulo__apoio">{{ area.apoio }}</span>
         {% endif %}
         {% if area.principal %}<span class="modulo__selo">principal</span>{% endif %}
+        {% comment %}
+          A ação no rodapé do cartão (23/09/2026): o cartão inteiro já é a
+          porta, mas sem um verbo ele parecia um mostrador. "Ver corrida",
+          "Ver hidratação" — a mesma seta das linhas ao lado.
+        {% endcomment %}
+        <span class="modulo__acao">Ver {{ area.titulo|lower }}
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+        </span>
       </a>
     {% endfor %}
   </nav>
@@ -110,35 +153,86 @@
     "Lista de compras" quebrava em duas linhas apertadas. O Perfil ocupa a
     largura toda — é a porta da conta, e a grade diz isso sem palavra.
   {% endcomment %}
+  {% comment %}
+    FERRAMENTAS E CONTA SÃO LISTAS DE LINHAS (23/09/2026), não cartões. A
+    grade de 12/09 veio para a tela parar de parecer Configurações — e
+    parou, para as ÁREAS, que têm número vivo. Ferramenta não tem número:
+    "Lista de compras" e "Ajuda" eram retângulos com uma frase dentro e
+    tamanhos desiguais (o Perfil atravessando, a Ajuda meio vazia), e o
+    dono viu isso em produção. A linha — ícone, rótulo, detalhe, seta — diz
+    a mesma coisa em 56px e é a forma que todo "Mais" usa. O que tem número
+    (Conquistas) leva o número no detalhe, não em 28px: ferramenta não é
+    pilar.
+
+    A lista reusa `.mapa__area`, a linha de navegação que já existia para a
+    Gestão, dentro de um cartão. Nada de componente novo.
+  {% endcomment %}
+  </div>
+  <div class="mais__listas">
   <h2 class="sobretitulo secao-rotulo">Ferramentas</h2>
-  <nav class="modulos modulos--ferramentas" aria-label="Ferramentas">
-    <a class="modulo modulo--raso" href="{% url 'achievements:list' %}">
-      <span class="modulo__nome">Conquistas</span>
+  <nav class="mapa__lista mapa__lista--cartao" aria-label="Ferramentas">
+    <a class="mapa__area" href="{% url 'achievements:list' %}">
+      <svg class="mapa__icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0V4z"/><path d="M8 6H5a3 3 0 0 0 3 4"/><path d="M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4"/><path d="M8.5 21h7"/><path d="M12 17c-2 0-3 1.5-3.5 4h7c-.5-2.5-1.5-4-3.5-4z"/></svg>
+      <span class="mapa__nome">Conquistas</span>
       {% if ferramentas.conquistas %}
-        <strong class="modulo__valor num">{{ ferramentas.conquistas.valor }}</strong>
-        <span class="modulo__rotulo">{{ ferramentas.conquistas.rotulo }}</span>
+        <span class="mapa__apoio">{{ ferramentas.conquistas.valor }} {{ ferramentas.conquistas.rotulo }}</span>
       {% else %}
-        <span class="modulo__apoio modulo__apoio--convite">A primeira vem com uma semana de registros.</span>
+        <span class="mapa__apoio">A primeira vem com uma semana de registros.</span>
       {% endif %}
+      <span class="mapa__seta" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+      </span>
     </a>
-    <a class="modulo modulo--raso" href="{% url 'plans:shopping' %}">
-      <span class="modulo__nome">Lista de compras</span>
-      <span class="modulo__apoio">O que comprar para a semana do seu cardápio.</span>
+    <a class="mapa__area" href="{% url 'plans:shopping' %}">
+      <svg class="mapa__icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.5h2.5l2.6 11.4h9.6L19.8 8H6"/><circle cx="10" cy="18.8" r="1.5"/><circle cx="17" cy="18.8" r="1.5"/></svg>
+      <span class="mapa__nome">Lista de compras</span>
+      <span class="mapa__apoio">O que comprar para a semana do seu cardápio.</span>
+      <span class="mapa__seta" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+      </span>
     </a>
-    <a class="modulo modulo--raso modulo--largo" href="{% url 'accounts:profile' %}">
-      <span class="modulo__nome">Perfil</span>
-      {% if ferramentas.perfil %}
-        <strong class="modulo__valor num">{{ ferramentas.perfil.valor }}</strong>
-        <span class="modulo__rotulo">{{ ferramentas.perfil.rotulo }}</span>
-      {% else %}
-        <span class="modulo__apoio">Seus dados, o objetivo e as metas.</span>
-      {% endif %}
-    </a>
-    <a class="modulo modulo--raso modulo--largo" href="{% url 'ajuda:index' %}">
-      <span class="modulo__nome">Ajuda</span>
-      <span class="modulo__apoio">Perguntas frequentes, reportar um problema e o que mudou.</span>
+    <a class="mapa__area" href="{% url 'ajuda:index' %}">
+      <svg class="mapa__icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"/><path d="M12 17h.01"/></svg>
+      <span class="mapa__nome">Ajuda</span>
+      <span class="mapa__apoio">Perguntas frequentes, reportar um problema e o que mudou.</span>
+      <span class="mapa__seta" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+      </span>
     </a>
   </nav>
+
+  {% comment %}
+    CONTA: o Perfil (dados, metas, lembretes, exportar, excluir — tudo mora
+    lá) e o Sair. No celular a barra de cima não tem "Sair" (o desktop tem);
+    esta linha é o lugar dele. É um formulário POST como o do topo — sair por
+    GET seria o link que um prefetch dispara sozinho.
+  {% endcomment %}
+  <h2 class="sobretitulo secao-rotulo">Conta</h2>
+  <nav class="mapa__lista mapa__lista--cartao" aria-label="Conta">
+    <a class="mapa__area" href="{% url 'accounts:profile' %}">
+      <svg class="mapa__icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+      <span class="mapa__nome">Perfil</span>
+      <span class="mapa__apoio">Seus dados, objetivo, metas, lembretes e exportação.</span>
+      <span class="mapa__seta" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+      </span>
+    </a>
+    <form class="mapa__area mapa__area--acao" method="post" action="{% url 'accounts:logout' %}">
+      {% csrf_token %}
+      <svg class="mapa__icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M14 8l4 4-4 4"/><path d="M18 12H9"/></svg>
+      <button type="submit" class="mapa__botao">
+        <span class="mapa__nome">Sair da conta</span>
+        <span class="mapa__apoio">Encerra a sessão neste aparelho.</span>
+      </button>
+    </form>
+  </nav>
+
+  </div>
+  </div>
 
   {% if mostra_gestao %}
     <section class="card">

@@ -78,11 +78,11 @@ class BaseDeAreas(TestCase):
         """
         pares = {}
         for m in re.finditer(
-            r'<a class="(?:mapa__area|modulo)[^"]*"[^>]*?href="([^"]+)"[^>]*>(.*?)</a>',
+            r'<a class="(?:mapa__area|modulo|identidade)[^"]*"[^>]*?href="([^"]+)"[^>]*>(.*?)</a>',
             html, re.S,
         ):
             achado = re.search(
-                r'<span class="(?:mapa__nome|modulo__nome)"[^>]*>(.*?)</span>',
+                r'<(?:span|strong) class="(?:mapa__nome|modulo__nome|identidade__nome)"[^>]*>(.*?)</(?:span|strong)>',
                 m.group(2), re.S)
             corpo = achado.group(1) if achado else ""
             texto = " ".join(re.sub(r"<[^>]+>", " ", corpo).split())
@@ -388,8 +388,12 @@ class AreasEUmHubENaoUmMenuTests(BaseDeAreas):
 
         self.assertIn(reverse("achievements:list"), html)
         bloco = html.split(reverse("achievements:list"), 1)[1].split("</a>", 1)[0]
-        self.assertIn('<strong class="modulo__valor num">1</strong>', bloco)
-        self.assertIn("conquista", bloco)
+        # LINHA DE LISTA (23/09/2026): o fato vai no apoio, ao lado do nome —
+        # "1 conquista · última: Primeiro treino" —, e não num número de 28px.
+        # Ferramenta não é pilar; o número grande é dos cartões de área.
+        self.assertIn('class="mapa__nome">Conquistas', bloco)
+        self.assertIn("1 conquista", bloco)
+        self.assertIn("última", bloco)
 
     def test_sem_conquista_o_modulo_diz_como_ganhar_a_primeira(self):
         """Estado vazio é convite (§35, §39): nem "0", nem "nenhum dado"."""
@@ -412,17 +416,37 @@ class AreasEUmHubENaoUmMenuTests(BaseDeAreas):
         self.assertIn("Grave a primeira", html)
         self.assertNotIn("0 corridas", html)
 
-    def test_o_perfil_e_o_modulo_largo_e_diz_a_meta(self):
+    def test_a_identidade_abre_a_tela_e_diz_a_meta(self):
+        """A pessoa se reconhece no topo (23/09/2026): inicial, nome ou e-mail,
+        objetivo e meta, e a porta do Perfil é essa linha — não um cartão de
+        métrica no meio das ferramentas ("2.372 kcal por dia" não é uma
+        ferramenta, é quem a pessoa é aqui dentro)."""
         self.pessoa()
-        # O cardápio nasce em "Calcular minha estimativa" (15/09/2026; antes,
-        # na primeira visita a Hoje). Sem plano ativo o módulo mostra só o
-        # objetivo — o outro ramo, coberto abaixo.
         html = self.areas()
 
-        perfil = html.split(reverse("accounts:profile"), 1)[0].rsplit("<a ", 1)[1]
-        self.assertIn("modulo--largo", perfil)
-        bloco = html.split(reverse("accounts:profile"), 1)[1].split("</a>", 1)[0]
-        self.assertIn("kcal por dia", bloco)
+        identidade = html.split('class="identidade"', 1)[1].split("</a>", 1)[0]
+        self.assertIn(reverse("accounts:profile"), html.split('class="identidade"', 1)[0].rsplit("<a ", 1)[1] + identidade)
+        self.assertIn('class="identidade__inicial"', identidade)
+        self.assertIn('class="identidade__nome"', identidade)
+        self.assertIn("kcal por dia", identidade)
+        self.assertIn("Editar perfil", identidade)
+        # a identidade vem ANTES das áreas: é a primeira coisa depois do título
+        self.assertLess(html.index('class="identidade"'), html.index('<nav class="modulos"'))
+
+    def test_a_inicial_e_o_nome_vem_do_usuario_e_caem_no_email_sem_nome(self):
+        user = self.pessoa()
+        html = self.areas()
+        identidade = html.split('class="identidade"', 1)[1].split("</a>", 1)[0]
+        # sem nome, o e-mail identifica e a inicial é a dele
+        self.assertIn(">A<", identidade)
+        self.assertIn("areas@exemplo.com", identidade)
+
+        user.first_name = "Gabriel"
+        user.save(update_fields=["first_name"])
+        identidade = self.areas().split('class="identidade"', 1)[1].split("</a>", 1)[0]
+        self.assertIn(">G<", identidade)
+        self.assertIn("Gabriel", identidade)
+        self.assertNotIn("areas@exemplo.com", identidade)
 
     def test_sem_plano_ainda_o_perfil_diz_o_objetivo(self):
         """Sem plano ativo, o módulo responde com o que existe (o objetivo)
@@ -437,13 +461,18 @@ class AreasEUmHubENaoUmMenuTests(BaseDeAreas):
 
         user = self.pessoa()
         NutritionPlan.objects.filter(user=user).update(is_active=False)
-        bloco = self.areas().split(reverse("accounts:profile"), 1)[1].split("</a>", 1)[0]
-        self.assertIn("objetivo", bloco)
-        self.assertNotIn("kcal", bloco)
+        identidade = self.areas().split('class="identidade"', 1)[1].split("</a>", 1)[0]
+        self.assertIn("objetivo", identidade)
+        self.assertNotIn("kcal", identidade)
 
-    def test_as_ferramentas_sao_duas_colunas_e_o_perfil_atravessa(self):
-        """A 320px, três colunas davam 93px por módulo e "Lista de compras"
-        quebrava em duas linhas apertadas — medido na captura de 12/09/2026."""
+    def test_ferramentas_e_conta_sao_listas_de_linhas_e_nao_cartoes(self):
+        """O "Mais" de qualquer app (23/09/2026): identidade no topo, cartões
+        só para as áreas com número vivo, e o resto em LINHAS — ícone, rótulo,
+        detalhe e seta. Um cartão sem número ("Ajuda", "Lista de compras") era
+        um retângulo com uma frase dentro; a linha diz a mesma coisa em 56px.
+
+        A lista reusa `.mapa__area`, que já existe; o que entra é o contêiner
+        em cartão e a linha de identidade, com tokens — nada cru."""
         from pathlib import Path
 
         from django.conf import settings
@@ -451,11 +480,30 @@ class AreasEUmHubENaoUmMenuTests(BaseDeAreas):
         css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
             encoding="utf-8"
         )
-        self.assertIn(
-            ".modulos--ferramentas { grid-template-columns: repeat(2, minmax(0, 1fr)); }",
-            css,
-        )
-        self.assertIn(".modulo--largo { grid-column: 1 / -1; }", css)
+        self.assertIn(".identidade {", css)
+        self.assertIn(".mapa__lista--cartao {", css)
+        self.assertIn(".mapa__icone {", css)
+        self.pessoa()
+        html = self.areas()
+        ferramentas = html.split('aria-label="Ferramentas"', 1)[1].split("</nav>", 1)[0]
+        conta = html.split('aria-label="Conta"', 1)[1].split("</nav>", 1)[0]
+        for trecho in (ferramentas, conta):
+            self.assertNotIn('class="modulo', trecho)
+            self.assertIn('class="mapa__area', trecho)
+            self.assertIn('class="mapa__seta"', trecho)
+        # Ferramentas: conquistas, compras e ajuda; Conta: perfil e sair
+        for rota in (reverse("achievements:list"), reverse("plans:shopping"), reverse("ajuda:index")):
+            self.assertIn('href="%s"' % rota, ferramentas)
+        self.assertIn('href="%s"' % reverse("accounts:profile"), conta)
+        self.assertIn('action="%s"' % reverse("accounts:logout"), conta)
+
+    def test_o_rotulo_da_secao_fala_com_a_pessoa_e_nao_com_o_dev(self):
+        """"Áreas sem aba" descrevia a arquitetura; "Suas áreas" descreve o
+        que a pessoa vê. Visto em produção em 23/09/2026."""
+        self.pessoa()
+        html = self.areas()
+        self.assertIn("Suas áreas", html)
+        self.assertNotIn("sem aba", html.lower())
 
     def test_a_tela_continua_sem_os_tres_pilares_da_barra(self):
         """O hub cresceu e a regra de UX-01 não afrouxou (§6: não duplicar)."""

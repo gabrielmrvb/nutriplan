@@ -187,7 +187,8 @@ class AConquistasSaiuDeAreasSemQuebrarNadaTests(TestCase):
         e a volta a Áreas não o tirou de lá.
         """
         html = self.client.get(reverse("areas")).content.decode()
-        self.assertIn('modulo__nome">Conquistas', html)
+        # Linha de lista desde 23/09/2026 (`.mapa__area`); a porta é a mesma.
+        self.assertIn('mapa__nome">Conquistas', html)
 
         progresso = self.client.get(reverse("plans:history")).content.decode()
         self.assertIn("Conquistas", progresso)
@@ -197,8 +198,11 @@ class AConquistasSaiuDeAreasSemQuebrarNadaTests(TestCase):
         """Controle positivo: tirar Conquistas não pode ter esvaziado a seção."""
         html = self.client.get(reverse("areas")).content.decode()
 
-        self.assertIn('modulo__nome">Lista de compras', html)
-        self.assertIn('modulo__nome">Perfil', html)
+        # Desde 23/09/2026 as ferramentas são LINHAS (`.mapa__area`) e o Perfil
+        # é a linha de identidade no topo — a porta continua, a forma mudou.
+        self.assertIn('mapa__nome">Lista de compras', html)
+        self.assertIn('class="identidade"', html)
+        self.assertIn('href="/conta/perfil/"', html)
 
     def test_a_rota_antiga_continua_respondendo(self):
         """"A rota `/conquistas/` não deve quebrar." Ela segue como detalhe
