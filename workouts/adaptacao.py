@@ -13,6 +13,8 @@ faixa; Plotkin 2022: reps com carga fixa ≈ carga; degrau declarado baixo e
 por isso ABSOLUTO — a menor anilha), com o estado NOMEADO:
 
 - `SUBIR`    — todas as séries prescritas da referência fecharam `rep_max`
+               E nenhuma delas foi marcada como FALHA pela pessoa (22/09/2026:
+               a falha é fato dela, e nenhuma conta sobre reps a conhece)
                NA MESMA carga (a maior daquela data). O degrau é 2,5 kg no
                tronco e 5 na perna, arredondado ao múltiplo de 2,5 acima;
 - `MANTER`   — a faixa não fechou, e a razão diz onde: em que série faltou
@@ -301,6 +303,20 @@ def ajuste(item, sessoes, ultimo_registro, hoje):
         for n, s in numeros_e_series
         if (s.reps or 0) < item.rep_max
     ]
+    # A FALHA MARCADA PELA PESSOA SEGURA O SUBIR (22/09/2026). Ela é um FATO
+    # dela — "a barra parou no meio" —, e nenhuma conta sobre reps o
+    # conhece: quem falhou na última série e ainda assim fechou a faixa nas
+    # outras teria recebido "+2,5 kg" com a repetição que não subiu. O
+    # estado continua sendo MANTER, e a razão diz de onde veio; nada é
+    # BAIXADO, que é a regra desta missão inteira (a adaptação é leitura).
+    falhou_na_referencia = next(
+        (n for n, s in numeros_e_series if getattr(s, "falhou", False)), None
+    )
+    if not faltas and not mais_leves and falhou_na_referencia is not None:
+        return Progressao(
+            Estado.MANTER, maior,
+            "você marcou falha na série %d da última vez" % falhou_na_referencia,
+        )
     if not faltas and not mais_leves:
         alvo = _arredonda_para_cima(maior + _degrau(item))
         return Progressao(

@@ -106,7 +106,7 @@ def leituras_de_arquivo(conteudo, nome=""):
     try:
         raiz = ET.fromstring(conteudo)
     except ET.ParseError:
-        raise ArquivoDeCorridaInvalido("Não consegui ler o arquivo — ele parece corrompido ou não é GPX/TCX.")
+        raise ArquivoDeCorridaInvalido("Não conseguimos ler o arquivo — ele parece corrompido ou não é GPX/TCX.")
 
     tipo = _localname(raiz.tag)
     if tipo == "gpx":
@@ -114,10 +114,10 @@ def leituras_de_arquivo(conteudo, nome=""):
     elif tipo == "TrainingCenterDatabase":
         brutos = list(_pontos_tcx(raiz))
     else:
-        raise ArquivoDeCorridaInvalido("Só entendo arquivos GPX e TCX (Garmin, Strava, Apple Saúde e afins).")
+        raise ArquivoDeCorridaInvalido("O NutriPlan lê arquivos GPX e TCX (Garmin, Strava, Apple Saúde e afins).")
 
     if not brutos:
-        raise ArquivoDeCorridaInvalido("Não achei nenhum ponto de percurso no arquivo.")
+        raise ArquivoDeCorridaInvalido("Não encontramos nenhum ponto de percurso no arquivo.")
 
     com_tempo = [(lat, lon, dt) for lat, lon, dt in brutos if dt is not None]
     if not com_tempo:

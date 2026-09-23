@@ -320,7 +320,7 @@
       </ul>
     {% endif %}
     {% block content %}{% endblock %}
-    {% if legal_publicado and not shell_offline and not tela_de_entrada %}
+    {% if legal_publicado and not shell_offline and not tela_de_entrada and not sem_rodape_legal %}
       {% comment %}
         Os dois links legais no fim de TODA tela (decisão do dono, 21/09/2026;
         LGPD art. 9º: acesso "facilitado" à Política). Dentro do <main>, no fim

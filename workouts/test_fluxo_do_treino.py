@@ -417,7 +417,11 @@ class AFichaEAPreparacaoTests(BaseDoFluxo):
                 if i.exercise.is_compound and i not in marcados:
                     self.assertFalse(i.abre_o_grupo, i.exercise.name)
         self.assertGreater(esperados, 0)
-        self.assertEqual(self.html.count(">Principal<"), esperados)
+        # ANCORADO NA CLASSE, e não no texto: desde 22/09/2026 a própria
+        # ficha EXPLICA o selo ("o selo Principal marca o que abre cada
+        # grupo", em "Por que essa ficha"), e contar a palavra passou a
+        # contar a explicação junto — a armadilha do CLAUDE.md.
+        self.assertEqual(self.html.count('class="ficha-item__papel"'), esperados)
         compostos_na_tela = sum(1 for i in self.sessao.da_opcao(opcao_do_dia) if i.exercise.is_compound)
         # Controle positivo: há mais compostos que selos, senão o teste não
         # distingue "primeiro composto" de "todo composto".

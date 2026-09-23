@@ -2311,6 +2311,9 @@ class LoadStepperTests(TestCase):
         ).read_text(encoding="utf-8")
 
 
+PWA_JS = (Path(__file__).resolve().parents[1] / "static" / "js" / "pwa.js").read_text(encoding="utf-8")
+
+
 class GymHardwareTests(TestCase):
     """O que o aparelho oferece e a tela de treino usa.
 
@@ -2363,15 +2366,23 @@ class GymHardwareTests(TestCase):
         Vibracao longa para confirmacao e o que faz a pessoa desligar a
         vibracao do app inteiro.
         """
+        # O PULSO CURTO mora na página (é do toque que acabou de acontecer);
+        # o CHAMADO LONGO mudou para `pwa.js` em 22/09/2026, com o resto do
+        # cronômetro — ele cresceu (m:ss, +30 s, som, Wake Lock) e precisa
+        # sobreviver à troca do <main> sem recarga. A regra é a mesma; o que
+        # muda é onde ela mora.
         self.assertIn("navigator.vibrate(35)", self.html)
-        self.assertIn("navigator.vibrate([200, 100, 400])", self.html)
+        self.assertIn("navigator.vibrate([200, 100, 400])", PWA_JS)
 
     def test_vibration_is_always_behind_a_check(self):
         """`navigator.vibrate` nao existe no iPhone. O `if` nao e otimizacao,
         e a metade dos aparelhos."""
-        for chamada in ("navigator.vibrate(35)", "navigator.vibrate([200, 100, 400])"):
+        for texto, chamada in (
+            (self.html, "navigator.vibrate(35)"),
+            (PWA_JS, "navigator.vibrate([200, 100, 400])"),
+        ):
             with self.subTest(chamada=chamada):
-                antes = self.html.split(chamada, 1)[0]
+                antes = texto.split(chamada, 1)[0]
                 self.assertTrue(
                     antes.rstrip().endswith("if (navigator.vibrate)"),
                     f"{chamada} sem a guarda de suporte",
