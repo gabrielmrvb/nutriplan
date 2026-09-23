@@ -25,6 +25,7 @@ número; sem receita não há sprite de ilustração na página.
 import re
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from pathlib import Path
 from unittest import mock
 
 from django.core.management import call_command
@@ -166,6 +167,55 @@ class ALarguraDosCartoesTests(SimpleTestCase):
             with self.subTest(quantos=quantos):
                 colunas = [peso[largura] for largura in larguras_do_desktop(quantos)]
                 self.assertEqual(sum(colunas) % 6, 0, "sobra coluna na última linha")
+
+
+class AFaixaDeTresColunasEDaHomeTests(SimpleTestCase):
+    """O MESMO cartão vive em duas telas com larguras diferentes.
+
+    REGRESSÃO MEDIDA (23/09/2026): a faixa de três colunas nasceu numa media
+    query, que mede a JANELA. Na Home o cartão ocupa 1.024 px a 1280; na
+    Alimentação ele mora na coluna esquerda do `split`, com ~420 px — e a
+    1280 a janela passa de 48rem nas duas. Na coluna estreita as três colunas
+    não cabiam: o bloco de texto era espremido até o nome da refeição sair
+    ESCRITO NA VERTICAL, uma letra por linha (visto na captura).
+
+    A régua é sobre o SELETOR, e não sobre a aparência: `grid-auto-flow:
+    column` no cartão AGORA só vale dentro de `.hoje`.
+    """
+
+    def setUp(self):
+        caminho = Path(__file__).resolve().parents[1] / "static" / "css" / "app.css"
+        self.css = re.sub(r"/\*.*?\*/", "", caminho.read_text(encoding="utf-8"), flags=re.S)
+
+    def _regras_do_cartao(self, declaracao):
+        achadas = []
+        for bloco in re.finditer(r"([^{}]+)\{([^{}]*)\}", self.css):
+            if declaracao not in bloco.group(2):
+                continue
+            for seletor in bloco.group(1).split(","):
+                seletor = seletor.strip()
+                if "agora-card" in seletor or "agora__" in seletor:
+                    achadas.append(seletor)
+        return achadas
+
+    def test_a_faixa_de_tres_colunas_so_vale_na_Home(self):
+        regras = self._regras_do_cartao("grid-auto-flow: column")
+
+        self.assertTrue(regras, "controle positivo: a faixa existe no arquivo")
+        for seletor in regras:
+            with self.subTest(seletor=seletor):
+                self.assertTrue(
+                    seletor.startswith(".hoje "),
+                    "a faixa de três colunas precisa do escopo da Home",
+                )
+
+    def test_a_coluna_de_acoes_com_largura_minima_tambem(self):
+        """`min-width: 11.5rem` na coluna de ações é o que impede os dois
+        botões de saírem com larguras diferentes — e é a mesma armadilha: na
+        coluna estreita ele rouba o espaço do texto."""
+        for seletor in self._regras_do_cartao("min-width: 11.5rem"):
+            with self.subTest(seletor=seletor):
+                self.assertTrue(seletor.startswith(".hoje "))
 
 
 class ASemanaEmSetePontosTests(TestCase):

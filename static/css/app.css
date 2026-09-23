@@ -7618,14 +7618,27 @@ body.montando { overflow: hidden; }
   font-weight: 700;
 }
 
+/* A FAIXA DE TRÊS COLUNAS É DA HOME, e o seletor diz isso (`.hoje` é o
+   `stack` da tela Hoje).
+
+   A media query mede a JANELA, e o mesmo cartão vive em DOIS lugares: na Home
+   ele ocupa a largura inteira (1.024 px a 1280), e na Alimentação ele mora na
+   coluna esquerda do `split`, com ~420 px. A 1280 a janela passa de 48rem nos
+   dois casos — e na coluna estreita as três colunas não cabiam: o bloco de
+   texto era espremido até o nome da refeição sair ESCRITO NA VERTICAL, uma
+   letra por linha (medido na captura da tela de Alimentação).
+
+   Container query resolveria sem o seletor de tela, e não é o que este
+   arquivo usa em lugar nenhum; a regra de escopo é mais simples de ler e não
+   depende de `container-type` num ancestral que outra tela pode mudar. */
 @media (min-width: 48rem) {
-  .agora-card {
+  .hoje .agora-card {
     grid-auto-flow: column;
     grid-template-columns: minmax(0, 1fr);
     grid-auto-columns: max-content;
     gap: calc(var(--espaco-7) + var(--espaco-3));
   }
-  .agora__acoes { min-width: 11.5rem; }
+  .hoje .agora__acoes { min-width: 11.5rem; }
 }
 
 /* Os ramos que NÃO são ação com hora marcada abrem mão do foco.
@@ -7687,11 +7700,13 @@ body.montando { overflow: hidden; }
 
 .agora__cta { min-height: 2.9rem; }
 
+/* O título cresce só onde o cartão é a FAIXA — na coluna estreita da
+   Alimentação ele dividiria a largura com o medalhão. */
 @media (min-width: 48rem) {
-  .agora__titulo { font-size: var(--texto-2xl); }
+  .hoje .agora__titulo { font-size: var(--texto-2xl); }
 }
 @media (min-width: 75rem) {
-  .agora__titulo { font-size: var(--texto-3xl); }
+  .hoje .agora__titulo { font-size: var(--texto-3xl); }
 }
 
 /* -- O resumo do dia SAIU: quem responde agora é o painel ---------------- */

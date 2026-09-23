@@ -70,6 +70,17 @@ CLARO — no escuro a superfície já separava.
 As quatro combinações (1280 e 390 px × escuro e claro) foram capturadas em
 todas as rodadas; as comparações de desktop escuro estão na pasta de provas.
 
+### A regressão que a tela VIZINHA pegou
+
+O cartão AGORA é um parcial usado por DUAS telas, e a faixa de três colunas
+nasceu numa media query — que mede a JANELA. Na Home o cartão tem 1.024 px a
+1280; na Alimentação ele mora na coluna esquerda do `split`, com ~420 px, e a
+1280 a janela passa de 48rem nas duas. Na coluna estreita as três colunas não
+couberam: o bloco de texto foi espremido até **o nome da refeição sair escrito
+na vertical, uma letra por linha** (`vizinha-alimentacao.png` é a tela já
+corrigida). A faixa passou a ser escopada por `.hoje`, e
+`AFaixaDeTresColunasEDaHomeTests` lê o CSS e cobra o escopo — com sabotagem.
+
 ## 4. Validação
 
 | o que | resultado |
@@ -82,8 +93,8 @@ todas as rodadas; as comparações de desktop escuro estão na pasta de provas.
 | **texto mínimo** | nenhum abaixo de 11 px |
 | **foco pelo teclado** | Tab de verdade (não `.focus()`): anel de 2 px sólido visível |
 | **ações no navegador** | +250 ml: 1.250 → 1.500 e volta para a Home; "Comi esta": registra, a pessoa **fica na Home**, o cartão passa a "2 de 5 registradas" e o herói aponta a próxima refeição |
-| **sabotagem** | **12 de 12 vermelhas**. Duas ficaram VERDES na primeira passada e os dois testes foram corrigidos — ver abaixo |
-| **testes novos** | 33 em `plans/test_home_acabamento.py` |
+| **sabotagem** | **13 de 13 vermelhas**. Duas ficaram VERDES na primeira passada e os dois testes foram corrigidos — ver abaixo |
+| **testes novos** | 35 em `plans/test_home_acabamento.py` |
 
 ### As duas sabotagens que ficaram verdes
 
