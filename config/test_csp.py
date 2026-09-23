@@ -29,6 +29,35 @@ def sem_comentarios(texto: str) -> str:
     return COMENTARIO.sub("", texto)
 
 
+def tags_de_script(texto: str):
+    """As aberturas de `<script>` que são TAG, e não texto.
+
+    Duas coisas enganam uma varredura ingênua neste repositório, e as duas
+    custaram caro em 22/09/2026:
+
+    1. `{% comment %}` — o projeto comenta muito, e os comentários CITAM a
+       tag de que falam;
+    2. o CORPO de um `<script>` — um `/* ... */` de JavaScript que menciona
+       `<script>` em prosa. O mutirão que pôs o nonce nos treze scripts
+       inline reescreveu uma dessas frases em `workouts/agora.html`, e a
+       primeira versão desta régua reprovou outra: nos dois casos o marcador
+       e a explicação eram a mesma string, que é a armadilha que o
+       `CLAUDE.md` nomeia na seção de Testes.
+
+    Por isso a varredura anda pelo texto em ordem: ao entrar num `<script>`,
+    pula até o `</script>` correspondente.
+    """
+    limpo = sem_comentarios(texto)
+    tags, posicao = [], 0
+    while True:
+        casamento = ABERTURA.search(limpo, posicao)
+        if casamento is None:
+            return tags
+        tags.append(casamento.group(0))
+        fecha = limpo.lower().find("</script>", casamento.end())
+        posicao = casamento.end() if fecha == -1 else fecha + len("</script>")
+
+
 class APoliticaChegaNaRespostaTests(TestCase):
     def test_toda_tela_manda_a_politica(self):
         for rota in ("/", reverse("accounts:login"), reverse("ajuda:index")):
@@ -57,7 +86,7 @@ class APoliticaChegaNaRespostaTests(TestCase):
         resposta = self.client.get("/")
         nonce = re.search(r"'nonce-([^']+)'", resposta.headers["Content-Security-Policy"]).group(1)
         html = resposta.content.decode("utf-8")
-        for tag in ABERTURA.findall(sem_comentarios(html)):
+        for tag in tags_de_script(html):
             if "src=" in tag:
                 continue
             self.assertIn(nonce, tag, "script inline sem o nonce desta resposta: %s" % tag[:120])
@@ -79,8 +108,7 @@ class NenhumScriptInlineFicaDeForaTests(TestCase):
     def test_todo_script_inline_de_template_leva_o_nonce(self):
         faltando = []
         for arquivo in self._arquivos():
-            texto = sem_comentarios(arquivo.read_text(encoding="utf-8"))
-            for tag in ABERTURA.findall(texto):
+            for tag in tags_de_script(arquivo.read_text(encoding="utf-8")):
                 if "src=" in tag or "csp_nonce" in tag:
                     continue
                 faltando.append("%s: %s" % (arquivo.relative_to(TEMPLATES), tag[:80]))
