@@ -161,11 +161,23 @@ class UmVerboUmDestinoNosTemplatesTests(TestCase):
     #: um terceiro destino.
     DESTINO_DE_COMECAR = {
         "workouts/routine.html": "workouts:ficha",
-        # A Home também tem o rótulo, no cartão da área promovida, e o
-        # destino dela é o mesmo do painel: a ficha.
-        "plans/_area_promovida.html": "workouts:ficha",
         "workouts/ficha.html": "workouts:now",
     }
+    #: A HOME SAIU DESTE MAPA EM 22/09/2026, e não por descuido.
+    #:
+    #: O rótulo vivia em `plans/_area_promovida.html`, o cartão de meia tela
+    #: da área principal. Aquele cartão virou uma CÉLULA do painel do dia
+    #: (~162px a 390px), e ali o botão diz só "Começar": o `<h3>` da célula já
+    #: diz "Treino" a dois centímetros de distância, e "Começar treino" numa
+    #: coluna de 162px quebra em duas linhas para repetir a palavra que está
+    #: logo acima.
+    #:
+    #: O que a régua protege continua protegido: o DESTINO é o mesmo dos
+    #: outros dois ("a ficha de hoje"), e quem cobra isso é
+    #: `plans.test_home_adaptativa.AAreaPrincipalSobeTests.
+    #: test_cada_cartao_leva_a_porta_da_sua_area`. O que este mapa proíbe —
+    #: o rótulo inteiro aparecendo num terceiro arquivo, ou apontando para um
+    #: terceiro destino — não mudou.
 
     def test_comecar_treino_so_com_workouts_ficha(self):
         achados = self._ocorrencias("Começar treino")
@@ -178,7 +190,8 @@ class UmVerboUmDestinoNosTemplatesTests(TestCase):
                 outro = "workouts:now" if esperado == "workouts:ficha" else "workouts:ficha"
                 self.assertNotIn(outro, trecho)
         # As DUAS telas têm o rótulo: sem isto, apagar o do painel deixaria
-        # o teste verde e o caminho de novo com dois nomes.
+        # o teste verde e o caminho de novo com dois nomes. (A Home tem a
+        # porta, com o verbo curto — ver o comentário de `DESTINO_DE_COMECAR`.)
         self.assertEqual(
             {arquivo for arquivo, _ in achados}, set(self.DESTINO_DE_COMECAR)
         )
