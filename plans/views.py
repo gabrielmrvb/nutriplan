@@ -739,7 +739,7 @@ class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
                 # é que aquela linha não contou nas calorias.
                 messages.warning(
                     request,
-                    "Não achei %s no catálogo — a refeição foi registrada sem %s."
+                    "Não encontramos %s no catálogo — a refeição foi registrada sem %s."
                     % (
                         ", ".join('"%s"' % n for n in desconhecidos),
                         "isso" if len(desconhecidos) == 1 else "esses itens",

@@ -231,7 +231,9 @@ class FalhaAoEnfileirarApareceNaTelaTests(TestCase):
         ouvinte = self.js.split('addEventListener("nutriplan:fila-falhou"', 1)[1][:600]
         self.assertIn('classList.add("fila--erro")', ouvinte)
         self.assertIn("hidden = false", ouvinte)
-        self.assertIn("Não consegui guardar", ouvinte)
+        # A voz da casa é o PLURAL (auditoria de texto de 22/09/2026):
+        # "não conseguimos", como o resto do app.
+        self.assertIn("Não conseguimos guardar", ouvinte)
 
     def test_o_estado_de_erro_existe_no_css(self):
         self.assertIn(".fila--erro", self.css)
