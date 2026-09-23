@@ -36,6 +36,17 @@ class MetaDaEpocaTests(TestCase):
         self.pessoa = User.objects.create_user(
             email="progresso@exemplo.com", password="senha-bem-forte-123"
         )
+        # A CONTA NASCE ANTES DOS DADOS que o teste escreve (23/09/2026).
+        #
+        # Desde o redesenho, a tela não desenha nada anterior ao cadastro — é
+        # a regra do item 6, e ela está certa: em produção ninguém tem
+        # registro de antes de ter conta. Em TESTE, criar a pessoa agora e
+        # escrever histórico para trás produz um estado que a vida não
+        # produz, e a tela responde com uma janela de um dia. Nascer antes é
+        # o que faz o fixture descrever gente possível — a mesma correção que
+        # `plans.tests.create_complete_user` levou no lote 2.
+        self.pessoa.date_joined = timezone.now() - timedelta(days=120)
+        self.pessoa.save(update_fields=["date_joined"])
         Profile.objects.create(
             user=self.pessoa,
             sex=Sex.MALE,
@@ -266,20 +277,26 @@ class TelaDeProgressoTests(TestCase):
                 set_number=1, weight_kg=Decimal(carga), reps=10,
             )
         html = self._html()
-        linha = html.split("Supino reto com barra", 1)[1].split("</dd>", 1)[0]
+        # A LISTA DE PROGRESSÃO (60 → 62,50 kg) saiu no redesenho de
+        # 23/09/2026, e "Seus recordes" ficou no lugar. O que este teste
+        # protegia continua protegido — o meio quilo não pode virar um número
+        # que não existe —, agora no recorde: 62,5 é carga real de anilha, e
+        # 63 não é.
+        linha = html.split("Supino reto com barra", 1)[1].split("</li>", 1)[0]
         linha = " ".join(linha.split())
-        self.assertIn("60 → 62,50 kg", linha)
-        self.assertIn("+2,50", linha)
+        self.assertIn("62,50 kg", linha)
         self.assertNotIn("63", linha)
 
     def test_o_treino_aparece_na_tela(self):
-        """O buraco que a V2 fecha: cada série estava no banco e nenhuma
-        aparecia numa tela chamada Métricas."""
+        """O buraco que a V2 fechou: cada série estava no banco e nenhuma
+        aparecia numa tela chamada Métricas. Desde 23/09/2026 quem mostra é
+        "Seus recordes" (carga máxima por exercício, com data) no lugar da
+        lista de progressão de 14 dias — a mudança está registrada no
+        relatório da missão."""
         html = self._html()
 
         self.assertIn("Supino reto com barra", html)
-        self.assertIn("60", html)
-        self.assertIn("70", html)
+        self.assertIn("Seus recordes", html)
 
     def test_a_tela_nao_chama_frequencia_de_aderencia(self):
         """`TrainingDay` é o que a pessoa DECLAROU; `ExerciseLog` é o que ela
@@ -411,23 +428,46 @@ class MesmaGramaticaTests(TestCase):
         self.client.force_login(self.pessoa)
 
     def test_as_duas_series_usam_a_mesma_estrutura(self):
+        """A régua continua sendo "uma gramática só", e ficou mais forte.
+        O REDESENHO DE 23/09/2026 trocou a lista de oito semanas pelo mapa
+        do dia mais as colunas da semana — um sistema de gráfico só para as
+        quatro áreas. O que este teste prendia (as duas séries com a MESMA
+        gramática) continua valendo e ficou mais forte: agora é literalmente
+        a mesma parcial (`plans/_progresso_area.html`) para as quatro.
+        """
         html = self.client.get("/historico/").content.decode()
 
-        # Duas listas `.semanas`, uma para cada série.
-        self.assertEqual(html.count('class="semanas"'), 2)
-        self.assertIn("Dias com treino registrado por semana", html)
-        self.assertIn("Dias com água registrada por semana", html)
+        self.assertIn('area-evolucao--treino', html)
+        self.assertIn('area-evolucao--agua', html)
+        # A MESMA classe de mapa nas duas: é a mesma parcial, e não duas
+        # soluções parecidas que divergem na primeira mudança.
+        for area in ("treino", "agua"):
+            bloco = html.split('area-evolucao--%s' % area, 1)[1].split("</section>", 1)[0]
+            with self.subTest(area=area):
+                self.assertIn("mapa-dias__dia", bloco)
 
-    def test_as_duas_tem_oito_semanas(self):
-        """Buraco na série é informação nas duas: uma mostrando oito semanas e
-        a outra só as preenchidas seriam duas réguas diferentes."""
-        html = self.client.get("/historico/").content.decode()
+    def test_o_recorte_e_o_da_JANELA_e_nao_oito_semanas_fixas(self):
+        """O defeito que o redesenho corrigiu: as séries tinham horizonte fixo
+        de oito semanas, e numa conta de três dias sete delas eram anteriores
+        ao cadastro. Agora quem manda é `plans.evolucao.janela`."""
+        from plans import evolucao
 
-        self.assertEqual(html.count('class="semana__barra"'), 16)
+        painel = self.client.get("/historico/").context["painel"]
+        janela = painel["janela"]
+        nascimento = timezone.localtime(self.pessoa.date_joined).date()
+
+        self.assertGreaterEqual(janela.inicio, nascimento)
+        for area in painel["areas"]:
+            with self.subTest(area=area.chave):
+                self.assertEqual(len(area.mapa), len(evolucao.dias_da_janela(janela)))
 
     def test_a_media_de_agua_vem_com_os_dias_que_a_sustentam(self):
-        """A média sozinha mente nos dois sentidos. A barra é quantos dias."""
-        html = self.client.get("/historico/").content.decode()
+        """A média sozinha mente nos dois sentidos, e a régua é a mesma de
+        antes: o que a barra da semana mostra é a média dos dias COM
+        registro (`evolucao.barras(..., media=True)`), e o tile diz quantos
+        dias a sustentam."""
+        painel = self.client.get("/historico/").context["painel"]
+        agua = [t for t in painel["tiles"] if t.chave == "agua"][0]
 
-        self.assertIn("2500", html)
-        self.assertIn("semana__preenche--1", html)
+        self.assertEqual(agua.valor, "2.500")
+        self.assertIn("dia com registro", agua.frase)

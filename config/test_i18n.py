@@ -28,6 +28,11 @@ TEMPLATES_NOVOS = {
     # antiga e continua fora — marcar mil frases velhas de uma vez não é o
     # objetivo desta régua, e a lista diz exatamente o que está coberto.
     "templates/plans/receita.html": ['Voltar ao cardápio'],
+    # O PROGRESSO (23/09/2026): a parcial de área é nova — uma para as quatro
+    # seções —, e por isso nasce com o texto visível marcado. `history.html`
+    # e `_peso.html` são antigos e continuam fora: marcar mil frases velhas
+    # de uma vez não é o objetivo desta régua.
+    "templates/plans/_progresso_area.html": ['O que este gráfico mede', 'treinou', 'descanso combinado', 'combinado, sem série', 'sem registro', 'dia cheio', 'Seus recordes', 'Os recordes aparecem a partir do segundo treino com carga.', 'O que mais você registrou', 'Ritmo da última semana:', 'por km'],
     "templates/plans/_receita.html": ['Porção', 'Proteína', 'Carboidrato', 'Gordura', 'O que vai', 'Como faz', 'Você registrou esta refeição.', 'Comi esta', 'Trocar por outra receita'],
 }
 
