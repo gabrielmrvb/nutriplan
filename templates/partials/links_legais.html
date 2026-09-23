@@ -14,16 +14,23 @@
   dela mais do que ninguém (21/09/2026).
 {% endcomment %}
 {% comment %}
-  O SEPARADOR É CSS, E NÃO UM ELEMENTO (22/09/2026).
+  SEM SEPARADOR: o vão separa (23/09/2026).
 
-  Os "·" eram `<span>` irmãos dos links, ou seja, itens do mesmo flex com o
-  `gap` de cada lado: 36px só de pontuação. A 390px a linha não cabia, o
-  container quebrava — e quebrava ENTRE um link e o ponto seguinte, deixando
-  um "·" sozinho começando a segunda linha.
+  Os "·" eram `<span>` irmãos dos links — itens do mesmo flex, com o `gap` de
+  cada lado: 36px só de pontuação. A 390px a linha não cabia, o container
+  quebrava, e quebrava ENTRE um link e o ponto seguinte: um "·" sozinho
+  abrindo a segunda linha.
 
-  Como `::after` do próprio link, o ponto é parte da caixa dele: ele não pode
-  liderar linha nenhuma, e os 36px voltam para o texto. Medido: com os três
-  links a linha fecha em 316px de 358 úteis.
+  Em 22/09 o ponto virou `::after` do próprio link, para não poder liderar
+  linha nenhuma. Medido em PRODUÇÃO no dia seguinte, a 390px: os três links
+  somam 323px de texto e o container tem 335 — com os vãos, 339. A linha
+  continua quebrando, e agora o "·" fica DEPENDURADO no fim da primeira. Sair
+  de "ponto na frente" para "ponto no fim" não é conserto.
+
+  Pontuação que não sobrevive à quebra não é pontuação: é decoração com
+  efeito colateral. Três links sublinhados com 24px de vão se leem como três
+  links em uma linha ou em duas, e a régua de 44px continua vindo do padding
+  de cada um.
 {% endcomment %}
 <p class="links-legais">
   {% if legal_publicado %}
