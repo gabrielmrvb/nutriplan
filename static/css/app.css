@@ -8132,8 +8132,17 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   color: var(--text-mute);
   display: flex;
   justify-content: center;
-  align-items: center; /* o "·" entre os links subia ao topo dos 44px (visto no staging, tema claro) */
-  gap: var(--espaco-3);
+  align-items: center;
+  /* O VÃO É O SEPARADOR (23/09/2026). Ver o comentário de
+     `partials/links_legais.html`: o "·" não sobrevive à quebra de linha em
+     nenhuma das duas formas, e o vão separa três links sublinhados sem
+     precisar de pontuação.
+
+     16px e não 24: os três links somam 299px de caixa, e o rodapé tem 335 a
+     390px — com 24 de vão dá 347 e a linha quebra num celular comum, com 16
+     dá 331 e cabe. A 320 ela quebra (276 de container), e "Ajuda" desce
+     centralizada, que é o pior caso e continua legível. */
+  gap: var(--espaco-6);
   flex-wrap: wrap;
 }
 
@@ -8156,16 +8165,9 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   align-items: center;
   min-height: 44px;
   padding: 0 var(--espaco-3);
-  /* O rótulo não quebra no meio: com ele quebrado, o `::after` do separador
-     desceria sozinho para a segunda linha do próprio link. */
+  /* O rótulo não quebra no meio: "Política de / Privacidade" em duas linhas
+     dentro do próprio link é pior que a linha quebrar entre os links. */
   white-space: nowrap;
-}
-/* O separador, como parte da caixa do link que ele segue. Ver o comentário
-   do `partials/links_legais.html`. */
-.links-legais a:not(:last-child)::after {
-  content: "·";
-  margin-left: var(--espaco-3);
-  color: var(--text-mute);
 }
 
 .conta__exportar-nota {
