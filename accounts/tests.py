@@ -90,6 +90,13 @@ STEP2 = {"goal": "cut", "activity_level": "light"}
 # mesma pergunta, e a comida ficou só com a comida.
 STEP3 = {
     "weekdays": ["0", "2", "4"], "musculacao": "sim",
+    # OBRIGATÓRIAS desde 24/09/2026 para quem responde "faço musculação": o
+    # Perfil dizia "não informada" a quem passava batido, e a saída foi
+    # perguntar (`TrainingForm.clean`). Todo fixture que CAMINHA a etapa 2
+    # com `musculacao=sim` precisa das duas — é a mesma história do `STEP6`
+    # logo abaixo, que a pergunta das áreas escreveu aqui em 05/09.
+    "experiencia": "intermediario",
+    "equipamento": "completa",
     "start_time": "19:00",
     "duration_min": 60,
     "wake_time": "07:00",
@@ -5751,6 +5758,8 @@ class PedirNovaEscolhaDeDivisaoTests(TestCase):
                 "goal": Goal.BULK,
                 "activity_level": ActivityLevel.LIGHT,
                 "weekdays": ["0", "1", "2", "3"], "musculacao": "sim",
+                # Obrigatórias desde 24/09/2026 (`TrainingForm.clean`).
+                "experiencia": "intermediario", "equipamento": "completa",
                 "wake_time": "07:00",
                 "sleep_time": "23:00",
                 "split_preference": SplitPreference.DOIS,
@@ -5891,6 +5900,8 @@ class DiasDeTreinoNaoDependemDoAdminTests(TestCase):
                 "goal": Goal.BULK,
                 "activity_level": ActivityLevel.LIGHT,
                 "weekdays": ["1", "3"], "musculacao": "sim",
+                # Obrigatórias desde 24/09/2026 (`TrainingForm.clean`).
+                "experiencia": "intermediario", "equipamento": "completa",
                 "start_time": "18:30",
                 # A pergunta virou FAIXA, e depois saiu da tela inteira. O
                 # passo mandava `duration_min: 45`; o inteiro deixou de ser

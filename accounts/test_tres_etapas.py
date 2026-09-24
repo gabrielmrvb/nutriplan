@@ -32,6 +32,8 @@ ETAPA1 = {**ETAPA1_SEM_CAIXAS, **CAIXAS_DE_CONSENTIMENTO}
 #: e ABC2 divergem a partir daí), então o payload de três dias a inclui.
 ETAPA2 = {
     "goal": "cut", "activity_level": "light", "experiencia": "intermediario",
+    # `equipamento` virou obrigatório com `musculacao=sim` em 24/09/2026.
+    "equipamento": "completa",
     "weekdays": ["0", "2", "4"], "musculacao": "sim", "wake_time": "07:00", "sleep_time": "23:30",
     "split_preference": "two",
 }
