@@ -111,8 +111,16 @@ class OfensivaComecaNaContaTests(TestCase):
         HydrationLog.objects.create(user=antiga, date=hoje - timedelta(days=1), ml=meta // 2)
         ofensiva = streaks.calcular(antiga, hoje=hoje, meta_agua_ml=meta)
         self.assertEqual(ofensiva.dias, 0)
-        self.assertEqual(ofensiva.falta_ontem, ["dieta ou água"])
-        self.assertIn("Ontem faltou dieta ou água", ofensiva.mensagem)
+        # COM O NÚMERO desde 24/09/2026: "faltou dieta ou água" era dito a
+        # quem tinha registrado as duas coisas e só não chegado na meta.
+        # `falta_hoje` continua com o rótulo curto — ver
+        # `plans/test_numeros_do_progresso.py`.
+        # LITERAL, e não o formatador da produção: um teste que calcula a
+        # expectativa com o código sob teste concorda com ele por
+        # construção. `meta` é conferida logo acima para a literal valer.
+        self.assertEqual(meta, 3000)
+        self.assertEqual(ofensiva.falta_ontem, ["água 1,5 de 3 L"])
+        self.assertIn("Ontem: água", ofensiva.mensagem)
         # E ela NÃO abre por aí: a frase começa com o convite de hoje. Era
         # "Ontem faltou X. Hoje recomeça: …", e a auditoria de UX de
         # 22/09/2026 mediu o efeito — a primeira aparição do treino na Home

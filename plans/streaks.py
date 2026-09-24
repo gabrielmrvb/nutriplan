@@ -15,7 +15,7 @@ não está, ele é o dia em risco, e é sobre ele que o aviso fala.
 **Sem meta, sem cobrança.** Quem não tem plano alimentar não é reprovado em
 dieta. Metas que a pessoa não tem não podem quebrar a sequência dela.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import timedelta
 
 from django.db.models import Count, Sum
@@ -51,6 +51,23 @@ HIDRATACAO_MINIMA_PCT = 90
 DIAS_NO_HISTORICO = 400
 
 
+def _numero(ml) -> str:
+    """Litros com vírgula decimal, sem a unidade — "1,5", "0,8", "3".
+
+    O app é pt-BR e ninguém mede sede em mililitro. Sem casa decimal quando
+    ela é zero: "3,0" ao lado de "1,5" faz a meta parecer mais precisa do
+    que é (ela é 35 ml/kg arredondado para o meio litro).
+    """
+    texto = ("%.1f" % ((ml or 0) / 1000)).rstrip("0").rstrip(".")
+    return texto.replace(".", ",")
+
+
+def _litros(ml) -> str:
+    """O mesmo número com a unidade — "1,5 L". A unidade aparece UMA vez na
+    frase, no fim do par: "água 1,5 de 3 L"."""
+    return "%s L" % _numero(ml)
+
+
 @dataclass
 class Dia:
     """Um dia e o que ele cumpriu."""
@@ -66,6 +83,16 @@ class Dia:
     #: nenhum dos três não fecha: não há o que ter cumprido (22/09/2026; era
     #: o que fazia os dias sem plano e sem meta contarem).
     mensuravel: bool = True
+    #: AS MEDIDAS DO DIA (24/09/2026) — o que a frase precisa dizer com
+    #: número. "Ontem faltou dieta ou água" era dito a quem tinha registrado
+    #: 3 refeições de 5 e bebido 1,5 L de 3: a pessoa registrou as duas
+    #: coisas, e o que faltou foi CHEGAR na meta. Sem os números a frase
+    #: descrevia um dia que não aconteceu.
+    series: int = 0
+    refeicoes_feitas: int = 0
+    refeicoes_previstas: int = 0
+    agua_ml: int = 0
+    meta_agua_ml: int = 0
 
     @property
     def completo(self) -> bool:
@@ -93,6 +120,37 @@ class Dia:
             faltando.append("treino")
         if not (self.dieta or self.agua):
             faltando.append("dieta ou água")
+        return faltando
+
+    @property
+    def pendencias_medidas(self) -> list:
+        """As mesmas pendências, COM O NÚMERO (24/09/2026).
+
+        A lista é a mesma de `pendencias` — o que FECHA o dia, e não tudo o
+        que não foi feito; a decisão de 22/09 continua de pé. O que muda é
+        que cada item diz quanto foi e quanto faltava, porque "faltou dieta
+        ou água" para quem registrou 3 de 5 refeições e 1,5 de 3 L descreve
+        um dia que não aconteceu: ela registrou as duas coisas.
+
+        Fica em `falta_ontem`, e não em `falta_hoje`: o dia de hoje ainda
+        está acontecendo e o rótulo curto ("dieta ou água") é o que a Home
+        usa para dizer o que ainda dá para fazer. ONTEM já fechou, e aí o
+        número é a única coisa que explica o zero.
+        """
+        faltando = []
+        if not self.treino:
+            faltando.append("nenhuma série num dia de treino")
+        if not (self.dieta or self.agua):
+            partes = []
+            if self.refeicoes_previstas:
+                partes.append(
+                    "%d de %d refeições" % (self.refeicoes_feitas, self.refeicoes_previstas)
+                )
+            if self.meta_agua_ml:
+                partes.append("água %s de %s" % (
+                    _numero(self.agua_ml), _litros(self.meta_agua_ml)
+                ))
+            faltando.append(" e ".join(partes) if partes else "dieta ou água")
         return faltando
 
 
@@ -133,10 +191,15 @@ class Ofensiva:
                 # num cartão de zero dias. A informação fica (ela é honesta e
                 # útil), mas quem abre o app de manhã lê primeiro o que fazer
                 # hoje, e não o que não fez ontem.
-                faltou = " e ".join(self.falta_ontem)
+                # "Ontem: <o que foi, com número>" e não "Ontem faltou
+                # <rótulo>" (24/09/2026): quem registrou 3 de 5 refeições e
+                # 1,5 de 3 L lia "faltou dieta ou água" e entendia que o app
+                # não tinha visto o que ela registrou. A ordem — convite
+                # primeiro, ontem depois — é a decisão de 22/09 e não muda.
+                faltou = "; ".join(self.falta_ontem)
                 return (
                     "Recomeça hoje: treino no dia de treino, mais dieta ou "
-                    f"água. Ontem faltou {faltou}."
+                    f"água. Ontem: {faltou}."
                 )
             return "Comece hoje: treino no dia de treino, mais dieta ou água, e a contagem começa."
         if self.em_risco:
@@ -184,11 +247,18 @@ def _ler(user, inicio, meta_agua_ml, ja_lido=None):
     previstos = ja_lido.previstos if ja_lido.previstos is not None else _dias_de_treino(user)
 
     # --------------------------------------------------------- treino
-    treinou = set(
-        ExerciseLog.objects.filter(user=user, date__gte=inicio).values_list(
-            "date", flat=True
-        )
+    #
+    # A CONTAGEM VEM JUNTO (24/09/2026): era um `values_list("date")` com
+    # `set()` em Python, e virou um GROUP BY na MESMA consulta — o número de
+    # séries do dia é o que a frase de ontem precisa dizer, e buscá-lo à
+    # parte seria uma segunda ida ao banco na tela mais visitada do app.
+    series_por_dia = dict(
+        ExerciseLog.objects.filter(user=user, date__gte=inicio)
+        .values("date")
+        .annotate(quantas=Count("pk"))
+        .values_list("date", "quantas")
     )
+    treinou = set(series_por_dia)
     # Correu conta: a régua da ofensiva é "moveu-se", não "fez a letra". Uma
     # consulta, no mesmo ponto que decide a musculação (BENCHMARK-2026-09, d).
     inicios = (
@@ -270,7 +340,16 @@ def _ler(user, inicio, meta_agua_ml, ja_lido=None):
             else agua_por_dia_desde(user, inicio)
         )
         agua_ok = {data for data, total in agua_por_dia.items() if (total or 0) >= alvo}
-    return previstos, treinou, dieta_ok, agua_ok
+    else:
+        agua_por_dia = (
+            ja_lido.agua_por_dia if ja_lido.agua_por_dia is not None else {}
+        )
+    medidas = {
+        "series": series_por_dia,
+        "refeicoes": por_dia,
+        "agua": agua_por_dia,
+    }
+    return previstos, treinou, dieta_ok, agua_ok, medidas
 
 
 def agua_por_dia_desde(user, inicio) -> dict:
@@ -284,10 +363,17 @@ def agua_por_dia_desde(user, inicio) -> dict:
     }
 
 
-def _avaliar(user, data, previstos, treinou, dieta_ok, agua_ok, meta_agua_ml) -> Dia:
+def _avaliar(user, data, previstos, treinou, dieta_ok, agua_ok, meta_agua_ml, medidas=None) -> Dia:
     previsto = data.weekday() in previstos
+    medidas = medidas or {}
+    refeicoes = (medidas.get("refeicoes") or {}).get(data) or {}
     return Dia(
         data=data,
+        series=(medidas.get("series") or {}).get(data, 0),
+        refeicoes_feitas=refeicoes.get("feitas", 0),
+        refeicoes_previstas=refeicoes.get("previstas", 0),
+        agua_ml=(medidas.get("agua") or {}).get(data) or 0,
+        meta_agua_ml=meta_agua_ml or 0,
         # Descansar é o plano nos dias sem treino previsto.
         treino=(data in treinou) if previsto else True,
         # Sem plano alimentar não há meta de dieta para cobrar.
@@ -304,7 +390,8 @@ def avaliar_dia(user, dia, meta_agua_ml=None) -> Dia:
     """Um dia só, com o que ele cumpriu — para `simular_ofensiva` medir a
     régua antiga e a nova sobre os MESMOS pilares lidos."""
     inicio = dia - timedelta(days=DIAS_NO_HISTORICO)
-    return _avaliar(user, dia, *_ler(user, inicio, meta_agua_ml), meta_agua_ml)
+    *lido, medidas = _ler(user, inicio, meta_agua_ml)
+    return _avaliar(user, dia, *lido, meta_agua_ml, medidas)
 
 
 def inicio_do_historico(hoje):
@@ -329,16 +416,48 @@ def primeiro_dia_da_conta(user):
     return timezone.localtime(entrou).date()
 
 
+def para_a_tela(user, hoje=None, *, plano=None, ja_lido=None) -> Ofensiva:
+    """A PORTA ÚNICA da ofensiva para uma tela (24/09/2026).
+
+    Home, Progresso e Conquistas têm de dizer o mesmo número, e elas já
+    disseram números diferentes: as Conquistas chamavam `calcular` sem
+    `meta_agua_ml`, a água "fechava" todo dia, e com a régua "treino e
+    (dieta ou água)" cada dia de descanso dos 400 do histórico fechava
+    sozinho — "3 dias de ofensiva" no dia 1, "401 / 3" para quem não tem
+    dia de treino, com a Home dizendo 0 na tela ao lado (achado #4 das
+    personas).
+
+    A correção de 22/09 foi passar a meta nos dois lugares, o que deixou a
+    régua dependendo de cada chamador LEMBRAR. Aqui ela não depende: a meta
+    sai do plano ativo, e nenhuma tela escolhe a sua. Quem já carregou o
+    plano passa `plano=` e não paga a consulta; quem já leu os dias
+    previstos, as corridas e a água passa `ja_lido=`, como a Home faz para
+    caber no orçamento de consultas dela.
+    """
+    from .services import get_active_plan
+    from .weight_trend import hidratacao_ml
+
+    if plano is None:
+        plano = get_active_plan(user)
+    if ja_lido is not None and ja_lido.tem_plano is None:
+        ja_lido = replace(ja_lido, tem_plano=plano is not None)
+    return calcular(
+        user, hoje=hoje,
+        meta_agua_ml=hidratacao_ml(plano.weight_kg) if plano else None,
+        ja_lido=ja_lido,
+    )
+
+
 def calcular(user, hoje=None, meta_agua_ml=None, *, ja_lido=None) -> Ofensiva:
     """Percorre os dias de trás para frente até achar o primeiro furo."""
     hoje = hoje or timezone.localdate()
     inicio = inicio_do_historico(hoje)
     if ja_lido is not None and ja_lido.tem_plano is not None:
         user._streak_tem_plano = ja_lido.tem_plano
-    previstos, treinou, dieta_ok, agua_ok = _ler(user, inicio, meta_agua_ml, ja_lido)
+    previstos, treinou, dieta_ok, agua_ok, medidas = _ler(user, inicio, meta_agua_ml, ja_lido)
 
     def avaliar(data) -> Dia:
-        return _avaliar(user, data, previstos, treinou, dieta_ok, agua_ok, meta_agua_ml)
+        return _avaliar(user, data, previstos, treinou, dieta_ok, agua_ok, meta_agua_ml, medidas)
 
     dia_de_hoje = avaliar(hoje)
 
@@ -360,7 +479,7 @@ def calcular(user, hoje=None, meta_agua_ml=None, *, ja_lido=None) -> Ofensiva:
     ontem = hoje - timedelta(days=1)
     falta_ontem = None
     if sequencia == 0 and ontem >= limite:
-        falta_ontem = avaliar(ontem).pendencias
+        falta_ontem = avaliar(ontem).pendencias_medidas
 
     return Ofensiva(
         dias=sequencia,

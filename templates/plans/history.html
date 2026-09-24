@@ -84,10 +84,25 @@
                 <span class="tile__meta">dias anteriores</span>
               {% endif %}
             </div>
+            {% comment %}
+              A MÉDIA É DOS DIAS FECHADOS, como a porcentagem ao lado
+              (24/09/2026). Ela somava TODOS os dias — hoje incluído — e
+              imprimia "meta: N" ao lado, que é a meta de um dia inteiro: a
+              média caía toda manhã e subia durante o dia, e quem abria a
+              tela três vezes via três números sem ter mudado nada. No
+              primeiro dia não há média nenhuma, e a caixa diz o que ela
+              TEM: as kcal de hoje até agora.
+            {% endcomment %}
             <div class="tile">
-              <strong class="tile__value" data-conta>{{ totals.avg_kcal }}</strong>
-              <span class="tile__label">kcal/dia</span>
-              <span class="tile__meta">meta: {{ plan.target_kcal }}</span>
+              {% if totals.avg_kcal is None %}
+                <strong class="tile__value num">{{ totals.hoje_kcal }}</strong>
+                <span class="tile__label">kcal</span>
+                <span class="tile__meta">hoje, até agora</span>
+              {% else %}
+                <strong class="tile__value" data-conta>{{ totals.avg_kcal }}</strong>
+                <span class="tile__label">kcal/dia</span>
+                <span class="tile__meta">dias anteriores · meta: {{ plan.target_kcal }}</span>
+              {% endif %}
             </div>
             <div class="tile">
               <strong class="tile__value" data-conta>{{ totals.days }}</strong>
